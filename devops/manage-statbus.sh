@@ -225,6 +225,7 @@ case "$action" in
             echo "Available tests:"
             echo "all"
             echo "fast"
+            echo "benchmarks"
             echo "failed"
             basename -s .sql "$PG_REGRESS_DIR/sql"/*.sql
             exit 0
@@ -259,14 +260,41 @@ case "$action" in
             for test in $ALL_TESTS; do
                 exclude=false
 
-                # Exclude slow tests (4xx series are large data imports)
-                if [[ "$test" == 4* ]]; then
+                # Exclude slow tests (4xx benchmarks, 5xx extra-slow downloads)
+                if [[ "$test" == 4* ]] || [[ "$test" == 5* ]]; then
                     exclude=true
                 fi
 
                 # Check against additional user-provided exclusions, if any
                 if [ "$exclude" = "false" ]; then
                     for arg in "${TEST_ARGS[@]:1}"; do  # Skip the first arg which is "fast"
+                        if [ "$arg" = "-$test" ]; then
+                            exclude=true
+                            break
+                        fi
+                    done
+                fi
+
+                if [ "$exclude" = "false" ]; then
+                    TEST_BASENAMES="$TEST_BASENAMES $test"
+                fi
+            done
+        elif [ "${TEST_ARGS[0]}" = "benchmarks" ]; then
+            # Get only 4xx tests (benchmark/performance tests)
+            ALL_TESTS=$(basename -s .sql "$PG_REGRESS_DIR/sql"/*.sql)
+
+            TEST_BASENAMES=""
+            for test in $ALL_TESTS; do
+                exclude=false
+
+                # Include only 4xx tests
+                if [[ "$test" != 4* ]]; then
+                    exclude=true
+                fi
+
+                # Check against additional user-provided exclusions, if any
+                if [ "$exclude" = "false" ]; then
+                    for arg in "${TEST_ARGS[@]:1}"; do
                         if [ "$arg" = "-$test" ]; then
                             exclude=true
                             break
@@ -320,7 +348,8 @@ case "$action" in
             echo ""
             echo "Available tests:"
             echo "  all    - Run all tests"
-            echo "  fast   - Run all tests except 4xx (large imports)"
+            echo "  fast       - Run all tests except 4xx/5xx (large imports)"
+            echo "  benchmarks - Run only 4xx tests (performance benchmarks)"
             echo "  failed - Re-run previously failed tests"
             echo ""
             echo "Individual tests:"
@@ -328,8 +357,8 @@ case "$action" in
             exit 1
         fi
 
-        # Separate tests into shared (non-4xx) and isolated (4xx) categories
-        # 4xx tests use COMMIT and need their own database to avoid polluting state
+        # Separate tests into shared (non-4xx/5xx) and isolated (4xx/5xx) categories
+        # 4xx/5xx tests use COMMIT and need their own database to avoid polluting state
         SHARED_TESTS=""
         ISOLATED_TESTS=""
         
@@ -340,8 +369,8 @@ case "$action" in
                 touch "$expected_file"
             fi
             
-            # Categorize: 4xx tests run isolated, others run shared
-            if [[ "$test_basename" == 4* ]]; then
+            # Categorize: 4xx/5xx tests run isolated, others run shared
+            if [[ "$test_basename" == 4* ]] || [[ "$test_basename" == 5* ]]; then
                 ISOLATED_TESTS="$ISOLATED_TESTS $test_basename"
             else
                 SHARED_TESTS="$SHARED_TESTS $test_basename"

@@ -241,7 +241,6 @@ erDiagram
 		integer legal_unit_id
 		boolean primary_for_legal_unit
 		boolean primary_for_enterprise
-		jsonb invalid_codes
 		integer image_id
 	}
 	external_ident["external_ident"] {
@@ -432,7 +431,6 @@ erDiagram
 		integer data_source_id
 		integer enterprise_id
 		boolean primary_for_enterprise
-		jsonb invalid_codes
 		integer image_id
 	}
 	location["location"] {
@@ -763,7 +761,6 @@ erDiagram
 		character_varying(512) last_edit_comment
 		integer last_edit_by_user_id
 		timestamp_with_time_zone last_edit_at
-		jsonb invalid_codes
 		boolean has_legal_unit
 		integer[] related_establishment_ids
 		integer[] excluded_establishment_ids
@@ -883,7 +880,6 @@ erDiagram
 		character_varying(512) last_edit_comment
 		integer last_edit_by_user_id
 		timestamp_with_time_zone last_edit_at
-		jsonb invalid_codes
 		boolean has_legal_unit
 		integer[] related_establishment_ids
 		integer[] excluded_establishment_ids
@@ -1011,7 +1007,6 @@ erDiagram
 		character_varying(512) last_edit_comment
 		integer last_edit_by_user_id
 		timestamp_with_time_zone last_edit_at
-		jsonb invalid_codes
 		boolean has_legal_unit
 		integer[] related_establishment_ids
 		integer[] excluded_establishment_ids
@@ -1094,7 +1089,6 @@ erDiagram
 		character_varying(512) last_edit_comment
 		integer last_edit_by_user_id
 		timestamp_with_time_zone last_edit_at
-		jsonb invalid_codes
 		boolean has_legal_unit
 		integer establishment_id
 		integer legal_unit_id
@@ -1180,7 +1174,6 @@ erDiagram
 		character_varying(512) last_edit_comment
 		integer last_edit_by_user_id
 		timestamp_with_time_zone last_edit_at
-		jsonb invalid_codes
 		boolean has_legal_unit
 		integer[] related_establishment_ids
 		integer[] excluded_establishment_ids

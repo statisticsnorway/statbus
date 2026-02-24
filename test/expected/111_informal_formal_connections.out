@@ -407,7 +407,6 @@ SELECT jsonb_pretty(
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
-                         "invalid_codes": null,                                                                                   +
                          "stat_for_unit": [                                                                                       +
                              {                                                                                                    +
                                  "stat": {                                                                                        +
@@ -479,7 +478,6 @@ SELECT jsonb_pretty(
                          "primary_for_legal_unit": true                                                                           +
                      }                                                                                                            +
                  ],                                                                                                               +
-                 "invalid_codes": null,                                                                                           +
                  "stat_for_unit": [                                                                                               +
                      {                                                                                                            +
                          "stat": {                                                                                                +
@@ -682,7 +680,6 @@ SELECT jsonb_pretty(
                  "valid_range": "[2024-01-01,infinity)",                                                                  +
                  "valid_until": "infinity",                                                                               +
                  "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
-                 "invalid_codes": null,                                                                                   +
                  "stat_for_unit": [                                                                                       +
                      {                                                                                                    +
                          "stat": {                                                                                        +
@@ -1088,7 +1085,6 @@ SELECT jsonb_pretty(
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
-                         "invalid_codes": null,                                                                                   +
                          "stat_for_unit": [                                                                                       +
                              {                                                                                                    +
                                  "stat": {                                                                                        +
@@ -1160,7 +1156,6 @@ SELECT jsonb_pretty(
                          "primary_for_legal_unit": true                                                                           +
                      }                                                                                                            +
                  ],                                                                                                               +
-                 "invalid_codes": null,                                                                                           +
                  "stat_for_unit": [                                                                                               +
                      {                                                                                                            +
                          "stat": {                                                                                                +
@@ -1334,7 +1329,6 @@ SELECT jsonb_pretty(
                  "valid_range": "[2024-01-01,infinity)",                                                                          +
                  "valid_until": "infinity",                                                                                       +
                  "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                           +
-                 "invalid_codes": null,                                                                                           +
                  "stat_for_unit": [                                                                                               +
                      {                                                                                                            +
                          "stat": {                                                                                                +
@@ -1650,7 +1644,6 @@ SELECT jsonb_pretty(
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
-                         "invalid_codes": null,                                                                                   +
                          "stat_for_unit": [                                                                                       +
                              {                                                                                                    +
                                  "stat": {                                                                                        +
@@ -1722,7 +1715,6 @@ SELECT jsonb_pretty(
                          "primary_for_legal_unit": true                                                                           +
                      }                                                                                                            +
                  ],                                                                                                               +
-                 "invalid_codes": null,                                                                                           +
                  "stat_for_unit": [                                                                                               +
                      {                                                                                                            +
                          "stat": {                                                                                                +
@@ -1896,7 +1888,6 @@ SELECT jsonb_pretty(
                  "valid_range": "[2024-01-01,infinity)",                                                                          +
                  "valid_until": "infinity",                                                                                       +
                  "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                           +
-                 "invalid_codes": null,                                                                                           +
                  "stat_for_unit": [                                                                                               +
                      {                                                                                                            +
                          "stat": {                                                                                                +
@@ -2212,7 +2203,6 @@ SELECT jsonb_pretty(
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
-                         "invalid_codes": null,                                                                                   +
                          "stat_for_unit": [                                                                                       +
                              {                                                                                                    +
                                  "stat": {                                                                                        +
@@ -2284,7 +2274,6 @@ SELECT jsonb_pretty(
                          "primary_for_legal_unit": true                                                                           +
                      }                                                                                                            +
                  ],                                                                                                               +
-                 "invalid_codes": null,                                                                                           +
                  "stat_for_unit": [                                                                                               +
                      {                                                                                                            +
                          "stat": {                                                                                                +
@@ -2458,7 +2447,6 @@ SELECT jsonb_pretty(
                  "valid_range": "[2024-01-01,infinity)",                                                                          +
                  "valid_until": "infinity",                                                                                       +
                  "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                           +
-                 "invalid_codes": null,                                                                                           +
                  "stat_for_unit": [                                                                                               +
                      {                                                                                                            +
                          "stat": {                                                                                                +

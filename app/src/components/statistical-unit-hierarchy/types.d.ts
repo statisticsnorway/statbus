@@ -195,7 +195,6 @@ declare interface StatisticalUnit {
   edit_at: string;
   edit_by_user_id: number | null;
   unit_size_id: string | null;
-  invalid_codes: string | null;
   reorg_type_id: string | null;
   tax_ident: string;
   external_ident: string | null;

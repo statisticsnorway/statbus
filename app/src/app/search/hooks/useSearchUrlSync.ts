@@ -29,7 +29,6 @@ import {
   dataSourceDeriveStateUpdateFromSearchParams,
   externalIdentDeriveStateUpdateFromSearchParams,
   fullTextSearchDeriveStateUpdateFromSearchParams,
-  invalidCodesDeriveStateUpdateFromSearchParams,
   legalFormDeriveStateUpdateFromSearchParams,
   regionDeriveStateUpdateFromSearchParams,
   sectorDeriveStateUpdateFromSearchParams,
@@ -138,7 +137,6 @@ export function useSearchUrlSync() {
     const singleActions: (SearchAction | null)[] = [
       fullTextSearchDeriveStateUpdateFromSearchParams(urlParams),
       unitTypeDeriveStateUpdateFromSearchParams(urlParams),
-      invalidCodesDeriveStateUpdateFromSearchParams(urlParams),
       legalFormDeriveStateUpdateFromSearchParams(urlParams),
       regionDeriveStateUpdateFromSearchParams(urlParams),
       sectorDeriveStateUpdateFromSearchParams(urlParams),

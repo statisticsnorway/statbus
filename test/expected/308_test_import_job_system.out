@@ -550,15 +550,15 @@ SELECT row_id, state, errors, merge_status, action, operation FROM public.import
 "Verification for Scenario 5: LU Three Periods"
 \echo "Legal Units (expect 2 slices: P1+P2 merged, P3 separate with invalid sector):"
 "Legal Units (expect 2 slices: P1+P2 merged, P3 separate with invalid sector):"
-SELECT lu.name, ei.ident AS tax_ident, sec.code AS sector_code, lu.invalid_codes->>'sector_code' as invalid_sector_code, lu.valid_from, lu.valid_to
+SELECT lu.name, ei.ident AS tax_ident, sec.code AS sector_code, lu.valid_from, lu.valid_to
 FROM public.legal_unit lu
 JOIN public.external_ident ei ON ei.legal_unit_id = lu.id
 JOIN public.external_ident_type eit ON eit.id = ei.type_id AND eit.code = 'tax_ident'
 LEFT JOIN public.sector sec ON lu.sector_id = sec.id
 WHERE ei.ident = '680500001' ORDER BY ei.ident, lu.valid_from, lu.valid_to;
-       name       | tax_ident | sector_code | invalid_sector_code | valid_from |  valid_to  
-------------------+-----------+-------------+---------------------+------------+------------
- LU Three Periods | 680500001 | 2100        |                     | 2020-01-01 | 2020-09-30
+       name       | tax_ident | sector_code | valid_from |  valid_to  
+------------------+-----------+-------------+------------+------------
+ LU Three Periods | 680500001 | 2100        | 2020-01-01 | 2020-09-30
 (1 row)
 
 \echo "Physical Locations for LU 680500001 (expect 2 slices: P1+P2 merged, P3 separate):"

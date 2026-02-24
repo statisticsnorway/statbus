@@ -117,12 +117,11 @@ SELECT unit_type
      , legal_form_name
      , physical_region_path
      , physical_country_iso_2
-     , invalid_codes
 FROM public.timeline_legal_unit
 ORDER BY unit_type, unit_id, valid_from, valid_to;
- unit_type  | tax_ident  | valid_from | valid_to |       name       | birth_date | death_date |            search            | primary_activity_category_path | activity_category_paths |   sector_path   | sector_code |    sector_name     | data_source_codes | legal_form_code |       legal_form_name       | physical_region_path | physical_country_iso_2 | invalid_codes 
-------------+------------+------------+----------+------------------+------------+------------+------------------------------+--------------------------------+-------------------------+-----------------+-------------+--------------------+-------------------+-----------------+-----------------------------+----------------------+------------------------+---------------
- legal_unit | 3212760144 | 2025-03-01 | infinity | NILE PEARL WATER | 2016-10-01 |            | 'nile':1 'pearl':2 'water':3 | G.47.5.2                       | {G.47.5.2}              | DOMESTIC.C.6100 | 6100        | Central government | {nlr}             | 1               | Public limited company (SA) | 2.256.13             | UG                     | 
+ unit_type  | tax_ident  | valid_from | valid_to |       name       | birth_date | death_date |            search            | primary_activity_category_path | activity_category_paths |   sector_path   | sector_code |    sector_name     | data_source_codes | legal_form_code |       legal_form_name       | physical_region_path | physical_country_iso_2 
+------------+------------+------------+----------+------------------+------------+------------+------------------------------+--------------------------------+-------------------------+-----------------+-------------+--------------------+-------------------+-----------------+-----------------------------+----------------------+------------------------
+ legal_unit | 3212760144 | 2025-03-01 | infinity | NILE PEARL WATER | 2016-10-01 |            | 'nile':1 'pearl':2 'water':3 | G.47.5.2                       | {G.47.5.2}              | DOMESTIC.C.6100 | 6100        | Central government | {nlr}             | 1               | Public limited company (SA) | 2.256.13             | UG
 (1 row)
 
 -- Create Import Job for Legal Units (Day 4)
@@ -199,12 +198,11 @@ SELECT unit_type
      , legal_form_name
      , physical_region_path
      , physical_country_iso_2
-     , invalid_codes
 FROM public.timeline_legal_unit
 ORDER BY unit_type, unit_id, valid_from, valid_to;
- unit_type  | tax_ident  | valid_from | valid_to |       name       | birth_date | death_date |            search            | primary_activity_category_path | activity_category_paths |   sector_path   | sector_code |    sector_name     | data_source_codes | legal_form_code |       legal_form_name       | physical_region_path | physical_country_iso_2 | invalid_codes 
-------------+------------+------------+----------+------------------+------------+------------+------------------------------+--------------------------------+-------------------------+-----------------+-------------+--------------------+-------------------+-----------------+-----------------------------+----------------------+------------------------+---------------
- legal_unit | 3212760144 | 2025-03-01 | infinity | NILE PEARL WATER | 2016-10-01 |            | 'nile':1 'pearl':2 'water':3 | G.47.5.2                       | {G.47.5.2}              | DOMESTIC.C.6100 | 6100        | Central government | {nlr}             | 1               | Public limited company (SA) | 2.256.13             | UG                     | 
+ unit_type  | tax_ident  | valid_from | valid_to |       name       | birth_date | death_date |            search            | primary_activity_category_path | activity_category_paths |   sector_path   | sector_code |    sector_name     | data_source_codes | legal_form_code |       legal_form_name       | physical_region_path | physical_country_iso_2 
+------------+------------+------------+----------+------------------+------------+------------+------------------------------+--------------------------------+-------------------------+-----------------+-------------+--------------------+-------------------+-----------------+-----------------------------+----------------------+------------------------
+ legal_unit | 3212760144 | 2025-03-01 | infinity | NILE PEARL WATER | 2016-10-01 |            | 'nile':1 'pearl':2 'water':3 | G.47.5.2                       | {G.47.5.2}              | DOMESTIC.C.6100 | 6100        | Central government | {nlr}             | 1               | Public limited company (SA) | 2.256.13             | UG
 (1 row)
 
 -- Create Import Job for Legal Units (Day 3)
@@ -281,12 +279,11 @@ SELECT unit_type
      , legal_form_name
      , physical_region_path
      , physical_country_iso_2
-     , invalid_codes
 FROM public.timeline_legal_unit
 ORDER BY unit_type, unit_id, valid_from, valid_to;
- unit_type  | tax_ident  | valid_from | valid_to |       name       | birth_date | death_date |            search            | primary_activity_category_path | activity_category_paths |   sector_path   | sector_code |    sector_name     | data_source_codes | legal_form_code |       legal_form_name       | physical_region_path | physical_country_iso_2 | invalid_codes 
-------------+------------+------------+----------+------------------+------------+------------+------------------------------+--------------------------------+-------------------------+-----------------+-------------+--------------------+-------------------+-----------------+-----------------------------+----------------------+------------------------+---------------
- legal_unit | 3212760144 | 2025-03-01 | infinity | NILE PEARL WATER | 2016-10-01 |            | 'nile':1 'pearl':2 'water':3 | G.47.5.2                       | {G.47.5.2}              | DOMESTIC.C.6100 | 6100        | Central government | {nlr}             | 1               | Public limited company (SA) | 2.256.13             | UG                     | 
+ unit_type  | tax_ident  | valid_from | valid_to |       name       | birth_date | death_date |            search            | primary_activity_category_path | activity_category_paths |   sector_path   | sector_code |    sector_name     | data_source_codes | legal_form_code |       legal_form_name       | physical_region_path | physical_country_iso_2 
+------------+------------+------------+----------+------------------+------------+------------+------------------------------+--------------------------------+-------------------------+-----------------+-------------+--------------------+-------------------+-----------------+-----------------------------+----------------------+------------------------
+ legal_unit | 3212760144 | 2025-03-01 | infinity | NILE PEARL WATER | 2016-10-01 |            | 'nile':1 'pearl':2 'water':3 | G.47.5.2                       | {G.47.5.2}              | DOMESTIC.C.6100 | 6100        | Central government | {nlr}             | 1               | Public limited company (SA) | 2.256.13             | UG
 (1 row)
 
 ROLLBACK TO before_loading_units;
@@ -404,12 +401,11 @@ SELECT unit_type
      , legal_form_name
      , physical_region_path
      , physical_country_iso_2
-     , invalid_codes
 FROM public.timeline_legal_unit
 ORDER BY unit_type, unit_id, valid_from, valid_to;
- unit_type  | tax_ident  | valid_from | valid_to |       name       | birth_date | death_date |            search            | primary_activity_category_path | activity_category_paths |   sector_path   | sector_code |    sector_name     | data_source_codes | legal_form_code |       legal_form_name       | physical_region_path | physical_country_iso_2 | invalid_codes 
-------------+------------+------------+----------+------------------+------------+------------+------------------------------+--------------------------------+-------------------------+-----------------+-------------+--------------------+-------------------+-----------------+-----------------------------+----------------------+------------------------+---------------
- legal_unit | 3212760144 | 2025-03-01 | infinity | NILE PEARL WATER | 2016-10-01 |            | 'nile':1 'pearl':2 'water':3 | G.47.5.2                       | {G.47.5.2}              | DOMESTIC.C.6100 | 6100        | Central government | {nlr}             | 1               | Public limited company (SA) | 2.256.13             | UG                     | 
+ unit_type  | tax_ident  | valid_from | valid_to |       name       | birth_date | death_date |            search            | primary_activity_category_path | activity_category_paths |   sector_path   | sector_code |    sector_name     | data_source_codes | legal_form_code |       legal_form_name       | physical_region_path | physical_country_iso_2 
+------------+------------+------------+----------+------------------+------------+------------+------------------------------+--------------------------------+-------------------------+-----------------+-------------+--------------------+-------------------+-----------------+-----------------------------+----------------------+------------------------
+ legal_unit | 3212760144 | 2025-03-01 | infinity | NILE PEARL WATER | 2016-10-01 |            | 'nile':1 'pearl':2 'water':3 | G.47.5.2                       | {G.47.5.2}              | DOMESTIC.C.6100 | 6100        | Central government | {nlr}             | 1               | Public limited company (SA) | 2.256.13             | UG
 (1 row)
 
 -- Create Import Job for Legal Units (Scenario 2 - Day 4)
@@ -486,12 +482,11 @@ SELECT unit_type
      , legal_form_name
      , physical_region_path
      , physical_country_iso_2
-     , invalid_codes
 FROM public.timeline_legal_unit
 ORDER BY unit_type, unit_id, valid_from, valid_to;
- unit_type  | tax_ident  | valid_from | valid_to |       name       | birth_date | death_date |            search            | primary_activity_category_path | activity_category_paths |   sector_path   | sector_code |    sector_name     | data_source_codes | legal_form_code |       legal_form_name       | physical_region_path | physical_country_iso_2 | invalid_codes 
-------------+------------+------------+----------+------------------+------------+------------+------------------------------+--------------------------------+-------------------------+-----------------+-------------+--------------------+-------------------+-----------------+-----------------------------+----------------------+------------------------+---------------
- legal_unit | 3212760144 | 2025-03-01 | infinity | NILE PEARL WATER | 2016-10-01 |            | 'nile':1 'pearl':2 'water':3 | G.47.5.2                       | {G.47.5.2}              | DOMESTIC.C.6100 | 6100        | Central government | {nlr}             | 1               | Public limited company (SA) | 2.256.13             | UG                     | 
+ unit_type  | tax_ident  | valid_from | valid_to |       name       | birth_date | death_date |            search            | primary_activity_category_path | activity_category_paths |   sector_path   | sector_code |    sector_name     | data_source_codes | legal_form_code |       legal_form_name       | physical_region_path | physical_country_iso_2 
+------------+------------+------------+----------+------------------+------------+------------+------------------------------+--------------------------------+-------------------------+-----------------+-------------+--------------------+-------------------+-----------------+-----------------------------+----------------------+------------------------
+ legal_unit | 3212760144 | 2025-03-01 | infinity | NILE PEARL WATER | 2016-10-01 |            | 'nile':1 'pearl':2 'water':3 | G.47.5.2                       | {G.47.5.2}              | DOMESTIC.C.6100 | 6100        | Central government | {nlr}             | 1               | Public limited company (SA) | 2.256.13             | UG
 (1 row)
 
 ROLLBACK;

@@ -6,7 +6,6 @@ import { StatisticalUnitIcon } from "@/components/statistical-unit-icon";
 import { StatisticalUnitDetailsLink } from "@/components/statistical-unit-details-link";
 import SearchResultTableRowDropdownMenu from "@/app/search/components/search-result-table-row-dropdown-menu";
 import { thousandSeparator } from "@/lib/number-utils";
-import { InvalidCodes } from "./invalid-codes";
 import { Popover, PopoverContent } from "@/components/ui/popover";
 import { PopoverTrigger } from "@radix-ui/react-popover";
 import {
@@ -178,14 +177,6 @@ export const StatisticalUnitTableRow = ({
                           )
                           .join(" | ")}
                       </span>
-                      {unit.invalid_codes && (
-                        <>
-                          <span>|</span>
-                          <InvalidCodes
-                            invalidCodes={JSON.stringify(unit.invalid_codes)}
-                          />
-                        </>
-                      )}
                     </small>
                   </div>
                 </div>

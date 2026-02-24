@@ -5,7 +5,6 @@ import Link from "next/link";
 import { StatisticalUnitCountCard } from "@/app/dashboard/statistical-unit-count-card";
 import { FallBackCard } from "@/app/dashboard/fallBack-card";
 import { RegionCard } from "@/app/dashboard/region-card";
-import { InvalidCodesCard } from "@/app/dashboard/invalid-codes-card";
 import { MissingRegionCard } from "@/app/dashboard/missing-region-card";
 import { MissingActivityCategoryCard } from "@/app/dashboard/missing-activity-category-card";
 import { CustomActivityCategoryCard } from "@/app/dashboard/custom-activity-category-card";
@@ -100,13 +99,6 @@ export default function Dashboard() {
           </Suspense>
         </Link>
 
-        <Link href="/search?unit_type=legal_unit,establishment&invalid_codes=yes">
-          <Suspense
-            fallback={<FallBackCard title="Units With Import Issues" />}
-          >
-            <InvalidCodesCard />
-          </Suspense>
-        </Link>
       </DashboardSection>
     </main>
   );

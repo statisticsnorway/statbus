@@ -678,21 +678,20 @@ SELECT tet.unit_type
      , tet.postal_postplace
      , tet.postal_region_path
      , tet.postal_country_iso_2
-     , tet.invalid_codes
 FROM timeline_establishment_with_tax_ident AS tet
 ORDER BY tet.unit_type, tet.tax_ident, tet.valid_from, tet.valid_until;
-   unit_type   | tax_ident | valid_from |  valid_to  | valid_until |         name          | birth_date | death_date |             search              | primary_activity_category_path | secondary_activity_category_path | activity_category_paths | sector_path | sector_code | sector_name | data_source_codes | legal_form_code | legal_form_name | physical_address_part1 | physical_address_part2 | physical_address_part3 | physical_postcode | physical_postplace | physical_region_path | physical_country_iso_2 | postal_address_part1 | postal_address_part2 | postal_address_part3 | postal_postcode | postal_postplace | postal_region_path | postal_country_iso_2 | invalid_codes 
----------------+-----------+------------+------------+-------------+-----------------------+------------+------------+---------------------------------+--------------------------------+----------------------------------+-------------------------+-------------+-------------+-------------+-------------------+-----------------+-----------------+------------------------+------------------------+------------------------+-------------------+--------------------+----------------------+------------------------+----------------------+----------------------+----------------------+-----------------+------------------+--------------------+----------------------+---------------
- establishment | 895406732 | 2010-01-01 | 2012-12-31 | 2013-01-01  | KRANLØFT ENK          | 2010-01-01 |            | 'enk':2 'kranløft':1            | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {brreg}           |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- establishment | 895406732 | 2013-01-01 | 2015-12-31 | 2016-01-01  | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {brreg}           |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- establishment | 895406732 | 2016-01-01 | 2018-12-31 | 2019-01-01  | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {brreg}           |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- establishment | 895406732 | 2019-01-01 | 2019-02-28 | 2019-03-01  | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {brreg}           |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- establishment | 895406732 | 2019-03-01 | 2019-04-30 | 2019-05-01  | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {brreg}           |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- establishment | 895406732 | 2019-05-01 | 2019-06-30 | 2019-07-01  | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {brreg}           |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- establishment | 895406732 | 2019-07-01 | 2019-08-31 | 2019-09-01  | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {brreg}           |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- establishment | 895406732 | 2019-09-01 | 2019-10-31 | 2019-11-01  | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {brreg}           |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- establishment | 895406732 | 2019-11-01 | 2019-12-31 | 2020-01-01  | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {brreg}           |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- establishment | 895406732 | 2020-01-01 | infinity   | infinity    | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {brreg}           |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
+   unit_type   | tax_ident | valid_from |  valid_to  | valid_until |         name          | birth_date | death_date |             search              | primary_activity_category_path | secondary_activity_category_path | activity_category_paths | sector_path | sector_code | sector_name | data_source_codes | legal_form_code | legal_form_name | physical_address_part1 | physical_address_part2 | physical_address_part3 | physical_postcode | physical_postplace | physical_region_path | physical_country_iso_2 | postal_address_part1 | postal_address_part2 | postal_address_part3 | postal_postcode | postal_postplace | postal_region_path | postal_country_iso_2 
+---------------+-----------+------------+------------+-------------+-----------------------+------------+------------+---------------------------------+--------------------------------+----------------------------------+-------------------------+-------------+-------------+-------------+-------------------+-----------------+-----------------+------------------------+------------------------+------------------------+-------------------+--------------------+----------------------+------------------------+----------------------+----------------------+----------------------+-----------------+------------------+--------------------+----------------------
+ establishment | 895406732 | 2010-01-01 | 2012-12-31 | 2013-01-01  | KRANLØFT ENK          | 2010-01-01 |            | 'enk':2 'kranløft':1            | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {brreg}           |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
+ establishment | 895406732 | 2013-01-01 | 2015-12-31 | 2016-01-01  | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {brreg}           |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
+ establishment | 895406732 | 2016-01-01 | 2018-12-31 | 2019-01-01  | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {brreg}           |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
+ establishment | 895406732 | 2019-01-01 | 2019-02-28 | 2019-03-01  | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {brreg}           |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
+ establishment | 895406732 | 2019-03-01 | 2019-04-30 | 2019-05-01  | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {brreg}           |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
+ establishment | 895406732 | 2019-05-01 | 2019-06-30 | 2019-07-01  | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {brreg}           |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
+ establishment | 895406732 | 2019-07-01 | 2019-08-31 | 2019-09-01  | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {brreg}           |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
+ establishment | 895406732 | 2019-09-01 | 2019-10-31 | 2019-11-01  | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {brreg}           |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
+ establishment | 895406732 | 2019-11-01 | 2019-12-31 | 2020-01-01  | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {brreg}           |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
+ establishment | 895406732 | 2020-01-01 | infinity   | infinity    | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {brreg}           |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
 (10 rows)
 
 \echo "Checking timeline_establishment stats"
@@ -763,21 +762,20 @@ SELECT tlut.unit_type
      , postal_postplace
      , tlut.postal_region_path
      , tlut.postal_country_iso_2
-     , tlut.invalid_codes
 FROM timeline_legal_unit_with_tax_ident AS tlut
 ORDER BY tlut.unit_type, tlut.tax_ident, tlut.valid_from, tlut.valid_until;
- unit_type  | tax_ident | valid_from |  valid_to  | valid_until |         name          | birth_date | death_date |             search              | primary_activity_category_path | secondary_activity_category_path | activity_category_paths |     sector_path      | sector_code |        sector_name         | data_source_codes | legal_form_code |   legal_form_name   | physical_address_part1 | physical_address_part2 | physical_address_part3 | physical_postcode | physical_postplace | physical_region_path | physical_country_iso_2 | postal_address_part1 | postal_address_part2 | postal_address_part3 | postal_postcode | postal_postplace | postal_region_path | postal_country_iso_2 | invalid_codes 
-------------+-----------+------------+------------+-------------+-----------------------+------------+------------+---------------------------------+--------------------------------+----------------------------------+-------------------------+----------------------+-------------+----------------------------+-------------------+-----------------+---------------------+------------------------+------------------------+------------------------+-------------------+--------------------+----------------------+------------------------+----------------------+----------------------+----------------------+-----------------+------------------+--------------------+----------------------+---------------
- legal_unit | 823573673 | 2010-01-01 | 2012-12-31 | 2013-01-01  | KRANLØFT ENK          | 2010-01-01 | 2012-12-31 | 'enk':2 'kranløft':1            | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | ENK             | Enkeltpersonforetak | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- legal_unit | 921835809 | 2013-01-01 | 2015-12-31 | 2016-01-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- legal_unit | 921835809 | 2016-01-01 | 2018-12-31 | 2019-01-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- legal_unit | 921835809 | 2019-01-01 | 2019-02-28 | 2019-03-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- legal_unit | 921835809 | 2019-03-01 | 2019-04-30 | 2019-05-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- legal_unit | 921835809 | 2019-05-01 | 2019-06-30 | 2019-07-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- legal_unit | 921835809 | 2019-07-01 | 2019-08-31 | 2019-09-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- legal_unit | 921835809 | 2019-09-01 | 2019-10-31 | 2019-11-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- legal_unit | 921835809 | 2019-11-01 | 2019-12-31 | 2020-01-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- legal_unit | 921835809 | 2020-01-01 | infinity   | infinity    | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
+ unit_type  | tax_ident | valid_from |  valid_to  | valid_until |         name          | birth_date | death_date |             search              | primary_activity_category_path | secondary_activity_category_path | activity_category_paths |     sector_path      | sector_code |        sector_name         | data_source_codes | legal_form_code |   legal_form_name   | physical_address_part1 | physical_address_part2 | physical_address_part3 | physical_postcode | physical_postplace | physical_region_path | physical_country_iso_2 | postal_address_part1 | postal_address_part2 | postal_address_part3 | postal_postcode | postal_postplace | postal_region_path | postal_country_iso_2 
+------------+-----------+------------+------------+-------------+-----------------------+------------+------------+---------------------------------+--------------------------------+----------------------------------+-------------------------+----------------------+-------------+----------------------------+-------------------+-----------------+---------------------+------------------------+------------------------+------------------------+-------------------+--------------------+----------------------+------------------------+----------------------+----------------------+----------------------+-----------------+------------------+--------------------+----------------------
+ legal_unit | 823573673 | 2010-01-01 | 2012-12-31 | 2013-01-01  | KRANLØFT ENK          | 2010-01-01 | 2012-12-31 | 'enk':2 'kranløft':1            | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | ENK             | Enkeltpersonforetak | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
+ legal_unit | 921835809 | 2013-01-01 | 2015-12-31 | 2016-01-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
+ legal_unit | 921835809 | 2016-01-01 | 2018-12-31 | 2019-01-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
+ legal_unit | 921835809 | 2019-01-01 | 2019-02-28 | 2019-03-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
+ legal_unit | 921835809 | 2019-03-01 | 2019-04-30 | 2019-05-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
+ legal_unit | 921835809 | 2019-05-01 | 2019-06-30 | 2019-07-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
+ legal_unit | 921835809 | 2019-07-01 | 2019-08-31 | 2019-09-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
+ legal_unit | 921835809 | 2019-09-01 | 2019-10-31 | 2019-11-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
+ legal_unit | 921835809 | 2019-11-01 | 2019-12-31 | 2020-01-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
+ legal_unit | 921835809 | 2020-01-01 | infinity   | infinity    | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
 (10 rows)
 
 \x
@@ -1194,21 +1192,20 @@ SELECT te.unit_type
      , te.postal_postplace
      , te.postal_region_path
      , te.postal_country_iso_2
-     , te.invalid_codes
 FROM timeline_enterprise_with_tax_ident AS te
 ORDER BY te.unit_type, te.tax_ident, te.valid_from, te.valid_until;
- unit_type  | tax_ident | valid_from |  valid_to  | valid_until |         name          | birth_date | death_date |             search              | primary_activity_category_path | secondary_activity_category_path | activity_category_paths |     sector_path      | sector_code |        sector_name         | data_source_codes | legal_form_code |   legal_form_name   | physical_address_part1 | physical_address_part2 | physical_address_part3 | physical_postcode | physical_postplace | physical_region_path | physical_country_iso_2 | postal_address_part1 | postal_address_part2 | postal_address_part3 | postal_postcode | postal_postplace | postal_region_path | postal_country_iso_2 | invalid_codes 
-------------+-----------+------------+------------+-------------+-----------------------+------------+------------+---------------------------------+--------------------------------+----------------------------------+-------------------------+----------------------+-------------+----------------------------+-------------------+-----------------+---------------------+------------------------+------------------------+------------------------+-------------------+--------------------+----------------------+------------------------+----------------------+----------------------+----------------------+-----------------+------------------+--------------------+----------------------+---------------
- enterprise | 823573673 | 2010-01-01 | 2012-12-31 | 2013-01-01  | KRANLØFT ENK          | 2010-01-01 | 2012-12-31 | 'enk':2 'kranløft':1            | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | ENK             | Enkeltpersonforetak | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- enterprise | 921835809 | 2013-01-01 | 2015-12-31 | 2016-01-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- enterprise | 921835809 | 2016-01-01 | 2018-12-31 | 2019-01-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- enterprise | 921835809 | 2019-01-01 | 2019-02-28 | 2019-03-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- enterprise | 921835809 | 2019-03-01 | 2019-04-30 | 2019-05-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- enterprise | 921835809 | 2019-05-01 | 2019-06-30 | 2019-07-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- enterprise | 921835809 | 2019-07-01 | 2019-08-31 | 2019-09-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- enterprise | 921835809 | 2019-09-01 | 2019-10-31 | 2019-11-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- enterprise | 921835809 | 2019-11-01 | 2019-12-31 | 2020-01-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- enterprise | 921835809 | 2020-01-01 | infinity   | infinity    | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
+ unit_type  | tax_ident | valid_from |  valid_to  | valid_until |         name          | birth_date | death_date |             search              | primary_activity_category_path | secondary_activity_category_path | activity_category_paths |     sector_path      | sector_code |        sector_name         | data_source_codes | legal_form_code |   legal_form_name   | physical_address_part1 | physical_address_part2 | physical_address_part3 | physical_postcode | physical_postplace | physical_region_path | physical_country_iso_2 | postal_address_part1 | postal_address_part2 | postal_address_part3 | postal_postcode | postal_postplace | postal_region_path | postal_country_iso_2 
+------------+-----------+------------+------------+-------------+-----------------------+------------+------------+---------------------------------+--------------------------------+----------------------------------+-------------------------+----------------------+-------------+----------------------------+-------------------+-----------------+---------------------+------------------------+------------------------+------------------------+-------------------+--------------------+----------------------+------------------------+----------------------+----------------------+----------------------+-----------------+------------------+--------------------+----------------------
+ enterprise | 823573673 | 2010-01-01 | 2012-12-31 | 2013-01-01  | KRANLØFT ENK          | 2010-01-01 | 2012-12-31 | 'enk':2 'kranløft':1            | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | ENK             | Enkeltpersonforetak | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
+ enterprise | 921835809 | 2013-01-01 | 2015-12-31 | 2016-01-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
+ enterprise | 921835809 | 2016-01-01 | 2018-12-31 | 2019-01-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
+ enterprise | 921835809 | 2019-01-01 | 2019-02-28 | 2019-03-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
+ enterprise | 921835809 | 2019-03-01 | 2019-04-30 | 2019-05-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
+ enterprise | 921835809 | 2019-05-01 | 2019-06-30 | 2019-07-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
+ enterprise | 921835809 | 2019-07-01 | 2019-08-31 | 2019-09-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
+ enterprise | 921835809 | 2019-09-01 | 2019-10-31 | 2019-11-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
+ enterprise | 921835809 | 2019-11-01 | 2019-12-31 | 2020-01-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
+ enterprise | 921835809 | 2020-01-01 | infinity   | infinity    | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    | 
 (10 rows)
 
 \x
@@ -1630,7 +1627,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                                             +
                       |     "phone_number": null,                                                            +
                       |     "email_address": null,                                                           +
-                      |     "invalid_codes": null,                                                           +
                       |     "mobile_number": null,                                                           +
                       |     "has_legal_unit": true,                                                          +
                       |     "unit_size_code": "tny",                                                         +
@@ -1737,7 +1733,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                                             +
                       |     "phone_number": null,                                                            +
                       |     "email_address": null,                                                           +
-                      |     "invalid_codes": null,                                                           +
                       |     "mobile_number": null,                                                           +
                       |     "has_legal_unit": true,                                                          +
                       |     "unit_size_code": null,                                                          +
@@ -1836,7 +1831,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                                             +
                       |     "phone_number": null,                                                            +
                       |     "email_address": null,                                                           +
-                      |     "invalid_codes": null,                                                           +
                       |     "mobile_number": null,                                                           +
                       |     "has_legal_unit": true,                                                          +
                       |     "unit_size_code": null,                                                          +
@@ -1934,7 +1928,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                                             +
                       |     "phone_number": null,                                                            +
                       |     "email_address": null,                                                           +
-                      |     "invalid_codes": null,                                                           +
                       |     "mobile_number": null,                                                           +
                       |     "has_legal_unit": true,                                                          +
                       |     "unit_size_code": "tny",                                                         +
@@ -2041,7 +2034,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                                             +
                       |     "phone_number": null,                                                            +
                       |     "email_address": null,                                                           +
-                      |     "invalid_codes": null,                                                           +
                       |     "mobile_number": null,                                                           +
                       |     "has_legal_unit": true,                                                          +
                       |     "unit_size_code": null,                                                          +
@@ -2140,7 +2132,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                                             +
                       |     "phone_number": null,                                                            +
                       |     "email_address": null,                                                           +
-                      |     "invalid_codes": null,                                                           +
                       |     "mobile_number": null,                                                           +
                       |     "has_legal_unit": true,                                                          +
                       |     "unit_size_code": null,                                                          +
@@ -2238,7 +2229,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                                             +
                       |     "phone_number": null,                                                            +
                       |     "email_address": null,                                                           +
-                      |     "invalid_codes": null,                                                           +
                       |     "mobile_number": null,                                                           +
                       |     "has_legal_unit": true,                                                          +
                       |     "unit_size_code": "sml",                                                         +
@@ -2345,7 +2335,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                                             +
                       |     "phone_number": null,                                                            +
                       |     "email_address": null,                                                           +
-                      |     "invalid_codes": null,                                                           +
                       |     "mobile_number": null,                                                           +
                       |     "has_legal_unit": true,                                                          +
                       |     "unit_size_code": null,                                                          +
@@ -2444,7 +2433,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                                             +
                       |     "phone_number": null,                                                            +
                       |     "email_address": null,                                                           +
-                      |     "invalid_codes": null,                                                           +
                       |     "mobile_number": null,                                                           +
                       |     "has_legal_unit": true,                                                          +
                       |     "unit_size_code": null,                                                          +
@@ -2542,7 +2530,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                                             +
                       |     "phone_number": null,                                                            +
                       |     "email_address": null,                                                           +
-                      |     "invalid_codes": null,                                                           +
                       |     "mobile_number": null,                                                           +
                       |     "has_legal_unit": true,                                                          +
                       |     "unit_size_code": "med",                                                         +
@@ -2649,7 +2636,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                                             +
                       |     "phone_number": null,                                                            +
                       |     "email_address": null,                                                           +
-                      |     "invalid_codes": null,                                                           +
                       |     "mobile_number": null,                                                           +
                       |     "has_legal_unit": true,                                                          +
                       |     "unit_size_code": null,                                                          +
@@ -2748,7 +2734,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                                             +
                       |     "phone_number": null,                                                            +
                       |     "email_address": null,                                                           +
-                      |     "invalid_codes": null,                                                           +
                       |     "mobile_number": null,                                                           +
                       |     "has_legal_unit": true,                                                          +
                       |     "unit_size_code": null,                                                          +
@@ -2846,7 +2831,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                                             +
                       |     "phone_number": null,                                                            +
                       |     "email_address": null,                                                           +
-                      |     "invalid_codes": null,                                                           +
                       |     "mobile_number": null,                                                           +
                       |     "has_legal_unit": true,                                                          +
                       |     "unit_size_code": "med",                                                         +
@@ -2953,7 +2937,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                                             +
                       |     "phone_number": null,                                                            +
                       |     "email_address": null,                                                           +
-                      |     "invalid_codes": null,                                                           +
                       |     "mobile_number": null,                                                           +
                       |     "has_legal_unit": true,                                                          +
                       |     "unit_size_code": null,                                                          +
@@ -3052,7 +3035,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                                             +
                       |     "phone_number": null,                                                            +
                       |     "email_address": null,                                                           +
-                      |     "invalid_codes": null,                                                           +
                       |     "mobile_number": null,                                                           +
                       |     "has_legal_unit": true,                                                          +
                       |     "unit_size_code": null,                                                          +
@@ -3150,7 +3132,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                                             +
                       |     "phone_number": null,                                                            +
                       |     "email_address": null,                                                           +
-                      |     "invalid_codes": null,                                                           +
                       |     "mobile_number": null,                                                           +
                       |     "has_legal_unit": true,                                                          +
                       |     "unit_size_code": "med",                                                         +
@@ -3257,7 +3238,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                                             +
                       |     "phone_number": null,                                                            +
                       |     "email_address": null,                                                           +
-                      |     "invalid_codes": null,                                                           +
                       |     "mobile_number": null,                                                           +
                       |     "has_legal_unit": true,                                                          +
                       |     "unit_size_code": null,                                                          +
@@ -3356,7 +3336,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                                             +
                       |     "phone_number": null,                                                            +
                       |     "email_address": null,                                                           +
-                      |     "invalid_codes": null,                                                           +
                       |     "mobile_number": null,                                                           +
                       |     "has_legal_unit": true,                                                          +
                       |     "unit_size_code": null,                                                          +
@@ -3454,7 +3433,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                                             +
                       |     "phone_number": null,                                                            +
                       |     "email_address": null,                                                           +
-                      |     "invalid_codes": null,                                                           +
                       |     "mobile_number": null,                                                           +
                       |     "has_legal_unit": true,                                                          +
                       |     "unit_size_code": "med",                                                         +
@@ -3561,7 +3539,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                                             +
                       |     "phone_number": null,                                                            +
                       |     "email_address": null,                                                           +
-                      |     "invalid_codes": null,                                                           +
                       |     "mobile_number": null,                                                           +
                       |     "has_legal_unit": true,                                                          +
                       |     "unit_size_code": null,                                                          +
@@ -3660,7 +3637,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                                             +
                       |     "phone_number": null,                                                            +
                       |     "email_address": null,                                                           +
-                      |     "invalid_codes": null,                                                           +
                       |     "mobile_number": null,                                                           +
                       |     "has_legal_unit": true,                                                          +
                       |     "unit_size_code": null,                                                          +
@@ -3758,7 +3734,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                                             +
                       |     "phone_number": null,                                                            +
                       |     "email_address": null,                                                           +
-                      |     "invalid_codes": null,                                                           +
                       |     "mobile_number": null,                                                           +
                       |     "has_legal_unit": true,                                                          +
                       |     "unit_size_code": "med",                                                         +
@@ -3865,7 +3840,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                                             +
                       |     "phone_number": null,                                                            +
                       |     "email_address": null,                                                           +
-                      |     "invalid_codes": null,                                                           +
                       |     "mobile_number": null,                                                           +
                       |     "has_legal_unit": true,                                                          +
                       |     "unit_size_code": null,                                                          +
@@ -3964,7 +3938,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                                             +
                       |     "phone_number": null,                                                            +
                       |     "email_address": null,                                                           +
-                      |     "invalid_codes": null,                                                           +
                       |     "mobile_number": null,                                                           +
                       |     "has_legal_unit": true,                                                          +
                       |     "unit_size_code": null,                                                          +
@@ -4062,7 +4035,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                                             +
                       |     "phone_number": null,                                                            +
                       |     "email_address": null,                                                           +
-                      |     "invalid_codes": null,                                                           +
                       |     "mobile_number": null,                                                           +
                       |     "has_legal_unit": true,                                                          +
                       |     "unit_size_code": "med",                                                         +
@@ -4169,7 +4141,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                                             +
                       |     "phone_number": null,                                                            +
                       |     "email_address": null,                                                           +
-                      |     "invalid_codes": null,                                                           +
                       |     "mobile_number": null,                                                           +
                       |     "has_legal_unit": true,                                                          +
                       |     "unit_size_code": null,                                                          +
@@ -4268,7 +4239,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                                             +
                       |     "phone_number": null,                                                            +
                       |     "email_address": null,                                                           +
-                      |     "invalid_codes": null,                                                           +
                       |     "mobile_number": null,                                                           +
                       |     "has_legal_unit": true,                                                          +
                       |     "unit_size_code": null,                                                          +
@@ -4366,7 +4336,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                                             +
                       |     "phone_number": null,                                                            +
                       |     "email_address": null,                                                           +
-                      |     "invalid_codes": null,                                                           +
                       |     "mobile_number": null,                                                           +
                       |     "has_legal_unit": true,                                                          +
                       |     "unit_size_code": "lrg",                                                         +
@@ -4473,7 +4442,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                                             +
                       |     "phone_number": null,                                                            +
                       |     "email_address": null,                                                           +
-                      |     "invalid_codes": null,                                                           +
                       |     "mobile_number": null,                                                           +
                       |     "has_legal_unit": true,                                                          +
                       |     "unit_size_code": null,                                                          +
@@ -4572,7 +4540,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                                             +
                       |     "phone_number": null,                                                            +
                       |     "email_address": null,                                                           +
-                      |     "invalid_codes": null,                                                           +
                       |     "mobile_number": null,                                                           +
                       |     "has_legal_unit": true,                                                          +
                       |     "unit_size_code": null,                                                          +
@@ -4650,14 +4617,12 @@ stats_summary         | {                                                       
 "Checking statistical_unit totals"
 SELECT unit_type
      , COUNT(DISTINCT unit_id) AS distinct_unit_count
-     , jsonb_agg(DISTINCT invalid_codes) FILTER (WHERE invalid_codes IS NOT NULL) AS invalid_codes
      , jsonb_pretty(jsonb_stats_merge_agg(stats_summary)) AS stats_summary
  FROM statistical_unit
  GROUP BY unit_type;
 -[ RECORD 1 ]-------+----------------------------------------------
 unit_type           | establishment
 distinct_unit_count | 1
-invalid_codes       | 
 stats_summary       | {                                            +
                     |     "type": "stats_agg",                     +
                     |     "turnover": {                            +
@@ -4688,7 +4653,6 @@ stats_summary       | {                                            +
 -[ RECORD 2 ]-------+----------------------------------------------
 unit_type           | legal_unit
 distinct_unit_count | 2
-invalid_codes       | 
 stats_summary       | {                                            +
                     |     "type": "stats_agg",                     +
                     |     "turnover": {                            +
@@ -4719,7 +4683,6 @@ stats_summary       | {                                            +
 -[ RECORD 3 ]-------+----------------------------------------------
 unit_type           | enterprise
 distinct_unit_count | 2
-invalid_codes       | 
 stats_summary       | {                                            +
                     |     "type": "stats_agg",                     +
                     |     "turnover": {                            +
@@ -14835,7 +14798,6 @@ statistical_unit_hierarchy
                         "valid_range": "[2010-01-01,2013-01-01)",
                         "valid_until": "2013-01-01",
                         "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
-                        "invalid_codes": null,
                         "stat_for_unit": [
                             {
                                 "stat": {
@@ -14906,7 +14868,6 @@ statistical_unit_hierarchy
                         "primary_for_legal_unit": true
                     }
                 ],
-                "invalid_codes": null,
                 "free_econ_zone": null,
                 "external_idents": {
                     "tax_ident": "823573673"
@@ -15157,7 +15118,6 @@ statistical_unit_hierarchy
                         "valid_range": "[2020-01-01,infinity)",
                         "valid_until": "infinity",
                         "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
-                        "invalid_codes": null,
                         "stat_for_unit": [
                             {
                                 "stat": {
@@ -15228,7 +15188,6 @@ statistical_unit_hierarchy
                         "primary_for_legal_unit": true
                     }
                 ],
-                "invalid_codes": null,
                 "free_econ_zone": null,
                 "external_idents": {
                     "tax_ident": "921835809"
@@ -15478,7 +15437,6 @@ statistical_unit_hierarchy
                         "valid_range": "[2020-01-01,infinity)",
                         "valid_until": "infinity",
                         "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
-                        "invalid_codes": null,
                         "stat_for_unit": [
                             {
                                 "stat": {
@@ -15549,7 +15507,6 @@ statistical_unit_hierarchy
                         "primary_for_legal_unit": true
                     }
                 ],
-                "invalid_codes": null,
                 "free_econ_zone": null,
                 "external_idents": {
                     "tax_ident": "921835809"
