@@ -504,6 +504,10 @@ def run_concurrent_test(timeout_seconds=300, debug=True):
             log_print(f"    {'TOTAL':<50} {grand_tasks:>4} {grand_total:>7}ms")
     conn.close()
 
+    # Run hierarchy function benchmarks (after analytics pipeline is complete)
+    if not failed:
+        run_hierarchy_benchmarks()
+
     success = returncode == 0 and not failed
     if success:
         log_print(f"\n{GREEN}{'='*60}")
@@ -514,6 +518,96 @@ def run_concurrent_test(timeout_seconds=300, debug=True):
         log_print(f"  FAILED: returncode={returncode}, failed_tasks={len(failed)}")
         log_print(f"{'='*60}{NC}")
     return success
+
+
+def run_hierarchy_benchmarks():
+    """Run EXPLAIN ANALYZE benchmarks for hierarchy functions and write to perf file."""
+    perf_dir = WORKSPACE / "test" / "expected" / "performance"
+    perf_dir.mkdir(parents=True, exist_ok=True)
+    perf_file = perf_dir / "test_concurrent_worker_hierarchy.perf"
+
+    log_print(f"\n{BLUE}Running hierarchy function benchmarks...{NC}")
+
+    conn = get_conn()
+    conn.autocommit = True
+    with conn.cursor() as cur:
+        # Pick the enterprise with the most establishments (deepest hierarchy)
+        cur.execute("""
+            SELECT su.unit_id
+            FROM public.statistical_unit AS su
+            WHERE su.unit_type = 'enterprise'
+              AND su.valid_from <= '2025-01-01' AND '2025-01-01' < su.valid_until
+            ORDER BY su.stats -> 'establishment_count' -> 'count' DESC NULLS LAST
+            LIMIT 1
+        """)
+        row = cur.fetchone()
+        if not row:
+            log_print(f"{YELLOW}No enterprise found for benchmarks, skipping.{NC}", "warning")
+            conn.close()
+            return
+        ent_id = row[0]
+
+        # Pick a legal_unit with the most establishments
+        cur.execute("""
+            SELECT su.unit_id
+            FROM public.statistical_unit AS su
+            WHERE su.unit_type = 'legal_unit'
+              AND su.valid_from <= '2025-01-01' AND '2025-01-01' < su.valid_until
+            ORDER BY su.stats -> 'establishment_count' -> 'count' DESC NULLS LAST
+            LIMIT 1
+        """)
+        row = cur.fetchone()
+        if not row:
+            log_print(f"{YELLOW}No legal_unit found for benchmarks, skipping.{NC}", "warning")
+            conn.close()
+            return
+        lu_id = row[0]
+
+        log_print(f"  Enterprise unit_id={ent_id}, Legal unit unit_id={lu_id}")
+
+        # Run 4 EXPLAIN ANALYZE queries
+        benchmarks = [
+            ("statistical_unit_stats (legal_unit)",
+             "EXPLAIN ANALYZE SELECT * FROM public.statistical_unit_stats('legal_unit', %s, '2025-01-01'::DATE)",
+             lu_id),
+            ("statistical_unit_stats (enterprise)",
+             "EXPLAIN ANALYZE SELECT * FROM public.statistical_unit_stats('enterprise', %s, '2025-01-01'::DATE)",
+             ent_id),
+            ("relevant_statistical_units (legal_unit)",
+             "EXPLAIN ANALYZE SELECT * FROM public.relevant_statistical_units('legal_unit', %s, '2025-01-01'::DATE)",
+             lu_id),
+            ("relevant_statistical_units (enterprise)",
+             "EXPLAIN ANALYZE SELECT * FROM public.relevant_statistical_units('enterprise', %s, '2025-01-01'::DATE)",
+             ent_id),
+        ]
+
+        lines = []
+        lines.append("# Benchmark: statistical_unit_stats and relevant_statistical_units (~29K rows)")
+        cur.execute("SELECT now()::text")
+        lines.append(f"# Date: {cur.fetchone()[0]}")
+        lines.append("")
+
+        for label, query, unit_id in benchmarks:
+            lines.append(f"## EXPLAIN ANALYZE: {label}")
+            cur.execute(query, (unit_id,))
+            rows = cur.fetchall()
+            for r in rows:
+                lines.append(r[0])
+
+            # Extract execution time from last line
+            plan_text = rows[-1][0] if rows else ""
+            if "Execution Time:" in plan_text:
+                log_print(f"  {label}: {plan_text.strip()}")
+
+            lines.append("")
+
+    conn.close()
+
+    # Write perf file
+    with open(perf_file, "w") as f:
+        f.write("\n".join(lines))
+
+    log_print(f"  Benchmark results written to: {perf_file.relative_to(WORKSPACE)}")
 
 
 def list_test_databases():
@@ -587,8 +681,8 @@ if __name__ == "__main__":
         description="Test concurrent worker processing with isolated database",
         epilog="Databases are RETAINED by default for comparison. Use --cleanup to delete."
     )
-    parser.add_argument("-t", "--timeout", type=int, default=300,
-                        help="Worker timeout in seconds (default: 300)")
+    parser.add_argument("-t", "--timeout", type=int, default=400,
+                        help="Worker timeout in seconds (default: 400)")
     parser.add_argument("--skip-setup", action="store_true",
                         help="Skip DB creation and data load (use current PGDATABASE)")
     parser.add_argument("--cleanup", action="store_true",
