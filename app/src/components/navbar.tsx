@@ -28,17 +28,6 @@ export function NavbarSkeleton() {
   );
 }
 
-/**
- * Compute an overall progress percentage from pipeline steps.
- */
-function computePhaseProgress(progress: PipelineStep[]): number | null {
-  if (progress.length === 0) return null;
-  const totalSum = progress.reduce((acc, s) => acc + s.total, 0);
-  const completedSum = progress.reduce((acc, s) => acc + s.completed, 0);
-  if (totalSum === 0) return null;
-  return Math.round((completedSum / totalSum) * 100);
-}
-
 // Analysis is ~25% of total import time, processing ~75% (measured on real jobs).
 const ANALYSIS_WEIGHT = 0.25;
 const PROCESSING_WEIGHT = 1 - ANALYSIS_WEIGHT;

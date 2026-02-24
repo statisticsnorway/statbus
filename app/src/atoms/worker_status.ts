@@ -45,6 +45,7 @@ export interface PhaseStatus {
   active: boolean;
   progress: PipelineStep[];
   seenSteps: string[];
+  lastProgressSteps: string[];
 }
 
 export interface WorkerStatus {
@@ -168,20 +169,24 @@ export const setWorkerStatusAtom = atom(
 
       // Track seenSteps: remember which top-level steps we've observed.
       // If a step reappears that was already seen (and is not currently in
-      // pipeline_progress), it means a new iteration started — reset seenSteps.
+      // the previous unfiltered pipeline_progress), it means a new iteration
+      // started — reset seenSteps.
+      //
+      // We compare against lastProgressSteps (unfiltered) rather than progress
+      // (filtered to total > 1) to avoid false restarts for steps with total <= 1
+      // like derive_reports.
       const mergeSeenSteps = (
         currentSteps: PipelineStep[],
         prevPhase: PhaseStatus | null,
       ): string[] => {
         const incomingNames = currentSteps.map(s => s.step);
         const prevSeen = prevPhase?.seenSteps ?? [];
+        const prevInProgress = new Set(prevPhase?.lastProgressSteps ?? []);
         // Detect new iteration: a step that was previously seen and completed
         // (no longer in pipeline_progress) is now back in pipeline_progress.
-        // Since pipeline_progress entries are deleted when parent completes,
-        // a step being in both prevSeen and incomingNames means it restarted.
         const restarted = incomingNames.some(name =>
           prevSeen.includes(name) &&
-          !prevPhase?.progress.some(s => s.step === name)
+          !prevInProgress.has(name)
         );
         if (restarted) {
           // New iteration — start fresh with only current steps
@@ -200,6 +205,7 @@ export const setWorkerStatusAtom = atom(
               active: true,
               progress: phase1Steps.filter(s => s.total > 1),
               seenSteps: mergeSeenSteps(phase1Steps, prevStatus.derivingUnits),
+              lastProgressSteps: phase1Steps.map(s => s.step),
             }
           : prevStatus.derivingUnits,
         derivingReports: phase2Steps.length > 0
@@ -207,6 +213,7 @@ export const setWorkerStatusAtom = atom(
               active: true,
               progress: phase2Steps.filter(s => s.total > 1),
               seenSteps: mergeSeenSteps(phase2Steps, prevStatus.derivingReports),
+              lastProgressSteps: phase2Steps.map(s => s.step),
             }
           : prevStatus.derivingReports,
         // Keep boolean fields in sync
@@ -233,12 +240,12 @@ export const setWorkerStatusAtom = atom(
     } else if (type === 'is_deriving_statistical_units') {
       updatedStatus.isDerivingUnits = status;
       if (!status) {
-        updatedStatus.derivingUnits = { active: false, progress: [], seenSteps: [] };
+        updatedStatus.derivingUnits = { active: false, progress: [], seenSteps: [], lastProgressSteps: [] };
       }
     } else if (type === 'is_deriving_reports') {
       updatedStatus.isDerivingReports = status;
       if (!status) {
-        updatedStatus.derivingReports = { active: false, progress: [], seenSteps: [] };
+        updatedStatus.derivingReports = { active: false, progress: [], seenSteps: [], lastProgressSteps: [] };
       }
     }
 
@@ -318,16 +325,16 @@ export const refreshWorkerStatusAtom = atom(
 
       // Parse JSONB responses - PostgREST types still say boolean but DB returns jsonb objects
       const importData = importingRes.data as unknown as ImportStatus | null;
-      const unitsData = derivingUnitsRes.data as unknown as Omit<PhaseStatus, 'seenSteps'> | null;
-      const reportsData = derivingReportsRes.data as unknown as Omit<PhaseStatus, 'seenSteps'> | null;
+      const unitsData = derivingUnitsRes.data as unknown as Omit<PhaseStatus, 'seenSteps' | 'lastProgressSteps'> | null;
+      const reportsData = derivingReportsRes.data as unknown as Omit<PhaseStatus, 'seenSteps' | 'lastProgressSteps'> | null;
 
       set(workerStatusAtom, {
         isImporting: importData?.active ?? null,
         isDerivingUnits: unitsData?.active ?? null,
         isDerivingReports: reportsData?.active ?? null,
         importing: importData,
-        derivingUnits: unitsData ? { ...unitsData, seenSteps: [] } : null,
-        derivingReports: reportsData ? { ...reportsData, seenSteps: [] } : null,
+        derivingUnits: unitsData ? { ...unitsData, seenSteps: [], lastProgressSteps: [] } : null,
+        derivingReports: reportsData ? { ...reportsData, seenSteps: [], lastProgressSteps: [] } : null,
         loading: false,
         error: null,
       });
