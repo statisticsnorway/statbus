@@ -25,11 +25,15 @@ export const useDrillDownData = () => {
     urlSearchParams.set("valid_on", selectedTimeContext.valid_on);
   }
 
-  // SWR handles caching internally - no need for a separate Map cache
+  // Don't fetch until time context is ready — avoids a wasted ~5s request
+  // with no valid_on that gets thrown away when selectedTimeContext arrives.
+  const swrKey = selectedTimeContext?.valid_on
+    ? `/api/reports?${urlSearchParams.toString()}`
+    : null;
+
   const fetcher = async (url: string) => {
     const response = await fetchWithAuthRefresh(url);
-    
-    // Check for JWT expiration in the response
+
     if (response.status === 401) {
       const text = await response.text();
       if (text.includes("JWT expired") || text.includes("PGRST301")) {
@@ -37,29 +41,30 @@ export const useDrillDownData = () => {
       }
       throw new Error(`Unauthorized: ${text}`);
     }
-    
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    
+
     return response.json();
   };
 
   const swrResponse = useSWRWithAuthRefresh<DrillDown>(
-    `/api/reports?${urlSearchParams.toString()}`,
+    swrKey,
     fetcher,
     {
       keepPreviousData: true,
-      revalidateOnFocus: false, // Don't refetch when user returns to the tab
+      revalidateOnFocus: false,
     },
     "useDrillDownData"
   );
 
-  // Use initial data when no parameters are present
   const drillDown = swrResponse.data;
+  const isLoading = !swrResponse.data && !swrResponse.error;
 
   return {
     drillDown,
+    isLoading,
     region,
     setRegion,
     activityCategory,
