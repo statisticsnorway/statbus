@@ -6,11 +6,9 @@ import { useWorkerStatus, type PhaseStatus } from "@/atoms/worker_status";
 import { Progress } from "@/components/ui/progress";
 
 function computeProgress(phase: PhaseStatus | null): number | null {
-  if (!phase || !phase.active || phase.progress.length === 0) return null;
-  const totalSum = phase.progress.reduce((acc, s) => acc + s.total, 0);
-  const completedSum = phase.progress.reduce((acc, s) => acc + s.completed, 0);
-  if (totalSum === 0) return null;
-  return Math.round((completedSum / totalSum) * 100);
+  if (!phase || !phase.active || !phase.step) return null;
+  if (phase.total === 0) return null;
+  return Math.round((phase.completed / phase.total) * 100);
 }
 
 export function NavbarStatusVisualizer() {
@@ -95,20 +93,20 @@ export function NavbarStatusVisualizer() {
         {/* Progress details */}
         {(isDerivingUnits || isDerivingReports) && (
           <div className="mt-2 space-y-1">
-            {derivingUnits?.active && derivingUnits.progress.map((step) => (
-              <div key={step.step} className="flex items-center space-x-2 text-xs">
-                <span className="text-gray-600 min-w-[180px]">{step.step}</span>
-                <Progress value={step.total > 0 ? (step.completed / step.total) * 100 : 0} className="h-1.5 flex-1" />
-                <span className="text-gray-500">{step.completed}/{step.total}</span>
+            {derivingUnits?.active && derivingUnits.step && (
+              <div className="flex items-center space-x-2 text-xs">
+                <span className="text-gray-600 min-w-[180px]">{derivingUnits.step}</span>
+                <Progress value={derivingUnits.total > 0 ? (derivingUnits.completed / derivingUnits.total) * 100 : 0} className="h-1.5 flex-1" />
+                <span className="text-gray-500">{derivingUnits.completed}/{derivingUnits.total}</span>
               </div>
-            ))}
-            {derivingReports?.active && derivingReports.progress.map((step) => (
-              <div key={step.step} className="flex items-center space-x-2 text-xs">
-                <span className="text-gray-600 min-w-[180px]">{step.step}</span>
-                <Progress value={step.total > 0 ? (step.completed / step.total) * 100 : 0} className="h-1.5 flex-1" />
-                <span className="text-gray-500">{step.completed}/{step.total}</span>
+            )}
+            {derivingReports?.active && derivingReports.step && (
+              <div className="flex items-center space-x-2 text-xs">
+                <span className="text-gray-600 min-w-[180px]">{derivingReports.step}</span>
+                <Progress value={derivingReports.total > 0 ? (derivingReports.completed / derivingReports.total) * 100 : 0} className="h-1.5 flex-1" />
+                <span className="text-gray-500">{derivingReports.completed}/{derivingReports.total}</span>
               </div>
-            ))}
+            )}
           </div>
         )}
       </div>

@@ -21,10 +21,16 @@ import { isAuthenticatedStrictAtom } from './auth';
 
 export type WorkerStatusType = "is_importing" | "is_deriving_statistical_units" | "is_deriving_reports";
 
-export interface PipelineStep {
-  step: string;
+export type PipelinePhase = 'is_deriving_statistical_units' | 'is_deriving_reports';
+
+export interface PhaseProgress {
+  phase: PipelinePhase;
+  step: string | null;
   total: number;
   completed: number;
+  affected_establishment_count: number | null;
+  affected_legal_unit_count: number | null;
+  affected_enterprise_count: number | null;
 }
 
 export interface ImportJobProgress {
@@ -43,9 +49,12 @@ export interface ImportStatus {
 
 export interface PhaseStatus {
   active: boolean;
-  progress: PipelineStep[];
-  seenSteps: string[];
-  lastProgressSteps: string[];
+  step: string | null;
+  total: number;
+  completed: number;
+  affected_establishment_count: number | null;
+  affected_legal_unit_count: number | null;
+  affected_enterprise_count: number | null;
 }
 
 export interface WorkerStatus {
@@ -74,7 +83,7 @@ export type ImportJobProgressSSE = {
 
 export type WorkerStatusSSEPayload =
   | { type: WorkerStatusType; status: boolean }
-  | { type: 'pipeline_progress'; steps: PipelineStep[] }
+  | { type: 'pipeline_progress'; phases: PhaseProgress[] }
   | ImportJobProgressSSE;
 
 // ============================================================================
@@ -94,29 +103,6 @@ const initialWorkerStatus: WorkerStatus = {
 
 // A single atom to hold the entire worker status state.
 export const workerStatusAtom = atom<WorkerStatus>(initialWorkerStatus);
-
-/**
- * Categorize pipeline steps into Phase 1 (units) vs Phase 2 (reports).
- */
-const PHASE1_STEPS = new Set([
-  'derive_statistical_unit',
-  'derive_statistical_unit_continue',
-  'statistical_unit_refresh_batch',
-  'statistical_unit_flush_staging',
-]);
-
-const PHASE2_STEPS = new Set([
-  'derive_reports',
-  'derive_statistical_history',
-  'derive_statistical_history_period',
-  'statistical_history_reduce',
-  'derive_statistical_unit_facet',
-  'derive_statistical_unit_facet_partition',
-  'statistical_unit_facet_reduce',
-  'derive_statistical_history_facet',
-  'derive_statistical_history_facet_period',
-  'statistical_history_facet_reduce',
-]);
 
 /**
  * Write-only atom to update a specific worker status field.
@@ -162,63 +148,33 @@ export const setWorkerStatusAtom = atom(
     }
 
     if (payload.type === 'pipeline_progress') {
-      // Update progress data from pipeline_progress notification
-      const steps = payload.steps;
-      const phase1Steps = steps.filter(s => PHASE1_STEPS.has(s.step));
-      const phase2Steps = steps.filter(s => PHASE2_STEPS.has(s.step));
+      // Phase-based progress data from pg_notify
+      const phases = payload.phases;
+      const phase1 = phases.find(p => p.phase === 'is_deriving_statistical_units');
+      const phase2 = phases.find(p => p.phase === 'is_deriving_reports');
 
-      // Track seenSteps: remember which top-level steps we've observed.
-      // If a step reappears that was already seen (and is not currently in
-      // the previous unfiltered pipeline_progress), it means a new iteration
-      // started — reset seenSteps.
-      //
-      // We compare against lastProgressSteps (unfiltered) rather than progress
-      // (filtered to total > 1) to avoid false restarts for steps with total <= 1
-      // like derive_reports.
-      const mergeSeenSteps = (
-        currentSteps: PipelineStep[],
-        prevPhase: PhaseStatus | null,
-      ): string[] => {
-        const incomingNames = currentSteps.map(s => s.step);
-        const prevSeen = prevPhase?.seenSteps ?? [];
-        const prevInProgress = new Set(prevPhase?.lastProgressSteps ?? []);
-        // Detect new iteration: a step that was previously seen and completed
-        // (no longer in pipeline_progress) is now back in pipeline_progress.
-        const restarted = incomingNames.some(name =>
-          prevSeen.includes(name) &&
-          !prevInProgress.has(name)
-        );
-        if (restarted) {
-          // New iteration — start fresh with only current steps
-          return [...new Set(incomingNames)];
-        }
-        // Merge new step names into existing seenSteps
-        return [...new Set([...prevSeen, ...incomingNames])];
+      const toPhaseStatus = (p: PhaseProgress | undefined): PhaseStatus | null => {
+        if (!p) return null;
+        return {
+          active: true,
+          step: p.step,
+          total: p.total,
+          completed: p.completed,
+          affected_establishment_count: p.affected_establishment_count,
+          affected_legal_unit_count: p.affected_legal_unit_count,
+          affected_enterprise_count: p.affected_enterprise_count,
+        };
       };
 
       const newStatus: WorkerStatus = {
         ...prevStatus,
         loading: false,
         error: null,
-        derivingUnits: phase1Steps.length > 0
-          ? {
-              active: true,
-              progress: phase1Steps.filter(s => s.total > 1),
-              seenSteps: mergeSeenSteps(phase1Steps, prevStatus.derivingUnits),
-              lastProgressSteps: phase1Steps.map(s => s.step),
-            }
-          : prevStatus.derivingUnits,
-        derivingReports: phase2Steps.length > 0
-          ? {
-              active: true,
-              progress: phase2Steps.filter(s => s.total > 1),
-              seenSteps: mergeSeenSteps(phase2Steps, prevStatus.derivingReports),
-              lastProgressSteps: phase2Steps.map(s => s.step),
-            }
-          : prevStatus.derivingReports,
+        derivingUnits: phase1 ? toPhaseStatus(phase1) : prevStatus.derivingUnits,
+        derivingReports: phase2 ? toPhaseStatus(phase2) : prevStatus.derivingReports,
         // Keep boolean fields in sync
-        isDerivingUnits: phase1Steps.length > 0 ? true : prevStatus.isDerivingUnits,
-        isDerivingReports: phase2Steps.length > 0 ? true : prevStatus.isDerivingReports,
+        isDerivingUnits: phase1 ? true : prevStatus.isDerivingUnits,
+        isDerivingReports: phase2 ? true : prevStatus.isDerivingReports,
       };
       set(workerStatusAtom, newStatus);
       return;
@@ -240,12 +196,12 @@ export const setWorkerStatusAtom = atom(
     } else if (type === 'is_deriving_statistical_units') {
       updatedStatus.isDerivingUnits = status;
       if (!status) {
-        updatedStatus.derivingUnits = { active: false, progress: [], seenSteps: [], lastProgressSteps: [] };
+        updatedStatus.derivingUnits = null;
       }
     } else if (type === 'is_deriving_reports') {
       updatedStatus.isDerivingReports = status;
       if (!status) {
-        updatedStatus.derivingReports = { active: false, progress: [], seenSteps: [], lastProgressSteps: [] };
+        updatedStatus.derivingReports = null;
       }
     }
 
@@ -323,18 +279,18 @@ export const refreshWorkerStatusAtom = atom(
         return;
       }
 
-      // Parse JSONB responses - PostgREST types still say boolean but DB returns jsonb objects
+      // Parse JSONB responses — now single objects per phase, not arrays
       const importData = importingRes.data as unknown as ImportStatus | null;
-      const unitsData = derivingUnitsRes.data as unknown as Omit<PhaseStatus, 'seenSteps' | 'lastProgressSteps'> | null;
-      const reportsData = derivingReportsRes.data as unknown as Omit<PhaseStatus, 'seenSteps' | 'lastProgressSteps'> | null;
+      const unitsData = derivingUnitsRes.data as unknown as PhaseStatus | null;
+      const reportsData = derivingReportsRes.data as unknown as PhaseStatus | null;
 
       set(workerStatusAtom, {
         isImporting: importData?.active ?? null,
         isDerivingUnits: unitsData?.active ?? null,
         isDerivingReports: reportsData?.active ?? null,
         importing: importData,
-        derivingUnits: unitsData ? { ...unitsData, seenSteps: [], lastProgressSteps: [] } : null,
-        derivingReports: reportsData ? { ...reportsData, seenSteps: [], lastProgressSteps: [] } : null,
+        derivingUnits: unitsData,
+        derivingReports: reportsData,
         loading: false,
         error: null,
       });
@@ -364,7 +320,11 @@ export const useWorkerStatus = (): WorkerStatus => {
 export const COMMAND_LABELS: Record<string, string> = {
   'derive_statistical_unit': 'Refreshing statistical units',
   'derive_statistical_unit_continue': 'Refreshing statistical units',
+  'statistical_unit_flush_staging': 'Flushing staging data',
+  'derive_reports': 'Computing reports',
   'derive_statistical_history': 'Computing statistical history',
   'derive_statistical_unit_facet': 'Computing search facets',
   'derive_statistical_history_facet': 'Computing history facets',
+  'statistical_unit_facet_reduce': 'Merging search facets',
+  'statistical_history_facet_reduce': 'Merging history facets',
 };

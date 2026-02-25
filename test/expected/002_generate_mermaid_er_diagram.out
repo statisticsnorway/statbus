@@ -1339,11 +1339,18 @@ erDiagram
 		text queue
 		timestamp_with_time_zone created_at
 		integer batches_per_wave
+		worker_pipeline_phase phase
+		text on_children_created
+		text on_child_completed
 	}
 	worker_pipeline_progress["worker.pipeline_progress"] {
+		worker_pipeline_phase phase
 		text step
 		integer total
 		integer completed
+		integer affected_establishment_count
+		integer affected_legal_unit_count
+		integer affected_enterprise_count
 		timestamp_with_time_zone updated_at
 	}
 	worker_queue_registry["worker.queue_registry"] {
