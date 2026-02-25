@@ -11,22 +11,18 @@ import { CheckCircle, XCircle, AlertCircle, Loader2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
 function PhaseProgressBar({ phase }: { phase: PhaseStatus | null }) {
-  if (!phase || !phase.active || phase.progress.length === 0) return null;
+  if (!phase || !phase.active || !phase.step) return null;
+  const label = COMMAND_LABELS[phase.step] ?? phase.step;
+  const pct = phase.total > 0 ? Math.round((phase.completed / phase.total) * 100) : 0;
   return (
     <div className="mt-2 space-y-2">
-      {phase.progress.map((step) => {
-        const label = COMMAND_LABELS[step.step] ?? step.step;
-        const pct = step.total > 0 ? Math.round((step.completed / step.total) * 100) : 0;
-        return (
-          <div key={step.step}>
-            <div className="flex justify-between text-xs text-gray-500 mb-0.5">
-              <span>{label}</span>
-              <span>{pct}%</span>
-            </div>
-            <Progress value={pct} className="h-1.5" />
-          </div>
-        );
-      })}
+      <div>
+        <div className="flex justify-between text-xs text-gray-500 mb-0.5">
+          <span>{label}</span>
+          {phase.total > 1 && <span>{pct}%</span>}
+        </div>
+        {phase.total > 1 && <Progress value={pct} className="h-1.5" />}
+      </div>
     </div>
   );
 }

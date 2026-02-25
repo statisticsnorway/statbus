@@ -11,7 +11,7 @@ import TimeContextSelector from "@/components/time-context-selector";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useAuth, isAuthenticatedStrictAtom, currentUserAtom } from "@/atoms/auth";
 import { useBaseData } from "@/atoms/base-data";
-import { useWorkerStatus, COMMAND_LABELS, type ImportStatus, type ImportJobProgress, type PhaseStatus, type PipelineStep } from "@/atoms/worker_status";
+import { useWorkerStatus, COMMAND_LABELS, type ImportStatus, type ImportJobProgress, type PhaseStatus } from "@/atoms/worker_status";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { useAtomValue } from "jotai";
@@ -34,7 +34,7 @@ const PROCESSING_WEIGHT = 1 - ANALYSIS_WEIGHT;
 
 /**
  * Compute unified import progress for a single job.
- * Analysis maps to 0–25%, processing maps to 25–100%.
+ * Analysis maps to 0-25%, processing maps to 25-100%.
  */
 function computeJobProgress(job: ImportJobProgress): number {
   const isAnalysing = job.state === 'analysing_data';
@@ -56,27 +56,22 @@ function computeImportProgress(jobs: ImportStatus['jobs']): number | null {
 // Step weights derived from production wall-clock times (no.statbus.org, 2026-02-24).
 // Dataset: 1.1M legal units + 826K establishments, analytics_partition_count=128.
 //
-// Threading model: Analytics queue has 1 top fiber (sequential) + 4 child fibers (parallel).
-// Top-level tasks execute strictly one at a time. PARENT tasks spawn children processed
-// by the 4 child fibers; the top fiber blocks until all children complete.
-// Serial tasks run synchronously on the top fiber.
-//
-// Phase 1 — Statistical Units (total ~163 min):
-//   derive_statistical_unit:        8,414s wall (2394 children / 4 fibers) → 86%
-//   statistical_unit_flush_staging: 1,355s (serial, duration_ms)           → 14%
+// Phase 1 -- Statistical Units (total ~163 min):
+//   derive_statistical_unit:        8,414s wall (2394 children / 4 fibers) -> 86%
+//   statistical_unit_flush_staging: 1,355s (serial, duration_ms)           -> 14%
 //
 const PHASE1_STEP_WEIGHTS = [
   { step: 'derive_statistical_unit', weight: 86 },
   { step: 'statistical_unit_flush_staging', weight: 14 },
 ];
 
-// Phase 2 — Reports (total ~28 min per iteration):
-//   derive_reports:                    12s (serial, enqueues children)         →  1%
-//   derive_statistical_history:        35s wall (384 period children / 4)      →  2%
-//   derive_statistical_unit_facet:     27s wall (128 partition children / 4)   →  2%
-//   statistical_unit_facet_reduce:     51s (serial, merges partitions)         →  3%
-//   derive_statistical_history_facet: 1,401s wall (384 period children / 4)   → 84%
-//   statistical_history_facet_reduce:  149s (serial, merges partitions)        →  9%
+// Phase 2 -- Reports (total ~28 min per iteration):
+//   derive_reports:                    12s (serial, enqueues children)         ->  1%
+//   derive_statistical_history:        35s wall (384 period children / 4)      ->  2%
+//   derive_statistical_unit_facet:     27s wall (128 partition children / 4)   ->  2%
+//   statistical_unit_facet_reduce:     51s (serial, merges partitions)         ->  3%
+//   derive_statistical_history_facet: 1,401s wall (384 period children / 4)   -> 84%
+//   statistical_history_facet_reduce:  149s (serial, merges partitions)        ->  9%
 //
 const PHASE2_STEP_WEIGHTS = [
   { step: 'derive_reports', weight: 1 },
@@ -88,34 +83,44 @@ const PHASE2_STEP_WEIGHTS = [
 ];
 
 /**
- * Compute weighted progress for a phase using step weights and seenSteps tracking.
+ * Compute weighted progress for a phase using the current step from the phase row.
  *
- * Steps in pipeline_progress (with total > 0) are in-progress: weight * (completed / total).
- * Steps in seenSteps but not in pipeline_progress have completed: full weight.
- * Steps not yet seen: 0.
+ * The phase row has a single `step` field indicating which command is currently active,
+ * plus `total`/`completed` for that step's children. Steps before the current one in the
+ * weight table are considered complete (full weight). Steps after get zero weight.
  */
 function computeWeightedPhaseProgress(
   phase: PhaseStatus,
   stepWeights: { step: string; weight: number }[],
 ): number | null {
+  if (!phase.active) return null;
+
   const totalWeight = stepWeights.reduce((acc, sw) => acc + sw.weight, 0);
   if (totalWeight === 0) return null;
 
-  const progressByStep = new Map(phase.progress.map(s => [s.step, s]));
-  const seenSet = new Set(phase.seenSteps);
+  const currentStep = phase.step;
+  if (!currentStep) return 0; // Phase exists but no step active yet (pending)
 
   let earned = 0;
+  let foundCurrent = false;
+
   for (const { step, weight } of stepWeights) {
-    const prog = progressByStep.get(step);
-    if (prog && prog.total > 0) {
-      // Currently in pipeline_progress — partially done
-      earned += weight * (prog.completed / prog.total);
-    } else if (seenSet.has(step)) {
-      // Was seen but no longer in pipeline_progress — completed
-      earned += weight;
+    if (step === currentStep) {
+      // Current step: partial progress based on total/completed
+      foundCurrent = true;
+      if (phase.total > 0) {
+        earned += weight * (phase.completed / phase.total);
+      }
+      // If total is 0, step just started — contributes 0
+      break; // Steps after this haven't started yet
     }
-    // else: not started yet — contributes 0
+    // Steps before the current one are complete
+    earned += weight;
   }
+
+  // If we didn't find the current step in weights (e.g. collect_changes),
+  // just return 0 — it's a pre-step
+  if (!foundCurrent) return 0;
 
   return Math.round((earned / totalWeight) * 100);
 }
@@ -152,27 +157,47 @@ function ImportProgressPopover({ importing }: { importing: ImportStatus }) {
 }
 
 /**
+ * Summary of affected unit counts for a phase.
+ */
+function UnitCountSummary({ phase }: { phase: PhaseStatus }) {
+  const parts: string[] = [];
+  if (phase.affected_establishment_count)
+    parts.push(`~${phase.affected_establishment_count.toLocaleString()} establishments`);
+  if (phase.affected_legal_unit_count)
+    parts.push(`~${phase.affected_legal_unit_count.toLocaleString()} legal units`);
+  if (phase.affected_enterprise_count)
+    parts.push(`~${phase.affected_enterprise_count.toLocaleString()} enterprises`);
+  if (parts.length === 0) return null;
+  return (
+    <p className="text-sm text-gray-600 font-medium">
+      Processing {parts.join(', ')}
+    </p>
+  );
+}
+
+/**
  * Phase progress popover content.
  */
-function PhaseProgressPopover({ phase }: { phase: PhaseStatus }) {
-  if (phase.progress.length === 0) {
-    return <p className="text-sm text-gray-500">Processing...</p>;
-  }
+function PhaseProgressPopover({ phase, stepWeights }: { phase: PhaseStatus; stepWeights: { step: string; weight: number }[] }) {
+  const currentStep = phase.step;
+  const label = currentStep ? (COMMAND_LABELS[currentStep] ?? currentStep) : 'Pending...';
+  const pct = computeWeightedPhaseProgress(phase, stepWeights);
+
   return (
     <div className="space-y-3">
-      {phase.progress.map((step) => {
-        const label = COMMAND_LABELS[step.step] ?? step.step;
-        const pct = step.total > 0 ? Math.round((step.completed / step.total) * 100) : 0;
-        return (
-          <div key={step.step}>
-            <div className="flex justify-between text-sm mb-1">
-              <span>{label}</span>
-              <span>{pct}%</span>
-            </div>
-            <Progress value={pct} className="h-2" />
+      <UnitCountSummary phase={phase} />
+      {currentStep ? (
+        <div>
+          <div className="flex justify-between text-sm mb-1">
+            <span>{label}</span>
+            {phase.total > 1 && <span>{pct}%</span>}
           </div>
-        );
-      })}
+          {phase.total > 1 && <Progress value={pct} className="h-2" />}
+          {phase.total <= 1 && <p className="text-xs text-gray-500">Running...</p>}
+        </div>
+      ) : (
+        <p className="text-sm text-gray-500">Waiting to start...</p>
+      )}
     </div>
   );
 }
@@ -334,8 +359,8 @@ export default function Navbar() {
                     isCurrent={pathname.startsWith("/search")}
                     progressPct={unitsPct}
                     popoverContent={isDerivingUnits
-                      ? (derivingUnits?.active && derivingUnits.progress.length > 0
-                        ? <PhaseProgressPopover phase={derivingUnits} />
+                      ? (derivingUnits?.active
+                        ? <PhaseProgressPopover phase={derivingUnits} stepWeights={PHASE1_STEP_WEIGHTS} />
                         : <p className="text-sm text-gray-500">Deriving statistical units...</p>)
                       : null}
                   />
@@ -348,8 +373,8 @@ export default function Navbar() {
                     isCurrent={pathname.startsWith("/reports")}
                     progressPct={reportsPct}
                     popoverContent={isDerivingReports
-                      ? (derivingReports?.active && derivingReports.progress.length > 0
-                        ? <PhaseProgressPopover phase={derivingReports} />
+                      ? (derivingReports?.active
+                        ? <PhaseProgressPopover phase={derivingReports} stepWeights={PHASE2_STEP_WEIGHTS} />
                         : <p className="text-sm text-gray-500">Deriving reports...</p>)
                       : null}
                   />

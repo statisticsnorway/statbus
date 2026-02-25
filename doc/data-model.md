@@ -124,6 +124,7 @@ Enumerated types used across the schema, with their possible values.
 - **`public.statistical_unit_type`**: `establishment`, `legal_unit`, `enterprise`, `enterprise_group`
 - **`public.tag_type`**: `custom`, `system`
 - **`public.time_context_type`**: `relative_period`, `tag`, `year`
+- **`worker.pipeline_phase`**: `is_deriving_statistical_units`, `is_deriving_reports`
 - **`worker.process_mode`**: `top`, `child`
 - **`worker.task_state`**: `pending`, `processing`, `waiting`, `completed`, `failed`
 
@@ -194,10 +195,12 @@ Handles background processing. A long-running worker process calls `worker.proce
 - `tasks(id, command, parent_id, created_at, processed_at, completed_at, scheduled_at, priority, state, duration_ms, error, worker_pid, payload)`
   - Key FKs: command, command, parent_id.
   - Enums: `state` (`worker.task_state`).
-- `command_registry(command, created_at, handler_procedure, before_procedure, after_procedure, description, queue, batches_per_wave)`
+- `command_registry(command, created_at, handler_procedure, before_procedure, after_procedure, description, queue, batches_per_wave, phase, on_children_created, on_child_completed)`
   - Key FKs: queue.
+  - Enums: `phase` (`worker.pipeline_phase`).
 - `queue_registry(queue, description, default_concurrency)`
-- `pipeline_progress(updated_at, step, total, completed)`
+- `pipeline_progress(updated_at, phase, step, total, completed, affected_establishment_count, affected_legal_unit_count, affected_enterprise_count)`
+  - Enums: `phase` (`worker.pipeline_phase`).
 - `base_change_log(establishment_ids, legal_unit_ids, enterprise_ids, edited_by_valid_range)`
 - `base_change_log_has_pending(has_pending)`
 

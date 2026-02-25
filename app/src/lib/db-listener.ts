@@ -102,7 +102,7 @@ export type ImportJobProgressPayload = {
 
 export type WorkerStatusPayload =
   | { type: string; status: boolean }
-  | { type: 'pipeline_progress'; steps: Array<{ step: string; total: number; completed: number }> }
+  | { type: 'pipeline_progress'; phases: Array<{ phase: string; step: string | null; total: number; completed: number; affected_establishment_count: number | null; affected_legal_unit_count: number | null; affected_enterprise_count: number | null }> }
   | ImportJobProgressPayload;
 
 // Minimal payload from pg_notify

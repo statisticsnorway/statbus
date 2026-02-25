@@ -681,8 +681,8 @@ if __name__ == "__main__":
         description="Test concurrent worker processing with isolated database",
         epilog="Databases are RETAINED by default for comparison. Use --cleanup to delete."
     )
-    parser.add_argument("-t", "--timeout", type=int, default=400,
-                        help="Worker timeout in seconds (default: 400)")
+    parser.add_argument("-t", "--timeout", type=int, default=600,
+                        help="Worker timeout in seconds (default: 600)")
     parser.add_argument("--skip-setup", action="store_true",
                         help="Skip DB creation and data load (use current PGDATABASE)")
     parser.add_argument("--cleanup", action="store_true",

@@ -325,7 +325,7 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
         eventSource.onmessage = (event) => {
           try {
             const payload = JSON.parse(event.data);
-            if (payload.type === 'pipeline_progress' && Array.isArray(payload.steps)) {
+            if (payload.type === 'pipeline_progress' && Array.isArray(payload.phases)) {
               setWorkerStatus(payload as WorkerStatusSSEPayload);
             } else if (payload.type === 'import_job_progress') {
               setWorkerStatus(payload as WorkerStatusSSEPayload);
