@@ -4,9 +4,12 @@ import { useState } from "react";
 import { useTimeContext } from '@/atoms/app-derived';
 import { fetchWithAuthRefresh } from "@/context/RestClientStore";
 import { useSWRWithAuthRefresh, JwtExpiredError } from "@/hooks/use-swr-with-auth-refresh";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 
 export const useDrillDownData = () => {
   const { selectedTimeContext } = useTimeContext();
+  const [selectedUnitType, setSelectedUnitType] =
+    useState<UnitType>("enterprise");
   const [region, setRegion] = useState<DrillDownPoint | null>(null);
   const [activityCategory, setActivityCategory] =
     useState<DrillDownPoint | null>(null);
@@ -24,6 +27,17 @@ export const useDrillDownData = () => {
   if (selectedTimeContext?.valid_on) {
     urlSearchParams.set("valid_on", selectedTimeContext.valid_on);
   }
+
+  urlSearchParams.set("unit_type", selectedUnitType);
+
+  useGuardedEffect(
+    () => {
+      setRegion(null);
+      setActivityCategory(null);
+    },
+    [selectedUnitType],
+    "useDrillDownData:resetSelectionsOnUnitType"
+  );
 
   // Don't fetch until time context is ready — avoids a wasted ~5s request
   // with no valid_on that gets thrown away when selectedTimeContext arrives.
@@ -65,6 +79,8 @@ export const useDrillDownData = () => {
   return {
     drillDown,
     isLoading,
+    selectedUnitType,
+    setSelectedUnitType,
     region,
     setRegion,
     activityCategory,

@@ -1,15 +1,17 @@
 "use client";
 
-import { useDrillDownData } from "@/app/reports/use-drill-down-data";
+import { useDrillDownData } from "@/app/reports/drilldown/use-drill-down-data";
 import { useMemo, useState } from "react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
-import { BreadCrumb } from "@/app/reports/bread-crumb";
-import { DrillDownChart } from "@/app/reports/drill-down-chart";
-import { SearchLink } from "@/app/reports/search-link";
+import { BreadCrumb } from "@/app/reports/drilldown/bread-crumb";
+import { DrillDownChart } from "@/app/reports/drilldown/drill-down-chart";
+import { SearchLink } from "@/app/reports/drilldown/search-link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useBaseData } from "@/atoms/base-data";
 import { Tables } from "@/lib/database.types";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getUnitTypeLabel, UnitTypeTabs } from "@/app/reports/unit-type-tabs";
+
 
 export default function ReportsPageClient({
 }) {
@@ -18,6 +20,8 @@ export default function ReportsPageClient({
   const {
     drillDown,
     isLoading,
+    selectedUnitType,
+    setSelectedUnitType,
     region,
     setRegion,
     activityCategory,
@@ -43,16 +47,22 @@ export default function ReportsPageClient({
     });
   }, [], 'ReportsPageClient:importHighchartsModules');
 
+  const unitTypeLabel = getUnitTypeLabel(selectedUnitType) ?? "Units";
+
   const statisticalVariables = useMemo(() => {
     return [
-      { value: "count", label: "Count", title: "Number of enterprises" },
+      {
+        value: "count",
+        label: "Count",
+        title: `Number of ${unitTypeLabel}`,
+      },
       ...(statDefinitions.map(({ code, name }: Tables<'stat_definition_active'>) => ({
         value: code!,
         label: name!,
         title: name!,
       })) ?? []),
     ];
-  }, [statDefinitions]);
+  }, [statDefinitions, unitTypeLabel]);
 
   // Calculate max values only for unfiltered top-level data
   useGuardedEffect(() => {
@@ -96,21 +106,27 @@ export default function ReportsPageClient({
   }, [drillDown, region, activityCategory, statisticalVariables], 'ReportsPageClient:calculateMaxValues');
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-col px-2 py-8 md:py-12">
+    <div className="mx-auto flex w-full max-w-5xl flex-col px-2">
       <h1 className="mb-3 text-center text-2xl">Statbus Data Drilldown</h1>
-      <p className="mb-12 text-center">
+      <p className="mb-4 text-center text-gray-600">
         Gain data insights by drilling through the bar charts below
       </p>
-      <div className="w-full space-y-8">
-        <Tabs defaultValue="count">
-          <TabsList className="mx-auto">
-            {statisticalVariables.map((statisticalVariable) => (
+      <div className="w-full space-y-1">
+        <div className="flex flex-col p-2">
+          <UnitTypeTabs
+            value={selectedUnitType}
+            onValueChange={setSelectedUnitType}
+          />
+        </div>
+        <Tabs defaultValue="count" className="p-2">
+          <TabsList className="flex gap-1 w-fit rounded-full">
+            {statisticalVariables.map((option) => (
               <TabsTrigger
-                key={statisticalVariable.value}
-                value={statisticalVariable.value}
-                className="capitalize"
+                key={option.value}
+                value={option.value}
+                className="capitalize rounded-full data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-50 data-[state=active]:shadow-sm hover:text-zinc-800"
               >
-                {statisticalVariable.label}
+                {option.label}
               </TabsTrigger>
             ))}
           </TabsList>
@@ -135,7 +151,10 @@ export default function ReportsPageClient({
                         onSelect={setRegion}
                         variable={statisticalVariable.value}
                         title={statisticalVariable.title}
-                        maxTopLevelValue={maxStatValuesNoFiltering[statisticalVariable.value]?.region}
+                        maxTopLevelValue={
+                          maxStatValuesNoFiltering[statisticalVariable.value]
+                            ?.region
+                        }
                       />
                     ) : (
                       <Skeleton className="w-full h-[200px]" />
@@ -163,7 +182,10 @@ export default function ReportsPageClient({
                         onSelect={setActivityCategory}
                         variable={statisticalVariable.value}
                         title={statisticalVariable.title}
-                        maxTopLevelValue={maxStatValuesNoFiltering[statisticalVariable.value]?.activity}
+                        maxTopLevelValue={
+                          maxStatValuesNoFiltering[statisticalVariable.value]
+                            ?.activity
+                        }
                       />
                     ) : (
                       <Skeleton className="w-full h-[200px]" />
@@ -178,11 +200,15 @@ export default function ReportsPageClient({
               </div>
             </TabsContent>
           ))}
+          <div className="flex justify-end space-y-6 bg-gray-100 p-6 mt-4">
+            <SearchLink
+              region={region}
+              activityCategory={activityCategory}
+              unitType={selectedUnitType}
+            />
+          </div>
         </Tabs>
-        <div className="flex justify-end space-y-6 bg-gray-100 p-6">
-          <SearchLink region={region} activityCategory={activityCategory} />
-        </div>
       </div>
-    </main>
+    </div>
   );
 }
