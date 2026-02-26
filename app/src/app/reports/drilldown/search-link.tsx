@@ -10,9 +10,11 @@ import {
 export const SearchLink = ({
   region,
   activityCategory,
+  unitType,
 }: {
   readonly region: DrillDownPoint | null;
   readonly activityCategory: DrillDownPoint | null;
+  readonly unitType: UnitType;
 }) => {
   const searchParams = new URLSearchParams();
 
@@ -24,7 +26,7 @@ export const SearchLink = ({
     searchParams.set(ACTIVITY_CATEGORY_PATH, activityCategory.path);
   }
 
-  searchParams.set(UNIT_TYPE, "enterprise");
+  searchParams.set(UNIT_TYPE, unitType);
 
   return (
     <Button asChild>
