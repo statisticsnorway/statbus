@@ -14,14 +14,16 @@ CALL test.set_user_from_email('test.admin@statbus.org');
 -- Load base configuration (regions, activity categories, status codes, etc.)
 \i samples/norway/getting-started.sql
 
--- Load seed data for legal_rel_type if not present
+-- Seed test relationship types that clearly demonstrate primary_influencer_only semantics
+-- parent_company: structurally 1:1 (a subsidiary has at most one parent) → TRUE
+-- co_ownership: structurally 1:N (multiple co-owners per entity) → FALSE
 INSERT INTO public.legal_rel_type (code, name, description, primary_influencer_only, enabled, custom)
-SELECT 'ownership', 'Ownership', 'Direct share ownership percentage', TRUE, true, false
-WHERE NOT EXISTS (SELECT 1 FROM public.legal_rel_type WHERE code = 'ownership');
+SELECT 'parent_company', 'Parent Company', 'Parent-subsidiary relationship (structurally 1:1 per subsidiary)', TRUE, true, false
+WHERE NOT EXISTS (SELECT 1 FROM public.legal_rel_type WHERE code = 'parent_company');
 
 INSERT INTO public.legal_rel_type (code, name, description, primary_influencer_only, enabled, custom)
-SELECT 'control', 'Control', 'Controlling interest (may differ from ownership via voting rights or agreements)', FALSE, true, false
-WHERE NOT EXISTS (SELECT 1 FROM public.legal_rel_type WHERE code = 'control');
+SELECT 'co_ownership', 'Co-ownership', 'Shared ownership (multiple co-owners per entity)', FALSE, true, false
+WHERE NOT EXISTS (SELECT 1 FROM public.legal_rel_type WHERE code = 'co_ownership');
 
 -- ============================================================================
 \echo "=== Section 1: Verify Schema Structure ==="
@@ -162,13 +164,13 @@ WHERE name LIKE '%Holdings%' OR name LIKE '%Manufacturing%'
 ORDER BY name;
 
 -- ============================================================================
-\echo "=== Section 3: Create Ownership Relationships ==="
+\echo "=== Section 3: Create Parent-Company Relationships ==="
 -- ============================================================================
 
 \echo "Get relationship type codes"
 SELECT code, name FROM public.legal_rel_type ORDER BY code;
 
-\echo "Create ownership: Alpha Holdings owns 60% of Beta Manufacturing"
+\echo "Create parent_company: Alpha Holdings is parent of Beta Manufacturing (60%)"
 INSERT INTO public.legal_relationship (
     valid_from, 
     influencing_id, 
@@ -182,12 +184,12 @@ SELECT
     '2020-01-01'::date,
     (SELECT id FROM public.legal_unit WHERE name = 'Alpha Holdings Corp' LIMIT 1),
     (SELECT id FROM public.legal_unit WHERE name = 'Beta Manufacturing Ltd' LIMIT 1),
-    (SELECT id FROM public.legal_rel_type WHERE code = 'ownership'),
+    (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
     60.00,
     (SELECT id FROM auth.user LIMIT 1),
-    'Alpha owns 60% of Beta';
+    'Alpha is parent company of Beta';
 
-\echo "Create ownership: Alpha Holdings owns 51% of Gamma Services"
+\echo "Create parent_company: Alpha Holdings is parent of Gamma Services (51%)"
 INSERT INTO public.legal_relationship (
     valid_from, 
     influencing_id, 
@@ -201,12 +203,12 @@ SELECT
     '2020-01-01'::date,
     (SELECT id FROM public.legal_unit WHERE name = 'Alpha Holdings Corp' LIMIT 1),
     (SELECT id FROM public.legal_unit WHERE name = 'Gamma Services Inc' LIMIT 1),
-    (SELECT id FROM public.legal_rel_type WHERE code = 'ownership'),
+    (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
     51.00,
     (SELECT id FROM auth.user LIMIT 1),
-    'Alpha owns 51% of Gamma';
+    'Alpha is parent company of Gamma';
 
-\echo "Create ownership: Beta Manufacturing owns 75% of Delta Components"
+\echo "Create parent_company: Beta Manufacturing is parent of Delta Components (75%)"
 INSERT INTO public.legal_relationship (
     valid_from, 
     influencing_id, 
@@ -220,12 +222,12 @@ SELECT
     '2020-01-01'::date,
     (SELECT id FROM public.legal_unit WHERE name = 'Beta Manufacturing Ltd' LIMIT 1),
     (SELECT id FROM public.legal_unit WHERE name = 'Delta Components GmbH' LIMIT 1),
-    (SELECT id FROM public.legal_rel_type WHERE code = 'ownership'),
+    (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
     75.00,
     (SELECT id FROM auth.user LIMIT 1),
-    'Beta owns 75% of Delta';
+    'Beta is parent company of Delta';
 
-\echo "Verify ownership relationships created"
+\echo "Verify parent-company relationships created"
 SELECT 
     influencer.name AS influencing_name,
     influenced.name AS influenced_name,
@@ -242,8 +244,8 @@ ORDER BY influencer.name, influenced.name;
 \echo "=== Section 4: Test Cycle Prevention ==="
 -- ============================================================================
 
-\echo "Attempt to create circular ownership (should fail)"
-\echo "Trying: Delta owns Alpha (which would create Alpha -> Beta -> Delta -> Alpha cycle)"
+\echo "Attempt to create circular parent_company (should fail)"
+\echo "Trying: Delta is parent of Alpha (which would create Alpha -> Beta -> Delta -> Alpha cycle)"
 
 DO $$
 BEGIN
@@ -260,10 +262,10 @@ BEGIN
         '2020-01-01'::date,
         (SELECT id FROM public.legal_unit WHERE name = 'Delta Components GmbH' LIMIT 1),
         (SELECT id FROM public.legal_unit WHERE name = 'Alpha Holdings Corp' LIMIT 1),
-        (SELECT id FROM public.legal_rel_type WHERE code = 'ownership'),
+        (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
         30.00,
         (SELECT id FROM auth.user LIMIT 1),
-        'Delta owns Alpha - SHOULD FAIL';
+        'Delta is parent of Alpha - SHOULD FAIL';
     
     RAISE EXCEPTION 'TEST FAILURE: Circular ownership was allowed - cycle prevention did not work!';
 EXCEPTION
@@ -307,7 +309,7 @@ BEGIN
         '2020-01-01'::date,
         _alpha_id,
         _alpha_id,  -- Same as influencing - should fail
-        (SELECT id FROM public.legal_rel_type WHERE code = 'ownership'),
+        (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
         100.00,
         (SELECT id FROM auth.user LIMIT 1),
         'Self-reference - SHOULD FAIL'
@@ -400,7 +402,7 @@ ORDER BY influencer.name, influenced.name;
 \echo "=== Section 8: Test Temporal Aspects ==="
 -- ============================================================================
 
-\echo "Add a new ownership relationship starting later (2023)"
+\echo "Add a new parent_company relationship starting later (2023)"
 INSERT INTO public.legal_relationship (
     valid_from, 
     influencing_id, 
@@ -415,13 +417,13 @@ SELECT
     '2023-01-01'::date,
     (SELECT id FROM public.legal_unit WHERE name = 'Alpha Holdings Corp' LIMIT 1),
     (SELECT id FROM public.legal_unit WHERE name = 'Epsilon Independent LLC' LIMIT 1),
-    (SELECT id FROM public.legal_rel_type WHERE code = 'ownership'),
+    (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
     55.00,
     (SELECT id FROM public.legal_reorg_type WHERE code = 'acq' LIMIT 1),
     (SELECT id FROM auth.user LIMIT 1),
-    'Alpha acquires Epsilon in 2023';
+    'Alpha becomes parent company of Epsilon in 2023';
 
-\echo "Verify temporal ownership - before acquisition (2022)"
+\echo "Verify temporal relationships - before acquisition (2022)"
 SELECT 
     influencer.name AS influencing_name,
     influenced.name AS influenced_name,
@@ -434,7 +436,7 @@ JOIN public.legal_unit AS influenced ON lr.influenced_id = influenced.id
 WHERE lr.valid_range @> '2022-06-01'::date
 ORDER BY influencer.name, influenced.name;
 
-\echo "Verify temporal ownership - after acquisition (2024)"
+\echo "Verify temporal relationships - after acquisition (2024)"
 SELECT 
     influencer.name AS influencing_name,
     influenced.name AS influenced_name,

@@ -14,14 +14,16 @@ CALL test.set_user_from_email('test.admin@statbus.org');
 -- Load base configuration (regions, activity categories, status codes, etc.)
 \i samples/norway/getting-started.sql
 
--- Load seed data for legal_rel_type if not present
+-- Seed test relationship types
+-- parent_company: structurally 1:1 (a subsidiary has at most one parent) → TRUE
+-- co_ownership: structurally 1:N (multiple co-owners per entity) → FALSE
 INSERT INTO public.legal_rel_type (code, name, description, primary_influencer_only, enabled, custom)
-SELECT 'ownership', 'Ownership', 'Direct share ownership percentage', TRUE, true, false
-WHERE NOT EXISTS (SELECT 1 FROM public.legal_rel_type WHERE code = 'ownership');
+SELECT 'parent_company', 'Parent Company', 'Parent-subsidiary relationship (structurally 1:1 per subsidiary)', TRUE, true, false
+WHERE NOT EXISTS (SELECT 1 FROM public.legal_rel_type WHERE code = 'parent_company');
 
 INSERT INTO public.legal_rel_type (code, name, description, primary_influencer_only, enabled, custom)
-SELECT 'control', 'Control', 'Controlling interest (may differ from ownership via voting rights or agreements)', FALSE, true, false
-WHERE NOT EXISTS (SELECT 1 FROM public.legal_rel_type WHERE code = 'control');
+SELECT 'co_ownership', 'Co-ownership', 'Shared ownership (multiple co-owners per entity)', FALSE, true, false
+WHERE NOT EXISTS (SELECT 1 FROM public.legal_rel_type WHERE code = 'co_ownership');
 
 -- ============================================================================
 -- PHASE 2: Direct Scenarios (isolated by SAVEPOINT)
@@ -77,7 +79,7 @@ INSERT INTO public.legal_unit (valid_from, name, enterprise_id, primary_for_ente
 SELECT '2020-01-01'::date, 'Beacon Tech',
     (SELECT id FROM public.enterprise WHERE short_name = 'LC7'), true,
     (SELECT id FROM public.status WHERE code = 'active' LIMIT 1),
-    (SELECT id FROM auth.user LIMIT 1), 'Subsidiary of Beacon (control type, not primary_influencer_only)';
+    (SELECT id FROM auth.user LIMIT 1), 'Subsidiary of Beacon (co_ownership type, not primary_influencer_only)';
 
 INSERT INTO public.legal_unit (valid_from, name, enterprise_id, primary_for_enterprise, status_id, edit_by_user_id, edit_comment)
 SELECT '2020-01-01'::date, 'Crossroads Ltd',
@@ -125,21 +127,21 @@ INSERT INTO public.legal_relationship (valid_from, influencing_id, influenced_id
 SELECT '2020-01-01'::date,
     (SELECT id FROM public.legal_unit WHERE name = 'Apex Corp'),
     (SELECT id FROM public.legal_unit WHERE name = 'Apex Manufacturing'),
-    (SELECT id FROM public.legal_rel_type WHERE code = 'ownership'),
+    (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
     60.00, (SELECT id FROM auth.user LIMIT 1), 'Apex owns 60% of Manufacturing';
 
 INSERT INTO public.legal_relationship (valid_from, influencing_id, influenced_id, type_id, percentage, edit_by_user_id, edit_comment)
 SELECT '2020-01-01'::date,
     (SELECT id FROM public.legal_unit WHERE name = 'Apex Manufacturing'),
     (SELECT id FROM public.legal_unit WHERE name = 'Apex Logistics'),
-    (SELECT id FROM public.legal_rel_type WHERE code = 'ownership'),
+    (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
     75.00, (SELECT id FROM auth.user LIMIT 1), 'Manufacturing owns 75% of Logistics';
 
 INSERT INTO public.legal_relationship (valid_from, influencing_id, influenced_id, type_id, percentage, edit_by_user_id, edit_comment)
 SELECT '2020-01-01'::date,
     (SELECT id FROM public.legal_unit WHERE name = 'Apex Logistics'),
     (SELECT id FROM public.legal_unit WHERE name = 'Apex Research'),
-    (SELECT id FROM public.legal_rel_type WHERE code = 'ownership'),
+    (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
     100.00, (SELECT id FROM auth.user LIMIT 1), 'Logistics owns 100% of Research';
 
 SELECT worker.derive_power_groups();
@@ -167,22 +169,22 @@ ORDER BY pgm.power_level, lu.name;
 -- ============================================================================
 \echo "=== 2b: Primary Influencer vs Non-Primary ==="
 -- ============================================================================
--- Beacon → Beacon Services (ownership, primary_influencer_only=TRUE) — forms PG
--- Beacon → Beacon Tech (control, primary_influencer_only=FALSE) — NOT in PG
+-- Beacon → Beacon Services (parent_company, primary_influencer_only=TRUE) — forms PG
+-- Beacon → Beacon Tech (co_ownership, primary_influencer_only=FALSE) — NOT in PG
 
 INSERT INTO public.legal_relationship (valid_from, influencing_id, influenced_id, type_id, percentage, edit_by_user_id, edit_comment)
 SELECT '2020-01-01'::date,
     (SELECT id FROM public.legal_unit WHERE name = 'Beacon Inc'),
     (SELECT id FROM public.legal_unit WHERE name = 'Beacon Services'),
-    (SELECT id FROM public.legal_rel_type WHERE code = 'ownership'),
-    50.00, (SELECT id FROM auth.user LIMIT 1), 'Beacon owns Services (ownership=primary_influencer_only)';
+    (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
+    50.00, (SELECT id FROM auth.user LIMIT 1), 'Beacon is parent of Services (parent_company=primary_influencer_only)';
 
 INSERT INTO public.legal_relationship (valid_from, influencing_id, influenced_id, type_id, percentage, edit_by_user_id, edit_comment)
 SELECT '2020-01-01'::date,
     (SELECT id FROM public.legal_unit WHERE name = 'Beacon Inc'),
     (SELECT id FROM public.legal_unit WHERE name = 'Beacon Tech'),
-    (SELECT id FROM public.legal_rel_type WHERE code = 'control'),
-    49.00, (SELECT id FROM auth.user LIMIT 1), 'Beacon controls Tech (control=NOT primary_influencer_only)';
+    (SELECT id FROM public.legal_rel_type WHERE code = 'co_ownership'),
+    49.00, (SELECT id FROM auth.user LIMIT 1), 'Beacon co-owns Tech (co_ownership=NOT primary_influencer_only)';
 
 SELECT worker.derive_power_groups();
 
@@ -208,14 +210,14 @@ WHERE lu.name = 'Echo Standalone';
 -- ============================================================================
 \echo "=== 2c: Dissolution ==="
 -- ============================================================================
--- Delta → Delta Subsidiary (ownership, primary_influencer_only=TRUE) — creates group,
--- then type changes to control (primary_influencer_only=FALSE)
+-- Delta → Delta Subsidiary (parent_company, primary_influencer_only=TRUE) — creates group,
+-- then type changes to co_ownership (primary_influencer_only=FALSE)
 
 INSERT INTO public.legal_relationship (valid_from, influencing_id, influenced_id, type_id, percentage, edit_by_user_id, edit_comment)
 SELECT '2020-01-01'::date,
     (SELECT id FROM public.legal_unit WHERE name = 'Delta Holdings'),
     (SELECT id FROM public.legal_unit WHERE name = 'Delta Subsidiary'),
-    (SELECT id FROM public.legal_rel_type WHERE code = 'ownership'),
+    (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
     80.00, (SELECT id FROM auth.user LIMIT 1), 'Delta owns 80% of Subsidiary';
 
 SELECT worker.derive_power_groups();
@@ -227,10 +229,10 @@ JOIN public.legal_unit AS lu ON lu.id = pgm.legal_unit_id
 WHERE lu.name LIKE 'Delta%'
 ORDER BY lu.name;
 
--- Change type to control (primary_influencer_only=FALSE) — dissolves PG
+-- Change type to co_ownership (primary_influencer_only=FALSE) — dissolves PG
 UPDATE public.legal_relationship
-SET type_id = (SELECT id FROM public.legal_rel_type WHERE code = 'control'),
-    percentage = 30.00, edit_comment = 'Delta relationship downgraded to control type'
+SET type_id = (SELECT id FROM public.legal_rel_type WHERE code = 'co_ownership'),
+    percentage = 30.00, edit_comment = 'Delta relationship downgraded to co_ownership type'
 WHERE influencing_id = (SELECT id FROM public.legal_unit WHERE name = 'Delta Holdings')
   AND influenced_id = (SELECT id FROM public.legal_unit WHERE name = 'Delta Subsidiary');
 
@@ -259,7 +261,7 @@ INSERT INTO public.legal_relationship (valid_from, influencing_id, influenced_id
 SELECT '2020-01-01'::date,
     (SELECT id FROM public.legal_unit WHERE name = 'Beacon Inc'),
     (SELECT id FROM public.legal_unit WHERE name = 'Crossroads Ltd'),
-    (SELECT id FROM public.legal_rel_type WHERE code = 'ownership'),
+    (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
     60.00, (SELECT id FROM auth.user LIMIT 1), 'Beacon owns 60% of Crossroads';
 
 SELECT worker.derive_power_groups();
@@ -280,7 +282,7 @@ INSERT INTO public.legal_relationship (valid_from, influencing_id, influenced_id
 SELECT '2020-01-01'::date,
     (SELECT id FROM public.legal_unit WHERE name = 'Apex Corp'),
     (SELECT id FROM public.legal_unit WHERE name = 'Crossroads Ltd'),
-    (SELECT id FROM public.legal_rel_type WHERE code = 'ownership'),
+    (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
     70.00, (SELECT id FROM auth.user LIMIT 1), 'Apex acquires 70% of Crossroads';
 
 SELECT worker.derive_power_groups();
@@ -310,7 +312,7 @@ BEGIN
     SELECT '2020-01-01'::date,
         (SELECT id FROM public.legal_unit WHERE name = 'Apex Research'),
         (SELECT id FROM public.legal_unit WHERE name = 'Apex Corp'),
-        (SELECT id FROM public.legal_rel_type WHERE code = 'ownership'),
+        (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
         30.00, (SELECT id FROM auth.user LIMIT 1), 'SHOULD FAIL - cycle';
     RAISE EXCEPTION 'TEST FAILURE: Circular ownership was allowed!';
 EXCEPTION
@@ -333,7 +335,7 @@ BEGIN
     SELECT id INTO _foxtrot_id FROM public.legal_unit WHERE name = 'Foxtrot Corp' LIMIT 1;
     INSERT INTO public.legal_relationship (valid_from, influencing_id, influenced_id, type_id, percentage, edit_by_user_id, edit_comment)
     VALUES ('2020-01-01'::date, _foxtrot_id, _foxtrot_id,
-        (SELECT id FROM public.legal_rel_type WHERE code = 'ownership'),
+        (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
         100.00, (SELECT id FROM auth.user LIMIT 1), 'SHOULD FAIL - self-reference');
     RAISE EXCEPTION 'TEST FAILURE: Self-reference was allowed!';
 EXCEPTION
@@ -433,15 +435,15 @@ BEGIN
         RAISE EXCEPTION 'Import definition "legal_relationship_source_dates" not found.';
     END IF;
     INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
-    VALUES (v_definition_id, 'import_120_round1', 'Test 120: Relationships Round 1', 'Round 1 ownership relationships', 'Test 120 Round 1');
+    VALUES (v_definition_id, 'import_120_round1', 'Test 120: Relationships Round 1', 'Round 1 parent_company relationships', 'Test 120 Round 1');
 END $$;
 
 -- Upload Round 1 relationship data (4 relationships, 2 clusters)
 INSERT INTO public.import_120_round1_upload(valid_from, valid_to, influencing_tax_ident, influenced_tax_ident, rel_type_code, percentage) VALUES
-    ('2023-01-01', 'infinity', '300000001', '300000002', 'ownership', '80'),
-    ('2023-01-01', 'infinity', '300000001', '300000003', 'ownership', '60'),
-    ('2023-01-01', 'infinity', '300000004', '300000005', 'ownership', '55'),
-    ('2023-01-01', 'infinity', '300000004', '300000006', 'ownership', '70');
+    ('2023-01-01', 'infinity', '300000001', '300000002', 'parent_company', '80'),
+    ('2023-01-01', 'infinity', '300000001', '300000003', 'parent_company', '60'),
+    ('2023-01-01', 'infinity', '300000004', '300000005', 'parent_company', '55'),
+    ('2023-01-01', 'infinity', '300000004', '300000006', 'parent_company', '70');
 
 -- Process the import
 CALL worker.process_tasks(p_queue => 'import');
@@ -522,18 +524,18 @@ BEGIN
 END $$;
 
 -- Upload Round 2 relationship data:
---   300000001→300000002: unchanged (80%, ownership)
---   300000001→300000003: changed to control type (not primary_influencer_only)
---   300000004→300000005: unchanged (55%, ownership)
---   300000004→300000006: unchanged (70%, ownership)
---   300000007→300000008: NEW group (51%, ownership)
+--   300000001→300000002: unchanged (80%, parent_company)
+--   300000001→300000003: changed to co_ownership type (not primary_influencer_only)
+--   300000004→300000005: unchanged (55%, parent_company)
+--   300000004→300000006: unchanged (70%, parent_company)
+--   300000007→300000008: NEW group (51%, parent_company)
 -- Note: same valid_from as Round 1 so import matches existing rows for update
 INSERT INTO public.import_120_round2_upload(valid_from, valid_to, influencing_tax_ident, influenced_tax_ident, rel_type_code, percentage) VALUES
-    ('2023-01-01', 'infinity', '300000001', '300000002', 'ownership', '80'),
-    ('2023-01-01', 'infinity', '300000001', '300000003', 'control', '30'),
-    ('2023-01-01', 'infinity', '300000004', '300000005', 'ownership', '55'),
-    ('2023-01-01', 'infinity', '300000004', '300000006', 'ownership', '70'),
-    ('2023-01-01', 'infinity', '300000007', '300000008', 'ownership', '51');
+    ('2023-01-01', 'infinity', '300000001', '300000002', 'parent_company', '80'),
+    ('2023-01-01', 'infinity', '300000001', '300000003', 'co_ownership', '30'),
+    ('2023-01-01', 'infinity', '300000004', '300000005', 'parent_company', '55'),
+    ('2023-01-01', 'infinity', '300000004', '300000006', 'parent_company', '70'),
+    ('2023-01-01', 'infinity', '300000007', '300000008', 'parent_company', '51');
 
 -- Process the import
 CALL worker.process_tasks(p_queue => 'import');

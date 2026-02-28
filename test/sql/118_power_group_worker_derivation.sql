@@ -3,7 +3,7 @@ BEGIN;
 \i test/setup.sql
 
 \echo "=== Power Group Worker Derivation Test ==="
-\echo "Testing automated derivation of power groups from ownership relationships"
+\echo "Testing automated derivation of power groups from parent_company relationships"
 
 -- Reset the power_group sequence to ensure consistent test results
 ALTER SEQUENCE public.power_group_ident_seq RESTART WITH 1;
@@ -14,14 +14,16 @@ CALL test.set_user_from_email('test.admin@statbus.org');
 -- Load base configuration (regions, activity categories, status codes, etc.)
 \i samples/norway/getting-started.sql
 
--- Load seed data for legal_rel_type if not present
+-- Seed test relationship types
+-- parent_company: structurally 1:1 (a subsidiary has at most one parent) → TRUE
+-- co_ownership: structurally 1:N (multiple co-owners per entity) → FALSE
 INSERT INTO public.legal_rel_type (code, name, description, primary_influencer_only, enabled, custom)
-SELECT 'ownership', 'Ownership', 'Direct share ownership percentage', TRUE, true, false
-WHERE NOT EXISTS (SELECT 1 FROM public.legal_rel_type WHERE code = 'ownership');
+SELECT 'parent_company', 'Parent Company', 'Parent-subsidiary relationship (structurally 1:1 per subsidiary)', TRUE, true, false
+WHERE NOT EXISTS (SELECT 1 FROM public.legal_rel_type WHERE code = 'parent_company');
 
 INSERT INTO public.legal_rel_type (code, name, description, primary_influencer_only, enabled, custom)
-SELECT 'control', 'Control', 'Controlling interest (may differ from ownership via voting rights or agreements)', FALSE, true, false
-WHERE NOT EXISTS (SELECT 1 FROM public.legal_rel_type WHERE code = 'control');
+SELECT 'co_ownership', 'Co-ownership', 'Shared ownership (multiple co-owners per entity)', FALSE, true, false
+WHERE NOT EXISTS (SELECT 1 FROM public.legal_rel_type WHERE code = 'co_ownership');
 
 -- ============================================================================
 \echo "=== Section 1: Verify Worker Infrastructure ==="
@@ -52,7 +54,7 @@ INSERT INTO public.enterprise (short_name, edit_by_user_id, edit_comment)
 SELECT 'PW' || n, (SELECT id FROM auth.user LIMIT 1), 'Power test enterprise ' || n
 FROM generate_series(1, 6) AS n;
 
-\echo "Create legal units with hierarchical ownership structure"
+\echo "Create legal units with hierarchical parent-subsidiary structure"
 -- Parent company (will be root of power group)
 INSERT INTO public.legal_unit (
     valid_from, name, enterprise_id, primary_for_enterprise, 
@@ -139,7 +141,7 @@ FROM worker.tasks
 WHERE command = 'derive_power_groups'
 GROUP BY command, state;
 
-\echo "Create ownership: Holdings owns 60% of Manufacturing"
+\echo "Create parent_company: Holdings is parent of Manufacturing (60%)"
 INSERT INTO public.legal_relationship (
     valid_from, 
     influencing_id, 
@@ -153,12 +155,12 @@ SELECT
     '2020-01-01'::date,
     (SELECT id FROM public.legal_unit WHERE name = 'PowerTest Holdings Corp' LIMIT 1),
     (SELECT id FROM public.legal_unit WHERE name = 'PowerTest Manufacturing Ltd' LIMIT 1),
-    (SELECT id FROM public.legal_rel_type WHERE code = 'ownership'),
+    (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
     60.00,
     (SELECT id FROM auth.user LIMIT 1),
     'Holdings owns 60% of Manufacturing';
 
-\echo "Create ownership: Holdings owns 51% of Services"
+\echo "Create parent_company: Holdings is parent of Services (51%)"
 INSERT INTO public.legal_relationship (
     valid_from, 
     influencing_id, 
@@ -172,12 +174,12 @@ SELECT
     '2020-01-01'::date,
     (SELECT id FROM public.legal_unit WHERE name = 'PowerTest Holdings Corp' LIMIT 1),
     (SELECT id FROM public.legal_unit WHERE name = 'PowerTest Services Inc' LIMIT 1),
-    (SELECT id FROM public.legal_rel_type WHERE code = 'ownership'),
+    (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
     51.00,
     (SELECT id FROM auth.user LIMIT 1),
     'Holdings owns 51% of Services';
 
-\echo "Create ownership: Manufacturing owns 75% of Components"
+\echo "Create parent_company: Manufacturing is parent of Components (75%)"
 INSERT INTO public.legal_relationship (
     valid_from, 
     influencing_id, 
@@ -191,7 +193,7 @@ SELECT
     '2020-01-01'::date,
     (SELECT id FROM public.legal_unit WHERE name = 'PowerTest Manufacturing Ltd' LIMIT 1),
     (SELECT id FROM public.legal_unit WHERE name = 'PowerTest Components GmbH' LIMIT 1),
-    (SELECT id FROM public.legal_rel_type WHERE code = 'ownership'),
+    (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
     75.00,
     (SELECT id FROM auth.user LIMIT 1),
     'Manufacturing owns 75% of Components';
@@ -344,7 +346,7 @@ SELECT
     (SELECT id FROM auth.user LIMIT 1),
     'Minor investor company';
 
-\echo "Create non-primary-influencer relationship: MinorInvestor has control type over Independent"
+\echo "Create non-primary-influencer relationship: MinorInvestor co-owns Independent"
 INSERT INTO public.legal_relationship (
     valid_from,
     influencing_id,
@@ -358,10 +360,10 @@ SELECT
     '2020-01-01'::date,
     (SELECT id FROM public.legal_unit WHERE name = 'PowerTest MinorInvestor Corp' LIMIT 1),
     (SELECT id FROM public.legal_unit WHERE name = 'PowerTest Independent LLC' LIMIT 1),
-    (SELECT id FROM public.legal_rel_type WHERE code = 'control'),
-    30.00,  -- control type has primary_influencer_only = FALSE, so not in power group
+    (SELECT id FROM public.legal_rel_type WHERE code = 'co_ownership'),
+    30.00,  -- co_ownership type has primary_influencer_only = FALSE, so not in power group
     (SELECT id FROM auth.user LIMIT 1),
-    'MinorInvestor has control relationship (not primary_influencer_only)';
+    'MinorInvestor co-owns Independent (not primary_influencer_only)';
 
 \echo "Re-run derive_power_groups"
 SELECT worker.derive_power_groups();

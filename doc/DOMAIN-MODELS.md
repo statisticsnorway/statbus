@@ -24,7 +24,7 @@ STATBUS organizes data into distinct domains based on what we **observe** versus
 ### Relationships
 
 - **Legal Unit → Enterprise**: Every LU belongs to exactly one EN (always)
-- **Legal Relationship → Power Group**: Each controlling relationship (≥50%) belongs to a PG
+- **Legal Relationship → Power Group**: Each `primary_influencer_only` relationship belongs to a PG
 - **Legal Relationship → Legal Unit**: Tracks ownership/control between LUs (`influencing_id` owns/controls `influenced_id`)
 - **Establishment → Legal Unit**: Every ES belongs to exactly one LU
 
@@ -36,8 +36,9 @@ Note: Power group membership of a Legal Unit is derived through `legal_relations
 - `legal_unit` - A legally registered entity (company, organization)
 - `legal_relationship` - Ownership/control relationship between two legal units
   - `influencing_id` → `influenced_id` (influencer owns/controls influenced)
-  - `percentage` - ownership/control percentage (≥50% = controlling interest)
-  - `power_group_id` - assigned by worker when relationship forms a controlling cluster
+  - `percentage` - ownership/control percentage (optional, informational)
+  - `primary_influencer_only` - denormalized from `legal_rel_type`; TRUE types form power groups
+  - `power_group_id` - assigned by worker when relationship forms a primary-influencer cluster
 
 **Physical Domain** (observed, temporal):
 - `establishment` - A physical location where economic activity occurs
@@ -46,7 +47,7 @@ Note: Power group membership of a Legal Unit is derived through `legal_relations
 - `enterprise` - The smallest combination of legal units that is an organizational unit producing goods or services
 
 **Political Domain** (derived, non-temporal):
-- `power_group` - A hierarchy of legal units connected by controlling ownership (≥50%)
+- `power_group` - A hierarchy of legal units connected by `primary_influencer_only` relationships
 - Power groups are **TIMELESS** - once created, they exist forever as a registry entry
 - Active status is **derived** at query time from `legal_relationship.valid_range`
 - The `power_group_id` lives on `legal_relationship`, not `legal_unit`

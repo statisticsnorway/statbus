@@ -9,6 +9,8 @@ BEGIN;
 "=== Test 119: Legal Relationship Import and Power Group Derivation ==="
 \echo "Tests the complete flow: import LUs -> import relationships -> derive power groups"
 "Tests the complete flow: import LUs -> import relationships -> derive power groups"
+\echo "Uses mixed BRREG types: HFOR (primary_influencer_only=TRUE) and DTPR (FALSE)"
+"Uses mixed BRREG types: HFOR (primary_influencer_only=TRUE) and DTPR (FALSE)"
 -- Reset sequences for deterministic output
 ALTER SEQUENCE public.power_group_ident_seq RESTART WITH 1;
 -- A Super User configures statbus.
@@ -35,13 +37,15 @@ DO UPDATE SET
 \copy public.legal_form_custom_only FROM 'samples/norway/legal_form/legal_form_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 \i samples/norway/data_source/data_source_norway.sql
 \copy public.data_source_custom (code, name) FROM 'samples/norway/data_source/data_source_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
--- Load seed data for legal_rel_type
+-- Seed BRREG relationship types (real Norwegian roller codes)
+-- HFOR: Hovedforetak (parent company), structurally 1:1 → TRUE
+-- DTPR: Deltaker med proratarisk ansvar (partner, pro-rata), 1:N → FALSE
 INSERT INTO public.legal_rel_type (code, name, description, primary_influencer_only, enabled, custom)
-SELECT 'ownership', 'Ownership', 'Direct share ownership percentage', TRUE, true, false
-WHERE NOT EXISTS (SELECT 1 FROM public.legal_rel_type WHERE code = 'ownership');
+SELECT 'HFOR', 'Hovedforetak', 'Main enterprise / parent company (structurally 1:1)', TRUE, true, false
+WHERE NOT EXISTS (SELECT 1 FROM public.legal_rel_type WHERE code = 'HFOR');
 INSERT INTO public.legal_rel_type (code, name, description, primary_influencer_only, enabled, custom)
-SELECT 'control', 'Control', 'Controlling interest (may differ from ownership via voting rights or agreements)', FALSE, true, false
-WHERE NOT EXISTS (SELECT 1 FROM public.legal_rel_type WHERE code = 'control');
+SELECT 'DTPR', 'Partner (proratarisk)', 'Partner with pro-rata liability (multiple per entity)', FALSE, true, false
+WHERE NOT EXISTS (SELECT 1 FROM public.legal_rel_type WHERE code = 'DTPR');
 -- ============================================================================
 \echo "=== Phase 1: Import Legal Units ==="
 "=== Phase 1: Import Legal Units ==="
@@ -92,8 +96,12 @@ ORDER BY ei.ident;
 (9 rows)
 
 -- ============================================================================
-\echo "=== Phase 2: Import Legal Relationships ==="
-"=== Phase 2: Import Legal Relationships ==="
+\echo "=== Phase 2: Import Mixed Legal Relationships ==="
+"=== Phase 2: Import Mixed Legal Relationships ==="
+\echo "Nordic hierarchy uses HFOR (primary_influencer_only=TRUE)"
+"Nordic hierarchy uses HFOR (primary_influencer_only=TRUE)"
+\echo "Baltic hierarchy uses DTPR (primary_influencer_only=FALSE)"
+"Baltic hierarchy uses DTPR (primary_influencer_only=FALSE)"
 -- ============================================================================
 -- Verify the legal_relationship import definition exists and is valid
 \echo "Legal relationship import definitions:"
@@ -117,7 +125,7 @@ BEGIN
     INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
     VALUES (v_definition_id, 'import_119_legal_rels', 'Test 119: Legal Relationships from Roller Data', 'Importing ownership/control relationships', 'Test 119');
 END $$;
--- Upload relationship data
+-- Upload relationship data (mixed types: HFOR for Nordic, DTPR for Baltic)
 \copy public.import_119_legal_rels_upload(valid_from, valid_to, influencing_tax_ident, influenced_tax_ident, rel_type_code, percentage) FROM 'test/data/roller_sample.csv' WITH (FORMAT csv, HEADER true);
 -- Process the relationship import
 CALL worker.process_tasks(p_queue => 'import');
@@ -146,12 +154,13 @@ ORDER BY row_id;
       8 | processed | use    | insert    | {}
 (8 rows)
 
-\echo "Verify legal relationships were created:"
-"Verify legal relationships were created:"
+\echo "Verify legal relationships were created (note mixed types):"
+"Verify legal relationships were created (note mixed types):"
 SELECT
     ei_ing.ident AS influencing_tax_ident,
     ei_ed.ident AS influenced_tax_ident,
     lrt.code AS rel_type,
+    lr.primary_influencer_only,
     lr.percentage,
     lr.valid_from,
     lr.valid_to
@@ -164,16 +173,16 @@ JOIN public.external_ident AS ei_ed ON ei_ed.legal_unit_id = lu_ed.id
 JOIN public.external_ident_type AS eit_ed ON eit_ed.id = ei_ed.type_id AND eit_ed.code = 'tax_ident'
 JOIN public.legal_rel_type AS lrt ON lrt.id = lr.type_id
 ORDER BY ei_ing.ident, ei_ed.ident;
- influencing_tax_ident | influenced_tax_ident | rel_type | percentage | valid_from | valid_to 
------------------------+----------------------+----------+------------+------------+----------
- 100000001             | 100000002            | control  |     100.00 | 2020-01-01 | infinity
- 100000001             | 100000003            | control  |     100.00 | 2020-01-01 | infinity
- 100000002             | 100000004            | control  |     100.00 | 2020-01-01 | infinity
- 100000002             | 100000005            | control  |     100.00 | 2020-01-01 | infinity
- 100000003             | 100000006            | control  |     100.00 | 2020-01-01 | infinity
- 100000003             | 100000007            | control  |     100.00 | 2020-01-01 | infinity
- 100000008             | 100000009            | control  |     100.00 | 2020-01-01 | infinity
- 100000008             | 100000010            | control  |     100.00 | 2020-01-01 | infinity
+ influencing_tax_ident | influenced_tax_ident | rel_type | primary_influencer_only | percentage | valid_from | valid_to 
+-----------------------+----------------------+----------+-------------------------+------------+------------+----------
+ 100000001             | 100000002            | HFOR     | t                       |     100.00 | 2020-01-01 | infinity
+ 100000001             | 100000003            | HFOR     | t                       |     100.00 | 2020-01-01 | infinity
+ 100000002             | 100000004            | HFOR     | t                       |     100.00 | 2020-01-01 | infinity
+ 100000002             | 100000005            | HFOR     | t                       |     100.00 | 2020-01-01 | infinity
+ 100000003             | 100000006            | HFOR     | t                       |     100.00 | 2020-01-01 | infinity
+ 100000003             | 100000007            | HFOR     | t                       |     100.00 | 2020-01-01 | infinity
+ 100000008             | 100000009            | DTPR     | f                       |     100.00 | 2020-01-01 | infinity
+ 100000008             | 100000010            | DTPR     | f                       |     100.00 | 2020-01-01 | infinity
 (8 rows)
 
 -- ============================================================================
@@ -187,14 +196,15 @@ SELECT worker.derive_power_groups();
  
 (1 row)
 
-\echo "Power groups created:"
-"Power groups created:"
+\echo "Power groups created (only from HFOR/primary_influencer_only=TRUE):"
+"Power groups created (only from HFOR/primary_influencer_only=TRUE):"
 SELECT pg.ident, pg.name
 FROM public.power_group AS pg
 ORDER BY pg.ident;
- ident | name 
--------+------
-(0 rows)
+ ident  | name 
+--------+------
+ PG0001 | 
+(1 row)
 
 \echo "Power group membership (which LUs belong to which group):"
 "Power group membership (which LUs belong to which group):"
@@ -207,9 +217,16 @@ JOIN public.legal_unit AS lu ON lu.id = pgm.legal_unit_id
 JOIN public.external_ident AS ei ON ei.legal_unit_id = lu.id
 JOIN public.external_ident_type AS eit ON eit.id = ei.type_id AND eit.code = 'tax_ident'
 ORDER BY pgm.power_group_ident, ei.ident;
- power_group_ident | tax_ident | legal_unit_name 
--------------------+-----------+-----------------
-(0 rows)
+ power_group_ident | tax_ident |   legal_unit_name   
+-------------------+-----------+---------------------
+ PG0001            | 100000001 | Nordic Holdings ASA
+ PG0001            | 100000002 | Nordic Energy AS
+ PG0001            | 100000003 | Nordic Maritime AS
+ PG0001            | 100000004 | Nordic Wind AS
+ PG0001            | 100000005 | Nordic Solar AS
+ PG0001            | 100000006 | Nordic Shipping AS
+ PG0001            | 100000007 | Nordic Logistics AS
+(7 rows)
 
 \echo "Legal relationship clusters (connected components by root LU):"
 "Legal relationship clusters (connected components by root LU):"
@@ -223,7 +240,8 @@ GROUP BY ei_root.ident
 ORDER BY ei_root.ident;
  root_tax_ident | relationship_count 
 ----------------+--------------------
-(0 rows)
+ 100000001      |                  6
+(1 row)
 
 \echo "Legal relationships with power_group_id assigned:"
 "Legal relationships with power_group_id assigned:"
@@ -231,7 +249,7 @@ SELECT
     ei_ing.ident AS influencing,
     ei_ed.ident AS influenced,
     lrt.code AS rel_type,
-    lr.percentage,
+    lr.primary_influencer_only,
     pg.ident AS power_group_ident
 FROM public.legal_relationship AS lr
 JOIN public.legal_unit AS lu_ing ON lu_ing.id = lr.influencing_id
@@ -243,30 +261,30 @@ JOIN public.external_ident_type AS eit_ed ON eit_ed.id = ei_ed.type_id AND eit_e
 JOIN public.legal_rel_type AS lrt ON lrt.id = lr.type_id
 LEFT JOIN public.power_group AS pg ON pg.id = lr.power_group_id
 ORDER BY ei_ing.ident, ei_ed.ident;
- influencing | influenced | rel_type | percentage | power_group_ident 
--------------+------------+----------+------------+-------------------
- 100000001   | 100000002  | control  |     100.00 | 
- 100000001   | 100000003  | control  |     100.00 | 
- 100000002   | 100000004  | control  |     100.00 | 
- 100000002   | 100000005  | control  |     100.00 | 
- 100000003   | 100000006  | control  |     100.00 | 
- 100000003   | 100000007  | control  |     100.00 | 
- 100000008   | 100000009  | control  |     100.00 | 
- 100000008   | 100000010  | control  |     100.00 | 
+ influencing | influenced | rel_type | primary_influencer_only | power_group_ident 
+-------------+------------+----------+-------------------------+-------------------
+ 100000001   | 100000002  | HFOR     | t                       | PG0001
+ 100000001   | 100000003  | HFOR     | t                       | PG0001
+ 100000002   | 100000004  | HFOR     | t                       | PG0001
+ 100000002   | 100000005  | HFOR     | t                       | PG0001
+ 100000003   | 100000006  | HFOR     | t                       | PG0001
+ 100000003   | 100000007  | HFOR     | t                       | PG0001
+ 100000008   | 100000009  | DTPR     | f                       | 
+ 100000008   | 100000010  | DTPR     | f                       | 
 (8 rows)
 
-\echo "=== Expected Results ==="
-"=== Expected Results ==="
-\echo "Two power groups should exist:"
-"Two power groups should exist:"
-\echo "  - Group 1: 100000001-100000007 (Nordic Holdings hierarchy)"
-"  - Group 1: 100000001-100000007 (Nordic Holdings hierarchy)"
-\echo "  - Group 2: 100000008-100000010 (Baltic Holdings hierarchy)"
-"  - Group 2: 100000008-100000010 (Baltic Holdings hierarchy)"
+-- ============================================================================
+\echo "=== Phase 4: Summary ==="
+"=== Phase 4: Summary ==="
+-- ============================================================================
+\echo "Nordic hierarchy (HFOR, primary_influencer_only=TRUE) forms PG0001"
+"Nordic hierarchy (HFOR, primary_influencer_only=TRUE) forms PG0001"
+\echo "Baltic hierarchy (DTPR, primary_influencer_only=FALSE) has no power group"
+"Baltic hierarchy (DTPR, primary_influencer_only=FALSE) has no power group"
 SELECT COUNT(*) AS total_power_groups FROM public.power_group;
  total_power_groups 
 --------------------
-                  0
+                  1
 (1 row)
 
 SELECT COUNT(*) AS total_relationships FROM public.legal_relationship;
@@ -278,7 +296,7 @@ SELECT COUNT(*) AS total_relationships FROM public.legal_relationship;
 SELECT COUNT(*) AS total_memberships FROM public.power_group_membership;
  total_memberships 
 -------------------
-                 0
+                 7
 (1 row)
 
 ROLLBACK;

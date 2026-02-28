@@ -4,6 +4,7 @@ BEGIN;
 
 \echo "=== Test 119: Legal Relationship Import and Power Group Derivation ==="
 \echo "Tests the complete flow: import LUs -> import relationships -> derive power groups"
+\echo "Uses mixed BRREG types: HFOR (primary_influencer_only=TRUE) and DTPR (FALSE)"
 
 -- Reset sequences for deterministic output
 ALTER SEQUENCE public.power_group_ident_seq RESTART WITH 1;
@@ -14,14 +15,16 @@ CALL test.set_user_from_email('test.admin@statbus.org');
 -- Load base configuration
 \i samples/norway/getting-started.sql
 
--- Load seed data for legal_rel_type
+-- Seed BRREG relationship types (real Norwegian roller codes)
+-- HFOR: Hovedforetak (parent company), structurally 1:1 → TRUE
+-- DTPR: Deltaker med proratarisk ansvar (partner, pro-rata), 1:N → FALSE
 INSERT INTO public.legal_rel_type (code, name, description, primary_influencer_only, enabled, custom)
-SELECT 'ownership', 'Ownership', 'Direct share ownership percentage', TRUE, true, false
-WHERE NOT EXISTS (SELECT 1 FROM public.legal_rel_type WHERE code = 'ownership');
+SELECT 'HFOR', 'Hovedforetak', 'Main enterprise / parent company (structurally 1:1)', TRUE, true, false
+WHERE NOT EXISTS (SELECT 1 FROM public.legal_rel_type WHERE code = 'HFOR');
 
 INSERT INTO public.legal_rel_type (code, name, description, primary_influencer_only, enabled, custom)
-SELECT 'control', 'Control', 'Controlling interest (may differ from ownership via voting rights or agreements)', FALSE, true, false
-WHERE NOT EXISTS (SELECT 1 FROM public.legal_rel_type WHERE code = 'control');
+SELECT 'DTPR', 'Partner (proratarisk)', 'Partner with pro-rata liability (multiple per entity)', FALSE, true, false
+WHERE NOT EXISTS (SELECT 1 FROM public.legal_rel_type WHERE code = 'DTPR');
 
 -- ============================================================================
 \echo "=== Phase 1: Import Legal Units ==="
@@ -58,7 +61,9 @@ WHERE ei.ident LIKE '10000000%'
 ORDER BY ei.ident;
 
 -- ============================================================================
-\echo "=== Phase 2: Import Legal Relationships ==="
+\echo "=== Phase 2: Import Mixed Legal Relationships ==="
+\echo "Nordic hierarchy uses HFOR (primary_influencer_only=TRUE)"
+\echo "Baltic hierarchy uses DTPR (primary_influencer_only=FALSE)"
 -- ============================================================================
 
 -- Verify the legal_relationship import definition exists and is valid
@@ -78,7 +83,7 @@ BEGIN
     VALUES (v_definition_id, 'import_119_legal_rels', 'Test 119: Legal Relationships from Roller Data', 'Importing ownership/control relationships', 'Test 119');
 END $$;
 
--- Upload relationship data
+-- Upload relationship data (mixed types: HFOR for Nordic, DTPR for Baltic)
 \copy public.import_119_legal_rels_upload(valid_from, valid_to, influencing_tax_ident, influenced_tax_ident, rel_type_code, percentage) FROM 'test/data/roller_sample.csv' WITH (FORMAT csv, HEADER true);
 
 -- Process the relationship import
@@ -92,11 +97,12 @@ SELECT row_id, state, action, operation, errors
 FROM public.import_119_legal_rels_data
 ORDER BY row_id;
 
-\echo "Verify legal relationships were created:"
+\echo "Verify legal relationships were created (note mixed types):"
 SELECT
     ei_ing.ident AS influencing_tax_ident,
     ei_ed.ident AS influenced_tax_ident,
     lrt.code AS rel_type,
+    lr.primary_influencer_only,
     lr.percentage,
     lr.valid_from,
     lr.valid_to
@@ -117,7 +123,7 @@ ORDER BY ei_ing.ident, ei_ed.ident;
 -- Derive power groups directly (skipping full analytics pipeline for speed)
 SELECT worker.derive_power_groups();
 
-\echo "Power groups created:"
+\echo "Power groups created (only from HFOR/primary_influencer_only=TRUE):"
 SELECT pg.ident, pg.name
 FROM public.power_group AS pg
 ORDER BY pg.ident;
@@ -148,7 +154,7 @@ SELECT
     ei_ing.ident AS influencing,
     ei_ed.ident AS influenced,
     lrt.code AS rel_type,
-    lr.percentage,
+    lr.primary_influencer_only,
     pg.ident AS power_group_ident
 FROM public.legal_relationship AS lr
 JOIN public.legal_unit AS lu_ing ON lu_ing.id = lr.influencing_id
@@ -161,10 +167,11 @@ JOIN public.legal_rel_type AS lrt ON lrt.id = lr.type_id
 LEFT JOIN public.power_group AS pg ON pg.id = lr.power_group_id
 ORDER BY ei_ing.ident, ei_ed.ident;
 
-\echo "=== Expected Results ==="
-\echo "Two power groups should exist:"
-\echo "  - Group 1: 100000001-100000007 (Nordic Holdings hierarchy)"
-\echo "  - Group 2: 100000008-100000010 (Baltic Holdings hierarchy)"
+-- ============================================================================
+\echo "=== Phase 4: Summary ==="
+-- ============================================================================
+\echo "Nordic hierarchy (HFOR, primary_influencer_only=TRUE) forms PG0001"
+\echo "Baltic hierarchy (DTPR, primary_influencer_only=FALSE) has no power group"
 
 SELECT COUNT(*) AS total_power_groups FROM public.power_group;
 SELECT COUNT(*) AS total_relationships FROM public.legal_relationship;
