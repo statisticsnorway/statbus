@@ -250,6 +250,13 @@ export function CommandPalette() {
               <span>Upload Establishments Without Legal Unit</span>
             </CommandItem>
             <CommandItem
+              onSelect={() => navigate("/import/legal-relationships")}
+              value="Upload Legal Relationships Power Groups"
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              <span>Upload Legal Relationships</span>
+            </CommandItem>
+            <CommandItem
               onSelect={() => navigate("/import/jobs")}
               value="Import Jobs"
             >

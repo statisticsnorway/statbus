@@ -11,8 +11,8 @@ import TimeContextSelector from "@/components/time-context-selector";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useAuth, isAuthenticatedStrictAtom, currentUserAtom } from "@/atoms/auth";
 import { useBaseData } from "@/atoms/base-data";
-import { useWorkerStatus, COMMAND_LABELS, type ImportStatus, type ImportJobProgress, type PhaseStatus } from "@/atoms/worker_status";
-import { useState } from "react";
+import { useWorkerStatus, usePipelineStepWeights, COMMAND_LABELS, type ImportStatus, type ImportJobProgress, type PhaseStatus, type PipelineStepWeight } from "@/atoms/worker_status";
+import { useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useAtomValue } from "jotai";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -53,34 +53,17 @@ function computeImportProgress(jobs: ImportStatus['jobs']): number | null {
   return Math.round(total / jobs.length);
 }
 
-// Step weights derived from production wall-clock times (no.statbus.org, 2026-02-24).
-// Dataset: 1.1M legal units + 826K establishments, analytics_partition_count=128.
-//
-// Phase 1 -- Statistical Units (total ~163 min):
-//   derive_statistical_unit:        8,414s wall (2394 children / 4 fibers) -> 86%
-//   statistical_unit_flush_staging: 1,355s (serial, duration_ms)           -> 14%
-//
-const PHASE1_STEP_WEIGHTS = [
-  { step: 'derive_statistical_unit', weight: 86 },
-  { step: 'statistical_unit_flush_staging', weight: 14 },
-];
-
-// Phase 2 -- Reports (total ~28 min per iteration):
-//   derive_reports:                    12s (serial, enqueues children)         ->  1%
-//   derive_statistical_history:        35s wall (384 period children / 4)      ->  2%
-//   derive_statistical_unit_facet:     27s wall (128 partition children / 4)   ->  2%
-//   statistical_unit_facet_reduce:     51s (serial, merges partitions)         ->  3%
-//   derive_statistical_history_facet: 1,401s wall (384 period children / 4)   -> 84%
-//   statistical_history_facet_reduce:  149s (serial, merges partitions)        ->  9%
-//
-const PHASE2_STEP_WEIGHTS = [
-  { step: 'derive_reports', weight: 1 },
-  { step: 'derive_statistical_history', weight: 2 },
-  { step: 'derive_statistical_unit_facet', weight: 2 },
-  { step: 'statistical_unit_facet_reduce', weight: 3 },
-  { step: 'derive_statistical_history_facet', weight: 84 },
-  { step: 'statistical_history_facet_reduce', weight: 9 },
-];
+/**
+ * Extract step weights for a specific phase from the database-loaded weights.
+ */
+function weightsForPhase(
+  allWeights: PipelineStepWeight[],
+  phase: string,
+): { step: string; weight: number }[] {
+  return allWeights
+    .filter(w => w.phase === phase)
+    .map(({ step, weight }) => ({ step, weight }));
+}
 
 /**
  * Compute weighted progress for a phase using the current step from the phase row.
@@ -167,6 +150,8 @@ function UnitCountSummary({ phase }: { phase: PhaseStatus }) {
     parts.push(`~${phase.affected_legal_unit_count.toLocaleString()} legal units`);
   if (phase.affected_enterprise_count)
     parts.push(`~${phase.affected_enterprise_count.toLocaleString()} enterprises`);
+  if (phase.affected_power_group_count)
+    parts.push(`~${phase.affected_power_group_count.toLocaleString()} power groups`);
   if (parts.length === 0) return null;
   return (
     <p className="text-sm text-gray-600 font-medium">
@@ -280,6 +265,9 @@ export default function Navbar() {
   const { hasStatisticalUnits } = useBaseData();
   const workerStatus = useWorkerStatus();
   const { isImporting, isDerivingUnits, isDerivingReports, importing, derivingUnits, derivingReports } = workerStatus;
+  const allWeights = usePipelineStepWeights();
+  const phase1Weights = useMemo(() => weightsForPhase(allWeights, 'is_deriving_statistical_units'), [allWeights]);
+  const phase2Weights = useMemo(() => weightsForPhase(allWeights, 'is_deriving_reports'), [allWeights]);
   const pathname = usePathname();
 
   const [isClient, setIsClient] = useState(false);
@@ -313,8 +301,8 @@ export default function Navbar() {
 
   // Compute progress percentages
   const importPct = importing ? computeImportProgress(importing.jobs) : null;
-  const unitsPct = derivingUnits ? computeWeightedPhaseProgress(derivingUnits, PHASE1_STEP_WEIGHTS) : null;
-  const reportsPct = derivingReports ? computeWeightedPhaseProgress(derivingReports, PHASE2_STEP_WEIGHTS) : null;
+  const unitsPct = derivingUnits ? computeWeightedPhaseProgress(derivingUnits, phase1Weights) : null;
+  const reportsPct = derivingReports ? computeWeightedPhaseProgress(derivingReports, phase2Weights) : null;
 
   return (
     <header className="bg-ssb-dark text-white">
@@ -360,7 +348,7 @@ export default function Navbar() {
                     progressPct={unitsPct}
                     popoverContent={isDerivingUnits
                       ? (derivingUnits?.active
-                        ? <PhaseProgressPopover phase={derivingUnits} stepWeights={PHASE1_STEP_WEIGHTS} />
+                        ? <PhaseProgressPopover phase={derivingUnits} stepWeights={phase1Weights} />
                         : <p className="text-sm text-gray-500">Deriving statistical units...</p>)
                       : null}
                   />
@@ -374,7 +362,7 @@ export default function Navbar() {
                     progressPct={reportsPct}
                     popoverContent={isDerivingReports
                       ? (derivingReports?.active
-                        ? <PhaseProgressPopover phase={derivingReports} stepWeights={PHASE2_STEP_WEIGHTS} />
+                        ? <PhaseProgressPopover phase={derivingReports} stepWeights={phase2Weights} />
                         : <p className="text-sm text-gray-500">Deriving reports...</p>)
                       : null}
                   />

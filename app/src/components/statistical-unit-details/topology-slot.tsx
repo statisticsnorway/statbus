@@ -10,7 +10,7 @@ interface TopologySlotProps {
     | "establishment"
     | "legal_unit"
     | "enterprise"
-    | "enterprise_group";
+    | "power_group";
 }
 
 export default function TopologySlot({ unitId, unitType }: TopologySlotProps) {

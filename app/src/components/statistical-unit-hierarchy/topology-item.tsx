@@ -23,7 +23,7 @@ interface TopologyItemProps {
     | "legal_unit"
     | "establishment"
     | "enterprise"
-    | "enterprise_group";
+    | "power_group";
   readonly id: number;
   readonly primary?: boolean;
   readonly unit: LegalUnit | Establishment;

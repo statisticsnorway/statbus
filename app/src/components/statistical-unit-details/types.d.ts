@@ -1,6 +1,6 @@
 type UnitType =
   | "enterprise"
-  | "enterprise_group"
+  | "power_group"
   | "legal_unit"
   | "establishment";
 

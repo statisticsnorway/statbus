@@ -45,7 +45,7 @@ export async function getLegalUnitById(id: string, validOn: string) {
 }
 export async function getStatisticalUnitHierarchy(
   unitId: number,
-  unitType: "enterprise" | "enterprise_group" | "legal_unit" | "establishment",
+  unitType: "enterprise" | "power_group" | "legal_unit" | "establishment",
   valiOn: string
 ): Promise<{
   hierarchy: StatisticalUnitHierarchy | null;
@@ -95,7 +95,7 @@ export async function getStatisticalUnitHierarchy(
 }
 export async function getStatisticalUnitDetails(
   unitId: number,
-  unitType: "enterprise" | "enterprise_group" | "legal_unit" | "establishment",
+  unitType: "enterprise" | "power_group" | "legal_unit" | "establishment",
   validOn: string
 ): Promise<{
   unit: StatisticalUnitDetails | null;
@@ -148,7 +148,7 @@ export async function getStatisticalUnitDetails(
 }
 export async function getStatisticalUnitStats(
   unitId: number,
-  unitType: "enterprise" | "enterprise_group" | "legal_unit" | "establishment",
+  unitType: "enterprise" | "power_group" | "legal_unit" | "establishment",
   validOn: string
 ) {
   const client = await getBrowserRestClient();
@@ -165,7 +165,7 @@ export async function getStatisticalUnitStats(
 
 export async function getStatisticalUnitHistoryHighcharts(
   unitId: number,
-  unitType: "enterprise" | "enterprise_group" | "legal_unit" | "establishment"
+  unitType: "enterprise" | "power_group" | "legal_unit" | "establishment"
 ) {
   const client = await getServerRestClient();
   try {
@@ -212,7 +212,7 @@ export async function getStatisticalUnitHistoryHighcharts(
 
 export async function getStatisticalUnitHistory(
   unitId: number,
-  unitType: "enterprise" | "enterprise_group" | "legal_unit" | "establishment"
+  unitType: "enterprise" | "power_group" | "legal_unit" | "establishment"
 ) {
   const client = await getServerRestClient();
   const { data, error } = await client

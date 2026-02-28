@@ -64,6 +64,13 @@ export default function UnitTypeFilter() {
           className: "bg-establishment-100",
           icon: <StatisticalUnitIcon type="establishment" className="w-4" />,
         },
+        {
+          label: "Power Group",
+          value: "power_group",
+          humanReadableValue: "Power Group",
+          className: "bg-power_group-100",
+          icon: <StatisticalUnitIcon type="power_group" className="w-4" />,
+        },
       ]}
       selectedValues={selected}
       onReset={reset}

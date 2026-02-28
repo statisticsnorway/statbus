@@ -15,7 +15,7 @@ interface TopologyProps {
     | "legal_unit"
     | "establishment"
     | "enterprise"
-    | "enterprise_group";
+    | "power_group";
 }
 
 export function Topology({ hierarchy, unitId, unitType }: TopologyProps) {

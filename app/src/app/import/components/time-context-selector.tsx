@@ -17,7 +17,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Spinner } from "@/components/ui/spinner";
 
 interface TimeContextSelectorProps {
-  unitType: "legal-units" | "establishments" | "establishments-without-legal-unit";
+  unitType: "legal-units" | "establishments" | "establishments-without-legal-unit" | "legal-relationships";
 }
 
 export function TimeContextSelector({ unitType }: TimeContextSelectorProps) {
