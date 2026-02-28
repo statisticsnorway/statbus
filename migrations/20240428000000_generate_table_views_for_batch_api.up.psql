@@ -14,7 +14,7 @@ SET LOCAL client_min_messages TO INFO;
 \copy public.legal_rel_type_system(code, name, description) FROM 'dbseed/legal_rel_type.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 -- Set primary_influencer_only (not supported by auto-generated _system view)
-UPDATE public.legal_rel_type SET primary_influencer_only = TRUE WHERE code = 'ownership';
-UPDATE public.legal_rel_type SET primary_influencer_only = FALSE WHERE code = 'control';
+UPDATE public.legal_rel_type SET primary_influencer_only = FALSE WHERE code = 'ownership';
+UPDATE public.legal_rel_type SET primary_influencer_only = TRUE WHERE code = 'control';
 
 END;

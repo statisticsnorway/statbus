@@ -117,10 +117,12 @@ export default function LegalRelationshipsPage() {
           <AccordionTrigger>What is a Legal Relationship?</AccordionTrigger>
           <AccordionContent>
             <p className="mb-3">
-              A <strong>Legal Relationship</strong> represents an ownership or
-              control link between two Legal Units. When one Legal Unit owns 50%
-              or more of another, they form part of a <strong>Power Group</strong>{" "}
-              (a cluster of entities under common control).
+              A <strong>Legal Relationship</strong> represents a control or
+              ownership link between two Legal Units. Relationship types marked
+              as hierarchy-forming (e.g. control) define{" "}
+              <strong>Power Groups</strong> — clusters of entities under common
+              control. Other types (e.g. ownership) record shared stakes without
+              affecting the hierarchy.
             </p>
           </AccordionContent>
         </AccordionItem>
@@ -128,9 +130,9 @@ export default function LegalRelationshipsPage() {
           <AccordionTrigger>What is a Legal Relationships file?</AccordionTrigger>
           <AccordionContent>
             <p className="mb-3">
-              A Legal Relationships file is a CSV file containing ownership links.
-              Each row specifies an influencing Legal Unit (owner), an influenced
-              Legal Unit (owned), and an ownership percentage.
+              A Legal Relationships file is a CSV file containing relationship
+              links. Each row specifies an influencing Legal Unit, an influenced
+              Legal Unit, a relationship type code, and an optional percentage.
             </p>
             <div className="flex flex-col space-y-2 pl-4">
               <a

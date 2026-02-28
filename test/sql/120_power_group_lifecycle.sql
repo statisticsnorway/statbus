@@ -496,7 +496,7 @@ JOIN public.external_ident AS ei_ed ON ei_ed.legal_unit_id = lu_ed.id
 JOIN public.external_ident_type AS eit_ed ON eit_ed.id = ei_ed.type_id AND eit_ed.code = 'tax_ident'
 LEFT JOIN public.power_group AS pg ON pg.id = lr.power_group_id
 WHERE ei_ing.ident LIKE '30000000%'
-ORDER BY ei_ing.ident, ei_ed.ident;
+ORDER BY ei_ing.ident, ei_ed.ident, lr.percentage;
 
 -- Save Round 1 PG idents for reuse verification in Phase 4
 CREATE TEMP TABLE _round1_pgs AS
@@ -596,7 +596,7 @@ JOIN public.external_ident_type AS eit_ed ON eit_ed.id = ei_ed.type_id AND eit_e
 LEFT JOIN public.power_group AS pg ON pg.id = lr.power_group_id
 WHERE ei_ing.ident LIKE '30000000%'
   AND lr.valid_range @> CURRENT_DATE
-ORDER BY ei_ing.ident, ei_ed.ident;
+ORDER BY ei_ing.ident, ei_ed.ident, lr.percentage;
 
 -- ============================================================================
 -- PHASE 5: Pipeline Integration

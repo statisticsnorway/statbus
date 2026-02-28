@@ -53,9 +53,9 @@ WHERE NOT EXISTS (SELECT 1 FROM public.legal_rel_type WHERE code = 'co_ownership
 SELECT code, name, description, primary_influencer_only FROM public.legal_rel_type ORDER BY code;
       code      |      name      |                                   description                                    | primary_influencer_only 
 ----------------+----------------+----------------------------------------------------------------------------------+-------------------------
- control        | Control        | Controlling interest (may differ from ownership via voting rights or agreements) | f
+ control        | Control        | Controlling interest (may differ from ownership via voting rights or agreements) | t
  co_ownership   | Co-ownership   | Shared ownership (multiple co-owners per entity)                                 | f
- ownership      | Ownership      | Direct share ownership percentage                                                | t
+ ownership      | Ownership      | Direct share ownership percentage                                                | f
  parent_company | Parent Company | Parent-subsidiary relationship (structurally 1:1 per subsidiary)                 | t
 (4 rows)
 
