@@ -48,12 +48,20 @@ DECLARE
     c_sections CURSOR FOR
     SELECT * FROM (VALUES
         (1, 1, 1, 'Core Statistical Units (Hierarchy)', 'The system revolves around four main statistical units, often with temporal validity (`valid_from`, `valid_after`, `valid_to`):', jsonb_build_array(
-            '{"schema": "public", "name": "enterprise_group", "short": "EG"}'::jsonb,
-            '{"schema": "public", "name": "enterprise", "short": "EN"}'::jsonb,
+            '{"schema": "public", "name": "establishment", "short": "EST"}'::jsonb,
             '{"schema": "public", "name": "legal_unit", "short": "LU"}'::jsonb,
-            '{"schema": "public", "name": "establishment", "short": "EST"}'::jsonb
+            '{"schema": "public", "name": "enterprise", "short": "EN"}'::jsonb,
+            '{"schema": "public", "name": "power_group", "short": "PG"}'::jsonb
         )),
-        (2, 1, 1, 'Common Links for Core Units (EG, EN, LU, EST)', 'These tables link to any of the four core statistical units:', jsonb_build_array(
+        (1, 1, 2, 'Legal Unit Ownership & Control', 'Tables and views for tracking ownership/control relationships between legal units:', jsonb_build_array(
+            '{"schema": "public", "name": "legal_relationship"}'::jsonb,
+            '{"schema": "public", "name": "legal_unit_power_hierarchy", "type": "VIEW"}'::jsonb,
+            '{"schema": "public", "name": "power_group_def", "type": "VIEW"}'::jsonb,
+            '{"schema": "public", "name": "legal_relationship_cluster", "type": "VIEW"}'::jsonb,
+            '{"schema": "public", "name": "power_group_active", "type": "VIEW"}'::jsonb,
+            '{"schema": "public", "name": "power_group_membership", "type": "VIEW"}'::jsonb
+        )),
+        (2, 1, 1, 'Common Links for Core Units (PG, EN, LU, EST)', 'These tables link to any of the four core statistical units:', jsonb_build_array(
             '{"schema": "public", "name": "external_ident"}'::jsonb,
             '{"schema": "public", "name": "image"}'::jsonb,
             '{"schema": "public", "name": "tag_for_unit"}'::jsonb,
@@ -86,13 +94,13 @@ DECLARE
         )),
         (3, 2, 5, 'General Code/Classification Tables', 'These tables typically store codes, names, and flags for `custom` and `enabled` status.', jsonb_build_array(
             '{"schema": "public", "name": "data_source"}'::jsonb,
-            '{"schema": "public", "name": "enterprise_group_type"}'::jsonb,
-            '{"schema": "public", "name": "enterprise_group_role"}'::jsonb,
+            '{"schema": "public", "name": "power_group_type"}'::jsonb,
             '{"schema": "public", "name": "external_ident_type"}'::jsonb,
 
             '{"schema": "public", "name": "foreign_participation"}'::jsonb,
             '{"schema": "public", "name": "legal_form"}'::jsonb,
-            '{"schema": "public", "name": "reorg_type"}'::jsonb,
+            '{"schema": "public", "name": "legal_reorg_type"}'::jsonb,
+            '{"schema": "public", "name": "legal_rel_type"}'::jsonb,
             '{"schema": "public", "name": "sector"}'::jsonb,
             '{"schema": "public", "name": "status"}'::jsonb,
             '{"schema": "public", "name": "tag"}'::jsonb,

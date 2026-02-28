@@ -84,9 +84,11 @@ SELECT slug, name, valid, validation_error FROM public.import_definition ORDER B
  establishment_without_lu_source_dates  | Establishments w/o LU (Source Dates)      | t     | 
  generic_unit_stats_update_job_provided | Unit Stats Update (Job Provided Time)     | t     | 
  generic_unit_stats_update_source_dates | Unit Stats Update (Source Dates)          | t     | 
+ legal_relationship_job_provided        | Legal Relationships (Job Provided Time)   | t     | 
+ legal_relationship_source_dates        | Legal Relationships (Source Dates)        | t     | 
  legal_unit_job_provided                | Legal Units (Job Provided Time)           | t     | 
  legal_unit_source_dates                | Legal Units (Source Dates)                | t     | 
-(8 rows)
+(10 rows)
 
 -- Create Import Job for Legal Units (Era)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)

@@ -63,8 +63,9 @@ SELECT slug, name, valid_time_from FROM public.import_definition WHERE valid_tim
  establishment_without_lu_source_dates  | Establishments w/o LU (Source Dates)  | source_columns
  generic_unit_stats_update_job_provided | Unit Stats Update (Job Provided Time) | job_provided
  generic_unit_stats_update_source_dates | Unit Stats Update (Source Dates)      | source_columns
+ legal_relationship_source_dates        | Legal Relationships (Source Dates)    | source_columns
  legal_unit_source_dates                | Legal Units (Source Dates)            | source_columns
-(5 rows)
+(6 rows)
 
 -- Create Import Job for Legal Units (Demo CSV with source dates)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)

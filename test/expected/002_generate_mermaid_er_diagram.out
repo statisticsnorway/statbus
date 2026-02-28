@@ -181,44 +181,6 @@ erDiagram
 		integer edit_by_user_id
 		timestamp_with_time_zone edit_at
 	}
-	enterprise_group["enterprise_group"] {
-		integer id
-		daterange valid_range
-		date valid_from
-		date valid_to
-		date valid_until
-		character_varying(16) short_name
-		character_varying(256) name
-		integer enterprise_group_type_id
-		text contact_person
-		character_varying(512) edit_comment
-		integer edit_by_user_id
-		timestamp_with_time_zone edit_at
-		integer unit_size_id
-		integer data_source_id
-		text reorg_references
-		timestamp_with_time_zone reorg_date
-		integer reorg_type_id
-		integer foreign_participation_id
-	}
-	enterprise_group_role["enterprise_group_role"] {
-		integer id
-		text code
-		text name
-		boolean enabled
-		boolean custom
-		timestamp_with_time_zone created_at
-		timestamp_with_time_zone updated_at
-	}
-	enterprise_group_type["enterprise_group_type"] {
-		integer id
-		text code
-		text name
-		boolean enabled
-		boolean custom
-		timestamp_with_time_zone created_at
-		timestamp_with_time_zone updated_at
-	}
 	establishment["establishment"] {
 		integer id
 		daterange valid_range
@@ -253,7 +215,7 @@ erDiagram
 		integer establishment_id
 		integer legal_unit_id
 		integer enterprise_id
-		integer enterprise_group_id
+		integer power_group_id
 		character_varying(512) edit_comment
 		integer edit_by_user_id
 		timestamp_with_time_zone edit_at
@@ -409,6 +371,44 @@ erDiagram
 		text code
 		text name
 	}
+	legal_rel_type["legal_rel_type"] {
+		integer id
+		text code
+		text name
+		text description
+		boolean primary_influencer_only
+		boolean enabled
+		boolean custom
+		timestamp_with_time_zone created_at
+		timestamp_with_time_zone updated_at
+	}
+	legal_relationship["legal_relationship"] {
+		integer id
+		integer power_group_id
+		daterange valid_range
+		date valid_from
+		date valid_to
+		date valid_until
+		integer influencing_id
+		integer influenced_id
+		integer type_id
+		integer reorg_type_id
+		boolean primary_influencer_only
+		numeric(5_2) percentage
+		character_varying(512) edit_comment
+		integer edit_by_user_id
+		timestamp_with_time_zone edit_at
+	}
+	legal_reorg_type["legal_reorg_type"] {
+		integer id
+		text code
+		text name
+		text description
+		boolean enabled
+		boolean custom
+		timestamp_with_time_zone created_at
+		timestamp_with_time_zone updated_at
+	}
 	legal_unit["legal_unit"] {
 		integer id
 		daterange valid_range
@@ -497,6 +497,29 @@ erDiagram
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
 	}
+	power_group["power_group"] {
+		integer id
+		text ident
+		character_varying(16) short_name
+		character_varying(256) name
+		integer type_id
+		text contact_person
+		integer unit_size_id
+		integer data_source_id
+		integer foreign_participation_id
+		character_varying(512) edit_comment
+		integer edit_by_user_id
+		timestamp_with_time_zone edit_at
+	}
+	power_group_type["power_group_type"] {
+		integer id
+		text code
+		text name
+		boolean enabled
+		boolean custom
+		timestamp_with_time_zone created_at
+		timestamp_with_time_zone updated_at
+	}
 	region["region"] {
 		integer id
 		ltree path
@@ -529,16 +552,6 @@ erDiagram
 		character_varying(256) name_when_input
 		relative_period_scope scope
 		boolean enabled
-	}
-	reorg_type["reorg_type"] {
-		integer id
-		text code
-		text name
-		text description
-		boolean enabled
-		boolean custom
-		timestamp_with_time_zone created_at
-		timestamp_with_time_zone updated_at
 	}
 	sector["sector"] {
 		integer id
@@ -934,7 +947,7 @@ erDiagram
 		integer establishment_id
 		integer legal_unit_id
 		integer enterprise_id
-		integer enterprise_group_id
+		integer power_group_id
 		timestamp_with_time_zone created_at
 		character_varying(512) edit_comment
 		integer edit_by_user_id
@@ -1190,6 +1203,87 @@ erDiagram
 		jsonb stats
 		jsonb stats_summary
 	}
+	timeline_power_group["timeline_power_group"] {
+		statistical_unit_type unit_type
+		integer unit_id
+		date valid_from
+		date valid_to
+		date valid_until
+		text name
+		date birth_date
+		date death_date
+		tsvector search
+		integer primary_activity_category_id
+		ltree primary_activity_category_path
+		character_varying primary_activity_category_code
+		integer secondary_activity_category_id
+		ltree secondary_activity_category_path
+		character_varying secondary_activity_category_code
+		ltree[] activity_category_paths
+		integer sector_id
+		ltree sector_path
+		character_varying sector_code
+		text sector_name
+		integer[] data_source_ids
+		text[] data_source_codes
+		integer legal_form_id
+		text legal_form_code
+		text legal_form_name
+		character_varying(200) physical_address_part1
+		character_varying(200) physical_address_part2
+		character_varying(200) physical_address_part3
+		character_varying(200) physical_postcode
+		character_varying(200) physical_postplace
+		integer physical_region_id
+		ltree physical_region_path
+		character_varying physical_region_code
+		integer physical_country_id
+		text physical_country_iso_2
+		numeric(9_6) physical_latitude
+		numeric(9_6) physical_longitude
+		numeric(6_1) physical_altitude
+		boolean domestic
+		character_varying(200) postal_address_part1
+		character_varying(200) postal_address_part2
+		character_varying(200) postal_address_part3
+		character_varying(200) postal_postcode
+		character_varying(200) postal_postplace
+		integer postal_region_id
+		ltree postal_region_path
+		character_varying postal_region_code
+		integer postal_country_id
+		text postal_country_iso_2
+		numeric(9_6) postal_latitude
+		numeric(9_6) postal_longitude
+		numeric(6_1) postal_altitude
+		character_varying(256) web_address
+		character_varying(50) email_address
+		character_varying(50) phone_number
+		character_varying(50) landline
+		character_varying(50) mobile_number
+		character_varying(50) fax_number
+		integer unit_size_id
+		text unit_size_code
+		integer status_id
+		character_varying status_code
+		boolean used_for_counting
+		character_varying(512) last_edit_comment
+		integer last_edit_by_user_id
+		timestamp_with_time_zone last_edit_at
+		boolean has_legal_unit
+		integer[] related_establishment_ids
+		integer[] excluded_establishment_ids
+		integer[] included_establishment_ids
+		integer[] related_legal_unit_ids
+		integer[] excluded_legal_unit_ids
+		integer[] included_legal_unit_ids
+		integer[] related_enterprise_ids
+		integer[] excluded_enterprise_ids
+		integer[] included_enterprise_ids
+		integer power_group_id
+		integer primary_legal_unit_id
+		jsonb stats_summary
+	}
 	timepoints["timepoints"] {
 		statistical_unit_type unit_type
 		integer unit_id
@@ -1210,7 +1304,7 @@ erDiagram
 		integer establishment_id
 		integer legal_unit_id
 		integer enterprise_id
-		integer enterprise_group_id
+		integer power_group_id
 		timestamp_with_time_zone created_at
 		character_varying(512) edit_comment
 		integer edit_by_user_id
@@ -1352,6 +1446,12 @@ erDiagram
 		integer affected_legal_unit_count
 		integer affected_enterprise_count
 		timestamp_with_time_zone updated_at
+		integer affected_power_group_count
+	}
+	worker_pipeline_step_weight["worker.pipeline_step_weight"] {
+		worker_pipeline_phase phase
+		text step
+		integer weight
 	}
 	worker_queue_registry["worker.queue_registry"] {
 		text queue
@@ -1394,12 +1494,6 @@ erDiagram
 	contact }o--|| legal_unit : contact_legal_unit_id_valid
 	contact }o--o| legal_unit : contact_legal_unit_id_valid
 	enterprise }o--|| auth_user : enterprise_edit_by_user_id_fkey
-	enterprise_group }o--|| auth_user : enterprise_group_edit_by_user_id_fkey
-	enterprise_group }o--o| data_source : enterprise_group_data_source_id_fkey
-	enterprise_group }o--o| enterprise_group_type : enterprise_group_enterprise_group_type_id_fkey
-	enterprise_group }o--o| foreign_participation : enterprise_group_foreign_participation_id_fkey
-	enterprise_group }o--o| reorg_type : enterprise_group_reorg_type_id_fkey
-	enterprise_group }o--o| unit_size : enterprise_group_unit_size_id_fkey
 	establishment }o--|| auth_user : establishment_edit_by_user_id_fkey
 	establishment }o--o| data_source : establishment_data_source_id_fkey
 	establishment }o--o| enterprise : establishment_enterprise_id_fkey
@@ -1426,6 +1520,16 @@ erDiagram
 	import_mapping }|--|| import_definition : import_mapping_definition_id_fkey
 	import_mapping }o--o| import_source_column : import_mapping_source_column_id_fkey
 	import_source_column }|--|| import_definition : import_source_column_definition_id_fkey
+	legal_relationship }o--|| auth_user : legal_relationship_edit_by_user_id_fkey
+	legal_relationship }o--|| legal_rel_type : legal_relationship_type_id_fkey
+	legal_relationship }o--|| legal_rel_type : legal_relationship_type_id_primary_influencer_only_fkey
+	legal_relationship }o--o| legal_rel_type : legal_relationship_type_id_primary_influencer_only_fkey
+	legal_relationship }o--o| legal_reorg_type : legal_relationship_reorg_type_id_fkey
+	legal_relationship }o--|| legal_unit : legal_relationship_influenced_id_valid
+	legal_relationship }o--|| legal_unit : legal_relationship_influenced_id_valid
+	legal_relationship }o--|| legal_unit : legal_relationship_influencing_id_valid
+	legal_relationship }o--|| legal_unit : legal_relationship_influencing_id_valid
+	legal_relationship }|--o| power_group : legal_relationship_power_group_id_fkey
 	legal_unit }o--|| auth_user : legal_unit_edit_by_user_id_fkey
 	legal_unit }o--o| data_source : legal_unit_data_source_id_fkey
 	legal_unit }o--|| enterprise : legal_unit_enterprise_id_fkey
@@ -1452,6 +1556,11 @@ erDiagram
 	person_for_unit }o--o| legal_unit : person_for_unit_legal_unit_id_valid
 	person_for_unit }o--|| person : person_for_unit_person_id_fkey
 	person_for_unit }o--o| person_role : person_for_unit_person_role_id_fkey
+	power_group }o--|| auth_user : power_group_edit_by_user_id_fkey
+	power_group }o--o| data_source : power_group_data_source_id_fkey
+	power_group }o--o| foreign_participation : power_group_foreign_participation_id_fkey
+	power_group }o--o| power_group_type : power_group_type_id_fkey
+	power_group }o--o| unit_size : power_group_unit_size_id_fkey
 	region }o--o| region : region_parent_id_fkey
 	region_access }|--|| auth_user : region_access_user_id_fkey
 	region_access }o--|| region : region_access_region_id_fkey
@@ -1484,6 +1593,7 @@ erDiagram
 	sql_saga_updatable_view }o--|| sql_saga_era : updatable_view_table_schema_table_name_era_name_fkey
 	sql_saga_updatable_view }o--|| sql_saga_era : updatable_view_table_schema_table_name_era_name_fkey
 	worker_command_registry }o--|| worker_queue_registry : command_registry_queue_fkey
+	worker_pipeline_step_weight }o--|| worker_command_registry : pipeline_step_weight_step_fkey
 	worker_tasks }o--|| worker_command_registry : fk_tasks_command
 	worker_tasks }o--|| worker_command_registry : tasks_command_fkey
 	worker_tasks }o--o| worker_tasks : tasks_parent_id_fkey

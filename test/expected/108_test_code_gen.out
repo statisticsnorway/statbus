@@ -175,7 +175,20 @@ SELECT * FROM import_data_column_baseline;
       18 |        4 | errors                               | JSONB                            | metadata     | f           | '{}'::jsonb   | f
       18 |        5 | merge_status                         | JSONB                            | metadata     | f           | '{}'::jsonb   | f
       18 |        6 | invalid_codes                        | JSONB                            | metadata     | f           | '{}'::jsonb   | f
-(125 rows)
+      19 |        1 | influencing_tax_ident_raw            | TEXT                             | source_input | t           |               | f
+      19 |        2 | influenced_tax_ident_raw             | TEXT                             | source_input | t           |               | f
+      19 |        3 | rel_type_code_raw                    | TEXT                             | source_input | t           |               | f
+      19 |        4 | percentage_raw                       | TEXT                             | source_input | t           |               | f
+      19 |        5 | influencing_id                       | INTEGER                          | internal     | t           |               | f
+      19 |        6 | influenced_id                        | INTEGER                          | internal     | t           |               | f
+      19 |        7 | type_id                              | INTEGER                          | internal     | t           |               | f
+      19 |        8 | percentage                           | numeric(5,2)                     | internal     | t           |               | f
+      19 |        9 | action                               | public.import_row_action_type    | internal     | t           |               | f
+      19 |       10 | operation                            | public.import_row_operation_type | internal     | t           |               | f
+      19 |       11 | legal_relationship_id                | INTEGER                          | pk_id        | t           |               | f
+      20 |          | cluster_root_legal_unit_id           | INTEGER                          | internal     | t           |               | f
+      20 |          | power_group_id                       | INTEGER                          | internal     | t           |               | f
+(138 rows)
 
 \echo "Initial import_source_column state (default definitions):"
 "Initial import_source_column state (default definitions):"
@@ -426,7 +439,17 @@ SELECT * FROM import_source_column_baseline;
              8 |        4 | stat_ident
              8 |        5 | employees
              8 |        6 | turnover
-(244 rows)
+             9 |        1 | influencing_tax_ident
+             9 |        2 | influenced_tax_ident
+             9 |        3 | rel_type_code
+             9 |        4 | percentage
+             9 |        5 | valid_from
+             9 |        6 | valid_to
+            10 |        1 | influencing_tax_ident
+            10 |        2 | influenced_tax_ident
+            10 |        3 | rel_type_code
+            10 |        4 | percentage
+(254 rows)
 
 \echo "Initial import_mapping state (default definitions):"
 "Initial import_mapping state (default definitions):"
@@ -685,7 +708,19 @@ SELECT * FROM import_mapping_baseline;
              8 | turnover                         |                   | turnover_raw                         | source_input               | f          | 
              8 | valid_from                       |                   | valid_from_raw                       | source_input               | f          | 
              8 | valid_to                         |                   | valid_to_raw                         | source_input               | f          | 
-(252 rows)
+             9 | influenced_tax_ident             |                   | influenced_tax_ident_raw             | source_input               | f          | 
+             9 | influencing_tax_ident            |                   | influencing_tax_ident_raw            | source_input               | f          | 
+             9 | percentage                       |                   | percentage_raw                       | source_input               | f          | 
+             9 | rel_type_code                    |                   | rel_type_code_raw                    | source_input               | f          | 
+             9 | valid_from                       |                   | valid_from_raw                       | source_input               | f          | 
+             9 | valid_to                         |                   | valid_to_raw                         | source_input               | f          | 
+            10 |                                  | default           | valid_from_raw                       | source_input               | f          | 
+            10 |                                  | default           | valid_to_raw                         | source_input               | f          | 
+            10 | influenced_tax_ident             |                   | influenced_tax_ident_raw             | source_input               | f          | 
+            10 | influencing_tax_ident            |                   | influencing_tax_ident_raw            | source_input               | f          | 
+            10 | percentage                       |                   | percentage_raw                       | source_input               | f          | 
+            10 | rel_type_code                    |                   | rel_type_code_raw                    | source_input               | f          | 
+(264 rows)
 
 \echo "---"
 "---"
@@ -1440,7 +1475,7 @@ NOTICE:  Created indices for stat_definition turnover
          "changed_children_count": 0+
      },                             +
      "import_definition": {         +
-         "deleted_count": 8         +
+         "deleted_count": 10        +
      },                             +
      "external_ident_type": {       +
          "deleted_count": 2         +
@@ -1723,7 +1758,17 @@ SELECT definition_id, column_name FROM import_source_column_baseline ORDER BY de
              8 | turnover
              8 | valid_from
              8 | valid_to
-(244 rows)
+             9 | influenced_tax_ident
+             9 | influencing_tax_ident
+             9 | percentage
+             9 | rel_type_code
+             9 | valid_from
+             9 | valid_to
+            10 | influenced_tax_ident
+            10 | influencing_tax_ident
+            10 | percentage
+            10 | rel_type_code
+(254 rows)
 
 \echo "Current import_source_column content after reset (ordered by column_name for comparison):"
 "Current import_source_column content after reset (ordered by column_name for comparison):"
@@ -1994,7 +2039,19 @@ ORDER BY definition_id, source_column_name, target_data_column_name;
              8 | turnover                         | turnover_raw
              8 | valid_from                       | valid_from_raw
              8 | valid_to                         | valid_to_raw
-(252 rows)
+             9 | influenced_tax_ident             | influenced_tax_ident_raw
+             9 | influencing_tax_ident            | influencing_tax_ident_raw
+             9 | percentage                       | percentage_raw
+             9 | rel_type_code                    | rel_type_code_raw
+             9 | valid_from                       | valid_from_raw
+             9 | valid_to                         | valid_to_raw
+            10 | influenced_tax_ident             | influenced_tax_ident_raw
+            10 | influencing_tax_ident            | influencing_tax_ident_raw
+            10 | percentage                       | percentage_raw
+            10 | rel_type_code                    | rel_type_code_raw
+            10 |                                  | valid_from_raw
+            10 |                                  | valid_to_raw
+(264 rows)
 
 \echo "Current import_mapping content after reset (ordered by columns for comparison):"
 "Current import_mapping content after reset (ordered by columns for comparison):"

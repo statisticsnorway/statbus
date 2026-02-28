@@ -1,0 +1,657 @@
+BEGIN;
+\i test/setup.sql
+\echo -- test/setup.sql output suppressed for cleaner test output
+-- test/setup.sql output suppressed for cleaner test output
+\set ECHO none
+\echo -- test/setup.sql done, test output follows
+-- test/setup.sql done, test output follows
+\echo "=== Power Group Fundamentals Test ==="
+"=== Power Group Fundamentals Test ==="
+\echo "Testing the core power group schema and relationships"
+"Testing the core power group schema and relationships"
+-- Reset the power_group sequence to ensure consistent test results
+ALTER SEQUENCE public.power_group_ident_seq RESTART WITH 1;
+-- A Super User configures statbus.
+CALL test.set_user_from_email('test.admin@statbus.org');
+-- Load base configuration (regions, activity categories, status codes, etc.)
+\i samples/norway/getting-started.sql
+\i samples/norway/settings.sql
+INSERT INTO settings(activity_category_standard_id,country_id)
+SELECT (SELECT id FROM activity_category_standard WHERE code = 'nace_v2.1')
+     , (SELECT id FROM public.country WHERE iso_2 = 'NO')
+ON CONFLICT (only_one_setting)
+DO UPDATE SET
+   activity_category_standard_id = EXCLUDED.activity_category_standard_id,
+   country_id = EXCLUDED.country_id
+   WHERE settings.only_one_setting = EXCLUDED.only_one_setting;
+;
+\i samples/norway/activity_category/activity_category_norway.sql
+\copy public.activity_category_available_custom FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/regions/norway-regions-2024.sql
+\copy public.region_upload(path, name) FROM 'samples/norway/regions/norway-regions-2024.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/sector/sector_norway.sql
+\copy public.sector_custom_only FROM 'samples/norway/sector/sector_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/legal_form/legal_form_norway.sql
+\copy public.legal_form_custom_only FROM 'samples/norway/legal_form/legal_form_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/data_source/data_source_norway.sql
+\copy public.data_source_custom (code, name) FROM 'samples/norway/data_source/data_source_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+-- Load seed data for legal_rel_type if not present
+INSERT INTO public.legal_rel_type (code, name, description, primary_influencer_only, enabled, custom)
+SELECT 'ownership', 'Ownership', 'Direct share ownership percentage', TRUE, true, false
+WHERE NOT EXISTS (SELECT 1 FROM public.legal_rel_type WHERE code = 'ownership');
+INSERT INTO public.legal_rel_type (code, name, description, primary_influencer_only, enabled, custom)
+SELECT 'control', 'Control', 'Controlling interest (may differ from ownership via voting rights or agreements)', FALSE, true, false
+WHERE NOT EXISTS (SELECT 1 FROM public.legal_rel_type WHERE code = 'control');
+-- ============================================================================
+\echo "=== Section 1: Verify Schema Structure ==="
+"=== Section 1: Verify Schema Structure ==="
+-- ============================================================================
+\echo "Check legal_rel_type table exists with seed data"
+"Check legal_rel_type table exists with seed data"
+SELECT code, name, description, primary_influencer_only FROM public.legal_rel_type ORDER BY code;
+   code    |   name    |                                   description                                    | primary_influencer_only 
+-----------+-----------+----------------------------------------------------------------------------------+-------------------------
+ control   | Control   | Controlling interest (may differ from ownership via voting rights or agreements) | f
+ ownership | Ownership | Direct share ownership percentage                                                | t
+(2 rows)
+
+\echo "Check power_group_type table exists (renamed from enterprise_group_type)"
+"Check power_group_type table exists (renamed from enterprise_group_type)"
+SELECT code, name FROM public.power_group_type ORDER BY code;
+ code |                 name                  
+------+---------------------------------------
+ dcm  | Domestically Controlled Multinational
+ dcn  | Domestically Controlled National
+ fcm  | Foreign Controlled Multinational
+ fcn  | Foreign Controlled National
+(4 rows)
+
+\echo "Check legal_reorg_type table exists (renamed from reorg_type)"
+"Check legal_reorg_type table exists (renamed from reorg_type)"
+SELECT code, name FROM public.legal_reorg_type ORDER BY code LIMIT 5;
+ code |     name      
+------+---------------
+ acq  | Acquisition
+ div  | Divestiture
+ mer  | Merger
+ reb  | Re-branding
+ res  | Restructuring
+(5 rows)
+
+\echo "Check legal_relationship table structure"
+"Check legal_relationship table structure"
+SELECT column_name, data_type, is_nullable
+FROM information_schema.columns 
+WHERE table_schema = 'public' 
+  AND table_name = 'legal_relationship'
+ORDER BY ordinal_position;
+       column_name       |        data_type         | is_nullable 
+-------------------------+--------------------------+-------------
+ id                      | integer                  | NO
+ power_group_id          | integer                  | YES
+ valid_range             | daterange                | NO
+ valid_from              | date                     | NO
+ valid_to                | date                     | YES
+ valid_until             | date                     | YES
+ influencing_id          | integer                  | NO
+ influenced_id           | integer                  | NO
+ type_id                 | integer                  | NO
+ reorg_type_id           | integer                  | YES
+ primary_influencer_only | boolean                  | YES
+ percentage              | numeric                  | YES
+ edit_comment            | character varying        | YES
+ edit_by_user_id         | integer                  | NO
+ edit_at                 | timestamp with time zone | NO
+(15 rows)
+
+\echo "Check power_group table structure (TIMELESS - no valid_range, no active)"
+"Check power_group table structure (TIMELESS - no valid_range, no active)"
+SELECT column_name, data_type, is_nullable
+FROM information_schema.columns 
+WHERE table_schema = 'public' 
+  AND table_name = 'power_group'
+ORDER BY ordinal_position;
+       column_name        |        data_type         | is_nullable 
+--------------------------+--------------------------+-------------
+ id                       | integer                  | NO
+ ident                    | text                     | NO
+ short_name               | character varying        | YES
+ name                     | character varying        | YES
+ type_id                  | integer                  | YES
+ contact_person           | text                     | YES
+ unit_size_id             | integer                  | YES
+ data_source_id           | integer                  | YES
+ foreign_participation_id | integer                  | YES
+ edit_comment             | character varying        | YES
+ edit_by_user_id          | integer                  | NO
+ edit_at                  | timestamp with time zone | NO
+(12 rows)
+
+\echo "Verify power_group does NOT have temporal or obsolete columns"
+"Verify power_group does NOT have temporal or obsolete columns"
+SELECT column_name 
+FROM information_schema.columns 
+WHERE table_schema = 'public' 
+  AND table_name = 'power_group' 
+  AND column_name IN ('valid_range', 'valid_from', 'valid_to', 'active', 'role_id', 'root_legal_unit_id')
+ORDER BY column_name;
+ column_name 
+-------------
+(0 rows)
+
+\echo "Verify legal_relationship HAS power_group_id"
+"Verify legal_relationship HAS power_group_id"
+SELECT column_name 
+FROM information_schema.columns 
+WHERE table_schema = 'public' 
+  AND table_name = 'legal_relationship' 
+  AND column_name = 'power_group_id'
+ORDER BY column_name;
+  column_name   
+----------------
+ power_group_id
+(1 row)
+
+\echo "Verify legal_unit does NOT have power_group_id (moved to legal_relationship)"
+"Verify legal_unit does NOT have power_group_id (moved to legal_relationship)"
+SELECT column_name 
+FROM information_schema.columns 
+WHERE table_schema = 'public' 
+  AND table_name = 'legal_unit' 
+  AND column_name = 'power_group_id'
+ORDER BY column_name;
+ column_name 
+-------------
+(0 rows)
+
+-- ============================================================================
+\echo "=== Section 2: Create Test Legal Units ==="
+"=== Section 2: Create Test Legal Units ==="
+-- ============================================================================
+\echo "Create enterprises for our test legal units"
+"Create enterprises for our test legal units"
+INSERT INTO public.enterprise (short_name, edit_by_user_id, edit_comment)
+SELECT 'E' || n, (SELECT id FROM auth.user LIMIT 1), 'Test enterprise ' || n
+FROM generate_series(1, 5) AS n;
+\echo "Create legal units with hierarchical ownership structure"
+"Create legal units with hierarchical ownership structure"
+-- Parent company (will be root of power group)
+INSERT INTO public.legal_unit (
+    valid_from, name, enterprise_id, primary_for_enterprise, 
+    status_id, edit_by_user_id, edit_comment
+)
+SELECT 
+    '2020-01-01'::date,
+    'Alpha Holdings Corp',
+    (SELECT id FROM public.enterprise WHERE short_name = 'E1'),
+    true,
+    (SELECT id FROM public.status WHERE code = 'active' LIMIT 1),
+    (SELECT id FROM auth.user LIMIT 1),
+    'Parent holding company';
+-- Subsidiary 1 (directly owned by Alpha Holdings)
+INSERT INTO public.legal_unit (
+    valid_from, name, enterprise_id, primary_for_enterprise, 
+    status_id, edit_by_user_id, edit_comment
+)
+SELECT 
+    '2020-01-01'::date,
+    'Beta Manufacturing Ltd',
+    (SELECT id FROM public.enterprise WHERE short_name = 'E2'),
+    true,
+    (SELECT id FROM public.status WHERE code = 'active' LIMIT 1),
+    (SELECT id FROM auth.user LIMIT 1),
+    'Manufacturing subsidiary';
+-- Subsidiary 2 (directly owned by Alpha Holdings)
+INSERT INTO public.legal_unit (
+    valid_from, name, enterprise_id, primary_for_enterprise, 
+    status_id, edit_by_user_id, edit_comment
+)
+SELECT 
+    '2020-01-01'::date,
+    'Gamma Services Inc',
+    (SELECT id FROM public.enterprise WHERE short_name = 'E3'),
+    true,
+    (SELECT id FROM public.status WHERE code = 'active' LIMIT 1),
+    (SELECT id FROM auth.user LIMIT 1),
+    'Services subsidiary';
+-- Sub-subsidiary (owned by Beta Manufacturing - creating depth)
+INSERT INTO public.legal_unit (
+    valid_from, name, enterprise_id, primary_for_enterprise, 
+    status_id, edit_by_user_id, edit_comment
+)
+SELECT 
+    '2020-01-01'::date,
+    'Delta Components GmbH',
+    (SELECT id FROM public.enterprise WHERE short_name = 'E4'),
+    true,
+    (SELECT id FROM public.status WHERE code = 'active' LIMIT 1),
+    (SELECT id FROM auth.user LIMIT 1),
+    'Components sub-subsidiary';
+-- Independent company (not in any power group)
+INSERT INTO public.legal_unit (
+    valid_from, name, enterprise_id, primary_for_enterprise, 
+    status_id, edit_by_user_id, edit_comment
+)
+SELECT 
+    '2020-01-01'::date,
+    'Epsilon Independent LLC',
+    (SELECT id FROM public.enterprise WHERE short_name = 'E5'),
+    true,
+    (SELECT id FROM public.status WHERE code = 'active' LIMIT 1),
+    (SELECT id FROM auth.user LIMIT 1),
+    'Independent company - no power group';
+\echo "Verify legal units created"
+"Verify legal units created"
+SELECT name, valid_from 
+FROM public.legal_unit 
+WHERE name LIKE '%Holdings%' OR name LIKE '%Manufacturing%' 
+   OR name LIKE '%Services%' OR name LIKE '%Components%' OR name LIKE '%Independent%'
+ORDER BY name;
+          name           | valid_from 
+-------------------------+------------
+ Alpha Holdings Corp     | 2020-01-01
+ Beta Manufacturing Ltd  | 2020-01-01
+ Delta Components GmbH   | 2020-01-01
+ Epsilon Independent LLC | 2020-01-01
+ Gamma Services Inc      | 2020-01-01
+(5 rows)
+
+-- ============================================================================
+\echo "=== Section 3: Create Ownership Relationships ==="
+"=== Section 3: Create Ownership Relationships ==="
+-- ============================================================================
+\echo "Get relationship type codes"
+"Get relationship type codes"
+SELECT code, name FROM public.legal_rel_type ORDER BY code;
+   code    |   name    
+-----------+-----------
+ control   | Control
+ ownership | Ownership
+(2 rows)
+
+\echo "Create ownership: Alpha Holdings owns 60% of Beta Manufacturing"
+"Create ownership: Alpha Holdings owns 60% of Beta Manufacturing"
+INSERT INTO public.legal_relationship (
+    valid_from, 
+    influencing_id, 
+    influenced_id, 
+    type_id,
+    percentage,
+    edit_by_user_id,
+    edit_comment
+)
+SELECT 
+    '2020-01-01'::date,
+    (SELECT id FROM public.legal_unit WHERE name = 'Alpha Holdings Corp' LIMIT 1),
+    (SELECT id FROM public.legal_unit WHERE name = 'Beta Manufacturing Ltd' LIMIT 1),
+    (SELECT id FROM public.legal_rel_type WHERE code = 'ownership'),
+    60.00,
+    (SELECT id FROM auth.user LIMIT 1),
+    'Alpha owns 60% of Beta';
+\echo "Create ownership: Alpha Holdings owns 51% of Gamma Services"
+"Create ownership: Alpha Holdings owns 51% of Gamma Services"
+INSERT INTO public.legal_relationship (
+    valid_from, 
+    influencing_id, 
+    influenced_id, 
+    type_id,
+    percentage,
+    edit_by_user_id,
+    edit_comment
+)
+SELECT 
+    '2020-01-01'::date,
+    (SELECT id FROM public.legal_unit WHERE name = 'Alpha Holdings Corp' LIMIT 1),
+    (SELECT id FROM public.legal_unit WHERE name = 'Gamma Services Inc' LIMIT 1),
+    (SELECT id FROM public.legal_rel_type WHERE code = 'ownership'),
+    51.00,
+    (SELECT id FROM auth.user LIMIT 1),
+    'Alpha owns 51% of Gamma';
+\echo "Create ownership: Beta Manufacturing owns 75% of Delta Components"
+"Create ownership: Beta Manufacturing owns 75% of Delta Components"
+INSERT INTO public.legal_relationship (
+    valid_from, 
+    influencing_id, 
+    influenced_id, 
+    type_id,
+    percentage,
+    edit_by_user_id,
+    edit_comment
+)
+SELECT 
+    '2020-01-01'::date,
+    (SELECT id FROM public.legal_unit WHERE name = 'Beta Manufacturing Ltd' LIMIT 1),
+    (SELECT id FROM public.legal_unit WHERE name = 'Delta Components GmbH' LIMIT 1),
+    (SELECT id FROM public.legal_rel_type WHERE code = 'ownership'),
+    75.00,
+    (SELECT id FROM auth.user LIMIT 1),
+    'Beta owns 75% of Delta';
+\echo "Verify ownership relationships created"
+"Verify ownership relationships created"
+SELECT 
+    influencer.name AS influencing_name,
+    influenced.name AS influenced_name,
+    rt.code AS relationship,
+    lr.percentage,
+    lr.valid_from
+FROM public.legal_relationship AS lr
+JOIN public.legal_unit AS influencer ON lr.influencing_id = influencer.id
+JOIN public.legal_unit AS influenced ON lr.influenced_id = influenced.id
+JOIN public.legal_rel_type AS rt ON lr.type_id = rt.id
+ORDER BY influencer.name, influenced.name;
+    influencing_name    |    influenced_name     | relationship | percentage | valid_from 
+------------------------+------------------------+--------------+------------+------------
+ Alpha Holdings Corp    | Beta Manufacturing Ltd | ownership    |      60.00 | 2020-01-01
+ Alpha Holdings Corp    | Gamma Services Inc     | ownership    |      51.00 | 2020-01-01
+ Beta Manufacturing Ltd | Delta Components GmbH  | ownership    |      75.00 | 2020-01-01
+(3 rows)
+
+-- ============================================================================
+\echo "=== Section 4: Test Cycle Prevention ==="
+"=== Section 4: Test Cycle Prevention ==="
+-- ============================================================================
+\echo "Attempt to create circular ownership (should fail)"
+"Attempt to create circular ownership (should fail)"
+\echo "Trying: Delta owns Alpha (which would create Alpha -> Beta -> Delta -> Alpha cycle)"
+"Trying: Delta owns Alpha (which would create Alpha -> Beta -> Delta -> Alpha cycle)"
+DO $$
+BEGIN
+    INSERT INTO public.legal_relationship (
+        valid_from, 
+        influencing_id, 
+        influenced_id, 
+        type_id,
+        percentage,
+        edit_by_user_id,
+        edit_comment
+    )
+    SELECT 
+        '2020-01-01'::date,
+        (SELECT id FROM public.legal_unit WHERE name = 'Delta Components GmbH' LIMIT 1),
+        (SELECT id FROM public.legal_unit WHERE name = 'Alpha Holdings Corp' LIMIT 1),
+        (SELECT id FROM public.legal_rel_type WHERE code = 'ownership'),
+        30.00,
+        (SELECT id FROM auth.user LIMIT 1),
+        'Delta owns Alpha - SHOULD FAIL';
+    
+    RAISE EXCEPTION 'TEST FAILURE: Circular ownership was allowed - cycle prevention did not work!';
+EXCEPTION
+    WHEN raise_exception THEN
+        IF SQLERRM LIKE 'Circular ownership detected%' THEN
+            RAISE NOTICE 'SUCCESS: Circular ownership correctly prevented';
+        ELSE
+            RAISE;
+        END IF;
+    WHEN OTHERS THEN
+        RAISE NOTICE 'SUCCESS: Circular ownership prevented with error: %', SQLERRM;
+END;
+$$;
+NOTICE:  SUCCESS: Circular ownership correctly prevented
+\echo "Verify no circular relationship was created"
+"Verify no circular relationship was created"
+SELECT COUNT(*) AS circular_relationships 
+FROM public.legal_relationship 
+WHERE edit_comment LIKE '%SHOULD FAIL%';
+ circular_relationships 
+------------------------
+                      0
+(1 row)
+
+-- ============================================================================
+\echo "=== Section 5: Test Self-Reference Prevention ==="
+"=== Section 5: Test Self-Reference Prevention ==="
+-- ============================================================================
+\echo "Attempt self-reference (should fail due to CHECK constraint)"
+"Attempt self-reference (should fail due to CHECK constraint)"
+DO $$
+DECLARE
+    _alpha_id integer;
+BEGIN
+    SELECT id INTO _alpha_id FROM public.legal_unit WHERE name = 'Alpha Holdings Corp' LIMIT 1;
+    
+    INSERT INTO public.legal_relationship (
+        valid_from, 
+        influencing_id, 
+        influenced_id, 
+        type_id,
+        percentage,
+        edit_by_user_id,
+        edit_comment
+    )
+    VALUES (
+        '2020-01-01'::date,
+        _alpha_id,
+        _alpha_id,  -- Same as influencing - should fail
+        (SELECT id FROM public.legal_rel_type WHERE code = 'ownership'),
+        100.00,
+        (SELECT id FROM auth.user LIMIT 1),
+        'Self-reference - SHOULD FAIL'
+    );
+    
+    RAISE EXCEPTION 'ERROR: Self-reference was allowed - this should have failed!';
+EXCEPTION
+    WHEN check_violation THEN
+        RAISE NOTICE 'SUCCESS: Self-reference correctly prevented with CHECK constraint';
+    WHEN OTHERS THEN
+        IF SQLERRM LIKE 'Circular ownership detected%' THEN
+            RAISE NOTICE 'SUCCESS: Self-reference prevented - cycle detection caught it';
+        ELSE
+            RAISE NOTICE 'SUCCESS: Self-reference prevented with other error';
+        END IF;
+END;
+$$;
+NOTICE:  SUCCESS: Self-reference correctly prevented with CHECK constraint
+-- ============================================================================
+\echo "=== Section 6: Test Hierarchy View ==="
+"=== Section 6: Test Hierarchy View ==="
+-- ============================================================================
+\echo "Check hierarchy view shows correct power levels"
+"Check hierarchy view shows correct power levels"
+SELECT 
+    lu.name,
+    h.power_level,
+    root_lu.name AS root_legal_unit
+FROM public.legal_unit_power_hierarchy AS h
+JOIN public.legal_unit AS lu ON lu.id = h.legal_unit_id AND lu.valid_range && h.valid_range
+JOIN public.legal_unit AS root_lu ON root_lu.id = h.root_legal_unit_id
+WHERE lu.name LIKE '%Holdings%' OR lu.name LIKE '%Manufacturing%' 
+   OR lu.name LIKE '%Services%' OR lu.name LIKE '%Components%'
+ORDER BY h.power_level, lu.name;
+          name          | power_level |   root_legal_unit   
+------------------------+-------------+---------------------
+ Alpha Holdings Corp    |           1 | Alpha Holdings Corp
+ Beta Manufacturing Ltd |           2 | Alpha Holdings Corp
+ Gamma Services Inc     |           2 | Alpha Holdings Corp
+ Delta Components GmbH  |           3 | Alpha Holdings Corp
+(4 rows)
+
+\echo "Check power_group_def view shows correct metrics"
+"Check power_group_def view shows correct metrics"
+SELECT 
+    lu.name AS root_legal_unit,
+    pgd.depth,
+    pgd.width,
+    pgd.reach
+FROM public.power_group_def AS pgd
+JOIN public.legal_unit AS lu ON lu.id = pgd.root_legal_unit_id
+ORDER BY lu.name;
+   root_legal_unit   | depth | width | reach 
+---------------------+-------+-------+-------
+ Alpha Holdings Corp |     2 |     2 |     3
+(1 row)
+
+-- ============================================================================
+\echo "=== Section 7: Test Power Group Creation (TIMELESS) ==="
+"=== Section 7: Test Power Group Creation (TIMELESS) ==="
+-- ============================================================================
+\echo "Create a power group manually (normally done by worker)"
+"Create a power group manually (normally done by worker)"
+INSERT INTO public.power_group (
+    name,
+    type_id,
+    edit_by_user_id,
+    edit_comment
+)
+SELECT 
+    'Alpha Holdings Group',
+    (SELECT id FROM public.power_group_type WHERE code = 'dcn' LIMIT 1),
+    (SELECT id FROM auth.user LIMIT 1),
+    'Alpha Holdings power group';
+\echo "Verify power group created with auto-generated ident"
+"Verify power group created with auto-generated ident"
+SELECT 
+    ident,
+    ident ~ '^PG[0-9A-Z]+$' AS valid_ident_format,
+    name
+FROM public.power_group;
+ ident  | valid_ident_format |         name         
+--------+--------------------+----------------------
+ PG0001 | t                  | Alpha Holdings Group
+(1 row)
+
+\echo "Assign power_group_id to relationships in this cluster"
+"Assign power_group_id to relationships in this cluster"
+UPDATE public.legal_relationship AS lr
+SET power_group_id = (SELECT id FROM public.power_group WHERE name = 'Alpha Holdings Group')
+WHERE lr.influencing_id IN (
+    SELECT id FROM public.legal_unit 
+    WHERE name IN ('Alpha Holdings Corp', 'Beta Manufacturing Ltd')
+);
+\echo "Verify relationships have power_group_id assigned"
+"Verify relationships have power_group_id assigned"
+SELECT 
+    influencer.name AS influencing_name,
+    influenced.name AS influenced_name,
+    pg.ident AS power_group_ident,
+    lr.percentage
+FROM public.legal_relationship AS lr
+JOIN public.legal_unit AS influencer ON lr.influencing_id = influencer.id
+JOIN public.legal_unit AS influenced ON lr.influenced_id = influenced.id
+LEFT JOIN public.power_group AS pg ON lr.power_group_id = pg.id
+ORDER BY influencer.name, influenced.name;
+    influencing_name    |    influenced_name     | power_group_ident | percentage 
+------------------------+------------------------+-------------------+------------
+ Alpha Holdings Corp    | Beta Manufacturing Ltd | PG0001            |      60.00
+ Alpha Holdings Corp    | Gamma Services Inc     | PG0001            |      51.00
+ Beta Manufacturing Ltd | Delta Components GmbH  | PG0001            |      75.00
+(3 rows)
+
+-- ============================================================================
+\echo "=== Section 8: Test Temporal Aspects ==="
+"=== Section 8: Test Temporal Aspects ==="
+-- ============================================================================
+\echo "Add a new ownership relationship starting later (2023)"
+"Add a new ownership relationship starting later (2023)"
+INSERT INTO public.legal_relationship (
+    valid_from, 
+    influencing_id, 
+    influenced_id, 
+    type_id,
+    percentage,
+    reorg_type_id,
+    edit_by_user_id,
+    edit_comment
+)
+SELECT 
+    '2023-01-01'::date,
+    (SELECT id FROM public.legal_unit WHERE name = 'Alpha Holdings Corp' LIMIT 1),
+    (SELECT id FROM public.legal_unit WHERE name = 'Epsilon Independent LLC' LIMIT 1),
+    (SELECT id FROM public.legal_rel_type WHERE code = 'ownership'),
+    55.00,
+    (SELECT id FROM public.legal_reorg_type WHERE code = 'acq' LIMIT 1),
+    (SELECT id FROM auth.user LIMIT 1),
+    'Alpha acquires Epsilon in 2023';
+\echo "Verify temporal ownership - before acquisition (2022)"
+"Verify temporal ownership - before acquisition (2022)"
+SELECT 
+    influencer.name AS influencing_name,
+    influenced.name AS influenced_name,
+    lr.percentage,
+    lr.valid_from,
+    lr.valid_to
+FROM public.legal_relationship AS lr
+JOIN public.legal_unit AS influencer ON lr.influencing_id = influencer.id
+JOIN public.legal_unit AS influenced ON lr.influenced_id = influenced.id
+WHERE lr.valid_range @> '2022-06-01'::date
+ORDER BY influencer.name, influenced.name;
+    influencing_name    |    influenced_name     | percentage | valid_from | valid_to 
+------------------------+------------------------+------------+------------+----------
+ Alpha Holdings Corp    | Beta Manufacturing Ltd |      60.00 | 2020-01-01 | infinity
+ Alpha Holdings Corp    | Gamma Services Inc     |      51.00 | 2020-01-01 | infinity
+ Beta Manufacturing Ltd | Delta Components GmbH  |      75.00 | 2020-01-01 | infinity
+(3 rows)
+
+\echo "Verify temporal ownership - after acquisition (2024)"
+"Verify temporal ownership - after acquisition (2024)"
+SELECT 
+    influencer.name AS influencing_name,
+    influenced.name AS influenced_name,
+    lr.percentage,
+    lr.valid_from,
+    lr.valid_to
+FROM public.legal_relationship AS lr
+JOIN public.legal_unit AS influencer ON lr.influencing_id = influencer.id
+JOIN public.legal_unit AS influenced ON lr.influenced_id = influenced.id
+WHERE lr.valid_range @> '2024-06-01'::date
+ORDER BY influencer.name, influenced.name;
+    influencing_name    |     influenced_name     | percentage | valid_from | valid_to 
+------------------------+-------------------------+------------+------------+----------
+ Alpha Holdings Corp    | Beta Manufacturing Ltd  |      60.00 | 2020-01-01 | infinity
+ Alpha Holdings Corp    | Epsilon Independent LLC |      55.00 | 2023-01-01 | infinity
+ Alpha Holdings Corp    | Gamma Services Inc      |      51.00 | 2020-01-01 | infinity
+ Beta Manufacturing Ltd | Delta Components GmbH   |      75.00 | 2020-01-01 | infinity
+(4 rows)
+
+-- ============================================================================
+\echo "=== Section 9: Summary Statistics ==="
+"=== Section 9: Summary Statistics ==="
+-- ============================================================================
+\echo "Count of relationships by type"
+"Count of relationships by type"
+SELECT 
+    rt.code AS relationship_type,
+    COUNT(*) AS count
+FROM public.legal_relationship AS lr
+JOIN public.legal_rel_type AS rt ON lr.type_id = rt.id
+GROUP BY rt.code
+ORDER BY rt.code;
+ relationship_type | count 
+-------------------+-------
+ ownership         |     4
+(1 row)
+
+\echo "Relationships with power_group assignment"
+"Relationships with power_group assignment"
+SELECT 
+    pg.ident AS power_group,
+    COUNT(*) AS relationship_count
+FROM public.legal_relationship AS lr
+LEFT JOIN public.power_group AS pg ON lr.power_group_id = pg.id
+GROUP BY pg.ident
+ORDER BY pg.ident NULLS LAST;
+ power_group | relationship_count 
+-------------+--------------------
+ PG0001      |                  3
+             |                  1
+(2 rows)
+
+\echo "Legal units by power level (from hierarchy view)"
+"Legal units by power level (from hierarchy view)"
+SELECT 
+    h.power_level,
+    COUNT(*) AS count,
+    string_agg(lu.name, ', ' ORDER BY lu.name) AS names
+FROM public.legal_unit_power_hierarchy AS h
+JOIN public.legal_unit AS lu ON lu.id = h.legal_unit_id
+GROUP BY h.power_level
+ORDER BY h.power_level;
+ power_level | count |                                names                                
+-------------+-------+---------------------------------------------------------------------
+           1 |     1 | Alpha Holdings Corp
+           2 |     3 | Beta Manufacturing Ltd, Epsilon Independent LLC, Gamma Services Inc
+           3 |     1 | Delta Components GmbH
+(3 rows)
+
+\echo "=== Power Group Fundamentals Test Complete ==="
+"=== Power Group Fundamentals Test Complete ==="
+ROLLBACK;

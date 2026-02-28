@@ -1037,6 +1037,18 @@ SELECT
 \echo "User uploads the sample informal establishments (via import job: import_07_eswlu_curr_b1)"
 "User uploads the sample informal establishments (via import job: import_07_eswlu_curr_b1)"
 \copy public.import_07_eswlu_curr_b1_upload(tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code) FROM 'app/public/demo/informal_establishments_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+-- Create Import Job for Legal Relationships (Demo CSV, Block 1)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_relationship_job_provided'),
+    'import_07_lr_curr_b1',
+    'Import LR Demo CSV B1 (07_load_demo_data.sql)',
+    'Import job for app/public/demo/legal_relationships_demo.csv using legal_relationship_job_provided definition.',
+    'Test data load (07_load_demo_data.sql)',
+    'r_year_curr';
+\echo "User uploads the sample legal relationships (via import job: import_07_lr_curr_b1)"
+"User uploads the sample legal relationships (via import job: import_07_lr_curr_b1)"
+\copy public.import_07_lr_curr_b1_upload(influencing_tax_ident,influenced_tax_ident,rel_type_code,percentage) FROM 'app/public/demo/legal_relationships_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 \echo Run worker processing for import jobs - Block 1
 Run worker processing for import jobs - Block 1
 CALL worker.process_tasks(p_queue => 'import');
@@ -1044,7 +1056,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |   141
+ import    | completed |   160
 (2 rows)
 
 \echo "Checking import job statuses for Block 1"
@@ -1054,8 +1066,9 @@ SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT 
 -------------------------+----------+--------------------+------------+---------------+-----------
  import_07_esflu_curr_b1 | finished | r_year_curr        |         25 |            25 | f
  import_07_eswlu_curr_b1 | finished | r_year_curr        |         25 |            25 | f
+ import_07_lr_curr_b1    | finished | r_year_curr        |          5 |             5 | f
  import_07_lu_curr_b1    | finished | r_year_curr        |         23 |            23 | f
-(3 rows)
+(4 rows)
 
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
@@ -1072,8 +1085,8 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |    39
- import    | completed |   141
+ analytics | completed |    40
+ import    | completed |   160
 (2 rows)
 
 \echo "Checking statistics"
@@ -1173,6 +1186,36 @@ stats_summary | {                                             +
               |         "variance": 73.43,                    +
               |         "sum_sq_diff": 5287.26,               +
               |         "coefficient_of_variation_pct": 253.26+
+              |     }                                         +
+              | }
+-[ RECORD 4 ]-+-----------------------------------------------
+unit_type     | power_group
+count         | 3
+stats_summary | {                                             +
+              |     "type": "stats_agg",                      +
+              |     "turnover": {                             +
+              |         "max": 12000000,                      +
+              |         "min": 0,                             +
+              |         "sum": 29900000,                      +
+              |         "mean": 2491666.67,                   +
+              |         "type": "float_agg",                  +
+              |         "count": 12,                          +
+              |         "stddev": 4139709.77,                 +
+              |         "variance": 17137196969696.97,        +
+              |         "sum_sq_diff": 188509166666666.66,    +
+              |         "coefficient_of_variation_pct": 166.14+
+              |     },                                        +
+              |     "employees": {                            +
+              |         "max": 8,                             +
+              |         "min": 0,                             +
+              |         "sum": 27,                            +
+              |         "mean": 2.25,                         +
+              |         "type": "int_agg",                    +
+              |         "count": 12,                          +
+              |         "stddev": 3.02,                       +
+              |         "variance": 9.11,                     +
+              |         "sum_sq_diff": 100.25,                +
+              |         "coefficient_of_variation_pct": 134.17+
               |     }                                         +
               | }
 

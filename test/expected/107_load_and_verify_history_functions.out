@@ -18271,9 +18271,9 @@ jsonb_pretty | {                                                              +
              |     ]                                                          +
              | }
 
-\echo "Test public.statistical_history_highcharts - no data case (enterprise_group)"
-"Test public.statistical_history_highcharts - no data case (enterprise_group)"
-SELECT jsonb_pretty(public.statistical_history_highcharts('year', 'enterprise_group'));
+\echo "Test public.statistical_history_highcharts - no data case (power_group)"
+"Test public.statistical_history_highcharts - no data case (power_group)"
+SELECT jsonb_pretty(public.statistical_history_highcharts('year', 'power_group'));
 -[ RECORD 1 ]+----------------------------------------------------------------
 jsonb_pretty | {                                                              +
              |     "series": [                                                +
@@ -18308,7 +18308,7 @@ jsonb_pretty | {                                                              +
              |             "name": "Region Changes"                           +
              |         }                                                      +
              |     ],                                                         +
-             |     "unit_type": "enterprise_group",                           +
+             |     "unit_type": "power_group",                                +
              |     "resolution": "year",                                      +
              |     "filtered_series": [                                       +
              |         "countable_count",                                     +

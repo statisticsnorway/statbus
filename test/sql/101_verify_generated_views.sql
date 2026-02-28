@@ -3,8 +3,8 @@
 \d+ public.sector_available
 \d+ public.legal_form_ordered
 \d+ public.legal_form_available
-\d+ public.reorg_type_ordered
-\d+ public.reorg_type_available
+\d+ public.legal_reorg_type_ordered
+\d+ public.legal_reorg_type_available
 \d+ public.foreign_participation_ordered
 \d+ public.foreign_participation_available
 \d+ public.data_source_ordered
@@ -13,10 +13,10 @@
 \d+ public.unit_size_available
 \d+ public.person_role_ordered
 \d+ public.person_role_available
-\d+ public.enterprise_group_type_ordered
-\d+ public.enterprise_group_type_available
-\d+ public.enterprise_group_role_ordered
-\d+ public.enterprise_group_role_available
+\d+ public.power_group_type_ordered
+\d+ public.power_group_type_available
+\d+ public.legal_rel_type_ordered
+\d+ public.legal_rel_type_available
 
 
 BEGIN;
@@ -25,7 +25,7 @@ SELECT admin.drop_table_views_for_batch_api('public.sector');
 
 SELECT admin.drop_table_views_for_batch_api('public.legal_form');
 
-SELECT admin.drop_table_views_for_batch_api('public.reorg_type');
+SELECT admin.drop_table_views_for_batch_api('public.legal_reorg_type');
 
 SELECT admin.drop_table_views_for_batch_api('public.foreign_participation');
 
@@ -35,8 +35,8 @@ SELECT admin.drop_table_views_for_batch_api('public.unit_size');
 
 SELECT admin.drop_table_views_for_batch_api('public.person_role');
 
-SELECT admin.drop_table_views_for_batch_api('public.enterprise_group_type');
+SELECT admin.drop_table_views_for_batch_api('public.power_group_type');
 
-SELECT admin.drop_table_views_for_batch_api('public.enterprise_group_role');
+SELECT admin.drop_table_views_for_batch_api('public.legal_rel_type');
 
 ROLLBACK;
