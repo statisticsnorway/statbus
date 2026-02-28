@@ -8,26 +8,37 @@ This document provides a compact overview of the StatBus database schema, focusi
 ## Core Statistical Units (Hierarchy)
 The system revolves around four main statistical units, often with temporal validity (`valid_from`, `valid_after`, `valid_to`):
 
-- `enterprise_group(id, short_name, name, enterprise_group_type_id, reorg_type_id, edit_by_user_id, unit_size_id, data_source_id, foreign_participation_id, valid_range, valid_from, valid_to, valid_until, edit_at, contact_person, edit_comment, reorg_references, reorg_date)` (EG) (temporal)
-  - Key FKs: data_source_id, edit_by_user_id, enterprise_group_type_id, foreign_participation_id, reorg_type_id, unit_size_id.
-- `enterprise(id, short_name, edit_by_user_id, edit_at, enabled, edit_comment)` (EN)
-  - Key FKs: edit_by_user_id.
-- `legal_unit(id, short_name, name, sector_id, status_id, legal_form_id, edit_by_user_id, unit_size_id, foreign_participation_id, data_source_id, enterprise_id, image_id, valid_range, valid_from, valid_to, valid_until, edit_at, birth_date, death_date, free_econ_zone, edit_comment, primary_for_enterprise)` (LU) (temporal)
-  - Key FKs: data_source_id, edit_by_user_id, enterprise_id, foreign_participation_id, image_id, legal_form_id, sector_id, status_id, unit_size_id.
 - `establishment(id, short_name, name, sector_id, status_id, edit_by_user_id, unit_size_id, data_source_id, enterprise_id, legal_unit_id, image_id, valid_range, valid_from, valid_to, valid_until, edit_at, birth_date, death_date, free_econ_zone, edit_comment, primary_for_legal_unit, primary_for_enterprise)` (EST) (temporal)
   - Key FKs: data_source_id, edit_by_user_id, enterprise_id, image_id, legal_unit_id, sector_id, status_id, unit_size_id, valid_range.
+- `legal_unit(id, short_name, name, sector_id, status_id, legal_form_id, edit_by_user_id, unit_size_id, foreign_participation_id, data_source_id, enterprise_id, image_id, valid_range, valid_from, valid_to, valid_until, edit_at, birth_date, death_date, free_econ_zone, edit_comment, primary_for_enterprise)` (LU) (temporal)
+  - Key FKs: data_source_id, edit_by_user_id, enterprise_id, foreign_participation_id, image_id, legal_form_id, sector_id, status_id, unit_size_id.
+- `enterprise(id, short_name, edit_by_user_id, edit_at, enabled, edit_comment)` (EN)
+  - Key FKs: edit_by_user_id.
+- `power_group(id, ident, short_name, name, type_id, unit_size_id, data_source_id, foreign_participation_id, edit_by_user_id, edit_at, contact_person, edit_comment)` (PG)
+  - Key FKs: data_source_id, edit_by_user_id, foreign_participation_id, type_id, unit_size_id.
 
-## Common Links for Core Units (EG, EN, LU, EST)
+## Legal Unit Ownership & Control
+Tables and views for tracking ownership/control relationships between legal units:
+
+- `legal_relationship(id, type_id, reorg_type_id, power_group_id, influencing_id, influenced_id, edit_by_user_id, valid_range, valid_from, valid_to, valid_until, edit_at, primary_influencer_only, percentage, edit_comment)` (temporal)
+  - Key FKs: edit_by_user_id, influenced_id, influencing_id, power_group_id, primary_influencer_only, reorg_type_id, type_id, type_id, valid_range, valid_range.
+- `legal_unit_power_hierarchy(path, legal_unit_id, root_legal_unit_id, valid_range, power_level, is_cycle)`
+- `power_group_def(root_legal_unit_id, depth, width, reach)`
+- `legal_relationship_cluster(legal_relationship_id, root_legal_unit_id)`
+- `power_group_active(id, ident, short_name, name, type_id)`
+- `power_group_membership(power_group_ident, power_group_id, legal_unit_id, valid_range, power_level)`
+
+## Common Links for Core Units (PG, EN, LU, EST)
 These tables link to any of the four core statistical units:
 
-- `external_ident(id, type_id, ident, idents, labels, establishment_id, legal_unit_id, enterprise_id, enterprise_group_id, edit_by_user_id, edit_at, shape, edit_comment)`
+- `external_ident(id, type_id, ident, idents, labels, establishment_id, legal_unit_id, enterprise_id, power_group_id, edit_by_user_id, edit_at, shape, edit_comment)`
   - Key FKs: edit_by_user_id, enterprise_id, type_id.
   - Enums: `shape` (`public.external_ident_shape`).
 - `image(id, type, uploaded_by_user_id, uploaded_at, data)`
   - Key FKs: uploaded_by_user_id.
-- `tag_for_unit(id, tag_id, establishment_id, legal_unit_id, enterprise_id, enterprise_group_id, edit_by_user_id, created_at, edit_at, edit_comment)`
+- `tag_for_unit(id, tag_id, establishment_id, legal_unit_id, enterprise_id, power_group_id, edit_by_user_id, created_at, edit_at, edit_comment)`
   - Key FKs: edit_by_user_id, enterprise_id, tag_id.
-- `unit_notes(id, notes, establishment_id, legal_unit_id, enterprise_id, enterprise_group_id, edit_by_user_id, created_at, edit_at, edit_comment)`
+- `unit_notes(id, notes, establishment_id, legal_unit_id, enterprise_id, power_group_id, edit_by_user_id, created_at, edit_at, edit_comment)`
   - Key FKs: edit_by_user_id, enterprise_id.
 - `enterprise_external_idents(unit_type, external_idents, unit_id, valid_from, valid_to, valid_until)` (temporal)
   - Enums: `unit_type` (`public.statistical_unit_type`).
@@ -79,13 +90,13 @@ These tables link to any of the four core statistical units:
 These tables typically store codes, names, and flags for `custom` and `enabled` status.
 
 - `data_source(id, code, name, created_at, updated_at, enabled, custom)`
-- `enterprise_group_type(id, code, name, created_at, updated_at, enabled, custom)`
-- `enterprise_group_role(id, code, name, created_at, updated_at, enabled, custom)`
+- `power_group_type(id, code, name, created_at, updated_at, enabled, custom)`
 - `external_ident_type(id, code, name, labels, enabled, shape, description, priority)`
   - Enums: `shape` (`public.external_ident_shape`).
 - `foreign_participation(id, code, name, created_at, updated_at, enabled, custom)`
 - `legal_form(id, code, name, created_at, updated_at, enabled, custom)`
-- `reorg_type(id, code, name, created_at, updated_at, enabled, description, custom)`
+- `legal_reorg_type(id, code, name, created_at, updated_at, enabled, description, custom)`
+- `legal_rel_type(id, code, name, created_at, updated_at, enabled, description, primary_influencer_only, custom)`
 - `sector(id, path, label, code, name, parent_id, created_at, updated_at, enabled, description, custom)`
 - `status(id, code, name, created_at, updated_at, enabled, assigned_by_default, used_for_counting, priority, custom)`
 - `tag(id, path, label, code, name, type, parent_id, context_valid_on, created_at, updated_at, enabled, level, description, context_valid_from, context_valid_to, context_valid_until)`
@@ -106,7 +117,7 @@ Enumerated types used across the schema, with their possible values.
 - **`public.import_data_column_purpose`**: `source_input`, `internal`, `pk_id`, `metadata`
 - **`public.import_data_state`**: `pending`, `analysing`, `analysed`, `processing`, `processed`, `error`
 - **`public.import_job_state`**: `waiting_for_upload`, `upload_completed`, `preparing_data`, `analysing_data`, `waiting_for_review`, `approved`, `rejected`, `processing_data`, `failed`, `finished`
-- **`public.import_mode`**: `legal_unit`, `establishment_formal`, `establishment_informal`, `generic_unit`
+- **`public.import_mode`**: `legal_unit`, `establishment_formal`, `establishment_informal`, `generic_unit`, `legal_relationship`
 - **`public.import_row_action_type`**: `use`, `skip`
 - **`public.import_row_operation_type`**: `insert`, `replace`, `update`
 - **`public.import_source_expression`**: `now`, `default`
@@ -121,7 +132,7 @@ Enumerated types used across the schema, with their possible values.
 - **`public.stat_frequency`**: `daily`, `weekly`, `biweekly`, `monthly`, `bimonthly`, `quarterly`, `semesterly`, `yearly`
 - **`public.stat_type`**: `int`, `float`, `string`, `bool`
 - **`public.statbus_role`**: `admin_user`, `regular_user`, `restricted_user`, `external_user`
-- **`public.statistical_unit_type`**: `establishment`, `legal_unit`, `enterprise`, `enterprise_group`
+- **`public.statistical_unit_type`**: `establishment`, `legal_unit`, `enterprise`, `power_group`
 - **`public.tag_type`**: `custom`, `system`
 - **`public.time_context_type`**: `relative_period`, `tag`, `year`
 - **`worker.pipeline_phase`**: `is_deriving_statistical_units`, `is_deriving_reports`
@@ -199,7 +210,7 @@ Handles background processing. A long-running worker process calls `worker.proce
   - Key FKs: queue.
   - Enums: `phase` (`worker.pipeline_phase`).
 - `queue_registry(queue, description, default_concurrency)`
-- `pipeline_progress(updated_at, phase, step, total, completed, affected_establishment_count, affected_legal_unit_count, affected_enterprise_count)`
+- `pipeline_progress(updated_at, phase, step, total, completed, affected_establishment_count, affected_legal_unit_count, affected_enterprise_count, affected_power_group_count)`
   - Enums: `phase` (`worker.pipeline_phase`).
 - `base_change_log(establishment_ids, legal_unit_ids, enterprise_ids, edited_by_valid_range)`
 - `base_change_log_has_pending(has_pending)`
