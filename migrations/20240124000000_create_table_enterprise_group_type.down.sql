@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP TABLE public.enterprise_group_type;
+DROP TABLE public.power_group_type;
 
 END;

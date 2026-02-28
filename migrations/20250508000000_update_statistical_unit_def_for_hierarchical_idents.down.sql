@@ -133,13 +133,13 @@ CREATE OR REPLACE VIEW public.statistical_unit_def
             WHERE ei.enterprise_id IS NOT NULL
             UNION ALL
             SELECT
-                'enterprise_group'::public.statistical_unit_type AS unit_type,
-                ei.enterprise_group_id AS unit_id,
+                'power_group'::public.statistical_unit_type AS unit_type,
+                ei.power_group_id AS unit_id,
                 eit.code AS type_code,
                 ei.ident
             FROM public.external_ident ei
             JOIN public.external_ident_type eit ON ei.type_id = eit.id
-            WHERE ei.enterprise_group_id IS NOT NULL
+            WHERE ei.power_group_id IS NOT NULL
         ) AS all_idents
         GROUP BY unit_type, unit_id
     ),
@@ -155,7 +155,7 @@ CREATE OR REPLACE VIEW public.statistical_unit_def
             UNION ALL
             SELECT 'enterprise'::public.statistical_unit_type AS unit_type, tfu.enterprise_id AS unit_id, t.path FROM public.tag_for_unit tfu JOIN public.tag t ON tfu.tag_id = t.id WHERE tfu.enterprise_id IS NOT NULL
             UNION ALL
-            SELECT 'enterprise_group'::public.statistical_unit_type AS unit_type, tfu.enterprise_group_id AS unit_id, t.path FROM public.tag_for_unit tfu JOIN public.tag t ON tfu.tag_id = t.id WHERE tfu.enterprise_group_id IS NOT NULL
+            SELECT 'power_group'::public.statistical_unit_type AS unit_type, tfu.power_group_id AS unit_id, t.path FROM public.tag_for_unit tfu JOIN public.tag t ON tfu.tag_id = t.id WHERE tfu.power_group_id IS NOT NULL
         ) AS all_tags
         GROUP BY unit_type, unit_id
     ),
@@ -433,7 +433,7 @@ CREATE OR REPLACE VIEW public.statistical_unit_def
            , primary_legal_unit_id
       FROM public.timeline_enterprise
       --UNION ALL
-      --SELECT * FROM enterprise_group_timeline
+      --SELECT * FROM power_group_timeline
     )
     SELECT data.unit_type
          , data.unit_id

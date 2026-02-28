@@ -16,7 +16,7 @@ DROP INDEX IF EXISTS public.ix_legal_unit_valid_range;
 DROP INDEX IF EXISTS public.ix_establishment_valid_range;
 DROP INDEX IF EXISTS public.ix_activity_valid_range;
 DROP INDEX IF EXISTS public.ix_contact_valid_range;
-DROP INDEX IF EXISTS public.ix_enterprise_group_valid_range;
+-- power_group (formerly enterprise_group) is non-temporal, no index to drop
 DROP INDEX IF EXISTS public.ix_location_valid_range;
 DROP INDEX IF EXISTS public.ix_person_for_unit_valid_range;
 DROP INDEX IF EXISTS public.ix_stat_for_unit_valid_range;

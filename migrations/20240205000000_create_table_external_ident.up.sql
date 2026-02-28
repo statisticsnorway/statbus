@@ -14,7 +14,7 @@ CREATE TABLE public.external_ident (
     establishment_id INTEGER CHECK (admin.establishment_id_exists(establishment_id)),
     legal_unit_id INTEGER CHECK (admin.legal_unit_id_exists(legal_unit_id)),
     enterprise_id INTEGER REFERENCES public.enterprise(id) ON DELETE CASCADE,
-    enterprise_group_id INTEGER CHECK (admin.enterprise_group_id_exists(enterprise_group_id)),
+    power_group_id INTEGER CHECK (admin.power_group_id_exists(power_group_id)),
     
     -- Audit fields (unchanged)
     edit_comment character varying(512),
@@ -30,7 +30,7 @@ CREATE TABLE public.external_ident (
         shape != 'hierarchical' OR nlevel(idents) = nlevel(labels)
     ),
     CONSTRAINT "One and only one statistical unit id must be set"
-    CHECK (num_nonnulls(establishment_id, legal_unit_id, enterprise_id, enterprise_group_id) = 1)
+    CHECK (num_nonnulls(establishment_id, legal_unit_id, enterprise_id, power_group_id) = 1)
 );
 
 -- Regular identifiers: unique per type
@@ -51,14 +51,14 @@ WHERE shape = 'hierarchical';
 -- One identifier per type per unit - consolidated with NULLS NOT DISTINCT
 -- Replaces 4 partial indexes with 1 comprehensive index
 CREATE UNIQUE INDEX external_ident_type_unit_association_nulls_not_distinct
-ON public.external_ident(type_id, establishment_id, legal_unit_id, enterprise_id, enterprise_group_id) 
+ON public.external_ident(type_id, establishment_id, legal_unit_id, enterprise_id, power_group_id) 
 NULLS NOT DISTINCT;
 
 -- Lookup indexes
 CREATE INDEX external_ident_establishment_id_idx ON public.external_ident(establishment_id);
 CREATE INDEX external_ident_legal_unit_id_idx ON public.external_ident(legal_unit_id);
 CREATE INDEX external_ident_enterprise_id_idx ON public.external_ident(enterprise_id);
-CREATE INDEX external_ident_enterprise_group_id_idx ON public.external_ident(enterprise_group_id);
+CREATE INDEX external_ident_power_group_id_idx ON public.external_ident(power_group_id);
 CREATE INDEX ix_external_ident_edit_by_user_id ON public.external_ident USING btree (edit_by_user_id);
 
 -- FUNDAMENTAL ALGORITHM IMPROVEMENTS: Always-beneficial indexes for import performance

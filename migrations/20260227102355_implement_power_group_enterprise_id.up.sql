@@ -1,7 +1,11 @@
+-- Migration 20260227102355: implement_power_group_enterprise_id
 BEGIN;
 
-CREATE OR REPLACE FUNCTION public.statistical_unit_enterprise_id(unit_type public.statistical_unit_type, unit_id INTEGER, valid_on DATE DEFAULT current_date)
-RETURNS INTEGER LANGUAGE sql STABLE AS $$
+CREATE OR REPLACE FUNCTION public.statistical_unit_enterprise_id(unit_type statistical_unit_type, unit_id integer, valid_on date DEFAULT CURRENT_DATE)
+ RETURNS integer
+ LANGUAGE sql
+ STABLE
+AS $function$
   SELECT CASE unit_type
          WHEN 'establishment' THEN (
             WITH selected_establishment AS (
@@ -43,9 +47,20 @@ RETURNS INTEGER LANGUAGE sql STABLE AS $$
             ) combined_connections
             WHERE enterprise_id IS NOT NULL
          )
-         WHEN 'power_group' THEN NULL --TODO
+         WHEN 'power_group' THEN (
+            -- A power group's enterprise is the enterprise of its root legal unit (power_level = 1).
+            SELECT lu.enterprise_id
+            FROM public.power_group_membership AS pgm
+            JOIN public.legal_unit AS lu
+                ON lu.id = pgm.legal_unit_id
+                AND lu.valid_from <= valid_on AND valid_on < lu.valid_until
+            WHERE pgm.power_group_id = unit_id
+              AND pgm.power_level = 1
+              AND pgm.valid_range @> valid_on
+            LIMIT 1
+         )
          END
   ;
-$$;
+$function$;
 
 END;

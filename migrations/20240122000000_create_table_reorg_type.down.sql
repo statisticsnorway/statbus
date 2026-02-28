@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP TABLE public.reorg_type;
+DROP TABLE public.legal_reorg_type;
 
 END;

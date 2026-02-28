@@ -12,7 +12,7 @@ DROP FUNCTION public.establishment_hierarchy(establishment_id INTEGER, parent_le
 
 DROP FUNCTION public.status_hierarchy(status_id INTEGER);
 DROP FUNCTION public.contact_hierarchy(parent_establishment_id INTEGER, parent_legal_unit_id INTEGER);
-DROP FUNCTION public.notes_for_unit(parent_establishment_id INTEGER, parent_legal_unit_id INTEGER, parent_enterprise_id INTEGER, parent_enterprise_group_id INTEGER);
+DROP FUNCTION public.notes_for_unit(parent_establishment_id INTEGER, parent_legal_unit_id INTEGER, parent_enterprise_id INTEGER, parent_power_group_id INTEGER);
 
 DROP TYPE public.hierarchy_scope;
 

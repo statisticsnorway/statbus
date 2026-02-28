@@ -1,7 +1,11 @@
+-- Down Migration 20260227102355: implement_power_group_enterprise_id
 BEGIN;
 
-CREATE OR REPLACE FUNCTION public.statistical_unit_enterprise_id(unit_type public.statistical_unit_type, unit_id INTEGER, valid_on DATE DEFAULT current_date)
-RETURNS INTEGER LANGUAGE sql STABLE AS $$
+CREATE OR REPLACE FUNCTION public.statistical_unit_enterprise_id(unit_type statistical_unit_type, unit_id integer, valid_on date DEFAULT CURRENT_DATE)
+ RETURNS integer
+ LANGUAGE sql
+ STABLE
+AS $function$
   SELECT CASE unit_type
          WHEN 'establishment' THEN (
             WITH selected_establishment AS (
@@ -46,6 +50,6 @@ RETURNS INTEGER LANGUAGE sql STABLE AS $$
          WHEN 'power_group' THEN NULL --TODO
          END
   ;
-$$;
+$function$;
 
 END;

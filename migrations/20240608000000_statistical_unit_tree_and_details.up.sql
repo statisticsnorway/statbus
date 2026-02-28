@@ -16,7 +16,7 @@ CREATE FUNCTION public.notes_for_unit(
   parent_establishment_id INTEGER,
   parent_legal_unit_id INTEGER,
   parent_enterprise_id INTEGER,
-  parent_enterprise_group_id INTEGER
+  parent_power_group_id INTEGER
 ) RETURNS JSONB LANGUAGE sql STABLE AS $$
   SELECT COALESCE(
     (SELECT jsonb_build_object('notes',to_jsonb(un.*))
@@ -24,7 +24,7 @@ CREATE FUNCTION public.notes_for_unit(
      WHERE (  parent_establishment_id    IS NOT NULL AND un.establishment_id    = parent_establishment_id
            OR parent_legal_unit_id       IS NOT NULL AND un.legal_unit_id       = parent_legal_unit_id
            OR parent_enterprise_id       IS NOT NULL AND un.enterprise_id       = parent_enterprise_id
-           OR parent_enterprise_group_id IS NOT NULL AND un.enterprise_group_id = parent_enterprise_group_id
+           OR parent_power_group_id IS NOT NULL AND un.power_group_id = parent_power_group_id
            )),
     '{}'::JSONB
   );

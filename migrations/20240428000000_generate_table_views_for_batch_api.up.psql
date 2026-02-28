@@ -1,16 +1,20 @@
 BEGIN;
 
 SET LOCAL client_min_messages TO NOTICE;
-SELECT admin.generate_table_views_for_batch_api('public.enterprise_group_type');
+SELECT admin.generate_table_views_for_batch_api('public.power_group_type');
 SET LOCAL client_min_messages TO INFO;
 
-\copy public.enterprise_group_type_system(code, name) FROM 'dbseed/enterprise_group_type.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.power_group_type_system(code, name) FROM 'dbseed/power_group_type.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 
 SET LOCAL client_min_messages TO NOTICE;
-SELECT admin.generate_table_views_for_batch_api('public.enterprise_group_role');
+SELECT admin.generate_table_views_for_batch_api('public.legal_rel_type');
 SET LOCAL client_min_messages TO INFO;
 
-\copy public.enterprise_group_role_system(code, name) FROM 'dbseed/enterprise_group_role.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.legal_rel_type_system(code, name, description) FROM 'dbseed/legal_rel_type.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+
+-- Set primary_influencer_only (not supported by auto-generated _system view)
+UPDATE public.legal_rel_type SET primary_influencer_only = TRUE WHERE code = 'ownership';
+UPDATE public.legal_rel_type SET primary_influencer_only = FALSE WHERE code = 'control';
 
 END;
