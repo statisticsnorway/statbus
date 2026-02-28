@@ -47,6 +47,10 @@ $WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_demo_es_for_lu_
 echo "Loading informal establishments with source dates demo data"
 $WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_demo_es_without_lu_wsd_upload(tax_ident,stat_ident,name,physical_region_code,valid_from,valid_to,physical_country_iso_2,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,employees,turnover,data_source_code,physical_address_part1,physical_address_part2,physical_address_part3,postal_address_part1,postal_address_part2,postal_address_part3,phone_number,mobile_number,landline,fax_number,web_address,email_address,unit_size_code,status_code,physical_latitude,physical_longitude,physical_altitude) FROM 'app/public/demo/informal_establishments_units_with_source_dates_demo.csv' WITH CSV HEADER;"
 
+# Load legal relationships data
+echo "Loading legal relationships with source dates demo data"
+$WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_demo_lr_wsd_upload(influencing_tax_ident,influenced_tax_ident,rel_type_code,percentage,valid_from,valid_to) FROM 'app/public/demo/legal_relationships_with_source_dates_demo.csv' WITH CSV HEADER;"
+
 echo "Checking import job states"
 $WORKSPACE/devops/manage-statbus.sh psql -c "SELECT slug, state FROM public.import_job WHERE slug LIKE 'import_demo_%_wsd' ORDER BY slug;"
 

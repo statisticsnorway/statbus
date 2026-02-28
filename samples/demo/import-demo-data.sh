@@ -47,6 +47,10 @@ $WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_demo_es_for_lu_
 echo "Loading informal establishments demo data"
 $WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_demo_es_without_lu_current_upload(tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code) FROM 'app/public/demo/informal_establishments_units_demo.csv' WITH CSV HEADER;"
 
+# Load legal relationships data
+echo "Loading legal relationships demo data"
+$WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_demo_lr_current_upload(influencing_tax_ident,influenced_tax_ident,rel_type_code,percentage) FROM 'app/public/demo/legal_relationships_demo.csv' WITH CSV HEADER;"
+
 echo "Checking import job states"
 $WORKSPACE/devops/manage-statbus.sh psql -c "SELECT slug, state FROM public.import_job WHERE slug LIKE 'import_demo_%_current' ORDER BY slug;"
 
