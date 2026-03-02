@@ -2,75 +2,240 @@
 -- Purpose: Create views and worker commands for deriving power group hierarchies
 -- power_group is TIMELESS (like enterprise) - legal_relationship.power_group_id links relationships to groups
 -- Active status is derived at query time from legal_relationship.valid_range
+--
+-- The power_hierarchy view uses a two-phase algorithm:
+-- Phase 1: Natural roots (LUs with children but no parent) with range_agg subtraction
+--          to compute exact root periods even when cycles form later
+-- Phase 2: Orphan/cycle connected components — picks root via:
+--          1) power_override (NSO choice), 2) adjacent Phase 1 root, 3) MIN(id)
 
 BEGIN;
 
 --------------------------------------------------------------------------------
--- PART 1: Recursive CTE view for hierarchy traversal
--- Traverses temporal legal_relationship to find controlling ownership hierarchies
+-- PART 1: Two-phase power hierarchy view
+-- Phase 1: Natural roots with range_agg subtraction for exact root periods
+-- Phase 2: Orphan/cycle connected components for remaining nodes
 --------------------------------------------------------------------------------
 
-CREATE VIEW public.legal_unit_power_hierarchy WITH (security_invoker = on) AS
-WITH RECURSIVE hierarchy AS (
-    -- Base case: Root legal units (those that have controlling children but no controlling parent)
-    SELECT 
-        lu.id AS legal_unit_id,
-        lu.valid_range,
-        lu.id AS root_legal_unit_id,
-        1 AS power_level,
-        ARRAY[lu.id] AS path,
-        FALSE AS is_cycle
+CREATE VIEW public.power_hierarchy WITH (security_invoker = on) AS
+WITH RECURSIVE
+-- ============================================================
+-- Phase 1: Natural roots with range_agg subtraction
+-- ============================================================
+
+-- Step 1a: Compute exact root periods per LU using multirange subtraction
+-- A LU is a natural root for periods where it has children but no parent
+root_periods AS (
+    SELECT lu.id AS legal_unit_id,
+        datemultirange(lu.valid_range) - COALESCE(
+            (SELECT range_agg(lr.valid_range)
+             FROM public.legal_relationship AS lr
+             WHERE lr.influenced_id = lu.id
+               AND lr.primary_influencer_only IS TRUE
+               AND lr.valid_range && lu.valid_range),
+            '{}'::datemultirange
+        ) AS root_multirange
     FROM public.legal_unit AS lu
     WHERE EXISTS (
-        -- Has at least one primary-influencer child
-        SELECT 1
-        FROM public.legal_relationship AS lr
+        SELECT 1 FROM public.legal_relationship AS lr
         WHERE lr.influencing_id = lu.id
           AND lr.primary_influencer_only IS TRUE
           AND lr.valid_range && lu.valid_range
     )
-    AND NOT EXISTS (
-        -- Does NOT have a primary-influencer parent
-        SELECT 1
-        FROM public.legal_relationship AS lr
-        WHERE lr.influenced_id = lu.id
-          AND lr.primary_influencer_only IS TRUE
-          AND lr.valid_range && lu.valid_range
-    )
-    
+),
+-- Step 1b: Unnest multirange to individual daterange periods
+root_base AS (
+    SELECT rp.legal_unit_id,
+           period AS valid_range,
+           rp.legal_unit_id AS root_legal_unit_id,
+           1 AS power_level,
+           ARRAY[rp.legal_unit_id] AS path,
+           FALSE AS is_cycle
+    FROM root_periods AS rp,
+    LATERAL unnest(rp.root_multirange) AS period
+    WHERE NOT isempty(rp.root_multirange)
+),
+-- Step 1c: Recursive traversal downward from natural roots
+phase1_hierarchy AS (
+    SELECT * FROM root_base
+
     UNION ALL
-    
-    -- Recursive case: Children of legal units already in the hierarchy
-    SELECT 
+
+    SELECT
         influenced_lu.id AS legal_unit_id,
         influenced_lu.valid_range * lr.valid_range * h.valid_range AS valid_range,
         h.root_legal_unit_id,
         h.power_level + 1 AS power_level,
         h.path || influenced_lu.id AS path,
         influenced_lu.id = ANY(h.path) AS is_cycle
-    FROM hierarchy AS h
+    FROM phase1_hierarchy AS h
     JOIN public.legal_relationship AS lr
         ON lr.influencing_id = h.legal_unit_id
         AND lr.valid_range && h.valid_range
         AND lr.primary_influencer_only IS TRUE
-    JOIN public.legal_unit AS influenced_lu 
+    JOIN public.legal_unit AS influenced_lu
         ON influenced_lu.id = lr.influenced_id
         AND influenced_lu.valid_range && lr.valid_range
     WHERE NOT h.is_cycle
       AND h.power_level < 100
-)
-SELECT 
-    legal_unit_id,
-    valid_range,
-    root_legal_unit_id,
-    power_level,
-    path,
-    is_cycle
-FROM hierarchy
-WHERE NOT is_cycle;
+),
+phase1 AS (
+    SELECT legal_unit_id, valid_range, root_legal_unit_id, power_level, path, is_cycle
+    FROM phase1_hierarchy
+    WHERE NOT is_cycle
+),
 
-COMMENT ON VIEW public.legal_unit_power_hierarchy IS
-    'Recursive view showing power hierarchy traversal from root legal units down through primary_influencer_only relationships';
+-- ============================================================
+-- Phase 2: Orphan/cycle connected components
+-- ============================================================
+
+-- Step 2a: Find all nodes participating in primary edges
+all_primary_nodes AS (
+    SELECT lu_id, range_agg(valid_range) AS participation
+    FROM (
+        SELECT influencing_id AS lu_id, valid_range
+        FROM public.legal_relationship
+        WHERE primary_influencer_only IS TRUE
+        UNION ALL
+        SELECT influenced_id AS lu_id, valid_range
+        FROM public.legal_relationship
+        WHERE primary_influencer_only IS TRUE
+    ) AS t
+    GROUP BY lu_id
+),
+-- Step 2b: Compute orphan periods (participating in edges but not covered by Phase 1)
+orphan_nodes AS (
+    SELECT apn.lu_id,
+        apn.participation - COALESCE(  -- participation is already datemultirange from range_agg
+            (SELECT range_agg(p1.valid_range)
+             FROM phase1 AS p1
+             WHERE p1.legal_unit_id = apn.lu_id),
+            '{}'::datemultirange
+        ) AS orphan_multirange
+    FROM all_primary_nodes AS apn
+),
+orphan_seeds AS (
+    SELECT orn.lu_id, period AS valid_range
+    FROM orphan_nodes AS orn,
+    LATERAL unnest(orn.orphan_multirange) AS period
+    WHERE NOT isempty(orn.orphan_multirange)
+),
+-- Step 2c: Bidirectional flood fill to find connected components
+-- Each node tracks the minimum id seen, which identifies the component
+orphan_flood AS (
+    SELECT lu_id AS node_id, lu_id AS min_id, valid_range, ARRAY[lu_id] AS path
+    FROM orphan_seeds
+
+    UNION ALL
+
+    SELECT neighbors.neighbor_id,
+           LEAST(ofl.min_id, neighbors.neighbor_id),
+           neighbors.lr_range * ofl.valid_range,
+           ofl.path || neighbors.neighbor_id
+    FROM orphan_flood AS ofl
+    JOIN LATERAL (
+        SELECT lr.influenced_id AS neighbor_id, lr.valid_range AS lr_range
+        FROM public.legal_relationship AS lr
+        WHERE lr.influencing_id = ofl.node_id
+          AND lr.primary_influencer_only IS TRUE
+          AND lr.valid_range && ofl.valid_range
+        UNION ALL
+        SELECT lr.influencing_id AS neighbor_id, lr.valid_range AS lr_range
+        FROM public.legal_relationship AS lr
+        WHERE lr.influenced_id = ofl.node_id
+          AND lr.primary_influencer_only IS TRUE
+          AND lr.valid_range && ofl.valid_range
+    ) AS neighbors ON TRUE
+    WHERE NOT (neighbors.neighbor_id = ANY(ofl.path))
+      AND array_length(ofl.path, 1) < 100
+),
+-- Aggregate to find component membership
+orphan_components AS (
+    SELECT node_id, MIN(min_id) AS component_min
+    FROM orphan_flood
+    GROUP BY node_id
+),
+-- Step 2d: Effective root per component
+-- Priority: 1) power_override, 2) adjacent Phase 1 root, 3) MIN(id) fallback
+component_effective_roots AS (
+    SELECT DISTINCT ON (oc.component_min, os.valid_range)
+        oc.component_min,
+        COALESCE(
+            -- NSO override (via existing PG assignment on relationships)
+            (SELECT po.custom_root_legal_unit_id
+             FROM public.legal_relationship AS lr
+             JOIN public.power_override AS po
+                 ON po.power_group_id = lr.power_group_id
+                 AND po.valid_range && os.valid_range
+             WHERE lr.primary_influencer_only IS TRUE
+               AND lr.power_group_id IS NOT NULL
+               AND (lr.influencing_id = oc.node_id OR lr.influenced_id = oc.node_id)
+               AND lr.valid_range && os.valid_range
+             LIMIT 1),
+            -- Adjacent Phase 1 root (temporal continuity — pick closest period)
+            (SELECT p1.root_legal_unit_id
+             FROM phase1 AS p1
+             WHERE p1.legal_unit_id = oc.node_id
+               AND p1.power_level = 1
+             ORDER BY ABS(lower(p1.valid_range) - lower(os.valid_range))
+             LIMIT 1),
+            -- MIN(id) fallback
+            oc.component_min
+        ) AS effective_root,
+        os.valid_range
+    FROM orphan_components AS oc
+    JOIN orphan_seeds AS os ON os.lu_id = oc.node_id
+    ORDER BY oc.component_min, os.valid_range
+),
+-- Step 2e: Directed traversal from effective root
+phase2_base AS (
+    SELECT
+        cer.effective_root AS legal_unit_id,
+        (SELECT lu.valid_range FROM public.legal_unit AS lu WHERE lu.id = cer.effective_root) * cer.valid_range AS valid_range,
+        cer.effective_root AS root_legal_unit_id,
+        1 AS power_level,
+        ARRAY[cer.effective_root] AS path,
+        FALSE AS is_cycle
+    FROM component_effective_roots AS cer
+),
+phase2_hierarchy AS (
+    SELECT * FROM phase2_base
+
+    UNION ALL
+
+    SELECT
+        influenced_lu.id AS legal_unit_id,
+        influenced_lu.valid_range * lr.valid_range * h.valid_range AS valid_range,
+        h.root_legal_unit_id,
+        h.power_level + 1 AS power_level,
+        h.path || influenced_lu.id AS path,
+        influenced_lu.id = ANY(h.path) AS is_cycle
+    FROM phase2_hierarchy AS h
+    JOIN public.legal_relationship AS lr
+        ON lr.influencing_id = h.legal_unit_id
+        AND lr.valid_range && h.valid_range
+        AND lr.primary_influencer_only IS TRUE
+    JOIN public.legal_unit AS influenced_lu
+        ON influenced_lu.id = lr.influenced_id
+        AND influenced_lu.valid_range && lr.valid_range
+    WHERE NOT h.is_cycle
+      AND h.power_level < 100
+),
+phase2 AS (
+    SELECT legal_unit_id, valid_range, root_legal_unit_id, power_level, path, is_cycle
+    FROM phase2_hierarchy
+    WHERE NOT is_cycle
+)
+
+-- Final: combine both phases
+SELECT legal_unit_id, valid_range, root_legal_unit_id, power_level, path, is_cycle
+FROM phase1
+UNION ALL
+SELECT legal_unit_id, valid_range, root_legal_unit_id, power_level, path, is_cycle
+FROM phase2;
+
+COMMENT ON VIEW public.power_hierarchy IS
+    'Two-phase power hierarchy: Phase 1 uses natural roots (range_agg subtraction), Phase 2 handles cycles/orphans via connected components with NSO override support';
 
 --------------------------------------------------------------------------------
 -- PART 2: Power group definition view (computes derived metrics)
@@ -78,15 +243,15 @@ COMMENT ON VIEW public.legal_unit_power_hierarchy IS
 --------------------------------------------------------------------------------
 
 CREATE VIEW public.power_group_def WITH (security_invoker = on) AS
-SELECT 
+SELECT
     root_legal_unit_id,
     MAX(power_level) - 1 AS depth,  -- Longest path from root (0 for single root)
     COUNT(*) FILTER (WHERE power_level = 2) AS width,  -- Direct children count
     COUNT(*) - 1 AS reach  -- Total controlled units (excluding root)
-FROM public.legal_unit_power_hierarchy
+FROM public.power_hierarchy
 GROUP BY root_legal_unit_id;
 
-COMMENT ON VIEW public.power_group_def IS 
+COMMENT ON VIEW public.power_group_def IS
     'Defines power groups based on hierarchy traversal, computing depth/width/reach metrics. One row per root legal unit.';
 
 --------------------------------------------------------------------------------
@@ -99,19 +264,19 @@ WITH hierarchy_relationships AS (
     -- Get all relationships that are part of a controlling hierarchy
     SELECT DISTINCT
         lr.id AS legal_relationship_id,
-        lph.root_legal_unit_id
+        ph.root_legal_unit_id
     FROM public.legal_relationship AS lr
-    JOIN public.legal_unit_power_hierarchy AS lph
-        ON (lr.influencing_id = lph.legal_unit_id OR lr.influenced_id = lph.legal_unit_id)
-        AND lr.valid_range && lph.valid_range
+    JOIN public.power_hierarchy AS ph
+        ON (lr.influencing_id = ph.legal_unit_id OR lr.influenced_id = ph.legal_unit_id)
+        AND lr.valid_range && ph.valid_range
     WHERE lr.primary_influencer_only IS TRUE  -- Only primary-influencer relationships form power groups
 )
-SELECT 
+SELECT
     legal_relationship_id,
     root_legal_unit_id
 FROM hierarchy_relationships;
 
-COMMENT ON VIEW public.legal_relationship_cluster IS 
+COMMENT ON VIEW public.legal_relationship_cluster IS
     'Maps each controlling legal_relationship to its cluster root (for power_group assignment)';
 
 --------------------------------------------------------------------------------
@@ -146,25 +311,25 @@ BEGIN
     ALTER TABLE public.legal_relationship DISABLE TRIGGER legal_relationship_derive_power_groups_trigger;
 
     -- Find a user for edit tracking
-    SELECT id INTO _current_user_id 
-    FROM auth.user 
-    WHERE email = session_user 
+    SELECT id INTO _current_user_id
+    FROM auth.user
+    WHERE email = session_user
        OR session_user = 'postgres';
-    
+
     IF _current_user_id IS NULL THEN
-        SELECT id INTO _current_user_id 
-        FROM auth.user 
+        SELECT id INTO _current_user_id
+        FROM auth.user
         WHERE role_id = (SELECT id FROM auth.role WHERE name = 'super_user')
         LIMIT 1;
     END IF;
-    
+
     IF _current_user_id IS NULL THEN
         RAISE EXCEPTION 'No user found for power group derivation';
     END IF;
-    
+
     -- Step 1: For each cluster (identified by root_legal_unit_id), find or create power_group
     -- and assign to relationships
-    FOR _cluster IN 
+    FOR _cluster IN
         SELECT DISTINCT root_legal_unit_id
         FROM public.legal_relationship_cluster
     LOOP
@@ -175,7 +340,7 @@ BEGIN
         JOIN public.legal_relationship_cluster AS lrc ON lrc.legal_relationship_id = lr.id
         WHERE lrc.root_legal_unit_id = _cluster.root_legal_unit_id
         LIMIT 1;
-        
+
         IF NOT FOUND THEN
             -- Create new power_group for this cluster
             INSERT INTO public.power_group (
@@ -184,14 +349,14 @@ BEGIN
                 _current_user_id
             )
             RETURNING * INTO _power_group;
-            
+
             _created_count := _created_count + 1;
-            RAISE DEBUG '[derive_power_groups] Created power_group % for root LU %', 
+            RAISE DEBUG '[derive_power_groups] Created power_group % for root LU %',
                 _power_group.ident, _cluster.root_legal_unit_id;
         ELSE
             _updated_count := _updated_count + 1;
         END IF;
-        
+
         -- Step 2: Assign power_group_id to all relationships in this cluster
         UPDATE public.legal_relationship AS lr
         SET power_group_id = _power_group.id
@@ -199,16 +364,16 @@ BEGIN
         WHERE lr.id = lrc.legal_relationship_id
           AND lrc.root_legal_unit_id = _cluster.root_legal_unit_id
           AND (lr.power_group_id IS DISTINCT FROM _power_group.id);
-        
+
         GET DIAGNOSTICS _row_count = ROW_COUNT;
         _linked_count := _linked_count + _row_count;
     END LOOP;
-    
+
     -- Step 3: Handle cluster merges - when one cluster acquires another
     -- Find relationships where power_group differs from what the cluster says
     -- Use the "larger" power_group (more relationships) as the survivor
     WITH cluster_sizes AS (
-        SELECT 
+        SELECT
             lr.power_group_id,
             COUNT(*) AS rel_count
         FROM public.legal_relationship AS lr
@@ -226,7 +391,7 @@ BEGIN
         WHERE lr.power_group_id IS NOT NULL
     ),
     clusters_with_multiple_pgs AS (
-        SELECT 
+        SELECT
             root_legal_unit_id,
             array_agg(current_pg_id ORDER BY rel_count DESC, current_pg_id) AS pg_ids
         FROM merge_candidates
@@ -240,23 +405,23 @@ BEGIN
     JOIN clusters_with_multiple_pgs AS cwmp ON cwmp.root_legal_unit_id = lrc.root_legal_unit_id
     WHERE lr.id = lrc.legal_relationship_id
       AND lr.power_group_id != cwmp.pg_ids[1];
-    
+
     GET DIAGNOSTICS _row_count = ROW_COUNT;
     IF _row_count > 0 THEN
         RAISE DEBUG '[derive_power_groups] Merged % relationships into surviving power groups', _row_count;
     END IF;
-    
+
     -- Step 4: Clear power_group_id from relationships that are not primary-influencer
     UPDATE public.legal_relationship AS lr
     SET power_group_id = NULL
     WHERE lr.power_group_id IS NOT NULL
       AND lr.primary_influencer_only IS NOT TRUE;
-    
+
     GET DIAGNOSTICS _row_count = ROW_COUNT;
     IF _row_count > 0 THEN
         RAISE DEBUG '[derive_power_groups] Cleared power_group from % non-primary-influencer relationships', _row_count;
     END IF;
-    
+
     RAISE DEBUG '[derive_power_groups] Completed: created=%, updated=%, linked=%',
         _created_count, _updated_count, _linked_count;
 
@@ -265,7 +430,7 @@ BEGIN
 END;
 $derive_power_groups$;
 
-COMMENT ON FUNCTION worker.derive_power_groups() IS 
+COMMENT ON FUNCTION worker.derive_power_groups() IS
     'Derives power_group records and updates legal_relationship.power_group_id based on ownership hierarchies';
 
 -- Command handler procedure (wrapper for worker system)
@@ -289,7 +454,7 @@ DECLARE
     _payload JSONB;
 BEGIN
     _payload := jsonb_build_object('command', 'derive_power_groups');
-    
+
     INSERT INTO worker.tasks AS t (command, payload)
     VALUES ('derive_power_groups', _payload)
     ON CONFLICT (command)
@@ -300,14 +465,14 @@ BEGIN
         processed_at = NULL,
         error = NULL
     RETURNING id INTO _task_id;
-    
+
     PERFORM pg_notify('worker_tasks', 'analytics');
-    
+
     RETURN _task_id;
 END;
 $enqueue_derive_power_groups$;
 
-COMMENT ON FUNCTION worker.enqueue_derive_power_groups() IS 
+COMMENT ON FUNCTION worker.enqueue_derive_power_groups() IS
     'Enqueues a task to derive power groups from legal_relationship data';
 
 -- Register command in worker system
@@ -357,7 +522,7 @@ FROM public.power_group AS pg
 JOIN public.legal_relationship AS lr ON lr.power_group_id = pg.id
 WHERE lr.valid_range @> CURRENT_DATE;
 
-COMMENT ON VIEW public.power_group_active IS 
+COMMENT ON VIEW public.power_group_active IS
     'Power groups that are currently active (have at least one relationship with valid_range containing today)';
 
 --------------------------------------------------------------------------------
@@ -369,16 +534,16 @@ SELECT DISTINCT
     pg.id AS power_group_id,
     pg.ident AS power_group_ident,
     lu.id AS legal_unit_id,
-    lph.power_level,
-    lph.valid_range
+    ph.power_level,
+    ph.valid_range
 FROM public.power_group AS pg
 JOIN public.legal_relationship AS lr ON lr.power_group_id = pg.id
-JOIN public.legal_unit_power_hierarchy AS lph 
-    ON (lr.influencing_id = lph.legal_unit_id OR lr.influenced_id = lph.legal_unit_id)
-    AND lr.valid_range && lph.valid_range
-JOIN public.legal_unit AS lu ON lu.id = lph.legal_unit_id;
+JOIN public.power_hierarchy AS ph
+    ON (lr.influencing_id = ph.legal_unit_id OR lr.influenced_id = ph.legal_unit_id)
+    AND lr.valid_range && ph.valid_range
+JOIN public.legal_unit AS lu ON lu.id = ph.legal_unit_id;
 
-COMMENT ON VIEW public.power_group_membership IS 
+COMMENT ON VIEW public.power_group_membership IS
     'Maps legal units to their power groups with hierarchy level information';
 
 --------------------------------------------------------------------------------
@@ -387,7 +552,7 @@ COMMENT ON VIEW public.power_group_membership IS
 
 -- Views: SELECT for authenticated, regular_user, admin_user
 -- These are read-only aggregation views (not auto-updatable), so only SELECT is needed.
-GRANT SELECT ON public.legal_unit_power_hierarchy TO authenticated, regular_user, admin_user;
+GRANT SELECT ON public.power_hierarchy TO authenticated, regular_user, admin_user;
 GRANT SELECT ON public.power_group_def TO authenticated, regular_user, admin_user;
 GRANT SELECT ON public.legal_relationship_cluster TO authenticated, regular_user, admin_user;
 GRANT SELECT ON public.power_group_active TO authenticated, regular_user, admin_user;
@@ -396,6 +561,8 @@ GRANT SELECT ON public.power_group_membership TO authenticated, regular_user, ad
 -- Tables
 GRANT SELECT ON public.legal_relationship TO authenticated;
 GRANT SELECT ON public.power_group TO authenticated;
+GRANT SELECT ON public.power_root TO authenticated;
+GRANT SELECT ON public.power_override TO authenticated;
 GRANT EXECUTE ON FUNCTION worker.enqueue_derive_power_groups() TO authenticated;
 
 END;

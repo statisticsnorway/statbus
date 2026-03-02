@@ -1024,6 +1024,72 @@ BEGIN
 
     RAISE DEBUG '[derive_power_groups] Completed: created=%, updated=%, linked=%', _created_count, _updated_count, _linked_count;
 
+    -- Step 5: Populate power_root for affected power groups
+    -- Delete old rows for all affected PGs, then re-derive from hierarchy + membership
+    IF _affected_pg_ids != '{}'::int4multirange THEN
+        DELETE FROM public.power_root AS pr
+        WHERE pr.power_group_id IN (
+            SELECT generate_series(lower(r), upper(r)-1)
+            FROM unnest(_affected_pg_ids) AS t(r)
+        );
+
+        INSERT INTO public.power_root (power_group_id, root_legal_unit_id, root_status,
+                                       valid_from, valid_to, valid_until)
+        SELECT DISTINCT ON (pgm.power_group_id, lower(pgm.valid_range))
+            pgm.power_group_id,
+            pgm_root.legal_unit_id AS root_legal_unit_id,
+            -- Detect root_status based on Phase 1 vs Phase 2 origin and root count
+            CASE
+                -- Multiple distinct roots for same PG in overlapping time → 'multi'
+                WHEN (SELECT COUNT(DISTINCT ph2.root_legal_unit_id)
+                      FROM public.power_hierarchy AS ph2
+                      JOIN public.power_group_membership AS pgm2
+                          ON pgm2.legal_unit_id = ph2.legal_unit_id
+                          AND pgm2.valid_range && ph2.valid_range
+                      WHERE pgm2.power_group_id = pgm.power_group_id
+                        AND ph2.valid_range && pgm.valid_range
+                        AND ph2.power_level = 1) > 1
+                THEN 'multi'::public.power_group_root_status
+                -- Root came from Phase 2 (no natural root period for this LU) → 'cycle'
+                WHEN NOT EXISTS (
+                    SELECT 1
+                    FROM public.legal_unit AS lu
+                    WHERE lu.id = pgm_root.legal_unit_id
+                      AND EXISTS (
+                          SELECT 1 FROM public.legal_relationship AS lr_child
+                          WHERE lr_child.influencing_id = lu.id
+                            AND lr_child.primary_influencer_only IS TRUE
+                            AND lr_child.valid_range && pgm.valid_range
+                      )
+                      AND NOT EXISTS (
+                          SELECT 1 FROM public.legal_relationship AS lr_parent
+                          WHERE lr_parent.influenced_id = lu.id
+                            AND lr_parent.primary_influencer_only IS TRUE
+                            AND lr_parent.valid_range && pgm.valid_range
+                      )
+                )
+                THEN 'cycle'::public.power_group_root_status
+                ELSE 'single'::public.power_group_root_status
+            END AS root_status,
+            lower(pgm.valid_range) AS valid_from,
+            CASE WHEN upper(pgm.valid_range) = 'infinity'::date THEN NULL
+                 ELSE (upper(pgm.valid_range) - '1 day'::interval)::date END AS valid_to,
+            upper(pgm.valid_range) AS valid_until
+        FROM public.power_group_membership AS pgm
+        JOIN public.power_group_membership AS pgm_root
+            ON pgm_root.power_group_id = pgm.power_group_id
+            AND pgm_root.power_level = 1
+            AND pgm_root.valid_range && pgm.valid_range
+        WHERE pgm.power_group_id IN (
+            SELECT generate_series(lower(r), upper(r)-1)
+            FROM unnest(_affected_pg_ids) AS t(r)
+        )
+        ORDER BY pgm.power_group_id, lower(pgm.valid_range);
+
+        GET DIAGNOSTICS _row_count = ROW_COUNT;
+        RAISE DEBUG '[derive_power_groups] Populated % power_root rows', _row_count;
+    END IF;
+
     -- Re-enable triggers
     ALTER TABLE public.legal_relationship ENABLE TRIGGER a_legal_relationship_log_insert;
     ALTER TABLE public.legal_relationship ENABLE TRIGGER a_legal_relationship_log_update;
@@ -2011,7 +2077,7 @@ BEGIN
     RAISE DEBUG '[Job %] analyse_power_group_link: Computing power group clusters (holistic)', p_job_id;
 
     -- Build complete relationship graph: UNION of existing base table rows + new rows from data table.
-    -- Then compute clusters using recursive CTE (same algorithm as legal_unit_power_hierarchy).
+    -- Then compute clusters using recursive CTE (same algorithm as power_hierarchy).
     -- Finally, find/assign power_group_id for each cluster and populate data table rows.
     EXECUTE format($sql$
         WITH RECURSIVE
