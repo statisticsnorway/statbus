@@ -125,80 +125,10 @@ CREATE TRIGGER trg_legal_relationship_set_primary_influencer_only
     BEFORE INSERT OR UPDATE OF type_id ON public.legal_relationship
     FOR EACH ROW EXECUTE FUNCTION public.legal_relationship_set_primary_influencer_only();
 
---------------------------------------------------------------------------------
--- Cycle prevention trigger
---------------------------------------------------------------------------------
-
-CREATE FUNCTION public.legal_relationship_cycle_check()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, pg_temp
-AS $legal_relationship_cycle_check$
-DECLARE
-    _path integer[];
-    _cycle_found boolean := FALSE;
-    _effective_valid_range daterange;
-BEGIN
-    -- Calculate the effective valid_range from valid_from/valid_to
-    -- This is necessary because sql_saga's temporal sync trigger runs AFTER this trigger
-    _effective_valid_range := daterange(
-        NEW.valid_from, 
-        COALESCE(NEW.valid_to, 'infinity'::date),
-        '[)'
-    );
-    
-    -- Check for cycles using recursive CTE
-    -- Start from NEW.influenced_id and follow influencing_id links to see if we reach NEW.influencing_id
-    WITH RECURSIVE ancestors AS (
-        -- Base case: start from influenced's influencers (not including the new relationship yet)
-        SELECT 
-            lr.influencing_id,
-            lr.influenced_id,
-            ARRAY[lr.influenced_id, lr.influencing_id] AS path,
-            lr.valid_range
-        FROM public.legal_relationship AS lr
-        WHERE lr.influenced_id = NEW.influencing_id
-          AND lr.valid_range && _effective_valid_range
-          AND lr.id IS DISTINCT FROM NEW.id
-        
-        UNION ALL
-        
-        -- Recursive case: follow the chain upward
-        SELECT 
-            lr.influencing_id,
-            lr.influenced_id,
-            a.path || lr.influencing_id,
-            lr.valid_range * a.valid_range AS valid_range
-        FROM ancestors AS a
-        JOIN public.legal_relationship AS lr 
-            ON lr.influenced_id = a.influencing_id
-            AND lr.valid_range && a.valid_range
-            AND lr.id IS DISTINCT FROM NEW.id
-        WHERE NOT (lr.influencing_id = ANY(a.path))
-          AND array_length(a.path, 1) < 100
-    )
-    SELECT TRUE INTO _cycle_found
-    FROM ancestors
-    WHERE influencing_id = NEW.influenced_id
-    LIMIT 1;
-    
-    IF _cycle_found THEN
-        RAISE EXCEPTION 'Circular ownership detected: adding relationship from legal_unit % to % would create a cycle',
-            NEW.influencing_id, NEW.influenced_id;
-    END IF;
-    
-    RETURN NEW;
-END;
-$legal_relationship_cycle_check$;
-
-COMMENT ON FUNCTION public.legal_relationship_cycle_check() IS 
-    'Trigger function to prevent circular ownership/control relationships between legal units';
-
-CREATE TRIGGER legal_relationship_cycle_check_trigger
-BEFORE INSERT OR UPDATE ON public.legal_relationship
-FOR EACH ROW
-EXECUTE FUNCTION public.legal_relationship_cycle_check();
+-- Note: Cycles are allowed in legal_relationship data — they represent real-world
+-- data quality issues. The power_hierarchy view handles cycles via two-phase
+-- algorithm (Phase 2: connected components with algorithmic/NSO-chosen roots).
+-- The CHECK constraint influencing_influenced_different still prevents self-reference.
 
 -- Enable RLS (required by 20240603 migration check)
 ALTER TABLE public.legal_relationship ENABLE ROW LEVEL SECURITY;

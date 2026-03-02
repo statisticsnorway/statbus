@@ -1,9 +1,5 @@
 BEGIN;
 
--- Drop the trigger and function for cycle check
-DROP TRIGGER IF EXISTS legal_relationship_cycle_check_trigger ON public.legal_relationship;
-DROP FUNCTION IF EXISTS public.legal_relationship_cycle_check();
-
 -- Drop the trigger and function for primary_influencer_only auto-set
 DROP TRIGGER IF EXISTS trg_legal_relationship_set_primary_influencer_only ON public.legal_relationship;
 DROP FUNCTION IF EXISTS public.legal_relationship_set_primary_influencer_only();

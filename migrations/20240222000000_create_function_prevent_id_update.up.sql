@@ -25,6 +25,10 @@ BEGIN
         FROM pg_catalog.pg_class c
         JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
         WHERE n.nspname = 'public' AND c.relkind = 'r'
+          AND EXISTS (
+              SELECT 1 FROM pg_catalog.pg_attribute a
+              WHERE a.attrelid = c.oid AND a.attname = 'id' AND NOT a.attisdropped
+          )
     LOOP
         RAISE NOTICE '%.%: Preventing id changes', schema_name_str, table_name_str;
         EXECUTE format('CREATE TRIGGER trigger_prevent_'||table_name_str||'_id_update BEFORE UPDATE OF id ON '||schema_name_str||'.'||table_name_str||' FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update();');

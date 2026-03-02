@@ -146,6 +146,8 @@ BEGIN
     PERFORM admin.add_rls_regular_user_can_edit('public.legal_unit'::regclass);
     PERFORM admin.add_rls_regular_user_can_edit('public.enterprise'::regclass);
     PERFORM admin.add_rls_regular_user_can_edit('public.power_group'::regclass);
+    PERFORM admin.add_rls_regular_user_can_read('public.power_root'::regclass);
+    PERFORM admin.add_rls_regular_user_can_edit('public.power_override'::regclass);
     PERFORM admin.add_rls_regular_user_can_edit('public.external_ident'::regclass);
     PERFORM admin.add_rls_regular_user_can_edit('public.activity'::regclass);
     PERFORM admin.add_rls_regular_user_can_edit('public.contact'::regclass);
