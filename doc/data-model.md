@@ -22,7 +22,7 @@ Tables and views for tracking ownership/control relationships between legal unit
 
 - `legal_relationship(id, type_id, reorg_type_id, power_group_id, influencing_id, influenced_id, edit_by_user_id, valid_range, valid_from, valid_to, valid_until, edit_at, primary_influencer_only, percentage, edit_comment)` (temporal)
   - Key FKs: edit_by_user_id, influenced_id, influencing_id, power_group_id, primary_influencer_only, reorg_type_id, type_id, type_id, valid_range, valid_range.
-- `legal_unit_power_hierarchy(path, legal_unit_id, root_legal_unit_id, valid_range, power_level, is_cycle)`
+- `power_hierarchy(path, legal_unit_id, root_legal_unit_id, valid_range, power_level, is_cycle)`
 - `power_group_def(root_legal_unit_id, depth, width, reach)`
 - `legal_relationship_cluster(legal_relationship_id, root_legal_unit_id)`
 - `power_group_active(id, ident, short_name, name, type_id)`
@@ -126,6 +126,7 @@ Enumerated types used across the schema, with their possible values.
 - **`public.import_valid_time_from`**: `job_provided`, `source_columns`
 - **`public.location_type`**: `physical`, `postal`
 - **`public.person_sex`**: `Male`, `Female`
+- **`public.power_group_root_status`**: `single`, `cycle`, `multi`
 - **`public.relative_period_code`**: `today`, `year_curr`, `year_prev`, `year_curr_only`, `year_prev_only`, `start_of_week_curr`, `stop_of_week_prev`, `start_of_week_prev`, `start_of_month_curr`, `stop_of_month_prev`, `start_of_month_prev`, `start_of_quarter_curr`, `stop_of_quarter_prev`, `start_of_quarter_prev`, `start_of_semester_curr`, `stop_of_semester_prev`, `start_of_semester_prev`, `start_of_year_curr`, `stop_of_year_prev`, `start_of_year_prev`, `start_of_quinquennial_curr`, `stop_of_quinquennial_prev`, `start_of_quinquennial_prev`, `start_of_decade_curr`, `stop_of_decade_prev`, `start_of_decade_prev`
 - **`public.relative_period_scope`**: `input_and_query`, `query`, `input`
 - **`public.reset_scope`**: `units`, `data`, `getting-started`, `all`

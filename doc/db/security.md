@@ -93,6 +93,10 @@ each role can see and modify.
   - Policies: `power_group_admin_user_manage` (ALL → admin_user), `power_group_authenticated_read` (SELECT → authenticated), `power_group_regular_user_manage` (ALL → regular_user)
 - **`power_group_type`** — RLS ON
   - Policies: `power_group_type_admin_user_manage` (ALL → admin_user), `power_group_type_authenticated_read` (SELECT → authenticated), `power_group_type_regular_user_read` (SELECT → regular_user)
+- **`power_override`** — RLS ON
+  - Policies: `power_override_admin_user_manage` (ALL → admin_user), `power_override_authenticated_read` (SELECT → authenticated), `power_override_regular_user_manage` (ALL → regular_user)
+- **`power_root`** — RLS ON
+  - Policies: `power_root_admin_user_manage` (ALL → admin_user), `power_root_authenticated_read` (SELECT → authenticated), `power_root_regular_user_read` (SELECT → regular_user)
 - **`region`** — RLS ON
   - Policies: `region_admin_user_manage` (ALL → admin_user), `region_authenticated_read` (SELECT → authenticated), `region_regular_user_read` (SELECT → regular_user)
 - **`region_access`** — RLS ON
@@ -203,7 +207,6 @@ auto-updatable) also require INSERT.
 - **`legal_reorg_type_custom`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`legal_reorg_type_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`legal_reorg_type_system`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`legal_unit_power_hierarchy`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
 - **`person_role_available`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`person_role_custom`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`person_role_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
@@ -219,6 +222,7 @@ auto-updatable) also require INSERT.
 - **`power_group_type_custom`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`power_group_type_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`power_group_type_system`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`power_hierarchy`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
 - **`region_upload`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`region_used_def`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`relative_period_with_time`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
@@ -342,8 +346,8 @@ Trigger calling DDL procedures.
 
 - `lifecycle_callbacks.cleanup_and_generate`
 - `public.generate_power_ident`
-- `public.legal_relationship_cycle_check`
 - `public.legal_relationship_queue_derive_power_groups`
+- `public.power_override_queue_derive`
 
 ### sql_saga
 
