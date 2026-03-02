@@ -51,7 +51,7 @@ DECLARE
         )),
         (1, 1, 2, 'Legal Unit Ownership & Control', 'Tables and views for tracking ownership/control relationships between legal units:', jsonb_build_array(
             '{"schema": "public", "name": "legal_relationship"}'::jsonb,
-            '{"schema": "public", "name": "legal_unit_power_hierarchy", "type": "VIEW"}'::jsonb,
+            '{"schema": "public", "name": "power_hierarchy", "type": "VIEW"}'::jsonb,
             '{"schema": "public", "name": "power_group_def", "type": "VIEW"}'::jsonb,
             '{"schema": "public", "name": "legal_relationship_cluster", "type": "VIEW"}'::jsonb,
             '{"schema": "public", "name": "power_group_active", "type": "VIEW"}'::jsonb,
@@ -377,6 +377,8 @@ SELECT :'undocumented';
                                                                                                                                                                                 +
  - `public.pipeline_step_weight` (TABLE)                                                                                                                                        +
  - `public.pipeline_step_weight` (VIEW)                                                                                                                                         +
+ - `public.power_override` (TABLE)                                                                                                                                              +
+ - `public.power_root` (TABLE)                                                                                                                                                  +
  - `public.timeline_power_group` (TABLE)                                                                                                                                        +
  - `worker.pipeline_step_weight` (TABLE)
 (1 row)

@@ -148,7 +148,7 @@ SELECT worker.derive_power_groups();
 
 \echo "2a: Hierarchy shows 4 power levels"
 SELECT lu.name, h.power_level
-FROM public.legal_unit_power_hierarchy AS h
+FROM public.power_hierarchy AS h
 JOIN public.legal_unit AS lu ON lu.id = h.legal_unit_id AND lu.valid_range && h.valid_range
 WHERE lu.name LIKE 'Apex%'
 ORDER BY h.power_level, lu.name;
@@ -302,32 +302,34 @@ WHERE lu.name LIKE 'Beacon%'
 ORDER BY lu.name;
 
 -- ============================================================================
-\echo "=== 2e: Cycle and Self-Reference Prevention ==="
+\echo "=== 2e: Cycle Tolerance and Self-Reference Prevention ==="
 -- ============================================================================
 
-\echo "2e: Attempt cycle: Apex Research → Apex Corp (4-level cycle)"
-DO $$
-BEGIN
-    INSERT INTO public.legal_relationship (valid_from, influencing_id, influenced_id, type_id, percentage, edit_by_user_id, edit_comment)
-    SELECT '2020-01-01'::date,
-        (SELECT id FROM public.legal_unit WHERE name = 'Apex Research'),
-        (SELECT id FROM public.legal_unit WHERE name = 'Apex Corp'),
-        (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
-        30.00, (SELECT id FROM auth.user LIMIT 1), 'SHOULD FAIL - cycle';
-    RAISE EXCEPTION 'TEST FAILURE: Circular ownership was allowed!';
-EXCEPTION
-    WHEN raise_exception THEN
-        IF SQLERRM LIKE 'Circular ownership detected%' THEN
-            RAISE NOTICE 'PASS: Circular ownership correctly prevented';
-        ELSE
-            RAISE;
-        END IF;
-    WHEN OTHERS THEN
-        RAISE NOTICE 'PASS: Circular ownership prevented with: %', SQLERRM;
-END;
-$$;
+\echo "2e: Cycles are now allowed — Apex Research → Apex Corp (4-level cycle)"
+INSERT INTO public.legal_relationship (valid_from, influencing_id, influenced_id, type_id, percentage, edit_by_user_id, edit_comment)
+SELECT '2020-01-01'::date,
+    (SELECT id FROM public.legal_unit WHERE name = 'Apex Research'),
+    (SELECT id FROM public.legal_unit WHERE name = 'Apex Corp'),
+    (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
+    30.00, (SELECT id FROM auth.user LIMIT 1), 'Cycle relationship - allowed';
 
-\echo "2e: Attempt self-reference: Foxtrot → Foxtrot"
+SELECT worker.derive_power_groups();
+
+\echo "2e: Cycle relationship created successfully"
+SELECT COUNT(*) AS cycle_rels FROM public.legal_relationship WHERE edit_comment LIKE '%Cycle relationship%';
+
+\echo "2e: All Apex units still appear in hierarchy (Phase 2 handles cycle)"
+SELECT lu.name, h.power_level
+FROM public.power_hierarchy AS h
+JOIN public.legal_unit AS lu ON lu.id = h.legal_unit_id AND lu.valid_range && h.valid_range
+WHERE lu.name LIKE 'Apex%'
+ORDER BY h.power_level, lu.name;
+
+\echo "2e: Clean up cycle for summary"
+DELETE FROM public.legal_relationship WHERE edit_comment LIKE '%Cycle relationship%';
+SELECT worker.derive_power_groups();
+
+\echo "2e: Self-reference still prevented by CHECK constraint: Foxtrot → Foxtrot"
 DO $$
 DECLARE
     _foxtrot_id integer;
@@ -342,15 +344,11 @@ EXCEPTION
     WHEN check_violation THEN
         RAISE NOTICE 'PASS: Self-reference prevented (CHECK constraint)';
     WHEN OTHERS THEN
-        IF SQLERRM LIKE 'Circular ownership detected%' THEN
-            RAISE NOTICE 'PASS: Self-reference prevented (cycle detection)';
-        ELSE
-            RAISE NOTICE 'PASS: Self-reference prevented: %', SQLERRM;
-        END IF;
+        RAISE NOTICE 'PASS: Self-reference prevented: %', SQLERRM;
 END;
 $$;
 
-\echo "2e: No invalid relationships created"
+\echo "2e: No self-reference relationships created"
 SELECT COUNT(*) AS invalid_rels FROM public.legal_relationship WHERE edit_comment LIKE '%SHOULD FAIL%';
 
 -- ============================================================================

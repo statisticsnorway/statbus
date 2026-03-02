@@ -241,49 +241,51 @@ JOIN public.legal_rel_type AS rt ON lr.type_id = rt.id
 ORDER BY influencer.name, influenced.name;
 
 -- ============================================================================
-\echo "=== Section 4: Test Cycle Prevention ==="
+\echo "=== Section 4: Cycles Are Allowed (handled by two-phase hierarchy) ==="
 -- ============================================================================
 
-\echo "Attempt to create circular parent_company (should fail)"
-\echo "Trying: Delta is parent of Alpha (which would create Alpha -> Beta -> Delta -> Alpha cycle)"
+\echo "Create circular parent_company (cycles are real-world data quality issues, not errors)"
+\echo "Delta is parent of Alpha (creates Alpha -> Beta -> Delta -> Alpha cycle)"
 
-DO $$
-BEGIN
-    INSERT INTO public.legal_relationship (
-        valid_from, 
-        influencing_id, 
-        influenced_id, 
-        type_id,
-        percentage,
-        edit_by_user_id,
-        edit_comment
-    )
-    SELECT 
-        '2020-01-01'::date,
-        (SELECT id FROM public.legal_unit WHERE name = 'Delta Components GmbH' LIMIT 1),
-        (SELECT id FROM public.legal_unit WHERE name = 'Alpha Holdings Corp' LIMIT 1),
-        (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
-        30.00,
-        (SELECT id FROM auth.user LIMIT 1),
-        'Delta is parent of Alpha - SHOULD FAIL';
-    
-    RAISE EXCEPTION 'TEST FAILURE: Circular ownership was allowed - cycle prevention did not work!';
-EXCEPTION
-    WHEN raise_exception THEN
-        IF SQLERRM LIKE 'Circular ownership detected%' THEN
-            RAISE NOTICE 'SUCCESS: Circular ownership correctly prevented';
-        ELSE
-            RAISE;
-        END IF;
-    WHEN OTHERS THEN
-        RAISE NOTICE 'SUCCESS: Circular ownership prevented with error: %', SQLERRM;
-END;
-$$;
+INSERT INTO public.legal_relationship (
+    valid_from,
+    influencing_id,
+    influenced_id,
+    type_id,
+    percentage,
+    edit_by_user_id,
+    edit_comment
+)
+SELECT
+    '2020-01-01'::date,
+    (SELECT id FROM public.legal_unit WHERE name = 'Delta Components GmbH' LIMIT 1),
+    (SELECT id FROM public.legal_unit WHERE name = 'Alpha Holdings Corp' LIMIT 1),
+    (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
+    30.00,
+    (SELECT id FROM auth.user LIMIT 1),
+    'Delta is parent of Alpha - cycle allowed';
 
-\echo "Verify no circular relationship was created"
-SELECT COUNT(*) AS circular_relationships 
-FROM public.legal_relationship 
-WHERE edit_comment LIKE '%SHOULD FAIL%';
+\echo "Verify cycle relationship was created"
+SELECT COUNT(*) AS cycle_relationships
+FROM public.legal_relationship
+WHERE edit_comment LIKE '%cycle allowed%';
+
+\echo "Verify power_hierarchy handles the cycle via Phase 2"
+\echo "All cycle members should appear with a chosen root"
+SELECT
+    lu.name,
+    h.power_level,
+    root_lu.name AS root_legal_unit
+FROM public.power_hierarchy AS h
+JOIN public.legal_unit AS lu ON lu.id = h.legal_unit_id AND lu.valid_range && h.valid_range
+JOIN public.legal_unit AS root_lu ON root_lu.id = h.root_legal_unit_id
+WHERE lu.name LIKE '%Holdings%' OR lu.name LIKE '%Manufacturing%'
+   OR lu.name LIKE '%Services%' OR lu.name LIKE '%Components%'
+ORDER BY h.power_level, lu.name;
+
+\echo "Clean up cycle for remaining tests"
+DELETE FROM public.legal_relationship
+WHERE edit_comment LIKE '%cycle allowed%';
 
 -- ============================================================================
 \echo "=== Section 5: Test Self-Reference Prevention ==="
@@ -320,11 +322,7 @@ EXCEPTION
     WHEN check_violation THEN
         RAISE NOTICE 'SUCCESS: Self-reference correctly prevented with CHECK constraint';
     WHEN OTHERS THEN
-        IF SQLERRM LIKE 'Circular ownership detected%' THEN
-            RAISE NOTICE 'SUCCESS: Self-reference prevented - cycle detection caught it';
-        ELSE
-            RAISE NOTICE 'SUCCESS: Self-reference prevented with other error';
-        END IF;
+        RAISE NOTICE 'SUCCESS: Self-reference prevented with: %', SQLERRM;
 END;
 $$;
 
@@ -337,7 +335,7 @@ SELECT
     lu.name,
     h.power_level,
     root_lu.name AS root_legal_unit
-FROM public.legal_unit_power_hierarchy AS h
+FROM public.power_hierarchy AS h
 JOIN public.legal_unit AS lu ON lu.id = h.legal_unit_id AND lu.valid_range && h.valid_range
 JOIN public.legal_unit AS root_lu ON root_lu.id = h.root_legal_unit_id
 WHERE lu.name LIKE '%Holdings%' OR lu.name LIKE '%Manufacturing%' 
@@ -476,7 +474,7 @@ SELECT
     h.power_level,
     COUNT(*) AS count,
     string_agg(lu.name, ', ' ORDER BY lu.name) AS names
-FROM public.legal_unit_power_hierarchy AS h
+FROM public.power_hierarchy AS h
 JOIN public.legal_unit AS lu ON lu.id = h.legal_unit_id
 GROUP BY h.power_level
 ORDER BY h.power_level;

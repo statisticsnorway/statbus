@@ -37,7 +37,7 @@ WHERE command = 'derive_power_groups';
 \echo "Check views exist"
 SELECT table_schema, table_name, table_type
 FROM information_schema.tables
-WHERE table_name IN ('legal_unit_power_hierarchy', 'power_group_def', 'legal_relationship_cluster', 'power_group_active', 'power_group_membership')
+WHERE table_name IN ('power_hierarchy', 'power_group_def', 'legal_relationship_cluster', 'power_group_active', 'power_group_membership')
 ORDER BY table_name;
 
 \echo "Check enqueue function exists"
@@ -208,13 +208,13 @@ GROUP BY command, state;
 \echo "=== Section 4: Test Hierarchy View ==="
 -- ============================================================================
 
-\echo "Check legal_unit_power_hierarchy view (before worker runs)"
+\echo "Check power_hierarchy view (before worker runs)"
 SELECT 
     lu.name,
     h.power_level,
     root_lu.name AS root_legal_unit,
     array_length(h.path, 1) AS path_length
-FROM public.legal_unit_power_hierarchy AS h
+FROM public.power_hierarchy AS h
 JOIN public.legal_unit AS lu ON lu.id = h.legal_unit_id AND lu.valid_range && h.valid_range
 JOIN public.legal_unit AS root_lu ON root_lu.id = h.root_legal_unit_id AND root_lu.valid_range && h.valid_range
 WHERE lu.name LIKE 'PowerTest%'
@@ -275,12 +275,12 @@ ORDER BY influencer.name, influenced.name;
 \echo "=== Section 6: Verify Hierarchy via Views ==="
 -- ============================================================================
 
-\echo "Check legal_unit_power_hierarchy after derivation"
+\echo "Check power_hierarchy after derivation"
 SELECT 
     lu.name,
     h.power_level,
     root_lu.name AS root_legal_unit
-FROM public.legal_unit_power_hierarchy AS h
+FROM public.power_hierarchy AS h
 JOIN public.legal_unit AS lu ON lu.id = h.legal_unit_id
 JOIN public.legal_unit AS root_lu ON root_lu.id = h.root_legal_unit_id
 WHERE lu.name LIKE 'PowerTest%'
@@ -288,27 +288,27 @@ ORDER BY h.power_level, lu.name;
 
 \echo "Holdings should be level 1 (root)"
 SELECT lu.name, h.power_level 
-FROM public.legal_unit_power_hierarchy AS h
+FROM public.power_hierarchy AS h
 JOIN public.legal_unit AS lu ON lu.id = h.legal_unit_id
 WHERE lu.name = 'PowerTest Holdings Corp';
 
 \echo "Manufacturing and Services should be level 2 (direct subsidiaries)"
 SELECT lu.name, h.power_level 
-FROM public.legal_unit_power_hierarchy AS h
+FROM public.power_hierarchy AS h
 JOIN public.legal_unit AS lu ON lu.id = h.legal_unit_id
 WHERE lu.name IN ('PowerTest Manufacturing Ltd', 'PowerTest Services Inc')
 ORDER BY lu.name;
 
 \echo "Components should be level 3 (sub-subsidiary)"
 SELECT lu.name, h.power_level 
-FROM public.legal_unit_power_hierarchy AS h
+FROM public.power_hierarchy AS h
 JOIN public.legal_unit AS lu ON lu.id = h.legal_unit_id
 WHERE lu.name = 'PowerTest Components GmbH';
 
 \echo "Independent should NOT be in hierarchy"
 SELECT lu.name, h.power_level 
 FROM public.legal_unit AS lu
-LEFT JOIN public.legal_unit_power_hierarchy AS h ON lu.id = h.legal_unit_id
+LEFT JOIN public.power_hierarchy AS h ON lu.id = h.legal_unit_id
 WHERE lu.name = 'PowerTest Independent LLC';
 
 -- ============================================================================
@@ -382,7 +382,7 @@ WHERE influencer.name = 'PowerTest MinorInvestor Corp';
 \echo "Independent and MinorInvestor should NOT be in power hierarchy"
 SELECT lu.name, h.power_level 
 FROM public.legal_unit AS lu
-LEFT JOIN public.legal_unit_power_hierarchy AS h ON lu.id = h.legal_unit_id
+LEFT JOIN public.power_hierarchy AS h ON lu.id = h.legal_unit_id
 WHERE lu.name IN ('PowerTest Independent LLC', 'PowerTest MinorInvestor Corp')
 ORDER BY lu.name;
 
@@ -443,7 +443,7 @@ SELECT
     h.power_level,
     COUNT(*) AS count,
     string_agg(lu.name, ', ' ORDER BY lu.name) AS names
-FROM public.legal_unit_power_hierarchy AS h
+FROM public.power_hierarchy AS h
 JOIN public.legal_unit AS lu ON lu.id = h.legal_unit_id
 WHERE lu.name LIKE 'PowerTest%'
 GROUP BY h.power_level

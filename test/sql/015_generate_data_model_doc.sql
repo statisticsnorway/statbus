@@ -55,7 +55,7 @@ DECLARE
         )),
         (1, 1, 2, 'Legal Unit Ownership & Control', 'Tables and views for tracking ownership/control relationships between legal units:', jsonb_build_array(
             '{"schema": "public", "name": "legal_relationship"}'::jsonb,
-            '{"schema": "public", "name": "legal_unit_power_hierarchy", "type": "VIEW"}'::jsonb,
+            '{"schema": "public", "name": "power_hierarchy", "type": "VIEW"}'::jsonb,
             '{"schema": "public", "name": "power_group_def", "type": "VIEW"}'::jsonb,
             '{"schema": "public", "name": "legal_relationship_cluster", "type": "VIEW"}'::jsonb,
             '{"schema": "public", "name": "power_group_active", "type": "VIEW"}'::jsonb,

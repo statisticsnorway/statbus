@@ -134,8 +134,8 @@ DECLARE
     v_lifecycle_funcs TEXT[] := ARRAY[
         'lifecycle_callbacks.cleanup_and_generate',
         'public.generate_power_ident',
-        'public.legal_relationship_cycle_check',
-        'public.legal_relationship_queue_derive_power_groups'
+        'public.legal_relationship_queue_derive_power_groups',
+        'public.power_override_queue_derive'
     ];
 
     -- Combined registry (excluding sql_saga which is matched by schema)

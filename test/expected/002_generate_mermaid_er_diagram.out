@@ -520,6 +520,27 @@ erDiagram
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
 	}
+	power_override["power_override"] {
+		integer id
+		integer power_group_id
+		power_group_root_status root_type
+		integer custom_root_legal_unit_id
+		daterange valid_range
+		date valid_from
+		date valid_to
+		date valid_until
+		character_varying(512) edit_comment
+		integer edit_by_user_id
+		timestamp_with_time_zone edit_at
+	}
+	power_root["power_root"] {
+		integer power_group_id
+		integer root_legal_unit_id
+		power_group_root_status root_status
+		date valid_from
+		date valid_to
+		date valid_until
+	}
 	region["region"] {
 		integer id
 		ltree path
@@ -1561,6 +1582,9 @@ erDiagram
 	power_group }o--o| foreign_participation : power_group_foreign_participation_id_fkey
 	power_group }o--o| power_group_type : power_group_type_id_fkey
 	power_group }o--o| unit_size : power_group_unit_size_id_fkey
+	power_override }o--|| auth_user : power_override_edit_by_user_id_fkey
+	power_override }|--|| power_group : power_override_power_group_id_fkey
+	power_root }|--|| power_group : power_root_power_group_id_fkey
 	region }o--o| region : region_parent_id_fkey
 	region_access }|--|| auth_user : region_access_user_id_fkey
 	region_access }o--|| region : region_access_region_id_fkey
