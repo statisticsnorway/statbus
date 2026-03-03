@@ -2860,41 +2860,47 @@ export type Database = {
         },
         Relationships: []
       },
-      power_override: {
+      power_root: {
         Row: {
-          custom_root_legal_unit_id: number
+          custom_root_legal_unit_id: number | null
+          derived_root_legal_unit_id: number
+          derived_root_status: Database["public"]["Enums"]["power_group_root_status"]
           edit_at: string
           edit_by_user_id: number
           edit_comment: string | null
           id: number
           power_group_id: number
-          root_type: Database["public"]["Enums"]["power_group_root_status"]
+          root_legal_unit_id: number | null
           valid_from: string
           valid_range: string
           valid_to: string | null
           valid_until: string | null
         },
         Insert: {
-          custom_root_legal_unit_id: number
+          custom_root_legal_unit_id?: number | null
+          derived_root_legal_unit_id: number
+          derived_root_status: Database["public"]["Enums"]["power_group_root_status"]
           edit_at?: string
           edit_by_user_id: number
           edit_comment?: string | null
           id?: number
           power_group_id: number
-          root_type: Database["public"]["Enums"]["power_group_root_status"]
+          root_legal_unit_id?: number | null
           valid_from: string
           valid_range: string
           valid_to?: string | null
           valid_until?: string | null
         },
         Update: {
-          custom_root_legal_unit_id?: number
+          custom_root_legal_unit_id?: number | null
+          derived_root_legal_unit_id?: number
+          derived_root_status?: Database["public"]["Enums"]["power_group_root_status"]
           edit_at?: string
           edit_by_user_id?: number
           edit_comment?: string | null
           id?: number
           power_group_id?: number
-          root_type?: Database["public"]["Enums"]["power_group_root_status"]
+          root_legal_unit_id?: number | null
           valid_from?: string
           valid_range?: string
           valid_to?: string | null
@@ -2902,95 +2908,39 @@ export type Database = {
         },
         Relationships: [
           {
-            foreignKeyName: "power_override_power_group_id_fkey"
+            foreignKeyName: "power_root_power_group_id_fkey"
             columns: ["power_group_id"]
             isOneToOne: false
             referencedRelation: "power_group"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "power_override_power_group_id_fkey"
+            foreignKeyName: "power_root_power_group_id_fkey"
             columns: ["power_group_id"]
             isOneToOne: false
             referencedRelation: "power_group_active"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "power_override_power_group_id_fkey"
+            foreignKeyName: "power_root_power_group_id_fkey"
             columns: ["power_group_id"]
             isOneToOne: false
             referencedRelation: "power_group_membership"
             referencedColumns: ["power_group_id"]
           },
           {
-            foreignKeyName: "power_override_power_group_id_fkey"
+            foreignKeyName: "power_root_power_group_id_fkey"
             columns: ["power_group_id"]
             isOneToOne: false
             referencedRelation: "timeline_power_group_def"
             referencedColumns: ["power_group_id"]
           },
           {
-            foreignKeyName: "power_override_edit_by_user_id_fkey"
+            foreignKeyName: "power_root_edit_by_user_id_fkey"
             columns: ["edit_by_user_id"]
             isOneToOne: false
             referencedRelation: "user"
             referencedColumns: ["id"]
-          }
-        ]
-      },
-      power_root: {
-        Row: {
-          power_group_id: number
-          root_legal_unit_id: number
-          root_status: Database["public"]["Enums"]["power_group_root_status"]
-          valid_from: string
-          valid_to: string | null
-          valid_until: string
-        },
-        Insert: {
-          power_group_id: number
-          root_legal_unit_id: number
-          root_status: Database["public"]["Enums"]["power_group_root_status"]
-          valid_from: string
-          valid_to?: string | null
-          valid_until: string
-        },
-        Update: {
-          power_group_id?: number
-          root_legal_unit_id?: number
-          root_status?: Database["public"]["Enums"]["power_group_root_status"]
-          valid_from?: string
-          valid_to?: string | null
-          valid_until?: string
-        },
-        Relationships: [
-          {
-            foreignKeyName: "power_root_power_group_id_fkey"
-            columns: ["power_group_id"]
-            isOneToOne: false
-            referencedRelation: "power_group"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "power_root_power_group_id_fkey"
-            columns: ["power_group_id"]
-            isOneToOne: false
-            referencedRelation: "power_group_active"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "power_root_power_group_id_fkey"
-            columns: ["power_group_id"]
-            isOneToOne: false
-            referencedRelation: "power_group_membership"
-            referencedColumns: ["power_group_id"]
-          },
-          {
-            foreignKeyName: "power_root_power_group_id_fkey"
-            columns: ["power_group_id"]
-            isOneToOne: false
-            referencedRelation: "timeline_power_group_def"
-            referencedColumns: ["power_group_id"]
           }
         ]
       },
@@ -8475,15 +8425,17 @@ export type Database = {
         },
         Relationships: []
       },
-      power_override__for_portion_of_valid: {
+      power_root__for_portion_of_valid: {
         Row: {
           custom_root_legal_unit_id: number | null
+          derived_root_legal_unit_id: number | null
+          derived_root_status: Database["public"]["Enums"]["power_group_root_status"] | null
           edit_at: string | null
           edit_by_user_id: number | null
           edit_comment: string | null
           id: number | null
           power_group_id: number | null
-          root_type: Database["public"]["Enums"]["power_group_root_status"] | null
+          root_legal_unit_id: number | null
           valid_from: string | null
           valid_range: string | null
           valid_to: string | null
@@ -8491,12 +8443,14 @@ export type Database = {
         },
         Insert: {
           custom_root_legal_unit_id?: number | null
+          derived_root_legal_unit_id?: number | null
+          derived_root_status?: Database["public"]["Enums"]["power_group_root_status"] | null
           edit_at?: string | null
           edit_by_user_id?: number | null
           edit_comment?: string | null
           id?: number | null
           power_group_id?: number | null
-          root_type?: Database["public"]["Enums"]["power_group_root_status"] | null
+          root_legal_unit_id?: number | null
           valid_from?: string | null
           valid_range?: string | null
           valid_to?: string | null
@@ -8504,12 +8458,14 @@ export type Database = {
         },
         Update: {
           custom_root_legal_unit_id?: number | null
+          derived_root_legal_unit_id?: number | null
+          derived_root_status?: Database["public"]["Enums"]["power_group_root_status"] | null
           edit_at?: string | null
           edit_by_user_id?: number | null
           edit_comment?: string | null
           id?: number | null
           power_group_id?: number | null
-          root_type?: Database["public"]["Enums"]["power_group_root_status"] | null
+          root_legal_unit_id?: number | null
           valid_from?: string | null
           valid_range?: string | null
           valid_to?: string | null
@@ -8517,35 +8473,35 @@ export type Database = {
         },
         Relationships: [
           {
-            foreignKeyName: "power_override_power_group_id_fkey"
+            foreignKeyName: "power_root_power_group_id_fkey"
             columns: ["power_group_id"]
             isOneToOne: false
             referencedRelation: "power_group"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "power_override_power_group_id_fkey"
+            foreignKeyName: "power_root_power_group_id_fkey"
             columns: ["power_group_id"]
             isOneToOne: false
             referencedRelation: "power_group_active"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "power_override_power_group_id_fkey"
+            foreignKeyName: "power_root_power_group_id_fkey"
             columns: ["power_group_id"]
             isOneToOne: false
             referencedRelation: "power_group_membership"
             referencedColumns: ["power_group_id"]
           },
           {
-            foreignKeyName: "power_override_power_group_id_fkey"
+            foreignKeyName: "power_root_power_group_id_fkey"
             columns: ["power_group_id"]
             isOneToOne: false
             referencedRelation: "timeline_power_group_def"
             referencedColumns: ["power_group_id"]
           },
           {
-            foreignKeyName: "power_override_edit_by_user_id_fkey"
+            foreignKeyName: "power_root_edit_by_user_id_fkey"
             columns: ["edit_by_user_id"]
             isOneToOne: false
             referencedRelation: "user"
@@ -13916,7 +13872,7 @@ export type Database = {
           isSetofReturn: true
         }
       },
-      power_override_queue_derive: {
+      power_root_queue_derive: {
         Args: never
         Returns: unknown
       },

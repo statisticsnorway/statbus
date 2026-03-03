@@ -93,10 +93,8 @@ each role can see and modify.
   - Policies: `power_group_admin_user_manage` (ALL → admin_user), `power_group_authenticated_read` (SELECT → authenticated), `power_group_regular_user_manage` (ALL → regular_user)
 - **`power_group_type`** — RLS ON
   - Policies: `power_group_type_admin_user_manage` (ALL → admin_user), `power_group_type_authenticated_read` (SELECT → authenticated), `power_group_type_regular_user_read` (SELECT → regular_user)
-- **`power_override`** — RLS ON
-  - Policies: `power_override_admin_user_manage` (ALL → admin_user), `power_override_authenticated_read` (SELECT → authenticated), `power_override_regular_user_manage` (ALL → regular_user)
 - **`power_root`** — RLS ON
-  - Policies: `power_root_admin_user_manage` (ALL → admin_user), `power_root_authenticated_read` (SELECT → authenticated), `power_root_regular_user_read` (SELECT → regular_user)
+  - Policies: `power_root_admin_user_manage` (ALL → admin_user), `power_root_authenticated_read` (SELECT → authenticated), `power_root_regular_user_manage` (ALL → regular_user)
 - **`region`** — RLS ON
   - Policies: `region_admin_user_manage` (ALL → admin_user), `region_authenticated_read` (SELECT → authenticated), `region_regular_user_read` (SELECT → regular_user)
 - **`region_access`** — RLS ON
@@ -294,7 +292,6 @@ Write to RLS-protected tables, DDL, worker orchestration.
 - `worker.command_collect_changes`
 - `worker.command_import_job_cleanup`
 - `worker.command_task_cleanup`
-- `worker.derive_power_groups`
 - `worker.derive_reports`
 - `worker.derive_statistical_history`
 - `worker.derive_statistical_history_facet`
@@ -346,8 +343,7 @@ Trigger calling DDL procedures.
 
 - `lifecycle_callbacks.cleanup_and_generate`
 - `public.generate_power_ident`
-- `public.legal_relationship_queue_derive_power_groups`
-- `public.power_override_queue_derive`
+- `public.power_root_queue_derive`
 
 ### sql_saga
 
