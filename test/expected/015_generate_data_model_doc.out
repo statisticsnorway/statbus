@@ -377,7 +377,6 @@ SELECT :'undocumented';
                                                                                                                                                                                 +
  - `public.pipeline_step_weight` (TABLE)                                                                                                                                        +
  - `public.pipeline_step_weight` (VIEW)                                                                                                                                         +
- - `public.power_override` (TABLE)                                                                                                                                              +
  - `public.power_root` (TABLE)                                                                                                                                                  +
  - `public.timeline_power_group` (TABLE)                                                                                                                                        +
  - `worker.pipeline_step_weight` (TABLE)

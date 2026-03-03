@@ -186,16 +186,11 @@ ORDER BY ei_ing.ident, ei_ed.ident;
 (8 rows)
 
 -- ============================================================================
-\echo "=== Phase 3: Derive Power Groups ==="
-"=== Phase 3: Derive Power Groups ==="
+\echo "=== Phase 3: Verify Power Groups (created during import) ==="
+"=== Phase 3: Verify Power Groups (created during import) ==="
 -- ============================================================================
--- Derive power groups directly (skipping full analytics pipeline for speed)
-SELECT worker.derive_power_groups();
- derive_power_groups 
----------------------
- 
-(1 row)
-
+-- Power groups are now created during import by process_power_group_link (holistic step)
+-- No separate derive_power_groups call needed
 \echo "Power groups created (only from HFOR/primary_influencer_only=TRUE):"
 "Power groups created (only from HFOR/primary_influencer_only=TRUE):"
 SELECT pg.ident, pg.name

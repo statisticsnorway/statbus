@@ -48,16 +48,6 @@ WHERE NOT EXISTS (SELECT 1 FROM public.legal_rel_type WHERE code = 'co_ownership
 \echo "=== Section 1: Verify Worker Infrastructure ==="
 "=== Section 1: Verify Worker Infrastructure ==="
 -- ============================================================================
-\echo "Check derive_power_groups command is registered"
-"Check derive_power_groups command is registered"
-SELECT command, queue, description 
-FROM worker.command_registry 
-WHERE command = 'derive_power_groups';
-       command       |   queue   |                                         description                                         
----------------------+-----------+---------------------------------------------------------------------------------------------
- derive_power_groups | analytics | Derive power_group records and assign to legal_relationships based on ownership hierarchies
-(1 row)
-
 \echo "Check views exist"
 "Check views exist"
 SELECT table_schema, table_name, table_type
@@ -72,16 +62,6 @@ ORDER BY table_name;
  public       | power_group_membership     | VIEW
  public       | power_hierarchy            | VIEW
 (5 rows)
-
-\echo "Check enqueue function exists"
-"Check enqueue function exists"
-SELECT routine_name, routine_type
-FROM information_schema.routines
-WHERE routine_schema = 'worker' AND routine_name = 'enqueue_derive_power_groups';
-        routine_name         | routine_type 
------------------------------+--------------
- enqueue_derive_power_groups | FUNCTION
-(1 row)
 
 -- ============================================================================
 \echo "=== Section 2: Create Test Legal Units ==="
@@ -178,16 +158,6 @@ ORDER BY name;
 \echo "=== Section 3: Create Ownership Relationships (triggers worker task) ==="
 "=== Section 3: Create Ownership Relationships (triggers worker task) ==="
 -- ============================================================================
-\echo "Check pending tasks before creating relationships"
-"Check pending tasks before creating relationships"
-SELECT command, state, COUNT(*) 
-FROM worker.tasks 
-WHERE command = 'derive_power_groups'
-GROUP BY command, state;
- command | state | count 
----------+-------+-------
-(0 rows)
-
 \echo "Create parent_company: Holdings is parent of Manufacturing (60%)"
 "Create parent_company: Holdings is parent of Manufacturing (60%)"
 INSERT INTO public.legal_relationship (
@@ -245,16 +215,6 @@ SELECT
     75.00,
     (SELECT id FROM auth.user LIMIT 1),
     'Manufacturing owns 75% of Components';
-\echo "Check pending tasks after creating relationships (should have 1 pending)"
-"Check pending tasks after creating relationships (should have 1 pending)"
-SELECT command, state, COUNT(*) 
-FROM worker.tasks 
-WHERE command = 'derive_power_groups'
-GROUP BY command, state;
- command | state | count 
----------+-------+-------
-(0 rows)
-
 -- ============================================================================
 \echo "=== Section 4: Test Hierarchy View ==="
 "=== Section 4: Test Hierarchy View ==="
@@ -326,14 +286,9 @@ WHERE pg.name LIKE 'PowerTest%' OR pg.ident IS NOT NULL;
 -------+------
 (0 rows)
 
-\echo "Run derive_power_groups function"
-"Run derive_power_groups function"
-SELECT worker.derive_power_groups();
- derive_power_groups 
----------------------
- 
-(1 row)
-
+\echo "Run process_power_group_link to create/link power groups"
+"Run process_power_group_link to create/link power groups"
+CALL import.process_power_group_link(NULL, NULL, 'process_power_group_link');
 \echo "Power groups AFTER worker derivation"
 "Power groups AFTER worker derivation"
 SELECT pg.ident, pg.ident ~ '^PG[0-9A-Z]+$' AS valid_ident_format, pg.name
@@ -491,14 +446,9 @@ SELECT
     30.00,  -- co_ownership type has primary_influencer_only = FALSE, so not in power group
     (SELECT id FROM auth.user LIMIT 1),
     'MinorInvestor co-owns Independent (not primary_influencer_only)';
-\echo "Re-run derive_power_groups"
-"Re-run derive_power_groups"
-SELECT worker.derive_power_groups();
- derive_power_groups 
----------------------
- 
-(1 row)
-
+\echo "Re-run process_power_group_link"
+"Re-run process_power_group_link"
+CALL import.process_power_group_link(NULL, NULL, 'process_power_group_link');
 \echo "Non-primary-influencer relationship should have NULL power_group_id"
 "Non-primary-influencer relationship should have NULL power_group_id"
 SELECT 
@@ -532,14 +482,9 @@ ORDER BY lu.name;
 \echo "=== Section 9: Test Idempotency ==="
 "=== Section 9: Test Idempotency ==="
 -- ============================================================================
-\echo "Run derive_power_groups again (should not change anything)"
-"Run derive_power_groups again (should not change anything)"
-SELECT worker.derive_power_groups();
- derive_power_groups 
----------------------
- 
-(1 row)
-
+\echo "Run process_power_group_link again (should not change anything)"
+"Run process_power_group_link again (should not change anything)"
+CALL import.process_power_group_link(NULL, NULL, 'process_power_group_link');
 \echo "Verify power groups unchanged"
 "Verify power groups unchanged"
 SELECT pg.ident, pg.ident ~ '^PG[0-9A-Z]+$' AS valid_ident_format
