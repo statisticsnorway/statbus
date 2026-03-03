@@ -214,11 +214,7 @@ $procedure$;
 
 SELECT sql_saga.drop_unique_key(
     'public.legal_relationship'::regclass,
-    (SELECT unique_key_name FROM sql_saga.unique_keys
-     WHERE table_schema = 'public'
-       AND table_name = 'legal_relationship'
-       AND key_type = 'natural'
-       AND column_names = ARRAY['influencing_id', 'influenced_id', 'type_id']::name[])
+    ARRAY['influencing_id', 'influenced_id', 'type_id']::name[]
 );
 
 END;
