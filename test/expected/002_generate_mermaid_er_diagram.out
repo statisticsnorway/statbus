@@ -1577,6 +1577,10 @@ erDiagram
 	power_group }o--o| power_group_type : power_group_type_id_fkey
 	power_group }o--o| unit_size : power_group_unit_size_id_fkey
 	power_root }o--|| auth_user : power_root_edit_by_user_id_fkey
+	power_root }o--|| legal_unit : power_root_custom_root_legal_unit_id_valid
+	power_root }o--|| legal_unit : power_root_derived_root_legal_unit_id_valid
+	power_root }o--|| legal_unit : power_root_derived_root_legal_unit_id_valid
+	power_root }o--o| legal_unit : power_root_custom_root_legal_unit_id_valid
 	power_root }|--|| power_group : power_root_power_group_id_fkey
 	region }o--o| region : region_parent_id_fkey
 	region_access }|--|| auth_user : region_access_user_id_fkey

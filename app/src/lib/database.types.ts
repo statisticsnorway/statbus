@@ -2908,10 +2908,38 @@ export type Database = {
         },
         Relationships: [
           {
+            foreignKeyName: "power_root_custom_root_legal_unit_id_valid"
+            columns: ["custom_root_legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "legal_unit"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
+            foreignKeyName: "power_root_derived_root_legal_unit_id_valid"
+            columns: ["derived_root_legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "legal_unit"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
             foreignKeyName: "power_root_power_group_id_fkey"
             columns: ["power_group_id"]
             isOneToOne: false
             referencedRelation: "power_group"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "power_root_custom_root_legal_unit_id_valid"
+            columns: ["custom_root_legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "legal_unit__for_portion_of_valid"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "power_root_derived_root_legal_unit_id_valid"
+            columns: ["derived_root_legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "legal_unit__for_portion_of_valid"
             referencedColumns: ["id"]
           },
           {
@@ -2922,11 +2950,53 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "power_root_custom_root_legal_unit_id_valid"
+            columns: ["custom_root_legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "power_group_membership"
+            referencedColumns: ["legal_unit_id"]
+          },
+          {
+            foreignKeyName: "power_root_derived_root_legal_unit_id_valid"
+            columns: ["derived_root_legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "power_group_membership"
+            referencedColumns: ["legal_unit_id"]
+          },
+          {
             foreignKeyName: "power_root_power_group_id_fkey"
             columns: ["power_group_id"]
             isOneToOne: false
             referencedRelation: "power_group_membership"
             referencedColumns: ["power_group_id"]
+          },
+          {
+            foreignKeyName: "power_root_custom_root_legal_unit_id_valid"
+            columns: ["custom_root_legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "power_hierarchy"
+            referencedColumns: ["legal_unit_id"]
+          },
+          {
+            foreignKeyName: "power_root_derived_root_legal_unit_id_valid"
+            columns: ["derived_root_legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "power_hierarchy"
+            referencedColumns: ["legal_unit_id"]
+          },
+          {
+            foreignKeyName: "power_root_custom_root_legal_unit_id_valid"
+            columns: ["custom_root_legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "timeline_legal_unit_def"
+            referencedColumns: ["legal_unit_id"]
+          },
+          {
+            foreignKeyName: "power_root_derived_root_legal_unit_id_valid"
+            columns: ["derived_root_legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "timeline_legal_unit_def"
+            referencedColumns: ["legal_unit_id"]
           },
           {
             foreignKeyName: "power_root_power_group_id_fkey"
@@ -8473,10 +8543,38 @@ export type Database = {
         },
         Relationships: [
           {
+            foreignKeyName: "power_root_custom_root_legal_unit_id_valid"
+            columns: ["custom_root_legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "legal_unit"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
+            foreignKeyName: "power_root_derived_root_legal_unit_id_valid"
+            columns: ["derived_root_legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "legal_unit"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
             foreignKeyName: "power_root_power_group_id_fkey"
             columns: ["power_group_id"]
             isOneToOne: false
             referencedRelation: "power_group"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "power_root_custom_root_legal_unit_id_valid"
+            columns: ["custom_root_legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "legal_unit__for_portion_of_valid"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "power_root_derived_root_legal_unit_id_valid"
+            columns: ["derived_root_legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "legal_unit__for_portion_of_valid"
             referencedColumns: ["id"]
           },
           {
@@ -8487,11 +8585,53 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "power_root_custom_root_legal_unit_id_valid"
+            columns: ["custom_root_legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "power_group_membership"
+            referencedColumns: ["legal_unit_id"]
+          },
+          {
+            foreignKeyName: "power_root_derived_root_legal_unit_id_valid"
+            columns: ["derived_root_legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "power_group_membership"
+            referencedColumns: ["legal_unit_id"]
+          },
+          {
             foreignKeyName: "power_root_power_group_id_fkey"
             columns: ["power_group_id"]
             isOneToOne: false
             referencedRelation: "power_group_membership"
             referencedColumns: ["power_group_id"]
+          },
+          {
+            foreignKeyName: "power_root_custom_root_legal_unit_id_valid"
+            columns: ["custom_root_legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "power_hierarchy"
+            referencedColumns: ["legal_unit_id"]
+          },
+          {
+            foreignKeyName: "power_root_derived_root_legal_unit_id_valid"
+            columns: ["derived_root_legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "power_hierarchy"
+            referencedColumns: ["legal_unit_id"]
+          },
+          {
+            foreignKeyName: "power_root_custom_root_legal_unit_id_valid"
+            columns: ["custom_root_legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "timeline_legal_unit_def"
+            referencedColumns: ["legal_unit_id"]
+          },
+          {
+            foreignKeyName: "power_root_derived_root_legal_unit_id_valid"
+            columns: ["derived_root_legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "timeline_legal_unit_def"
+            referencedColumns: ["legal_unit_id"]
           },
           {
             foreignKeyName: "power_root_power_group_id_fkey"
@@ -13873,6 +14013,10 @@ export type Database = {
         }
       },
       power_root_queue_derive: {
+        Args: never
+        Returns: unknown
+      },
+      power_root_validate_root_membership: {
         Args: never
         Returns: unknown
       },

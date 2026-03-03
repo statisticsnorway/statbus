@@ -59,28 +59,28 @@
                            Sort Key: ('establishment'::statistical_unit_type), tfu.establishment_id, t.path
                            ->  Append
                                  ->  Hash Join
-                                       Hash Cond: (t.id = tfu.tag_id)
-                                       ->  Seq Scan on tag t
+                                       Hash Cond: (tfu.tag_id = t.id)
+                                       ->  Seq Scan on tag_for_unit tfu
+                                             Filter: (establishment_id IS NOT NULL)
                                        ->  Hash
-                                             ->  Seq Scan on tag_for_unit tfu
-                                                   Filter: (establishment_id IS NOT NULL)
+                                             ->  Seq Scan on tag t
                                  ->  Hash Join
-                                       Hash Cond: (t_1.id = tfu_1.tag_id)
-                                       ->  Seq Scan on tag t_1
+                                       Hash Cond: (tfu_1.tag_id = t_1.id)
+                                       ->  Seq Scan on tag_for_unit tfu_1
+                                             Filter: (legal_unit_id IS NOT NULL)
                                        ->  Hash
-                                             ->  Seq Scan on tag_for_unit tfu_1
-                                                   Filter: (legal_unit_id IS NOT NULL)
+                                             ->  Seq Scan on tag t_1
                                  ->  Hash Join
-                                       Hash Cond: (t_2.id = tfu_2.tag_id)
-                                       ->  Seq Scan on tag t_2
+                                       Hash Cond: (tfu_2.tag_id = t_2.id)
+                                       ->  Seq Scan on tag_for_unit tfu_2
+                                             Filter: (enterprise_id IS NOT NULL)
                                        ->  Hash
-                                             ->  Seq Scan on tag_for_unit tfu_2
-                                                   Filter: (enterprise_id IS NOT NULL)
+                                             ->  Seq Scan on tag t_2
                                  ->  Hash Join
-                                       Hash Cond: (t_3.id = tfu_3.tag_id)
-                                       ->  Seq Scan on tag t_3
+                                       Hash Cond: (tfu_3.tag_id = t_3.id)
+                                       ->  Seq Scan on tag_for_unit tfu_3
+                                             Filter: (power_group_id IS NOT NULL)
                                        ->  Hash
-                                             ->  Seq Scan on tag_for_unit tfu_3
-                                                   Filter: (power_group_id IS NOT NULL)
+                                             ->  Seq Scan on tag t_3
 (82 rows)
 

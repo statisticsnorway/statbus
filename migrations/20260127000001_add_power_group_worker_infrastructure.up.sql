@@ -322,6 +322,96 @@ COMMENT ON VIEW public.power_group_membership IS
     'Maps legal units to their power groups with hierarchy level information';
 
 --------------------------------------------------------------------------------
+-- PART 5b: power_root foreign key constraints and validation
+-- (Added here because legal_unit doesn't exist at power_root creation time in 20240125)
+--------------------------------------------------------------------------------
+
+-- Supporting index for validation trigger queries on legal_relationship
+-- No index on (power_group_id, influencing_id) exists — only single-column indexes
+CREATE INDEX ix_legal_relationship_power_group_influencing
+    ON public.legal_relationship USING btree (power_group_id, influencing_id);
+
+-- Temporal FK: derived_root must be a real LU with overlapping valid_range
+SELECT sql_saga.add_foreign_key(
+    fk_table_oid => 'public.power_root'::regclass,
+    fk_column_names => ARRAY['derived_root_legal_unit_id'],
+    pk_table_oid => 'public.legal_unit',
+    pk_column_names => ARRAY['id']
+);
+
+-- Temporal FK: custom_root (if set) must be a real LU with overlapping valid_range
+SELECT sql_saga.add_foreign_key(
+    fk_table_oid => 'public.power_root'::regclass,
+    fk_column_names => ARRAY['custom_root_legal_unit_id'],
+    pk_table_oid => 'public.legal_unit',
+    pk_column_names => ARRAY['id']
+);
+
+-- Validation trigger: root LU must be influencing in some LR in the PG
+-- Statement-level with transition table for batch efficiency
+CREATE FUNCTION public.power_root_validate_root_membership()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $power_root_validate_root_membership$
+DECLARE
+    _invalid RECORD;
+BEGIN
+    -- derived_root must be influencing_id in some LR in the same PG
+    SELECT nr.id, nr.power_group_id, nr.derived_root_legal_unit_id, nr.valid_range
+    INTO _invalid
+    FROM _new_power_root_rows AS nr
+    WHERE NOT EXISTS (
+        SELECT 1 FROM public.legal_relationship AS lr
+        WHERE lr.power_group_id = nr.power_group_id
+          AND lr.influencing_id = nr.derived_root_legal_unit_id
+          AND lr.valid_range && nr.valid_range
+    )
+    LIMIT 1;
+
+    IF FOUND THEN
+        RAISE EXCEPTION 'power_root id=% has derived_root_legal_unit_id=% '
+            'which is not an influencing LU in power_group % during %',
+            _invalid.id, _invalid.derived_root_legal_unit_id,
+            _invalid.power_group_id, _invalid.valid_range;
+    END IF;
+
+    -- custom_root (if set) must also be influencing_id in the PG
+    SELECT nr.id, nr.power_group_id, nr.custom_root_legal_unit_id, nr.valid_range
+    INTO _invalid
+    FROM _new_power_root_rows AS nr
+    WHERE nr.custom_root_legal_unit_id IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM public.legal_relationship AS lr
+        WHERE lr.power_group_id = nr.power_group_id
+          AND lr.influencing_id = nr.custom_root_legal_unit_id
+          AND lr.valid_range && nr.valid_range
+    )
+    LIMIT 1;
+
+    IF FOUND THEN
+        RAISE EXCEPTION 'power_root id=% has custom_root_legal_unit_id=% '
+            'which is not an influencing LU in power_group % during %',
+            _invalid.id, _invalid.custom_root_legal_unit_id,
+            _invalid.power_group_id, _invalid.valid_range;
+    END IF;
+
+    RETURN NULL;
+END;
+$power_root_validate_root_membership$;
+
+CREATE TRIGGER power_root_validate_membership_on_insert
+AFTER INSERT ON public.power_root
+REFERENCING NEW TABLE AS _new_power_root_rows
+FOR EACH STATEMENT
+EXECUTE FUNCTION public.power_root_validate_root_membership();
+
+CREATE TRIGGER power_root_validate_membership_on_update
+AFTER UPDATE ON public.power_root
+REFERENCING NEW TABLE AS _new_power_root_rows
+FOR EACH STATEMENT
+EXECUTE FUNCTION public.power_root_validate_root_membership();
+
+--------------------------------------------------------------------------------
 -- PART 6: Grant permissions
 --------------------------------------------------------------------------------
 
