@@ -144,7 +144,7 @@ SELECT '2020-01-01'::date,
     (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
     100.00, (SELECT id FROM auth.user LIMIT 1), 'Logistics owns 100% of Research';
 
-SELECT worker.derive_power_groups();
+CALL import.process_power_group_link(NULL, NULL, 'process_power_group_link');
 
 \echo "2a: Hierarchy shows 4 power levels"
 SELECT lu.name, h.power_level
@@ -186,7 +186,7 @@ SELECT '2020-01-01'::date,
     (SELECT id FROM public.legal_rel_type WHERE code = 'co_ownership'),
     49.00, (SELECT id FROM auth.user LIMIT 1), 'Beacon co-owns Tech (co_ownership=NOT primary_influencer_only)';
 
-SELECT worker.derive_power_groups();
+CALL import.process_power_group_link(NULL, NULL, 'process_power_group_link');
 
 \echo "2b: Beacon group has Beacon Inc + Beacon Services only (NOT Beacon Tech)"
 SELECT pgm.power_group_ident, lu.name
@@ -220,7 +220,7 @@ SELECT '2020-01-01'::date,
     (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
     80.00, (SELECT id FROM auth.user LIMIT 1), 'Delta owns 80% of Subsidiary';
 
-SELECT worker.derive_power_groups();
+CALL import.process_power_group_link(NULL, NULL, 'process_power_group_link');
 
 \echo "2c: Delta power group exists before dissolution"
 SELECT pgm.power_group_ident, lu.name
@@ -236,7 +236,7 @@ SET type_id = (SELECT id FROM public.legal_rel_type WHERE code = 'co_ownership')
 WHERE influencing_id = (SELECT id FROM public.legal_unit WHERE name = 'Delta Holdings')
   AND influenced_id = (SELECT id FROM public.legal_unit WHERE name = 'Delta Subsidiary');
 
-SELECT worker.derive_power_groups();
+CALL import.process_power_group_link(NULL, NULL, 'process_power_group_link');
 
 \echo "2c: After dissolution — Delta membership empty"
 SELECT pgm.power_group_ident, lu.name
@@ -264,7 +264,7 @@ SELECT '2020-01-01'::date,
     (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
     60.00, (SELECT id FROM auth.user LIMIT 1), 'Beacon owns 60% of Crossroads';
 
-SELECT worker.derive_power_groups();
+CALL import.process_power_group_link(NULL, NULL, 'process_power_group_link');
 
 \echo "2d: Crossroads initially in Beacon group"
 SELECT pgm.power_group_ident, lu.name
@@ -285,7 +285,7 @@ SELECT '2020-01-01'::date,
     (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
     70.00, (SELECT id FROM auth.user LIMIT 1), 'Apex acquires 70% of Crossroads';
 
-SELECT worker.derive_power_groups();
+CALL import.process_power_group_link(NULL, NULL, 'process_power_group_link');
 
 \echo "2d: Crossroads moved to Apex group"
 SELECT pgm.power_group_ident, lu.name
@@ -313,7 +313,7 @@ SELECT '2020-01-01'::date,
     (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
     30.00, (SELECT id FROM auth.user LIMIT 1), 'Cycle relationship - allowed';
 
-SELECT worker.derive_power_groups();
+CALL import.process_power_group_link(NULL, NULL, 'process_power_group_link');
 
 \echo "2e: Cycle relationship created successfully"
 SELECT COUNT(*) AS cycle_rels FROM public.legal_relationship WHERE edit_comment LIKE '%Cycle relationship%';
@@ -327,7 +327,7 @@ ORDER BY h.power_level, lu.name;
 
 \echo "2e: Clean up cycle for summary"
 DELETE FROM public.legal_relationship WHERE edit_comment LIKE '%Cycle relationship%';
-SELECT worker.derive_power_groups();
+CALL import.process_power_group_link(NULL, NULL, 'process_power_group_link');
 
 \echo "2e: Self-reference still prevented by CHECK constraint: Foxtrot → Foxtrot"
 DO $$

@@ -3,15 +3,8 @@
 
 BEGIN;
 
--- ============================================================================
--- SECTION 0a: Revert derive_power_groups pipeline removal (Section 16 of up)
--- ============================================================================
-
--- Restore derive_power_groups as a Phase 1 pipeline command
-UPDATE worker.command_registry
-SET phase = 'is_deriving_statistical_units',
-    after_procedure = NULL
-WHERE command = 'derive_power_groups';
+-- SECTION 0a: derive_power_groups pipeline removal no longer applies
+-- (derive_power_groups was removed from 20260127, nothing to restore here)
 
 -- ============================================================================
 -- SECTION 0b: Revert import system changes (Sections 15 of up)
@@ -223,23 +216,8 @@ DROP TRIGGER IF EXISTS a_legal_relationship_log_insert ON public.legal_relations
 DROP TRIGGER IF EXISTS a_legal_relationship_log_update ON public.legal_relationship;
 DROP TRIGGER IF EXISTS a_legal_relationship_log_delete ON public.legal_relationship;
 
--- Restore original trigger function
-CREATE OR REPLACE FUNCTION public.legal_relationship_queue_derive_power_groups()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, worker, pg_temp
-AS $legal_relationship_queue_derive_power_groups$
-BEGIN
-    PERFORM worker.enqueue_derive_power_groups();
-    RETURN NULL;
-END;
-$legal_relationship_queue_derive_power_groups$;
-
-CREATE TRIGGER legal_relationship_derive_power_groups_trigger
-AFTER INSERT OR UPDATE OR DELETE ON public.legal_relationship
-FOR EACH STATEMENT
-EXECUTE FUNCTION public.legal_relationship_queue_derive_power_groups();
+-- No trigger to restore: derive_power_groups infrastructure was removed from 20260127.
+-- The 20260127 migration no longer creates legal_relationship_queue_derive_power_groups.
 
 -- ============================================================================
 -- SECTION 2: Drop new timeline_power_group infrastructure
@@ -261,8 +239,7 @@ DROP PROCEDURE IF EXISTS public.timesegments_refresh(int4multirange, int4multira
 DROP PROCEDURE IF EXISTS public.statistical_unit_refresh(int4multirange, int4multirange, int4multirange, int4multirange);
 DROP FUNCTION IF EXISTS worker.enqueue_derive_statistical_unit(int4multirange, int4multirange, int4multirange, int4multirange, date, date, bigint);
 DROP FUNCTION IF EXISTS worker.derive_statistical_unit(int4multirange, int4multirange, int4multirange, int4multirange, date, date, bigint, bigint);
-DROP FUNCTION IF EXISTS worker.derive_power_groups(bigint, date, date);
-DROP FUNCTION IF EXISTS worker.enqueue_derive_power_groups(bigint, date, date);
+-- derive_power_groups and enqueue_derive_power_groups no longer exist (removed from 20260127)
 
 -- ============================================================================
 -- SECTION 4: Restore original 3-param functions
@@ -586,33 +563,7 @@ BEGIN
 END;
 $function$;
 
--- 5b. enqueue_derive_power_groups (original no-param signature)
-CREATE FUNCTION worker.enqueue_derive_power_groups()
-RETURNS BIGINT
-LANGUAGE plpgsql
-AS $enqueue_derive_power_groups$
-DECLARE
-    _task_id BIGINT;
-    _payload JSONB;
-BEGIN
-    _payload := jsonb_build_object('command', 'derive_power_groups');
-
-    INSERT INTO worker.tasks AS t (command, payload)
-    VALUES ('derive_power_groups', _payload)
-    ON CONFLICT (command)
-    WHERE command = 'derive_power_groups' AND state = 'pending'::worker.task_state
-    DO UPDATE SET
-        state = 'pending'::worker.task_state,
-        priority = EXCLUDED.priority,
-        processed_at = NULL,
-        error = NULL
-    RETURNING id INTO _task_id;
-
-    PERFORM pg_notify('worker_tasks', 'analytics');
-
-    RETURN _task_id;
-END;
-$enqueue_derive_power_groups$;
+-- enqueue_derive_power_groups no longer exists (removed from 20260127)
 
 -- 5c. derive_statistical_unit function (pipeline-progress version with p_round_priority_base)
 CREATE OR REPLACE FUNCTION worker.derive_statistical_unit(p_establishment_id_ranges int4multirange DEFAULT NULL::int4multirange, p_legal_unit_id_ranges int4multirange DEFAULT NULL::int4multirange, p_enterprise_id_ranges int4multirange DEFAULT NULL::int4multirange, p_valid_from date DEFAULT NULL::date, p_valid_until date DEFAULT NULL::date, p_task_id bigint DEFAULT NULL::bigint, p_round_priority_base bigint DEFAULT NULL::bigint)
@@ -885,155 +836,7 @@ BEGIN
 END;
 $procedure$;
 
--- 5e. derive_power_groups function (original from power_group_worker_infrastructure)
-CREATE FUNCTION worker.derive_power_groups()
-RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, worker, pg_temp
-AS $derive_power_groups$
-DECLARE
-    _cluster RECORD;
-    _power_group power_group;
-    _created_count integer := 0;
-    _updated_count integer := 0;
-    _linked_count integer := 0;
-    _row_count integer;
-    _current_user_id integer;
-BEGIN
-    RAISE DEBUG '[derive_power_groups] Starting power group derivation';
-
-    -- Disable the trigger that re-enqueues derive_power_groups when we update legal_relationship.power_group_id
-    -- Without this, every UPDATE below fires the trigger -> enqueues a new task -> infinite loop
-    ALTER TABLE public.legal_relationship DISABLE TRIGGER legal_relationship_derive_power_groups_trigger;
-
-    -- Find a user for edit tracking
-    SELECT id INTO _current_user_id
-    FROM auth.user
-    WHERE email = session_user
-       OR session_user = 'postgres';
-
-    IF _current_user_id IS NULL THEN
-        SELECT id INTO _current_user_id
-        FROM auth.user
-        WHERE role_id = (SELECT id FROM auth.role WHERE name = 'super_user')
-        LIMIT 1;
-    END IF;
-
-    IF _current_user_id IS NULL THEN
-        RAISE EXCEPTION 'No user found for power group derivation';
-    END IF;
-
-    -- Step 1: For each cluster (identified by root_legal_unit_id), find or create power_group
-    -- and assign to relationships
-    FOR _cluster IN
-        SELECT DISTINCT root_legal_unit_id
-        FROM public.legal_relationship_cluster
-    LOOP
-        -- Check if any relationship in this cluster already has a power_group assigned
-        SELECT pg.* INTO _power_group
-        FROM public.power_group AS pg
-        JOIN public.legal_relationship AS lr ON lr.power_group_id = pg.id
-        JOIN public.legal_relationship_cluster AS lrc ON lrc.legal_relationship_id = lr.id
-        WHERE lrc.root_legal_unit_id = _cluster.root_legal_unit_id
-        LIMIT 1;
-
-        IF NOT FOUND THEN
-            -- Create new power_group for this cluster
-            INSERT INTO public.power_group (
-                edit_by_user_id
-            ) VALUES (
-                _current_user_id
-            )
-            RETURNING * INTO _power_group;
-
-            _created_count := _created_count + 1;
-            RAISE DEBUG '[derive_power_groups] Created power_group % for root LU %',
-                _power_group.ident, _cluster.root_legal_unit_id;
-        ELSE
-            _updated_count := _updated_count + 1;
-        END IF;
-
-        -- Step 2: Assign power_group_id to all relationships in this cluster
-        UPDATE public.legal_relationship AS lr
-        SET power_group_id = _power_group.id
-        FROM public.legal_relationship_cluster AS lrc
-        WHERE lr.id = lrc.legal_relationship_id
-          AND lrc.root_legal_unit_id = _cluster.root_legal_unit_id
-          AND (lr.power_group_id IS DISTINCT FROM _power_group.id);
-
-        GET DIAGNOSTICS _row_count = ROW_COUNT;
-        _linked_count := _linked_count + _row_count;
-    END LOOP;
-
-    -- Step 3: Handle cluster merges - when one cluster acquires another
-    WITH cluster_sizes AS (
-        SELECT
-            lr.power_group_id,
-            COUNT(*) AS rel_count
-        FROM public.legal_relationship AS lr
-        WHERE lr.power_group_id IS NOT NULL
-        GROUP BY lr.power_group_id
-    ),
-    merge_candidates AS (
-        SELECT DISTINCT
-            lrc.root_legal_unit_id,
-            lr.power_group_id AS current_pg_id,
-            cs.rel_count
-        FROM public.legal_relationship_cluster AS lrc
-        JOIN public.legal_relationship AS lr ON lr.id = lrc.legal_relationship_id
-        JOIN cluster_sizes AS cs ON cs.power_group_id = lr.power_group_id
-        WHERE lr.power_group_id IS NOT NULL
-    ),
-    clusters_with_multiple_pgs AS (
-        SELECT
-            root_legal_unit_id,
-            array_agg(current_pg_id ORDER BY rel_count DESC, current_pg_id) AS pg_ids
-        FROM merge_candidates
-        GROUP BY root_legal_unit_id
-        HAVING COUNT(DISTINCT current_pg_id) > 1
-    )
-    UPDATE public.legal_relationship AS lr
-    SET power_group_id = cwmp.pg_ids[1]
-    FROM public.legal_relationship_cluster AS lrc
-    JOIN clusters_with_multiple_pgs AS cwmp ON cwmp.root_legal_unit_id = lrc.root_legal_unit_id
-    WHERE lr.id = lrc.legal_relationship_id
-      AND lr.power_group_id != cwmp.pg_ids[1];
-
-    GET DIAGNOSTICS _row_count = ROW_COUNT;
-    IF _row_count > 0 THEN
-        RAISE DEBUG '[derive_power_groups] Merged % relationships into surviving power groups', _row_count;
-    END IF;
-
-    -- Step 4: Clear power_group_id from relationships that are not primary-influencer
-    UPDATE public.legal_relationship AS lr
-    SET power_group_id = NULL
-    WHERE lr.power_group_id IS NOT NULL
-      AND lr.primary_influencer_only IS NOT TRUE;
-
-    GET DIAGNOSTICS _row_count = ROW_COUNT;
-    IF _row_count > 0 THEN
-        RAISE DEBUG '[derive_power_groups] Cleared power_group from % non-primary-influencer relationships', _row_count;
-    END IF;
-
-    RAISE DEBUG '[derive_power_groups] Completed: created=%, updated=%, linked=%',
-        _created_count, _updated_count, _linked_count;
-
-    -- Re-enable the trigger so future DML on legal_relationship queues derivation normally
-    ALTER TABLE public.legal_relationship ENABLE TRIGGER legal_relationship_derive_power_groups_trigger;
-END;
-$derive_power_groups$;
-
--- 5f. derive_power_groups procedure (original wrapper)
-CREATE OR REPLACE PROCEDURE worker.derive_power_groups(payload JSONB)
-SECURITY DEFINER
-SET search_path = public, worker, pg_temp
-LANGUAGE plpgsql
-AS $procedure$
-BEGIN
-    PERFORM worker.derive_power_groups();
-END;
-$procedure$;
+-- derive_power_groups function and procedure no longer exist (removed from 20260127)
 
 -- ============================================================================
 -- SECTION 6: Restore original statistical_unit_refresh_batch
@@ -1986,8 +1789,7 @@ DELETE FROM public.timepoints WHERE unit_type = 'power_group';
 -- SECTION 13: Revert pipeline_progress changes
 -- ============================================================================
 
--- Remove phase from derive_power_groups command
-UPDATE worker.command_registry SET phase = NULL WHERE command = 'derive_power_groups';
+-- derive_power_groups command no longer exists (removed from 20260127)
 
 -- Drop affected_power_group_count column
 ALTER TABLE worker.pipeline_progress DROP COLUMN IF EXISTS affected_power_group_count;

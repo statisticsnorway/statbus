@@ -117,11 +117,11 @@ JOIN public.legal_rel_type AS lrt ON lrt.id = lr.type_id
 ORDER BY ei_ing.ident, ei_ed.ident;
 
 -- ============================================================================
-\echo "=== Phase 3: Derive Power Groups ==="
+\echo "=== Phase 3: Verify Power Groups (created during import) ==="
 -- ============================================================================
 
--- Derive power groups directly (skipping full analytics pipeline for speed)
-SELECT worker.derive_power_groups();
+-- Power groups are now created during import by process_power_group_link (holistic step)
+-- No separate derive_power_groups call needed
 
 \echo "Power groups created (only from HFOR/primary_influencer_only=TRUE):"
 SELECT pg.ident, pg.name
