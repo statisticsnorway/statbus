@@ -7,7 +7,7 @@
 -- Phase 1: Natural roots (LUs with children but no parent) with range_agg subtraction
 --          to compute exact root periods even when cycles form later
 -- Phase 2: Orphan/cycle connected components — picks root via:
---          1) power_override (NSO choice), 2) adjacent Phase 1 root, 3) MIN(id)
+--          1) power_root.custom_root (NSO choice), 2) adjacent Phase 1 root, 3) MIN(id)
 
 BEGIN;
 
