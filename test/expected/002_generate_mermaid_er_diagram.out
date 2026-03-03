@@ -1467,6 +1467,7 @@ erDiagram
 		worker_pipeline_phase phase
 		text step
 		integer weight
+		integer seq
 	}
 	worker_queue_registry["worker.queue_registry"] {
 		text queue

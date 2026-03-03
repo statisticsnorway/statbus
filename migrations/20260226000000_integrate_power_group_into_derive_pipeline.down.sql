@@ -1794,6 +1794,25 @@ DELETE FROM public.timepoints WHERE unit_type = 'power_group';
 -- Drop affected_power_group_count column
 ALTER TABLE worker.pipeline_progress DROP COLUMN IF EXISTS affected_power_group_count;
 
+-- Restore notify_collecting_changes_start without affected_power_group_count
+CREATE OR REPLACE PROCEDURE worker.notify_collecting_changes_start()
+LANGUAGE plpgsql
+AS $notify_collecting_changes_start$
+BEGIN
+  INSERT INTO worker.pipeline_progress (phase, step, total, completed, updated_at)
+  VALUES ('is_deriving_statistical_units', 'collect_changes', 0, 0, clock_timestamp())
+  ON CONFLICT (phase) DO UPDATE SET
+    step = 'collect_changes', total = 0, completed = 0,
+    affected_establishment_count = NULL, affected_legal_unit_count = NULL,
+    affected_enterprise_count = NULL,
+    updated_at = clock_timestamp();
+
+  PERFORM pg_notify('worker_status',
+    json_build_object('type', 'is_deriving_statistical_units', 'status', true)::text
+  );
+END;
+$notify_collecting_changes_start$;
+
 -- Restore notify_start without affected_power_group_count
 CREATE OR REPLACE PROCEDURE worker.notify_is_deriving_statistical_units_start()
 LANGUAGE plpgsql

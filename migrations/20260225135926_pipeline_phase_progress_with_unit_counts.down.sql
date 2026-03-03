@@ -1,6 +1,16 @@
 BEGIN;
 
 -- ============================================================================
+-- Revert collect_changes before_procedure
+-- ============================================================================
+
+UPDATE worker.command_registry
+SET before_procedure = NULL
+WHERE command = 'collect_changes';
+
+DROP PROCEDURE IF EXISTS worker.notify_collecting_changes_start();
+
+-- ============================================================================
 -- Restore notify_is_deriving_reports_stop (original)
 -- ============================================================================
 

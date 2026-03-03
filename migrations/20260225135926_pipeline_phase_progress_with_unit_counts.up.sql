@@ -156,6 +156,32 @@ BEGIN
 END;
 $procedure$;
 
+-- collect_changes needs its own before_procedure because
+-- notify_is_deriving_statistical_units_start hardcodes step='derive_statistical_unit'.
+-- collect_changes runs first and should show step='collect_changes'.
+CREATE PROCEDURE worker.notify_collecting_changes_start()
+LANGUAGE plpgsql
+AS $notify_collecting_changes_start$
+BEGIN
+  INSERT INTO worker.pipeline_progress (phase, step, total, completed, updated_at)
+  VALUES ('is_deriving_statistical_units', 'collect_changes', 0, 0, clock_timestamp())
+  ON CONFLICT (phase) DO UPDATE SET
+    step = 'collect_changes', total = 0, completed = 0,
+    affected_establishment_count = NULL, affected_legal_unit_count = NULL,
+    affected_enterprise_count = NULL,
+    updated_at = clock_timestamp();
+
+  PERFORM pg_notify('worker_status',
+    json_build_object('type', 'is_deriving_statistical_units', 'status', true)::text
+  );
+END;
+$notify_collecting_changes_start$;
+
+-- Wire collect_changes to use its own before_procedure
+UPDATE worker.command_registry
+SET before_procedure = 'worker.notify_collecting_changes_start'
+WHERE command = 'collect_changes';
+
 CREATE OR REPLACE PROCEDURE worker.notify_is_deriving_reports_start()
 LANGUAGE plpgsql
 AS $procedure$

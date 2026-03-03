@@ -8222,16 +8222,19 @@ export type Database = {
       pipeline_step_weight: {
         Row: {
           phase: string | null
+          seq: number | null
           step: string | null
           weight: number | null
         },
         Insert: {
           phase?: string | null
+          seq?: number | null
           step?: string | null
           weight?: number | null
         },
         Update: {
           phase?: string | null
+          seq?: number | null
           step?: string | null
           weight?: number | null
         },

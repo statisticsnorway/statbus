@@ -7,7 +7,7 @@ import { useBaseData, refreshBaseDataAtom } from "@/atoms/base-data";
 import { useWorkerStatus, COMMAND_LABELS, type PhaseStatus } from "@/atoms/worker_status";
 import { useAtomValue, useSetAtom } from 'jotai';
 import { analysisPageVisualStateAtom } from '@/atoms/reports';
-import { CheckCircle, XCircle, AlertCircle, Loader2 } from "lucide-react";
+import { CheckCircle, XCircle, AlertCircle, Loader2, Clock } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
 function PhaseProgressBar({ phase }: { phase: PhaseStatus | null }) {
@@ -89,6 +89,7 @@ export function StatisticalUnitsRefresher({
     isActive: boolean | null,
     isDone: boolean,
     phase: PhaseStatus | null,
+    waitingFor?: string | null,
   ) => {
     return (
       <div className="py-2">
@@ -98,6 +99,8 @@ export function StatisticalUnitsRefresher({
               <Loader2 className="h-6 w-6 animate-spin" />
             ) : isDone ? (
               <CheckCircle className="h-6 w-6 text-green-500" />
+            ) : waitingFor ? (
+              <Clock className="h-6 w-6 text-gray-400" />
             ) : (
               <div className="h-6 w-6 rounded-full border-2 border-gray-300" />
             )}
@@ -106,6 +109,9 @@ export function StatisticalUnitsRefresher({
             <p className={`font-medium ${isActive === true ? "text-black" : "text-gray-600"}`}>
               {label}
             </p>
+            {waitingFor && !isActive && !isDone && (
+              <p className="text-xs text-gray-400">Waiting for {waitingFor}</p>
+            )}
           </div>
         </div>
         {isActive && phase && <div className="ml-11"><PhaseProgressBar phase={phase} /></div>}
@@ -124,8 +130,10 @@ export function StatisticalUnitsRefresher({
           <h3 className="text-lg font-medium mb-4">Analysis Progress</h3>
 
           {renderStatusItem("Importing Data", isImporting, importDone, null)}
-          {renderStatusItem("Deriving Statistical Units", isDerivingUnits, unitsDone, workerStatus.derivingUnits)}
-          {renderStatusItem("Generating Reports", isDerivingReports, reportsDone, workerStatus.derivingReports)}
+          {renderStatusItem("Deriving Statistical Units", isDerivingUnits, unitsDone, workerStatus.derivingUnits,
+            isImporting ? "Import" : null)}
+          {renderStatusItem("Generating Reports", isDerivingReports, reportsDone, workerStatus.derivingReports,
+            isDerivingUnits ? "Statistical Units" : isImporting ? "Import" : null)}
 
           {state === "finished" && (
             <div className="mt-4 pt-4 border-t border-gray-200 text-center">

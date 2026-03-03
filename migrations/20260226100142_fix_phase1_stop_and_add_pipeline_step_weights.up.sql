@@ -67,6 +67,7 @@ COMMENT ON TABLE worker.pipeline_step_weight IS
 -- Dataset: 1.1M legal units + 826K establishments, analytics_partition_count=128.
 -- derive_power_groups removed from pipeline — PG records managed during import.
 INSERT INTO worker.pipeline_step_weight (phase, step, weight) VALUES
+  ('is_deriving_statistical_units', 'collect_changes', 1),
   ('is_deriving_statistical_units', 'derive_statistical_unit', 87),
   ('is_deriving_statistical_units', 'statistical_unit_flush_staging', 14);
 
@@ -79,13 +80,30 @@ INSERT INTO worker.pipeline_step_weight (phase, step, weight) VALUES
   ('is_deriving_reports', 'derive_statistical_history_facet', 84),
   ('is_deriving_reports', 'statistical_history_facet_reduce', 9);
 
+-- Explicit execution order for frontend progress bar.
+-- Weight ordering is unreliable (statistical_history_facet_reduce=9 < derive_statistical_history_facet=84).
+ALTER TABLE worker.pipeline_step_weight ADD COLUMN seq INT NOT NULL DEFAULT 0;
+
+-- Phase 1 ordering
+UPDATE worker.pipeline_step_weight SET seq = 0 WHERE step = 'collect_changes';
+UPDATE worker.pipeline_step_weight SET seq = 1 WHERE step = 'derive_statistical_unit';
+UPDATE worker.pipeline_step_weight SET seq = 2 WHERE step = 'statistical_unit_flush_staging';
+
+-- Phase 2 ordering
+UPDATE worker.pipeline_step_weight SET seq = 0 WHERE step = 'derive_reports';
+UPDATE worker.pipeline_step_weight SET seq = 1 WHERE step = 'derive_statistical_history';
+UPDATE worker.pipeline_step_weight SET seq = 2 WHERE step = 'derive_statistical_unit_facet';
+UPDATE worker.pipeline_step_weight SET seq = 3 WHERE step = 'statistical_unit_facet_reduce';
+UPDATE worker.pipeline_step_weight SET seq = 4 WHERE step = 'derive_statistical_history_facet';
+UPDATE worker.pipeline_step_weight SET seq = 5 WHERE step = 'statistical_history_facet_reduce';
+
 -- View for frontend access via PostgREST (/rest/pipeline_step_weight).
 -- Read-only: the UNION ALL prevents PostgreSQL from marking it as auto-updatable.
 CREATE VIEW public.pipeline_step_weight WITH (security_invoker = on) AS
-SELECT phase::text, step, weight
+SELECT phase::text, step, weight, seq
 FROM worker.pipeline_step_weight
 UNION ALL
-SELECT NULL, NULL, NULL WHERE false;
+SELECT NULL::text, NULL::text, NULL::integer, NULL::integer WHERE false;
 
 GRANT SELECT ON public.pipeline_step_weight TO authenticated, regular_user, admin_user;
 
