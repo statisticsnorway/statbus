@@ -98,8 +98,18 @@ all downstream tables. Each box below is a **top-level task** — they run
  ════════════                      ═══════════════
 
  import_job_process
-    │ data changes fire
-    │ lifecycle trigger
+    │ batch processing inserts/updates
+    │ base tables (LU, EST, LR, ...)
+    │
+    │ holistic steps run after all batches:
+    │ • power_group_link creates PG records,
+    │   sets power_group_id on legal_relationship
+    │
+    │ change-detection triggers fire on each
+    │ committed statement:
+    │ • log_base_change → base_change_log
+    │ • ensure_collect_changes → enqueue
+    │   collect_changes (idempotent dedup)
     ▼
                           ┌─────────────────────────────────────────────┐
                      ①    │ collect_changes                             │

@@ -5,7 +5,7 @@ DO $$
 DECLARE
     def_id INT;
     -- Steps for legal_relationship mode (no external_idents - identities resolved within legal_relationship step)
-    lr_steps TEXT[] := ARRAY['valid_time', 'legal_relationship', 'edit_info', 'metadata'];
+    lr_steps TEXT[] := ARRAY['valid_time', 'legal_relationship', 'power_group_link', 'edit_info', 'metadata'];
     -- Source columns matching the CSV header from extract-roller-to-csv.py
     lr_source_cols TEXT[] := ARRAY[
         'influencing_tax_ident', 'influenced_tax_ident',
