@@ -384,16 +384,59 @@ case "$action" in
         
         OVERALL_EXIT_CODE=0
         
-        # Run shared tests together on the main database (fast, uses BEGIN/ROLLBACK)
+        # Run shared tests on a cloned database (fast, uses BEGIN/ROLLBACK between tests,
+        # but avoids interfering with the user's active development database).
         if [ -n "$SHARED_TESTS" ]; then
-            echo "=== Running shared tests (BEGIN/ROLLBACK isolation) ==="
+            TEMPLATE_NAME="template_statbus_migrated"
+            SHARED_TEST_DB="test_shared_$$"
+
+            # Verify template exists
+            TEMPLATE_EXISTS=$(./devops/manage-statbus.sh psql -d postgres -t -A -c \
+                "SELECT 1 FROM pg_database WHERE datname = '$TEMPLATE_NAME';" 2>/dev/null || echo "0")
+            if [ "$TEMPLATE_EXISTS" != "1" ]; then
+                echo "Error: Template database '$TEMPLATE_NAME' not found."
+                echo "Create it with: ./devops/manage-statbus.sh create-test-template"
+                exit 1
+            fi
+
+            echo "=== Running shared tests (BEGIN/ROLLBACK isolation on cloned database) ==="
+            echo "Creating shared test database: $SHARED_TEST_DB from template $TEMPLATE_NAME"
+
+            # Clone from template using advisory lock (same pattern as test-isolated)
+            if ! ./devops/manage-statbus.sh psql -d postgres -v ON_ERROR_STOP=1 <<EOF
+                SELECT pg_advisory_lock(59328);
+                ALTER DATABASE $TEMPLATE_NAME WITH ALLOW_CONNECTIONS = true;
+                CREATE DATABASE "$SHARED_TEST_DB" WITH TEMPLATE $TEMPLATE_NAME;
+                ALTER DATABASE $TEMPLATE_NAME WITH ALLOW_CONNECTIONS = false;
+                SELECT pg_advisory_unlock(59328);
+EOF
+            then
+                echo "Error: Failed to create shared test database from template"
+                exit 1
+            fi
+
+            # Cleanup trap for shared test database
+            cleanup_shared_test_db() {
+                local exit_code=$?
+                if [ "${PERSIST:-false}" = "true" ]; then
+                    echo "PERSIST=true: Keeping shared test database: $SHARED_TEST_DB"
+                    return $exit_code
+                fi
+                if [ -n "$SHARED_TEST_DB" ]; then
+                    echo "Cleaning up shared test database: $SHARED_TEST_DB"
+                    ./devops/manage-statbus.sh psql -d postgres -c "DROP DATABASE IF EXISTS \"$SHARED_TEST_DB\";" 2>/dev/null || true
+                fi
+                return $exit_code
+            }
+            trap cleanup_shared_test_db EXIT
+
             docker compose exec --workdir "/statbus" db \
                 $PG_REGRESS $debug_arg \
                 --use-existing \
                 --bindir="/usr/lib/postgresql/$POSTGRESQL_MAJOR/bin" \
                 --inputdir=$CONTAINER_REGRESS_DIR \
                 --outputdir=$CONTAINER_REGRESS_DIR \
-                --dbname=$PGDATABASE \
+                --dbname="$SHARED_TEST_DB" \
                 --user=$PGUSER \
                 $SHARED_TESTS || OVERALL_EXIT_CODE=$?
         fi
