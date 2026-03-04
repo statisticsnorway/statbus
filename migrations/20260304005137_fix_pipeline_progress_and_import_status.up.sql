@@ -50,6 +50,25 @@ BEGIN
     RETURN;  -- More Phase 1 work pending, don't stop yet
   END IF;
 
+  -- If collect_changes is pending, more Phase 1 work is guaranteed
+  -- (collect_changes always leads to derive_statistical_unit), so stay active.
+  -- Reset to collect_changes step with unknown counts (not yet collected).
+  IF EXISTS (
+    SELECT 1 FROM worker.tasks
+    WHERE command = 'collect_changes'
+    AND state = 'pending'
+  ) THEN
+    UPDATE worker.pipeline_progress
+    SET step = 'collect_changes', total = 0, completed = 0,
+        affected_establishment_count = NULL,
+        affected_legal_unit_count = NULL,
+        affected_enterprise_count = NULL,
+        affected_power_group_count = NULL,
+        updated_at = clock_timestamp()
+    WHERE phase = 'is_deriving_statistical_units';
+    RETURN;
+  END IF;
+
   DELETE FROM worker.pipeline_progress WHERE phase = 'is_deriving_statistical_units';
   PERFORM pg_notify('worker_status',
     json_build_object('type', 'is_deriving_statistical_units', 'status', false)::text
