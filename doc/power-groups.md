@@ -329,6 +329,23 @@ The import system handles power groups as a **holistic step** (not batched per-r
 1. **`analyse_power_group_link`**: Builds combined graph of existing + new relationships (all types), computes clusters via recursive CTE, assigns `cluster_root_legal_unit_id` to each data row
 2. **`process_power_group_link`**: Creates/finds power groups for each cluster, updates `legal_relationship.power_group_id` for all relationships in the cluster
 
+### Change Detection and the Derive Pipeline
+
+Legal relationship changes **only affect power groups** — they do NOT affect individual legal units or their connected enterprises. The change detection system is designed around this principle:
+
+**`base_change_log` has a `power_group_ids` column.** When LR rows change, the `log_base_change` trigger logs `power_group_id` directly into the `power_group_ids` column — not `influencing_id`/`influenced_id` as LU IDs. This prevents unnecessary LU/enterprise re-derivation.
+
+**LR changes are only logged when `power_group_id IS NOT NULL`.** Changes before PG assignment are invisible to the derive pipeline. This means the import flow is:
+
+1. Insert/update LR rows (`power_group_id = NULL`, no log entry)
+2. `process_power_group_link` assigns PG IDs (UPDATE triggers fire, PG IDs logged)
+3. `collect_changes` drains `base_change_log` — PG IDs come directly from the log
+4. `derive_statistical_unit` receives PG IDs and refreshes power group statistical units
+
+**The `ensure_collect_changes` trigger on LR also filters for `power_group_id IS NOT NULL`** to prevent scheduling collection when there's nothing to collect. A separate DELETE trigger always schedules (since PG was assigned before deletion and the log captured it).
+
+**Direct vs indirect PG lookup.** Previously, `collect_changes` computed PG IDs via an indirect lookup: drain LU IDs from the log, then query `legal_relationship WHERE influencing_id IN (...) OR influenced_id IN (...)`. This failed during initial import because PG IDs weren't assigned yet when the log was written. The direct approach — logging PG IDs into `base_change_log` at trigger time — eliminates this race condition.
+
 ## Future Directions
 
 ### Multi-Root Power Groups

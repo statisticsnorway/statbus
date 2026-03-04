@@ -178,7 +178,11 @@ function PhaseProgressPopover({ phase, stepWeights, waitingFor }: { phase: Phase
             {phase.total > 1 && <span>{pct}%</span>}
           </div>
           {phase.total > 1 && <Progress value={pct} className="h-2" />}
-          {phase.total <= 1 && <p className="text-xs text-gray-500">Running...</p>}
+          {phase.total <= 1 && (
+            <p className="text-xs text-gray-500">
+              {waitingFor ? `${label} while waiting for ${waitingFor}` : 'Running...'}
+            </p>
+          )}
         </div>
       ) : (
         <p className="text-sm text-gray-500">
