@@ -9,8 +9,8 @@ BEGIN;
 "=== Test 119: Legal Relationship Import and Power Group Derivation ==="
 \echo "Tests the complete flow: import LUs -> import relationships -> derive power groups"
 "Tests the complete flow: import LUs -> import relationships -> derive power groups"
-\echo "Uses mixed BRREG types: HFOR (primary_influencer_only=TRUE) and DTPR (FALSE)"
-"Uses mixed BRREG types: HFOR (primary_influencer_only=TRUE) and DTPR (FALSE)"
+\echo "Uses mixed BRREG types: HFOR (primary_influencer_only=TRUE) and DTPR (FALSE) — both form power groups"
+"Uses mixed BRREG types: HFOR (primary_influencer_only=TRUE) and DTPR (FALSE) — both form power groups"
 -- Reset sequences for deterministic output
 ALTER SEQUENCE public.power_group_ident_seq RESTART WITH 1;
 -- A Super User configures statbus.
@@ -100,8 +100,8 @@ ORDER BY ei.ident;
 "=== Phase 2: Import Mixed Legal Relationships ==="
 \echo "Nordic hierarchy uses HFOR (primary_influencer_only=TRUE)"
 "Nordic hierarchy uses HFOR (primary_influencer_only=TRUE)"
-\echo "Baltic hierarchy uses DTPR (primary_influencer_only=FALSE)"
-"Baltic hierarchy uses DTPR (primary_influencer_only=FALSE)"
+\echo "Baltic hierarchy uses DTPR (primary_influencer_only=FALSE) — also forms power group"
+"Baltic hierarchy uses DTPR (primary_influencer_only=FALSE) — also forms power group"
 -- ============================================================================
 -- Verify the legal_relationship import definition exists and is valid
 \echo "Legal relationship import definitions:"
@@ -191,15 +191,16 @@ ORDER BY ei_ing.ident, ei_ed.ident;
 -- ============================================================================
 -- Power groups are now created during import by process_power_group_link (holistic step)
 -- No separate derive_power_groups call needed
-\echo "Power groups created (only from HFOR/primary_influencer_only=TRUE):"
-"Power groups created (only from HFOR/primary_influencer_only=TRUE):"
+\echo "Power groups created (from all relationship types):"
+"Power groups created (from all relationship types):"
 SELECT pg.ident, pg.name
 FROM public.power_group AS pg
 ORDER BY pg.ident;
  ident  | name 
 --------+------
  PG0001 | 
-(1 row)
+ PG0002 | 
+(2 rows)
 
 \echo "Power group membership (which LUs belong to which group):"
 "Power group membership (which LUs belong to which group):"
@@ -264,22 +265,22 @@ ORDER BY ei_ing.ident, ei_ed.ident;
  100000002   | 100000005  | HFOR     | t                       | PG0001
  100000003   | 100000006  | HFOR     | t                       | PG0001
  100000003   | 100000007  | HFOR     | t                       | PG0001
- 100000008   | 100000009  | DTPR     | f                       | 
- 100000008   | 100000010  | DTPR     | f                       | 
+ 100000008   | 100000009  | DTPR     | f                       | PG0002
+ 100000008   | 100000010  | DTPR     | f                       | PG0002
 (8 rows)
 
 -- ============================================================================
 \echo "=== Phase 4: Summary ==="
 "=== Phase 4: Summary ==="
 -- ============================================================================
-\echo "Nordic hierarchy (HFOR, primary_influencer_only=TRUE) forms PG0001"
-"Nordic hierarchy (HFOR, primary_influencer_only=TRUE) forms PG0001"
-\echo "Baltic hierarchy (DTPR, primary_influencer_only=FALSE) has no power group"
-"Baltic hierarchy (DTPR, primary_influencer_only=FALSE) has no power group"
+\echo "Nordic hierarchy (HFOR) forms one power group"
+"Nordic hierarchy (HFOR) forms one power group"
+\echo "Baltic hierarchy (DTPR) also forms its own power group"
+"Baltic hierarchy (DTPR) also forms its own power group"
 SELECT COUNT(*) AS total_power_groups FROM public.power_group;
  total_power_groups 
 --------------------
-                  1
+                  2
 (1 row)
 
 SELECT COUNT(*) AS total_relationships FROM public.legal_relationship;

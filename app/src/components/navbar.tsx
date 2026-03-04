@@ -182,7 +182,7 @@ function PhaseProgressPopover({ phase, stepWeights, waitingFor }: { phase: Phase
         </div>
       ) : (
         <p className="text-sm text-gray-500">
-          {waitingFor ? `Waiting for ${waitingFor}...` : 'Waiting to start...'}
+          {waitingFor ? `${label} while waiting for ${waitingFor}` : 'Waiting to start...'}
         </p>
       )}
     </div>
@@ -350,7 +350,7 @@ export default function Navbar() {
                     progressPct={unitsPct}
                     popoverContent={isDerivingUnits
                       ? (derivingUnits?.active
-                        ? <PhaseProgressPopover phase={derivingUnits} stepWeights={phase1Weights} waitingFor={isImporting ? "Import" : undefined} />
+                        ? <PhaseProgressPopover phase={derivingUnits} stepWeights={phase1Weights} waitingFor={isDerivingReports ? "Reports" : undefined} />
                         : <p className="text-sm text-gray-500">Deriving statistical units...</p>)
                       : null}
                   />

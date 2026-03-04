@@ -17,11 +17,16 @@ Calling both concepts "Enterprise" creates ambiguity: does "Enterprise Group" me
 
 The two generic relationship types map naturally to the power group model:
 
-- **Control** (`primary_influencer_only = TRUE`) — singular, structural. One entity controls another. These relationships form the power group *hierarchy* (tree). The exclusion constraint guarantees single-root: each influenced unit can have at most one controller at any point in time.
+- **Control** (`primary_influencer_only = TRUE`) — singular, structural. One entity controls another. The exclusion constraint guarantees at most one controller per influenced unit at any point in time. These relationships define hierarchy *direction* (root detection, tree traversal).
 
-- **Ownership** (`primary_influencer_only = FALSE`) — shared, informational. Multiple shareholders can own stakes in the same entity. These relationships enrich the *influence graph* but do not determine hierarchy.
+- **Ownership** (`primary_influencer_only = FALSE`) — shared, informational. Multiple shareholders can own stakes in the same entity. These relationships add 1:N edges.
 
-Future: ownership relationships enable conglomerate analysis beyond direct control — mapping the full web of financial interests across corporate structures.
+**Both types contribute to power group formation.** All relationship types participate in clustering — any two legal units connected by any relationship type belong to the same power group. The `primary_influencer_only` flag remains important for:
+- **Import set semantics**: 1:1 (primary) vs 1:N (non-primary) cardinality
+- **Exclusion constraint**: structural single-root guarantee for primary types
+- **Hierarchy direction**: root detection uses relationship direction for tree traversal
+
+Non-primary relationships may create multi-root situations (since they are 1:N), which the two-phase algorithm handles via Phase 2 connected components.
 
 ## Tables and Relationships
 
@@ -32,7 +37,7 @@ Future: ownership relationships enable conglomerate analysis beyond direct contr
                     │───────────────────────│
                     │ id                    │
                     │ code                  │
-                    │ primary_influencer_only│  ← determines PG formation
+                    │ primary_influencer_only│  ← controls cardinality (1:1 vs 1:N)
                     └──────────┬────────────┘
                                │ type_id
                                │
@@ -90,13 +95,13 @@ Future: ownership relationships enable conglomerate analysis beyond direct contr
 
 ### Base Tables
 
-**`legal_rel_type`** (reference data) — Defines relationship types. The `primary_influencer_only` boolean flag is the key: types with `TRUE` form power group hierarchies, types with `FALSE` are informational only. Each NSO configures its own types (see `samples/norway/brreg/` for an example).
+**`legal_rel_type`** (reference data) — Defines relationship types. The `primary_influencer_only` boolean flag controls cardinality (1:1 vs 1:N) and the exclusion constraint, but all types contribute to power group formation. Each NSO configures its own types (see `samples/norway/brreg/` for an example).
 
 **`legal_relationship`** (temporal, sql_saga) — Individual relationships between legal units. Each row says "unit A influences unit B during time range R". Key columns:
 - `influencing_id` / `influenced_id` — FK to `legal_unit`
 - `type_id` → `legal_rel_type` — determines semantics
 - `primary_influencer_only` — denormalized from type, kept in sync by trigger + dual-column FK
-- `power_group_id` — set by `process_power_group_link` during import, NULL for non-primary relationships
+- `power_group_id` — set by `process_power_group_link` during import for all relationships in a cluster
 - `valid_range` — temporal validity
 
 **`power_group`** (timeless, like enterprise) — Once created, exists forever. Active status is derived at query time from `legal_relationship.valid_range`. Key columns:
@@ -119,7 +124,7 @@ NSO edits to `custom_root_legal_unit_id` trigger `derive_statistical_unit` direc
 
 **`power_group_def`** — Aggregates hierarchy to compute per-root metrics: `depth` (longest path), `width` (direct children), `reach` (total controlled units).
 
-**`legal_relationship_cluster`** — Maps each `primary_influencer_only` relationship to its cluster root, used by `process_power_group_link` to assign `power_group_id`.
+**`legal_relationship_cluster`** — Maps each relationship to its cluster root, used by `process_power_group_link` to assign `power_group_id`.
 
 **`power_group_membership`** — Joins `power_group` ↔ `power_hierarchy` to answer "which legal units belong to which power group at what level".
 
@@ -127,7 +132,10 @@ NSO edits to `custom_root_legal_unit_id` trigger `derive_statistical_unit` direc
 
 ## Core Concept: `primary_influencer_only`
 
-Instead of percentage thresholds (e.g., "50% ownership = controlling"), power group formation is determined by **relationship type**. The `legal_rel_type.primary_influencer_only` boolean flag marks which types form power group hierarchies.
+The `legal_rel_type.primary_influencer_only` boolean flag controls cardinality and the exclusion constraint — **not** power group membership. All relationship types contribute to power group formation.
+
+- **`primary_influencer_only = TRUE`**: Structurally 1:1. The exclusion constraint ensures each influenced unit has at most one influencer of this type at any time. These types define hierarchy direction (root detection, tree traversal).
+- **`primary_influencer_only = FALSE`**: Structurally 1:N. Multiple influencers per influenced unit are allowed. These types add edges to the power group graph but don't determine hierarchy direction.
 
 Each NSO defines its own relationship types with appropriate `primary_influencer_only` settings. See `samples/norway/brreg/` for Norway's BRREG role mappings as an example.
 
@@ -161,16 +169,16 @@ The `power_hierarchy` view uses a two-phase recursive CTE to handle both clean h
 
 Uses `range_agg` multirange subtraction to compute exact temporal root periods:
 
-1. For each legal unit that has children (`primary_influencer_only = TRUE` outgoing edges), subtract the periods where it also has a parent (incoming edge)
+1. For each legal unit that has children (outgoing edges of any type), subtract the periods where it also has a parent (incoming edge of any type)
 2. The remaining periods are when the unit is a **natural root**
-3. Recursively traverse downward, assigning increasing `power_level` (1 = root, 2 = direct subsidiary, etc.)
+3. Recursively traverse downward via outgoing edges, assigning increasing `power_level` (1 = root, 2 = direct subsidiary, etc.)
 4. Cycle detection via `path` array prevents infinite recursion; max depth 100
 
 ### Phase 2: Orphan/Cycle Connected Components
 
-Handles nodes that participate in primary edges but were not covered by Phase 1 (typically cycles):
+Handles nodes that participate in relationship edges but were not covered by Phase 1 (typically cycles or nodes connected only via non-primary edges):
 
-1. Identify **orphan periods** — times when a node has primary edges but no Phase 1 assignment
+1. Identify **orphan periods** — times when a node has relationship edges but no Phase 1 assignment
 2. **Bidirectional flood fill** groups orphans into connected components
 3. Pick root per component using priority:
    - **`power_root.custom_root_legal_unit_id`** — NSO-chosen root (overrides algorithm for known groups)
@@ -188,7 +196,7 @@ These scenarios motivated the two-phase algorithm and the sparse `power_root` ta
 Timeline: 2020 ────────────────────── infinity
 LU Alpha (id=1)  [2020, infinity)
 LU Beta  (id=2)  [2020, infinity)
-LR: Alpha->Beta  [2020, infinity)   control, primary_influencer_only=TRUE
+LR: Alpha->Beta  [2020, infinity)   control
 ```
 
 Phase 1: Alpha has child Beta, no parent — root for full lifetime.
@@ -255,8 +263,8 @@ Non-cycle periods have no `power_root` entry (Beta is natural root from hierarch
 
 ```
 LU Alpha(1), Beta(2), Charlie(3)
-LR: Alpha->Charlie  [2020, infinity)  primary_influencer_only=TRUE
-LR: Beta->Charlie   [2020, infinity)  primary_influencer_only=TRUE
+LR: Alpha->Charlie  [2020, infinity)  control
+LR: Beta->Charlie   [2020, infinity)  control
 ```
 
 Phase 1: Both Alpha and Beta are natural roots (children, no parents). Charlie appears under both. `process_power_group_link` merge logic detects shared members — one PG.
@@ -306,20 +314,20 @@ NSO can set `power_root.custom_root_legal_unit_id` to choose the correct root.
 
 ## Lifecycle
 
-1. **Creation**: During import, `process_power_group_link` identifies clusters of connected `primary_influencer_only` relationships via the `legal_relationship_cluster` view
+1. **Creation**: During import, `process_power_group_link` identifies clusters of connected relationships (all types) via the `legal_relationship_cluster` view
 2. **Assignment**: Each cluster gets a `power_group` record; all relationships in the cluster get `power_group_id` set
 3. **Reuse**: Existing power groups are reused when relationships change within the same cluster
 4. **Merge**: When clusters merge (one hierarchy acquires another), relationships converge to the surviving power group
 5. **Root tracking**: `power_root` records the derived root, status, and optional NSO override per time period — but only for cycle/multi groups (sparse)
-6. **Dissolution**: When a relationship changes to a non-`primary_influencer_only` type, its `power_group_id` is cleared; if no relationships remain, the PG becomes inactive
+6. **Dissolution**: When all relationships in a cluster are deleted, the PG becomes inactive (no active relationships)
 7. **NSO override**: Editing `power_root.custom_root_legal_unit_id` triggers `derive_statistical_unit` to recalculate timeline and statistical_unit data
 
 ### Import Flow
 
 The import system handles power groups as a **holistic step** (not batched per-row):
 
-1. **`analyse_power_group_link`**: Builds combined graph of existing + new relationships, computes clusters via recursive CTE, assigns `cluster_root_legal_unit_id` to each data row
-2. **`process_power_group_link`**: Creates/finds power groups for each cluster, updates `legal_relationship.power_group_id` for both new and existing relationships
+1. **`analyse_power_group_link`**: Builds combined graph of existing + new relationships (all types), computes clusters via recursive CTE, assigns `cluster_root_legal_unit_id` to each data row
+2. **`process_power_group_link`**: Creates/finds power groups for each cluster, updates `legal_relationship.power_group_id` for all relationships in the cluster
 
 ## Future Directions
 

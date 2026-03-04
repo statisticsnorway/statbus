@@ -31,7 +31,6 @@ root_periods AS (
             (SELECT range_agg(lr.valid_range)
              FROM public.legal_relationship AS lr
              WHERE lr.influenced_id = lu.id
-               AND lr.primary_influencer_only IS TRUE
                AND lr.valid_range && lu.valid_range),
             '{}'::datemultirange
         ) AS root_multirange
@@ -39,7 +38,6 @@ root_periods AS (
     WHERE EXISTS (
         SELECT 1 FROM public.legal_relationship AS lr
         WHERE lr.influencing_id = lu.id
-          AND lr.primary_influencer_only IS TRUE
           AND lr.valid_range && lu.valid_range
     )
 ),
@@ -72,7 +70,6 @@ phase1_hierarchy AS (
     JOIN public.legal_relationship AS lr
         ON lr.influencing_id = h.legal_unit_id
         AND lr.valid_range && h.valid_range
-        AND lr.primary_influencer_only IS TRUE
     JOIN public.legal_unit AS influenced_lu
         ON influenced_lu.id = lr.influenced_id
         AND influenced_lu.valid_range && lr.valid_range
@@ -89,17 +86,15 @@ phase1 AS (
 -- Phase 2: Orphan/cycle connected components
 -- ============================================================
 
--- Step 2a: Find all nodes participating in primary edges
-all_primary_nodes AS (
+-- Step 2a: Find all nodes participating in relationship edges
+all_relationship_nodes AS (
     SELECT lu_id, range_agg(valid_range) AS participation
     FROM (
         SELECT influencing_id AS lu_id, valid_range
         FROM public.legal_relationship
-        WHERE primary_influencer_only IS TRUE
         UNION ALL
         SELECT influenced_id AS lu_id, valid_range
         FROM public.legal_relationship
-        WHERE primary_influencer_only IS TRUE
     ) AS t
     GROUP BY lu_id
 ),
@@ -112,7 +107,7 @@ orphan_nodes AS (
              WHERE p1.legal_unit_id = apn.lu_id),
             '{}'::datemultirange
         ) AS orphan_multirange
-    FROM all_primary_nodes AS apn
+    FROM all_relationship_nodes AS apn
 ),
 orphan_seeds AS (
     SELECT orn.lu_id, period AS valid_range
@@ -137,13 +132,11 @@ orphan_flood AS (
         SELECT lr.influenced_id AS neighbor_id, lr.valid_range AS lr_range
         FROM public.legal_relationship AS lr
         WHERE lr.influencing_id = ofl.node_id
-          AND lr.primary_influencer_only IS TRUE
           AND lr.valid_range && ofl.valid_range
         UNION ALL
         SELECT lr.influencing_id AS neighbor_id, lr.valid_range AS lr_range
         FROM public.legal_relationship AS lr
         WHERE lr.influenced_id = ofl.node_id
-          AND lr.primary_influencer_only IS TRUE
           AND lr.valid_range && ofl.valid_range
     ) AS neighbors ON TRUE
     WHERE NOT (neighbors.neighbor_id = ANY(ofl.path))
@@ -167,8 +160,7 @@ component_effective_roots AS (
              JOIN public.power_root AS pr
                  ON pr.power_group_id = lr.power_group_id
                  AND pr.valid_range && os.valid_range
-             WHERE lr.primary_influencer_only IS TRUE
-               AND lr.power_group_id IS NOT NULL
+             WHERE lr.power_group_id IS NOT NULL
                AND (lr.influencing_id = oc.node_id OR lr.influenced_id = oc.node_id)
                AND lr.valid_range && os.valid_range
                AND pr.custom_root_legal_unit_id IS NOT NULL
@@ -215,7 +207,6 @@ phase2_hierarchy AS (
     JOIN public.legal_relationship AS lr
         ON lr.influencing_id = h.legal_unit_id
         AND lr.valid_range && h.valid_range
-        AND lr.primary_influencer_only IS TRUE
     JOIN public.legal_unit AS influenced_lu
         ON influenced_lu.id = lr.influenced_id
         AND influenced_lu.valid_range && lr.valid_range
@@ -262,7 +253,7 @@ COMMENT ON VIEW public.power_group_def IS
 
 CREATE VIEW public.legal_relationship_cluster WITH (security_invoker = on) AS
 WITH hierarchy_relationships AS (
-    -- Get all relationships that are part of a controlling hierarchy
+    -- Get all relationships that are part of a hierarchy
     SELECT DISTINCT
         lr.id AS legal_relationship_id,
         ph.root_legal_unit_id
@@ -270,7 +261,6 @@ WITH hierarchy_relationships AS (
     JOIN public.power_hierarchy AS ph
         ON (lr.influencing_id = ph.legal_unit_id OR lr.influenced_id = ph.legal_unit_id)
         AND lr.valid_range && ph.valid_range
-    WHERE lr.primary_influencer_only IS TRUE  -- Only primary-influencer relationships form power groups
 )
 SELECT
     legal_relationship_id,
@@ -278,7 +268,7 @@ SELECT
 FROM hierarchy_relationships;
 
 COMMENT ON VIEW public.legal_relationship_cluster IS
-    'Maps each controlling legal_relationship to its cluster root (for power_group assignment)';
+    'Maps each legal_relationship to its cluster root (for power_group assignment)';
 
 --------------------------------------------------------------------------------
 -- PART 4: Helper view for querying "active" power groups

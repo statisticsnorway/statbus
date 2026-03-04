@@ -46,6 +46,7 @@ DECLARE
     _updated_count integer := 0;
     _linked_count integer := 0;
     _row_count integer;
+    _iter integer;
     _current_user_id integer;
 BEGIN
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
@@ -76,45 +77,122 @@ BEGIN
         RAISE EXCEPTION 'No user found for power group creation';
     END IF;
 
-    -- Use legal_relationship_cluster view (now includes newly committed rows from process_legal_relationship)
-    FOR _cluster IN SELECT DISTINCT root_legal_unit_id FROM public.legal_relationship_cluster
+    -- ================================================================
+    -- Compute connected components via iterative label propagation.
+    -- Replaces the legal_relationship_cluster view which evaluates
+    -- power_hierarchy (a multi-phase recursive CTE, cost ~17M).
+    -- This approach: O(edges × depth) ≈ O(29K × 5) ≈ ~150K ops, ~1s.
+    -- ================================================================
+
+    -- Build bidirectional edge list from relationships
+    IF to_regclass('pg_temp._edges') IS NOT NULL THEN
+        DROP TABLE _edges;
+    END IF;
+    CREATE TEMP TABLE _edges ON COMMIT DROP AS
+    SELECT influencing_id AS a, influenced_id AS b FROM public.legal_relationship
+    UNION ALL
+    SELECT influenced_id, influencing_id FROM public.legal_relationship;
+    CREATE INDEX ON _edges (a);
+
+    -- Each LU starts as its own component (component_id = lu_id)
+    IF to_regclass('pg_temp._lu_comp') IS NOT NULL THEN
+        DROP TABLE _lu_comp;
+    END IF;
+    CREATE TEMP TABLE _lu_comp (lu_id integer PRIMARY KEY, comp_id integer) ON COMMIT DROP;
+    INSERT INTO _lu_comp SELECT DISTINCT a, a FROM _edges;
+
+    -- Propagate minimum component_id through edges until stable
+    _iter := 0;
     LOOP
-        -- Find existing power_group for this cluster
-        SELECT pg.* INTO _power_group
-        FROM public.power_group AS pg
-        JOIN public.legal_relationship AS lr ON lr.power_group_id = pg.id
-        JOIN public.legal_relationship_cluster AS lrc ON lrc.legal_relationship_id = lr.id
-        WHERE lrc.root_legal_unit_id = _cluster.root_legal_unit_id
-        LIMIT 1;
-
-        IF NOT FOUND THEN
-            INSERT INTO public.power_group (edit_by_user_id) VALUES (_current_user_id) RETURNING * INTO _power_group;
-            _created_count := _created_count + 1;
-            RAISE DEBUG '[Job %] process_power_group_link: Created power_group % for root LU %',
-                p_job_id, _power_group.ident, _cluster.root_legal_unit_id;
-        ELSE
-            _updated_count := _updated_count + 1;
-        END IF;
-
-        -- Set power_group_id on all legal_relationships in this cluster
-        UPDATE public.legal_relationship AS lr
-        SET power_group_id = _power_group.id
-        FROM public.legal_relationship_cluster AS lrc
-        WHERE lr.id = lrc.legal_relationship_id
-          AND lrc.root_legal_unit_id = _cluster.root_legal_unit_id
-          AND (lr.power_group_id IS DISTINCT FROM _power_group.id);
+        _iter := _iter + 1;
+        UPDATE _lu_comp AS c
+        SET comp_id = sub.min_comp
+        FROM (
+            SELECT e.a AS lu_id, MIN(c2.comp_id) AS min_comp
+            FROM _edges AS e
+            JOIN _lu_comp AS c2 ON c2.lu_id = e.b
+            GROUP BY e.a
+        ) AS sub
+        WHERE c.lu_id = sub.lu_id AND sub.min_comp < c.comp_id;
         GET DIAGNOSTICS _row_count = ROW_COUNT;
-        _linked_count := _linked_count + _row_count;
+        EXIT WHEN _row_count = 0;
+        IF _iter > 100 THEN
+            RAISE EXCEPTION '[Job %] process_power_group_link: Connected components did not converge after 100 iterations', p_job_id;
+        END IF;
     END LOOP;
+    RAISE DEBUG '[Job %] process_power_group_link: Connected components converged in % iterations', p_job_id, _iter;
+
+    -- Map each relationship to its component (= cluster root)
+    IF to_regclass('pg_temp._lr_clusters') IS NOT NULL THEN
+        DROP TABLE _lr_clusters;
+    END IF;
+    CREATE TEMP TABLE _lr_clusters ON COMMIT DROP AS
+    SELECT lr.id AS legal_relationship_id, c.comp_id AS root_legal_unit_id
+    FROM public.legal_relationship AS lr
+    JOIN _lu_comp AS c ON c.lu_id = lr.influencing_id;
+    CREATE INDEX ON _lr_clusters (root_legal_unit_id);
+    CREATE INDEX ON _lr_clusters (legal_relationship_id);
+
+    -- Find existing power_group per cluster (set-based, no loop needed)
+    IF to_regclass('pg_temp._cluster_pg') IS NOT NULL THEN
+        DROP TABLE _cluster_pg;
+    END IF;
+    CREATE TEMP TABLE _cluster_pg (
+        root_legal_unit_id integer,
+        power_group_id integer
+    ) ON COMMIT DROP;
+
+    INSERT INTO _cluster_pg (root_legal_unit_id, power_group_id)
+    SELECT DISTINCT ON (lrc.root_legal_unit_id)
+        lrc.root_legal_unit_id,
+        lr.power_group_id
+    FROM _lr_clusters AS lrc
+    JOIN public.legal_relationship AS lr ON lr.id = lrc.legal_relationship_id
+    WHERE lr.power_group_id IS NOT NULL
+    ORDER BY lrc.root_legal_unit_id;
+
+    _updated_count := (SELECT count(*) FROM _cluster_pg);
+
+    -- Create new power_groups only for clusters that don't have one yet
+    FOR _cluster IN
+        SELECT DISTINCT lrc.root_legal_unit_id
+        FROM _lr_clusters AS lrc
+        WHERE NOT EXISTS (
+            SELECT 1 FROM _cluster_pg AS cpg
+            WHERE cpg.root_legal_unit_id = lrc.root_legal_unit_id
+        )
+    LOOP
+        INSERT INTO public.power_group (edit_by_user_id)
+        VALUES (_current_user_id)
+        RETURNING * INTO _power_group;
+
+        INSERT INTO _cluster_pg (root_legal_unit_id, power_group_id)
+        VALUES (_cluster.root_legal_unit_id, _power_group.id);
+
+        _created_count := _created_count + 1;
+        RAISE DEBUG '[Job %] process_power_group_link: Created power_group % for root LU %',
+            p_job_id, _power_group.ident, _cluster.root_legal_unit_id;
+    END LOOP;
+
+    -- Bulk-update all relationships at once (single pass over indexed temp tables)
+    UPDATE public.legal_relationship AS lr
+    SET power_group_id = cpg.power_group_id
+    FROM _lr_clusters AS lrc
+    JOIN _cluster_pg AS cpg ON cpg.root_legal_unit_id = lrc.root_legal_unit_id
+    WHERE lr.id = lrc.legal_relationship_id
+      AND lr.power_group_id IS DISTINCT FROM cpg.power_group_id;
+    GET DIAGNOSTICS _linked_count = ROW_COUNT;
 
     -- Handle cluster merges (multiple power_groups pointing to same cluster)
     WITH cluster_sizes AS (
         SELECT lr.power_group_id, COUNT(*) AS rel_count
-        FROM public.legal_relationship AS lr WHERE lr.power_group_id IS NOT NULL GROUP BY lr.power_group_id
+        FROM public.legal_relationship AS lr
+        WHERE lr.power_group_id IS NOT NULL
+        GROUP BY lr.power_group_id
     ),
     merge_candidates AS (
         SELECT DISTINCT lrc.root_legal_unit_id, lr.power_group_id AS current_pg_id, cs.rel_count
-        FROM public.legal_relationship_cluster AS lrc
+        FROM _lr_clusters AS lrc
         JOIN public.legal_relationship AS lr ON lr.id = lrc.legal_relationship_id
         JOIN cluster_sizes AS cs ON cs.power_group_id = lr.power_group_id
         WHERE lr.power_group_id IS NOT NULL
@@ -125,7 +203,7 @@ BEGIN
     )
     UPDATE public.legal_relationship AS lr
     SET power_group_id = cwmp.pg_ids[1]
-    FROM public.legal_relationship_cluster AS lrc
+    FROM _lr_clusters AS lrc
     JOIN clusters_with_multiple_pgs AS cwmp ON cwmp.root_legal_unit_id = lrc.root_legal_unit_id
     WHERE lr.id = lrc.legal_relationship_id AND lr.power_group_id != cwmp.pg_ids[1];
     GET DIAGNOSTICS _row_count = ROW_COUNT;
@@ -133,23 +211,54 @@ BEGIN
         RAISE DEBUG '[Job %] process_power_group_link: Merged % relationships into surviving power groups', p_job_id, _row_count;
     END IF;
 
-    -- Clear power_group_id from non-primary-influencer relationships
-    UPDATE public.legal_relationship AS lr SET power_group_id = NULL
-    WHERE lr.power_group_id IS NOT NULL AND lr.primary_influencer_only IS NOT TRUE;
-    GET DIAGNOSTICS _row_count = ROW_COUNT;
-    IF _row_count > 0 THEN
-        RAISE DEBUG '[Job %] process_power_group_link: Cleared power_group from % non-primary-influencer relationships', p_job_id, _row_count;
-    END IF;
-
     RAISE DEBUG '[Job %] process_power_group_link: Completed: created=%, updated=%, linked=%',
         p_job_id, _created_count, _updated_count, _linked_count;
 
     -- ================================================================
-    -- Populate power_root for cycle/multi PGs via temporal_merge
+    -- Populate power_root for cycle/multi PGs via temporal_merge.
+    -- Uses graph-based detection from _lu_comp/_edges instead of the
+    -- power_hierarchy/power_group_membership views (each costs ~17M).
     -- ================================================================
 
     -- Disable power_root trigger to prevent enqueue loop during temporal_merge
     ALTER TABLE public.power_root DISABLE TRIGGER power_root_derive_trigger;
+
+    -- Detect natural roots: LUs that influence others but are NOT influenced
+    IF to_regclass('pg_temp._natural_roots') IS NOT NULL THEN
+        DROP TABLE _natural_roots;
+    END IF;
+    CREATE TEMP TABLE _natural_roots ON COMMIT DROP AS
+    SELECT DISTINCT ing.lu_id, c.comp_id
+    FROM (SELECT DISTINCT influencing_id AS lu_id FROM public.legal_relationship) AS ing
+    JOIN _lu_comp AS c ON c.lu_id = ing.lu_id
+    WHERE NOT EXISTS (
+        SELECT 1 FROM public.legal_relationship AS lr
+        WHERE lr.influenced_id = ing.lu_id
+    );
+    CREATE INDEX ON _natural_roots (comp_id);
+
+    -- Count natural roots per component to classify cycle/multi
+    IF to_regclass('pg_temp._comp_status') IS NOT NULL THEN
+        DROP TABLE _comp_status;
+    END IF;
+    CREATE TEMP TABLE _comp_status ON COMMIT DROP AS
+    SELECT
+        c.comp_id,
+        cpg.power_group_id,
+        CASE
+            WHEN nr.root_count IS NULL OR nr.root_count = 0 THEN 'cycle'::public.power_group_root_status
+            WHEN nr.root_count > 1 THEN 'multi'::public.power_group_root_status
+        END AS derived_root_status,
+        -- Pick the natural root LU (for multi: smallest id; for cycle: comp_id as synthetic root)
+        COALESCE(nr.min_root_lu_id, c.comp_id) AS derived_root_legal_unit_id
+    FROM (SELECT DISTINCT comp_id FROM _lu_comp) AS c
+    JOIN _cluster_pg AS cpg ON cpg.root_legal_unit_id = c.comp_id
+    LEFT JOIN (
+        SELECT comp_id, count(*) AS root_count, min(lu_id) AS min_root_lu_id
+        FROM _natural_roots
+        GROUP BY comp_id
+    ) AS nr ON nr.comp_id = c.comp_id
+    WHERE nr.root_count IS NULL OR nr.root_count = 0 OR nr.root_count > 1;
 
     IF to_regclass('pg_temp._power_root_source') IS NOT NULL THEN
         DROP TABLE _power_root_source;
@@ -159,64 +268,39 @@ BEGIN
         power_group_id integer,
         derived_root_legal_unit_id integer,
         derived_root_status public.power_group_root_status,
-        custom_root_legal_unit_id integer,  -- carried forward from existing rows
+        custom_root_legal_unit_id integer,
         valid_range daterange,
         edit_by_user_id integer
     ) ON COMMIT DROP;
 
+    -- Build power_root source rows from cycle/multi components.
+    -- Use the union of valid_ranges from the component's relationships as the time span.
     INSERT INTO _power_root_source (power_group_id, derived_root_legal_unit_id, derived_root_status, custom_root_legal_unit_id, valid_range, edit_by_user_id)
-    SELECT DISTINCT ON (pgm.power_group_id, lower(pgm.valid_range))
-        pgm.power_group_id,
-        pgm_root.legal_unit_id AS derived_root_legal_unit_id,
-        CASE
-            -- Multiple distinct roots for same PG in overlapping time → 'multi'
-            WHEN (SELECT COUNT(DISTINCT ph2.root_legal_unit_id)
-                  FROM public.power_hierarchy AS ph2
-                  JOIN public.power_group_membership AS pgm2
-                      ON pgm2.legal_unit_id = ph2.legal_unit_id
-                      AND pgm2.valid_range && ph2.valid_range
-                  WHERE pgm2.power_group_id = pgm.power_group_id
-                    AND ph2.valid_range && pgm.valid_range
-                    AND ph2.power_level = 1) > 1
-            THEN 'multi'::public.power_group_root_status
-            -- Root came from Phase 2 (no natural root period for this LU) → 'cycle'
-            WHEN NOT EXISTS (
-                SELECT 1 FROM public.legal_unit AS lu
-                WHERE lu.id = pgm_root.legal_unit_id
-                  AND EXISTS (
-                      SELECT 1 FROM public.legal_relationship AS lr_child
-                      WHERE lr_child.influencing_id = lu.id
-                        AND lr_child.primary_influencer_only IS TRUE
-                        AND lr_child.valid_range && pgm.valid_range)
-                  AND NOT EXISTS (
-                      SELECT 1 FROM public.legal_relationship AS lr_parent
-                      WHERE lr_parent.influenced_id = lu.id
-                        AND lr_parent.primary_influencer_only IS TRUE
-                        AND lr_parent.valid_range && pgm.valid_range))
-            THEN 'cycle'::public.power_group_root_status
-            ELSE NULL  -- single-root: no power_root entry (sparse)
-        END AS derived_root_status,
-        -- Carry forward existing custom_root so period splits preserve NSO overrides
+    SELECT
+        cs.power_group_id,
+        cs.derived_root_legal_unit_id,
+        cs.derived_root_status,
+        -- Carry forward existing custom_root if any
         existing_pr.custom_root_legal_unit_id,
-        pgm.valid_range,
+        lr_range.valid_range,
         _current_user_id
-    FROM public.power_group_membership AS pgm
-    JOIN public.power_group_membership AS pgm_root
-        ON pgm_root.power_group_id = pgm.power_group_id
-        AND pgm_root.power_level = 1
-        AND pgm_root.valid_range && pgm.valid_range
+    FROM _comp_status AS cs
+    CROSS JOIN LATERAL (
+        -- Get distinct valid_ranges for relationships in this component
+        SELECT DISTINCT lr.valid_range
+        FROM public.legal_relationship AS lr
+        JOIN _lu_comp AS c ON c.lu_id = lr.influencing_id
+        WHERE c.comp_id = cs.comp_id
+    ) AS lr_range
     LEFT JOIN public.power_root AS existing_pr
-        ON existing_pr.power_group_id = pgm.power_group_id
-        AND existing_pr.valid_range && pgm.valid_range
-    ORDER BY pgm.power_group_id, lower(pgm.valid_range);
+        ON existing_pr.power_group_id = cs.power_group_id
+        AND existing_pr.valid_range && lr_range.valid_range;
 
-    -- Remove single-root entries (sparse: only cycle/multi get rows)
-    DELETE FROM _power_root_source WHERE derived_root_status IS NULL;
+    GET DIAGNOSTICS _row_count = ROW_COUNT;
+    RAISE DEBUG '[Job %] process_power_group_link: power_root source rows: % (cycle/multi PGs)', p_job_id, _row_count;
 
-    -- Only run temporal_merge if there are source rows or existing power_root rows to clean up
+    -- Only run temporal_merge if there are source rows or existing rows to clean up
     IF EXISTS (SELECT 1 FROM _power_root_source) OR EXISTS (SELECT 1 FROM public.power_root) THEN
-        -- temporal_merge handles: new PGs → INSERT, shifted boundaries → split/merge,
-        -- PGs that became single-root → removed (no source row + MERGE_ENTITY_REPLACE)
         CALL sql_saga.temporal_merge(
             target_table => 'public.power_root'::regclass,
             source_table => '_power_root_source'::regclass,

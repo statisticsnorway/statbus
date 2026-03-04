@@ -170,7 +170,7 @@ ORDER BY pgm.power_level, lu.name;
 \echo "=== 2b: Primary Influencer vs Non-Primary ==="
 -- ============================================================================
 -- Beacon → Beacon Services (parent_company, primary_influencer_only=TRUE) — forms PG
--- Beacon → Beacon Tech (co_ownership, primary_influencer_only=FALSE) — NOT in PG
+-- Beacon → Beacon Tech (co_ownership, primary_influencer_only=FALSE) — also in PG
 
 INSERT INTO public.legal_relationship (valid_from, influencing_id, influenced_id, type_id, percentage, edit_by_user_id, edit_comment)
 SELECT '2020-01-01'::date,
@@ -188,15 +188,15 @@ SELECT '2020-01-01'::date,
 
 CALL import.process_power_group_link(NULL, NULL, 'process_power_group_link');
 
-\echo "2b: Beacon group has Beacon Inc + Beacon Services only (NOT Beacon Tech)"
+\echo "2b: Beacon group has Beacon Inc + Beacon Services + Beacon Tech (all relationship types)"
 SELECT pgm.power_group_ident, lu.name
 FROM public.power_group_membership AS pgm
 JOIN public.legal_unit AS lu ON lu.id = pgm.legal_unit_id
 WHERE lu.name LIKE 'Beacon%'
 ORDER BY lu.name;
 
-\echo "2b: Beacon Tech relationship has NULL power_group_id"
-SELECT influenced.name, lr.percentage, lr.power_group_id IS NULL AS no_power_group
+\echo "2b: Beacon Tech relationship has power_group_id set"
+SELECT influenced.name, lr.percentage, lr.power_group_id IS NOT NULL AS has_power_group
 FROM public.legal_relationship AS lr
 JOIN public.legal_unit AS influenced ON lr.influenced_id = influenced.id
 WHERE influenced.name = 'Beacon Tech';
@@ -211,7 +211,7 @@ WHERE lu.name = 'Echo Standalone';
 \echo "=== 2c: Dissolution ==="
 -- ============================================================================
 -- Delta → Delta Subsidiary (parent_company, primary_influencer_only=TRUE) — creates group,
--- then type changes to co_ownership (primary_influencer_only=FALSE)
+-- then type changes to co_ownership — group persists (all types form PGs)
 
 INSERT INTO public.legal_relationship (valid_from, influencing_id, influenced_id, type_id, percentage, edit_by_user_id, edit_comment)
 SELECT '2020-01-01'::date,
@@ -229,7 +229,7 @@ JOIN public.legal_unit AS lu ON lu.id = pgm.legal_unit_id
 WHERE lu.name LIKE 'Delta%'
 ORDER BY lu.name;
 
--- Change type to co_ownership (primary_influencer_only=FALSE) — dissolves PG
+-- Change type to co_ownership (primary_influencer_only=FALSE) — PG persists
 UPDATE public.legal_relationship
 SET type_id = (SELECT id FROM public.legal_rel_type WHERE code = 'co_ownership'),
     percentage = 30.00, edit_comment = 'Delta relationship downgraded to co_ownership type'
@@ -238,15 +238,15 @@ WHERE influencing_id = (SELECT id FROM public.legal_unit WHERE name = 'Delta Hol
 
 CALL import.process_power_group_link(NULL, NULL, 'process_power_group_link');
 
-\echo "2c: After dissolution — Delta membership empty"
+\echo "2c: After type change — Delta membership still present (all types form PGs)"
 SELECT pgm.power_group_ident, lu.name
 FROM public.power_group_membership AS pgm
 JOIN public.legal_unit AS lu ON lu.id = pgm.legal_unit_id
 WHERE lu.name LIKE 'Delta%'
 ORDER BY lu.name;
 
-\echo "2c: Delta relationship power_group_id cleared"
-SELECT influencer.name, influenced.name, lr.percentage, lr.power_group_id IS NULL AS cleared
+\echo "2c: Delta relationship power_group_id still set"
+SELECT influencer.name, influenced.name, lr.percentage, lr.power_group_id IS NOT NULL AS has_power_group
 FROM public.legal_relationship AS lr
 JOIN public.legal_unit AS influencer ON lr.influencing_id = influencer.id
 JOIN public.legal_unit AS influenced ON lr.influenced_id = influenced.id
@@ -523,7 +523,7 @@ END $$;
 
 -- Upload Round 2 relationship data:
 --   300000001→300000002: unchanged (80%, parent_company)
---   300000001→300000003: changed to co_ownership type (not primary_influencer_only)
+--   300000001→300000003: changed to co_ownership type (still forms PG)
 --   300000004→300000005: unchanged (55%, parent_company)
 --   300000004→300000006: unchanged (70%, parent_company)
 --   300000007→300000008: NEW group (51%, parent_company)

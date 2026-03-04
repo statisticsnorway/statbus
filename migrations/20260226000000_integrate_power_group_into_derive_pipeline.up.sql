@@ -1858,15 +1858,13 @@ BEGIN
             -- Existing relationships from base table
             SELECT lr.influencing_id, lr.influenced_id, lr.valid_range, lr.power_group_id
             FROM public.legal_relationship AS lr
-            WHERE lr.primary_influencer_only IS TRUE
             UNION ALL
             -- New relationships from data table (where action = 'use')
             SELECT dt.influencing_id, dt.influenced_id,
                    daterange(dt.valid_from, dt.valid_until) AS valid_range,
                    NULL::integer AS power_group_id
             FROM public.%1$I AS dt
-            JOIN public.legal_rel_type AS lrt ON lrt.id = dt.type_id
-            WHERE dt.action = 'use' AND lrt.primary_influencer_only IS TRUE
+            WHERE dt.action = 'use'
         ),
         -- Compute hierarchy: find root legal units and traverse down
         hierarchy AS (
@@ -1925,9 +1923,8 @@ BEGIN
             SELECT dt.row_id,
                    h.root_legal_unit_id
             FROM public.%1$I AS dt
-            JOIN public.legal_rel_type AS lrt ON lrt.id = dt.type_id
             JOIN hierarchy AS h ON (dt.influencing_id = h.legal_unit_id OR dt.influenced_id = h.legal_unit_id)
-            WHERE dt.action = 'use' AND lrt.primary_influencer_only IS TRUE
+            WHERE dt.action = 'use'
         )
         UPDATE public.%1$I AS dt
         SET cluster_root_legal_unit_id = rc.root_legal_unit_id,
@@ -2055,14 +2052,6 @@ BEGIN
         RAISE DEBUG '[Job %] process_power_group_link: Merged % relationships into surviving power groups', p_job_id, _row_count;
     END IF;
 
-    -- Clear power_group_id from non-primary-influencer relationships
-    UPDATE public.legal_relationship AS lr SET power_group_id = NULL
-    WHERE lr.power_group_id IS NOT NULL AND lr.primary_influencer_only IS NOT TRUE;
-    GET DIAGNOSTICS _row_count = ROW_COUNT;
-    IF _row_count > 0 THEN
-        RAISE DEBUG '[Job %] process_power_group_link: Cleared power_group from % non-primary-influencer relationships', p_job_id, _row_count;
-    END IF;
-
     RAISE DEBUG '[Job %] process_power_group_link: Completed: created=%, updated=%, linked=%',
         p_job_id, _created_count, _updated_count, _linked_count;
 
@@ -2108,12 +2097,10 @@ BEGIN
                   AND EXISTS (
                       SELECT 1 FROM public.legal_relationship AS lr_child
                       WHERE lr_child.influencing_id = lu.id
-                        AND lr_child.primary_influencer_only IS TRUE
                         AND lr_child.valid_range && pgm.valid_range)
                   AND NOT EXISTS (
                       SELECT 1 FROM public.legal_relationship AS lr_parent
                       WHERE lr_parent.influenced_id = lu.id
-                        AND lr_parent.primary_influencer_only IS TRUE
                         AND lr_parent.valid_range && pgm.valid_range))
             THEN 'cycle'::public.power_group_root_status
             ELSE NULL  -- single-root: no power_root entry (sparse)

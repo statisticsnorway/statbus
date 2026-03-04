@@ -4,7 +4,7 @@ BEGIN;
 
 \echo "=== Test 119: Legal Relationship Import and Power Group Derivation ==="
 \echo "Tests the complete flow: import LUs -> import relationships -> derive power groups"
-\echo "Uses mixed BRREG types: HFOR (primary_influencer_only=TRUE) and DTPR (FALSE)"
+\echo "Uses mixed BRREG types: HFOR (primary_influencer_only=TRUE) and DTPR (FALSE) — both form power groups"
 
 -- Reset sequences for deterministic output
 ALTER SEQUENCE public.power_group_ident_seq RESTART WITH 1;
@@ -63,7 +63,7 @@ ORDER BY ei.ident;
 -- ============================================================================
 \echo "=== Phase 2: Import Mixed Legal Relationships ==="
 \echo "Nordic hierarchy uses HFOR (primary_influencer_only=TRUE)"
-\echo "Baltic hierarchy uses DTPR (primary_influencer_only=FALSE)"
+\echo "Baltic hierarchy uses DTPR (primary_influencer_only=FALSE) — also forms power group"
 -- ============================================================================
 
 -- Verify the legal_relationship import definition exists and is valid
@@ -123,7 +123,7 @@ ORDER BY ei_ing.ident, ei_ed.ident;
 -- Power groups are now created during import by process_power_group_link (holistic step)
 -- No separate derive_power_groups call needed
 
-\echo "Power groups created (only from HFOR/primary_influencer_only=TRUE):"
+\echo "Power groups created (from all relationship types):"
 SELECT pg.ident, pg.name
 FROM public.power_group AS pg
 ORDER BY pg.ident;
@@ -170,8 +170,8 @@ ORDER BY ei_ing.ident, ei_ed.ident;
 -- ============================================================================
 \echo "=== Phase 4: Summary ==="
 -- ============================================================================
-\echo "Nordic hierarchy (HFOR, primary_influencer_only=TRUE) forms PG0001"
-\echo "Baltic hierarchy (DTPR, primary_influencer_only=FALSE) has no power group"
+\echo "Nordic hierarchy (HFOR) forms one power group"
+\echo "Baltic hierarchy (DTPR) also forms its own power group"
 
 SELECT COUNT(*) AS total_power_groups FROM public.power_group;
 SELECT COUNT(*) AS total_relationships FROM public.legal_relationship;

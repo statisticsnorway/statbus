@@ -344,7 +344,7 @@ export const usePipelineStepWeights = (): PipelineStepWeight[] => {
 // ============================================================================
 
 export const COMMAND_LABELS: Record<string, string> = {
-  'collect_changes': 'Detecting changes',
+  'collect_changes': 'Recording changes',
   'derive_statistical_unit': 'Refreshing statistical units',
   'derive_statistical_unit_continue': 'Refreshing statistical units',
   'statistical_unit_flush_staging': 'Flushing staging data',
