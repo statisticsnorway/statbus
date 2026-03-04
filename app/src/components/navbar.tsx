@@ -163,7 +163,7 @@ function UnitCountSummary({ phase }: { phase: PhaseStatus }) {
 /**
  * Phase progress popover content.
  */
-function PhaseProgressPopover({ phase, stepWeights }: { phase: PhaseStatus; stepWeights: { step: string; weight: number }[] }) {
+function PhaseProgressPopover({ phase, stepWeights, waitingFor }: { phase: PhaseStatus; stepWeights: { step: string; weight: number }[]; waitingFor?: string }) {
   const currentStep = phase.step;
   const label = currentStep ? (COMMAND_LABELS[currentStep] ?? currentStep) : 'Pending...';
   const pct = computeWeightedPhaseProgress(phase, stepWeights);
@@ -181,7 +181,9 @@ function PhaseProgressPopover({ phase, stepWeights }: { phase: PhaseStatus; step
           {phase.total <= 1 && <p className="text-xs text-gray-500">Running...</p>}
         </div>
       ) : (
-        <p className="text-sm text-gray-500">Waiting to start...</p>
+        <p className="text-sm text-gray-500">
+          {waitingFor ? `Waiting for ${waitingFor}...` : 'Waiting to start...'}
+        </p>
       )}
     </div>
   );
@@ -348,7 +350,7 @@ export default function Navbar() {
                     progressPct={unitsPct}
                     popoverContent={isDerivingUnits
                       ? (derivingUnits?.active
-                        ? <PhaseProgressPopover phase={derivingUnits} stepWeights={phase1Weights} />
+                        ? <PhaseProgressPopover phase={derivingUnits} stepWeights={phase1Weights} waitingFor={isImporting ? "Import" : undefined} />
                         : <p className="text-sm text-gray-500">Deriving statistical units...</p>)
                       : null}
                   />
@@ -362,7 +364,7 @@ export default function Navbar() {
                     progressPct={reportsPct}
                     popoverContent={isDerivingReports
                       ? (derivingReports?.active
-                        ? <PhaseProgressPopover phase={derivingReports} stepWeights={phase2Weights} />
+                        ? <PhaseProgressPopover phase={derivingReports} stepWeights={phase2Weights} waitingFor={isDerivingUnits ? "Statistical Units" : isImporting ? "Import" : undefined} />
                         : <p className="text-sm text-gray-500">Deriving reports...</p>)
                       : null}
                   />

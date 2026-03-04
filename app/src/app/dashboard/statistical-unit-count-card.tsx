@@ -4,7 +4,9 @@ import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { StatisticalUnitIcon } from "@/components/statistical-unit-icon";
 import { EstimatedCount } from "@/components/estimated-count";
 import { useTimeContext } from '@/atoms/app-derived';
+import { hasStatisticalUnitsAtom } from '@/atoms/base-data';
 import { useState, useCallback } from "react";
+import { useAtomValue } from "jotai";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { PostgrestError } from "@supabase/postgrest-js";
 
@@ -16,10 +18,16 @@ export const StatisticalUnitCountCard = ({
   readonly title: string;
 }) => {
   const { selectedTimeContext } = useTimeContext();
+  const hasStatisticalUnits = useAtomValue(hasStatisticalUnitsAtom);
 
   const [data, setData] = useState<{ count: number | null; error: PostgrestError | null }>({ count: null, error: null });
 
   useGuardedEffect(() => {
+    if (!hasStatisticalUnits) {
+      setData({ count: 0, error: null });
+      return;
+    }
+
     const fetchData = async (validOn: string) => {
       const client = await getBrowserRestClient();
       // Use estimated count for fast loading
@@ -42,12 +50,13 @@ export const StatisticalUnitCountCard = ({
     };
 
     fetchDataAsync();
-  }, [selectedTimeContext, unitType], `StatisticalUnitCountCard:${unitType}:fetchData`);
+  }, [selectedTimeContext, unitType, hasStatisticalUnits], `StatisticalUnitCountCard:${unitType}:fetchData`);
 
   const { count, error } = data;
 
   // Callback to fetch exact count when user requests it
   const handleGetExact = useCallback(async (): Promise<number | null> => {
+    if (!hasStatisticalUnits) return 0;
     if (!selectedTimeContext?.valid_on) return null;
     const client = await getBrowserRestClient();
     const { count: exactCount } = await client
@@ -58,7 +67,7 @@ export const StatisticalUnitCountCard = ({
       .gte('valid_to', selectedTimeContext.valid_on)
       .limit(0);
     return exactCount;
-  }, [selectedTimeContext, unitType]);
+  }, [selectedTimeContext, unitType, hasStatisticalUnits]);
 
   return (
     <DashboardCard
