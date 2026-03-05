@@ -100,7 +100,7 @@ COMMENT ON TYPE public.power_group_root_status IS
 --------------------------------------------------------------------------------
 -- Power root table (sql_saga temporal, sparse — only cycle/multi PGs get entries)
 -- Tracks the derived and optionally overridden root legal unit per power group.
--- Single-root PGs derive root from power_hierarchy WHERE power_level = 1.
+-- Single-root PGs derive root from power_group_membership WHERE power_level = 1.
 --------------------------------------------------------------------------------
 
 CREATE TABLE public.power_root (
@@ -139,7 +139,7 @@ CREATE INDEX ix_power_root_root_legal_unit_id ON public.power_root USING btree (
 CREATE INDEX ix_power_root_valid_range ON public.power_root USING gist (valid_range);
 
 COMMENT ON TABLE public.power_root IS
-    'Sparse temporal table: only cycle/multi-root power groups get entries. Single-root PGs derive root from power_hierarchy. NSO can override via custom_root_legal_unit_id.';
+    'Sparse temporal table: only cycle/multi-root power groups get entries. Single-root PGs derive root from power_group_membership. NSO can override via custom_root_legal_unit_id.';
 COMMENT ON COLUMN public.power_root.derived_root_legal_unit_id IS
     'Algorithm-derived root legal unit (written during import by process_power_group_link)';
 COMMENT ON COLUMN public.power_root.derived_root_status IS

@@ -24,11 +24,11 @@ WHERE idef.mode = 'legal_relationship'
 ON CONFLICT DO NOTHING;
 
 -- Fix 3: process_power_group_link previously disabled all change-detection
--- triggers during power_group_id updates. This is unnecessary and harmful:
+-- triggers during derived_power_group_id updates. This is unnecessary and harmful:
 -- since import and analytics run on separate queues, an earlier collect_changes
--- could drain the log before power_group_ids are set, then no second
+-- could drain the log before derived_power_group_ids are set, then no second
 -- collect_changes would fire. Instead, leave triggers enabled — the
--- power_group_id UPDATEs re-log LU IDs (merged harmlessly by multirange)
+-- derived_power_group_id UPDATEs re-log LU IDs (merged harmlessly by multirange)
 -- and ensure_collect_changes is idempotent (ON CONFLICT DO NOTHING).
 
 CREATE OR REPLACE PROCEDURE import.process_power_group_link(IN p_job_id integer, IN p_batch_seq integer, IN p_step_code text)
@@ -64,8 +64,8 @@ BEGIN
     RAISE DEBUG '[Job %] process_power_group_link: Creating/updating power groups (holistic)', p_job_id;
 
     -- Change-detection triggers (log_base_change + ensure_collect_changes) stay
-    -- ENABLED. The power_group_id UPDATEs re-log LU IDs to base_change_log so
-    -- that collect_changes (on the analytics queue) sees correct power_group_ids.
+    -- ENABLED. The derived_power_group_id UPDATEs re-log LU IDs to base_change_log so
+    -- that collect_changes (on the analytics queue) sees correct derived_power_group_ids.
     -- This is safe: log rows merge via multirange, ensure_collect is idempotent.
 
     -- Find current user for power_group creation
@@ -80,7 +80,7 @@ BEGIN
     -- ================================================================
     -- Compute connected components via iterative label propagation.
     -- Replaces the legal_relationship_cluster view which evaluates
-    -- power_hierarchy (a multi-phase recursive CTE, cost ~17M).
+    -- the old power_hierarchy view (a multi-phase recursive CTE, cost ~17M).
     -- This approach: O(edges × depth) ≈ O(29K × 5) ≈ ~150K ops, ~1s.
     -- ================================================================
 
@@ -145,10 +145,10 @@ BEGIN
     INSERT INTO _cluster_pg (root_legal_unit_id, power_group_id)
     SELECT DISTINCT ON (lrc.root_legal_unit_id)
         lrc.root_legal_unit_id,
-        lr.power_group_id
+        lr.derived_power_group_id
     FROM _lr_clusters AS lrc
     JOIN public.legal_relationship AS lr ON lr.id = lrc.legal_relationship_id
-    WHERE lr.power_group_id IS NOT NULL
+    WHERE lr.derived_power_group_id IS NOT NULL
     ORDER BY lrc.root_legal_unit_id;
 
     _updated_count := (SELECT count(*) FROM _cluster_pg);
@@ -176,36 +176,36 @@ BEGIN
 
     -- Bulk-update all relationships at once (single pass over indexed temp tables)
     UPDATE public.legal_relationship AS lr
-    SET power_group_id = cpg.power_group_id
+    SET derived_power_group_id = cpg.power_group_id
     FROM _lr_clusters AS lrc
     JOIN _cluster_pg AS cpg ON cpg.root_legal_unit_id = lrc.root_legal_unit_id
     WHERE lr.id = lrc.legal_relationship_id
-      AND lr.power_group_id IS DISTINCT FROM cpg.power_group_id;
+      AND lr.derived_power_group_id IS DISTINCT FROM cpg.power_group_id;
     GET DIAGNOSTICS _linked_count = ROW_COUNT;
 
     -- Handle cluster merges (multiple power_groups pointing to same cluster)
     WITH cluster_sizes AS (
-        SELECT lr.power_group_id, COUNT(*) AS rel_count
+        SELECT lr.derived_power_group_id, COUNT(*) AS rel_count
         FROM public.legal_relationship AS lr
-        WHERE lr.power_group_id IS NOT NULL
-        GROUP BY lr.power_group_id
+        WHERE lr.derived_power_group_id IS NOT NULL
+        GROUP BY lr.derived_power_group_id
     ),
     merge_candidates AS (
-        SELECT DISTINCT lrc.root_legal_unit_id, lr.power_group_id AS current_pg_id, cs.rel_count
+        SELECT DISTINCT lrc.root_legal_unit_id, lr.derived_power_group_id AS current_pg_id, cs.rel_count
         FROM _lr_clusters AS lrc
         JOIN public.legal_relationship AS lr ON lr.id = lrc.legal_relationship_id
-        JOIN cluster_sizes AS cs ON cs.power_group_id = lr.power_group_id
-        WHERE lr.power_group_id IS NOT NULL
+        JOIN cluster_sizes AS cs ON cs.derived_power_group_id = lr.derived_power_group_id
+        WHERE lr.derived_power_group_id IS NOT NULL
     ),
     clusters_with_multiple_pgs AS (
         SELECT root_legal_unit_id, array_agg(current_pg_id ORDER BY rel_count DESC, current_pg_id) AS pg_ids
         FROM merge_candidates GROUP BY root_legal_unit_id HAVING COUNT(DISTINCT current_pg_id) > 1
     )
     UPDATE public.legal_relationship AS lr
-    SET power_group_id = cwmp.pg_ids[1]
+    SET derived_power_group_id = cwmp.pg_ids[1]
     FROM _lr_clusters AS lrc
     JOIN clusters_with_multiple_pgs AS cwmp ON cwmp.root_legal_unit_id = lrc.root_legal_unit_id
-    WHERE lr.id = lrc.legal_relationship_id AND lr.power_group_id != cwmp.pg_ids[1];
+    WHERE lr.id = lrc.legal_relationship_id AND lr.derived_power_group_id != cwmp.pg_ids[1];
     GET DIAGNOSTICS _row_count = ROW_COUNT;
     IF _row_count > 0 THEN
         RAISE DEBUG '[Job %] process_power_group_link: Merged % relationships into surviving power groups', p_job_id, _row_count;
@@ -215,9 +215,81 @@ BEGIN
         p_job_id, _created_count, _updated_count, _linked_count;
 
     -- ================================================================
+    -- Compute derived_influenced_power_level via BFS from roots.
+    -- Root LUs (level 1) are implicit — influencing LUs never influenced
+    -- within the same PG. Each LR stores the influenced LU's BFS depth:
+    --   root→child: level 2, child→grandchild: level 3, etc.
+    -- Cycles (no natural root) get NULL — identified by power_root below.
+    -- ================================================================
+
+    IF to_regclass('pg_temp._bfs') IS NOT NULL THEN
+        DROP TABLE _bfs;
+    END IF;
+    CREATE TEMP TABLE _bfs (lu_id integer, level integer, pg_id integer) ON COMMIT DROP;
+
+    -- Seed: root LUs (influencing, never influenced in same PG) at level 1
+    INSERT INTO _bfs (lu_id, level, pg_id)
+    SELECT DISTINCT lr.influencing_id, 1, lr.derived_power_group_id
+    FROM public.legal_relationship AS lr
+    WHERE lr.derived_power_group_id IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM public.legal_relationship AS lr2
+        WHERE lr2.influenced_id = lr.influencing_id
+          AND lr2.derived_power_group_id = lr.derived_power_group_id
+      );
+    CREATE INDEX ON _bfs (lu_id, pg_id);
+
+    -- Propagate through directed edges (influencing → influenced)
+    _iter := 0;
+    LOOP
+        _iter := _iter + 1;
+        INSERT INTO _bfs (lu_id, level, pg_id)
+        SELECT DISTINCT lr.influenced_id, b.level + 1, b.pg_id
+        FROM _bfs AS b
+        JOIN public.legal_relationship AS lr
+            ON lr.influencing_id = b.lu_id
+            AND lr.derived_power_group_id = b.pg_id
+        WHERE b.level = _iter  -- only expand frontier
+          AND NOT EXISTS (
+            SELECT 1 FROM _bfs AS b2
+            WHERE b2.lu_id = lr.influenced_id AND b2.pg_id = b.pg_id
+        );
+        GET DIAGNOSTICS _row_count = ROW_COUNT;
+        EXIT WHEN _row_count = 0;
+        IF _iter > 100 THEN
+            RAISE EXCEPTION '[Job %] process_power_group_link: BFS did not converge after 100 iterations', p_job_id;
+        END IF;
+    END LOOP;
+    RAISE DEBUG '[Job %] process_power_group_link: BFS power levels converged in % iterations', p_job_id, _iter;
+
+    -- Update derived_influenced_power_level on each LR
+    -- The influenced LU's BFS level becomes the LR's power level
+    UPDATE public.legal_relationship AS lr
+    SET derived_influenced_power_level = b.level
+    FROM _bfs AS b
+    WHERE b.lu_id = lr.influenced_id
+      AND b.pg_id = lr.derived_power_group_id
+      AND lr.derived_influenced_power_level IS DISTINCT FROM b.level;
+    GET DIAGNOSTICS _row_count = ROW_COUNT;
+    RAISE DEBUG '[Job %] process_power_group_link: Updated derived_influenced_power_level on % relationships', p_job_id, _row_count;
+
+    -- Clear stale levels for LRs no longer in a PG or in cycles (no BFS root)
+    UPDATE public.legal_relationship AS lr
+    SET derived_influenced_power_level = NULL
+    WHERE lr.derived_influenced_power_level IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM _bfs AS b
+        WHERE b.lu_id = lr.influenced_id AND b.pg_id = lr.derived_power_group_id
+    );
+    GET DIAGNOSTICS _row_count = ROW_COUNT;
+    IF _row_count > 0 THEN
+        RAISE DEBUG '[Job %] process_power_group_link: Cleared stale power levels on % relationships', p_job_id, _row_count;
+    END IF;
+
+    -- ================================================================
     -- Populate power_root for cycle/multi PGs via temporal_merge.
     -- Uses graph-based detection from _lu_comp/_edges instead of the
-    -- power_hierarchy/power_group_membership views (each costs ~17M).
+    -- the old power_hierarchy view (cost ~17M).
     -- ================================================================
 
     -- Disable power_root trigger to prevent enqueue loop during temporal_merge

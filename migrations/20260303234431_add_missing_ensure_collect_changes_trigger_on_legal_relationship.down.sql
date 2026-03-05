@@ -40,7 +40,7 @@ BEGIN
     RAISE DEBUG '[Job %] process_power_group_link: Creating/updating power groups (holistic)', p_job_id;
 
     -- Disable log_base_change triggers to prevent re-enqueue loop
-    -- (power_group_id UPDATEs should be silent — only actual relationship changes trigger derive)
+    -- (derived_power_group_id UPDATEs should be silent — only actual relationship changes trigger derive)
     ALTER TABLE public.legal_relationship DISABLE TRIGGER a_legal_relationship_log_insert;
     ALTER TABLE public.legal_relationship DISABLE TRIGGER a_legal_relationship_log_update;
     ALTER TABLE public.legal_relationship DISABLE TRIGGER a_legal_relationship_log_delete;
@@ -54,66 +54,66 @@ BEGIN
         RAISE EXCEPTION 'No user found for power group creation';
     END IF;
 
-    -- Use legal_relationship_cluster view (now includes newly committed rows from process_legal_relationship)
-    FOR _cluster IN SELECT DISTINCT root_legal_unit_id FROM public.legal_relationship_cluster
+    -- Use legal_relationship_cluster view (reads derived_power_group_id from LR)
+    FOR _cluster IN SELECT DISTINCT power_group_id FROM public.legal_relationship_cluster
     LOOP
         -- Find existing power_group for this cluster
         SELECT pg.* INTO _power_group
         FROM public.power_group AS pg
-        JOIN public.legal_relationship AS lr ON lr.power_group_id = pg.id
+        JOIN public.legal_relationship AS lr ON lr.derived_power_group_id = pg.id
         JOIN public.legal_relationship_cluster AS lrc ON lrc.legal_relationship_id = lr.id
-        WHERE lrc.root_legal_unit_id = _cluster.root_legal_unit_id
+        WHERE lrc.power_group_id = _cluster.power_group_id
         LIMIT 1;
 
         IF NOT FOUND THEN
             INSERT INTO public.power_group (edit_by_user_id) VALUES (_current_user_id) RETURNING * INTO _power_group;
             _created_count := _created_count + 1;
-            RAISE DEBUG '[Job %] process_power_group_link: Created power_group % for root LU %',
-                p_job_id, _power_group.ident, _cluster.root_legal_unit_id;
+            RAISE DEBUG '[Job %] process_power_group_link: Created power_group % for cluster PG %',
+                p_job_id, _power_group.ident, _cluster.power_group_id;
         ELSE
             _updated_count := _updated_count + 1;
         END IF;
 
-        -- Set power_group_id on all legal_relationships in this cluster
+        -- Set derived_power_group_id on all legal_relationships in this cluster
         UPDATE public.legal_relationship AS lr
-        SET power_group_id = _power_group.id
+        SET derived_power_group_id = _power_group.id
         FROM public.legal_relationship_cluster AS lrc
         WHERE lr.id = lrc.legal_relationship_id
-          AND lrc.root_legal_unit_id = _cluster.root_legal_unit_id
-          AND (lr.power_group_id IS DISTINCT FROM _power_group.id);
+          AND lrc.power_group_id = _cluster.power_group_id
+          AND (lr.derived_power_group_id IS DISTINCT FROM _power_group.id);
         GET DIAGNOSTICS _row_count = ROW_COUNT;
         _linked_count := _linked_count + _row_count;
     END LOOP;
 
     -- Handle cluster merges (multiple power_groups pointing to same cluster)
     WITH cluster_sizes AS (
-        SELECT lr.power_group_id, COUNT(*) AS rel_count
-        FROM public.legal_relationship AS lr WHERE lr.power_group_id IS NOT NULL GROUP BY lr.power_group_id
+        SELECT lr.derived_power_group_id, COUNT(*) AS rel_count
+        FROM public.legal_relationship AS lr WHERE lr.derived_power_group_id IS NOT NULL GROUP BY lr.derived_power_group_id
     ),
     merge_candidates AS (
-        SELECT DISTINCT lrc.root_legal_unit_id, lr.power_group_id AS current_pg_id, cs.rel_count
+        SELECT DISTINCT lrc.power_group_id, lr.derived_power_group_id AS current_pg_id, cs.rel_count
         FROM public.legal_relationship_cluster AS lrc
         JOIN public.legal_relationship AS lr ON lr.id = lrc.legal_relationship_id
-        JOIN cluster_sizes AS cs ON cs.power_group_id = lr.power_group_id
-        WHERE lr.power_group_id IS NOT NULL
+        JOIN cluster_sizes AS cs ON cs.derived_power_group_id = lr.derived_power_group_id
+        WHERE lr.derived_power_group_id IS NOT NULL
     ),
     clusters_with_multiple_pgs AS (
-        SELECT root_legal_unit_id, array_agg(current_pg_id ORDER BY rel_count DESC, current_pg_id) AS pg_ids
-        FROM merge_candidates GROUP BY root_legal_unit_id HAVING COUNT(DISTINCT current_pg_id) > 1
+        SELECT power_group_id, array_agg(current_pg_id ORDER BY rel_count DESC, current_pg_id) AS pg_ids
+        FROM merge_candidates GROUP BY power_group_id HAVING COUNT(DISTINCT current_pg_id) > 1
     )
     UPDATE public.legal_relationship AS lr
-    SET power_group_id = cwmp.pg_ids[1]
+    SET derived_power_group_id = cwmp.pg_ids[1]
     FROM public.legal_relationship_cluster AS lrc
-    JOIN clusters_with_multiple_pgs AS cwmp ON cwmp.root_legal_unit_id = lrc.root_legal_unit_id
-    WHERE lr.id = lrc.legal_relationship_id AND lr.power_group_id != cwmp.pg_ids[1];
+    JOIN clusters_with_multiple_pgs AS cwmp ON cwmp.power_group_id = lrc.power_group_id
+    WHERE lr.id = lrc.legal_relationship_id AND lr.derived_power_group_id != cwmp.pg_ids[1];
     GET DIAGNOSTICS _row_count = ROW_COUNT;
     IF _row_count > 0 THEN
         RAISE DEBUG '[Job %] process_power_group_link: Merged % relationships into surviving power groups', p_job_id, _row_count;
     END IF;
 
-    -- Clear power_group_id from non-primary-influencer relationships
-    UPDATE public.legal_relationship AS lr SET power_group_id = NULL
-    WHERE lr.power_group_id IS NOT NULL AND lr.primary_influencer_only IS NOT TRUE;
+    -- Clear derived_power_group_id from non-primary-influencer relationships
+    UPDATE public.legal_relationship AS lr SET derived_power_group_id = NULL
+    WHERE lr.derived_power_group_id IS NOT NULL AND lr.primary_influencer_only IS NOT TRUE;
     GET DIAGNOSTICS _row_count = ROW_COUNT;
     IF _row_count > 0 THEN
         RAISE DEBUG '[Job %] process_power_group_link: Cleared power_group from % non-primary-influencer relationships', p_job_id, _row_count;
@@ -148,14 +148,11 @@ BEGIN
         pgm_root.legal_unit_id AS derived_root_legal_unit_id,
         CASE
             -- Multiple distinct roots for same PG in overlapping time → 'multi'
-            WHEN (SELECT COUNT(DISTINCT ph2.root_legal_unit_id)
-                  FROM public.power_hierarchy AS ph2
-                  JOIN public.power_group_membership AS pgm2
-                      ON pgm2.legal_unit_id = ph2.legal_unit_id
-                      AND pgm2.valid_range && ph2.valid_range
+            WHEN (SELECT COUNT(DISTINCT pgm2.legal_unit_id)
+                  FROM public.power_group_membership AS pgm2
                   WHERE pgm2.power_group_id = pgm.power_group_id
-                    AND ph2.valid_range && pgm.valid_range
-                    AND ph2.power_level = 1) > 1
+                    AND pgm2.valid_range && pgm.valid_range
+                    AND pgm2.power_level = 1) > 1
             THEN 'multi'::public.power_group_root_status
             -- Root came from Phase 2 (no natural root period for this LU) → 'cycle'
             WHEN NOT EXISTS (
