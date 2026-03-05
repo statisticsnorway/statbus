@@ -10,9 +10,11 @@
 --   LU change → timeline_legal_unit(LU) + timeline_enterprise(parent EN)
 --   EN change → timeline_enterprise(EN)
 --
--- get_closed_group_batches is UNCHANGED — all units in affected groups still
--- enter every batch for timepoints/timesegments/statistical_unit_refresh.
--- Only the timeline_*_refresh calls are scoped down.
+-- get_closed_group_batches is UNCHANGED — it determines which units share
+-- enterprise relationships and must be processed together.
+-- Within each batch, ALL operations (timepoints, timesegments, timelines,
+-- statistical_unit_refresh) are scoped to effective ranges via directional
+-- propagation. Pipeline progress counts reflect effective (not batch) totals.
 
 BEGIN;
 
@@ -174,12 +176,64 @@ BEGIN
             ) AS t WHERE t.unit_id IS NOT NULL
             ON CONFLICT DO NOTHING;
 
+            -- Compute effective (directional) counts across all batches for pipeline_progress
+            -- Uses directional propagation: only count units in the upward direction from changes
+            <<effective_counts>>
+            DECLARE
+                v_all_batch_est_ranges int4multirange;
+                v_all_batch_lu_ranges int4multirange;
+                v_all_batch_en_ranges int4multirange;
+                v_propagated_lu int4multirange;
+                v_propagated_en int4multirange;
+                v_eff_est int4multirange;
+                v_eff_lu int4multirange;
+                v_eff_en int4multirange;
+            BEGIN
+                v_all_batch_est_ranges := (SELECT range_agg(int4range(id, id, '[]'))
+                    FROM (SELECT unnest(establishment_ids) AS id FROM _batches) AS t);
+                v_all_batch_lu_ranges := (SELECT range_agg(int4range(id, id, '[]'))
+                    FROM (SELECT unnest(legal_unit_ids) AS id FROM _batches) AS t);
+                v_all_batch_en_ranges := (SELECT range_agg(int4range(id, id, '[]'))
+                    FROM (SELECT unnest(enterprise_ids) AS id FROM _batches) AS t);
+
+                -- Level 1: ES = directly changed ESs ∩ all batches
+                v_eff_est := NULLIF(
+                    COALESCE(v_all_batch_est_ranges, '{}'::int4multirange)
+                    * COALESCE(p_establishment_id_ranges, '{}'::int4multirange),
+                    '{}'::int4multirange);
+
+                -- Level 2: LU = (changed LUs + parents of changed ESs) ∩ all batches
+                SELECT range_agg(int4range(es.legal_unit_id, es.legal_unit_id, '[]'))
+                  INTO v_propagated_lu
+                  FROM public.establishment AS es
+                 WHERE es.id <@ COALESCE(p_establishment_id_ranges, '{}'::int4multirange)
+                   AND es.legal_unit_id IS NOT NULL;
+                v_eff_lu := NULLIF(
+                    COALESCE(v_all_batch_lu_ranges, '{}'::int4multirange)
+                    * (COALESCE(p_legal_unit_id_ranges, '{}'::int4multirange)
+                     + COALESCE(v_propagated_lu, '{}'::int4multirange)),
+                    '{}'::int4multirange);
+
+                -- Level 3: EN = (changed ENs + parents of effective LUs) ∩ all batches
+                SELECT range_agg(int4range(lu.enterprise_id, lu.enterprise_id, '[]'))
+                  INTO v_propagated_en
+                  FROM public.legal_unit AS lu
+                 WHERE lu.id <@ COALESCE(v_eff_lu, '{}'::int4multirange)
+                   AND lu.enterprise_id IS NOT NULL;
+                v_eff_en := NULLIF(
+                    COALESCE(v_all_batch_en_ranges, '{}'::int4multirange)
+                    * (COALESCE(p_enterprise_id_ranges, '{}'::int4multirange)
+                     + COALESCE(v_propagated_en, '{}'::int4multirange)),
+                    '{}'::int4multirange);
+
+                -- Count effective units (not batch totals) for pipeline_progress
+                v_establishment_count := COALESCE((SELECT count(*) FROM unnest(COALESCE(v_eff_est, '{}'::int4multirange)) AS r, generate_series(lower(r), upper(r)-1))::INT, 0);
+                v_legal_unit_count := COALESCE((SELECT count(*) FROM unnest(COALESCE(v_eff_lu, '{}'::int4multirange)) AS r, generate_series(lower(r), upper(r)-1))::INT, 0);
+                v_enterprise_count := COALESCE((SELECT count(*) FROM unnest(COALESCE(v_eff_en, '{}'::int4multirange)) AS r, generate_series(lower(r), upper(r)-1))::INT, 0);
+            END effective_counts;
+
             -- Spawn batch children with changed_* keys for directional propagation
             FOR v_batch IN SELECT * FROM _batches LOOP
-                v_enterprise_count := v_enterprise_count + COALESCE(array_length(v_batch.enterprise_ids, 1), 0);
-                v_legal_unit_count := v_legal_unit_count + COALESCE(array_length(v_batch.legal_unit_ids, 1), 0);
-                v_establishment_count := v_establishment_count + COALESCE(array_length(v_batch.establishment_ids, 1), 0);
-
                 PERFORM worker.spawn(
                     p_command := 'statistical_unit_refresh_batch',
                     p_payload := jsonb_build_object(
@@ -356,23 +410,7 @@ BEGIN
         v_batch_seq, v_batch_en_count, v_batch_lu_count, v_batch_est_count,
         COALESCE(array_length(v_power_group_ids, 1), 0);
 
-    -- Timepoints and timesegments always use the full batch ranges
-    -- (all units in the closed group need correct time boundaries)
-    CALL public.timepoints_refresh(
-        p_establishment_id_ranges => COALESCE(v_establishment_id_ranges, '{}'::int4multirange),
-        p_legal_unit_id_ranges => COALESCE(v_legal_unit_id_ranges, '{}'::int4multirange),
-        p_enterprise_id_ranges => COALESCE(v_enterprise_id_ranges, '{}'::int4multirange),
-        p_power_group_id_ranges => COALESCE(v_power_group_id_ranges, '{}'::int4multirange)
-    );
-    CALL public.timesegments_refresh(
-        p_establishment_id_ranges => COALESCE(v_establishment_id_ranges, '{}'::int4multirange),
-        p_legal_unit_id_ranges => COALESCE(v_legal_unit_id_ranges, '{}'::int4multirange),
-        p_enterprise_id_ranges => COALESCE(v_enterprise_id_ranges, '{}'::int4multirange),
-        p_power_group_id_ranges => COALESCE(v_power_group_id_ranges, '{}'::int4multirange)
-    );
-    CALL public.timesegments_years_refresh_concurrent();
-
-    -- === DIRECTIONAL PROPAGATION for timeline refreshes ===
+    -- === DIRECTIONAL PROPAGATION — compute effective ranges BEFORE any refresh calls ===
     -- Extract original change ranges from payload (NULL if absent = full refresh fallback)
     v_changed_est_ranges := (payload->>'changed_establishment_id_ranges')::int4multirange;
     v_changed_lu_ranges  := (payload->>'changed_legal_unit_id_ranges')::int4multirange;
@@ -449,6 +487,22 @@ BEGIN
             v_effective_en_count, v_batch_en_count;
     END IF;
 
+    -- ALL refresh calls use effective ranges (scoped by directional propagation)
+    -- Power groups are independent — always use their batch ranges directly
+    CALL public.timepoints_refresh(
+        p_establishment_id_ranges => COALESCE(v_effective_est, '{}'::int4multirange),
+        p_legal_unit_id_ranges => COALESCE(v_effective_lu, '{}'::int4multirange),
+        p_enterprise_id_ranges => COALESCE(v_effective_en, '{}'::int4multirange),
+        p_power_group_id_ranges => COALESCE(v_power_group_id_ranges, '{}'::int4multirange)
+    );
+    CALL public.timesegments_refresh(
+        p_establishment_id_ranges => COALESCE(v_effective_est, '{}'::int4multirange),
+        p_legal_unit_id_ranges => COALESCE(v_effective_lu, '{}'::int4multirange),
+        p_enterprise_id_ranges => COALESCE(v_effective_en, '{}'::int4multirange),
+        p_power_group_id_ranges => COALESCE(v_power_group_id_ranges, '{}'::int4multirange)
+    );
+    CALL public.timesegments_years_refresh_concurrent();
+
     -- Timeline refreshes: use effective ranges (scoped by directional propagation)
     IF v_effective_est IS NOT NULL THEN
         CALL public.timeline_establishment_refresh(p_unit_id_ranges => v_effective_est);
@@ -464,12 +518,11 @@ BEGIN
         CALL public.timeline_power_group_refresh(p_unit_id_ranges => v_power_group_id_ranges);
     END IF;
 
-    -- statistical_unit_refresh always uses full batch ranges
-    -- (all units in the closed group need stat_unit rows)
+    -- statistical_unit_refresh: use effective ranges (only units that changed)
     CALL public.statistical_unit_refresh(
-        p_establishment_id_ranges => COALESCE(v_establishment_id_ranges, '{}'::int4multirange),
-        p_legal_unit_id_ranges => COALESCE(v_legal_unit_id_ranges, '{}'::int4multirange),
-        p_enterprise_id_ranges => COALESCE(v_enterprise_id_ranges, '{}'::int4multirange),
+        p_establishment_id_ranges => COALESCE(v_effective_est, '{}'::int4multirange),
+        p_legal_unit_id_ranges => COALESCE(v_effective_lu, '{}'::int4multirange),
+        p_enterprise_id_ranges => COALESCE(v_effective_en, '{}'::int4multirange),
         p_power_group_id_ranges => COALESCE(v_power_group_id_ranges, '{}'::int4multirange)
     );
 END;
