@@ -164,7 +164,7 @@ JOIN public.legal_unit AS lu_ed ON lu_ed.id = lr.influenced_id
 JOIN public.external_ident AS ei_ed ON ei_ed.legal_unit_id = lu_ed.id
 JOIN public.external_ident_type AS eit_ed ON eit_ed.id = ei_ed.type_id AND eit_ed.code = 'tax_ident'
 JOIN public.legal_rel_type AS lrt ON lrt.id = lr.type_id
-LEFT JOIN public.power_group AS pg ON pg.id = lr.power_group_id
+LEFT JOIN public.power_group AS pg ON pg.id = lr.derived_power_group_id
 ORDER BY ei_ing.ident, ei_ed.ident;
 
 -- ============================================================================

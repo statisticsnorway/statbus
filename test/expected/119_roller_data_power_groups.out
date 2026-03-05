@@ -222,7 +222,10 @@ ORDER BY pgm.power_group_ident, ei.ident;
  PG0001            | 100000005 | Nordic Solar AS
  PG0001            | 100000006 | Nordic Shipping AS
  PG0001            | 100000007 | Nordic Logistics AS
-(7 rows)
+ PG0002            | 100000008 | Baltic Holdings OÜ
+ PG0002            | 100000009 | Baltic Transport OÜ
+ PG0002            | 100000010 | Baltic Freight OÜ
+(10 rows)
 
 \echo "Legal relationship clusters (connected components by root LU):"
 "Legal relationship clusters (connected components by root LU):"
@@ -234,11 +237,9 @@ JOIN public.external_ident AS ei_root ON ei_root.legal_unit_id = lrc.root_legal_
 JOIN public.external_ident_type AS eit_root ON eit_root.id = ei_root.type_id AND eit_root.code = 'tax_ident'
 GROUP BY ei_root.ident
 ORDER BY ei_root.ident;
- root_tax_ident | relationship_count 
-----------------+--------------------
- 100000001      |                  6
-(1 row)
-
+ERROR:  column lrc.root_legal_unit_id does not exist
+LINE 5: ...ernal_ident AS ei_root ON ei_root.legal_unit_id = lrc.root_l...
+                                                             ^
 \echo "Legal relationships with power_group_id assigned:"
 "Legal relationships with power_group_id assigned:"
 SELECT
@@ -255,20 +256,9 @@ JOIN public.legal_unit AS lu_ed ON lu_ed.id = lr.influenced_id
 JOIN public.external_ident AS ei_ed ON ei_ed.legal_unit_id = lu_ed.id
 JOIN public.external_ident_type AS eit_ed ON eit_ed.id = ei_ed.type_id AND eit_ed.code = 'tax_ident'
 JOIN public.legal_rel_type AS lrt ON lrt.id = lr.type_id
-LEFT JOIN public.power_group AS pg ON pg.id = lr.power_group_id
+LEFT JOIN public.power_group AS pg ON pg.id = lr.derived_power_group_id
 ORDER BY ei_ing.ident, ei_ed.ident;
- influencing | influenced | rel_type | primary_influencer_only | power_group_ident 
--------------+------------+----------+-------------------------+-------------------
- 100000001   | 100000002  | HFOR     | t                       | PG0001
- 100000001   | 100000003  | HFOR     | t                       | PG0001
- 100000002   | 100000004  | HFOR     | t                       | PG0001
- 100000002   | 100000005  | HFOR     | t                       | PG0001
- 100000003   | 100000006  | HFOR     | t                       | PG0001
- 100000003   | 100000007  | HFOR     | t                       | PG0001
- 100000008   | 100000009  | DTPR     | f                       | PG0002
- 100000008   | 100000010  | DTPR     | f                       | PG0002
-(8 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- ============================================================================
 \echo "=== Phase 4: Summary ==="
 "=== Phase 4: Summary ==="
@@ -278,21 +268,9 @@ ORDER BY ei_ing.ident, ei_ed.ident;
 \echo "Baltic hierarchy (DTPR) also forms its own power group"
 "Baltic hierarchy (DTPR) also forms its own power group"
 SELECT COUNT(*) AS total_power_groups FROM public.power_group;
- total_power_groups 
---------------------
-                  2
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT COUNT(*) AS total_relationships FROM public.legal_relationship;
- total_relationships 
----------------------
-                   8
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT COUNT(*) AS total_memberships FROM public.power_group_membership;
- total_memberships 
--------------------
-                 7
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 ROLLBACK;

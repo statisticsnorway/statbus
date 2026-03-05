@@ -147,16 +147,17 @@ SELECT '2020-01-01'::date,
 CALL import.process_power_group_link(NULL, NULL, 'process_power_group_link');
 
 \echo "2a: Hierarchy shows 4 power levels"
-SELECT lu.name, h.power_level
-FROM public.power_hierarchy AS h
-JOIN public.legal_unit AS lu ON lu.id = h.legal_unit_id AND lu.valid_range && h.valid_range
+SELECT lu.name, pgm.power_level
+FROM public.power_group_membership AS pgm
+JOIN public.legal_unit AS lu ON lu.id = pgm.legal_unit_id AND lu.valid_range && pgm.valid_range
 WHERE lu.name LIKE 'Apex%'
-ORDER BY h.power_level, lu.name;
+ORDER BY pgm.power_level, lu.name;
 
 \echo "2a: power_group_def depth and reach"
 SELECT lu.name AS root_legal_unit, pgd.depth, pgd.reach
 FROM public.power_group_def AS pgd
-JOIN public.legal_unit AS lu ON lu.id = pgd.root_legal_unit_id
+JOIN public.power_group_membership AS pgm ON pgm.power_group_id = pgd.power_group_id AND pgm.power_level = 1
+JOIN public.legal_unit AS lu ON lu.id = pgm.legal_unit_id
 WHERE lu.name = 'Apex Corp';
 
 \echo "2a: power_group_membership includes all 4 Apex units"
@@ -195,8 +196,8 @@ JOIN public.legal_unit AS lu ON lu.id = pgm.legal_unit_id
 WHERE lu.name LIKE 'Beacon%'
 ORDER BY lu.name;
 
-\echo "2b: Beacon Tech relationship has power_group_id set"
-SELECT influenced.name, lr.percentage, lr.power_group_id IS NOT NULL AS has_power_group
+\echo "2b: Beacon Tech relationship has derived_power_group_id set"
+SELECT influenced.name, lr.percentage, lr.derived_power_group_id IS NOT NULL AS has_power_group
 FROM public.legal_relationship AS lr
 JOIN public.legal_unit AS influenced ON lr.influenced_id = influenced.id
 WHERE influenced.name = 'Beacon Tech';
@@ -245,8 +246,8 @@ JOIN public.legal_unit AS lu ON lu.id = pgm.legal_unit_id
 WHERE lu.name LIKE 'Delta%'
 ORDER BY lu.name;
 
-\echo "2c: Delta relationship power_group_id still set"
-SELECT influencer.name, influenced.name, lr.percentage, lr.power_group_id IS NOT NULL AS has_power_group
+\echo "2c: Delta relationship derived_power_group_id still set"
+SELECT influencer.name, influenced.name, lr.percentage, lr.derived_power_group_id IS NOT NULL AS has_power_group
 FROM public.legal_relationship AS lr
 JOIN public.legal_unit AS influencer ON lr.influencing_id = influencer.id
 JOIN public.legal_unit AS influenced ON lr.influenced_id = influenced.id
@@ -318,12 +319,12 @@ CALL import.process_power_group_link(NULL, NULL, 'process_power_group_link');
 \echo "2e: Cycle relationship created successfully"
 SELECT COUNT(*) AS cycle_rels FROM public.legal_relationship WHERE edit_comment LIKE '%Cycle relationship%';
 
-\echo "2e: All Apex units still appear in hierarchy (Phase 2 handles cycle)"
-SELECT lu.name, h.power_level
-FROM public.power_hierarchy AS h
-JOIN public.legal_unit AS lu ON lu.id = h.legal_unit_id AND lu.valid_range && h.valid_range
+\echo "2e: Cycle LRs still grouped in a PG (power_group_membership empty for cycles - expected)"
+SELECT lu.name, pgm.power_level
+FROM public.power_group_membership AS pgm
+JOIN public.legal_unit AS lu ON lu.id = pgm.legal_unit_id AND lu.valid_range && pgm.valid_range
 WHERE lu.name LIKE 'Apex%'
-ORDER BY h.power_level, lu.name;
+ORDER BY pgm.power_level, lu.name;
 
 \echo "2e: Clean up cycle for summary"
 DELETE FROM public.legal_relationship WHERE edit_comment LIKE '%Cycle relationship%';
@@ -479,7 +480,7 @@ WHERE ei.ident LIKE '30000000%'
 GROUP BY pgm.power_group_ident
 ORDER BY pgm.power_group_ident;
 
-\echo "3: Relationships with power_group_id after Round 1:"
+\echo "3: Relationships with derived_power_group_id after Round 1:"
 SELECT
     ei_ing.ident AS influencing,
     ei_ed.ident AS influenced,
@@ -492,7 +493,7 @@ JOIN public.external_ident_type AS eit_ing ON eit_ing.id = ei_ing.type_id AND ei
 JOIN public.legal_unit AS lu_ed ON lu_ed.id = lr.influenced_id
 JOIN public.external_ident AS ei_ed ON ei_ed.legal_unit_id = lu_ed.id
 JOIN public.external_ident_type AS eit_ed ON eit_ed.id = ei_ed.type_id AND eit_ed.code = 'tax_ident'
-LEFT JOIN public.power_group AS pg ON pg.id = lr.power_group_id
+LEFT JOIN public.power_group AS pg ON pg.id = lr.derived_power_group_id
 WHERE ei_ing.ident LIKE '30000000%'
 ORDER BY ei_ing.ident, ei_ed.ident, lr.percentage;
 
@@ -577,7 +578,7 @@ WHERE ei.ident LIKE '30000000%'
 GROUP BY pgm.power_group_ident
 ORDER BY pgm.power_group_ident;
 
-\echo "4: Current relationships (valid now) with power_group_id:"
+\echo "4: Current relationships (valid now) with derived_power_group_id:"
 SELECT
     ei_ing.ident AS influencing,
     ei_ed.ident AS influenced,
@@ -591,7 +592,7 @@ JOIN public.external_ident_type AS eit_ing ON eit_ing.id = ei_ing.type_id AND ei
 JOIN public.legal_unit AS lu_ed ON lu_ed.id = lr.influenced_id
 JOIN public.external_ident AS ei_ed ON ei_ed.legal_unit_id = lu_ed.id
 JOIN public.external_ident_type AS eit_ed ON eit_ed.id = ei_ed.type_id AND eit_ed.code = 'tax_ident'
-LEFT JOIN public.power_group AS pg ON pg.id = lr.power_group_id
+LEFT JOIN public.power_group AS pg ON pg.id = lr.derived_power_group_id
 WHERE ei_ing.ident LIKE '30000000%'
   AND lr.valid_range @> CURRENT_DATE
 ORDER BY ei_ing.ident, ei_ed.ident, lr.percentage;

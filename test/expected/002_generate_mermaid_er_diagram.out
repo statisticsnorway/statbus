@@ -384,7 +384,8 @@ erDiagram
 	}
 	legal_relationship["legal_relationship"] {
 		integer id
-		integer power_group_id
+		integer derived_power_group_id
+		integer derived_influenced_power_level
 		daterange valid_range
 		date valid_from
 		date valid_to
@@ -821,6 +822,7 @@ erDiagram
 		integer status_id
 		bigint count
 		jsonb stats_summary
+		integer partition_seq
 	}
 	statistical_unit_facet_dirty_partitions["statistical_unit_facet_dirty_partitions"] {
 		integer partition_seq
@@ -1435,6 +1437,7 @@ erDiagram
 		int4multirange legal_unit_ids
 		int4multirange enterprise_ids
 		datemultirange edited_by_valid_range
+		int4multirange power_group_ids
 	}
 	worker_base_change_log_has_pending["worker.base_change_log_has_pending"] {
 		boolean has_pending
@@ -1545,7 +1548,7 @@ erDiagram
 	legal_relationship }o--|| legal_unit : legal_relationship_influenced_id_valid
 	legal_relationship }o--|| legal_unit : legal_relationship_influencing_id_valid
 	legal_relationship }o--|| legal_unit : legal_relationship_influencing_id_valid
-	legal_relationship }|--o| power_group : legal_relationship_power_group_id_fkey
+	legal_relationship }|--o| power_group : legal_relationship_derived_power_group_id_fkey
 	legal_unit }o--|| auth_user : legal_unit_edit_by_user_id_fkey
 	legal_unit }o--o| data_source : legal_unit_data_source_id_fkey
 	legal_unit }o--|| enterprise : legal_unit_enterprise_id_fkey

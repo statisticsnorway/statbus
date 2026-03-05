@@ -20,11 +20,10 @@ The system revolves around four main statistical units, often with temporal vali
 ## Legal Unit Ownership & Control
 Tables and views for tracking ownership/control relationships between legal units:
 
-- `legal_relationship(id, type_id, reorg_type_id, power_group_id, influencing_id, influenced_id, edit_by_user_id, valid_range, valid_from, valid_to, valid_until, edit_at, primary_influencer_only, percentage, edit_comment)` (temporal)
-  - Key FKs: edit_by_user_id, influenced_id, influencing_id, power_group_id, primary_influencer_only, reorg_type_id, type_id, type_id, valid_range, valid_range.
-- `power_hierarchy(path, legal_unit_id, root_legal_unit_id, valid_range, power_level, is_cycle)`
-- `power_group_def(root_legal_unit_id, depth, width, reach)`
-- `legal_relationship_cluster(legal_relationship_id, root_legal_unit_id)`
+- `legal_relationship(id, type_id, reorg_type_id, derived_power_group_id, influencing_id, influenced_id, edit_by_user_id, valid_range, valid_from, valid_to, valid_until, edit_at, derived_influenced_power_level, primary_influencer_only, percentage, edit_comment)` (temporal)
+  - Key FKs: derived_power_group_id, edit_by_user_id, influenced_id, influencing_id, primary_influencer_only, reorg_type_id, type_id, type_id, valid_range, valid_range.
+- `power_group_def(power_group_id, depth, width, reach)`
+- `legal_relationship_cluster(legal_relationship_id, power_group_id)`
 - `power_group_active(id, ident, short_name, name, type_id)`
 - `power_group_membership(power_group_ident, power_group_id, legal_unit_id, valid_range, power_level)`
 
@@ -167,7 +166,7 @@ Enumerated types used across the schema, with their possible values.
 
 ### Derivations for drilling on facets of statistical_unit (/reports)
 
-- `statistical_unit_facet(unit_type, physical_region_path, primary_activity_category_path, sector_path, legal_form_id, physical_country_id, status_id, valid_from, valid_to, valid_until, count, stats_summary)` (temporal)
+- `statistical_unit_facet(unit_type, physical_region_path, primary_activity_category_path, sector_path, legal_form_id, physical_country_id, status_id, valid_from, valid_to, valid_until, count, stats_summary, partition_seq)` (temporal)
   - Enums: `unit_type` (`public.statistical_unit_type`).
 - `statistical_unit_facet_dirty_partitions(partition_seq)`
 
@@ -213,7 +212,7 @@ Handles background processing. A long-running worker process calls `worker.proce
 - `queue_registry(queue, description, default_concurrency)`
 - `pipeline_progress(updated_at, phase, step, total, completed, affected_establishment_count, affected_legal_unit_count, affected_enterprise_count, affected_power_group_count)`
   - Enums: `phase` (`worker.pipeline_phase`).
-- `base_change_log(establishment_ids, legal_unit_ids, enterprise_ids, edited_by_valid_range)`
+- `base_change_log(establishment_ids, legal_unit_ids, enterprise_ids, edited_by_valid_range, power_group_ids)`
 - `base_change_log_has_pending(has_pending)`
 
 ## Auth & System Tables/Views

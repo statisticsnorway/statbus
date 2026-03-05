@@ -187,7 +187,7 @@ SELECT * FROM import_data_column_baseline;
       19 |       10 | operation                            | public.import_row_operation_type | internal     | t           |               | f
       19 |       11 | legal_relationship_id                | INTEGER                          | pk_id        | t           |               | f
       20 |          | cluster_root_legal_unit_id           | INTEGER                          | internal     | t           |               | f
-      20 |          | power_group_id                       | INTEGER                          | internal     | t           |               | f
+      20 |          | derived_power_group_id               | INTEGER                          | internal     | t           |               | f
 (138 rows)
 
 \echo "Initial import_source_column state (default definitions):"

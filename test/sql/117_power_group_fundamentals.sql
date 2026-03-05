@@ -60,20 +60,20 @@ WHERE table_schema = 'public'
   AND column_name IN ('valid_range', 'valid_from', 'valid_to', 'active', 'role_id', 'root_legal_unit_id')
 ORDER BY column_name;
 
-\echo "Verify legal_relationship HAS power_group_id"
-SELECT column_name 
-FROM information_schema.columns 
-WHERE table_schema = 'public' 
-  AND table_name = 'legal_relationship' 
-  AND column_name = 'power_group_id'
+\echo "Verify legal_relationship HAS derived_power_group_id"
+SELECT column_name
+FROM information_schema.columns
+WHERE table_schema = 'public'
+  AND table_name = 'legal_relationship'
+  AND column_name = 'derived_power_group_id'
 ORDER BY column_name;
 
-\echo "Verify legal_unit does NOT have power_group_id (moved to legal_relationship)"
+\echo "Verify legal_unit does NOT have derived_power_group_id (moved to legal_relationship)"
 SELECT column_name 
 FROM information_schema.columns 
 WHERE table_schema = 'public' 
   AND table_name = 'legal_unit' 
-  AND column_name = 'power_group_id'
+  AND column_name = 'derived_power_group_id'
 ORDER BY column_name;
 
 -- ============================================================================
@@ -270,18 +270,17 @@ SELECT COUNT(*) AS cycle_relationships
 FROM public.legal_relationship
 WHERE edit_comment LIKE '%cycle allowed%';
 
-\echo "Verify power_hierarchy handles the cycle via Phase 2"
-\echo "All cycle members should appear with a chosen root"
+\echo "Verify cycle relationships exist (hierarchy computed by worker, not views)"
+\echo "power_group_membership requires derived columns set by worker - empty here is expected"
 SELECT
     lu.name,
-    h.power_level,
-    root_lu.name AS root_legal_unit
-FROM public.power_hierarchy AS h
-JOIN public.legal_unit AS lu ON lu.id = h.legal_unit_id AND lu.valid_range && h.valid_range
-JOIN public.legal_unit AS root_lu ON root_lu.id = h.root_legal_unit_id
+    pgm.power_level,
+    pgm.power_group_ident
+FROM public.power_group_membership AS pgm
+JOIN public.legal_unit AS lu ON lu.id = pgm.legal_unit_id AND lu.valid_range && pgm.valid_range
 WHERE lu.name LIKE '%Holdings%' OR lu.name LIKE '%Manufacturing%'
    OR lu.name LIKE '%Services%' OR lu.name LIKE '%Components%'
-ORDER BY h.power_level, lu.name;
+ORDER BY pgm.power_level, lu.name;
 
 \echo "Clean up cycle for remaining tests"
 DELETE FROM public.legal_relationship
@@ -330,17 +329,16 @@ $$;
 \echo "=== Section 6: Test Hierarchy View ==="
 -- ============================================================================
 
-\echo "Check hierarchy view shows correct power levels"
-SELECT 
+\echo "Check power_group_membership view (hierarchy computed by worker)"
+SELECT
     lu.name,
-    h.power_level,
-    root_lu.name AS root_legal_unit
-FROM public.power_hierarchy AS h
-JOIN public.legal_unit AS lu ON lu.id = h.legal_unit_id AND lu.valid_range && h.valid_range
-JOIN public.legal_unit AS root_lu ON root_lu.id = h.root_legal_unit_id
-WHERE lu.name LIKE '%Holdings%' OR lu.name LIKE '%Manufacturing%' 
+    pgm.power_level,
+    pgm.power_group_ident
+FROM public.power_group_membership AS pgm
+JOIN public.legal_unit AS lu ON lu.id = pgm.legal_unit_id AND lu.valid_range && pgm.valid_range
+WHERE lu.name LIKE '%Holdings%' OR lu.name LIKE '%Manufacturing%'
    OR lu.name LIKE '%Services%' OR lu.name LIKE '%Components%'
-ORDER BY h.power_level, lu.name;
+ORDER BY pgm.power_level, lu.name;
 
 \echo "Check power_group_def view shows correct metrics"
 SELECT 
@@ -349,7 +347,8 @@ SELECT
     pgd.width,
     pgd.reach
 FROM public.power_group_def AS pgd
-JOIN public.legal_unit AS lu ON lu.id = pgd.root_legal_unit_id
+JOIN public.power_group_membership AS pgm ON pgm.power_group_id = pgd.power_group_id AND pgm.power_level = 1
+JOIN public.legal_unit AS lu ON lu.id = pgm.legal_unit_id
 ORDER BY lu.name;
 
 -- ============================================================================
@@ -376,15 +375,15 @@ SELECT
     name
 FROM public.power_group;
 
-\echo "Assign power_group_id to relationships in this cluster"
+\echo "Assign derived_power_group_id to relationships in this cluster"
 UPDATE public.legal_relationship AS lr
-SET power_group_id = (SELECT id FROM public.power_group WHERE name = 'Alpha Holdings Group')
+SET derived_power_group_id = (SELECT id FROM public.power_group WHERE name = 'Alpha Holdings Group')
 WHERE lr.influencing_id IN (
     SELECT id FROM public.legal_unit 
     WHERE name IN ('Alpha Holdings Corp', 'Beta Manufacturing Ltd')
 );
 
-\echo "Verify relationships have power_group_id assigned"
+\echo "Verify relationships have derived_power_group_id assigned"
 SELECT 
     influencer.name AS influencing_name,
     influenced.name AS influenced_name,
@@ -393,7 +392,7 @@ SELECT
 FROM public.legal_relationship AS lr
 JOIN public.legal_unit AS influencer ON lr.influencing_id = influencer.id
 JOIN public.legal_unit AS influenced ON lr.influenced_id = influenced.id
-LEFT JOIN public.power_group AS pg ON lr.power_group_id = pg.id
+LEFT JOIN public.power_group AS pg ON lr.derived_power_group_id = pg.id
 ORDER BY influencer.name, influenced.name;
 
 -- ============================================================================
@@ -465,19 +464,19 @@ SELECT
     pg.ident AS power_group,
     COUNT(*) AS relationship_count
 FROM public.legal_relationship AS lr
-LEFT JOIN public.power_group AS pg ON lr.power_group_id = pg.id
+LEFT JOIN public.power_group AS pg ON lr.derived_power_group_id = pg.id
 GROUP BY pg.ident
 ORDER BY pg.ident NULLS LAST;
 
-\echo "Legal units by power level (from hierarchy view)"
-SELECT 
-    h.power_level,
+\echo "Legal units by power level (from membership view)"
+SELECT
+    pgm.power_level,
     COUNT(*) AS count,
     string_agg(lu.name, ', ' ORDER BY lu.name) AS names
-FROM public.power_hierarchy AS h
-JOIN public.legal_unit AS lu ON lu.id = h.legal_unit_id
-GROUP BY h.power_level
-ORDER BY h.power_level;
+FROM public.power_group_membership AS pgm
+JOIN public.legal_unit AS lu ON lu.id = pgm.legal_unit_id
+GROUP BY pgm.power_level
+ORDER BY pgm.power_level;
 
 \echo "=== Power Group Fundamentals Test Complete ==="
 

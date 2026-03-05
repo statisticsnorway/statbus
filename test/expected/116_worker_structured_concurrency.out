@@ -563,6 +563,10 @@ BEGIN
     
     RAISE NOTICE 'All has_more detection tests passed!';
 END $$;
+NOTICE:  Wave 1 (offset=0): 3 batches, has_more=t [PASS]
+NOTICE:  Wave 2 (offset=3): 3 batches, has_more=t [PASS]
+NOTICE:  Wave 3 (offset=6): 2 batches, has_more=f [PASS]
+NOTICE:  All has_more detection tests passed!
 \echo "=== 25. Verify derive_statistical_unit_impl function exists with batch_offset ==="
 "=== 25. Verify derive_statistical_unit_impl function exists with batch_offset ==="
 SELECT routine_name, 

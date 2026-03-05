@@ -200,7 +200,7 @@ auto-updatable) also require INSERT.
 - **`legal_rel_type_custom`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`legal_rel_type_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`legal_rel_type_system`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`legal_relationship_cluster`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
+- **`legal_relationship_cluster`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`legal_reorg_type_available`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`legal_reorg_type_custom`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`legal_reorg_type_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
@@ -220,7 +220,6 @@ auto-updatable) also require INSERT.
 - **`power_group_type_custom`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`power_group_type_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`power_group_type_system`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`power_hierarchy`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
 - **`region_upload`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`region_used_def`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`relative_period_with_time`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT

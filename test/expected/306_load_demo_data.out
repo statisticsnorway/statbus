@@ -1066,7 +1066,7 @@ SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT 
 -------------------------+----------+--------------------+------------+---------------+-----------
  import_07_esflu_curr_b1 | finished | r_year_curr        |         25 |            25 | f
  import_07_eswlu_curr_b1 | finished | r_year_curr        |         25 |            25 | f
- import_07_lr_curr_b1    | finished | r_year_curr        |          5 |             5 | f
+ import_07_lr_curr_b1    | finished | r_year_curr        |         11 |            11 | f
  import_07_lu_curr_b1    | finished | r_year_curr        |         23 |            23 | f
 (4 rows)
 
@@ -1085,7 +1085,7 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |    48
+ analytics | completed |    50
  import    | completed |   160
 (2 rows)
 
@@ -1190,32 +1190,32 @@ stats_summary | {                                             +
               | }
 -[ RECORD 4 ]-+-----------------------------------------------
 unit_type     | power_group
-count         | 3
+count         | 5
 stats_summary | {                                             +
               |     "type": "stats_agg",                      +
               |     "turnover": {                             +
-              |         "max": 12000000,                      +
+              |         "max": 90000000,                      +
               |         "min": 0,                             +
-              |         "sum": 29900000,                      +
-              |         "mean": 2491666.67,                   +
+              |         "sum": 142760000,                     +
+              |         "mean": 4461250.00,                   +
               |         "type": "float_agg",                  +
-              |         "count": 12,                          +
-              |         "stddev": 4139709.77,                 +
-              |         "variance": 17137196969696.97,        +
-              |         "sum_sq_diff": 188509166666666.66,    +
-              |         "coefficient_of_variation_pct": 166.14+
+              |         "count": 32,                          +
+              |         "stddev": 15972053.77,                +
+              |         "variance": 255106501622353.22,       +
+              |         "sum_sq_diff": 7908301550292950.00,   +
+              |         "coefficient_of_variation_pct": 358.02+
               |     },                                        +
               |     "employees": {                            +
-              |         "max": 8,                             +
+              |         "max": 65,                            +
               |         "min": 0,                             +
-              |         "sum": 27,                            +
-              |         "mean": 2.25,                         +
+              |         "sum": 157,                           +
+              |         "mean": 4.91,                         +
               |         "type": "int_agg",                    +
-              |         "count": 12,                          +
-              |         "stddev": 3.02,                       +
-              |         "variance": 9.11,                     +
-              |         "sum_sq_diff": 100.25,                +
-              |         "coefficient_of_variation_pct": 134.17+
+              |         "count": 32,                          +
+              |         "stddev": 12.75,                      +
+              |         "variance": 162.55,                   +
+              |         "sum_sq_diff": 5039.13,               +
+              |         "coefficient_of_variation_pct": 259.86+
               |     }                                         +
               | }
 
