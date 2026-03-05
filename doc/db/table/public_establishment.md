@@ -23,7 +23,6 @@
  legal_unit_id          | integer                  |           |          | 
  primary_for_legal_unit | boolean                  |           |          | 
  primary_for_enterprise | boolean                  |           |          | 
- invalid_codes          | jsonb                    |           |          | 
  image_id               | integer                  |           |          | 
 Indexes:
     "establishment_pkey" PRIMARY KEY (id, valid_range WITHOUT OVERLAPS)

@@ -32,5 +32,6 @@ View definition:
    FROM person_for_unit;
 Triggers:
     for_portion_of_valid INSTEAD OF INSERT OR DELETE OR UPDATE ON person_for_unit__for_portion_of_valid FOR EACH ROW EXECUTE FUNCTION sql_saga.for_portion_of_trigger('id')
+Options: security_invoker=on
 
 ```

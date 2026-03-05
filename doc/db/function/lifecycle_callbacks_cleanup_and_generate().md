@@ -3,6 +3,7 @@ CREATE OR REPLACE FUNCTION lifecycle_callbacks.cleanup_and_generate()
  RETURNS trigger
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO 'public', 'lifecycle_callbacks', 'pg_temp'
 AS $function$
 DECLARE
     proc_names TEXT[] := ARRAY['cleanup', 'generate'];

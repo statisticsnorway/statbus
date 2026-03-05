@@ -3,6 +3,7 @@ CREATE OR REPLACE FUNCTION auth.generate_api_key_token()
  RETURNS trigger
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO 'public', 'auth', 'pg_temp'
 AS $function$
 DECLARE
   _user auth.user;

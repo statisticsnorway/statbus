@@ -3,6 +3,7 @@ CREATE OR REPLACE FUNCTION public.revoke_session(refresh_session_jti uuid)
  RETURNS boolean
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
 AS $function$
 DECLARE
   user_sub uuid;

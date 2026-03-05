@@ -2,6 +2,7 @@
 CREATE OR REPLACE PROCEDURE admin.disable_temporal_triggers()
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO 'public', 'admin', 'pg_temp'
 AS $procedure$
 BEGIN
     CALL sql_saga.disable_temporal_triggers(

@@ -14,6 +14,7 @@ BEGIN
     CREATE INDEX IF NOT EXISTS idx_statistical_unit_sector_id ON public.statistical_unit (sector_id);
     CREATE INDEX IF NOT EXISTS idx_statistical_unit_domestic ON public.statistical_unit (domestic);
     CREATE INDEX IF NOT EXISTS idx_statistical_unit_legal_form_id ON public.statistical_unit (legal_form_id);
+    CREATE INDEX IF NOT EXISTS idx_statistical_unit_name ON public.statistical_unit (name);
 
     -- Path indices (btree + gist for ltree)
     CREATE INDEX IF NOT EXISTS idx_statistical_unit_sector_path ON public.statistical_unit(sector_path);
@@ -41,8 +42,6 @@ BEGIN
     -- GIN indices for arrays and jsonb
     CREATE INDEX IF NOT EXISTS idx_statistical_unit_search ON public.statistical_unit USING GIN (search);
     CREATE INDEX IF NOT EXISTS idx_statistical_unit_data_source_ids ON public.statistical_unit USING GIN (data_source_ids);
-    CREATE INDEX IF NOT EXISTS idx_statistical_unit_invalid_codes ON public.statistical_unit USING gin (invalid_codes);
-    CREATE INDEX IF NOT EXISTS idx_statistical_unit_invalid_codes_exists ON public.statistical_unit (invalid_codes) WHERE invalid_codes IS NOT NULL;
 
     CREATE INDEX IF NOT EXISTS idx_statistical_unit_related_establishment_ids ON public.statistical_unit USING gin (related_establishment_ids);
     CREATE INDEX IF NOT EXISTS idx_statistical_unit_related_legal_unit_ids ON public.statistical_unit USING gin (related_legal_unit_ids);

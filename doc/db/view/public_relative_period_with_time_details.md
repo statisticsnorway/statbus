@@ -88,5 +88,6 @@ View definition:
     valid_from,
     valid_to
    FROM base_periods;
+Options: security_invoker=on
 
 ```

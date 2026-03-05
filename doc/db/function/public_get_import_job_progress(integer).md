@@ -3,6 +3,7 @@ CREATE OR REPLACE FUNCTION public.get_import_job_progress(job_id integer)
  RETURNS json
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
 AS $function$
 DECLARE
     job public.import_job;

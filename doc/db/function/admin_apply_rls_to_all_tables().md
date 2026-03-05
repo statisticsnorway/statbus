@@ -22,10 +22,10 @@ BEGIN
     PERFORM admin.add_rls_regular_user_can_read('public.tag'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.relative_period'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.unit_size'::regclass);
-    PERFORM admin.add_rls_regular_user_can_read('public.enterprise_group_type'::regclass);
-    PERFORM admin.add_rls_regular_user_can_read('public.reorg_type'::regclass);
+    PERFORM admin.add_rls_regular_user_can_read('public.power_group_type'::regclass);
+    PERFORM admin.add_rls_regular_user_can_read('public.legal_reorg_type'::regclass);
+    PERFORM admin.add_rls_regular_user_can_read('public.legal_rel_type'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.foreign_participation'::regclass);
-    PERFORM admin.add_rls_regular_user_can_read('public.enterprise_group_role'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.status'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.external_ident_type'::regclass);
 
@@ -57,7 +57,8 @@ BEGIN
     PERFORM admin.add_rls_regular_user_can_edit('public.establishment'::regclass);
     PERFORM admin.add_rls_regular_user_can_edit('public.legal_unit'::regclass);
     PERFORM admin.add_rls_regular_user_can_edit('public.enterprise'::regclass);
-    PERFORM admin.add_rls_regular_user_can_edit('public.enterprise_group'::regclass);
+    PERFORM admin.add_rls_regular_user_can_edit('public.power_group'::regclass);
+    PERFORM admin.add_rls_regular_user_can_edit('public.power_root'::regclass);
     PERFORM admin.add_rls_regular_user_can_edit('public.external_ident'::regclass);
     PERFORM admin.add_rls_regular_user_can_edit('public.activity'::regclass);
     PERFORM admin.add_rls_regular_user_can_edit('public.contact'::regclass);
@@ -67,6 +68,7 @@ BEGIN
     PERFORM admin.add_rls_regular_user_can_edit('public.person_for_unit'::regclass);
     PERFORM admin.add_rls_regular_user_can_edit('public.person'::regclass);
     PERFORM admin.add_rls_regular_user_can_edit('public.location'::regclass);
+    PERFORM admin.add_rls_regular_user_can_edit('public.legal_relationship'::regclass);
     --
 END;
 $function$

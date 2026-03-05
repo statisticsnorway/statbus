@@ -3,6 +3,7 @@ CREATE OR REPLACE FUNCTION public.statistical_unit_facet_drilldown(unit_type sta
  RETURNS jsonb
  LANGUAGE sql
  SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
 AS $function$
     -- Use a params intermediary to avoid conflicts
     -- between columns and parameters, leading to tautologies. i.e. 'sh.unit_type = unit_type' is always true.
@@ -63,7 +64,7 @@ AS $function$
             )
     ), available_facet_stats AS (
         SELECT COALESCE(SUM(af.count), 0) AS count
-             , public.jsonb_stats_summary_merge_agg(af.stats_summary) AS stats_summary
+             , public.jsonb_stats_merge_agg(af.stats_summary) AS stats_summary
         FROM available_facet AS af
     ),
     breadcrumb_region AS (
@@ -97,7 +98,7 @@ AS $function$
              , ar.code
              , ar.name
              , COALESCE(SUM(suf.count), 0) AS count
-             , public.jsonb_stats_summary_merge_agg(suf.stats_summary) AS stats_summary
+             , public.jsonb_stats_merge_agg(suf.stats_summary) AS stats_summary
              , COALESCE(bool_or(true) FILTER (WHERE suf.physical_region_path OPERATOR(public.<>) ar.path), false) AS has_children
         FROM available_region AS ar
         LEFT JOIN available_facet AS suf ON suf.physical_region_path OPERATOR(public.<@) ar.path
@@ -145,7 +146,7 @@ AS $function$
              , aac.code
              , aac.name
              , COALESCE(SUM(suf.count), 0) AS count
-             , public.jsonb_stats_summary_merge_agg(suf.stats_summary) AS stats_summary
+             , public.jsonb_stats_merge_agg(suf.stats_summary) AS stats_summary
              , COALESCE(bool_or(true) FILTER (WHERE suf.primary_activity_category_path OPERATOR(public.<>) aac.path), false) AS has_children
         FROM
             available_activity_category AS aac
@@ -187,7 +188,7 @@ AS $function$
              , "as".code
              , "as".name
              , COALESCE(SUM(suf.count), 0) AS count
-             , public.jsonb_stats_summary_merge_agg(suf.stats_summary) AS stats_summary
+             , public.jsonb_stats_merge_agg(suf.stats_summary) AS stats_summary
              , COALESCE(bool_or(true) FILTER (WHERE suf.sector_path OPERATOR(public.<>) "as".path), false) AS has_children
         FROM available_sector AS "as"
         LEFT JOIN available_facet AS suf ON suf.sector_path OPERATOR(public.<@) "as".path
@@ -223,7 +224,7 @@ AS $function$
              , s.code
              , s.name
              , COALESCE(SUM(suf.count), 0) AS count
-             , public.jsonb_stats_summary_merge_agg(suf.stats_summary) AS stats_summary
+             , public.jsonb_stats_merge_agg(suf.stats_summary) AS stats_summary
              , false AS has_children
         FROM available_status AS s
         LEFT JOIN available_facet AS suf ON suf.status_id = s.id
@@ -257,7 +258,7 @@ AS $function$
              , lf.code
              , lf.name
              , COALESCE(SUM(suf.count), 0) AS count
-             , public.jsonb_stats_summary_merge_agg(suf.stats_summary) AS stats_summary
+             , public.jsonb_stats_merge_agg(suf.stats_summary) AS stats_summary
              , false AS has_children
         FROM available_legal_form AS lf
         LEFT JOIN available_facet AS suf ON suf.legal_form_id = lf.id
@@ -290,7 +291,7 @@ AS $function$
              , pc.iso_2
              , pc.name
              , COALESCE(SUM(suf.count), 0) AS count
-             , public.jsonb_stats_summary_merge_agg(suf.stats_summary) AS stats_summary
+             , public.jsonb_stats_merge_agg(suf.stats_summary) AS stats_summary
              , false AS has_children
         FROM available_physical_country AS pc
         LEFT JOIN available_facet AS suf ON suf.physical_country_id = pc.id

@@ -23,7 +23,6 @@
  legal_unit_id          | integer                  |           |          |                                  | plain    |             |              | 
  primary_for_legal_unit | boolean                  |           |          |                                  | plain    |             |              | 
  primary_for_enterprise | boolean                  |           |          |                                  | plain    |             |              | 
- invalid_codes          | jsonb                    |           |          |                                  | extended |             |              | 
  image_id               | integer                  |           |          |                                  | plain    |             |              | Reference to unit image (logo/photo) stored in image table
 Indexes:
     "establishment_pkey" PRIMARY KEY (id, valid_range WITHOUT OVERLAPS)

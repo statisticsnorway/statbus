@@ -3,6 +3,7 @@ CREATE OR REPLACE FUNCTION auth.drop_user_role()
  RETURNS trigger
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO 'public', 'auth', 'pg_temp'
 AS $function$
 BEGIN
   -- Only drop the role if it exists and matches the user's email

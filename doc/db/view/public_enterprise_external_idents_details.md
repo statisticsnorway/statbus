@@ -26,5 +26,6 @@ UNION ALL
     pes.valid_until
    FROM establishment pes
   WHERE pes.enterprise_id IS NOT NULL;
+Options: security_invoker=on
 
 ```

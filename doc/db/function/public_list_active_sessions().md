@@ -3,6 +3,7 @@ CREATE OR REPLACE FUNCTION public.list_active_sessions()
  RETURNS SETOF auth.session_info
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
 AS $function$
 DECLARE
   user_sub uuid;

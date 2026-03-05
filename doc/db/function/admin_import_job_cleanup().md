@@ -3,6 +3,7 @@ CREATE OR REPLACE FUNCTION admin.import_job_cleanup()
  RETURNS trigger
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO 'public', 'admin', 'pg_temp'
 AS $function$
 BEGIN
     RAISE DEBUG '[Job %] Cleaning up tables: %, %', OLD.id, OLD.upload_table_name, OLD.data_table_name;

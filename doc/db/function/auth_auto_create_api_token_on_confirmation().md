@@ -3,6 +3,7 @@ CREATE OR REPLACE FUNCTION auth.auto_create_api_token_on_confirmation()
  RETURNS trigger
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO 'public', 'auth', 'pg_temp'
 AS $function$
 DECLARE
   _expires_at timestamptz;

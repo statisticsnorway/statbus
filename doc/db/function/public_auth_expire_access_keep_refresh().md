@@ -3,6 +3,7 @@ CREATE OR REPLACE FUNCTION public.auth_expire_access_keep_refresh()
  RETURNS json
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
 AS $function$
 DECLARE
   _claims jsonb;

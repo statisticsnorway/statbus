@@ -1,5 +1,5 @@
 ```sql
-CREATE OR REPLACE FUNCTION public.external_idents_hierarchy(parent_establishment_id integer DEFAULT NULL::integer, parent_legal_unit_id integer DEFAULT NULL::integer, parent_enterprise_id integer DEFAULT NULL::integer, parent_enterprise_group_id integer DEFAULT NULL::integer)
+CREATE OR REPLACE FUNCTION public.external_idents_hierarchy(parent_establishment_id integer DEFAULT NULL::integer, parent_legal_unit_id integer DEFAULT NULL::integer, parent_enterprise_id integer DEFAULT NULL::integer, parent_power_group_id integer DEFAULT NULL::integer)
  RETURNS jsonb
  LANGUAGE sql
  STABLE
@@ -11,7 +11,7 @@ AS $function$
      WHERE (  parent_establishment_id    IS NOT NULL AND ei.establishment_id    = parent_establishment_id
            OR parent_legal_unit_id       IS NOT NULL AND ei.legal_unit_id       = parent_legal_unit_id
            OR parent_enterprise_id       IS NOT NULL AND ei.enterprise_id       = parent_enterprise_id
-           OR parent_enterprise_group_id IS NOT NULL AND ei.enterprise_group_id = parent_enterprise_group_id
+           OR parent_power_group_id IS NOT NULL AND ei.power_group_id = parent_power_group_id
            )
   )
   SELECT CASE

@@ -93,7 +93,7 @@ BEGIN
                 public.array_distinct_concat(tlu.related_legal_unit_ids) AS related_legal_unit_ids,
                 public.array_distinct_concat(tlu.excluded_legal_unit_ids) AS excluded_legal_unit_ids,
                 public.array_distinct_concat(tlu.included_legal_unit_ids) AS included_legal_unit_ids,
-                COALESCE(public.jsonb_stats_summary_merge_agg(COALESCE(public.jsonb_stats_summary_merge(tlu.stats_summary, tes.stats_summary), tlu.stats_summary, tes.stats_summary)), '{}'::jsonb) AS stats_summary
+                COALESCE(public.jsonb_stats_merge_agg(COALESCE(public.jsonb_stats_merge(tlu.stats_summary, tes.stats_summary), tlu.stats_summary, tes.stats_summary)), '{}'::jsonb) AS stats_summary
             FROM (
                 SELECT t.unit_type,
                     t.unit_id,
@@ -123,7 +123,7 @@ BEGIN
                     array_agg(DISTINCT tlu_f.legal_unit_id) AS related_legal_unit_ids,
                     array_agg(DISTINCT tlu_f.legal_unit_id) FILTER (WHERE NOT tlu_f.used_for_counting) AS excluded_legal_unit_ids,
                     array_agg(DISTINCT tlu_f.legal_unit_id) FILTER (WHERE tlu_f.used_for_counting) AS included_legal_unit_ids,
-                    public.jsonb_stats_summary_merge_agg(tlu_f.stats_summary) FILTER (WHERE tlu_f.used_for_counting) AS stats_summary
+                    public.jsonb_stats_merge_agg(tlu_f.stats_summary) FILTER (WHERE tlu_f.used_for_counting) AS stats_summary
                 FROM public.timeline_legal_unit_filtered tlu_f
                 WHERE tlu_f.enterprise_id = ten.enterprise_id
                   AND public.from_until_overlaps(ten.valid_from, ten.valid_until, tlu_f.valid_from, tlu_f.valid_until)
@@ -139,7 +139,7 @@ BEGIN
                     array_agg(DISTINCT tes_f.establishment_id) AS related_establishment_ids,
                     array_agg(DISTINCT tes_f.establishment_id) FILTER (WHERE NOT tes_f.used_for_counting) AS excluded_establishment_ids,
                     array_agg(DISTINCT tes_f.establishment_id) FILTER (WHERE tes_f.used_for_counting) AS included_establishment_ids,
-                    public.jsonb_stats_summary_merge_agg(tes_f.stats_summary) FILTER (WHERE tes_f.used_for_counting) AS stats_summary
+                    public.jsonb_stats_merge_agg(tes_f.stats_summary) FILTER (WHERE tes_f.used_for_counting) AS stats_summary
                 FROM public.timeline_establishment_filtered tes_f
                 WHERE tes_f.enterprise_id = ten.enterprise_id
                   AND public.from_until_overlaps(ten.valid_from, ten.valid_until, tes_f.valid_from, tes_f.valid_until)
@@ -222,7 +222,6 @@ BEGIN
                 basis.last_edit_comment,
                 basis.last_edit_by_user_id,
                 basis.last_edit_at,
-                basis.invalid_codes,
                 basis.has_legal_unit,
                 aggregation.related_establishment_ids,
                 aggregation.excluded_establishment_ids,
@@ -302,7 +301,6 @@ BEGIN
                     last_edit.edit_comment AS last_edit_comment,
                     last_edit.edit_by_user_id AS last_edit_by_user_id,
                     last_edit.edit_at AS last_edit_at,
-                    COALESCE(plu.invalid_codes, pes.invalid_codes) AS invalid_codes,
                     plu.legal_unit_id IS NOT NULL AS has_legal_unit,
                     en.id AS enterprise_id,
                     pes.establishment_id AS primary_establishment_id,
@@ -416,7 +414,6 @@ BEGIN
             last_edit_comment,
             last_edit_by_user_id,
             last_edit_at,
-            invalid_codes,
             has_legal_unit,
             related_establishment_ids,
             excluded_establishment_ids,

@@ -23,7 +23,6 @@
  data_source_id           | integer                  |           |          |         | plain    | 
  enterprise_id            | integer                  |           |          |         | plain    | 
  primary_for_enterprise   | boolean                  |           |          |         | plain    | 
- invalid_codes            | jsonb                    |           |          |         | extended | 
  image_id                 | integer                  |           |          |         | plain    | 
 View definition:
  SELECT id,
@@ -47,10 +46,10 @@ View definition:
     data_source_id,
     enterprise_id,
     primary_for_enterprise,
-    invalid_codes,
     image_id
    FROM legal_unit;
 Triggers:
     for_portion_of_valid INSTEAD OF INSERT OR DELETE OR UPDATE ON legal_unit__for_portion_of_valid FOR EACH ROW EXECUTE FUNCTION sql_saga.for_portion_of_trigger('id')
+Options: security_invoker=on
 
 ```

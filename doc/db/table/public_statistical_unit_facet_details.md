@@ -14,7 +14,9 @@
  status_id                      | integer               |           |          |         | plain    |             |              | 
  count                          | bigint                |           |          |         | plain    |             |              | 
  stats_summary                  | jsonb                 |           |          |         | extended |             |              | 
+ partition_seq                  | integer               |           |          |         | plain    |             |              | 
 Indexes:
+    "idx_statistical_unit_facet_partition_seq" btree (partition_seq)
     "statistical_unit_facet_key" UNIQUE, btree (valid_from, valid_to, valid_until, unit_type, physical_region_path, primary_activity_category_path, sector_path, legal_form_id, physical_country_id, status_id) NULLS NOT DISTINCT
     "statistical_unit_facet_legal_form_id_btree" btree (legal_form_id)
     "statistical_unit_facet_physical_country_id_btree" btree (physical_country_id)

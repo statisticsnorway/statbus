@@ -21,5 +21,6 @@ View definition:
     enabled
    FROM stat_definition_ordered
   WHERE enabled;
+Options: security_invoker=on
 
 ```

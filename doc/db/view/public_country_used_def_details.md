@@ -14,5 +14,6 @@ View definition:
            FROM statistical_unit
           WHERE statistical_unit.physical_country_id IS NOT NULL)) AND enabled
   ORDER BY id;
+Options: security_invoker=on
 
 ```

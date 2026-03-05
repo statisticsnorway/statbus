@@ -16,8 +16,8 @@ Indexes:
     "ix_foreign_participation_enabled_code" UNIQUE, btree (enabled, code)
     "ix_status_code" UNIQUE, btree (code) WHERE enabled
 Referenced by:
-    TABLE "enterprise_group" CONSTRAINT "enterprise_group_foreign_participation_id_fkey" FOREIGN KEY (foreign_participation_id) REFERENCES foreign_participation(id)
     TABLE "legal_unit" CONSTRAINT "legal_unit_foreign_participation_id_fkey" FOREIGN KEY (foreign_participation_id) REFERENCES foreign_participation(id)
+    TABLE "power_group" CONSTRAINT "power_group_foreign_participation_id_fkey" FOREIGN KEY (foreign_participation_id) REFERENCES foreign_participation(id)
 Policies:
     POLICY "foreign_participation_admin_user_manage"
       TO admin_user

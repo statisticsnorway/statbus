@@ -1,7 +1,7 @@
 ```sql
-                                                          Table "public.statistical_unit_staging"
-              Column              |           Type           | Collation | Nullable |                                Default                                
-----------------------------------+--------------------------+-----------+----------+-----------------------------------------------------------------------
+                           Table "public.statistical_unit_staging"
+              Column              |           Type           | Collation | Nullable | Default 
+----------------------------------+--------------------------+-----------+----------+---------
  unit_type                        | statistical_unit_type    |           | not null | 
  unit_id                          | integer                  |           | not null | 
  valid_from                       | date                     |           |          | 
@@ -69,7 +69,6 @@
  last_edit_comment                | character varying(512)   |           |          | 
  last_edit_by_user_id             | integer                  |           |          | 
  last_edit_at                     | timestamp with time zone |           |          | 
- invalid_codes                    | jsonb                    |           |          | 
  has_legal_unit                   | boolean                  |           |          | 
  related_establishment_ids        | integer[]                |           |          | 
  excluded_establishment_ids       | integer[]                |           |          | 
@@ -86,6 +85,8 @@
  included_legal_unit_count        | integer                  |           |          | 
  included_enterprise_count        | integer                  |           |          | 
  tag_paths                        | ltree[]                  |           |          | 
- report_partition_seq             | integer                  |           |          | generated always as (report_partition_seq(unit_type, unit_id)) stored
+ report_partition_seq             | integer                  |           |          | 
+Triggers:
+    trg_set_report_partition_seq BEFORE INSERT ON statistical_unit_staging FOR EACH ROW EXECUTE FUNCTION set_report_partition_seq()
 
 ```

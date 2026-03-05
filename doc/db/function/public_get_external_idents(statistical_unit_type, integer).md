@@ -12,7 +12,7 @@ AS $function$
         WHEN 'enterprise' THEN ei.enterprise_id = unit_id
         WHEN 'legal_unit' THEN ei.legal_unit_id = unit_id
         WHEN 'establishment' THEN ei.establishment_id = unit_id
-        WHEN 'enterprise_group' THEN ei.enterprise_group_id = unit_id
+        WHEN 'power_group' THEN ei.power_group_id = unit_id
       END;
 $function$
 ```

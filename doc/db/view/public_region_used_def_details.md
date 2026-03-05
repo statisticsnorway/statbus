@@ -20,5 +20,6 @@ View definition:
            FROM statistical_unit
           WHERE statistical_unit.physical_region_path IS NOT NULL))
   ORDER BY (nlevel(path)), path;
+Options: security_invoker=on
 
 ```

@@ -1,0 +1,19 @@
+```sql
+                    View "public.legal_reorg_type_custom"
+   Column    | Type | Collation | Nullable | Default | Storage  | Description 
+-------------+------+-----------+----------+---------+----------+-------------
+ code        | text |           |          |         | extended | 
+ name        | text |           |          |         | extended | 
+ description | text |           |          |         | extended | 
+View definition:
+ SELECT code,
+    name,
+    description
+   FROM legal_reorg_type_available
+  WHERE custom = true;
+Triggers:
+    prepare_legal_reorg_type_custom BEFORE INSERT ON legal_reorg_type_custom FOR EACH STATEMENT EXECUTE FUNCTION admin.prepare_legal_reorg_type_custom()
+    upsert_legal_reorg_type_custom INSTEAD OF INSERT ON legal_reorg_type_custom FOR EACH ROW EXECUTE FUNCTION admin.upsert_legal_reorg_type_custom()
+Options: security_invoker=on
+
+```

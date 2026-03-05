@@ -3,6 +3,7 @@ CREATE OR REPLACE FUNCTION admin.reset_import_job_user_context()
  RETURNS void
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO 'public', 'admin', 'pg_temp'
 AS $function$
 DECLARE
     v_original_claims jsonb;

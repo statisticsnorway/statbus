@@ -18,5 +18,6 @@ View definition:
            FROM statistical_unit
           WHERE statistical_unit.sector_path IS NOT NULL)) AND enabled
   ORDER BY path;
+Options: security_invoker=on
 
 ```

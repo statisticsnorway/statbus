@@ -79,5 +79,6 @@ View definition:
             WHEN type = 'year'::time_context_type THEN EXTRACT(year FROM valid_from)
             ELSE NULL::numeric
         END) DESC, code, path;
+Options: security_invoker=on
 
 ```
