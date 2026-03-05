@@ -291,39 +291,34 @@ WHERE edit_comment LIKE '%cycle allowed%';
 -- ============================================================================
 
 \echo "Attempt self-reference (should fail due to CHECK constraint)"
-DO $$
-DECLARE
-    _alpha_id integer;
-BEGIN
-    SELECT id INTO _alpha_id FROM public.legal_unit WHERE name = 'Alpha Holdings Corp' LIMIT 1;
-    
-    INSERT INTO public.legal_relationship (
-        valid_from, 
-        influencing_id, 
-        influenced_id, 
-        type_id,
-        percentage,
-        edit_by_user_id,
-        edit_comment
-    )
-    VALUES (
-        '2020-01-01'::date,
-        _alpha_id,
-        _alpha_id,  -- Same as influencing - should fail
-        (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
-        100.00,
-        (SELECT id FROM auth.user LIMIT 1),
-        'Self-reference - SHOULD FAIL'
-    );
-    
-    RAISE EXCEPTION 'ERROR: Self-reference was allowed - this should have failed!';
-EXCEPTION
-    WHEN check_violation THEN
-        RAISE NOTICE 'SUCCESS: Self-reference correctly prevented with CHECK constraint';
-    WHEN OTHERS THEN
-        RAISE NOTICE 'SUCCESS: Self-reference prevented with: %', SQLERRM;
-END;
-$$;
+SAVEPOINT test_self_ref;
+\set ON_ERROR_STOP off
+INSERT INTO public.legal_relationship (
+    valid_from,
+    influencing_id,
+    influenced_id,
+    type_id,
+    percentage,
+    edit_by_user_id,
+    edit_comment
+)
+SELECT
+    '2020-01-01'::date,
+    lu.id,
+    lu.id,  -- Same as influencing - should fail
+    (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
+    100.00,
+    (SELECT id FROM auth.user LIMIT 1),
+    'Self-reference - SHOULD FAIL'
+FROM public.legal_unit AS lu
+WHERE lu.name = 'Alpha Holdings Corp';
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT test_self_ref;
+
+\echo "Verify no self-reference relationships were created"
+SELECT COUNT(*) AS self_ref_count
+FROM public.legal_relationship
+WHERE influencing_id = influenced_id;
 
 -- ============================================================================
 \echo "=== Section 6: Test Hierarchy View ==="

@@ -331,26 +331,117 @@ DELETE FROM public.legal_relationship WHERE edit_comment LIKE '%Cycle relationsh
 CALL import.process_power_group_link(NULL, NULL, 'process_power_group_link');
 
 \echo "2e: Self-reference still prevented by CHECK constraint: Foxtrot → Foxtrot"
-DO $$
-DECLARE
-    _foxtrot_id integer;
-BEGIN
-    SELECT id INTO _foxtrot_id FROM public.legal_unit WHERE name = 'Foxtrot Corp' LIMIT 1;
-    INSERT INTO public.legal_relationship (valid_from, influencing_id, influenced_id, type_id, percentage, edit_by_user_id, edit_comment)
-    VALUES ('2020-01-01'::date, _foxtrot_id, _foxtrot_id,
-        (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
-        100.00, (SELECT id FROM auth.user LIMIT 1), 'SHOULD FAIL - self-reference');
-    RAISE EXCEPTION 'TEST FAILURE: Self-reference was allowed!';
-EXCEPTION
-    WHEN check_violation THEN
-        RAISE NOTICE 'PASS: Self-reference prevented (CHECK constraint)';
-    WHEN OTHERS THEN
-        RAISE NOTICE 'PASS: Self-reference prevented: %', SQLERRM;
-END;
-$$;
+SAVEPOINT test_self_ref;
+\set ON_ERROR_STOP off
+INSERT INTO public.legal_relationship (valid_from, influencing_id, influenced_id, type_id, percentage, edit_by_user_id, edit_comment)
+SELECT '2020-01-01'::date, lu.id, lu.id,
+    (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
+    100.00, (SELECT id FROM auth.user LIMIT 1), 'SHOULD FAIL - self-reference'
+FROM public.legal_unit AS lu
+WHERE lu.name = 'Foxtrot Corp';
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT test_self_ref;
 
 \echo "2e: No self-reference relationships created"
 SELECT COUNT(*) AS invalid_rels FROM public.legal_relationship WHERE edit_comment LIKE '%SHOULD FAIL%';
+
+-- ============================================================================
+\echo "=== 2f: NSO Override of power_root.custom_root_legal_unit_id ==="
+-- ============================================================================
+-- Re-create cycle to produce a power_root entry: Research → Apex Corp
+INSERT INTO public.legal_relationship (valid_from, influencing_id, influenced_id, type_id, percentage, edit_by_user_id, edit_comment)
+SELECT '2020-01-01'::date,
+    (SELECT id FROM public.legal_unit WHERE name = 'Apex Research'),
+    (SELECT id FROM public.legal_unit WHERE name = 'Apex Corp'),
+    (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
+    30.00, (SELECT id FROM auth.user LIMIT 1), 'Cycle for NSO override test';
+
+CALL import.process_power_group_link(NULL, NULL, 'process_power_group_link');
+
+\echo "2f: power_root entry exists for cycle PG with derived root, no custom override"
+SELECT
+    pg.ident AS power_group_ident,
+    pr.derived_root_legal_unit_id,
+    lu_derived.name AS derived_root_name,
+    pr.derived_root_status,
+    pr.custom_root_legal_unit_id,
+    pr.root_legal_unit_id,
+    lu_root.name AS effective_root_name
+FROM public.power_root AS pr
+JOIN public.power_group AS pg ON pg.id = pr.power_group_id
+JOIN public.legal_unit AS lu_derived ON lu_derived.id = pr.derived_root_legal_unit_id
+JOIN public.legal_unit AS lu_root ON lu_root.id = pr.root_legal_unit_id
+WHERE pg.id = (
+    SELECT lr.derived_power_group_id
+    FROM public.legal_relationship AS lr
+    WHERE lr.edit_comment = 'Cycle for NSO override test'
+    LIMIT 1
+);
+
+\echo "2f: Set custom_root to a different member LU (Apex Manufacturing)"
+UPDATE public.power_root
+SET custom_root_legal_unit_id = (SELECT id FROM public.legal_unit WHERE name = 'Apex Manufacturing'),
+    edit_comment = 'NSO override test'
+WHERE power_group_id = (
+    SELECT lr.derived_power_group_id
+    FROM public.legal_relationship AS lr
+    WHERE lr.edit_comment = 'Cycle for NSO override test'
+    LIMIT 1
+);
+
+\echo "2f: root_legal_unit_id now equals custom (COALESCE)"
+SELECT
+    pg.ident AS power_group_ident,
+    lu_derived.name AS derived_root_name,
+    lu_custom.name AS custom_root_name,
+    lu_root.name AS effective_root_name,
+    pr.root_legal_unit_id = pr.custom_root_legal_unit_id AS root_equals_custom
+FROM public.power_root AS pr
+JOIN public.power_group AS pg ON pg.id = pr.power_group_id
+JOIN public.legal_unit AS lu_derived ON lu_derived.id = pr.derived_root_legal_unit_id
+LEFT JOIN public.legal_unit AS lu_custom ON lu_custom.id = pr.custom_root_legal_unit_id
+JOIN public.legal_unit AS lu_root ON lu_root.id = pr.root_legal_unit_id
+WHERE pr.edit_comment = 'NSO override test';
+
+\echo "2f: Trigger enqueued derive_statistical_unit for the PG"
+SELECT command, state
+FROM worker.tasks
+WHERE command = 'derive_statistical_unit'
+ORDER BY id DESC
+LIMIT 1;
+
+\echo "2f: Setting custom_root to non-member LU should fail"
+-- Use DO block here because the error text includes non-deterministic power_group_id.
+-- We need a stable message for pg_regress comparison.
+DO $$
+BEGIN
+    UPDATE public.power_root
+    SET custom_root_legal_unit_id = (SELECT id FROM public.legal_unit WHERE name = 'Echo Standalone')
+    WHERE edit_comment = 'NSO override test';
+    RAISE EXCEPTION 'TEST FAILURE: non-member custom_root was accepted';
+EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'PASS: non-member custom_root rejected: %',
+        regexp_replace(SQLERRM, 'power_group \d+', 'power_group <ID>');
+END;
+$$;
+
+\echo "2f: Reset custom_root to NULL, verify revert to derived"
+UPDATE public.power_root
+SET custom_root_legal_unit_id = NULL,
+    edit_comment = 'NSO override reset'
+WHERE edit_comment = 'NSO override test';
+
+SELECT
+    lu_root.name AS effective_root_name,
+    pr.root_legal_unit_id = pr.derived_root_legal_unit_id AS root_equals_derived,
+    pr.custom_root_legal_unit_id IS NULL AS custom_is_null
+FROM public.power_root AS pr
+JOIN public.legal_unit AS lu_root ON lu_root.id = pr.root_legal_unit_id
+WHERE pr.edit_comment = 'NSO override reset';
+
+\echo "2f: Clean up cycle for summary"
+DELETE FROM public.legal_relationship WHERE edit_comment = 'Cycle for NSO override test';
+CALL import.process_power_group_link(NULL, NULL, 'process_power_group_link');
 
 -- ============================================================================
 \echo "=== Phase 2 Summary ==="
@@ -425,17 +516,10 @@ WHERE ei.ident LIKE '30000000%'
 ORDER BY ei.ident;
 
 -- Create import job for Round 1 relationships
-DO $$
-DECLARE
-    v_definition_id INT;
-BEGIN
-    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_relationship_source_dates';
-    IF v_definition_id IS NULL THEN
-        RAISE EXCEPTION 'Import definition "legal_relationship_source_dates" not found.';
-    END IF;
-    INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
-    VALUES (v_definition_id, 'import_120_round1', 'Test 120: Relationships Round 1', 'Round 1 parent_company relationships', 'Test 120 Round 1');
-END $$;
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT id, 'import_120_round1', 'Test 120: Relationships Round 1', 'Round 1 parent_company relationships', 'Test 120 Round 1'
+FROM public.import_definition
+WHERE slug = 'legal_relationship_source_dates';
 
 -- Upload Round 1 relationship data (4 relationships, 2 clusters)
 INSERT INTO public.import_120_round1_upload(valid_from, valid_to, influencing_tax_ident, influenced_tax_ident, rel_type_code, percentage) VALUES
@@ -510,17 +594,10 @@ SELECT id, ident FROM public.power_group ORDER BY ident;
 CALL test.remove_pg_temp_for_tx_user_switch(p_keep_tables => ARRAY['_import_lu_data', '_round1_pgs']);
 
 -- Create import job for Round 2 relationships
-DO $$
-DECLARE
-    v_definition_id INT;
-BEGIN
-    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_relationship_source_dates';
-    IF v_definition_id IS NULL THEN
-        RAISE EXCEPTION 'Import definition "legal_relationship_source_dates" not found.';
-    END IF;
-    INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
-    VALUES (v_definition_id, 'import_120_round2', 'Test 120: Relationships Round 2', 'Round 2 with changes', 'Test 120 Round 2');
-END $$;
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT id, 'import_120_round2', 'Test 120: Relationships Round 2', 'Round 2 with changes', 'Test 120 Round 2'
+FROM public.import_definition
+WHERE slug = 'legal_relationship_source_dates';
 
 -- Upload Round 2 relationship data:
 --   300000001→300000002: unchanged (80%, parent_company)
