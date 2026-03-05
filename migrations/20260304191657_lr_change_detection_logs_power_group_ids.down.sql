@@ -122,12 +122,12 @@ BEGIN
 
         -- Compute affected power group IDs from legal_relationship using containment operator
         SELECT COALESCE(
-            range_agg(int4range(lr.power_group_id, lr.power_group_id, '[]')),
+            range_agg(int4range(lr.derived_power_group_id, lr.derived_power_group_id, '[]')),
             '{}'::int4multirange
         )
         INTO v_pg_ids
         FROM public.legal_relationship AS lr
-        WHERE lr.power_group_id IS NOT NULL
+        WHERE lr.derived_power_group_id IS NOT NULL
           AND (v_lu_ids @> lr.influencing_id OR v_lu_ids @> lr.influenced_id);
 
         -- If date range is empty, look up actual valid ranges from affected units

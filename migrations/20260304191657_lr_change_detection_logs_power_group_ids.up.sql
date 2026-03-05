@@ -50,11 +50,11 @@ BEGIN
             v_has_valid_range := FALSE;
         WHEN 'legal_relationship' THEN
             -- LR changes only affect power groups, not individual LUs/enterprises.
-            -- Only log when power_group_id is assigned (NULL = PG not yet linked).
-            v_columns := 'NULL::INT AS est_id, NULL::INT AS lu_id, NULL::INT AS ent_id, power_group_id AS pg_id';
+            -- Only log when derived_power_group_id is assigned (NULL = PG not yet linked).
+            v_columns := 'NULL::INT AS est_id, NULL::INT AS lu_id, NULL::INT AS ent_id, derived_power_group_id AS pg_id';
             v_has_valid_range := TRUE;
             v_has_power_group := TRUE;
-            v_where_clause := ' WHERE power_group_id IS NOT NULL';
+            v_where_clause := ' WHERE derived_power_group_id IS NOT NULL';
         WHEN 'power_group' THEN
             -- PG metadata changes (name, type_id, etc.) affect PG statistical units.
             -- Timeless table — no valid_range.
@@ -244,20 +244,20 @@ $command_collect_changes$;
 -- Fix 4: Replace generic ensure_collect trigger on LR with PG-aware version
 -- =============================================================================
 -- The generic trigger schedules collection even when no PG is assigned (useless).
--- The LR-specific version checks power_group_id IS NOT NULL before scheduling.
+-- The LR-specific version checks derived_power_group_id IS NOT NULL before scheduling.
 
 -- Drop the existing generic trigger
 DROP TRIGGER IF EXISTS b_legal_relationship_ensure_collect ON public.legal_relationship;
 
--- Create LR-specific trigger function that filters on power_group_id
+-- Create LR-specific trigger function that filters on derived_power_group_id
 CREATE OR REPLACE FUNCTION worker.ensure_collect_changes_for_legal_relationship()
 RETURNS trigger LANGUAGE plpgsql AS $ensure_collect_changes_for_legal_relationship$
 BEGIN
     -- Only schedule collection if any changed row has a PG assigned.
-    -- During initial import, LR rows are inserted with power_group_id = NULL,
+    -- During initial import, LR rows are inserted with derived_power_group_id = NULL,
     -- then process_power_group_link assigns PG IDs (triggering this again).
     IF TG_OP IN ('INSERT', 'UPDATE') THEN
-        IF NOT EXISTS (SELECT 1 FROM new_rows WHERE power_group_id IS NOT NULL) THEN
+        IF NOT EXISTS (SELECT 1 FROM new_rows WHERE derived_power_group_id IS NOT NULL) THEN
             RETURN NULL;
         END IF;
     END IF;
@@ -277,13 +277,13 @@ BEGIN
 END;
 $ensure_collect_changes_for_legal_relationship$;
 
--- INSERT: use LR-specific function that checks power_group_id
+-- INSERT: use LR-specific function that checks derived_power_group_id
 CREATE TRIGGER b_legal_relationship_ensure_collect_insert
 AFTER INSERT ON public.legal_relationship
 REFERENCING NEW TABLE AS new_rows
 FOR EACH STATEMENT EXECUTE FUNCTION worker.ensure_collect_changes_for_legal_relationship();
 
--- UPDATE: use LR-specific function that checks power_group_id
+-- UPDATE: use LR-specific function that checks derived_power_group_id
 CREATE TRIGGER b_legal_relationship_ensure_collect_update
 AFTER UPDATE ON public.legal_relationship
 REFERENCING NEW TABLE AS new_rows
@@ -381,6 +381,8 @@ DECLARE
     v_legal_unit_count INT := 0;
     v_establishment_count INT := 0;
     v_power_group_count INT := 0;
+    v_partition_count INT;
+    v_pg_batch_size INT;
 BEGIN
     v_is_full_refresh := (p_establishment_id_ranges IS NULL
                          AND p_legal_unit_id_ranges IS NULL
@@ -413,21 +415,31 @@ BEGIN
             v_batch_count := v_batch_count + 1;
         END LOOP;
 
-        v_power_group_count := (SELECT COUNT(*)::int FROM public.power_group);
+        v_power_group_ids := ARRAY(SELECT id FROM public.power_group ORDER BY id);
+        v_power_group_count := COALESCE(array_length(v_power_group_ids, 1), 0);
         IF v_power_group_count > 0 THEN
-            PERFORM worker.spawn(
-                p_command := 'statistical_unit_refresh_batch',
-                p_payload := jsonb_build_object(
-                    'command', 'statistical_unit_refresh_batch',
-                    'batch_seq', v_batch_count + 1,
-                    'power_group_ids', (SELECT COALESCE(array_agg(id), '{}') FROM public.power_group),
-                    'valid_from', p_valid_from,
-                    'valid_until', p_valid_until
-                ),
-                p_parent_id := p_task_id,
-                p_priority := v_child_priority
-            );
-            v_batch_count := v_batch_count + 1;
+            SELECT analytics_partition_count INTO v_partition_count FROM public.settings;
+            v_pg_batch_size := GREATEST(1, ceil(v_power_group_count::numeric / v_partition_count));
+            FOR v_batch IN
+                SELECT array_agg(pg_id ORDER BY pg_id) AS pg_ids
+                FROM (SELECT pg_id, ((row_number() OVER (ORDER BY pg_id)) - 1) / v_pg_batch_size AS batch_idx
+                      FROM unnest(v_power_group_ids) AS pg_id) AS t
+                GROUP BY batch_idx ORDER BY batch_idx
+            LOOP
+                PERFORM worker.spawn(
+                    p_command := 'statistical_unit_refresh_batch',
+                    p_payload := jsonb_build_object(
+                        'command', 'statistical_unit_refresh_batch',
+                        'batch_seq', v_batch_count + 1,
+                        'power_group_ids', v_batch.pg_ids,
+                        'valid_from', p_valid_from,
+                        'valid_until', p_valid_until
+                    ),
+                    p_parent_id := p_task_id,
+                    p_priority := v_child_priority
+                );
+                v_batch_count := v_batch_count + 1;
+            END LOOP;
         END IF;
     ELSE
         v_establishment_ids := ARRAY(SELECT generate_series(lower(r), upper(r)-1) FROM unnest(COALESCE(p_establishment_id_ranges, '{}'::int4multirange)) AS t(r));
@@ -527,19 +539,28 @@ BEGIN
             FROM unnest(v_power_group_ids) AS pg_id
             ON CONFLICT DO NOTHING;
 
-            PERFORM worker.spawn(
-                p_command := 'statistical_unit_refresh_batch',
-                p_payload := jsonb_build_object(
-                    'command', 'statistical_unit_refresh_batch',
-                    'batch_seq', v_batch_count + 1,
-                    'power_group_ids', v_power_group_ids,
-                    'valid_from', p_valid_from,
-                    'valid_until', p_valid_until
-                ),
-                p_parent_id := p_task_id,
-                p_priority := v_child_priority
-            );
-            v_batch_count := v_batch_count + 1;
+            SELECT analytics_partition_count INTO v_partition_count FROM public.settings;
+            v_pg_batch_size := GREATEST(1, ceil(v_power_group_count::numeric / v_partition_count));
+            FOR v_batch IN
+                SELECT array_agg(pg_id ORDER BY pg_id) AS pg_ids
+                FROM (SELECT pg_id, ((row_number() OVER (ORDER BY pg_id)) - 1) / v_pg_batch_size AS batch_idx
+                      FROM unnest(v_power_group_ids) AS pg_id) AS t
+                GROUP BY batch_idx ORDER BY batch_idx
+            LOOP
+                PERFORM worker.spawn(
+                    p_command := 'statistical_unit_refresh_batch',
+                    p_payload := jsonb_build_object(
+                        'command', 'statistical_unit_refresh_batch',
+                        'batch_seq', v_batch_count + 1,
+                        'power_group_ids', v_batch.pg_ids,
+                        'valid_from', p_valid_from,
+                        'valid_until', p_valid_until
+                    ),
+                    p_parent_id := p_task_id,
+                    p_priority := v_child_priority
+                );
+                v_batch_count := v_batch_count + 1;
+            END LOOP;
         END IF;
     END IF;
 
