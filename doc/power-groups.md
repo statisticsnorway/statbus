@@ -26,7 +26,7 @@ The two generic relationship types map naturally to the power group model:
 - **Exclusion constraint**: structural single-root guarantee for primary types
 - **Hierarchy direction**: root detection uses relationship direction for tree traversal
 
-Non-primary relationships may create multi-root situations (since they are 1:N), which the two-phase algorithm handles via Phase 2 connected components.
+Non-primary relationships may create multi-root situations (since they are 1:N), which the clustering algorithm handles by grouping all connected LUs into the same component.
 
 ## Tables and Relationships
 
@@ -48,8 +48,9 @@ Non-primary relationships may create multi-root situations (since they are 1:N),
 │ id           │    │ id                    │    │ id           │
 │ valid_range  │    │ influencing_id ───────┘    │ valid_range  │
 │ name         │    │ influenced_id  ────────────┘              │
-│ ...          │    │ power_group_id ──────┐                    │
-└──────┬───────┘    │ primary_influencer_only (denormalized)    │
+│ ...          │    │ derived_power_group_id ┐                   │
+└──────┬───────┘    │ derived_influenced_power_level            │
+       │            │ primary_influencer_only (denormalized)    │
        │            │ valid_range           │                    │
        │            └──────────────────────┬┘                   │
        │                       │           │
@@ -80,17 +81,17 @@ Non-primary relationships may create multi-root situations (since they are 1:N),
           │ valid_range (sql_saga)   │      │
           └──────────────────────────┘      │
                                             │
-                             ┌──────────────┴───┐
-                             │ power_hierarchy   │
-                             │ (view, read-only) │
-                             │──────────────────│
-                             │ legal_unit_id     │
-                             │ root_legal_unit_id│
-                             │ power_level       │
-                             │ valid_range       │
-                             │ path              │
-                             │ is_cycle          │
-                             └──────────────────┘
+                             ┌─────────────────────────┐
+                             │ power_group_membership   │
+                             │ (view, reads materialized│
+                             │  data from LR + PG)      │
+                             │─────────────────────────│
+                             │ power_group_id           │
+                             │ power_group_ident        │
+                             │ legal_unit_id            │
+                             │ power_level              │
+                             │ valid_range              │
+                             └─────────────────────────┘
 ```
 
 ### Base Tables
@@ -101,7 +102,8 @@ Non-primary relationships may create multi-root situations (since they are 1:N),
 - `influencing_id` / `influenced_id` — FK to `legal_unit`
 - `type_id` → `legal_rel_type` — determines semantics
 - `primary_influencer_only` — denormalized from type, kept in sync by trigger + dual-column FK
-- `power_group_id` — set by `process_power_group_link` during import for all relationships in a cluster
+- `derived_power_group_id` — set by `process_power_group_link` during import for all relationships in a cluster
+- `derived_influenced_power_level` — BFS depth from root (NULL for cycles); set by `process_power_group_link`
 - `valid_range` — temporal validity
 
 **`power_group`** (timeless, like enterprise) — Once created, exists forever. Active status is derived at query time from `legal_relationship.valid_range`. Key columns:
@@ -109,7 +111,7 @@ Non-primary relationships may create multi-root situations (since they are 1:N),
 - `short_name`, `name` — optional overrides (NULL = derive from root legal unit)
 - `type_id` → `power_group_type` — classification (domestic/foreign, national/multinational)
 
-**`power_root`** (sparse temporal, sql_saga) — Only cycle/multi-root power groups get entries. Single-root PGs derive root from `power_hierarchy WHERE power_level = 1`. Populated by `process_power_group_link` during import.
+**`power_root`** (sparse temporal, sql_saga) — Only cycle/multi-root power groups get entries. Single-root PGs derive their root from `power_group_membership WHERE power_level = 1` (no `power_root` entry needed). Populated by `process_power_group_link` during import.
 - `derived_root_legal_unit_id` — algorithm-chosen root
 - `derived_root_status` — `'cycle'` (root chosen from cyclic component) or `'multi'` (multiple roots merged into one PG)
 - `custom_root_legal_unit_id` — NSO override (nullable); when set, overrides the derived root
@@ -120,15 +122,19 @@ NSO edits to `custom_root_legal_unit_id` trigger `derive_statistical_unit` direc
 
 ### Views
 
-**`power_hierarchy`** — Two-phase recursive CTE (see algorithm below). Returns every legal unit's position in the hierarchy: `legal_unit_id`, `root_legal_unit_id`, `power_level`, `valid_range`.
+All views read **materialized data** — no recursive CTEs at query time. Power levels and group assignments are pre-computed by `process_power_group_link` during import and stored on `legal_relationship`.
 
-**`power_group_def`** — Aggregates hierarchy to compute per-root metrics: `depth` (longest path), `width` (direct children), `reach` (total controlled units).
+**`power_group_membership`** — UNION of two simple queries reading materialized data:
+1. Roots (level 1): influencing LUs that are never influenced within the same PG
+2. Non-roots: influenced LUs with their stored `derived_influenced_power_level`
 
-**`legal_relationship_cluster`** — Maps each relationship to its cluster root, used by `process_power_group_link` to assign `power_group_id`.
+Returns: `power_group_id`, `power_group_ident`, `legal_unit_id`, `power_level`, `valid_range`.
 
-**`power_group_membership`** — Joins `power_group` ↔ `power_hierarchy` to answer "which legal units belong to which power group at what level".
+**`power_group_def`** — Aggregates `power_group_membership` to compute per-PG metrics: `depth` (longest path), `width` (direct children of root), `reach` (total controlled units).
 
-**`power_group_active`** — Power groups with at least one relationship valid today.
+**`legal_relationship_cluster`** — Trivial read: `SELECT id, derived_power_group_id FROM legal_relationship WHERE derived_power_group_id IS NOT NULL`. Cluster identity is materialized on the LR row itself.
+
+**`power_group_active`** — Power groups with at least one relationship valid today (filtered by `valid_range @> CURRENT_DATE`).
 
 ## Core Concept: `primary_influencer_only`
 
@@ -161,34 +167,61 @@ SELECT sql_saga.add_unique_key(
 - A **trigger** (`trg_legal_relationship_set_primary_influencer_only`) that auto-sets the value on INSERT or UPDATE of `type_id`
 - A **dual-column FK** (`(type_id, primary_influencer_only) REFERENCES legal_rel_type(id, primary_influencer_only) ON UPDATE CASCADE`) that keeps the value in sync if the type definition changes
 
-## Two-Phase Hierarchy Algorithm
+## Clustering and Hierarchy Algorithm
 
-The `power_hierarchy` view uses a two-phase recursive CTE to handle both clean hierarchies and cycles/multi-root structures.
+The algorithm runs during `process_power_group_link` (called during import) and materializes results on `legal_relationship` rows. There are no recursive CTEs at query time — all views read pre-computed data.
 
-### Phase 1: Natural Roots
+Reference implementation: `migrations/20260226000000_integrate_power_group_into_derive_pipeline.up.sql` lines 2130-2439.
 
-Uses `range_agg` multirange subtraction to compute exact temporal root periods:
+### Step 1: Connected Components via Iterative Label Propagation
 
-1. For each legal unit that has children (outgoing edges of any type), subtract the periods where it also has a parent (incoming edge of any type)
-2. The remaining periods are when the unit is a **natural root**
-3. Recursively traverse downward via outgoing edges, assigning increasing `power_level` (1 = root, 2 = direct subsidiary, etc.)
-4. Cycle detection via `path` array prevents infinite recursion; max depth 100
+Groups all relationship-connected legal units into components. O(edges × depth).
 
-### Phase 2: Orphan/Cycle Connected Components
+1. Build **bidirectional edges** from all `legal_relationship` rows (both influencing→influenced and influenced→influencing)
+2. Initialize each LU as its own component: `comp_id = lu_id`
+3. **Iteratively propagate** the minimum `comp_id` along edges until convergence (max 100 iterations)
+4. Result: `_lu_comp(lu_id, comp_id)` — every LU mapped to its component
 
-Handles nodes that participate in relationship edges but were not covered by Phase 1 (typically cycles or nodes connected only via non-primary edges):
+All relationship types (primary and non-primary) contribute equally to component formation.
 
-1. Identify **orphan periods** — times when a node has relationship edges but no Phase 1 assignment
-2. **Bidirectional flood fill** groups orphans into connected components
-3. Pick root per component using priority:
-   - **`power_root.custom_root_legal_unit_id`** — NSO-chosen root (overrides algorithm for known groups)
-   - **Adjacent Phase 1 root** — temporal continuity with nearest natural-root period
-   - **MIN(id)** — deterministic fallback when no natural root ever existed
-4. Directed traversal from chosen root, same as Phase 1
+### Step 2: Cluster-to-Power-Group Mapping
+
+1. Map each `legal_relationship` to its cluster via `_lu_comp`
+2. Check if any relationship in the cluster already has `derived_power_group_id` (reuse existing PG)
+3. Create new `power_group` records for clusters without one
+4. Bulk-update `legal_relationship.derived_power_group_id` for all relationships
+5. Detect and handle **cluster merges** (when multiple PGs converge to one cluster, consolidate to the largest)
+
+### Step 3: BFS Power Levels from Roots
+
+Computes hierarchy depth via breadth-first search. Materialized on `legal_relationship.derived_influenced_power_level`.
+
+1. Detect **natural roots**: LUs that influence others but are never influenced within the same PG (the "no-parent" criterion)
+2. Seed BFS with roots at level 1
+3. Expand frontier along directed edges (influencing → influenced), assigning increasing levels
+4. Store BFS level on each relationship: `derived_influenced_power_level = level`
+5. Relationships whose influenced LU is never reached via BFS (cycles) get `NULL` level
+
+### Step 4: Power Root Detection (Cycle/Multi-Root Handling)
+
+Handles power groups with anomalous root structures. Populates the sparse `power_root` table.
+
+1. Count natural roots per component:
+   - **0 roots** → `derived_root_status = 'cycle'` — pick `comp_id` as synthetic root
+   - **1 root** → no `power_root` entry needed (root derived from `power_group_membership` level 1)
+   - **2+ roots** → `derived_root_status = 'multi'` — pick `MIN(lu_id)` as derived root
+2. Build source rows with: `power_group_id`, `derived_root_legal_unit_id`, `derived_root_status`, preserved `custom_root_legal_unit_id`, union of all relationship `valid_range` values
+3. Temporal merge into `power_root` via `sql_saga.temporal_merge()` (preserves NSO overrides across re-imports)
+
+### Root Selection Priority
+
+1. **`power_root.custom_root_legal_unit_id`** — NSO override (if set, overrides derived root via `COALESCE`)
+2. **Derived root from algorithm** — `MIN(lu_id)` for multi-root, `comp_id` for cycle
+3. For single-root PGs: root is simply the LU at power_level = 1 (no `power_root` entry)
 
 ## Design Scenarios
 
-These scenarios motivated the two-phase algorithm and the sparse `power_root` table.
+These scenarios motivate the clustering algorithm and the sparse `power_root` table.
 
 ### Scenario 1: Simple hierarchy (single root)
 
@@ -199,67 +232,36 @@ LU Beta  (id=2)  [2020, infinity)
 LR: Alpha->Beta  [2020, infinity)   control
 ```
 
-Phase 1: Alpha has child Beta, no parent — root for full lifetime.
+Clustering: Alpha and Beta form one component. BFS: Alpha has no parent → root (level 1), Beta → level 2.
 
 ```
-power_hierarchy:
- lu_id | root | level | valid_range
-     1 |    1 |     1 | [2020, infinity)
-     2 |    1 |     2 | [2020, infinity)
+power_group_membership:
+ lu_id | power_level | valid_range
+     1 |           1 | [2020, infinity)
+     2 |           2 | [2020, infinity)
 
-power_root: (empty — single-root PGs have no entry; root derived from power_hierarchy level 1)
+power_root: (empty — single-root PGs have no entry)
 ```
 
-### Scenario 2: Cycle forming later
+### Scenario 2: Cycle
 
 ```
-Timeline: 2020 ──── 2023 ────────── infinity
+Timeline: 2020 ────────────────────── infinity
 LR: Alpha(1)->Beta(2)  [2020, infinity)   control
-LR: Beta(2)->Alpha(1)  [2023, infinity)   control   <- cycle!
+LR: Beta(2)->Alpha(1)  [2020, infinity)   control   <- cycle!
 ```
 
-Phase 1 uses `range_agg` subtraction:
-- Alpha root periods: `[2020, infinity) - [2023, infinity)` = **`[2020, 2023)`**
-- Beta root periods: `[2020, infinity) - [2020, infinity)` = **empty** (always has a parent)
-
-Phase 1 covers `[2020, 2023)` only. Phase 2 finds orphans for `[2023, infinity)`:
-- Adjacent root from Phase 1: Alpha was root for `[2020, 2023)` — use Alpha
-- Hierarchy: Alpha(level=1) -> Beta(level=2) for both periods
+Clustering: Alpha and Beta in same component. BFS: both are influenced → no natural root. Step 4 classifies as `'cycle'`, picks `comp_id` (= MIN(id) = Alpha) as derived root.
 
 ```
-power_root: (only cycle period gets an entry — sparse)
- pg  | derived_root | derived_status | custom_root | root_lu | valid_from | valid_until
- PG1 |            1 | cycle          |        NULL |       1 | 2023-01-01 | infinity
+power_root:
+ pg  | derived_root | derived_status | custom_root | root_lu | valid_range
+ PG1 |            1 | cycle          |        NULL |       1 | [2020, infinity)
 ```
 
-Before cycle: no `power_root` entry (single-root, derived from hierarchy level 1).
-After cycle: `power_root` entry with `derived_root_status = 'cycle'`. NSO can override via `custom_root_legal_unit_id`.
+BFS levels are NULL (cycle prevents natural traversal). NSO can set `custom_root_legal_unit_id` to choose a specific root.
 
-### Scenario 3: Temporary cycle (adjacent-root heuristic)
-
-```
-Timeline: 2020 ──── 2023 ──── 2025 ──── infinity
-LR: Beta(2)->Alpha(1)   [2020, infinity)       <- Beta controls Alpha
-LR: Alpha(1)->Beta(2)   [2023, 2025)           <- temporary cycle
-```
-
-Phase 1: Beta root periods = `[2020, infinity) - [2023, 2025)` = `{[2020, 2023), [2025, infinity)}`
-- Beta is root in Phase 1 for both non-cycle periods.
-
-Phase 2 for `[2023, 2025)`:
-- `MIN(id)` would wrongly pick Alpha(1) — **breaking continuity**
-- **Adjacent-root heuristic**: Beta was root in adjacent `[2020, 2023)` — use Beta
-- Hierarchy: Beta(level=1) -> Alpha(level=2) — consistent across ALL periods
-
-```
-power_root: (only cycle period gets an entry — sparse)
- pg  | derived_root | derived_status | root_lu | valid_from | valid_until
- PG1 |            2 | cycle          |       2 | 2023-01-01 | 2025-01-01
-```
-
-Non-cycle periods have no `power_root` entry (Beta is natural root from hierarchy). Power levels are consistent — Beta is always level 1.
-
-### Scenario 4: Multi-root
+### Scenario 3: Multi-root
 
 ```
 LU Alpha(1), Beta(2), Charlie(3)
@@ -267,55 +269,48 @@ LR: Alpha->Charlie  [2020, infinity)  control
 LR: Beta->Charlie   [2020, infinity)  control
 ```
 
-Phase 1: Both Alpha and Beta are natural roots (children, no parents). Charlie appears under both. `process_power_group_link` merge logic detects shared members — one PG.
+Clustering: all three in one component. BFS: Alpha and Beta are both natural roots (no parent). Step 4 classifies as `'multi'`, picks `MIN(id)` = Alpha.
 
 ```
-power_root: (multi-root gets an entry — sparse)
- pg  | derived_root | derived_status | root_lu | valid_from | valid_until
- PG1 |            1 | multi          |       1 | 2020-01-01 | infinity
+power_root:
+ pg  | derived_root | derived_status | root_lu | valid_range
+ PG1 |            1 | multi          |       1 | [2020, infinity)
 ```
 
-### Scenario 5: NSO temporal override
+### Scenario 4: NSO temporal override
 
-Starting from Scenario 3 (Beta->Alpha, temporary cycle `[2023, 2025)`). NSO edits `power_root.custom_root_legal_unit_id` via the `power_root__for_portion_of_valid` view:
+Starting from Scenario 2 (cycle). NSO edits `power_root.custom_root_legal_unit_id`:
 
 ```sql
-INSERT INTO power_root__for_portion_of_valid (power_group_id, custom_root_legal_unit_id, valid_from, valid_to)
-VALUES (1, 1, '2023-01-01', '2025-01-01');  -- Alpha as custom root for cycle period
+UPDATE power_root
+SET custom_root_legal_unit_id = 2  -- Beta as root
+WHERE power_group_id = 1;
 ```
 
 ```
 power_root after NSO edit:
- pg  | derived_root | derived_status | custom_root | root_lu | valid_from | valid_until
- PG1 |            2 | cycle          |           1 |       1 | 2023-01-01 | 2025-01-01
+ pg  | derived_root | derived_status | custom_root | root_lu | valid_range
+ PG1 |            1 | cycle          |           2 |       2 | [2020, infinity)
 ```
 
-The `root_legal_unit_id` is `COALESCE(custom_root, derived_root) = 1` (Alpha). Phase 2 reads this and assigns Alpha as root for the cycle period. `power_root_derive_trigger` fires and enqueues `derive_statistical_unit` to recalculate timeline/statistical_unit.
+The `root_legal_unit_id` is `COALESCE(custom_root, derived_root) = 2` (Beta). `power_root_derive_trigger` fires and enqueues `derive_statistical_unit` to recalculate timeline/statistical_unit.
 
-**Override only affects the ambiguous period it targets.** Natural single-root periods have no `power_root` entry and are unaffected.
+**Validation**: Both `derived_root` and `custom_root` must be influencing LUs in the power group's legal relationships (enforced by `power_root_validate_root_membership` trigger).
 
-### Scenario 6: Permanent cycle (no natural root ever)
+### Scenario 5: Permanent cycle (no natural root ever)
 
 ```
 LR: A->B [2020, infinity), B->C [2020, infinity), C->A [2020, infinity)
 ```
 
-No natural root ever — Phase 1 produces nothing. Phase 2:
-- No adjacent Phase 1 root — fall back to MIN(id)
-- Power levels assigned from MIN(id)
+No natural root — all three are influenced. Classified as `'cycle'`, derived root = `MIN(id)`.
 
 NSO can set `power_root.custom_root_legal_unit_id` to choose the correct root.
 
-### Root Selection Priority (Phase 2)
-
-1. **`power_root.custom_root_legal_unit_id`** — NSO override (read by Phase 2 for known power groups)
-2. **Adjacent-period natural root** — root from closest Phase 1 period for same component
-3. **MIN(id)** — deterministic fallback when no natural root ever existed
-
 ## Lifecycle
 
-1. **Creation**: During import, `process_power_group_link` identifies clusters of connected relationships (all types) via the `legal_relationship_cluster` view
-2. **Assignment**: Each cluster gets a `power_group` record; all relationships in the cluster get `power_group_id` set
+1. **Creation**: During import, `process_power_group_link` identifies clusters of connected relationships (all types) via iterative label propagation
+2. **Assignment**: Each cluster gets a `power_group` record; all relationships in the cluster get `derived_power_group_id` set
 3. **Reuse**: Existing power groups are reused when relationships change within the same cluster
 4. **Merge**: When clusters merge (one hierarchy acquires another), relationships converge to the surviving power group
 5. **Root tracking**: `power_root` records the derived root, status, and optional NSO override per time period — but only for cycle/multi groups (sparse)
@@ -326,23 +321,23 @@ NSO can set `power_root.custom_root_legal_unit_id` to choose the correct root.
 
 The import system handles power groups as a **holistic step** (not batched per-row):
 
-1. **`analyse_power_group_link`**: Builds combined graph of existing + new relationships (all types), computes clusters via recursive CTE, assigns `cluster_root_legal_unit_id` to each data row
-2. **`process_power_group_link`**: Creates/finds power groups for each cluster, updates `legal_relationship.power_group_id` for all relationships in the cluster
+1. **`analyse_power_group_link`**: Builds combined graph of existing + new relationships (all types), computes clusters via iterative label propagation, assigns `cluster_root_legal_unit_id` to each data row
+2. **`process_power_group_link`**: Creates/finds power groups for each cluster, updates `legal_relationship.derived_power_group_id` and `derived_influenced_power_level` for all relationships
 
 ### Change Detection and the Derive Pipeline
 
 Legal relationship changes **only affect power groups** — they do NOT affect individual legal units or their connected enterprises. The change detection system is designed around this principle:
 
-**`base_change_log` has a `power_group_ids` column.** When LR rows change, the `log_base_change` trigger logs `power_group_id` directly into the `power_group_ids` column — not `influencing_id`/`influenced_id` as LU IDs. This prevents unnecessary LU/enterprise re-derivation.
+**`base_change_log` has a `power_group_ids` column.** When LR rows change, the `log_base_change` trigger logs `derived_power_group_id` directly into the `power_group_ids` column — not `influencing_id`/`influenced_id` as LU IDs. This prevents unnecessary LU/enterprise re-derivation.
 
-**LR changes are only logged when `power_group_id IS NOT NULL`.** Changes before PG assignment are invisible to the derive pipeline. This means the import flow is:
+**LR changes are only logged when `derived_power_group_id IS NOT NULL`.** Changes before PG assignment are invisible to the derive pipeline. This means the import flow is:
 
-1. Insert/update LR rows (`power_group_id = NULL`, no log entry)
+1. Insert/update LR rows (`derived_power_group_id = NULL`, no log entry)
 2. `process_power_group_link` assigns PG IDs (UPDATE triggers fire, PG IDs logged)
 3. `collect_changes` drains `base_change_log` — PG IDs come directly from the log
 4. `derive_statistical_unit` receives PG IDs and refreshes power group statistical units
 
-**The `ensure_collect_changes` trigger on LR also filters for `power_group_id IS NOT NULL`** to prevent scheduling collection when there's nothing to collect. A separate DELETE trigger always schedules (since PG was assigned before deletion and the log captured it).
+**The `ensure_collect_changes` trigger on LR also filters for `derived_power_group_id IS NOT NULL`** to prevent scheduling collection when there's nothing to collect. A separate DELETE trigger always schedules (since PG was assigned before deletion and the log captured it).
 
 **Direct vs indirect PG lookup.** Previously, `collect_changes` computed PG IDs via an indirect lookup: drain LU IDs from the log, then query `legal_relationship WHERE influencing_id IN (...) OR influenced_id IN (...)`. This failed during initial import because PG IDs weren't assigned yet when the log was written. The direct approach — logging PG IDs into `base_change_log` at trigger time — eliminates this race condition.
 
