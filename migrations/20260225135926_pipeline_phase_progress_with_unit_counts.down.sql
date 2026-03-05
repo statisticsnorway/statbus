@@ -1,6 +1,49 @@
 BEGIN;
 
 -- ============================================================================
+-- Revert is_importing — remove 'preparing_data' state
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION public.is_importing()
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE
+AS $function$
+  SELECT jsonb_build_object(
+    'active', EXISTS (
+      SELECT 1 FROM public.import_job
+      WHERE state IN ('analysing_data', 'processing_data')
+    ),
+    'jobs', COALESCE(
+      (SELECT jsonb_agg(jsonb_build_object(
+        'id', ij.id,
+        'state', ij.state,
+        'total_rows', ij.total_rows,
+        'imported_rows', ij.imported_rows,
+        'analysis_completed_pct', ij.analysis_completed_pct,
+        'import_completed_pct', ij.import_completed_pct
+      )) FROM public.import_job AS ij
+      WHERE ij.state IN ('analysing_data', 'processing_data')),
+      '[]'::jsonb
+    )
+  );
+$function$;
+
+-- ============================================================================
+-- Revert statistical_unit_flush_staging wrapper
+-- ============================================================================
+
+CREATE OR REPLACE PROCEDURE worker.statistical_unit_flush_staging(IN payload jsonb)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public', 'worker', 'pg_temp'
+AS $procedure$
+BEGIN
+    CALL public.statistical_unit_flush_staging();
+END;
+$procedure$;
+
+-- ============================================================================
 -- Revert collect_changes before_procedure
 -- ============================================================================
 
@@ -823,6 +866,11 @@ DROP PROCEDURE IF EXISTS worker.pipeline_progress_on_child_completed(worker.pipe
 ALTER TABLE worker.command_registry DROP COLUMN IF EXISTS on_children_created;
 ALTER TABLE worker.command_registry DROP COLUMN IF EXISTS on_child_completed;
 ALTER TABLE worker.command_registry DROP COLUMN phase;
+
+-- Drop pipeline step weights and notify helper (absorbed from fix migrations)
+DROP VIEW IF EXISTS public.pipeline_step_weight;
+DROP TABLE IF EXISTS worker.pipeline_step_weight;
+DROP FUNCTION IF EXISTS worker.notify_pipeline_progress();
 
 DROP TABLE worker.pipeline_progress;
 

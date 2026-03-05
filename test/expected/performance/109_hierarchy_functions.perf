@@ -1,6 +1,6 @@
  # Benchmark: statistical_unit_stats and relevant_statistical_units
 
- # Date: 2026-03-05 05:44:07.48873-08
+ # Date: 2026-03-05 07:19:37.754601-08
 
  
 
@@ -8,36 +8,36 @@
 
                                                                                       QUERY PLAN                                                                                      
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- Sort  (cost=14.80..14.81 rows=2 width=645) (actual time=0.107..0.109 rows=4.00 loops=1)
+ Sort  (cost=14.80..14.81 rows=2 width=645) (actual time=0.131..0.133 rows=4.00 loops=1)
    Sort Key: su.unit_type, su.unit_id
    Sort Method: quicksort  Memory: 27kB
    Buffers: shared hit=14
    CTE root_unit
-     ->  Index Scan using statistical_unit_temporal_pk on statistical_unit su_1  (cost=0.38..2.61 rows=1 width=51) (actual time=0.078..0.078 rows=1.00 loops=1)
+     ->  Index Scan using statistical_unit_temporal_pk on statistical_unit su_1  (cost=0.38..2.61 rows=1 width=51) (actual time=0.089..0.090 rows=1.00 loops=1)
            Index Cond: ((unit_type = 'enterprise'::statistical_unit_type) AND (unit_id = statistical_unit_enterprise_id('legal_unit'::statistical_unit_type, 1, '2024-01-01'::date)))
            Filter: ((valid_from <= '2024-01-01'::date) AND ('2024-01-01'::date < valid_until))
            Index Searches: 1
            Buffers: shared hit=8
-   ->  Hash Join  (cost=2.59..12.18 rows=2 width=645) (actual time=0.098..0.104 rows=4.00 loops=1)
+   ->  Hash Join  (cost=2.59..12.18 rows=2 width=645) (actual time=0.118..0.126 rows=4.00 loops=1)
          Hash Cond: ((su.unit_type = ('enterprise'::statistical_unit_type)) AND (su.unit_id = ru.unit_id))
          Buffers: shared hit=14
-         ->  Bitmap Heap Scan on statistical_unit su  (cost=2.45..11.94 rows=11 width=645) (actual time=0.011..0.015 rows=11.00 loops=1)
+         ->  Bitmap Heap Scan on statistical_unit su  (cost=2.45..11.94 rows=11 width=645) (actual time=0.017..0.022 rows=11.00 loops=1)
                Recheck Cond: ((valid_from <= '2024-01-01'::date) AND ('2024-01-01'::date < valid_until))
                Heap Blocks: exact=5
                Buffers: shared hit=6
-               ->  Bitmap Index Scan on statistical_unit_from_key  (cost=0.00..2.44 rows=11 width=0) (actual time=0.007..0.007 rows=14.00 loops=1)
+               ->  Bitmap Index Scan on statistical_unit_from_key  (cost=0.00..2.44 rows=11 width=0) (actual time=0.011..0.011 rows=14.00 loops=1)
                      Index Cond: ((valid_from <= '2024-01-01'::date) AND (valid_until > '2024-01-01'::date))
                      Index Searches: 1
                      Buffers: shared hit=1
-         ->  Hash  (cost=0.10..0.10 rows=3 width=8) (actual time=0.085..0.085 rows=4.00 loops=1)
+         ->  Hash  (cost=0.10..0.10 rows=3 width=8) (actual time=0.098..0.099 rows=4.00 loops=1)
                Buckets: 1024  Batches: 1  Memory Usage: 9kB
                Buffers: shared hit=8
-               ->  Append  (cost=0.00..0.10 rows=3 width=8) (actual time=0.080..0.084 rows=4.00 loops=1)
+               ->  Append  (cost=0.00..0.10 rows=3 width=8) (actual time=0.092..0.096 rows=4.00 loops=1)
                      Buffers: shared hit=8
-                     ->  CTE Scan on root_unit ru  (cost=0.00..0.02 rows=1 width=8) (actual time=0.080..0.080 rows=1.00 loops=1)
+                     ->  CTE Scan on root_unit ru  (cost=0.00..0.02 rows=1 width=8) (actual time=0.091..0.092 rows=1.00 loops=1)
                            Storage: Memory  Maximum Storage: 17kB
                            Buffers: shared hit=8
-                     ->  ProjectSet  (cost=0.00..0.03 rows=1 width=8) (actual time=0.002..0.002 rows=1.00 loops=1)
+                     ->  ProjectSet  (cost=0.00..0.03 rows=1 width=8) (actual time=0.002..0.003 rows=1.00 loops=1)
                            ->  CTE Scan on root_unit ru_1  (cost=0.00..0.02 rows=1 width=32) (actual time=0.000..0.000 rows=1.00 loops=1)
                                  Storage: Memory  Maximum Storage: 17kB
                      ->  ProjectSet  (cost=0.00..0.03 rows=1 width=8) (actual time=0.000..0.001 rows=2.00 loops=1)
@@ -45,8 +45,8 @@
                                  Storage: Memory  Maximum Storage: 17kB
  Planning:
    Buffers: shared hit=1
- Planning Time: 0.493 ms
- Execution Time: 0.129 ms
+ Planning Time: 0.569 ms
+ Execution Time: 0.157 ms
 
  
 
@@ -54,20 +54,20 @@
 
                                                                                       QUERY PLAN                                                                                      
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- Sort  (cost=14.80..14.81 rows=2 width=645) (actual time=0.172..0.173 rows=2.00 loops=1)
+ Sort  (cost=14.80..14.81 rows=2 width=645) (actual time=0.151..0.153 rows=2.00 loops=1)
    Sort Key: su.unit_type, su.unit_id
    Sort Method: quicksort  Memory: 26kB
    Buffers: shared hit=13
    CTE root_unit
-     ->  Index Scan using statistical_unit_temporal_pk on statistical_unit su_1  (cost=0.38..2.61 rows=1 width=51) (actual time=0.141..0.141 rows=1.00 loops=1)
+     ->  Index Scan using statistical_unit_temporal_pk on statistical_unit su_1  (cost=0.38..2.61 rows=1 width=51) (actual time=0.123..0.123 rows=1.00 loops=1)
            Index Cond: ((unit_type = 'enterprise'::statistical_unit_type) AND (unit_id = statistical_unit_enterprise_id('enterprise'::statistical_unit_type, 4, '2024-01-01'::date)))
            Filter: ((valid_from <= '2024-01-01'::date) AND ('2024-01-01'::date < valid_until))
            Index Searches: 1
            Buffers: shared hit=7
-   ->  Hash Join  (cost=2.59..12.18 rows=2 width=645) (actual time=0.165..0.169 rows=2.00 loops=1)
+   ->  Hash Join  (cost=2.59..12.18 rows=2 width=645) (actual time=0.145..0.149 rows=2.00 loops=1)
          Hash Cond: ((su.unit_type = ('enterprise'::statistical_unit_type)) AND (su.unit_id = ru.unit_id))
          Buffers: shared hit=13
-         ->  Bitmap Heap Scan on statistical_unit su  (cost=2.45..11.94 rows=11 width=645) (actual time=0.013..0.017 rows=11.00 loops=1)
+         ->  Bitmap Heap Scan on statistical_unit su  (cost=2.45..11.94 rows=11 width=645) (actual time=0.012..0.016 rows=11.00 loops=1)
                Recheck Cond: ((valid_from <= '2024-01-01'::date) AND ('2024-01-01'::date < valid_until))
                Heap Blocks: exact=5
                Buffers: shared hit=6
@@ -75,24 +75,24 @@
                      Index Cond: ((valid_from <= '2024-01-01'::date) AND (valid_until > '2024-01-01'::date))
                      Index Searches: 1
                      Buffers: shared hit=1
-         ->  Hash  (cost=0.10..0.10 rows=3 width=8) (actual time=0.148..0.148 rows=2.00 loops=1)
+         ->  Hash  (cost=0.10..0.10 rows=3 width=8) (actual time=0.129..0.129 rows=2.00 loops=1)
                Buckets: 1024  Batches: 1  Memory Usage: 9kB
                Buffers: shared hit=7
-               ->  Append  (cost=0.00..0.10 rows=3 width=8) (actual time=0.142..0.146 rows=2.00 loops=1)
+               ->  Append  (cost=0.00..0.10 rows=3 width=8) (actual time=0.124..0.128 rows=2.00 loops=1)
                      Buffers: shared hit=7
-                     ->  CTE Scan on root_unit ru  (cost=0.00..0.02 rows=1 width=8) (actual time=0.142..0.143 rows=1.00 loops=1)
+                     ->  CTE Scan on root_unit ru  (cost=0.00..0.02 rows=1 width=8) (actual time=0.124..0.125 rows=1.00 loops=1)
                            Storage: Memory  Maximum Storage: 17kB
                            Buffers: shared hit=7
                      ->  ProjectSet  (cost=0.00..0.03 rows=1 width=8) (actual time=0.001..0.001 rows=0.00 loops=1)
                            ->  CTE Scan on root_unit ru_1  (cost=0.00..0.02 rows=1 width=32) (actual time=0.000..0.000 rows=1.00 loops=1)
                                  Storage: Memory  Maximum Storage: 17kB
-                     ->  ProjectSet  (cost=0.00..0.03 rows=1 width=8) (actual time=0.001..0.002 rows=1.00 loops=1)
+                     ->  ProjectSet  (cost=0.00..0.03 rows=1 width=8) (actual time=0.001..0.001 rows=1.00 loops=1)
                            ->  CTE Scan on root_unit ru_2  (cost=0.00..0.02 rows=1 width=32) (actual time=0.000..0.000 rows=1.00 loops=1)
                                  Storage: Memory  Maximum Storage: 17kB
  Planning:
    Buffers: shared hit=2
- Planning Time: 0.556 ms
- Execution Time: 0.194 ms
+ Planning Time: 0.540 ms
+ Execution Time: 0.171 ms
 
  
 
@@ -100,38 +100,38 @@
 
                                                                                         QUERY PLAN                                                                                        
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- Subquery Scan on full_units  (cost=15.33..15.36 rows=2 width=6112) (actual time=0.156..0.160 rows=4.00 loops=1)
+ Subquery Scan on full_units  (cost=15.33..15.36 rows=2 width=6112) (actual time=0.146..0.150 rows=4.00 loops=1)
    Buffers: shared hit=22
    CTE root_unit
-     ->  Index Scan using statistical_unit_temporal_pk on statistical_unit su_1  (cost=0.38..2.61 rows=1 width=109) (actual time=0.098..0.099 rows=1.00 loops=1)
+     ->  Index Scan using statistical_unit_temporal_pk on statistical_unit su_1  (cost=0.38..2.61 rows=1 width=109) (actual time=0.086..0.086 rows=1.00 loops=1)
            Index Cond: ((unit_type = 'enterprise'::statistical_unit_type) AND (unit_id = statistical_unit_enterprise_id('legal_unit'::statistical_unit_type, 1, '2024-01-01'::date)))
            Filter: ((valid_from <= '2024-01-01'::date) AND ('2024-01-01'::date < valid_until))
            Index Searches: 1
            Buffers: shared hit=8
-   ->  Sort  (cost=12.72..12.73 rows=2 width=6144) (actual time=0.152..0.154 rows=4.00 loops=1)
+   ->  Sort  (cost=12.72..12.73 rows=2 width=6144) (actual time=0.143..0.144 rows=4.00 loops=1)
          Sort Key: su.unit_type, ((su.external_idents ->> (eit.code)::text)), su.unit_id
          Sort Method: quicksort  Memory: 30kB
          Buffers: shared hit=22
-         ->  Nested Loop Left Join  (cost=2.74..12.71 rows=2 width=6144) (actual time=0.130..0.142 rows=4.00 loops=1)
+         ->  Nested Loop Left Join  (cost=2.74..12.71 rows=2 width=6144) (actual time=0.119..0.131 rows=4.00 loops=1)
                Disabled: true
                Buffers: shared hit=22
-               ->  Hash Join  (cost=2.59..12.18 rows=2 width=6080) (actual time=0.123..0.131 rows=4.00 loops=1)
+               ->  Hash Join  (cost=2.59..12.18 rows=2 width=6080) (actual time=0.112..0.121 rows=4.00 loops=1)
                      Hash Cond: ((su.unit_type = ('enterprise'::statistical_unit_type)) AND (su.unit_id = ru.unit_id))
                      Buffers: shared hit=14
-                     ->  Bitmap Heap Scan on statistical_unit su  (cost=2.45..11.94 rows=11 width=6080) (actual time=0.014..0.019 rows=11.00 loops=1)
+                     ->  Bitmap Heap Scan on statistical_unit su  (cost=2.45..11.94 rows=11 width=6080) (actual time=0.015..0.021 rows=11.00 loops=1)
                            Recheck Cond: ((valid_from <= '2024-01-01'::date) AND ('2024-01-01'::date < valid_until))
                            Heap Blocks: exact=5
                            Buffers: shared hit=6
-                           ->  Bitmap Index Scan on statistical_unit_from_key  (cost=0.00..2.44 rows=11 width=0) (actual time=0.008..0.008 rows=14.00 loops=1)
+                           ->  Bitmap Index Scan on statistical_unit_from_key  (cost=0.00..2.44 rows=11 width=0) (actual time=0.010..0.010 rows=14.00 loops=1)
                                  Index Cond: ((valid_from <= '2024-01-01'::date) AND (valid_until > '2024-01-01'::date))
                                  Index Searches: 1
                                  Buffers: shared hit=1
-                     ->  Hash  (cost=0.10..0.10 rows=3 width=8) (actual time=0.106..0.107 rows=4.00 loops=1)
+                     ->  Hash  (cost=0.10..0.10 rows=3 width=8) (actual time=0.094..0.095 rows=4.00 loops=1)
                            Buckets: 1024  Batches: 1  Memory Usage: 9kB
                            Buffers: shared hit=8
-                           ->  Append  (cost=0.00..0.10 rows=3 width=8) (actual time=0.100..0.105 rows=4.00 loops=1)
+                           ->  Append  (cost=0.00..0.10 rows=3 width=8) (actual time=0.088..0.093 rows=4.00 loops=1)
                                  Buffers: shared hit=8
-                                 ->  CTE Scan on root_unit ru  (cost=0.00..0.02 rows=1 width=8) (actual time=0.100..0.101 rows=1.00 loops=1)
+                                 ->  CTE Scan on root_unit ru  (cost=0.00..0.02 rows=1 width=8) (actual time=0.088..0.088 rows=1.00 loops=1)
                                        Storage: Memory  Maximum Storage: 17kB
                                        Buffers: shared hit=8
                                  ->  ProjectSet  (cost=0.00..0.03 rows=1 width=8) (actual time=0.002..0.002 rows=1.00 loops=1)
@@ -147,8 +147,8 @@
                            Buffers: shared hit=8
  Planning:
    Buffers: shared hit=3
- Planning Time: 0.984 ms
- Execution Time: 0.213 ms
+ Planning Time: 0.964 ms
+ Execution Time: 0.205 ms
 
  
 
@@ -156,44 +156,44 @@
 
                                                                                         QUERY PLAN                                                                                        
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- Subquery Scan on full_units  (cost=15.33..15.36 rows=2 width=6112) (actual time=0.202..0.205 rows=2.00 loops=1)
+ Subquery Scan on full_units  (cost=15.33..15.36 rows=2 width=6112) (actual time=0.201..0.204 rows=2.00 loops=1)
    Buffers: shared hit=17
    CTE root_unit
-     ->  Index Scan using statistical_unit_temporal_pk on statistical_unit su_1  (cost=0.38..2.61 rows=1 width=109) (actual time=0.153..0.153 rows=1.00 loops=1)
+     ->  Index Scan using statistical_unit_temporal_pk on statistical_unit su_1  (cost=0.38..2.61 rows=1 width=109) (actual time=0.141..0.141 rows=1.00 loops=1)
            Index Cond: ((unit_type = 'enterprise'::statistical_unit_type) AND (unit_id = statistical_unit_enterprise_id('enterprise'::statistical_unit_type, 4, '2024-01-01'::date)))
            Filter: ((valid_from <= '2024-01-01'::date) AND ('2024-01-01'::date < valid_until))
            Index Searches: 1
            Buffers: shared hit=7
-   ->  Sort  (cost=12.72..12.73 rows=2 width=6144) (actual time=0.199..0.200 rows=2.00 loops=1)
+   ->  Sort  (cost=12.72..12.73 rows=2 width=6144) (actual time=0.197..0.199 rows=2.00 loops=1)
          Sort Key: su.unit_type, ((su.external_idents ->> (eit.code)::text)), su.unit_id
          Sort Method: quicksort  Memory: 27kB
          Buffers: shared hit=17
-         ->  Nested Loop Left Join  (cost=2.74..12.71 rows=2 width=6144) (actual time=0.188..0.194 rows=2.00 loops=1)
+         ->  Nested Loop Left Join  (cost=2.74..12.71 rows=2 width=6144) (actual time=0.183..0.190 rows=2.00 loops=1)
                Disabled: true
                Buffers: shared hit=17
-               ->  Hash Join  (cost=2.59..12.18 rows=2 width=6080) (actual time=0.181..0.186 rows=2.00 loops=1)
+               ->  Hash Join  (cost=2.59..12.18 rows=2 width=6080) (actual time=0.176..0.181 rows=2.00 loops=1)
                      Hash Cond: ((su.unit_type = ('enterprise'::statistical_unit_type)) AND (su.unit_id = ru.unit_id))
                      Buffers: shared hit=13
-                     ->  Bitmap Heap Scan on statistical_unit su  (cost=2.45..11.94 rows=11 width=6080) (actual time=0.015..0.021 rows=11.00 loops=1)
+                     ->  Bitmap Heap Scan on statistical_unit su  (cost=2.45..11.94 rows=11 width=6080) (actual time=0.020..0.027 rows=11.00 loops=1)
                            Recheck Cond: ((valid_from <= '2024-01-01'::date) AND ('2024-01-01'::date < valid_until))
                            Heap Blocks: exact=5
                            Buffers: shared hit=6
-                           ->  Bitmap Index Scan on statistical_unit_from_key  (cost=0.00..2.44 rows=11 width=0) (actual time=0.009..0.009 rows=14.00 loops=1)
+                           ->  Bitmap Index Scan on statistical_unit_from_key  (cost=0.00..2.44 rows=11 width=0) (actual time=0.013..0.013 rows=14.00 loops=1)
                                  Index Cond: ((valid_from <= '2024-01-01'::date) AND (valid_until > '2024-01-01'::date))
                                  Index Searches: 1
                                  Buffers: shared hit=1
-                     ->  Hash  (cost=0.10..0.10 rows=3 width=8) (actual time=0.160..0.161 rows=2.00 loops=1)
+                     ->  Hash  (cost=0.10..0.10 rows=3 width=8) (actual time=0.149..0.149 rows=2.00 loops=1)
                            Buckets: 1024  Batches: 1  Memory Usage: 9kB
                            Buffers: shared hit=7
-                           ->  Append  (cost=0.00..0.10 rows=3 width=8) (actual time=0.155..0.159 rows=2.00 loops=1)
+                           ->  Append  (cost=0.00..0.10 rows=3 width=8) (actual time=0.143..0.147 rows=2.00 loops=1)
                                  Buffers: shared hit=7
-                                 ->  CTE Scan on root_unit ru  (cost=0.00..0.02 rows=1 width=8) (actual time=0.155..0.155 rows=1.00 loops=1)
+                                 ->  CTE Scan on root_unit ru  (cost=0.00..0.02 rows=1 width=8) (actual time=0.143..0.143 rows=1.00 loops=1)
                                        Storage: Memory  Maximum Storage: 17kB
                                        Buffers: shared hit=7
                                  ->  ProjectSet  (cost=0.00..0.03 rows=1 width=8) (actual time=0.001..0.001 rows=0.00 loops=1)
                                        ->  CTE Scan on root_unit ru_1  (cost=0.00..0.02 rows=1 width=32) (actual time=0.000..0.000 rows=1.00 loops=1)
                                              Storage: Memory  Maximum Storage: 17kB
-                                 ->  ProjectSet  (cost=0.00..0.03 rows=1 width=8) (actual time=0.001..0.001 rows=1.00 loops=1)
+                                 ->  ProjectSet  (cost=0.00..0.03 rows=1 width=8) (actual time=0.001..0.002 rows=1.00 loops=1)
                                        ->  CTE Scan on root_unit ru_2  (cost=0.00..0.02 rows=1 width=32) (actual time=0.000..0.000 rows=1.00 loops=1)
                                              Storage: Memory  Maximum Storage: 17kB
                ->  Limit  (cost=0.14..0.24 rows=1 width=310) (actual time=0.003..0.003 rows=1.00 loops=2)
@@ -203,6 +203,6 @@
                            Buffers: shared hit=4
  Planning:
    Buffers: shared hit=2
- Planning Time: 1.063 ms
- Execution Time: 0.256 ms
+ Planning Time: 1.334 ms
+ Execution Time: 0.259 ms
 

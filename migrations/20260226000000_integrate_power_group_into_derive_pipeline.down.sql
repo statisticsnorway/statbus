@@ -216,6 +216,21 @@ DROP TRIGGER IF EXISTS a_legal_relationship_log_insert ON public.legal_relations
 DROP TRIGGER IF EXISTS a_legal_relationship_log_update ON public.legal_relationship;
 DROP TRIGGER IF EXISTS a_legal_relationship_log_delete ON public.legal_relationship;
 
+-- Drop LR-specific ensure_collect triggers and function
+DROP TRIGGER IF EXISTS b_legal_relationship_ensure_collect_insert ON public.legal_relationship;
+DROP TRIGGER IF EXISTS b_legal_relationship_ensure_collect_update ON public.legal_relationship;
+DROP TRIGGER IF EXISTS b_legal_relationship_ensure_collect_delete ON public.legal_relationship;
+DROP FUNCTION IF EXISTS worker.ensure_collect_changes_for_legal_relationship();
+
+-- Drop power_group change detection triggers
+DROP TRIGGER IF EXISTS a_power_group_log_insert ON public.power_group;
+DROP TRIGGER IF EXISTS a_power_group_log_update ON public.power_group;
+DROP TRIGGER IF EXISTS a_power_group_log_delete ON public.power_group;
+DROP TRIGGER IF EXISTS b_power_group_ensure_collect ON public.power_group;
+
+-- Drop power_group_ids column from base_change_log
+ALTER TABLE worker.base_change_log DROP COLUMN IF EXISTS power_group_ids;
+
 -- No trigger to restore: derive_power_groups infrastructure was removed from 20260127.
 -- The 20260127 migration no longer creates legal_relationship_queue_derive_power_groups.
 
@@ -1791,10 +1806,9 @@ DELETE FROM public.timepoints WHERE unit_type = 'power_group';
 
 -- derive_power_groups command no longer exists (removed from 20260127)
 
--- Drop affected_power_group_count column
-ALTER TABLE worker.pipeline_progress DROP COLUMN IF EXISTS affected_power_group_count;
+-- affected_power_group_count column belongs to migration 20260225135926 now (not dropped here)
 
--- Restore notify_collecting_changes_start without affected_power_group_count
+-- Restore notify_collecting_changes_start to 20260225135926 version
 CREATE OR REPLACE PROCEDURE worker.notify_collecting_changes_start()
 LANGUAGE plpgsql
 AS $notify_collecting_changes_start$
@@ -1804,7 +1818,7 @@ BEGIN
   ON CONFLICT (phase) DO UPDATE SET
     step = 'collect_changes', total = 0, completed = 0,
     affected_establishment_count = NULL, affected_legal_unit_count = NULL,
-    affected_enterprise_count = NULL,
+    affected_enterprise_count = NULL, affected_power_group_count = NULL,
     updated_at = clock_timestamp();
 
   PERFORM pg_notify('worker_status',
@@ -1813,7 +1827,7 @@ BEGIN
 END;
 $notify_collecting_changes_start$;
 
--- Restore notify_start without affected_power_group_count
+-- Restore notify_start to 20260225135926 version (NULLs counts)
 CREATE OR REPLACE PROCEDURE worker.notify_is_deriving_statistical_units_start()
 LANGUAGE plpgsql
 AS $procedure$
@@ -1823,13 +1837,14 @@ BEGIN
   ON CONFLICT (phase) DO UPDATE SET
     step = EXCLUDED.step, total = 0, completed = 0,
     affected_establishment_count = NULL, affected_legal_unit_count = NULL,
-    affected_enterprise_count = NULL, updated_at = clock_timestamp();
+    affected_enterprise_count = NULL, affected_power_group_count = NULL,
+    updated_at = clock_timestamp();
 
   PERFORM pg_notify('worker_status', json_build_object('type', 'is_deriving_statistical_units', 'status', true)::text);
 END;
 $procedure$;
 
--- Restore is_deriving_statistical_units without power_group count
+-- Restore is_deriving_statistical_units to 20260225135926 version
 CREATE OR REPLACE FUNCTION public.is_deriving_statistical_units()
  RETURNS jsonb
  LANGUAGE sql
@@ -1842,13 +1857,14 @@ AS $function$
     'completed', COALESCE(pp.completed, 0),
     'affected_establishment_count', pp.affected_establishment_count,
     'affected_legal_unit_count', pp.affected_legal_unit_count,
-    'affected_enterprise_count', pp.affected_enterprise_count
+    'affected_enterprise_count', pp.affected_enterprise_count,
+    'affected_power_group_count', pp.affected_power_group_count
   )
   FROM (SELECT NULL) AS dummy
   LEFT JOIN worker.pipeline_progress AS pp ON pp.phase = 'is_deriving_statistical_units';
 $function$;
 
--- Restore is_deriving_reports without power_group count
+-- Restore is_deriving_reports to 20260225135926 version
 CREATE OR REPLACE FUNCTION public.is_deriving_reports()
  RETURNS jsonb
  LANGUAGE sql
@@ -1861,13 +1877,14 @@ AS $function$
     'completed', COALESCE(pp.completed, 0),
     'affected_establishment_count', pp.affected_establishment_count,
     'affected_legal_unit_count', pp.affected_legal_unit_count,
-    'affected_enterprise_count', pp.affected_enterprise_count
+    'affected_enterprise_count', pp.affected_enterprise_count,
+    'affected_power_group_count', pp.affected_power_group_count
   )
   FROM (SELECT NULL) AS dummy
   LEFT JOIN worker.pipeline_progress AS pp ON pp.phase = 'is_deriving_reports';
 $function$;
 
--- Restore pipeline_progress_on_child_completed without power_group count
+-- Restore pipeline_progress_on_child_completed to 20260225135926 version
 CREATE OR REPLACE PROCEDURE worker.pipeline_progress_on_child_completed(
     IN p_phase worker.pipeline_phase,
     IN p_parent_task_id BIGINT
@@ -1889,7 +1906,8 @@ BEGIN
                     'total', pp.total, 'completed', pp.completed,
                     'affected_establishment_count', pp.affected_establishment_count,
                     'affected_legal_unit_count', pp.affected_legal_unit_count,
-                    'affected_enterprise_count', pp.affected_enterprise_count
+                    'affected_enterprise_count', pp.affected_enterprise_count,
+                    'affected_power_group_count', pp.affected_power_group_count
                 )) FROM worker.pipeline_progress AS pp),
                 '[]'::json
             )

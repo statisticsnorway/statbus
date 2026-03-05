@@ -25,6 +25,12 @@ DROP FUNCTION IF EXISTS worker.derive_statistical_unit(int4multirange, int4multi
 -- derive_power_groups and enqueue_derive_power_groups no longer exist
 -- (removed from 20260127 migration as part of power_root consolidation)
 
+-- Add power_group_ids column to base_change_log.
+-- LR changes only affect power groups. This column allows direct PG ID logging
+-- instead of the indirect lookup that fails when PGs aren't assigned yet.
+ALTER TABLE worker.base_change_log
+ADD COLUMN power_group_ids int4multirange NOT NULL DEFAULT '{}'::int4multirange;
+
 -- ============================================================================
 -- SECTION 2: New timeline_power_group infrastructure
 -- ============================================================================
@@ -505,15 +511,16 @@ $enqueue_derive_statistical_unit$;
 -- 5a. derive_statistical_unit function - single pass for all unit types (EST/LU/EN/PG)
 -- Power group records are now created during import (power_group_link step),
 -- so the pipeline only needs to derive statistical_unit views — no two-pass needed.
+-- PG batching uses analytics_partition_count for even distribution across workers.
 CREATE FUNCTION worker.derive_statistical_unit(
-    p_establishment_id_ranges int4multirange DEFAULT NULL,
-    p_legal_unit_id_ranges int4multirange DEFAULT NULL,
-    p_enterprise_id_ranges int4multirange DEFAULT NULL,
-    p_power_group_id_ranges int4multirange DEFAULT NULL,
-    p_valid_from date DEFAULT NULL,
-    p_valid_until date DEFAULT NULL,
-    p_task_id bigint DEFAULT NULL,
-    p_round_priority_base bigint DEFAULT NULL
+    p_establishment_id_ranges int4multirange DEFAULT NULL::int4multirange,
+    p_legal_unit_id_ranges int4multirange DEFAULT NULL::int4multirange,
+    p_enterprise_id_ranges int4multirange DEFAULT NULL::int4multirange,
+    p_power_group_id_ranges int4multirange DEFAULT NULL::int4multirange,
+    p_valid_from date DEFAULT NULL::date,
+    p_valid_until date DEFAULT NULL::date,
+    p_task_id bigint DEFAULT NULL::bigint,
+    p_round_priority_base bigint DEFAULT NULL::bigint
 )
 RETURNS void
 LANGUAGE plpgsql
@@ -531,18 +538,18 @@ DECLARE
     v_orphan_legal_unit_ids INT[];
     v_orphan_establishment_ids INT[];
     v_orphan_power_group_ids INT[];
-    -- Unit count accumulators for pipeline progress
     v_enterprise_count INT := 0;
     v_legal_unit_count INT := 0;
     v_establishment_count INT := 0;
     v_power_group_count INT := 0;
+    v_partition_count INT;
+    v_pg_batch_size INT;
 BEGIN
     v_is_full_refresh := (p_establishment_id_ranges IS NULL
                          AND p_legal_unit_id_ranges IS NULL
                          AND p_enterprise_id_ranges IS NULL
                          AND p_power_group_id_ranges IS NULL);
 
-    -- Priority for children: use round base if available, otherwise nextval
     v_child_priority := COALESCE(p_round_priority_base, nextval('public.worker_task_priority_seq'));
 
     IF v_is_full_refresh THEN
@@ -550,7 +557,6 @@ BEGIN
         -- No dirty partition tracking needed: full refresh recomputes all partitions
         FOR v_batch IN SELECT * FROM public.get_closed_group_batches(p_target_batch_size := 1000)
         LOOP
-            -- Accumulate unit counts
             v_enterprise_count := v_enterprise_count + COALESCE(array_length(v_batch.enterprise_ids, 1), 0);
             v_legal_unit_count := v_legal_unit_count + COALESCE(array_length(v_batch.legal_unit_ids, 1), 0);
             v_establishment_count := v_establishment_count + COALESCE(array_length(v_batch.establishment_ids, 1), 0);
@@ -572,22 +578,32 @@ BEGIN
             v_batch_count := v_batch_count + 1;
         END LOOP;
 
-        -- Spawn a separate batch for all power groups (not in enterprise connectivity graph)
-        v_power_group_count := (SELECT COUNT(*)::int FROM public.power_group);
+        -- PG batching: split all power groups across analytics_partition_count batches
+        v_power_group_ids := ARRAY(SELECT id FROM public.power_group ORDER BY id);
+        v_power_group_count := COALESCE(array_length(v_power_group_ids, 1), 0);
         IF v_power_group_count > 0 THEN
-            PERFORM worker.spawn(
-                p_command := 'statistical_unit_refresh_batch',
-                p_payload := jsonb_build_object(
-                    'command', 'statistical_unit_refresh_batch',
-                    'batch_seq', v_batch_count + 1,
-                    'power_group_ids', (SELECT COALESCE(array_agg(id), '{}') FROM public.power_group),
-                    'valid_from', p_valid_from,
-                    'valid_until', p_valid_until
-                ),
-                p_parent_id := p_task_id,
-                p_priority := v_child_priority
-            );
-            v_batch_count := v_batch_count + 1;
+            SELECT analytics_partition_count INTO v_partition_count FROM public.settings;
+            v_pg_batch_size := GREATEST(1, ceil(v_power_group_count::numeric / v_partition_count));
+            FOR v_batch IN
+                SELECT array_agg(pg_id ORDER BY pg_id) AS pg_ids
+                FROM (SELECT pg_id, ((row_number() OVER (ORDER BY pg_id)) - 1) / v_pg_batch_size AS batch_idx
+                      FROM unnest(v_power_group_ids) AS pg_id) AS t
+                GROUP BY batch_idx ORDER BY batch_idx
+            LOOP
+                PERFORM worker.spawn(
+                    p_command := 'statistical_unit_refresh_batch',
+                    p_payload := jsonb_build_object(
+                        'command', 'statistical_unit_refresh_batch',
+                        'batch_seq', v_batch_count + 1,
+                        'power_group_ids', v_batch.pg_ids,
+                        'valid_from', p_valid_from,
+                        'valid_until', p_valid_until
+                    ),
+                    p_parent_id := p_task_id,
+                    p_priority := v_child_priority
+                );
+                v_batch_count := v_batch_count + 1;
+            END LOOP;
         END IF;
     ELSE
         -- Partial refresh: convert multiranges to arrays
@@ -659,7 +675,6 @@ BEGIN
                 UNION ALL SELECT 'establishment', unnest(b.establishment_ids) FROM _batches AS b
             ) AS t WHERE t.unit_id IS NOT NULL
             ON CONFLICT DO NOTHING;
-            RAISE DEBUG 'derive_statistical_unit: Tracked dirty facet partitions for closed group across % batches', (SELECT count(*) FROM _batches);
 
             -- Spawn batch children and accumulate unit counts
             FOR v_batch IN SELECT * FROM _batches LOOP
@@ -685,7 +700,7 @@ BEGIN
             END LOOP;
         END IF;
 
-        -- PG batch: single batch with all affected power_group IDs (always, not conditional on two-pass)
+        -- PG batch: split affected power_group IDs across analytics_partition_count batches
         IF COALESCE(array_length(v_power_group_ids, 1), 0) > 0 THEN
             v_power_group_count := array_length(v_power_group_ids, 1);
 
@@ -695,19 +710,28 @@ BEGIN
             FROM unnest(v_power_group_ids) AS pg_id
             ON CONFLICT DO NOTHING;
 
-            PERFORM worker.spawn(
-                p_command := 'statistical_unit_refresh_batch',
-                p_payload := jsonb_build_object(
-                    'command', 'statistical_unit_refresh_batch',
-                    'batch_seq', v_batch_count + 1,
-                    'power_group_ids', v_power_group_ids,
-                    'valid_from', p_valid_from,
-                    'valid_until', p_valid_until
-                ),
-                p_parent_id := p_task_id,
-                p_priority := v_child_priority
-            );
-            v_batch_count := v_batch_count + 1;
+            SELECT analytics_partition_count INTO v_partition_count FROM public.settings;
+            v_pg_batch_size := GREATEST(1, ceil(v_power_group_count::numeric / v_partition_count));
+            FOR v_batch IN
+                SELECT array_agg(pg_id ORDER BY pg_id) AS pg_ids
+                FROM (SELECT pg_id, ((row_number() OVER (ORDER BY pg_id)) - 1) / v_pg_batch_size AS batch_idx
+                      FROM unnest(v_power_group_ids) AS pg_id) AS t
+                GROUP BY batch_idx ORDER BY batch_idx
+            LOOP
+                PERFORM worker.spawn(
+                    p_command := 'statistical_unit_refresh_batch',
+                    p_payload := jsonb_build_object(
+                        'command', 'statistical_unit_refresh_batch',
+                        'batch_seq', v_batch_count + 1,
+                        'power_group_ids', v_batch.pg_ids,
+                        'valid_from', p_valid_from,
+                        'valid_until', p_valid_until
+                    ),
+                    p_parent_id := p_task_id,
+                    p_priority := v_child_priority
+                );
+                v_batch_count := v_batch_count + 1;
+            END LOOP;
         END IF;
     END IF;
 
@@ -746,6 +770,9 @@ BEGIN
         affected_power_group_count = EXCLUDED.affected_power_group_count,
         updated_at = EXCLUDED.updated_at;
 
+    -- Notify frontend with accurate counts
+    PERFORM worker.notify_pipeline_progress();
+
     -- Refresh derived data (used flags)
     PERFORM public.activity_category_used_derive();
     PERFORM public.region_used_derive();
@@ -758,13 +785,11 @@ BEGIN
     PERFORM worker.enqueue_statistical_unit_flush_staging(
         p_round_priority_base := p_round_priority_base
     );
-    RAISE DEBUG 'derive_statistical_unit: Enqueued flush_staging task';
     PERFORM worker.enqueue_derive_reports(
         p_valid_from := p_valid_from,
         p_valid_until := p_valid_until,
         p_round_priority_base := p_round_priority_base
     );
-    RAISE DEBUG 'derive_statistical_unit: Enqueued derive_reports';
 END;
 $derive_statistical_unit$;
 
@@ -1155,38 +1180,50 @@ LEFT JOIN tag_paths_agg tpa ON tpa.unit_type = data.unit_type AND tpa.unit_id = 
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION worker.log_base_change()
-RETURNS trigger
-LANGUAGE plpgsql
+ RETURNS trigger
+ LANGUAGE plpgsql
 AS $log_base_change$
 DECLARE
     v_columns TEXT;
     v_has_valid_range BOOLEAN;
+    v_has_power_group BOOLEAN := FALSE;
+    v_where_clause TEXT := '';
     v_source TEXT;
     v_est_ids int4multirange;
     v_lu_ids int4multirange;
     v_ent_ids int4multirange;
+    v_pg_ids int4multirange;
     v_valid_range datemultirange;
 BEGIN
     CASE TG_TABLE_NAME
         WHEN 'establishment' THEN
-            v_columns := 'id AS est_id, legal_unit_id AS lu_id, enterprise_id AS ent_id';
+            v_columns := 'id AS est_id, legal_unit_id AS lu_id, enterprise_id AS ent_id, NULL::INT AS pg_id';
             v_has_valid_range := TRUE;
         WHEN 'legal_unit' THEN
-            v_columns := 'NULL::INT AS est_id, id AS lu_id, enterprise_id AS ent_id';
+            v_columns := 'NULL::INT AS est_id, id AS lu_id, enterprise_id AS ent_id, NULL::INT AS pg_id';
             v_has_valid_range := TRUE;
         WHEN 'enterprise' THEN
-            v_columns := 'NULL::INT AS est_id, NULL::INT AS lu_id, id AS ent_id';
+            v_columns := 'NULL::INT AS est_id, NULL::INT AS lu_id, id AS ent_id, NULL::INT AS pg_id';
             v_has_valid_range := FALSE;
         WHEN 'activity', 'location', 'contact', 'stat_for_unit' THEN
-            v_columns := 'establishment_id AS est_id, legal_unit_id AS lu_id, NULL::INT AS ent_id';
+            v_columns := 'establishment_id AS est_id, legal_unit_id AS lu_id, NULL::INT AS ent_id, NULL::INT AS pg_id';
             v_has_valid_range := TRUE;
         WHEN 'external_ident' THEN
-            v_columns := 'establishment_id AS est_id, legal_unit_id AS lu_id, enterprise_id AS ent_id';
+            v_columns := 'establishment_id AS est_id, legal_unit_id AS lu_id, enterprise_id AS ent_id, NULL::INT AS pg_id';
             v_has_valid_range := FALSE;
         WHEN 'legal_relationship' THEN
-            -- Special: two LU references per row, capture both influencing and influenced
-            v_columns := 'NULL::INT AS est_id, influencing_id AS lu_id, NULL::INT AS ent_id';
+            -- LR changes only affect power groups, not individual LUs/enterprises.
+            -- Only log when derived_power_group_id is assigned (NULL = PG not yet linked).
+            v_columns := 'NULL::INT AS est_id, NULL::INT AS lu_id, NULL::INT AS ent_id, derived_power_group_id AS pg_id';
             v_has_valid_range := TRUE;
+            v_has_power_group := TRUE;
+            v_where_clause := ' WHERE derived_power_group_id IS NOT NULL';
+        WHEN 'power_group' THEN
+            -- PG metadata changes (name, type_id, etc.) affect PG statistical units.
+            -- Timeless table — no valid_range.
+            v_columns := 'NULL::INT AS est_id, NULL::INT AS lu_id, NULL::INT AS ent_id, id AS pg_id';
+            v_has_valid_range := FALSE;
+            v_has_power_group := TRUE;
         ELSE
             RAISE EXCEPTION 'log_base_change: unsupported table %', TG_TABLE_NAME;
     END CASE;
@@ -1198,33 +1235,30 @@ BEGIN
     END IF;
 
     CASE TG_OP
-        WHEN 'INSERT' THEN v_source := format('SELECT %s FROM new_rows', v_columns);
-        WHEN 'DELETE' THEN v_source := format('SELECT %s FROM old_rows', v_columns);
-        WHEN 'UPDATE' THEN v_source := format('SELECT %s FROM old_rows UNION ALL SELECT %s FROM new_rows', v_columns, v_columns);
+        WHEN 'INSERT' THEN v_source := format('SELECT %s FROM new_rows%s', v_columns, v_where_clause);
+        WHEN 'DELETE' THEN v_source := format('SELECT %s FROM old_rows%s', v_columns, v_where_clause);
+        WHEN 'UPDATE' THEN v_source := format('SELECT %s FROM old_rows%s UNION ALL SELECT %s FROM new_rows%s', v_columns, v_where_clause, v_columns, v_where_clause);
         ELSE RAISE EXCEPTION 'log_base_change: unsupported operation %', TG_OP;
     END CASE;
 
-    -- For legal_relationship, also capture the influenced_id
-    IF TG_TABLE_NAME = 'legal_relationship' THEN
-        CASE TG_OP
-            WHEN 'INSERT' THEN v_source := v_source || ' UNION ALL SELECT NULL::INT, influenced_id, NULL::INT, valid_range FROM new_rows';
-            WHEN 'DELETE' THEN v_source := v_source || ' UNION ALL SELECT NULL::INT, influenced_id, NULL::INT, valid_range FROM old_rows';
-            WHEN 'UPDATE' THEN v_source := v_source || ' UNION ALL SELECT NULL::INT, influenced_id, NULL::INT, valid_range FROM old_rows UNION ALL SELECT NULL::INT, influenced_id, NULL::INT, valid_range FROM new_rows';
-        END CASE;
-    END IF;
+    -- No UNION ALL for influenced_id — LR changes only log PG IDs, not individual LU IDs
 
     EXECUTE format(
         'SELECT COALESCE(range_agg(int4range(est_id, est_id, %1$L)) FILTER (WHERE est_id IS NOT NULL), %2$L::int4multirange),
                 COALESCE(range_agg(int4range(lu_id, lu_id, %1$L)) FILTER (WHERE lu_id IS NOT NULL), %2$L::int4multirange),
                 COALESCE(range_agg(int4range(ent_id, ent_id, %1$L)) FILTER (WHERE ent_id IS NOT NULL), %2$L::int4multirange),
+                COALESCE(range_agg(int4range(pg_id, pg_id, %1$L)) FILTER (WHERE pg_id IS NOT NULL), %2$L::int4multirange),
                 COALESCE(range_agg(valid_range) FILTER (WHERE valid_range IS NOT NULL), %3$L::datemultirange)
          FROM (%s) AS mapped',
         '[]', '{}', '{}', v_source
-    ) INTO v_est_ids, v_lu_ids, v_ent_ids, v_valid_range;
+    ) INTO v_est_ids, v_lu_ids, v_ent_ids, v_pg_ids, v_valid_range;
 
-    IF v_est_ids != '{}'::int4multirange OR v_lu_ids != '{}'::int4multirange OR v_ent_ids != '{}'::int4multirange THEN
-        INSERT INTO worker.base_change_log (establishment_ids, legal_unit_ids, enterprise_ids, edited_by_valid_range)
-        VALUES (v_est_ids, v_lu_ids, v_ent_ids, v_valid_range);
+    IF v_est_ids != '{}'::int4multirange
+       OR v_lu_ids != '{}'::int4multirange
+       OR v_ent_ids != '{}'::int4multirange
+       OR v_pg_ids != '{}'::int4multirange THEN
+        INSERT INTO worker.base_change_log (establishment_ids, legal_unit_ids, enterprise_ids, power_group_ids, edited_by_valid_range)
+        VALUES (v_est_ids, v_lu_ids, v_ent_ids, v_pg_ids, v_valid_range);
     END IF;
 
     RETURN NULL;
@@ -1255,6 +1289,79 @@ CREATE TRIGGER a_legal_relationship_log_delete
 AFTER DELETE ON public.legal_relationship
 REFERENCING OLD TABLE AS old_rows
 FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change();
+
+-- LR-specific ensure_collect trigger function that filters on derived_power_group_id.
+-- The generic trigger schedules collection even when no PG is assigned (useless).
+-- This version checks derived_power_group_id IS NOT NULL before scheduling.
+CREATE OR REPLACE FUNCTION worker.ensure_collect_changes_for_legal_relationship()
+RETURNS trigger LANGUAGE plpgsql AS $ensure_collect_changes_for_legal_relationship$
+BEGIN
+    -- Only schedule collection if any changed row has a PG assigned.
+    -- During initial import, LR rows are inserted with derived_power_group_id = NULL,
+    -- then process_power_group_link assigns PG IDs (triggering this again).
+    IF TG_OP IN ('INSERT', 'UPDATE') THEN
+        IF NOT EXISTS (SELECT 1 FROM new_rows WHERE derived_power_group_id IS NOT NULL) THEN
+            RETURN NULL;
+        END IF;
+    END IF;
+
+    -- Standard scheduling logic (same as ensure_collect_changes)
+    UPDATE worker.base_change_log_has_pending
+    SET has_pending = TRUE WHERE has_pending = FALSE;
+
+    INSERT INTO worker.tasks (command, payload)
+    VALUES ('collect_changes', '{"command":"collect_changes"}'::jsonb)
+    ON CONFLICT (command)
+    WHERE command = 'collect_changes' AND state = 'pending'::worker.task_state
+    DO NOTHING;
+
+    PERFORM pg_notify('worker_tasks', 'analytics');
+    RETURN NULL;
+END;
+$ensure_collect_changes_for_legal_relationship$;
+
+-- INSERT: use LR-specific function that checks derived_power_group_id
+CREATE TRIGGER b_legal_relationship_ensure_collect_insert
+AFTER INSERT ON public.legal_relationship
+REFERENCING NEW TABLE AS new_rows
+FOR EACH STATEMENT EXECUTE FUNCTION worker.ensure_collect_changes_for_legal_relationship();
+
+-- UPDATE: use LR-specific function that checks derived_power_group_id
+CREATE TRIGGER b_legal_relationship_ensure_collect_update
+AFTER UPDATE ON public.legal_relationship
+REFERENCING NEW TABLE AS new_rows
+FOR EACH STATEMENT EXECUTE FUNCTION worker.ensure_collect_changes_for_legal_relationship();
+
+-- DELETE: always schedule (PG was set before deletion, log already captured it)
+CREATE TRIGGER b_legal_relationship_ensure_collect_delete
+AFTER DELETE ON public.legal_relationship
+REFERENCING OLD TABLE AS old_rows
+FOR EACH STATEMENT EXECUTE FUNCTION worker.ensure_collect_changes();
+
+-- Change detection triggers on power_group.
+-- Changes to power_group metadata (short_name, name, type_id, etc.) should
+-- trigger PG re-derivation. log_base_change handles 'power_group' via the new WHEN case.
+
+-- Log changes (same pattern as other tables: a_ prefix for logging triggers)
+CREATE TRIGGER a_power_group_log_insert
+AFTER INSERT ON public.power_group
+REFERENCING NEW TABLE AS new_rows
+FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change();
+
+CREATE TRIGGER a_power_group_log_update
+AFTER UPDATE ON public.power_group
+REFERENCING NEW TABLE AS new_rows OLD TABLE AS old_rows
+FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change();
+
+CREATE TRIGGER a_power_group_log_delete
+AFTER DELETE ON public.power_group
+REFERENCING OLD TABLE AS old_rows
+FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change();
+
+-- Schedule collection (same generic function as most tables)
+CREATE TRIGGER b_power_group_ensure_collect
+AFTER INSERT OR DELETE OR UPDATE ON public.power_group
+FOR EACH STATEMENT EXECUTE FUNCTION worker.ensure_collect_changes();
 
 -- ============================================================================
 -- SECTION 12: get_statistical_unit_data_partial - add power_group branch
@@ -1408,27 +1515,29 @@ $get_statistical_unit_data_partial$;
 -- SECTION 13: pipeline_progress — add affected_power_group_count + set phase
 -- ============================================================================
 
--- Add power_group count column to pipeline_progress
-ALTER TABLE worker.pipeline_progress ADD COLUMN affected_power_group_count INT DEFAULT NULL;
+-- affected_power_group_count column is now created in the pipeline_progress table
+-- definition in migration 20260225135926 (no ALTER needed).
 
 -- derive_power_groups command no longer exists, no phase to set.
 
--- Update notify_start to also reset affected_power_group_count
+-- Update notify_start — don't null counts, they were set by collect_changes and will be
+-- refined by derive_statistical_unit after batching.
 CREATE OR REPLACE PROCEDURE worker.notify_is_deriving_statistical_units_start()
-LANGUAGE plpgsql
-AS $procedure$
+ LANGUAGE plpgsql
+AS $notify_is_deriving_statistical_units_start$
 BEGIN
   INSERT INTO worker.pipeline_progress (phase, step, total, completed, updated_at)
   VALUES ('is_deriving_statistical_units', 'derive_statistical_unit', 0, 0, clock_timestamp())
   ON CONFLICT (phase) DO UPDATE SET
     step = EXCLUDED.step, total = 0, completed = 0,
-    affected_establishment_count = NULL, affected_legal_unit_count = NULL,
-    affected_enterprise_count = NULL, affected_power_group_count = NULL,
+    -- Don't null counts — they were set by collect_changes and will be
+    -- refined by derive_statistical_unit after batching.
     updated_at = clock_timestamp();
 
   PERFORM pg_notify('worker_status', json_build_object('type', 'is_deriving_statistical_units', 'status', true)::text);
+  PERFORM worker.notify_pipeline_progress();
 END;
-$procedure$;
+$notify_is_deriving_statistical_units_start$;
 
 -- Update notify_collecting_changes_start to also reset affected_power_group_count
 CREATE OR REPLACE PROCEDURE worker.notify_collecting_changes_start()
@@ -1525,13 +1634,13 @@ $pipeline_progress_on_child_completed$;
 -- SECTION 14: collect_changes — compute PG IDs from legal_relationship
 -- ============================================================================
 
--- collect_changes now looks up affected power_group IDs from legal_relationship
--- based on the LU IDs found in base_change_log, and passes them to
--- enqueue_derive_statistical_unit. No more derive_power_groups in the pipeline.
+-- collect_changes drains PG IDs directly from base_change_log (no indirect lookup).
+-- Sets approximate counts immediately so the navbar shows "Processing ~N units".
+-- derive_statistical_unit refines these after closed-group batching.
 CREATE OR REPLACE PROCEDURE worker.command_collect_changes(IN p_payload jsonb)
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public', 'worker', 'pg_temp'
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'worker', 'pg_temp'
 AS $command_collect_changes$
 DECLARE
     v_row RECORD;
@@ -1543,12 +1652,17 @@ DECLARE
     v_valid_from DATE;
     v_valid_until DATE;
     v_round_priority_base BIGINT;
+    v_est_count INT;
+    v_lu_count INT;
+    v_ent_count INT;
+    v_pg_count INT;
 BEGIN
     -- Atomically drain all committed rows, merging multiranges.
     FOR v_row IN DELETE FROM worker.base_change_log RETURNING * LOOP
         v_est_ids := v_est_ids + v_row.establishment_ids;
         v_lu_ids := v_lu_ids + v_row.legal_unit_ids;
         v_ent_ids := v_ent_ids + v_row.enterprise_ids;
+        v_pg_ids := v_pg_ids + v_row.power_group_ids;
         v_valid_range := v_valid_range + v_row.edited_by_valid_range;
     END LOOP;
 
@@ -1558,7 +1672,8 @@ BEGIN
     -- If any changes exist, enqueue derive
     IF v_est_ids != '{}'::int4multirange
        OR v_lu_ids != '{}'::int4multirange
-       OR v_ent_ids != '{}'::int4multirange THEN
+       OR v_ent_ids != '{}'::int4multirange
+       OR v_pg_ids != '{}'::int4multirange THEN
 
         -- ROUND PRIORITY: Read own priority as the round base.
         SELECT priority INTO v_round_priority_base
@@ -1566,15 +1681,26 @@ BEGIN
         WHERE state = 'processing' AND worker_pid = pg_backend_pid()
         ORDER BY id DESC LIMIT 1;
 
-        -- Compute affected power group IDs from legal_relationship using containment operator
-        SELECT COALESCE(
-            range_agg(int4range(lr.derived_power_group_id, lr.derived_power_group_id, '[]')),
-            '{}'::int4multirange
-        )
-        INTO v_pg_ids
-        FROM public.legal_relationship AS lr
-        WHERE lr.derived_power_group_id IS NOT NULL
-          AND (v_lu_ids @> lr.influencing_id OR v_lu_ids @> lr.influenced_id);
+        -- Compute approximate counts from multiranges for pipeline progress.
+        -- SUM(upper-lower) works because PostgreSQL normalizes [x,x] to [x,x+1).
+        SELECT COALESCE(SUM(upper(r) - lower(r)), 0)::int INTO v_est_count FROM unnest(v_est_ids) AS t(r);
+        SELECT COALESCE(SUM(upper(r) - lower(r)), 0)::int INTO v_lu_count FROM unnest(v_lu_ids) AS t(r);
+        SELECT COALESCE(SUM(upper(r) - lower(r)), 0)::int INTO v_ent_count FROM unnest(v_ent_ids) AS t(r);
+        SELECT COALESCE(SUM(upper(r) - lower(r)), 0)::int INTO v_pg_count FROM unnest(v_pg_ids) AS t(r);
+
+        -- Set approximate counts in pipeline_progress immediately.
+        UPDATE worker.pipeline_progress
+        SET affected_establishment_count = NULLIF(v_est_count, 0),
+            affected_legal_unit_count = NULLIF(v_lu_count, 0),
+            affected_enterprise_count = NULLIF(v_ent_count, 0),
+            affected_power_group_count = NULLIF(v_pg_count, 0),
+            updated_at = clock_timestamp()
+        WHERE phase = 'is_deriving_statistical_units';
+
+        -- Notify frontend with updated counts
+        PERFORM worker.notify_pipeline_progress();
+
+        -- No indirect PG lookup needed — PG IDs come directly from base_change_log
 
         -- If date range is empty, look up actual valid ranges from affected units
         IF v_valid_range = '{}'::datemultirange THEN
@@ -1602,6 +1728,12 @@ BEGIN
             p_valid_until := v_valid_until,
             p_round_priority_base := v_round_priority_base
         );
+    ELSE
+        -- Defensive cleanup when collect_changes finds 0 changes.
+        -- This prevents Phase 1 from getting stuck permanently yellow.
+        DELETE FROM worker.pipeline_progress WHERE phase = 'is_deriving_statistical_units';
+        PERFORM pg_notify('worker_status',
+            json_build_object('type', 'is_deriving_statistical_units', 'status', false)::text);
     END IF;
 END;
 $command_collect_changes$;
@@ -1945,14 +2077,14 @@ $analyse_power_group_link$;
 
 -- 15g. process_power_group_link: holistic process (receives p_batch_seq = NULL)
 -- Creates/updates power_group records and sets derived_power_group_id on legal_relationship base table rows.
-CREATE OR REPLACE PROCEDURE import.process_power_group_link(
-    IN p_job_id integer,
-    IN p_batch_seq integer,
-    IN p_step_code text
-)
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public', 'import', 'worker', 'pg_temp'
+-- Uses iterative label propagation for connected components (replaces legal_relationship_cluster view)
+-- and BFS from roots for power levels.
+-- Change-detection triggers stay ENABLED — derived_power_group_id UPDATEs re-log PG IDs
+-- to base_change_log so collect_changes sees correct derived_power_group_ids.
+CREATE OR REPLACE PROCEDURE import.process_power_group_link(IN p_job_id integer, IN p_batch_seq integer, IN p_step_code text)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'import', 'worker', 'pg_temp'
 AS $process_power_group_link$
 DECLARE
     v_job public.import_job;
@@ -1964,6 +2096,7 @@ DECLARE
     _updated_count integer := 0;
     _linked_count integer := 0;
     _row_count integer;
+    _iter integer;
     _current_user_id integer;
 BEGIN
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
@@ -1980,11 +2113,10 @@ BEGIN
 
     RAISE DEBUG '[Job %] process_power_group_link: Creating/updating power groups (holistic)', p_job_id;
 
-    -- Disable log_base_change triggers to prevent re-enqueue loop
-    -- (derived_power_group_id UPDATEs should be silent — only actual relationship changes trigger derive)
-    ALTER TABLE public.legal_relationship DISABLE TRIGGER a_legal_relationship_log_insert;
-    ALTER TABLE public.legal_relationship DISABLE TRIGGER a_legal_relationship_log_update;
-    ALTER TABLE public.legal_relationship DISABLE TRIGGER a_legal_relationship_log_delete;
+    -- Change-detection triggers (log_base_change + ensure_collect_changes) stay
+    -- ENABLED. The derived_power_group_id UPDATEs re-log LU IDs to base_change_log so
+    -- that collect_changes (on the analytics queue) sees correct derived_power_group_ids.
+    -- This is safe: log rows merge via multirange, ensure_collect is idempotent.
 
     -- Find current user for power_group creation
     SELECT id INTO _current_user_id FROM auth.user WHERE email = session_user OR session_user = 'postgres';
@@ -1995,57 +2127,134 @@ BEGIN
         RAISE EXCEPTION 'No user found for power group creation';
     END IF;
 
-    -- Use legal_relationship_cluster view (reads derived_power_group_id from LR)
-    FOR _cluster IN SELECT DISTINCT power_group_id FROM public.legal_relationship_cluster
+    -- ================================================================
+    -- Compute connected components via iterative label propagation.
+    -- Replaces the legal_relationship_cluster view which evaluates
+    -- the old power_hierarchy view (a multi-phase recursive CTE, cost ~17M).
+    -- This approach: O(edges × depth) ≈ O(29K × 5) ≈ ~150K ops, ~1s.
+    -- ================================================================
+
+    -- Build bidirectional edge list from relationships
+    IF to_regclass('pg_temp._edges') IS NOT NULL THEN
+        DROP TABLE _edges;
+    END IF;
+    CREATE TEMP TABLE _edges ON COMMIT DROP AS
+    SELECT influencing_id AS a, influenced_id AS b FROM public.legal_relationship
+    UNION ALL
+    SELECT influenced_id, influencing_id FROM public.legal_relationship;
+    CREATE INDEX ON _edges (a);
+
+    -- Each LU starts as its own component (component_id = lu_id)
+    IF to_regclass('pg_temp._lu_comp') IS NOT NULL THEN
+        DROP TABLE _lu_comp;
+    END IF;
+    CREATE TEMP TABLE _lu_comp (lu_id integer PRIMARY KEY, comp_id integer) ON COMMIT DROP;
+    INSERT INTO _lu_comp SELECT DISTINCT a, a FROM _edges;
+
+    -- Propagate minimum component_id through edges until stable
+    _iter := 0;
     LOOP
-        -- Find existing power_group for this cluster
-        SELECT pg.* INTO _power_group
-        FROM public.power_group AS pg
-        JOIN public.legal_relationship AS lr ON lr.derived_power_group_id = pg.id
-        JOIN public.legal_relationship_cluster AS lrc ON lrc.legal_relationship_id = lr.id
-        WHERE lrc.power_group_id = _cluster.power_group_id
-        LIMIT 1;
-
-        IF NOT FOUND THEN
-            INSERT INTO public.power_group (edit_by_user_id) VALUES (_current_user_id) RETURNING * INTO _power_group;
-            _created_count := _created_count + 1;
-            RAISE DEBUG '[Job %] process_power_group_link: Created power_group % for cluster PG %',
-                p_job_id, _power_group.ident, _cluster.power_group_id;
-        ELSE
-            _updated_count := _updated_count + 1;
-        END IF;
-
-        -- Set derived_power_group_id on all legal_relationships in this cluster
-        UPDATE public.legal_relationship AS lr
-        SET derived_power_group_id = _power_group.id
-        FROM public.legal_relationship_cluster AS lrc
-        WHERE lr.id = lrc.legal_relationship_id
-          AND lrc.power_group_id = _cluster.power_group_id
-          AND (lr.derived_power_group_id IS DISTINCT FROM _power_group.id);
+        _iter := _iter + 1;
+        UPDATE _lu_comp AS c
+        SET comp_id = sub.min_comp
+        FROM (
+            SELECT e.a AS lu_id, MIN(c2.comp_id) AS min_comp
+            FROM _edges AS e
+            JOIN _lu_comp AS c2 ON c2.lu_id = e.b
+            GROUP BY e.a
+        ) AS sub
+        WHERE c.lu_id = sub.lu_id AND sub.min_comp < c.comp_id;
         GET DIAGNOSTICS _row_count = ROW_COUNT;
-        _linked_count := _linked_count + _row_count;
+        EXIT WHEN _row_count = 0;
+        IF _iter > 100 THEN
+            RAISE EXCEPTION '[Job %] process_power_group_link: Connected components did not converge after 100 iterations', p_job_id;
+        END IF;
     END LOOP;
+    RAISE DEBUG '[Job %] process_power_group_link: Connected components converged in % iterations', p_job_id, _iter;
+
+    -- Map each relationship to its component (= cluster root)
+    IF to_regclass('pg_temp._lr_clusters') IS NOT NULL THEN
+        DROP TABLE _lr_clusters;
+    END IF;
+    CREATE TEMP TABLE _lr_clusters ON COMMIT DROP AS
+    SELECT lr.id AS legal_relationship_id, c.comp_id AS root_legal_unit_id
+    FROM public.legal_relationship AS lr
+    JOIN _lu_comp AS c ON c.lu_id = lr.influencing_id;
+    CREATE INDEX ON _lr_clusters (root_legal_unit_id);
+    CREATE INDEX ON _lr_clusters (legal_relationship_id);
+
+    -- Find existing power_group per cluster (set-based, no loop needed)
+    IF to_regclass('pg_temp._cluster_pg') IS NOT NULL THEN
+        DROP TABLE _cluster_pg;
+    END IF;
+    CREATE TEMP TABLE _cluster_pg (
+        root_legal_unit_id integer,
+        power_group_id integer
+    ) ON COMMIT DROP;
+
+    INSERT INTO _cluster_pg (root_legal_unit_id, power_group_id)
+    SELECT DISTINCT ON (lrc.root_legal_unit_id)
+        lrc.root_legal_unit_id,
+        lr.derived_power_group_id
+    FROM _lr_clusters AS lrc
+    JOIN public.legal_relationship AS lr ON lr.id = lrc.legal_relationship_id
+    WHERE lr.derived_power_group_id IS NOT NULL
+    ORDER BY lrc.root_legal_unit_id;
+
+    _updated_count := (SELECT count(*) FROM _cluster_pg);
+
+    -- Create new power_groups only for clusters that don't have one yet
+    FOR _cluster IN
+        SELECT DISTINCT lrc.root_legal_unit_id
+        FROM _lr_clusters AS lrc
+        WHERE NOT EXISTS (
+            SELECT 1 FROM _cluster_pg AS cpg
+            WHERE cpg.root_legal_unit_id = lrc.root_legal_unit_id
+        )
+    LOOP
+        INSERT INTO public.power_group (edit_by_user_id)
+        VALUES (_current_user_id)
+        RETURNING * INTO _power_group;
+
+        INSERT INTO _cluster_pg (root_legal_unit_id, power_group_id)
+        VALUES (_cluster.root_legal_unit_id, _power_group.id);
+
+        _created_count := _created_count + 1;
+        RAISE DEBUG '[Job %] process_power_group_link: Created power_group % for root LU %',
+            p_job_id, _power_group.ident, _cluster.root_legal_unit_id;
+    END LOOP;
+
+    -- Bulk-update all relationships at once (single pass over indexed temp tables)
+    UPDATE public.legal_relationship AS lr
+    SET derived_power_group_id = cpg.power_group_id
+    FROM _lr_clusters AS lrc
+    JOIN _cluster_pg AS cpg ON cpg.root_legal_unit_id = lrc.root_legal_unit_id
+    WHERE lr.id = lrc.legal_relationship_id
+      AND lr.derived_power_group_id IS DISTINCT FROM cpg.power_group_id;
+    GET DIAGNOSTICS _linked_count = ROW_COUNT;
 
     -- Handle cluster merges (multiple power_groups pointing to same cluster)
     WITH cluster_sizes AS (
         SELECT lr.derived_power_group_id, COUNT(*) AS rel_count
-        FROM public.legal_relationship AS lr WHERE lr.derived_power_group_id IS NOT NULL GROUP BY lr.derived_power_group_id
+        FROM public.legal_relationship AS lr
+        WHERE lr.derived_power_group_id IS NOT NULL
+        GROUP BY lr.derived_power_group_id
     ),
     merge_candidates AS (
-        SELECT DISTINCT lrc.power_group_id, lr.derived_power_group_id AS current_pg_id, cs.rel_count
-        FROM public.legal_relationship_cluster AS lrc
+        SELECT DISTINCT lrc.root_legal_unit_id, lr.derived_power_group_id AS current_pg_id, cs.rel_count
+        FROM _lr_clusters AS lrc
         JOIN public.legal_relationship AS lr ON lr.id = lrc.legal_relationship_id
         JOIN cluster_sizes AS cs ON cs.derived_power_group_id = lr.derived_power_group_id
         WHERE lr.derived_power_group_id IS NOT NULL
     ),
     clusters_with_multiple_pgs AS (
-        SELECT power_group_id, array_agg(current_pg_id ORDER BY rel_count DESC, current_pg_id) AS pg_ids
-        FROM merge_candidates GROUP BY power_group_id HAVING COUNT(DISTINCT current_pg_id) > 1
+        SELECT root_legal_unit_id, array_agg(current_pg_id ORDER BY rel_count DESC, current_pg_id) AS pg_ids
+        FROM merge_candidates GROUP BY root_legal_unit_id HAVING COUNT(DISTINCT current_pg_id) > 1
     )
     UPDATE public.legal_relationship AS lr
     SET derived_power_group_id = cwmp.pg_ids[1]
-    FROM public.legal_relationship_cluster AS lrc
-    JOIN clusters_with_multiple_pgs AS cwmp ON cwmp.power_group_id = lrc.power_group_id
+    FROM _lr_clusters AS lrc
+    JOIN clusters_with_multiple_pgs AS cwmp ON cwmp.root_legal_unit_id = lrc.root_legal_unit_id
     WHERE lr.id = lrc.legal_relationship_id AND lr.derived_power_group_id != cwmp.pg_ids[1];
     GET DIAGNOSTICS _row_count = ROW_COUNT;
     IF _row_count > 0 THEN
@@ -2056,11 +2265,122 @@ BEGIN
         p_job_id, _created_count, _updated_count, _linked_count;
 
     -- ================================================================
-    -- Populate power_root for cycle/multi PGs via temporal_merge
+    -- Compute derived_influenced_power_level via BFS from roots.
+    -- Root LUs (level 1) are implicit — influencing LUs never influenced
+    -- within the same PG. Each LR stores the influenced LU's BFS depth:
+    --   root→child: level 2, child→grandchild: level 3, etc.
+    -- Cycles (no natural root) get NULL — identified by power_root below.
+    -- ================================================================
+
+    IF to_regclass('pg_temp._bfs') IS NOT NULL THEN
+        DROP TABLE _bfs;
+    END IF;
+    CREATE TEMP TABLE _bfs (lu_id integer, level integer, pg_id integer) ON COMMIT DROP;
+
+    -- Seed: root LUs (influencing, never influenced in same PG) at level 1
+    INSERT INTO _bfs (lu_id, level, pg_id)
+    SELECT DISTINCT lr.influencing_id, 1, lr.derived_power_group_id
+    FROM public.legal_relationship AS lr
+    WHERE lr.derived_power_group_id IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM public.legal_relationship AS lr2
+        WHERE lr2.influenced_id = lr.influencing_id
+          AND lr2.derived_power_group_id = lr.derived_power_group_id
+      );
+    CREATE INDEX ON _bfs (lu_id, pg_id);
+
+    -- Propagate through directed edges (influencing → influenced)
+    _iter := 0;
+    LOOP
+        _iter := _iter + 1;
+        INSERT INTO _bfs (lu_id, level, pg_id)
+        SELECT DISTINCT lr.influenced_id, b.level + 1, b.pg_id
+        FROM _bfs AS b
+        JOIN public.legal_relationship AS lr
+            ON lr.influencing_id = b.lu_id
+            AND lr.derived_power_group_id = b.pg_id
+        WHERE b.level = _iter  -- only expand frontier
+          AND NOT EXISTS (
+            SELECT 1 FROM _bfs AS b2
+            WHERE b2.lu_id = lr.influenced_id AND b2.pg_id = b.pg_id
+        );
+        GET DIAGNOSTICS _row_count = ROW_COUNT;
+        EXIT WHEN _row_count = 0;
+        IF _iter > 100 THEN
+            RAISE EXCEPTION '[Job %] process_power_group_link: BFS did not converge after 100 iterations', p_job_id;
+        END IF;
+    END LOOP;
+    RAISE DEBUG '[Job %] process_power_group_link: BFS power levels converged in % iterations', p_job_id, _iter;
+
+    -- Update derived_influenced_power_level on each LR
+    -- The influenced LU's BFS level becomes the LR's power level
+    UPDATE public.legal_relationship AS lr
+    SET derived_influenced_power_level = b.level
+    FROM _bfs AS b
+    WHERE b.lu_id = lr.influenced_id
+      AND b.pg_id = lr.derived_power_group_id
+      AND lr.derived_influenced_power_level IS DISTINCT FROM b.level;
+    GET DIAGNOSTICS _row_count = ROW_COUNT;
+    RAISE DEBUG '[Job %] process_power_group_link: Updated derived_influenced_power_level on % relationships', p_job_id, _row_count;
+
+    -- Clear stale levels for LRs no longer in a PG or in cycles (no BFS root)
+    UPDATE public.legal_relationship AS lr
+    SET derived_influenced_power_level = NULL
+    WHERE lr.derived_influenced_power_level IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM _bfs AS b
+        WHERE b.lu_id = lr.influenced_id AND b.pg_id = lr.derived_power_group_id
+    );
+    GET DIAGNOSTICS _row_count = ROW_COUNT;
+    IF _row_count > 0 THEN
+        RAISE DEBUG '[Job %] process_power_group_link: Cleared stale power levels on % relationships', p_job_id, _row_count;
+    END IF;
+
+    -- ================================================================
+    -- Populate power_root for cycle/multi PGs via temporal_merge.
+    -- Uses graph-based detection from _lu_comp/_edges instead of the
+    -- the old power_hierarchy view (cost ~17M).
     -- ================================================================
 
     -- Disable power_root trigger to prevent enqueue loop during temporal_merge
     ALTER TABLE public.power_root DISABLE TRIGGER power_root_derive_trigger;
+
+    -- Detect natural roots: LUs that influence others but are NOT influenced
+    IF to_regclass('pg_temp._natural_roots') IS NOT NULL THEN
+        DROP TABLE _natural_roots;
+    END IF;
+    CREATE TEMP TABLE _natural_roots ON COMMIT DROP AS
+    SELECT DISTINCT ing.lu_id, c.comp_id
+    FROM (SELECT DISTINCT influencing_id AS lu_id FROM public.legal_relationship) AS ing
+    JOIN _lu_comp AS c ON c.lu_id = ing.lu_id
+    WHERE NOT EXISTS (
+        SELECT 1 FROM public.legal_relationship AS lr
+        WHERE lr.influenced_id = ing.lu_id
+    );
+    CREATE INDEX ON _natural_roots (comp_id);
+
+    -- Count natural roots per component to classify cycle/multi
+    IF to_regclass('pg_temp._comp_status') IS NOT NULL THEN
+        DROP TABLE _comp_status;
+    END IF;
+    CREATE TEMP TABLE _comp_status ON COMMIT DROP AS
+    SELECT
+        c.comp_id,
+        cpg.power_group_id,
+        CASE
+            WHEN nr.root_count IS NULL OR nr.root_count = 0 THEN 'cycle'::public.power_group_root_status
+            WHEN nr.root_count > 1 THEN 'multi'::public.power_group_root_status
+        END AS derived_root_status,
+        -- Pick the natural root LU (for multi: smallest id; for cycle: comp_id as synthetic root)
+        COALESCE(nr.min_root_lu_id, c.comp_id) AS derived_root_legal_unit_id
+    FROM (SELECT DISTINCT comp_id FROM _lu_comp) AS c
+    JOIN _cluster_pg AS cpg ON cpg.root_legal_unit_id = c.comp_id
+    LEFT JOIN (
+        SELECT comp_id, count(*) AS root_count, min(lu_id) AS min_root_lu_id
+        FROM _natural_roots
+        GROUP BY comp_id
+    ) AS nr ON nr.comp_id = c.comp_id
+    WHERE nr.root_count IS NULL OR nr.root_count = 0 OR nr.root_count > 1;
 
     IF to_regclass('pg_temp._power_root_source') IS NOT NULL THEN
         DROP TABLE _power_root_source;
@@ -2070,59 +2390,39 @@ BEGIN
         power_group_id integer,
         derived_root_legal_unit_id integer,
         derived_root_status public.power_group_root_status,
-        custom_root_legal_unit_id integer,  -- carried forward from existing rows
+        custom_root_legal_unit_id integer,
         valid_range daterange,
         edit_by_user_id integer
     ) ON COMMIT DROP;
 
+    -- Build power_root source rows from cycle/multi components.
+    -- Use the union of valid_ranges from the component's relationships as the time span.
     INSERT INTO _power_root_source (power_group_id, derived_root_legal_unit_id, derived_root_status, custom_root_legal_unit_id, valid_range, edit_by_user_id)
-    SELECT DISTINCT ON (pgm.power_group_id, lower(pgm.valid_range))
-        pgm.power_group_id,
-        pgm_root.legal_unit_id AS derived_root_legal_unit_id,
-        CASE
-            -- Multiple distinct roots for same PG in overlapping time → 'multi'
-            WHEN (SELECT COUNT(DISTINCT pgm2.legal_unit_id)
-                  FROM public.power_group_membership AS pgm2
-                  WHERE pgm2.power_group_id = pgm.power_group_id
-                    AND pgm2.valid_range && pgm.valid_range
-                    AND pgm2.power_level = 1) > 1
-            THEN 'multi'::public.power_group_root_status
-            -- Root came from Phase 2 (no natural root period for this LU) → 'cycle'
-            WHEN NOT EXISTS (
-                SELECT 1 FROM public.legal_unit AS lu
-                WHERE lu.id = pgm_root.legal_unit_id
-                  AND EXISTS (
-                      SELECT 1 FROM public.legal_relationship AS lr_child
-                      WHERE lr_child.influencing_id = lu.id
-                        AND lr_child.valid_range && pgm.valid_range)
-                  AND NOT EXISTS (
-                      SELECT 1 FROM public.legal_relationship AS lr_parent
-                      WHERE lr_parent.influenced_id = lu.id
-                        AND lr_parent.valid_range && pgm.valid_range))
-            THEN 'cycle'::public.power_group_root_status
-            ELSE NULL  -- single-root: no power_root entry (sparse)
-        END AS derived_root_status,
-        -- Carry forward existing custom_root so period splits preserve NSO overrides
+    SELECT
+        cs.power_group_id,
+        cs.derived_root_legal_unit_id,
+        cs.derived_root_status,
+        -- Carry forward existing custom_root if any
         existing_pr.custom_root_legal_unit_id,
-        pgm.valid_range,
+        lr_range.valid_range,
         _current_user_id
-    FROM public.power_group_membership AS pgm
-    JOIN public.power_group_membership AS pgm_root
-        ON pgm_root.power_group_id = pgm.power_group_id
-        AND pgm_root.power_level = 1
-        AND pgm_root.valid_range && pgm.valid_range
+    FROM _comp_status AS cs
+    CROSS JOIN LATERAL (
+        -- Get distinct valid_ranges for relationships in this component
+        SELECT DISTINCT lr.valid_range
+        FROM public.legal_relationship AS lr
+        JOIN _lu_comp AS c ON c.lu_id = lr.influencing_id
+        WHERE c.comp_id = cs.comp_id
+    ) AS lr_range
     LEFT JOIN public.power_root AS existing_pr
-        ON existing_pr.power_group_id = pgm.power_group_id
-        AND existing_pr.valid_range && pgm.valid_range
-    ORDER BY pgm.power_group_id, lower(pgm.valid_range);
+        ON existing_pr.power_group_id = cs.power_group_id
+        AND existing_pr.valid_range && lr_range.valid_range;
 
-    -- Remove single-root entries (sparse: only cycle/multi get rows)
-    DELETE FROM _power_root_source WHERE derived_root_status IS NULL;
+    GET DIAGNOSTICS _row_count = ROW_COUNT;
+    RAISE DEBUG '[Job %] process_power_group_link: power_root source rows: % (cycle/multi PGs)', p_job_id, _row_count;
 
-    -- Only run temporal_merge if there are source rows or existing power_root rows to clean up
+    -- Only run temporal_merge if there are source rows or existing rows to clean up
     IF EXISTS (SELECT 1 FROM _power_root_source) OR EXISTS (SELECT 1 FROM public.power_root) THEN
-        -- temporal_merge handles: new PGs → INSERT, shifted boundaries → split/merge,
-        -- PGs that became single-root → removed (no source row + MERGE_ENTITY_REPLACE)
         CALL sql_saga.temporal_merge(
             target_table => 'public.power_root'::regclass,
             source_table => '_power_root_source'::regclass,
@@ -2135,11 +2435,6 @@ BEGIN
     END IF;
 
     ALTER TABLE public.power_root ENABLE TRIGGER power_root_derive_trigger;
-
-    -- Re-enable triggers
-    ALTER TABLE public.legal_relationship ENABLE TRIGGER a_legal_relationship_log_insert;
-    ALTER TABLE public.legal_relationship ENABLE TRIGGER a_legal_relationship_log_update;
-    ALTER TABLE public.legal_relationship ENABLE TRIGGER a_legal_relationship_log_delete;
 END;
 $process_power_group_link$;
 

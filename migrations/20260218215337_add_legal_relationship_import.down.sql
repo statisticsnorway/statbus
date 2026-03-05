@@ -1,6 +1,12 @@
 -- Down Migration: Remove legal_relationship import support
 BEGIN;
 
+-- Remove natural key for legal_relationship
+SELECT sql_saga.drop_unique_key(
+    'public.legal_relationship'::regclass,
+    ARRAY['influencing_id', 'influenced_id', 'type_id']::name[]
+);
+
 -- Remove default definitions (cascades to import_definition_step, import_source_column, import_mapping)
 DELETE FROM public.import_definition WHERE slug IN ('legal_relationship_source_dates', 'legal_relationship_job_provided');
 

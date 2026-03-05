@@ -19,10 +19,12 @@ BEGIN;
 -- (Must exist before PART 3 which casts them to regproc)
 --------------------------------------------------------------------------------
 
-CREATE OR REPLACE PROCEDURE import.analyse_legal_relationship(p_job_id INT, p_batch_seq INTEGER, p_step_code TEXT)
-LANGUAGE plpgsql AS $analyse_legal_relationship$
+CREATE OR REPLACE PROCEDURE import.analyse_legal_relationship(IN p_job_id integer, IN p_batch_seq integer, IN p_step_code text)
+ LANGUAGE plpgsql
+AS $analyse_legal_relationship$
 DECLARE
     v_job public.import_job;
+    v_definition public.import_definition;
     v_step public.import_step;
     v_data_table_name TEXT;
     v_error_count INT := 0;
@@ -44,6 +46,8 @@ BEGIN
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
     v_data_table_name := v_job.data_table_name;
 
+    SELECT * INTO v_definition FROM jsonb_populate_record(NULL::public.import_definition, v_job.definition_snapshot->'import_definition');
+
     SELECT * INTO v_step
     FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list')
     WHERE code = 'legal_relationship';
@@ -57,7 +61,9 @@ BEGIN
                dt.influencing_tax_ident_raw,
                dt.influenced_tax_ident_raw,
                dt.rel_type_code_raw,
-               dt.percentage_raw
+               dt.percentage_raw,
+               dt.valid_from,
+               dt.valid_until
         FROM %I dt
         WHERE dt.batch_seq = $1
           AND dt.action IS DISTINCT FROM 'skip';
@@ -119,7 +125,7 @@ BEGIN
     LEFT JOIN public.legal_rel_type AS lrt ON lrt.code = dc.code AND lrt.enabled;
     ANALYZE t_lr_type_ids;
 
-    -- STEP 3: Main update with resolved values
+    -- STEP 3: Main update with resolved values and existing relationship lookup
     v_sql := format($SQL$
         WITH lookups AS (
             SELECT
@@ -144,17 +150,32 @@ BEGIN
                 NULLIF(TRIM(bd.rel_type_code_raw), '') IS NOT NULL AND tp.type_id IS NULL AS unknown_rel_type,
                 NULLIF(TRIM(bd.percentage_raw), '') IS NOT NULL
                     AND NOT (bd.percentage_raw ~ '^\s*[0-9]+(\.[0-9]+)?\s*$')
-                    AS invalid_percentage
+                    AS invalid_percentage,
+                -- Look up existing legal_relationship by natural key with overlapping time range
+                lr.id AS existing_legal_relationship_id
             FROM t_lr_batch_data AS bd
             LEFT JOIN t_lr_influencing_ids AS infl ON infl.tax_ident = NULLIF(TRIM(bd.influencing_tax_ident_raw), '')
             LEFT JOIN t_lr_influenced_ids AS infld ON infld.tax_ident = NULLIF(TRIM(bd.influenced_tax_ident_raw), '')
             LEFT JOIN t_lr_type_ids AS tp ON tp.code = NULLIF(TRIM(bd.rel_type_code_raw), '')
+            LEFT JOIN public.legal_relationship AS lr
+                ON lr.influencing_id = infl.legal_unit_id
+                AND lr.influenced_id = infld.legal_unit_id
+                AND lr.type_id = tp.type_id
+                AND lr.valid_range && daterange(bd.valid_from, bd.valid_until, '[)')
+        ),
+        -- Deduplicate: if multiple existing relationships match (e.g., split ranges),
+        -- pick the one with the earliest valid_from
+        deduped AS (
+            SELECT DISTINCT ON (data_row_id) *
+            FROM lookups
+            ORDER BY data_row_id, existing_legal_relationship_id ASC NULLS LAST
         )
         UPDATE public.%1$I dt SET
             influencing_id = l.influencing_id,
             influenced_id = l.influenced_id,
             type_id = l.type_id,
             percentage = l.percentage,
+            legal_relationship_id = l.existing_legal_relationship_id,
             state = CASE
                 WHEN l.missing_influencing OR l.unknown_influencing
                   OR l.missing_influenced OR l.unknown_influenced
@@ -177,6 +198,12 @@ BEGIN
                   OR l.missing_rel_type OR l.unknown_rel_type
                   OR l.invalid_percentage
                 THEN NULL
+                WHEN l.existing_legal_relationship_id IS NOT NULL
+                THEN CASE %4$L::public.import_strategy
+                    WHEN 'insert_or_update' THEN 'update'::public.import_row_operation_type
+                    WHEN 'update_only' THEN 'update'::public.import_row_operation_type
+                    ELSE 'replace'::public.import_row_operation_type
+                END
                 ELSE 'insert'::public.import_row_operation_type
             END,
             errors = (dt.errors - %2$L::TEXT[])
@@ -191,9 +218,9 @@ BEGIN
                 WHEN l.unknown_rel_type THEN jsonb_strip_nulls((dt.invalid_codes - %3$L::TEXT[]) || jsonb_build_object('rel_type_code', dt.rel_type_code_raw))
                 ELSE dt.invalid_codes - %3$L::TEXT[]
             END
-        FROM lookups AS l
+        FROM deduped AS l
         WHERE dt.row_id = l.data_row_id;
-    $SQL$, v_data_table_name, v_error_keys_to_clear_arr, v_invalid_code_keys_arr);
+    $SQL$, v_data_table_name, v_error_keys_to_clear_arr, v_invalid_code_keys_arr, v_definition.strategy);
 
     BEGIN
         EXECUTE v_sql;
@@ -202,6 +229,45 @@ BEGIN
     EXCEPTION WHEN others THEN
         RAISE WARNING '[Job %] analyse_legal_relationship: Error during batch update: %', p_job_id, SQLERRM;
         UPDATE public.import_job SET error = jsonb_build_object('analyse_legal_relationship_batch_error', SQLERRM)::TEXT, state = 'failed' WHERE id = p_job_id;
+    END;
+
+    -- STEP 4: Compute founding_row_id for rows with same natural key in the batch.
+    -- When multiple rows share (influencing_id, influenced_id, type_id) — e.g., different
+    -- temporal periods for the same relationship — they must be linked via founding_row_id
+    -- so temporal_merge knows they belong to the same entity.
+    -- Offset of 1000000000 avoids collision between legal_relationship IDs and row_ids,
+    -- matching the pattern used in analyse_external_idents.
+    v_sql := format($SQL$
+        WITH entity_groups AS (
+            SELECT
+                dt.row_id,
+                dt.influencing_id,
+                dt.influenced_id,
+                dt.type_id,
+                COALESCE(
+                    dt.legal_relationship_id + 1000000000,
+                    MIN(dt.row_id) OVER (
+                        PARTITION BY dt.influencing_id, dt.influenced_id, dt.type_id
+                    )
+                ) AS computed_founding_id
+            FROM public.%1$I AS dt
+            WHERE dt.batch_seq = $1
+              AND dt.action = 'use'
+              AND dt.influencing_id IS NOT NULL
+              AND dt.influenced_id IS NOT NULL
+              AND dt.type_id IS NOT NULL
+        )
+        UPDATE public.%1$I dt SET
+            founding_row_id = eg.computed_founding_id
+        FROM entity_groups AS eg
+        WHERE dt.row_id = eg.row_id
+          AND dt.founding_row_id IS DISTINCT FROM eg.computed_founding_id;
+    $SQL$, v_data_table_name);
+    BEGIN
+        EXECUTE v_sql USING p_batch_seq;
+        RAISE DEBUG '[Job %] analyse_legal_relationship: Set founding_row_id for batch rows.', p_job_id;
+    EXCEPTION WHEN others THEN
+        RAISE WARNING '[Job %] analyse_legal_relationship: Error during founding_row_id computation: %', p_job_id, SQLERRM;
     END;
 
     -- Advance priority for all batch rows
@@ -840,5 +906,19 @@ BEGIN
         RAISE NOTICE 'Legal relationship import definitions validated successfully.';
     END IF;
 END $$;
+
+--------------------------------------------------------------------------------
+-- PART 6: Register natural key for legal_relationship
+-- Enables temporal_merge to look up existing relationships by their business key
+-- (influencing_id, influenced_id, type_id) when the surrogate key (id) is not
+-- known (i.e., during import of new data).
+--------------------------------------------------------------------------------
+
+SELECT sql_saga.add_unique_key(
+    'public.legal_relationship'::regclass,
+    ARRAY['influencing_id', 'influenced_id', 'type_id']::name[],
+    'valid',
+    'natural'
+);
 
 END;

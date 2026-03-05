@@ -1463,8 +1463,8 @@ erDiagram
 		integer affected_establishment_count
 		integer affected_legal_unit_count
 		integer affected_enterprise_count
-		timestamp_with_time_zone updated_at
 		integer affected_power_group_count
+		timestamp_with_time_zone updated_at
 	}
 	worker_pipeline_step_weight["worker.pipeline_step_weight"] {
 		worker_pipeline_phase phase
