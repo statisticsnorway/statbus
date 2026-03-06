@@ -1804,6 +1804,9 @@ $function$;
 -- SECTION 12: Clean up any power_group data from statistical_unit
 -- ============================================================================
 
+-- Drop staging index added in up migration
+DROP INDEX IF EXISTS public.statistical_unit_staging_unit_type_unit_id_idx;
+
 DELETE FROM public.statistical_unit WHERE unit_type = 'power_group';
 DELETE FROM public.statistical_unit_staging WHERE unit_type = 'power_group';
 DELETE FROM public.timesegments WHERE unit_type = 'power_group';

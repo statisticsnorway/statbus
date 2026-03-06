@@ -213,7 +213,10 @@ module Statbus
       db_effective_cache_size : String,
       db_work_mem : String,
       db_temp_buffers : String,
-      db_wal_buffers : String
+      db_wal_buffers : String,
+      db_max_connections : Int64,
+      db_max_wal_size : String,
+      db_min_wal_size : String
 
     # Configuration values that are derived from other settings
     record DerivedEnv,
@@ -422,29 +425,45 @@ module Statbus
           )
         end
 
-        # Calculate derived memory values based on DB_MEM_LIMIT
-        # All PostgreSQL memory settings scale from this single source of truth.
-        # See tmp/db-memory-todo.md for detailed rationale.
+        # PostgreSQL memory tuning for STATBUS workload:
+        # - Few connections (~15: 4 child workers + 1 top fiber + PostgREST + psql)
+        # - Heavy batch analytics: complex multi-table joins (timepoints, timelines, statistical_unit)
+        # - 4 concurrent child workers each running sort/hash-intensive queries
         #
-        # Memory allocation strategy (for 4GB total):
-        #   shared_buffers:       25% = 1GB    (main buffer cache)
-        #   effective_cache_size: 75% = 3GB    (planner hint for OS cache)
-        #   maintenance_work_mem: 25% = 1GB    (VACUUM, CREATE INDEX, etc.)
-        #   work_mem:             1%  = 40MB   (per-operation sorts/hashes, multiplied by queries)
-        #   temp_buffers:        12.5% = 512MB (temporary tables, min 256MB for imports)
-        #   wal_buffers:         ~1.5% = 64MB  (WAL write buffering, min 16MB, max 256MB)
+        # Example for 8GB (mem_limit_mb = 8192):
+        #   shared_buffers:       25%  = 2GB    (main buffer cache, standard recommendation)
+        #   effective_cache_size: 75%  = 6GB    (planner hint for OS+PG cache, not allocated)
+        #   maintenance_work_mem: 12.5% = 1GB   (VACUUM, CREATE INDEX; capped at 2GB, diminishing returns beyond)
+        #   work_mem:             1/16 = 512MB  (per sort/hash operation, conditionally allocated only when needed;
+        #                                        with hash_mem_multiplier=2.0, hash ops get up to 1GB;
+        #                                        worst case 4 workers × 5 ops × 512MB = 10GB but rarely reached)
+        #   temp_buffers:        12.5% = 1GB    (temporary tables, min 256MB for import temp tables)
+        #   wal_buffers:         ~1.5% = 122MB  (WAL write buffering, clamped 16-256MB)
+        #   max_wal_size:        50%   = 4GB    (WAL cap before checkpoint, min 2GB)
+        #   min_wal_size:        12.5% = 1GB    (pre-allocated WAL segments, min 256MB)
         #
         mem_limit_mb = parse_mem_size_to_mb(config.db_mem_limit)
         shared_buffers_mb = (mem_limit_mb * 0.25).to_i64
-        maintenance_work_mem_mb = (mem_limit_mb * 0.25).to_i64
+        maintenance_work_mem_mb = Math.min(2048_i64, (mem_limit_mb * 0.125).to_i64)
         effective_cache_size_mb = (mem_limit_mb * 0.75).to_i64
-        work_mem_mb = Math.max(4_i64, mem_limit_mb // 100) # Min 4MB for safety
+        work_mem_mb = Math.max(4_i64, mem_limit_mb // 16)
         # temp_buffers: ~12.5% of memory, min 256MB for import temp tables
         # Must be set at server startup (can't be changed after temp tables are accessed)
         temp_buffers_mb = Math.max(256_i64, mem_limit_mb // 8)
         # wal_buffers: ~1.5% of memory, clamped between 16MB and 256MB
         # Larger values reduce disk I/O by buffering more WAL before write
         wal_buffers_mb = Math.min(256_i64, Math.max(16_i64, (mem_limit_mb * 0.015).to_i64))
+        # max_connections: STATBUS has few clients (~25 peak):
+        #   Worker: 8 (1 listener + 1 top + 4 child analytics + 1 import + 1 maintenance)
+        #   PostgREST: 10 (default pool)
+        #   Admin/psql: 1-3
+        #   System (autovacuum, pg_cron): 3-5
+        # Default 100 wastes shared memory. Set to 30 with headroom.
+        max_connections = 30_i64
+        # WAL sizing: large imports generate massive WAL. Default max_wal_size=1GB
+        # triggers frequent checkpoints. Scale with memory to reduce checkpoint frequency.
+        max_wal_size_mb = Math.max(2048_i64, mem_limit_mb // 2)
+        min_wal_size_mb = Math.max(256_i64, mem_limit_mb // 8)
         reservation_mb = (mem_limit_mb // 2).to_i64
 
         db_mem = DbMemoryEnv.new(
@@ -456,7 +475,10 @@ module Statbus
           db_effective_cache_size: format_mb_for_pg(effective_cache_size_mb),
           db_work_mem: format_mb_for_pg(work_mem_mb),
           db_temp_buffers: format_mb_for_pg(temp_buffers_mb),
-          db_wal_buffers: format_mb_for_pg(wal_buffers_mb)
+          db_wal_buffers: format_mb_for_pg(wal_buffers_mb),
+          db_max_connections: max_connections,
+          db_max_wal_size: format_mb_for_pg(max_wal_size_mb),
+          db_min_wal_size: format_mb_for_pg(min_wal_size_mb)
         )
 
         # Calculate derived values
@@ -668,7 +690,10 @@ module Statbus
         env.set("DB_WORK_MEM", db_mem.db_work_mem)
         env.set("DB_TEMP_BUFFERS", db_mem.db_temp_buffers)
         env.set("DB_WAL_BUFFERS", db_mem.db_wal_buffers)
-        
+        env.set("DB_MAX_CONNECTIONS", db_mem.db_max_connections.to_s)
+        env.set("DB_MAX_WAL_SIZE", db_mem.db_max_wal_size)
+        env.set("DB_MIN_WAL_SIZE", db_mem.db_min_wal_size)
+
         env.set("ACCESS_JWT_EXPIRY", config.access_jwt_expiry)
         env.set("REFRESH_JWT_EXPIRY", config.refresh_jwt_expiry)
         env.set("JWT_SECRET", credentials.jwt_secret)

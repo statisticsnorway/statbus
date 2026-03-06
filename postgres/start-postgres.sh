@@ -15,15 +15,21 @@ PG_PARAMS="$PG_PARAMS -c log_destination=stderr"
 # Dynamic memory configuration (overrides postgresql.conf)
 # All memory settings are derived from DB_MEM_LIMIT in .env.config (single source of truth).
 # These are calculated by the CLI and passed via environment variables.
-# See tmp/db-memory-todo.md for tuning rationale.
-PG_PARAMS="$PG_PARAMS -c shared_buffers=${DB_SHARED_BUFFERS:-1GB}"
+PG_PARAMS="$PG_PARAMS -c shared_buffers=${DB_SHARED_BUFFERS:-2GB}"
 PG_PARAMS="$PG_PARAMS -c maintenance_work_mem=${DB_MAINTENANCE_WORK_MEM:-1GB}"
-PG_PARAMS="$PG_PARAMS -c effective_cache_size=${DB_EFFECTIVE_CACHE_SIZE:-3GB}"
-PG_PARAMS="$PG_PARAMS -c work_mem=${DB_WORK_MEM:-40MB}"
+PG_PARAMS="$PG_PARAMS -c effective_cache_size=${DB_EFFECTIVE_CACHE_SIZE:-6GB}"
+PG_PARAMS="$PG_PARAMS -c work_mem=${DB_WORK_MEM:-512MB}"
 # temp_buffers must be set at server startup; cannot be changed after temp tables are accessed
-PG_PARAMS="$PG_PARAMS -c temp_buffers=${DB_TEMP_BUFFERS:-512MB}"
+PG_PARAMS="$PG_PARAMS -c temp_buffers=${DB_TEMP_BUFFERS:-1GB}"
 # wal_buffers controls WAL write buffering; larger values reduce disk I/O
-PG_PARAMS="$PG_PARAMS -c wal_buffers=${DB_WAL_BUFFERS:-64MB}"
+PG_PARAMS="$PG_PARAMS -c wal_buffers=${DB_WAL_BUFFERS:-122MB}"
+# max_connections: STATBUS needs ~25 peak (worker + PostgREST + admin)
+PG_PARAMS="$PG_PARAMS -c max_connections=${DB_MAX_CONNECTIONS:-30}"
+# WAL sizing: large imports generate massive WAL; scale with memory
+PG_PARAMS="$PG_PARAMS -c max_wal_size=${DB_MAX_WAL_SIZE:-4GB}"
+PG_PARAMS="$PG_PARAMS -c min_wal_size=${DB_MIN_WAL_SIZE:-1GB}"
+# WAL compression: reduces I/O volume ~50% at low CPU cost
+PG_PARAMS="$PG_PARAMS -c wal_compression=lz4"
 
 # Default logging levels (these match postgresql.conf but will be overridden if DEBUG=true)
 # These values are set here to be passed as command-line arguments,
