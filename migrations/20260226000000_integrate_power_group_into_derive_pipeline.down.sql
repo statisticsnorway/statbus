@@ -228,6 +228,15 @@ DROP TRIGGER IF EXISTS a_power_group_log_update ON public.power_group;
 DROP TRIGGER IF EXISTS a_power_group_log_delete ON public.power_group;
 DROP TRIGGER IF EXISTS b_power_group_ensure_collect ON public.power_group;
 
+-- Drop power_root change detection triggers
+DROP TRIGGER IF EXISTS a_power_root_log_insert ON public.power_root;
+DROP TRIGGER IF EXISTS a_power_root_log_update ON public.power_root;
+DROP TRIGGER IF EXISTS a_power_root_log_delete ON public.power_root;
+DROP TRIGGER IF EXISTS b_power_root_ensure_collect_insert ON public.power_root;
+DROP TRIGGER IF EXISTS b_power_root_ensure_collect_update ON public.power_root;
+DROP TRIGGER IF EXISTS b_power_root_ensure_collect_delete ON public.power_root;
+DROP FUNCTION IF EXISTS worker.ensure_collect_changes_for_power_root();
+
 -- Drop power_group_ids column from base_change_log
 ALTER TABLE worker.base_change_log DROP COLUMN IF EXISTS power_group_ids;
 

@@ -1186,7 +1186,6 @@ AS $log_base_change$
 DECLARE
     v_columns TEXT;
     v_has_valid_range BOOLEAN;
-    v_has_power_group BOOLEAN := FALSE;
     v_where_clause TEXT := '';
     v_source TEXT;
     v_est_ids int4multirange;
@@ -1216,20 +1215,18 @@ BEGIN
             -- Only log when derived_power_group_id is assigned (NULL = PG not yet linked).
             v_columns := 'NULL::INT AS est_id, NULL::INT AS lu_id, NULL::INT AS ent_id, derived_power_group_id AS pg_id';
             v_has_valid_range := TRUE;
-            v_has_power_group := TRUE;
+
             v_where_clause := ' WHERE derived_power_group_id IS NOT NULL';
         WHEN 'power_group' THEN
             -- PG metadata changes (name, type_id, etc.) affect PG statistical units.
             -- Timeless table — no valid_range.
             v_columns := 'NULL::INT AS est_id, NULL::INT AS lu_id, NULL::INT AS ent_id, id AS pg_id';
             v_has_valid_range := FALSE;
-            v_has_power_group := TRUE;
         WHEN 'power_root' THEN
             -- PR changes (NSO custom_root override) affect the power group's timeline.
             -- Temporal table — has valid_range.
             v_columns := 'NULL::INT AS est_id, NULL::INT AS lu_id, NULL::INT AS ent_id, power_group_id AS pg_id';
             v_has_valid_range := TRUE;
-            v_has_power_group := TRUE;
         ELSE
             RAISE EXCEPTION 'log_base_change: unsupported table %', TG_TABLE_NAME;
     END CASE;
@@ -1356,7 +1353,7 @@ FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change();
 
 CREATE TRIGGER a_power_group_log_update
 AFTER UPDATE ON public.power_group
-REFERENCING NEW TABLE AS new_rows OLD TABLE AS old_rows
+REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows
 FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change();
 
 CREATE TRIGGER a_power_group_log_delete

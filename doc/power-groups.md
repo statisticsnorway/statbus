@@ -118,7 +118,7 @@ Non-primary relationships may create multi-root situations (since they are 1:N),
 - `root_legal_unit_id` — `GENERATED ALWAYS AS (COALESCE(custom_root, derived_root)) STORED` — one column to join on
 - CHECK constraint enforces sparsity: only `cycle` and `multi` status values allowed
 
-NSO edits to `custom_root_legal_unit_id` trigger `derive_statistical_unit` directly via the `power_root_derive_trigger`.
+NSO edits to `custom_root_legal_unit_id` trigger change tracking via `base_change_log` (statement-level triggers), which feeds into the standard `collect_changes` → `derive_statistical_unit` pipeline.
 
 ### Views
 
@@ -293,7 +293,7 @@ power_root after NSO edit:
  PG1 |            1 | cycle          |           2 |       2 | [2020, infinity)
 ```
 
-The `root_legal_unit_id` is `COALESCE(custom_root, derived_root) = 2` (Beta). `power_root_derive_trigger` fires and enqueues `derive_statistical_unit` to recalculate timeline/statistical_unit.
+The `root_legal_unit_id` is `COALESCE(custom_root, derived_root) = 2` (Beta). The statement-level triggers log the change to `base_change_log`, which feeds into `collect_changes` → `derive_statistical_unit` to recalculate timeline/statistical_unit.
 
 **Validation**: Both `derived_root` and `custom_root` must be influencing LUs in the power group's legal relationships (enforced by `power_root_validate_root_membership` trigger).
 

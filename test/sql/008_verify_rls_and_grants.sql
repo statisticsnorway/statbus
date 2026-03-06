@@ -135,8 +135,7 @@ DECLARE
     -- Lifecycle Callbacks: Trigger functions calling DDL procedures or enqueuing worker tasks
     v_lifecycle_funcs TEXT[] := ARRAY[
         'lifecycle_callbacks.cleanup_and_generate',
-        'public.generate_power_ident',
-        'public.power_root_queue_derive'
+        'public.generate_power_ident'
     ];
 
     -- Combined registry (excluding sql_saga which is matched by schema)

@@ -342,7 +342,6 @@ Trigger calling DDL procedures.
 
 - `lifecycle_callbacks.cleanup_and_generate`
 - `public.generate_power_ident`
-- `public.power_root_queue_derive`
 
 ### sql_saga
 
