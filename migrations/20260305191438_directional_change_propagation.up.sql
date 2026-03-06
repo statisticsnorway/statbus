@@ -487,18 +487,21 @@ BEGIN
             v_effective_en_count, v_batch_en_count;
     END IF;
 
-    -- ALL refresh calls use effective ranges (scoped by directional propagation)
-    -- Power groups are independent — always use their batch ranges directly
+    -- Timepoints/timesegments use BATCH ranges (not effective ranges) because:
+    -- timepoints_calculate's CTE chain builds enterprise timepoints from LU periods,
+    -- and LU periods from ES periods. Scoping to effective ranges would miss unchanged
+    -- LUs/ESs that enterprises depend on (e.g., when an LU moves between enterprises,
+    -- the old enterprise needs ALL its remaining LUs' timepoints).
     CALL public.timepoints_refresh(
-        p_establishment_id_ranges => COALESCE(v_effective_est, '{}'::int4multirange),
-        p_legal_unit_id_ranges => COALESCE(v_effective_lu, '{}'::int4multirange),
-        p_enterprise_id_ranges => COALESCE(v_effective_en, '{}'::int4multirange),
+        p_establishment_id_ranges => v_establishment_id_ranges,
+        p_legal_unit_id_ranges => v_legal_unit_id_ranges,
+        p_enterprise_id_ranges => v_enterprise_id_ranges,
         p_power_group_id_ranges => COALESCE(v_power_group_id_ranges, '{}'::int4multirange)
     );
     CALL public.timesegments_refresh(
-        p_establishment_id_ranges => COALESCE(v_effective_est, '{}'::int4multirange),
-        p_legal_unit_id_ranges => COALESCE(v_effective_lu, '{}'::int4multirange),
-        p_enterprise_id_ranges => COALESCE(v_effective_en, '{}'::int4multirange),
+        p_establishment_id_ranges => v_establishment_id_ranges,
+        p_legal_unit_id_ranges => v_legal_unit_id_ranges,
+        p_enterprise_id_ranges => v_enterprise_id_ranges,
         p_power_group_id_ranges => COALESCE(v_power_group_id_ranges, '{}'::int4multirange)
     );
     CALL public.timesegments_years_refresh_concurrent();
