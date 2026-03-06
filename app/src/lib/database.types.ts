@@ -13716,10 +13716,6 @@ export type Database = {
           isSetofReturn: true
         }
       },
-      power_root_queue_derive: {
-        Args: never
-        Returns: unknown
-      },
       power_root_validate_root_membership: {
         Args: never
         Returns: unknown

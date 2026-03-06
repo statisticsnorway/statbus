@@ -1224,6 +1224,12 @@ BEGIN
             v_columns := 'NULL::INT AS est_id, NULL::INT AS lu_id, NULL::INT AS ent_id, id AS pg_id';
             v_has_valid_range := FALSE;
             v_has_power_group := TRUE;
+        WHEN 'power_root' THEN
+            -- PR changes (NSO custom_root override) affect the power group's timeline.
+            -- Temporal table — has valid_range.
+            v_columns := 'NULL::INT AS est_id, NULL::INT AS lu_id, NULL::INT AS ent_id, power_group_id AS pg_id';
+            v_has_valid_range := TRUE;
+            v_has_power_group := TRUE;
         ELSE
             RAISE EXCEPTION 'log_base_change: unsupported table %', TG_TABLE_NAME;
     END CASE;
@@ -1257,7 +1263,7 @@ BEGIN
        OR v_lu_ids != '{}'::int4multirange
        OR v_ent_ids != '{}'::int4multirange
        OR v_pg_ids != '{}'::int4multirange THEN
-        INSERT INTO worker.base_change_log (establishment_ids, legal_unit_ids, enterprise_ids, power_group_ids, edited_by_valid_range)
+        INSERT INTO worker.base_change_log (establishment_ids, legal_unit_ids, enterprise_ids, power_group_ids, valid_ranges)
         VALUES (v_est_ids, v_lu_ids, v_ent_ids, v_pg_ids, v_valid_range);
     END IF;
 
@@ -1361,6 +1367,74 @@ FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change();
 -- Schedule collection (same generic function as most tables)
 CREATE TRIGGER b_power_group_ensure_collect
 AFTER INSERT OR DELETE OR UPDATE ON public.power_group
+FOR EACH STATEMENT EXECUTE FUNCTION worker.ensure_collect_changes();
+
+-- Drop old row-level trigger from 20240125 migration (replaced by statement-level below)
+DROP TRIGGER IF EXISTS power_root_derive_trigger ON public.power_root;
+DROP FUNCTION IF EXISTS public.power_root_queue_derive();
+
+-- Change detection triggers on power_root.
+-- NSO custom_root overrides affect power group derivation.
+-- log_base_change handles 'power_root' via the WHEN case above.
+
+-- Log changes (same pattern as other tables: a_ prefix for logging triggers)
+CREATE TRIGGER a_power_root_log_insert
+AFTER INSERT ON public.power_root
+REFERENCING NEW TABLE AS new_rows
+FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change();
+
+CREATE TRIGGER a_power_root_log_update
+AFTER UPDATE ON public.power_root
+REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows
+FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change();
+
+CREATE TRIGGER a_power_root_log_delete
+AFTER DELETE ON public.power_root
+REFERENCING OLD TABLE AS old_rows
+FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change();
+
+-- PR-specific ensure_collect trigger function that filters on custom_root_legal_unit_id.
+-- During import, process_power_group_link writes derived roots with
+-- custom_root_legal_unit_id = NULL; those don't need collection.
+CREATE OR REPLACE FUNCTION worker.ensure_collect_changes_for_power_root()
+RETURNS trigger LANGUAGE plpgsql AS $ensure_collect_changes_for_power_root$
+BEGIN
+    IF TG_OP IN ('INSERT', 'UPDATE') THEN
+        IF NOT EXISTS (SELECT 1 FROM new_rows WHERE custom_root_legal_unit_id IS NOT NULL) THEN
+            RETURN NULL;
+        END IF;
+    END IF;
+
+    UPDATE worker.base_change_log_has_pending
+    SET has_pending = TRUE WHERE has_pending = FALSE;
+
+    INSERT INTO worker.tasks (command, payload)
+    VALUES ('collect_changes', '{"command":"collect_changes"}'::jsonb)
+    ON CONFLICT (command)
+    WHERE command = 'collect_changes' AND state = 'pending'::worker.task_state
+    DO NOTHING;
+
+    PERFORM pg_notify('worker_tasks', 'analytics');
+    RETURN NULL;
+END;
+$ensure_collect_changes_for_power_root$;
+
+-- INSERT: use PR-specific function that checks custom_root_legal_unit_id
+CREATE TRIGGER b_power_root_ensure_collect_insert
+AFTER INSERT ON public.power_root
+REFERENCING NEW TABLE AS new_rows
+FOR EACH STATEMENT EXECUTE FUNCTION worker.ensure_collect_changes_for_power_root();
+
+-- UPDATE: use PR-specific function that checks custom_root_legal_unit_id
+CREATE TRIGGER b_power_root_ensure_collect_update
+AFTER UPDATE ON public.power_root
+REFERENCING NEW TABLE AS new_rows
+FOR EACH STATEMENT EXECUTE FUNCTION worker.ensure_collect_changes_for_power_root();
+
+-- DELETE: always schedule (custom_root was set before deletion, log already captured it)
+CREATE TRIGGER b_power_root_ensure_collect_delete
+AFTER DELETE ON public.power_root
+REFERENCING OLD TABLE AS old_rows
 FOR EACH STATEMENT EXECUTE FUNCTION worker.ensure_collect_changes();
 
 -- ============================================================================
@@ -1663,7 +1737,7 @@ BEGIN
         v_lu_ids := v_lu_ids + v_row.legal_unit_ids;
         v_ent_ids := v_ent_ids + v_row.enterprise_ids;
         v_pg_ids := v_pg_ids + v_row.power_group_ids;
-        v_valid_range := v_valid_range + v_row.edited_by_valid_range;
+        v_valid_range := v_valid_range + v_row.valid_ranges;
     END LOOP;
 
     -- Clear crash recovery flag
@@ -2342,8 +2416,14 @@ BEGIN
     -- the old power_hierarchy view (cost ~17M).
     -- ================================================================
 
-    -- Disable power_root trigger to prevent enqueue loop during temporal_merge
-    ALTER TABLE public.power_root DISABLE TRIGGER power_root_derive_trigger;
+    -- Disable power_root change tracking triggers to prevent enqueue loop during temporal_merge.
+    -- Must NOT disable power_root_valid_sync_temporal_trg (sql_saga sync for valid_from/valid_until).
+    ALTER TABLE public.power_root DISABLE TRIGGER a_power_root_log_insert;
+    ALTER TABLE public.power_root DISABLE TRIGGER a_power_root_log_update;
+    ALTER TABLE public.power_root DISABLE TRIGGER a_power_root_log_delete;
+    ALTER TABLE public.power_root DISABLE TRIGGER b_power_root_ensure_collect_insert;
+    ALTER TABLE public.power_root DISABLE TRIGGER b_power_root_ensure_collect_update;
+    ALTER TABLE public.power_root DISABLE TRIGGER b_power_root_ensure_collect_delete;
 
     -- Detect natural roots: LUs that influence others but are NOT influenced
     IF to_regclass('pg_temp._natural_roots') IS NOT NULL THEN
@@ -2434,7 +2514,12 @@ BEGIN
         RAISE DEBUG '[Job %] process_power_group_link: temporal_merge power_root affected % rows', p_job_id, _row_count;
     END IF;
 
-    ALTER TABLE public.power_root ENABLE TRIGGER power_root_derive_trigger;
+    ALTER TABLE public.power_root ENABLE TRIGGER a_power_root_log_insert;
+    ALTER TABLE public.power_root ENABLE TRIGGER a_power_root_log_update;
+    ALTER TABLE public.power_root ENABLE TRIGGER a_power_root_log_delete;
+    ALTER TABLE public.power_root ENABLE TRIGGER b_power_root_ensure_collect_insert;
+    ALTER TABLE public.power_root ENABLE TRIGGER b_power_root_ensure_collect_update;
+    ALTER TABLE public.power_root ENABLE TRIGGER b_power_root_ensure_collect_delete;
 END;
 $process_power_group_link$;
 

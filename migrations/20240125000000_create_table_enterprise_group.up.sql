@@ -167,32 +167,4 @@ SELECT sql_saga.add_for_portion_of_view('public.power_root');
 -- Enable RLS (required by 20240603 migration check)
 ALTER TABLE public.power_root ENABLE ROW LEVEL SECURITY;
 
---------------------------------------------------------------------------------
--- Trigger: When NSO edits custom_root on power_root, enqueue derive_statistical_unit
--- Disabled during process_power_group_link to prevent import loops.
---------------------------------------------------------------------------------
-
-CREATE FUNCTION public.power_root_queue_derive()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, worker, pg_temp
-AS $power_root_queue_derive$
-BEGIN
-    -- Only fire for NSO custom_root changes (not algorithm-derived writes).
-    IF (TG_OP = 'INSERT' AND NEW.custom_root_legal_unit_id IS NOT NULL) OR
-       (TG_OP = 'UPDATE' AND OLD.custom_root_legal_unit_id IS DISTINCT FROM NEW.custom_root_legal_unit_id) THEN
-        PERFORM worker.enqueue_derive_statistical_unit(
-            p_power_group_id_ranges := int4range(NEW.power_group_id, NEW.power_group_id, '[]')::int4multirange
-        );
-    END IF;
-    RETURN NULL;
-END;
-$power_root_queue_derive$;
-
-CREATE TRIGGER power_root_derive_trigger
-AFTER INSERT OR UPDATE ON public.power_root
-FOR EACH ROW
-EXECUTE FUNCTION public.power_root_queue_derive();
-
 END;

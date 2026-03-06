@@ -1436,7 +1436,7 @@ erDiagram
 		int4multirange establishment_ids
 		int4multirange legal_unit_ids
 		int4multirange enterprise_ids
-		datemultirange edited_by_valid_range
+		datemultirange valid_ranges
 		int4multirange power_group_ids
 	}
 	worker_base_change_log_has_pending["worker.base_change_log_has_pending"] {

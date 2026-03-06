@@ -212,7 +212,7 @@ Handles background processing. A long-running worker process calls `worker.proce
 - `queue_registry(queue, description, default_concurrency)`
 - `pipeline_progress(updated_at, phase, step, total, completed, affected_establishment_count, affected_legal_unit_count, affected_enterprise_count, affected_power_group_count)`
   - Enums: `phase` (`worker.pipeline_phase`).
-- `base_change_log(establishment_ids, legal_unit_ids, enterprise_ids, edited_by_valid_range, power_group_ids)`
+- `base_change_log(valid_ranges, establishment_ids, legal_unit_ids, enterprise_ids, power_group_ids)`
 - `base_change_log_has_pending(has_pending)`
 
 ## Auth & System Tables/Views

@@ -654,7 +654,7 @@ BEGIN
         v_est_ids := v_est_ids + v_row.establishment_ids;
         v_lu_ids := v_lu_ids + v_row.legal_unit_ids;
         v_ent_ids := v_ent_ids + v_row.enterprise_ids;
-        v_valid_range := v_valid_range + v_row.edited_by_valid_range;
+        v_valid_range := v_valid_range + v_row.valid_ranges;
     END LOOP;
 
     -- Clear crash recovery flag

@@ -403,10 +403,10 @@ LEFT JOIN public.legal_unit AS lu_custom ON lu_custom.id = pr.custom_root_legal_
 JOIN public.legal_unit AS lu_root ON lu_root.id = pr.root_legal_unit_id
 WHERE pr.edit_comment = 'NSO override test';
 
-\echo "2f: Trigger enqueued derive_statistical_unit for the PG"
+\echo "2f: Trigger enqueued collect_changes for the PG (via base_change_log)"
 SELECT command, state
 FROM worker.tasks
-WHERE command = 'derive_statistical_unit'
+WHERE command = 'collect_changes'
 ORDER BY id DESC
 LIMIT 1;
 

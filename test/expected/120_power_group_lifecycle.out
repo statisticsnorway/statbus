@@ -508,16 +508,16 @@ WHERE pr.edit_comment = 'NSO override test';
  PG0001            | Apex Corp         | Apex Manufacturing | Apex Manufacturing  | t
 (1 row)
 
-\echo "2f: Trigger enqueued derive_statistical_unit for the PG"
-"2f: Trigger enqueued derive_statistical_unit for the PG"
+\echo "2f: Trigger enqueued collect_changes for the PG (via base_change_log)"
+"2f: Trigger enqueued collect_changes for the PG (via base_change_log)"
 SELECT command, state
 FROM worker.tasks
-WHERE command = 'derive_statistical_unit'
+WHERE command = 'collect_changes'
 ORDER BY id DESC
 LIMIT 1;
-         command         |  state  
--------------------------+---------
- derive_statistical_unit | pending
+     command     |  state  
+-----------------+---------
+ collect_changes | pending
 (1 row)
 
 \echo "2f: Setting custom_root to non-member LU should fail"
