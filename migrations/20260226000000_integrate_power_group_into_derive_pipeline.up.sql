@@ -1027,7 +1027,7 @@ END;
 $statistical_unit_refresh$;
 
 -- Index for staging DELETE performance: = ANY() needs btree index on (unit_type, unit_id)
-CREATE INDEX IF NOT EXISTS idx_statistical_unit_staging_type_id
+CREATE INDEX IF NOT EXISTS statistical_unit_staging_unit_type_unit_id_idx
     ON public.statistical_unit_staging (unit_type, unit_id);
 
 -- ============================================================================

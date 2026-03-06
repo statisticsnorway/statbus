@@ -1805,7 +1805,7 @@ $function$;
 -- ============================================================================
 
 -- Drop staging index added in up migration
-DROP INDEX IF EXISTS public.idx_statistical_unit_staging_type_id;
+DROP INDEX IF EXISTS public.statistical_unit_staging_unit_type_unit_id_idx;
 
 DELETE FROM public.statistical_unit WHERE unit_type = 'power_group';
 DELETE FROM public.statistical_unit_staging WHERE unit_type = 'power_group';
