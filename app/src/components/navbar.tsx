@@ -369,7 +369,7 @@ export default function Navbar() {
                     progressPct={reportsPct}
                     popoverContent={isDerivingReports
                       ? (derivingReports?.active
-                        ? <PhaseProgressPopover phase={derivingReports} stepWeights={phase2Weights} waitingFor={isDerivingUnits ? "Statistical Units" : undefined} />
+                        ? <PhaseProgressPopover phase={derivingReports} stepWeights={phase2Weights} waitingFor={(derivingUnits?.total ?? 0) > 0 ? "Statistical Units" : undefined} />
                         : <p className="text-sm text-gray-500">Deriving reports...</p>)
                       : null}
                   />
