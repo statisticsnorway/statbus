@@ -91,126 +91,141 @@ from being processed.
 
 When data changes (via import or direct edit), the analytics pipeline derives
 all downstream tables. Each box below is a **top-level task** — they run
-**strictly one at a time**, in order:
+**strictly one at a time**, in order. The pipeline has two **phases**
+(see [Pipeline Progress](#pipeline-progress) below):
+
+- **Phase 1** (`is_deriving_statistical_units`): steps ①–③
+- **Phase 2** (`is_deriving_reports`): steps ④–⑨
 
 ```
  IMPORT QUEUE                      ANALYTICS QUEUE
  ════════════                      ═══════════════
 
- import_job_process
-    │ batch processing inserts/updates
-    │ base tables (LU, EST, LR, ...)
-    │
-    │ holistic steps run after all batches:
-    │ • power_group_link creates PG records,
-    │   sets power_group_id on legal_relationship
-    │
-    │ change-detection triggers fire on each
-    │ committed statement:
-    │ • log_base_change → base_change_log
-    │ • ensure_collect_changes → enqueue
-    │   collect_changes (idempotent dedup)
-    ▼
-                          ┌─────────────────────────────────────────────┐
-                     ①    │ collect_changes                             │
-                          │  Drains base_change_log accumulator and     │
-                          │  enqueues derive_statistical_unit.          │
-                          └──────────────────┬──────────────────────────┘
-                                             │ (strictly sequential — next task)
-                                             ▼
-                          ┌─────────────────────────────────────────────┐
-                     ②    │ derive_statistical_unit             PARENT  │
-                          │                                             │
-                          │  Computes "closed groups" of affected       │
-                          │  enterprises, spawns batch children:        │
-                          │                                             │
-                          │  ┌────────┐ ┌────────┐       ┌────────┐   │
-                          │  │batch 1 │ │batch 2 │  ...  │batch N │   │
-                          │  │~1000 e.│ │~1000 e.│       │~1000 e.│   │
-                          │  └────────┘ └────────┘       └────────┘   │
-                          │  statistical_unit_refresh_batch             │
-                          │  (3 child fibers process in parallel)      │
-                          │                                             │
-                          │  Also enqueues uncle tasks:                 │
-                          │  • statistical_unit_flush_staging            │
-                          │  • derive_reports                           │
-                          │                                             │
-                          │  Parent state → "waiting"                   │
-                          │  Top fiber BLOCKED until all children done  │
-                          └──────────────────┬──────────────────────────┘
-                                             │ (parent completes, top fiber resumes)
-                                             ▼
-                          ┌─────────────────────────────────────────────┐
-                     ③    │ statistical_unit_flush_staging      SERIAL  │
-                          │  Merges UNLOGGED staging table into         │
-                          │  main statistical_unit table.               │
-                          └──────────────────┬──────────────────────────┘
-                                             │
-                                             ▼
-                          ┌─────────────────────────────────────────────┐
-                     ④    │ derive_reports                      SERIAL  │
-                          │  Starts the reporting chain.                │
-                          │  Enqueues → derive_statistical_history      │
-                          └──────────────────┬──────────────────────────┘
-                                             │
-                                             ▼
-                          ┌─────────────────────────────────────────────┐
-                     ⑤    │ derive_statistical_history          PARENT  │
-                          │                                             │
-                          │  Enqueues → derive_statistical_unit_facet   │
-                          │                                             │
-                          │  Spawns period children (parallel):         │
-                          │  ┌──────────┐ ┌──────────┐ ┌──────────┐   │
-                          │  │ year '24 │ │ mo '24-1 │ │ mo '24-2 │...│
-                          │  └──────────┘ └──────────┘ └──────────┘   │
-                          │  derive_statistical_history_period          │
-                          │                                             │
-                          │  Parent "waiting" → children → done         │
-                          └──────────────────┬──────────────────────────┘
-                                             │
-                                             ▼
-                          ┌─────────────────────────────────────────────┐
-                     ⑥    │ derive_statistical_unit_facet       PARENT  │
-                          │                                             │
-                          │  Spawns partition children (parallel):      │
-                          │  ┌──────────┐ ┌──────────┐ ┌──────────┐   │
-                          │  │ part 0   │ │ part 1   │ │ part N   │...│
-                          │  └──────────┘ └──────────┘ └──────────┘   │
-                          │  derive_statistical_unit_facet_partition    │
-                          │                                             │
-                          │  Enqueues → statistical_unit_facet_reduce   │
-                          │  Enqueues → derive_statistical_history_facet│
-                          │                                             │
-                          │  Parent "waiting" → children → done         │
-                          └──────────────────┬──────────────────────────┘
-                                             │
-                                             ▼
-                          ┌─────────────────────────────────────────────┐
-                    ⑥b    │ statistical_unit_facet_reduce       SERIAL  │
-                          │  Merges partition staging data into         │
-                          │  main statistical_unit_facet table.         │
-                          └──────────────────┬──────────────────────────┘
-                                             │
-                                             ▼
-                          ┌─────────────────────────────────────────────┐
-                     ⑦    │ derive_statistical_history_facet    PARENT  │
-                          │                                             │
-                          │  Spawns period children (parallel):         │
-                          │  ┌──────────┐ ┌──────────┐ ┌──────────┐   │
-                          │  │ year '24 │ │ mo '24-1 │ │ mo '24-2 │...│
-                          │  └──────────┘ └──────────┘ └──────────┘   │
-                          │  derive_statistical_history_facet_period    │
-                          │                                             │
-                          │  Parent "waiting" → children → done         │
-                          └──────────────────┬──────────────────────────┘
-                                             │
-                                             ▼
-                          Pipeline complete.
-                          Frontend detects is_deriving_statistical_units()
-                          transitioning true → false, invalidates caches.
+ import_job_process              ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄
+    │ batch processing                Phase 1: Statistical Units
+    │ inserts/updates              ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄
+    │ base tables (LU, EST, LR)
+    │                             ┌─────────────────────────────────────────────┐
+    │ holistic steps run after    │ collect_changes                        ①    │
+    │ all batches:                │  Drains base_change_log accumulator and     │
+    │ • power_group_link creates  │  enqueues derive_statistical_unit.          │
+    │   PG records, sets          └──────────────────┬──────────────────────────┘
+    │   power_group_id on LR                         │ (strictly sequential)
+    │                                                ▼
+    │ change-detection triggers   ┌─────────────────────────────────────────────┐
+    │ fire on each committed      │ derive_statistical_unit             ②       │
+    │ statement:                  │                                     PARENT  │
+    │ • log_base_change →         │  Computes "closed groups" of affected       │
+    │   base_change_log           │  enterprises, spawns batch children:        │
+    │ • ensure_collect_changes →  │                                             │
+    │   enqueue collect_changes   │  ┌────────┐ ┌────────┐       ┌────────┐   │
+    │   (idempotent dedup)        │  │batch 1 │ │batch 2 │  ...  │batch N │   │
+    ▼                             │  │~1000 e.│ │~1000 e.│       │~1000 e.│   │
+                                  │  └────────┘ └────────┘       └────────┘   │
+                                  │  statistical_unit_refresh_batch             │
+                                  │  (3 child fibers process in parallel)      │
+                                  │                                             │
+                                  │  Also enqueues uncle tasks:                 │
+                                  │  • statistical_unit_flush_staging            │
+                                  │  • derive_reports                           │
+                                  │                                             │
+                                  │  Parent state → "waiting"                   │
+                                  │  Top fiber BLOCKED until all children done  │
+                                  └──────────────────┬──────────────────────────┘
+                                                     │ (parent completes, top resumes)
+                                                     ▼
+                                  ┌─────────────────────────────────────────────┐
+                             ③    │ statistical_unit_flush_staging      SERIAL  │
+                                  │  Merges UNLOGGED staging table into         │
+                                  │  main statistical_unit table.               │
+                                  └──────────────────┬──────────────────────────┘
+                                                     │
+                                ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄
+                                  Phase 2: Reports
+                                ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄
+                                                     │
+                                                     ▼
+                                  ┌─────────────────────────────────────────────┐
+                             ④    │ derive_reports                      SERIAL  │
+                                  │  Starts the reporting chain.                │
+                                  │  Enqueues → derive_statistical_history      │
+                                  └──────────────────┬──────────────────────────┘
+                                                     │
+                                                     ▼
+                                  ┌─────────────────────────────────────────────┐
+                             ⑤    │ derive_statistical_history          PARENT  │
+                                  │                                             │
+                                  │  Enqueues → derive_statistical_unit_facet   │
+                                  │  Enqueues → statistical_history_reduce      │
+                                  │                                             │
+                                  │  Spawns period children (parallel):         │
+                                  │  ┌──────────┐ ┌──────────┐ ┌──────────┐   │
+                                  │  │ year '24 │ │ mo '24-1 │ │ mo '24-2 │...│
+                                  │  └──────────┘ └──────────┘ └──────────┘   │
+                                  │  derive_statistical_history_period          │
+                                  │                                             │
+                                  │  Parent "waiting" → children → done         │
+                                  └──────────────────┬──────────────────────────┘
+                                                     │
+                                                     ▼
+                                  ┌─────────────────────────────────────────────┐
+                            ⑤b    │ statistical_history_reduce          SERIAL  │
+                                  │  Aggregates partition entries into root      │
+                                  │  entries for statistical_history.            │
+                                  └──────────────────┬──────────────────────────┘
+                                                     │
+                                                     ▼
+                                  ┌─────────────────────────────────────────────┐
+                             ⑥    │ derive_statistical_unit_facet       PARENT  │
+                                  │                                             │
+                                  │  Spawns partition children (parallel):      │
+                                  │  ┌──────────┐ ┌──────────┐ ┌──────────┐   │
+                                  │  │ part 0   │ │ part 1   │ │ part N   │...│
+                                  │  └──────────┘ └──────────┘ └──────────┘   │
+                                  │  derive_statistical_unit_facet_partition    │
+                                  │                                             │
+                                  │  Enqueues → statistical_unit_facet_reduce   │
+                                  │  Enqueues → derive_statistical_history_facet│
+                                  │                                             │
+                                  │  Parent "waiting" → children → done         │
+                                  └──────────────────┬──────────────────────────┘
+                                                     │
+                                                     ▼
+                                  ┌─────────────────────────────────────────────┐
+                            ⑥b    │ statistical_unit_facet_reduce       SERIAL  │
+                                  │  Merges partition staging data into         │
+                                  │  main statistical_unit_facet table.         │
+                                  └──────────────────┬──────────────────────────┘
+                                                     │
+                                                     ▼
+                                  ┌─────────────────────────────────────────────┐
+                             ⑦    │ derive_statistical_history_facet    PARENT  │
+                                  │                                             │
+                                  │  Enqueues → statistical_history_facet_reduce│
+                                  │                                             │
+                                  │  Spawns period children (parallel):         │
+                                  │  ┌──────────┐ ┌──────────┐ ┌──────────┐   │
+                                  │  │ year '24 │ │ mo '24-1 │ │ mo '24-2 │...│
+                                  │  └──────────┘ └──────────┘ └──────────┘   │
+                                  │  derive_statistical_history_facet_period    │
+                                  │                                             │
+                                  │  Parent "waiting" → children → done         │
+                                  └──────────────────┬──────────────────────────┘
+                                                     │
+                                                     ▼
+                                  ┌─────────────────────────────────────────────┐
+                            ⑦b    │ statistical_history_facet_reduce    SERIAL  │
+                                  │  Aggregates partition entries into root      │
+                                  │  entries for statistical_history_facet.      │
+                                  └──────────────────┬──────────────────────────┘
+                                                     │
+                                                     ▼
+                                  Pipeline complete.
+                                  Frontend detects is_deriving_reports()
+                                  transitioning true → false, invalidates caches.
 ```
 
-**Reading the diagram:** Each numbered step (①–⑦) is a top-level task that
+**Reading the diagram:** Each numbered step (①–⑦b) is a top-level task that
 runs to completion before the next one starts. Steps marked PARENT spawn
 children that run in parallel on the child fibers; the top fiber blocks until
 all children finish. This is structured concurrency — concurrency is scoped
@@ -298,26 +313,28 @@ the next-largest costs. The reporting stages (DSH, DSHF) take seconds.
 
 ## Command Registry
 
-All commands and their queue assignments:
+All commands, their queue assignments, and pipeline phase:
 
-| Queue       | Command                                   | Role        | Notes                        |
-|-------------|-------------------------------------------|-------------|------------------------------|
-| analytics   | `collect_changes`                         | top-level   | Drains base_change_log       |
-| analytics   | `derive_statistical_unit`                 | parent      | Spawns batch children        |
-| analytics   | `statistical_unit_refresh_batch`          | child       | Parallel batch processing    |
-| analytics   | `derive_statistical_unit_continue`        | top-level   | ANALYZE sync point           |
-| analytics   | `statistical_unit_flush_staging`          | top-level   | Merge staging → main table   |
-| analytics   | `derive_reports`                          | top-level   | Enqueues DSH                 |
-| analytics   | `derive_statistical_history`              | parent      | Spawns period children       |
-| analytics   | `derive_statistical_history_period`       | child       | Per-period aggregation       |
-| analytics   | `derive_statistical_unit_facet`           | parent      | Spawns partition children    |
-| analytics   | `derive_statistical_unit_facet_partition` | child       | Per-partition facet compute  |
-| analytics   | `statistical_unit_facet_reduce`           | top-level   | Merge partitions → main      |
-| analytics   | `derive_statistical_history_facet`        | parent      | Spawns period children       |
-| analytics   | `derive_statistical_history_facet_period` | child       | Per-period facet aggregation |
-| import      | `import_job_process`                      | top-level   | One import at a time         |
-| maintenance | `task_cleanup`                            | top-level   | Clean old tasks              |
-| maintenance | `import_job_cleanup`                      | top-level   | Clean expired imports        |
+| Queue       | Command                                   | Role        | Phase                       | Notes                        |
+|-------------|-------------------------------------------|-------------|-----------------------------|------------------------------|
+| analytics   | `collect_changes`                         | top-level   | `is_deriving_stat_units`    | Drains base_change_log       |
+| analytics   | `derive_statistical_unit`                 | parent      | `is_deriving_stat_units`    | Spawns batch children        |
+| analytics   | `statistical_unit_refresh_batch`          | child       | `is_deriving_stat_units`    | Parallel batch processing    |
+| analytics   | `derive_statistical_unit_continue`        | top-level   | `is_deriving_stat_units`    | ANALYZE sync point           |
+| analytics   | `statistical_unit_flush_staging`          | top-level   | `is_deriving_stat_units`    | Merge staging → main table   |
+| analytics   | `derive_reports`                          | top-level   | `is_deriving_reports`       | Enqueues DSH                 |
+| analytics   | `derive_statistical_history`              | parent      | `is_deriving_reports`       | Spawns period children       |
+| analytics   | `derive_statistical_history_period`       | child       | `is_deriving_reports`       | Per-period aggregation       |
+| analytics   | `statistical_history_reduce`              | top-level   | `is_deriving_reports`       | Aggregate history partitions |
+| analytics   | `derive_statistical_unit_facet`           | parent      | `is_deriving_reports`       | Spawns partition children    |
+| analytics   | `derive_statistical_unit_facet_partition` | child       | `is_deriving_reports`       | Per-partition facet compute  |
+| analytics   | `statistical_unit_facet_reduce`           | top-level   | `is_deriving_reports`       | Merge partitions → main      |
+| analytics   | `derive_statistical_history_facet`        | parent      | `is_deriving_reports`       | Spawns period children       |
+| analytics   | `derive_statistical_history_facet_period` | child       | `is_deriving_reports`       | Per-period facet aggregation |
+| analytics   | `statistical_history_facet_reduce`        | top-level   | `is_deriving_reports`       | Aggregate facet partitions   |
+| import      | `import_job_process`                      | top-level   | —                           | One import at a time         |
+| maintenance | `task_cleanup`                            | top-level   | —                           | Clean old tasks              |
+| maintenance | `import_job_cleanup`                      | top-level   | —                           | Clean expired imports        |
 
 
 ## Round-Based Priority
@@ -385,15 +402,93 @@ a no-op (8ms) before its children populated the staging table, leaving
 
 ## Frontend Status Detection
 
-The frontend polls `is_deriving_statistical_units()` and
-`is_deriving_reports()` to detect when derivation is active. These functions
-check **both** `worker.pipeline_progress` (for in-progress step details) and
-`worker.tasks` (for pending/processing/waiting analytics tasks). The `active`
-flag is the union of both sources — a task in `pending` state is enough to
-report `active: true`, even before `pipeline_progress` rows are created.
+The frontend receives pipeline state via two mechanisms:
 
-When the function transitions from `true` → `false`, the frontend invalidates
-its caches (search results, base data) to pick up the newly derived data.
+1. **`pg_notify` events** — real-time push notifications for state transitions
+   (`is_deriving_statistical_units`/`is_deriving_reports` start/stop) and
+   progress updates (`pipeline_progress` with step, total, completed, counts).
+2. **`is_deriving_statistical_units()` / `is_deriving_reports()`** — SQL
+   functions that return a JSONB snapshot of `worker.pipeline_progress` for
+   the given phase. Used for initial page load and reconnection.
+
+Both functions query **only** `worker.pipeline_progress` — they do NOT check
+`worker.tasks`. The `active` flag is `true` whenever a
+`pipeline_progress` row exists for that phase (i.e., `pp.phase IS NOT NULL`).
+
+When a stop notification (`status: false`) arrives, the frontend clears the
+phase status and invalidates its caches (search results, base data) to pick
+up the newly derived data.
 
 See [worker-notifications.md](./worker-notifications.md) for the full
 notification architecture.
+
+
+## Pipeline Progress Principles
+
+The `worker.pipeline_progress` table exists to **inform the user** about
+background processing. Three questions must always be answerable:
+
+1. **What IS happening** right now?
+2. **What is PLANNED** to happen?
+3. If nothing is happening, **WHY?**
+
+Never hide information from the user. If changes have been detected and will
+be processed, the user should see that — even before processing begins.
+
+### Preliminary vs Processing State
+
+A phase has two distinct states while its `pipeline_progress` row exists:
+
+| State | `total` | Meaning |
+|-------|---------|---------|
+| **Preliminary** | `0` | Changes are accumulating. The phase is planned but not yet processing. |
+| **Processing** | `> 0` | Active work is in progress. `completed` tracks progress toward `total`. |
+
+A phase becomes **active** (has a `pipeline_progress` row) when:
+- `collect_changes` runs its `before_procedure` (`notify_collecting_changes_start`),
+  inserting a Phase 1 row with `total=0` and `step='collect_changes'`.
+- `derive_statistical_unit` runs its `before_procedure`
+  (`notify_is_deriving_statistical_units_start`), updating Phase 1 to
+  `step='derive_statistical_unit'` (still `total=0` until batching).
+- `derive_reports` runs its `before_procedure`, inserting a Phase 2 row.
+
+A phase row is **deleted** by its `after_procedure` (the `*_stop` handler),
+signaling that the phase is complete.
+
+### Coexistence of Phases
+
+During continuous imports, a Phase 1 preliminary row (`collect_changes`,
+`total=0`) can coexist with a Phase 2 processing row (`derive_reports`,
+`total>0`). This is expected and correct — it means:
+
+- Phase 2 is actively computing reports (processing).
+- Phase 1 has detected new changes that will be processed after Phase 2
+  completes (preliminary).
+
+### The `waitingFor` Relationship
+
+The UI shows "while waiting for X" to explain why a phase appears idle
+despite being active. This relationship is **asymmetric**:
+
+- **Statistical Units showing "while waiting for Reports"** — correct when
+  Phase 1 is in preliminary state (`total=0`) and Phase 2 exists. The user
+  sees "Batching changes while waiting for Reports", which accurately
+  describes that changes are accumulating while Reports processing finishes.
+
+- **Reports showing "while waiting for Statistical Units"** — only correct
+  when Phase 1 is **actually processing** (`total > 0`). If Phase 1 is
+  merely in preliminary state (`total = 0`, just collecting changes), Reports
+  should NOT show "while waiting for Statistical Units" because Statistical
+  Units is not blocking anything — it is just accumulating changes for the
+  next round.
+
+The frontend implements this by checking `total > 0` for the `waitingFor`
+target phase:
+
+```typescript
+// Statistical Units popover: waitingFor Reports (always valid when Reports exists)
+waitingFor={isDerivingReports ? "Reports" : undefined}
+
+// Reports popover: waitingFor Statistical Units (only when SU is processing)
+waitingFor={(derivingUnits?.total ?? 0) > 0 ? "Statistical Units" : undefined}
+```
