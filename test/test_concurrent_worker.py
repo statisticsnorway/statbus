@@ -251,6 +251,8 @@ DATASETS = {
         "es_slug": "import_underenhet_concurrent",
         "lu_csv": "samples/norway/legal_unit/enheter-selection.csv",
         "es_csv": "samples/norway/establishment/underenheter-selection.csv",
+        "roller_csv": "samples/norway/legal_relationship/roller-selection.csv",
+        "roller_slug": "import_roller_concurrent",
     },
     "downloads": {
         "description": "BRREG full downloads (~1M rows, like test 403)",
@@ -259,6 +261,8 @@ DATASETS = {
         "es_slug": "import_underenhet_2025",
         "lu_csv": "tmp/enheter.csv",
         "es_csv": "tmp/underenheter_filtered.csv",
+        "roller_csv": "tmp/roller_legal_relationships.csv",
+        "roller_slug": "import_roller_2025",
     },
 }
 
@@ -271,7 +275,7 @@ def setup_test_data(dataset="selection"):
     log_print(f"\n{BLUE}Setting up test data: {ds['description']}...{NC}")
 
     # Check that CSV files exist
-    for label, path in [("LU", ds["lu_csv"]), ("ES", ds["es_csv"])]:
+    for label, path in [("LU", ds["lu_csv"]), ("ES", ds["es_csv"]), ("Roller", ds["roller_csv"])]:
         full_path = WORKSPACE / path
         if not full_path.exists():
             log_print(f"{RED}ERROR: {label} CSV not found: {full_path}{NC}", "error")
@@ -341,6 +345,34 @@ COMMIT;
     log_print(f"  Loading ES CSV data ({ds['es_csv']})...")
     run_psql(f"\\copy public.{ds['es_slug']}_upload FROM '{ds['es_csv']}' WITH CSV HEADER")
 
+    # Load roller (legal relationships) THIRD
+    log_print("  Seeding legal relationship types...")
+    run_psql_file("samples/norway/brreg/seed-legal-rel-types.sql")
+
+    log_print("  Creating import definition for roller...")
+    run_psql_file("samples/norway/brreg/create-import-definition-roller-2025.sql")
+
+    log_print("  Creating roller import job...")
+    run_psql(f"""
+BEGIN;
+
+CALL test.set_user_from_email('test.admin@statbus.org');
+
+WITH def_ro AS (
+  SELECT id FROM public.import_definition WHERE slug = 'brreg_roller_2025'
+)
+INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, user_id)
+SELECT def_ro.id, '{ds["roller_slug"]}', '2025-01-01'::date, 'infinity'::date, 'Concurrent test Roller',
+       (SELECT id FROM public.user WHERE email = 'test.admin@statbus.org')
+FROM def_ro
+ON CONFLICT (slug) DO NOTHING;
+
+COMMIT;
+""")
+
+    log_print(f"  Loading roller CSV data ({ds['roller_csv']})...")
+    run_psql(f"\\copy public.{ds['roller_slug']}_upload FROM '{ds['roller_csv']}' WITH CSV HEADER")
+
     # Show task state
     log_print(f"\n{BLUE}Test data loaded. Task states:{NC}")
     conn = get_conn()
@@ -357,6 +389,7 @@ COMMIT;
             SELECT slug, state, total_rows
             FROM public.import_job
             WHERE slug LIKE 'import_%_concurrent'
+               OR slug LIKE 'import_%_2025'
             ORDER BY slug
         """)
         log_print(f"\n{BLUE}Import jobs:{NC}")
