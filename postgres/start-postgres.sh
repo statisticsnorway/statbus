@@ -18,7 +18,7 @@ PG_PARAMS="$PG_PARAMS -c log_destination=stderr"
 PG_PARAMS="$PG_PARAMS -c shared_buffers=${DB_SHARED_BUFFERS:-2GB}"
 PG_PARAMS="$PG_PARAMS -c maintenance_work_mem=${DB_MAINTENANCE_WORK_MEM:-1GB}"
 PG_PARAMS="$PG_PARAMS -c effective_cache_size=${DB_EFFECTIVE_CACHE_SIZE:-6GB}"
-PG_PARAMS="$PG_PARAMS -c work_mem=${DB_WORK_MEM:-512MB}"
+PG_PARAMS="$PG_PARAMS -c work_mem=${DB_WORK_MEM:-256MB}"
 # temp_buffers must be set at server startup; cannot be changed after temp tables are accessed
 PG_PARAMS="$PG_PARAMS -c temp_buffers=${DB_TEMP_BUFFERS:-1GB}"
 # wal_buffers controls WAL write buffering; larger values reduce disk I/O

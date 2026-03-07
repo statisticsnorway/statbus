@@ -434,9 +434,9 @@ module Statbus
         #   shared_buffers:       25%  = 2GB    (main buffer cache, standard recommendation)
         #   effective_cache_size: 75%  = 6GB    (planner hint for OS+PG cache, not allocated)
         #   maintenance_work_mem: 12.5% = 1GB   (VACUUM, CREATE INDEX; capped at 2GB, diminishing returns beyond)
-        #   work_mem:             1/16 = 512MB  (per sort/hash operation, conditionally allocated only when needed;
-        #                                        with hash_mem_multiplier=2.0, hash ops get up to 1GB;
-        #                                        worst case 4 workers × 5 ops × 512MB = 10GB but rarely reached)
+        #   work_mem:             1/32 = 256MB  (per sort/hash operation, conditionally allocated only when needed;
+        #                                        with hash_mem_multiplier=2.0, hash ops get up to 512MB;
+        #                                        worst case 4 workers × 5 ops × 256MB = 5GB, safe within 8GB)
         #   temp_buffers:        12.5% = 1GB    (temporary tables, min 256MB for import temp tables)
         #   wal_buffers:         ~1.5% = 122MB  (WAL write buffering, clamped 16-256MB)
         #   max_wal_size:        50%   = 4GB    (WAL cap before checkpoint, min 2GB)
@@ -446,7 +446,7 @@ module Statbus
         shared_buffers_mb = (mem_limit_mb * 0.25).to_i64
         maintenance_work_mem_mb = Math.min(2048_i64, (mem_limit_mb * 0.125).to_i64)
         effective_cache_size_mb = (mem_limit_mb * 0.75).to_i64
-        work_mem_mb = Math.max(4_i64, mem_limit_mb // 16)
+        work_mem_mb = Math.max(4_i64, mem_limit_mb // 32)
         # temp_buffers: ~12.5% of memory, min 256MB for import temp tables
         # Must be set at server startup (can't be changed after temp tables are accessed)
         temp_buffers_mb = Math.max(256_i64, mem_limit_mb // 8)
