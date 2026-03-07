@@ -3,6 +3,7 @@ CREATE OR REPLACE FUNCTION public.activity_category_used_derive()
  RETURNS void
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
 AS $function$
 BEGIN
     RAISE DEBUG 'Running activity_category_used_derive()';

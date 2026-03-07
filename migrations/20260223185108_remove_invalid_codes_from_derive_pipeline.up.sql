@@ -1208,13 +1208,13 @@ FROM external_ident ei
 JOIN external_ident_type eit ON ei.type_id = eit.id
 WHERE ei.enterprise_id IS NOT NULL
 UNION ALL
-SELECT 'enterprise_group'::statistical_unit_type AS unit_type,
-ei.enterprise_group_id AS unit_id,
+SELECT 'power_group'::statistical_unit_type AS unit_type,
+ei.power_group_id AS unit_id,
 eit.code AS type_code,
 COALESCE(ei.ident, ei.idents::text::character varying) AS ident
 FROM external_ident ei
 JOIN external_ident_type eit ON ei.type_id = eit.id
-WHERE ei.enterprise_group_id IS NOT NULL) all_idents
+WHERE ei.power_group_id IS NOT NULL) all_idents
 GROUP BY all_idents.unit_type, all_idents.unit_id
 ), tag_paths_agg AS (
 SELECT all_tags.unit_type,
@@ -1241,12 +1241,12 @@ FROM tag_for_unit tfu
 JOIN tag t ON tfu.tag_id = t.id
 WHERE tfu.enterprise_id IS NOT NULL
 UNION ALL
-SELECT 'enterprise_group'::statistical_unit_type AS unit_type,
-tfu.enterprise_group_id AS unit_id,
+SELECT 'power_group'::statistical_unit_type AS unit_type,
+tfu.power_group_id AS unit_id,
 t.path
 FROM tag_for_unit tfu
 JOIN tag t ON tfu.tag_id = t.id
-WHERE tfu.enterprise_group_id IS NOT NULL) all_tags
+WHERE tfu.power_group_id IS NOT NULL) all_tags
 GROUP BY all_tags.unit_type, all_tags.unit_id
 ), data AS (
 SELECT timeline_establishment.unit_type,

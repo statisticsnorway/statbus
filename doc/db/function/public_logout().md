@@ -3,6 +3,7 @@ CREATE OR REPLACE FUNCTION public.logout()
  RETURNS auth.auth_response
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
 AS $function$
 DECLARE
   claims json;

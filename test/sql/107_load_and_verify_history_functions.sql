@@ -905,8 +905,8 @@ SELECT jsonb_pretty(public.statistical_history_highcharts('year-month', 'legal_u
 \echo "Test public.statistical_history_highcharts - year-month resolution for 2019, establishment"
 SELECT jsonb_pretty(public.statistical_history_highcharts('year-month', 'establishment', 2019));
 
-\echo "Test public.statistical_history_highcharts - no data case (enterprise_group)"
-SELECT jsonb_pretty(public.statistical_history_highcharts('year', 'enterprise_group'));
+\echo "Test public.statistical_history_highcharts - no data case (power_group)"
+SELECT jsonb_pretty(public.statistical_history_highcharts('year', 'power_group'));
 
 \echo "Test public.statistical_history_highcharts - with custom series filter"
 SELECT jsonb_pretty(public.statistical_history_highcharts(

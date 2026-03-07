@@ -5,7 +5,7 @@ import { ReactNode } from "react";
 export interface StatisticalUnitDetailsLinkProps {
   readonly id: number;
   readonly type:
-    | "enterprise_group"
+    | "power_group"
     | "enterprise"
     | "legal_unit"
     | "establishment";
@@ -24,7 +24,7 @@ export function StatisticalUnitDetailsLink({
   params,
 }: StatisticalUnitDetailsLinkProps) {
   const href = {
-    enterprise_group: `/enterprise-groups/${id}`,
+    power_group: `/power-groups/${id}`,
     enterprise: `/enterprises/${id}`,
     legal_unit: `/legal-units/${id}`,
     establishment: `/establishments/${id}`,

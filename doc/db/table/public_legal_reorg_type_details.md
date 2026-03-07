@@ -1,0 +1,45 @@
+```sql
+                                                          Table "public.legal_reorg_type"
+   Column    |           Type           | Collation | Nullable |           Default            | Storage  | Compression | Stats target | Description 
+-------------+--------------------------+-----------+----------+------------------------------+----------+-------------+--------------+-------------
+ id          | integer                  |           | not null | generated always as identity | plain    |             |              | 
+ code        | text                     |           | not null |                              | extended |             |              | 
+ name        | text                     |           | not null |                              | extended |             |              | 
+ description | text                     |           | not null |                              | extended |             |              | 
+ enabled     | boolean                  |           | not null |                              | plain    |             |              | 
+ custom      | boolean                  |           | not null |                              | plain    |             |              | 
+ created_at  | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
+ updated_at  | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
+Indexes:
+    "legal_reorg_type_pkey" PRIMARY KEY, btree (id)
+    "ix_legal_reorg_type_code" UNIQUE, btree (code) WHERE enabled
+    "ix_legal_reorg_type_enabled" btree (enabled)
+    "ix_legal_reorg_type_enabled_code" UNIQUE, btree (enabled, code)
+    "legal_reorg_type_code_key" UNIQUE CONSTRAINT, btree (code)
+Referenced by:
+    TABLE "legal_relationship" CONSTRAINT "legal_relationship_reorg_type_id_fkey" FOREIGN KEY (reorg_type_id) REFERENCES legal_reorg_type(id)
+Policies:
+    POLICY "legal_reorg_type_admin_user_manage"
+      TO admin_user
+      USING (true)
+      WITH CHECK (true)
+    POLICY "legal_reorg_type_authenticated_read" FOR SELECT
+      TO authenticated
+      USING (true)
+    POLICY "legal_reorg_type_regular_user_read" FOR SELECT
+      TO regular_user
+      USING (true)
+Not-null constraints:
+    "legal_reorg_type_id_not_null" NOT NULL "id"
+    "legal_reorg_type_code_not_null" NOT NULL "code"
+    "legal_reorg_type_name_not_null" NOT NULL "name"
+    "legal_reorg_type_description_not_null" NOT NULL "description"
+    "legal_reorg_type_enabled_not_null" NOT NULL "enabled"
+    "legal_reorg_type_custom_not_null" NOT NULL "custom"
+    "legal_reorg_type_created_at_not_null" NOT NULL "created_at"
+    "legal_reorg_type_updated_at_not_null" NOT NULL "updated_at"
+Triggers:
+    trigger_prevent_legal_reorg_type_id_update BEFORE UPDATE OF id ON legal_reorg_type FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
+Access method: heap
+
+```

@@ -31,6 +31,7 @@ export interface PhaseProgress {
   affected_establishment_count: number | null;
   affected_legal_unit_count: number | null;
   affected_enterprise_count: number | null;
+  affected_power_group_count: number | null;
 }
 
 export interface ImportJobProgress {
@@ -55,6 +56,14 @@ export interface PhaseStatus {
   affected_establishment_count: number | null;
   affected_legal_unit_count: number | null;
   affected_enterprise_count: number | null;
+  affected_power_group_count: number | null;
+}
+
+export interface PipelineStepWeight {
+  phase: string;
+  step: string;
+  weight: number;
+  seq: number;
 }
 
 export interface WorkerStatus {
@@ -103,6 +112,9 @@ const initialWorkerStatus: WorkerStatus = {
 
 // A single atom to hold the entire worker status state.
 export const workerStatusAtom = atom<WorkerStatus>(initialWorkerStatus);
+
+// Pipeline step weights from the database (static configuration, fetched once).
+export const pipelineStepWeightsAtom = atom<PipelineStepWeight[]>([]);
 
 /**
  * Write-only atom to update a specific worker status field.
@@ -163,6 +175,7 @@ export const setWorkerStatusAtom = atom(
           affected_establishment_count: p.affected_establishment_count,
           affected_legal_unit_count: p.affected_legal_unit_count,
           affected_enterprise_count: p.affected_enterprise_count,
+          affected_power_group_count: p.affected_power_group_count,
         };
       };
 
@@ -261,11 +274,12 @@ export const refreshWorkerStatusAtom = atom(
     }
 
     try {
-      // Fetch all three statuses concurrently for efficiency
-      const [importingRes, derivingUnitsRes, derivingReportsRes] = await Promise.all([
+      // Fetch all statuses and step weights concurrently
+      const [importingRes, derivingUnitsRes, derivingReportsRes, weightsRes] = await Promise.all([
         client.rpc('is_importing', undefined, { get: true }),
         client.rpc('is_deriving_statistical_units', undefined, { get: true }),
         client.rpc('is_deriving_reports', undefined, { get: true }),
+        client.from('pipeline_step_weight').select('phase,step,weight,seq').order('seq'),
       ]);
 
       const error = importingRes.error || derivingUnitsRes.error || derivingReportsRes.error;
@@ -283,6 +297,11 @@ export const refreshWorkerStatusAtom = atom(
       const importData = importingRes.data as unknown as ImportStatus | null;
       const unitsData = derivingUnitsRes.data as unknown as PhaseStatus | null;
       const reportsData = derivingReportsRes.data as unknown as PhaseStatus | null;
+
+      // Store step weights (static configuration, only fetched once)
+      if (weightsRes.data && !weightsRes.error) {
+        set(pipelineStepWeightsAtom, weightsRes.data as PipelineStepWeight[]);
+      }
 
       set(workerStatusAtom, {
         isImporting: importData?.active ?? null,
@@ -313,11 +332,25 @@ export const useWorkerStatus = (): WorkerStatus => {
   return useAtomValue(workerStatusAtom);
 };
 
+/**
+ * Hook to get pipeline step weights from the database.
+ */
+export const usePipelineStepWeights = (): PipelineStepWeight[] => {
+  return useAtomValue(pipelineStepWeightsAtom);
+};
+
 // ============================================================================
 // COMMAND LABEL MAPPING
 // ============================================================================
 
+/** Labels used when a command is running while waiting for another phase. */
+export const COMMAND_WAITING_LABELS: Record<string, string> = {
+  'collect_changes': 'Batching changes',
+  'derive_reports': 'Preparing reports',
+};
+
 export const COMMAND_LABELS: Record<string, string> = {
+  'collect_changes': 'Recording changes',
   'derive_statistical_unit': 'Refreshing statistical units',
   'derive_statistical_unit_continue': 'Refreshing statistical units',
   'statistical_unit_flush_staging': 'Flushing staging data',

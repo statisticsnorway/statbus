@@ -13,7 +13,6 @@ BEGIN
     targets := job.definition_snapshot->'import_step_list';
 
     -- Check if the batch contains any operations that are not simple inserts.
-    -- If so, we need to disable FK triggers to allow for temporary inconsistencies.
     EXECUTE format(
         'SELECT EXISTS(SELECT 1 FROM public.%I dt WHERE dt.batch_seq = $1 AND dt.operation IS DISTINCT FROM %L)',
         job.data_table_name,
@@ -31,6 +30,11 @@ BEGIN
 
     FOR target_rec IN SELECT * FROM jsonb_populate_recordset(NULL::public.import_step, targets) ORDER BY priority
     LOOP
+        -- Skip holistic steps — they run once after all batches, not per-batch
+        IF COALESCE(target_rec.is_holistic, false) THEN
+            CONTINUE;
+        END IF;
+
         proc_to_call := target_rec.process_procedure;
         IF proc_to_call IS NULL THEN
             CONTINUE;

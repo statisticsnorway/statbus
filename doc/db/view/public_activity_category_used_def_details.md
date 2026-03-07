@@ -29,5 +29,6 @@ View definition:
            FROM statistical_unit
           WHERE statistical_unit.secondary_activity_category_path IS NOT NULL)))
   ORDER BY ac.path;
+Options: security_invoker=on
 
 ```

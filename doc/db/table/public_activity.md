@@ -58,14 +58,6 @@ Policies:
       TO regular_user
       USING (true)
       WITH CHECK (true)
-    POLICY "admin_user_activity_access"
-      TO admin_user
-      USING (true)
-      WITH CHECK (true)
-    POLICY "regular_user_activity_access"
-      TO regular_user
-      USING (true)
-      WITH CHECK (true)
     POLICY "restricted_user_activity_access"
       TO restricted_user
       USING ((EXISTS ( SELECT 1

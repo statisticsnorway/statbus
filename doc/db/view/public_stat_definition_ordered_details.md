@@ -21,5 +21,6 @@ View definition:
     enabled
    FROM stat_definition
   ORDER BY priority, code;
+Options: security_invoker=on
 
 ```

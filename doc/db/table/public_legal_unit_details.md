@@ -23,7 +23,6 @@
  data_source_id           | integer                  |           |          |                                  | plain    |             |              | 
  enterprise_id            | integer                  |           | not null |                                  | plain    |             |              | 
  primary_for_enterprise   | boolean                  |           | not null |                                  | plain    |             |              | 
- invalid_codes            | jsonb                    |           |          |                                  | extended |             |              | 
  image_id                 | integer                  |           |          |                                  | plain    |             |              | Reference to unit image (logo/photo) stored in image table
 Indexes:
     "legal_unit_pkey" PRIMARY KEY (id, valid_range WITHOUT OVERLAPS)
@@ -57,8 +56,12 @@ Referenced by:
     TABLE "activity" CONSTRAINT "activity_legal_unit_id_valid" FOREIGN KEY (legal_unit_id, PERIOD valid_range) REFERENCES legal_unit(id, PERIOD valid_range) DEFERRABLE
     TABLE "contact" CONSTRAINT "contact_legal_unit_id_valid" FOREIGN KEY (legal_unit_id, PERIOD valid_range) REFERENCES legal_unit(id, PERIOD valid_range) DEFERRABLE
     TABLE "establishment" CONSTRAINT "establishment_legal_unit_id_valid" FOREIGN KEY (legal_unit_id, PERIOD valid_range) REFERENCES legal_unit(id, PERIOD valid_range) DEFERRABLE
+    TABLE "legal_relationship" CONSTRAINT "legal_relationship_influenced_id_valid" FOREIGN KEY (influenced_id, PERIOD valid_range) REFERENCES legal_unit(id, PERIOD valid_range) DEFERRABLE
+    TABLE "legal_relationship" CONSTRAINT "legal_relationship_influencing_id_valid" FOREIGN KEY (influencing_id, PERIOD valid_range) REFERENCES legal_unit(id, PERIOD valid_range) DEFERRABLE
     TABLE "location" CONSTRAINT "location_legal_unit_id_valid" FOREIGN KEY (legal_unit_id, PERIOD valid_range) REFERENCES legal_unit(id, PERIOD valid_range) DEFERRABLE
     TABLE "person_for_unit" CONSTRAINT "person_for_unit_legal_unit_id_valid" FOREIGN KEY (legal_unit_id, PERIOD valid_range) REFERENCES legal_unit(id, PERIOD valid_range) DEFERRABLE
+    TABLE "power_root" CONSTRAINT "power_root_custom_root_legal_unit_id_valid" FOREIGN KEY (custom_root_legal_unit_id, PERIOD valid_range) REFERENCES legal_unit(id, PERIOD valid_range) DEFERRABLE
+    TABLE "power_root" CONSTRAINT "power_root_derived_root_legal_unit_id_valid" FOREIGN KEY (derived_root_legal_unit_id, PERIOD valid_range) REFERENCES legal_unit(id, PERIOD valid_range) DEFERRABLE
     TABLE "stat_for_unit" CONSTRAINT "stat_for_unit_legal_unit_id_valid" FOREIGN KEY (legal_unit_id, PERIOD valid_range) REFERENCES legal_unit(id, PERIOD valid_range) DEFERRABLE
 Policies:
     POLICY "legal_unit_admin_user_manage"

@@ -3,6 +3,7 @@ CREATE OR REPLACE FUNCTION admin.import_job_generate(job import_job)
  RETURNS void
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO 'public', 'admin', 'pg_temp'
 AS $function$
 DECLARE
     create_upload_table_stmt text;

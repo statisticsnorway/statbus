@@ -63,8 +63,9 @@ SELECT slug, name, valid_time_from FROM public.import_definition WHERE valid_tim
  establishment_without_lu_source_dates  | Establishments w/o LU (Source Dates)  | source_columns
  generic_unit_stats_update_job_provided | Unit Stats Update (Job Provided Time) | job_provided
  generic_unit_stats_update_source_dates | Unit Stats Update (Source Dates)      | source_columns
+ legal_relationship_source_dates        | Legal Relationships (Source Dates)    | source_columns
  legal_unit_source_dates                | Legal Units (Source Dates)            | source_columns
-(5 rows)
+(6 rows)
 
 -- Create Import Job for Legal Units (Demo CSV with source dates)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
@@ -99,6 +100,17 @@ SELECT
 \echo "User uploads the sample informal establishments with source dates (via import job: import_309_eswlu_wsd)"
 "User uploads the sample informal establishments with source dates (via import job: import_309_eswlu_wsd)"
 \copy public.import_309_eswlu_wsd_upload(tax_ident,stat_ident,name,physical_region_code,valid_from,valid_to,physical_country_iso_2,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,employees,turnover,data_source_code,physical_address_part1,physical_address_part2,physical_address_part3,postal_address_part1,postal_address_part2,postal_address_part3,phone_number,mobile_number,landline,fax_number,web_address,email_address,unit_size_code,status_code,physical_latitude,physical_longitude,physical_altitude) FROM 'app/public/demo/informal_establishments_units_with_source_dates_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+-- Create Import Job for Legal Relationships (Demo CSV with source dates)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_relationship_source_dates'),
+    'import_309_lr_wsd',
+    'Import LR Demo CSV w/ dates (309_load_demo_data_with_source_dates.sql)',
+    'Import job for app/public/demo/legal_relationships_with_source_dates_demo.csv using legal_relationship_source_dates definition.',
+    'Test data load (309_load_demo_data_with_source_dates.sql)';
+\echo "User uploads the sample legal relationships with source dates (via import job: import_309_lr_wsd)"
+"User uploads the sample legal relationships with source dates (via import job: import_309_lr_wsd)"
+\copy public.import_309_lr_wsd_upload(influencing_tax_ident,influenced_tax_ident,rel_type_code,percentage,valid_from,valid_to) FROM 'app/public/demo/legal_relationships_with_source_dates_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 \echo "Run worker processing for import jobs - Initial Load"
 "Run worker processing for import jobs - Initial Load"
 CALL worker.process_tasks(p_queue => 'import');
@@ -106,7 +118,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |   141
+ import    | completed |   160
 (2 rows)
 
 \echo "Checking import job statuses for Initial Load"
@@ -116,8 +128,9 @@ SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT 
 ----------------------+----------+--------------------+------------+---------------+-----------
  import_309_esflu_wsd | finished |                    |         26 |            25 | f
  import_309_eswlu_wsd | finished |                    |         12 |            12 | f
+ import_309_lr_wsd    | finished |                    |         23 |            20 | f
  import_309_lu_wsd    | finished |                    |         76 |            69 | f
-(3 rows)
+(4 rows)
 
 \echo "Checking for any errors in import_309_lu_wsd_data (including ErrorLine entries)"
 "Checking for any errors in import_309_lu_wsd_data (including ErrorLine entries)"
@@ -155,8 +168,8 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |   351
- import    | completed |   141
+ analytics | completed |   362
+ import    | completed |   160
 (2 rows)
 
 \echo "Checking statistics after Initial Load"
@@ -258,6 +271,36 @@ stats_summary | {                                             +
               |         "coefficient_of_variation_pct": 65.17 +
               |     }                                         +
               | }
+-[ RECORD 4 ]-+-----------------------------------------------
+unit_type     | power_group
+count         | 5
+stats_summary | {                                             +
+              |     "type": "stats_agg",                      +
+              |     "turnover": {                             +
+              |         "max": 20025,                         +
+              |         "min": 1000,                          +
+              |         "sum": 480569,                        +
+              |         "mean": 11176.02,                     +
+              |         "type": "float_agg",                  +
+              |         "count": 43,                          +
+              |         "stddev": 9601.49,                    +
+              |         "variance": 92188659.78,              +
+              |         "sum_sq_diff": 3871923710.83,         +
+              |         "coefficient_of_variation_pct": 85.91 +
+              |     },                                        +
+              |     "employees": {                            +
+              |         "max": 25,                            +
+              |         "min": 10,                            +
+              |         "sum": 769,                           +
+              |         "mean": 17.88,                        +
+              |         "type": "int_agg",                    +
+              |         "count": 43,                          +
+              |         "stddev": 7.45,                       +
+              |         "variance": 55.44,                    +
+              |         "sum_sq_diff": 2328.42,               +
+              |         "coefficient_of_variation_pct": 41.63 +
+              |     }                                         +
+              | }
 
 \x
 -- Create Import Job for Legal Units Turnover Update
@@ -279,8 +322,8 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- analytics | completed |   351
- import    | completed |   161
+ analytics | completed |   362
+ import    | completed |   180
 (3 rows)
 
 \echo "Checking import job statuses for Turnover Update"
@@ -308,8 +351,8 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |   494
- import    | completed |   161
+ analytics | completed |   513
+ import    | completed |   180
 (2 rows)
 
 \echo "Calculating expected statistics from raw _upload tables for verification"
@@ -547,7 +590,34 @@ SELECT unit_type
                |       |         "coefficient_of_variation_pct": 65.17+
                |       |     }                                        +
                |       | }
-(3 rows)
+ power_group   |     5 | {                                            +
+               |       |     "type": "stats_agg",                     +
+               |       |     "turnover": {                            +
+               |       |         "max": 20025,                        +
+               |       |         "min": 1000,                         +
+               |       |         "sum": 480569,                       +
+               |       |         "mean": 11176.02,                    +
+               |       |         "type": "float_agg",                 +
+               |       |         "count": 43,                         +
+               |       |         "stddev": 9601.49,                   +
+               |       |         "variance": 92188659.78,             +
+               |       |         "sum_sq_diff": 3871923710.83,        +
+               |       |         "coefficient_of_variation_pct": 85.91+
+               |       |     },                                       +
+               |       |     "employees": {                           +
+               |       |         "max": 25,                           +
+               |       |         "min": 10,                           +
+               |       |         "sum": 769,                          +
+               |       |         "mean": 17.88,                       +
+               |       |         "type": "int_agg",                   +
+               |       |         "count": 43,                         +
+               |       |         "stddev": 7.45,                      +
+               |       |         "variance": 55.44,                   +
+               |       |         "sum_sq_diff": 2328.42,              +
+               |       |         "coefficient_of_variation_pct": 41.63+
+               |       |     }                                        +
+               |       | }
+(4 rows)
 
 \x
 RESET client_min_messages;

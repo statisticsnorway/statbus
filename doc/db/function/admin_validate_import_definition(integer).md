@@ -49,9 +49,6 @@ BEGIN
         END IF;
 
     ELSIF v_definition.valid_time_from = 'job_provided' THEN
-        -- If validity is derived from job-level parameters, the definition must map 'valid_from_raw'
-        -- and 'valid_to_raw' to the 'default' source expression. This allows the `import_job_prepare`
-        -- function to populate these columns from the job's `default_valid_from`/`to` fields.
         SELECT EXISTS (
             SELECT 1 FROM public.import_mapping im
             JOIN public.import_data_column idc ON im.target_data_column_id = idc.id JOIN public.import_step s ON idc.step_id = s.id
@@ -112,6 +109,14 @@ BEGIN
         -- It still needs external_idents to find the unit, and likely statistical_variables if that's its purpose.
         -- For now, no specific structural checks beyond the global mandatory ones.
         RAISE DEBUG '[Validate Def ID %] Mode is generic_unit, skipping LU/ES specific step checks.', p_definition_id;
+    ELSIF v_definition.mode = 'legal_relationship' THEN
+        -- Legal relationship mode imports relationships between two legal units.
+        -- It identifies units via its own step (influencing/influenced tax_ident), not external_idents.
+        IF NOT ('legal_relationship' = ANY(v_step_codes)) THEN
+            v_is_valid := false;
+            v_error_messages := array_append(v_error_messages, 'Mode "legal_relationship" requires the "legal_relationship" step.');
+        END IF;
+        RAISE DEBUG '[Validate Def ID %] Mode is legal_relationship.', p_definition_id;
     ELSE
         -- This case should ideally not be reached if the mode enum is exhaustive and NOT NULL
         v_is_valid := false;
@@ -135,9 +140,13 @@ BEGIN
     END IF;
 
     -- 3. Check for mandatory steps
-    IF NOT ('external_idents' = ANY(v_step_codes)) THEN
-        v_is_valid := false;
-        v_error_messages := array_append(v_error_messages, 'The "external_idents" step is mandatory.');
+    -- external_idents is mandatory for unit-based imports, but not for relationship imports
+    -- which resolve identities within their own step.
+    IF v_definition.mode != 'legal_relationship' THEN
+        IF NOT ('external_idents' = ANY(v_step_codes)) THEN
+            v_is_valid := false;
+            v_error_messages := array_append(v_error_messages, 'The "external_idents" step is mandatory.');
+        END IF;
     END IF;
     IF NOT ('edit_info' = ANY(v_step_codes)) THEN
         v_is_valid := false;
@@ -174,8 +183,6 @@ BEGIN
     END IF;
 
     -- Specific check for 'status' step removed, as status_code mapping is now optional.
-    -- The analyse_status procedure will handle defaults, and analyse_legal_unit/_establishment
-    -- will error if status_id is ultimately not resolved.
 
     -- Conditional check for 'data_source_code_raw' mapping:
     -- If import_definition.data_source_id is NULL, a mapping for 'data_source_code_raw' is required.
@@ -184,7 +191,6 @@ BEGIN
             v_data_source_code_mapped BOOLEAN;
             v_data_source_code_data_column_exists BOOLEAN;
         BEGIN
-            -- Check if a data_source_code_raw data column even exists for any of the definition's steps
             SELECT EXISTS (
                 SELECT 1
                 FROM public.import_definition_step ids
@@ -195,7 +201,6 @@ BEGIN
             ) INTO v_data_source_code_data_column_exists;
 
             IF v_data_source_code_data_column_exists THEN
-                -- If the data column exists, check if it's mapped
                 SELECT EXISTS (
                     SELECT 1 FROM public.import_mapping im
                     JOIN public.import_data_column idc ON im.target_data_column_id = idc.id
@@ -210,15 +215,11 @@ BEGIN
                     v_error_messages := array_append(v_error_messages, 'If import_definition.data_source_id is NULL and a "data_source_code_raw" source_input data column is available for the definition''s steps, it must be mapped.');
                 END IF;
             ELSE
-                -- If data_source_id is NULL and no data_source_code_raw data column is available from steps, it's an error.
                 v_is_valid := false;
                 v_error_messages := array_append(v_error_messages, 'If import_definition.data_source_id is NULL, a "data_source_code_raw" source_input data column must be available via one of the definition''s steps and mapped. None found.');
             END IF;
         END;
     END IF;
-
-    -- The old generic loop checking all source_input columns for mapping is removed.
-    -- Only specific, critical mappings are checked above.
 
     FOR v_source_col_rec IN
         SELECT isc.column_name
@@ -236,10 +237,10 @@ BEGIN
     FOR v_mapping_rec IN
         SELECT im.id as mapping_id, idc.column_name as target_col_name, s.code as target_step_code
         FROM public.import_mapping im
-        JOIN public.import_data_column idc ON im.target_data_column_id = idc.id -- This JOIN implies target_data_column_id IS NOT NULL
+        JOIN public.import_data_column idc ON im.target_data_column_id = idc.id
         JOIN public.import_step s ON idc.step_id = s.id
         WHERE im.definition_id = p_definition_id
-          AND im.is_ignored = FALSE -- Only validate non-ignored mappings for this check
+          AND im.is_ignored = FALSE
           AND NOT EXISTS (
             SELECT 1 FROM public.import_definition_step ids
             WHERE ids.definition_id = p_definition_id AND ids.step_id = s.id
@@ -255,7 +256,6 @@ BEGIN
         SET valid = true, validation_error = NULL
         WHERE id = p_definition_id;
     ELSE
-        -- Concatenate unique error messages
         SELECT string_agg(DISTINCT error_msg, '; ') INTO v_temp_text FROM unnest(v_error_messages) AS error_msg;
         UPDATE public.import_definition
         SET valid = false, validation_error = v_temp_text

@@ -80,6 +80,15 @@ CREATE INDEX idx_statistical_unit_facet_staging_partition_seq
     ON public.statistical_unit_facet_staging (partition_seq);
 
 -- =====================================================================
+-- 4b. Add partition_seq to main facet table (enables incremental DELETE+INSERT)
+-- =====================================================================
+-- Matches staging table's partition_seq column. Incremental reduce does
+-- targeted DELETE+INSERT by partition_seq, avoiding full GIST index rebuild.
+ALTER TABLE public.statistical_unit_facet ADD COLUMN partition_seq INT;
+CREATE INDEX idx_statistical_unit_facet_partition_seq
+    ON public.statistical_unit_facet (partition_seq);
+
+-- =====================================================================
 -- 5. New command registry entries
 -- =====================================================================
 INSERT INTO worker.command_registry (command, handler_procedure, description, queue)

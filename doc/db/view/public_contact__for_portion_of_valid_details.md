@@ -40,5 +40,6 @@ View definition:
    FROM contact;
 Triggers:
     for_portion_of_valid INSTEAD OF INSERT OR DELETE OR UPDATE ON contact__for_portion_of_valid FOR EACH ROW EXECUTE FUNCTION sql_saga.for_portion_of_trigger('id')
+Options: security_invoker=on
 
 ```

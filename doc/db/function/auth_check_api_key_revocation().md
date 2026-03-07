@@ -3,6 +3,7 @@ CREATE OR REPLACE FUNCTION auth.check_api_key_revocation()
  RETURNS void
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO 'public', 'auth', 'pg_temp'
 AS $function$
 DECLARE
   _claims jsonb;

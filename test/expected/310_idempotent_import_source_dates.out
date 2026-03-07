@@ -63,8 +63,9 @@ SELECT slug, name, valid_time_from FROM public.import_definition WHERE valid_tim
  establishment_without_lu_source_dates  | Establishments w/o LU (Source Dates)  | source_columns
  generic_unit_stats_update_job_provided | Unit Stats Update (Job Provided Time) | job_provided
  generic_unit_stats_update_source_dates | Unit Stats Update (Source Dates)      | source_columns
+ legal_relationship_source_dates        | Legal Relationships (Source Dates)    | source_columns
  legal_unit_source_dates                | Legal Units (Source Dates)            | source_columns
-(5 rows)
+(6 rows)
 
 -- Create Import Job for Legal Units (Demo CSV with source dates)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
@@ -136,7 +137,7 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |   351
+ analytics | completed |   359
  import    | completed |   141
 (2 rows)
 
@@ -237,7 +238,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- analytics | completed |   702
+ analytics | completed |   718
  import    | completed |   302
 (3 rows)
 
@@ -255,7 +256,7 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |   845
+ analytics | completed |   869
  import    | completed |   302
 (2 rows)
 

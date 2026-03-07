@@ -3,6 +3,7 @@ CREATE OR REPLACE FUNCTION public.statistical_history_drilldown(unit_type statis
  RETURNS jsonb
  LANGUAGE sql
  SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
 AS $function$
     -- Use a params intermediary to avoid conflicts
     -- between columns and parameters, leading to tautologies. i.e. 'sh.resolution = resolution' is always true.
@@ -83,7 +84,7 @@ AS $function$
             , COALESCE(SUM(ah.physical_address_change_count), 0)::integer AS physical_address_change_count
             , COALESCE(SUM(ah.unit_size_change_count), 0)::integer AS unit_size_change_count
             , COALESCE(SUM(ah.status_change_count), 0)::integer AS status_change_count
-            , COALESCE(public.jsonb_stats_summary_merge_agg(ah.stats_summary), '{}'::jsonb) AS stats_summary
+            , COALESCE(public.jsonb_stats_merge_agg(ah.stats_summary), '{}'::jsonb) AS stats_summary
         FROM available_history AS ah
         GROUP BY ah.year, ah.month
         ORDER BY year ASC, month ASC NULLS FIRST

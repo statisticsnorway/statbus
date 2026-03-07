@@ -14,5 +14,6 @@ View definition:
            FROM statistical_unit
           WHERE statistical_unit.data_source_ids IS NOT NULL)) AND enabled
   ORDER BY code;
+Options: security_invoker=on
 
 ```

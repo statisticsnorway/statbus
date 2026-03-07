@@ -85,10 +85,10 @@ Policies:
       TO restricted_user
       USING ((EXISTS ( SELECT 1
    FROM region_access ra
-  WHERE ((ra.user_id = auth.uid()) AND (ra.region_id = ra.region_id)))))
+  WHERE ((ra.user_id = auth.uid()) AND (ra.region_id = location.region_id)))))
       WITH CHECK ((EXISTS ( SELECT 1
    FROM region_access ra
-  WHERE ((ra.user_id = auth.uid()) AND (ra.region_id = ra.region_id)))))
+  WHERE ((ra.user_id = auth.uid()) AND (ra.region_id = location.region_id)))))
 Triggers:
     a_location_log_delete AFTER DELETE ON location REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_location_log_insert AFTER INSERT ON location REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()

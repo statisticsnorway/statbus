@@ -1,26 +1,26 @@
 ```sql
-                                      Table "public.unit_notes"
-       Column        |           Type           | Collation | Nullable |           Default            
----------------------+--------------------------+-----------+----------+------------------------------
- id                  | integer                  |           | not null | generated always as identity
- notes               | text                     |           | not null | 
- establishment_id    | integer                  |           |          | 
- legal_unit_id       | integer                  |           |          | 
- enterprise_id       | integer                  |           |          | 
- enterprise_group_id | integer                  |           |          | 
- created_at          | timestamp with time zone |           | not null | statement_timestamp()
- edit_comment        | character varying(512)   |           |          | 
- edit_by_user_id     | integer                  |           | not null | 
- edit_at             | timestamp with time zone |           | not null | statement_timestamp()
+                                     Table "public.unit_notes"
+      Column      |           Type           | Collation | Nullable |           Default            
+------------------+--------------------------+-----------+----------+------------------------------
+ id               | integer                  |           | not null | generated always as identity
+ notes            | text                     |           | not null | 
+ establishment_id | integer                  |           |          | 
+ legal_unit_id    | integer                  |           |          | 
+ enterprise_id    | integer                  |           |          | 
+ power_group_id   | integer                  |           |          | 
+ created_at       | timestamp with time zone |           | not null | statement_timestamp()
+ edit_comment     | character varying(512)   |           |          | 
+ edit_by_user_id  | integer                  |           | not null | 
+ edit_at          | timestamp with time zone |           | not null | statement_timestamp()
 Indexes:
     "unit_notes_pkey" PRIMARY KEY, btree (id)
     "ix_unit_notes_edit_by_user_id" btree (edit_by_user_id)
-    "unit_notes_unit_consolidated_key" UNIQUE, btree (establishment_id, legal_unit_id, enterprise_id, enterprise_group_id) NULLS NOT DISTINCT
+    "unit_notes_unit_consolidated_key" UNIQUE, btree (establishment_id, legal_unit_id, enterprise_id, power_group_id) NULLS NOT DISTINCT
 Check constraints:
-    "One and only one statistical unit id must be set" CHECK (num_nonnulls(establishment_id, legal_unit_id, enterprise_id, enterprise_group_id) = 1)
-    "unit_notes_enterprise_group_id_check" CHECK (admin.enterprise_group_id_exists(enterprise_group_id))
+    "One and only one statistical unit id must be set" CHECK (num_nonnulls(establishment_id, legal_unit_id, enterprise_id, power_group_id) = 1)
     "unit_notes_establishment_id_check" CHECK (admin.establishment_id_exists(establishment_id))
     "unit_notes_legal_unit_id_check" CHECK (admin.legal_unit_id_exists(legal_unit_id))
+    "unit_notes_power_group_id_check" CHECK (admin.power_group_id_exists(power_group_id))
 Foreign-key constraints:
     "unit_notes_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES auth."user"(id) ON DELETE RESTRICT
     "unit_notes_enterprise_id_fkey" FOREIGN KEY (enterprise_id) REFERENCES enterprise(id) ON DELETE CASCADE

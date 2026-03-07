@@ -19,11 +19,90 @@ CREATE UNLOGGED TABLE worker.pipeline_progress (
     affected_establishment_count INT DEFAULT NULL,
     affected_legal_unit_count INT DEFAULT NULL,
     affected_enterprise_count INT DEFAULT NULL,
+    affected_power_group_count INT DEFAULT NULL,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 GRANT SELECT ON worker.pipeline_progress TO authenticated;
 GRANT INSERT, UPDATE, DELETE ON worker.pipeline_progress TO authenticated;
+
+-- ============================================================================
+-- 1a2. Pipeline step weights table
+-- ============================================================================
+
+-- Stores the relative wall-clock weight of each step within its phase.
+-- Used by the frontend to compute weighted progress percentages.
+-- Weights are proportional (not required to sum to 100).
+CREATE TABLE worker.pipeline_step_weight (
+    phase worker.pipeline_phase NOT NULL,
+    step TEXT NOT NULL,
+    weight INT NOT NULL CHECK (weight > 0),
+    seq INT NOT NULL DEFAULT 0,
+    PRIMARY KEY (phase, step),
+    FOREIGN KEY (step) REFERENCES worker.command_registry(command)
+);
+
+COMMENT ON TABLE worker.pipeline_step_weight IS
+  'Relative wall-clock weights for pipeline steps, used by frontend progress bars. '
+  'When adding a new step to a phase, add its weight here too.';
+
+-- Phase 1 weights derived from production wall-clock times (no.statbus.org, 2026-02-24).
+-- Dataset: 1.1M legal units + 826K establishments, analytics_partition_count=128.
+INSERT INTO worker.pipeline_step_weight (phase, step, weight, seq) VALUES
+  ('is_deriving_statistical_units', 'collect_changes', 1, 0),
+  ('is_deriving_statistical_units', 'derive_statistical_unit', 87, 1),
+  ('is_deriving_statistical_units', 'statistical_unit_flush_staging', 14, 2);
+
+-- Phase 2 weights from same dataset.
+INSERT INTO worker.pipeline_step_weight (phase, step, weight, seq) VALUES
+  ('is_deriving_reports', 'derive_reports', 1, 0),
+  ('is_deriving_reports', 'derive_statistical_history', 2, 1),
+  ('is_deriving_reports', 'derive_statistical_unit_facet', 2, 2),
+  ('is_deriving_reports', 'statistical_unit_facet_reduce', 3, 3),
+  ('is_deriving_reports', 'derive_statistical_history_facet', 84, 4),
+  ('is_deriving_reports', 'statistical_history_facet_reduce', 9, 5);
+
+-- View for frontend access via PostgREST (/rest/pipeline_step_weight).
+-- Read-only: the UNION ALL prevents PostgreSQL from marking it as auto-updatable.
+CREATE VIEW public.pipeline_step_weight WITH (security_invoker = on) AS
+SELECT phase::text, step, weight, seq
+FROM worker.pipeline_step_weight
+UNION ALL
+SELECT NULL::text, NULL::text, NULL::integer, NULL::integer WHERE false;
+
+GRANT SELECT ON public.pipeline_step_weight TO authenticated, regular_user, admin_user;
+
+-- Worker needs SELECT on the base table for pipeline_progress_on_children_created
+-- (checks if a command has a weight entry before setting the step field).
+GRANT SELECT ON worker.pipeline_step_weight TO authenticated;
+
+-- ============================================================================
+-- 1a3. Helper function to notify frontend about pipeline progress
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION worker.notify_pipeline_progress()
+RETURNS void
+LANGUAGE plpgsql
+AS $notify_pipeline_progress$
+BEGIN
+    PERFORM pg_notify('worker_status', (
+        SELECT json_build_object(
+            'type', 'pipeline_progress',
+            'phases', COALESCE(json_agg(json_build_object(
+                'phase', pp.phase,
+                'step', pp.step,
+                'total', pp.total,
+                'completed', pp.completed,
+                'affected_establishment_count', pp.affected_establishment_count,
+                'affected_legal_unit_count', pp.affected_legal_unit_count,
+                'affected_enterprise_count', pp.affected_enterprise_count,
+                'affected_power_group_count', pp.affected_power_group_count
+            )), '[]'::json)
+        )::text
+        FROM worker.pipeline_progress AS pp
+    ));
+END;
+$notify_pipeline_progress$;
 
 -- ============================================================================
 -- 1b. Add phase column to command_registry
@@ -98,11 +177,20 @@ BEGIN
     SELECT command INTO v_parent_command
     FROM worker.tasks WHERE id = p_parent_task_id;
 
-    UPDATE worker.pipeline_progress
-    SET total = total + p_child_count,
-        step = v_parent_command,
-        updated_at = clock_timestamp()
-    WHERE phase = p_phase;
+    -- Only set step if the command has a pipeline_step_weight entry
+    -- (non-weighted commands like statistical_unit_refresh_batch should not overwrite step)
+    IF EXISTS (SELECT 1 FROM worker.pipeline_step_weight WHERE step = v_parent_command AND phase = p_phase) THEN
+        UPDATE worker.pipeline_progress
+        SET total = total + p_child_count,
+            step = v_parent_command,
+            updated_at = clock_timestamp()
+        WHERE phase = p_phase;
+    ELSE
+        UPDATE worker.pipeline_progress
+        SET total = total + p_child_count,
+            updated_at = clock_timestamp()
+        WHERE phase = p_phase;
+    END IF;
 END;
 $pipeline_progress_on_children_created$;
 
@@ -118,21 +206,7 @@ BEGIN
         updated_at = clock_timestamp()
     WHERE phase = p_phase;
 
-    PERFORM pg_notify('worker_status',
-        json_build_object(
-            'type', 'pipeline_progress',
-            'phases', COALESCE(
-                (SELECT json_agg(json_build_object(
-                    'phase', pp.phase, 'step', pp.step,
-                    'total', pp.total, 'completed', pp.completed,
-                    'affected_establishment_count', pp.affected_establishment_count,
-                    'affected_legal_unit_count', pp.affected_legal_unit_count,
-                    'affected_enterprise_count', pp.affected_enterprise_count
-                )) FROM worker.pipeline_progress AS pp),
-                '[]'::json
-            )
-        )::text
-    );
+    PERFORM worker.notify_pipeline_progress();
 END;
 $pipeline_progress_on_child_completed$;
 
@@ -144,17 +218,44 @@ CREATE OR REPLACE PROCEDURE worker.notify_is_deriving_statistical_units_start()
 LANGUAGE plpgsql
 AS $procedure$
 BEGIN
-  -- UPSERT phase row: resets progress for new round
   INSERT INTO worker.pipeline_progress (phase, step, total, completed, updated_at)
   VALUES ('is_deriving_statistical_units', 'derive_statistical_unit', 0, 0, clock_timestamp())
   ON CONFLICT (phase) DO UPDATE SET
     step = EXCLUDED.step, total = 0, completed = 0,
-    affected_establishment_count = NULL, affected_legal_unit_count = NULL,
-    affected_enterprise_count = NULL, updated_at = clock_timestamp();
+    -- Don't null counts — they were set by collect_changes and will be
+    -- refined by derive_statistical_unit after batching.
+    updated_at = clock_timestamp();
 
   PERFORM pg_notify('worker_status', json_build_object('type', 'is_deriving_statistical_units', 'status', true)::text);
+  PERFORM worker.notify_pipeline_progress();
 END;
 $procedure$;
+
+-- collect_changes needs its own before_procedure because
+-- notify_is_deriving_statistical_units_start hardcodes step='derive_statistical_unit'.
+-- collect_changes runs first and should show step='collect_changes'.
+CREATE PROCEDURE worker.notify_collecting_changes_start()
+LANGUAGE plpgsql
+AS $notify_collecting_changes_start$
+BEGIN
+  INSERT INTO worker.pipeline_progress (phase, step, total, completed, updated_at)
+  VALUES ('is_deriving_statistical_units', 'collect_changes', 0, 0, clock_timestamp())
+  ON CONFLICT (phase) DO UPDATE SET
+    step = 'collect_changes', total = 0, completed = 0,
+    affected_establishment_count = NULL, affected_legal_unit_count = NULL,
+    affected_enterprise_count = NULL, affected_power_group_count = NULL,
+    updated_at = clock_timestamp();
+
+  PERFORM pg_notify('worker_status',
+    json_build_object('type', 'is_deriving_statistical_units', 'status', true)::text
+  );
+END;
+$notify_collecting_changes_start$;
+
+-- Wire collect_changes to use its own before_procedure
+UPDATE worker.command_registry
+SET before_procedure = 'worker.notify_collecting_changes_start'
+WHERE command = 'collect_changes';
 
 CREATE OR REPLACE PROCEDURE worker.notify_is_deriving_reports_start()
 LANGUAGE plpgsql
@@ -620,6 +721,9 @@ $function$;
 -- 1h. Update derive_statistical_unit — create phase rows with counts
 -- ============================================================================
 
+-- NOTE: This function is defined without p_power_group_id_ranges at this point.
+-- The power group parameter is added by the integrate_power_group migration.
+-- This version includes pipeline progress with notify_pipeline_progress.
 CREATE OR REPLACE FUNCTION worker.derive_statistical_unit(p_establishment_id_ranges int4multirange DEFAULT NULL::int4multirange, p_legal_unit_id_ranges int4multirange DEFAULT NULL::int4multirange, p_enterprise_id_ranges int4multirange DEFAULT NULL::int4multirange, p_valid_from date DEFAULT NULL::date, p_valid_until date DEFAULT NULL::date, p_task_id bigint DEFAULT NULL::bigint, p_round_priority_base bigint DEFAULT NULL::bigint)
  RETURNS void
  LANGUAGE plpgsql
@@ -650,10 +754,8 @@ BEGIN
     IF v_is_full_refresh THEN
         -- Full refresh: spawn batch children (no orphan cleanup needed - covers everything)
         -- No dirty partition tracking needed: full refresh recomputes all partitions
-        FOR v_batch IN
-            SELECT * FROM public.get_closed_group_batches(p_target_batch_size := 1000)
+        FOR v_batch IN SELECT * FROM public.get_closed_group_batches(p_target_batch_size := 1000)
         LOOP
-            -- Accumulate unit counts (O(1) per call — reads array metadata)
             v_enterprise_count := v_enterprise_count + COALESCE(array_length(v_batch.enterprise_ids, 1), 0);
             v_legal_unit_count := v_legal_unit_count + COALESCE(array_length(v_batch.legal_unit_ids, 1), 0);
             v_establishment_count := v_establishment_count + COALESCE(array_length(v_batch.establishment_ids, 1), 0);
@@ -676,60 +778,35 @@ BEGIN
         END LOOP;
     ELSE
         -- Partial refresh: convert multiranges to arrays
-        v_establishment_ids := ARRAY(
-            SELECT generate_series(lower(r), upper(r)-1)
-            FROM unnest(COALESCE(p_establishment_id_ranges, '{}'::int4multirange)) AS t(r)
-        );
-        v_legal_unit_ids := ARRAY(
-            SELECT generate_series(lower(r), upper(r)-1)
-            FROM unnest(COALESCE(p_legal_unit_id_ranges, '{}'::int4multirange)) AS t(r)
-        );
-        v_enterprise_ids := ARRAY(
-            SELECT generate_series(lower(r), upper(r)-1)
-            FROM unnest(COALESCE(p_enterprise_id_ranges, '{}'::int4multirange)) AS t(r)
-        );
+        v_establishment_ids := ARRAY(SELECT generate_series(lower(r), upper(r)-1) FROM unnest(COALESCE(p_establishment_id_ranges, '{}'::int4multirange)) AS t(r));
+        v_legal_unit_ids := ARRAY(SELECT generate_series(lower(r), upper(r)-1) FROM unnest(COALESCE(p_legal_unit_id_ranges, '{}'::int4multirange)) AS t(r));
+        v_enterprise_ids := ARRAY(SELECT generate_series(lower(r), upper(r)-1) FROM unnest(COALESCE(p_enterprise_id_ranges, '{}'::int4multirange)) AS t(r));
 
-        -- =====================================================================
         -- ORPHAN CLEANUP: Handle deleted entities BEFORE batching
-        -- =====================================================================
         IF COALESCE(array_length(v_enterprise_ids, 1), 0) > 0 THEN
-            v_orphan_enterprise_ids := ARRAY(
-                SELECT id FROM unnest(v_enterprise_ids) AS id
-                EXCEPT SELECT e.id FROM public.enterprise AS e WHERE e.id = ANY(v_enterprise_ids)
-            );
+            v_orphan_enterprise_ids := ARRAY(SELECT id FROM unnest(v_enterprise_ids) AS id EXCEPT SELECT e.id FROM public.enterprise AS e WHERE e.id = ANY(v_enterprise_ids));
             IF COALESCE(array_length(v_orphan_enterprise_ids, 1), 0) > 0 THEN
-                RAISE DEBUG 'derive_statistical_unit: Cleaning up % orphan enterprise IDs',
-                    array_length(v_orphan_enterprise_ids, 1);
+                RAISE DEBUG 'derive_statistical_unit: Cleaning up % orphan enterprise IDs', array_length(v_orphan_enterprise_ids, 1);
                 DELETE FROM public.timepoints WHERE unit_type = 'enterprise' AND unit_id = ANY(v_orphan_enterprise_ids);
                 DELETE FROM public.timesegments WHERE unit_type = 'enterprise' AND unit_id = ANY(v_orphan_enterprise_ids);
                 DELETE FROM public.timeline_enterprise WHERE enterprise_id = ANY(v_orphan_enterprise_ids);
                 DELETE FROM public.statistical_unit WHERE unit_type = 'enterprise' AND unit_id = ANY(v_orphan_enterprise_ids);
             END IF;
         END IF;
-
         IF COALESCE(array_length(v_legal_unit_ids, 1), 0) > 0 THEN
-            v_orphan_legal_unit_ids := ARRAY(
-                SELECT id FROM unnest(v_legal_unit_ids) AS id
-                EXCEPT SELECT lu.id FROM public.legal_unit AS lu WHERE lu.id = ANY(v_legal_unit_ids)
-            );
+            v_orphan_legal_unit_ids := ARRAY(SELECT id FROM unnest(v_legal_unit_ids) AS id EXCEPT SELECT lu.id FROM public.legal_unit AS lu WHERE lu.id = ANY(v_legal_unit_ids));
             IF COALESCE(array_length(v_orphan_legal_unit_ids, 1), 0) > 0 THEN
-                RAISE DEBUG 'derive_statistical_unit: Cleaning up % orphan legal_unit IDs',
-                    array_length(v_orphan_legal_unit_ids, 1);
+                RAISE DEBUG 'derive_statistical_unit: Cleaning up % orphan legal_unit IDs', array_length(v_orphan_legal_unit_ids, 1);
                 DELETE FROM public.timepoints WHERE unit_type = 'legal_unit' AND unit_id = ANY(v_orphan_legal_unit_ids);
                 DELETE FROM public.timesegments WHERE unit_type = 'legal_unit' AND unit_id = ANY(v_orphan_legal_unit_ids);
                 DELETE FROM public.timeline_legal_unit WHERE legal_unit_id = ANY(v_orphan_legal_unit_ids);
                 DELETE FROM public.statistical_unit WHERE unit_type = 'legal_unit' AND unit_id = ANY(v_orphan_legal_unit_ids);
             END IF;
         END IF;
-
         IF COALESCE(array_length(v_establishment_ids, 1), 0) > 0 THEN
-            v_orphan_establishment_ids := ARRAY(
-                SELECT id FROM unnest(v_establishment_ids) AS id
-                EXCEPT SELECT es.id FROM public.establishment AS es WHERE es.id = ANY(v_establishment_ids)
-            );
+            v_orphan_establishment_ids := ARRAY(SELECT id FROM unnest(v_establishment_ids) AS id EXCEPT SELECT es.id FROM public.establishment AS es WHERE es.id = ANY(v_establishment_ids));
             IF COALESCE(array_length(v_orphan_establishment_ids, 1), 0) > 0 THEN
-                RAISE DEBUG 'derive_statistical_unit: Cleaning up % orphan establishment IDs',
-                    array_length(v_orphan_establishment_ids, 1);
+                RAISE DEBUG 'derive_statistical_unit: Cleaning up % orphan establishment IDs', array_length(v_orphan_establishment_ids, 1);
                 DELETE FROM public.timepoints WHERE unit_type = 'establishment' AND unit_id = ANY(v_orphan_establishment_ids);
                 DELETE FROM public.timesegments WHERE unit_type = 'establishment' AND unit_id = ANY(v_orphan_establishment_ids);
                 DELETE FROM public.timeline_establishment WHERE establishment_id = ANY(v_orphan_establishment_ids);
@@ -737,13 +814,7 @@ BEGIN
             END IF;
         END IF;
 
-        -- =====================================================================
-        -- BATCHING: Only existing entities, partitioned with no overlap
-        -- =====================================================================
-
-        IF to_regclass('pg_temp._batches') IS NOT NULL THEN
-            DROP TABLE _batches;
-        END IF;
+        IF to_regclass('pg_temp._batches') IS NOT NULL THEN DROP TABLE _batches; END IF;
         CREATE TEMP TABLE _batches ON COMMIT DROP AS
         SELECT * FROM public.get_closed_group_batches(
             p_target_batch_size := 1000,
@@ -751,35 +822,16 @@ BEGIN
             p_legal_unit_ids := NULLIF(v_legal_unit_ids, '{}'),
             p_enterprise_ids := NULLIF(v_enterprise_ids, '{}')
         );
-
-        -- =====================================================================
-        -- DIRTY PARTITION TRACKING
-        -- =====================================================================
         INSERT INTO public.statistical_unit_facet_dirty_partitions (partition_seq)
-        SELECT DISTINCT public.report_partition_seq(
-            t.unit_type, t.unit_id,
-            (SELECT analytics_partition_count FROM public.settings)
-        )
+        SELECT DISTINCT public.report_partition_seq(t.unit_type, t.unit_id, (SELECT analytics_partition_count FROM public.settings))
         FROM (
-            SELECT 'enterprise'::text AS unit_type, unnest(b.enterprise_ids) AS unit_id
-            FROM _batches AS b
-            UNION ALL
-            SELECT 'legal_unit', unnest(b.legal_unit_ids)
-            FROM _batches AS b
-            UNION ALL
-            SELECT 'establishment', unnest(b.establishment_ids)
-            FROM _batches AS b
-        ) AS t
-        WHERE t.unit_id IS NOT NULL
+            SELECT 'enterprise'::text AS unit_type, unnest(b.enterprise_ids) AS unit_id FROM _batches AS b
+            UNION ALL SELECT 'legal_unit', unnest(b.legal_unit_ids) FROM _batches AS b
+            UNION ALL SELECT 'establishment', unnest(b.establishment_ids) FROM _batches AS b
+        ) AS t WHERE t.unit_id IS NOT NULL
         ON CONFLICT DO NOTHING;
 
-        RAISE DEBUG 'derive_statistical_unit: Tracked dirty facet partitions for closed group across % batches',
-            (SELECT count(*) FROM _batches);
-
-        -- Spawn batch children and accumulate unit counts
-        FOR v_batch IN SELECT * FROM _batches
-        LOOP
-            -- Accumulate unit counts (O(1) per call — reads array metadata)
+        FOR v_batch IN SELECT * FROM _batches LOOP
             v_enterprise_count := v_enterprise_count + COALESCE(array_length(v_batch.enterprise_ids, 1), 0);
             v_legal_unit_count := v_legal_unit_count + COALESCE(array_length(v_batch.legal_unit_ids, 1), 0);
             v_establishment_count := v_establishment_count + COALESCE(array_length(v_batch.establishment_ids, 1), 0);
@@ -805,33 +857,39 @@ BEGIN
     RAISE DEBUG 'derive_statistical_unit: Spawned % batch children with parent_id %, counts: es=%, lu=%, en=%',
         v_batch_count, p_task_id, v_establishment_count, v_legal_unit_count, v_enterprise_count;
 
-    -- Create/update Phase 1 row with unit counts
     INSERT INTO worker.pipeline_progress
         (phase, step, total, completed,
-         affected_establishment_count, affected_legal_unit_count, affected_enterprise_count, updated_at)
+         affected_establishment_count, affected_legal_unit_count, affected_enterprise_count,
+         affected_power_group_count, updated_at)
     VALUES
         ('is_deriving_statistical_units', 'derive_statistical_unit', 0, 0,
-         v_establishment_count, v_legal_unit_count, v_enterprise_count, clock_timestamp())
+         v_establishment_count, v_legal_unit_count, v_enterprise_count,
+         0, clock_timestamp())
     ON CONFLICT (phase) DO UPDATE SET
         affected_establishment_count = EXCLUDED.affected_establishment_count,
         affected_legal_unit_count = EXCLUDED.affected_legal_unit_count,
         affected_enterprise_count = EXCLUDED.affected_enterprise_count,
+        affected_power_group_count = EXCLUDED.affected_power_group_count,
         updated_at = EXCLUDED.updated_at;
 
-    -- Pre-create Phase 2 row with counts (pending, visible to user before phase 2 starts)
     INSERT INTO worker.pipeline_progress
         (phase, step, total, completed,
-         affected_establishment_count, affected_legal_unit_count, affected_enterprise_count, updated_at)
+         affected_establishment_count, affected_legal_unit_count, affected_enterprise_count,
+         affected_power_group_count, updated_at)
     VALUES
         ('is_deriving_reports', NULL, 0, 0,
-         v_establishment_count, v_legal_unit_count, v_enterprise_count, clock_timestamp())
+         v_establishment_count, v_legal_unit_count, v_enterprise_count,
+         0, clock_timestamp())
     ON CONFLICT (phase) DO UPDATE SET
         affected_establishment_count = EXCLUDED.affected_establishment_count,
         affected_legal_unit_count = EXCLUDED.affected_legal_unit_count,
         affected_enterprise_count = EXCLUDED.affected_enterprise_count,
+        affected_power_group_count = EXCLUDED.affected_power_group_count,
         updated_at = EXCLUDED.updated_at;
 
-    -- Refresh derived data (used flags) - always full refreshes, run synchronously
+    -- Notify frontend with accurate counts
+    PERFORM worker.notify_pipeline_progress();
+
     PERFORM public.activity_category_used_derive();
     PERFORM public.region_used_derive();
     PERFORM public.sector_used_derive();
@@ -839,22 +897,14 @@ BEGIN
     PERFORM public.legal_form_used_derive();
     PERFORM public.country_used_derive();
 
-    -- =========================================================================
-    -- STAGING PATTERN: Enqueue flush task (runs after all batches complete)
-    -- =========================================================================
     PERFORM worker.enqueue_statistical_unit_flush_staging(
         p_round_priority_base := p_round_priority_base
     );
-    RAISE DEBUG 'derive_statistical_unit: Enqueued flush_staging task';
-
-    -- Enqueue derive_reports as an "uncle" task (runs after flush completes)
     PERFORM worker.enqueue_derive_reports(
         p_valid_from := p_valid_from,
         p_valid_until := p_valid_until,
         p_round_priority_base := p_round_priority_base
     );
-
-    RAISE DEBUG 'derive_statistical_unit: Enqueued derive_reports';
 END;
 $function$;
 
@@ -876,7 +926,8 @@ AS $function$
     'completed', COALESCE(pp.completed, 0),
     'affected_establishment_count', pp.affected_establishment_count,
     'affected_legal_unit_count', pp.affected_legal_unit_count,
-    'affected_enterprise_count', pp.affected_enterprise_count
+    'affected_enterprise_count', pp.affected_enterprise_count,
+    'affected_power_group_count', pp.affected_power_group_count
   )
   FROM (SELECT NULL) AS dummy
   LEFT JOIN worker.pipeline_progress AS pp ON pp.phase = 'is_deriving_statistical_units';
@@ -899,7 +950,8 @@ AS $function$
     'completed', COALESCE(pp.completed, 0),
     'affected_establishment_count', pp.affected_establishment_count,
     'affected_legal_unit_count', pp.affected_legal_unit_count,
-    'affected_enterprise_count', pp.affected_enterprise_count
+    'affected_enterprise_count', pp.affected_enterprise_count,
+    'affected_power_group_count', pp.affected_power_group_count
   )
   FROM (SELECT NULL) AS dummy
   LEFT JOIN worker.pipeline_progress AS pp ON pp.phase = 'is_deriving_reports';
@@ -913,9 +965,41 @@ CREATE OR REPLACE PROCEDURE worker.notify_is_deriving_statistical_units_stop()
  LANGUAGE plpgsql
 AS $procedure$
 BEGIN
-  -- Only fires for statistical_unit_flush_staging (last Phase 1 step).
-  -- Priority ordering guarantees next round's collect_changes can't run
-  -- until Phase 2 finishes, so pipeline_progress won't be re-populated.
+  -- Check if any Phase 1 tasks are still pending or running.
+  -- By the time after_procedure fires, the calling task is already in 'completed' state,
+  -- so this only finds OTHER Phase 1 tasks that still need to run.
+  -- Exclude collect_changes: it always has a pending task queued via dedup index
+  -- as the entry-point trigger — it's not actual derive work.
+  IF EXISTS (
+    SELECT 1 FROM worker.tasks AS t
+    JOIN worker.command_registry AS cr ON cr.command = t.command
+    WHERE cr.phase = 'is_deriving_statistical_units'
+    AND t.command <> 'collect_changes'
+    AND t.state IN ('pending', 'processing', 'waiting')
+  ) THEN
+    RETURN;  -- More Phase 1 work pending, don't stop yet
+  END IF;
+
+  -- If collect_changes is pending, more Phase 1 work is guaranteed
+  -- (collect_changes always leads to derive_statistical_unit), so stay active.
+  -- Reset to collect_changes step with cleared counts — the previous cycle's
+  -- counts are stale and the new collect_changes will set fresh ones.
+  IF EXISTS (
+    SELECT 1 FROM worker.tasks
+    WHERE command = 'collect_changes'
+    AND state = 'pending'
+  ) THEN
+    UPDATE worker.pipeline_progress
+    SET step = 'collect_changes', total = 0, completed = 0,
+        affected_establishment_count = NULL,
+        affected_legal_unit_count = NULL,
+        affected_enterprise_count = NULL,
+        affected_power_group_count = NULL,
+        updated_at = clock_timestamp()
+    WHERE phase = 'is_deriving_statistical_units';
+    RETURN;
+  END IF;
+
   DELETE FROM worker.pipeline_progress WHERE phase = 'is_deriving_statistical_units';
   PERFORM pg_notify('worker_status',
     json_build_object('type', 'is_deriving_statistical_units', 'status', false)::text
@@ -931,13 +1015,76 @@ CREATE OR REPLACE PROCEDURE worker.notify_is_deriving_reports_stop()
  LANGUAGE plpgsql
 AS $procedure$
 BEGIN
-  -- Only fires for last Phase 2 step (via after_procedure on derive_reports).
-  -- Same pattern as Phase 1: unconditionally delete and notify.
+  -- Check if any Phase 2 tasks are still pending or running.
+  -- By the time after_procedure fires, the calling task is already in 'completed' state,
+  -- so this only finds OTHER Phase 2 tasks that still need to run.
+  IF EXISTS (
+    SELECT 1 FROM worker.tasks AS t
+    JOIN worker.command_registry AS cr ON cr.command = t.command
+    WHERE cr.phase = 'is_deriving_reports'
+    AND t.state IN ('pending', 'processing', 'waiting')
+  ) THEN
+    RETURN;  -- More Phase 2 work pending, don't stop yet
+  END IF;
+
   DELETE FROM worker.pipeline_progress WHERE phase = 'is_deriving_reports';
   PERFORM pg_notify('worker_status',
     json_build_object('type', 'is_deriving_reports', 'status', false)::text
   );
 END;
 $procedure$;
+
+-- ============================================================================
+-- 1m. Fix statistical_unit_flush_staging — use working notification channel
+-- ============================================================================
+
+CREATE OR REPLACE PROCEDURE worker.statistical_unit_flush_staging(IN payload jsonb)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public', 'worker', 'pg_temp'
+AS $statistical_unit_flush_staging$
+BEGIN
+    UPDATE worker.pipeline_progress
+    SET step = 'statistical_unit_flush_staging', updated_at = clock_timestamp()
+    WHERE phase = 'is_deriving_statistical_units';
+    PERFORM worker.notify_pipeline_progress();
+
+    CALL public.statistical_unit_flush_staging();
+
+    UPDATE worker.pipeline_progress
+    SET completed = total, updated_at = clock_timestamp()
+    WHERE phase = 'is_deriving_statistical_units';
+    PERFORM worker.notify_pipeline_progress();
+END;
+$statistical_unit_flush_staging$;
+
+-- ============================================================================
+-- 1n. Fix is_importing — include 'preparing_data' state
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION public.is_importing()
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE
+AS $function$
+  SELECT jsonb_build_object(
+    'active', EXISTS (
+      SELECT 1 FROM public.import_job
+      WHERE state IN ('preparing_data', 'analysing_data', 'processing_data')
+    ),
+    'jobs', COALESCE(
+      (SELECT jsonb_agg(jsonb_build_object(
+        'id', ij.id,
+        'state', ij.state,
+        'total_rows', ij.total_rows,
+        'imported_rows', ij.imported_rows,
+        'analysis_completed_pct', ij.analysis_completed_pct,
+        'import_completed_pct', ij.import_completed_pct
+      )) FROM public.import_job AS ij
+      WHERE ij.state IN ('preparing_data', 'analysing_data', 'processing_data')),
+      '[]'::jsonb
+    )
+  );
+$function$;
 
 COMMIT;

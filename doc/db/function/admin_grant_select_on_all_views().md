@@ -7,12 +7,14 @@ DECLARE
     view_record record;
 BEGIN
     -- Loop through all views in all schemas (except system schemas)
+    -- Excludes sql_saga __for_portion_of_valid views which are INSTEAD OF trigger views
     FOR view_record IN 
         SELECT n.nspname AS schema_name, c.relname AS view_name
         FROM pg_catalog.pg_class c
         JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
         WHERE c.relkind = 'v'
         AND n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+        AND c.relname NOT LIKE '%__for_portion_of_valid'
     LOOP
         -- Grant SELECT to authenticated
         EXECUTE format('GRANT SELECT ON %I.%I TO authenticated', 

@@ -68,7 +68,6 @@
  last_edit_comment                | character varying(512)   |           |          |         | extended | 
  last_edit_by_user_id             | integer                  |           |          |         | plain    | 
  last_edit_at                     | timestamp with time zone |           |          |         | plain    | 
- invalid_codes                    | jsonb                    |           |          |         | extended | 
  has_legal_unit                   | boolean                  |           |          |         | plain    | 
  related_establishment_ids        | integer[]                |           |          |         | extended | 
  excluded_establishment_ids       | integer[]                |           |          |         | extended | 
@@ -85,21 +84,31 @@
  stats                            | jsonb                    |           |          |         | extended | 
  stats_summary                    | jsonb                    |           |          |         | extended | 
 View definition:
- WITH legal_unit_stats AS (
+ WITH filter_ids AS (
+         SELECT string_to_array(NULLIF(current_setting('statbus.filter_unit_ids'::text, true), ''::text), ','::text)::integer[] AS ids
+        ), legal_unit_stats AS (
          SELECT t.unit_id,
             t.valid_from,
-            jsonb_object_agg(sd.code,
-                CASE
-                    WHEN sfu.value_float IS NOT NULL THEN to_jsonb(sfu.value_float)
-                    WHEN sfu.value_int IS NOT NULL THEN to_jsonb(sfu.value_int)
-                    WHEN sfu.value_string IS NOT NULL THEN to_jsonb(sfu.value_string)
-                    WHEN sfu.value_bool IS NOT NULL THEN to_jsonb(sfu.value_bool)
-                    ELSE NULL::jsonb
-                END) FILTER (WHERE sd.code IS NOT NULL) AS stats
+            jsonb_stats_agg(sd.code::text, sfu.stat) FILTER (WHERE sd.code IS NOT NULL) AS stats
            FROM timesegments t
+             CROSS JOIN filter_ids f
              JOIN stat_for_unit sfu ON sfu.legal_unit_id = t.unit_id AND from_until_overlaps(t.valid_from, t.valid_until, sfu.valid_from, sfu.valid_until)
              JOIN stat_definition sd ON sfu.stat_definition_id = sd.id
-          WHERE t.unit_type = 'legal_unit'::statistical_unit_type
+          WHERE t.unit_type = 'legal_unit'::statistical_unit_type AND (f.ids IS NULL OR (t.unit_id = ANY (f.ids)))
+          GROUP BY t.unit_id, t.valid_from
+        ), establishment_aggs AS (
+         SELECT t.unit_id,
+            t.valid_from,
+            array_distinct_concat(tes.data_source_ids) AS data_source_ids,
+            array_distinct_concat(tes.data_source_codes) AS data_source_codes,
+            array_agg(DISTINCT tes.establishment_id) FILTER (WHERE tes.establishment_id IS NOT NULL) AS related_establishment_ids,
+            array_agg(DISTINCT tes.establishment_id) FILTER (WHERE tes.establishment_id IS NOT NULL AND NOT tes.used_for_counting) AS excluded_establishment_ids,
+            array_agg(DISTINCT tes.establishment_id) FILTER (WHERE tes.establishment_id IS NOT NULL AND tes.used_for_counting) AS included_establishment_ids,
+            jsonb_stats_merge_agg(tes.stats_summary) FILTER (WHERE tes.used_for_counting) AS stats_summary
+           FROM timesegments t
+             CROSS JOIN filter_ids f
+             JOIN timeline_establishment tes ON tes.legal_unit_id = t.unit_id AND from_until_overlaps(t.valid_from, t.valid_until, tes.valid_from, tes.valid_until)
+          WHERE t.unit_type = 'legal_unit'::statistical_unit_type AND (f.ids IS NULL OR (t.unit_id = ANY (f.ids)))
           GROUP BY t.unit_id, t.valid_from
         ), basis AS (
          SELECT t.unit_type,
@@ -168,14 +177,14 @@ View definition:
             last_edit.edit_comment AS last_edit_comment,
             last_edit.edit_by_user_id AS last_edit_by_user_id,
             last_edit.edit_at AS last_edit_at,
-            lu.invalid_codes,
             true AS has_legal_unit,
             lu.id AS legal_unit_id,
             lu.enterprise_id,
             lu.primary_for_enterprise,
             COALESCE(lu_stats.stats, '{}'::jsonb) AS stats,
-            jsonb_stats_to_summary('{}'::jsonb, COALESCE(lu_stats.stats, '{}'::jsonb)) AS stats_summary
+            jsonb_stats_to_agg(COALESCE(lu_stats.stats, '{}'::jsonb)) AS stats_summary
            FROM timesegments t
+             CROSS JOIN filter_ids f
              JOIN LATERAL ( SELECT lu_1.id,
                     lu_1.valid_range,
                     lu_1.valid_from,
@@ -197,7 +206,6 @@ View definition:
                     lu_1.data_source_id,
                     lu_1.enterprise_id,
                     lu_1.primary_for_enterprise,
-                    lu_1.invalid_codes,
                     lu_1.image_id
                    FROM legal_unit lu_1
                   WHERE lu_1.id = t.unit_id AND from_until_overlaps(t.valid_from, t.valid_until, lu_1.valid_from, lu_1.valid_until)
@@ -343,6 +351,7 @@ View definition:
                   ORDER BY all_edits.edit_at DESC
                  LIMIT 1) last_edit ON true,
             settings current_settings
+          WHERE t.unit_type = 'legal_unit'::statistical_unit_type AND (f.ids IS NULL OR (t.unit_id = ANY (f.ids)))
         )
  SELECT basis.unit_type,
     basis.unit_id,
@@ -416,7 +425,6 @@ View definition:
     basis.last_edit_comment,
     basis.last_edit_by_user_id,
     basis.last_edit_at,
-    basis.invalid_codes,
     basis.has_legal_unit,
     COALESCE(esa.related_establishment_ids, ARRAY[]::integer[]) AS related_establishment_ids,
     COALESCE(esa.excluded_establishment_ids, ARRAY[]::integer[]) AS excluded_establishment_ids,
@@ -438,20 +446,12 @@ View definition:
     basis.primary_for_enterprise,
     basis.stats,
         CASE
-            WHEN basis.used_for_counting THEN COALESCE(jsonb_stats_summary_merge(esa.stats_summary, basis.stats_summary), basis.stats_summary, esa.stats_summary, '{}'::jsonb)
+            WHEN basis.used_for_counting THEN COALESCE(jsonb_stats_merge(esa.stats_summary, basis.stats_summary), basis.stats_summary, esa.stats_summary, '{}'::jsonb)
             ELSE '{}'::jsonb
         END AS stats_summary
    FROM basis
-     LEFT JOIN LATERAL ( SELECT tes.legal_unit_id,
-            array_distinct_concat(tes.data_source_ids) AS data_source_ids,
-            array_distinct_concat(tes.data_source_codes) AS data_source_codes,
-            array_agg(DISTINCT tes.establishment_id) FILTER (WHERE tes.establishment_id IS NOT NULL) AS related_establishment_ids,
-            array_agg(DISTINCT tes.establishment_id) FILTER (WHERE tes.establishment_id IS NOT NULL AND NOT tes.used_for_counting) AS excluded_establishment_ids,
-            array_agg(DISTINCT tes.establishment_id) FILTER (WHERE tes.establishment_id IS NOT NULL AND tes.used_for_counting) AS included_establishment_ids,
-            jsonb_stats_summary_merge_agg(tes.stats_summary) FILTER (WHERE tes.used_for_counting) AS stats_summary
-           FROM timeline_establishment tes
-          WHERE tes.legal_unit_id = basis.legal_unit_id AND from_until_overlaps(basis.valid_from, basis.valid_until, tes.valid_from, tes.valid_until)
-          GROUP BY tes.legal_unit_id) esa ON true
+     LEFT JOIN establishment_aggs esa ON esa.unit_id = basis.unit_id AND esa.valid_from = basis.valid_from
   ORDER BY basis.unit_type, basis.unit_id, basis.valid_from;
+Options: security_invoker=on
 
 ```

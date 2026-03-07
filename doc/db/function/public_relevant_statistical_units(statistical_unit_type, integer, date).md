@@ -4,36 +4,39 @@ CREATE OR REPLACE FUNCTION public.relevant_statistical_units(unit_type statistic
  LANGUAGE sql
  STABLE
 AS $function$
-    WITH valid_units AS (
-        SELECT * FROM public.statistical_unit
-        WHERE valid_from <= $3 AND $3 < valid_until
-    ), root_unit AS (
-        SELECT * FROM valid_units
-        WHERE unit_type = 'enterprise'
-          AND unit_id = public.statistical_unit_enterprise_id($1, $2, $3)
-    ), related_units AS (
-        SELECT * FROM valid_units
-        WHERE unit_type = 'legal_unit'
-          AND unit_id IN (SELECT unnest(related_legal_unit_ids) FROM root_unit)
-            UNION ALL
-        SELECT * FROM valid_units
-        WHERE unit_type = 'establishment'
-          AND unit_id IN (SELECT unnest(related_establishment_ids) FROM root_unit)
-    ), relevant_units AS (
-        SELECT * FROM root_unit
-            UNION ALL
-        SELECT * FROM related_units
-    ), ordered_units AS (
-      SELECT ru.*
-          , first_external.ident AS first_external_ident
-        FROM relevant_units ru
-      LEFT JOIN LATERAL (
-          SELECT eit.code, (ru.external_idents->>eit.code)::text AS ident
-          FROM public.external_ident_type eit
-          ORDER BY eit.priority
-          LIMIT 1
-      ) first_external ON true
-      ORDER BY unit_type, first_external_ident NULLS LAST, unit_id
+    -- Step 1: Find the enterprise row directly via temporal PK index
+    WITH root_unit AS (
+        SELECT su.unit_type, su.unit_id,
+               su.related_legal_unit_ids,
+               su.related_establishment_ids,
+               su.external_idents
+        FROM public.statistical_unit AS su
+        WHERE su.unit_type = 'enterprise'
+          AND su.unit_id = public.statistical_unit_enterprise_id($1, $2, $3)
+          AND su.valid_from <= $3 AND $3 < su.valid_until
+    -- Step 2: Collect all relevant (unit_type, unit_id) pairs from arrays
+    ), relevant_ids AS (
+        SELECT 'enterprise'::statistical_unit_type AS unit_type, ru.unit_id FROM root_unit AS ru
+        UNION ALL
+        SELECT 'legal_unit'::statistical_unit_type, unnest(ru.related_legal_unit_ids) FROM root_unit AS ru
+        UNION ALL
+        SELECT 'establishment'::statistical_unit_type, unnest(ru.related_establishment_ids) FROM root_unit AS ru
+    -- Step 3: Single join back to get full rows, ordered by external ident priority
+    ), full_units AS (
+        SELECT su.*
+            , first_external.ident AS first_external_ident
+        FROM relevant_ids AS ri
+        JOIN public.statistical_unit AS su
+          ON su.unit_type = ri.unit_type
+         AND su.unit_id = ri.unit_id
+         AND su.valid_from <= $3 AND $3 < su.valid_until
+        LEFT JOIN LATERAL (
+            SELECT eit.code, (su.external_idents->>eit.code)::text AS ident
+            FROM public.external_ident_type AS eit
+            ORDER BY eit.priority
+            LIMIT 1
+        ) first_external ON true
+        ORDER BY su.unit_type, first_external_ident NULLS LAST, su.unit_id
     )
     SELECT unit_type
          , unit_id
@@ -110,7 +113,6 @@ AS $function$
          , last_edit_by_user_id
          , last_edit_at
          --
-         , invalid_codes
          , has_legal_unit
          , related_establishment_ids
          , excluded_establishment_ids
@@ -129,6 +131,6 @@ AS $function$
          , tag_paths
          , daterange(valid_from, valid_until) AS valid_range
          , report_partition_seq
-    FROM ordered_units;
+    FROM full_units;
 $function$
 ```

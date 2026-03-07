@@ -85,6 +85,18 @@ SELECT
 \echo "User uploads the sample informal establishments (via import job: import_07_eswlu_curr_b1)"
 \copy public.import_07_eswlu_curr_b1_upload(tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code) FROM 'app/public/demo/informal_establishments_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
+-- Create Import Job for Legal Relationships (Demo CSV, Block 1)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_relationship_job_provided'),
+    'import_07_lr_curr_b1',
+    'Import LR Demo CSV B1 (07_load_demo_data.sql)',
+    'Import job for app/public/demo/legal_relationships_demo.csv using legal_relationship_job_provided definition.',
+    'Test data load (07_load_demo_data.sql)',
+    'r_year_curr';
+\echo "User uploads the sample legal relationships (via import job: import_07_lr_curr_b1)"
+\copy public.import_07_lr_curr_b1_upload(influencing_tax_ident,influenced_tax_ident,rel_type_code,percentage) FROM 'app/public/demo/legal_relationships_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+
 \echo Run worker processing for import jobs - Block 1
 CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;

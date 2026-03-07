@@ -3,6 +3,7 @@ CREATE OR REPLACE FUNCTION admin.set_import_job_user_context(job_id integer)
  RETURNS void
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO 'public', 'admin', 'pg_temp'
 AS $function$
 DECLARE
     v_email text;

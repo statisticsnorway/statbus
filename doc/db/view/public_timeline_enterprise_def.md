@@ -68,7 +68,6 @@
  last_edit_comment                | character varying(512)   |           |          | 
  last_edit_by_user_id             | integer                  |           |          | 
  last_edit_at                     | timestamp with time zone |           |          | 
- invalid_codes                    | jsonb                    |           |          | 
  has_legal_unit                   | boolean                  |           |          | 
  related_establishment_ids        | integer[]                |           |          | 
  excluded_establishment_ids       | integer[]                |           |          | 

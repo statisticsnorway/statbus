@@ -68,7 +68,6 @@
  last_edit_comment                | character varying(512)   |           |          |         | extended | 
  last_edit_by_user_id             | integer                  |           |          |         | plain    | 
  last_edit_at                     | timestamp with time zone |           |          |         | plain    | 
- invalid_codes                    | jsonb                    |           |          |         | extended | 
  has_legal_unit                   | boolean                  |           |          |         | plain    | 
  establishment_id                 | integer                  |           |          |         | plain    | 
  legal_unit_id                    | integer                  |           |          |         | plain    | 
@@ -90,14 +89,7 @@ View definition:
  WITH establishment_stats AS (
          SELECT t_1.unit_id,
             t_1.valid_from,
-            jsonb_object_agg(sd.code,
-                CASE
-                    WHEN sfu.value_float IS NOT NULL THEN to_jsonb(sfu.value_float)
-                    WHEN sfu.value_int IS NOT NULL THEN to_jsonb(sfu.value_int)
-                    WHEN sfu.value_string IS NOT NULL THEN to_jsonb(sfu.value_string)
-                    WHEN sfu.value_bool IS NOT NULL THEN to_jsonb(sfu.value_bool)
-                    ELSE NULL::jsonb
-                END) FILTER (WHERE sd.code IS NOT NULL) AS stats
+            jsonb_stats_agg(sd.code::text, sfu.stat) FILTER (WHERE sd.code IS NOT NULL) AS stats
            FROM timesegments t_1
              JOIN stat_for_unit sfu ON sfu.establishment_id = t_1.unit_id AND from_until_overlaps(t_1.valid_from, t_1.valid_until, sfu.valid_from, sfu.valid_until)
              JOIN stat_definition sd ON sfu.stat_definition_id = sd.id
@@ -170,7 +162,6 @@ View definition:
     last_edit.edit_comment AS last_edit_comment,
     last_edit.edit_by_user_id AS last_edit_by_user_id,
     last_edit.edit_at AS last_edit_at,
-    es.invalid_codes,
     es.legal_unit_id IS NOT NULL AS has_legal_unit,
     es.id AS establishment_id,
     es.legal_unit_id,
@@ -178,7 +169,7 @@ View definition:
     es.primary_for_enterprise,
     es.primary_for_legal_unit,
     COALESCE(es_stats.stats, '{}'::jsonb) AS stats,
-    jsonb_stats_to_summary('{}'::jsonb, COALESCE(es_stats.stats, '{}'::jsonb)) AS stats_summary,
+    jsonb_stats_to_agg(COALESCE(es_stats.stats, '{}'::jsonb)) AS stats_summary,
     ARRAY[t.unit_id] AS related_establishment_ids,
     ARRAY[]::integer[] AS excluded_establishment_ids,
         CASE
@@ -219,7 +210,6 @@ View definition:
             es_1.legal_unit_id,
             es_1.primary_for_legal_unit,
             es_1.primary_for_enterprise,
-            es_1.invalid_codes,
             es_1.image_id
            FROM establishment es_1
           WHERE es_1.id = t.unit_id AND from_until_overlaps(t.valid_from, t.valid_until, es_1.valid_from, es_1.valid_until)
@@ -365,5 +355,6 @@ View definition:
          LIMIT 1) last_edit ON true,
     settings current_settings
   ORDER BY t.unit_type, t.unit_id, t.valid_from;
+Options: security_invoker=on
 
 ```

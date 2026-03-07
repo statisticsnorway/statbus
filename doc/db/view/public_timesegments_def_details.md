@@ -21,5 +21,6 @@ View definition:
    FROM timesegments_with_trailing_point
   WHERE valid_until IS NOT NULL
   ORDER BY unit_type, unit_id, valid_from;
+Options: security_invoker=on
 
 ```

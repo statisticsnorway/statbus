@@ -69,7 +69,6 @@
  last_edit_comment                | character varying(512)   |           |          |         | extended | 
  last_edit_by_user_id             | integer                  |           |          |         | plain    | 
  last_edit_at                     | timestamp with time zone |           |          |         | plain    | 
- invalid_codes                    | jsonb                    |           |          |         | extended | 
  has_legal_unit                   | boolean                  |           |          |         | plain    | 
  related_establishment_ids        | integer[]                |           |          |         | extended | 
  excluded_establishment_ids       | integer[]                |           |          |         | extended | 
@@ -99,29 +98,29 @@ View definition:
                      JOIN external_ident_type eit ON ei.type_id = eit.id
                   WHERE ei.establishment_id IS NOT NULL
                 UNION ALL
-                 SELECT 'legal_unit'::statistical_unit_type AS unit_type,
-                    ei.legal_unit_id AS unit_id,
-                    eit.code AS type_code,
-                    COALESCE(ei.ident, ei.idents::text::character varying) AS ident
+                 SELECT 'legal_unit'::statistical_unit_type,
+                    ei.legal_unit_id,
+                    eit.code,
+                    COALESCE(ei.ident, ei.idents::text::character varying) AS "coalesce"
                    FROM external_ident ei
                      JOIN external_ident_type eit ON ei.type_id = eit.id
                   WHERE ei.legal_unit_id IS NOT NULL
                 UNION ALL
-                 SELECT 'enterprise'::statistical_unit_type AS unit_type,
-                    ei.enterprise_id AS unit_id,
-                    eit.code AS type_code,
-                    COALESCE(ei.ident, ei.idents::text::character varying) AS ident
+                 SELECT 'enterprise'::statistical_unit_type,
+                    ei.enterprise_id,
+                    eit.code,
+                    COALESCE(ei.ident, ei.idents::text::character varying) AS "coalesce"
                    FROM external_ident ei
                      JOIN external_ident_type eit ON ei.type_id = eit.id
                   WHERE ei.enterprise_id IS NOT NULL
                 UNION ALL
-                 SELECT 'enterprise_group'::statistical_unit_type AS unit_type,
-                    ei.enterprise_group_id AS unit_id,
-                    eit.code AS type_code,
-                    COALESCE(ei.ident, ei.idents::text::character varying) AS ident
+                 SELECT 'power_group'::statistical_unit_type,
+                    ei.power_group_id,
+                    eit.code,
+                    COALESCE(ei.ident, ei.idents::text::character varying) AS "coalesce"
                    FROM external_ident ei
                      JOIN external_ident_type eit ON ei.type_id = eit.id
-                  WHERE ei.enterprise_group_id IS NOT NULL) all_idents
+                  WHERE ei.power_group_id IS NOT NULL) all_idents
           GROUP BY all_idents.unit_type, all_idents.unit_id
         ), tag_paths_agg AS (
          SELECT all_tags.unit_type,
@@ -134,26 +133,26 @@ View definition:
                      JOIN tag t ON tfu.tag_id = t.id
                   WHERE tfu.establishment_id IS NOT NULL
                 UNION ALL
-                 SELECT 'legal_unit'::statistical_unit_type AS unit_type,
-                    tfu.legal_unit_id AS unit_id,
+                 SELECT 'legal_unit'::statistical_unit_type,
+                    tfu.legal_unit_id,
                     t.path
                    FROM tag_for_unit tfu
                      JOIN tag t ON tfu.tag_id = t.id
                   WHERE tfu.legal_unit_id IS NOT NULL
                 UNION ALL
-                 SELECT 'enterprise'::statistical_unit_type AS unit_type,
-                    tfu.enterprise_id AS unit_id,
+                 SELECT 'enterprise'::statistical_unit_type,
+                    tfu.enterprise_id,
                     t.path
                    FROM tag_for_unit tfu
                      JOIN tag t ON tfu.tag_id = t.id
                   WHERE tfu.enterprise_id IS NOT NULL
                 UNION ALL
-                 SELECT 'enterprise_group'::statistical_unit_type AS unit_type,
-                    tfu.enterprise_group_id AS unit_id,
+                 SELECT 'power_group'::statistical_unit_type,
+                    tfu.power_group_id,
                     t.path
                    FROM tag_for_unit tfu
                      JOIN tag t ON tfu.tag_id = t.id
-                  WHERE tfu.enterprise_group_id IS NOT NULL) all_tags
+                  WHERE tfu.power_group_id IS NOT NULL) all_tags
           GROUP BY all_tags.unit_type, all_tags.unit_id
         ), data AS (
          SELECT timeline_establishment.unit_type,
@@ -222,7 +221,6 @@ View definition:
             timeline_establishment.last_edit_comment,
             timeline_establishment.last_edit_by_user_id,
             timeline_establishment.last_edit_at,
-            timeline_establishment.invalid_codes,
             timeline_establishment.has_legal_unit,
             timeline_establishment.related_establishment_ids,
             timeline_establishment.excluded_establishment_ids,
@@ -305,7 +303,6 @@ View definition:
             timeline_legal_unit.last_edit_comment,
             timeline_legal_unit.last_edit_by_user_id,
             timeline_legal_unit.last_edit_at,
-            timeline_legal_unit.invalid_codes,
             timeline_legal_unit.has_legal_unit,
             timeline_legal_unit.related_establishment_ids,
             timeline_legal_unit.excluded_establishment_ids,
@@ -388,7 +385,6 @@ View definition:
             timeline_enterprise.last_edit_comment,
             timeline_enterprise.last_edit_by_user_id,
             timeline_enterprise.last_edit_at,
-            timeline_enterprise.invalid_codes,
             timeline_enterprise.has_legal_unit,
             timeline_enterprise.related_establishment_ids,
             timeline_enterprise.excluded_establishment_ids,
@@ -404,6 +400,88 @@ View definition:
             timeline_enterprise.primary_establishment_id,
             timeline_enterprise.primary_legal_unit_id
            FROM timeline_enterprise
+        UNION ALL
+         SELECT timeline_power_group.unit_type,
+            timeline_power_group.unit_id,
+            timeline_power_group.valid_from,
+            timeline_power_group.valid_to,
+            timeline_power_group.valid_until,
+            timeline_power_group.name,
+            timeline_power_group.birth_date,
+            timeline_power_group.death_date,
+            timeline_power_group.search,
+            timeline_power_group.primary_activity_category_id,
+            timeline_power_group.primary_activity_category_path,
+            timeline_power_group.primary_activity_category_code,
+            timeline_power_group.secondary_activity_category_id,
+            timeline_power_group.secondary_activity_category_path,
+            timeline_power_group.secondary_activity_category_code,
+            timeline_power_group.activity_category_paths,
+            timeline_power_group.sector_id,
+            timeline_power_group.sector_path,
+            timeline_power_group.sector_code,
+            timeline_power_group.sector_name,
+            timeline_power_group.data_source_ids,
+            timeline_power_group.data_source_codes,
+            timeline_power_group.legal_form_id,
+            timeline_power_group.legal_form_code,
+            timeline_power_group.legal_form_name,
+            timeline_power_group.physical_address_part1,
+            timeline_power_group.physical_address_part2,
+            timeline_power_group.physical_address_part3,
+            timeline_power_group.physical_postcode,
+            timeline_power_group.physical_postplace,
+            timeline_power_group.physical_region_id,
+            timeline_power_group.physical_region_path,
+            timeline_power_group.physical_region_code,
+            timeline_power_group.physical_country_id,
+            timeline_power_group.physical_country_iso_2,
+            timeline_power_group.physical_latitude,
+            timeline_power_group.physical_longitude,
+            timeline_power_group.physical_altitude,
+            timeline_power_group.domestic,
+            timeline_power_group.postal_address_part1,
+            timeline_power_group.postal_address_part2,
+            timeline_power_group.postal_address_part3,
+            timeline_power_group.postal_postcode,
+            timeline_power_group.postal_postplace,
+            timeline_power_group.postal_region_id,
+            timeline_power_group.postal_region_path,
+            timeline_power_group.postal_region_code,
+            timeline_power_group.postal_country_id,
+            timeline_power_group.postal_country_iso_2,
+            timeline_power_group.postal_latitude,
+            timeline_power_group.postal_longitude,
+            timeline_power_group.postal_altitude,
+            timeline_power_group.web_address,
+            timeline_power_group.email_address,
+            timeline_power_group.phone_number,
+            timeline_power_group.landline,
+            timeline_power_group.mobile_number,
+            timeline_power_group.fax_number,
+            timeline_power_group.unit_size_id,
+            timeline_power_group.unit_size_code,
+            timeline_power_group.status_id,
+            timeline_power_group.status_code,
+            timeline_power_group.used_for_counting,
+            timeline_power_group.last_edit_comment,
+            timeline_power_group.last_edit_by_user_id,
+            timeline_power_group.last_edit_at,
+            timeline_power_group.has_legal_unit,
+            timeline_power_group.related_establishment_ids,
+            timeline_power_group.excluded_establishment_ids,
+            timeline_power_group.included_establishment_ids,
+            timeline_power_group.related_legal_unit_ids,
+            timeline_power_group.excluded_legal_unit_ids,
+            timeline_power_group.included_legal_unit_ids,
+            timeline_power_group.related_enterprise_ids,
+            timeline_power_group.excluded_enterprise_ids,
+            timeline_power_group.included_enterprise_ids,
+            NULL::jsonb AS stats,
+            timeline_power_group.stats_summary,
+            NULL::integer AS primary_establishment_id,
+            timeline_power_group.primary_legal_unit_id
+           FROM timeline_power_group
         )
  SELECT data.unit_type,
     data.unit_id,
@@ -472,7 +550,6 @@ View definition:
     data.last_edit_comment,
     data.last_edit_by_user_id,
     data.last_edit_at,
-    data.invalid_codes,
     data.has_legal_unit,
     data.related_establishment_ids,
     data.excluded_establishment_ids,
@@ -494,5 +571,6 @@ View definition:
      LEFT JOIN external_idents_agg eia2 ON eia2.unit_type = 'establishment'::statistical_unit_type AND eia2.unit_id = data.primary_establishment_id
      LEFT JOIN external_idents_agg eia3 ON eia3.unit_type = 'legal_unit'::statistical_unit_type AND eia3.unit_id = data.primary_legal_unit_id
      LEFT JOIN tag_paths_agg tpa ON tpa.unit_type = data.unit_type AND tpa.unit_id = data.unit_id;
+Options: security_invoker=on
 
 ```

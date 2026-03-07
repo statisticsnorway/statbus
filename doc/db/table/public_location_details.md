@@ -85,10 +85,10 @@ Policies:
       TO restricted_user
       USING ((EXISTS ( SELECT 1
    FROM region_access ra
-  WHERE ((ra.user_id = auth.uid()) AND (ra.region_id = ra.region_id)))))
+  WHERE ((ra.user_id = auth.uid()) AND (ra.region_id = location.region_id)))))
       WITH CHECK ((EXISTS ( SELECT 1
    FROM region_access ra
-  WHERE ((ra.user_id = auth.uid()) AND (ra.region_id = ra.region_id)))))
+  WHERE ((ra.user_id = auth.uid()) AND (ra.region_id = location.region_id)))))
 Not-null constraints:
     "location_id_not_null" NOT NULL "id"
     "location_valid_range_not_null" NOT NULL "valid_range"

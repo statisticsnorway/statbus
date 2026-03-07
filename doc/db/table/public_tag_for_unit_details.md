@@ -1,31 +1,31 @@
 ```sql
-                                                                Table "public.tag_for_unit"
-       Column        |           Type           | Collation | Nullable |           Default            | Storage  | Compression | Stats target | Description 
----------------------+--------------------------+-----------+----------+------------------------------+----------+-------------+--------------+-------------
- id                  | integer                  |           | not null | generated always as identity | plain    |             |              | 
- tag_id              | integer                  |           | not null |                              | plain    |             |              | 
- establishment_id    | integer                  |           |          |                              | plain    |             |              | 
- legal_unit_id       | integer                  |           |          |                              | plain    |             |              | 
- enterprise_id       | integer                  |           |          |                              | plain    |             |              | 
- enterprise_group_id | integer                  |           |          |                              | plain    |             |              | 
- created_at          | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
- edit_comment        | character varying(512)   |           |          |                              | extended |             |              | 
- edit_by_user_id     | integer                  |           | not null |                              | plain    |             |              | 
- edit_at             | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
+                                                               Table "public.tag_for_unit"
+      Column      |           Type           | Collation | Nullable |           Default            | Storage  | Compression | Stats target | Description 
+------------------+--------------------------+-----------+----------+------------------------------+----------+-------------+--------------+-------------
+ id               | integer                  |           | not null | generated always as identity | plain    |             |              | 
+ tag_id           | integer                  |           | not null |                              | plain    |             |              | 
+ establishment_id | integer                  |           |          |                              | plain    |             |              | 
+ legal_unit_id    | integer                  |           |          |                              | plain    |             |              | 
+ enterprise_id    | integer                  |           |          |                              | plain    |             |              | 
+ power_group_id   | integer                  |           |          |                              | plain    |             |              | 
+ created_at       | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
+ edit_comment     | character varying(512)   |           |          |                              | extended |             |              | 
+ edit_by_user_id  | integer                  |           | not null |                              | plain    |             |              | 
+ edit_at          | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
 Indexes:
     "tag_for_unit_pkey" PRIMARY KEY, btree (id)
     "ix_tag_for_unit_edit_by_user_id" btree (edit_by_user_id)
-    "ix_tag_for_unit_enterprise_group_id_id" btree (enterprise_group_id)
     "ix_tag_for_unit_enterprise_id_id" btree (enterprise_id)
     "ix_tag_for_unit_establishment_id_id" btree (establishment_id)
     "ix_tag_for_unit_legal_unit_id_id" btree (legal_unit_id)
+    "ix_tag_for_unit_power_group_id_id" btree (power_group_id)
     "ix_tag_for_unit_tag_id" btree (tag_id)
-    "tag_for_unit_tag_unit_consolidated_key" UNIQUE, btree (tag_id, establishment_id, legal_unit_id, enterprise_id, enterprise_group_id) NULLS NOT DISTINCT
+    "tag_for_unit_tag_unit_consolidated_key" UNIQUE, btree (tag_id, establishment_id, legal_unit_id, enterprise_id, power_group_id) NULLS NOT DISTINCT
 Check constraints:
-    "One and only one statistical unit id must be set" CHECK (num_nonnulls(establishment_id, legal_unit_id, enterprise_id, enterprise_group_id) = 1)
-    "tag_for_unit_enterprise_group_id_check" CHECK (admin.enterprise_group_id_exists(enterprise_group_id))
+    "One and only one statistical unit id must be set" CHECK (num_nonnulls(establishment_id, legal_unit_id, enterprise_id, power_group_id) = 1)
     "tag_for_unit_establishment_id_check" CHECK (admin.establishment_id_exists(establishment_id))
     "tag_for_unit_legal_unit_id_check" CHECK (admin.legal_unit_id_exists(legal_unit_id))
+    "tag_for_unit_power_group_id_check" CHECK (admin.power_group_id_exists(power_group_id))
 Foreign-key constraints:
     "tag_for_unit_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES auth."user"(id) ON DELETE RESTRICT
     "tag_for_unit_enterprise_id_fkey" FOREIGN KEY (enterprise_id) REFERENCES enterprise(id) ON DELETE CASCADE

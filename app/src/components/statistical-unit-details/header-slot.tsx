@@ -10,7 +10,7 @@ interface HeaderSlotProps {
   readonly error: unknown;
   readonly loading?: boolean;
   readonly className?: string;
-  readonly unitType?: "establishment" | "legal_unit" | "enterprise" | "enterprise_group";
+  readonly unitType?: "establishment" | "legal_unit" | "enterprise" | "power_group";
   readonly unitTypeLabel?: string;
 }
 

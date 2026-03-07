@@ -21,5 +21,6 @@ View definition:
     enabled
    FROM external_ident_type_ordered
   WHERE enabled;
+Options: security_invoker=on
 
 ```

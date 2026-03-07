@@ -233,7 +233,7 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |  1280
+ analytics | completed |  1286
  import    | completed |    94
 (2 rows)
 
@@ -18271,9 +18271,9 @@ jsonb_pretty | {                                                              +
              |     ]                                                          +
              | }
 
-\echo "Test public.statistical_history_highcharts - no data case (enterprise_group)"
-"Test public.statistical_history_highcharts - no data case (enterprise_group)"
-SELECT jsonb_pretty(public.statistical_history_highcharts('year', 'enterprise_group'));
+\echo "Test public.statistical_history_highcharts - no data case (power_group)"
+"Test public.statistical_history_highcharts - no data case (power_group)"
+SELECT jsonb_pretty(public.statistical_history_highcharts('year', 'power_group'));
 -[ RECORD 1 ]+----------------------------------------------------------------
 jsonb_pretty | {                                                              +
              |     "series": [                                                +
@@ -18308,7 +18308,7 @@ jsonb_pretty | {                                                              +
              |             "name": "Region Changes"                           +
              |         }                                                      +
              |     ],                                                         +
-             |     "unit_type": "enterprise_group",                           +
+             |     "unit_type": "power_group",                                +
              |     "resolution": "year",                                      +
              |     "filtered_series": [                                       +
              |         "countable_count",                                     +

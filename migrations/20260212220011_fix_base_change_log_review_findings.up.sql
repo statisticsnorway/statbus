@@ -103,7 +103,7 @@ BEGIN
     IF v_est_ids != '{}'::int4multirange
        OR v_lu_ids != '{}'::int4multirange
        OR v_ent_ids != '{}'::int4multirange THEN
-        INSERT INTO worker.base_change_log (establishment_ids, legal_unit_ids, enterprise_ids, edited_by_valid_range)
+        INSERT INTO worker.base_change_log (establishment_ids, legal_unit_ids, enterprise_ids, valid_ranges)
         VALUES (v_est_ids, v_lu_ids, v_ent_ids, v_valid_range);
     END IF;
 
@@ -159,7 +159,7 @@ BEGIN
         v_est_ids := v_est_ids + v_row.establishment_ids;
         v_lu_ids := v_lu_ids + v_row.legal_unit_ids;
         v_ent_ids := v_ent_ids + v_row.enterprise_ids;
-        v_valid_range := v_valid_range + v_row.edited_by_valid_range;
+        v_valid_range := v_valid_range + v_row.valid_ranges;
     END LOOP;
 
     -- Clear crash recovery flag

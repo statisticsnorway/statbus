@@ -68,7 +68,6 @@
  last_edit_comment                | character varying(512)   |           |          |         | extended | 
  last_edit_by_user_id             | integer                  |           |          |         | plain    | 
  last_edit_at                     | timestamp with time zone |           |          |         | plain    | 
- invalid_codes                    | jsonb                    |           |          |         | extended | 
  has_legal_unit                   | boolean                  |           |          |         | plain    | 
  related_establishment_ids        | integer[]                |           |          |         | extended | 
  excluded_establishment_ids       | integer[]                |           |          |         | extended | 
@@ -96,7 +95,7 @@ View definition:
             array_distinct_concat(tlu.related_legal_unit_ids) AS related_legal_unit_ids,
             array_distinct_concat(tlu.excluded_legal_unit_ids) AS excluded_legal_unit_ids,
             array_distinct_concat(tlu.included_legal_unit_ids) AS included_legal_unit_ids,
-            COALESCE(jsonb_stats_summary_merge_agg(COALESCE(jsonb_stats_summary_merge(tlu.stats_summary, tes.stats_summary), tlu.stats_summary, tes.stats_summary)), '{}'::jsonb) AS stats_summary
+            COALESCE(jsonb_stats_merge_agg(COALESCE(jsonb_stats_merge(tlu.stats_summary, tes.stats_summary), tlu.stats_summary, tes.stats_summary)), '{}'::jsonb) AS stats_summary
            FROM ( SELECT t.unit_type,
                     t.unit_id,
                     t.valid_from,
@@ -121,7 +120,7 @@ View definition:
                     array_agg(DISTINCT timeline_legal_unit.legal_unit_id) AS related_legal_unit_ids,
                     array_agg(DISTINCT timeline_legal_unit.legal_unit_id) FILTER (WHERE NOT timeline_legal_unit.used_for_counting) AS excluded_legal_unit_ids,
                     array_agg(DISTINCT timeline_legal_unit.legal_unit_id) FILTER (WHERE timeline_legal_unit.used_for_counting) AS included_legal_unit_ids,
-                    jsonb_stats_summary_merge_agg(timeline_legal_unit.stats_summary) FILTER (WHERE timeline_legal_unit.used_for_counting) AS stats_summary
+                    jsonb_stats_merge_agg(timeline_legal_unit.stats_summary) FILTER (WHERE timeline_legal_unit.used_for_counting) AS stats_summary
                    FROM timeline_legal_unit
                   WHERE timeline_legal_unit.enterprise_id = ten.enterprise_id AND from_until_overlaps(ten.valid_from, ten.valid_until, timeline_legal_unit.valid_from, timeline_legal_unit.valid_until)
                   GROUP BY timeline_legal_unit.enterprise_id, ten.valid_from, ten.valid_until) tlu ON true
@@ -133,7 +132,7 @@ View definition:
                     array_agg(DISTINCT timeline_establishment.establishment_id) AS related_establishment_ids,
                     array_agg(DISTINCT timeline_establishment.establishment_id) FILTER (WHERE NOT timeline_establishment.used_for_counting) AS excluded_establishment_ids,
                     array_agg(DISTINCT timeline_establishment.establishment_id) FILTER (WHERE timeline_establishment.used_for_counting) AS included_establishment_ids,
-                    jsonb_stats_summary_merge_agg(timeline_establishment.stats_summary) FILTER (WHERE timeline_establishment.used_for_counting) AS stats_summary
+                    jsonb_stats_merge_agg(timeline_establishment.stats_summary) FILTER (WHERE timeline_establishment.used_for_counting) AS stats_summary
                    FROM timeline_establishment
                   WHERE timeline_establishment.enterprise_id = ten.enterprise_id AND from_until_overlaps(ten.valid_from, ten.valid_until, timeline_establishment.valid_from, timeline_establishment.valid_until)
                   GROUP BY timeline_establishment.enterprise_id, ten.valid_from, ten.valid_until) tes ON true
@@ -209,7 +208,6 @@ View definition:
             basis.last_edit_comment,
             basis.last_edit_by_user_id,
             basis.last_edit_at,
-            basis.invalid_codes,
             basis.has_legal_unit,
             basis.primary_legal_unit_id,
             basis.primary_establishment_id,
@@ -290,7 +288,6 @@ View definition:
                     last_edit.edit_comment AS last_edit_comment,
                     last_edit.edit_by_user_id AS last_edit_by_user_id,
                     last_edit.edit_at AS last_edit_at,
-                    COALESCE(enplu.invalid_codes || enpes.invalid_codes, enplu.invalid_codes, enpes.invalid_codes) AS invalid_codes,
                     GREATEST(enplu.has_legal_unit, enpes.has_legal_unit) AS has_legal_unit,
                     enplu.legal_unit_id AS primary_legal_unit_id,
                     enpes.establishment_id AS primary_establishment_id
@@ -373,7 +370,6 @@ View definition:
                             enplu_1.last_edit_comment,
                             enplu_1.last_edit_by_user_id,
                             enplu_1.last_edit_at,
-                            enplu_1.invalid_codes,
                             enplu_1.has_legal_unit,
                             enplu_1.related_establishment_ids,
                             enplu_1.excluded_establishment_ids,
@@ -459,7 +455,6 @@ View definition:
                             enpes_1.last_edit_comment,
                             enpes_1.last_edit_by_user_id,
                             enpes_1.last_edit_at,
-                            enpes_1.invalid_codes,
                             enpes_1.has_legal_unit,
                             enpes_1.establishment_id,
                             enpes_1.legal_unit_id,
@@ -556,7 +551,6 @@ View definition:
     last_edit_comment,
     last_edit_by_user_id,
     last_edit_at,
-    invalid_codes,
     has_legal_unit,
     related_establishment_ids,
     excluded_establishment_ids,
@@ -576,5 +570,6 @@ View definition:
     stats_summary
    FROM enterprise_with_primary_and_aggregation
   ORDER BY unit_type, unit_id, valid_from;
+Options: security_invoker=on
 
 ```

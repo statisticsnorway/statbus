@@ -1,5 +1,5 @@
 ```sql
-CREATE OR REPLACE FUNCTION public.report_partition_seq(p_unit_type text, p_unit_id integer, p_num_partitions integer DEFAULT 128)
+CREATE OR REPLACE FUNCTION public.report_partition_seq(p_unit_type text, p_unit_id integer, p_num_partitions integer)
  RETURNS integer
  LANGUAGE sql
  IMMUTABLE PARALLEL SAFE

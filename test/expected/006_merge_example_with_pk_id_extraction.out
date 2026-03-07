@@ -4,8 +4,11 @@ BEGIN;
 -- and how to write back the generated ID to the source table, all within a single CTE chain.
 -- Step 0: Clean up and define table structures
 DROP TABLE IF EXISTS merge_log;
+NOTICE:  table "merge_log" does not exist, skipping
 DROP TABLE IF EXISTS source_products;
+NOTICE:  table "source_products" does not exist, skipping
 DROP TABLE IF EXISTS target_products;
+NOTICE:  table "target_products" does not exist, skipping
 -- Target table
 CREATE TABLE target_products (
     product_id SERIAL PRIMARY KEY, -- PK is now auto-generated (SERIAL)

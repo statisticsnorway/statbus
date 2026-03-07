@@ -81,6 +81,30 @@ $WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_hovedenhet_${YE
 echo "Loading underenhet selection data"
 $WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_underenhet_${YEAR}_selection_upload FROM 'samples/norway/establishment/underenheter-selection.csv' WITH CSV HEADER;"
 
+# Import roller (legal relationships) selection
+echo "Seeding legal relationship types"
+$WORKSPACE/devops/manage-statbus.sh psql < samples/norway/brreg/seed-legal-rel-types.sql
+
+echo "Adding import definition for BRREG roller (legal relationships)"
+$WORKSPACE/devops/manage-statbus.sh psql < samples/norway/brreg/create-import-definition-roller-2025.sql
+
+echo "Creating import job for roller selection data"
+$WORKSPACE/devops/manage-statbus.sh psql -c "
+WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_roller_2025')
+INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, note, user_id)
+SELECT def.id,
+       'import_roller_${YEAR}_selection',
+       '${YEAR}-01-01'::DATE,
+       'infinity'::DATE,
+       'Import Job for BRREG Roller ${YEAR} Selection',
+       'This job imports org-to-org controlling relationships from BRREG roller selection data.',
+       (select id from public.user where email = '${USER_EMAIL}')
+FROM def
+ON CONFLICT (slug) DO NOTHING;"
+
+echo "Loading roller selection data"
+$WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_roller_${YEAR}_selection_upload FROM 'samples/norway/legal_relationship/roller-selection.csv' WITH CSV HEADER;"
+
 echo "Checking import job states"
 $WORKSPACE/devops/manage-statbus.sh psql -c "SELECT slug, state FROM public.import_job WHERE slug LIKE '%selection' ORDER BY slug;"
 

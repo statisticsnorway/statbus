@@ -384,16 +384,59 @@ case "$action" in
         
         OVERALL_EXIT_CODE=0
         
-        # Run shared tests together on the main database (fast, uses BEGIN/ROLLBACK)
+        # Run shared tests on a cloned database (fast, uses BEGIN/ROLLBACK between tests,
+        # but avoids interfering with the user's active development database).
         if [ -n "$SHARED_TESTS" ]; then
-            echo "=== Running shared tests (BEGIN/ROLLBACK isolation) ==="
+            TEMPLATE_NAME="template_statbus_migrated"
+            SHARED_TEST_DB="test_shared_$$"
+
+            # Verify template exists
+            TEMPLATE_EXISTS=$(./devops/manage-statbus.sh psql -d postgres -t -A -c \
+                "SELECT 1 FROM pg_database WHERE datname = '$TEMPLATE_NAME';" 2>/dev/null || echo "0")
+            if [ "$TEMPLATE_EXISTS" != "1" ]; then
+                echo "Error: Template database '$TEMPLATE_NAME' not found."
+                echo "Create it with: ./devops/manage-statbus.sh create-test-template"
+                exit 1
+            fi
+
+            echo "=== Running shared tests (BEGIN/ROLLBACK isolation on cloned database) ==="
+            echo "Creating shared test database: $SHARED_TEST_DB from template $TEMPLATE_NAME"
+
+            # Clone from template using advisory lock (same pattern as test-isolated)
+            if ! ./devops/manage-statbus.sh psql -d postgres -v ON_ERROR_STOP=1 <<EOF
+                SELECT pg_advisory_lock(59328);
+                ALTER DATABASE $TEMPLATE_NAME WITH ALLOW_CONNECTIONS = true;
+                CREATE DATABASE "$SHARED_TEST_DB" WITH TEMPLATE $TEMPLATE_NAME;
+                ALTER DATABASE $TEMPLATE_NAME WITH ALLOW_CONNECTIONS = false;
+                SELECT pg_advisory_unlock(59328);
+EOF
+            then
+                echo "Error: Failed to create shared test database from template"
+                exit 1
+            fi
+
+            # Cleanup trap for shared test database
+            cleanup_shared_test_db() {
+                local exit_code=$?
+                if [ "${PERSIST:-false}" = "true" ]; then
+                    echo "PERSIST=true: Keeping shared test database: $SHARED_TEST_DB"
+                    return $exit_code
+                fi
+                if [ -n "$SHARED_TEST_DB" ]; then
+                    echo "Cleaning up shared test database: $SHARED_TEST_DB"
+                    ./devops/manage-statbus.sh psql -d postgres -c "DROP DATABASE IF EXISTS \"$SHARED_TEST_DB\";" 2>/dev/null || true
+                fi
+                return $exit_code
+            }
+            trap cleanup_shared_test_db EXIT
+
             docker compose exec --workdir "/statbus" db \
                 $PG_REGRESS $debug_arg \
                 --use-existing \
                 --bindir="/usr/lib/postgresql/$POSTGRESQL_MAJOR/bin" \
                 --inputdir=$CONTAINER_REGRESS_DIR \
                 --outputdir=$CONTAINER_REGRESS_DIR \
-                --dbname=$PGDATABASE \
+                --dbname="$SHARED_TEST_DB" \
                 --user=$PGUSER \
                 $SHARED_TESTS || OVERALL_EXIT_CODE=$?
         fi
@@ -1180,28 +1223,65 @@ EOS
         fi
       ;;
      'generate-db-documentation' )
+        # Use a temporary clone of the migrated template so documentation
+        # generation never touches the user's active development database.
+        TEMPLATE_NAME="template_statbus_migrated"
+        DOC_DB="statbus_doc_gen_$$"
+
+        # Verify template exists
+        TEMPLATE_EXISTS=$(./devops/manage-statbus.sh psql -d postgres -t -A -c \
+            "SELECT 1 FROM pg_database WHERE datname = '$TEMPLATE_NAME';" 2>/dev/null || echo "0")
+        if [ "$TEMPLATE_EXISTS" != "1" ]; then
+            echo "Error: Template database '$TEMPLATE_NAME' not found."
+            echo "Create it with: ./devops/manage-statbus.sh create-test-template"
+            exit 1
+        fi
+
+        echo "Creating temporary documentation database: $DOC_DB from $TEMPLATE_NAME"
+        ./devops/manage-statbus.sh psql -d postgres -v ON_ERROR_STOP=1 <<EOF
+            SELECT pg_advisory_lock(59328);
+            ALTER DATABASE $TEMPLATE_NAME WITH ALLOW_CONNECTIONS = true;
+            CREATE DATABASE "$DOC_DB" WITH TEMPLATE $TEMPLATE_NAME;
+            ALTER DATABASE $TEMPLATE_NAME WITH ALLOW_CONNECTIONS = false;
+            SELECT pg_advisory_unlock(59328);
+EOF
+
+        # Cleanup trap for doc generation database
+        cleanup_doc_db() {
+            local exit_code=$?
+            echo "Cleaning up documentation database: $DOC_DB"
+            ./devops/manage-statbus.sh psql -d postgres -c "DROP DATABASE IF EXISTS \"$DOC_DB\";" 2>/dev/null || true
+            return $exit_code
+        }
+        trap cleanup_doc_db EXIT
+
+        # Helper to run psql against the doc database
+        doc_psql() {
+            ./devops/manage-statbus.sh psql -d "$DOC_DB" "$@"
+        }
+
         # Create documentation directories and clean out old files
         mkdir -p doc/db/table doc/db/view doc/db/function
         echo "Cleaning documentation files..."
         find doc/db -type f -delete
 
         # Get list of all tables, materialized views, and regular views from specified schemas
-        tables=$(./devops/manage-statbus.sh psql -t <<'EOS'
+        tables=$(doc_psql -t <<'EOS'
           SELECT schemaname || '.' || tablename
           FROM pg_catalog.pg_tables
-          WHERE schemaname IN ('admin', 'db', 'lifecycle_callbacks', 'public', 'auth')
+          WHERE schemaname IN ('admin', 'db', 'lifecycle_callbacks', 'public', 'auth', 'worker', 'import')
           UNION ALL
           SELECT schemaname || '.' || matviewname
           FROM pg_catalog.pg_matviews
-          WHERE schemaname IN ('admin', 'db', 'lifecycle_callbacks', 'public', 'auth')
+          WHERE schemaname IN ('admin', 'db', 'lifecycle_callbacks', 'public', 'auth', 'worker', 'import')
           ORDER BY 1;
 EOS
 )
 
-        views=$(./devops/manage-statbus.sh psql -t <<'EOS'
+        views=$(doc_psql -t <<'EOS'
           SELECT schemaname || '.' || viewname
           FROM pg_catalog.pg_views
-          WHERE schemaname IN ('admin', 'db', 'lifecycle_callbacks', 'public', 'auth')
+          WHERE schemaname IN ('admin', 'db', 'lifecycle_callbacks', 'public', 'auth', 'worker', 'import')
             AND viewname NOT LIKE 'hypopg_%'
             AND viewname NOT LIKE 'pg_stat_%'
           ORDER BY 1;
@@ -1218,11 +1298,11 @@ EOS
 
             # Generate both overview and details.
             echo '```sql' > "$base_file"
-            ./devops/manage-statbus.sh psql -c "\d $table" >> "$base_file"
+            doc_psql -c "\d $table" >> "$base_file"
             echo '```' >> "$base_file"
 
             echo '```sql' > "$details_file"
-            ./devops/manage-statbus.sh psql -c "\d+ $table" >> "$details_file"
+            doc_psql -c "\d+ $table" >> "$details_file"
             echo '```' >> "$details_file"
 
             # Compare files and remove details if they're identical
@@ -1242,11 +1322,11 @@ EOS
 
             # Generate both overview and details.
             echo '```sql' > "$base_file"
-            ./devops/manage-statbus.sh psql -c "\d $view" >> "$base_file"
+            doc_psql -c "\d $view" >> "$base_file"
             echo '```' >> "$base_file"
 
             echo '```sql' > "$details_file"
-            ./devops/manage-statbus.sh psql -c "\d+ $view" >> "$details_file"
+            doc_psql -c "\d+ $view" >> "$details_file"
             echo '```' >> "$details_file"
 
             # Compare files and remove details if they're identical
@@ -1257,7 +1337,7 @@ EOS
         done
 
         # Get and document functions
-        functions=$(./devops/manage-statbus.sh psql -t <<'EOS'
+        functions=$(doc_psql -t <<'EOS'
           SELECT regexp_replace(
             n.nspname || '.' || p.proname || '(' ||
             regexp_replace(
@@ -1279,7 +1359,7 @@ EOS
             '"', '', 'g')
           FROM pg_proc p
           JOIN pg_namespace n ON p.pronamespace = n.oid
-          WHERE n.nspname IN ('admin', 'db', 'lifecycle_callbacks', 'public', 'auth')
+          WHERE n.nspname IN ('admin', 'db', 'lifecycle_callbacks', 'public', 'auth', 'worker', 'import')
             AND p.prokind != 'a'  -- Exclude aggregate functions
             -- Exclude functions belonging to extensions (they are system/library functions)
             AND NOT EXISTS (
@@ -1300,7 +1380,7 @@ EOS
 
             # Generate function definition
             echo '```sql' > "$base_file"
-            ./devops/manage-statbus.sh psql -c "\sf $func" >> "$base_file"
+            doc_psql -c "\sf $func" >> "$base_file"
             echo '```' >> "$base_file"
           fi
         done

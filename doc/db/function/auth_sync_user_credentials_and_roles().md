@@ -3,6 +3,7 @@ CREATE OR REPLACE FUNCTION auth.sync_user_credentials_and_roles()
  RETURNS trigger
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO 'public', 'auth', 'pg_temp'
 AS $function$
 DECLARE
   role_name text;

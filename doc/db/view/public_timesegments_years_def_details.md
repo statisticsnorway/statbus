@@ -11,5 +11,6 @@ View definition:
         UNION
          SELECT EXTRACT(year FROM now())::integer AS "extract") all_years
   ORDER BY year;
+Options: security_invoker=on
 
 ```

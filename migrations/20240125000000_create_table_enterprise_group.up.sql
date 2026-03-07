@@ -1,52 +1,170 @@
 BEGIN;
 
-CREATE TABLE public.enterprise_group (
+--------------------------------------------------------------------------------
+-- Sequence and function for stable identifiers
+--------------------------------------------------------------------------------
+
+CREATE SEQUENCE public.power_group_ident_seq;
+
+CREATE FUNCTION public.generate_power_ident()
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $generate_power_ident$
+DECLARE
+    _seq_val bigint;
+    _chars text := '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    _base integer := 36;
+    _result text := '';
+BEGIN
+    _seq_val := nextval('public.power_group_ident_seq');
+    
+    WHILE _seq_val > 0 LOOP
+        _result := substr(_chars, (_seq_val % _base)::integer + 1, 1) || _result;
+        _seq_val := _seq_val / _base;
+    END LOOP;
+    
+    _result := lpad(COALESCE(NULLIF(_result, ''), '0'), 4, '0');
+    RETURN 'PG' || _result;
+END;
+$generate_power_ident$;
+
+COMMENT ON FUNCTION public.generate_power_ident() IS 
+    'Generates stable, human-friendly identifiers for power groups (e.g., PG0001, PGABCD)';
+
+--------------------------------------------------------------------------------
+-- Power group table (NON-temporal, like enterprise)
+-- Represents a control hierarchy - a derived/statistical artifact
+-- Legal units link TO this table (like they link to enterprise)
+--------------------------------------------------------------------------------
+
+CREATE TABLE public.power_group (
+    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    
+    -- Stable identifier (auto-generated, never changes once assigned)
+    ident text UNIQUE NOT NULL DEFAULT public.generate_power_ident(),
+    
+    -- Override fields for display (NULL = derive from root legal_unit)
+    short_name varchar(16),
+    name varchar(256),
+    
+    -- Type classification (domestic/foreign, national/multinational)
+    type_id integer REFERENCES public.power_group_type(id),
+    
+    -- Optional metadata fields
+    contact_person text,
+    unit_size_id integer REFERENCES public.unit_size(id),
+    data_source_id integer REFERENCES public.data_source(id),
+    foreign_participation_id integer REFERENCES public.foreign_participation(id),
+    
+    -- Standard edit fields
+    edit_comment varchar(512),
+    edit_by_user_id integer NOT NULL REFERENCES auth.user(id) ON DELETE RESTRICT,
+    edit_at timestamptz NOT NULL DEFAULT statement_timestamp()
+);
+
+-- NOTE: No valid_range, valid_from, valid_to - this is a TIMELESS table (like enterprise)
+-- NOTE: No "active" column - active status is derived at query time from legal_relationship.valid_range
+-- NOTE: No depth, width, reach columns - these are derived in views
+
+-- Indexes
+CREATE INDEX ix_power_group_type_id ON public.power_group USING btree (type_id);
+CREATE INDEX ix_power_group_data_source_id ON public.power_group USING btree (data_source_id);
+CREATE INDEX ix_power_group_unit_size_id ON public.power_group USING btree (unit_size_id);
+CREATE INDEX ix_power_group_foreign_participation_id ON public.power_group USING btree (foreign_participation_id);
+CREATE INDEX ix_power_group_name ON public.power_group USING btree (name);
+CREATE INDEX ix_power_group_edit_by_user_id ON public.power_group USING btree (edit_by_user_id);
+
+-- Comments
+COMMENT ON TABLE public.power_group IS 'Represents a control hierarchy of legal units. TIMELESS registry - once created, exists forever. Active status derived from legal_relationship.valid_range at query time.';
+COMMENT ON COLUMN public.power_group.ident IS 'Stable identifier (e.g., PG0001) that persists across hierarchy changes';
+
+-- Helper function for FK validation (used by external_ident, tag_for_unit, unit_notes)
+CREATE FUNCTION admin.power_group_id_exists(fk_id integer) RETURNS boolean LANGUAGE sql STABLE STRICT AS $$
+    SELECT fk_id IS NULL OR EXISTS (SELECT 1 FROM public.power_group WHERE id = fk_id);
+$$;
+
+-- Enable RLS (required by 20240603 migration check)
+ALTER TABLE public.power_group ENABLE ROW LEVEL SECURITY;
+
+--------------------------------------------------------------------------------
+-- Power group root status enum
+--------------------------------------------------------------------------------
+
+CREATE TYPE public.power_group_root_status AS ENUM ('single', 'cycle', 'multi');
+
+COMMENT ON TYPE public.power_group_root_status IS
+    'Status of a power group root: single (natural root), cycle (root chosen from cycle), multi (multiple roots merged)';
+
+--------------------------------------------------------------------------------
+-- Power root table (sql_saga temporal, sparse — only cycle/multi PGs get entries)
+-- Tracks the derived and optionally overridden root legal unit per power group.
+-- Single-root PGs derive root from power_group_membership WHERE power_level = 1.
+--------------------------------------------------------------------------------
+
+CREATE TABLE public.power_root (
     id integer GENERATED BY DEFAULT AS IDENTITY,
+    power_group_id integer NOT NULL REFERENCES public.power_group(id) ON DELETE CASCADE,
+
+    -- Algorithm-derived (written by process_power_group_link during import)
+    derived_root_legal_unit_id integer NOT NULL,
+    derived_root_status public.power_group_root_status NOT NULL,
+
+    -- NSO override (nullable, preserved via LEFT JOIN carry-forward in source query)
+    custom_root_legal_unit_id integer,
+
+    -- Computed effective root (one column to join on)
+    root_legal_unit_id integer GENERATED ALWAYS AS (
+        COALESCE(custom_root_legal_unit_id, derived_root_legal_unit_id)
+    ) STORED,
+
+    -- Temporal (sql_saga managed)
     valid_range daterange NOT NULL,
     valid_from date NOT NULL,
     valid_to date,
     valid_until date,
-    short_name varchar(16),
-    name varchar(256),
-    enterprise_group_type_id integer REFERENCES public.enterprise_group_type(id),
-    contact_person text,
-    edit_comment character varying(512),
+
+    -- Edit tracking (system user during import, real user for NSO override)
+    edit_comment varchar(512),
     edit_by_user_id integer NOT NULL REFERENCES auth.user(id) ON DELETE RESTRICT,
-    edit_at timestamp with time zone NOT NULL DEFAULT statement_timestamp(),
-    unit_size_id integer REFERENCES public.unit_size(id),
-    data_source_id integer REFERENCES public.data_source(id),
-    reorg_references text,
-    reorg_date timestamp with time zone,
-    reorg_type_id integer REFERENCES public.reorg_type(id),
-    foreign_participation_id integer REFERENCES public.foreign_participation(id)
+    edit_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+
+    -- Only cycle/multi PGs get entries (sparse)
+    CONSTRAINT power_root_status_check CHECK (derived_root_status IN ('cycle', 'multi'))
 );
-CREATE INDEX ix_enterprise_group_data_source_id ON public.enterprise_group USING btree (data_source_id);
-CREATE INDEX ix_enterprise_group_enterprise_group_type_id ON public.enterprise_group USING btree (enterprise_group_type_id);
-CREATE INDEX ix_enterprise_group_foreign_participation_id ON public.enterprise_group USING btree (foreign_participation_id);
-CREATE INDEX ix_enterprise_group_name ON public.enterprise_group USING btree (name);
-CREATE INDEX ix_enterprise_group_reorg_type_id ON public.enterprise_group USING btree (reorg_type_id);
-CREATE INDEX ix_enterprise_group_size_id ON public.enterprise_group USING btree (unit_size_id);
-CREATE INDEX ix_enterprise_group_edit_by_user_id ON public.enterprise_group USING btree (edit_by_user_id);
-CREATE INDEX ix_enterprise_group_valid_range ON public.enterprise_group USING gist (valid_range);
 
-CREATE FUNCTION admin.enterprise_group_id_exists(fk_id integer) RETURNS boolean LANGUAGE sql STABLE STRICT AS $$
-    SELECT fk_id IS NULL OR EXISTS (SELECT 1 FROM public.enterprise_group WHERE id = fk_id);
-$$;
+CREATE INDEX ix_power_root_power_group_id ON public.power_root USING btree (power_group_id);
+CREATE INDEX ix_power_root_root_legal_unit_id ON public.power_root USING btree (root_legal_unit_id);
+CREATE INDEX ix_power_root_valid_range ON public.power_root USING gist (valid_range);
 
--- Activate era handling with valid_range as the authoritative column.
--- The trigger will synchronize valid_from, valid_until, and valid_to from valid_range.
-SELECT sql_saga.add_era('public.enterprise_group', 'valid_range', 'valid', ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']);
--- This creates a GIST exclusion constraint (`enterprise_group_id_valid_excl`) to ensure
--- that there are no overlapping time periods for the same enterprise_group ID. This constraint is
--- backed by a GIST index, which also accelerates temporal queries on the primary key.
+COMMENT ON TABLE public.power_root IS
+    'Sparse temporal table: only cycle/multi-root power groups get entries. Single-root PGs derive root from power_group_membership. NSO can override via custom_root_legal_unit_id.';
+COMMENT ON COLUMN public.power_root.derived_root_legal_unit_id IS
+    'Algorithm-derived root legal unit (written during import by process_power_group_link)';
+COMMENT ON COLUMN public.power_root.derived_root_status IS
+    'cycle: root chosen from a cyclic component; multi: multiple natural roots merged';
+COMMENT ON COLUMN public.power_root.custom_root_legal_unit_id IS
+    'NSO override: the legal unit the NSO designates as root (NULL = use derived)';
+COMMENT ON COLUMN public.power_root.root_legal_unit_id IS
+    'Effective root: COALESCE(custom_root, derived_root) — one column to join on';
+
+-- sql_saga temporal setup
+SELECT sql_saga.add_era('public.power_root', 'valid_range', 'valid',
+    ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']);
+
 SELECT sql_saga.add_unique_key(
-    table_oid => 'public.enterprise_group',
-    key_type => 'primary',
-    column_names => ARRAY['id'],
-    unique_key_name => 'enterprise_group_id_valid'
-);
+    table_oid => 'public.power_root', key_type => 'primary',
+    column_names => ARRAY['id'], unique_key_name => 'power_root_id_valid');
 
--- Add a view for portion-of updates, allowing for easier updates to specific time slices.
-SELECT sql_saga.add_for_portion_of_view('public.enterprise_group');
+SELECT sql_saga.add_unique_key(
+    table_oid => 'public.power_root', key_type => 'natural',
+    column_names => ARRAY['power_group_id'],
+    unique_key_name => 'power_root_power_group_valid');
+
+SELECT sql_saga.add_for_portion_of_view('public.power_root');
+
+-- Enable RLS (required by 20240603 migration check)
+ALTER TABLE public.power_root ENABLE ROW LEVEL SECURITY;
 
 END;

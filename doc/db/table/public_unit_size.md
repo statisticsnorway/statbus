@@ -15,9 +15,9 @@ Indexes:
     "ix_unit_size_enabled" btree (enabled)
     "ix_unit_size_enabled_code" UNIQUE, btree (enabled, code)
 Referenced by:
-    TABLE "enterprise_group" CONSTRAINT "enterprise_group_unit_size_id_fkey" FOREIGN KEY (unit_size_id) REFERENCES unit_size(id)
     TABLE "establishment" CONSTRAINT "establishment_unit_size_id_fkey" FOREIGN KEY (unit_size_id) REFERENCES unit_size(id)
     TABLE "legal_unit" CONSTRAINT "legal_unit_unit_size_id_fkey" FOREIGN KEY (unit_size_id) REFERENCES unit_size(id)
+    TABLE "power_group" CONSTRAINT "power_group_unit_size_id_fkey" FOREIGN KEY (unit_size_id) REFERENCES unit_size(id)
 Policies:
     POLICY "unit_size_admin_user_manage"
       TO admin_user

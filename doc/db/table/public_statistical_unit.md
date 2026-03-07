@@ -1,7 +1,7 @@
 ```sql
-                                                              Table "public.statistical_unit"
-              Column              |           Type           | Collation | Nullable |                                Default                                
-----------------------------------+--------------------------+-----------+----------+-----------------------------------------------------------------------
+                                                           Table "public.statistical_unit"
+              Column              |           Type           | Collation | Nullable |                             Default                             
+----------------------------------+--------------------------+-----------+----------+-----------------------------------------------------------------
  unit_type                        | statistical_unit_type    |           | not null | 
  unit_id                          | integer                  |           | not null | 
  valid_from                       | date                     |           |          | 
@@ -69,7 +69,6 @@
  last_edit_comment                | character varying(512)   |           |          | 
  last_edit_by_user_id             | integer                  |           |          | 
  last_edit_at                     | timestamp with time zone |           |          | 
- invalid_codes                    | jsonb                    |           |          | 
  has_legal_unit                   | boolean                  |           |          | 
  related_establishment_ids        | integer[]                |           |          | 
  excluded_establishment_ids       | integer[]                |           |          | 
@@ -87,7 +86,7 @@
  included_enterprise_count        | integer                  |           |          | 
  tag_paths                        | ltree[]                  |           |          | 
  valid_range                      | daterange                |           | not null | generated always as (daterange(valid_from, valid_until)) stored
- report_partition_seq             | integer                  |           |          | generated always as (report_partition_seq(unit_type, unit_id)) stored
+ report_partition_seq             | integer                  |           |          | 
 Indexes:
     "statistical_unit_temporal_pk" PRIMARY KEY (unit_type, unit_id, valid_range WITHOUT OVERLAPS)
     "idx_gist_statistical_unit_activity_category_paths" gist (activity_category_paths)
@@ -102,9 +101,8 @@ Indexes:
     "idx_statistical_unit_domestic" btree (domestic)
     "idx_statistical_unit_establishment_id" btree (unit_id)
     "idx_statistical_unit_external_idents" btree (external_idents)
-    "idx_statistical_unit_invalid_codes" gin (invalid_codes)
-    "idx_statistical_unit_invalid_codes_exists" btree (invalid_codes) WHERE invalid_codes IS NOT NULL
     "idx_statistical_unit_legal_form_id" btree (legal_form_id)
+    "idx_statistical_unit_name" btree (name)
     "idx_statistical_unit_physical_country_id" btree (physical_country_id)
     "idx_statistical_unit_physical_region_id" btree (physical_region_id)
     "idx_statistical_unit_physical_region_path" btree (physical_region_path)
@@ -142,5 +140,7 @@ Policies:
     POLICY "statistical_unit_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Triggers:
+    trg_set_report_partition_seq BEFORE INSERT ON statistical_unit FOR EACH ROW EXECUTE FUNCTION set_report_partition_seq()
 
 ```

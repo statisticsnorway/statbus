@@ -100,5 +100,39 @@ else
     echo "Warning: Establishment file $establishment_file not found, skipping import"
 fi
 
+# Import roller (legal relationships)
+roller_file=$WORKSPACE/tmp/roller_legal_relationships.csv
+if [ -f "$roller_file" ]; then
+    # Seed legal relationship types
+    echo "Seeding legal relationship types"
+    $WORKSPACE/devops/manage-statbus.sh psql < samples/norway/brreg/seed-legal-rel-types.sql
+
+    # Check/create import definition
+    if ! $WORKSPACE/devops/manage-statbus.sh psql -t -c "SELECT id FROM public.import_definition WHERE slug = 'brreg_roller_2025'" | grep -q .; then
+        echo "Creating import definition for BRREG roller (legal relationships)"
+        $WORKSPACE/devops/manage-statbus.sh psql < samples/norway/brreg/create-import-definition-roller-2025.sql
+    fi
+
+    # Create import job
+    $WORKSPACE/devops/manage-statbus.sh psql -c "
+    WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_roller_2025')
+    INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, note, user_id)
+    SELECT def.id,
+           'import_roller_2025',
+           '${TODAY}'::DATE,
+           'infinity'::DATE,
+           'Import Job for BRREG Roller 2025 (Legal Relationships)',
+           'This job imports org-to-org controlling relationships from BRREG roller data.',
+           (select id from public.user where email = '${USER_EMAIL}')
+    FROM def
+    ON CONFLICT (slug) DO UPDATE SET
+        default_valid_from = '${TODAY}'::DATE,
+        default_valid_to = 'infinity'::DATE;"
+
+    # Load data
+    echo "Loading roller (legal relationships) data"
+    $WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_roller_2025_upload FROM 'tmp/roller_legal_relationships.csv' WITH CSV HEADER DELIMITER ',' QUOTE '\"' ESCAPE '\"';"
+fi
+
 echo "Checking import job states"
-$WORKSPACE/devops/manage-statbus.sh psql -c "SELECT slug, state FROM public.import_job WHERE slug IN ('import_hovedenhet_2025', 'import_underenhet_2025');"
+$WORKSPACE/devops/manage-statbus.sh psql -c "SELECT slug, state FROM public.import_job WHERE slug IN ('import_hovedenhet_2025', 'import_underenhet_2025', 'import_roller_2025');"

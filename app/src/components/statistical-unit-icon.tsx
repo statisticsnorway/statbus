@@ -1,4 +1,4 @@
-import { Building, Building2, Store } from "lucide-react";
+import { Building, Building2, Store, Crown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface TopologyItemIconProps {
@@ -6,7 +6,7 @@ interface TopologyItemIconProps {
     | "legal_unit"
     | "establishment"
     | "enterprise"
-    | "enterprise_group"
+    | "power_group"
     | null;
   className?: string;
   hasLegalUnit?: boolean;
@@ -47,6 +47,12 @@ export function StatisticalUnitIcon({
             }`,
             className
           )}
+        />
+      );
+    case "power_group":
+      return (
+        <Crown
+          className={cn("fill-power_group-300 stroke-gray-700", className)}
         />
       );
     default:
