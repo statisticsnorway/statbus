@@ -4,6 +4,8 @@
    Filter: (timesegments_with_trailing_point.valid_until IS NOT NULL)
    ->  WindowAgg
          Window: w1 AS (PARTITION BY timepoints.unit_type, timepoints.unit_id ORDER BY timepoints.timepoint)
-         ->  Index Only Scan using timepoints_pkey on timepoints
-(5 rows)
+         ->  Sort
+               Sort Key: timepoints.unit_type, timepoints.unit_id, timepoints.timepoint
+               ->  Seq Scan on timepoints
+(7 rows)
 
