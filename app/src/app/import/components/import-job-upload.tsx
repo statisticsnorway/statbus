@@ -202,6 +202,14 @@ export function ImportJobUpload({
         {["upload_completed", "preparing_data", "analysing_data", "processing_data"].includes(state ?? '') && (
           <Progress value={import_completed_pct ?? 0} className="h-2 mt-2" />
         )}
+
+        {state === 'waiting_for_review' && job?.slug && (
+          <div className="mt-4">
+            <Button asChild className="bg-blue-600 hover:bg-blue-700 text-white">
+              <a href={`/import/jobs/${job.slug}/data`}>Review Data</a>
+            </Button>
+          </div>
+        )}
       </div>
 
       {allowUpload && (

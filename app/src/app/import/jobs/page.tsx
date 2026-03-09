@@ -349,7 +349,10 @@ export default function ImportJobsPage() {
         const job = row.original;
         const status = jobStatuses.find(s => s.value === job.state);
         const statusBadge = (
-          <Badge variant="secondary">
+          <Badge
+            variant="secondary"
+            className={job.state === 'waiting_for_review' ? 'bg-blue-100 text-blue-800 hover:bg-blue-200' : ''}
+          >
             {status?.icon && <status.icon className="mr-2 h-4 w-4" />}
             {status?.label ?? job.state}
           </Badge>
