@@ -98,6 +98,8 @@ export type ImportJobProgressPayload = {
   analysis_completed_pct: number;
   imported_rows: number;
   import_completed_pct: number;
+  error_count: number;
+  warning_count: number;
 };
 
 export type WorkerStatusPayload =
@@ -184,6 +186,8 @@ function handleImportJobProgressNotification(rawPayload: Record<string, unknown>
     analysis_completed_pct: rawPayload.analysis_completed_pct as number,
     imported_rows: rawPayload.imported_rows as number,
     import_completed_pct: rawPayload.import_completed_pct as number,
+    error_count: (rawPayload.error_count as number) ?? 0,
+    warning_count: (rawPayload.warning_count as number) ?? 0,
   };
 
   // Debounce per job_id to avoid flooding during rapid progress updates

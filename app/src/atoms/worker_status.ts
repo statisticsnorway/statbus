@@ -41,6 +41,8 @@ export interface ImportJobProgress {
   imported_rows: number;
   analysis_completed_pct: number;
   import_completed_pct: number;
+  error_count: number;
+  warning_count: number;
 }
 
 export interface ImportStatus {
@@ -88,6 +90,8 @@ export type ImportJobProgressSSE = {
   analysis_completed_pct: number;
   imported_rows: number;
   import_completed_pct: number;
+  error_count: number;
+  warning_count: number;
 };
 
 export type WorkerStatusSSEPayload =
@@ -127,7 +131,7 @@ export const setWorkerStatusAtom = atom(
 
     if (payload.type === 'import_job_progress') {
       // Real-time import job progress from import_job_progress pg_notify
-      const { job_id, state, total_rows, analysis_completed_pct, imported_rows, import_completed_pct } = payload;
+      const { job_id, state, total_rows, analysis_completed_pct, imported_rows, import_completed_pct, error_count, warning_count } = payload;
       const currentJobs = prevStatus.importing?.jobs ?? [];
       const updatedJob: ImportJobProgress = {
         id: job_id,
@@ -136,6 +140,8 @@ export const setWorkerStatusAtom = atom(
         imported_rows,
         analysis_completed_pct,
         import_completed_pct,
+        error_count: error_count ?? 0,
+        warning_count: warning_count ?? 0,
       };
 
       const newJobs = [...currentJobs];
