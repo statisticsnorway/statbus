@@ -16,7 +16,8 @@ import {
 } from "@tanstack/react-table";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, AlertTriangle } from "lucide-react";
+import { ChevronRight, ThumbsUp, ThumbsDown } from "lucide-react";
+import { StackedProgress } from "@/components/ui/stacked-progress";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useAtomValue } from "jotai";
 import { externalIdentTypesAtom } from "@/atoms/base-data";
@@ -29,6 +30,11 @@ import {
 } from "@/hooks/use-swr-with-auth-refresh";
 // Per instruction, improve typing for ImportJobDataRow to make 'state' work
 // in useDataTable. This is a first step, with 'any' types to be refined.
+const formatNumber = (num: number | null | undefined): string => {
+  if (num === null || num === undefined) return "0";
+  return num.toLocaleString('nb-NO');
+};
+
 type ImportJobDataRow = {
   row_id: number;
   state: any;
@@ -110,7 +116,11 @@ const fetcher = async (key: string): Promise<any> => {
           queryBuilder = queryBuilder.not(key, 'is', null).not(key, 'eq', '{}');
         }
       } else if (['operation', 'state', 'action'].includes(key)) {
-        queryBuilder = queryBuilder.in(key, values);
+        if (values.length === 1 && values[0] === 'not_error') {
+          queryBuilder = queryBuilder.neq(key, 'error');
+        } else {
+          queryBuilder = queryBuilder.in(key, values);
+        }
       } else {
         // Text search for name, external idents, etc.
         queryBuilder = queryBuilder.ilike(key, `%${values[0]}%`);
@@ -479,7 +489,6 @@ export default function ImportJobDataPage() {
                   { label: 'Has value', value: 'not_null' },
                   { label: 'Is empty', value: 'is_null' },
               ],
-              isPrimary: true,
           };
       }
       
@@ -522,6 +531,18 @@ export default function ImportJobDataPage() {
 
   const isLoading = isJobLoading || (isTableDataLoading && !tableData) || awaitingAuthRefresh;
 
+  const qualityFilterIds = ['state', 'errors', 'invalid_codes'];
+
+  // Check if ok filter is active (quality-based: no errors, no warnings, not error state)
+  const isOkFilterActive = React.useMemo(() => {
+    const stateFilter = columnFilters.find(f => f.id === 'state');
+    const errorsFilter = columnFilters.find(f => f.id === 'errors');
+    const invalidCodesFilter = columnFilters.find(f => f.id === 'invalid_codes');
+    return Array.isArray(stateFilter?.value) && stateFilter.value[0] === 'not_error'
+      && Array.isArray(errorsFilter?.value) && errorsFilter.value[0] === 'is_null'
+      && Array.isArray(invalidCodesFilter?.value) && invalidCodesFilter.value[0] === 'is_null';
+  }, [columnFilters]);
+
   // Check if error filter is active
   const isErrorFilterActive = React.useMemo(() => {
     const stateFilter = columnFilters.find(f => f.id === 'state');
@@ -529,21 +550,51 @@ export default function ImportJobDataPage() {
     return stateFilter.value.includes('error') && stateFilter.value.length === 1;
   }, [columnFilters]);
 
-  // Toggle error-only filter
+  // Check if warning filter is active
+  const isWarningFilterActive = React.useMemo(() => {
+    const invalidCodesFilter = columnFilters.find(f => f.id === 'invalid_codes');
+    return Array.isArray(invalidCodesFilter?.value) && invalidCodesFilter.value[0] === 'not_null';
+  }, [columnFilters]);
+
+  // Toggle ok-only filter (clears error and warning filters)
+  const toggleOkFilter = React.useCallback(() => {
+    setColumnFilters(prev => {
+      if (isOkFilterActive) {
+        return prev.filter(f => !qualityFilterIds.includes(f.id));
+      } else {
+        const newFilters = prev.filter(f => !qualityFilterIds.includes(f.id));
+        return [...newFilters,
+          { id: 'state', value: ['not_error'] },
+          { id: 'errors', value: ['is_null'] },
+          { id: 'invalid_codes', value: ['is_null'] },
+        ];
+      }
+    });
+  }, [isOkFilterActive]);
+
+  // Toggle error-only filter (clears ok and warning filters)
   const toggleErrorFilter = React.useCallback(() => {
     setColumnFilters(prev => {
-      const stateFilterIndex = prev.findIndex(f => f.id === 'state');
-      
       if (isErrorFilterActive) {
-        // Remove the error filter
-        return prev.filter(f => f.id !== 'state');
+        return prev.filter(f => !qualityFilterIds.includes(f.id));
       } else {
-        // Add error filter (replace any existing state filter)
-        const newFilters = prev.filter(f => f.id !== 'state');
-        return [...newFilters, { id: 'state', value: ['error'] }];
+        const newFilters = prev.filter(f => !qualityFilterIds.includes(f.id));
+        return [...newFilters, { id: 'state', value: ['error'] }, { id: 'errors', value: ['not_null'] }];
       }
     });
   }, [isErrorFilterActive]);
+
+  // Toggle warning-only filter (clears ok and error filters)
+  const toggleWarningFilter = React.useCallback(() => {
+    setColumnFilters(prev => {
+      if (isWarningFilterActive) {
+        return prev.filter(f => !qualityFilterIds.includes(f.id));
+      } else {
+        const newFilters = prev.filter(f => !qualityFilterIds.includes(f.id));
+        return [...newFilters, { id: 'invalid_codes', value: ['not_null'] }];
+      }
+    });
+  }, [isWarningFilterActive]);
 
   // Show error (JWT errors are automatically suppressed while refreshing by the hook)
   if (jobError) {
@@ -606,7 +657,43 @@ export default function ImportJobDataPage() {
         </div>
         <p className="text-sm text-gray-500 mt-1">Description: {job.description ?? 'N/A'} | Table: {job.data_table_name}</p>
       </div>
-      
+
+
+
+      {/* Approve/Reject bar for review workflow */}
+      {job.state === 'waiting_for_review' && (
+        <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+          <span className="text-sm font-medium text-amber-800 flex-grow">This job is waiting for your review.</span>
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-red-300 text-red-600 hover:bg-red-50"
+            onClick={async () => {
+              const client = await getBrowserRestClient();
+              const { error } = await client.from("import_job").update({ state: 'rejected' as any }).eq("id", job.id);
+              if (error) { console.error("Reject failed:", error); alert(`Error: ${error.message}`); }
+              else { mutateJob(); }
+            }}
+          >
+            <ThumbsDown className="mr-1 h-4 w-4" />
+            Reject
+          </Button>
+          <Button
+            size="sm"
+            className="bg-green-600 hover:bg-green-700 text-white"
+            onClick={async () => {
+              const client = await getBrowserRestClient();
+              const { error } = await client.from("import_job").update({ state: 'approved' as any }).eq("id", job.id);
+              if (error) { console.error("Approve failed:", error); alert(`Error: ${error.message}`); }
+              else { mutateJob(); }
+            }}
+          >
+            <ThumbsUp className="mr-1 h-4 w-4" />
+            Approve
+          </Button>
+        </div>
+      )}
+
       {tableError && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-md text-red-700">
           Failed to load table data: {tableError.message}
@@ -636,18 +723,48 @@ export default function ImportJobDataPage() {
           }}
         >
           <DataTableToolbar table={table}>
-            <Button
-              variant={isErrorFilterActive ? "default" : "outline"}
-              size="sm"
-              className={isErrorFilterActive 
-                ? "h-8 bg-red-600 hover:bg-red-700 text-white" 
-                : "h-8 border-dashed text-red-600 hover:bg-red-50 hover:text-red-700"
-              }
-              onClick={toggleErrorFilter}
-            >
-              <AlertTriangle className="mr-1 h-4 w-4" />
-              {isErrorFilterActive ? "Showing Errors" : "Show Errors Only"}
-            </Button>
+            {(() => {
+              const okCount = (job?.total_rows ?? 0) - (job?.error_count ?? 0) - (job?.warning_count ?? 0);
+              return okCount > 0 ? (
+                <Button
+                  variant={isOkFilterActive ? "default" : "outline"}
+                  size="sm"
+                  className={isOkFilterActive
+                    ? "h-8 bg-green-600 hover:bg-green-700 text-white"
+                    : "h-8 border-dashed text-green-700 hover:bg-green-50"
+                  }
+                  onClick={toggleOkFilter}
+                >
+                  <span className="font-mono">{formatNumber(okCount)}</span>&nbsp;ok
+                </Button>
+              ) : null;
+            })()}
+            {(job?.warning_count ?? 0) > 0 && (
+              <Button
+                variant={isWarningFilterActive ? "default" : "outline"}
+                size="sm"
+                className={isWarningFilterActive
+                  ? "h-8 bg-amber-500 hover:bg-amber-600 text-white"
+                  : "h-8 border-dashed text-amber-600 hover:bg-amber-50"
+                }
+                onClick={toggleWarningFilter}
+              >
+                <span className="font-mono">{formatNumber(job?.warning_count)}</span>&nbsp;warn
+              </Button>
+            )}
+            {(job?.error_count ?? 0) > 0 && (
+              <Button
+                variant={isErrorFilterActive ? "default" : "outline"}
+                size="sm"
+                className={isErrorFilterActive
+                  ? "h-8 bg-red-600 hover:bg-red-700 text-white"
+                  : "h-8 border-dashed text-red-600 hover:bg-red-50"
+                }
+                onClick={toggleErrorFilter}
+              >
+                <span className="font-mono">{formatNumber(job?.error_count)}</span>&nbsp;err
+              </Button>
+            )}
           </DataTableToolbar>
         </DataTable>
       }

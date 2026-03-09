@@ -12,6 +12,7 @@ import { formatDuration } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { StackedProgress } from "@/components/ui/stacked-progress";
 import { formatDistanceToNow } from "date-fns";
 import { AlertCircle, CheckCircle, Clock, FileUp, FolderSearch, Hourglass, Loader, MoreHorizontal, ThumbsDown, ThumbsUp, Trash2, ChevronRight } from "lucide-react";
 import { JobErrorDisplay } from "@/components/import/ErrorDisplay";
@@ -348,9 +349,7 @@ export default function ImportJobsPage() {
         const job = row.original;
         const status = jobStatuses.find(s => s.value === job.state);
         const statusBadge = (
-          <Badge variant={job.state === 'finished' ? 'default' : job.state === 'rejected' ? 'destructive' : 'secondary'}
-            className={job.state === 'finished' ? 'bg-green-600 text-white' : ''}
-          >
+          <Badge variant={job.state === 'rejected' ? 'destructive' : 'secondary'}>
             {status?.icon && <status.icon className="mr-2 h-4 w-4" />}
             {status?.label ?? job.state}
           </Badge>
@@ -417,7 +416,7 @@ export default function ImportJobsPage() {
       id: 'analysed',
       header: 'Analysis',
       cell: ({ row }) => {
-        const { total_rows, analysis_completed_pct, state, current_step_code, definition_snapshot } = row.original;
+        const { total_rows, analysis_completed_pct, state, current_step_code, definition_snapshot, slug, error_count, warning_count } = row.original;
         if (total_rows === null || total_rows === undefined) {
           return <span className="text-xs text-gray-400">-</span>;
         }
@@ -447,12 +446,29 @@ export default function ImportJobsPage() {
         const isAnalysisComplete = analysis_completed_pct === 100;
 
         return (
-          <div className="w-32 space-y-1">
-            {isAnalysisComplete && (
-              <div className="text-xs font-mono">{formatNumber(total_rows)} Rows</div>
-            )}
+          <div className="min-w-32 space-y-1">
+            {isAnalysisComplete && (() => {
+              const err = error_count ?? 0;
+              const warn = warning_count ?? 0;
+              const ok = Math.max(0, (total_rows ?? 0) - err - warn);
+              const content = (
+                <div className="space-y-0.5">
+                  <StackedProgress segments={[
+                    { value: total_rows > 0 ? (ok / total_rows) * 100 : 0, className: "bg-green-600" },
+                    { value: total_rows > 0 ? (warn / total_rows) * 100 : 0, className: "bg-amber-500" },
+                    { value: total_rows > 0 ? (err / total_rows) * 100 : 0, className: "bg-red-500" },
+                  ]} className="h-1.5" />
+                  <div className="text-xs font-mono whitespace-nowrap">
+                    <span className="text-green-700">{formatNumber(ok)} ok</span>
+                    {warn > 0 && <span className="text-amber-600"> {formatNumber(warn)} warn</span>}
+                    {err > 0 && <span className="text-red-600"> {formatNumber(err)} err</span>}
+                  </div>
+                </div>
+              );
+              return <Link href={`/import/jobs/${slug}/data`} className="underline">{content}</Link>;
+            })()}
             {stepDetails}
-            {showProgress && (
+            {showProgress && !isAnalysisComplete && (
               <div className="flex items-center space-x-2">
                 <Progress value={analysis_completed_pct ?? 0} className="h-1.5 flex-grow" />
                 <span className="text-xs text-gray-500 font-mono">{Math.round(analysis_completed_pct ?? 0)}%</span>
@@ -514,30 +530,32 @@ export default function ImportJobsPage() {
       id: 'processed',
       header: 'Processed',
       cell: ({ row }) => {
-        const { imported_rows, total_rows, slug, import_completed_pct, state } = row.original;
+        const { imported_rows, total_rows, slug, import_completed_pct, state, error_count } = row.original;
         if (total_rows === null || total_rows === undefined) {
           return <span className="text-xs text-gray-400">-</span>;
         }
 
-        const showProgress = (state === 'processing_data' || state === 'finished') &&
+        const showProgress = (state === 'processing_data' || state === 'finished' || state === 'waiting_for_review') &&
                              import_completed_pct !== null && import_completed_pct !== undefined;
 
         const isProcessingComplete = state === 'finished' || import_completed_pct === 100;
+        const processableRows = total_rows - (error_count ?? 0);
 
         return (
-          <div className="w-32">
-            <Link href={`/import/jobs/${slug}/data`} className="underline">
-              <div className="text-xs font-mono">
-                {isProcessingComplete ? formatNumber(total_rows) : `${formatNumber(imported_rows)}/${formatNumber(total_rows)}`}
-              </div>
-            </Link>
+          <Link href={`/import/jobs/${slug}/data`} className="min-w-24 block">
             {showProgress && (
-              <div className="mt-1 flex items-center space-x-2">
+              <div className="flex items-center space-x-2">
                 <Progress value={import_completed_pct ?? 0} className="h-1.5 flex-grow" />
                 <span className="text-xs text-gray-500 font-mono">{Math.round(import_completed_pct ?? 0)}%</span>
               </div>
             )}
-          </div>
+            <div className="text-xs font-mono whitespace-nowrap underline">
+              {isProcessingComplete
+                ? formatNumber(processableRows)
+                : `${formatNumber(imported_rows)}/${formatNumber(processableRows)}`
+              }
+            </div>
+          </Link>
         );
       }
     },
@@ -637,6 +655,17 @@ export default function ImportJobsPage() {
         id: "actions",
         cell: ({ row, table }) => {
           const job = row.original;
+          const handleApproveReject = async (newState: 'approved' | 'rejected') => {
+            try {
+              const client = await getBrowserRestClient();
+              const { error } = await client.from("import_job").update({ state: newState }).eq("id", job.id);
+              if (error) throw error;
+              mutate(swrKeyRef.current);
+            } catch (err: any) {
+              console.error(`Failed to ${newState} job:`, err);
+              alert(`Error: ${err.message}`);
+            }
+          };
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -652,6 +681,24 @@ export default function ImportJobsPage() {
                     View Imported Data
                   </Link>
                 </DropdownMenuItem>
+                {job.state === 'waiting_for_review' && (
+                  <>
+                    <DropdownMenuItem
+                      className="text-green-600"
+                      onClick={() => handleApproveReject('approved')}
+                    >
+                      <ThumbsUp className="mr-2 h-4 w-4" />
+                      Approve
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="text-red-600"
+                      onClick={() => handleApproveReject('rejected')}
+                    >
+                      <ThumbsDown className="mr-2 h-4 w-4" />
+                      Reject
+                    </DropdownMenuItem>
+                  </>
+                )}
                 <DropdownMenuItem
                   className="text-red-600"
                   onClick={async () => {
