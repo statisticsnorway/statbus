@@ -62,6 +62,46 @@ export async function getStatisticalUnitsData(
 }
 
 /**
+ * Fetch estimated count for statistical units (fast, uses planner estimate).
+ * Used to decide pagination strategy before fetching data.
+ */
+export async function getStatisticalUnitsEstimatedCount(
+  client: PostgrestClient<Database> | null = null,
+  searchParams: URLSearchParams,
+  signal?: AbortSignal
+): Promise<number | null> {
+  const isServer = typeof window === 'undefined';
+  client = await getRestClient(client);
+
+  const baseUrl = client.url.endsWith('/') ? client.url : `${client.url}/`;
+
+  const countParams = new URLSearchParams(searchParams);
+  countParams.set('limit', '0');
+  countParams.set('offset', '0');
+
+  const url = new URL(`statistical_unit?${countParams}`, baseUrl);
+
+  const fetcher = isServer ? fetchWithAuth : fetchWithAuthRefresh;
+
+  const response = await fetcher(url.toString(), {
+    method: "HEAD",
+    signal,
+    headers: {
+      Prefer: "count=estimated",
+      "Range-Unit": "items",
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Error: ${response.statusText} (Status: ${response.status})`);
+  }
+
+  return parseContentRangeCount(response);
+}
+
+/**
  * Fetch exact count for statistical units (slow on large datasets).
  * Use in background after table has rendered with estimated count.
  */
