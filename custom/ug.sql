@@ -8,7 +8,7 @@ AS $BODY$
 BEGIN
 
     RAISE NOTICE 'Runs Uganda Kampala at %', now();
-	CALL public.custom_setup_reset();
+	--CALL public.custom_setup_reset();
 
 
     INSERT INTO external_ident_type (code, name, priority)
@@ -17,7 +17,7 @@ BEGIN
 
 
  UPDATE external_ident_type
-    SET archived = FALSE
+    SET enabled = FALSE
     WHERE id <= 2;
 
 
