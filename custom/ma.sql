@@ -2,14 +2,15 @@
 
 \ir ./reset.sql
 
-
-CREATE OR REPLACE PROCEDURE public.custom_setup_ma()
-LANGUAGE plpgsql
+CREATE OR REPLACE PROCEDURE public.custom_setup_ma(
+	)
+LANGUAGE 'plpgsql'
 AS $BODY$
+
 BEGIN
 
     RAISE NOTICE 'Runs MA at %', now();
-	CALL public.custom_setup_reset();
+	---CALL public.custom_setup_reset();
 
 
     INSERT INTO external_ident_type (code, name, priority)
@@ -19,15 +20,15 @@ BEGIN
         ('ice_ident', 'Ice', 5);
 
 
- UPDATE external_ident_type
-    SET archived = FALSE
-    WHERE id <= 2;
+ --UPDATE external_ident_type
+    --SET enabled = FALSE
+   -- WHERE id <= 2;
 
 
 
     -- hide stat_ident
     UPDATE external_ident_type
-    SET archived = TRUE
+    SET enabled = TRUE
     WHERE code = 'stat_ident';
 
 
@@ -45,7 +46,7 @@ BEGIN
         ('CNSS2022', 'CNSS2022');
 
     UPDATE data_source
-    SET active = TRUE;
+    SET enabled = TRUE;
 
 
     INSERT INTO stat_definition (code, type, frequency, name, priority)
@@ -58,7 +59,7 @@ BEGIN
 
 
 
-    INSERT INTO unit_size (code, name, active, custom)
+    INSERT INTO unit_size (code, name, enabled, custom)
     VALUES
         ('tpe', 'Tiny', TRUE, TRUE),
         ('p', 'Petit', TRUE, TRUE),
@@ -68,20 +69,19 @@ BEGIN
 
 --hide the original ones
 update unit_size
-set active = FALSE
+set enabled = FALSE
 where custom = FALSE;
 
 
     UPDATE status
-    SET active = FALSE
+    SET enabled = FALSE
     WHERE custom = FALSE;
 
 --select * from status
 
 
-
     INSERT INTO status
-        (code, name, assigned_by_default, used_for_counting, priority, active, custom)
+        (code, name, assigned_by_default, used_for_counting, priority, enabled, custom)
     VALUES
         ('act', 'Active', TRUE, TRUE, 3, TRUE, TRUE),
         ('inact', 'Inactive', FALSE, false, 4, TRUE, TRUE),
@@ -93,6 +93,11 @@ where custom = FALSE;
     RAISE NOTICE 'Done MA at %', now();
 
 END;
+
+
+
+
+
 $BODY$;
 
 CALL public.custom_setup_ma();
