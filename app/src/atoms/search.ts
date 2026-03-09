@@ -381,8 +381,21 @@ function reverseParamsForLastPage(
   return reversed;
 }
 
+// AbortController for the current in-flight search. When a new search starts,
+// the previous one is aborted — cancelling HTTP requests so PostgREST can
+// cancel the underlying database queries too.
+let currentSearchAbortController: AbortController | null = null;
+
 // Search actions
 export const performSearchAtom = atom(null, async (get, set) => {
+  // Abort any in-flight search before starting a new one
+  if (currentSearchAbortController) {
+    currentSearchAbortController.abort();
+  }
+  const abortController = new AbortController();
+  currentSearchAbortController = abortController;
+  const { signal } = abortController;
+
   const postgrestClient = get(restClientAtom);
   const derivedApiParams = get(derivedApiSearchParamsAtom);
   const pagination = get(paginationAtom);
@@ -425,7 +438,8 @@ export const performSearchAtom = atom(null, async (get, set) => {
     // Step 1: Fetch data + estimated count (single request, fast)
     const dataResponse = await getStatisticalUnitsData(
       postgrestClient,
-      fetchParams
+      fetchParams,
+      signal
     );
 
     // If last-page reversal was used, reverse the data back to original order
@@ -451,7 +465,8 @@ export const performSearchAtom = atom(null, async (get, set) => {
     try {
       const exactCount = await getStatisticalUnitsExactCount(
         postgrestClient,
-        derivedApiParams
+        derivedApiParams,
+        signal
       );
 
       set(searchResultAtom, (prev) => ({
@@ -461,6 +476,9 @@ export const performSearchAtom = atom(null, async (get, set) => {
         countIsEstimate: false,
       }));
     } catch (countError) {
+      if (countError instanceof DOMException && countError.name === 'AbortError') {
+        return;
+      }
       console.warn("Failed to fetch exact count:", countError);
       // Keep estimated count as fallback
       set(searchResultAtom, (prev) => ({
@@ -470,6 +488,10 @@ export const performSearchAtom = atom(null, async (get, set) => {
       }));
     }
   } catch (error) {
+    // Aborted searches are expected when the user changes filters quickly — ignore silently
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      return;
+    }
     console.error("Search failed in performSearchAtom:", error);
     set(searchResultAtom, (prev) => ({
       ...prev,

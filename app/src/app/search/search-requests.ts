@@ -27,7 +27,8 @@ async function getRestClient(client: PostgrestClient<Database> | null): Promise<
  */
 export async function getStatisticalUnitsData(
   client: PostgrestClient<Database> | null = null,
-  searchParams: URLSearchParams
+  searchParams: URLSearchParams,
+  signal?: AbortSignal
 ): Promise<SearchDataResult> {
   const isServer = typeof window === 'undefined';
   client = await getRestClient(client);
@@ -39,6 +40,7 @@ export async function getStatisticalUnitsData(
 
   const response = await fetcher(url.toString(), {
     method: "GET",
+    signal,
     headers: {
       Prefer: "count=estimated",
       "Range-Unit": "items",
@@ -65,7 +67,8 @@ export async function getStatisticalUnitsData(
  */
 export async function getStatisticalUnitsExactCount(
   client: PostgrestClient<Database> | null = null,
-  searchParams: URLSearchParams
+  searchParams: URLSearchParams,
+  signal?: AbortSignal
 ): Promise<number> {
   const isServer = typeof window === 'undefined';
   client = await getRestClient(client);
@@ -82,6 +85,7 @@ export async function getStatisticalUnitsExactCount(
 
   const response = await fetcher(url.toString(), {
     method: "HEAD",
+    signal,
     headers: {
       Prefer: "count=exact",
       "Range-Unit": "items",
