@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useImportManager, ImportMode } from "@/atoms/import"; // Updated import
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface ImportJobCreatorProps {
   importMode: ImportMode;
@@ -17,11 +18,12 @@ interface ImportJobCreatorProps {
 export function ImportJobCreator({ importMode, uploadPath, unitType, onJobCreated }: ImportJobCreatorProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { 
-    createImportJob, 
+  const {
+    createImportJob,
     importState,
     loadDefinitions,
     timeContext,
+    setReview,
   } = useImportManager();
   const router = useRouter();
 
@@ -72,8 +74,19 @@ export function ImportJobCreator({ importMode, uploadPath, unitType, onJobCreate
         </div>
       )}
 
-      <Button 
-        onClick={handleContinue} 
+      <div className="flex items-center space-x-2 mb-4">
+        <Checkbox
+          id="review-before-processing"
+          checked={importState.review}
+          onCheckedChange={(checked) => setReview(checked === true)}
+        />
+        <label htmlFor="review-before-processing" className="text-sm cursor-pointer">
+          Review before processing
+        </label>
+      </div>
+
+      <Button
+        onClick={handleContinue}
         disabled={isCreating || !selectedDefinition}
         className="w-full"
       >

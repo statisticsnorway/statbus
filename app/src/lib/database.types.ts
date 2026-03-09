@@ -1264,6 +1264,7 @@ export type Database = {
           description: string | null
           edit_comment: string | null
           error: string | null
+          error_count: number
           expires_at: string
           id: number
           import_completed_pct: number | null
@@ -1286,6 +1287,7 @@ export type Database = {
           updated_at: string
           upload_table_name: string
           user_id: number | null
+          warning_count: number
         },
         Insert: {
           analysis_batch_size?: number
@@ -1308,6 +1310,7 @@ export type Database = {
           description?: string | null
           edit_comment?: string | null
           error?: string | null
+          error_count?: number
           expires_at: string
           id?: never
           import_completed_pct?: number | null
@@ -1330,6 +1333,7 @@ export type Database = {
           updated_at?: string
           upload_table_name: string
           user_id?: number | null
+          warning_count?: number
         },
         Update: {
           analysis_batch_size?: number
@@ -1352,6 +1356,7 @@ export type Database = {
           description?: string | null
           edit_comment?: string | null
           error?: string | null
+          error_count?: number
           expires_at?: string
           id?: never
           import_completed_pct?: number | null
@@ -1374,6 +1379,7 @@ export type Database = {
           updated_at?: string
           upload_table_name?: string
           user_id?: number | null
+          warning_count?: number
         },
         Relationships: [
           {

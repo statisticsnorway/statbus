@@ -91,6 +91,7 @@ export interface ImportState {
   availableDefinitions: Tables<'import_definition'>[];
   explicitStartDate: string | null; // YYYY-MM-DD
   explicitEndDate: string | null;   // YYYY-MM-DD
+  review: boolean;
 }
 
 export const initialImportState: ImportState = {
@@ -105,6 +106,7 @@ export const initialImportState: ImportState = {
   availableDefinitions: [],
   explicitStartDate: null,
   explicitEndDate: null,
+  review: false,
 };
 
 export const importStateAtom = atom<ImportState>(initialImportState)
@@ -285,6 +287,13 @@ export const setImportExplicitEndDateAtom = atom(
   }
 );
 
+export const setImportReviewAtom = atom(
+  null,
+  (get, set, review: boolean) => {
+    set(importStateAtom, (prev) => ({ ...prev, review }));
+  }
+);
+
 export const setSelectedImportDefinitionAtom = atom(
   null,
   (get, set, definition: Tables<'import_definition'>) => {
@@ -365,6 +374,7 @@ export const createImportJobAtom = atom<null, [], Promise<Tables<'import_job'> |
       expires_at: null!,
       slug: null!,
       upload_table_name: null!,
+      review: importState.review,
     };
 
     if (definition.valid_time_from === 'job_provided') {
@@ -424,6 +434,7 @@ export const useImportManager = () => {
   const doSetExplicitEndDate = useSetAtom(setImportExplicitEndDateAtom);
   const doLoadDefinitions = useSetAtom(loadImportDefinitionsAtom);
   const doSetSelectedDefinition = useSetAtom(setSelectedImportDefinitionAtom);
+  const doSetReview = useSetAtom(setImportReviewAtom);
   const doCreateJob = useSetAtom(createImportJobAtom);
 
   const availableImportTimeContexts = useMemo<Tables<'time_context'>[]>(() => {
@@ -500,6 +511,10 @@ export const useImportManager = () => {
     doSetSelectedDefinition(definition);
   }, [doSetSelectedDefinition]);
 
+  const setReview = useCallback((review: boolean) => {
+    doSetReview(review);
+  }, [doSetReview]);
+
   const refreshUnitCount = useCallback(async (unitType: keyof UnitCounts) => {
     await doRefreshUnitCount(unitType);
   }, [doRefreshUnitCount]);
@@ -523,6 +538,7 @@ export const useImportManager = () => {
     setExplicitEndDate,
     loadDefinitions,
     setSelectedDefinition,
+    setReview,
     createImportJob,
     importState: currentImportState,
     refreshBaseData,
