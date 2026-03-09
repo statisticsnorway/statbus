@@ -9,7 +9,7 @@ AS $BODY$
 BEGIN
 
     RAISE NOTICE 'Runs JO at %', now();
-	CALL public.custom_setup_reset();
+	  --CALL public.custom_setup_reset();
 
     -- Before running this procedure you may need to
     -- reset units and classifications in Statbus (Ctrl+Shift+K)
@@ -17,7 +17,7 @@ BEGIN
 
 
     UPDATE status
-    SET active = TRUE;
+    SET enabled = TRUE;
 
     -- If Jordan has custom statuses, they can be inserted here later
 
@@ -29,7 +29,7 @@ BEGIN
 
     -- Archive default ones not needed
     UPDATE external_ident_type
-    SET archived = TRUE
+    SET enabled = TRUE
     WHERE id <= 2;
 
 

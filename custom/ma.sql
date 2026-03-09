@@ -95,9 +95,6 @@ where custom = FALSE;
 END;
 
 
-
-
-
 $BODY$;
 
 CALL public.custom_setup_ma();
