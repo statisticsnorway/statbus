@@ -349,7 +349,7 @@ export default function ImportJobsPage() {
         const job = row.original;
         const status = jobStatuses.find(s => s.value === job.state);
         const statusBadge = (
-          <Badge variant={job.state === 'rejected' ? 'destructive' : 'secondary'}>
+          <Badge variant="secondary">
             {status?.icon && <status.icon className="mr-2 h-4 w-4" />}
             {status?.label ?? job.state}
           </Badge>
@@ -372,7 +372,8 @@ export default function ImportJobsPage() {
 
         const { total_rows } = job;
 
-        const rowCountDisplay = job.state !== 'processing_data' && job.state !== 'finished' && total_rows !== null && total_rows !== undefined ? (
+        const analysisShowsRows = job.state === 'processing_data' || job.state === 'finished' || job.state === 'waiting_for_review' || job.state === 'rejected';
+        const rowCountDisplay = !analysisShowsRows && total_rows !== null && total_rows !== undefined ? (
           <div className="text-xs text-gray-500 font-mono">
             {formatNumber(total_rows)} Rows
           </div>
@@ -393,6 +394,8 @@ export default function ImportJobsPage() {
           <div>
             {job.state === 'waiting_for_upload' ? (
               <Link href={getUploadPathForJob(job)}>{badgeAndError}</Link>
+            ) : job.state === 'waiting_for_review' ? (
+              <Link href={`/import/jobs/${job.slug}/data`}>{badgeAndError}</Link>
             ) : (
               badgeAndError
             )}
@@ -421,7 +424,7 @@ export default function ImportJobsPage() {
           return <span className="text-xs text-gray-400">-</span>;
         }
 
-        const showProgress = (state === 'analysing_data' || state === 'processing_data' || state === 'finished') &&
+        const showProgress = (state === 'analysing_data' || state === 'processing_data' || state === 'finished' || state === 'waiting_for_review' || state === 'rejected') &&
                              analysis_completed_pct !== null && analysis_completed_pct !== undefined;
 
         let stepDetails = null;
@@ -454,13 +457,13 @@ export default function ImportJobsPage() {
               const content = (
                 <div className="space-y-0.5">
                   <StackedProgress segments={[
-                    { value: total_rows > 0 ? (ok / total_rows) * 100 : 0, className: "bg-green-600" },
-                    { value: total_rows > 0 ? (warn / total_rows) * 100 : 0, className: "bg-amber-500" },
-                    { value: total_rows > 0 ? (err / total_rows) * 100 : 0, className: "bg-red-500" },
+                    { value: total_rows > 0 ? (ok / total_rows) * 100 : 0, className: "bg-green-800" },
+                    { value: total_rows > 0 ? (warn / total_rows) * 100 : 0, className: "bg-yellow-600" },
+                    { value: total_rows > 0 ? (err / total_rows) * 100 : 0, className: "bg-red-700" },
                   ]} className="h-1.5" />
                   <div className="text-xs font-mono whitespace-nowrap">
-                    <span className="text-green-700">{formatNumber(ok)} ok</span>
-                    {warn > 0 && <span className="text-amber-600"> {formatNumber(warn)} warn</span>}
+                    <span className="text-green-900">{formatNumber(ok)} ok</span>
+                    {warn > 0 && <span className="text-yellow-600"> {formatNumber(warn)} warn</span>}
                     {err > 0 && <span className="text-red-600"> {formatNumber(err)} err</span>}
                   </div>
                 </div>
@@ -535,7 +538,15 @@ export default function ImportJobsPage() {
           return <span className="text-xs text-gray-400">-</span>;
         }
 
-        const showProgress = (state === 'processing_data' || state === 'finished' || state === 'waiting_for_review') &&
+        if (state === 'rejected') {
+          return <span className="text-xs text-gray-400">⛔ Rejected</span>;
+        }
+
+        if (state === 'waiting_for_review') {
+          return <span className="text-xs text-gray-400">-</span>;
+        }
+
+        const showProgress = (state === 'processing_data' || state === 'finished') &&
                              import_completed_pct !== null && import_completed_pct !== undefined;
 
         const isProcessingComplete = state === 'finished' || import_completed_pct === 100;
