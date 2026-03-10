@@ -148,7 +148,8 @@ BEGIN
                 (1 + COUNT(DISTINCT lu.id) + COUNT(DISTINCT es.id))::INT AS total_unit_count
             FROM public.enterprise AS en
             LEFT JOIN public.legal_unit AS lu ON lu.enterprise_id = en.id
-            LEFT JOIN public.establishment AS es ON es.legal_unit_id = lu.id
+            LEFT JOIN public.establishment AS es
+                ON es.legal_unit_id = lu.id OR es.enterprise_id = en.id
             WHERE NOT v_filter_active
                OR en.id <@ COALESCE(p_enterprise_id_ranges, '{}'::int4multirange)
                OR lu.id <@ COALESCE(p_legal_unit_id_ranges, '{}'::int4multirange)
