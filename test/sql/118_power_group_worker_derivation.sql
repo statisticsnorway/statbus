@@ -25,6 +25,15 @@ INSERT INTO public.legal_rel_type (code, name, description, primary_influencer_o
 SELECT 'co_ownership', 'Co-ownership', 'Shared ownership (multiple co-owners per entity)', FALSE, true, false
 WHERE NOT EXISTS (SELECT 1 FROM public.legal_rel_type WHERE code = 'co_ownership');
 
+-- Create a minimal import job so process_power_group_link has a real job context
+-- (with user_id and definition_snapshot containing mode='legal_relationship')
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT id, 'import_118_power_group_test', 'Test 118: Power group derivation', 'Minimal job for process_power_group_link', 'Test 118'
+FROM public.import_definition
+WHERE slug = 'legal_relationship_source_dates';
+
+SELECT id AS test_job_id FROM public.import_job WHERE slug = 'import_118_power_group_test' \gset
+
 -- ============================================================================
 \echo "=== Section 1: Verify Worker Infrastructure ==="
 -- ============================================================================
@@ -229,7 +238,12 @@ FROM public.power_group AS pg
 WHERE pg.name LIKE 'PowerTest%' OR pg.ident IS NOT NULL;
 
 \echo "Run process_power_group_link to create/link power groups"
-CALL import.process_power_group_link(NULL, NULL, 'process_power_group_link');
+CALL import.process_power_group_link(:test_job_id, NULL, 'process_power_group_link');
+
+\echo "Verify edit_by_user_id propagated correctly on power_group"
+SELECT DISTINCT
+    pg.edit_by_user_id = (SELECT user_id FROM public.import_job WHERE id = :test_job_id) AS pg_user_correct
+FROM public.power_group AS pg;
 
 \echo "Power groups AFTER worker derivation"
 SELECT pg.ident, pg.ident ~ '^PG[0-9A-Z]+$' AS valid_ident_format, pg.name
@@ -343,7 +357,7 @@ SELECT
     'MinorInvestor co-owns Independent (not primary_influencer_only)';
 
 \echo "Re-run process_power_group_link"
-CALL import.process_power_group_link(NULL, NULL, 'process_power_group_link');
+CALL import.process_power_group_link(:test_job_id, NULL, 'process_power_group_link');
 
 \echo "Non-primary-influencer relationship should have NULL derived_power_group_id"
 SELECT 
@@ -368,7 +382,7 @@ ORDER BY lu.name;
 -- ============================================================================
 
 \echo "Run process_power_group_link again (should not change anything)"
-CALL import.process_power_group_link(NULL, NULL, 'process_power_group_link');
+CALL import.process_power_group_link(:test_job_id, NULL, 'process_power_group_link');
 
 \echo "Verify power groups unchanged"
 SELECT pg.ident, pg.ident ~ '^PG[0-9A-Z]+$' AS valid_ident_format

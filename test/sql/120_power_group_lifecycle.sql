@@ -25,6 +25,15 @@ INSERT INTO public.legal_rel_type (code, name, description, primary_influencer_o
 SELECT 'co_ownership', 'Co-ownership', 'Shared ownership (multiple co-owners per entity)', FALSE, true, false
 WHERE NOT EXISTS (SELECT 1 FROM public.legal_rel_type WHERE code = 'co_ownership');
 
+-- Create a minimal import job so process_power_group_link has a real job context
+-- (with user_id and definition_snapshot containing mode='legal_relationship')
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT id, 'import_120_phase2_test', 'Test 120: Power group lifecycle Phase 2', 'Minimal job for process_power_group_link', 'Test 120 Phase 2'
+FROM public.import_definition
+WHERE slug = 'legal_relationship_source_dates';
+
+SELECT id AS test_job_id FROM public.import_job WHERE slug = 'import_120_phase2_test' \gset
+
 -- ============================================================================
 -- PHASE 2: Direct Scenarios (isolated by SAVEPOINT)
 -- ============================================================================
@@ -144,7 +153,12 @@ SELECT '2020-01-01'::date,
     (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
     100.00, (SELECT id FROM auth.user LIMIT 1), 'Logistics owns 100% of Research';
 
-CALL import.process_power_group_link(NULL, NULL, 'process_power_group_link');
+CALL import.process_power_group_link(:test_job_id, NULL, 'process_power_group_link');
+
+\echo "2a: Verify edit_by_user_id propagated correctly on power_group"
+SELECT DISTINCT
+    pg.edit_by_user_id = (SELECT user_id FROM public.import_job WHERE id = :test_job_id) AS pg_user_correct
+FROM public.power_group AS pg;
 
 \echo "2a: Hierarchy shows 4 power levels"
 SELECT lu.name, pgm.power_level
@@ -187,7 +201,7 @@ SELECT '2020-01-01'::date,
     (SELECT id FROM public.legal_rel_type WHERE code = 'co_ownership'),
     49.00, (SELECT id FROM auth.user LIMIT 1), 'Beacon co-owns Tech (co_ownership=NOT primary_influencer_only)';
 
-CALL import.process_power_group_link(NULL, NULL, 'process_power_group_link');
+CALL import.process_power_group_link(:test_job_id, NULL, 'process_power_group_link');
 
 \echo "2b: Beacon group has Beacon Inc + Beacon Services + Beacon Tech (all relationship types)"
 SELECT pgm.power_group_ident, lu.name
@@ -221,7 +235,7 @@ SELECT '2020-01-01'::date,
     (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
     80.00, (SELECT id FROM auth.user LIMIT 1), 'Delta owns 80% of Subsidiary';
 
-CALL import.process_power_group_link(NULL, NULL, 'process_power_group_link');
+CALL import.process_power_group_link(:test_job_id, NULL, 'process_power_group_link');
 
 \echo "2c: Delta power group exists before dissolution"
 SELECT pgm.power_group_ident, lu.name
@@ -237,7 +251,7 @@ SET type_id = (SELECT id FROM public.legal_rel_type WHERE code = 'co_ownership')
 WHERE influencing_id = (SELECT id FROM public.legal_unit WHERE name = 'Delta Holdings')
   AND influenced_id = (SELECT id FROM public.legal_unit WHERE name = 'Delta Subsidiary');
 
-CALL import.process_power_group_link(NULL, NULL, 'process_power_group_link');
+CALL import.process_power_group_link(:test_job_id, NULL, 'process_power_group_link');
 
 \echo "2c: After type change — Delta membership still present (all types form PGs)"
 SELECT pgm.power_group_ident, lu.name
@@ -265,7 +279,7 @@ SELECT '2020-01-01'::date,
     (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
     60.00, (SELECT id FROM auth.user LIMIT 1), 'Beacon owns 60% of Crossroads';
 
-CALL import.process_power_group_link(NULL, NULL, 'process_power_group_link');
+CALL import.process_power_group_link(:test_job_id, NULL, 'process_power_group_link');
 
 \echo "2d: Crossroads initially in Beacon group"
 SELECT pgm.power_group_ident, lu.name
@@ -286,7 +300,7 @@ SELECT '2020-01-01'::date,
     (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
     70.00, (SELECT id FROM auth.user LIMIT 1), 'Apex acquires 70% of Crossroads';
 
-CALL import.process_power_group_link(NULL, NULL, 'process_power_group_link');
+CALL import.process_power_group_link(:test_job_id, NULL, 'process_power_group_link');
 
 \echo "2d: Crossroads moved to Apex group"
 SELECT pgm.power_group_ident, lu.name
@@ -314,7 +328,7 @@ SELECT '2020-01-01'::date,
     (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
     30.00, (SELECT id FROM auth.user LIMIT 1), 'Cycle relationship - allowed';
 
-CALL import.process_power_group_link(NULL, NULL, 'process_power_group_link');
+CALL import.process_power_group_link(:test_job_id, NULL, 'process_power_group_link');
 
 \echo "2e: Cycle relationship created successfully"
 SELECT COUNT(*) AS cycle_rels FROM public.legal_relationship WHERE edit_comment LIKE '%Cycle relationship%';
@@ -328,7 +342,7 @@ ORDER BY pgm.power_level, lu.name;
 
 \echo "2e: Clean up cycle for summary"
 DELETE FROM public.legal_relationship WHERE edit_comment LIKE '%Cycle relationship%';
-CALL import.process_power_group_link(NULL, NULL, 'process_power_group_link');
+CALL import.process_power_group_link(:test_job_id, NULL, 'process_power_group_link');
 
 \echo "2e: Self-reference still prevented by CHECK constraint: Foxtrot → Foxtrot"
 SAVEPOINT test_self_ref;
@@ -356,7 +370,7 @@ SELECT '2020-01-01'::date,
     (SELECT id FROM public.legal_rel_type WHERE code = 'parent_company'),
     30.00, (SELECT id FROM auth.user LIMIT 1), 'Cycle for NSO override test';
 
-CALL import.process_power_group_link(NULL, NULL, 'process_power_group_link');
+CALL import.process_power_group_link(:test_job_id, NULL, 'process_power_group_link');
 
 \echo "2f: power_root entry exists for cycle PG with derived root, no custom override"
 SELECT
@@ -441,7 +455,7 @@ WHERE pr.edit_comment = 'NSO override reset';
 
 \echo "2f: Clean up cycle for summary"
 DELETE FROM public.legal_relationship WHERE edit_comment = 'Cycle for NSO override test';
-CALL import.process_power_group_link(NULL, NULL, 'process_power_group_link');
+CALL import.process_power_group_link(:test_job_id, NULL, 'process_power_group_link');
 
 -- ============================================================================
 \echo "=== Phase 2 Summary ==="
