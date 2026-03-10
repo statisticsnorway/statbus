@@ -60,7 +60,47 @@ export async function updateLegalUnit(
     const { error: metadataError, metadata } = await getEditMetadata(client);
     if (metadataError) return metadataError;
 
-    const payload = { ...validatedFields.data, ...metadata };
+    // Handle image upload/delete
+    let imageId: number | null | undefined = undefined;
+    const deleteImage = formData.get("delete_image") === "true";
+    const imageFile = formData.get("image") as File | null;
+
+    if (deleteImage) {
+      imageId = null;
+    } else if (imageFile && imageFile.size > 0) {
+      const logger = await createServerLogger();
+      const bytes = await imageFile.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+      const hexData = "\\x" + buffer.toString("hex");
+
+      const { data: imageData, error: imageError } = await client
+        .from("image")
+        .insert({
+          data: hexData,
+          type: imageFile.type,
+        })
+        .select("id")
+        .single();
+
+      if (imageError || !imageData) {
+        logger.error(imageError, "failed to insert image");
+        return {
+          status: "error",
+          message: imageError?.message || "Failed to upload image",
+        };
+      }
+
+      imageId = imageData.id;
+    }
+
+    // Extract image-related fields that shouldn't be sent to database
+    const { image, delete_image, ...dataFields } = validatedFields.data;
+
+    const payload = {
+      ...dataFields,
+      ...metadata,
+      ...(imageId !== undefined && { image_id: imageId }),
+    };
     const { data: overlappingRows, error: overlapError } = await client
       .from("legal_unit")
       .select("*")
@@ -123,16 +163,16 @@ export async function updateLegalUnitImage(
       };
     }
 
-    // Convert file to base64
+    // Convert file to hex-encoded bytea for PostgreSQL
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    const base64Data = buffer.toString("base64");
+    const hexData = "\\x" + buffer.toString("hex");
 
     // Insert image into public.image table
     const { data: imageData, error: imageError } = await client
       .from("image")
       .insert({
-        data: base64Data,
+        data: hexData,
         type: file.type,
       })
       .select("id")

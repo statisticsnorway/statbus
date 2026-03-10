@@ -146,16 +146,16 @@ export async function updateEstablishmentImage(
       };
     }
 
-    // Convert file to base64
+    // Convert file to hex-encoded bytea for PostgreSQL
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    const base64Data = buffer.toString("base64");
+    const hexData = "\\x" + buffer.toString("hex");
 
     // Insert image into public.image table
     const { data: imageData, error: imageError } = await client
       .from("image")
       .insert({
-        data: base64Data,
+        data: hexData,
         type: file.type,
       })
       .select("id")
