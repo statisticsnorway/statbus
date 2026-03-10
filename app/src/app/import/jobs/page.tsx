@@ -58,7 +58,7 @@ const jobStatuses = [
   { value: "preparing_data", label: "Preparing", icon: Loader },
   { value: "analysing_data", label: "Analyzing", icon: Hourglass },
   { value: "processing_data", label: "Processing", icon: Hourglass },
-  { value: "waiting_for_review", label: "Review", icon: Clock },
+  { value: "waiting_for_review", label: "Review", icon: AlertCircle },
   { value: "approved", label: "Approved", icon: ThumbsUp },
   { value: "finished", label: "Finished", icon: CheckCircle },
   { value: "rejected", label: "Rejected", icon: ThumbsDown },
@@ -353,7 +353,7 @@ export default function ImportJobsPage() {
         const statusBadge = (
           <Badge
             variant="secondary"
-            className={job.state === 'waiting_for_review' ? 'bg-blue-100 text-blue-800 hover:bg-blue-200' : ''}
+            className={job.state === 'waiting_for_review' ? 'bg-amber-100 text-amber-800 hover:bg-amber-200' : ''}
           >
             {status?.icon && <status.icon className="mr-2 h-4 w-4" />}
             {status?.label ?? job.state}

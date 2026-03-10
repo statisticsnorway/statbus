@@ -47,6 +47,7 @@ export interface ImportJobProgress {
 
 export interface ImportStatus {
   active: boolean;
+  needs_review: boolean;
   jobs: ImportJobProgress[];
 }
 
@@ -152,15 +153,16 @@ export const setWorkerStatusAtom = atom(
         newJobs.push(updatedJob);
       }
 
-      // Only keep actively importing jobs
-      const activeJobs = newJobs.filter(j => j.state === 'analysing_data' || j.state === 'processing_data');
+      // Only keep actively importing or review-waiting jobs
+      const activeJobs = newJobs.filter(j => j.state === 'analysing_data' || j.state === 'processing_data' || j.state === 'waiting_for_review');
+      const needsReview = activeJobs.some(j => j.state === 'waiting_for_review');
 
       set(workerStatusAtom, {
         ...prevStatus,
         loading: false,
         error: null,
         isImporting: activeJobs.length > 0 ? true : prevStatus.isImporting,
-        importing: { active: activeJobs.length > 0, jobs: activeJobs },
+        importing: { active: activeJobs.length > 0, needs_review: needsReview, jobs: activeJobs },
       });
       return;
     }
@@ -207,10 +209,10 @@ export const setWorkerStatusAtom = atom(
       updatedStatus.isImporting = status;
       if (!status) {
         // Import completed — clear jobs
-        updatedStatus.importing = { active: false, jobs: [] };
+        updatedStatus.importing = { active: false, needs_review: false, jobs: [] };
       } else if (!prevStatus.importing?.active) {
         // New import starting — mark active, keep any jobs from initial RPC
-        updatedStatus.importing = { active: true, jobs: prevStatus.importing?.jobs ?? [] };
+        updatedStatus.importing = { active: true, needs_review: prevStatus.importing?.needs_review ?? false, jobs: prevStatus.importing?.jobs ?? [] };
       }
     } else if (type === 'is_deriving_statistical_units') {
       updatedStatus.isDerivingUnits = status;

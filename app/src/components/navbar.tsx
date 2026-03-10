@@ -202,6 +202,7 @@ function NavLink({
   icon: Icon,
   label,
   isActive,
+  needsAttention,
   isCurrent,
   progressPct,
   popoverContent,
@@ -210,10 +211,25 @@ function NavLink({
   icon: React.ComponentType<{ size: number }>;
   label: string;
   isActive: boolean | null;
+  needsAttention?: boolean;
   isCurrent: boolean;
   progressPct: number | null;
   popoverContent: React.ReactNode | null;
 }) {
+  const borderColor = needsAttention
+    ? "border-amber-400"
+    : isActive
+      ? "border-yellow-400"
+      : isCurrent
+        ? "border-white"
+        : "border-transparent";
+
+  const infoColor = needsAttention
+    ? "text-amber-400 hover:bg-white/20"
+    : isActive
+      ? "text-yellow-400 hover:bg-white/20"
+      : "invisible";
+
   return (
     <div className="relative hidden lg:flex items-center">
       <Link
@@ -222,18 +238,17 @@ function NavLink({
           buttonVariants({ variant: "ghost", size: "sm" }),
           "space-x-2 relative overflow-hidden",
           "border-1",
-          isActive
-            ? "border-yellow-400"
-            : isCurrent
-              ? "border-white"
-              : "border-transparent"
+          borderColor,
+          needsAttention && "animate-pulse"
         )}
         style={
-          isActive && progressPct !== null
-            ? {
-                backgroundImage: `linear-gradient(to right, rgba(250, 204, 21, 0.25) ${progressPct}%, transparent ${progressPct}%)`,
-              }
-            : undefined
+          needsAttention
+            ? { backgroundColor: "rgba(245, 158, 11, 0.2)" }
+            : isActive && progressPct !== null
+              ? {
+                  backgroundImage: `linear-gradient(to right, rgba(250, 204, 21, 0.25) ${progressPct}%, transparent ${progressPct}%)`,
+                }
+              : undefined
         }
       >
         <Icon size={16} />
@@ -245,9 +260,7 @@ function NavLink({
             <button
               className={cn(
                 "ml-0.5 p-0.5 rounded",
-                isActive
-                  ? "text-yellow-400 hover:bg-white/20"
-                  : "invisible"
+                infoColor
               )}
               aria-label={`${label} progress details`}
             >
@@ -255,7 +268,7 @@ function NavLink({
             </button>
           </PopoverTrigger>
           <PopoverContent className="w-80">
-            <h4 className="font-medium mb-2 text-sm">{label} Progress</h4>
+            <h4 className="font-medium mb-2 text-sm">{needsAttention ? `${label} — Action Needed` : `${label} Progress`}</h4>
             {popoverContent}
           </PopoverContent>
         </Popover>
@@ -334,12 +347,15 @@ export default function Navbar() {
                 icon={Upload}
                 label="Import"
                 isActive={isImporting}
+                needsAttention={importing?.needs_review ?? false}
                 isCurrent={pathname.startsWith("/import")}
                 progressPct={importPct}
                 popoverContent={isImporting
-                  ? (importing?.active && importing.jobs.length > 0
-                    ? <ImportProgressPopover importing={importing} />
-                    : <p className="text-sm text-gray-500">Import is active...</p>)
+                  ? (importing?.needs_review
+                    ? <p className="text-sm text-amber-700">Import needs review — {importing.jobs.filter(j => j.state === 'waiting_for_review').length} job(s) waiting for your approval</p>
+                    : importing?.active && importing.jobs.length > 0
+                      ? <ImportProgressPopover importing={importing} />
+                      : <p className="text-sm text-gray-500">Import is active...</p>)
                   : null}
               />
 

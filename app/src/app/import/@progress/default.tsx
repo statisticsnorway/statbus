@@ -31,6 +31,7 @@ export default function ImportStatus() {
 
   // Determine if any import process is active using workerStatus only
   const isImporting = mounted ? (safeWorkerStatus.isImporting ?? false) : false;
+  const needsReview = mounted ? (safeWorkerStatus.importing?.needs_review ?? false) : false;
   const isDeriving = mounted ?
     ((safeWorkerStatus.isDerivingUnits || safeWorkerStatus.isDerivingReports) ?? false) : false;
 
@@ -95,9 +96,10 @@ export default function ImportStatus() {
               done={false}
               title="View Jobs"
               href="/import/jobs"
-              subtitle="Monitor ongoing imports"
+              subtitle={needsReview ? "Review needed" : "Monitor ongoing imports"}
               icon={<FileText className="w-4 h-4" />}
-              processing={isImporting}
+              processing={isImporting && !needsReview}
+              needsAttention={needsReview}
             />
           </li>
           <li className="mb-6">
