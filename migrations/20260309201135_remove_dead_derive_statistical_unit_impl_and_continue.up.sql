@@ -119,14 +119,14 @@ BEGIN
 
         INSERT INTO _bridge_groups (enterprise_id, group_id)
         WITH RECURSIVE
+        -- Self-join to enumerate ALL pairs of enterprise_ids per LU.
+        -- MIN/MAX would lose intermediate values when a LU connects 3+ enterprises.
         bridge_edges AS (
-            SELECT
-                MIN(enterprise_id) AS en_a,
-                MAX(enterprise_id) AS en_b
-            FROM public.legal_unit
-            WHERE enterprise_id IS NOT NULL
-            GROUP BY id
-            HAVING MIN(enterprise_id) <> MAX(enterprise_id)
+            SELECT DISTINCT a.enterprise_id AS en_a, b.enterprise_id AS en_b
+            FROM public.legal_unit AS a
+            JOIN public.legal_unit AS b ON a.id = b.id
+            WHERE a.enterprise_id IS NOT NULL AND b.enterprise_id IS NOT NULL
+              AND a.enterprise_id < b.enterprise_id
         ),
         all_edges AS (
             SELECT en_a, en_b FROM bridge_edges
