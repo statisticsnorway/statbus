@@ -305,6 +305,7 @@ export default function ImportJobsPage() {
     {
       id: 'id',
       accessorKey: 'id',
+      minSize: 50,
       header: ({ column }) => <DataTableColumnHeader column={column} title="ID" />,
       cell: ({ row }) => {
         const job = row.original;
@@ -344,6 +345,7 @@ export default function ImportJobsPage() {
     {
       id: 'state',
       accessorKey: 'state',
+      minSize: 140,
       header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
       cell: ({ row }) => {
         const job = row.original;
@@ -421,6 +423,7 @@ export default function ImportJobsPage() {
     {
       id: 'analysed',
       header: 'Analysis',
+      minSize: 160,
       cell: ({ row }) => {
         const { total_rows, analysis_completed_pct, state, current_step_code, definition_snapshot, slug, error_count, warning_count } = row.original;
         if (total_rows === null || total_rows === undefined) {
@@ -452,7 +455,7 @@ export default function ImportJobsPage() {
         const isAnalysisComplete = analysis_completed_pct === 100;
 
         return (
-          <div className="min-w-32 space-y-1">
+          <div className="space-y-1">
             {isAnalysisComplete && (() => {
               const err = error_count ?? 0;
               const warn = warning_count ?? 0;
@@ -487,6 +490,7 @@ export default function ImportJobsPage() {
     {
       id: 'analysis_speed',
       header: 'Analysis (r/s)',
+      minSize: 90,
       accessorKey: 'analysis_rows_per_sec',
       cell: ({ row }) => {
         const { analysis_rows_per_sec: speed, analysis_start_at, analysis_stop_at, analysis_completed_pct, state } = row.original;
@@ -535,6 +539,7 @@ export default function ImportJobsPage() {
     {
       id: 'processed',
       header: 'Processed',
+      minSize: 120,
       cell: ({ row }) => {
         const { imported_rows, total_rows, slug, import_completed_pct, state, error_count } = row.original;
         if (total_rows === null || total_rows === undefined) {
@@ -556,7 +561,7 @@ export default function ImportJobsPage() {
         const processableRows = total_rows - (error_count ?? 0);
 
         return (
-          <Link href={`/import/jobs/${slug}/data`} className="min-w-24 block">
+          <Link href={`/import/jobs/${slug}/data`} className="block">
             {showProgress && (
               <div className="flex items-center space-x-2">
                 <Progress value={import_completed_pct ?? 0} className="h-1.5 flex-grow" />
@@ -576,6 +581,7 @@ export default function ImportJobsPage() {
     {
       id: 'processing_speed',
       header: 'Processing (r/s)',
+      minSize: 90,
       accessorKey: 'import_rows_per_sec',
       cell: ({ row }) => {
         const { import_rows_per_sec: speed, total_rows, imported_rows, state, processing_start_at, processing_stop_at } = row.original;
@@ -624,6 +630,7 @@ export default function ImportJobsPage() {
       },
       {
         id: "created_at",
+        minSize: 100,
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title="Created" />
         ),
