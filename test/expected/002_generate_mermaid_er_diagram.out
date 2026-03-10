@@ -325,6 +325,8 @@ erDiagram
 		timestamp_with_time_zone expires_at
 		integer definition_id
 		integer user_id
+		integer error_count
+		integer warning_count
 	}
 	import_mapping["import_mapping"] {
 		integer id

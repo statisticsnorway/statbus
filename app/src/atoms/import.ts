@@ -91,7 +91,7 @@ export interface ImportState {
   availableDefinitions: Tables<'import_definition'>[];
   explicitStartDate: string | null; // YYYY-MM-DD
   explicitEndDate: string | null;   // YYYY-MM-DD
-  review: boolean;
+  review: boolean | null;
 }
 
 export const initialImportState: ImportState = {
@@ -106,7 +106,7 @@ export const initialImportState: ImportState = {
   availableDefinitions: [],
   explicitStartDate: null,
   explicitEndDate: null,
-  review: false,
+  review: null,
 };
 
 export const importStateAtom = atom<ImportState>(initialImportState)
@@ -289,7 +289,7 @@ export const setImportExplicitEndDateAtom = atom(
 
 export const setImportReviewAtom = atom(
   null,
-  (get, set, review: boolean) => {
+  (get, set, review: boolean | null) => {
     set(importStateAtom, (prev) => ({ ...prev, review }));
   }
 );
@@ -511,7 +511,7 @@ export const useImportManager = () => {
     doSetSelectedDefinition(definition);
   }, [doSetSelectedDefinition]);
 
-  const setReview = useCallback((review: boolean) => {
+  const setReview = useCallback((review: boolean | null) => {
     doSetReview(review);
   }, [doSetReview]);
 

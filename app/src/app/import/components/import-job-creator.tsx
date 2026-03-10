@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useImportManager, ImportMode } from "@/atoms/import"; // Updated import
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface ImportJobCreatorProps {
   importMode: ImportMode;
@@ -75,14 +75,26 @@ export function ImportJobCreator({ importMode, uploadPath, unitType, onJobCreate
       )}
 
       <div className="flex items-center space-x-2 mb-4">
-        <Checkbox
-          id="review-before-processing"
-          checked={importState.review}
-          onCheckedChange={(checked) => setReview(checked === true)}
-        />
-        <label htmlFor="review-before-processing" className="text-sm cursor-pointer">
-          Review before processing
+        <label htmlFor="review-mode" className="text-sm">
+          Review mode
         </label>
+        <Select
+          value={importState.review === null ? "auto" : importState.review ? "always" : "never"}
+          onValueChange={(value) => {
+            if (value === "auto") setReview(null);
+            else if (value === "always") setReview(true);
+            else setReview(false);
+          }}
+        >
+          <SelectTrigger id="review-mode" className="w-48">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="auto">Review if errors</SelectItem>
+            <SelectItem value="always">Always review</SelectItem>
+            <SelectItem value="never">Never review</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <Button
