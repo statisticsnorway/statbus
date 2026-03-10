@@ -1,0 +1,93 @@
+BEGIN;
+
+CREATE OR REPLACE FUNCTION admin.import_job_state_change_before()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+    v_timestamp TIMESTAMPTZ := now();
+    v_row_count INTEGER;
+BEGIN
+    -- Record timestamps for state changes if not already recorded
+    IF NEW.state = 'preparing_data' AND NEW.preparing_data_at IS NULL THEN
+        NEW.preparing_data_at := v_timestamp;
+    END IF;
+
+    IF NEW.state = 'analysing_data' AND NEW.analysis_start_at IS NULL THEN
+        NEW.analysis_start_at := v_timestamp;
+    END IF;
+
+    -- Set stop timestamps when transitioning *out* of a processing state
+    IF OLD.state = 'analysing_data' AND NEW.state != OLD.state AND NEW.analysis_stop_at IS NULL THEN
+        NEW.analysis_stop_at := v_timestamp;
+        -- Compute final analysis speed here, since the progress trigger won't fire
+        -- (it watches UPDATE OF analysis_stop_at, but this is a BEFORE trigger on UPDATE OF state)
+        IF NEW.analysis_start_at IS NOT NULL AND NEW.total_rows > 0 THEN
+            NEW.analysis_rows_per_sec := CASE
+                WHEN EXTRACT(EPOCH FROM (NEW.analysis_stop_at - NEW.analysis_start_at)) <= 0 THEN 0
+                ELSE ROUND((NEW.total_rows::numeric / EXTRACT(EPOCH FROM (NEW.analysis_stop_at - NEW.analysis_start_at))), 2)
+            END;
+        END IF;
+    END IF;
+
+    IF OLD.state = 'processing_data' AND NEW.state != OLD.state AND NEW.processing_stop_at IS NULL THEN
+        NEW.processing_stop_at := v_timestamp;
+        -- Compute final processing speed here for the same reason
+        IF NEW.processing_start_at IS NOT NULL AND NEW.imported_rows > 0 THEN
+            NEW.import_rows_per_sec := CASE
+                WHEN EXTRACT(EPOCH FROM (NEW.processing_stop_at - NEW.processing_start_at)) <= 0 THEN 0
+                ELSE ROUND((NEW.imported_rows::numeric / EXTRACT(EPOCH FROM (NEW.processing_stop_at - NEW.processing_start_at))), 2)
+            END;
+        END IF;
+    END IF;
+
+    -- Record timestamps for approval/rejection states
+    IF NEW.state = 'approved' AND NEW.changes_approved_at IS NULL THEN
+        NEW.changes_approved_at := v_timestamp;
+    END IF;
+
+    IF NEW.state = 'rejected' AND NEW.changes_rejected_at IS NULL THEN
+        NEW.changes_rejected_at := v_timestamp;
+    END IF;
+
+    -- When a job is finished, waiting, or rejected, it is no longer actively processing a step.
+    -- Clear the current step tracking fields.
+    IF NEW.state IN ('waiting_for_review', 'finished', 'rejected') THEN
+        NEW.current_step_code := NULL;
+        NEW.current_step_priority := NULL;
+
+        -- When a job is finished or rejected, it's done. The performance index will be dropped with the table.
+        IF NEW.state IN ('finished', 'rejected') THEN
+            RAISE DEBUG '[Job %] State is now %, performance index will be dropped with table.', NEW.id, NEW.state;
+        END IF;
+    END IF;
+
+    -- Record start timestamp for processing_data state
+    IF NEW.state = 'processing_data' AND NEW.processing_start_at IS NULL THEN
+        NEW.processing_start_at := v_timestamp;
+    END IF;
+
+    -- Derive total_rows when state changes from waiting_for_upload to upload_completed
+    IF OLD.state = 'waiting_for_upload' AND NEW.state = 'upload_completed' THEN
+        -- Count rows in the upload table
+        EXECUTE format('SELECT COUNT(*) FROM public.%I', NEW.upload_table_name) INTO v_row_count;
+        NEW.total_rows := v_row_count;
+
+        -- Calculate total weighted steps now that total_rows is known
+        IF NEW.max_analysis_priority IS NOT NULL AND v_row_count > 0 THEN
+            NEW.total_analysis_steps_weighted := v_row_count * NEW.max_analysis_priority;
+        END IF;
+
+        -- Set priority using the dedicated sequence
+        -- Lower values = higher priority, so earlier jobs get lower sequence values
+        -- This ensures jobs are processed in the order they were created
+        NEW.priority := nextval('public.import_job_priority_seq')::integer;
+
+        RAISE DEBUG 'Set total_rows to % and calculated total weighted steps for import job %', v_row_count, NEW.id;
+    END IF;
+
+    RETURN NEW;
+END;
+$function$;
+
+END;
