@@ -94,12 +94,12 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 
 \echo "Checking import job statuses for Phase 1"
 "Checking import job statuses for Phase 1"
-SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug LIKE 'import_314_%_p1' ORDER BY slug;
-           slug           |  state   | time_context_ident | total_rows | imported_rows | has_error 
---------------------------+----------+--------------------+------------+---------------+-----------
- import_314_esflu_curr_p1 | finished | r_year_curr        |         25 |            25 | f
- import_314_eswlu_curr_p1 | finished | r_year_curr        |         25 |            25 | f
- import_314_lu_curr_p1    | finished | r_year_curr        |         23 |            23 | f
+SELECT slug, state, time_context_ident, total_rows, imported_rows, error_count, error IS NOT NULL AS has_error FROM public.import_job WHERE slug LIKE 'import_314_%_p1' ORDER BY slug;
+           slug           |  state   | time_context_ident | total_rows | imported_rows | error_count | has_error 
+--------------------------+----------+--------------------+------------+---------------+-------------+-----------
+ import_314_esflu_curr_p1 | finished | r_year_curr        |         25 |            25 |           0 | f
+ import_314_eswlu_curr_p1 | finished | r_year_curr        |         25 |            25 |           0 | f
+ import_314_lu_curr_p1    | finished | r_year_curr        |         23 |            23 |           0 | f
 (3 rows)
 
 \echo "Unit counts after Phase 1"
@@ -145,15 +145,17 @@ SELECT
     import_completed_pct,
     total_rows,
     imported_rows,
+    error_count,
     jsonb_pretty(error::jsonb) AS error
 FROM public.import_job WHERE slug = 'import_314_lu_wsd_p2';
 -[ RECORD 1 ]----------+---------------------
 slug                   | import_314_lu_wsd_p2
 state                  | finished
 analysis_completed_pct | 100.00
-import_completed_pct   | 82.89
+import_completed_pct   | 100.00
 total_rows             | 76
 imported_rows          | 63
+error_count            | 13
 error                  | 
 
 \x
@@ -305,15 +307,17 @@ SELECT
     import_completed_pct,
     total_rows,
     imported_rows,
+    error_count,
     jsonb_pretty(error::jsonb) AS error
 FROM public.import_job WHERE slug = 'import_314_esflu_wsd_p2';
 -[ RECORD 1 ]----------+------------------------
 slug                   | import_314_esflu_wsd_p2
 state                  | finished
 analysis_completed_pct | 100.00
-import_completed_pct   | 0.00
+import_completed_pct   | 100.00
 total_rows             | 26
 imported_rows          | 0
+error_count            | 26
 error                  | 
 
 \x
@@ -581,15 +585,17 @@ SELECT
     import_completed_pct,
     total_rows,
     imported_rows,
-    error
+    error_count,
+    jsonb_pretty(error::jsonb) AS error
 FROM public.import_job WHERE slug = 'import_314_eswlu_wsd_p2';
 -[ RECORD 1 ]----------+------------------------
 slug                   | import_314_eswlu_wsd_p2
 state                  | finished
 analysis_completed_pct | 100.00
-import_completed_pct   | 0.00
+import_completed_pct   | 100.00
 total_rows             | 12
 imported_rows          | 0
+error_count            | 12
 error                  | 
 
 \x
@@ -727,6 +733,7 @@ SELECT
     import_completed_pct,
     total_rows,
     imported_rows,
+    error_count,
     jsonb_pretty(error::jsonb) AS error
 FROM public.import_job
 WHERE slug LIKE 'import_314_%'
@@ -740,6 +747,7 @@ total_analysis_steps_weighted     | 2500
 import_completed_pct              | 100.00
 total_rows                        | 25
 imported_rows                     | 25
+error_count                       | 0
 error                             | 
 -[ RECORD 2 ]---------------------+-------------------------
 slug                              | import_314_esflu_wsd_p2
@@ -747,9 +755,10 @@ state                             | finished
 analysis_completed_pct            | 100.00
 completed_analysis_steps_weighted | 2600
 total_analysis_steps_weighted     | 2600
-import_completed_pct              | 0.00
+import_completed_pct              | 100.00
 total_rows                        | 26
 imported_rows                     | 0
+error_count                       | 26
 error                             | 
 -[ RECORD 3 ]---------------------+-------------------------
 slug                              | import_314_eswlu_curr_p1
@@ -760,6 +769,7 @@ total_analysis_steps_weighted     | 2500
 import_completed_pct              | 100.00
 total_rows                        | 25
 imported_rows                     | 25
+error_count                       | 0
 error                             | 
 -[ RECORD 4 ]---------------------+-------------------------
 slug                              | import_314_eswlu_wsd_p2
@@ -767,9 +777,10 @@ state                             | finished
 analysis_completed_pct            | 100.00
 completed_analysis_steps_weighted | 1200
 total_analysis_steps_weighted     | 1200
-import_completed_pct              | 0.00
+import_completed_pct              | 100.00
 total_rows                        | 12
 imported_rows                     | 0
+error_count                       | 12
 error                             | 
 -[ RECORD 5 ]---------------------+-------------------------
 slug                              | import_314_lu_curr_p1
@@ -780,6 +791,7 @@ total_analysis_steps_weighted     | 2300
 import_completed_pct              | 100.00
 total_rows                        | 23
 imported_rows                     | 23
+error_count                       | 0
 error                             | 
 -[ RECORD 6 ]---------------------+-------------------------
 slug                              | import_314_lu_wsd_p2
@@ -787,9 +799,10 @@ state                             | finished
 analysis_completed_pct            | 100.00
 completed_analysis_steps_weighted | 7600
 total_analysis_steps_weighted     | 7600
-import_completed_pct              | 82.89
+import_completed_pct              | 100.00
 total_rows                        | 76
 imported_rows                     | 63
+error_count                       | 13
 error                             | 
 
 \x

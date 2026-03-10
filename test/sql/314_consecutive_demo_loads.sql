@@ -60,7 +60,7 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Checking import job statuses for Phase 1"
-SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug LIKE 'import_314_%_p1' ORDER BY slug;
+SELECT slug, state, time_context_ident, total_rows, imported_rows, error_count, error IS NOT NULL AS has_error FROM public.import_job WHERE slug LIKE 'import_314_%_p1' ORDER BY slug;
 
 \echo "Unit counts after Phase 1"
 SELECT
@@ -95,6 +95,7 @@ SELECT
     import_completed_pct,
     total_rows,
     imported_rows,
+    error_count,
     jsonb_pretty(error::jsonb) AS error
 FROM public.import_job WHERE slug = 'import_314_lu_wsd_p2';
 \x
@@ -127,6 +128,7 @@ SELECT
     import_completed_pct,
     total_rows,
     imported_rows,
+    error_count,
     jsonb_pretty(error::jsonb) AS error
 FROM public.import_job WHERE slug = 'import_314_esflu_wsd_p2';
 \x
@@ -158,7 +160,8 @@ SELECT
     import_completed_pct,
     total_rows,
     imported_rows,
-    error
+    error_count,
+    jsonb_pretty(error::jsonb) AS error
 FROM public.import_job WHERE slug = 'import_314_eswlu_wsd_p2';
 \x
 
@@ -187,6 +190,7 @@ SELECT
     import_completed_pct,
     total_rows,
     imported_rows,
+    error_count,
     jsonb_pretty(error::jsonb) AS error
 FROM public.import_job
 WHERE slug LIKE 'import_314_%'
