@@ -1452,7 +1452,6 @@ erDiagram
 		text description
 		text queue
 		timestamp_with_time_zone created_at
-		integer batches_per_wave
 		worker_pipeline_phase phase
 		text on_children_created
 		text on_child_completed
