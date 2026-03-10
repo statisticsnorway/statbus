@@ -57,10 +57,10 @@ DO $$
 DECLARE v_definition_id INT;
 BEGIN
     SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
-    INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+    INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
     VALUES (v_definition_id, 'errors_lu_analysis', 'LU Import with Analysis Errors',
             'Demonstrates various hard errors (invalid codes, malformed dates) and soft errors (invalid_codes that fall back to defaults)',
-            'Test 404: Error scenarios for UI review');
+            'Test 404: Error scenarios for UI review', false);
 END $$;
 
 \echo 'Uploading data with various error types...'
@@ -137,16 +137,16 @@ BEGIN
     SELECT id INTO v_es_def_id FROM public.import_definition WHERE slug = 'establishment_for_lu_source_dates';
     
     -- First create some valid LUs for the ES to link to
-    INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+    INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
     VALUES (v_lu_def_id, 'errors_lu_for_es', 'Valid LUs for Establishment Tests',
             'These LUs are created to test establishment linking errors',
-            'Test 404');
+            'Test 404', false);
     
     -- Then create ES job with link errors
-    INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+    INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
     VALUES (v_es_def_id, 'errors_es_formal', 'Formal ES with Link Errors',
             'Demonstrates establishment-to-LU linking errors',
-            'Test 404');
+            'Test 404', false);
 END $$;
 
 -- Upload valid LUs first
@@ -172,10 +172,10 @@ DO $$
 DECLARE v_definition_id INT;
 BEGIN
     SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
-    INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+    INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
     VALUES (v_definition_id, 'errors_lu_missing_ident', 'LU Missing Identifiers',
             'Demonstrates errors when required identifiers are missing',
-            'Test 404');
+            'Test 404', false);
 END $$;
 
 INSERT INTO public.errors_lu_missing_ident_upload(tax_ident, name, valid_from, valid_to, sector_code, legal_form_code, primary_activity_category_code)

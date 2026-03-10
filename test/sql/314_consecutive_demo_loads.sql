@@ -20,38 +20,41 @@ CALL test.set_user_from_email('test.admin@statbus.org');
 \echo "---"
 
 -- Create Import Job for Legal Units (Demo CSV, Block 1)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_job_provided'),
     'import_314_lu_curr_p1',
     'Import LU Demo CSV B1 (314_consecutive_demo_loads.sql)',
     'Import job for app/public/demo/legal_units_demo.csv using legal_unit_job_provided definition.',
     'Test data load (314_consecutive_demo_loads.sql)',
-    'r_year_curr';
+    'r_year_curr',
+    false;
 \echo "User uploads the sample legal units (via import job: import_314_lu_curr_p1)"
 \copy public.import_314_lu_curr_p1_upload(tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'app/public/demo/legal_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 -- Create Import Job for Formal Establishments (Demo CSV, Block 1)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_job_provided'),
     'import_314_esflu_curr_p1',
     'Import Formal ES Demo CSV B1 (314_consecutive_demo_loads.sql)',
     'Import job for app/public/demo/formal_establishments_units_demo.csv using establishment_for_lu_job_provided definition.',
     'Test data load (314_consecutive_demo_loads.sql)',
-    'r_year_curr';
+    'r_year_curr',
+    false;
 \echo "User uploads the sample formal establishments (via import job: import_314_esflu_curr_p1)"
 \copy public.import_314_esflu_curr_p1_upload(tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code) FROM 'app/public/demo/formal_establishments_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 -- Create Import Job for Informal Establishments (Demo CSV, Block 1)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'establishment_without_lu_job_provided'),
     'import_314_eswlu_curr_p1',
     'Import Informal ES Demo CSV B1 (314_consecutive_demo_loads.sql)',
     'Import job for app/public/demo/informal_establishments_units_demo.csv using establishment_without_lu_job_provided definition.',
     'Test data load (314_consecutive_demo_loads.sql)',
-    'r_year_curr';
+    'r_year_curr',
+    false;
 \echo "User uploads the sample informal establishments (via import job: import_314_eswlu_curr_p1)"
 \copy public.import_314_eswlu_curr_p1_upload(tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code) FROM 'app/public/demo/informal_establishments_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
@@ -74,13 +77,14 @@ SELECT
 \echo "---"
 
 -- Create Import Job for Legal Units (Demo CSV with source dates)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
     'import_314_lu_wsd_p2',
     'Import LU Demo CSV w/ dates (314_consecutive_demo_loads.sql)',
     'Import job for app/public/demo/legal_units_with_source_dates_demo.csv using legal_unit_source_dates definition.',
-    'Test data load (314_consecutive_demo_loads.sql)';
+    'Test data load (314_consecutive_demo_loads.sql)',
+    false;
 \echo "User uploads the sample legal units with source dates (via import job: import_314_lu_wsd_p2)"
 \copy public.import_314_lu_wsd_p2_upload(tax_ident,stat_ident,name,valid_from,physical_address_part1,valid_to,postal_address_part1,postal_address_part2,physical_address_part2,physical_postcode,postal_postcode,physical_address_part3,physical_postplace,postal_address_part3,postal_postplace,phone_number,landline,mobile_number,fax_number,web_address,email_address,secondary_activity_category_code,physical_latitude,physical_longitude,physical_altitude,birth_date,physical_region_code,postal_country_iso_2,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code,status_code,unit_size_code) FROM 'app/public/demo/legal_units_with_source_dates_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
@@ -107,13 +111,14 @@ FROM public.import_314_lu_wsd_p2_data WHERE action = 'skip' OR state = 'error' O
 \x
 
 -- Create Import Job for Formal Establishments (Demo CSV with source dates)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_source_dates'),
     'import_314_esflu_wsd_p2',
     'Import Formal ES Demo CSV w/ dates (314_consecutive_demo_loads.sql)',
     'Import job for app/public/demo/formal_establishments_units_with_source_dates_demo.csv using establishment_for_lu_source_dates definition.',
-    'Test data load (314_consecutive_demo_loads.sql)';
+    'Test data load (314_consecutive_demo_loads.sql)',
+    false;
 \echo "User uploads the sample formal establishments with source dates (via import job: import_314_esflu_wsd_p2)"
 \copy public.import_314_esflu_wsd_p2_upload(tax_ident,stat_ident,name,physical_region_code,valid_from,valid_to,postal_country_iso_2,physical_country_iso_2,primary_activity_category_code,secondary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code,physical_address_part1,physical_address_part2,physical_address_part3,postal_address_part1,postal_address_part2,postal_address_part3,phone_number,mobile_number,landline,fax_number,web_address,email_address,physical_latitude,physical_longitude,physical_altitude,birth_date,unit_size_code,status_code) FROM 'app/public/demo/formal_establishments_units_with_source_dates_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
@@ -139,13 +144,14 @@ SELECT row_id, state, action, operation, legal_unit_id, establishment_id, errors
 \x
 
 -- Create Import Job for Informal Establishments (Demo CSV with source dates)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'establishment_without_lu_source_dates'),
     'import_314_eswlu_wsd_p2',
     'Import Informal ES Demo CSV w/ dates (314_consecutive_demo_loads.sql)',
     'Import job for app/public/demo/informal_establishments_units_with_source_dates_demo.csv using establishment_without_lu_source_dates definition.',
-    'Test data load (314_consecutive_demo_loads.sql)';
+    'Test data load (314_consecutive_demo_loads.sql)',
+    false;
 \echo "User uploads the sample informal establishments with source dates (via import job: import_314_eswlu_wsd_p2)"
 \copy public.import_314_eswlu_wsd_p2_upload(tax_ident,stat_ident,name,physical_region_code,valid_from,valid_to,physical_country_iso_2,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,employees,turnover,data_source_code,physical_address_part1,physical_address_part2,physical_address_part3,postal_address_part1,postal_address_part2,postal_address_part3,phone_number,mobile_number,landline,fax_number,web_address,email_address,unit_size_code,status_code,physical_latitude,physical_longitude,physical_altitude) FROM 'app/public/demo/informal_establishments_units_with_source_dates_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 

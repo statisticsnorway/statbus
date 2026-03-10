@@ -32,8 +32,8 @@ DECLARE v_definition_id INT; v_definition_slug TEXT := 'legal_unit_source_dates'
 BEGIN
     SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = v_definition_slug;
     IF v_definition_id IS NULL THEN RAISE EXCEPTION 'Import definition % not found.', v_definition_slug; END IF;
-    INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
-    VALUES (v_definition_id, 'import_70_01_01_lu_analysis_errors', 'Test 70.1.1: LU Analysis Errors', 'Test 70.1.1');
+    INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review)
+    VALUES (v_definition_id, 'import_70_01_01_lu_analysis_errors', 'Test 70.1.1: LU Analysis Errors', 'Test 70.1.1', false);
 END $$;
 INSERT INTO public.import_70_01_01_lu_analysis_errors_upload(
     tax_ident, name, valid_from, valid_to, sector_code, legal_form_code, primary_activity_category_code, birth_date, death_date,
@@ -112,8 +112,8 @@ DECLARE v_definition_id INT; v_definition_slug TEXT := 'legal_unit_source_dates'
 BEGIN
     SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = v_definition_slug;
     IF v_definition_id IS NULL THEN RAISE EXCEPTION 'Import definition % not found.', v_definition_slug; END IF;
-    INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
-    VALUES (v_definition_id, 'import_70_01_01_lu_status_errors', 'Test 70.1.1: LU Status Errors (No Default)', 'Test 70.1.1');
+    INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review)
+    VALUES (v_definition_id, 'import_70_01_01_lu_status_errors', 'Test 70.1.1: LU Status Errors (No Default)', 'Test 70.1.1', false);
 END $$;
 INSERT INTO public.import_70_01_01_lu_status_errors_upload(
     tax_ident, name, valid_from, valid_to, sector_code, legal_form_code, primary_activity_category_code, birth_date, status_code
@@ -141,8 +141,8 @@ BEGIN
     SELECT id INTO v_es_def_id FROM public.import_definition WHERE slug = 'establishment_for_lu_source_dates';
     IF v_es_def_id IS NULL THEN RAISE EXCEPTION 'Import definition establishment_for_lu_source_dates not found.'; END IF;
 
-    INSERT INTO public.import_job (definition_id, slug, description, edit_comment) VALUES (v_lu_def_id, 'import_70_01_02_lu_for_es', 'Test 70.1.2: Valid LU for ES', 'Test 70.1.2');
-    INSERT INTO public.import_job (definition_id, slug, description, edit_comment) VALUES (v_es_def_id, 'import_70_01_02_es_invalid', 'Test 70.1.2: Formal ES Invalid Codes', 'Test 70.1.2');
+    INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review) VALUES (v_lu_def_id, 'import_70_01_02_lu_for_es', 'Test 70.1.2: Valid LU for ES', 'Test 70.1.2', false);
+    INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review) VALUES (v_es_def_id, 'import_70_01_02_es_invalid', 'Test 70.1.2: Formal ES Invalid Codes', 'Test 70.1.2', false);
 END $$;
 INSERT INTO public.import_70_01_02_lu_for_es_upload(tax_ident,name,valid_from,valid_to,primary_activity_category_code,sector_code,legal_form_code) VALUES
 ('700102001','Valid LU for ES Test','2023-01-01','2023-12-31','01.110','2100','AS');
@@ -161,8 +161,8 @@ DECLARE v_definition_id INT; v_definition_slug TEXT := 'establishment_without_lu
 BEGIN
     SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = v_definition_slug;
     IF v_definition_id IS NULL THEN RAISE EXCEPTION 'Import definition % not found.', v_definition_slug; END IF;
-    INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
-    VALUES (v_definition_id, 'import_70_01_03_es_inf_invalid', 'Test 70.1.3: Informal ES Invalid Codes', 'Test 70.1.3');
+    INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review)
+    VALUES (v_definition_id, 'import_70_01_03_es_inf_invalid', 'Test 70.1.3: Informal ES Invalid Codes', 'Test 70.1.3', false);
 END $$;
 INSERT INTO public.import_70_01_03_es_inf_invalid_upload(tax_ident,name,valid_from,valid_to,primary_activity_category_code) VALUES
 ('E70010301','Informal ES Invalid Activity','2023-01-01','2023-12-31','99.997');
@@ -184,8 +184,8 @@ DECLARE v_definition_id INT; v_definition_slug TEXT := 'legal_unit_source_dates'
 BEGIN
     SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = v_definition_slug;
     IF v_definition_id IS NULL THEN RAISE EXCEPTION 'Import definition % not found.', v_definition_slug; END IF;
-    INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
-    VALUES (v_definition_id, 'import_70_02_01_lu_missing', 'Test 70.2.1: LU Missing Core', 'Test 70.2.1');
+    INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review)
+    VALUES (v_definition_id, 'import_70_02_01_lu_missing', 'Test 70.2.1: LU Missing Core', 'Test 70.2.1', false);
 END $$;
 INSERT INTO public.import_70_02_01_lu_missing_upload(tax_ident,name,valid_from,valid_to,primary_activity_category_code,sector_code,legal_form_code) VALUES
 (NULL,'LU Missing TaxIdent','2023-01-01','2023-12-31','01.110','2100','AS'),
@@ -207,8 +207,8 @@ BEGIN
     SELECT id INTO v_es_def_id FROM public.import_definition WHERE slug = 'establishment_for_lu_source_dates';
     IF v_es_def_id IS NULL THEN RAISE EXCEPTION 'Import definition establishment_for_lu_source_dates not found.'; END IF;
 
-    INSERT INTO public.import_job (definition_id, slug, description, edit_comment) VALUES (v_lu_def_id, 'import_70_02_02_lu_for_es_link', 'Test 70.2.2: Valid LU for ES', 'Test 70.2.2');
-    INSERT INTO public.import_job (definition_id, slug, description, edit_comment) VALUES (v_es_def_id, 'import_70_02_02_es_missing_link', 'Test 70.2.2: Formal ES Missing LU Link', 'Test 70.2.2');
+    INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review) VALUES (v_lu_def_id, 'import_70_02_02_lu_for_es_link', 'Test 70.2.2: Valid LU for ES', 'Test 70.2.2', false);
+    INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review) VALUES (v_es_def_id, 'import_70_02_02_es_missing_link', 'Test 70.2.2: Formal ES Missing LU Link', 'Test 70.2.2', false);
 END $$;
 INSERT INTO public.import_70_02_02_lu_for_es_link_upload(tax_ident,name,valid_from,valid_to,primary_activity_category_code,sector_code,legal_form_code) VALUES
 ('700202001','Valid LU for ES Link Test','2023-01-01','2023-12-31','01.110','2100','AS');
@@ -232,8 +232,8 @@ DECLARE v_definition_id INT; v_definition_slug TEXT := 'establishment_for_lu_sou
 BEGIN
     SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = v_definition_slug;
     IF v_definition_id IS NULL THEN RAISE EXCEPTION 'Import definition % not found.', v_definition_slug; END IF;
-    INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
-    VALUES (v_definition_id, 'import_70_03_01_es_bad_lu_link', 'Test 70.3.1: ES Bad LU Link', 'Test 70.3.1');
+    INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review)
+    VALUES (v_definition_id, 'import_70_03_01_es_bad_lu_link', 'Test 70.3.1: ES Bad LU Link', 'Test 70.3.1', false);
 END $$;
 INSERT INTO public.import_70_03_01_es_bad_lu_link_upload(tax_ident,name,valid_from,valid_to,primary_activity_category_code,legal_unit_tax_ident) VALUES
 ('E70030101','Formal ES Bad LU Link','2023-01-01','2023-12-31','01.110','NON_EXISTENT_LU_TAX_ID');
@@ -272,8 +272,8 @@ DECLARE v_definition_id INT; v_definition_slug TEXT := 'legal_unit_source_dates'
 BEGIN
     SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = v_definition_slug;
     IF v_definition_id IS NULL THEN RAISE EXCEPTION 'Import definition % not found.', v_definition_slug; END IF;
-    INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
-    VALUES (v_definition_id, 'import_70_06_01_lu_empty_name', 'Test 70.6.1: LU Empty Name', 'Test 70.6.1');
+    INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review)
+    VALUES (v_definition_id, 'import_70_06_01_lu_empty_name', 'Test 70.6.1: LU Empty Name', 'Test 70.6.1', false);
 END $$;
 INSERT INTO public.import_70_06_01_lu_empty_name_upload(tax_ident,name,valid_from,valid_to,primary_activity_category_code,sector_code,legal_form_code) VALUES
 ('700601001',NULL,'2023-01-01','2023-12-31','01.110','2100','AS');
@@ -368,8 +368,8 @@ DO $$
 DECLARE v_definition_id INT; v_definition_slug TEXT := 'legal_unit_source_dates';
 BEGIN
     SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = v_definition_slug;
-    INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
-    VALUES (v_definition_id, 'import_70_07_01_lu_idents', 'Test 70.7.1: LU Ident Errors', 'Test 70.7.1');
+    INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review)
+    VALUES (v_definition_id, 'import_70_07_01_lu_idents', 'Test 70.7.1: LU Ident Errors', 'Test 70.7.1', false);
 END $$;
 INSERT INTO public.import_70_07_01_lu_idents_upload(tax_ident, stat_ident, name, valid_from, valid_to, sector_code, legal_form_code, primary_activity_category_code, birth_date, custom_est_ident) VALUES
 (NULL,NULL,'LU NoIdents','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL), -- Error: missing_identifier_value
@@ -390,8 +390,8 @@ DO $$
 DECLARE v_definition_id INT; v_definition_slug TEXT := 'establishment_for_lu_source_dates';
 BEGIN
     SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = v_definition_slug;
-    INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
-    VALUES (v_definition_id, 'import_70_07_02_est_f_idents', 'Test 70.7.2: Formal EST Ident Errors', 'Test 70.7.2');
+    INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review)
+    VALUES (v_definition_id, 'import_70_07_02_est_f_idents', 'Test 70.7.2: Formal EST Ident Errors', 'Test 70.7.2', false);
 END $$;
 INSERT INTO public.import_70_07_02_est_f_idents_upload(tax_ident, name, valid_from, valid_to, primary_activity_category_code, legal_unit_tax_ident) VALUES
 ('EST7071_TAX','ESTF Inconsistent','2023-01-01','2023-12-31','01.110','LU7071_TAX'), -- Error: inconsistent_establishment (EST1 vs EST2) - Note: custom_est_ident 'EST7072_CUSTOM' removed due to upload table structure
@@ -406,8 +406,8 @@ DO $$
 DECLARE v_definition_id INT; v_definition_slug TEXT := 'establishment_without_lu_source_dates';
 BEGIN
     SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = v_definition_slug;
-    INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
-    VALUES (v_definition_id, 'import_70_07_03_est_inf_idents', 'Test 70.7.3: Informal EST Ident Errors', 'Test 70.7.3');
+    INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review)
+    VALUES (v_definition_id, 'import_70_07_03_est_inf_idents', 'Test 70.7.3: Informal EST Ident Errors', 'Test 70.7.3', false);
 END $$;
 INSERT INTO public.import_70_07_03_est_inf_idents_upload(tax_ident, name, valid_from, valid_to, primary_activity_category_code) VALUES
 ('LU7071_TAX','ESTINF CrossType LU','2023-01-01','2023-12-31','01.110'), -- Error: cross-type conflict (tax_ident used by LU1)
@@ -446,8 +446,8 @@ BEGIN
         RAISE NOTICE '  -> No source input data columns found matching "legal_unit_%%" for definition "%".', v_definition_slug;
     END IF;
 
-    INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
-    VALUES (v_definition_id, 'import_70_08_link_est_lu', 'Test 70.8: Link EST to LU Errors', 'Test 70.8');
+    INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review)
+    VALUES (v_definition_id, 'import_70_08_link_est_lu', 'Test 70.8: Link EST to LU Errors', 'Test 70.8', false);
 END $$;
 -- Setup: LU1 (tax_ident='LU7071_TAX', stat_ident='LU7071_STAT'), LU2 (stat_ident='LU7072_STAT') from 70.7 setup are available.
 -- The diagnostic RAISE NOTICE above should confirm that legal_unit_tax_ident and legal_unit_stat_ident are expected source columns.
@@ -477,8 +477,8 @@ BEGIN
 
     -- Test 70.9.1: Create job for 'time_context' definition WITHOUT providing time_context_ident (should fail)
     BEGIN
-        INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
-        VALUES (v_def_context_id, 'import_70_09_01_ctx_missing_ident', 'Test 70.9.1: Missing time_context_ident', 'Test 70.9.1');
+        INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review)
+        VALUES (v_def_context_id, 'import_70_09_01_ctx_missing_ident', 'Test 70.9.1: Missing time_context_ident', 'Test 70.9.1', false);
         RAISE EXCEPTION 'Test 70.9.1 FAILED: Expected INSERT to fail due to missing time_context_ident.';
     EXCEPTION
         WHEN raise_exception THEN
@@ -487,8 +487,8 @@ BEGIN
 
     -- Test 70.9.2: Create job for 'time_context' definition WITH both time_context_ident AND default_valid_from (should fail)
     BEGIN
-        INSERT INTO public.import_job (definition_id, slug, description, edit_comment, time_context_ident, default_valid_from)
-        VALUES (v_def_context_id, 'import_70_09_02_ctx_conflict_from', 'Test 70.9.2: time_context_ident conflicts with default_valid_from', 'Test 70.9.2', 'r_year_curr', '2023-01-01');
+        INSERT INTO public.import_job (definition_id, slug, description, edit_comment, time_context_ident, default_valid_from, review)
+        VALUES (v_def_context_id, 'import_70_09_02_ctx_conflict_from', 'Test 70.9.2: time_context_ident conflicts with default_valid_from', 'Test 70.9.2', 'r_year_curr', '2023-01-01', false);
         RAISE EXCEPTION 'Test 70.9.2 FAILED: Expected INSERT to fail due to conflict between time_context_ident and default_valid_from.';
     EXCEPTION
         WHEN raise_exception THEN
@@ -497,8 +497,8 @@ BEGIN
 
     -- Test 70.9.3: Create job for 'source_columns' definition WITH time_context_ident (should fail)
     BEGIN
-        INSERT INTO public.import_job (definition_id, slug, description, edit_comment, time_context_ident)
-        VALUES (v_def_source_id, 'import_70_09_03_source_conflict_ctx', 'Test 70.9.3: time_context_ident with source_columns definition', 'Test 70.9.3', 'r_year_curr');
+        INSERT INTO public.import_job (definition_id, slug, description, edit_comment, time_context_ident, review)
+        VALUES (v_def_source_id, 'import_70_09_03_source_conflict_ctx', 'Test 70.9.3: time_context_ident with source_columns definition', 'Test 70.9.3', 'r_year_curr', false);
         RAISE EXCEPTION 'Test 70.9.3 FAILED: Expected INSERT to fail due to providing time_context_ident for a source_columns definition.';
     EXCEPTION
         WHEN raise_exception THEN
@@ -507,8 +507,8 @@ BEGIN
 
     -- Test 70.9.4: Job for 'source_columns' definition with default_valid_from/to (should fail)
     BEGIN
-        INSERT INTO public.import_job (definition_id, slug, description, edit_comment, default_valid_from, default_valid_to)
-        VALUES (v_def_source_id, 'import_70_09_04_job_inv_period', 'Test 70.9.4: Job with default_valid_from/to for source_columns def', 'Test 70.9.4', '2024-01-01', '2023-12-31');
+        INSERT INTO public.import_job (definition_id, slug, description, edit_comment, default_valid_from, default_valid_to, review)
+        VALUES (v_def_source_id, 'import_70_09_04_job_inv_period', 'Test 70.9.4: Job with default_valid_from/to for source_columns def', 'Test 70.9.4', '2024-01-01', '2023-12-31', false);
         RAISE EXCEPTION 'Test 70.9.4 FAILED: Expected INSERT to fail due to providing default dates for a source_columns definition.';
     EXCEPTION
         WHEN raise_exception THEN -- The trigger should raise an exception
@@ -520,8 +520,8 @@ BEGIN
 
     -- Test 70.9.5: Job for 'source_columns' definition with default_valid_from/to (should fail)
     BEGIN
-        INSERT INTO public.import_job (definition_id, slug, description, edit_comment, default_valid_from, default_valid_to)
-        VALUES (v_def_source_id, 'import_70_09_05_job_from_null_to', 'Test 70.9.5: Job with default_valid_from for source_columns def', 'Test 70.9.5', '2023-01-01', NULL);
+        INSERT INTO public.import_job (definition_id, slug, description, edit_comment, default_valid_from, default_valid_to, review)
+        VALUES (v_def_source_id, 'import_70_09_05_job_from_null_to', 'Test 70.9.5: Job with default_valid_from for source_columns def', 'Test 70.9.5', '2023-01-01', NULL, false);
         RAISE EXCEPTION 'Test 70.9.5 FAILED: Expected INSERT to fail due to providing default dates for a source_columns definition.';
     EXCEPTION
         WHEN raise_exception THEN -- The trigger should raise an exception
@@ -533,8 +533,8 @@ BEGIN
 
     -- Test 70.9.6: Job for 'source_columns' definition with default_valid_from/to (should fail)
     BEGIN
-        INSERT INTO public.import_job (definition_id, slug, description, edit_comment, default_valid_from, default_valid_to)
-        VALUES (v_def_source_id, 'import_70_09_06_job_null_from_to', 'Test 70.9.6: Job with default_valid_to for source_columns def', 'Test 70.9.6', NULL, '2023-12-31');
+        INSERT INTO public.import_job (definition_id, slug, description, edit_comment, default_valid_from, default_valid_to, review)
+        VALUES (v_def_source_id, 'import_70_09_06_job_null_from_to', 'Test 70.9.6: Job with default_valid_to for source_columns def', 'Test 70.9.6', NULL, '2023-12-31', false);
         RAISE EXCEPTION 'Test 70.9.6 FAILED: Expected INSERT to fail due to providing default dates for a source_columns definition.';
     EXCEPTION
         WHEN raise_exception THEN -- The trigger should raise an exception

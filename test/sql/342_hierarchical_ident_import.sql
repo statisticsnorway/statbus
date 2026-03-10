@@ -69,13 +69,14 @@ WHERE ist.code = 'external_idents'
 -- The columns are already generated from Test 342.1
 
 -- Create import job
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
     'import_342_02_hier_lu',
     'Test 342-02: LU with Hierarchical Ident',
     'Importing LU with surveyor hierarchical identifier.',
-    'Test 342';
+    'Test 342',
+    false;
 
 -- Verify the upload table has the hierarchical columns
 \echo "Verifying upload table has hierarchical columns:"
@@ -144,13 +145,14 @@ WHERE eit.code = 'surveyor_ident';
 \echo "=============================================================="
 
 -- Create import job for partial test
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
     'import_342_03_partial',
     'Test 342-03: Partial Hierarchical Ident',
     'Testing partial hierarchical identifier (should error).',
-    'Test 342';
+    'Test 342',
+    false;
 
 -- Insert data with PARTIAL hierarchical components (missing seq)
 INSERT INTO public.import_342_03_partial_upload(
@@ -191,13 +193,14 @@ WHERE ei.ident = '342030001';
 \echo "=============================================================="
 
 -- Create import job for invalid chars test
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
     'import_342_04_invalid',
     'Test 342-04: Invalid ltree chars',
     'Testing invalid ltree characters (should error).',
-    'Test 342';
+    'Test 342',
+    false;
 
 -- Insert data with invalid characters in hierarchical component (dots are invalid)
 INSERT INTO public.import_342_04_invalid_upload(
@@ -232,13 +235,14 @@ FROM public.import_342_04_invalid_data;
 \echo "=============================================================="
 
 -- Create import job for mixed test
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
     'import_342_05_mixed',
     'Test 342-05: Mixed Regular and Hierarchical',
     'Importing with both tax_ident (regular) and surveyor_ident (hierarchical).',
-    'Test 342';
+    'Test 342',
+    false;
 
 -- Insert multiple rows with both regular and hierarchical identifiers
 INSERT INTO public.import_342_05_mixed_upload(
@@ -311,13 +315,14 @@ ORDER BY lu.name, eit.code;
 \echo "=============================================================="
 
 -- Create import job for duplicate test
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
     'import_342_06_dupes',
     'Test 342-06: Duplicate Hierarchical Idents',
     'Testing duplicate hierarchical identifier detection.',
-    'Test 342';
+    'Test 342',
+    false;
 
 -- Insert two rows with the SAME hierarchical identifier (should error - duplicates)
 INSERT INTO public.import_342_06_dupes_upload(
@@ -374,13 +379,14 @@ WHERE ist.code = 'external_idents'
 ORDER BY idc.priority;
 
 -- Create import job for 2-level test
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
     'import_342_07_twolevel',
     'Test 342-07: Two-Level Hierarchical',
     'Testing 2-level hierarchical identifier.',
-    'Test 342';
+    'Test 342',
+    false;
 
 -- Insert data with 2-level hierarchical identifier
 INSERT INTO public.import_342_07_twolevel_upload(

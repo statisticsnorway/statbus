@@ -36,13 +36,14 @@ DO UPDATE SET
 -- The demo data uses data sources that are part of the core database seed.
 -- This file is included for structural consistency with other sample data sets.
 -- Create Import Job for Legal Units (Demo CSV with source dates)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
     'import_311_lu_wsd',
     'Import LU Demo CSV w/ dates (311_partial_update_with_regular_import.sql)',
     'Import job for app/public/demo/legal_units_with_source_dates_demo.csv using legal_unit_source_dates definition.',
-    'Test data load (311_partial_update_with_regular_import.sql)';
+    'Test data load (311_partial_update_with_regular_import.sql)',
+    false;
 \echo "User uploads the sample legal units with source dates (via import job: import_311_lu_wsd)"
 "User uploads the sample legal units with source dates (via import job: import_311_lu_wsd)"
 \copy public.import_311_lu_wsd_upload(tax_ident,stat_ident,name,valid_from,physical_address_part1,valid_to,postal_address_part1,postal_address_part2,physical_address_part2,physical_postcode,postal_postcode,physical_address_part3,physical_postplace,postal_address_part3,postal_postplace,phone_number,landline,mobile_number,fax_number,web_address,email_address,secondary_activity_category_code,physical_latitude,physical_longitude,physical_altitude,birth_date,physical_region_code,postal_country_iso_2,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code,status_code,unit_size_code) FROM 'app/public/demo/legal_units_with_source_dates_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
@@ -114,13 +115,14 @@ ORDER BY lu_map.stat_ident::int, sd.code, sfu.valid_from;
 \x auto
 \echo "Create Import Job for Partial Legal Unit Update using a REGULAR import definition"
 "Create Import Job for Partial Legal Unit Update using a REGULAR import definition"
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
     'import_311_lu_partial_update',
     'Import LU Partial Update (311_partial_update_with_regular_import.sql)',
     'Import job for app/public/demo/legal_units_turnover_update.csv using a REGULAR definition (legal_unit_source_dates), not a stats update one.',
-    'Test data load (311_partial_update_with_regular_import.sql)';
+    'Test data load (311_partial_update_with_regular_import.sql)',
+    false;
 \echo "User uploads the legal units turnover update file to a regular import job (import_311_lu_partial_update)"
 "User uploads the legal units turnover update file to a regular import job (import_311_lu_partial_update)"
 \copy public.import_311_lu_partial_update_upload(tax_ident,stat_ident,turnover,valid_from,valid_to) FROM 'app/public/demo/legal_units_turnover_update_with_source_dates.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);

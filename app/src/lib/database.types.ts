@@ -1278,7 +1278,7 @@ export type Database = {
           processing_batch_size: number
           processing_start_at: string | null
           processing_stop_at: string | null
-          review: boolean
+          review: boolean | null
           slug: string
           state: Database["public"]["Enums"]["import_job_state"]
           time_context_ident: string | null
@@ -1324,7 +1324,7 @@ export type Database = {
           processing_batch_size?: number
           processing_start_at?: string | null
           processing_stop_at?: string | null
-          review?: boolean
+          review?: boolean | null
           slug: string
           state?: Database["public"]["Enums"]["import_job_state"]
           time_context_ident?: string | null
@@ -1370,7 +1370,7 @@ export type Database = {
           processing_batch_size?: number
           processing_start_at?: string | null
           processing_stop_at?: string | null
-          review?: boolean
+          review?: boolean | null
           slug?: string
           state?: Database["public"]["Enums"]["import_job_state"]
           time_context_ident?: string | null

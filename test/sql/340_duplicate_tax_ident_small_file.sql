@@ -17,14 +17,15 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
 
 -- Create Import Job for Legal Units
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_job_provided'),
     'import_340_lu_idents',
     'Import Legal Units Duplicate Idents (340_duplicate_tax_ident_small_file.sql)',
     'Import job for legal units from test/data/340_duplicate_tax_ident_small_file.csv using legal_unit_job_provided definition.',
     'Test data load (340_duplicate_tax_ident_small_file.sql)',
-    'r_year_curr';
+    'r_year_curr',
+    false;
 
 \echo "User uploads the legal units over time (via import job: import_340_lu_idents)"
 \copy public.import_340_lu_idents_upload(name,stat_ident,tax_ident) FROM 'test/data/340_duplicate_tax_ident_small_file.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);

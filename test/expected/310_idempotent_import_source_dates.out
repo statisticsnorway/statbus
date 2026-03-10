@@ -68,35 +68,38 @@ SELECT slug, name, valid_time_from FROM public.import_definition WHERE valid_tim
 (6 rows)
 
 -- Create Import Job for Legal Units (Demo CSV with source dates)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
     'import_310_lu_wsd',
     'Import LU Demo CSV w/ dates (310_idempotent_import_source_dates.sql)',
     'Import job for app/public/demo/legal_units_with_source_dates_demo.csv using legal_unit_source_dates definition.',
-    'Test data load (310_idempotent_import_source_dates.sql)';
+    'Test data load (310_idempotent_import_source_dates.sql)',
+    false;
 \echo "User uploads the sample legal units with source dates (via import job: import_310_lu_wsd)"
 "User uploads the sample legal units with source dates (via import job: import_310_lu_wsd)"
 \copy public.import_310_lu_wsd_upload(tax_ident,stat_ident,name,valid_from,physical_address_part1,valid_to,postal_address_part1,postal_address_part2,physical_address_part2,physical_postcode,postal_postcode,physical_address_part3,physical_postplace,postal_address_part3,postal_postplace,phone_number,landline,mobile_number,fax_number,web_address,email_address,secondary_activity_category_code,physical_latitude,physical_longitude,physical_altitude,birth_date,physical_region_code,postal_country_iso_2,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code,status_code,unit_size_code) FROM 'app/public/demo/legal_units_with_source_dates_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 -- Create Import Job for Formal Establishments (Demo CSV with source dates)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_source_dates'),
     'import_310_esflu_wsd',
     'Import Formal ES Demo CSV w/ dates (310_idempotent_import_source_dates.sql)',
     'Import job for app/public/demo/formal_establishments_units_with_source_dates_demo.csv using establishment_for_lu_source_dates definition.',
-    'Test data load (310_idempotent_import_source_dates.sql)';
+    'Test data load (310_idempotent_import_source_dates.sql)',
+    false;
 \echo "User uploads the sample formal establishments with source dates (via import job: import_310_esflu_wsd)"
 "User uploads the sample formal establishments with source dates (via import job: import_310_esflu_wsd)"
 \copy public.import_310_esflu_wsd_upload(tax_ident,stat_ident,name,physical_region_code,valid_from,valid_to,postal_country_iso_2,physical_country_iso_2,primary_activity_category_code,secondary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code,physical_address_part1,physical_address_part2,physical_address_part3,postal_address_part1,postal_address_part2,postal_address_part3,phone_number,mobile_number,landline,fax_number,web_address,email_address,physical_latitude,physical_longitude,physical_altitude,birth_date,unit_size_code,status_code) FROM 'app/public/demo/formal_establishments_units_with_source_dates_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 -- Create Import Job for Informal Establishments (Demo CSV with source dates)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'establishment_without_lu_source_dates'),
     'import_310_eswlu_wsd',
     'Import Informal ES Demo CSV w/ dates (310_idempotent_import_source_dates.sql)',
     'Import job for app/public/demo/informal_establishments_units_with_source_dates_demo.csv using establishment_without_lu_source_dates definition.',
-    'Test data load (310_idempotent_import_source_dates.sql)';
+    'Test data load (310_idempotent_import_source_dates.sql)',
+    false;
 \echo "User uploads the sample informal establishments with source dates (via import job: import_310_eswlu_wsd)"
 "User uploads the sample informal establishments with source dates (via import job: import_310_eswlu_wsd)"
 \copy public.import_310_eswlu_wsd_upload(tax_ident,stat_ident,name,physical_region_code,valid_from,valid_to,physical_country_iso_2,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,employees,turnover,data_source_code,physical_address_part1,physical_address_part2,physical_address_part3,postal_address_part1,postal_address_part2,postal_address_part3,phone_number,mobile_number,landline,fax_number,web_address,email_address,unit_size_code,status_code,physical_latitude,physical_longitude,physical_altitude) FROM 'app/public/demo/informal_establishments_units_with_source_dates_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
@@ -147,33 +150,36 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 "Taking snapshot of statistical_unit table"
 CREATE TEMP TABLE statistical_unit_snapshot_1 AS TABLE statistical_unit;
 -- Create new import jobs for the idempotency check
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
     'import_310_lu_wsd_idem',
     'Idempotency Check: Import LU Demo CSV w/ dates (310_idempotent_import_source_dates.sql)',
     'Import job for app/public/demo/legal_units_with_source_dates_demo.csv using legal_unit_source_dates definition.',
-    'Test data load (310_idempotent_import_source_dates.sql)';
+    'Test data load (310_idempotent_import_source_dates.sql)',
+    false;
 \echo "Re-uploading sample legal units with source dates (via import job: import_310_lu_wsd_idem)"
 "Re-uploading sample legal units with source dates (via import job: import_310_lu_wsd_idem)"
 \copy public.import_310_lu_wsd_idem_upload(tax_ident,stat_ident,name,valid_from,physical_address_part1,valid_to,postal_address_part1,postal_address_part2,physical_address_part2,physical_postcode,postal_postcode,physical_address_part3,physical_postplace,postal_address_part3,postal_postplace,phone_number,landline,mobile_number,fax_number,web_address,email_address,secondary_activity_category_code,physical_latitude,physical_longitude,physical_altitude,birth_date,physical_region_code,postal_country_iso_2,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code,status_code,unit_size_code) FROM 'app/public/demo/legal_units_with_source_dates_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_source_dates'),
     'import_310_esflu_wsd_idem',
     'Idempotency Check: Import Formal ES Demo CSV w/ dates (310_idempotent_import_source_dates.sql)',
     'Import job for app/public/demo/formal_establishments_units_with_source_dates_demo.csv using establishment_for_lu_source_dates definition.',
-    'Test data load (310_idempotent_import_source_dates.sql)';
+    'Test data load (310_idempotent_import_source_dates.sql)',
+    false;
 \echo "Re-uploading sample formal establishments with source dates (via import job: import_310_esflu_wsd_idem)"
 "Re-uploading sample formal establishments with source dates (via import job: import_310_esflu_wsd_idem)"
 \copy public.import_310_esflu_wsd_idem_upload(tax_ident,stat_ident,name,physical_region_code,valid_from,valid_to,postal_country_iso_2,physical_country_iso_2,primary_activity_category_code,secondary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code,physical_address_part1,physical_address_part2,physical_address_part3,postal_address_part1,postal_address_part2,postal_address_part3,phone_number,mobile_number,landline,fax_number,web_address,email_address,physical_latitude,physical_longitude,physical_altitude,birth_date,unit_size_code,status_code) FROM 'app/public/demo/formal_establishments_units_with_source_dates_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'establishment_without_lu_source_dates'),
     'import_310_eswlu_wsd_idem',
     'Idempotency Check: Import Informal ES Demo CSV w/ dates (310_idempotent_import_source_dates.sql)',
     'Import job for app/public/demo/informal_establishments_units_with_source_dates_demo.csv using establishment_without_lu_source_dates definition.',
-    'Test data load (310_idempotent_import_source_dates.sql)';
+    'Test data load (310_idempotent_import_source_dates.sql)',
+    false;
 \echo "Re-uploading sample informal establishments with source dates (via import job: import_310_eswlu_wsd_idem)"
 "Re-uploading sample informal establishments with source dates (via import job: import_310_eswlu_wsd_idem)"
 \copy public.import_310_eswlu_wsd_idem_upload(tax_ident,stat_ident,name,physical_region_code,valid_from,valid_to,physical_country_iso_2,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,employees,turnover,data_source_code,physical_address_part1,physical_address_part2,physical_address_part3,postal_address_part1,postal_address_part2,postal_address_part3,phone_number,mobile_number,landline,fax_number,web_address,email_address,unit_size_code,status_code,physical_latitude,physical_longitude,physical_altitude) FROM 'app/public/demo/informal_establishments_units_with_source_dates_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
@@ -220,14 +226,15 @@ changed_rows                   | 0
 DROP TABLE diff1;
 \x
 -- Create Import Job for Legal Units Turnover Update
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'generic_unit_stats_update_job_provided'),
     'import_310_lu_turnover_update',
     'Import LU Turnover Update (310_idempotent_import_source_dates.sql)',
     'Import job for app/public/demo/legal_units_turnover_update.csv using generic_unit_stats_update_job_provided definition.',
     'Test data load (310_idempotent_import_source_dates.sql)',
-    'r_year_curr';
+    'r_year_curr',
+    false;
 \echo "User uploads the legal units turnover update (via import job: import_310_lu_turnover_update)"
 "User uploads the legal units turnover update (via import job: import_310_lu_turnover_update)"
 \copy public.import_310_lu_turnover_update_upload(tax_ident,stat_ident,turnover) FROM 'app/public/demo/legal_units_turnover_update.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
@@ -266,14 +273,15 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 "Taking snapshot of statistical_unit table"
 CREATE TEMP TABLE statistical_unit_snapshot_2 AS TABLE statistical_unit;
 -- Create a new import job for the turnover idempotency check
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'generic_unit_stats_update_job_provided'),
     'import_310_lu_turnover_update_idem',
     'Idempotency Check: Import LU Turnover Update (310_idempotent_import_source_dates.sql)',
     'Import job for app/public/demo/legal_units_turnover_update.csv using generic_unit_stats_update_job_provided definition.',
     'Test data load (310_idempotent_import_source_dates.sql)',
-    'r_year_curr';
+    'r_year_curr',
+    false;
 NOTICE:  identifier "import_310_lu_turnover_update_idem_upload_check_state_before_insert" will be truncated to "import_310_lu_turnover_update_idem_upload_check_state_before_in"
 NOTICE:  identifier "import_310_lu_turnover_update_idem_upload_update_state_after_insert" will be truncated to "import_310_lu_turnover_update_idem_upload_update_state_after_in"
 \echo "Re-uploading the legal units turnover update (via import job: import_310_lu_turnover_update_idem)"

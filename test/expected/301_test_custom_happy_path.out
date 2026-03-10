@@ -312,8 +312,8 @@ DECLARE v_definition_id INT;
 BEGIN
     SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_unit_custom_test71';
     IF v_definition_id IS NULL THEN RAISE EXCEPTION 'Import definition legal_unit_custom_test71 not found.'; END IF;
-    INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
-    VALUES (v_definition_id, 'import_71_a1_lu', 'Test 71.A.1: LU-71A Initial', 'Test 71.A.1');
+    INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review)
+    VALUES (v_definition_id, 'import_71_a1_lu', 'Test 71.A.1: LU-71A Initial', 'Test 71.A.1', false);
 END $$;
 \echo '--- Debugging Schema for Job import_71_a1_lu ---'
 --- Debugging Schema for Job import_71_a1_lu ---
@@ -540,8 +540,8 @@ DO $$
 DECLARE v_definition_id INT;
 BEGIN
     SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_unit_custom_test71';
-    INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
-    VALUES (v_definition_id, 'import_71_a2_lu', 'Test 71.A.2: LU-71A Update 1', 'Test 71.A.2');
+    INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review)
+    VALUES (v_definition_id, 'import_71_a2_lu', 'Test 71.A.2: LU-71A Update 1', 'Test 71.A.2', false);
 END $$;
 INSERT INTO public.import_71_a2_lu_upload(
     tax_ident, nin_ident, name, valid_from, valid_to, physical_address_part1, physical_country_iso_2, physical_postcode, physical_region_code,
@@ -626,8 +626,8 @@ DO $$
 DECLARE v_definition_id INT;
 BEGIN
     SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_unit_custom_test71';
-    INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
-    VALUES (v_definition_id, 'import_71_b_lu_for_es', 'Test 71.B: Base LU for Formal ES', 'Test 71.B');
+    INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review)
+    VALUES (v_definition_id, 'import_71_b_lu_for_es', 'Test 71.B: Base LU for Formal ES', 'Test 71.B', false);
 END $$;
 INSERT INTO public.import_71_b_lu_for_es_upload(tax_ident, nin_ident, name, valid_from, valid_to, sector_code, legal_form_code, primary_activity_category_code) VALUES
 ('71B000000', 'NIN_LU_FOR_ES_71B', 'Base LU for ES-71B', '2023-01-01', '2023-12-31', '2100', 'AS', '00.000');
@@ -639,8 +639,8 @@ DO $$
 DECLARE v_definition_id INT;
 BEGIN
     SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'establishment_for_lu_custom_test71';
-    INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
-    VALUES (v_definition_id, 'import_71_b1_es', 'Test 71.B.1: ES-71B Initial', 'Test 71.B.1');
+    INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review)
+    VALUES (v_definition_id, 'import_71_b1_es', 'Test 71.B.1: ES-71B Initial', 'Test 71.B.1', false);
 END $$;
 INSERT INTO public.import_71_b1_es_upload(
     tax_ident, nin_ident, legal_unit_tax_ident, name, valid_from, valid_to, physical_address_part1, physical_country_iso_2, physical_postcode, physical_region_code,
@@ -709,8 +709,8 @@ DO $$
 DECLARE v_definition_id INT;
 BEGIN
     SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'establishment_without_lu_custom_test71';
-    INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
-    VALUES (v_definition_id, 'import_71_c1_es', 'Test 71.C.1: ES-71C Initial', 'Test 71.C.1');
+    INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review)
+    VALUES (v_definition_id, 'import_71_c1_es', 'Test 71.C.1: ES-71C Initial', 'Test 71.C.1', false);
 END $$;
 INSERT INTO public.import_71_c1_es_upload(
     tax_ident, nin_ident, name, valid_from, valid_to, physical_address_part1, physical_country_iso_2, physical_postcode, physical_region_code,
@@ -775,8 +775,8 @@ DECLARE
 BEGIN
     SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_unit_custom_test71';
     IF v_definition_id IS NULL THEN RAISE EXCEPTION 'Import definition legal_unit_custom_test71 not found.'; END IF;
-    INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
-    VALUES (v_definition_id, 'import_71_d_null_handling', 'Test 71.D: Null value handling', 'Test import_as_null');
+    INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review)
+    VALUES (v_definition_id, 'import_71_d_null_handling', 'Test 71.D: Null value handling', 'Test import_as_null', false);
 END $$;
 \echo "Insert test data with various null representations"
 "Insert test data with various null representations"

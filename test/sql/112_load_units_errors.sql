@@ -19,26 +19,28 @@ SELECT
 \echo "Same external ident for legal unit and establishment"
 
 -- Create Import Job for Legal Units (Block 1)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'), -- Corrected slug
     'import_31_lu_era_b1',
     'Import LU Era B1 (31_load_units_errors.sql)',
     'Import job for test/data/31_legal_units.csv (Block 1).',
-    'Test data load (31_load_units_errors.sql)';
+    'Test data load (31_load_units_errors.sql)',
+    false;
 \echo "User uploads legal units (via import job: import_31_lu_era_b1)"
 INSERT INTO public.import_31_lu_era_b1_upload(valid_from, valid_to, tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) VALUES
 ('2024-01-01','infinity','2212760144','1000','NILE PEARL WATER','01.10.2016','225613','UG','4752','4','6100',2,9000000,'nlr'),
 ('2024-01-01','infinity','2812760140','1001','EQUATOR GLOBE SOLUTIONS','01.10.2016','225602','UG','5610','1','6100',2,2400000,'nlr');
 
 -- Create Import Job for Formal Establishments (Block 1 - Errors)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_source_dates'), -- Corrected slug
     'import_31_esflu_era_b1',
     'Import Formal ES Era B1 Errors (31_load_units_errors.sql)',
     'Import job for test/data/31_formal_establishments_errors.csv (Block 1).',
-    'Test data load (31_load_units_errors.sql)';
+    'Test data load (31_load_units_errors.sql)',
+    false;
 \echo "User uploads formal establishments with same stat_ident as legal units (via import job: import_31_esflu_era_b1)"
 INSERT INTO public.import_31_esflu_era_b1_upload(valid_from, valid_to, tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code) VALUES
 ('2024-01-01','infinity','92212760144','1000','NILE PEARL WATER','225613','UG','4752',0,0,'2212760144','nlr'),
@@ -75,39 +77,42 @@ SELECT
 \echo "Same external ident for formal establishment and informal establishment"
 
 -- Create Import Job for Legal Units (Block 2)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'), -- Corrected slug
     'import_31_lu_era_b2',
     'Import LU Era B2 (31_load_units_errors.sql)',
     'Import job for test/data/31_legal_units.csv (Block 2).',
-    'Test data load (31_load_units_errors.sql)';
+    'Test data load (31_load_units_errors.sql)',
+    false;
 \echo "User uploads legal units (via import job: import_31_lu_era_b2)"
 INSERT INTO public.import_31_lu_era_b2_upload(valid_from, valid_to, tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) VALUES
 ('2024-01-01','infinity','2212760144','1000','NILE PEARL WATER','01.10.2016','225613','UG','4752','4','6100',2,9000000,'nlr'),
 ('2024-01-01','infinity','2812760140','1001','EQUATOR GLOBE SOLUTIONS','01.10.2016','225602','UG','5610','1','6100',2,2400000,'nlr');
 
 -- Create Import Job for Formal Establishments (Block 2)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_source_dates'), -- Corrected slug
     'import_31_esflu_era_b2',
     'Import Formal ES Era B2 (31_load_units_errors.sql)',
     'Import job for test/data/31_formal_establishments.csv (Block 2).',
-    'Test data load (31_load_units_errors.sql)';
+    'Test data load (31_load_units_errors.sql)',
+    false;
 \echo "User uploads formal establishments (via import job: import_31_esflu_era_b2)"
 INSERT INTO public.import_31_esflu_era_b2_upload(valid_from, valid_to, tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code) VALUES
 ('2024-01-01','infinity','92212760144','2000','NILE PEARL WATER','225613','UG','4752',0,0,'2212760144','nlr'),
 ('2024-01-01','infinity','92812760140','2001','EQUATOR GLOBE SOLUTIONS','225602','UG','5610',0,0,'2812760140','nlr');
 
 -- Create Import Job for Informal Establishments (Block 2 - Errors)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'establishment_without_lu_source_dates'), -- Corrected slug
     'import_31_eswlu_era_b2_errors',
     'Import Informal ES Era B2 Errors (31_load_units_errors.sql)',
     'Import job for test/data/31_informal_establishments_errors.csv (Block 2).',
-    'Test data load (31_load_units_errors.sql)';
+    'Test data load (31_load_units_errors.sql)',
+    false;
 \echo "User uploads informal establishments with same stat_idents as formal establishments (via import job: import_31_eswlu_era_b2_errors)"
 INSERT INTO public.import_31_eswlu_era_b2_errors_upload(valid_from, valid_to, tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code) VALUES
 ('2024-01-01','infinity','82212760144','2000','THE NILE PEARL WATER','225613','UG','4752',1,1200,'nlr'),
@@ -150,13 +155,14 @@ SELECT
 
 \echo "User uploads legal units with invalid latitude"
 -- Create Import Job for Legal Units (Block 3 - Coordinate Errors)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'), -- Corrected slug
     'import_31_lu_era_b3_coord_errors',
     'Import LU Era B3 Various Coord Errors (31_load_units_errors.sql)',
     'Import job with various physical coordinate errors for Legal Units (Block 3).',
-    'Test data load (31_load_units_errors.sql)';
+    'Test data load (31_load_units_errors.sql)',
+    false;
 INSERT INTO public.import_31_lu_era_b3_coord_errors_upload(valid_from, valid_to, tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code, physical_latitude, physical_longitude, physical_altitude, web_address, email_address, phone_number) VALUES
 -- Original: Latitude out of range (cast error)
 ('2024-01-01','infinity','2212760144','1000','NILE PEARL WATER','01.10.2016','225613','UG','4752','4','6100',2,9000000,'nlr','3333333','32.2984354','1144','nilepearlwater.ug','contact@npw.ug','123456789'),
@@ -199,13 +205,14 @@ SELECT
 
 \echo "User uploads legal units with postal coordinates (error condition)"
 -- Create Import Job for Legal Units (Block 4 - Postal Coordinate Errors)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
     'import_31_lu_postal_coord_errors',
     'Import LU Era B4 Postal Coord Errors (31_load_units_errors.sql)',
     'Import job with postal coordinate errors for Legal Units (Block 4).',
-    'Test data load (31_load_units_errors.sql)';
+    'Test data load (31_load_units_errors.sql)',
+    false;
 INSERT INTO public.import_31_lu_postal_coord_errors_upload(
     valid_from, valid_to, tax_ident, stat_ident, name, birth_date, data_source_code,
     postal_address_part1, postal_country_iso_2, postal_latitude, postal_longitude, postal_altitude
