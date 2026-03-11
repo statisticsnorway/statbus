@@ -58,6 +58,7 @@ interface Upgrade {
   rollback_completed_at: string | null;
   skipped_at: string | null;
   images_downloaded: boolean;
+  backup_path: string | null;
 }
 
 interface SystemInfo {

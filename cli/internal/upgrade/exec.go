@@ -147,8 +147,10 @@ func (d *Daemon) healthCheck(retries int, interval time.Duration) error {
 		}
 	}
 
+	client := &http.Client{Timeout: 10 * time.Second}
+
 	for i := 0; i < retries; i++ {
-		resp, err := http.Get(healthURL)
+		resp, err := client.Get(healthURL)
 		if err == nil {
 			resp.Body.Close()
 			if resp.StatusCode < 500 {

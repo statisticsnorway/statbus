@@ -25,6 +25,7 @@ type Daemon struct {
 	interval  time.Duration
 	autoDL    bool
 	pinnedVer string
+	upgrading bool // true during executeUpgrade; prevents ticker/notify from using nil conn
 }
 
 // NewDaemon creates a new upgrade daemon.
@@ -87,11 +88,15 @@ func (d *Daemon) Run(ctx context.Context) error {
 			fmt.Println("Upgrade daemon shutting down")
 			return nil
 		case <-ticker.C:
-			d.discover(ctx)
-			d.executeScheduled(ctx)
+			if !d.upgrading {
+				d.discover(ctx)
+				d.executeScheduled(ctx)
+			}
 		case n := <-notifyCh:
-			d.handleNotification(ctx, n)
-			d.executeScheduled(ctx)
+			if !d.upgrading {
+				d.handleNotification(ctx, n)
+				d.executeScheduled(ctx)
+			}
 		case err := <-errCh:
 			if ctx.Err() != nil {
 				return nil // shutdown
@@ -239,11 +244,19 @@ func (d *Daemon) cleanStaleMaintenance(ctx context.Context) {
 		return
 	}
 
-	// Check if an upgrade is actually in progress
+	// Check if an upgrade is actually in progress.
+	// Only clean the file if we successfully confirm no active upgrade.
+	// If DB is unreachable, leave the file (safer to stay in maintenance).
 	var count int
 	err := d.conn.QueryRow(ctx,
 		"SELECT COUNT(*) FROM public.upgrade WHERE started_at IS NOT NULL AND completed_at IS NULL AND error IS NULL").Scan(&count)
-	if err != nil || count == 0 {
+	if err != nil {
+		if d.verbose {
+			fmt.Printf("Cannot check upgrade status (DB error: %v), leaving maintenance file\n", err)
+		}
+		return
+	}
+	if count == 0 {
 		os.Remove(maintenanceFile)
 		if d.verbose {
 			fmt.Println("Cleaned stale maintenance file")
@@ -381,6 +394,9 @@ func (d *Daemon) executeScheduled(ctx context.Context) {
 }
 
 func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) error {
+	d.upgrading = true
+	defer func() { d.upgrading = false }()
+
 	projDir := d.projDir
 	progress := NewProgressLog(projDir)
 	defer progress.Close()

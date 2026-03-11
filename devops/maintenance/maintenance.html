@@ -99,12 +99,14 @@
             }
         }
 
-        // Check if services are back
+        // Check if services are back by requesting root path.
+        // During maintenance Caddy returns 503; when app is back it returns 200.
         async function checkHealth() {
             try {
-                const resp = await fetch('/api/health', { cache: 'no-store' });
-                if (resp.ok) {
-                    window.location.reload();
+                const resp = await fetch('/', { cache: 'no-store', redirect: 'manual' });
+                if (resp.status >= 200 && resp.status < 400) {
+                    window.location.replace('/');
+                    return;
                 }
             } catch (e) {
                 // services still down
