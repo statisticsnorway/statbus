@@ -6,60 +6,78 @@ This guide is for AI coding assistants working in the STATBUS codebase. STATBUS 
 
 ## Quick Commands
 
-### Database Operations (Development Only)
+StatBus has two command-line tools:
+- **`./sb`** — Go CLI for ops/production commands (start, stop, psql, migrate, upgrade, etc.)
+- **`./dev.sh`** — Bash script for development-only commands (test, create-db, etc.)
+
+The legacy `./devops/manage-statbus.sh` is a backward-compat wrapper that delegates to the above.
+
+### Operations (./sb)
 ```bash
-./devops/manage-statbus.sh start all        # Start all services (db, rest, worker, app)
-./devops/manage-statbus.sh psql             # Open psql shell
-./devops/manage-statbus.sh psql < file.sql  # Run SQL file (use < redirection!)
-echo "SELECT ..." | ./devops/manage-statbus.sh psql  # Single-line query
-./devops/manage-statbus.sh generate-types   # Generate TypeScript types from schema
+./sb start all                  # Start all services (db, rest, worker, app)
+./sb stop all                   # Stop all services
+./sb restart all                # Restart all services
+./sb ps                         # List running containers
+./sb logs [service...]          # Follow service logs
+./sb psql                       # Open psql shell
+./sb psql < file.sql            # Run SQL file (use < redirection!)
+echo "SELECT ..." | ./sb psql   # Single-line query
+./sb config generate            # Regenerate .env and Caddyfiles from .env.config
+./sb users create               # Create users from .users.yml
+./sb types generate             # Generate TypeScript types from schema
+./sb db status                  # Check if database is running
+./sb db dump                    # Dump local database to dbdumps/
+./sb db download <code>         # Download database dump from remote server
+./sb db dumps list              # List available database dumps
+./sb db dumps purge [N]         # Delete old dumps, keeping newest N per source
+./sb db restore <file>          # Restore dump to local database
+./sb db restore <file> --to no  # Restore dump to remote server
 ```
 
 ### Database Inspection Patterns
 ```bash
-echo "\d tablename" | ./devops/manage-statbus.sh psql           # Table structure
-echo "\dt pattern*" | ./devops/manage-statbus.sh psql           # Find tables by pattern
-echo "\dv viewname" | ./devops/manage-statbus.sh psql           # View definition
-echo "SELECT ..." | ./devops/manage-statbus.sh psql             # Single queries
+echo "\d tablename" | ./sb psql           # Table structure
+echo "\dt pattern*" | ./sb psql           # Find tables by pattern
+echo "\dv viewname" | ./sb psql           # View definition
+echo "SELECT ..." | ./sb psql             # Single queries
 ```
 
 **Offline inspection via `doc/db/`**: The `doc/db/` directory contains dumps of all database functions, tables, and views in markdown format. Use `grep` / `rg` on these files when you need to search function bodies without a running database. Prefer this over grepping `migrations/` — migrations are chronological, so the first match is the oldest and least relevant version.
 
-**⚠️ DESTRUCTIVE Operations (LOCAL DEVELOPMENT ONLY - NEVER IN PRODUCTION):**
+### Testing (./dev.sh)
 ```bash
-./devops/manage-statbus.sh create-db           # Create database with migrations
-./devops/manage-statbus.sh delete-db           # ⚠️ DESTROYS ALL DATA
-./devops/manage-statbus.sh delete-db-structure # ⚠️ Drops schema, keeps container
-./devops/manage-statbus.sh recreate-database   # ⚠️ Delete + Create (fresh start)
-```
-
-### Docker Compose Operations
-```bash
-docker compose ps                    # List all services and their status
-docker compose logs proxy            # View proxy (Caddy) logs
-docker compose logs db --tail=100    # View last 100 lines of database logs
-docker compose logs -f rest          # Follow PostgREST logs in real-time
-docker compose restart proxy         # Restart specific service
-docker compose exec db psql -U postgres -d statbus_local  # Direct psql access
-```
-
-### Testing
-```bash
-./devops/manage-statbus.sh test fast 2>&1 | tee tmp/test-fast.log         # Run fast tests only (good for quick iteration)
-./devops/manage-statbus.sh test 015_my_test                               # Run single test (prefix number)
-./devops/manage-statbus.sh test 300_test 2>&1 | tee tmp/test-300_test.log # Save output to log file for later review
-./devops/manage-statbus.sh diff-fail-all pipe                             # Show diffs for all failed tests
-./devops/manage-statbus.sh test all                                       # Run all pg_regress tests (EXTREMELY SLOW)
+./dev.sh test fast 2>&1 | tee tmp/test-fast.log         # Run fast tests only (good for quick iteration)
+./dev.sh test 015_my_test                                # Run single test (prefix number)
+./dev.sh test 300_test 2>&1 | tee tmp/test-300_test.log  # Save output to log file for later review
+./dev.sh diff-fail-all pipe                              # Show diffs for all failed tests
+./dev.sh test all                                        # Run all pg_regress tests (EXTREMELY SLOW)
 
 # IMPORTANT: Use tee to save output - prevents wasting time re-running slow tests
 # Test results are in test/results/*.out and can be compared to test/expected/*.out
 ```
 
-### Migrations
+**⚠️ DESTRUCTIVE Operations (LOCAL DEVELOPMENT ONLY - NEVER IN PRODUCTION):**
 ```bash
-cd cli && ./bin/statbus migrate new --description "my change"  # Create migration
-cd cli && ./bin/statbus migrate up                             # Apply migrations
-cd cli && ./bin/statbus migrate down                           # ⚠️ Rollback (destructive)
+./dev.sh create-db           # Create database with migrations
+./dev.sh delete-db           # ⚠️ DESTROYS ALL DATA
+./dev.sh delete-db-structure # ⚠️ Drops schema, keeps container
+./dev.sh recreate-database   # ⚠️ Delete + Create (fresh start)
+```
+
+### Migrations (./sb)
+```bash
+./sb migrate new --description "my change"  # Create migration
+./sb migrate up                             # Apply migrations
+./sb migrate down                           # ⚠️ Rollback (destructive)
+```
+
+### Upgrades (./sb)
+```bash
+./sb upgrade check                # Check GitHub for new releases
+./sb upgrade list                 # List discovered upgrades from database
+./sb upgrade schedule <version>   # Schedule an upgrade
+./sb upgrade apply <version>      # Trigger immediate upgrade via NOTIFY
+./sb upgrade daemon               # Run upgrade daemon (usually via systemd)
 ```
 
 **Migration Best Practice for Modifying Existing Functions/Procedures:**
@@ -68,10 +86,10 @@ When modifying an existing database function or procedure, **always dump the cur
 
 ```bash
 # Dump function definition to use as base for both up and down migrations
-echo "\sf schema.function_name" | ./devops/manage-statbus.sh psql > tmp/function_def.sql
+echo "\sf schema.function_name" | ./sb psql > tmp/function_def.sql
 
 # For procedures
-echo "\sf schema.procedure_name" | ./devops/manage-statbus.sh psql > tmp/procedure_def.sql
+echo "\sf schema.procedure_name" | ./sb psql > tmp/procedure_def.sql
 ```
 
 Then:
@@ -152,17 +170,17 @@ Controlled by `DEPLOYMENT_SLOT_CODE` and `DEPLOYMENT_SLOT_PORT_OFFSET` - enables
 **Local Development** (mode=development):
 ```bash
 # Default: plaintext on slot-based port (e.g., 3014 for local slot)
-./devops/manage-statbus.sh psql -c "SELECT version();"
+./sb psql -c "SELECT version();"
 
 # Testing TLS: uses TLS port (e.g., 3015 for local slot) with SNI
-TLS=1 ./devops/manage-statbus.sh psql -c "SELECT version();"
+TLS=1 ./sb psql -c "SELECT version();"
 ```
 
 **Remote via SSH Tunnel** (mode=private):
 ```bash
 # SSH tunnel: local:3014 → remote:127.0.0.1:3014 → db:5432
 # Plaintext through tunnel (SSH provides encryption)
-ssh statbus_dev@statbus.org "cd statbus && ./devops/manage-statbus.sh psql"
+ssh statbus_dev@statbus.org "cd statbus && ./sb psql"
 ```
 
 **Production** (mode=standalone):
@@ -180,7 +198,9 @@ psql
 
 - `cli/src/manage.cr`: Configuration generation and port calculation logic
 - `cli/src/templates/*.caddyfile.ecr`: Mode-specific Caddy templates
-- `devops/manage-statbus.sh`: Management commands and helpers
+- `sb`: Go CLI binary (built from cli/, in .gitignore)
+- `dev.sh`: Development-only commands (test, create-db, etc.)
+- `devops/manage-statbus.sh`: **DEPRECATED** — backward-compat wrapper, will be deleted once all references (deploy.sh, CI workflows, SSH aliases) are migrated to ./sb or ./dev.sh
 - `.env.config`: **Edit this** for deployment settings
 - `.env`: Generated file, **do not edit** directly
 - `.env.credentials`: Secrets, generated once, keep secure
@@ -303,7 +323,7 @@ import { Pool } from 'pg';
 - State machine effects: depend on primitives, not whole state object
 
 **Database Types:**
-- Generated via `./devops/manage-statbus.sh generate-types`
+- Generated via `./sb types generate`
 - Located in `app/src/lib/database.types.ts`
 - Use: `Tables<'my_table'>`, `Enums<'my_enum'>`
 
@@ -333,7 +353,7 @@ docker compose logs db 2>&1 | grep -E "duration: [0-9]{5,}" | head -30
 docker compose logs db 2>&1 | grep -E "Rows Removed by (Join )?Filter:" | sort | uniq -c | sort -rn | head -20
 
 # Check task timings in worker
-echo "SELECT command, COUNT(*), SUM(duration_ms)::numeric(10,0) as total_ms FROM worker.tasks WHERE state = 'completed' GROUP BY command ORDER BY total_ms DESC;" | ./devops/manage-statbus.sh psql
+echo "SELECT command, COUNT(*), SUM(duration_ms)::numeric(10,0) as total_ms FROM worker.tasks WHERE state = 'completed' GROUP BY command ORDER BY total_ms DESC;" | ./sb psql
 ```
 
 ## Development Workflow (CRITICAL)

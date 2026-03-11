@@ -1,10 +1,19 @@
 #!/bin/bash
-# devops/manage-statbus.sh
-set -euo pipefail # Exit on error, unbound variable, or any failure in a pipeline
+# devops/manage-statbus.sh — Backward-compatibility wrapper
+#
+# DEPRECATED: This file will be deleted once all references are migrated.
+#
+# Delegates to ./sb (Go CLI) when available, ./dev.sh for dev commands.
+# Falls back to direct implementations when ./sb is not built yet
+# (e.g., on cloud servers before the upgrade system is deployed).
+#
+# New code should call ./sb or ./dev.sh directly.
+# References to update: deploy.sh, CI workflows, documentation, SSH aliases.
+#
+set -euo pipefail
 
-# Check for DEBUG environment variable (accepts "true" or "1")
 if [ "${DEBUG:-}" = "true" ] || [ "${DEBUG:-}" = "1" ]; then
-  set -x # Print all commands before running them if DEBUG is enabled
+  set -x
 fi
 
 # Ensure Homebrew environment is set up for tools like 'shards'
@@ -13,1939 +22,358 @@ if test -f /etc/profile.d/homebrew.sh; then
 fi
 
 WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
-cd $WORKSPACE
+cd "$WORKSPACE"
 
-# Set TTY_INPUT to /dev/tty if available (interactive), otherwise /dev/null (non-interactive)
+# Set TTY_INPUT to /dev/tty if available (interactive), otherwise /dev/null
 if [ -e /dev/tty ]; then
   export TTY_INPUT=/dev/tty
 else
   export TTY_INPUT=/dev/null
 fi
 
-# Add support for an optional profile as an extra argument for start and stop,
-# and when present add the proper `--profile ...` argument.
+# Check if the Go binary is available
+has_sb() {
+    [ -x "$WORKSPACE/sb" ]
+}
+
+# Check if dev.sh is available
+has_devsh() {
+    [ -x "$WORKSPACE/dev.sh" ]
+}
+
 action=${1:-}
 shift || true
 
+# --- Helper: postgres-variables (needed by fallback psql) ---
+_postgres_variables() {
+    if has_sb; then
+        SITE_DOMAIN=$(./sb dotenv -f .env get SITE_DOMAIN || echo "local.statbus.org")
+        PGDATABASE=$(./sb dotenv -f .env get POSTGRES_APP_DB)
+        PGUSER=${PGUSER:-$(./sb dotenv -f .env get POSTGRES_ADMIN_USER)}
+        PGPASSWORD=$(./sb dotenv -f .env get POSTGRES_ADMIN_PASSWORD)
+        PGPORT=$(./sb dotenv -f .env get CADDY_DB_PORT)
+    elif [ -x "$WORKSPACE/devops/dotenv" ]; then
+        SITE_DOMAIN=$(./devops/dotenv --file .env get SITE_DOMAIN || echo "local.statbus.org")
+        PGDATABASE=$(./devops/dotenv --file .env get POSTGRES_APP_DB)
+        PGUSER=${PGUSER:-$(./devops/dotenv --file .env get POSTGRES_ADMIN_USER)}
+        PGPASSWORD=$(./devops/dotenv --file .env get POSTGRES_ADMIN_PASSWORD)
+        PGPORT=$(./devops/dotenv --file .env get CADDY_DB_PORT)
+    else
+        echo "Error: Neither ./sb nor ./devops/dotenv available" >&2
+        exit 1
+    fi
+    PGHOST=$SITE_DOMAIN
+    PGSSLMODE=disable
+    export PGHOST PGPORT PGDATABASE PGUSER PGPASSWORD PGSSLMODE
+}
+
+# --- Helper: set_profile_arg (needed by fallback start/stop) ---
 set_profile_arg() {
     profile=${1:-}
-
-    # Get the available profiles from Docker Compose
     available_profiles=$(docker compose config --profiles)
-
-    # If no profile is provided (fallback to "all"), display available profiles
     if test -z "$profile"; then
         echo "No profile provided. Available profiles are:"
         echo "$available_profiles"
         exit 1
-    else
-        # Validate if the provided profile exists
-        if ! echo "$available_profiles" | grep -wq "$profile"; then
-            echo "Error: Profile '$profile' does not exist in docker compose."
-            exit 1
-        fi
     fi
-
+    if ! echo "$available_profiles" | grep -wq "$profile"; then
+        echo "Error: Profile '$profile' does not exist in docker compose."
+        exit 1
+    fi
     compose_profile_arg="--profile \"$profile\""
     shift || true
 }
 
 case "$action" in
+    # === Commands with Go delegation + fallback ===
+
     'start' )
+        if has_sb; then
+            exec ./sb start "$@"
+        fi
         VERSION=$(git describe --always)
-        ./devops/dotenv --file .env set VERSION=$VERSION
-        ./devops/manage-statbus.sh build-statbus-cli
-        ./devops/manage-statbus.sh generate-config
+        if has_sb; then
+            ./sb dotenv -f .env set VERSION=$VERSION
+        else
+            ./devops/dotenv --file .env set VERSION=$VERSION
+        fi
+        $0 build-statbus-cli
+        $0 generate-config
         target_service_or_profile="${1:-}"
         if [ "$target_service_or_profile" = "app" ]; then
-            # If the target is 'app', pass it directly as a service to docker compose
             docker compose up --build --detach app
         else
-            # Otherwise, use the profile logic
             set_profile_arg "$@"
             eval docker compose $compose_profile_arg up --build --detach
         fi
       ;;
     'stop' )
+        if has_sb; then
+            exec ./sb stop "$@"
+        fi
         target_service_or_profile="${1:-}"
         if [ "$target_service_or_profile" = "app" ]; then
-            # If the target is 'app', pass it directly as a service to docker compose
             docker compose down --remove-orphans app
         else
-            # Otherwise, use the profile logic
             set_profile_arg "$@"
             eval docker compose $compose_profile_arg down --remove-orphans
         fi
       ;;
     'restart' )
-        target_service_or_profile="${1:-}"
-        if [ "$target_service_or_profile" = "app" ]; then
-            echo "Restarting app service..."
-            docker compose down --remove-orphans app
-            VERSION=$(git describe --always)
-            ./devops/dotenv --file .env set VERSION=$VERSION
-            ./devops/manage-statbus.sh build-statbus-cli
-            ./devops/manage-statbus.sh generate-config
-            docker compose up --build --detach app
-            echo "App service restarted."
-        else
-            # Handles profile logic, including erroring out if no/invalid profile is given
-            set_profile_arg "$@" 
-            echo "Restarting services in profile: $profile..."
-            eval docker compose $compose_profile_arg down --remove-orphans
-            VERSION=$(git describe --always)
-            ./devops/dotenv --file .env set VERSION=$VERSION
-            ./devops/manage-statbus.sh build-statbus-cli
-            ./devops/manage-statbus.sh generate-config
-            eval docker compose $compose_profile_arg up --build --detach
-            echo "Services in profile $profile restarted."
+        if has_sb; then
+            exec ./sb restart "$@"
         fi
+        $0 stop "$@"
+        $0 start "$@"
       ;;
     'logs' )
+        if has_sb; then exec ./sb logs "$@"; fi
         eval docker compose logs --follow
       ;;
     'ps' )
+        if has_sb; then exec ./sb ps "$@"; fi
         eval docker compose ps
       ;;
-    'continous-integration-test' )
-        # Validate arguments
-        BRANCH=${1:-${BRANCH:-}}
-        COMMIT=${2:-${COMMIT:-}}
-
-        # If no branch is provided, use the current branch (local testing case)
-        if [ -z "$BRANCH" ]; then
-            BRANCH=$(git rev-parse --abbrev-ref HEAD)
-            echo "No branch argument provided, using the currently checked-out branch $BRANCH"
-        else
-            # Ensure the repository is clean before switching branches (no uncommitted changes)
-            if ! git diff-index --quiet HEAD --; then
-                echo "Error: Repository has uncommitted changes. Please commit or stash changes before switching branches."
-                exit 1
-            fi
-
-            # Fetch latest changes from the remote,
-            # before validating the commit, as it must first
-            # be fetched.
-            git fetch origin
-
-            # Validate that the commit is provided and non-empty
-            if [ -z "$COMMIT" ]; then
-                echo "Error: Commit hash must be provided."
-                exit 1
-            fi
-
-            # Check if the commit exists in the repository
-            if ! git cat-file -e "$COMMIT" 2>/dev/null; then
-                echo "Error: Commit '$COMMIT' is invalid or not found."
-                exit 1
-            fi
-
-            # Log the branch and commit being used for debugging
-            echo "Checking out branch '$BRANCH' at commit '$COMMIT'"
-
-            # Create or reset the local branch with the given name, using the specified commit
-            git checkout -B "$BRANCH" "$COMMIT"
-        fi
-
-        ./devops/manage-statbus.sh generate-config
-        ./devops/manage-statbus.sh delete-db
-
-        # Proceed with the rest of the workflow
-        ./devops/manage-statbus.sh create-db > /dev/null
-
-        # Ensure delete-db runs no matter what
-        trap './devops/manage-statbus.sh delete-db > /dev/null' EXIT
-
-        # Run tests and capture output
-        TEST_OUTPUT=$(mktemp)
-        ./devops/manage-statbus.sh test all 2>&1 | tee "$TEST_OUTPUT" || true
-
-        # Check if the test output indicates failure
-        if grep -q "not ok" "$TEST_OUTPUT" || grep -q "of .* tests failed" "$TEST_OUTPUT"; then
-            echo "One or more tests failed."
-            echo "Test summary:"
-            grep -A 20 "======================" "$TEST_OUTPUT"
-
-            # Display the diff with color using delta (Rust tool)
-            if command -v delta >/dev/null 2>&1; then
-                echo "Showing the color-coded diff:"
-                docker compose exec --workdir /statbus db cat /statbus/test/regression.diffs | delta
-            else
-                echo "Error: 'delta' tool is not installed. You can install it with:"
-                echo "  brew install git-delta"
-
-                echo "Showing raw diff:"
-                docker compose exec --workdir /statbus db cat /statbus/test/regression.diffs
-            fi
-
-            # Exit with failure status
-            exit 1
-        else
-            echo "All tests passed successfully."
-        fi
+    'build' )
+        if has_sb; then exec ./sb build "$@"; fi
+        docker compose build
       ;;
-    'test' )
-        eval $(./devops/manage-statbus.sh postgres-variables)
-        
-        # Extract PostgreSQL major version from Dockerfile
-        POSTGRESQL_MAJOR=$(grep -E "^ARG postgresql_major=" "$WORKSPACE/postgres/Dockerfile" | cut -d= -f2)
-        if [ -z "$POSTGRESQL_MAJOR" ]; then
-            echo "Error: Could not extract PostgreSQL major version from Dockerfile"
-            exit 1
+    'psql' )
+        if has_sb; then
+            exec ./sb psql "$@"
         fi
-
-        PG_REGRESS_DIR="$WORKSPACE/test"
-        PG_REGRESS="/usr/lib/postgresql/$POSTGRESQL_MAJOR/lib/pgxs/src/test/regress/pg_regress"
-        CONTAINER_REGRESS_DIR="/statbus/test"
-
-        for suffix in "sql" "expected" "results"; do
-            if ! test -d "$PG_REGRESS_DIR/$suffix"; then
-                mkdir -p "$PG_REGRESS_DIR/$suffix"
-            fi
-        done
-
-        # Store original arguments
-        ORIGINAL_ARGS=("$@")
-
-        # Check for --update-expected flag and filter it out
-        update_expected=false
-        TEST_ARGS=()
-        if [ ${#ORIGINAL_ARGS[@]} -gt 0 ]; then
-            for arg in "${ORIGINAL_ARGS[@]}"; do
-                if [ "$arg" = "--update-expected" ]; then
-                    update_expected=true
-                else
-                    TEST_ARGS+=("$arg")
-                fi
-            done
-        fi
-        
-        # Check if no arguments were provided
-        if [ ${#TEST_ARGS[@]} -eq 0 ]; then
-            echo "Available tests:"
-            echo "all"
-            echo "fast"
-            echo "benchmarks"
-            echo "failed"
-            basename -s .sql "$PG_REGRESS_DIR/sql"/*.sql
-            exit 0
-        fi
-        
-        # Check for special keywords
-        if [ "${TEST_ARGS[0]}" = "all" ]; then
-            # Get all tests
-            ALL_TESTS=$(basename -s .sql "$PG_REGRESS_DIR/sql"/*.sql)
-            
-            # Process exclusions (tests starting with -)
-            TEST_BASENAMES=""
-            for test in $ALL_TESTS; do
-                exclude=false
-                for arg in "${TEST_ARGS[@]:1}"; do  # Skip the first arg which is "all"
-                    if [ "$arg" = "-$test" ]; then
-                        exclude=true
-                        break
-                    fi
-                done
-                
-                if [ "$exclude" = "false" ]; then
-                    TEST_BASENAMES="$TEST_BASENAMES $test"
-                fi
-            done
-        elif [ "${TEST_ARGS[0]}" = "fast" ]; then
-            # Get all tests
-            ALL_TESTS=$(basename -s .sql "$PG_REGRESS_DIR/sql"/*.sql)
-
-            # Process exclusions
-            TEST_BASENAMES=""
-            for test in $ALL_TESTS; do
-                exclude=false
-
-                # Exclude slow tests (4xx benchmarks, 5xx extra-slow downloads)
-                if [[ "$test" == 4* ]] || [[ "$test" == 5* ]]; then
-                    exclude=true
-                fi
-
-                # Check against additional user-provided exclusions, if any
-                if [ "$exclude" = "false" ]; then
-                    for arg in "${TEST_ARGS[@]:1}"; do  # Skip the first arg which is "fast"
-                        if [ "$arg" = "-$test" ]; then
-                            exclude=true
-                            break
-                        fi
-                    done
-                fi
-
-                if [ "$exclude" = "false" ]; then
-                    TEST_BASENAMES="$TEST_BASENAMES $test"
-                fi
-            done
-        elif [ "${TEST_ARGS[0]}" = "benchmarks" ]; then
-            # Get only 4xx tests (benchmark/performance tests)
-            ALL_TESTS=$(basename -s .sql "$PG_REGRESS_DIR/sql"/*.sql)
-
-            TEST_BASENAMES=""
-            for test in $ALL_TESTS; do
-                exclude=false
-
-                # Include only 4xx tests
-                if [[ "$test" != 4* ]]; then
-                    exclude=true
-                fi
-
-                # Check against additional user-provided exclusions, if any
-                if [ "$exclude" = "false" ]; then
-                    for arg in "${TEST_ARGS[@]:1}"; do
-                        if [ "$arg" = "-$test" ]; then
-                            exclude=true
-                            break
-                        fi
-                    done
-                fi
-
-                if [ "$exclude" = "false" ]; then
-                    TEST_BASENAMES="$TEST_BASENAMES $test"
-                fi
-            done
-        elif [ "${TEST_ARGS[0]}" = "failed" ]; then
-            # Get failed tests
-            FAILED_TESTS=$(grep -E '^not ok' $WORKSPACE/test/regression.out | sed -E 's/not ok[[:space:]]+[0-9]+[[:space:]]+- ([^[:space:]]+).*/\1/')
-            
-            # Process exclusions
-            TEST_BASENAMES=""
-            for test in $FAILED_TESTS; do
-                exclude=false
-                for arg in "${TEST_ARGS[@]:1}"; do  # Skip the first arg which is "failed"
-                    if [ "$arg" = "-$test" ]; then
-                        exclude=true
-                        break
-                    fi
-                done
-                
-                if [ "$exclude" = "false" ]; then
-                    TEST_BASENAMES="$TEST_BASENAMES $test"
-                fi
-            done
-        else
-            # Just use the provided test names, filtering out exclusions
-            TEST_BASENAMES=""
-            for arg in "${TEST_ARGS[@]}"; do
-                if [[ "$arg" != -* ]]; then
-                    TEST_BASENAMES="$TEST_BASENAMES $arg"
-                fi
-            done
-        fi
-
-        # Validate that all requested tests exist
-        INVALID_TESTS=""
-        for test_basename in $TEST_BASENAMES; do
-            if [ ! -f "$PG_REGRESS_DIR/sql/$test_basename.sql" ]; then
-                INVALID_TESTS="$INVALID_TESTS $test_basename"
-            fi
-        done
-        
-        if [ -n "$INVALID_TESTS" ]; then
-            echo "Error: Test(s) not found:$INVALID_TESTS"
-            echo ""
-            echo "Available tests:"
-            echo "  all    - Run all tests"
-            echo "  fast       - Run all tests except 4xx/5xx (large imports)"
-            echo "  benchmarks - Run only 4xx tests (performance benchmarks)"
-            echo "  failed - Re-run previously failed tests"
-            echo ""
-            echo "Individual tests:"
-            basename -s .sql "$PG_REGRESS_DIR/sql"/*.sql | sed 's/^/  /'
-            exit 1
-        fi
-
-        # Separate tests into shared (non-4xx/5xx) and isolated (4xx/5xx) categories
-        # 4xx/5xx tests use COMMIT and need their own database to avoid polluting state
-        SHARED_TESTS=""
-        ISOLATED_TESTS=""
-        
-        for test_basename in $TEST_BASENAMES; do
-            expected_file="$PG_REGRESS_DIR/expected/$test_basename.out"
-            if [ ! -f "$expected_file" ] && [ -f "$PG_REGRESS_DIR/sql/$test_basename.sql" ]; then
-                echo "Warning: Expected output file $expected_file not found. Creating an empty placeholder."
-                touch "$expected_file"
-            fi
-            
-            # Categorize: 4xx/5xx tests run isolated, others run shared
-            if [[ "$test_basename" == 4* ]] || [[ "$test_basename" == 5* ]]; then
-                ISOLATED_TESTS="$ISOLATED_TESTS $test_basename"
-            else
-                SHARED_TESTS="$SHARED_TESTS $test_basename"
-            fi
-        done
-
-        debug_arg=""
-        if [ "${DEBUG:-}" = "true" ] || [ "${DEBUG:-}" = "1" ]; then
-          debug_arg="--debug"
-        fi
-        
-        OVERALL_EXIT_CODE=0
-        
-        # Run shared tests on a cloned database (fast, uses BEGIN/ROLLBACK between tests,
-        # but avoids interfering with the user's active development database).
-        if [ -n "$SHARED_TESTS" ]; then
-            TEMPLATE_NAME="${POSTGRES_TEST_DB:-statbus_test_template}"
-            SHARED_TEST_DB="test_shared_$$"
-
-            # Verify template exists
-            TEMPLATE_EXISTS=$(./devops/manage-statbus.sh psql -d postgres -t -A -c \
-                "SELECT 1 FROM pg_database WHERE datname = '$TEMPLATE_NAME';" 2>/dev/null || echo "0")
-            if [ "$TEMPLATE_EXISTS" != "1" ]; then
-                echo "Error: Template database '$TEMPLATE_NAME' not found."
-                echo "Create it with: ./devops/manage-statbus.sh create-test-template"
-                exit 1
-            fi
-
-            echo "=== Running shared tests (BEGIN/ROLLBACK isolation on cloned database) ==="
-            echo "Creating shared test database: $SHARED_TEST_DB from template $TEMPLATE_NAME"
-
-            # Clone from template using advisory lock (same pattern as test-isolated)
-            if ! ./devops/manage-statbus.sh psql -d postgres -v ON_ERROR_STOP=1 <<EOF
-                SELECT pg_advisory_lock(59328);
-                ALTER DATABASE $TEMPLATE_NAME WITH ALLOW_CONNECTIONS = true;
-                CREATE DATABASE "$SHARED_TEST_DB" WITH TEMPLATE $TEMPLATE_NAME;
-                ALTER DATABASE $TEMPLATE_NAME WITH ALLOW_CONNECTIONS = false;
-                SELECT pg_advisory_unlock(59328);
-EOF
-            then
-                echo "Error: Failed to create shared test database from template"
-                exit 1
-            fi
-
-            # Cleanup trap for shared test database
-            cleanup_shared_test_db() {
-                local exit_code=$?
-                if [ "${PERSIST:-false}" = "true" ]; then
-                    echo "PERSIST=true: Keeping shared test database: $SHARED_TEST_DB"
-                    return $exit_code
-                fi
-                if [ -n "$SHARED_TEST_DB" ]; then
-                    echo "Cleaning up shared test database: $SHARED_TEST_DB"
-                    ./devops/manage-statbus.sh psql -d postgres -c "DROP DATABASE IF EXISTS \"$SHARED_TEST_DB\";" 2>/dev/null || true
-                fi
-                return $exit_code
-            }
-            trap cleanup_shared_test_db EXIT
-
-            docker compose exec --workdir "/statbus" db \
-                $PG_REGRESS $debug_arg \
-                --use-existing \
-                --bindir="/usr/lib/postgresql/$POSTGRESQL_MAJOR/bin" \
-                --inputdir=$CONTAINER_REGRESS_DIR \
-                --outputdir=$CONTAINER_REGRESS_DIR \
-                --dbname="$SHARED_TEST_DB" \
-                --user=$PGUSER \
-                $SHARED_TESTS || OVERALL_EXIT_CODE=$?
-        fi
-        
-        # Run isolated tests each in their own database from template
-        if [ -n "$ISOLATED_TESTS" ]; then
-            echo ""
-            echo "=== Running isolated tests (database-per-test from template) ==="
-            for test_basename in $ISOLATED_TESTS; do
-                update_arg=""
-                if [ "$update_expected" = "true" ]; then
-                    update_arg="--update-expected"
-                fi
-                ./devops/manage-statbus.sh test-isolated "$test_basename" $update_arg || OVERALL_EXIT_CODE=$?
-            done
-        fi
-
-        # Handle --update-expected for shared tests (isolated tests handle it themselves)
-        if [ "$update_expected" = "true" ] && [ -n "$SHARED_TESTS" ]; then
-            echo "Updating expected output for shared tests: $(echo $SHARED_TESTS)"
-            for test_basename in $SHARED_TESTS; do
-                result_file="$PG_REGRESS_DIR/results/$test_basename.out"
-                expected_file="$PG_REGRESS_DIR/expected/$test_basename.out"
-                if [ -f "$result_file" ]; then
-                    echo "  -> Copying results for $test_basename"
-                    cp "$result_file" "$expected_file"
-                else
-                    echo "Warning: Result file not found for test: '$test_basename'. Cannot update expected output."
-                fi
-            done
-        fi
-        
-        exit $OVERALL_EXIT_CODE
-    ;;
-    'diff-fail-first' )
-      if [ ! -f "$WORKSPACE/test/regression.out" ]; then
-          echo "Error: File $WORKSPACE/test/regression.out not found."
-          echo "Run tests first: ./devops/manage-statbus.sh test fast"
-          exit 1
-      fi
-      
-      if [ ! -r "$WORKSPACE/test/regression.out" ]; then
-          echo "Error: Cannot read $WORKSPACE/test/regression.out"
-          exit 1
-      fi
-
-      # Extract the full test name from the regression output (use -a to force text mode)
-      test_line=$(grep -a -E '^not ok' "$WORKSPACE/test/regression.out" | head -n 1)
-      
-      # Check if grep failed to find proper test results
-      if [[ "$test_line" =~ ^Binary\ file.*matches$ ]]; then
-          echo "Error: Cannot parse test results. The regression.out file may be corrupted."
-          echo "Try running tests again: ./devops/manage-statbus.sh test fast"
-          exit 1
-      fi
-      
-      if [ -n "$test_line" ]; then
-          # Extract the full test name (e.g., "01_load_web_examples")
-          test=$(echo "$test_line" | sed -E 's/not ok[[:space:]]+[0-9]+[[:space:]]+- ([^[:space:]]+).*/\1/')
-          
-          ui_choice=${1:-pipe}
-          line_limit=${2:-}
-          case $ui_choice in
-              'gui')
-                  echo "Running opendiff for test: $test"
-                  opendiff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out -merge $WORKSPACE/test/expected/$test.out
-                  ;;
-              'vim'|'tui')
-                  echo "Running vim -d for test: $test"
-                  vim -d $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < "$TTY_INPUT"
-                  ;;
-              'vimo')
-                  echo "Running vim -d -o for test: $test"
-                  vim -d -o $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < "$TTY_INPUT"
-                  ;;
-              'pipe')
-                  echo "Running diff for test: $test"
-                  # Note the pipe from /dev/tty to avoid the diff alias running an interactive program.
-                  if [[ "$line_limit" =~ ^[0-9]+$ ]]; then
-                    diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out | head -n "$line_limit" || true
-                  else
-                    diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out || true
-                  fi
-                  ;;
-              *)
-                  echo "Error: Unknown UI option '$ui_choice'. Please use 'gui', 'vim', 'vimo', or 'pipe'."
-                  exit 1
-              ;;
-          esac
-      else
-          echo "No failing tests found."
-      fi
-    ;;
-    'diff-fail-all' )
-      if [ ! -f "$WORKSPACE/test/regression.out" ]; then
-          echo "Error: File $WORKSPACE/test/regression.out not found."
-          echo "Run tests first: ./devops/manage-statbus.sh test fast"
-          exit 1
-      fi
-      
-      if [ ! -r "$WORKSPACE/test/regression.out" ]; then
-          echo "Error: Cannot read $WORKSPACE/test/regression.out"
-          exit 1
-      fi
-
-      ui_choice=${1:-pipe} # Get UI choice from the first argument to diff-fail-all, default to pipe
-      line_limit=${2:-}
-      
-      # Check if grep will work properly (use -a to force text mode)
-      first_line=$(grep -a -E '^not ok' "$WORKSPACE/test/regression.out" | head -n 1)
-      if [[ "$first_line" =~ ^Binary\ file.*matches$ ]]; then
-          echo "Error: Cannot parse test results. The regression.out file may be corrupted."
-          echo "Try running tests again: ./devops/manage-statbus.sh test fast"
-          exit 1
-      fi
-      
-      if [ -z "$first_line" ]; then
-          echo "No failing tests found in regression.out"
-          exit 0
-      fi
-
-      # Use process substitution to avoid running the loop in a subshell,
-      # which can have subtle side effects on variable scope and signal handling.
-      while read test_line; do
-          # Extract the full test name (e.g., "01_load_web_examples")
-          test=$(echo "$test_line" | sed -E 's/not ok[[:space:]]+[0-9]+[[:space:]]+- ([^[:space:]]+).*/\1/')
-          
-          if [ "$ui_choice" != "pipe" ]; then
-              echo "Next test: $test"
-              echo "Press C to continue, s to skip, or b to break (default: C)"
-              read -n 1 -s input < "$TTY_INPUT"
-              if [ "$input" = "b" ]; then
-                  break
-              elif [ "$input" = "s" ]; then
-                  continue
-              fi
-          fi
-          
-          case $ui_choice in
-              'gui')
-                  echo "Running opendiff for test: $test"
-                  opendiff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out -merge $WORKSPACE/test/expected/$test.out
-                  ;;
-              'vim'|'tui')
-                  echo "Running vim -d for test: $test"
-                  vim -d $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < "$TTY_INPUT"
-                  ;;
-              'vimo')
-                  echo "Running vim -d -o for test: $test"
-                  vim -d -o $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < "$TTY_INPUT"
-                  ;;
-              'pipe')
-                  echo "Running diff for test: $test"
-                  # Note the pipe from /dev/tty to avoid the diff alias running an interactive program.
-                  if [[ "$line_limit" =~ ^[0-9]+$ ]]; then
-                    diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out | head -n "$line_limit" || true
-                  else
-                    diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out || true
-                  fi
-                  ;;
-              *)
-                  echo "Error: Unknown UI option '$ui_choice'. Please use 'gui', 'vim', 'vimo', or 'pipe'."
-                  exit 1
-              ;;
-          esac
-      done < <(grep -a -E '^not ok' "$WORKSPACE/test/regression.out")
-    ;;
-    'make-all-failed-test-results-expected' )
-        if [ ! -f "$WORKSPACE/test/regression.out" ]; then
-            echo "Error: No regression.out file found."
-            echo "Run tests first: ./devops/manage-statbus.sh test fast"
-            exit 1
-        fi
-        
-        if [ ! -r "$WORKSPACE/test/regression.out" ]; then
-            echo "Error: Cannot read $WORKSPACE/test/regression.out"
-            exit 1
-        fi
-
-        grep -a -E '^not ok' "$WORKSPACE/test/regression.out" | while read -r test_line; do
-            # Extract the full test name (e.g., "01_load_web_examples")
-            test=$(echo "$test_line" | sed -E 's/not ok[[:space:]]+[0-9]+[[:space:]]+- ([^[:space:]]+).*/\1/')
-            if [ -f "$WORKSPACE/test/results/$test.out" ]; then
-                echo "Copying results to expected for test: $test"
-                cp -f "$WORKSPACE/test/results/$test.out" "$WORKSPACE/test/expected/$test.out"
-            else
-                echo "Warning: No results file found for test: $test"
-            fi
-        done
-    ;;
-    'build-statbus-cli' )
-        pushd cli
-          shards build
-        popd
-      ;;
-    'create-db-structure' )
-        eval $(./devops/manage-statbus.sh postgres-variables)
-        SNAPSHOT_DIR="$WORKSPACE/migrations/snapshots"
-        
-        # Build the CLI tool first
-        pushd cli
-          shards build statbus
-        popd
-        
-        # Find the latest snapshot file (if any)
-        # Use find instead of ls to avoid glob expansion issues with set -e pipefail
-        LATEST_SNAPSHOT=$(find "$SNAPSHOT_DIR" -maxdepth 1 -name 'schema_*.pg_dump' -type f 2>/dev/null | sort -V | tail -1 || true)
-        
-        if [ -n "$LATEST_SNAPSHOT" ]; then
-            # Extract version from filename (schema_20260126221107.pg_dump -> 20260126221107)
-            SNAPSHOT_VERSION=$(basename "$LATEST_SNAPSHOT" | sed 's/schema_\([0-9]*\)\.pg_dump/\1/')
-            SNAPSHOT_LIST="${LATEST_SNAPSHOT%.pg_dump}.pg_list"
-            
-            echo "Found snapshot for migration version $SNAPSHOT_VERSION"
-            echo "Restoring from snapshot: $LATEST_SNAPSHOT"
-            
-            # Restore snapshot using pg_restore
-            # --clean --if-exists: Drop objects before recreating (safe with if-exists)
-            # --no-owner: Don't try to set ownership (roles from init-db.sh)
-            # --disable-triggers: Disable triggers/constraints during data load (as superuser)
-            # --single-transaction: All-or-nothing restore
-            # -L: Use list file for selective restore (if available)
-            # Note: List file must be passed via volume mount since it's on host
-            # pg_restore exit codes:
-            #   0 = success
-            #   1 = warnings only (e.g., "relation already exists") - acceptable
-            #   >1 = critical errors (corrupt dump, connection failure, etc.) - FAIL FAST
-            RESTORE_EXIT_CODE=0
-            
-            if [ -f "$SNAPSHOT_LIST" ]; then
-                echo "Using list file: $SNAPSHOT_LIST"
-                # Copy list file to container, restore, then clean up
-                docker compose cp "$SNAPSHOT_LIST" db:/tmp/restore.pg_list
-                docker compose exec -T db pg_restore -U postgres \
-                    --clean \
-                    --if-exists \
-                    --no-owner \
-                    --disable-triggers \
-                    --single-transaction \
-                    -L /tmp/restore.pg_list \
-                    -d "$PGDATABASE" \
-                    < "$LATEST_SNAPSHOT" || RESTORE_EXIT_CODE=$?
-                docker compose exec -T db rm -f /tmp/restore.pg_list
-            else
-                docker compose exec -T db pg_restore -U postgres \
-                    --clean \
-                    --if-exists \
-                    --no-owner \
-                    --disable-triggers \
-                    --single-transaction \
-                    -d "$PGDATABASE" \
-                    < "$LATEST_SNAPSHOT" || RESTORE_EXIT_CODE=$?
-            fi
-            
-            # Check restore result
-            if [ $RESTORE_EXIT_CODE -gt 1 ]; then
-                echo "Error: pg_restore failed with exit code $RESTORE_EXIT_CODE"
-                echo "This indicates a critical restore failure (corrupt dump, connection error, disk space, etc.)"
-                echo "The database may be in an inconsistent state. Consider running:"
-                echo "  ./devops/manage-statbus.sh recreate-database"
-                exit 1
-            elif [ $RESTORE_EXIT_CODE -eq 1 ]; then
-                echo "Info: pg_restore completed with warnings (exit code 1) - this is normal for existing objects"
-            fi
-            
-            echo "Snapshot restored. Running any newer migrations..."
-        else
-            echo "No snapshot found in $SNAPSHOT_DIR, running all migrations..."
-        fi
-        
-        # Run migrations (will only apply migrations newer than what's in db.migration table)
-        ./cli/bin/statbus migrate up all -v
-        
-        # Load secrets after migrations because:
-        # 1. auth.secrets table must exist (created by migration 20240102100000)
-        # 2. Functions that create users need JWT secret to generate API keys
-        # 3. Doing it here ensures both 'create-db' and direct 'create-db-structure' calls work
-        JWT_SECRET=$(./devops/dotenv --file .env.credentials get JWT_SECRET)
-        DEPLOYMENT_SLOT_CODE=$(./devops/dotenv --file .env.config get DEPLOYMENT_SLOT_CODE)
-        PGDATABASE=statbus_${DEPLOYMENT_SLOT_CODE:-dev}
-        ./devops/manage-statbus.sh psql -c "INSERT INTO auth.secrets (key, value, description) VALUES ('jwt_secret', '$JWT_SECRET', 'JWT signing secret') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = clock_timestamp();"
-        ./devops/manage-statbus.sh psql -c "ALTER DATABASE $PGDATABASE SET app.settings.deployment_slot_code TO '$DEPLOYMENT_SLOT_CODE';"
-      ;;
-    'delete-db-structure' )
-        pushd cli
-          shards build statbus && ./bin/statbus migrate down all -v
-        popd
-      ;;
-    'reset-db-structure' )
-        pushd cli
-          shards build statbus
-        popd
-        ./cli/bin/statbus migrate down all
-        ./cli/bin/statbus migrate up
-        ./devops/manage-statbus.sh create-users
-      ;;
-    'create-db' )
-        # Build CLI and generate config (normally done by 'start')
-        ./devops/manage-statbus.sh build-statbus-cli
-        ./devops/manage-statbus.sh generate-config
-        # Start only db, rest, proxy — NOT worker yet (avoids stray tasks from stale procedures)
-        docker compose up --build --detach db proxy rest
-        ./devops/manage-statbus.sh create-db-structure
-        ./devops/manage-statbus.sh create-users
-        ./devops/manage-statbus.sh create-test-template
-        # Now start worker with clean, fully-migrated DB
-        docker compose up --build --detach worker
-      ;;
-    'recreate-database' )
-        echo "Recreate the backend with the lastest database structures"
-        ./devops/manage-statbus.sh delete-db
-        ./devops/manage-statbus.sh create-db
-      ;;
-    'delete-db' )
-        ./devops/manage-statbus.sh stop all
-        # Define the directory path for PostgreSQL volume
-        POSTGRES_DIRECTORY="$WORKSPACE/postgres/volumes/db/data"
-
-        # Check and remove PostgreSQL directory if it exists
-        if [ -d "$POSTGRES_DIRECTORY" ]; then
-          if ! test -r "$POSTGRES_DIRECTORY" || ! test -w "$POSTGRES_DIRECTORY" || ! test -x "$POSTGRES_DIRECTORY"; then
-            echo "Removing '$POSTGRES_DIRECTORY' with sudo"
-            sudo rm -rf "$POSTGRES_DIRECTORY"
-          else
-            echo "Removing '$POSTGRES_DIRECTORY'"
-            rm -rf "$POSTGRES_DIRECTORY"
-          fi
-        fi
-      ;;
-    'create-users' )
-        ./cli/bin/statbus manage create-users -v
-      ;;
-    'dump-snapshot' )
-        eval $(./devops/manage-statbus.sh postgres-variables)
-        
-        # Verify database is running before attempting dump
-        if ! ./devops/manage-statbus.sh is-db-running; then
-            echo "Error: Database is not running. Start with: ./devops/manage-statbus.sh start all"
-            exit 1
-        fi
-        
-        # Get latest migration version from database
-        LATEST_VERSION=$(echo "SELECT version FROM db.migration ORDER BY version DESC LIMIT 1;" \
-            | ./devops/manage-statbus.sh psql -t -A)
-        
-        if [ -z "$LATEST_VERSION" ]; then
-            echo "Error: No migrations found in database"
-            exit 1
-        fi
-        
-        SNAPSHOT_DIR="$WORKSPACE/migrations/snapshots"
-        SNAPSHOT_DUMP="$SNAPSHOT_DIR/schema_${LATEST_VERSION}.pg_dump"
-        SNAPSHOT_LIST="$SNAPSHOT_DIR/schema_${LATEST_VERSION}.pg_list"
-        mkdir -p "$SNAPSHOT_DIR"
-        
-        echo "Creating snapshot for migration version $LATEST_VERSION..."
-        echo "This includes all schema and data from the current database."
-        
-        # Use custom format (-Fc) with default gzip compression
-        # --no-owner: Skip ownership commands (roles created by init-db.sh)
-        # Note: -Fc includes gzip compression by default
-        # Note: We include ACLs (GRANTs) since they're essential for RLS policies
-        docker compose exec -T db pg_dump -U postgres \
-            -Fc \
-            --no-owner \
-            "$PGDATABASE" > "$SNAPSHOT_DUMP"
-        
-        echo "Snapshot dump created: $SNAPSHOT_DUMP"
-        ls -lh "$SNAPSHOT_DUMP"
-        
-        # Generate list file for selective restore
-        # This can be edited to comment out problematic items
-        # Use container's pg_restore to ensure version compatibility with the dump
-        docker compose cp "$SNAPSHOT_DUMP" db:/tmp/snapshot.pg_dump
-        docker compose exec -T db pg_restore -l /tmp/snapshot.pg_dump > "$SNAPSHOT_LIST"
-        docker compose exec -T db rm -f /tmp/snapshot.pg_dump
-        
-        echo "Snapshot list created: $SNAPSHOT_LIST"
-        echo "Edit this file to comment out items that cause restore issues."
-      ;;
-    'list-snapshots' )
-        SNAPSHOT_DIR="$WORKSPACE/migrations/snapshots"
-        echo "Available snapshots in $SNAPSHOT_DIR:"
-        ls -lh "$SNAPSHOT_DIR"/*.pg_dump 2>/dev/null || echo "  (none - run 'dump-snapshot' to create one)"
-        
-        # Also show list files
-        LIST_FILES=$(ls "$SNAPSHOT_DIR"/*.pg_list 2>/dev/null)
-        if [ -n "$LIST_FILES" ]; then
-            echo ""
-            echo "List files (edit these to customize restore):"
-            ls -lh "$SNAPSHOT_DIR"/*.pg_list
-        fi
-        
-        if ./devops/manage-statbus.sh is-db-running 2>/dev/null; then
-            LATEST_DB_VERSION=$(echo "SELECT version FROM db.migration ORDER BY version DESC LIMIT 1;" \
-                | ./devops/manage-statbus.sh psql -t -A 2>/dev/null)
-            echo ""
-            echo "Current database migration version: ${LATEST_DB_VERSION:-not available}"
-        fi
-      ;;
-    'is-db-running' )
-        # Check if database container is running and accepting connections
-        docker compose exec -T db pg_isready -U postgres > /dev/null 2>&1
-      ;;
-    'clean-test-databases' )
-        # Remove all test databases (those starting with 'test_')
-        eval $(./devops/manage-statbus.sh postgres-variables)
-        
-        echo "Finding test databases to clean up..."
-        TEST_DBS=$(./devops/manage-statbus.sh psql -d postgres -t -A -c "
-            SELECT datname FROM pg_database 
-            WHERE datname LIKE 'test_%' 
-            ORDER BY datname;
-        ")
-        
-        if [ -z "$TEST_DBS" ]; then
-            echo "No test databases found."
-            exit 0
-        fi
-        
-        echo "Found test databases:"
-        echo "$TEST_DBS" | sed 's/^/  /'
-        
-        # Ask for confirmation unless --force is passed
-        if [ "${1:-}" != "--force" ]; then
-            echo ""
-            read -p "Drop all these databases? [y/N] " -r < "$TTY_INPUT"
-            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-                echo "Cancelled."
-                exit 0
-            fi
-        fi
-        
-        # Drop each test database, tracking failures
-        FAILED_DBS=""
-        DROPPED_COUNT=0
-        while read -r db; do
-            if [ -n "$db" ]; then
-                echo "Dropping: $db"
-                if ./devops/manage-statbus.sh psql -d postgres -c "DROP DATABASE IF EXISTS \"$db\";" 2>&1; then
-                    DROPPED_COUNT=$((DROPPED_COUNT + 1))
-                else
-                    echo "  Warning: Failed to drop $db (may have active connections)"
-                    FAILED_DBS="$FAILED_DBS $db"
-                fi
-            fi
-        done <<< "$TEST_DBS"
-        
-        echo ""
-        echo "Cleanup complete: $DROPPED_COUNT databases dropped."
-        if [ -n "$FAILED_DBS" ]; then
-            echo "Warning: Could not drop:$FAILED_DBS"
-            echo "These may have active connections. Try stopping services first."
-            exit 1
-        fi
-      ;;
-    'create-test-template' )
-        eval $(./devops/manage-statbus.sh postgres-variables)
-        TEMPLATE_NAME="${POSTGRES_TEST_DB:-statbus_test_template}"
-        
-        echo "Creating migrated template database: $TEMPLATE_NAME"
-        
-        # Check if template already exists
-        TEMPLATE_EXISTS=$(./devops/manage-statbus.sh psql -d postgres -t -A -c \
-            "SELECT 1 FROM pg_database WHERE datname = '$TEMPLATE_NAME';" 2>/dev/null || echo "0")
-        
-        if [ "$TEMPLATE_EXISTS" = "1" ]; then
-            echo "Existing template found, removing it..."
-            
-            # Terminate connections to template - OK if none exist
-            ./devops/manage-statbus.sh psql -d postgres -c "
-                SELECT pg_terminate_backend(pid) 
-                FROM pg_stat_activity 
-                WHERE datname = '$TEMPLATE_NAME';
-            " || true
-            
-            # Unmark as template - MUST succeed if template exists
-            if ! ./devops/manage-statbus.sh psql -d postgres -c "
-                UPDATE pg_database SET datistemplate = false WHERE datname = '$TEMPLATE_NAME';
-            "; then
-                echo "Error: Failed to unmark template database. Check permissions."
-                exit 1
-            fi
-            
-            # Drop template - MUST succeed
-            if ! ./devops/manage-statbus.sh psql -d postgres -c "DROP DATABASE $TEMPLATE_NAME;"; then
-                echo "Error: Failed to drop existing template database."
-                echo "There may be active connections. Check with:"
-                echo "  ./devops/manage-statbus.sh psql -c \"SELECT * FROM pg_stat_activity WHERE datname = '$TEMPLATE_NAME';\""
-                exit 1
-            fi
-        fi
-        
-        # Create new template by forking from template_statbus (clean, ~9 MB)
-        # and running migrations. This avoids copying statbus_local (which may be
-        # 36+ GB with user-imported data), keeping the template small and test
-        # cloning fast (seconds instead of minutes).
-        # No need to stop worker/rest — we don't touch statbus_local.
-        echo "Creating template from template_statbus (clean fork + migrations)..."
-
-        if ! ./devops/manage-statbus.sh psql -d postgres -c "
-            CREATE DATABASE $TEMPLATE_NAME
-            WITH TEMPLATE template_statbus
-            OWNER postgres;
-        "; then
-            echo "Error: Failed to create template database from template_statbus"
-            exit 1
-        fi
-
-        # Set up roles and schemas that init-db.sh creates for statbus_local
-        # but are not in template_statbus. Roles are cluster-wide (already exist),
-        # but the auth schema and grants must be per-database.
-        echo "Setting up schemas and grants for template..."
-        AUTHENTICATOR_PASSWORD=$(./devops/dotenv --file .env.credentials get POSTGRES_AUTHENTICATOR_PASSWORD)
-        ./devops/manage-statbus.sh psql -d $TEMPLATE_NAME -v ON_ERROR_STOP=1 <<'EOF'
-            CREATE SCHEMA IF NOT EXISTS auth;
-            GRANT USAGE ON SCHEMA auth TO authenticated;
-            GRANT USAGE ON SCHEMA auth TO anon;
-            GRANT USAGE ON SCHEMA public TO notify_reader;
-EOF
-
-        # Apply all migrations using the CLI.
-        # POSTGRES_APP_DB overrides the CLI's database target (dotenv ||= fix).
-        # PGDATABASE overrides postgres-variables for .psql migrations that
-        # shell out to ./devops/manage-statbus.sh psql.
-        echo "Applying migrations to template..."
-        if ! POSTGRES_APP_DB=$TEMPLATE_NAME PGDATABASE=$TEMPLATE_NAME ./cli/bin/statbus migrate up all -v; then
-            echo "Error: Failed to apply migrations to template database"
-            ./devops/manage-statbus.sh psql -d postgres -c "DROP DATABASE IF EXISTS $TEMPLATE_NAME;" || true
-            exit 1
-        fi
-        echo "All migrations applied to template."
-
-        # Load JWT secret so auth works in tests
-        JWT_SECRET=$(./devops/dotenv --file .env.credentials get JWT_SECRET)
-        ./devops/manage-statbus.sh psql -d $TEMPLATE_NAME -c \
-            "INSERT INTO auth.secrets (key, value, description) VALUES ('jwt_secret', '$JWT_SECRET', 'JWT signing secret') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = clock_timestamp();"
-        
-        # Mark as template and prevent connections (so it stays clean)
-        if ! ./devops/manage-statbus.sh psql -d postgres -c "
-            ALTER DATABASE $TEMPLATE_NAME WITH IS_TEMPLATE = true;
-            ALTER DATABASE $TEMPLATE_NAME WITH ALLOW_CONNECTIONS = false;
-        "; then
-            echo "Error: Template created but failed to mark as template."
-            echo "This may cause issues with test isolation. Check database permissions."
-            exit 1
-        fi
-        
-        echo "Template created: $TEMPLATE_NAME"
-        echo "This template can be used to quickly create isolated test databases."
-      ;;
-    'test-isolated' )
-        # Run a single test in an isolated database created from template
-        # Usage: ./devops/manage-statbus.sh test-isolated <test_name> [--update-expected]
-        eval $(./devops/manage-statbus.sh postgres-variables)
-        TEMPLATE_NAME="${POSTGRES_TEST_DB:-statbus_test_template}"
-        
-        # Parse arguments
-        TEST_NAME="${1:-}"
-        shift || true
-        UPDATE_EXPECTED=false
-        for arg in "$@"; do
-            if [ "$arg" = "--update-expected" ]; then
-                UPDATE_EXPECTED=true
-            fi
-        done
-        
-        if [ -z "$TEST_NAME" ]; then
-            echo "Error: Test name required"
-            echo "Usage: ./devops/manage-statbus.sh test-isolated <test_name> [--update-expected]"
-            exit 1
-        fi
-        
-        # Check if this is a group name (all, fast, failed) - these don't work with test-isolated
-        if [ "$TEST_NAME" = "all" ] || [ "$TEST_NAME" = "fast" ] || [ "$TEST_NAME" = "failed" ]; then
-            echo "Error: '$TEST_NAME' is a test group, not an individual test."
-            echo "Use './devops/manage-statbus.sh test $TEST_NAME' to run test groups."
-            echo ""
-            echo "Usage: ./devops/manage-statbus.sh test-isolated <test_name> [--update-expected]"
-            exit 1
-        fi
-        
-        # Check if test file exists
-        PG_REGRESS_DIR="$WORKSPACE/test"
-        if [ ! -f "$PG_REGRESS_DIR/sql/$TEST_NAME.sql" ]; then
-            echo "Error: Test '$TEST_NAME' not found."
-            echo ""
-            echo "Available tests:"
-            basename -s .sql "$PG_REGRESS_DIR/sql"/*.sql | sed 's/^/  /'
-            exit 1
-        fi
-        
-        # Sanitize test name to alphanumeric and underscore only (prevent SQL injection)
-        SAFE_TEST_NAME=$(echo "$TEST_NAME" | tr -cd '[:alnum:]_')
-        
-        # Generate unique database name using sanitized test name and PID
-        TEST_DB="test_${SAFE_TEST_NAME}_$$"
-        
-        # Extract PostgreSQL major version from Dockerfile
-        POSTGRESQL_MAJOR=$(grep -E "^ARG postgresql_major=" "$WORKSPACE/postgres/Dockerfile" | cut -d= -f2)
-        PG_REGRESS="/usr/lib/postgresql/$POSTGRESQL_MAJOR/lib/pgxs/src/test/regress/pg_regress"
-        PG_REGRESS_DIR="$WORKSPACE/test"
-        CONTAINER_REGRESS_DIR="/statbus/test"
-        
-        # Check if template exists
-        if ! ./devops/manage-statbus.sh psql -d postgres -t -A -c "SELECT 1 FROM pg_database WHERE datname = '$TEMPLATE_NAME';" 2>/dev/null | grep -q 1; then
-            echo "Error: Template database '$TEMPLATE_NAME' not found."
-            echo "Run './devops/manage-statbus.sh create-db' or './devops/manage-statbus.sh create-test-template' first."
-            exit 1
-        fi
-        
-        echo "=== Running isolated test: $TEST_NAME ==="
-        echo "Creating isolated test database: $TEST_DB from template $TEMPLATE_NAME"
-        
-        # Setup cleanup trap (runs on exit, including Ctrl+C)
-        # Default: PERSIST=false (clean up test databases)
-        LOG_CAPTURE_PID=""
-        DB_LOG_FILE=""
-        cleanup_test_db() {
-            local exit_code=$?
-            # Stop log capture if still running
-            if [ -n "$LOG_CAPTURE_PID" ]; then
-                kill "$LOG_CAPTURE_PID" 2>/dev/null || true
-                wait "$LOG_CAPTURE_PID" 2>/dev/null || true
-                if [ -f "$DB_LOG_FILE" ]; then
-                    LOG_LINE_COUNT=$(wc -l < "$DB_LOG_FILE" | tr -d ' ')
-                    echo "DEBUG=true: Database logs saved to: $DB_LOG_FILE ($LOG_LINE_COUNT lines)"
-                fi
-            fi
-            if [ "${PERSIST:-false}" = "true" ]; then
-                echo "PERSIST=true: Keeping test database: $TEST_DB"
-                return $exit_code
-            fi
-            if [ -n "$TEST_DB" ]; then
-                echo "Cleaning up test database: $TEST_DB"
-                if ! ./devops/manage-statbus.sh psql -d postgres -c "DROP DATABASE IF EXISTS \"$TEST_DB\";" 2>&1; then
-                    echo "Warning: Failed to drop test database '$TEST_DB'"
-                    echo "It may have active connections. Clean up manually with:"
-                    echo "  ./devops/manage-statbus.sh psql -d postgres -c \"DROP DATABASE IF EXISTS \\\"$TEST_DB\\\";\""
-                fi
-            fi
-            return $exit_code
-        }
-        trap cleanup_test_db EXIT
-        
-        # Use advisory lock to prevent race conditions when multiple tests access template
-        # Lock ID 59328 is arbitrary but consistent for this operation
-        # CRITICAL: All operations must be in ONE session - advisory locks are session-scoped
-        # The lock is held until explicitly released (or session ends)
-        if ! ./devops/manage-statbus.sh psql -d postgres -v ON_ERROR_STOP=1 <<EOF
-            SELECT pg_advisory_lock(59328);
-            ALTER DATABASE $TEMPLATE_NAME WITH ALLOW_CONNECTIONS = true;
-            CREATE DATABASE "$TEST_DB" WITH TEMPLATE $TEMPLATE_NAME;
-            ALTER DATABASE $TEMPLATE_NAME WITH ALLOW_CONNECTIONS = false;
-            SELECT pg_advisory_unlock(59328);
-EOF
-        then
-            echo "Error: Failed to create test database from template"
-            exit 1
-        fi
-        
-        # Run the test against the isolated database
-        debug_arg=""
-        if [ "${DEBUG:-}" = "true" ]; then
-            debug_arg="--debug"
-            # Capture database logs to tmp/ for auto_explain query analysis
-            DB_LOG_FILE="$WORKSPACE/tmp/db-logs-${TEST_NAME}-$$.log"
-            echo "DEBUG=true: Capturing database logs to: $DB_LOG_FILE"
-            docker compose logs db --follow --since 0s > "$DB_LOG_FILE" 2>&1 &
-            LOG_CAPTURE_PID=$!
-        fi
-
-        # Ensure expected file exists
-        expected_file="$PG_REGRESS_DIR/expected/$TEST_NAME.out"
-        if [ ! -f "$expected_file" ] && [ -f "$PG_REGRESS_DIR/sql/$TEST_NAME.sql" ]; then
-            echo "Warning: Expected output file $expected_file not found. Creating an empty placeholder."
-            touch "$expected_file"
-        fi
-        
-        TEST_EXIT_CODE=0
-        docker compose exec --workdir "/statbus" db \
-            $PG_REGRESS $debug_arg \
-            --use-existing \
-            --bindir="/usr/lib/postgresql/$POSTGRESQL_MAJOR/bin" \
-            --inputdir=$CONTAINER_REGRESS_DIR \
-            --outputdir=$CONTAINER_REGRESS_DIR \
-            --dbname="$TEST_DB" \
-            --user=$PGUSER \
-            "$TEST_NAME" || TEST_EXIT_CODE=$?
-
-        # Stop log capture if running
-        if [ -n "$LOG_CAPTURE_PID" ]; then
-            kill "$LOG_CAPTURE_PID" 2>/dev/null || true
-            wait "$LOG_CAPTURE_PID" 2>/dev/null || true
-            LOG_CAPTURE_PID=""  # Clear so cleanup trap doesn't try again
-            if [ -f "$DB_LOG_FILE" ]; then
-                LOG_LINE_COUNT=$(wc -l < "$DB_LOG_FILE" | tr -d ' ')
-                echo "DEBUG=true: Database logs saved to: $DB_LOG_FILE ($LOG_LINE_COUNT lines)"
-                echo "  Tip: Search for slow queries with: grep 'duration: [0-9]\\{4,\\}' $DB_LOG_FILE"
-            fi
-        fi
-
-        # Handle --update-expected
-        if [ "$UPDATE_EXPECTED" = "true" ]; then
-            result_file="$PG_REGRESS_DIR/results/$TEST_NAME.out"
-            if [ -f "$result_file" ]; then
-                echo "  -> Updating expected output for $TEST_NAME"
-                cp "$result_file" "$expected_file"
-            fi
-        fi
-        
-        # Cleanup happens via trap
-        exit $TEST_EXIT_CODE
-      ;;
-     'generate-config' )
-        if [ ! -f .env ]; then
-            echo "Bootstrapping new configuration because .env file is missing."
-
-            slot_offset=1 # Default value
-            if [ -t 0 ]; then
-                # Prompt for the port offset if running interactively
-                read -p "Enter deployment slot port offset (e.g., 1, 2, ...) [1]: " user_slot_offset
-                slot_offset=${user_slot_offset:-1}
-            else
-                echo "Running non-interactively, using default deployment slot port offset: ${slot_offset}"
-            fi
-
-            # Update .env.config so the Crystal app uses the same value
-            echo "Setting DEPLOYMENT_SLOT_PORT_OFFSET=${slot_offset} in .env.config for generation..."
-            ./devops/dotenv --file .env.config set DEPLOYMENT_SLOT_PORT_OFFSET "${slot_offset}"
-
-            # Calculate CADDY_DB_PORT based on the logic in cli/src/manage.cr
-            # and export it so the Crystal app can initialize.
-            base_port=3000
-            slot_multiplier=10
-            port_offset=$((base_port + slot_offset * slot_multiplier))
-            db_port=$((port_offset + 4))
-
-            echo "Temporarily exporting CADDY_DB_PORT=$db_port for initialization."
-            export CADDY_DB_PORT=$db_port
-        fi
-
-        ./cli/bin/statbus manage generate-config
-        ;;
-     'postgres-variables' )
-        SITE_DOMAIN=$(./devops/dotenv --file .env get SITE_DOMAIN || echo "local.statbus.org")
-        CADDY_DEPLOYMENT_MODE=$(./devops/dotenv --file .env get CADDY_DEPLOYMENT_MODE || echo "development")
-        # Preserve PGDATABASE/PGUSER if already set, to allow overrides.
-        PGDATABASE=${PGDATABASE:-$(./devops/dotenv --file .env get POSTGRES_APP_DB)}
-        POSTGRES_TEST_DB=$(./devops/dotenv --file .env get POSTGRES_TEST_DB || echo "statbus_test_template")
-        PGUSER=${PGUSER:-$(./devops/dotenv --file .env get POSTGRES_ADMIN_USER)}
-        PGPASSWORD=$(./devops/dotenv --file .env get POSTGRES_ADMIN_PASSWORD)
-        
-        # PostgreSQL connection configuration
-        # Two separate ports: plaintext (default) and TLS (with TLS=1)
-        PGHOST=$SITE_DOMAIN
-        
-        # Check if TLS is explicitly requested (for testing production-like connections)
-        if [ "${TLS:-}" = "1" ] || [ "${TLS:-}" = "true" ]; then
-            # TLS mode - use dedicated TLS port with PostgreSQL 17+ TLS/SNI configuration
-            PGPORT=$(./devops/dotenv --file .env get CADDY_DB_TLS_PORT)
-            # Use Caddy-compatible TLS (industry standard direct TLS negotiation)
-            PGSSLNEGOTIATION=direct
-            # Require SSL/TLS but don't verify certificate (self-signed in dev)
-            PGSSLMODE=require
-            # Send PGHOST as SNI for Caddy's layer4 routing
-            PGSSLSNI=1
-            cat <<EOS
-export PGHOST=$PGHOST PGPORT=$PGPORT PGDATABASE=$PGDATABASE PGUSER=$PGUSER PGPASSWORD=$PGPASSWORD PGSSLMODE=$PGSSLMODE PGSSLNEGOTIATION=$PGSSLNEGOTIATION PGSSLSNI=$PGSSLSNI POSTGRES_TEST_DB=$POSTGRES_TEST_DB
-EOS
-        else
-            # Default: plaintext on dedicated plaintext port (works for local, SSH tunnel, etc.)
-            PGPORT=$(./devops/dotenv --file .env get CADDY_DB_PORT)
-            PGSSLMODE=disable
-            cat <<EOS
-export PGHOST=$PGHOST PGPORT=$PGPORT PGDATABASE=$PGDATABASE PGUSER=$PGUSER PGPASSWORD=$PGPASSWORD PGSSLMODE=$PGSSLMODE POSTGRES_TEST_DB=$POSTGRES_TEST_DB
-EOS
-        fi
-      ;;
-     'psql' )
-        eval $(./devops/manage-statbus.sh postgres-variables)
-        # The local psql is always tried first, as it has access to files
-        # used for copying in data.
-        # Set DOCKER_PSQL=1 to force using Docker psql (useful for testing).
+        _postgres_variables
         if [ -z "${DOCKER_PSQL:-}" ] && $(which psql > /dev/null); then
           psql "$@"
         else
           if test -t 0 && test -t 1 && test ! -p /dev/stdin && test ! -f /dev/stdin; then
-            # Interactive mode - use default TTY allocation
             docker compose exec -w /statbus -e PGPASSWORD -u postgres db psql -U $PGUSER $PGDATABASE "$@"
           else
-            # Non-interactive mode - explicitly disable TTY allocation
             docker compose exec -T -w /statbus -e PGPASSWORD -u postgres db psql -U $PGUSER $PGDATABASE "$@"
           fi
         fi
       ;;
-     'generate-db-documentation' )
-        # Use a temporary clone of the migrated template so documentation
-        # generation never touches the user's active development database.
-        TEMPLATE_NAME="${POSTGRES_TEST_DB:-statbus_test_template}"
-        DOC_DB="statbus_doc_gen_$$"
-
-        # Verify template exists
-        TEMPLATE_EXISTS=$(./devops/manage-statbus.sh psql -d postgres -t -A -c \
-            "SELECT 1 FROM pg_database WHERE datname = '$TEMPLATE_NAME';" 2>/dev/null || echo "0")
-        if [ "$TEMPLATE_EXISTS" != "1" ]; then
-            echo "Error: Template database '$TEMPLATE_NAME' not found."
-            echo "Create it with: ./devops/manage-statbus.sh create-test-template"
-            exit 1
+    'generate-config' )
+        if has_sb; then
+            exec ./sb config generate "$@"
         fi
-
-        echo "Creating temporary documentation database: $DOC_DB from $TEMPLATE_NAME"
-        ./devops/manage-statbus.sh psql -d postgres -v ON_ERROR_STOP=1 <<EOF
-            SELECT pg_advisory_lock(59328);
-            ALTER DATABASE $TEMPLATE_NAME WITH ALLOW_CONNECTIONS = true;
-            CREATE DATABASE "$DOC_DB" WITH TEMPLATE $TEMPLATE_NAME;
-            ALTER DATABASE $TEMPLATE_NAME WITH ALLOW_CONNECTIONS = false;
-            SELECT pg_advisory_unlock(59328);
-EOF
-
-        # Cleanup trap for doc generation database
-        cleanup_doc_db() {
-            local exit_code=$?
-            echo "Cleaning up documentation database: $DOC_DB"
-            ./devops/manage-statbus.sh psql -d postgres -c "DROP DATABASE IF EXISTS \"$DOC_DB\";" 2>/dev/null || true
-            return $exit_code
-        }
-        trap cleanup_doc_db EXIT
-
-        # Helper to run psql against the doc database
-        doc_psql() {
-            ./devops/manage-statbus.sh psql -d "$DOC_DB" "$@"
-        }
-
-        # Create documentation directories and clean out old files
-        mkdir -p doc/db/table doc/db/view doc/db/function
-        echo "Cleaning documentation files..."
-        find doc/db -type f -delete
-
-        # Get list of all tables, materialized views, and regular views from specified schemas
-        tables=$(doc_psql -t <<'EOS'
-          SELECT schemaname || '.' || tablename
-          FROM pg_catalog.pg_tables
-          WHERE schemaname IN ('admin', 'db', 'lifecycle_callbacks', 'public', 'auth', 'worker', 'import')
-          UNION ALL
-          SELECT schemaname || '.' || matviewname
-          FROM pg_catalog.pg_matviews
-          WHERE schemaname IN ('admin', 'db', 'lifecycle_callbacks', 'public', 'auth', 'worker', 'import')
-          ORDER BY 1;
-EOS
-)
-
-        views=$(doc_psql -t <<'EOS'
-          SELECT schemaname || '.' || viewname
-          FROM pg_catalog.pg_views
-          WHERE schemaname IN ('admin', 'db', 'lifecycle_callbacks', 'public', 'auth', 'worker', 'import')
-            AND viewname NOT LIKE 'hypopg_%'
-            AND viewname NOT LIKE 'pg_stat_%'
-          ORDER BY 1;
-EOS
-)
-
-        # Document each table
-        echo "$tables" | while read -r table; do
-          if [ ! -z "$table" ]; then
-            echo "Documenting table $table..."
-            # Create temporary files
-            base_file="doc/db/table/${table//\./_}.md"
-            details_file="doc/db/table/${table//\./_}_details.md"
-
-            # Generate both overview and details.
-            echo '```sql' > "$base_file"
-            doc_psql -c "\d $table" >> "$base_file"
-            echo '```' >> "$base_file"
-
-            echo '```sql' > "$details_file"
-            doc_psql -c "\d+ $table" >> "$details_file"
-            echo '```' >> "$details_file"
-
-            # Compare files and remove details if they're identical
-            if diff -q "$base_file" "$details_file" >/dev/null; then
-              rm "$details_file"
+        # Fallback: use Crystal CLI
+        if [ ! -f .env ]; then
+            slot_offset=1
+            if [ -t 0 ]; then
+                read -p "Enter deployment slot port offset [1]: " user_slot_offset
+                slot_offset=${user_slot_offset:-1}
             fi
-          fi
-        done
-
-        # Document each view
-        echo "$views" | while read -r view; do
-          if [ ! -z "$view" ]; then
-            echo "Documenting view $view..."
-            # Create temporary files
-            base_file="doc/db/view/${view//\./_}.md"
-            details_file="doc/db/view/${view//\./_}_details.md"
-
-            # Generate both overview and details.
-            echo '```sql' > "$base_file"
-            doc_psql -c "\d $view" >> "$base_file"
-            echo '```' >> "$base_file"
-
-            echo '```sql' > "$details_file"
-            doc_psql -c "\d+ $view" >> "$details_file"
-            echo '```' >> "$details_file"
-
-            # Compare files and remove details if they're identical
-            if diff -q "$base_file" "$details_file" >/dev/null; then
-              rm "$details_file"
-            fi
-          fi
-        done
-
-        # Get and document functions
-        functions=$(doc_psql -t <<'EOS'
-          SELECT regexp_replace(
-            n.nspname || '.' || p.proname || '(' ||
-            regexp_replace(
-              regexp_replace(
-                regexp_replace(
-                  pg_get_function_arguments(p.oid),
-                  'timestamp with time zone',
-                  'timestamptz',
-                  'g'
-                ),
-                ',?\s*OUT [^,]+|\s*DEFAULT [^,]+|IN (\w+\s+)|INOUT (\w+\s+)',
-                '\1',
-                'g'
-              ),
-              '\w+\s+([^,]+)',
-              '\1',
-              'g'
-            ) || ')',
-            '"', '', 'g')
-          FROM pg_proc p
-          JOIN pg_namespace n ON p.pronamespace = n.oid
-          WHERE n.nspname IN ('admin', 'db', 'lifecycle_callbacks', 'public', 'auth', 'worker', 'import')
-            AND p.prokind != 'a'  -- Exclude aggregate functions
-            -- Exclude functions belonging to extensions (they are system/library functions)
-            AND NOT EXISTS (
-                SELECT 1 FROM pg_depend d
-                JOIN pg_extension e ON d.refobjid = e.oid
-                WHERE d.objid = p.oid
-                  AND d.deptype = 'e'
-            )
-          ORDER BY 1;
-EOS
-)
-
-        echo "$functions" | while read -r func; do
-          if [ ! -z "$func" ]; then
-            echo "Documenting function $func..."
-            # Create function documentation
-            base_file="doc/db/function/${func//\./_}.md"
-
-            # Generate function definition
-            echo '```sql' > "$base_file"
-            doc_psql -c "\sf $func" >> "$base_file"
-            echo '```' >> "$base_file"
-          fi
-        done
-
-        echo "Database documentation generated in doc/db/{table,view,function}/"
-        ;;
-
-     'generate-types' )
-        # Type generation is read-only (SELECT only), so run directly against
-        # the migrated template — no need to clone the database.
-        TEMPLATE_NAME="${POSTGRES_TEST_DB:-statbus_test_template}"
-
-        # Verify template exists
-        TEMPLATE_EXISTS=$(./devops/manage-statbus.sh psql -d postgres -t -A -c \
-            "SELECT 1 FROM pg_database WHERE datname = '$TEMPLATE_NAME';" 2>/dev/null || echo "0")
-        if [ "$TEMPLATE_EXISTS" != "1" ]; then
-            echo "Error: Template database '$TEMPLATE_NAME' not found."
-            echo "Create it with: ./devops/manage-statbus.sh create-test-template"
-            exit 1
+            ./devops/dotenv --file .env.config set DEPLOYMENT_SLOT_PORT_OFFSET "${slot_offset}"
+            base_port=3000; slot_multiplier=10
+            port_offset=$((base_port + slot_offset * slot_multiplier))
+            db_port=$((port_offset + 4))
+            export CADDY_DB_PORT=$db_port
         fi
-
-        # Temporarily allow connections to the template, restore on exit.
-        ./devops/manage-statbus.sh psql -d postgres -c \
-            "ALTER DATABASE $TEMPLATE_NAME WITH ALLOW_CONNECTIONS = true;" >/dev/null
-
-        restore_template() {
-            local exit_code=$?
-            ./devops/manage-statbus.sh psql -d postgres -c \
-                "ALTER DATABASE $TEMPLATE_NAME WITH ALLOW_CONNECTIONS = false;" 2>/dev/null || true
-            return $exit_code
-        }
-        trap restore_template EXIT
-
-        echo "Generating TypeScript types from $TEMPLATE_NAME..."
-        ./devops/manage-statbus.sh psql -d "$TEMPLATE_NAME" < $WORKSPACE/devops/generate_database_types.sql
-        echo "TypeScript types generated in app/src/lib/database.types.ts"
+        ./cli/bin/statbus manage generate-config
       ;;
-    'compile-run-and-trace-dev-app-in-container' )
-        echo "Stopping app container..."
-        docker compose --progress=plain --profile all down app
-        echo "Building app container with profile 'all'..."
-        docker compose --progress=plain --profile all build app
-        echo "Starting app container with profile 'all' in detached mode..."
-        docker compose --progress=plain --profile all up -d app
-        echo "Following logs for app container..."
-        docker compose logs --follow app
+    'create-users' )
+        if has_sb; then exec ./sb users create "$@"; fi
+        ./cli/bin/statbus manage create-users -v
       ;;
+
+    # === Database commands ===
     'dump-db' )
-        # Dump local database to dbdumps/ directory
-        if ! ./devops/manage-statbus.sh is-db-running; then
-            echo "Error: Database is not running. Start with: ./devops/manage-statbus.sh start all"
-            exit 1
-        fi
-
-        DEPLOYMENT_SLOT_CODE=$(./devops/dotenv --file .env.config get DEPLOYMENT_SLOT_CODE)
-        TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-        DUMP_DIR="$WORKSPACE/dbdumps"
-        DUMP_FILE="$DUMP_DIR/${DEPLOYMENT_SLOT_CODE}_${TIMESTAMP}.pg_dump"
-        mkdir -p "$DUMP_DIR"
-
-        eval $(./devops/manage-statbus.sh postgres-variables)
-
-        echo "Dumping database $PGDATABASE to $DUMP_FILE..."
-        docker compose exec -T db pg_dump -Fc --no-owner \
-            --exclude-table-data=auth.secrets \
-            -U postgres "$PGDATABASE" > "$DUMP_FILE"
-
-        echo "Dump complete:"
-        ls -lh "$DUMP_FILE"
-
-        # Warn if many dumps are accumulating
-        DUMP_COUNT=$(find "$DUMP_DIR" -name '*.pg_dump' -type f 2>/dev/null | wc -l | tr -d ' ')
-        if [ "$DUMP_COUNT" -ge 3 ]; then
-            TOTAL_SIZE=$(du -sh "$DUMP_DIR"/*.pg_dump 2>/dev/null | tail -1 | cut -f1)
-            echo ""
-            echo "Note: $DUMP_COUNT dumps in dbdumps/ (total ~$TOTAL_SIZE)."
-            echo "  Run './devops/manage-statbus.sh purge-db-dumps' to clean up old ones."
-        fi
+        if has_sb; then exec ./sb db dump "$@"; fi
+        echo "Error: ./sb not available. Build with: cd cli && make build" >&2
+        exit 1
       ;;
     'download-db' )
-        # Download database dump from remote server via SSH
-        REMOTE_CODE="${1:-}"
-        if [ -z "$REMOTE_CODE" ]; then
-            echo "Usage: ./devops/manage-statbus.sh download-db <code>"
-            echo "  code: deployment slot code (e.g., no, dev, demo)"
-            echo ""
-            echo "Example: ./devops/manage-statbus.sh download-db no"
-            exit 1
-        fi
-
-        SSH_USER="statbus_${REMOTE_CODE}"
-        SSH_HOST="niue.statbus.org"
-        REMOTE_DB="statbus_${REMOTE_CODE}"
-        TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-        DUMP_DIR="$WORKSPACE/dbdumps"
-        DUMP_FILE="$DUMP_DIR/${REMOTE_CODE}_${TIMESTAMP}.pg_dump"
-        mkdir -p "$DUMP_DIR"
-
-        echo "Checking SSH connectivity to ${SSH_USER}@${SSH_HOST}..."
-        if ! ssh -o ConnectTimeout=10 -o BatchMode=yes "${SSH_USER}@${SSH_HOST}" "echo ok" > /dev/null 2>&1; then
-            echo "Error: Cannot connect to ${SSH_USER}@${SSH_HOST}"
-            echo "Check your SSH keys and network connectivity."
-            exit 1
-        fi
-
-        echo "Downloading database $REMOTE_DB from ${SSH_USER}@${SSH_HOST}..."
-        ssh "${SSH_USER}@${SSH_HOST}" \
-            "cd statbus && docker compose exec -T db pg_dump -Fc --no-owner --exclude-table-data=auth.secrets -U postgres $REMOTE_DB" \
-            > "$DUMP_FILE"
-
-        # Check for empty file (indicates remote db not running or other failure)
-        if [ ! -s "$DUMP_FILE" ]; then
-            echo "Error: Downloaded file is empty. The remote database may not be running."
-            rm -f "$DUMP_FILE"
-            exit 1
-        fi
-
-        echo "Download complete:"
-        ls -lh "$DUMP_FILE"
-
-        # Warn if many dumps are accumulating
-        DUMP_COUNT=$(find "$DUMP_DIR" -name '*.pg_dump' -type f 2>/dev/null | wc -l | tr -d ' ')
-        if [ "$DUMP_COUNT" -ge 3 ]; then
-            TOTAL_SIZE=$(du -sh "$DUMP_DIR"/*.pg_dump 2>/dev/null | tail -1 | cut -f1)
-            echo ""
-            echo "Note: $DUMP_COUNT dumps in dbdumps/ (total ~$TOTAL_SIZE)."
-            echo "  Run './devops/manage-statbus.sh purge-db-dumps' to clean up old ones."
-        fi
+        if has_sb; then exec ./sb db download "$@"; fi
+        echo "Error: ./sb not available. Build with: cd cli && make build" >&2
+        exit 1
       ;;
     'list-db-dumps' )
-        DUMP_DIR="$WORKSPACE/dbdumps"
-        echo "Available database dumps in $DUMP_DIR:"
-        ls -lh "$DUMP_DIR"/*.pg_dump 2>/dev/null || echo "  (none - run 'dump-db' or 'download-db' to create one)"
+        if has_sb; then exec ./sb db dumps list "$@"; fi
+        ls -lh "$WORKSPACE/dbdumps/"*.pg_dump 2>/dev/null || echo "  (none)"
       ;;
     'purge-db-dumps' )
-        DUMP_DIR="$WORKSPACE/dbdumps"
-        KEEP=${1:-1}
-
-        # Validate KEEP is a positive integer
-        if ! [[ "$KEEP" =~ ^[0-9]+$ ]] || [ "$KEEP" -lt 0 ]; then
-            echo "Usage: ./devops/manage-statbus.sh purge-db-dumps [keep_count]"
-            echo "  keep_count: number of most recent dumps to keep per source (default: 1)"
-            exit 1
-        fi
-
-        DUMP_FILES=$(find "$DUMP_DIR" -name '*.pg_dump' -type f 2>/dev/null | sort)
-        if [ -z "$DUMP_FILES" ]; then
-            echo "No dumps to purge."
-            exit 0
-        fi
-
-        echo "Current dumps:"
-        ls -lh "$DUMP_DIR"/*.pg_dump
-
-        # Group by source prefix (everything before the timestamp), keep newest N per group
-        TO_DELETE=""
-        for prefix in $(echo "$DUMP_FILES" | sed 's/_[0-9]\{8\}_[0-9]\{6\}\.pg_dump$//' | sort -u); do
-            SOURCE=$(basename "$prefix")
-            GROUP_FILES=$(echo "$DUMP_FILES" | grep "^${prefix}_" | sort -r)
-            GROUP_COUNT=$(echo "$GROUP_FILES" | wc -l | tr -d ' ')
-
-            if [ "$GROUP_COUNT" -gt "$KEEP" ]; then
-                # Skip the newest KEEP, mark the rest for deletion
-                OLD_FILES=$(echo "$GROUP_FILES" | tail -n +$((KEEP + 1)))
-                TO_DELETE="$TO_DELETE
-$OLD_FILES"
-            fi
-        done
-
-        TO_DELETE=$(echo "$TO_DELETE" | sed '/^$/d')
-        if [ -z "$TO_DELETE" ]; then
-            echo ""
-            echo "Nothing to purge (keeping $KEEP per source)."
-            exit 0
-        fi
-
-        echo ""
-        echo "Will delete (keeping newest $KEEP per source):"
-        echo "$TO_DELETE" | while read -r f; do ls -lh "$f"; done
-
-        echo ""
-        read -p "Delete these files? [y/N] " -r < "$TTY_INPUT"
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            echo "Cancelled."
-            exit 0
-        fi
-
-        echo "$TO_DELETE" | while read -r f; do
-            echo "Removing: $(basename "$f")"
-            rm -f "$f"
-        done
-
-        echo "Purge complete."
+        if has_sb; then exec ./sb db dumps purge "$@"; fi
+        echo "Error: ./sb not available. Build with: cd cli && make build" >&2
+        exit 1
       ;;
     'restore-db' )
-        # Restore a database dump locally or to a remote server
-        DUMP_ARG="${1:-}"
-        shift || true
+        if has_sb; then exec ./sb db restore "$@"; fi
+        echo "Error: ./sb not available. Build with: cd cli && make build" >&2
+        exit 1
+      ;;
+    'is-db-running' )
+        if has_sb; then exec ./sb db status "$@"; fi
+        docker compose exec -T db pg_isready -U postgres > /dev/null 2>&1
+      ;;
 
-        if [ -z "$DUMP_ARG" ]; then
-            echo "Usage: ./devops/manage-statbus.sh restore-db <file> [--to <code>]"
-            echo ""
-            echo "  file: path to .pg_dump file (bare filename resolves against dbdumps/)"
-            echo "  --to: deploy to remote server (e.g., --to no, --to dev)"
-            echo ""
-            echo "Examples:"
-            echo "  ./devops/manage-statbus.sh restore-db no_20260206_143022.pg_dump"
-            echo "  ./devops/manage-statbus.sh restore-db dbdumps/no_20260206_143022.pg_dump --to dev"
-            echo ""
-            echo "Available dumps:"
-            ls -lh "$WORKSPACE/dbdumps/"*.pg_dump 2>/dev/null || echo "  (none)"
-            exit 1
-        fi
+    # === Type generation ===
+    'generate-types' )
+        if has_sb; then exec ./sb types generate "$@"; fi
+        # Fallback: direct psql
+        _postgres_variables
+        psql < "$WORKSPACE/devops/generate_database_types.sql"
+      ;;
 
-        # Resolve bare filename against dbdumps/ directory
-        if [ ! -f "$DUMP_ARG" ] && [ -f "$WORKSPACE/dbdumps/$DUMP_ARG" ]; then
-            DUMP_ARG="$WORKSPACE/dbdumps/$DUMP_ARG"
-        fi
+    # === Development commands (delegate to dev.sh when available) ===
+    'test' )
+        if has_devsh; then exec ./dev.sh test "$@"; fi
+        echo "Error: ./dev.sh not found" >&2; exit 1
+      ;;
+    'test-isolated' )
+        if has_devsh; then exec ./dev.sh test-isolated "$@"; fi
+        echo "Error: ./dev.sh not found" >&2; exit 1
+      ;;
+    'continous-integration-test' )
+        if has_devsh; then exec ./dev.sh continous-integration-test "$@"; fi
+        echo "Error: ./dev.sh not found" >&2; exit 1
+      ;;
+    'diff-fail-first' )
+        if has_devsh; then exec ./dev.sh diff-fail-first "$@"; fi
+        echo "Error: ./dev.sh not found" >&2; exit 1
+      ;;
+    'diff-fail-all' )
+        if has_devsh; then exec ./dev.sh diff-fail-all "$@"; fi
+        echo "Error: ./dev.sh not found" >&2; exit 1
+      ;;
+    'make-all-failed-test-results-expected' )
+        if has_devsh; then exec ./dev.sh make-all-failed-test-results-expected "$@"; fi
+        echo "Error: ./dev.sh not found" >&2; exit 1
+      ;;
+    'create-test-template' )
+        if has_devsh; then exec ./dev.sh create-test-template "$@"; fi
+        echo "Error: ./dev.sh not found" >&2; exit 1
+      ;;
+    'clean-test-databases' )
+        if has_devsh; then exec ./dev.sh clean-test-databases "$@"; fi
+        echo "Error: ./dev.sh not found" >&2; exit 1
+      ;;
 
-        if [ ! -f "$DUMP_ARG" ]; then
-            echo "Error: Dump file not found: $DUMP_ARG"
-            exit 1
-        fi
-
-        # Parse --to and --yes flags
-        REMOTE_CODE=""
-        AUTO_YES=false
-        while [ $# -gt 0 ]; do
-            case "$1" in
-                --to)
-                    REMOTE_CODE="${2:-}"
-                    if [ -z "$REMOTE_CODE" ]; then
-                        echo "Error: --to requires a deployment code (e.g., --to no)"
-                        exit 1
-                    fi
-                    shift 2
-                    ;;
-                --yes)
-                    AUTO_YES=true
-                    shift
-                    ;;
-                *)
-                    echo "Error: Unknown option: $1"
-                    exit 1
-                    ;;
-            esac
-        done
-
-        if [ -n "$REMOTE_CODE" ]; then
-            # === Remote restore ===
-            SSH_USER="statbus_${REMOTE_CODE}"
-            SSH_HOST="niue.statbus.org"
-            REMOTE_DB="statbus_${REMOTE_CODE}"
-            REMOTE_DUMP_BASENAME=$(basename "$DUMP_ARG")
-
-            echo "WARNING: This will DESTROY the database $REMOTE_DB on ${SSH_USER}@${SSH_HOST}"
-            echo "and replace it with the contents of: $DUMP_ARG"
-            if [ "$AUTO_YES" = "true" ]; then
-                echo "(--yes flag set, skipping confirmation)"
-            else
-                echo ""
-                echo "Type the deployment code '$REMOTE_CODE' to confirm:"
-                read -r CONFIRM < "$TTY_INPUT"
-                if [ "$CONFIRM" != "$REMOTE_CODE" ]; then
-                    echo "Confirmation failed. Aborting."
-                    exit 1
-                fi
-            fi
-
-            echo "Checking SSH connectivity to ${SSH_USER}@${SSH_HOST}..."
-            if ! ssh -o ConnectTimeout=10 -o BatchMode=yes "${SSH_USER}@${SSH_HOST}" "echo ok" > /dev/null 2>&1; then
-                echo "Error: Cannot connect to ${SSH_USER}@${SSH_HOST}"
-                exit 1
-            fi
-
-            echo "Uploading dump file to remote server..."
-            scp "$DUMP_ARG" "${SSH_USER}@${SSH_HOST}:statbus/dbdumps/${REMOTE_DUMP_BASENAME}"
-
-            echo "Restoring on remote server..."
-            ssh "${SSH_USER}@${SSH_HOST}" bash -s "$REMOTE_DB" "$REMOTE_DUMP_BASENAME" <<'REMOTE_SCRIPT'
-                set -euo pipefail
-                REMOTE_DB="$1"
-                REMOTE_DUMP_BASENAME="$2"
-                cd statbus
-
-                echo "Stopping worker and rest services..."
-                docker compose stop worker rest 2>/dev/null || true
-
-                echo "Terminating connections to $REMOTE_DB..."
-                docker compose exec -T db psql -U postgres -d postgres -c "
-                    SELECT pg_terminate_backend(pid)
-                    FROM pg_stat_activity
-                    WHERE datname = '$REMOTE_DB'
-                    AND pid <> pg_backend_pid();
-                " || true
-
-                echo "Dropping and recreating database..."
-                docker compose exec -T db psql -U postgres -d postgres -c "DROP DATABASE IF EXISTS \"$REMOTE_DB\";"
-                docker compose exec -T db psql -U postgres -d postgres -c "CREATE DATABASE \"$REMOTE_DB\" OWNER postgres;"
-
-                echo "Copying dump into container..."
-                docker compose cp "dbdumps/${REMOTE_DUMP_BASENAME}" db:/tmp/restore.pg_dump
-
-                echo "Phase 1: Restoring schema..."
-                docker compose exec -T db pg_restore \
-                    --section=pre-data \
-                    --no-owner \
-                    --single-transaction \
-                    -U postgres -d "$REMOTE_DB" \
-                    /tmp/restore.pg_dump
-
-                echo "Phase 2: Deferring cross-schema CHECK constraints..."
-                docker compose exec -T db psql -U postgres -d "$REMOTE_DB" \
-                    -v ON_ERROR_STOP=1 --single-transaction <<'DEFER_SQL'
-                    CREATE TABLE public._deferred_checks AS
-                    SELECT
-                        n.nspname AS schema_name,
-                        c.relname AS table_name,
-                        con.conname AS constraint_name,
-                        pg_get_constraintdef(con.oid) AS constraint_def
-                    FROM pg_constraint con
-                    JOIN pg_class c ON con.conrelid = c.oid
-                    JOIN pg_namespace n ON c.relnamespace = n.oid
-                    WHERE con.contype = 'c'
-                      AND pg_get_constraintdef(con.oid) ~ '\m[a-z_]+\.[a-z_]+\(';
-
-                    DO $$
-                    DECLARE
-                        r RECORD;
-                    BEGIN
-                        FOR r IN SELECT * FROM public._deferred_checks
-                        LOOP
-                            RAISE NOTICE 'Deferring: %.%.%',
-                                r.schema_name, r.table_name, r.constraint_name;
-                            EXECUTE format(
-                                'ALTER TABLE %I.%I DROP CONSTRAINT %I',
-                                r.schema_name, r.table_name, r.constraint_name
-                            );
-                        END LOOP;
-                    END $$;
-DEFER_SQL
-
-                echo "Phase 3: Restoring data..."
-                docker compose exec -T db pg_restore \
-                    --section=data \
-                    --no-owner \
-                    --single-transaction \
-                    -U postgres -d "$REMOTE_DB" \
-                    /tmp/restore.pg_dump
-
-                echo "Phase 3b: Restoring indexes, triggers, and FK constraints..."
-                docker compose exec -T db pg_restore \
-                    --section=post-data \
-                    --no-owner \
-                    --single-transaction \
-                    -U postgres -d "$REMOTE_DB" \
-                    /tmp/restore.pg_dump
-
-                echo "Phase 4: Re-adding deferred CHECK constraints..."
-                docker compose exec -T db psql -U postgres -d "$REMOTE_DB" \
-                    -v ON_ERROR_STOP=1 --single-transaction <<'READD_SQL'
-                    DO $$
-                    DECLARE
-                        r RECORD;
-                    BEGIN
-                        FOR r IN SELECT * FROM public._deferred_checks
-                        LOOP
-                            RAISE NOTICE 'Re-adding: %.%.%',
-                                r.schema_name, r.table_name, r.constraint_name;
-                            EXECUTE format(
-                                'ALTER TABLE %I.%I ADD CONSTRAINT %I %s',
-                                r.schema_name, r.table_name, r.constraint_name,
-                                r.constraint_def
-                            );
-                        END LOOP;
-                    END $$;
-
-                    DROP TABLE public._deferred_checks;
-READD_SQL
-
-                docker compose exec -T db rm -f /tmp/restore.pg_dump
-
-                echo "Reloading JWT secret from remote .env.credentials..."
-                JWT_SECRET=$(./devops/dotenv --file .env.credentials get JWT_SECRET)
-                docker compose exec -T db psql -U postgres -d "$REMOTE_DB" -c \
-                    "INSERT INTO auth.secrets (key, value, description) VALUES ('jwt_secret', '$JWT_SECRET', 'JWT signing secret') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = clock_timestamp();"
-
-                echo "Setting deployment_slot_code..."
-                DEPLOYMENT_SLOT_CODE=$(./devops/dotenv --file .env.config get DEPLOYMENT_SLOT_CODE)
-                docker compose exec -T db psql -U postgres -d "$REMOTE_DB" -c \
-                    "ALTER DATABASE \"$REMOTE_DB\" SET app.settings.deployment_slot_code TO '$DEPLOYMENT_SLOT_CODE';"
-
-                echo "Restarting worker and rest services..."
-                docker compose start worker rest
-
-                echo "Cleaning up uploaded dump file..."
-                rm -f "dbdumps/${REMOTE_DUMP_BASENAME}"
-
-                echo "Remote restore complete."
-REMOTE_SCRIPT
-        else
-            # === Local restore ===
-            if ! ./devops/manage-statbus.sh is-db-running; then
-                echo "Error: Database is not running. Start with: ./devops/manage-statbus.sh start all"
-                exit 1
-            fi
-
-            eval $(./devops/manage-statbus.sh postgres-variables)
-
-            echo "WARNING: This will DESTROY the local database $PGDATABASE"
-            echo "and replace it with the contents of: $DUMP_ARG"
-            if [ "$AUTO_YES" = "true" ]; then
-                echo "(--yes flag set, skipping confirmation)"
-            else
-                echo ""
-                echo "Type 'yes' to confirm:"
-                read -r CONFIRM < "$TTY_INPUT"
-                if [ "$CONFIRM" != "yes" ]; then
-                    echo "Cancelled."
-                    exit 1
-                fi
-            fi
-
-            echo "Stopping worker and rest services..."
-            docker compose stop worker rest 2>/dev/null || true
-
-            echo "Terminating connections to $PGDATABASE..."
-            docker compose exec -T db psql -U postgres -d postgres -c "
-                SELECT pg_terminate_backend(pid)
-                FROM pg_stat_activity
-                WHERE datname = '$PGDATABASE'
-                AND pid <> pg_backend_pid();
-            " || true
-
-            echo "Dropping and recreating database..."
-            docker compose exec -T db psql -U postgres -d postgres -c "DROP DATABASE IF EXISTS \"$PGDATABASE\";"
-            docker compose exec -T db psql -U postgres -d postgres -c "CREATE DATABASE \"$PGDATABASE\" OWNER postgres;"
-
-            # Restore in 4 phases to handle function-based CHECK constraints
-            # (e.g., admin.legal_unit_id_exists()) that are embedded in CREATE TABLE
-            # and fail during COPY because referenced tables have no data yet.
-            #
-            # Phase 1: pre-data (schema with constraints)
-            # Phase 2: drop cross-schema function-based CHECK constraints
-            # Phase 3: data + post-data
-            # Phase 4: re-add the dropped CHECK constraints
-            echo "Copying dump into container..."
-            docker compose cp "$DUMP_ARG" db:/tmp/restore.pg_dump
-
-            echo "Phase 1: Restoring schema..."
-            docker compose exec -T db pg_restore \
-                --section=pre-data \
-                --no-owner \
-                --single-transaction \
-                -U postgres -d "$PGDATABASE" \
-                /tmp/restore.pg_dump
-
-            echo "Phase 2: Deferring cross-schema CHECK constraints..."
-            # Save and drop CHECK constraints whose definition references
-            # a different schema (these are the function-based ones that fail
-            # during COPY because the referenced table has no data yet).
-            # Uses a real table (not TEMP) so it persists across psql sessions.
-            docker compose exec -T db psql -U postgres -d "$PGDATABASE" \
-                -v ON_ERROR_STOP=1 --single-transaction <<'DEFER_SQL'
-                CREATE TABLE public._deferred_checks AS
-                SELECT
-                    n.nspname AS schema_name,
-                    c.relname AS table_name,
-                    con.conname AS constraint_name,
-                    pg_get_constraintdef(con.oid) AS constraint_def
-                FROM pg_constraint con
-                JOIN pg_class c ON con.conrelid = c.oid
-                JOIN pg_namespace n ON c.relnamespace = n.oid
-                WHERE con.contype = 'c'
-                  AND pg_get_constraintdef(con.oid) ~ '\m[a-z_]+\.[a-z_]+\(';
-
-                DO $$
-                DECLARE
-                    r RECORD;
-                BEGIN
-                    FOR r IN SELECT * FROM _deferred_checks
-                    LOOP
-                        RAISE NOTICE 'Deferring: %.%.%',
-                            r.schema_name, r.table_name, r.constraint_name;
-                        EXECUTE format(
-                            'ALTER TABLE %I.%I DROP CONSTRAINT %I',
-                            r.schema_name, r.table_name, r.constraint_name
-                        );
-                    END LOOP;
-                END $$;
-DEFER_SQL
-
-            echo "Phase 3: Restoring data..."
-            docker compose exec -T db pg_restore \
-                --section=data \
-                --no-owner \
-                --single-transaction \
-                -U postgres -d "$PGDATABASE" \
-                /tmp/restore.pg_dump
-
-            echo "Phase 3b: Restoring indexes, triggers, and FK constraints..."
-            docker compose exec -T db pg_restore \
-                --section=post-data \
-                --no-owner \
-                --single-transaction \
-                -U postgres -d "$PGDATABASE" \
-                /tmp/restore.pg_dump
-
-            echo "Phase 4: Re-adding deferred CHECK constraints..."
-            docker compose exec -T db psql -U postgres -d "$PGDATABASE" \
-                -v ON_ERROR_STOP=1 --single-transaction <<'READD_SQL'
-                DO $$
-                DECLARE
-                    r RECORD;
-                BEGIN
-                    FOR r IN SELECT * FROM _deferred_checks
-                    LOOP
-                        RAISE NOTICE 'Re-adding: %.%.%',
-                            r.schema_name, r.table_name, r.constraint_name;
-                        EXECUTE format(
-                            'ALTER TABLE %I.%I ADD CONSTRAINT %I %s',
-                            r.schema_name, r.table_name, r.constraint_name,
-                            r.constraint_def
-                        );
-                    END LOOP;
-                END $$;
-
-                DROP TABLE public._deferred_checks;
-READD_SQL
-
-            # Clean up container files
-            docker compose exec -T db rm -f /tmp/restore.pg_dump
-
-            echo "All phases complete."
-
-            echo "Reloading JWT secret from local .env.credentials..."
-            JWT_SECRET=$(./devops/dotenv --file .env.credentials get JWT_SECRET)
-            DEPLOYMENT_SLOT_CODE=$(./devops/dotenv --file .env.config get DEPLOYMENT_SLOT_CODE)
-            docker compose exec -T db psql -U postgres -d "$PGDATABASE" -c \
-                "INSERT INTO auth.secrets (key, value, description) VALUES ('jwt_secret', '$JWT_SECRET', 'JWT signing secret') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = clock_timestamp();"
-
-            echo "Setting deployment_slot_code..."
-            docker compose exec -T db psql -U postgres -d "$PGDATABASE" -c \
-                "ALTER DATABASE \"$PGDATABASE\" SET app.settings.deployment_slot_code TO '$DEPLOYMENT_SLOT_CODE';"
-
-            echo "Restarting worker and rest services..."
-            docker compose start worker rest
-
-            echo "Local restore complete."
+    # === DB lifecycle (with fallback for deploy.sh compatibility) ===
+    'create-db' )
+        if has_devsh && has_sb; then exec ./dev.sh create-db "$@"; fi
+        $0 start all_except_app
+        $0 create-db-structure
+        $0 create-users
+        $0 create-test-template 2>/dev/null || true
+      ;;
+    'delete-db' )
+        if has_devsh && has_sb; then exec ./dev.sh delete-db "$@"; fi
+        $0 stop all
+        POSTGRES_DIRECTORY="$WORKSPACE/postgres/volumes/db/data"
+        if [ -d "$POSTGRES_DIRECTORY" ]; then
+          if ! test -r "$POSTGRES_DIRECTORY" || ! test -w "$POSTGRES_DIRECTORY" || ! test -x "$POSTGRES_DIRECTORY"; then
+            sudo rm -rf "$POSTGRES_DIRECTORY"
+          else
+            rm -rf "$POSTGRES_DIRECTORY"
+          fi
         fi
       ;;
-     * )
-      echo "Unknown action '$action', select one of"
-      awk -F "'" '/^ +''(..+)'' \)$/{print $2}' devops/manage-statbus.sh | sort
-      exit 1
+    'recreate-database' )
+        if has_devsh && has_sb; then exec ./dev.sh recreate-database "$@"; fi
+        $0 delete-db
+        $0 create-db
+      ;;
+    'create-db-structure' )
+        if has_devsh && has_sb; then exec ./dev.sh create-db-structure "$@"; fi
+        # Fallback: use Crystal CLI for migrations
+        _postgres_variables
+        SNAPSHOT_DIR="$WORKSPACE/migrations/snapshots"
+        LATEST_SNAPSHOT=$(find "$SNAPSHOT_DIR" -maxdepth 1 -name 'schema_*.pg_dump' -type f 2>/dev/null | sort -V | tail -1 || true)
+        if [ -n "$LATEST_SNAPSHOT" ]; then
+            SNAPSHOT_VERSION=$(basename "$LATEST_SNAPSHOT" | sed 's/schema_\([0-9]*\)\.pg_dump/\1/')
+            SNAPSHOT_LIST="${LATEST_SNAPSHOT%.pg_dump}.pg_list"
+            echo "Restoring from snapshot: $LATEST_SNAPSHOT"
+            RESTORE_EXIT_CODE=0
+            if [ -f "$SNAPSHOT_LIST" ]; then
+                docker compose cp "$SNAPSHOT_LIST" db:/tmp/restore.pg_list
+                docker compose exec -T db pg_restore -U postgres --clean --if-exists --no-owner --disable-triggers --single-transaction -L /tmp/restore.pg_list -d "$PGDATABASE" < "$LATEST_SNAPSHOT" || RESTORE_EXIT_CODE=$?
+                docker compose exec -T db rm -f /tmp/restore.pg_list
+            else
+                docker compose exec -T db pg_restore -U postgres --clean --if-exists --no-owner --disable-triggers --single-transaction -d "$PGDATABASE" < "$LATEST_SNAPSHOT" || RESTORE_EXIT_CODE=$?
+            fi
+            if [ $RESTORE_EXIT_CODE -gt 1 ]; then
+                echo "Error: pg_restore failed with exit code $RESTORE_EXIT_CODE"
+                exit 1
+            fi
+        fi
+        if has_sb; then
+            ./sb migrate up
+        else
+            ./cli/bin/statbus migrate up all -v
+        fi
+        # Load secrets
+        if has_sb; then
+            JWT_SECRET=$(./sb dotenv -f .env.credentials get JWT_SECRET)
+            DEPLOYMENT_SLOT_CODE=$(./sb dotenv -f .env.config get DEPLOYMENT_SLOT_CODE)
+        else
+            JWT_SECRET=$(./devops/dotenv --file .env.credentials get JWT_SECRET)
+            DEPLOYMENT_SLOT_CODE=$(./devops/dotenv --file .env.config get DEPLOYMENT_SLOT_CODE)
+        fi
+        PGDATABASE=statbus_${DEPLOYMENT_SLOT_CODE:-dev}
+        $0 psql -c "INSERT INTO auth.secrets (key, value, description) VALUES ('jwt_secret', '$JWT_SECRET', 'JWT signing secret') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = clock_timestamp();"
+        $0 psql -c "ALTER DATABASE $PGDATABASE SET app.settings.deployment_slot_code TO '$DEPLOYMENT_SLOT_CODE';"
+      ;;
+    'delete-db-structure' )
+        if has_devsh && has_sb; then exec ./dev.sh delete-db-structure "$@"; fi
+        if has_sb; then
+            ./sb migrate down all
+        else
+            pushd cli; shards build statbus && ./bin/statbus migrate down all -v; popd
+        fi
+      ;;
+    'reset-db-structure' )
+        if has_devsh && has_sb; then exec ./dev.sh reset-db-structure "$@"; fi
+        $0 delete-db-structure
+        $0 create-db-structure
+        $0 create-users
+      ;;
+    'dump-snapshot' )
+        if has_devsh; then exec ./dev.sh dump-snapshot "$@"; fi
+        echo "Error: ./dev.sh not found" >&2; exit 1
+      ;;
+    'list-snapshots' )
+        if has_devsh; then exec ./dev.sh list-snapshots "$@"; fi
+        echo "Error: ./dev.sh not found" >&2; exit 1
+      ;;
+    'generate-db-documentation' )
+        if has_devsh; then exec ./dev.sh generate-db-documentation "$@"; fi
+        echo "Error: ./dev.sh not found" >&2; exit 1
+      ;;
+    'postgres-variables' )
+        if has_devsh; then exec ./dev.sh postgres-variables "$@"; fi
+        # Inline fallback for deploy.sh compatibility
+        _postgres_variables
+        echo "export PGHOST=$PGHOST PGPORT=$PGPORT PGDATABASE=$PGDATABASE PGUSER=$PGUSER PGPASSWORD=$PGPASSWORD PGSSLMODE=$PGSSLMODE"
+      ;;
+    'compile-run-and-trace-dev-app-in-container' )
+        if has_devsh; then exec ./dev.sh compile-run-and-trace-dev-app-in-container "$@"; fi
+        echo "Error: ./dev.sh not found" >&2; exit 1
+      ;;
+
+    # === Legacy Crystal commands ===
+    'build-statbus-cli' )
+        if has_sb; then
+            echo "Note: Crystal CLI build is no longer needed (Go binary ./sb replaces it)."
+            return 0 2>/dev/null || exit 0
+        fi
+        pushd cli; shards build; popd
+      ;;
+
+    * )
+      echo "manage-statbus.sh — Backward-compatibility wrapper"
+      echo ""
+      echo "This script delegates to ./sb (ops) and ./dev.sh (development)."
+      echo "Consider calling them directly:"
+      echo ""
+      echo "  ./sb <command>    — Production/ops commands"
+      echo "  ./dev.sh <command> — Development commands"
+      echo ""
+      echo "Run './sb --help' or './dev.sh' for available commands."
+      if [ -n "$action" ]; then
+          echo ""
+          echo "Error: Unknown command '$action'"
+          exit 1
+      fi
       ;;
 esac

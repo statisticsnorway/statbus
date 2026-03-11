@@ -12,11 +12,11 @@ import (
 var testCmd = &cobra.Command{
 	Use:                "test [args...]",
 	Short:              "Run pg_regress tests",
-	Long:               "Runs pg_regress tests via manage-statbus.sh.\nAll arguments are passed through (e.g., 'all', 'fast', or specific test names).",
+	Long:               "Runs pg_regress tests via dev.sh.\nAll arguments are passed through (e.g., 'all', 'fast', or specific test names).",
 	DisableFlagParsing: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		projDir := config.ProjectDir()
-		script := filepath.Join(projDir, "devops", "manage-statbus.sh")
+		script := filepath.Join(projDir, "dev.sh")
 
 		fullArgs := append([]string{script, "test"}, args...)
 		c := exec.Command("bash", fullArgs...)
