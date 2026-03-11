@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -74,7 +75,12 @@ func (d *Daemon) Run(ctx context.Context) error {
 	// Main loop: use a goroutine for LISTEN/NOTIFY, select on channels
 	notifyCh := make(chan *pgconn.Notification, 1)
 	errCh := make(chan error, 1)
-	go d.listenLoop(ctx, notifyCh, errCh)
+	var listenWg sync.WaitGroup
+	listenWg.Add(1)
+	go func() {
+		defer listenWg.Done()
+		d.listenLoop(ctx, notifyCh, errCh)
+	}()
 
 	ticker := time.NewTicker(d.interval)
 	defer ticker.Stop()
@@ -86,6 +92,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			fmt.Println("Upgrade daemon shutting down")
+			listenWg.Wait()
 			return nil
 		case <-ticker.C:
 			if !d.upgrading {
@@ -98,6 +105,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 				d.executeScheduled(ctx)
 			}
 		case err := <-errCh:
+			listenWg.Wait() // ensure old goroutine fully exited
 			if ctx.Err() != nil {
 				return nil // shutdown
 			}
@@ -106,7 +114,11 @@ func (d *Daemon) Run(ctx context.Context) error {
 				return fmt.Errorf("reconnect failed: %w", reconnErr)
 			}
 			// Restart listen goroutine
-			go d.listenLoop(ctx, notifyCh, errCh)
+			listenWg.Add(1)
+			go func() {
+				defer listenWg.Done()
+				d.listenLoop(ctx, notifyCh, errCh)
+			}()
 		}
 	}
 }
@@ -456,6 +468,20 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 		return err
 	}
 
+	// Step 7b: Verify checked-out SHA matches manifest (detect tag spoofing)
+	if manifest, mErr := FetchManifest(version); mErr == nil && manifest.CommitSHA != "" {
+		if checkedOut, gErr := runCommandOutput(projDir, "git", "rev-parse", "HEAD"); gErr == nil {
+			checkedOut = strings.TrimSpace(checkedOut)
+			if !strings.HasPrefix(checkedOut, manifest.CommitSHA) && !strings.HasPrefix(manifest.CommitSHA, checkedOut) {
+				errMsg := fmt.Sprintf("tag verification failed: checked out %s but manifest expected %s", checkedOut, manifest.CommitSHA)
+				progress.Write(errMsg)
+				d.rollback(ctx, id, version, previousVersion, progress)
+				return fmt.Errorf("%s", errMsg)
+			}
+			progress.Write("Tag verified: SHA %s", checkedOut[:12])
+		}
+	}
+
 	// Step 8: Regenerate config
 	progress.Write("Regenerating configuration...")
 	if err := runCommand(projDir, filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
@@ -528,7 +554,7 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 	fmt.Printf("Upgrade to %s completed successfully\n", version)
 
 	// Self-update check
-	d.selfUpdate(version, progress)
+	d.selfUpdate(ctx, version, progress)
 
 	return nil
 }
@@ -576,15 +602,19 @@ func (d *Daemon) rollback(ctx context.Context, id int, version, previousVersion 
 	progress.Write("Rollback complete. Running on previous version.")
 }
 
-func (d *Daemon) selfUpdate(version string, progress *ProgressLog) {
+func (d *Daemon) selfUpdate(ctx context.Context, version string, progress *ProgressLog) {
 	manifest, err := FetchManifest(version)
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "Self-update: cannot fetch manifest for %s: %v\n", version, err)
 		return
 	}
 
 	platform := selfupdate.Platform()
 	binary, ok := manifest.Binaries[platform]
 	if !ok {
+		if d.verbose {
+			fmt.Fprintf(os.Stderr, "Self-update: no binary for platform %s\n", platform)
+		}
 		return
 	}
 
@@ -592,7 +622,15 @@ func (d *Daemon) selfUpdate(version string, progress *ProgressLog) {
 
 	sbPath := filepath.Join(d.projDir, "sb")
 	if err := selfupdate.Update(sbPath, binary.URL, binary.SHA256); err != nil {
-		progress.Write("Self-update failed: %v", err)
+		msg := fmt.Sprintf("Self-update failed for %s: %v", version, err)
+		progress.Write(msg)
+		fmt.Fprintln(os.Stderr, msg)
+		// Record in system_info so admins can see the failure
+		if d.conn != nil {
+			d.conn.Exec(ctx,
+				`INSERT INTO public.system_info (key, value, updated_at) VALUES ('self_update_error', $1, now())
+				 ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = now()`, msg)
+		}
 		return
 	}
 

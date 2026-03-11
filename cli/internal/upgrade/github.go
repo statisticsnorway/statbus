@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -57,17 +59,49 @@ func ValidateVersion(v string) bool {
 	return versionRegex.MatchString(v)
 }
 
-// FetchReleases queries the GitHub Releases API.
-func FetchReleases() ([]Release, error) {
-	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases?per_page=30", owner, repo)
-	req, err := http.NewRequest("GET", url, nil)
+// githubRequest creates an HTTP request with optional auth from GITHUB_TOKEN env var.
+// Authenticated requests get 5000 req/hr instead of 60 req/hr.
+func githubRequest(method, url string) (*http.Request, error) {
+	req, err := http.NewRequest(method, url, nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("User-Agent", "statbus-upgrade-daemon")
+	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	return req, nil
+}
 
-	resp, err := http.DefaultClient.Do(req)
+// githubDo executes a request with rate-limit retry on 403 + Retry-After.
+func githubDo(req *http.Request) (*http.Response, error) {
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode == http.StatusForbidden {
+		if ra := resp.Header.Get("Retry-After"); ra != "" {
+			resp.Body.Close()
+			if seconds, err := strconv.Atoi(ra); err == nil && seconds > 0 && seconds <= 300 {
+				time.Sleep(time.Duration(seconds) * time.Second)
+				return client.Do(req)
+			}
+		}
+	}
+	return resp, nil
+}
+
+// FetchReleases queries the GitHub Releases API.
+func FetchReleases() ([]Release, error) {
+	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases?per_page=30", owner, repo)
+	req, err := githubRequest("GET", url)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := githubDo(req)
 	if err != nil {
 		return nil, fmt.Errorf("fetch releases: %w", err)
 	}

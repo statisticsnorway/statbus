@@ -251,11 +251,14 @@ END $$;`
 			return fmt.Errorf("migration %d (%s) failed: %w\n%s", m.Version, filepath.Base(m.Path), err, out)
 		}
 
-		// Record success
-		recordSQL := fmt.Sprintf(
-			"INSERT INTO db.migration (version, filename, description, duration_ms) VALUES (%d, '%s', '%s', %d)",
-			m.Version, strings.ReplaceAll(filepath.Base(m.Path), "'", "''"), strings.ReplaceAll(m.Description, "'", "''"), durationMs)
-		if _, err := runPsql(projDir, recordSQL); err != nil {
+		// Record success using psql variables (:'var' = safely quoted string literal)
+		recordSQL := `INSERT INTO db.migration (version, filename, description, duration_ms) VALUES (:version, :'filename', :'description', :duration_ms)`
+		if _, err := runPsql(projDir, recordSQL,
+			"-v", fmt.Sprintf("version=%d", m.Version),
+			"-v", "filename="+filepath.Base(m.Path),
+			"-v", "description="+m.Description,
+			"-v", fmt.Sprintf("duration_ms=%d", durationMs),
+		); err != nil {
 			return fmt.Errorf("record migration %d: %w", m.Version, err)
 		}
 
