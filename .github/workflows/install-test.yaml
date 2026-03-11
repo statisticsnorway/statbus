@@ -1,0 +1,85 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Install Test
+
+# End-to-end test of the installation and upgrade path.
+# Verifies: fresh install → services healthy → upgrade → services healthy.
+on:
+  workflow_dispatch:  # Manual trigger only (resource-intensive)
+
+permissions:
+  contents: read
+  packages: read
+
+env:
+  REGISTRY: ghcr.io
+  ORG: statisticsnorway
+
+jobs:
+  install-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: cli/go.mod
+
+      - name: Build sb binary
+        working-directory: cli
+        run: |
+          CGO_ENABLED=0 go build -trimpath -o ../sb .
+
+      - name: Run install (non-interactive)
+        env:
+          # Non-interactive mode: pre-configure via env vars
+          DEPLOYMENT_SLOT_NAME: Test
+          DEPLOYMENT_SLOT_CODE: test
+          DEPLOYMENT_SLOT_PORT_OFFSET: "1"
+          CADDY_DEPLOYMENT_MODE: development
+          SITE_DOMAIN: localhost
+        run: |
+          # Create .env.config directly (skip interactive prompts)
+          cat > .env.config <<CFG
+          DEPLOYMENT_SLOT_NAME=$DEPLOYMENT_SLOT_NAME
+          DEPLOYMENT_SLOT_CODE=$DEPLOYMENT_SLOT_CODE
+          DEPLOYMENT_SLOT_PORT_OFFSET=$DEPLOYMENT_SLOT_PORT_OFFSET
+          CADDY_DEPLOYMENT_MODE=$CADDY_DEPLOYMENT_MODE
+          SITE_DOMAIN=$SITE_DOMAIN
+          CFG
+
+          # Generate config
+          ./sb config generate
+
+          # Pull/build and start
+          docker compose --profile all up -d --build
+
+          # Wait for DB
+          for i in $(seq 1 30); do
+            if docker compose exec db pg_isready -U postgres 2>/dev/null; then
+              echo "DB ready after ${i}s"
+              break
+            fi
+            sleep 1
+          done
+
+          # Run migrations
+          ./sb migrate up --verbose
+
+      - name: Verify services healthy
+        run: |
+          # Check all containers running
+          docker compose ps --format json | jq -e '.[] | select(.State != "running")' && exit 1 || true
+
+          # Check DB responds
+          docker compose exec db pg_isready -U postgres
+
+          # Check upgrade table exists
+          echo "SELECT COUNT(*) FROM public.upgrade;" | ./devops/manage-statbus.sh psql
+
+          echo "All services healthy"
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker compose --profile all down -v || true

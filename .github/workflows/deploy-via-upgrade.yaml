@@ -1,0 +1,113 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Deploy via upgrade daemon
+
+# Hybrid deployment: SSH to server, trigger upgrade daemon via NOTIFY.
+# The daemon handles: pull images, stop services, backup, migrate, restart, health check.
+# This replaces the branch-based deploy workflow for servers running the upgrade daemon.
+#
+# Usage:
+#   - Manual trigger in GitHub Actions UI
+#   - Select target server and version/SHA to deploy
+#   - Daemon receives NOTIFY and executes the upgrade
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Target server (user@host)'
+        required: true
+        type: choice
+        options:
+          - statbus_dev@niue.statbus.org
+          - statbus_no@niue.statbus.org
+          - statbus_demo@niue.statbus.org
+          - statbus_tcc@niue.statbus.org
+          - statbus_ma@niue.statbus.org
+          - statbus_ug@niue.statbus.org
+          - statbus_et@niue.statbus.org
+          - statbus_jo@niue.statbus.org
+      version:
+        description: 'Version tag (e.g., v2026.03.0) or commit SHA (e.g., sha-abc1234f). Leave empty to just check for new releases.'
+        required: false
+        type: string
+      action:
+        description: 'Action to perform'
+        required: true
+        type: choice
+        default: 'apply'
+        options:
+          - apply    # Deploy specific version/SHA
+          - check    # Poll GitHub for new releases
+
+concurrency:
+  group: deploy-${{ github.event.inputs.target }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Validate inputs
+        run: |
+          ACTION="${{ github.event.inputs.action }}"
+          VERSION="${{ github.event.inputs.version }}"
+          if [ "$ACTION" = "apply" ] && [ -z "$VERSION" ]; then
+            echo "::error::Version is required for 'apply' action"
+            exit 1
+          fi
+          if [ -n "$VERSION" ]; then
+            # Validate version format
+            if ! echo "$VERSION" | grep -qE '^(v[0-9]{4}\.[0-9]{2}\.[0-9]+(-[a-zA-Z0-9.]+)?|sha-[a-f0-9]{7,40})$'; then
+              echo "::error::Invalid version format: $VERSION (expected v2026.03.0 or sha-abc1234f)"
+              exit 1
+            fi
+          fi
+
+      - name: Parse target
+        id: target
+        run: |
+          TARGET="${{ github.event.inputs.target }}"
+          USERNAME="${TARGET%%@*}"
+          HOST="${TARGET##*@}"
+          echo "username=$USERNAME" >> "$GITHUB_OUTPUT"
+          echo "host=$HOST" >> "$GITHUB_OUTPUT"
+
+      - name: Trigger upgrade daemon
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ steps.target.outputs.host }}
+          username: ${{ steps.target.outputs.username }}
+          key: ${{ secrets.SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            cd ~/statbus
+            ACTION="${{ github.event.inputs.action }}"
+            VERSION="${{ github.event.inputs.version }}"
+
+            if [ "$ACTION" = "check" ]; then
+              echo "Sending NOTIFY upgrade_check..."
+              echo "NOTIFY upgrade_check;" | ./devops/manage-statbus.sh psql
+              echo "Done. Daemon will poll GitHub for new releases."
+            elif [ "$ACTION" = "apply" ]; then
+              echo "Sending NOTIFY upgrade_apply, '$VERSION'..."
+              echo "NOTIFY upgrade_apply, '$VERSION';" | ./devops/manage-statbus.sh psql
+              echo "Done. Daemon will execute upgrade to $VERSION shortly."
+            fi
+
+      - name: Summary
+        run: |
+          ACTION="${{ github.event.inputs.action }}"
+          VERSION="${{ github.event.inputs.version }}"
+          TARGET="${{ github.event.inputs.target }}"
+          echo "## Upgrade Triggered" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Target**: $TARGET" >> $GITHUB_STEP_SUMMARY
+          echo "- **Action**: $ACTION" >> $GITHUB_STEP_SUMMARY
+          if [ -n "$VERSION" ]; then
+            echo "- **Version**: $VERSION" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The upgrade daemon on the target server will execute the upgrade." >> $GITHUB_STEP_SUMMARY
+          echo "Monitor progress via the admin UI or systemd journal." >> $GITHUB_STEP_SUMMARY

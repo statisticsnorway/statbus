@@ -52,17 +52,23 @@ else
   commit_messages=$(git log -1 --oneline)
 fi
 
-echo "Ensuring CLI tools to generate config is up to date"
-./devops/manage-statbus.sh build-statbus-cli
-
 echo "Ensuring config required for all management commands"
-# Ensure the caddy/config dir exists.
 mkdir -p caddy/config
-./devops/manage-statbus.sh generate-config
+if test -x ./sb; then
+  # Use Go binary if available (no Crystal build needed)
+  ./sb config generate
+else
+  echo "Ensuring CLI tools to generate config is up to date"
+  ./devops/manage-statbus.sh build-statbus-cli
+  ./devops/manage-statbus.sh generate-config
+fi
 
-echo "Pre-building Docker images to minimize downtime"
-# Build images before stopping services so the downtime is minimal
-docker compose build app db
+echo "Pre-pulling Docker images to minimize downtime"
+# Pull pre-built images from ghcr.io (built by CI, much faster than local build)
+if ! docker compose pull 2>/dev/null; then
+  echo "Pull failed (images may not exist yet), falling back to local build"
+  docker compose build app db
+fi
 
 echo "Stopping the application"
 ./devops/manage-statbus.sh stop app || { echo "Failed to stop the application"; exit 1; }
@@ -116,9 +122,13 @@ if test -n "$dbseed_changes" || test -n "$migrations_changes" || test -n "${RECR
   fi
 else
   echo "No changes requiring DB recreation found, applying any pending migrations and restarting app"
-  ./cli/bin/statbus migrate up
-  echo "Building and starting the frontend"
-  ./devops/manage-statbus.sh start app || { echo "Failed to start the app"; exit 1; }
+  if test -x ./sb; then
+    ./sb migrate up --verbose
+  else
+    ./cli/bin/statbus migrate up
+  fi
+  echo "Starting the frontend"
+  docker compose up -d app || { echo "Failed to start the app"; exit 1; }
 fi
 
 # Load the Slack token and the deployment url for this deployment slot
