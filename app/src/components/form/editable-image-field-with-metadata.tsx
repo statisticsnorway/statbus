@@ -53,49 +53,24 @@ export const EditableImageFieldWithMetadata = ({
     handleCancel: baseHandleCancel,
   } = useEditableFieldState(imageId ?? null, response, isEditing, exitEditMode);
 
-  // Track initial metadata to detect changes
-  const initialMetadata = useRef<{
-    validFrom: string | null | undefined;
-    validTo: string | null | undefined;
-    dataSourceId: string | null | undefined;
-    editComment: string | null | undefined;
-  } | null>(null);
-
   // Reset local image state when exiting edit mode (success or cancel)
-  // and capture initial metadata when entering edit mode
   const wasEditing = useRef(isEditing);
   useGuardedEffect(
     () => {
-      if (!wasEditing.current && isEditing && currentEdit) {
-        // Entering edit mode: capture initial metadata snapshot
-        initialMetadata.current = {
-          validFrom: currentEdit.validFrom,
-          validTo: currentEdit.validTo,
-          dataSourceId: currentEdit.dataSourceId ?? null,
-          editComment: currentEdit.editComment ?? null,
-        };
-      }
       if (wasEditing.current && !isEditing) {
-        // Exiting edit mode: reset all state
         setSelectedFile(null);
         setDeleteImage(false);
         setShowResponse(false);
-        initialMetadata.current = null;
       }
       wasEditing.current = isEditing;
     },
-    [isEditing, currentEdit],
+    [isEditing],
     "EditableImageFieldWithMetadata:resetOnExitEdit"
   );
 
+  // Metadata (dataSource, editComment, validFrom/validTo) is ephemeral context
+  // for the save — only an actual image change (upload or delete) is substantive
   const hasImageChanges = selectedFile !== null || deleteImage;
-  const hasMetadataChanges = initialMetadata.current !== null && currentEdit !== null && (
-    currentEdit.validFrom !== initialMetadata.current.validFrom ||
-    currentEdit.validTo !== initialMetadata.current.validTo ||
-    (currentEdit.dataSourceId ?? null) !== (initialMetadata.current.dataSourceId ?? null) ||
-    (currentEdit.editComment ?? null) !== (initialMetadata.current.editComment ?? null)
-  );
-  const hasChanges = hasImageChanges || hasMetadataChanges;
 
   const handleCancel = () => {
     baseHandleCancel();
@@ -231,7 +206,7 @@ export const EditableImageFieldWithMetadata = ({
               <Button
                 type="button"
                 onClick={triggerFormSubmit}
-                disabled={!hasChanges}
+                disabled={!hasImageChanges}
               >
                 {deleteImage ? "Delete" : selectedFile ? "Upload" : "Save"}
               </Button>
