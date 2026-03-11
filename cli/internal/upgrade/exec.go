@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"time"
+
+	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 )
 
 // runCommand executes a command with inherited stdout/stderr.
@@ -27,11 +29,14 @@ func runCommandOutput(dir string, name string, args ...string) (string, error) {
 }
 
 func (d *Daemon) pullImages(version string) error {
-	// Set STATBUS_VERSION env var for docker compose
-	os.Setenv("STATBUS_VERSION", version)
-	defer os.Unsetenv("STATBUS_VERSION")
-
-	return runCommand(d.projDir, "docker", "compose", "pull")
+	// docker compose reads STATBUS_VERSION from .env, not from process environment.
+	// For pre-downloads before config regeneration, we pass it as an override.
+	cmd := exec.Command("docker", "compose", "pull")
+	cmd.Dir = d.projDir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = append(os.Environ(), "STATBUS_VERSION="+version)
+	return cmd.Run()
 }
 
 func (d *Daemon) setMaintenance(active bool) {
@@ -59,7 +64,8 @@ func (d *Daemon) backupDatabase(progress *ProgressLog) (string, error) {
 	}
 
 	// rsync with sudo (postgres uid owns the files)
-	progress.Write("rsync %s → %s", dbDataDir, backupDir)
+	// DB must be stopped before this point for a consistent backup
+	progress.Write("rsync %s -> %s", dbDataDir, backupDir)
 	if err := runCommand(d.projDir, "sudo", "rsync", "-a", "--delete",
 		dbDataDir+"/", backupDir+"/"); err != nil {
 		return "", fmt.Errorf("rsync backup: %w", err)
@@ -132,9 +138,17 @@ func (d *Daemon) waitForDBHealth(timeout time.Duration) error {
 }
 
 func (d *Daemon) healthCheck(retries int, interval time.Duration) error {
+	// Read the actual HTTP port from .env (slot-based, not hardcoded)
+	healthURL := "http://localhost:3000/"
+	envPath := filepath.Join(d.projDir, ".env")
+	if f, err := dotenv.Load(envPath); err == nil {
+		if port, ok := f.Get("CADDY_HTTP_PORT"); ok {
+			healthURL = fmt.Sprintf("http://localhost:%s/", port)
+		}
+	}
+
 	for i := 0; i < retries; i++ {
-		// Check PostgREST
-		resp, err := http.Get("http://localhost:3000/rest/")
+		resp, err := http.Get(healthURL)
 		if err == nil {
 			resp.Body.Close()
 			if resp.StatusCode < 500 {
@@ -143,7 +157,7 @@ func (d *Daemon) healthCheck(retries int, interval time.Duration) error {
 		}
 
 		if d.verbose {
-			fmt.Printf("Health check attempt %d/%d failed\n", i+1, retries)
+			fmt.Printf("Health check attempt %d/%d failed (url=%s)\n", i+1, retries, healthURL)
 		}
 		time.Sleep(interval)
 	}

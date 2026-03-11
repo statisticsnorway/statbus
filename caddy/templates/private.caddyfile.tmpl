@@ -94,6 +94,11 @@ http://proxy {
 http://{{.Domain}} {
     encode gzip
 
+    # Upgrade progress log (must be before maintenance handler to remain accessible)
+    handle /upgrade-progress.log {
+        root * /statbus-tmp
+        file_server
+    }
     # Maintenance mode: upgrade daemon creates /statbus-maintenance/active
     @maintenance file /statbus-maintenance/active
     handle @maintenance {
@@ -102,11 +107,6 @@ http://{{.Domain}} {
         file_server {
             status 503
         }
-    }
-    # Upgrade progress log (served during maintenance)
-    handle /upgrade-progress.log {
-        root * /statbus-tmp
-        file_server
     }
 
     # PostgREST auth endpoints (login/logout/refresh/auth_status)

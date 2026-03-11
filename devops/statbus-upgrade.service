@@ -11,6 +11,7 @@ ExecStart=/home/%i/statbus/sb upgrade daemon
 Restart=always
 RestartSec=30
 RestartForceExitStatus=42
+SuccessExitStatus=42
 Environment=HOME=/home/%i
 
 # Logging
@@ -19,7 +20,7 @@ StandardError=journal
 SyslogIdentifier=statbus-upgrade-%i
 
 # Security hardening
-NoNewPrivileges=no
+# Note: NoNewPrivileges not set — daemon needs sudo for rsync (DB backup)
 ProtectSystem=strict
 ReadWritePaths=/home/%i/statbus /home/%i/statbus-backups /home/%i/statbus-maintenance
 

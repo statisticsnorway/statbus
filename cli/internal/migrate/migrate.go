@@ -254,7 +254,7 @@ END $$;`
 		// Record success
 		recordSQL := fmt.Sprintf(
 			"INSERT INTO db.migration (version, filename, description, duration_ms) VALUES (%d, '%s', '%s', %d)",
-			m.Version, filepath.Base(m.Path), strings.ReplaceAll(m.Description, "'", "''"), durationMs)
+			m.Version, strings.ReplaceAll(filepath.Base(m.Path), "'", "''"), strings.ReplaceAll(m.Description, "'", "''"), durationMs)
 		if _, err := runPsql(projDir, recordSQL); err != nil {
 			return fmt.Errorf("record migration %d: %w", m.Version, err)
 		}

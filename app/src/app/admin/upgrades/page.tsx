@@ -12,25 +12,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -130,6 +115,7 @@ function StatusBadge({ status }: { status: UpgradeStatus }) {
 const fetcher = async (url: string) => {
   const resp = await fetch(url, {
     headers: { Accept: "application/json" },
+    credentials: "include",
   });
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   return resp.json();
@@ -145,6 +131,7 @@ async function patchUpgrade(
       "Content-Type": "application/json",
       Prefer: "return=minimal",
     },
+    credentials: "include",
     body: JSON.stringify(body),
   });
   if (!resp.ok) {
@@ -174,12 +161,17 @@ export default function UpgradesPage() {
   const lastChecked =
     systemInfo?.find((s) => s.key === "upgrade_last_checked")?.value;
 
+  const [actionError, setActionError] = useState<string | null>(null);
+
   const act = useCallback(
     async (id: number, body: Record<string, unknown>) => {
       setActing(id);
+      setActionError(null);
       try {
         await patchUpgrade(id, body);
         await mutate();
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : String(err));
       } finally {
         setActing(null);
       }
@@ -216,6 +208,16 @@ export default function UpgradesPage() {
           <CardContent className="pt-6">
             <p className="text-red-800">
               Failed to load upgrades: {error.message}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {actionError && (
+        <Card className="mb-4 border-red-200 bg-red-50">
+          <CardContent className="pt-6">
+            <p className="text-red-800">
+              Action failed: {actionError}
             </p>
           </CardContent>
         </Card>
