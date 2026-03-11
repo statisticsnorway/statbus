@@ -475,7 +475,7 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 			checkedOut = strings.TrimSpace(checkedOut)
 			if !strings.HasPrefix(checkedOut, manifest.CommitSHA) && !strings.HasPrefix(manifest.CommitSHA, checkedOut) {
 				errMsg := fmt.Sprintf("tag verification failed: checked out %s but manifest expected %s", checkedOut, manifest.CommitSHA)
-				progress.Write(errMsg)
+				progress.Write("%s", errMsg)
 				d.rollback(ctx, id, version, previousVersion, progress)
 				return fmt.Errorf("%s", errMsg)
 			}
@@ -624,7 +624,7 @@ func (d *Daemon) selfUpdate(ctx context.Context, version string, progress *Progr
 	sbPath := filepath.Join(d.projDir, "sb")
 	if err := selfupdate.Update(sbPath, binary.URL, binary.SHA256); err != nil {
 		msg := fmt.Sprintf("Self-update failed for %s: %v", version, err)
-		progress.Write(msg)
+		progress.Write("%s", msg)
 		fmt.Fprintln(os.Stderr, msg)
 		// Record in system_info so admins can see the failure
 		if d.conn != nil {
