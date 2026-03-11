@@ -19,10 +19,25 @@ BEGIN
     -- Set stop timestamps when transitioning *out* of a processing state
     IF OLD.state = 'analysing_data' AND NEW.state != OLD.state AND NEW.analysis_stop_at IS NULL THEN
         NEW.analysis_stop_at := v_timestamp;
+        -- Compute final analysis speed here, since the progress trigger won't fire
+        -- (it watches UPDATE OF analysis_stop_at, but this is a BEFORE trigger on UPDATE OF state)
+        IF NEW.analysis_start_at IS NOT NULL AND NEW.total_rows > 0 THEN
+            NEW.analysis_rows_per_sec := CASE
+                WHEN EXTRACT(EPOCH FROM (NEW.analysis_stop_at - NEW.analysis_start_at)) <= 0 THEN 0
+                ELSE ROUND((NEW.total_rows::numeric / EXTRACT(EPOCH FROM (NEW.analysis_stop_at - NEW.analysis_start_at))), 2)
+            END;
+        END IF;
     END IF;
 
     IF OLD.state = 'processing_data' AND NEW.state != OLD.state AND NEW.processing_stop_at IS NULL THEN
         NEW.processing_stop_at := v_timestamp;
+        -- Compute final processing speed here for the same reason
+        IF NEW.processing_start_at IS NOT NULL AND NEW.imported_rows > 0 THEN
+            NEW.import_rows_per_sec := CASE
+                WHEN EXTRACT(EPOCH FROM (NEW.processing_stop_at - NEW.processing_start_at)) <= 0 THEN 0
+                ELSE ROUND((NEW.imported_rows::numeric / EXTRACT(EPOCH FROM (NEW.processing_stop_at - NEW.processing_start_at))), 2)
+            END;
+        END IF;
     END IF;
 
     -- Record timestamps for approval/rejection states

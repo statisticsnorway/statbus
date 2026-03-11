@@ -1,8 +1,28 @@
-```sql
+BEGIN;
+
+-- Fix public.reset() for:
+-- 1. FK violations: legal_relationship and power_root have temporal FKs to legal_unit
+-- 2. pg_safeupdate: bare DELETEs on stat_definition and external_ident_type fail
+-- 3. Missing tables: power_group, image, derived/timeline/statistical tables
+-- 4. Convert base_data DELETEs to TRUNCATE (worker triggers moot during full reset)
+--
+-- TRUNCATE checks FK constraints at the DDL level: you cannot TRUNCATE table A
+-- if table B has a FK to A, even if B is empty. All FK-related tables must be
+-- truncated in a single TRUNCATE statement.
+--
+-- See doc/data-model.md for the classification system that governs
+-- DELETE vs TRUNCATE decisions.
+
+-- Grant TRUNCATE on dirty-tracking tables so reset() (SECURITY INVOKER, runs as
+-- admin_user via PostgREST) can truncate them. Without this, partial refresh
+-- metadata survives reset and the worker does a partial instead of full refresh.
+GRANT TRUNCATE ON public.statistical_unit_facet_dirty_partitions TO admin_user;
+GRANT TRUNCATE ON public.statistical_history_facet_partitions TO admin_user;
+
 CREATE OR REPLACE FUNCTION public.reset(confirmed boolean, scope reset_scope)
  RETURNS jsonb
  LANGUAGE plpgsql
-AS $function$
+AS $reset$
 DECLARE
     result JSONB := '{}'::JSONB;
     changed JSONB;
@@ -58,7 +78,7 @@ BEGIN
         -- establishment FK→image, etc. All must be in one statement.
         --
         -- Base data: worker change-tracking triggers are moot during reset
-        --   (all derived tables also truncated). See doc/table-classification.md
+        --   (all derived tables also truncated). See doc/data-model.md
         -- Link: no worker triggers, no lifecycle callbacks.
         -- Asset: only validation triggers, no delete-side effects.
         -- Derived: computed by worker pipeline, no delete-side triggers.
@@ -94,8 +114,10 @@ BEGIN
             public.timesegments_years,
             public.statistical_unit,
             public.statistical_unit_facet,
+            public.statistical_unit_facet_dirty_partitions,
             public.statistical_history,
-            public.statistical_history_facet;
+            public.statistical_history_facet,
+            public.statistical_history_facet_partitions;
 
         -- Build result JSON from pre-counted values
         result := result
@@ -122,7 +144,7 @@ BEGIN
     -- ================================================================
 
     CASE WHEN scope IN ('data', 'getting-started', 'all') THEN
-        -- Transient: state management triggers, conditional delete. See doc/table-classification.md
+        -- Transient: state management triggers, conditional delete. See doc/data-model.md
         WITH deleted_import_job AS (
             DELETE FROM public.import_job WHERE id > 0 RETURNING *
         )
@@ -139,7 +161,7 @@ BEGIN
     -- ================================================================
 
     CASE WHEN scope IN ('getting-started', 'all') THEN
-        -- Transient: must delete BEFORE data_source due to RESTRICT FK. See doc/table-classification.md
+        -- Transient: must delete BEFORE data_source due to RESTRICT FK. See doc/data-model.md
         WITH deleted_import_definition AS (
             DELETE FROM public.import_definition WHERE id > 0 RETURNING *
         )
@@ -152,7 +174,7 @@ BEGIN
     ELSE END CASE;
 
     CASE WHEN scope IN ('getting-started', 'all') THEN
-        -- Reference: system-provided lookup, no triggers. See doc/table-classification.md
+        -- Reference: system-provided lookup, no triggers. See doc/data-model.md
         WITH deleted_region AS (
             DELETE FROM public.region WHERE id > 0 RETURNING *
         )
@@ -165,7 +187,7 @@ BEGIN
     ELSE END CASE;
 
     CASE WHEN scope IN ('getting-started', 'all') THEN
-        -- Infrastructure: special case, has WHERE clause. See doc/table-classification.md
+        -- Infrastructure: special case, has WHERE clause. See doc/data-model.md
         WITH deleted_settings AS (
             DELETE FROM public.settings WHERE only_one_setting = TRUE RETURNING *
         )
@@ -178,7 +200,7 @@ BEGIN
     ELSE END CASE;
 
     CASE WHEN scope IN ('getting-started', 'all') THEN
-        -- Classification: conditional WHERE custom, can't TRUNCATE. See doc/table-classification.md
+        -- Classification: conditional WHERE custom, can't TRUNCATE. See doc/data-model.md
         WITH activity_category_to_delete AS (
             SELECT to_delete.id AS id_to_delete
                  , replacement.id AS replacement_id
@@ -222,7 +244,7 @@ BEGIN
     ELSE END CASE;
 
     CASE WHEN scope IN ('getting-started', 'all') THEN
-        -- Classification: conditional WHERE custom, can't TRUNCATE. See doc/table-classification.md
+        -- Classification: conditional WHERE custom, can't TRUNCATE. See doc/data-model.md
         WITH deleted_sector AS (
             DELETE FROM public.sector WHERE custom RETURNING *
         ), changed_sector AS (
@@ -242,7 +264,7 @@ BEGIN
     ELSE END CASE;
 
     CASE WHEN scope IN ('getting-started', 'all') THEN
-        -- Classification: conditional WHERE custom, can't TRUNCATE. See doc/table-classification.md
+        -- Classification: conditional WHERE custom, can't TRUNCATE. See doc/data-model.md
         WITH deleted_legal_form AS (
             DELETE FROM public.legal_form WHERE custom RETURNING *
         ), changed_legal_form AS (
@@ -262,7 +284,7 @@ BEGIN
     ELSE END CASE;
 
     CASE WHEN scope IN ('getting-started', 'all') THEN
-        -- Classification: conditional WHERE custom, can't TRUNCATE. See doc/table-classification.md
+        -- Classification: conditional WHERE custom, can't TRUNCATE. See doc/data-model.md
         WITH deleted_unit_size AS (
             DELETE FROM public.unit_size WHERE custom RETURNING *
         ), changed_unit_size AS (
@@ -282,7 +304,7 @@ BEGIN
     ELSE END CASE;
 
     CASE WHEN scope IN ('getting-started', 'all') THEN
-        -- Classification: conditional WHERE custom, can't TRUNCATE. See doc/table-classification.md
+        -- Classification: conditional WHERE custom, can't TRUNCATE. See doc/data-model.md
         WITH deleted_data_source AS (
             DELETE FROM public.data_source WHERE custom RETURNING *
         ), changed_data_source AS (
@@ -302,7 +324,7 @@ BEGIN
     ELSE END CASE;
 
     CASE WHEN scope IN ('getting-started', 'all') THEN
-        -- Classification: conditional WHERE custom, can't TRUNCATE. See doc/table-classification.md
+        -- Classification: conditional WHERE custom, can't TRUNCATE. See doc/data-model.md
         WITH deleted_status AS (
             DELETE FROM public.status WHERE custom RETURNING *
         ), changed_status AS (
@@ -321,12 +343,92 @@ BEGIN
         result := result || changed;
     ELSE END CASE;
 
+    CASE WHEN scope IN ('getting-started', 'all') THEN
+        -- Classification: conditional WHERE custom, can't TRUNCATE. See doc/data-model.md
+        WITH deleted_foreign_participation AS (
+            DELETE FROM public.foreign_participation WHERE custom RETURNING *
+        ), changed_foreign_participation AS (
+            UPDATE public.foreign_participation
+               SET enabled = TRUE
+             WHERE NOT custom
+               AND NOT enabled
+             RETURNING *
+        )
+        SELECT jsonb_build_object(
+            'foreign_participation', jsonb_build_object(
+                'deleted_count', (SELECT COUNT(*) FROM deleted_foreign_participation),
+                'changed_count', (SELECT COUNT(*) FROM changed_foreign_participation)
+            )
+        ) INTO changed;
+        result := result || changed;
+    ELSE END CASE;
+
+    CASE WHEN scope IN ('getting-started', 'all') THEN
+        -- Classification: conditional WHERE custom, can't TRUNCATE. See doc/data-model.md
+        WITH deleted_legal_reorg_type AS (
+            DELETE FROM public.legal_reorg_type WHERE custom RETURNING *
+        ), changed_legal_reorg_type AS (
+            UPDATE public.legal_reorg_type
+               SET enabled = TRUE
+             WHERE NOT custom
+               AND NOT enabled
+             RETURNING *
+        )
+        SELECT jsonb_build_object(
+            'legal_reorg_type', jsonb_build_object(
+                'deleted_count', (SELECT COUNT(*) FROM deleted_legal_reorg_type),
+                'changed_count', (SELECT COUNT(*) FROM changed_legal_reorg_type)
+            )
+        ) INTO changed;
+        result := result || changed;
+    ELSE END CASE;
+
+    CASE WHEN scope IN ('getting-started', 'all') THEN
+        -- Classification: conditional WHERE custom, can't TRUNCATE. See doc/data-model.md
+        WITH deleted_power_group_type AS (
+            DELETE FROM public.power_group_type WHERE custom RETURNING *
+        ), changed_power_group_type AS (
+            UPDATE public.power_group_type
+               SET enabled = TRUE
+             WHERE NOT custom
+               AND NOT enabled
+             RETURNING *
+        )
+        SELECT jsonb_build_object(
+            'power_group_type', jsonb_build_object(
+                'deleted_count', (SELECT COUNT(*) FROM deleted_power_group_type),
+                'changed_count', (SELECT COUNT(*) FROM changed_power_group_type)
+            )
+        ) INTO changed;
+        result := result || changed;
+    ELSE END CASE;
+
+    CASE WHEN scope IN ('getting-started', 'all') THEN
+        -- Classification: conditional WHERE custom, can't TRUNCATE. See doc/data-model.md
+        WITH deleted_legal_rel_type AS (
+            DELETE FROM public.legal_rel_type WHERE custom RETURNING *
+        ), changed_legal_rel_type AS (
+            UPDATE public.legal_rel_type
+               SET enabled = TRUE
+             WHERE NOT custom
+               AND NOT enabled
+             RETURNING *
+        )
+        SELECT jsonb_build_object(
+            'legal_rel_type', jsonb_build_object(
+                'deleted_count', (SELECT COUNT(*) FROM deleted_legal_rel_type),
+                'changed_count', (SELECT COUNT(*) FROM changed_legal_rel_type)
+            )
+        ) INTO changed;
+        result := result || changed;
+    ELSE END CASE;
+
     -- ================================================================
     -- Scope: 'all' (adds configuration reset)
     -- ================================================================
 
     CASE WHEN scope IN ('all') THEN
-        -- Classification: uses type enum, not custom boolean. See doc/table-classification.md
+        -- Classification: uses type enum, not custom boolean. See doc/data-model.md
         WITH deleted_tag AS (
             DELETE FROM public.tag WHERE type = 'custom' RETURNING *
         )
@@ -339,7 +441,7 @@ BEGIN
     ELSE END CASE;
 
     CASE WHEN scope IN ('all') THEN
-        -- Configuration: lifecycle callbacks MUST fire on DELETE/INSERT. See doc/table-classification.md
+        -- Configuration: lifecycle callbacks MUST fire on DELETE/INSERT. See doc/data-model.md
         -- WHERE true required for pg_safeupdate compatibility.
         WITH deleted_stat_definition AS (
             DELETE FROM public.stat_definition WHERE true RETURNING *
@@ -359,7 +461,7 @@ BEGIN
     ELSE END CASE;
 
     CASE WHEN scope IN ('all') THEN
-        -- Configuration: lifecycle callbacks MUST fire on DELETE/INSERT. See doc/table-classification.md
+        -- Configuration: lifecycle callbacks MUST fire on DELETE/INSERT. See doc/data-model.md
         -- WHERE true required for pg_safeupdate compatibility.
         WITH deleted_external_ident_type AS (
             DELETE FROM public.external_ident_type WHERE true RETURNING *
@@ -380,5 +482,6 @@ BEGIN
 
     RETURN result;
 END;
-$function$
-```
+$reset$;
+
+END;

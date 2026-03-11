@@ -23,8 +23,8 @@ BEGIN
     SELECT * INTO v_definition
     FROM jsonb_populate_record(NULL::public.import_definition, v_job.definition_snapshot->'import_definition');
 
-    -- Only run for legal_relationship mode
-    IF v_definition.mode != 'legal_relationship' THEN
+    -- Only run for legal_relationship mode (IS DISTINCT FROM is NULL-safe: NULL skips correctly)
+    IF v_definition.mode IS DISTINCT FROM 'legal_relationship' THEN
         RAISE DEBUG '[Job %] process_power_group_link: Skipping, mode is %', p_job_id, v_definition.mode;
         RETURN;
     END IF;
@@ -36,13 +36,10 @@ BEGIN
     -- that collect_changes (on the analytics queue) sees correct derived_power_group_ids.
     -- This is safe: log rows merge via multirange, ensure_collect is idempotent.
 
-    -- Find current user for power_group creation
-    SELECT id INTO _current_user_id FROM auth.user WHERE email = session_user OR session_user = 'postgres';
+    -- Use the importing user from the job, not session_user (which is the worker's DB role)
+    _current_user_id := v_job.user_id;
     IF _current_user_id IS NULL THEN
-        SELECT id INTO _current_user_id FROM auth.user WHERE role_id = (SELECT id FROM auth.role WHERE name = 'super_user') LIMIT 1;
-    END IF;
-    IF _current_user_id IS NULL THEN
-        RAISE EXCEPTION 'No user found for power group creation';
+        RAISE EXCEPTION 'Import job % has no user_id', p_job_id;
     END IF;
 
     -- ================================================================
@@ -260,8 +257,14 @@ BEGIN
     -- the old power_hierarchy view (cost ~17M).
     -- ================================================================
 
-    -- Disable power_root trigger to prevent enqueue loop during temporal_merge
-    ALTER TABLE public.power_root DISABLE TRIGGER power_root_derive_trigger;
+    -- Disable power_root change tracking triggers to prevent enqueue loop during temporal_merge.
+    -- Must NOT disable power_root_valid_sync_temporal_trg (sql_saga sync for valid_from/valid_until).
+    ALTER TABLE public.power_root DISABLE TRIGGER a_power_root_log_insert;
+    ALTER TABLE public.power_root DISABLE TRIGGER a_power_root_log_update;
+    ALTER TABLE public.power_root DISABLE TRIGGER a_power_root_log_delete;
+    ALTER TABLE public.power_root DISABLE TRIGGER b_power_root_ensure_collect_insert;
+    ALTER TABLE public.power_root DISABLE TRIGGER b_power_root_ensure_collect_update;
+    ALTER TABLE public.power_root DISABLE TRIGGER b_power_root_ensure_collect_delete;
 
     -- Detect natural roots: LUs that influence others but are NOT influenced
     IF to_regclass('pg_temp._natural_roots') IS NOT NULL THEN
@@ -352,7 +355,12 @@ BEGIN
         RAISE DEBUG '[Job %] process_power_group_link: temporal_merge power_root affected % rows', p_job_id, _row_count;
     END IF;
 
-    ALTER TABLE public.power_root ENABLE TRIGGER power_root_derive_trigger;
+    ALTER TABLE public.power_root ENABLE TRIGGER a_power_root_log_insert;
+    ALTER TABLE public.power_root ENABLE TRIGGER a_power_root_log_update;
+    ALTER TABLE public.power_root ENABLE TRIGGER a_power_root_log_delete;
+    ALTER TABLE public.power_root ENABLE TRIGGER b_power_root_ensure_collect_insert;
+    ALTER TABLE public.power_root ENABLE TRIGGER b_power_root_ensure_collect_update;
+    ALTER TABLE public.power_root ENABLE TRIGGER b_power_root_ensure_collect_delete;
 END;
 $procedure$
 ```

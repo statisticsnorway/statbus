@@ -9,7 +9,6 @@
  description         | text                     |           |          | 
  queue               | text                     |           | not null | 
  created_at          | timestamp with time zone |           | not null | now()
- batches_per_wave    | integer                  |           |          | 
  phase               | worker.pipeline_phase    |           |          | 
  on_children_created | text                     |           |          | 
  on_child_completed  | text                     |           |          | 

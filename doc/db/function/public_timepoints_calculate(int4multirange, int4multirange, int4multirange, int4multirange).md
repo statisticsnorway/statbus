@@ -7,10 +7,13 @@ AS $function$
 DECLARE
     v_es_ids INT[]; v_lu_ids INT[]; v_en_ids INT[]; v_pg_ids INT[];
 BEGIN
-    IF p_establishment_id_ranges IS NOT NULL THEN v_es_ids := public.int4multirange_to_array(p_establishment_id_ranges); END IF;
-    IF p_legal_unit_id_ranges IS NOT NULL THEN v_lu_ids := public.int4multirange_to_array(p_legal_unit_id_ranges); END IF;
-    IF p_enterprise_id_ranges IS NOT NULL THEN v_en_ids := public.int4multirange_to_array(p_enterprise_id_ranges); END IF;
-    IF p_power_group_id_ranges IS NOT NULL THEN v_pg_ids := public.int4multirange_to_array(p_power_group_id_ranges); END IF;
+    -- COALESCE: int4multirange_to_array('{}') returns NULL, but we need empty array '{}'
+    -- so that "v_es_ids IS NULL" only triggers for truly NULL params (= full scan),
+    -- not for empty multiranges (= skip this unit type).
+    IF p_establishment_id_ranges IS NOT NULL THEN v_es_ids := COALESCE(public.int4multirange_to_array(p_establishment_id_ranges), '{}'); END IF;
+    IF p_legal_unit_id_ranges IS NOT NULL THEN v_lu_ids := COALESCE(public.int4multirange_to_array(p_legal_unit_id_ranges), '{}'); END IF;
+    IF p_enterprise_id_ranges IS NOT NULL THEN v_en_ids := COALESCE(public.int4multirange_to_array(p_enterprise_id_ranges), '{}'); END IF;
+    IF p_power_group_id_ranges IS NOT NULL THEN v_pg_ids := COALESCE(public.int4multirange_to_array(p_power_group_id_ranges), '{}'); END IF;
     RETURN QUERY
     WITH es_periods AS (
         SELECT id AS src_unit_id, valid_from, valid_until FROM public.establishment WHERE v_es_ids IS NULL OR id = ANY(v_es_ids)

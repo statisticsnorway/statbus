@@ -1,7 +1,7 @@
 ```sql
-                                                                                                   Table "worker.command_registry"
-       Column        |           Type           | Collation | Nullable | Default | Storage  | Compression | Stats target |                                                Description                                                
----------------------+--------------------------+-----------+----------+---------+----------+-------------+--------------+-----------------------------------------------------------------------------------------------------------
+                                                    Table "worker.command_registry"
+       Column        |           Type           | Collation | Nullable | Default | Storage  | Compression | Stats target | Description 
+---------------------+--------------------------+-----------+----------+---------+----------+-------------+--------------+-------------
  command             | text                     |           | not null |         | extended |             |              | 
  handler_procedure   | text                     |           | not null |         | extended |             |              | 
  before_procedure    | text                     |           |          |         | extended |             |              | 
@@ -9,7 +9,6 @@
  description         | text                     |           |          |         | extended |             |              | 
  queue               | text                     |           | not null |         | extended |             |              | 
  created_at          | timestamp with time zone |           | not null | now()   | plain    |             |              | 
- batches_per_wave    | integer                  |           |          |         | plain    |             |              | Number of child batch tasks to spawn per wave before an ANALYZE sync point. NULL means spawn all at once.
  phase               | worker.pipeline_phase    |           |          |         | plain    |             |              | 
  on_children_created | text                     |           |          |         | extended |             |              | 
  on_child_completed  | text                     |           |          |         | extended |             |              | 

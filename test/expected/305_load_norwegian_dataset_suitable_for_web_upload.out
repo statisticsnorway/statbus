@@ -3118,6 +3118,22 @@ WHERE ij.slug IN ('import_lu_clone', 'import_es_clone') ORDER BY ij.slug;
  import_lu_clone | finished | r_year_curr        |        100 |           100 | f         |          0
 (2 rows)
 
+-- Insert a legal_relationship row to test that reset() handles FK to legal_unit correctly.
+-- Uses two legal_unit IDs from the imported Norwegian dataset.
+INSERT INTO public.legal_relationship (
+    influencing_id, influenced_id,
+    valid_from, valid_to,
+    type_id, edit_by_user_id
+)
+SELECT
+    lu1.id, lu2.id,
+    lu1.valid_from, lu1.valid_to,
+    (SELECT id FROM public.legal_rel_type LIMIT 1),
+    (SELECT id FROM auth."user" LIMIT 1)
+FROM public.legal_unit AS lu1
+CROSS JOIN public.legal_unit AS lu2
+WHERE lu1.id = 1 AND lu2.id = 2
+LIMIT 1;
 SAVEPOINT before_reset;
 \a
 \echo "Checking that reset works"
@@ -3125,6 +3141,9 @@ SAVEPOINT before_reset;
 SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'units'::public.reset_scope)) AS reset_unit;
 reset_unit
 {
+    "image": {
+        "deleted_count": 0
+    },
     "person": {
         "deleted_count": 0
     },
@@ -3143,6 +3162,15 @@ reset_unit
     "legal_unit": {
         "deleted_count": 100
     },
+    "power_root": {
+        "deleted_count": 0
+    },
+    "unit_notes": {
+        "deleted_count": 0
+    },
+    "power_group": {
+        "deleted_count": 0
+    },
     "tag_for_unit": {
         "deleted_count": 0
     },
@@ -3157,6 +3185,9 @@ reset_unit
     },
     "person_for_unit": {
         "deleted_count": 0
+    },
+    "legal_relationship": {
+        "deleted_count": 1
     }
 }
 (1 row)
@@ -3174,6 +3205,9 @@ drop cascades to view temp_stat_source_view_turnover
 drop cascades to view temp_es_source_view
 reset_data
 {
+    "image": {
+        "deleted_count": 0
+    },
     "person": {
         "deleted_count": 0
     },
@@ -3195,6 +3229,15 @@ reset_data
     "legal_unit": {
         "deleted_count": 100
     },
+    "power_root": {
+        "deleted_count": 0
+    },
+    "unit_notes": {
+        "deleted_count": 0
+    },
+    "power_group": {
+        "deleted_count": 0
+    },
     "tag_for_unit": {
         "deleted_count": 0
     },
@@ -3209,6 +3252,9 @@ reset_data
     },
     "person_for_unit": {
         "deleted_count": 0
+    },
+    "legal_relationship": {
+        "deleted_count": 1
     }
 }
 (1 row)
@@ -3226,6 +3272,9 @@ drop cascades to view temp_stat_source_view_turnover
 drop cascades to view temp_es_source_view
 reset_data
 {
+    "image": {
+        "deleted_count": 0
+    },
     "person": {
         "deleted_count": 0
     },
@@ -3247,6 +3296,15 @@ reset_data
     "legal_unit": {
         "deleted_count": 100
     },
+    "power_root": {
+        "deleted_count": 0
+    },
+    "unit_notes": {
+        "deleted_count": 0
+    },
+    "power_group": {
+        "deleted_count": 0
+    },
     "tag_for_unit": {
         "deleted_count": 0
     },
@@ -3261,6 +3319,9 @@ reset_data
     },
     "person_for_unit": {
         "deleted_count": 0
+    },
+    "legal_relationship": {
+        "deleted_count": 1
     }
 }
 (1 row)
@@ -3278,6 +3339,9 @@ drop cascades to view temp_stat_source_view_turnover
 drop cascades to view temp_es_source_view
 reset_getting_started
 {
+    "image": {
+        "deleted_count": 0
+    },
     "person": {
         "deleted_count": 0
     },
@@ -3321,9 +3385,18 @@ reset_getting_started
     "legal_unit": {
         "deleted_count": 100
     },
+    "power_root": {
+        "deleted_count": 0
+    },
+    "unit_notes": {
+        "deleted_count": 0
+    },
     "data_source": {
         "changed_count": 6,
         "deleted_count": 6
+    },
+    "power_group": {
+        "deleted_count": 0
     },
     "tag_for_unit": {
         "deleted_count": 0
@@ -3337,7 +3410,19 @@ reset_getting_started
     "external_ident": {
         "deleted_count": 1405
     },
+    "legal_rel_type": {
+        "changed_count": 0,
+        "deleted_count": 0
+    },
     "person_for_unit": {
+        "deleted_count": 0
+    },
+    "legal_reorg_type": {
+        "changed_count": 0,
+        "deleted_count": 0
+    },
+    "power_group_type": {
+        "changed_count": 0,
         "deleted_count": 0
     },
     "activity_category": {
@@ -3347,6 +3432,13 @@ reset_getting_started
     },
     "import_definition": {
         "deleted_count": 10
+    },
+    "legal_relationship": {
+        "deleted_count": 1
+    },
+    "foreign_participation": {
+        "changed_count": 0,
+        "deleted_count": 0
     }
 }
 (1 row)
@@ -3403,6 +3495,9 @@ reset_all
     "tag": {
         "deleted_count": 0
     },
+    "image": {
+        "deleted_count": 0
+    },
     "person": {
         "deleted_count": 0
     },
@@ -3446,9 +3541,18 @@ reset_all
     "legal_unit": {
         "deleted_count": 100
     },
+    "power_root": {
+        "deleted_count": 0
+    },
+    "unit_notes": {
+        "deleted_count": 0
+    },
     "data_source": {
         "changed_count": 6,
         "deleted_count": 6
+    },
+    "power_group": {
+        "deleted_count": 0
     },
     "tag_for_unit": {
         "deleted_count": 0
@@ -3462,10 +3566,22 @@ reset_all
     "external_ident": {
         "deleted_count": 1405
     },
+    "legal_rel_type": {
+        "changed_count": 0,
+        "deleted_count": 0
+    },
     "person_for_unit": {
         "deleted_count": 0
     },
     "stat_definition": {
+        "deleted_count": 0
+    },
+    "legal_reorg_type": {
+        "changed_count": 0,
+        "deleted_count": 0
+    },
+    "power_group_type": {
+        "changed_count": 0,
         "deleted_count": 0
     },
     "activity_category": {
@@ -3476,7 +3592,14 @@ reset_all
     "import_definition": {
         "deleted_count": 10
     },
+    "legal_relationship": {
+        "deleted_count": 1
+    },
     "external_ident_type": {
+        "deleted_count": 0
+    },
+    "foreign_participation": {
+        "changed_count": 0,
         "deleted_count": 0
     }
 }

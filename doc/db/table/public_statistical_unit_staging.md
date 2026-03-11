@@ -86,6 +86,8 @@
  included_enterprise_count        | integer                  |           |          | 
  tag_paths                        | ltree[]                  |           |          | 
  report_partition_seq             | integer                  |           |          | 
+Indexes:
+    "statistical_unit_staging_unit_type_unit_id_idx" btree (unit_type, unit_id)
 Triggers:
     trg_set_report_partition_seq BEFORE INSERT ON statistical_unit_staging FOR EACH ROW EXECUTE FUNCTION set_report_partition_seq()
 

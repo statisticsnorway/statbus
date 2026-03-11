@@ -33,6 +33,7 @@ BEGIN
     IF v_is_full_refresh THEN
         -- Full refresh: spawn batch children (no orphan cleanup needed - covers everything)
         -- No dirty partition tracking needed: full refresh recomputes all partitions
+        -- NOTE: No changed_* keys — children fall back to full batch refresh
         FOR v_batch IN SELECT * FROM public.get_closed_group_batches(p_target_batch_size := 1000)
         LOOP
             v_enterprise_count := v_enterprise_count + COALESCE(array_length(v_batch.enterprise_ids, 1), 0);
@@ -84,7 +85,8 @@ BEGIN
             END LOOP;
         END IF;
     ELSE
-        -- Partial refresh: convert multiranges to arrays
+        -- Partial refresh: expand multiranges to arrays only for orphan cleanup
+        -- (orphan cleanup needs = ANY() which requires arrays)
         v_establishment_ids := ARRAY(SELECT generate_series(lower(r), upper(r)-1) FROM unnest(COALESCE(p_establishment_id_ranges, '{}'::int4multirange)) AS t(r));
         v_legal_unit_ids := ARRAY(SELECT generate_series(lower(r), upper(r)-1) FROM unnest(COALESCE(p_legal_unit_id_ranges, '{}'::int4multirange)) AS t(r));
         v_enterprise_ids := ARRAY(SELECT generate_series(lower(r), upper(r)-1) FROM unnest(COALESCE(p_enterprise_id_ranges, '{}'::int4multirange)) AS t(r));
@@ -133,16 +135,17 @@ BEGIN
         END IF;
 
         -- BATCHING: EST/LU/EN use closed-group batches
-        IF COALESCE(array_length(v_establishment_ids, 1), 0) > 0
-           OR COALESCE(array_length(v_legal_unit_ids, 1), 0) > 0
-           OR COALESCE(array_length(v_enterprise_ids, 1), 0) > 0 THEN
+        -- Pass multiranges directly — no array expansion needed here
+        IF p_establishment_id_ranges IS NOT NULL
+           OR p_legal_unit_id_ranges IS NOT NULL
+           OR p_enterprise_id_ranges IS NOT NULL THEN
             IF to_regclass('pg_temp._batches') IS NOT NULL THEN DROP TABLE _batches; END IF;
             CREATE TEMP TABLE _batches ON COMMIT DROP AS
             SELECT * FROM public.get_closed_group_batches(
                 p_target_batch_size := 1000,
-                p_establishment_ids := NULLIF(v_establishment_ids, '{}'),
-                p_legal_unit_ids := NULLIF(v_legal_unit_ids, '{}'),
-                p_enterprise_ids := NULLIF(v_enterprise_ids, '{}')
+                p_establishment_id_ranges := NULLIF(p_establishment_id_ranges, '{}'::int4multirange),
+                p_legal_unit_id_ranges := NULLIF(p_legal_unit_id_ranges, '{}'::int4multirange),
+                p_enterprise_id_ranges := NULLIF(p_enterprise_id_ranges, '{}'::int4multirange)
             );
             -- Dirty partition tracking
             INSERT INTO public.statistical_unit_facet_dirty_partitions (partition_seq)
@@ -154,12 +157,64 @@ BEGIN
             ) AS t WHERE t.unit_id IS NOT NULL
             ON CONFLICT DO NOTHING;
 
-            -- Spawn batch children and accumulate unit counts
-            FOR v_batch IN SELECT * FROM _batches LOOP
-                v_enterprise_count := v_enterprise_count + COALESCE(array_length(v_batch.enterprise_ids, 1), 0);
-                v_legal_unit_count := v_legal_unit_count + COALESCE(array_length(v_batch.legal_unit_ids, 1), 0);
-                v_establishment_count := v_establishment_count + COALESCE(array_length(v_batch.establishment_ids, 1), 0);
+            -- Compute effective (directional) counts across all batches for pipeline_progress
+            -- Uses directional propagation: only count units in the upward direction from changes
+            <<effective_counts>>
+            DECLARE
+                v_all_batch_est_ranges int4multirange;
+                v_all_batch_lu_ranges int4multirange;
+                v_all_batch_en_ranges int4multirange;
+                v_propagated_lu int4multirange;
+                v_propagated_en int4multirange;
+                v_eff_est int4multirange;
+                v_eff_lu int4multirange;
+                v_eff_en int4multirange;
+            BEGIN
+                v_all_batch_est_ranges := (SELECT range_agg(int4range(id, id, '[]'))
+                    FROM (SELECT unnest(establishment_ids) AS id FROM _batches) AS t);
+                v_all_batch_lu_ranges := (SELECT range_agg(int4range(id, id, '[]'))
+                    FROM (SELECT unnest(legal_unit_ids) AS id FROM _batches) AS t);
+                v_all_batch_en_ranges := (SELECT range_agg(int4range(id, id, '[]'))
+                    FROM (SELECT unnest(enterprise_ids) AS id FROM _batches) AS t);
 
+                -- Level 1: ES = directly changed ESs ∩ all batches
+                v_eff_est := NULLIF(
+                    COALESCE(v_all_batch_est_ranges, '{}'::int4multirange)
+                    * COALESCE(p_establishment_id_ranges, '{}'::int4multirange),
+                    '{}'::int4multirange);
+
+                -- Level 2: LU = (changed LUs + parents of changed ESs) ∩ all batches
+                SELECT range_agg(int4range(es.legal_unit_id, es.legal_unit_id, '[]'))
+                  INTO v_propagated_lu
+                  FROM public.establishment AS es
+                 WHERE es.id <@ COALESCE(p_establishment_id_ranges, '{}'::int4multirange)
+                   AND es.legal_unit_id IS NOT NULL;
+                v_eff_lu := NULLIF(
+                    COALESCE(v_all_batch_lu_ranges, '{}'::int4multirange)
+                    * (COALESCE(p_legal_unit_id_ranges, '{}'::int4multirange)
+                     + COALESCE(v_propagated_lu, '{}'::int4multirange)),
+                    '{}'::int4multirange);
+
+                -- Level 3: EN = (changed ENs + parents of effective LUs) ∩ all batches
+                SELECT range_agg(int4range(lu.enterprise_id, lu.enterprise_id, '[]'))
+                  INTO v_propagated_en
+                  FROM public.legal_unit AS lu
+                 WHERE lu.id <@ COALESCE(v_eff_lu, '{}'::int4multirange)
+                   AND lu.enterprise_id IS NOT NULL;
+                v_eff_en := NULLIF(
+                    COALESCE(v_all_batch_en_ranges, '{}'::int4multirange)
+                    * (COALESCE(p_enterprise_id_ranges, '{}'::int4multirange)
+                     + COALESCE(v_propagated_en, '{}'::int4multirange)),
+                    '{}'::int4multirange);
+
+                -- Count effective units (not batch totals) for pipeline_progress
+                v_establishment_count := COALESCE((SELECT count(*) FROM unnest(COALESCE(v_eff_est, '{}'::int4multirange)) AS r, generate_series(lower(r), upper(r)-1))::INT, 0);
+                v_legal_unit_count := COALESCE((SELECT count(*) FROM unnest(COALESCE(v_eff_lu, '{}'::int4multirange)) AS r, generate_series(lower(r), upper(r)-1))::INT, 0);
+                v_enterprise_count := COALESCE((SELECT count(*) FROM unnest(COALESCE(v_eff_en, '{}'::int4multirange)) AS r, generate_series(lower(r), upper(r)-1))::INT, 0);
+            END effective_counts;
+
+            -- Spawn batch children with changed_* keys for directional propagation
+            FOR v_batch IN SELECT * FROM _batches LOOP
                 PERFORM worker.spawn(
                     p_command := 'statistical_unit_refresh_batch',
                     p_payload := jsonb_build_object(
@@ -169,7 +224,11 @@ BEGIN
                         'legal_unit_ids', v_batch.legal_unit_ids,
                         'establishment_ids', v_batch.establishment_ids,
                         'valid_from', p_valid_from,
-                        'valid_until', p_valid_until
+                        'valid_until', p_valid_until,
+                        -- Original change ranges for directional propagation
+                        'changed_establishment_id_ranges', p_establishment_id_ranges::text,
+                        'changed_legal_unit_id_ranges', p_legal_unit_id_ranges::text,
+                        'changed_enterprise_id_ranges', p_enterprise_id_ranges::text
                     ),
                     p_parent_id := p_task_id,
                     p_priority := v_child_priority

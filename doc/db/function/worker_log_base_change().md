@@ -6,7 +6,6 @@ AS $function$
 DECLARE
     v_columns TEXT;
     v_has_valid_range BOOLEAN;
-    v_has_power_group BOOLEAN := FALSE;
     v_where_clause TEXT := '';
     v_source TEXT;
     v_est_ids int4multirange;
@@ -36,14 +35,18 @@ BEGIN
             -- Only log when derived_power_group_id is assigned (NULL = PG not yet linked).
             v_columns := 'NULL::INT AS est_id, NULL::INT AS lu_id, NULL::INT AS ent_id, derived_power_group_id AS pg_id';
             v_has_valid_range := TRUE;
-            v_has_power_group := TRUE;
+
             v_where_clause := ' WHERE derived_power_group_id IS NOT NULL';
         WHEN 'power_group' THEN
             -- PG metadata changes (name, type_id, etc.) affect PG statistical units.
             -- Timeless table — no valid_range.
             v_columns := 'NULL::INT AS est_id, NULL::INT AS lu_id, NULL::INT AS ent_id, id AS pg_id';
             v_has_valid_range := FALSE;
-            v_has_power_group := TRUE;
+        WHEN 'power_root' THEN
+            -- PR changes (NSO custom_root override) affect the power group's timeline.
+            -- Temporal table — has valid_range.
+            v_columns := 'NULL::INT AS est_id, NULL::INT AS lu_id, NULL::INT AS ent_id, power_group_id AS pg_id';
+            v_has_valid_range := TRUE;
         ELSE
             RAISE EXCEPTION 'log_base_change: unsupported table %', TG_TABLE_NAME;
     END CASE;
@@ -77,7 +80,7 @@ BEGIN
        OR v_lu_ids != '{}'::int4multirange
        OR v_ent_ids != '{}'::int4multirange
        OR v_pg_ids != '{}'::int4multirange THEN
-        INSERT INTO worker.base_change_log (establishment_ids, legal_unit_ids, enterprise_ids, power_group_ids, edited_by_valid_range)
+        INSERT INTO worker.base_change_log (establishment_ids, legal_unit_ids, enterprise_ids, power_group_ids, valid_ranges)
         VALUES (v_est_ids, v_lu_ids, v_ent_ids, v_pg_ids, v_valid_range);
     END IF;
 

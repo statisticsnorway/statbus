@@ -211,6 +211,23 @@ FROM public.import_job AS ij
 WHERE ij.slug IN ('import_lu_clone', 'import_es_clone') ORDER BY ij.slug;
 
 
+-- Insert a legal_relationship row to test that reset() handles FK to legal_unit correctly.
+-- Uses two legal_unit IDs from the imported Norwegian dataset.
+INSERT INTO public.legal_relationship (
+    influencing_id, influenced_id,
+    valid_from, valid_to,
+    type_id, edit_by_user_id
+)
+SELECT
+    lu1.id, lu2.id,
+    lu1.valid_from, lu1.valid_to,
+    (SELECT id FROM public.legal_rel_type LIMIT 1),
+    (SELECT id FROM auth."user" LIMIT 1)
+FROM public.legal_unit AS lu1
+CROSS JOIN public.legal_unit AS lu2
+WHERE lu1.id = 1 AND lu2.id = 2
+LIMIT 1;
+
 SAVEPOINT before_reset;
 
 \a

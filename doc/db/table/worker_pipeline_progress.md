@@ -1,5 +1,5 @@
 ```sql
-                        Unlogged table "worker.pipeline_progress"
+                             Table "worker.pipeline_progress"
             Column            |           Type           | Collation | Nullable | Default 
 ------------------------------+--------------------------+-----------+----------+---------
  phase                        | worker.pipeline_phase    |           | not null | 

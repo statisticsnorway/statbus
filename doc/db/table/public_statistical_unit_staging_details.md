@@ -86,6 +86,8 @@
  included_enterprise_count        | integer                  |           |          |         | plain    |             |              | 
  tag_paths                        | ltree[]                  |           |          |         | extended |             |              | 
  report_partition_seq             | integer                  |           |          |         | plain    |             |              | 
+Indexes:
+    "statistical_unit_staging_unit_type_unit_id_idx" btree (unit_type, unit_id)
 Not-null constraints:
     "statistical_unit_unit_type_not_null" NOT NULL "unit_type"
     "statistical_unit_unit_id_not_null" NOT NULL "unit_id"

@@ -45,11 +45,13 @@
  last_progress_update              | timestamp with time zone |           |          |                                        | plain    |             |              | 
  state                             | import_job_state         |           | not null | 'waiting_for_upload'::import_job_state | plain    |             |              | 
  error                             | text                     |           |          |                                        | extended |             |              | 
- review                            | boolean                  |           | not null | false                                  | plain    |             |              | 
+ review                            | boolean                  |           |          |                                        | plain    |             |              | 
  edit_comment                      | text                     |           |          |                                        | extended |             |              | Default edit comment to be applied to records processed by this job.
  expires_at                        | timestamp with time zone |           | not null |                                        | plain    |             |              | Timestamp when the job and its associated data (_upload, _data tables) are eligible for cleanup. Calculated as created_at + import_definition.default_retention_period.
  definition_id                     | integer                  |           | not null |                                        | plain    |             |              | 
  user_id                           | integer                  |           |          |                                        | plain    |             |              | 
+ error_count                       | integer                  |           | not null | 0                                      | plain    |             |              | 
+ warning_count                     | integer                  |           | not null | 0                                      | plain    |             |              | 
 Indexes:
     "import_job_pkey" PRIMARY KEY, btree (id)
     "import_job_slug_key" UNIQUE CONSTRAINT, btree (slug)
@@ -105,16 +107,17 @@ Not-null constraints:
     "import_job_analysis_batch_size_not_null" NOT NULL "analysis_batch_size"
     "import_job_processing_batch_size_not_null" NOT NULL "processing_batch_size"
     "import_job_state_not_null" NOT NULL "state"
-    "import_job_review_not_null" NOT NULL "review"
     "import_job_expires_at_not_null" NOT NULL "expires_at"
     "import_job_definition_id_not_null" NOT NULL "definition_id"
+    "import_job_error_count_not_null" NOT NULL "error_count"
+    "import_job_warning_count_not_null" NOT NULL "warning_count"
 Triggers:
     import_job_cleanup BEFORE DELETE OR UPDATE OF upload_table_name, data_table_name ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_cleanup()
     import_job_derive_trigger BEFORE INSERT ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_derive()
     import_job_generate AFTER INSERT OR UPDATE OF upload_table_name, data_table_name ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_generate()
     import_job_notify_trigger AFTER INSERT OR DELETE OR UPDATE ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_notify()
-    import_job_progress_notify_trigger AFTER UPDATE OF imported_rows, state, completed_analysis_steps_weighted ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_progress_notify()
-    import_job_progress_update_trigger BEFORE UPDATE OF imported_rows, completed_analysis_steps_weighted ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_progress_update()
+    import_job_progress_notify_trigger AFTER UPDATE OF imported_rows, state, completed_analysis_steps_weighted, error_count, warning_count ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_progress_notify()
+    import_job_progress_update_trigger BEFORE UPDATE OF imported_rows, completed_analysis_steps_weighted, error_count, analysis_stop_at, processing_stop_at ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_progress_update()
     import_job_state_change_after_trigger AFTER UPDATE OF state ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_state_change_after()
     import_job_state_change_before_trigger BEFORE UPDATE OF state ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_state_change_before()
 Access method: heap

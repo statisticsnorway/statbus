@@ -58,7 +58,12 @@ Not-null constraints:
     "power_root_edit_by_user_id_not_null" NOT NULL "edit_by_user_id"
     "power_root_edit_at_not_null" NOT NULL "edit_at"
 Triggers:
-    power_root_derive_trigger AFTER INSERT OR UPDATE ON power_root FOR EACH ROW EXECUTE FUNCTION power_root_queue_derive()
+    a_power_root_log_delete AFTER DELETE ON power_root REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
+    a_power_root_log_insert AFTER INSERT ON power_root REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
+    a_power_root_log_update AFTER UPDATE ON power_root REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
+    b_power_root_ensure_collect_delete AFTER DELETE ON power_root REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.ensure_collect_changes()
+    b_power_root_ensure_collect_insert AFTER INSERT ON power_root REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.ensure_collect_changes_for_power_root()
+    b_power_root_ensure_collect_update AFTER UPDATE ON power_root REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.ensure_collect_changes_for_power_root()
     power_root_valid_sync_temporal_trg BEFORE INSERT OR UPDATE OF valid_range, valid_to, valid_from, valid_until ON power_root FOR EACH ROW EXECUTE FUNCTION sql_saga.public_power_root_valid_template_sync()
     power_root_validate_membership_on_insert AFTER INSERT ON power_root REFERENCING NEW TABLE AS _new_power_root_rows FOR EACH STATEMENT EXECUTE FUNCTION power_root_validate_root_membership()
     power_root_validate_membership_on_update AFTER UPDATE ON power_root REFERENCING NEW TABLE AS _new_power_root_rows FOR EACH STATEMENT EXECUTE FUNCTION power_root_validate_root_membership()

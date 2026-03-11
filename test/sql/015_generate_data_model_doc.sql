@@ -45,118 +45,126 @@ DECLARE
     v_enums_str TEXT;
 
     -- Define sections and entities within them. This structure is hardcoded to match the desired output.
+    -- Every table MUST have a "class" field from: configuration, base_data, link, classification,
+    -- reference, derived, asset, transient, infrastructure. Views don't need "class".
+    -- The class determines DELETE vs TRUNCATE behavior in public.reset(). See legend in output.
     c_sections CURSOR FOR
     SELECT * FROM (VALUES
         (1, 1, 1, 'Core Statistical Units (Hierarchy)', 'The system revolves around four main statistical units, often with temporal validity (`valid_from`, `valid_after`, `valid_to`):', jsonb_build_array(
-            '{"schema": "public", "name": "establishment", "short": "EST"}'::jsonb,
-            '{"schema": "public", "name": "legal_unit", "short": "LU"}'::jsonb,
-            '{"schema": "public", "name": "enterprise", "short": "EN"}'::jsonb,
-            '{"schema": "public", "name": "power_group", "short": "PG"}'::jsonb
+            '{"schema": "public", "name": "establishment", "short": "EST", "class": "base_data"}'::jsonb,
+            '{"schema": "public", "name": "legal_unit", "short": "LU", "class": "base_data"}'::jsonb,
+            '{"schema": "public", "name": "enterprise", "short": "EN", "class": "base_data"}'::jsonb,
+            '{"schema": "public", "name": "power_group", "short": "PG", "class": "base_data"}'::jsonb
         )),
         (1, 1, 2, 'Legal Unit Ownership & Control', 'Tables and views for tracking ownership/control relationships between legal units:', jsonb_build_array(
-            '{"schema": "public", "name": "legal_relationship"}'::jsonb,
+            '{"schema": "public", "name": "legal_relationship", "class": "base_data"}'::jsonb,
+            '{"schema": "public", "name": "power_root", "class": "base_data"}'::jsonb,
             '{"schema": "public", "name": "power_group_def", "type": "VIEW"}'::jsonb,
             '{"schema": "public", "name": "legal_relationship_cluster", "type": "VIEW"}'::jsonb,
             '{"schema": "public", "name": "power_group_active", "type": "VIEW"}'::jsonb,
             '{"schema": "public", "name": "power_group_membership", "type": "VIEW"}'::jsonb
         )),
         (2, 1, 1, 'Common Links for Core Units (PG, EN, LU, EST)', 'These tables link to any of the four core statistical units:', jsonb_build_array(
-            '{"schema": "public", "name": "external_ident"}'::jsonb,
-            '{"schema": "public", "name": "image"}'::jsonb,
-            '{"schema": "public", "name": "tag_for_unit"}'::jsonb,
-            '{"schema": "public", "name": "unit_notes"}'::jsonb,
+            '{"schema": "public", "name": "external_ident", "class": "base_data"}'::jsonb,
+            '{"schema": "public", "name": "image", "class": "asset"}'::jsonb,
+            '{"schema": "public", "name": "tag_for_unit", "class": "link"}'::jsonb,
+            '{"schema": "public", "name": "unit_notes", "class": "link"}'::jsonb,
             '{"schema": "public", "name": "enterprise_external_idents", "type": "VIEW"}'::jsonb
         )),
         (3, 1, 1, 'Key Supporting Entities & Classifications', NULL, NULL),
         (3, 2, 1, 'Activity', NULL, jsonb_build_array(
-            '{"schema": "public", "name": "activity"}'::jsonb,
-            '{"schema": "public", "name": "activity_category"}'::jsonb,
-            '{"schema": "public", "name": "activity_category_standard"}'::jsonb,
+            '{"schema": "public", "name": "activity", "class": "base_data"}'::jsonb,
+            '{"schema": "public", "name": "activity_category", "class": "classification"}'::jsonb,
+            '{"schema": "public", "name": "activity_category_standard", "class": "reference"}'::jsonb,
             '{"schema": "public", "name": "activity_category_isic_v4", "type": "VIEW"}'::jsonb,
             '{"schema": "public", "name": "activity_category_nace_v2_1", "type": "VIEW"}'::jsonb
         )),
         (3, 2, 2, 'Location & Contact', NULL, jsonb_build_array(
-            '{"schema": "public", "name": "location"}'::jsonb,
-            '{"schema": "public", "name": "contact"}'::jsonb,
-            '{"schema": "public", "name": "region"}'::jsonb,
-            '{"schema": "public", "name": "country"}'::jsonb,
+            '{"schema": "public", "name": "location", "class": "base_data"}'::jsonb,
+            '{"schema": "public", "name": "contact", "class": "base_data"}'::jsonb,
+            '{"schema": "public", "name": "region", "class": "reference"}'::jsonb,
+            '{"schema": "public", "name": "country", "class": "reference"}'::jsonb,
             '{"schema": "public", "name": "country_view", "type": "VIEW"}'::jsonb
         )),
         (3, 2, 3, 'Persons', NULL, jsonb_build_array(
-            '{"schema": "public", "name": "person"}'::jsonb,
-            '{"schema": "public", "name": "person_for_unit"}'::jsonb,
-            '{"schema": "public", "name": "person_role"}'::jsonb
+            '{"schema": "public", "name": "person", "class": "link"}'::jsonb,
+            '{"schema": "public", "name": "person_for_unit", "class": "link"}'::jsonb,
+            '{"schema": "public", "name": "person_role", "class": "reference"}'::jsonb
         )),
         (3, 2, 4, 'Statistics', NULL, jsonb_build_array(
-            '{"schema": "public", "name": "stat_for_unit"}'::jsonb,
-            '{"schema": "public", "name": "stat_definition"}'::jsonb
+            '{"schema": "public", "name": "stat_for_unit", "class": "base_data"}'::jsonb,
+            '{"schema": "public", "name": "stat_definition", "class": "configuration"}'::jsonb
         )),
         (3, 2, 5, 'General Code/Classification Tables', 'These tables typically store codes, names, and flags for `custom` and `enabled` status.', jsonb_build_array(
-            '{"schema": "public", "name": "data_source"}'::jsonb,
-            '{"schema": "public", "name": "power_group_type"}'::jsonb,
-            '{"schema": "public", "name": "external_ident_type"}'::jsonb,
+            '{"schema": "public", "name": "data_source", "class": "classification"}'::jsonb,
+            '{"schema": "public", "name": "power_group_type", "class": "classification"}'::jsonb,
+            '{"schema": "public", "name": "external_ident_type", "class": "configuration"}'::jsonb,
 
-            '{"schema": "public", "name": "foreign_participation"}'::jsonb,
-            '{"schema": "public", "name": "legal_form"}'::jsonb,
-            '{"schema": "public", "name": "legal_reorg_type"}'::jsonb,
-            '{"schema": "public", "name": "legal_rel_type"}'::jsonb,
-            '{"schema": "public", "name": "sector"}'::jsonb,
-            '{"schema": "public", "name": "status"}'::jsonb,
-            '{"schema": "public", "name": "tag"}'::jsonb,
-            '{"schema": "public", "name": "unit_size"}'::jsonb
+            '{"schema": "public", "name": "foreign_participation", "class": "classification"}'::jsonb,
+            '{"schema": "public", "name": "legal_form", "class": "classification"}'::jsonb,
+            '{"schema": "public", "name": "legal_reorg_type", "class": "classification"}'::jsonb,
+            '{"schema": "public", "name": "legal_rel_type", "class": "classification"}'::jsonb,
+            '{"schema": "public", "name": "sector", "class": "classification"}'::jsonb,
+            '{"schema": "public", "name": "status", "class": "classification"}'::jsonb,
+            '{"schema": "public", "name": "tag", "class": "classification"}'::jsonb,
+            '{"schema": "public", "name": "unit_size", "class": "classification"}'::jsonb
         )),
         (3, 2, 6, 'Enum Definitions', 'Enumerated types used across the schema, with their possible values.', NULL),
         (4, 1, 1, 'Temporal Data & History', NULL, NULL),
         (4, 2, 1, 'Derivations to create statistical_unit for a complete picture of every EN,LU,ES for every atomic segment. (/search)', NULL, jsonb_build_array(
-            '{"schema": "public", "name": "timepoints"}'::jsonb,
-            '{"schema": "public", "name": "timesegments"}'::jsonb,
-            '{"schema": "public", "name": "timeline_establishment", "suffix": ", `timeline_legal_unit`, `timeline_enterprise`"}'::jsonb,
-            '{"schema": "public", "name": "statistical_unit", "type": "VIEW"}'::jsonb
+            '{"schema": "public", "name": "timepoints", "class": "derived"}'::jsonb,
+            '{"schema": "public", "name": "timesegments", "class": "derived"}'::jsonb,
+            '{"schema": "public", "name": "timeline_establishment", "suffix": ", `timeline_legal_unit`, `timeline_enterprise`, `timeline_power_group`", "class": "derived"}'::jsonb,
+            '{"schema": "public", "name": "statistical_unit", "class": "derived"}'::jsonb
         )),
         (4, 2, 2, 'Derivations for UI listing of relevant time periods', NULL, jsonb_build_array(
-            '{"schema": "public", "name": "timesegments_years"}'::jsonb,
-            '{"schema": "public", "name": "relative_period"}'::jsonb,
+            '{"schema": "public", "name": "timesegments_years", "class": "derived"}'::jsonb,
+            '{"schema": "public", "name": "relative_period", "class": "reference"}'::jsonb,
             '{"schema": "public", "name": "relative_period_with_time", "type": "VIEW"}'::jsonb,
-            '{"schema": "public", "name": "time_context"}'::jsonb
+            '{"schema": "public", "name": "time_context", "type": "VIEW"}'::jsonb
         )),
         (4, 2, 3, 'Derivations for drilling on facets of statistical_unit (/reports)', NULL, jsonb_build_array(
-            '{"schema": "public", "name": "statistical_unit_facet"}'::jsonb,
-            '{"schema": "public", "name": "statistical_unit_facet_dirty_partitions"}'::jsonb
+            '{"schema": "public", "name": "statistical_unit_facet", "class": "derived"}'::jsonb,
+            '{"schema": "public", "name": "statistical_unit_facet_dirty_partitions", "class": "derived"}'::jsonb
         )),
         (4, 2, 4, 'Derivations to create statistical_history for reporting and statistical_history_facet for drilldown.', NULL, jsonb_build_array(
-            '{"schema": "public", "name": "statistical_history"}'::jsonb,
-            '{"schema": "public", "name": "statistical_history_facet"}'::jsonb,
-            '{"schema": "public", "name": "statistical_history_facet_partitions"}'::jsonb
+            '{"schema": "public", "name": "statistical_history", "class": "derived"}'::jsonb,
+            '{"schema": "public", "name": "statistical_history_facet", "class": "derived"}'::jsonb,
+            '{"schema": "public", "name": "statistical_history_facet_partitions", "class": "derived"}'::jsonb
+        )),
+        (4, 2, 5, 'Pipeline Weights', 'Configuration for pipeline step ordering and progress tracking.', jsonb_build_array(
+            '{"schema": "worker", "name": "pipeline_step_weight", "class": "infrastructure"}'::jsonb,
+            '{"schema": "public", "name": "pipeline_step_weight", "type": "VIEW"}'::jsonb
         )),
         (5, 1, 1, 'Import System', 'Handles the ingestion of data from external files.', jsonb_build_array(
-            '{"schema": "public", "name": "import_definition"}'::jsonb,
-            '{"schema": "public", "name": "import_step"}'::jsonb,
-            '{"schema": "public", "name": "import_definition_step"}'::jsonb,
-            '{"schema": "public", "name": "import_source_column"}'::jsonb,
-            '{"schema": "public", "name": "import_data_column"}'::jsonb,
-            '{"schema": "public", "name": "import_mapping"}'::jsonb,
-            '{"schema": "public", "name": "import_job"}'::jsonb
+            '{"schema": "public", "name": "import_definition", "class": "transient"}'::jsonb,
+            '{"schema": "public", "name": "import_step", "class": "transient"}'::jsonb,
+            '{"schema": "public", "name": "import_definition_step", "class": "transient"}'::jsonb,
+            '{"schema": "public", "name": "import_source_column", "class": "transient"}'::jsonb,
+            '{"schema": "public", "name": "import_data_column", "class": "transient"}'::jsonb,
+            '{"schema": "public", "name": "import_mapping", "class": "transient"}'::jsonb,
+            '{"schema": "public", "name": "import_job", "class": "transient"}'::jsonb
         )),
         (6, 1, 1, 'Worker System', 'Handles background processing. A long-running worker process calls `worker.process_tasks()` to process tasks synchronously.', jsonb_build_array(
-            '{"schema": "worker", "name": "tasks"}'::jsonb,
-            '{"schema": "worker", "name": "command_registry"}'::jsonb,
-            '{"schema": "worker", "name": "queue_registry"}'::jsonb,
-            '{"schema": "worker", "name": "pipeline_progress"}'::jsonb,
-            '{"schema": "worker", "name": "base_change_log"}'::jsonb,
-            '{"schema": "worker", "name": "base_change_log_has_pending"}'::jsonb
+            '{"schema": "worker", "name": "tasks", "class": "infrastructure"}'::jsonb,
+            '{"schema": "worker", "name": "command_registry", "class": "infrastructure"}'::jsonb,
+            '{"schema": "worker", "name": "queue_registry", "class": "infrastructure"}'::jsonb,
+            '{"schema": "worker", "name": "pipeline_progress", "class": "infrastructure"}'::jsonb,
+            '{"schema": "worker", "name": "base_change_log", "class": "infrastructure"}'::jsonb,
+            '{"schema": "worker", "name": "base_change_log_has_pending", "class": "infrastructure"}'::jsonb
         )),
         (7, 1, 1, 'Auth & System Tables/Views', NULL, jsonb_build_array(
-            '{"schema": "auth", "name": "user"}'::jsonb,
+            '{"schema": "auth", "name": "user", "class": "infrastructure"}'::jsonb,
             '{"schema": "public", "name": "user", "type": "VIEW"}'::jsonb,
-            '{"schema": "auth", "name": "api_key"}'::jsonb,
+            '{"schema": "auth", "name": "api_key", "class": "infrastructure"}'::jsonb,
             '{"schema": "public", "name": "api_key", "type": "VIEW"}'::jsonb,
-            '{"schema": "auth", "name": "refresh_session"}'::jsonb,
-            '{"schema": "auth", "name": "secrets"}'::jsonb,
-            '{"schema": "public", "name": "settings"}'::jsonb,
-            '{"schema": "public", "name": "region_access"}'::jsonb,
-            '{"schema": "public", "name": "activity_category_access"}'::jsonb,
-            '{"schema": "db", "name": "migration"}'::jsonb,
-            '{"schema": "lifecycle_callbacks", "name": "registered_callback", "suffix": " and `supported_table`"}'::jsonb
+            '{"schema": "auth", "name": "refresh_session", "class": "infrastructure"}'::jsonb,
+            '{"schema": "auth", "name": "secrets", "class": "infrastructure"}'::jsonb,
+            '{"schema": "public", "name": "settings", "class": "infrastructure"}'::jsonb,
+            '{"schema": "public", "name": "region_access", "class": "infrastructure"}'::jsonb,
+            '{"schema": "public", "name": "activity_category_access", "class": "infrastructure"}'::jsonb,
+            '{"schema": "db", "name": "migration", "class": "infrastructure"}'::jsonb,
+            '{"schema": "lifecycle_callbacks", "name": "registered_callback", "suffix": " and `supported_table`", "class": "infrastructure"}'::jsonb
         )),
         (8, 1, 1, 'Helper Views & Common Patterns', E'The schema includes numerous helper views, often for UI dropdowns or specific data access patterns. They follow consistent naming conventions:', NULL)
     ) AS t(group_order, level, ordering, title, description, entities) ORDER BY group_order, level, ordering;
@@ -167,6 +175,24 @@ BEGIN
 This document is automatically generated from the database schema by `test/sql/015_generate_data_model_doc.sql`. Do not edit it manually.
 
 This document provides a compact overview of the StatBus database schema, focusing on entities, relationships, and key patterns.
+
+## Table Classifications
+
+Every table is classified by its trigger behavior, which determines how it must be handled during `public.reset()`:
+
+| Class | Reset method | Why |
+|-------|-------------|-----|
+| **configuration** | `DELETE WHERE true` | Lifecycle callbacks regenerate import schema; TRUNCATE would bypass them |
+| **base_data** | `TRUNCATE` | Worker change-tracking triggers are moot when all derived tables are also truncated |
+| **link** | `TRUNCATE` | No worker triggers, no lifecycle callbacks |
+| **classification** | `DELETE WHERE custom` | Cannot TRUNCATE selectively; only custom rows are removed |
+| **reference** | `TRUNCATE` | System-provided lookups, no triggers with side effects |
+| **derived** | `TRUNCATE` | Computed by worker pipeline, no delete-side triggers |
+| **asset** | `TRUNCATE` | Only validation triggers, no delete-side effects |
+| **transient** | Conditional `DELETE` | Import system tables, scoped by reset level |
+| **infrastructure** | Never reset | Worker/auth/system tables |
+
+Views have no class (they follow their underlying table).
 ';
 
     OPEN c_sections;
@@ -219,6 +245,7 @@ This document provides a compact overview of the StatBus database schema, focusi
             IF v_entity_data->>'suffix' ILIKE '%`timeline_legal_unit`%' THEN
                 v_documented_entities := v_documented_entities || '{"schema": "public", "name": "timeline_legal_unit"}'::jsonb;
                 v_documented_entities := v_documented_entities || '{"schema": "public", "name": "timeline_enterprise"}'::jsonb;
+                v_documented_entities := v_documented_entities || '{"schema": "public", "name": "timeline_power_group"}'::jsonb;
             END IF;
             IF v_entity_data->>'suffix' ILIKE '%`supported_table`%' THEN
                 v_documented_entities := v_documented_entities || '{"schema": "lifecycle_callbacks", "name": "supported_table"}'::jsonb;
@@ -262,6 +289,10 @@ This document provides a compact overview of the StatBus database schema, focusi
 
             IF v_is_temporal THEN
                 v_extras_str := v_extras_str || ' (temporal)';
+            END IF;
+
+            IF v_entity_data ? 'class' THEN
+                v_extras_str := v_extras_str || ' — **' || replace(v_entity_data->>'class', '_', ' ') || '**';
             END IF;
 
             v_markdown := v_markdown || format(E'\n- `%s(%s)`%s',

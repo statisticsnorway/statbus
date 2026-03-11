@@ -1404,6 +1404,9 @@ NOTICE:  Created indices for stat_definition turnover
      "tag": {                       +
          "deleted_count": 0         +
      },                             +
+     "image": {                     +
+         "deleted_count": 0         +
+     },                             +
      "person": {                    +
          "deleted_count": 0         +
      },                             +
@@ -1447,8 +1450,17 @@ NOTICE:  Created indices for stat_definition turnover
      "legal_unit": {                +
          "deleted_count": 0         +
      },                             +
+     "power_root": {                +
+         "deleted_count": 0         +
+     },                             +
+     "unit_notes": {                +
+         "deleted_count": 0         +
+     },                             +
      "data_source": {               +
          "changed_count": 0,        +
+         "deleted_count": 0         +
+     },                             +
+     "power_group": {               +
          "deleted_count": 0         +
      },                             +
      "tag_for_unit": {              +
@@ -1463,11 +1475,23 @@ NOTICE:  Created indices for stat_definition turnover
      "external_ident": {            +
          "deleted_count": 0         +
      },                             +
+     "legal_rel_type": {            +
+         "changed_count": 0,        +
+         "deleted_count": 0         +
+     },                             +
      "person_for_unit": {           +
          "deleted_count": 0         +
      },                             +
      "stat_definition": {           +
          "deleted_count": 5         +
+     },                             +
+     "legal_reorg_type": {          +
+         "changed_count": 0,        +
+         "deleted_count": 0         +
+     },                             +
+     "power_group_type": {          +
+         "changed_count": 0,        +
+         "deleted_count": 0         +
      },                             +
      "activity_category": {         +
          "changed_count": 0,        +
@@ -1477,8 +1501,15 @@ NOTICE:  Created indices for stat_definition turnover
      "import_definition": {         +
          "deleted_count": 10        +
      },                             +
+     "legal_relationship": {        +
+         "deleted_count": 0         +
+     },                             +
      "external_ident_type": {       +
          "deleted_count": 2         +
+     },                             +
+     "foreign_participation": {     +
+         "changed_count": 0,        +
+         "deleted_count": 0         +
      }                              +
  }
 (1 row)

@@ -39,11 +39,13 @@
  last_progress_update              | timestamp with time zone |           |          | 
  state                             | import_job_state         |           | not null | 'waiting_for_upload'::import_job_state
  error                             | text                     |           |          | 
- review                            | boolean                  |           | not null | false
+ review                            | boolean                  |           |          | 
  edit_comment                      | text                     |           |          | 
  expires_at                        | timestamp with time zone |           | not null | 
  definition_id                     | integer                  |           | not null | 
  user_id                           | integer                  |           |          | 
+ error_count                       | integer                  |           | not null | 0
+ warning_count                     | integer                  |           | not null | 0
 Indexes:
     "import_job_pkey" PRIMARY KEY, btree (id)
     "import_job_slug_key" UNIQUE CONSTRAINT, btree (slug)
@@ -94,8 +96,8 @@ Triggers:
     import_job_derive_trigger BEFORE INSERT ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_derive()
     import_job_generate AFTER INSERT OR UPDATE OF upload_table_name, data_table_name ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_generate()
     import_job_notify_trigger AFTER INSERT OR DELETE OR UPDATE ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_notify()
-    import_job_progress_notify_trigger AFTER UPDATE OF imported_rows, state, completed_analysis_steps_weighted ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_progress_notify()
-    import_job_progress_update_trigger BEFORE UPDATE OF imported_rows, completed_analysis_steps_weighted ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_progress_update()
+    import_job_progress_notify_trigger AFTER UPDATE OF imported_rows, state, completed_analysis_steps_weighted, error_count, warning_count ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_progress_notify()
+    import_job_progress_update_trigger BEFORE UPDATE OF imported_rows, completed_analysis_steps_weighted, error_count, analysis_stop_at, processing_stop_at ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_progress_update()
     import_job_state_change_after_trigger AFTER UPDATE OF state ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_state_change_after()
     import_job_state_change_before_trigger BEFORE UPDATE OF state ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_state_change_before()
 

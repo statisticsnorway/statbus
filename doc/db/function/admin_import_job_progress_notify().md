@@ -15,7 +15,9 @@ BEGIN
             'analysis_rows_per_sec', NEW.analysis_rows_per_sec,
             'imported_rows', NEW.imported_rows,
             'import_completed_pct', NEW.import_completed_pct,
-            'import_rows_per_sec', NEW.import_rows_per_sec
+            'import_rows_per_sec', NEW.import_rows_per_sec,
+            'error_count', NEW.error_count,
+            'warning_count', NEW.warning_count
         )::text
     );
     RETURN NEW;

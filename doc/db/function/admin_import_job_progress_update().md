@@ -26,11 +26,12 @@ BEGIN
         NEW.analysis_rows_per_sec := 0;
     END IF;
 
-    -- Calculate import_completed_pct
+    -- Calculate import_completed_pct: fraction of importable rows (excluding errors) that are imported.
+    -- Use NULLIF to avoid division by zero when all rows have errors.
     IF NEW.total_rows IS NULL OR NEW.total_rows = 0 THEN
         NEW.import_completed_pct := 0;
     ELSE
-        NEW.import_completed_pct := ROUND((NEW.imported_rows::numeric / NEW.total_rows::numeric) * 100, 2);
+        NEW.import_completed_pct := ROUND((NEW.imported_rows::numeric / NULLIF(NEW.total_rows - NEW.error_count, 0)::numeric) * 100, 2);
     END IF;
 
     -- Calculate import_rows_per_sec (still based on fully processed rows)

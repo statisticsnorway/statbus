@@ -31,6 +31,24 @@ BEGIN
 
     RAISE DEBUG '[Job %] Processing job in state: %', job_id, job.state;
 
+    -- Block import queue while any OTHER job is waiting for review.
+    -- This prevents dependent jobs (e.g., ES) from processing before their
+    -- prerequisite (e.g., LU) has been reviewed and approved/rejected.
+    -- Jobs that ARE in waiting_for_review/approved/rejected are exempt —
+    -- they need to proceed through their own state transitions.
+    -- When the review resolves, the after-trigger re-enqueues all blocked jobs.
+    IF job.state NOT IN ('waiting_for_review', 'approved', 'rejected') THEN
+        PERFORM id FROM public.import_job
+        WHERE state = 'waiting_for_review'
+          AND id <> job_id
+        LIMIT 1;
+        IF FOUND THEN
+            RAISE DEBUG '[Job %] Blocked: another job is waiting_for_review. Will resume when review resolves.', job_id;
+            -- Do NOT reschedule — the after-trigger on review resolution will re-enqueue us.
+            RETURN;
+        END IF;
+    END IF;
+
     -- Process based on current state
     CASE job.state
         WHEN 'waiting_for_upload' THEN
@@ -72,7 +90,7 @@ BEGIN
                 -- rows=1 for WHERE batch_seq = $1, causing Nested Loop instead of Hash Join.
                 RAISE DEBUG '[Job %] Running ANALYZE on data table %', job_id, job.data_table_name;
                 EXECUTE format('ANALYZE public.%I', job.data_table_name);
-                
+
                 job := admin.import_job_set_state(job, 'analysing_data');
                 should_reschedule := TRUE; -- Reschedule immediately to start analysis
             END;
@@ -81,6 +99,8 @@ BEGIN
             DECLARE
                 v_completed_steps_weighted BIGINT;
                 v_old_step_code TEXT;
+                v_error_count INTEGER;
+                v_warning_count INTEGER;
             BEGIN
                 RAISE DEBUG '[Job %] Starting analysis phase.', job_id;
 
@@ -115,7 +135,28 @@ BEGIN
                     job := admin.import_job_set_state(job, 'finished');
                     should_reschedule := FALSE;
                 ELSIF NOT should_reschedule THEN -- No error, and phase reported no more work
-                    IF job.review THEN
+                    -- Compute error and warning counts now that analysis is complete.
+                    -- This is the single point where all rows have their final analysis state.
+                    EXECUTE format($$
+                      SELECT
+                        COUNT(*) FILTER (WHERE state = 'error'),
+                        COUNT(*) FILTER (WHERE action = 'use' AND invalid_codes IS NOT NULL AND invalid_codes <> '{}'::jsonb)
+                      FROM public.%I
+                    $$, job.data_table_name) INTO v_error_count, v_warning_count;
+
+                    UPDATE public.import_job
+                    SET error_count = v_error_count, warning_count = v_warning_count
+                    WHERE id = job.id;
+
+                    RAISE DEBUG '[Job %] Analysis complete. error_count=%, warning_count=%', job.id, v_error_count, v_warning_count;
+
+                    -- Tri-state review logic:
+                    --   TRUE  = always review
+                    --   NULL  = review only if errors found during analysis
+                    --   FALSE = never review (auto-approve)
+                    IF job.review IS TRUE
+                       OR (job.review IS NULL AND v_error_count > 0)
+                    THEN
                         -- Transition rows from 'analysing' to 'analysed' if review is required
                         RAISE DEBUG '[Job %] Updating data rows from analysing to analysed in table % for review', job_id, job.data_table_name;
                         EXECUTE format($$UPDATE public.%I SET state = %L WHERE state = %L AND action = 'use'$$, job.data_table_name, 'analysed'::public.import_data_state, 'analysing'::public.import_data_state);

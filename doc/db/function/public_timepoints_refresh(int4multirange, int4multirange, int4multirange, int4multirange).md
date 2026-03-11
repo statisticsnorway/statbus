@@ -54,6 +54,23 @@ BEGIN
         ANALYZE public.timepoints;
     ELSE
         RAISE DEBUG 'Starting partial timepoints refresh...';
+
+        -- Pre-filter: compute related LU/ES ranges from enterprise ranges
+        -- (restores 10.6x speedup from commit 1cb72af5f)
+        IF p_enterprise_id_ranges IS NOT NULL AND p_enterprise_id_ranges != '{}'::int4multirange THEN
+            v_enterprise_ids := public.int4multirange_to_array(p_enterprise_id_ranges);
+            v_legal_unit_ids := ARRAY(SELECT id FROM public.legal_unit WHERE enterprise_id = ANY(v_enterprise_ids));
+            v_establishment_ids := ARRAY(
+                SELECT id FROM public.establishment WHERE legal_unit_id = ANY(v_legal_unit_ids)
+                UNION
+                SELECT id FROM public.establishment WHERE enterprise_id = ANY(v_enterprise_ids)
+            );
+            p_legal_unit_id_ranges := COALESCE(p_legal_unit_id_ranges, '{}'::int4multirange)
+                + COALESCE(public.array_to_int4multirange(v_legal_unit_ids), '{}'::int4multirange);
+            p_establishment_id_ranges := COALESCE(p_establishment_id_ranges, '{}'::int4multirange)
+                + COALESCE(public.array_to_int4multirange(v_establishment_ids), '{}'::int4multirange);
+        END IF;
+
         IF p_establishment_id_ranges IS NOT NULL THEN
             v_establishment_ids := public.int4multirange_to_array(p_establishment_id_ranges);
             DELETE FROM public.timepoints WHERE unit_type = 'establishment' AND unit_id = ANY(v_establishment_ids);
