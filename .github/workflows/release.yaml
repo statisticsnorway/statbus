@@ -125,6 +125,23 @@ jobs:
           name: binaries
           path: dist/
 
+      - name: Detect migrations
+        id: migrations
+        run: |
+          # Check if any migration files were added since the previous tag
+          PREV_TAG=$(git tag --sort=-version:refname | grep '^v' | sed -n '2p')
+          if [ -n "$PREV_TAG" ]; then
+            NEW_MIGRATIONS=$(git diff --name-only "$PREV_TAG"..HEAD -- 'migrations/*.up.sql' 'migrations/*.up.psql' | wc -l | tr -d ' ')
+          else
+            NEW_MIGRATIONS=$(find migrations -name '*.up.sql' -o -name '*.up.psql' 2>/dev/null | wc -l | tr -d ' ')
+          fi
+          if [ "$NEW_MIGRATIONS" -gt 0 ]; then
+            echo "has_migrations=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_migrations=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Detected $NEW_MIGRATIONS new migration(s)"
+
       - name: Generate release manifest
         run: |
           cat > dist/release-manifest.json <<MANIFEST
@@ -132,6 +149,7 @@ jobs:
             "version": "${{ needs.build-images.outputs.version }}",
             "commit_sha": "$(git rev-parse HEAD)",
             "prerelease": ${{ needs.build-images.outputs.prerelease }},
+            "has_migrations": ${{ steps.migrations.outputs.has_migrations }},
             "images": {
               "app": "${{ env.REGISTRY }}/${{ env.ORG }}/statbus-app:${{ needs.build-images.outputs.sha_tag }}",
               "db": "${{ env.REGISTRY }}/${{ env.ORG }}/statbus-db:${{ needs.build-images.outputs.sha_tag }}",
