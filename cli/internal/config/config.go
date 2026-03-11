@@ -116,6 +116,7 @@ type Derived struct {
 	PostgrestPort           int
 	PostgrestBindAddress    string
 	Version                 string
+	StatbusVersion          string
 	SiteURL                 string
 	ApiExternalURL          string
 	ApiPublicURL            string
@@ -436,6 +437,14 @@ func computeDerived(cfg *ConfigEnv) *Derived {
 		version = strings.TrimSpace(string(out))
 	}
 
+	// STATBUS_VERSION for docker compose image tags.
+	// In development: sha-<commit> (local builds via --build).
+	// In production: set by upgrade daemon to version tag (e.g., v2026.03.0).
+	statbusVersion := "local"
+	if out, err := exec.Command("git", "rev-parse", "--short=8", "HEAD").Output(); err == nil {
+		statbusVersion = "sha-" + strings.TrimSpace(string(out))
+	}
+
 	return &Derived{
 		CaddyHttpPort:          caddyHttpPort,
 		CaddyHttpBindAddress:   caddyHttpBind,
@@ -450,6 +459,7 @@ func computeDerived(cfg *ConfigEnv) *Derived {
 		PostgrestPort:          postgrestPort,
 		PostgrestBindAddress:   fmt.Sprintf("127.0.0.1:%d", postgrestPort),
 		Version:                version,
+		StatbusVersion:         statbusVersion,
 		SiteURL:                cfg.StatbusURL,
 		ApiExternalURL:         cfg.BrowserAPIURL,
 		ApiPublicURL:           cfg.BrowserAPIURL,
@@ -527,12 +537,14 @@ CADDY_DB_BIND_ADDRESS=%[20]s
 CADDY_DB_TLS_BIND_ADDRESS=%[21]s
 # Updated by manage-statbus.sh start required
 VERSION=%[22]s
+# Docker image tag for compose pull (set by upgrade daemon or CI)
+STATBUS_VERSION=%[23]s
 
 # Server-side debugging for the Statbus App. Requires app restart.
 # To enable, edit .env: set DEBUG=true and comment out/remove DEBUG=false.
 # To disable, edit .env: set DEBUG=false and comment out/remove DEBUG=true.
 # This setting is sourced from DEBUG in .env.config (defaults to false).
-%[23]s
+%[24]s
 `,
 		".env.credentials", ".env.config", ".env",
 		cfg.DeploymentSlotName,           // 4
@@ -554,7 +566,8 @@ VERSION=%[22]s
 		derived.CaddyDbBindAddress,       // 20
 		derived.CaddyDbTlsBindAddress,    // 21
 		derived.Version,                  // 22
-		debugBlock("DEBUG", cfg.Debug),   // 23
+		derived.StatbusVersion,           // 23
+		debugBlock("DEBUG", cfg.Debug),   // 24
 	)
 
 	// Load .env.example and apply overrides

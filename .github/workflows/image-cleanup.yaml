@@ -1,0 +1,25 @@
+name: Image Cleanup
+
+# Weekly cleanup of old SHA-only images from ghcr.io.
+# Version-tagged images (v*) are kept indefinitely.
+on:
+  schedule:
+    - cron: '0 4 * * 0'  # Sunday 4:00 AM UTC
+  workflow_dispatch:  # Manual trigger
+
+permissions:
+  packages: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        package: [statbus-app, statbus-worker, statbus-db, statbus-proxy]
+    steps:
+      - uses: actions/delete-package-versions@v5
+        with:
+          package-name: ${{ matrix.package }}
+          package-type: container
+          min-versions-to-keep: 20
+          delete-only-untagged-versions: true

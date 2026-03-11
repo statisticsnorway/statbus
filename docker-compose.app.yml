@@ -4,6 +4,7 @@
 services:
   app:
     container_name: ${COMPOSE_INSTANCE_NAME:?COMPOSE_INSTANCE_NAME must be set in the generated .env}-app
+    image: ghcr.io/statisticsnorway/statbus-app:${STATBUS_VERSION:-local}
     build:
       context: ./app
       args:
