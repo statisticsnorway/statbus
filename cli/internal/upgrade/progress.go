@@ -21,6 +21,7 @@ func NewProgressLog(projDir string) *ProgressLog {
 	path := filepath.Join(dir, "upgrade-progress.log")
 	f, err := os.Create(path)
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: cannot create progress log %s: %v\n", path, err)
 		return &ProgressLog{path: path}
 	}
 

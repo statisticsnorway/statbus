@@ -151,10 +151,10 @@ jobs:
             "prerelease": ${{ needs.build-images.outputs.prerelease }},
             "has_migrations": ${{ steps.migrations.outputs.has_migrations }},
             "images": {
-              "app": "${{ env.REGISTRY }}/${{ env.ORG }}/statbus-app:${{ needs.build-images.outputs.sha_tag }}",
-              "db": "${{ env.REGISTRY }}/${{ env.ORG }}/statbus-db:${{ needs.build-images.outputs.sha_tag }}",
-              "worker": "${{ env.REGISTRY }}/${{ env.ORG }}/statbus-worker:${{ needs.build-images.outputs.sha_tag }}",
-              "proxy": "${{ env.REGISTRY }}/${{ env.ORG }}/statbus-proxy:${{ needs.build-images.outputs.sha_tag }}"
+              "app": "${{ env.REGISTRY }}/${{ env.ORG }}/statbus-app:${{ needs.build-images.outputs.version_tag }}",
+              "db": "${{ env.REGISTRY }}/${{ env.ORG }}/statbus-db:${{ needs.build-images.outputs.version_tag }}",
+              "worker": "${{ env.REGISTRY }}/${{ env.ORG }}/statbus-worker:${{ needs.build-images.outputs.version_tag }}",
+              "proxy": "${{ env.REGISTRY }}/${{ env.ORG }}/statbus-proxy:${{ needs.build-images.outputs.version_tag }}"
             },
             "binaries": {
               "linux-amd64": { "sha256": "$(sha256sum dist/sb-linux-amd64 | cut -d' ' -f1)" },

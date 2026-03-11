@@ -149,7 +149,7 @@ export default function UpgradesPage() {
   } = useSWR<Upgrade[]>(
     "/rest/upgrade?order=discovered_at.desc&limit=20",
     fetcher,
-    { refreshInterval: 10000 },
+    { refreshInterval: 30000 },
   );
   const { data: systemInfo } = useSWR<SystemInfo[]>(
     "/rest/system_info",

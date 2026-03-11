@@ -19,14 +19,15 @@ import (
 
 // Daemon is the long-running upgrade daemon.
 type Daemon struct {
-	projDir   string
-	conn      *pgx.Conn
-	verbose   bool
-	channel   string
-	interval  time.Duration
-	autoDL    bool
-	pinnedVer string
-	upgrading bool // true during executeUpgrade; prevents ticker/notify from using nil conn
+	projDir    string
+	conn       *pgx.Conn
+	verbose    bool
+	channel    string
+	interval   time.Duration
+	autoDL     bool
+	pinnedVer  string
+	upgrading  bool   // true during executeUpgrade; prevents ticker/notify from using nil conn
+	cachedURL  string // cached health check URL (derived from .env at startup)
 }
 
 // NewDaemon creates a new upgrade daemon.

@@ -137,16 +137,23 @@ func (d *Daemon) waitForDBHealth(timeout time.Duration) error {
 	return fmt.Errorf("database did not become healthy within %s", timeout)
 }
 
-func (d *Daemon) healthCheck(retries int, interval time.Duration) error {
-	// Read the actual HTTP port from .env (slot-based, not hardcoded)
-	healthURL := "http://localhost:3000/"
+// healthURL returns the cached health check URL, loading from .env on first call.
+func (d *Daemon) healthURL() string {
+	if d.cachedURL != "" {
+		return d.cachedURL
+	}
+	d.cachedURL = "http://localhost:3000/"
 	envPath := filepath.Join(d.projDir, ".env")
 	if f, err := dotenv.Load(envPath); err == nil {
 		if port, ok := f.Get("CADDY_HTTP_PORT"); ok {
-			healthURL = fmt.Sprintf("http://localhost:%s/", port)
+			d.cachedURL = fmt.Sprintf("http://localhost:%s/", port)
 		}
 	}
+	return d.cachedURL
+}
 
+func (d *Daemon) healthCheck(retries int, interval time.Duration) error {
+	healthURL := d.healthURL()
 	client := &http.Client{Timeout: 10 * time.Second}
 
 	for i := 0; i < retries; i++ {
