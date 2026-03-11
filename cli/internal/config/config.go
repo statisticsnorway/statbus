@@ -340,6 +340,14 @@ func loadOrGenerateConfig(projDir string, verbose bool) (*ConfigEnv, error) {
 		AptUseHttpsOnly:          gen("APT_USE_HTTPS_ONLY", "false"),
 	}
 
+	// Upgrade settings (only written for non-development modes)
+	if mode != "development" {
+		gen("UPGRADE_CHANNEL", "stable")
+		gen("UPGRADE_CHECK_INTERVAL", "6h")
+		gen("UPGRADE_AUTO_DOWNLOAD", "true")
+		gen("UPGRADE_PINNED_VERSION", "")
+	}
+
 	if err := f.Save(); err != nil {
 		return nil, fmt.Errorf("save config: %w", err)
 	}

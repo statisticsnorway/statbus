@@ -62,18 +62,19 @@ http://{{.Domain}} {
 {{.Domain}} {
     encode gzip
 
-    # Maintenance mode handling
-    @maintenance {
-        file {
-            try_files /home/{{.DeploymentUser}}/maintenance
-        }
-    }
+    # Maintenance mode: upgrade daemon creates /statbus-maintenance/active
+    @maintenance file /statbus-maintenance/active
     handle @maintenance {
-        root * /home/{{.DeploymentUser}}/statbus/app/public
-        rewrite * /maintenance.html
+        root * /maintenance-page
+        try_files /maintenance.html
         file_server {
             status 503
         }
+    }
+    # Upgrade progress log (served during maintenance)
+    handle /upgrade-progress.log {
+        root * /statbus-tmp
+        file_server
     }
 
     # PostgREST auth endpoints (login/logout/refresh/auth_status)

@@ -1,0 +1,551 @@
+package upgrade
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"strings"
+	"syscall"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
+	"github.com/statisticsnorway/statbus/cli/internal/selfupdate"
+)
+
+// Daemon is the long-running upgrade daemon.
+type Daemon struct {
+	projDir   string
+	conn      *pgx.Conn
+	verbose   bool
+	channel   string
+	interval  time.Duration
+	autoDL    bool
+	pinnedVer string
+}
+
+// NewDaemon creates a new upgrade daemon.
+func NewDaemon(projDir string, verbose bool) *Daemon {
+	return &Daemon{
+		projDir: projDir,
+		verbose: verbose,
+	}
+}
+
+// Run starts the daemon main loop.
+func (d *Daemon) Run(ctx context.Context) error {
+	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
+	if err := d.loadConfig(); err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	if err := d.connect(ctx); err != nil {
+		return fmt.Errorf("connect: %w", err)
+	}
+	defer d.conn.Close(ctx)
+
+	// Acquire advisory lock to prevent multiple daemons
+	var locked bool
+	err := d.conn.QueryRow(ctx, "SELECT pg_try_advisory_lock(hashtext('upgrade_daemon'))").Scan(&locked)
+	if err != nil {
+		return fmt.Errorf("advisory lock: %w", err)
+	}
+	if !locked {
+		return fmt.Errorf("another upgrade daemon is already running (advisory lock held)")
+	}
+	defer d.conn.Exec(ctx, "SELECT pg_advisory_unlock(hashtext('upgrade_daemon'))")
+
+	// Clean stale maintenance file
+	d.cleanStaleMaintenance(ctx)
+
+	// Check for missed scheduled upgrades
+	d.checkMissedUpgrades(ctx)
+
+	// LISTEN on channels
+	if _, err := d.conn.Exec(ctx, "LISTEN upgrade_check"); err != nil {
+		return fmt.Errorf("LISTEN upgrade_check: %w", err)
+	}
+	if _, err := d.conn.Exec(ctx, "LISTEN upgrade_apply"); err != nil {
+		return fmt.Errorf("LISTEN upgrade_apply: %w", err)
+	}
+
+	fmt.Printf("Upgrade daemon started (channel=%s, interval=%s)\n", d.channel, d.interval)
+
+	// Main loop
+	ticker := time.NewTicker(d.interval)
+	defer ticker.Stop()
+
+	// Initial discovery on startup
+	d.discover(ctx)
+
+	for {
+		select {
+		case <-ctx.Done():
+			fmt.Println("Upgrade daemon shutting down")
+			return nil
+		case <-ticker.C:
+			d.discover(ctx)
+			d.executeScheduled(ctx)
+		default:
+			// Wait for notification with timeout
+			notification, err := d.conn.WaitForNotification(ctx)
+			if err != nil {
+				if ctx.Err() != nil {
+					return nil // shutdown
+				}
+				// Reconnect on error
+				fmt.Printf("LISTEN error: %v, reconnecting...\n", err)
+				if reconnErr := d.reconnect(ctx); reconnErr != nil {
+					return fmt.Errorf("reconnect failed: %w", reconnErr)
+				}
+				continue
+			}
+
+			switch notification.Channel {
+			case "upgrade_check":
+				if d.verbose {
+					fmt.Println("Received NOTIFY upgrade_check")
+				}
+				d.discover(ctx)
+			case "upgrade_apply":
+				payload := strings.TrimSpace(notification.Payload)
+				if d.verbose {
+					fmt.Printf("Received NOTIFY upgrade_apply: %s\n", payload)
+				}
+				if ValidateVersion(payload) {
+					d.scheduleImmediate(ctx, payload)
+				} else {
+					fmt.Printf("Invalid version in NOTIFY payload: %q\n", payload)
+				}
+			}
+			d.executeScheduled(ctx)
+		}
+	}
+}
+
+func (d *Daemon) loadConfig() error {
+	envPath := filepath.Join(d.projDir, ".env")
+	f, err := dotenv.Load(envPath)
+	if err != nil {
+		return err
+	}
+
+	if v, ok := f.Get("UPGRADE_CHANNEL"); ok {
+		d.channel = v
+	} else {
+		d.channel = "stable"
+	}
+
+	intervalStr := "6h"
+	if v, ok := f.Get("UPGRADE_CHECK_INTERVAL"); ok {
+		intervalStr = v
+	}
+	d.interval, err = time.ParseDuration(intervalStr)
+	if err != nil {
+		d.interval = 6 * time.Hour
+	}
+
+	d.autoDL = true
+	if v, ok := f.Get("UPGRADE_AUTO_DOWNLOAD"); ok {
+		d.autoDL = v == "true"
+	}
+
+	if v, ok := f.Get("UPGRADE_PINNED_VERSION"); ok {
+		d.pinnedVer = v
+	}
+
+	return nil
+}
+
+func (d *Daemon) connect(ctx context.Context) error {
+	envPath := filepath.Join(d.projDir, ".env")
+	f, err := dotenv.Load(envPath)
+	if err != nil {
+		return err
+	}
+
+	getOr := func(key, fallback string) string {
+		if v, ok := f.Get(key); ok {
+			return v
+		}
+		return fallback
+	}
+
+	connStr := fmt.Sprintf("host=%s port=%s dbname=%s user=%s password=%s sslmode=disable",
+		getOr("SITE_DOMAIN", "localhost"),
+		getOr("CADDY_DB_PORT", "5432"),
+		getOr("POSTGRES_APP_DB", "statbus_local"),
+		getOr("POSTGRES_ADMIN_USER", "postgres"),
+		getOr("POSTGRES_ADMIN_PASSWORD", ""),
+	)
+
+	d.conn, err = pgx.Connect(ctx, connStr)
+	return err
+}
+
+func (d *Daemon) reconnect(ctx context.Context) error {
+	if d.conn != nil {
+		d.conn.Close(ctx)
+	}
+	if err := d.connect(ctx); err != nil {
+		return err
+	}
+	if _, err := d.conn.Exec(ctx, "LISTEN upgrade_check"); err != nil {
+		return err
+	}
+	if _, err := d.conn.Exec(ctx, "LISTEN upgrade_apply"); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (d *Daemon) cleanStaleMaintenance(ctx context.Context) {
+	maintenanceFile := filepath.Join(os.Getenv("HOME"), "statbus-maintenance", "active")
+	if _, err := os.Stat(maintenanceFile); os.IsNotExist(err) {
+		return
+	}
+
+	// Check if an upgrade is actually in progress
+	var count int
+	err := d.conn.QueryRow(ctx,
+		"SELECT COUNT(*) FROM public.upgrade WHERE started_at IS NOT NULL AND completed_at IS NULL AND error IS NULL").Scan(&count)
+	if err != nil || count == 0 {
+		os.Remove(maintenanceFile)
+		if d.verbose {
+			fmt.Println("Cleaned stale maintenance file")
+		}
+	}
+}
+
+func (d *Daemon) checkMissedUpgrades(ctx context.Context) {
+	var count int
+	err := d.conn.QueryRow(ctx,
+		"SELECT COUNT(*) FROM public.upgrade WHERE scheduled_at IS NOT NULL AND started_at IS NULL").Scan(&count)
+	if err == nil && count > 0 {
+		fmt.Printf("Found %d missed scheduled upgrade(s)\n", count)
+	}
+}
+
+func (d *Daemon) discover(ctx context.Context) {
+	if d.channel == "pinned" {
+		return
+	}
+
+	releases, err := FetchReleases()
+	if err != nil {
+		fmt.Printf("Discovery error: %v\n", err)
+		return
+	}
+
+	filtered := FilterByChannel(releases, d.channel)
+
+	for _, r := range filtered {
+		var exists bool
+		err := d.conn.QueryRow(ctx,
+			"SELECT EXISTS(SELECT 1 FROM public.upgrade WHERE version = $1)",
+			r.TagName).Scan(&exists)
+		if err != nil || exists {
+			continue
+		}
+
+		hasMigrations := HasMigrationsFromChanges(r.Body)
+
+		// Try to get has_migrations from manifest
+		if manifest, err := FetchManifest(r.TagName); err == nil {
+			hasMigrations = manifest.HasMigrations
+		}
+
+		summary := r.Name
+		if summary == "" {
+			summary = r.TagName
+		}
+
+		_, err = d.conn.Exec(ctx,
+			`INSERT INTO public.upgrade (version, commit_sha, is_prerelease, summary, changes, release_url, has_migrations)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7)
+			 ON CONFLICT (version) DO NOTHING`,
+			r.TagName, r.TargetSHA, r.Prerelease, summary, r.Body, r.HTMLURL, hasMigrations)
+		if err != nil {
+			fmt.Printf("Failed to record release %s: %v\n", r.TagName, err)
+			continue
+		}
+
+		if d.verbose {
+			fmt.Printf("Discovered: %s\n", ReleaseSummary(r))
+		}
+	}
+
+	// Auto-download images if enabled
+	if d.autoDL {
+		d.preDownloadImages(ctx)
+	}
+}
+
+func (d *Daemon) preDownloadImages(ctx context.Context) {
+	rows, err := d.conn.Query(ctx,
+		`SELECT version FROM public.upgrade
+		 WHERE images_downloaded = false AND skipped_at IS NULL AND error IS NULL
+		 ORDER BY discovered_at LIMIT 3`)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var version string
+		if err := rows.Scan(&version); err != nil {
+			continue
+		}
+
+		if d.verbose {
+			fmt.Printf("Pre-downloading images for %s...\n", version)
+		}
+
+		if err := d.pullImages(version); err != nil {
+			fmt.Printf("Pre-download failed for %s: %v\n", version, err)
+			continue
+		}
+
+		d.conn.Exec(ctx,
+			"UPDATE public.upgrade SET images_downloaded = true WHERE version = $1",
+			version)
+	}
+}
+
+func (d *Daemon) scheduleImmediate(ctx context.Context, version string) {
+	_, err := d.conn.Exec(ctx,
+		`INSERT INTO public.upgrade (version, commit_sha, is_prerelease, summary, scheduled_at)
+		 VALUES ($1, $1, false, $1, now())
+		 ON CONFLICT (version) DO UPDATE SET scheduled_at = now()`,
+		version)
+	if err != nil {
+		fmt.Printf("Failed to schedule %s: %v\n", version, err)
+	} else {
+		fmt.Printf("Scheduled immediate upgrade to %s\n", version)
+	}
+}
+
+func (d *Daemon) executeScheduled(ctx context.Context) {
+	var id int
+	var version string
+	err := d.conn.QueryRow(ctx,
+		`SELECT id, version FROM public.upgrade
+		 WHERE scheduled_at <= now() AND started_at IS NULL AND skipped_at IS NULL
+		 ORDER BY scheduled_at LIMIT 1`).Scan(&id, &version)
+	if err != nil {
+		return // no pending upgrades
+	}
+
+	fmt.Printf("Executing upgrade to %s...\n", version)
+	if err := d.executeUpgrade(ctx, id, version); err != nil {
+		fmt.Printf("Upgrade to %s failed: %v\n", version, err)
+	}
+}
+
+func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) error {
+	projDir := d.projDir
+	progress := NewProgressLog(projDir)
+
+	// Mark started
+	d.conn.Exec(ctx,
+		"UPDATE public.upgrade SET started_at = now(), from_version = $1 WHERE id = $2",
+		d.currentVersion(), id)
+
+	progress.Write("Starting upgrade to %s...", version)
+
+	// Step 1: Verify images
+	progress.Write("Pulling images...")
+	if err := d.pullImages(version); err != nil {
+		d.failUpgrade(ctx, id, "pull images: "+err.Error(), progress)
+		return err
+	}
+
+	// Step 2: Activate maintenance mode
+	progress.Write("Activating maintenance mode...")
+	d.setMaintenance(true)
+
+	// Step 3: Stop services (keep proxy + db)
+	progress.Write("Stopping application services...")
+	if err := runCommand(projDir, "docker", "compose", "stop", "app", "worker", "rest"); err != nil {
+		// Continue anyway — services might not be running
+		progress.Write("Warning: stop services: %v", err)
+	}
+
+	// Step 4: Backup database
+	progress.Write("Backing up database...")
+	backupPath, err := d.backupDatabase(progress)
+	if err != nil {
+		d.rollback(ctx, id, version, "", progress)
+		return err
+	}
+	d.conn.Exec(ctx, "UPDATE public.upgrade SET backup_path = $1 WHERE id = $2", backupPath, id)
+
+	// Step 5: Stop database
+	progress.Write("Stopping database...")
+	if err := runCommand(projDir, "docker", "compose", "stop", "db"); err != nil {
+		progress.Write("Warning: stop db: %v", err)
+	}
+
+	// Step 6: Git checkout
+	progress.Write("Checking out %s...", version)
+	previousVersion := d.currentVersion()
+	if err := runCommand(projDir, "git", "fetch", "--tags", "--depth", "1", "origin", "tag", version); err != nil {
+		d.rollback(ctx, id, version, previousVersion, progress)
+		return err
+	}
+	if err := runCommand(projDir, "git", "checkout", version); err != nil {
+		d.rollback(ctx, id, version, previousVersion, progress)
+		return err
+	}
+
+	// Step 7: Regenerate config
+	progress.Write("Regenerating configuration...")
+	if err := runCommand(projDir, filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
+		d.rollback(ctx, id, version, previousVersion, progress)
+		return err
+	}
+
+	// Step 8: Pull images with new STATBUS_VERSION
+	progress.Write("Pulling updated images...")
+	if err := runCommand(projDir, "docker", "compose", "pull"); err != nil {
+		d.rollback(ctx, id, version, previousVersion, progress)
+		return err
+	}
+
+	// Step 9: Start database only
+	progress.Write("Starting database...")
+	if err := runCommand(projDir, "docker", "compose", "up", "-d", "db"); err != nil {
+		d.rollback(ctx, id, version, previousVersion, progress)
+		return err
+	}
+
+	// Wait for DB health
+	progress.Write("Waiting for database health check...")
+	if err := d.waitForDBHealth(30 * time.Second); err != nil {
+		d.rollback(ctx, id, version, previousVersion, progress)
+		return err
+	}
+
+	// Step 10: Reconnect daemon DB connection
+	if err := d.reconnect(ctx); err != nil {
+		d.rollback(ctx, id, version, previousVersion, progress)
+		return err
+	}
+
+	// Step 11: Run migrations
+	progress.Write("Running migrations...")
+	if err := runCommand(projDir, filepath.Join(projDir, "sb"), "migrate", "up", "--verbose"); err != nil {
+		d.rollback(ctx, id, version, previousVersion, progress)
+		return err
+	}
+
+	// Step 12: Start all services
+	progress.Write("Starting all services...")
+	if err := runCommand(projDir, "docker", "compose", "up", "-d", "--remove-orphans"); err != nil {
+		d.rollback(ctx, id, version, previousVersion, progress)
+		return err
+	}
+
+	// Step 13: Health check
+	progress.Write("Running health checks...")
+	if err := d.healthCheck(5, 5*time.Second); err != nil {
+		d.rollback(ctx, id, version, previousVersion, progress)
+		return err
+	}
+
+	// Step 14: Deactivate maintenance mode
+	d.setMaintenance(false)
+
+	// Step 15: Archive backup
+	progress.Write("Archiving backup...")
+	d.archiveBackup(backupPath, version)
+
+	// Step 16: Mark complete
+	d.conn.Exec(ctx, "UPDATE public.upgrade SET completed_at = now() WHERE id = $1", id)
+
+	progress.Write("Upgrade to %s complete!", version)
+	fmt.Printf("Upgrade to %s completed successfully\n", version)
+
+	// Self-update check
+	d.selfUpdate(version, progress)
+
+	return nil
+}
+
+func (d *Daemon) failUpgrade(ctx context.Context, id int, errMsg string, progress *ProgressLog) {
+	d.conn.Exec(ctx, "UPDATE public.upgrade SET error = $1 WHERE id = $2", errMsg, id)
+	progress.Write("FAILED: %s", errMsg)
+}
+
+func (d *Daemon) rollback(ctx context.Context, id int, version, previousVersion string, progress *ProgressLog) {
+	progress.Write("Rolling back from %s...", version)
+
+	projDir := d.projDir
+
+	// Stop everything
+	runCommand(projDir, "docker", "compose", "stop", "app", "worker", "rest", "db")
+
+	// Restore git state
+	if previousVersion != "" {
+		runCommand(projDir, "git", "checkout", "-f", previousVersion)
+		runCommand(projDir, filepath.Join(projDir, "sb"), "config", "generate")
+	}
+
+	// Restore database backup
+	d.restoreDatabase(progress)
+
+	// Start with old config
+	runCommand(projDir, "docker", "compose", "up", "-d", "--remove-orphans")
+
+	// Reconnect
+	d.reconnect(ctx)
+
+	// Deactivate maintenance
+	d.setMaintenance(false)
+
+	d.conn.Exec(ctx,
+		"UPDATE public.upgrade SET error = 'Rollback completed', rollback_completed_at = now() WHERE id = $1", id)
+
+	progress.Write("Rollback complete. Running on previous version.")
+}
+
+func (d *Daemon) selfUpdate(version string, progress *ProgressLog) {
+	manifest, err := FetchManifest(version)
+	if err != nil {
+		return
+	}
+
+	platform := selfupdate.Platform()
+	binary, ok := manifest.Binaries[platform]
+	if !ok {
+		return
+	}
+
+	progress.Write("Self-updating binary...")
+
+	sbPath := filepath.Join(d.projDir, "sb")
+	if err := selfupdate.Update(sbPath, binary.URL, binary.SHA256); err != nil {
+		progress.Write("Self-update failed: %v", err)
+		return
+	}
+
+	progress.Write("Binary updated. Restarting daemon...")
+	// Exit with code 42 to signal systemd to restart
+	os.Exit(42)
+}
+
+func (d *Daemon) currentVersion() string {
+	envPath := filepath.Join(d.projDir, ".env")
+	f, err := dotenv.Load(envPath)
+	if err != nil {
+		return "unknown"
+	}
+	if v, ok := f.Get("STATBUS_VERSION"); ok {
+		return v
+	}
+	return "unknown"
+}

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StatBus - Upgrading</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            color: #1e293b;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            max-width: 600px;
+            padding: 2rem;
+            text-align: center;
+        }
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid #e2e8f0;
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1.5rem;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            color: #0f172a;
+        }
+        .subtitle {
+            color: #64748b;
+            margin-bottom: 2rem;
+        }
+        .progress {
+            background: #1e293b;
+            color: #a5f3fc;
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: left;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.8rem;
+            line-height: 1.6;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            display: none;
+        }
+        .warning {
+            color: #f59e0b;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+            display: none;
+        }
+        .auto-refresh {
+            color: #94a3b8;
+            font-size: 0.75rem;
+            margin-top: 1.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="spinner"></div>
+        <h1>StatBus is upgrading</h1>
+        <p class="subtitle">This should only take a few minutes. The page will refresh automatically.</p>
+        <pre class="progress" id="progress"></pre>
+        <p class="warning" id="warning">Upgrade is taking longer than expected. Please contact your administrator if this persists.</p>
+        <p class="auto-refresh">This page checks for completion every 5 seconds.</p>
+    </div>
+
+    <script>
+        const progressEl = document.getElementById('progress');
+        const warningEl = document.getElementById('warning');
+        const startTime = Date.now();
+        const TEN_MINUTES = 10 * 60 * 1000;
+
+        // Fetch upgrade progress log
+        async function fetchProgress() {
+            try {
+                const resp = await fetch('/upgrade-progress.log', { cache: 'no-store' });
+                if (resp.ok) {
+                    const text = await resp.text();
+                    if (text.trim()) {
+                        progressEl.style.display = 'block';
+                        progressEl.textContent = text;
+                        progressEl.scrollTop = progressEl.scrollHeight;
+                    }
+                }
+            } catch (e) {
+                // ignore fetch errors during upgrade
+            }
+        }
+
+        // Check if services are back
+        async function checkHealth() {
+            try {
+                const resp = await fetch('/api/health', { cache: 'no-store' });
+                if (resp.ok) {
+                    window.location.reload();
+                }
+            } catch (e) {
+                // services still down
+            }
+
+            if (Date.now() - startTime > TEN_MINUTES) {
+                warningEl.style.display = 'block';
+            }
+        }
+
+        setInterval(fetchProgress, 3000);
+        setInterval(checkHealth, 5000);
+        fetchProgress();
+    </script>
+</body>
+</html>

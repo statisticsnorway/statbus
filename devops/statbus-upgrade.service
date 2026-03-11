@@ -1,0 +1,27 @@
+[Unit]
+Description=StatBus Upgrade Daemon
+After=docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+User=%i
+WorkingDirectory=/home/%i/statbus
+ExecStart=/home/%i/statbus/sb upgrade daemon
+Restart=always
+RestartSec=30
+RestartForceExitStatus=42
+Environment=HOME=/home/%i
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=statbus-upgrade-%i
+
+# Security hardening
+NoNewPrivileges=no
+ProtectSystem=strict
+ReadWritePaths=/home/%i/statbus /home/%i/statbus-backups /home/%i/statbus-maintenance
+
+[Install]
+WantedBy=multi-user.target
