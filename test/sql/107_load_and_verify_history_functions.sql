@@ -14,13 +14,13 @@ SELECT acs.code
   JOIN activity_category_standard AS acs
     ON s.activity_category_standard_id = acs.id;
 
-SELECT count(*) FROM public.activity_category_available;
+SELECT count(*) FROM public.activity_category_enabled;
 
 SELECT count(*) FROM public.region;
 
-SELECT count(*) FROM public.legal_form_available;
+SELECT count(*) FROM public.legal_form_enabled;
 
-SELECT count(*) FROM public.sector_available;
+SELECT count(*) FROM public.sector_enabled;
 
 -- SAVEPOINT before_loading_units; -- Removed to simplify transaction handling, aligning with other tests.
 

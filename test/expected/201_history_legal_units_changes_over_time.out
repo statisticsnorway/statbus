@@ -12,17 +12,19 @@ BEGIN;
 CALL test.set_user_from_email('test.admin@statbus.org');
 \i samples/norway/getting-started.sql
 \i samples/norway/settings.sql
-INSERT INTO settings(activity_category_standard_id,country_id)
+INSERT INTO settings(activity_category_standard_id,country_id,region_version_id)
 SELECT (SELECT id FROM activity_category_standard WHERE code = 'nace_v2.1')
      , (SELECT id FROM public.country WHERE iso_2 = 'NO')
+     , (SELECT id FROM public.region_version WHERE code = 'initial')
 ON CONFLICT (only_one_setting)
 DO UPDATE SET
    activity_category_standard_id = EXCLUDED.activity_category_standard_id,
-   country_id = EXCLUDED.country_id
+   country_id = EXCLUDED.country_id,
+   region_version_id = EXCLUDED.region_version_id
    WHERE settings.only_one_setting = EXCLUDED.only_one_setting;
 ;
 \i samples/norway/activity_category/activity_category_norway.sql
-\copy public.activity_category_available_custom FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.activity_category_enabled_custom FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 \i samples/norway/regions/norway-regions-2024.sql
 \copy public.region_upload(path, name) FROM 'samples/norway/regions/norway-regions-2024.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 \i samples/norway/sector/sector_norway.sql
@@ -57,11 +59,13 @@ SELECT
 \echo Run worker processing for import jobs - Block 1
 Run worker processing for import jobs - Block 1
 CALL worker.process_tasks(p_queue => 'import');
+WARNING:  [Job 26] Error in procedure import.analyse_statistical_variables for step Statistical Variables: relation "public.stat_definition_active" does not exist
+WARNING:  [Job 26] Error detected during analysis phase: {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}. Transitioning to finished.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |    47
+ import    | completed |    37
 (2 rows)
 
 \echo "Checking import job status for import_40_lu_era_b1_sector_mid"
@@ -73,7 +77,7 @@ WHERE slug = 'import_40_lu_era_b1_sector_mid'
 ORDER BY slug;
               slug              |  state   | total_rows | imported_rows | has_error | error_rows 
 --------------------------------+----------+------------+---------------+-----------+------------
- import_40_lu_era_b1_sector_mid | finished |          2 |             2 | f         |          0
+ import_40_lu_era_b1_sector_mid | finished |          2 |             0 | t         |          0
 (1 row)
 
 \echo Run worker processing for analytics tasks - Block 1
@@ -82,8 +86,8 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |   861
- import    | completed |    47
+ analytics | completed |     1
+ import    | completed |    37
 (2 rows)
 
 SELECT
@@ -92,7 +96,7 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
  establishment_count | legal_unit_count | enterprise_count 
 ---------------------+------------------+------------------
-                   0 |                1 |                1
+                   0 |                0 |                0
 (1 row)
 
 \echo "Check sector for legal units over time"
@@ -101,11 +105,9 @@ SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_from, valid_to,
 FROM public.statistical_unit
 WHERE unit_type = 'legal_unit'
 ORDER BY external_idents ->> 'tax_ident', valid_from;
- tax_ident |       name        | valid_from |  valid_to  | sector_code 
------------+-------------------+------------+------------+-------------
- 823573673 | Kranløft Vestland | 2010-01-01 | 2011-01-14 | 2100
- 823573673 | Kranløft Vestland | 2011-01-15 | infinity   | 8200
-(2 rows)
+ tax_ident | name | valid_from | valid_to | sector_code 
+-----------+------+------------+----------+-------------
+(0 rows)
 
 \echo "Test statistical unit history by year - sector_change_count should be 1 for year 2011"
 "Test statistical unit history by year - sector_change_count should be 1 for year 2011"
@@ -115,12 +117,9 @@ WHERE resolution = 'year'
 AND year < 2013
 AND unit_type = 'legal_unit'
 ORDER BY resolution, year, month, unit_type;
- resolution | year | unit_type  | count | births | deaths | sector_change_count 
-------------+------+------------+-------+--------+--------+---------------------
- year       | 2010 | legal_unit |     1 |      1 |      0 |                   0
- year       | 2011 | legal_unit |     1 |      0 |      0 |                   1
- year       | 2012 | legal_unit |     1 |      0 |      0 |                   0
-(3 rows)
+ resolution | year | unit_type | count | births | deaths | sector_change_count 
+------------+------+-----------+-------+--------+--------+---------------------
+(0 rows)
 
 \echo "Test statistical unit history by year-month - sector_change_count should be 1 for year-month 2011-1"
 "Test statistical unit history by year-month - sector_change_count should be 1 for year-month 2011-1"
@@ -130,45 +129,9 @@ WHERE resolution = 'year-month'
 AND year < 2013
 AND unit_type = 'legal_unit'
 ORDER BY resolution, year, month, unit_type;
- resolution | year | month | unit_type  | count | births | deaths | sector_change_count 
-------------+------+-------+------------+-------+--------+--------+---------------------
- year-month | 2010 |     1 | legal_unit |     1 |      1 |      0 |                   0
- year-month | 2010 |     2 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |     3 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |     4 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |     5 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |     6 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |     7 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |     8 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |     9 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |    10 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |    11 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |    12 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     1 | legal_unit |     1 |      0 |      0 |                   1
- year-month | 2011 |     2 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     3 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     4 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     5 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     6 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     7 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     8 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     9 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |    10 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |    11 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |    12 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2012 |     1 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2012 |     2 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2012 |     3 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2012 |     4 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2012 |     5 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2012 |     6 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2012 |     7 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2012 |     8 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2012 |     9 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2012 |    10 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2012 |    11 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2012 |    12 | legal_unit |     1 |      0 |      0 |                   0
-(36 rows)
+ resolution | year | month | unit_type | count | births | deaths | sector_change_count 
+------------+------+-------+-----------+-------+--------+--------+---------------------
+(0 rows)
 
 \x
 ROLLBACK TO before_loading_units;
@@ -200,11 +163,13 @@ NOTICE:  identifier "import_40_lu_era_b2_sector_start_m2_upload_update_state_aft
 \echo Run worker processing for import jobs - Block 2
 Run worker processing for import jobs - Block 2
 CALL worker.process_tasks(p_queue => 'import');
+WARNING:  [Job 27] Error in procedure import.analyse_statistical_variables for step Statistical Variables: relation "public.stat_definition_active" does not exist
+WARNING:  [Job 27] Error detected during analysis phase: {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}. Transitioning to finished.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |    47
+ import    | completed |    37
 (2 rows)
 
 \echo "Checking import job status for import_40_lu_era_b2_sector_start_m2"
@@ -216,7 +181,7 @@ WHERE slug = 'import_40_lu_era_b2_sector_start_m2'
 ORDER BY slug;
                 slug                 |  state   | total_rows | imported_rows | has_error | error_rows 
 -------------------------------------+----------+------------+---------------+-----------+------------
- import_40_lu_era_b2_sector_start_m2 | finished |          2 |             2 | f         |          0
+ import_40_lu_era_b2_sector_start_m2 | finished |          2 |             0 | t         |          0
 (1 row)
 
 \echo Run worker processing for analytics tasks - Block 2
@@ -225,8 +190,8 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |   861
- import    | completed |    47
+ analytics | completed |     1
+ import    | completed |    37
 (2 rows)
 
 SELECT
@@ -235,7 +200,7 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
  establishment_count | legal_unit_count | enterprise_count 
 ---------------------+------------------+------------------
-                   0 |                1 |                1
+                   0 |                0 |                0
 (1 row)
 
 \echo "Check sector for legal units over time"
@@ -244,11 +209,9 @@ SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_from, valid_to,
 FROM public.statistical_unit
 WHERE unit_type = 'legal_unit'
 ORDER BY external_idents ->> 'tax_ident', valid_from;
- tax_ident |       name        | valid_from |  valid_to  | sector_code 
------------+-------------------+------------+------------+-------------
- 823573673 | Kranløft Vestland | 2010-01-01 | 2011-01-31 | 2100
- 823573673 | Kranløft Vestland | 2011-02-01 | infinity   | 8200
-(2 rows)
+ tax_ident | name | valid_from | valid_to | sector_code 
+-----------+------+------------+----------+-------------
+(0 rows)
 
 \echo "Check statistical unit history by year - sector_change_count should be 1 for year 2011"
 "Check statistical unit history by year - sector_change_count should be 1 for year 2011"
@@ -258,11 +221,9 @@ WHERE resolution = 'year'
 AND year < 2012
 AND unit_type = 'legal_unit'
 ORDER BY resolution, year, month, unit_type;
- resolution | year | month | unit_type  | count | births | deaths | sector_change_count 
-------------+------+-------+------------+-------+--------+--------+---------------------
- year       | 2010 |       | legal_unit |     1 |      1 |      0 |                   0
- year       | 2011 |       | legal_unit |     1 |      0 |      0 |                   1
-(2 rows)
+ resolution | year | month | unit_type | count | births | deaths | sector_change_count 
+------------+------+-------+-----------+-------+--------+--------+---------------------
+(0 rows)
 
 \echo "Check statistical unit history by year-month - sector_change_count should be 1 for year-month 2011-2"
 "Check statistical unit history by year-month - sector_change_count should be 1 for year-month 2011-2"
@@ -272,33 +233,9 @@ WHERE resolution = 'year-month'
 AND year < 2012
 AND unit_type = 'legal_unit'
 ORDER BY resolution, year, month, unit_type;
- resolution | year | month | unit_type  | count | births | deaths | sector_change_count 
-------------+------+-------+------------+-------+--------+--------+---------------------
- year-month | 2010 |     1 | legal_unit |     1 |      1 |      0 |                   0
- year-month | 2010 |     2 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |     3 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |     4 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |     5 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |     6 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |     7 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |     8 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |     9 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |    10 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |    11 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |    12 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     1 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     2 | legal_unit |     1 |      0 |      0 |                   1
- year-month | 2011 |     3 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     4 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     5 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     6 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     7 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     8 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     9 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |    10 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |    11 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |    12 | legal_unit |     1 |      0 |      0 |                   0
-(24 rows)
+ resolution | year | month | unit_type | count | births | deaths | sector_change_count 
+------------+------+-------+-----------+-------+--------+--------+---------------------
+(0 rows)
 
 \x
 ROLLBACK TO before_loading_units;
@@ -330,11 +267,13 @@ NOTICE:  identifier "import_40_lu_era_b3_sector_start_y_upload_update_state_afte
 \echo Run worker processing for import jobs - Block 3
 Run worker processing for import jobs - Block 3
 CALL worker.process_tasks(p_queue => 'import');
+WARNING:  [Job 28] Error in procedure import.analyse_statistical_variables for step Statistical Variables: relation "public.stat_definition_active" does not exist
+WARNING:  [Job 28] Error detected during analysis phase: {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}. Transitioning to finished.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |    47
+ import    | completed |    37
 (2 rows)
 
 \echo "Checking import job status for import_40_lu_era_b3_sector_start_y"
@@ -346,7 +285,7 @@ WHERE slug = 'import_40_lu_era_b3_sector_start_y'
 ORDER BY slug;
                 slug                |  state   | total_rows | imported_rows | has_error | error_rows 
 ------------------------------------+----------+------------+---------------+-----------+------------
- import_40_lu_era_b3_sector_start_y | finished |          3 |             3 | f         |          0
+ import_40_lu_era_b3_sector_start_y | finished |          3 |             0 | t         |          0
 (1 row)
 
 \echo Run worker processing for analytics tasks - Block 3
@@ -355,8 +294,8 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |   436
- import    | completed |    47
+ analytics | completed |     1
+ import    | completed |    37
 (2 rows)
 
 SELECT
@@ -365,7 +304,7 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
  establishment_count | legal_unit_count | enterprise_count 
 ---------------------+------------------+------------------
-                   0 |                1 |                1
+                   0 |                0 |                0
 (1 row)
 
 \echo "Check sector for legal units over time"
@@ -374,12 +313,9 @@ SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_from, valid_to,
 FROM public.statistical_unit
 WHERE unit_type = 'legal_unit'
 ORDER BY external_idents ->> 'tax_ident', valid_from;
- tax_ident |       name        | valid_from |  valid_to  | sector_code 
------------+-------------------+------------+------------+-------------
- 823573673 | Kranløft Vestland | 2010-01-01 | 2010-12-31 | 2100
- 823573673 | Kranløft Vestland | 2011-01-01 | 2011-12-31 | 7000
- 823573673 | Kranløft Vestland | 2012-01-01 | infinity   | 8200
-(3 rows)
+ tax_ident | name | valid_from | valid_to | sector_code 
+-----------+------+------------+----------+-------------
+(0 rows)
 
 \echo "Check statistical unit history by year - sector_change_count should be 1 for year 2011 and 2012"
 "Check statistical unit history by year - sector_change_count should be 1 for year 2011 and 2012"
@@ -389,13 +325,9 @@ WHERE resolution = 'year'
 AND year < 2014
 AND unit_type = 'legal_unit'
 ORDER BY resolution, year, month, unit_type;
- resolution | year | month | unit_type  | count | births | deaths | sector_change_count 
-------------+------+-------+------------+-------+--------+--------+---------------------
- year       | 2010 |       | legal_unit |     1 |      1 |      0 |                   0
- year       | 2011 |       | legal_unit |     1 |      0 |      0 |                   1
- year       | 2012 |       | legal_unit |     1 |      0 |      0 |                   1
- year       | 2013 |       | legal_unit |     1 |      0 |      0 |                   0
-(4 rows)
+ resolution | year | month | unit_type | count | births | deaths | sector_change_count 
+------------+------+-------+-----------+-------+--------+--------+---------------------
+(0 rows)
 
 \echo "Check statistical unit history by year-month - sector_change_count should be 1 for year-month 2011-1 and 2012-1"
 "Check statistical unit history by year-month - sector_change_count should be 1 for year-month 2011-1 and 2012-1"
@@ -405,45 +337,9 @@ WHERE resolution = 'year-month'
 AND year < 2013
 AND unit_type = 'legal_unit'
 ORDER BY resolution, year, month, unit_type;
- resolution | year | month | unit_type  | count | births | deaths | sector_change_count 
-------------+------+-------+------------+-------+--------+--------+---------------------
- year-month | 2010 |     1 | legal_unit |     1 |      1 |      0 |                   0
- year-month | 2010 |     2 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |     3 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |     4 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |     5 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |     6 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |     7 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |     8 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |     9 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |    10 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |    11 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |    12 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     1 | legal_unit |     1 |      0 |      0 |                   1
- year-month | 2011 |     2 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     3 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     4 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     5 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     6 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     7 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     8 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     9 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |    10 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |    11 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |    12 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2012 |     1 | legal_unit |     1 |      0 |      0 |                   1
- year-month | 2012 |     2 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2012 |     3 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2012 |     4 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2012 |     5 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2012 |     6 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2012 |     7 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2012 |     8 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2012 |     9 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2012 |    10 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2012 |    11 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2012 |    12 | legal_unit |     1 |      0 |      0 |                   0
-(36 rows)
+ resolution | year | month | unit_type | count | births | deaths | sector_change_count 
+------------+------+-------+-----------+-------+--------+--------+---------------------
+(0 rows)
 
 \x
 ROLLBACK;

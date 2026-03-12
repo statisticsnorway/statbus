@@ -7,7 +7,7 @@ BEGIN;
 -- A Super User configures statbus.
 CALL test.set_user_from_email('test.admin@statbus.org');
 
-SELECT code, name, enabled, custom FROM public.data_source_available;
+SELECT code, name, enabled, custom FROM public.data_source_enabled;
 
 \i samples/norway/getting-started.sql
 
@@ -16,17 +16,17 @@ SELECT acs.code
   JOIN activity_category_standard AS acs
     ON s.activity_category_standard_id = acs.id;
 
-SELECT count(*) FROM public.activity_category_available;
+SELECT count(*) FROM public.activity_category_enabled;
 
 SELECT count(*) FROM public.region;
 
-SELECT count(*) FROM public.legal_form_available;
+SELECT count(*) FROM public.legal_form_enabled;
 
-SELECT count(*) FROM public.sector_available;
+SELECT count(*) FROM public.sector_enabled;
 
-SELECT count(*) FROM public.data_source_available;
+SELECT count(*) FROM public.data_source_enabled;
 
-SELECT code, name, enabled, custom FROM public.data_source_available;
+SELECT code, name, enabled, custom FROM public.data_source_enabled;
 
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,

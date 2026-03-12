@@ -20,30 +20,32 @@ ON CONFLICT (only_one_setting)
 DO UPDATE SET
     activity_category_standard_id = EXCLUDED.activity_category_standard_id,
     country_id = EXCLUDED.country_id;
+psql:samples/demo/getting-started.sql:9: ERROR:  null value in column "region_version_id" of relation "settings" violates not-null constraint
 \echo "User uploads the demo activity categories"
 "User uploads the demo activity categories"
-\copy public.activity_category_available_custom(path,name) FROM 'app/public/demo/activity_custom_isic_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.activity_category_enabled_custom(path,name) FROM 'app/public/demo/activity_custom_isic_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+psql:samples/demo/getting-started.sql:12: ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "User uploads the demo regions"
 "User uploads the demo regions"
 \copy public.region_upload(path, name) FROM 'app/public/demo/regions_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+psql:samples/demo/getting-started.sql:15: ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "User uploads the demo sectors"
 "User uploads the demo sectors"
 \copy public.sector_custom_only(path,name,description) FROM 'app/public/demo/sectors_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+psql:samples/demo/getting-started.sql:18: ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "User uploads the demo legal forms"
 "User uploads the demo legal forms"
 \copy public.legal_form_custom_only(code,name) FROM 'app/public/demo/legal_forms_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+psql:samples/demo/getting-started.sql:21: ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- The demo data uses data sources that are part of the core database seed.
 -- This file is included for structural consistency with other sample data sets.
 SAVEPOINT before_loading_units;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
- establishment_count | legal_unit_count | enterprise_count 
----------------------+------------------+------------------
-                   0 |                0 |                0
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Create Import Job for Legal Units with Data Source
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
 SELECT
@@ -53,47 +55,33 @@ SELECT
     'Import job for app/public/demo/legal_units_demo.csv using legal_unit_job_provided definition.',
     'Test data load (32_legal_units_with_data_source.sql)',
     'r_year_curr';
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "User uploads the sample legal units (via import job: import_32_lu_tc_ds)"
 "User uploads the sample legal units (via import job: import_32_lu_tc_ds)"
 \copy public.import_32_lu_tc_ds_upload(tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'app/public/demo/legal_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo Run worker processing for import jobs
 Run worker processing for import jobs
 --SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 --SET client_min_messages TO NOTICE;
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
-   queue   |   state   | count 
------------+-----------+-------
- analytics | pending   |     1
- import    | completed |    47
-(2 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Checking unit counts after import processing"
 "Checking unit counts after import processing"
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
- establishment_count | legal_unit_count | enterprise_count 
----------------------+------------------+------------------
-                   0 |               23 |               23
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Inspecting import job data for import_32_lu_tc_ds"
 "Inspecting import job data for import_32_lu_tc_ds"
 SELECT row_id, state, errors, tax_ident_raw, name_raw, data_source_code_raw, merge_status
 FROM public.import_32_lu_tc_ds_data
 ORDER BY row_id
 LIMIT 5;
- row_id |   state   | errors | tax_ident_raw |          name_raw           | data_source_code_raw |                                                                   merge_status                                                                    
---------+-----------+--------+---------------+-----------------------------+----------------------+---------------------------------------------------------------------------------------------------------------------------------------------------
-      1 | processed | {}     | 2212760144    | NILE PEARL WATER            | nlr                  | {"legal_unit": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
-      2 | processed | {}     | 2812760140    | EQUATOR GLOBE SOLUTIONS     | nlr                  | {"legal_unit": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
-      3 | processed | {}     | 2212760084    | EQUATOR CIRCLE CONSTRUCTION | nlr                  | {"legal_unit": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
-      4 | processed | {}     | 2612760138    | LIRA FRESH FRUIT EXPORTERS  | nlr                  | {"legal_unit": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
-      5 | processed | {}     | 2812760130    | ENTEBBE FUEL ENTERPRISES    | nlr                  | {"legal_unit": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
-(5 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Checking import job status for import_32_lu_tc_ds"
 "Checking import job status for import_32_lu_tc_ds"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
@@ -101,78 +89,23 @@ SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
 FROM public.import_job
 WHERE slug = 'import_32_lu_tc_ds'
 ORDER BY slug;
-        slug        |  state   | total_rows | imported_rows | has_error | error_rows 
---------------------+----------+------------+---------------+-----------+------------
- import_32_lu_tc_ds | finished |         23 |            23 | f         |          0
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo Run worker processing for analytics tasks
 Run worker processing for analytics tasks
 CALL worker.process_tasks(p_queue => 'analytics');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
-   queue   |   state   | count 
------------+-----------+-------
- analytics | completed |    47
- import    | completed |    47
-(2 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Checking statistics"
 "Checking statistics"
 SELECT name, external_idents, unit_type, data_source_codes, primary_activity_category_path, web_address, stats_summary->'employees'->>'value_int' AS employees, stats_summary->'turnover'->>'value_int' AS turnover
  FROM statistical_unit
  WHERE valid_from <= CURRENT_DATE AND CURRENT_DATE < valid_until
  ORDER BY name, external_idents->>'tax_ident', unit_type, valid_from, unit_id;
-            name             |                 external_idents                 | unit_type  | data_source_codes | primary_activity_category_path | web_address | employees | turnover 
------------------------------+-------------------------------------------------+------------+-------------------+--------------------------------+-------------+-----------+----------
- Amman RIAD 13-14            | {"tax_ident": "3300598", "stat_ident": "22"}    | legal_unit | {nlr}             | A.01.2.3                       |             |           | 
- Amman RIAD 13-14            | {"tax_ident": "3300598", "stat_ident": "22"}    | enterprise | {nlr}             | A.01.2.3                       |             |           | 
- ENTEBBE FUEL ENTERPRISES    | {"tax_ident": "2812760130", "stat_ident": "5"}  | legal_unit | {nlr}             | I.56.3.0                       |             |           | 
- ENTEBBE FUEL ENTERPRISES    | {"tax_ident": "2812760130", "stat_ident": "5"}  | enterprise | {nlr}             | I.56.3.0                       |             |           | 
- EQUATOR CIRCLE CONSTRUCTION | {"tax_ident": "2212760084", "stat_ident": "3"}  | legal_unit | {nlr}             | I.56.3.0                       |             |           | 
- EQUATOR CIRCLE CONSTRUCTION | {"tax_ident": "2212760084", "stat_ident": "3"}  | enterprise | {nlr}             | I.56.3.0                       |             |           | 
- EQUATOR GLOBE SOLUTIONS     | {"tax_ident": "2812760140", "stat_ident": "2"}  | legal_unit | {nlr}             | I.56.1.0                       |             |           | 
- EQUATOR GLOBE SOLUTIONS     | {"tax_ident": "2812760140", "stat_ident": "2"}  | enterprise | {nlr}             | I.56.1.0                       |             |           | 
- Erdenes Tavan Tolgoi JSC    | {"tax_ident": "397611", "stat_ident": "19"}     | legal_unit | {nlr}             | J.63.1.2                       |             |           | 
- Erdenes Tavan Tolgoi JSC    | {"tax_ident": "397611", "stat_ident": "19"}     | enterprise | {nlr}             | J.63.1.2                       |             |           | 
- KAMPALA Cofffe SUPPLIERS    | {"tax_ident": "2815384160", "stat_ident": "11"} | legal_unit | {nlr}             | G.46.2                         |             |           | 
- KAMPALA Cofffe SUPPLIERS    | {"tax_ident": "2815384160", "stat_ident": "11"} | enterprise | {nlr}             | G.46.2                         |             |           | 
- KAMPALA DIGITAL CHARTS      | {"tax_ident": "2407020166", "stat_ident": "7"}  | legal_unit | {nlr}             | R.92.0.0                       |             |           | 
- KAMPALA DIGITAL CHARTS      | {"tax_ident": "2407020166", "stat_ident": "7"}  | enterprise | {nlr}             | R.92.0.0                       |             |           | 
- LIRA FRESH FRUIT EXPORTERS  | {"tax_ident": "2612760138", "stat_ident": "4"}  | legal_unit | {nlr}             | A.01.2.2                       |             |           | 
- LIRA FRESH FRUIT EXPORTERS  | {"tax_ident": "2612760138", "stat_ident": "4"}  | enterprise | {nlr}             | A.01.2.2                       |             |           | 
- MANUAL Auto Uzbekistan      | {"tax_ident": "3998011", "stat_ident": "231"}   | legal_unit | {nlr}             | G.47.3.0                       |             |           | 
- MANUAL Auto Uzbekistan      | {"tax_ident": "3998011", "stat_ident": "231"}   | enterprise | {nlr}             | G.47.3.0                       |             |           | 
- MARINE SERVICES             | {"tax_ident": "2602025168", "stat_ident": "8"}  | legal_unit | {nlr}             | C.33.1.4                       |             |           | 
- MARINE SERVICES             | {"tax_ident": "2602025168", "stat_ident": "8"}  | enterprise | {nlr}             | C.33.1.4                       |             |           | 
- Morocco Trade               | {"tax_ident": "5340521", "stat_ident": "16"}    | legal_unit | {nlr}             | M.74.1.0                       |             |           | 
- Morocco Trade               | {"tax_ident": "5340521", "stat_ident": "16"}    | enterprise | {nlr}             | M.74.1.0                       |             |           | 
- NILE PEARL WATER            | {"tax_ident": "2212760144", "stat_ident": "1"}  | legal_unit | {nlr}             | G.47.5.2                       |             |           | 
- NILE PEARL WATER            | {"tax_ident": "2212760144", "stat_ident": "1"}  | enterprise | {nlr}             | G.47.5.2                       |             |           | 
- NILE TEXTILES               | {"tax_ident": "2612760118", "stat_ident": "9"}  | legal_unit | {nlr}             | C.13.1.1                       |             |           | 
- NILE TEXTILES               | {"tax_ident": "2612760118", "stat_ident": "9"}  | enterprise | {nlr}             | C.13.1.1                       |             |           | 
- Office Picture Corp         | {"tax_ident": "2220794", "stat_ident": "17"}    | legal_unit | {nlr}             | N.82.1.1                       |             |           | 
- Office Picture Corp         | {"tax_ident": "2220794", "stat_ident": "17"}    | enterprise | {nlr}             | N.82.1.1                       |             |           | 
- Oyu Tolgoi LLC              | {"tax_ident": "397622", "stat_ident": "20"}     | legal_unit | {nlr}             | C.13.1.1                       |             |           | 
- Oyu Tolgoi LLC              | {"tax_ident": "397622", "stat_ident": "20"}     | enterprise | {nlr}             | C.13.1.1                       |             |           | 
- Rainbow shopping            | {"tax_ident": "2200019", "stat_ident": "21"}    | legal_unit | {nlr}             | A.01.2.3                       |             |           | 
- Rainbow shopping            | {"tax_ident": "2200019", "stat_ident": "21"}    | enterprise | {nlr}             | A.01.2.3                       |             |           | 
- Statistics Denmark          | {"tax_ident": "45000", "stat_ident": "13"}      | legal_unit | {nlr}             | J.58.2.0                       |             |           | 
- Statistics Denmark          | {"tax_ident": "45000", "stat_ident": "13"}      | enterprise | {nlr}             | J.58.2.0                       |             |           | 
- Statistics Ethiopia         | {"tax_ident": "22501", "stat_ident": "18"}      | legal_unit | {nlr}             | M.71.2                         |             |           | 
- Statistics Ethiopia         | {"tax_ident": "22501", "stat_ident": "18"}      | enterprise | {nlr}             | M.71.2                         |             |           | 
- Statistics Finland          | {"tax_ident": "358000", "stat_ident": "14"}     | legal_unit | {nlr}             | J.58.2.0                       |             |           | 
- Statistics Finland          | {"tax_ident": "358000", "stat_ident": "14"}     | enterprise | {nlr}             | J.58.2.0                       |             |           | 
- Statistics Norway           | {"tax_ident": "4711111", "stat_ident": "230"}   | legal_unit | {nlr}             | J.63.1.2.1                     |             |           | 
- Statistics Norway           | {"tax_ident": "4711111", "stat_ident": "230"}   | enterprise | {nlr}             | J.63.1.2.1                     |             |           | 
- Statistics Sweden           | {"tax_ident": "46001", "stat_ident": "15"}      | legal_unit | {nlr}             | M.74.1.0                       |             |           | 
- Statistics Sweden           | {"tax_ident": "46001", "stat_ident": "15"}      | enterprise | {nlr}             | M.74.1.0                       |             |           | 
- VICTORIA FRESH FARMS        | {"tax_ident": "2507020167", "stat_ident": "12"} | legal_unit | {nlr}             | A.01.2.3                       |             |           | 
- VICTORIA FRESH FARMS        | {"tax_ident": "2507020167", "stat_ident": "12"} | enterprise | {nlr}             | A.01.2.3                       |             |           | 
- ZEBRA HAVEN SAFARIS         | {"tax_ident": "2312760075", "stat_ident": "6"}  | legal_unit | {nlr}             | C.14.1.0                       |             |           | 
- ZEBRA HAVEN SAFARIS         | {"tax_ident": "2312760075", "stat_ident": "6"}  | enterprise | {nlr}             | C.14.1.0                       |             |           | 
-(46 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \i test/rollback_unless_persist_is_specified.sql
 \echo -- test/rollback_unless_persist_is_specified.sql output suppressed
 -- test/rollback_unless_persist_is_specified.sql output suppressed
 \set ECHO none
+psql:test/rollback_unless_persist_is_specified.sql:16: ERROR:  current transaction is aborted, commands ignored until end of transaction block
+psql:test/rollback_unless_persist_is_specified.sql:19: error: unrecognized value ":PERSIST" for "\if expression": Boolean expected

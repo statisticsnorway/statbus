@@ -22,7 +22,7 @@ ERROR:  Failed to insert/update region: {
     },
     "error": "new row for relation \"region\" violates check constraint \"center_latitude_must_be_from_minus_90_to_90_degrees\""
 }
-CONTEXT:  PL/pgSQL function admin.region_upload_upsert() line 72 at RAISE
+CONTEXT:  PL/pgSQL function admin.region_upload_upsert() line 84 at RAISE
 COPY region_upload, line 1: "91,Invalid,91.0,10.0,10"
 ROLLBACK TO bad_latitude;
 -- Test invalid longitude (>180)
@@ -40,7 +40,7 @@ ERROR:  Failed to insert/update region: {
     },
     "error": "new row for relation \"region\" violates check constraint \"center_longitude_must_be_from_minus_180_to_180_degrees\""
 }
-CONTEXT:  PL/pgSQL function admin.region_upload_upsert() line 72 at RAISE
+CONTEXT:  PL/pgSQL function admin.region_upload_upsert() line 84 at RAISE
 COPY region_upload, line 1: "92,Invalid,60.0,181.0,10"
 ROLLBACK TO bad_longitude;
 -- Test negative altitude
@@ -58,7 +58,7 @@ ERROR:  Failed to insert/update region: {
     },
     "error": "new row for relation \"region\" violates check constraint \"center_altitude_must_be_positive\""
 }
-CONTEXT:  PL/pgSQL function admin.region_upload_upsert() line 72 at RAISE
+CONTEXT:  PL/pgSQL function admin.region_upload_upsert() line 84 at RAISE
 COPY region_upload, line 1: "93,Invalid,60.0,10.0,-1"
 ROLLBACK TO negative_altitude;
 -- Test invalid coordinate syntax
@@ -79,7 +79,7 @@ ERROR:  Invalid data: {
         "center_latitude": "60.0.1"
     }
 }
-CONTEXT:  PL/pgSQL function admin.region_upload_upsert() line 47 at RAISE
+CONTEXT:  PL/pgSQL function admin.region_upload_upsert() line 60 at RAISE
 COPY region_upload, line 1: "94,Invalid,60.0.1,10.0,10"
 ROLLBACK TO bad_syntax;
 -- Test invalid path syntax
@@ -100,7 +100,7 @@ ERROR:  Invalid data: {
         "path": "01:1"
     }
 }
-CONTEXT:  PL/pgSQL function admin.region_upload_upsert() line 47 at RAISE
+CONTEXT:  PL/pgSQL function admin.region_upload_upsert() line 60 at RAISE
 COPY region_upload, line 1: "01:1,Invalid,60.0,10.0,10"
 ROLLBACK TO bad_path;
 \echo "Loading regions with latitude, longitude and altitude"

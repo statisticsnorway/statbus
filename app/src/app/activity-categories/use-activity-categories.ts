@@ -16,13 +16,13 @@ export type Queries = {
 };
 
 type ActivityCategoryResult = {
-  activityCategories: Tables<"activity_category_available">[];
+  activityCategories: Tables<"activity_category_enabled">[];
   count: number;
 };
 
 const fetcher: Fetcher<ActivityCategoryResult, { pagination: Pagination; queries: Queries }> = async ({ pagination, queries }) => {
   const client = await getBrowserRestClient();
-  let query = client.from('activity_category_available').select('*', { count: 'exact' });
+  let query = client.from('activity_category_enabled').select('*', { count: 'exact' });
 
   const offset = pagination.pageNumber && pagination.pageSize
     ? (pagination.pageNumber - 1) * pagination.pageSize

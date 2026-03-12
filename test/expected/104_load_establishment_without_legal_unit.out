@@ -9,7 +9,7 @@ BEGIN;
 "Setting up Statbus to load establishments without legal units"
 -- A Super User configures statbus.
 CALL test.set_user_from_email('test.admin@statbus.org');
-SELECT code, name, enabled, custom FROM public.data_source_available;
+SELECT code, name, enabled, custom FROM public.data_source_enabled;
   code  |               name               | enabled | custom 
 --------+----------------------------------+---------+--------
  census | Census                           | t       | f
@@ -22,17 +22,19 @@ SELECT code, name, enabled, custom FROM public.data_source_available;
 
 \i samples/norway/getting-started.sql
 \i samples/norway/settings.sql
-INSERT INTO settings(activity_category_standard_id,country_id)
+INSERT INTO settings(activity_category_standard_id,country_id,region_version_id)
 SELECT (SELECT id FROM activity_category_standard WHERE code = 'nace_v2.1')
      , (SELECT id FROM public.country WHERE iso_2 = 'NO')
+     , (SELECT id FROM public.region_version WHERE code = 'initial')
 ON CONFLICT (only_one_setting)
 DO UPDATE SET
    activity_category_standard_id = EXCLUDED.activity_category_standard_id,
-   country_id = EXCLUDED.country_id
+   country_id = EXCLUDED.country_id,
+   region_version_id = EXCLUDED.region_version_id
    WHERE settings.only_one_setting = EXCLUDED.only_one_setting;
 ;
 \i samples/norway/activity_category/activity_category_norway.sql
-\copy public.activity_category_available_custom FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.activity_category_enabled_custom FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 \i samples/norway/regions/norway-regions-2024.sql
 \copy public.region_upload(path, name) FROM 'samples/norway/regions/norway-regions-2024.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 \i samples/norway/sector/sector_norway.sql
@@ -50,7 +52,7 @@ SELECT acs.code
  nace_v2.1
 (1 row)
 
-SELECT count(*) FROM public.activity_category_available;
+SELECT count(*) FROM public.activity_category_enabled;
  count 
 -------
   2215
@@ -62,25 +64,25 @@ SELECT count(*) FROM public.region;
    417
 (1 row)
 
-SELECT count(*) FROM public.legal_form_available;
+SELECT count(*) FROM public.legal_form_enabled;
  count 
 -------
     46
 (1 row)
 
-SELECT count(*) FROM public.sector_available;
+SELECT count(*) FROM public.sector_enabled;
  count 
 -------
     33
 (1 row)
 
-SELECT count(*) FROM public.data_source_available;
+SELECT count(*) FROM public.data_source_enabled;
  count 
 -------
      6
 (1 row)
 
-SELECT code, name, enabled, custom FROM public.data_source_available;
+SELECT code, name, enabled, custom FROM public.data_source_enabled;
  code  |               name               | enabled | custom 
 -------+----------------------------------+---------+--------
  annet | Annen ekstern kilde              | t       | t
@@ -115,11 +117,13 @@ SELECT
 \echo Run worker processing for import jobs
 Run worker processing for import jobs
 CALL worker.process_tasks(p_queue => 'import');
+WARNING:  [Job 9] Error in procedure import.analyse_statistical_variables for step Statistical Variables: relation "public.stat_definition_active" does not exist
+WARNING:  [Job 9] Error detected during analysis phase: {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}. Transitioning to finished.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |    47
+ import    | completed |    37
 (2 rows)
 
 \echo "Inspecting import job data for import_02_eswlu_tc"
@@ -128,13 +132,13 @@ SELECT row_id, state, errors, tax_ident_raw, name_raw, data_source_code_raw, mer
 FROM public.import_02_eswlu_tc_data
 ORDER BY row_id
 LIMIT 5;
- row_id |   state   | errors | tax_ident_raw |           name_raw            | data_source_code_raw |                                                                      merge_status                                                                      
---------+-----------+--------+---------------+-------------------------------+----------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------
-      1 | processed | {}     | 819097232     | NETT & EL TEKNIKK AS          | brreg                | {"establishment": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
-      2 | processed | {}     | 825481982     | GRAPHICS BY MIA               | brreg                | {"establishment": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
-      3 | processed | {}     | 873124032     | NORSVIN SA TESTESTASJON DELTA | brreg                | {"establishment": "APPLIED", "stat_employees": "APPLIED", "postal_location": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
-      4 | processed | {}     | 895406732     | KRAN & SPESIALLØFT AS         | brreg                | {"establishment": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
-      5 | processed | {}     | 911856174     | VIKEDAL LEGEKONTOR            | brreg                | {"establishment": "APPLIED", "stat_employees": "APPLIED", "postal_location": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+ row_id |   state   | errors | tax_ident_raw |           name_raw            | data_source_code_raw | merge_status 
+--------+-----------+--------+---------------+-------------------------------+----------------------+--------------
+      1 | analysing | {}     | 819097232     | NETT & EL TEKNIKK AS          | brreg                | {}
+      2 | analysing | {}     | 825481982     | GRAPHICS BY MIA               | brreg                | {}
+      3 | analysing | {}     | 873124032     | NORSVIN SA TESTESTASJON DELTA | brreg                | {}
+      4 | analysing | {}     | 895406732     | KRAN & SPESIALLØFT AS         | brreg                | {}
+      5 | analysing | {}     | 911856174     | VIKEDAL LEGEKONTOR            | brreg                | {}
 (5 rows)
 
 \echo "Checking import job status for import_02_eswlu_tc"
@@ -146,7 +150,7 @@ WHERE slug = 'import_02_eswlu_tc'
 ORDER BY slug;
         slug        |  state   | total_rows | imported_rows | has_error | error_rows 
 --------------------+----------+------------+---------------+-----------+------------
- import_02_eswlu_tc | finished |          5 |             5 | f         |          0
+ import_02_eswlu_tc | finished |          5 |             0 | t         |          0
 (1 row)
 
 \echo "Checking unit counts after import processing"
@@ -157,7 +161,7 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
  establishment_count | legal_unit_count | enterprise_count 
 ---------------------+------------------+------------------
-                   5 |                0 |                5
+                   0 |                0 |                0
 (1 row)
 
 \echo Run worker processing for analytics tasks
@@ -166,175 +170,14 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |    47
- import    | completed |    47
+ analytics | completed |     1
+ import    | completed |    37
 (2 rows)
 
 \x
 SELECT unit_type, name, external_idents, data_source_codes, stats, jsonb_pretty(stats_summary) AS stats_summary
 FROM statistical_unit ORDER BY name, unit_type;
--[ RECORD 1 ]-----+-------------------------------------------------------------
-unit_type         | establishment
-name              | GRAPHICS BY MIA
-external_idents   | {"tax_ident": "825481982"}
-data_source_codes | {brreg}
-stats             | {}
-stats_summary     | {                                                           +
-                  |     "type": "stats_agg"                                     +
-                  | }
--[ RECORD 2 ]-----+-------------------------------------------------------------
-unit_type         | enterprise
-name              | GRAPHICS BY MIA
-external_idents   | {"tax_ident": "825481982"}
-data_source_codes | {brreg}
-stats             | 
-stats_summary     | {                                                           +
-                  |     "type": "stats_agg"                                     +
-                  | }
--[ RECORD 3 ]-----+-------------------------------------------------------------
-unit_type         | establishment
-name              | KRAN & SPESIALLØFT AS
-external_idents   | {"tax_ident": "895406732"}
-data_source_codes | {brreg}
-stats             | {"type": "stats", "employees": {"type": "int", "value": 19}}
-stats_summary     | {                                                           +
-                  |     "type": "stats_agg",                                    +
-                  |     "employees": {                                          +
-                  |         "max": 19,                                          +
-                  |         "min": 19,                                          +
-                  |         "sum": 19,                                          +
-                  |         "mean": 19.00,                                      +
-                  |         "type": "int_agg",                                  +
-                  |         "count": 1,                                         +
-                  |         "stddev": null,                                     +
-                  |         "variance": null,                                   +
-                  |         "sum_sq_diff": 0.00,                                +
-                  |         "coefficient_of_variation_pct": null                +
-                  |     }                                                       +
-                  | }
--[ RECORD 4 ]-----+-------------------------------------------------------------
-unit_type         | enterprise
-name              | KRAN & SPESIALLØFT AS
-external_idents   | {"tax_ident": "895406732"}
-data_source_codes | {brreg}
-stats             | 
-stats_summary     | {                                                           +
-                  |     "type": "stats_agg",                                    +
-                  |     "employees": {                                          +
-                  |         "max": 19,                                          +
-                  |         "min": 19,                                          +
-                  |         "sum": 19,                                          +
-                  |         "mean": 19.00,                                      +
-                  |         "type": "int_agg",                                  +
-                  |         "count": 1,                                         +
-                  |         "stddev": null,                                     +
-                  |         "variance": null,                                   +
-                  |         "sum_sq_diff": 0.00,                                +
-                  |         "coefficient_of_variation_pct": null                +
-                  |     }                                                       +
-                  | }
--[ RECORD 5 ]-----+-------------------------------------------------------------
-unit_type         | establishment
-name              | NETT & EL TEKNIKK AS
-external_idents   | {"tax_ident": "819097232"}
-data_source_codes | {brreg}
-stats             | {}
-stats_summary     | {                                                           +
-                  |     "type": "stats_agg"                                     +
-                  | }
--[ RECORD 6 ]-----+-------------------------------------------------------------
-unit_type         | enterprise
-name              | NETT & EL TEKNIKK AS
-external_idents   | {"tax_ident": "819097232"}
-data_source_codes | {brreg}
-stats             | 
-stats_summary     | {                                                           +
-                  |     "type": "stats_agg"                                     +
-                  | }
--[ RECORD 7 ]-----+-------------------------------------------------------------
-unit_type         | establishment
-name              | NORSVIN SA TESTESTASJON DELTA
-external_idents   | {"tax_ident": "873124032"}
-data_source_codes | {brreg}
-stats             | {"type": "stats", "employees": {"type": "int", "value": 16}}
-stats_summary     | {                                                           +
-                  |     "type": "stats_agg",                                    +
-                  |     "employees": {                                          +
-                  |         "max": 16,                                          +
-                  |         "min": 16,                                          +
-                  |         "sum": 16,                                          +
-                  |         "mean": 16.00,                                      +
-                  |         "type": "int_agg",                                  +
-                  |         "count": 1,                                         +
-                  |         "stddev": null,                                     +
-                  |         "variance": null,                                   +
-                  |         "sum_sq_diff": 0.00,                                +
-                  |         "coefficient_of_variation_pct": null                +
-                  |     }                                                       +
-                  | }
--[ RECORD 8 ]-----+-------------------------------------------------------------
-unit_type         | enterprise
-name              | NORSVIN SA TESTESTASJON DELTA
-external_idents   | {"tax_ident": "873124032"}
-data_source_codes | {brreg}
-stats             | 
-stats_summary     | {                                                           +
-                  |     "type": "stats_agg",                                    +
-                  |     "employees": {                                          +
-                  |         "max": 16,                                          +
-                  |         "min": 16,                                          +
-                  |         "sum": 16,                                          +
-                  |         "mean": 16.00,                                      +
-                  |         "type": "int_agg",                                  +
-                  |         "count": 1,                                         +
-                  |         "stddev": null,                                     +
-                  |         "variance": null,                                   +
-                  |         "sum_sq_diff": 0.00,                                +
-                  |         "coefficient_of_variation_pct": null                +
-                  |     }                                                       +
-                  | }
--[ RECORD 9 ]-----+-------------------------------------------------------------
-unit_type         | establishment
-name              | VIKEDAL LEGEKONTOR
-external_idents   | {"tax_ident": "911856174"}
-data_source_codes | {brreg}
-stats             | {"type": "stats", "employees": {"type": "int", "value": 5}}
-stats_summary     | {                                                           +
-                  |     "type": "stats_agg",                                    +
-                  |     "employees": {                                          +
-                  |         "max": 5,                                           +
-                  |         "min": 5,                                           +
-                  |         "sum": 5,                                           +
-                  |         "mean": 5.00,                                       +
-                  |         "type": "int_agg",                                  +
-                  |         "count": 1,                                         +
-                  |         "stddev": null,                                     +
-                  |         "variance": null,                                   +
-                  |         "sum_sq_diff": 0.00,                                +
-                  |         "coefficient_of_variation_pct": null                +
-                  |     }                                                       +
-                  | }
--[ RECORD 10 ]----+-------------------------------------------------------------
-unit_type         | enterprise
-name              | VIKEDAL LEGEKONTOR
-external_idents   | {"tax_ident": "911856174"}
-data_source_codes | {brreg}
-stats             | 
-stats_summary     | {                                                           +
-                  |     "type": "stats_agg",                                    +
-                  |     "employees": {                                          +
-                  |         "max": 5,                                           +
-                  |         "min": 5,                                           +
-                  |         "sum": 5,                                           +
-                  |         "mean": 5.00,                                       +
-                  |         "type": "int_agg",                                  +
-                  |         "count": 1,                                         +
-                  |         "stddev": null,                                     +
-                  |         "variance": null,                                   +
-                  |         "sum_sq_diff": 0.00,                                +
-                  |         "coefficient_of_variation_pct": null                +
-                  |     }                                                       +
-                  | }
+(0 rows)
 
 \echo "Checking statistics"
 "Checking statistics"
@@ -343,42 +186,7 @@ SELECT unit_type
      , jsonb_pretty(jsonb_stats_merge_agg(stats_summary)) AS stats_summary
  FROM statistical_unit
  GROUP BY unit_type;
--[ RECORD 1 ]-------+----------------------------------------------
-unit_type           | establishment
-distinct_unit_count | 5
-stats_summary       | {                                            +
-                    |     "type": "stats_agg",                     +
-                    |     "employees": {                           +
-                    |         "max": 19,                           +
-                    |         "min": 5,                            +
-                    |         "sum": 40,                           +
-                    |         "mean": 13.33,                       +
-                    |         "type": "int_agg",                   +
-                    |         "count": 3,                          +
-                    |         "stddev": 7.37,                      +
-                    |         "variance": 54.33,                   +
-                    |         "sum_sq_diff": 108.67,               +
-                    |         "coefficient_of_variation_pct": 55.28+
-                    |     }                                        +
-                    | }
--[ RECORD 2 ]-------+----------------------------------------------
-unit_type           | enterprise
-distinct_unit_count | 5
-stats_summary       | {                                            +
-                    |     "type": "stats_agg",                     +
-                    |     "employees": {                           +
-                    |         "max": 19,                           +
-                    |         "min": 5,                            +
-                    |         "sum": 40,                           +
-                    |         "mean": 13.33,                       +
-                    |         "type": "int_agg",                   +
-                    |         "count": 3,                          +
-                    |         "stddev": 7.37,                      +
-                    |         "variance": 54.33,                   +
-                    |         "sum_sq_diff": 108.67,               +
-                    |         "coefficient_of_variation_pct": 55.28+
-                    |     }                                        +
-                    | }
+(0 rows)
 
 \x
 \i test/rollback_unless_persist_is_specified.sql

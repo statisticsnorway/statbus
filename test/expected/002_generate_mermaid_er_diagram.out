@@ -113,6 +113,7 @@ erDiagram
 		character_varying description
 		activity_category_code_behaviour code_pattern
 		boolean enabled
+		date lasts_to
 	}
 	activity_category_used["activity_category_used"] {
 		character_varying(16) standard_code
@@ -219,6 +220,7 @@ erDiagram
 		character_varying(512) edit_comment
 		integer edit_by_user_id
 		timestamp_with_time_zone edit_at
+		integer person_id
 	}
 	external_ident_type["external_ident_type"] {
 		integer id
@@ -459,10 +461,10 @@ erDiagram
 		character_varying(512) edit_comment
 		integer edit_by_user_id
 		timestamp_with_time_zone edit_at
+		integer region_version_id
 	}
 	person["person"] {
 		integer id
-		text personal_ident
 		integer country_id
 		timestamp_with_time_zone created_at
 		character_varying(150) given_name
@@ -549,6 +551,7 @@ erDiagram
 		numeric(9_6) center_latitude
 		numeric(9_6) center_longitude
 		numeric(6_1) center_altitude
+		integer version_id
 	}
 	region_access["region_access"] {
 		integer id
@@ -562,6 +565,17 @@ erDiagram
 		character_varying label
 		character_varying code
 		text name
+	}
+	region_version["region_version"] {
+		integer id
+		text code
+		text name
+		text description
+		date lasts_to
+		boolean enabled
+		boolean custom
+		timestamp_with_time_zone created_at
+		timestamp_with_time_zone updated_at
 	}
 	relative_period["relative_period"] {
 		integer id
@@ -597,6 +611,8 @@ erDiagram
 		integer country_id
 		boolean only_one_setting
 		integer analytics_partition_count
+		integer region_version_id
+		boolean required_to_be_enabled
 	}
 	stat_definition["stat_definition"] {
 		integer id
@@ -952,13 +968,13 @@ erDiagram
 		character_varying(256) name
 		text description
 		boolean enabled
-		tag_type type
 		date context_valid_from
 		date context_valid_to
 		date context_valid_until
 		date context_valid_on
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
+		boolean custom
 	}
 	tag_for_unit["tag_for_unit"] {
 		integer id
@@ -1566,7 +1582,10 @@ erDiagram
 	location }o--o| establishment : location_establishment_id_valid
 	location }o--|| legal_unit : location_legal_unit_id_valid
 	location }o--o| legal_unit : location_legal_unit_id_valid
+	location }o--o| region : location_region_dual_fk
+	location }o--o| region : location_region_dual_fk
 	location }o--o| region : location_region_id_fkey
+	location }o--o| region_version : location_region_version_id_fkey
 	person }|--o| country : person_country_id_fkey
 	person_for_unit }o--|| auth_user : person_for_unit_edit_by_user_id_fkey
 	person_for_unit }o--o| data_source : person_for_unit_data_source_id_fkey
@@ -1588,10 +1607,16 @@ erDiagram
 	power_root }o--o| legal_unit : power_root_custom_root_legal_unit_id_valid
 	power_root }|--|| power_group : power_root_power_group_id_fkey
 	region }o--o| region : region_parent_id_fkey
+	region }o--|| region_version : region_version_id_fkey
 	region_access }|--|| auth_user : region_access_user_id_fkey
 	region_access }o--|| region : region_access_region_id_fkey
 	settings }|--|| activity_category_standard : settings_activity_category_standard_id_fkey
+	settings }o--|| activity_category_standard : settings_activity_category_standard_enabled_fk
+	settings }o--o| activity_category_standard : settings_activity_category_standard_enabled_fk
 	settings }|--|| country : settings_country_id_fkey
+	settings }o--|| region_version : settings_region_version_enabled_fk
+	settings }o--|| region_version : settings_region_version_id_fkey
+	settings }o--o| region_version : settings_region_version_enabled_fk
 	stat_for_unit }o--|| auth_user : stat_for_unit_edit_by_user_id_fkey
 	stat_for_unit }o--o| data_source : stat_for_unit_data_source_id_fkey
 	stat_for_unit }o--|| establishment : stat_for_unit_establishment_id_valid

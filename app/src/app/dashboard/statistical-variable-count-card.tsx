@@ -9,7 +9,7 @@ import { useAtomValue } from 'jotai';
 import { statDefinitionsAtom } from '@/atoms/base-data'; // Assuming statDefinitionsAtom holds the active ones or we need a new atom
 
 export const StatisticalVariableCountCard = () => {
-  // This atom currently holds all stat_definition_active from baseDataAtom.
+  // This atom currently holds all stat_definition_enabled from baseDataAtom.
   // If you need a specific atom that just fetches the count, it should be created.
   // For now, we derive the count from the length of the statDefinitions array.
   const statDefinitions = useAtomValue(statDefinitionsAtom);

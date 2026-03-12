@@ -92,7 +92,7 @@ export const numberOfCustomActivityCodesAtomAsync = atomWithRefresh(async (get) 
 
   const client = get(restClientAtom);
   if (!client) return null;
-  const { count, error } = await client.from("activity_category_available_custom").select("*", { count: "exact", head: true });
+  const { count, error } = await client.from("activity_category_enabled_custom").select("*", { count: "exact", head: true });
   if (error) {
     console.error('Failed to fetch number of custom activity codes:', error);
     return null;
@@ -140,7 +140,7 @@ export const numberOfTotalActivityCodesAtomAsync = atomWithRefresh(async (get) =
 
   const client = get(restClientAtom);
   if (!client) return null;
-  const { count, error } = await client.from("activity_category_available").select("*", { count: "exact", head: true });
+  const { count, error } = await client.from("activity_category_enabled").select("*", { count: "exact", head: true });
   if (error) {
     console.error('Failed to fetch number of total activity codes:', error);
     return null;

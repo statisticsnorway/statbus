@@ -137,7 +137,7 @@ export type Database = {
               )
         ),
         -- Find views that transitively depend on FK target tables and expose their id column
-        -- This enables queries like .select('*, data_source_available(*)') in addition to .select('*, data_source(*)')
+        -- This enables queries like .select('*, data_source_enabled(*)') in addition to .select('*, data_source(*)')
         view_aliases AS (
             WITH RECURSIVE view_deps AS (
                 -- Base: direct view dependencies on tables in public schema

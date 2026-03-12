@@ -24,18 +24,23 @@ ON CONFLICT (only_one_setting)
 DO UPDATE SET
     activity_category_standard_id = EXCLUDED.activity_category_standard_id,
     country_id = EXCLUDED.country_id;
+psql:samples/demo/getting-started.sql:9: ERROR:  null value in column "region_version_id" of relation "settings" violates not-null constraint
 \echo "User uploads the demo activity categories"
 "User uploads the demo activity categories"
-\copy public.activity_category_available_custom(path,name) FROM 'app/public/demo/activity_custom_isic_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.activity_category_enabled_custom(path,name) FROM 'app/public/demo/activity_custom_isic_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+psql:samples/demo/getting-started.sql:12: ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "User uploads the demo regions"
 "User uploads the demo regions"
 \copy public.region_upload(path, name) FROM 'app/public/demo/regions_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+psql:samples/demo/getting-started.sql:15: ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "User uploads the demo sectors"
 "User uploads the demo sectors"
 \copy public.sector_custom_only(path,name,description) FROM 'app/public/demo/sectors_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+psql:samples/demo/getting-started.sql:18: ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "User uploads the demo legal forms"
 "User uploads the demo legal forms"
 \copy public.legal_form_custom_only(code,name) FROM 'app/public/demo/legal_forms_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+psql:samples/demo/getting-started.sql:21: ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- The demo data uses data sources that are part of the core database seed.
 -- This file is included for structural consistency with other sample data sets.
 \echo ""
@@ -56,9 +61,11 @@ SELECT
     'Test data load (314_consecutive_demo_loads.sql)',
     'r_year_curr',
     false;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "User uploads the sample legal units (via import job: import_314_lu_curr_p1)"
 "User uploads the sample legal units (via import job: import_314_lu_curr_p1)"
 \copy public.import_314_lu_curr_p1_upload(tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'app/public/demo/legal_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Create Import Job for Formal Establishments (Demo CSV, Block 1)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident, review)
 SELECT
@@ -69,9 +76,11 @@ SELECT
     'Test data load (314_consecutive_demo_loads.sql)',
     'r_year_curr',
     false;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "User uploads the sample formal establishments (via import job: import_314_esflu_curr_p1)"
 "User uploads the sample formal establishments (via import job: import_314_esflu_curr_p1)"
 \copy public.import_314_esflu_curr_p1_upload(tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code) FROM 'app/public/demo/formal_establishments_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Create Import Job for Informal Establishments (Demo CSV, Block 1)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident, review)
 SELECT
@@ -82,40 +91,28 @@ SELECT
     'Test data load (314_consecutive_demo_loads.sql)',
     'r_year_curr',
     false;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "User uploads the sample informal establishments (via import job: import_314_eswlu_curr_p1)"
 "User uploads the sample informal establishments (via import job: import_314_eswlu_curr_p1)"
 \copy public.import_314_eswlu_curr_p1_upload(tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code) FROM 'app/public/demo/informal_establishments_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Run worker processing for import jobs - Phase 1"
 "Run worker processing for import jobs - Phase 1"
 CALL worker.process_tasks(p_queue => 'import');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
-   queue   |   state   | count 
------------+-----------+-------
- analytics | pending   |     1
- import    | completed |   141
-(2 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Checking import job statuses for Phase 1"
 "Checking import job statuses for Phase 1"
 SELECT slug, state, time_context_ident, total_rows, imported_rows, error_count, error IS NOT NULL AS has_error FROM public.import_job WHERE slug LIKE 'import_314_%_p1' ORDER BY slug;
-           slug           |  state   | time_context_ident | total_rows | imported_rows | error_count | has_error 
---------------------------+----------+--------------------+------------+---------------+-------------+-----------
- import_314_esflu_curr_p1 | finished | r_year_curr        |         25 |            25 |           0 | f
- import_314_eswlu_curr_p1 | finished | r_year_curr        |         25 |            25 |           0 | f
- import_314_lu_curr_p1    | finished | r_year_curr        |         23 |            23 |           0 | f
-(3 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Unit counts after Phase 1"
 "Unit counts after Phase 1"
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
- establishment_count | legal_unit_count | enterprise_count 
----------------------+------------------+------------------
-                  50 |               23 |               48
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo ""
 ""
 \echo "---"
@@ -133,12 +130,15 @@ SELECT
     'Import job for app/public/demo/legal_units_with_source_dates_demo.csv using legal_unit_source_dates definition.',
     'Test data load (314_consecutive_demo_loads.sql)',
     false;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "User uploads the sample legal units with source dates (via import job: import_314_lu_wsd_p2)"
 "User uploads the sample legal units with source dates (via import job: import_314_lu_wsd_p2)"
 \copy public.import_314_lu_wsd_p2_upload(tax_ident,stat_ident,name,valid_from,physical_address_part1,valid_to,postal_address_part1,postal_address_part2,physical_address_part2,physical_postcode,postal_postcode,physical_address_part3,physical_postplace,postal_address_part3,postal_postplace,phone_number,landline,mobile_number,fax_number,web_address,email_address,secondary_activity_category_code,physical_latitude,physical_longitude,physical_altitude,birth_date,physical_region_code,postal_country_iso_2,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code,status_code,unit_size_code) FROM 'app/public/demo/legal_units_with_source_dates_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Run worker processing for LU source dates job"
 "Run worker processing for LU source dates job"
 CALL worker.process_tasks(p_queue => 'import');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Checking LU source dates job status"
 "Checking LU source dates job status"
 \x
@@ -152,140 +152,14 @@ SELECT
     error_count,
     jsonb_pretty(error::jsonb) AS error
 FROM public.import_job WHERE slug = 'import_314_lu_wsd_p2';
--[ RECORD 1 ]----------+---------------------
-slug                   | import_314_lu_wsd_p2
-state                  | finished
-analysis_completed_pct | 100.00
-import_completed_pct   | 100.00
-total_rows             | 76
-imported_rows          | 63
-error_count            | 13
-error                  | 
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \x
 \echo "Inspecting LU source dates data table for skipped/error rows"
 "Inspecting LU source dates data table for skipped/error rows"
 \x
 SELECT row_id, state, action, operation, legal_unit_id, enterprise_id, errors, merge_status
 FROM public.import_314_lu_wsd_p2_data WHERE action = 'skip' OR state = 'error' ORDER BY row_id;
--[ RECORD 1 ]-+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id        | 16
-state         | error
-action        | skip
-operation     | update
-legal_unit_id | 
-enterprise_id | 
-errors        | {"stat_ident_raw": "Input {\"tax_ident\": \"4711111\", \"stat_ident\": \"232\"} matches existing unit {\"tax_ident\": \"4711111\", \"stat_ident\": \"230\"} but attempts to change stat_ident from '230' to '232'"}
-merge_status  | {}
--[ RECORD 2 ]-+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id        | 17
-state         | error
-action        | skip
-operation     | update
-legal_unit_id | 
-enterprise_id | 
-errors        | {"tax_ident_raw": "Input {\"tax_ident\": \"4711110\", \"stat_ident\": \"230\"} matches existing unit {\"tax_ident\": \"4711111\", \"stat_ident\": \"230\"} but attempts to change tax_ident from '4711111' to '4711110'"}
-merge_status  | {}
--[ RECORD 3 ]-+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id        | 18
-state         | error
-action        | skip
-operation     | update
-legal_unit_id | 
-enterprise_id | 
-errors        | {"tax_ident_raw": "Input {\"tax_ident\": \"4711110\", \"stat_ident\": \"230\"} matches existing unit {\"tax_ident\": \"4711111\", \"stat_ident\": \"230\"} but attempts to change tax_ident from '4711111' to '4711110'"}
-merge_status  | {}
--[ RECORD 4 ]-+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id        | 19
-state         | error
-action        | skip
-operation     | update
-legal_unit_id | 
-enterprise_id | 
-errors        | {"tax_ident_raw": "Input {\"tax_ident\": \"4711110\", \"stat_ident\": \"230\"} matches existing unit {\"tax_ident\": \"4711111\", \"stat_ident\": \"230\"} but attempts to change tax_ident from '4711111' to '4711110'"}
-merge_status  | {}
--[ RECORD 5 ]-+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id        | 20
-state         | error
-action        | skip
-operation     | update
-legal_unit_id | 
-enterprise_id | 
-errors        | {"stat_ident_raw": "Input {\"tax_ident\": \"4711111\", \"stat_ident\": \"232\"} matches existing unit {\"tax_ident\": \"4711111\", \"stat_ident\": \"230\"} but attempts to change stat_ident from '230' to '232'"}
-merge_status  | {}
--[ RECORD 6 ]-+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id        | 21
-state         | error
-action        | skip
-operation     | update
-legal_unit_id | 
-enterprise_id | 
-errors        | {"stat_ident_raw": "Input {\"tax_ident\": \"4711111\", \"stat_ident\": \"232\"} matches existing unit {\"tax_ident\": \"4711111\", \"stat_ident\": \"230\"} but attempts to change stat_ident from '230' to '232'"}
-merge_status  | {}
--[ RECORD 7 ]-+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id        | 58
-state         | error
-action        | skip
-operation     | insert
-legal_unit_id | 
-enterprise_id | 
-errors        | {"tax_ident_raw": "Duplicate identifier: tax_ident=2212760166 appears in 4 rows: 58, 59, 60, 61"}
-merge_status  | {}
--[ RECORD 8 ]-+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id        | 59
-state         | error
-action        | skip
-operation     | insert
-legal_unit_id | 
-enterprise_id | 
-errors        | {"tax_ident_raw": "Duplicate identifier: tax_ident=2212760166 appears in 4 rows: 58, 59, 60, 61"}
-merge_status  | {}
--[ RECORD 9 ]-+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id        | 60
-state         | error
-action        | skip
-operation     | insert
-legal_unit_id | 
-enterprise_id | 
-errors        | {"tax_ident_raw": "Duplicate identifier: tax_ident=2212760166 appears in 4 rows: 58, 59, 60, 61"}
-merge_status  | {}
--[ RECORD 10 ]+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id        | 61
-state         | error
-action        | skip
-operation     | insert
-legal_unit_id | 
-enterprise_id | 
-errors        | {"tax_ident_raw": "Duplicate identifier: tax_ident=2212760166 appears in 4 rows: 58, 59, 60, 61"}
-merge_status  | {}
--[ RECORD 11 ]+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id        | 74
-state         | error
-action        | skip
-operation     | update
-legal_unit_id | 14
-enterprise_id | 21
-errors        | {"physical_region_code_raw": "An error on a related new entity row caused this row to be skipped. Source error row(s): {75}"}
-merge_status  | {}
--[ RECORD 12 ]+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id        | 75
-state         | error
-action        | skip
-operation     | update
-legal_unit_id | 14
-enterprise_id | 21
-errors        | {"physical_country_iso_2_raw": "Country is required and must be valid when other physical address details are provided."}
-merge_status  | {}
--[ RECORD 13 ]+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id        | 76
-state         | error
-action        | skip
-operation     | update
-legal_unit_id | 14
-enterprise_id | 21
-errors        | {"physical_region_code_raw": "An error on a related new entity row caused this row to be skipped. Source error row(s): {75}"}
-merge_status  | {}
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \x
 -- Create Import Job for Formal Establishments (Demo CSV with source dates)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
@@ -296,12 +170,15 @@ SELECT
     'Import job for app/public/demo/formal_establishments_units_with_source_dates_demo.csv using establishment_for_lu_source_dates definition.',
     'Test data load (314_consecutive_demo_loads.sql)',
     false;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "User uploads the sample formal establishments with source dates (via import job: import_314_esflu_wsd_p2)"
 "User uploads the sample formal establishments with source dates (via import job: import_314_esflu_wsd_p2)"
 \copy public.import_314_esflu_wsd_p2_upload(tax_ident,stat_ident,name,physical_region_code,valid_from,valid_to,postal_country_iso_2,physical_country_iso_2,primary_activity_category_code,secondary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code,physical_address_part1,physical_address_part2,physical_address_part3,postal_address_part1,postal_address_part2,postal_address_part3,phone_number,mobile_number,landline,fax_number,web_address,email_address,physical_latitude,physical_longitude,physical_altitude,birth_date,unit_size_code,status_code) FROM 'app/public/demo/formal_establishments_units_with_source_dates_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Run worker processing for Formal ES source dates job"
 "Run worker processing for Formal ES source dates job"
 CALL worker.process_tasks(p_queue => 'import');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Checking Formal ES source dates job status"
 "Checking Formal ES source dates job status"
 \x
@@ -315,256 +192,13 @@ SELECT
     error_count,
     jsonb_pretty(error::jsonb) AS error
 FROM public.import_job WHERE slug = 'import_314_esflu_wsd_p2';
--[ RECORD 1 ]----------+------------------------
-slug                   | import_314_esflu_wsd_p2
-state                  | finished
-analysis_completed_pct | 100.00
-import_completed_pct   | 
-total_rows             | 26
-imported_rows          | 0
-error_count            | 26
-error                  | 
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \x
 \echo "Inspecting Formal ES source dates data table for skipped/error rows"
 "Inspecting Formal ES source dates data table for skipped/error rows"
 \x
 SELECT row_id, state, action, operation, legal_unit_id, establishment_id, errors, merge_status FROM public.import_314_esflu_wsd_p2_data WHERE action = 'skip' OR state = 'error' ORDER BY row_id;
--[ RECORD 1 ]----+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 1
-state            | error
-action           | skip
-operation        | update
-legal_unit_id    | 
-establishment_id | 
-errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"92212760144\", \"stat_ident\": \"91000\"} matches existing unit {\"tax_ident\": \"92212760144\", \"stat_ident\": \"1000\"} but attempts to change stat_ident from '1000' to '91000'"}
-merge_status     | {}
--[ RECORD 2 ]----+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 2
-state            | error
-action           | skip
-operation        | update
-legal_unit_id    | 
-establishment_id | 
-errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"92812760140\", \"stat_ident\": \"91001\"} matches existing unit {\"tax_ident\": \"92812760140\", \"stat_ident\": \"1001\"} but attempts to change stat_ident from '1001' to '91001'"}
-merge_status     | {}
--[ RECORD 3 ]----+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 3
-state            | error
-action           | skip
-operation        | update
-legal_unit_id    | 
-establishment_id | 
-errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"92212760084\", \"stat_ident\": \"91002\"} matches existing unit {\"tax_ident\": \"92212760084\", \"stat_ident\": \"1002\"} but attempts to change stat_ident from '1002' to '91002'"}
-merge_status     | {}
--[ RECORD 4 ]----+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 4
-state            | error
-action           | skip
-operation        | update
-legal_unit_id    | 
-establishment_id | 
-errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"92612760138\", \"stat_ident\": \"91003\"} matches existing unit {\"tax_ident\": \"92612760138\", \"stat_ident\": \"1003\"} but attempts to change stat_ident from '1003' to '91003'"}
-merge_status     | {}
--[ RECORD 5 ]----+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 5
-state            | error
-action           | skip
-operation        | update
-legal_unit_id    | 
-establishment_id | 
-errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"92812760130\", \"stat_ident\": \"91004\"} matches existing unit {\"tax_ident\": \"92812760130\", \"stat_ident\": \"1004\"} but attempts to change stat_ident from '1004' to '91004'"}
-merge_status     | {}
--[ RECORD 6 ]----+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 6
-state            | error
-action           | skip
-operation        | update
-legal_unit_id    | 
-establishment_id | 
-errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"92312760075\", \"stat_ident\": \"91005\"} matches existing unit {\"tax_ident\": \"92312760075\", \"stat_ident\": \"1005\"} but attempts to change stat_ident from '1005' to '91005'"}
-merge_status     | {}
--[ RECORD 7 ]----+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 7
-state            | error
-action           | skip
-operation        | update
-legal_unit_id    | 
-establishment_id | 
-errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"92407020166\", \"stat_ident\": \"91006\"} matches existing unit {\"tax_ident\": \"92407020166\", \"stat_ident\": \"1006\"} but attempts to change stat_ident from '1006' to '91006'"}
-merge_status     | {}
--[ RECORD 8 ]----+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 8
-state            | error
-action           | skip
-operation        | update
-legal_unit_id    | 
-establishment_id | 
-errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"92602025168\", \"stat_ident\": \"91007\"} matches existing unit {\"tax_ident\": \"92602025168\", \"stat_ident\": \"1007\"} but attempts to change stat_ident from '1007' to '91007'"}
-merge_status     | {}
--[ RECORD 9 ]----+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 9
-state            | error
-action           | skip
-operation        | update
-legal_unit_id    | 
-establishment_id | 
-errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"92612760118\", \"stat_ident\": \"91008\"} matches existing unit {\"tax_ident\": \"92612760118\", \"stat_ident\": \"1008\"} but attempts to change stat_ident from '1008' to '91008'"}
-merge_status     | {}
--[ RECORD 10 ]---+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 10
-state            | error
-action           | skip
-operation        | update
-legal_unit_id    | 
-establishment_id | 
-errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"92815384160\", \"stat_ident\": \"91009\"} matches existing unit {\"tax_ident\": \"92815384160\", \"stat_ident\": \"1009\"} but attempts to change stat_ident from '1009' to '91009'"}
-merge_status     | {}
--[ RECORD 11 ]---+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 11
-state            | error
-action           | skip
-operation        | update
-legal_unit_id    | 
-establishment_id | 
-errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"92507020167\", \"stat_ident\": \"91010\"} matches existing unit {\"tax_ident\": \"92507020167\", \"stat_ident\": \"1010\"} but attempts to change stat_ident from '1010' to '91010'"}
-merge_status     | {}
--[ RECORD 12 ]---+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 12
-state            | error
-action           | skip
-operation        | update
-legal_unit_id    | 
-establishment_id | 
-errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"945000\", \"stat_ident\": \"91011\"} matches existing unit {\"tax_ident\": \"945000\", \"stat_ident\": \"1011\"} but attempts to change stat_ident from '1011' to '91011'"}
-merge_status     | {}
--[ RECORD 13 ]---+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 13
-state            | error
-action           | skip
-operation        | update
-legal_unit_id    | 
-establishment_id | 
-errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"9358000\", \"stat_ident\": \"91012\"} matches existing unit {\"tax_ident\": \"9358000\", \"stat_ident\": \"1012\"} but attempts to change stat_ident from '1012' to '91012'"}
-merge_status     | {}
--[ RECORD 14 ]---+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 14
-state            | error
-action           | skip
-operation        | update
-legal_unit_id    | 
-establishment_id | 
-errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"946001\", \"stat_ident\": \"91013\"} matches existing unit {\"tax_ident\": \"946001\", \"stat_ident\": \"1013\"} but attempts to change stat_ident from '1013' to '91013'"}
-merge_status     | {}
--[ RECORD 15 ]---+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 15
-state            | error
-action           | skip
-operation        | update
-legal_unit_id    | 
-establishment_id | 
-errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"95340521\", \"stat_ident\": \"91014\"} matches existing unit {\"tax_ident\": \"95340521\", \"stat_ident\": \"1014\"} but attempts to change stat_ident from '1014' to '91014'"}
-merge_status     | {}
--[ RECORD 16 ]---+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 16
-state            | error
-action           | skip
-operation        | update
-legal_unit_id    | 
-establishment_id | 
-errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"92220794\", \"stat_ident\": \"91015\"} matches existing unit {\"tax_ident\": \"92220794\", \"stat_ident\": \"1015\"} but attempts to change stat_ident from '1015' to '91015'"}
-merge_status     | {}
--[ RECORD 17 ]---+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 17
-state            | error
-action           | skip
-operation        | update
-legal_unit_id    | 
-establishment_id | 
-errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"922501\", \"stat_ident\": \"91016\"} matches existing unit {\"tax_ident\": \"922501\", \"stat_ident\": \"1016\"} but attempts to change stat_ident from '1016' to '91016'"}
-merge_status     | {}
--[ RECORD 18 ]---+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 18
-state            | error
-action           | skip
-operation        | update
-legal_unit_id    | 
-establishment_id | 
-errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"9397611\", \"stat_ident\": \"91017\"} matches existing unit {\"tax_ident\": \"9397611\", \"stat_ident\": \"1017\"} but attempts to change stat_ident from '1017' to '91017'"}
-merge_status     | {}
--[ RECORD 19 ]---+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 19
-state            | error
-action           | skip
-operation        | update
-legal_unit_id    | 
-establishment_id | 
-errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"9397622\", \"stat_ident\": \"91018\"} matches existing unit {\"tax_ident\": \"9397622\", \"stat_ident\": \"1018\"} but attempts to change stat_ident from '1018' to '91018'"}
-merge_status     | {}
--[ RECORD 20 ]---+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 20
-state            | error
-action           | skip
-operation        | update
-legal_unit_id    | 
-establishment_id | 
-errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"92200019\", \"stat_ident\": \"91019\"} matches existing unit {\"tax_ident\": \"92200019\", \"stat_ident\": \"1019\"} but attempts to change stat_ident from '1019' to '91019'"}
-merge_status     | {}
--[ RECORD 21 ]---+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 21
-state            | error
-action           | skip
-operation        | update
-legal_unit_id    | 
-establishment_id | 
-errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"93300598\", \"stat_ident\": \"91020\"} matches existing unit {\"tax_ident\": \"93300598\", \"stat_ident\": \"1020\"} but attempts to change stat_ident from '1020' to '91020'"}
-merge_status     | {}
--[ RECORD 22 ]---+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 22
-state            | error
-action           | skip
-operation        | update
-legal_unit_id    | 
-establishment_id | 
-errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"94711111\", \"stat_ident\": \"91021\"} matches existing unit {\"tax_ident\": \"94711111\", \"stat_ident\": \"1021\"} but attempts to change stat_ident from '1021' to '91021'"}
-merge_status     | {}
--[ RECORD 23 ]---+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 23
-state            | error
-action           | skip
-operation        | update
-legal_unit_id    | 
-establishment_id | 
-errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"93998011\", \"stat_ident\": \"91022\"} matches existing unit {\"tax_ident\": \"93998011\", \"stat_ident\": \"1022\"} but attempts to change stat_ident from '1022' to '91022'"}
-merge_status     | {}
--[ RECORD 24 ]---+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 24
-state            | error
-action           | skip
-operation        | update
-legal_unit_id    | 
-establishment_id | 
-errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"947111112\", \"stat_ident\": \"91023\"} matches existing unit {\"tax_ident\": \"947111112\", \"stat_ident\": \"1023\"} but attempts to change stat_ident from '1023' to '91023'"}
-merge_status     | {}
--[ RECORD 25 ]---+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 25
-state            | error
-action           | skip
-operation        | update
-legal_unit_id    | 
-establishment_id | 
-errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"947111113\", \"stat_ident\": \"91024\"} matches existing unit {\"tax_ident\": \"947111113\", \"stat_ident\": \"1024\"} but attempts to change stat_ident from '1024' to '91024'"}
-merge_status     | {}
--[ RECORD 26 ]---+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 26
-state            | error
-action           | skip
-operation        | update
-legal_unit_id    | 
-establishment_id | 
-errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"947111113\", \"stat_ident\": \"91024\"} matches existing unit {\"tax_ident\": \"947111113\", \"stat_ident\": \"1024\"} but attempts to change stat_ident from '1024' to '91024'"}
-merge_status     | {}
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \x
 -- Create Import Job for Informal Establishments (Demo CSV with source dates)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
@@ -575,12 +209,15 @@ SELECT
     'Import job for app/public/demo/informal_establishments_units_with_source_dates_demo.csv using establishment_without_lu_source_dates definition.',
     'Test data load (314_consecutive_demo_loads.sql)',
     false;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "User uploads the sample informal establishments with source dates (via import job: import_314_eswlu_wsd_p2)"
 "User uploads the sample informal establishments with source dates (via import job: import_314_eswlu_wsd_p2)"
 \copy public.import_314_eswlu_wsd_p2_upload(tax_ident,stat_ident,name,physical_region_code,valid_from,valid_to,physical_country_iso_2,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,employees,turnover,data_source_code,physical_address_part1,physical_address_part2,physical_address_part3,postal_address_part1,postal_address_part2,postal_address_part3,phone_number,mobile_number,landline,fax_number,web_address,email_address,unit_size_code,status_code,physical_latitude,physical_longitude,physical_altitude) FROM 'app/public/demo/informal_establishments_units_with_source_dates_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Run worker processing for Informal ES source dates job"
 "Run worker processing for Informal ES source dates job"
 CALL worker.process_tasks(p_queue => 'import');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Checking Informal ES source dates job status"
 "Checking Informal ES source dates job status"
 \x
@@ -594,118 +231,13 @@ SELECT
     error_count,
     jsonb_pretty(error::jsonb) AS error
 FROM public.import_job WHERE slug = 'import_314_eswlu_wsd_p2';
--[ RECORD 1 ]----------+------------------------
-slug                   | import_314_eswlu_wsd_p2
-state                  | finished
-analysis_completed_pct | 100.00
-import_completed_pct   | 
-total_rows             | 12
-imported_rows          | 0
-error_count            | 12
-error                  | 
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \x
 \echo "Inspecting Informal ES source dates data table for skipped/error rows"
 "Inspecting Informal ES source dates data table for skipped/error rows"
 \x
 SELECT row_id, state, action, operation, establishment_id, errors, merge_status FROM public.import_314_eswlu_wsd_p2_data WHERE action = 'skip' OR state = 'error' ORDER BY row_id;
--[ RECORD 1 ]----+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 1
-state            | error
-action           | skip
-operation        | update
-establishment_id | 
-errors           | {"tax_ident_raw": "Input {\"tax_ident\": \"1\", \"stat_ident\": \"1011\"} matches existing unit {\"tax_ident\": \"945000\", \"stat_ident\": \"1011\"} but attempts to change tax_ident from '945000' to '1'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1011\"}"}
-merge_status     | {}
--[ RECORD 2 ]----+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 2
-state            | error
-action           | skip
-operation        | update
-establishment_id | 
-errors           | {"tax_ident_raw": "Input {\"tax_ident\": \"2\", \"stat_ident\": \"1012\"} matches existing unit {\"tax_ident\": \"9358000\", \"stat_ident\": \"1012\"} but attempts to change tax_ident from '9358000' to '2'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1012\"}"}
-merge_status     | {}
--[ RECORD 3 ]----+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 3
-state            | error
-action           | skip
-operation        | update
-establishment_id | 
-errors           | {"tax_ident_raw": "Input {\"tax_ident\": \"3\", \"stat_ident\": \"1013\"} matches existing unit {\"tax_ident\": \"946001\", \"stat_ident\": \"1013\"} but attempts to change tax_ident from '946001' to '3'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1013\"}"}
-merge_status     | {}
--[ RECORD 4 ]----+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 4
-state            | error
-action           | skip
-operation        | update
-establishment_id | 
-errors           | {"tax_ident_raw": "Input {\"tax_ident\": \"4\", \"stat_ident\": \"1016\"} matches existing unit {\"tax_ident\": \"922501\", \"stat_ident\": \"1016\"} but attempts to change tax_ident from '922501' to '4'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1016\"}"}
-merge_status     | {}
--[ RECORD 5 ]----+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 5
-state            | error
-action           | skip
-operation        | update
-establishment_id | 
-errors           | {"tax_ident_raw": "Input {\"tax_ident\": \"5\", \"stat_ident\": \"1017\"} matches existing unit {\"tax_ident\": \"9397611\", \"stat_ident\": \"1017\"} but attempts to change tax_ident from '9397611' to '5'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1017\"}"}
-merge_status     | {}
--[ RECORD 6 ]----+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 6
-state            | error
-action           | skip
-operation        | update
-establishment_id | 
-errors           | {"tax_ident_raw": "Input {\"tax_ident\": \"6\", \"stat_ident\": \"1018\"} matches existing unit {\"tax_ident\": \"9397622\", \"stat_ident\": \"1018\"} but attempts to change tax_ident from '9397622' to '6'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1018\"}"}
-merge_status     | {}
--[ RECORD 7 ]----+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 7
-state            | error
-action           | skip
-operation        | update
-establishment_id | 
-errors           | {"tax_ident_raw": "Input {\"tax_ident\": \"7\", \"stat_ident\": \"1019\"} matches existing unit {\"tax_ident\": \"92200019\", \"stat_ident\": \"1019\"} but attempts to change tax_ident from '92200019' to '7'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1019\"}"}
-merge_status     | {}
--[ RECORD 8 ]----+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 8
-state            | error
-action           | skip
-operation        | update
-establishment_id | 
-errors           | {"tax_ident_raw": "Input {\"tax_ident\": \"8\", \"stat_ident\": \"1020\"} matches existing unit {\"tax_ident\": \"93300598\", \"stat_ident\": \"1020\"} but attempts to change tax_ident from '93300598' to '8'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1020\"}"}
-merge_status     | {}
--[ RECORD 9 ]----+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 9
-state            | error
-action           | skip
-operation        | update
-establishment_id | 
-errors           | {"tax_ident_raw": "Input {\"tax_ident\": \"9\", \"stat_ident\": \"1021\"} matches existing unit {\"tax_ident\": \"94711111\", \"stat_ident\": \"1021\"} but attempts to change tax_ident from '94711111' to '9'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1021\"}"}
-merge_status     | {}
--[ RECORD 10 ]---+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 10
-state            | error
-action           | skip
-operation        | update
-establishment_id | 
-errors           | {"tax_ident_raw": "Input {\"tax_ident\": \"10\", \"stat_ident\": \"1022\"} matches existing unit {\"tax_ident\": \"93998011\", \"stat_ident\": \"1022\"} but attempts to change tax_ident from '93998011' to '10'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1022\"}"}
-merge_status     | {}
--[ RECORD 11 ]---+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 11
-state            | error
-action           | skip
-operation        | update
-establishment_id | 
-errors           | {"tax_ident_raw": "Input {\"tax_ident\": \"11\", \"stat_ident\": \"1023\"} matches existing unit {\"tax_ident\": \"947111112\", \"stat_ident\": \"1023\"} but attempts to change tax_ident from '947111112' to '11'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1023\"}"}
-merge_status     | {}
--[ RECORD 12 ]---+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-row_id           | 12
-state            | error
-action           | skip
-operation        | update
-establishment_id | 
-errors           | {"tax_ident_raw": "Input {\"tax_ident\": \"12\", \"stat_ident\": \"1024\"} matches existing unit {\"tax_ident\": \"947111113\", \"stat_ident\": \"1024\"} but attempts to change tax_ident from '947111113' to '12'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1024\"}"}
-merge_status     | {}
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \x
 \echo "Unit counts after Phase 2"
 "Unit counts after Phase 2"
@@ -713,20 +245,11 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
- establishment_count | legal_unit_count | enterprise_count 
----------------------+------------------+------------------
-                  50 |               23 |               48
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Final check of worker queue to ensure no tasks are stuck"
 "Final check of worker queue to ensure no tasks are stuck"
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
-   queue   |   state   | count 
------------+-----------+-------
- analytics | pending   |     1
- import    | completed |   280
-(2 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Final check of import job progress and completion status"
 "Final check of import job progress and completion status"
 \x
@@ -744,75 +267,11 @@ SELECT
 FROM public.import_job
 WHERE slug LIKE 'import_314_%'
 ORDER BY slug;
--[ RECORD 1 ]---------------------+-------------------------
-slug                              | import_314_esflu_curr_p1
-state                             | finished
-analysis_completed_pct            | 100.00
-completed_analysis_steps_weighted | 2500
-total_analysis_steps_weighted     | 2500
-import_completed_pct              | 100.00
-total_rows                        | 25
-imported_rows                     | 25
-error_count                       | 0
-error                             | 
--[ RECORD 2 ]---------------------+-------------------------
-slug                              | import_314_esflu_wsd_p2
-state                             | finished
-analysis_completed_pct            | 100.00
-completed_analysis_steps_weighted | 2600
-total_analysis_steps_weighted     | 2600
-import_completed_pct              | 
-total_rows                        | 26
-imported_rows                     | 0
-error_count                       | 26
-error                             | 
--[ RECORD 3 ]---------------------+-------------------------
-slug                              | import_314_eswlu_curr_p1
-state                             | finished
-analysis_completed_pct            | 100.00
-completed_analysis_steps_weighted | 2500
-total_analysis_steps_weighted     | 2500
-import_completed_pct              | 100.00
-total_rows                        | 25
-imported_rows                     | 25
-error_count                       | 0
-error                             | 
--[ RECORD 4 ]---------------------+-------------------------
-slug                              | import_314_eswlu_wsd_p2
-state                             | finished
-analysis_completed_pct            | 100.00
-completed_analysis_steps_weighted | 1200
-total_analysis_steps_weighted     | 1200
-import_completed_pct              | 
-total_rows                        | 12
-imported_rows                     | 0
-error_count                       | 12
-error                             | 
--[ RECORD 5 ]---------------------+-------------------------
-slug                              | import_314_lu_curr_p1
-state                             | finished
-analysis_completed_pct            | 100.00
-completed_analysis_steps_weighted | 2300
-total_analysis_steps_weighted     | 2300
-import_completed_pct              | 100.00
-total_rows                        | 23
-imported_rows                     | 23
-error_count                       | 0
-error                             | 
--[ RECORD 6 ]---------------------+-------------------------
-slug                              | import_314_lu_wsd_p2
-state                             | finished
-analysis_completed_pct            | 100.00
-completed_analysis_steps_weighted | 7600
-total_analysis_steps_weighted     | 7600
-import_completed_pct              | 100.00
-total_rows                        | 76
-imported_rows                     | 63
-error_count                       | 13
-error                             | 
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \x
 \i test/rollback_unless_persist_is_specified.sql
 \echo -- test/rollback_unless_persist_is_specified.sql output suppressed
 -- test/rollback_unless_persist_is_specified.sql output suppressed
 \set ECHO none
+psql:test/rollback_unless_persist_is_specified.sql:16: ERROR:  current transaction is aborted, commands ignored until end of transaction block
+psql:test/rollback_unless_persist_is_specified.sql:19: error: unrecognized value ":PERSIST" for "\if expression": Boolean expected

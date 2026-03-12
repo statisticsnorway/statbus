@@ -37,7 +37,7 @@ const CustomActivityCodesCountDisplay = () => {
         </InfoBox>
       )}
       <UploadCSVForm
-        uploadView="activity_category_available_custom"
+        uploadView="activity_category_enabled_custom"
         nextPage="/getting-started/upload-regions"
         refreshRelevantCounts={async () => refreshCodesCount()}
       />

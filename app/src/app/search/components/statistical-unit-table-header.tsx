@@ -39,7 +39,7 @@ export function StatisticalUnitTableHeader({
                   key={`h-cell-${headerCellSuffix(column)}`}
                 >
                   <small className="flex">
-                    {externalIdentTypes.map(({ name }: Tables<'external_ident_type_active'>) => name).join(" | ")}
+                    {externalIdentTypes.map(({ name }: Tables<'external_ident_type_enabled'>) => name).join(" | ")}
                   </small>
                 </SortableTableHead>
               );
@@ -96,7 +96,7 @@ export function StatisticalUnitTableHeader({
               if (column.type === "Adaptable" && column.stat_code) {
                 // Retrieve the matching stat definition based on stat_code
                 const statDefinition = statDefinitions.find(
-                  (statDefinition: Tables<'stat_definition_active'>) => statDefinition.code === column.stat_code
+                  (statDefinition: Tables<'stat_definition_enabled'>) => statDefinition.code === column.stat_code
                 );
 
                 return (

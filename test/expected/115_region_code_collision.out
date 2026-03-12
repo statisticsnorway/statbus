@@ -34,7 +34,7 @@ ERROR:  Failed to insert/update region: {
     },
     "error": "duplicate key value violates unique constraint \"region_code_key\""
 }
-CONTEXT:  PL/pgSQL function admin.region_upload_upsert() line 72 at RAISE
+CONTEXT:  PL/pgSQL function admin.region_upload_upsert() line 84 at RAISE
 COPY region_upload, line 2: "AL.01,Second Region with same code 01"
 \set ON_ERROR_STOP on
 ROLLBACK TO before_collision;

@@ -12,7 +12,7 @@ interface State {
 export type UploadView =
   | "region_upload"
   | "import_legal_unit_current"
-  | "activity_category_available_custom"
+  | "activity_category_enabled_custom"
   | "import_establishment_current_for_legal_unit"
   | "import_establishment_current_without_legal_unit"
   | "sector_custom_only"

@@ -22,7 +22,7 @@ SELECT standard_code
      , parent_path
      , label
      , name
-FROM public.activity_category_available
+FROM public.activity_category_enabled
 ORDER BY standard_code, path;
 
 SELECT path
@@ -36,18 +36,18 @@ SELECT path
 SELECT code
      , name
      , custom
- FROM public.legal_form_available
+ FROM public.legal_form_enabled
  ORDER BY code COLLATE "nb-NO-x-icu";
 
 SELECT path
      , name
      , custom
- FROM public.sector_available;
+ FROM public.sector_enabled;
 
 SELECT code
      , name
      , custom
-FROM public.data_source_available;
+FROM public.data_source_enabled;
 
 \echo "Supress invalid code warnings, they are tested later, and the debug output contains the current date, that changes with time."
 

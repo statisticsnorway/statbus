@@ -26,18 +26,23 @@ ON CONFLICT (only_one_setting)
 DO UPDATE SET
     activity_category_standard_id = EXCLUDED.activity_category_standard_id,
     country_id = EXCLUDED.country_id;
+psql:samples/demo/getting-started.sql:9: ERROR:  null value in column "region_version_id" of relation "settings" violates not-null constraint
 \echo "User uploads the demo activity categories"
 "User uploads the demo activity categories"
-\copy public.activity_category_available_custom(path,name) FROM 'app/public/demo/activity_custom_isic_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.activity_category_enabled_custom(path,name) FROM 'app/public/demo/activity_custom_isic_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+psql:samples/demo/getting-started.sql:12: ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "User uploads the demo regions"
 "User uploads the demo regions"
 \copy public.region_upload(path, name) FROM 'app/public/demo/regions_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+psql:samples/demo/getting-started.sql:15: ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "User uploads the demo sectors"
 "User uploads the demo sectors"
 \copy public.sector_custom_only(path,name,description) FROM 'app/public/demo/sectors_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+psql:samples/demo/getting-started.sql:18: ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "User uploads the demo legal forms"
 "User uploads the demo legal forms"
 \copy public.legal_form_custom_only(code,name) FROM 'app/public/demo/legal_forms_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+psql:samples/demo/getting-started.sql:21: ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- The demo data uses data sources that are part of the core database seed.
 -- This file is included for structural consistency with other sample data sets.
 -- Create Import Job for Legal Units (Demo CSV)
@@ -49,9 +54,11 @@ SELECT
     'Import job for app/public/demo/legal_units_demo.csv using legal_unit_job_provided definition.',
     'Test data load (313_update_triggers_refresh.sql)',
     'r_year_curr';
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "User uploads the sample legal units (via import job: import_13_lu)"
 "User uploads the sample legal units (via import job: import_13_lu)"
 \copy public.import_13_lu_upload(tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'app/public/demo/legal_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Create Import Job for Formal Establishments (Demo CSV)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
 SELECT
@@ -61,9 +68,11 @@ SELECT
     'Import job for app/public/demo/formal_establishments_units_demo.csv using establishment_for_lu_job_provided definition.',
     'Test data load (313_update_triggers_refresh.sql)',
     'r_year_curr';
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "User uploads the sample formal establishments (via import job: import_13_esflu)"
 "User uploads the sample formal establishments (via import job: import_13_esflu)"
 \copy public.import_13_esflu_upload(tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code) FROM 'app/public/demo/formal_establishments_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Create Import Job for Informal Establishments (Demo CSV)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
 SELECT
@@ -73,26 +82,24 @@ SELECT
     'Import job for app/public/demo/informal_establishments_units_demo.csv using establishment_without_lu_job_provided definition.',
     'Test data load (313_update_triggers_refresh.sql)',
     'r_year_curr';
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "User uploads the sample informal establishments (via import job: import_13_eswlu)"
 "User uploads the sample informal establishments (via import job: import_13_eswlu)"
 \copy public.import_13_eswlu_upload(tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code) FROM 'app/public/demo/informal_establishments_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo Run worker processing for import jobs
 Run worker processing for import jobs
 CALL worker.process_tasks(p_queue => 'import');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo Run worker processing for analytics tasks
 Run worker processing for analytics tasks
 CALL worker.process_tasks(p_queue => 'analytics');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 --
 SELECT unit_type, external_idents, valid_from, valid_until, name, stats->'employees' as employees FROM public.statistical_unit
 WHERE name = 'Statistics Norway'
 ORDER BY unit_type, unit_id, valid_from, valid_until;
-   unit_type   |                 external_idents                 | valid_from | valid_until |       name        |          employees          
----------------+-------------------------------------------------+------------+-------------+-------------------+-----------------------------
- establishment | {"tax_ident": "94711111", "stat_ident": "1021"} | 2026-01-01 | infinity    | Statistics Norway | {"type": "int", "value": 0}
- legal_unit    | {"tax_ident": "4711111", "stat_ident": "230"}   | 2026-01-01 | infinity    | Statistics Norway | {"type": "int", "value": 1}
- enterprise    | {"tax_ident": "4711111", "stat_ident": "230"}   | 2026-01-01 | infinity    | Statistics Norway | 
-(3 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Initial data loaded. All subsequent tests will check the worker response to an UPDATE on a specific temporal table."
 "Initial data loaded. All subsequent tests will check the worker response to an UPDATE on a specific temporal table."
 --------------------------------------------------------------------------------
@@ -106,11 +113,7 @@ SELECT external_idents, name, stats->'employees' as employees
 FROM public.statistical_unit
 WHERE name = 'Statistics Norway' AND unit_type = 'legal_unit'
 AND valid_from <= current_date AND current_date < valid_until;
--[ RECORD 1 ]---+----------------------------------------------
-external_idents | {"tax_ident": "4711111", "stat_ident": "230"}
-name            | Statistics Norway
-employees       | {"type": "int", "value": 1}
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \x
 \echo "Action: Updating a stat_for_unit record for 'Statistics Norway' legal unit"
 "Action: Updating a stat_for_unit record for 'Statistics Norway' legal unit"
@@ -118,19 +121,17 @@ UPDATE public.stat_for_unit
 SET value_int = 100
 WHERE legal_unit_id = (SELECT id FROM public.legal_unit WHERE name = 'Statistics Norway')
 AND stat_definition_id = (SELECT id FROM public.stat_definition WHERE code = 'employees');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Check: Expect one 'collect_changes' task."
 "Check: Expect one 'collect_changes' task."
 SELECT command, state
 FROM worker.tasks
 WHERE command = 'collect_changes' AND state = 'pending';
-     command     |  state  
------------------+---------
- collect_changes | pending
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Run worker to process tasks..."
 "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics'); -- Processes collect_changes, enqueues derive tasks and process derived tasks
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "After: check stats for 'Statistics Norway'. Expect employees to be 100."
 "After: check stats for 'Statistics Norway'. Expect employees to be 100."
 \x
@@ -138,11 +139,7 @@ SELECT external_idents, name, stats->'employees' as employees
 FROM public.statistical_unit
 WHERE name = 'Statistics Norway' AND unit_type = 'legal_unit'
 AND valid_from <= current_date AND current_date < valid_until;
--[ RECORD 1 ]---+----------------------------------------------
-external_idents | {"tax_ident": "4711111", "stat_ident": "230"}
-name            | Statistics Norway
-employees       | {"type": "int", "value": 100}
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \x
 --------------------------------------------------------------------------------
 \echo "--- TEST 2: UPDATE on establishment ---"
@@ -151,33 +148,23 @@ employees       | {"type": "int", "value": 100}
 \echo "Before: Checking name for establishment 'Statistics Norway'"
 "Before: Checking name for establishment 'Statistics Norway'"
 SELECT name FROM public.statistical_unit WHERE name = 'Statistics Norway' AND unit_type = 'establishment';
-       name        
--------------------
- Statistics Norway
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Action: Updating establishment name"
 "Action: Updating establishment name"
 UPDATE public.establishment SET name = 'Statistics Norway Updated' WHERE name = 'Statistics Norway';
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Check: Expect one 'collect_changes' task."
 "Check: Expect one 'collect_changes' task."
 SELECT command, state FROM worker.tasks WHERE command = 'collect_changes' AND state = 'pending';
-     command     |  state  
------------------+---------
- collect_changes | pending
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Run worker to process tasks..."
 "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "After: Checking name for establishment 'Statistics Norway Updated'"
 "After: Checking name for establishment 'Statistics Norway Updated'"
 SELECT name FROM public.statistical_unit WHERE name = 'Statistics Norway Updated' AND unit_type = 'establishment';
-           name            
----------------------------
- Statistics Norway Updated
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 --------------------------------------------------------------------------------
 \echo "--- TEST 3: UPDATE on legal_unit ---"
 "--- TEST 3: UPDATE on legal_unit ---"
@@ -185,33 +172,23 @@ SELECT name FROM public.statistical_unit WHERE name = 'Statistics Norway Updated
 \echo "Before: Checking name of enterprise for legal_unit 'Statistics Norway'"
 "Before: Checking name of enterprise for legal_unit 'Statistics Norway'"
 SELECT name FROM public.statistical_unit WHERE unit_type = 'enterprise' AND unit_id = (SELECT enterprise_id FROM public.legal_unit WHERE name = 'Statistics Norway');
-       name        
--------------------
- Statistics Norway
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Action: Updating legal_unit short_name"
 "Action: Updating legal_unit short_name"
 UPDATE public.legal_unit SET short_name = 'GIL' WHERE name = 'Statistics Norway';
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Check: Expect one 'collect_changes' task."
 "Check: Expect one 'collect_changes' task."
 SELECT command, state FROM worker.tasks WHERE command = 'collect_changes' AND state = 'pending';
-     command     |  state  
------------------+---------
- collect_changes | pending
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Run worker to process tasks..."
 "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "After: Checking name of enterprise for legal_unit 'Statistics Norway'. Expect 'GIL'."
 "After: Checking name of enterprise for legal_unit 'Statistics Norway'. Expect 'GIL'."
 SELECT name FROM public.statistical_unit WHERE unit_type = 'enterprise' AND unit_id = (SELECT enterprise_id FROM public.legal_unit WHERE name = 'Statistics Norway');
-       name        
--------------------
- Statistics Norway
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 --------------------------------------------------------------------------------
 \echo "--- TEST 4: UPDATE on location ---"
 "--- TEST 4: UPDATE on location ---"
@@ -219,33 +196,23 @@ SELECT name FROM public.statistical_unit WHERE unit_type = 'enterprise' AND unit
 \echo "Before: Checking physical_address_part1 for 'Statistics Norway'"
 "Before: Checking physical_address_part1 for 'Statistics Norway'"
 SELECT physical_address_part1 FROM public.statistical_unit WHERE name = 'Statistics Norway' AND unit_type = 'legal_unit';
- physical_address_part1 
-------------------------
- 
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Action: Updating location address_part1"
 "Action: Updating location address_part1"
 UPDATE public.location SET address_part1 = '123 New Street' WHERE legal_unit_id = (SELECT id FROM public.legal_unit WHERE name = 'Statistics Norway');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Check: Expect one 'collect_changes' task."
 "Check: Expect one 'collect_changes' task."
 SELECT command, state FROM worker.tasks WHERE command = 'collect_changes' AND state = 'pending';
-     command     |  state  
------------------+---------
- collect_changes | pending
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Run worker to process tasks..."
 "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "After: Checking physical_address_part1 for 'Statistics Norway'"
 "After: Checking physical_address_part1 for 'Statistics Norway'"
 SELECT physical_address_part1 FROM public.statistical_unit WHERE name = 'Statistics Norway' AND unit_type = 'legal_unit';
- physical_address_part1 
-------------------------
- 123 New Street
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 --------------------------------------------------------------------------------
 \echo "--- TEST 5: UPDATE on activity ---"
 "--- TEST 5: UPDATE on activity ---"
@@ -253,36 +220,26 @@ SELECT physical_address_part1 FROM public.statistical_unit WHERE name = 'Statist
 \echo "Before: Checking primary_activity_category_path for 'Statistics Norway'"
 "Before: Checking primary_activity_category_path for 'Statistics Norway'"
 SELECT primary_activity_category_path FROM public.statistical_unit WHERE name = 'Statistics Norway' AND unit_type = 'legal_unit';
- primary_activity_category_path 
---------------------------------
- J.63.1.2.1
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Action: Updating activity category_id"
 "Action: Updating activity category_id"
 UPDATE public.activity
-SET category_id = (SELECT id FROM public.activity_category_available WHERE path = 'A.01')
+SET category_id = (SELECT id FROM public.activity_category_enabled WHERE path = 'A.01')
 WHERE legal_unit_id = (SELECT id FROM public.legal_unit WHERE name = 'Statistics Norway')
   AND type = 'primary';
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Check: Expect one 'collect_changes' task."
 "Check: Expect one 'collect_changes' task."
 SELECT command, state FROM worker.tasks WHERE command = 'collect_changes' AND state = 'pending';
-     command     |  state  
------------------+---------
- collect_changes | pending
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Run worker to process tasks..."
 "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "After: Checking primary_activity_category_path for 'Statistics Norway'"
 "After: Checking primary_activity_category_path for 'Statistics Norway'"
 SELECT primary_activity_category_path FROM public.statistical_unit WHERE name = 'Statistics Norway' AND unit_type = 'legal_unit';
- primary_activity_category_path 
---------------------------------
- A.01
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 --------------------------------------------------------------------------------
 \echo "--- TEST 6: UPDATE on contact ---"
 "--- TEST 6: UPDATE on contact ---"
@@ -290,11 +247,7 @@ SELECT primary_activity_category_path FROM public.statistical_unit WHERE name = 
 \echo "Before: Checking email_address for 'Statistics Norway' (is null as no contact exists yet)"
 "Before: Checking email_address for 'Statistics Norway' (is null as no contact exists yet)"
 SELECT valid_from, valid_until, email_address FROM public.statistical_unit WHERE name = 'Statistics Norway' AND unit_type = 'legal_unit';
- valid_from | valid_until | email_address 
-------------+-------------+---------------
- 2026-01-01 | infinity    | 
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Action: INSERT a new contact and then UPDATE it to test trigger."
 "Action: INSERT a new contact and then UPDATE it to test trigger."
 -- The demo data does not include contacts, so we insert one to be able to test the UPDATE trigger.
@@ -306,28 +259,23 @@ SELECT
     'infinity',
     (SELECT u.id FROM auth.user u WHERE u.email = 'test.admin@statbus.org')
 FROM public.legal_unit lu WHERE lu.name = 'Statistics Norway';
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 UPDATE public.contact
 SET email_address = 'updated.test@example.com'
 WHERE legal_unit_id = (SELECT id FROM public.legal_unit WHERE name = 'Statistics Norway');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Check: Expect one 'collect_changes' task (coalesced from INSERT and UPDATE)."
 "Check: Expect one 'collect_changes' task (coalesced from INSERT and UPDATE)."
 SELECT command, state FROM worker.tasks WHERE command = 'collect_changes' AND state = 'pending';
-     command     |  state  
------------------+---------
- collect_changes | pending
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Run worker to process tasks..."
 "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "After: Checking email_address for 'Statistics Norway' (should be updated)"
 "After: Checking email_address for 'Statistics Norway' (should be updated)"
 SELECT email_address FROM public.statistical_unit WHERE name = 'Statistics Norway' AND unit_type = 'legal_unit';
-      email_address       
---------------------------
- updated.test@example.com
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 --------------------------------------------------------------------------------
 \echo "--- TEST 7: UPDATE on enterprise ---"
 "--- TEST 7: UPDATE on enterprise ---"
@@ -338,37 +286,27 @@ SELECT email_address FROM public.statistical_unit WHERE name = 'Statistics Norwa
 SELECT name FROM public.statistical_unit
 WHERE unit_type = 'enterprise'
   AND unit_id = (SELECT enterprise_id FROM public.legal_unit WHERE name = 'Statistics Norway');
-       name        
--------------------
- Statistics Norway
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Action: Updating enterprise name directly"
 "Action: Updating enterprise name directly"
 UPDATE public.enterprise
 SET short_name = 'SSB'
 WHERE id = (SELECT enterprise_id FROM public.legal_unit WHERE name = 'Statistics Norway');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Check: Expect one 'collect_changes' task."
 "Check: Expect one 'collect_changes' task."
 SELECT command, state FROM worker.tasks WHERE command = 'collect_changes' AND state = 'pending';
-     command     |  state  
------------------+---------
- collect_changes | pending
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Run worker to process tasks..."
 "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "After: Checking name of enterprise. Expect 'SSB'."
 "After: Checking name of enterprise. Expect 'SSB'."
 SELECT name FROM public.statistical_unit
 WHERE name = 'SSB' AND unit_type = 'enterprise'
   AND unit_id = (SELECT enterprise_id FROM public.legal_unit WHERE name = 'Statistics Norway');
- name 
-------
- SSB
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 --------------------------------------------------------------------------------
 \echo "--- TEST 8: UPDATE on external_ident ---"
 "--- TEST 8: UPDATE on external_ident ---"
@@ -377,9 +315,7 @@ WHERE name = 'SSB' AND unit_type = 'enterprise'
 "Before: Checking external_idents for 'Statistics Norway' legal unit"
 \x
 SELECT external_idents FROM public.statistical_unit WHERE name = 'Statistics Norway' AND unit_type = 'legal_unit';
--[ RECORD 1 ]---+----------------------------------------------
-external_idents | {"tax_ident": "4711111", "stat_ident": "230"}
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \x
 \echo "Action: Updating external_ident.ident for 'Statistics Norway' legal unit"
 "Action: Updating external_ident.ident for 'Statistics Norway' legal unit"
@@ -387,24 +323,20 @@ UPDATE public.external_ident
 SET ident = '947111110'
 WHERE legal_unit_id = (SELECT id FROM public.legal_unit WHERE name = 'Statistics Norway')
   AND type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Check: Expect one 'collect_changes' task."
 "Check: Expect one 'collect_changes' task."
 SELECT command, state FROM worker.tasks WHERE command = 'collect_changes' AND state = 'pending';
-     command     |  state  
------------------+---------
- collect_changes | pending
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Run worker to process tasks..."
 "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "After: check external_idents for 'Statistics Norway'. Expect updated tax_ident."
 "After: check external_idents for 'Statistics Norway'. Expect updated tax_ident."
 \x
 SELECT external_idents FROM public.statistical_unit WHERE name = 'Statistics Norway' AND unit_type = 'legal_unit';
--[ RECORD 1 ]---+------------------------------------------------
-external_idents | {"tax_ident": "947111110", "stat_ident": "230"}
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \x
 --------------------------------------------------------------------------------
 \echo "--- TEST 9: UPDATE establishment parent (legal_unit_id) ---"
@@ -419,34 +351,30 @@ JOIN public.legal_unit lu ON tes.legal_unit_id = lu.id
 WHERE su_es.name = 'Statistics Norway Updated'
   AND su_es.unit_type = 'establishment'
   AND su_es.valid_from <= current_date AND current_date < su_es.valid_until;
-  legal_unit_name  
--------------------
- Statistics Norway
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Action: Clear pending tasks, unset primary status, then update establishment's legal_unit_id"
 "Action: Clear pending tasks, unset primary status, then update establishment's legal_unit_id"
 DELETE FROM worker.tasks WHERE state = 'pending';
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 UPDATE public.establishment
 SET primary_for_legal_unit = false
 WHERE name = 'Statistics Norway Updated';
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 UPDATE public.establishment
 SET legal_unit_id = (SELECT id FROM public.legal_unit WHERE name = 'Statistics Denmark')
 WHERE name = 'Statistics Norway Updated';
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Check: Expect one 'collect_changes' task (captures both old and new parent IDs)."
 "Check: Expect one 'collect_changes' task (captures both old and new parent IDs)."
 SELECT command, state
 FROM worker.tasks
 WHERE state = 'pending'
 ORDER BY command;
-     command     |  state  
------------------+---------
- collect_changes | pending
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Run worker to process tasks..."
 "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "After: Checking new parent of establishment 'Statistics Norway Updated'. Expect 'Statistics Denmark'."
 "After: Checking new parent of establishment 'Statistics Norway Updated'. Expect 'Statistics Denmark'."
 SELECT lu.name as legal_unit_name
@@ -455,11 +383,7 @@ JOIN public.timeline_establishment tes ON su_es.unit_id = tes.unit_id AND su_es.
 JOIN public.legal_unit lu ON tes.legal_unit_id = lu.id
 WHERE su_es.name = 'Statistics Norway Updated' AND su_es.unit_type = 'establishment'
   AND su_es.valid_from <= current_date AND current_date < su_es.valid_until;
-  legal_unit_name   
---------------------
- Statistics Denmark
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 --------------------------------------------------------------------------------
 \echo "--- TEST 10: UPDATE external_ident parent (legal_unit_id) ---"
 "--- TEST 10: UPDATE external_ident parent (legal_unit_id) ---"
@@ -467,17 +391,12 @@ WHERE su_es.name = 'Statistics Norway Updated' AND su_es.unit_type = 'establishm
 \echo "Clear pending tasks to isolate test case"
 "Clear pending tasks to isolate test case"
 DELETE FROM worker.tasks WHERE state = 'pending';
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Before: Checking external_idents for 'Statistics Ethiopia' and 'Statistics Sweden'"
 "Before: Checking external_idents for 'Statistics Ethiopia' and 'Statistics Sweden'"
 \x
 SELECT name, external_idents FROM public.statistical_unit WHERE name IN ('Statistics Ethiopia', 'Statistics Sweden') AND unit_type = 'legal_unit' ORDER BY name;
--[ RECORD 1 ]---+-------------------------------------------
-name            | Statistics Ethiopia
-external_idents | {"tax_ident": "22501", "stat_ident": "18"}
--[ RECORD 2 ]---+-------------------------------------------
-name            | Statistics Sweden
-external_idents | {"tax_ident": "46001", "stat_ident": "15"}
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \x
 \echo "Action (1): Delete stat_ident for 'Statistics Ethiopia'"
 "Action (1): Delete stat_ident for 'Statistics Ethiopia'"
@@ -485,6 +404,7 @@ DELETE FROM public.external_ident
 WHERE legal_unit_id = (SELECT id FROM public.legal_unit WHERE name = 'Statistics Ethiopia')
   AND type_id = (SELECT id FROM public.external_ident_type WHERE code = 'stat_ident')
   AND ident = '18';
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Check: Expect one 'collect_changes' task."
 "Check: Expect one 'collect_changes' task."
 -- The DELETE fires the statement trigger which logs to base_change_log and enqueues collect_changes.
@@ -492,22 +412,16 @@ SELECT command, state
 FROM worker.tasks
 WHERE state = 'pending'
 ORDER BY command;
-     command     |  state  
------------------+---------
- collect_changes | pending
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Run worker to process tasks..."
 "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "After (1): Check 'Statistics Ethiopia'. Expect stat_ident to be gone."
 "After (1): Check 'Statistics Ethiopia'. Expect stat_ident to be gone."
 \x
 SELECT name, external_idents FROM public.statistical_unit WHERE name = 'Statistics Ethiopia' AND unit_type = 'legal_unit';
--[ RECORD 1 ]---+-----------------------
-name            | Statistics Ethiopia
-external_idents | {"tax_ident": "22501"}
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \x
 \echo "Action (2): Move stat_ident from 'Statistics Sweden' to 'Statistics Ethiopia'"
 "Action (2): Move stat_ident from 'Statistics Sweden' to 'Statistics Ethiopia'"
@@ -516,6 +430,7 @@ SET legal_unit_id = (SELECT id FROM public.legal_unit WHERE name = 'Statistics E
 WHERE legal_unit_id = (SELECT id FROM public.legal_unit WHERE name = 'Statistics Sweden')
   AND type_id = (SELECT id FROM public.external_ident_type WHERE code = 'stat_ident')
   AND ident = '15';
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Check: Expect one 'collect_changes' task (captures both old and new parent IDs via UNION ALL)."
 "Check: Expect one 'collect_changes' task (captures both old and new parent IDs via UNION ALL)."
 -- The UPDATE on legal_unit_id fires the statement trigger which logs both OLD and NEW rows,
@@ -524,24 +439,15 @@ SELECT command, state
 FROM worker.tasks
 WHERE state = 'pending'
 ORDER BY command;
-     command     |  state  
------------------+---------
- collect_changes | pending
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Run worker to process tasks..."
 "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "After (2): Checking external_idents for both units. Ethiopia should have stat_ident 15, Sweden should not."
 "After (2): Checking external_idents for both units. Ethiopia should have stat_ident 15, Sweden should not."
 \x
 SELECT name, external_idents FROM public.statistical_unit WHERE name IN ('Statistics Ethiopia', 'Statistics Sweden') AND unit_type = 'legal_unit' ORDER BY name;
--[ RECORD 1 ]---+-------------------------------------------
-name            | Statistics Ethiopia
-external_idents | {"tax_ident": "22501", "stat_ident": "15"}
--[ RECORD 2 ]---+-------------------------------------------
-name            | Statistics Sweden
-external_idents | {"tax_ident": "46001"}
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \x
 ROLLBACK;

@@ -172,7 +172,7 @@ export const StatisticalUnitTableRow = ({
                       <span className="flex text-wrap">
                         {externalIdentTypes
                           ?.map(
-                            ({ code }: Tables<"external_ident_type_active">) =>
+                            ({ code }: Tables<"external_ident_type_enabled">) =>
                               unit.external_idents[code!] || "-"
                           )
                           .join(" | ")}

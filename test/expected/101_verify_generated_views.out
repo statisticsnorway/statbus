@@ -29,8 +29,8 @@ View definition:
   ORDER BY path;
 Options: security_invoker=on
 
-\d+ public.sector_available
-                                  View "public.sector_available"
+\d+ public.sector_enabled
+                                   View "public.sector_enabled"
    Column    |           Type           | Collation | Nullable | Default | Storage  | Description 
 -------------+--------------------------+-----------+----------+---------+----------+-------------
  id          | integer                  |           |          |         | plain    | 
@@ -83,8 +83,8 @@ View definition:
   ORDER BY code;
 Options: security_invoker=on
 
-\d+ public.legal_form_available
-                               View "public.legal_form_available"
+\d+ public.legal_form_enabled
+                                View "public.legal_form_enabled"
    Column   |           Type           | Collation | Nullable | Default | Storage  | Description 
 ------------+--------------------------+-----------+----------+---------+----------+-------------
  id         | integer                  |           |          |         | plain    | 
@@ -131,8 +131,8 @@ View definition:
   ORDER BY code;
 Options: security_invoker=on
 
-\d+ public.legal_reorg_type_available
-                             View "public.legal_reorg_type_available"
+\d+ public.legal_reorg_type_enabled
+                              View "public.legal_reorg_type_enabled"
    Column    |           Type           | Collation | Nullable | Default | Storage  | Description 
 -------------+--------------------------+-----------+----------+---------+----------+-------------
  id          | integer                  |           |          |         | plain    | 
@@ -179,8 +179,8 @@ View definition:
   ORDER BY code;
 Options: security_invoker=on
 
-\d+ public.foreign_participation_available
-                          View "public.foreign_participation_available"
+\d+ public.foreign_participation_enabled
+                           View "public.foreign_participation_enabled"
    Column   |           Type           | Collation | Nullable | Default | Storage  | Description 
 ------------+--------------------------+-----------+----------+---------+----------+-------------
  id         | integer                  |           |          |         | plain    | 
@@ -225,8 +225,8 @@ View definition:
   ORDER BY code;
 Options: security_invoker=on
 
-\d+ public.data_source_available
-                               View "public.data_source_available"
+\d+ public.data_source_enabled
+                                View "public.data_source_enabled"
    Column   |           Type           | Collation | Nullable | Default | Storage  | Description 
 ------------+--------------------------+-----------+----------+---------+----------+-------------
  id         | integer                  |           |          |         | plain    | 
@@ -271,8 +271,8 @@ View definition:
   ORDER BY code;
 Options: security_invoker=on
 
-\d+ public.unit_size_available
-                                View "public.unit_size_available"
+\d+ public.unit_size_enabled
+                                 View "public.unit_size_enabled"
    Column   |           Type           | Collation | Nullable | Default | Storage  | Description 
 ------------+--------------------------+-----------+----------+---------+----------+-------------
  id         | integer                  |           |          |         | plain    | 
@@ -317,8 +317,8 @@ View definition:
   ORDER BY code;
 Options: security_invoker=on
 
-\d+ public.person_role_available
-                               View "public.person_role_available"
+\d+ public.person_role_enabled
+                                View "public.person_role_enabled"
    Column   |           Type           | Collation | Nullable | Default | Storage  | Description 
 ------------+--------------------------+-----------+----------+---------+----------+-------------
  id         | integer                  |           |          |         | plain    | 
@@ -363,8 +363,8 @@ View definition:
   ORDER BY code;
 Options: security_invoker=on
 
-\d+ public.power_group_type_available
-                            View "public.power_group_type_available"
+\d+ public.power_group_type_enabled
+                             View "public.power_group_type_enabled"
    Column   |           Type           | Collation | Nullable | Default | Storage  | Description 
 ------------+--------------------------+-----------+----------+---------+----------+-------------
  id         | integer                  |           |          |         | plain    | 
@@ -413,8 +413,8 @@ View definition:
   ORDER BY code;
 Options: security_invoker=on
 
-\d+ public.legal_rel_type_available
-                                    View "public.legal_rel_type_available"
+\d+ public.legal_rel_type_enabled
+                                     View "public.legal_rel_type_enabled"
          Column          |           Type           | Collation | Nullable | Default | Storage  | Description 
 -------------------------+--------------------------+-----------+----------+---------+----------+-------------
  id                      | integer                  |           |          |         | plain    | 

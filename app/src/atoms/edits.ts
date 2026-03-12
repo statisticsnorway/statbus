@@ -128,14 +128,14 @@ export const useEditManager = () => {
 };
 
 export interface DetailsPageData {
-  dataSources: Tables<"data_source_available">[];
+  dataSources: Tables<"data_source_enabled">[];
   regions: Tables<"region">[];
   countries: Tables<"country">[];
   status: Tables<"status">[];
-  activityCategories: Tables<"activity_category_available">[];
-  legalForms: Tables<"legal_form_available">[];
-  sectors: Tables<"sector_available">[];
-  unitSizes: Tables<"unit_size_available">[];
+  activityCategories: Tables<"activity_category_enabled">[];
+  legalForms: Tables<"legal_form_enabled">[];
+  sectors: Tables<"sector_enabled">[];
+  unitSizes: Tables<"unit_size_enabled">[];
 }
 const initialDetailsPageData: DetailsPageData = {
   dataSources: [],
@@ -168,14 +168,14 @@ const detailsPageDataPromiseAtom = atomWithRefresh<Promise<DetailsPageData>>(
         sectorsResult,
         unitSizesResult,
       ] = await Promise.all([
-        client.from("data_source_available").select(),
+        client.from("data_source_enabled").select(),
         client.from("region").select(),
         client.from("country").select(),
         client.from("status").select().eq("enabled", true),
-        client.from("activity_category_available").select(),
-        client.from("legal_form_available").select(),
-        client.from("sector_available").select(),
-        client.from("unit_size_available").select(),
+        client.from("activity_category_enabled").select(),
+        client.from("legal_form_enabled").select(),
+        client.from("sector_enabled").select(),
+        client.from("unit_size_enabled").select(),
       ]);
       // TODO: Add error handling for each result
       return {

@@ -46,7 +46,7 @@ export default function ReportsPageClient({
   const statisticalVariables = useMemo(() => {
     return [
       { value: "count", label: "Count", title: "Number of enterprises" },
-      ...(statDefinitions.map(({ code, name }: Tables<'stat_definition_active'>) => ({
+      ...(statDefinitions.map(({ code, name }: Tables<'stat_definition_enabled'>) => ({
         value: code!,
         label: name!,
         title: name!,

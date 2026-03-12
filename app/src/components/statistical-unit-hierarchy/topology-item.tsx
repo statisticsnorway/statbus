@@ -109,7 +109,7 @@ export function TopologyItem({
                 value={location?.country?.name}
               />
               {statDefinitions.map(
-                (statDefinition: Tables<"stat_definition_active">) => {
+                (statDefinition: Tables<"stat_definition_enabled">) => {
                   const metric = stats?.stats_summary?.[statDefinition.code];
                   const statsSum = metric && "sum" in metric ? metric.sum : undefined;
                   const stat = unit.stat_for_unit?.find(

@@ -33,7 +33,7 @@ interface SearchResultsProps {
   readonly allStatuses: Tables<"status">[];
   readonly allUnitSizes: Tables<"unit_size">[];
   readonly allDataSources: Tables<"data_source_used">[];
-  readonly allExternalIdentTypes: Tables<"external_ident_type_active">[];
+  readonly allExternalIdentTypes: Tables<"external_ident_type_enabled">[];
   readonly allLegalForms: Tables<"legal_form_used">[];
   readonly allSectors: Tables<"sector_used">[];
   readonly initialUrlSearchParamsString: string;
@@ -43,8 +43,8 @@ interface SearchResultsProps {
 // It is a pure function and is the single source of truth for URL -> State conversion.
 const deriveStateFromUrl = (
   urlSearchParams: URLSearchParams,
-  externalIdentTypes: Tables<'external_ident_type_active'>[],
-  statDefinitions: Tables<'stat_definition_active'>[]
+  externalIdentTypes: Tables<'external_ident_type_enabled'>[],
+  statDefinitions: Tables<'stat_definition_enabled'>[]
 ): { _initialQuery: string; _initialFilters: Record<string, any>; _initialPagination: SearchPagination; _initialSorting: SearchSorting } => {
 
   const ftsAction = fullTextSearchDeriveStateUpdateFromSearchParams(urlSearchParams);

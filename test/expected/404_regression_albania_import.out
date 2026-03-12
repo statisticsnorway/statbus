@@ -200,19 +200,18 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo "Checking worker task status after legal unit import"
 "Checking worker task status after legal unit import"
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
-   queue   |   state   | count 
------------+-----------+-------
- analytics | pending   |     1
- import    | completed |    47
-(2 rows)
+ queue  |   state   | count 
+--------+-----------+-------
+ import | completed |    45
+(1 row)
 
 \echo "Checking legal unit import job status"
 "Checking legal unit import job status"
 SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT NULL AS has_error 
 FROM public.import_job WHERE slug = 'import_318_lu';
-     slug      |  state   | time_context_ident | total_rows | imported_rows | has_error 
----------------+----------+--------------------+------------+---------------+-----------
- import_318_lu | finished |                    |        333 |           309 | f
+     slug      |       state        | time_context_ident | total_rows | imported_rows | has_error 
+---------------+--------------------+--------------------+------------+---------------+-----------
+ import_318_lu | waiting_for_review |                    |        333 |             0 | f
 (1 row)
 
 \echo "Checking for any errors in legal unit import data"
@@ -254,7 +253,7 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
  establishment_count | legal_unit_count | enterprise_count 
 ---------------------+------------------+------------------
-                   0 |              298 |              298
+                   0 |                0 |                0
 (1 row)
 
 \echo "=== Creating import job for Establishments (job provided time) ==="
@@ -285,19 +284,18 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo "Checking worker task status after establishment import"
 "Checking worker task status after establishment import"
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
-   queue   |   state   | count 
------------+-----------+-------
- analytics | pending   |     1
- import    | completed |    95
-(2 rows)
+ queue  |   state   | count 
+--------+-----------+-------
+ import | completed |    90
+(1 row)
 
 \echo "Checking establishment import job status"
 "Checking establishment import job status"
 SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT NULL AS has_error 
 FROM public.import_job WHERE slug = 'import_318_es';
-     slug      |  state   | time_context_ident | total_rows | imported_rows | has_error 
----------------+----------+--------------------+------------+---------------+-----------
- import_318_es | finished | r_year_curr        |       8439 |          8328 | f
+     slug      |       state        | time_context_ident | total_rows | imported_rows | has_error 
+---------------+--------------------+--------------------+------------+---------------+-----------
+ import_318_es | waiting_for_review | r_year_curr        |       8439 |             0 | f
 (1 row)
 
 \echo "Checking for any errors in establishment import data"
@@ -310,25 +308,25 @@ LIMIT 20;
  row_id | tax_ident_raw | name_raw | legal_unit_tax_ident_raw | state | action |                                     errors                                      
 --------+---------------+----------+--------------------------+-------+--------+---------------------------------------------------------------------------------
       1 | 329238        | J614031V | J614031V                 | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   2361 | 4224          | K119002  | K119002                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4034 | 130653        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4035 | 128853        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4036 | 130826        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4037 | 127517        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4038 | 128136        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4039 | 130032        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4040 | 127290        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4041 | 129122        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4042 | 127372        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4043 | 128839        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4044 | 131158        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4045 | 130291        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4046 | 130038        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4047 | 127513        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4048 | 129410        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4049 | 127535        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4050 | 128465        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
-   4051 | 129000        | K492533  | K492533                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+      2 | 105339        | J614031  | J614031                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+      3 | 105337        | J614031  | J614031                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+      4 | 105340        | J614031  | J614031                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+      5 | 105338        | J614031  | J614031                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+      6 | 105335        | J614031  | J614031                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+      7 | 105343        | J614031  | J614031                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+      8 | 105342        | J614031  | J614031                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+      9 | 105341        | J614031  | J614031                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+     10 | 105336        | J614031  | J614031                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+     11 | 105350        | J614031  | J614031                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+     12 | 105349        | J614031  | J614031                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+     13 | 105348        | J614031  | J614031                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+     14 | 105347        | J614031  | J614031                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+     15 | 105346        | J614031  | J614031                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+     16 | 105345        | J614031  | J614031                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+     17 | 105344        | J614031  | J614031                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+     18 | 105334        | J614031  | J614031                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+     19 | 754498        | J614031  | J614031                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
+     20 | 1124015       | J615004  | J615004                  | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}
 (20 rows)
 
 \echo "Final unit counts"
@@ -339,7 +337,7 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
  establishment_count | legal_unit_count | enterprise_count 
 ---------------------+------------------+------------------
-                8328 |              298 |              298
+                   0 |                0 |                0
 (1 row)
 
 \echo "=== Running analytics worker ==="
@@ -348,11 +346,10 @@ CALL worker.process_tasks(p_queue => 'analytics');
 \echo "Checking worker task status after analytics"
 "Checking worker task status after analytics"
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
-   queue   |   state   | count 
------------+-----------+-------
- analytics | completed |   284
- import    | completed |    95
-(2 rows)
+ queue  |   state   | count 
+--------+-----------+-------
+ import | completed |    90
+(1 row)
 
 \echo "Checking statistics summary"
 "Checking statistics summary"
@@ -363,180 +360,7 @@ SELECT unit_type
  FROM statistical_unit
  WHERE valid_from <= CURRENT_DATE AND CURRENT_DATE < valid_until
  GROUP BY unit_type;
--[ RECORD 1 ]-+-----------------------------------------------
-unit_type     | establishment
-count         | 8328
-stats_summary | {                                             +
-              |     "type": "stats_agg",                      +
-              |     "employees": {                            +
-              |         "max": 5372,                          +
-              |         "min": 0,                             +
-              |         "sum": 172373,                        +
-              |         "mean": 20.70,                        +
-              |         "type": "int_agg",                    +
-              |         "count": 8328,                        +
-              |         "stddev": 107.38,                     +
-              |         "variance": 11529.39,                 +
-              |         "sum_sq_diff": 96005239.49,           +
-              |         "coefficient_of_variation_pct": 518.77+
-              |     }                                         +
-              | }
--[ RECORD 2 ]-+-----------------------------------------------
-unit_type     | legal_unit
-count         | 298
-stats_summary | {                                             +
-              |     "male": {                                 +
-              |         "max": 4505,                          +
-              |         "min": -186,                          +
-              |         "sum": 59245,                         +
-              |         "mean": 198.81,                       +
-              |         "type": "int_agg",                    +
-              |         "count": 298,                         +
-              |         "stddev": 371.26,                     +
-              |         "variance": 137832.25,                +
-              |         "sum_sq_diff": 40936178.10,           +
-              |         "coefficient_of_variation_pct": 186.74+
-              |     },                                        +
-              |     "type": "stats_agg",                      +
-              |     "female": {                               +
-              |         "max": 4944,                          +
-              |         "min": 1,                             +
-              |         "sum": 77527,                         +
-              |         "mean": 323.03,                       +
-              |         "type": "int_agg",                    +
-              |         "count": 240,                         +
-              |         "stddev": 471.60,                     +
-              |         "variance": 222407.61,                +
-              |         "sum_sq_diff": 53155418.80,           +
-              |         "coefficient_of_variation_pct": 145.99+
-              |     },                                        +
-              |     "punpag": {                               +
-              |         "max": 5734,                          +
-              |         "min": 3,                             +
-              |         "sum": 134963,                        +
-              |         "mean": 557.70,                       +
-              |         "type": "int_agg",                    +
-              |         "count": 242,                         +
-              |         "stddev": 687.25,                     +
-              |         "variance": 472317.65,                +
-              |         "sum_sq_diff": 113828552.98,          +
-              |         "coefficient_of_variation_pct": 123.23+
-              |     },                                        +
-              |     "selfemp": {                              +
-              |         "max": 5,                             +
-              |         "min": 0,                             +
-              |         "sum": 30,                            +
-              |         "mean": 0.12,                         +
-              |         "type": "int_agg",                    +
-              |         "count": 240,                         +
-              |         "stddev": 0.72,                       +
-              |         "variance": 0.51,                     +
-              |         "sum_sq_diff": 122.25,                +
-              |         "coefficient_of_variation_pct": 572.16+
-              |     },                                        +
-              |     "turnover": {                             +
-              |         "max": 20025,                         +
-              |         "min": 555,                           +
-              |         "sum": 184860,                        +
-              |         "mean": 620.34,                       +
-              |         "type": "float_agg",                  +
-              |         "count": 298,                         +
-              |         "stddev": 1127.87,                    +
-              |         "variance": 1272083.56,               +
-              |         "sum_sq_diff": 377808816.44,          +
-              |         "coefficient_of_variation_pct": 181.82+
-              |     },                                        +
-              |     "employees": {                            +
-              |         "max": 5863,                          +
-              |         "min": 0,                             +
-              |         "sum": 309113,                        +
-              |         "mean": 35.84,                        +
-              |         "type": "int_agg",                    +
-              |         "count": 8624,                        +
-              |         "stddev": 181.15,                     +
-              |         "variance": 32813.93,                 +
-              |         "sum_sq_diff": 282954548.14,          +
-              |         "coefficient_of_variation_pct": 505.39+
-              |     }                                         +
-              | }
--[ RECORD 3 ]-+-----------------------------------------------
-unit_type     | enterprise
-count         | 298
-stats_summary | {                                             +
-              |     "male": {                                 +
-              |         "max": 4505,                          +
-              |         "min": -186,                          +
-              |         "sum": 59245,                         +
-              |         "mean": 198.81,                       +
-              |         "type": "int_agg",                    +
-              |         "count": 298,                         +
-              |         "stddev": 371.26,                     +
-              |         "variance": 137832.25,                +
-              |         "sum_sq_diff": 40936178.10,           +
-              |         "coefficient_of_variation_pct": 186.74+
-              |     },                                        +
-              |     "type": "stats_agg",                      +
-              |     "female": {                               +
-              |         "max": 4944,                          +
-              |         "min": 1,                             +
-              |         "sum": 77527,                         +
-              |         "mean": 323.03,                       +
-              |         "type": "int_agg",                    +
-              |         "count": 240,                         +
-              |         "stddev": 471.60,                     +
-              |         "variance": 222407.61,                +
-              |         "sum_sq_diff": 53155418.80,           +
-              |         "coefficient_of_variation_pct": 145.99+
-              |     },                                        +
-              |     "punpag": {                               +
-              |         "max": 5734,                          +
-              |         "min": 3,                             +
-              |         "sum": 134963,                        +
-              |         "mean": 557.70,                       +
-              |         "type": "int_agg",                    +
-              |         "count": 242,                         +
-              |         "stddev": 687.25,                     +
-              |         "variance": 472317.65,                +
-              |         "sum_sq_diff": 113828552.98,          +
-              |         "coefficient_of_variation_pct": 123.23+
-              |     },                                        +
-              |     "selfemp": {                              +
-              |         "max": 5,                             +
-              |         "min": 0,                             +
-              |         "sum": 30,                            +
-              |         "mean": 0.12,                         +
-              |         "type": "int_agg",                    +
-              |         "count": 240,                         +
-              |         "stddev": 0.72,                       +
-              |         "variance": 0.51,                     +
-              |         "sum_sq_diff": 122.25,                +
-              |         "coefficient_of_variation_pct": 572.16+
-              |     },                                        +
-              |     "turnover": {                             +
-              |         "max": 20025,                         +
-              |         "min": 555,                           +
-              |         "sum": 184860,                        +
-              |         "mean": 620.34,                       +
-              |         "type": "float_agg",                  +
-              |         "count": 298,                         +
-              |         "stddev": 1127.87,                    +
-              |         "variance": 1272083.56,               +
-              |         "sum_sq_diff": 377808816.44,          +
-              |         "coefficient_of_variation_pct": 181.82+
-              |     },                                        +
-              |     "employees": {                            +
-              |         "max": 5863,                          +
-              |         "min": 0,                             +
-              |         "sum": 309113,                        +
-              |         "mean": 35.84,                        +
-              |         "type": "int_agg",                    +
-              |         "count": 8624,                        +
-              |         "stddev": 181.15,                     +
-              |         "variance": 32813.95,                 +
-              |         "sum_sq_diff": 282954656.17,          +
-              |         "coefficient_of_variation_pct": 505.39+
-              |     }                                         +
-              | }
+(0 rows)
 
 \x
 RESET client_min_messages;

@@ -20,30 +20,32 @@ ON CONFLICT (only_one_setting)
 DO UPDATE SET
     activity_category_standard_id = EXCLUDED.activity_category_standard_id,
     country_id = EXCLUDED.country_id;
+psql:samples/demo/getting-started.sql:9: ERROR:  null value in column "region_version_id" of relation "settings" violates not-null constraint
 \echo "User uploads the demo activity categories"
 "User uploads the demo activity categories"
-\copy public.activity_category_available_custom(path,name) FROM 'app/public/demo/activity_custom_isic_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.activity_category_enabled_custom(path,name) FROM 'app/public/demo/activity_custom_isic_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+psql:samples/demo/getting-started.sql:12: ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "User uploads the demo regions"
 "User uploads the demo regions"
 \copy public.region_upload(path, name) FROM 'app/public/demo/regions_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+psql:samples/demo/getting-started.sql:15: ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "User uploads the demo sectors"
 "User uploads the demo sectors"
 \copy public.sector_custom_only(path,name,description) FROM 'app/public/demo/sectors_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+psql:samples/demo/getting-started.sql:18: ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "User uploads the demo legal forms"
 "User uploads the demo legal forms"
 \copy public.legal_form_custom_only(code,name) FROM 'app/public/demo/legal_forms_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+psql:samples/demo/getting-started.sql:21: ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- The demo data uses data sources that are part of the core database seed.
 -- This file is included for structural consistency with other sample data sets.
 SAVEPOINT before_loading_units;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
- establishment_count | legal_unit_count | enterprise_count 
----------------------+------------------+------------------
-                   0 |                0 |                0
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Same external ident for legal unit and establishment"
 "Same external ident for legal unit and establishment"
 -- Create Import Job for Legal Units (Block 1)
@@ -55,11 +57,13 @@ SELECT
     'Import job for test/data/31_legal_units.csv (Block 1).',
     'Test data load (31_load_units_errors.sql)',
     false;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "User uploads legal units (via import job: import_31_lu_era_b1)"
 "User uploads legal units (via import job: import_31_lu_era_b1)"
 INSERT INTO public.import_31_lu_era_b1_upload(valid_from, valid_to, tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) VALUES
 ('2024-01-01','infinity','2212760144','1000','NILE PEARL WATER','01.10.2016','225613','UG','4752','4','6100',2,9000000,'nlr'),
 ('2024-01-01','infinity','2812760140','1001','EQUATOR GLOBE SOLUTIONS','01.10.2016','225602','UG','5610','1','6100',2,2400000,'nlr');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Create Import Job for Formal Establishments (Block 1 - Errors)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
 SELECT
@@ -69,21 +73,19 @@ SELECT
     'Import job for test/data/31_formal_establishments_errors.csv (Block 1).',
     'Test data load (31_load_units_errors.sql)',
     false;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "User uploads formal establishments with same stat_ident as legal units (via import job: import_31_esflu_era_b1)"
 "User uploads formal establishments with same stat_ident as legal units (via import job: import_31_esflu_era_b1)"
 INSERT INTO public.import_31_esflu_era_b1_upload(valid_from, valid_to, tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code) VALUES
 ('2024-01-01','infinity','92212760144','1000','NILE PEARL WATER','225613','UG','4752',0,0,'2212760144','nlr'),
 ('2024-01-01','infinity','92812760140','1001','EQUATOR GLOBE SOLUTIONS','225602','UG','5610',0,0,'2812760140','nlr');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo Run worker processing for import jobs - Block 1
 Run worker processing for import jobs - Block 1
 CALL worker.process_tasks(p_queue => 'import');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
-   queue   |   state   | count 
------------+-----------+-------
- analytics | pending   |     1
- import    | completed |    93
-(2 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Checking import job statuses for Block 1"
 "Checking import job statuses for Block 1"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
@@ -91,44 +93,27 @@ SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
        (SELECT COUNT(*) FROM public.import_31_esflu_era_b1_data dr WHERE dr.state = 'error') AS es_error_rows
 FROM public.import_job
 WHERE slug IN ('import_31_lu_era_b1', 'import_31_esflu_era_b1') ORDER BY slug;
-          slug          |  state   | total_rows | imported_rows | has_error | lu_error_rows | es_error_rows 
-------------------------+----------+------------+---------------+-----------+---------------+---------------
- import_31_esflu_era_b1 | finished |          2 |             0 | f         |             0 |             2
- import_31_lu_era_b1    | finished |          2 |             2 | f         |             0 |             2
-(2 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Error rows in import_31_esflu_era_b1_data (if any):"
 "Error rows in import_31_esflu_era_b1_data (if any):"
 SELECT row_id, state, errors, tax_ident_raw, stat_ident_raw, name_raw, merge_status
 FROM public.import_31_esflu_era_b1_data
 WHERE (errors IS NOT NULL AND errors IS DISTINCT FROM '{}'::JSONB) OR state = 'error'
 ORDER BY row_id;
- row_id | state |                                                                                                                                                                 errors                                                                                                                                                                 | tax_ident_raw | stat_ident_raw |        name_raw         | merge_status 
---------+-------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------+----------------+-------------------------+--------------
-      1 | error | {"tax_ident_raw": "Input {\"tax_ident\": \"92212760144\", \"stat_ident\": \"1000\"} matches existing unit {\"tax_ident\": \"2212760144\", \"stat_ident\": \"1000\"} but attempts to change tax_ident from '2212760144' to '92212760144'", "stat_ident_raw": "Identifier already used by a Legal Unit: {\"stat_ident_raw\": \"1000\"}"} | 92212760144   | 1000           | NILE PEARL WATER        | {}
-      2 | error | {"tax_ident_raw": "Input {\"tax_ident\": \"92812760140\", \"stat_ident\": \"1001\"} matches existing unit {\"tax_ident\": \"2812760140\", \"stat_ident\": \"1001\"} but attempts to change tax_ident from '2812760140' to '92812760140'", "stat_ident_raw": "Identifier already used by a Legal Unit: {\"stat_ident_raw\": \"1001\"}"} | 92812760140   | 1001           | EQUATOR GLOBE SOLUTIONS | {}
-(2 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo Run worker processing for analytics tasks - Block 1 (errors primarily tested on import queue)
 Run worker processing for analytics tasks - Block 1 (errors primarily tested on import queue)
 CALL worker.process_tasks(p_queue => 'analytics');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
-   queue   |   state   | count 
------------+-----------+-------
- analytics | completed |   194
- import    | completed |    93
-(2 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 ROLLBACK TO before_loading_units;
+ERROR:  savepoint "before_loading_units" does not exist
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
- establishment_count | legal_unit_count | enterprise_count 
----------------------+------------------+------------------
-                   0 |                0 |                0
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Same external ident for formal establishment and informal establishment"
 "Same external ident for formal establishment and informal establishment"
 -- Create Import Job for Legal Units (Block 2)
@@ -140,11 +125,13 @@ SELECT
     'Import job for test/data/31_legal_units.csv (Block 2).',
     'Test data load (31_load_units_errors.sql)',
     false;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "User uploads legal units (via import job: import_31_lu_era_b2)"
 "User uploads legal units (via import job: import_31_lu_era_b2)"
 INSERT INTO public.import_31_lu_era_b2_upload(valid_from, valid_to, tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) VALUES
 ('2024-01-01','infinity','2212760144','1000','NILE PEARL WATER','01.10.2016','225613','UG','4752','4','6100',2,9000000,'nlr'),
 ('2024-01-01','infinity','2812760140','1001','EQUATOR GLOBE SOLUTIONS','01.10.2016','225602','UG','5610','1','6100',2,2400000,'nlr');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Create Import Job for Formal Establishments (Block 2)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
 SELECT
@@ -154,11 +141,13 @@ SELECT
     'Import job for test/data/31_formal_establishments.csv (Block 2).',
     'Test data load (31_load_units_errors.sql)',
     false;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "User uploads formal establishments (via import job: import_31_esflu_era_b2)"
 "User uploads formal establishments (via import job: import_31_esflu_era_b2)"
 INSERT INTO public.import_31_esflu_era_b2_upload(valid_from, valid_to, tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code) VALUES
 ('2024-01-01','infinity','92212760144','2000','NILE PEARL WATER','225613','UG','4752',0,0,'2212760144','nlr'),
 ('2024-01-01','infinity','92812760140','2001','EQUATOR GLOBE SOLUTIONS','225602','UG','5610',0,0,'2812760140','nlr');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Create Import Job for Informal Establishments (Block 2 - Errors)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
 SELECT
@@ -168,30 +157,24 @@ SELECT
     'Import job for test/data/31_informal_establishments_errors.csv (Block 2).',
     'Test data load (31_load_units_errors.sql)',
     false;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "User uploads informal establishments with same stat_idents as formal establishments (via import job: import_31_eswlu_era_b2_errors)"
 "User uploads informal establishments with same stat_idents as formal establishments (via import job: import_31_eswlu_era_b2_errors)"
 INSERT INTO public.import_31_eswlu_era_b2_errors_upload(valid_from, valid_to, tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code) VALUES
 ('2024-01-01','infinity','82212760144','2000','THE NILE PEARL WATER','225613','UG','4752',1,1200,'nlr'),
 ('2024-01-01','infinity','82812760140','2001','THE  EQUATOR GLOBE SOLUTIONS','225602','UG','5610',2,4400,'nlr');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo Run worker processing for import jobs - Block 2
 Run worker processing for import jobs - Block 2
 CALL worker.process_tasks(p_queue => 'import');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
-   queue   |   state   | count 
------------+-----------+-------
- analytics | pending   |     1
- import    | completed |   140
-(2 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
- establishment_count | legal_unit_count | enterprise_count 
----------------------+------------------+------------------
-                   2 |                2 |                2
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Checking import job statuses for Block 2"
 "Checking import job statuses for Block 2"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
@@ -200,45 +183,27 @@ SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
        (SELECT COUNT(*) FROM public.import_31_eswlu_era_b2_errors_data dr WHERE dr.state = 'error') AS es_informal_error_rows
 FROM public.import_job
 WHERE slug IN ('import_31_lu_era_b2', 'import_31_esflu_era_b2', 'import_31_eswlu_era_b2_errors') ORDER BY slug;
-             slug              |  state   | total_rows | imported_rows | has_error | lu_error_rows | es_formal_error_rows | es_informal_error_rows 
--------------------------------+----------+------------+---------------+-----------+---------------+----------------------+------------------------
- import_31_esflu_era_b2        | finished |          2 |             2 | f         |             0 |                    0 |                      2
- import_31_eswlu_era_b2_errors | finished |          2 |             0 | f         |             0 |                    0 |                      2
- import_31_lu_era_b2           | finished |          2 |             2 | f         |             0 |                    0 |                      2
-(3 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Error rows in import_31_eswlu_era_b2_errors_data (if any):"
 "Error rows in import_31_eswlu_era_b2_errors_data (if any):"
 SELECT row_id, state, errors, tax_ident_raw, stat_ident_raw, name_raw, merge_status
 FROM public.import_31_eswlu_era_b2_errors_data
 WHERE (errors IS NOT NULL AND errors IS DISTINCT FROM '{}'::JSONB) OR state = 'error'
 ORDER BY row_id;
- row_id | state |                                                                                                                                                                       errors                                                                                                                                                                       | tax_ident_raw | stat_ident_raw |           name_raw           | merge_status 
---------+-------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------+----------------+------------------------------+--------------
-      1 | error | {"tax_ident_raw": "Input {\"tax_ident\": \"82212760144\", \"stat_ident\": \"2000\"} matches existing unit {\"tax_ident\": \"92212760144\", \"stat_ident\": \"2000\"} but attempts to change tax_ident from '92212760144' to '82212760144'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"2000\"}"} | 82212760144   | 2000           | THE NILE PEARL WATER         | {}
-      2 | error | {"tax_ident_raw": "Input {\"tax_ident\": \"82812760140\", \"stat_ident\": \"2001\"} matches existing unit {\"tax_ident\": \"92812760140\", \"stat_ident\": \"2001\"} but attempts to change tax_ident from '92812760140' to '82812760140'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"2001\"}"} | 82812760140   | 2001           | THE  EQUATOR GLOBE SOLUTIONS | {}
-(2 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo Run worker processing for analytics tasks - Block 2 (errors primarily tested on import queue)
 Run worker processing for analytics tasks - Block 2 (errors primarily tested on import queue)
 CALL worker.process_tasks(p_queue => 'analytics');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
-   queue   |   state   | count 
------------+-----------+-------
- analytics | completed |   133
- import    | completed |   140
-(2 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 ROLLBACK TO before_loading_units;
+ERROR:  savepoint "before_loading_units" does not exist
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
- establishment_count | legal_unit_count | enterprise_count 
----------------------+------------------+------------------
-                   0 |                0 |                0
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "User uploads legal units with invalid latitude"
 "User uploads legal units with invalid latitude"
 -- Create Import Job for Legal Units (Block 3 - Coordinate Errors)
@@ -250,8 +215,7 @@ SELECT
     'Import job with various physical coordinate errors for Legal Units (Block 3).',
     'Test data load (31_load_units_errors.sql)',
     false;
-NOTICE:  identifier "import_31_lu_era_b3_coord_errors_upload_check_state_before_insert" will be truncated to "import_31_lu_era_b3_coord_errors_upload_check_state_before_inse"
-NOTICE:  identifier "import_31_lu_era_b3_coord_errors_upload_update_state_after_insert" will be truncated to "import_31_lu_era_b3_coord_errors_upload_update_state_after_inse"
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT INTO public.import_31_lu_era_b3_coord_errors_upload(valid_from, valid_to, tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code, physical_latitude, physical_longitude, physical_altitude, web_address, email_address, phone_number) VALUES
 -- Original: Latitude out of range (cast error)
 ('2024-01-01','infinity','2212760144','1000','NILE PEARL WATER','01.10.2016','225613','UG','4752','4','6100',2,9000000,'nlr','3333333','32.2984354','1144','nilepearlwater.ug','contact@npw.ug','123456789'),
@@ -267,16 +231,13 @@ INSERT INTO public.import_31_lu_era_b3_coord_errors_upload(valid_from, valid_to,
 ('2024-01-01','infinity','3000000006','3006','Longitude Text Test LU','01.01.2024','225613','UG','0111','1','1100',1,100000,'test','10.0','def','100',NULL,NULL,NULL),
 -- New: Altitude invalid text
 ('2024-01-01','infinity','3000000007','3007','Altitude Text Test LU','01.01.2024','225613','UG','0111','1','1100',1,100000,'test','10.0','30.0','ghi',NULL,NULL,NULL);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo Run worker processing for import jobs - Block 3
 Run worker processing for import jobs - Block 3
 CALL worker.process_tasks(p_queue => 'import');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
-   queue   |   state   | count 
------------+-----------+-------
- analytics | pending   |     1
- import    | completed |    47
-(2 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Checking import job status for Block 3 (import_31_lu_era_b3_coord_errors)"
 "Checking import job status for Block 3 (import_31_lu_era_b3_coord_errors)"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
@@ -284,37 +245,21 @@ SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
 FROM public.import_job
 WHERE slug = 'import_31_lu_era_b3_coord_errors'
 ORDER BY slug;
-               slug               |  state   | total_rows | imported_rows | has_error | error_rows 
-----------------------------------+----------+------------+---------------+-----------+------------
- import_31_lu_era_b3_coord_errors | finished |          7 |             1 | f         |          6
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Error rows in import_31_lu_era_b3_coord_errors_data (if any):"
 "Error rows in import_31_lu_era_b3_coord_errors_data (if any):"
 SELECT row_id, state, errors, tax_ident_raw, name_raw, physical_latitude_raw, merge_status
 FROM public.import_31_lu_era_b3_coord_errors_data
 WHERE (errors IS NOT NULL AND errors IS DISTINCT FROM '{}'::JSONB) OR state = 'error'
 ORDER BY row_id;
- row_id | state |                                                         errors                                                         | tax_ident_raw |         name_raw          | physical_latitude_raw | merge_status 
---------+-------+------------------------------------------------------------------------------------------------------------------------+---------------+---------------------------+-----------------------+--------------
-      1 | error | {"physical_latitude_raw": "Value '3333333' is out of range for type NUMERIC(9,6). SQLSTATE: 22003"}                    | 2212760144    | NILE PEARL WATER          | 3333333               | {}
-      3 | error | {"physical_longitude_raw": "Value 190.123456 out of range. Expected -180 to 180."}                                     | 3000000003    | Longitude Range Test LU   | 10.0                  | {}
-      4 | error | {"physical_altitude_raw": "Value -50.5 cannot be negative. Expected >= 0."}                                            | 3000000004    | Altitude Negative Test LU | 10.0                  | {}
-      5 | error | {"physical_latitude_raw": "Value 'abc' is not a valid numeric representation for type NUMERIC(9,6). SQLSTATE: 22P02"}  | 3000000005    | Latitude Text Test LU     | abc                   | {}
-      6 | error | {"physical_longitude_raw": "Value 'def' is not a valid numeric representation for type NUMERIC(9,6). SQLSTATE: 22P02"} | 3000000006    | Longitude Text Test LU    | 10.0                  | {}
-      7 | error | {"physical_altitude_raw": "Value 'ghi' is not a valid numeric representation for type NUMERIC(6,1). SQLSTATE: 22P02"}  | 3000000007    | Altitude Text Test LU     | 10.0                  | {}
-(6 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 ROLLBACK TO before_loading_units;
+ERROR:  savepoint "before_loading_units" does not exist
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
- establishment_count | legal_unit_count | enterprise_count 
----------------------+------------------+------------------
-                   0 |                0 |                0
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "User uploads legal units with postal coordinates (error condition)"
 "User uploads legal units with postal coordinates (error condition)"
 -- Create Import Job for Legal Units (Block 4 - Postal Coordinate Errors)
@@ -326,15 +271,12 @@ SELECT
     'Import job with postal coordinate errors for Legal Units (Block 4).',
     'Test data load (31_load_units_errors.sql)',
     false;
-NOTICE:  identifier "import_31_lu_postal_coord_errors_upload_check_state_before_insert" will be truncated to "import_31_lu_postal_coord_errors_upload_check_state_before_inse"
-NOTICE:  identifier "import_31_lu_postal_coord_errors_upload_update_state_after_insert" will be truncated to "import_31_lu_postal_coord_errors_upload_update_state_after_inse"
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT INTO public.import_31_lu_postal_coord_errors_upload(
     valid_from, valid_to, tax_ident, stat_ident, name, birth_date, data_source_code,
     postal_address_part1, postal_country_iso_2, postal_latitude, postal_longitude, postal_altitude
 ) VALUES
 ('2024-01-01','infinity','4000000001','4001','Postal Coord Test LU 1','01.01.2024','test', 'PO Box 123', 'UG', '1.0', '32.0', '1100'),
 ('2024-01-01','infinity','4000000002','4002','Postal Coord Test LU 2 (No Coords)','01.01.2024','test', 'PO Box 456', 'UG', NULL, NULL, NULL);
-ERROR:  column "postal_latitude" of relation "import_31_lu_postal_coord_errors_upload" does not exist
-LINE 3:     postal_address_part1, postal_country_iso_2, postal_latit...
-                                                        ^
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 ROLLBACK;
