@@ -27,7 +27,10 @@ In standalone/private mode, uses pre-pulled images.`,
 var stopCmd = &cobra.Command{
 	Use:   "stop [profile]",
 	Short: "Stop services (default: all)",
-	Args:  cobra.MaximumNArgs(1),
+	Long: `Stop StatBus services using docker compose.
+
+Profiles: all, all_except_app, app`,
+	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		profile := "all"
 		if len(args) > 0 {
@@ -40,7 +43,10 @@ var stopCmd = &cobra.Command{
 var restartCmd = &cobra.Command{
 	Use:   "restart [profile]",
 	Short: "Restart services (default: all)",
-	Args:  cobra.MaximumNArgs(1),
+	Long: `Restart StatBus services (stop then start).
+
+Profiles: all, all_except_app, app`,
+	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		profile := "all"
 		if len(args) > 0 {
@@ -69,10 +75,16 @@ var logsCmd = &cobra.Command{
 
 var buildCmd = &cobra.Command{
 	Use:   "build [profile]",
-	Short: "Build service images",
-	Args:  cobra.MaximumNArgs(1),
+	Short: "Build service images from source (development only)",
+	Long: `Build Docker images from local Dockerfiles.
+
+Profiles: all, all_except_app, app
+
+This is for development only — standalone/private deployments
+use pre-built images from ghcr.io (pulled by 'sb start').`,
+	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		profile := ""
+		profile := "all"
 		if len(args) > 0 {
 			profile = args[0]
 		}

@@ -85,9 +85,10 @@ func Pull(profile string) error {
 }
 
 // Build builds images for all services.
+// Profile is required (services are gated behind profiles).
 func Build(profile string) error {
 	if profile == "" {
-		return Run("build")
+		profile = "all"
 	}
 	return RunWithProfile(profile, "build")
 }
