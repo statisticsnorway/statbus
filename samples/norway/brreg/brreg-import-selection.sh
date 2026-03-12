@@ -45,28 +45,30 @@ echo "Creating import jobs for selection data"
 # Create import job for hovedenhet (legal units) selection
 $WORKSPACE/devops/manage-statbus.sh psql -c "
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet_2024')
-INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, note, user_id)
+INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, note, user_id, review)
 SELECT def.id,
        'import_hovedenhet_${YEAR}_selection',
        '${YEAR}-01-01'::DATE,
        'infinity'::DATE,
        'Import Job for BRREG Hovedenhet ${YEAR} Selection',
        'This job handles the import of BRREG Hovedenhet selection data for ${YEAR}.',
-       (select id from public.user where email = '${USER_EMAIL}')
+       (select id from public.user where email = '${USER_EMAIL}'),
+       false
 FROM def
 ON CONFLICT (slug) DO NOTHING;"
 
 # Create import job for underenhet (establishments) selection
 $WORKSPACE/devops/manage-statbus.sh psql -c "
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet_2024')
-INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, note, user_id)
+INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, note, user_id, review)
 SELECT def.id,
        'import_underenhet_${YEAR}_selection',
        '${YEAR}-01-01'::DATE,
        'infinity'::DATE,
        'Import Job for BRREG Underenhet ${YEAR} Selection',
        'This job handles the import of BRREG Underenhet selection data for ${YEAR}.',
-       (select id from public.user where email = '${USER_EMAIL}')
+       (select id from public.user where email = '${USER_EMAIL}'),
+       false
 FROM def
 ON CONFLICT (slug) DO NOTHING;"
 
@@ -91,14 +93,15 @@ $WORKSPACE/devops/manage-statbus.sh psql < samples/norway/brreg/create-import-de
 echo "Creating import job for roller selection data"
 $WORKSPACE/devops/manage-statbus.sh psql -c "
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_roller_2025')
-INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, note, user_id)
+INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, note, user_id, review)
 SELECT def.id,
        'import_roller_${YEAR}_selection',
        '${YEAR}-01-01'::DATE,
        'infinity'::DATE,
        'Import Job for BRREG Roller ${YEAR} Selection',
        'This job imports org-to-org controlling relationships from BRREG roller selection data.',
-       (select id from public.user where email = '${USER_EMAIL}')
+       (select id from public.user where email = '${USER_EMAIL}'),
+       false
 FROM def
 ON CONFLICT (slug) DO NOTHING;"
 

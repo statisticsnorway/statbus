@@ -56,34 +56,38 @@ echo "Creating import jobs for current data"
 # Create import job for hovedenhet (legal units)
 $WORKSPACE/devops/manage-statbus.sh psql -c "
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet_2025')
-INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, note, user_id)
+INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, note, user_id, review)
 SELECT def.id,
        'import_hovedenhet_2025',
        '${TODAY}'::DATE,
        'infinity'::DATE,
        'Import Job for BRREG Hovedenhet 2025 (Current)',
        'This job handles the import of current BRREG Hovedenhet data.',
-       (select id from public.user where email = '${USER_EMAIL}')
+       (select id from public.user where email = '${USER_EMAIL}'),
+       false
 FROM def
 ON CONFLICT (slug) DO UPDATE SET
     default_valid_from = '${TODAY}'::DATE,
-    default_valid_to = 'infinity'::DATE;"
+    default_valid_to = 'infinity'::DATE,
+    review = false;"
 
 # Create import job for underenhet (establishments)
 $WORKSPACE/devops/manage-statbus.sh psql -c "
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet_2025')
-INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, note, user_id)
+INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, note, user_id, review)
 SELECT def.id,
        'import_underenhet_2025',
        '${TODAY}'::DATE,
        'infinity'::DATE,
        'Import Job for BRREG Underenhet 2025 (Current)',
        'This job handles the import of current BRREG Underenhet data.',
-       (select id from public.user where email = '${USER_EMAIL}')
+       (select id from public.user where email = '${USER_EMAIL}'),
+       false
 FROM def
 ON CONFLICT (slug) DO UPDATE SET
     default_valid_from = '${TODAY}'::DATE,
-    default_valid_to = 'infinity'::DATE;"
+    default_valid_to = 'infinity'::DATE,
+    review = false;"
 
 # Load data into import tables
 if [ -f "$legal_unit_file" ]; then
@@ -116,18 +120,20 @@ if [ -f "$roller_file" ]; then
     # Create import job
     $WORKSPACE/devops/manage-statbus.sh psql -c "
     WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_roller_2025')
-    INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, note, user_id)
+    INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, note, user_id, review)
     SELECT def.id,
            'import_roller_2025',
            '${TODAY}'::DATE,
            'infinity'::DATE,
            'Import Job for BRREG Roller 2025 (Legal Relationships)',
            'This job imports org-to-org controlling relationships from BRREG roller data.',
-           (select id from public.user where email = '${USER_EMAIL}')
+           (select id from public.user where email = '${USER_EMAIL}'),
+           false
     FROM def
     ON CONFLICT (slug) DO UPDATE SET
         default_valid_from = '${TODAY}'::DATE,
-        default_valid_to = 'infinity'::DATE;"
+        default_valid_to = 'infinity'::DATE,
+        review = false;"
 
     # Load data
     echo "Loading roller (legal relationships) data"
