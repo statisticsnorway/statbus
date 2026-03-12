@@ -1443,6 +1443,7 @@ NOTICE:  Dropped index su_ss_turnover_count_idx
 NOTICE:  Dropped index su_ss_turnover_sum_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
 NOTICE:  Created indices for stat_definition employees
 NOTICE:  Created indices for stat_definition turnover
             jsonb_pretty             
@@ -1527,6 +1528,10 @@ NOTICE:  Created indices for stat_definition turnover
          "changed_count": 0,        +
          "deleted_count": 0         +
      },                             +
+     "region_version": {            +
+         "changed_count": 0,        +
+         "deleted_count": 0         +
+     },                             +
      "person_for_unit": {           +
          "deleted_count": 0         +
      },                             +
@@ -1553,10 +1558,16 @@ NOTICE:  Created indices for stat_definition turnover
          "deleted_count": 0         +
      },                             +
      "external_ident_type": {       +
-         "deleted_count": 3         +
+         "deleted_count": 2         +
+     },                             +
+     "activity_category_all": {     +
+         "deleted_count": 1813      +
      },                             +
      "foreign_participation": {     +
          "changed_count": 0,        +
+         "deleted_count": 0         +
+     },                             +
+     "activity_category_standard": {+
          "deleted_count": 0         +
      }                              +
  }
@@ -1582,17 +1593,17 @@ SELECT * FROM import_data_column_baseline EXCEPT SELECT step_id, priority, colum
        5 |        6 | legal_unit_person_ident_raw | TEXT        | source_input | t           |               | f
        5 |        5 | legal_unit_stat_ident_raw   | TEXT        | source_input | t           |               | f
        5 |        4 | legal_unit_tax_ident_raw    | TEXT        | source_input | t           |               | f
-       2 |       16 | person_ident_raw            | TEXT        | source_input | t           |               | t
-(4 rows)
+(3 rows)
 
 \echo "Added import_data_column rows after reset (should be empty - deterministic priorities):"
 "Added import_data_column rows after reset (should be empty - deterministic priorities):"
 SELECT step_id, priority, column_name, column_type, purpose::text, is_nullable, default_value, is_uniquely_identifying FROM public.import_data_column EXCEPT SELECT * FROM import_data_column_baseline;
- step_id | priority |        column_name        | column_type |   purpose    | is_nullable | default_value | is_uniquely_identifying 
----------+----------+---------------------------+-------------+--------------+-------------+---------------+-------------------------
-       5 |        3 | legal_unit_stat_ident_raw | TEXT        | source_input | t           |               | f
-       5 |        2 | legal_unit_tax_ident_raw  | TEXT        | source_input | t           |               | f
-(2 rows)
+ step_id | priority |         column_name         | column_type |   purpose    | is_nullable | default_value | is_uniquely_identifying 
+---------+----------+-----------------------------+-------------+--------------+-------------+---------------+-------------------------
+       5 |        4 | legal_unit_person_ident_raw | TEXT        | source_input | t           |               | f
+       5 |        3 | legal_unit_stat_ident_raw   | TEXT        | source_input | t           |               | f
+       5 |        2 | legal_unit_tax_ident_raw    | TEXT        | source_input | t           |               | f
+(3 rows)
 
 \echo "Baseline import_source_column content (ordered by column_name for comparison):"
 "Baseline import_source_column content (ordered by column_name for comparison):"

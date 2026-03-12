@@ -276,4 +276,70 @@ BEGIN
 END;
 $analyse_data_source$;
 
+-- Reverse of section 10b-d and 11: Restore _available and _active references
+-- in procedures and functions that were dynamically rewritten in the up migration.
+-- Uses the same DO-block approach: get the current function def, replace
+-- _enabled back to the original names, and re-create.
+DO $do$
+DECLARE
+    v_funcs TEXT[] := ARRAY[
+        -- Section 10b-d procedures (need _enabled → _available for view references)
+        'import.analyse_legal_unit(integer,integer,text)',
+        'import.analyse_establishment(integer,integer,text)',
+        'import.analyse_activity(integer,integer,text)',
+        -- Section 11 functions (need _enabled → _active for view references)
+        'import.analyse_external_idents(integer,integer,text)',
+        'admin.generate_statistical_unit_jsonb_indices()',
+        'import.generate_external_ident_data_columns()',
+        'import.cleanup_external_ident_data_columns()',
+        'import.generate_link_lu_data_columns()',
+        'import.cleanup_link_lu_data_columns()',
+        'import.synchronize_default_definitions_all_steps()',
+        'import.generate_stat_var_data_columns()',
+        'import.cleanup_stat_var_data_columns()',
+        'import.process_statistical_variables(integer,integer,text)',
+        'import.analyse_statistical_variables(integer,integer,text)',
+        'import.synchronize_definition_step_mappings(integer)',
+        'import.create_source_and_mappings_for_definition(integer,text[])'
+    ];
+    v_func_sig TEXT;
+    v_func_oid OID;
+    v_funcdef TEXT;
+    v_new_funcdef TEXT;
+BEGIN
+    FOREACH v_func_sig IN ARRAY v_funcs LOOP
+        BEGIN
+            v_func_oid := v_func_sig::regprocedure;
+        EXCEPTION WHEN OTHERS THEN
+            RAISE WARNING 'Function % not found, skipping', v_func_sig;
+            CONTINUE;
+        END;
+
+        v_funcdef := pg_get_functiondef(v_func_oid);
+
+        -- For section 11 functions: _enabled → _active (these used _active before)
+        v_new_funcdef := replace(v_funcdef, 'external_ident_type_enabled', 'external_ident_type_active');
+        v_new_funcdef := replace(v_new_funcdef, 'stat_definition_enabled', 'stat_definition_active');
+
+        -- For section 10b-d procedures: _enabled → _available (these used _available before)
+        -- The batch API views: legal_form_enabled, sector_enabled, unit_size_enabled,
+        -- data_source_enabled, activity_category_enabled → _available
+        v_new_funcdef := replace(v_new_funcdef, 'legal_form_enabled', 'legal_form_available');
+        v_new_funcdef := replace(v_new_funcdef, 'sector_enabled', 'sector_available');
+        v_new_funcdef := replace(v_new_funcdef, 'unit_size_enabled', 'unit_size_available');
+        v_new_funcdef := replace(v_new_funcdef, 'data_source_enabled', 'data_source_available');
+        v_new_funcdef := replace(v_new_funcdef, 'activity_category_enabled', 'activity_category_available');
+
+        IF v_new_funcdef IS DISTINCT FROM v_funcdef THEN
+            v_new_funcdef := replace(v_new_funcdef, 'CREATE FUNCTION', 'CREATE OR REPLACE FUNCTION');
+            v_new_funcdef := replace(v_new_funcdef, 'CREATE PROCEDURE', 'CREATE OR REPLACE PROCEDURE');
+            EXECUTE v_new_funcdef;
+            RAISE NOTICE 'Restored function % with original view references', v_func_sig;
+        ELSE
+            RAISE NOTICE 'Function % had no _enabled references to revert, skipping', v_func_sig;
+        END IF;
+    END LOOP;
+END;
+$do$;
+
 END;

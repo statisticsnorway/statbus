@@ -301,7 +301,7 @@ Policies:
     POLICY "t54_lu_tc_data_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 
 \echo '--------------------------------------------------'
 --------------------------------------------------
@@ -456,7 +456,7 @@ Policies:
     POLICY "t54_lu_sd_data_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 
 \echo '--------------------------------------------------'
 --------------------------------------------------
@@ -611,7 +611,7 @@ Policies:
     POLICY "t54_est_lu_tc_data_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 
 \echo '--------------------------------------------------'
 --------------------------------------------------
@@ -766,7 +766,7 @@ Policies:
     POLICY "t54_est_lu_sd_data_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 
 \echo '--------------------------------------------------'
 --------------------------------------------------
@@ -919,7 +919,7 @@ Policies:
     POLICY "t54_est_wolu_tc_data_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 
 \echo '--------------------------------------------------'
 --------------------------------------------------
@@ -1072,7 +1072,7 @@ Policies:
     POLICY "t54_est_wolu_sd_data_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 
 \echo '--------------------------------------------------'
 --------------------------------------------------
@@ -1146,7 +1146,7 @@ Policies:
     POLICY "t54_gus_jp_data_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 
 \echo '--------------------------------------------------'
 --------------------------------------------------
@@ -1220,7 +1220,7 @@ Policies:
     POLICY "t54_gus_sd_data_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 
 \echo '--------------------------------------------------'
 --------------------------------------------------

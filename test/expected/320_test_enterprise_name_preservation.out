@@ -77,14 +77,11 @@ INSERT INTO public.test320_main_company_upload (
     'mi', '2023-01-01', 'Main St 1', '1000', 'Oslo', '0301', 'NO', '01.110'
 );
 CALL worker.process_tasks(p_queue => 'import');
-WARNING:  [Job 93] Error in procedure import.analyse_statistical_variables for step Statistical Variables: relation "public.stat_definition_active" does not exist
-WARNING:  [Job 93] Error detected during analysis phase: {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}. Transitioning to finished.
 -- Get enterprise ID
 SELECT lu.enterprise_id AS main_enterprise_id
 FROM public.legal_unit lu
 JOIN public.external_ident ei ON ei.legal_unit_id = lu.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
 WHERE ei.ident = 'MAIN001' LIMIT 1 \gset
-no rows returned for \gset
 -- Step 2: Create subsidiary with later valid_from
 \echo 'Step 2: Creating subsidiary "Subsidiary Company AS" with later valid_from'
 Step 2: Creating subsidiary "Subsidiary Company AS" with later valid_from
@@ -99,14 +96,11 @@ INSERT INTO public.test320_subsidiary_upload (
     'mi', '2023-06-01', 'Sub St 2', '5000', 'Bergen', '4601', 'NO', '02.100'
 );
 CALL worker.process_tasks(p_queue => 'import');
-WARNING:  [Job 94] Error in procedure import.analyse_statistical_variables for step Statistical Variables: relation "public.stat_definition_active" does not exist
-WARNING:  [Job 94] Error detected during analysis phase: {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}. Transitioning to finished.
 -- Get subsidiary legal unit ID
 SELECT lu.id AS sub_legal_unit_id
 FROM public.legal_unit lu
 JOIN public.external_ident ei ON ei.legal_unit_id = lu.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
 WHERE ei.ident = 'SUB001' LIMIT 1 \gset
-no rows returned for \gset
 -- Step 3: Link subsidiary to main enterprise
 \echo 'Step 3: Linking subsidiary to main enterprise'
 Step 3: Linking subsidiary to main enterprise
@@ -116,11 +110,12 @@ SELECT public.connect_legal_unit_to_enterprise(
     '2023-06-01'::date, 
     'infinity'::date
 ) AS connection_result;
-ERROR:  syntax error at or near ":"
-LINE 2:     :sub_legal_unit_id, 
-            ^
+                                              connection_result                                              
+-------------------------------------------------------------------------------------------------------------
+ {"new_enterprise_id": 1, "old_enterprise_id": 2, "deleted_enterprise_id": 2, "updated_legal_unit_ids": [2]}
+(1 row)
+
 CALL worker.process_tasks(p_queue => 'analytics');
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Step 4: Verify enterprise name is preserved
 \echo 'Step 4: Verify enterprise name stays "Main Company Ltd" (from primary LU)'
 Step 4: Verify enterprise name stays "Main Company Ltd" (from primary LU)
@@ -132,9 +127,12 @@ SELECT
 FROM public.timeline_enterprise ten
 WHERE ten.enterprise_id = :main_enterprise_id
 ORDER BY ten.valid_from;
-ERROR:  syntax error at or near ":"
-LINE 7: WHERE ten.enterprise_id = :main_enterprise_id
-                                  ^
+ enterprise_id | enterprise_name  | valid_from | valid_until 
+---------------+------------------+------------+-------------
+             1 | Main Company Ltd | 2023-01-01 | 2023-06-01
+             1 | Main Company Ltd | 2023-06-01 | 2024-01-01
+(2 rows)
+
 -- Show legal units and their primary status
 \echo 'Legal units in enterprise (primary_for_enterprise status):'
 Legal units in enterprise (primary_for_enterprise status):
@@ -147,9 +145,12 @@ FROM public.legal_unit lu
 JOIN public.external_ident ei ON ei.legal_unit_id = lu.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
 WHERE lu.enterprise_id = :main_enterprise_id
 ORDER BY lu.valid_from;
-ERROR:  syntax error at or near ":"
-LINE 8: WHERE lu.enterprise_id = :main_enterprise_id
-                                 ^
+    legal_unit_name    | tax_ident | primary_for_enterprise | valid_from 
+-----------------------+-----------+------------------------+------------
+ Main Company Ltd      | MAIN001   | t                      | 2023-01-01
+ Subsidiary Company AS | SUB001    | f                      | 2023-06-01
+(2 rows)
+
 ROLLBACK TO scenario_1;
 \echo 'Scenario 1 complete.'
 Scenario 1 complete.
@@ -185,29 +186,27 @@ INSERT INTO public.test320_informal_es_upload (
     'Market Square 1', '1000', 'Oslo', '0301', 'NO', '47.810', 'mi'
 );
 CALL worker.process_tasks(p_queue => 'import');
-WARNING:  [Job 95] Error in procedure import.analyse_statistical_variables for step Statistical Variables: relation "public.stat_definition_active" does not exist
-WARNING:  [Job 95] Error detected during analysis phase: {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}. Transitioning to finished.
 CALL worker.process_tasks(p_queue => 'analytics');
 -- Get enterprise ID
 SELECT est.enterprise_id AS informal_enterprise_id
 FROM public.establishment est
 JOIN public.external_ident ei ON ei.establishment_id = est.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
 WHERE ei.ident = 'INFORMAL001' LIMIT 1 \gset
-no rows returned for \gset
 \echo 'Enterprise name before LU connection (from ES):'
 Enterprise name before LU connection (from ES):
 SELECT ten.name AS enterprise_name
 FROM public.timeline_enterprise ten
 WHERE ten.enterprise_id = :informal_enterprise_id;
-ERROR:  syntax error at or near ":"
-LINE 3: WHERE ten.enterprise_id = :informal_enterprise_id;
-                                  ^
+  enterprise_name   
+--------------------
+ Street Vendor Shop
+(1 row)
+
 -- Step 2: Create formal legal unit
 \echo 'Step 2: Creating formal legal unit "Registered Business Ltd"'
 Step 2: Creating formal legal unit "Registered Business Ltd"
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
 VALUES (:import_def_id, 'test320_formal_lu', 'Formal LU', 'Test 320 Formal', :default_edit_comment);
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT INTO public.test320_formal_lu_upload (
     tax_ident, name, valid_from, valid_to, sector_code, legal_form_code, 
     data_source_code, birth_date, physical_address_part1, physical_postcode, 
@@ -216,15 +215,12 @@ INSERT INTO public.test320_formal_lu_upload (
     'FORMAL001', 'Registered Business Ltd', '2023-01-01', '2023-12-31', '2100', 'AS', 
     'mi', '2023-01-01', 'Business Park 1', '1000', 'Oslo', '0301', 'NO', '47.810'
 );
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 CALL worker.process_tasks(p_queue => 'import');
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Get legal unit ID
 SELECT lu.id AS formal_lu_id
 FROM public.legal_unit lu
 JOIN public.external_ident ei ON ei.legal_unit_id = lu.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
 WHERE ei.ident = 'FORMAL001' LIMIT 1 \gset
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Step 3: Connect legal unit to enterprise
 \echo 'Step 3: Connecting legal unit to informal enterprise'
 Step 3: Connecting legal unit to informal enterprise
@@ -234,19 +230,22 @@ SELECT public.connect_legal_unit_to_enterprise(
     '2023-01-01'::date, 
     'infinity'::date
 ) AS connection_result;
-ERROR:  syntax error at or near ":"
-LINE 2:     :formal_lu_id, 
-            ^
+                                              connection_result                                              
+-------------------------------------------------------------------------------------------------------------
+ {"new_enterprise_id": 3, "old_enterprise_id": 4, "deleted_enterprise_id": 4, "updated_legal_unit_ids": [3]}
+(1 row)
+
 CALL worker.process_tasks(p_queue => 'analytics');
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo 'Enterprise name after LU connection (should be from LU):'
 Enterprise name after LU connection (should be from LU):
 SELECT ten.name AS enterprise_name
 FROM public.timeline_enterprise ten
 WHERE ten.enterprise_id = :informal_enterprise_id;
-ERROR:  syntax error at or near ":"
-LINE 3: WHERE ten.enterprise_id = :informal_enterprise_id;
-                                  ^
+     enterprise_name     
+-------------------------
+ Registered Business Ltd
+(1 row)
+
 ROLLBACK TO scenario_2;
 \echo 'Scenario 2 complete.'
 Scenario 2 complete.
@@ -279,8 +278,6 @@ INSERT INTO public.test320_noise_lu_upload (
     'mi', '2023-01-01', 'Noise St 99', '9999', 'Hammerfest', '5601', 'NO', '01.110'
 );
 CALL worker.process_tasks(p_queue => 'import');
-WARNING:  [Job 96] Error in procedure import.analyse_statistical_variables for step Statistical Variables: relation "public.stat_definition_active" does not exist
-WARNING:  [Job 96] Error detected during analysis phase: {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}. Transitioning to finished.
 \echo 'Creating background noise: Unrelated informal ES (no LU)'
 Creating background noise: Unrelated informal ES (no LU)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
@@ -295,8 +292,6 @@ INSERT INTO public.test320_noise_es_upload (
     'Remote Market 1', '9990', 'Vardø', '5601', 'NO', '47.810', 'mi'
 );
 CALL worker.process_tasks(p_queue => 'import');
-WARNING:  [Job 97] Error in procedure import.analyse_statistical_variables for step Statistical Variables: relation "public.stat_definition_active" does not exist
-WARNING:  [Job 97] Error detected during analysis phase: {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}. Transitioning to finished.
 \echo 'Creating background noise: Another LU without any ES'
 Creating background noise: Another LU without any ES
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
@@ -310,8 +305,6 @@ INSERT INTO public.test320_noise_lu_no_es_upload (
     'mi', '2023-01-01', 'Holding St 1', '1000', 'Oslo', '0301', 'NO', '64.200'
 );
 CALL worker.process_tasks(p_queue => 'import');
-WARNING:  [Job 98] Error in procedure import.analyse_statistical_variables for step Statistical Variables: relation "public.stat_definition_active" does not exist
-WARNING:  [Job 98] Error detected during analysis phase: {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}. Transitioning to finished.
 CALL worker.process_tasks(p_queue => 'analytics');
 \echo ''
 
@@ -335,14 +328,11 @@ INSERT INTO public.test320_alpha_upload (
     'mi', '2023-01-01', 'Alpha St 1', '1000', 'Oslo', '0301', 'NO', '62.010'
 );
 CALL worker.process_tasks(p_queue => 'import');
-WARNING:  [Job 99] Error in procedure import.analyse_statistical_variables for step Statistical Variables: relation "public.stat_definition_active" does not exist
-WARNING:  [Job 99] Error detected during analysis phase: {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}. Transitioning to finished.
 -- Get lu1 and en1 IDs
 SELECT lu.id AS lu1_id, lu.enterprise_id AS en1_id
 FROM public.legal_unit lu
 JOIN public.external_ident ei ON ei.legal_unit_id = lu.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
 WHERE ei.ident = 'ALPHA001' LIMIT 1 \gset
-no rows returned for \gset
 \echo 'Step 2: Creating lu2 "Beta Corp" -> separate enterprise initially'
 Step 2: Creating lu2 "Beta Corp" -> separate enterprise initially
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
@@ -356,36 +346,38 @@ INSERT INTO public.test320_beta_upload (
     'mi', '2023-01-01', 'Beta St 2', '5000', 'Bergen', '4601', 'NO', '62.020'
 );
 CALL worker.process_tasks(p_queue => 'import');
-WARNING:  [Job 100] Error in procedure import.analyse_statistical_variables for step Statistical Variables: relation "public.stat_definition_active" does not exist
-WARNING:  [Job 100] Error detected during analysis phase: {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}. Transitioning to finished.
 -- Get lu2 ID
 SELECT lu.id AS lu2_id
 FROM public.legal_unit lu
 JOIN public.external_ident ei ON ei.legal_unit_id = lu.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
 WHERE ei.ident = 'BETA001' LIMIT 1 \gset
-no rows returned for \gset
 \echo 'Step 3: Connect lu2 to en1, then set lu2 as primary for en1'
 Step 3: Connect lu2 to en1, then set lu2 as primary for en1
 -- Connect lu2 to en1
 SELECT public.connect_legal_unit_to_enterprise(:lu2_id, :en1_id, '2023-01-01'::date, 'infinity'::date) AS connect_lu2_to_en1;
-ERROR:  syntax error at or near ":"
-LINE 1: SELECT public.connect_legal_unit_to_enterprise(:lu2_id, :en1...
-                                                       ^
+                                             connect_lu2_to_en1                                              
+-------------------------------------------------------------------------------------------------------------
+ {"new_enterprise_id": 8, "old_enterprise_id": 9, "deleted_enterprise_id": 9, "updated_legal_unit_ids": [7]}
+(1 row)
+
 -- Set lu2 as primary (so en1 name becomes "Beta Corp")
 SELECT public.set_primary_legal_unit_for_enterprise(:lu2_id, '2023-01-01'::date, 'infinity'::date) AS set_lu2_primary;
-ERROR:  syntax error at or near ":"
-LINE 1: ...LECT public.set_primary_legal_unit_for_enterprise(:lu2_id, '...
-                                                             ^
+                                            set_lu2_primary                                             
+--------------------------------------------------------------------------------------------------------
+ {"set_primary": {"id": 7, "table": "legal_unit"}, "unset_primary": [{"id": 6, "table": "legal_unit"}]}
+(1 row)
+
 CALL worker.process_tasks(p_queue => 'analytics');
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo 'After setup - en1 should have name "Beta Corp" (from primary lu2):'
 After setup - en1 should have name "Beta Corp" (from primary lu2):
 SELECT ten.enterprise_id, ten.name AS enterprise_name
 FROM public.timeline_enterprise ten
 WHERE ten.enterprise_id = :en1_id;
-ERROR:  syntax error at or near ":"
-LINE 3: WHERE ten.enterprise_id = :en1_id;
-                                  ^
+ enterprise_id | enterprise_name 
+---------------+-----------------
+             8 | Beta Corp
+(1 row)
+
 \echo 'LUs in en1 (lu2 should be primary):'
 LUs in en1 (lu2 should be primary):
 SELECT ei.ident AS tax_ident, lu.name, lu.primary_for_enterprise
@@ -393,14 +385,16 @@ FROM public.legal_unit lu
 JOIN public.external_ident ei ON ei.legal_unit_id = lu.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
 WHERE lu.enterprise_id = :en1_id
 ORDER BY lu.name;
-ERROR:  syntax error at or near ":"
-LINE 4: WHERE lu.enterprise_id = :en1_id
-                                 ^
+ tax_ident |    name    | primary_for_enterprise 
+-----------+------------+------------------------
+ ALPHA001  | Alpha Corp | f
+ BETA001   | Beta Corp  | t
+(2 rows)
+
 \echo 'Step 4: Creating lu3 "Gamma Corp" -> en2 (separate enterprise)'
 Step 4: Creating lu3 "Gamma Corp" -> en2 (separate enterprise)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
 VALUES (:import_def_id, 'test320_gamma', 'Gamma Corp', 'Scenario 3', :default_edit_comment);
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT INTO public.test320_gamma_upload (
     tax_ident, name, valid_from, valid_to, sector_code, legal_form_code, 
     data_source_code, birth_date, physical_address_part1, physical_postcode, 
@@ -409,17 +403,13 @@ INSERT INTO public.test320_gamma_upload (
     'GAMMA001', 'Gamma Corp', '2023-01-01', '2023-12-31', '3500', 'AS', 
     'mi', '2023-01-01', 'Gamma St 3', '7000', 'Trondheim', '5001', 'NO', '35.110'
 );
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 CALL worker.process_tasks(p_queue => 'import');
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 CALL worker.process_tasks(p_queue => 'analytics');
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Get lu3 and en2 IDs
 SELECT lu.id AS lu3_id, lu.enterprise_id AS en2_id
 FROM public.legal_unit lu
 JOIN public.external_ident ei ON ei.legal_unit_id = lu.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
 WHERE ei.ident = 'GAMMA001' LIMIT 1 \gset
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo ''
 
 \echo 'Initial state established:'
@@ -436,9 +426,12 @@ SELECT ten.enterprise_id, ten.name AS enterprise_name
 FROM public.timeline_enterprise ten
 WHERE ten.enterprise_id IN (:en1_id, :en2_id)
 ORDER BY ten.enterprise_id;
-ERROR:  syntax error at or near ":"
-LINE 3: WHERE ten.enterprise_id IN (:en1_id, :en2_id)
-                                    ^
+ enterprise_id | enterprise_name 
+---------------+-----------------
+             8 | Beta Corp
+            10 | Gamma Corp
+(2 rows)
+
 -- ============================================================================
 -- Now the critical test sequence
 -- ============================================================================
@@ -453,11 +446,12 @@ Step 5: Connect lu1 (non-primary) from en1 to en2
 \echo 'Expected: en2 name stays "Gamma Corp" (lu3 is still primary for en2)'
 Expected: en2 name stays "Gamma Corp" (lu3 is still primary for en2)
 SELECT public.connect_legal_unit_to_enterprise(:lu1_id, :en2_id, '2023-01-01'::date, 'infinity'::date) AS connect_lu1_to_en2;
-ERROR:  syntax error at or near ":"
-LINE 1: SELECT public.connect_legal_unit_to_enterprise(:lu1_id, :en2...
-                                                       ^
+                                               connect_lu1_to_en2                                                
+-----------------------------------------------------------------------------------------------------------------
+ {"new_enterprise_id": 10, "old_enterprise_id": 8, "deleted_enterprise_id": null, "updated_legal_unit_ids": [6]}
+(1 row)
+
 CALL worker.process_tasks(p_queue => 'analytics');
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo 'After moving lu1 to en2:'
 After moving lu1 to en2:
 \echo 'en1 enterprise name (should still be "Beta Corp"):'
@@ -465,17 +459,21 @@ en1 enterprise name (should still be "Beta Corp"):
 SELECT ten.enterprise_id, ten.name AS enterprise_name
 FROM public.timeline_enterprise ten
 WHERE ten.enterprise_id = :en1_id;
-ERROR:  syntax error at or near ":"
-LINE 3: WHERE ten.enterprise_id = :en1_id;
-                                  ^
+ enterprise_id | enterprise_name 
+---------------+-----------------
+             8 | Beta Corp
+(1 row)
+
 \echo 'en2 enterprise name (should still be "Gamma Corp" - lu3 is primary):'
 en2 enterprise name (should still be "Gamma Corp" - lu3 is primary):
 SELECT ten.enterprise_id, ten.name AS enterprise_name
 FROM public.timeline_enterprise ten
 WHERE ten.enterprise_id = :en2_id;
-ERROR:  syntax error at or near ":"
-LINE 3: WHERE ten.enterprise_id = :en2_id;
-                                  ^
+ enterprise_id | enterprise_name 
+---------------+-----------------
+            10 | Gamma Corp
+(1 row)
+
 \echo 'LUs in en2 (lu3 should be primary):'
 LUs in en2 (lu3 should be primary):
 SELECT ei.ident AS tax_ident, lu.name, lu.primary_for_enterprise
@@ -483,9 +481,12 @@ FROM public.legal_unit lu
 JOIN public.external_ident ei ON ei.legal_unit_id = lu.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
 WHERE lu.enterprise_id = :en2_id
 ORDER BY lu.name;
-ERROR:  syntax error at or near ":"
-LINE 4: WHERE lu.enterprise_id = :en2_id
-                                 ^
+ tax_ident |    name    | primary_for_enterprise 
+-----------+------------+------------------------
+ ALPHA001  | Alpha Corp | f
+ GAMMA001  | Gamma Corp | t
+(2 rows)
+
 \echo ''
 
 \echo 'Step 6: Connect lu2 (primary of en1) to en2'
@@ -493,11 +494,12 @@ Step 6: Connect lu2 (primary of en1) to en2
 \echo 'Expected: en1 should be DELETED (no LUs left), en2 name stays "Gamma Corp"'
 Expected: en1 should be DELETED (no LUs left), en2 name stays "Gamma Corp"
 SELECT public.connect_legal_unit_to_enterprise(:lu2_id, :en2_id, '2023-01-01'::date, 'infinity'::date) AS connect_lu2_to_en2;
-ERROR:  syntax error at or near ":"
-LINE 1: SELECT public.connect_legal_unit_to_enterprise(:lu2_id, :en2...
-                                                       ^
+                                              connect_lu2_to_en2                                              
+--------------------------------------------------------------------------------------------------------------
+ {"new_enterprise_id": 10, "old_enterprise_id": 8, "deleted_enterprise_id": 8, "updated_legal_unit_ids": [7]}
+(1 row)
+
 CALL worker.process_tasks(p_queue => 'analytics');
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo 'After moving lu2 to en2:'
 After moving lu2 to en2:
 \echo 'en1 should be deleted (expecting 0 rows):'
@@ -505,23 +507,27 @@ en1 should be deleted (expecting 0 rows):
 SELECT ten.enterprise_id, ten.name AS enterprise_name
 FROM public.timeline_enterprise ten
 WHERE ten.enterprise_id = :en1_id;
-ERROR:  syntax error at or near ":"
-LINE 3: WHERE ten.enterprise_id = :en1_id;
-                                  ^
+ enterprise_id | enterprise_name 
+---------------+-----------------
+(0 rows)
+
 \echo 'en1 enterprise should not exist (expecting 0 rows):'
 en1 enterprise should not exist (expecting 0 rows):
 SELECT id FROM public.enterprise WHERE id = :en1_id;
-ERROR:  syntax error at or near ":"
-LINE 1: SELECT id FROM public.enterprise WHERE id = :en1_id;
-                                                    ^
+ id 
+----
+(0 rows)
+
 \echo 'en2 enterprise name (should still be "Gamma Corp"):'
 en2 enterprise name (should still be "Gamma Corp"):
 SELECT ten.enterprise_id, ten.name AS enterprise_name
 FROM public.timeline_enterprise ten
 WHERE ten.enterprise_id = :en2_id;
-ERROR:  syntax error at or near ":"
-LINE 3: WHERE ten.enterprise_id = :en2_id;
-                                  ^
+ enterprise_id | enterprise_name 
+---------------+-----------------
+            10 | Gamma Corp
+(1 row)
+
 \echo 'All LUs now in en2 (lu3 still primary):'
 All LUs now in en2 (lu3 still primary):
 SELECT ei.ident AS tax_ident, lu.name, lu.primary_for_enterprise
@@ -529,9 +535,13 @@ FROM public.legal_unit lu
 JOIN public.external_ident ei ON ei.legal_unit_id = lu.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
 WHERE lu.enterprise_id = :en2_id
 ORDER BY lu.name;
-ERROR:  syntax error at or near ":"
-LINE 4: WHERE lu.enterprise_id = :en2_id
-                                 ^
+ tax_ident |    name    | primary_for_enterprise 
+-----------+------------+------------------------
+ ALPHA001  | Alpha Corp | f
+ BETA001   | Beta Corp  | f
+ GAMMA001  | Gamma Corp | t
+(3 rows)
+
 \echo ''
 
 \echo 'Step 7: Set lu1 as primary for en2'
@@ -539,11 +549,12 @@ Step 7: Set lu1 as primary for en2
 \echo 'Expected: en2 name changes to "Alpha Corp"'
 Expected: en2 name changes to "Alpha Corp"
 SELECT public.set_primary_legal_unit_for_enterprise(:lu1_id, '2023-01-01'::date, 'infinity'::date) AS set_lu1_primary;
-ERROR:  syntax error at or near ":"
-LINE 1: ...LECT public.set_primary_legal_unit_for_enterprise(:lu1_id, '...
-                                                             ^
+                                            set_lu1_primary                                             
+--------------------------------------------------------------------------------------------------------
+ {"set_primary": {"id": 6, "table": "legal_unit"}, "unset_primary": [{"id": 8, "table": "legal_unit"}]}
+(1 row)
+
 CALL worker.process_tasks(p_queue => 'analytics');
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo 'After setting lu1 as primary:'
 After setting lu1 as primary:
 \echo 'en2 enterprise name (should now be "Alpha Corp"):'
@@ -551,9 +562,11 @@ en2 enterprise name (should now be "Alpha Corp"):
 SELECT ten.enterprise_id, ten.name AS enterprise_name
 FROM public.timeline_enterprise ten
 WHERE ten.enterprise_id = :en2_id;
-ERROR:  syntax error at or near ":"
-LINE 3: WHERE ten.enterprise_id = :en2_id;
-                                  ^
+ enterprise_id | enterprise_name 
+---------------+-----------------
+            10 | Alpha Corp
+(1 row)
+
 \echo 'Final LU state in en2 (lu1 should be primary now):'
 Final LU state in en2 (lu1 should be primary now):
 SELECT ei.ident AS tax_ident, lu.name, lu.primary_for_enterprise
@@ -561,9 +574,13 @@ FROM public.legal_unit lu
 JOIN public.external_ident ei ON ei.legal_unit_id = lu.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
 WHERE lu.enterprise_id = :en2_id
 ORDER BY lu.name;
-ERROR:  syntax error at or near ":"
-LINE 4: WHERE lu.enterprise_id = :en2_id
-                                 ^
+ tax_ident |    name    | primary_for_enterprise 
+-----------+------------+------------------------
+ ALPHA001  | Alpha Corp | t
+ BETA001   | Beta Corp  | f
+ GAMMA001  | Gamma Corp | f
+(3 rows)
+
 \echo ''
 
 \echo '--- VERIFICATION: Background noise should be unaffected ---'
@@ -577,7 +594,11 @@ FROM public.timeline_enterprise ten
 JOIN public.legal_unit lu ON lu.enterprise_id = ten.enterprise_id
 JOIN public.external_ident ei ON ei.legal_unit_id = lu.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
 WHERE ei.ident = 'NOISE_LU001';
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
+    enterprise_name    
+-----------------------
+ Unrelated Formal Corp
+(1 row)
+
 \echo 'Noise ES (informal) enterprise should exist and have correct name:'
 Noise ES (informal) enterprise should exist and have correct name:
 SELECT ten.name AS enterprise_name
@@ -585,7 +606,11 @@ FROM public.timeline_enterprise ten
 JOIN public.establishment es ON es.enterprise_id = ten.enterprise_id
 JOIN public.external_ident ei ON ei.establishment_id = es.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
 WHERE ei.ident = 'NOISE_ES001';
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
+     enterprise_name     
+-------------------------
+ Unrelated Street Vendor
+(1 row)
+
 \echo 'Noise LU (no ES) enterprise should exist and have correct name:'
 Noise LU (no ES) enterprise should exist and have correct name:
 SELECT ten.name AS enterprise_name
@@ -593,7 +618,11 @@ FROM public.timeline_enterprise ten
 JOIN public.legal_unit lu ON lu.enterprise_id = ten.enterprise_id
 JOIN public.external_ident ei ON ei.legal_unit_id = lu.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
 WHERE ei.ident = 'NOISE_LU002';
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
+   enterprise_name    
+----------------------
+ Holding Company Only
+(1 row)
+
 \echo ''
 
 \echo 'Scenario 3 Summary:'
@@ -640,28 +669,26 @@ INSERT INTO public.test320_market_stall_upload (
     'Town Square 1', '1000', 'Oslo', '0301', 'NO', '47.810', 'mi'
 );
 CALL worker.process_tasks(p_queue => 'import');
-WARNING:  [Job 101] Error in procedure import.analyse_statistical_variables for step Statistical Variables: relation "public.stat_definition_active" does not exist
-WARNING:  [Job 101] Error detected during analysis phase: {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}. Transitioning to finished.
 CALL worker.process_tasks(p_queue => 'analytics');
 -- Get ES and enterprise IDs
 SELECT es.id AS es1_id, es.enterprise_id AS es1_en_id
 FROM public.establishment es
 JOIN public.external_ident ei ON ei.establishment_id = es.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
 WHERE ei.ident = 'STALL001' LIMIT 1 \gset
-no rows returned for \gset
 \echo 'Initial enterprise name (from informal ES):'
 Initial enterprise name (from informal ES):
 SELECT ten.name AS enterprise_name
 FROM public.timeline_enterprise ten
 WHERE ten.enterprise_id = :es1_en_id;
-ERROR:  syntax error at or near ":"
-LINE 3: WHERE ten.enterprise_id = :es1_en_id;
-                                  ^
+ enterprise_name 
+-----------------
+ Market Stall
+(1 row)
+
 \echo 'Step 2: Create second informal ES "Food Cart" -> separate enterprise'
 Step 2: Create second informal ES "Food Cart" -> separate enterprise
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
 VALUES (:es_import_def_id, 'test320_food_cart', 'Food Cart', 'Scenario 4', :default_edit_comment);
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT INTO public.test320_food_cart_upload (
     tax_ident, name, valid_from, valid_to, birth_date, 
     physical_address_part1, physical_postcode, physical_postplace, 
@@ -671,22 +698,17 @@ INSERT INTO public.test320_food_cart_upload (
     'CART001', 'Food Cart', '2023-01-01', '2023-12-31', '2023-01-01',
     'Station Plaza 1', '1000', 'Oslo', '0301', 'NO', '56.102', 'mi'
 );
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 CALL worker.process_tasks(p_queue => 'import');
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 CALL worker.process_tasks(p_queue => 'analytics');
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Get ES2 ID
 SELECT es.id AS es2_id, es.enterprise_id AS es2_en_id
 FROM public.establishment es
 JOIN public.external_ident ei ON ei.establishment_id = es.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
 WHERE ei.ident = 'CART001' LIMIT 1 \gset
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo 'Step 3: Create formal LU "Registered Vendor Ltd" and connect to es1 enterprise'
 Step 3: Create formal LU "Registered Vendor Ltd" and connect to es1 enterprise
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
 VALUES (:import_def_id, 'test320_vendor_lu', 'Vendor LU', 'Scenario 4', :default_edit_comment);
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT INTO public.test320_vendor_lu_upload (
     tax_ident, name, valid_from, valid_to, sector_code, legal_form_code, 
     data_source_code, birth_date, physical_address_part1, physical_postcode, 
@@ -695,31 +717,31 @@ INSERT INTO public.test320_vendor_lu_upload (
     'VENDOR001', 'Registered Vendor Ltd', '2023-01-01', '2023-12-31', '2100', 'AS', 
     'mi', '2023-01-01', 'Vendor St 1', '1000', 'Oslo', '0301', 'NO', '47.810'
 );
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 CALL worker.process_tasks(p_queue => 'import');
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Get LU ID
 SELECT lu.id AS vendor_lu_id
 FROM public.legal_unit lu
 JOIN public.external_ident ei ON ei.legal_unit_id = lu.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
 WHERE ei.ident = 'VENDOR001' LIMIT 1 \gset
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo 'Connect LU to es1 enterprise (LU name should take priority):'
 Connect LU to es1 enterprise (LU name should take priority):
 SELECT public.connect_legal_unit_to_enterprise(:vendor_lu_id, :es1_en_id, '2023-01-01'::date, 'infinity'::date) AS connect_result;
-ERROR:  syntax error at or near ":"
-LINE 1: SELECT public.connect_legal_unit_to_enterprise(:vendor_lu_id...
-                                                       ^
+                                                 connect_result                                                 
+----------------------------------------------------------------------------------------------------------------
+ {"new_enterprise_id": 11, "old_enterprise_id": 13, "deleted_enterprise_id": 13, "updated_legal_unit_ids": [9]}
+(1 row)
+
 CALL worker.process_tasks(p_queue => 'analytics');
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo 'Enterprise name after LU connection (should be "Registered Vendor Ltd"):'
 Enterprise name after LU connection (should be "Registered Vendor Ltd"):
 SELECT ten.name AS enterprise_name
 FROM public.timeline_enterprise ten
 WHERE ten.enterprise_id = :es1_en_id;
-ERROR:  syntax error at or near ":"
-LINE 3: WHERE ten.enterprise_id = :es1_en_id;
-                                  ^
+    enterprise_name    
+-----------------------
+ Registered Vendor Ltd
+(1 row)
+
 \echo 'Units in enterprise:'
 Units in enterprise:
 SELECT 'LU' AS type, ei.ident, lu.name, lu.primary_for_enterprise
@@ -732,9 +754,12 @@ FROM public.establishment es
 JOIN public.external_ident ei ON ei.establishment_id = es.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
 WHERE es.enterprise_id = :es1_en_id
 ORDER BY type, name;
-ERROR:  syntax error at or near ":"
-LINE 4: WHERE lu.enterprise_id = :es1_en_id
-                                 ^
+ type |   ident   |         name          | primary_for_enterprise 
+------+-----------+-----------------------+------------------------
+ ES   | STALL001  | Market Stall          | t
+ LU   | VENDOR001 | Registered Vendor Ltd | t
+(2 rows)
+
 ROLLBACK TO scenario_4;
 \echo 'Scenario 4 complete.'
 Scenario 4 complete.

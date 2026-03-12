@@ -68,14 +68,12 @@ END $$;
 \copy public.import_119_legal_units_upload(valid_from, valid_to, tax_ident, name) FROM 'test/data/roller_sample_legal_units.csv' WITH (FORMAT csv, HEADER true);
 -- Process the LU import
 CALL worker.process_tasks(p_queue => 'import');
-WARNING:  [Job 18] Error in procedure import.analyse_statistical_variables for step Statistical Variables: relation "public.stat_definition_active" does not exist
-WARNING:  [Job 18] Error detected during analysis phase: {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}. Transitioning to finished.
 \echo "LU import job status:"
 "LU import job status:"
 SELECT slug, state, total_rows, imported_rows FROM public.import_job WHERE slug = 'import_119_legal_units';
           slug          |  state   | total_rows | imported_rows 
 ------------------------+----------+------------+---------------
- import_119_legal_units | finished |         10 |             0
+ import_119_legal_units | finished |         10 |            10
 (1 row)
 
 \echo "Verify legal units were created:"
@@ -86,9 +84,18 @@ JOIN public.external_ident AS ei ON ei.legal_unit_id = lu.id
 JOIN public.external_ident_type AS eit ON eit.id = ei.type_id AND eit.code = 'tax_ident'
 WHERE ei.ident LIKE '10000000%'
 ORDER BY ei.ident;
- tax_ident | name | valid_from | valid_to 
------------+------+------------+----------
-(0 rows)
+ tax_ident |        name         | valid_from | valid_to 
+-----------+---------------------+------------+----------
+ 100000001 | Nordic Holdings ASA | 2020-01-01 | infinity
+ 100000002 | Nordic Energy AS    | 2020-01-01 | infinity
+ 100000003 | Nordic Maritime AS  | 2020-01-01 | infinity
+ 100000004 | Nordic Wind AS      | 2020-01-01 | infinity
+ 100000005 | Nordic Solar AS     | 2020-01-01 | infinity
+ 100000006 | Nordic Shipping AS  | 2020-01-01 | infinity
+ 100000007 | Nordic Logistics AS | 2020-01-01 | infinity
+ 100000008 | Baltic Holdings OÜ  | 2020-01-01 | infinity
+ 100000009 | Baltic Transport OÜ | 2020-01-01 | infinity
+(9 rows)
 
 -- ============================================================================
 \echo "=== Phase 2: Import Mixed Legal Relationships ==="
@@ -127,9 +134,9 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo "Relationship import job status:"
 "Relationship import job status:"
 SELECT slug, state, total_rows, imported_rows FROM public.import_job WHERE slug = 'import_119_legal_rels';
-         slug          |       state        | total_rows | imported_rows 
------------------------+--------------------+------------+---------------
- import_119_legal_rels | waiting_for_review |          8 |             0
+         slug          |  state   | total_rows | imported_rows 
+-----------------------+----------+------------+---------------
+ import_119_legal_rels | finished |          8 |             8
 (1 row)
 
 \echo "Import data rows state:"
@@ -137,16 +144,16 @@ SELECT slug, state, total_rows, imported_rows FROM public.import_job WHERE slug 
 SELECT row_id, state, action, operation, errors
 FROM public.import_119_legal_rels_data
 ORDER BY row_id;
- row_id | state | action | operation |                                                                               errors                                                                               
---------+-------+--------+-----------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------
-      1 | error | skip   |           | {"unknown_influenced_tax_ident": "No legal unit found for influenced_tax_ident", "unknown_influencing_tax_ident": "No legal unit found for influencing_tax_ident"}
-      2 | error | skip   |           | {"unknown_influenced_tax_ident": "No legal unit found for influenced_tax_ident", "unknown_influencing_tax_ident": "No legal unit found for influencing_tax_ident"}
-      3 | error | skip   |           | {"unknown_influenced_tax_ident": "No legal unit found for influenced_tax_ident", "unknown_influencing_tax_ident": "No legal unit found for influencing_tax_ident"}
-      4 | error | skip   |           | {"unknown_influenced_tax_ident": "No legal unit found for influenced_tax_ident", "unknown_influencing_tax_ident": "No legal unit found for influencing_tax_ident"}
-      5 | error | skip   |           | {"unknown_influenced_tax_ident": "No legal unit found for influenced_tax_ident", "unknown_influencing_tax_ident": "No legal unit found for influencing_tax_ident"}
-      6 | error | skip   |           | {"unknown_influenced_tax_ident": "No legal unit found for influenced_tax_ident", "unknown_influencing_tax_ident": "No legal unit found for influencing_tax_ident"}
-      7 | error | skip   |           | {"unknown_influenced_tax_ident": "No legal unit found for influenced_tax_ident", "unknown_influencing_tax_ident": "No legal unit found for influencing_tax_ident"}
-      8 | error | skip   |           | {"unknown_influenced_tax_ident": "No legal unit found for influenced_tax_ident", "unknown_influencing_tax_ident": "No legal unit found for influencing_tax_ident"}
+ row_id |   state   | action | operation | errors 
+--------+-----------+--------+-----------+--------
+      1 | processed | use    | insert    | {}
+      2 | processed | use    | insert    | {}
+      3 | processed | use    | insert    | {}
+      4 | processed | use    | insert    | {}
+      5 | processed | use    | insert    | {}
+      6 | processed | use    | insert    | {}
+      7 | processed | use    | insert    | {}
+      8 | processed | use    | insert    | {}
 (8 rows)
 
 \echo "Verify legal relationships were created (note mixed types):"
@@ -170,7 +177,15 @@ JOIN public.legal_rel_type AS lrt ON lrt.id = lr.type_id
 ORDER BY ei_ing.ident, ei_ed.ident;
  influencing_tax_ident | influenced_tax_ident | rel_type | primary_influencer_only | percentage | valid_from | valid_to 
 -----------------------+----------------------+----------+-------------------------+------------+------------+----------
-(0 rows)
+ 100000001             | 100000002            | HFOR     | t                       |     100.00 | 2020-01-01 | infinity
+ 100000001             | 100000003            | HFOR     | t                       |     100.00 | 2020-01-01 | infinity
+ 100000002             | 100000004            | HFOR     | t                       |     100.00 | 2020-01-01 | infinity
+ 100000002             | 100000005            | HFOR     | t                       |     100.00 | 2020-01-01 | infinity
+ 100000003             | 100000006            | HFOR     | t                       |     100.00 | 2020-01-01 | infinity
+ 100000003             | 100000007            | HFOR     | t                       |     100.00 | 2020-01-01 | infinity
+ 100000008             | 100000009            | DTPR     | f                       |     100.00 | 2020-01-01 | infinity
+ 100000008             | 100000010            | DTPR     | f                       |     100.00 | 2020-01-01 | infinity
+(8 rows)
 
 -- ============================================================================
 \echo "=== Phase 3: Verify Power Groups (created during import) ==="
@@ -183,9 +198,11 @@ ORDER BY ei_ing.ident, ei_ed.ident;
 SELECT pg.ident, pg.name
 FROM public.power_group AS pg
 ORDER BY pg.ident;
- ident | name 
--------+------
-(0 rows)
+ ident  | name 
+--------+------
+ PG0001 | 
+ PG0002 | 
+(2 rows)
 
 \echo "Power group membership (which LUs belong to which group):"
 "Power group membership (which LUs belong to which group):"
@@ -198,9 +215,19 @@ JOIN public.legal_unit AS lu ON lu.id = pgm.legal_unit_id
 JOIN public.external_ident AS ei ON ei.legal_unit_id = lu.id
 JOIN public.external_ident_type AS eit ON eit.id = ei.type_id AND eit.code = 'tax_ident'
 ORDER BY pgm.power_group_ident, ei.ident;
- power_group_ident | tax_ident | legal_unit_name 
--------------------+-----------+-----------------
-(0 rows)
+ power_group_ident | tax_ident |   legal_unit_name   
+-------------------+-----------+---------------------
+ PG0001            | 100000001 | Nordic Holdings ASA
+ PG0001            | 100000002 | Nordic Energy AS
+ PG0001            | 100000003 | Nordic Maritime AS
+ PG0001            | 100000004 | Nordic Wind AS
+ PG0001            | 100000005 | Nordic Solar AS
+ PG0001            | 100000006 | Nordic Shipping AS
+ PG0001            | 100000007 | Nordic Logistics AS
+ PG0002            | 100000008 | Baltic Holdings OÜ
+ PG0002            | 100000009 | Baltic Transport OÜ
+ PG0002            | 100000010 | Baltic Freight OÜ
+(10 rows)
 
 \echo "Legal relationship clusters (connected components by root LU):"
 "Legal relationship clusters (connected components by root LU):"

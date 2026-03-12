@@ -76,22 +76,20 @@ END $$;
 INSERT INTO public.import_68_01_single_lu_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code) VALUES
 ('2020-01-01','2020-12-31','680100001','Single LU One','2020-01-01',NULL,'Main St 1','1234','Oslo','0301','NO','01.110',NULL,'2100','AS');
 CALL worker.process_tasks(p_queue => 'import');
-WARNING:  [Job 83] Error in procedure import.analyse_statistical_variables for step Statistical Variables: relation "public.stat_definition_active" does not exist
-WARNING:  [Job 83] Error detected during analysis phase: {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}. Transitioning to finished.
 \echo "Import job status for 68_01_single_lu:"
 "Import job status for 68_01_single_lu:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_68_01_single_lu' ORDER BY slug;
-          slug          |  state   | total_rows | imported_rows | has_error |                                                                                     error_details                                                                                      
-------------------------+----------+------------+---------------+-----------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- import_68_01_single_lu | finished |          1 |             0 | t         | {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}
+          slug          |  state   | total_rows | imported_rows | has_error | error_details 
+------------------------+----------+------------+---------------+-----------+---------------
+ import_68_01_single_lu | finished |          1 |             1 | f         | 
 (1 row)
 
 \echo "Data table row status for import_68_01_single_lu:"
 "Data table row status for import_68_01_single_lu:"
 SELECT row_id, state, errors, merge_status, action, operation FROM public.import_68_01_single_lu_data;
- row_id |   state   | errors | merge_status | action | operation 
---------+-----------+--------+--------------+--------+-----------
-      1 | analysing | {}     | {}           | use    | insert
+ row_id |   state   | errors |                                       merge_status                                       | action | operation 
+--------+-----------+--------+------------------------------------------------------------------------------------------+--------+-----------
+      1 | processed | {}     | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | use    | insert
 (1 row)
 
 \echo "Verification for Scenario 1: Single LU"
@@ -111,9 +109,10 @@ JOIN public.external_ident_type eit ON eit.id = ei.type_id AND eit.code = 'tax_i
 WHERE ei.ident = '680100001'
 GROUP BY lu.name, ei.ident, lu.primary_for_enterprise, lu.valid_from, lu.valid_to, lu.enterprise_id
 ORDER BY ei.ident, lu.valid_from, lu.valid_to;
- lu_count | name | tax_ident | primary_for_enterprise | valid_from | valid_to | linked_enterprise_exists 
-----------+------+-----------+------------------------+------------+----------+--------------------------
-(0 rows)
+ lu_count |     name      | tax_ident | primary_for_enterprise | valid_from |  valid_to  | linked_enterprise_exists 
+----------+---------------+-----------+------------------------+------------+------------+--------------------------
+        1 | Single LU One | 680100001 | t                      | 2020-01-01 | 2020-12-31 |                        1
+(1 row)
 
 \echo "Enterprises (verify one was created and LU is primary):"
 "Enterprises (verify one was created and LU is primary):"
@@ -136,7 +135,8 @@ WHERE ent.id IN (
 GROUP BY ent.id, ent.short_name;
  enterprise_count | short_name | is_primary_lu_linked 
 ------------------+------------+----------------------
-(0 rows)
+                1 |            |                    1
+(1 row)
 
 CALL worker.process_tasks(p_queue => 'analytics');
 \echo "Statistical Units (LU):"
@@ -146,9 +146,10 @@ FROM public.statistical_unit su
 WHERE su.unit_type = 'legal_unit' AND su.external_idents->>'tax_ident' = '680100001'
 GROUP BY su.name, su.external_idents->>'tax_ident', su.valid_from, su.valid_to
 ORDER BY su.external_idents->>'tax_ident', su.valid_from, su.valid_to;
- su_lu_count | name | tax_ident | valid_from | valid_to 
--------------+------+-----------+------------+----------
-(0 rows)
+ su_lu_count |     name      | tax_ident | valid_from |  valid_to  
+-------------+---------------+-----------+------------+------------
+           1 | Single LU One | 680100001 | 2020-01-01 | 2020-12-31
+(1 row)
 
 ROLLBACK TO scenario_1_single_lu;
 -- Scenario 2: Single LU + 1 Formal ES
@@ -194,17 +195,13 @@ END $$;
 INSERT INTO public.import_68_02_es_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,primary_activity_category_code,secondary_activity_category_code,legal_unit_tax_ident) VALUES
 ('2020-01-01','2020-12-31','E68020001','Formal ES One','2020-01-01',NULL,'ES Address 1','1234','Oslo','0301','NO','02.200',NULL,'680200001');
 CALL worker.process_tasks(p_queue => 'import');
-WARNING:  [Job 84] Error in procedure import.analyse_statistical_variables for step Statistical Variables: relation "public.stat_definition_active" does not exist
-WARNING:  [Job 84] Error detected during analysis phase: {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}. Transitioning to finished.
-WARNING:  [Job 85] Error in procedure import.analyse_statistical_variables for step Statistical Variables: relation "public.stat_definition_active" does not exist
-WARNING:  [Job 85] Error detected during analysis phase: {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}. Transitioning to finished.
 \echo "Import job statuses for 68_02:"
 "Import job statuses for 68_02:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug LIKE 'import_68_02%' ORDER BY slug;
-      slug       |  state   | total_rows | imported_rows | has_error |                                                                                     error_details                                                                                      
------------------+----------+------------+---------------+-----------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- import_68_02_es | finished |          1 |             0 | t         | {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}
- import_68_02_lu | finished |          1 |             0 | t         | {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}
+      slug       |  state   | total_rows | imported_rows | has_error | error_details 
+-----------------+----------+------------+---------------+-----------+---------------
+ import_68_02_es | finished |          1 |             1 | f         | 
+ import_68_02_lu | finished |          1 |             1 | f         | 
 (2 rows)
 
 \echo "Verification for Scenario 2: LU + Formal ES"
@@ -223,9 +220,10 @@ JOIN public.external_ident_type eit ON eit.id = ei.type_id AND eit.code = 'tax_i
 WHERE ei.ident = '680200001'
 GROUP BY lu.name, ei.ident, lu.valid_from, lu.valid_to, lu.enterprise_id
 ORDER BY ei.ident, lu.valid_from, lu.valid_to;
- lu_count | name | tax_ident | valid_from | valid_to | linked_enterprise_exists 
-----------+------+-----------+------------+----------+--------------------------
-(0 rows)
+ lu_count |       name       | tax_ident | valid_from |  valid_to  | linked_enterprise_exists 
+----------+------------------+-----------+------------+------------+--------------------------
+        1 | LU for Formal ES | 680200001 | 2020-01-01 | 2020-12-31 |                        1
+(1 row)
 
 \echo "Establishments:"
 "Establishments:"
@@ -248,9 +246,10 @@ JOIN public.external_ident_type est_eit ON est_eit.id = est_ei.type_id AND est_e
 WHERE est_ei.ident = 'E68020001'
 GROUP BY est.name, est_ei.ident, est.primary_for_legal_unit, est.valid_from, est.valid_to, est.legal_unit_id, est.enterprise_id
 ORDER BY est_ei.ident, est.valid_from, est.valid_to;
- est_count | name | est_tax_ident | primary_for_legal_unit | valid_from | valid_to | linked_to_correct_lu | linked_enterprise_exists 
------------+------+---------------+------------------------+------------+----------+----------------------+--------------------------
-(0 rows)
+ est_count |     name      | est_tax_ident | primary_for_legal_unit | valid_from |  valid_to  | linked_to_correct_lu | linked_enterprise_exists 
+-----------+---------------+---------------+------------------------+------------+------------+----------------------+--------------------------
+         1 | Formal ES One | E68020001     | t                      | 2020-01-01 | 2020-12-31 |                    1 |                        0
+(1 row)
 
 \echo "Enterprises (verify one was created and LU is primary):"
 "Enterprises (verify one was created and LU is primary):"
@@ -273,7 +272,8 @@ WHERE ent.id IN (
 GROUP BY ent.id, ent.short_name;
  enterprise_count | short_name | is_primary_lu_linked 
 ------------------+------------+----------------------
-(0 rows)
+                1 |            |                    1
+(1 row)
 
 CALL worker.process_tasks(p_queue => 'analytics');
 \echo "Statistical Units (LU):"
@@ -283,9 +283,10 @@ FROM public.statistical_unit su
 WHERE su.unit_type = 'legal_unit' AND su.external_idents->>'tax_ident' = '680200001'
 GROUP BY su.name, su.external_idents->>'tax_ident', su.valid_from, su.valid_to
 ORDER BY su.external_idents->>'tax_ident', su.valid_from, su.valid_to;
- su_lu_count | name | tax_ident | valid_from | valid_to 
--------------+------+-----------+------------+----------
-(0 rows)
+ su_lu_count |       name       | tax_ident | valid_from |  valid_to  
+-------------+------------------+-----------+------------+------------
+           1 | LU for Formal ES | 680200001 | 2020-01-01 | 2020-12-31
+(1 row)
 
 \echo "Statistical Units (ES):"
 "Statistical Units (ES):"
@@ -323,22 +324,20 @@ END $$;
 INSERT INTO public.import_68_03_informal_es_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,primary_activity_category_code,secondary_activity_category_code) VALUES
 ('2020-01-01','2020-12-31','E68030001','Informal ES One','2020-01-01',NULL,'Informal St 1','1234','Oslo','0301','NO','03.100',NULL);
 CALL worker.process_tasks(p_queue => 'import');
-WARNING:  [Job 86] Error in procedure import.analyse_statistical_variables for step Statistical Variables: relation "public.stat_definition_active" does not exist
-WARNING:  [Job 86] Error detected during analysis phase: {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}. Transitioning to finished.
 \echo "Import job status for 68_03_informal_es:"
 "Import job status for 68_03_informal_es:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_68_03_informal_es' ORDER BY slug; -- Added error_details
-           slug           |  state   | total_rows | imported_rows | has_error |                                                                                     error_details                                                                                      
---------------------------+----------+------------+---------------+-----------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- import_68_03_informal_es | finished |          1 |             0 | t         | {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}
+           slug           |  state   | total_rows | imported_rows | has_error | error_details 
+--------------------------+----------+------------+---------------+-----------+---------------
+ import_68_03_informal_es | finished |          1 |             1 | f         | 
 (1 row)
 
 \echo "Data table row status for import_68_03_informal_es:" -- Added for consistency
 "Data table row status for import_68_03_informal_es:" -- Added for consistency
 SELECT row_id, state, errors, merge_status, action, operation FROM public.import_68_03_informal_es_data ORDER BY row_id;
- row_id |   state   | errors | merge_status | action | operation 
---------+-----------+--------+--------------+--------+-----------
-      1 | analysing | {}     | {}           | use    | insert
+ row_id |   state   | errors |                         merge_status                         | action | operation 
+--------+-----------+--------+--------------------------------------------------------------+--------+-----------
+      1 | processed | {}     | {"establishment": "APPLIED", "physical_location": "APPLIED"} | use    | insert
 (1 row)
 
 \echo "Verification for Scenario 3: Informal ES"
@@ -359,9 +358,10 @@ JOIN public.external_ident_type eit ON eit.id = ei.type_id AND eit.code = 'tax_i
 WHERE ei.ident = 'E68030001'
 GROUP BY est.name, ei.ident, est.legal_unit_id, est.primary_for_enterprise, est.valid_from, est.valid_to, est.enterprise_id
 ORDER BY ei.ident, est.valid_from, est.valid_to;
- est_count | name | tax_ident | legal_unit_id | primary_for_enterprise | valid_from | valid_to | linked_enterprise_exists 
------------+------+-----------+---------------+------------------------+------------+----------+--------------------------
-(0 rows)
+ est_count |      name       | tax_ident | legal_unit_id | primary_for_enterprise | valid_from |  valid_to  | linked_enterprise_exists 
+-----------+-----------------+-----------+---------------+------------------------+------------+------------+--------------------------
+         1 | Informal ES One | E68030001 |               | t                      | 2020-01-01 | 2020-12-31 |                        1
+(1 row)
 
 \echo "Enterprises (verify one was created and ES is primary):"
 "Enterprises (verify one was created and ES is primary):"
@@ -384,7 +384,8 @@ WHERE ent.id IN (
 GROUP BY ent.id, ent.short_name;
  enterprise_count | short_name | is_primary_es_linked 
 ------------------+------------+----------------------
-(0 rows)
+                1 |            |                    1
+(1 row)
 
 CALL worker.process_tasks(p_queue => 'analytics');
 \echo "Statistical Units (ES):"
@@ -394,9 +395,10 @@ FROM public.statistical_unit su
 WHERE su.unit_type = 'establishment' AND su.external_idents->>'tax_ident' = 'E68030001'
 GROUP BY su.name, su.external_idents->>'tax_ident', su.valid_from, su.valid_to
 ORDER BY su.external_idents->>'tax_ident', su.valid_from, su.valid_to;
- su_es_count | name | tax_ident | valid_from | valid_to 
--------------+------+-----------+------------+----------
-(0 rows)
+ su_es_count |      name       | tax_ident | valid_from |  valid_to  
+-------------+-----------------+-----------+------------+------------
+           1 | Informal ES One | E68030001 | 2020-01-01 | 2020-12-31
+(1 row)
 
 ROLLBACK TO scenario_3_single_informal_es;
 -- Scenario 4: Two LUs
@@ -424,23 +426,21 @@ INSERT INTO public.import_68_04_two_lus_upload(valid_from,valid_to,tax_ident,nam
 ('2020-01-01','2020-12-31','680400001','First of Two LUs','2020-01-01',NULL,'First St 1','1234','Oslo','0301','NO','05.100',NULL,'2100','AS'),
 ('2020-01-01','2020-12-31','680400002','Second of Two LUs','2020-01-01',NULL,'Second St 1','5678','Bergen','4601','NO','06.100',NULL,'2100','AS');
 CALL worker.process_tasks(p_queue => 'import');
-WARNING:  [Job 87] Error in procedure import.analyse_statistical_variables for step Statistical Variables: relation "public.stat_definition_active" does not exist
-WARNING:  [Job 87] Error detected during analysis phase: {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}. Transitioning to finished.
 \echo "Import job status for 68_04_two_lus:"
 "Import job status for 68_04_two_lus:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_68_04_two_lus' ORDER BY slug; -- Added error_details
-         slug         |  state   | total_rows | imported_rows | has_error |                                                                                     error_details                                                                                      
-----------------------+----------+------------+---------------+-----------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- import_68_04_two_lus | finished |          2 |             0 | t         | {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}
+         slug         |  state   | total_rows | imported_rows | has_error | error_details 
+----------------------+----------+------------+---------------+-----------+---------------
+ import_68_04_two_lus | finished |          2 |             2 | f         | 
 (1 row)
 
 \echo "Data table row status for import_68_04_two_lus:" -- Added for consistency
 "Data table row status for import_68_04_two_lus:" -- Added for consistency
 SELECT row_id, state, errors, merge_status, action, operation FROM public.import_68_04_two_lus_data ORDER BY row_id;
- row_id |   state   | errors | merge_status | action | operation 
---------+-----------+--------+--------------+--------+-----------
-      1 | analysing | {}     | {}           | use    | insert
-      2 | analysing | {}     | {}           | use    | insert
+ row_id |   state   | errors |                                       merge_status                                       | action | operation 
+--------+-----------+--------+------------------------------------------------------------------------------------------+--------+-----------
+      1 | processed | {}     | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | use    | insert
+      2 | processed | {}     | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | use    | insert
 (2 rows)
 
 \echo "Verification for Scenario 4: Two LUs"
@@ -458,9 +458,11 @@ JOIN public.external_ident ei ON ei.legal_unit_id = lu.id
 JOIN public.external_ident_type eit ON eit.id = ei.type_id AND eit.code = 'tax_ident'
 WHERE ei.ident LIKE '6804%'
 ORDER BY ei.ident, lu.valid_from, lu.valid_to;
- name | tax_ident | primary_for_enterprise | valid_from | valid_to | linked_enterprise_exists 
-------+-----------+------------------------+------------+----------+--------------------------
-(0 rows)
+       name        | tax_ident | primary_for_enterprise | valid_from |  valid_to  | linked_enterprise_exists 
+-------------------+-----------+------------------------+------------+------------+--------------------------
+ First of Two LUs  | 680400001 | t                      | 2020-01-01 | 2020-12-31 |                        1
+ Second of Two LUs | 680400002 | t                      | 2020-01-01 | 2020-12-31 |                        1
+(2 rows)
 
 \echo "Enterprises (verify two were created, each linked to one LU as primary):"
 "Enterprises (verify two were created, each linked to one LU as primary):"
@@ -482,7 +484,9 @@ WHERE ent.id IN (
 ORDER BY (SELECT MIN(ei_order.ident) FROM public.legal_unit lu_order JOIN public.external_ident ei_order ON lu_order.id = ei_order.legal_unit_id WHERE lu_order.enterprise_id = ent.id); -- Order enterprises by their LU's tax_ident
  short_name | primary_lus_for_this_ent_in_batch 
 ------------+-----------------------------------
-(0 rows)
+            |                                 1
+            |                                 1
+(2 rows)
 
 CALL worker.process_tasks(p_queue => 'analytics');
 \echo "Statistical Units (LU):"
@@ -491,9 +495,11 @@ SELECT su.name, su.external_idents->>'tax_ident' AS tax_ident, su.valid_from, su
 FROM public.statistical_unit su
 WHERE su.unit_type = 'legal_unit' AND su.external_idents->>'tax_ident' LIKE '6804%'
 ORDER BY su.external_idents->>'tax_ident', su.valid_from, su.valid_to;
- name | tax_ident | valid_from | valid_to 
-------+-----------+------------+----------
-(0 rows)
+       name        | tax_ident | valid_from |  valid_to  
+-------------------+-----------+------------+------------
+ First of Two LUs  | 680400001 | 2020-01-01 | 2020-12-31
+ Second of Two LUs | 680400002 | 2020-01-01 | 2020-12-31
+(2 rows)
 
 ROLLBACK TO scenario_4_two_lus;
 -- Scenario 5: LU with three consecutive periods (P1=P2 core data, P3 different)
@@ -523,25 +529,23 @@ INSERT INTO public.import_68_05_lu_periods_upload(valid_from,valid_to,tax_ident,
 ('2020-07-01','2020-09-30','680500001','LU Three Periods','2020-01-01',NULL,'Addr P3 Changed','1000','Oslo','0301','NO','10.100',NULL,'2100','AS');
 --SET LOCAL client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
-WARNING:  [Job 88] Error in procedure import.analyse_statistical_variables for step Statistical Variables: relation "public.stat_definition_active" does not exist
-WARNING:  [Job 88] Error detected during analysis phase: {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}. Transitioning to finished.
 --RESET client_min_messages;
 \echo "Import job status for 68_05_lu_periods:"
 "Import job status for 68_05_lu_periods:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_68_05_lu_periods' ORDER BY slug;
-          slug           |  state   | total_rows | imported_rows | has_error |                                                                                     error_details                                                                                      
--------------------------+----------+------------+---------------+-----------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- import_68_05_lu_periods | finished |          3 |             0 | t         | {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}
+          slug           |  state   | total_rows | imported_rows | has_error | error_details 
+-------------------------+----------+------------+---------------+-----------+---------------
+ import_68_05_lu_periods | finished |          3 |             3 | f         | 
 (1 row)
 
 \echo "Data table row status for import_68_05_lu_periods:"
 "Data table row status for import_68_05_lu_periods:"
 SELECT row_id, state, errors, merge_status, action, operation FROM public.import_68_05_lu_periods_data ORDER BY row_id;
- row_id |   state   | errors | merge_status | action | operation 
---------+-----------+--------+--------------+--------+-----------
-      1 | analysing | {}     | {}           | use    | insert
-      2 | analysing | {}     | {}           | use    | update
-      3 | analysing | {}     | {}           | use    | update
+ row_id |   state   | errors |                       merge_status                        | action | operation 
+--------+-----------+--------+-----------------------------------------------------------+--------+-----------
+      1 | processed | {}     | {"legal_unit": "APPLIED", "physical_location": "APPLIED"} | use    | insert
+      2 | processed | {}     | {"legal_unit": "APPLIED", "physical_location": "APPLIED"} | use    | update
+      3 | processed | {}     | {"legal_unit": "APPLIED", "physical_location": "APPLIED"} | use    | update
 (3 rows)
 
 \echo "Verification for Scenario 5: LU Three Periods"
@@ -554,9 +558,10 @@ JOIN public.external_ident ei ON ei.legal_unit_id = lu.id
 JOIN public.external_ident_type eit ON eit.id = ei.type_id AND eit.code = 'tax_ident'
 LEFT JOIN public.sector sec ON lu.sector_id = sec.id
 WHERE ei.ident = '680500001' ORDER BY ei.ident, lu.valid_from, lu.valid_to;
- name | tax_ident | sector_code | valid_from | valid_to 
-------+-----------+-------------+------------+----------
-(0 rows)
+       name       | tax_ident | sector_code | valid_from |  valid_to  
+------------------+-----------+-------------+------------+------------
+ LU Three Periods | 680500001 | 2100        | 2020-01-01 | 2020-09-30
+(1 row)
 
 \echo "Physical Locations for LU 680500001 (expect 2 slices: P1+P2 merged, P3 separate):"
 "Physical Locations for LU 680500001 (expect 2 slices: P1+P2 merged, P3 separate):"
@@ -572,9 +577,11 @@ JOIN public.external_ident ei ON loc.legal_unit_id = ei.legal_unit_id
 JOIN public.external_ident_type eit ON ei.type_id = eit.id
 WHERE ei.ident = '680500001' AND eit.code = 'tax_ident' AND loc.type = 'physical'
 ORDER BY ei.ident, loc.type, loc.valid_from, loc.valid_to;
- tax_ident | type | address_part1 | valid_from | valid_to 
------------+------+---------------+------------+----------
-(0 rows)
+ tax_ident |   type   |  address_part1  | valid_from |  valid_to  
+-----------+----------+-----------------+------------+------------
+ 680500001 | physical | Addr P1         | 2020-01-01 | 2020-06-30
+ 680500001 | physical | Addr P3 Changed | 2020-07-01 | 2020-09-30
+(2 rows)
 
 CALL worker.process_tasks(p_queue => 'analytics');
 \echo "Statistical Units (LU - expect 2 slices due to address change in P3, reflected via location table):"
@@ -582,9 +589,11 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT su.name, su.external_idents->>'tax_ident' AS tax_ident, su.physical_address_part1, su.sector_code, su.valid_from, su.valid_to
 FROM public.statistical_unit su
 WHERE su.unit_type = 'legal_unit' AND su.external_idents->>'tax_ident' = '680500001' ORDER BY su.external_idents->>'tax_ident', su.valid_from, su.valid_to;
- name | tax_ident | physical_address_part1 | sector_code | valid_from | valid_to 
-------+-----------+------------------------+-------------+------------+----------
-(0 rows)
+       name       | tax_ident | physical_address_part1 | sector_code | valid_from |  valid_to  
+------------------+-----------+------------------------+-------------+------------+------------
+ LU Three Periods | 680500001 | Addr P1                | 2100        | 2020-01-01 | 2020-06-30
+ LU Three Periods | 680500001 | Addr P3 Changed        | 2100        | 2020-07-01 | 2020-09-30
+(2 rows)
 
 ROLLBACK TO scenario_5_lu_three_periods;
 -- Scenario 6: LU + Formal ES, three consecutive periods
@@ -614,8 +623,6 @@ INSERT INTO public.import_68_06_lu_periods_upload(valid_from,valid_to,tax_ident,
 ('2021-07-01','2021-09-30','680600001','LU for ES Periods','2021-01-01',NULL,'LU Addr P3 Changed','2000','Oslo','0301','NO','11.100',NULL,'2100','AS');
 --SET LOCAL client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
-WARNING:  [Job 89] Error in procedure import.analyse_statistical_variables for step Statistical Variables: relation "public.stat_definition_active" does not exist
-WARNING:  [Job 89] Error detected during analysis phase: {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}. Transitioning to finished.
 --RESET client_min_messages;
 DO $$
 DECLARE
@@ -640,36 +647,34 @@ INSERT INTO public.import_68_06_es_periods_upload(valid_from,valid_to,tax_ident,
 ('2021-07-01','2021-09-30','E68060001','ES for LU Periods','2021-01-01',NULL,'ES Addr P3 Changed','2000','Oslo','0301','NO','11.100',NULL,'680600001');
 --SET LOCAL client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
-WARNING:  [Job 90] Error in procedure import.analyse_statistical_variables for step Statistical Variables: relation "public.stat_definition_active" does not exist
-WARNING:  [Job 90] Error detected during analysis phase: {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}. Transitioning to finished.
 --RESET client_min_messages;
 \echo "Import job statuses for 68_06:"
 "Import job statuses for 68_06:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug LIKE 'import_68_06%' ORDER BY slug; -- Added error_details
-          slug           |  state   | total_rows | imported_rows | has_error |                                                                                     error_details                                                                                      
--------------------------+----------+------------+---------------+-----------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- import_68_06_es_periods | finished |          3 |             0 | t         | {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}
- import_68_06_lu_periods | finished |          3 |             0 | t         | {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}
+          slug           |  state   | total_rows | imported_rows | has_error | error_details 
+-------------------------+----------+------------+---------------+-----------+---------------
+ import_68_06_es_periods | finished |          3 |             3 | f         | 
+ import_68_06_lu_periods | finished |          3 |             3 | f         | 
 (2 rows)
 
 \echo "Data table row status for import_68_06_lu_periods:" -- Added for consistency
 "Data table row status for import_68_06_lu_periods:" -- Added for consistency
 SELECT row_id, state, errors, merge_status, action, operation FROM public.import_68_06_lu_periods_data ORDER BY row_id;
- row_id |   state   | errors | merge_status | action | operation 
---------+-----------+--------+--------------+--------+-----------
-      1 | analysing | {}     | {}           | use    | insert
-      2 | analysing | {}     | {}           | use    | update
-      3 | analysing | {}     | {}           | use    | update
+ row_id |   state   | errors |                       merge_status                        | action | operation 
+--------+-----------+--------+-----------------------------------------------------------+--------+-----------
+      1 | processed | {}     | {"legal_unit": "APPLIED", "physical_location": "APPLIED"} | use    | insert
+      2 | processed | {}     | {"legal_unit": "APPLIED", "physical_location": "APPLIED"} | use    | update
+      3 | processed | {}     | {"legal_unit": "APPLIED", "physical_location": "APPLIED"} | use    | update
 (3 rows)
 
 \echo "Data table row status for import_68_06_es_periods:" -- Added for consistency
 "Data table row status for import_68_06_es_periods:" -- Added for consistency
 SELECT row_id, state, errors, merge_status, action, operation FROM public.import_68_06_es_periods_data ORDER BY row_id;
- row_id | state |                                     errors                                      | merge_status | action | operation 
---------+-------+---------------------------------------------------------------------------------+--------------+--------+-----------
-      1 | error | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."} | {}           | skip   | insert
-      2 | error | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."} | {}           | skip   | update
-      3 | error | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."} | {}           | skip   | update
+ row_id |   state   | errors |                         merge_status                         | action | operation 
+--------+-----------+--------+--------------------------------------------------------------+--------+-----------
+      1 | processed | {}     | {"establishment": "APPLIED", "physical_location": "APPLIED"} | use    | insert
+      2 | processed | {}     | {"establishment": "APPLIED", "physical_location": "APPLIED"} | use    | update
+      3 | processed | {}     | {"establishment": "APPLIED", "physical_location": "APPLIED"} | use    | update
 (3 rows)
 
 \echo "Verification for Scenario 6: LU + ES Three Periods"
@@ -681,9 +686,10 @@ FROM public.legal_unit lu
 JOIN public.external_ident ei ON ei.legal_unit_id = lu.id
 JOIN public.external_ident_type eit ON eit.id = ei.type_id AND eit.code = 'tax_ident'
 WHERE ei.ident = '680600001' ORDER BY ei.ident, lu.valid_from, lu.valid_to;
- name | tax_ident | valid_from | valid_to 
-------+-----------+------------+----------
-(0 rows)
+       name        | tax_ident | valid_from |  valid_to  
+-------------------+-----------+------------+------------
+ LU for ES Periods | 680600001 | 2021-01-01 | 2021-09-30
+(1 row)
 
 \echo "Establishments (expect 1 slice in public.establishment, showing linked LU's tax_ident):"
 "Establishments (expect 1 slice in public.establishment, showing linked LU's tax_ident):"
@@ -701,9 +707,10 @@ LEFT JOIN public.external_ident lu_ei ON lu_ei.legal_unit_id = lu.id
 LEFT JOIN public.external_ident_type lu_eit ON lu_eit.id = lu_ei.type_id AND lu_eit.code = 'tax_ident'
 WHERE est_ei.ident = 'E68060001' 
 ORDER BY est_ei.ident, est.valid_from, est.valid_to;
- name | est_tax_ident | legal_unit_tax_ident | valid_from | valid_to 
-------+---------------+----------------------+------------+----------
-(0 rows)
+       name        | est_tax_ident | legal_unit_tax_ident | valid_from |  valid_to  
+-------------------+---------------+----------------------+------------+------------
+ ES for LU Periods | E68060001     | 680600001            | 2021-01-01 | 2021-09-30
+(1 row)
 
 CALL worker.process_tasks(p_queue => 'analytics');
 \echo "Statistical Units (LU - expect 2 slices due to address change):"
@@ -711,18 +718,22 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT su.name, su.external_idents->>'tax_ident' AS tax_ident, su.physical_address_part1, su.valid_from, su.valid_to
 FROM public.statistical_unit su
 WHERE su.unit_type = 'legal_unit' AND su.external_idents->>'tax_ident' = '680600001' ORDER BY su.external_idents->>'tax_ident', su.valid_from, su.valid_to;
- name | tax_ident | physical_address_part1 | valid_from | valid_to 
-------+-----------+------------------------+------------+----------
-(0 rows)
+       name        | tax_ident | physical_address_part1 | valid_from |  valid_to  
+-------------------+-----------+------------------------+------------+------------
+ LU for ES Periods | 680600001 | LU Addr P1             | 2021-01-01 | 2021-06-30
+ LU for ES Periods | 680600001 | LU Addr P3 Changed     | 2021-07-01 | 2021-09-30
+(2 rows)
 
 \echo "Statistical Units (ES - expect 3 slices due to address change):"
 "Statistical Units (ES - expect 3 slices due to address change):"
 SELECT su.name, su.external_idents->>'tax_ident' AS est_tax_ident, su.physical_address_part1, su.valid_from, su.valid_to
 FROM public.statistical_unit su
 WHERE su.unit_type = 'establishment' AND su.external_idents->>'tax_ident' = 'E68060001' ORDER BY su.external_idents->>'tax_ident', su.valid_from, su.valid_to;
- name | est_tax_ident | physical_address_part1 | valid_from | valid_to 
-------+---------------+------------------------+------------+----------
-(0 rows)
+       name        | est_tax_ident | physical_address_part1 | valid_from |  valid_to  
+-------------------+---------------+------------------------+------------+------------
+ ES for LU Periods | E68060001     | ES Addr P1             | 2021-01-01 | 2021-06-30
+ ES for LU Periods | E68060001     | ES Addr P3 Changed     | 2021-07-01 | 2021-09-30
+(2 rows)
 
 ROLLBACK TO scenario_6_lu_es_three_periods;
 -- Scenario 7: Informal ES with three consecutive periods
@@ -754,25 +765,23 @@ INSERT INTO public.import_68_07_informal_es_periods_upload(valid_from,valid_to,t
 ('2022-07-01','2022-09-30','E68070001','Informal ES Three Periods','2022-01-01',NULL,'Inf Addr P3 Changed','3000','Oslo','0301','NO','10.110',NULL);
 --SET LOCAL client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
-WARNING:  [Job 91] Error in procedure import.analyse_statistical_variables for step Statistical Variables: relation "public.stat_definition_active" does not exist
-WARNING:  [Job 91] Error detected during analysis phase: {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}. Transitioning to finished.
 --RESET client_min_messages;
 \echo "Import job status for 68_07_informal_es_periods:"
 "Import job status for 68_07_informal_es_periods:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_68_07_informal_es_periods' ORDER BY slug; -- Added error_details
-               slug               |  state   | total_rows | imported_rows | has_error |                                                                                     error_details                                                                                      
-----------------------------------+----------+------------+---------------+-----------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- import_68_07_informal_es_periods | finished |          3 |             0 | t         | {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}
+               slug               |  state   | total_rows | imported_rows | has_error | error_details 
+----------------------------------+----------+------------+---------------+-----------+---------------
+ import_68_07_informal_es_periods | finished |          3 |             3 | f         | 
 (1 row)
 
 \echo "Data table row status for import_68_07_informal_es_periods:" -- Added for consistency
 "Data table row status for import_68_07_informal_es_periods:" -- Added for consistency
 SELECT row_id, state, errors, merge_status, action, operation FROM public.import_68_07_informal_es_periods_data ORDER BY row_id;
- row_id |   state   | errors | merge_status | action | operation 
---------+-----------+--------+--------------+--------+-----------
-      1 | analysing | {}     | {}           | use    | insert
-      2 | analysing | {}     | {}           | use    | update
-      3 | analysing | {}     | {}           | use    | update
+ row_id |   state   | errors |                                        merge_status                                         | action | operation 
+--------+-----------+--------+---------------------------------------------------------------------------------------------+--------+-----------
+      1 | processed | {}     | {"establishment": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | use    | insert
+      2 | processed | {}     | {"establishment": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | use    | update
+      3 | processed | {}     | {"establishment": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | use    | update
 (3 rows)
 
 \echo "Verification for Scenario 7: Informal ES Three Periods"
@@ -789,9 +798,10 @@ FROM public.establishment est
 JOIN public.external_ident ei ON ei.establishment_id = est.id
 JOIN public.external_ident_type eit ON eit.id = ei.type_id AND eit.code = 'tax_ident' -- Assuming informal ES uses 'tax_ident'
 WHERE ei.ident = 'E68070001' ORDER BY ei.ident, est.valid_from, est.valid_to;
- name | tax_ident | linked_enterprise_exists | valid_from | valid_to 
-------+-----------+--------------------------+------------+----------
-(0 rows)
+           name            | tax_ident | linked_enterprise_exists | valid_from |  valid_to  
+---------------------------+-----------+--------------------------+------------+------------
+ Informal ES Three Periods | E68070001 |                        1 | 2022-01-01 | 2022-09-30
+(1 row)
 
 \echo "Physical Locations for ES E68070001 (expect 2 slices due to address change):"
 "Physical Locations for ES E68070001 (expect 2 slices due to address change):"
@@ -806,9 +816,11 @@ JOIN public.external_ident ei ON loc.establishment_id = ei.establishment_id
 JOIN public.external_ident_type eit ON ei.type_id = eit.id
 WHERE ei.ident = 'E68070001' AND eit.code = 'tax_ident' AND loc.type = 'physical'
 ORDER BY ei.ident, loc.type, loc.valid_from, loc.valid_to;
- tax_ident | type | address_part1 | valid_from | valid_to 
------------+------+---------------+------------+----------
-(0 rows)
+ tax_ident |   type   |    address_part1    | valid_from |  valid_to  
+-----------+----------+---------------------+------------+------------
+ E68070001 | physical | Inf Addr P1         | 2022-01-01 | 2022-06-30
+ E68070001 | physical | Inf Addr P3 Changed | 2022-07-01 | 2022-09-30
+(2 rows)
 
 CALL worker.process_tasks(p_queue => 'analytics');
 \echo "Statistical Units (ES - expect 2 slices due to location change):"
@@ -816,9 +828,11 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT su.name, su.external_idents->>'tax_ident' AS tax_ident, su.physical_address_part1, su.valid_from, su.valid_to
 FROM public.statistical_unit su
 WHERE su.unit_type = 'establishment' AND su.external_idents->>'tax_ident' = 'E68070001' ORDER BY su.external_idents->>'tax_ident', su.valid_from, su.valid_to;
- name | tax_ident | physical_address_part1 | valid_from | valid_to 
-------+-----------+------------------------+------------+----------
-(0 rows)
+           name            | tax_ident | physical_address_part1 | valid_from |  valid_to  
+---------------------------+-----------+------------------------+------------+------------
+ Informal ES Three Periods | E68070001 | Inf Addr P1            | 2022-01-01 | 2022-06-30
+ Informal ES Three Periods | E68070001 | Inf Addr P3 Changed    | 2022-07-01 | 2022-09-30
+(2 rows)
 
 ROLLBACK TO scenario_7_informal_es_three_periods;
 \echo "Final counts after all test blocks (should be same as initial due to rollbacks)"

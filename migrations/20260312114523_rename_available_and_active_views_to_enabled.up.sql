@@ -953,6 +953,7 @@ DECLARE
         'import.generate_stat_var_data_columns()',
         'import.cleanup_stat_var_data_columns()',
         'import.process_statistical_variables(integer,integer,text)',
+        'import.analyse_statistical_variables(integer,integer,text)',
         'import.synchronize_definition_step_mappings(integer)',
         'import.create_source_and_mappings_for_definition(integer,text[])'
     ];

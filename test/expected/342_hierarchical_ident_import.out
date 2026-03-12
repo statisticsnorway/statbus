@@ -177,15 +177,13 @@ INSERT INTO public.import_342_02_hier_lu_upload(
 \echo "Run worker processing for import jobs"
 "Run worker processing for import jobs"
 CALL worker.process_tasks(p_queue => 'import');
-WARNING:  [Job 103] Error in procedure import.analyse_statistical_variables for step Statistical Variables: relation "public.stat_definition_active" does not exist
-WARNING:  [Job 103] Error detected during analysis phase: {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}. Transitioning to finished.
 \echo "Import job status for 342_02_hier_lu:"
 "Import job status for 342_02_hier_lu:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details
 FROM public.import_job WHERE slug = 'import_342_02_hier_lu';
-         slug          |  state   | total_rows | imported_rows | has_error |                                                                                     error_details                                                                                      
------------------------+----------+------------+---------------+-----------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- import_342_02_hier_lu | finished |          1 |             0 | t         | {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}
+         slug          |  state   | total_rows | imported_rows | has_error | error_details 
+-----------------------+----------+------------+---------------+-----------+---------------
+ import_342_02_hier_lu | finished |          1 |             1 | f         | 
 (1 row)
 
 \echo "Data table row status for import_342_02_hier_lu:"
@@ -194,9 +192,9 @@ SELECT row_id, state, errors, merge_status, action, operation,
        surveyor_ident_region_raw, surveyor_ident_district_raw, surveyor_ident_seq_raw,
        surveyor_ident_path
 FROM public.import_342_02_hier_lu_data;
- row_id |   state   | errors | merge_status | action | operation | surveyor_ident_region_raw | surveyor_ident_district_raw | surveyor_ident_seq_raw | surveyor_ident_path 
---------+-----------+--------+--------------+--------+-----------+---------------------------+-----------------------------+------------------------+---------------------
-      1 | analysing | {}     | {}           | use    | insert    | NORTH                     | KAMPALA                     | 001                    | NORTH.KAMPALA.001
+ row_id |   state   | errors |                                       merge_status                                       | action | operation | surveyor_ident_region_raw | surveyor_ident_district_raw | surveyor_ident_seq_raw | surveyor_ident_path 
+--------+-----------+--------+------------------------------------------------------------------------------------------+--------+-----------+---------------------------+-----------------------------+------------------------+---------------------
+      1 | processed | {}     | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | use    | insert    | NORTH                     | KAMPALA                     | 001                    | NORTH.KAMPALA.001
 (1 row)
 
 \echo "Verification: Legal Units created:"
@@ -209,9 +207,10 @@ FROM public.legal_unit lu
 JOIN public.external_ident ei_tax ON ei_tax.legal_unit_id = lu.id
 JOIN public.external_ident_type eit_tax ON eit_tax.id = ei_tax.type_id AND eit_tax.code = 'tax_ident'
 WHERE ei_tax.ident = '342020001';
- name | tax_ident | valid_from | valid_to 
-------+-----------+------------+----------
-(0 rows)
+        name         | tax_ident | valid_from |  valid_to  
+---------------------+-----------+------------+------------
+ LU with Surveyor ID | 342020001 | 2020-01-01 | 2020-12-31
+(1 row)
 
 \echo "Verification: Hierarchical External Identifiers created:"
 "Verification: Hierarchical External Identifiers created:"
@@ -226,9 +225,10 @@ FROM public.external_ident ei
 JOIN public.external_ident_type eit ON eit.id = ei.type_id
 JOIN public.legal_unit lu ON lu.id = ei.legal_unit_id
 WHERE eit.code = 'surveyor_ident';
- type_code | shape | idents | labels | depth | legal_unit_name 
------------+-------+--------+--------+-------+-----------------
-(0 rows)
+   type_code    |    shape     |      idents       |       labels        | depth |   legal_unit_name   
+----------------+--------------+-------------------+---------------------+-------+---------------------
+ surveyor_ident | hierarchical | NORTH.KAMPALA.001 | region.district.seq |     3 | LU with Surveyor ID
+(1 row)
 
 -- ============================================================================
 -- Test 342.3: All-or-Nothing Validation - Partial Components Should Error
@@ -261,15 +261,13 @@ INSERT INTO public.import_342_03_partial_upload(
  'Main St 1','1234','Oslo','0301','NO','01.110',NULL,'2100','AS',
  'NORTH', 'KAMPALA', NULL);  -- seq is NULL (partial)
 CALL worker.process_tasks(p_queue => 'import');
-WARNING:  [Job 104] Error in procedure import.analyse_statistical_variables for step Statistical Variables: relation "public.stat_definition_active" does not exist
-WARNING:  [Job 104] Error detected during analysis phase: {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}. Transitioning to finished.
 \echo "Import job status for 342_03_partial (expect error due to partial hierarchical):"
 "Import job status for 342_03_partial (expect error due to partial hierarchical):"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details
 FROM public.import_job WHERE slug = 'import_342_03_partial';
-         slug          |  state   | total_rows | imported_rows | has_error |                                                                                     error_details                                                                                      
------------------------+----------+------------+---------------+-----------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- import_342_03_partial | finished |          1 |             0 | t         | {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}
+         slug          |  state   | total_rows | imported_rows | has_error | error_details 
+-----------------------+----------+------------+---------------+-----------+---------------
+ import_342_03_partial | finished |          1 |             0 | f         | 
 (1 row)
 
 \echo "Data table row status - should show error about missing components:"
@@ -325,15 +323,13 @@ INSERT INTO public.import_342_04_invalid_upload(
  'Main St 1','1234','Oslo','0301','NO','01.110',NULL,'2100','AS',
  'NORTH', 'KAM.PALA', '001');  -- district has a dot (invalid for ltree label)
 CALL worker.process_tasks(p_queue => 'import');
-WARNING:  [Job 105] Error in procedure import.analyse_statistical_variables for step Statistical Variables: relation "public.stat_definition_active" does not exist
-WARNING:  [Job 105] Error detected during analysis phase: {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}. Transitioning to finished.
 \echo "Import job status for 342_04_invalid (expect error due to invalid chars):"
 "Import job status for 342_04_invalid (expect error due to invalid chars):"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details
 FROM public.import_job WHERE slug = 'import_342_04_invalid';
-         slug          |  state   | total_rows | imported_rows | has_error |                                                                                     error_details                                                                                      
------------------------+----------+------------+---------------+-----------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- import_342_04_invalid | finished |          1 |             0 | t         | {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}
+         slug          |  state   | total_rows | imported_rows | has_error | error_details 
+-----------------------+----------+------------+---------------+-----------+---------------
+ import_342_04_invalid | finished |          1 |             0 | f         | 
 (1 row)
 
 \echo "Data table row status - should show error about invalid characters:"
@@ -387,15 +383,13 @@ INSERT INTO public.import_342_05_mixed_upload(
  'Main St 3','1234','Oslo','0301','NO','03.100',NULL,'2100','AS',
  'WEST', 'MBARARA', '001');
 CALL worker.process_tasks(p_queue => 'import');
-WARNING:  [Job 106] Error in procedure import.analyse_statistical_variables for step Statistical Variables: relation "public.stat_definition_active" does not exist
-WARNING:  [Job 106] Error detected during analysis phase: {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}. Transitioning to finished.
 \echo "Import job status for 342_05_mixed:"
 "Import job status for 342_05_mixed:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details
 FROM public.import_job WHERE slug = 'import_342_05_mixed';
-        slug         |  state   | total_rows | imported_rows | has_error |                                                                                     error_details                                                                                      
----------------------+----------+------------+---------------+-----------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- import_342_05_mixed | finished |          3 |             0 | t         | {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}
+        slug         |  state   | total_rows | imported_rows | has_error | error_details 
+---------------------+----------+------------+---------------+-----------+---------------
+ import_342_05_mixed | finished |          3 |             3 | f         | 
 (1 row)
 
 \echo "Data table row status:"
@@ -407,9 +401,9 @@ FROM public.import_342_05_mixed_data
 ORDER BY row_id;
  row_id |   state   | errors | action | operation | tax_ident_raw | surveyor_ident_region_raw | surveyor_ident_district_raw | surveyor_ident_seq_raw | surveyor_ident_path 
 --------+-----------+--------+--------+-----------+---------------+---------------------------+-----------------------------+------------------------+---------------------
-      1 | analysing | {}     | use    | insert    | 342050001     | EAST                      | JINJA                       | 001                    | EAST.JINJA.001
-      2 | analysing | {}     | use    | insert    | 342050002     |                           |                             |                        | 
-      3 | analysing | {}     | use    | insert    | 342050003     | WEST                      | MBARARA                     | 001                    | WEST.MBARARA.001
+      1 | processed | {}     | use    | insert    | 342050001     | EAST                      | JINJA                       | 001                    | EAST.JINJA.001
+      2 | processed | {}     | use    | insert    | 342050002     |                           |                             |                        | 
+      3 | processed | {}     | use    | insert    | 342050003     | WEST                      | MBARARA                     | 001                    | WEST.MBARARA.001
 (3 rows)
 
 \echo "Verification: Legal Units created:"
@@ -423,9 +417,12 @@ JOIN public.external_ident ei_tax ON ei_tax.legal_unit_id = lu.id
 JOIN public.external_ident_type eit_tax ON eit_tax.id = ei_tax.type_id AND eit_tax.code = 'tax_ident'
 WHERE ei_tax.ident IN ('342050001', '342050002', '342050003')
 ORDER BY ei_tax.ident;
- name | tax_ident | valid_from | valid_to 
-------+-----------+------------+----------
-(0 rows)
+      name       | tax_ident | valid_from |  valid_to  
+-----------------+-----------+------------+------------
+ LU Mixed One    | 342050001 | 2020-01-01 | 2020-12-31
+ LU Regular Only | 342050002 | 2020-01-01 | 2020-12-31
+ LU Mixed Three  | 342050003 | 2020-01-01 | 2020-12-31
+(3 rows)
 
 \echo "Verification: All External Identifiers (both regular and hierarchical):"
 "Verification: All External Identifiers (both regular and hierarchical):"
@@ -444,9 +441,14 @@ WHERE ei.legal_unit_id IN (
     WHERE ei2.ident IN ('342050001', '342050002', '342050003')
 )
 ORDER BY lu.name, eit.code;
- type_code | shape | identifier | legal_unit_name 
------------+-------+------------+-----------------
-(0 rows)
+   type_code    |    shape     |    identifier    | legal_unit_name 
+----------------+--------------+------------------+-----------------
+ surveyor_ident | hierarchical | EAST.JINJA.001   | LU Mixed One
+ tax_ident      | regular      | 342050001        | LU Mixed One
+ surveyor_ident | hierarchical | WEST.MBARARA.001 | LU Mixed Three
+ tax_ident      | regular      | 342050003        | LU Mixed Three
+ tax_ident      | regular      | 342050002        | LU Regular Only
+(5 rows)
 
 -- ============================================================================
 -- Test 342.6: Duplicate Detection for Hierarchical Identifiers
@@ -484,15 +486,13 @@ INSERT INTO public.import_342_06_dupes_upload(
  'Main St 2','1234','Oslo','0301','NO','02.200',NULL,'2100','AS',
  'CENTRAL', 'OSLO', '099');  -- Same hierarchical ID as above!
 CALL worker.process_tasks(p_queue => 'import');
-WARNING:  [Job 107] Error in procedure import.analyse_statistical_variables for step Statistical Variables: relation "public.stat_definition_active" does not exist
-WARNING:  [Job 107] Error detected during analysis phase: {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}. Transitioning to finished.
 \echo "Import job status for 342_06_dupes (expect errors for duplicate hierarchical):"
 "Import job status for 342_06_dupes (expect errors for duplicate hierarchical):"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details
 FROM public.import_job WHERE slug = 'import_342_06_dupes';
-        slug         |  state   | total_rows | imported_rows | has_error |                                                                                     error_details                                                                                      
----------------------+----------+------------+---------------+-----------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- import_342_06_dupes | finished |          2 |             0 | t         | {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}
+        slug         |  state   | total_rows | imported_rows | has_error | error_details 
+---------------------+----------+------------+---------------+-----------+---------------
+ import_342_06_dupes | finished |          2 |             0 | f         | 
 (1 row)
 
 \echo "Data table row status - both rows should show duplicate error:"
@@ -580,15 +580,13 @@ INSERT INTO public.import_342_07_twolevel_upload(
  'Main St 1','1234','Oslo','0301','NO','01.110',NULL,'2100','AS',
  'SOUTHERN', 'BERGEN');
 CALL worker.process_tasks(p_queue => 'import');
-WARNING:  [Job 108] Error in procedure import.analyse_statistical_variables for step Statistical Variables: relation "public.stat_definition_active" does not exist
-WARNING:  [Job 108] Error detected during analysis phase: {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}. Transitioning to finished.
 \echo "Import job status for 342_07_twolevel:"
 "Import job status for 342_07_twolevel:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details
 FROM public.import_job WHERE slug = 'import_342_07_twolevel';
-          slug          |  state   | total_rows | imported_rows | has_error |                                                                                     error_details                                                                                      
-------------------------+----------+------------+---------------+-----------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- import_342_07_twolevel | finished |          1 |             0 | t         | {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}
+          slug          |  state   | total_rows | imported_rows | has_error | error_details 
+------------------------+----------+------------+---------------+-----------+---------------
+ import_342_07_twolevel | finished |          1 |             1 | f         | 
 (1 row)
 
 \echo "Data table row status:"
@@ -598,7 +596,7 @@ SELECT row_id, state, errors, action, operation,
 FROM public.import_342_07_twolevel_data;
  row_id |   state   | errors | action | operation | region_code_region_raw | region_code_district_raw | region_code_path 
 --------+-----------+--------+--------+-----------+------------------------+--------------------------+------------------
-      1 | analysing | {}     | use    | insert    | SOUTHERN               | BERGEN                   | SOUTHERN.BERGEN
+      1 | processed | {}     | use    | insert    | SOUTHERN               | BERGEN                   | SOUTHERN.BERGEN
 (1 row)
 
 \echo "Verification: 2-level hierarchical identifier created:"
@@ -612,9 +610,10 @@ FROM public.external_ident ei
 JOIN public.external_ident_type eit ON eit.id = ei.type_id
 JOIN public.legal_unit lu ON lu.id = ei.legal_unit_id
 WHERE eit.code = 'region_code';
- type_code | idents | depth | legal_unit_name 
------------+--------+-------+-----------------
-(0 rows)
+  type_code  |     idents      | depth | legal_unit_name 
+-------------+-----------------+-------+-----------------
+ region_code | SOUTHERN.BERGEN |     2 | LU Two Level
+(1 row)
 
 -- ============================================================================
 -- Final Summary
@@ -631,7 +630,7 @@ SELECT
     (SELECT COUNT(DISTINCT id) FROM public.enterprise) AS enterprise_count;
  establishment_count | legal_unit_count | enterprise_count 
 ---------------------+------------------+------------------
-                   0 |                0 |                0
+                   0 |                5 |                5
 (1 row)
 
 \echo "All hierarchical external identifiers created:"
@@ -649,8 +648,12 @@ FROM public.external_ident ei
 JOIN public.external_ident_type eit ON eit.id = ei.type_id
 WHERE eit.shape = 'hierarchical'
 ORDER BY eit.code, ei.idents;
- type_code | idents | depth | unit_type 
------------+--------+-------+-----------
-(0 rows)
+   type_code    |      idents       | depth | unit_type  
+----------------+-------------------+-------+------------
+ region_code    | SOUTHERN.BERGEN   |     2 | legal_unit
+ surveyor_ident | EAST.JINJA.001    |     3 | legal_unit
+ surveyor_ident | NORTH.KAMPALA.001 |     3 | legal_unit
+ surveyor_ident | WEST.MBARARA.001  |     3 | legal_unit
+(4 rows)
 
 ROLLBACK;

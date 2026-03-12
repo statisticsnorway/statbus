@@ -29,7 +29,7 @@ export type Database = {
           category_id: number
           data_source_id?: number | null
           edit_at?: string
-          edit_by_user_id: number
+          edit_by_user_id?: number
           edit_comment?: string | null
           establishment_id?: number | null
           id?: number
@@ -380,7 +380,7 @@ export type Database = {
         Insert: {
           data_source_id?: number | null
           edit_at?: string
-          edit_by_user_id: number
+          edit_by_user_id?: number
           edit_comment?: string | null
           email_address?: string | null
           establishment_id?: number | null
@@ -608,7 +608,7 @@ export type Database = {
         },
         Insert: {
           edit_at?: string
-          edit_by_user_id: number
+          edit_by_user_id?: number
           edit_comment?: string | null
           enabled?: boolean
           id?: never
@@ -662,7 +662,7 @@ export type Database = {
           data_source_id?: number | null
           death_date?: string | null
           edit_at?: string
-          edit_by_user_id: number
+          edit_by_user_id?: number
           edit_comment?: string | null
           enterprise_id?: number | null
           free_econ_zone?: boolean | null
@@ -916,7 +916,7 @@ export type Database = {
         },
         Insert: {
           edit_at?: string
-          edit_by_user_id: number
+          edit_by_user_id?: number
           edit_comment?: string | null
           enterprise_id?: number | null
           establishment_id?: number | null
@@ -1664,7 +1664,7 @@ export type Database = {
           derived_influenced_power_level?: number | null
           derived_power_group_id?: number | null
           edit_at?: string
-          edit_by_user_id: number
+          edit_by_user_id?: number
           edit_comment?: string | null
           id?: number
           influenced_id: number
@@ -1909,7 +1909,7 @@ export type Database = {
           data_source_id?: number | null
           death_date?: string | null
           edit_at?: string
-          edit_by_user_id: number
+          edit_by_user_id?: number
           edit_comment?: string | null
           enterprise_id: number
           foreign_participation_id?: number | null
@@ -2213,7 +2213,7 @@ export type Database = {
           country_id: number
           data_source_id?: number | null
           edit_at?: string
-          edit_by_user_id: number
+          edit_by_user_id?: number
           edit_comment?: string | null
           establishment_id?: number | null
           id?: number
@@ -2399,6 +2399,10 @@ export type Database = {
           birth_date: string | null
           country_id: number | null
           created_at: string
+          death_date: string | null
+          edit_at: string
+          edit_by_user_id: number
+          edit_comment: string | null
           family_name: string | null
           given_name: string | null
           id: number
@@ -2414,6 +2418,10 @@ export type Database = {
           birth_date?: string | null
           country_id?: number | null
           created_at?: string
+          death_date?: string | null
+          edit_at?: string
+          edit_by_user_id?: number
+          edit_comment?: string | null
           family_name?: string | null
           given_name?: string | null
           id?: never
@@ -2429,6 +2437,10 @@ export type Database = {
           birth_date?: string | null
           country_id?: number | null
           created_at?: string
+          death_date?: string | null
+          edit_at?: string
+          edit_by_user_id?: number
+          edit_comment?: string | null
           family_name?: string | null
           given_name?: string | null
           id?: never
@@ -2458,6 +2470,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "country_view"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_edit_by_user_id_fkey"
+            columns: ["edit_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "user"
+            referencedColumns: ["id"]
           }
         ]
       },
@@ -2480,7 +2499,7 @@ export type Database = {
         Insert: {
           data_source_id?: number | null
           edit_at?: string
-          edit_by_user_id: number
+          edit_by_user_id?: number
           edit_comment?: string | null
           establishment_id?: number | null
           id?: number
@@ -2664,7 +2683,7 @@ export type Database = {
           contact_person?: string | null
           data_source_id?: number | null
           edit_at?: string
-          edit_by_user_id: number
+          edit_by_user_id?: number
           edit_comment?: string | null
           foreign_participation_id?: number | null
           id?: never
@@ -2854,7 +2873,7 @@ export type Database = {
           derived_root_legal_unit_id: number
           derived_root_status: Database["public"]["Enums"]["power_group_root_status"]
           edit_at?: string
-          edit_by_user_id: number
+          edit_by_user_id?: number
           edit_comment?: string | null
           id?: number
           power_group_id: number
@@ -3390,7 +3409,7 @@ export type Database = {
         Insert: {
           data_source_id?: number | null
           edit_at?: string
-          edit_by_user_id: number
+          edit_by_user_id?: number
           edit_comment?: string | null
           establishment_id?: number | null
           id?: number
@@ -4579,7 +4598,7 @@ export type Database = {
         Insert: {
           created_at?: string
           edit_at?: string
-          edit_by_user_id: number
+          edit_by_user_id?: number
           edit_comment?: string | null
           enterprise_id?: number | null
           establishment_id?: number | null
@@ -5703,7 +5722,7 @@ export type Database = {
         Insert: {
           created_at?: string
           edit_at?: string
-          edit_by_user_id: number
+          edit_by_user_id?: number
           edit_comment?: string | null
           enterprise_id?: number | null
           establishment_id?: number | null

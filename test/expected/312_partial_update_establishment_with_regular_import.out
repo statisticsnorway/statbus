@@ -12,30 +12,27 @@ CALL test.set_user_from_email('test.admin@statbus.org');
 -- Set the activity category standard to ISIC v4 for the demo data.
 \echo "User selected the Activity Category Standard"
 "User selected the Activity Category Standard"
-INSERT INTO settings(activity_category_standard_id,country_id)
+INSERT INTO settings(activity_category_standard_id,country_id,region_version_id)
 SELECT (SELECT id FROM activity_category_standard WHERE code = 'isic_v4')
      , (SELECT id FROM public.country WHERE iso_2 = 'UN')
+     , (SELECT id FROM public.region_version WHERE code = 'initial')
 ON CONFLICT (only_one_setting)
 DO UPDATE SET
     activity_category_standard_id = EXCLUDED.activity_category_standard_id,
-    country_id = EXCLUDED.country_id;
-psql:samples/demo/getting-started.sql:9: ERROR:  null value in column "region_version_id" of relation "settings" violates not-null constraint
+    country_id = EXCLUDED.country_id,
+    region_version_id = EXCLUDED.region_version_id;
 \echo "User uploads the demo activity categories"
 "User uploads the demo activity categories"
 \copy public.activity_category_enabled_custom(path,name) FROM 'app/public/demo/activity_custom_isic_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-psql:samples/demo/getting-started.sql:12: ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "User uploads the demo regions"
 "User uploads the demo regions"
 \copy public.region_upload(path, name) FROM 'app/public/demo/regions_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-psql:samples/demo/getting-started.sql:15: ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "User uploads the demo sectors"
 "User uploads the demo sectors"
 \copy public.sector_custom_only(path,name,description) FROM 'app/public/demo/sectors_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-psql:samples/demo/getting-started.sql:18: ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "User uploads the demo legal forms"
 "User uploads the demo legal forms"
 \copy public.legal_form_custom_only(code,name) FROM 'app/public/demo/legal_forms_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-psql:samples/demo/getting-started.sql:21: ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- The demo data uses data sources that are part of the core database seed.
 -- This file is included for structural consistency with other sample data sets.
 -- Create Import Job for Legal Units (prerequisite)
@@ -47,9 +44,7 @@ SELECT
     'Import job for 312',
     'Test data load (312)',
     false;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \copy public.import_312_lu_wsd_upload(tax_ident,stat_ident,name,valid_from,physical_address_part1,valid_to,postal_address_part1,postal_address_part2,physical_address_part2,physical_postcode,postal_postcode,physical_address_part3,physical_postplace,postal_address_part3,postal_postplace,phone_number,landline,mobile_number,fax_number,web_address,email_address,secondary_activity_category_code,physical_latitude,physical_longitude,physical_altitude,birth_date,physical_region_code,postal_country_iso_2,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code,status_code,unit_size_code) FROM 'app/public/demo/legal_units_with_source_dates_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Create Import Job for Establishments (prerequisite)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
 SELECT
@@ -59,15 +54,11 @@ SELECT
     'Import job for 312',
     'Test data load (312)',
     false;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \copy public.import_312_est_wsd_upload(tax_ident,stat_ident,name,physical_region_code,valid_from,valid_to,postal_country_iso_2,physical_country_iso_2,primary_activity_category_code,secondary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code,physical_address_part1,physical_address_part2,physical_address_part3,postal_address_part1,postal_address_part2,postal_address_part3,phone_number,mobile_number,landline,fax_number,web_address,email_address,physical_latitude,physical_longitude,physical_altitude,birth_date,unit_size_code,status_code) FROM 'app/public/demo/formal_establishments_units_with_source_dates_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Run worker processing for import jobs - Initial Load"
 "Run worker processing for import jobs - Initial Load"
 CALL worker.process_tasks(p_queue => 'import');
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 CALL worker.process_tasks(p_queue => 'analytics');
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Taking snapshot of statistics before partial update (for the historical period being changed)"
 "Taking snapshot of statistics before partial update (for the historical period being changed)"
 CREATE TEMP TABLE stats_before_update AS
@@ -78,11 +69,8 @@ SELECT unit_type
  WHERE valid_from <= '2023-07-01'::date AND '2023-07-01'::date < valid_until
    AND unit_type = 'establishment'
  GROUP BY unit_type;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 CREATE TEMP TABLE temp_source_for_update (tax_ident text, stat_ident text, turnover text, valid_from text, valid_to text);
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \copy temp_source_for_update FROM 'app/public/demo/formal_establishments_turnover_update_with_source_dates.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Checking raw stat_for_unit data BEFORE partial update"
 "Checking raw stat_for_unit data BEFORE partial update"
 \x off
@@ -103,16 +91,36 @@ JOIN public.stat_definition sd ON sfu.stat_definition_id = sd.id
 JOIN est_map ON sfu.establishment_id = est_map.establishment_id
 WHERE daterange(sfu.valid_from, sfu.valid_until) && daterange('2023-01-01', '2024-01-01', '[)')
 ORDER BY est_map.stat_ident::int, sd.code, sfu.valid_from;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ stat_ident | valid_from | valid_to | stat_code | value_int | value_float | value_string | value_bool 
+------------+------------+----------+-----------+-----------+-------------+--------------+------------
+ 91000      | 2023-01-01 | infinity | employees |        10 |             |              | 
+ 91000      | 2023-01-01 | infinity | turnover  |           |        1000 |              | 
+ 91001      | 2023-01-01 | infinity | employees |        10 |             |              | 
+ 91001      | 2023-01-01 | infinity | turnover  |           |        1000 |              | 
+ 91002      | 2023-01-01 | infinity | employees |        10 |             |              | 
+ 91002      | 2023-01-01 | infinity | turnover  |           |        1000 |              | 
+ 91003      | 2023-01-01 | infinity | employees |        10 |             |              | 
+ 91003      | 2023-01-01 | infinity | turnover  |           |        1000 |              | 
+ 91004      | 2023-01-01 | infinity | employees |        10 |             |              | 
+ 91004      | 2023-01-01 | infinity | turnover  |           |        1000 |              | 
+ 91005      | 2023-01-01 | infinity | employees |        10 |             |              | 
+ 91005      | 2023-01-01 | infinity | turnover  |           |        1000 |              | 
+ 91006      | 2023-01-01 | infinity | employees |        10 |             |              | 
+ 91006      | 2023-01-01 | infinity | turnover  |           |        1000 |              | 
+ 91007      | 2023-01-01 | infinity | employees |        10 |             |              | 
+ 91007      | 2023-01-01 | infinity | turnover  |           |        1000 |              | 
+ 91008      | 2023-01-01 | infinity | employees |        10 |             |              | 
+ 91008      | 2023-01-01 | infinity | turnover  |           |        1000 |              | 
+ 91009      | 2023-01-01 | infinity | employees |        10 |             |              | 
+ 91009      | 2023-01-01 | infinity | turnover  |           |        1000 |              | 
+(20 rows)
+
 \x auto
 CALL test.remove_pg_temp_for_tx_user_switch(p_keep_tables => ARRAY['stats_before_update', 'temp_source_for_update', '_batch_accumulator']);
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 GRANT SELECT ON TABLE stats_before_update TO regular_user;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Switching to regular user for partial update"
 "Switching to regular user for partial update"
 CALL test.set_user_from_email('test.regular@statbus.org');
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Create Import Job for Partial Establishment Update using a REGULAR import definition"
 "Create Import Job for Partial Establishment Update using a REGULAR import definition"
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
@@ -123,19 +131,17 @@ SELECT
     'Import job for partial establishment update using a REGULAR definition.',
     'Test data load (312_partial_update_establishment_with_regular_import.sql)',
     false;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "User uploads the establishments turnover update file to a regular import job (import_312_est_partial_update)"
 "User uploads the establishments turnover update file to a regular import job (import_312_est_partial_update)"
 \copy public.import_312_est_partial_update_upload(tax_ident,stat_ident,turnover,valid_from,valid_to) FROM 'app/public/demo/formal_establishments_turnover_update_with_source_dates.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Run worker processing for import jobs - Partial Update"
 "Run worker processing for import jobs - Partial Update"
 CALL worker.process_tasks(p_queue => 'import');
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
+WARNING:  [Job 137] Error preparing data: new row violates row-level security policy for table "import_312_est_partial_update_data"
+WARNING:  [Job 137] Error detected during analysis phase: {"prepare_error": "new row violates row-level security policy for table \"import_312_est_partial_update_data\""}. Transitioning to finished.
 \echo "Run worker processing for analytics tasks - Partial Update"
 "Run worker processing for analytics tasks - Partial Update"
 CALL worker.process_tasks(p_queue => 'analytics');
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Checking import data for partial update. Expecting all rows to be processed successfully."
 "Checking import data for partial update. Expecting all rows to be processed successfully."
 \x on
@@ -147,7 +153,8 @@ SELECT
     jsonb_pretty(merge_status) as merge_status
 FROM public.import_312_est_partial_update_data
 ORDER BY row_id;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
+(0 rows)
+
 \x auto
 \echo "Checking last_edit_by_user_id on statistical_unit to confirm it changed after partial update"
 "Checking last_edit_by_user_id on statistical_unit to confirm it changed after partial update"
@@ -169,7 +176,10 @@ JOIN public.user u ON su.last_edit_by_user_id = u.id
 WHERE su.unit_id = (SELECT unit_id FROM updated_unit)
   AND su.unit_type = 'establishment'
 ORDER BY su.valid_from;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ stat_ident | valid_from | valid_to | last_edit_by | stats 
+------------+------------+----------+--------------+-------
+(0 rows)
+
 \x auto
 \echo "Checking raw stat_for_unit data AFTER partial update to verify the merge and edit user"
 "Checking raw stat_for_unit data AFTER partial update to verify the merge and edit user"
@@ -190,7 +200,10 @@ JOIN (
 ) idt ON sfu.establishment_id = idt.establishment_id
 WHERE daterange(sfu.valid_from, sfu.valid_until) && daterange('2023-01-01', '2024-01-01', '[)')
 ORDER BY idt.stat_ident::int, sd.code, sfu.valid_from;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ stat_ident | valid_from | valid_to | stat_code | value_int | value_float | value_string | value_bool | edit_by 
+------------+------------+----------+-----------+-----------+-------------+--------------+------------+---------
+(0 rows)
+
 \x auto
 \echo "Checking resulting statistics after Partial Update. Should show turnover updated, and employees unchanged."
 "Checking resulting statistics after Partial Update. Should show turnover updated, and employees unchanged."
@@ -215,6 +228,33 @@ SELECT
     jsonb_pretty(sb.stats_summary->'employees') AS before,
     jsonb_pretty(sa.stats_summary->'employees') AS after
 FROM stats_after sa JOIN stats_before_update sb ON sa.unit_type = sb.unit_type;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ statistic | are_identical |                  before                   |                   after                   
+-----------+---------------+-------------------------------------------+-------------------------------------------
+ turnover  | t             | {                                        +| {                                        +
+           |               |     "max": 1000,                         +|     "max": 1000,                         +
+           |               |     "min": 20,                           +|     "min": 20,                           +
+           |               |     "sum": 21154,                        +|     "sum": 21154,                        +
+           |               |     "mean": 881.42,                      +|     "mean": 881.42,                      +
+           |               |     "type": "float_agg",                 +|     "type": "float_agg",                 +
+           |               |     "count": 24,                         +|     "count": 24,                         +
+           |               |     "stddev": 320.85,                    +|     "stddev": 320.85,                    +
+           |               |     "variance": 102946.17,               +|     "variance": 102946.17,               +
+           |               |     "sum_sq_diff": 2367761.83,           +|     "sum_sq_diff": 2367761.83,           +
+           |               |     "coefficient_of_variation_pct": 36.40+|     "coefficient_of_variation_pct": 36.40+
+           |               | }                                         | }
+ employees | t             | {                                        +| {                                        +
+           |               |     "max": 10,                           +|     "max": 10,                           +
+           |               |     "min": 0,                            +|     "min": 0,                            +
+           |               |     "sum": 213,                          +|     "sum": 213,                          +
+           |               |     "mean": 8.88,                        +|     "mean": 8.88,                        +
+           |               |     "type": "int_agg",                   +|     "type": "int_agg",                   +
+           |               |     "count": 24,                         +|     "count": 24,                         +
+           |               |     "stddev": 3.05,                      +|     "stddev": 3.05,                      +
+           |               |     "variance": 9.33,                    +|     "variance": 9.33,                    +
+           |               |     "sum_sq_diff": 214.62,               +|     "sum_sq_diff": 214.62,               +
+           |               |     "coefficient_of_variation_pct": 34.42+|     "coefficient_of_variation_pct": 34.42+
+           |               | }                                         | }
+(2 rows)
+
 \x auto
 ROLLBACK;

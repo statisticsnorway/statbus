@@ -106,8 +106,6 @@ SELECT COUNT(*) AS upload_row_count FROM public.import_319_failure_test_upload;
 \echo "=== Test 5: Process the import job (should succeed for valid data) ==="
 "=== Test 5: Process the import job (should succeed for valid data) ==="
 CALL worker.process_tasks(p_queue => 'import');
-WARNING:  [Job 92] Error in procedure import.analyse_statistical_variables for step Statistical Variables: relation "public.stat_definition_active" does not exist
-WARNING:  [Job 92] Error detected during analysis phase: {"error_in_analysis_step": "Error during analysis step Statistical Variables (proc: import.analyse_statistical_variables): relation \"public.stat_definition_active\" does not exist"}. Transitioning to finished.
 \echo "Check job status after processing valid data"
 "Check job status after processing valid data"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error
@@ -115,7 +113,7 @@ FROM public.import_job
 WHERE slug = 'import_319_failure_test';
           slug           |  state   | total_rows | imported_rows | has_error 
 -------------------------+----------+------------+---------------+-----------
- import_319_failure_test | finished |          1 |             0 | t
+ import_319_failure_test | finished |          1 |             1 | f
 (1 row)
 
 \echo "=== Test 6: Manually test that failed state requires error ==="
@@ -136,7 +134,7 @@ FROM public.import_job
 WHERE slug = 'import_319_failure_test';
           slug           |  state   | has_error 
 -------------------------+----------+-----------
- import_319_failure_test | finished | t
+ import_319_failure_test | finished | f
 (1 row)
 
 \echo "=== Test 7: Manually set job to failed with error (should succeed) ==="

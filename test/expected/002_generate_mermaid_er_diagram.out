@@ -477,6 +477,10 @@ erDiagram
 		character_varying(200) address_part1
 		character_varying(200) address_part2
 		character_varying(200) address_part3
+		date death_date
+		character_varying(512) edit_comment
+		integer edit_by_user_id
+		timestamp_with_time_zone edit_at
 	}
 	person_for_unit["person_for_unit"] {
 		integer id
@@ -1586,6 +1590,7 @@ erDiagram
 	location }o--o| region : location_region_dual_fk
 	location }o--o| region : location_region_id_fkey
 	location }o--o| region_version : location_region_version_id_fkey
+	person }o--|| auth_user : person_edit_by_user_id_fkey
 	person }|--o| country : person_country_id_fkey
 	person_for_unit }o--|| auth_user : person_for_unit_edit_by_user_id_fkey
 	person_for_unit }o--o| data_source : person_for_unit_data_source_id_fkey

@@ -1,12 +1,14 @@
 -- Set the activity category standard to ISIC v4 for the demo data.
 \echo "User selected the Activity Category Standard"
-INSERT INTO settings(activity_category_standard_id,country_id)
+INSERT INTO settings(activity_category_standard_id,country_id,region_version_id)
 SELECT (SELECT id FROM activity_category_standard WHERE code = 'isic_v4')
      , (SELECT id FROM public.country WHERE iso_2 = 'UN')
+     , (SELECT id FROM public.region_version WHERE code = 'initial')
 ON CONFLICT (only_one_setting)
 DO UPDATE SET
     activity_category_standard_id = EXCLUDED.activity_category_standard_id,
-    country_id = EXCLUDED.country_id;
+    country_id = EXCLUDED.country_id,
+    region_version_id = EXCLUDED.region_version_id;
 
 \echo "User uploads the demo activity categories"
 \copy public.activity_category_enabled_custom(path,name) FROM 'app/public/demo/activity_custom_isic_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
