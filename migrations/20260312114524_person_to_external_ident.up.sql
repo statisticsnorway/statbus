@@ -757,34 +757,9 @@ BEGIN
             ('person_ident', 'Person Identifier', 10, 'Personal identification number (national ID, passport, etc.)', true);
     ELSE END CASE;
 
-    -- Fix 3: Reset activity_category_standard baseline
-    CASE WHEN scope IN ('all') THEN
-        -- Delete all activity categories first (FK to activity_category_standard)
-        WITH deleted_ac AS (
-            DELETE FROM public.activity_category WHERE true RETURNING *
-        )
-        SELECT jsonb_build_object(
-            'activity_category_all', jsonb_build_object(
-                'deleted_count', (SELECT COUNT(*) FROM deleted_ac)
-            )
-        ) INTO changed;
-        result := result || changed;
-
-        -- Now delete and re-insert activity_category_standard baseline
-        WITH deleted_acs AS (
-            DELETE FROM public.activity_category_standard WHERE true RETURNING *
-        )
-        SELECT jsonb_build_object(
-            'activity_category_standard', jsonb_build_object(
-                'deleted_count', (SELECT COUNT(*) FROM deleted_acs WHERE code NOT IN ('isic_v4','nace_v2.1'))
-            )
-        ) INTO changed;
-        result := result || changed;
-
-        INSERT INTO public.activity_category_standard(code, name, description, code_pattern)
-        VALUES ('isic_v4', 'ISIC 4', 'ISIC Version 4', 'digits'),
-               ('nace_v2.1', 'NACE 2.1', 'NACE Version 2 Revision 1', 'dot_after_two_digits');
-    ELSE END CASE;
+    -- activity_category_standard is system seed data (isic_v4, nace_v2.1) and must
+    -- never be deleted by reset(). Custom activity_categories are already handled
+    -- by the 'getting-started' scope block above.
 
     RETURN result;
 END;

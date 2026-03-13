@@ -3615,14 +3615,8 @@ reset_all
     "external_ident_type": {
         "deleted_count": 0
     },
-    "activity_category_all": {
-        "deleted_count": 1813
-    },
     "foreign_participation": {
         "changed_count": 0,
-        "deleted_count": 0
-    },
-    "activity_category_standard": {
         "deleted_count": 0
     }
 }

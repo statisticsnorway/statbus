@@ -59,7 +59,7 @@ export const settingsAtomAsync = atomWithRefresh(async (get) => {
   if (!client) return null;
   const { data: settings, error } = await client
     .from("settings")
-    .select("activity_category_standard(id,name),country(id,name,iso_2)")
+    .select("activity_category_standard!settings_activity_category_standard_id_fkey(id,name),country(id,name,iso_2)")
     .limit(1);
   if (error) {
     console.error("Failed to fetch settings:", error);
