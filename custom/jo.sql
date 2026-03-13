@@ -1,7 +1,7 @@
 
 
 
-\ir ./reset.sql
+SELECT public.reset(true, 'getting-started');
 
 CREATE OR REPLACE PROCEDURE public.custom_setup_jo()
 LANGUAGE plpgsql
@@ -9,11 +9,6 @@ AS $BODY$
 BEGIN
 
     RAISE NOTICE 'Runs JO at %', now();
-	  --CALL public.custom_setup_reset();
-
-    -- Before running this procedure you may need to
-    -- reset units and classifications in Statbus (Ctrl+Shift+K)
-    -- This customization must be completed BEFORE loading legal/establishment units.
 
 
     UPDATE status

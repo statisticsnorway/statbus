@@ -1,9 +1,7 @@
 
 --Erik
 
-
-\ir ./reset.sql
-
+SELECT public.reset(true, 'getting-started');
 
 CREATE OR REPLACE PROCEDURE public.custom_setup_ke()
 LANGUAGE plpgsql
@@ -11,7 +9,6 @@ AS $BODY$
 BEGIN
 
     RAISE NOTICE 'Runs KE at %', now();
-	  --CALL public.custom_setup_reset();
 
 
     INSERT INTO external_ident_type (code, name, priority)

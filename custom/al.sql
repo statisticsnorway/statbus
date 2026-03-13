@@ -1,7 +1,7 @@
 
 --albania oct 2025 - jan 2026 mar 2026
 
-\ir ./reset.sql
+SELECT public.reset(true, 'getting-started');
 
 CREATE OR REPLACE PROCEDURE public.custom_setup_al()
 LANGUAGE plpgsql
@@ -9,9 +9,6 @@ AS $BODY$
 BEGIN
 
     RAISE NOTICE 'Runs Tirana at %', now();
-	--CALL public.custom_setup_reset();
---utkommenterer reset ettersom den ikkke finnes..
---select * from external_ident_type
 
 
 --al no need for stat ident

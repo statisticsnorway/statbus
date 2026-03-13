@@ -1,16 +1,13 @@
 
 
-\ir ./reset.sql
+SELECT public.reset(true, 'getting-started');
 
-CREATE OR REPLACE PROCEDURE public.custom_setup_ma(
-	)
-LANGUAGE 'plpgsql'
+CREATE OR REPLACE PROCEDURE public.custom_setup_ma()
+LANGUAGE plpgsql
 AS $BODY$
-
 BEGIN
 
     RAISE NOTICE 'Runs MA at %', now();
-	---CALL public.custom_setup_reset();
 
 
     INSERT INTO external_ident_type (code, name, priority)
