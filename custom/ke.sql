@@ -1,5 +1,5 @@
 
---Erik 
+--Erik
 
 
 \ir ./reset.sql
@@ -11,7 +11,7 @@ AS $BODY$
 BEGIN
 
     RAISE NOTICE 'Runs KE at %', now();
-	CALL public.custom_setup_reset();
+	  --CALL public.custom_setup_reset();
 
 
     INSERT INTO external_ident_type (code, name, priority)
@@ -19,13 +19,13 @@ BEGIN
         ('krapin', 'KRAPin', 3),
         ('brs', 'BRS', 4),
         ('nssf', 'NSSF', 5),
-		('sbp', 'SBP', 6),
+        ('sbp', 'SBP', 6),
         ('nhif', 'NHIF', 7);
-	
+
 --tbc wont need any of the originals in KE
 --hiding tax_ident and stat_ident  --this is a problem ??
  UPDATE external_ident_type
-    SET archived = TRUE
+    SET enabled = FALSE
     WHERE id <= 2;
 
 
@@ -33,19 +33,19 @@ BEGIN
 
     INSERT INTO data_source_custom (code, name)
     VALUES
-        ('tax', 'Tax'),    
+        ('tax', 'Tax'),
         ('test', 'Test');
 
     UPDATE data_source
-    SET active = TRUE;
+    SET enabled = TRUE;
 
 
     INSERT INTO stat_definition (code, type, frequency, name, priority)
     VALUES
-	    ('female', 'int', 'yearly', 'Female', 3),
-		('male', 'int', 'yearly', 'Male', 4),
-		('production', 'float', 'yearly', 'Production', 5),
-		('sales', 'float', 'yearly', 'Sales', 6);
+	        ('female', 'int', 'yearly', 'Female', 3),
+					('male', 'int', 'yearly', 'Male', 4),
+					('production', 'float', 'yearly', 'Production', 5),
+					('sales', 'float', 'yearly', 'Sales', 6);
 
 
 
@@ -60,7 +60,7 @@ where id = 2
 
 
 
-    INSERT INTO unit_size (code, name, active, custom)
+    INSERT INTO unit_size (code, name, enabled, custom)
     VALUES
         ('1', 'Micro', TRUE, TRUE),
         ('2', 'Small', TRUE, TRUE),
@@ -70,12 +70,12 @@ where id = 2
 
 --hide the original ones
 update unit_size
-set active = FALSE
+set enabled = FALSE
 where custom = FALSE;
 
 
     UPDATE status
-    SET active = FALSE
+    SET enabled = FALSE
     WHERE custom = FALSE;
 
 --select * from status
@@ -83,7 +83,7 @@ where custom = FALSE;
 
 
     INSERT INTO status
-        (code, name, assigned_by_default, used_for_counting, priority, active, custom)
+        (code, name, assigned_by_default, used_for_counting, priority, enabled, custom)
     VALUES
         ('active', 'Active', TRUE, TRUE, 3, TRUE, TRUE),
         ('closed', 'Closed', FALSE, false, 4, TRUE, TRUE),
