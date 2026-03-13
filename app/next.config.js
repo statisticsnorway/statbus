@@ -41,6 +41,16 @@ if (!process.env.DEBUG_STATUS_REPORTED) {
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  env: {
+    NEXT_PUBLIC_STATBUS_VERSION: process.env.VERSION || 'dev',
+    NEXT_PUBLIC_STATBUS_VERSION_SHA: (() => {
+      try {
+        return require('child_process').execSync('git rev-parse HEAD').toString().trim();
+      } catch {
+        return '';
+      }
+    })(),
+  },
   // output: 'standalone' is primarily for production builds.
   // Set it conditionally to avoid potential interference with dev server features like proxying.
   ...(isDevelopment && {

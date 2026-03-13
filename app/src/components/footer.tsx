@@ -49,6 +49,15 @@ export default function Footer() {
             <Link href="https://www.statbus.org" aria-label="Statbus homepage">
               <Globe size={22} className="stroke-ssb-neon" />
             </Link>
+            <span className="text-xs text-gray-300">
+              Statbus version{" "}
+              <Link
+                href={`https://github.com/statisticsnorway/statbus/commit/${process.env.NEXT_PUBLIC_STATBUS_VERSION_SHA}`}
+                className="hover:text-ssb-neon underline"
+              >
+                {process.env.NEXT_PUBLIC_STATBUS_VERSION}
+              </Link>
+            </span>
           </div>
           {/* Only render CommandPaletteTriggerButton if mounted, not loading, and authenticated */}
           {showAuthenticatedLayout && (
