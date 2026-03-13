@@ -70,7 +70,7 @@ interface EditableHierarchicalFieldProps {
   fieldId: string;
   label: string;
   value: string | null;
-  identType: Tables<"external_ident_type_active">;
+  identType: Tables<"external_ident_type_enabled">;
   formAction: (formData: FormData) => void;
   response: UpdateResponse;
 }

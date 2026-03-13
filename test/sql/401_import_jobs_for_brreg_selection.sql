@@ -55,7 +55,8 @@ INSERT INTO public.import_job (
   default_valid_to,
   description,
   note,
-  user_id
+  user_id,
+  review
 )
 SELECT
   def_he.id,
@@ -64,7 +65,8 @@ SELECT
   'infinity'::date,
   'Import Job for BRREG Hovedenhet 2025 Selection',
   'This job handles the import of BRREG Hovedenhet selection data for 2025.',
-  (SELECT id FROM public.user WHERE email = 'test.admin@statbus.org')
+  (SELECT id FROM public.user WHERE email = 'test.admin@statbus.org'),
+  false
 FROM def_he
 ON CONFLICT (slug) DO NOTHING
 RETURNING slug, state;
@@ -83,7 +85,8 @@ INSERT INTO public.import_job (
   default_valid_to,
   description,
   note,
-  user_id
+  user_id,
+  review
 )
 SELECT
   def_ue.id,
@@ -92,7 +95,8 @@ SELECT
   'infinity'::date,
   'Import Job for BRREG Underenhet 2025 Selection',
   'This job handles the import of BRREG Underenhet selection data for 2025.',
-  (SELECT id FROM public.user WHERE email = 'test.admin@statbus.org')
+  (SELECT id FROM public.user WHERE email = 'test.admin@statbus.org'),
+  false
 FROM def_ue
 ON CONFLICT (slug) DO NOTHING
 RETURNING slug, state;

@@ -14,17 +14,19 @@ BEGIN;
 CALL test.set_user_from_email('test.admin@statbus.org');
 \i samples/norway/getting-started.sql
 \i samples/norway/settings.sql
-INSERT INTO settings(activity_category_standard_id,country_id)
+INSERT INTO settings(activity_category_standard_id,country_id,region_version_id)
 SELECT (SELECT id FROM activity_category_standard WHERE code = 'nace_v2.1')
      , (SELECT id FROM public.country WHERE iso_2 = 'NO')
+     , (SELECT id FROM public.region_version WHERE code = 'initial')
 ON CONFLICT (only_one_setting)
 DO UPDATE SET
    activity_category_standard_id = EXCLUDED.activity_category_standard_id,
-   country_id = EXCLUDED.country_id
+   country_id = EXCLUDED.country_id,
+   region_version_id = EXCLUDED.region_version_id
    WHERE settings.only_one_setting = EXCLUDED.only_one_setting;
 ;
 \i samples/norway/activity_category/activity_category_norway.sql
-\copy public.activity_category_available_custom FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.activity_category_enabled_custom FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 \i samples/norway/regions/norway-regions-2024.sql
 \copy public.region_upload(path, name) FROM 'samples/norway/regions/norway-regions-2024.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 \i samples/norway/sector/sector_norway.sql
@@ -41,15 +43,15 @@ SELECT acs.code FROM public.settings AS s JOIN activity_category_standard AS acs
 
 \echo "Ensure sample tags are loaded"
 "Ensure sample tags are loaded"
-INSERT INTO public.tag (path, name, type) VALUES
-('TestTag', 'Test Tag Parent', 'custom'),
-('TestTag.LU', 'Legal Unit Test Tag', 'custom'),
-('TestTag.LU.Updated', 'Legal Unit Updated Test Tag', 'custom'),
-('TestTag.ES', 'Establishment Test Tag Parent', 'custom'),
-('TestTag.ES.Formal', 'Formal Establishment Test Tag', 'custom'),
-('TestTag.ES.Formal.Updated', 'Formal Establishment Updated Test Tag', 'custom'),
-('TestTag.ES.Informal', 'Informal Establishment Test Tag', 'custom'),
-('TestTag.ES.Informal.Updated', 'Informal Establishment Updated Test Tag', 'custom')
+INSERT INTO public.tag (path, name, custom) VALUES
+('TestTag', 'Test Tag Parent', true),
+('TestTag.LU', 'Legal Unit Test Tag', true),
+('TestTag.LU.Updated', 'Legal Unit Updated Test Tag', true),
+('TestTag.ES', 'Establishment Test Tag Parent', true),
+('TestTag.ES.Formal', 'Formal Establishment Test Tag', true),
+('TestTag.ES.Formal.Updated', 'Formal Establishment Updated Test Tag', true),
+('TestTag.ES.Informal', 'Informal Establishment Test Tag', true),
+('TestTag.ES.Informal.Updated', 'Informal Establishment Updated Test Tag', true)
 ON CONFLICT (path) DO NOTHING;
 \echo "Setup custom stat definitions and external ident types for Test 71"
 "Setup custom stat definitions and external ident types for Test 71"
@@ -57,6 +59,7 @@ INSERT INTO public.stat_definition (code, name, type, frequency, description, en
 ('men_employees', 'Number of Men Employees', 'int', 'yearly', 'Number of men employees in the unit', true, 10),
 ('women_employees', 'Number of Women Employees', 'int', 'yearly', 'Number of women employees in the unit', true, 11)
 ON CONFLICT (code) DO UPDATE SET enabled = true; -- Ensure they are enabled for this test
+NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_s_employees_idx
@@ -67,10 +70,12 @@ NOTICE:  Dropped index su_ss_turnover_count_idx
 NOTICE:  Dropped index su_ss_turnover_sum_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
 NOTICE:  Created indices for stat_definition employees
 NOTICE:  Created indices for stat_definition turnover
 NOTICE:  Created indices for stat_definition men_employees
 NOTICE:  Created indices for stat_definition women_employees
+NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_s_employees_idx
@@ -87,6 +92,7 @@ NOTICE:  Dropped index su_ss_women_employees_count_idx
 NOTICE:  Dropped index su_ss_women_employees_sum_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
 NOTICE:  Created indices for stat_definition employees
 NOTICE:  Created indices for stat_definition turnover
 NOTICE:  Created indices for stat_definition men_employees
@@ -94,6 +100,7 @@ NOTICE:  Created indices for stat_definition women_employees
 INSERT INTO public.external_ident_type (code, name, description, priority, enabled) VALUES
 ('nin_ident', 'National Identity Number', 'Custom NIN ident for test 71', 3, true)
 ON CONFLICT (code) DO UPDATE SET enabled = true; -- Ensure it's enabled
+NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_s_employees_idx
@@ -111,11 +118,13 @@ NOTICE:  Dropped index su_ss_women_employees_sum_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_nin_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
 NOTICE:  Created indices for stat_definition employees
 NOTICE:  Created indices for stat_definition turnover
 NOTICE:  Created indices for stat_definition men_employees
 NOTICE:  Created indices for stat_definition women_employees
 NOTICE:  Dropped index su_ei_nin_ident_idx
+NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_s_employees_idx
@@ -133,6 +142,7 @@ NOTICE:  Dropped index su_ss_women_employees_sum_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_nin_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
 NOTICE:  Created indices for stat_definition employees
 NOTICE:  Created indices for stat_definition turnover
 NOTICE:  Created indices for stat_definition men_employees
@@ -140,6 +150,7 @@ NOTICE:  Created indices for stat_definition women_employees
 -- Disable stat_ident for this test to ensure nin_ident is picked up where applicable
 UPDATE public.external_ident_type SET enabled = false WHERE code = 'stat_ident';
 NOTICE:  Dropped index su_ei_nin_ident_idx
+NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_s_employees_idx
@@ -156,6 +167,7 @@ NOTICE:  Dropped index su_ss_women_employees_count_idx
 NOTICE:  Dropped index su_ss_women_employees_sum_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_nin_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
 NOTICE:  Created indices for stat_definition employees
 NOTICE:  Created indices for stat_definition turnover
 NOTICE:  Created indices for stat_definition men_employees
@@ -334,6 +346,7 @@ END $$;
  establishment_id                     | integer                   |           |          |                              | plain    |              | 
  tax_ident_raw                        | text                      |           |          |                              | extended |              | 
  nin_ident_raw                        | text                      |           |          |                              | extended |              | 
+ person_ident_raw                     | text                      |           |          |                              | extended |              | 
  data_source_code_raw                 | text                      |           |          |                              | extended |              | 
  data_source_id                       | integer                   |           |          |                              | plain    |              | 
  status_code_raw                      | text                      |           |          |                              | extended |              | 
@@ -430,7 +443,7 @@ END $$;
  tag_id                               | integer                   |           |          |                              | plain    |              | 
  tag_for_unit_id                      | integer                   |           |          |                              | plain    |              | 
  edit_comment_raw                     | text                      |           |          |                              | extended |              | 
- edit_by_user_id                      | integer                   |           |          |                              | plain    |              | 
+ edit_by_user_id                      | integer                   |           |          | auth.uid()                   | plain    |              | 
  edit_at                              | timestamp with time zone  |           |          |                              | plain    |              | 
  edit_comment                         | text                      |           |          |                              | extended |              | 
  founding_row_id                      | integer                   |           |          |                              | plain    |              | 
@@ -445,6 +458,7 @@ Indexes:
     "import_71_a1_lu_data_daterange_idx" gist (daterange(valid_from, valid_until, '[)'::text))
     "import_71_a1_lu_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "import_71_a1_lu_data_nin_ident_raw_idx" btree (nin_ident_raw)
+    "import_71_a1_lu_data_person_ident_raw_idx" btree (person_ident_raw)
     "import_71_a1_lu_data_state_last_completed_priority_batch_se_idx" btree (state, last_completed_priority, batch_seq)
     "import_71_a1_lu_data_tax_ident_raw_idx" btree (tax_ident_raw)
 Check constraints:
@@ -469,7 +483,7 @@ Policies:
     POLICY "import_71_a1_lu_data_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 Not-null constraints:
     "import_71_a1_lu_data_row_id_not_null" NOT NULL "row_id"
     "import_71_a1_lu_data_state_not_null" NOT NULL "state"

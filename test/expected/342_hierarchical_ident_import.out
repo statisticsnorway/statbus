@@ -13,17 +13,19 @@ BEGIN;
 CALL test.set_user_from_email('test.admin@statbus.org');
 \i samples/norway/getting-started.sql
 \i samples/norway/settings.sql
-INSERT INTO settings(activity_category_standard_id,country_id)
+INSERT INTO settings(activity_category_standard_id,country_id,region_version_id)
 SELECT (SELECT id FROM activity_category_standard WHERE code = 'nace_v2.1')
      , (SELECT id FROM public.country WHERE iso_2 = 'NO')
+     , (SELECT id FROM public.region_version WHERE code = 'initial')
 ON CONFLICT (only_one_setting)
 DO UPDATE SET
    activity_category_standard_id = EXCLUDED.activity_category_standard_id,
-   country_id = EXCLUDED.country_id
+   country_id = EXCLUDED.country_id,
+   region_version_id = EXCLUDED.region_version_id
    WHERE settings.only_one_setting = EXCLUDED.only_one_setting;
 ;
 \i samples/norway/activity_category/activity_category_norway.sql
-\copy public.activity_category_available_custom FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.activity_category_enabled_custom FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 \i samples/norway/regions/norway-regions-2024.sql
 \copy public.region_upload(path, name) FROM 'samples/norway/regions/norway-regions-2024.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 \i samples/norway/sector/sector_norway.sql
@@ -63,6 +65,7 @@ SELECT
 INSERT INTO public.external_ident_type (code, name, shape, labels, description, priority, enabled)
 VALUES ('surveyor_ident', 'Surveyor Identifier', 'hierarchical', 'region.district.seq',
         'Region/District/Sequence hierarchical composite key', 50, true);
+NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_s_employees_idx
@@ -73,6 +76,7 @@ NOTICE:  Dropped index su_ss_turnover_count_idx
 NOTICE:  Dropped index su_ss_turnover_sum_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_surveyor_ident_idx for external_ident_type
 NOTICE:  Created GIST ltree index su_ei_surveyor_ident_ltree_gist_idx for hierarchical external_ident_type
 NOTICE:  Created indices for stat_definition employees
@@ -518,6 +522,7 @@ ORDER BY row_id;
 INSERT INTO public.external_ident_type (code, name, shape, labels, description, priority, enabled)
 VALUES ('region_code', 'Regional Code', 'hierarchical', 'region.district',
         'Two-level regional code', 51, true);
+NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_surveyor_ident_idx
 NOTICE:  Dropped index su_ei_surveyor_ident_ltree_gist_idx
@@ -530,6 +535,7 @@ NOTICE:  Dropped index su_ss_turnover_count_idx
 NOTICE:  Dropped index su_ss_turnover_sum_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_surveyor_ident_idx for external_ident_type
 NOTICE:  Created GIST ltree index su_ei_surveyor_ident_ltree_gist_idx for hierarchical external_ident_type
 NOTICE:  Created btree index su_ei_region_code_idx for external_ident_type

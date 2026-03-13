@@ -158,7 +158,7 @@ SELECT primary_activity_category_path FROM public.statistical_unit WHERE name = 
 
 \echo "Action: Updating activity category_id"
 UPDATE public.activity
-SET category_id = (SELECT id FROM public.activity_category_available WHERE path = 'A.01')
+SET category_id = (SELECT id FROM public.activity_category_enabled WHERE path = 'A.01')
 WHERE legal_unit_id = (SELECT id FROM public.legal_unit WHERE name = 'Statistics Norway')
   AND type = 'primary';
 

@@ -12,7 +12,7 @@ interface State {
 export type UploadView =
   | "region_upload"
   | "import_legal_unit_current"
-  | "activity_category_available_custom"
+  | "activity_category_enabled_custom"
   | "import_establishment_current_for_legal_unit"
   | "import_establishment_current_without_legal_unit"
   | "sector_custom_only"
@@ -98,10 +98,32 @@ export async function setSettings(formData: FormData) {
   }
 
   try {
+    // region_version_id is required — use form value if provided, else fetch the initial one
+    const regionVersionIdFormEntry = formData.get("region_version_id");
+    let regionVersionId: number;
+    if (regionVersionIdFormEntry) {
+      regionVersionId = parseInt(regionVersionIdFormEntry.toString(), 10);
+      if (isNaN(regionVersionId)) {
+        return { error: "Invalid region version provided" };
+      }
+    } else {
+      const { data: rv, error: rvError } = await client
+        .from("region_version")
+        .select("id")
+        .eq("code", "initial")
+        .limit(1)
+        .single();
+      if (rvError || !rv) {
+        return { error: "Could not find initial region version" };
+      }
+      regionVersionId = rv.id;
+    }
+
     const response = await client.from("settings").upsert(
       {
         activity_category_standard_id: activityCategoryStandardId,
         country_id: countryId,
+        region_version_id: regionVersionId,
       },
       {
         onConflict: "only_one_setting",

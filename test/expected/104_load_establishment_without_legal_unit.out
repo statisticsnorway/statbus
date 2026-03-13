@@ -9,7 +9,7 @@ BEGIN;
 "Setting up Statbus to load establishments without legal units"
 -- A Super User configures statbus.
 CALL test.set_user_from_email('test.admin@statbus.org');
-SELECT code, name, enabled, custom FROM public.data_source_available;
+SELECT code, name, enabled, custom FROM public.data_source_enabled;
   code  |               name               | enabled | custom 
 --------+----------------------------------+---------+--------
  census | Census                           | t       | f
@@ -22,17 +22,19 @@ SELECT code, name, enabled, custom FROM public.data_source_available;
 
 \i samples/norway/getting-started.sql
 \i samples/norway/settings.sql
-INSERT INTO settings(activity_category_standard_id,country_id)
+INSERT INTO settings(activity_category_standard_id,country_id,region_version_id)
 SELECT (SELECT id FROM activity_category_standard WHERE code = 'nace_v2.1')
      , (SELECT id FROM public.country WHERE iso_2 = 'NO')
+     , (SELECT id FROM public.region_version WHERE code = 'initial')
 ON CONFLICT (only_one_setting)
 DO UPDATE SET
    activity_category_standard_id = EXCLUDED.activity_category_standard_id,
-   country_id = EXCLUDED.country_id
+   country_id = EXCLUDED.country_id,
+   region_version_id = EXCLUDED.region_version_id
    WHERE settings.only_one_setting = EXCLUDED.only_one_setting;
 ;
 \i samples/norway/activity_category/activity_category_norway.sql
-\copy public.activity_category_available_custom FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.activity_category_enabled_custom FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 \i samples/norway/regions/norway-regions-2024.sql
 \copy public.region_upload(path, name) FROM 'samples/norway/regions/norway-regions-2024.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 \i samples/norway/sector/sector_norway.sql
@@ -50,7 +52,7 @@ SELECT acs.code
  nace_v2.1
 (1 row)
 
-SELECT count(*) FROM public.activity_category_available;
+SELECT count(*) FROM public.activity_category_enabled;
  count 
 -------
   2215
@@ -62,25 +64,25 @@ SELECT count(*) FROM public.region;
    417
 (1 row)
 
-SELECT count(*) FROM public.legal_form_available;
+SELECT count(*) FROM public.legal_form_enabled;
  count 
 -------
     46
 (1 row)
 
-SELECT count(*) FROM public.sector_available;
+SELECT count(*) FROM public.sector_enabled;
  count 
 -------
     33
 (1 row)
 
-SELECT count(*) FROM public.data_source_available;
+SELECT count(*) FROM public.data_source_enabled;
  count 
 -------
      6
 (1 row)
 
-SELECT code, name, enabled, custom FROM public.data_source_available;
+SELECT code, name, enabled, custom FROM public.data_source_enabled;
  code  |               name               | enabled | custom 
 -------+----------------------------------+---------+--------
  annet | Annen ekstern kilde              | t       | t

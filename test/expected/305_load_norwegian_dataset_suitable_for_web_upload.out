@@ -12,17 +12,19 @@ ALTER TABLE public.import_job ALTER COLUMN id RESTART WITH 1;
 CALL test.set_user_from_email('test.admin@statbus.org');
 \i samples/norway/getting-started.sql
 \i samples/norway/settings.sql
-INSERT INTO settings(activity_category_standard_id,country_id)
+INSERT INTO settings(activity_category_standard_id,country_id,region_version_id)
 SELECT (SELECT id FROM activity_category_standard WHERE code = 'nace_v2.1')
      , (SELECT id FROM public.country WHERE iso_2 = 'NO')
+     , (SELECT id FROM public.region_version WHERE code = 'initial')
 ON CONFLICT (only_one_setting)
 DO UPDATE SET
    activity_category_standard_id = EXCLUDED.activity_category_standard_id,
-   country_id = EXCLUDED.country_id
+   country_id = EXCLUDED.country_id,
+   region_version_id = EXCLUDED.region_version_id
    WHERE settings.only_one_setting = EXCLUDED.only_one_setting;
 ;
 \i samples/norway/activity_category/activity_category_norway.sql
-\copy public.activity_category_available_custom FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.activity_category_enabled_custom FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 \i samples/norway/regions/norway-regions-2024.sql
 \copy public.region_upload(path, name) FROM 'samples/norway/regions/norway-regions-2024.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 \i samples/norway/sector/sector_norway.sql
@@ -46,7 +48,7 @@ SELECT standard_code
      , parent_path
      , label
      , name
-FROM public.activity_category_available
+FROM public.activity_category_enabled
 ORDER BY standard_code, path;
  standard_code |  code  |    path    | parent_path | label  |                                                                    name                                                                     
 ---------------+--------+------------+-------------+--------+---------------------------------------------------------------------------------------------------------------------------------------------
@@ -2698,7 +2700,7 @@ SELECT path
 SELECT code
      , name
      , custom
- FROM public.legal_form_available
+ FROM public.legal_form_enabled
  ORDER BY code COLLATE "nb-NO-x-icu";
  code |                          name                           | custom 
 ------+---------------------------------------------------------+--------
@@ -2753,7 +2755,7 @@ SELECT code
 SELECT path
      , name
      , custom
- FROM public.sector_available;
+ FROM public.sector_enabled;
          path         |                             name                              | custom 
 ----------------------+---------------------------------------------------------------+--------
  innl                 | Innenlandske sektorer                                         | t
@@ -2794,7 +2796,7 @@ SELECT path
 SELECT code
      , name
      , custom
-FROM public.data_source_available;
+FROM public.data_source_enabled;
  code  |               name               | custom 
 -------+----------------------------------+--------
  annet | Annen ekstern kilde              | t
@@ -3414,6 +3416,10 @@ reset_getting_started
         "changed_count": 0,
         "deleted_count": 0
     },
+    "region_version": {
+        "changed_count": 0,
+        "deleted_count": 0
+    },
     "person_for_unit": {
         "deleted_count": 0
     },
@@ -3454,6 +3460,7 @@ drop cascades to view temp_contact_source_view
 drop cascades to view temp_stat_source_view_employees
 drop cascades to view temp_stat_source_view_turnover
 drop cascades to view temp_es_source_view
+NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_s_employees_idx
@@ -3464,12 +3471,16 @@ NOTICE:  Dropped index su_ss_turnover_count_idx
 NOTICE:  Dropped index su_ss_turnover_sum_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
+NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
 NOTICE:  Created indices for stat_definition employees
 NOTICE:  Created indices for stat_definition turnover
+NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_s_employees_idx
@@ -3488,11 +3499,13 @@ NOTICE:  Dropped index su_ss_turnover_count_idx
 NOTICE:  Dropped index su_ss_turnover_sum_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
 NOTICE:  Created indices for stat_definition employees
 NOTICE:  Created indices for stat_definition turnover
 reset_all
 {
     "tag": {
+        "changed_count": 0,
         "deleted_count": 0
     },
     "image": {
@@ -3567,6 +3580,10 @@ reset_all
         "deleted_count": 1405
     },
     "legal_rel_type": {
+        "changed_count": 0,
+        "deleted_count": 0
+    },
+    "region_version": {
         "changed_count": 0,
         "deleted_count": 0
     },

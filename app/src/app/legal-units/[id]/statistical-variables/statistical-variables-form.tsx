@@ -51,7 +51,7 @@ export default function StatisticalVariablesForm({
         </InfoBox>
       )}
       {statDefinitions.map(
-        (statDefinition: Tables<"stat_definition_active">) => {
+        (statDefinition: Tables<"stat_definition_enabled">) => {
           const stat = stats?.find(
             (s) => s.stat_definition_id === statDefinition.id
           );

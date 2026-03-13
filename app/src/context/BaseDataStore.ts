@@ -12,8 +12,8 @@ import { Database, Tables } from "@/lib/database.types";
 import { PostgrestClient } from "@supabase/postgrest-js";
 import { getServerRestClient, getBrowserRestClient, getRestClient } from "./RestClientStore";
 export interface BaseData {
-  statDefinitions: Tables<"stat_definition_active">[];
-  externalIdentTypes: Tables<"external_ident_type_active">[];
+  statDefinitions: Tables<"stat_definition_enabled">[];
+  externalIdentTypes: Tables<"external_ident_type_enabled">[];
   statbusUsers: Tables<"user">[];
   timeContexts: Tables<"time_context">[];
   defaultTimeContext: Tables<"time_context"> | null;
@@ -248,20 +248,20 @@ class BaseDataStore {
       // Fetch all the data in parallel using Promise.all
       const fetchStatDefinitions = async () => {
         try {
-          const result = await client.from("stat_definition_active").select();
+          const result = await client.from("stat_definition_enabled").select();
           return { data: result.data, error: result.error };
         } catch (error) {
-          console.error('Exception fetching stat_definition_active:', error);
+          console.error('Exception fetching stat_definition_enabled:', error);
           return { data: null, error };
         }
       };
       
       const fetchExternalIdentTypes = async () => {
         try {
-          const result = await client.from("external_ident_type_active").select();
+          const result = await client.from("external_ident_type_enabled").select();
           return { data: result.data, error: result.error };
         } catch (error) {
-          console.error('Exception fetching external_ident_type_active:', error);
+          console.error('Exception fetching external_ident_type_enabled:', error);
           return { data: null, error };
         }
       };

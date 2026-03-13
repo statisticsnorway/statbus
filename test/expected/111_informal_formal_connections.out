@@ -13,16 +13,18 @@ CALL test.set_user_from_email('test.admin@statbus.org');
 -- Set the activity category standard to ISIC v4 for the demo data.
 \echo "User selected the Activity Category Standard"
 "User selected the Activity Category Standard"
-INSERT INTO settings(activity_category_standard_id,country_id)
+INSERT INTO settings(activity_category_standard_id,country_id,region_version_id)
 SELECT (SELECT id FROM activity_category_standard WHERE code = 'isic_v4')
      , (SELECT id FROM public.country WHERE iso_2 = 'UN')
+     , (SELECT id FROM public.region_version WHERE code = 'initial')
 ON CONFLICT (only_one_setting)
 DO UPDATE SET
     activity_category_standard_id = EXCLUDED.activity_category_standard_id,
-    country_id = EXCLUDED.country_id;
+    country_id = EXCLUDED.country_id,
+    region_version_id = EXCLUDED.region_version_id;
 \echo "User uploads the demo activity categories"
 "User uploads the demo activity categories"
-\copy public.activity_category_available_custom(path,name) FROM 'app/public/demo/activity_custom_isic_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.activity_category_enabled_custom(path,name) FROM 'app/public/demo/activity_custom_isic_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 \echo "User uploads the demo regions"
 "User uploads the demo regions"
 \copy public.region_upload(path, name) FROM 'app/public/demo/regions_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
@@ -238,6 +240,7 @@ SELECT jsonb_pretty(
                                  "code": "isic_v4",                                                                               +
                                  "name": "ISIC 4",                                                                                +
                                  "enabled": true,                                                                                 +
+                                 "lasts_to": null,                                                                                +
                                  "description": "ISIC Version 4",                                                                 +
                                  "code_pattern": "digits"                                                                         +
                              }                                                                                                    +
@@ -345,6 +348,7 @@ SELECT jsonb_pretty(
                                          "code": "isic_v4",                                                                       +
                                          "name": "ISIC 4",                                                                        +
                                          "enabled": true,                                                                         +
+                                         "lasts_to": null,                                                                        +
                                          "description": "ISIC Version 4",                                                         +
                                          "code_pattern": "digits"                                                                 +
                                      }                                                                                            +
@@ -618,6 +622,7 @@ SELECT jsonb_pretty(
                                  "code": "isic_v4",                                                                       +
                                  "name": "ISIC 4",                                                                        +
                                  "enabled": true,                                                                         +
+                                 "lasts_to": null,                                                                        +
                                  "description": "ISIC Version 4",                                                         +
                                  "code_pattern": "digits"                                                                 +
                              }                                                                                            +
@@ -916,6 +921,7 @@ SELECT jsonb_pretty(
                                  "code": "isic_v4",                                                                               +
                                  "name": "ISIC 4",                                                                                +
                                  "enabled": true,                                                                                 +
+                                 "lasts_to": null,                                                                                +
                                  "description": "ISIC Version 4",                                                                 +
                                  "code_pattern": "digits"                                                                         +
                              }                                                                                                    +
@@ -1023,6 +1029,7 @@ SELECT jsonb_pretty(
                                          "code": "isic_v4",                                                                       +
                                          "name": "ISIC 4",                                                                        +
                                          "enabled": true,                                                                         +
+                                         "lasts_to": null,                                                                        +
                                          "description": "ISIC Version 4",                                                         +
                                          "code_pattern": "digits"                                                                 +
                                      }                                                                                            +
@@ -1267,6 +1274,7 @@ SELECT jsonb_pretty(
                                  "code": "isic_v4",                                                                               +
                                  "name": "ISIC 4",                                                                                +
                                  "enabled": true,                                                                                 +
+                                 "lasts_to": null,                                                                                +
                                  "description": "ISIC Version 4",                                                                 +
                                  "code_pattern": "digits"                                                                         +
                              }                                                                                                    +
@@ -1475,6 +1483,7 @@ SELECT jsonb_pretty(
                                  "code": "isic_v4",                                                                               +
                                  "name": "ISIC 4",                                                                                +
                                  "enabled": true,                                                                                 +
+                                 "lasts_to": null,                                                                                +
                                  "description": "ISIC Version 4",                                                                 +
                                  "code_pattern": "digits"                                                                         +
                              }                                                                                                    +
@@ -1582,6 +1591,7 @@ SELECT jsonb_pretty(
                                          "code": "isic_v4",                                                                       +
                                          "name": "ISIC 4",                                                                        +
                                          "enabled": true,                                                                         +
+                                         "lasts_to": null,                                                                        +
                                          "description": "ISIC Version 4",                                                         +
                                          "code_pattern": "digits"                                                                 +
                                      }                                                                                            +
@@ -1826,6 +1836,7 @@ SELECT jsonb_pretty(
                                  "code": "isic_v4",                                                                               +
                                  "name": "ISIC 4",                                                                                +
                                  "enabled": true,                                                                                 +
+                                 "lasts_to": null,                                                                                +
                                  "description": "ISIC Version 4",                                                                 +
                                  "code_pattern": "digits"                                                                         +
                              }                                                                                                    +
@@ -2034,6 +2045,7 @@ SELECT jsonb_pretty(
                                  "code": "isic_v4",                                                                               +
                                  "name": "ISIC 4",                                                                                +
                                  "enabled": true,                                                                                 +
+                                 "lasts_to": null,                                                                                +
                                  "description": "ISIC Version 4",                                                                 +
                                  "code_pattern": "digits"                                                                         +
                              }                                                                                                    +
@@ -2141,6 +2153,7 @@ SELECT jsonb_pretty(
                                          "code": "isic_v4",                                                                       +
                                          "name": "ISIC 4",                                                                        +
                                          "enabled": true,                                                                         +
+                                         "lasts_to": null,                                                                        +
                                          "description": "ISIC Version 4",                                                         +
                                          "code_pattern": "digits"                                                                 +
                                      }                                                                                            +
@@ -2385,6 +2398,7 @@ SELECT jsonb_pretty(
                                  "code": "isic_v4",                                                                               +
                                  "name": "ISIC 4",                                                                                +
                                  "enabled": true,                                                                                 +
+                                 "lasts_to": null,                                                                                +
                                  "description": "ISIC Version 4",                                                                 +
                                  "code_pattern": "digits"                                                                         +
                              }                                                                                                    +

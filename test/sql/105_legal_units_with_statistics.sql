@@ -14,7 +14,7 @@ SELECT acs.code
   JOIN activity_category_standard AS acs
     ON s.activity_category_standard_id = acs.id;
 
-SELECT count(*) FROM public.activity_category_available;
+SELECT count(*) FROM public.activity_category_enabled;
 
 SELECT standard_code
      , code
@@ -22,14 +22,14 @@ SELECT standard_code
      , parent_path
      , label
      , name
-FROM public.activity_category_available
+FROM public.activity_category_enabled
 ORDER BY standard_code, path;
 
 SELECT count(*) FROM public.region;
 
-SELECT count(*) FROM public.legal_form_available;
+SELECT count(*) FROM public.legal_form_enabled;
 
-SELECT count(*) FROM public.sector_available;
+SELECT count(*) FROM public.sector_enabled;
 
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,

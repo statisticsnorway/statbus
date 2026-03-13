@@ -83,13 +83,14 @@ SELECT
 
 \echo "=== Creating import job for Legal Units (with source dates) ==="
 -- Albania data has valid_from and valid_to columns, so we use legal_unit_source_dates
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
     'import_318_lu',
     'Import Albania Legal Units (318_regression_albania_import.sql)',
     'Import job for test/data/318_albania_legal_units.csv using legal_unit_source_dates definition.',
-    'Test data load (318_regression_albania_import.sql)';
+    'Test data load (318_regression_albania_import.sql)',
+    false;
 
 \echo "Uploading Albania legal units (333 rows)"
 \copy public.import_318_lu_upload(tax_ident,name,valid_from,physical_address_part1,valid_to,postal_address_part1,postal_address_part2,physical_address_part2,physical_postcode,postal_postcode,physical_address_part3,physical_postplace,postal_address_part3,postal_postplace,phone_number,landline,mobile_number,fax_number,web_address,email_address,secondary_activity_category_code,physical_latitude,physical_longitude,physical_altitude,birth_date,physical_region_code,postal_country_iso_2,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code,status_code,unit_size_code,male,female,selfemp,punpag) FROM 'test/data/318_albania_legal_units.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
@@ -123,14 +124,15 @@ SELECT
 
 \echo "=== Creating import job for Establishments (job provided time) ==="
 -- Albania establishment data lacks valid_from/valid_to, so we use job_provided time
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident, review)
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_job_provided'),
     'import_318_es',
     'Import Albania Establishments (318_regression_albania_import.sql)',
     'Import job for test/data/318_albania_establishments.csv using establishment_for_lu_job_provided definition.',
     'Test data load (318_regression_albania_import.sql)',
-    'r_year_curr';
+    'r_year_curr',
+    false;
 
 \echo "Uploading Albania establishments (8439 rows)"
 \copy public.import_318_es_upload(legal_unit_tax_ident,tax_ident,physical_region_code,primary_activity_category_code,secondary_activity_category_code,employees,name,postal_country_iso_2,physical_country_iso_2) FROM 'test/data/318_albania_establishments.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);

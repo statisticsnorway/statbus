@@ -111,7 +111,7 @@ export interface SearchPageData {
   allStatuses: Tables<"status">[];
   allUnitSizes: Tables<"unit_size">[];
   allDataSources: Tables<"data_source_used">[];
-  allExternalIdentTypes: Tables<"external_ident_type_active">[];
+  allExternalIdentTypes: Tables<"external_ident_type_enabled">[];
   allLegalForms: Tables<"legal_form_used">[];
   allSectors: Tables<"sector_used">[];
 }
@@ -177,7 +177,7 @@ export const fetchSearchPageDataAtom = atom(
         client.from("status").select().filter("enabled", "eq", true),
         client.from("unit_size").select().filter("enabled", "eq", true),
         client.from("data_source_used").select(),
-        client.from("external_ident_type_active").select(),
+        client.from("external_ident_type_enabled").select(),
         client.from("legal_form_used").select().not("code", "is", null),
         client.from("sector_used").select(),
       ]);

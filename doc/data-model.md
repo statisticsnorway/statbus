@@ -51,7 +51,7 @@ Tables and views for tracking ownership/control relationships between legal unit
 ## Common Links for Core Units (PG, EN, LU, EST)
 These tables link to any of the four core statistical units:
 
-- `external_ident(id, type_id, ident, idents, labels, establishment_id, legal_unit_id, enterprise_id, power_group_id, edit_by_user_id, edit_at, shape, edit_comment)` — **base data**
+- `external_ident(id, type_id, ident, idents, labels, establishment_id, legal_unit_id, enterprise_id, power_group_id, edit_by_user_id, person_id, edit_at, shape, edit_comment)` — **base data**
   - Key FKs: edit_by_user_id, enterprise_id, type_id.
   - Enums: `shape` (`public.external_ident_shape`).
 - `image(id, type, uploaded_by_user_id, uploaded_at, data)` — **asset**
@@ -73,27 +73,27 @@ These tables link to any of the four core statistical units:
   - Enums: `type` (`public.activity_type`).
 - `activity_category(id, path, label, code, name, standard_id, parent_id, created_at, updated_at, enabled, level, description, custom)` — **classification**
   - Key FKs: parent_id, standard_id.
-- `activity_category_standard(id, code, name, code_pattern, enabled, description)` — **reference**
+- `activity_category_standard(id, code, name, code_pattern, enabled, description, lasts_to)` — **reference**
   - Enums: `code_pattern` (`public.activity_category_code_behaviour`).
 - `activity_category_isic_v4(path, label, code, name, standard, description)`
 - `activity_category_nace_v2_1(path, label, code, name, standard, description)`
 
 ### Location & Contact
 
-- `location(id, type, postcode, region_id, country_id, establishment_id, legal_unit_id, data_source_id, edit_by_user_id, valid_range, valid_from, valid_to, valid_until, edit_at, address_part1, address_part2, address_part3, postplace, latitude, longitude, altitude, edit_comment)` (temporal) — **base data**
-  - Key FKs: country_id, data_source_id, edit_by_user_id, establishment_id, legal_unit_id, region_id, valid_range, valid_range.
+- `location(id, type, postcode, region_id, country_id, establishment_id, legal_unit_id, data_source_id, edit_by_user_id, region_version_id, valid_range, valid_from, valid_to, valid_until, edit_at, address_part1, address_part2, address_part3, postplace, latitude, longitude, altitude, edit_comment)` (temporal) — **base data**
+  - Key FKs: country_id, data_source_id, edit_by_user_id, establishment_id, legal_unit_id, region_id, region_id, region_version_id, region_version_id, valid_range, valid_range.
   - Enums: `type` (`public.location_type`).
 - `contact(id, email_address, establishment_id, legal_unit_id, data_source_id, edit_by_user_id, valid_range, valid_from, valid_to, valid_until, edit_at, web_address, phone_number, landline, mobile_number, fax_number, edit_comment)` (temporal) — **base data**
   - Key FKs: data_source_id, edit_by_user_id, establishment_id, legal_unit_id, valid_range, valid_range.
-- `region(id, path, label, code, name, parent_id, level, center_latitude, center_longitude, center_altitude)` — **reference**
-  - Key FKs: parent_id.
+- `region(id, path, label, code, name, parent_id, version_id, level, center_latitude, center_longitude, center_altitude)` — **reference**
+  - Key FKs: parent_id, version_id.
 - `country(id, name, created_at, updated_at, enabled, iso_2, iso_3, iso_num, custom)` — **reference**
 - `country_view(id, name, enabled, iso_2, iso_3, iso_num, custom)`
 
 ### Persons
 
-- `person(id, personal_ident, given_name, middle_name, family_name, country_id, created_at, birth_date, sex, phone_number, mobile_number, address_part1, address_part2, address_part3)` — **link**
-  - Key FKs: country_id.
+- `person(id, given_name, middle_name, family_name, country_id, edit_by_user_id, created_at, edit_at, birth_date, sex, phone_number, mobile_number, address_part1, address_part2, address_part3, death_date, edit_comment)` — **link**
+  - Key FKs: country_id, edit_by_user_id.
   - Enums: `sex` (`public.person_sex`).
 - `person_for_unit(id, person_id, person_role_id, data_source_id, establishment_id, legal_unit_id, edit_by_user_id, valid_range, valid_from, valid_to, valid_until, edit_at, edit_comment)` (temporal) — **link**
   - Key FKs: data_source_id, edit_by_user_id, establishment_id, legal_unit_id, person_id, person_role_id, valid_range, valid_range.
@@ -119,9 +119,8 @@ These tables typically store codes, names, and flags for `custom` and `enabled` 
 - `legal_rel_type(id, code, name, created_at, updated_at, enabled, description, primary_influencer_only, custom)` — **classification**
 - `sector(id, path, label, code, name, parent_id, created_at, updated_at, enabled, description, custom)` — **classification**
 - `status(id, code, name, created_at, updated_at, enabled, assigned_by_default, used_for_counting, priority, custom)` — **classification**
-- `tag(id, path, label, code, name, type, parent_id, context_valid_on, created_at, updated_at, enabled, level, description, context_valid_from, context_valid_to, context_valid_until)` — **classification**
+- `tag(id, path, label, code, name, parent_id, context_valid_on, created_at, updated_at, enabled, level, description, context_valid_from, context_valid_to, context_valid_until, custom)` — **classification**
   - Key FKs: parent_id.
-  - Enums: `type` (`public.tag_type`).
 - `unit_size(id, code, name, created_at, updated_at, enabled, custom)` — **classification**
 
 ### Enum Definitions
@@ -154,7 +153,6 @@ Enumerated types used across the schema, with their possible values.
 - **`public.stat_type`**: `int`, `float`, `string`, `bool`
 - **`public.statbus_role`**: `admin_user`, `regular_user`, `restricted_user`, `external_user`
 - **`public.statistical_unit_type`**: `establishment`, `legal_unit`, `enterprise`, `power_group`
-- **`public.tag_type`**: `custom`, `system`
 - **`public.time_context_type`**: `relative_period`, `tag`, `year`
 - **`worker.pipeline_phase`**: `is_deriving_statistical_units`, `is_deriving_reports`
 - **`worker.process_mode`**: `top`, `child`
@@ -256,8 +254,8 @@ Handles background processing. A long-running worker process calls `worker.proce
 - `refresh_session(id, user_id, created_at, last_used_at, expires_at, jti, refresh_version, user_agent, ip_address)` — **infrastructure**
   - Key FKs: user_id.
 - `secrets(value, created_at, updated_at, key, description)` — **infrastructure**
-- `settings(id, activity_category_standard_id, country_id, only_one_setting, analytics_partition_count)` — **infrastructure**
-  - Key FKs: activity_category_standard_id, country_id.
+- `settings(id, activity_category_standard_id, country_id, region_version_id, only_one_setting, analytics_partition_count, required_to_be_enabled)` — **infrastructure**
+  - Key FKs: activity_category_standard_id, activity_category_standard_id, country_id, region_version_id, region_version_id, required_to_be_enabled, required_to_be_enabled.
 - `region_access(id, user_id, region_id)` — **infrastructure**
   - Key FKs: region_id, user_id.
 - `activity_category_access(id, user_id, activity_category_id)` — **infrastructure**
@@ -272,11 +270,11 @@ The schema includes numerous helper views, often for UI dropdowns or specific da
 - `*_data*`: Intermediate data table for an import job, holding source data and analysis results. Transient.
 - `*_def*`: The definition of a view, often used as a building block for other views.
 - `*_used*`: Views showing distinct classification values currently in use.
-- `*_available*`: Views listing all available classification codes (system-defined + custom).
+- `*_enabled*`: Views listing all enabled classification codes (system-defined + custom).
 - `*_custom*`: Writable views for inserting new custom classification codes.
 - `*_system*`: Writable views for inserting new system-defined classification codes (typically used during initial setup).
 - `*_ordered*`: Views providing a specific sort order for classifications, often for UI display.
-- `*_active*`: Views that filter for only the `enabled` records in a classification table.
+- `*_active*`: Views that filter for currently active (temporal) records, e.g. `power_group_active`.
 - `*__for_portion_of_valid*`: Helper view created by sql_saga for temporal REST updates (FOR PORTION OF).
 - `*_custom_only*`: Helper view for listing and loading custom classification data, separating it from system-provided data.
 - `*_staging*`: Internal staging table for bulk inserts, merged into main table at end of batch processing.

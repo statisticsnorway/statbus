@@ -170,6 +170,7 @@ Describing table for definition: legal_unit_job_provided (Job: t54_lu_tc, Data T
  establishment_id                     | integer                   |           |          | 
  tax_ident_raw                        | text                      |           |          | 
  stat_ident_raw                       | text                      |           |          | 
+ person_ident_raw                     | text                      |           |          | 
  data_source_code_raw                 | text                      |           |          | 
  data_source_id                       | integer                   |           |          | 
  status_code_raw                      | text                      |           |          | 
@@ -260,7 +261,7 @@ Describing table for definition: legal_unit_job_provided (Job: t54_lu_tc, Data T
  tag_id                               | integer                   |           |          | 
  tag_for_unit_id                      | integer                   |           |          | 
  edit_comment_raw                     | text                      |           |          | 
- edit_by_user_id                      | integer                   |           |          | 
+ edit_by_user_id                      | integer                   |           |          | auth.uid()
  edit_at                              | timestamp with time zone  |           |          | 
  edit_comment                         | text                      |           |          | 
  founding_row_id                      | integer                   |           |          | 
@@ -274,6 +275,7 @@ Indexes:
     "t54_lu_tc_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
     "t54_lu_tc_data_daterange_idx" gist (daterange(valid_from, valid_until, '[)'::text))
     "t54_lu_tc_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
+    "t54_lu_tc_data_person_ident_raw_idx" btree (person_ident_raw)
     "t54_lu_tc_data_stat_ident_raw_idx" btree (stat_ident_raw)
     "t54_lu_tc_data_state_last_completed_priority_batch_seq_idx" btree (state, last_completed_priority, batch_seq)
     "t54_lu_tc_data_tax_ident_raw_idx" btree (tax_ident_raw)
@@ -299,7 +301,7 @@ Policies:
     POLICY "t54_lu_tc_data_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 
 \echo '--------------------------------------------------'
 --------------------------------------------------
@@ -323,6 +325,7 @@ Describing table for definition: legal_unit_source_dates (Job: t54_lu_sd, Data T
  establishment_id                     | integer                   |           |          | 
  tax_ident_raw                        | text                      |           |          | 
  stat_ident_raw                       | text                      |           |          | 
+ person_ident_raw                     | text                      |           |          | 
  data_source_code_raw                 | text                      |           |          | 
  data_source_id                       | integer                   |           |          | 
  status_code_raw                      | text                      |           |          | 
@@ -413,7 +416,7 @@ Describing table for definition: legal_unit_source_dates (Job: t54_lu_sd, Data T
  tag_id                               | integer                   |           |          | 
  tag_for_unit_id                      | integer                   |           |          | 
  edit_comment_raw                     | text                      |           |          | 
- edit_by_user_id                      | integer                   |           |          | 
+ edit_by_user_id                      | integer                   |           |          | auth.uid()
  edit_at                              | timestamp with time zone  |           |          | 
  edit_comment                         | text                      |           |          | 
  founding_row_id                      | integer                   |           |          | 
@@ -427,6 +430,7 @@ Indexes:
     "t54_lu_sd_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
     "t54_lu_sd_data_daterange_idx" gist (daterange(valid_from, valid_until, '[)'::text))
     "t54_lu_sd_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
+    "t54_lu_sd_data_person_ident_raw_idx" btree (person_ident_raw)
     "t54_lu_sd_data_stat_ident_raw_idx" btree (stat_ident_raw)
     "t54_lu_sd_data_state_last_completed_priority_batch_seq_idx" btree (state, last_completed_priority, batch_seq)
     "t54_lu_sd_data_tax_ident_raw_idx" btree (tax_ident_raw)
@@ -452,7 +456,7 @@ Policies:
     POLICY "t54_lu_sd_data_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 
 \echo '--------------------------------------------------'
 --------------------------------------------------
@@ -476,6 +480,7 @@ Describing table for definition: establishment_for_lu_job_provided (Job: t54_est
  establishment_id                     | integer                   |           |          | 
  tax_ident_raw                        | text                      |           |          | 
  stat_ident_raw                       | text                      |           |          | 
+ person_ident_raw                     | text                      |           |          | 
  data_source_code_raw                 | text                      |           |          | 
  data_source_id                       | integer                   |           |          | 
  status_code_raw                      | text                      |           |          | 
@@ -483,6 +488,7 @@ Describing table for definition: establishment_for_lu_job_provided (Job: t54_est
  primary_for_legal_unit               | boolean                   |           |          | 
  legal_unit_tax_ident_raw             | text                      |           |          | 
  legal_unit_stat_ident_raw            | text                      |           |          | 
+ legal_unit_person_ident_raw          | text                      |           |          | 
  name_raw                             | text                      |           |          | 
  name                                 | text                      |           |          | 
  birth_date_raw                       | text                      |           |          | 
@@ -565,7 +571,7 @@ Describing table for definition: establishment_for_lu_job_provided (Job: t54_est
  tag_id                               | integer                   |           |          | 
  tag_for_unit_id                      | integer                   |           |          | 
  edit_comment_raw                     | text                      |           |          | 
- edit_by_user_id                      | integer                   |           |          | 
+ edit_by_user_id                      | integer                   |           |          | auth.uid()
  edit_at                              | timestamp with time zone  |           |          | 
  edit_comment                         | text                      |           |          | 
  founding_row_id                      | integer                   |           |          | 
@@ -579,6 +585,7 @@ Indexes:
     "t54_est_lu_tc_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
     "t54_est_lu_tc_data_daterange_idx" gist (daterange(valid_from, valid_until, '[)'::text))
     "t54_est_lu_tc_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
+    "t54_est_lu_tc_data_person_ident_raw_idx" btree (person_ident_raw)
     "t54_est_lu_tc_data_stat_ident_raw_idx" btree (stat_ident_raw)
     "t54_est_lu_tc_data_state_last_completed_priority_batch_seq_idx" btree (state, last_completed_priority, batch_seq)
     "t54_est_lu_tc_data_tax_ident_raw_idx" btree (tax_ident_raw)
@@ -604,7 +611,7 @@ Policies:
     POLICY "t54_est_lu_tc_data_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 
 \echo '--------------------------------------------------'
 --------------------------------------------------
@@ -628,6 +635,7 @@ Describing table for definition: establishment_for_lu_source_dates (Job: t54_est
  establishment_id                     | integer                   |           |          | 
  tax_ident_raw                        | text                      |           |          | 
  stat_ident_raw                       | text                      |           |          | 
+ person_ident_raw                     | text                      |           |          | 
  data_source_code_raw                 | text                      |           |          | 
  data_source_id                       | integer                   |           |          | 
  status_code_raw                      | text                      |           |          | 
@@ -635,6 +643,7 @@ Describing table for definition: establishment_for_lu_source_dates (Job: t54_est
  primary_for_legal_unit               | boolean                   |           |          | 
  legal_unit_tax_ident_raw             | text                      |           |          | 
  legal_unit_stat_ident_raw            | text                      |           |          | 
+ legal_unit_person_ident_raw          | text                      |           |          | 
  name_raw                             | text                      |           |          | 
  name                                 | text                      |           |          | 
  birth_date_raw                       | text                      |           |          | 
@@ -717,7 +726,7 @@ Describing table for definition: establishment_for_lu_source_dates (Job: t54_est
  tag_id                               | integer                   |           |          | 
  tag_for_unit_id                      | integer                   |           |          | 
  edit_comment_raw                     | text                      |           |          | 
- edit_by_user_id                      | integer                   |           |          | 
+ edit_by_user_id                      | integer                   |           |          | auth.uid()
  edit_at                              | timestamp with time zone  |           |          | 
  edit_comment                         | text                      |           |          | 
  founding_row_id                      | integer                   |           |          | 
@@ -731,6 +740,7 @@ Indexes:
     "t54_est_lu_sd_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
     "t54_est_lu_sd_data_daterange_idx" gist (daterange(valid_from, valid_until, '[)'::text))
     "t54_est_lu_sd_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
+    "t54_est_lu_sd_data_person_ident_raw_idx" btree (person_ident_raw)
     "t54_est_lu_sd_data_stat_ident_raw_idx" btree (stat_ident_raw)
     "t54_est_lu_sd_data_state_last_completed_priority_batch_seq_idx" btree (state, last_completed_priority, batch_seq)
     "t54_est_lu_sd_data_tax_ident_raw_idx" btree (tax_ident_raw)
@@ -756,7 +766,7 @@ Policies:
     POLICY "t54_est_lu_sd_data_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 
 \echo '--------------------------------------------------'
 --------------------------------------------------
@@ -780,6 +790,7 @@ Describing table for definition: establishment_without_lu_job_provided (Job: t54
  establishment_id                     | integer                   |           |          | 
  tax_ident_raw                        | text                      |           |          | 
  stat_ident_raw                       | text                      |           |          | 
+ person_ident_raw                     | text                      |           |          | 
  data_source_code_raw                 | text                      |           |          | 
  data_source_id                       | integer                   |           |          | 
  status_code_raw                      | text                      |           |          | 
@@ -868,7 +879,7 @@ Describing table for definition: establishment_without_lu_job_provided (Job: t54
  tag_id                               | integer                   |           |          | 
  tag_for_unit_id                      | integer                   |           |          | 
  edit_comment_raw                     | text                      |           |          | 
- edit_by_user_id                      | integer                   |           |          | 
+ edit_by_user_id                      | integer                   |           |          | auth.uid()
  edit_at                              | timestamp with time zone  |           |          | 
  edit_comment                         | text                      |           |          | 
  founding_row_id                      | integer                   |           |          | 
@@ -882,6 +893,7 @@ Indexes:
     "t54_est_wolu_tc_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
     "t54_est_wolu_tc_data_daterange_idx" gist (daterange(valid_from, valid_until, '[)'::text))
     "t54_est_wolu_tc_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
+    "t54_est_wolu_tc_data_person_ident_raw_idx" btree (person_ident_raw)
     "t54_est_wolu_tc_data_stat_ident_raw_idx" btree (stat_ident_raw)
     "t54_est_wolu_tc_data_state_last_completed_priority_batch_se_idx" btree (state, last_completed_priority, batch_seq)
     "t54_est_wolu_tc_data_tax_ident_raw_idx" btree (tax_ident_raw)
@@ -907,7 +919,7 @@ Policies:
     POLICY "t54_est_wolu_tc_data_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 
 \echo '--------------------------------------------------'
 --------------------------------------------------
@@ -931,6 +943,7 @@ Describing table for definition: establishment_without_lu_source_dates (Job: t54
  establishment_id                     | integer                   |           |          | 
  tax_ident_raw                        | text                      |           |          | 
  stat_ident_raw                       | text                      |           |          | 
+ person_ident_raw                     | text                      |           |          | 
  data_source_code_raw                 | text                      |           |          | 
  data_source_id                       | integer                   |           |          | 
  status_code_raw                      | text                      |           |          | 
@@ -1019,7 +1032,7 @@ Describing table for definition: establishment_without_lu_source_dates (Job: t54
  tag_id                               | integer                   |           |          | 
  tag_for_unit_id                      | integer                   |           |          | 
  edit_comment_raw                     | text                      |           |          | 
- edit_by_user_id                      | integer                   |           |          | 
+ edit_by_user_id                      | integer                   |           |          | auth.uid()
  edit_at                              | timestamp with time zone  |           |          | 
  edit_comment                         | text                      |           |          | 
  founding_row_id                      | integer                   |           |          | 
@@ -1033,6 +1046,7 @@ Indexes:
     "t54_est_wolu_sd_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
     "t54_est_wolu_sd_data_daterange_idx" gist (daterange(valid_from, valid_until, '[)'::text))
     "t54_est_wolu_sd_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
+    "t54_est_wolu_sd_data_person_ident_raw_idx" btree (person_ident_raw)
     "t54_est_wolu_sd_data_stat_ident_raw_idx" btree (stat_ident_raw)
     "t54_est_wolu_sd_data_state_last_completed_priority_batch_se_idx" btree (state, last_completed_priority, batch_seq)
     "t54_est_wolu_sd_data_tax_ident_raw_idx" btree (tax_ident_raw)
@@ -1058,7 +1072,7 @@ Policies:
     POLICY "t54_est_wolu_sd_data_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 
 \echo '--------------------------------------------------'
 --------------------------------------------------
@@ -1082,6 +1096,7 @@ Describing table for definition: generic_unit_stats_update_job_provided (Job: t5
  establishment_id           | integer                   |           |          | 
  tax_ident_raw              | text                      |           |          | 
  stat_ident_raw             | text                      |           |          | 
+ person_ident_raw           | text                      |           |          | 
  data_source_code_raw       | text                      |           |          | 
  data_source_id             | integer                   |           |          | 
  employees_raw              | text                      |           |          | 
@@ -1091,7 +1106,7 @@ Describing table for definition: generic_unit_stats_update_job_provided (Job: t5
  turnover                   | numeric                   |           |          | 
  stat_for_unit_turnover_id  | integer                   |           |          | 
  edit_comment_raw           | text                      |           |          | 
- edit_by_user_id            | integer                   |           |          | 
+ edit_by_user_id            | integer                   |           |          | auth.uid()
  edit_at                    | timestamp with time zone  |           |          | 
  edit_comment               | text                      |           |          | 
  founding_row_id            | integer                   |           |          | 
@@ -1105,6 +1120,7 @@ Indexes:
     "t54_gus_jp_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
     "t54_gus_jp_data_daterange_idx" gist (daterange(valid_from, valid_until, '[)'::text))
     "t54_gus_jp_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
+    "t54_gus_jp_data_person_ident_raw_idx" btree (person_ident_raw)
     "t54_gus_jp_data_stat_ident_raw_idx" btree (stat_ident_raw)
     "t54_gus_jp_data_state_last_completed_priority_batch_seq_idx" btree (state, last_completed_priority, batch_seq)
     "t54_gus_jp_data_tax_ident_raw_idx" btree (tax_ident_raw)
@@ -1130,7 +1146,7 @@ Policies:
     POLICY "t54_gus_jp_data_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 
 \echo '--------------------------------------------------'
 --------------------------------------------------
@@ -1154,6 +1170,7 @@ Describing table for definition: generic_unit_stats_update_source_dates (Job: t5
  establishment_id           | integer                   |           |          | 
  tax_ident_raw              | text                      |           |          | 
  stat_ident_raw             | text                      |           |          | 
+ person_ident_raw           | text                      |           |          | 
  data_source_code_raw       | text                      |           |          | 
  data_source_id             | integer                   |           |          | 
  employees_raw              | text                      |           |          | 
@@ -1163,7 +1180,7 @@ Describing table for definition: generic_unit_stats_update_source_dates (Job: t5
  turnover                   | numeric                   |           |          | 
  stat_for_unit_turnover_id  | integer                   |           |          | 
  edit_comment_raw           | text                      |           |          | 
- edit_by_user_id            | integer                   |           |          | 
+ edit_by_user_id            | integer                   |           |          | auth.uid()
  edit_at                    | timestamp with time zone  |           |          | 
  edit_comment               | text                      |           |          | 
  founding_row_id            | integer                   |           |          | 
@@ -1177,6 +1194,7 @@ Indexes:
     "t54_gus_sd_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
     "t54_gus_sd_data_daterange_idx" gist (daterange(valid_from, valid_until, '[)'::text))
     "t54_gus_sd_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
+    "t54_gus_sd_data_person_ident_raw_idx" btree (person_ident_raw)
     "t54_gus_sd_data_stat_ident_raw_idx" btree (stat_ident_raw)
     "t54_gus_sd_data_state_last_completed_priority_batch_seq_idx" btree (state, last_completed_priority, batch_seq)
     "t54_gus_sd_data_tax_ident_raw_idx" btree (tax_ident_raw)
@@ -1202,7 +1220,7 @@ Policies:
     POLICY "t54_gus_sd_data_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 
 \echo '--------------------------------------------------'
 --------------------------------------------------

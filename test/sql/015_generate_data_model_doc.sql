@@ -31,11 +31,11 @@ DECLARE
         {"pattern": "%_data", "description": "Intermediate data table for an import job, holding source data and analysis results. Transient."},
         {"pattern": "%_def", "description": "The definition of a view, often used as a building block for other views."},
         {"pattern": "%_used", "description": "Views showing distinct classification values currently in use."},
-        {"pattern": "%_available", "description": "Views listing all available classification codes (system-defined + custom)."},
+        {"pattern": "%_enabled", "description": "Views listing all enabled classification codes (system-defined + custom)."},
         {"pattern": "%_custom", "description": "Writable views for inserting new custom classification codes."},
         {"pattern": "%_system", "description": "Writable views for inserting new system-defined classification codes (typically used during initial setup)."},
         {"pattern": "%_ordered", "description": "Views providing a specific sort order for classifications, often for UI display."},
-        {"pattern": "%_active", "description": "Views that filter for only the `enabled` records in a classification table."},
+        {"pattern": "%_active", "description": "Views that filter for currently active (temporal) records, e.g. `power_group_active`."},
         {"pattern": "%__for_portion_of_valid", "description": "Helper view created by sql_saga for temporal REST updates (FOR PORTION OF)."},
         {"pattern": "%_custom_only", "description": "Helper view for listing and loading custom classification data, separating it from system-provided data."},
         {"pattern": "%_staging", "description": "Internal staging table for bulk inserts, merged into main table at end of batch processing."}

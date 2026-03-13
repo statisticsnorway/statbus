@@ -58,8 +58,8 @@ type FullSearchState = { query: string; filters: Record<string, any>; pagination
 
 const deriveUrlFromState = (
   fullState: FullSearchState,
-  externalIdentTypes: Tables<'external_ident_type_active'>[],
-  statDefinitions: Tables<'stat_definition_active'>[]
+  externalIdentTypes: Tables<'external_ident_type_enabled'>[],
+  statDefinitions: Tables<'stat_definition_enabled'>[]
 ): string => {
   const newGeneratedParams = new URLSearchParams();
 

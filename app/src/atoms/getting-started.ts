@@ -59,7 +59,7 @@ export const settingsAtomAsync = atomWithRefresh(async (get) => {
   if (!client) return null;
   const { data: settings, error } = await client
     .from("settings")
-    .select("activity_category_standard(id,name),country(id,name,iso_2)")
+    .select("activity_category_standard!settings_activity_category_standard_id_fkey(id,name),country(id,name,iso_2)")
     .limit(1);
   if (error) {
     console.error("Failed to fetch settings:", error);
@@ -92,7 +92,7 @@ export const numberOfCustomActivityCodesAtomAsync = atomWithRefresh(async (get) 
 
   const client = get(restClientAtom);
   if (!client) return null;
-  const { count, error } = await client.from("activity_category_available_custom").select("*", { count: "exact", head: true });
+  const { count, error } = await client.from("activity_category_enabled_custom").select("*", { count: "exact", head: true });
   if (error) {
     console.error('Failed to fetch number of custom activity codes:', error);
     return null;
@@ -140,7 +140,7 @@ export const numberOfTotalActivityCodesAtomAsync = atomWithRefresh(async (get) =
 
   const client = get(restClientAtom);
   if (!client) return null;
-  const { count, error } = await client.from("activity_category_available").select("*", { count: "exact", head: true });
+  const { count, error } = await client.from("activity_category_enabled").select("*", { count: "exact", head: true });
   if (error) {
     console.error('Failed to fetch number of total activity codes:', error);
     return null;

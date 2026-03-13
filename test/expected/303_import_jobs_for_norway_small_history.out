@@ -10,17 +10,19 @@ CALL test.set_user_from_email('test.admin@statbus.org');
 "Setting up Statbus for Norway"
 \i samples/norway/getting-started.sql
 \i samples/norway/settings.sql
-INSERT INTO settings(activity_category_standard_id,country_id)
+INSERT INTO settings(activity_category_standard_id,country_id,region_version_id)
 SELECT (SELECT id FROM activity_category_standard WHERE code = 'nace_v2.1')
      , (SELECT id FROM public.country WHERE iso_2 = 'NO')
+     , (SELECT id FROM public.region_version WHERE code = 'initial')
 ON CONFLICT (only_one_setting)
 DO UPDATE SET
    activity_category_standard_id = EXCLUDED.activity_category_standard_id,
-   country_id = EXCLUDED.country_id
+   country_id = EXCLUDED.country_id,
+   region_version_id = EXCLUDED.region_version_id
    WHERE settings.only_one_setting = EXCLUDED.only_one_setting;
 ;
 \i samples/norway/activity_category/activity_category_norway.sql
-\copy public.activity_category_available_custom FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.activity_category_enabled_custom FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 \i samples/norway/regions/norway-regions-2024.sql
 \copy public.region_upload(path, name) FROM 'samples/norway/regions/norway-regions-2024.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 \i samples/norway/sector/sector_norway.sql
@@ -547,6 +549,7 @@ Triggers:
  establishment_id                     | integer                   |           |          | 
  tax_ident_raw                        | text                      |           |          | 
  stat_ident_raw                       | text                      |           |          | 
+ person_ident_raw                     | text                      |           |          | 
  data_source_code_raw                 | text                      |           |          | 
  data_source_id                       | integer                   |           |          | 
  status_code_raw                      | text                      |           |          | 
@@ -637,7 +640,7 @@ Triggers:
  tag_id                               | integer                   |           |          | 
  tag_for_unit_id                      | integer                   |           |          | 
  edit_comment_raw                     | text                      |           |          | 
- edit_by_user_id                      | integer                   |           |          | 
+ edit_by_user_id                      | integer                   |           |          | auth.uid()
  edit_at                              | timestamp with time zone  |           |          | 
  edit_comment                         | text                      |           |          | 
  founding_row_id                      | integer                   |           |          | 
@@ -651,6 +654,7 @@ Indexes:
     "import_lu_2015_sht_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
     "import_lu_2015_sht_data_daterange_idx" gist (daterange(valid_from, valid_until, '[)'::text))
     "import_lu_2015_sht_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
+    "import_lu_2015_sht_data_person_ident_raw_idx" btree (person_ident_raw)
     "import_lu_2015_sht_data_stat_ident_raw_idx" btree (stat_ident_raw)
     "import_lu_2015_sht_data_state_last_completed_priority_batch_idx" btree (state, last_completed_priority, batch_seq)
     "import_lu_2015_sht_data_tax_ident_raw_idx" btree (tax_ident_raw)
@@ -676,7 +680,7 @@ Policies:
     POLICY "import_lu_2015_sht_data_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 
 \echo 'Definition snapshot for import_lu_2015_sht:'
 Definition snapshot for import_lu_2015_sht:
@@ -1358,6 +1362,15 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "purpose": "source_input",                                           +
              "priority": 8,                                                       +
              "column_name": "stat_ident_raw",                                     +
+             "column_type": "TEXT",                                               +
+             "is_nullable": true,                                                 +
+             "default_value": null,                                               +
+             "is_uniquely_identifying": true                                      +
+         },                                                                       +
+         {                                                                        +
+             "purpose": "source_input",                                           +
+             "priority": 16,                                                      +
+             "column_name": "person_ident_raw",                                   +
              "column_type": "TEXT",                                               +
              "is_nullable": true,                                                 +
              "default_value": null,                                               +
@@ -2179,7 +2192,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "column_name": "edit_by_user_id",                                    +
              "column_type": "INTEGER",                                            +
              "is_nullable": true,                                                 +
-             "default_value": null,                                               +
+             "default_value": "auth.uid()",                                       +
              "is_uniquely_identifying": false                                     +
          },                                                                       +
          {                                                                        +
@@ -2537,6 +2550,7 @@ Triggers:
  establishment_id                     | integer                   |           |          | 
  tax_ident_raw                        | text                      |           |          | 
  stat_ident_raw                       | text                      |           |          | 
+ person_ident_raw                     | text                      |           |          | 
  data_source_code_raw                 | text                      |           |          | 
  data_source_id                       | integer                   |           |          | 
  status_code_raw                      | text                      |           |          | 
@@ -2544,6 +2558,7 @@ Triggers:
  primary_for_legal_unit               | boolean                   |           |          | 
  legal_unit_tax_ident_raw             | text                      |           |          | 
  legal_unit_stat_ident_raw            | text                      |           |          | 
+ legal_unit_person_ident_raw          | text                      |           |          | 
  name_raw                             | text                      |           |          | 
  name                                 | text                      |           |          | 
  birth_date_raw                       | text                      |           |          | 
@@ -2626,7 +2641,7 @@ Triggers:
  tag_id                               | integer                   |           |          | 
  tag_for_unit_id                      | integer                   |           |          | 
  edit_comment_raw                     | text                      |           |          | 
- edit_by_user_id                      | integer                   |           |          | 
+ edit_by_user_id                      | integer                   |           |          | auth.uid()
  edit_at                              | timestamp with time zone  |           |          | 
  edit_comment                         | text                      |           |          | 
  founding_row_id                      | integer                   |           |          | 
@@ -2640,6 +2655,7 @@ Indexes:
     "import_es_2015_sht_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
     "import_es_2015_sht_data_daterange_idx" gist (daterange(valid_from, valid_until, '[)'::text))
     "import_es_2015_sht_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
+    "import_es_2015_sht_data_person_ident_raw_idx" btree (person_ident_raw)
     "import_es_2015_sht_data_stat_ident_raw_idx" btree (stat_ident_raw)
     "import_es_2015_sht_data_state_last_completed_priority_batch_idx" btree (state, last_completed_priority, batch_seq)
     "import_es_2015_sht_data_tax_ident_raw_idx" btree (tax_ident_raw)
@@ -2665,7 +2681,7 @@ Policies:
     POLICY "import_es_2015_sht_data_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 
 \echo 'Definition snapshot for import_es_2015_sht:'
 Definition snapshot for import_es_2015_sht:
@@ -2886,7 +2902,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              },                                                                     +
              "target_data_column": {                                                +
                  "purpose": "source_input",                                         +
-                 "priority": 2,                                                     +
+                 "priority": 4,                                                     +
                  "column_name": "legal_unit_tax_ident_raw",                         +
                  "column_type": "TEXT",                                             +
                  "is_nullable": true,                                               +
@@ -3354,6 +3370,15 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          },                                                                         +
          {                                                                          +
              "purpose": "source_input",                                             +
+             "priority": 16,                                                        +
+             "column_name": "person_ident_raw",                                     +
+             "column_type": "TEXT",                                                 +
+             "is_nullable": true,                                                   +
+             "default_value": null,                                                 +
+             "is_uniquely_identifying": true                                        +
+         },                                                                         +
+         {                                                                          +
+             "purpose": "source_input",                                             +
              "priority": 1,                                                         +
              "column_name": "data_source_code_raw",                                 +
              "column_type": "TEXT",                                                 +
@@ -3399,7 +3424,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          },                                                                         +
          {                                                                          +
              "purpose": "source_input",                                             +
-             "priority": 2,                                                         +
+             "priority": 4,                                                         +
              "column_name": "legal_unit_tax_ident_raw",                             +
              "column_type": "TEXT",                                                 +
              "is_nullable": true,                                                   +
@@ -3408,8 +3433,17 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          },                                                                         +
          {                                                                          +
              "purpose": "source_input",                                             +
-             "priority": 3,                                                         +
+             "priority": 5,                                                         +
              "column_name": "legal_unit_stat_ident_raw",                            +
+             "column_type": "TEXT",                                                 +
+             "is_nullable": true,                                                   +
+             "default_value": null,                                                 +
+             "is_uniquely_identifying": false                                       +
+         },                                                                         +
+         {                                                                          +
+             "purpose": "source_input",                                             +
+             "priority": 6,                                                         +
+             "column_name": "legal_unit_person_ident_raw",                          +
              "column_type": "TEXT",                                                 +
              "is_nullable": true,                                                   +
              "default_value": null,                                                 +
@@ -4159,7 +4193,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "column_name": "edit_by_user_id",                                      +
              "column_type": "INTEGER",                                              +
              "is_nullable": true,                                                   +
-             "default_value": null,                                                 +
+             "default_value": "auth.uid()",                                         +
              "is_uniquely_identifying": false                                       +
          },                                                                         +
          {                                                                          +

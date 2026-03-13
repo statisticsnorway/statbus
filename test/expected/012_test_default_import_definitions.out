@@ -130,6 +130,7 @@ WHERE id.slug = 'establishment_for_lu_job_provided'
 -- CALL test.set_user_from_email('test.admin@statbus.org'); -- Already set at the beginning
 -- Disable tax_ident
 UPDATE public.external_ident_type SET enabled = false WHERE code = 'tax_ident';
+NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_s_employees_idx
@@ -139,6 +140,7 @@ NOTICE:  Dropped index su_ss_employees_sum_idx
 NOTICE:  Dropped index su_ss_turnover_count_idx
 NOTICE:  Dropped index su_ss_turnover_sum_idx
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
 NOTICE:  Created indices for stat_definition employees
 NOTICE:  Created indices for stat_definition turnover
 DO $$ BEGIN RAISE NOTICE 'Disabled tax_ident'; END; $$;
@@ -152,6 +154,7 @@ ON CONFLICT (code) DO UPDATE SET
     priority = EXCLUDED.priority,
     description = EXCLUDED.description,
     enabled = EXCLUDED.enabled;
+NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_s_employees_idx
 NOTICE:  Dropped index su_s_turnover_idx
@@ -160,9 +163,11 @@ NOTICE:  Dropped index su_ss_employees_sum_idx
 NOTICE:  Dropped index su_ss_turnover_count_idx
 NOTICE:  Dropped index su_ss_turnover_sum_idx
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_vat_ident_idx for external_ident_type
 NOTICE:  Created indices for stat_definition employees
 NOTICE:  Created indices for stat_definition turnover
+NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_vat_ident_idx
 NOTICE:  Dropped index su_s_employees_idx
@@ -172,6 +177,7 @@ NOTICE:  Dropped index su_ss_employees_sum_idx
 NOTICE:  Dropped index su_ss_turnover_count_idx
 NOTICE:  Dropped index su_ss_turnover_sum_idx
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_vat_ident_idx for external_ident_type
 NOTICE:  Created indices for stat_definition employees
 NOTICE:  Created indices for stat_definition turnover
@@ -181,11 +187,12 @@ NOTICE:  Inserted/Updated vat_ident
 \echo "   Enabled external_ident_types after modification:"
 "   Enabled external_ident_types after modification:"
 SELECT code, name, priority, enabled FROM public.external_ident_type WHERE enabled = true ORDER BY priority;
-    code    |          name          | priority | enabled 
-------------+------------------------+----------+---------
- stat_ident | Statistical Identifier |        2 | t
- vat_ident  | VAT Identifier         |       35 | t
-(2 rows)
+     code     |          name          | priority | enabled 
+--------------+------------------------+----------+---------
+ stat_ident   | Statistical Identifier |        2 | t
+ person_ident | Person Identifier      |       10 | t
+ vat_ident    | VAT Identifier         |       35 | t
+(3 rows)
 
 \echo ""
 ""
@@ -198,11 +205,12 @@ FROM public.import_data_column dc
 JOIN public.import_step s ON dc.step_id = s.id
 WHERE s.code = 'external_idents' AND dc.purpose = 'source_input'
 ORDER BY dc.column_name;
-  column_name   |   purpose    | column_type 
-----------------+--------------+-------------
- stat_ident_raw | source_input | TEXT
- vat_ident_raw  | source_input | TEXT
-(2 rows)
+   column_name    |   purpose    | column_type 
+------------------+--------------+-------------
+ person_ident_raw | source_input | TEXT
+ stat_ident_raw   | source_input | TEXT
+ vat_ident_raw    | source_input | TEXT
+(3 rows)
 
 \echo ""
 ""
@@ -254,7 +262,7 @@ LEFT JOIN public.import_step target_step ON target_dc.step_id = target_step.id
 WHERE id.slug = 'legal_unit_job_provided';
      definition_slug     | source_column_name | source_column_priority | is_mapped | target_data_column_name | target_data_column_purpose | target_step_code 
 -------------------------+--------------------+------------------------+-----------+-------------------------+----------------------------+------------------
- legal_unit_job_provided | vat_ident          |                     39 | t         | vat_ident_raw           | source_input               | external_idents
+ legal_unit_job_provided | vat_ident          |                     40 | t         | vat_ident_raw           | source_input               | external_idents
 (1 row)
 
 ROLLBACK;

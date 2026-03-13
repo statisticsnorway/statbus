@@ -71,8 +71,8 @@ export function invalidateHasStatisticalUnitsCache(): void {
 // ============================================================================
 
 export interface BaseData {
-  statDefinitions: Tables<"stat_definition_active">[]
-  externalIdentTypes: Tables<"external_ident_type_active">[]
+  statDefinitions: Tables<"stat_definition_enabled">[]
+  externalIdentTypes: Tables<"external_ident_type_enabled">[]
   statbusUsers: Tables<"user">[]
   timeContexts: Tables<"time_context">[]
   defaultTimeContext: Tables<"time_context"> | null
@@ -136,8 +136,8 @@ export const baseDataPromiseAtom = atomWithRefresh<Promise<BaseData>>(async (get
       statisticalUnitResult,
       timeContextsResult
     ] = await Promise.all([
-      client.from("stat_definition_active").select(),
-      client.from("external_ident_type_active").select(),
+      client.from("stat_definition_enabled").select(),
+      client.from("external_ident_type_enabled").select(),
       client.from("user").select(), // Consider if all users are needed or just current user's info
       client.from("statistical_unit").select("unit_id").limit(1), // Check existence with minimal data fetch
       client.from("time_context").select("*") // Fetches all, view is ordered by default

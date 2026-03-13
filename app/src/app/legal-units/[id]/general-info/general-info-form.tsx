@@ -104,7 +104,7 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
       />
       <div className="grid lg:grid-cols-2 gap-4 p-2">
         {externalIdentTypes.map(
-          (type: Tables<"external_ident_type_active">) => {
+          (type: Tables<"external_ident_type_enabled">) => {
             const value = legalUnit?.external_idents[type.code];
             
             // Use hierarchical field component for hierarchical identifier types

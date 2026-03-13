@@ -1,22 +1,22 @@
 
 \d+ public.sector_ordered
-\d+ public.sector_available
+\d+ public.sector_enabled
 \d+ public.legal_form_ordered
-\d+ public.legal_form_available
+\d+ public.legal_form_enabled
 \d+ public.legal_reorg_type_ordered
-\d+ public.legal_reorg_type_available
+\d+ public.legal_reorg_type_enabled
 \d+ public.foreign_participation_ordered
-\d+ public.foreign_participation_available
+\d+ public.foreign_participation_enabled
 \d+ public.data_source_ordered
-\d+ public.data_source_available
+\d+ public.data_source_enabled
 \d+ public.unit_size_ordered
-\d+ public.unit_size_available
+\d+ public.unit_size_enabled
 \d+ public.person_role_ordered
-\d+ public.person_role_available
+\d+ public.person_role_enabled
 \d+ public.power_group_type_ordered
-\d+ public.power_group_type_available
+\d+ public.power_group_type_enabled
 \d+ public.legal_rel_type_ordered
-\d+ public.legal_rel_type_available
+\d+ public.legal_rel_type_enabled
 
 
 BEGIN;

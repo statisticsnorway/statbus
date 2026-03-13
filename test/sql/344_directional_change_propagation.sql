@@ -248,7 +248,7 @@ AND valid_from <= current_date AND current_date < valid_until;
 
 \echo "Action: Updating activity category for SSB Updated"
 UPDATE public.activity
-SET category_id = (SELECT id FROM public.activity_category_available WHERE path = 'A.01')
+SET category_id = (SELECT id FROM public.activity_category_enabled WHERE path = 'A.01')
 WHERE legal_unit_id = (SELECT id FROM public.legal_unit WHERE name = 'SSB Updated')
   AND type = 'primary';
 

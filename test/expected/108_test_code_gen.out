@@ -61,13 +61,15 @@ SELECT * FROM import_data_column_baseline;
        2 |        4 | establishment_id                     | INTEGER                          | pk_id        | t           |               | f
        2 |        7 | tax_ident_raw                        | TEXT                             | source_input | t           |               | t
        2 |        8 | stat_ident_raw                       | TEXT                             | source_input | t           |               | t
+       2 |       16 | person_ident_raw                     | TEXT                             | source_input | t           |               | t
        3 |        1 | enterprise_id                        | INTEGER                          | internal     | t           |               | f
        3 |        2 | primary_for_enterprise               | BOOLEAN                          | internal     | t           |               | f
        4 |        1 | enterprise_id                        | INTEGER                          | internal     | t           |               | f
        4 |        2 | primary_for_enterprise               | BOOLEAN                          | internal     | t           |               | f
        5 |        1 | primary_for_legal_unit               | BOOLEAN                          | internal     | t           |               | f
-       5 |        2 | legal_unit_tax_ident_raw             | TEXT                             | source_input | t           |               | f
-       5 |        3 | legal_unit_stat_ident_raw            | TEXT                             | source_input | t           |               | f
+       5 |        4 | legal_unit_tax_ident_raw             | TEXT                             | source_input | t           |               | f
+       5 |        5 | legal_unit_stat_ident_raw            | TEXT                             | source_input | t           |               | f
+       5 |        6 | legal_unit_person_ident_raw          | TEXT                             | source_input | t           |               | f
        6 |        1 | data_source_code_raw                 | TEXT                             | source_input | t           |               | f
        6 |        2 | data_source_id                       | INTEGER                          | internal     | t           |               | f
        7 |        1 | status_code_raw                      | TEXT                             | source_input | t           |               | f
@@ -166,7 +168,7 @@ SELECT * FROM import_data_column_baseline;
       16 |        3 | tag_id                               | INTEGER                          | internal     | t           |               | f
       16 |        4 | tag_for_unit_id                      | INTEGER                          | pk_id        | t           |               | f
       17 |        1 | edit_comment_raw                     | TEXT                             | source_input | t           |               | f
-      17 |        2 | edit_by_user_id                      | INTEGER                          | internal     | t           |               | f
+      17 |        2 | edit_by_user_id                      | INTEGER                          | internal     | t           | auth.uid()    | f
       17 |        3 | edit_at                              | TIMESTAMPTZ                      | internal     | t           |               | f
       17 |        4 | edit_comment                         | TEXT                             | internal     | t           |               | f
       18 |        1 | founding_row_id                      | INTEGER                          | internal     | t           |               | f
@@ -188,7 +190,7 @@ SELECT * FROM import_data_column_baseline;
       19 |       11 | legal_relationship_id                | INTEGER                          | pk_id        | t           |               | f
       20 |          | cluster_root_legal_unit_id           | INTEGER                          | internal     | t           |               | f
       20 |          | derived_power_group_id               | INTEGER                          | internal     | t           |               | f
-(138 rows)
+(140 rows)
 
 \echo "Initial import_source_column state (default definitions):"
 "Initial import_source_column state (default definitions):"
@@ -233,6 +235,7 @@ SELECT * FROM import_source_column_baseline;
              1 |       36 | stat_ident
              1 |       37 | employees
              1 |       38 | turnover
+             1 |       39 | person_ident
              2 |        1 | name
              2 |        2 | birth_date
              2 |        3 | death_date
@@ -273,6 +276,7 @@ SELECT * FROM import_source_column_baseline;
              2 |       38 | stat_ident
              2 |       39 | employees
              2 |       40 | turnover
+             2 |       41 | person_ident
              3 |        1 | name
              3 |        2 | birth_date
              3 |        3 | death_date
@@ -312,6 +316,8 @@ SELECT * FROM import_source_column_baseline;
              3 |       37 | stat_ident
              3 |       38 | employees
              3 |       39 | turnover
+             3 |       40 | person_ident
+             3 |       41 | legal_unit_person_ident
              4 |        1 | name
              4 |        2 | birth_date
              4 |        3 | death_date
@@ -353,6 +359,8 @@ SELECT * FROM import_source_column_baseline;
              4 |       39 | stat_ident
              4 |       40 | employees
              4 |       41 | turnover
+             4 |       42 | person_ident
+             4 |       43 | legal_unit_person_ident
              5 |        1 | name
              5 |        2 | birth_date
              5 |        3 | death_date
@@ -390,6 +398,7 @@ SELECT * FROM import_source_column_baseline;
              5 |       35 | stat_ident
              5 |       36 | employees
              5 |       37 | turnover
+             5 |       38 | person_ident
              6 |        1 | name
              6 |        2 | birth_date
              6 |        3 | death_date
@@ -429,16 +438,19 @@ SELECT * FROM import_source_column_baseline;
              6 |       37 | stat_ident
              6 |       38 | employees
              6 |       39 | turnover
+             6 |       40 | person_ident
              7 |        1 | tax_ident
              7 |        2 | stat_ident
              7 |        3 | employees
              7 |        4 | turnover
+             7 |        5 | person_ident
              8 |        1 | valid_from
              8 |        2 | valid_to
              8 |        3 | tax_ident
              8 |        4 | stat_ident
              8 |        5 | employees
              8 |        6 | turnover
+             8 |        7 | person_ident
              9 |        1 | influencing_tax_ident
              9 |        2 | influenced_tax_ident
              9 |        3 | rel_type_code
@@ -449,7 +461,7 @@ SELECT * FROM import_source_column_baseline;
             10 |        2 | influenced_tax_ident
             10 |        3 | rel_type_code
             10 |        4 | percentage
-(254 rows)
+(264 rows)
 
 \echo "Initial import_mapping state (default definitions):"
 "Initial import_mapping state (default definitions):"
@@ -468,6 +480,7 @@ SELECT * FROM import_mapping_baseline;
              1 | legal_form_code                  |                   | legal_form_code_raw                  | source_input               | f          | 
              1 | mobile_number                    |                   | mobile_number_raw                    | source_input               | f          | 
              1 | name                             |                   | name_raw                             | source_input               | f          | 
+             1 | person_ident                     |                   | person_ident_raw                     | source_input               | f          | 
              1 | phone_number                     |                   | phone_number_raw                     | source_input               | f          | 
              1 | physical_address_part1           |                   | physical_address_part1_raw           | source_input               | f          | 
              1 | physical_address_part2           |                   | physical_address_part2_raw           | source_input               | f          | 
@@ -506,6 +519,7 @@ SELECT * FROM import_mapping_baseline;
              2 | legal_form_code                  |                   | legal_form_code_raw                  | source_input               | f          | 
              2 | mobile_number                    |                   | mobile_number_raw                    | source_input               | f          | 
              2 | name                             |                   | name_raw                             | source_input               | f          | 
+             2 | person_ident                     |                   | person_ident_raw                     | source_input               | f          | 
              2 | phone_number                     |                   | phone_number_raw                     | source_input               | f          | 
              2 | physical_address_part1           |                   | physical_address_part1_raw           | source_input               | f          | 
              2 | physical_address_part2           |                   | physical_address_part2_raw           | source_input               | f          | 
@@ -545,10 +559,12 @@ SELECT * FROM import_mapping_baseline;
              3 | employees                        |                   | employees_raw                        | source_input               | f          | 
              3 | fax_number                       |                   | fax_number_raw                       | source_input               | f          | 
              3 | landline                         |                   | landline_raw                         | source_input               | f          | 
+             3 | legal_unit_person_ident          |                   | legal_unit_person_ident_raw          | source_input               | f          | 
              3 | legal_unit_stat_ident            |                   | legal_unit_stat_ident_raw            | source_input               | f          | 
              3 | legal_unit_tax_ident             |                   | legal_unit_tax_ident_raw             | source_input               | f          | 
              3 | mobile_number                    |                   | mobile_number_raw                    | source_input               | f          | 
              3 | name                             |                   | name_raw                             | source_input               | f          | 
+             3 | person_ident                     |                   | person_ident_raw                     | source_input               | f          | 
              3 | phone_number                     |                   | phone_number_raw                     | source_input               | f          | 
              3 | physical_address_part1           |                   | physical_address_part1_raw           | source_input               | f          | 
              3 | physical_address_part2           |                   | physical_address_part2_raw           | source_input               | f          | 
@@ -584,10 +600,12 @@ SELECT * FROM import_mapping_baseline;
              4 | employees                        |                   | employees_raw                        | source_input               | f          | 
              4 | fax_number                       |                   | fax_number_raw                       | source_input               | f          | 
              4 | landline                         |                   | landline_raw                         | source_input               | f          | 
+             4 | legal_unit_person_ident          |                   | legal_unit_person_ident_raw          | source_input               | f          | 
              4 | legal_unit_stat_ident            |                   | legal_unit_stat_ident_raw            | source_input               | f          | 
              4 | legal_unit_tax_ident             |                   | legal_unit_tax_ident_raw             | source_input               | f          | 
              4 | mobile_number                    |                   | mobile_number_raw                    | source_input               | f          | 
              4 | name                             |                   | name_raw                             | source_input               | f          | 
+             4 | person_ident                     |                   | person_ident_raw                     | source_input               | f          | 
              4 | phone_number                     |                   | phone_number_raw                     | source_input               | f          | 
              4 | physical_address_part1           |                   | physical_address_part1_raw           | source_input               | f          | 
              4 | physical_address_part2           |                   | physical_address_part2_raw           | source_input               | f          | 
@@ -629,6 +647,7 @@ SELECT * FROM import_mapping_baseline;
              5 | landline                         |                   | landline_raw                         | source_input               | f          | 
              5 | mobile_number                    |                   | mobile_number_raw                    | source_input               | f          | 
              5 | name                             |                   | name_raw                             | source_input               | f          | 
+             5 | person_ident                     |                   | person_ident_raw                     | source_input               | f          | 
              5 | phone_number                     |                   | phone_number_raw                     | source_input               | f          | 
              5 | physical_address_part1           |                   | physical_address_part1_raw           | source_input               | f          | 
              5 | physical_address_part2           |                   | physical_address_part2_raw           | source_input               | f          | 
@@ -666,6 +685,7 @@ SELECT * FROM import_mapping_baseline;
              6 | landline                         |                   | landline_raw                         | source_input               | f          | 
              6 | mobile_number                    |                   | mobile_number_raw                    | source_input               | f          | 
              6 | name                             |                   | name_raw                             | source_input               | f          | 
+             6 | person_ident                     |                   | person_ident_raw                     | source_input               | f          | 
              6 | phone_number                     |                   | phone_number_raw                     | source_input               | f          | 
              6 | physical_address_part1           |                   | physical_address_part1_raw           | source_input               | f          | 
              6 | physical_address_part2           |                   | physical_address_part2_raw           | source_input               | f          | 
@@ -699,10 +719,12 @@ SELECT * FROM import_mapping_baseline;
              7 |                                  | default           | valid_from_raw                       | source_input               | f          | 
              7 |                                  | default           | valid_to_raw                         | source_input               | f          | 
              7 | employees                        |                   | employees_raw                        | source_input               | f          | 
+             7 | person_ident                     |                   | person_ident_raw                     | source_input               | f          | 
              7 | stat_ident                       |                   | stat_ident_raw                       | source_input               | f          | 
              7 | tax_ident                        |                   | tax_ident_raw                        | source_input               | f          | 
              7 | turnover                         |                   | turnover_raw                         | source_input               | f          | 
              8 | employees                        |                   | employees_raw                        | source_input               | f          | 
+             8 | person_ident                     |                   | person_ident_raw                     | source_input               | f          | 
              8 | stat_ident                       |                   | stat_ident_raw                       | source_input               | f          | 
              8 | tax_ident                        |                   | tax_ident_raw                        | source_input               | f          | 
              8 | turnover                         |                   | turnover_raw                         | source_input               | f          | 
@@ -720,7 +742,7 @@ SELECT * FROM import_mapping_baseline;
             10 | influencing_tax_ident            |                   | influencing_tax_ident_raw            | source_input               | f          | 
             10 | percentage                       |                   | percentage_raw                       | source_input               | f          | 
             10 | rel_type_code                    |                   | rel_type_code_raw                    | source_input               | f          | 
-(264 rows)
+(274 rows)
 
 \echo "---"
 "---"
@@ -733,6 +755,7 @@ SELECT * FROM import_mapping_baseline;
 \echo "Delete unused stat variable".
 "Delete unused stat variable".
 DELETE FROM public.stat_definition WHERE code = 'employees';
+NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_s_employees_idx
@@ -743,10 +766,12 @@ NOTICE:  Dropped index su_ss_turnover_count_idx
 NOTICE:  Dropped index su_ss_turnover_sum_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
 NOTICE:  Created indices for stat_definition turnover
 \echo "Make turnover the first variable"
 "Make turnover the first variable"
 UPDATE public.stat_definition SET priority = 1 wHERE code = 'turnover';
+NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_s_turnover_idx
@@ -754,6 +779,7 @@ NOTICE:  Dropped index su_ss_turnover_count_idx
 NOTICE:  Dropped index su_ss_turnover_sum_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
 NOTICE:  Created indices for stat_definition turnover
 \echo "Add new custom variables"
 "Add new custom variables"
@@ -761,6 +787,7 @@ INSERT INTO public.stat_definition(code, type, frequency, name, description, pri
   ('men_employees','int','yearly','Number of men employed','The number of men receiving an official salary with government reporting.',2),
   ('women_employees','int','yearly','Number of women employed','The number of women receiving an official salary with government reporting.',3),
   ('children_employees','int','yearly','Number of children employed','The number of children receiving an official salary with government reporting.',4);
+NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_s_turnover_idx
@@ -768,6 +795,7 @@ NOTICE:  Dropped index su_ss_turnover_count_idx
 NOTICE:  Dropped index su_ss_turnover_sum_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
 NOTICE:  Created indices for stat_definition turnover
 NOTICE:  Created indices for stat_definition men_employees
 NOTICE:  Created indices for stat_definition women_employees
@@ -775,6 +803,7 @@ NOTICE:  Created indices for stat_definition children_employees
 \echo "Stop using the children_employees, it can no longer be imported, but will be in statistics."
 "Stop using the children_employees, it can no longer be imported, but will be in statistics."
 UPDATE public.stat_definition SET enabled = false wHERE code = 'children_employees';
+NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_s_children_employees_idx
@@ -791,6 +820,7 @@ NOTICE:  Dropped index su_ss_women_employees_count_idx
 NOTICE:  Dropped index su_ss_women_employees_sum_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
 NOTICE:  Created indices for stat_definition turnover
 NOTICE:  Created indices for stat_definition men_employees
 NOTICE:  Created indices for stat_definition women_employees
@@ -799,6 +829,7 @@ NOTICE:  Created indices for stat_definition women_employees
 INSERT INTO public.stat_definition(code, type, frequency, name, description, priority) VALUES
   ('boy_employees','int','yearly','Number of boys employed','The number of boys receiving an official salary with government reporting.',5),
   ('girl_employees','int','yearly','Number of girls employed','The number of girls receiving an official salary with government reporting.',6);
+NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_s_men_employees_idx
@@ -812,6 +843,7 @@ NOTICE:  Dropped index su_ss_women_employees_count_idx
 NOTICE:  Dropped index su_ss_women_employees_sum_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
 NOTICE:  Created indices for stat_definition turnover
 NOTICE:  Created indices for stat_definition men_employees
 NOTICE:  Created indices for stat_definition women_employees
@@ -908,38 +940,38 @@ SELECT * FROM import_source_column_baseline
 ORDER BY definition_id, priority, column_name;
  definition_id | priority |   column_name   
 ---------------+----------+-----------------
-             1 |       39 | men_employees
-             1 |       40 | women_employees
-             1 |       41 | boy_employees
-             1 |       42 | girl_employees
-             2 |       41 | men_employees
-             2 |       42 | women_employees
-             2 |       43 | boy_employees
-             2 |       44 | girl_employees
-             3 |       40 | men_employees
-             3 |       41 | women_employees
-             3 |       42 | boy_employees
-             3 |       43 | girl_employees
-             4 |       42 | men_employees
-             4 |       43 | women_employees
-             4 |       44 | boy_employees
-             4 |       45 | girl_employees
-             5 |       38 | men_employees
-             5 |       39 | women_employees
-             5 |       40 | boy_employees
-             5 |       41 | girl_employees
-             6 |       40 | men_employees
-             6 |       41 | women_employees
-             6 |       42 | boy_employees
-             6 |       43 | girl_employees
-             7 |        5 | men_employees
-             7 |        6 | women_employees
-             7 |        7 | boy_employees
-             7 |        8 | girl_employees
-             8 |        7 | men_employees
-             8 |        8 | women_employees
-             8 |        9 | boy_employees
-             8 |       10 | girl_employees
+             1 |       40 | men_employees
+             1 |       41 | women_employees
+             1 |       42 | boy_employees
+             1 |       43 | girl_employees
+             2 |       42 | men_employees
+             2 |       43 | women_employees
+             2 |       44 | boy_employees
+             2 |       45 | girl_employees
+             3 |       42 | men_employees
+             3 |       43 | women_employees
+             3 |       44 | boy_employees
+             3 |       45 | girl_employees
+             4 |       44 | men_employees
+             4 |       45 | women_employees
+             4 |       46 | boy_employees
+             4 |       47 | girl_employees
+             5 |       39 | men_employees
+             5 |       40 | women_employees
+             5 |       41 | boy_employees
+             5 |       42 | girl_employees
+             6 |       41 | men_employees
+             6 |       42 | women_employees
+             6 |       43 | boy_employees
+             6 |       44 | girl_employees
+             7 |        6 | men_employees
+             7 |        7 | women_employees
+             7 |        8 | boy_employees
+             7 |        9 | girl_employees
+             8 |        8 | men_employees
+             8 |        9 | women_employees
+             8 |       10 | boy_employees
+             8 |       11 | girl_employees
 (32 rows)
 
 \echo "Check generated code from stat_definition modifications for mappings"
@@ -1077,6 +1109,7 @@ ORDER BY m.definition_id, source_column_name NULLS FIRST, source_expression, tar
 \echo "Delete unused stat identifier".
 "Delete unused stat identifier".
 DELETE FROM public.external_ident_type WHERE code = 'stat_ident';
+NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_s_boy_employees_idx
@@ -1095,6 +1128,7 @@ NOTICE:  Dropped index su_ss_turnover_sum_idx
 NOTICE:  Dropped index su_ss_women_employees_count_idx
 NOTICE:  Dropped index su_ss_women_employees_sum_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
 NOTICE:  Created indices for stat_definition turnover
 NOTICE:  Created indices for stat_definition men_employees
 NOTICE:  Created indices for stat_definition women_employees
@@ -1103,6 +1137,7 @@ NOTICE:  Created indices for stat_definition girl_employees
 \echo "Make tax_ident the first identifier"
 "Make tax_ident the first identifier"
 UPDATE public.external_ident_type SET priority = 1 wHERE code = 'tax_ident';
+NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_s_boy_employees_idx
 NOTICE:  Dropped index su_s_girl_employees_idx
@@ -1120,6 +1155,7 @@ NOTICE:  Dropped index su_ss_turnover_sum_idx
 NOTICE:  Dropped index su_ss_women_employees_count_idx
 NOTICE:  Dropped index su_ss_women_employees_sum_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
 NOTICE:  Created indices for stat_definition turnover
 NOTICE:  Created indices for stat_definition men_employees
 NOTICE:  Created indices for stat_definition women_employees
@@ -1130,6 +1166,7 @@ NOTICE:  Created indices for stat_definition girl_employees
 INSERT INTO public.external_ident_type(code, name, priority, description) VALUES
 	('pin', 'Personal Identification Number', 2, 'Stable identifier provided by the governemnt and used by all individials who have a business just for themselves.'),
 	('mobile', 'Mobile Number', 3, 'Mandated reporting by all phone companies.');
+NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_s_boy_employees_idx
 NOTICE:  Dropped index su_s_girl_employees_idx
@@ -1149,6 +1186,7 @@ NOTICE:  Dropped index su_ss_women_employees_sum_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_pin_idx for external_ident_type
 NOTICE:  Created btree index su_ei_mobile_idx for external_ident_type
+NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
 NOTICE:  Created indices for stat_definition turnover
 NOTICE:  Created indices for stat_definition men_employees
 NOTICE:  Created indices for stat_definition women_employees
@@ -1158,6 +1196,7 @@ NOTICE:  Created indices for stat_definition girl_employees
 "Stop using the mobile, peoples number changed to often, it can no longer be imported, but will be in statistics."
 UPDATE public.external_ident_type SET enabled = false wHERE code = 'mobile';
 NOTICE:  Dropped index su_ei_mobile_idx
+NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_pin_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_s_boy_employees_idx
@@ -1177,6 +1216,7 @@ NOTICE:  Dropped index su_ss_women_employees_count_idx
 NOTICE:  Dropped index su_ss_women_employees_sum_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_pin_idx for external_ident_type
+NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
 NOTICE:  Created indices for stat_definition turnover
 NOTICE:  Created indices for stat_definition men_employees
 NOTICE:  Created indices for stat_definition women_employees
@@ -1199,12 +1239,13 @@ SELECT
     is_uniquely_identifying
 FROM public.import_data_column
 ORDER BY step_id, priority NULLS FIRST, column_name;
- step_id | priority |        column_name        | column_type |   purpose    | is_nullable | default_value | is_uniquely_identifying 
----------+----------+---------------------------+-------------+--------------+-------------+---------------+-------------------------
-       2 |        8 | stat_ident_raw            | TEXT        | source_input | t           |               | t
-       5 |        2 | legal_unit_tax_ident_raw  | TEXT        | source_input | t           |               | f
-       5 |        3 | legal_unit_stat_ident_raw | TEXT        | source_input | t           |               | f
-(3 rows)
+ step_id | priority |         column_name         | column_type |   purpose    | is_nullable | default_value | is_uniquely_identifying 
+---------+----------+-----------------------------+-------------+--------------+-------------+---------------+-------------------------
+       2 |        8 | stat_ident_raw              | TEXT        | source_input | t           |               | t
+       5 |        4 | legal_unit_tax_ident_raw    | TEXT        | source_input | t           |               | f
+       5 |        5 | legal_unit_stat_ident_raw   | TEXT        | source_input | t           |               | f
+       5 |        6 | legal_unit_person_ident_raw | TEXT        | source_input | t           |               | f
+(4 rows)
 
 \echo "Added import_data_column rows:"
 "Added import_data_column rows:"
@@ -1221,12 +1262,13 @@ FROM public.import_data_column
 EXCEPT
 SELECT * FROM import_data_column_baseline_2
 ORDER BY step_id, priority NULLS FIRST, column_name;
- step_id | priority |       column_name        | column_type |   purpose    | is_nullable | default_value | is_uniquely_identifying 
----------+----------+--------------------------+-------------+--------------+-------------+---------------+-------------------------
-       2 |        8 | pin_raw                  | TEXT        | source_input | t           |               | t
-       5 |        7 | legal_unit_tax_ident_raw | TEXT        | source_input | t           |               | f
-       5 |        8 | legal_unit_pin_raw       | TEXT        | source_input | t           |               | f
-(3 rows)
+ step_id | priority |         column_name         | column_type |   purpose    | is_nullable | default_value | is_uniquely_identifying 
+---------+----------+-----------------------------+-------------+--------------+-------------+---------------+-------------------------
+       2 |        8 | pin_raw                     | TEXT        | source_input | t           |               | t
+       5 |       15 | legal_unit_tax_ident_raw    | TEXT        | source_input | t           |               | f
+       5 |       16 | legal_unit_pin_raw          | TEXT        | source_input | t           |               | f
+       5 |       17 | legal_unit_person_ident_raw | TEXT        | source_input | t           |               | f
+(4 rows)
 
 \echo "Check generated code from external_ident_type modifications for source columns"
 "Check generated code from external_ident_type modifications for source columns"
@@ -1258,26 +1300,26 @@ SELECT * FROM import_source_column_baseline_2
 ORDER BY definition_id, priority, column_name;
  definition_id | priority |    column_name    
 ---------------+----------+-------------------
-             1 |       43 | pin
-             1 |       44 | mobile
-             2 |       45 | pin
-             2 |       46 | mobile
-             3 |       44 | pin
-             3 |       45 | mobile
-             3 |       46 | legal_unit_pin
-             3 |       47 | legal_unit_mobile
-             4 |       46 | pin
-             4 |       47 | mobile
-             4 |       48 | legal_unit_pin
-             4 |       49 | legal_unit_mobile
-             5 |       42 | pin
-             5 |       43 | mobile
-             6 |       44 | pin
-             6 |       45 | mobile
-             7 |        9 | pin
-             7 |       10 | mobile
-             8 |       11 | pin
-             8 |       12 | mobile
+             1 |       44 | pin
+             1 |       45 | mobile
+             2 |       46 | pin
+             2 |       47 | mobile
+             3 |       46 | pin
+             3 |       47 | mobile
+             3 |       48 | legal_unit_pin
+             3 |       49 | legal_unit_mobile
+             4 |       48 | pin
+             4 |       49 | mobile
+             4 |       50 | legal_unit_pin
+             4 |       51 | legal_unit_mobile
+             5 |       43 | pin
+             5 |       44 | mobile
+             6 |       45 | pin
+             6 |       46 | mobile
+             7 |       10 | pin
+             7 |       11 | mobile
+             8 |       12 | pin
+             8 |       13 | mobile
 (20 rows)
 
 \echo "Check generated code from external_ident_type modifications for mappings"
@@ -1353,6 +1395,7 @@ ORDER BY definition_id, source_column_name NULLS FIRST, source_expression, targe
 \echo "Calling reset to restore database to its initial state"
 "Calling reset to restore database to its initial state"
 SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'all'::public.reset_scope));
+NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_pin_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_s_boy_employees_idx
@@ -1372,12 +1415,16 @@ NOTICE:  Dropped index su_ss_women_employees_count_idx
 NOTICE:  Dropped index su_ss_women_employees_sum_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_pin_idx for external_ident_type
+NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
+NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_pin_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_pin_idx for external_ident_type
+NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
 NOTICE:  Created indices for stat_definition employees
 NOTICE:  Created indices for stat_definition turnover
+NOTICE:  Dropped index su_ei_person_ident_idx
 NOTICE:  Dropped index su_ei_pin_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_s_employees_idx
@@ -1396,12 +1443,14 @@ NOTICE:  Dropped index su_ss_turnover_count_idx
 NOTICE:  Dropped index su_ss_turnover_sum_idx
 NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
 NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
 NOTICE:  Created indices for stat_definition employees
 NOTICE:  Created indices for stat_definition turnover
             jsonb_pretty             
 -------------------------------------
  {                                  +
      "tag": {                       +
+         "changed_count": 0,        +
          "deleted_count": 0         +
      },                             +
      "image": {                     +
@@ -1479,6 +1528,10 @@ NOTICE:  Created indices for stat_definition turnover
          "changed_count": 0,        +
          "deleted_count": 0         +
      },                             +
+     "region_version": {            +
+         "changed_count": 0,        +
+         "deleted_count": 0         +
+     },                             +
      "person_for_unit": {           +
          "deleted_count": 0         +
      },                             +
@@ -1529,16 +1582,22 @@ NOTICE:  Created indices for stat_definition turnover
 \echo "Removed import_data_column rows after reset (should be empty - deterministic priorities):"
 "Removed import_data_column rows after reset (should be empty - deterministic priorities):"
 SELECT * FROM import_data_column_baseline EXCEPT SELECT step_id, priority, column_name, column_type, purpose::text, is_nullable, default_value, is_uniquely_identifying FROM public.import_data_column;
- step_id | priority | column_name | column_type | purpose | is_nullable | default_value | is_uniquely_identifying 
----------+----------+-------------+-------------+---------+-------------+---------------+-------------------------
-(0 rows)
+ step_id | priority |         column_name         | column_type |   purpose    | is_nullable | default_value | is_uniquely_identifying 
+---------+----------+-----------------------------+-------------+--------------+-------------+---------------+-------------------------
+       5 |        6 | legal_unit_person_ident_raw | TEXT        | source_input | t           |               | f
+       5 |        5 | legal_unit_stat_ident_raw   | TEXT        | source_input | t           |               | f
+       5 |        4 | legal_unit_tax_ident_raw    | TEXT        | source_input | t           |               | f
+(3 rows)
 
 \echo "Added import_data_column rows after reset (should be empty - deterministic priorities):"
 "Added import_data_column rows after reset (should be empty - deterministic priorities):"
 SELECT step_id, priority, column_name, column_type, purpose::text, is_nullable, default_value, is_uniquely_identifying FROM public.import_data_column EXCEPT SELECT * FROM import_data_column_baseline;
- step_id | priority | column_name | column_type | purpose | is_nullable | default_value | is_uniquely_identifying 
----------+----------+-------------+-------------+---------+-------------+---------------+-------------------------
-(0 rows)
+ step_id | priority |         column_name         | column_type |   purpose    | is_nullable | default_value | is_uniquely_identifying 
+---------+----------+-----------------------------+-------------+--------------+-------------+---------------+-------------------------
+       5 |        4 | legal_unit_person_ident_raw | TEXT        | source_input | t           |               | f
+       5 |        3 | legal_unit_stat_ident_raw   | TEXT        | source_input | t           |               | f
+       5 |        2 | legal_unit_tax_ident_raw    | TEXT        | source_input | t           |               | f
+(3 rows)
 
 \echo "Baseline import_source_column content (ordered by column_name for comparison):"
 "Baseline import_source_column content (ordered by column_name for comparison):"
@@ -1555,6 +1614,7 @@ SELECT definition_id, column_name FROM import_source_column_baseline ORDER BY de
              1 | legal_form_code
              1 | mobile_number
              1 | name
+             1 | person_ident
              1 | phone_number
              1 | physical_address_part1
              1 | physical_address_part2
@@ -1593,6 +1653,7 @@ SELECT definition_id, column_name FROM import_source_column_baseline ORDER BY de
              2 | legal_form_code
              2 | mobile_number
              2 | name
+             2 | person_ident
              2 | phone_number
              2 | physical_address_part1
              2 | physical_address_part2
@@ -1630,10 +1691,12 @@ SELECT definition_id, column_name FROM import_source_column_baseline ORDER BY de
              3 | employees
              3 | fax_number
              3 | landline
+             3 | legal_unit_person_ident
              3 | legal_unit_stat_ident
              3 | legal_unit_tax_ident
              3 | mobile_number
              3 | name
+             3 | person_ident
              3 | phone_number
              3 | physical_address_part1
              3 | physical_address_part2
@@ -1669,10 +1732,12 @@ SELECT definition_id, column_name FROM import_source_column_baseline ORDER BY de
              4 | employees
              4 | fax_number
              4 | landline
+             4 | legal_unit_person_ident
              4 | legal_unit_stat_ident
              4 | legal_unit_tax_ident
              4 | mobile_number
              4 | name
+             4 | person_ident
              4 | phone_number
              4 | physical_address_part1
              4 | physical_address_part2
@@ -1712,6 +1777,7 @@ SELECT definition_id, column_name FROM import_source_column_baseline ORDER BY de
              5 | landline
              5 | mobile_number
              5 | name
+             5 | person_ident
              5 | phone_number
              5 | physical_address_part1
              5 | physical_address_part2
@@ -1749,6 +1815,7 @@ SELECT definition_id, column_name FROM import_source_column_baseline ORDER BY de
              6 | landline
              6 | mobile_number
              6 | name
+             6 | person_ident
              6 | phone_number
              6 | physical_address_part1
              6 | physical_address_part2
@@ -1780,10 +1847,12 @@ SELECT definition_id, column_name FROM import_source_column_baseline ORDER BY de
              6 | valid_to
              6 | web_address
              7 | employees
+             7 | person_ident
              7 | stat_ident
              7 | tax_ident
              7 | turnover
              8 | employees
+             8 | person_ident
              8 | stat_ident
              8 | tax_ident
              8 | turnover
@@ -1799,7 +1868,7 @@ SELECT definition_id, column_name FROM import_source_column_baseline ORDER BY de
             10 | influencing_tax_ident
             10 | percentage
             10 | rel_type_code
-(254 rows)
+(264 rows)
 
 \echo "Current import_source_column content after reset (ordered by column_name for comparison):"
 "Current import_source_column content after reset (ordered by column_name for comparison):"
@@ -1828,6 +1897,7 @@ ORDER BY definition_id, source_column_name, target_data_column_name;
              1 | legal_form_code                  | legal_form_code_raw
              1 | mobile_number                    | mobile_number_raw
              1 | name                             | name_raw
+             1 | person_ident                     | person_ident_raw
              1 | phone_number                     | phone_number_raw
              1 | physical_address_part1           | physical_address_part1_raw
              1 | physical_address_part2           | physical_address_part2_raw
@@ -1868,6 +1938,7 @@ ORDER BY definition_id, source_column_name, target_data_column_name;
              2 | legal_form_code                  | legal_form_code_raw
              2 | mobile_number                    | mobile_number_raw
              2 | name                             | name_raw
+             2 | person_ident                     | person_ident_raw
              2 | phone_number                     | phone_number_raw
              2 | physical_address_part1           | physical_address_part1_raw
              2 | physical_address_part2           | physical_address_part2_raw
@@ -1905,10 +1976,12 @@ ORDER BY definition_id, source_column_name, target_data_column_name;
              3 | employees                        | employees_raw
              3 | fax_number                       | fax_number_raw
              3 | landline                         | landline_raw
+             3 | legal_unit_person_ident          | legal_unit_person_ident_raw
              3 | legal_unit_stat_ident            | legal_unit_stat_ident_raw
              3 | legal_unit_tax_ident             | legal_unit_tax_ident_raw
              3 | mobile_number                    | mobile_number_raw
              3 | name                             | name_raw
+             3 | person_ident                     | person_ident_raw
              3 | phone_number                     | phone_number_raw
              3 | physical_address_part1           | physical_address_part1_raw
              3 | physical_address_part2           | physical_address_part2_raw
@@ -1946,10 +2019,12 @@ ORDER BY definition_id, source_column_name, target_data_column_name;
              4 | employees                        | employees_raw
              4 | fax_number                       | fax_number_raw
              4 | landline                         | landline_raw
+             4 | legal_unit_person_ident          | legal_unit_person_ident_raw
              4 | legal_unit_stat_ident            | legal_unit_stat_ident_raw
              4 | legal_unit_tax_ident             | legal_unit_tax_ident_raw
              4 | mobile_number                    | mobile_number_raw
              4 | name                             | name_raw
+             4 | person_ident                     | person_ident_raw
              4 | phone_number                     | phone_number_raw
              4 | physical_address_part1           | physical_address_part1_raw
              4 | physical_address_part2           | physical_address_part2_raw
@@ -1989,6 +2064,7 @@ ORDER BY definition_id, source_column_name, target_data_column_name;
              5 | landline                         | landline_raw
              5 | mobile_number                    | mobile_number_raw
              5 | name                             | name_raw
+             5 | person_ident                     | person_ident_raw
              5 | phone_number                     | phone_number_raw
              5 | physical_address_part1           | physical_address_part1_raw
              5 | physical_address_part2           | physical_address_part2_raw
@@ -2028,6 +2104,7 @@ ORDER BY definition_id, source_column_name, target_data_column_name;
              6 | landline                         | landline_raw
              6 | mobile_number                    | mobile_number_raw
              6 | name                             | name_raw
+             6 | person_ident                     | person_ident_raw
              6 | phone_number                     | phone_number_raw
              6 | physical_address_part1           | physical_address_part1_raw
              6 | physical_address_part2           | physical_address_part2_raw
@@ -2059,12 +2136,14 @@ ORDER BY definition_id, source_column_name, target_data_column_name;
              6 | valid_to                         | valid_to_raw
              6 | web_address                      | web_address_raw
              7 | employees                        | employees_raw
+             7 | person_ident                     | person_ident_raw
              7 | stat_ident                       | stat_ident_raw
              7 | tax_ident                        | tax_ident_raw
              7 | turnover                         | turnover_raw
              7 |                                  | valid_from_raw
              7 |                                  | valid_to_raw
              8 | employees                        | employees_raw
+             8 | person_ident                     | person_ident_raw
              8 | stat_ident                       | stat_ident_raw
              8 | tax_ident                        | tax_ident_raw
              8 | turnover                         | turnover_raw
@@ -2082,7 +2161,7 @@ ORDER BY definition_id, source_column_name, target_data_column_name;
             10 | rel_type_code                    | rel_type_code_raw
             10 |                                  | valid_from_raw
             10 |                                  | valid_to_raw
-(264 rows)
+(274 rows)
 
 \echo "Current import_mapping content after reset (ordered by columns for comparison):"
 "Current import_mapping content after reset (ordered by columns for comparison):"

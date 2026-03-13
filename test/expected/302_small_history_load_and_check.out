@@ -10,17 +10,19 @@ CALL test.set_user_from_email('test.admin@statbus.org');
 "Setting up Statbus for Norway"
 \i samples/norway/getting-started.sql
 \i samples/norway/settings.sql
-INSERT INTO settings(activity_category_standard_id,country_id)
+INSERT INTO settings(activity_category_standard_id,country_id,region_version_id)
 SELECT (SELECT id FROM activity_category_standard WHERE code = 'nace_v2.1')
      , (SELECT id FROM public.country WHERE iso_2 = 'NO')
+     , (SELECT id FROM public.region_version WHERE code = 'initial')
 ON CONFLICT (only_one_setting)
 DO UPDATE SET
    activity_category_standard_id = EXCLUDED.activity_category_standard_id,
-   country_id = EXCLUDED.country_id
+   country_id = EXCLUDED.country_id,
+   region_version_id = EXCLUDED.region_version_id
    WHERE settings.only_one_setting = EXCLUDED.only_one_setting;
 ;
 \i samples/norway/activity_category/activity_category_norway.sql
-\copy public.activity_category_available_custom FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.activity_category_enabled_custom FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 \i samples/norway/regions/norway-regions-2024.sql
 \copy public.region_upload(path, name) FROM 'samples/norway/regions/norway-regions-2024.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 \i samples/norway/sector/sector_norway.sql
@@ -418,6 +420,7 @@ FROM def;
  establishment_id                     | integer                   |           |          |                              | plain    |              | 
  tax_ident_raw                        | text                      |           |          |                              | extended |              | 
  stat_ident_raw                       | text                      |           |          |                              | extended |              | 
+ person_ident_raw                     | text                      |           |          |                              | extended |              | 
  data_source_code_raw                 | text                      |           |          |                              | extended |              | 
  data_source_id                       | integer                   |           |          |                              | plain    |              | 
  status_code_raw                      | text                      |           |          |                              | extended |              | 
@@ -508,7 +511,7 @@ FROM def;
  tag_id                               | integer                   |           |          |                              | plain    |              | 
  tag_for_unit_id                      | integer                   |           |          |                              | plain    |              | 
  edit_comment_raw                     | text                      |           |          |                              | extended |              | 
- edit_by_user_id                      | integer                   |           |          |                              | plain    |              | 
+ edit_by_user_id                      | integer                   |           |          | auth.uid()                   | plain    |              | 
  edit_at                              | timestamp with time zone  |           |          |                              | plain    |              | 
  edit_comment                         | text                      |           |          |                              | extended |              | 
  founding_row_id                      | integer                   |           |          |                              | plain    |              | 
@@ -522,6 +525,7 @@ Indexes:
     "import_10_lu_2015_sht_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
     "import_10_lu_2015_sht_data_daterange_idx" gist (daterange(valid_from, valid_until, '[)'::text))
     "import_10_lu_2015_sht_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
+    "import_10_lu_2015_sht_data_person_ident_raw_idx" btree (person_ident_raw)
     "import_10_lu_2015_sht_data_stat_ident_raw_idx" btree (stat_ident_raw)
     "import_10_lu_2015_sht_data_state_last_completed_priority_ba_idx" btree (state, last_completed_priority, batch_seq)
     "import_10_lu_2015_sht_data_tax_ident_raw_idx" btree (tax_ident_raw)
@@ -547,7 +551,7 @@ Policies:
     POLICY "import_10_lu_2015_sht_data_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 Not-null constraints:
     "import_10_lu_2015_sht_data_row_id_not_null" NOT NULL "row_id"
     "import_10_lu_2015_sht_data_state_not_null" NOT NULL "state"

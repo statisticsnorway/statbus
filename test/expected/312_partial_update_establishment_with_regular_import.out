@@ -12,16 +12,18 @@ CALL test.set_user_from_email('test.admin@statbus.org');
 -- Set the activity category standard to ISIC v4 for the demo data.
 \echo "User selected the Activity Category Standard"
 "User selected the Activity Category Standard"
-INSERT INTO settings(activity_category_standard_id,country_id)
+INSERT INTO settings(activity_category_standard_id,country_id,region_version_id)
 SELECT (SELECT id FROM activity_category_standard WHERE code = 'isic_v4')
      , (SELECT id FROM public.country WHERE iso_2 = 'UN')
+     , (SELECT id FROM public.region_version WHERE code = 'initial')
 ON CONFLICT (only_one_setting)
 DO UPDATE SET
     activity_category_standard_id = EXCLUDED.activity_category_standard_id,
-    country_id = EXCLUDED.country_id;
+    country_id = EXCLUDED.country_id,
+    region_version_id = EXCLUDED.region_version_id;
 \echo "User uploads the demo activity categories"
 "User uploads the demo activity categories"
-\copy public.activity_category_available_custom(path,name) FROM 'app/public/demo/activity_custom_isic_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.activity_category_enabled_custom(path,name) FROM 'app/public/demo/activity_custom_isic_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 \echo "User uploads the demo regions"
 "User uploads the demo regions"
 \copy public.region_upload(path, name) FROM 'app/public/demo/regions_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
@@ -134,10 +136,14 @@ SELECT
 \copy public.import_312_est_partial_update_upload(tax_ident,stat_ident,turnover,valid_from,valid_to) FROM 'app/public/demo/formal_establishments_turnover_update_with_source_dates.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 \echo "Run worker processing for import jobs - Partial Update"
 "Run worker processing for import jobs - Partial Update"
+-- In production, the worker runs as postgres (superuser) which bypasses RLS.
+-- Reset role to simulate this, then switch back for assertions.
+RESET ROLE;
 CALL worker.process_tasks(p_queue => 'import');
 \echo "Run worker processing for analytics tasks - Partial Update"
 "Run worker processing for analytics tasks - Partial Update"
 CALL worker.process_tasks(p_queue => 'analytics');
+CALL test.set_user_from_email('test.regular@statbus.org');
 \echo "Checking import data for partial update. Expecting all rows to be processed successfully."
 "Checking import data for partial update. Expecting all rows to be processed successfully."
 \x on
