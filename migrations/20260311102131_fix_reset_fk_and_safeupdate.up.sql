@@ -161,9 +161,9 @@ BEGIN
     -- ================================================================
 
     CASE WHEN scope IN ('getting-started', 'all') THEN
-        -- Transient: must delete BEFORE data_source due to RESTRICT FK. See doc/data-model.md
+        -- Transient: delete custom definitions before data_source due to RESTRICT FK. See doc/data-model.md
         WITH deleted_import_definition AS (
-            DELETE FROM public.import_definition WHERE id > 0 RETURNING *
+            DELETE FROM public.import_definition WHERE custom RETURNING *
         )
         SELECT jsonb_build_object(
             'import_definition', jsonb_build_object(

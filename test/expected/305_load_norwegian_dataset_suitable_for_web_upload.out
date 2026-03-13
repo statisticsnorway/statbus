@@ -3437,7 +3437,7 @@ reset_getting_started
         "changed_children_count": 73
     },
     "import_definition": {
-        "deleted_count": 10
+        "deleted_count": 0
     },
     "legal_relationship": {
         "deleted_count": 1
@@ -3607,7 +3607,7 @@ reset_all
         "changed_children_count": 73
     },
     "import_definition": {
-        "deleted_count": 10
+        "deleted_count": 0
     },
     "legal_relationship": {
         "deleted_count": 1

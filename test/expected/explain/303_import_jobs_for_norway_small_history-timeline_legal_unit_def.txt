@@ -33,13 +33,13 @@
                                                                                  ->  Seq Scan on activity_category pac
                                                                                  ->  Hash
                                                                                        ->  Hash Left Join
-                                                                                             Hash Cond: (lu_1.status_id = st.id)
-                                                                                             ->  Hash Left Join
-                                                                                                   Hash Cond: (lu_1.unit_size_id = us.id)
-                                                                                                   ->  Hash Right Join
-                                                                                                         Hash Cond: (s.id = lu_1.sector_id)
-                                                                                                         ->  Seq Scan on sector s
-                                                                                                         ->  Hash
+                                                                                             Hash Cond: (lu_1.unit_size_id = us.id)
+                                                                                             ->  Hash Right Join
+                                                                                                   Hash Cond: (s.id = lu_1.sector_id)
+                                                                                                   ->  Seq Scan on sector s
+                                                                                                   ->  Hash
+                                                                                                         ->  Hash Left Join
+                                                                                                               Hash Cond: (lu_1.status_id = st.id)
                                                                                                                ->  Hash Right Join
                                                                                                                      Hash Cond: (lf.id = lu_1.legal_form_id)
                                                                                                                      ->  Seq Scan on legal_form lf
@@ -87,10 +87,10 @@
                                                                                                                                              Sort Key: a.id DESC
                                                                                                                                              ->  Seq Scan on activity a
                                                                                                                                                    Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (legal_unit_id = lu_1.id) AND (type = 'primary'::activity_type))
-                                                                                                   ->  Hash
-                                                                                                         ->  Seq Scan on unit_size us
+                                                                                                               ->  Hash
+                                                                                                                     ->  Seq Scan on status st
                                                                                              ->  Hash
-                                                                                                   ->  Seq Scan on status st
+                                                                                                   ->  Seq Scan on unit_size us
                                                                            ->  Limit
                                                                                  ->  Sort
                                                                                        Sort Key: a_1.id DESC

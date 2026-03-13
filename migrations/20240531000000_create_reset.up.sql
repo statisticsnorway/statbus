@@ -92,11 +92,9 @@ BEGIN
     ELSE END CASE;
 
     CASE WHEN scope IN ('getting-started', 'all') THEN
-        -- Apply pattern for 'import_definition'
-        -- Must delete BEFORE data_source due to RESTRICT foreign key constraint.
-        -- Deleting import_jobs first (above) removes the CASCADE dependency.
+        -- Transient: delete custom definitions before data_source due to RESTRICT FK. See doc/data-model.md
         WITH deleted_import_definition AS (
-            DELETE FROM public.import_definition WHERE id > 0 RETURNING *
+            DELETE FROM public.import_definition WHERE custom RETURNING *
         )
         SELECT jsonb_build_object(
             'import_definition', jsonb_build_object(
