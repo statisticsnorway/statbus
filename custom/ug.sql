@@ -17,7 +17,7 @@ BEGIN
 
 
  UPDATE external_ident_type
-    SET enabled = FALSE
+    SET enabled = TRUE
     WHERE id <= 2;
 
 
