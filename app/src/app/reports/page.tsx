@@ -1,16 +1,22 @@
-import type { Metadata } from "next";
-import ReportsPageClient from "./ReportsPageClient";
-import { Suspense } from "react";
+"use client";
 
-export const metadata: Metadata = {
-  title: "Reports",
-};
+import { HistoryReports } from "./history-reports";
+import { UnitCountChart } from "./unit-count-chart";
 
-export default function ReportsPage({
-}) {
+export default function UnitCountsPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <ReportsPageClient />
-    </Suspense>
+    <HistoryReports
+      title="Units over time"
+      subtitle="Total number of enterprises, legal units, and establishments over time"
+      seriesCodes={["countable_count"]}
+    >
+      {({ history, isYearlyView, onYearSelect }) => (
+        <UnitCountChart
+          history={history}
+          isYearlyView={isYearlyView}
+          onYearSelect={onYearSelect}
+        />
+      )}
+    </HistoryReports>
   );
 }
