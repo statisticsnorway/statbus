@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState, type ReactNode } from "react";
+import "highcharts/modules/accessibility";
 
 import { useStatisticalHistoryHighcharts } from "./history-changes/use-statistical-history-highcharts";
 import { Skeleton } from "@/components/ui/skeleton";
