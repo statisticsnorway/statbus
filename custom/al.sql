@@ -16,7 +16,7 @@ BEGIN
 
 --al no need for stat ident
  UPDATE external_ident_type
-    SET enabled = TRUE
+    SET enabled = FALSE
     WHERE id = 2;
 
 

@@ -25,7 +25,7 @@ BEGIN
 --tbc wont need any of the originals in KE
 --hiding tax_ident and stat_ident  --this is a problem ??
  UPDATE external_ident_type
-    SET enabled = TRUE
+    SET enabled = FALSE
     WHERE id <= 2;
 
 

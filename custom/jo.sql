@@ -29,7 +29,7 @@ BEGIN
 
     -- Archive default ones not needed
     UPDATE external_ident_type
-    SET enabled = TRUE
+    SET enabled = FALSE
     WHERE id <= 2;
 
 

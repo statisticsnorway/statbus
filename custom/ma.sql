@@ -28,7 +28,7 @@ BEGIN
 
     -- hide stat_ident
     UPDATE external_ident_type
-    SET enabled = TRUE
+    SET enabled = FALSE
     WHERE code = 'stat_ident';
 
 
