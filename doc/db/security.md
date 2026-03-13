@@ -174,8 +174,12 @@ auto-updatable) also require INSERT.
 - **`activity_category_enabled_custom`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`activity_category_isic_v4`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
 - **`activity_category_nace_v2_1`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
+- **`activity_category_standard_enabled`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`activity_category_standard_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`activity_category_used_def`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
 - **`api_key`**: admin_user: INSERT, SELECT; authenticated: DELETE, INSERT, SELECT; regular_user: INSERT, SELECT
+- **`country_enabled`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`country_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`country_used_def`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`country_view`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`data_source_custom`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
@@ -224,6 +228,10 @@ auto-updatable) also require INSERT.
 - **`power_group_type_system`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`region_upload`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`region_used_def`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`region_version_custom`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`region_version_enabled`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`region_version_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`region_version_system`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`relative_period_with_time`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
 - **`sector_custom`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`sector_custom_only`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
@@ -239,6 +247,10 @@ auto-updatable) also require INSERT.
 - **`status_enabled`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`status_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`status_system`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`tag_custom`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`tag_enabled`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`tag_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`tag_system`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`time_context`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
 - **`timeline_enterprise_def`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`timeline_establishment_def`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT

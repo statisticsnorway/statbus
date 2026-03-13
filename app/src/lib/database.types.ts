@@ -232,6 +232,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "activity_category_standard_id_fkey"
+            columns: ["standard_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category_standard_enabled"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_category_standard_id_fkey"
+            columns: ["standard_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category_standard_ordered"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "activity_category_parent_id_fkey"
             columns: ["parent_id"]
             isOneToOne: false
@@ -2309,6 +2323,20 @@ export type Database = {
             foreignKeyName: "location_country_id_fkey"
             columns: ["country_id"]
             isOneToOne: false
+            referencedRelation: "country_enabled"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_country_id_fkey"
+            columns: ["country_id"]
+            isOneToOne: false
+            referencedRelation: "country_ordered"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_country_id_fkey"
+            columns: ["country_id"]
+            isOneToOne: false
             referencedRelation: "country_used_def"
             referencedColumns: ["id"]
           },
@@ -2366,6 +2394,20 @@ export type Database = {
             columns: ["region_id"]
             isOneToOne: false
             referencedRelation: "region_used_def"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_region_version_id_fkey"
+            columns: ["region_version_id"]
+            isOneToOne: false
+            referencedRelation: "region_version_enabled"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_region_version_id_fkey"
+            columns: ["region_version_id"]
+            isOneToOne: false
+            referencedRelation: "region_version_ordered"
             referencedColumns: ["id"]
           },
           {
@@ -2455,6 +2497,20 @@ export type Database = {
             columns: ["country_id"]
             isOneToOne: false
             referencedRelation: "country"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_country_id_fkey"
+            columns: ["country_id"]
+            isOneToOne: false
+            referencedRelation: "country_enabled"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_country_id_fkey"
+            columns: ["country_id"]
+            isOneToOne: false
+            referencedRelation: "country_ordered"
             referencedColumns: ["id"]
           },
           {
@@ -3046,6 +3102,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "region_used_def"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "region_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "region_version_enabled"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "region_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "region_version_ordered"
+            referencedColumns: ["id"]
           }
         ]
       },
@@ -3327,6 +3397,34 @@ export type Database = {
             foreignKeyName: "settings_activity_category_standard_enabled_fk"
             columns: ["activity_category_standard_id", "required_to_be_enabled"]
             isOneToOne: false
+            referencedRelation: "activity_category_standard_enabled"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settings_activity_category_standard_id_fkey"
+            columns: ["activity_category_standard_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category_standard_enabled"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settings_activity_category_standard_enabled_fk"
+            columns: ["activity_category_standard_id", "required_to_be_enabled"]
+            isOneToOne: false
+            referencedRelation: "activity_category_standard_ordered"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settings_activity_category_standard_id_fkey"
+            columns: ["activity_category_standard_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category_standard_ordered"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settings_activity_category_standard_enabled_fk"
+            columns: ["activity_category_standard_id", "required_to_be_enabled"]
+            isOneToOne: false
             referencedRelation: "activity_category_used_def"
             referencedColumns: ["id"]
           },
@@ -3341,6 +3439,20 @@ export type Database = {
             foreignKeyName: "settings_country_id_fkey"
             columns: ["country_id"]
             isOneToOne: false
+            referencedRelation: "country_enabled"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settings_country_id_fkey"
+            columns: ["country_id"]
+            isOneToOne: false
+            referencedRelation: "country_ordered"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settings_country_id_fkey"
+            columns: ["country_id"]
+            isOneToOne: false
             referencedRelation: "country_used_def"
             referencedColumns: ["id"]
           },
@@ -3349,6 +3461,34 @@ export type Database = {
             columns: ["country_id"]
             isOneToOne: false
             referencedRelation: "country_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settings_region_version_enabled_fk"
+            columns: ["region_version_id", "required_to_be_enabled"]
+            isOneToOne: false
+            referencedRelation: "region_version_enabled"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settings_region_version_id_fkey"
+            columns: ["region_version_id"]
+            isOneToOne: false
+            referencedRelation: "region_version_enabled"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settings_region_version_enabled_fk"
+            columns: ["region_version_id", "required_to_be_enabled"]
+            isOneToOne: false
+            referencedRelation: "region_version_ordered"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settings_region_version_id_fkey"
+            columns: ["region_version_id"]
+            isOneToOne: false
+            referencedRelation: "region_version_ordered"
             referencedColumns: ["id"]
           }
         ]
@@ -4579,6 +4719,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "tag"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tag_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "tag_enabled"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tag_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "tag_ordered"
+            referencedColumns: ["id"]
           }
         ]
       },
@@ -4632,6 +4786,20 @@ export type Database = {
             columns: ["tag_id"]
             isOneToOne: false
             referencedRelation: "tag"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tag_for_unit_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tag_enabled"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tag_for_unit_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tag_ordered"
             referencedColumns: ["id"]
           },
           {
@@ -6054,6 +6222,66 @@ export type Database = {
         },
         Relationships: []
       },
+      activity_category_standard_enabled: {
+        Row: {
+          code: string | null
+          code_pattern: Database["public"]["Enums"]["activity_category_code_behaviour"] | null
+          description: string | null
+          enabled: boolean | null
+          id: number | null
+          lasts_to: string | null
+          name: string | null
+        },
+        Insert: {
+          code?: string | null
+          code_pattern?: Database["public"]["Enums"]["activity_category_code_behaviour"] | null
+          description?: string | null
+          enabled?: boolean | null
+          id?: number | null
+          lasts_to?: string | null
+          name?: string | null
+        },
+        Update: {
+          code?: string | null
+          code_pattern?: Database["public"]["Enums"]["activity_category_code_behaviour"] | null
+          description?: string | null
+          enabled?: boolean | null
+          id?: number | null
+          lasts_to?: string | null
+          name?: string | null
+        },
+        Relationships: []
+      },
+      activity_category_standard_ordered: {
+        Row: {
+          code: string | null
+          code_pattern: Database["public"]["Enums"]["activity_category_code_behaviour"] | null
+          description: string | null
+          enabled: boolean | null
+          id: number | null
+          lasts_to: string | null
+          name: string | null
+        },
+        Insert: {
+          code?: string | null
+          code_pattern?: Database["public"]["Enums"]["activity_category_code_behaviour"] | null
+          description?: string | null
+          enabled?: boolean | null
+          id?: number | null
+          lasts_to?: string | null
+          name?: string | null
+        },
+        Update: {
+          code?: string | null
+          code_pattern?: Database["public"]["Enums"]["activity_category_code_behaviour"] | null
+          description?: string | null
+          enabled?: boolean | null
+          id?: number | null
+          lasts_to?: string | null
+          name?: string | null
+        },
+        Relationships: []
+      },
       activity_category_used_def: {
         Row: {
           code: string | null
@@ -6265,6 +6493,78 @@ export type Database = {
             referencedColumns: ["id"]
           }
         ]
+      },
+      country_enabled: {
+        Row: {
+          created_at: string | null
+          custom: boolean | null
+          enabled: boolean | null
+          id: number | null
+          iso_2: string | null
+          iso_3: string | null
+          iso_num: string | null
+          name: string | null
+          updated_at: string | null
+        },
+        Insert: {
+          created_at?: string | null
+          custom?: boolean | null
+          enabled?: boolean | null
+          id?: number | null
+          iso_2?: string | null
+          iso_3?: string | null
+          iso_num?: string | null
+          name?: string | null
+          updated_at?: string | null
+        },
+        Update: {
+          created_at?: string | null
+          custom?: boolean | null
+          enabled?: boolean | null
+          id?: number | null
+          iso_2?: string | null
+          iso_3?: string | null
+          iso_num?: string | null
+          name?: string | null
+          updated_at?: string | null
+        },
+        Relationships: []
+      },
+      country_ordered: {
+        Row: {
+          created_at: string | null
+          custom: boolean | null
+          enabled: boolean | null
+          id: number | null
+          iso_2: string | null
+          iso_3: string | null
+          iso_num: string | null
+          name: string | null
+          updated_at: string | null
+        },
+        Insert: {
+          created_at?: string | null
+          custom?: boolean | null
+          enabled?: boolean | null
+          id?: number | null
+          iso_2?: string | null
+          iso_3?: string | null
+          iso_num?: string | null
+          name?: string | null
+          updated_at?: string | null
+        },
+        Update: {
+          created_at?: string | null
+          custom?: boolean | null
+          enabled?: boolean | null
+          id?: number | null
+          iso_2?: string | null
+          iso_3?: string | null
+          iso_num?: string | null
+          name?: string | null
+          updated_at?: string | null
+        },
+        Relationships: []
       },
       country_used_def: {
         Row: {
@@ -7887,6 +8187,20 @@ export type Database = {
             foreignKeyName: "location_country_id_fkey"
             columns: ["country_id"]
             isOneToOne: false
+            referencedRelation: "country_enabled"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_country_id_fkey"
+            columns: ["country_id"]
+            isOneToOne: false
+            referencedRelation: "country_ordered"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_country_id_fkey"
+            columns: ["country_id"]
+            isOneToOne: false
             referencedRelation: "country_used_def"
             referencedColumns: ["id"]
           },
@@ -8610,6 +8924,114 @@ export type Database = {
           level?: number | null
           name?: string | null
           path?: string | null
+        },
+        Relationships: []
+      },
+      region_version_custom: {
+        Row: {
+          code: string | null
+          description: string | null
+          name: string | null
+        },
+        Insert: {
+          code?: string | null
+          description?: string | null
+          name?: string | null
+        },
+        Update: {
+          code?: string | null
+          description?: string | null
+          name?: string | null
+        },
+        Relationships: []
+      },
+      region_version_enabled: {
+        Row: {
+          code: string | null
+          created_at: string | null
+          custom: boolean | null
+          description: string | null
+          enabled: boolean | null
+          id: number | null
+          lasts_to: string | null
+          name: string | null
+          updated_at: string | null
+        },
+        Insert: {
+          code?: string | null
+          created_at?: string | null
+          custom?: boolean | null
+          description?: string | null
+          enabled?: boolean | null
+          id?: number | null
+          lasts_to?: string | null
+          name?: string | null
+          updated_at?: string | null
+        },
+        Update: {
+          code?: string | null
+          created_at?: string | null
+          custom?: boolean | null
+          description?: string | null
+          enabled?: boolean | null
+          id?: number | null
+          lasts_to?: string | null
+          name?: string | null
+          updated_at?: string | null
+        },
+        Relationships: []
+      },
+      region_version_ordered: {
+        Row: {
+          code: string | null
+          created_at: string | null
+          custom: boolean | null
+          description: string | null
+          enabled: boolean | null
+          id: number | null
+          lasts_to: string | null
+          name: string | null
+          updated_at: string | null
+        },
+        Insert: {
+          code?: string | null
+          created_at?: string | null
+          custom?: boolean | null
+          description?: string | null
+          enabled?: boolean | null
+          id?: number | null
+          lasts_to?: string | null
+          name?: string | null
+          updated_at?: string | null
+        },
+        Update: {
+          code?: string | null
+          created_at?: string | null
+          custom?: boolean | null
+          description?: string | null
+          enabled?: boolean | null
+          id?: number | null
+          lasts_to?: string | null
+          name?: string | null
+          updated_at?: string | null
+        },
+        Relationships: []
+      },
+      region_version_system: {
+        Row: {
+          code: string | null
+          description: string | null
+          name: string | null
+        },
+        Insert: {
+          code?: string | null
+          description?: string | null
+          name?: string | null
+        },
+        Update: {
+          code?: string | null
+          description?: string | null
+          name?: string | null
         },
         Relationships: []
       },
@@ -9447,6 +9869,178 @@ export type Database = {
           code?: string | null
           name?: string | null
           priority?: number | null
+        },
+        Relationships: []
+      },
+      tag_custom: {
+        Row: {
+          description: string | null
+          name: string | null
+          path: string | null
+        },
+        Insert: {
+          description?: string | null
+          name?: string | null
+          path?: string | null
+        },
+        Update: {
+          description?: string | null
+          name?: string | null
+          path?: string | null
+        },
+        Relationships: []
+      },
+      tag_enabled: {
+        Row: {
+          code: string | null
+          context_valid_from: string | null
+          context_valid_on: string | null
+          context_valid_to: string | null
+          context_valid_until: string | null
+          created_at: string | null
+          custom: boolean | null
+          description: string | null
+          enabled: boolean | null
+          id: number | null
+          label: string | null
+          level: number | null
+          name: string | null
+          parent_id: number | null
+          path: string | null
+          updated_at: string | null
+        },
+        Insert: {
+          code?: string | null
+          context_valid_from?: string | null
+          context_valid_on?: string | null
+          context_valid_to?: string | null
+          context_valid_until?: string | null
+          created_at?: string | null
+          custom?: boolean | null
+          description?: string | null
+          enabled?: boolean | null
+          id?: number | null
+          label?: string | null
+          level?: number | null
+          name?: string | null
+          parent_id?: number | null
+          path?: string | null
+          updated_at?: string | null
+        },
+        Update: {
+          code?: string | null
+          context_valid_from?: string | null
+          context_valid_on?: string | null
+          context_valid_to?: string | null
+          context_valid_until?: string | null
+          created_at?: string | null
+          custom?: boolean | null
+          description?: string | null
+          enabled?: boolean | null
+          id?: number | null
+          label?: string | null
+          level?: number | null
+          name?: string | null
+          parent_id?: number | null
+          path?: string | null
+          updated_at?: string | null
+        },
+        Relationships: []
+      },
+      tag_ordered: {
+        Row: {
+          code: string | null
+          context_valid_from: string | null
+          context_valid_on: string | null
+          context_valid_to: string | null
+          context_valid_until: string | null
+          created_at: string | null
+          custom: boolean | null
+          description: string | null
+          enabled: boolean | null
+          id: number | null
+          label: string | null
+          level: number | null
+          name: string | null
+          parent_id: number | null
+          path: string | null
+          updated_at: string | null
+        },
+        Insert: {
+          code?: string | null
+          context_valid_from?: string | null
+          context_valid_on?: string | null
+          context_valid_to?: string | null
+          context_valid_until?: string | null
+          created_at?: string | null
+          custom?: boolean | null
+          description?: string | null
+          enabled?: boolean | null
+          id?: number | null
+          label?: string | null
+          level?: number | null
+          name?: string | null
+          parent_id?: number | null
+          path?: string | null
+          updated_at?: string | null
+        },
+        Update: {
+          code?: string | null
+          context_valid_from?: string | null
+          context_valid_on?: string | null
+          context_valid_to?: string | null
+          context_valid_until?: string | null
+          created_at?: string | null
+          custom?: boolean | null
+          description?: string | null
+          enabled?: boolean | null
+          id?: number | null
+          label?: string | null
+          level?: number | null
+          name?: string | null
+          parent_id?: number | null
+          path?: string | null
+          updated_at?: string | null
+        },
+        Relationships: [
+          {
+            foreignKeyName: "tag_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "tag"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tag_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "tag_enabled"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tag_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "tag_ordered"
+            referencedColumns: ["id"]
+          }
+        ]
+      },
+      tag_system: {
+        Row: {
+          description: string | null
+          name: string | null
+          path: string | null
+        },
+        Insert: {
+          description?: string | null
+          name?: string | null
+          path?: string | null
+        },
+        Update: {
+          description?: string | null
+          name?: string | null
+          path?: string | null
         },
         Relationships: []
       },
