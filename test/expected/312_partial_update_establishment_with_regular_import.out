@@ -136,12 +136,14 @@ SELECT
 \copy public.import_312_est_partial_update_upload(tax_ident,stat_ident,turnover,valid_from,valid_to) FROM 'app/public/demo/formal_establishments_turnover_update_with_source_dates.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 \echo "Run worker processing for import jobs - Partial Update"
 "Run worker processing for import jobs - Partial Update"
+-- In production, the worker runs as postgres (superuser) which bypasses RLS.
+-- Reset role to simulate this, then switch back for assertions.
+RESET ROLE;
 CALL worker.process_tasks(p_queue => 'import');
-WARNING:  [Job 137] Error preparing data: new row violates row-level security policy for table "import_312_est_partial_update_data"
-WARNING:  [Job 137] Error detected during analysis phase: {"prepare_error": "new row violates row-level security policy for table \"import_312_est_partial_update_data\""}. Transitioning to finished.
 \echo "Run worker processing for analytics tasks - Partial Update"
 "Run worker processing for analytics tasks - Partial Update"
 CALL worker.process_tasks(p_queue => 'analytics');
+CALL test.set_user_from_email('test.regular@statbus.org');
 \echo "Checking import data for partial update. Expecting all rows to be processed successfully."
 "Checking import data for partial update. Expecting all rows to be processed successfully."
 \x on
@@ -153,7 +155,106 @@ SELECT
     jsonb_pretty(merge_status) as merge_status
 FROM public.import_312_est_partial_update_data
 ORDER BY row_id;
-(0 rows)
+-[ RECORD 1 ]+------------------------------------------
+row_id       | 1
+operation    | update
+state        | processed
+errors       | {                                        +
+             | }
+merge_status | {                                        +
+             |     "establishment": "SKIPPED_IDENTICAL",+
+             |     "stat_turnover": "APPLIED"           +
+             | }
+-[ RECORD 2 ]+------------------------------------------
+row_id       | 2
+operation    | update
+state        | processed
+errors       | {                                        +
+             | }
+merge_status | {                                        +
+             |     "establishment": "SKIPPED_IDENTICAL",+
+             |     "stat_turnover": "APPLIED"           +
+             | }
+-[ RECORD 3 ]+------------------------------------------
+row_id       | 3
+operation    | update
+state        | processed
+errors       | {                                        +
+             | }
+merge_status | {                                        +
+             |     "establishment": "SKIPPED_IDENTICAL",+
+             |     "stat_turnover": "APPLIED"           +
+             | }
+-[ RECORD 4 ]+------------------------------------------
+row_id       | 4
+operation    | update
+state        | processed
+errors       | {                                        +
+             | }
+merge_status | {                                        +
+             |     "establishment": "SKIPPED_IDENTICAL",+
+             |     "stat_turnover": "APPLIED"           +
+             | }
+-[ RECORD 5 ]+------------------------------------------
+row_id       | 5
+operation    | update
+state        | processed
+errors       | {                                        +
+             | }
+merge_status | {                                        +
+             |     "establishment": "SKIPPED_IDENTICAL",+
+             |     "stat_turnover": "APPLIED"           +
+             | }
+-[ RECORD 6 ]+------------------------------------------
+row_id       | 6
+operation    | update
+state        | processed
+errors       | {                                        +
+             | }
+merge_status | {                                        +
+             |     "establishment": "SKIPPED_IDENTICAL",+
+             |     "stat_turnover": "APPLIED"           +
+             | }
+-[ RECORD 7 ]+------------------------------------------
+row_id       | 7
+operation    | update
+state        | processed
+errors       | {                                        +
+             | }
+merge_status | {                                        +
+             |     "establishment": "SKIPPED_IDENTICAL",+
+             |     "stat_turnover": "APPLIED"           +
+             | }
+-[ RECORD 8 ]+------------------------------------------
+row_id       | 8
+operation    | update
+state        | processed
+errors       | {                                        +
+             | }
+merge_status | {                                        +
+             |     "establishment": "SKIPPED_IDENTICAL",+
+             |     "stat_turnover": "APPLIED"           +
+             | }
+-[ RECORD 9 ]+------------------------------------------
+row_id       | 9
+operation    | update
+state        | processed
+errors       | {                                        +
+             | }
+merge_status | {                                        +
+             |     "establishment": "SKIPPED_IDENTICAL",+
+             |     "stat_turnover": "APPLIED"           +
+             | }
+-[ RECORD 10 ]------------------------------------------
+row_id       | 10
+operation    | update
+state        | processed
+errors       | {                                        +
+             | }
+merge_status | {                                        +
+             |     "establishment": "SKIPPED_IDENTICAL",+
+             |     "stat_turnover": "APPLIED"           +
+             | }
 
 \x auto
 \echo "Checking last_edit_by_user_id on statistical_unit to confirm it changed after partial update"
@@ -176,9 +277,12 @@ JOIN public.user u ON su.last_edit_by_user_id = u.id
 WHERE su.unit_id = (SELECT unit_id FROM updated_unit)
   AND su.unit_type = 'establishment'
 ORDER BY su.valid_from;
- stat_ident | valid_from | valid_to | last_edit_by | stats 
-------------+------------+----------+--------------+-------
-(0 rows)
+ stat_ident | valid_from |  valid_to  |       last_edit_by       |                                                    stats                                                     
+------------+------------+------------+--------------------------+--------------------------------------------------------------------------------------------------------------
+ 91000      | 2023-01-01 | 2023-05-31 | test.admin@statbus.org   | {"type": "stats", "turnover": {"type": "float", "value": 1000.0}, "employees": {"type": "int", "value": 10}}
+ 91000      | 2023-06-01 | 2023-08-31 | test.regular@statbus.org | {"type": "stats", "turnover": {"type": "float", "value": 3535.0}, "employees": {"type": "int", "value": 10}}
+ 91000      | 2023-09-01 | infinity   | test.admin@statbus.org   | {"type": "stats", "turnover": {"type": "float", "value": 1000.0}, "employees": {"type": "int", "value": 10}}
+(3 rows)
 
 \x auto
 \echo "Checking raw stat_for_unit data AFTER partial update to verify the merge and edit user"
@@ -200,9 +304,49 @@ JOIN (
 ) idt ON sfu.establishment_id = idt.establishment_id
 WHERE daterange(sfu.valid_from, sfu.valid_until) && daterange('2023-01-01', '2024-01-01', '[)')
 ORDER BY idt.stat_ident::int, sd.code, sfu.valid_from;
- stat_ident | valid_from | valid_to | stat_code | value_int | value_float | value_string | value_bool | edit_by 
-------------+------------+----------+-----------+-----------+-------------+--------------+------------+---------
-(0 rows)
+ stat_ident | valid_from |  valid_to  | stat_code | value_int | value_float | value_string | value_bool |         edit_by          
+------------+------------+------------+-----------+-----------+-------------+--------------+------------+--------------------------
+ 91000      | 2023-01-01 | infinity   | employees |        10 |             |              |            | test.admin@statbus.org
+ 91000      | 2023-01-01 | 2023-05-31 | turnover  |           |        1000 |              |            | test.admin@statbus.org
+ 91000      | 2023-06-01 | 2023-08-31 | turnover  |           |        3535 |              |            | test.regular@statbus.org
+ 91000      | 2023-09-01 | infinity   | turnover  |           |        1000 |              |            | test.admin@statbus.org
+ 91001      | 2023-01-01 | infinity   | employees |        10 |             |              |            | test.admin@statbus.org
+ 91001      | 2023-01-01 | 2023-05-31 | turnover  |           |        1000 |              |            | test.admin@statbus.org
+ 91001      | 2023-06-01 | 2023-08-31 | turnover  |           |        3535 |              |            | test.regular@statbus.org
+ 91001      | 2023-09-01 | infinity   | turnover  |           |        1000 |              |            | test.admin@statbus.org
+ 91002      | 2023-01-01 | infinity   | employees |        10 |             |              |            | test.admin@statbus.org
+ 91002      | 2023-01-01 | 2023-05-31 | turnover  |           |        1000 |              |            | test.admin@statbus.org
+ 91002      | 2023-06-01 | 2023-08-31 | turnover  |           |        3535 |              |            | test.regular@statbus.org
+ 91002      | 2023-09-01 | infinity   | turnover  |           |        1000 |              |            | test.admin@statbus.org
+ 91003      | 2023-01-01 | infinity   | employees |        10 |             |              |            | test.admin@statbus.org
+ 91003      | 2023-01-01 | 2023-05-31 | turnover  |           |        1000 |              |            | test.admin@statbus.org
+ 91003      | 2023-06-01 | 2023-08-31 | turnover  |           |        3535 |              |            | test.regular@statbus.org
+ 91003      | 2023-09-01 | infinity   | turnover  |           |        1000 |              |            | test.admin@statbus.org
+ 91004      | 2023-01-01 | infinity   | employees |        10 |             |              |            | test.admin@statbus.org
+ 91004      | 2023-01-01 | 2023-05-31 | turnover  |           |        1000 |              |            | test.admin@statbus.org
+ 91004      | 2023-06-01 | 2023-08-31 | turnover  |           |        3535 |              |            | test.regular@statbus.org
+ 91004      | 2023-09-01 | infinity   | turnover  |           |        1000 |              |            | test.admin@statbus.org
+ 91005      | 2023-01-01 | infinity   | employees |        10 |             |              |            | test.admin@statbus.org
+ 91005      | 2023-01-01 | 2023-05-31 | turnover  |           |        1000 |              |            | test.admin@statbus.org
+ 91005      | 2023-06-01 | 2023-08-31 | turnover  |           |        3535 |              |            | test.regular@statbus.org
+ 91005      | 2023-09-01 | infinity   | turnover  |           |        1000 |              |            | test.admin@statbus.org
+ 91006      | 2023-01-01 | infinity   | employees |        10 |             |              |            | test.admin@statbus.org
+ 91006      | 2023-01-01 | 2023-05-31 | turnover  |           |        1000 |              |            | test.admin@statbus.org
+ 91006      | 2023-06-01 | 2023-08-31 | turnover  |           |        3535 |              |            | test.regular@statbus.org
+ 91006      | 2023-09-01 | infinity   | turnover  |           |        1000 |              |            | test.admin@statbus.org
+ 91007      | 2023-01-01 | infinity   | employees |        10 |             |              |            | test.admin@statbus.org
+ 91007      | 2023-01-01 | 2023-05-31 | turnover  |           |        1000 |              |            | test.admin@statbus.org
+ 91007      | 2023-06-01 | 2023-08-31 | turnover  |           |        3535 |              |            | test.regular@statbus.org
+ 91007      | 2023-09-01 | infinity   | turnover  |           |        1000 |              |            | test.admin@statbus.org
+ 91008      | 2023-01-01 | infinity   | employees |        10 |             |              |            | test.admin@statbus.org
+ 91008      | 2023-01-01 | 2023-05-31 | turnover  |           |        1000 |              |            | test.admin@statbus.org
+ 91008      | 2023-06-01 | 2023-08-31 | turnover  |           |        3535 |              |            | test.regular@statbus.org
+ 91008      | 2023-09-01 | infinity   | turnover  |           |        1000 |              |            | test.admin@statbus.org
+ 91009      | 2023-01-01 | infinity   | employees |        10 |             |              |            | test.admin@statbus.org
+ 91009      | 2023-01-01 | 2023-05-31 | turnover  |           |        1000 |              |            | test.admin@statbus.org
+ 91009      | 2023-06-01 | 2023-08-31 | turnover  |           |        3535 |              |            | test.regular@statbus.org
+ 91009      | 2023-09-01 | infinity   | turnover  |           |        1000 |              |            | test.admin@statbus.org
+(40 rows)
 
 \x auto
 \echo "Checking resulting statistics after Partial Update. Should show turnover updated, and employees unchanged."
@@ -230,17 +374,17 @@ SELECT
 FROM stats_after sa JOIN stats_before_update sb ON sa.unit_type = sb.unit_type;
  statistic | are_identical |                  before                   |                   after                   
 -----------+---------------+-------------------------------------------+-------------------------------------------
- turnover  | t             | {                                        +| {                                        +
-           |               |     "max": 1000,                         +|     "max": 1000,                         +
+ turnover  | f             | {                                        +| {                                        +
+           |               |     "max": 1000,                         +|     "max": 3535,                         +
            |               |     "min": 20,                           +|     "min": 20,                           +
-           |               |     "sum": 21154,                        +|     "sum": 21154,                        +
-           |               |     "mean": 881.42,                      +|     "mean": 881.42,                      +
+           |               |     "sum": 21154,                        +|     "sum": 46504,                        +
+           |               |     "mean": 881.42,                      +|     "mean": 1937.67,                     +
            |               |     "type": "float_agg",                 +|     "type": "float_agg",                 +
            |               |     "count": 24,                         +|     "count": 24,                         +
-           |               |     "stddev": 320.85,                    +|     "stddev": 320.85,                    +
-           |               |     "variance": 102946.17,               +|     "variance": 102946.17,               +
-           |               |     "sum_sq_diff": 2367761.83,           +|     "sum_sq_diff": 2367761.83,           +
-           |               |     "coefficient_of_variation_pct": 36.40+|     "coefficient_of_variation_pct": 36.40+
+           |               |     "stddev": 320.85,                    +|     "stddev": 1412.16,                   +
+           |               |     "variance": 102946.17,               +|     "variance": 1994184.75,              +
+           |               |     "sum_sq_diff": 2367761.83,           +|     "sum_sq_diff": 45866249.33,          +
+           |               |     "coefficient_of_variation_pct": 36.40+|     "coefficient_of_variation_pct": 72.88+
            |               | }                                         | }
  employees | t             | {                                        +| {                                        +
            |               |     "max": 10,                           +|     "max": 10,                           +

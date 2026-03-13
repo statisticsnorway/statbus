@@ -365,6 +365,54 @@ This layered approach ensures that even with direct database connections, users 
 
 This approach maintains a single source of truth for authentication while providing flexibility in how users interact with the system.
 
+## Edit Attribution and RLS Enforcement
+
+All 15 editable tables have an `edit_by_user_id` column with `DEFAULT auth.uid()` and an RLS policy for `regular_user`: `WITH CHECK (edit_by_user_id = auth.uid())`. The `admin_user` policy uses `WITH CHECK (true)`.
+
+### How `auth.uid()` Works Across Access Paths
+
+`auth.uid()` resolves user identity via `current_user`:
+
+```sql
+CREATE FUNCTION auth.uid() RETURNS integer AS $$
+  SELECT id FROM auth.user WHERE email = current_user;
+$$ LANGUAGE sql STABLE;
+```
+
+This works identically for both access paths because both set `current_user` to the user's email:
+
+| Access Path | How `current_user` Is Set | `auth.uid()` Returns |
+|---|---|---|
+| **PostgREST** | `jwt_switch_role()` does `SET LOCAL ROLE <email>` | User's `auth.user.id` |
+| **Direct psql** | User connects as their email role | User's `auth.user.id` |
+| **Worker (postgres)** | Connects as `postgres` superuser | NULL (no auth.user row) |
+
+### The DEFAULT and RLS Interaction
+
+When a user inserts a row (via API or psql), the column defaults:
+
+```sql
+ALTER TABLE public.activity ALTER COLUMN edit_by_user_id SET DEFAULT auth.uid();
+```
+
+The user does NOT need to explicitly set `edit_by_user_id` — the DEFAULT fills it with their user ID. The RLS policy then verifies `edit_by_user_id = auth.uid()`, which passes because both resolve to the same user.
+
+For updates, the user can only modify rows where the existing `edit_by_user_id` matches their own — unless they are an `admin_user` (which has `WITH CHECK (true)`).
+
+### Worker / Import Pipeline
+
+The worker connects as `postgres` (superuser), which bypasses RLS entirely. The import pipeline explicitly sets `edit_by_user_id` from the import job's `user_id` (the user who created the job) via `import.analyse_edit_info`, ensuring correct attribution regardless of who processes the job.
+
+Dynamic import data tables also get `DEFAULT auth.uid()` on their `edit_by_user_id` column (via `import_data_column.default_value`), consistent with the core tables.
+
+### Cross-User Row Modification
+
+`temporal_merge` (used by imports) may split or trim rows originally created by another user. When RLS is enforced, this fails because the modified row's `edit_by_user_id` doesn't match `auth.uid()`. This is not a problem in practice:
+
+- **Worker (production):** Runs as postgres, bypasses RLS.
+- **Admin users (psql):** The `admin_user` policy `WITH CHECK (true)` allows cross-user writes.
+- **Regular users:** Cannot directly call `worker.process_tasks` in any supported access path.
+
 ## API Keys for Scripting
 
 For scenarios requiring non-interactive access (e.g., scripts, external services), long-lived API keys can be generated. These keys are JWTs, similar to access tokens, but with a much longer expiration time and potentially different claims.

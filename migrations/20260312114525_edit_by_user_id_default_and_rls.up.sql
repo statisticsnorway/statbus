@@ -92,6 +92,15 @@ END;
 $add_rls_regular_user_can_edit$;
 
 -- ============================================================================
+-- 2b. Set default_value for edit_by_user_id in import_data_column
+-- so dynamically-created import data tables also get DEFAULT auth.uid()
+-- ============================================================================
+UPDATE import_data_column
+   SET default_value = 'auth.uid()'
+ WHERE column_name = 'edit_by_user_id'
+   AND default_value IS NULL;
+
+-- ============================================================================
 -- 3. Re-apply regular_user_manage policies with edit_by_user_id check
 -- ============================================================================
 DO $do$
@@ -114,5 +123,14 @@ BEGIN
     END LOOP;
 END;
 $do$;
+
+-- Document auth.uid() since edit_by_user_id DEFAULT and RLS both depend on it.
+COMMENT ON FUNCTION auth.uid() IS
+'Returns the current user''s integer ID by looking up current_user in auth.user.
+Works identically for both access paths:
+  - PostgREST: jwt_switch_role() does SET LOCAL ROLE <email>, so current_user = email.
+  - Direct psql: user connects as their email role, so current_user = email.
+  - Worker (postgres): returns NULL (no auth.user row), but superuser bypasses RLS.
+Used as DEFAULT for edit_by_user_id columns and in RLS WITH CHECK policies.';
 
 END;

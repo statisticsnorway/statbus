@@ -47,14 +47,15 @@ SELECT slug, name, mode
 -- ============================================================================
 \echo "Create import job for LU (hovedenhet) - uploaded FIRST for priority"
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet_2025')
-INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, note, user_id)
+INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, note, user_id, review)
 SELECT def.id,
        'import_hovedenhet_2025',
        '2025-01-01'::DATE,
        'infinity'::DATE,
        'Import Job for BRREG Hovedenhet 2025 (Current)',
        'This job handles the import of current BRREG Hovedenhet data.',
-       (select id from public.user where email = 'test.admin@statbus.org')
+       (select id from public.user where email = 'test.admin@statbus.org'),
+       false
 FROM def
 ON CONFLICT (slug) DO UPDATE SET
     default_valid_from = '2025-01-01'::DATE,
@@ -66,14 +67,15 @@ RETURNING slug, state;
 
 \echo "Create import job for ES (underenhet) - uploaded SECOND"
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet_2025')
-INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, note, user_id)
+INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, note, user_id, review)
 SELECT def.id,
        'import_underenhet_2025',
        '2025-01-01'::DATE,
        'infinity'::DATE,
        'Import Job for BRREG Underenhet 2025 (Current)',
        'This job handles the import of current BRREG Underenhet data.',
-       (select id from public.user where email = 'test.admin@statbus.org')
+       (select id from public.user where email = 'test.admin@statbus.org'),
+       false
 FROM def
 ON CONFLICT (slug) DO UPDATE SET
     default_valid_from = '2025-01-01'::DATE,

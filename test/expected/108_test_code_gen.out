@@ -168,7 +168,7 @@ SELECT * FROM import_data_column_baseline;
       16 |        3 | tag_id                               | INTEGER                          | internal     | t           |               | f
       16 |        4 | tag_for_unit_id                      | INTEGER                          | pk_id        | t           |               | f
       17 |        1 | edit_comment_raw                     | TEXT                             | source_input | t           |               | f
-      17 |        2 | edit_by_user_id                      | INTEGER                          | internal     | t           |               | f
+      17 |        2 | edit_by_user_id                      | INTEGER                          | internal     | t           | auth.uid()    | f
       17 |        3 | edit_at                              | TIMESTAMPTZ                      | internal     | t           |               | f
       17 |        4 | edit_comment                         | TEXT                             | internal     | t           |               | f
       18 |        1 | founding_row_id                      | INTEGER                          | internal     | t           |               | f

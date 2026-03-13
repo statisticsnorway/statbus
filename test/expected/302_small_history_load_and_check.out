@@ -511,7 +511,7 @@ FROM def;
  tag_id                               | integer                   |           |          |                              | plain    |              | 
  tag_for_unit_id                      | integer                   |           |          |                              | plain    |              | 
  edit_comment_raw                     | text                      |           |          |                              | extended |              | 
- edit_by_user_id                      | integer                   |           |          |                              | plain    |              | 
+ edit_by_user_id                      | integer                   |           |          | auth.uid()                   | plain    |              | 
  edit_at                              | timestamp with time zone  |           |          |                              | plain    |              | 
  edit_comment                         | text                      |           |          |                              | extended |              | 
  founding_row_id                      | integer                   |           |          |                              | plain    |              | 

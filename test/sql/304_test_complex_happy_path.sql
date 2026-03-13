@@ -12,15 +12,15 @@ CALL test.set_user_from_email('test.admin@statbus.org');
 
 \echo "Ensure sample tags and stat definitions are loaded"
 -- Minimal tags for testing
-INSERT INTO public.tag (path, name, type) VALUES
-('TestTag', 'Test Tag Parent', 'custom'),
-('TestTag.LU', 'Legal Unit Test Tag', 'custom'),
-('TestTag.LU.Updated', 'Legal Unit Updated Test Tag', 'custom'),
-('TestTag.ES', 'Establishment Test Tag Parent', 'custom'),
-('TestTag.ES.Formal', 'Formal Establishment Test Tag', 'custom'),
-('TestTag.ES.Formal.Updated', 'Formal Establishment Updated Test Tag', 'custom'),
-('TestTag.ES.Informal', 'Informal Establishment Test Tag', 'custom'),
-('TestTag.ES.Informal.Updated', 'Informal Establishment Updated Test Tag', 'custom')
+INSERT INTO public.tag (path, name, custom) VALUES
+('TestTag', 'Test Tag Parent', true),
+('TestTag.LU', 'Legal Unit Test Tag', true),
+('TestTag.LU.Updated', 'Legal Unit Updated Test Tag', true),
+('TestTag.ES', 'Establishment Test Tag Parent', true),
+('TestTag.ES.Formal', 'Formal Establishment Test Tag', true),
+('TestTag.ES.Formal.Updated', 'Formal Establishment Updated Test Tag', true),
+('TestTag.ES.Informal', 'Informal Establishment Test Tag', true),
+('TestTag.ES.Informal.Updated', 'Informal Establishment Updated Test Tag', true)
 ON CONFLICT (path) DO NOTHING;
 
 -- Minimal stat definition for testing

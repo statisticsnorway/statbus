@@ -86,10 +86,14 @@ SELECT
 \copy public.import_312_est_partial_update_upload(tax_ident,stat_ident,turnover,valid_from,valid_to) FROM 'app/public/demo/formal_establishments_turnover_update_with_source_dates.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 \echo "Run worker processing for import jobs - Partial Update"
+-- In production, the worker runs as postgres (superuser) which bypasses RLS.
+-- Reset role to simulate this, then switch back for assertions.
+RESET ROLE;
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo "Run worker processing for analytics tasks - Partial Update"
 CALL worker.process_tasks(p_queue => 'analytics');
+CALL test.set_user_from_email('test.regular@statbus.org');
 
 \echo "Checking import data for partial update. Expecting all rows to be processed successfully."
 \x on

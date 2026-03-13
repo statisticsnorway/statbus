@@ -474,7 +474,7 @@ BEGIN
     -- for 'custom_est_ident' in all relevant default import definitions, making them
     -- available for use in the import jobs below.
     INSERT INTO public.external_ident_type (code, name, description, priority)
-    VALUES ('custom_est_ident', 'Custom Establishment Identifier', 'A custom identifier type for testing establishment scenarios.', 10)
+    VALUES ('custom_est_ident', 'Custom Establishment Identifier', 'A custom identifier type for testing establishment scenarios.', 20)
     ON CONFLICT (code) DO NOTHING;
 
     -- Enterprise for LU1
@@ -519,11 +519,21 @@ BEGIN
     VALUES (v_est_formal_id, (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident'), 'EST707F_TAX', v_user_id, now());
 
 END $$;
-ERROR:  duplicate key value violates unique constraint "external_ident_type_priority_key"
-CONTEXT:  SQL statement "INSERT INTO public.external_ident_type (code, name, description, priority)
-    VALUES ('custom_est_ident', 'Custom Establishment Identifier', 'A custom identifier type for testing establishment scenarios.', 10)
-    ON CONFLICT (code) DO NOTHING"
-PL/pgSQL function inline_code_block line 26 at SQL statement
+NOTICE:  Dropped index su_ei_person_ident_idx
+NOTICE:  Dropped index su_ei_stat_ident_idx
+NOTICE:  Dropped index su_ei_tax_ident_idx
+NOTICE:  Dropped index su_s_employees_idx
+NOTICE:  Dropped index su_s_turnover_idx
+NOTICE:  Dropped index su_ss_employees_count_idx
+NOTICE:  Dropped index su_ss_employees_sum_idx
+NOTICE:  Dropped index su_ss_turnover_count_idx
+NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_custom_est_ident_idx for external_ident_type
+NOTICE:  Created indices for stat_definition employees
+NOTICE:  Created indices for stat_definition turnover
 -- Sub-Scenario 70.7.1: Mode 'legal_unit' (using 'legal_unit_source_dates')
 \echo "Sub-Scenario 70.7.1: analyse_external_idents - Mode 'legal_unit'"
 "Sub-Scenario 70.7.1: analyse_external_idents - Mode 'legal_unit'"
@@ -534,23 +544,27 @@ BEGIN
     INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review)
     VALUES (v_definition_id, 'import_70_07_01_lu_idents', 'Test 70.7.1: LU Ident Errors', 'Test 70.7.1', false);
 END $$;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT INTO public.import_70_07_01_lu_idents_upload(tax_ident, stat_ident, name, valid_from, valid_to, sector_code, legal_form_code, primary_activity_category_code, birth_date, custom_est_ident) VALUES
 (NULL,NULL,'LU NoIdents','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL), -- Error: missing_identifier_value
 ('LU7071_TAX','LU7072_STAT','LU Inconsistent','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL), -- Error: inconsistent_legal_unit
 ('EST7071_TAX',NULL,'LU CrossType EST','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL), -- Error: cross-type conflict (tax_ident used by EST1)
 ('LU7071_TAX','LU7071_STAT_CHANGED','LU Unstable Ident','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL) -- Error: unstable_identifier (attempts to change existing LU1.stat_ident)
 ;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- The previous attempt to test an 'unknown_identifier_type' error by inserting into a
 -- non-existent column in the _upload table was removed, as this causes a direct SQL error
 -- rather than testing the import logic for unknown identifier type codes.
 CALL worker.process_tasks(p_queue => 'import');
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Data table for import_70_07_01_lu_idents (expect external_idents errors):"
 "Data table for import_70_07_01_lu_idents (expect external_idents errors):"
 SELECT row_id, name_raw as name, state, action, operation, errors, invalid_codes, merge_status, legal_unit_id FROM public.import_70_07_01_lu_idents_data ORDER BY row_id;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ row_id |       name        | state | action | operation |                                                                                                                                  errors                                                                                                                                   | invalid_codes | merge_status | legal_unit_id 
+--------+-------------------+-------+--------+-----------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------+--------------+---------------
+      1 | LU NoIdents       | error | skip   | insert    | {"tax_ident_raw": "No identifier specified", "stat_ident_raw": "No identifier specified", "person_ident_raw": "No identifier specified", "custom_est_ident_raw": "No identifier specified"}                                                                               | {}            | {}           |              
+      2 | LU Inconsistent   | error | skip   | update    | {"tax_ident_raw": "Provided identifiers resolve to different Legal Units", "stat_ident_raw": "Provided identifiers resolve to different Legal Units"}                                                                                                                     | {}            | {}           |              
+      3 | LU CrossType EST  | error | skip   | update    | {"tax_ident_raw": "Identifier already used by a Establishment: {\"tax_ident_raw\": \"EST7071_TAX\"}"}                                                                                                                                                                     | {}            | {}           |              
+      4 | LU Unstable Ident | error | skip   | update    | {"stat_ident_raw": "Input {\"tax_ident\": \"LU7071_TAX\", \"stat_ident\": \"LU7071_STAT_CHANGED\"} matches existing unit {\"tax_ident\": \"LU7071_TAX\", \"stat_ident\": \"LU7071_STAT\"} but attempts to change stat_ident from 'LU7071_STAT' to 'LU7071_STAT_CHANGED'"} | {}            | {}           |              
+(4 rows)
+
 -- Sub-Scenario 70.7.2: Mode 'establishment_formal' (using 'establishment_for_lu_source_dates')
 \echo "Sub-Scenario 70.7.2: analyse_external_idents - Mode 'establishment_formal'"
 "Sub-Scenario 70.7.2: analyse_external_idents - Mode 'establishment_formal'"
@@ -561,17 +575,19 @@ BEGIN
     INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review)
     VALUES (v_definition_id, 'import_70_07_02_est_f_idents', 'Test 70.7.2: Formal EST Ident Errors', 'Test 70.7.2', false);
 END $$;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT INTO public.import_70_07_02_est_f_idents_upload(tax_ident, name, valid_from, valid_to, primary_activity_category_code, legal_unit_tax_ident) VALUES
 ('EST7071_TAX','ESTF Inconsistent','2023-01-01','2023-12-31','01.110','LU7071_TAX'), -- Error: inconsistent_establishment (EST1 vs EST2) - Note: custom_est_ident 'EST7072_CUSTOM' removed due to upload table structure
 ('LU7071_TAX','ESTF CrossType LU','2023-01-01','2023-12-31','01.110','LU7071_TAX'); -- Error: cross-type conflict (tax_ident used by LU1)
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 CALL worker.process_tasks(p_queue => 'import');
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Data table for import_70_07_02_est_f_idents (expect external_idents errors):"
 "Data table for import_70_07_02_est_f_idents (expect external_idents errors):"
 SELECT row_id, name_raw as name, state, action, operation, errors, invalid_codes, merge_status, establishment_id FROM public.import_70_07_02_est_f_idents_data ORDER BY row_id;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ row_id |       name        | state | action | operation |                                                     errors                                                     | invalid_codes | merge_status | establishment_id 
+--------+-------------------+-------+--------+-----------+----------------------------------------------------------------------------------------------------------------+---------------+--------------+------------------
+      1 | ESTF Inconsistent | error | skip   | update    | {"tax_ident_raw": "Identifier already used by a Informal Establishment: {\"tax_ident_raw\": \"EST7071_TAX\"}"} | {}            | {}           |                 
+      2 | ESTF CrossType LU | error | skip   | update    | {"tax_ident_raw": "Identifier already used by a Legal Unit: {\"tax_ident_raw\": \"LU7071_TAX\"}"}              | {}            | {}           |                 
+(2 rows)
+
 -- Sub-Scenario 70.7.3: Mode 'establishment_informal' (using 'establishment_without_lu_source_dates')
 \echo "Sub-Scenario 70.7.3: analyse_external_idents - Mode 'establishment_informal'"
 "Sub-Scenario 70.7.3: analyse_external_idents - Mode 'establishment_informal'"
@@ -582,17 +598,19 @@ BEGIN
     INSERT INTO public.import_job (definition_id, slug, description, edit_comment, review)
     VALUES (v_definition_id, 'import_70_07_03_est_inf_idents', 'Test 70.7.3: Informal EST Ident Errors', 'Test 70.7.3', false);
 END $$;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT INTO public.import_70_07_03_est_inf_idents_upload(tax_ident, name, valid_from, valid_to, primary_activity_category_code) VALUES
 ('LU7071_TAX','ESTINF CrossType LU','2023-01-01','2023-12-31','01.110'), -- Error: cross-type conflict (tax_ident used by LU1)
 ('EST707F_TAX','ESTINF CrossType FormalEST','2023-01-01','2023-12-31','01.110'); -- Error: cross-type conflict (tax_ident used by EST_FORMAL)
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 CALL worker.process_tasks(p_queue => 'import');
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Data table for import_70_07_03_est_inf_idents (expect external_idents errors):"
 "Data table for import_70_07_03_est_inf_idents (expect external_idents errors):"
 SELECT row_id, name_raw as name, state, action, operation, errors, invalid_codes, merge_status, establishment_id FROM public.import_70_07_03_est_inf_idents_data ORDER BY row_id;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ row_id |            name            | state | action | operation |                                                    errors                                                    | invalid_codes | merge_status | establishment_id 
+--------+----------------------------+-------+--------+-----------+--------------------------------------------------------------------------------------------------------------+---------------+--------------+------------------
+      1 | ESTINF CrossType LU        | error | skip   | update    | {"tax_ident_raw": "Identifier already used by a Legal Unit: {\"tax_ident_raw\": \"LU7071_TAX\"}"}            | {}            | {}           |                 
+      2 | ESTINF CrossType FormalEST | error | skip   | update    | {"tax_ident_raw": "Identifier already used by a Formal Establishment: {\"tax_ident_raw\": \"EST707F_TAX\"}"} | {}            | {}           |                 
+(2 rows)
+
 ROLLBACK TO scenario_70_7_external_idents_errors;
 -- Scenario 70.8: analyse_link_establishment_to_legal_unit Errors
 SAVEPOINT scenario_70_8_link_est_lu_errors;

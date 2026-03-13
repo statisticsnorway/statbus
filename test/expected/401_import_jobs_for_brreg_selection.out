@@ -620,7 +620,12 @@ SELECT queue, t.command, state, error
  import | import_job_process | completed | 
  import | import_job_process | completed | 
  import | import_job_process | completed | 
-(92 rows)
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+(97 rows)
 
 \echo 'Check import job state after processing (deterministic)'
 Check import job state after processing (deterministic)
@@ -628,10 +633,10 @@ SELECT slug, state, error IS NOT NULL AS failed, total_rows, imported_rows, impo
   FROM public.import_job
  WHERE slug LIKE 'import_%_selection'
  ORDER BY slug;
-               slug               |       state        | failed | total_rows | imported_rows | import_completed_pct 
-----------------------------------+--------------------+--------+------------+---------------+----------------------
- import_hovedenhet_2025_selection | finished           | f      |       4924 |          4924 |               100.00
- import_underenhet_2025_selection | waiting_for_review | f      |      24027 |             0 |                 0.00
+               slug               |  state   | failed | total_rows | imported_rows | import_completed_pct 
+----------------------------------+----------+--------+------------+---------------+----------------------
+ import_hovedenhet_2025_selection | finished | f      |       4924 |          4924 |               100.00
+ import_underenhet_2025_selection | finished | f      |      24027 |         24026 |               100.00
 (2 rows)
 
 \echo 'Check data row states after import'
@@ -643,10 +648,10 @@ SELECT state, count(*) FROM public.import_hovedenhet_2025_selection_data GROUP B
 (1 row)
 
 SELECT state, count(*) FROM public.import_underenhet_2025_selection_data GROUP BY state ORDER BY state;
-  state   | count 
-----------+-------
- analysed | 24026
- error    |     1
+   state   | count 
+-----------+-------
+ processed | 24026
+ error     |     1
 (2 rows)
 
 \echo 'Show any error rows from import data tables (first 10)'
@@ -707,7 +712,7 @@ FROM job_metrics
 ORDER BY phase;
  phase | total_rows | proc_status | analysis_status 
 -------+------------+-------------+-----------------
- ES    |      24027 | VERY_SLOW   | VERY_SLOW
+ ES    |      24027 | OK          | GOOD
  LU    |       4924 | OK          | GOOD
 (2 rows)
 
@@ -806,7 +811,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |    92
+ import    | completed |    97
 (2 rows)
 
 COMMIT;
@@ -818,8 +823,8 @@ Check the state of all tasks after running analytics.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |   300
- import    | completed |    92
+ analytics | completed |   574
+ import    | completed |    97
 (2 rows)
 
 COMMIT;
@@ -831,8 +836,8 @@ Check the state of all tasks after final processing.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |   300
- import    | completed |    92
+ analytics | completed |   574
+ import    | completed |    97
 (2 rows)
 
 COMMIT;

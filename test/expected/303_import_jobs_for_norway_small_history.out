@@ -640,7 +640,7 @@ Triggers:
  tag_id                               | integer                   |           |          | 
  tag_for_unit_id                      | integer                   |           |          | 
  edit_comment_raw                     | text                      |           |          | 
- edit_by_user_id                      | integer                   |           |          | 
+ edit_by_user_id                      | integer                   |           |          | auth.uid()
  edit_at                              | timestamp with time zone  |           |          | 
  edit_comment                         | text                      |           |          | 
  founding_row_id                      | integer                   |           |          | 
@@ -2192,7 +2192,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "column_name": "edit_by_user_id",                                    +
              "column_type": "INTEGER",                                            +
              "is_nullable": true,                                                 +
-             "default_value": null,                                               +
+             "default_value": "auth.uid()",                                       +
              "is_uniquely_identifying": false                                     +
          },                                                                       +
          {                                                                        +
@@ -2641,7 +2641,7 @@ Triggers:
  tag_id                               | integer                   |           |          | 
  tag_for_unit_id                      | integer                   |           |          | 
  edit_comment_raw                     | text                      |           |          | 
- edit_by_user_id                      | integer                   |           |          | 
+ edit_by_user_id                      | integer                   |           |          | auth.uid()
  edit_at                              | timestamp with time zone  |           |          | 
  edit_comment                         | text                      |           |          | 
  founding_row_id                      | integer                   |           |          | 
@@ -4193,7 +4193,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "column_name": "edit_by_user_id",                                      +
              "column_type": "INTEGER",                                              +
              "is_nullable": true,                                                   +
-             "default_value": null,                                                 +
+             "default_value": "auth.uid()",                                         +
              "is_uniquely_identifying": false                                       +
          },                                                                         +
          {                                                                          +

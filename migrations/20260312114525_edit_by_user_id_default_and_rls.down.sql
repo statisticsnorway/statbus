@@ -24,6 +24,14 @@ END;
 $do$;
 
 -- ============================================================================
+-- 1b. Remove default_value for edit_by_user_id in import_data_column
+-- ============================================================================
+UPDATE import_data_column
+   SET default_value = NULL
+ WHERE column_name = 'edit_by_user_id'
+   AND default_value = 'auth.uid()';
+
+-- ============================================================================
 -- 2. Restore permissive regular_user_manage policies (WITH CHECK (true))
 -- ============================================================================
 DO $do$
@@ -88,5 +96,8 @@ BEGIN
     );
 END;
 $add_rls_regular_user_can_edit$;
+
+-- Remove auth.uid() comment added by up migration
+COMMENT ON FUNCTION auth.uid() IS NULL;
 
 END;

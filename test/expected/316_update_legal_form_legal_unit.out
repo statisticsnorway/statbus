@@ -11,26 +11,29 @@ BEGIN;
 CALL test.set_user_from_email('test.admin@statbus.org');
 \echo "User selected the Activity Category Standard"
 "User selected the Activity Category Standard"
-INSERT INTO settings(activity_category_standard_id,country_id)
+INSERT INTO settings(activity_category_standard_id,country_id,region_version_id)
 SELECT (SELECT id FROM activity_category_standard WHERE code = 'isic_v4')
      , (SELECT id FROM public.country WHERE iso_2 = 'UN')
+     , (SELECT id FROM public.region_version WHERE code = 'initial')
 ON CONFLICT (only_one_setting)
 DO UPDATE SET
     activity_category_standard_id = EXCLUDED.activity_category_standard_id,
-    country_id = EXCLUDED.country_id;
-ERROR:  null value in column "region_version_id" of relation "settings" violates not-null constraint
+    country_id = EXCLUDED.country_id,
+    region_version_id = EXCLUDED.region_version_id;
 ;
 \echo "User uploads the sample regions"
 "User uploads the sample regions"
 \copy public.region_upload(path, name) FROM 'app/public/demo/regions_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SAVEPOINT before_loading_units;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ establishment_count | legal_unit_count | enterprise_count 
+---------------------+------------------+------------------
+                   0 |                0 |                0
+(1 row)
+
 -- Create Import Job for Legal Units
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
 SELECT
@@ -39,33 +42,45 @@ SELECT
     'Import Legal Units Era (316_legal_unit_update.sql)',
     'Import job for legal units from test/data/03_norwegian-legal-units-over-time.csv using legal_unit_source_dates definition.',
     'Test data load (316_legal_unit_update.sql)';
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "User uploads the legal units over time (via import job: import_316_lu_era)"
 "User uploads the legal units over time (via import job: import_316_lu_era)"
 \copy public.import_316_lu_era_upload(stat_ident,name,birth_date,primary_activity_category_code,legal_form_code,sector_code,valid_from,valid_to) FROM 'test/data/316_legal_unit_updates.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo Run worker processing for import jobs
 Run worker processing for import jobs
 --SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 --SET client_min_messages TO NOTICE;
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
+   queue   |   state   | count 
+-----------+-----------+-------
+ analytics | pending   |     1
+ import    | completed |    47
+(2 rows)
+
 \echo "Checking unit counts after import processing"
 "Checking unit counts after import processing"
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ establishment_count | legal_unit_count | enterprise_count 
+---------------------+------------------+------------------
+                   0 |                1 |                1
+(1 row)
+
 \echo "Inspecting import job data for import_316_lu_era"
 "Inspecting import job data for import_316_lu_era"
 SELECT row_id, state, errors, stat_ident_raw, name_raw, data_source_code_raw, merge_status
 FROM public.import_316_lu_era_data
 ORDER BY row_id
 LIMIT 5;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ row_id |   state   | errors | stat_ident_raw |          name_raw          | data_source_code_raw |                       merge_status                       
+--------+-----------+--------+----------------+----------------------------+----------------------+----------------------------------------------------------
+      1 | processed | {}     | 2              | EQUATOR GLOBE SOLUTIONS    |                      | {"legal_unit": "APPLIED", "primary_activity": "APPLIED"}
+      2 | processed | {}     | 2              | EQUATOR GLOBE SOLUTIONS #2 |                      | {"legal_unit": "APPLIED", "primary_activity": "APPLIED"}
+      3 | processed | {}     | 2              | EQUATOR GLOBE SOLUTIONS #2 |                      | {"legal_unit": "APPLIED", "primary_activity": "APPLIED"}
+(3 rows)
+
 \echo "Checking import job status for import_316_lu_era"
 "Checking import job status for import_316_lu_era"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
@@ -73,63 +88,88 @@ SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
 FROM public.import_job
 WHERE slug = 'import_316_lu_era'
 ORDER BY slug;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
+       slug        |  state   | total_rows | imported_rows | has_error | error_rows 
+-------------------+----------+------------+---------------+-----------+------------
+ import_316_lu_era | finished |          3 |             3 | f         |          0
+(1 row)
+
 \echo Run worker processing for analytics tasks
 Run worker processing for analytics tasks
 CALL worker.process_tasks(p_queue => 'analytics');
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
+   queue   |   state   | count 
+-----------+-----------+-------
+ analytics | completed |   169
+ import    | completed |    47
+(2 rows)
+
 \echo "Checking legal unit"
 "Checking legal unit"
 -- SELECT *
 SELECT name, valid_from, valid_to, legal_form_id
  FROM legal_unit
  ORDER BY valid_from;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
+            name            | valid_from |  valid_to  | legal_form_id 
+----------------------------+------------+------------+---------------
+ EQUATOR GLOBE SOLUTIONS    | 2023-01-01 | 2023-12-31 |             1
+ EQUATOR GLOBE SOLUTIONS #2 | 2024-01-01 | 2025-12-31 |             1
+(2 rows)
+
 SAVEPOINT before_update_on_legal_form;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Update legal_form_id for full timeline"
 "Update legal_form_id for full timeline"
 UPDATE legal_unit__for_portion_of_valid
  SET legal_form_id = 2, valid_from = '2023-01-01', valid_to = '2025-12-31'
  WHERE id = (SELECT id FROM public.legal_unit WHERE name = 'EQUATOR GLOBE SOLUTIONS');
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Checking legal unit after update"
 "Checking legal unit after update"
 -- SELECT *
 SELECT name, valid_from, valid_to, legal_form_id
  FROM legal_unit
  ORDER BY valid_from;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
+            name            | valid_from |  valid_to  | legal_form_id 
+----------------------------+------------+------------+---------------
+ EQUATOR GLOBE SOLUTIONS    | 2023-01-01 | 2023-12-31 |             2
+ EQUATOR GLOBE SOLUTIONS #2 | 2024-01-01 | 2025-12-31 |             2
+(2 rows)
+
 ROLLBACK TO SAVEPOINT before_update_on_legal_form;
-ERROR:  savepoint "before_update_on_legal_form" does not exist
 \echo "Update legal_form_id for mid-to-end portion of timeline"
 "Update legal_form_id for mid-to-end portion of timeline"
 UPDATE legal_unit__for_portion_of_valid
  SET legal_form_id = 2, valid_from = '2023-06-01', valid_to = '2025-12-31'
  WHERE id = (SELECT id FROM public.legal_unit WHERE name = 'EQUATOR GLOBE SOLUTIONS');
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Checking legal unit after update"
 "Checking legal unit after update"
 -- SELECT *
 SELECT name, valid_from, valid_to, legal_form_id
  FROM legal_unit
  ORDER BY valid_from;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
+            name            | valid_from |  valid_to  | legal_form_id 
+----------------------------+------------+------------+---------------
+ EQUATOR GLOBE SOLUTIONS    | 2023-01-01 | 2023-05-31 |             1
+ EQUATOR GLOBE SOLUTIONS    | 2023-06-01 | 2023-12-31 |             2
+ EQUATOR GLOBE SOLUTIONS #2 | 2024-01-01 | 2025-12-31 |             2
+(3 rows)
+
 ROLLBACK TO SAVEPOINT before_update_on_legal_form;
-ERROR:  savepoint "before_update_on_legal_form" does not exist
 \echo "Update legal_form_id for mid-period of timeline"
 "Update legal_form_id for mid-period of timeline"
 UPDATE legal_unit__for_portion_of_valid
  SET legal_form_id = 2, valid_from = '2023-06-01', valid_to = '2025-06-30'
  WHERE id = (SELECT id FROM public.legal_unit WHERE name = 'EQUATOR GLOBE SOLUTIONS');
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo "Checking legal unit after update"
 "Checking legal unit after update"
 -- SELECT *
 SELECT name, valid_from, valid_to, legal_form_id
  FROM legal_unit
  ORDER BY valid_from;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
+            name            | valid_from |  valid_to  | legal_form_id 
+----------------------------+------------+------------+---------------
+ EQUATOR GLOBE SOLUTIONS    | 2023-01-01 | 2023-05-31 |             1
+ EQUATOR GLOBE SOLUTIONS    | 2023-06-01 | 2023-12-31 |             2
+ EQUATOR GLOBE SOLUTIONS #2 | 2024-01-01 | 2025-06-30 |             2
+ EQUATOR GLOBE SOLUTIONS #2 | 2025-07-01 | 2025-12-31 |             1
+(4 rows)
+
 ROLLBACK;

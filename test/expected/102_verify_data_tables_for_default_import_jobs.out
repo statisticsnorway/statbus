@@ -261,7 +261,7 @@ Describing table for definition: legal_unit_job_provided (Job: t54_lu_tc, Data T
  tag_id                               | integer                   |           |          | 
  tag_for_unit_id                      | integer                   |           |          | 
  edit_comment_raw                     | text                      |           |          | 
- edit_by_user_id                      | integer                   |           |          | 
+ edit_by_user_id                      | integer                   |           |          | auth.uid()
  edit_at                              | timestamp with time zone  |           |          | 
  edit_comment                         | text                      |           |          | 
  founding_row_id                      | integer                   |           |          | 
@@ -416,7 +416,7 @@ Describing table for definition: legal_unit_source_dates (Job: t54_lu_sd, Data T
  tag_id                               | integer                   |           |          | 
  tag_for_unit_id                      | integer                   |           |          | 
  edit_comment_raw                     | text                      |           |          | 
- edit_by_user_id                      | integer                   |           |          | 
+ edit_by_user_id                      | integer                   |           |          | auth.uid()
  edit_at                              | timestamp with time zone  |           |          | 
  edit_comment                         | text                      |           |          | 
  founding_row_id                      | integer                   |           |          | 
@@ -571,7 +571,7 @@ Describing table for definition: establishment_for_lu_job_provided (Job: t54_est
  tag_id                               | integer                   |           |          | 
  tag_for_unit_id                      | integer                   |           |          | 
  edit_comment_raw                     | text                      |           |          | 
- edit_by_user_id                      | integer                   |           |          | 
+ edit_by_user_id                      | integer                   |           |          | auth.uid()
  edit_at                              | timestamp with time zone  |           |          | 
  edit_comment                         | text                      |           |          | 
  founding_row_id                      | integer                   |           |          | 
@@ -726,7 +726,7 @@ Describing table for definition: establishment_for_lu_source_dates (Job: t54_est
  tag_id                               | integer                   |           |          | 
  tag_for_unit_id                      | integer                   |           |          | 
  edit_comment_raw                     | text                      |           |          | 
- edit_by_user_id                      | integer                   |           |          | 
+ edit_by_user_id                      | integer                   |           |          | auth.uid()
  edit_at                              | timestamp with time zone  |           |          | 
  edit_comment                         | text                      |           |          | 
  founding_row_id                      | integer                   |           |          | 
@@ -879,7 +879,7 @@ Describing table for definition: establishment_without_lu_job_provided (Job: t54
  tag_id                               | integer                   |           |          | 
  tag_for_unit_id                      | integer                   |           |          | 
  edit_comment_raw                     | text                      |           |          | 
- edit_by_user_id                      | integer                   |           |          | 
+ edit_by_user_id                      | integer                   |           |          | auth.uid()
  edit_at                              | timestamp with time zone  |           |          | 
  edit_comment                         | text                      |           |          | 
  founding_row_id                      | integer                   |           |          | 
@@ -1032,7 +1032,7 @@ Describing table for definition: establishment_without_lu_source_dates (Job: t54
  tag_id                               | integer                   |           |          | 
  tag_for_unit_id                      | integer                   |           |          | 
  edit_comment_raw                     | text                      |           |          | 
- edit_by_user_id                      | integer                   |           |          | 
+ edit_by_user_id                      | integer                   |           |          | auth.uid()
  edit_at                              | timestamp with time zone  |           |          | 
  edit_comment                         | text                      |           |          | 
  founding_row_id                      | integer                   |           |          | 
@@ -1106,7 +1106,7 @@ Describing table for definition: generic_unit_stats_update_job_provided (Job: t5
  turnover                   | numeric                   |           |          | 
  stat_for_unit_turnover_id  | integer                   |           |          | 
  edit_comment_raw           | text                      |           |          | 
- edit_by_user_id            | integer                   |           |          | 
+ edit_by_user_id            | integer                   |           |          | auth.uid()
  edit_at                    | timestamp with time zone  |           |          | 
  edit_comment               | text                      |           |          | 
  founding_row_id            | integer                   |           |          | 
@@ -1180,7 +1180,7 @@ Describing table for definition: generic_unit_stats_update_source_dates (Job: t5
  turnover                   | numeric                   |           |          | 
  stat_for_unit_turnover_id  | integer                   |           |          | 
  edit_comment_raw           | text                      |           |          | 
- edit_by_user_id            | integer                   |           |          | 
+ edit_by_user_id            | integer                   |           |          | auth.uid()
  edit_at                    | timestamp with time zone  |           |          | 
  edit_comment               | text                      |           |          | 
  founding_row_id            | integer                   |           |          | 
