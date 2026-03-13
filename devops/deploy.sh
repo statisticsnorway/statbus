@@ -63,6 +63,10 @@ else
   ./devops/manage-statbus.sh generate-config
 fi
 
+echo "Ensuring directories for Caddy volume mounts exist"
+mkdir -p "${HOME}/statbus-maintenance"
+mkdir -p tmp
+
 echo "Pre-pulling Docker images to minimize downtime"
 # Pull pre-built images from ghcr.io (built by CI, much faster than local build)
 if ! docker compose pull 2>/dev/null; then

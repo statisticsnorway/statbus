@@ -37,9 +37,10 @@ var dotenvGetCmd = &cobra.Command{
 }
 
 var dotenvSetCmd = &cobra.Command{
-	Use:   "set <key> <value>",
+	Use:   "set <key>=<value> | set <key> <value>",
 	Short: "Set the value of a key",
 	Long: `Set or update a key-value pair in the .env file.
+Accepts both KEY=VALUE (single arg) and KEY VALUE (two args).
 If value starts with "+", it is treated as a default — only set if key is absent.
 If no value is given, the key is deleted.`,
 	Args: cobra.RangeArgs(1, 2),
@@ -50,8 +51,13 @@ If no value is given, the key is deleted.`,
 		}
 		key := args[0]
 		if len(args) == 1 {
-			// No value: delete the key
-			f.Delete(key)
+			// Single arg: check for KEY=VALUE form
+			if idx := strings.Index(key, "="); idx >= 0 {
+				f.Set(key[:idx], key[idx+1:])
+			} else {
+				// No value: delete the key
+				f.Delete(key)
+			}
 		} else {
 			f.Set(key, args[1])
 		}
