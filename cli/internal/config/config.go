@@ -116,7 +116,6 @@ type Derived struct {
 	PostgrestPort           int
 	PostgrestBindAddress    string
 	Version                 string
-	StatbusVersion          string
 	SiteURL                 string
 	ApiExternalURL          string
 	ApiPublicURL            string
@@ -440,17 +439,12 @@ func computeDerived(cfg *ConfigEnv) *Derived {
 		caddyDbTlsBind = "127.0.0.1"
 	}
 
-	version := "unknown"
+	// VERSION: git describe --always gives a short commit hash or tag name.
+	// Used for docker compose image tags and container env.
+	// In production: set by upgrade daemon to version tag (e.g., v2026.03.0).
+	version := "local"
 	if out, err := exec.Command("git", "describe", "--always").Output(); err == nil {
 		version = strings.TrimSpace(string(out))
-	}
-
-	// STATBUS_VERSION for docker compose image tags.
-	// In development: sha-<commit> (local builds via --build).
-	// In production: set by upgrade daemon to version tag (e.g., v2026.03.0).
-	statbusVersion := "local"
-	if out, err := exec.Command("git", "rev-parse", "--short=8", "HEAD").Output(); err == nil {
-		statbusVersion = "sha-" + strings.TrimSpace(string(out))
 	}
 
 	return &Derived{
@@ -467,7 +461,6 @@ func computeDerived(cfg *ConfigEnv) *Derived {
 		PostgrestPort:          postgrestPort,
 		PostgrestBindAddress:   fmt.Sprintf("127.0.0.1:%d", postgrestPort),
 		Version:                version,
-		StatbusVersion:         statbusVersion,
 		SiteURL:                cfg.StatbusURL,
 		ApiExternalURL:         cfg.BrowserAPIURL,
 		ApiPublicURL:           cfg.BrowserAPIURL,
@@ -507,8 +500,8 @@ func generateEnvContent(creds *Credentials, cfg *ConfigEnv, derived *Derived, db
 #
 # The top level docker-compose.yml file includes all configuration
 # required for all statbus docker containers, but must be managed
-# by ./devops/manage-statbus.sh that also sets the VERSION
-# required for precise logging by the statbus app.
+# by sb config generate which also sets VERSION
+# used for docker image tags and container logging.
 ################################################################
 
 ################################################################
@@ -545,14 +538,12 @@ CADDY_DB_BIND_ADDRESS=%[20]s
 CADDY_DB_TLS_BIND_ADDRESS=%[21]s
 # Updated by manage-statbus.sh start required
 VERSION=%[22]s
-# Docker image tag for compose pull (set by upgrade daemon or CI)
-STATBUS_VERSION=%[23]s
 
 # Server-side debugging for the Statbus App. Requires app restart.
 # To enable, edit .env: set DEBUG=true and comment out/remove DEBUG=false.
 # To disable, edit .env: set DEBUG=false and comment out/remove DEBUG=true.
 # This setting is sourced from DEBUG in .env.config (defaults to false).
-%[24]s
+%[23]s
 `,
 		".env.credentials", ".env.config", ".env",
 		cfg.DeploymentSlotName,           // 4
@@ -574,8 +565,7 @@ STATBUS_VERSION=%[23]s
 		derived.CaddyDbBindAddress,       // 20
 		derived.CaddyDbTlsBindAddress,    // 21
 		derived.Version,                  // 22
-		derived.StatbusVersion,           // 23
-		debugBlock("DEBUG", cfg.Debug),   // 24
+		debugBlock("DEBUG", cfg.Debug),   // 23
 	)
 
 	// Load .env.example and apply overrides

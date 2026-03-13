@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile
       args:
         APT_USE_HTTPS_ONLY: ${APT_USE_HTTPS_ONLY:-false}
-    image: ghcr.io/statisticsnorway/statbus-db:${STATBUS_VERSION:-local}
+    image: ghcr.io/statisticsnorway/statbus-db:${VERSION:-local}
     restart: unless-stopped
     healthcheck:
       test: pg_isready -U postgres -h localhost

@@ -29,13 +29,13 @@ func runCommandOutput(dir string, name string, args ...string) (string, error) {
 }
 
 func (d *Daemon) pullImages(version string) error {
-	// docker compose reads STATBUS_VERSION from .env, not from process environment.
+	// docker compose reads VERSION from .env, not from process environment.
 	// For pre-downloads before config regeneration, we pass it as an override.
 	cmd := exec.Command("docker", "compose", "pull")
 	cmd.Dir = d.projDir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	cmd.Env = append(os.Environ(), "STATBUS_VERSION="+version)
+	cmd.Env = append(os.Environ(), "VERSION="+version)
 	return cmd.Run()
 }
 

@@ -490,7 +490,7 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 		return err
 	}
 
-	// Step 9: Pull images with new STATBUS_VERSION from .env
+	// Step 9: Pull images with new VERSION from .env
 	progress.Write("Pulling updated images...")
 	if err := runCommand(projDir, "docker", "compose", "pull"); err != nil {
 		d.rollback(ctx, id, version, previousVersion, progress)
@@ -647,7 +647,7 @@ func (d *Daemon) currentVersion() string {
 	if err != nil {
 		return "unknown"
 	}
-	if v, ok := f.Get("STATBUS_VERSION"); ok {
+	if v, ok := f.Get("VERSION"); ok {
 		return v
 	}
 	return "unknown"

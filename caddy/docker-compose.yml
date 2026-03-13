@@ -2,7 +2,7 @@
 services:
   proxy:
     container_name: ${COMPOSE_INSTANCE_NAME:?COMPOSE_INSTANCE_NAME must be set in the generated .env}-proxy
-    image: ghcr.io/statisticsnorway/statbus-proxy:${STATBUS_VERSION:-local}
+    image: ghcr.io/statisticsnorway/statbus-proxy:${VERSION:-local}
     build:
       context: .
       dockerfile: Dockerfile
