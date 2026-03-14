@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState, type ReactNode } from "react";
-import "highcharts/modules/accessibility";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 
 import { useStatisticalHistoryHighcharts } from "./history-changes/use-statistical-history-highcharts";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -52,6 +52,14 @@ export function HistoryReports({
     return Array.from(new Set(years)).sort((a, b) => b - a);
   }, [timeContexts]);
 
+  const [highchartsModulesLoaded, setHighchartsModulesLoaded] = useState(false);
+
+  useGuardedEffect(() => {
+    import("highcharts/modules/accessibility").then(() => {
+      setHighchartsModulesLoaded(true);
+    });
+  }, [], 'HistoryReports:importHighchartsModules');
+
   const { history, isLoading } = useStatisticalHistoryHighcharts(
     resolution,
     selectedUnitType,
@@ -93,7 +101,7 @@ export function HistoryReports({
           
           </div>
         </div>
-        {!isLoading && history ? (
+        {!isLoading && history && highchartsModulesLoaded ? (
           children({
             history,
             isYearlyView: selectedYear === "all",
