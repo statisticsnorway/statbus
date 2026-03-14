@@ -16,7 +16,7 @@ import {
 } from "@tanstack/react-table";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, ThumbsUp, ThumbsDown } from "lucide-react";
+import { ChevronRight, ThumbsUp, ThumbsDown, Download } from "lucide-react";
 import { StackedProgress } from "@/components/ui/stacked-progress";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useAtomValue } from "jotai";
@@ -740,30 +740,54 @@ export default function ImportJobDataPage() {
               ) : null;
             })()}
             {(job?.warning_count ?? 0) > 0 && (
-              <Button
-                variant={isWarningFilterActive ? "default" : "outline"}
-                size="sm"
-                className={isWarningFilterActive
-                  ? "h-8 bg-amber-500 hover:bg-amber-600 text-white"
-                  : "h-8 border-dashed text-amber-600 hover:bg-amber-50"
-                }
-                onClick={toggleWarningFilter}
-              >
-                <span className="font-mono">{formatNumber(job?.warning_count)}</span>&nbsp;warn
-              </Button>
+              <>
+                <Button
+                  variant={isWarningFilterActive ? "default" : "outline"}
+                  size="sm"
+                  className={isWarningFilterActive
+                    ? "h-8 bg-amber-500 hover:bg-amber-600 text-white"
+                    : "h-8 border-dashed text-amber-600 hover:bg-amber-50"
+                  }
+                  onClick={toggleWarningFilter}
+                >
+                  <span className="font-mono">{formatNumber(job?.warning_count)}</span>&nbsp;warn
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2 text-amber-600 hover:bg-amber-50"
+                  asChild
+                >
+                  <a href={`/api/import/download?slug=${job?.slug}&filter=warning`} download>
+                    <Download className="h-4 w-4" />
+                  </a>
+                </Button>
+              </>
             )}
             {(job?.error_count ?? 0) > 0 && (
-              <Button
-                variant={isErrorFilterActive ? "default" : "outline"}
-                size="sm"
-                className={isErrorFilterActive
-                  ? "h-8 bg-red-600 hover:bg-red-700 text-white"
-                  : "h-8 border-dashed text-red-600 hover:bg-red-50"
-                }
-                onClick={toggleErrorFilter}
-              >
-                <span className="font-mono">{formatNumber(job?.error_count)}</span>&nbsp;err
-              </Button>
+              <>
+                <Button
+                  variant={isErrorFilterActive ? "default" : "outline"}
+                  size="sm"
+                  className={isErrorFilterActive
+                    ? "h-8 bg-red-600 hover:bg-red-700 text-white"
+                    : "h-8 border-dashed text-red-600 hover:bg-red-50"
+                  }
+                  onClick={toggleErrorFilter}
+                >
+                  <span className="font-mono">{formatNumber(job?.error_count)}</span>&nbsp;err
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2 text-red-600 hover:bg-red-50"
+                  asChild
+                >
+                  <a href={`/api/import/download?slug=${job?.slug}&filter=error`} download>
+                    <Download className="h-4 w-4" />
+                  </a>
+                </Button>
+              </>
             )}
           </DataTableToolbar>
         </DataTable>

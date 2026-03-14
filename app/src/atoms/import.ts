@@ -68,6 +68,14 @@ export type ImportStep = {
 
 export type DefinitionSnapshot = {
   import_step_list: ImportStep[];
+  import_source_column_list: Array<{
+    column_name: string;
+    priority: number;
+  }>;
+  import_mapping_list: Array<{
+    source_column: { column_name: string } | null;
+    target_data_column: { column_name: string; purpose: string };
+  }>;
 };
 
 export type ImportJobWithDetails = Tables<"import_job"> & {
