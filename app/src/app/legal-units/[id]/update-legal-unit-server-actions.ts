@@ -430,6 +430,36 @@ export async function upsertTemporalRecord({
         };
       }
     } else {
+      // Check that the parent unit exists for the requested period
+      const parentTable = unitType;
+      const { data: parentRows, error: parentError } = await client
+        .from(parentTable)
+        .select("valid_from, valid_to")
+        .eq("id", unitId)
+        .lte("valid_from", valid_from)
+        .gte("valid_to", valid_to);
+
+      if (parentError) {
+        return { status: "error", message: parentError.message };
+      }
+
+      if (!parentRows || parentRows.length === 0) {
+        const { data: allRows } = await client
+          .from(parentTable)
+          .select("valid_from, valid_to")
+          .eq("id", unitId)
+          .order("valid_from");
+
+        const rangeInfo = allRows?.length
+          ? ` The ${unitType.replace("_", " ")} exists for: ${allRows.map((r) => `${r.valid_from} to ${r.valid_to ?? "infinity"}`).join(", ")}.`
+          : "";
+
+        return {
+          status: "error",
+          message: `Cannot add ${tableName.replace("_", " ")} for the period ${valid_from} to ${valid_to}. The ${unitType.replace("_", " ")} does not exist for this period.${rangeInfo}`,
+        };
+      }
+
       let insertPayload = { ...payload, ...naturalKeyValues };
       let templateQuery = client.from(tableName).select("id").limit(1);
       for (const key in naturalKeyValues) {
