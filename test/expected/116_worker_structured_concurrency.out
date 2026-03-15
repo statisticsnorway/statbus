@@ -38,27 +38,25 @@ ORDER BY column_name;
 "=== 3. Verify structured concurrency functions exist ==="
 SELECT routine_name, routine_type
 FROM information_schema.routines
-WHERE routine_schema = 'worker' 
-  AND routine_name IN ('spawn', 'has_pending_children', 'has_failed_siblings', 'complete_parent_if_ready', 'enforce_no_grandchildren')
+WHERE routine_schema = 'worker'
+  AND routine_name IN ('spawn', 'has_pending_children', 'has_failed_siblings', 'complete_parent_if_ready')
 ORDER BY routine_name;
        routine_name       | routine_type 
 --------------------------+--------------
  complete_parent_if_ready | FUNCTION
- enforce_no_grandchildren | FUNCTION
  has_failed_siblings      | FUNCTION
  has_pending_children     | FUNCTION
  spawn                    | FUNCTION
-(5 rows)
+(4 rows)
 
-\echo "=== 4. Verify no-grandchildren trigger exists ==="
-"=== 4. Verify no-grandchildren trigger exists ==="
+\echo "=== 4. Verify no-grandchildren trigger removed (recursive spawning enabled) ==="
+"=== 4. Verify no-grandchildren trigger removed (recursive spawning enabled) ==="
 SELECT tgname, tgtype, tgenabled
 FROM pg_trigger
 WHERE tgname = 'tasks_enforce_no_grandchildren';
-             tgname             | tgtype | tgenabled 
---------------------------------+--------+-----------
- tasks_enforce_no_grandchildren |      7 | O
-(1 row)
+ tgname | tgtype | tgenabled 
+--------+--------+-----------
+(0 rows)
 
 \echo "=== 5. Test spawn function creates parent-child relationship ==="
 "=== 5. Test spawn function creates parent-child relationship ==="
@@ -124,8 +122,8 @@ WHERE id = :parent_task_id;
  derive_statistical_unit | completed | t
 (1 row)
 
-\echo "=== 8. Test grandchildren prevention trigger ==="
-"=== 8. Test grandchildren prevention trigger ==="
+\echo "=== 8. Test recursive task spawning (grandchildren allowed) ==="
+"=== 8. Test recursive task spawning (grandchildren allowed) ==="
 -- Create a new parent and child
 INSERT INTO worker.tasks (command, payload, state)
 VALUES ('derive_statistical_unit', '{}', 'waiting')
@@ -133,15 +131,22 @@ RETURNING id AS new_parent_id \gset
 INSERT INTO worker.tasks (command, payload, parent_id, state)
 VALUES ('statistical_unit_refresh_batch', '{}', :new_parent_id, 'processing')
 RETURNING id AS new_child_id \gset
--- Attempt to create a grandchild (should fail with specific error message)
-SAVEPOINT before_grandchild;
-\set ON_ERROR_STOP off
-INSERT INTO worker.tasks (command, payload, parent_id, state)
-VALUES ('statistical_unit_refresh_batch', '{"nested": true}', :new_child_id, 'pending');
-ERROR:  Cannot create grandchild tasks. Parent task 6 already has parent 5. Children can only spawn siblings (same parent_id) or uncles (parent_id = NULL).
-CONTEXT:  PL/pgSQL function worker.enforce_no_grandchildren() line 12 at RAISE
-\set ON_ERROR_STOP on
-ROLLBACK TO SAVEPOINT before_grandchild;
+-- Create a grandchild using spawn (should succeed with recursive spawning)
+SELECT worker.spawn(
+    p_command := 'statistical_unit_refresh_batch',
+    p_payload := '{"nested": true}'::jsonb,
+    p_parent_id := :new_child_id,
+    p_priority := 20
+) AS grandchild_id \gset
+-- Verify grandchild has correct depth (parent at depth 0 via direct INSERT, so grandchild = 1)
+SELECT depth FROM worker.tasks WHERE id = :grandchild_id;
+ depth 
+-------
+     1
+(1 row)
+
+-- Clean up grandchild for remaining tests
+DELETE FROM worker.tasks WHERE id = :grandchild_id;
 \echo "=== 9. Test sibling spawning (child can spawn siblings with same parent) ==="
 "=== 9. Test sibling spawning (child can spawn siblings with same parent) ==="
 -- Child should be able to spawn a sibling (same parent_id)

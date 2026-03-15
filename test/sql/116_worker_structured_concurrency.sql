@@ -23,11 +23,11 @@ ORDER BY column_name;
 \echo "=== 3. Verify structured concurrency functions exist ==="
 SELECT routine_name, routine_type
 FROM information_schema.routines
-WHERE routine_schema = 'worker' 
-  AND routine_name IN ('spawn', 'has_pending_children', 'has_failed_siblings', 'complete_parent_if_ready', 'enforce_no_grandchildren')
+WHERE routine_schema = 'worker'
+  AND routine_name IN ('spawn', 'has_pending_children', 'has_failed_siblings', 'complete_parent_if_ready')
 ORDER BY routine_name;
 
-\echo "=== 4. Verify no-grandchildren trigger exists ==="
+\echo "=== 4. Verify no-grandchildren trigger removed (recursive spawning enabled) ==="
 SELECT tgname, tgtype, tgenabled
 FROM pg_trigger
 WHERE tgname = 'tasks_enforce_no_grandchildren';
@@ -77,7 +77,7 @@ SELECT command, state, completed_at IS NOT NULL AS has_completed_at
 FROM worker.tasks
 WHERE id = :parent_task_id;
 
-\echo "=== 8. Test grandchildren prevention trigger ==="
+\echo "=== 8. Test recursive task spawning (grandchildren allowed) ==="
 -- Create a new parent and child
 INSERT INTO worker.tasks (command, payload, state)
 VALUES ('derive_statistical_unit', '{}', 'waiting')
@@ -87,13 +87,19 @@ INSERT INTO worker.tasks (command, payload, parent_id, state)
 VALUES ('statistical_unit_refresh_batch', '{}', :new_parent_id, 'processing')
 RETURNING id AS new_child_id \gset
 
--- Attempt to create a grandchild (should fail with specific error message)
-SAVEPOINT before_grandchild;
-\set ON_ERROR_STOP off
-INSERT INTO worker.tasks (command, payload, parent_id, state)
-VALUES ('statistical_unit_refresh_batch', '{"nested": true}', :new_child_id, 'pending');
-\set ON_ERROR_STOP on
-ROLLBACK TO SAVEPOINT before_grandchild;
+-- Create a grandchild using spawn (should succeed with recursive spawning)
+SELECT worker.spawn(
+    p_command := 'statistical_unit_refresh_batch',
+    p_payload := '{"nested": true}'::jsonb,
+    p_parent_id := :new_child_id,
+    p_priority := 20
+) AS grandchild_id \gset
+
+-- Verify grandchild has correct depth (parent at depth 0 via direct INSERT, so grandchild = 1)
+SELECT depth FROM worker.tasks WHERE id = :grandchild_id;
+
+-- Clean up grandchild for remaining tests
+DELETE FROM worker.tasks WHERE id = :grandchild_id;
 
 \echo "=== 9. Test sibling spawning (child can spawn siblings with same parent) ==="
 -- Child should be able to spawn a sibling (same parent_id)
