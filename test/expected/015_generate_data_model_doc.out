@@ -145,7 +145,6 @@ DECLARE
             '{"schema": "worker", "name": "tasks", "class": "infrastructure"}'::jsonb,
             '{"schema": "worker", "name": "command_registry", "class": "infrastructure"}'::jsonb,
             '{"schema": "worker", "name": "queue_registry", "class": "infrastructure"}'::jsonb,
-            '{"schema": "worker", "name": "pipeline_progress", "class": "infrastructure"}'::jsonb,
             '{"schema": "worker", "name": "base_change_log", "class": "infrastructure"}'::jsonb,
             '{"schema": "worker", "name": "base_change_log_has_pending", "class": "infrastructure"}'::jsonb
         )),

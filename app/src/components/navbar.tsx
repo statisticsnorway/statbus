@@ -111,8 +111,8 @@ function computeWeightedPhaseProgress(
     earned += weight;
   }
 
-  // If we didn't find the current step in weights (e.g. collect_changes),
-  // just return 0 — it's a pre-step
+  // If we didn't find the current step in weights (e.g. statistical_unit_refresh_batch),
+  // just return 0 — it's a sub-step not in the weights table
   if (!foundCurrent) return 0;
 
   return Math.round((earned / totalWeight) * 100);

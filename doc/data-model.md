@@ -203,6 +203,7 @@ Configuration for pipeline step ordering and progress tracking.
 
 - `pipeline_step_weight(step, weight, seq)` — **infrastructure**
   - Key FKs: step.
+- `pipeline_step_weight(step, weight, seq)`
 
 ## Import System
 Handles the ingestion of data from external files.

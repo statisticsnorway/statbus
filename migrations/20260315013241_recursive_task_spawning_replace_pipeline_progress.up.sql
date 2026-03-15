@@ -1354,8 +1354,8 @@ BEGIN
     CALL admin.adjust_analytics_partition_count();
 
     PERFORM worker.enqueue_derive_statistical_history(
-        p_valid_from => p_valid_from,
-        p_valid_until => p_valid_until,
+        p_valid_from := p_valid_from,
+        p_valid_until := p_valid_until,
         p_round_priority_base := p_round_priority_base
     );
 END;
@@ -1404,8 +1404,8 @@ BEGIN
     GROUP BY resolution, year, month, unit_type;
 
     PERFORM worker.enqueue_derive_statistical_unit_facet(
-        p_valid_from => v_valid_from,
-        p_valid_until => v_valid_until,
+        p_valid_from := v_valid_from,
+        p_valid_until := v_valid_until,
         p_round_priority_base := v_round_priority_base
     );
 END;
@@ -1450,8 +1450,8 @@ BEGIN
     END IF;
 
     PERFORM worker.enqueue_derive_statistical_history_facet(
-        p_valid_from => v_valid_from,
-        p_valid_until => v_valid_until,
+        p_valid_from := v_valid_from,
+        p_valid_until := v_valid_until,
         p_round_priority_base := v_round_priority_base
     );
 END;
