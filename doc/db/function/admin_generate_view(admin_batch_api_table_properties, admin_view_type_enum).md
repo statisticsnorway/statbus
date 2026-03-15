@@ -30,7 +30,7 @@ BEGIN
             RAISE EXCEPTION 'Invalid table properties or unsupported table structure for: %', table_properties;
         END IF;
         columns_str := '*';
-    WHEN 'available' THEN
+    WHEN 'enabled' THEN
         from_str := format('%1$I.%2$I', table_properties.schema_name, table_properties.table_name || '_ordered');
         IF table_properties.has_enabled THEN
             where_clause_str := 'WHERE enabled';
@@ -39,10 +39,10 @@ BEGIN
         END IF;
         columns_str := '*';
     WHEN 'system' THEN
-        from_str := format('%1$I.%2$I', table_properties.schema_name, table_properties.table_name || '_available');
+        from_str := format('%1$I.%2$I', table_properties.schema_name, table_properties.table_name || '_enabled');
         where_clause_str := 'WHERE custom = false';
     WHEN 'custom' THEN
-        from_str := format('%1$I.%2$I', table_properties.schema_name, table_properties.table_name || '_available');
+        from_str := format('%1$I.%2$I', table_properties.schema_name, table_properties.table_name || '_enabled');
         where_clause_str := 'WHERE custom = true';
     ELSE
         RAISE EXCEPTION 'Invalid view type: %', view_type;

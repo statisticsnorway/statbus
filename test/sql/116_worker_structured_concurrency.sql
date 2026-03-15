@@ -40,10 +40,10 @@ RETURNING id AS parent_task_id \gset
 
 -- Spawn a child task using the spawn function
 SELECT worker.spawn(
-    p_command := 'statistical_unit_refresh_batch',
-    p_payload := '{"batch_seq": 1}'::jsonb,
-    p_parent_id := :parent_task_id,
-    p_priority := 20
+    p_command => 'statistical_unit_refresh_batch',
+    p_payload => '{"batch_seq": 1}'::jsonb,
+    p_parent_id => :parent_task_id,
+    p_priority => 20
 ) AS child_task_id \gset
 
 -- Verify child has correct parent relationship (not specific IDs)
@@ -89,10 +89,10 @@ RETURNING id AS new_child_id \gset
 
 -- Create a grandchild using spawn (should succeed with recursive spawning)
 SELECT worker.spawn(
-    p_command := 'statistical_unit_refresh_batch',
-    p_payload := '{"nested": true}'::jsonb,
-    p_parent_id := :new_child_id,
-    p_priority := 20
+    p_command => 'statistical_unit_refresh_batch',
+    p_payload => '{"nested": true}'::jsonb,
+    p_parent_id => :new_child_id,
+    p_priority => 20
 ) AS grandchild_id \gset
 
 -- Verify grandchild has correct depth (parent at depth 0 via direct INSERT, so grandchild = 1)
@@ -104,10 +104,10 @@ DELETE FROM worker.tasks WHERE id = :grandchild_id;
 \echo "=== 9. Test sibling spawning (child can spawn siblings with same parent) ==="
 -- Child should be able to spawn a sibling (same parent_id)
 SELECT worker.spawn(
-    p_command := 'statistical_unit_refresh_batch',
-    p_payload := '{"batch_seq": 2, "spawned_by_sibling": true}'::jsonb,
-    p_parent_id := :new_parent_id,
-    p_priority := 20
+    p_command => 'statistical_unit_refresh_batch',
+    p_payload => '{"batch_seq": 2, "spawned_by_sibling": true}'::jsonb,
+    p_parent_id => :new_parent_id,
+    p_priority => 20
 ) AS sibling_task_id \gset
 
 -- Verify sibling exists with correct parent (not specific IDs)
@@ -121,10 +121,10 @@ WHERE id = :sibling_task_id;
 \echo "=== 10. Test uncle spawning (child can spawn top-level task) ==="
 -- Child should be able to spawn an "uncle" (parent_id = NULL)
 SELECT worker.spawn(
-    p_command := 'derive_reports',
-    p_payload := '{}'::jsonb,
-    p_parent_id := NULL,
-    p_priority := 30
+    p_command => 'derive_reports',
+    p_payload => '{}'::jsonb,
+    p_parent_id => NULL,
+    p_priority => 30
 ) AS uncle_task_id \gset
 
 -- Verify uncle is top-level
@@ -195,10 +195,10 @@ RETURNING id AS cm_parent_id \gset
 
 -- Spawn without explicit child_mode
 SELECT worker.spawn(
-    p_command := 'statistical_unit_refresh_batch',
-    p_payload := '{"cm_test": 1}'::jsonb,
-    p_parent_id := :cm_parent_id,
-    p_priority := 10
+    p_command => 'statistical_unit_refresh_batch',
+    p_payload => '{"cm_test": 1}'::jsonb,
+    p_parent_id => :cm_parent_id,
+    p_priority => 10
 ) AS cm_child1_id \gset
 
 SELECT child_mode FROM worker.tasks WHERE id = :cm_parent_id;
@@ -212,11 +212,11 @@ VALUES ('derive_statistical_unit', '{}', 'processing')
 RETURNING id AS cm_serial_parent_id \gset
 
 SELECT worker.spawn(
-    p_command := 'statistical_unit_refresh_batch',
-    p_payload := '{"cm_test": 2}'::jsonb,
-    p_parent_id := :cm_serial_parent_id,
-    p_priority := 10,
-    p_child_mode := 'serial'
+    p_command => 'statistical_unit_refresh_batch',
+    p_payload => '{"cm_test": 2}'::jsonb,
+    p_parent_id => :cm_serial_parent_id,
+    p_priority => 10,
+    p_child_mode => 'serial'
 ) AS cm_serial_child_id \gset
 
 SELECT child_mode FROM worker.tasks WHERE id = :cm_serial_parent_id;
@@ -224,10 +224,10 @@ SELECT child_mode FROM worker.tasks WHERE id = :cm_serial_parent_id;
 \echo "=== 13c. Test second spawn preserves existing child_mode ==="
 -- Spawn a second child without explicit mode — should NOT change the parent's serial mode
 SELECT worker.spawn(
-    p_command := 'statistical_unit_refresh_batch',
-    p_payload := '{"cm_test": 3}'::jsonb,
-    p_parent_id := :cm_serial_parent_id,
-    p_priority := 11
+    p_command => 'statistical_unit_refresh_batch',
+    p_payload => '{"cm_test": 3}'::jsonb,
+    p_parent_id => :cm_serial_parent_id,
+    p_priority => 11
 ) AS cm_serial_child2_id \gset
 
 SELECT child_mode FROM worker.tasks WHERE id = :cm_serial_parent_id;
@@ -237,11 +237,11 @@ SAVEPOINT before_conflict;
 \set ON_ERROR_STOP off
 -- Parent already has child_mode='serial', requesting 'concurrent' should fail
 SELECT worker.spawn(
-    p_command := 'statistical_unit_refresh_batch',
-    p_payload := '{"cm_test": 4}'::jsonb,
-    p_parent_id := :cm_serial_parent_id,
-    p_priority := 12,
-    p_child_mode := 'concurrent'
+    p_command => 'statistical_unit_refresh_batch',
+    p_payload => '{"cm_test": 4}'::jsonb,
+    p_parent_id => :cm_serial_parent_id,
+    p_priority => 12,
+    p_child_mode => 'concurrent'
 );
 \set ON_ERROR_STOP on
 ROLLBACK TO SAVEPOINT before_conflict;
@@ -342,6 +342,31 @@ FROM worker.tasks
 WHERE command NOT IN ('task_cleanup', 'import_job_cleanup')
 ORDER BY id;
 
+\echo "=== 18b. Test rescue_stuck_waiting_parent with zero children ==="
+-- Clean slate for rescue test
+DELETE FROM worker.tasks WHERE id > 2;
+ALTER SEQUENCE worker.tasks_id_seq RESTART WITH 3;
+
+-- Create a task and manually force it into waiting with no children
+INSERT INTO worker.tasks (command, payload, state)
+VALUES ('derive_statistical_unit', '{}', 'waiting')
+RETURNING id AS stuck_parent_id \gset
+
+-- Verify it has no children
+SELECT COUNT(*) AS child_count FROM worker.tasks WHERE parent_id = :stuck_parent_id;
+
+-- Rescue should find and force-fail this stuck parent
+SELECT worker.rescue_stuck_waiting_parent('analytics') AS rescued_id \gset
+
+-- Verify parent is now failed with descriptive error
+SELECT state, error
+FROM worker.tasks
+WHERE id = :stuck_parent_id;
+
+-- Clean up
+DELETE FROM worker.tasks WHERE id > 2;
+ALTER SEQUENCE worker.tasks_id_seq RESTART WITH 3;
+
 \echo "=== 19. Verify derive_statistical_unit deduplication (pending only) ==="
 -- Clean slate for deduplication tests (delete children first due to FK)
 DELETE FROM worker.tasks WHERE parent_id IS NOT NULL;
@@ -349,12 +374,12 @@ DELETE FROM worker.tasks WHERE command LIKE 'derive_statistical_unit%';
 
 -- Insert first pending task
 SELECT worker.enqueue_derive_statistical_unit(
-    p_establishment_id_ranges := '{[1,10)}'::int4multirange
+    p_establishment_id_ranges => '{[1,10)}'::int4multirange
 ) AS first_task_id \gset
 
 -- Insert second (should merge with first since it's pending)
 SELECT worker.enqueue_derive_statistical_unit(
-    p_establishment_id_ranges := '{[20,30)}'::int4multirange
+    p_establishment_id_ranges => '{[20,30)}'::int4multirange
 ) AS second_task_id \gset
 
 -- Should be same task (merged)
@@ -372,7 +397,7 @@ WHERE id = :first_task_id;
 
 -- Insert third task (should create NEW task since first is processing)
 SELECT worker.enqueue_derive_statistical_unit(
-    p_establishment_id_ranges := '{[40,50)}'::int4multirange
+    p_establishment_id_ranges => '{[40,50)}'::int4multirange
 ) AS third_task_id \gset
 
 -- Should be different task

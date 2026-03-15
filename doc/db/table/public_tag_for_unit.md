@@ -10,7 +10,7 @@
  power_group_id   | integer                  |           |          | 
  created_at       | timestamp with time zone |           | not null | statement_timestamp()
  edit_comment     | character varying(512)   |           |          | 
- edit_by_user_id  | integer                  |           | not null | 
+ edit_by_user_id  | integer                  |           | not null | auth.uid()
  edit_at          | timestamp with time zone |           | not null | statement_timestamp()
 Indexes:
     "tag_for_unit_pkey" PRIMARY KEY, btree (id)
@@ -41,8 +41,12 @@ Policies:
     POLICY "tag_for_unit_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 Triggers:
+    a_tag_for_unit_log_delete AFTER DELETE ON tag_for_unit REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
+    a_tag_for_unit_log_insert AFTER INSERT ON tag_for_unit REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
+    a_tag_for_unit_log_update AFTER UPDATE ON tag_for_unit REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
+    b_tag_for_unit_ensure_collect AFTER INSERT OR DELETE OR UPDATE ON tag_for_unit FOR EACH STATEMENT EXECUTE FUNCTION worker.ensure_collect_changes()
     trigger_prevent_tag_for_unit_id_update BEFORE UPDATE OF id ON tag_for_unit FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 
 ```

@@ -7,7 +7,7 @@
 View definition:
  SELECT code,
     name
-   FROM data_source_available
+   FROM data_source_enabled
   WHERE custom = false;
 Triggers:
     upsert_data_source_system INSTEAD OF INSERT ON data_source_system FOR EACH ROW EXECUTE FUNCTION admin.upsert_data_source_system()

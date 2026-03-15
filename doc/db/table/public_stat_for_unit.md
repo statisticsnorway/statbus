@@ -16,12 +16,13 @@
  value_string       | character varying        |           |          | 
  value_bool         | boolean                  |           |          | 
  edit_comment       | character varying(512)   |           |          | 
- edit_by_user_id    | integer                  |           | not null | 
+ edit_by_user_id    | integer                  |           | not null | auth.uid()
  edit_at            | timestamp with time zone |           | not null | statement_timestamp()
  stat               | jsonb                    |           |          | generated always as (COALESCE(stat(value_int), stat(value_float), stat(value_string), stat(value_bool))) stored
 Indexes:
     "stat_for_unit_pkey" PRIMARY KEY (id, valid_range WITHOUT OVERLAPS)
     "ix_stat_for_unit_data_source_id" btree (data_source_id)
+    "ix_stat_for_unit_edit_by_user_id" btree (edit_by_user_id)
     "ix_stat_for_unit_establishment_id" btree (establishment_id)
     "ix_stat_for_unit_establishment_id_valid_range" gist (establishment_id, valid_range)
     "ix_stat_for_unit_legal_unit_id" btree (legal_unit_id)
@@ -59,7 +60,7 @@ Policies:
     POLICY "stat_for_unit_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 Triggers:
     a_stat_for_unit_log_delete AFTER DELETE ON stat_for_unit REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_stat_for_unit_log_insert AFTER INSERT ON stat_for_unit REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()

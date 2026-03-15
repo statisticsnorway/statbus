@@ -15,7 +15,7 @@ BEGIN
     RAISE DEBUG '[Job %] analyse_establishment (Batch): Starting analysis for batch_seq %', p_job_id, p_batch_seq;
 
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
-    v_data_table_name := v_job.data_table_name; 
+    v_data_table_name := v_job.data_table_name;
 
     SELECT * INTO v_step FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list') WHERE code = 'establishment';
     IF NOT FOUND THEN RAISE EXCEPTION '[Job %] establishment target not found in snapshot', p_job_id; END IF;
@@ -44,8 +44,8 @@ BEGIN
     SELECT
         dc.code, dc.type, COALESCE(s.id, us.id) AS resolved_id
     FROM distinct_codes dc
-    LEFT JOIN public.sector_available s ON dc.type = 'sector' AND dc.code = s.code
-    LEFT JOIN public.unit_size_available us ON dc.type = 'unit_size' AND dc.code = us.code;
+    LEFT JOIN public.sector_enabled s ON dc.type = 'sector' AND dc.code = s.code
+    LEFT JOIN public.unit_size_enabled us ON dc.type = 'unit_size' AND dc.code = us.code;
 
     IF to_regclass('pg_temp.t_resolved_dates') IS NOT NULL THEN DROP TABLE t_resolved_dates; END IF;
     CREATE TEMP TABLE t_resolved_dates ON COMMIT DROP AS

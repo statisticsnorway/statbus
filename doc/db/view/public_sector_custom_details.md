@@ -9,7 +9,7 @@ View definition:
  SELECT path,
     name,
     description
-   FROM sector_available
+   FROM sector_enabled
   WHERE custom = true;
 Triggers:
     prepare_sector_custom BEFORE INSERT ON sector_custom FOR EACH STATEMENT EXECUTE FUNCTION admin.prepare_sector_custom()

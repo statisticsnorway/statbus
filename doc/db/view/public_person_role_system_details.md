@@ -7,7 +7,7 @@
 View definition:
  SELECT code,
     name
-   FROM person_role_available
+   FROM person_role_enabled
   WHERE custom = false;
 Triggers:
     upsert_person_role_system INSTEAD OF INSERT ON person_role_system FOR EACH ROW EXECUTE FUNCTION admin.upsert_person_role_system()

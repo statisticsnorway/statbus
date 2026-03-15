@@ -10,49 +10,40 @@ DECLARE
   processed_count INT := 0;
   v_inside_transaction BOOLEAN;
   v_waiting_parent_id BIGINT;
-  -- Retry-on-deadlock configuration
+  v_waiting_parent_child_mode worker.child_mode;
   v_max_retries CONSTANT INT := 3;
   v_retry_count INT;
-  v_backoff_base_ms CONSTANT NUMERIC := 100;  -- 100ms base backoff
+  v_backoff_base_ms CONSTANT NUMERIC := 100;
 BEGIN
-  -- Check if we're inside a transaction
   SELECT pg_current_xact_id_if_assigned() IS NOT NULL INTO v_inside_transaction;
-  RAISE DEBUG 'Running worker.process_tasks inside transaction: %, queue: %, mode: %', v_inside_transaction, p_queue, COALESCE(p_mode::text, 'NULL');
+  RAISE DEBUG 'Running worker.process_tasks inside transaction: %, queue: %, mode: %',
+    v_inside_transaction, p_queue, COALESCE(p_mode::text, 'NULL');
 
   batch_start_time := clock_timestamp();
 
-  -- Process tasks in a loop until we hit limits or run out of tasks
   LOOP
-    -- Check for time limit
     IF p_max_runtime_ms IS NOT NULL AND
        EXTRACT(EPOCH FROM (clock_timestamp() - batch_start_time)) * 1000 > p_max_runtime_ms THEN
-      RAISE DEBUG 'Exiting worker loop: Time limit of % ms reached', p_max_runtime_ms;
       EXIT;
     END IF;
 
-    -- STRUCTURED CONCURRENCY: Check if there's a waiting parent task
-    -- If so, we're in concurrent mode and should pick its children
-    SELECT t.id INTO v_waiting_parent_id
+    -- STRUCTURED CONCURRENCY: Find the deepest waiting parent (depth-first)
+    SELECT t.id, t.child_mode
+    INTO v_waiting_parent_id, v_waiting_parent_child_mode
     FROM worker.tasks AS t
     JOIN worker.command_registry AS cr ON t.command = cr.command
     WHERE t.state = 'waiting'::worker.task_state
       AND (p_queue IS NULL OR cr.queue = p_queue)
-    ORDER BY t.priority, t.id
+    ORDER BY t.depth DESC, t.priority, t.id
     LIMIT 1;
 
-    -- MODE-SPECIFIC BEHAVIOR
     IF p_mode = 'top' THEN
-      -- TOP MODE: Only process top-level tasks
-      -- If a waiting parent exists, children need processing first - return immediately
       IF v_waiting_parent_id IS NOT NULL THEN
-        RAISE DEBUG 'Top mode: waiting parent % exists, returning to let children process', v_waiting_parent_id;
+        RAISE DEBUG 'Top mode: waiting parent % exists, returning', v_waiting_parent_id;
         EXIT;
       END IF;
 
-      -- Pick a top-level pending task (parent_id IS NULL)
-      RAISE DEBUG 'Top mode: picking top-level task';
-
-      SELECT t.*, cr.handler_procedure, cr.before_procedure, cr.after_procedure, cr.queue, cr.on_children_created
+      SELECT t.*, cr.handler_procedure, cr.before_procedure, cr.after_procedure, cr.queue
       INTO task_record
       FROM worker.tasks AS t
       JOIN worker.command_registry AS cr ON t.command = cr.command
@@ -70,17 +61,24 @@ BEGIN
       FOR UPDATE OF t SKIP LOCKED;
 
     ELSIF p_mode = 'child' THEN
-      -- CHILD MODE: Only process children of waiting parents
-      -- If no waiting parent exists, there's nothing for children to do - return immediately
       IF v_waiting_parent_id IS NULL THEN
         RAISE DEBUG 'Child mode: no waiting parent, returning';
         EXIT;
       END IF;
 
-      -- Pick a pending child of the waiting parent
-      RAISE DEBUG 'Child mode: picking child of waiting parent %', v_waiting_parent_id;
+      -- Respect child_mode of the parent
+      IF v_waiting_parent_child_mode = 'serial' THEN
+        IF EXISTS (
+          SELECT 1 FROM worker.tasks
+          WHERE parent_id = v_waiting_parent_id
+            AND state IN ('processing', 'waiting')
+        ) THEN
+          RAISE DEBUG 'Child mode: serial parent %, sibling still active', v_waiting_parent_id;
+          EXIT;
+        END IF;
+      END IF;
 
-      SELECT t.*, cr.handler_procedure, cr.before_procedure, cr.after_procedure, cr.queue, cr.on_children_created
+      SELECT t.*, cr.handler_procedure, cr.before_procedure, cr.after_procedure, cr.queue
       INTO task_record
       FROM worker.tasks AS t
       JOIN worker.command_registry AS cr ON t.command = cr.command
@@ -93,28 +91,35 @@ BEGIN
       FOR UPDATE OF t SKIP LOCKED;
 
     ELSE
-      -- NULL MODE (backward compatible): Original behavior
-      -- Pick children if waiting parent exists, otherwise top-level task
+      -- NULL MODE (backward compatible)
       IF v_waiting_parent_id IS NOT NULL THEN
-        -- CONCURRENT MODE: Pick a pending child of the waiting parent
-        RAISE DEBUG 'Concurrent mode: picking child of waiting parent %', v_waiting_parent_id;
+        IF v_waiting_parent_child_mode = 'serial' THEN
+          IF EXISTS (
+            SELECT 1 FROM worker.tasks
+            WHERE parent_id = v_waiting_parent_id
+              AND state IN ('processing', 'waiting')
+          ) THEN
+            v_waiting_parent_id := NULL;
+          END IF;
+        END IF;
 
-        SELECT t.*, cr.handler_procedure, cr.before_procedure, cr.after_procedure, cr.queue, cr.on_children_created
-        INTO task_record
-        FROM worker.tasks AS t
-        JOIN worker.command_registry AS cr ON t.command = cr.command
-        WHERE t.state = 'pending'::worker.task_state
-          AND t.parent_id = v_waiting_parent_id
-          AND (t.scheduled_at IS NULL OR t.scheduled_at <= clock_timestamp())
-          AND (p_max_priority IS NULL OR t.priority <= p_max_priority)
-        ORDER BY t.priority ASC NULLS LAST, t.id
-        LIMIT 1
-        FOR UPDATE OF t SKIP LOCKED;
-      ELSE
-        -- SERIAL MODE: Pick a top-level pending task (parent_id IS NULL)
-        RAISE DEBUG 'Serial mode: picking top-level task';
+        IF v_waiting_parent_id IS NOT NULL THEN
+          SELECT t.*, cr.handler_procedure, cr.before_procedure, cr.after_procedure, cr.queue
+          INTO task_record
+          FROM worker.tasks AS t
+          JOIN worker.command_registry AS cr ON t.command = cr.command
+          WHERE t.state = 'pending'::worker.task_state
+            AND t.parent_id = v_waiting_parent_id
+            AND (t.scheduled_at IS NULL OR t.scheduled_at <= clock_timestamp())
+            AND (p_max_priority IS NULL OR t.priority <= p_max_priority)
+          ORDER BY t.priority ASC NULLS LAST, t.id
+          LIMIT 1
+          FOR UPDATE OF t SKIP LOCKED;
+        END IF;
+      END IF;
 
-        SELECT t.*, cr.handler_procedure, cr.before_procedure, cr.after_procedure, cr.queue, cr.on_children_created
+      IF v_waiting_parent_id IS NULL OR NOT FOUND THEN
+        SELECT t.*, cr.handler_procedure, cr.before_procedure, cr.after_procedure, cr.queue
         INTO task_record
         FROM worker.tasks AS t
         JOIN worker.command_registry AS cr ON t.command = cr.command
@@ -133,32 +138,25 @@ BEGIN
       END IF;
     END IF;
 
-    -- Exit if no more tasks
     IF NOT FOUND THEN
-      RAISE DEBUG 'Exiting worker loop: No more pending tasks found';
       EXIT;
     END IF;
 
-    -- Process the task
     start_time := clock_timestamp();
 
-    -- Mark as processing and record the current backend PID
     UPDATE worker.tasks AS t
     SET state = 'processing'::worker.task_state,
         worker_pid = pg_backend_pid()
     WHERE t.id = task_record.id;
 
-    -- Call before_procedure if defined (e.g., notify_*_start UPSERTs phase row)
     IF task_record.before_procedure IS NOT NULL THEN
       BEGIN
-        RAISE DEBUG 'Calling before_procedure: % for task % (%)', task_record.before_procedure, task_record.id, task_record.command;
         EXECUTE format('CALL %s()', task_record.before_procedure);
       EXCEPTION WHEN OTHERS THEN
         RAISE WARNING 'Error in before_procedure % for task %: %', task_record.before_procedure, task_record.id, SQLERRM;
       END;
     END IF;
 
-    -- Commit to see state change (only if not in a test transaction)
     IF NOT v_inside_transaction THEN
       COMMIT;
     END IF;
@@ -170,12 +168,9 @@ BEGIN
       v_duration_ms NUMERIC;
       v_error TEXT DEFAULT NULL;
       v_has_children BOOLEAN;
-      v_child_count INT;
     BEGIN
-      -- Initialize retry counter for this task
       v_retry_count := 0;
 
-      -- RETRY LOOP for handling transient errors (deadlocks, serialization failures)
       <<retry_loop>>
       LOOP
         DECLARE
@@ -184,7 +179,6 @@ BEGIN
           v_pg_exception_hint TEXT;
           v_pg_exception_context TEXT;
         BEGIN
-          -- Execute the handler procedure
           IF task_record.handler_procedure IS NOT NULL THEN
             EXECUTE format('CALL %s($1)', task_record.handler_procedure)
             USING task_record.payload;
@@ -192,58 +186,34 @@ BEGIN
             RAISE EXCEPTION 'No handler procedure found for command: %', task_record.command;
           END IF;
 
-          -- Handler completed successfully - exit retry loop
           elapsed_ms := EXTRACT(EPOCH FROM (clock_timestamp() - start_time)) * 1000;
           v_processed_at := clock_timestamp();
           v_duration_ms := elapsed_ms;
 
-          -- STRUCTURED CONCURRENCY: Check if handler spawned children
           SELECT EXISTS (
             SELECT 1 FROM worker.tasks WHERE parent_id = task_record.id
           ) INTO v_has_children;
 
           IF v_has_children THEN
-            -- Task spawned children: go to 'waiting' state
             v_state := 'waiting'::worker.task_state;
-            v_completed_at := NULL;  -- Not completed yet, waiting for children
-
-            -- Lifecycle hook: on_children_created (generic — no domain knowledge)
-            IF task_record.on_children_created IS NOT NULL THEN
-              SELECT count(*)::int INTO v_child_count
-              FROM worker.tasks WHERE parent_id = task_record.id;
-
-              EXECUTE format('CALL %s', task_record.on_children_created)
-              USING task_record.id, v_child_count;
-            END IF;
-
-            RAISE DEBUG 'Task % (%) spawned children, entering waiting state', task_record.id, task_record.command;
+            v_completed_at := NULL;
           ELSE
-            -- No children: task is completed
             v_state := 'completed'::worker.task_state;
             v_completed_at := clock_timestamp();
-            RAISE DEBUG 'Task % (%) completed in % ms', task_record.id, task_record.command, elapsed_ms;
           END IF;
 
-          EXIT retry_loop;  -- Success, exit the retry loop
+          EXIT retry_loop;
 
         EXCEPTION
           WHEN deadlock_detected THEN
-            -- DEADLOCK: Retry with exponential backoff
             v_retry_count := v_retry_count + 1;
             IF v_retry_count <= v_max_retries THEN
-              RAISE WARNING 'Task % (%) deadlock detected, retry %/% after % ms',
-                task_record.id, task_record.command, v_retry_count, v_max_retries,
-                round(v_backoff_base_ms * power(2, v_retry_count - 1));
-              -- Exponential backoff with jitter
+              RAISE WARNING 'Task % (%) deadlock detected, retry %/%',
+                task_record.id, task_record.command, v_retry_count, v_max_retries;
               PERFORM pg_sleep((v_backoff_base_ms * power(2, v_retry_count - 1) + (random() * 50)) / 1000.0);
-              CONTINUE retry_loop;  -- Retry the task
-            ELSE
-              -- Max retries exceeded - fall through to error handling
-              RAISE WARNING 'Task % (%) max retries (%) exceeded for deadlock',
-                task_record.id, task_record.command, v_max_retries;
+              CONTINUE retry_loop;
             END IF;
 
-            -- Capture error details for failed task
             elapsed_ms := EXTRACT(EPOCH FROM (clock_timestamp() - start_time)) * 1000;
             v_state := 'failed'::worker.task_state;
             v_processed_at := clock_timestamp();
@@ -253,17 +223,12 @@ BEGIN
             EXIT retry_loop;
 
           WHEN serialization_failure THEN
-            -- SERIALIZATION FAILURE: Retry with exponential backoff
             v_retry_count := v_retry_count + 1;
             IF v_retry_count <= v_max_retries THEN
-              RAISE WARNING 'Task % (%) serialization failure, retry %/% after % ms',
-                task_record.id, task_record.command, v_retry_count, v_max_retries,
-                round(v_backoff_base_ms * power(2, v_retry_count - 1));
+              RAISE WARNING 'Task % (%) serialization failure, retry %/%',
+                task_record.id, task_record.command, v_retry_count, v_max_retries;
               PERFORM pg_sleep((v_backoff_base_ms * power(2, v_retry_count - 1) + (random() * 50)) / 1000.0);
               CONTINUE retry_loop;
-            ELSE
-              RAISE WARNING 'Task % (%) max retries (%) exceeded for serialization failure',
-                task_record.id, task_record.command, v_max_retries;
             END IF;
 
             elapsed_ms := EXTRACT(EPOCH FROM (clock_timestamp() - start_time)) * 1000;
@@ -275,7 +240,6 @@ BEGIN
             EXIT retry_loop;
 
           WHEN OTHERS THEN
-            -- OTHER ERRORS: Don't retry, fail immediately
             elapsed_ms := EXTRACT(EPOCH FROM (clock_timestamp() - start_time)) * 1000;
             v_state := 'failed'::worker.task_state;
             v_processed_at := clock_timestamp();
@@ -301,7 +265,6 @@ BEGIN
         END;
       END LOOP retry_loop;
 
-      -- Update the task with results
       UPDATE worker.tasks AS t
       SET state = v_state,
           processed_at = v_processed_at,
@@ -310,42 +273,38 @@ BEGIN
           error = v_error
       WHERE t.id = task_record.id;
 
-      -- PIPELINE PROGRESS (D): REMOVED — phase rows persist until notify_stop deletes them
-
-      -- STRUCTURED CONCURRENCY: For test transactions, check parent inline
-      -- (all changes are visible within the same transaction)
       IF v_inside_transaction AND task_record.parent_id IS NOT NULL AND v_state IN ('completed', 'failed') THEN
         PERFORM worker.complete_parent_if_ready(task_record.id);
       END IF;
 
-      -- Call after_procedure only for terminal states (completed/failed).
-      -- For 'waiting' tasks (spawned children), after_procedure fires later
-      -- via complete_parent_if_ready when all children finish.
       IF task_record.after_procedure IS NOT NULL AND v_state IN ('completed', 'failed') THEN
         BEGIN
-          RAISE DEBUG 'Calling after_procedure: % for task % (%)', task_record.after_procedure, task_record.id, task_record.command;
           EXECUTE format('CALL %s()', task_record.after_procedure);
         EXCEPTION WHEN OTHERS THEN
           RAISE WARNING 'Error in after_procedure % for task %: %', task_record.after_procedure, task_record.id, SQLERRM;
         END;
       END IF;
 
-      -- Commit if not in transaction
       IF NOT v_inside_transaction THEN
         COMMIT;
       END IF;
 
-      -- STRUCTURED CONCURRENCY: Post-commit parent check (RACE CONDITION FIX)
       IF NOT v_inside_transaction AND task_record.parent_id IS NOT NULL AND v_state IN ('completed', 'failed') THEN
         PERFORM worker.complete_parent_if_ready(task_record.id);
         COMMIT;
       END IF;
+
+      -- Notify frontend of progress for analytics-queue tasks
+      IF task_record.queue = 'analytics' THEN
+        PERFORM worker.notify_task_progress();
+        IF NOT v_inside_transaction THEN
+          COMMIT;
+        END IF;
+      END IF;
     END;
 
-    -- Increment processed count and check batch limit
     processed_count := processed_count + 1;
     IF p_batch_size IS NOT NULL AND processed_count >= p_batch_size THEN
-      RAISE DEBUG 'Exiting worker loop: Batch size limit of % reached', p_batch_size;
       EXIT;
     END IF;
   END LOOP;

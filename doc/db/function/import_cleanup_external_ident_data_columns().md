@@ -22,7 +22,7 @@ BEGIN
     
     FOR v_ident_type IN 
         SELECT code, shape, labels 
-        FROM public.external_ident_type_active
+        FROM public.external_ident_type_enabled
     LOOP
         IF v_ident_type.shape = 'regular' THEN
             -- Regular: single {code}_raw column

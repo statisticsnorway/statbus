@@ -10,7 +10,7 @@
  power_group_id   | integer                  |           |          |                              | plain    |             |              | 
  created_at       | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
  edit_comment     | character varying(512)   |           |          |                              | extended |             |              | 
- edit_by_user_id  | integer                  |           | not null |                              | plain    |             |              | 
+ edit_by_user_id  | integer                  |           | not null | auth.uid()                   | plain    |             |              | 
  edit_at          | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
 Indexes:
     "tag_for_unit_pkey" PRIMARY KEY, btree (id)
@@ -41,7 +41,7 @@ Policies:
     POLICY "tag_for_unit_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 Not-null constraints:
     "tag_for_unit_id_not_null" NOT NULL "id"
     "tag_for_unit_tag_id_not_null" NOT NULL "tag_id"
@@ -49,6 +49,10 @@ Not-null constraints:
     "tag_for_unit_edit_by_user_id_not_null" NOT NULL "edit_by_user_id"
     "tag_for_unit_edit_at_not_null" NOT NULL "edit_at"
 Triggers:
+    a_tag_for_unit_log_delete AFTER DELETE ON tag_for_unit REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
+    a_tag_for_unit_log_insert AFTER INSERT ON tag_for_unit REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
+    a_tag_for_unit_log_update AFTER UPDATE ON tag_for_unit REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
+    b_tag_for_unit_ensure_collect AFTER INSERT OR DELETE OR UPDATE ON tag_for_unit FOR EACH STATEMENT EXECUTE FUNCTION worker.ensure_collect_changes()
     trigger_prevent_tag_for_unit_id_update BEFORE UPDATE OF id ON tag_for_unit FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap
 

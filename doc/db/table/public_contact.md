@@ -17,7 +17,7 @@
  legal_unit_id    | integer                  |           |          | 
  data_source_id   | integer                  |           |          | 
  edit_comment     | character varying(512)   |           |          | 
- edit_by_user_id  | integer                  |           | not null | 
+ edit_by_user_id  | integer                  |           | not null | auth.uid()
  edit_at          | timestamp with time zone |           | not null | statement_timestamp()
 Indexes:
     "contact_pkey" PRIMARY KEY (id, valid_range WITHOUT OVERLAPS)
@@ -58,7 +58,7 @@ Policies:
     POLICY "contact_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 Triggers:
     a_contact_log_delete AFTER DELETE ON contact REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_contact_log_insert AFTER INSERT ON contact REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()

@@ -17,7 +17,7 @@ BEGIN
         RETURN;
     END IF;
 
-    SELECT array_agg(code ORDER BY priority) INTO v_active_codes FROM public.stat_definition_active;
+    SELECT array_agg(code ORDER BY priority) INTO v_active_codes FROM public.stat_definition_enabled;
     RAISE DEBUG '[import.generate_stat_var_data_columns] For step_id % (statistical_variables), ensuring data columns for active codes: %', v_step_id, v_active_codes;
 
     -- For statistical_variables step, we generate 3 columns per stat_definition in sequence:
@@ -26,7 +26,7 @@ BEGIN
     -- turnover (priority=2): _raw=4, internal=5, pk_id=6
 
     -- Add source_input columns for each active stat_definition
-    FOR v_stat_def IN SELECT code, priority FROM public.stat_definition_active ORDER BY priority
+    FOR v_stat_def IN SELECT code, priority FROM public.stat_definition_enabled ORDER BY priority
     LOOP
         v_calculated_priority := (v_stat_def.priority - 1) * 3 + 1;
         
@@ -39,7 +39,7 @@ BEGIN
     END LOOP;
 
     -- Add internal typed columns for each active stat_definition
-    FOR v_stat_def IN SELECT code, type, priority FROM public.stat_definition_active ORDER BY priority
+    FOR v_stat_def IN SELECT code, type, priority FROM public.stat_definition_enabled ORDER BY priority
     LOOP
         v_calculated_priority := (v_stat_def.priority - 1) * 3 + 2;
         
@@ -60,7 +60,7 @@ BEGIN
     END LOOP;
 
     -- Add pk_id columns for each active stat_definition
-    FOR v_stat_def IN SELECT code, priority FROM public.stat_definition_active ORDER BY priority
+    FOR v_stat_def IN SELECT code, priority FROM public.stat_definition_enabled ORDER BY priority
     LOOP
         v_calculated_priority := (v_stat_def.priority - 1) * 3 + 3;
         v_pk_col_name := format('stat_for_unit_%s_id', v_stat_def.code);

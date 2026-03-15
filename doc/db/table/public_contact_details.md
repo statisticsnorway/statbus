@@ -17,7 +17,7 @@
  legal_unit_id    | integer                  |           |          |                                  | plain    |             |              | 
  data_source_id   | integer                  |           |          |                                  | plain    |             |              | 
  edit_comment     | character varying(512)   |           |          |                                  | extended |             |              | 
- edit_by_user_id  | integer                  |           | not null |                                  | plain    |             |              | 
+ edit_by_user_id  | integer                  |           | not null | auth.uid()                       | plain    |             |              | 
  edit_at          | timestamp with time zone |           | not null | statement_timestamp()            | plain    |             |              | 
 Indexes:
     "contact_pkey" PRIMARY KEY (id, valid_range WITHOUT OVERLAPS)
@@ -58,7 +58,7 @@ Policies:
     POLICY "contact_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 Not-null constraints:
     "contact_id_not_null" NOT NULL "id"
     "contact_valid_range_not_null" NOT NULL "valid_range"

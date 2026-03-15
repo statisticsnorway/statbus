@@ -16,7 +16,7 @@
  primary_influencer_only        | boolean                  |           |          | 
  percentage                     | numeric(5,2)             |           |          | 
  edit_comment                   | character varying(512)   |           |          | 
- edit_by_user_id                | integer                  |           | not null | 
+ edit_by_user_id                | integer                  |           | not null | auth.uid()
  edit_at                        | timestamp with time zone |           | not null | statement_timestamp()
 Indexes:
     "legal_relationship_pkey" PRIMARY KEY (id, valid_range WITHOUT OVERLAPS)
@@ -62,7 +62,7 @@ Policies:
     POLICY "legal_relationship_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 Triggers:
     a_legal_relationship_log_delete AFTER DELETE ON legal_relationship REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_legal_relationship_log_insert AFTER INSERT ON legal_relationship REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()

@@ -9,7 +9,7 @@ View definition:
  SELECT path,
     name,
     description
-   FROM sector_available
+   FROM sector_enabled
   WHERE custom = false;
 Triggers:
     upsert_sector_system INSTEAD OF INSERT ON sector_system FOR EACH ROW EXECUTE FUNCTION admin.upsert_sector_system()

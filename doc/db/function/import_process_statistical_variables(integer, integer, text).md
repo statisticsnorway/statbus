@@ -73,7 +73,7 @@ BEGIN
             sda.code as stat_code,
             sda.type as stat_type
         FROM source_cols sc
-        JOIN public.stat_definition_active sda ON sda.code = sc.stat_code
+        JOIN public.stat_definition_enabled sda ON sda.code = sc.stat_code
     LOOP
         RAISE DEBUG '[Job %] process_statistical_variables: Found stat variable to process: %', p_job_id, v_stat_def;
 
@@ -173,7 +173,7 @@ BEGIN
     v_all_stat_error_keys := ARRAY(
         SELECT 'stat_' || sda.code
         FROM jsonb_array_elements(v_stat_data_cols) idc
-        JOIN public.stat_definition_active sda ON sda.code = replace((idc.value->>'column_name'), '_raw', '')
+        JOIN public.stat_definition_enabled sda ON sda.code = replace((idc.value->>'column_name'), '_raw', '')
         WHERE idc.value->>'purpose' = 'source_input'
     );
 

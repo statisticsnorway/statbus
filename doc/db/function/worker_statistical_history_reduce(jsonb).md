@@ -9,12 +9,8 @@ DECLARE
     v_valid_until date := (payload->>'valid_until')::date;
     v_round_priority_base bigint := (payload->>'round_priority_base')::bigint;
 BEGIN
-    RAISE DEBUG 'statistical_history_reduce: valid_from=%, valid_until=%', v_valid_from, v_valid_until;
-
-    -- Delete existing root entries
     DELETE FROM public.statistical_history WHERE partition_seq IS NULL;
 
-    -- Recalculate root entries by summing across all partition entries
     INSERT INTO public.statistical_history (
         resolution, year, month, unit_type,
         exists_count, exists_change, exists_added_count, exists_removed_count,
@@ -44,14 +40,11 @@ BEGIN
     WHERE partition_seq IS NOT NULL
     GROUP BY resolution, year, month, unit_type;
 
-    -- Enqueue next phase: derive_statistical_unit_facet
     PERFORM worker.enqueue_derive_statistical_unit_facet(
         p_valid_from => v_valid_from,
         p_valid_until => v_valid_until,
-        p_round_priority_base := v_round_priority_base
+        p_round_priority_base => v_round_priority_base
     );
-
-    RAISE DEBUG 'statistical_history_reduce: done, enqueued derive_statistical_unit_facet';
 END;
 $procedure$
 ```

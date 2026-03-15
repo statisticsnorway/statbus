@@ -6,7 +6,7 @@
  enabled         | boolean                  |           | not null | true                         | plain    |             |              | 
  short_name      | character varying(16)    |           |          |                              | extended |             |              | 
  edit_comment    | character varying(512)   |           |          |                              | extended |             |              | 
- edit_by_user_id | integer                  |           | not null |                              | plain    |             |              | 
+ edit_by_user_id | integer                  |           | not null | auth.uid()                   | plain    |             |              | 
  edit_at         | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
 Indexes:
     "enterprise_pkey" PRIMARY KEY, btree (id)
@@ -31,7 +31,7 @@ Policies:
     POLICY "enterprise_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 Not-null constraints:
     "enterprise_id_not_null" NOT NULL "id"
     "enterprise_enabled_not_null" NOT NULL "enabled"

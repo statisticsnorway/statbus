@@ -599,8 +599,8 @@ BEGIN
       AND cr.queue = p_queue
       AND NOT worker.has_pending_children(t.id)
     ORDER BY t.depth DESC, t.priority, t.id
-    FOR UPDATE OF t SKIP LOCKED
-    LIMIT 1;
+    LIMIT 1
+    FOR UPDATE OF t SKIP LOCKED;
 
     IF v_parent_id IS NULL THEN
         RETURN NULL;
@@ -611,6 +611,15 @@ BEGIN
     FROM worker.tasks
     WHERE parent_id = v_parent_id
     LIMIT 1;
+
+    IF v_any_child_id IS NULL THEN
+        -- Waiting with no children is an invalid state — force-fail the parent
+        UPDATE worker.tasks
+        SET state = 'failed', completed_at = clock_timestamp(),
+            error = 'Stuck waiting with no children (rescued)'
+        WHERE id = v_parent_id AND state = 'waiting';
+        RETURN v_parent_id;
+    END IF;
 
     -- Delegate to the standard completion path (handles after_procedure + recursion)
     PERFORM worker.complete_parent_if_ready(v_any_child_id);

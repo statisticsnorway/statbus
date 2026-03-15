@@ -33,7 +33,7 @@ BEGIN
                 dc.code,
                 ds.id as resolved_id
             FROM distinct_codes dc
-            LEFT JOIN public.data_source_available ds ON ds.code = dc.code
+            LEFT JOIN public.data_source_enabled ds ON ds.code = dc.code
         ),
         lookups AS (
             SELECT

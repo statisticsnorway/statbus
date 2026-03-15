@@ -7,7 +7,7 @@
 View definition:
  SELECT code,
     name
-   FROM data_source_available
+   FROM data_source_enabled
   WHERE custom = true;
 Triggers:
     prepare_data_source_custom BEFORE INSERT ON data_source_custom FOR EACH STATEMENT EXECUTE FUNCTION admin.prepare_data_source_custom()

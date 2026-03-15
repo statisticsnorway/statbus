@@ -11,17 +11,19 @@
  name                | character varying(256)   |           | not null |                                                                                                                | extended |             |              | 
  description         | text                     |           |          |                                                                                                                | extended |             |              | 
  enabled             | boolean                  |           | not null | true                                                                                                           | plain    |             |              | 
- type                | tag_type                 |           | not null |                                                                                                                | plain    |             |              | 
  context_valid_from  | date                     |           |          |                                                                                                                | plain    |             |              | 
  context_valid_to    | date                     |           |          |                                                                                                                | plain    |             |              | 
  context_valid_until | date                     |           |          | generated always as ((context_valid_to + '1 day'::interval)) stored                                            | plain    |             |              | 
  context_valid_on    | date                     |           |          |                                                                                                                | plain    |             |              | 
  created_at          | timestamp with time zone |           | not null | statement_timestamp()                                                                                          | plain    |             |              | 
  updated_at          | timestamp with time zone |           | not null | statement_timestamp()                                                                                          | plain    |             |              | 
+ custom              | boolean                  |           | not null | false                                                                                                          | plain    |             |              | 
 Indexes:
     "tag_pkey" PRIMARY KEY, btree (id)
+    "ix_tag_custom" btree (custom)
     "ix_tag_enabled" btree (enabled)
-    "ix_tag_type" btree (type)
+    "ix_tag_enabled_path" UNIQUE, btree (enabled, path)
+    "ix_tag_parent_id" btree (parent_id)
     "tag_path_key" UNIQUE CONSTRAINT, btree (path)
 Check constraints:
     "context_valid_dates_same_nullability" CHECK (context_valid_from IS NULL AND context_valid_to IS NULL AND context_valid_until IS NULL OR context_valid_from IS NOT NULL AND context_valid_to IS NOT NULL AND context_valid_until IS NOT NULL)
@@ -48,9 +50,9 @@ Not-null constraints:
     "tag_label_not_null" NOT NULL "label"
     "tag_name_not_null" NOT NULL "name"
     "tag_enabled_not_null" NOT NULL "enabled"
-    "tag_type_not_null" NOT NULL "type"
     "tag_created_at_not_null" NOT NULL "created_at"
     "tag_updated_at_not_null" NOT NULL "updated_at"
+    "tag_custom_not_null" NOT NULL "custom"
 Triggers:
     trigger_prevent_tag_id_update BEFORE UPDATE OF id ON tag FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap

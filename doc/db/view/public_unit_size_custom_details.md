@@ -7,7 +7,7 @@
 View definition:
  SELECT code,
     name
-   FROM unit_size_available
+   FROM unit_size_enabled
   WHERE custom = true;
 Triggers:
     prepare_unit_size_custom BEFORE INSERT ON unit_size_custom FOR EACH STATEMENT EXECUTE FUNCTION admin.prepare_unit_size_custom()

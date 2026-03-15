@@ -6,7 +6,7 @@ AS $function$
 DECLARE
     table_properties admin.batch_api_table_properties;
     view_name_ordered regclass;
-    view_name_available regclass;
+    view_name_enabled regclass;
     view_name_system regclass;
     view_name_custom regclass;
     upsert_function_name_system regprocedure;
@@ -18,7 +18,7 @@ BEGIN
     table_properties := admin.detect_batch_api_table_properties(table_name);
 
     view_name_ordered := admin.generate_view(table_properties, 'ordered');
-    view_name_available := admin.generate_view(table_properties, 'available');
+    view_name_enabled := admin.generate_view(table_properties, 'enabled');
     view_name_system := admin.generate_view(table_properties, 'system');
     view_name_custom := admin.generate_view(table_properties, 'custom');
 

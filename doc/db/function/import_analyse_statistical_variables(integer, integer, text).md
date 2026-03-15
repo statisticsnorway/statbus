@@ -51,7 +51,7 @@ BEGIN
                 WHEN 'int' THEN 'INTEGER' WHEN 'float' THEN 'NUMERIC' WHEN 'bool' THEN 'BOOLEAN' ELSE 'TEXT'
             END as column_type
         FROM jsonb_array_elements(v_stat_source_cols) elem
-        JOIN public.stat_definition_active sda ON sda.code = replace(elem->>'column_name', '_raw', '')
+        JOIN public.stat_definition_enabled sda ON sda.code = replace(elem->>'column_name', '_raw', '')
     LOOP
         v_set_clauses_array := array_append(v_set_clauses_array, format('%1$I = (pivoted.values->>%2$L)::%3$s', v_col_rec.code, v_col_rec.code, v_col_rec.column_type));
         v_error_keys_to_clear_arr := array_append(v_error_keys_to_clear_arr, v_col_rec.raw_code);
@@ -65,7 +65,7 @@ BEGIN
         SELECT format('SELECT row_id, %L AS stat_code_raw, %L AS stat_code, %L AS stat_type, %I AS stat_value_text FROM t_batch_data WHERE NULLIF(%I, '''') IS NOT NULL',
                       sda.code || '_raw', sda.code, sda.type, sda.code || '_raw', sda.code || '_raw') as sql_part
         FROM jsonb_array_elements(v_stat_source_cols) elem
-        JOIN public.stat_definition_active sda ON sda.code = replace(elem->>'column_name', '_raw', '')
+        JOIN public.stat_definition_enabled sda ON sda.code = replace(elem->>'column_name', '_raw', '')
     ) AS parts;
 
     -- Decomposed query approach for performance

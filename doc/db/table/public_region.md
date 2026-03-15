@@ -12,11 +12,13 @@
  center_latitude  | numeric(9,6)      |           |          | 
  center_longitude | numeric(9,6)      |           |          | 
  center_altitude  | numeric(6,1)      |           |          | 
+ version_id       | integer           |           | not null | 
 Indexes:
     "region_pkey" PRIMARY KEY, btree (id)
     "ix_region_parent_id" btree (parent_id)
-    "region_code_key" UNIQUE, btree (code) WHERE code IS NOT NULL
-    "region_path_key" UNIQUE CONSTRAINT, btree (path)
+    "region_code_version_key" UNIQUE, btree (version_id, code) WHERE code IS NOT NULL
+    "region_id_version_id_key" UNIQUE, btree (id, version_id)
+    "region_version_path_key" UNIQUE, btree (version_id, path)
 Check constraints:
     "altitude requires coordinates" CHECK (
 CASE
@@ -30,7 +32,9 @@ END)
     "parent_id is required for child" CHECK (nlevel(path) = 1 OR parent_id IS NOT NULL)
 Foreign-key constraints:
     "region_parent_id_fkey" FOREIGN KEY (parent_id) REFERENCES region(id) ON DELETE RESTRICT
+    "region_version_id_fkey" FOREIGN KEY (version_id) REFERENCES region_version(id)
 Referenced by:
+    TABLE "location" CONSTRAINT "location_region_dual_fk" FOREIGN KEY (region_id, region_version_id) REFERENCES region(id, version_id)
     TABLE "location" CONSTRAINT "location_region_id_fkey" FOREIGN KEY (region_id) REFERENCES region(id) ON DELETE RESTRICT
     TABLE "region_access" CONSTRAINT "region_access_region_id_fkey" FOREIGN KEY (region_id) REFERENCES region(id) ON DELETE CASCADE
     TABLE "region" CONSTRAINT "region_parent_id_fkey" FOREIGN KEY (parent_id) REFERENCES region(id) ON DELETE RESTRICT
@@ -46,6 +50,10 @@ Policies:
       TO regular_user
       USING (true)
 Triggers:
+    a_region_log_delete AFTER DELETE ON region REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_region_change()
+    a_region_log_insert AFTER INSERT ON region REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_region_change()
+    a_region_log_update AFTER UPDATE ON region REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_region_change()
+    b_region_ensure_collect AFTER INSERT OR DELETE OR UPDATE ON region FOR EACH STATEMENT EXECUTE FUNCTION worker.ensure_collect_changes()
     trigger_prevent_region_id_update BEFORE UPDATE OF id ON region FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 
 ```

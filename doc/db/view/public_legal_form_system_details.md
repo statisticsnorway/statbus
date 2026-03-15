@@ -7,7 +7,7 @@
 View definition:
  SELECT code,
     name
-   FROM legal_form_available
+   FROM legal_form_enabled
   WHERE custom = false;
 Triggers:
     upsert_legal_form_system INSTEAD OF INSERT ON legal_form_system FOR EACH ROW EXECUTE FUNCTION admin.upsert_legal_form_system()

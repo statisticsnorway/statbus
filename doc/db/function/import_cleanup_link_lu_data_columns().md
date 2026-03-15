@@ -20,7 +20,7 @@ BEGIN
     WHERE idc.step_id = v_step_id
       AND idc.purpose = 'source_input'
       AND replace(replace(idc.column_name, 'legal_unit_', ''), '_raw', '') NOT IN (
-          SELECT code FROM public.external_ident_type_active
+          SELECT code FROM public.external_ident_type_enabled
       );
 END;
 $procedure$

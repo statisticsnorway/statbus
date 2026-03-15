@@ -6,10 +6,22 @@ AS $function$
 DECLARE
     new_jsonb JSONB := to_jsonb(NEW);
     maybe_parent_id int := NULL;
+    v_version_id int;
     row RECORD;
     new_typed RECORD;
     fields_with_error JSONB := '{}'::jsonb;
 BEGIN
+  -- Get the current region version: prefer settings, fall back to the current enabled version
+  SELECT region_version_id INTO v_version_id FROM public.settings;
+  IF v_version_id IS NULL THEN
+      SELECT id INTO v_version_id
+        FROM public.region_version
+       WHERE enabled AND lasts_to IS NULL;
+  END IF;
+  IF v_version_id IS NULL THEN
+      RAISE EXCEPTION 'No current region version found (settings.region_version_id is not set and no enabled version with lasts_to IS NULL exists)';
+  END IF;
+
   SELECT NULL::public.ltree AS path
        , NULL::numeric(9, 6) AS center_latitude
        , NULL::numeric(9, 6) AS center_longitude
@@ -32,11 +44,12 @@ BEGIN
     INTO   new_typed.center_altitude, fields_with_error
     FROM   admin.type_numeric_field(new_jsonb, 'center_altitude', 6, 1, fields_with_error);
 
-    -- Validate path format and find parent
+    -- Validate path format and find parent (scoped to same version)
     IF public.nlevel(new_typed.path) > 1 THEN
         SELECT id INTO maybe_parent_id
           FROM public.region
-         WHERE path OPERATOR(public.=) public.subltree(new_typed.path, 0, public.nlevel(new_typed.path) - 1);
+         WHERE path OPERATOR(public.=) public.subltree(new_typed.path, 0, public.nlevel(new_typed.path) - 1)
+           AND version_id = v_version_id;
 
         IF NOT FOUND THEN
             fields_with_error := fields_with_error || jsonb_build_object('path',
@@ -57,9 +70,9 @@ BEGIN
     END IF;
 
     BEGIN
-        INSERT INTO public.region (path, parent_id, name, center_latitude, center_longitude, center_altitude)
-        VALUES (new_typed.path, maybe_parent_id, NEW.name, new_typed.center_latitude, new_typed.center_longitude, new_typed.center_altitude)
-        ON CONFLICT (path)
+        INSERT INTO public.region (path, parent_id, name, center_latitude, center_longitude, center_altitude, version_id)
+        VALUES (new_typed.path, maybe_parent_id, NEW.name, new_typed.center_latitude, new_typed.center_longitude, new_typed.center_altitude, v_version_id)
+        ON CONFLICT (version_id, path)
         DO UPDATE SET
             parent_id = maybe_parent_id,
             name = CASE
@@ -70,7 +83,6 @@ BEGIN
             center_latitude = EXCLUDED.center_latitude,
             center_longitude = EXCLUDED.center_longitude,
             center_altitude = EXCLUDED.center_altitude
-        -- No WHERE clause needed: ON CONFLICT (path) already identifies the row to update
         RETURNING * INTO row;
       EXCEPTION WHEN OTHERS THEN
           RAISE EXCEPTION 'Failed to insert/update region: %', jsonb_pretty(

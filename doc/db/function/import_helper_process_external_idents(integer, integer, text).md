@@ -38,7 +38,7 @@ BEGIN
     SELECT * INTO v_step FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list') WHERE code = 'external_idents';
     SELECT jsonb_agg(value) INTO v_ident_data_cols
     FROM jsonb_array_elements(v_job.definition_snapshot->'import_data_column_list') value
-    WHERE (value->>'step_id')::int = v_step.id 
+    WHERE (value->>'step_id')::int = v_step.id
       AND value->>'purpose' IN ('source_input', 'internal');
 
     IF v_ident_data_cols IS NULL OR jsonb_array_length(v_ident_data_cols) = 0 THEN
@@ -51,7 +51,7 @@ BEGIN
     -- ============================================================================
     FOR v_ident_type_rec IN
         SELECT eit.id, eit.code, eit.shape
-        FROM public.external_ident_type_active eit
+        FROM public.external_ident_type_enabled eit
         WHERE eit.shape = 'regular'
         ORDER BY eit.priority
     LOOP
@@ -64,7 +64,7 @@ BEGIN
         END IF;
 
         RAISE DEBUG '[Job %] helper_process_external_idents: Processing regular identifier type: %', p_job_id, v_ident_type_rec.code;
-        
+
         v_sql := format(
                 $SQL$
                 MERGE INTO public.external_ident AS t
@@ -94,6 +94,7 @@ BEGIN
                         establishment_id = CASE WHEN %5$L = 'establishment' THEN s.unit_id ELSE NULL END,
                         enterprise_id = NULL,
                         power_group_id = NULL,
+                        person_id = NULL,
                         edit_by_user_id = s.edit_by_user_id,
                         edit_at = s.edit_at,
                         edit_comment = s.edit_comment
@@ -115,7 +116,7 @@ BEGIN
                 v_data_table_name,                      -- %4$I
                 v_unit_type                             -- %5$L
             );
-        
+
         RAISE DEBUG '[Job %] helper_process_external_idents: Regular MERGE SQL: %', p_job_id, v_sql;
         EXECUTE v_sql USING p_batch_seq;
         GET DIAGNOSTICS v_rows_affected = ROW_COUNT;
@@ -127,7 +128,7 @@ BEGIN
     -- ============================================================================
     FOR v_ident_type_rec IN
         SELECT eit.id, eit.code, eit.shape, eit.labels
-        FROM public.external_ident_type_active eit
+        FROM public.external_ident_type_enabled eit
         WHERE eit.shape = 'hierarchical'
           AND eit.labels IS NOT NULL
         ORDER BY eit.priority
@@ -140,11 +141,9 @@ BEGIN
             CONTINUE;
         END IF;
 
-        RAISE DEBUG '[Job %] helper_process_external_idents: Processing hierarchical identifier type: % (path column: %_path)', 
+        RAISE DEBUG '[Job %] helper_process_external_idents: Processing hierarchical identifier type: % (path column: %_path)',
             p_job_id, v_ident_type_rec.code, v_ident_type_rec.code;
-        
-        -- For hierarchical identifiers, we use the {code}_path column which contains the ltree value
-        -- The MERGE matches on t.idents = s.idents_value (both ltree)
+
         v_sql := format(
                 $SQL$
                 MERGE INTO public.external_ident AS t
@@ -174,6 +173,7 @@ BEGIN
                         establishment_id = CASE WHEN %5$L = 'establishment' THEN s.unit_id ELSE NULL END,
                         enterprise_id = NULL,
                         power_group_id = NULL,
+                        person_id = NULL,
                         edit_by_user_id = s.edit_by_user_id,
                         edit_at = s.edit_at,
                         edit_comment = s.edit_comment
@@ -195,13 +195,13 @@ BEGIN
                 v_data_table_name,                       -- %4$I
                 v_unit_type                              -- %5$L
             );
-        
+
         RAISE DEBUG '[Job %] helper_process_external_idents: Hierarchical MERGE SQL: %', p_job_id, v_sql;
         EXECUTE v_sql USING p_batch_seq;
         GET DIAGNOSTICS v_rows_affected = ROW_COUNT;
         RAISE DEBUG '[Job %] helper_process_external_idents: Merged % rows for hierarchical identifier type %.', p_job_id, v_rows_affected, v_ident_type_rec.code;
     END LOOP;
-    
+
 EXCEPTION WHEN OTHERS THEN
     RAISE WARNING '[Job %] helper_process_external_idents: Error during batch operation: %', p_job_id, SQLERRM;
     RAISE;

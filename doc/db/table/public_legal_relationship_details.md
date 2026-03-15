@@ -16,7 +16,7 @@
  primary_influencer_only        | boolean                  |           |          |                                  | plain    |             |              | Denormalized from legal_rel_type; when TRUE, this relationship forms power group hierarchies
  percentage                     | numeric(5,2)             |           |          |                                  | main     |             |              | Ownership/control percentage (0-100), optional
  edit_comment                   | character varying(512)   |           |          |                                  | extended |             |              | 
- edit_by_user_id                | integer                  |           | not null |                                  | plain    |             |              | 
+ edit_by_user_id                | integer                  |           | not null | auth.uid()                       | plain    |             |              | 
  edit_at                        | timestamp with time zone |           | not null | statement_timestamp()            | plain    |             |              | 
 Indexes:
     "legal_relationship_pkey" PRIMARY KEY (id, valid_range WITHOUT OVERLAPS)
@@ -62,7 +62,7 @@ Policies:
     POLICY "legal_relationship_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 Not-null constraints:
     "legal_relationship_id_not_null" NOT NULL "id"
     "legal_relationship_valid_range_not_null" NOT NULL "valid_range"

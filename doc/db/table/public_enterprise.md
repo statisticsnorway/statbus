@@ -6,7 +6,7 @@
  enabled         | boolean                  |           | not null | true
  short_name      | character varying(16)    |           |          | 
  edit_comment    | character varying(512)   |           |          | 
- edit_by_user_id | integer                  |           | not null | 
+ edit_by_user_id | integer                  |           | not null | auth.uid()
  edit_at         | timestamp with time zone |           | not null | statement_timestamp()
 Indexes:
     "enterprise_pkey" PRIMARY KEY, btree (id)
@@ -31,7 +31,7 @@ Policies:
     POLICY "enterprise_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 Triggers:
     a_enterprise_log_delete AFTER DELETE ON enterprise REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_enterprise_log_insert AFTER INSERT ON enterprise REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()

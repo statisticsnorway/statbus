@@ -5,34 +5,17 @@ CREATE OR REPLACE FUNCTION worker.complete_parent_if_ready(p_child_task_id bigin
 AS $function$
 DECLARE
     v_parent_id BIGINT;
-    v_parent_command TEXT;
-    v_child_command TEXT;
     v_parent_completed BOOLEAN := FALSE;
     v_any_failed BOOLEAN;
-    v_parent_on_child_completed TEXT;
     v_parent_after_procedure TEXT;
+    v_grandparent_task_id BIGINT;
 BEGIN
-    -- Get the parent_id and child command from the child task
-    SELECT parent_id, command INTO v_parent_id, v_child_command
+    SELECT parent_id INTO v_parent_id
     FROM worker.tasks
     WHERE id = p_child_task_id;
 
-    -- If no parent, nothing to do
     IF v_parent_id IS NULL THEN
         RETURN FALSE;
-    END IF;
-
-    -- Get parent command, lifecycle hook, and after_procedure
-    SELECT t.command, cr.on_child_completed, cr.after_procedure
-    INTO v_parent_command, v_parent_on_child_completed, v_parent_after_procedure
-    FROM worker.tasks AS t
-    JOIN worker.command_registry AS cr ON t.command = cr.command
-    WHERE t.id = v_parent_id;
-
-    -- Lifecycle hook: on_child_completed (generic — no domain knowledge)
-    IF v_parent_on_child_completed IS NOT NULL THEN
-      EXECUTE format('CALL %s', v_parent_on_child_completed)
-      USING v_parent_id;
     END IF;
 
     -- Check if parent still has pending children
@@ -46,15 +29,18 @@ BEGIN
         WHERE parent_id = v_parent_id AND state = 'failed'
     ) INTO v_any_failed;
 
+    -- CONCURRENCY NOTE: Within a single worker process, multiple child fibers
+    -- may call this after completing their respective children. The
+    -- has_pending_children check could pass for two fibers simultaneously,
+    -- but UPDATE ... WHERE state = 'waiting' acts as an optimistic lock —
+    -- only one fiber's UPDATE matches, and IF FOUND guards all side effects.
     IF v_any_failed THEN
-        -- Parent fails because a child failed
         UPDATE worker.tasks
         SET state = 'failed',
             completed_at = clock_timestamp(),
             error = 'One or more child tasks failed'
         WHERE id = v_parent_id AND state = 'waiting';
     ELSE
-        -- All children succeeded - parent completes
         UPDATE worker.tasks
         SET state = 'completed',
             completed_at = clock_timestamp()
@@ -65,16 +51,27 @@ BEGIN
         v_parent_completed := TRUE;
         RAISE DEBUG 'complete_parent_if_ready: Parent task % completed (failed=%)', v_parent_id, v_any_failed;
 
-        -- Fire parent's after_procedure now that task is truly complete.
-        -- process_tasks skips after_procedure for 'waiting' tasks, so this
-        -- is where parent tasks get their after_procedure called.
+        -- Fire parent's after_procedure
+        SELECT cr.after_procedure INTO v_parent_after_procedure
+        FROM worker.tasks AS t
+        JOIN worker.command_registry AS cr ON t.command = cr.command
+        WHERE t.id = v_parent_id;
+
         IF v_parent_after_procedure IS NOT NULL THEN
           BEGIN
-            RAISE DEBUG 'Calling after_procedure: % for completed parent task %', v_parent_after_procedure, v_parent_id;
             EXECUTE format('CALL %s()', v_parent_after_procedure);
           EXCEPTION WHEN OTHERS THEN
             RAISE WARNING 'Error in after_procedure % for parent task %: %', v_parent_after_procedure, v_parent_id, SQLERRM;
           END;
+        END IF;
+
+        -- RECURSIVE: Check if the parent's parent is now ready too
+        -- Recursion depth bounded by task tree depth (typically 2-3 levels).
+        SELECT parent_id INTO v_grandparent_task_id
+        FROM worker.tasks WHERE id = v_parent_id;
+
+        IF v_grandparent_task_id IS NOT NULL THEN
+            PERFORM worker.complete_parent_if_ready(v_parent_id);
         END IF;
     END IF;
 
