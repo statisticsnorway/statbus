@@ -256,7 +256,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug = 'import_310_lu_turnover_update' ORDER BY slug;
              slug              |  state   | time_context_ident | total_rows | imported_rows | has_error 
 -------------------------------+----------+--------------------+------------+---------------+-----------
- import_310_lu_turnover_update | finished | r_year_curr        |         25 |            23 | f
+ import_310_lu_turnover_update | finished | r_year_curr        |         25 |            22 | f
 (1 row)
 
 \echo "Run worker processing for analytics tasks - Turnover Update"
@@ -337,95 +337,95 @@ SELECT unit_type
  FROM statistical_unit
  WHERE valid_from <= CURRENT_DATE AND CURRENT_DATE < valid_until
  GROUP BY unit_type;
--[ RECORD 1 ]-+----------------------------------------------
+-[ RECORD 1 ]-+-----------------------------------------------
 unit_type     | establishment
 count         | 36
-stats_summary | {                                            +
-              |     "type": "stats_agg",                     +
-              |     "turnover": {                            +
-              |         "max": 4444,                         +
-              |         "min": 20,                           +
-              |         "sum": 48599,                        +
-              |         "mean": 1349.97,                     +
-              |         "type": "float_agg",                 +
-              |         "count": 36,                         +
-              |         "stddev": 1207.77,                   +
-              |         "variance": 1458718.08,              +
-              |         "sum_sq_diff": 51055132.97,          +
-              |         "coefficient_of_variation_pct": 89.47+
-              |     },                                       +
-              |     "employees": {                           +
-              |         "max": 10,                           +
-              |         "min": 1,                            +
-              |         "sum": 251,                          +
-              |         "mean": 6.97,                        +
-              |         "type": "int_agg",                   +
-              |         "count": 36,                         +
-              |         "stddev": 3.71,                      +
-              |         "variance": 13.74,                   +
-              |         "sum_sq_diff": 480.97,               +
-              |         "coefficient_of_variation_pct": 53.17+
-              |     }                                        +
+stats_summary | {                                             +
+              |     "type": "stats_agg",                      +
+              |     "turnover": {                             +
+              |         "max": 4444,                          +
+              |         "min": 20,                            +
+              |         "sum": 48599,                         +
+              |         "mean": 1349.97,                      +
+              |         "type": "float_agg",                  +
+              |         "count": 36,                          +
+              |         "stddev": 1207.77,                    +
+              |         "variance": 1458718.08,               +
+              |         "sum_sq_diff": 51055132.97,           +
+              |         "coefficient_of_variation_pct": 89.47 +
+              |     },                                        +
+              |     "employees": {                            +
+              |         "max": 10,                            +
+              |         "min": 1,                             +
+              |         "sum": 251,                           +
+              |         "mean": 6.97,                         +
+              |         "type": "int_agg",                    +
+              |         "count": 36,                          +
+              |         "stddev": 3.71,                       +
+              |         "variance": 13.74,                    +
+              |         "sum_sq_diff": 480.97,                +
+              |         "coefficient_of_variation_pct": 53.17 +
+              |     }                                         +
               | }
--[ RECORD 2 ]-+----------------------------------------------
+-[ RECORD 2 ]-+-----------------------------------------------
 unit_type     | legal_unit
 count         | 23
-stats_summary | {                                            +
-              |     "type": "stats_agg",                     +
-              |     "turnover": {                            +
-              |         "max": 2525,                         +
-              |         "min": 20,                           +
-              |         "sum": 77230,                        +
-              |         "mean": 1716.22,                     +
-              |         "type": "float_agg",                 +
-              |         "count": 45,                         +
-              |         "stddev": 867.45,                    +
-              |         "variance": 752473.40,               +
-              |         "sum_sq_diff": 33108829.78,          +
-              |         "coefficient_of_variation_pct": 50.54+
-              |     },                                       +
-              |     "employees": {                           +
-              |         "max": 25,                           +
-              |         "min": 1,                            +
-              |         "sum": 770,                          +
-              |         "mean": 17.11,                       +
-              |         "type": "int_agg",                   +
-              |         "count": 45,                         +
-              |         "stddev": 8.41,                      +
-              |         "variance": 70.65,                   +
-              |         "sum_sq_diff": 3108.44,              +
-              |         "coefficient_of_variation_pct": 49.12+
-              |     }                                        +
+stats_summary | {                                             +
+              |     "type": "stats_agg",                      +
+              |     "turnover": {                             +
+              |         "max": 20025,                         +
+              |         "min": 20,                            +
+              |         "sum": 94730,                         +
+              |         "mean": 2105.11,                      +
+              |         "type": "float_agg",                  +
+              |         "count": 45,                          +
+              |         "stddev": 2863.80,                    +
+              |         "variance": 8201374.92,               +
+              |         "sum_sq_diff": 360860496.44,          +
+              |         "coefficient_of_variation_pct": 136.04+
+              |     },                                        +
+              |     "employees": {                            +
+              |         "max": 25,                            +
+              |         "min": 1,                             +
+              |         "sum": 770,                           +
+              |         "mean": 17.11,                        +
+              |         "type": "int_agg",                    +
+              |         "count": 45,                          +
+              |         "stddev": 8.41,                       +
+              |         "variance": 70.65,                    +
+              |         "sum_sq_diff": 3108.44,               +
+              |         "coefficient_of_variation_pct": 49.12 +
+              |     }                                         +
               | }
--[ RECORD 3 ]-+----------------------------------------------
+-[ RECORD 3 ]-+-----------------------------------------------
 unit_type     | enterprise
 count         | 35
-stats_summary | {                                            +
-              |     "type": "stats_agg",                     +
-              |     "turnover": {                            +
-              |         "max": 4444,                         +
-              |         "min": 20,                           +
-              |         "sum": 104274,                       +
-              |         "mean": 1895.89,                     +
-              |         "type": "float_agg",                 +
-              |         "count": 55,                         +
-              |         "stddev": 1084.48,                   +
-              |         "variance": 1176105.56,              +
-              |         "sum_sq_diff": 63509700.14,          +
-              |         "coefficient_of_variation_pct": 57.20+
-              |     },                                       +
-              |     "employees": {                           +
-              |         "max": 25,                           +
-              |         "min": 1,                            +
-              |         "sum": 797,                          +
-              |         "mean": 14.49,                       +
-              |         "type": "int_agg",                   +
-              |         "count": 55,                         +
-              |         "stddev": 9.44,                      +
-              |         "variance": 89.18,                   +
-              |         "sum_sq_diff": 4815.65,              +
-              |         "coefficient_of_variation_pct": 65.17+
-              |     }                                        +
+stats_summary | {                                             +
+              |     "type": "stats_agg",                      +
+              |     "turnover": {                             +
+              |         "max": 20025,                         +
+              |         "min": 20,                            +
+              |         "sum": 121774,                        +
+              |         "mean": 2214.07,                      +
+              |         "type": "float_agg",                  +
+              |         "count": 55,                          +
+              |         "stddev": 2674.33,                    +
+              |         "variance": 7152043.39,               +
+              |         "sum_sq_diff": 386210342.87,          +
+              |         "coefficient_of_variation_pct": 120.79+
+              |     },                                        +
+              |     "employees": {                            +
+              |         "max": 25,                            +
+              |         "min": 1,                             +
+              |         "sum": 797,                           +
+              |         "mean": 14.49,                        +
+              |         "type": "int_agg",                    +
+              |         "count": 55,                          +
+              |         "stddev": 9.44,                       +
+              |         "variance": 89.18,                    +
+              |         "sum_sq_diff": 4815.65,               +
+              |         "coefficient_of_variation_pct": 65.17 +
+              |     }                                         +
               | }
 
 \x

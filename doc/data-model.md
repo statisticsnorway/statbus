@@ -209,7 +209,7 @@ Configuration for pipeline step ordering and progress tracking.
 ## Import System
 Handles the ingestion of data from external files.
 
-- `import_definition(id, slug, name, data_source_id, user_id, valid_time_from, created_at, updated_at, enabled, note, strategy, mode, custom, valid, validation_error, default_retention_period, import_as_null)` — **transient**
+- `import_definition(id, slug, name, data_source_id, user_id, valid_time_from, created_at, updated_at, enabled, note, strategy, mode, custom, valid, validation_error, default_retention_period, import_as_null, unique_units)` — **transient**
   - Key FKs: data_source_id, user_id.
   - Enums: `mode` (`public.import_mode`), `strategy` (`public.import_strategy`), `valid_time_from` (`public.import_valid_time_from`).
 - `import_step(id, code, name, created_at, updated_at, priority, analyse_procedure, process_procedure, is_holistic)` — **transient**
@@ -223,7 +223,7 @@ Handles the ingestion of data from external files.
 - `import_mapping(id, source_value, definition_id, source_column_id, target_data_column_id, created_at, updated_at, source_expression, is_ignored, target_data_column_purpose)` — **transient**
   - Key FKs: definition_id, source_column_id, target_data_column_id, target_data_column_id, target_data_column_purpose.
   - Enums: `source_expression` (`public.import_source_expression`), `target_data_column_purpose` (`public.import_data_column_purpose`).
-- `import_job(id, slug, time_context_ident, default_data_source_code, upload_table_name, data_table_name, current_step_code, definition_id, user_id, created_at, updated_at, preparing_data_at, analysis_start_at, analysis_stop_at, changes_approved_at, changes_rejected_at, processing_start_at, processing_stop_at, expires_at, description, note, default_valid_from, default_valid_to, priority, analysis_batch_size, processing_batch_size, definition_snapshot, analysis_completed_pct, analysis_rows_per_sec, current_step_priority, max_analysis_priority, total_analysis_steps_weighted, completed_analysis_steps_weighted, total_rows, imported_rows, import_completed_pct, import_rows_per_sec, last_progress_update, state, error, review, edit_comment, error_count, warning_count)` — **transient**
+- `import_job(id, slug, time_context_ident, default_data_source_code, upload_table_name, data_table_name, current_step_code, definition_id, user_id, created_at, updated_at, preparing_data_at, analysis_start_at, analysis_stop_at, changes_approved_at, changes_rejected_at, processing_start_at, processing_stop_at, expires_at, description, note, default_valid_from, default_valid_to, priority, analysis_batch_size, processing_batch_size, definition_snapshot, analysis_completed_pct, analysis_rows_per_sec, current_step_priority, max_analysis_priority, total_analysis_steps_weighted, completed_analysis_steps_weighted, total_rows, imported_rows, import_completed_pct, import_rows_per_sec, last_progress_update, state, error, review, edit_comment, error_count, warning_count, unique_units)` — **transient**
   - Key FKs: definition_id, user_id.
   - Enums: `state` (`public.import_job_state`).
 

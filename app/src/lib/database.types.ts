@@ -1164,6 +1164,7 @@ export type Database = {
           note: string | null
           slug: string
           strategy: Database["public"]["Enums"]["import_strategy"]
+          unique_units: boolean
           updated_at: string
           user_id: number | null
           valid: boolean
@@ -1183,6 +1184,7 @@ export type Database = {
           note?: string | null
           slug: string
           strategy?: Database["public"]["Enums"]["import_strategy"]
+          unique_units?: boolean
           updated_at?: string
           user_id?: number | null
           valid?: boolean
@@ -1202,6 +1204,7 @@ export type Database = {
           note?: string | null
           slug?: string
           strategy?: Database["public"]["Enums"]["import_strategy"]
+          unique_units?: boolean
           updated_at?: string
           user_id?: number | null
           valid?: boolean
@@ -1318,6 +1321,7 @@ export type Database = {
           time_context_ident: string | null
           total_analysis_steps_weighted: number | null
           total_rows: number | null
+          unique_units: boolean | null
           updated_at: string
           upload_table_name: string
           user_id: number | null
@@ -1364,6 +1368,7 @@ export type Database = {
           time_context_ident?: string | null
           total_analysis_steps_weighted?: number | null
           total_rows?: number | null
+          unique_units?: boolean | null
           updated_at?: string
           upload_table_name: string
           user_id?: number | null
@@ -1410,6 +1415,7 @@ export type Database = {
           time_context_ident?: string | null
           total_analysis_steps_weighted?: number | null
           total_rows?: number | null
+          unique_units?: boolean | null
           updated_at?: string
           upload_table_name?: string
           user_id?: number | null
@@ -14274,6 +14280,10 @@ export type Database = {
           valid_on?: string
         }
         Returns: Json
+      },
+      location_set_region_version_id: {
+        Args: never
+        Returns: unknown
       },
       login: {
         Args: {

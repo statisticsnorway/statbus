@@ -818,6 +818,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          "custom": true,                                                          +
          "enabled": true,                                                         +
          "strategy": "insert_or_update",                                          +
+         "unique_units": true,                                                    +
          "import_as_null": [                                                      +
              "",                                                                  +
              "NA",                                                                +
@@ -2819,6 +2820,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          "custom": true,                                                            +
          "enabled": true,                                                           +
          "strategy": "insert_or_update",                                            +
+         "unique_units": true,                                                      +
          "import_as_null": [                                                        +
              "",                                                                    +
              "NA",                                                                  +
