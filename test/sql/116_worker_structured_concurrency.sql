@@ -181,6 +181,79 @@ ORDER BY
     task_type;
 
 -- ============================================================================
+-- CHILD_MODE TESTS
+-- ============================================================================
+
+\echo "=== 13a. Test spawn() sets child_mode to concurrent by default ==="
+-- Clean slate for child_mode tests
+DELETE FROM worker.tasks WHERE id > 2;
+ALTER SEQUENCE worker.tasks_id_seq RESTART WITH 3;
+
+INSERT INTO worker.tasks (command, payload, state)
+VALUES ('derive_statistical_unit', '{}', 'processing')
+RETURNING id AS cm_parent_id \gset
+
+-- Spawn without explicit child_mode
+SELECT worker.spawn(
+    p_command := 'statistical_unit_refresh_batch',
+    p_payload := '{"cm_test": 1}'::jsonb,
+    p_parent_id := :cm_parent_id,
+    p_priority := 10
+) AS cm_child1_id \gset
+
+SELECT child_mode FROM worker.tasks WHERE id = :cm_parent_id;
+
+\echo "=== 13b. Test spawn() with explicit serial child_mode ==="
+DELETE FROM worker.tasks WHERE id > 2;
+ALTER SEQUENCE worker.tasks_id_seq RESTART WITH 3;
+
+INSERT INTO worker.tasks (command, payload, state)
+VALUES ('derive_statistical_unit', '{}', 'processing')
+RETURNING id AS cm_serial_parent_id \gset
+
+SELECT worker.spawn(
+    p_command := 'statistical_unit_refresh_batch',
+    p_payload := '{"cm_test": 2}'::jsonb,
+    p_parent_id := :cm_serial_parent_id,
+    p_priority := 10,
+    p_child_mode := 'serial'
+) AS cm_serial_child_id \gset
+
+SELECT child_mode FROM worker.tasks WHERE id = :cm_serial_parent_id;
+
+\echo "=== 13c. Test second spawn preserves existing child_mode ==="
+-- Spawn a second child without explicit mode — should NOT change the parent's serial mode
+SELECT worker.spawn(
+    p_command := 'statistical_unit_refresh_batch',
+    p_payload := '{"cm_test": 3}'::jsonb,
+    p_parent_id := :cm_serial_parent_id,
+    p_priority := 11
+) AS cm_serial_child2_id \gset
+
+SELECT child_mode FROM worker.tasks WHERE id = :cm_serial_parent_id;
+
+\echo "=== 13d. Test spawn() with conflicting child_mode raises exception ==="
+SAVEPOINT before_conflict;
+\set ON_ERROR_STOP off
+-- Parent already has child_mode='serial', requesting 'concurrent' should fail
+SELECT worker.spawn(
+    p_command := 'statistical_unit_refresh_batch',
+    p_payload := '{"cm_test": 4}'::jsonb,
+    p_parent_id := :cm_serial_parent_id,
+    p_priority := 12,
+    p_child_mode := 'concurrent'
+);
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT before_conflict;
+
+\echo "=== 13e. Test depth is 1 for children spawned from depth-0 parent ==="
+SELECT depth FROM worker.tasks WHERE id = :cm_serial_child_id;
+
+-- Clean up child_mode test data
+DELETE FROM worker.tasks WHERE id > 2;
+ALTER SEQUENCE worker.tasks_id_seq RESTART WITH 3;
+
+-- ============================================================================
 -- INTEGRATION TESTS: process_tasks with parent-child relationships
 -- ============================================================================
 

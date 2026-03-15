@@ -144,6 +144,20 @@ BEGIN
         UPDATE worker.tasks
         SET child_mode = COALESCE(p_child_mode, 'concurrent')
         WHERE id = p_parent_id AND child_mode IS NULL;
+
+        -- Fail fast if caller requests a mode that conflicts with what's already set
+        IF p_child_mode IS NOT NULL THEN
+            DECLARE
+                v_existing_child_mode worker.child_mode;
+            BEGIN
+                SELECT child_mode INTO v_existing_child_mode
+                FROM worker.tasks WHERE id = p_parent_id;
+                IF v_existing_child_mode != p_child_mode THEN
+                    RAISE EXCEPTION 'Parent task % already has child_mode=%, cannot set to %',
+                        p_parent_id, v_existing_child_mode, p_child_mode;
+                END IF;
+            END;
+        END IF;
     ELSE
         v_depth := 0;
     END IF;
@@ -516,10 +530,11 @@ BEGIN
         WHERE parent_id = v_parent_id AND state = 'failed'
     ) INTO v_any_failed;
 
-    -- RACE SAFETY: Multiple child fibers may call this concurrently.
-    -- The has_pending_children check is racy (two callers may both see 0),
-    -- but UPDATE ... WHERE state = 'waiting' is an optimistic lock —
-    -- only one caller matches, and IF FOUND guards all side effects.
+    -- CONCURRENCY NOTE: Within a single worker process, multiple child fibers
+    -- may call this after completing their respective children. The
+    -- has_pending_children check could pass for two fibers simultaneously,
+    -- but UPDATE ... WHERE state = 'waiting' acts as an optimistic lock —
+    -- only one fiber's UPDATE matches, and IF FOUND guards all side effects.
     IF v_any_failed THEN
         UPDATE worker.tasks
         SET state = 'failed',
@@ -564,6 +579,44 @@ BEGIN
     RETURN v_parent_completed;
 END;
 $complete_parent_if_ready$;
+
+-- Safety net: rescue a stuck waiting parent when all children are done
+-- but no fiber completed the parent (defense-in-depth for fiber concurrency).
+-- Delegates to complete_parent_if_ready for after_procedure and recursive bubbling.
+CREATE OR REPLACE FUNCTION worker.rescue_stuck_waiting_parent(p_queue text)
+RETURNS bigint
+LANGUAGE plpgsql
+AS $rescue_stuck_waiting_parent$
+DECLARE
+    v_parent_id BIGINT;
+    v_any_child_id BIGINT;
+BEGIN
+    -- Find deepest stuck parent: waiting with no pending children
+    SELECT t.id INTO v_parent_id
+    FROM worker.tasks AS t
+    JOIN worker.command_registry AS cr ON t.command = cr.command
+    WHERE t.state = 'waiting'::worker.task_state
+      AND cr.queue = p_queue
+      AND NOT worker.has_pending_children(t.id)
+    ORDER BY t.depth DESC, t.priority, t.id
+    LIMIT 1;
+
+    IF v_parent_id IS NULL THEN
+        RETURN NULL;
+    END IF;
+
+    -- Get any child to pass to complete_parent_if_ready
+    SELECT id INTO v_any_child_id
+    FROM worker.tasks
+    WHERE parent_id = v_parent_id
+    LIMIT 1;
+
+    -- Delegate to the standard completion path (handles after_procedure + recursion)
+    PERFORM worker.complete_parent_if_ready(v_any_child_id);
+
+    RETURN v_parent_id;
+END;
+$rescue_stuck_waiting_parent$;
 
 -- ============================================================================
 -- 5. PROGRESS NOTIFICATION — task-tree based
