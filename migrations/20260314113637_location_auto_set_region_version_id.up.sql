@@ -3,8 +3,7 @@ BEGIN;
 CREATE OR REPLACE FUNCTION public.location_set_region_version_id()
 RETURNS TRIGGER
 LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, pg_temp
+SECURITY INVOKER
 AS $location_set_region_version_id$
 BEGIN
   NEW.region_version_id := (

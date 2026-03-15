@@ -279,6 +279,7 @@ erDiagram
 		text[] import_as_null
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
+		boolean unique_units
 	}
 	import_definition_step["import_definition_step"] {
 		integer definition_id
@@ -329,6 +330,7 @@ erDiagram
 		integer user_id
 		integer error_count
 		integer warning_count
+		boolean unique_units
 	}
 	import_mapping["import_mapping"] {
 		integer id
