@@ -30,13 +30,13 @@
                                                                            ->  Hash Left Join
                                                                                  Hash Cond: (pa.category_id = pac.id)
                                                                                  ->  Hash Left Join
-                                                                                       Hash Cond: (es.sector_id = s.id)
-                                                                                       ->  Nested Loop Left Join
-                                                                                             Disabled: true
-                                                                                             ->  Hash Left Join
-                                                                                                   Hash Cond: (es.unit_size_id = us.id)
+                                                                                       Hash Cond: (es.status_id = st.id)
+                                                                                       ->  Hash Left Join
+                                                                                             Hash Cond: (es.unit_size_id = us.id)
+                                                                                             ->  Nested Loop Left Join
+                                                                                                   Disabled: true
                                                                                                    ->  Hash Left Join
-                                                                                                         Hash Cond: (es.status_id = st.id)
+                                                                                                         Hash Cond: (es.sector_id = s.id)
                                                                                                          ->  Nested Loop
                                                                                                                Disabled: true
                                                                                                                ->  Hash Left Join
@@ -69,20 +69,20 @@
                                                                                                                                        ->  Seq Scan on establishment es_1
                                                                                                                                              Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (id = t.unit_id))
                                                                                                          ->  Hash
-                                                                                                               ->  Seq Scan on status st
-                                                                                                   ->  Hash
-                                                                                                         ->  Seq Scan on unit_size us
-                                                                                             ->  Memoize
-                                                                                                   Cache Key: es.id, t.valid_from, t.valid_until
-                                                                                                   Cache Mode: binary
-                                                                                                   ->  Subquery Scan on pa
-                                                                                                         ->  Limit
-                                                                                                               ->  Sort
-                                                                                                                     Sort Key: a.id DESC
-                                                                                                                     ->  Seq Scan on activity a
-                                                                                                                           Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (establishment_id = es.id) AND (type = 'primary'::activity_type))
+                                                                                                               ->  Seq Scan on sector s
+                                                                                                   ->  Memoize
+                                                                                                         Cache Key: es.id, t.valid_from, t.valid_until
+                                                                                                         Cache Mode: binary
+                                                                                                         ->  Subquery Scan on pa
+                                                                                                               ->  Limit
+                                                                                                                     ->  Sort
+                                                                                                                           Sort Key: a.id DESC
+                                                                                                                           ->  Seq Scan on activity a
+                                                                                                                                 Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (establishment_id = es.id) AND (type = 'primary'::activity_type))
+                                                                                             ->  Hash
+                                                                                                   ->  Seq Scan on unit_size us
                                                                                        ->  Hash
-                                                                                             ->  Seq Scan on sector s
+                                                                                             ->  Seq Scan on status st
                                                                                  ->  Hash
                                                                                        ->  Seq Scan on activity_category pac
                                                                            ->  Memoize
