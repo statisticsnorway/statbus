@@ -126,6 +126,12 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 \echo "Checking import job statuses for Turnover Update"
 SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug = 'import_309_lu_turnover_update' ORDER BY slug;
 
+\echo "Checking error rows in turnover update"
+SELECT row_id, state, tax_ident_raw, stat_ident_raw, errors
+FROM public.import_309_lu_turnover_update_data
+WHERE state = 'error'
+ORDER BY row_id;
+
 \echo "Unit counts after turnover update"
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
