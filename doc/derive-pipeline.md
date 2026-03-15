@@ -404,91 +404,22 @@ a no-op (8ms) before its children populated the staging table, leaving
 
 The frontend receives pipeline state via two mechanisms:
 
-1. **`pg_notify` events** — real-time push notifications for state transitions
-   (`is_deriving_statistical_units`/`is_deriving_reports` start/stop) and
-   progress updates (`pipeline_progress` with step, total, completed, counts).
+1. **`pg_notify` events** — `worker.notify_task_progress()` sends real-time
+   push notifications with `{type: 'pipeline_progress', phases: [...]}`.
+   Each phase object contains `phase`, `step`, `active`, `total`, `completed`,
+   and affected counts. Called automatically by `process_tasks` after each
+   analytics-queue task completes.
 2. **`is_deriving_statistical_units()` / `is_deriving_reports()`** — SQL
-   functions that return a JSONB snapshot of `worker.pipeline_progress` for
-   the given phase. Used for initial page load and reconnection.
+   functions that query the **task tree** (`worker.tasks`) to determine if
+   a pipeline phase is active. Used for initial page load and reconnection.
 
-Both functions query **only** `worker.pipeline_progress` — they do NOT check
-`worker.tasks`. The `active` flag is `true` whenever a
-`pipeline_progress` row exists for that phase (i.e., `pp.phase IS NOT NULL`).
+Both functions query `worker.tasks` directly — progress is intrinsic to the
+task tree. A phase is `active` when there are `processing` or `waiting` tasks
+for the relevant commands.
 
-When a stop notification (`status: false`) arrives, the frontend clears the
+When a phase completes (no more active tasks), the frontend clears the
 phase status and invalidates its caches (search results, base data) to pick
 up the newly derived data.
 
 See [worker-notifications.md](./worker-notifications.md) for the full
 notification architecture.
-
-
-## Pipeline Progress Principles
-
-The `worker.pipeline_progress` table exists to **inform the user** about
-background processing. Three questions must always be answerable:
-
-1. **What IS happening** right now?
-2. **What is PLANNED** to happen?
-3. If nothing is happening, **WHY?**
-
-Never hide information from the user. If changes have been detected and will
-be processed, the user should see that — even before processing begins.
-
-### Preliminary vs Processing State
-
-A phase has two distinct states while its `pipeline_progress` row exists:
-
-| State | `total` | Meaning |
-|-------|---------|---------|
-| **Preliminary** | `0` | Changes are accumulating. The phase is planned but not yet processing. |
-| **Processing** | `> 0` | Active work is in progress. `completed` tracks progress toward `total`. |
-
-A phase becomes **active** (has a `pipeline_progress` row) when:
-- `collect_changes` runs its `before_procedure` (`notify_collecting_changes_start`),
-  inserting a Phase 1 row with `total=0` and `step='collect_changes'`.
-- `derive_statistical_unit` runs its `before_procedure`
-  (`notify_is_deriving_statistical_units_start`), updating Phase 1 to
-  `step='derive_statistical_unit'` (still `total=0` until batching).
-- `derive_reports` runs its `before_procedure`, inserting a Phase 2 row.
-
-A phase row is **deleted** by its `after_procedure` (the `*_stop` handler),
-signaling that the phase is complete.
-
-### Coexistence of Phases
-
-During continuous imports, a Phase 1 preliminary row (`collect_changes`,
-`total=0`) can coexist with a Phase 2 processing row (`derive_reports`,
-`total>0`). This is expected and correct — it means:
-
-- Phase 2 is actively computing reports (processing).
-- Phase 1 has detected new changes that will be processed after Phase 2
-  completes (preliminary).
-
-### The `waitingFor` Relationship
-
-The UI shows "while waiting for X" to explain why a phase appears idle
-despite being active. This relationship is **asymmetric**:
-
-- **Statistical Units showing "while waiting for Reports"** — correct when
-  Phase 1 is in preliminary state (`total=0`) and Phase 2 exists. The user
-  sees "Batching changes while waiting for Reports", which accurately
-  describes that changes are accumulating while Reports processing finishes.
-
-- **Reports showing "while waiting for Statistical Units"** — only correct
-  when Phase 1 is **actually processing** (`total > 0`). If Phase 1 is
-  merely in preliminary state (`total = 0`, just collecting changes), Reports
-  should NOT show "while waiting for Statistical Units" because Statistical
-  Units is not blocking anything — it is just accumulating changes for the
-  next round.
-
-The frontend implements this by checking `total > 0` for the `waitingFor`
-target phase:
-
-```typescript
-// Statistical Units popover: waitingFor Reports (always valid when Reports exists)
-waitingFor={isDerivingReports ? "Reports" : undefined}
-
-// Reports popover: waitingFor Statistical Units (only when SU is processing)
-waitingFor={(derivingUnits?.total ?? 0) > 0 ? "Statistical Units" : undefined}
-```

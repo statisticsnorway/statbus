@@ -57,12 +57,15 @@ When a child task completes (or fails):
    - If all children completed → parent completes
 4. Parent's `completed_at` timestamp is set
 
-### Single-Level Only
+### Recursive Nesting
 
-The system enforces **single-level** parent-child relationships:
-- Children cannot spawn grandchildren (trigger prevents this)
-- Children CAN spawn siblings (same `parent_id`)
-- This keeps the model simple and predictable
+The system supports **recursive** parent-child relationships:
+- Children can spawn grandchildren (arbitrary depth)
+- Children can spawn siblings (same `parent_id`)
+- Children can spawn uncle tasks (`parent_id IS NULL`)
+- `depth` column tracks nesting level (0 = top-level, parent.depth + 1 for children)
+- `spawn_mode` on the parent controls child execution: `'concurrent'` (parallel, default) or `'serial'` (one at a time)
+- Depth-first parent selection ensures grandchildren complete before the fiber moves up
 
 ### Dynamic Work Spreading
 
@@ -248,7 +251,7 @@ ROLLBACK;
 | `worker.has_pending_children()` | Check if task has unfinished children |
 | `worker.has_failed_siblings()` | Check if any sibling failed |
 | `worker.complete_parent_if_ready()` | Complete parent when all children done |
-| `worker.enforce_no_grandchildren()` | Trigger preventing grandchildren |
+| `worker.notify_task_progress()` | Notify frontend of task tree progress |
 
 ## Related Documentation
 
