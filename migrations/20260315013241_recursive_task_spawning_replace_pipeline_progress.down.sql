@@ -2,6 +2,8 @@
 -- This is a destructive rollback. Run recreate-database instead.
 BEGIN;
 
-RAISE EXCEPTION 'This migration cannot be rolled back automatically. Use ./devops/manage-statbus.sh recreate-database instead.';
+DO $$ BEGIN
+  RAISE EXCEPTION 'This migration cannot be rolled back automatically. Use ./devops/manage-statbus.sh recreate-database instead.';
+END $$;
 
 END;

@@ -1137,7 +1137,7 @@ module Statbus
             WHERE t.state = 'waiting'::worker.task_state
               AND cr.queue = $1
               AND NOT worker.has_pending_children(t.id)
-            ORDER BY t.priority, t.id
+            ORDER BY t.depth DESC, t.priority, t.id
             LIMIT 1
             FOR UPDATE OF t SKIP LOCKED
           )

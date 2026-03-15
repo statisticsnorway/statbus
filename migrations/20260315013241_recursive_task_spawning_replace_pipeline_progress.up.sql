@@ -102,6 +102,9 @@ CREATE INDEX idx_tasks_depth ON worker.tasks (depth) WHERE state = 'waiting';
 -- 2. UPDATE worker.spawn() to set depth automatically
 -- ============================================================================
 
+-- Drop old 4-parameter overload to avoid ambiguous calls
+DROP FUNCTION IF EXISTS worker.spawn(text, jsonb, bigint, bigint);
+
 CREATE OR REPLACE FUNCTION worker.spawn(
     p_command text,
     p_payload jsonb DEFAULT '{}'::jsonb,

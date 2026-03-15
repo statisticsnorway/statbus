@@ -53,6 +53,15 @@ function computeImportProgress(jobs: ImportStatus['jobs']): number | null {
   return Math.round(total / jobs.length);
 }
 
+// Static mapping of pipeline steps to their phases.
+// The database no longer stores phase — it's intrinsic to the task tree.
+const PHASE_STEPS: Record<string, string[]> = {
+  'is_deriving_statistical_units': ['collect_changes', 'derive_statistical_unit', 'statistical_unit_flush_staging'],
+  'is_deriving_reports': ['derive_reports', 'derive_statistical_history', 'statistical_history_reduce',
+    'derive_statistical_unit_facet', 'statistical_unit_facet_reduce',
+    'derive_statistical_history_facet', 'statistical_history_facet_reduce'],
+};
+
 /**
  * Extract step weights for a specific phase from the database-loaded weights.
  */
@@ -60,8 +69,9 @@ function weightsForPhase(
   allWeights: PipelineStepWeight[],
   phase: string,
 ): { step: string; weight: number }[] {
+  const steps = PHASE_STEPS[phase] ?? [];
   return allWeights
-    .filter(w => w.phase === phase)
+    .filter(w => steps.includes(w.step))
     .map(({ step, weight }) => ({ step, weight }));
 }
 
