@@ -533,9 +533,9 @@ export type Database = {
             SELECT
                 c.relkind,
                 table_name,
-                string_agg('          ' || column_name || ': ' || base_ts_type || (CASE WHEN NOT attnotnull THEN ' | null' ELSE '' END), E'\n' ORDER BY column_name) as row_columns,
+                string_agg('          ' || CASE WHEN column_name ~ '^[a-zA-Z_$][a-zA-Z0-9_$]*$' THEN column_name ELSE '"' || column_name || '"' END || ': ' || base_ts_type || (CASE WHEN NOT attnotnull THEN ' | null' ELSE '' END), E'\n' ORDER BY column_name) as row_columns,
                 string_agg(
-                    '          ' || column_name ||
+                    '          ' || CASE WHEN column_name ~ '^[a-zA-Z_$][a-zA-Z0-9_$]*$' THEN column_name ELSE '"' || column_name || '"' END ||
                     CASE
                         -- For ALWAYS generated identity columns, type is 'never' on insert
                         WHEN attidentity = 'a' THEN '?: never'
@@ -551,7 +551,7 @@ export type Database = {
                     E'\n' ORDER BY column_name
                 ) as insert_columns,
                 string_agg(
-                    '          ' || column_name ||
+                    '          ' || CASE WHEN column_name ~ '^[a-zA-Z_$][a-zA-Z0-9_$]*$' THEN column_name ELSE '"' || column_name || '"' END ||
                     CASE
                         -- For ALWAYS generated identity columns, type is 'never' on update
                         WHEN attidentity = 'a' THEN '?: never'
@@ -806,7 +806,7 @@ export type Database = {
             SELECT
                 type_name,
                 string_agg(
-                    '        ' || column_name || ': ' || ts_type || (CASE WHEN NOT attnotnull THEN ' | null' ELSE '' END),
+                    '        ' || CASE WHEN column_name ~ '^[a-zA-Z_$][a-zA-Z0-9_$]*$' THEN column_name ELSE '"' || column_name || '"' END || ': ' || ts_type || (CASE WHEN NOT attnotnull THEN ' | null' ELSE '' END),
                     E'\n' ORDER BY attnum
                 ) AS columns_ts
             FROM composite_type_columns

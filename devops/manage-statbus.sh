@@ -1389,9 +1389,39 @@ EOS
         ;;
 
      'generate-types' )
-        # Use our custom SQL-based type generator which properly handles ltree and other types
+        # Use a temporary clone of the migrated template so type generation
+        # never touches the user's active development database.
+        TEMPLATE_NAME="template_statbus_migrated"
+        TYPES_DB="statbus_types_gen_$$"
+
+        # Verify template exists
+        TEMPLATE_EXISTS=$(./devops/manage-statbus.sh psql -d postgres -t -A -c \
+            "SELECT 1 FROM pg_database WHERE datname = '$TEMPLATE_NAME';" 2>/dev/null || echo "0")
+        if [ "$TEMPLATE_EXISTS" != "1" ]; then
+            echo "Error: Template database '$TEMPLATE_NAME' not found."
+            echo "Create it with: ./devops/manage-statbus.sh create-test-template"
+            exit 1
+        fi
+
+        echo "Creating temporary types database: $TYPES_DB from $TEMPLATE_NAME"
+        ./devops/manage-statbus.sh psql -d postgres -v ON_ERROR_STOP=1 <<EOF
+            SELECT pg_advisory_lock(59328);
+            ALTER DATABASE $TEMPLATE_NAME WITH ALLOW_CONNECTIONS = true;
+            CREATE DATABASE "$TYPES_DB" WITH TEMPLATE $TEMPLATE_NAME;
+            ALTER DATABASE $TEMPLATE_NAME WITH ALLOW_CONNECTIONS = false;
+            SELECT pg_advisory_unlock(59328);
+EOF
+
+        cleanup_types_db() {
+            local exit_code=$?
+            echo "Cleaning up types database: $TYPES_DB"
+            ./devops/manage-statbus.sh psql -d postgres -c "DROP DATABASE IF EXISTS \"$TYPES_DB\";" 2>/dev/null || true
+            return $exit_code
+        }
+        trap cleanup_types_db EXIT
+
         echo "Generating TypeScript types using SQL generator..."
-        $WORKSPACE/devops/manage-statbus.sh psql < $WORKSPACE/devops/generate_database_types.sql
+        ./devops/manage-statbus.sh psql -d "$TYPES_DB" < $WORKSPACE/devops/generate_database_types.sql
         echo "TypeScript types generated in app/src/lib/database.types.ts"
       ;;
     'compile-run-and-trace-dev-app-in-container' )
