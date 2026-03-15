@@ -61,6 +61,18 @@ each role can see and modify.
   - Policies: `import_definition_admin_user_manage` (ALL → admin_user), `import_definition_authenticated_read` (SELECT → authenticated), `import_definition_regular_user_read` (SELECT → regular_user)
 - **`import_definition_step`** — RLS ON
   - Policies: `import_definition_step_admin_user_manage` (ALL → admin_user), `import_definition_step_authenticated_read` (SELECT → authenticated), `import_definition_step_regular_user_read` (SELECT → regular_user)
+- **`import_demo_es_for_lu_wsd_data`** — RLS ON
+  - Policies: `import_demo_es_for_lu_wsd_data_admin_user_manage` (ALL → admin_user), `import_demo_es_for_lu_wsd_data_authenticated_read` (SELECT → authenticated), `import_demo_es_for_lu_wsd_data_regular_user_manage` (ALL → regular_user)
+- **`import_demo_es_for_lu_wsd_upload`** — **RLS OFF** ⚠️
+- **`import_demo_es_without_lu_wsd_data`** — RLS ON
+  - Policies: `import_demo_es_without_lu_wsd_data_admin_user_manage` (ALL → admin_user), `import_demo_es_without_lu_wsd_data_authenticated_read` (SELECT → authenticated), `import_demo_es_without_lu_wsd_data_regular_user_manage` (ALL → regular_user)
+- **`import_demo_es_without_lu_wsd_upload`** — **RLS OFF** ⚠️
+- **`import_demo_lr_wsd_data`** — RLS ON
+  - Policies: `import_demo_lr_wsd_data_admin_user_manage` (ALL → admin_user), `import_demo_lr_wsd_data_authenticated_read` (SELECT → authenticated), `import_demo_lr_wsd_data_regular_user_manage` (ALL → regular_user)
+- **`import_demo_lr_wsd_upload`** — **RLS OFF** ⚠️
+- **`import_demo_lu_wsd_data`** — RLS ON
+  - Policies: `import_demo_lu_wsd_data_admin_user_manage` (ALL → admin_user), `import_demo_lu_wsd_data_authenticated_read` (SELECT → authenticated), `import_demo_lu_wsd_data_regular_user_manage` (ALL → regular_user)
+- **`import_demo_lu_wsd_upload`** — **RLS OFF** ⚠️
 - **`import_job`** — RLS ON
   - Policies: `import_job_admin_user_manage` (ALL → admin_user), `import_job_authenticated_select_all` (SELECT → authenticated), `import_job_notify_reader_select_all` (SELECT → notify_reader), `import_job_regular_user_delete_own` (DELETE → regular_user), `import_job_regular_user_insert_own` (INSERT → regular_user), `import_job_regular_user_update_own` (UPDATE → regular_user)
 - **`import_mapping`** — RLS ON
