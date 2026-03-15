@@ -203,7 +203,6 @@ Configuration for pipeline step ordering and progress tracking.
 
 - `pipeline_step_weight(step, weight, seq)` — **infrastructure**
   - Key FKs: step.
-- `pipeline_step_weight(step, weight, seq)`
 
 ## Import System
 Handles the ingestion of data from external files.
@@ -235,7 +234,6 @@ Handles background processing. A long-running worker process calls `worker.proce
 - `command_registry(command, created_at, handler_procedure, before_procedure, after_procedure, description, queue)` — **infrastructure**
   - Key FKs: queue.
 - `queue_registry(queue, description, default_concurrency)` — **infrastructure**
-- `pipeline_progress()` — **infrastructure**
 - `base_change_log(valid_ranges, establishment_ids, legal_unit_ids, enterprise_ids, power_group_ids)` — **infrastructure**
 - `base_change_log_has_pending(has_pending)` — **infrastructure**
 

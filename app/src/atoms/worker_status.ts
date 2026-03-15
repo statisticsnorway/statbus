@@ -63,7 +63,6 @@ export interface PhaseStatus {
 }
 
 export interface PipelineStepWeight {
-  phase?: string;  // Removed in recursive task spawning migration (backward compat)
   step: string;
   weight: number;
   seq: number;

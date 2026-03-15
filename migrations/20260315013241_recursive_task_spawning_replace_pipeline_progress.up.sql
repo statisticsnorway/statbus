@@ -481,7 +481,7 @@ BEGIN
 
       -- Notify frontend of progress for analytics-queue tasks
       IF task_record.queue = 'analytics' THEN
-        PERFORM worker.notify_task_progress(task_record.id);
+        PERFORM worker.notify_task_progress();
         IF NOT v_inside_transaction THEN
           COMMIT;
         END IF;
@@ -599,6 +599,7 @@ BEGIN
       AND cr.queue = p_queue
       AND NOT worker.has_pending_children(t.id)
     ORDER BY t.depth DESC, t.priority, t.id
+    FOR UPDATE OF t SKIP LOCKED
     LIMIT 1;
 
     IF v_parent_id IS NULL THEN
@@ -625,7 +626,7 @@ $rescue_stuck_waiting_parent$;
 -- Notify frontend with progress from the task tree.
 -- Emits backward-compatible 'pipeline_progress' payload with 'phases' array
 -- matching the PhaseProgress type expected by the frontend.
-CREATE OR REPLACE FUNCTION worker.notify_task_progress(p_task_id BIGINT DEFAULT NULL)
+CREATE OR REPLACE FUNCTION worker.notify_task_progress()
 RETURNS void
 LANGUAGE plpgsql
 AS $notify_task_progress$
