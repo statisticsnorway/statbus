@@ -1474,23 +1474,8 @@ erDiagram
 		text description
 		text queue
 		timestamp_with_time_zone created_at
-		worker_pipeline_phase phase
-		text on_children_created
-		text on_child_completed
-	}
-	worker_pipeline_progress["worker.pipeline_progress"] {
-		worker_pipeline_phase phase
-		text step
-		integer total
-		integer completed
-		integer affected_establishment_count
-		integer affected_legal_unit_count
-		integer affected_enterprise_count
-		integer affected_power_group_count
-		timestamp_with_time_zone updated_at
 	}
 	worker_pipeline_step_weight["worker.pipeline_step_weight"] {
-		worker_pipeline_phase phase
 		text step
 		integer weight
 		integer seq
@@ -1514,6 +1499,8 @@ erDiagram
 		integer worker_pid
 		jsonb payload
 		bigint parent_id
+		text spawn_mode
+		integer depth
 	}
 	%% Relationships (derived from foreign keys)
 	auth_api_key }|--|| auth_user : api_key_user_id_fkey
@@ -1651,7 +1638,7 @@ erDiagram
 	sql_saga_updatable_view }o--|| sql_saga_era : updatable_view_table_schema_table_name_era_name_fkey
 	sql_saga_updatable_view }o--|| sql_saga_era : updatable_view_table_schema_table_name_era_name_fkey
 	worker_command_registry }o--|| worker_queue_registry : command_registry_queue_fkey
-	worker_pipeline_step_weight }o--|| worker_command_registry : pipeline_step_weight_step_fkey
+	worker_pipeline_step_weight }|--|| worker_command_registry : pipeline_step_weight_step_fkey
 	worker_tasks }o--|| worker_command_registry : fk_tasks_command
 	worker_tasks }o--|| worker_command_registry : tasks_command_fkey
 	worker_tasks }o--o| worker_tasks : tasks_parent_id_fkey
