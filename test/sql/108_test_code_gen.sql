@@ -334,10 +334,10 @@ SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'all'::public.reset
 \echo "      across runs but logical content (which columns exist) remains correct."
 
 \echo "Removed import_data_column rows after reset (should be empty - deterministic priorities):"
-SELECT * FROM import_data_column_baseline EXCEPT SELECT step_id, priority, column_name, column_type, purpose::text, is_nullable, default_value, is_uniquely_identifying FROM public.import_data_column;
+SELECT * FROM import_data_column_baseline EXCEPT SELECT step_id, priority, column_name, column_type, purpose::text, is_nullable, default_value, is_uniquely_identifying FROM public.import_data_column ORDER BY step_id, priority NULLS FIRST, column_name;
 
 \echo "Added import_data_column rows after reset (should be empty - deterministic priorities):"
-SELECT step_id, priority, column_name, column_type, purpose::text, is_nullable, default_value, is_uniquely_identifying FROM public.import_data_column EXCEPT SELECT * FROM import_data_column_baseline;
+SELECT step_id, priority, column_name, column_type, purpose::text, is_nullable, default_value, is_uniquely_identifying FROM public.import_data_column EXCEPT SELECT * FROM import_data_column_baseline ORDER BY step_id, priority NULLS FIRST, column_name;
 
 
 \echo "Baseline import_source_column content (ordered by column_name for comparison):"
