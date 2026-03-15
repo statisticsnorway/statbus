@@ -154,6 +154,7 @@ Enumerated types used across the schema, with their possible values.
 - **`public.statbus_role`**: `admin_user`, `regular_user`, `restricted_user`, `external_user`
 - **`public.statistical_unit_type`**: `establishment`, `legal_unit`, `enterprise`, `power_group`
 - **`public.time_context_type`**: `relative_period`, `tag`, `year`
+- **`worker.child_mode`**: `concurrent`, `serial`
 - **`worker.process_mode`**: `top`, `child`
 - **`worker.task_state`**: `pending`, `processing`, `waiting`, `completed`, `failed`
 
@@ -228,12 +229,13 @@ Handles the ingestion of data from external files.
 ## Worker System
 Handles background processing. A long-running worker process calls `worker.process_tasks()` to process tasks synchronously.
 
-- `tasks(id, command, parent_id, created_at, processed_at, completed_at, scheduled_at, priority, state, duration_ms, error, worker_pid, payload, spawn_mode, depth)` — **infrastructure**
+- `tasks(id, command, parent_id, created_at, processed_at, completed_at, scheduled_at, priority, state, duration_ms, error, worker_pid, payload, child_mode, depth)` — **infrastructure**
   - Key FKs: command, command, parent_id.
-  - Enums: `state` (`worker.task_state`).
+  - Enums: `child_mode` (`worker.child_mode`), `state` (`worker.task_state`).
 - `command_registry(command, created_at, handler_procedure, before_procedure, after_procedure, description, queue)` — **infrastructure**
   - Key FKs: queue.
 - `queue_registry(queue, description, default_concurrency)` — **infrastructure**
+- `pipeline_progress()` — **infrastructure**
 - `base_change_log(valid_ranges, establishment_ids, legal_unit_ids, enterprise_ids, power_group_ids)` — **infrastructure**
 - `base_change_log_has_pending(has_pending)` — **infrastructure**
 

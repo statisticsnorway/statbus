@@ -1499,7 +1499,7 @@ erDiagram
 		integer worker_pid
 		jsonb payload
 		bigint parent_id
-		text spawn_mode
+		worker_child_mode child_mode
 		integer depth
 	}
 	%% Relationships (derived from foreign keys)

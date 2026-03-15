@@ -4,10 +4,10 @@ BEGIN;
 -- RECURSIVE TASK SPAWNING: Replace pipeline_progress with task tree
 -- ============================================================================
 -- This migration:
--- 1. Adds spawn_mode and depth columns to worker.tasks
+-- 1. Adds child_mode enum/column and depth column to worker.tasks
 -- 2. Removes the grandchild enforcement trigger (allows recursive nesting)
 -- 3. Drops pipeline_progress table and all related objects
--- 4. Updates process_tasks for serial/concurrent spawn modes
+-- 4. Updates process_tasks for serial/concurrent child modes
 -- 5. Updates handlers to remove pipeline_progress references
 -- 6. Replaces pipeline_progress notifications with task-tree-based progress
 -- ============================================================================
@@ -16,13 +16,13 @@ BEGIN;
 -- 1. SCHEMA CHANGES
 -- ============================================================================
 
--- 1a. Add spawn_mode column to worker.tasks
--- spawn_mode controls how children are processed:
+-- 1a. Add child_mode column to worker.tasks
+-- child_mode controls how this task's children are processed:
 --   'concurrent' = all children run in parallel, parent waits for all
 --   'serial'     = children run one at a time in priority order, parent waits for all
 --   NULL         = leaf task (no children spawned)
-ALTER TABLE worker.tasks ADD COLUMN spawn_mode TEXT DEFAULT NULL
-  CHECK (spawn_mode IS NULL OR spawn_mode IN ('concurrent', 'serial'));
+CREATE TYPE worker.child_mode AS ENUM ('concurrent', 'serial');
+ALTER TABLE worker.tasks ADD COLUMN child_mode worker.child_mode DEFAULT NULL;
 
 -- 1b. Add depth column to worker.tasks
 -- 0 for top-level tasks, parent.depth + 1 for children
@@ -110,7 +110,7 @@ CREATE OR REPLACE FUNCTION worker.spawn(
     p_payload jsonb DEFAULT '{}'::jsonb,
     p_parent_id bigint DEFAULT NULL,
     p_priority bigint DEFAULT NULL,
-    p_spawn_mode text DEFAULT NULL
+    p_child_mode worker.child_mode DEFAULT NULL
 )
 RETURNS bigint
 LANGUAGE plpgsql
@@ -140,12 +140,10 @@ BEGIN
             RAISE EXCEPTION 'Parent task % not found', p_parent_id;
         END IF;
 
-        -- Set parent's spawn_mode if provided and not already set
-        IF p_spawn_mode IS NOT NULL THEN
-            UPDATE worker.tasks
-            SET spawn_mode = p_spawn_mode
-            WHERE id = p_parent_id AND spawn_mode IS NULL;
-        END IF;
+        -- Set parent's child_mode if not already set (defaults to 'concurrent')
+        UPDATE worker.tasks
+        SET child_mode = COALESCE(p_child_mode, 'concurrent')
+        WHERE id = p_parent_id AND child_mode IS NULL;
     ELSE
         v_depth := 0;
     END IF;
@@ -183,7 +181,7 @@ DECLARE
   processed_count INT := 0;
   v_inside_transaction BOOLEAN;
   v_waiting_parent_id BIGINT;
-  v_waiting_parent_spawn_mode TEXT;
+  v_waiting_parent_child_mode worker.child_mode;
   v_max_retries CONSTANT INT := 3;
   v_retry_count INT;
   v_backoff_base_ms CONSTANT NUMERIC := 100;
@@ -201,8 +199,8 @@ BEGIN
     END IF;
 
     -- STRUCTURED CONCURRENCY: Find the deepest waiting parent (depth-first)
-    SELECT t.id, t.spawn_mode
-    INTO v_waiting_parent_id, v_waiting_parent_spawn_mode
+    SELECT t.id, t.child_mode
+    INTO v_waiting_parent_id, v_waiting_parent_child_mode
     FROM worker.tasks AS t
     JOIN worker.command_registry AS cr ON t.command = cr.command
     WHERE t.state = 'waiting'::worker.task_state
@@ -239,8 +237,8 @@ BEGIN
         EXIT;
       END IF;
 
-      -- Respect spawn_mode of the parent
-      IF v_waiting_parent_spawn_mode = 'serial' THEN
+      -- Respect child_mode of the parent
+      IF v_waiting_parent_child_mode = 'serial' THEN
         IF EXISTS (
           SELECT 1 FROM worker.tasks
           WHERE parent_id = v_waiting_parent_id
@@ -266,7 +264,7 @@ BEGIN
     ELSE
       -- NULL MODE (backward compatible)
       IF v_waiting_parent_id IS NOT NULL THEN
-        IF v_waiting_parent_spawn_mode = 'serial' THEN
+        IF v_waiting_parent_child_mode = 'serial' THEN
           IF EXISTS (
             SELECT 1 FROM worker.tasks
             WHERE parent_id = v_waiting_parent_id
@@ -518,6 +516,10 @@ BEGIN
         WHERE parent_id = v_parent_id AND state = 'failed'
     ) INTO v_any_failed;
 
+    -- RACE SAFETY: Multiple child fibers may call this concurrently.
+    -- The has_pending_children check is racy (two callers may both see 0),
+    -- but UPDATE ... WHERE state = 'waiting' is an optimistic lock —
+    -- only one caller matches, and IF FOUND guards all side effects.
     IF v_any_failed THEN
         UPDATE worker.tasks
         SET state = 'failed',
@@ -550,6 +552,7 @@ BEGIN
         END IF;
 
         -- RECURSIVE: Check if the parent's parent is now ready too
+        -- Recursion depth bounded by task tree depth (typically 2-3 levels).
         SELECT parent_id INTO v_grandparent_task_id
         FROM worker.tasks WHERE id = v_parent_id;
 

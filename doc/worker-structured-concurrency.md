@@ -64,7 +64,7 @@ The system supports **recursive** parent-child relationships:
 - Children can spawn siblings (same `parent_id`)
 - Children can spawn uncle tasks (`parent_id IS NULL`)
 - `depth` column tracks nesting level (0 = top-level, parent.depth + 1 for children)
-- `spawn_mode` on the parent controls child execution: `'concurrent'` (parallel, default) or `'serial'` (one at a time)
+- `child_mode` on the parent controls child execution: `'concurrent'` (parallel, default) or `'serial'` (one at a time)
 - Depth-first parent selection ensures grandchildren complete before the fiber moves up
 
 ### Dynamic Work Spreading
