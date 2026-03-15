@@ -1015,13 +1015,13 @@ BEGIN
         v_valid_until := upper(v_valid_range);
 
         PERFORM worker.enqueue_derive_statistical_unit(
-            p_establishment_id_ranges := v_est_ids,
-            p_legal_unit_id_ranges := v_lu_ids,
-            p_enterprise_id_ranges := v_ent_ids,
-            p_power_group_id_ranges := v_pg_ids,
-            p_valid_from := v_valid_from,
-            p_valid_until := v_valid_until,
-            p_round_priority_base := v_round_priority_base
+            p_establishment_id_ranges => v_est_ids,
+            p_legal_unit_id_ranges => v_lu_ids,
+            p_enterprise_id_ranges => v_ent_ids,
+            p_power_group_id_ranges => v_pg_ids,
+            p_valid_from => v_valid_from,
+            p_valid_until => v_valid_until,
+            p_round_priority_base => v_round_priority_base
         );
     ELSE
         PERFORM pg_notify('worker_status',
@@ -1072,15 +1072,15 @@ BEGIN
     v_child_priority := COALESCE(p_round_priority_base, nextval('public.worker_task_priority_seq'));
 
     IF v_is_full_refresh THEN
-        FOR v_batch IN SELECT * FROM public.get_closed_group_batches(p_target_batch_size := 1000)
+        FOR v_batch IN SELECT * FROM public.get_closed_group_batches(p_target_batch_size => 1000)
         LOOP
             v_enterprise_count := v_enterprise_count + COALESCE(array_length(v_batch.enterprise_ids, 1), 0);
             v_legal_unit_count := v_legal_unit_count + COALESCE(array_length(v_batch.legal_unit_ids, 1), 0);
             v_establishment_count := v_establishment_count + COALESCE(array_length(v_batch.establishment_ids, 1), 0);
 
             PERFORM worker.spawn(
-                p_command := 'statistical_unit_refresh_batch',
-                p_payload := jsonb_build_object(
+                p_command => 'statistical_unit_refresh_batch',
+                p_payload => jsonb_build_object(
                     'command', 'statistical_unit_refresh_batch',
                     'batch_seq', v_batch.batch_seq,
                     'enterprise_ids', v_batch.enterprise_ids,
@@ -1089,8 +1089,8 @@ BEGIN
                     'valid_from', p_valid_from,
                     'valid_until', p_valid_until
                 ),
-                p_parent_id := p_task_id,
-                p_priority := v_child_priority
+                p_parent_id => p_task_id,
+                p_priority => v_child_priority
             );
             v_batch_count := v_batch_count + 1;
         END LOOP;
@@ -1107,16 +1107,16 @@ BEGIN
                 GROUP BY batch_idx ORDER BY batch_idx
             LOOP
                 PERFORM worker.spawn(
-                    p_command := 'statistical_unit_refresh_batch',
-                    p_payload := jsonb_build_object(
+                    p_command => 'statistical_unit_refresh_batch',
+                    p_payload => jsonb_build_object(
                         'command', 'statistical_unit_refresh_batch',
                         'batch_seq', v_batch_count + 1,
                         'power_group_ids', v_batch.pg_ids,
                         'valid_from', p_valid_from,
                         'valid_until', p_valid_until
                     ),
-                    p_parent_id := p_task_id,
-                    p_priority := v_child_priority
+                    p_parent_id => p_task_id,
+                    p_priority => v_child_priority
                 );
                 v_batch_count := v_batch_count + 1;
             END LOOP;
@@ -1171,10 +1171,10 @@ BEGIN
             IF to_regclass('pg_temp._batches') IS NOT NULL THEN DROP TABLE _batches; END IF;
             CREATE TEMP TABLE _batches ON COMMIT DROP AS
             SELECT * FROM public.get_closed_group_batches(
-                p_target_batch_size := 1000,
-                p_establishment_id_ranges := NULLIF(p_establishment_id_ranges, '{}'::int4multirange),
-                p_legal_unit_id_ranges := NULLIF(p_legal_unit_id_ranges, '{}'::int4multirange),
-                p_enterprise_id_ranges := NULLIF(p_enterprise_id_ranges, '{}'::int4multirange)
+                p_target_batch_size => 1000,
+                p_establishment_id_ranges => NULLIF(p_establishment_id_ranges, '{}'::int4multirange),
+                p_legal_unit_id_ranges => NULLIF(p_legal_unit_id_ranges, '{}'::int4multirange),
+                p_enterprise_id_ranges => NULLIF(p_enterprise_id_ranges, '{}'::int4multirange)
             );
             INSERT INTO public.statistical_unit_facet_dirty_partitions (partition_seq)
             SELECT DISTINCT public.report_partition_seq(t.unit_type, t.unit_id, (SELECT analytics_partition_count FROM public.settings))
@@ -1237,8 +1237,8 @@ BEGIN
 
             FOR v_batch IN SELECT * FROM _batches LOOP
                 PERFORM worker.spawn(
-                    p_command := 'statistical_unit_refresh_batch',
-                    p_payload := jsonb_build_object(
+                    p_command => 'statistical_unit_refresh_batch',
+                    p_payload => jsonb_build_object(
                         'command', 'statistical_unit_refresh_batch',
                         'batch_seq', v_batch.batch_seq,
                         'enterprise_ids', v_batch.enterprise_ids,
@@ -1250,8 +1250,8 @@ BEGIN
                         'changed_legal_unit_id_ranges', p_legal_unit_id_ranges::text,
                         'changed_enterprise_id_ranges', p_enterprise_id_ranges::text
                     ),
-                    p_parent_id := p_task_id,
-                    p_priority := v_child_priority
+                    p_parent_id => p_task_id,
+                    p_priority => v_child_priority
                 );
                 v_batch_count := v_batch_count + 1;
             END LOOP;
@@ -1273,16 +1273,16 @@ BEGIN
                 GROUP BY batch_idx ORDER BY batch_idx
             LOOP
                 PERFORM worker.spawn(
-                    p_command := 'statistical_unit_refresh_batch',
-                    p_payload := jsonb_build_object(
+                    p_command => 'statistical_unit_refresh_batch',
+                    p_payload => jsonb_build_object(
                         'command', 'statistical_unit_refresh_batch',
                         'batch_seq', v_batch_count + 1,
                         'power_group_ids', v_batch.pg_ids,
                         'valid_from', p_valid_from,
                         'valid_until', p_valid_until
                     ),
-                    p_parent_id := p_task_id,
-                    p_priority := v_child_priority
+                    p_parent_id => p_task_id,
+                    p_priority => v_child_priority
                 );
                 v_batch_count := v_batch_count + 1;
             END LOOP;
@@ -1315,12 +1315,12 @@ BEGIN
     PERFORM public.country_used_derive();
 
     PERFORM worker.enqueue_statistical_unit_flush_staging(
-        p_round_priority_base := p_round_priority_base
+        p_round_priority_base => p_round_priority_base
     );
     PERFORM worker.enqueue_derive_reports(
-        p_valid_from := p_valid_from,
-        p_valid_until := p_valid_until,
-        p_round_priority_base := p_round_priority_base
+        p_valid_from => p_valid_from,
+        p_valid_until => p_valid_until,
+        p_round_priority_base => p_round_priority_base
     );
 END;
 $derive_statistical_unit$;
@@ -1354,9 +1354,9 @@ BEGIN
     CALL admin.adjust_analytics_partition_count();
 
     PERFORM worker.enqueue_derive_statistical_history(
-        p_valid_from := p_valid_from,
-        p_valid_until := p_valid_until,
-        p_round_priority_base := p_round_priority_base
+        p_valid_from => p_valid_from,
+        p_valid_until => p_valid_until,
+        p_round_priority_base => p_round_priority_base
     );
 END;
 $derive_reports$;
@@ -1404,9 +1404,9 @@ BEGIN
     GROUP BY resolution, year, month, unit_type;
 
     PERFORM worker.enqueue_derive_statistical_unit_facet(
-        p_valid_from := v_valid_from,
-        p_valid_until := v_valid_until,
-        p_round_priority_base := v_round_priority_base
+        p_valid_from => v_valid_from,
+        p_valid_until => v_valid_until,
+        p_round_priority_base => v_round_priority_base
     );
 END;
 $statistical_history_reduce$;
@@ -1450,9 +1450,9 @@ BEGIN
     END IF;
 
     PERFORM worker.enqueue_derive_statistical_history_facet(
-        p_valid_from := v_valid_from,
-        p_valid_until := v_valid_until,
-        p_round_priority_base := v_round_priority_base
+        p_valid_from => v_valid_from,
+        p_valid_until => v_valid_until,
+        p_round_priority_base => v_round_priority_base
     );
 END;
 $statistical_unit_facet_reduce$;
