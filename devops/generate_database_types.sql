@@ -38,7 +38,41 @@ export type Database = {
 ', v_schema_name);
 
         -- Generate Enums
-        WITH enum_definitions AS (
+        -- Includes enums defined in v_schema_name AND enums from other schemas
+        -- that are referenced by columns in v_schema_name views/tables.
+        -- This handles cases like worker.task_state exposed through a public view.
+        WITH referenced_enum_oids AS (
+            -- Enum types from non-included schemas referenced by columns in this schema
+            SELECT DISTINCT t.oid
+            FROM pg_class AS c
+            JOIN pg_namespace AS cn ON cn.oid = c.relnamespace
+            JOIN pg_attribute AS a ON a.attrelid = c.oid
+            JOIN pg_type AS t ON t.oid = a.atttypid
+            JOIN pg_namespace AS tn ON tn.oid = t.typnamespace
+            WHERE cn.nspname = v_schema_name
+              AND c.relkind IN ('r', 'v', 'm', 'p')
+              AND a.attnum > 0
+              AND NOT a.attisdropped
+              AND t.typtype = 'e'
+              AND tn.nspname <> v_schema_name
+            UNION ALL
+            -- Array element enum types from non-included schemas
+            SELECT DISTINCT t_element.oid
+            FROM pg_class AS c
+            JOIN pg_namespace AS cn ON cn.oid = c.relnamespace
+            JOIN pg_attribute AS a ON a.attrelid = c.oid
+            JOIN pg_type AS t ON t.oid = a.atttypid
+            LEFT JOIN pg_type AS t_element ON t_element.oid = t.typelem
+            JOIN pg_namespace AS tn ON tn.oid = t_element.typnamespace
+            WHERE cn.nspname = v_schema_name
+              AND c.relkind IN ('r', 'v', 'm', 'p')
+              AND a.attnum > 0
+              AND NOT a.attisdropped
+              AND t.typcategory = 'A'
+              AND t_element.typtype = 'e'
+              AND tn.nspname <> v_schema_name
+        ),
+        enum_definitions AS (
             SELECT
                 t.typname AS enum_type_name,
                 string_agg('"' || e.enumlabel || '"', ' | ' ORDER BY e.enumsortorder) AS single_line_values,
@@ -46,7 +80,7 @@ export type Database = {
             FROM pg_type t
             JOIN pg_namespace n ON n.oid = t.typnamespace
             JOIN pg_enum e ON t.oid = e.enumtypid
-            WHERE n.nspname = v_schema_name
+            WHERE (n.nspname = v_schema_name OR t.oid IN (SELECT oid FROM referenced_enum_oids))
               AND t.typtype = 'e'
             GROUP BY t.typname
         ),
@@ -954,7 +988,39 @@ export type CompositeTypes<
 $$;
 
     -- Generate and Append Constants
-    WITH enum_details AS (
+    -- Also includes cross-schema enums referenced by views/tables in included schemas.
+    WITH cross_schema_enum_refs AS (
+        -- Enum types from non-included schemas referenced by columns in included schemas
+        SELECT DISTINCT cn.nspname AS referencing_schema, t.oid AS enum_oid
+        FROM pg_class AS c
+        JOIN pg_namespace AS cn ON cn.oid = c.relnamespace
+        JOIN pg_attribute AS a ON a.attrelid = c.oid
+        JOIN pg_type AS t ON t.oid = a.atttypid
+        JOIN pg_namespace AS tn ON tn.oid = t.typnamespace
+        WHERE cn.nspname = ANY(v_schemas)
+          AND c.relkind IN ('r', 'v', 'm', 'p')
+          AND a.attnum > 0
+          AND NOT a.attisdropped
+          AND t.typtype = 'e'
+          AND NOT tn.nspname = ANY(v_schemas)
+        UNION
+        -- Array element enum types from non-included schemas
+        SELECT DISTINCT cn.nspname AS referencing_schema, t_element.oid AS enum_oid
+        FROM pg_class AS c
+        JOIN pg_namespace AS cn ON cn.oid = c.relnamespace
+        JOIN pg_attribute AS a ON a.attrelid = c.oid
+        JOIN pg_type AS t ON t.oid = a.atttypid
+        LEFT JOIN pg_type AS t_element ON t_element.oid = t.typelem
+        JOIN pg_namespace AS tn ON tn.oid = t_element.typnamespace
+        WHERE cn.nspname = ANY(v_schemas)
+          AND c.relkind IN ('r', 'v', 'm', 'p')
+          AND a.attnum > 0
+          AND NOT a.attisdropped
+          AND t.typcategory = 'A'
+          AND t_element.typtype = 'e'
+          AND NOT tn.nspname = ANY(v_schemas)
+    ),
+    enum_details AS (
         SELECT
             t.oid as type_oid,
             n.nspname as schema_name,
@@ -966,6 +1032,18 @@ $$;
         JOIN pg_enum e ON t.oid = e.enumtypid
         WHERE n.nspname = ANY(v_schemas) AND t.typtype = 'e'
         GROUP BY t.oid, n.nspname, t.typname
+        UNION ALL
+        -- Cross-schema enums attributed to the referencing schema
+        SELECT
+            t.oid as type_oid,
+            csr.referencing_schema as schema_name,
+            t.typname,
+            array_agg('"' || e.enumlabel || '"' ORDER BY e.enumsortorder) as enum_values_array,
+            string_agg('"' || e.enumlabel || '"', ', ' ORDER BY e.enumsortorder) as single_line_values
+        FROM cross_schema_enum_refs AS csr
+        JOIN pg_type t ON t.oid = csr.enum_oid
+        JOIN pg_enum e ON t.oid = e.enumtypid
+        GROUP BY t.oid, csr.referencing_schema, t.typname
     ),
     formatted_enums AS (
         SELECT

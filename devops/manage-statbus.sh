@@ -1389,10 +1389,9 @@ EOS
         ;;
 
      'generate-types' )
-        # Use a temporary clone of the migrated template so type generation
-        # never touches the user's active development database.
+        # Type generation is read-only (SELECT only), so run directly against
+        # the migrated template — no need to clone the database.
         TEMPLATE_NAME="template_statbus_migrated"
-        TYPES_DB="statbus_types_gen_$$"
 
         # Verify template exists
         TEMPLATE_EXISTS=$(./devops/manage-statbus.sh psql -d postgres -t -A -c \
@@ -1403,25 +1402,20 @@ EOS
             exit 1
         fi
 
-        echo "Creating temporary types database: $TYPES_DB from $TEMPLATE_NAME"
-        ./devops/manage-statbus.sh psql -d postgres -v ON_ERROR_STOP=1 <<EOF
-            SELECT pg_advisory_lock(59328);
-            ALTER DATABASE $TEMPLATE_NAME WITH ALLOW_CONNECTIONS = true;
-            CREATE DATABASE "$TYPES_DB" WITH TEMPLATE $TEMPLATE_NAME;
-            ALTER DATABASE $TEMPLATE_NAME WITH ALLOW_CONNECTIONS = false;
-            SELECT pg_advisory_unlock(59328);
-EOF
+        # Temporarily allow connections to the template, restore on exit.
+        ./devops/manage-statbus.sh psql -d postgres -c \
+            "ALTER DATABASE $TEMPLATE_NAME WITH ALLOW_CONNECTIONS = true;" >/dev/null
 
-        cleanup_types_db() {
+        restore_template() {
             local exit_code=$?
-            echo "Cleaning up types database: $TYPES_DB"
-            ./devops/manage-statbus.sh psql -d postgres -c "DROP DATABASE IF EXISTS \"$TYPES_DB\";" 2>/dev/null || true
+            ./devops/manage-statbus.sh psql -d postgres -c \
+                "ALTER DATABASE $TEMPLATE_NAME WITH ALLOW_CONNECTIONS = false;" 2>/dev/null || true
             return $exit_code
         }
-        trap cleanup_types_db EXIT
+        trap restore_template EXIT
 
-        echo "Generating TypeScript types using SQL generator..."
-        ./devops/manage-statbus.sh psql -d "$TYPES_DB" < $WORKSPACE/devops/generate_database_types.sql
+        echo "Generating TypeScript types from $TEMPLATE_NAME..."
+        ./devops/manage-statbus.sh psql -d "$TEMPLATE_NAME" < $WORKSPACE/devops/generate_database_types.sql
         echo "TypeScript types generated in app/src/lib/database.types.ts"
       ;;
     'compile-run-and-trace-dev-app-in-container' )

@@ -63,6 +63,7 @@ export interface PhaseStatus {
 }
 
 export interface PipelineStepWeight {
+  phase: string;
   step: string;
   weight: number;
   seq: number;
@@ -286,7 +287,7 @@ export const refreshWorkerStatusAtom = atom(
         client.rpc('is_importing', undefined, { get: true }),
         client.rpc('is_deriving_statistical_units', undefined, { get: true }),
         client.rpc('is_deriving_reports', undefined, { get: true }),
-        client.from('pipeline_step_weight').select('step,weight,seq').order('seq'),
+        client.from('pipeline_step_weight').select('phase,step,weight,seq').order('seq'),
       ]);
 
       const error = importingRes.error || derivingUnitsRes.error || derivingReportsRes.error;
@@ -359,7 +360,6 @@ export const COMMAND_WAITING_LABELS: Record<string, string> = {
 export const COMMAND_LABELS: Record<string, string> = {
   'collect_changes': 'Recording changes',
   'derive_statistical_unit': 'Refreshing statistical units',
-  'derive_statistical_unit_continue': 'Refreshing statistical units',
   'statistical_unit_flush_staging': 'Flushing staging data',
   'derive_reports': 'Computing reports',
   'derive_statistical_history': 'Computing statistical history',
