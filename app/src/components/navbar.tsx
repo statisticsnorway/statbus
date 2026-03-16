@@ -53,15 +53,6 @@ function computeImportProgress(jobs: ImportStatus['jobs']): number | null {
   return Math.round(total / jobs.length);
 }
 
-// Static mapping of pipeline steps to their phases.
-// The database no longer stores phase — it's intrinsic to the task tree.
-const PHASE_STEPS: Record<string, string[]> = {
-  'is_deriving_statistical_units': ['collect_changes', 'derive_statistical_unit', 'statistical_unit_flush_staging'],
-  'is_deriving_reports': ['derive_reports', 'derive_statistical_history', 'statistical_history_reduce',
-    'derive_statistical_unit_facet', 'statistical_unit_facet_reduce',
-    'derive_statistical_history_facet', 'statistical_history_facet_reduce'],
-};
-
 /**
  * Extract step weights for a specific phase from the database-loaded weights.
  */
@@ -69,9 +60,8 @@ function weightsForPhase(
   allWeights: PipelineStepWeight[],
   phase: string,
 ): { step: string; weight: number }[] {
-  const steps = PHASE_STEPS[phase] ?? [];
   return allWeights
-    .filter(w => steps.includes(w.step))
+    .filter(w => w.phase === phase)
     .map(({ step, weight }) => ({ step, weight }));
 }
 
@@ -395,7 +385,7 @@ export default function Navbar() {
                     progressPct={reportsPct}
                     popoverContent={isDerivingReports
                       ? (derivingReports?.active
-                        ? <PhaseProgressPopover phase={derivingReports} stepWeights={phase2Weights} waitingFor={(derivingUnits?.total ?? 0) > 0 ? "Statistical Units" : undefined} />
+                        ? <PhaseProgressPopover phase={derivingReports} stepWeights={phase2Weights} waitingFor={derivingUnits?.active ? "Statistical Units" : undefined} />
                         : <p className="text-sm text-gray-500">Deriving reports...</p>)
                       : null}
                   />

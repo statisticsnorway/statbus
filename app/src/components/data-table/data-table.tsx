@@ -19,6 +19,8 @@ interface DataTableProps<TData> extends React.ComponentProps<"div"> {
   isValidating?: boolean;
   /** Optional function to get custom class names for a row based on its data */
   getRowClassName?: (row: TData) => string | undefined;
+  /** Optional click handler for rows */
+  onRowClick?: (row: TData) => void;
 }
 
 export function DataTable<TData>({
@@ -28,6 +30,7 @@ export function DataTable<TData>({
   className,
   isValidating,
   getRowClassName,
+  onRowClick,
   ...props
 }: DataTableProps<TData>) {
   return (
@@ -66,7 +69,11 @@ export function DataTable<TData>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
-                  className={getRowClassName?.(row.original)}
+                  className={cn(
+                    getRowClassName?.(row.original),
+                    onRowClick && "cursor-pointer",
+                  )}
+                  onClick={onRowClick ? () => onRowClick(row.original) : undefined}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
