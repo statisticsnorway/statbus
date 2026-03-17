@@ -133,11 +133,34 @@ export async function GET(request: NextRequest) {
       const result = await pgClient.query(selectBody);
       const fields = result.fields.map(f => f.name);
 
+      const numericOids = new Set([20, 21, 23, 700, 701, 1700]);
+      const dateOids = new Set([1082]);
+      const timestampOids = new Set([1114, 1184]);
+      const boolOid = 16;
+
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet("Data");
       worksheet.addRow(fields);
+
+      for (let colIdx = 0; colIdx < result.fields.length; colIdx++) {
+        const oid = result.fields[colIdx].dataTypeID;
+        if (dateOids.has(oid)) {
+          worksheet.getColumn(colIdx + 1).numFmt = 'yyyy-mm-dd';
+        } else if (timestampOids.has(oid)) {
+          worksheet.getColumn(colIdx + 1).numFmt = 'yyyy-mm-dd hh:mm:ss';
+        }
+      }
+
       for (const row of result.rows) {
-        worksheet.addRow(fields.map(f => row[f]));
+        worksheet.addRow(result.fields.map((field) => {
+          const val = row[field.name];
+          if (val === null || val === undefined) return null;
+          const oid = field.dataTypeID;
+          if (numericOids.has(oid)) return Number(val);
+          if (dateOids.has(oid) || timestampOids.has(oid)) return new Date(val as string);
+          if (oid === boolOid) return Boolean(val);
+          return val;
+        }));
       }
 
       const passThrough = new PassThrough();

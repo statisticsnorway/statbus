@@ -74,7 +74,7 @@ export type DefinitionSnapshot = {
   }>;
   import_mapping_list: Array<{
     source_column: { column_name: string } | null;
-    target_data_column: { column_name: string; purpose: string };
+    target_data_column: { column_name: string; purpose: string; column_type?: string };
   }>;
 };
 
