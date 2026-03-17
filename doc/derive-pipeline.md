@@ -90,12 +90,14 @@ from being processed.
 ## The Derive Pipeline
 
 When data changes (via import or direct edit), the analytics pipeline derives
-all downstream tables. Each box below is a **top-level task** — they run
-**strictly one at a time**, in order. The pipeline has two **phases**
-(see [Pipeline Progress](#pipeline-progress) below):
+all downstream tables. `collect_changes` pre-spawns the **entire task tree** —
+no handler enqueues the next step. The tree has two phases, each represented by
+a wrapper task. All children execute under structured concurrency: serial
+siblings run one-at-a-time; concurrent children (batches/periods) run in
+parallel on the child fibers.
 
-- **Phase 1** (`is_deriving_statistical_units`): steps ①–③
-- **Phase 2** (`is_deriving_reports`): steps ④–⑨
+- **Phase 1** (`derive_units_phase`): steps ①–③
+- **Phase 2** (`derive_reports_phase`): steps ④–⑨
 
 ```
  IMPORT QUEUE                      ANALYTICS QUEUE
@@ -315,26 +317,27 @@ the next-largest costs. The reporting stages (DSH, DSHF) take seconds.
 
 All commands, their queue assignments, and pipeline phase:
 
-| Queue       | Command                                   | Role        | Phase                       | Notes                        |
-|-------------|-------------------------------------------|-------------|-----------------------------|------------------------------|
-| analytics   | `collect_changes`                         | top-level   | `is_deriving_stat_units`    | Drains base_change_log       |
-| analytics   | `derive_statistical_unit`                 | parent      | `is_deriving_stat_units`    | Spawns batch children        |
-| analytics   | `statistical_unit_refresh_batch`          | child       | `is_deriving_stat_units`    | Parallel batch processing    |
-| analytics   | `derive_statistical_unit_continue`        | top-level   | `is_deriving_stat_units`    | ANALYZE sync point           |
-| analytics   | `statistical_unit_flush_staging`          | top-level   | `is_deriving_stat_units`    | Merge staging → main table   |
-| analytics   | `derive_reports`                          | top-level   | `is_deriving_reports`       | Enqueues DSH                 |
-| analytics   | `derive_statistical_history`              | parent      | `is_deriving_reports`       | Spawns period children       |
-| analytics   | `derive_statistical_history_period`       | child       | `is_deriving_reports`       | Per-period aggregation       |
-| analytics   | `statistical_history_reduce`              | top-level   | `is_deriving_reports`       | Aggregate history partitions |
-| analytics   | `derive_statistical_unit_facet`           | parent      | `is_deriving_reports`       | Spawns partition children    |
-| analytics   | `derive_statistical_unit_facet_partition` | child       | `is_deriving_reports`       | Per-partition facet compute  |
-| analytics   | `statistical_unit_facet_reduce`           | top-level   | `is_deriving_reports`       | Merge partitions → main      |
-| analytics   | `derive_statistical_history_facet`        | parent      | `is_deriving_reports`       | Spawns period children       |
-| analytics   | `derive_statistical_history_facet_period` | child       | `is_deriving_reports`       | Per-period facet aggregation |
-| analytics   | `statistical_history_facet_reduce`        | top-level   | `is_deriving_reports`       | Aggregate facet partitions   |
-| import      | `import_job_process`                      | top-level   | —                           | One import at a time         |
-| maintenance | `task_cleanup`                            | top-level   | —                           | Clean old tasks              |
-| maintenance | `import_job_cleanup`                      | top-level   | —                           | Clean expired imports        |
+| Queue       | Command                                   | Role        | Depth | Phase                       | Notes                        |
+|-------------|-------------------------------------------|-------------|-------|-----------------------------|------------------------------|
+| analytics   | `collect_changes`                         | root        | 0     | —                           | Drains base_change_log, pre-spawns tree |
+| analytics   | `derive_units_phase`                      | phase       | 1     | `is_deriving_stat_units`    | Serial wrapper for unit derivation |
+| analytics   | `derive_statistical_unit`                 | parent      | 2     | `is_deriving_stat_units`    | Spawns concurrent batch children |
+| analytics   | `statistical_unit_refresh_batch`          | child       | 3     | `is_deriving_stat_units`    | Parallel batch processing    |
+| analytics   | `statistical_unit_flush_staging`          | leaf        | 2     | `is_deriving_stat_units`    | Merge staging → main table   |
+| analytics   | `derive_reports_phase`                    | phase       | 1     | `is_deriving_reports`       | Serial wrapper for reports   |
+| analytics   | `derive_statistical_history`              | parent      | 2     | `is_deriving_reports`       | Spawns concurrent period children |
+| analytics   | `derive_statistical_history_period`       | child       | 3     | `is_deriving_reports`       | Per-period aggregation       |
+| analytics   | `statistical_history_reduce`              | leaf        | 2     | `is_deriving_reports`       | Aggregate history partitions |
+| analytics   | `derive_statistical_unit_facet`           | parent      | 2     | `is_deriving_reports`       | Spawns concurrent partition children |
+| analytics   | `derive_statistical_unit_facet_partition` | child       | 3     | `is_deriving_reports`       | Per-partition facet compute  |
+| analytics   | `statistical_unit_facet_reduce`           | leaf        | 2     | `is_deriving_reports`       | Merge partitions → main      |
+| analytics   | `derive_statistical_history_facet`        | parent      | 2     | `is_deriving_reports`       | Spawns concurrent period children |
+| analytics   | `derive_statistical_history_facet_period` | child       | 3     | `is_deriving_reports`       | Per-period facet aggregation |
+| analytics   | `statistical_history_facet_reduce`        | leaf        | 2     | `is_deriving_reports`       | Terminal — notifies complete |
+| analytics   | `derive_reports`                          | (legacy)    | —     | —                           | No-op stub for old task refs |
+| import      | `import_job_process`                      | top-level   | 0     | —                           | One import at a time         |
+| maintenance | `task_cleanup`                            | top-level   | 0     | —                           | Clean old tasks              |
+| maintenance | `import_job_cleanup`                      | top-level   | 0     | —                           | Clean expired imports        |
 
 
 ## Round-Based Priority
@@ -370,34 +373,24 @@ sequentially, **creation order = pipeline order = id order**. This means:
   (priority Q > P).
 - **Within a round:** Stages run in creation order (ascending `t.id`).
 
-### Uncle-before-children safety
+### Pre-spawned tree eliminates uncle tasks
 
-Some handlers enqueue "uncle" tasks (e.g., `statistical_unit_facet_reduce`)
-**before** spawning children. The uncle gets a lower `t.id` than the children.
-This is safe because:
+Previously, handlers enqueued "uncle" tasks (flat top-level tasks that ran
+after the current parent completed). This created ordering fragility — uncle
+tasks relied on priority ordering and `ON CONFLICT` dedup to avoid
+interleaving between pipeline rounds.
 
-1. The uncle is a top-level task (`parent_id IS NULL`).
-2. The parent enters `waiting` state after spawning children.
-3. The top fiber sees the waiting parent and **blocks** — it will NOT pick the
-   uncle task.
-4. Only child fibers run, processing children of the waiting parent.
-5. After all children complete, the parent completes, and THEN the top fiber
-   picks the uncle.
+The new tree structure eliminates this entirely: `collect_changes` pre-spawns
+the full tree, and serial `child_mode` on phase wrappers enforces execution
+order structurally. No dedup indexes are needed for pipeline steps (only
+`collect_changes` retains its dedup index for idempotent triggering).
 
-### ON CONFLICT priority merging
+### Cascade-fail safety
 
-When a later round re-enqueues a task that is still `pending` from an earlier
-round (e.g., widening a date range), the `ON CONFLICT` clause uses
-`LEAST(t.priority, EXCLUDED.priority)` to keep the **earlier** round's
-priority. This ensures the task stays in the earlier round's execution window.
-
-### Why this must not be changed
-
-Breaking the same-priority invariant re-introduces interleaving. Observed on
-`no.statbus.org` (2026-02-24): with independent `nextval()` calls per stage,
-tasks from 3+ rounds mixed together — `statistical_unit_facet_reduce` ran as
-a no-op (8ms) before its children populated the staging table, leaving
-`statistical_unit_facet` with 0 rows.
+When a task fails mid-execution and has pre-spawned children (which are
+still `pending`), those children would become orphans. The
+`cascade_fail_descendants()` function recursively marks all descendant tasks
+as `failed` with error `'Parent task failed'`.
 
 
 ## Frontend Status Detection

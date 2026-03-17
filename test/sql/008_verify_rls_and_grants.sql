@@ -36,11 +36,18 @@ DECLARE
     v_required_privileges TEXT[];  -- Set per-view based on insertability
     -- Tables that are intentionally exempt from RLS because they are internal
     -- staging/working tables not exposed via PostgREST.
+    -- Also includes dynamically-created import_*_upload and import_*_data tables
+    -- (created by admin.import_job_generate(), RLS TODO tracked separately).
     v_exempt_tables TEXT[] := ARRAY[
         'statistical_history_facet_partitions',
         'statistical_unit_facet_dirty_partitions',
         'statistical_unit_facet_staging',
         'statistical_unit_staging'
+    ];
+    -- Pattern-based exemptions (matched with LIKE)
+    v_exempt_table_patterns TEXT[] := ARRAY[
+        'import_%_upload',
+        'import_%_data'
     ];
     -- Views with intentionally non-standard grant patterns.
     -- public.user: security_barrier view, user creation via user_create() function,
@@ -91,12 +98,14 @@ DECLARE
         'worker.command_import_job_cleanup',
         'worker.command_task_cleanup',
         'worker.derive_reports',
+        'worker.derive_reports_phase',
         'worker.derive_statistical_history',
         'worker.derive_statistical_history_facet',
         'worker.derive_statistical_history_facet_period',
         'worker.derive_statistical_history_period',
         'worker.derive_statistical_unit',
         'worker.derive_statistical_unit_continue',
+        'worker.derive_units_phase',
         'worker.derive_statistical_unit_facet',
         'worker.derive_statistical_unit_facet_partition',
         'worker.statistical_history_facet_reduce',
@@ -235,7 +244,8 @@ each role can see and modify.
                 v_doc := v_doc || format(E'  - Policies: %s\n', v_policy_str);
             END IF;
         ELSE
-            IF v_rec.table_name = ANY(v_exempt_tables) THEN
+            IF v_rec.table_name = ANY(v_exempt_tables)
+               OR EXISTS (SELECT 1 FROM unnest(v_exempt_table_patterns) AS p WHERE v_rec.table_name LIKE p) THEN
                 v_doc := v_doc || format(E'- **`%s`** — RLS OFF (exempt: internal staging table)\n', v_rec.table_name);
             ELSE
                 v_doc := v_doc || format(E'- **`%s`** — **RLS OFF** ⚠️\n', v_rec.table_name);
@@ -418,6 +428,7 @@ each role can see and modify.
           AND c.relkind = 'r'
           AND NOT c.relrowsecurity
           AND c.relname <> ALL(v_exempt_tables)
+          AND NOT EXISTS (SELECT 1 FROM unnest(v_exempt_table_patterns) AS p WHERE c.relname LIKE p)
         ORDER BY c.relname
     LOOP
         -- Suggest edit if table looks like a core business table, read otherwise

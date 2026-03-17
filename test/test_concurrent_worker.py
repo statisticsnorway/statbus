@@ -2,7 +2,7 @@
 """
 Test concurrent worker processing with isolated database.
 
-1. Creates isolated DB from template_statbus_migrated
+1. Creates isolated DB from test template (POSTGRES_TEST_DB or statbus_test_template)
 2. Loads test data (like test 401) via psql
 3. Runs the real Crystal worker binary with --stop-when-idle
 4. Reports results from worker stdout and final task states
@@ -28,7 +28,7 @@ import psycopg2
 # ============================================================================
 
 WORKSPACE = Path(__file__).parent.parent.absolute()
-TEMPLATE_DB = "template_statbus_migrated"
+TEMPLATE_DB = os.environ.get("POSTGRES_TEST_DB", "statbus_test_template")
 MANAGE = str(WORKSPACE / "devops" / "manage-statbus.sh")
 ENV_CONFIG = WORKSPACE / ".env.config"
 

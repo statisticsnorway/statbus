@@ -142,57 +142,58 @@ Child fibers sleep until the top fiber wakes them:
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Uncle Tasks
+## Phase Wrappers (Serial Child Trees)
 
-Sometimes a parent needs to enqueue tasks that should run AFTER it completes, but are NOT children. These are "uncle" tasks:
+The pipeline uses **phase wrappers** — intermediate tasks that group related
+steps into a serial subtree. `collect_changes` pre-spawns the entire tree:
 
-```sql
--- Inside derive_statistical_unit handler
--- This task runs AFTER parent completes (not as a child)
-CALL worker.enqueue_analyze_tables();
+```
+collect_changes (depth=0, serial)
+├── derive_units_phase (depth=1, serial)
+│   ├── derive_statistical_unit (depth=2, concurrent children at depth=3)
+│   └── statistical_unit_flush_staging (depth=2, leaf)
+└── derive_reports_phase (depth=1, serial)
+    ├── derive_statistical_history (depth=2, concurrent children at depth=3)
+    ├── statistical_history_reduce (depth=2, leaf)
+    ├── derive_statistical_unit_facet (depth=2, concurrent children at depth=3)
+    ├── statistical_unit_facet_reduce (depth=2, leaf)
+    ├── derive_statistical_history_facet (depth=2, concurrent children at depth=3)
+    └── statistical_history_facet_reduce (depth=2, leaf, terminal)
 ```
 
-Uncle tasks:
-- Have `parent_id IS NULL` (top-level)
-- Are deduplicated via unique indexes
-- Run after the parent completes (serial mode resumes)
-- Useful for post-processing like ANALYZE
+No mixed child_modes — each parent is purely serial or purely concurrent.
+Max depth = 3. The tree is pre-spawned (no handler enqueues the next step),
+so execution order is enforced structurally by serial `child_mode`.
 
-## Example: Statistical Unit Derivation
+## Example: How process_tasks handles 4 levels
+
+Traced for the analytics queue (1 top fiber + 3 child fibers):
+
+1. Top fiber picks `collect_changes` (depth=0). Handler pre-spawns entire tree.
+   Has-children check → `waiting`.
+2. Top fiber: `process_tasks(top)` returns 0, `has_waiting_parent?` → true.
+   Wakes 3 child fibers.
+3. Child fiber picks `derive_units_phase` (depth=1, serial child of
+   `collect_changes`). Handler is a no-op, has pre-spawned children → `waiting`.
+4. Deepest waiting parent is now `derive_units_phase` (depth=1, serial).
+   Picks `derive_statistical_unit` (depth=2). Handler spawns concurrent batch
+   grandchildren → `waiting`.
+5. Deepest waiting parent is `derive_statistical_unit` (depth=2, concurrent).
+   All 3 child fibers process batch tasks (depth=3) in parallel.
+6. All batches complete → `derive_statistical_unit` auto-completes.
+   `derive_units_phase` (depth=1, serial) is now deepest waiting parent.
+   Serial check passes (no active sibling). One fiber picks
+   `statistical_unit_flush_staging`. Others find it locked (SKIP LOCKED).
+7. `statistical_unit_flush_staging` completes → `derive_units_phase`
+   auto-completes → `collect_changes` still has `derive_reports_phase` pending.
+8. Working fiber picks `derive_reports_phase`. Handler runs
+   `adjust_analytics_partition_count()`, has pre-spawned children → `waiting`.
+   Continues processing reports-phase serial children one by one, with
+   concurrent grandchildren where applicable.
+9. Eventually all work done. All 3 fibers signal done. Top fiber loops,
+   `has_waiting_parent?` → false. Waits for next notification.
 
 For the full pipeline diagram, see [derive-pipeline.md](./derive-pipeline.md).
-
-```
-1. collect_changes drains base_change_log → enqueues derive_statistical_unit
-
-2. derive_statistical_unit runs:
-   - Computes closed groups of affected enterprises
-   - Spawns batch children:
-     - statistical_unit_refresh_batch (batch 1)
-     - statistical_unit_refresh_batch (batch 2)
-     - statistical_unit_refresh_batch (batch 3)
-     - ... (N batches of ~1000 enterprises each)
-   - Enqueues uncle tasks (run after parent completes):
-     - statistical_unit_flush_staging
-     - derive_reports (triggers DSH → DSUF → DSHF chain)
-   - Handler returns → state becomes 'waiting'
-
-3. Concurrent mode activates:
-   - 4 analytics fibers process batch children in parallel
-   - Each batch refreshes statistical_unit for a subset of enterprises
-   - SKIP LOCKED prevents conflicts
-
-4. All children complete:
-   - complete_parent_if_ready() fires
-   - Parent state → completed
-
-5. Serial mode resumes:
-   - statistical_unit_flush_staging runs (merges staging → main table)
-   - derive_reports runs (enqueues derive_statistical_history)
-   - derive_statistical_history runs (spawns period children → concurrent)
-   - derive_statistical_unit_facet runs (monolithic, no children)
-   - derive_statistical_history_facet runs (spawns period children → concurrent)
-```
 
 ## Why Skip ANALYZE in Batches?
 
@@ -207,14 +208,17 @@ Fiber 4: ANALYZE establishment ← blocked!
 
 All concurrency is lost. Instead:
 - Batch tasks skip ANALYZE (only do DELETE/INSERT)
-- Uncle task runs ANALYZE once after all batches complete
+- ANALYZE runs separately (not inside batch children)
 - True parallel execution achieved
 
-## Error Handling
+## Error Handling and Cascade-Fail
 
 - If any child fails, parent eventually fails (after all children finish)
 - `has_failed_siblings()` can be checked by children
 - Failed state propagates upward but doesn't interrupt sibling execution
+- **Cascade-fail**: When a task fails and has pre-spawned descendants still
+  in `pending` or `waiting` state, `cascade_fail_descendants()` recursively
+  marks them all as `failed` to prevent orphaned tasks
 
 ## Testing
 

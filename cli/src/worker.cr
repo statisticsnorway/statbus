@@ -1213,14 +1213,14 @@ module Statbus
                                         WHEN 'waiting' THEN 'spawned children after'
                                         WHEN 'failed' THEN 'failed after'
                                       END,
-                                      round(duration_ms, 2),
+                                      round(process_duration_ms, 2),
                                       CASE WHEN error IS NOT NULL THEN ': ' || error ELSE '' END
                                     ) AS message
                                   FROM worker.tasks AS t
                                   JOIN worker.command_registry AS cr ON t.command = cr.command
-                                  WHERE processed_at >= $2
+                                  WHERE process_stop_at >= $2
                                   AND (cr.queue = $1 OR $1 IS NULL)
-                                  ORDER BY processed_at ASC",
+                                  ORDER BY process_stop_at ASC",
             queue, current_timestamp,
             as: {String, String}
 

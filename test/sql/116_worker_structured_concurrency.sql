@@ -279,7 +279,7 @@ UPDATE worker.tasks SET state = 'processing', worker_pid = pg_backend_pid() WHER
 -- After handler runs and we detect children exist, parent should go to waiting
 -- (This is what process_tasks does internally)
 UPDATE worker.tasks 
-SET state = 'waiting', processed_at = now()
+SET state = 'waiting', process_start_at = now(), process_stop_at = now()
 WHERE id = :int_parent_id;
 
 -- Verify parent is now waiting with 2 pending children
@@ -367,56 +367,8 @@ WHERE id = :stuck_parent_id;
 DELETE FROM worker.tasks WHERE id > 2;
 ALTER SEQUENCE worker.tasks_id_seq RESTART WITH 3;
 
-\echo "=== 19. Verify derive_statistical_unit deduplication (pending only) ==="
--- Clean slate for deduplication tests (delete children first due to FK)
-DELETE FROM worker.tasks WHERE parent_id IS NOT NULL;
-DELETE FROM worker.tasks WHERE command LIKE 'derive_statistical_unit%';
-
--- Insert first pending task
-SELECT worker.enqueue_derive_statistical_unit(
-    p_establishment_id_ranges => '{[1,10)}'::int4multirange
-) AS first_task_id \gset
-
--- Insert second (should merge with first since it's pending)
-SELECT worker.enqueue_derive_statistical_unit(
-    p_establishment_id_ranges => '{[20,30)}'::int4multirange
-) AS second_task_id \gset
-
--- Should be same task (merged)
-SELECT :first_task_id = :second_task_id AS tasks_merged;
-
--- Verify ranges were merged
-SELECT payload->>'establishment_id_ranges' AS merged_ranges
-FROM worker.tasks WHERE id = :first_task_id;
-
-\echo "=== 20. Test new pending task created when existing is processing ==="
--- Move first task to processing
-UPDATE worker.tasks
-SET state = 'processing', worker_pid = pg_backend_pid()
-WHERE id = :first_task_id;
-
--- Insert third task (should create NEW task since first is processing)
-SELECT worker.enqueue_derive_statistical_unit(
-    p_establishment_id_ranges => '{[40,50)}'::int4multirange
-) AS third_task_id \gset
-
--- Should be different task
-SELECT :first_task_id != :third_task_id AS new_task_created;
-
--- Verify both tasks exist with their own ranges
-SELECT id, state, payload->>'establishment_id_ranges' AS ranges
-FROM worker.tasks
-WHERE command = 'derive_statistical_unit'
-ORDER BY id;
-
-\echo "=== 21. Verify continuation command has NO deduplication index ==="
--- derive_statistical_unit has pending-only dedup, but continuation should have NONE
-SELECT indexname, indexdef
-FROM pg_indexes
-WHERE schemaname = 'worker' AND indexname LIKE '%derive%dedup%'
-ORDER BY indexname;
-
--- Cleanup deduplication test data
-DELETE FROM worker.tasks WHERE command LIKE 'derive_statistical_unit%';
+-- Tests 19-21 removed: enqueue_derive_statistical_unit() and per-command
+-- dedup indexes were dropped in the serial child tree migration.
+-- Deduplication now happens via collect_changes (top-level only).
 
 ROLLBACK;

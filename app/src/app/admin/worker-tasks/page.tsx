@@ -369,15 +369,29 @@ export default function WorkerTasksPage() {
         },
       },
       {
-        id: "duration_ms",
-        accessorKey: "duration_ms",
+        id: "process_duration_ms",
+        accessorKey: "process_duration_ms",
         minSize: 80,
         header: ({ column }) => (
-          <DataTableColumnHeader column={column} title="Duration" />
+          <DataTableColumnHeader column={column} title="Process" />
         ),
         cell: ({ row }) => (
           <div className="text-xs font-mono">
-            {formatDurationMs(row.original.duration_ms)}
+            {formatDurationMs(row.original.process_duration_ms)}
+          </div>
+        ),
+        enableSorting: true,
+      },
+      {
+        id: "completion_duration_ms",
+        accessorKey: "completion_duration_ms",
+        minSize: 80,
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Completion" />
+        ),
+        cell: ({ row }) => (
+          <div className="text-xs font-mono">
+            {formatDurationMs(row.original.completion_duration_ms)}
           </div>
         ),
         enableSorting: true,
@@ -460,10 +474,7 @@ export default function WorkerTasksPage() {
     initialState: {
       sorting: [{ id: "id", desc: true }],
       columnVisibility: {
-        // In top-level view: show child_mode, hide queue (less useful)
-        // In drilled-in view: hide child_mode (all same parent), show queue
-        child_mode: !isDrilledIn,
-        queue: isDrilledIn,
+        child_mode: false,
       },
       pagination: {
         pageSize: 50,
@@ -490,7 +501,7 @@ export default function WorkerTasksPage() {
     : `Task #${parentId}`;
 
   return (
-    <div className="space-y-4">
+    <main className="mx-auto flex w-full max-w-7xl flex-col space-y-4 px-4 py-8 md:py-12">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Worker Tasks</h1>
         <Button
@@ -536,7 +547,7 @@ export default function WorkerTasksPage() {
                 {parentTask.state}
               </Badge>
               <span className="font-mono text-xs text-gray-600">
-                {formatDurationMs(parentTask.duration_ms)}
+                {formatDurationMs(parentTask.completion_duration_ms ?? parentTask.process_duration_ms)}
               </span>
               {formatUnitCounts(parentTask) && (
                 <span className="font-mono text-xs text-gray-600">
@@ -558,6 +569,6 @@ export default function WorkerTasksPage() {
       >
         <DataTableToolbar table={table} />
       </DataTable>
-    </div>
+    </main>
   );
 }

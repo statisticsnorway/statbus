@@ -279,7 +279,9 @@ class Dotenv
   end
 
   def export
-    @dotenv_content.mapping.each { |k, v| ENV[k] = v.value }
+    # Existing environment variables take precedence over .env file values.
+    # This is standard dotenv behavior and allows overriding via shell env.
+    @dotenv_content.mapping.each { |k, v| ENV[k] ||= v.value }
   end
 
   def parse(keys : Array(String) = [] of String)

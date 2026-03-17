@@ -354,13 +354,17 @@ export const usePipelineStepWeights = (): PipelineStepWeight[] => {
 /** Labels used when a command is running while waiting for another phase. */
 export const COMMAND_WAITING_LABELS: Record<string, string> = {
   'collect_changes': 'Batching changes',
+  'derive_units_phase': 'Preparing unit derivation',
+  'derive_reports_phase': 'Preparing reports',
   'derive_reports': 'Preparing reports',
 };
 
 export const COMMAND_LABELS: Record<string, string> = {
   'collect_changes': 'Recording changes',
+  'derive_units_phase': 'Deriving statistical units',
   'derive_statistical_unit': 'Refreshing statistical units',
   'statistical_unit_flush_staging': 'Flushing staging data',
+  'derive_reports_phase': 'Deriving reports',
   'derive_reports': 'Computing reports',
   'derive_statistical_history': 'Computing statistical history',
   'derive_statistical_unit_facet': 'Computing search facets',
