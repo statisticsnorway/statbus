@@ -4,13 +4,12 @@ import {
   Dialog,
   DialogClose,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tables } from "@/lib/database.types";
-import { useActionState, useEffect } from "react";
+import { useActionState } from "react";
 import { updateUser, createUser } from "./update-user-server-action";
 import { PasswordInput } from "./password-input";
 import { Separator } from "@radix-ui/react-select";
@@ -19,6 +18,7 @@ import { userRoles } from "./roles";
 import { SelectField } from "@/components/form/select-field";
 import { RoleDescriptionTooltip } from "./role-description-tooltip";
 import { SubmissionFeedbackDebugInfo } from "@/components/form/submission-feedback-debug-info";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 
 export function UserForm({
   user,
@@ -40,12 +40,16 @@ export function UserForm({
     label: role.label,
   }));
 
-  useEffect(() => {
-    if (state?.status === "success") {
-      onSuccess();
-      onOpenChange(false);
-    }
-  }, [state?.status, onOpenChange, onSuccess]);
+  useGuardedEffect(
+    () => {
+      if (state?.status === "success") {
+        onSuccess();
+        onOpenChange(false);
+      }
+    },
+    [state?.status, onOpenChange, onSuccess],
+    "UserForm:closeOnSuccess"
+  );
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -55,14 +59,9 @@ export function UserForm({
             <input type="hidden" name="id" value={user.id} />
           )}
           <DialogHeader>
-            <DialogTitle className="text-center">
-              {isEdit ? "Edit user" : "Create new user"}
+            <DialogTitle className="text-center mb-4">
+              {isEdit ? "Edit user details" : "Create new user"}
             </DialogTitle>
-            <DialogDescription className="mt-1">
-              {isEdit
-                ? "Update the user's details."
-                : "Create a new user for STATBUS."}
-            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4">
             <Separator />

@@ -1,6 +1,5 @@
 "use client";
 import { useBaseData } from "@/atoms/base-data";
-import UsersTable from "./user-table";
 import { UserForm } from "./user-form";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -14,19 +13,68 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { userRoles } from "./roles";
-import { useUserForm } from "./use-user-form";
+import AdminPageLayout from "../page-layout";
+import AdminTable, { ColumnDefinition } from "../admin-table";
+import { Tables } from "@/lib/database.types";
+import { format, formatDistanceToNow } from "date-fns";
+import { useAdminForm } from "../use-admin-form";
+
+function formatDateOrTimeAgo(dateString?: string | null) {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+
+  const daysDiff = Math.abs(
+    (new Date().getTime() - date.getTime()) / (1000 * 60 * 60 * 24)
+  );
+
+  if (daysDiff < 1) return formatDistanceToNow(date, { addSuffix: true });
+  return format(date, "d MMM yyyy 'at' HH:mm");
+}
+
+const columns: ColumnDefinition<Tables<"user">>[] = [
+  {
+    key: "display_name",
+    header: "User",
+    render: (record) => (
+      <div className="flex flex-col">
+        <span className="font-medium">{record.display_name}</span>
+        <small className="flex text-gray-700">{record.email}</small>
+      </div>
+    ),
+  },
+  {
+    key: "statbus_role",
+    header: "Role",
+    render: (record) =>
+      record.statbus_role &&
+      userRoles.find((r) => r.value === record.statbus_role)?.label,
+  },
+  {
+    key: "created_at",
+    header: "Created",
+    render: (record) => formatDateOrTimeAgo(record.created_at),
+  },
+  {
+    key: "last_sign_in_at",
+    header: "Last signed in",
+    render: (record) => formatDateOrTimeAgo(record.last_sign_in_at),
+  },
+];
+
 
 export default function UsersPage() {
-  const { statbusUsers } = useBaseData();
+  const { statbusUsers, refreshBaseData, loading } = useBaseData();
   const {
     isFormOpen,
-    handleCreateUser,
-    handleEditUser,
-    selectedUser,
+    handleCreate,
+    handleEdit,
+    selectedRecord,
     formKey,
     handleOpenChange,
     handleSuccess,
-  } = useUserForm();
+  } = useAdminForm<Tables<"user">>({
+    onSuccess: refreshBaseData,
+  });
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
 
@@ -39,11 +87,10 @@ export default function UsersPage() {
   });
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-col py-8 md:py-12">
-      <h1 className="text-center mb-3 text-xl lg:text-2xl">Users</h1>
-      <p className="mb-12 text-center">
-        View, create and manage user accounts and permissions
-      </p>
+    <AdminPageLayout
+      title="Users"
+      subtitle="View, create and manage user accounts and permissions"
+    >
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <Input
@@ -66,7 +113,7 @@ export default function UsersPage() {
             </SelectContent>
           </Select>
         </div>
-        <Button onClick={() => handleCreateUser()}>
+        <Button onClick={() => handleCreate()}>
           <UserPlus className="w-4 h-4" />
           Create new user
         </Button>
@@ -74,16 +121,18 @@ export default function UsersPage() {
           key={formKey}
           isOpen={isFormOpen}
           onOpenChange={handleOpenChange}
-          user={selectedUser}
+          user={selectedRecord}
           onSuccess={handleSuccess}
         />
       </div>
       <div className="rounded-md border overflow-hidden">
-        <UsersTable
-          users={filteredUsers}
-          onEdit={(user) => handleEditUser(user)}
+        <AdminTable
+          data={filteredUsers}
+          columns={columns}
+          onEdit={handleEdit}
+          isLoading={loading}
         />
       </div>
-    </main>
+    </AdminPageLayout>
   );
 }
