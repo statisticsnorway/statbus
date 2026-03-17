@@ -8,8 +8,10 @@ import { useAuth } from "@/atoms/auth"; // Use Jotai hook for auth state
 import { Button } from "@/components/ui/button";
 import { Edit2 } from "lucide-react";
 import { UserForm } from "../admin/users/user-form";
-import { useUserForm } from "../admin/users/use-user-form";
+import { useAdminForm } from "../admin/use-admin-form";
 import { userRoles } from "../admin/users/roles";
+import { Tables } from "@/lib/database.types";
+import { useBaseData } from "@/atoms/base-data";
 
 export default function ProfilePage() {
   const [isMounted, setIsMounted] = useState(false);
@@ -19,18 +21,18 @@ export default function ProfilePage() {
     loading: authLoading,
     refreshToken,
   } = useAuth();
+  const { statbusUsers } = useBaseData();
+
   const {
-    handleEditUser,
     isFormOpen,
     handleOpenChange,
-    selectedUser,
-    handleSuccess: baseHandleSuccess,
-  } = useUserForm();
-
-  const handleSuccess = () => {
-    baseHandleSuccess();
-    refreshToken();
-  };
+    selectedRecord,
+    handleSuccess,
+    formKey,
+    handleEdit,
+  } = useAdminForm<Tables<"user">>({
+    onSuccess: refreshToken,
+  });
   useGuardedEffect(
     () => {
       setIsMounted(true);
@@ -61,7 +63,10 @@ export default function ProfilePage() {
       </main>
     );
   }
-  const currentUser = { ...user, id: user.uid };
+
+  const currentUser = statbusUsers.find(
+    (statbusUser) => statbusUser.id === user.uid
+  );
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col py-8 md:py-24">
@@ -74,14 +79,17 @@ export default function ProfilePage() {
             This is what the system knows about you
           </p>
         </div>
-        <Button variant="outline" onClick={() => handleEditUser(currentUser)}>
-          <Edit2 className="w-4 h-4" />
-          Edit details
-        </Button>
+        {currentUser && (
+          <Button variant="outline" onClick={() => handleEdit(currentUser)}>
+            <Edit2 className="w-4 h-4" />
+            Edit details
+          </Button>
+        )}
         <UserForm
+          key={formKey}
           isOpen={isFormOpen}
           onOpenChange={handleOpenChange}
-          user={selectedUser}
+          user={selectedRecord}
           onSuccess={handleSuccess}
         />
       </div>
