@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerRestClient } from "@/context/RestClientStore";
 import { Pool } from 'pg';
 import { to as copyTo } from 'pg-copy-streams';
+import { PassThrough } from 'stream';
+import ExcelJS from 'exceljs';
 import { getDbHostPort } from "@/lib/db-listener";
 import type { DefinitionSnapshot } from "@/atoms/import";
 
@@ -27,6 +29,11 @@ export async function GET(request: NextRequest) {
     }
     if (!filter || !["error", "warning"].includes(filter)) {
       return NextResponse.json({ message: "filter must be 'error' or 'warning'" }, { status: 400 });
+    }
+
+    const format = searchParams.get("format") || "csv";
+    if (!["csv", "xlsx"].includes(format)) {
+      return NextResponse.json({ message: "format must be 'csv' or 'xlsx'" }, { status: 400 });
     }
 
     const accessToken = request.cookies.get('statbus')?.value;
@@ -102,14 +109,13 @@ export async function GET(request: NextRequest) {
       : `WHERE invalid_codes IS NOT NULL AND invalid_codes != '{}'::jsonb`;
 
     const dataTable = job.data_table_name;
-    const copyQuery = `COPY (SELECT row_id, ${errorColumn}, ${sourceColumns} FROM ${dataTable} ${whereClause} ORDER BY row_id) TO STDOUT WITH (FORMAT CSV, HEADER)`;
+    const selectBody = `SELECT row_id, ${errorColumn}, ${sourceColumns} FROM ${dataTable} ${whereClause} ORDER BY row_id`;
 
-    // Connect to PG and stream the CSV
+    // Connect to PG and switch to user's role
     const dbConfig = getDbConfig();
     const pool = new Pool(dbConfig);
     const pgClient = await pool.connect();
 
-    // Switch to user's role (BEFORE any transaction, matching upload pattern)
     try {
       await pgClient.query('SELECT auth.jwt_switch_role($1)', [accessToken]);
     } catch (error) {
@@ -118,38 +124,57 @@ export async function GET(request: NextRequest) {
       throw error;
     }
 
-    const copyStream = pgClient.query(copyTo(copyQuery));
-
-    // Cleanup must happen AFTER the stream is fully consumed, not when the
-    // Response is returned. The Response streams data lazily — if we release
-    // the PG client in a finally block, the connection dies mid-stream.
     const cleanup = () => {
       pgClient.release();
       pool.end();
     };
 
+    if (format === "xlsx") {
+      const result = await pgClient.query(selectBody);
+      const fields = result.fields.map(f => f.name);
+
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Data");
+      worksheet.addRow(fields);
+      for (const row of result.rows) {
+        worksheet.addRow(fields.map(f => row[f]));
+      }
+
+      const passThrough = new PassThrough();
+      const webStream = new ReadableStream({
+        start(controller) {
+          passThrough.on('data', (chunk: Buffer) => controller.enqueue(chunk));
+          passThrough.on('end', () => { controller.close(); cleanup(); });
+          passThrough.on('error', (err) => { controller.error(err); cleanup(); });
+        },
+        cancel() { passThrough.destroy(); cleanup(); },
+      });
+
+      workbook.xlsx.write(passThrough).then(() => passThrough.end());
+
+      const filename = `${slug}-${filter}s.xlsx`;
+      return new Response(webStream, {
+        headers: {
+          "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "Content-Disposition": `attachment; filename="${filename}"`,
+        },
+      });
+    }
+
+    // CSV path: stream via COPY
+    const copyQuery = `COPY (${selectBody}) TO STDOUT WITH (FORMAT CSV, HEADER)`;
+    const copyStream = pgClient.query(copyTo(copyQuery));
+
     const webStream = new ReadableStream({
       start(controller) {
-        copyStream.on('data', (chunk: Buffer) => {
-          controller.enqueue(chunk);
-        });
-        copyStream.on('end', () => {
-          controller.close();
-          cleanup();
-        });
-        copyStream.on('error', (err) => {
-          controller.error(err);
-          cleanup();
-        });
+        copyStream.on('data', (chunk: Buffer) => controller.enqueue(chunk));
+        copyStream.on('end', () => { controller.close(); cleanup(); });
+        copyStream.on('error', (err) => { controller.error(err); cleanup(); });
       },
-      cancel() {
-        copyStream.destroy();
-        cleanup();
-      },
+      cancel() { copyStream.destroy(); cleanup(); },
     });
 
     const filename = `${slug}-${filter}s.csv`;
-
     return new Response(webStream, {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",

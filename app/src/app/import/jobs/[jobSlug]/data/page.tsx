@@ -17,6 +17,12 @@ import {
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ChevronRight, ThumbsUp, ThumbsDown, Download } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { StackedProgress } from "@/components/ui/stacked-progress";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useAtomValue } from "jotai";
@@ -752,16 +758,21 @@ export default function ImportJobDataPage() {
                 >
                   <span className="font-mono">{formatNumber(job?.warning_count)}</span>&nbsp;warn
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 px-2 text-amber-600 hover:bg-amber-50"
-                  asChild
-                >
-                  <a href={`/api/import/download?slug=${job?.slug}&filter=warning`} download>
-                    <Download className="h-4 w-4" />
-                  </a>
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-8 px-2 text-amber-600 hover:bg-amber-50">
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem asChild>
+                      <a href={`/api/import/download?slug=${job?.slug}&filter=warning&format=csv`} download>Download CSV</a>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <a href={`/api/import/download?slug=${job?.slug}&filter=warning&format=xlsx`} download>Download Excel (.xlsx)</a>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </>
             )}
             {(job?.error_count ?? 0) > 0 && (
@@ -777,16 +788,21 @@ export default function ImportJobDataPage() {
                 >
                   <span className="font-mono">{formatNumber(job?.error_count)}</span>&nbsp;err
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 px-2 text-red-600 hover:bg-red-50"
-                  asChild
-                >
-                  <a href={`/api/import/download?slug=${job?.slug}&filter=error`} download>
-                    <Download className="h-4 w-4" />
-                  </a>
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-8 px-2 text-red-600 hover:bg-red-50">
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem asChild>
+                      <a href={`/api/import/download?slug=${job?.slug}&filter=error&format=csv`} download>Download CSV</a>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <a href={`/api/import/download?slug=${job?.slug}&filter=error&format=xlsx`} download>Download Excel (.xlsx)</a>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </>
             )}
           </DataTableToolbar>
