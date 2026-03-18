@@ -10,6 +10,7 @@ export function FormField({
   readonly,
   response,
   placeholder,
+  type,
 }: {
   readonly label: string;
   readonly name: string;
@@ -17,6 +18,7 @@ export function FormField({
   readonly readonly?: boolean;
   readonly response: UpdateResponse;
   readonly placeholder?: string;
+  readonly type?: string;
 }) {
   const [inputValue, setInputValue] = useState(value ?? "");
 
@@ -37,7 +39,7 @@ export function FormField({
       <Label className="flex flex-col space-y-2">
         <span className="text-xs uppercase text-gray-600">{label}</span>
         <Input
-          type="text"
+          type={type ?? "text"}
           readOnly={readonly}
           placeholder={placeholder ?? ""}
           name={name}

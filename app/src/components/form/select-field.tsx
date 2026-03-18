@@ -58,7 +58,7 @@ export function SelectField({
         value={selectedValue}
         onValueChange={(value) => setSelectedValue(value)}
       >
-        <SelectTrigger className="w-full">
+        <SelectTrigger className="w-full font-medium">
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>
