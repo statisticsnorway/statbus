@@ -62,8 +62,8 @@ export async function GET(request: NextRequest) {
 
     const client = await getServerRestClient();
 
-    // Fetch definition, source columns, settings, and column types in parallel
-    const [defResult, colResult, settingsResult, typeResult] = await Promise.all([
+    // Fetch definition, source columns, and settings in parallel
+    const [defResult, colResult, settingsResult] = await Promise.all([
       client
         .from("import_definition")
         .select("id, slug, name")
@@ -71,15 +71,13 @@ export async function GET(request: NextRequest) {
         .single(),
       client
         .from("import_source_column")
-        .select("column_name, priority")
+        .select("column_name, priority, target_pg_type")
         .eq("definition_id", Number(definitionId))
         .order("priority"),
       client
         .from("settings")
         .select("region_version_id")
         .single(),
-      client
-        .rpc("import_definition_source_column_types" as any, { p_definition_id: Number(definitionId) }) as unknown as { data: { column_name: string; column_type: string }[] | null; error: any },
     ]);
 
     if (defResult.error || !defResult.data) {
@@ -99,9 +97,9 @@ export async function GET(request: NextRequest) {
     const sourceColumns = colResult.data;
     const regionVersionId = settingsResult.data?.region_version_id;
 
-    // Build column type map from database metadata
+    // Build column type map from source columns
     const typeMap = new Map<string, string>(
-      (typeResult.data ?? []).map((r: { column_name: string; column_type: string }) => [r.column_name, r.column_type])
+      sourceColumns.map(c => [c.column_name, c.target_pg_type ?? 'TEXT'])
     );
 
     // Determine which reference sheets are needed (deduplicated by sheetName)
