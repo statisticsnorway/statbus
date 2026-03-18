@@ -5,6 +5,30 @@ import ExcelJS from 'exceljs';
 import fs from 'fs';
 import path from 'path';
 
+function typeToNumFmt(colType: string): string {
+  if (colType === 'DATE') return 'yyyy-mm-dd';
+  if (colType === 'INTEGER') return '0';
+  if (colType === 'NUMERIC') return '#,##0.##';
+  const match = colType.match(/^numeric\(\d+,(\d+)\)$/i);
+  if (match) return '0.' + '0'.repeat(Number(match[1]));
+  return '@'; // TEXT — prevents auto-conversion of codes like "01.11"
+}
+
+function parseValueForExcel(value: string, colType: string): string | number | Date {
+  if (!value) return '';
+  if (colType === 'DATE') {
+    const d = new Date(value + 'T00:00:00');
+    if (!isNaN(d.getTime())) return d;
+    return value;
+  }
+  if (colType === 'INTEGER' || colType === 'NUMERIC' || /^numeric\(/i.test(colType)) {
+    const n = Number(value);
+    if (!isNaN(n)) return n;
+    return value;
+  }
+  return value;
+}
+
 const COLUMN_REFERENCE_MAP: Record<string, {
   view: string;
   codeColumn: string;
@@ -38,8 +62,8 @@ export async function GET(request: NextRequest) {
 
     const client = await getServerRestClient();
 
-    // Fetch definition, source columns, and settings in parallel
-    const [defResult, colResult, settingsResult] = await Promise.all([
+    // Fetch definition, source columns, settings, and column types in parallel
+    const [defResult, colResult, settingsResult, typeResult] = await Promise.all([
       client
         .from("import_definition")
         .select("id, slug, name")
@@ -54,6 +78,8 @@ export async function GET(request: NextRequest) {
         .from("settings")
         .select("region_version_id")
         .single(),
+      client
+        .rpc("import_definition_source_column_types" as any, { p_definition_id: Number(definitionId) }) as unknown as { data: { column_name: string; column_type: string }[] | null; error: any },
     ]);
 
     if (defResult.error || !defResult.data) {
@@ -72,6 +98,11 @@ export async function GET(request: NextRequest) {
     const definition = defResult.data;
     const sourceColumns = colResult.data;
     const regionVersionId = settingsResult.data?.region_version_id;
+
+    // Build column type map from database metadata
+    const typeMap = new Map<string, string>(
+      (typeResult.data ?? []).map((r: { column_name: string; column_type: string }) => [r.column_name, r.column_type])
+    );
 
     // Determine which reference sheets are needed (deduplicated by sheetName)
     const neededRefs = new Map<string, typeof COLUMN_REFERENCE_MAP[string]>();
@@ -152,9 +183,12 @@ export async function GET(request: NextRequest) {
       fgColor: { argb: 'FF4472C4' },
     };
 
-    // Set column widths
+    // Set column widths and number formats
     for (let i = 0; i < headers.length; i++) {
-      dataSheet.getColumn(i + 1).width = Math.max(headers[i].length + 4, 15);
+      const col = dataSheet.getColumn(i + 1);
+      col.width = Math.max(headers[i].length + 4, 15);
+      const colType = typeMap.get(headers[i]) ?? 'TEXT';
+      col.numFmt = typeToNumFmt(colType);
     }
 
     // Apply data validation to code columns (rows 2-1001)
@@ -202,7 +236,9 @@ export async function GET(request: NextRequest) {
           const fields = csvLines[ri].split(',').map(f => f.trim());
           const row = dataSheet.addRow(new Array(headers.length).fill(''));
           for (const { csvIdx, sheetCol } of csvToSheetMap) {
-            row.getCell(sheetCol).value = fields[csvIdx] ?? '';
+            const rawValue = fields[csvIdx] ?? '';
+            const colType = typeMap.get(headers[sheetCol - 1]) ?? 'TEXT';
+            row.getCell(sheetCol).value = parseValueForExcel(rawValue, colType);
           }
         }
       }
