@@ -20,7 +20,9 @@ import { PendingJobsList } from "../components/pending-jobs-list";
 export default function LegalRelationshipsPage() {
   const router = useRouter();
   const { counts, importState } = useImportManager();
-  const { selectedDefinition } = importState;
+  const { selectedDefinition, availableDefinitions } = importState;
+  const jobProvidedDef = availableDefinitions.find(d => d.valid_time_from === 'job_provided');
+  const sourceColumnsDef = availableDefinitions.find(d => d.valid_time_from === 'source_columns');
   const { jobs: pendingJobs, loading: isLoading, error, refreshJobs } = usePendingJobsByMode("legal_relationship");
   const [isClient, setIsClient] = useState(false);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
@@ -134,35 +136,26 @@ export default function LegalRelationshipsPage() {
               links. Each row specifies an influencing Legal Unit, an influenced
               Legal Unit, a relationship type code, and an optional percentage.
             </p>
-            <div className="flex flex-col space-y-3 pl-4">
-              <div className={selectedDefinition?.valid_time_from === "job_provided" ? "font-bold" : ""}>
-                <p>Example for jobs with a defined validity period</p>
-                <span className="flex gap-3 pl-4">
-                  <a href="/demo/legal_relationships_demo.csv" download="legal_relationships_demo.csv" className="underline">CSV</a>
-                  {selectedDefinition && (
-                    <a href={`/api/import/template?definitionId=${selectedDefinition.id}&demoFile=legal_relationships_demo.csv`} download className="underline text-blue-600">Excel (with code lists)</a>
-                  )}
-                </span>
-              </div>
-              <div className={selectedDefinition?.valid_time_from === "source_columns" ? "font-bold" : ""}>
-                <p>Example for jobs with validity from source file (valid_from, valid_to)</p>
-                <span className="flex gap-3 pl-4">
-                  <a href="/demo/legal_relationships_with_source_dates_demo.csv" download="legal_relationships_with_source_dates_demo.csv" className="underline">CSV</a>
-                  {selectedDefinition && (
-                    <a href={`/api/import/template?definitionId=${selectedDefinition.id}&demoFile=legal_relationships_with_source_dates_demo.csv`} download className="underline text-blue-600">Excel (with code lists)</a>
-                  )}
-                </span>
-              </div>
-              {selectedDefinition && (
-                <a
-                  href={`/api/import/template?definitionId=${selectedDefinition.id}`}
-                  download
-                  className="underline font-medium text-blue-600"
-                >
-                  Download empty Excel template with valid code lists
-                </a>
-              )}
-            </div>
+            <table className="text-sm">
+              <tbody>
+                <tr className={selectedDefinition?.valid_time_from === "job_provided" ? "font-bold" : ""}>
+                  <td className="pr-4 py-1">With a defined validity period</td>
+                  <td className="px-2 py-1"><a href="/demo/legal_relationships_demo.csv" download="legal_relationships_demo.csv" className="underline">CSV</a></td>
+                  {jobProvidedDef && <>
+                    <td className="px-2 py-1"><a href={`/api/import/template?definitionId=${jobProvidedDef.id}&demoFile=legal_relationships_demo.csv`} download className="underline text-blue-600">Excel demo</a></td>
+                    <td className="px-2 py-1"><a href={`/api/import/template?definitionId=${jobProvidedDef.id}`} download className="underline text-blue-600">Excel template</a></td>
+                  </>}
+                </tr>
+                <tr className={selectedDefinition?.valid_time_from === "source_columns" ? "font-bold" : ""}>
+                  <td className="pr-4 py-1">With validity from source file</td>
+                  <td className="px-2 py-1"><a href="/demo/legal_relationships_with_source_dates_demo.csv" download="legal_relationships_with_source_dates_demo.csv" className="underline">CSV</a></td>
+                  {sourceColumnsDef && <>
+                    <td className="px-2 py-1"><a href={`/api/import/template?definitionId=${sourceColumnsDef.id}&demoFile=legal_relationships_with_source_dates_demo.csv`} download className="underline text-blue-600">Excel demo</a></td>
+                    <td className="px-2 py-1"><a href={`/api/import/template?definitionId=${sourceColumnsDef.id}`} download className="underline text-blue-600">Excel template</a></td>
+                  </>}
+                </tr>
+              </tbody>
+            </table>
           </AccordionContent>
         </AccordionItem>
       </Accordion>
