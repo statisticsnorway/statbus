@@ -90,54 +90,61 @@ The parent remains in `waiting` state until ALL children (including dynamically 
 
 ## How Fibers Cooperate
 
-Each queue has **1 top fiber** and **N child fibers** (where N = concurrency - 1).
-The top fiber is the only one that picks top-level tasks. Child fibers sleep
-until explicitly woken.
+Each queue has **1 serial fiber** and **N concurrent fibers** (where N = concurrency - 1).
+Two fiber types serve two purposes:
+
+1. **Serial fiber** (1 per queue) — ensures **predictability**. Walks the serial path depth-first, one task at a time. Picks top-level tasks and serial children.
+2. **Concurrent fibers** (N per queue) — ensures **speed**. A shared pool that processes concurrent work at any depth, up to the system resource limit.
 
 For the original concept, see [Notes on structured concurrency, or: Go
 statement considered harmful](https://vorpus.org/blog/notes-on-structured-concurrency-or-go-statement-considered-harmful/)
 by Nathaniel J. Smith.
 
-### Top Fiber (serial execution)
+### Serial Fiber (depth-first serial execution)
 
-The top fiber picks **exactly one** top-level task at a time:
+The serial fiber walks the serial path:
+- Picks top-level pending tasks or serial children of waiting parents
 - If the handler spawns children, the parent enters `waiting` state
-- The top fiber wakes the child fibers and **blocks** until they all signal done
-- Only then does it loop to pick the next top-level task
-- If a `waiting` parent exists when `mode='top'`, the SQL returns immediately
-  (no second top-level task can start)
+- If a concurrent parent exists, the serial fiber **exits** → Crystal wakes concurrent fibers and **blocks**
+- When all concurrent fibers signal done, the serial fiber resumes walking the serial path
+- The serial fiber also picks serial children at any depth (not just top-level)
 
-### Child Fibers (parallel execution within scope)
+### Concurrent Fibers (parallel execution within scope)
 
-Child fibers sleep until the top fiber wakes them:
-- Each picks **one pending child** of the waiting parent (`LIMIT 1, SKIP LOCKED`)
-- Multiple child fibers process different children concurrently
-- When no more children remain, each signals the top fiber and goes back to sleep
+Concurrent fibers sleep until the serial fiber wakes them:
+- Each picks **one pending child** of the deepest concurrent parent (`LIMIT 1, SKIP LOCKED`)
+- Multiple concurrent fibers process different children in parallel
+- Each concurrent fiber is a full executor: if a child spawns serial sub-children, the fiber walks them inline
+- When no more concurrent children remain, each signals the serial fiber and goes back to sleep
+
+### Serial→Concurrent→Serial→Concurrent (arbitrary depth)
+
+The tree can alternate between serial and concurrent at any depth:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Top-level tasks: strictly sequential                       │
+│  Top-level tasks: strictly sequential (serial fiber)         │
 │  ┌──────┐  ┌──────┐  ┌──────┐                              │
-│  │Task A│→ │Task B│→ │Task C│  (one at a time, top fiber)  │
+│  │Task A│→ │Task B│→ │Task C│  (one at a time)             │
 │  └──────┘  └──────┘  └──────┘                              │
 └─────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────┐
-│  When a task spawns children: scoped concurrency             │
+│  When concurrent children exist: scoped concurrency          │
 │                                                             │
 │  ┌──────────────────────────────────┐                      │
 │  │ Parent Task (state: waiting)     │                      │
-│  │ Top fiber BLOCKED here           │                      │
+│  │ Serial fiber BLOCKED here        │                      │
 │  │                                  │                      │
 │  │  ┌───────┐ ┌───────┐ ┌───────┐  │                      │
-│  │  │Child 1│ │Child 2│ │Child 3│  │  (parallel on child  │
-│  │  │Fiber 1│ │Fiber 2│ │Fiber 3│  │   fibers)            │
+│  │  │Child 1│ │Child 2│ │Child 3│  │  (parallel on        │
+│  │  │Fiber 1│ │Fiber 2│ │Fiber 3│  │   concurrent fibers) │
 │  │  └───────┘ └───────┘ └───────┘  │                      │
 │  │              ↓                   │                      │
 │  │     All children complete        │                      │
 │  │              ↓                   │                      │
 │  │     Parent → completed           │                      │
-│  │     Top fiber unblocked          │                      │
+│  │     Serial fiber unblocked       │                      │
 │  └──────────────────────────────────┘                      │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -167,31 +174,33 @@ so execution order is enforced structurally by serial `child_mode`.
 
 ## Example: How process_tasks handles 4 levels
 
-Traced for the analytics queue (1 top fiber + 3 child fibers):
+Traced for the analytics queue (1 serial fiber + 3 concurrent fibers):
 
-1. Top fiber picks `collect_changes` (depth=0). Handler pre-spawns entire tree.
+1. Serial fiber picks `collect_changes` (depth=0). Handler pre-spawns entire tree.
    Has-children check → `waiting`.
-2. Top fiber: `process_tasks(top)` returns 0, `has_waiting_parent?` → true.
-   Wakes 3 child fibers.
-3. Child fiber picks `derive_units_phase` (depth=1, serial child of
-   `collect_changes`). Handler is a no-op, has pre-spawned children → `waiting`.
-4. Deepest waiting parent is now `derive_units_phase` (depth=1, serial).
+2. Serial fiber: `process_tasks(serial)` finds `collect_changes` is serial parent.
+   Picks `derive_units_phase` (depth=1). Handler is a no-op, has pre-spawned
+   children → `waiting`.
+3. Serial fiber loops. Deepest serial parent is `derive_units_phase` (depth=1).
    Picks `derive_statistical_unit` (depth=2). Handler spawns concurrent batch
    grandchildren → `waiting`.
-5. Deepest waiting parent is `derive_statistical_unit` (depth=2, concurrent).
-   All 3 child fibers process batch tasks (depth=3) in parallel.
+4. Serial fiber: `process_tasks(serial)` detects concurrent parent
+   `derive_statistical_unit` (depth=2) → **exits**. Crystal wakes 3 concurrent fibers.
+5. All 3 concurrent fibers process batch tasks (depth=3) in parallel via
+   `SKIP LOCKED`.
 6. All batches complete → `derive_statistical_unit` auto-completes.
-   `derive_units_phase` (depth=1, serial) is now deepest waiting parent.
-   Serial check passes (no active sibling). One fiber picks
-   `statistical_unit_flush_staging`. Others find it locked (SKIP LOCKED).
-7. `statistical_unit_flush_staging` completes → `derive_units_phase`
+   Concurrent fibers find no more concurrent parents → signal done.
+   Serial fiber **unblocks**.
+7. Serial fiber resumes. `derive_units_phase` (depth=1, serial) is deepest
+   serial parent. Picks `statistical_unit_flush_staging` (depth=2, leaf).
+8. `statistical_unit_flush_staging` completes → `derive_units_phase`
    auto-completes → `collect_changes` still has `derive_reports_phase` pending.
-8. Working fiber picks `derive_reports_phase`. Handler runs
+9. Serial fiber picks `derive_reports_phase`. Handler runs
    `adjust_analytics_partition_count()`, has pre-spawned children → `waiting`.
-   Continues processing reports-phase serial children one by one, with
+   Continues walking serial children, with concurrent fibers woken for
    concurrent grandchildren where applicable.
-9. Eventually all work done. All 3 fibers signal done. Top fiber loops,
-   `has_waiting_parent?` → false. Waits for next notification.
+10. Eventually all work done. Serial fiber finds no more tasks.
+    Waits for next notification.
 
 For the full pipeline diagram, see [derive-pipeline.md](./derive-pipeline.md).
 

@@ -360,6 +360,7 @@ export const COMMAND_WAITING_LABELS: Record<string, string> = {
 };
 
 export const COMMAND_LABELS: Record<string, string> = {
+  'import_job': 'Import job',
   'collect_changes': 'Recording changes',
   'derive_units_phase': 'Deriving statistical units',
   'derive_statistical_unit': 'Refreshing statistical units',
