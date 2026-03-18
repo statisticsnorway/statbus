@@ -91,9 +91,6 @@ DECLARE
     v_worker_funcs TEXT[] := ARRAY[
         'admin.disable_temporal_triggers',
         'admin.enable_temporal_triggers',
-        'worker.command_collect_changes',
-        'worker.command_import_job_cleanup',
-        'worker.command_task_cleanup',
         'worker.derive_reports',
         'worker.derive_reports_phase',
         'worker.derive_statistical_history',
