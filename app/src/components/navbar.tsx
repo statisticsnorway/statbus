@@ -11,7 +11,7 @@ import TimeContextSelector from "@/components/time-context-selector";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useAuth, isAuthenticatedStrictAtom, currentUserAtom } from "@/atoms/auth";
 import { useBaseData } from "@/atoms/base-data";
-import { useWorkerStatus, usePipelineStepWeights, COMMAND_LABELS, COMMAND_WAITING_LABELS, type ImportStatus, type ImportJobProgress, type PhaseStatus, type PipelineStepWeight } from "@/atoms/worker_status";
+import { useWorkerStatus, usePipelineStepWeights, COMMAND_LABELS, type ImportStatus, type ImportJobProgress, type PhaseStatus, type PipelineStepWeight } from "@/atoms/worker_status";
 import { useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useAtomValue } from "jotai";
@@ -155,7 +155,7 @@ function UnitCountSummary({ phase }: { phase: PhaseStatus }) {
   if (parts.length === 0) return null;
   return (
     <p className="text-sm text-gray-600 font-medium">
-      Processing {parts.join(', ')}
+      Handle {parts.join(', ')}
     </p>
   );
 }
@@ -166,7 +166,7 @@ function UnitCountSummary({ phase }: { phase: PhaseStatus }) {
 function PhaseProgressPopover({ phase, stepWeights, waitingFor }: { phase: PhaseStatus; stepWeights: { step: string; weight: number }[]; waitingFor?: string }) {
   const currentStep = phase.step;
   const label = currentStep ? (COMMAND_LABELS[currentStep] ?? currentStep) : 'Pending...';
-  const waitingLabel = currentStep ? (COMMAND_WAITING_LABELS[currentStep] ?? label) : label;
+
   const pct = computeWeightedPhaseProgress(phase, stepWeights);
 
   return (
@@ -181,13 +181,13 @@ function PhaseProgressPopover({ phase, stepWeights, waitingFor }: { phase: Phase
           {phase.total > 1 && <Progress value={pct} className="h-2" />}
           {phase.total <= 1 && (
             <p className="text-xs text-gray-500">
-              {waitingFor ? `${waitingLabel} while waiting for ${waitingFor}` : 'Running...'}
+              {waitingFor ? `Waiting for ${waitingFor} before ${label}` : 'Running...'}
             </p>
           )}
         </div>
       ) : (
         <p className="text-sm text-gray-500">
-          {waitingFor ? `${waitingLabel} while waiting for ${waitingFor}` : 'Waiting to start...'}
+          {waitingFor ? `Waiting for ${waitingFor} before ${label}` : 'Waiting to start...'}
         </p>
       )}
     </div>
