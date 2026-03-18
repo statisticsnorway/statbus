@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import React, { useMemo, useCallback } from "react";
+import React, { useMemo, useCallback, useState } from "react";
 import { useSWRWithAuthRefresh, isJwtExpiredError, JwtExpiredError } from "@/hooks/use-swr-with-auth-refresh";
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { Spinner } from "@/components/ui/spinner";
@@ -18,7 +18,7 @@ import { useQueryState, parseAsString, parseAsArrayOf, parseAsInteger } from "nu
 import { COMMAND_LABELS } from "@/atoms/worker_status";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, ChevronRight } from "lucide-react";
+import { RefreshCw, ChevronRight, Info } from "lucide-react";
 import { useSWRConfig } from "swr";
 
 type WorkerTask = Tables<"worker_task">;
@@ -172,19 +172,20 @@ const fetcher = async (
   return { data: data as WorkerTask[], count };
 };
 
-/** Fetch a single task by ID (for breadcrumb parent info). */
-const fetchParentTask = async (
-  parentId: number
-): Promise<WorkerTask | null> => {
+/** Fetch multiple tasks by IDs (for breadcrumb ancestry). Returns in input order. */
+const fetchAncestorTasks = async (
+  ids: number[]
+): Promise<WorkerTask[]> => {
+  if (ids.length === 0) return [];
   const client = await getBrowserRestClient();
-  if (!client) return null;
+  if (!client) return [];
   const { data, error } = await client
     .from("worker_task")
     .select("*")
-    .eq("id", parentId)
-    .single();
-  if (error) return null;
-  return data as WorkerTask;
+    .in("id", ids);
+  if (error) return [];
+  const byId = new Map((data as WorkerTask[]).map((t) => [t.id, t]));
+  return ids.map((id) => byId.get(id)).filter(Boolean) as WorkerTask[];
 };
 
 export default function WorkerTasksPage() {
@@ -202,9 +203,14 @@ export default function WorkerTasksPage() {
     parseAsArrayOf(parseAsQueue).withDefault([])
   );
   const [command] = useQueryState("command", parseAsString.withDefault(""));
-  const [parentId, setParentId] = useQueryState("parentId", parseAsInteger);
+  const [pathParam, setPathParam] = useQueryState("path", parseAsString);
 
-  const isDrilledIn = parentId !== null && parentId > 0;
+  const pathIds = useMemo(() => {
+    if (!pathParam) return [];
+    return pathParam.split(",").map(Number).filter((n) => n > 0);
+  }, [pathParam]);
+  const parentId = pathIds.length > 0 ? pathIds[pathIds.length - 1] : null;
+  const isDrilledIn = parentId !== null;
 
   const swrKey = useMemo(() => {
     const params = new URLSearchParams();
@@ -230,13 +236,17 @@ export default function WorkerTasksPage() {
     "WorkerTasksPage:tasks"
   );
 
-  // Fetch parent task info for breadcrumb when drilled in
-  const { data: parentTask } = useSWRWithAuthRefresh<WorkerTask | null, Error>(
-    isDrilledIn ? `${SWR_KEY}/parent/${parentId}` : null,
-    isDrilledIn ? () => fetchParentTask(parentId!) : null,
+  // Fetch ancestor tasks for breadcrumb when drilled in
+  const ancestorKey = isDrilledIn ? `${SWR_KEY}/ancestors/${pathIds.join(",")}` : null;
+  const { data: ancestorTasks } = useSWRWithAuthRefresh<WorkerTask[], Error>(
+    ancestorKey,
+    isDrilledIn ? () => fetchAncestorTasks(pathIds) : null,
     { revalidateOnFocus: false },
-    "WorkerTasksPage:parent"
+    "WorkerTasksPage:ancestors"
   );
+  const parentTask = ancestorTasks && ancestorTasks.length > 0
+    ? ancestorTasks[ancestorTasks.length - 1]
+    : null;
 
   const tasksData = data?.data ?? [];
   const totalTasks = data?.count ?? 0;
@@ -244,17 +254,37 @@ export default function WorkerTasksPage() {
   const handleDrillIn = useCallback(
     async (task: WorkerTask) => {
       if (task.child_mode && task.id) {
-        await setParentId(task.id);
+        const newPath = [...pathIds, task.id].join(",");
+        await setPathParam(newPath);
         await setPage(1);
       }
     },
-    [setParentId, setPage]
+    [pathIds, setPathParam, setPage]
   );
 
-  const handleDrillOut = useCallback(async () => {
-    await setParentId(null);
-    await setPage(1);
-  }, [setParentId, setPage]);
+  const handleNavigateTo = useCallback(
+    async (index: number) => {
+      if (index < 0) {
+        await setPathParam(null);
+      } else {
+        await setPathParam(pathIds.slice(0, index + 1).join(","));
+      }
+      await setPage(1);
+    },
+    [pathIds, setPathParam, setPage]
+  );
+
+  const [expandedPayloads, setExpandedPayloads] = useState<Set<number>>(new Set());
+
+  const togglePayload = useCallback((taskId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedPayloads((prev) => {
+      const next = new Set(prev);
+      if (next.has(taskId)) next.delete(taskId);
+      else next.add(taskId);
+      return next;
+    });
+  }, []);
 
   const columns = useMemo<ColumnDef<WorkerTask>[]>(
     () => [
@@ -282,18 +312,39 @@ export default function WorkerTasksPage() {
           const label =
             COMMAND_LABELS[task.command ?? ""] ?? task.command;
           const hasChildren = !!task.child_mode;
+          const hasPayload = task.payload !== null && task.payload !== undefined;
+          const taskId = task.id!;
+          const isExpanded = expandedPayloads.has(taskId);
           return (
-            <div className="flex items-center">
-              <div className="flex-1">
-                <div className="text-sm font-medium">{label}</div>
-                {task.command_description && label !== task.command && (
-                  <div className="text-xs text-gray-500 truncate max-w-[300px]">
-                    {task.command}
+            <div>
+              <div className="flex items-center">
+                <div className="flex-1">
+                  <div className="text-sm font-medium flex items-center gap-1">
+                    {label}
+                    {hasPayload && (
+                      <button
+                        onClick={(e) => togglePayload(taskId, e)}
+                        className="inline-flex items-center justify-center h-4 w-4 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600"
+                        title="Show payload"
+                      >
+                        <Info className="h-3 w-3" />
+                      </button>
+                    )}
                   </div>
+                  {task.command_description && label !== task.command && (
+                    <div className="text-xs text-gray-500 truncate max-w-[300px]">
+                      {task.command}
+                    </div>
+                  )}
+                </div>
+                {hasChildren && (
+                  <ChevronRight className="h-4 w-4 text-gray-400 ml-2 flex-shrink-0" />
                 )}
               </div>
-              {hasChildren && !isDrilledIn && (
-                <ChevronRight className="h-4 w-4 text-gray-400 ml-2 flex-shrink-0" />
+              {isExpanded && hasPayload && (
+                <pre className="mt-1 text-xs bg-gray-50 border rounded p-2 whitespace-pre-wrap max-w-[500px] overflow-auto max-h-[200px]">
+                  {JSON.stringify(task.payload, null, 2)}
+                </pre>
               )}
             </div>
           );
@@ -326,6 +377,7 @@ export default function WorkerTasksPage() {
           label: "Queue",
           variant: "multiSelect" as const,
           options: [...queues],
+          isPrimary: true,
         },
         enableColumnFilter: true,
       },
@@ -349,6 +401,7 @@ export default function WorkerTasksPage() {
           label: "State",
           variant: "multiSelect" as const,
           options: [...taskStates],
+          isPrimary: true,
         },
         enableColumnFilter: true,
       },
@@ -456,7 +509,7 @@ export default function WorkerTasksPage() {
         },
       },
     ],
-    [isDrilledIn]
+    [expandedPayloads, togglePayload]
   );
 
   const pageCount = useMemo(() => {
@@ -496,8 +549,11 @@ export default function WorkerTasksPage() {
     );
   }
 
+  const getTaskLabel = (task: WorkerTask) =>
+    COMMAND_LABELS[task.command ?? ""] ?? task.command;
+
   const parentLabel = parentTask
-    ? (COMMAND_LABELS[parentTask.command ?? ""] ?? parentTask.command)
+    ? getTaskLabel(parentTask)
     : `Task #${parentId}`;
 
   return (
@@ -519,18 +575,36 @@ export default function WorkerTasksPage() {
 
       {isDrilledIn && (
         <>
-          {/* Breadcrumb */}
-          <nav className="flex items-center text-sm text-gray-500">
+          {/* Multi-level breadcrumb */}
+          <nav className="flex items-center flex-wrap text-sm text-gray-500">
             <button
-              onClick={handleDrillOut}
+              onClick={() => handleNavigateTo(-1)}
               className="text-blue-600 hover:text-blue-800 hover:underline"
             >
-              All Tasks
+              Top-level Tasks
             </button>
-            <ChevronRight className="h-4 w-4 mx-1 text-gray-400" />
-            <span className="text-gray-900 font-medium">
-              {parentLabel} #{parentId}
-            </span>
+            {pathIds.map((id, index) => {
+              const ancestor = ancestorTasks?.[index];
+              const label = ancestor ? getTaskLabel(ancestor) : `Task`;
+              const isLast = index === pathIds.length - 1;
+              return (
+                <React.Fragment key={id}>
+                  <ChevronRight className="h-4 w-4 mx-1 text-gray-400 flex-shrink-0" />
+                  {isLast ? (
+                    <span className="text-gray-900 font-medium">
+                      {label} #{id}
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => handleNavigateTo(index)}
+                      className="text-blue-600 hover:text-blue-800 hover:underline"
+                    >
+                      {label} #{id}
+                    </button>
+                  )}
+                </React.Fragment>
+              );
+            })}
           </nav>
 
           {/* Parent summary card */}
@@ -562,9 +636,9 @@ export default function WorkerTasksPage() {
       <DataTable
         table={table}
         isValidating={isValidating}
-        onRowClick={!isDrilledIn ? handleDrillIn : undefined}
+        onRowClick={handleDrillIn}
         getRowClassName={(task) =>
-          !isDrilledIn && task.child_mode ? "hover:bg-gray-50" : undefined
+          task.child_mode ? "hover:bg-gray-50 cursor-pointer" : undefined
         }
       >
         <DataTableToolbar table={table} />
