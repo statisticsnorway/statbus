@@ -37,6 +37,7 @@ import {
   Users,
   KeyRound,
   ListChecks,
+  Settings,
 } from "lucide-react";
 
 import {
@@ -376,6 +377,13 @@ export function CommandPalette() {
                 >
                   <Search className="mr-2 h-4 w-4" />
                   <span>Find statistical units</span>
+                </CommandItem>
+                <CommandItem
+                  onSelect={() => navigate("/admin")}
+                  value="admin customize external ident variable size status source setting"
+                >
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Admin Settings</span>
                 </CommandItem>
                 <CommandItem
                   onSelect={() => navigate("/admin/upgrades")}
