@@ -11595,6 +11595,7 @@ export type Database = {
           depth: number | null
           error: string | null
           id: number | null
+          info: Json | null
           parent_id: number | null
           payload: Json | null
           priority: number | null
@@ -11616,6 +11617,7 @@ export type Database = {
           depth?: number | null
           error?: string | null
           id?: number | null
+          info?: Json | null
           parent_id?: number | null
           payload?: Json | null
           priority?: number | null
@@ -11637,6 +11639,7 @@ export type Database = {
           depth?: number | null
           error?: string | null
           id?: number | null
+          info?: Json | null
           parent_id?: number | null
           payload?: Json | null
           priority?: number | null

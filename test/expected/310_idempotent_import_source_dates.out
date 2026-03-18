@@ -112,7 +112,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |   141
+ import    | completed |   144
 (2 rows)
 
 \echo "Checking import job statuses for Initial Load"
@@ -143,7 +143,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |   360
- import    | completed |   141
+ import    | completed |   144
 (2 rows)
 
 \echo "Idempotency Check: Re-running initial load should result in no changes."
@@ -248,7 +248,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 -----------+-----------+-------
  analytics | pending   |     1
  analytics | completed |   720
- import    | completed |   302
+ import    | completed |   309
 (3 rows)
 
 \echo "Checking import job statuses for Turnover Update"
@@ -266,7 +266,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |   872
- import    | completed |   302
+ import    | completed |   309
 (2 rows)
 
 \echo "Idempotency Check: Re-running turnover update should result in no changes."

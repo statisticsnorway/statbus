@@ -1058,7 +1058,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |   160
+ import    | completed |   164
 (2 rows)
 
 \echo "Checking import job statuses for Block 1"
@@ -1088,7 +1088,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |    51
- import    | completed |   160
+ import    | completed |   164
 (2 rows)
 
 \echo "Checking statistics"
@@ -1263,7 +1263,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |    94
+ import    | completed |    96
 (2 rows)
 
 \echo "Checking import job statuses for Block 2"
@@ -1291,7 +1291,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |    48
- import    | completed |    94
+ import    | completed |    96
 (2 rows)
 
 \echo "Checking statistics"
@@ -1424,7 +1424,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |    47
+ import    | completed |    48
 (2 rows)
 
 \echo "Checking import job statuses for Block 3"
@@ -1451,7 +1451,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |    48
- import    | completed |    47
+ import    | completed |    48
 (2 rows)
 
 \echo "Checking statistics"
@@ -1554,7 +1554,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |    47
+ import    | completed |    48
 (2 rows)
 
 \echo "Checking import job statuses for Block 4"
@@ -1581,7 +1581,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |    48
- import    | completed |    47
+ import    | completed |    48
 (2 rows)
 
 \echo "Checking statistics"

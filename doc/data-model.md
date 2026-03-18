@@ -154,7 +154,7 @@ Enumerated types used across the schema, with their possible values.
 - **`public.statistical_unit_type`**: `establishment`, `legal_unit`, `enterprise`, `power_group`
 - **`public.time_context_type`**: `relative_period`, `tag`, `year`
 - **`worker.child_mode`**: `concurrent`, `serial`
-- **`worker.process_mode`**: `top`, `child`
+- **`worker.process_mode`**: `serial`, `concurrent`
 - **`worker.task_state`**: `pending`, `processing`, `waiting`, `completed`, `failed`
 
 
@@ -228,7 +228,7 @@ Handles the ingestion of data from external files.
 ## Worker System
 Handles background processing. A long-running worker process calls `worker.process_tasks()` to process tasks synchronously.
 
-- `tasks(id, command, parent_id, created_at, process_start_at, completed_at, scheduled_at, process_stop_at, priority, state, process_duration_ms, error, worker_pid, payload, child_mode, depth, completion_duration_ms)` — **infrastructure**
+- `tasks(id, command, parent_id, created_at, process_start_at, completed_at, scheduled_at, process_stop_at, priority, state, process_duration_ms, error, worker_pid, payload, child_mode, depth, completion_duration_ms, info)` — **infrastructure**
   - Key FKs: command, command, parent_id.
   - Enums: `child_mode` (`worker.child_mode`), `state` (`worker.task_state`).
 - `command_registry(command, created_at, handler_procedure, before_procedure, after_procedure, description, queue)` — **infrastructure**
@@ -236,7 +236,7 @@ Handles background processing. A long-running worker process calls `worker.proce
 - `queue_registry(queue, description, default_concurrency)` — **infrastructure**
 - `base_change_log(valid_ranges, establishment_ids, legal_unit_ids, enterprise_ids, power_group_ids)` — **infrastructure**
 - `base_change_log_has_pending(has_pending)` — **infrastructure**
-- `worker_task(id, command, command_description, parent_id, created_at, process_start_at, process_stop_at, completed_at, scheduled_at, priority, state, depth, child_mode, process_duration_ms, completion_duration_ms, error, worker_pid, payload, queue)`
+- `worker_task(id, command, command_description, parent_id, created_at, process_start_at, process_stop_at, completed_at, scheduled_at, priority, state, depth, child_mode, process_duration_ms, completion_duration_ms, error, worker_pid, payload, info, queue)`
   - Enums: `child_mode` (`worker.child_mode`), `state` (`worker.task_state`).
 
 ## Auth & System Tables/Views

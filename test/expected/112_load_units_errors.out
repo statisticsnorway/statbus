@@ -83,7 +83,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |    93
+ import    | completed |    95
 (2 rows)
 
 \echo "Checking import job statuses for Block 1"
@@ -118,7 +118,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |   195
- import    | completed |    93
+ import    | completed |    95
 (2 rows)
 
 ROLLBACK TO before_loading_units;
@@ -182,7 +182,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |   140
+ import    | completed |   143
 (2 rows)
 
 SELECT
@@ -228,7 +228,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |   134
- import    | completed |   140
+ import    | completed |   143
 (2 rows)
 
 ROLLBACK TO before_loading_units;
@@ -276,7 +276,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |    47
+ import    | completed |    48
 (2 rows)
 
 \echo "Checking import job status for Block 3 (import_31_lu_era_b3_coord_errors)"

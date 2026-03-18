@@ -46,13 +46,15 @@ VALUES
 ON CONFLICT (code) DO UPDATE SET enabled = true;
 
 \echo "Setting activity category standard to ISIC v4 and country to Albania"
-INSERT INTO settings(activity_category_standard_id, country_id)
+INSERT INTO settings(activity_category_standard_id, country_id, region_version_id)
 SELECT (SELECT id FROM activity_category_standard WHERE code = 'isic_v4')
      , (SELECT id FROM public.country WHERE iso_2 = 'AL')
+     , (SELECT id FROM public.region_version WHERE code = 'initial')
 ON CONFLICT (only_one_setting)
 DO UPDATE SET
     activity_category_standard_id = EXCLUDED.activity_category_standard_id,
-    country_id = EXCLUDED.country_id;
+    country_id = EXCLUDED.country_id,
+    region_version_id = EXCLUDED.region_version_id;
 
 \echo "Uploading Albania regions"
 \echo "NOTE: Region paths use leading zeros (01, 02, etc.) to avoid code collisions"

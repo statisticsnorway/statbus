@@ -14,14 +14,14 @@
 
        job_slug       | total_rows | analysis_ms | processing_ms | total_ms | analysis_rows_per_sec | processing_rows_per_sec 
 ----------------------+------------+-------------+---------------+----------+-----------------------+-------------------------
- import_es_2015_bench |          4 |         856 |           446 |     1303 |                   4.7 |                    11.7
- import_es_2016_bench |          6 |         883 |           473 |     1356 |                   6.8 |                    16.3
- import_es_2017_bench |          4 |         725 |           324 |     1050 |                   5.5 |                    16.1
- import_es_2018_bench |          5 |         812 |           354 |     1166 |                   6.2 |                    18.6
- import_lu_2015_bench |          4 |         532 |           639 |     1171 |                   7.5 |                     8.2
- import_lu_2016_bench |          6 |         596 |           529 |     1125 |                  10.1 |                    14.9
- import_lu_2017_bench |          5 |         727 |           366 |     1093 |                   6.9 |                    18.7
- import_lu_2018_bench |          6 |         575 |           316 |      891 |                  10.4 |                    25.3
+ import_es_2015_bench |          4 |         585 |           355 |      940 |                   6.8 |                    11.3
+ import_es_2016_bench |          6 |         639 |           350 |      989 |                   9.4 |                    17.2
+ import_es_2017_bench |          4 |         742 |           254 |      996 |                   5.4 |                    15.7
+ import_es_2018_bench |          5 |         633 |           268 |      901 |                   7.9 |                    18.7
+ import_lu_2015_bench |          4 |         371 |           339 |      709 |                  10.8 |                    11.8
+ import_lu_2016_bench |          6 |         450 |           396 |      847 |                  13.3 |                    15.1
+ import_lu_2017_bench |          5 |         444 |           272 |      717 |                  11.3 |                    18.4
+ import_lu_2018_bench |          6 |         416 |           261 |      677 |                  14.4 |                    23.0
 
  
 
@@ -31,8 +31,8 @@
 
  phase | total_rows | analysis_ms | processing_ms | total_ms | analysis_rows_per_sec | processing_rows_per_sec 
 -------+------------+-------------+---------------+----------+-----------------------+-------------------------
- ES    |         19 |        3276 |          1598 |     4874 |                   5.8 |                    11.9
- LU    |         21 |        2430 |          1850 |     4280 |                   8.6 |                    11.3
+ ES    |         19 |        2599 |          1227 |     3826 |                   7.3 |                    15.5
+ LU    |         21 |        1681 |          1268 |     2949 |                  12.5 |                    16.6
 
  
 
@@ -42,12 +42,12 @@
 
          slug         |  state   | total_rows | imported_rows | analysis_rows_per_sec | import_rows_per_sec | analysis_sec | processing_sec 
 ----------------------+----------+------------+---------------+-----------------------+---------------------+--------------+----------------
- import_es_2015_bench | finished |          4 |             4 |                  4.67 |               11.70 |         0.86 |           0.45
- import_es_2016_bench | finished |          6 |             6 |                  6.80 |               16.28 |         0.88 |           0.47
- import_es_2017_bench | finished |          4 |             4 |                  5.52 |               16.08 |         0.73 |           0.32
- import_es_2018_bench | finished |          5 |             5 |                  6.16 |               18.63 |         0.81 |           0.35
- import_lu_2015_bench | finished |          4 |             4 |                  7.52 |                8.22 |         0.53 |           0.64
- import_lu_2016_bench | finished |          6 |             6 |                 10.07 |               14.89 |         0.60 |           0.53
- import_lu_2017_bench | finished |          5 |             5 |                  6.88 |               18.73 |         0.73 |           0.37
- import_lu_2018_bench | finished |          6 |             6 |                 10.44 |               25.31 |         0.57 |           0.32
+ import_es_2015_bench | finished |          4 |             4 |                  6.84 |               11.27 |         0.59 |           0.36
+ import_es_2016_bench | finished |          6 |             6 |                  9.39 |               17.15 |         0.64 |           0.35
+ import_es_2017_bench | finished |          4 |             4 |                  5.39 |               15.73 |         0.74 |           0.25
+ import_es_2018_bench | finished |          5 |             5 |                  7.90 |               18.66 |         0.63 |           0.27
+ import_lu_2015_bench | finished |          4 |             4 |                 10.80 |               11.82 |         0.37 |           0.34
+ import_lu_2016_bench | finished |          6 |             6 |                 13.32 |               15.14 |         0.45 |           0.40
+ import_lu_2017_bench | finished |          5 |             5 |                 11.25 |               18.37 |         0.44 |           0.27
+ import_lu_2018_bench | finished |          6 |             6 |                 14.42 |               23.00 |         0.42 |           0.26
 

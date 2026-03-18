@@ -81,17 +81,30 @@ const formatDurationMs = (ms: number | null): string => {
 };
 
 const formatUnitCounts = (task: WorkerTask): string | null => {
-  const p = task.payload as Record<string, unknown> | null;
-  if (!p) return null;
+  const info = task.info as Record<string, unknown> | null;
+
+  // Import job progress: show row counts from info
+  if (info?.total_rows != null) {
+    const imported = (info.imported_rows as number) ?? 0;
+    const total = info.total_rows as number;
+    const parts: string[] = [`${imported}/${total} rows`];
+    if (info.job_state && task.state !== "completed" && task.state !== "failed")
+      parts.push(`${info.job_state}`);
+    return parts.join(", ");
+  }
+
+  // Pipeline unit counts: check info first, then fall back to payload
+  const source = (info ?? task.payload) as Record<string, unknown> | null;
+  if (!source) return null;
   const parts: string[] = [];
-  if (p.affected_establishment_count)
-    parts.push(`${p.affected_establishment_count} est`);
-  if (p.affected_legal_unit_count)
-    parts.push(`${p.affected_legal_unit_count} lu`);
-  if (p.affected_enterprise_count)
-    parts.push(`${p.affected_enterprise_count} en`);
-  if (p.affected_power_group_count)
-    parts.push(`${p.affected_power_group_count} pg`);
+  if (source.affected_establishment_count)
+    parts.push(`${source.affected_establishment_count} est`);
+  if (source.affected_legal_unit_count)
+    parts.push(`${source.affected_legal_unit_count} lu`);
+  if (source.affected_enterprise_count)
+    parts.push(`${source.affected_enterprise_count} en`);
+  if (source.affected_power_group_count)
+    parts.push(`${source.affected_power_group_count} pg`);
   return parts.length > 0 ? parts.join(", ") : null;
 };
 
@@ -313,6 +326,7 @@ export default function WorkerTasksPage() {
             COMMAND_LABELS[task.command ?? ""] ?? task.command;
           const hasChildren = !!task.child_mode;
           const hasPayload = task.payload !== null && task.payload !== undefined;
+          const hasInfo = task.info !== null && task.info !== undefined;
           const taskId = task.id!;
           const isExpanded = expandedPayloads.has(taskId);
           return (
@@ -321,11 +335,11 @@ export default function WorkerTasksPage() {
                 <div className="flex-1">
                   <div className="text-sm font-medium flex items-center gap-1">
                     {label}
-                    {hasPayload && (
+                    {(hasPayload || hasInfo) && (
                       <button
                         onClick={(e) => togglePayload(taskId, e)}
                         className="inline-flex items-center justify-center h-4 w-4 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600"
-                        title="Show payload"
+                        title={hasInfo ? "Show info & payload" : "Show payload"}
                       >
                         <Info className="h-3 w-3" />
                       </button>
@@ -341,10 +355,21 @@ export default function WorkerTasksPage() {
                   <ChevronRight className="h-4 w-4 text-gray-400 ml-2 flex-shrink-0" />
                 )}
               </div>
-              {isExpanded && hasPayload && (
-                <pre className="mt-1 text-xs bg-gray-50 border rounded p-2 whitespace-pre-wrap max-w-[500px] overflow-auto max-h-[200px]">
-                  {JSON.stringify(task.payload, null, 2)}
-                </pre>
+              {isExpanded && (hasPayload || hasInfo) && (
+                <div className="mt-1 space-y-1 max-w-[500px]">
+                  {hasInfo && (
+                    <pre className="text-xs bg-blue-50 border border-blue-200 rounded p-2 whitespace-pre-wrap overflow-auto max-h-[200px]">
+                      <span className="text-blue-600 font-semibold">info: </span>
+                      {JSON.stringify(task.info, null, 2)}
+                    </pre>
+                  )}
+                  {hasPayload && (
+                    <pre className="text-xs bg-gray-50 border rounded p-2 whitespace-pre-wrap overflow-auto max-h-[200px]">
+                      {hasInfo && <span className="text-gray-500 font-semibold">payload: </span>}
+                      {JSON.stringify(task.payload, null, 2)}
+                    </pre>
+                  )}
+                </div>
               )}
             </div>
           );

@@ -734,10 +734,16 @@ EOF
         ./devops/manage-statbus.sh create-users
       ;;
     'create-db' )
-        ./devops/manage-statbus.sh start all_except_app
+        # Build CLI and generate config (normally done by 'start')
+        ./devops/manage-statbus.sh build-statbus-cli
+        ./devops/manage-statbus.sh generate-config
+        # Start only db, rest, proxy — NOT worker yet (avoids stray tasks from stale procedures)
+        docker compose up --build --detach db proxy rest
         ./devops/manage-statbus.sh create-db-structure
         ./devops/manage-statbus.sh create-users
         ./devops/manage-statbus.sh create-test-template
+        # Now start worker with clean, fully-migrated DB
+        docker compose up --build --detach worker
       ;;
     'recreate-database' )
         echo "Recreate the backend with the lastest database structures"

@@ -5131,7 +5131,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |   376
+ import    | completed |   384
 (2 rows)
 
 -- Once the Imports are finished, then all the analytics can be processed, but only once.
@@ -5142,7 +5142,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |  1192
- import    | completed |   376
+ import    | completed |   384
 (2 rows)
 
 \echo Run any remaining tasks, there should be none.
@@ -5154,7 +5154,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |  1192
- import    | completed |   376
+ import    | completed |   384
 (2 rows)
 
 \echo Overview of statistical units, but not details, there are too many units.
