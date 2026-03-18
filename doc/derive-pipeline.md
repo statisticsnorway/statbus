@@ -20,43 +20,45 @@ relationship.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│  Per queue: 1 top fiber + N child fibers                             │
+│  Per queue: 1 serial fiber + N concurrent fibers                     │
 │                                                                      │
-│  Top fiber                                                           │
-│  ─────────                                                           │
+│  Serial fiber                                                        │
+│  ────────────                                                        │
 │  loop:                                                               │
-│    pick ONE top-level pending task (LIMIT 1, SKIP LOCKED)            │
+│    if concurrent parent exists: EXIT → wake concurrent fibers        │
+│    pick serial child (deepest ready) or top-level pending task       │
 │    run its handler                                                   │
 │    if handler spawned children:                                      │
 │      parent state → "waiting"                                        │
-│      wake N child fibers ──────────────┐                             │
-│      BLOCK until all children done     │                             │
-│      parent auto-completes             │                             │
-│    pick next top-level task            │                             │
-│                                        │                             │
-│  Child fibers (sleep until woken)      │                             │
-│  ────────────────────────────────      │                             │
-│    ◄───────────────────────────────────┘                             │
+│      if concurrent children: wake N fibers ┐                         │
+│        BLOCK until all signal done         │                         │
+│      else: loop (serial children inline)   │                         │
+│                                            │                         │
+│  Concurrent fibers (sleep until woken)     │                         │
+│  ─────────────────────────────────────     │                         │
+│    ◄───────────────────────────────────────┘                         │
 │    loop:                                                             │
-│      pick ONE pending child (LIMIT 1, SKIP LOCKED)                   │
+│      pick ONE pending child of deepest concurrent parent             │
+│      (LIMIT 1, SKIP LOCKED)                                         │
 │      run its handler                                                 │
-│      if no more children: signal top fiber, go back to sleep         │
+│      if no more children: signal serial fiber, go back to sleep      │
 │                                                                      │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
 **Key properties:**
 - Top-level tasks execute **strictly sequentially** — no overlap, no races.
-- Children execute **concurrently** within the bounded scope of one parent.
+- Serial children execute **one at a time**, walked inline by the serial fiber.
+- Concurrent children execute **in parallel** within the bounded scope of one parent.
 - The parent does not complete until ALL children finish (or fail).
-- Child fibers sleep between parent tasks — zero CPU when idle.
-- `FOR UPDATE SKIP LOCKED` prevents two child fibers from claiming the same child.
+- Concurrent fibers sleep between parent tasks — zero CPU when idle.
+- `FOR UPDATE SKIP LOCKED` prevents two concurrent fibers from claiming the same child.
 
 
 ## Queue Layout
 
-The worker has three independent queues. Each runs its own top + child fiber
-group. The queues are fully independent — work on one queue never blocks another.
+The worker has three independent queues. Each runs its own serial + concurrent
+fiber group. The queues are fully independent — work on one queue never blocks another.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -64,21 +66,22 @@ group. The queues are fully independent — work on one queue never blocks anoth
 │                                                                             │
 │  ┌─────────────────────┐  ┌──────────────────────┐  ┌───────────────────┐  │
 │  │   import queue       │  │   analytics queue     │  │ maintenance queue │  │
-│  │   1 top + 0 child    │  │   1 top + 3 child     │  │ 1 top + 0 child  │  │
+│  │   1 serial + 0 conc  │  │   1 serial + 3 conc   │  │ 1 serial + 0 conc│  │
 │  │                      │  │                        │  │                  │  │
 │  │  ┌────────────────┐  │  │  ┌──┐ ┌──┐ ┌──┐ ┌──┐ │  │  ┌────────────┐ │  │
-│  │  │ top fiber      │  │  │  │T │ │C1│ │C2│ │C3│ │  │  │ top fiber  │ │  │
+│  │  │ serial fiber   │  │  │  │S │ │C1│ │C2│ │C3│ │  │  │serial fiber│ │  │
 │  │  └────────────────┘  │  │  └──┘ └──┘ └──┘ └──┘ │  │  └────────────┘ │  │
 │  └─────────────────────┘  └──────────────────────┘  └───────────────────┘  │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Import queue** (1 fiber): Processes `import_job_process` one at a time.
-When an import modifies data, it triggers `collect_changes` on the analytics queue.
+**Import queue** (1 fiber): Processes `import_job` parents, each with serial
+`import_job_process` children (one per state transition). When an import modifies
+data, it triggers `collect_changes` on the analytics queue.
 
-**Analytics queue** (4 fibers = 1 top + 3 child): Derives all statistical
-tables. The top fiber runs each pipeline stage sequentially; when a stage
-spawns children, the 3 child fibers process them in parallel.
+**Analytics queue** (4 fibers = 1 serial + 3 concurrent): Derives all statistical
+tables. The serial fiber walks each pipeline stage; when a stage spawns concurrent
+children, the 3 concurrent fibers process them in parallel.
 
 **Maintenance queue** (1 fiber): Runs `task_cleanup` and `import_job_cleanup`.
 
@@ -103,7 +106,8 @@ parallel on the child fibers.
  IMPORT QUEUE                      ANALYTICS QUEUE
  ════════════                      ═══════════════
 
- import_job_process              ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄
+ import_job (parent)             ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄
+ └─import_job_process
     │ batch processing                Phase 1: Statistical Units
     │ inserts/updates              ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄
     │ base tables (LU, EST, LR)
@@ -125,16 +129,16 @@ parallel on the child fibers.
     ▼                             │  │~1000 e.│ │~1000 e.│       │~1000 e.│   │
                                   │  └────────┘ └────────┘       └────────┘   │
                                   │  statistical_unit_refresh_batch             │
-                                  │  (3 child fibers process in parallel)      │
+                                  │  (3 concurrent fibers process in parallel)  │
                                   │                                             │
                                   │  Also enqueues uncle tasks:                 │
                                   │  • statistical_unit_flush_staging            │
                                   │  • derive_reports                           │
                                   │                                             │
                                   │  Parent state → "waiting"                   │
-                                  │  Top fiber BLOCKED until all children done  │
+                                  │  Serial fiber BLOCKED until children done   │
                                   └──────────────────┬──────────────────────────┘
-                                                     │ (parent completes, top resumes)
+                                                     │ (parent completes, serial fiber resumes)
                                                      ▼
                                   ┌─────────────────────────────────────────────┐
                              ③    │ statistical_unit_flush_staging      SERIAL  │
@@ -227,11 +231,11 @@ parallel on the child fibers.
                                   transitioning true → false, invalidates caches.
 ```
 
-**Reading the diagram:** Each numbered step (①–⑦b) is a top-level task that
+**Reading the diagram:** Each numbered step (①–⑦b) is a serial task that
 runs to completion before the next one starts. Steps marked PARENT spawn
-children that run in parallel on the child fibers; the top fiber blocks until
-all children finish. This is structured concurrency — concurrency is scoped
-inside the parent, never between top-level tasks.
+concurrent children that run in parallel on the concurrent fibers; the serial
+fiber blocks until all children finish. This is structured concurrency —
+concurrency is scoped inside the parent, never between serial tasks.
 
 
 ## Staging Pattern and Race Safety
@@ -335,7 +339,8 @@ All commands, their queue assignments, and pipeline phase:
 | analytics   | `derive_statistical_history_facet_period` | child       | 3     | `is_deriving_reports`       | Per-period facet aggregation |
 | analytics   | `statistical_history_facet_reduce`        | leaf        | 2     | `is_deriving_reports`       | Terminal — notifies complete |
 | analytics   | `derive_reports`                          | (legacy)    | —     | —                           | No-op stub for old task refs |
-| import      | `import_job_process`                      | top-level   | 0     | —                           | One import at a time         |
+| import      | `import_job`                              | parent      | 0     | —                           | Wrapper per import job       |
+| import      | `import_job_process`                      | serial child| 1     | —                           | One state transition at a time |
 | maintenance | `task_cleanup`                            | top-level   | 0     | —                           | Clean old tasks              |
 | maintenance | `import_job_cleanup`                      | top-level   | 0     | —                           | Clean expired imports        |
 

@@ -897,7 +897,7 @@ module Statbus
           # No top-level tasks found - either queue empty or waiting for children
           # Check if there's a waiting parent (children need processing)
           if has_waiting_parent?(queue)
-            @log.debug { "#{worker_id}: Waiting concurrent parent detected, waking concurrent fibers" }
+            @log.debug { "#{worker_id}: Waiting parent detected, waking concurrent fibers" }
             # Wake all concurrent fibers
             num_children.times { wake_children_channel.send(nil) rescue nil }
             # Wait for children to signal they're done (with shutdown check)
@@ -949,7 +949,7 @@ module Statbus
             if tasks_done == 0
               # No top-level tasks found - either queue empty or waiting for children
               if has_waiting_parent?(queue)
-                @log.debug { "#{worker_id}: Waiting concurrent parent detected, waking concurrent fibers" }
+                @log.debug { "#{worker_id}: Waiting parent detected, waking concurrent fibers" }
                 # Wake all concurrent fibers
                 num_children.times { wake_children_channel.send(nil) rescue nil }
                 # Wait for children to signal they're done (with shutdown check)
