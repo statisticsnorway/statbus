@@ -185,7 +185,7 @@ export default function UploadEstablishmentsPage() {
               <tbody>
                 <tr className={selectedDefinition?.valid_time_from === "job_provided" ? "font-bold" : ""}>
                   <td className="pr-4 py-1">With a defined validity period</td>
-                  <td className="px-2 py-1"><a href="/demo/formal_establishments_units_demo.csv" download="formal_establishments_units_demo.csv" className="underline">CSV</a></td>
+                  <td className="px-2 py-1"><a href="/demo/formal_establishments_units_demo.csv" download="formal_establishments_units_demo.csv" className="underline">CSV demo</a></td>
                   {jobProvidedDef && <>
                     <td className="px-2 py-1"><a href={`/api/import/template?definitionId=${jobProvidedDef.id}&demoFile=formal_establishments_units_demo.csv`} download className="underline text-blue-600">Excel demo</a></td>
                     <td className="px-2 py-1"><a href={`/api/import/template?definitionId=${jobProvidedDef.id}`} download className="underline text-blue-600">Excel template</a></td>
@@ -193,7 +193,7 @@ export default function UploadEstablishmentsPage() {
                 </tr>
                 <tr className={selectedDefinition?.valid_time_from === "source_columns" ? "font-bold" : ""}>
                   <td className="pr-4 py-1">With validity from source file</td>
-                  <td className="px-2 py-1"><a href="/demo/formal_establishments_units_with_source_dates_demo.csv" download="formal_establishments_units_with_source_dates_demo.csv" className="underline">CSV</a></td>
+                  <td className="px-2 py-1"><a href="/demo/formal_establishments_units_with_source_dates_demo.csv" download="formal_establishments_units_with_source_dates_demo.csv" className="underline">CSV demo</a></td>
                   {sourceColumnsDef && <>
                     <td className="px-2 py-1"><a href={`/api/import/template?definitionId=${sourceColumnsDef.id}&demoFile=formal_establishments_units_with_source_dates_demo.csv`} download className="underline text-blue-600">Excel demo</a></td>
                     <td className="px-2 py-1"><a href={`/api/import/template?definitionId=${sourceColumnsDef.id}`} download className="underline text-blue-600">Excel template</a></td>
