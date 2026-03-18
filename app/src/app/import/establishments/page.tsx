@@ -179,30 +179,34 @@ export default function UploadEstablishmentsPage() {
               example to see the structure. The correct example to use depends
               on the &quot;Data validity period&quot; selected above.
             </p>
-            <div className="flex flex-col space-y-2 pl-4">
-              <a
-                href="/demo/formal_establishments_units_demo.csv"
-                download="formal_establishments_units_demo.csv"
-                className={`underline ${
-                  selectedDefinition?.valid_time_from === "job_provided"
-                    ? "font-bold"
-                    : ""
-                }`}
-              >
-                Example for jobs with a defined validity period
-              </a>
-              <a
-                href="/demo/formal_establishments_units_with_source_dates_demo.csv"
-                download="formal_establishments_units_with_source_dates_demo.csv"
-                className={`underline ${
-                  selectedDefinition?.valid_time_from === "source_columns"
-                    ? "font-bold"
-                    : ""
-                }`}
-              >
-                Example for jobs with validity from source file (valid_from,
-                valid_to)
-              </a>
+            <div className="flex flex-col space-y-3 pl-4">
+              <div className={selectedDefinition?.valid_time_from === "job_provided" ? "font-bold" : ""}>
+                <p>Example for jobs with a defined validity period</p>
+                <span className="flex gap-3 pl-4">
+                  <a href="/demo/formal_establishments_units_demo.csv" download="formal_establishments_units_demo.csv" className="underline">CSV</a>
+                  {selectedDefinition && (
+                    <a href={`/api/import/template?definitionId=${selectedDefinition.id}&demoFile=formal_establishments_units_demo.csv`} download className="underline text-blue-600">Excel (with code lists)</a>
+                  )}
+                </span>
+              </div>
+              <div className={selectedDefinition?.valid_time_from === "source_columns" ? "font-bold" : ""}>
+                <p>Example for jobs with validity from source file (valid_from, valid_to)</p>
+                <span className="flex gap-3 pl-4">
+                  <a href="/demo/formal_establishments_units_with_source_dates_demo.csv" download="formal_establishments_units_with_source_dates_demo.csv" className="underline">CSV</a>
+                  {selectedDefinition && (
+                    <a href={`/api/import/template?definitionId=${selectedDefinition.id}&demoFile=formal_establishments_units_with_source_dates_demo.csv`} download className="underline text-blue-600">Excel (with code lists)</a>
+                  )}
+                </span>
+              </div>
+              {selectedDefinition && (
+                <a
+                  href={`/api/import/template?definitionId=${selectedDefinition.id}`}
+                  download
+                  className="underline font-medium text-blue-600"
+                >
+                  Download empty Excel template with valid code lists
+                </a>
+              )}
             </div>
           </AccordionContent>
         </AccordionItem>
