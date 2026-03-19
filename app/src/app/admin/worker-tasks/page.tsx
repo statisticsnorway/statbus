@@ -18,7 +18,7 @@ import { useQueryState, parseAsString, parseAsArrayOf, parseAsInteger } from "nu
 import { COMMAND_LABELS } from "@/atoms/worker_status";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, ChevronRight, Info } from "lucide-react";
+import { RefreshCw, ChevronRight, ArrowLeft, Info } from "lucide-react";
 import { useSWRConfig } from "swr";
 
 type WorkerTask = Tables<"worker_task">;
@@ -87,9 +87,14 @@ const formatUnitCounts = (task: WorkerTask): string | null => {
   if (info?.total_rows != null) {
     const imported = (info.imported_rows as number) ?? 0;
     const total = info.total_rows as number;
+    const state = info.job_state as string | undefined;
+    // During analysis phases (imported_rows still 0), show just the state
+    if (imported === 0 && state && state !== "processing_data" && state !== "finished") {
+      return `${state} (${total} total)`;
+    }
     const parts: string[] = [`${imported}/${total} rows`];
-    if (info.job_state && task.state !== "completed" && task.state !== "failed")
-      parts.push(`${info.job_state}`);
+    if (state && task.state !== "completed" && task.state !== "failed")
+      parts.push(`${state}`);
     return parts.join(", ");
   }
 
@@ -271,6 +276,18 @@ export default function WorkerTasksPage() {
         await setPathParam(newPath);
         await setPage(1);
       }
+    },
+    [pathIds, setPathParam, setPage]
+  );
+
+  const handleGoUp = useCallback(
+    async () => {
+      if (pathIds.length <= 1) {
+        await setPathParam(null);
+      } else {
+        await setPathParam(pathIds.slice(0, -1).join(","));
+      }
+      await setPage(1);
     },
     [pathIds, setPathParam, setPage]
   );
@@ -600,8 +617,15 @@ export default function WorkerTasksPage() {
 
       {isDrilledIn && (
         <>
-          {/* Multi-level breadcrumb */}
+          {/* Multi-level breadcrumb with back button */}
           <nav className="flex items-center flex-wrap text-sm text-gray-500">
+            <button
+              onClick={handleGoUp}
+              className="mr-2 inline-flex items-center justify-center h-6 w-6 rounded hover:bg-gray-200 text-gray-500 hover:text-gray-700"
+              title="Go up one level"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
             <button
               onClick={() => handleNavigateTo(-1)}
               className="text-blue-600 hover:text-blue-800 hover:underline"
