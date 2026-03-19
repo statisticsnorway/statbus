@@ -101,7 +101,6 @@ DECLARE
         'worker.derive_statistical_history_facet_period',
         'worker.derive_statistical_history_period',
         'worker.derive_statistical_unit',
-        'worker.derive_statistical_unit_continue',
         'worker.derive_units_phase',
         'worker.derive_statistical_unit_facet',
         'worker.derive_statistical_unit_facet_partition',

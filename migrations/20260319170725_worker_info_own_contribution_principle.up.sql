@@ -279,6 +279,7 @@ DECLARE
     next_state public.import_job_state;
     should_reschedule BOOLEAN := FALSE;
     -- Baseline captures for delta reporting
+    v_old_state public.import_job_state;
     v_imported_rows_before bigint;
     v_error_count_before integer;
     v_warning_count_before integer;
@@ -289,6 +290,7 @@ BEGIN
     END IF;
 
     -- Capture baseline for delta calculation
+    v_old_state := job.state;
     v_imported_rows_before := COALESCE(job.imported_rows, 0);
     v_error_count_before := COALESCE(job.error_count, 0);
     v_warning_count_before := COALESCE(job.warning_count, 0);
@@ -474,9 +476,9 @@ BEGIN
     -- Always report state (non-numeric, last-value wins at parent)
     p_info := jsonb_build_object('job_state', job.state::text);
 
-    -- Report total_rows only when this invocation discovered it (preparing_data→analysing_data)
-    IF job.state = 'analysing_data' AND v_imported_rows_before = 0
-       AND v_error_count_before = 0 AND job.total_rows IS NOT NULL THEN
+    -- Report total_rows only on the preparing_data→analysing_data transition (once per job)
+    IF job.state = 'analysing_data' AND v_old_state = 'preparing_data'
+       AND job.total_rows IS NOT NULL THEN
         p_info := p_info || jsonb_build_object('total_rows', job.total_rows);
     END IF;
 
@@ -1063,5 +1065,151 @@ BEGIN
     p_info := jsonb_build_object('rows_reduced', v_row_count);
 END;
 $statistical_history_facet_reduce$;
+
+-- Fix is_deriving_* functions: read effective_* from info column (not affected_* from payload)
+CREATE OR REPLACE FUNCTION public.is_deriving_statistical_units()
+RETURNS jsonb
+LANGUAGE sql
+STABLE
+AS $is_deriving_statistical_units$
+    SELECT jsonb_build_object(
+        'active', EXISTS (
+            SELECT 1 FROM worker.tasks
+            WHERE command IN ('collect_changes', 'derive_units_phase', 'derive_statistical_unit', 'statistical_unit_refresh_batch', 'statistical_unit_flush_staging')
+              AND state IN ('pending', 'processing', 'waiting')
+        ),
+        'step', (
+            SELECT t.command FROM worker.tasks AS t
+            WHERE t.command IN ('collect_changes', 'derive_units_phase', 'derive_statistical_unit', 'statistical_unit_refresh_batch', 'statistical_unit_flush_staging')
+              AND (t.state IN ('processing', 'waiting') OR (t.command = 'collect_changes' AND t.state = 'pending'))
+            ORDER BY t.id DESC LIMIT 1
+        ),
+        'total', COALESCE((
+            SELECT count(*) FROM worker.tasks AS t
+            WHERE t.command = 'statistical_unit_refresh_batch'
+              AND EXISTS (
+                  SELECT 1 FROM worker.tasks AS p
+                  WHERE p.id = t.parent_id
+                    AND p.command = 'derive_statistical_unit'
+                    AND p.state IN ('processing', 'waiting')
+              )
+        ), 0),
+        'completed', COALESCE((
+            SELECT count(*) FROM worker.tasks AS t
+            WHERE t.state IN ('completed', 'failed')
+              AND t.command = 'statistical_unit_refresh_batch'
+              AND EXISTS (
+                  SELECT 1 FROM worker.tasks AS p
+                  WHERE p.id = t.parent_id
+                    AND p.command = 'derive_statistical_unit'
+                    AND p.state IN ('processing', 'waiting')
+              )
+        ), 0),
+        'effective_establishment_count', (
+            SELECT (t.info->>'effective_establishment_count')::int
+            FROM worker.tasks AS t
+            WHERE t.command = 'derive_statistical_unit'
+              AND t.state IN ('processing', 'waiting')
+            ORDER BY t.id DESC LIMIT 1
+        ),
+        'effective_legal_unit_count', (
+            SELECT (t.info->>'effective_legal_unit_count')::int
+            FROM worker.tasks AS t
+            WHERE t.command = 'derive_statistical_unit'
+              AND t.state IN ('processing', 'waiting')
+            ORDER BY t.id DESC LIMIT 1
+        ),
+        'effective_enterprise_count', (
+            SELECT (t.info->>'effective_enterprise_count')::int
+            FROM worker.tasks AS t
+            WHERE t.command = 'derive_statistical_unit'
+              AND t.state IN ('processing', 'waiting')
+            ORDER BY t.id DESC LIMIT 1
+        ),
+        'effective_power_group_count', (
+            SELECT (t.info->>'effective_power_group_count')::int
+            FROM worker.tasks AS t
+            WHERE t.command = 'derive_statistical_unit'
+              AND t.state IN ('processing', 'waiting')
+            ORDER BY t.id DESC LIMIT 1
+        )
+    );
+$is_deriving_statistical_units$;
+
+CREATE OR REPLACE FUNCTION public.is_deriving_reports()
+RETURNS jsonb
+LANGUAGE sql
+STABLE
+AS $is_deriving_reports$
+    SELECT jsonb_build_object(
+        'active', EXISTS (
+            SELECT 1 FROM worker.tasks
+            WHERE command IN ('derive_reports_phase', 'derive_reports', 'derive_statistical_history', 'derive_statistical_history_period',
+                            'statistical_history_reduce', 'derive_statistical_unit_facet',
+                            'derive_statistical_unit_facet_partition', 'statistical_unit_facet_reduce',
+                            'derive_statistical_history_facet', 'derive_statistical_history_facet_period',
+                            'statistical_history_facet_reduce')
+              AND state IN ('pending', 'processing', 'waiting')
+        ),
+        'step', (
+            SELECT t.command FROM worker.tasks AS t
+            WHERE t.command IN ('derive_reports_phase', 'derive_reports', 'derive_statistical_history',
+                               'statistical_history_reduce', 'derive_statistical_unit_facet',
+                               'statistical_unit_facet_reduce', 'derive_statistical_history_facet',
+                               'statistical_history_facet_reduce')
+              AND t.state IN ('processing', 'waiting')
+            ORDER BY t.id DESC LIMIT 1
+        ),
+        'total', COALESCE((
+            SELECT count(*) FROM worker.tasks AS t
+            WHERE EXISTS (
+                  SELECT 1 FROM worker.tasks AS p
+                  WHERE p.id = t.parent_id
+                    AND p.state IN ('processing', 'waiting')
+                    AND p.command IN ('derive_statistical_history', 'derive_statistical_unit_facet',
+                                    'derive_statistical_history_facet')
+              )
+        ), 0),
+        'completed', COALESCE((
+            SELECT count(*) FROM worker.tasks AS t
+            WHERE t.state IN ('completed', 'failed')
+              AND EXISTS (
+                  SELECT 1 FROM worker.tasks AS p
+                  WHERE p.id = t.parent_id
+                    AND p.state IN ('processing', 'waiting')
+                    AND p.command IN ('derive_statistical_history', 'derive_statistical_unit_facet',
+                                    'derive_statistical_history_facet')
+              )
+        ), 0),
+        'effective_establishment_count', (
+            SELECT (t.info->>'effective_establishment_count')::int
+            FROM worker.tasks AS t
+            WHERE t.command = 'derive_statistical_unit'
+              AND t.state IN ('completed', 'waiting')
+            ORDER BY t.id DESC LIMIT 1
+        ),
+        'effective_legal_unit_count', (
+            SELECT (t.info->>'effective_legal_unit_count')::int
+            FROM worker.tasks AS t
+            WHERE t.command = 'derive_statistical_unit'
+              AND t.state IN ('completed', 'waiting')
+            ORDER BY t.id DESC LIMIT 1
+        ),
+        'effective_enterprise_count', (
+            SELECT (t.info->>'effective_enterprise_count')::int
+            FROM worker.tasks AS t
+            WHERE t.command = 'derive_statistical_unit'
+              AND t.state IN ('completed', 'waiting')
+            ORDER BY t.id DESC LIMIT 1
+        ),
+        'effective_power_group_count', (
+            SELECT (t.info->>'effective_power_group_count')::int
+            FROM worker.tasks AS t
+            WHERE t.command = 'derive_statistical_unit'
+              AND t.state IN ('completed', 'waiting')
+            ORDER BY t.id DESC LIMIT 1
+        )
+    );
+$is_deriving_reports$;
 
 END;

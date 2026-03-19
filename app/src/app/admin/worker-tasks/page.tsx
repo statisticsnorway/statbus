@@ -1,7 +1,5 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-
 import React, { useMemo, useCallback, useState } from "react";
 import { useSWRWithAuthRefresh, isJwtExpiredError, JwtExpiredError } from "@/hooks/use-swr-with-auth-refresh";
 import { getBrowserRestClient } from "@/context/RestClientStore";
@@ -114,6 +112,42 @@ const KEY_LABELS: Record<string, string> = {
   warning_count: "warnings",
 };
 
+// Command-aware key filtering: show only the most relevant keys per command family
+const COMMAND_INFO_KEYS: Record<string, string[]> = {
+  collect_changes: [
+    "affected_establishment_count",
+    "affected_legal_unit_count",
+    "affected_enterprise_count",
+    "affected_power_group_count",
+  ],
+  import_job: [
+    "total_rows",
+    "rows_processed",
+    "errors_found",
+    "warnings_found",
+    "job_state",
+    // legacy keys
+    "imported_rows",
+    "error_count",
+    "warning_count",
+  ],
+  derive_statistical_unit: [
+    "effective_establishment_count",
+    "effective_legal_unit_count",
+    "effective_enterprise_count",
+    "effective_power_group_count",
+    "batch_count",
+  ],
+};
+
+const getCommandFamily = (command: string | null): string | null => {
+  if (!command) return null;
+  for (const family of Object.keys(COMMAND_INFO_KEYS)) {
+    if (command.startsWith(family)) return family;
+  }
+  return null;
+};
+
 const formatInfo = (task: WorkerTask): string | null => {
   const info = task.info as Record<string, unknown> | null;
   if (!info || Object.keys(info).length === 0) return null;
@@ -145,10 +179,14 @@ const formatInfo = (task: WorkerTask): string | null => {
     }
   }
 
-  // Generic: display all info keys with labels
+  // Command-aware filtering: only show relevant keys for known command families
+  const family = getCommandFamily(task.command);
+  const allowedKeys = family ? COMMAND_INFO_KEYS[family] : null;
+
   const parts: string[] = [];
   for (const [key, value] of Object.entries(info)) {
     if (value == null || value === 0) continue;
+    if (allowedKeys && !allowedKeys.includes(key)) continue;
     const label = KEY_LABELS[key] ?? key.replace(/_/g, " ");
     parts.push(`${value} ${label}`);
   }
