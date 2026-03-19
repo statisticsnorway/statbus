@@ -80,15 +80,27 @@ const formatDurationMs = (ms: number | null): string => {
   return `${minutes}m${seconds}s`;
 };
 
-const formatUnitCounts = (task: WorkerTask): string | null => {
-  const info = task.info as Record<string, unknown> | null;
+const KEY_LABELS: Record<string, string> = {
+  affected_establishment_count: "est",
+  affected_legal_unit_count: "lu",
+  affected_enterprise_count: "en",
+  affected_power_group_count: "pg",
+  batch_count: "batches",
+  total_rows: "total",
+  imported_rows: "imported",
+  error_count: "errors",
+  warning_count: "warnings",
+};
 
-  // Import job progress: show row counts from info
-  if (info?.total_rows != null) {
+const formatInfo = (task: WorkerTask): string | null => {
+  const info = task.info as Record<string, unknown> | null;
+  if (!info || Object.keys(info).length === 0) return null;
+
+  // Import job progress: special formatting for row counts
+  if (info.total_rows != null) {
     const imported = (info.imported_rows as number) ?? 0;
     const total = info.total_rows as number;
     const state = info.job_state as string | undefined;
-    // During analysis phases (imported_rows still 0), show just the state
     if (imported === 0 && state && state !== "processing_data" && state !== "finished") {
       return `${state} (${total} total)`;
     }
@@ -98,18 +110,13 @@ const formatUnitCounts = (task: WorkerTask): string | null => {
     return parts.join(", ");
   }
 
-  // Pipeline unit counts: check info first, then fall back to payload
-  const source = (info ?? task.payload) as Record<string, unknown> | null;
-  if (!source) return null;
+  // Generic: display all info keys with labels
   const parts: string[] = [];
-  if (source.affected_establishment_count)
-    parts.push(`${source.affected_establishment_count} est`);
-  if (source.affected_legal_unit_count)
-    parts.push(`${source.affected_legal_unit_count} lu`);
-  if (source.affected_enterprise_count)
-    parts.push(`${source.affected_enterprise_count} en`);
-  if (source.affected_power_group_count)
-    parts.push(`${source.affected_power_group_count} pg`);
+  for (const [key, value] of Object.entries(info)) {
+    if (value == null || value === 0) continue;
+    const label = KEY_LABELS[key] ?? key.replace(/_/g, " ");
+    parts.push(`${value} ${label}`);
+  }
   return parts.length > 0 ? parts.join(", ") : null;
 };
 
@@ -273,7 +280,7 @@ export default function WorkerTasksPage() {
     async (task: WorkerTask) => {
       if (task.child_mode && task.id) {
         const newPath = [...pathIds, task.id].join(",");
-        await setPathParam(newPath);
+        await setPathParam(newPath, { history: 'push' });
         await setPage(1);
       }
     },
@@ -283,9 +290,9 @@ export default function WorkerTasksPage() {
   const handleGoUp = useCallback(
     async () => {
       if (pathIds.length <= 1) {
-        await setPathParam(null);
+        await setPathParam(null, { history: 'push' });
       } else {
-        await setPathParam(pathIds.slice(0, -1).join(","));
+        await setPathParam(pathIds.slice(0, -1).join(","), { history: 'push' });
       }
       await setPage(1);
     },
@@ -295,9 +302,9 @@ export default function WorkerTasksPage() {
   const handleNavigateTo = useCallback(
     async (index: number) => {
       if (index < 0) {
-        await setPathParam(null);
+        await setPathParam(null, { history: 'push' });
       } else {
-        await setPathParam(pathIds.slice(0, index + 1).join(","));
+        await setPathParam(pathIds.slice(0, index + 1).join(","), { history: 'push' });
       }
       await setPage(1);
     },
@@ -492,13 +499,13 @@ export default function WorkerTasksPage() {
         enableSorting: true,
       },
       {
-        id: "units",
-        header: "Units",
+        id: "info",
+        header: "Info",
         minSize: 120,
         cell: ({ row }) => {
-          const counts = formatUnitCounts(row.original);
-          return counts ? (
-            <div className="text-xs font-mono">{counts}</div>
+          const infoStr = formatInfo(row.original);
+          return infoStr ? (
+            <div className="text-xs font-mono">{infoStr}</div>
           ) : (
             <span className="text-xs text-gray-400">-</span>
           );
@@ -672,9 +679,9 @@ export default function WorkerTasksPage() {
               <span className="font-mono text-xs text-gray-600">
                 {formatDurationMs(parentTask.completion_duration_ms ?? parentTask.process_duration_ms)}
               </span>
-              {formatUnitCounts(parentTask) && (
+              {formatInfo(parentTask) && (
                 <span className="font-mono text-xs text-gray-600">
-                  {formatUnitCounts(parentTask)}
+                  {formatInfo(parentTask)}
                 </span>
               )}
             </div>

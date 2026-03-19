@@ -124,7 +124,7 @@ DROP FUNCTION IF EXISTS worker.derive_statistical_unit(int4multirange, int4multi
 
 -- worker.derive_statistical_unit (function): RETURNS jsonb instead of void
 -- Remove internal UPDATE worker.tasks SET info, return jsonb instead.
-CREATE OR REPLACE FUNCTION worker.derive_statistical_unit(p_establishment_id_ranges int4multirange DEFAULT NULL::int4multirange, p_legal_unit_id_ranges int4multirange DEFAULT NULL::int4multirange, p_enterprise_id_ranges int4multirange DEFAULT NULL::int4multirange, p_power_group_id_ranges int4multirange DEFAULT NULL::int4multirange, p_valid_from date DEFAULT NULL::date, p_valid_until date DEFAULT NULL::date, p_task_id bigint DEFAULT NULL::bigint, p_round_priority_base bigint DEFAULT NULL::bigint)
+CREATE OR REPLACE FUNCTION worker.derive_statistical_unit(p_establishment_id_ranges int4multirange DEFAULT NULL::int4multirange, p_legal_unit_id_ranges int4multirange DEFAULT NULL::int4multirange, p_enterprise_id_ranges int4multirange DEFAULT NULL::int4multirange, p_power_group_id_ranges int4multirange DEFAULT NULL::int4multirange, p_valid_from date DEFAULT NULL::date, p_valid_until date DEFAULT NULL::date, p_task_id bigint DEFAULT NULL::bigint)
  RETURNS jsonb
  LANGUAGE plpgsql
 AS $derive_statistical_unit_func$
@@ -136,7 +136,6 @@ DECLARE
     v_power_group_ids INT[];
     v_batch_count INT := 0;
     v_is_full_refresh BOOLEAN;
-    v_child_priority BIGINT;
     v_orphan_enterprise_ids INT[];
     v_orphan_legal_unit_ids INT[];
     v_orphan_establishment_ids INT[];
@@ -152,8 +151,6 @@ BEGIN
                          AND p_legal_unit_id_ranges IS NULL
                          AND p_enterprise_id_ranges IS NULL
                          AND p_power_group_id_ranges IS NULL);
-
-    v_child_priority := COALESCE(p_round_priority_base, nextval('public.worker_task_priority_seq'));
 
     IF v_is_full_refresh THEN
         FOR v_batch IN SELECT * FROM public.get_closed_group_batches(p_target_batch_size => 1000)
@@ -173,8 +170,7 @@ BEGIN
                     'valid_from', p_valid_from,
                     'valid_until', p_valid_until
                 ),
-                p_parent_id => p_task_id,
-                p_priority => v_child_priority
+                p_parent_id => p_task_id
             );
             v_batch_count := v_batch_count + 1;
         END LOOP;
@@ -199,8 +195,7 @@ BEGIN
                         'valid_from', p_valid_from,
                         'valid_until', p_valid_until
                     ),
-                    p_parent_id => p_task_id,
-                    p_priority => v_child_priority
+                    p_parent_id => p_task_id
                 );
                 v_batch_count := v_batch_count + 1;
             END LOOP;
@@ -334,8 +329,7 @@ BEGIN
                         'changed_legal_unit_id_ranges', p_legal_unit_id_ranges::text,
                         'changed_enterprise_id_ranges', p_enterprise_id_ranges::text
                     ),
-                    p_parent_id => p_task_id,
-                    p_priority => v_child_priority
+                    p_parent_id => p_task_id
                 );
                 v_batch_count := v_batch_count + 1;
             END LOOP;
@@ -365,8 +359,7 @@ BEGIN
                         'valid_from', p_valid_from,
                         'valid_until', p_valid_until
                     ),
-                    p_parent_id => p_task_id,
-                    p_priority => v_child_priority
+                    p_parent_id => p_task_id
                 );
                 v_batch_count := v_batch_count + 1;
             END LOOP;
@@ -438,7 +431,6 @@ DECLARE
     v_valid_range datemultirange := '{}'::datemultirange;
     v_valid_from DATE;
     v_valid_until DATE;
-    v_round_priority_base BIGINT;
     v_task_id BIGINT;
     v_phase1_id BIGINT;
     v_phase2_id BIGINT;
@@ -459,8 +451,8 @@ BEGIN
        OR v_ent_ids != '{}'::int4multirange
        OR v_pg_ids != '{}'::int4multirange THEN
 
-        -- Get own task_id and round_priority_base (still needed for spawning children)
-        SELECT id, priority INTO v_task_id, v_round_priority_base
+        -- Get own task_id for spawning children
+        SELECT id INTO v_task_id
         FROM worker.tasks
         WHERE state = 'processing' AND worker_pid = pg_backend_pid()
         ORDER BY id DESC LIMIT 1;
@@ -488,15 +480,13 @@ BEGIN
 
         v_payload := jsonb_build_object(
             'valid_from', v_valid_from,
-            'valid_until', v_valid_until,
-            'round_priority_base', v_round_priority_base
+            'valid_until', v_valid_until
         );
 
         v_phase1_id := worker.spawn(
             p_command => 'derive_units_phase',
             p_payload => v_payload,
             p_parent_id => v_task_id,
-            p_priority => v_round_priority_base,
             p_child_mode => 'serial'
         );
 
@@ -508,11 +498,9 @@ BEGIN
                 'enterprise_id_ranges', v_ent_ids::text,
                 'power_group_id_ranges', v_pg_ids::text,
                 'valid_from', v_valid_from,
-                'valid_until', v_valid_until,
-                'round_priority_base', v_round_priority_base
+                'valid_until', v_valid_until
             ),
             p_parent_id => v_phase1_id,
-            p_priority => v_round_priority_base,
             p_child_mode => 'serial'
         );
 
@@ -520,7 +508,6 @@ BEGIN
             p_command => 'statistical_unit_flush_staging',
             p_payload => v_payload,
             p_parent_id => v_phase1_id,
-            p_priority => v_round_priority_base,
             p_child_mode => 'serial'
         );
 
@@ -528,7 +515,6 @@ BEGIN
             p_command => 'derive_reports_phase',
             p_payload => v_payload,
             p_parent_id => v_task_id,
-            p_priority => v_round_priority_base,
             p_child_mode => 'serial'
         );
 
@@ -536,7 +522,6 @@ BEGIN
             p_command => 'derive_statistical_history',
             p_payload => v_payload,
             p_parent_id => v_phase2_id,
-            p_priority => v_round_priority_base,
             p_child_mode => 'serial'
         );
 
@@ -544,7 +529,6 @@ BEGIN
             p_command => 'statistical_history_reduce',
             p_payload => v_payload,
             p_parent_id => v_phase2_id,
-            p_priority => v_round_priority_base,
             p_child_mode => 'serial'
         );
 
@@ -552,7 +536,6 @@ BEGIN
             p_command => 'derive_statistical_unit_facet',
             p_payload => v_payload,
             p_parent_id => v_phase2_id,
-            p_priority => v_round_priority_base,
             p_child_mode => 'serial'
         );
 
@@ -560,7 +543,6 @@ BEGIN
             p_command => 'statistical_unit_facet_reduce',
             p_payload => v_payload,
             p_parent_id => v_phase2_id,
-            p_priority => v_round_priority_base,
             p_child_mode => 'serial'
         );
 
@@ -568,7 +550,6 @@ BEGIN
             p_command => 'derive_statistical_history_facet',
             p_payload => v_payload,
             p_parent_id => v_phase2_id,
-            p_priority => v_round_priority_base,
             p_child_mode => 'serial'
         );
 
@@ -576,10 +557,15 @@ BEGIN
             p_command => 'statistical_history_facet_reduce',
             p_payload => v_payload,
             p_parent_id => v_phase2_id,
-            p_priority => v_round_priority_base,
             p_child_mode => 'serial'
         );
     ELSE
+        p_info := jsonb_build_object(
+            'affected_establishment_count', 0,
+            'affected_legal_unit_count', 0,
+            'affected_enterprise_count', 0,
+            'affected_power_group_count', 0
+        );
         PERFORM pg_notify('worker_status',
             json_build_object('type', 'is_deriving_statistical_units', 'status', false)::text);
     END IF;
@@ -599,7 +585,6 @@ DECLARE
     v_power_group_id_ranges int4multirange = (payload->>'power_group_id_ranges')::int4multirange;
     v_valid_from date = (payload->>'valid_from')::date;
     v_valid_until date = (payload->>'valid_until')::date;
-    v_round_priority_base bigint = (payload->>'round_priority_base')::bigint;
     v_task_id BIGINT;
 BEGIN
     -- Still need task_id for spawning children
@@ -617,8 +602,7 @@ BEGIN
         p_power_group_id_ranges := v_power_group_id_ranges,
         p_valid_from := v_valid_from,
         p_valid_until := v_valid_until,
-        p_task_id := v_task_id,
-        p_round_priority_base := v_round_priority_base
+        p_task_id := v_task_id
     ) INTO p_info;
 END;
 $derive_statistical_unit$;
@@ -1057,7 +1041,6 @@ AS $derive_statistical_history$
 DECLARE
     v_valid_from date := (payload->>'valid_from')::date;
     v_valid_until date := (payload->>'valid_until')::date;
-    v_round_priority_base bigint := (payload->>'round_priority_base')::bigint;
     v_task_id bigint;
     v_period record;
     v_dirty_partitions INT[];
@@ -1102,8 +1085,7 @@ BEGIN
                         'month', v_period.month,
                         'partition_seq', v_partition
                     ),
-                    p_parent_id := v_task_id,
-                    p_priority := v_round_priority_base
+                    p_parent_id := v_task_id
                 );
                 v_child_count := v_child_count + 1;
             END LOOP;
@@ -1117,8 +1099,7 @@ BEGIN
                         'month', v_period.month,
                         'partition_seq', v_partition
                     ),
-                    p_parent_id := v_task_id,
-                    p_priority := v_round_priority_base
+                    p_parent_id := v_task_id
                 );
                 v_child_count := v_child_count + 1;
             END LOOP;
@@ -1179,7 +1160,6 @@ AS $statistical_history_reduce$
 DECLARE
     v_valid_from date := (payload->>'valid_from')::date;
     v_valid_until date := (payload->>'valid_until')::date;
-    v_round_priority_base bigint := (payload->>'round_priority_base')::bigint;
 BEGIN
     DELETE FROM public.statistical_history WHERE partition_seq IS NULL;
 
@@ -1222,7 +1202,6 @@ AS $derive_statistical_unit_facet$
 DECLARE
     v_valid_from date := (payload->>'valid_from')::date;
     v_valid_until date := (payload->>'valid_until')::date;
-    v_round_priority_base bigint := (payload->>'round_priority_base')::bigint;
     v_task_id bigint;
     v_dirty_partitions INT[];
     v_populated_partitions INT;
@@ -1269,8 +1248,7 @@ BEGIN
                     'command', 'derive_statistical_unit_facet_partition',
                     'partition_seq', v_i
                 ),
-                p_parent_id := v_task_id,
-                p_priority := v_round_priority_base
+                p_parent_id := v_task_id
             );
             v_child_count := v_child_count + 1;
         END LOOP;
@@ -1284,8 +1262,7 @@ BEGIN
                     'command', 'derive_statistical_unit_facet_partition',
                     'partition_seq', v_i
                 ),
-                p_parent_id := v_task_id,
-                p_priority := v_round_priority_base
+                p_parent_id := v_task_id
             );
             v_child_count := v_child_count + 1;
         END LOOP;
@@ -1334,7 +1311,6 @@ AS $statistical_unit_facet_reduce$
 DECLARE
     v_valid_from date := (payload->>'valid_from')::date;
     v_valid_until date := (payload->>'valid_until')::date;
-    v_round_priority_base bigint := (payload->>'round_priority_base')::bigint;
 BEGIN
     TRUNCATE public.statistical_unit_facet;
 
@@ -1361,7 +1337,6 @@ AS $derive_statistical_history_facet$
 DECLARE
     v_valid_from date := COALESCE((payload->>'valid_from')::date, '-infinity'::date);
     v_valid_until date := COALESCE((payload->>'valid_until')::date, 'infinity'::date);
-    v_round_priority_base bigint := (payload->>'round_priority_base')::bigint;
     v_task_id bigint;
     v_period record;
     v_dirty_partitions INT[];
@@ -1406,8 +1381,7 @@ BEGIN
                         'month', v_period.month,
                         'partition_seq', v_partition
                     ),
-                    p_parent_id := v_task_id,
-                    p_priority := v_round_priority_base
+                    p_parent_id := v_task_id
                 );
                 v_child_count := v_child_count + 1;
             END LOOP;
@@ -1421,8 +1395,7 @@ BEGIN
                         'month', v_period.month,
                         'partition_seq', v_partition
                     ),
-                    p_parent_id := v_task_id,
-                    p_priority := v_round_priority_base
+                    p_parent_id := v_task_id
                 );
                 v_child_count := v_child_count + 1;
             END LOOP;
@@ -1863,10 +1836,11 @@ BEGIN
           v_pg_exception_context TEXT;
         BEGIN
           IF task_record.handler_procedure IS NOT NULL THEN
-            -- INOUT protocol: pass NULL, capture returned info
-            v_handler_info := NULL;
+            -- INOUT protocol: EXECUTE INTO captures the INOUT return value;
+            -- plain EXECUTE USING does NOT capture INOUT in PG.
             EXECUTE format('CALL %s($1, $2)', task_record.handler_procedure)
-            USING task_record.payload, v_handler_info;
+            INTO v_handler_info
+            USING task_record.payload, NULL::jsonb;
           ELSE
             RAISE EXCEPTION 'No handler procedure found for command: %', task_record.command;
           END IF;
