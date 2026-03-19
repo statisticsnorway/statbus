@@ -503,9 +503,9 @@ BEGIN
     FOR v_period IN
         SELECT resolution, year, month
         FROM public.get_statistical_history_periods(
-            p_resolution := null::public.history_resolution,
-            p_valid_from := v_valid_from,
-            p_valid_until := v_valid_until
+            p_resolution => null::public.history_resolution,
+            p_valid_from => v_valid_from,
+            p_valid_until => v_valid_until
         )
     LOOP
         IF v_dirty_partitions IS NULL THEN
@@ -515,28 +515,28 @@ BEGIN
                 ORDER BY report_partition_seq
             LOOP
                 PERFORM worker.spawn(
-                    p_command := 'derive_statistical_history_period',
-                    p_payload := jsonb_build_object(
+                    p_command => 'derive_statistical_history_period',
+                    p_payload => jsonb_build_object(
                         'resolution', v_period.resolution::text,
                         'year', v_period.year,
                         'month', v_period.month,
                         'partition_seq', v_partition
                     ),
-                    p_parent_id := v_task_id
+                    p_parent_id => v_task_id
                 );
                 v_child_count := v_child_count + 1;
             END LOOP;
         ELSE
             FOREACH v_partition IN ARRAY v_dirty_partitions LOOP
                 PERFORM worker.spawn(
-                    p_command := 'derive_statistical_history_period',
-                    p_payload := jsonb_build_object(
+                    p_command => 'derive_statistical_history_period',
+                    p_payload => jsonb_build_object(
                         'resolution', v_period.resolution::text,
                         'year', v_period.year,
                         'month', v_period.month,
                         'partition_seq', v_partition
                     ),
-                    p_parent_id := v_task_id
+                    p_parent_id => v_task_id
                 );
                 v_child_count := v_child_count + 1;
             END LOOP;
@@ -597,12 +597,12 @@ BEGIN
             ORDER BY report_partition_seq
         LOOP
             PERFORM worker.spawn(
-                p_command := 'derive_statistical_unit_facet_partition',
-                p_payload := jsonb_build_object(
+                p_command => 'derive_statistical_unit_facet_partition',
+                p_payload => jsonb_build_object(
                     'command', 'derive_statistical_unit_facet_partition',
                     'partition_seq', v_i
                 ),
-                p_parent_id := v_task_id
+                p_parent_id => v_task_id
             );
             v_child_count := v_child_count + 1;
         END LOOP;
@@ -611,12 +611,12 @@ BEGIN
             array_length(v_dirty_partitions, 1);
         FOREACH v_i IN ARRAY v_dirty_partitions LOOP
             PERFORM worker.spawn(
-                p_command := 'derive_statistical_unit_facet_partition',
-                p_payload := jsonb_build_object(
+                p_command => 'derive_statistical_unit_facet_partition',
+                p_payload => jsonb_build_object(
                     'command', 'derive_statistical_unit_facet_partition',
                     'partition_seq', v_i
                 ),
-                p_parent_id := v_task_id
+                p_parent_id => v_task_id
             );
             v_child_count := v_child_count + 1;
         END LOOP;
@@ -659,9 +659,9 @@ BEGIN
     FOR v_period IN
         SELECT resolution, year, month
         FROM public.get_statistical_history_periods(
-            p_resolution := null::public.history_resolution,
-            p_valid_from := v_valid_from,
-            p_valid_until := v_valid_until
+            p_resolution => null::public.history_resolution,
+            p_valid_from => v_valid_from,
+            p_valid_until => v_valid_until
         )
     LOOP
         IF v_dirty_partitions IS NULL THEN
@@ -671,28 +671,28 @@ BEGIN
                 ORDER BY report_partition_seq
             LOOP
                 PERFORM worker.spawn(
-                    p_command := 'derive_statistical_history_facet_period',
-                    p_payload := jsonb_build_object(
+                    p_command => 'derive_statistical_history_facet_period',
+                    p_payload => jsonb_build_object(
                         'resolution', v_period.resolution::text,
                         'year', v_period.year,
                         'month', v_period.month,
                         'partition_seq', v_partition
                     ),
-                    p_parent_id := v_task_id
+                    p_parent_id => v_task_id
                 );
                 v_child_count := v_child_count + 1;
             END LOOP;
         ELSE
             FOREACH v_partition IN ARRAY v_dirty_partitions LOOP
                 PERFORM worker.spawn(
-                    p_command := 'derive_statistical_history_facet_period',
-                    p_payload := jsonb_build_object(
+                    p_command => 'derive_statistical_history_facet_period',
+                    p_payload => jsonb_build_object(
                         'resolution', v_period.resolution::text,
                         'year', v_period.year,
                         'month', v_period.month,
                         'partition_seq', v_partition
                     ),
-                    p_parent_id := v_task_id
+                    p_parent_id => v_task_id
                 );
                 v_child_count := v_child_count + 1;
             END LOOP;

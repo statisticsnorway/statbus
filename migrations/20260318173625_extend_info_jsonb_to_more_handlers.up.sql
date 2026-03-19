@@ -4,7 +4,7 @@ BEGIN;
 CREATE OR REPLACE FUNCTION worker.derive_statistical_unit(p_establishment_id_ranges int4multirange DEFAULT NULL::int4multirange, p_legal_unit_id_ranges int4multirange DEFAULT NULL::int4multirange, p_enterprise_id_ranges int4multirange DEFAULT NULL::int4multirange, p_power_group_id_ranges int4multirange DEFAULT NULL::int4multirange, p_valid_from date DEFAULT NULL::date, p_valid_until date DEFAULT NULL::date, p_task_id bigint DEFAULT NULL::bigint, p_round_priority_base bigint DEFAULT NULL::bigint)
  RETURNS void
  LANGUAGE plpgsql
-AS $function$
+AS $derive_statistical_unit$
 DECLARE
     v_batch RECORD;
     v_establishment_ids INT[];
@@ -278,13 +278,13 @@ BEGIN
     -- REMOVED: enqueue_statistical_unit_flush_staging (now pre-spawned sibling)
     -- REMOVED: enqueue_derive_reports (now pre-spawned sibling phase)
 END;
-$function$;
+$derive_statistical_unit$;
 
 -- 2. notify_task_progress: read counts from info instead of payload
 CREATE OR REPLACE FUNCTION worker.notify_task_progress()
  RETURNS void
  LANGUAGE plpgsql
-AS $function$
+AS $notify_task_progress$
 DECLARE
     v_payload JSONB;
     v_phases JSONB := '[]'::jsonb;
@@ -340,11 +340,11 @@ BEGIN
                 AND p.state IN ('processing', 'waiting')
           );
 
-        -- Read affected counts from info (handler output)
-        SELECT (t.info->>'affected_establishment_count')::int,
-               (t.info->>'affected_legal_unit_count')::int,
-               (t.info->>'affected_enterprise_count')::int,
-               (t.info->>'affected_power_group_count')::int
+        -- Read effective counts from info (handler output)
+        SELECT (t.info->>'effective_establishment_count')::int,
+               (t.info->>'effective_legal_unit_count')::int,
+               (t.info->>'effective_enterprise_count')::int,
+               (t.info->>'effective_power_group_count')::int
         INTO v_affected_est, v_affected_lu, v_affected_en, v_affected_pg
         FROM worker.tasks AS t
         WHERE t.command = 'derive_statistical_unit'
@@ -356,10 +356,10 @@ BEGIN
             'step', v_units_step,
             'total', COALESCE(v_units_total, 0),
             'completed', COALESCE(v_units_completed, 0),
-            'affected_establishment_count', v_affected_est,
-            'affected_legal_unit_count', v_affected_lu,
-            'affected_enterprise_count', v_affected_en,
-            'affected_power_group_count', v_affected_pg
+            'effective_establishment_count', v_affected_est,
+            'effective_legal_unit_count', v_affected_lu,
+            'effective_enterprise_count', v_affected_en,
+            'effective_power_group_count', v_affected_pg
         );
         v_phases := v_phases || jsonb_build_array(v_units_phase);
     END IF;
@@ -406,12 +406,12 @@ BEGIN
                                 'derive_statistical_history_facet')
           );
 
-        -- Affected counts come from derive_statistical_unit task info (same pipeline run)
+        -- Effective counts come from derive_statistical_unit task info (same pipeline run)
         IF v_affected_est IS NULL THEN
-            SELECT (t.info->>'affected_establishment_count')::int,
-                   (t.info->>'affected_legal_unit_count')::int,
-                   (t.info->>'affected_enterprise_count')::int,
-                   (t.info->>'affected_power_group_count')::int
+            SELECT (t.info->>'effective_establishment_count')::int,
+                   (t.info->>'effective_legal_unit_count')::int,
+                   (t.info->>'effective_enterprise_count')::int,
+                   (t.info->>'effective_power_group_count')::int
             INTO v_affected_est, v_affected_lu, v_affected_en, v_affected_pg
             FROM worker.tasks AS t
             WHERE t.command = 'derive_statistical_unit'
@@ -424,10 +424,10 @@ BEGIN
             'step', v_reports_step,
             'total', COALESCE(v_reports_total, 0),
             'completed', COALESCE(v_reports_completed, 0),
-            'affected_establishment_count', v_affected_est,
-            'affected_legal_unit_count', v_affected_lu,
-            'affected_enterprise_count', v_affected_en,
-            'affected_power_group_count', v_affected_pg
+            'effective_establishment_count', v_affected_est,
+            'effective_legal_unit_count', v_affected_lu,
+            'effective_enterprise_count', v_affected_en,
+            'effective_power_group_count', v_affected_pg
         );
         v_phases := v_phases || jsonb_build_array(v_reports_phase);
     END IF;
@@ -441,7 +441,7 @@ BEGIN
         PERFORM pg_notify('worker_status', v_payload::text);
     END IF;
 END;
-$function$;
+$notify_task_progress$;
 
 -- 3. import_job_process: write job summary to info
 CREATE OR REPLACE PROCEDURE admin.import_job_process(IN job_id integer)

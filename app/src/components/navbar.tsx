@@ -144,14 +144,14 @@ function ImportProgressPopover({ importing }: { importing: ImportStatus }) {
  */
 function UnitCountSummary({ phase }: { phase: PhaseStatus }) {
   const parts: string[] = [];
-  if (phase.affected_establishment_count)
-    parts.push(`~${phase.affected_establishment_count.toLocaleString()} establishments`);
-  if (phase.affected_legal_unit_count)
-    parts.push(`~${phase.affected_legal_unit_count.toLocaleString()} legal units`);
-  if (phase.affected_enterprise_count)
-    parts.push(`~${phase.affected_enterprise_count.toLocaleString()} enterprises`);
-  if (phase.affected_power_group_count)
-    parts.push(`~${phase.affected_power_group_count.toLocaleString()} power groups`);
+  if (phase.effective_establishment_count)
+    parts.push(`~${phase.effective_establishment_count.toLocaleString()} establishments`);
+  if (phase.effective_legal_unit_count)
+    parts.push(`~${phase.effective_legal_unit_count.toLocaleString()} legal units`);
+  if (phase.effective_enterprise_count)
+    parts.push(`~${phase.effective_enterprise_count.toLocaleString()} enterprises`);
+  if (phase.effective_power_group_count)
+    parts.push(`~${phase.effective_power_group_count.toLocaleString()} power groups`);
   if (parts.length === 0) return null;
   return (
     <p className="text-sm text-gray-600 font-medium">

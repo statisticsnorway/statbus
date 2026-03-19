@@ -4,7 +4,7 @@ BEGIN;
 CREATE OR REPLACE FUNCTION worker.derive_statistical_unit(p_establishment_id_ranges int4multirange DEFAULT NULL::int4multirange, p_legal_unit_id_ranges int4multirange DEFAULT NULL::int4multirange, p_enterprise_id_ranges int4multirange DEFAULT NULL::int4multirange, p_power_group_id_ranges int4multirange DEFAULT NULL::int4multirange, p_valid_from date DEFAULT NULL::date, p_valid_until date DEFAULT NULL::date, p_task_id bigint DEFAULT NULL::bigint, p_round_priority_base bigint DEFAULT NULL::bigint)
  RETURNS void
  LANGUAGE plpgsql
-AS $function$
+AS $derive_statistical_unit$
 DECLARE
     v_batch RECORD;
     v_establishment_ids INT[];
@@ -277,13 +277,13 @@ BEGIN
     -- REMOVED: enqueue_statistical_unit_flush_staging (now pre-spawned sibling)
     -- REMOVED: enqueue_derive_reports (now pre-spawned sibling phase)
 END;
-$function$;
+$derive_statistical_unit$;
 
 -- Revert notify_task_progress: read counts from payload instead of info
 CREATE OR REPLACE FUNCTION worker.notify_task_progress()
  RETURNS void
  LANGUAGE plpgsql
-AS $function$
+AS $notify_task_progress$
 DECLARE
     v_payload JSONB;
     v_phases JSONB := '[]'::jsonb;
@@ -439,12 +439,12 @@ BEGIN
         PERFORM pg_notify('worker_status', v_payload::text);
     END IF;
 END;
-$function$;
+$notify_task_progress$;
 
 -- Revert import_job_process: remove info writing
 CREATE OR REPLACE PROCEDURE admin.import_job_process(IN job_id integer)
  LANGUAGE plpgsql
-AS $procedure$
+AS $import_job_process$
 /*
 RATIONALE for Control Flow:
 
@@ -689,7 +689,7 @@ BEGIN
         PERFORM admin.reschedule_import_job_process(job_id);
     END IF;
 END;
-$procedure$;
+$import_job_process$;
 
 -- Revert worker command procedures back to SECURITY DEFINER.
 ALTER PROCEDURE worker.command_collect_changes(jsonb) SECURITY DEFINER;

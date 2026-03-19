@@ -152,7 +152,8 @@ const formatInfo = (task: WorkerTask): string | null => {
     const label = KEY_LABELS[key] ?? key.replace(/_/g, " ");
     parts.push(`${value} ${label}`);
   }
-  return parts.length > 0 ? parts.join(", ") : null;
+  if (parts.length > 0) return parts.join(", ");
+  return "no changes";
 };
 
 const fetcher = async (
@@ -347,6 +348,17 @@ export default function WorkerTasksPage() {
   );
 
   const [expandedPayloads, setExpandedPayloads] = useState<Set<number>>(new Set());
+  const [expandedInfos, setExpandedInfos] = useState<Set<number>>(new Set());
+
+  const toggleInfo = useCallback((taskId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedInfos((prev) => {
+      const next = new Set(prev);
+      if (next.has(taskId)) next.delete(taskId);
+      else next.add(taskId);
+      return next;
+    });
+  }, []);
 
   const togglePayload = useCallback((taskId: number, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -385,7 +397,6 @@ export default function WorkerTasksPage() {
             COMMAND_LABELS[task.command ?? ""] ?? task.command;
           const hasChildren = !!task.child_mode;
           const hasPayload = task.payload !== null && task.payload !== undefined;
-          const hasInfo = task.info !== null && task.info !== undefined;
           const taskId = task.id!;
           const isExpanded = expandedPayloads.has(taskId);
           return (
@@ -394,11 +405,11 @@ export default function WorkerTasksPage() {
                 <div className="flex-1">
                   <div className="text-sm font-medium flex items-center gap-1">
                     {label}
-                    {(hasPayload || hasInfo) && (
+                    {hasPayload && (
                       <button
                         onClick={(e) => togglePayload(taskId, e)}
                         className="inline-flex items-center justify-center h-4 w-4 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600"
-                        title={hasInfo ? "Show info & payload" : "Show payload"}
+                        title="Show payload"
                       >
                         <Info className="h-3 w-3" />
                       </button>
@@ -414,20 +425,11 @@ export default function WorkerTasksPage() {
                   <ChevronRight className="h-4 w-4 text-gray-400 ml-2 flex-shrink-0" />
                 )}
               </div>
-              {isExpanded && (hasPayload || hasInfo) && (
-                <div className="mt-1 space-y-1 max-w-[500px]">
-                  {hasInfo && (
-                    <pre className="text-xs bg-blue-50 border border-blue-200 rounded p-2 whitespace-pre-wrap overflow-auto max-h-[200px]">
-                      <span className="text-blue-600 font-semibold">info: </span>
-                      {JSON.stringify(task.info, null, 2)}
-                    </pre>
-                  )}
-                  {hasPayload && (
-                    <pre className="text-xs bg-gray-50 border rounded p-2 whitespace-pre-wrap overflow-auto max-h-[200px]">
-                      {hasInfo && <span className="text-gray-500 font-semibold">payload: </span>}
-                      {JSON.stringify(task.payload, null, 2)}
-                    </pre>
-                  )}
+              {isExpanded && hasPayload && (
+                <div className="mt-1 max-w-[500px]">
+                  <pre className="text-xs bg-gray-50 border rounded p-2 whitespace-pre-wrap overflow-auto max-h-[200px]">
+                    {JSON.stringify(task.payload, null, 2)}
+                  </pre>
                 </div>
               )}
             </div>
@@ -538,11 +540,26 @@ export default function WorkerTasksPage() {
         header: "Info",
         minSize: 120,
         cell: ({ row }) => {
-          const infoStr = formatInfo(row.original);
-          return infoStr ? (
-            <div className="text-xs font-mono">{infoStr}</div>
-          ) : (
-            <span className="text-xs text-gray-400">-</span>
+          const task = row.original;
+          const infoStr = formatInfo(task);
+          const hasRawInfo = task.info != null && Object.keys(task.info as object).length > 0;
+          const taskId = task.id!;
+          const isExpanded = expandedInfos.has(taskId);
+          if (!infoStr) return <span className="text-xs text-gray-400">-</span>;
+          return (
+            <div>
+              <div
+                className={`text-xs font-mono ${hasRawInfo ? "cursor-pointer hover:text-blue-600" : ""}`}
+                onClick={hasRawInfo ? (e) => toggleInfo(taskId, e) : undefined}
+              >
+                {infoStr}
+              </div>
+              {isExpanded && hasRawInfo && (
+                <pre className="mt-1 text-xs bg-blue-50 border border-blue-200 rounded p-2 whitespace-pre-wrap overflow-auto max-h-[200px]">
+                  {JSON.stringify(task.info, null, 2)}
+                </pre>
+              )}
+            </div>
           );
         },
       },
@@ -593,7 +610,7 @@ export default function WorkerTasksPage() {
         },
       },
     ],
-    [expandedPayloads, togglePayload]
+    [expandedPayloads, togglePayload, expandedInfos, toggleInfo]
   );
 
   const pageCount = useMemo(() => {
