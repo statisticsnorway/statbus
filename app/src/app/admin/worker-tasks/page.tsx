@@ -126,11 +126,14 @@ const COMMAND_INFO_KEYS: Record<string, string[]> = {
     "errors_found",
     "warnings_found",
     "job_state",
+    "current_step",
     // legacy keys
     "imported_rows",
     "error_count",
     "warning_count",
   ],
+  derive_reports_phase: ["valid_from", "valid_until", "years"],
+  statistical_unit_flush_staging: ["rows_flushed"],
   derive_statistical_unit: [
     "effective_establishment_count",
     "effective_legal_unit_count",
