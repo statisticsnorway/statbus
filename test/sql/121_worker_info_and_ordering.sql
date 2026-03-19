@@ -152,12 +152,17 @@ ORDER BY state;
 
 -- After all children complete, complete_parent_if_ready aggregates children's info.
 -- collect_changes should have its own info keys plus bubbled-up children info.
--- The key check: info is not NULL and has the affected_*_count keys from the handler.
+-- The key check: info is not NULL and has the affected_*_count keys from the handler,
+-- plus effective_*_count keys bubbled up from derive_statistical_unit children.
 SELECT
     command,
     info IS NOT NULL AS has_info,
     info ? 'affected_legal_unit_count' AS has_lu_count,
-    info ? 'affected_enterprise_count' AS has_ent_count
+    info ? 'affected_enterprise_count' AS has_ent_count,
+    -- Verify new keys bubbled up from children (Info Principle)
+    info ? 'effective_legal_unit_count' AS has_eff_lu,
+    info ? 'effective_enterprise_count' AS has_eff_en,
+    info ? 'rows_reduced' AS has_rows_reduced
 FROM worker.tasks
 WHERE command = 'collect_changes'
 ORDER BY id DESC LIMIT 1;

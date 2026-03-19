@@ -81,3 +81,82 @@ SELECT * FROM public.statistical_unit WHERE ...;
 -- changes made by the worker tasks.
 ROLLBACK;
 ```
+
+## 5. Task Info Reporting
+
+### The Info Principle
+
+Each task reports in its `info` JSONB field only what **it** contributed — its own semantic output, with clear non-overlapping names. The parent's `complete_parent_if_ready` function aggregates children's info automatically:
+
+- **Numeric keys with the same name across siblings** are additive — SUM gives the correct total
+- **Keys unique to one child** pass through unchanged
+- **Parent's own info wins** over bubbled-up children info (`children_info || parent_info`)
+
+### Key Naming Rules
+
+1. **Non-overlapping names for distinct concepts**: `affected_*_count` (raw change-log counts at collect_changes) vs `effective_*_count` (post-propagation counts at derive_statistical_unit)
+2. **Same name for additive quantities**: All `rows_inserted` keys from leaf siblings SUM correctly at the parent
+3. **Non-numeric keys**: Last value wins (e.g., `job_state` from the most recent import_job_process invocation)
+
+### How Aggregation Works
+
+When all children of a parent complete, `complete_parent_if_ready` merges their info:
+
+```sql
+-- For each child, numeric values are summed, non-numeric take last value
+-- Then: parent_info = children_info || parent_own_info
+-- Parent's own keys always win over bubbled-up children keys
+```
+
+### Complete Key Map
+
+#### Analytics Tree
+
+| Key | Set by | Meaning | Additive? |
+|---|---|---|---|
+| `affected_*_count` (4 keys) | collect_changes | Raw count from change log | N/A (parent-only) |
+| `effective_*_count` (4 keys) | derive_statistical_unit | Post-propagation count | N/A (single source) |
+| `batch_count` | derive_statistical_unit | Number of batches spawned | N/A (single source) |
+| `batch_est_count` | refresh_batch | Establishments in this batch | Yes (SUM = total) |
+| `batch_lu_count` | refresh_batch | Legal units in this batch | Yes (SUM = total) |
+| `batch_en_count` | refresh_batch | Enterprises in this batch | Yes (SUM = total) |
+| `child_count` | spawner handlers | Children spawned | N/A (single source per spawner) |
+| `rows_inserted` | leaf handlers | Rows inserted by this leaf | Yes (SUM = total) |
+| `rows_reduced` | reducer handlers | Rows in final reduced table | N/A (single source) |
+
+#### Import Tree
+
+| Key | Set by | Meaning | Additive? |
+|---|---|---|---|
+| `job_state` | import_job_process | Current job state | No (last value wins) |
+| `total_rows` | import_job_process (preparing_data) | Total rows in import | N/A (set once) |
+| `rows_processed` | import_job_process (processing batch) | Rows processed this batch | Yes (SUM = total) |
+| `errors_found` | import_job_process (analysis end) | Errors found | N/A (set once) |
+| `warnings_found` | import_job_process (analysis end) | Warnings found | N/A (set once) |
+
+### Examples
+
+**Spawner** (reports child_count):
+```sql
+p_info := jsonb_build_object('child_count', v_child_count);
+```
+
+**Leaf** (reports rows_inserted):
+```sql
+INSERT INTO target_table SELECT ...;
+GET DIAGNOSTICS v_row_count := ROW_COUNT;
+p_info := jsonb_build_object('rows_inserted', v_row_count);
+```
+
+**Import handler** (reports deltas, not cumulative snapshots):
+```sql
+-- Capture baseline before work
+v_imported_rows_before := COALESCE(job.imported_rows, 0);
+-- ... do work ...
+-- Report only the delta
+IF COALESCE(job.imported_rows, 0) > v_imported_rows_before THEN
+    p_info := p_info || jsonb_build_object(
+        'rows_processed', job.imported_rows - v_imported_rows_before
+    );
+END IF;
+```

@@ -81,12 +81,34 @@ const formatDurationMs = (ms: number | null): string => {
 };
 
 const KEY_LABELS: Record<string, string> = {
+  // collect_changes (raw change counts)
   affected_establishment_count: "est",
   affected_legal_unit_count: "lu",
   affected_enterprise_count: "en",
   affected_power_group_count: "pg",
+  // derive_statistical_unit (post-propagation effective counts)
+  effective_establishment_count: "eff.est",
+  effective_legal_unit_count: "eff.lu",
+  effective_enterprise_count: "eff.en",
+  effective_power_group_count: "eff.pg",
+  // refresh_batch leaves
+  batch_est_count: "est/batch",
+  batch_lu_count: "lu/batch",
+  batch_en_count: "en/batch",
   batch_count: "batches",
+  // spawner handlers
+  child_count: "children",
+  // leaf handlers
+  rows_inserted: "rows+",
+  // reducer handlers
+  rows_reduced: "reduced",
+  // import handlers
   total_rows: "total",
+  rows_processed: "processed",
+  errors_found: "errors",
+  warnings_found: "warnings",
+  job_state: "state",
+  // legacy (backward compat with existing completed tasks)
   imported_rows: "imported",
   error_count: "errors",
   warning_count: "warnings",
@@ -97,17 +119,30 @@ const formatInfo = (task: WorkerTask): string | null => {
   if (!info || Object.keys(info).length === 0) return null;
 
   // Import job progress: special formatting for row counts
-  if (info.total_rows != null) {
-    const imported = (info.imported_rows as number) ?? 0;
-    const total = info.total_rows as number;
+  // Supports both legacy (cumulative: imported_rows/total_rows) and new (delta: rows_processed)
+  if (info.total_rows != null || info.imported_rows != null) {
+    const total = (info.total_rows as number) ?? null;
+    const imported = (info.imported_rows as number) ?? null;
+    const processed = (info.rows_processed as number) ?? null;
     const state = info.job_state as string | undefined;
-    if (imported === 0 && state && state !== "processing_data" && state !== "finished") {
-      return `${state} (${total} total)`;
+    // Legacy format: cumulative imported_rows/total_rows
+    if (imported != null && total != null) {
+      if (imported === 0 && state && state !== "processing_data" && state !== "finished") {
+        return `${state} (${total} total)`;
+      }
+      const parts: string[] = [`${imported}/${total} rows`];
+      if (state && task.state !== "completed" && task.state !== "failed")
+        parts.push(`${state}`);
+      return parts.join(", ");
     }
-    const parts: string[] = [`${imported}/${total} rows`];
-    if (state && task.state !== "completed" && task.state !== "failed")
-      parts.push(`${state}`);
-    return parts.join(", ");
+    // New delta format: total_rows reported once, rows_processed as delta
+    if (total != null) {
+      const parts: string[] = [`${total} total`];
+      if (processed != null) parts.push(`${processed} processed`);
+      if (state && task.state !== "completed" && task.state !== "failed")
+        parts.push(`${state}`);
+      return parts.join(", ");
+    }
   }
 
   // Generic: display all info keys with labels
