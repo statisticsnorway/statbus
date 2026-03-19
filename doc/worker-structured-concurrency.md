@@ -57,6 +57,13 @@ When a child task completes (or fails):
    - If all children completed → parent completes
 4. Parent's `completed_at` timestamp is set
 
+### Info Aggregation
+
+Each handler reports what it did via `INOUT p_info jsonb`. When
+`complete_parent_if_ready()` completes a parent, it merges all children's
+info using SUM for numeric values. See [worker.md](worker.md#task-info-reporting)
+for details and the Info Principle.
+
 ### Recursive Nesting
 
 The system supports **recursive** parent-child relationships:

@@ -245,7 +245,9 @@ const fetcher = async (
       });
     }
   } else {
-    queryBuilder = queryBuilder.order("id", { ascending: false });
+    // Top-level: newest first (inbox view). Nested: execution order (oldest first).
+    const isDrilledInQuery = parentId && parseInt(parentId, 10) > 0;
+    queryBuilder = queryBuilder.order("id", { ascending: !!isDrilledInQuery });
   }
 
   // Filter by parent: top-level (null parent) or children of a specific task
@@ -769,6 +771,18 @@ export default function WorkerTasksPage() {
               >
                 {parentTask.state}
               </Badge>
+              {parentTask.child_mode && (
+                <Badge
+                  variant="outline"
+                  className={
+                    parentTask.child_mode === "concurrent"
+                      ? "border-blue-300 text-blue-700"
+                      : "border-gray-300 text-gray-600"
+                  }
+                >
+                  {parentTask.child_mode}
+                </Badge>
+              )}
               <span className="font-mono text-xs text-gray-600">
                 {formatDurationMs(parentTask.completion_duration_ms ?? parentTask.process_duration_ms)}
               </span>

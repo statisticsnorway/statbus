@@ -404,8 +404,9 @@ The frontend receives pipeline state via two mechanisms:
 
 1. **`pg_notify` events** — `worker.notify_task_progress()` sends real-time
    push notifications with `{type: 'pipeline_progress', phases: [...]}`.
-   Each phase object contains `phase`, `step`, `active`, `total`, `completed`,
-   and affected counts. Called automatically by `process_tasks` after each
+   Each phase object contains `phase`, `step`, `total`, `completed`,
+   and effective entity counts (`effective_establishment_count`, etc.).
+   Called automatically by `process_tasks` after each
    analytics-queue task completes.
 2. **`is_deriving_statistical_units()` / `is_deriving_reports()`** — SQL
    functions that query the **task tree** (`worker.tasks`) to determine if
