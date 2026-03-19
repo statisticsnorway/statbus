@@ -9,4 +9,13 @@ The worker uses **structured concurrency** — exactly ONE top-level task at a t
 
 See `doc/derive-pipeline.md` for the full pipeline diagram and `doc/worker-structured-concurrency.md` for the concurrency model. Based on [Trio nurseries](https://vorpus.org/blog/notes-on-structured-concurrency-or-go-statement-considered-harmful/).
 
+## Background Tasks (CRITICAL)
+
+**Never block the conversation waiting for background tasks.** Claude Code auto-notifies when they complete.
+
+- Use `| tee tmp/logfile.log` to capture output from long commands
+- Use `run_in_background: true` for tests, builds, and other slow commands
+- **Continue working and talking** while background tasks run — never sleep, poll, or issue blocking `TaskOutput` calls
+- You will receive a `<task-notification>` automatically when a background task finishes
+
 @AGENTS.md
