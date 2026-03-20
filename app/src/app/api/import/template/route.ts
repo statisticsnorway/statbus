@@ -253,7 +253,7 @@ export async function GET(request: NextRequest) {
       cancel() { passThrough.destroy(); },
     });
 
-    workbook.xlsx.write(passThrough).then(() => passThrough.end());
+    workbook.xlsx.write(passThrough).then(() => passThrough.end()).catch((err) => passThrough.destroy(err));
 
     const filename = demoFile
       ? `${definition.slug}-demo.xlsx`
