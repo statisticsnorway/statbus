@@ -6,6 +6,7 @@ import { PassThrough } from 'stream';
 import ExcelJS from 'exceljs';
 import { getDbHostPort } from "@/lib/db-listener";
 import type { DefinitionSnapshot } from "@/atoms/import";
+import { addReferenceSheets, applyColumnValidation } from '@/lib/excel-reference-sheets';
 
 const getDbConfig = () => {
   const { dbHost, dbPort, dbName } = getDbHostPort();
@@ -27,8 +28,8 @@ export async function GET(request: NextRequest) {
     if (!slug) {
       return NextResponse.json({ message: "Missing slug parameter" }, { status: 400 });
     }
-    if (!filter || !["error", "warning"].includes(filter)) {
-      return NextResponse.json({ message: "filter must be 'error' or 'warning'" }, { status: 400 });
+    if (!filter || !["error", "warning", "ok", "full"].includes(filter)) {
+      return NextResponse.json({ message: "filter must be 'error', 'warning', 'ok', or 'full'" }, { status: 400 });
     }
 
     const format = searchParams.get("format") || "csv";
@@ -98,18 +99,27 @@ export async function GET(request: NextRequest) {
       .map(e => `${quoteIdent(e.dataCol)} AS ${quoteIdent(e.sourceCol)}`)
       .join(", ");
 
-    // Row number and error/warning info come first for visibility
+    // Diagnostic column only for error/warning filters
     const errorColumn = filter === "error"
       ? `errors::text AS "_errors"`
-      : `invalid_codes::text AS "_warnings"`;
+      : filter === "warning"
+      ? `invalid_codes::text AS "_warnings"`
+      : null;
 
     // Build WHERE clause
     const whereClause = filter === "error"
       ? `WHERE state = 'error'`
-      : `WHERE invalid_codes IS NOT NULL AND invalid_codes != '{}'::jsonb`;
+      : filter === "warning"
+      ? `WHERE invalid_codes IS NOT NULL AND invalid_codes != '{}'::jsonb`
+      : filter === "ok"
+      ? `WHERE state != 'error' AND (invalid_codes IS NULL OR invalid_codes = '{}'::jsonb)`
+      : ''; // full — no filter
 
     const dataTable = job.data_table_name;
-    const selectBody = `SELECT row_id, ${errorColumn}, ${sourceColumns} FROM ${quoteIdent(dataTable)} ${whereClause} ORDER BY row_id`;
+    const selectColumns = errorColumn
+      ? `row_id, ${errorColumn}, ${sourceColumns}`
+      : `row_id, ${sourceColumns}`;
+    const selectBody = `SELECT ${selectColumns} FROM ${quoteIdent(dataTable)} ${whereClause} ORDER BY row_id`;
 
     // Connect to PG and switch to user's role
     const dbConfig = getDbConfig();
@@ -129,6 +139,11 @@ export async function GET(request: NextRequest) {
       pool.end();
     };
 
+    const filterSuffix = filter === "full" ? "-full"
+      : filter === "ok" ? "-ok-rows"
+      : filter === "error" ? "-errors"
+      : "-warnings";
+
     if (format === "xlsx") {
       const result = await pgClient.query(selectBody);
       const fields = result.fields.map(f => f.name);
@@ -139,20 +154,20 @@ export async function GET(request: NextRequest) {
       const boolOid = 16;
 
       const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet("Data");
-      worksheet.addRow(fields);
+      const dataSheet = workbook.addWorksheet("Data");
+      dataSheet.addRow(fields);
 
       for (let colIdx = 0; colIdx < result.fields.length; colIdx++) {
         const oid = result.fields[colIdx].dataTypeID;
         if (dateOids.has(oid)) {
-          worksheet.getColumn(colIdx + 1).numFmt = 'yyyy-mm-dd';
+          dataSheet.getColumn(colIdx + 1).numFmt = 'yyyy-mm-dd';
         } else if (timestampOids.has(oid)) {
-          worksheet.getColumn(colIdx + 1).numFmt = 'yyyy-mm-dd hh:mm:ss';
+          dataSheet.getColumn(colIdx + 1).numFmt = 'yyyy-mm-dd hh:mm:ss';
         }
       }
 
       for (const row of result.rows) {
-        worksheet.addRow(result.fields.map((field) => {
+        dataSheet.addRow(result.fields.map((field) => {
           const val = row[field.name];
           if (val === null || val === undefined) return null;
           const oid = field.dataTypeID;
@@ -162,6 +177,13 @@ export async function GET(request: NextRequest) {
           return val;
         }));
       }
+
+      // Add reference sheets and data validation for xlsx downloads
+      const sourceColumnNames = columnEntries.map(e => e.sourceCol);
+      const settingsResult = await client.from("settings").select("region_version_id").single();
+      const regionVersionId = settingsResult.data?.region_version_id;
+      const rangeMap = await addReferenceSheets(workbook, sourceColumnNames, client, regionVersionId);
+      applyColumnValidation(dataSheet, sourceColumnNames, rangeMap);
 
       const passThrough = new PassThrough();
       const webStream = new ReadableStream({
@@ -175,7 +197,7 @@ export async function GET(request: NextRequest) {
 
       workbook.xlsx.write(passThrough).then(() => passThrough.end()).catch((err) => passThrough.destroy(err));
 
-      const filename = `${slug}-${filter}s.xlsx`;
+      const filename = `${slug}${filterSuffix}.xlsx`;
       return new Response(webStream, {
         headers: {
           "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -197,7 +219,7 @@ export async function GET(request: NextRequest) {
       cancel() { copyStream.destroy(); cleanup(); },
     });
 
-    const filename = `${slug}-${filter}s.csv`;
+    const filename = `${slug}${filterSuffix}.csv`;
     return new Response(webStream, {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",

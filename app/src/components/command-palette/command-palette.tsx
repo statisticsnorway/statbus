@@ -5,10 +5,12 @@ import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useRouter } from "next/navigation";
 import { ResetConfirmationDialog } from "./reset-confirmation-dialog";
 import { useAuth, usePermission } from "@/atoms/auth";
-import { useSetAtom } from "jotai";
+import { useSetAtom, useAtomValue } from "jotai";
 import { debugInspectorVisibleAtom } from "@/atoms/app";
+import { importDownloadContextAtom } from "@/atoms/import-download-context";
 import {
   BarChartHorizontal,
+  Download,
   Footprints,
   Home,
   ListRestart,
@@ -49,6 +51,7 @@ export function CommandPalette() {
   const setStateInspectorVisible = useSetAtom(debugInspectorVisibleAtom);
   const { canAccessAdminTools, canAccessGettingStarted, canImport } =
     usePermission();
+  const importDownloadContext = useAtomValue(importDownloadContextAtom);
   useGuardedEffect(
     () => {
     const open = () => {
@@ -97,6 +100,12 @@ export function CommandPalette() {
     setOpen(false);
   };
 
+  const handleDownload = (filter: string, format: string) => {
+    if (!importDownloadContext) return;
+    setOpen(false);
+    window.open(`/api/import/download?slug=${importDownloadContext.jobSlug}&filter=${filter}&format=${format}`, '_blank');
+  };
+
   return (
     <>
       <CommandDialog open={open} onOpenChange={setOpen}>
@@ -111,6 +120,61 @@ export function CommandPalette() {
         <CommandInput placeholder="Type a command or search..." />
         <CommandList>
           <CommandEmpty>No results found.</CommandEmpty>
+          {importDownloadContext && canImport && (() => {
+            const { totalRows, errorCount, warningCount } = importDownloadContext;
+            const okCount = totalRows - errorCount - warningCount;
+            return (
+              <>
+                <CommandGroup heading="Import Job Downloads">
+                  <CommandItem onSelect={() => handleDownload('full', 'csv')} value="download all full rows csv spreadsheet">
+                    <Download className="mr-2 h-4 w-4" />
+                    <span>Download all rows (CSV)</span>
+                  </CommandItem>
+                  <CommandItem onSelect={() => handleDownload('full', 'xlsx')} value="download all full rows excel spreadsheet xlsx">
+                    <Download className="mr-2 h-4 w-4" />
+                    <span>Download all rows (Excel)</span>
+                  </CommandItem>
+                  {okCount > 0 && (
+                    <>
+                      <CommandItem onSelect={() => handleDownload('ok', 'csv')} value="download ok good rows csv">
+                        <Download className="mr-2 h-4 w-4" />
+                        <span>Download OK rows (CSV)</span>
+                      </CommandItem>
+                      <CommandItem onSelect={() => handleDownload('ok', 'xlsx')} value="download ok good rows excel xlsx">
+                        <Download className="mr-2 h-4 w-4" />
+                        <span>Download OK rows (Excel)</span>
+                      </CommandItem>
+                    </>
+                  )}
+                  {warningCount > 0 && (
+                    <>
+                      <CommandItem onSelect={() => handleDownload('warning', 'csv')} value="download warnings invalid codes csv">
+                        <Download className="mr-2 h-4 w-4" />
+                        <span>Download warnings (CSV)</span>
+                      </CommandItem>
+                      <CommandItem onSelect={() => handleDownload('warning', 'xlsx')} value="download warnings invalid codes excel xlsx">
+                        <Download className="mr-2 h-4 w-4" />
+                        <span>Download warnings (Excel)</span>
+                      </CommandItem>
+                    </>
+                  )}
+                  {errorCount > 0 && (
+                    <>
+                      <CommandItem onSelect={() => handleDownload('error', 'csv')} value="download errors csv">
+                        <Download className="mr-2 h-4 w-4" />
+                        <span>Download errors (CSV)</span>
+                      </CommandItem>
+                      <CommandItem onSelect={() => handleDownload('error', 'xlsx')} value="download errors excel xlsx">
+                        <Download className="mr-2 h-4 w-4" />
+                        <span>Download errors (Excel)</span>
+                      </CommandItem>
+                    </>
+                  )}
+                </CommandGroup>
+                <CommandSeparator />
+              </>
+            );
+          })()}
           <CommandGroup heading="Main Pages">
             <CommandItem onSelect={() => navigate("/")} value="Start page">
               <Home className="mr-2 h-4 w-4" />

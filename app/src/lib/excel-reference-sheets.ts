@@ -1,0 +1,141 @@
+import type ExcelJS from 'exceljs';
+
+export const COLUMN_REFERENCE_MAP: Record<string, {
+  view: string;
+  codeColumn: string;
+  nameColumn: string;
+  sheetName: string;
+  rangeName: string;
+  needsVersionFilter?: boolean;
+}> = {
+  primary_activity_category_code:   { view: 'activity_category_enabled', codeColumn: 'code', nameColumn: 'name', sheetName: 'Activity Categories', rangeName: 'ActivityCategoryCodes' },
+  secondary_activity_category_code: { view: 'activity_category_enabled', codeColumn: 'code', nameColumn: 'name', sheetName: 'Activity Categories', rangeName: 'ActivityCategoryCodes' },
+  legal_form_code:                  { view: 'legal_form_enabled',        codeColumn: 'code', nameColumn: 'name', sheetName: 'Legal Forms',          rangeName: 'LegalFormCodes' },
+  sector_code:                      { view: 'sector_enabled',            codeColumn: 'code', nameColumn: 'name', sheetName: 'Sectors',              rangeName: 'SectorCodes' },
+  physical_region_code:             { view: 'region',                    codeColumn: 'code', nameColumn: 'name', sheetName: 'Regions',              rangeName: 'RegionCodes', needsVersionFilter: true },
+  postal_region_code:               { view: 'region',                    codeColumn: 'code', nameColumn: 'name', sheetName: 'Regions',              rangeName: 'RegionCodes', needsVersionFilter: true },
+  physical_country_iso_2:           { view: 'country_enabled',           codeColumn: 'iso_2', nameColumn: 'name', sheetName: 'Countries',           rangeName: 'CountryCodes' },
+  postal_country_iso_2:             { view: 'country_enabled',           codeColumn: 'iso_2', nameColumn: 'name', sheetName: 'Countries',           rangeName: 'CountryCodes' },
+  data_source_code:                 { view: 'data_source_enabled',       codeColumn: 'code', nameColumn: 'name', sheetName: 'Data Sources',         rangeName: 'DataSourceCodes' },
+  status_code:                      { view: 'status_enabled',            codeColumn: 'code', nameColumn: 'name', sheetName: 'Statuses',             rangeName: 'StatusCodes' },
+  unit_size_code:                   { view: 'unit_size_enabled',         codeColumn: 'code', nameColumn: 'name', sheetName: 'Unit Sizes',           rangeName: 'UnitSizeCodes' },
+  rel_type_code:                    { view: 'legal_rel_type_enabled',    codeColumn: 'code', nameColumn: 'name', sheetName: 'Relationship Types',   rangeName: 'RelTypeCodes' },
+};
+
+export function typeToNumFmt(colType: string): string {
+  if (colType === 'DATE') return 'yyyy-mm-dd';
+  if (colType === 'INTEGER') return '0';
+  if (colType === 'NUMERIC') return '#,##0.##';
+  const match = colType.match(/^numeric\(\d+,(\d+)\)$/i);
+  if (match) return '0.' + '0'.repeat(Number(match[1]));
+  return '@'; // TEXT — prevents auto-conversion of codes like "01.11"
+}
+
+export function getExcelColumnLetters(colIdx: number): string {
+  let result = '';
+  let idx = colIdx;
+  while (idx >= 0) {
+    result = String.fromCharCode(65 + (idx % 26)) + result;
+    idx = Math.floor(idx / 26) - 1;
+  }
+  return result;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type RestClient = { from: (table: any) => any };
+
+export async function addReferenceSheets(
+  workbook: ExcelJS.Workbook,
+  sourceColumnNames: string[],
+  client: RestClient,
+  regionVersionId?: number | null,
+): Promise<Map<string, string>> {
+  // Determine which reference sheets are needed (deduplicated by sheetName)
+  const neededRefs = new Map<string, typeof COLUMN_REFERENCE_MAP[string]>();
+  for (const colName of sourceColumnNames) {
+    const ref = COLUMN_REFERENCE_MAP[colName];
+    if (ref && !neededRefs.has(ref.sheetName)) {
+      neededRefs.set(ref.sheetName, ref);
+    }
+  }
+
+  // Fetch all reference data in parallel
+  const refEntries = Array.from(neededRefs.entries());
+  const refDataResults = await Promise.all(
+    refEntries.map(async ([sheetName, ref]) => {
+      let query = client.from(ref.view).select(`${ref.codeColumn}, ${ref.nameColumn}`);
+
+      if (ref.needsVersionFilter && regionVersionId) {
+        query = query.eq("version_id", regionVersionId);
+      }
+
+      // Filter out empty codes
+      if (ref.codeColumn === 'iso_2') {
+        query = query.not(ref.codeColumn, 'is', null);
+      } else {
+        query = query.neq(ref.codeColumn, '').not(ref.codeColumn, 'is', null);
+      }
+
+      query = query.order(ref.codeColumn);
+
+      const { data, error } = await query;
+      if (error) {
+        console.error(`Error fetching ${ref.view}:`, error.message);
+        return { sheetName, ref, data: [] as Record<string, string>[] };
+      }
+      return { sheetName, ref, data: (data || []) as unknown as Record<string, string>[] };
+    })
+  );
+
+  // Create reference sheets and named ranges
+  const rangeMap = new Map<string, string>();
+  for (const { sheetName, ref, data } of refDataResults) {
+    if (data.length === 0) continue;
+
+    const ws = workbook.addWorksheet(sheetName);
+    ws.addRow(['Code', 'Name', 'Code | Name']);
+    ws.getRow(1).font = { bold: true };
+
+    for (const row of data) {
+      const code = row[ref.codeColumn];
+      const name = row[ref.nameColumn];
+      ws.addRow([code, name, `${code} | ${name}`]);
+    }
+
+    ws.getColumn(1).width = 15;
+    ws.getColumn(2).width = 50;
+    ws.getColumn(3).width = 65;
+
+    // Named range points to column C (combined "code | name") for dropdown display
+    const lastRow = data.length + 1;
+    const safeSheetName = sheetName.includes(' ') ? `'${sheetName}'` : sheetName;
+    workbook.definedNames.add(`${safeSheetName}!$C$2:$C$${lastRow}`, ref.rangeName);
+    rangeMap.set(ref.rangeName, ref.rangeName);
+  }
+
+  return rangeMap;
+}
+
+export function applyColumnValidation(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  dataSheet: any,
+  sourceColumnNames: string[],
+  rangeMap: Map<string, string>,
+): void {
+  for (let colIdx = 0; colIdx < sourceColumnNames.length; colIdx++) {
+    const ref = COLUMN_REFERENCE_MAP[sourceColumnNames[colIdx]];
+    if (!ref || !rangeMap.has(ref.rangeName)) continue;
+
+    const colLetters = getExcelColumnLetters(colIdx);
+    const range = `${colLetters}2:${colLetters}1048576`;
+    dataSheet.dataValidations.model[range] = {
+      type: 'list',
+      allowBlank: true,
+      formulae: [ref.rangeName],
+      showErrorMessage: true,
+      errorStyle: 'warning',
+      errorTitle: 'Unknown code',
+      error: `See the "${ref.sheetName}" sheet for valid codes.`,
+    };
+  }
+}
