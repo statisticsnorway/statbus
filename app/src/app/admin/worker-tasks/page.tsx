@@ -231,9 +231,11 @@ const fetcher = async (
   const from = page * pageSize;
   const to = from + pageSize - 1;
 
+  // Exclude payload from listing — it can be megabytes (arrays of entity IDs).
+  // Payload is lazy-loaded on demand when user clicks the info icon.
   let queryBuilder = client
     .from("worker_task")
-    .select("*", { count: "exact" })
+    .select("id,command,priority,state,parent_id,depth,child_mode,created_at,process_start_at,process_stop_at,completed_at,process_duration_ms,completion_duration_ms,error,scheduled_at,worker_pid,info,queue,command_description", { count: "exact" })
     .range(from, to);
 
   if (sortParam) {
@@ -285,7 +287,7 @@ const fetchAncestorTasks = async (
   if (!client) return [];
   const { data, error } = await client
     .from("worker_task")
-    .select("*")
+    .select("id,command,priority,state,parent_id,depth,child_mode,created_at,process_start_at,process_stop_at,completed_at,process_duration_ms,completion_duration_ms,error,info,queue,command_description")
     .in("id", ids);
   if (error) return [];
   const byId = new Map((data as WorkerTask[]).map((t) => [t.id, t]));
@@ -390,6 +392,7 @@ export default function WorkerTasksPage() {
     [pathIds, setPathParam, setPage]
   );
 
+  const [loadedPayloads, setLoadedPayloads] = useState<Map<number, unknown>>(new Map());
   const [expandedPayloads, setExpandedPayloads] = useState<Set<number>>(new Set());
   const [expandedInfos, setExpandedInfos] = useState<Set<number>>(new Set());
 
@@ -403,15 +406,29 @@ export default function WorkerTasksPage() {
     });
   }, []);
 
-  const togglePayload = useCallback((taskId: number, e: React.MouseEvent) => {
+  const togglePayload = useCallback(async (taskId: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    setExpandedPayloads((prev) => {
-      const next = new Set(prev);
-      if (next.has(taskId)) next.delete(taskId);
-      else next.add(taskId);
-      return next;
-    });
-  }, []);
+    // If collapsing, just toggle visibility
+    if (expandedPayloads.has(taskId)) {
+      setExpandedPayloads((prev) => { const next = new Set(prev); next.delete(taskId); return next; });
+      return;
+    }
+    // Lazy-load payload if not already cached
+    if (!loadedPayloads.has(taskId)) {
+      const client = await getBrowserRestClient();
+      if (client) {
+        const { data } = await client
+          .from("worker_task")
+          .select("payload")
+          .eq("id", taskId)
+          .single();
+        if (data) {
+          setLoadedPayloads((prev) => new Map(prev).set(taskId, (data as { payload: unknown }).payload));
+        }
+      }
+    }
+    setExpandedPayloads((prev) => { const next = new Set(prev); next.add(taskId); return next; });
+  }, [expandedPayloads, loadedPayloads]);
 
   const columns = useMemo<ColumnDef<WorkerTask>[]>(
     () => [
@@ -439,24 +456,22 @@ export default function WorkerTasksPage() {
           const label =
             COMMAND_LABELS[task.command ?? ""] ?? task.command;
           const hasChildren = !!task.child_mode;
-          const hasPayload = task.payload !== null && task.payload !== undefined;
           const taskId = task.id!;
           const isExpanded = expandedPayloads.has(taskId);
+          const cachedPayload = loadedPayloads.get(taskId);
           return (
             <div>
               <div className="flex items-center">
                 <div className="flex-1">
                   <div className="text-sm font-medium flex items-center gap-1">
                     {label}
-                    {hasPayload && (
-                      <button
-                        onClick={(e) => togglePayload(taskId, e)}
-                        className="inline-flex items-center justify-center h-4 w-4 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600"
-                        title="Show payload"
-                      >
-                        <Info className="h-3 w-3" />
-                      </button>
-                    )}
+                    <button
+                      onClick={(e) => togglePayload(taskId, e)}
+                      className="inline-flex items-center justify-center h-4 w-4 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600"
+                      title="Show payload"
+                    >
+                      <Info className="h-3 w-3" />
+                    </button>
                   </div>
                   {task.command_description && label !== task.command && (
                     <div className="text-xs text-gray-500 truncate max-w-[300px]">
@@ -468,10 +483,10 @@ export default function WorkerTasksPage() {
                   <ChevronRight className="h-4 w-4 text-gray-400 ml-2 flex-shrink-0" />
                 )}
               </div>
-              {isExpanded && hasPayload && (
+              {isExpanded && (
                 <div className="mt-1 max-w-[500px]">
                   <pre className="text-xs bg-gray-50 border rounded p-2 whitespace-pre-wrap overflow-auto max-h-[200px]">
-                    {JSON.stringify(task.payload, null, 2)}
+                    {cachedPayload ? JSON.stringify(cachedPayload, null, 2) : "Loading..."}
                   </pre>
                 </div>
               )}
@@ -653,7 +668,7 @@ export default function WorkerTasksPage() {
         },
       },
     ],
-    [expandedPayloads, togglePayload, expandedInfos, toggleInfo]
+    [expandedPayloads, togglePayload, loadedPayloads, expandedInfos, toggleInfo]
   );
 
   const pageCount = useMemo(() => {
