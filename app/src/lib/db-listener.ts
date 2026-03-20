@@ -124,10 +124,17 @@ export type EnrichedImportJobNotificationPayload =
       import_job: { id: number };
     };
 
+// Lightweight signal with enough context for client-side filtering
+export type WorkerTaskChangedPayload = {
+  id: number;
+  parent_id: number | null;
+};
+
 // Create a discriminated union based on the channel
 export type NotificationData =
   | { channel: 'worker_status'; payload: WorkerStatusPayload }
-  | { channel: 'import_job'; payload: EnrichedImportJobNotificationPayload };
+  | { channel: 'import_job'; payload: EnrichedImportJobNotificationPayload }
+  | { channel: 'worker_task_changed'; payload: WorkerTaskChangedPayload };
 
 // Type for the callback function provided by SSE route handlers
 export type NotificationCallback = (data: NotificationData) => void;
@@ -157,6 +164,7 @@ if (typeof globalThis !== 'undefined') {
   globalThis.__dbListenerDebounceTimers = debounceTimers;
 }
 const DEBOUNCE_DELAY_MS = 500;
+const WORKER_TASK_DEBOUNCE_MS = 1000;
 
 function handleWorkerStatusNotification(payload: WorkerStatusPayload) {
   // Clear any pending timer for this status type
@@ -204,6 +212,30 @@ function handleImportJobProgressNotification(rawPayload: Record<string, unknown>
     channelCallbacks.get('worker_status')?.forEach(callback => callback(data));
     delete debounceTimers[debounceKey];
   }, DEBOUNCE_DELAY_MS);
+}
+
+function handleWorkerTaskChangedNotification(rawPayload: string) {
+  try {
+    const parsed = JSON.parse(rawPayload) as WorkerTaskChangedPayload;
+    // Debounce per parent_id — during bulk operations, many children of the same
+    // parent change rapidly. Each distinct parent gets its own 1s debounce window.
+    // Top-level tasks (parent_id=null) debounce under key 'null'.
+    const debounceKey = `worker_task_changed_${parsed.parent_id ?? 'null'}`;
+    if (debounceTimers[debounceKey]) {
+      clearTimeout(debounceTimers[debounceKey]);
+    }
+
+    debounceTimers[debounceKey] = setTimeout(() => {
+      const data: NotificationData = {
+        channel: 'worker_task_changed',
+        payload: parsed,
+      };
+      channelCallbacks.get('worker_task_changed')?.forEach(callback => callback(data));
+      delete debounceTimers[debounceKey];
+    }, WORKER_TASK_DEBOUNCE_MS);
+  } catch (e) {
+    console.error('DB Listener: Error parsing worker_task_changed notification:', e);
+  }
 }
 
 // Update global references when these variables change
@@ -295,6 +327,8 @@ async function connectAndListen() {
       } else if (msg.channel === 'import_job') {
         // Asynchronously handle enrichment
         handleImportJobNotification(msg.payload);
+      } else if (msg.channel === 'worker_task_changed') {
+        handleWorkerTaskChangedNotification(msg.payload!);
       }
     });
 
@@ -314,8 +348,9 @@ async function connectAndListen() {
     await newClient.query('LISTEN "worker_status";');
     await newClient.query('LISTEN "import_job";');
     await newClient.query('LISTEN "import_job_progress";');
+    await newClient.query('LISTEN "worker_task_changed";');
     updateGlobalConnecting(false);
-    console.log(`DB Listener: Connected to ${dbHost}:${dbPort}/${dbName} as ${dbUser} and listening on "worker_status", "import_job", and "import_job_progress" channels`);
+    console.log(`DB Listener: Connected to ${dbHost}:${dbPort}/${dbName} as ${dbUser} and listening on "worker_status", "import_job", "import_job_progress", and "worker_task_changed" channels`);
 
     // On successful connection, reset the reconnect delay
     updateGlobalReconnectDelay(INITIAL_RECONNECT_DELAY_MS);

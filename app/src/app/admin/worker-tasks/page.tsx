@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useCallback, useState } from "react";
+import React, { useMemo, useCallback, useState, useRef } from "react";
 import { useSWRWithAuthRefresh, isJwtExpiredError, JwtExpiredError } from "@/hooks/use-swr-with-auth-refresh";
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { Spinner } from "@/components/ui/spinner";
@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from "@/components/ui/button";
 import { RefreshCw, ChevronRight, ArrowLeft, Info } from "lucide-react";
 import { useSWRConfig } from "swr";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 
 type WorkerTask = Tables<"worker_task">;
 
@@ -338,7 +339,7 @@ export default function WorkerTasksPage() {
   } = useSWRWithAuthRefresh<{ data: WorkerTask[]; count: number | null }, Error>(
     swrKey,
     fetcher,
-    { revalidateOnFocus: false, keepPreviousData: true, refreshInterval: 5000 },
+    { revalidateOnFocus: false, keepPreviousData: true },
     "WorkerTasksPage:tasks"
   );
 
@@ -353,6 +354,41 @@ export default function WorkerTasksPage() {
   const parentTask = ancestorTasks && ancestorTasks.length > 0
     ? ancestorTasks[ancestorTasks.length - 1]
     : null;
+
+  // SSE-driven revalidation: revalidate when relevant tasks change.
+  // Server debounces per parent_id at 1s, so at most one event per parent per second.
+  const swrKeyRef = useRef(swrKey);
+  swrKeyRef.current = swrKey;
+  const parentIdRef = useRef(parentId);
+  parentIdRef.current = parentId;
+
+  useGuardedEffect(() => {
+    const eventSource = new EventSource('/api/sse/worker-tasks');
+
+    eventSource.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        const viewingParent = parentIdRef.current;
+        const eventParent: number | null = payload.parent_id;
+        const eventId: number = payload.id;
+
+        // Only revalidate if the event is relevant to our current view:
+        // - Top-level view (viewingParent=null): task itself is top-level (parent_id=null)
+        // - Drilled-in view: child of viewed parent changed, or the parent itself changed
+        const isRelevant = viewingParent === null
+          ? eventParent === null
+          : eventParent === viewingParent || eventId === viewingParent;
+
+        if (isRelevant) {
+          mutate(swrKeyRef.current);
+        }
+      } catch {}
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, [], 'WorkerTasksPage:sse-worker-tasks');
 
   const tasksData = data?.data ?? [];
   const totalTasks = data?.count ?? 0;
