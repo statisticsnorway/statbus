@@ -15,7 +15,7 @@
  sector_id              | integer                  |           |          |                                  | plain    |             |              | 
  status_id              | integer                  |           | not null |                                  | plain    |             |              | 
  edit_comment           | character varying(512)   |           |          |                                  | extended |             |              | 
- edit_by_user_id        | integer                  |           | not null |                                  | plain    |             |              | 
+ edit_by_user_id        | integer                  |           | not null | auth.uid()                       | plain    |             |              | 
  edit_at                | timestamp with time zone |           | not null | statement_timestamp()            | plain    |             |              | 
  unit_size_id           | integer                  |           |          |                                  | plain    |             |              | 
  data_source_id         | integer                  |           |          |                                  | plain    |             |              | 
@@ -39,6 +39,7 @@ Indexes:
     "ix_establishment_edit_by_user_id" btree (edit_by_user_id)
     "ix_establishment_enterprise_id" btree (enterprise_id)
     "ix_establishment_enterprise_id_valid_range" gist (enterprise_id, valid_range)
+    "ix_establishment_image_id" btree (image_id)
     "ix_establishment_legal_unit_id" btree (legal_unit_id)
     "ix_establishment_legal_unit_id_valid_range" gist (legal_unit_id, valid_range)
     "ix_establishment_name" btree (name)
@@ -81,7 +82,7 @@ Policies:
     POLICY "establishment_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 Not-null constraints:
     "establishment_id_not_null" NOT NULL "id"
     "establishment_valid_range_not_null" NOT NULL "valid_range"

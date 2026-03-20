@@ -19,7 +19,7 @@ BEGIN
     WHERE step_id = v_step_id
       AND purpose = 'source_input'
       AND replace(column_name, '_raw', '') NOT IN (
-          SELECT code FROM public.stat_definition_active
+          SELECT code FROM public.stat_definition_enabled
       );
 
     -- Delete internal typed columns for inactive stat definitions
@@ -27,7 +27,7 @@ BEGIN
     WHERE step_id = v_step_id
       AND purpose = 'internal'
       AND column_name NOT IN (
-          SELECT code FROM public.stat_definition_active
+          SELECT code FROM public.stat_definition_enabled
       );
 
     -- Delete pk_id columns for inactive stat definitions
@@ -36,7 +36,7 @@ BEGIN
       AND purpose = 'pk_id'
       AND column_name LIKE 'stat_for_unit_%_id'
       AND regexp_replace(column_name, 'stat_for_unit_|_id', '', 'g') NOT IN (
-          SELECT code FROM public.stat_definition_active
+          SELECT code FROM public.stat_definition_enabled
       );
 END;
 $procedure$

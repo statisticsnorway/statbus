@@ -3324,7 +3324,6 @@ export type Database = {
       settings: {
         Row: {
           activity_category_standard_id: number
-          analytics_partition_count: number
           country_id: number
           id: number
           only_one_setting: boolean | null
@@ -3333,7 +3332,6 @@ export type Database = {
         },
         Insert: {
           activity_category_standard_id: number
-          analytics_partition_count?: number
           country_id: number
           id?: never
           only_one_setting?: boolean | null
@@ -3342,7 +3340,6 @@ export type Database = {
         },
         Update: {
           activity_category_standard_id?: number
-          analytics_partition_count?: number
           country_id?: number
           id?: never
           only_one_setting?: boolean | null
@@ -11583,6 +11580,75 @@ export type Database = {
           updated_at?: string | null
         },
         Relationships: []
+      },
+      worker_task: {
+        Row: {
+          child_mode: Database["public"]["Enums"]["child_mode"] | null
+          command: string | null
+          command_description: string | null
+          completed_at: string | null
+          completion_duration_ms: number | null
+          created_at: string | null
+          depth: number | null
+          error: string | null
+          id: number | null
+          info: Json | null
+          parent_id: number | null
+          payload: Json | null
+          priority: number | null
+          process_duration_ms: number | null
+          process_start_at: string | null
+          process_stop_at: string | null
+          queue: string | null
+          scheduled_at: string | null
+          state: Database["public"]["Enums"]["task_state"] | null
+          worker_pid: number | null
+        },
+        Insert: {
+          child_mode?: Database["public"]["Enums"]["child_mode"] | null
+          command?: string | null
+          command_description?: string | null
+          completed_at?: string | null
+          completion_duration_ms?: number | null
+          created_at?: string | null
+          depth?: number | null
+          error?: string | null
+          id?: number | null
+          info?: Json | null
+          parent_id?: number | null
+          payload?: Json | null
+          priority?: number | null
+          process_duration_ms?: number | null
+          process_start_at?: string | null
+          process_stop_at?: string | null
+          queue?: string | null
+          scheduled_at?: string | null
+          state?: Database["public"]["Enums"]["task_state"] | null
+          worker_pid?: number | null
+        },
+        Update: {
+          child_mode?: Database["public"]["Enums"]["child_mode"] | null
+          command?: string | null
+          command_description?: string | null
+          completed_at?: string | null
+          completion_duration_ms?: number | null
+          created_at?: string | null
+          depth?: number | null
+          error?: string | null
+          id?: number | null
+          info?: Json | null
+          parent_id?: number | null
+          payload?: Json | null
+          priority?: number | null
+          process_duration_ms?: number | null
+          process_start_at?: string | null
+          process_stop_at?: string | null
+          queue?: string | null
+          scheduled_at?: string | null
+          state?: Database["public"]["Enums"]["task_state"] | null
+          worker_pid?: number | null
+        },
+        Relationships: []
       }
     },
     Functions: {
@@ -14794,7 +14860,6 @@ export type Database = {
         Args: {
           p_unit_type?: string
           p_unit_id?: number
-          p_num_partitions?: number
         }
         Returns: number
       }
@@ -14802,7 +14867,6 @@ export type Database = {
         Args: {
           p_unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
           p_unit_id?: number
-          p_num_partitions?: number
         }
         Returns: number
       },
@@ -14943,7 +15007,8 @@ export type Database = {
           p_resolution?: Database["public"]["Enums"]["history_resolution"]
           p_year?: number
           p_month?: number
-          p_partition_seq?: number
+          p_partition_seq_from?: number
+          p_partition_seq_to?: number
         }
         Returns: Database["public"]["CompositeTypes"]["statistical_history_type"][]
       },
@@ -15363,20 +15428,7 @@ export type Database = {
     Enums: {
       activity_category_code_behaviour: "digits" | "dot_after_two_digits",
       activity_type: "primary" | "secondary" | "ancilliary",
-      allen_interval_relation: 
-          | "precedes"
-          | "meets"
-          | "overlaps"
-          | "starts"
-          | "during"
-          | "finishes"
-          | "equals"
-          | "overlapped_by"
-          | "started_by"
-          | "contains"
-          | "finished_by"
-          | "met_by"
-          | "preceded_by",
+      child_mode: "concurrent" | "serial",
       external_ident_shape: "regular" | "hierarchical",
       hierarchy_scope: "all" | "tree" | "details",
       history_resolution: "year" | "year-month",
@@ -15472,6 +15524,7 @@ export type Database = {
           | "legal_unit"
           | "enterprise"
           | "power_group",
+      task_state: "pending" | "processing" | "waiting" | "completed" | "failed",
       time_context_type: "relative_period" | "tag" | "year"
     },
     CompositeTypes: {
@@ -15674,21 +15727,7 @@ export const Constants = {
     Enums: {
       activity_category_code_behaviour: ["digits", "dot_after_two_digits"],
       activity_type: ["primary", "secondary", "ancilliary"],
-      allen_interval_relation: [
-        "precedes",
-        "meets",
-        "overlaps",
-        "starts",
-        "during",
-        "finishes",
-        "equals",
-        "overlapped_by",
-        "started_by",
-        "contains",
-        "finished_by",
-        "met_by",
-        "preceded_by"
-      ],
+      child_mode: ["concurrent", "serial"],
       external_ident_shape: ["regular", "hierarchical"],
       hierarchy_scope: ["all", "tree", "details"],
       history_resolution: ["year", "year-month"],
@@ -15793,6 +15832,7 @@ export const Constants = {
         "enterprise",
         "power_group"
       ],
+      task_state: ["pending", "processing", "waiting", "completed", "failed"],
       time_context_type: ["relative_period", "tag", "year"]
     }
   }

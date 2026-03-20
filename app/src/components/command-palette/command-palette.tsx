@@ -25,6 +25,7 @@ import {
   ChartColumn,
   Users,
   KeyRound,
+  ListChecks,
 } from "lucide-react";
 
 import {
@@ -301,6 +302,13 @@ export function CommandPalette() {
                 >
                   <Database className="mr-2 h-4 w-4" />
                   <span>Postgres Explain Visualizer</span>
+                </CommandItem>
+                <CommandItem
+                  onSelect={() => navigate("/admin/worker-tasks")}
+                  value="worker tasks queue inspector background jobs"
+                >
+                  <ListChecks className="mr-2 h-4 w-4" />
+                  <span>Worker Tasks</span>
                 </CommandItem>
                 <CommandItem
                   onSelect={handleToggleStateInspector}

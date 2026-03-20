@@ -7,7 +7,7 @@
 View definition:
  SELECT code,
     name
-   FROM power_group_type_available
+   FROM power_group_type_enabled
   WHERE custom = false;
 Triggers:
     upsert_power_group_type_system INSTEAD OF INSERT ON power_group_type_system FOR EACH ROW EXECUTE FUNCTION admin.upsert_power_group_type_system()

@@ -62,9 +62,9 @@ BEGIN
     SELECT
         dc.code, dc.type, COALESCE(lf.id, s.id, us.id) AS resolved_id
     FROM distinct_codes dc
-    LEFT JOIN public.legal_form_available lf ON dc.type = 'legal_form' AND dc.code = lf.code
-    LEFT JOIN public.sector_available s ON dc.type = 'sector' AND dc.code = s.code
-    LEFT JOIN public.unit_size_available us ON dc.type = 'unit_size' AND dc.code = us.code;
+    LEFT JOIN public.legal_form_enabled lf ON dc.type = 'legal_form' AND dc.code = lf.code
+    LEFT JOIN public.sector_enabled s ON dc.type = 'sector' AND dc.code = s.code
+    LEFT JOIN public.unit_size_enabled us ON dc.type = 'unit_size' AND dc.code = us.code;
 
     IF to_regclass('pg_temp.t_resolved_dates') IS NOT NULL THEN DROP TABLE t_resolved_dates; END IF;
     CREATE TEMP TABLE t_resolved_dates ON COMMIT DROP AS
@@ -196,7 +196,8 @@ BEGIN
                     ) as winner_row_id
                 FROM public.%1$I src
                 WHERE src.batch_seq = $1
-                  AND src.primary_for_enterprise = true AND src.enterprise_id IS NOT NULL
+                  AND src.primary_for_enterprise = true
+                  AND src.enterprise_id IS NOT NULL
             )
             UPDATE public.%1$I dt
             SET primary_for_enterprise = false
@@ -211,7 +212,7 @@ BEGIN
         RAISE WARNING '[Job %] analyse_legal_unit: Non-fatal error during primary conflict resolution: %', p_job_id, SQLERRM;
     END;
 
-    RAISE DEBUG '[Job %] analyse_legal_unit (Batch): Finished analysis for batch. Total errors in batch: %', p_job_id, v_error_count;
+    RAISE DEBUG '[Job %] analyse_legal_unit (Batch): Finished analysis for batch.', p_job_id;
 END;
 $procedure$
 ```

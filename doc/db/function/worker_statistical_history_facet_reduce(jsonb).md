@@ -4,14 +4,7 @@ CREATE OR REPLACE PROCEDURE worker.statistical_history_facet_reduce(IN payload j
  SECURITY DEFINER
  SET search_path TO 'public', 'worker', 'pg_temp'
 AS $procedure$
-DECLARE
-    v_valid_from date := (payload->>'valid_from')::date;
-    v_valid_until date := (payload->>'valid_until')::date;
 BEGIN
-    RAISE DEBUG 'statistical_history_facet_reduce: valid_from=%, valid_until=%', v_valid_from, v_valid_until;
-
-    -- Drop indexes before bulk insert (18 indexes on 287K+ rows costs 15s to maintain
-    -- row-by-row; dropping and recreating after is ~11s total including index build).
     DROP INDEX IF EXISTS public.idx_statistical_history_facet_year;
     DROP INDEX IF EXISTS public.idx_statistical_history_facet_month;
     DROP INDEX IF EXISTS public.idx_statistical_history_facet_unit_type;
@@ -29,11 +22,8 @@ BEGIN
     DROP INDEX IF EXISTS public.statistical_history_facet_month_key;
     DROP INDEX IF EXISTS public.statistical_history_facet_year_key;
 
-    -- TRUNCATE is instant (no dead tuples, no per-row WAL), unlike DELETE which
-    -- accumulates ~800K dead tuples per cycle causing progressive slowdown.
     TRUNCATE public.statistical_history_facet;
 
-    -- Aggregate from UNLOGGED partition table into main LOGGED table
     INSERT INTO public.statistical_history_facet (
         resolution, year, month, unit_type,
         primary_activity_category_path, secondary_activity_category_path,
@@ -71,7 +61,6 @@ BEGIN
              sector_path, legal_form_id, physical_region_path,
              physical_country_id, unit_size_id, status_id;
 
-    -- Recreate indexes after bulk insert
     CREATE UNIQUE INDEX statistical_history_facet_month_key
         ON public.statistical_history_facet (resolution, year, month, unit_type,
             primary_activity_category_path, secondary_activity_category_path,
@@ -97,7 +86,9 @@ BEGIN
     CREATE INDEX idx_statistical_history_facet_physical_country_id ON public.statistical_history_facet (physical_country_id);
     CREATE INDEX idx_statistical_history_facet_stats_summary ON public.statistical_history_facet USING GIN (stats_summary jsonb_path_ops);
 
-    RAISE DEBUG 'statistical_history_facet_reduce: done';
+    -- Terminal step: notify reports phase complete
+    PERFORM pg_notify('worker_status',
+        json_build_object('type', 'is_deriving_reports', 'status', false)::text);
 END;
 $procedure$
 ```

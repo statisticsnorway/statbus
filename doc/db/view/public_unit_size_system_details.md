@@ -7,7 +7,7 @@
 View definition:
  SELECT code,
     name
-   FROM unit_size_available
+   FROM unit_size_enabled
   WHERE custom = false;
 Triggers:
     upsert_unit_size_system INSTEAD OF INSERT ON unit_size_system FOR EACH ROW EXECUTE FUNCTION admin.upsert_unit_size_system()

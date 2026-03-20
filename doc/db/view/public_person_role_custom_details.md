@@ -7,7 +7,7 @@
 View definition:
  SELECT code,
     name
-   FROM person_role_available
+   FROM person_role_enabled
   WHERE custom = true;
 Triggers:
     prepare_person_role_custom BEFORE INSERT ON person_role_custom FOR EACH STATEMENT EXECUTE FUNCTION admin.prepare_person_role_custom()

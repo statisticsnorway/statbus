@@ -616,7 +616,6 @@ erDiagram
 		integer activity_category_standard_id
 		integer country_id
 		boolean only_one_setting
-		integer analytics_partition_count
 		integer region_version_id
 		boolean required_to_be_enabled
 	}
@@ -1474,26 +1473,12 @@ erDiagram
 		text description
 		text queue
 		timestamp_with_time_zone created_at
-		worker_pipeline_phase phase
-		text on_children_created
-		text on_child_completed
-	}
-	worker_pipeline_progress["worker.pipeline_progress"] {
-		worker_pipeline_phase phase
-		text step
-		integer total
-		integer completed
-		integer affected_establishment_count
-		integer affected_legal_unit_count
-		integer affected_enterprise_count
-		integer affected_power_group_count
-		timestamp_with_time_zone updated_at
 	}
 	worker_pipeline_step_weight["worker.pipeline_step_weight"] {
-		worker_pipeline_phase phase
 		text step
 		integer weight
 		integer seq
+		text phase
 	}
 	worker_queue_registry["worker.queue_registry"] {
 		text queue
@@ -1506,14 +1491,19 @@ erDiagram
 		bigint priority
 		timestamp_with_time_zone created_at
 		worker_task_state state
-		timestamp_with_time_zone processed_at
+		timestamp_with_time_zone process_start_at
 		timestamp_with_time_zone completed_at
-		numeric duration_ms
+		numeric process_duration_ms
 		text error
 		timestamp_with_time_zone scheduled_at
 		integer worker_pid
 		jsonb payload
 		bigint parent_id
+		worker_child_mode child_mode
+		integer depth
+		timestamp_with_time_zone process_stop_at
+		numeric completion_duration_ms
+		jsonb info
 	}
 	%% Relationships (derived from foreign keys)
 	auth_api_key }|--|| auth_user : api_key_user_id_fkey
@@ -1651,7 +1641,7 @@ erDiagram
 	sql_saga_updatable_view }o--|| sql_saga_era : updatable_view_table_schema_table_name_era_name_fkey
 	sql_saga_updatable_view }o--|| sql_saga_era : updatable_view_table_schema_table_name_era_name_fkey
 	worker_command_registry }o--|| worker_queue_registry : command_registry_queue_fkey
-	worker_pipeline_step_weight }o--|| worker_command_registry : pipeline_step_weight_step_fkey
+	worker_pipeline_step_weight }|--|| worker_command_registry : pipeline_step_weight_step_fkey
 	worker_tasks }o--|| worker_command_registry : fk_tasks_command
 	worker_tasks }o--|| worker_command_registry : tasks_command_fkey
 	worker_tasks }o--o| worker_tasks : tasks_parent_id_fkey

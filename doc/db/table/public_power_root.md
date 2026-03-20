@@ -13,10 +13,11 @@
  valid_to                   | date                     |           |          | 
  valid_until                | date                     |           |          | 
  edit_comment               | character varying(512)   |           |          | 
- edit_by_user_id            | integer                  |           | not null | 
+ edit_by_user_id            | integer                  |           | not null | auth.uid()
  edit_at                    | timestamp with time zone |           | not null | statement_timestamp()
 Indexes:
     "power_root_pkey" PRIMARY KEY (id, valid_range WITHOUT OVERLAPS)
+    "ix_power_root_edit_by_user_id" btree (edit_by_user_id)
     "ix_power_root_power_group_id" btree (power_group_id)
     "ix_power_root_root_legal_unit_id" btree (root_legal_unit_id)
     "ix_power_root_valid_range" gist (valid_range)
@@ -47,7 +48,7 @@ Policies:
     POLICY "power_root_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 Triggers:
     a_power_root_log_delete AFTER DELETE ON power_root REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_power_root_log_insert AFTER INSERT ON power_root REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()

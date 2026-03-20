@@ -129,7 +129,6 @@ Enumerated types used across the schema, with their possible values.
 - **`auth.login_error_code`**: `USER_NOT_FOUND`, `USER_NOT_CONFIRMED_EMAIL`, `USER_DELETED`, `USER_MISSING_PASSWORD`, `WRONG_PASSWORD`, `REFRESH_NO_TOKEN_COOKIE`, `REFRESH_INVALID_TOKEN_TYPE`, `REFRESH_USER_NOT_FOUND_OR_DELETED`, `REFRESH_SESSION_INVALID_OR_SUPERSEDED`
 - **`public.activity_category_code_behaviour`**: `digits`, `dot_after_two_digits`
 - **`public.activity_type`**: `primary`, `secondary`, `ancilliary`
-- **`public.allen_interval_relation`**: `precedes`, `meets`, `overlaps`, `starts`, `during`, `finishes`, `equals`, `overlapped_by`, `started_by`, `contains`, `finished_by`, `met_by`, `preceded_by`
 - **`public.external_ident_shape`**: `regular`, `hierarchical`
 - **`public.hierarchy_scope`**: `all`, `tree`, `details`
 - **`public.history_resolution`**: `year`, `year-month`
@@ -154,8 +153,8 @@ Enumerated types used across the schema, with their possible values.
 - **`public.statbus_role`**: `admin_user`, `regular_user`, `restricted_user`, `external_user`
 - **`public.statistical_unit_type`**: `establishment`, `legal_unit`, `enterprise`, `power_group`
 - **`public.time_context_type`**: `relative_period`, `tag`, `year`
-- **`worker.pipeline_phase`**: `is_deriving_statistical_units`, `is_deriving_reports`
-- **`worker.process_mode`**: `top`, `child`
+- **`worker.child_mode`**: `concurrent`, `serial`
+- **`worker.process_mode`**: `serial`, `concurrent`
 - **`worker.task_state`**: `pending`, `processing`, `waiting`, `completed`, `failed`
 
 
@@ -201,9 +200,8 @@ Enumerated types used across the schema, with their possible values.
 ### Pipeline Weights
 Configuration for pipeline step ordering and progress tracking.
 
-- `pipeline_step_weight(phase, step, weight, seq)` — **infrastructure**
+- `pipeline_step_weight(step, weight, seq, phase)` — **infrastructure**
   - Key FKs: step.
-  - Enums: `phase` (`worker.pipeline_phase`).
 - `pipeline_step_weight(phase, step, weight, seq)`
 
 ## Import System
@@ -230,17 +228,16 @@ Handles the ingestion of data from external files.
 ## Worker System
 Handles background processing. A long-running worker process calls `worker.process_tasks()` to process tasks synchronously.
 
-- `tasks(id, command, parent_id, created_at, processed_at, completed_at, scheduled_at, priority, state, duration_ms, error, worker_pid, payload)` — **infrastructure**
+- `tasks(id, command, parent_id, created_at, process_start_at, completed_at, scheduled_at, process_stop_at, priority, state, process_duration_ms, error, worker_pid, payload, child_mode, depth, completion_duration_ms, info)` — **infrastructure**
   - Key FKs: command, command, parent_id.
-  - Enums: `state` (`worker.task_state`).
-- `command_registry(command, created_at, handler_procedure, before_procedure, after_procedure, description, queue, phase, on_children_created, on_child_completed)` — **infrastructure**
+  - Enums: `child_mode` (`worker.child_mode`), `state` (`worker.task_state`).
+- `command_registry(command, created_at, handler_procedure, before_procedure, after_procedure, description, queue)` — **infrastructure**
   - Key FKs: queue.
-  - Enums: `phase` (`worker.pipeline_phase`).
 - `queue_registry(queue, description, default_concurrency)` — **infrastructure**
-- `pipeline_progress(updated_at, phase, step, total, completed, affected_establishment_count, affected_legal_unit_count, affected_enterprise_count, affected_power_group_count)` — **infrastructure**
-  - Enums: `phase` (`worker.pipeline_phase`).
 - `base_change_log(valid_ranges, establishment_ids, legal_unit_ids, enterprise_ids, power_group_ids)` — **infrastructure**
 - `base_change_log_has_pending(has_pending)` — **infrastructure**
+- `worker_task(id, command, command_description, parent_id, created_at, process_start_at, process_stop_at, completed_at, scheduled_at, priority, state, depth, child_mode, process_duration_ms, completion_duration_ms, error, worker_pid, payload, info, queue)`
+  - Enums: `child_mode` (`worker.child_mode`), `state` (`worker.task_state`).
 
 ## Auth & System Tables/Views
 
@@ -254,7 +251,7 @@ Handles background processing. A long-running worker process calls `worker.proce
 - `refresh_session(id, user_id, created_at, last_used_at, expires_at, jti, refresh_version, user_agent, ip_address)` — **infrastructure**
   - Key FKs: user_id.
 - `secrets(value, created_at, updated_at, key, description)` — **infrastructure**
-- `settings(id, activity_category_standard_id, country_id, region_version_id, only_one_setting, analytics_partition_count, required_to_be_enabled)` — **infrastructure**
+- `settings(id, activity_category_standard_id, country_id, region_version_id, only_one_setting, required_to_be_enabled)` — **infrastructure**
   - Key FKs: activity_category_standard_id, activity_category_standard_id, country_id, region_version_id, region_version_id, required_to_be_enabled, required_to_be_enabled.
 - `region_access(id, user_id, region_id)` — **infrastructure**
   - Key FKs: region_id, user_id.

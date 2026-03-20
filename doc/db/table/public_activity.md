@@ -11,7 +11,7 @@
  category_id      | integer                  |           | not null | 
  data_source_id   | integer                  |           |          | 
  edit_comment     | character varying(512)   |           |          | 
- edit_by_user_id  | integer                  |           | not null | 
+ edit_by_user_id  | integer                  |           | not null | auth.uid()
  edit_at          | timestamp with time zone |           | not null | statement_timestamp()
  establishment_id | integer                  |           |          | 
  legal_unit_id    | integer                  |           |          | 
@@ -57,7 +57,7 @@ Policies:
     POLICY "activity_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
     POLICY "restricted_user_activity_access"
       TO restricted_user
       USING ((EXISTS ( SELECT 1

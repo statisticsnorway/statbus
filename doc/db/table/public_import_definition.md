@@ -19,6 +19,7 @@
  import_as_null           | text[]                   |           | not null | ARRAY[''::text, 'NA'::text, 'N/A'::text, 'NULL'::text, 'NONE'::text, 'NaN'::text]
  created_at               | timestamp with time zone |           | not null | now()
  updated_at               | timestamp with time zone |           | not null | now()
+ unique_units             | boolean                  |           | not null | true
 Indexes:
     "import_definition_pkey" PRIMARY KEY, btree (id)
     "import_definition_name_key" UNIQUE CONSTRAINT, btree (name)
@@ -26,6 +27,8 @@ Indexes:
     "ix_import_data_source_id" btree (data_source_id)
     "ix_import_definition_enabled" btree (enabled)
     "ix_import_user_id" btree (user_id)
+Check constraints:
+    "valid_time_unique_units_matrix" CHECK (NOT (valid_time_from = 'job_provided'::import_valid_time_from AND unique_units = false))
 Foreign-key constraints:
     "import_definition_data_source_id_fkey" FOREIGN KEY (data_source_id) REFERENCES data_source(id) ON DELETE RESTRICT
     "import_definition_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth."user"(id) ON DELETE SET NULL
@@ -46,6 +49,6 @@ Policies:
       TO regular_user
       USING (true)
 Triggers:
-    trg_validate_import_definition_after_change AFTER INSERT OR DELETE OR UPDATE OF slug, data_source_id, strategy, mode, valid_time_from, default_retention_period ON import_definition FOR EACH ROW EXECUTE FUNCTION admin.trigger_validate_import_definition()
+    trg_validate_import_definition_after_change AFTER INSERT OR DELETE OR UPDATE OF slug, data_source_id, strategy, mode, valid_time_from, default_retention_period, unique_units ON import_definition FOR EACH ROW EXECUTE FUNCTION admin.trigger_validate_import_definition()
 
 ```

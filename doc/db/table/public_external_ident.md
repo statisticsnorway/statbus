@@ -13,8 +13,9 @@
  enterprise_id    | integer                  |           |          | 
  power_group_id   | integer                  |           |          | 
  edit_comment     | character varying(512)   |           |          | 
- edit_by_user_id  | integer                  |           | not null | 
+ edit_by_user_id  | integer                  |           | not null | auth.uid()
  edit_at          | timestamp with time zone |           | not null | statement_timestamp()
+ person_id        | integer                  |           |          | 
 Indexes:
     "external_ident_enterprise_id_idx" btree (enterprise_id)
     "external_ident_establishment_id_idx" btree (establishment_id)
@@ -23,14 +24,16 @@ Indexes:
     "external_ident_ident_hash_idx" hash (ident)
     "external_ident_legal_unit_id_idx" btree (legal_unit_id)
     "external_ident_lookup_covering_idx" btree (type_id, ident) INCLUDE (legal_unit_id, establishment_id)
+    "external_ident_person_id_idx" btree (person_id)
     "external_ident_power_group_id_idx" btree (power_group_id)
     "external_ident_regular_uniqueness" UNIQUE, btree (type_id, ident) WHERE shape = 'regular'::external_ident_shape
-    "external_ident_type_unit_association_nulls_not_distinct" UNIQUE, btree (type_id, establishment_id, legal_unit_id, enterprise_id, power_group_id) NULLS NOT DISTINCT
+    "external_ident_type_unit_association_nulls_not_distinct" UNIQUE, btree (type_id, establishment_id, legal_unit_id, enterprise_id, power_group_id, person_id) NULLS NOT DISTINCT
     "ix_external_ident_edit_by_user_id" btree (edit_by_user_id)
 Check constraints:
-    "One and only one statistical unit id must be set" CHECK (num_nonnulls(establishment_id, legal_unit_id, enterprise_id, power_group_id) = 1)
+    "One and only one statistical unit id must be set" CHECK (num_nonnulls(establishment_id, legal_unit_id, enterprise_id, power_group_id, person_id) = 1)
     "external_ident_establishment_id_check" CHECK (admin.establishment_id_exists(establishment_id))
     "external_ident_legal_unit_id_check" CHECK (admin.legal_unit_id_exists(legal_unit_id))
+    "external_ident_person_id_check" CHECK (admin.person_id_exists(person_id))
     "external_ident_power_group_id_check" CHECK (admin.power_group_id_exists(power_group_id))
     "hierarchical_depth_valid" CHECK (shape <> 'hierarchical'::external_ident_shape OR nlevel(idents) = nlevel(labels))
     "shape_data_consistency" CHECK (shape = 'regular'::external_ident_shape AND ident IS NOT NULL AND idents IS NULL AND labels IS NULL OR shape = 'hierarchical'::external_ident_shape AND ident IS NULL AND idents IS NOT NULL AND labels IS NOT NULL)
@@ -49,7 +52,7 @@ Policies:
     POLICY "external_ident_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 Triggers:
     a_external_ident_log_delete AFTER DELETE ON external_ident REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_external_ident_log_insert AFTER INSERT ON external_ident REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()

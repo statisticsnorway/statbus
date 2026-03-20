@@ -38,27 +38,25 @@ ORDER BY column_name;
 "=== 3. Verify structured concurrency functions exist ==="
 SELECT routine_name, routine_type
 FROM information_schema.routines
-WHERE routine_schema = 'worker' 
-  AND routine_name IN ('spawn', 'has_pending_children', 'has_failed_siblings', 'complete_parent_if_ready', 'enforce_no_grandchildren')
+WHERE routine_schema = 'worker'
+  AND routine_name IN ('spawn', 'has_pending_children', 'has_failed_siblings', 'complete_parent_if_ready')
 ORDER BY routine_name;
        routine_name       | routine_type 
 --------------------------+--------------
  complete_parent_if_ready | FUNCTION
- enforce_no_grandchildren | FUNCTION
  has_failed_siblings      | FUNCTION
  has_pending_children     | FUNCTION
  spawn                    | FUNCTION
-(5 rows)
+(4 rows)
 
-\echo "=== 4. Verify no-grandchildren trigger exists ==="
-"=== 4. Verify no-grandchildren trigger exists ==="
+\echo "=== 4. Verify no-grandchildren trigger removed (recursive spawning enabled) ==="
+"=== 4. Verify no-grandchildren trigger removed (recursive spawning enabled) ==="
 SELECT tgname, tgtype, tgenabled
 FROM pg_trigger
 WHERE tgname = 'tasks_enforce_no_grandchildren';
-             tgname             | tgtype | tgenabled 
---------------------------------+--------+-----------
- tasks_enforce_no_grandchildren |      7 | O
-(1 row)
+ tgname | tgtype | tgenabled 
+--------+--------+-----------
+(0 rows)
 
 \echo "=== 5. Test spawn function creates parent-child relationship ==="
 "=== 5. Test spawn function creates parent-child relationship ==="
@@ -68,10 +66,10 @@ VALUES ('derive_statistical_unit', '{}', 'processing')
 RETURNING id AS parent_task_id \gset
 -- Spawn a child task using the spawn function
 SELECT worker.spawn(
-    p_command := 'statistical_unit_refresh_batch',
-    p_payload := '{"batch_seq": 1}'::jsonb,
-    p_parent_id := :parent_task_id,
-    p_priority := 20
+    p_command => 'statistical_unit_refresh_batch',
+    p_payload => '{"batch_seq": 1}'::jsonb,
+    p_parent_id => :parent_task_id,
+    p_priority => 20
 ) AS child_task_id \gset
 -- Verify child has correct parent relationship (not specific IDs)
 SELECT 
@@ -124,8 +122,8 @@ WHERE id = :parent_task_id;
  derive_statistical_unit | completed | t
 (1 row)
 
-\echo "=== 8. Test grandchildren prevention trigger ==="
-"=== 8. Test grandchildren prevention trigger ==="
+\echo "=== 8. Test recursive task spawning (grandchildren allowed) ==="
+"=== 8. Test recursive task spawning (grandchildren allowed) ==="
 -- Create a new parent and child
 INSERT INTO worker.tasks (command, payload, state)
 VALUES ('derive_statistical_unit', '{}', 'waiting')
@@ -133,23 +131,30 @@ RETURNING id AS new_parent_id \gset
 INSERT INTO worker.tasks (command, payload, parent_id, state)
 VALUES ('statistical_unit_refresh_batch', '{}', :new_parent_id, 'processing')
 RETURNING id AS new_child_id \gset
--- Attempt to create a grandchild (should fail with specific error message)
-SAVEPOINT before_grandchild;
-\set ON_ERROR_STOP off
-INSERT INTO worker.tasks (command, payload, parent_id, state)
-VALUES ('statistical_unit_refresh_batch', '{"nested": true}', :new_child_id, 'pending');
-ERROR:  Cannot create grandchild tasks. Parent task 6 already has parent 5. Children can only spawn siblings (same parent_id) or uncles (parent_id = NULL).
-CONTEXT:  PL/pgSQL function worker.enforce_no_grandchildren() line 12 at RAISE
-\set ON_ERROR_STOP on
-ROLLBACK TO SAVEPOINT before_grandchild;
+-- Create a grandchild using spawn (should succeed with recursive spawning)
+SELECT worker.spawn(
+    p_command => 'statistical_unit_refresh_batch',
+    p_payload => '{"nested": true}'::jsonb,
+    p_parent_id => :new_child_id,
+    p_priority => 20
+) AS grandchild_id \gset
+-- Verify grandchild has correct depth (parent at depth 0 via direct INSERT, so grandchild = 1)
+SELECT depth FROM worker.tasks WHERE id = :grandchild_id;
+ depth 
+-------
+     1
+(1 row)
+
+-- Clean up grandchild for remaining tests
+DELETE FROM worker.tasks WHERE id = :grandchild_id;
 \echo "=== 9. Test sibling spawning (child can spawn siblings with same parent) ==="
 "=== 9. Test sibling spawning (child can spawn siblings with same parent) ==="
 -- Child should be able to spawn a sibling (same parent_id)
 SELECT worker.spawn(
-    p_command := 'statistical_unit_refresh_batch',
-    p_payload := '{"batch_seq": 2, "spawned_by_sibling": true}'::jsonb,
-    p_parent_id := :new_parent_id,
-    p_priority := 20
+    p_command => 'statistical_unit_refresh_batch',
+    p_payload => '{"batch_seq": 2, "spawned_by_sibling": true}'::jsonb,
+    p_parent_id => :new_parent_id,
+    p_priority => 20
 ) AS sibling_task_id \gset
 -- Verify sibling exists with correct parent (not specific IDs)
 SELECT 
@@ -167,10 +172,10 @@ WHERE id = :sibling_task_id;
 "=== 10. Test uncle spawning (child can spawn top-level task) ==="
 -- Child should be able to spawn an "uncle" (parent_id = NULL)
 SELECT worker.spawn(
-    p_command := 'derive_reports',
-    p_payload := '{}'::jsonb,
-    p_parent_id := NULL,
-    p_priority := 30
+    p_command => 'derive_reports',
+    p_payload => '{}'::jsonb,
+    p_parent_id => NULL,
+    p_priority => 30
 ) AS uncle_task_id \gset
 -- Verify uncle is top-level
 SELECT command, parent_id IS NULL AS is_top_level, priority
@@ -252,6 +257,92 @@ ORDER BY
 (7 rows)
 
 -- ============================================================================
+-- CHILD_MODE TESTS
+-- ============================================================================
+\echo "=== 13a. Test spawn() sets child_mode to concurrent by default ==="
+"=== 13a. Test spawn() sets child_mode to concurrent by default ==="
+-- Clean slate for child_mode tests
+DELETE FROM worker.tasks WHERE id > 2;
+ALTER SEQUENCE worker.tasks_id_seq RESTART WITH 3;
+INSERT INTO worker.tasks (command, payload, state)
+VALUES ('derive_statistical_unit', '{}', 'processing')
+RETURNING id AS cm_parent_id \gset
+-- Spawn without explicit child_mode
+SELECT worker.spawn(
+    p_command => 'statistical_unit_refresh_batch',
+    p_payload => '{"cm_test": 1}'::jsonb,
+    p_parent_id => :cm_parent_id,
+    p_priority => 10
+) AS cm_child1_id \gset
+SELECT child_mode FROM worker.tasks WHERE id = :cm_parent_id;
+ child_mode 
+------------
+ concurrent
+(1 row)
+
+\echo "=== 13b. Test spawn() with explicit serial child_mode ==="
+"=== 13b. Test spawn() with explicit serial child_mode ==="
+DELETE FROM worker.tasks WHERE id > 2;
+ALTER SEQUENCE worker.tasks_id_seq RESTART WITH 3;
+INSERT INTO worker.tasks (command, payload, state)
+VALUES ('derive_statistical_unit', '{}', 'processing')
+RETURNING id AS cm_serial_parent_id \gset
+SELECT worker.spawn(
+    p_command => 'statistical_unit_refresh_batch',
+    p_payload => '{"cm_test": 2}'::jsonb,
+    p_parent_id => :cm_serial_parent_id,
+    p_priority => 10,
+    p_child_mode => 'serial'
+) AS cm_serial_child_id \gset
+SELECT child_mode FROM worker.tasks WHERE id = :cm_serial_parent_id;
+ child_mode 
+------------
+ serial
+(1 row)
+
+\echo "=== 13c. Test second spawn preserves existing child_mode ==="
+"=== 13c. Test second spawn preserves existing child_mode ==="
+-- Spawn a second child without explicit mode — should NOT change the parent's serial mode
+SELECT worker.spawn(
+    p_command => 'statistical_unit_refresh_batch',
+    p_payload => '{"cm_test": 3}'::jsonb,
+    p_parent_id => :cm_serial_parent_id,
+    p_priority => 11
+) AS cm_serial_child2_id \gset
+SELECT child_mode FROM worker.tasks WHERE id = :cm_serial_parent_id;
+ child_mode 
+------------
+ serial
+(1 row)
+
+\echo "=== 13d. Test spawn() with conflicting child_mode raises exception ==="
+"=== 13d. Test spawn() with conflicting child_mode raises exception ==="
+SAVEPOINT before_conflict;
+\set ON_ERROR_STOP off
+-- Parent already has child_mode='serial', requesting 'concurrent' should fail
+SELECT worker.spawn(
+    p_command => 'statistical_unit_refresh_batch',
+    p_payload => '{"cm_test": 4}'::jsonb,
+    p_parent_id => :cm_serial_parent_id,
+    p_priority => 12,
+    p_child_mode => 'concurrent'
+);
+ERROR:  Parent task 3 already has child_mode=serial, cannot set to concurrent
+CONTEXT:  PL/pgSQL function worker.spawn(text,jsonb,bigint,bigint,worker.child_mode) line 40 at RAISE
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT before_conflict;
+\echo "=== 13e. Test depth is 1 for children spawned from depth-0 parent ==="
+"=== 13e. Test depth is 1 for children spawned from depth-0 parent ==="
+SELECT depth FROM worker.tasks WHERE id = :cm_serial_child_id;
+ depth 
+-------
+     1
+(1 row)
+
+-- Clean up child_mode test data
+DELETE FROM worker.tasks WHERE id > 2;
+ALTER SEQUENCE worker.tasks_id_seq RESTART WITH 3;
+-- ============================================================================
 -- INTEGRATION TESTS: process_tasks with parent-child relationships
 -- ============================================================================
 \echo "=== 14. Test process_tasks: parent transitions to waiting when children spawned ==="
@@ -273,7 +364,7 @@ UPDATE worker.tasks SET state = 'processing', worker_pid = pg_backend_pid() WHER
 -- After handler runs and we detect children exist, parent should go to waiting
 -- (This is what process_tasks does internally)
 UPDATE worker.tasks 
-SET state = 'waiting', processed_at = now()
+SET state = 'waiting', process_start_at = now(), process_stop_at = now()
 WHERE id = :int_parent_id;
 -- Verify parent is now waiting with 2 pending children
 SELECT 
@@ -367,80 +458,37 @@ ORDER BY id;
  derive_reports                 | pending   | root
 (4 rows)
 
-\echo "=== 19. Verify derive_statistical_unit deduplication (pending only) ==="
-"=== 19. Verify derive_statistical_unit deduplication (pending only) ==="
--- Clean slate for deduplication tests (delete children first due to FK)
-DELETE FROM worker.tasks WHERE parent_id IS NOT NULL;
-DELETE FROM worker.tasks WHERE command LIKE 'derive_statistical_unit%';
--- Insert first pending task
-SELECT worker.enqueue_derive_statistical_unit(
-    p_establishment_id_ranges := '{[1,10)}'::int4multirange
-) AS first_task_id \gset
--- Insert second (should merge with first since it's pending)
-SELECT worker.enqueue_derive_statistical_unit(
-    p_establishment_id_ranges := '{[20,30)}'::int4multirange
-) AS second_task_id \gset
--- Should be same task (merged)
-SELECT :first_task_id = :second_task_id AS tasks_merged;
- tasks_merged 
---------------
- t
+\echo "=== 18b. Test rescue_stuck_waiting_parent with zero children ==="
+"=== 18b. Test rescue_stuck_waiting_parent with zero children ==="
+-- Clean slate for rescue test
+DELETE FROM worker.tasks WHERE id > 2;
+ALTER SEQUENCE worker.tasks_id_seq RESTART WITH 3;
+-- Create a task and manually force it into waiting with no children
+INSERT INTO worker.tasks (command, payload, state)
+VALUES ('derive_statistical_unit', '{}', 'waiting')
+RETURNING id AS stuck_parent_id \gset
+-- Verify it has no children
+SELECT COUNT(*) AS child_count FROM worker.tasks WHERE parent_id = :stuck_parent_id;
+ child_count 
+-------------
+           0
 (1 row)
 
--- Verify ranges were merged
-SELECT payload->>'establishment_id_ranges' AS merged_ranges
-FROM worker.tasks WHERE id = :first_task_id;
-  merged_ranges   
-------------------
- {[1,10),[20,30)}
-(1 row)
-
-\echo "=== 20. Test new pending task created when existing is processing ==="
-"=== 20. Test new pending task created when existing is processing ==="
--- Move first task to processing
-UPDATE worker.tasks
-SET state = 'processing', worker_pid = pg_backend_pid()
-WHERE id = :first_task_id;
--- Insert third task (should create NEW task since first is processing)
-SELECT worker.enqueue_derive_statistical_unit(
-    p_establishment_id_ranges := '{[40,50)}'::int4multirange
-) AS third_task_id \gset
--- Should be different task
-SELECT :first_task_id != :third_task_id AS new_task_created;
- new_task_created 
-------------------
- t
-(1 row)
-
--- Verify both tasks exist with their own ranges
-SELECT id, state, payload->>'establishment_id_ranges' AS ranges
+-- Rescue should find and force-fail this stuck parent
+SELECT worker.rescue_stuck_waiting_parent('analytics') AS rescued_id \gset
+-- Verify parent is now failed with descriptive error
+SELECT state, error
 FROM worker.tasks
-WHERE command = 'derive_statistical_unit'
-ORDER BY id;
- id |   state    |      ranges      
-----+------------+------------------
-  7 | processing | {[1,10),[20,30)}
-  9 | pending    | {[40,50)}
-(2 rows)
+WHERE id = :stuck_parent_id;
+ state  |                  error                   
+--------+------------------------------------------
+ failed | Stuck waiting with no children (rescued)
+(1 row)
 
-\echo "=== 21. Verify continuation command has NO deduplication index ==="
-"=== 21. Verify continuation command has NO deduplication index ==="
--- derive_statistical_unit has pending-only dedup, but continuation should have NONE
-SELECT indexname, indexdef
-FROM pg_indexes
-WHERE schemaname = 'worker' AND indexname LIKE '%derive%dedup%'
-ORDER BY indexname;
-                        indexname                        |                                                                                                                                                                                indexdef                                                                                                                                                                                 
----------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- idx_tasks_derive_dedup                                  | CREATE UNIQUE INDEX idx_tasks_derive_dedup ON worker.tasks USING btree (command) WHERE ((command = 'derive_statistical_unit'::text) AND (state = 'pending'::worker.task_state))
- idx_tasks_derive_history_facet_period_dedup             | CREATE UNIQUE INDEX idx_tasks_derive_history_facet_period_dedup ON worker.tasks USING btree (command, ((payload ->> 'resolution'::text)), ((payload ->> 'year'::text)), ((payload ->> 'month'::text)), (((payload ->> 'partition_seq'::text))::integer)) WHERE ((command = 'derive_statistical_history_facet_period'::text) AND (state = 'pending'::worker.task_state))
- idx_tasks_derive_reports_dedup                          | CREATE UNIQUE INDEX idx_tasks_derive_reports_dedup ON worker.tasks USING btree (command) WHERE ((command = 'derive_reports'::text) AND (state = 'pending'::worker.task_state))
- idx_tasks_derive_statistical_history_dedup              | CREATE UNIQUE INDEX idx_tasks_derive_statistical_history_dedup ON worker.tasks USING btree (command) WHERE ((command = 'derive_statistical_history'::text) AND (state = 'pending'::worker.task_state))
- idx_tasks_derive_statistical_history_facet_dedup        | CREATE UNIQUE INDEX idx_tasks_derive_statistical_history_facet_dedup ON worker.tasks USING btree (command) WHERE ((command = 'derive_statistical_history_facet'::text) AND (state = 'pending'::worker.task_state))
- idx_tasks_derive_statistical_unit_facet_dedup           | CREATE UNIQUE INDEX idx_tasks_derive_statistical_unit_facet_dedup ON worker.tasks USING btree (command) WHERE ((command = 'derive_statistical_unit_facet'::text) AND (state = 'pending'::worker.task_state))
- idx_tasks_derive_statistical_unit_facet_partition_dedup | CREATE UNIQUE INDEX idx_tasks_derive_statistical_unit_facet_partition_dedup ON worker.tasks USING btree (command, (((payload ->> 'partition_seq'::text))::integer)) WHERE ((command = 'derive_statistical_unit_facet_partition'::text) AND (state = 'pending'::worker.task_state))
-(7 rows)
-
--- Cleanup deduplication test data
-DELETE FROM worker.tasks WHERE command LIKE 'derive_statistical_unit%';
+-- Clean up
+DELETE FROM worker.tasks WHERE id > 2;
+ALTER SEQUENCE worker.tasks_id_seq RESTART WITH 3;
+-- Tests 19-21 removed: enqueue_derive_statistical_unit() and per-command
+-- dedup indexes were dropped in the serial child tree migration.
+-- Deduplication now happens via collect_changes (top-level only).
 ROLLBACK;

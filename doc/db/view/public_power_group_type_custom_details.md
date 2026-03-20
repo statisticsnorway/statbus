@@ -7,7 +7,7 @@
 View definition:
  SELECT code,
     name
-   FROM power_group_type_available
+   FROM power_group_type_enabled
   WHERE custom = true;
 Triggers:
     prepare_power_group_type_custom BEFORE INSERT ON power_group_type_custom FOR EACH STATEMENT EXECUTE FUNCTION admin.prepare_power_group_type_custom()

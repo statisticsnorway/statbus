@@ -15,7 +15,7 @@
  sector_id              | integer                  |           |          | 
  status_id              | integer                  |           | not null | 
  edit_comment           | character varying(512)   |           |          | 
- edit_by_user_id        | integer                  |           | not null | 
+ edit_by_user_id        | integer                  |           | not null | auth.uid()
  edit_at                | timestamp with time zone |           | not null | statement_timestamp()
  unit_size_id           | integer                  |           |          | 
  data_source_id         | integer                  |           |          | 
@@ -39,6 +39,7 @@ Indexes:
     "ix_establishment_edit_by_user_id" btree (edit_by_user_id)
     "ix_establishment_enterprise_id" btree (enterprise_id)
     "ix_establishment_enterprise_id_valid_range" gist (enterprise_id, valid_range)
+    "ix_establishment_image_id" btree (image_id)
     "ix_establishment_legal_unit_id" btree (legal_unit_id)
     "ix_establishment_legal_unit_id_valid_range" gist (legal_unit_id, valid_range)
     "ix_establishment_name" btree (name)
@@ -81,7 +82,7 @@ Policies:
     POLICY "establishment_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 Triggers:
     a_establishment_log_delete AFTER DELETE ON establishment REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_establishment_log_insert AFTER INSERT ON establishment REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()

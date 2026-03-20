@@ -263,6 +263,7 @@ auto-updatable) also require INSERT.
 - **`unit_size_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`unit_size_system`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`user`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`worker_task`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
 
 ## SECURITY DEFINER Functions
 
@@ -306,30 +307,22 @@ Write to RLS-protected tables, DDL, worker orchestration.
 
 - `admin.disable_temporal_triggers`
 - `admin.enable_temporal_triggers`
-- `worker.command_collect_changes`
-- `worker.command_import_job_cleanup`
-- `worker.command_task_cleanup`
 - `worker.derive_reports`
+- `worker.derive_reports_phase`
 - `worker.derive_statistical_history`
 - `worker.derive_statistical_history_facet`
 - `worker.derive_statistical_history_facet_period`
 - `worker.derive_statistical_history_period`
 - `worker.derive_statistical_unit`
-- `worker.derive_statistical_unit_continue`
 - `worker.derive_statistical_unit_facet`
 - `worker.derive_statistical_unit_facet_partition`
+- `worker.derive_units_phase`
+- `worker.notify_task_changed`
 - `worker.statistical_history_facet_reduce`
 - `worker.statistical_history_reduce`
 - `worker.statistical_unit_facet_reduce`
 - `worker.statistical_unit_flush_staging`
 - `worker.statistical_unit_refresh_batch`
-
-### Settings/Partition Management
-
-Write to RLS-protected tables on settings change.
-
-- `admin.adjust_analytics_partition_count`
-- `admin.propagate_partition_count_change`
 
 ### Derived Table Refresh
 

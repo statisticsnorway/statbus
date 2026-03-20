@@ -29,6 +29,7 @@ DECLARE
     v_labels_array TEXT[];
     v_label TEXT;
     v_label_index INT;
+    v_unique_units BOOLEAN;
     v_hier_select_cols TEXT;
     v_hier_concat_expr TEXT;
     v_hier_validation_expr TEXT;
@@ -57,6 +58,14 @@ BEGIN
     v_data_table_name := v_job.data_table_name;
     v_strategy := (v_job.definition_snapshot->'import_definition'->>'strategy')::public.import_strategy;
     v_job_mode := (v_job.definition_snapshot->'import_definition'->>'mode')::public.import_mode;
+
+    -- Resolve unique_units: job column > definition snapshot > safe default
+    v_unique_units := COALESCE(
+        v_job.unique_units,
+        (v_job.definition_snapshot->'import_definition'->>'unique_units')::boolean,
+        TRUE  -- safe default
+    );
+    RAISE DEBUG '[Job %] analyse_external_idents: unique_units=%', p_job_id, v_unique_units;
 
     -- Find the target step details from the snapshot
     SELECT * INTO v_step FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list') WHERE code = 'external_idents';
@@ -140,7 +149,8 @@ BEGIN
         'invalid_hierarchical_characters',
         'hierarchical_depth_mismatch',
         'missing_hierarchical_components',
-        'hierarchical_incomplete'
+        'hierarchical_incomplete',
+        'strategy_mismatch'
     ];
     SELECT array_agg(DISTINCT e) INTO v_error_keys_to_clear_arr FROM unnest(v_error_keys_to_clear_arr) e;
     RAISE DEBUG '[Job %] analyse_external_idents: Error keys to clear for this step: %', p_job_id, v_error_keys_to_clear_arr;
@@ -186,7 +196,7 @@ BEGIN
           AND value->>'column_name' LIKE '%_raw'
           -- Only include if this corresponds to a REGULAR external_ident_type
           AND EXISTS (
-              SELECT 1 FROM public.external_ident_type_active eit
+              SELECT 1 FROM public.external_ident_type_enabled eit
               WHERE eit.code = replace(value->>'column_name', '_raw', '')
                 AND eit.shape = 'regular'
           )
@@ -231,7 +241,7 @@ BEGIN
     -- Process each hierarchical identifier type
     FOR v_hier_type IN
         SELECT eit.id, eit.code, eit.labels
-        FROM public.external_ident_type_active eit
+        FROM public.external_ident_type_enabled eit
         WHERE eit.shape = 'hierarchical'
           AND eit.labels IS NOT NULL
         ORDER BY eit.priority
@@ -432,7 +442,7 @@ BEGIN
                     ELSE (conflicting_est_reg.legal_unit_id IS NOT NULL)
                 END AS conflicting_est_is_formal
             FROM distinct_idents_with_ltree di
-            LEFT JOIN public.external_ident_type_active xit ON xit.code = di.ident_type_code
+            LEFT JOIN public.external_ident_type_enabled xit ON xit.code = di.ident_type_code
             -- Regular identifier lookup
             LEFT JOIN public.external_ident xi_reg
                 ON NOT di.is_hierarchical
@@ -537,36 +547,62 @@ BEGIN
     ) ON COMMIT DROP;
 
     -- Check for duplicate identifiers across multiple rows.
-    -- All identifier types (regular and hierarchical) are checked for duplicates.
-    v_sql := $$
-        WITH DuplicateGroups AS (
-            SELECT
-                tui.ident_type_code,
-                tui.ident_value,
-                array_agg(DISTINCT tui.data_row_id ORDER BY tui.data_row_id) AS affected_row_ids,
-                COUNT(DISTINCT tui.data_row_id) AS row_count,
-                COUNT(DISTINCT COALESCE(tui.resolved_lu_id, 0)) AS distinct_lu_count,
-                COUNT(DISTINCT COALESCE(tui.resolved_est_id, 0)) AS distinct_est_count,
-                COUNT(DISTINCT tes.entity_signature) FILTER (WHERE tui.resolved_lu_id IS NULL AND tui.resolved_est_id IS NULL) AS distinct_new_entity_signatures
-            FROM temp_unpivoted_idents tui
-            JOIN public.external_ident_type_active xit ON xit.id = tui.ident_type_id
-            LEFT JOIN temp_entity_signatures tes ON tes.data_row_id = tui.data_row_id
-            WHERE tui.ident_type_id IS NOT NULL
-              AND tui.ident_value IS NOT NULL
-              AND tui.is_cross_type_conflict IS FALSE
-            GROUP BY tui.ident_type_code, tui.ident_value
-            HAVING COUNT(DISTINCT tui.data_row_id) > 1
-               AND (
-                   COUNT(DISTINCT tui.resolved_lu_id) FILTER (WHERE tui.resolved_lu_id IS NOT NULL) > 1
-                   OR
-                   COUNT(DISTINCT tui.resolved_est_id) FILTER (WHERE tui.resolved_est_id IS NOT NULL) > 1
-                   OR
-                   (COUNT(*) FILTER (WHERE tui.resolved_lu_id IS NULL AND tui.resolved_est_id IS NULL) > 0
-                    AND COUNT(*) FILTER (WHERE tui.resolved_lu_id IS NOT NULL OR tui.resolved_est_id IS NOT NULL) > 0)
-                   OR
-                   (COUNT(DISTINCT tes.entity_signature) FILTER (WHERE tui.resolved_lu_id IS NULL AND tui.resolved_est_id IS NULL) > 1)
-               )
-        )
+    -- When unique_units=TRUE: any duplicate ident across rows is an error (simple check).
+    -- When unique_units=FALSE: only flag duplicates that resolve to *different* entities
+    --   (multiple rows for the same entity are valid temporal data).
+    IF v_unique_units THEN
+        -- Simple: any ident appearing on more than one row is a duplicate error
+        v_sql := $$
+            WITH DuplicateGroups AS (
+                SELECT
+                    tui.ident_type_code,
+                    tui.ident_value,
+                    array_agg(DISTINCT tui.data_row_id ORDER BY tui.data_row_id) AS affected_row_ids,
+                    COUNT(DISTINCT tui.data_row_id) AS row_count
+                FROM temp_unpivoted_idents tui
+                JOIN public.external_ident_type_enabled xit ON xit.id = tui.ident_type_id
+                WHERE tui.ident_type_id IS NOT NULL
+                  AND tui.ident_value IS NOT NULL
+                  AND tui.is_cross_type_conflict IS FALSE
+                GROUP BY tui.ident_type_code, tui.ident_value
+                HAVING COUNT(DISTINCT tui.data_row_id) > 1
+            )
+        $$;
+    ELSE
+        -- History mode: only flag duplicates that resolve to conflicting entities
+        v_sql := $$
+            WITH DuplicateGroups AS (
+                SELECT
+                    tui.ident_type_code,
+                    tui.ident_value,
+                    array_agg(DISTINCT tui.data_row_id ORDER BY tui.data_row_id) AS affected_row_ids,
+                    COUNT(DISTINCT tui.data_row_id) AS row_count,
+                    COUNT(DISTINCT COALESCE(tui.resolved_lu_id, 0)) AS distinct_lu_count,
+                    COUNT(DISTINCT COALESCE(tui.resolved_est_id, 0)) AS distinct_est_count,
+                    COUNT(DISTINCT tes.entity_signature) FILTER (WHERE tui.resolved_lu_id IS NULL AND tui.resolved_est_id IS NULL) AS distinct_new_entity_signatures
+                FROM temp_unpivoted_idents tui
+                JOIN public.external_ident_type_enabled xit ON xit.id = tui.ident_type_id
+                LEFT JOIN temp_entity_signatures tes ON tes.data_row_id = tui.data_row_id
+                WHERE tui.ident_type_id IS NOT NULL
+                  AND tui.ident_value IS NOT NULL
+                  AND tui.is_cross_type_conflict IS FALSE
+                GROUP BY tui.ident_type_code, tui.ident_value
+                HAVING COUNT(DISTINCT tui.data_row_id) > 1
+                   AND (
+                       COUNT(DISTINCT tui.resolved_lu_id) FILTER (WHERE tui.resolved_lu_id IS NOT NULL) > 1
+                       OR
+                       COUNT(DISTINCT tui.resolved_est_id) FILTER (WHERE tui.resolved_est_id IS NOT NULL) > 1
+                       OR
+                       (COUNT(*) FILTER (WHERE tui.resolved_lu_id IS NULL AND tui.resolved_est_id IS NULL) > 0
+                        AND COUNT(*) FILTER (WHERE tui.resolved_lu_id IS NOT NULL OR tui.resolved_est_id IS NOT NULL) > 0)
+                       OR
+                       (COUNT(DISTINCT tes.entity_signature) FILTER (WHERE tui.resolved_lu_id IS NULL AND tui.resolved_est_id IS NULL) > 1)
+                   )
+            )
+        $$;
+    END IF;
+
+    v_sql := v_sql || $$
         INSERT INTO temp_duplicate_idents (data_row_id, source_ident_code, ident_type_code, ident_value, affected_row_ids, row_count)
         SELECT
             tui.data_row_id,
@@ -805,7 +841,7 @@ BEGIN
                 WHERE final_lu_id IS NOT NULL OR final_est_id IS NOT NULL
             ) de
             JOIN public.external_ident ei ON (ei.legal_unit_id = de.final_lu_id OR ei.establishment_id = de.final_est_id)
-            JOIN public.external_ident_type_active xit ON ei.type_id = xit.id
+            JOIN public.external_ident_type_enabled xit ON ei.type_id = xit.id
             GROUP BY de.final_lu_id, de.final_est_id
         ),
         AnalysisWithOperation AS (
@@ -944,6 +980,18 @@ BEGIN
                                  'An error on a related new entity row caused this row to be skipped. Source error row(s): ' || array_to_string(pe.entity_error_source_row_ids, ', ')
                              )
                     END
+                -- Strategy mismatch: row operation doesn't match the required strategy.
+                -- E.g. replace_only strategy but the unit doesn't exist (operation=insert),
+                -- or update_only but the unit doesn't exist (operation=update not possible).
+                WHEN %2$L::public.import_strategy = 'insert_only' AND pe.operation != 'insert'::public.import_row_operation_type THEN
+                    pe.final_error_jsonb || jsonb_build_object('strategy_mismatch',
+                        'Strategy is ' || %2$L || ' but the resolved operation is ' || pe.operation || '. The unit already exists so it cannot be inserted.')
+                WHEN %2$L::public.import_strategy = 'replace_only' AND pe.operation != 'replace'::public.import_row_operation_type THEN
+                    pe.final_error_jsonb || jsonb_build_object('strategy_mismatch',
+                        'Strategy is ' || %2$L || ' but the resolved operation is ' || pe.operation || '. No matching unit found for the given identifiers, so it cannot be replaced.')
+                WHEN %2$L::public.import_strategy = 'update_only' AND pe.operation != 'update'::public.import_row_operation_type THEN
+                    pe.final_error_jsonb || jsonb_build_object('strategy_mismatch',
+                        'Strategy is ' || %2$L || ' but the resolved operation is ' || pe.operation || '. No matching unit found for the given identifiers, so it cannot be updated.')
                 ELSE pe.final_error_jsonb
             END as error_jsonb,
             pe.final_lu_id AS resolved_lu_id,

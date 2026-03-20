@@ -12,7 +12,7 @@
  data_source_id           | integer                  |           |          | 
  foreign_participation_id | integer                  |           |          | 
  edit_comment             | character varying(512)   |           |          | 
- edit_by_user_id          | integer                  |           | not null | 
+ edit_by_user_id          | integer                  |           | not null | auth.uid()
  edit_at                  | timestamp with time zone |           | not null | statement_timestamp()
 Indexes:
     "power_group_pkey" PRIMARY KEY, btree (id)
@@ -43,7 +43,7 @@ Policies:
     POLICY "power_group_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 Triggers:
     a_power_group_log_delete AFTER DELETE ON power_group REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_power_group_log_insert AFTER INSERT ON power_group REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()

@@ -258,10 +258,10 @@ BEGIN
             SELECT
                 bd.row_id AS data_row_id,
                 -- Enhanced region resolution: always look for region by code, but validate context later
-                (SELECT r.id FROM public.region r WHERE r.code = bd.physical_region_code_raw) as resolved_physical_region_id,
+                (SELECT r.id FROM public.region r WHERE r.code = bd.physical_region_code_raw AND r.version_id = (SELECT region_version_id FROM public.settings LIMIT 1)) as resolved_physical_region_id,
                 phys_c.resolved_id as resolved_physical_country_id,
                 -- Enhanced region resolution: always look for region by code, but validate context later
-                (SELECT r.id FROM public.region r WHERE r.code = bd.postal_region_code_raw) as resolved_postal_region_id,
+                (SELECT r.id FROM public.region r WHERE r.code = bd.postal_region_code_raw AND r.version_id = (SELECT region_version_id FROM public.settings LIMIT 1)) as resolved_postal_region_id,
                 post_c.resolved_id as resolved_postal_country_id,
                 phys_lat.p_value as resolved_typed_physical_latitude,
                 phys_lat.p_error_message as physical_latitude_error_msg,

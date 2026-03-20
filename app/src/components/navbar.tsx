@@ -11,7 +11,7 @@ import TimeContextSelector from "@/components/time-context-selector";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useAuth, isAuthenticatedStrictAtom, currentUserAtom } from "@/atoms/auth";
 import { useBaseData } from "@/atoms/base-data";
-import { useWorkerStatus, usePipelineStepWeights, COMMAND_LABELS, COMMAND_WAITING_LABELS, type ImportStatus, type ImportJobProgress, type PhaseStatus, type PipelineStepWeight } from "@/atoms/worker_status";
+import { useWorkerStatus, usePipelineStepWeights, COMMAND_LABELS, type ImportStatus, type ImportJobProgress, type PhaseStatus, type PipelineStepWeight } from "@/atoms/worker_status";
 import { useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useAtomValue } from "jotai";
@@ -101,8 +101,8 @@ function computeWeightedPhaseProgress(
     earned += weight;
   }
 
-  // If we didn't find the current step in weights (e.g. collect_changes),
-  // just return 0 — it's a pre-step
+  // If we didn't find the current step in weights (e.g. statistical_unit_refresh_batch),
+  // just return 0 — it's a sub-step not in the weights table
   if (!foundCurrent) return 0;
 
   return Math.round((earned / totalWeight) * 100);
@@ -144,18 +144,18 @@ function ImportProgressPopover({ importing }: { importing: ImportStatus }) {
  */
 function UnitCountSummary({ phase }: { phase: PhaseStatus }) {
   const parts: string[] = [];
-  if (phase.affected_establishment_count)
-    parts.push(`~${phase.affected_establishment_count.toLocaleString()} establishments`);
-  if (phase.affected_legal_unit_count)
-    parts.push(`~${phase.affected_legal_unit_count.toLocaleString()} legal units`);
-  if (phase.affected_enterprise_count)
-    parts.push(`~${phase.affected_enterprise_count.toLocaleString()} enterprises`);
-  if (phase.affected_power_group_count)
-    parts.push(`~${phase.affected_power_group_count.toLocaleString()} power groups`);
+  if (phase.effective_establishment_count)
+    parts.push(`~${phase.effective_establishment_count.toLocaleString()} establishments`);
+  if (phase.effective_legal_unit_count)
+    parts.push(`~${phase.effective_legal_unit_count.toLocaleString()} legal units`);
+  if (phase.effective_enterprise_count)
+    parts.push(`~${phase.effective_enterprise_count.toLocaleString()} enterprises`);
+  if (phase.effective_power_group_count)
+    parts.push(`~${phase.effective_power_group_count.toLocaleString()} power groups`);
   if (parts.length === 0) return null;
   return (
     <p className="text-sm text-gray-600 font-medium">
-      Processing {parts.join(', ')}
+      Handle {parts.join(', ')}
     </p>
   );
 }
@@ -166,7 +166,7 @@ function UnitCountSummary({ phase }: { phase: PhaseStatus }) {
 function PhaseProgressPopover({ phase, stepWeights, waitingFor }: { phase: PhaseStatus; stepWeights: { step: string; weight: number }[]; waitingFor?: string }) {
   const currentStep = phase.step;
   const label = currentStep ? (COMMAND_LABELS[currentStep] ?? currentStep) : 'Pending...';
-  const waitingLabel = currentStep ? (COMMAND_WAITING_LABELS[currentStep] ?? label) : label;
+
   const pct = computeWeightedPhaseProgress(phase, stepWeights);
 
   return (
@@ -181,13 +181,13 @@ function PhaseProgressPopover({ phase, stepWeights, waitingFor }: { phase: Phase
           {phase.total > 1 && <Progress value={pct} className="h-2" />}
           {phase.total <= 1 && (
             <p className="text-xs text-gray-500">
-              {waitingFor ? `${waitingLabel} while waiting for ${waitingFor}` : 'Running...'}
+              {waitingFor ? `Waiting for ${waitingFor} before ${label}` : 'Running...'}
             </p>
           )}
         </div>
       ) : (
         <p className="text-sm text-gray-500">
-          {waitingFor ? `${waitingLabel} while waiting for ${waitingFor}` : 'Waiting to start...'}
+          {waitingFor ? `Waiting for ${waitingFor} before ${label}` : 'Waiting to start...'}
         </p>
       )}
     </div>
@@ -385,7 +385,7 @@ export default function Navbar() {
                     progressPct={reportsPct}
                     popoverContent={isDerivingReports
                       ? (derivingReports?.active
-                        ? <PhaseProgressPopover phase={derivingReports} stepWeights={phase2Weights} waitingFor={(derivingUnits?.total ?? 0) > 0 ? "Statistical Units" : undefined} />
+                        ? <PhaseProgressPopover phase={derivingReports} stepWeights={phase2Weights} waitingFor={derivingUnits?.active ? "Statistical Units" : undefined} />
                         : <p className="text-sm text-gray-500">Deriving reports...</p>)
                       : null}
                   />

@@ -7,7 +7,7 @@
 View definition:
  SELECT code,
     name
-   FROM foreign_participation_available
+   FROM foreign_participation_enabled
   WHERE custom = true;
 Triggers:
     prepare_foreign_participation_custom BEFORE INSERT ON foreign_participation_custom FOR EACH STATEMENT EXECUTE FUNCTION admin.prepare_foreign_participation_custom()

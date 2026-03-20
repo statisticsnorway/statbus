@@ -10,7 +10,7 @@
  power_group_id   | integer                  |           |          | 
  created_at       | timestamp with time zone |           | not null | statement_timestamp()
  edit_comment     | character varying(512)   |           |          | 
- edit_by_user_id  | integer                  |           | not null | 
+ edit_by_user_id  | integer                  |           | not null | auth.uid()
  edit_at          | timestamp with time zone |           | not null | statement_timestamp()
 Indexes:
     "unit_notes_pkey" PRIMARY KEY, btree (id)
@@ -35,7 +35,7 @@ Policies:
     POLICY "unit_notes_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 Triggers:
     trigger_prevent_unit_notes_id_update BEFORE UPDATE OF id ON unit_notes FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 

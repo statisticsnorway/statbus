@@ -7,7 +7,7 @@ DECLARE
     stat_definition public.stat_definition;
 BEGIN
     -- Loop over each external_ident_type to create indices
-    FOR ident_type IN SELECT * FROM public.external_ident_type_active LOOP
+    FOR ident_type IN SELECT * FROM public.external_ident_type_enabled LOOP
         -- Create btree index for exact match and prefix searches (all types)
         EXECUTE format($$
 CREATE INDEX IF NOT EXISTS su_ei_%1$s_idx ON public.statistical_unit ((external_idents->>%1$L))
@@ -25,7 +25,7 @@ $$, ident_type.code);
     END LOOP;
 
     -- Loop over each stat_definition to create indices
-    FOR stat_definition IN SELECT * FROM public.stat_definition_active LOOP
+    FOR stat_definition IN SELECT * FROM public.stat_definition_enabled LOOP
         EXECUTE format($$
 CREATE INDEX IF NOT EXISTS su_s_%1$s_idx ON public.statistical_unit ((stats->>%1$L));
 CREATE INDEX IF NOT EXISTS su_ss_%1$s_sum_idx ON public.statistical_unit ((stats_summary->%1$L->>'sum'));

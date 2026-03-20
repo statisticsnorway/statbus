@@ -65,7 +65,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |    47
+ import    | completed |    48
 (2 rows)
 
 \echo "Checking import job status for import_42_lu_era_b1_death_end_y"
@@ -86,8 +86,8 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |   248
- import    | completed |    47
+ analytics | completed |   249
+ import    | completed |    48
 (2 rows)
 
 SELECT
@@ -210,7 +210,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |    47
+ import    | completed |    48
 (2 rows)
 
 \echo "Checking import job status for import_42_lu_era_b2_death_end_m1"
@@ -231,8 +231,8 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |   169
- import    | completed |    47
+ analytics | completed |   249
+ import    | completed |    48
 (2 rows)
 
 SELECT
@@ -354,7 +354,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |    47
+ import    | completed |    48
 (2 rows)
 
 \echo "Checking import job status for import_42_lu_era_b3_death_start_m"
@@ -375,8 +375,8 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |   239
- import    | completed |    47
+ analytics | completed |   240
+ import    | completed |    48
 (2 rows)
 
 SELECT

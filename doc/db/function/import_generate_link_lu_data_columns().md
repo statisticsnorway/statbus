@@ -15,14 +15,14 @@ BEGIN
         RETURN;
     END IF;
 
-    SELECT array_agg(code ORDER BY priority) INTO v_active_codes FROM public.external_ident_type_active;
+    SELECT array_agg(code ORDER BY priority) INTO v_active_codes FROM public.external_ident_type_enabled;
     RAISE DEBUG '[import.generate_link_lu_data_columns] For step_id % (link_establishment_to_legal_unit), ensuring data columns for active codes: %', v_step_id, v_active_codes;
 
     SELECT COALESCE(MAX(idc.priority), 0) INTO v_current_priority
     FROM public.import_data_column idc WHERE idc.step_id = v_step_id;
 
     -- Add source_input column for each active external_ident_type, prefixed with 'legal_unit_'
-    FOR v_ident_type IN SELECT code FROM public.external_ident_type_active ORDER BY priority
+    FOR v_ident_type IN SELECT code FROM public.external_ident_type_enabled ORDER BY priority
     LOOP
         v_current_priority := v_current_priority + 1;
         INSERT INTO public.import_data_column (step_id, column_name, column_type, purpose, is_nullable, is_uniquely_identifying, priority)

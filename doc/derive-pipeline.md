@@ -20,43 +20,45 @@ relationship.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│  Per queue: 1 top fiber + N child fibers                             │
+│  Per queue: 1 serial fiber + N concurrent fibers                     │
 │                                                                      │
-│  Top fiber                                                           │
-│  ─────────                                                           │
+│  Serial fiber                                                        │
+│  ────────────                                                        │
 │  loop:                                                               │
-│    pick ONE top-level pending task (LIMIT 1, SKIP LOCKED)            │
+│    if concurrent parent exists: EXIT → wake concurrent fibers        │
+│    pick serial child (deepest ready) or top-level pending task       │
 │    run its handler                                                   │
 │    if handler spawned children:                                      │
 │      parent state → "waiting"                                        │
-│      wake N child fibers ──────────────┐                             │
-│      BLOCK until all children done     │                             │
-│      parent auto-completes             │                             │
-│    pick next top-level task            │                             │
-│                                        │                             │
-│  Child fibers (sleep until woken)      │                             │
-│  ────────────────────────────────      │                             │
-│    ◄───────────────────────────────────┘                             │
+│      if concurrent children: wake N fibers ┐                         │
+│        BLOCK until all signal done         │                         │
+│      else: loop (serial children inline)   │                         │
+│                                            │                         │
+│  Concurrent fibers (sleep until woken)     │                         │
+│  ─────────────────────────────────────     │                         │
+│    ◄───────────────────────────────────────┘                         │
 │    loop:                                                             │
-│      pick ONE pending child (LIMIT 1, SKIP LOCKED)                   │
+│      pick ONE pending child of deepest concurrent parent             │
+│      (LIMIT 1, SKIP LOCKED)                                         │
 │      run its handler                                                 │
-│      if no more children: signal top fiber, go back to sleep         │
+│      if no more children: signal serial fiber, go back to sleep      │
 │                                                                      │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
 **Key properties:**
 - Top-level tasks execute **strictly sequentially** — no overlap, no races.
-- Children execute **concurrently** within the bounded scope of one parent.
+- Serial children execute **one at a time**, walked inline by the serial fiber.
+- Concurrent children execute **in parallel** within the bounded scope of one parent.
 - The parent does not complete until ALL children finish (or fail).
-- Child fibers sleep between parent tasks — zero CPU when idle.
-- `FOR UPDATE SKIP LOCKED` prevents two child fibers from claiming the same child.
+- Concurrent fibers sleep between parent tasks — zero CPU when idle.
+- `FOR UPDATE SKIP LOCKED` prevents two concurrent fibers from claiming the same child.
 
 
 ## Queue Layout
 
-The worker has three independent queues. Each runs its own top + child fiber
-group. The queues are fully independent — work on one queue never blocks another.
+The worker has three independent queues. Each runs its own serial + concurrent
+fiber group. The queues are fully independent — work on one queue never blocks another.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -64,21 +66,22 @@ group. The queues are fully independent — work on one queue never blocks anoth
 │                                                                             │
 │  ┌─────────────────────┐  ┌──────────────────────┐  ┌───────────────────┐  │
 │  │   import queue       │  │   analytics queue     │  │ maintenance queue │  │
-│  │   1 top + 0 child    │  │   1 top + 3 child     │  │ 1 top + 0 child  │  │
+│  │   1 serial + 0 conc  │  │   1 serial + 3 conc   │  │ 1 serial + 0 conc│  │
 │  │                      │  │                        │  │                  │  │
 │  │  ┌────────────────┐  │  │  ┌──┐ ┌──┐ ┌──┐ ┌──┐ │  │  ┌────────────┐ │  │
-│  │  │ top fiber      │  │  │  │T │ │C1│ │C2│ │C3│ │  │  │ top fiber  │ │  │
+│  │  │ serial fiber   │  │  │  │S │ │C1│ │C2│ │C3│ │  │  │serial fiber│ │  │
 │  │  └────────────────┘  │  │  └──┘ └──┘ └──┘ └──┘ │  │  └────────────┘ │  │
 │  └─────────────────────┘  └──────────────────────┘  └───────────────────┘  │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Import queue** (1 fiber): Processes `import_job_process` one at a time.
-When an import modifies data, it triggers `collect_changes` on the analytics queue.
+**Import queue** (1 fiber): Processes `import_job` parents, each with serial
+`import_job_process` children (one per state transition). When an import modifies
+data, it triggers `collect_changes` on the analytics queue.
 
-**Analytics queue** (4 fibers = 1 top + 3 child): Derives all statistical
-tables. The top fiber runs each pipeline stage sequentially; when a stage
-spawns children, the 3 child fibers process them in parallel.
+**Analytics queue** (4 fibers = 1 serial + 3 concurrent): Derives all statistical
+tables. The serial fiber walks each pipeline stage; when a stage spawns concurrent
+children, the 3 concurrent fibers process them in parallel.
 
 **Maintenance queue** (1 fiber): Runs `task_cleanup` and `import_job_cleanup`.
 
@@ -90,18 +93,21 @@ from being processed.
 ## The Derive Pipeline
 
 When data changes (via import or direct edit), the analytics pipeline derives
-all downstream tables. Each box below is a **top-level task** — they run
-**strictly one at a time**, in order. The pipeline has two **phases**
-(see [Pipeline Progress](#pipeline-progress) below):
+all downstream tables. `collect_changes` pre-spawns the **entire task tree** —
+no handler enqueues the next step. The tree has two phases, each represented by
+a wrapper task. All children execute under structured concurrency: serial
+siblings run one-at-a-time; concurrent children (batches/periods) run in
+parallel on the child fibers.
 
-- **Phase 1** (`is_deriving_statistical_units`): steps ①–③
-- **Phase 2** (`is_deriving_reports`): steps ④–⑨
+- **Phase 1** (`derive_units_phase`): steps ①–③
+- **Phase 2** (`derive_reports_phase`): steps ④–⑨
 
 ```
  IMPORT QUEUE                      ANALYTICS QUEUE
  ════════════                      ═══════════════
 
- import_job_process              ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄
+ import_job (parent)             ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄
+ └─import_job_process
     │ batch processing                Phase 1: Statistical Units
     │ inserts/updates              ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄ ┄
     │ base tables (LU, EST, LR)
@@ -123,16 +129,16 @@ all downstream tables. Each box below is a **top-level task** — they run
     ▼                             │  │~1000 e.│ │~1000 e.│       │~1000 e.│   │
                                   │  └────────┘ └────────┘       └────────┘   │
                                   │  statistical_unit_refresh_batch             │
-                                  │  (3 child fibers process in parallel)      │
+                                  │  (3 concurrent fibers process in parallel)  │
                                   │                                             │
                                   │  Also enqueues uncle tasks:                 │
                                   │  • statistical_unit_flush_staging            │
                                   │  • derive_reports                           │
                                   │                                             │
                                   │  Parent state → "waiting"                   │
-                                  │  Top fiber BLOCKED until all children done  │
+                                  │  Serial fiber BLOCKED until children done   │
                                   └──────────────────┬──────────────────────────┘
-                                                     │ (parent completes, top resumes)
+                                                     │ (parent completes, serial fiber resumes)
                                                      ▼
                                   ┌─────────────────────────────────────────────┐
                              ③    │ statistical_unit_flush_staging      SERIAL  │
@@ -225,11 +231,11 @@ all downstream tables. Each box below is a **top-level task** — they run
                                   transitioning true → false, invalidates caches.
 ```
 
-**Reading the diagram:** Each numbered step (①–⑦b) is a top-level task that
+**Reading the diagram:** Each numbered step (①–⑦b) is a serial task that
 runs to completion before the next one starts. Steps marked PARENT spawn
-children that run in parallel on the child fibers; the top fiber blocks until
-all children finish. This is structured concurrency — concurrency is scoped
-inside the parent, never between top-level tasks.
+concurrent children that run in parallel on the concurrent fibers; the serial
+fiber blocks until all children finish. This is structured concurrency —
+concurrency is scoped inside the parent, never between serial tasks.
 
 
 ## Staging Pattern and Race Safety
@@ -315,26 +321,28 @@ the next-largest costs. The reporting stages (DSH, DSHF) take seconds.
 
 All commands, their queue assignments, and pipeline phase:
 
-| Queue       | Command                                   | Role        | Phase                       | Notes                        |
-|-------------|-------------------------------------------|-------------|-----------------------------|------------------------------|
-| analytics   | `collect_changes`                         | top-level   | `is_deriving_stat_units`    | Drains base_change_log       |
-| analytics   | `derive_statistical_unit`                 | parent      | `is_deriving_stat_units`    | Spawns batch children        |
-| analytics   | `statistical_unit_refresh_batch`          | child       | `is_deriving_stat_units`    | Parallel batch processing    |
-| analytics   | `derive_statistical_unit_continue`        | top-level   | `is_deriving_stat_units`    | ANALYZE sync point           |
-| analytics   | `statistical_unit_flush_staging`          | top-level   | `is_deriving_stat_units`    | Merge staging → main table   |
-| analytics   | `derive_reports`                          | top-level   | `is_deriving_reports`       | Enqueues DSH                 |
-| analytics   | `derive_statistical_history`              | parent      | `is_deriving_reports`       | Spawns period children       |
-| analytics   | `derive_statistical_history_period`       | child       | `is_deriving_reports`       | Per-period aggregation       |
-| analytics   | `statistical_history_reduce`              | top-level   | `is_deriving_reports`       | Aggregate history partitions |
-| analytics   | `derive_statistical_unit_facet`           | parent      | `is_deriving_reports`       | Spawns partition children    |
-| analytics   | `derive_statistical_unit_facet_partition` | child       | `is_deriving_reports`       | Per-partition facet compute  |
-| analytics   | `statistical_unit_facet_reduce`           | top-level   | `is_deriving_reports`       | Merge partitions → main      |
-| analytics   | `derive_statistical_history_facet`        | parent      | `is_deriving_reports`       | Spawns period children       |
-| analytics   | `derive_statistical_history_facet_period` | child       | `is_deriving_reports`       | Per-period facet aggregation |
-| analytics   | `statistical_history_facet_reduce`        | top-level   | `is_deriving_reports`       | Aggregate facet partitions   |
-| import      | `import_job_process`                      | top-level   | —                           | One import at a time         |
-| maintenance | `task_cleanup`                            | top-level   | —                           | Clean old tasks              |
-| maintenance | `import_job_cleanup`                      | top-level   | —                           | Clean expired imports        |
+| Queue       | Command                                   | Role        | Depth | Phase                       | Notes                        |
+|-------------|-------------------------------------------|-------------|-------|-----------------------------|------------------------------|
+| analytics   | `collect_changes`                         | root        | 0     | —                           | Drains base_change_log, pre-spawns tree |
+| analytics   | `derive_units_phase`                      | phase       | 1     | `is_deriving_stat_units`    | Serial wrapper for unit derivation |
+| analytics   | `derive_statistical_unit`                 | parent      | 2     | `is_deriving_stat_units`    | Spawns concurrent batch children |
+| analytics   | `statistical_unit_refresh_batch`          | child       | 3     | `is_deriving_stat_units`    | Parallel batch processing    |
+| analytics   | `statistical_unit_flush_staging`          | leaf        | 2     | `is_deriving_stat_units`    | Merge staging → main table   |
+| analytics   | `derive_reports_phase`                    | phase       | 1     | `is_deriving_reports`       | Serial wrapper for reports   |
+| analytics   | `derive_statistical_history`              | parent      | 2     | `is_deriving_reports`       | Spawns concurrent period children |
+| analytics   | `derive_statistical_history_period`       | child       | 3     | `is_deriving_reports`       | Per-period aggregation       |
+| analytics   | `statistical_history_reduce`              | leaf        | 2     | `is_deriving_reports`       | Aggregate history partitions |
+| analytics   | `derive_statistical_unit_facet`           | parent      | 2     | `is_deriving_reports`       | Spawns concurrent partition children |
+| analytics   | `derive_statistical_unit_facet_partition` | child       | 3     | `is_deriving_reports`       | Per-partition facet compute  |
+| analytics   | `statistical_unit_facet_reduce`           | leaf        | 2     | `is_deriving_reports`       | Merge partitions → main      |
+| analytics   | `derive_statistical_history_facet`        | parent      | 2     | `is_deriving_reports`       | Spawns concurrent period children |
+| analytics   | `derive_statistical_history_facet_period` | child       | 3     | `is_deriving_reports`       | Per-period facet aggregation |
+| analytics   | `statistical_history_facet_reduce`        | leaf        | 2     | `is_deriving_reports`       | Terminal — notifies complete |
+| analytics   | `derive_reports`                          | (legacy)    | —     | —                           | No-op stub for old task refs |
+| import      | `import_job`                              | parent      | 0     | —                           | Wrapper per import job       |
+| import      | `import_job_process`                      | serial child| 1     | —                           | One state transition at a time |
+| maintenance | `task_cleanup`                            | top-level   | 0     | —                           | Clean old tasks              |
+| maintenance | `import_job_cleanup`                      | top-level   | 0     | —                           | Clean expired imports        |
 
 
 ## Round-Based Priority
@@ -370,125 +378,47 @@ sequentially, **creation order = pipeline order = id order**. This means:
   (priority Q > P).
 - **Within a round:** Stages run in creation order (ascending `t.id`).
 
-### Uncle-before-children safety
+### Pre-spawned tree eliminates uncle tasks
 
-Some handlers enqueue "uncle" tasks (e.g., `statistical_unit_facet_reduce`)
-**before** spawning children. The uncle gets a lower `t.id` than the children.
-This is safe because:
+Previously, handlers enqueued "uncle" tasks (flat top-level tasks that ran
+after the current parent completed). This created ordering fragility — uncle
+tasks relied on priority ordering and `ON CONFLICT` dedup to avoid
+interleaving between pipeline rounds.
 
-1. The uncle is a top-level task (`parent_id IS NULL`).
-2. The parent enters `waiting` state after spawning children.
-3. The top fiber sees the waiting parent and **blocks** — it will NOT pick the
-   uncle task.
-4. Only child fibers run, processing children of the waiting parent.
-5. After all children complete, the parent completes, and THEN the top fiber
-   picks the uncle.
+The new tree structure eliminates this entirely: `collect_changes` pre-spawns
+the full tree, and serial `child_mode` on phase wrappers enforces execution
+order structurally. No dedup indexes are needed for pipeline steps (only
+`collect_changes` retains its dedup index for idempotent triggering).
 
-### ON CONFLICT priority merging
+### Cascade-fail safety
 
-When a later round re-enqueues a task that is still `pending` from an earlier
-round (e.g., widening a date range), the `ON CONFLICT` clause uses
-`LEAST(t.priority, EXCLUDED.priority)` to keep the **earlier** round's
-priority. This ensures the task stays in the earlier round's execution window.
-
-### Why this must not be changed
-
-Breaking the same-priority invariant re-introduces interleaving. Observed on
-`no.statbus.org` (2026-02-24): with independent `nextval()` calls per stage,
-tasks from 3+ rounds mixed together — `statistical_unit_facet_reduce` ran as
-a no-op (8ms) before its children populated the staging table, leaving
-`statistical_unit_facet` with 0 rows.
+When a task fails mid-execution and has pre-spawned children (which are
+still `pending`), those children would become orphans. The
+`cascade_fail_descendants()` function recursively marks all descendant tasks
+as `failed` with error `'Parent task failed'`.
 
 
 ## Frontend Status Detection
 
 The frontend receives pipeline state via two mechanisms:
 
-1. **`pg_notify` events** — real-time push notifications for state transitions
-   (`is_deriving_statistical_units`/`is_deriving_reports` start/stop) and
-   progress updates (`pipeline_progress` with step, total, completed, counts).
+1. **`pg_notify` events** — `worker.notify_task_progress()` sends real-time
+   push notifications with `{type: 'pipeline_progress', phases: [...]}`.
+   Each phase object contains `phase`, `step`, `total`, `completed`,
+   and effective entity counts (`effective_establishment_count`, etc.).
+   Called automatically by `process_tasks` after each
+   analytics-queue task completes.
 2. **`is_deriving_statistical_units()` / `is_deriving_reports()`** — SQL
-   functions that return a JSONB snapshot of `worker.pipeline_progress` for
-   the given phase. Used for initial page load and reconnection.
+   functions that query the **task tree** (`worker.tasks`) to determine if
+   a pipeline phase is active. Used for initial page load and reconnection.
 
-Both functions query **only** `worker.pipeline_progress` — they do NOT check
-`worker.tasks`. The `active` flag is `true` whenever a
-`pipeline_progress` row exists for that phase (i.e., `pp.phase IS NOT NULL`).
+Both functions query `worker.tasks` directly — progress is intrinsic to the
+task tree. A phase is `active` when there are `processing` or `waiting` tasks
+for the relevant commands.
 
-When a stop notification (`status: false`) arrives, the frontend clears the
+When a phase completes (no more active tasks), the frontend clears the
 phase status and invalidates its caches (search results, base data) to pick
 up the newly derived data.
 
 See [worker-notifications.md](./worker-notifications.md) for the full
 notification architecture.
-
-
-## Pipeline Progress Principles
-
-The `worker.pipeline_progress` table exists to **inform the user** about
-background processing. Three questions must always be answerable:
-
-1. **What IS happening** right now?
-2. **What is PLANNED** to happen?
-3. If nothing is happening, **WHY?**
-
-Never hide information from the user. If changes have been detected and will
-be processed, the user should see that — even before processing begins.
-
-### Preliminary vs Processing State
-
-A phase has two distinct states while its `pipeline_progress` row exists:
-
-| State | `total` | Meaning |
-|-------|---------|---------|
-| **Preliminary** | `0` | Changes are accumulating. The phase is planned but not yet processing. |
-| **Processing** | `> 0` | Active work is in progress. `completed` tracks progress toward `total`. |
-
-A phase becomes **active** (has a `pipeline_progress` row) when:
-- `collect_changes` runs its `before_procedure` (`notify_collecting_changes_start`),
-  inserting a Phase 1 row with `total=0` and `step='collect_changes'`.
-- `derive_statistical_unit` runs its `before_procedure`
-  (`notify_is_deriving_statistical_units_start`), updating Phase 1 to
-  `step='derive_statistical_unit'` (still `total=0` until batching).
-- `derive_reports` runs its `before_procedure`, inserting a Phase 2 row.
-
-A phase row is **deleted** by its `after_procedure` (the `*_stop` handler),
-signaling that the phase is complete.
-
-### Coexistence of Phases
-
-During continuous imports, a Phase 1 preliminary row (`collect_changes`,
-`total=0`) can coexist with a Phase 2 processing row (`derive_reports`,
-`total>0`). This is expected and correct — it means:
-
-- Phase 2 is actively computing reports (processing).
-- Phase 1 has detected new changes that will be processed after Phase 2
-  completes (preliminary).
-
-### The `waitingFor` Relationship
-
-The UI shows "while waiting for X" to explain why a phase appears idle
-despite being active. This relationship is **asymmetric**:
-
-- **Statistical Units showing "while waiting for Reports"** — correct when
-  Phase 1 is in preliminary state (`total=0`) and Phase 2 exists. The user
-  sees "Batching changes while waiting for Reports", which accurately
-  describes that changes are accumulating while Reports processing finishes.
-
-- **Reports showing "while waiting for Statistical Units"** — only correct
-  when Phase 1 is **actually processing** (`total > 0`). If Phase 1 is
-  merely in preliminary state (`total = 0`, just collecting changes), Reports
-  should NOT show "while waiting for Statistical Units" because Statistical
-  Units is not blocking anything — it is just accumulating changes for the
-  next round.
-
-The frontend implements this by checking `total > 0` for the `waitingFor`
-target phase:
-
-```typescript
-// Statistical Units popover: waitingFor Reports (always valid when Reports exists)
-waitingFor={isDerivingReports ? "Reports" : undefined}
-
-// Reports popover: waitingFor Statistical Units (only when SU is processing)
-waitingFor={(derivingUnits?.total ?? 0) > 0 ? "Statistical Units" : undefined}
-```

@@ -7,7 +7,7 @@
 View definition:
  SELECT code,
     name
-   FROM foreign_participation_available
+   FROM foreign_participation_enabled
   WHERE custom = false;
 Triggers:
     upsert_foreign_participation_system INSTEAD OF INSERT ON foreign_participation_system FOR EACH ROW EXECUTE FUNCTION admin.upsert_foreign_participation_system()

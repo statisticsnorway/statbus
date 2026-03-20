@@ -121,7 +121,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |    94
+ import    | completed |    96
 (2 rows)
 
 \echo "Checking unit counts after import processing"
@@ -141,8 +141,8 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |  1286
- import    | completed |    94
+ analytics | completed |  1712
+ import    | completed |    96
 (2 rows)
 
 \echo "Inspecting import job data for import_05_lu_era"
@@ -1692,8 +1692,8 @@ Run worker processing for analytics tasks (after manual connections)
   SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |  2572
- import    | completed |    94
+ analytics | completed |  2999
+ import    | completed |    96
 (2 rows)
 
 \x

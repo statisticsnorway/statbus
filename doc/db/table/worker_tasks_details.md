@@ -15,9 +15,12 @@
  worker_pid   | integer                  |           |          |                                               | plain    |             |              | 
  payload      | jsonb                    |           |          |                                               | extended |             |              | 
  parent_id    | bigint                   |           |          |                                               | plain    |             |              | 
+ child_mode   | worker.child_mode        |           |          |                                               | plain    |             |              | 
+ depth        | integer                  |           | not null | 0                                             | plain    |             |              | 
 Indexes:
     "tasks_pkey" PRIMARY KEY, btree (id)
     "idx_tasks_collect_changes_dedup" UNIQUE, btree (command) WHERE command = 'collect_changes'::text AND state = 'pending'::worker.task_state
+    "idx_tasks_depth" btree (depth) WHERE state = 'waiting'::worker.task_state
     "idx_tasks_derive_dedup" UNIQUE, btree (command) WHERE command = 'derive_statistical_unit'::text AND state = 'pending'::worker.task_state
     "idx_tasks_derive_history_facet_period_dedup" UNIQUE, btree (command, (payload ->> 'resolution'::text), (payload ->> 'year'::text), (payload ->> 'month'::text), ((payload ->> 'partition_seq'::text)::integer)) WHERE command = 'derive_statistical_history_facet_period'::text AND state = 'pending'::worker.task_state
     "idx_tasks_derive_reports_dedup" UNIQUE, btree (command) WHERE command = 'derive_reports'::text AND state = 'pending'::worker.task_state
@@ -52,8 +55,7 @@ Referenced by:
 Not-null constraints:
     "tasks_id_not_null" NOT NULL "id"
     "tasks_command_not_null" NOT NULL "command"
-Triggers:
-    tasks_enforce_no_grandchildren BEFORE INSERT ON worker.tasks FOR EACH ROW WHEN (new.parent_id IS NOT NULL) EXECUTE FUNCTION worker.enforce_no_grandchildren()
+    "tasks_depth_not_null" NOT NULL "depth"
 Access method: heap
 
 ```

@@ -12,7 +12,7 @@
  data_source_id           | integer                  |           |          |                              | plain    |             |              | 
  foreign_participation_id | integer                  |           |          |                              | plain    |             |              | 
  edit_comment             | character varying(512)   |           |          |                              | extended |             |              | 
- edit_by_user_id          | integer                  |           | not null |                              | plain    |             |              | 
+ edit_by_user_id          | integer                  |           | not null | auth.uid()                   | plain    |             |              | 
  edit_at                  | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
 Indexes:
     "power_group_pkey" PRIMARY KEY, btree (id)
@@ -43,7 +43,7 @@ Policies:
     POLICY "power_group_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 Not-null constraints:
     "power_group_id_not_null" NOT NULL "id"
     "power_group_ident_not_null" NOT NULL "ident"

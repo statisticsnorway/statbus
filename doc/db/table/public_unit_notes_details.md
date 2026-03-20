@@ -10,7 +10,7 @@
  power_group_id   | integer                  |           |          |                              | plain    |             |              | 
  created_at       | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
  edit_comment     | character varying(512)   |           |          |                              | extended |             |              | 
- edit_by_user_id  | integer                  |           | not null |                              | plain    |             |              | 
+ edit_by_user_id  | integer                  |           | not null | auth.uid()                   | plain    |             |              | 
  edit_at          | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
 Indexes:
     "unit_notes_pkey" PRIMARY KEY, btree (id)
@@ -35,7 +35,7 @@ Policies:
     POLICY "unit_notes_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 Not-null constraints:
     "unit_notes_id_not_null" NOT NULL "id"
     "unit_notes_notes_not_null" NOT NULL "notes"

@@ -11,17 +11,19 @@
  name                | character varying(256)   |           | not null | 
  description         | text                     |           |          | 
  enabled             | boolean                  |           | not null | true
- type                | tag_type                 |           | not null | 
  context_valid_from  | date                     |           |          | 
  context_valid_to    | date                     |           |          | 
  context_valid_until | date                     |           |          | generated always as ((context_valid_to + '1 day'::interval)) stored
  context_valid_on    | date                     |           |          | 
  created_at          | timestamp with time zone |           | not null | statement_timestamp()
  updated_at          | timestamp with time zone |           | not null | statement_timestamp()
+ custom              | boolean                  |           | not null | false
 Indexes:
     "tag_pkey" PRIMARY KEY, btree (id)
+    "ix_tag_custom" btree (custom)
     "ix_tag_enabled" btree (enabled)
-    "ix_tag_type" btree (type)
+    "ix_tag_enabled_path" UNIQUE, btree (enabled, path)
+    "ix_tag_parent_id" btree (parent_id)
     "tag_path_key" UNIQUE CONSTRAINT, btree (path)
 Check constraints:
     "context_valid_dates_same_nullability" CHECK (context_valid_from IS NULL AND context_valid_to IS NULL AND context_valid_until IS NULL OR context_valid_from IS NOT NULL AND context_valid_to IS NOT NULL AND context_valid_until IS NOT NULL)

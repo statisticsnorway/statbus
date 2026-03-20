@@ -124,7 +124,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |   160
+ import    | completed |   164
 (2 rows)
 
 \echo "Checking import job statuses for Initial Load"
@@ -174,8 +174,8 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |   362
- import    | completed |   160
+ analytics | completed |  1929
+ import    | completed |   164
 (2 rows)
 
 \echo "Checking statistics after Initial Load"
@@ -329,8 +329,8 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- analytics | completed |   362
- import    | completed |   180
+ analytics | completed |  1929
+ import    | completed |   185
 (3 rows)
 
 \echo "Checking import job statuses for Turnover Update"
@@ -371,8 +371,8 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |   513
- import    | completed |   180
+ analytics | completed |  2603
+ import    | completed |   185
 (2 rows)
 
 \echo "Calculating expected statistics from raw _upload tables for verification"

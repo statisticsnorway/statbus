@@ -10,6 +10,7 @@
 Indexes:
     "image_pkey" PRIMARY KEY, btree (id)
     "image_id_idx" btree (id)
+    "ix_image_uploaded_by_user_id" btree (uploaded_by_user_id)
 Check constraints:
     "image_size_limit" CHECK (length(data) <= 4194304)
 Foreign-key constraints:

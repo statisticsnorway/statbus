@@ -197,6 +197,9 @@ module Statbus
       tls_cert_file : String,
       tls_key_file : String,
 
+      # Test template database name
+      postgres_test_db : String,
+
       # Docker build configuration for HTTPS-only networks
       # Set to "true" to use HTTPS mirrors for apt packages during Docker image builds
       apt_use_https_only : String
@@ -347,6 +350,7 @@ module Statbus
           deployment_slot_code = config_env.generate("DEPLOYMENT_SLOT_CODE") { "local" }
           deployment_slot_name = config_env.generate("DEPLOYMENT_SLOT_NAME") { "local" }
           postgres_app_db = config_env.generate("POSTGRES_APP_DB") { "statbus_#{deployment_slot_code}" }
+          postgres_test_db = config_env.generate("POSTGRES_TEST_DB") { "statbus_test_template" }
           postgres_app_user = config_env.generate("POSTGRES_APP_USER") { "statbus_#{deployment_slot_code}" }
           postgres_notify_user = config_env.generate("POSTGRES_NOTIFY_USER") { "statbus_notify_#{deployment_slot_code}" }
           _caddy_deployment_mode = config_env.generate("CADDY_DEPLOYMENT_MODE") { "development" }
@@ -394,6 +398,7 @@ module Statbus
             postgres_admin_db: config_env.generate("POSTGRES_ADMIN_DB") { "postgres" },
             postgres_admin_user: config_env.generate("POSTGRES_ADMIN_USER") { "postgres" },
             postgres_app_db: postgres_app_db,
+            postgres_test_db: postgres_test_db,
             postgres_app_user: postgres_app_user,
             postgres_notify_user: postgres_notify_user,
             # JWT configuration
@@ -670,6 +675,7 @@ module Statbus
         env.set("POSTGRES_ADMIN_USER", config.postgres_admin_user)
         env.set("POSTGRES_ADMIN_PASSWORD", credentials.postgres_admin_password)
         env.set("POSTGRES_APP_DB", config.postgres_app_db)
+        env.set("POSTGRES_TEST_DB", config.postgres_test_db)
         env.set("POSTGRES_APP_USER", config.postgres_app_user)
         env.set("POSTGRES_NOTIFY_USER", config.postgres_notify_user)
         env.set("CADDY_DEPLOYMENT_MODE", config.caddy_deployment_mode)        

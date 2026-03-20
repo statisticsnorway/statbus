@@ -1058,7 +1058,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |   160
+ import    | completed |   164
 (2 rows)
 
 \echo "Checking import job statuses for Block 1"
@@ -1087,8 +1087,8 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |    50
- import    | completed |   160
+ analytics | completed |   251
+ import    | completed |   164
 (2 rows)
 
 \echo "Checking statistics"
@@ -1263,7 +1263,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |    94
+ import    | completed |    96
 (2 rows)
 
 \echo "Checking import job statuses for Block 2"
@@ -1290,8 +1290,8 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |    47
- import    | completed |    94
+ analytics | completed |   156
+ import    | completed |    96
 (2 rows)
 
 \echo "Checking statistics"
@@ -1424,7 +1424,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |    47
+ import    | completed |    48
 (2 rows)
 
 \echo "Checking import job statuses for Block 3"
@@ -1450,8 +1450,8 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |    47
- import    | completed |    47
+ analytics | completed |   111
+ import    | completed |    48
 (2 rows)
 
 \echo "Checking statistics"
@@ -1554,7 +1554,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |    47
+ import    | completed |    48
 (2 rows)
 
 \echo "Checking import job statuses for Block 4"
@@ -1580,8 +1580,8 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |    47
- import    | completed |    47
+ analytics | completed |   120
+ import    | completed |    48
 (2 rows)
 
 \echo "Checking statistics"

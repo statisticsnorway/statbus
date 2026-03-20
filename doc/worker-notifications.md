@@ -1,12 +1,21 @@
-# System Stability Notifications
+# Worker Status Notifications
 
-This document outlines the implementation plan for adding system stability notifications to inform users when data is being processed or is in a stable state.
+Task-specific status notifications inform the frontend when imports or derivations are active, enabling real-time UI feedback without polling.
 
 ## Overview
 
-We'll implement a lightweight system stability indicator that shows whether the system is currently processing data or is in a stable state. This will be complemented by a detailed view that shows specific job information when requested.
+Three boolean status types are pushed to clients via `pg_notify` on the `worker_status` channel:
+- `is_importing` — an import job is running
+- `is_deriving_statistical_units` — unit derivation is active
+- `is_deriving_reports` — report/facet derivation is active
 
-## Implementation Plan
+Additionally, `worker.notify_task_progress()` sends weighted progress updates with batch counts during analytics processing.
+
+**Notification mechanisms:**
+- **Hook-based** (`before_procedure`/`after_procedure` in `command_registry`): Used by `import_job` only.
+- **Inline `pg_notify`**: Used by derive handlers (`derive_statistical_unit`, `statistical_unit_flush_staging`, `derive_reports_phase`), which call `pg_notify('worker_status', ...)` directly in the handler procedure body.
+
+## Implementation Details
 
 ### 1. Database Components
 

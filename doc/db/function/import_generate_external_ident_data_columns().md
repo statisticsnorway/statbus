@@ -20,7 +20,7 @@ BEGIN
         RETURN;
     END IF;
 
-    SELECT array_agg(code ORDER BY priority) INTO v_active_codes FROM public.external_ident_type_active;
+    SELECT array_agg(code ORDER BY priority) INTO v_active_codes FROM public.external_ident_type_enabled;
     RAISE DEBUG '[import.generate_external_ident_data_columns] For step_id % (external_idents), ensuring data columns for active codes: %', v_step_id, v_active_codes;
 
     -- Get the highest priority among non-dynamic columns (those without purpose='source_input' and 'internal')
@@ -35,7 +35,7 @@ BEGIN
     -- Hierarchical types: {code}_{label}_raw columns + {code}_path internal column
     FOR v_ident_type IN 
         SELECT code, priority, shape, labels 
-        FROM public.external_ident_type_active 
+        FROM public.external_ident_type_enabled 
         ORDER BY priority
     LOOP
         IF v_ident_type.shape = 'regular' THEN

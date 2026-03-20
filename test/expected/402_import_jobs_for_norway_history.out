@@ -25,9 +25,9 @@
 \echo "Cleaning up any leftover data from prior runs"
 "Cleaning up any leftover data from prior runs"
 SELECT public.reset(true, 'getting-started');
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                      reset                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- {"person": {"deleted_count": 0}, "region": {"deleted_count": 0}, "sector": {"changed_count": 0, "deleted_count": 0}, "status": {"changed_count": 0, "deleted_count": 0}, "contact": {"deleted_count": 0}, "activity": {"deleted_count": 0}, "location": {"deleted_count": 0}, "settings": {"deleted_count": 0}, "unit_size": {"changed_count": 0, "deleted_count": 0}, "enterprise": {"deleted_count": 0}, "import_job": {"deleted_count": 0}, "legal_form": {"changed_count": 0, "deleted_count": 0}, "legal_unit": {"deleted_count": 0}, "data_source": {"changed_count": 0, "deleted_count": 0}, "tag_for_unit": {"deleted_count": 0}, "establishment": {"deleted_count": 0}, "stat_for_unit": {"deleted_count": 0}, "external_ident": {"deleted_count": 0}, "person_for_unit": {"deleted_count": 0}, "activity_category": {"changed_count": 0, "deleted_count": 0, "changed_children_count": 0}, "import_definition": {"deleted_count": 10}}
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             reset                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ {"image": {"deleted_count": 0}, "person": {"deleted_count": 0}, "region": {"deleted_count": 0}, "sector": {"changed_count": 0, "deleted_count": 0}, "status": {"changed_count": 0, "deleted_count": 0}, "contact": {"deleted_count": 0}, "activity": {"deleted_count": 0}, "location": {"deleted_count": 0}, "settings": {"deleted_count": 0}, "unit_size": {"changed_count": 0, "deleted_count": 0}, "enterprise": {"deleted_count": 0}, "import_job": {"deleted_count": 0}, "legal_form": {"changed_count": 0, "deleted_count": 0}, "legal_unit": {"deleted_count": 0}, "power_root": {"deleted_count": 0}, "unit_notes": {"deleted_count": 0}, "data_source": {"changed_count": 0, "deleted_count": 0}, "power_group": {"deleted_count": 0}, "tag_for_unit": {"deleted_count": 0}, "establishment": {"deleted_count": 0}, "stat_for_unit": {"deleted_count": 0}, "external_ident": {"deleted_count": 0}, "legal_rel_type": {"changed_count": 0, "deleted_count": 0}, "region_version": {"changed_count": 0, "deleted_count": 0}, "person_for_unit": {"deleted_count": 0}, "legal_reorg_type": {"changed_count": 0, "deleted_count": 0}, "power_group_type": {"changed_count": 0, "deleted_count": 0}, "activity_category": {"changed_count": 0, "deleted_count": 0, "changed_children_count": 0}, "import_definition": {"deleted_count": 0}, "legal_relationship": {"deleted_count": 0}, "foreign_participation": {"changed_count": 0, "deleted_count": 0}}
 (1 row)
 
 -- Pause the background worker so we control task processing order.
@@ -56,17 +56,19 @@ CALL test.set_user_from_email('test.admin@statbus.org');
 "Setting up Statbus for Norway"
 \i samples/norway/getting-started.sql
 \i samples/norway/settings.sql
-INSERT INTO settings(activity_category_standard_id,country_id)
+INSERT INTO settings(activity_category_standard_id,country_id,region_version_id)
 SELECT (SELECT id FROM activity_category_standard WHERE code = 'nace_v2.1')
      , (SELECT id FROM public.country WHERE iso_2 = 'NO')
+     , (SELECT id FROM public.region_version WHERE code = 'initial')
 ON CONFLICT (only_one_setting)
 DO UPDATE SET
    activity_category_standard_id = EXCLUDED.activity_category_standard_id,
-   country_id = EXCLUDED.country_id
+   country_id = EXCLUDED.country_id,
+   region_version_id = EXCLUDED.region_version_id
    WHERE settings.only_one_setting = EXCLUDED.only_one_setting;
 ;
 \i samples/norway/activity_category/activity_category_norway.sql
-\copy public.activity_category_available_custom FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.activity_category_enabled_custom FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 \i samples/norway/regions/norway-regions-2024.sql
 \copy public.region_upload(path, name) FROM 'samples/norway/regions/norway-regions-2024.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 \i samples/norway/sector/sector_norway.sql
@@ -594,6 +596,7 @@ Triggers:
  establishment_id                     | integer                   |           |          | 
  tax_ident_raw                        | text                      |           |          | 
  stat_ident_raw                       | text                      |           |          | 
+ person_ident_raw                     | text                      |           |          | 
  data_source_code_raw                 | text                      |           |          | 
  data_source_id                       | integer                   |           |          | 
  status_code_raw                      | text                      |           |          | 
@@ -684,7 +687,7 @@ Triggers:
  tag_id                               | integer                   |           |          | 
  tag_for_unit_id                      | integer                   |           |          | 
  edit_comment_raw                     | text                      |           |          | 
- edit_by_user_id                      | integer                   |           |          | 
+ edit_by_user_id                      | integer                   |           |          | auth.uid()
  edit_at                              | timestamp with time zone  |           |          | 
  edit_comment                         | text                      |           |          | 
  founding_row_id                      | integer                   |           |          | 
@@ -698,6 +701,7 @@ Indexes:
     "import_lu_2015_h_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
     "import_lu_2015_h_data_daterange_idx" gist (daterange(valid_from, valid_until, '[)'::text))
     "import_lu_2015_h_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
+    "import_lu_2015_h_data_person_ident_raw_idx" btree (person_ident_raw)
     "import_lu_2015_h_data_stat_ident_raw_idx" btree (stat_ident_raw)
     "import_lu_2015_h_data_state_last_completed_priority_batch_s_idx" btree (state, last_completed_priority, batch_seq)
     "import_lu_2015_h_data_tax_ident_raw_idx" btree (tax_ident_raw)
@@ -723,7 +727,7 @@ Policies:
     POLICY "import_lu_2015_h_data_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 
 \d public.import_es_2015_h_upload
                    Table "public.import_es_2015_h_upload"
@@ -786,6 +790,7 @@ Triggers:
  establishment_id                     | integer                   |           |          | 
  tax_ident_raw                        | text                      |           |          | 
  stat_ident_raw                       | text                      |           |          | 
+ person_ident_raw                     | text                      |           |          | 
  data_source_code_raw                 | text                      |           |          | 
  data_source_id                       | integer                   |           |          | 
  status_code_raw                      | text                      |           |          | 
@@ -793,6 +798,7 @@ Triggers:
  primary_for_legal_unit               | boolean                   |           |          | 
  legal_unit_tax_ident_raw             | text                      |           |          | 
  legal_unit_stat_ident_raw            | text                      |           |          | 
+ legal_unit_person_ident_raw          | text                      |           |          | 
  name_raw                             | text                      |           |          | 
  name                                 | text                      |           |          | 
  birth_date_raw                       | text                      |           |          | 
@@ -875,7 +881,7 @@ Triggers:
  tag_id                               | integer                   |           |          | 
  tag_for_unit_id                      | integer                   |           |          | 
  edit_comment_raw                     | text                      |           |          | 
- edit_by_user_id                      | integer                   |           |          | 
+ edit_by_user_id                      | integer                   |           |          | auth.uid()
  edit_at                              | timestamp with time zone  |           |          | 
  edit_comment                         | text                      |           |          | 
  founding_row_id                      | integer                   |           |          | 
@@ -889,6 +895,7 @@ Indexes:
     "import_es_2015_h_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
     "import_es_2015_h_data_daterange_idx" gist (daterange(valid_from, valid_until, '[)'::text))
     "import_es_2015_h_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
+    "import_es_2015_h_data_person_ident_raw_idx" btree (person_ident_raw)
     "import_es_2015_h_data_stat_ident_raw_idx" btree (stat_ident_raw)
     "import_es_2015_h_data_state_last_completed_priority_batch_s_idx" btree (state, last_completed_priority, batch_seq)
     "import_es_2015_h_data_tax_ident_raw_idx" btree (tax_ident_raw)
@@ -914,7 +921,7 @@ Policies:
     POLICY "import_es_2015_h_data_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 
 -- Display the definition snapshot for one job (optional, can be large)
 -- SELECT slug, definition_snapshot FROM public.import_job WHERE slug = 'import_lu_2015_h' ORDER BY slug;
@@ -1493,7 +1500,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |   376
+ import    | completed |   384
 (2 rows)
 
 COMMIT;
@@ -1505,8 +1512,8 @@ Check the state of all tasks after running analytics.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |  2376
- import    | completed |   376
+ analytics | completed |  2377
+ import    | completed |   384
 (2 rows)
 
 COMMIT;
@@ -1518,8 +1525,8 @@ Check the state of all tasks after running analytics.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |  2376
- import    | completed |   376
+ analytics | completed |  2377
+ import    | completed |   384
 (2 rows)
 
 \echo Overview of statistical units, but not details, there are too many units.

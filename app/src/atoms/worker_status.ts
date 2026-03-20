@@ -28,10 +28,10 @@ export interface PhaseProgress {
   step: string | null;
   total: number;
   completed: number;
-  affected_establishment_count: number | null;
-  affected_legal_unit_count: number | null;
-  affected_enterprise_count: number | null;
-  affected_power_group_count: number | null;
+  effective_establishment_count: number | null;
+  effective_legal_unit_count: number | null;
+  effective_enterprise_count: number | null;
+  effective_power_group_count: number | null;
 }
 
 export interface ImportJobProgress {
@@ -56,10 +56,10 @@ export interface PhaseStatus {
   step: string | null;
   total: number;
   completed: number;
-  affected_establishment_count: number | null;
-  affected_legal_unit_count: number | null;
-  affected_enterprise_count: number | null;
-  affected_power_group_count: number | null;
+  effective_establishment_count: number | null;
+  effective_legal_unit_count: number | null;
+  effective_enterprise_count: number | null;
+  effective_power_group_count: number | null;
 }
 
 export interface PipelineStepWeight {
@@ -180,10 +180,10 @@ export const setWorkerStatusAtom = atom(
           step: p.step,
           total: p.total,
           completed: p.completed,
-          affected_establishment_count: p.affected_establishment_count,
-          affected_legal_unit_count: p.affected_legal_unit_count,
-          affected_enterprise_count: p.affected_enterprise_count,
-          affected_power_group_count: p.affected_power_group_count,
+          effective_establishment_count: p.effective_establishment_count,
+          effective_legal_unit_count: p.effective_legal_unit_count,
+          effective_enterprise_count: p.effective_enterprise_count,
+          effective_power_group_count: p.effective_power_group_count,
         };
       };
 
@@ -351,17 +351,13 @@ export const usePipelineStepWeights = (): PipelineStepWeight[] => {
 // COMMAND LABEL MAPPING
 // ============================================================================
 
-/** Labels used when a command is running while waiting for another phase. */
-export const COMMAND_WAITING_LABELS: Record<string, string> = {
-  'collect_changes': 'Batching changes',
-  'derive_reports': 'Preparing reports',
-};
-
 export const COMMAND_LABELS: Record<string, string> = {
+  'import_job': 'Import job',
   'collect_changes': 'Recording changes',
+  'derive_units_phase': 'Deriving statistical units',
   'derive_statistical_unit': 'Refreshing statistical units',
-  'derive_statistical_unit_continue': 'Refreshing statistical units',
   'statistical_unit_flush_staging': 'Flushing staging data',
+  'derive_reports_phase': 'Deriving reports',
   'derive_reports': 'Computing reports',
   'derive_statistical_history': 'Computing statistical history',
   'derive_statistical_unit_facet': 'Computing search facets',

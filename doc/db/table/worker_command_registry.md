@@ -1,17 +1,14 @@
 ```sql
-                         Table "worker.command_registry"
-       Column        |           Type           | Collation | Nullable | Default 
----------------------+--------------------------+-----------+----------+---------
- command             | text                     |           | not null | 
- handler_procedure   | text                     |           | not null | 
- before_procedure    | text                     |           |          | 
- after_procedure     | text                     |           |          | 
- description         | text                     |           |          | 
- queue               | text                     |           | not null | 
- created_at          | timestamp with time zone |           | not null | now()
- phase               | worker.pipeline_phase    |           |          | 
- on_children_created | text                     |           |          | 
- on_child_completed  | text                     |           |          | 
+                        Table "worker.command_registry"
+      Column       |           Type           | Collation | Nullable | Default 
+-------------------+--------------------------+-----------+----------+---------
+ command           | text                     |           | not null | 
+ handler_procedure | text                     |           | not null | 
+ before_procedure  | text                     |           |          | 
+ after_procedure   | text                     |           |          | 
+ description       | text                     |           |          | 
+ queue             | text                     |           | not null | 
+ created_at        | timestamp with time zone |           | not null | now()
 Indexes:
     "command_registry_pkey" PRIMARY KEY, btree (command)
     "idx_command_registry_queue" btree (queue)

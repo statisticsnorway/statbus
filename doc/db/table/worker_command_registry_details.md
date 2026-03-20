@@ -1,17 +1,14 @@
 ```sql
-                                                    Table "worker.command_registry"
-       Column        |           Type           | Collation | Nullable | Default | Storage  | Compression | Stats target | Description 
----------------------+--------------------------+-----------+----------+---------+----------+-------------+--------------+-------------
- command             | text                     |           | not null |         | extended |             |              | 
- handler_procedure   | text                     |           | not null |         | extended |             |              | 
- before_procedure    | text                     |           |          |         | extended |             |              | 
- after_procedure     | text                     |           |          |         | extended |             |              | 
- description         | text                     |           |          |         | extended |             |              | 
- queue               | text                     |           | not null |         | extended |             |              | 
- created_at          | timestamp with time zone |           | not null | now()   | plain    |             |              | 
- phase               | worker.pipeline_phase    |           |          |         | plain    |             |              | 
- on_children_created | text                     |           |          |         | extended |             |              | 
- on_child_completed  | text                     |           |          |         | extended |             |              | 
+                                                   Table "worker.command_registry"
+      Column       |           Type           | Collation | Nullable | Default | Storage  | Compression | Stats target | Description 
+-------------------+--------------------------+-----------+----------+---------+----------+-------------+--------------+-------------
+ command           | text                     |           | not null |         | extended |             |              | 
+ handler_procedure | text                     |           | not null |         | extended |             |              | 
+ before_procedure  | text                     |           |          |         | extended |             |              | 
+ after_procedure   | text                     |           |          |         | extended |             |              | 
+ description       | text                     |           |          |         | extended |             |              | 
+ queue             | text                     |           | not null |         | extended |             |              | 
+ created_at        | timestamp with time zone |           | not null | now()   | plain    |             |              | 
 Indexes:
     "command_registry_pkey" PRIMARY KEY, btree (command)
     "idx_command_registry_queue" btree (queue)

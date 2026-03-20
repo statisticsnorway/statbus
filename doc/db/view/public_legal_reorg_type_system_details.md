@@ -9,7 +9,7 @@ View definition:
  SELECT code,
     name,
     description
-   FROM legal_reorg_type_available
+   FROM legal_reorg_type_enabled
   WHERE custom = false;
 Triggers:
     upsert_legal_reorg_type_system INSTEAD OF INSERT ON legal_reorg_type_system FOR EACH ROW EXECUTE FUNCTION admin.upsert_legal_reorg_type_system()

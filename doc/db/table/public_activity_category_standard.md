@@ -8,13 +8,16 @@
  description  | character varying                |           | not null | 
  code_pattern | activity_category_code_behaviour |           | not null | 
  enabled      | boolean                          |           | not null | true
+ lasts_to     | date                             |           |          | 
 Indexes:
     "activity_category_standard_pkey" PRIMARY KEY, btree (id)
     "activity_category_standard_code_key" UNIQUE CONSTRAINT, btree (code)
     "activity_category_standard_description_key" UNIQUE CONSTRAINT, btree (description)
+    "activity_category_standard_id_enabled_key" UNIQUE, btree (id, enabled)
     "activity_category_standard_name_key" UNIQUE CONSTRAINT, btree (name)
 Referenced by:
     TABLE "activity_category" CONSTRAINT "activity_category_standard_id_fkey" FOREIGN KEY (standard_id) REFERENCES activity_category_standard(id) ON DELETE RESTRICT
+    TABLE "settings" CONSTRAINT "settings_activity_category_standard_enabled_fk" FOREIGN KEY (activity_category_standard_id, required_to_be_enabled) REFERENCES activity_category_standard(id, enabled)
     TABLE "settings" CONSTRAINT "settings_activity_category_standard_id_fkey" FOREIGN KEY (activity_category_standard_id) REFERENCES activity_category_standard(id) ON DELETE RESTRICT
 Policies:
     POLICY "activity_category_standard_admin_user_manage"

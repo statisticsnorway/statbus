@@ -387,7 +387,7 @@ case "$action" in
         # Run shared tests on a cloned database (fast, uses BEGIN/ROLLBACK between tests,
         # but avoids interfering with the user's active development database).
         if [ -n "$SHARED_TESTS" ]; then
-            TEMPLATE_NAME="template_statbus_migrated"
+            TEMPLATE_NAME="${POSTGRES_TEST_DB:-statbus_test_template}"
             SHARED_TEST_DB="test_shared_$$"
 
             # Verify template exists
@@ -734,10 +734,16 @@ EOF
         ./devops/manage-statbus.sh create-users
       ;;
     'create-db' )
-        ./devops/manage-statbus.sh start all_except_app
+        # Build CLI and generate config (normally done by 'start')
+        ./devops/manage-statbus.sh build-statbus-cli
+        ./devops/manage-statbus.sh generate-config
+        # Start only db, rest, proxy — NOT worker yet (avoids stray tasks from stale procedures)
+        docker compose up --build --detach db proxy rest
         ./devops/manage-statbus.sh create-db-structure
         ./devops/manage-statbus.sh create-users
         ./devops/manage-statbus.sh create-test-template
+        # Now start worker with clean, fully-migrated DB
+        docker compose up --build --detach worker
       ;;
     'recreate-database' )
         echo "Recreate the backend with the lastest database structures"
@@ -889,7 +895,7 @@ EOF
       ;;
     'create-test-template' )
         eval $(./devops/manage-statbus.sh postgres-variables)
-        TEMPLATE_NAME="template_statbus_migrated"
+        TEMPLATE_NAME="${POSTGRES_TEST_DB:-statbus_test_template}"
         
         echo "Creating migrated template database: $TEMPLATE_NAME"
         
@@ -924,46 +930,50 @@ EOF
             fi
         fi
         
-        # Create new template from current database
-        # Note: This requires no other connections to the source database
-        echo "Creating template from $PGDATABASE (this requires exclusive access)..."
-        
-        # Stop services that hold connections (worker reconnects automatically)
-        echo "Stopping worker and rest services temporarily..."
-        if ! docker compose stop worker rest 2>&1; then
-            echo "Warning: Could not stop worker/rest services. They may not be running."
-        fi
-        
-        # Terminate any remaining connections to the source database (except our own)
-        ./devops/manage-statbus.sh psql -d postgres -c "
-            SELECT pg_terminate_backend(pid) 
-            FROM pg_stat_activity 
-            WHERE datname = '$PGDATABASE' 
-            AND pid <> pg_backend_pid();
-        " || true
-        
-        # Create the template - MUST succeed
+        # Create new template by forking from template_statbus (clean, ~9 MB)
+        # and running migrations. This avoids copying statbus_local (which may be
+        # 36+ GB with user-imported data), keeping the template small and test
+        # cloning fast (seconds instead of minutes).
+        # No need to stop worker/rest — we don't touch statbus_local.
+        echo "Creating template from template_statbus (clean fork + migrations)..."
+
         if ! ./devops/manage-statbus.sh psql -d postgres -c "
-            CREATE DATABASE $TEMPLATE_NAME 
-            WITH TEMPLATE $PGDATABASE 
+            CREATE DATABASE $TEMPLATE_NAME
+            WITH TEMPLATE template_statbus
             OWNER postgres;
         "; then
-            echo "Error: Failed to create template database from $PGDATABASE"
-            echo "There may be active connections to the source database. Check with:"
-            echo "  ./devops/manage-statbus.sh psql -c \"SELECT * FROM pg_stat_activity WHERE datname = '$PGDATABASE';\""
-            # Try to restart services before exiting
-            docker compose start worker rest 2>/dev/null || true
+            echo "Error: Failed to create template database from template_statbus"
             exit 1
         fi
-        
-        # Restart the services - MUST succeed for system to be functional
-        echo "Restarting worker and rest services..."
-        if ! docker compose start worker rest; then
-            echo "Error: Failed to restart worker/rest services!"
-            echo "The template was created, but services are down. Manually restart with:"
-            echo "  docker compose start worker rest"
+
+        # Set up roles and schemas that init-db.sh creates for statbus_local
+        # but are not in template_statbus. Roles are cluster-wide (already exist),
+        # but the auth schema and grants must be per-database.
+        echo "Setting up schemas and grants for template..."
+        AUTHENTICATOR_PASSWORD=$(./devops/dotenv --file .env.credentials get POSTGRES_AUTHENTICATOR_PASSWORD)
+        ./devops/manage-statbus.sh psql -d $TEMPLATE_NAME -v ON_ERROR_STOP=1 <<'EOF'
+            CREATE SCHEMA IF NOT EXISTS auth;
+            GRANT USAGE ON SCHEMA auth TO authenticated;
+            GRANT USAGE ON SCHEMA auth TO anon;
+            GRANT USAGE ON SCHEMA public TO notify_reader;
+EOF
+
+        # Apply all migrations using the CLI.
+        # POSTGRES_APP_DB overrides the CLI's database target (dotenv ||= fix).
+        # PGDATABASE overrides postgres-variables for .psql migrations that
+        # shell out to ./devops/manage-statbus.sh psql.
+        echo "Applying migrations to template..."
+        if ! POSTGRES_APP_DB=$TEMPLATE_NAME PGDATABASE=$TEMPLATE_NAME ./cli/bin/statbus migrate up all -v; then
+            echo "Error: Failed to apply migrations to template database"
+            ./devops/manage-statbus.sh psql -d postgres -c "DROP DATABASE IF EXISTS $TEMPLATE_NAME;" || true
             exit 1
         fi
+        echo "All migrations applied to template."
+
+        # Load JWT secret so auth works in tests
+        JWT_SECRET=$(./devops/dotenv --file .env.credentials get JWT_SECRET)
+        ./devops/manage-statbus.sh psql -d $TEMPLATE_NAME -c \
+            "INSERT INTO auth.secrets (key, value, description) VALUES ('jwt_secret', '$JWT_SECRET', 'JWT signing secret') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = clock_timestamp();"
         
         # Mark as template and prevent connections (so it stays clean)
         if ! ./devops/manage-statbus.sh psql -d postgres -c "
@@ -982,7 +992,7 @@ EOF
         # Run a single test in an isolated database created from template
         # Usage: ./devops/manage-statbus.sh test-isolated <test_name> [--update-expected]
         eval $(./devops/manage-statbus.sh postgres-variables)
-        TEMPLATE_NAME="template_statbus_migrated"
+        TEMPLATE_NAME="${POSTGRES_TEST_DB:-statbus_test_template}"
         
         # Parse arguments
         TEST_NAME="${1:-}"
@@ -1174,8 +1184,9 @@ EOF
      'postgres-variables' )
         SITE_DOMAIN=$(./devops/dotenv --file .env get SITE_DOMAIN || echo "local.statbus.org")
         CADDY_DEPLOYMENT_MODE=$(./devops/dotenv --file .env get CADDY_DEPLOYMENT_MODE || echo "development")
-        PGDATABASE=$(./devops/dotenv --file .env get POSTGRES_APP_DB)
-        # Preserve the USER if already setup, to allow overrides.
+        # Preserve PGDATABASE/PGUSER if already set, to allow overrides.
+        PGDATABASE=${PGDATABASE:-$(./devops/dotenv --file .env get POSTGRES_APP_DB)}
+        POSTGRES_TEST_DB=$(./devops/dotenv --file .env get POSTGRES_TEST_DB || echo "statbus_test_template")
         PGUSER=${PGUSER:-$(./devops/dotenv --file .env get POSTGRES_ADMIN_USER)}
         PGPASSWORD=$(./devops/dotenv --file .env get POSTGRES_ADMIN_PASSWORD)
         
@@ -1194,14 +1205,14 @@ EOF
             # Send PGHOST as SNI for Caddy's layer4 routing
             PGSSLSNI=1
             cat <<EOS
-export PGHOST=$PGHOST PGPORT=$PGPORT PGDATABASE=$PGDATABASE PGUSER=$PGUSER PGPASSWORD=$PGPASSWORD PGSSLMODE=$PGSSLMODE PGSSLNEGOTIATION=$PGSSLNEGOTIATION PGSSLSNI=$PGSSLSNI
+export PGHOST=$PGHOST PGPORT=$PGPORT PGDATABASE=$PGDATABASE PGUSER=$PGUSER PGPASSWORD=$PGPASSWORD PGSSLMODE=$PGSSLMODE PGSSLNEGOTIATION=$PGSSLNEGOTIATION PGSSLSNI=$PGSSLSNI POSTGRES_TEST_DB=$POSTGRES_TEST_DB
 EOS
         else
             # Default: plaintext on dedicated plaintext port (works for local, SSH tunnel, etc.)
             PGPORT=$(./devops/dotenv --file .env get CADDY_DB_PORT)
             PGSSLMODE=disable
             cat <<EOS
-export PGHOST=$PGHOST PGPORT=$PGPORT PGDATABASE=$PGDATABASE PGUSER=$PGUSER PGPASSWORD=$PGPASSWORD PGSSLMODE=$PGSSLMODE
+export PGHOST=$PGHOST PGPORT=$PGPORT PGDATABASE=$PGDATABASE PGUSER=$PGUSER PGPASSWORD=$PGPASSWORD PGSSLMODE=$PGSSLMODE POSTGRES_TEST_DB=$POSTGRES_TEST_DB
 EOS
         fi
       ;;
@@ -1225,7 +1236,7 @@ EOS
      'generate-db-documentation' )
         # Use a temporary clone of the migrated template so documentation
         # generation never touches the user's active development database.
-        TEMPLATE_NAME="template_statbus_migrated"
+        TEMPLATE_NAME="${POSTGRES_TEST_DB:-statbus_test_template}"
         DOC_DB="statbus_doc_gen_$$"
 
         # Verify template exists
@@ -1389,9 +1400,33 @@ EOS
         ;;
 
      'generate-types' )
-        # Use our custom SQL-based type generator which properly handles ltree and other types
-        echo "Generating TypeScript types using SQL generator..."
-        $WORKSPACE/devops/manage-statbus.sh psql < $WORKSPACE/devops/generate_database_types.sql
+        # Type generation is read-only (SELECT only), so run directly against
+        # the migrated template — no need to clone the database.
+        TEMPLATE_NAME="${POSTGRES_TEST_DB:-statbus_test_template}"
+
+        # Verify template exists
+        TEMPLATE_EXISTS=$(./devops/manage-statbus.sh psql -d postgres -t -A -c \
+            "SELECT 1 FROM pg_database WHERE datname = '$TEMPLATE_NAME';" 2>/dev/null || echo "0")
+        if [ "$TEMPLATE_EXISTS" != "1" ]; then
+            echo "Error: Template database '$TEMPLATE_NAME' not found."
+            echo "Create it with: ./devops/manage-statbus.sh create-test-template"
+            exit 1
+        fi
+
+        # Temporarily allow connections to the template, restore on exit.
+        ./devops/manage-statbus.sh psql -d postgres -c \
+            "ALTER DATABASE $TEMPLATE_NAME WITH ALLOW_CONNECTIONS = true;" >/dev/null
+
+        restore_template() {
+            local exit_code=$?
+            ./devops/manage-statbus.sh psql -d postgres -c \
+                "ALTER DATABASE $TEMPLATE_NAME WITH ALLOW_CONNECTIONS = false;" 2>/dev/null || true
+            return $exit_code
+        }
+        trap restore_template EXIT
+
+        echo "Generating TypeScript types from $TEMPLATE_NAME..."
+        ./devops/manage-statbus.sh psql -d "$TEMPLATE_NAME" < $WORKSPACE/devops/generate_database_types.sql
         echo "TypeScript types generated in app/src/lib/database.types.ts"
       ;;
     'compile-run-and-trace-dev-app-in-container' )

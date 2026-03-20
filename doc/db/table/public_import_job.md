@@ -46,6 +46,7 @@
  user_id                           | integer                  |           |          | 
  error_count                       | integer                  |           | not null | 0
  warning_count                     | integer                  |           | not null | 0
+ unique_units                      | boolean                  |           |          | 
 Indexes:
     "import_job_pkey" PRIMARY KEY, btree (id)
     "import_job_slug_key" UNIQUE CONSTRAINT, btree (slug)

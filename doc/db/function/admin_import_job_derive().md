@@ -80,30 +80,36 @@ BEGIN
 
         -- If time_context_ident is provided, derive the default dates.
         IF NEW.time_context_ident IS NOT NULL THEN
-            -- Stage 1 of 2 for time_context handling:
-            -- Derive from the job's time_context_ident and populate the job's own default_valid_from/to columns.
-            -- Stage 2 happens in `import_job_prepare`, where these job-level defaults are used to populate the
-            -- `_data` table's `valid_from`/`to` columns for every row via the `source_expression='default'` mapping.
             SELECT tc.valid_from, tc.valid_to
             INTO NEW.default_valid_from, NEW.default_valid_to
             FROM public.time_context tc
             WHERE tc.ident = NEW.time_context_ident;
 
-            -- Also, add the time_context record itself to the snapshot for immutable processing
             SELECT v_snapshot || jsonb_build_object('time_context', row_to_json(tc))
             INTO v_snapshot
             FROM public.time_context tc WHERE tc.ident = NEW.time_context_ident;
         END IF;
-        -- If explicit dates were provided, they are already on NEW and will be used.
 
     ELSIF definition.valid_time_from = 'source_columns' THEN
-        -- Case C: The definition uses dates from the source file. The job MUST NOT provide a time_context_ident or explicit dates.
         IF NEW.time_context_ident IS NOT NULL THEN
             RAISE EXCEPTION 'Cannot specify a time_context_ident for an import job when its definition (%) has valid_time_from="source_columns".', definition.name;
         END IF;
         IF NEW.default_valid_from IS NOT NULL OR NEW.default_valid_to IS NOT NULL THEN
             RAISE EXCEPTION 'Cannot specify default_valid_from/to for an import job when its definition (%) has valid_time_from="source_columns".', definition.name;
         END IF;
+    END IF;
+
+    -- Resolve unique_units: job override > definition default
+    IF NEW.unique_units IS NULL THEN
+        NEW.unique_units := COALESCE(
+            definition.unique_units,
+            (definition.valid_time_from = 'job_provided')
+        );
+    END IF;
+
+    -- Validate: prevent job_provided + unique_units=FALSE
+    IF definition.valid_time_from = 'job_provided' AND NEW.unique_units = FALSE THEN
+        RAISE EXCEPTION 'Cannot set unique_units=FALSE for a job_provided import (definition %). All rows share the same time period, so duplicate units are nonsensical.', definition.name;
     END IF;
 
     IF NEW.default_data_source_code IS NULL AND definition.data_source_id IS NOT NULL THEN
@@ -119,7 +125,6 @@ BEGIN
     END IF;
 
     -- Set expires_at based on created_at and definition's retention period
-    -- NEW.created_at is populated by its DEFAULT NOW() before this trigger runs for an INSERT.
     NEW.expires_at := NEW.created_at + COALESCE(definition.default_retention_period, '18 months'::INTERVAL);
 
     -- Pre-calculate max priorities from the snapshot for weighted progress calculation

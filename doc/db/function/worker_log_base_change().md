@@ -27,8 +27,18 @@ BEGIN
         WHEN 'activity', 'location', 'contact', 'stat_for_unit' THEN
             v_columns := 'establishment_id AS est_id, legal_unit_id AS lu_id, NULL::INT AS ent_id, NULL::INT AS pg_id';
             v_has_valid_range := TRUE;
+        WHEN 'person_for_unit' THEN
+            -- Temporal table linking person to LU or ES (mutually exclusive).
+            -- Has valid_range from sql_saga.
+            v_columns := 'establishment_id AS est_id, legal_unit_id AS lu_id, NULL::INT AS ent_id, NULL::INT AS pg_id';
+            v_has_valid_range := TRUE;
         WHEN 'external_ident' THEN
             v_columns := 'establishment_id AS est_id, legal_unit_id AS lu_id, enterprise_id AS ent_id, NULL::INT AS pg_id';
+            v_has_valid_range := FALSE;
+        WHEN 'tag_for_unit' THEN
+            -- Non-temporal table linking tag to any unit type.
+            -- Has all four unit ID columns (exactly one non-NULL per row).
+            v_columns := 'establishment_id AS est_id, legal_unit_id AS lu_id, enterprise_id AS ent_id, power_group_id AS pg_id';
             v_has_valid_range := FALSE;
         WHEN 'legal_relationship' THEN
             -- LR changes only affect power groups, not individual LUs/enterprises.

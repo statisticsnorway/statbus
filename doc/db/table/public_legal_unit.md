@@ -16,7 +16,7 @@
  status_id                | integer                  |           | not null | 
  legal_form_id            | integer                  |           |          | 
  edit_comment             | character varying(512)   |           |          | 
- edit_by_user_id          | integer                  |           | not null | 
+ edit_by_user_id          | integer                  |           | not null | auth.uid()
  edit_at                  | timestamp with time zone |           | not null | statement_timestamp()
  unit_size_id             | integer                  |           |          | 
  foreign_participation_id | integer                  |           |          | 
@@ -30,6 +30,7 @@ Indexes:
     "ix_legal_unit_edit_by_user_id" btree (edit_by_user_id)
     "ix_legal_unit_enterprise_id" btree (enterprise_id)
     "ix_legal_unit_foreign_participation_id" btree (foreign_participation_id)
+    "ix_legal_unit_image_id" btree (image_id)
     "ix_legal_unit_legal_form_id" btree (legal_form_id)
     "ix_legal_unit_name" btree (name)
     "ix_legal_unit_sector_id" btree (sector_id)
@@ -74,7 +75,7 @@ Policies:
     POLICY "legal_unit_regular_user_manage"
       TO regular_user
       USING (true)
-      WITH CHECK (true)
+      WITH CHECK ((edit_by_user_id = auth.uid()))
 Triggers:
     a_legal_unit_log_delete AFTER DELETE ON legal_unit REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_legal_unit_log_insert AFTER INSERT ON legal_unit REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()

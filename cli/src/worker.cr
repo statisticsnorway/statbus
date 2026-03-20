@@ -267,41 +267,41 @@ module Statbus
                 @available_queues << queue
 
                 # STRUCTURED CONCURRENCY: Fan-out/Fan-in Architecture
-                # - 1 "top" fiber processes top-level tasks (picks tasks with parent_id IS NULL)
-                # - N "child" fibers process children of waiting parents (in parallel)
-                # - Internal signaling coordinates between top and child fibers
+                # - 1 "serial" fiber walks the serial path depth-first (top-level + serial children)
+                # - N "concurrent" fibers process children of concurrent parents (in parallel)
+                # - Internal signaling coordinates between serial and concurrent fibers
                 #
                 # Flow:
-                # 1. Top fiber picks a top-level task
+                # 1. Serial fiber picks a top-level task or serial child
                 # 2. If task spawns children, it enters 'waiting' state
-                # 3. Top fiber detects waiting parent, signals children, then waits
-                # 4. Child fibers process all children in parallel
+                # 3. Serial fiber detects concurrent parent, signals concurrent fibers, then waits
+                # 4. Concurrent fibers process concurrent children in parallel
                 # 5. When last child completes, parent is auto-completed by DB
-                # 6. Child fibers signal top fiber, which continues with next task
+                # 6. Concurrent fibers signal serial fiber, which continues walking serial path
                 
-                # Channel for child fibers to signal top fiber when done
+                # Channel for concurrent fibers to signal serial fiber when done
                 children_done_channel = Channel(Nil).new(concurrency)
-                # Channel for top fiber to wake child fibers when children are spawned
+                # Channel for serial fiber to wake concurrent fibers when concurrent work exists
                 wake_children_channel = Channel(Nil).new(concurrency)
-                
-                # Start the single top fiber
-                top_fiber = spawn do
+
+                # Start the single serial fiber
+                serial_fiber = spawn do
                   begin
-                    process_queue_loop_top(queue, new_channel, wake_children_channel, children_done_channel, concurrency)
+                    process_queue_loop_serial(queue, new_channel, wake_children_channel, children_done_channel, concurrency)
                   rescue ex
-                    @log.error { "Unhandled exception in #{queue}:top processor fiber: #{ex.class.name} - #{ex.message}" }
+                    @log.error { "Unhandled exception in #{queue}:serial processor fiber: #{ex.class.name} - #{ex.message}" }
                     @log.error { ex.backtrace.join("\n") }
                   end
                 end
-                @active_fibers << top_fiber
-                
-                # Start N child fibers
+                @active_fibers << serial_fiber
+
+                # Start N concurrent fibers
                 concurrency.times do |worker_num|
                   fiber = spawn do
                     begin
-                      process_queue_loop_child(queue, new_channel, wake_children_channel, children_done_channel, worker_num)
+                      process_queue_loop_concurrent(queue, new_channel, wake_children_channel, children_done_channel, worker_num)
                     rescue ex
-                      @log.error { "Unhandled exception in #{queue}:child:#{worker_num} processor fiber: #{ex.class.name} - #{ex.message}" }
+                      @log.error { "Unhandled exception in #{queue}:concurrent:#{worker_num} processor fiber: #{ex.class.name} - #{ex.message}" }
                       @log.error { ex.backtrace.join("\n") }
                     end
                   end
@@ -817,17 +817,17 @@ module Statbus
       return {nil, nil}
     end
 
-    # TOP FIBER: Processes top-level tasks only
-    # When a task spawns children (enters 'waiting'), signals child fibers and waits
-    private def process_queue_loop_top(
+    # SERIAL FIBER: Walks the serial path depth-first (top-level tasks + serial children)
+    # When concurrent work exists, signals concurrent fibers and waits
+    private def process_queue_loop_serial(
       queue : String,
       channel : Channel(Symbol),
       wake_children_channel : Channel(Nil),
       children_done_channel : Channel(Nil),
       num_children : Int32
     )
-      worker_id = "#{queue}:top"
-      @log.info { "Starting TOP processing fiber for #{worker_id}" }
+      worker_id = "#{queue}:serial"
+      @log.info { "Starting SERIAL processing fiber for #{worker_id}" }
 
       # Create a channel for communication between receiver and processor fibers
       process_signal = Channel(Bool).new(1)
@@ -892,16 +892,16 @@ module Statbus
       @log.debug { "Initial processing for #{worker_id}" }
       loop do
         break if @shutdown || shutdown_requested
-        tasks_done = process_tasks(queue, mode: "top")
+        tasks_done = process_tasks(queue, mode: "serial")
         if tasks_done == 0
           # No top-level tasks found - either queue empty or waiting for children
           # Check if there's a waiting parent (children need processing)
           if has_waiting_parent?(queue)
-            @log.debug { "#{worker_id}: Waiting parent detected, waking children" }
-            # Wake all child fibers
+            @log.debug { "#{worker_id}: Waiting parent detected, waking concurrent fibers" }
+            # Wake all concurrent fibers
             num_children.times { wake_children_channel.send(nil) rescue nil }
             # Wait for children to signal they're done (with shutdown check)
-            @log.debug { "#{worker_id}: Waiting for children to complete" }
+            @log.debug { "#{worker_id}: Waiting for concurrent fibers to complete" }
             received = 0
             begin
               while received < num_children && !@shutdown
@@ -915,7 +915,7 @@ module Statbus
             rescue Channel::ClosedError
               # Shutdown in progress
             end
-            @log.debug { "#{worker_id}: All children signaled done, continuing" }
+            @log.debug { "#{worker_id}: All concurrent fibers signaled done, continuing" }
             # Safety net: children found nothing — rescue stuck parent if all children are done
             rescue_stuck_waiting_parent(queue) unless @shutdown
             # Loop again to pick up the next task (possibly a continuation)
@@ -945,15 +945,15 @@ module Statbus
           @log.debug { "Processing tasks for #{worker_id}" }
           loop do
             break if @shutdown || shutdown_requested
-            tasks_done = process_tasks(queue, mode: "top")
+            tasks_done = process_tasks(queue, mode: "serial")
             if tasks_done == 0
               # No top-level tasks found - either queue empty or waiting for children
               if has_waiting_parent?(queue)
-                @log.debug { "#{worker_id}: Waiting parent detected, waking children" }
-                # Wake all child fibers
+                @log.debug { "#{worker_id}: Waiting parent detected, waking concurrent fibers" }
+                # Wake all concurrent fibers
                 num_children.times { wake_children_channel.send(nil) rescue nil }
                 # Wait for children to signal they're done (with shutdown check)
-                @log.debug { "#{worker_id}: Waiting for children to complete" }
+                @log.debug { "#{worker_id}: Waiting for concurrent fibers to complete" }
                 received = 0
                 begin
                   while received < num_children && !@shutdown
@@ -967,7 +967,7 @@ module Statbus
                 rescue Channel::ClosedError
                   # Shutdown in progress
                 end
-                @log.debug { "#{worker_id}: All children signaled done, continuing" }
+                @log.debug { "#{worker_id}: All concurrent fibers signaled done, continuing" }
                 # Safety net: children found nothing — rescue stuck parent if all children are done
                 rescue_stuck_waiting_parent(queue) unless @shutdown
                 # Continue the loop to pick up next task
@@ -1012,29 +1012,29 @@ module Statbus
       process_signal.close rescue nil
     end
 
-    # CHILD FIBER: Processes children of waiting parents only
-    # Waits for signal from top fiber, processes all children, then signals done
-    private def process_queue_loop_child(
+    # CONCURRENT FIBER: Processes children of concurrent waiting parents
+    # Waits for signal from serial fiber, processes concurrent children, then signals done
+    private def process_queue_loop_concurrent(
       queue : String,
       channel : Channel(Symbol),
       wake_children_channel : Channel(Nil),
       children_done_channel : Channel(Nil),
       worker_num : Int32
     )
-      worker_id = "#{queue}:child:#{worker_num}"
-      @log.info { "Starting CHILD processing fiber for #{worker_id}" }
+      worker_id = "#{queue}:concurrent:#{worker_num}"
+      @log.info { "Starting CONCURRENT processing fiber for #{worker_id}" }
 
       shutdown_requested = false
 
-      # Main processor loop - wait for wake signal from top fiber
+      # Main processor loop - wait for wake signal from serial fiber
       loop do
         break if @shutdown || shutdown_requested
 
         begin
-          # Wait for top fiber to wake us (or check for shutdown periodically)
+          # Wait for serial fiber to wake us (or check for shutdown periodically)
           select
           when wake_children_channel.receive
-            @log.debug { "#{worker_id}: Woken by top fiber, processing children" }
+            @log.debug { "#{worker_id}: Woken by serial fiber, processing concurrent children" }
           when @shutdown_channel.receive
             break
           end
@@ -1048,12 +1048,12 @@ module Statbus
           # Process child tasks until none left
           loop do
             break if @shutdown || shutdown_requested
-            tasks_done = process_tasks(queue, mode: "child")
+            tasks_done = process_tasks(queue, mode: "concurrent")
             break if tasks_done == 0  # No more children to process
           end
 
-          # Signal top fiber that we're done
-          @log.debug { "#{worker_id}: Done processing, signaling top fiber" }
+          # Signal serial fiber that we're done
+          @log.debug { "#{worker_id}: Done processing, signaling serial fiber" }
           children_done_channel.send(nil) rescue nil
 
         rescue Channel::ClosedError
@@ -1066,7 +1066,7 @@ module Statbus
         rescue ex
           @log.error { "Error in #{worker_id} processor loop: #{ex.message}" }
           @log.error { ex.backtrace.join("\n") }
-          # Still signal done to prevent top fiber from hanging
+          # Still signal done to prevent serial fiber from hanging
           children_done_channel.send(nil) rescue nil
           wait_with_shutdown_check(1.seconds)
         end
@@ -1122,43 +1122,14 @@ module Statbus
     end
 
     # Safety net: rescue a stuck waiting parent when all children are done
-    # but no fiber completed the parent (race condition defense-in-depth).
+    # but no fiber completed the parent (defense-in-depth for fiber concurrency).
+    # Delegates to SQL function which uses complete_parent_if_ready for
+    # after_procedure and recursive bubbling.
     private def rescue_stuck_waiting_parent(queue : String)
       DB.connect(@config.connection_string("worker")) do |db|
-        result = db.query_one?(<<-SQL, queue, as: {Int64, Bool})
-          WITH stuck_parent AS (
-            SELECT t.id,
-                   EXISTS (
-                       SELECT 1 FROM worker.tasks c
-                       WHERE c.parent_id = t.id AND c.state = 'failed'
-                   ) AS has_failed_children
-            FROM worker.tasks t
-            JOIN worker.command_registry cr ON t.command = cr.command
-            WHERE t.state = 'waiting'::worker.task_state
-              AND cr.queue = $1
-              AND NOT worker.has_pending_children(t.id)
-            ORDER BY t.priority, t.id
-            LIMIT 1
-            FOR UPDATE OF t SKIP LOCKED
-          )
-          UPDATE worker.tasks SET
-              state = CASE WHEN stuck_parent.has_failed_children
-                           THEN 'failed'::worker.task_state
-                           ELSE 'completed'::worker.task_state END,
-              completed_at = clock_timestamp(),
-              error = CASE WHEN stuck_parent.has_failed_children
-                           THEN 'One or more child tasks failed (rescued by safety net)'
-                           ELSE NULL END
-          FROM stuck_parent WHERE worker.tasks.id = stuck_parent.id
-          RETURNING worker.tasks.id, stuck_parent.has_failed_children
-        SQL
+        result = db.query_one?("SELECT worker.rescue_stuck_waiting_parent($1)", queue, as: Int64?)
         if result
-          task_id, has_failed = result
-          if has_failed
-            @log.warn { "Rescued stuck waiting parent task #{task_id} as FAILED (children failed) for queue: #{queue}" }
-          else
-            @log.info { "Rescued stuck waiting parent task #{task_id} as completed for queue: #{queue}" }
-          end
+          @log.info { "Rescued stuck waiting parent task #{result} for queue: #{queue}" }
         end
       end
     rescue ex
@@ -1195,7 +1166,7 @@ module Statbus
 
     # Process pending tasks for a specific queue
     # Returns the number of tasks processed (0 means queue is empty)
-    # mode: nil (backward compatible), "top" (top-level tasks only), or "child" (children only)
+    # mode: nil (backward compatible), "serial" (serial fiber), or "concurrent" (concurrent fiber)
     private def process_tasks(queue : String, mode : String? = nil) : Int32
       start_time = Statbus.monotonic_time
       consecutive_errors = 0
@@ -1209,8 +1180,8 @@ module Statbus
           # The p_queue parameter ensures we only process tasks for this specific queue
           # The p_mode parameter controls structured concurrency behavior:
           #   - NULL: backward compatible, picks children if waiting parent exists, else top-level
-          #   - 'top': only pick top-level tasks, return if waiting parent exists
-          #   - 'child': only pick children of waiting parents, return if no waiting parent
+          #   - 'serial': walks serial path (serial children + top-level), exits if concurrent work exists
+          #   - 'concurrent': picks concurrent children only, exits if no concurrent parent
           # Note: worker.process_tasks() handles its own transactions internally
           mode_desc = mode ? " (mode: #{mode})" : ""
           @log.debug { "Executing worker.process_tasks for queue: #{queue}#{mode_desc}" }
@@ -1242,14 +1213,14 @@ module Statbus
                                         WHEN 'waiting' THEN 'spawned children after'
                                         WHEN 'failed' THEN 'failed after'
                                       END,
-                                      round(duration_ms, 2),
+                                      round(process_duration_ms, 2),
                                       CASE WHEN error IS NOT NULL THEN ': ' || error ELSE '' END
                                     ) AS message
                                   FROM worker.tasks AS t
                                   JOIN worker.command_registry AS cr ON t.command = cr.command
-                                  WHERE processed_at >= $2
+                                  WHERE process_stop_at >= $2
                                   AND (cr.queue = $1 OR $1 IS NULL)
-                                  ORDER BY processed_at ASC",
+                                  ORDER BY process_stop_at ASC",
             queue, current_timestamp,
             as: {String, String}
 

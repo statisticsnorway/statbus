@@ -7,7 +7,7 @@
 View definition:
  SELECT code,
     name
-   FROM legal_form_available
+   FROM legal_form_enabled
   WHERE custom = true;
 Triggers:
     prepare_legal_form_custom BEFORE INSERT ON legal_form_custom FOR EACH STATEMENT EXECUTE FUNCTION admin.prepare_legal_form_custom()

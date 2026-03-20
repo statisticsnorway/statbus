@@ -64,11 +64,11 @@ BEGIN
         SELECT COALESCE(MAX(priority), v_priority) INTO v_max_priority FROM public.import_source_column WHERE definition_id = p_definition_id;
         INSERT INTO public.import_source_column (definition_id, column_name, priority)
         SELECT p_definition_id, stat.code, v_max_priority + ROW_NUMBER() OVER (ORDER BY stat.priority)
-        FROM public.stat_definition_active stat ON CONFLICT (definition_id, column_name) DO NOTHING;
+        FROM public.stat_definition_enabled stat ON CONFLICT (definition_id, column_name) DO NOTHING;
 
         FOR v_col_rec IN
             SELECT isc.id as source_col_id, isc.column_name as stat_code FROM public.import_source_column isc
-            JOIN public.stat_definition_active sda ON isc.column_name = sda.code
+            JOIN public.stat_definition_enabled sda ON isc.column_name = sda.code
             WHERE isc.definition_id = p_definition_id AND NOT EXISTS (
                 SELECT 1 FROM public.import_mapping im WHERE im.definition_id = p_definition_id AND im.source_column_id = isc.id
             )
