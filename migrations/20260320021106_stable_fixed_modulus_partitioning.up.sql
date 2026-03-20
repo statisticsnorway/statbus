@@ -1092,7 +1092,81 @@ $statistical_history_def$;
 -- No signature change needed here.
 
 ------------------------------------------------------------
--- Phase 9: Recompute slot assignments and clear derived data
+-- Phase 9a: Fix reset_abandoned_processing_tasks
+-- This function still referenced old column names (processed_at, duration_ms)
+-- from before they were renamed to process_start_at, process_duration_ms.
+-- Also references dropped enqueue_derive_statistical_unit function.
+------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION worker.reset_abandoned_processing_tasks()
+RETURNS integer
+LANGUAGE plpgsql
+AS $reset_abandoned_processing_tasks$
+DECLARE
+    v_reset_count int := 0;
+    v_task RECORD;
+    v_stale_pid INT;
+    v_has_pending BOOLEAN;
+    v_change_log_count BIGINT;
+BEGIN
+    -- Terminate all other lingering worker backends FOR THIS DATABASE ONLY.
+    FOR v_stale_pid IN
+        SELECT pid FROM pg_stat_activity
+        WHERE application_name = 'worker'
+          AND pid <> pg_backend_pid()
+          AND datname = current_database()
+    LOOP
+        RAISE LOG 'Terminating stale worker PID %', v_stale_pid;
+        PERFORM pg_terminate_backend(v_stale_pid);
+    END LOOP;
+
+    -- Find tasks stuck in 'processing' and reset their status to 'pending'.
+    FOR v_task IN
+        SELECT id FROM worker.tasks WHERE state = 'processing'::worker.task_state FOR UPDATE
+    LOOP
+        UPDATE worker.tasks
+        SET state = 'pending'::worker.task_state,
+            worker_pid = NULL,
+            process_start_at = NULL,
+            error = NULL,
+            process_duration_ms = NULL
+        WHERE id = v_task.id;
+
+        v_reset_count := v_reset_count + 1;
+    END LOOP;
+
+    -- CRASH RECOVERY: Detect if UNLOGGED base_change_log was truncated by PG crash.
+    -- If has_pending = TRUE (LOGGED, survives crash) but base_change_log is empty
+    -- (UNLOGGED, truncated on unclean shutdown), we lost change data.
+    -- Enqueue a full refresh to recover.
+    SELECT has_pending INTO v_has_pending
+    FROM worker.base_change_log_has_pending;
+
+    IF v_has_pending THEN
+        SELECT count(*) INTO v_change_log_count
+        FROM worker.base_change_log;
+
+        IF v_change_log_count = 0 THEN
+            -- UNLOGGED data was lost in crash - spawn full refresh via collect_changes
+            RAISE LOG 'Crash recovery: base_change_log_has_pending=TRUE but base_change_log is empty. Spawning full refresh.';
+            PERFORM worker.spawn(
+                p_command => 'collect_changes',
+                p_payload => jsonb_build_object(
+                    'valid_from', '-infinity'::date,
+                    'valid_until', 'infinity'::date,
+                    'crash_recovery', true
+                )
+            );
+            UPDATE worker.base_change_log_has_pending SET has_pending = FALSE;
+        END IF;
+    END IF;
+
+    RETURN v_reset_count;
+END;
+$reset_abandoned_processing_tasks$;
+
+------------------------------------------------------------
+-- Phase 9b: Recompute slot assignments and clear derived data
 ------------------------------------------------------------
 
 -- Recompute slot assignments with fixed modulus 256

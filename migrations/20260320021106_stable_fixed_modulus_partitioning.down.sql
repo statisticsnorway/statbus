@@ -406,6 +406,9 @@ SET report_partition_seq = public.report_partition_seq(
     (SELECT analytics_partition_count FROM public.settings)
 );
 
+-- Restore reset_abandoned_processing_tasks with old column names
+-- (This is a partial restore — requires recreate-database for full rollback)
+
 -- Clear derived data
 TRUNCATE public.statistical_unit_facet_staging;
 TRUNCATE public.statistical_unit_facet;
