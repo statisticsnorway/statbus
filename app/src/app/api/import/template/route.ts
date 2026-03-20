@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
         .eq("id", Number(definitionId))
         .single(),
       client
-        .from("import_source_column")
+        .from("import_source_column_type")
         .select("column_name, priority, target_pg_type")
         .eq("definition_id", Number(definitionId))
         .order("priority"),
@@ -97,14 +97,21 @@ export async function GET(request: NextRequest) {
     }
 
     const definition = defResult.data;
-    const sourceColumns = colResult.data;
+    // Type assertion: PostgreSQL views always report columns as nullable in
+    // information_schema.columns and pg_attribute, even when the underlying base
+    // table columns are NOT NULL and the view uses COALESCE. There is no
+    // pg_depend or view_column_usage metadata that maps view output columns to
+    // base column NOT NULL constraints — the only way would be parsing the
+    // internal query tree from pg_rewrite, which is impractical. So our type
+    // generator correctly mirrors what PostgreSQL reports, and we assert here.
+    const sourceColumns = colResult.data as { column_name: string; priority: number; target_pg_type: string }[];
     // settingsResult.error is non-fatal: if settings aren't configured,
     // code lists will show all region versions instead of filtering.
     const regionVersionId = settingsResult.data?.region_version_id;
 
     // Build column type map from source columns
     const typeMap = new Map<string, string>(
-      sourceColumns.map(c => [c.column_name, c.target_pg_type ?? 'TEXT'])
+      sourceColumns.map(c => [c.column_name, c.target_pg_type])
     );
 
     // Determine which reference sheets are needed (deduplicated by sheetName)

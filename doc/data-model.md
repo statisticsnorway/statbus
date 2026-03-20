@@ -213,9 +213,9 @@ Handles the ingestion of data from external files.
 - `import_step(id, code, name, created_at, updated_at, priority, analyse_procedure, process_procedure, is_holistic)` — **transient**
 - `import_definition_step(definition_id, step_id)` — **transient**
   - Key FKs: definition_id, step_id.
-- `import_source_column(id, column_name, target_pg_type, definition_id, created_at, updated_at, priority)` — **transient**
+- `import_source_column(id, column_name, definition_id, created_at, updated_at, priority)` — **transient**
   - Key FKs: definition_id.
-- `import_data_column(id, column_name, column_type, default_value, is_uniquely_identifying, step_id, created_at, updated_at, priority, purpose, is_nullable)` — **transient**
+- `import_data_column(id, column_name, column_type, default_value, is_uniquely_identifying, target_pg_type, step_id, created_at, updated_at, priority, purpose, is_nullable)` — **transient**
   - Key FKs: step_id.
   - Enums: `purpose` (`public.import_data_column_purpose`).
 - `import_mapping(id, source_value, definition_id, source_column_id, target_data_column_id, created_at, updated_at, source_expression, is_ignored, target_data_column_purpose)` — **transient**

@@ -1,11 +1,13 @@
 BEGIN;
 
--- Restore the function
+-- 1. Drop the view
+DROP VIEW IF EXISTS public.import_source_column_type;
+
+-- 2. Restore the original function
 CREATE OR REPLACE FUNCTION public.import_definition_source_column_types(p_definition_id integer)
- RETURNS TABLE(column_name text, column_type text)
- LANGUAGE sql
- STABLE
- SET search_path TO 'public', 'pg_temp'
+RETURNS TABLE(column_name text, column_type text)
+LANGUAGE sql STABLE SECURITY INVOKER
+SET search_path = public, pg_temp
 AS $import_definition_source_column_types$
   SELECT isc.column_name, COALESCE(idc_int.column_type, 'TEXT') AS column_type
   FROM import_source_column AS isc
@@ -19,78 +21,213 @@ AS $import_definition_source_column_types$
   ORDER BY isc.priority;
 $import_definition_source_column_types$;
 
--- Restore original sync procedure (without target_pg_type)
-CREATE OR REPLACE PROCEDURE import.synchronize_definition_step_mappings(IN p_definition_id integer, IN p_step_code text)
- LANGUAGE plpgsql
-AS $synchronize_definition_step_mappings$
+-- 3a. Restore original generate_external_ident_data_columns (without target_pg_type)
+CREATE OR REPLACE PROCEDURE import.generate_external_ident_data_columns()
+LANGUAGE plpgsql AS $generate_external_ident_data_columns$
 DECLARE
-    v_data_col RECORD;
-    v_source_col_id INT;
-    v_max_priority INT;
-    v_def public.import_definition;
+    v_step_id INT;
+    v_ident_type RECORD;
+    v_base_priority INT;
+    v_active_codes TEXT[];
+    v_calculated_priority INT;
+    v_slot_base INT;
+    v_label TEXT;
+    v_label_index INT;
+    v_num_labels INT;
+    v_labels_array TEXT[];
 BEGIN
-    SELECT * INTO v_def FROM public.import_definition WHERE id = p_definition_id;
-    -- Only synchronize enabled, system-provided (custom=FALSE) definitions
-    IF NOT (v_def.enabled AND v_def.custom = FALSE) THEN
-        RAISE DEBUG '[Sync Mappings Def ID %] Skipping sync for step %, definition is inactive or user-customized (custom=TRUE).', p_definition_id, p_step_code;
+    SELECT id INTO v_step_id FROM public.import_step WHERE code = 'external_idents';
+    IF v_step_id IS NULL THEN
+        RAISE EXCEPTION 'external_idents step not found, cannot generate data columns.';
         RETURN;
     END IF;
 
-    RAISE DEBUG '[Sync Mappings Def ID %] Synchronizing mappings for step % (Definition: enabled=%, custom=%).', p_definition_id, p_step_code, v_def.enabled, v_def.custom;
+    SELECT array_agg(code ORDER BY priority) INTO v_active_codes FROM public.external_ident_type_enabled;
+    RAISE DEBUG '[import.generate_external_ident_data_columns] For step_id % (external_idents), ensuring data columns for active codes: %', v_step_id, v_active_codes;
 
-    -- Get the current max priority for this definition once, before the loop
-    SELECT COALESCE(MAX(priority), 0) INTO v_max_priority
-    FROM public.import_source_column WHERE definition_id = p_definition_id;
+    SELECT COALESCE(MAX(idc.priority), 0) INTO v_base_priority
+    FROM public.import_data_column idc
+    WHERE idc.step_id = v_step_id
+      AND idc.purpose NOT IN ('source_input', 'internal');
 
-    FOR v_data_col IN
-        SELECT
-            dc.id AS data_column_id,
-            dc.column_name AS data_column_name,
-            dc.priority AS data_column_priority,
-            regexp_replace(dc.column_name, '_raw$', '') AS source_column_name
-        FROM public.import_data_column dc
-        JOIN public.import_step s ON dc.step_id = s.id
-        JOIN public.import_definition_step ids ON ids.step_id = s.id
-        WHERE ids.definition_id = p_definition_id
-          AND s.code = p_step_code
-          AND dc.purpose = 'source_input'
-        ORDER BY dc.priority
+    FOR v_ident_type IN
+        SELECT code, priority, shape, labels
+        FROM public.external_ident_type_enabled
+        ORDER BY priority
     LOOP
-        -- Ensure import_source_column exists
-        SELECT id INTO v_source_col_id
-        FROM public.import_source_column
-        WHERE definition_id = p_definition_id AND column_name = v_data_col.source_column_name;
+        IF v_ident_type.shape = 'regular' THEN
+            v_calculated_priority := v_base_priority + 2 + v_ident_type.priority;
 
-        IF NOT FOUND THEN
-            -- Use sequential priority assignment to avoid conflicts
-            -- Increment max priority and assign to new source column
-            v_max_priority := v_max_priority + 1;
+            INSERT INTO public.import_data_column (step_id, column_name, column_type, purpose, is_nullable, is_uniquely_identifying, priority)
+            VALUES (v_step_id, v_ident_type.code || '_raw', 'TEXT', 'source_input', true, true, v_calculated_priority)
+            ON CONFLICT (step_id, column_name) DO UPDATE SET
+                priority = EXCLUDED.priority,
+                is_uniquely_identifying = EXCLUDED.is_uniquely_identifying,
+                column_type = EXCLUDED.column_type,
+                purpose = EXCLUDED.purpose
+            WHERE public.import_data_column.priority != EXCLUDED.priority
+               OR public.import_data_column.column_type != EXCLUDED.column_type
+               OR public.import_data_column.purpose != EXCLUDED.purpose;
 
-            INSERT INTO public.import_source_column (definition_id, column_name, priority)
-            VALUES (p_definition_id, v_data_col.source_column_name, v_max_priority)
-            RETURNING id INTO v_source_col_id;
-            RAISE DEBUG '[Sync Mappings Def ID %] Created source column "%" (ID: %) with priority % for data column ID %.', p_definition_id, v_data_col.source_column_name, v_source_col_id, v_max_priority, v_data_col.data_column_id;
-        ELSE
-            -- Column already exists, preserve it
-            RAISE DEBUG '[Sync Mappings Def ID %] Source column "%" already exists (ID: %), preserving it.', p_definition_id, v_data_col.source_column_name, v_source_col_id;
+            RAISE DEBUG '[import.generate_external_ident_data_columns] Regular type "%": created/updated column "%_raw" with priority %',
+                v_ident_type.code, v_ident_type.code, v_calculated_priority;
+
+        ELSIF v_ident_type.shape = 'hierarchical' THEN
+            v_labels_array := string_to_array(ltree2text(v_ident_type.labels), '.');
+            v_num_labels := array_length(v_labels_array, 1);
+
+            IF v_num_labels IS NULL OR v_num_labels = 0 THEN
+                RAISE WARNING '[import.generate_external_ident_data_columns] Hierarchical type "%" has no labels, skipping', v_ident_type.code;
+                CONTINUE;
+            END IF;
+
+            v_slot_base := v_base_priority + 2 + v_ident_type.priority * 11;
+
+            v_label_index := 0;
+            FOREACH v_label IN ARRAY v_labels_array
+            LOOP
+                v_calculated_priority := v_slot_base + v_label_index;
+
+                INSERT INTO public.import_data_column (step_id, column_name, column_type, purpose, is_nullable, is_uniquely_identifying, priority)
+                VALUES (v_step_id, v_ident_type.code || '_' || v_label || '_raw', 'TEXT', 'source_input', true, true, v_calculated_priority)
+                ON CONFLICT (step_id, column_name) DO UPDATE SET
+                    priority = EXCLUDED.priority,
+                    is_uniquely_identifying = EXCLUDED.is_uniquely_identifying,
+                    column_type = EXCLUDED.column_type,
+                    purpose = EXCLUDED.purpose
+                WHERE public.import_data_column.priority != EXCLUDED.priority
+                   OR public.import_data_column.column_type != EXCLUDED.column_type
+                   OR public.import_data_column.purpose != EXCLUDED.purpose;
+
+                RAISE DEBUG '[import.generate_external_ident_data_columns] Hierarchical type "%": created/updated column "%_%_raw" with priority %',
+                    v_ident_type.code, v_ident_type.code, v_label, v_calculated_priority;
+
+                v_label_index := v_label_index + 1;
+            END LOOP;
+
+            v_calculated_priority := v_slot_base + v_num_labels;
+
+            INSERT INTO public.import_data_column (step_id, column_name, column_type, purpose, is_nullable, is_uniquely_identifying, priority)
+            VALUES (v_step_id, v_ident_type.code || '_path', 'LTREE', 'internal', true, false, v_calculated_priority)
+            ON CONFLICT (step_id, column_name) DO UPDATE SET
+                priority = EXCLUDED.priority,
+                is_uniquely_identifying = EXCLUDED.is_uniquely_identifying,
+                column_type = EXCLUDED.column_type,
+                purpose = EXCLUDED.purpose
+            WHERE public.import_data_column.priority != EXCLUDED.priority
+               OR public.import_data_column.column_type != EXCLUDED.column_type
+               OR public.import_data_column.purpose != EXCLUDED.purpose;
+
+            RAISE DEBUG '[import.generate_external_ident_data_columns] Hierarchical type "%": created/updated path column "%_path" with priority %',
+                v_ident_type.code, v_ident_type.code, v_calculated_priority;
         END IF;
+    END LOOP;
+END;
+$generate_external_ident_data_columns$;
 
-        -- Ensure import_mapping exists. If newly created by this sync, it should be a valid, non-ignored mapping.
-        INSERT INTO public.import_mapping (definition_id, source_column_id, target_data_column_id, target_data_column_purpose, is_ignored)
-        VALUES (p_definition_id, v_source_col_id, v_data_col.data_column_id, 'source_input'::public.import_data_column_purpose, FALSE)
-        ON CONFLICT (definition_id, source_column_id, target_data_column_id) DO NOTHING;
+-- 3b. Restore original generate_link_lu_data_columns (without target_pg_type)
+CREATE OR REPLACE PROCEDURE import.generate_link_lu_data_columns()
+LANGUAGE plpgsql AS $generate_link_lu_data_columns$
+DECLARE
+    v_step_id INT;
+    v_ident_type RECORD;
+    v_def RECORD;
+    v_current_priority INT;
+    v_active_codes TEXT[];
+BEGIN
+    SELECT id INTO v_step_id FROM public.import_step WHERE code = 'link_establishment_to_legal_unit';
+    IF v_step_id IS NULL THEN
+        RAISE EXCEPTION 'link_establishment_to_legal_unit step not found, cannot generate data columns.';
+        RETURN;
+    END IF;
 
-        RAISE DEBUG '[Sync Mappings Def ID %] Ensured mapping (is_ignored=FALSE if new) for source col ID % to data col ID %.', p_definition_id, v_source_col_id, v_data_col.data_column_id;
+    SELECT array_agg(code ORDER BY priority) INTO v_active_codes FROM public.external_ident_type_enabled;
+    RAISE DEBUG '[import.generate_link_lu_data_columns] For step_id % (link_establishment_to_legal_unit), ensuring data columns for active codes: %', v_step_id, v_active_codes;
 
+    SELECT COALESCE(MAX(idc.priority), 0) INTO v_current_priority
+    FROM public.import_data_column idc WHERE idc.step_id = v_step_id;
+
+    FOR v_ident_type IN SELECT code FROM public.external_ident_type_enabled ORDER BY priority
+    LOOP
+        v_current_priority := v_current_priority + 1;
+        INSERT INTO public.import_data_column (step_id, column_name, column_type, purpose, is_nullable, is_uniquely_identifying, priority)
+        VALUES (v_step_id, 'legal_unit_' || v_ident_type.code || '_raw', 'TEXT', 'source_input', true, false, v_current_priority)
+        ON CONFLICT (step_id, column_name) DO UPDATE SET
+            priority = EXCLUDED.priority,
+            is_uniquely_identifying = EXCLUDED.is_uniquely_identifying;
+    END LOOP;
+END;
+$generate_link_lu_data_columns$;
+
+-- 3c. Restore original generate_stat_var_data_columns (without target_pg_type)
+CREATE OR REPLACE PROCEDURE import.generate_stat_var_data_columns()
+LANGUAGE plpgsql AS $generate_stat_var_data_columns$
+DECLARE
+    v_step_id INT;
+    v_stat_def RECORD;
+    v_def RECORD;
+    v_pk_col_name TEXT;
+    v_stat_def_code TEXT;
+    v_calculated_priority INT;
+    v_active_codes TEXT[];
+BEGIN
+    SELECT id INTO v_step_id FROM public.import_step WHERE code = 'statistical_variables';
+    IF v_step_id IS NULL THEN
+        RAISE EXCEPTION 'statistical_variables step not found, cannot generate data columns.';
+        RETURN;
+    END IF;
+
+    SELECT array_agg(code ORDER BY priority) INTO v_active_codes FROM public.stat_definition_enabled;
+    RAISE DEBUG '[import.generate_stat_var_data_columns] For step_id % (statistical_variables), ensuring data columns for active codes: %', v_step_id, v_active_codes;
+
+    FOR v_stat_def IN SELECT code, priority FROM public.stat_definition_enabled ORDER BY priority
+    LOOP
+        v_calculated_priority := (v_stat_def.priority - 1) * 3 + 1;
+
+        INSERT INTO public.import_data_column (step_id, column_name, column_type, purpose, is_nullable, is_uniquely_identifying, priority)
+        VALUES (v_step_id, v_stat_def.code || '_raw', 'TEXT', 'source_input', true, false, v_calculated_priority)
+        ON CONFLICT (step_id, column_name) DO UPDATE SET
+            priority = EXCLUDED.priority,
+            is_uniquely_identifying = EXCLUDED.is_uniquely_identifying
+        WHERE public.import_data_column.priority != EXCLUDED.priority;
     END LOOP;
 
-    -- Re-validate the definition after potential changes
-    PERFORM admin.validate_import_definition(p_definition_id);
-    RAISE DEBUG '[Sync Mappings Def ID %] Finished synchronizing mappings for step % and re-validated.', p_definition_id, p_step_code;
-END;
-$synchronize_definition_step_mappings$;
+    FOR v_stat_def IN SELECT code, type, priority FROM public.stat_definition_enabled ORDER BY priority
+    LOOP
+        v_calculated_priority := (v_stat_def.priority - 1) * 3 + 2;
 
--- Drop the column
-ALTER TABLE public.import_source_column DROP COLUMN target_pg_type;
+        INSERT INTO public.import_data_column (step_id, column_name, column_type, purpose, is_nullable, is_uniquely_identifying, priority)
+        VALUES (v_step_id, v_stat_def.code,
+                CASE v_stat_def.type
+                    WHEN 'int' THEN 'INTEGER'
+                    WHEN 'float' THEN 'NUMERIC'
+                    WHEN 'bool' THEN 'BOOLEAN'
+                    ELSE 'TEXT'
+                END,
+                'internal', true, false, v_calculated_priority)
+        ON CONFLICT (step_id, column_name) DO UPDATE SET
+            priority = EXCLUDED.priority,
+            column_type = EXCLUDED.column_type,
+            is_uniquely_identifying = EXCLUDED.is_uniquely_identifying
+        WHERE public.import_data_column.priority != EXCLUDED.priority;
+    END LOOP;
+
+    FOR v_stat_def IN SELECT code, priority FROM public.stat_definition_enabled ORDER BY priority
+    LOOP
+        v_calculated_priority := (v_stat_def.priority - 1) * 3 + 3;
+        v_pk_col_name := format('stat_for_unit_%s_id', v_stat_def.code);
+
+        INSERT INTO public.import_data_column (step_id, column_name, column_type, purpose, is_nullable, is_uniquely_identifying, priority)
+        VALUES (v_step_id, v_pk_col_name, 'INTEGER', 'pk_id', true, false, v_calculated_priority)
+        ON CONFLICT (step_id, column_name) DO UPDATE SET
+            priority = EXCLUDED.priority,
+            is_uniquely_identifying = EXCLUDED.is_uniquely_identifying
+        WHERE public.import_data_column.priority != EXCLUDED.priority;
+    END LOOP;
+END;
+$generate_stat_var_data_columns$;
+
+-- 4. Drop the column
+ALTER TABLE public.import_data_column DROP COLUMN target_pg_type;
 
 END;
