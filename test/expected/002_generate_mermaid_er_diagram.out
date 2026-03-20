@@ -351,6 +351,7 @@ erDiagram
 		integer priority
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
+		text target_pg_type
 	}
 	import_step["import_step"] {
 		integer id
