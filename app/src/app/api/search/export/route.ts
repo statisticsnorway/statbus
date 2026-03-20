@@ -78,6 +78,7 @@ export async function GET(request: NextRequest) {
 
 
   const format = searchParams.get("format") || "csv";
+  searchParams.delete("format");
   if (!["csv", "xlsx"].includes(format)) {
     return NextResponse.json({ message: "format must be 'csv' or 'xlsx'" }, { status: 400 });
   }
