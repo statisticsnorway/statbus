@@ -201,26 +201,8 @@ export async function GET(request: NextRequest) {
       col.numFmt = typeToNumFmt(colType);
     }
 
-    // Apply data validation to code columns (rows 2-1001)
-    for (let colIdx = 0; colIdx < sourceColumns.length; colIdx++) {
-      const ref = COLUMN_REFERENCE_MAP[sourceColumns[colIdx].column_name];
-      if (!ref || !rangeMap.has(ref.rangeName)) continue;
-
-      const colNumber = colIdx + 1;
-      for (let rowIdx = 2; rowIdx <= 1001; rowIdx++) {
-        dataSheet.getCell(rowIdx, colNumber).dataValidation = {
-          type: 'list',
-          allowBlank: true,
-          formulae: [ref.rangeName],
-          showErrorMessage: true,
-          errorStyle: 'warning' as any,
-          errorTitle: 'Unknown code',
-          error: `See the "${ref.sheetName}" sheet for valid codes.`,
-        };
-      }
-    }
-
-    // Populate demo data if demoFile parameter is provided
+    // Populate demo data BEFORE data validation. ExcelJS data validation
+    // creates phantom cells; addRow after that overwrites them with empties.
     const demoFile = searchParams.get("demoFile");
     if (demoFile) {
       if (!/^[a-z0-9_]+\.csv$/.test(demoFile)) {
@@ -251,6 +233,27 @@ export async function GET(request: NextRequest) {
           }
         }
       }
+    }
+
+    // Apply data validation to code columns for the entire column (row 2 onwards).
+    // Uses range-based validation via the ExcelJS model to avoid creating individual
+    // cells — a single rule covers all rows regardless of dataset size.
+    for (let colIdx = 0; colIdx < sourceColumns.length; colIdx++) {
+      const ref = COLUMN_REFERENCE_MAP[sourceColumns[colIdx].column_name];
+      if (!ref || !rangeMap.has(ref.rangeName)) continue;
+
+      const colLetter = String.fromCharCode(65 + colIdx % 26);
+      const colPrefix = colIdx >= 26 ? String.fromCharCode(64 + Math.floor(colIdx / 26)) + colLetter : colLetter;
+      const range = `${colPrefix}2:${colPrefix}1048576`;
+      dataSheet.dataValidations.model[range] = {
+        type: 'list',
+        allowBlank: true,
+        formulae: [ref.rangeName],
+        showErrorMessage: true,
+        errorStyle: 'warning',
+        errorTitle: 'Unknown code',
+        error: `See the "${ref.sheetName}" sheet for valid codes.`,
+      };
     }
 
     // Stream response
