@@ -616,7 +616,6 @@ erDiagram
 		integer activity_category_standard_id
 		integer country_id
 		boolean only_one_setting
-		integer analytics_partition_count
 		integer region_version_id
 		boolean required_to_be_enabled
 	}

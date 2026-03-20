@@ -3324,7 +3324,6 @@ export type Database = {
       settings: {
         Row: {
           activity_category_standard_id: number
-          analytics_partition_count: number
           country_id: number
           id: number
           only_one_setting: boolean | null
@@ -3333,7 +3332,6 @@ export type Database = {
         },
         Insert: {
           activity_category_standard_id: number
-          analytics_partition_count?: number
           country_id: number
           id?: never
           only_one_setting?: boolean | null
@@ -3342,7 +3340,6 @@ export type Database = {
         },
         Update: {
           activity_category_standard_id?: number
-          analytics_partition_count?: number
           country_id?: number
           id?: never
           only_one_setting?: boolean | null
@@ -14863,7 +14860,6 @@ export type Database = {
         Args: {
           p_unit_type?: string
           p_unit_id?: number
-          p_num_partitions?: number
         }
         Returns: number
       }
@@ -14871,7 +14867,6 @@ export type Database = {
         Args: {
           p_unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
           p_unit_id?: number
-          p_num_partitions?: number
         }
         Returns: number
       },
@@ -15013,6 +15008,16 @@ export type Database = {
           p_year?: number
           p_month?: number
           p_partition_seq?: number
+        }
+        Returns: Database["public"]["CompositeTypes"]["statistical_history_type"][]
+      }
+        | {
+        Args: {
+          p_resolution?: Database["public"]["Enums"]["history_resolution"]
+          p_year?: number
+          p_month?: number
+          p_partition_seq_from?: number
+          p_partition_seq_to?: number
         }
         Returns: Database["public"]["CompositeTypes"]["statistical_history_type"][]
       },

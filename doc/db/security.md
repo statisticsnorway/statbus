@@ -317,18 +317,12 @@ Write to RLS-protected tables, DDL, worker orchestration.
 - `worker.derive_statistical_unit_facet`
 - `worker.derive_statistical_unit_facet_partition`
 - `worker.derive_units_phase`
+- `worker.notify_task_changed`
 - `worker.statistical_history_facet_reduce`
 - `worker.statistical_history_reduce`
 - `worker.statistical_unit_facet_reduce`
 - `worker.statistical_unit_flush_staging`
 - `worker.statistical_unit_refresh_batch`
-
-### Settings/Partition Management
-
-Write to RLS-protected tables on settings change.
-
-- `admin.adjust_analytics_partition_count`
-- `admin.propagate_partition_count_change`
 
 ### Derived Table Refresh
 

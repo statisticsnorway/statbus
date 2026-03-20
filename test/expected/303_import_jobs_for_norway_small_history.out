@@ -5141,7 +5141,7 @@ Check the state of all tasks after running analytics.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |  1192
+ analytics | completed |  1487
  import    | completed |   384
 (2 rows)
 
@@ -5153,7 +5153,7 @@ Check the state of all tasks after running analytics.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |  1192
+ analytics | completed |  1487
  import    | completed |   384
 (2 rows)
 
