@@ -4,6 +4,7 @@ import { PassThrough } from 'stream';
 import ExcelJS from 'exceljs';
 import fs from 'fs';
 import path from 'path';
+import Papa from 'papaparse';
 
 function typeToNumFmt(colType: string): string {
   if (colType === 'DATE') return 'yyyy-mm-dd';
@@ -219,22 +220,21 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ message: `Demo file not found: ${demoFile}` }, { status: 404 });
       }
       const csvContent = fs.readFileSync(demoPath, 'utf-8');
-      const csvLines = csvContent.split('\n').filter(line => line.trim() !== '');
-      if (csvLines.length > 1) {
-        const csvHeaders = csvLines[0].split(',').map(h => h.trim());
-        // Map CSV column indices to Data sheet column indices
-        const csvToSheetMap: Array<{ csvIdx: number; sheetCol: number }> = [];
-        for (let ci = 0; ci < csvHeaders.length; ci++) {
-          const sheetIdx = headers.indexOf(csvHeaders[ci]);
+      const parsed = Papa.parse<Record<string, string>>(csvContent, { header: true, skipEmptyLines: true });
+      const csvHeaders = parsed.meta.fields ?? [];
+      if (csvHeaders.length > 0 && parsed.data.length > 0) {
+        // Map CSV column names to Data sheet column indices
+        const csvToSheetMap: Array<{ csvField: string; sheetCol: number }> = [];
+        for (const field of csvHeaders) {
+          const sheetIdx = headers.indexOf(field);
           if (sheetIdx !== -1) {
-            csvToSheetMap.push({ csvIdx: ci, sheetCol: sheetIdx + 1 });
+            csvToSheetMap.push({ csvField: field, sheetCol: sheetIdx + 1 });
           }
         }
-        for (let ri = 1; ri < csvLines.length; ri++) {
-          const fields = csvLines[ri].split(',').map(f => f.trim());
+        for (const record of parsed.data) {
           const row = dataSheet.addRow(new Array(headers.length).fill(''));
-          for (const { csvIdx, sheetCol } of csvToSheetMap) {
-            const rawValue = fields[csvIdx] ?? '';
+          for (const { csvField, sheetCol } of csvToSheetMap) {
+            const rawValue = record[csvField] ?? '';
             const colType = typeMap.get(headers[sheetCol - 1]) ?? 'TEXT';
             row.getCell(sheetCol).value = parseValueForExcel(rawValue, colType);
           }
