@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerRestClient } from "@/context/RestClientStore";
-import { Pool, Client as PgClient } from 'pg'; // Import Client as PgClient to avoid name clash
+import { Pool } from 'pg';
 import { from as copyFrom } from 'pg-copy-streams';
 import { Readable } from 'stream';
 import ExcelJS from 'exceljs';
@@ -126,7 +126,6 @@ export async function POST(request: NextRequest) {
     
     // Connect directly to PostgreSQL for efficient COPY using authenticator role
     const dbConfig = getDbConfig();
-    console.debug("dbConfig", dbConfig);
     const pool = new Pool(dbConfig);
     const pgClient = await pool.connect();
 
