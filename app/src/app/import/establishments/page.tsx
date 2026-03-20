@@ -13,14 +13,10 @@ import { useImportManager, usePendingJobsByMode } from "@/atoms/import";
 import { TimeContextSelector } from "../components/time-context-selector";
 import { ImportJobCreator } from "../components/import-job-creator";
 import { Spinner } from "@/components/ui/spinner";
-import { Button } from "@/components/ui/button";
 import { getBrowserRestClient } from "@/context/RestClientStore";
-import { Tables } from "@/lib/database.types";
-import { useRouter } from "next/navigation";
 import { PendingJobsList } from "../components/pending-jobs-list";
 
 export default function UploadEstablishmentsPage() {
-  const router = useRouter();
   const { counts: { establishmentsWithLegalUnit }, importState } = useImportManager();
   const { selectedDefinition, availableDefinitions } = importState;
   const jobProvidedDef = availableDefinitions.find(d => d.valid_time_from === 'job_provided');

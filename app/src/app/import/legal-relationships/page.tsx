@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
-import { useRouter } from "next/navigation";
 import { useImportManager, usePendingJobsByMode } from "@/atoms/import";
 import { ImportJobCreator } from "../components/import-job-creator";
 import { TimeContextSelector } from "../components/time-context-selector";
@@ -18,7 +17,6 @@ import { InfoBox } from "@/components/info-box";
 import { PendingJobsList } from "../components/pending-jobs-list";
 
 export default function LegalRelationshipsPage() {
-  const router = useRouter();
   const { counts, importState } = useImportManager();
   const { selectedDefinition, availableDefinitions } = importState;
   const jobProvidedDef = availableDefinitions.find(d => d.valid_time_from === 'job_provided');
