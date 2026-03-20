@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
 
       // --- Detect file type and prepare CSV data ---
       const fileName = file.name.toLowerCase();
-      const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+      const isExcel = fileName.endsWith('.xlsx');
 
       let csvBuffer: Buffer | null = null;
       if (isExcel) {

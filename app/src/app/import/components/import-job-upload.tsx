@@ -180,7 +180,7 @@ export function ImportJobUpload({
                 <input
                   type="file"
                   id="file-upload"
-                  accept=".csv,.xlsx,.xls"
+                  accept=".csv,.xlsx"
                   onChange={handleFileChange}
                   className="hidden"
                   disabled={isUploading}
