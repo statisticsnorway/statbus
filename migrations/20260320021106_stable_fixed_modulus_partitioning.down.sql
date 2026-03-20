@@ -261,7 +261,9 @@ BEGIN
 END;
 $derive_statistical_unit$;
 
--- Restore statistical_history_def with single partition_seq parameter
+-- Drop the 5-arg range overload, restore the original 4-arg single partition_seq version
+DROP FUNCTION IF EXISTS public.statistical_history_def(public.history_resolution, integer, integer, integer, integer);
+
 CREATE OR REPLACE FUNCTION public.statistical_history_def(
     p_resolution history_resolution,
     p_year integer,

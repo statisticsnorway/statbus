@@ -954,6 +954,11 @@ $derive_statistical_history_facet_period$;
 -- Phase 8: Update def functions to accept range
 ------------------------------------------------------------
 
+-- Drop the old 4-arg overload: (resolution, year, month, partition_seq).
+-- It is replaced by the 5-arg version with (partition_seq_from, partition_seq_to).
+-- Callers now use either 3 args (full refresh) or 5 args (range).
+DROP FUNCTION IF EXISTS public.statistical_history_def(public.history_resolution, integer, integer, integer);
+
 -- statistical_history_def: accept range via partition_seq_from/to
 -- Backward compat: calling with single value works (from=to)
 -- Calling with NULLs processes all partitions (full refresh)
@@ -1073,7 +1078,9 @@ BEGIN
         d.sector_change_count, d.legal_form_change_count, d.physical_region_change_count,
         d.physical_country_change_count, d.physical_address_change_count,
         COALESCE(sbut.stats_summary, '{}'::jsonb) AS stats_summary,
-        p_partition_seq_from  -- Pass through the partition_seq (first in range, for the partition_seq column)
+        -- partition_seq stores the range start. DELETE uses BETWEEN so range boundaries
+        -- are self-consistent: the same range that INSERTs data also DELETEs it.
+        p_partition_seq_from AS partition_seq
     FROM demographics d
     LEFT JOIN stats_by_unit_type sbut ON sbut.unit_type = d.unit_type;
 END;

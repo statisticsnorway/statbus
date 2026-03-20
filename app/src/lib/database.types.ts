@@ -15007,15 +15007,6 @@ export type Database = {
           p_resolution?: Database["public"]["Enums"]["history_resolution"]
           p_year?: number
           p_month?: number
-          p_partition_seq?: number
-        }
-        Returns: Database["public"]["CompositeTypes"]["statistical_history_type"][]
-      }
-        | {
-        Args: {
-          p_resolution?: Database["public"]["Enums"]["history_resolution"]
-          p_year?: number
-          p_month?: number
           p_partition_seq_from?: number
           p_partition_seq_to?: number
         }
