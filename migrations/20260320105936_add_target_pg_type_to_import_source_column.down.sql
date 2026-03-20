@@ -22,7 +22,7 @@ $import_definition_source_column_types$;
 -- Restore original sync procedure (without target_pg_type)
 CREATE OR REPLACE PROCEDURE import.synchronize_definition_step_mappings(IN p_definition_id integer, IN p_step_code text)
  LANGUAGE plpgsql
-AS $procedure$
+AS $synchronize_definition_step_mappings$
 DECLARE
     v_data_col RECORD;
     v_source_col_id INT;
@@ -88,7 +88,7 @@ BEGIN
     PERFORM admin.validate_import_definition(p_definition_id);
     RAISE DEBUG '[Sync Mappings Def ID %] Finished synchronizing mappings for step % and re-validated.', p_definition_id, p_step_code;
 END;
-$procedure$;
+$synchronize_definition_step_mappings$;
 
 -- Drop the column
 ALTER TABLE public.import_source_column DROP COLUMN target_pg_type;

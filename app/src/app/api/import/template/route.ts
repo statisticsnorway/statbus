@@ -61,6 +61,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ message: "Missing or invalid definitionId parameter" }, { status: 400 });
     }
 
+    // Auth is enforced via RLS: getServerRestClient() passes the JWT cookie,
+    // and import_source_column is only readable by authenticated/admin_user roles.
     const client = await getServerRestClient();
 
     // Fetch definition, source columns, and settings in parallel
@@ -96,6 +98,8 @@ export async function GET(request: NextRequest) {
 
     const definition = defResult.data;
     const sourceColumns = colResult.data;
+    // settingsResult.error is non-fatal: if settings aren't configured,
+    // code lists will show all region versions instead of filtering.
     const regionVersionId = settingsResult.data?.region_version_id;
 
     // Build column type map from source columns

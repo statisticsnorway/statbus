@@ -7,7 +7,7 @@ BEGIN;
 CREATE OR REPLACE FUNCTION admin.import_job_prepare(job import_job)
  RETURNS void
  LANGUAGE plpgsql
-AS $function$
+AS $import_job_prepare$
 DECLARE
     insert_stmt TEXT;
     insert_columns_list TEXT[] := ARRAY[]::TEXT[];
@@ -123,6 +123,6 @@ BEGIN
                    job.data_table_name, 'pending', 'error');
 
 END;
-$function$;
+$import_job_prepare$;
 
 END;
