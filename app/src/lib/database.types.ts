@@ -1513,6 +1513,7 @@ export type Database = {
           definition_id: number
           id: number
           priority: number
+          target_pg_type: string
           updated_at: string
         },
         Insert: {
@@ -1521,6 +1522,7 @@ export type Database = {
           definition_id: number
           id?: never
           priority: number
+          target_pg_type: string
           updated_at?: string
         },
         Update: {
@@ -1529,6 +1531,7 @@ export type Database = {
           definition_id?: number
           id?: never
           priority?: number
+          target_pg_type?: string
           updated_at?: string
         },
         Relationships: [
