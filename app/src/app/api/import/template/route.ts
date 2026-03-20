@@ -152,20 +152,20 @@ export async function GET(request: NextRequest) {
       if (data.length === 0) continue;
 
       const ws = workbook.addWorksheet(sheetName);
-      ws.addRow(['Code', 'Name', 'Code # Name']);
+      ws.addRow(['Code', 'Name', 'Code | Name']);
       ws.getRow(1).font = { bold: true };
 
       for (const row of data) {
         const code = row[ref.codeColumn];
         const name = row[ref.nameColumn];
-        ws.addRow([code, name, `${code} # ${name}`]);
+        ws.addRow([code, name, `${code} | ${name}`]);
       }
 
       ws.getColumn(1).width = 15;
       ws.getColumn(2).width = 50;
       ws.getColumn(3).width = 65;
 
-      // Named range points to column C (combined "code # name") for dropdown display
+      // Named range points to column C (combined "code | name") for dropdown display
       const lastRow = data.length + 1;
       const safeSheetName = sheetName.includes(' ') ? `'${sheetName}'` : sheetName;
       workbook.definedNames.add(`${safeSheetName}!$C$2:$C$${lastRow}`, ref.rangeName);
