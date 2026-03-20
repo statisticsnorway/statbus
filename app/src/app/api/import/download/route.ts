@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
       : `WHERE invalid_codes IS NOT NULL AND invalid_codes != '{}'::jsonb`;
 
     const dataTable = job.data_table_name;
-    const selectBody = `SELECT row_id, ${errorColumn}, ${sourceColumns} FROM ${dataTable} ${whereClause} ORDER BY row_id`;
+    const selectBody = `SELECT row_id, ${errorColumn}, ${sourceColumns} FROM ${quoteIdent(dataTable)} ${whereClause} ORDER BY row_id`;
 
     // Connect to PG and switch to user's role
     const dbConfig = getDbConfig();
@@ -173,7 +173,7 @@ export async function GET(request: NextRequest) {
         cancel() { passThrough.destroy(); cleanup(); },
       });
 
-      workbook.xlsx.write(passThrough).then(() => passThrough.end());
+      workbook.xlsx.write(passThrough).then(() => passThrough.end()).catch((err) => passThrough.destroy(err));
 
       const filename = `${slug}-${filter}s.xlsx`;
       return new Response(webStream, {

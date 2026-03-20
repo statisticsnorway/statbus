@@ -78,6 +78,9 @@ export async function GET(request: NextRequest) {
 
 
   const format = searchParams.get("format") || "csv";
+  if (!["csv", "xlsx"].includes(format)) {
+    return NextResponse.json({ message: "format must be 'csv' or 'xlsx'" }, { status: 400 });
+  }
 
   try {
     const response = await getStatisticalUnits(client, searchParams);
@@ -85,16 +88,12 @@ export async function GET(request: NextRequest) {
 
     if (format === "xlsx") {
       const units = response.statisticalUnits;
-      if (units.length === 0) {
-        return new Response("", {
-          headers: {
-            "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            "Content-Disposition": `attachment; filename="${baseName}.xlsx"`,
-          },
-        });
-      }
-
-      const fields = Object.keys(units[0]);
+      const fields = units.length > 0
+        ? Object.keys(units[0])
+        : (searchParams.get("select") || "").split(",").map(s => {
+            const aliased = s.split(":");
+            return aliased[0].trim();
+          }).filter(Boolean);
       const dateFields = new Set(["birth_date", "death_date"]);
 
       const workbook = new ExcelJS.Workbook();
@@ -127,7 +126,7 @@ export async function GET(request: NextRequest) {
         cancel() { passThrough.destroy(); },
       });
 
-      workbook.xlsx.write(passThrough).then(() => passThrough.end());
+      workbook.xlsx.write(passThrough).then(() => passThrough.end()).catch((err) => passThrough.destroy(err));
 
       return new Response(webStream, {
         headers: {
