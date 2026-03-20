@@ -13,14 +13,10 @@ import { useImportManager, usePendingJobsByMode } from "@/atoms/import"; // Upda
 import { TimeContextSelector } from "../components/time-context-selector";
 import { ImportJobCreator } from "../components/import-job-creator";
 import { Spinner } from "@/components/ui/spinner";
-import { Button } from "@/components/ui/button";
 import { getBrowserRestClient } from "@/context/RestClientStore";
-import { Tables } from "@/lib/database.types";
-import { useRouter } from "next/navigation";
 import { PendingJobsList } from "../components/pending-jobs-list";
 
 export default function UploadEstablishmentsWithoutLegalUnitPage() {
-  const router = useRouter();
   const { counts: { establishmentsWithoutLegalUnit }, importState } = useImportManager();
   const { selectedDefinition, availableDefinitions } = importState;
   const jobProvidedDef = availableDefinitions.find(d => d.valid_time_from === 'job_provided');
@@ -119,13 +115,15 @@ export default function UploadEstablishmentsWithoutLegalUnitPage() {
           </InfoBox>
         )}
 
-      <PendingJobsList
-        jobs={pendingJobs}
-        onDeleteJob={handleDeleteJob}
-        unitTypeTitle="Establishments Without Legal Unit"
-        unitTypeDescription="establishment without legal unit"
-        uploadPathPrefix="/import/establishments-without-legal-unit/upload"
-      />
+      {!isLoading && pendingJobs.length > 0 && (
+        <PendingJobsList
+          jobs={pendingJobs}
+          onDeleteJob={handleDeleteJob}
+          unitTypeTitle="Establishments Without Legal Unit"
+          unitTypeDescription="establishment without legal unit"
+          uploadPathPrefix="/import/establishments-without-legal-unit/upload"
+        />
+      )}
 
       <TimeContextSelector unitType="establishments-without-legal-unit" />
       
