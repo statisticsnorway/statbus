@@ -1,6 +1,7 @@
 import { atom } from 'jotai';
 
 export interface ImportDownloadContext {
+  jobId: number;
   jobSlug: string;
   totalRows: number;
   errorCount: number;

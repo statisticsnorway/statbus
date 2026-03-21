@@ -15,7 +15,13 @@ import {
 } from "@tanstack/react-table";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, ThumbsUp, ThumbsDown } from "lucide-react";
+import { ChevronRight, ThumbsUp, ThumbsDown, Download } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useAtomValue, useSetAtom } from "jotai";
 import { externalIdentTypesAtom } from "@/atoms/base-data";
@@ -262,15 +268,16 @@ export default function ImportJobDataPage() {
 
   // Set download context atom for command palette; clear on unmount
   useGuardedEffect(() => {
-    if (!job?.slug) return;
+    if (!job?.id || !job?.slug) return;
     setImportDownloadContext({
+      jobId: job.id,
       jobSlug: job.slug,
       totalRows: job.total_rows ?? 0,
       errorCount: job.error_count ?? 0,
       warningCount: job.warning_count ?? 0,
     });
     return () => { setImportDownloadContext(null); };
-  }, [job?.slug, job?.total_rows, job?.error_count, job?.warning_count, setImportDownloadContext], 'ImportJobDataPage:downloadContext');
+  }, [job?.id, job?.slug, job?.total_rows, job?.error_count, job?.warning_count, setImportDownloadContext], 'ImportJobDataPage:downloadContext');
 
   const pageCount = React.useMemo(() => {
     return tableData?.count != null
@@ -752,6 +759,7 @@ export default function ImportJobDataPage() {
               ) : null;
             })()}
             {(job?.warning_count ?? 0) > 0 && (
+              <>
                 <Button
                   variant={isWarningFilterActive ? "default" : "outline"}
                   size="sm"
@@ -763,8 +771,25 @@ export default function ImportJobDataPage() {
                 >
                   <span className="font-mono">{formatNumber(job?.warning_count)}</span>&nbsp;warn
                 </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-8 px-2 text-amber-600 hover:bg-amber-50">
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem asChild>
+                      <a href={`/api/import/download?slug=${job?.slug}&filter=warning&format=csv`} download>Download CSV</a>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <a href={`/api/import/download?slug=${job?.slug}&filter=warning&format=xlsx`} download>Download Excel (.xlsx)</a>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
             )}
             {(job?.error_count ?? 0) > 0 && (
+              <>
                 <Button
                   variant={isErrorFilterActive ? "default" : "outline"}
                   size="sm"
@@ -776,6 +801,22 @@ export default function ImportJobDataPage() {
                 >
                   <span className="font-mono">{formatNumber(job?.error_count)}</span>&nbsp;err
                 </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-8 px-2 text-red-600 hover:bg-red-50">
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem asChild>
+                      <a href={`/api/import/download?slug=${job?.slug}&filter=error&format=csv`} download>Download CSV</a>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <a href={`/api/import/download?slug=${job?.slug}&filter=error&format=xlsx`} download>Download Excel (.xlsx)</a>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
             )}
           </DataTableToolbar>
         </DataTable>

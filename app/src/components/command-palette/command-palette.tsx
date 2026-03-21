@@ -125,7 +125,7 @@ export function CommandPalette() {
             const okCount = totalRows - errorCount - warningCount;
             return (
               <>
-                <CommandGroup heading="Import Job Downloads">
+                <CommandGroup heading={`Downloads for Job ${importDownloadContext.jobId}`}>
                   <CommandItem onSelect={() => handleDownload('full', 'csv')} value="download all full rows csv spreadsheet">
                     <Download className="mr-2 h-4 w-4" />
                     <span>Download all rows (CSV)</span>
