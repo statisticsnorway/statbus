@@ -137,36 +137,36 @@ export function CommandPalette() {
                   {okCount > 0 && (
                     <>
                       <CommandItem onSelect={() => handleDownload('ok', 'csv')} value="download ok good rows csv">
-                        <Download className="mr-2 h-4 w-4" />
-                        <span>Download OK rows (CSV)</span>
+                        <Download className="mr-2 h-4 w-4 text-green-600" />
+                        <span className="text-green-700">Download OK rows (CSV)</span>
                       </CommandItem>
                       <CommandItem onSelect={() => handleDownload('ok', 'xlsx')} value="download ok good rows excel xlsx">
-                        <Download className="mr-2 h-4 w-4" />
-                        <span>Download OK rows (Excel)</span>
+                        <Download className="mr-2 h-4 w-4 text-green-600" />
+                        <span className="text-green-700">Download OK rows (Excel)</span>
                       </CommandItem>
                     </>
                   )}
                   {warningCount > 0 && (
                     <>
                       <CommandItem onSelect={() => handleDownload('warning', 'csv')} value="download warnings invalid codes csv">
-                        <Download className="mr-2 h-4 w-4" />
-                        <span>Download warnings (CSV)</span>
+                        <Download className="mr-2 h-4 w-4 text-amber-500" />
+                        <span className="text-amber-600">Download warnings (CSV)</span>
                       </CommandItem>
                       <CommandItem onSelect={() => handleDownload('warning', 'xlsx')} value="download warnings invalid codes excel xlsx">
-                        <Download className="mr-2 h-4 w-4" />
-                        <span>Download warnings (Excel)</span>
+                        <Download className="mr-2 h-4 w-4 text-amber-500" />
+                        <span className="text-amber-600">Download warnings (Excel)</span>
                       </CommandItem>
                     </>
                   )}
                   {errorCount > 0 && (
                     <>
                       <CommandItem onSelect={() => handleDownload('error', 'csv')} value="download errors csv">
-                        <Download className="mr-2 h-4 w-4" />
-                        <span>Download errors (CSV)</span>
+                        <Download className="mr-2 h-4 w-4 text-red-600" />
+                        <span className="text-red-600">Download errors (CSV)</span>
                       </CommandItem>
                       <CommandItem onSelect={() => handleDownload('error', 'xlsx')} value="download errors excel xlsx">
-                        <Download className="mr-2 h-4 w-4" />
-                        <span>Download errors (Excel)</span>
+                        <Download className="mr-2 h-4 w-4 text-red-600" />
+                        <span className="text-red-600">Download errors (Excel)</span>
                       </CommandItem>
                     </>
                   )}
