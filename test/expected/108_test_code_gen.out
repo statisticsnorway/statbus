@@ -176,7 +176,7 @@ SELECT * FROM import_data_column_baseline;
       18 |        3 | last_completed_priority              | INTEGER                          | metadata     | f           | 0             | f
       18 |        4 | errors                               | JSONB                            | metadata     | f           | '{}'::jsonb   | f
       18 |        5 | merge_status                         | JSONB                            | metadata     | f           | '{}'::jsonb   | f
-      18 |        6 | invalid_codes                        | JSONB                            | metadata     | f           | '{}'::jsonb   | f
+      18 |        6 | warnings                             | JSONB                            | metadata     | f           | '{}'::jsonb   | f
       19 |        1 | influencing_tax_ident_raw            | TEXT                             | source_input | t           |               | f
       19 |        2 | influenced_tax_ident_raw             | TEXT                             | source_input | t           |               | f
       19 |        3 | rel_type_code_raw                    | TEXT                             | source_input | t           |               | f

@@ -10,7 +10,7 @@ DECLARE
     v_update_count INT := 0;
     v_sql TEXT;
     v_error_json_expr_sql TEXT; -- For dt.error (fatal) - though this step makes them non-fatal
-    v_invalid_codes_json_expr_sql TEXT; -- For dt.invalid_codes (non-fatal)
+    v_warnings_json_expr_sql TEXT; -- For dt.warnings (non-fatal)
     v_error_keys_to_clear_arr TEXT[];
     v_invalid_code_keys_to_clear_arr TEXT[];
     v_skipped_update_count INT;
@@ -76,14 +76,14 @@ BEGIN
             (dt.physical_region_code_raw IS NOT NULL AND l.resolved_physical_region_id IS NULL) OR
             -- Missing region warnings for domestic countries (when country is present and domestic)
             (dt.physical_region_code_raw IS NULL AND l.resolved_physical_country_id IS NOT DISTINCT FROM %1$L AND l.resolved_physical_country_id IS NOT NULL) OR
-            -- Country check is now fatal if address parts are present, otherwise non-fatal for invalid_codes
+            -- Country check is now fatal if address parts are present, otherwise non-fatal for warnings
             (dt.physical_country_iso_2_raw IS NOT NULL AND l.resolved_physical_country_id IS NULL AND NOT (%2$s)) OR
             (dt.physical_latitude_raw IS NOT NULL AND l.physical_latitude_error_msg IS NOT NULL) OR
             (dt.physical_longitude_raw IS NOT NULL AND l.physical_longitude_error_msg IS NOT NULL) OR
             (dt.physical_altitude_raw IS NOT NULL AND l.physical_altitude_error_msg IS NOT NULL)
         $$, v_default_country_id, v_address_present_condition_sql); -- Format with default_country_id and address_present check
 
-        v_invalid_codes_json_expr_sql := format($$
+        v_warnings_json_expr_sql := format($$
             CASE 
                 WHEN dt.physical_region_code_raw IS NOT NULL AND l.resolved_physical_region_id IS NULL THEN jsonb_build_object('physical_region_code_raw', dt.physical_region_code_raw)  -- Invalid region code
                 WHEN dt.physical_region_code_raw IS NULL AND dt.physical_country_iso_2_raw IS NOT NULL AND l.resolved_physical_country_id IS NOT DISTINCT FROM %1$L AND l.resolved_physical_country_id IS NOT NULL THEN jsonb_build_object('physical_region_code_raw', NULL)  -- Missing region for domestic country (include key with NULL)
@@ -154,7 +154,7 @@ BEGIN
             (dt.postal_altitude_raw IS NOT NULL AND l.postal_altitude_error_msg IS NOT NULL)
         $$, v_default_country_id, v_address_present_condition_sql); -- Format with default_country_id and address_present check
 
-        v_invalid_codes_json_expr_sql := format($$
+        v_warnings_json_expr_sql := format($$
             CASE 
                 WHEN dt.postal_region_code_raw IS NOT NULL AND l.resolved_postal_region_id IS NULL THEN jsonb_build_object('postal_region_code_raw', dt.postal_region_code_raw)  -- Invalid region code
                 WHEN dt.postal_region_code_raw IS NULL AND dt.postal_country_iso_2_raw IS NOT NULL AND l.resolved_postal_country_id IS NOT DISTINCT FROM %1$L AND l.resolved_postal_country_id IS NOT NULL THEN jsonb_build_object('postal_region_code_raw', NULL)  -- Missing region for domestic country (include key with NULL)
@@ -321,8 +321,8 @@ BEGIN
                         || (%12$s) -- Add Coordinate range error messages
                         || (%13$s) -- Add Postal coordinate present error message
                     ),
-            invalid_codes = (
-                        (dt.invalid_codes - %8$L::text[]) -- Start with existing invalid codes, clearing old ones for this step
+            warnings = (
+                        (dt.warnings - %8$L::text[]) -- Start with existing invalid codes, clearing old ones for this step
                         || CASE WHEN (%4$s) AND NOT ((%6$s) OR (%10$s)) THEN (%5$s) ELSE '{}'::jsonb END -- Add Non-fatal region/country codes (if no fatal/coord error)
                         || CASE WHEN (%10$s) THEN jsonb_strip_nulls(%14$s) ELSE '{}'::jsonb END -- Add Original invalid coordinate values (strip nulls here)
                     ),
@@ -334,10 +334,10 @@ BEGIN
         v_default_country_id,                       /* %2$L (default country for region resolution) */
         v_error_keys_to_clear_arr,                  /* %3$L (for clearing error keys) */
         v_error_condition_sql,                      /* %4$s (non-fatal region/country error condition) */
-        v_invalid_codes_json_expr_sql,              /* %5$s (for adding non-fatal region/country invalid codes) */
+        v_warnings_json_expr_sql,              /* %5$s (for adding non-fatal region/country invalid codes) */
         v_fatal_error_condition_sql,                /* %6$s (fatal country error condition) */
         v_fatal_error_json_expr_sql,                /* %7$s (for adding fatal country error message) */
-        v_invalid_code_keys_to_clear_arr,           /* %8$L (for clearing invalid_codes keys) */
+        v_invalid_code_keys_to_clear_arr,           /* %8$L (for clearing warnings keys) */
         v_step.priority,                            /* %9$L (for last_completed_priority) */
         v_any_coord_error_condition_sql,            /* %10$s (any coordinate error condition) */
         v_coord_cast_error_json_expr_sql,           /* %11$s (coordinate cast error JSON) */

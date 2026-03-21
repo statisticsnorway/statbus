@@ -205,7 +205,7 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo "Job status for import_71_a1_lu:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_71_a1_lu';
 \echo "Data table for import_71_a1_lu:"
-SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident_raw, nin_ident_raw, name_raw, valid_from_raw, valid_to_raw FROM public.import_71_a1_lu_data ORDER BY row_id;
+SELECT row_id, state, errors, warnings, merge_status, action, operation, tax_ident_raw, nin_ident_raw, name_raw, valid_from_raw, valid_to_raw FROM public.import_71_a1_lu_data ORDER BY row_id;
 
 \echo "Verification for LU-71A ('71A000001') after Sub-Scenario 71.A.1 (all segments shown):"
 \echo "Legal Unit External Idents (tax_ident, nin_ident):"
@@ -245,7 +245,7 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo "Job status for import_71_a2_lu:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_71_a2_lu';
 \echo "Data table for import_71_a2_lu:"
-SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident_raw, nin_ident_raw, name_raw, valid_from_raw, valid_to_raw FROM public.import_71_a2_lu_data ORDER BY row_id;
+SELECT row_id, state, errors, warnings, merge_status, action, operation, tax_ident_raw, nin_ident_raw, name_raw, valid_from_raw, valid_to_raw FROM public.import_71_a2_lu_data ORDER BY row_id;
 
 \echo "Verification for LU-71A ('71A000001') after Sub-Scenario 71.A.2 (all segments shown):"
 

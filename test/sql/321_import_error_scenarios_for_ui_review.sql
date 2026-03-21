@@ -2,7 +2,7 @@
 -- Test: Import Error Scenarios for UI Review
 --
 -- This test creates import jobs with various error types to allow visual
--- inspection of how errors and invalid_codes are displayed in the UI.
+-- inspection of how errors and warnings are displayed in the UI.
 --
 -- Run with PERSIST=true to keep data for UI review:
 --   PERSIST=true ./devops/manage-statbus.sh psql < test/sql/321_import_error_scenarios_for_ui_review.sql
@@ -19,7 +19,7 @@
 --      - Invalid region/country codes
 --      - Missing required identifiers
 --
---   2. Soft errors (invalid_codes column) - rows imported with warnings:
+--   2. Soft errors (warnings column) - rows imported with warnings:
 --      - Invalid status code (falls back to default)
 --      - Invalid postal region (location still created)
 --      - Domestic unit missing region (warning only)
@@ -59,7 +59,7 @@ BEGIN
     SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
     INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
     VALUES (v_definition_id, 'errors_lu_analysis', 'LU Import with Analysis Errors',
-            'Demonstrates various hard errors (invalid codes, malformed dates) and soft errors (invalid_codes that fall back to defaults)',
+            'Demonstrates various hard errors (invalid codes, malformed dates) and soft errors (warnings that fall back to defaults)',
             'Test 404: Error scenarios for UI review', false);
 END $$;
 
@@ -114,7 +114,7 @@ INSERT INTO public.errors_lu_analysis_upload(
 ('ERR_EMP', 'Invalid Employees (not integer)', '2023-01-01', '2023-12-31', '2100', 'AS', '01.110', '2023-01-01', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'fifty', NULL),
 ('ERR_TUR', 'Invalid Turnover (not numeric)', '2023-01-01', '2023-12-31', '2100', 'AS', '01.110', '2023-01-01', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'one million'),
 
--- === SOFT ERRORS: Invalid Codes with Fallback (invalid_codes column) ===
+-- === SOFT ERRORS: Invalid Codes with Fallback (warnings column) ===
 ('WARN_STS', 'Invalid Status (uses default)', '2023-01-01', '2023-12-31', '2100', 'AS', '01.110', '2023-01-01', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'sleeping_unknown', NULL, NULL, 25, 500000),
 ('WARN_PREG', 'Invalid Postal Region', '2023-01-01', '2023-12-31', '2100', 'AS', '01.110', '2023-01-01', NULL, NULL, 'Office Park 10', '0301', 'NO', NULL, 'PO Box 123', 'INVALID_POSTAL', NULL, 'active', NULL, NULL, 15, 300000),
 ('WARN_PCTY', 'Invalid Postal Country', '2023-01-01', '2023-12-31', '2100', 'AS', '01.110', '2023-01-01', NULL, NULL, 'Harbor Street 7', '1103', 'NO', NULL, 'Overseas Box', NULL, 'XX', 'active', NULL, NULL, 8, 150000),
@@ -214,7 +214,7 @@ ORDER BY slug;
 \echo 'Job-level error (if any):'
 SELECT error FROM public.import_job WHERE slug = 'errors_lu_analysis';
 
-\echo 'All rows (showing state, action, errors, invalid_codes):'
+\echo 'All rows (showing state, action, errors, warnings):'
 SELECT 
     row_id,
     tax_ident_raw as tax_ident,
@@ -222,7 +222,7 @@ SELECT
     state,
     action,
     CASE WHEN errors IS NOT NULL AND errors != '{}' THEN errors ELSE NULL END as errors,
-    CASE WHEN invalid_codes IS NOT NULL AND invalid_codes != '{}' THEN invalid_codes ELSE NULL END as invalid_codes
+    CASE WHEN warnings IS NOT NULL AND warnings != '{}' THEN warnings ELSE NULL END as warnings
 FROM public.errors_lu_analysis_data
 ORDER BY row_id;
 
@@ -235,7 +235,7 @@ SELECT
     state,
     action,
     errors,
-    invalid_codes
+    warnings
 FROM public.errors_es_formal_data
 ORDER BY row_id;
 
@@ -248,7 +248,7 @@ SELECT
     state,
     action,
     errors,
-    invalid_codes
+    warnings
 FROM public.errors_lu_missing_ident_data
 ORDER BY row_id;
 
@@ -261,13 +261,13 @@ SELECT
     COUNT(*) FILTER (WHERE state = 'error') as errors,
     COUNT(*) FILTER (WHERE action = 'skip') as skipped,
     COUNT(*) FILTER (WHERE errors IS NOT NULL AND errors != '{}') as rows_with_errors,
-    COUNT(*) FILTER (WHERE invalid_codes IS NOT NULL AND invalid_codes != '{}') as rows_with_warnings
+    COUNT(*) FILTER (WHERE warnings IS NOT NULL AND warnings != '{}') as rows_with_warnings
 FROM (
-    SELECT slug, state, action, errors, invalid_codes FROM public.errors_lu_analysis_data, (SELECT 'errors_lu_analysis' as slug) s
+    SELECT slug, state, action, errors, warnings FROM public.errors_lu_analysis_data, (SELECT 'errors_lu_analysis' as slug) s
     UNION ALL
-    SELECT slug, state, action, errors, invalid_codes FROM public.errors_es_formal_data, (SELECT 'errors_es_formal' as slug) s
+    SELECT slug, state, action, errors, warnings FROM public.errors_es_formal_data, (SELECT 'errors_es_formal' as slug) s
     UNION ALL
-    SELECT slug, state, action, errors, invalid_codes FROM public.errors_lu_missing_ident_data, (SELECT 'errors_lu_missing_ident' as slug) s
+    SELECT slug, state, action, errors, warnings FROM public.errors_lu_missing_ident_data, (SELECT 'errors_lu_missing_ident' as slug) s
 ) combined
 GROUP BY slug
 ORDER BY slug;

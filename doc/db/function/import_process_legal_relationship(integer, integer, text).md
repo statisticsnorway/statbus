@@ -45,7 +45,7 @@ BEGIN
             edit_by_user_id,
             edit_at,
             edit_comment,
-            NULLIF(invalid_codes,'{}'::JSONB) AS invalid_codes,
+            NULLIF(warnings,'{}'::JSONB) AS warnings,
             errors,
             merge_status
         FROM public.%1$I

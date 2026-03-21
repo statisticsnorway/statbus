@@ -648,7 +648,7 @@ Triggers:
  last_completed_priority              | integer                   |           | not null | 0
  errors                               | jsonb                     |           | not null | '{}'::jsonb
  merge_status                         | jsonb                     |           | not null | '{}'::jsonb
- invalid_codes                        | jsonb                     |           | not null | '{}'::jsonb
+ warnings                             | jsonb                     |           | not null | '{}'::jsonb
 Indexes:
     "import_lu_2015_sht_data_pkey" PRIMARY KEY, btree (row_id)
     "import_lu_2015_sht_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
@@ -2393,7 +2393,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          {                                                                        +
              "purpose": "metadata",                                               +
              "priority": 6,                                                       +
-             "column_name": "invalid_codes",                                      +
+             "column_name": "warnings",                                           +
              "column_type": "JSONB",                                              +
              "is_nullable": false,                                                +
              "default_value": "'{}'::jsonb",                                      +
@@ -2782,7 +2782,7 @@ Triggers:
  last_completed_priority              | integer                   |           | not null | 0
  errors                               | jsonb                     |           | not null | '{}'::jsonb
  merge_status                         | jsonb                     |           | not null | '{}'::jsonb
- invalid_codes                        | jsonb                     |           | not null | '{}'::jsonb
+ warnings                             | jsonb                     |           | not null | '{}'::jsonb
 Indexes:
     "import_es_2015_sht_data_pkey" PRIMARY KEY, btree (row_id)
     "import_es_2015_sht_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
@@ -4527,7 +4527,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          {                                                                          +
              "purpose": "metadata",                                                 +
              "priority": 6,                                                         +
-             "column_name": "invalid_codes",                                        +
+             "column_name": "warnings",                                             +
              "column_type": "JSONB",                                                +
              "is_nullable": false,                                                  +
              "default_value": "'{}'::jsonb",                                        +
@@ -5291,102 +5291,102 @@ ORDER BY act.valid_from, act.type;
 "Checking for Row-level errors for all import jobs:"
 \echo "Row-level errors for job import_es_2015_sht (table import_es_2015_sht_data):"
 "Row-level errors for job import_es_2015_sht (table import_es_2015_sht_data):"
-SELECT row_id, state, errors, invalid_codes, merge_status,
+SELECT row_id, state, errors, warnings, merge_status,
        tax_ident_raw::TEXT AS tax_ident,
        name_raw::TEXT AS name,
        legal_unit_tax_ident_raw::TEXT AS legal_unit_tax_ident
 FROM public.import_es_2015_sht_data
 WHERE state = 'error' OR errors IS DISTINCT FROM '{}'::jsonb
 ORDER BY row_id;
- row_id | state | errors | invalid_codes | merge_status | tax_ident | name | legal_unit_tax_ident 
---------+-------+--------+---------------+--------------+-----------+------+----------------------
+ row_id | state | errors | warnings | merge_status | tax_ident | name | legal_unit_tax_ident 
+--------+-------+--------+----------+--------------+-----------+------+----------------------
 (0 rows)
 
 \echo "Row-level errors for job import_es_2016_sht (table import_es_2016_sht_data):"
 "Row-level errors for job import_es_2016_sht (table import_es_2016_sht_data):"
-SELECT row_id, state, errors, invalid_codes, merge_status,
+SELECT row_id, state, errors, warnings, merge_status,
        tax_ident_raw::TEXT AS tax_ident,
        name_raw::TEXT AS name,
        legal_unit_tax_ident_raw::TEXT AS legal_unit_tax_ident
 FROM public.import_es_2016_sht_data
 WHERE state = 'error' OR errors IS DISTINCT FROM '{}'::jsonb
 ORDER BY row_id;
- row_id | state | errors | invalid_codes | merge_status | tax_ident | name | legal_unit_tax_ident 
---------+-------+--------+---------------+--------------+-----------+------+----------------------
+ row_id | state | errors | warnings | merge_status | tax_ident | name | legal_unit_tax_ident 
+--------+-------+--------+----------+--------------+-----------+------+----------------------
 (0 rows)
 
 \echo "Row-level errors for job import_es_2017_sht (table import_es_2017_sht_data):"
 "Row-level errors for job import_es_2017_sht (table import_es_2017_sht_data):"
-SELECT row_id, state, errors, invalid_codes, merge_status,
+SELECT row_id, state, errors, warnings, merge_status,
        tax_ident_raw::TEXT AS tax_ident,
        name_raw::TEXT AS name,
        legal_unit_tax_ident_raw::TEXT AS legal_unit_tax_ident
 FROM public.import_es_2017_sht_data
 WHERE state = 'error' OR errors IS DISTINCT FROM '{}'::jsonb
 ORDER BY row_id;
- row_id | state | errors | invalid_codes | merge_status | tax_ident | name | legal_unit_tax_ident 
---------+-------+--------+---------------+--------------+-----------+------+----------------------
+ row_id | state | errors | warnings | merge_status | tax_ident | name | legal_unit_tax_ident 
+--------+-------+--------+----------+--------------+-----------+------+----------------------
 (0 rows)
 
 \echo "Row-level errors for job import_es_2018_sht (table import_es_2018_sht_data):"
 "Row-level errors for job import_es_2018_sht (table import_es_2018_sht_data):"
-SELECT row_id, state, errors, invalid_codes, merge_status,
+SELECT row_id, state, errors, warnings, merge_status,
        tax_ident_raw::TEXT AS tax_ident,
        name_raw::TEXT AS name,
        legal_unit_tax_ident_raw::TEXT AS legal_unit_tax_ident
 FROM public.import_es_2018_sht_data
 WHERE state = 'error' OR errors IS DISTINCT FROM '{}'::jsonb
 ORDER BY row_id;
- row_id | state | errors | invalid_codes | merge_status | tax_ident | name | legal_unit_tax_ident 
---------+-------+--------+---------------+--------------+-----------+------+----------------------
+ row_id | state | errors | warnings | merge_status | tax_ident | name | legal_unit_tax_ident 
+--------+-------+--------+----------+--------------+-----------+------+----------------------
 (0 rows)
 
 \echo "Row-level errors for job import_lu_2015_sht (table import_lu_2015_sht_data):"
 "Row-level errors for job import_lu_2015_sht (table import_lu_2015_sht_data):"
-SELECT row_id, state, errors, invalid_codes, merge_status,
+SELECT row_id, state, errors, warnings, merge_status,
        tax_ident_raw::TEXT AS tax_ident,
        name_raw::TEXT AS name
 FROM public.import_lu_2015_sht_data
 WHERE state = 'error' OR errors IS DISTINCT FROM '{}'::jsonb
 ORDER BY row_id;
- row_id | state | errors | invalid_codes | merge_status | tax_ident | name 
---------+-------+--------+---------------+--------------+-----------+------
+ row_id | state | errors | warnings | merge_status | tax_ident | name 
+--------+-------+--------+----------+--------------+-----------+------
 (0 rows)
 
 \echo "Row-level errors for job import_lu_2016_sht (table import_lu_2016_sht_data):"
 "Row-level errors for job import_lu_2016_sht (table import_lu_2016_sht_data):"
-SELECT row_id, state, errors, invalid_codes, merge_status,
+SELECT row_id, state, errors, warnings, merge_status,
        tax_ident_raw::TEXT AS tax_ident,
        name_raw::TEXT AS name
 FROM public.import_lu_2016_sht_data
 WHERE state = 'error' OR errors IS DISTINCT FROM '{}'::jsonb
 ORDER BY row_id;
- row_id | state | errors | invalid_codes | merge_status | tax_ident | name 
---------+-------+--------+---------------+--------------+-----------+------
+ row_id | state | errors | warnings | merge_status | tax_ident | name 
+--------+-------+--------+----------+--------------+-----------+------
 (0 rows)
 
 \echo "Row-level errors for job import_lu_2017_sht (table import_lu_2017_sht_data):"
 "Row-level errors for job import_lu_2017_sht (table import_lu_2017_sht_data):"
-SELECT row_id, state, errors, invalid_codes, merge_status,
+SELECT row_id, state, errors, warnings, merge_status,
        tax_ident_raw::TEXT AS tax_ident,
        name_raw::TEXT AS name
 FROM public.import_lu_2017_sht_data
 WHERE state = 'error' OR errors IS DISTINCT FROM '{}'::jsonb
 ORDER BY row_id;
- row_id | state | errors | invalid_codes | merge_status | tax_ident | name 
---------+-------+--------+---------------+--------------+-----------+------
+ row_id | state | errors | warnings | merge_status | tax_ident | name 
+--------+-------+--------+----------+--------------+-----------+------
 (0 rows)
 
 \echo "Row-level errors for job import_lu_2018_sht (table import_lu_2018_sht_data):"
 "Row-level errors for job import_lu_2018_sht (table import_lu_2018_sht_data):"
-SELECT row_id, state, errors, invalid_codes, merge_status,
+SELECT row_id, state, errors, warnings, merge_status,
        tax_ident_raw::TEXT AS tax_ident,
        name_raw::TEXT AS name
 FROM public.import_lu_2018_sht_data
 WHERE state = 'error' OR errors IS DISTINCT FROM '{}'::jsonb
 ORDER BY row_id;
- row_id | state | errors | invalid_codes | merge_status | tax_ident | name 
---------+-------+--------+---------------+--------------+-----------+------
+ row_id | state | errors | warnings | merge_status | tax_ident | name 
+--------+-------+--------+----------+--------------+-----------+------
 (0 rows)
 
 \echo Check the state of all tasks before running analytics.

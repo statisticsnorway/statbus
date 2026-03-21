@@ -58,7 +58,7 @@ BEGIN
     -- SQL expression string for constructing the error JSON object for the current activity type
     v_error_json_expr_sql := format('jsonb_build_object(%1$L, ''Not found'')', v_json_key);
 
-    -- SQL expression string for constructing the invalid_codes JSON object for the current activity type
+    -- SQL expression string for constructing the warnings JSON object for the current activity type
     v_invalid_code_json_expr_sql := format('jsonb_build_object(%1$L, dt.%2$I)', v_json_key, v_source_code_col_name);
 
     -- PERF: Removed IS NOT NULL from join conditions to enable hash join optimization.
@@ -86,11 +86,11 @@ BEGIN
                                              END,
             state = 'analysing'::public.import_data_state,
             errors = dt.errors - %3$L::TEXT[],
-            invalid_codes = CASE
+            warnings = CASE
                                 WHEN (%4$s) THEN
-                                    dt.invalid_codes || jsonb_strip_nulls(%5$s)
+                                    dt.warnings || jsonb_strip_nulls(%5$s)
                                 ELSE
-                                    dt.invalid_codes - %3$L::TEXT[]
+                                    dt.warnings - %3$L::TEXT[]
                             END,
             last_completed_priority = %6$L::INTEGER
         FROM lookups l

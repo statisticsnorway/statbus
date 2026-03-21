@@ -101,18 +101,18 @@ export async function GET(request: NextRequest) {
 
     // Diagnostic column only for error/warning filters
     const errorColumn = filter === "error"
-      ? `errors::text AS "_errors"`
+      ? `errors::text AS "errors"`
       : filter === "warning"
-      ? `invalid_codes::text AS "_warnings"`
+      ? `warnings::text AS "warnings"`
       : null;
 
     // Build WHERE clause
     const whereClause = filter === "error"
       ? `WHERE state = 'error'`
       : filter === "warning"
-      ? `WHERE invalid_codes IS NOT NULL AND invalid_codes != '{}'::jsonb`
+      ? `WHERE warnings IS NOT NULL AND warnings != '{}'::jsonb`
       : filter === "ok"
-      ? `WHERE state != 'error' AND (errors IS NULL OR errors = '{}'::jsonb) AND (invalid_codes IS NULL OR invalid_codes = '{}'::jsonb)`
+      ? `WHERE state != 'error' AND (errors IS NULL OR errors = '{}'::jsonb) AND (warnings IS NULL OR warnings = '{}'::jsonb)`
       : ''; // full — no filter
 
     const dataTable = job.data_table_name;

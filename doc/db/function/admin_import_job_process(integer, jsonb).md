@@ -112,7 +112,7 @@ BEGIN
                     EXECUTE format($$
                       SELECT
                         COUNT(*) FILTER (WHERE state = 'error'),
-                        COUNT(*) FILTER (WHERE action = 'use' AND invalid_codes IS NOT NULL AND invalid_codes <> '{}'::jsonb)
+                        COUNT(*) FILTER (WHERE action = 'use' AND warnings IS NOT NULL AND warnings <> '{}'::jsonb)
                       FROM public.%I
                     $$, job.data_table_name) INTO v_error_count, v_warning_count;
 

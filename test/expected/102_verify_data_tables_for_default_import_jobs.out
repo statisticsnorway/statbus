@@ -269,7 +269,7 @@ Describing table for definition: legal_unit_job_provided (Job: t54_lu_tc, Data T
  last_completed_priority              | integer                   |           | not null | 0
  errors                               | jsonb                     |           | not null | '{}'::jsonb
  merge_status                         | jsonb                     |           | not null | '{}'::jsonb
- invalid_codes                        | jsonb                     |           | not null | '{}'::jsonb
+ warnings                             | jsonb                     |           | not null | '{}'::jsonb
 Indexes:
     "t54_lu_tc_data_pkey" PRIMARY KEY, btree (row_id)
     "t54_lu_tc_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
@@ -424,7 +424,7 @@ Describing table for definition: legal_unit_source_dates (Job: t54_lu_sd, Data T
  last_completed_priority              | integer                   |           | not null | 0
  errors                               | jsonb                     |           | not null | '{}'::jsonb
  merge_status                         | jsonb                     |           | not null | '{}'::jsonb
- invalid_codes                        | jsonb                     |           | not null | '{}'::jsonb
+ warnings                             | jsonb                     |           | not null | '{}'::jsonb
 Indexes:
     "t54_lu_sd_data_pkey" PRIMARY KEY, btree (row_id)
     "t54_lu_sd_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
@@ -579,7 +579,7 @@ Describing table for definition: establishment_for_lu_job_provided (Job: t54_est
  last_completed_priority              | integer                   |           | not null | 0
  errors                               | jsonb                     |           | not null | '{}'::jsonb
  merge_status                         | jsonb                     |           | not null | '{}'::jsonb
- invalid_codes                        | jsonb                     |           | not null | '{}'::jsonb
+ warnings                             | jsonb                     |           | not null | '{}'::jsonb
 Indexes:
     "t54_est_lu_tc_data_pkey" PRIMARY KEY, btree (row_id)
     "t54_est_lu_tc_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
@@ -734,7 +734,7 @@ Describing table for definition: establishment_for_lu_source_dates (Job: t54_est
  last_completed_priority              | integer                   |           | not null | 0
  errors                               | jsonb                     |           | not null | '{}'::jsonb
  merge_status                         | jsonb                     |           | not null | '{}'::jsonb
- invalid_codes                        | jsonb                     |           | not null | '{}'::jsonb
+ warnings                             | jsonb                     |           | not null | '{}'::jsonb
 Indexes:
     "t54_est_lu_sd_data_pkey" PRIMARY KEY, btree (row_id)
     "t54_est_lu_sd_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
@@ -887,7 +887,7 @@ Describing table for definition: establishment_without_lu_job_provided (Job: t54
  last_completed_priority              | integer                   |           | not null | 0
  errors                               | jsonb                     |           | not null | '{}'::jsonb
  merge_status                         | jsonb                     |           | not null | '{}'::jsonb
- invalid_codes                        | jsonb                     |           | not null | '{}'::jsonb
+ warnings                             | jsonb                     |           | not null | '{}'::jsonb
 Indexes:
     "t54_est_wolu_tc_data_pkey" PRIMARY KEY, btree (row_id)
     "t54_est_wolu_tc_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
@@ -1040,7 +1040,7 @@ Describing table for definition: establishment_without_lu_source_dates (Job: t54
  last_completed_priority              | integer                   |           | not null | 0
  errors                               | jsonb                     |           | not null | '{}'::jsonb
  merge_status                         | jsonb                     |           | not null | '{}'::jsonb
- invalid_codes                        | jsonb                     |           | not null | '{}'::jsonb
+ warnings                             | jsonb                     |           | not null | '{}'::jsonb
 Indexes:
     "t54_est_wolu_sd_data_pkey" PRIMARY KEY, btree (row_id)
     "t54_est_wolu_sd_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
@@ -1114,7 +1114,7 @@ Describing table for definition: generic_unit_stats_update_job_provided (Job: t5
  last_completed_priority    | integer                   |           | not null | 0
  errors                     | jsonb                     |           | not null | '{}'::jsonb
  merge_status               | jsonb                     |           | not null | '{}'::jsonb
- invalid_codes              | jsonb                     |           | not null | '{}'::jsonb
+ warnings                   | jsonb                     |           | not null | '{}'::jsonb
 Indexes:
     "t54_gus_jp_data_pkey" PRIMARY KEY, btree (row_id)
     "t54_gus_jp_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
@@ -1188,7 +1188,7 @@ Describing table for definition: generic_unit_stats_update_source_dates (Job: t5
  last_completed_priority    | integer                   |           | not null | 0
  errors                     | jsonb                     |           | not null | '{}'::jsonb
  merge_status               | jsonb                     |           | not null | '{}'::jsonb
- invalid_codes              | jsonb                     |           | not null | '{}'::jsonb
+ warnings                   | jsonb                     |           | not null | '{}'::jsonb
 Indexes:
     "t54_gus_sd_data_pkey" PRIMARY KEY, btree (row_id)
     "t54_gus_sd_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL

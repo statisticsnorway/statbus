@@ -695,7 +695,7 @@ Triggers:
  last_completed_priority              | integer                   |           | not null | 0
  errors                               | jsonb                     |           | not null | '{}'::jsonb
  merge_status                         | jsonb                     |           | not null | '{}'::jsonb
- invalid_codes                        | jsonb                     |           | not null | '{}'::jsonb
+ warnings                        | jsonb                     |           | not null | '{}'::jsonb
 Indexes:
     "import_lu_2015_h_data_pkey" PRIMARY KEY, btree (row_id)
     "import_lu_2015_h_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
@@ -889,7 +889,7 @@ Triggers:
  last_completed_priority              | integer                   |           | not null | 0
  errors                               | jsonb                     |           | not null | '{}'::jsonb
  merge_status                         | jsonb                     |           | not null | '{}'::jsonb
- invalid_codes                        | jsonb                     |           | not null | '{}'::jsonb
+ warnings                        | jsonb                     |           | not null | '{}'::jsonb
 Indexes:
     "import_es_2015_h_data_pkey" PRIMARY KEY, btree (row_id)
     "import_es_2015_h_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL

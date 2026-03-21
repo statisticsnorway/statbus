@@ -85,7 +85,7 @@ BEGIN
                         ELSE
                             dt.errors - %2$L::TEXT[]
                     END,
-            invalid_codes = dt.invalid_codes,
+            warnings = dt.warnings,
             last_completed_priority = %3$L
         FROM lookups l
         WHERE dt.row_id = l.row_id;

@@ -4,6 +4,7 @@ import { Pool } from 'pg';
 import { from as copyFrom } from 'pg-copy-streams';
 import { Readable } from 'stream';
 import ExcelJS from 'exceljs';
+import Papa from 'papaparse';
 import { createServerLogger } from "@/lib/server-logger";
 
 import { getDbHostPort } from "@/lib/db-listener";
@@ -48,7 +49,8 @@ function csvEscapeField(value: string): string {
 }
 
 // Columns added by the download route that should be stripped on re-upload
-const DOWNLOAD_SYSTEM_COLUMNS = new Set(['row_id', '_errors', '_warnings']);
+// Include old underscore-prefixed names for backward compatibility with previously downloaded files
+const DOWNLOAD_SYSTEM_COLUMNS = new Set(['row_id', 'errors', 'warnings', '_errors', '_warnings']);
 
 function isDownloadSystemColumn(name: string): boolean {
   return DOWNLOAD_SYSTEM_COLUMNS.has(name.replace(/^"|"$/g, '').trim());
@@ -217,7 +219,7 @@ export async function POST(request: NextRequest) {
         throw new Error("CSV header row is empty or invalid.");
       }
 
-      // Find indices of download-added system columns (row_id, _errors, _warnings)
+      // Find indices of download-added system columns (row_id, errors, warnings)
       const systemColumnIndices = new Set<number>();
       rawHeaders.forEach((h, i) => {
         if (isDownloadSystemColumn(h)) systemColumnIndices.add(i);
@@ -226,28 +228,11 @@ export async function POST(request: NextRequest) {
       // If CSV has system columns, rewrite the buffer to strip them
       if (systemColumnIndices.size > 0 && !csvBuffer) {
         const rawCsv = await file.text();
-        const lines = rawCsv.split('\n');
-        const cleanedLines = lines.map(line => {
-          if (!line.trim()) return '';
-          // Parse CSV fields respecting quotes
-          const fields: string[] = [];
-          let current = '';
-          let inQuotes = false;
-          for (const ch of line) {
-            if (ch === '"') {
-              inQuotes = !inQuotes;
-              current += ch;
-            } else if (ch === ',' && !inQuotes) {
-              fields.push(current);
-              current = '';
-            } else {
-              current += ch;
-            }
-          }
-          fields.push(current);
-          return fields.filter((_, i) => !systemColumnIndices.has(i)).join(',');
-        });
-        csvBuffer = Buffer.from(cleanedLines.join('\n'), 'utf-8');
+        const parsed = Papa.parse(rawCsv, { header: false, skipEmptyLines: false });
+        const cleanedRows = (parsed.data as string[][]).map(row =>
+          row.filter((_, i) => !systemColumnIndices.has(i))
+        );
+        csvBuffer = Buffer.from(Papa.unparse(cleanedRows, { header: false }) + '\n', 'utf-8');
       }
 
       const headers = rawHeaders
