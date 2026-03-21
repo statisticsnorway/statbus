@@ -181,11 +181,14 @@ export async function GET(request: NextRequest) {
       // Add reference sheets and data validation for xlsx downloads
       // Column offset accounts for row_id (always) + diagnostic column (error/warning only)
       const prefixColumnCount = errorColumn ? 2 : 1;
-      const sourceColumnNames = columnEntries.map(e => e.sourceCol);
+      // COLUMN_REFERENCE_MAP uses standardized English names (e.g., "primary_activity_category_code"),
+      // but sourceCol has the user's original names (e.g., Norwegian "naeringskode").
+      // Derive standardized names from dataCol by stripping the "_raw" suffix.
+      const standardizedColumnNames = columnEntries.map(e => e.dataCol.replace(/_raw$/, ''));
       const settingsResult = await client.from("settings").select("region_version_id").single();
       const regionVersionId = settingsResult.data?.region_version_id;
-      const rangeMap = await addReferenceSheets(workbook, sourceColumnNames, client, regionVersionId);
-      applyColumnValidation(dataSheet, sourceColumnNames, rangeMap, prefixColumnCount);
+      const rangeMap = await addReferenceSheets(workbook, standardizedColumnNames, client, regionVersionId);
+      applyColumnValidation(dataSheet, standardizedColumnNames, rangeMap, prefixColumnCount);
 
       const passThrough = new PassThrough();
       const webStream = new ReadableStream({
