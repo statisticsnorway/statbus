@@ -112,7 +112,7 @@ export async function GET(request: NextRequest) {
       : filter === "warning"
       ? `WHERE invalid_codes IS NOT NULL AND invalid_codes != '{}'::jsonb`
       : filter === "ok"
-      ? `WHERE state != 'error' AND (invalid_codes IS NULL OR invalid_codes = '{}'::jsonb)`
+      ? `WHERE state != 'error' AND (errors IS NULL OR errors = '{}'::jsonb) AND (invalid_codes IS NULL OR invalid_codes = '{}'::jsonb)`
       : ''; // full — no filter
 
     const dataTable = job.data_table_name;
@@ -179,11 +179,13 @@ export async function GET(request: NextRequest) {
       }
 
       // Add reference sheets and data validation for xlsx downloads
+      // Column offset accounts for row_id (always) + diagnostic column (error/warning only)
+      const prefixColumnCount = errorColumn ? 2 : 1;
       const sourceColumnNames = columnEntries.map(e => e.sourceCol);
       const settingsResult = await client.from("settings").select("region_version_id").single();
       const regionVersionId = settingsResult.data?.region_version_id;
       const rangeMap = await addReferenceSheets(workbook, sourceColumnNames, client, regionVersionId);
-      applyColumnValidation(dataSheet, sourceColumnNames, rangeMap);
+      applyColumnValidation(dataSheet, sourceColumnNames, rangeMap, prefixColumnCount);
 
       const passThrough = new PassThrough();
       const webStream = new ReadableStream({

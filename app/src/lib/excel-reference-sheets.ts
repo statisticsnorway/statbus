@@ -121,12 +121,13 @@ export function applyColumnValidation(
   dataSheet: any,
   sourceColumnNames: string[],
   rangeMap: Map<string, string>,
+  columnOffset: number = 0,
 ): void {
   for (let colIdx = 0; colIdx < sourceColumnNames.length; colIdx++) {
     const ref = COLUMN_REFERENCE_MAP[sourceColumnNames[colIdx]];
     if (!ref || !rangeMap.has(ref.rangeName)) continue;
 
-    const colLetters = getExcelColumnLetters(colIdx);
+    const colLetters = getExcelColumnLetters(colIdx + columnOffset);
     const range = `${colLetters}2:${colLetters}1048576`;
     dataSheet.dataValidations.model[range] = {
       type: 'list',

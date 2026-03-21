@@ -6,7 +6,6 @@ import { useSWRConfig } from 'swr';
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { DataTableSkeleton } from "@/components/data-table/data-table-skeleton";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tables } from '@/lib/database.types';
 import { DataTable } from "@/components/data-table/data-table";
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
@@ -17,7 +16,6 @@ import {
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ChevronRight, ThumbsUp, ThumbsDown } from "lucide-react";
-import { StackedProgress } from "@/components/ui/stacked-progress";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useAtomValue, useSetAtom } from "jotai";
 import { externalIdentTypesAtom } from "@/atoms/base-data";
