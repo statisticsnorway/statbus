@@ -553,6 +553,51 @@ export const useImportManager = () => {
   };
 };
 
+export const loadAllImportDefinitionsAtom = atom(
+  null,
+  async (get): Promise<Tables<'import_definition'>[]> => {
+    const client = get(restClientAtom);
+    if (!client) throw new Error("Client not initialized");
+    const { data, error } = await client
+      .from("import_definition").select("*")
+      .eq("enabled", true).eq("valid", true)
+      .order("mode").order("name");
+    if (error) throw error;
+    return data ?? [];
+  }
+);
+
+export const createImportJobFromDefinitionAtom = atom(
+  null,
+  async (get, _set, params: {
+    definitionId: number;
+    description: string;
+    timeContextIdent: string | null;
+    defaultValidFrom: string | null;
+    defaultValidTo: string | null;
+    review: boolean | null;
+  }): Promise<Tables<'import_job'>> => {
+    const client = get(restClientAtom);
+    if (!client) throw new Error("Client not initialized");
+    const { data, error } = await client.from("import_job")
+      .insert({
+        definition_id: params.definitionId,
+        description: params.description,
+        time_context_ident: params.timeContextIdent,
+        default_valid_from: params.defaultValidFrom,
+        default_valid_to: params.defaultValidTo,
+        review: params.review,
+        data_table_name: null!,
+        slug: null!,
+        upload_table_name: null!,
+        expires_at: null!,
+      }).select("*").single();
+    if (error) throw error;
+    if (!data) throw new Error("No data returned");
+    return data;
+  }
+);
+
 export const usePendingJobsByMode = (mode: ImportMode) => {
   const allJobsState = useAtomValue(allPendingJobsByModeStateAtom);
   const refreshJobsForMode = useSetAtom(refreshPendingJobsByModeAtom);
