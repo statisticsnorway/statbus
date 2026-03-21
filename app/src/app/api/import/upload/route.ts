@@ -47,6 +47,13 @@ function csvEscapeField(value: string): string {
   return value;
 }
 
+// Columns added by the download route that should be stripped on re-upload
+const DOWNLOAD_SYSTEM_COLUMNS = new Set(['row_id', '_errors', '_warnings']);
+
+function isDownloadSystemColumn(name: string): boolean {
+  return DOWNLOAD_SYSTEM_COLUMNS.has(name.replace(/^"|"$/g, '').trim());
+}
+
 async function convertExcelToCsv(file: File): Promise<Buffer> {
   const arrayBuffer = await file.arrayBuffer();
   const workbook = new ExcelJS.Workbook();
@@ -58,10 +65,21 @@ async function convertExcelToCsv(file: File): Promise<Buffer> {
     throw new Error("Excel file appears to be empty or has no worksheets.");
   }
 
+  // Detect system columns from the header row and build a set of column indices to skip
+  const headerRow = worksheet.getRow(1);
+  const skipIndices = new Set<number>();
+  for (let i = 1; i <= worksheet.columnCount; i++) {
+    const headerValue = excelValueToString(headerRow.getCell(i).value);
+    if (isDownloadSystemColumn(headerValue)) {
+      skipIndices.add(i);
+    }
+  }
+
   const csvLines: string[] = [];
   worksheet.eachRow((row) => {
     const values: string[] = [];
     for (let i = 1; i <= worksheet.columnCount; i++) {
+      if (skipIndices.has(i)) continue;
       const cell = row.getCell(i);
       values.push(csvEscapeField(excelValueToString(cell.value)));
     }
@@ -190,16 +208,56 @@ export async function POST(request: NextRequest) {
         throw new Error("File appears to be empty or header row could not be read.");
       }
 
-      // Parse header line
-      const headers = headerLine.split(',')
+      // Parse header line and identify system columns to strip
+      const rawHeaders = headerLine.split(',')
         .map(h => h.trim())
-        .filter(h => h.length > 0)
+        .filter(h => h.length > 0);
+
+      if (rawHeaders.length === 0) {
+        throw new Error("CSV header row is empty or invalid.");
+      }
+
+      // Find indices of download-added system columns (row_id, _errors, _warnings)
+      const systemColumnIndices = new Set<number>();
+      rawHeaders.forEach((h, i) => {
+        if (isDownloadSystemColumn(h)) systemColumnIndices.add(i);
+      });
+
+      // If CSV has system columns, rewrite the buffer to strip them
+      if (systemColumnIndices.size > 0 && !csvBuffer) {
+        const rawCsv = await file.text();
+        const lines = rawCsv.split('\n');
+        const cleanedLines = lines.map(line => {
+          if (!line.trim()) return '';
+          // Parse CSV fields respecting quotes
+          const fields: string[] = [];
+          let current = '';
+          let inQuotes = false;
+          for (const ch of line) {
+            if (ch === '"') {
+              inQuotes = !inQuotes;
+              current += ch;
+            } else if (ch === ',' && !inQuotes) {
+              fields.push(current);
+              current = '';
+            } else {
+              current += ch;
+            }
+          }
+          fields.push(current);
+          return fields.filter((_, i) => !systemColumnIndices.has(i)).join(',');
+        });
+        csvBuffer = Buffer.from(cleanedLines.join('\n'), 'utf-8');
+      }
+
+      const headers = rawHeaders
+        .filter(h => !isDownloadSystemColumn(h))
         .map(h => `"${h.replace(/"/g, '""')}"`); // Quote headers
 
       if (headers.length === 0) {
-        throw new Error("CSV header row is empty or invalid.");
+        throw new Error("CSV header row contains only system columns.");
       }
-      
+
       const columns = headers.join(', ');
       const copyCommand = `COPY ${job.upload_table_name} (${columns}) FROM STDIN WITH (FORMAT csv, HEADER true, DELIMITER ',')`;
       logger.info({ jobId: job.id, jobSlug: job.slug, command: copyCommand }, `Executing COPY command`);
