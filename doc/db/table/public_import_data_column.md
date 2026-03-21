@@ -13,6 +13,7 @@
  is_uniquely_identifying | boolean                    |           | not null | false
  created_at              | timestamp with time zone   |           | not null | now()
  updated_at              | timestamp with time zone   |           | not null | now()
+ target_pg_type          | text                       |           |          | 
 Indexes:
     "import_data_column_pkey" PRIMARY KEY, btree (id)
     "import_data_column_id_purpose_key" UNIQUE CONSTRAINT, btree (id, purpose)

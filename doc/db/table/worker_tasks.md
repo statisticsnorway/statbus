@@ -1,40 +1,32 @@
 ```sql
-                                              Table "worker.tasks"
-    Column    |           Type           | Collation | Nullable |                    Default                    
---------------+--------------------------+-----------+----------+-----------------------------------------------
- id           | bigint                   |           | not null | nextval('worker.tasks_id_seq'::regclass)
- command      | text                     |           | not null | 
- priority     | bigint                   |           |          | nextval('worker_task_priority_seq'::regclass)
- created_at   | timestamp with time zone |           |          | now()
- state        | worker.task_state        |           |          | 'pending'::worker.task_state
- processed_at | timestamp with time zone |           |          | 
- completed_at | timestamp with time zone |           |          | 
- duration_ms  | numeric                  |           |          | 
- error        | text                     |           |          | 
- scheduled_at | timestamp with time zone |           |          | 
- worker_pid   | integer                  |           |          | 
- payload      | jsonb                    |           |          | 
- parent_id    | bigint                   |           |          | 
- child_mode   | worker.child_mode        |           |          | 
- depth        | integer                  |           | not null | 0
+                                                   Table "worker.tasks"
+         Column         |           Type           | Collation | Nullable |                    Default                    
+------------------------+--------------------------+-----------+----------+-----------------------------------------------
+ id                     | bigint                   |           | not null | nextval('worker.tasks_id_seq'::regclass)
+ command                | text                     |           | not null | 
+ priority               | bigint                   |           |          | nextval('worker_task_priority_seq'::regclass)
+ created_at             | timestamp with time zone |           |          | now()
+ state                  | worker.task_state        |           |          | 'pending'::worker.task_state
+ process_start_at       | timestamp with time zone |           |          | 
+ completed_at           | timestamp with time zone |           |          | 
+ process_duration_ms    | numeric                  |           |          | 
+ error                  | text                     |           |          | 
+ scheduled_at           | timestamp with time zone |           |          | 
+ worker_pid             | integer                  |           |          | 
+ payload                | jsonb                    |           |          | 
+ parent_id              | bigint                   |           |          | 
+ child_mode             | worker.child_mode        |           |          | 
+ depth                  | integer                  |           | not null | 0
+ process_stop_at        | timestamp with time zone |           |          | 
+ completion_duration_ms | numeric                  |           |          | 
+ info                   | jsonb                    |           |          | 
 Indexes:
     "tasks_pkey" PRIMARY KEY, btree (id)
     "idx_tasks_collect_changes_dedup" UNIQUE, btree (command) WHERE command = 'collect_changes'::text AND state = 'pending'::worker.task_state
     "idx_tasks_depth" btree (depth) WHERE state = 'waiting'::worker.task_state
-    "idx_tasks_derive_dedup" UNIQUE, btree (command) WHERE command = 'derive_statistical_unit'::text AND state = 'pending'::worker.task_state
-    "idx_tasks_derive_history_facet_period_dedup" UNIQUE, btree (command, (payload ->> 'resolution'::text), (payload ->> 'year'::text), (payload ->> 'month'::text), ((payload ->> 'partition_seq'::text)::integer)) WHERE command = 'derive_statistical_history_facet_period'::text AND state = 'pending'::worker.task_state
-    "idx_tasks_derive_reports_dedup" UNIQUE, btree (command) WHERE command = 'derive_reports'::text AND state = 'pending'::worker.task_state
-    "idx_tasks_derive_statistical_history_dedup" UNIQUE, btree (command) WHERE command = 'derive_statistical_history'::text AND state = 'pending'::worker.task_state
-    "idx_tasks_derive_statistical_history_facet_dedup" UNIQUE, btree (command) WHERE command = 'derive_statistical_history_facet'::text AND state = 'pending'::worker.task_state
-    "idx_tasks_derive_statistical_unit_facet_dedup" UNIQUE, btree (command) WHERE command = 'derive_statistical_unit_facet'::text AND state = 'pending'::worker.task_state
-    "idx_tasks_derive_statistical_unit_facet_partition_dedup" UNIQUE, btree (command, ((payload ->> 'partition_seq'::text)::integer)) WHERE command = 'derive_statistical_unit_facet_partition'::text AND state = 'pending'::worker.task_state
-    "idx_tasks_flush_staging_dedup" UNIQUE, btree (command) WHERE command = 'statistical_unit_flush_staging'::text AND state = 'pending'::worker.task_state
     "idx_tasks_import_job_cleanup_dedup" UNIQUE, btree (command) WHERE command = 'import_job_cleanup'::text AND state = 'pending'::worker.task_state
     "idx_tasks_parent_id" btree (parent_id) WHERE parent_id IS NOT NULL
     "idx_tasks_scheduled_at" btree (scheduled_at) WHERE state = 'pending'::worker.task_state AND scheduled_at IS NOT NULL
-    "idx_tasks_statistical_history_facet_reduce_dedup" UNIQUE, btree (command) WHERE command = 'statistical_history_facet_reduce'::text AND state = 'pending'::worker.task_state
-    "idx_tasks_statistical_history_reduce_dedup" UNIQUE, btree (command) WHERE command = 'statistical_history_reduce'::text AND state = 'pending'::worker.task_state
-    "idx_tasks_statistical_unit_facet_reduce_dedup" UNIQUE, btree (command) WHERE command = 'statistical_unit_facet_reduce'::text AND state = 'pending'::worker.task_state
     "idx_tasks_task_cleanup_dedup" UNIQUE, btree (command) WHERE command = 'task_cleanup'::text AND state = 'pending'::worker.task_state
     "idx_tasks_waiting" btree (state) WHERE state = 'waiting'::worker.task_state
     "idx_worker_tasks_pending_priority" btree (state, priority) WHERE state = 'pending'::worker.task_state
@@ -52,5 +44,7 @@ Foreign-key constraints:
     "tasks_parent_id_fkey" FOREIGN KEY (parent_id) REFERENCES worker.tasks(id)
 Referenced by:
     TABLE "worker.tasks" CONSTRAINT "tasks_parent_id_fkey" FOREIGN KEY (parent_id) REFERENCES worker.tasks(id)
+Triggers:
+    trg_notify_task_changed AFTER UPDATE ON worker.tasks FOR EACH ROW EXECUTE FUNCTION worker.notify_task_changed()
 
 ```

@@ -5,6 +5,7 @@
  step   | text    |           | not null | 
  weight | integer |           | not null | 
  seq    | integer |           | not null | 0
+ phase  | text    |           | not null | 
 Indexes:
     "pipeline_step_weight_pkey" PRIMARY KEY, btree (step)
 Check constraints:

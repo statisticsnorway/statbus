@@ -1,40 +1,41 @@
 ```sql
-                                                                         Table "worker.tasks"
-    Column    |           Type           | Collation | Nullable |                    Default                    | Storage  | Compression | Stats target | Description 
---------------+--------------------------+-----------+----------+-----------------------------------------------+----------+-------------+--------------+-------------
- id           | bigint                   |           | not null | nextval('worker.tasks_id_seq'::regclass)      | plain    |             |              | 
- command      | text                     |           | not null |                                               | extended |             |              | 
- priority     | bigint                   |           |          | nextval('worker_task_priority_seq'::regclass) | plain    |             |              | 
- created_at   | timestamp with time zone |           |          | now()                                         | plain    |             |              | 
- state        | worker.task_state        |           |          | 'pending'::worker.task_state                  | plain    |             |              | 
- processed_at | timestamp with time zone |           |          |                                               | plain    |             |              | 
- completed_at | timestamp with time zone |           |          |                                               | plain    |             |              | 
- duration_ms  | numeric                  |           |          |                                               | main     |             |              | 
- error        | text                     |           |          |                                               | extended |             |              | 
- scheduled_at | timestamp with time zone |           |          |                                               | plain    |             |              | 
- worker_pid   | integer                  |           |          |                                               | plain    |             |              | 
- payload      | jsonb                    |           |          |                                               | extended |             |              | 
- parent_id    | bigint                   |           |          |                                               | plain    |             |              | 
- child_mode   | worker.child_mode        |           |          |                                               | plain    |             |              | 
- depth        | integer                  |           | not null | 0                                             | plain    |             |              | 
+                                                                                                                             Table "worker.tasks"
+         Column         |           Type           | Collation | Nullable |                    Default                    | Storage  | Compression | Stats target |                                                Description                                                 
+------------------------+--------------------------+-----------+----------+-----------------------------------------------+----------+-------------+--------------+------------------------------------------------------------------------------------------------------------
+ id                     | bigint                   |           | not null | nextval('worker.tasks_id_seq'::regclass)      | plain    |             |              | 
+ command                | text                     |           | not null |                                               | extended |             |              | 
+ priority               | bigint                   |           |          | nextval('worker_task_priority_seq'::regclass) | plain    |             |              | 
+ created_at             | timestamp with time zone |           |          | now()                                         | plain    |             |              | 
+ state                  | worker.task_state        |           |          | 'pending'::worker.task_state                  | plain    |             |              | 
+ process_start_at       | timestamp with time zone |           |          |                                               | plain    |             |              | 
+ completed_at           | timestamp with time zone |           |          |                                               | plain    |             |              | 
+ process_duration_ms    | numeric                  |           |          |                                               | main     |             |              | Handler execution time only: process_stop_at - process_start_at.                                          +
+                        |                          |           |          |                                               |          |             |              | Excludes child execution. For leaf tasks equals completion_duration_ms.
+ error                  | text                     |           |          |                                               | extended |             |              | 
+ scheduled_at           | timestamp with time zone |           |          |                                               | plain    |             |              | 
+ worker_pid             | integer                  |           |          |                                               | plain    |             |              | 
+ payload                | jsonb                    |           |          |                                               | extended |             |              | 
+ parent_id              | bigint                   |           |          |                                               | plain    |             |              | 
+ child_mode             | worker.child_mode        |           |          |                                               | plain    |             |              | How this task's children are processed. concurrent = parallel, serial = one at a time.                    +
+                        |                          |           |          |                                               |          |             |              | NULL = leaf task (no children). Set automatically by spawn() on first child.
+ depth                  | integer                  |           | not null | 0                                             | plain    |             |              | Task tree depth: 0 = top-level, parent.depth + 1 for children.                                            +
+                        |                          |           |          |                                               |          |             |              | Used by process_tasks for depth-first ordering (ORDER BY depth DESC)                                      +
+                        |                          |           |          |                                               |          |             |              | so deeper work completes before shallower work resumes.
+ process_stop_at        | timestamp with time zone |           |          |                                               | plain    |             |              | When the handler procedure returned (before waiting for children).                                        +
+                        |                          |           |          |                                               |          |             |              | For leaf tasks: approximately equals completed_at.                                                        +
+                        |                          |           |          |                                               |          |             |              | For parent tasks: completed_at > process_stop_at (gap = child execution time).
+ completion_duration_ms | numeric                  |           |          |                                               | main     |             |              | Total wall-clock time: completed_at - process_start_at.                                                   +
+                        |                          |           |          |                                               |          |             |              | For parent tasks includes all child execution (completion_duration_ms - process_duration_ms = child time).
+ info                   | jsonb                    |           |          |                                               | extended |             |              | Handler output via INOUT p_info jsonb. Each handler reports only what it did (Info Principle).            +
+                        |                          |           |          |                                               |          |             |              | On parent completion, children's info is aggregated: numeric values are SUMmed,                           +
+                        |                          |           |          |                                               |          |             |              | non-numeric values take the last child's value. Parent's own info overwrites via ||.
 Indexes:
     "tasks_pkey" PRIMARY KEY, btree (id)
     "idx_tasks_collect_changes_dedup" UNIQUE, btree (command) WHERE command = 'collect_changes'::text AND state = 'pending'::worker.task_state
     "idx_tasks_depth" btree (depth) WHERE state = 'waiting'::worker.task_state
-    "idx_tasks_derive_dedup" UNIQUE, btree (command) WHERE command = 'derive_statistical_unit'::text AND state = 'pending'::worker.task_state
-    "idx_tasks_derive_history_facet_period_dedup" UNIQUE, btree (command, (payload ->> 'resolution'::text), (payload ->> 'year'::text), (payload ->> 'month'::text), ((payload ->> 'partition_seq'::text)::integer)) WHERE command = 'derive_statistical_history_facet_period'::text AND state = 'pending'::worker.task_state
-    "idx_tasks_derive_reports_dedup" UNIQUE, btree (command) WHERE command = 'derive_reports'::text AND state = 'pending'::worker.task_state
-    "idx_tasks_derive_statistical_history_dedup" UNIQUE, btree (command) WHERE command = 'derive_statistical_history'::text AND state = 'pending'::worker.task_state
-    "idx_tasks_derive_statistical_history_facet_dedup" UNIQUE, btree (command) WHERE command = 'derive_statistical_history_facet'::text AND state = 'pending'::worker.task_state
-    "idx_tasks_derive_statistical_unit_facet_dedup" UNIQUE, btree (command) WHERE command = 'derive_statistical_unit_facet'::text AND state = 'pending'::worker.task_state
-    "idx_tasks_derive_statistical_unit_facet_partition_dedup" UNIQUE, btree (command, ((payload ->> 'partition_seq'::text)::integer)) WHERE command = 'derive_statistical_unit_facet_partition'::text AND state = 'pending'::worker.task_state
-    "idx_tasks_flush_staging_dedup" UNIQUE, btree (command) WHERE command = 'statistical_unit_flush_staging'::text AND state = 'pending'::worker.task_state
     "idx_tasks_import_job_cleanup_dedup" UNIQUE, btree (command) WHERE command = 'import_job_cleanup'::text AND state = 'pending'::worker.task_state
     "idx_tasks_parent_id" btree (parent_id) WHERE parent_id IS NOT NULL
     "idx_tasks_scheduled_at" btree (scheduled_at) WHERE state = 'pending'::worker.task_state AND scheduled_at IS NOT NULL
-    "idx_tasks_statistical_history_facet_reduce_dedup" UNIQUE, btree (command) WHERE command = 'statistical_history_facet_reduce'::text AND state = 'pending'::worker.task_state
-    "idx_tasks_statistical_history_reduce_dedup" UNIQUE, btree (command) WHERE command = 'statistical_history_reduce'::text AND state = 'pending'::worker.task_state
-    "idx_tasks_statistical_unit_facet_reduce_dedup" UNIQUE, btree (command) WHERE command = 'statistical_unit_facet_reduce'::text AND state = 'pending'::worker.task_state
     "idx_tasks_task_cleanup_dedup" UNIQUE, btree (command) WHERE command = 'task_cleanup'::text AND state = 'pending'::worker.task_state
     "idx_tasks_waiting" btree (state) WHERE state = 'waiting'::worker.task_state
     "idx_worker_tasks_pending_priority" btree (state, priority) WHERE state = 'pending'::worker.task_state
@@ -56,6 +57,8 @@ Not-null constraints:
     "tasks_id_not_null" NOT NULL "id"
     "tasks_command_not_null" NOT NULL "command"
     "tasks_depth_not_null" NOT NULL "depth"
+Triggers:
+    trg_notify_task_changed AFTER UPDATE ON worker.tasks FOR EACH ROW EXECUTE FUNCTION worker.notify_task_changed()
 Access method: heap
 
 ```

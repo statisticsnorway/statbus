@@ -28,9 +28,9 @@ BEGIN
         UPDATE worker.tasks
         SET state = 'pending'::worker.task_state,
             worker_pid = NULL,
-            processed_at = NULL,
+            process_start_at = NULL,
             error = NULL,
-            duration_ms = NULL
+            process_duration_ms = NULL
         WHERE id = v_task.id;
 
         v_reset_count := v_reset_count + 1;
@@ -48,14 +48,15 @@ BEGIN
         FROM worker.base_change_log;
 
         IF v_change_log_count = 0 THEN
-            -- UNLOGGED data was lost in crash - enqueue full refresh
-            RAISE LOG 'Crash recovery: base_change_log_has_pending=TRUE but base_change_log is empty. Enqueueing full refresh.';
-            PERFORM worker.enqueue_derive_statistical_unit(
-                p_establishment_id_ranges := '{(,)}'::int4multirange,
-                p_legal_unit_id_ranges := '{(,)}'::int4multirange,
-                p_enterprise_id_ranges := '{(,)}'::int4multirange,
-                p_valid_from := '-infinity'::DATE,
-                p_valid_until := 'infinity'::DATE
+            -- UNLOGGED data was lost in crash - spawn full refresh via collect_changes
+            RAISE LOG 'Crash recovery: base_change_log_has_pending=TRUE but base_change_log is empty. Spawning full refresh.';
+            PERFORM worker.spawn(
+                p_command => 'collect_changes',
+                p_payload => jsonb_build_object(
+                    'valid_from', '-infinity'::date,
+                    'valid_until', 'infinity'::date,
+                    'crash_recovery', true
+                )
             );
             UPDATE worker.base_change_log_has_pending SET has_pending = FALSE;
         END IF;

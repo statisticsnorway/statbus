@@ -6,7 +6,6 @@
  activity_category_standard_id | integer |           | not null |                                             | plain   |             |              | 
  country_id                    | integer |           | not null |                                             | plain   |             |              | 
  only_one_setting              | boolean |           |          | generated always as (id IS NOT NULL) stored | plain   |             |              | 
- analytics_partition_count     | integer |           | not null | 4                                           | plain   |             |              | 
  region_version_id             | integer |           | not null |                                             | plain   |             |              | 
  required_to_be_enabled        | boolean |           |          | generated always as (true) stored           | plain   |             |              | 
 Indexes:
@@ -33,10 +32,8 @@ Not-null constraints:
     "settings_id_not_null" NOT NULL "id"
     "settings_activity_category_standard_id_not_null" NOT NULL "activity_category_standard_id"
     "settings_country_id_not_null" NOT NULL "country_id"
-    "settings_report_partition_count_not_null" NOT NULL "analytics_partition_count"
     "settings_region_version_id_not_null" NOT NULL "region_version_id"
 Triggers:
-    trg_settings_partition_count_change AFTER UPDATE OF analytics_partition_count ON settings FOR EACH ROW EXECUTE FUNCTION admin.propagate_partition_count_change()
     trigger_prevent_settings_id_update BEFORE UPDATE OF id ON settings FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap
 

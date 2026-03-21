@@ -13,6 +13,7 @@
  is_uniquely_identifying | boolean                    |           | not null | false                        | plain    |             |              | Indicates if this data column (must have purpose=source_input) contributes to the unique identification of a row for UPSERT logic during the prepare step.
  created_at              | timestamp with time zone   |           | not null | now()                        | plain    |             |              | 
  updated_at              | timestamp with time zone   |           | not null | now()                        | plain    |             |              | 
+ target_pg_type          | text                       |           |          |                              | extended |             |              | 
 Indexes:
     "import_data_column_pkey" PRIMARY KEY, btree (id)
     "import_data_column_id_purpose_key" UNIQUE CONSTRAINT, btree (id, purpose)
