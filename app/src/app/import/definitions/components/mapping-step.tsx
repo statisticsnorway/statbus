@@ -20,7 +20,7 @@ interface MappingStepProps {
   validationError: string | null;
   isValid: boolean;
   onUpdateMapping: (mappingId: number, targetDataColumnId: number | null, isIgnored: boolean) => Promise<void>;
-  onBack: () => void;
+  onBack?: () => void;
   onNext: () => void;
   loading?: boolean;
 }
@@ -146,9 +146,13 @@ export function MappingStep({
       </div>
 
       <div className="flex justify-between">
-        <Button variant="outline" onClick={onBack}>
-          Back
-        </Button>
+        {onBack ? (
+          <Button variant="outline" onClick={onBack}>
+            Back
+          </Button>
+        ) : (
+          <div />
+        )}
         <Button onClick={onNext}>Next</Button>
       </div>
     </div>

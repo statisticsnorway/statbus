@@ -12,6 +12,7 @@ import {
 } from "@/atoms/definition-editor";
 import type { Tables, Enums } from "@/lib/database.types";
 import type { MappingWithDetails } from "@/atoms/definition-editor";
+import { getBrowserRestClient } from "@/context/RestClientStore";
 import { toast } from "@/hooks/use-toast";
 import { StepIndicator } from "../components/step-indicator";
 import { BasicsStep } from "../components/basics-step";
@@ -107,13 +108,10 @@ function NewDefinitionContent() {
     await doUpdateMapping({ mappingId, targetDataColumnId, isIgnored });
     // Refresh mappings and definition (validation may have changed)
     if (definition) {
-      const [refreshedMappings] = await Promise.all([
-        doFetchMappings(definition.id),
-      ]);
+      const refreshedMappings = await doFetchMappings(definition.id);
       setMappings(refreshedMappings);
 
       // Re-fetch definition for updated validation state
-      const { getBrowserRestClient } = await import("@/context/RestClientStore");
       const client = await getBrowserRestClient();
       const { data } = await client.from("import_definition").select("*").eq("id", definition.id).single();
       if (data) setDefinition(data);
@@ -165,7 +163,7 @@ function NewDefinitionContent() {
           validationError={definition.validation_error}
           isValid={definition.valid}
           onUpdateMapping={handleUpdateMapping}
-          onBack={() => setStep(1)}
+          onBack={definition ? undefined : () => setStep(1)}
           onNext={() => setStep(3)}
           loading={saving}
         />
