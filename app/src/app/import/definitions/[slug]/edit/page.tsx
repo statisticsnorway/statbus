@@ -179,8 +179,15 @@ export default function EditDefinitionPage() {
     targetDataColumnId: number | null,
     isIgnored: boolean,
   ) => {
-    await doUpdateMapping({ mappingId, targetDataColumnId, isIgnored });
-    await refreshAll();
+    try {
+      await doUpdateMapping({ mappingId, targetDataColumnId, isIgnored });
+      await refreshAll();
+    } catch (err) {
+      toast({
+        title: `Failed to update mapping: ${err instanceof Error ? err.message : String(err)}`,
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -193,11 +200,9 @@ export default function EditDefinitionPage() {
           name={name}
           onNameChange={setName}
           mode={definition.mode}
-          onModeChange={() => {}}
           strategy={strategy}
           onStrategyChange={setStrategy}
           validTimeFrom={definition.valid_time_from}
-          onValidTimeFromChange={() => {}}
           note={note}
           onNoteChange={setNote}
           onNext={handleSaveBasics}

@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { useSetAtom } from "jotai";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { usePermission } from "@/atoms/auth";
-import { loadAllImportDefinitionsAtom, createImportJobFromDefinitionAtom } from "@/atoms/import";
+import { createImportJobFromDefinitionAtom } from "@/atoms/import";
 import { deleteDefinitionAtom } from "@/atoms/definition-editor";
+import { getBrowserRestClient } from "@/context/RestClientStore";
 import { getUploadPath } from "@/lib/import-mode-paths";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,19 +29,11 @@ import {
 import { Plus, Pencil, Trash2, Play } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import type { Tables } from "@/lib/database.types";
-
-const MODE_LABELS: Record<string, string> = {
-  legal_unit: "Legal Units",
-  establishment_formal: "Establishments (formal)",
-  establishment_informal: "Establishments (informal)",
-  generic_unit: "Generic Units",
-  legal_relationship: "Legal Relationships",
-};
+import { MODE_LABELS } from "./components/labels";
 
 export default function DefinitionsPage() {
   const router = useRouter();
   const { canAccessAdminTools } = usePermission();
-  const doLoadDefinitions = useSetAtom(loadAllImportDefinitionsAtom);
   const doCreateJob = useSetAtom(createImportJobFromDefinitionAtom);
   const doDelete = useSetAtom(deleteDefinitionAtom);
 
@@ -51,8 +44,15 @@ export default function DefinitionsPage() {
 
   const loadDefinitions = async () => {
     try {
-      const defs = await doLoadDefinitions();
-      setDefinitions(defs);
+      const client = await getBrowserRestClient();
+      const { data, error } = await client
+        .from("import_definition")
+        .select("*")
+        .eq("enabled", true)
+        .order("mode")
+        .order("name");
+      if (error) throw error;
+      setDefinitions(data ?? []);
     } catch (err) {
       toast({
         title: `Failed to load definitions: ${err instanceof Error ? err.message : String(err)}`,

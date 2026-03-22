@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { X, Upload, Plus } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/hooks/use-toast";
 
 interface SourceColumnsStepProps {
@@ -22,12 +23,14 @@ export function SourceColumnsStep({
 }: SourceColumnsStepProps) {
   const [manualInput, setManualInput] = useState("");
   const [isDragging, setIsDragging] = useState(false);
+  const [extracting, setExtracting] = useState(false);
 
   const extractHeaders = useCallback(
     async (file: File) => {
       const formData = new FormData();
       formData.append("file", file);
 
+      setExtracting(true);
       try {
         const res = await fetch("/api/import/headers", {
           method: "POST",
@@ -46,6 +49,8 @@ export function SourceColumnsStep({
         toast({ title: `Detected ${headers.length} column(s) from file` });
       } catch {
         toast({ title: "Failed to read file", variant: "destructive" });
+      } finally {
+        setExtracting(false);
       }
     },
     [columns, onColumnsChange],
@@ -92,9 +97,13 @@ export function SourceColumnsStep({
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
       >
-        <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+        {extracting ? (
+          <Spinner className="mx-auto h-8 w-8 mb-2" />
+        ) : (
+          <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+        )}
         <p className="text-sm text-muted-foreground mb-3">
-          Drop a CSV or Excel file to auto-detect columns
+          {extracting ? "Extracting columns..." : "Drop a CSV or Excel file to auto-detect columns"}
         </p>
         <Label htmlFor="file-upload" className="cursor-pointer">
           <Button variant="outline" asChild>

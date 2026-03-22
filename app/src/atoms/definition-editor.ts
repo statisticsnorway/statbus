@@ -3,6 +3,7 @@
 import { atom } from "jotai";
 import type { Tables, Enums } from "@/lib/database.types";
 import { restClientAtom } from "./rest-client";
+import { fetchWithAuthRefresh } from "@/context/RestClientStore";
 
 // Step codes for each import mode (matching migration defaults)
 const MODE_STEP_CODES: Record<Enums<"import_mode">, string[]> = {
@@ -48,12 +49,12 @@ export type MappingWithDetails = Tables<"import_mapping"> & {
   import_data_column: Pick<Tables<"import_data_column">, "column_name" | "purpose" | "column_type"> | null;
 };
 
-// Helper: call PostgREST RPC via raw fetch (for functions not in generated types)
+// Helper: call PostgREST RPC via fetchWithAuthRefresh (for functions not in generated types)
 async function callRpc(
   fnName: string,
   params: Record<string, unknown>,
 ): Promise<void> {
-  const res = await fetch(`/rest/rpc/${fnName}`, {
+  const res = await fetchWithAuthRefresh(`/rest/rpc/${fnName}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
@@ -146,7 +147,7 @@ export const fetchDefinitionMappingsAtom = atom(
       .eq("definition_id", definitionId)
       .order("id");
     if (error) throw error;
-    return (data ?? []) as unknown as MappingWithDetails[];
+    return (data ?? []) as MappingWithDetails[];
   },
 );
 

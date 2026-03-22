@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useSetAtom } from "jotai";
 import { usePermission } from "@/atoms/auth";
@@ -20,6 +20,14 @@ import { MappingStep } from "../components/mapping-step";
 import { SummaryStep } from "../components/summary-step";
 
 export default function NewDefinitionPage() {
+  return (
+    <Suspense>
+      <NewDefinitionContent />
+    </Suspense>
+  );
+}
+
+function NewDefinitionContent() {
   const searchParams = useSearchParams();
   const { canAccessAdminTools } = usePermission();
 
@@ -78,8 +86,12 @@ export default function NewDefinitionPage() {
       setTargetColumns(fetchedTargets);
       setStep(2);
     } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const isDuplicate = msg.includes("duplicate") || msg.includes("unique");
       toast({
-        title: `Failed to create definition: ${err instanceof Error ? err.message : String(err)}`,
+        title: isDuplicate
+          ? "A definition with a similar name already exists. Please choose a different name."
+          : `Failed to create definition: ${msg}`,
         variant: "destructive",
       });
     } finally {
@@ -101,8 +113,6 @@ export default function NewDefinitionPage() {
       setMappings(refreshedMappings);
 
       // Re-fetch definition for updated validation state
-      // We use the restClientAtom indirectly through our atoms, but the simplest
-      // approach is to read from the mapping response or just refresh
       const { getBrowserRestClient } = await import("@/context/RestClientStore");
       const client = await getBrowserRestClient();
       const { data } = await client.from("import_definition").select("*").eq("id", definition.id).single();
@@ -111,14 +121,10 @@ export default function NewDefinitionPage() {
   };
 
   const handleStepClick = (targetStep: number) => {
-    // Only allow going back, not forward (forward requires validation)
     if (targetStep < step) {
-      // If definition already created, can freely navigate between steps 2-3
-      if (targetStep >= 2 || !definition) {
-        setStep(targetStep);
-      } else {
-        setStep(targetStep);
-      }
+      // After definition is created (step >= 2), don't allow going back to 0-1
+      if (definition && targetStep < 2) return;
+      setStep(targetStep);
     }
   };
 

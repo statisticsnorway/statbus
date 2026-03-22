@@ -34,11 +34,11 @@ interface BasicsStepProps {
   name: string;
   onNameChange: (name: string) => void;
   mode: Enums<"import_mode"> | null;
-  onModeChange: (mode: Enums<"import_mode">) => void;
+  onModeChange?: (mode: Enums<"import_mode">) => void;
   strategy: Enums<"import_strategy">;
   onStrategyChange: (strategy: Enums<"import_strategy">) => void;
   validTimeFrom: Enums<"import_valid_time_from">;
-  onValidTimeFromChange: (v: Enums<"import_valid_time_from">) => void;
+  onValidTimeFromChange?: (v: Enums<"import_valid_time_from">) => void;
   note: string;
   onNoteChange: (note: string) => void;
   onNext: () => void;
@@ -77,7 +77,7 @@ export function BasicsStep({
         <Label>Import Mode *</Label>
         <RadioGroup
           value={mode ?? ""}
-          onValueChange={(v) => onModeChange(v as Enums<"import_mode">)}
+          onValueChange={(v) => onModeChange?.(v as Enums<"import_mode">)}
           disabled={isEditMode}
           className="space-y-2"
         >
@@ -90,6 +90,9 @@ export function BasicsStep({
             </div>
           ))}
         </RadioGroup>
+        {isEditMode && (
+          <p className="text-xs text-muted-foreground">Cannot be changed after creation</p>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -112,7 +115,7 @@ export function BasicsStep({
         <Label>Valid Time From *</Label>
         <RadioGroup
           value={validTimeFrom}
-          onValueChange={(v) => onValidTimeFromChange(v as Enums<"import_valid_time_from">)}
+          onValueChange={(v) => onValidTimeFromChange?.(v as Enums<"import_valid_time_from">)}
           disabled={isEditMode}
           className="space-y-2"
         >
@@ -129,6 +132,9 @@ export function BasicsStep({
             </Label>
           </div>
         </RadioGroup>
+        {isEditMode && (
+          <p className="text-xs text-muted-foreground">Cannot be changed after creation</p>
+        )}
       </div>
 
       <div className="space-y-2">

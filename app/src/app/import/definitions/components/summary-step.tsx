@@ -11,28 +11,13 @@ import { createImportJobFromDefinitionAtom } from "@/atoms/import";
 import { getUploadPath } from "@/lib/import-mode-paths";
 import type { Tables } from "@/lib/database.types";
 import type { MappingWithDetails } from "@/atoms/definition-editor";
+import { MODE_LABELS, STRATEGY_LABELS } from "./labels";
 
 interface SummaryStepProps {
   definition: Tables<"import_definition">;
   mappings: MappingWithDetails[];
   onBack: () => void;
 }
-
-const MODE_LABELS: Record<string, string> = {
-  legal_unit: "Legal Units",
-  establishment_formal: "Establishments (formal)",
-  establishment_informal: "Establishments (informal)",
-  generic_unit: "Generic Units",
-  legal_relationship: "Legal Relationships",
-};
-
-const STRATEGY_LABELS: Record<string, string> = {
-  insert_or_replace: "Insert or Replace",
-  insert_only: "Insert Only",
-  replace_only: "Replace Only",
-  insert_or_update: "Insert or Update",
-  update_only: "Update Only",
-};
 
 export function SummaryStep({ definition, mappings, onBack }: SummaryStepProps) {
   const router = useRouter();

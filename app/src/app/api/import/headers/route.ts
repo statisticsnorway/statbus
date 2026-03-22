@@ -5,6 +5,11 @@ import ExcelJS from "exceljs";
 const SYSTEM_COLUMNS = new Set(["row_id", "errors", "warnings", "row_number"]);
 
 export async function POST(request: NextRequest) {
+  const accessToken = request.cookies.get("statbus")?.value;
+  if (!accessToken) {
+    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+  }
+
   try {
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
