@@ -34,7 +34,7 @@ BEGIN
             array_length(t.included_enterprise_ids, 1) AS included_enterprise_count,
             COALESCE(tpa.tag_paths, ARRAY[]::public.ltree[]) AS tag_paths,
             daterange(t.valid_from, t.valid_until) AS valid_range,
-            public.report_partition_seq(t.unit_type, t.unit_id, (SELECT analytics_partition_count FROM public.settings)) AS report_partition_seq
+            public.report_partition_seq(t.unit_type, t.unit_id) AS report_partition_seq
         FROM public.timeline_establishment t
         LEFT JOIN LATERAL (SELECT jsonb_object_agg(eit.code, COALESCE(ei.ident, ei.idents::text)) AS external_idents FROM public.external_ident ei JOIN public.external_ident_type eit ON ei.type_id = eit.id WHERE ei.establishment_id = t.unit_id) eia1 ON true
         LEFT JOIN LATERAL (SELECT array_agg(tag.path ORDER BY tag.path) AS tag_paths FROM public.tag_for_unit tfu JOIN public.tag ON tfu.tag_id = tag.id WHERE tfu.establishment_id = t.unit_id) tpa ON true
@@ -67,7 +67,7 @@ BEGIN
             array_length(t.included_enterprise_ids, 1) AS included_enterprise_count,
             COALESCE(tpa.tag_paths, ARRAY[]::public.ltree[]) AS tag_paths,
             daterange(t.valid_from, t.valid_until) AS valid_range,
-            public.report_partition_seq(t.unit_type, t.unit_id, (SELECT analytics_partition_count FROM public.settings)) AS report_partition_seq
+            public.report_partition_seq(t.unit_type, t.unit_id) AS report_partition_seq
         FROM public.timeline_legal_unit t
         LEFT JOIN LATERAL (SELECT jsonb_object_agg(eit.code, COALESCE(ei.ident, ei.idents::text)) AS external_idents FROM public.external_ident ei JOIN public.external_ident_type eit ON ei.type_id = eit.id WHERE ei.legal_unit_id = t.unit_id) eia1 ON true
         LEFT JOIN LATERAL (SELECT array_agg(tag.path ORDER BY tag.path) AS tag_paths FROM public.tag_for_unit tfu JOIN public.tag ON tfu.tag_id = tag.id WHERE tfu.legal_unit_id = t.unit_id) tpa ON true
@@ -100,7 +100,7 @@ BEGIN
             array_length(t.included_enterprise_ids, 1) AS included_enterprise_count,
             COALESCE(tpa.tag_paths, ARRAY[]::public.ltree[]) AS tag_paths,
             daterange(t.valid_from, t.valid_until) AS valid_range,
-            public.report_partition_seq(t.unit_type, t.unit_id, (SELECT analytics_partition_count FROM public.settings)) AS report_partition_seq
+            public.report_partition_seq(t.unit_type, t.unit_id) AS report_partition_seq
         FROM public.timeline_enterprise t
         LEFT JOIN LATERAL (SELECT jsonb_object_agg(eit.code, COALESCE(ei.ident, ei.idents::text)) AS external_idents FROM public.external_ident ei JOIN public.external_ident_type eit ON ei.type_id = eit.id WHERE ei.enterprise_id = t.unit_id) eia1 ON true
         LEFT JOIN LATERAL (SELECT jsonb_object_agg(eit.code, COALESCE(ei.ident, ei.idents::text)) AS external_idents FROM public.external_ident ei JOIN public.external_ident_type eit ON ei.type_id = eit.id WHERE ei.establishment_id = t.primary_establishment_id) eia2 ON true
@@ -135,7 +135,7 @@ BEGIN
             array_length(t.included_enterprise_ids, 1) AS included_enterprise_count,
             COALESCE(tpa.tag_paths, ARRAY[]::public.ltree[]) AS tag_paths,
             daterange(t.valid_from, t.valid_until) AS valid_range,
-            public.report_partition_seq(t.unit_type, t.unit_id, (SELECT analytics_partition_count FROM public.settings)) AS report_partition_seq
+            public.report_partition_seq(t.unit_type, t.unit_id) AS report_partition_seq
         FROM public.timeline_power_group t
         LEFT JOIN LATERAL (SELECT jsonb_object_agg(eit.code, COALESCE(ei.ident, ei.idents::text)) AS external_idents FROM public.external_ident ei JOIN public.external_ident_type eit ON ei.type_id = eit.id WHERE ei.power_group_id = t.power_group_id) eia1 ON true
         LEFT JOIN LATERAL (SELECT array_agg(tag.path ORDER BY tag.path) AS tag_paths FROM public.tag_for_unit tfu JOIN public.tag ON tfu.tag_id = tag.id WHERE tfu.power_group_id = t.power_group_id) tpa ON true

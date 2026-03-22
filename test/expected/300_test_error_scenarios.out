@@ -54,7 +54,7 @@ SELECT
 (1 row)
 
 -- Scenario 70.1: Invalid Codes in Input Data
-SAVEPOINT scenario_70_1_invalid_codes;
+SAVEPOINT scenario_70_1_warnings;
 \echo "Scenario 70.1: Invalid Codes in Input Data"
 "Scenario 70.1: Invalid Codes in Input Data"
 -- Sub-Scenario 70.1.1: LU Import with Various Analysis Errors
@@ -109,14 +109,14 @@ INSERT INTO public.import_70_01_01_lu_analysis_errors_upload(
 -- Row for postal location tests (NULLs added for new columns)
 ('700100023','LU For Postal Location','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,NULL,NULL,'NO',NULL,'inactive_unknown',NULL,NULL,NULL,NULL,NULL),
 -- New soft error test cases
-('700100026','LU Invalid Status (Default Active)','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'sleeping_unknown',NULL,NULL,NULL,NULL,NULL), -- invalid_codes: {status_code}, uses default
-('700100028','LU Invalid PostalRegion','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'active',NULL,NULL,NULL,'POSTAL_XX',NULL), -- invalid_codes: {postal_region_code}
-('700100029','LU Invalid PostalCountry NF','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'active',NULL,NULL,NULL,NULL,'P_ZZ'), -- invalid_codes: {postal_country_iso_2}
+('700100026','LU Invalid Status (Default Active)','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'sleeping_unknown',NULL,NULL,NULL,NULL,NULL), -- warnings: {status_code}, uses default
+('700100028','LU Invalid PostalRegion','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'active',NULL,NULL,NULL,'POSTAL_XX',NULL), -- warnings: {postal_region_code}
+('700100029','LU Invalid PostalCountry NF','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'active',NULL,NULL,NULL,NULL,'P_ZZ'), -- warnings: {postal_country_iso_2}
 -- Country/region validation
-('700100030','LU domestic missing region warning','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,NULL,NULL,'NO',NULL,'active',NULL,NULL,NULL,NULL,NULL), -- invalid_codes: {physical_region_code: NULL}
+('700100030','LU domestic missing region warning','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,NULL,NULL,'NO',NULL,'active',NULL,NULL,NULL,NULL,NULL), -- warnings: {physical_region_code: NULL}
 ('700100031','LU foreign missing region ok','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,NULL,NULL,'UN',NULL,'active',NULL,NULL,NULL,NULL,NULL),
-('700100032','LU foreign domestic region err','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,'Street 1','01','UN',NULL,'active',NULL,NULL,NULL,NULL,NULL), -- invalid_codes: {physical_region_code: 01}
-('700100033','LU foreign unknown domestic region error','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,'Street 1','ZZ','UN',NULL,'active',NULL,NULL,NULL,NULL,NULL); -- invalid_codes: {physical_region_code: ZZ}
+('700100032','LU foreign domestic region err','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,'Street 1','01','UN',NULL,'active',NULL,NULL,NULL,NULL,NULL), -- warnings: {physical_region_code: 01}
+('700100033','LU foreign unknown domestic region error','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,'Street 1','ZZ','UN',NULL,'active',NULL,NULL,NULL,NULL,NULL); -- warnings: {physical_region_code: ZZ}
 CALL worker.process_tasks(p_queue => 'import');
 \echo "Job status for import_70_01_01_lu_analysis_errors:"
 "Job status for import_70_01_01_lu_analysis_errors:"
@@ -126,8 +126,8 @@ SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, e
  import_70_01_01_lu_analysis_errors | finished |         30 |            17 | f         | 
 (1 row)
 
-\echo "Data table for import_70_01_01_lu_analysis_errors (expect various errors and invalid_codes):"
-"Data table for import_70_01_01_lu_analysis_errors (expect various errors and invalid_codes):"
+\echo "Data table for import_70_01_01_lu_analysis_errors (expect various errors and warnings):"
+"Data table for import_70_01_01_lu_analysis_errors (expect various errors and warnings):"
 SELECT
     row_id,
     name_raw as name,
@@ -136,13 +136,13 @@ SELECT
     valid_from,
     valid_to,
     errors,
-    invalid_codes,
+    warnings,
     merge_status,
     -- Include potentially affected resolved IDs to verify soft error handling
     status_id,
     (SELECT COUNT(*) FROM public.location l WHERE l.legal_unit_id = (SELECT legal_unit_id FROM public.import_70_01_01_lu_analysis_errors_data d_lu WHERE d_lu.row_id = d.row_id AND d_lu.legal_unit_id IS NOT NULL) AND l.type='postal') as postal_location_count
 FROM public.import_70_01_01_lu_analysis_errors_data d ORDER BY row_id;
- row_id |                   name                   |   state   | action | valid_from |  valid_to  |                                                                                                                        errors                                                                                                                        |                                       invalid_codes                                       |                                       merge_status                                       | status_id | postal_location_count 
+ row_id |                   name                   |   state   | action | valid_from |  valid_to  |                                                                                                                        errors                                                                                                                        |                                         warnings                                          |                                       merge_status                                       | status_id | postal_location_count 
 --------+------------------------------------------+-----------+--------+------------+------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------------------------------------------------------------------------------------+------------------------------------------------------------------------------------------+-----------+-----------------------
       1 | LU Invalid Sector                        | processed | use    | 2023-01-01 | 2023-12-31 | {}                                                                                                                                                                                                                                                   | {"sector_code_raw": "INVALID_SEC"}                                                        | {"legal_unit": "APPLIED", "primary_activity": "APPLIED"}                                 |         1 |                     0
       2 | LU Invalid LF                            | processed | use    | 2023-01-01 | 2023-12-31 | {}                                                                                                                                                                                                                                                   | {"legal_form_code_raw": "INV_LF"}                                                         | {"legal_unit": "APPLIED", "primary_activity": "APPLIED"}                                 |         1 |                     0
@@ -207,11 +207,11 @@ SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, e
 
 \echo "Data table for import_70_01_01_lu_status_errors (expect status_code errors):"
 "Data table for import_70_01_01_lu_status_errors (expect status_code errors):"
-SELECT row_id, name_raw as name, state, action, status_id, errors, invalid_codes, merge_status FROM public.import_70_01_01_lu_status_errors_data ORDER BY row_id;
- row_id |            name             | state | action | status_id |                                                 errors                                                 | invalid_codes | merge_status 
---------+-----------------------------+-------+--------+-----------+--------------------------------------------------------------------------------------------------------+---------------+--------------
-      1 | LU Invalid Status NoDefault | error | skip   |           | {"status_code_raw": "Provided status_code 'INVALID_STATUS' not found/active and no default available"} | {}            | {}
-      2 | LU No Status NoDefault      | error | skip   |           | {"status_code_raw": "Status code not provided and no active default status found"}                     | {}            | {}
+SELECT row_id, name_raw as name, state, action, status_id, errors, warnings, merge_status FROM public.import_70_01_01_lu_status_errors_data ORDER BY row_id;
+ row_id |            name             | state | action | status_id |                                                 errors                                                 | warnings | merge_status 
+--------+-----------------------------+-------+--------+-----------+--------------------------------------------------------------------------------------------------------+----------+--------------
+      1 | LU Invalid Status NoDefault | error | skip   |           | {"status_code_raw": "Provided status_code 'INVALID_STATUS' not found/active and no default available"} | {}       | {}
+      2 | LU No Status NoDefault      | error | skip   |           | {"status_code_raw": "Status code not provided and no active default status found"}                     | {}       | {}
 (2 rows)
 
 \echo "Restoring default status..."
@@ -246,8 +246,8 @@ SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error FR
 
 \echo "Data table for import_70_01_02_es_invalid (expect errors):"
 "Data table for import_70_01_02_es_invalid (expect errors):"
-SELECT row_id, state, action, valid_from, valid_to, errors, invalid_codes, merge_status FROM public.import_70_01_02_es_invalid_data ORDER BY row_id;
- row_id |   state   | action | valid_from |  valid_to  | errors |                  invalid_codes                   |         merge_status         
+SELECT row_id, state, action, valid_from, valid_to, errors, warnings, merge_status FROM public.import_70_01_02_es_invalid_data ORDER BY row_id;
+ row_id |   state   | action | valid_from |  valid_to  | errors |                     warnings                     |         merge_status         
 --------+-----------+--------+------------+------------+--------+--------------------------------------------------+------------------------------
       1 | processed | use    | 2023-01-01 | 2023-12-31 | {}     | {"primary_activity_category_code_raw": "99.998"} | {"establishment": "APPLIED"}
 (1 row)
@@ -276,13 +276,13 @@ SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error FR
 
 \echo "Data table for import_70_01_03_es_inf_invalid (expect errors):"
 "Data table for import_70_01_03_es_inf_invalid (expect errors):"
-SELECT row_id, state, action, valid_from, valid_to, errors, invalid_codes, merge_status FROM public.import_70_01_03_es_inf_invalid_data ORDER BY row_id;
- row_id |   state   | action | valid_from |  valid_to  | errors |                  invalid_codes                   |         merge_status         
+SELECT row_id, state, action, valid_from, valid_to, errors, warnings, merge_status FROM public.import_70_01_03_es_inf_invalid_data ORDER BY row_id;
+ row_id |   state   | action | valid_from |  valid_to  | errors |                     warnings                     |         merge_status         
 --------+-----------+--------+------------+------------+--------+--------------------------------------------------+------------------------------
       1 | processed | use    | 2023-01-01 | 2023-12-31 | {}     | {"primary_activity_category_code_raw": "99.997"} | {"establishment": "APPLIED"}
 (1 row)
 
-ROLLBACK TO scenario_70_1_invalid_codes;
+ROLLBACK TO scenario_70_1_warnings;
 -- Scenario 70.2: Missing Mandatory Data
 SAVEPOINT scenario_70_2_missing_data;
 \echo "Scenario 70.2: Missing Mandatory Data"
@@ -313,12 +313,12 @@ SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error FR
 
 \echo "Data table for import_70_02_01_lu_missing (expect errors, e.g., in analyse_external_idents):"
 "Data table for import_70_02_01_lu_missing (expect errors, e.g., in analyse_external_idents):"
-SELECT row_id, state, action, valid_from, valid_to, errors, invalid_codes, merge_status FROM public.import_70_02_01_lu_missing_data ORDER BY row_id;
- row_id | state | action | valid_from |  valid_to  |                                                                  errors                                                                  | invalid_codes | merge_status 
---------+-------+--------+------------+------------+------------------------------------------------------------------------------------------------------------------------------------------+---------------+--------------
-      1 | error | skip   | 2023-01-01 | 2023-12-31 | {"tax_ident_raw": "No identifier specified", "stat_ident_raw": "No identifier specified", "person_ident_raw": "No identifier specified"} | {}            | {}
-      2 | error | skip   | 2023-01-01 | 2023-12-31 | {"name_raw": "Missing required name for legal unit."}                                                                                    | {}            | {}
-      3 | error | skip   |            | 2023-12-31 | {"valid_from_raw": "Missing mandatory value"}                                                                                            | {}            | {}
+SELECT row_id, state, action, valid_from, valid_to, errors, warnings, merge_status FROM public.import_70_02_01_lu_missing_data ORDER BY row_id;
+ row_id | state | action | valid_from |  valid_to  |                                                                  errors                                                                  | warnings | merge_status 
+--------+-------+--------+------------+------------+------------------------------------------------------------------------------------------------------------------------------------------+----------+--------------
+      1 | error | skip   | 2023-01-01 | 2023-12-31 | {"tax_ident_raw": "No identifier specified", "stat_ident_raw": "No identifier specified", "person_ident_raw": "No identifier specified"} | {}       | {}
+      2 | error | skip   | 2023-01-01 | 2023-12-31 | {"name_raw": "Missing required name for legal unit."}                                                                                    | {}       | {}
+      3 | error | skip   |            | 2023-12-31 | {"valid_from_raw": "Missing mandatory value"}                                                                                            | {}       | {}
 (3 rows)
 
 -- Sub-Scenario 70.2.2: Formal ES Import - Missing Link
@@ -352,10 +352,10 @@ SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error FR
 
 \echo "Data table for import_70_02_02_es_missing_link (expect errors in analyse_establishment_legal_unit_link):"
 "Data table for import_70_02_02_es_missing_link (expect errors in analyse_establishment_legal_unit_link):"
-SELECT row_id, state, action, valid_from, valid_to, errors, invalid_codes, merge_status FROM public.import_70_02_02_es_missing_link_data ORDER BY row_id;
- row_id | state | action | valid_from |  valid_to  |                                                                                             errors                                                                                             | invalid_codes | merge_status 
---------+-------+--------+------------+------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------+--------------
-      1 | error | skip   | 2023-01-01 | 2023-12-31 | {"legal_unit_tax_ident_raw": "Missing legal unit identifier.", "legal_unit_stat_ident_raw": "Missing legal unit identifier.", "legal_unit_person_ident_raw": "Missing legal unit identifier."} | {}            | {}
+SELECT row_id, state, action, valid_from, valid_to, errors, warnings, merge_status FROM public.import_70_02_02_es_missing_link_data ORDER BY row_id;
+ row_id | state | action | valid_from |  valid_to  |                                                                                             errors                                                                                             | warnings | merge_status 
+--------+-------+--------+------------+------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+----------+--------------
+      1 | error | skip   | 2023-01-01 | 2023-12-31 | {"legal_unit_tax_ident_raw": "Missing legal unit identifier.", "legal_unit_stat_ident_raw": "Missing legal unit identifier.", "legal_unit_person_ident_raw": "Missing legal unit identifier."} | {}       | {}
 (1 row)
 
 ROLLBACK TO scenario_70_2_missing_data;
@@ -387,10 +387,10 @@ SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error FR
 
 \echo "Data table for import_70_03_01_es_bad_lu_link (expect errors in process_establishment or analyse_establishment_legal_unit_link):"
 "Data table for import_70_03_01_es_bad_lu_link (expect errors in process_establishment or analyse_establishment_legal_unit_link):"
-SELECT row_id, state, action, valid_from, valid_to, errors, invalid_codes, merge_status FROM public.import_70_03_01_es_bad_lu_link_data ORDER BY row_id;
- row_id | state | action | valid_from |  valid_to  |                                     errors                                      | invalid_codes | merge_status 
---------+-------+--------+------------+------------+---------------------------------------------------------------------------------+---------------+--------------
-      1 | error | skip   | 2023-01-01 | 2023-12-31 | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."} | {}            | {}
+SELECT row_id, state, action, valid_from, valid_to, errors, warnings, merge_status FROM public.import_70_03_01_es_bad_lu_link_data ORDER BY row_id;
+ row_id | state | action | valid_from |  valid_to  |                                     errors                                      | warnings | merge_status 
+--------+-------+--------+------------+------------+---------------------------------------------------------------------------------+----------+--------------
+      1 | error | skip   | 2023-01-01 | 2023-12-31 | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."} | {}       | {}
 (1 row)
 
 ROLLBACK TO scenario_70_3_referential_integrity;
@@ -436,10 +436,10 @@ SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error FR
 
 \echo "Data table for import_70_06_01_lu_empty_name (expect errors in process_legal_unit from batch_replace):"
 "Data table for import_70_06_01_lu_empty_name (expect errors in process_legal_unit from batch_replace):"
-SELECT row_id, state, action, valid_from, valid_to, errors, invalid_codes, merge_status FROM public.import_70_06_01_lu_empty_name_data ORDER BY row_id;
- row_id | state | action | valid_from |  valid_to  |                        errors                         | invalid_codes | merge_status 
---------+-------+--------+------------+------------+-------------------------------------------------------+---------------+--------------
-      1 | error | skip   | 2023-01-01 | 2023-12-31 | {"name_raw": "Missing required name for legal unit."} | {}            | {}
+SELECT row_id, state, action, valid_from, valid_to, errors, warnings, merge_status FROM public.import_70_06_01_lu_empty_name_data ORDER BY row_id;
+ row_id | state | action | valid_from |  valid_to  |                        errors                         | warnings | merge_status 
+--------+-------+--------+------------+------------+-------------------------------------------------------+----------+--------------
+      1 | error | skip   | 2023-01-01 | 2023-12-31 | {"name_raw": "Missing required name for legal unit."} | {}       | {}
 (1 row)
 
 ROLLBACK TO scenario_70_6_batch_replace_errors;
@@ -556,13 +556,13 @@ INSERT INTO public.import_70_07_01_lu_idents_upload(tax_ident, stat_ident, name,
 CALL worker.process_tasks(p_queue => 'import');
 \echo "Data table for import_70_07_01_lu_idents (expect external_idents errors):"
 "Data table for import_70_07_01_lu_idents (expect external_idents errors):"
-SELECT row_id, name_raw as name, state, action, operation, errors, invalid_codes, merge_status, legal_unit_id FROM public.import_70_07_01_lu_idents_data ORDER BY row_id;
- row_id |       name        | state | action | operation |                                                                                                                                  errors                                                                                                                                   | invalid_codes | merge_status | legal_unit_id 
---------+-------------------+-------+--------+-----------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------+--------------+---------------
-      1 | LU NoIdents       | error | skip   | insert    | {"tax_ident_raw": "No identifier specified", "stat_ident_raw": "No identifier specified", "person_ident_raw": "No identifier specified", "custom_est_ident_raw": "No identifier specified"}                                                                               | {}            | {}           |              
-      2 | LU Inconsistent   | error | skip   | update    | {"tax_ident_raw": "Provided identifiers resolve to different Legal Units", "stat_ident_raw": "Provided identifiers resolve to different Legal Units"}                                                                                                                     | {}            | {}           |              
-      3 | LU CrossType EST  | error | skip   | update    | {"tax_ident_raw": "Identifier already used by a Establishment: {\"tax_ident_raw\": \"EST7071_TAX\"}"}                                                                                                                                                                     | {}            | {}           |              
-      4 | LU Unstable Ident | error | skip   | update    | {"stat_ident_raw": "Input {\"tax_ident\": \"LU7071_TAX\", \"stat_ident\": \"LU7071_STAT_CHANGED\"} matches existing unit {\"tax_ident\": \"LU7071_TAX\", \"stat_ident\": \"LU7071_STAT\"} but attempts to change stat_ident from 'LU7071_STAT' to 'LU7071_STAT_CHANGED'"} | {}            | {}           |              
+SELECT row_id, name_raw as name, state, action, operation, errors, warnings, merge_status, legal_unit_id FROM public.import_70_07_01_lu_idents_data ORDER BY row_id;
+ row_id |       name        | state | action | operation |                                                                                                                                  errors                                                                                                                                   | warnings | merge_status | legal_unit_id 
+--------+-------------------+-------+--------+-----------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+----------+--------------+---------------
+      1 | LU NoIdents       | error | skip   | insert    | {"tax_ident_raw": "No identifier specified", "stat_ident_raw": "No identifier specified", "person_ident_raw": "No identifier specified", "custom_est_ident_raw": "No identifier specified"}                                                                               | {}       | {}           |              
+      2 | LU Inconsistent   | error | skip   | update    | {"tax_ident_raw": "Provided identifiers resolve to different Legal Units", "stat_ident_raw": "Provided identifiers resolve to different Legal Units"}                                                                                                                     | {}       | {}           |              
+      3 | LU CrossType EST  | error | skip   | update    | {"tax_ident_raw": "Identifier already used by a Establishment: {\"tax_ident_raw\": \"EST7071_TAX\"}"}                                                                                                                                                                     | {}       | {}           |              
+      4 | LU Unstable Ident | error | skip   | update    | {"stat_ident_raw": "Input {\"tax_ident\": \"LU7071_TAX\", \"stat_ident\": \"LU7071_STAT_CHANGED\"} matches existing unit {\"tax_ident\": \"LU7071_TAX\", \"stat_ident\": \"LU7071_STAT\"} but attempts to change stat_ident from 'LU7071_STAT' to 'LU7071_STAT_CHANGED'"} | {}       | {}           |              
 (4 rows)
 
 -- Sub-Scenario 70.7.2: Mode 'establishment_formal' (using 'establishment_for_lu_source_dates')
@@ -581,11 +581,11 @@ INSERT INTO public.import_70_07_02_est_f_idents_upload(tax_ident, name, valid_fr
 CALL worker.process_tasks(p_queue => 'import');
 \echo "Data table for import_70_07_02_est_f_idents (expect external_idents errors):"
 "Data table for import_70_07_02_est_f_idents (expect external_idents errors):"
-SELECT row_id, name_raw as name, state, action, operation, errors, invalid_codes, merge_status, establishment_id FROM public.import_70_07_02_est_f_idents_data ORDER BY row_id;
- row_id |       name        | state | action | operation |                                                     errors                                                     | invalid_codes | merge_status | establishment_id 
---------+-------------------+-------+--------+-----------+----------------------------------------------------------------------------------------------------------------+---------------+--------------+------------------
-      1 | ESTF Inconsistent | error | skip   | update    | {"tax_ident_raw": "Identifier already used by a Informal Establishment: {\"tax_ident_raw\": \"EST7071_TAX\"}"} | {}            | {}           |                 
-      2 | ESTF CrossType LU | error | skip   | update    | {"tax_ident_raw": "Identifier already used by a Legal Unit: {\"tax_ident_raw\": \"LU7071_TAX\"}"}              | {}            | {}           |                 
+SELECT row_id, name_raw as name, state, action, operation, errors, warnings, merge_status, establishment_id FROM public.import_70_07_02_est_f_idents_data ORDER BY row_id;
+ row_id |       name        | state | action | operation |                                                     errors                                                     | warnings | merge_status | establishment_id 
+--------+-------------------+-------+--------+-----------+----------------------------------------------------------------------------------------------------------------+----------+--------------+------------------
+      1 | ESTF Inconsistent | error | skip   | update    | {"tax_ident_raw": "Identifier already used by a Informal Establishment: {\"tax_ident_raw\": \"EST7071_TAX\"}"} | {}       | {}           |                 
+      2 | ESTF CrossType LU | error | skip   | update    | {"tax_ident_raw": "Identifier already used by a Legal Unit: {\"tax_ident_raw\": \"LU7071_TAX\"}"}              | {}       | {}           |                 
 (2 rows)
 
 -- Sub-Scenario 70.7.3: Mode 'establishment_informal' (using 'establishment_without_lu_source_dates')
@@ -604,11 +604,11 @@ INSERT INTO public.import_70_07_03_est_inf_idents_upload(tax_ident, name, valid_
 CALL worker.process_tasks(p_queue => 'import');
 \echo "Data table for import_70_07_03_est_inf_idents (expect external_idents errors):"
 "Data table for import_70_07_03_est_inf_idents (expect external_idents errors):"
-SELECT row_id, name_raw as name, state, action, operation, errors, invalid_codes, merge_status, establishment_id FROM public.import_70_07_03_est_inf_idents_data ORDER BY row_id;
- row_id |            name            | state | action | operation |                                                    errors                                                    | invalid_codes | merge_status | establishment_id 
---------+----------------------------+-------+--------+-----------+--------------------------------------------------------------------------------------------------------------+---------------+--------------+------------------
-      1 | ESTINF CrossType LU        | error | skip   | update    | {"tax_ident_raw": "Identifier already used by a Legal Unit: {\"tax_ident_raw\": \"LU7071_TAX\"}"}            | {}            | {}           |                 
-      2 | ESTINF CrossType FormalEST | error | skip   | update    | {"tax_ident_raw": "Identifier already used by a Formal Establishment: {\"tax_ident_raw\": \"EST707F_TAX\"}"} | {}            | {}           |                 
+SELECT row_id, name_raw as name, state, action, operation, errors, warnings, merge_status, establishment_id FROM public.import_70_07_03_est_inf_idents_data ORDER BY row_id;
+ row_id |            name            | state | action | operation |                                                    errors                                                    | warnings | merge_status | establishment_id 
+--------+----------------------------+-------+--------+-----------+--------------------------------------------------------------------------------------------------------------+----------+--------------+------------------
+      1 | ESTINF CrossType LU        | error | skip   | update    | {"tax_ident_raw": "Identifier already used by a Legal Unit: {\"tax_ident_raw\": \"LU7071_TAX\"}"}            | {}       | {}           |                 
+      2 | ESTINF CrossType FormalEST | error | skip   | update    | {"tax_ident_raw": "Identifier already used by a Formal Establishment: {\"tax_ident_raw\": \"EST707F_TAX\"}"} | {}       | {}           |                 
 (2 rows)
 
 ROLLBACK TO scenario_70_7_external_idents_errors;
@@ -656,12 +656,12 @@ INSERT INTO public.import_70_08_link_est_lu_upload(tax_ident, name, valid_from, 
 CALL worker.process_tasks(p_queue => 'import');
 \echo "Data table for import_70_08_link_est_lu (expect link_establishment_to_legal_unit errors):"
 "Data table for import_70_08_link_est_lu (expect link_establishment_to_legal_unit errors):"
-SELECT row_id, name_raw as name, state, action, errors, invalid_codes, merge_status, legal_unit_id FROM public.import_70_08_link_est_lu_data ORDER BY row_id;
- row_id |        name         | state | action |                                                                                             errors                                                                                             | invalid_codes | merge_status | legal_unit_id 
---------+---------------------+-------+--------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------+--------------+---------------
-      1 | EST No LUIdent      | error | skip   | {"legal_unit_tax_ident_raw": "Missing legal unit identifier.", "legal_unit_stat_ident_raw": "Missing legal unit identifier.", "legal_unit_person_ident_raw": "Missing legal unit identifier."} | {}            | {}           |              
-      2 | EST LU NotFound     | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}                                                                                                                | {}            | {}           |              
-      3 | EST LU Inconsistent | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers.", "legal_unit_stat_ident_raw": "Legal unit not found with provided identifiers."}                                | {}            | {}           |              
+SELECT row_id, name_raw as name, state, action, errors, warnings, merge_status, legal_unit_id FROM public.import_70_08_link_est_lu_data ORDER BY row_id;
+ row_id |        name         | state | action |                                                                                             errors                                                                                             | warnings | merge_status | legal_unit_id 
+--------+---------------------+-------+--------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+----------+--------------+---------------
+      1 | EST No LUIdent      | error | skip   | {"legal_unit_tax_ident_raw": "Missing legal unit identifier.", "legal_unit_stat_ident_raw": "Missing legal unit identifier.", "legal_unit_person_ident_raw": "Missing legal unit identifier."} | {}       | {}           |              
+      2 | EST LU NotFound     | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers."}                                                                                                                | {}       | {}           |              
+      3 | EST LU Inconsistent | error | skip   | {"legal_unit_tax_ident_raw": "Legal unit not found with provided identifiers.", "legal_unit_stat_ident_raw": "Legal unit not found with provided identifiers."}                                | {}       | {}           |              
 (3 rows)
 
 ROLLBACK TO scenario_70_8_link_est_lu_errors;

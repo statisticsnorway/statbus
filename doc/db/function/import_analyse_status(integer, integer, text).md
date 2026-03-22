@@ -83,14 +83,14 @@ BEGIN
                         ELSE
                             dt.errors - %3$L::TEXT[]
                     END,
-            invalid_codes =
+            warnings =
                 CASE
                     -- Soft error: Invalid code provided, but default is available and used.
                     WHEN NULLIF(dt.status_code_raw, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NULL AND %2$L::INTEGER IS NOT NULL THEN
-                        dt.invalid_codes || jsonb_build_object('status_code_raw', dt.status_code_raw)
-                    -- Default case: clear 'status_code_raw' from invalid_codes if it exists (e.g. if code is valid or hard error occurs for status_code).
+                        dt.warnings || jsonb_build_object('status_code_raw', dt.status_code_raw)
+                    -- Default case: clear 'status_code_raw' from warnings if it exists (e.g. if code is valid or hard error occurs for status_code).
                     ELSE
-                        dt.invalid_codes - 'status_code_raw'
+                        dt.warnings - 'status_code_raw'
                 END,
             last_completed_priority = %4$L::INTEGER -- Always v_step.priority
         FROM status_lookup sl

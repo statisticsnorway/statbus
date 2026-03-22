@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerRestClient } from "@/context/RestClientStore";
 import { Pool } from 'pg';
 import { to as copyTo } from 'pg-copy-streams';
+import { PassThrough } from 'stream';
+import ExcelJS from 'exceljs';
 import { getDbHostPort } from "@/lib/db-listener";
 import type { DefinitionSnapshot } from "@/atoms/import";
+import { addReferenceSheets, applyColumnValidation } from '@/lib/excel-reference-sheets';
 
 const getDbConfig = () => {
   const { dbHost, dbPort, dbName } = getDbHostPort();
@@ -25,8 +28,13 @@ export async function GET(request: NextRequest) {
     if (!slug) {
       return NextResponse.json({ message: "Missing slug parameter" }, { status: 400 });
     }
-    if (!filter || !["error", "warning"].includes(filter)) {
-      return NextResponse.json({ message: "filter must be 'error' or 'warning'" }, { status: 400 });
+    if (!filter || !["error", "warning", "ok", "full"].includes(filter)) {
+      return NextResponse.json({ message: "filter must be 'error', 'warning', 'ok', or 'full'" }, { status: 400 });
+    }
+
+    const format = searchParams.get("format") || "csv";
+    if (!["csv", "xlsx"].includes(format)) {
+      return NextResponse.json({ message: "format must be 'csv' or 'xlsx'" }, { status: 400 });
     }
 
     const accessToken = request.cookies.get('statbus')?.value;
@@ -91,25 +99,33 @@ export async function GET(request: NextRequest) {
       .map(e => `${quoteIdent(e.dataCol)} AS ${quoteIdent(e.sourceCol)}`)
       .join(", ");
 
-    // Row number and error/warning info come first for visibility
+    // Diagnostic column only for error/warning filters
     const errorColumn = filter === "error"
-      ? `errors::text AS "_errors"`
-      : `invalid_codes::text AS "_warnings"`;
+      ? `errors::text AS "errors"`
+      : filter === "warning"
+      ? `warnings::text AS "warnings"`
+      : null;
 
     // Build WHERE clause
     const whereClause = filter === "error"
       ? `WHERE state = 'error'`
-      : `WHERE invalid_codes IS NOT NULL AND invalid_codes != '{}'::jsonb`;
+      : filter === "warning"
+      ? `WHERE warnings IS NOT NULL AND warnings != '{}'::jsonb`
+      : filter === "ok"
+      ? `WHERE state != 'error' AND (errors IS NULL OR errors = '{}'::jsonb) AND (warnings IS NULL OR warnings = '{}'::jsonb)`
+      : ''; // full — no filter
 
     const dataTable = job.data_table_name;
-    const copyQuery = `COPY (SELECT row_id, ${errorColumn}, ${sourceColumns} FROM ${dataTable} ${whereClause} ORDER BY row_id) TO STDOUT WITH (FORMAT CSV, HEADER)`;
+    const selectColumns = errorColumn
+      ? `row_id, ${errorColumn}, ${sourceColumns}`
+      : `row_id, ${sourceColumns}`;
+    const selectBody = `SELECT ${selectColumns} FROM ${quoteIdent(dataTable)} ${whereClause} ORDER BY row_id`;
 
-    // Connect to PG and stream the CSV
+    // Connect to PG and switch to user's role
     const dbConfig = getDbConfig();
     const pool = new Pool(dbConfig);
     const pgClient = await pool.connect();
 
-    // Switch to user's role (BEFORE any transaction, matching upload pattern)
     try {
       await pgClient.query('SELECT auth.jwt_switch_role($1)', [accessToken]);
     } catch (error) {
@@ -118,38 +134,97 @@ export async function GET(request: NextRequest) {
       throw error;
     }
 
-    const copyStream = pgClient.query(copyTo(copyQuery));
-
-    // Cleanup must happen AFTER the stream is fully consumed, not when the
-    // Response is returned. The Response streams data lazily — if we release
-    // the PG client in a finally block, the connection dies mid-stream.
     const cleanup = () => {
       pgClient.release();
       pool.end();
     };
 
+    const filterSuffix = filter === "full" ? "-full"
+      : filter === "ok" ? "-ok-rows"
+      : filter === "error" ? "-errors"
+      : "-warnings";
+
+    if (format === "xlsx") {
+      const result = await pgClient.query(selectBody);
+      const fields = result.fields.map(f => f.name);
+
+      const numericOids = new Set([20, 21, 23, 700, 701, 1700]);
+      const dateOids = new Set([1082]);
+      const timestampOids = new Set([1114, 1184]);
+      const boolOid = 16;
+
+      const workbook = new ExcelJS.Workbook();
+      const dataSheet = workbook.addWorksheet("Data");
+      dataSheet.addRow(fields);
+
+      for (let colIdx = 0; colIdx < result.fields.length; colIdx++) {
+        const oid = result.fields[colIdx].dataTypeID;
+        if (dateOids.has(oid)) {
+          dataSheet.getColumn(colIdx + 1).numFmt = 'yyyy-mm-dd';
+        } else if (timestampOids.has(oid)) {
+          dataSheet.getColumn(colIdx + 1).numFmt = 'yyyy-mm-dd hh:mm:ss';
+        }
+      }
+
+      for (const row of result.rows) {
+        dataSheet.addRow(result.fields.map((field) => {
+          const val = row[field.name];
+          if (val === null || val === undefined) return null;
+          const oid = field.dataTypeID;
+          if (numericOids.has(oid)) return Number(val);
+          if (dateOids.has(oid) || timestampOids.has(oid)) return new Date(val as string);
+          if (oid === boolOid) return Boolean(val);
+          return val;
+        }));
+      }
+
+      // Add reference sheets and data validation for xlsx downloads
+      // Column offset accounts for row_id (always) + diagnostic column (error/warning only)
+      const prefixColumnCount = errorColumn ? 2 : 1;
+      // COLUMN_REFERENCE_MAP uses standardized English names (e.g., "primary_activity_category_code"),
+      // but sourceCol has the user's original names (e.g., Norwegian "naeringskode").
+      // Derive standardized names from dataCol by stripping the "_raw" suffix.
+      const standardizedColumnNames = columnEntries.map(e => e.dataCol.replace(/_raw$/, ''));
+      const settingsResult = await client.from("settings").select("region_version_id").single();
+      const regionVersionId = settingsResult.data?.region_version_id;
+      const rangeMap = await addReferenceSheets(workbook, standardizedColumnNames, client, regionVersionId);
+      applyColumnValidation(dataSheet, standardizedColumnNames, rangeMap, prefixColumnCount);
+
+      const passThrough = new PassThrough();
+      const webStream = new ReadableStream({
+        start(controller) {
+          passThrough.on('data', (chunk: Buffer) => controller.enqueue(chunk));
+          passThrough.on('end', () => { controller.close(); cleanup(); });
+          passThrough.on('error', (err) => { controller.error(err); cleanup(); });
+        },
+        cancel() { passThrough.destroy(); cleanup(); },
+      });
+
+      workbook.xlsx.write(passThrough).then(() => passThrough.end()).catch((err) => passThrough.destroy(err));
+
+      const filename = `${slug}${filterSuffix}.xlsx`;
+      return new Response(webStream, {
+        headers: {
+          "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "Content-Disposition": `attachment; filename="${filename}"`,
+        },
+      });
+    }
+
+    // CSV path: stream via COPY
+    const copyQuery = `COPY (${selectBody}) TO STDOUT WITH (FORMAT CSV, HEADER)`;
+    const copyStream = pgClient.query(copyTo(copyQuery));
+
     const webStream = new ReadableStream({
       start(controller) {
-        copyStream.on('data', (chunk: Buffer) => {
-          controller.enqueue(chunk);
-        });
-        copyStream.on('end', () => {
-          controller.close();
-          cleanup();
-        });
-        copyStream.on('error', (err) => {
-          controller.error(err);
-          cleanup();
-        });
+        copyStream.on('data', (chunk: Buffer) => controller.enqueue(chunk));
+        copyStream.on('end', () => { controller.close(); cleanup(); });
+        copyStream.on('error', (err) => { controller.error(err); cleanup(); });
       },
-      cancel() {
-        copyStream.destroy();
-        cleanup();
-      },
+      cancel() { copyStream.destroy(); cleanup(); },
     });
 
-    const filename = `${slug}-${filter}s.csv`;
-
+    const filename = `${slug}${filterSuffix}.csv`;
     return new Response(webStream, {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",

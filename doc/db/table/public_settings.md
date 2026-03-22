@@ -6,7 +6,6 @@
  activity_category_standard_id | integer |           | not null | 
  country_id                    | integer |           | not null | 
  only_one_setting              | boolean |           |          | generated always as (id IS NOT NULL) stored
- analytics_partition_count     | integer |           | not null | 4
  region_version_id             | integer |           | not null | 
  required_to_be_enabled        | boolean |           |          | generated always as (true) stored
 Indexes:
@@ -30,7 +29,6 @@ Policies:
       TO regular_user
       USING (true)
 Triggers:
-    trg_settings_partition_count_change AFTER UPDATE OF analytics_partition_count ON settings FOR EACH ROW EXECUTE FUNCTION admin.propagate_partition_count_change()
     trigger_prevent_settings_id_update BEFORE UPDATE OF id ON settings FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 
 ```

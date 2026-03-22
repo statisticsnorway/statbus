@@ -20,15 +20,14 @@ BEGIN
   -- Create payload
   v_payload := jsonb_build_object('job_id', p_job_id);
 
-  -- Insert task with payload and priority
-  -- Use job priority if available, otherwise fall back to job ID
-  -- This ensures jobs are processed in order of upload timestamp
+  -- Insert import_job parent task (not import_job_process directly)
+  -- The handler will spawn import_job_process as a serial child
   INSERT INTO worker.tasks (
     command,
     payload,
     priority
   ) VALUES (
-    'import_job_process',
+    'import_job',
     v_payload,
     COALESCE(v_priority, p_job_id)
   )

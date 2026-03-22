@@ -25,11 +25,12 @@ BEGIN
     FOR v_ident_type IN SELECT code FROM public.external_ident_type_enabled ORDER BY priority
     LOOP
         v_current_priority := v_current_priority + 1;
-        INSERT INTO public.import_data_column (step_id, column_name, column_type, purpose, is_nullable, is_uniquely_identifying, priority)
-        VALUES (v_step_id, 'legal_unit_' || v_ident_type.code || '_raw', 'TEXT', 'source_input', true, false, v_current_priority)
+        INSERT INTO public.import_data_column (step_id, column_name, column_type, purpose, is_nullable, is_uniquely_identifying, priority, target_pg_type)
+        VALUES (v_step_id, 'legal_unit_' || v_ident_type.code || '_raw', 'TEXT', 'source_input', true, false, v_current_priority, 'TEXT')
         ON CONFLICT (step_id, column_name) DO UPDATE SET
             priority = EXCLUDED.priority,
-            is_uniquely_identifying = EXCLUDED.is_uniquely_identifying;
+            is_uniquely_identifying = EXCLUDED.is_uniquely_identifying,
+            target_pg_type = EXCLUDED.target_pg_type;
     END LOOP;
 
     -- The 'legal_unit_id' pk_id column is statically defined in 20250505120000_import_populate_steps.up.sql

@@ -196,6 +196,7 @@ auto-updatable) also require INSERT.
 - **`foreign_participation_system`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`hypopg_hidden_indexes`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
 - **`hypopg_list_indexes`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
+- **`import_source_column_type`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
 - **`legal_form_custom`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`legal_form_custom_only`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`legal_form_enabled`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT

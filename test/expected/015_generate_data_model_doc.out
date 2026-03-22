@@ -405,6 +405,8 @@ SELECT :'undocumented';
  ## Undocumented Entities                                                                                                                                                       +
  The following tables/views were found in the schema but are not yet documented. Please add them to a section or a helper pattern in `test/sql/015_generate_data_model_doc.sql`.+
                                                                                                                                                                                 +
+ - `public.import_source_column_type` (TABLE)                                                                                                                                   +
+ - `public.import_source_column_type` (VIEW)                                                                                                                                    +
  - `public.region_version` (TABLE)
 (1 row)
 

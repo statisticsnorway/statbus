@@ -180,7 +180,7 @@ export function ImportJobUpload({
                 <input
                   type="file"
                   id="file-upload"
-                  accept=".csv"
+                  accept=".csv,.xlsx"
                   onChange={handleFileChange}
                   className="hidden"
                   disabled={isUploading}
@@ -191,7 +191,7 @@ export function ImportJobUpload({
                 >
                   <Upload className="h-8 w-8 text-gray-400 mb-2" />
                   <span className="text-sm font-medium text-gray-700">
-                    Click to select a CSV file
+                    Click to select a CSV or Excel file
                   </span>
                 </label>
               </div>

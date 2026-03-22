@@ -104,16 +104,16 @@ BEGIN
                         ELSE
                             dt.errors - %2$L::TEXT[]
                     END,
-            invalid_codes = CASE
+            warnings = CASE
                                 WHEN (l.operation = 'update' OR NULLIF(trim(l.name), '') IS NOT NULL) AND l.status_id IS NOT NULL THEN
                                     jsonb_strip_nulls(
-                                     (dt.invalid_codes - %3$L::TEXT[]) ||
+                                     (dt.warnings - %3$L::TEXT[]) ||
                                      jsonb_build_object('sector_code_raw', CASE WHEN NULLIF(l.sector_code, '') IS NOT NULL AND l.resolved_sector_id IS NULL THEN l.sector_code ELSE NULL END) ||
                                      jsonb_build_object('unit_size_code_raw', CASE WHEN NULLIF(l.unit_size_code, '') IS NOT NULL AND l.resolved_unit_size_id IS NULL THEN l.unit_size_code ELSE NULL END) ||
                                      jsonb_build_object('birth_date_raw', CASE WHEN NULLIF(l.birth_date, '') IS NOT NULL AND l.birth_date_error_msg IS NOT NULL THEN l.birth_date ELSE NULL END) ||
                                      jsonb_build_object('death_date_raw', CASE WHEN NULLIF(l.death_date, '') IS NOT NULL AND l.death_date_error_msg IS NOT NULL THEN l.death_date ELSE NULL END)
                                     )
-                                ELSE dt.invalid_codes
+                                ELSE dt.warnings
                             END
         FROM lookups l
         WHERE dt.row_id = l.data_row_id;

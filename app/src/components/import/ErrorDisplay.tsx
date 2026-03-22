@@ -6,7 +6,7 @@ import { ChevronDown, ChevronRight, Copy, Check } from "lucide-react";
 
 interface ErrorDisplayProps {
   errors: Record<string, string> | null | undefined;
-  variant?: "errors" | "invalid_codes";
+  variant?: "errors" | "warnings";
   className?: string;
 }
 
@@ -47,7 +47,7 @@ function formatFieldName(field: string): string {
 }
 
 /**
- * Displays import errors or invalid_codes in a readable format.
+ * Displays import errors or warnings in a readable format.
  * 
  * - Compact by default, showing truncated error message
  * - Expandable on click to show full details

@@ -9,6 +9,7 @@ DECLARE
     v_any_failed BOOLEAN;
     v_parent_after_procedure TEXT;
     v_grandparent_task_id BIGINT;
+    v_children_info JSONB;
 BEGIN
     SELECT parent_id INTO v_parent_id
     FROM worker.tasks
@@ -29,27 +30,49 @@ BEGIN
         WHERE parent_id = v_parent_id AND state = 'failed'
     ) INTO v_any_failed;
 
-    -- CONCURRENCY NOTE: Within a single worker process, multiple child fibers
-    -- may call this after completing their respective children. The
-    -- has_pending_children check could pass for two fibers simultaneously,
-    -- but UPDATE ... WHERE state = 'waiting' acts as an optimistic lock —
-    -- only one fiber's UPDATE matches, and IF FOUND guards all side effects.
+    -- Aggregate children's info: sum numerics, last-value for non-numerics
+    -- Guard SUM with CASE to avoid casting non-numeric jsonb values
+    SELECT jsonb_object_agg(key, CASE
+        WHEN every_numeric THEN to_jsonb(numeric_sum)
+        ELSE last_value
+    END)
+    INTO v_children_info
+    FROM (
+        SELECT key,
+            bool_and(jsonb_typeof(value) = 'number') AS every_numeric,
+            SUM(CASE WHEN jsonb_typeof(value) = 'number' THEN (value)::numeric ELSE 0 END) AS numeric_sum,
+            (array_agg(value ORDER BY child_id DESC))[1] AS last_value
+        FROM (
+            SELECT c.id AS child_id, kv.key, kv.value
+            FROM worker.tasks AS c,
+                 jsonb_each(c.info) AS kv(key, value)
+            WHERE c.parent_id = v_parent_id
+              AND c.info IS NOT NULL
+        ) AS expanded
+        GROUP BY key
+    ) AS aggregated;
+
     IF v_any_failed THEN
+        -- Merge: children's info first, parent's own keys overwrite (right-side wins with ||)
         UPDATE worker.tasks
         SET state = 'failed',
             completed_at = clock_timestamp(),
-            error = 'One or more child tasks failed'
+            completion_duration_ms = EXTRACT(EPOCH FROM (clock_timestamp() - process_start_at)) * 1000,
+            error = 'One or more child tasks failed',
+            info = COALESCE(v_children_info, '{}'::jsonb) || COALESCE(info, '{}'::jsonb)
         WHERE id = v_parent_id AND state = 'waiting';
     ELSE
         UPDATE worker.tasks
         SET state = 'completed',
-            completed_at = clock_timestamp()
+            completed_at = clock_timestamp(),
+            completion_duration_ms = EXTRACT(EPOCH FROM (clock_timestamp() - process_start_at)) * 1000,
+            info = COALESCE(v_children_info, '{}'::jsonb) || COALESCE(info, '{}'::jsonb)
         WHERE id = v_parent_id AND state = 'waiting';
     END IF;
 
     IF FOUND THEN
         v_parent_completed := TRUE;
-        RAISE DEBUG 'complete_parent_if_ready: Parent task % completed (failed=%)', v_parent_id, v_any_failed;
+        RAISE DEBUG 'complete_parent_if_ready: Parent task % completed (failed=%, info=%)', v_parent_id, v_any_failed, v_children_info;
 
         -- Fire parent's after_procedure
         SELECT cr.after_procedure INTO v_parent_after_procedure
@@ -66,7 +89,6 @@ BEGIN
         END IF;
 
         -- RECURSIVE: Check if the parent's parent is now ready too
-        -- Recursion depth bounded by task tree depth (typically 2-3 levels).
         SELECT parent_id INTO v_grandparent_task_id
         FROM worker.tasks WHERE id = v_parent_id;
 

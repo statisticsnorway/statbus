@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { PassThrough } from "stream";
+import ExcelJS from "exceljs";
 import { getStatisticalUnits } from "@/app/search/search-requests";
 import { toCSV } from "@/lib/csv-utils";
 import { getServerRestClient } from "@/context/RestClientStore";
@@ -75,18 +77,71 @@ export async function GET(request: NextRequest) {
   searchParams.set("offset", "0");
 
 
+  const format = searchParams.get("format") || "csv";
+  searchParams.delete("format");
+  if (!["csv", "xlsx"].includes(format)) {
+    return NextResponse.json({ message: "format must be 'csv' or 'xlsx'" }, { status: 400 });
+  }
+
   try {
     const response = await getStatisticalUnits(client, searchParams);
+    const baseName = hasSingleUnitType ? `${unitType}s` : "statistical_units";
+
+    if (format === "xlsx") {
+      const units = response.statisticalUnits;
+      const fields = units.length > 0
+        ? Object.keys(units[0])
+        : (searchParams.get("select") || "").split(",").map(s => {
+            const aliased = s.split(":");
+            return aliased[0].trim();
+          }).filter(Boolean);
+      const dateFields = new Set(["birth_date", "death_date"]);
+
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Data");
+      worksheet.addRow(fields);
+
+      for (let colIdx = 0; colIdx < fields.length; colIdx++) {
+        if (dateFields.has(fields[colIdx])) {
+          worksheet.getColumn(colIdx + 1).numFmt = 'yyyy-mm-dd';
+        }
+      }
+
+      for (const unit of units) {
+        const rec = unit as unknown as Record<string, unknown>;
+        worksheet.addRow(fields.map(f => {
+          const val = rec[f];
+          if (val === null || val === undefined) return null;
+          if (dateFields.has(f) && typeof val === "string") return new Date(val);
+          return val;
+        }));
+      }
+
+      const passThrough = new PassThrough();
+      const webStream = new ReadableStream({
+        start(controller) {
+          passThrough.on("data", (chunk: Buffer) => controller.enqueue(chunk));
+          passThrough.on("end", () => controller.close());
+          passThrough.on("error", (err) => controller.error(err));
+        },
+        cancel() { passThrough.destroy(); },
+      });
+
+      workbook.xlsx.write(passThrough).then(() => passThrough.end()).catch((err) => passThrough.destroy(err));
+
+      return new Response(webStream, {
+        headers: {
+          "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "Content-Disposition": `attachment; filename="${baseName}.xlsx"`,
+        },
+      });
+    }
+
     const { header, body } = toCSV(response.statisticalUnits);
-
-    const filename = hasSingleUnitType
-      ? `${unitType}s.csv`
-      : "statistical_units.csv";
-
     return new Response(header + body, {
       headers: {
         "Content-Type": "text/csv",
-        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Disposition": `attachment; filename="${baseName}.csv"`,
       },
     });
   } catch (error) {

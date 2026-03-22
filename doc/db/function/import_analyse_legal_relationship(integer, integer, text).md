@@ -194,9 +194,9 @@ BEGIN
                 || CASE WHEN l.missing_rel_type THEN jsonb_build_object('missing_rel_type_code', 'rel_type_code is required') ELSE '{}'::jsonb END
                 || CASE WHEN l.unknown_rel_type THEN jsonb_build_object('unknown_rel_type_code', 'Unknown rel_type_code') ELSE '{}'::jsonb END
                 || CASE WHEN l.invalid_percentage THEN jsonb_build_object('invalid_percentage', 'percentage must be a number 0-100') ELSE '{}'::jsonb END,
-            invalid_codes = CASE
-                WHEN l.unknown_rel_type THEN jsonb_strip_nulls((dt.invalid_codes - %3$L::TEXT[]) || jsonb_build_object('rel_type_code', dt.rel_type_code_raw))
-                ELSE dt.invalid_codes - %3$L::TEXT[]
+            warnings = CASE
+                WHEN l.unknown_rel_type THEN jsonb_strip_nulls((dt.warnings - %3$L::TEXT[]) || jsonb_build_object('rel_type_code', dt.rel_type_code_raw))
+                ELSE dt.warnings - %3$L::TEXT[]
             END
         FROM deduped AS l
         WHERE dt.row_id = l.data_row_id;

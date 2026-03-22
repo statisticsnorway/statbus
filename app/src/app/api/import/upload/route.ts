@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerRestClient } from "@/context/RestClientStore";
-import { Pool, Client as PgClient } from 'pg'; // Import Client as PgClient to avoid name clash
+import { Pool } from 'pg';
 import { from as copyFrom } from 'pg-copy-streams';
 import { Readable } from 'stream';
+import ExcelJS from 'exceljs';
+import Papa from 'papaparse';
 import { createServerLogger } from "@/lib/server-logger";
 
 import { getDbHostPort } from "@/lib/db-listener";
@@ -18,6 +20,76 @@ const getDbConfig = () => {
     password: process.env.POSTGRES_AUTHENTICATOR_PASSWORD,
   };
 };
+
+function excelValueToString(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  if (value instanceof Date) return value.toISOString().split('T')[0];
+  if (typeof value === 'object' && value !== null) {
+    if ('result' in value) {
+      const result = (value as { result: unknown }).result;
+      if (result instanceof Date) return result.toISOString().split('T')[0];
+      return result != null ? String(result) : '';
+    }
+    if ('richText' in value) {
+      return (value as { richText: Array<{ text: string }> }).richText.map(rt => rt.text).join('');
+    }
+    if ('text' in value) {
+      return String((value as { text: unknown }).text);
+    }
+    if ('error' in value) return '';
+  }
+  return String(value);
+}
+
+function csvEscapeField(value: string): string {
+  if (value.includes(',') || value.includes('"') || value.includes('\n') || value.includes('\r')) {
+    return '"' + value.replace(/"/g, '""') + '"';
+  }
+  return value;
+}
+
+// Columns added by the download route that should be stripped on re-upload
+// Include old underscore-prefixed names for backward compatibility with previously downloaded files
+const DOWNLOAD_SYSTEM_COLUMNS = new Set(['row_id', 'errors', 'warnings', '_errors', '_warnings']);
+
+function isDownloadSystemColumn(name: string): boolean {
+  return DOWNLOAD_SYSTEM_COLUMNS.has(name.replace(/^"|"$/g, '').trim());
+}
+
+async function convertExcelToCsv(file: File): Promise<Buffer> {
+  const arrayBuffer = await file.arrayBuffer();
+  const workbook = new ExcelJS.Workbook();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await workbook.xlsx.load(Buffer.from(new Uint8Array(arrayBuffer)) as any);
+
+  const worksheet = workbook.worksheets[0];
+  if (!worksheet || worksheet.rowCount === 0) {
+    throw new Error("Excel file appears to be empty or has no worksheets.");
+  }
+
+  // Detect system columns from the header row and build a set of column indices to skip
+  const headerRow = worksheet.getRow(1);
+  const skipIndices = new Set<number>();
+  for (let i = 1; i <= worksheet.columnCount; i++) {
+    const headerValue = excelValueToString(headerRow.getCell(i).value);
+    if (isDownloadSystemColumn(headerValue)) {
+      skipIndices.add(i);
+    }
+  }
+
+  const csvLines: string[] = [];
+  worksheet.eachRow((row) => {
+    const values: string[] = [];
+    for (let i = 1; i <= worksheet.columnCount; i++) {
+      if (skipIndices.has(i)) continue;
+      const cell = row.getCell(i);
+      values.push(csvEscapeField(excelValueToString(cell.value)));
+    }
+    csvLines.push(values.join(','));
+  });
+
+  return Buffer.from(csvLines.join('\n') + '\n', 'utf-8');
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -74,7 +146,6 @@ export async function POST(request: NextRequest) {
     
     // Connect directly to PostgreSQL for efficient COPY using authenticator role
     const dbConfig = getDbConfig();
-    console.debug("dbConfig", dbConfig);
     const pool = new Pool(dbConfig);
     const pgClient = await pool.connect();
 
@@ -95,107 +166,145 @@ export async function POST(request: NextRequest) {
       // Begin transaction (after role is switched)
       await pgClient.query('BEGIN');
 
+      // --- Detect file type and prepare CSV data ---
+      const fileName = file.name.toLowerCase();
+      const isExcel = fileName.endsWith('.xlsx');
+
+      let csvBuffer: Buffer | null = null;
+      if (isExcel) {
+        csvBuffer = await convertExcelToCsv(file);
+      }
+
       // --- Header Extraction ---
-      // Read just enough to get the header line without loading the whole file
-      const reader = file.stream().getReader();
       let headerLine = '';
-      let chunkResult = await reader.read();
-      let decoder = new TextDecoder();
-      let buffer = '';
+      if (csvBuffer) {
+        const text = csvBuffer.toString('utf-8');
+        const nl = text.indexOf('\n');
+        headerLine = (nl !== -1 ? text.substring(0, nl) : text).trim();
+      } else {
+        const reader = file.stream().getReader();
+        let chunkResult = await reader.read();
+        const decoder = new TextDecoder();
+        let buffer = '';
 
-      while (!chunkResult.done) {
-        buffer += decoder.decode(chunkResult.value, { stream: true });
-        const newlineIndex = buffer.indexOf('\n');
-        if (newlineIndex !== -1) {
-          headerLine = buffer.substring(0, newlineIndex).trim(); // Get the first line
-          // Release the lock so the stream can be used again later
-          reader.releaseLock(); 
-          break; // Stop reading chunks
+        while (!chunkResult.done) {
+          buffer += decoder.decode(chunkResult.value, { stream: true });
+          const newlineIndex = buffer.indexOf('\n');
+          if (newlineIndex !== -1) {
+            headerLine = buffer.substring(0, newlineIndex).trim();
+            reader.releaseLock();
+            break;
+          }
+          if (buffer.length > 1024 * 10) {
+            reader.releaseLock();
+            throw new Error("Could not find header row within the first 10KB.");
+          }
+          chunkResult = await reader.read();
         }
-        // Safety break: If buffer grows excessively large without finding a newline,
-        // it indicates a potential issue (e.g., very long line, binary data, or no newline).
-        // Throw an error to prevent excessive memory usage.
-        if (buffer.length > 1024 * 10) { // e.g., 10KB limit for header line
-           reader.releaseLock();
-           throw new Error("Could not find header row within the first 10KB.");
+        if (!headerLine && buffer.length > 0 && chunkResult.done) {
+          headerLine = buffer.trim();
         }
-        chunkResult = await reader.read();
       }
-      // Handle case where file ends before newline (single line file)
-      if (!headerLine && buffer.length > 0 && chunkResult.done) {
-        headerLine = buffer.trim();
-        // No need to release lock here as stream is done
-      }
-      
+
       if (!headerLine) {
-        throw new Error("CSV file appears to be empty or header row could not be read.");
+        throw new Error("File appears to be empty or header row could not be read.");
       }
 
-      // Parse header line
-      const headers = headerLine.split(',')
+      // Parse header line and identify system columns to strip
+      const rawHeaders = headerLine.split(',')
         .map(h => h.trim())
-        .filter(h => h.length > 0)
+        .filter(h => h.length > 0);
+
+      if (rawHeaders.length === 0) {
+        throw new Error("CSV header row is empty or invalid.");
+      }
+
+      // Find indices of download-added system columns (row_id, errors, warnings)
+      const systemColumnIndices = new Set<number>();
+      rawHeaders.forEach((h, i) => {
+        if (isDownloadSystemColumn(h)) systemColumnIndices.add(i);
+      });
+
+      // If CSV has system columns, rewrite the buffer to strip them
+      if (systemColumnIndices.size > 0 && !csvBuffer) {
+        const rawCsv = await file.text();
+        const parsed = Papa.parse(rawCsv, { header: false, skipEmptyLines: false });
+        const cleanedRows = (parsed.data as string[][]).map(row =>
+          row.filter((_, i) => !systemColumnIndices.has(i))
+        );
+        csvBuffer = Buffer.from(Papa.unparse(cleanedRows, { header: false }) + '\n', 'utf-8');
+      }
+
+      const headers = rawHeaders
+        .filter(h => !isDownloadSystemColumn(h))
         .map(h => `"${h.replace(/"/g, '""')}"`); // Quote headers
 
       if (headers.length === 0) {
-        throw new Error("CSV header row is empty or invalid.");
+        throw new Error("CSV header row contains only system columns.");
       }
-      
+
       const columns = headers.join(', ');
       const copyCommand = `COPY ${job.upload_table_name} (${columns}) FROM STDIN WITH (FORMAT csv, HEADER true, DELIMITER ',')`;
       logger.info({ jobId: job.id, jobSlug: job.slug, command: copyCommand }, `Executing COPY command`);
 
       // --- Data Streaming ---
-      // Use COPY FROM STDIN for efficient data loading
       const copyStream = pgClient.query(copyFrom(copyCommand));
-      
-      // Get a *new* stream for the entire file content
-      const fileStream = file.stream(); 
 
-      // Pipe the *entire* file stream directly to the copy stream
-      await new Promise<void>((resolve, reject) => {
-        fileStream.pipeTo(new WritableStream({
-          write(chunk) {
-            return new Promise((resolveWrite, rejectWrite) => {
-              if (!copyStream.write(chunk)) {
-                copyStream.once('drain', resolveWrite);
-              } else {
-                resolveWrite();
-              }
-            });
-          },
-          close() {
-            copyStream.end();
-          },
-          abort(err) {
-            copyStream.destroy(err); // Ensure copyStream is properly terminated on abort
+      if (csvBuffer) {
+        // Excel path: stream converted CSV buffer to COPY
+        await new Promise<void>((resolve, reject) => {
+          const readable = new Readable({ read() {} });
+          readable.push(csvBuffer);
+          readable.push(null);
+          readable.pipe(copyStream);
+          copyStream.on('finish', () => resolve());
+          copyStream.on('error', (err: Error) => {
+            logger.error({ error: err, jobId: job.id, jobSlug: job.slug }, `COPY FROM stream error: ${err.message}`);
             reject(err);
-          }
-        })).then(() => {
-           // fileStream piping finished successfully
-           // Now wait for the copyStream to finish processing in PG
-           copyStream.on('finish', resolve);
-           copyStream.on('error', reject); // Handle errors during PG processing
-        }).catch(err => {
-           // Error during fileStream piping
-           logger.error({ error: err, jobId: job.id, jobSlug: job.slug }, `File stream piping error: ${err.message}`);
-           // Ensure copyStream is terminated if piping fails
-           if (!copyStream.destroyed) {
-             copyStream.destroy(err);
-           }
-           reject(err);
+          });
         });
+      } else {
+        // CSV path: stream file directly to COPY
+        const fileStream = file.stream();
+        await new Promise<void>((resolve, reject) => {
+          fileStream.pipeTo(new WritableStream({
+            write(chunk) {
+              return new Promise((resolveWrite, rejectWrite) => {
+                if (!copyStream.write(chunk)) {
+                  copyStream.once('drain', resolveWrite);
+                } else {
+                  resolveWrite();
+                }
+              });
+            },
+            close() {
+              copyStream.end();
+            },
+            abort(err) {
+              copyStream.destroy(err);
+              reject(err);
+            }
+          })).then(() => {
+            copyStream.on('finish', resolve);
+            copyStream.on('error', reject);
+          }).catch(err => {
+            logger.error({ error: err, jobId: job.id, jobSlug: job.slug }, `File stream piping error: ${err.message}`);
+            if (!copyStream.destroyed) {
+              copyStream.destroy(err);
+            }
+            reject(err);
+          });
 
-        // Also handle errors directly on the copyStream (e.g., PG connection issues)
-        copyStream.on('error', (err: Error) => {
-          logger.error({ error: err, jobId: job.id, jobSlug: job.slug }, `COPY FROM stream error: ${err.message}`);
-          reject(err);
-        });
+          copyStream.on('error', (err: Error) => {
+            logger.error({ error: err, jobId: job.id, jobSlug: job.slug }, `COPY FROM stream error: ${err.message}`);
+            reject(err);
+          });
 
-        copyStream.on('finish', () => {
-          resolve();
+          copyStream.on('finish', () => {
+            resolve();
+          });
         });
-      });
+      }
 
       // Commit transaction
       await pgClient.query('COMMIT');

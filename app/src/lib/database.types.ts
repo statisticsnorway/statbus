@@ -1112,6 +1112,7 @@ export type Database = {
           priority: number | null
           purpose: Database["public"]["Enums"]["import_data_column_purpose"]
           step_id: number
+          target_pg_type: string | null
           updated_at: string
         },
         Insert: {
@@ -1125,6 +1126,7 @@ export type Database = {
           priority?: number | null
           purpose: Database["public"]["Enums"]["import_data_column_purpose"]
           step_id: number
+          target_pg_type?: string | null
           updated_at?: string
         },
         Update: {
@@ -1138,6 +1140,7 @@ export type Database = {
           priority?: number | null
           purpose?: Database["public"]["Enums"]["import_data_column_purpose"]
           step_id?: number
+          target_pg_type?: string | null
           updated_at?: string
         },
         Relationships: [
@@ -7223,6 +7226,42 @@ export type Database = {
           table_name?: string | null
         },
         Relationships: []
+      },
+      import_source_column_type: {
+        Row: {
+          column_name: string | null
+          definition_id: number | null
+          priority: number | null
+          target_pg_type: string | null
+        },
+        Insert: {
+          column_name?: string | null
+          definition_id?: number | null
+          priority?: number | null
+          target_pg_type?: string | null
+        },
+        Update: {
+          column_name?: string | null
+          definition_id?: number | null
+          priority?: number | null
+          target_pg_type?: string | null
+        },
+        Relationships: [
+          {
+            foreignKeyName: "import_mapping_definition_id_fkey"
+            columns: ["definition_id"]
+            isOneToOne: false
+            referencedRelation: "import_definition"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_source_column_definition_id_fkey"
+            columns: ["definition_id"]
+            isOneToOne: false
+            referencedRelation: "import_definition"
+            referencedColumns: ["id"]
+          }
+        ]
       },
       legal_form_custom: {
         Row: {

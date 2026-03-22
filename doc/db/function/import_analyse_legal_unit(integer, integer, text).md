@@ -10,7 +10,7 @@ DECLARE
     v_error_count INT := 0;
     v_data_table_name TEXT;
     v_error_keys_to_clear_arr TEXT[] := ARRAY['name_raw', 'legal_form_code_raw', 'sector_code_raw', 'unit_size_code_raw', 'birth_date_raw', 'death_date_raw', 'status_code_raw', 'legal_unit'];
-    v_invalid_code_keys_arr TEXT[] := ARRAY['legal_form_code_raw', 'sector_code_raw', 'unit_size_code_raw', 'birth_date_raw', 'death_date_raw']; -- Keys that go into invalid_codes
+    v_invalid_code_keys_arr TEXT[] := ARRAY['legal_form_code_raw', 'sector_code_raw', 'unit_size_code_raw', 'birth_date_raw', 'death_date_raw']; -- Keys that go into warnings
 BEGIN
     RAISE DEBUG '[Job %] analyse_legal_unit (Batch): Starting analysis for batch_seq %', p_job_id, p_batch_seq;
 
@@ -129,17 +129,17 @@ BEGIN
                         ELSE
                             dt.errors - %2$L::TEXT[]
                     END,
-            invalid_codes = CASE
+            warnings = CASE
                                 WHEN (l.operation = 'update' OR NULLIF(trim(l.name), '') IS NOT NULL) AND l.status_id IS NOT NULL THEN
                                     jsonb_strip_nulls(
-                                     (dt.invalid_codes - %3$L::TEXT[]) ||
+                                     (dt.warnings - %3$L::TEXT[]) ||
                                      jsonb_build_object('legal_form_code_raw', CASE WHEN NULLIF(l.legal_form_code, '') IS NOT NULL AND l.resolved_legal_form_id IS NULL THEN l.legal_form_code ELSE NULL END) ||
                                      jsonb_build_object('sector_code_raw', CASE WHEN NULLIF(l.sector_code, '') IS NOT NULL AND l.resolved_sector_id IS NULL THEN l.sector_code ELSE NULL END) ||
                                      jsonb_build_object('unit_size_code_raw', CASE WHEN NULLIF(l.unit_size_code, '') IS NOT NULL AND l.resolved_unit_size_id IS NULL THEN l.unit_size_code ELSE NULL END) ||
                                      jsonb_build_object('birth_date_raw', CASE WHEN NULLIF(l.birth_date, '') IS NOT NULL AND l.birth_date_error_msg IS NOT NULL THEN l.birth_date ELSE NULL END) ||
                                      jsonb_build_object('death_date_raw', CASE WHEN NULLIF(l.death_date, '') IS NOT NULL AND l.death_date_error_msg IS NOT NULL THEN l.death_date ELSE NULL END)
                                     )
-                                ELSE dt.invalid_codes
+                                ELSE dt.warnings
                             END
         FROM lookups l
         WHERE dt.row_id = l.data_row_id;

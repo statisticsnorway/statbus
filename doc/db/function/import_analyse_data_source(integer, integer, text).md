@@ -44,8 +44,8 @@ BEGIN
         )
         UPDATE public.%1$I dt SET
             data_source_id = COALESCE(l.resolved_data_source_id, dt.data_source_id), -- Only update if resolved, don't nullify
-            invalid_codes = jsonb_strip_nulls(
-                (COALESCE(dt.invalid_codes, '{}'::jsonb) - 'data_source_code_raw') ||
+            warnings = jsonb_strip_nulls(
+                (COALESCE(dt.warnings, '{}'::jsonb) - 'data_source_code_raw') ||
                 jsonb_build_object('data_source_code_raw',
                     CASE
                         WHEN NULLIF(dt.data_source_code_raw, '') IS NOT NULL AND l.resolved_data_source_id IS NULL THEN dt.data_source_code_raw

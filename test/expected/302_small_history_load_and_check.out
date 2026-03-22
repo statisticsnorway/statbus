@@ -519,7 +519,7 @@ FROM def;
  last_completed_priority              | integer                   |           | not null | 0                            | plain    |              | 
  errors                               | jsonb                     |           | not null | '{}'::jsonb                  | extended |              | 
  merge_status                         | jsonb                     |           | not null | '{}'::jsonb                  | extended |              | 
- invalid_codes                        | jsonb                     |           | not null | '{}'::jsonb                  | extended |              | 
+ warnings                             | jsonb                     |           | not null | '{}'::jsonb                  | extended |              | 
 Indexes:
     "import_10_lu_2015_sht_data_pkey" PRIMARY KEY, btree (row_id)
     "import_10_lu_2015_sht_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
@@ -558,7 +558,7 @@ Not-null constraints:
     "import_10_lu_2015_sht_data_last_completed_priority_not_null" NOT NULL "last_completed_priority"
     "import_10_lu_2015_sht_data_errors_not_null" NOT NULL "errors"
     "import_10_lu_2015_sht_data_merge_status_not_null" NOT NULL "merge_status"
-    "import_10_lu_2015_sht_data_invalid_codes_not_null" NOT NULL "invalid_codes"
+    "import_10_lu_2015_sht_data_warnings_not_null" NOT NULL "warnings"
 
 \echo '------------------------------------------'
 ------------------------------------------

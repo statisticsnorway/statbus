@@ -86,7 +86,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 -- SET client_min_messages TO NOTICE;
 
 \echo "Inspecting first 5 rows of legal unit import job data (import_lu_web_example_current_data)"
-SELECT row_id, state, errors, invalid_codes, tax_ident_raw, name_raw, birth_date_raw, physical_address_part1_raw, primary_activity_category_code_raw, merge_status
+SELECT row_id, state, errors, warnings, tax_ident_raw, name_raw, birth_date_raw, physical_address_part1_raw, primary_activity_category_code_raw, merge_status
 FROM public.import_lu_web_example_current_data
 ORDER BY row_id
 LIMIT 5;
@@ -114,10 +114,10 @@ FROM public.import_lu_web_example_current_data
 WHERE (errors IS NOT NULL AND errors IS DISTINCT FROM '{}'::JSONB) OR state = 'error'
 ORDER BY row_id;
 
-\echo "Legal unit import data with invalid_codes (if any):"
-SELECT row_id, state, errors, invalid_codes, merge_status, tax_ident_raw, name_raw
+\echo "Legal unit import data with warnings (if any):"
+SELECT row_id, state, errors, warnings, merge_status, tax_ident_raw, name_raw
 FROM public.import_lu_web_example_current_data
-WHERE invalid_codes IS NOT NULL AND invalid_codes <> '{}'::JSONB
+WHERE warnings IS NOT NULL AND warnings <> '{}'::JSONB
 ORDER BY row_id;
 
 \echo "Error rows in import_es_web_example_current_data (if any):"
@@ -126,10 +126,10 @@ FROM public.import_es_web_example_current_data
 WHERE (errors IS NOT NULL AND errors IS DISTINCT FROM '{}'::JSONB) OR state = 'error'
 ORDER BY row_id;
 
-\echo "Establishment import data with invalid_codes (if any):"
-SELECT row_id, state, errors, invalid_codes, merge_status, tax_ident_raw, name_raw
+\echo "Establishment import data with warnings (if any):"
+SELECT row_id, state, errors, warnings, merge_status, tax_ident_raw, name_raw
 FROM public.import_es_web_example_current_data
-WHERE invalid_codes IS NOT NULL AND invalid_codes <> '{}'::JSONB
+WHERE warnings IS NOT NULL AND warnings <> '{}'::JSONB
 ORDER BY row_id;
 
 \echo "Checking counts of imported units"

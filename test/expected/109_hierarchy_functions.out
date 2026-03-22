@@ -102,30 +102,30 @@ WHERE slug LIKE 'import_34_%' ORDER BY slug;
 
 \echo "Checking for data processing issues in import_34_lu_era_data"
 "Checking for data processing issues in import_34_lu_era_data"
-SELECT row_id, errors, invalid_codes, merge_status FROM public.import_34_lu_era_data WHERE errors IS NOT NULL OR invalid_codes IS NOT NULL ORDER BY row_id;
- row_id | errors | invalid_codes |                                                                              merge_status                                                                               
---------+--------+---------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-      1 | {}     | {}            | {"contact": "APPLIED", "legal_unit": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
-      2 | {}     | {}            | {"contact": "APPLIED", "legal_unit": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+SELECT row_id, errors, warnings, merge_status FROM public.import_34_lu_era_data WHERE errors IS NOT NULL OR warnings IS NOT NULL ORDER BY row_id;
+ row_id | errors | warnings |                                                                              merge_status                                                                               
+--------+--------+----------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+      1 | {}     | {}       | {"contact": "APPLIED", "legal_unit": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+      2 | {}     | {}       | {"contact": "APPLIED", "legal_unit": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
 (2 rows)
 
 \echo "Checking for data processing issues in import_34_esflu_era_data"
 "Checking for data processing issues in import_34_esflu_era_data"
-SELECT row_id, errors, invalid_codes, merge_status FROM public.import_34_esflu_era_data WHERE errors IS NOT NULL OR invalid_codes IS NOT NULL ORDER BY row_id;
- row_id | errors | invalid_codes |                                                                                merge_status                                                                                
---------+--------+---------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-      1 | {}     | {}            | {"contact": "APPLIED", "establishment": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
-      2 | {}     | {}            | {"establishment": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
-      3 | {}     | {}            | {"contact": "APPLIED", "establishment": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+SELECT row_id, errors, warnings, merge_status FROM public.import_34_esflu_era_data WHERE errors IS NOT NULL OR warnings IS NOT NULL ORDER BY row_id;
+ row_id | errors | warnings |                                                                                merge_status                                                                                
+--------+--------+----------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+      1 | {}     | {}       | {"contact": "APPLIED", "establishment": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+      2 | {}     | {}       | {"establishment": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+      3 | {}     | {}       | {"contact": "APPLIED", "establishment": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
 (3 rows)
 
 \echo "Checking for data processing issues in import_34_eswlu_era_data"
 "Checking for data processing issues in import_34_eswlu_era_data"
-SELECT row_id, errors, invalid_codes, merge_status FROM public.import_34_eswlu_era_data WHERE errors IS NOT NULL OR invalid_codes IS NOT NULL ORDER BY row_id;
- row_id | errors | invalid_codes |                                                                                merge_status                                                                                
---------+--------+---------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-      1 | {}     | {}            | {"contact": "APPLIED", "establishment": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
-      2 | {}     | {}            | {"contact": "APPLIED", "establishment": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+SELECT row_id, errors, warnings, merge_status FROM public.import_34_eswlu_era_data WHERE errors IS NOT NULL OR warnings IS NOT NULL ORDER BY row_id;
+ row_id | errors | warnings |                                                                                merge_status                                                                                
+--------+--------+----------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+      1 | {}     | {}       | {"contact": "APPLIED", "establishment": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+      2 | {}     | {}       | {"contact": "APPLIED", "establishment": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
 (2 rows)
 
 \echo Run worker processing for analytics tasks

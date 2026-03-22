@@ -13,16 +13,14 @@ import { useImportManager, usePendingJobsByMode } from "@/atoms/import"; // Upda
 import { TimeContextSelector } from "../components/time-context-selector";
 import { ImportJobCreator } from "../components/import-job-creator";
 import { Spinner } from "@/components/ui/spinner";
-import { Button } from "@/components/ui/button";
 import { getBrowserRestClient } from "@/context/RestClientStore";
-import { Tables } from "@/lib/database.types";
-import { useRouter } from "next/navigation";
 import { PendingJobsList } from "../components/pending-jobs-list";
 
 export default function UploadEstablishmentsWithoutLegalUnitPage() {
-  const router = useRouter();
   const { counts: { establishmentsWithoutLegalUnit }, importState } = useImportManager();
-  const { selectedDefinition } = importState;
+  const { selectedDefinition, availableDefinitions } = importState;
+  const jobProvidedDef = availableDefinitions.find(d => d.valid_time_from === 'job_provided');
+  const sourceColumnsDef = availableDefinitions.find(d => d.valid_time_from === 'source_columns');
   // Use the generalized hook with the specific import mode for informal establishments
   const { jobs: pendingJobs, loading: isLoading, error, refreshJobs } = usePendingJobsByMode("establishment_informal");
   const [isClient, setIsClient] = useState(false);
@@ -117,13 +115,15 @@ export default function UploadEstablishmentsWithoutLegalUnitPage() {
           </InfoBox>
         )}
 
-      <PendingJobsList
-        jobs={pendingJobs}
-        onDeleteJob={handleDeleteJob}
-        unitTypeTitle="Establishments Without Legal Unit"
-        unitTypeDescription="establishment without legal unit"
-        uploadPathPrefix="/import/establishments-without-legal-unit/upload"
-      />
+      {!isLoading && pendingJobs.length > 0 && (
+        <PendingJobsList
+          jobs={pendingJobs}
+          onDeleteJob={handleDeleteJob}
+          unitTypeTitle="Establishments Without Legal Unit"
+          unitTypeDescription="establishment without legal unit"
+          uploadPathPrefix="/import/establishments-without-legal-unit/upload"
+        />
+      )}
 
       <TimeContextSelector unitType="establishments-without-legal-unit" />
       
@@ -178,31 +178,34 @@ export default function UploadEstablishmentsWithoutLegalUnitPage() {
               the structure. The correct example to use depends on the &quot;Data
               validity period&quot; selected above.
             </p>
-            <div className="flex flex-col space-y-2 pl-4">
-              <a
-                href="/demo/informal_establishments_units_demo.csv"
-                download="informal_establishments_units_demo.csv"
-                className={`underline ${
-                  selectedDefinition?.valid_time_from === "job_provided"
-                    ? "font-bold"
-                    : ""
-                }`}
-              >
-                Example for jobs with a defined validity period
-              </a>
-              <a
-                href="/demo/informal_establishments_units_with_source_dates_demo.csv"
-                download="informal_establishments_units_with_source_dates_demo.csv"
-                className={`underline ${
-                  selectedDefinition?.valid_time_from === "source_columns"
-                    ? "font-bold"
-                    : ""
-                }`}
-              >
-                Example for jobs with validity from source file (valid_from,
-                valid_to)
-              </a>
-            </div>
+            <table className="text-sm">
+              <thead>
+                <tr>
+                  <th className="pr-4 py-1 text-left"></th>
+                  <th className="px-2 py-1 text-left">CSV</th>
+                  <th className="px-2 py-1 text-left">Excel</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className={selectedDefinition?.valid_time_from === "job_provided" ? "font-bold" : ""}>
+                  <td className="pr-4 py-1">With a defined validity period</td>
+                  <td className="px-2 py-1"><a href="/demo/informal_establishments_units_demo.csv" download="informal_establishments_units_demo.csv" className="underline">CSV demo</a></td>
+                  {jobProvidedDef && <td className="px-2 py-1"><a href={`/api/import/template?definitionId=${jobProvidedDef.id}&demoFile=informal_establishments_units_demo.csv`} download className="underline text-blue-600">Excel demo</a></td>}
+                </tr>
+                <tr className={selectedDefinition?.valid_time_from === "source_columns" ? "font-bold" : ""}>
+                  <td className="pr-4 py-1">With validity from source file</td>
+                  <td className="px-2 py-1"><a href="/demo/informal_establishments_units_with_source_dates_demo.csv" download="informal_establishments_units_with_source_dates_demo.csv" className="underline">CSV demo</a></td>
+                  {sourceColumnsDef && <td className="px-2 py-1"><a href={`/api/import/template?definitionId=${sourceColumnsDef.id}&demoFile=informal_establishments_units_with_source_dates_demo.csv`} download className="underline text-blue-600">Excel demo</a></td>}
+                </tr>
+              </tbody>
+            </table>
+            <p className="text-sm text-gray-600 mt-3">
+              Excel files include code list sheets with dropdown validation.{' '}
+              Download an empty Excel template:{' '}
+              {jobProvidedDef && <a href={`/api/import/template?definitionId=${jobProvidedDef.id}`} download className="underline text-blue-600">Template</a>}
+              {jobProvidedDef && sourceColumnsDef && ' / '}
+              {sourceColumnsDef && <a href={`/api/import/template?definitionId=${sourceColumnsDef.id}`} download className="underline text-blue-600">Template (with source dates)</a>}
+            </p>
           </AccordionContent>
         </AccordionItem>
       </Accordion>

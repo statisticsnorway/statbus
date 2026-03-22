@@ -7,7 +7,7 @@ AS $function$
     SELECT jsonb_build_object(
         'active', EXISTS (
             SELECT 1 FROM worker.tasks
-            WHERE command IN ('derive_reports', 'derive_statistical_history', 'derive_statistical_history_period',
+            WHERE command IN ('derive_reports_phase', 'derive_reports', 'derive_statistical_history', 'derive_statistical_history_period',
                             'statistical_history_reduce', 'derive_statistical_unit_facet',
                             'derive_statistical_unit_facet_partition', 'statistical_unit_facet_reduce',
                             'derive_statistical_history_facet', 'derive_statistical_history_facet_period',
@@ -16,7 +16,7 @@ AS $function$
         ),
         'step', (
             SELECT t.command FROM worker.tasks AS t
-            WHERE t.command IN ('derive_reports', 'derive_statistical_history',
+            WHERE t.command IN ('derive_reports_phase', 'derive_reports', 'derive_statistical_history',
                                'statistical_history_reduce', 'derive_statistical_unit_facet',
                                'statistical_unit_facet_reduce', 'derive_statistical_history_facet',
                                'statistical_history_facet_reduce')
@@ -44,29 +44,29 @@ AS $function$
                                     'derive_statistical_history_facet')
               )
         ), 0),
-        'affected_establishment_count', (
-            SELECT (t.payload->>'affected_establishment_count')::int
+        'effective_establishment_count', (
+            SELECT (t.info->>'effective_establishment_count')::int
             FROM worker.tasks AS t
             WHERE t.command = 'derive_statistical_unit'
               AND t.state IN ('completed', 'waiting')
             ORDER BY t.id DESC LIMIT 1
         ),
-        'affected_legal_unit_count', (
-            SELECT (t.payload->>'affected_legal_unit_count')::int
+        'effective_legal_unit_count', (
+            SELECT (t.info->>'effective_legal_unit_count')::int
             FROM worker.tasks AS t
             WHERE t.command = 'derive_statistical_unit'
               AND t.state IN ('completed', 'waiting')
             ORDER BY t.id DESC LIMIT 1
         ),
-        'affected_enterprise_count', (
-            SELECT (t.payload->>'affected_enterprise_count')::int
+        'effective_enterprise_count', (
+            SELECT (t.info->>'effective_enterprise_count')::int
             FROM worker.tasks AS t
             WHERE t.command = 'derive_statistical_unit'
               AND t.state IN ('completed', 'waiting')
             ORDER BY t.id DESC LIMIT 1
         ),
-        'affected_power_group_count', (
-            SELECT (t.payload->>'affected_power_group_count')::int
+        'effective_power_group_count', (
+            SELECT (t.info->>'effective_power_group_count')::int
             FROM worker.tasks AS t
             WHERE t.command = 'derive_statistical_unit'
               AND t.state IN ('completed', 'waiting')

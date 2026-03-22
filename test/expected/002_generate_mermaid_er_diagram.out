@@ -260,6 +260,7 @@ erDiagram
 		boolean is_uniquely_identifying
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
+		text target_pg_type
 	}
 	import_definition["import_definition"] {
 		integer id

@@ -6,7 +6,6 @@ import { useSWRConfig } from 'swr';
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { DataTableSkeleton } from "@/components/data-table/data-table-skeleton";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tables } from '@/lib/database.types';
 import { DataTable } from "@/components/data-table/data-table";
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
@@ -17,10 +16,16 @@ import {
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ChevronRight, ThumbsUp, ThumbsDown, Download } from "lucide-react";
-import { StackedProgress } from "@/components/ui/stacked-progress";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
-import { useAtomValue } from "jotai";
+import { useAtomValue, useSetAtom } from "jotai";
 import { externalIdentTypesAtom } from "@/atoms/base-data";
+import { importDownloadContextAtom } from "@/atoms/import-download-context";
 import { type ImportJobWithDetails as ImportJob } from "@/atoms/import";
 import { ErrorDisplay } from "@/components/import/ErrorDisplay";
 import { 
@@ -42,7 +47,7 @@ type ImportJobDataRow = {
   operation?: any;
   action?: any;
   errors?: any;
-  invalid_codes?: any;
+  warnings?: any;
   merge_status?: any;
   [key:string]: any;
 };
@@ -108,7 +113,7 @@ const fetcher = async (key: string): Promise<any> => {
     }
 
     filters.forEach((values, key) => {
-      if (key === 'errors' || key === 'invalid_codes') {
+      if (key === 'errors' || key === 'warnings') {
         const filterValue = values[0];
         if (filterValue === 'is_null') {
           queryBuilder = queryBuilder.or(`${key}.is.null,${key}.eq.{}`);
@@ -146,6 +151,7 @@ export default function ImportJobDataPage() {
 
   const { mutate } = useSWRConfig();
   const externalIdentTypes = useAtomValue(externalIdentTypesAtom);
+  const setImportDownloadContext = useSetAtom(importDownloadContextAtom);
 
   const [pagination, setPagination] = React.useState<PaginationState>({
     pageIndex: 0,
@@ -260,6 +266,19 @@ export default function ImportJobDataPage() {
     };
   }, [job?.id, jobSlug, tableDataSWRKey, mutate], 'ImportJobDataPage:sseListener');
 
+  // Set download context atom for command palette; clear on unmount
+  useGuardedEffect(() => {
+    if (!job?.id || !job?.slug) return;
+    setImportDownloadContext({
+      jobId: job.id,
+      jobSlug: job.slug,
+      totalRows: job.total_rows ?? 0,
+      errorCount: job.error_count ?? 0,
+      warningCount: job.warning_count ?? 0,
+    });
+    return () => { setImportDownloadContext(null); };
+  }, [job?.id, job?.slug, job?.total_rows, job?.error_count, job?.warning_count, setImportDownloadContext], 'ImportJobDataPage:downloadContext');
+
   const pageCount = React.useMemo(() => {
     return tableData?.count != null
       ? Math.ceil(tableData.count / pagination.pageSize)
@@ -286,7 +305,7 @@ export default function ImportJobDataPage() {
       'state',
       'action',
       'errors',
-      'invalid_codes',
+      'warnings',
       'merge_status',
       ...externalIdentCodes,
       'name'
@@ -377,7 +396,7 @@ export default function ImportJobDataPage() {
                   return <div className={`text-xs truncate ${className}`} title={displayValue}>{displayValue}</div>;
               };
 
-              // Special handling for errors and invalid_codes columns
+              // Special handling for errors and warnings columns
               if (baseKey === 'errors') {
                 const errorsValue = row.original.errors;
                 if (!errorsValue || (typeof errorsValue === 'object' && Object.keys(errorsValue).length === 0)) {
@@ -386,12 +405,12 @@ export default function ImportJobDataPage() {
                 return <ErrorDisplay errors={errorsValue} variant="errors" />;
               }
 
-              if (baseKey === 'invalid_codes') {
-                const invalidCodesValue = row.original.invalid_codes;
-                if (!invalidCodesValue || (typeof invalidCodesValue === 'object' && Object.keys(invalidCodesValue).length === 0)) {
+              if (baseKey === 'warnings') {
+                const warningsValue = row.original.warnings;
+                if (!warningsValue || (typeof warningsValue === 'object' && Object.keys(warningsValue).length === 0)) {
                   return <span className="text-gray-400 text-xs">-</span>;
                 }
-                return <ErrorDisplay errors={invalidCodesValue} variant="invalid_codes" />;
+                return <ErrorDisplay errors={warningsValue} variant="warnings" />;
               }
 
               if (hasActivityCategoryCodeRaw) {
@@ -479,7 +498,7 @@ export default function ImportJobDataPage() {
           };
       }
 
-      if (['errors', 'invalid_codes'].includes(baseKey)) {
+      if (['errors', 'warnings'].includes(baseKey)) {
           columnDef.enableColumnFilter = true;
           columnDef.filterFn = placeholderFilterFn;
           columnDef.meta = {
@@ -531,16 +550,16 @@ export default function ImportJobDataPage() {
 
   const isLoading = isJobLoading || (isTableDataLoading && !tableData) || awaitingAuthRefresh;
 
-  const qualityFilterIds = ['state', 'errors', 'invalid_codes'];
+  const qualityFilterIds = ['state', 'errors', 'warnings'];
 
   // Check if ok filter is active (quality-based: no errors, no warnings, not error state)
   const isOkFilterActive = React.useMemo(() => {
     const stateFilter = columnFilters.find(f => f.id === 'state');
     const errorsFilter = columnFilters.find(f => f.id === 'errors');
-    const invalidCodesFilter = columnFilters.find(f => f.id === 'invalid_codes');
+    const warningsFilter = columnFilters.find(f => f.id === 'warnings');
     return Array.isArray(stateFilter?.value) && stateFilter.value[0] === 'not_error'
       && Array.isArray(errorsFilter?.value) && errorsFilter.value[0] === 'is_null'
-      && Array.isArray(invalidCodesFilter?.value) && invalidCodesFilter.value[0] === 'is_null';
+      && Array.isArray(warningsFilter?.value) && warningsFilter.value[0] === 'is_null';
   }, [columnFilters]);
 
   // Check if error filter is active
@@ -552,8 +571,8 @@ export default function ImportJobDataPage() {
 
   // Check if warning filter is active
   const isWarningFilterActive = React.useMemo(() => {
-    const invalidCodesFilter = columnFilters.find(f => f.id === 'invalid_codes');
-    return Array.isArray(invalidCodesFilter?.value) && invalidCodesFilter.value[0] === 'not_null';
+    const warningsFilter = columnFilters.find(f => f.id === 'warnings');
+    return Array.isArray(warningsFilter?.value) && warningsFilter.value[0] === 'not_null';
   }, [columnFilters]);
 
   // Toggle ok-only filter (clears error and warning filters)
@@ -566,7 +585,7 @@ export default function ImportJobDataPage() {
         return [...newFilters,
           { id: 'state', value: ['not_error'] },
           { id: 'errors', value: ['is_null'] },
-          { id: 'invalid_codes', value: ['is_null'] },
+          { id: 'warnings', value: ['is_null'] },
         ];
       }
     });
@@ -591,7 +610,7 @@ export default function ImportJobDataPage() {
         return prev.filter(f => !qualityFilterIds.includes(f.id));
       } else {
         const newFilters = prev.filter(f => !qualityFilterIds.includes(f.id));
-        return [...newFilters, { id: 'invalid_codes', value: ['not_null'] }];
+        return [...newFilters, { id: 'warnings', value: ['not_null'] }];
       }
     });
   }, [isWarningFilterActive]);
@@ -707,7 +726,7 @@ export default function ImportJobDataPage() {
           getRowClassName={(row: ImportJobDataRow) => {
             // Highlight rows with errors or invalid codes
             const hasErrors = row.errors && typeof row.errors === 'object' && Object.keys(row.errors).length > 0;
-            const hasInvalidCodes = row.invalid_codes && typeof row.invalid_codes === 'object' && Object.keys(row.invalid_codes).length > 0;
+            const hasWarnings = row.warnings && typeof row.warnings === 'object' && Object.keys(row.warnings).length > 0;
             const state = row.state;
             
             if (state === 'error') {
@@ -716,7 +735,7 @@ export default function ImportJobDataPage() {
             if (hasErrors) {
               return 'bg-red-50/30 hover:bg-red-100/30';
             }
-            if (hasInvalidCodes) {
+            if (hasWarnings) {
               return 'bg-amber-50/30 hover:bg-amber-100/30';
             }
             return undefined;
@@ -752,16 +771,21 @@ export default function ImportJobDataPage() {
                 >
                   <span className="font-mono">{formatNumber(job?.warning_count)}</span>&nbsp;warn
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 px-2 text-amber-600 hover:bg-amber-50"
-                  asChild
-                >
-                  <a href={`/api/import/download?slug=${job?.slug}&filter=warning`} download>
-                    <Download className="h-4 w-4" />
-                  </a>
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-8 px-2 text-amber-600 hover:bg-amber-50">
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem asChild>
+                      <a href={`/api/import/download?slug=${job?.slug}&filter=warning&format=csv`} download>Download CSV</a>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <a href={`/api/import/download?slug=${job?.slug}&filter=warning&format=xlsx`} download>Download Excel (.xlsx)</a>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </>
             )}
             {(job?.error_count ?? 0) > 0 && (
@@ -777,16 +801,21 @@ export default function ImportJobDataPage() {
                 >
                   <span className="font-mono">{formatNumber(job?.error_count)}</span>&nbsp;err
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 px-2 text-red-600 hover:bg-red-50"
-                  asChild
-                >
-                  <a href={`/api/import/download?slug=${job?.slug}&filter=error`} download>
-                    <Download className="h-4 w-4" />
-                  </a>
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-8 px-2 text-red-600 hover:bg-red-50">
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem asChild>
+                      <a href={`/api/import/download?slug=${job?.slug}&filter=error&format=csv`} download>Download CSV</a>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <a href={`/api/import/download?slug=${job?.slug}&filter=error&format=xlsx`} download>Download Excel (.xlsx)</a>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </>
             )}
           </DataTableToolbar>

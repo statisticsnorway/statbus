@@ -25,24 +25,32 @@ BEGIN
     -- employees (priority=1): _raw=1, internal=2, pk_id=3
     -- turnover (priority=2): _raw=4, internal=5, pk_id=6
 
-    -- Add source_input columns for each active stat_definition
-    FOR v_stat_def IN SELECT code, priority FROM public.stat_definition_enabled ORDER BY priority
+    -- Add source_input columns with target_pg_type derived from the stat definition type
+    FOR v_stat_def IN SELECT code, type, priority FROM public.stat_definition_enabled ORDER BY priority
     LOOP
         v_calculated_priority := (v_stat_def.priority - 1) * 3 + 1;
-        
-        INSERT INTO public.import_data_column (step_id, column_name, column_type, purpose, is_nullable, is_uniquely_identifying, priority)
-        VALUES (v_step_id, v_stat_def.code || '_raw', 'TEXT', 'source_input', true, false, v_calculated_priority)
+
+        INSERT INTO public.import_data_column (step_id, column_name, column_type, purpose, is_nullable, is_uniquely_identifying, priority, target_pg_type)
+        VALUES (v_step_id, v_stat_def.code || '_raw', 'TEXT', 'source_input', true, false, v_calculated_priority,
+                CASE v_stat_def.type
+                    WHEN 'int' THEN 'INTEGER'
+                    WHEN 'float' THEN 'NUMERIC'
+                    WHEN 'bool' THEN 'BOOLEAN'
+                    ELSE 'TEXT'
+                END)
         ON CONFLICT (step_id, column_name) DO UPDATE SET
             priority = EXCLUDED.priority,
-            is_uniquely_identifying = EXCLUDED.is_uniquely_identifying
-        WHERE public.import_data_column.priority != EXCLUDED.priority;  -- Only update if priority changed
+            is_uniquely_identifying = EXCLUDED.is_uniquely_identifying,
+            target_pg_type = EXCLUDED.target_pg_type
+        WHERE public.import_data_column.priority != EXCLUDED.priority
+           OR public.import_data_column.target_pg_type IS DISTINCT FROM EXCLUDED.target_pg_type;
     END LOOP;
 
     -- Add internal typed columns for each active stat_definition
     FOR v_stat_def IN SELECT code, type, priority FROM public.stat_definition_enabled ORDER BY priority
     LOOP
         v_calculated_priority := (v_stat_def.priority - 1) * 3 + 2;
-        
+
         INSERT INTO public.import_data_column (step_id, column_name, column_type, purpose, is_nullable, is_uniquely_identifying, priority)
         VALUES (v_step_id, v_stat_def.code,
                 CASE v_stat_def.type
@@ -64,7 +72,7 @@ BEGIN
     LOOP
         v_calculated_priority := (v_stat_def.priority - 1) * 3 + 3;
         v_pk_col_name := format('stat_for_unit_%s_id', v_stat_def.code);
-        
+
         INSERT INTO public.import_data_column (step_id, column_name, column_type, purpose, is_nullable, is_uniquely_identifying, priority)
         VALUES (v_step_id, v_pk_col_name, 'INTEGER', 'pk_id', true, false, v_calculated_priority)
         ON CONFLICT (step_id, column_name) DO UPDATE SET

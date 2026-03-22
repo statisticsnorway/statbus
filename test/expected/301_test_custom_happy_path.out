@@ -451,7 +451,7 @@ END $$;
  last_completed_priority              | integer                   |           | not null | 0                            | plain    |              | 
  errors                               | jsonb                     |           | not null | '{}'::jsonb                  | extended |              | 
  merge_status                         | jsonb                     |           | not null | '{}'::jsonb                  | extended |              | 
- invalid_codes                        | jsonb                     |           | not null | '{}'::jsonb                  | extended |              | 
+ warnings                             | jsonb                     |           | not null | '{}'::jsonb                  | extended |              | 
 Indexes:
     "import_71_a1_lu_data_pkey" PRIMARY KEY, btree (row_id)
     "import_71_a1_lu_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
@@ -490,7 +490,7 @@ Not-null constraints:
     "import_71_a1_lu_data_last_completed_priority_not_null" NOT NULL "last_completed_priority"
     "import_71_a1_lu_data_errors_not_null" NOT NULL "errors"
     "import_71_a1_lu_data_merge_status_not_null" NOT NULL "merge_status"
-    "import_71_a1_lu_data_invalid_codes_not_null" NOT NULL "invalid_codes"
+    "import_71_a1_lu_data_warnings_not_null" NOT NULL "warnings"
 
 \echo '------------------------------------------'
 ------------------------------------------
@@ -512,10 +512,10 @@ SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, e
 
 \echo "Data table for import_71_a1_lu:"
 "Data table for import_71_a1_lu:"
-SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident_raw, nin_ident_raw, name_raw, valid_from_raw, valid_to_raw FROM public.import_71_a1_lu_data ORDER BY row_id;
- row_id |   state   | errors | invalid_codes |                                                                                    merge_status                                                                                    | action | operation | tax_ident_raw | nin_ident_raw |    name_raw     | valid_from_raw | valid_to_raw 
---------+-----------+--------+---------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+--------+-----------+---------------+---------------+-----------------+----------------+--------------
-      1 | processed | {}     | {}            | {"contact": "APPLIED", "legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED", "stat_men_employees": "APPLIED", "stat_women_employees": "APPLIED"} | use    | insert    | 71A000001     | NIN71A001     | LU-71A Period 1 | 2023-01-01     | 2023-03-31
+SELECT row_id, state, errors, warnings, merge_status, action, operation, tax_ident_raw, nin_ident_raw, name_raw, valid_from_raw, valid_to_raw FROM public.import_71_a1_lu_data ORDER BY row_id;
+ row_id |   state   | errors | warnings |                                                                                    merge_status                                                                                    | action | operation | tax_ident_raw | nin_ident_raw |    name_raw     | valid_from_raw | valid_to_raw 
+--------+-----------+--------+----------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+--------+-----------+---------------+---------------+-----------------+----------------+--------------
+      1 | processed | {}     | {}       | {"contact": "APPLIED", "legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED", "stat_men_employees": "APPLIED", "stat_women_employees": "APPLIED"} | use    | insert    | 71A000001     | NIN71A001     | LU-71A Period 1 | 2023-01-01     | 2023-03-31
 (1 row)
 
 \echo "Verification for LU-71A ('71A000001') after Sub-Scenario 71.A.1 (all segments shown):"
@@ -575,10 +575,10 @@ SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, e
 
 \echo "Data table for import_71_a2_lu:"
 "Data table for import_71_a2_lu:"
-SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident_raw, nin_ident_raw, name_raw, valid_from_raw, valid_to_raw FROM public.import_71_a2_lu_data ORDER BY row_id;
- row_id |   state   | errors | invalid_codes |                                                                                    merge_status                                                                                    | action | operation | tax_ident_raw | nin_ident_raw |           name_raw           | valid_from_raw | valid_to_raw 
---------+-----------+--------+---------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+--------+-----------+---------------+---------------+------------------------------+----------------+--------------
-      1 | processed | {}     | {}            | {"contact": "APPLIED", "legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED", "stat_men_employees": "APPLIED", "stat_women_employees": "APPLIED"} | use    | replace   | 71A000001     | NIN71A001     | LU-71A Period 2 Updated Name | 2023-04-01     | 2023-06-30
+SELECT row_id, state, errors, warnings, merge_status, action, operation, tax_ident_raw, nin_ident_raw, name_raw, valid_from_raw, valid_to_raw FROM public.import_71_a2_lu_data ORDER BY row_id;
+ row_id |   state   | errors | warnings |                                                                                    merge_status                                                                                    | action | operation | tax_ident_raw | nin_ident_raw |           name_raw           | valid_from_raw | valid_to_raw 
+--------+-----------+--------+----------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+--------+-----------+---------------+---------------+------------------------------+----------------+--------------
+      1 | processed | {}     | {}       | {"contact": "APPLIED", "legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED", "stat_men_employees": "APPLIED", "stat_women_employees": "APPLIED"} | use    | replace   | 71A000001     | NIN71A001     | LU-71A Period 2 Updated Name | 2023-04-01     | 2023-06-30
 (1 row)
 
 \echo "Verification for LU-71A ('71A000001') after Sub-Scenario 71.A.2 (all segments shown):"

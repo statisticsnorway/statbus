@@ -2849,17 +2849,17 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 -- SET client_min_messages TO NOTICE;
 \echo "Inspecting first 5 rows of legal unit import job data (import_lu_web_example_current_data)"
 "Inspecting first 5 rows of legal unit import job data (import_lu_web_example_current_data)"
-SELECT row_id, state, errors, invalid_codes, tax_ident_raw, name_raw, birth_date_raw, physical_address_part1_raw, primary_activity_category_code_raw, merge_status
+SELECT row_id, state, errors, warnings, tax_ident_raw, name_raw, birth_date_raw, physical_address_part1_raw, primary_activity_category_code_raw, merge_status
 FROM public.import_lu_web_example_current_data
 ORDER BY row_id
 LIMIT 5;
- row_id |   state   | errors | invalid_codes | tax_ident_raw |              name_raw               | birth_date_raw | physical_address_part1_raw | primary_activity_category_code_raw |                                                      merge_status                                                      
---------+-----------+--------+---------------+---------------+-------------------------------------+----------------+----------------------------+------------------------------------+------------------------------------------------------------------------------------------------------------------------
-      1 | processed | {}     | {}            | 915737250     | HÅKON BJØRNHOLT                     |                | Sørbakkvegen 26            | 01.610                             | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
-      2 | processed | {}     | {}            | 991253777     | WOENSEL AS                          | 2007-03-20     | Gamleveien 120             | 70.220                             | {"legal_unit": "APPLIED", "postal_location": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
-      3 | processed | {}     | {}            | 929766792     | PERSONALGRUPPE NESBYEN UNGDOMSSKOLE | 2022-08-10     | Beiavegen 6                | 94.991                             | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
-      4 | processed | {}     | {}            | 932433710     | STRYGER OPUS                        |                | Rødstoppen 37              | 59.120                             | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
-      5 | processed | {}     | {}            | 972417971     | HARSTAD KOMMUNE / HÁRSTTÁID SUOHKAN |                | Asbjørn Selsbanes gate 9   | 84.110                             | {"legal_unit": "APPLIED", "postal_location": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+ row_id |   state   | errors | warnings | tax_ident_raw |              name_raw               | birth_date_raw | physical_address_part1_raw | primary_activity_category_code_raw |                                                      merge_status                                                      
+--------+-----------+--------+----------+---------------+-------------------------------------+----------------+----------------------------+------------------------------------+------------------------------------------------------------------------------------------------------------------------
+      1 | processed | {}     | {}       | 915737250     | HÅKON BJØRNHOLT                     |                | Sørbakkvegen 26            | 01.610                             | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+      2 | processed | {}     | {}       | 991253777     | WOENSEL AS                          | 2007-03-20     | Gamleveien 120             | 70.220                             | {"legal_unit": "APPLIED", "postal_location": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+      3 | processed | {}     | {}       | 929766792     | PERSONALGRUPPE NESBYEN UNGDOMSSKOLE | 2022-08-10     | Beiavegen 6                | 94.991                             | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+      4 | processed | {}     | {}       | 932433710     | STRYGER OPUS                        |                | Rødstoppen 37              | 59.120                             | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+      5 | processed | {}     | {}       | 972417971     | HARSTAD KOMMUNE / HÁRSTTÁID SUOHKAN |                | Asbjørn Selsbanes gate 9   | 84.110                             | {"legal_unit": "APPLIED", "postal_location": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
 (5 rows)
 
 \echo "Checking import job statuses"
@@ -2895,13 +2895,13 @@ ORDER BY row_id;
 --------+-------+--------+---------------+----------+--------------
 (0 rows)
 
-\echo "Legal unit import data with invalid_codes (if any):"
-"Legal unit import data with invalid_codes (if any):"
-SELECT row_id, state, errors, invalid_codes, merge_status, tax_ident_raw, name_raw
+\echo "Legal unit import data with warnings (if any):"
+"Legal unit import data with warnings (if any):"
+SELECT row_id, state, errors, warnings, merge_status, tax_ident_raw, name_raw
 FROM public.import_lu_web_example_current_data
-WHERE invalid_codes IS NOT NULL AND invalid_codes <> '{}'::JSONB
+WHERE warnings IS NOT NULL AND warnings <> '{}'::JSONB
 ORDER BY row_id;
- row_id |   state   | errors |                  invalid_codes                   |                                      merge_status                                       | tax_ident_raw |         name_raw         
+ row_id |   state   | errors |                     warnings                     |                                      merge_status                                       | tax_ident_raw |         name_raw         
 --------+-----------+--------+--------------------------------------------------+-----------------------------------------------------------------------------------------+---------------+--------------------------
      15 | processed | {}     | {"primary_activity_category_code_raw": "00.000"} | {"legal_unit": "APPLIED", "physical_location": "APPLIED"}                               | 918143602     | HALVOR CELIUS HOLDING AS
      36 | processed | {}     | {"primary_activity_category_code_raw": "00.000"} | {"legal_unit": "APPLIED", "postal_location": "APPLIED", "physical_location": "APPLIED"} | 923231129     | GRØNNVOLL HOLDING AS
@@ -2921,13 +2921,13 @@ ORDER BY row_id;
 --------+-------+--------+---------------+--------------------------+----------+--------------
 (0 rows)
 
-\echo "Establishment import data with invalid_codes (if any):"
-"Establishment import data with invalid_codes (if any):"
-SELECT row_id, state, errors, invalid_codes, merge_status, tax_ident_raw, name_raw
+\echo "Establishment import data with warnings (if any):"
+"Establishment import data with warnings (if any):"
+SELECT row_id, state, errors, warnings, merge_status, tax_ident_raw, name_raw
 FROM public.import_es_web_example_current_data
-WHERE invalid_codes IS NOT NULL AND invalid_codes <> '{}'::JSONB
+WHERE warnings IS NOT NULL AND warnings <> '{}'::JSONB
 ORDER BY row_id;
- row_id |   state   | errors |                  invalid_codes                   |                                        merge_status                                        | tax_ident_raw |         name_raw         
+ row_id |   state   | errors |                     warnings                     |                                        merge_status                                        | tax_ident_raw |         name_raw         
 --------+-----------+--------+--------------------------------------------------+--------------------------------------------------------------------------------------------+---------------+--------------------------
      70 | processed | {}     | {"primary_activity_category_code_raw": "00.000"} | {"establishment": "APPLIED", "postal_location": "APPLIED", "physical_location": "APPLIED"} | 823633742     | GRØNNVOLL HOLDING AS
     661 | processed | {}     | {"primary_activity_category_code_raw": "00.000"} | {"establishment": "APPLIED", "physical_location": "APPLIED"}                               | 920786464     | HALVOR CELIUS HOLDING AS

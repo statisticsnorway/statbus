@@ -23,6 +23,8 @@ echo "\dv viewname" | ./devops/manage-statbus.sh psql           # View definitio
 echo "SELECT ..." | ./devops/manage-statbus.sh psql             # Single queries
 ```
 
+**Offline inspection via `doc/db/`**: The `doc/db/` directory contains dumps of all database functions, tables, and views in markdown format. Use `grep` / `rg` on these files when you need to search function bodies without a running database. Prefer this over grepping `migrations/` — migrations are chronological, so the first match is the oldest and least relevant version.
+
 **⚠️ DESTRUCTIVE Operations (LOCAL DEVELOPMENT ONLY - NEVER IN PRODUCTION):**
 ```bash
 ./devops/manage-statbus.sh create-db           # Create database with migrations

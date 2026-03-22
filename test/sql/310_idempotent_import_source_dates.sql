@@ -121,9 +121,9 @@ CALL worker.process_tasks(p_queue => 'analytics');
 
 \echo "Checking data rows for idempotency jobs. Expecting all operations to be 'skip' and merge_status to be 'SKIPPED_IDENTICAL'."
 \x
-SELECT 'import_310_lu_wsd_idem_data' as source, row_id, operation, errors, invalid_codes, jsonb_pretty(merge_status) as merge_status FROM public.import_310_lu_wsd_idem_data WHERE NOT (merge_status->>'temporal_merge' = 'SKIPPED_IDENTICAL');
-SELECT 'import_310_esflu_wsd_idem_data' as source, row_id, operation, errors, invalid_codes, jsonb_pretty(merge_status) as merge_status FROM public.import_310_esflu_wsd_idem_data WHERE NOT (merge_status->>'temporal_merge' = 'SKIPPED_IDENTICAL');
-SELECT 'import_310_eswlu_wsd_idem_data' as source, row_id, operation, errors, invalid_codes, jsonb_pretty(merge_status) as merge_status FROM public.import_310_eswlu_wsd_idem_data WHERE NOT (merge_status->>'temporal_merge' = 'SKIPPED_IDENTICAL');
+SELECT 'import_310_lu_wsd_idem_data' as source, row_id, operation, errors, warnings, jsonb_pretty(merge_status) as merge_status FROM public.import_310_lu_wsd_idem_data WHERE NOT (merge_status->>'temporal_merge' = 'SKIPPED_IDENTICAL');
+SELECT 'import_310_esflu_wsd_idem_data' as source, row_id, operation, errors, warnings, jsonb_pretty(merge_status) as merge_status FROM public.import_310_esflu_wsd_idem_data WHERE NOT (merge_status->>'temporal_merge' = 'SKIPPED_IDENTICAL');
+SELECT 'import_310_eswlu_wsd_idem_data' as source, row_id, operation, errors, warnings, jsonb_pretty(merge_status) as merge_status FROM public.import_310_eswlu_wsd_idem_data WHERE NOT (merge_status->>'temporal_merge' = 'SKIPPED_IDENTICAL');
 \x
 
 \echo "Verifying statistical_unit table is unchanged after initial load idempotency check"
@@ -191,7 +191,7 @@ CALL worker.process_tasks(p_queue => 'analytics');
 
 \echo "Checking data rows for turnover idempotency job. Expecting all operations to be 'skip' and merge_status to be 'SKIPPED_IDENTICAL'."
 \x
-SELECT 'import_310_lu_turnover_update_idem_data' as source, row_id, operation, errors, invalid_codes, jsonb_pretty(merge_status) as merge_status FROM public.import_310_lu_turnover_update_idem_data WHERE NOT (merge_status->>'stats_update' = 'SKIPPED_IDENTICAL');
+SELECT 'import_310_lu_turnover_update_idem_data' as source, row_id, operation, errors, warnings, jsonb_pretty(merge_status) as merge_status FROM public.import_310_lu_turnover_update_idem_data WHERE NOT (merge_status->>'stats_update' = 'SKIPPED_IDENTICAL');
 \x
 
 \echo "Verifying statistical_unit table is unchanged after turnover update idempotency check"
