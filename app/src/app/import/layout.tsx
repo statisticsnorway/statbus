@@ -11,9 +11,11 @@ export default function ImportLayout({
   readonly progress: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const isJobsPage = pathname.startsWith("/import/jobs");
+  const isFullWidthPage =
+    pathname.startsWith("/import/jobs") ||
+    pathname.startsWith("/import/definitions");
 
-  if (isJobsPage) {
+  if (isFullWidthPage) {
     return (
       <main className="w-full mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 md:py-12">
         {children}

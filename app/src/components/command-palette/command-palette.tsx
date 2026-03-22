@@ -569,6 +569,20 @@ export function CommandPalette() {
                       <Binary className="mr-2 h-4 w-4" />
                       <span>Toggle Debug Inspector</span>
                     </CommandItem>
+                    <CommandItem
+                      onSelect={() => navigate("/import/definitions")}
+                      value="manage import definitions custom"
+                    >
+                      <FileSpreadsheet className="mr-2 h-4 w-4" />
+                      <span>Manage Import Definitions</span>
+                    </CommandItem>
+                    <CommandItem
+                      onSelect={() => navigate("/import/definitions/new")}
+                      value="create new custom import definition"
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      <span>Create Custom Import Definition</span>
+                    </CommandItem>
                   </CommandGroup>
                 </>
               )}
