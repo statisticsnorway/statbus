@@ -99,7 +99,7 @@ export default function LegalRelationshipsPage() {
           onDeleteJob={handleDeleteJob}
           unitTypeTitle="Legal Relationships"
           unitTypeDescription="legal relationship"
-          uploadPathPrefix="/import/legal-relationships/upload"
+          uploadPathPrefix="/import/upload"
         />
       )}
 

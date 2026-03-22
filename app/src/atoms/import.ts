@@ -587,10 +587,8 @@ export const createImportJobFromDefinitionAtom = atom(
         default_valid_from: params.defaultValidFrom,
         default_valid_to: params.defaultValidTo,
         review: params.review,
-        data_table_name: null!,
-        slug: null!,
-        upload_table_name: null!,
-        expires_at: null!,
+        // These NOT NULL columns are populated by the BEFORE INSERT trigger (import_job_derive)
+        data_table_name: null!, slug: null!, upload_table_name: null!, expires_at: null!,
       }).select("*").single();
     if (error) throw error;
     if (!data) throw new Error("No data returned");
