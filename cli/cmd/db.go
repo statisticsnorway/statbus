@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -19,7 +20,17 @@ import (
 var (
 	restoreTo  string
 	restoreYes bool
+
+	validIdentifier = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]*$`)
 )
+
+// validateIdentifier checks that a database name or slot code contains only safe characters.
+func validateIdentifier(name, label string) error {
+	if !validIdentifier.MatchString(name) {
+		return fmt.Errorf("%s %q contains invalid characters (only letters, digits, and underscores allowed)", label, name)
+	}
+	return nil
+}
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -139,9 +150,7 @@ var dbStatusCmd = &cobra.Command{
 			fmt.Println("Database is running")
 			return nil
 		}
-		fmt.Println("Database is not running")
-		os.Exit(1)
-		return nil
+		return fmt.Errorf("database is not running")
 	},
 }
 
@@ -499,6 +508,9 @@ func restoreLocal(projDir string, dumpFile string) error {
 	if err != nil {
 		return err
 	}
+	if err := validateIdentifier(dbName, "database name"); err != nil {
+		return err
+	}
 
 	if !dbIsRunning(projDir) {
 		return fmt.Errorf("database is not running — start it with 'sb start all'")
@@ -526,7 +538,7 @@ func restoreLocal(projDir string, dumpFile string) error {
 SELECT pg_terminate_backend(pid)
 FROM pg_stat_activity
 WHERE datname = '%s' AND pid <> pg_backend_pid();
-`, dbName)
+`, strings.ReplaceAll(dbName, "'", "''"))
 	dropCreateSQL := fmt.Sprintf(`
 DROP DATABASE IF EXISTS "%s";
 CREATE DATABASE "%s";
@@ -634,6 +646,10 @@ END $$;
 	// Set deployment_slot_code
 	slotCode, err := loadSlotCode(projDir)
 	if err == nil {
+		if err := validateIdentifier(slotCode, "slot code"); err != nil {
+			return err
+		}
+		escapedSlot := strings.ReplaceAll(slotCode, "'", "''")
 		slotSQL := fmt.Sprintf(`
 DO $$ BEGIN
   IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'settings') THEN
@@ -643,7 +659,7 @@ DO $$ BEGIN
     END IF;
   END IF;
 END $$;
-`, slotCode, slotCode)
+`, escapedSlot, escapedSlot)
 		slotCmd := exec.Command("docker", "compose", "exec", "-T", "db",
 			"psql", "-U", "postgres", "-d", dbName, "-c", slotSQL)
 		slotCmd.Dir = projDir
@@ -667,6 +683,9 @@ END $$;
 }
 
 func restoreRemote(projDir string, dumpFile string, code string) error {
+	if err := validateIdentifier(code, "slot code"); err != nil {
+		return err
+	}
 	sshUser := "statbus_" + code
 	sshHost := "niue.statbus.org"
 	remoteDB := "statbus_" + code

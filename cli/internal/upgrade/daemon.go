@@ -19,15 +19,17 @@ import (
 
 // Daemon is the long-running upgrade daemon.
 type Daemon struct {
-	projDir    string
-	conn       *pgx.Conn
-	verbose    bool
-	channel    string
-	interval   time.Duration
-	autoDL     bool
-	pinnedVer  string
-	upgrading  bool   // true during executeUpgrade; prevents ticker/notify from using nil conn
-	cachedURL  string // cached health check URL (derived from .env at startup)
+	projDir      string
+	conn         *pgx.Conn
+	verbose      bool
+	channel      string
+	interval     time.Duration
+	autoDL       bool
+	pinnedVer    string
+	upgrading    bool             // true during executeUpgrade; prevents ticker/notify from using nil conn
+	cachedURL    string           // cached health check URL (derived from .env at startup)
+	listenCancel context.CancelFunc // cancels the listenLoop goroutine
+	listenWg     sync.WaitGroup     // tracks listenLoop goroutine lifetime
 }
 
 // NewDaemon creates a new upgrade daemon.
@@ -76,12 +78,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	// Main loop: use a goroutine for LISTEN/NOTIFY, select on channels
 	notifyCh := make(chan *pgconn.Notification, 1)
 	errCh := make(chan error, 1)
-	var listenWg sync.WaitGroup
-	listenWg.Add(1)
-	go func() {
-		defer listenWg.Done()
-		d.listenLoop(ctx, notifyCh, errCh)
-	}()
+	d.startListenLoop(ctx, notifyCh, errCh)
 
 	ticker := time.NewTicker(d.interval)
 	defer ticker.Stop()
@@ -93,7 +90,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			fmt.Println("Upgrade daemon shutting down")
-			listenWg.Wait()
+			d.stopListenLoop()
 			return nil
 		case <-ticker.C:
 			if !d.upgrading {
@@ -106,7 +103,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 				d.executeScheduled(ctx)
 			}
 		case err := <-errCh:
-			listenWg.Wait() // ensure old goroutine fully exited
+			d.listenWg.Wait() // ensure old goroutine fully exited
 			if ctx.Err() != nil {
 				return nil // shutdown
 			}
@@ -115,12 +112,28 @@ func (d *Daemon) Run(ctx context.Context) error {
 				return fmt.Errorf("reconnect failed: %w", reconnErr)
 			}
 			// Restart listen goroutine
-			listenWg.Add(1)
-			go func() {
-				defer listenWg.Done()
-				d.listenLoop(ctx, notifyCh, errCh)
-			}()
+			d.startListenLoop(ctx, notifyCh, errCh)
 		}
+	}
+}
+
+// startListenLoop launches a new listenLoop goroutine with a cancellable context.
+func (d *Daemon) startListenLoop(ctx context.Context, notifyCh chan<- *pgconn.Notification, errCh chan<- error) {
+	listenCtx, cancel := context.WithCancel(ctx)
+	d.listenCancel = cancel
+	d.listenWg.Add(1)
+	go func() {
+		defer d.listenWg.Done()
+		d.listenLoop(listenCtx, notifyCh, errCh)
+	}()
+}
+
+// stopListenLoop cancels the listenLoop goroutine and waits for it to exit.
+func (d *Daemon) stopListenLoop() {
+	if d.listenCancel != nil {
+		d.listenCancel()
+		d.listenWg.Wait()
+		d.listenCancel = nil
 	}
 }
 
@@ -428,8 +441,9 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 		return err
 	}
 
-	// Step 2: Close DB connection gracefully (we're going offline)
+	// Step 2: Stop listen goroutine and close DB connection (we're going offline)
 	progress.Write("Closing daemon DB connection...")
+	d.stopListenLoop()
 	d.conn.Close(context.Background())
 	d.conn = nil
 

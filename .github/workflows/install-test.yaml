@@ -75,7 +75,7 @@ jobs:
           docker compose exec db pg_isready -U postgres
 
           # Check upgrade table exists
-          echo "SELECT COUNT(*) FROM public.upgrade;" | ./devops/manage-statbus.sh psql
+          echo "SELECT COUNT(*) FROM public.upgrade;" | ./sb psql
 
           echo "All services healthy"
 

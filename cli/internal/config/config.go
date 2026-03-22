@@ -633,7 +633,7 @@ VERSION=%[22]s
 	fmt.Fprintf(&b, "\n\n################################################################\n")
 	fmt.Fprintf(&b, "# Statbus App Environment Variables\n")
 	fmt.Fprintf(&b, "# Next.js only exposes environment variables with the 'NEXT_PUBLIC_' prefix\n")
-	fmt.Fprintf(&b, "# to the browser cdoe.\n")
+	fmt.Fprintf(&b, "# to the browser code.\n")
 	fmt.Fprintf(&b, "# Add all the variables here that are exposed publicly,\n")
 	fmt.Fprintf(&b, "# i.e. available in the web page source code for all to see.\n")
 	fmt.Fprintf(&b, "#\n")

@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
@@ -115,7 +116,9 @@ func (d *Daemon) pruneArchives(dir string, keep int) {
 		return
 	}
 
-	// Remove oldest (sorted by name = version = chronological)
+	// Sort so oldest (lexicographically first) are at front
+	sort.Strings(archives)
+	// Remove oldest
 	for _, f := range archives[:len(archives)-keep] {
 		os.Remove(f)
 	}

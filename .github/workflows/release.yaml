@@ -157,10 +157,10 @@ jobs:
               "proxy": "${{ env.REGISTRY }}/${{ env.ORG }}/statbus-proxy:${{ needs.build-images.outputs.version_tag }}"
             },
             "binaries": {
-              "linux-amd64": { "sha256": "$(sha256sum dist/sb-linux-amd64 | cut -d' ' -f1)" },
-              "linux-arm64": { "sha256": "$(sha256sum dist/sb-linux-arm64 | cut -d' ' -f1)" },
-              "darwin-amd64": { "sha256": "$(sha256sum dist/sb-darwin-amd64 | cut -d' ' -f1)" },
-              "darwin-arm64": { "sha256": "$(sha256sum dist/sb-darwin-arm64 | cut -d' ' -f1)" }
+              "linux-amd64": { "url": "https://github.com/${{ env.ORG }}/statbus/releases/download/${{ needs.build-images.outputs.version_tag }}/sb-linux-amd64", "sha256": "$(sha256sum dist/sb-linux-amd64 | cut -d' ' -f1)" },
+              "linux-arm64": { "url": "https://github.com/${{ env.ORG }}/statbus/releases/download/${{ needs.build-images.outputs.version_tag }}/sb-linux-arm64", "sha256": "$(sha256sum dist/sb-linux-arm64 | cut -d' ' -f1)" },
+              "darwin-amd64": { "url": "https://github.com/${{ env.ORG }}/statbus/releases/download/${{ needs.build-images.outputs.version_tag }}/sb-darwin-amd64", "sha256": "$(sha256sum dist/sb-darwin-amd64 | cut -d' ' -f1)" },
+              "darwin-arm64": { "url": "https://github.com/${{ env.ORG }}/statbus/releases/download/${{ needs.build-images.outputs.version_tag }}/sb-darwin-arm64", "sha256": "$(sha256sum dist/sb-darwin-arm64 | cut -d' ' -f1)" }
             }
           }
           MANIFEST

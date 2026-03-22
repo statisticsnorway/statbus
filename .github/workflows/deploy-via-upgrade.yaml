@@ -88,11 +88,11 @@ jobs:
 
             if [ "$ACTION" = "check" ]; then
               echo "Sending NOTIFY upgrade_check..."
-              echo "NOTIFY upgrade_check;" | ./devops/manage-statbus.sh psql
+              echo "NOTIFY upgrade_check;" | ./sb psql
               echo "Done. Daemon will poll GitHub for new releases."
             elif [ "$ACTION" = "apply" ]; then
               echo "Sending NOTIFY upgrade_apply, '$VERSION'..."
-              echo "NOTIFY upgrade_apply, '$VERSION';" | ./devops/manage-statbus.sh psql
+              echo "NOTIFY upgrade_apply, '$VERSION';" | ./sb psql
               echo "Done. Daemon will execute upgrade to $VERSION shortly."
             fi
 

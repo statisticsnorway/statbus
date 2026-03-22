@@ -129,7 +129,7 @@ echo ""
 echo "=== Step 7: Run migrations ==="
 multipass exec "$VM_NAME" -- bash -c '
     cd ~/statbus
-    ./sb migrate up --all --verbose
+    ./sb migrate up --verbose
 '
 echo "Migrations applied"
 

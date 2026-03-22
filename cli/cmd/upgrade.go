@@ -9,9 +9,29 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/statisticsnorway/statbus/cli/internal/config"
+	"github.com/statisticsnorway/statbus/cli/internal/migrate"
 	"github.com/statisticsnorway/statbus/cli/internal/selfupdate"
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
+
+// runUpgradePsql runs a SQL string using psql with connection args from .env.
+func runUpgradePsql(sql string, extraArgs ...string) ([]byte, error) {
+	projDir := migrate.PsqlProjectDir()
+	psqlArgs, env, err := migrate.PsqlArgs(projDir)
+	if err != nil {
+		return nil, err
+	}
+	psqlPath, err := exec.LookPath("psql")
+	if err != nil {
+		return nil, fmt.Errorf("psql not found: %w", err)
+	}
+	args := append(psqlArgs[1:], "-c", sql)
+	args = append(args, extraArgs...)
+	c := exec.Command(psqlPath, args...)
+	c.Env = env
+	c.Dir = projDir
+	return c.CombinedOutput()
+}
 
 var upgradeCmd = &cobra.Command{
 	Use:   "upgrade",
@@ -44,12 +64,6 @@ var upgradeListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List discovered upgrades from the database",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		projDir := config.ProjectDir()
-		psqlPath, err := exec.LookPath("psql")
-		if err != nil {
-			return fmt.Errorf("psql not found: %w", err)
-		}
-
 		sql := `SELECT version, summary,
 			CASE
 				WHEN completed_at IS NOT NULL THEN 'completed'
@@ -65,12 +79,9 @@ var upgradeListCmd = &cobra.Command{
 		ORDER BY discovered_at DESC
 		LIMIT 20;`
 
-		c := exec.Command(psqlPath, "-c", sql)
-		c.Dir = projDir
-		c.Stdout = os.Stdout
-		c.Stderr = os.Stderr
-		// Use the migrate package's env setup through sb psql
-		return c.Run()
+		out, err := runUpgradePsql(sql)
+		os.Stdout.Write(out)
+		return err
 	},
 }
 
@@ -84,15 +95,11 @@ var upgradeScheduleCmd = &cobra.Command{
 			return fmt.Errorf("invalid version: %q (expected vYYYY.MM.PATCH or sha-HEXHEX)", version)
 		}
 
-		projDir := config.ProjectDir()
 		sql := fmt.Sprintf(
 			"UPDATE public.upgrade SET scheduled_at = now() WHERE version = '%s' AND started_at IS NULL RETURNING version",
 			strings.ReplaceAll(version, "'", "''"))
 
-		psqlPath, _ := exec.LookPath("psql")
-		c := exec.Command(psqlPath, "-t", "-A", "-c", sql)
-		c.Dir = projDir
-		out, err := c.CombinedOutput()
+		out, err := runUpgradePsql(sql, "-t", "-A")
 		if err != nil {
 			return fmt.Errorf("schedule: %w\n%s", err, out)
 		}
@@ -120,17 +127,12 @@ Examples:
 			return fmt.Errorf("invalid version: %q (expected vYYYY.MM.PATCH or sha-HEXHEX)", version)
 		}
 
-		projDir := config.ProjectDir()
 		sql := fmt.Sprintf("NOTIFY upgrade_apply, '%s'",
 			strings.ReplaceAll(version, "'", "''"))
 
-		psqlPath, _ := exec.LookPath("psql")
-		c := exec.Command(psqlPath, "-c", sql)
-		c.Dir = projDir
-		c.Stdout = os.Stdout
-		c.Stderr = os.Stderr
-		if err := c.Run(); err != nil {
-			return err
+		out, err := runUpgradePsql(sql)
+		if err != nil {
+			return fmt.Errorf("apply: %w\n%s", err, out)
 		}
 
 		fmt.Printf("Sent: NOTIFY upgrade_apply, '%s'\n", version)
