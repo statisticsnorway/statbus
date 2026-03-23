@@ -1,4 +1,4 @@
-import type ExcelJS from 'exceljs';
+import type ExcelJS from '@protobi/exceljs';
 
 export const COLUMN_REFERENCE_MAP: Record<string, {
   view: string;

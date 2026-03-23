@@ -3,11 +3,16 @@ import { getServerRestClient } from "@/context/RestClientStore";
 import { Pool } from 'pg';
 import { from as copyFrom } from 'pg-copy-streams';
 import { Readable } from 'stream';
-import ExcelJS from 'exceljs';
+import { Worker } from 'node:worker_threads';
+import { statfs } from 'node:fs/promises';
+import ExcelJS from '@protobi/exceljs';
 import Papa from 'papaparse';
 import { createServerLogger } from "@/lib/server-logger";
 
 import { getDbHostPort } from "@/lib/db-listener";
+
+// Ensure @protobi/exceljs is traced in Next.js standalone output for worker resolution
+void ExcelJS;
 
 // Get database connection details for authenticator role
 const getDbConfig = () => {
@@ -21,33 +26,6 @@ const getDbConfig = () => {
   };
 };
 
-function excelValueToString(value: unknown): string {
-  if (value === null || value === undefined) return '';
-  if (value instanceof Date) return value.toISOString().split('T')[0];
-  if (typeof value === 'object' && value !== null) {
-    if ('result' in value) {
-      const result = (value as { result: unknown }).result;
-      if (result instanceof Date) return result.toISOString().split('T')[0];
-      return result != null ? String(result) : '';
-    }
-    if ('richText' in value) {
-      return (value as { richText: Array<{ text: string }> }).richText.map(rt => rt.text).join('');
-    }
-    if ('text' in value) {
-      return String((value as { text: unknown }).text);
-    }
-    if ('error' in value) return '';
-  }
-  return String(value);
-}
-
-function csvEscapeField(value: string): string {
-  if (value.includes(',') || value.includes('"') || value.includes('\n') || value.includes('\r')) {
-    return '"' + value.replace(/"/g, '""') + '"';
-  }
-  return value;
-}
-
 // Columns added by the download route that should be stripped on re-upload
 // Include old underscore-prefixed names for backward compatibility with previously downloaded files
 const DOWNLOAD_SYSTEM_COLUMNS = new Set(['row_id', 'errors', 'warnings', '_errors', '_warnings']);
@@ -56,39 +34,163 @@ function isDownloadSystemColumn(name: string): boolean {
   return DOWNLOAD_SYSTEM_COLUMNS.has(name.replace(/^"|"$/g, '').trim());
 }
 
-async function convertExcelToCsv(file: File): Promise<Buffer> {
-  const arrayBuffer = await file.arrayBuffer();
-  const workbook = new ExcelJS.Workbook();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await workbook.xlsx.load(Buffer.from(new Uint8Array(arrayBuffer)) as any);
+// Self-contained worker code for Excel→CSV conversion.
+// Runs in an isolated V8 context via worker_threads — duplicates helper functions
+// that can't be imported from the main module.
+const EXCEL_WORKER_CODE = `
+'use strict';
+const { parentPort, workerData } = require('node:worker_threads');
 
-  const worksheet = workbook.worksheets[0];
+function excelValueToString(value) {
+  if (value === null || value === undefined) return '';
+  if (value instanceof Date) return value.toISOString().split('T')[0];
+  if (typeof value === 'object' && value !== null) {
+    if ('result' in value) {
+      const result = value.result;
+      if (result instanceof Date) return result.toISOString().split('T')[0];
+      return result != null ? String(result) : '';
+    }
+    if ('richText' in value) {
+      return value.richText.map(function(rt) { return rt.text; }).join('');
+    }
+    if ('text' in value) {
+      return String(value.text);
+    }
+    if ('error' in value) return '';
+  }
+  return String(value);
+}
+
+function csvEscapeField(value) {
+  if (value.includes(',') || value.includes('"') || value.includes('\\n') || value.includes('\\r')) {
+    return '"' + value.replace(/"/g, '""') + '"';
+  }
+  return value;
+}
+
+var DOWNLOAD_SYSTEM_COLUMNS = new Set(['row_id', 'errors', 'warnings', '_errors', '_warnings']);
+
+function isDownloadSystemColumn(name) {
+  return DOWNLOAD_SYSTEM_COLUMNS.has(name.replace(/^"|"$/g, '').trim());
+}
+
+async function convert() {
+  parentPort.postMessage({ type: 'progress', phase: 'loading', rows: 0, totalRows: 0 });
+
+  var ExcelJS = require('@protobi/exceljs');
+  var workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(Buffer.from(workerData.buffer), {
+    ignoreNodes: ['dataValidations'],
+  });
+
+  var worksheet = workbook.worksheets[0];
   if (!worksheet || worksheet.rowCount === 0) {
-    throw new Error("Excel file appears to be empty or has no worksheets.");
+    throw new Error('Excel file appears to be empty or has no worksheets.');
   }
 
-  // Detect system columns from the header row and build a set of column indices to skip
-  const headerRow = worksheet.getRow(1);
-  const skipIndices = new Set<number>();
-  for (let i = 1; i <= worksheet.columnCount; i++) {
-    const headerValue = excelValueToString(headerRow.getCell(i).value);
+  parentPort.postMessage({ type: 'progress', phase: 'converting', rows: 0, totalRows: worksheet.rowCount });
+
+  var headerRow = worksheet.getRow(1);
+  var skipIndices = new Set();
+  for (var i = 1; i <= worksheet.columnCount; i++) {
+    var headerValue = excelValueToString(headerRow.getCell(i).value);
     if (isDownloadSystemColumn(headerValue)) {
       skipIndices.add(i);
     }
   }
 
-  const csvLines: string[] = [];
-  worksheet.eachRow((row) => {
-    const values: string[] = [];
-    for (let i = 1; i <= worksheet.columnCount; i++) {
+  var csvLines = [];
+  var rowCount = 0;
+  worksheet.eachRow(function(row) {
+    var values = [];
+    for (var i = 1; i <= worksheet.columnCount; i++) {
       if (skipIndices.has(i)) continue;
-      const cell = row.getCell(i);
+      var cell = row.getCell(i);
       values.push(csvEscapeField(excelValueToString(cell.value)));
     }
     csvLines.push(values.join(','));
+    rowCount++;
+    if (rowCount % 10000 === 0) {
+      parentPort.postMessage({ type: 'progress', phase: 'converting', rows: rowCount, totalRows: worksheet.rowCount });
+    }
   });
 
-  return Buffer.from(csvLines.join('\n') + '\n', 'utf-8');
+  parentPort.postMessage({ type: 'result', buffer: Buffer.from(csvLines.join('\\n') + '\\n', 'utf-8') });
+}
+
+convert().catch(function(err) {
+  parentPort.postMessage({ type: 'error', error: err.message || String(err) });
+});
+`;
+
+const STALL_TIMEOUT_MS = 30_000;
+
+async function convertExcelToCsv(file: File): Promise<Buffer> {
+  const arrayBuffer = await file.arrayBuffer();
+
+  return new Promise<Buffer>((resolve, reject) => {
+    const worker = new Worker(EXCEL_WORKER_CODE, {
+      eval: true,
+      workerData: { buffer: Buffer.from(arrayBuffer) },
+      resourceLimits: {
+        maxOldGenerationSizeMb: 512,
+      },
+    });
+
+    let settled = false;
+    const settle = (fn: () => void) => {
+      if (!settled) {
+        settled = true;
+        clearTimeout(stallTimer);
+        fn();
+      }
+    };
+
+    const onStall = () => {
+      worker.terminate();
+      settle(() => reject(new Error(
+        `Excel conversion stalled (no progress for ${STALL_TIMEOUT_MS / 1000}s). ` +
+        `The file may be too large or corrupted. Try converting to CSV before uploading.`
+      )));
+    };
+
+    let stallTimer = setTimeout(onStall, STALL_TIMEOUT_MS);
+
+    worker.on('message', (msg: { type: string; buffer?: Buffer; error?: string }) => {
+      if (msg.type === 'progress') {
+        clearTimeout(stallTimer);
+        stallTimer = setTimeout(onStall, STALL_TIMEOUT_MS);
+      } else if (msg.type === 'result') {
+        settle(() => {
+          worker.terminate();
+          resolve(Buffer.from(msg.buffer!));
+        });
+      } else if (msg.type === 'error') {
+        settle(() => {
+          worker.terminate();
+          reject(new Error(msg.error));
+        });
+      }
+    });
+
+    worker.on('error', (err) => {
+      settle(() => {
+        worker.terminate();
+        reject(err);
+      });
+    });
+
+    worker.on('exit', (code) => {
+      settle(() => reject(new Error(`Excel conversion worker exited with code ${code}`)));
+    });
+  });
+}
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
 export async function POST(request: NextRequest) {
@@ -109,6 +211,20 @@ export async function POST(request: NextRequest) {
         { message: "No job slug provided" },
         { status: 400 }
       );
+    }
+
+    // Dynamic disk space check: reject if file > half available space
+    try {
+      const stats = await statfs('/');
+      const availableBytes = BigInt(stats.bavail) * BigInt(stats.bsize);
+      if (BigInt(file.size) * 2n > availableBytes) {
+        return NextResponse.json(
+          { message: `Not enough disk space. File is ${formatSize(file.size)} but only ${formatSize(Number(availableBytes))} available. Need at least ${formatSize(file.size * 2)} free.` },
+          { status: 507 }
+        );
+      }
+    } catch {
+      // statfs failure is non-fatal — continue with upload
     }
 
     // Get the import job details

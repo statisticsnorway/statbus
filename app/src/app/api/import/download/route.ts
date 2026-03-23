@@ -3,7 +3,7 @@ import { getServerRestClient } from "@/context/RestClientStore";
 import { Pool } from 'pg';
 import { to as copyTo } from 'pg-copy-streams';
 import { PassThrough } from 'stream';
-import ExcelJS from 'exceljs';
+import ExcelJS from '@protobi/exceljs';
 import { getDbHostPort } from "@/lib/db-listener";
 import type { DefinitionSnapshot } from "@/atoms/import";
 import { addReferenceSheets, applyColumnValidation } from '@/lib/excel-reference-sheets';

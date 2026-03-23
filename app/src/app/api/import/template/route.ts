@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerRestClient } from "@/context/RestClientStore";
 import { PassThrough } from 'stream';
-import ExcelJS from 'exceljs';
+import ExcelJS from '@protobi/exceljs';
 import fs from 'fs';
 import path from 'path';
 import Papa from 'papaparse';
