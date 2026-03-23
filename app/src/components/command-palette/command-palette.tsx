@@ -346,20 +346,6 @@ export function CommandPalette() {
                   </>
                 );
               })()}
-              {canImport && (
-                <>
-                  <CommandGroup heading="Import Actions">
-                    <CommandItem
-                      onSelect={handleShowCreateJob}
-                      value="create job import definition custom advanced"
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      <span>Create import job from definition...</span>
-                    </CommandItem>
-                  </CommandGroup>
-                  <CommandSeparator />
-                </>
-              )}
               <CommandGroup heading="Main Pages">
                 <CommandItem onSelect={() => navigate("/")} value="Start page">
                   <Home className="mr-2 h-4 w-4" />
@@ -511,6 +497,20 @@ export function CommandPalette() {
                     </>
                   )}
                 </CommandGroup>
+              )}
+              {canImport && (
+                <>
+                  <CommandSeparator />
+                  <CommandGroup heading="Import Actions">
+                    <CommandItem
+                      onSelect={handleShowCreateJob}
+                      value="create job import definition custom advanced"
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      <span>Create import job from definition...</span>
+                    </CommandItem>
+                  </CommandGroup>
+                </>
               )}
               <CommandSeparator />
               {canAccessAdminTools && (
