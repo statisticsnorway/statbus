@@ -5,83 +5,100 @@ import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { useSetAtom } from "jotai";
-import { AlertCircle, CheckCircle, Database, Upload } from "lucide-react";
+import { FileSpreadsheet, Upload, X } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
-import { Tables } from "@/lib/database.types"; // Import Tables type
+import { Tables } from "@/lib/database.types";
+import { inspectFile, convertExcelToCsvBlob, type FilePreview } from "@/lib/excel-to-csv";
 
-// Define types locally or import if available globally
 type ImportJob = Tables<"import_job">;
 
 interface ImportJobUploadProps {
   jobSlug: string;
   nextPage: string;
   refreshRelevantCounts: () => Promise<void>;
-  job: ImportJob | null; // Receive job as prop, can be null initially
-  definition: Tables<"import_definition"> | null; 
+  job: ImportJob | null;
+  definition: Tables<"import_definition"> | null;
 }
 
-export function ImportJobUpload({ 
-  jobSlug, 
-  nextPage, 
-  refreshRelevantCounts, 
-  job, // Receive job state directly
+type UploadPhase = 'idle' | 'inspecting' | 'previewing' | 'converting' | 'uploading';
+
+export function ImportJobUpload({
+  jobSlug,
+  nextPage,
+  refreshRelevantCounts,
+  job,
   definition
 }: ImportJobUploadProps) {
   const [file, setFile] = useState<File | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
+  const [preview, setPreview] = useState<FilePreview | null>(null);
+  const [phase, setPhase] = useState<UploadPhase>('idle');
   const [error, setError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const router = useRouter();
 
-  // Parent page is responsible for loading the job.
-  // The parent page (e.g., LegalUnitsUploadPage) is responsible
-  // for ensuring the job is loaded into the context.
-
-  // Effect to navigate when the job (passed as prop) finishes successfully
   useGuardedEffect(() => {
     const handleFinishedJob = async () => {
       if (job?.state === "finished") {
         if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
           console.log(`ImportJobUpload: Job ${job.slug} finished. Refreshing counts and base data before navigating to ${nextPage}.`);
         }
-        // refreshRelevantCounts is passed as a prop and should be memoized by the parent.
-        // It already includes doRefreshBaseData().
         await refreshRelevantCounts();
         router.push(nextPage);
       }
     };
 
     handleFinishedJob();
-    // Add refreshRelevantCounts to the dependency array.
-    // Ensure it's memoized in the parent component to avoid unnecessary effect runs.
   }, [job?.state, job?.slug, nextPage, router, refreshRelevantCounts], 'ImportJobUpload:handleFinishedJob');
 
-  const handleUpload = useCallback(async (fileToUpload: File) => {
-    if (!fileToUpload || !job) return;
-
-    setIsUploading(true);
-    setFile(fileToUpload);
+  const handleFileSelect = useCallback(async (selectedFile: File) => {
+    setFile(selectedFile);
     setError(null);
-    setUploadProgress(0);
+    setPhase('inspecting');
 
     try {
+      const filePreview = await inspectFile(selectedFile);
+      setPreview(filePreview);
+      setPhase('previewing');
+    } catch (err) {
+      setError(`Error reading file: ${err instanceof Error ? err.message : String(err)}`);
+      setPhase('idle');
+      setFile(null);
+    }
+  }, []);
+
+  const handleConfirmUpload = useCallback(async () => {
+    if (!file || !job || !preview) return;
+
+    setError(null);
+
+    try {
+      let uploadFile: File | Blob = file;
+      let uploadFileName = file.name;
+
+      // Convert Excel to CSV client-side
+      if (preview.isExcel) {
+        setPhase('converting');
+        const csvBlob = await convertExcelToCsvBlob(file);
+        uploadFile = csvBlob;
+        uploadFileName = file.name.replace(/\.xlsx?$/i, '.csv');
+      }
+
+      setPhase('uploading');
+      setUploadProgress(0);
+
       const formData = new FormData();
-      formData.append("file", fileToUpload);
+      formData.append("file", uploadFile, uploadFileName);
       formData.append("jobSlug", jobSlug);
 
-      // Use XMLHttpRequest for upload progress tracking
       const xhr = new XMLHttpRequest();
-      
-      // Track upload progress
+
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
           const progress = Math.round((event.loaded / event.total) * 100);
           setUploadProgress(progress);
         }
       };
-      
-      // Set up promise to handle the response
+
       const uploadPromise = new Promise<void>((resolve, reject) => {
         xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) {
@@ -95,51 +112,45 @@ export function ImportJobUpload({
             }
           }
         };
-        
+
         xhr.onerror = () => {
           reject(new Error("Network error during upload"));
         };
       });
-      
-      // Open and send the request
+
       xhr.open("POST", "/api/import/upload");
       xhr.send(formData);
-      
-      // Wait for upload to complete
-      await uploadPromise;
 
-      await refreshRelevantCounts(); // Refresh counts immediately after upload
-      
-      // No need for setInterval polling here. 
-      // The ImportUnitsContext handles job status updates via SSE.
-      // We will use the useEffect above to react to the 'finished' state.
+      await uploadPromise;
+      await refreshRelevantCounts();
 
     } catch (err) {
-      // Ensure isUploading is reset on error
       setError(
         `Error uploading file: ${err instanceof Error ? err.message : String(err)}`
       );
-      setIsUploading(false); // Reset upload state on error
-      setUploadProgress(0); // Reset progress
-      setFile(null);
+      setPhase('previewing');
+      setUploadProgress(0);
     }
-    // Don't set isUploading false here on success, wait for job state change
-  }, [job, jobSlug, refreshRelevantCounts]); // Add dependencies
+  }, [file, job, preview, jobSlug, refreshRelevantCounts]);
+
+  const handleCancel = useCallback(() => {
+    setFile(null);
+    setPreview(null);
+    setPhase('idle');
+    setError(null);
+    setUploadProgress(0);
+  }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      const selectedFile = e.target.files[0];
-      handleUpload(selectedFile);
+      handleFileSelect(e.target.files[0]);
     }
   };
 
-  // Use job prop for loading state check
   if (!job) {
-    // Parent component should handle loading state, but provide a fallback
     return <Spinner message="Waiting for import job data..." />;
   }
 
-  // Determine if upload should be allowed based on job state
   const allowUpload = job.state === "waiting_for_upload";
   const { state, import_completed_pct } = job;
 
@@ -155,6 +166,12 @@ export function ImportJobUpload({
     rejected: "Import failed",
   };
 
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
   return (
     <div className="space-y-4">
       <div className="border rounded-md p-4">
@@ -164,18 +181,10 @@ export function ImportJobUpload({
             {statusText[state ?? ''] || `Status: ${state}`}
           </span>
         </h3>
-        
+
         {state === 'waiting_for_upload' && (
           <div className="mt-4">
-            {isUploading ? (
-              <div className="space-y-2">
-                <div className="flex items-center text-blue-600">
-                  <Upload className="mr-2 h-4 w-4" />
-                  <span>Uploading {file?.name}... ({uploadProgress}%)</span>
-                </div>
-                <Progress value={uploadProgress} className="h-2" />
-              </div>
-            ) : (
+            {phase === 'idle' && (
               <div className="border-2 border-dashed border-gray-300 rounded-md p-4 text-center">
                 <input
                   type="file"
@@ -183,7 +192,6 @@ export function ImportJobUpload({
                   accept=".csv,.xlsx"
                   onChange={handleFileChange}
                   className="hidden"
-                  disabled={isUploading}
                 />
                 <label
                   htmlFor="file-upload"
@@ -194,6 +202,105 @@ export function ImportJobUpload({
                     Click to select a CSV or Excel file
                   </span>
                 </label>
+              </div>
+            )}
+
+            {phase === 'inspecting' && (
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <Spinner />
+                <span>Reading file...</span>
+              </div>
+            )}
+
+            {phase === 'previewing' && preview && (
+              <div className="space-y-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileSpreadsheet className="h-5 w-5 text-blue-600" />
+                    <div>
+                      <p className="font-medium text-sm">{preview.fileName}</p>
+                      <p className="text-xs text-gray-500">
+                        {formatSize(preview.fileSize)}
+                        {preview.isExcel ? ' (Excel)' : ' (CSV)'}
+                        {' \u00b7 '}~{preview.rowCount.toLocaleString()} rows
+                        {' \u00b7 '}{preview.columnNames.length} columns
+                      </p>
+                    </div>
+                  </div>
+                  <button onClick={handleCancel} className="text-gray-400 hover:text-gray-600">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                {/* Column names */}
+                <div className="text-xs text-gray-600">
+                  <span className="font-medium">Columns: </span>
+                  {preview.columnNames.join(', ')}
+                </div>
+
+                {/* Sample data table */}
+                {preview.sampleRows.length > 0 && (
+                  <div className="overflow-x-auto max-h-40 border rounded text-xs">
+                    <table className="min-w-full">
+                      <thead className="bg-gray-50 sticky top-0">
+                        <tr>
+                          {preview.columnNames.map((col, i) => (
+                            <th key={i} className="px-2 py-1 text-left font-medium text-gray-500 whitespace-nowrap">
+                              {col}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {preview.sampleRows.map((row, ri) => (
+                          <tr key={ri} className="border-t">
+                            {row.map((cell, ci) => (
+                              <td key={ci} className="px-2 py-1 text-gray-700 whitespace-nowrap max-w-[200px] truncate">
+                                {cell}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {preview.isExcel && (
+                  <p className="text-xs text-blue-600">
+                    Excel file will be converted to CSV before upload.
+                  </p>
+                )}
+
+                <div className="flex gap-2">
+                  <Button onClick={handleConfirmUpload} className="flex-1">
+                    <Upload className="mr-2 h-4 w-4" />
+                    Upload {preview.isExcel ? '(Convert & Upload)' : ''}
+                  </Button>
+                  <Button variant="outline" onClick={handleCancel}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {phase === 'converting' && (
+              <div className="space-y-2">
+                <div className="flex items-center text-blue-600 text-sm">
+                  <FileSpreadsheet className="mr-2 h-4 w-4" />
+                  <span>Converting Excel to CSV...</span>
+                </div>
+                <Progress className="h-2" />
+              </div>
+            )}
+
+            {phase === 'uploading' && (
+              <div className="space-y-2">
+                <div className="flex items-center text-blue-600 text-sm">
+                  <Upload className="mr-2 h-4 w-4" />
+                  <span>Uploading {file?.name}... ({uploadProgress}%)</span>
+                </div>
+                <Progress value={uploadProgress} className="h-2" />
               </div>
             )}
           </div>
@@ -217,14 +324,14 @@ export function ImportJobUpload({
         )}
       </div>
 
-      {allowUpload && (
+      {allowUpload && phase === 'idle' && (
         <div className="border rounded-md p-4">
           <h4 className="font-medium text-gray-800 mb-2">
             Expected File Format
           </h4>
           <div className="text-sm text-gray-700 space-y-2">
             <p>
-              Your CSV file should include the following required columns:
+              Your CSV or Excel file should include the following required columns:
             </p>
             <ul className="list-disc pl-5 space-y-1">
               {definition?.mode === "legal_unit" && (
@@ -270,8 +377,6 @@ export function ImportJobUpload({
         </div>
       )}
 
-      {/* Show continue button only when job is finished */}
-      {/* Use job prop */}
       {job.state === "finished" && (
         <Button onClick={() => router.push(nextPage)} className="w-full mt-4">
           Continue to Next Step

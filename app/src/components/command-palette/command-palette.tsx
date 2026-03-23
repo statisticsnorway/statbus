@@ -12,6 +12,7 @@ import { loadAllImportDefinitionsAtom, createImportJobFromDefinitionAtom } from 
 import { useBaseData } from "@/atoms/base-data";
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { toast } from "@/hooks/use-toast";
+import { useProgressDownload, formatDownloadProgress } from "@/hooks/use-progress-download";
 import { getUploadPath } from "@/lib/import-mode-paths";
 import type { Tables } from "@/lib/database.types";
 import {
@@ -153,11 +154,17 @@ export function CommandPalette() {
   };
 
   // --- Download flow ---
+  const { progress: downloadProgress, startDownload } = useProgressDownload();
   const handleDownload = (filter: string, format: string) => {
     if (!importDownloadContext) return;
     setOpen(false);
     resetPages();
-    window.open(`/api/import/download?slug=${importDownloadContext.jobSlug}&filter=${filter}&format=${format}`, '_blank');
+    const url = `/api/import/download?slug=${encodeURIComponent(importDownloadContext.jobSlug)}&filter=${encodeURIComponent(filter)}&format=${format}`;
+    const filename = `${importDownloadContext.jobSlug}-${filter}.${format}`;
+    startDownload(url, filename);
+    if (downloadProgress.phase === 'downloading') {
+      toast({ title: "Download started", description: formatDownloadProgress(downloadProgress) });
+    }
   };
 
   // --- Create-job flow ---
