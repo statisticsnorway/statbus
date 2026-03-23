@@ -223,6 +223,13 @@ export function writeReferenceSheets(
     if (data.length === 0) continue;
 
     const ws = workbook.addWorksheet(sheetName);
+
+    // Set column widths BEFORE committing any rows — WorkbookWriter
+    // serializes column metadata on the first row.commit() call.
+    ws.getColumn(1).width = 15;
+    ws.getColumn(2).width = 50;
+    ws.getColumn(3).width = 65;
+
     const headerRow = ws.addRow(['Code', 'Name', 'Code | Name']);
     headerRow.font = { bold: true };
     if (streaming) headerRow.commit();
@@ -233,10 +240,6 @@ export function writeReferenceSheets(
       const dataRow = ws.addRow([code, name, `${code} | ${name}`]);
       if (streaming) dataRow.commit();
     }
-
-    ws.getColumn(1).width = 15;
-    ws.getColumn(2).width = 50;
-    ws.getColumn(3).width = 65;
 
     const lastRow = data.length + 1;
     const safeSheetName = sheetName.includes(' ') ? `'${sheetName}'` : sheetName;

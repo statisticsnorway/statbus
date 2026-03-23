@@ -134,7 +134,10 @@ export async function GET(request: NextRequest) {
       throw error;
     }
 
+    let cleaned = false;
     const cleanup = () => {
+      if (cleaned) return;
+      cleaned = true;
       pgClient.release();
       pool.end();
     };
@@ -223,9 +226,8 @@ export async function GET(request: NextRequest) {
           const workbook = new (ExcelJS as any).stream.xlsx.WorkbookWriter({ stream: passThrough });
           const dataSheet = workbook.addWorksheet("Data");
 
-          const headerRow = dataSheet.addRow(fieldNames);
-          headerRow.commit();
-
+          // Set column formats BEFORE committing the header row — WorkbookWriter
+          // serializes column metadata on the first row.commit() call.
           for (let colIdx = 0; colIdx < fields.length; colIdx++) {
             const oid = fields[colIdx].dataTypeID;
             if (dateOids.has(oid)) {
@@ -234,6 +236,9 @@ export async function GET(request: NextRequest) {
               dataSheet.getColumn(colIdx + 1).numFmt = 'yyyy-mm-dd hh:mm:ss';
             }
           }
+
+          const headerRow = dataSheet.addRow(fieldNames);
+          headerRow.commit();
 
           // Stream data rows from cursor in batches
           let batch = firstBatch;
