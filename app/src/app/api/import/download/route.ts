@@ -183,25 +183,6 @@ export async function GET(request: NextRequest) {
       const fields = firstBatch.fields;
       const fieldNames = fields.map(f => f.name);
 
-      // Create streaming workbook writer
-      const passThrough = new PassThrough();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const workbook = new (ExcelJS as any).stream.xlsx.WorkbookWriter({ stream: passThrough });
-      const dataSheet = workbook.addWorksheet("Data");
-
-      // Add headers and set column formats
-      const headerRow = dataSheet.addRow(fieldNames);
-      headerRow.commit();
-
-      for (let colIdx = 0; colIdx < fields.length; colIdx++) {
-        const oid = fields[colIdx].dataTypeID;
-        if (dateOids.has(oid)) {
-          dataSheet.getColumn(colIdx + 1).numFmt = 'yyyy-mm-dd';
-        } else if (timestampOids.has(oid)) {
-          dataSheet.getColumn(colIdx + 1).numFmt = 'yyyy-mm-dd hh:mm:ss';
-        }
-      }
-
       // Helper to convert a PG row to Excel values
       const convertRow = (row: Record<string, unknown>) =>
         fields.map((field) => {
@@ -214,33 +195,12 @@ export async function GET(request: NextRequest) {
           return val;
         });
 
-      // Stream data rows from cursor in batches
-      let batch = firstBatch;
-      while (batch.rows.length > 0) {
-        for (const pgRow of batch.rows) {
-          const excelRow = dataSheet.addRow(convertRow(pgRow));
-          // Apply per-cell validation (forward-references to not-yet-created reference sheets)
-          for (const [colIdx, validation] of validationMap) {
-            excelRow.getCell(colIdx).dataValidation = validation;
-          }
-          excelRow.commit();
-        }
-        // Yield to event loop between batches so other requests aren't blocked
-        await new Promise(resolve => setImmediate(resolve));
-        batch = await pgClient.query(`FETCH ${CURSOR_BATCH_SIZE} FROM download_cursor`);
-      }
+      // Create streaming workbook writer — PassThrough connects writer to response
+      const passThrough = new PassThrough();
+      let aborted = false;
 
-      await dataSheet.commit();
-
-      // Write reference sheets AFTER data sheet (forward refs work in XLSX)
-      writeReferenceSheets(workbook, refData, true);
-
-      // Finalize
-      await workbook.commit();
-      await pgClient.query('CLOSE download_cursor');
-      await pgClient.query('COMMIT');
-
-      // Set up response stream
+      // Set up response stream FIRST, before writing any data.
+      // This ensures backpressure flows correctly from client → PassThrough → WorkbookWriter.
       const webStream = new ReadableStream({
         start(controller) {
           passThrough.on('data', (chunk: Buffer) => controller.enqueue(chunk));
@@ -248,13 +208,66 @@ export async function GET(request: NextRequest) {
           passThrough.on('error', (err) => { controller.error(err); cleanup(); });
         },
         cancel() {
+          aborted = true;
           passThrough.destroy();
-          // Best-effort cursor cleanup on client cancel
           pgClient.query('CLOSE download_cursor').catch(() => {});
           pgClient.query('ROLLBACK').catch(() => {});
           cleanup();
         },
       });
+
+      // Write data asynchronously — the ReadableStream consumer drives backpressure
+      const writeExcel = async () => {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const workbook = new (ExcelJS as any).stream.xlsx.WorkbookWriter({ stream: passThrough });
+          const dataSheet = workbook.addWorksheet("Data");
+
+          const headerRow = dataSheet.addRow(fieldNames);
+          headerRow.commit();
+
+          for (let colIdx = 0; colIdx < fields.length; colIdx++) {
+            const oid = fields[colIdx].dataTypeID;
+            if (dateOids.has(oid)) {
+              dataSheet.getColumn(colIdx + 1).numFmt = 'yyyy-mm-dd';
+            } else if (timestampOids.has(oid)) {
+              dataSheet.getColumn(colIdx + 1).numFmt = 'yyyy-mm-dd hh:mm:ss';
+            }
+          }
+
+          // Stream data rows from cursor in batches
+          let batch = firstBatch;
+          while (batch.rows.length > 0 && !aborted) {
+            for (const pgRow of batch.rows) {
+              const excelRow = dataSheet.addRow(convertRow(pgRow));
+              for (const [colIdx, validation] of validationMap) {
+                excelRow.getCell(colIdx).dataValidation = validation;
+              }
+              excelRow.commit();
+            }
+            await new Promise(resolve => setImmediate(resolve));
+            if (aborted) break;
+            batch = await pgClient.query(`FETCH ${CURSOR_BATCH_SIZE} FROM download_cursor`);
+          }
+
+          await dataSheet.commit();
+          writeReferenceSheets(workbook, refData, true);
+          await workbook.commit();
+          await pgClient.query('CLOSE download_cursor');
+          await pgClient.query('COMMIT');
+        } catch (err) {
+          // Rollback transaction on any error during streaming
+          await pgClient.query('ROLLBACK').catch(() => {});
+          if (!aborted) {
+            passThrough.destroy(err instanceof Error ? err : new Error(String(err)));
+          }
+          cleanup();
+        }
+      };
+
+      // Fire and forget — the async write drives data into the PassThrough
+      // which is consumed by the ReadableStream returned in the Response
+      writeExcel();
 
       const filename = `${slug}${filterSuffix}.xlsx`;
       return new Response(webStream, {

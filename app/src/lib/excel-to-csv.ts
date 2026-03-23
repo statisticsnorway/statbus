@@ -23,21 +23,21 @@ export async function inspectFile(file: File): Promise<FilePreview> {
 
   if (isExcel) {
     const arrayBuffer = await file.arrayBuffer();
-    const workbook = XLSX.read(arrayBuffer, { type: 'array', sheetRows: 6 });
+
+    // Full read to get row count from sheet range (only parses metadata + cell refs, not heavy)
+    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
-    const data = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1 });
 
+    const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1');
+    const rowCount = range.e.r; // 0-based last row index = row count excluding header
+
+    // Extract sample rows from the already-loaded workbook
+    const data = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1 });
     const columnNames = (data[0] || []).map(String);
     const sampleRows = data.slice(1, 6).map(row =>
       row.map(cell => (cell === null || cell === undefined) ? '' : String(cell))
     );
-
-    // Get full row count without loading all data
-    const fullWorkbook = XLSX.read(arrayBuffer, { type: 'array', bookSheets: true });
-    const fullSheet = XLSX.read(arrayBuffer, { type: 'array' }).Sheets[fullWorkbook.SheetNames[0]];
-    const range = XLSX.utils.decode_range(fullSheet['!ref'] || 'A1');
-    const rowCount = range.e.r; // 0-based last row index = row count excluding header
 
     return { fileName, fileSize, rowCount, columnNames, sampleRows, isExcel };
   }
