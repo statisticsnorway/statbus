@@ -144,15 +144,23 @@ export function applyColumnValidation(
 /**
  * Returns per-column validation info for streaming row-by-row application.
  * Maps 1-based column index → validation config for use with row.getCell().dataValidation.
+ * Only includes columns whose reference data was actually fetched (non-empty).
  */
 export function getColumnValidationMap(
   sourceColumnNames: string[],
+  refDataResults: Array<{ sheetName: string; ref: typeof COLUMN_REFERENCE_MAP[string]; data: Record<string, string>[] }>,
   columnOffset: number = 0,
 ): Map<number, { type: 'list'; allowBlank: true; formulae: [string]; showErrorMessage: true; errorStyle: 'warning'; errorTitle: string; error: string }> {
+  // Build set of range names that will actually be written (non-empty data)
+  const availableRanges = new Set<string>();
+  for (const { ref, data } of refDataResults) {
+    if (data.length > 0) availableRanges.add(ref.rangeName);
+  }
+
   const map = new Map<number, { type: 'list'; allowBlank: true; formulae: [string]; showErrorMessage: true; errorStyle: 'warning'; errorTitle: string; error: string }>();
   for (let colIdx = 0; colIdx < sourceColumnNames.length; colIdx++) {
     const ref = COLUMN_REFERENCE_MAP[sourceColumnNames[colIdx]];
-    if (!ref) continue;
+    if (!ref || !availableRanges.has(ref.rangeName)) continue;
     // 1-based column index
     map.set(colIdx + columnOffset + 1, {
       type: 'list',

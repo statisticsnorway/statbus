@@ -167,15 +167,16 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      // Prepare validation info before streaming
+      // Prepare reference data and validation info before streaming
       const prefixColumnCount = errorColumn ? 2 : 1;
       const standardizedColumnNames = columnEntries.map(e => e.dataCol.replace(/_raw$/, ''));
-      const validationMap = getColumnValidationMap(standardizedColumnNames, prefixColumnCount);
 
-      // Fetch reference data in parallel with cursor setup (small, fast)
       const settingsResult = await client.from("settings").select("region_version_id").single();
       const regionVersionId = settingsResult.data?.region_version_id;
       const refData = await fetchReferenceData(standardizedColumnNames, client, regionVersionId);
+
+      // Build validation map filtered by refs that actually have data
+      const validationMap = getColumnValidationMap(standardizedColumnNames, refData, prefixColumnCount);
 
       // Use SQL cursor to fetch rows in batches — never loads all rows into memory
       await pgClient.query('BEGIN');

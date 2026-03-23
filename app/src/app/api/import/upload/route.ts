@@ -5,14 +5,10 @@ import { from as copyFrom } from 'pg-copy-streams';
 import { Readable } from 'stream';
 import { Worker } from 'node:worker_threads';
 import { statfs } from 'node:fs/promises';
-import ExcelJS from '@protobi/exceljs';
 import Papa from 'papaparse';
 import { createServerLogger } from "@/lib/server-logger";
 
 import { getDbHostPort } from "@/lib/db-listener";
-
-// Ensure @protobi/exceljs is traced in Next.js standalone output for worker resolution
-void ExcelJS;
 
 // Get database connection details for authenticator role
 const getDbConfig = () => {

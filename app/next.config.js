@@ -41,6 +41,10 @@ if (!process.env.DEBUG_STATUS_REPORTED) {
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Keep @protobi/exceljs as a Node.js require (not bundled by webpack) so the
+  // worker thread's require('@protobi/exceljs') resolves from node_modules
+  // in standalone output. This is more robust than the void-expression trick.
+  serverExternalPackages: ['@protobi/exceljs'],
   env: {
     NEXT_PUBLIC_STATBUS_VERSION: process.env.VERSION || 'dev',
     NEXT_PUBLIC_STATBUS_VERSION_SHA: (() => {

@@ -75,10 +75,10 @@ export function ImportJobUpload({
       let uploadFile: File | Blob = file;
       let uploadFileName = file.name;
 
-      // Convert Excel to CSV client-side
+      // Convert Excel to CSV client-side, reusing cached arrayBuffer from inspectFile
       if (preview.isExcel) {
         setPhase('converting');
-        const csvBlob = await convertExcelToCsvBlob(file);
+        const csvBlob = await convertExcelToCsvBlob(preview.arrayBuffer ?? file);
         uploadFile = csvBlob;
         uploadFileName = file.name.replace(/\.xlsx?$/i, '.csv');
       }

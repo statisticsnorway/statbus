@@ -1,8 +1,9 @@
 /**
  * Client-side Excel→CSV conversion using SheetJS.
  * Runs in the browser — no server round-trip for Excel parsing.
+ * SheetJS (xlsx) is dynamically imported to avoid adding ~900KB to the initial bundle.
  */
-import * as XLSX from 'xlsx';
+import Papa from 'papaparse';
 
 export interface FilePreview {
   fileName: string;
@@ -11,10 +12,14 @@ export interface FilePreview {
   columnNames: string[];
   sampleRows: string[][];
   isExcel: boolean;
+  /** Cached arrayBuffer for Excel files — pass to convertExcelToCsvBlob to avoid re-reading */
+  arrayBuffer?: ArrayBuffer;
 }
 
 /**
  * Inspect a file to get metadata and sample rows without full conversion.
+ * For Excel: uses sheetRows:6 for fast partial parse, !fullref for total row count.
+ * Returns the arrayBuffer so convertExcelToCsvBlob can reuse it.
  */
 export async function inspectFile(file: File): Promise<FilePreview> {
   const fileName = file.name;
@@ -22,35 +27,38 @@ export async function inspectFile(file: File): Promise<FilePreview> {
   const isExcel = fileName.toLowerCase().endsWith('.xlsx') || fileName.toLowerCase().endsWith('.xls');
 
   if (isExcel) {
+    const XLSX = await import('xlsx');
     const arrayBuffer = await file.arrayBuffer();
 
-    // Full read to get row count from sheet range (only parses metadata + cell refs, not heavy)
-    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+    // Partial read: only parse 6 rows (fast even for huge files)
+    // !fullref still contains the full XML dimension for accurate row count
+    const workbook = XLSX.read(arrayBuffer, { type: 'array', sheetRows: 6 });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
 
-    const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1');
+    const fullRef = sheet['!fullref'] || sheet['!ref'] || 'A1';
+    const range = XLSX.utils.decode_range(fullRef);
     const rowCount = range.e.r; // 0-based last row index = row count excluding header
 
-    // Extract sample rows from the already-loaded workbook
     const data = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1 });
     const columnNames = (data[0] || []).map(String);
     const sampleRows = data.slice(1, 6).map(row =>
       row.map(cell => (cell === null || cell === undefined) ? '' : String(cell))
     );
 
-    return { fileName, fileSize, rowCount, columnNames, sampleRows, isExcel };
+    return { fileName, fileSize, rowCount, columnNames, sampleRows, isExcel, arrayBuffer };
   }
 
-  // CSV: read first few lines
+  // CSV: use PapaParser for proper quoted-field handling
   const text = await file.slice(0, 64 * 1024).text(); // first 64KB
-  const lines = text.split('\n').filter(l => l.trim());
-  const columnNames = lines[0]?.split(',').map(h => h.trim().replace(/^"|"$/g, '')) || [];
-  const sampleRows = lines.slice(1, 6).map(line =>
-    line.split(',').map(cell => cell.trim().replace(/^"|"$/g, ''))
-  );
+  const parsed = Papa.parse(text, { header: false, skipEmptyLines: true });
+  const rows = parsed.data as string[][];
+
+  const columnNames = (rows[0] || []).map(String);
+  const sampleRows = rows.slice(1, 6);
 
   // Estimate row count from file size and average line length
+  const lines = text.split('\n').filter(l => l.trim());
   const avgLineLen = text.length / Math.max(lines.length, 1);
   const rowCount = Math.round(fileSize / avgLineLen) - 1; // subtract header
 
@@ -59,86 +67,46 @@ export async function inspectFile(file: File): Promise<FilePreview> {
 
 /**
  * Convert an Excel file to CSV. Returns a Blob of CSV data.
- * Handles date serial numbers, system column stripping, etc.
+ * Accepts a cached ArrayBuffer (from inspectFile) to avoid re-reading the file.
  */
-export function convertExcelToCsvBlob(file: File): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = new Uint8Array(e.target!.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
+export async function convertExcelToCsvBlob(source: File | ArrayBuffer): Promise<Blob> {
+  const XLSX = await import('xlsx');
 
-        // Convert to CSV — SheetJS handles date formatting automatically with cellDates
-        const csv = XLSX.utils.sheet_to_csv(sheet, { dateNF: 'yyyy-mm-dd' });
+  const arrayBuffer = source instanceof ArrayBuffer
+    ? source
+    : await source.arrayBuffer();
 
-        // Strip system columns (row_id, errors, warnings) if present
-        const lines = csv.split('\n');
-        if (lines.length === 0) {
-          resolve(new Blob([csv], { type: 'text/csv' }));
-          return;
-        }
+  const data = new Uint8Array(arrayBuffer);
+  const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+  const sheetName = workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
 
-        const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-        const systemCols = new Set(['row_id', 'errors', 'warnings', '_errors', '_warnings']);
-        const skipIndices = new Set<number>();
-        headers.forEach((h, i) => {
-          if (systemCols.has(h)) skipIndices.add(i);
-        });
+  // Convert to CSV — SheetJS handles date formatting automatically with cellDates
+  const csv = XLSX.utils.sheet_to_csv(sheet, { dateNF: 'yyyy-mm-dd' });
 
-        if (skipIndices.size === 0) {
-          resolve(new Blob([csv], { type: 'text/csv' }));
-          return;
-        }
-
-        // Rebuild CSV without system columns
-        const cleanedLines = lines.map(line => {
-          if (!line.trim()) return line;
-          // Simple CSV split — SheetJS output is well-formed
-          const cells = parseCsvLine(line);
-          return cells.filter((_, i) => !skipIndices.has(i)).join(',');
-        });
-
-        resolve(new Blob([cleanedLines.join('\n')], { type: 'text/csv' }));
-      } catch (err) {
-        reject(err);
-      }
-    };
-    reader.onerror = () => reject(reader.error);
-    reader.readAsArrayBuffer(file);
-  });
-}
-
-/** Simple CSV line parser that handles quoted fields */
-function parseCsvLine(line: string): string[] {
-  const result: string[] = [];
-  let current = '';
-  let inQuotes = false;
-
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (inQuotes) {
-      if (ch === '"' && line[i + 1] === '"') {
-        current += '"';
-        i++;
-      } else if (ch === '"') {
-        inQuotes = false;
-      } else {
-        current += ch;
-      }
-    } else {
-      if (ch === '"') {
-        inQuotes = true;
-      } else if (ch === ',') {
-        result.push(current);
-        current = '';
-      } else {
-        current += ch;
-      }
-    }
+  // Strip system columns (row_id, errors, warnings) if present
+  const parsed = Papa.parse(csv, { header: false, skipEmptyLines: false });
+  const rows = parsed.data as string[][];
+  if (rows.length === 0) {
+    return new Blob([csv], { type: 'text/csv' });
   }
-  result.push(current);
-  return result;
+
+  const headers = rows[0];
+  const systemCols = new Set(['row_id', 'errors', 'warnings', '_errors', '_warnings']);
+  const skipIndices = new Set<number>();
+  headers.forEach((h, i) => {
+    if (systemCols.has(h.trim())) skipIndices.add(i);
+  });
+
+  if (skipIndices.size === 0) {
+    return new Blob([csv], { type: 'text/csv' });
+  }
+
+  // Rebuild CSV without system columns using PapaParser
+  const cleanedRows = rows.map(row =>
+    row.filter((_, i) => !skipIndices.has(i))
+  );
+  const cleanedCsv = Papa.unparse(cleanedRows, { header: false });
+
+  return new Blob([cleanedCsv + '\n'], { type: 'text/csv' });
 }

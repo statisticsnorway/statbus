@@ -43,10 +43,15 @@ export function useProgressDownload() {
     phase: 'idle', bytesReceived: 0, elapsedMs: 0,
   });
   const abortRef = useRef<AbortController | null>(null);
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const startDownload = useCallback(async (url: string, suggestedFilename?: string) => {
-    // Cancel any in-progress download
+    // Cancel any in-progress download and clear pending auto-reset
     abortRef.current?.abort();
+    if (resetTimerRef.current) {
+      clearTimeout(resetTimerRef.current);
+      resetTimerRef.current = null;
+    }
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -124,8 +129,9 @@ export function useProgressDownload() {
         elapsedMs: Date.now() - startTime,
       });
 
-      // Auto-reset after 3 seconds
-      setTimeout(() => {
+      // Auto-reset after 3 seconds (stored in ref for cleanup)
+      resetTimerRef.current = setTimeout(() => {
+        resetTimerRef.current = null;
         setProgress(prev => prev.phase === 'complete' ? { phase: 'idle', bytesReceived: 0, elapsedMs: 0 } : prev);
       }, 3000);
 

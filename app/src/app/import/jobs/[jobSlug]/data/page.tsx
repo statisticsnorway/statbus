@@ -787,6 +787,8 @@ export default function ImportJobDataPage() {
                 {job?.slug && (
                   <ProgressDownloadButton slug={job.slug} filter="error" className="h-8 px-2 text-red-600 hover:bg-red-50" />
                 )}
+                {/* Downloads for "ok" and "full" filters are in the command palette (Ctrl+K)
+                    to keep this toolbar lean — only error/warning downloads shown inline. */}
               </>
             )}
           </DataTableToolbar>
