@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useRouter } from "next/navigation";
 import { ResetConfirmationDialog } from "./reset-confirmation-dialog";
@@ -12,6 +12,7 @@ import { loadAllImportDefinitionsAtom, createImportJobFromDefinitionAtom } from 
 import { useBaseData } from "@/atoms/base-data";
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { toast } from "@/hooks/use-toast";
+import { useProgressDownload } from "@/hooks/use-progress-download";
 import { getUploadPath } from "@/lib/import-mode-paths";
 import type { Tables } from "@/lib/database.types";
 import {
@@ -153,11 +154,35 @@ export function CommandPalette() {
   };
 
   // --- Download flow ---
+  const EXCEL_MAX_ROWS = 1_048_576;
+  const { startDownload } = useProgressDownload();
   const handleDownload = (filter: string, format: string) => {
     if (!importDownloadContext) return;
     setOpen(false);
     resetPages();
-    window.open(`/api/import/download?slug=${importDownloadContext.jobSlug}&filter=${filter}&format=${format}`, '_blank');
+    const url = `/api/import/download?slug=${encodeURIComponent(importDownloadContext.jobSlug)}&filter=${encodeURIComponent(filter)}&format=${format}`;
+    const filename = `${importDownloadContext.jobSlug}-${filter}.${format}`;
+    startDownload(url, filename, {
+      onError: (message) => toast({ title: "Download failed", description: message, variant: "destructive" }),
+    });
+    toast({ title: "Download started", description: `Downloading ${filename}...` });
+  };
+  const getFilterRowCount = (filter: string) => {
+    if (!importDownloadContext) return 0;
+    const { totalRows, errorCount, warningCount } = importDownloadContext;
+    if (filter === 'full') return totalRows;
+    if (filter === 'ok') return totalRows - errorCount - warningCount;
+    if (filter === 'warning') return warningCount;
+    if (filter === 'error') return errorCount;
+    return 0;
+  };
+  const getFilterLabel = (filter: string) => {
+    const count = getFilterRowCount(filter);
+    if (filter === 'full') return `All rows (${count.toLocaleString()})`;
+    if (filter === 'ok') return `OK rows (${count.toLocaleString()})`;
+    if (filter === 'warning') return `Warnings (${count.toLocaleString()})`;
+    if (filter === 'error') return `Errors (${count.toLocaleString()})`;
+    return filter;
   };
 
   // --- Create-job flow ---
@@ -239,6 +264,28 @@ export function CommandPalette() {
     'create-job-time': 'Select time context...',
     'create-job-review': 'Select review mode...',
     'clone-job-review': 'Select review mode...',
+  };
+
+  /** Render a breadcrumb heading with clickable segments that navigate back.
+   *  Each segment has a label. Non-last segments with `goToDepth` are clickable:
+   *  goToDepth=0 goes to root (pages=[]), goToDepth=1 keeps first page, etc. */
+  const crumbHeading = (...segments: Array<{ label: string; goToDepth?: number }>) => {
+    const parts: Array<{ key: string; el: React.ReactNode }> = [];
+    segments.forEach((seg, i) => {
+      const isLast = i === segments.length - 1;
+      if (i > 0) parts.push({ key: `sep-${i}`, el: <span className="text-zinc-400">{'\u203a'}</span> });
+      if (isLast || seg.goToDepth == null) {
+        parts.push({ key: `seg-${i}`, el: <span>{seg.label}</span> });
+      } else {
+        const depth = seg.goToDepth;
+        parts.push({ key: `seg-${i}`, el: (
+          <button className="hover:underline cursor-pointer" onClick={() => setPages(pages.slice(0, depth))}>
+            {seg.label}
+          </button>
+        )});
+      }
+    });
+    return <span className="flex items-center gap-1">{parts.map(p => <span key={p.key}>{p.el}</span>)}</span>;
   };
 
   return (
@@ -528,7 +575,10 @@ export function CommandPalette() {
             const { totalRows, errorCount, warningCount } = importDownloadContext;
             const okCount = totalRows - errorCount - warningCount;
             return (
-              <CommandGroup heading="Download which rows?">
+              <CommandGroup heading={crumbHeading(
+                { label: `Job ${importDownloadContext.jobId}`, goToDepth: 0 },
+                { label: 'Download' },
+              )}>
                 <CommandItem onSelect={() => { setDownloadFilter('full'); setPages([...pages, 'download-format']); setSearch(''); }}
                   value="all full rows">
                   Download all rows ({totalRows})
@@ -556,18 +606,35 @@ export function CommandPalette() {
           })()}
 
           {/* ===== DOWNLOAD: PICK FORMAT ===== */}
-          {page === 'download-format' && (
-            <CommandGroup heading="Choose format">
-              <CommandItem onSelect={() => handleDownload(downloadFilter, 'csv')} value="csv">
-                <FileSpreadsheet className="mr-2 h-4 w-4" />
-                CSV
-              </CommandItem>
-              <CommandItem onSelect={() => handleDownload(downloadFilter, 'xlsx')} value="excel xlsx">
-                <FileSpreadsheet className="mr-2 h-4 w-4" />
-                Excel (XLSX)
-              </CommandItem>
-            </CommandGroup>
-          )}
+          {page === 'download-format' && importDownloadContext && (() => {
+            const filterRows = getFilterRowCount(downloadFilter);
+            const excelDisabled = filterRows > EXCEL_MAX_ROWS;
+            return (
+              <CommandGroup heading={crumbHeading(
+                { label: `Job ${importDownloadContext.jobId}`, goToDepth: 0 },
+                { label: getFilterLabel(downloadFilter), goToDepth: 1 },
+                { label: 'Format' },
+              )}>
+                <CommandItem onSelect={() => handleDownload(downloadFilter, 'csv')} value="csv">
+                  <FileSpreadsheet className="mr-2 h-4 w-4" />
+                  CSV
+                </CommandItem>
+                {excelDisabled ? (
+                  <CommandItem disabled value="excel xlsx disabled">
+                    <FileSpreadsheet className="mr-2 h-4 w-4 text-gray-300" />
+                    <span className="text-gray-400">
+                      Excel — {filterRows.toLocaleString()} rows exceeds ~1M limit
+                    </span>
+                  </CommandItem>
+                ) : (
+                  <CommandItem onSelect={() => handleDownload(downloadFilter, 'xlsx')} value="excel xlsx">
+                    <FileSpreadsheet className="mr-2 h-4 w-4" />
+                    Excel (XLSX)
+                  </CommandItem>
+                )}
+              </CommandGroup>
+            );
+          })()}
 
           {/* ===== CREATE JOB: PICK DEFINITION ===== */}
           {page === 'create-job-definition' && (() => {
@@ -593,7 +660,11 @@ export function CommandPalette() {
 
           {/* ===== CREATE JOB: PICK TIME CONTEXT ===== */}
           {page === 'create-job-time' && (
-            <CommandGroup heading="Select time context">
+            <CommandGroup heading={crumbHeading(
+              { label: 'Create job', goToDepth: 0 },
+              { label: selectedDefinition?.name ?? 'Definition', goToDepth: 1 },
+              { label: 'Time context' },
+            )}>
               {availableTimeContexts.map((tc) => (
                 <CommandItem key={tc.ident} onSelect={() => {
                   setSelectedTimeContextIdent(tc.ident);
@@ -607,7 +678,11 @@ export function CommandPalette() {
 
           {/* ===== CREATE JOB: PICK REVIEW MODE ===== */}
           {page === 'create-job-review' && (
-            <CommandGroup heading={`Create: ${selectedDefinition?.name ?? 'job'}`}>
+            <CommandGroup heading={crumbHeading(
+              { label: 'Create job', goToDepth: 0 },
+              { label: selectedDefinition?.name ?? 'Definition', goToDepth: 1 },
+              { label: 'Review mode' },
+            )}>
               <CommandItem onSelect={() => handleCreateJob(null)} value="review if errors auto">
                 Review if errors (auto)
               </CommandItem>
@@ -622,7 +697,10 @@ export function CommandPalette() {
 
           {/* ===== CLONE JOB: PICK REVIEW MODE ===== */}
           {page === 'clone-job-review' && cloneSourceJob && (
-            <CommandGroup heading={`Clone: ${cloneSourceJob.description ?? cloneSourceJob.import_definition.name}`}>
+            <CommandGroup heading={crumbHeading(
+              { label: 'Clone job', goToDepth: 0 },
+              { label: cloneSourceJob.description ?? cloneSourceJob.import_definition.name },
+            )}>
               <CommandItem onSelect={() => handleClone(null)} value="review if errors auto">
                 Review if errors (auto)
               </CommandItem>

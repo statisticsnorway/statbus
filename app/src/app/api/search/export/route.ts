@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PassThrough } from "stream";
-import ExcelJS from "exceljs";
+import ExcelJS from "@protobi/exceljs";
 import { getStatisticalUnits } from "@/app/search/search-requests";
 import { toCSV } from "@/lib/csv-utils";
 import { getServerRestClient } from "@/context/RestClientStore";
