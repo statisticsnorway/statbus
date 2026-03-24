@@ -175,9 +175,11 @@ BEGIN
     SELECT COUNT(DISTINCT partition_seq) INTO v_populated_partitions
     FROM public.statistical_unit_facet_staging;
 
-    SELECT COUNT(DISTINCT report_partition_seq) INTO v_expected_partitions
-    FROM public.statistical_unit
-    WHERE used_for_counting;
+    -- Expected partitions: the report_partition_seq hash function uses modulus 256
+    -- (see public.report_partition_seq). If staging has fewer populated partitions,
+    -- it's incomplete and needs a full refresh. The previous query scanned 3.1M
+    -- statistical_unit rows (35s) for COUNT(DISTINCT report_partition_seq).
+    v_expected_partitions := 256;
 
     SELECT array_agg(partition_seq ORDER BY partition_seq) INTO v_dirty_partitions
     FROM public.statistical_unit_facet_dirty_partitions;
