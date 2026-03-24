@@ -14,17 +14,34 @@ The legacy `./devops/manage-statbus.sh` is a backward-compat wrapper that delega
 
 ### Operations (./sb)
 ```bash
+# Service management (profiles: all, all_except_app, app)
 ./sb start all                  # Start all services (db, rest, worker, app)
 ./sb stop all                   # Stop all services
 ./sb restart all                # Restart all services
 ./sb ps                         # List running containers
 ./sb logs [service...]          # Follow service logs
+./sb build [profile]            # Build Docker images from source (development only)
+
+# Database connection
 ./sb psql                       # Open psql shell
 ./sb psql < file.sql            # Run SQL file (use < redirection!)
 echo "SELECT ..." | ./sb psql   # Single-line query
+
+# Configuration
 ./sb config generate            # Regenerate .env and Caddyfiles from .env.config
+./sb config show                # Show current config (verbose)
+./sb config show --postgres     # Print shell-evaluable PG vars: eval $(./sb config show --postgres)
+
+# Environment files
+./sb dotenv -f .env get KEY            # Read a key from .env file
+./sb dotenv -f .env set KEY VALUE      # Set a key (also accepts KEY=VALUE)
+./sb dotenv -f .env set KEY +DEFAULT   # Set only if key doesn't exist
+
+# Users and types
 ./sb users create               # Create users from .users.yml
 ./sb types generate             # Generate TypeScript types from schema
+
+# Database operations
 ./sb db status                  # Check if database is running
 ./sb db dump                    # Dump local database to dbdumps/
 ./sb db download <code>         # Download database dump from remote server

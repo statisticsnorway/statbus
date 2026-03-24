@@ -13,6 +13,7 @@ This guide is for **system administrators** deploying StatBus for a single count
 - [Configuration](#configuration)
 - [PostgreSQL Access Architecture](#postgresql-access-architecture)
 - [Custom TLS Certificates](#custom-tls-certificates)
+- [Automatic Upgrades](#automatic-upgrades)
 - [Troubleshooting](#troubleshooting)
 - [Security Considerations](#security-considerations)
 
@@ -641,5 +642,64 @@ openssl verify -CAfile ca-bundle.crt caddy/data/custom-certs/domain.crt
 chmod 644 caddy/data/custom-certs/domain.crt
 chmod 600 caddy/data/custom-certs/domain.key
 ```
+
+---
+
+## Automatic Upgrades
+
+StatBus includes an upgrade daemon that automatically checks for new releases, downloads Docker images, and applies upgrades with backup and rollback support.
+
+### Enabling the Upgrade Daemon
+
+Enable the upgrade daemon via systemd:
+
+```bash
+sudo systemctl enable --now statbus-upgrade@<slot>.service
+```
+
+Replace `<slot>` with your deployment slot code (e.g., `local`, `no`, `demo`). The service file is at `devops/statbus-upgrade.service`.
+
+### Configuration
+
+Configure upgrade behavior in `.env.config`, then run `./sb config generate`:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `UPGRADE_CHANNEL` | `stable` | Release channel: `stable`, `prerelease`, or `pinned` |
+| `UPGRADE_CHECK_INTERVAL` | `6h` | How often the daemon polls GitHub for new releases |
+| `UPGRADE_AUTO_DOWNLOAD` | `true` | Pre-download Docker images when a new release is discovered |
+| `UPGRADE_PINNED_VERSION` | _(empty)_ | Target version when `UPGRADE_CHANNEL=pinned` (e.g., `v2026.03.0`) |
+
+### Monitoring
+
+**Admin UI**: View upgrade status at `/admin/upgrades` in the web interface.
+
+**CLI**:
+
+```bash
+./sb upgrade list
+```
+
+### Manual Trigger
+
+```bash
+./sb upgrade apply v2026.03.1
+```
+
+This sends a `NOTIFY` to the running daemon, which executes the upgrade with backup and rollback support.
+
+### Pinning a Version
+
+```bash
+# In .env.config:
+UPGRADE_CHANNEL=pinned
+UPGRADE_PINNED_VERSION=v2026.03.0
+```
+
+Then `./sb config generate` to apply.
+
+### Reference
+
+See [upgrades.md](upgrades.md) for the full upgrade system guide.
 
 ---
