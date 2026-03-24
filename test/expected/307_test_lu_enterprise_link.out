@@ -1584,11 +1584,14 @@ SAVEPOINT scenario_10_tb_start;
 \set sc10_tb_b1_p3_from '''2023-07-01'''
 \set sc10_tb_b1_p3_to   '''2023-09-30'''
 -- Batch 2 Segments (Replacement/Overlapping)
-\set sc10_tb_b2_pA_from '''2023-02-15''' -- Overlaps B1P1, B1P2
+-- Overlaps B1P1, B1P2
+\set sc10_tb_b2_pA_from '''2023-02-15'''
 \set sc10_tb_b2_pA_to   '''2023-05-15'''
-\set sc10_tb_b2_pB_from '''2023-05-16''' -- Contiguous with pA, overlaps B1P2, B1P3
+-- Contiguous with pA, overlaps B1P2, B1P3
+\set sc10_tb_b2_pB_from '''2023-05-16'''
 \set sc10_tb_b2_pB_to   '''2023-08-15'''
-\set sc10_tb_b2_pC_from '''2023-08-16''' -- Contiguous with pB, overlaps B1P3, extends
+-- Contiguous with pB, overlaps B1P3, extends
+\set sc10_tb_b2_pC_from '''2023-08-16'''
 \set sc10_tb_b2_pC_to   '''2023-11-30'''
 -- SC10TB Batch 1: Initial LU Insert
 \echo 'SC10 (Two Batches) Batch 1: Initial Insert of LU with 3 Segments'
@@ -1674,9 +1677,9 @@ $$, -- No table variable needed here
 ) \gexec
 
     INSERT INTO public.test72_sc10_tb_lu_b2_upload (tax_ident, name, valid_from, valid_to, sector_code, legal_form_code, data_source_code, birth_date, physical_address_part1, physical_postcode, physical_postplace, physical_region_code, physical_country_iso_2, primary_activity_category_code) VALUES
-    ('''SC10TBLU001''', 'LU SC10TB Name B2pA', '''2023-02-15''--OverlapsB1P1,B1P2', '''2023-05-15''', '2300', 'AS', 'mi', '2023-01-01', 'Addr SC10TB B2pA', '1002', 'Oslo', '0301', 'NO', '01.130'),
-    ('''SC10TBLU001''', 'LU SC10TB Name B2pB', '''2023-05-16''--ContiguouswithpA,overlapsB1P2,B1P3', '''2023-08-15''', '2300', 'AS', 'mi', '2023-01-01', 'Addr SC10TB B2pB', '1002', 'Oslo', '0301', 'NO', '01.130'),
-    ('''SC10TBLU001''', 'LU SC10TB Name B2pC', '''2023-08-16''--ContiguouswithpB,overlapsB1P3,extends', '''2023-11-30''', '2100', 'AS', 'mi', '2023-01-01', 'Addr SC10TB B2pC', '1003', 'Oslo', '0301', 'NO', '01.140');
+    ('''SC10TBLU001''', 'LU SC10TB Name B2pA', '''2023-02-15''', '''2023-05-15''', '2300', 'AS', 'mi', '2023-01-01', 'Addr SC10TB B2pA', '1002', 'Oslo', '0301', 'NO', '01.130'),
+    ('''SC10TBLU001''', 'LU SC10TB Name B2pB', '''2023-05-16''', '''2023-08-15''', '2300', 'AS', 'mi', '2023-01-01', 'Addr SC10TB B2pB', '1002', 'Oslo', '0301', 'NO', '01.130'),
+    ('''SC10TBLU001''', 'LU SC10TB Name B2pC', '''2023-08-16''', '''2023-11-30''', '2100', 'AS', 'mi', '2023-01-01', 'Addr SC10TB B2pC', '1003', 'Oslo', '0301', 'NO', '01.140');
 
 -- SC10TB Batch 2: Process
 CALL worker.process_tasks(p_queue => 'import');
@@ -1689,11 +1692,11 @@ SELECT
     CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc10_tb_lu_b2_data -- Hardcoded based on sc10_tb_job_b2_slug
 ORDER BY row_id;
- row_id | founding_row_id |   tax_ident   |        name         |                     valid_from                      |   valid_to   | action | state |                                                      errors                                                       | warnings | merge_status | legal_unit_id_status | enterprise_id_status 
---------+-----------------+---------------+---------------------+-----------------------------------------------------+--------------+--------+-------+-------------------------------------------------------------------------------------------------------------------+----------+--------------+----------------------+----------------------
-      1 |                 | 'SC10TBLU001' | LU SC10TB Name B2pA | '2023-02-15'--OverlapsB1P1,B1P2                     | '2023-05-15' | skip   | error | {"valid_from_raw": "Invalid date format: ''2023-02-15'--OverlapsB1P1,B1P2'. SQLSTATE: 22007"}                     | {}       | {}           | NULL                 | NULL
-      2 |                 | 'SC10TBLU001' | LU SC10TB Name B2pB | '2023-05-16'--ContiguouswithpA,overlapsB1P2,B1P3    | '2023-08-15' | skip   | error | {"valid_from_raw": "Invalid date format: ''2023-05-16'--ContiguouswithpA,overlapsB1P2,B1P3'. SQLSTATE: 22007"}    | {}       | {}           | NULL                 | NULL
-      3 |                 | 'SC10TBLU001' | LU SC10TB Name B2pC | '2023-08-16'--ContiguouswithpB,overlapsB1P3,extends | '2023-11-30' | skip   | error | {"valid_from_raw": "Invalid date format: ''2023-08-16'--ContiguouswithpB,overlapsB1P3,extends'. SQLSTATE: 22007"} | {}       | {}           | NULL                 | NULL
+ row_id | founding_row_id |   tax_ident   |        name         |  valid_from  |   valid_to   | action |   state   | errors | warnings |                                       merge_status                                       | legal_unit_id_status | enterprise_id_status 
+--------+-----------------+---------------+---------------------+--------------+--------------+--------+-----------+--------+----------+------------------------------------------------------------------------------------------+----------------------+----------------------
+      1 |      1000000017 | 'SC10TBLU001' | LU SC10TB Name B2pA | '2023-02-15' | '2023-05-15' | use    | processed | {}     | {}       | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | SET
+      2 |      1000000017 | 'SC10TBLU001' | LU SC10TB Name B2pB | '2023-05-16' | '2023-08-15' | use    | processed | {}     | {}       | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | SET
+      3 |      1000000017 | 'SC10TBLU001' | LU SC10TB Name B2pC | '2023-08-16' | '2023-11-30' | use    | processed | {}     | {}       | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | SET
 (3 rows)
 
 \echo 'SC10 (Two Batches) Batch 2: Verifying LU (expect 4 final slices, same enterprise, all primary)'
@@ -1731,10 +1734,11 @@ FROM sc10_tb_final_lu_state
 ORDER BY valid_from;
         name         | valid_from |  valid_to  | enterprise_main_ident | primary_for_enterprise | slices_in_enterprise | distinct_enterprise_ids_for_lu 
 ---------------------+------------+------------+-----------------------+------------------------+----------------------+--------------------------------
- LU SC10TB Name B1P1 | 2023-01-01 | 2023-03-31 | 'SC10TBLU001'         | t                      |                    3 |                              1
- LU SC10TB Name B1P2 | 2023-04-01 | 2023-06-30 | 'SC10TBLU001'         | t                      |                    3 |                              1
- LU SC10TB Name B1P3 | 2023-07-01 | 2023-09-30 | 'SC10TBLU001'         | t                      |                    3 |                              1
-(3 rows)
+ LU SC10TB Name B1P1 | 2023-01-01 | 2023-02-14 | 'SC10TBLU001'         | t                      |                    4 |                              1
+ LU SC10TB Name B2pA | 2023-02-15 | 2023-05-15 | 'SC10TBLU001'         | t                      |                    4 |                              1
+ LU SC10TB Name B2pB | 2023-05-16 | 2023-08-15 | 'SC10TBLU001'         | t                      |                    4 |                              1
+ LU SC10TB Name B2pC | 2023-08-16 | 2023-11-30 | 'SC10TBLU001'         | t                      |                    4 |                              1
+(4 rows)
 
 \echo 'SC10 (Two Batches) Batch 2: Final Checks'
 SC10 (Two Batches) Batch 2: Final Checks
@@ -1743,9 +1747,9 @@ SELECT
         WHEN (SELECT COUNT(*) FROM sc10_tb_final_lu_state) = 4 THEN 'PASS: Correct number of final segments (4)'
         ELSE 'FAIL: Incorrect number of final segments. Expected 4, Got ' || (SELECT COUNT(*) FROM sc10_tb_final_lu_state)
     END as segment_count_check;
-                     segment_count_check                     
--------------------------------------------------------------
- FAIL: Incorrect number of final segments. Expected 4, Got 3
+            segment_count_check             
+--------------------------------------------
+ PASS: Correct number of final segments (4)
 (1 row)
 
 SELECT
@@ -1757,15 +1761,21 @@ SELECT
         THEN 'PASS: All 4 final segments have correct names and date ranges.'
         ELSE 'FAIL: Verification of final segment names and date ranges failed.'
     END as segment_date_name_check;
-ERROR:  invalid input syntax for type date: "'2023-02-15'--OverlapsB1P1,B1P2"
-LINE 3: ...AND valid_from = '''2023-01-01''' AND valid_to = ('''2023-02...
-                                                             ^
+                    segment_date_name_check                     
+----------------------------------------------------------------
+ PASS: All 4 final segments have correct names and date ranges.
+(1 row)
+
 SELECT
     CASE
         WHEN (SELECT bool_and(primary_for_enterprise) FROM sc10_tb_final_lu_state) THEN 'PASS: All final segments are primary_for_enterprise'
         ELSE 'FAIL: Not all final segments are primary_for_enterprise'
     END as primary_flag_check;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
+                 primary_flag_check                  
+-----------------------------------------------------
+ PASS: All final segments are primary_for_enterprise
+(1 row)
+
 SELECT
     CASE
         WHEN (SELECT MIN(enterprise_id) FROM sc10_tb_final_lu_state) = :'sc10_tb_enterprise_id_b1'
@@ -1775,9 +1785,12 @@ SELECT
         ELSE 'FAIL: Enterprise ID changed or multiple enterprises found for LU. Batch1 Enterprise ID was: ' || :'sc10_tb_enterprise_id_b1' || 
               ', Final Enterprise Main Ident(s) for LU ' || :'sc10_tb_lu_tax_ident' || ': ' || (SELECT string_agg(DISTINCT enterprise_main_ident, ', ') FROM sc10_tb_final_lu_state)
     END as enterprise_consistency_check;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
+                    enterprise_consistency_check                    
+--------------------------------------------------------------------
+ PASS: Enterprise ID remained consistent and is the same as Batch 1
+(1 row)
+
 DROP TABLE sc10_tb_final_lu_state;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 ROLLBACK TO scenario_10_tb_start;
 \echo 'SC10 (Two Batches): Rolled back.'
 SC10 (Two Batches): Rolled back.

@@ -1248,11 +1248,14 @@ SAVEPOINT scenario_10_tb_start;
 \set sc10_tb_b1_p3_to   '''2023-09-30'''
 
 -- Batch 2 Segments (Replacement/Overlapping)
-\set sc10_tb_b2_pA_from '''2023-02-15''' -- Overlaps B1P1, B1P2
+-- Overlaps B1P1, B1P2
+\set sc10_tb_b2_pA_from '''2023-02-15'''
 \set sc10_tb_b2_pA_to   '''2023-05-15'''
-\set sc10_tb_b2_pB_from '''2023-05-16''' -- Contiguous with pA, overlaps B1P2, B1P3
+-- Contiguous with pA, overlaps B1P2, B1P3
+\set sc10_tb_b2_pB_from '''2023-05-16'''
 \set sc10_tb_b2_pB_to   '''2023-08-15'''
-\set sc10_tb_b2_pC_from '''2023-08-16''' -- Contiguous with pB, overlaps B1P3, extends
+-- Contiguous with pB, overlaps B1P3, extends
+\set sc10_tb_b2_pC_from '''2023-08-16'''
 \set sc10_tb_b2_pC_to   '''2023-11-30'''
 
 -- SC10TB Batch 1: Initial LU Insert
