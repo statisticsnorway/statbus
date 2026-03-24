@@ -144,6 +144,15 @@ BEGIN
           job.data_table_name
       );
       RAISE DEBUG '[Job %] Added founding_row_id index to data table %.', job.id, job.data_table_name;
+
+      -- The partial indexes on (COALESCE(founding_row_id, row_id)) have been removed.
+      -- They were specific to a previous, more complex batching strategy and are no longer
+      -- used by the simplified batch selection queries, which now efficiently use the
+      -- composite index on (state, last_completed_priority, batch_seq).
+
+      -- NOTE: The (state, action, row_id) index has been removed. It was designed for the old
+      -- row_id-based batching approach. The new batch_seq approach uses the composite index
+      -- (state, last_completed_priority, batch_seq) for batch selection instead.
   END;
 
   -- Grant direct permissions to the job owner on the upload table to allow COPY FROM

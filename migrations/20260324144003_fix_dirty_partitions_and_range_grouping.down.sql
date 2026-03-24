@@ -271,7 +271,6 @@ BEGIN
                 PERFORM worker.spawn(
                     p_command => 'derive_statistical_history_period',
                     p_payload => jsonb_build_object(
-                        'command', 'derive_statistical_history_period',
                         'resolution', v_period.resolution::text,
                         'year', v_period.year,
                         'month', v_period.month,
@@ -353,7 +352,6 @@ BEGIN
                 PERFORM worker.spawn(
                     p_command => 'derive_statistical_history_facet_period',
                     p_payload => jsonb_build_object(
-                        'command', 'derive_statistical_history_facet_period',
                         'resolution', v_period.resolution::text,
                         'year', v_period.year,
                         'month', v_period.month,
