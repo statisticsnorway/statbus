@@ -483,10 +483,236 @@ SELECT command, state FROM worker.tasks WHERE command = 'collect_changes' AND st
 \echo "Run analytics worker"
 "Run analytics worker"
 CALL worker.process_tasks(p_queue => 'analytics');
-WARNING:  terminating connection because of crash of another server process
-DETAIL:  The postmaster has commanded this server process to roll back the current transaction and exit, because another server process exited abnormally and possibly corrupted shared memory.
-HINT:  In a moment you should be able to reconnect to the database and repeat your command.
-server closed the connection unexpectedly
-	This probably means the server terminated abnormally
-	before or while processing the request.
-connection to server was lost
+\echo "Task payload: PG batch should have power_group_ids but no enterprise_ids"
+"Task payload: PG batch should have power_group_ids but no enterprise_ids"
+SELECT
+    payload ? 'power_group_ids' AS has_pg_ids,
+    payload ? 'enterprise_ids' AS has_ent_ids
+FROM worker.tasks
+WHERE command = 'statistical_unit_refresh_batch'
+  AND state = 'completed'
+  AND payload ? 'power_group_ids' AND NOT (payload ? 'enterprise_ids')
+ORDER BY id DESC LIMIT 1;
+ has_pg_ids | has_ent_ids 
+------------+-------------
+ t          | f
+(1 row)
+
+\echo "Clean up for next test"
+"Clean up for next test"
+DELETE FROM worker.tasks WHERE state = 'completed';
+--------------------------------------------------------------------------------
+\echo "--- TEST H: PG metadata change (should spawn PG-only batch) ---"
+"--- TEST H: PG metadata change (should spawn PG-only batch) ---"
+--------------------------------------------------------------------------------
+\echo "Action: Updating power_group short_name"
+"Action: Updating power_group short_name"
+UPDATE public.power_group SET short_name = 'PG-TEST'
+WHERE id = (SELECT id FROM public.power_group ORDER BY id LIMIT 1);
+\echo "Check: Expect one collect_changes task"
+"Check: Expect one collect_changes task"
+SELECT command, state FROM worker.tasks WHERE command = 'collect_changes' AND state = 'pending';
+     command     |  state  
+-----------------+---------
+ collect_changes | pending
+(1 row)
+
+\echo "Run analytics worker"
+"Run analytics worker"
+CALL worker.process_tasks(p_queue => 'analytics');
+\echo "Task payload: PG batch should have power_group_ids but no enterprise_ids"
+"Task payload: PG batch should have power_group_ids but no enterprise_ids"
+SELECT
+    payload ? 'power_group_ids' AS has_pg_ids,
+    payload ? 'enterprise_ids' AS has_ent_ids
+FROM worker.tasks
+WHERE command = 'statistical_unit_refresh_batch'
+  AND state = 'completed'
+  AND payload ? 'power_group_ids' AND NOT (payload ? 'enterprise_ids')
+ORDER BY id DESC LIMIT 1;
+ has_pg_ids | has_ent_ids 
+------------+-------------
+ t          | f
+(1 row)
+
+\echo "Clean up for next test"
+"Clean up for next test"
+DELETE FROM worker.tasks WHERE state = 'completed';
+--------------------------------------------------------------------------------
+\echo "--- TEST I: PR change (custom_root override, should spawn PG-only batch) ---"
+"--- TEST I: PR change (custom_root override, should spawn PG-only batch) ---"
+--------------------------------------------------------------------------------
+-- The demo LR data has only simple trees (1 natural root per PG), so
+-- process_power_group_link creates 0 power_root rows.  We need a cycle
+-- (0 natural roots) to produce power_root rows for testing.
+-- Create two fresh LUs with a mutual ownership cycle (A->B, B->A).
+\echo "Step 1: Import two new LUs for cycle test"
+"Step 1: Import two new LUs for cycle test"
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_job_provided'),
+    'import_44_lu_cycle',
+    'Import cycle LUs (344)',
+    'Cycle LUs',
+    'Test 344 cycle',
+    'r_year_curr';
+\copy public.import_44_lu_cycle_upload(tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM stdin WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true)
+\echo "Step 2: Import mutual LRs to create cycle (A->B and B->A)"
+"Step 2: Import mutual LRs to create cycle (A->B and B->A)"
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_relationship_job_provided'),
+    'import_44_lr_cycle',
+    'Import cycle LRs (344)',
+    'Cycle LRs',
+    'Test 344 cycle',
+    'r_year_curr';
+\copy public.import_44_lr_cycle_upload(influencing_tax_ident,influenced_tax_ident,rel_type_code,percentage) FROM stdin WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true)
+\echo "Step 3: Process imports and analytics"
+"Step 3: Process imports and analytics"
+CALL worker.process_tasks(p_queue => 'import');
+CALL worker.process_tasks(p_queue => 'analytics');
+DELETE FROM worker.tasks WHERE state = 'completed';
+\echo "Check: power_root rows exist after cycle creation"
+"Check: power_root rows exist after cycle creation"
+SELECT count(*) AS pr_count FROM public.power_root;
+ pr_count 
+----------
+        1
+(1 row)
+
+\echo "Action: Setting custom_root on a power_root row (NSO override)"
+"Action: Setting custom_root on a power_root row (NSO override)"
+UPDATE public.power_root
+SET custom_root_legal_unit_id = derived_root_legal_unit_id
+WHERE id = (SELECT id FROM public.power_root ORDER BY id LIMIT 1);
+\echo "Check: Expect one collect_changes task"
+"Check: Expect one collect_changes task"
+SELECT command, state FROM worker.tasks WHERE command = 'collect_changes' AND state = 'pending';
+     command     |  state  
+-----------------+---------
+ collect_changes | pending
+(1 row)
+
+\echo "Run analytics worker"
+"Run analytics worker"
+CALL worker.process_tasks(p_queue => 'analytics');
+\echo "Task payload: PG batch should have power_group_ids but no enterprise_ids"
+"Task payload: PG batch should have power_group_ids but no enterprise_ids"
+SELECT
+    payload ? 'power_group_ids' AS has_pg_ids,
+    payload ? 'enterprise_ids' AS has_ent_ids
+FROM worker.tasks
+WHERE command = 'statistical_unit_refresh_batch'
+  AND state = 'completed'
+  AND payload ? 'power_group_ids' AND NOT (payload ? 'enterprise_ids')
+ORDER BY id DESC LIMIT 1;
+ has_pg_ids | has_ent_ids 
+------------+-------------
+ t          | f
+(1 row)
+
+\echo "Clean up for next test"
+"Clean up for next test"
+DELETE FROM worker.tasks WHERE state = 'completed';
+--------------------------------------------------------------------------------
+\echo "--- TEST J: LU migration between enterprises (connect_legal_unit_to_enterprise) ---"
+"--- TEST J: LU migration between enterprises (connect_legal_unit_to_enterprise) ---"
+--------------------------------------------------------------------------------
+-- Moving a LU between enterprises should propagate changes to both old and new EN.
+\echo "Step 1: Identify two LUs in different enterprises"
+"Step 1: Identify two LUs in different enterprises"
+-- Use SSB Updated (already modified in earlier tests) and another LU
+SELECT lu.id AS lu_id, lu.name, lu.enterprise_id
+FROM public.legal_unit AS lu
+WHERE lu.name = 'SSB Updated'
+AND lu.valid_from <= current_date AND current_date < lu.valid_until;
+ lu_id |    name     | enterprise_id 
+-------+-------------+---------------
+    15 | SSB Updated |            22
+(1 row)
+
+-- Pick a target enterprise different from SSB Updated's enterprise
+SELECT lu2.enterprise_id AS target_enterprise_id
+FROM public.legal_unit AS lu2
+WHERE lu2.enterprise_id != (SELECT enterprise_id FROM public.legal_unit WHERE name = 'SSB Updated' LIMIT 1)
+  AND lu2.valid_from <= current_date AND current_date < lu2.valid_until
+ORDER BY lu2.id
+LIMIT 1;
+ target_enterprise_id 
+----------------------
+                    1
+(1 row)
+
+-- Drop leftover temp tables from temporal_merge (created by SECURITY DEFINER
+-- import functions as postgres; current role can't drop them)
+RESET ROLE;
+DROP TABLE IF EXISTS pg_temp.temporal_merge_plan;
+DROP TABLE IF EXISTS pg_temp.temporal_merge_feedback;
+DROP TABLE IF EXISTS pg_temp.temporal_merge_entity_id_map;
+NOTICE:  table "temporal_merge_entity_id_map" does not exist, skipping
+DROP TABLE IF EXISTS pg_temp.temporal_merge_index_cache;
+CALL test.set_user_from_email('test.admin@statbus.org');
+\echo "Step 2: Move SSB Updated to the target enterprise"
+"Step 2: Move SSB Updated to the target enterprise"
+SELECT connect_legal_unit_to_enterprise(
+    legal_unit_id := lu.id,
+    enterprise_id := target_en.enterprise_id
+)
+FROM public.legal_unit AS lu
+CROSS JOIN (
+    SELECT lu2.enterprise_id
+    FROM public.legal_unit AS lu2
+    WHERE lu2.enterprise_id != (SELECT enterprise_id FROM public.legal_unit WHERE name = 'SSB Updated' LIMIT 1)
+      AND lu2.valid_from <= current_date AND current_date < lu2.valid_until
+    ORDER BY lu2.id LIMIT 1
+) AS target_en
+WHERE lu.name = 'SSB Updated'
+  AND lu.valid_from <= current_date AND current_date < lu.valid_until;
+                                         connect_legal_unit_to_enterprise                                         
+------------------------------------------------------------------------------------------------------------------
+ {"new_enterprise_id": 1, "old_enterprise_id": 22, "deleted_enterprise_id": null, "updated_legal_unit_ids": [15]}
+(1 row)
+
+\echo "Check: Expect one collect_changes task"
+"Check: Expect one collect_changes task"
+SELECT command, state FROM worker.tasks WHERE command = 'collect_changes' AND state = 'pending';
+     command     |  state  
+-----------------+---------
+ collect_changes | pending
+(1 row)
+
+\echo "Run analytics worker"
+"Run analytics worker"
+CALL worker.process_tasks(p_queue => 'analytics');
+\echo "Task payload: should have changed_lu and changed_en ranges (LU moved between enterprises)"
+"Task payload: should have changed_lu and changed_en ranges (LU moved between enterprises)"
+SELECT
+    payload->>'changed_establishment_id_ranges' AS changed_est,
+    CASE WHEN (payload->>'changed_legal_unit_id_ranges')::int4multirange <> '{}'::int4multirange THEN 'has_ranges' END AS changed_lu,
+    CASE WHEN (payload->>'changed_enterprise_id_ranges')::int4multirange <> '{}'::int4multirange THEN 'has_ranges' END AS changed_en
+FROM worker.tasks
+WHERE command = 'statistical_unit_refresh_batch'
+  AND state = 'completed'
+  AND payload ? 'enterprise_ids'
+ORDER BY id DESC LIMIT 1;
+ changed_est | changed_lu | changed_en 
+-------------+------------+------------
+ {}          | has_ranges | has_ranges
+(1 row)
+
+\echo "Verify: SSB Updated now in new enterprise (no longer in the SSB-EN enterprise)"
+"Verify: SSB Updated now in new enterprise (no longer in the SSB-EN enterprise)"
+SELECT lu.name, lu.enterprise_id != (SELECT en.id FROM public.enterprise AS en WHERE en.short_name = 'SSB-EN') AS moved_away
+FROM public.legal_unit AS lu
+WHERE lu.name = 'SSB Updated'
+  AND lu.valid_from <= current_date AND current_date < lu.valid_until;
+    name     | moved_away 
+-------------+------------
+ SSB Updated | t
+(1 row)
+
+\echo "Clean up for next test"
+"Clean up for next test"
+DELETE FROM worker.tasks WHERE state = 'completed';
+ROLLBACK;
