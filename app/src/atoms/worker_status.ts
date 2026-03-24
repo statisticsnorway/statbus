@@ -25,6 +25,8 @@ export type PipelinePhase = 'is_deriving_statistical_units' | 'is_deriving_repor
 
 export interface PhaseProgress {
   phase: PipelinePhase;
+  active: boolean;
+  pending: boolean;
   step: string | null;
   total: number;
   completed: number;
@@ -53,6 +55,7 @@ export interface ImportStatus {
 
 export interface PhaseStatus {
   active: boolean;
+  pending: boolean;
   step: string | null;
   total: number;
   completed: number;
@@ -176,7 +179,8 @@ export const setWorkerStatusAtom = atom(
       const toPhaseStatus = (p: PhaseProgress | undefined): PhaseStatus | null => {
         if (!p) return null;
         return {
-          active: true,
+          active: p.active ?? true,
+          pending: p.pending ?? false,
           step: p.step,
           total: p.total,
           completed: p.completed,
@@ -193,9 +197,9 @@ export const setWorkerStatusAtom = atom(
         error: null,
         derivingUnits: phase1 ? toPhaseStatus(phase1) : prevStatus.derivingUnits,
         derivingReports: phase2 ? toPhaseStatus(phase2) : prevStatus.derivingReports,
-        // Keep boolean fields in sync
-        isDerivingUnits: phase1 ? true : prevStatus.isDerivingUnits,
-        isDerivingReports: phase2 ? true : prevStatus.isDerivingReports,
+        // Keep boolean fields in sync — use actual active state, not just presence
+        isDerivingUnits: phase1 ? (phase1.active || phase1.pending) : prevStatus.isDerivingUnits,
+        isDerivingReports: phase2 ? (phase2.active || phase2.pending) : prevStatus.isDerivingReports,
       };
       set(workerStatusAtom, newStatus);
       return;

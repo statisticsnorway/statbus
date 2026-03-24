@@ -195,11 +195,14 @@ BEGIN
         PERFORM pg_notify('worker_status', v_payload::text);
     END IF;
 
+    -- Only send idle signals when the phase is truly idle (not active AND not pending).
+    -- A pending phase is queued work — not idle.
     IF NOT v_units_active THEN
         PERFORM pg_notify('worker_status',
             json_build_object('type', 'is_deriving_statistical_units', 'status', false)::text);
     END IF;
-    IF NOT v_reports_active THEN
+    IF NOT v_reports_active
+       AND (v_reports_phase_state IS NULL OR v_reports_phase_state IN ('completed', 'failed')) THEN
         PERFORM pg_notify('worker_status',
             json_build_object('type', 'is_deriving_reports', 'status', false)::text);
     END IF;
