@@ -219,14 +219,20 @@ export const setWorkerStatusAtom = atom(
         updatedStatus.importing = { active: true, needs_review: prevStatus.importing?.needs_review ?? false, jobs: prevStatus.importing?.jobs ?? [] };
       }
     } else if (type === 'is_deriving_statistical_units') {
-      updatedStatus.isDerivingUnits = status;
-      if (!status) {
+      if (!status && !prevStatus.derivingUnits?.pending) {
+        updatedStatus.isDerivingUnits = false;
         updatedStatus.derivingUnits = null;
+      } else if (status) {
+        updatedStatus.isDerivingUnits = true;
       }
     } else if (type === 'is_deriving_reports') {
-      updatedStatus.isDerivingReports = status;
-      if (!status) {
+      // Don't clear pending reports — the pipeline_progress event has richer data.
+      // Only clear if reports isn't pending (truly idle, not just waiting to start).
+      if (!status && !prevStatus.derivingReports?.pending) {
+        updatedStatus.isDerivingReports = false;
         updatedStatus.derivingReports = null;
+      } else if (status) {
+        updatedStatus.isDerivingReports = true;
       }
     }
 
@@ -317,8 +323,8 @@ export const refreshWorkerStatusAtom = atom(
 
       set(workerStatusAtom, {
         isImporting: importData?.active ?? null,
-        isDerivingUnits: unitsData?.active ?? null,
-        isDerivingReports: reportsData?.active ?? null,
+        isDerivingUnits: (unitsData?.active || unitsData?.pending) ?? null,
+        isDerivingReports: (reportsData?.active || reportsData?.pending) ?? null,
         importing: importData,
         derivingUnits: unitsData,
         derivingReports: reportsData,

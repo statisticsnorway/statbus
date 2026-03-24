@@ -343,6 +343,27 @@ BEGIN
             AND v_units_phase_state IN ('completed', 'failed'));
 
     IF NOT COALESCE(v_active, false) THEN
+        -- If pending (not active, but queued), return pending with counts
+        IF v_reports_phase_state = 'pending' THEN
+            SELECT id INTO v_units_phase_id
+            FROM worker.tasks
+            WHERE parent_id = v_pipeline_id AND command = 'derive_units_phase';
+            IF v_units_phase_id IS NOT NULL THEN
+                SELECT t.info INTO v_effective_info
+                FROM worker.tasks AS t
+                WHERE t.parent_id = v_units_phase_id
+                  AND t.info ? 'effective_legal_unit_count'
+                ORDER BY t.id LIMIT 1;
+            END IF;
+            RETURN jsonb_build_object(
+                'active', false,
+                'pending', true,
+                'effective_establishment_count', (v_effective_info->>'effective_establishment_count')::int,
+                'effective_legal_unit_count', (v_effective_info->>'effective_legal_unit_count')::int,
+                'effective_enterprise_count', (v_effective_info->>'effective_enterprise_count')::int,
+                'effective_power_group_count', (v_effective_info->>'effective_power_group_count')::int
+            );
+        END IF;
         RETURN jsonb_build_object('active', false);
     END IF;
 
