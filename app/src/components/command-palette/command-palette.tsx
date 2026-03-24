@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useRouter } from "next/navigation";
 import { ResetConfirmationDialog } from "./reset-confirmation-dialog";
@@ -264,6 +264,28 @@ export function CommandPalette() {
     'create-job-time': 'Select time context...',
     'create-job-review': 'Select review mode...',
     'clone-job-review': 'Select review mode...',
+  };
+
+  /** Render a breadcrumb heading with clickable segments that navigate back.
+   *  Each segment has a label. Non-last segments with `goToDepth` are clickable:
+   *  goToDepth=0 goes to root (pages=[]), goToDepth=1 keeps first page, etc. */
+  const crumbHeading = (...segments: Array<{ label: string; goToDepth?: number }>) => {
+    const parts: Array<{ key: string; el: React.ReactNode }> = [];
+    segments.forEach((seg, i) => {
+      const isLast = i === segments.length - 1;
+      if (i > 0) parts.push({ key: `sep-${i}`, el: <span className="text-zinc-400">{'\u203a'}</span> });
+      if (isLast || seg.goToDepth == null) {
+        parts.push({ key: `seg-${i}`, el: <span>{seg.label}</span> });
+      } else {
+        const depth = seg.goToDepth;
+        parts.push({ key: `seg-${i}`, el: (
+          <button className="hover:underline cursor-pointer" onClick={() => setPages(pages.slice(0, depth))}>
+            {seg.label}
+          </button>
+        )});
+      }
+    });
+    return <span className="flex items-center gap-1">{parts.map(p => <span key={p.key}>{p.el}</span>)}</span>;
   };
 
   return (
@@ -553,7 +575,10 @@ export function CommandPalette() {
             const { totalRows, errorCount, warningCount } = importDownloadContext;
             const okCount = totalRows - errorCount - warningCount;
             return (
-              <CommandGroup heading={`Job ${importDownloadContext.jobId} \u203a Download`}>
+              <CommandGroup heading={crumbHeading(
+                { label: `Job ${importDownloadContext.jobId}`, goToDepth: 0 },
+                { label: 'Download' },
+              )}>
                 <CommandItem onSelect={() => { setDownloadFilter('full'); setPages([...pages, 'download-format']); setSearch(''); }}
                   value="all full rows">
                   Download all rows ({totalRows})
@@ -585,7 +610,11 @@ export function CommandPalette() {
             const filterRows = getFilterRowCount(downloadFilter);
             const excelDisabled = filterRows > EXCEL_MAX_ROWS;
             return (
-              <CommandGroup heading={`Job ${importDownloadContext.jobId} \u203a ${getFilterLabel(downloadFilter)} \u203a Format`}>
+              <CommandGroup heading={crumbHeading(
+                { label: `Job ${importDownloadContext.jobId}`, goToDepth: 0 },
+                { label: getFilterLabel(downloadFilter), goToDepth: 1 },
+                { label: 'Format' },
+              )}>
                 <CommandItem onSelect={() => handleDownload(downloadFilter, 'csv')} value="csv">
                   <FileSpreadsheet className="mr-2 h-4 w-4" />
                   CSV
@@ -631,7 +660,11 @@ export function CommandPalette() {
 
           {/* ===== CREATE JOB: PICK TIME CONTEXT ===== */}
           {page === 'create-job-time' && (
-            <CommandGroup heading="Select time context">
+            <CommandGroup heading={crumbHeading(
+              { label: 'Create job', goToDepth: 0 },
+              { label: selectedDefinition?.name ?? 'Definition', goToDepth: 1 },
+              { label: 'Time context' },
+            )}>
               {availableTimeContexts.map((tc) => (
                 <CommandItem key={tc.ident} onSelect={() => {
                   setSelectedTimeContextIdent(tc.ident);
@@ -645,7 +678,11 @@ export function CommandPalette() {
 
           {/* ===== CREATE JOB: PICK REVIEW MODE ===== */}
           {page === 'create-job-review' && (
-            <CommandGroup heading={`Create: ${selectedDefinition?.name ?? 'job'}`}>
+            <CommandGroup heading={crumbHeading(
+              { label: 'Create job', goToDepth: 0 },
+              { label: selectedDefinition?.name ?? 'Definition', goToDepth: 1 },
+              { label: 'Review mode' },
+            )}>
               <CommandItem onSelect={() => handleCreateJob(null)} value="review if errors auto">
                 Review if errors (auto)
               </CommandItem>
@@ -660,7 +697,10 @@ export function CommandPalette() {
 
           {/* ===== CLONE JOB: PICK REVIEW MODE ===== */}
           {page === 'clone-job-review' && cloneSourceJob && (
-            <CommandGroup heading={`Clone: ${cloneSourceJob.description ?? cloneSourceJob.import_definition.name}`}>
+            <CommandGroup heading={crumbHeading(
+              { label: 'Clone job', goToDepth: 0 },
+              { label: cloneSourceJob.description ?? cloneSourceJob.import_definition.name },
+            )}>
               <CommandItem onSelect={() => handleClone(null)} value="review if errors auto">
                 Review if errors (auto)
               </CommandItem>
