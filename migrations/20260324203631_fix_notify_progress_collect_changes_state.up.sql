@@ -78,6 +78,18 @@ BEGIN
         OR (v_units_phase_state IS NOT NULL
             AND v_units_phase_state NOT IN ('completed', 'failed'));
 
+    -- Also check: is there a QUEUED pipeline behind the current one?
+    -- A pending collect_changes means new changes are waiting to be processed.
+    -- Show units as pending so the UI indicates queued work.
+    IF NOT v_units_active AND EXISTS (
+        SELECT 1 FROM worker.tasks
+        WHERE command = 'collect_changes' AND state = 'pending'
+          AND id <> v_pipeline_id
+    ) THEN
+        v_units_active := true;
+        v_units_step := 'collect_changes';
+    END IF;
+
     -- Reports: active when reports phase root is processing/waiting,
     -- OR when reports is pending but units is already done (bridges the gap
     -- between derive_units_phase completing and derive_reports_phase starting).
@@ -96,18 +108,16 @@ BEGIN
 
     -- 5. Phase 1 details
     IF v_units_active THEN
-        -- Step: deepest processing/waiting task in the phase subtree (max 3 levels)
+        -- Step: the depth-2 child of the phase root that's active.
+        -- This matches pipeline_step_weight entries for weighted progress.
         IF v_pipeline_state IN ('pending', 'processing') THEN
             v_units_step := 'collect_changes';
         ELSE
             SELECT t.command INTO v_units_step
             FROM worker.tasks AS t
-            WHERE t.state IN ('processing', 'waiting')
-              AND (t.id = v_units_phase_id
-                   OR t.parent_id = v_units_phase_id
-                   OR EXISTS (SELECT 1 FROM worker.tasks AS p
-                              WHERE p.id = t.parent_id AND p.parent_id = v_units_phase_id))
-            ORDER BY t.depth DESC, t.id DESC LIMIT 1;
+            WHERE t.parent_id = v_units_phase_id
+              AND t.state IN ('processing', 'waiting')
+            ORDER BY t.id DESC LIMIT 1;
         END IF;
 
         -- Progress: children of the deepest active concurrent parent in the phase
@@ -148,15 +158,13 @@ BEGIN
     -- so the UI can show "pending" with effective counts.
     IF v_reports_phase_id IS NOT NULL AND v_reports_phase_state NOT IN ('completed', 'failed') THEN
         IF v_reports_active THEN
-            -- Step: deepest processing/waiting task in the reports subtree (max 3 levels)
+            -- Step: the depth-2 child of the phase root that's active.
+            -- This matches pipeline_step_weight entries for weighted progress.
             SELECT t.command INTO v_reports_step
             FROM worker.tasks AS t
-            WHERE t.state IN ('processing', 'waiting')
-              AND (t.id = v_reports_phase_id
-                   OR t.parent_id = v_reports_phase_id
-                   OR EXISTS (SELECT 1 FROM worker.tasks AS p
-                              WHERE p.id = t.parent_id AND p.parent_id = v_reports_phase_id))
-            ORDER BY t.depth DESC, t.id DESC LIMIT 1;
+            WHERE t.parent_id = v_reports_phase_id
+              AND t.state IN ('processing', 'waiting')
+            ORDER BY t.id DESC LIMIT 1;
 
             -- Progress: children of the deepest active concurrent parent in the phase
             SELECT t.id INTO v_concurrent_parent_id
@@ -247,6 +255,21 @@ BEGIN
         OR (v_units_phase_state IS NOT NULL
             AND v_units_phase_state NOT IN ('completed', 'failed'));
 
+    -- Also check for a queued pipeline behind the current one
+    IF NOT v_active AND EXISTS (
+        SELECT 1 FROM worker.tasks
+        WHERE command = 'collect_changes' AND state = 'pending'
+          AND id <> v_pipeline_id
+    ) THEN
+        v_active := true;
+        v_step := 'collect_changes';
+        RETURN jsonb_build_object(
+            'active', true,
+            'pending', true,
+            'step', 'collect_changes'
+        );
+    END IF;
+
     IF NOT v_active THEN
         RETURN jsonb_build_object('active', false);
     END IF;
@@ -257,12 +280,9 @@ BEGIN
     ELSE
         SELECT t.command INTO v_step
         FROM worker.tasks AS t
-        WHERE t.state IN ('processing', 'waiting')
-          AND (t.id = v_units_phase_id
-               OR t.parent_id = v_units_phase_id
-               OR EXISTS (SELECT 1 FROM worker.tasks AS p
-                          WHERE p.id = t.parent_id AND p.parent_id = v_units_phase_id))
-        ORDER BY t.depth DESC, t.id DESC LIMIT 1;
+        WHERE t.parent_id = v_units_phase_id
+          AND t.state IN ('processing', 'waiting')
+        ORDER BY t.id DESC LIMIT 1;
     END IF;
 
     -- Progress
@@ -370,12 +390,9 @@ BEGIN
     -- Step
     SELECT t.command INTO v_step
     FROM worker.tasks AS t
-    WHERE t.state IN ('processing', 'waiting')
-      AND (t.id = v_reports_phase_id
-           OR t.parent_id = v_reports_phase_id
-           OR EXISTS (SELECT 1 FROM worker.tasks AS p
-                      WHERE p.id = t.parent_id AND p.parent_id = v_reports_phase_id))
-    ORDER BY t.depth DESC, t.id DESC LIMIT 1;
+    WHERE t.parent_id = v_reports_phase_id
+      AND t.state IN ('processing', 'waiting')
+    ORDER BY t.id DESC LIMIT 1;
 
     -- Progress
     SELECT t.id INTO v_concurrent_parent_id
