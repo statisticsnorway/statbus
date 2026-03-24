@@ -63,6 +63,16 @@ else
   ./devops/manage-statbus.sh generate-config
 fi
 
+# Helper: read a key from a dotenv file, preferring ./sb dotenv with fallback
+dotenv_get() {
+  local file="$1" key="$2"
+  if test -x ./sb; then
+    ./sb dotenv -f "$file" get "$key"
+  else
+    ./devops/dotenv --file "$file" get "$key"
+  fi
+}
+
 echo "Ensuring directories for Caddy volume mounts exist"
 mkdir -p "${HOME}/statbus-maintenance"
 mkdir -p tmp
@@ -109,7 +119,7 @@ if test -n "$dbseed_changes" || test -n "$migrations_changes" || test -n "${RECR
   ./devops/manage-statbus.sh create-users
   
   # Load custom sql for this deployment slot if it exists
-  DEPLOYMENT_SLOT_CODE=$(./devops/dotenv --file .env get DEPLOYMENT_SLOT_CODE)
+  DEPLOYMENT_SLOT_CODE=$(dotenv_get .env DEPLOYMENT_SLOT_CODE)
   custom_sql_file="custom/${DEPLOYMENT_SLOT_CODE}.sql"
   if test -f "$custom_sql_file"; then
     echo "Loading custom SQL from $custom_sql_file"
@@ -136,8 +146,8 @@ else
 fi
 
 # Load the Slack token and the deployment url for this deployment slot
-SLACK_TOKEN=$(./devops/dotenv --file .env get SLACK_TOKEN)
-STATBUS_URL=$(./devops/dotenv --file .env get STATBUS_URL)
+SLACK_TOKEN=$(dotenv_get .env SLACK_TOKEN)
+STATBUS_URL=$(dotenv_get .env STATBUS_URL)
 
 # Send a notification to Slack
 cat <<EOF | curl --data @- -H "Content-type: application/json; charset=utf-8" -H "Authorization: Bearer $SLACK_TOKEN" -X POST https://slack.com/api/chat.postMessage || { echo "Failed to send Slack notification"; exit 1; }
