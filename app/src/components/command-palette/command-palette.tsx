@@ -154,6 +154,7 @@ export function CommandPalette() {
   };
 
   // --- Download flow ---
+  const EXCEL_MAX_ROWS = 1_048_576;
   const { startDownload } = useProgressDownload();
   const handleDownload = (filter: string, format: string) => {
     if (!importDownloadContext) return;
@@ -161,8 +162,27 @@ export function CommandPalette() {
     resetPages();
     const url = `/api/import/download?slug=${encodeURIComponent(importDownloadContext.jobSlug)}&filter=${encodeURIComponent(filter)}&format=${format}`;
     const filename = `${importDownloadContext.jobSlug}-${filter}.${format}`;
-    startDownload(url, filename);
+    startDownload(url, filename, {
+      onError: (message) => toast({ title: "Download failed", description: message, variant: "destructive" }),
+    });
     toast({ title: "Download started", description: `Downloading ${filename}...` });
+  };
+  const getFilterRowCount = (filter: string) => {
+    if (!importDownloadContext) return 0;
+    const { totalRows, errorCount, warningCount } = importDownloadContext;
+    if (filter === 'full') return totalRows;
+    if (filter === 'ok') return totalRows - errorCount - warningCount;
+    if (filter === 'warning') return warningCount;
+    if (filter === 'error') return errorCount;
+    return 0;
+  };
+  const getFilterLabel = (filter: string) => {
+    const count = getFilterRowCount(filter);
+    if (filter === 'full') return `All rows (${count.toLocaleString()})`;
+    if (filter === 'ok') return `OK rows (${count.toLocaleString()})`;
+    if (filter === 'warning') return `Warnings (${count.toLocaleString()})`;
+    if (filter === 'error') return `Errors (${count.toLocaleString()})`;
+    return filter;
   };
 
   // --- Create-job flow ---
@@ -533,7 +553,7 @@ export function CommandPalette() {
             const { totalRows, errorCount, warningCount } = importDownloadContext;
             const okCount = totalRows - errorCount - warningCount;
             return (
-              <CommandGroup heading="Download which rows?">
+              <CommandGroup heading={`Job ${importDownloadContext.jobId} \u203a Download`}>
                 <CommandItem onSelect={() => { setDownloadFilter('full'); setPages([...pages, 'download-format']); setSearch(''); }}
                   value="all full rows">
                   Download all rows ({totalRows})
@@ -561,18 +581,31 @@ export function CommandPalette() {
           })()}
 
           {/* ===== DOWNLOAD: PICK FORMAT ===== */}
-          {page === 'download-format' && (
-            <CommandGroup heading="Choose format">
-              <CommandItem onSelect={() => handleDownload(downloadFilter, 'csv')} value="csv">
-                <FileSpreadsheet className="mr-2 h-4 w-4" />
-                CSV
-              </CommandItem>
-              <CommandItem onSelect={() => handleDownload(downloadFilter, 'xlsx')} value="excel xlsx">
-                <FileSpreadsheet className="mr-2 h-4 w-4" />
-                Excel (XLSX)
-              </CommandItem>
-            </CommandGroup>
-          )}
+          {page === 'download-format' && importDownloadContext && (() => {
+            const filterRows = getFilterRowCount(downloadFilter);
+            const excelDisabled = filterRows > EXCEL_MAX_ROWS;
+            return (
+              <CommandGroup heading={`Job ${importDownloadContext.jobId} \u203a ${getFilterLabel(downloadFilter)} \u203a Format`}>
+                <CommandItem onSelect={() => handleDownload(downloadFilter, 'csv')} value="csv">
+                  <FileSpreadsheet className="mr-2 h-4 w-4" />
+                  CSV
+                </CommandItem>
+                {excelDisabled ? (
+                  <CommandItem disabled value="excel xlsx disabled">
+                    <FileSpreadsheet className="mr-2 h-4 w-4 text-gray-300" />
+                    <span className="text-gray-400">
+                      Excel — {filterRows.toLocaleString()} rows exceeds ~1M limit
+                    </span>
+                  </CommandItem>
+                ) : (
+                  <CommandItem onSelect={() => handleDownload(downloadFilter, 'xlsx')} value="excel xlsx">
+                    <FileSpreadsheet className="mr-2 h-4 w-4" />
+                    Excel (XLSX)
+                  </CommandItem>
+                )}
+              </CommandGroup>
+            );
+          })()}
 
           {/* ===== CREATE JOB: PICK DEFINITION ===== */}
           {page === 'create-job-definition' && (() => {

@@ -45,7 +45,11 @@ export function useProgressDownload() {
   const abortRef = useRef<AbortController | null>(null);
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const startDownload = useCallback(async (url: string, suggestedFilename?: string) => {
+  const startDownload = useCallback(async (
+    url: string,
+    suggestedFilename?: string,
+    options?: { onError?: (message: string) => void },
+  ) => {
     // Cancel any in-progress download and clear pending auto-reset
     abortRef.current?.abort();
     if (resetTimerRef.current) {
@@ -71,6 +75,7 @@ export function useProgressDownload() {
           message = `Download failed (${response.status})`;
         }
         setProgress({ phase: 'error', bytesReceived: 0, elapsedMs: Date.now() - startTime, error: message });
+        options?.onError?.(message);
         return;
       }
 
@@ -137,12 +142,14 @@ export function useProgressDownload() {
 
     } catch (err) {
       if (controller.signal.aborted) return; // cancelled, don't update state
+      const message = err instanceof Error ? err.message : String(err);
       setProgress({
         phase: 'error',
         bytesReceived: 0,
         elapsedMs: Date.now() - startTime,
-        error: err instanceof Error ? err.message : String(err),
+        error: message,
       });
+      options?.onError?.(message);
     }
   }, []);
 

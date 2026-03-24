@@ -11,9 +11,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useProgressDownload, formatDownloadProgress } from "@/hooks/use-progress-download";
 
+const EXCEL_MAX_ROWS = 1_048_576;
+
 interface ProgressDownloadButtonProps {
   slug: string;
   filter: string;
+  /** Row count for this filter — Excel option disabled when > 1M */
+  rowCount?: number;
   variant?: "default" | "ghost";
   className?: string;
 }
@@ -25,6 +29,7 @@ interface ProgressDownloadButtonProps {
 export function ProgressDownloadButton({
   slug,
   filter,
+  rowCount,
   variant = "ghost",
   className,
 }: ProgressDownloadButtonProps) {
@@ -35,6 +40,8 @@ export function ProgressDownloadButton({
     const filename = `${slug}-${filter}.${format}`;
     startDownload(url, filename);
   };
+
+  const excelDisabled = rowCount != null && rowCount > EXCEL_MAX_ROWS;
 
   if (progress.phase === 'downloading') {
     return (
@@ -77,9 +84,15 @@ export function ProgressDownloadButton({
         <DropdownMenuItem onClick={() => handleDownload('csv')}>
           Download CSV
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handleDownload('xlsx')}>
-          Download Excel (.xlsx)
-        </DropdownMenuItem>
+        {excelDisabled ? (
+          <DropdownMenuItem disabled>
+            <span className="text-gray-400">Excel — exceeds ~1M row limit</span>
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem onClick={() => handleDownload('xlsx')}>
+            Download Excel (.xlsx)
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

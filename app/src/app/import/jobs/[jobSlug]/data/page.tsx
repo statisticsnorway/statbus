@@ -767,7 +767,7 @@ export default function ImportJobDataPage() {
                   <span className="font-mono">{formatNumber(job?.warning_count)}</span>&nbsp;warn
                 </Button>
                 {job?.slug && (
-                  <ProgressDownloadButton slug={job.slug} filter="warning" className="h-8 px-2 text-amber-600 hover:bg-amber-50" />
+                  <ProgressDownloadButton slug={job.slug} filter="warning" rowCount={job.warning_count ?? 0} className="h-8 px-2 text-amber-600 hover:bg-amber-50" />
                 )}
               </>
             )}
@@ -785,7 +785,7 @@ export default function ImportJobDataPage() {
                   <span className="font-mono">{formatNumber(job?.error_count)}</span>&nbsp;err
                 </Button>
                 {job?.slug && (
-                  <ProgressDownloadButton slug={job.slug} filter="error" className="h-8 px-2 text-red-600 hover:bg-red-50" />
+                  <ProgressDownloadButton slug={job.slug} filter="error" rowCount={job.error_count ?? 0} className="h-8 px-2 text-red-600 hover:bg-red-50" />
                 )}
                 {/* Downloads for "ok" and "full" filters are in the command palette (Ctrl+K)
                     to keep this toolbar lean — only error/warning downloads shown inline. */}
