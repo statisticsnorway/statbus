@@ -413,6 +413,31 @@ Deployments are automated via GitHub Actions:
 
 View deployment status in GitHub Actions or Slack channel `statbus-utvikling`.
 
+### Hybrid Deployment (via Upgrade Daemon)
+
+For servers running the upgrade daemon, deployments can be triggered via SSH + NOTIFY:
+
+```bash
+# Deploy a release:
+ssh statbus_no@niue.statbus.org "cd statbus && echo \"NOTIFY upgrade_apply, 'v2026.03.1';\" | ./devops/manage-statbus.sh psql"
+
+# Deploy an intermediate commit SHA (for testing):
+ssh statbus_dev@niue.statbus.org "cd statbus && echo \"NOTIFY upgrade_apply, 'sha-abc1234f';\" | ./devops/manage-statbus.sh psql"
+
+# Just check for new releases:
+ssh statbus_no@niue.statbus.org "cd statbus && echo \"NOTIFY upgrade_check;\" | ./devops/manage-statbus.sh psql"
+```
+
+Or use the `./sb` CLI:
+```bash
+ssh statbus_no@niue.statbus.org "cd statbus && ./sb upgrade apply v2026.03.1"
+ssh statbus_no@niue.statbus.org "cd statbus && ./sb upgrade check"
+```
+
+Or use the **"Deploy via upgrade daemon"** workflow in GitHub Actions UI — select the target server and version.
+
+The upgrade daemon handles: image pull, backup, migrations, restart, health check, and automatic rollback on failure. Progress is visible in the admin UI and via `journalctl -u statbus-upgrade@<user>`.
+
 ### Managing Host-Level Caddy
 
 ```bash

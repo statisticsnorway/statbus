@@ -1,0 +1,442 @@
+"use client";
+
+import { useCallback, useState } from "react";
+import useSWR from "swr";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  ArrowDownToLine,
+  Calendar,
+  CheckCircle2,
+  ChevronDown,
+  Clock,
+  Database,
+  Loader2,
+  RotateCcw,
+  SkipForward,
+  XCircle,
+} from "lucide-react";
+
+interface Upgrade {
+  id: number;
+  version: string;
+  commit_sha: string;
+  is_prerelease: boolean;
+  summary: string;
+  changes: string | null;
+  release_url: string | null;
+  has_migrations: boolean;
+  from_version: string | null;
+  discovered_at: string;
+  scheduled_at: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  error: string | null;
+  rollback_completed_at: string | null;
+  skipped_at: string | null;
+  images_downloaded: boolean;
+  backup_path: string | null;
+}
+
+interface SystemInfo {
+  key: string;
+  value: string;
+}
+
+type UpgradeStatus =
+  | "available"
+  | "scheduled"
+  | "in_progress"
+  | "completed"
+  | "failed"
+  | "rolled_back"
+  | "skipped";
+
+function getStatus(u: Upgrade): UpgradeStatus {
+  if (u.completed_at) return "completed";
+  if (u.rollback_completed_at) return "rolled_back";
+  if (u.error) return "failed";
+  if (u.started_at) return "in_progress";
+  if (u.scheduled_at) return "scheduled";
+  if (u.skipped_at) return "skipped";
+  return "available";
+}
+
+function StatusBadge({ status }: { status: UpgradeStatus }) {
+  const variants: Record<UpgradeStatus, { label: string; className: string }> =
+    {
+      available: { label: "Available", className: "bg-blue-100 text-blue-800" },
+      scheduled: {
+        label: "Scheduled",
+        className: "bg-yellow-100 text-yellow-800",
+      },
+      in_progress: {
+        label: "In Progress",
+        className: "bg-purple-100 text-purple-800",
+      },
+      completed: {
+        label: "Completed",
+        className: "bg-green-100 text-green-800",
+      },
+      failed: { label: "Failed", className: "bg-red-100 text-red-800" },
+      rolled_back: {
+        label: "Rolled Back",
+        className: "bg-orange-100 text-orange-800",
+      },
+      skipped: { label: "Skipped", className: "bg-gray-100 text-gray-600" },
+    };
+
+  const v = variants[status];
+  return <Badge className={v.className}>{v.label}</Badge>;
+}
+
+const fetcher = async (url: string) => {
+  const resp = await fetch(url, {
+    headers: { Accept: "application/json" },
+    credentials: "include",
+  });
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  return resp.json();
+};
+
+async function patchUpgrade(
+  id: number,
+  body: Record<string, unknown>,
+): Promise<void> {
+  const resp = await fetch(`/rest/upgrade?id=eq.${id}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Prefer: "return=minimal",
+    },
+    credentials: "include",
+    body: JSON.stringify(body),
+  });
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`PATCH failed: ${text}`);
+  }
+}
+
+export default function UpgradesPage() {
+  const {
+    data: upgrades,
+    error,
+    mutate,
+  } = useSWR<Upgrade[]>(
+    "/rest/upgrade?order=discovered_at.desc&limit=20",
+    fetcher,
+    { refreshInterval: 30000 },
+  );
+  const { data: systemInfo } = useSWR<SystemInfo[]>(
+    "/rest/system_info",
+    fetcher,
+  );
+  const [acting, setActing] = useState<number | null>(null);
+
+  const channel =
+    systemInfo?.find((s) => s.key === "upgrade_channel")?.value ?? "stable";
+  const lastChecked =
+    systemInfo?.find((s) => s.key === "upgrade_last_checked")?.value;
+
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const act = useCallback(
+    async (id: number, body: Record<string, unknown>) => {
+      setActing(id);
+      setActionError(null);
+      try {
+        await patchUpgrade(id, body);
+        await mutate();
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setActing(null);
+      }
+    },
+    [mutate],
+  );
+
+  return (
+    <main className="mx-auto flex w-full max-w-5xl flex-col py-8 md:py-12">
+      <h1 className="text-center mb-3 text-xl lg:text-2xl">
+        Software Upgrades
+      </h1>
+      <p className="mb-8 text-center text-muted-foreground">
+        Manage StatBus software updates
+      </p>
+
+      {/* Status header */}
+      <div className="mb-8 flex flex-wrap items-center justify-center gap-4 text-sm text-muted-foreground">
+        <span>
+          Channel: <strong className="text-foreground">{channel}</strong>
+        </span>
+        {lastChecked && (
+          <span>
+            Last checked:{" "}
+            <strong className="text-foreground">
+              {new Date(lastChecked).toLocaleString()}
+            </strong>
+          </span>
+        )}
+      </div>
+
+      {error && (
+        <Card className="mb-4 border-red-200 bg-red-50">
+          <CardContent className="pt-6">
+            <p className="text-red-800">
+              Failed to load upgrades: {error.message}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {actionError && (
+        <Card className="mb-4 border-red-200 bg-red-50">
+          <CardContent className="pt-6">
+            <p className="text-red-800">
+              Action failed: {actionError}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {!upgrades && !error && (
+        <div className="flex justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      )}
+
+      {upgrades && upgrades.length === 0 && (
+        <Card>
+          <CardContent className="pt-6 text-center text-muted-foreground">
+            No upgrades discovered yet. The upgrade daemon will check
+            periodically.
+          </CardContent>
+        </Card>
+      )}
+
+      {upgrades && upgrades.length > 0 && (
+        <div className="space-y-3">
+          {upgrades.map((u) => {
+            const status = getStatus(u);
+            return (
+              <UpgradeCard
+                key={u.id}
+                upgrade={u}
+                status={status}
+                acting={acting === u.id}
+                onScheduleNow={() =>
+                  act(u.id, { scheduled_at: new Date().toISOString() })
+                }
+                onUnschedule={() => act(u.id, { scheduled_at: null })}
+                onRetry={() =>
+                  act(u.id, {
+                    started_at: null,
+                    error: null,
+                    rollback_completed_at: null,
+                    scheduled_at: new Date().toISOString(),
+                  })
+                }
+                onSkip={() =>
+                  act(u.id, { skipped_at: new Date().toISOString() })
+                }
+              />
+            );
+          })}
+        </div>
+      )}
+    </main>
+  );
+}
+
+function UpgradeCard({
+  upgrade: u,
+  status,
+  acting,
+  onScheduleNow,
+  onUnschedule,
+  onRetry,
+  onSkip,
+}: {
+  upgrade: Upgrade;
+  status: UpgradeStatus;
+  acting: boolean;
+  onScheduleNow: () => void;
+  onUnschedule: () => void;
+  onRetry: () => void;
+  onSkip: () => void;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between">
+          <div>
+            <CardTitle className="text-base flex items-center gap-2">
+              {u.version}
+              {u.is_prerelease && (
+                <Badge variant="outline" className="text-xs">
+                  pre-release
+                </Badge>
+              )}
+              {u.has_migrations && (
+                <span title="This upgrade includes database migrations">
+                  <Database className="h-3.5 w-3.5 text-amber-500" />
+                </span>
+              )}
+            </CardTitle>
+            <CardDescription className="mt-1">{u.summary}</CardDescription>
+          </div>
+          <StatusBadge status={status} />
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {/* Meta info */}
+        <div className="flex flex-wrap gap-4 text-xs text-muted-foreground mb-3">
+          <span>
+            Discovered: {new Date(u.discovered_at).toLocaleDateString()}
+          </span>
+          {u.scheduled_at && (
+            <span className="flex items-center gap-1">
+              <Calendar className="h-3 w-3" />
+              Scheduled: {new Date(u.scheduled_at).toLocaleString()}
+            </span>
+          )}
+          {u.completed_at && (
+            <span className="flex items-center gap-1">
+              <CheckCircle2 className="h-3 w-3 text-green-600" />
+              Completed: {new Date(u.completed_at).toLocaleString()}
+            </span>
+          )}
+        </div>
+
+        {/* Error display */}
+        {u.error && (
+          <div className="mb-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+            <strong>Error:</strong> {u.error}
+          </div>
+        )}
+
+        {/* Changelog */}
+        {u.changes && (
+          <Collapsible>
+            <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+              <ChevronDown className="h-3 w-3" />
+              Changelog
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-2 rounded-md bg-muted p-3 text-xs whitespace-pre-wrap">
+              {u.changes}
+            </CollapsibleContent>
+          </Collapsible>
+        )}
+
+        {/* Actions */}
+        <div className="mt-3 flex gap-2">
+          {status === "available" && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button size="sm" disabled={acting}>
+                  {acting ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <ArrowDownToLine className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  Upgrade Now
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Confirm Upgrade</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will schedule an immediate upgrade to {u.version}.
+                    {u.has_migrations &&
+                      " This version includes database migrations."}
+                    <br />
+                    The system will briefly go into maintenance mode during the
+                    upgrade.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={onScheduleNow}>
+                    Proceed
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+
+          {status === "scheduled" && (
+            <Button size="sm" variant="outline" disabled={acting} onClick={onUnschedule}>
+              {acting ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Clock className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              Unschedule
+            </Button>
+          )}
+
+          {status === "in_progress" && (
+            <Badge className="bg-purple-100 text-purple-800">
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              Upgrading...
+            </Badge>
+          )}
+
+          {(status === "failed" || status === "rolled_back") && (
+            <>
+              <Button size="sm" variant="outline" disabled={acting} onClick={onRetry}>
+                {acting ? (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                )}
+                Retry
+              </Button>
+              <Button size="sm" variant="ghost" disabled={acting} onClick={onSkip}>
+                <SkipForward className="mr-1.5 h-3.5 w-3.5" />
+                Skip
+              </Button>
+              {u.release_url && (
+                <Button size="sm" variant="ghost" asChild>
+                  <a
+                    href={`https://github.com/statisticsnorway/statbus/issues/new?title=${encodeURIComponent(`Upgrade failed: ${u.version}`)}&body=${encodeURIComponent(`## Upgrade Failure Report\n\n**Version:** ${u.version}\n**From:** ${u.from_version ?? "unknown"}\n**Error:** ${u.error}\n**Date:** ${u.started_at}`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <XCircle className="mr-1.5 h-3.5 w-3.5" />
+                    Report Issue
+                  </a>
+                </Button>
+              )}
+            </>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

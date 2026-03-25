@@ -16,6 +16,7 @@ import { useProgressDownload } from "@/hooks/use-progress-download";
 import { getUploadPath } from "@/lib/import-mode-paths";
 import type { Tables } from "@/lib/database.types";
 import {
+  ArrowDownToLine,
   BarChartHorizontal,
   Copy,
   Download,
@@ -375,6 +376,13 @@ export function CommandPalette() {
                 >
                   <Search className="mr-2 h-4 w-4" />
                   <span>Find statistical units</span>
+                </CommandItem>
+                <CommandItem
+                  onSelect={() => navigate("/admin/upgrades")}
+                  value="upgrade software update version"
+                >
+                  <ArrowDownToLine className="mr-2 h-4 w-4" />
+                  <span>Software upgrades</span>
                 </CommandItem>
                 <CommandItem
                   onSelect={() => navigate("/reports")}

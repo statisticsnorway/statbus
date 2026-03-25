@@ -2,6 +2,7 @@
 services:
   proxy:
     container_name: ${COMPOSE_INSTANCE_NAME:?COMPOSE_INSTANCE_NAME must be set in the generated .env}-proxy
+    image: ghcr.io/statisticsnorway/statbus-proxy:${VERSION:-local}
     build:
       context: .
       dockerfile: Dockerfile
@@ -22,6 +23,12 @@ services:
       # Using local bind mount allows easy inspection and custom cert placement
       - ./data:/data
       - caddy_logs:/var/log/caddy
+      # Maintenance mode: upgrade daemon creates active file here
+      - ${HOME}/statbus-maintenance:/statbus-maintenance:ro
+      # Maintenance HTML page
+      - ../devops/maintenance:/maintenance-page:ro
+      # Upgrade progress log for live display
+      - ../tmp:/statbus-tmp:ro
     environment:
       APP_BIND_ADDRESS: http://app:3000
       REST_BIND_ADDRESS: http://rest:3000

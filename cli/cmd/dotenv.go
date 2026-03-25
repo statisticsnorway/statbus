@@ -1,0 +1,169 @@
+package cmd
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"strings"
+
+	"github.com/spf13/cobra"
+	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
+)
+
+var dotenvFile string
+
+var dotenvCmd = &cobra.Command{
+	Use:   "dotenv",
+	Short: "Manage .env files",
+	Long:  "Read and write .env files containing KEY=VALUE environment variables.",
+}
+
+var dotenvGetCmd = &cobra.Command{
+	Use:   "get <key>",
+	Short: "Get the value of a key",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		f, err := dotenv.Load(dotenvFile)
+		if err != nil {
+			return err
+		}
+		val, ok := f.Get(args[0])
+		if !ok {
+			return fmt.Errorf("key not found: %s", args[0])
+		}
+		fmt.Println(val)
+		return nil
+	},
+}
+
+var dotenvSetCmd = &cobra.Command{
+	Use:   "set <key>=<value> | set <key> <value>",
+	Short: "Set the value of a key",
+	Long: `Set or update a key-value pair in the .env file.
+Accepts both KEY=VALUE (single arg) and KEY VALUE (two args).
+If value starts with "+", it is treated as a default — only set if key is absent.
+If no value is given, the key is deleted.`,
+	Args: cobra.RangeArgs(1, 2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		f, err := dotenv.Load(dotenvFile)
+		if err != nil {
+			return err
+		}
+		key := args[0]
+		if len(args) == 1 {
+			// Single arg: check for KEY=VALUE form
+			if idx := strings.Index(key, "="); idx >= 0 {
+				f.Set(key[:idx], key[idx+1:])
+			} else {
+				// No value: delete the key
+				f.Delete(key)
+			}
+		} else {
+			f.Set(key, args[1])
+		}
+		return f.Save()
+	},
+}
+
+var dotenvParseCmd = &cobra.Command{
+	Use:   "parse [keys...]",
+	Short: "Print KEY=VALUE lines for named keys (or all)",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		f, err := dotenv.Load(dotenvFile)
+		if err != nil {
+			return err
+		}
+		parsed := f.Parse(args...)
+		// Print in insertion order (matching Crystal behavior)
+		for _, key := range f.Keys() {
+			if val, ok := parsed[key]; ok {
+				fmt.Printf("%s=%s\n", key, val)
+			}
+		}
+		return nil
+	},
+}
+
+var dotenvExportCmd = &cobra.Command{
+	Use:   "export [keys...]",
+	Short: "Export keys in shell-compatible format",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		f, err := dotenv.Load(dotenvFile)
+		if err != nil {
+			return err
+		}
+		parsed := f.Parse(args...)
+		for _, key := range f.Keys() {
+			if val, ok := parsed[key]; ok {
+				fmt.Printf("export %s=%q\n", key, val)
+			}
+		}
+		return nil
+	},
+}
+
+var dotenvGenerateCmd = &cobra.Command{
+	Use:   "generate <key> <command> [args...]",
+	Short: "Set key to command output if not already set",
+	Args:  cobra.MinimumNArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		f, err := dotenv.Load(dotenvFile)
+		if err != nil {
+			return err
+		}
+		key := args[0]
+		shellCmd := strings.Join(args[1:], " ")
+
+		_, err = f.Generate(key, func() (string, error) {
+			out, err := exec.Command("sh", "-c", shellCmd).Output()
+			if err != nil {
+				return "", fmt.Errorf("command %q failed: %w", shellCmd, err)
+			}
+			return strings.TrimSpace(string(out)), nil
+		})
+		if err != nil {
+			return err
+		}
+		return f.Save()
+	},
+}
+
+var dotenvPutsCmd = &cobra.Command{
+	Use:   "puts <string>",
+	Short: "Append a line to the .env file",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		f, err := dotenv.Load(dotenvFile)
+		if err != nil {
+			return err
+		}
+		f.Puts(args[0])
+		return f.Save()
+	},
+}
+
+func init() {
+	dotenvCmd.PersistentFlags().StringVarP(&dotenvFile, "file", "f", ".env", "dotenv file to use")
+
+	dotenvCmd.AddCommand(dotenvGetCmd)
+	dotenvCmd.AddCommand(dotenvSetCmd)
+	dotenvCmd.AddCommand(dotenvParseCmd)
+	dotenvCmd.AddCommand(dotenvExportCmd)
+	dotenvCmd.AddCommand(dotenvGenerateCmd)
+	dotenvCmd.AddCommand(dotenvPutsCmd)
+
+	rootCmd.AddCommand(dotenvCmd)
+}
+
+// LoadDotenv loads the project .env file into os environment variables.
+// Used by other commands that need env config.
+func LoadDotenv() error {
+	f, err := dotenv.Load(".env")
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	if f != nil {
+		f.Export()
+	}
+	return nil
+}

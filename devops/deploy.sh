@@ -52,17 +52,37 @@ else
   commit_messages=$(git log -1 --oneline)
 fi
 
-echo "Ensuring CLI tools to generate config is up to date"
-./devops/manage-statbus.sh build-statbus-cli
-
 echo "Ensuring config required for all management commands"
-# Ensure the caddy/config dir exists.
 mkdir -p caddy/config
-./devops/manage-statbus.sh generate-config
+if test -x ./sb; then
+  # Use Go binary if available (no Crystal build needed)
+  ./sb config generate
+else
+  echo "Ensuring CLI tools to generate config is up to date"
+  ./devops/manage-statbus.sh build-statbus-cli
+  ./devops/manage-statbus.sh generate-config
+fi
 
-echo "Pre-building Docker images to minimize downtime"
-# Build images before stopping services so the downtime is minimal
-docker compose build app db
+# Helper: read a key from a dotenv file, preferring ./sb dotenv with fallback
+dotenv_get() {
+  local file="$1" key="$2"
+  if test -x ./sb; then
+    ./sb dotenv -f "$file" get "$key"
+  else
+    ./devops/dotenv --file "$file" get "$key"
+  fi
+}
+
+echo "Ensuring directories for Caddy volume mounts exist"
+mkdir -p "${HOME}/statbus-maintenance"
+mkdir -p tmp
+
+echo "Pre-pulling Docker images to minimize downtime"
+# Pull pre-built images from ghcr.io (built by CI, much faster than local build)
+if ! docker compose pull 2>/dev/null; then
+  echo "Pull failed (images may not exist yet), falling back to local build"
+  docker compose build app db
+fi
 
 echo "Stopping the application"
 ./devops/manage-statbus.sh stop app || { echo "Failed to stop the application"; exit 1; }
@@ -99,7 +119,7 @@ if test -n "$dbseed_changes" || test -n "$migrations_changes" || test -n "${RECR
   ./devops/manage-statbus.sh create-users
   
   # Load custom sql for this deployment slot if it exists
-  DEPLOYMENT_SLOT_CODE=$(./devops/dotenv --file .env get DEPLOYMENT_SLOT_CODE)
+  DEPLOYMENT_SLOT_CODE=$(dotenv_get .env DEPLOYMENT_SLOT_CODE)
   custom_sql_file="custom/${DEPLOYMENT_SLOT_CODE}.sql"
   if test -f "$custom_sql_file"; then
     echo "Loading custom SQL from $custom_sql_file"
@@ -116,14 +136,18 @@ if test -n "$dbseed_changes" || test -n "$migrations_changes" || test -n "${RECR
   fi
 else
   echo "No changes requiring DB recreation found, applying any pending migrations and restarting app"
-  ./cli/bin/statbus migrate up
-  echo "Building and starting the frontend"
-  ./devops/manage-statbus.sh start app || { echo "Failed to start the app"; exit 1; }
+  if test -x ./sb; then
+    ./sb migrate up --verbose
+  else
+    ./cli/bin/statbus migrate up
+  fi
+  echo "Starting the frontend"
+  docker compose up -d app || { echo "Failed to start the app"; exit 1; }
 fi
 
 # Load the Slack token and the deployment url for this deployment slot
-SLACK_TOKEN=$(./devops/dotenv --file .env get SLACK_TOKEN)
-STATBUS_URL=$(./devops/dotenv --file .env get STATBUS_URL)
+SLACK_TOKEN=$(dotenv_get .env SLACK_TOKEN)
+STATBUS_URL=$(dotenv_get .env STATBUS_URL)
 
 # Send a notification to Slack
 cat <<EOF | curl --data @- -H "Content-type: application/json; charset=utf-8" -H "Authorization: Bearer $SLACK_TOKEN" -X POST https://slack.com/api/chat.postMessage || { echo "Failed to send Slack notification"; exit 1; }

@@ -1,0 +1,185 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  ORG: statisticsnorway
+
+jobs:
+  build-images:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        include:
+          - service: app
+            context: ./app
+            file: ./app/Dockerfile
+          - service: worker
+            context: ./cli
+            file: ./cli/Dockerfile
+          - service: db
+            context: ./postgres
+            file: ./postgres/Dockerfile
+          - service: proxy
+            context: ./caddy
+            file: ./caddy/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        run: |
+          SHA=$(git rev-parse --short=8 HEAD)
+          VERSION=${GITHUB_REF_NAME#v}
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "sha_tag=sha-$SHA" >> "$GITHUB_OUTPUT"
+          echo "version_tag=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          # Detect pre-release
+          if [[ "$GITHUB_REF_NAME" =~ -(rc|beta|alpha)\. ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service }}:sha-${{ steps.meta.outputs.sha }}
+            ${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service }}:${{ steps.meta.outputs.version_tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+    outputs:
+      sha: ${{ steps.meta.outputs.sha }}
+      sha_tag: ${{ steps.meta.outputs.sha_tag }}
+      version_tag: ${{ steps.meta.outputs.version_tag }}
+      version: ${{ steps.meta.outputs.version }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
+
+  build-binaries:
+    runs-on: ubuntu-24.04
+    needs: build-images
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: cli/go.mod
+
+      - name: Build cross-platform binaries
+        working-directory: cli
+        run: |
+          VERSION=${{ needs.build-images.outputs.version }}
+          COMMIT=${{ needs.build-images.outputs.sha }}
+          LDFLAGS="-s -w -X 'github.com/statisticsnorway/statbus/cli/cmd.version=${VERSION}' -X 'github.com/statisticsnorway/statbus/cli/cmd.commit=${COMMIT}'"
+
+          mkdir -p dist
+          for PAIR in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64; do
+            OS=${PAIR%/*}
+            ARCH=${PAIR#*/}
+            CGO_ENABLED=0 GOOS=$OS GOARCH=$ARCH \
+              go build -trimpath -ldflags "$LDFLAGS" -o "dist/sb-${OS}-${ARCH}" .
+          done
+
+      - name: Compute checksums
+        working-directory: cli/dist
+        run: sha256sum sb-* > checksums.txt
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries
+          path: cli/dist/
+
+  create-release:
+    runs-on: ubuntu-24.04
+    needs: [build-images, build-binaries]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for changelog
+
+      - name: Download binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: binaries
+          path: dist/
+
+      - name: Detect migrations
+        id: migrations
+        run: |
+          # Check if any migration files were added since the previous tag
+          PREV_TAG=$(git tag --sort=-version:refname | grep '^v' | sed -n '2p')
+          if [ -n "$PREV_TAG" ]; then
+            NEW_MIGRATIONS=$(git diff --name-only "$PREV_TAG"..HEAD -- 'migrations/*.up.sql' 'migrations/*.up.psql' | wc -l | tr -d ' ')
+          else
+            NEW_MIGRATIONS=$(find migrations -name '*.up.sql' -o -name '*.up.psql' 2>/dev/null | wc -l | tr -d ' ')
+          fi
+          if [ "$NEW_MIGRATIONS" -gt 0 ]; then
+            echo "has_migrations=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_migrations=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Detected $NEW_MIGRATIONS new migration(s)"
+
+      - name: Generate release manifest
+        run: |
+          cat > dist/release-manifest.json <<MANIFEST
+          {
+            "version": "${{ needs.build-images.outputs.version }}",
+            "commit_sha": "$(git rev-parse HEAD)",
+            "prerelease": ${{ needs.build-images.outputs.prerelease }},
+            "has_migrations": ${{ steps.migrations.outputs.has_migrations }},
+            "images": {
+              "app": "${{ env.REGISTRY }}/${{ env.ORG }}/statbus-app:${{ needs.build-images.outputs.version_tag }}",
+              "db": "${{ env.REGISTRY }}/${{ env.ORG }}/statbus-db:${{ needs.build-images.outputs.version_tag }}",
+              "worker": "${{ env.REGISTRY }}/${{ env.ORG }}/statbus-worker:${{ needs.build-images.outputs.version_tag }}",
+              "proxy": "${{ env.REGISTRY }}/${{ env.ORG }}/statbus-proxy:${{ needs.build-images.outputs.version_tag }}"
+            },
+            "binaries": {
+              "linux-amd64": { "url": "https://github.com/${{ env.ORG }}/statbus/releases/download/${{ needs.build-images.outputs.version_tag }}/sb-linux-amd64", "sha256": "$(sha256sum dist/sb-linux-amd64 | cut -d' ' -f1)" },
+              "linux-arm64": { "url": "https://github.com/${{ env.ORG }}/statbus/releases/download/${{ needs.build-images.outputs.version_tag }}/sb-linux-arm64", "sha256": "$(sha256sum dist/sb-linux-arm64 | cut -d' ' -f1)" },
+              "darwin-amd64": { "url": "https://github.com/${{ env.ORG }}/statbus/releases/download/${{ needs.build-images.outputs.version_tag }}/sb-darwin-amd64", "sha256": "$(sha256sum dist/sb-darwin-amd64 | cut -d' ' -f1)" },
+              "darwin-arm64": { "url": "https://github.com/${{ env.ORG }}/statbus/releases/download/${{ needs.build-images.outputs.version_tag }}/sb-darwin-arm64", "sha256": "$(sha256sum dist/sb-darwin-arm64 | cut -d' ' -f1)" }
+            }
+          }
+          MANIFEST
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ARGS=(
+            "${{ needs.build-images.outputs.version_tag }}"
+            --generate-notes
+            dist/sb-linux-amd64
+            dist/sb-linux-arm64
+            dist/sb-darwin-amd64
+            dist/sb-darwin-arm64
+            dist/checksums.txt
+            dist/release-manifest.json
+          )
+          if [ "${{ needs.build-images.outputs.prerelease }}" = "true" ]; then
+            ARGS+=(--prerelease)
+          fi
+          gh release create "${ARGS[@]}"
