@@ -477,8 +477,8 @@ func runRootInstall() error {
 	code, _ := f.Get("DEPLOYMENT_SLOT_CODE")
 	user := "statbus_" + code
 	homeDir := filepath.Join("/home", user)
-	dataDir := filepath.Join(homeDir, "statbus/postgres/volumes/db/data/")
-	backupDir := filepath.Join(homeDir, "statbus-backups/pre-upgrade/")
+	dataDir := homeDir + "/statbus/postgres/volumes/db/data/"
+	backupDir := homeDir + "/statbus-backups/pre-upgrade/"
 	rsyncPath := "/usr/bin/rsync"
 
 	sudoersContent := fmt.Sprintf("# StatBus upgrade daemon — rsync for database backup/restore\n"+
