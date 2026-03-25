@@ -92,8 +92,13 @@ export async function convertExcelToCsvBlob(source: File | ArrayBuffer): Promise
     return new Blob([csv], { type: 'text/csv' });
   }
 
+  // The download route (api/import/download/route.ts) adds row_id and errors/warnings
+  // columns so users can identify which rows had problems and what went wrong.
+  // When users fix errors in the downloaded file and re-upload it, these diagnostic
+  // columns must be stripped — they don't exist in the upload table schema.
+  // Dual: server-side stripping in api/import/upload/route.ts (for CSV and curl uploads).
   const headers = rows[0];
-  const systemCols = new Set(['row_id', 'errors', 'warnings', '_errors', '_warnings']);
+  const systemCols = new Set(['row_id', 'errors', 'warnings']);
   const skipIndices = new Set<number>();
   headers.forEach((h, i) => {
     if (systemCols.has(h.trim())) skipIndices.add(i);

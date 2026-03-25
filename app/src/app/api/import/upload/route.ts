@@ -22,9 +22,12 @@ const getDbConfig = () => {
   };
 };
 
-// Columns added by the download route that should be stripped on re-upload
-// Include old underscore-prefixed names for backward compatibility with previously downloaded files
-const DOWNLOAD_SYSTEM_COLUMNS = new Set(['row_id', 'errors', 'warnings', '_errors', '_warnings']);
+// The download route (api/import/download/route.ts) adds row_id and errors/warnings
+// columns so users can identify which rows had problems and what went wrong.
+// When users fix errors in the downloaded file and re-upload it, these diagnostic
+// columns must be stripped — they don't exist in the upload table schema.
+// Dual: client-side stripping in lib/excel-to-csv.ts (for browser Excel uploads).
+const DOWNLOAD_SYSTEM_COLUMNS = new Set(['row_id', 'errors', 'warnings']);
 
 function isDownloadSystemColumn(name: string): boolean {
   return DOWNLOAD_SYSTEM_COLUMNS.has(name.replace(/^"|"$/g, '').trim());
@@ -64,7 +67,7 @@ function csvEscapeField(value) {
   return value;
 }
 
-var DOWNLOAD_SYSTEM_COLUMNS = new Set(['row_id', 'errors', 'warnings', '_errors', '_warnings']);
+var DOWNLOAD_SYSTEM_COLUMNS = new Set(['row_id', 'errors', 'warnings']);
 
 function isDownloadSystemColumn(name) {
   return DOWNLOAD_SYSTEM_COLUMNS.has(name.replace(/^"|"$/g, '').trim());

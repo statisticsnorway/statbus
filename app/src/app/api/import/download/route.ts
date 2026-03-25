@@ -99,7 +99,12 @@ export async function GET(request: NextRequest) {
       .map(e => `${quoteIdent(e.dataCol)} AS ${quoteIdent(e.sourceCol)}`)
       .join(", ");
 
-    // Diagnostic column only for error/warning filters
+    // row_id and errors/warnings are added so users can identify problem rows and
+    // see what went wrong. This enables a fix-and-reupload workflow: download errors,
+    // correct the data in Excel/CSV, re-upload the same file.
+    // On re-upload these columns are stripped automatically:
+    //   - Server-side: api/import/upload/route.ts (for CSV and curl uploads)
+    //   - Client-side: lib/excel-to-csv.ts (for browser Excel uploads)
     const errorColumn = filter === "error"
       ? `errors::text AS "errors"`
       : filter === "warning"
