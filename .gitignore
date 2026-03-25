@@ -514,4 +514,5 @@ dbdumps/*.pg_dump
 
 # Go CLI binary (built from cli/ to repo root)
 /sb
+/sb-*
 cli/dist/
