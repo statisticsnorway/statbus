@@ -155,7 +155,7 @@ Enumerated types used across the schema, with their possible values.
 - **`public.time_context_type`**: `relative_period`, `tag`, `year`
 - **`worker.child_mode`**: `concurrent`, `serial`
 - **`worker.process_mode`**: `serial`, `concurrent`
-- **`worker.task_state`**: `pending`, `processing`, `waiting`, `completed`, `failed`
+- **`worker.task_state`**: `pending`, `processing`, `interrupted`, `waiting`, `completed`, `failed`
 
 
 ## Temporal Data & History

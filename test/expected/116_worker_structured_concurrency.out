@@ -12,14 +12,15 @@ ALTER SEQUENCE worker.tasks_id_seq RESTART WITH 3;
 \echo "=== 1. Verify task_state enum includes 'waiting' ==="
 "=== 1. Verify task_state enum includes 'waiting' ==="
 SELECT unnest(enum_range(NULL::worker.task_state)) AS state ORDER BY state;
-   state    
-------------
+    state    
+-------------
  pending
  processing
+ interrupted
  waiting
  completed
  failed
-(5 rows)
+(6 rows)
 
 \echo "=== 2. Verify tasks table has required columns ==="
 "=== 2. Verify tasks table has required columns ==="
