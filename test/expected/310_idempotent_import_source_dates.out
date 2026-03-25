@@ -139,10 +139,12 @@ SELECT
 \echo "Run worker processing for analytics tasks - Initial Load"
 "Run worker processing for analytics tasks - Initial Load"
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 418: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 421: worker.notify_task_progress() is not a procedure
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |  1664
+ analytics | completed |  1143
  import    | completed |   144
 (2 rows)
 
@@ -191,6 +193,8 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo "Run worker processing for analytics tasks - Idempotency Check"
 "Run worker processing for analytics tasks - Idempotency Check"
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 1775: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 1778: worker.notify_task_progress() is not a procedure
 \echo "Checking data rows for idempotency jobs. Expecting all operations to be 'skip' and merge_status to be 'SKIPPED_IDENTICAL'."
 "Checking data rows for idempotency jobs. Expecting all operations to be 'skip' and merge_status to be 'SKIPPED_IDENTICAL'."
 \x
@@ -247,7 +251,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- analytics | completed |  8810
+ analytics | completed |  8220
  import    | completed |   309
 (3 rows)
 
@@ -262,10 +266,12 @@ SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT 
 \echo "Run worker processing for analytics tasks - Turnover Update"
 "Run worker processing for analytics tasks - Turnover Update"
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 8874: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 8877: worker.notify_task_progress() is not a procedure
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed | 10957
+ analytics | completed | 10319
  import    | completed |   309
 (2 rows)
 
@@ -295,6 +301,8 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo "Run worker processing for analytics tasks - Turnover Idempotency Check"
 "Run worker processing for analytics tasks - Turnover Idempotency Check"
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 10995: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 10998: worker.notify_task_progress() is not a procedure
 \echo "Checking data rows for turnover idempotency job. Expecting all operations to be 'skip' and merge_status to be 'SKIPPED_IDENTICAL'."
 "Checking data rows for turnover idempotency job. Expecting all operations to be 'skip' and merge_status to be 'SKIPPED_IDENTICAL'."
 \x

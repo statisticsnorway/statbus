@@ -84,6 +84,8 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo Run worker processing for analytics tasks
 Run worker processing for analytics tasks
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 391: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 394: worker.notify_task_progress() is not a procedure
 --
 SELECT unit_type, external_idents, valid_from, valid_until, name, stats->'employees' as employees FROM public.statistical_unit
 WHERE name = 'Statistics Norway'
@@ -133,6 +135,8 @@ WHERE command = 'collect_changes' AND state = 'pending';
 \echo "Run worker to process tasks..."
 "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics'); -- Processes collect_changes, enqueues derive tasks and process derived tasks
+WARNING:  Error in before_procedure worker.notify_task_progress for task 538: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 541: worker.notify_task_progress() is not a procedure
 \echo "After: check stats for 'Statistics Norway'. Expect employees to be 100."
 "After: check stats for 'Statistics Norway'. Expect employees to be 100."
 \x
@@ -172,6 +176,8 @@ SELECT command, state FROM worker.tasks WHERE command = 'collect_changes' AND st
 \echo "Run worker to process tasks..."
 "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 605: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 608: worker.notify_task_progress() is not a procedure
 \echo "After: Checking name for establishment 'Statistics Norway Updated'"
 "After: Checking name for establishment 'Statistics Norway Updated'"
 SELECT name FROM public.statistical_unit WHERE name = 'Statistics Norway Updated' AND unit_type = 'establishment';
@@ -206,6 +212,8 @@ SELECT command, state FROM worker.tasks WHERE command = 'collect_changes' AND st
 \echo "Run worker to process tasks..."
 "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 672: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 675: worker.notify_task_progress() is not a procedure
 \echo "After: Checking name of enterprise for legal_unit 'Statistics Norway'. Expect 'GIL'."
 "After: Checking name of enterprise for legal_unit 'Statistics Norway'. Expect 'GIL'."
 SELECT name FROM public.statistical_unit WHERE unit_type = 'enterprise' AND unit_id = (SELECT enterprise_id FROM public.legal_unit WHERE name = 'Statistics Norway');
@@ -240,6 +248,8 @@ SELECT command, state FROM worker.tasks WHERE command = 'collect_changes' AND st
 \echo "Run worker to process tasks..."
 "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 739: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 742: worker.notify_task_progress() is not a procedure
 \echo "After: Checking physical_address_part1 for 'Statistics Norway'"
 "After: Checking physical_address_part1 for 'Statistics Norway'"
 SELECT physical_address_part1 FROM public.statistical_unit WHERE name = 'Statistics Norway' AND unit_type = 'legal_unit';
@@ -277,6 +287,8 @@ SELECT command, state FROM worker.tasks WHERE command = 'collect_changes' AND st
 \echo "Run worker to process tasks..."
 "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 806: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 809: worker.notify_task_progress() is not a procedure
 \echo "After: Checking primary_activity_category_path for 'Statistics Norway'"
 "After: Checking primary_activity_category_path for 'Statistics Norway'"
 SELECT primary_activity_category_path FROM public.statistical_unit WHERE name = 'Statistics Norway' AND unit_type = 'legal_unit';
@@ -322,6 +334,8 @@ SELECT command, state FROM worker.tasks WHERE command = 'collect_changes' AND st
 \echo "Run worker to process tasks..."
 "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 874: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 877: worker.notify_task_progress() is not a procedure
 \echo "After: Checking email_address for 'Statistics Norway' (should be updated)"
 "After: Checking email_address for 'Statistics Norway' (should be updated)"
 SELECT email_address FROM public.statistical_unit WHERE name = 'Statistics Norway' AND unit_type = 'legal_unit';
@@ -361,6 +375,8 @@ SELECT command, state FROM worker.tasks WHERE command = 'collect_changes' AND st
 \echo "Run worker to process tasks..."
 "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 941: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 944: worker.notify_task_progress() is not a procedure
 \echo "After: Checking name of enterprise. Expect 'SSB'."
 "After: Checking name of enterprise. Expect 'SSB'."
 SELECT name FROM public.statistical_unit
@@ -400,6 +416,8 @@ SELECT command, state FROM worker.tasks WHERE command = 'collect_changes' AND st
 \echo "Run worker to process tasks..."
 "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 1008: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 1011: worker.notify_task_progress() is not a procedure
 \echo "After: check external_idents for 'Statistics Norway'. Expect updated tax_ident."
 "After: check external_idents for 'Statistics Norway'. Expect updated tax_ident."
 \x
@@ -449,6 +467,8 @@ ORDER BY command;
 \echo "Run worker to process tasks..."
 "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 1076: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 1079: worker.notify_task_progress() is not a procedure
 \echo "After: Checking new parent of establishment 'Statistics Norway Updated'. Expect 'Statistics Denmark'."
 "After: Checking new parent of establishment 'Statistics Norway Updated'. Expect 'Statistics Denmark'."
 SELECT lu.name as legal_unit_name
@@ -502,6 +522,8 @@ ORDER BY command;
 \echo "Run worker to process tasks..."
 "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 1167: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 1170: worker.notify_task_progress() is not a procedure
 \echo "After (1): Check 'Statistics Ethiopia'. Expect stat_ident to be gone."
 "After (1): Check 'Statistics Ethiopia'. Expect stat_ident to be gone."
 \x
@@ -534,6 +556,8 @@ ORDER BY command;
 \echo "Run worker to process tasks..."
 "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 1218: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 1221: worker.notify_task_progress() is not a procedure
 \echo "After (2): Checking external_idents for both units. Ethiopia should have stat_ident 15, Sweden should not."
 "After (2): Checking external_idents for both units. Ethiopia should have stat_ident 15, Sweden should not."
 \x

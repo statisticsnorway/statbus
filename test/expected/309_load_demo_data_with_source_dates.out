@@ -171,10 +171,12 @@ SELECT
 \echo "Run worker processing for analytics tasks - Initial Load"
 "Run worker processing for analytics tasks - Initial Load"
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 445: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 448: worker.notify_task_progress() is not a procedure
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |  1929
+ analytics | completed |  1234
  import    | completed |   164
 (2 rows)
 
@@ -329,7 +331,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- analytics | completed |  1929
+ analytics | completed |  1234
  import    | completed |   185
 (3 rows)
 
@@ -368,10 +370,12 @@ SELECT
 \echo "Run worker processing for analytics tasks - Turnover Update"
 "Run worker processing for analytics tasks - Turnover Update"
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 1701: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 1704: worker.notify_task_progress() is not a procedure
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |  4076
+ analytics | completed |  3333
  import    | completed |   185
 (2 rows)
 

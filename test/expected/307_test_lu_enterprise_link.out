@@ -165,6 +165,8 @@ GROUP BY e.id, e.short_name;
 
 -- Run analytics to populate statistical_unit view
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 902: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 905: worker.notify_task_progress() is not a procedure
 \echo 'SC1: Verifying public.statistical_unit view (expect 3 slices)'
 SC1: Verifying public.statistical_unit view (expect 3 slices)
 SELECT

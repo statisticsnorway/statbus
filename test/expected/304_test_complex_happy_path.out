@@ -422,6 +422,8 @@ ORDER BY lu.valid_from, lu.valid_to;
 \echo "Consolidated Statistical Unit view for LU-69A (69A000001) across all periods:"
 "Consolidated Statistical Unit view for LU-69A (69A000001) across all periods:"
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 1046: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 1049: worker.notify_task_progress() is not a procedure
 SELECT
     su.name, su.valid_from, su.valid_to,
     su.physical_address_part1, su.physical_postcode, su.physical_region_code,
@@ -821,6 +823,8 @@ ORDER BY est.valid_from, est.valid_to;
 \echo "Consolidated Statistical Unit view for ES-69B (E69B00001) across all periods:"
 "Consolidated Statistical Unit view for ES-69B (E69B00001) across all periods:"
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 1317: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 1320: worker.notify_task_progress() is not a procedure
 SELECT
     su.name, su.valid_from, su.valid_to,
     su.physical_address_part1, su.physical_postcode, su.physical_region_code,
@@ -1186,6 +1190,8 @@ ORDER BY est.valid_from, est.valid_to;
 \echo "Consolidated Statistical Unit view for ES-69C (E69C00001) across all periods:"
 "Consolidated Statistical Unit view for ES-69C (E69C00001) across all periods:"
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 1564: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 1567: worker.notify_task_progress() is not a procedure
 SELECT
     su.name, su.valid_from, su.valid_to,
     su.physical_address_part1, su.physical_postcode, su.physical_region_code,

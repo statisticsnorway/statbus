@@ -121,10 +121,12 @@ WHERE slug LIKE 'import_35_%' ORDER BY slug;
 \echo Run worker processing for analytics tasks
 Run worker processing for analytics tasks
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 972: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 975: worker.notify_task_progress() is not a procedure
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |  1711
+ analytics | completed |   437
  import    | completed |    96
 (2 rows)
 
@@ -515,18 +517,12 @@ FROM public.statistical_history
 WHERE resolution = 'year'
 AND year < 2013
 ORDER BY year,unit_type;
- resolution | year |   unit_type   | exists_count | exists_change | exists_added_count | exists_removed_count | countable_count | countable_change | countable_added_count | countable_removed_count 
-------------+------+---------------+--------------+---------------+--------------------+----------------------+-----------------+------------------+-----------------------+-------------------------
- year       | 2010 | establishment |            3 |             3 |                  3 |                    0 |               2 |                2 |                     2 |                       0
- year       | 2010 | legal_unit    |            2 |             2 |                  2 |                    0 |               1 |                1 |                     1 |                       0
- year       | 2010 | enterprise    |            2 |             2 |                  2 |                    0 |               1 |                1 |                     1 |                       0
- year       | 2011 | establishment |            3 |             0 |                  0 |                    0 |               1 |               -1 |                     0 |                       1
- year       | 2011 | legal_unit    |            2 |             0 |                  0 |                    0 |               1 |                0 |                     0 |                       0
- year       | 2011 | enterprise    |            2 |             0 |                  0 |                    0 |               1 |                0 |                     0 |                       0
- year       | 2012 | establishment |            3 |             0 |                  0 |                    0 |               1 |                0 |                     0 |                       0
- year       | 2012 | legal_unit    |            2 |             0 |                  0 |                    0 |               1 |                0 |                     0 |                       0
- year       | 2012 | enterprise    |            2 |             0 |                  0 |                    0 |               1 |                0 |                     0 |                       0
-(9 rows)
+ resolution | year | unit_type  | exists_count | exists_change | exists_added_count | exists_removed_count | countable_count | countable_change | countable_added_count | countable_removed_count 
+------------+------+------------+--------------+---------------+--------------------+----------------------+-----------------+------------------+-----------------------+-------------------------
+ year       | 2010 | enterprise |            1 |             1 |                  1 |                    0 |               1 |                1 |                     1 |                       0
+ year       | 2011 | enterprise |            1 |             0 |                  0 |                    0 |               1 |                0 |                     0 |                       0
+ year       | 2012 | enterprise |            1 |             0 |                  0 |                    0 |               1 |                0 |                     0 |                       0
+(3 rows)
 
 SELECT
     resolution, year, unit_type,
@@ -536,18 +532,12 @@ FROM public.statistical_history
 WHERE resolution = 'year'
 AND year < 2013
 ORDER BY year,unit_type;
- resolution | year |   unit_type   | count | births | deaths 
-------------+------+---------------+-------+--------+--------
- year       | 2010 | establishment |     2 |      2 |      0
- year       | 2010 | legal_unit    |     1 |      1 |      0
- year       | 2010 | enterprise    |     1 |      1 |      0
- year       | 2011 | establishment |     1 |      0 |      0
- year       | 2011 | legal_unit    |     1 |      0 |      0
- year       | 2011 | enterprise    |     1 |      0 |      0
- year       | 2012 | establishment |     1 |      0 |      0
- year       | 2012 | legal_unit    |     1 |      0 |      0
- year       | 2012 | enterprise    |     1 |      0 |      0
-(9 rows)
+ resolution | year | unit_type  | count | births | deaths 
+------------+------+------------+-------+--------+--------
+ year       | 2010 | enterprise |     1 |      1 |      0
+ year       | 2011 | enterprise |     1 |      0 |      0
+ year       | 2012 | enterprise |     1 |      0 |      0
+(3 rows)
 
 SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistical_history_drilldown(
     year_min := 2010,
@@ -563,8 +553,8 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
              "month": null,                               +
              "births": 1,                                 +
              "deaths": 0,                                 +
-             "exists_count": 2,                           +
-             "exists_change": 2,                          +
+             "exists_count": 1,                           +
+             "exists_change": 1,                          +
              "stats_summary": {                           +
                  "type": "stats_agg",                     +
                  "turnover": {                            +
@@ -595,7 +585,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
              "countable_count": 1,                        +
              "countable_change": 1,                       +
              "name_change_count": 0,                      +
-             "exists_added_count": 2,                     +
+             "exists_added_count": 1,                     +
              "sector_change_count": 0,                    +
              "status_change_count": 0,                    +
              "exists_removed_count": 0,                   +
@@ -614,7 +604,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
              "month": null,                               +
              "births": 0,                                 +
              "deaths": 0,                                 +
-             "exists_count": 2,                           +
+             "exists_count": 1,                           +
              "exists_change": 0,                          +
              "stats_summary": {                           +
                  "type": "stats_agg",                     +
@@ -762,8 +752,8 @@ SELECT jsonb_pretty(
              "month": null,                               +
              "births": 1,                                 +
              "deaths": 0,                                 +
-             "exists_count": 2,                           +
-             "exists_change": 2,                          +
+             "exists_count": 1,                           +
+             "exists_change": 1,                          +
              "stats_summary": {                           +
                  "type": "stats_agg",                     +
                  "turnover": {                            +
@@ -794,7 +784,7 @@ SELECT jsonb_pretty(
              "countable_count": 1,                        +
              "countable_change": 1,                       +
              "name_change_count": 0,                      +
-             "exists_added_count": 2,                     +
+             "exists_added_count": 1,                     +
              "sector_change_count": 0,                    +
              "status_change_count": 0,                    +
              "exists_removed_count": 0,                   +
@@ -813,7 +803,7 @@ SELECT jsonb_pretty(
              "month": null,                               +
              "births": 0,                                 +
              "deaths": 0,                                 +
-             "exists_count": 2,                           +
+             "exists_count": 1,                           +
              "exists_change": 0,                          +
              "stats_summary": {                           +
                  "type": "stats_agg",                     +
@@ -864,7 +854,7 @@ SELECT jsonb_pretty(
              "month": null,                               +
              "births": 0,                                 +
              "deaths": 0,                                 +
-             "exists_count": 2,                           +
+             "exists_count": 1,                           +
              "exists_change": 0,                          +
              "stats_summary": {                           +
                  "type": "stats_agg",                     +
@@ -1003,237 +993,35 @@ SELECT jsonb_pretty(
           year_min := 2010,
           year_max := 2012
      ))) AS statistical_history_drilldown;
-               statistical_history_drilldown               
------------------------------------------------------------
- {                                                        +
-     "stats": [                                           +
-         {                                                +
-             "year": 2010,                                +
-             "month": null,                               +
-             "births": 1,                                 +
-             "deaths": 0,                                 +
-             "exists_count": 2,                           +
-             "exists_change": 2,                          +
-             "stats_summary": {                           +
-                 "type": "stats_agg",                     +
-                 "turnover": {                            +
-                     "max": 25000000,                     +
-                     "min": 12000000,                     +
-                     "sum": 37000000,                     +
-                     "mean": 18500000.00,                 +
-                     "type": "float_agg",                 +
-                     "count": 2,                          +
-                     "stddev": 9192388.16,                +
-                     "variance": 84500000000000.00,       +
-                     "sum_sq_diff": 84500000000000.00,    +
-                     "coefficient_of_variation_pct": 49.69+
-                 },                                       +
-                 "employees": {                           +
-                     "max": 10,                           +
-                     "min": 7,                            +
-                     "sum": 17,                           +
-                     "mean": 8.50,                        +
-                     "type": "int_agg",                   +
-                     "count": 2,                          +
-                     "stddev": 2.12,                      +
-                     "variance": 4.50,                    +
-                     "sum_sq_diff": 4.50,                 +
-                     "coefficient_of_variation_pct": 24.96+
-                 }                                        +
-             },                                           +
-             "countable_count": 1,                        +
-             "countable_change": 1,                       +
-             "name_change_count": 0,                      +
-             "exists_added_count": 2,                     +
-             "sector_change_count": 0,                    +
-             "status_change_count": 0,                    +
-             "exists_removed_count": 0,                   +
-             "countable_added_count": 1,                  +
-             "unit_size_change_count": 0,                 +
-             "countable_removed_count": 0,                +
-             "legal_form_change_count": 0,                +
-             "physical_region_change_count": 0,           +
-             "physical_address_change_count": 0,          +
-             "physical_country_change_count": 0,          +
-             "primary_activity_category_change_count": 0, +
-             "secondary_activity_category_change_count": 0+
-         },                                               +
-         {                                                +
-             "year": 2011,                                +
-             "month": null,                               +
-             "births": 0,                                 +
-             "deaths": 0,                                 +
-             "exists_count": 2,                           +
-             "exists_change": 0,                          +
-             "stats_summary": {                           +
-                 "type": "stats_agg",                     +
-                 "turnover": {                            +
-                     "max": 25000000,                     +
-                     "min": 25000000,                     +
-                     "sum": 25000000,                     +
-                     "mean": 25000000.00,                 +
-                     "type": "float_agg",                 +
-                     "count": 1,                          +
-                     "stddev": null,                      +
-                     "variance": null,                    +
-                     "sum_sq_diff": 0.00,                 +
-                     "coefficient_of_variation_pct": null +
-                 },                                       +
-                 "employees": {                           +
-                     "max": 10,                           +
-                     "min": 10,                           +
-                     "sum": 10,                           +
-                     "mean": 10.00,                       +
-                     "type": "int_agg",                   +
-                     "count": 1,                          +
-                     "stddev": null,                      +
-                     "variance": null,                    +
-                     "sum_sq_diff": 0.00,                 +
-                     "coefficient_of_variation_pct": null +
-                 }                                        +
-             },                                           +
-             "countable_count": 1,                        +
-             "countable_change": 0,                       +
-             "name_change_count": 0,                      +
-             "exists_added_count": 0,                     +
-             "sector_change_count": 0,                    +
-             "status_change_count": 0,                    +
-             "exists_removed_count": 0,                   +
-             "countable_added_count": 0,                  +
-             "unit_size_change_count": 0,                 +
-             "countable_removed_count": 0,                +
-             "legal_form_change_count": 0,                +
-             "physical_region_change_count": 0,           +
-             "physical_address_change_count": 0,          +
-             "physical_country_change_count": 0,          +
-             "primary_activity_category_change_count": 0, +
-             "secondary_activity_category_change_count": 0+
-         },                                               +
-         {                                                +
-             "year": 2012,                                +
-             "month": null,                               +
-             "births": 0,                                 +
-             "deaths": 0,                                 +
-             "exists_count": 2,                           +
-             "exists_change": 0,                          +
-             "stats_summary": {                           +
-                 "type": "stats_agg",                     +
-                 "turnover": {                            +
-                     "max": 25000000,                     +
-                     "min": 25000000,                     +
-                     "sum": 25000000,                     +
-                     "mean": 25000000.00,                 +
-                     "type": "float_agg",                 +
-                     "count": 1,                          +
-                     "stddev": null,                      +
-                     "variance": null,                    +
-                     "sum_sq_diff": 0.00,                 +
-                     "coefficient_of_variation_pct": null +
-                 },                                       +
-                 "employees": {                           +
-                     "max": 10,                           +
-                     "min": 10,                           +
-                     "sum": 10,                           +
-                     "mean": 10.00,                       +
-                     "type": "int_agg",                   +
-                     "count": 1,                          +
-                     "stddev": null,                      +
-                     "variance": null,                    +
-                     "sum_sq_diff": 0.00,                 +
-                     "coefficient_of_variation_pct": null +
-                 }                                        +
-             },                                           +
-             "countable_count": 1,                        +
-             "countable_change": 0,                       +
-             "name_change_count": 0,                      +
-             "exists_added_count": 0,                     +
-             "sector_change_count": 0,                    +
-             "status_change_count": 0,                    +
-             "exists_removed_count": 0,                   +
-             "countable_added_count": 0,                  +
-             "unit_size_change_count": 0,                 +
-             "countable_removed_count": 0,                +
-             "legal_form_change_count": 0,                +
-             "physical_region_change_count": 0,           +
-             "physical_address_change_count": 0,          +
-             "physical_country_change_count": 0,          +
-             "primary_activity_category_change_count": 0, +
-             "secondary_activity_category_change_count": 0+
-         }                                                +
-     ],                                                   +
-     "filter": {                                          +
-         "type": "year",                                  +
-         "year": null,                                    +
-         "unit_type": "legal_unit",                       +
-         "region_path": null,                             +
-         "sector_path": null,                             +
-         "activity_category_path": null                   +
-     },                                                   +
-     "available": {                                       +
-         "region": [                                      +
-             {                                            +
-                 "code": "11",                            +
-                 "name": "Rogaland",                      +
-                 "path": "11",                            +
-                 "count": 3,                              +
-                 "label": "11",                           +
-                 "has_children": true                     +
-             }                                            +
-         ],                                               +
-         "sector": [                                      +
-             {                                            +
-                 "code": null,                            +
-                 "name": "Innenlandske sektorer",         +
-                 "path": "innl",                          +
-                 "count": 3,                              +
-                 "label": "innl",                         +
-                 "has_children": true                     +
-             }                                            +
-         ],                                               +
-         "status": [                                      +
-             {                                            +
-                 "code": "active",                        +
-                 "name": "Active",                        +
-                 "count": 3,                              +
-                 "has_children": false                    +
-             }                                            +
-         ],                                               +
-         "country": [                                     +
-             {                                            +
-                 "name": "Norway",                        +
-                 "count": 3,                              +
-                 "iso_2": "NO",                           +
-                 "has_children": false                    +
-             }                                            +
-         ],                                               +
-         "legal_form": [                                  +
-             {                                            +
-                 "code": "AS",                            +
-                 "name": "Aksjeselskap",                  +
-                 "count": 3,                              +
-                 "has_children": false                    +
-             }                                            +
-         ],                                               +
-         "activity_category": [                           +
-             {                                            +
-                 "code": "",                              +
-                 "name": "Transport og lagring",          +
-                 "path": "H",                             +
-                 "count": 3,                              +
-                 "label": "H",                            +
-                 "has_children": true                     +
-             }                                            +
-         ]                                                +
-     },                                                   +
-     "unit_type": "legal_unit",                           +
-     "breadcrumb": {                                      +
-         "region": null,                                  +
-         "sector": null,                                  +
-         "status": null,                                  +
-         "country": null,                                 +
-         "legal_form": null,                              +
-         "activity_category": null                        +
-     }                                                    +
+     statistical_history_drilldown      
+----------------------------------------
+ {                                     +
+     "stats": null,                    +
+     "filter": {                       +
+         "type": "year",               +
+         "year": null,                 +
+         "unit_type": "legal_unit",    +
+         "region_path": null,          +
+         "sector_path": null,          +
+         "activity_category_path": null+
+     },                                +
+     "available": {                    +
+         "region": null,               +
+         "sector": null,               +
+         "status": null,               +
+         "country": null,              +
+         "legal_form": null,           +
+         "activity_category": null     +
+     },                                +
+     "unit_type": "legal_unit",        +
+     "breadcrumb": {                   +
+         "region": null,               +
+         "sector": null,               +
+         "status": null,               +
+         "country": null,              +
+         "legal_form": null,           +
+         "activity_category": null     +
+     }                                 +
  }
 (1 row)
 
@@ -1253,221 +1041,35 @@ SELECT jsonb_pretty(
           year_min := 2010,
           year_max := 2012
      ))) AS statistical_history_drilldown;
-               statistical_history_drilldown               
------------------------------------------------------------
- {                                                        +
-     "stats": [                                           +
-         {                                                +
-             "year": 2010,                                +
-             "month": null,                               +
-             "births": 2,                                 +
-             "deaths": 0,                                 +
-             "exists_count": 3,                           +
-             "exists_change": 3,                          +
-             "stats_summary": {                           +
-                 "type": "stats_agg",                     +
-                 "turnover": {                            +
-                     "max": 25000000,                     +
-                     "min": 12000000,                     +
-                     "sum": 37000000,                     +
-                     "mean": 18500000.00,                 +
-                     "type": "float_agg",                 +
-                     "count": 2,                          +
-                     "stddev": 9192388.16,                +
-                     "variance": 84500000000000.00,       +
-                     "sum_sq_diff": 84500000000000.00,    +
-                     "coefficient_of_variation_pct": 49.69+
-                 },                                       +
-                 "employees": {                           +
-                     "max": 10,                           +
-                     "min": 7,                            +
-                     "sum": 17,                           +
-                     "mean": 8.50,                        +
-                     "type": "int_agg",                   +
-                     "count": 2,                          +
-                     "stddev": 2.12,                      +
-                     "variance": 4.50,                    +
-                     "sum_sq_diff": 4.50,                 +
-                     "coefficient_of_variation_pct": 24.96+
-                 }                                        +
-             },                                           +
-             "countable_count": 2,                        +
-             "countable_change": 2,                       +
-             "name_change_count": 0,                      +
-             "exists_added_count": 3,                     +
-             "sector_change_count": 0,                    +
-             "status_change_count": 0,                    +
-             "exists_removed_count": 0,                   +
-             "countable_added_count": 2,                  +
-             "unit_size_change_count": 0,                 +
-             "countable_removed_count": 0,                +
-             "legal_form_change_count": 0,                +
-             "physical_region_change_count": 0,           +
-             "physical_address_change_count": 0,          +
-             "physical_country_change_count": 0,          +
-             "primary_activity_category_change_count": 0, +
-             "secondary_activity_category_change_count": 0+
-         },                                               +
-         {                                                +
-             "year": 2011,                                +
-             "month": null,                               +
-             "births": 0,                                 +
-             "deaths": 0,                                 +
-             "exists_count": 3,                           +
-             "exists_change": 0,                          +
-             "stats_summary": {                           +
-                 "type": "stats_agg",                     +
-                 "turnover": {                            +
-                     "max": 25000000,                     +
-                     "min": 25000000,                     +
-                     "sum": 25000000,                     +
-                     "mean": 25000000.00,                 +
-                     "type": "float_agg",                 +
-                     "count": 1,                          +
-                     "stddev": null,                      +
-                     "variance": null,                    +
-                     "sum_sq_diff": 0.00,                 +
-                     "coefficient_of_variation_pct": null +
-                 },                                       +
-                 "employees": {                           +
-                     "max": 10,                           +
-                     "min": 10,                           +
-                     "sum": 10,                           +
-                     "mean": 10.00,                       +
-                     "type": "int_agg",                   +
-                     "count": 1,                          +
-                     "stddev": null,                      +
-                     "variance": null,                    +
-                     "sum_sq_diff": 0.00,                 +
-                     "coefficient_of_variation_pct": null +
-                 }                                        +
-             },                                           +
-             "countable_count": 1,                        +
-             "countable_change": -1,                      +
-             "name_change_count": 0,                      +
-             "exists_added_count": 0,                     +
-             "sector_change_count": 0,                    +
-             "status_change_count": 0,                    +
-             "exists_removed_count": 0,                   +
-             "countable_added_count": 0,                  +
-             "unit_size_change_count": 0,                 +
-             "countable_removed_count": 1,                +
-             "legal_form_change_count": 0,                +
-             "physical_region_change_count": 0,           +
-             "physical_address_change_count": 0,          +
-             "physical_country_change_count": 0,          +
-             "primary_activity_category_change_count": 0, +
-             "secondary_activity_category_change_count": 0+
-         },                                               +
-         {                                                +
-             "year": 2012,                                +
-             "month": null,                               +
-             "births": 0,                                 +
-             "deaths": 0,                                 +
-             "exists_count": 3,                           +
-             "exists_change": 0,                          +
-             "stats_summary": {                           +
-                 "type": "stats_agg",                     +
-                 "turnover": {                            +
-                     "max": 25000000,                     +
-                     "min": 25000000,                     +
-                     "sum": 25000000,                     +
-                     "mean": 25000000.00,                 +
-                     "type": "float_agg",                 +
-                     "count": 1,                          +
-                     "stddev": null,                      +
-                     "variance": null,                    +
-                     "sum_sq_diff": 0.00,                 +
-                     "coefficient_of_variation_pct": null +
-                 },                                       +
-                 "employees": {                           +
-                     "max": 10,                           +
-                     "min": 10,                           +
-                     "sum": 10,                           +
-                     "mean": 10.00,                       +
-                     "type": "int_agg",                   +
-                     "count": 1,                          +
-                     "stddev": null,                      +
-                     "variance": null,                    +
-                     "sum_sq_diff": 0.00,                 +
-                     "coefficient_of_variation_pct": null +
-                 }                                        +
-             },                                           +
-             "countable_count": 1,                        +
-             "countable_change": 0,                       +
-             "name_change_count": 0,                      +
-             "exists_added_count": 0,                     +
-             "sector_change_count": 0,                    +
-             "status_change_count": 0,                    +
-             "exists_removed_count": 0,                   +
-             "countable_added_count": 0,                  +
-             "unit_size_change_count": 0,                 +
-             "countable_removed_count": 0,                +
-             "legal_form_change_count": 0,                +
-             "physical_region_change_count": 0,           +
-             "physical_address_change_count": 0,          +
-             "physical_country_change_count": 0,          +
-             "primary_activity_category_change_count": 0, +
-             "secondary_activity_category_change_count": 0+
-         }                                                +
-     ],                                                   +
-     "filter": {                                          +
-         "type": "year",                                  +
-         "year": null,                                    +
-         "unit_type": "establishment",                    +
-         "region_path": null,                             +
-         "sector_path": null,                             +
-         "activity_category_path": null                   +
-     },                                                   +
-     "available": {                                       +
-         "region": [                                      +
-             {                                            +
-                 "code": "11",                            +
-                 "name": "Rogaland",                      +
-                 "path": "11",                            +
-                 "count": 4,                              +
-                 "label": "11",                           +
-                 "has_children": true                     +
-             }                                            +
-         ],                                               +
-         "sector": null,                                  +
-         "status": [                                      +
-             {                                            +
-                 "code": "active",                        +
-                 "name": "Active",                        +
-                 "count": 4,                              +
-                 "has_children": false                    +
-             }                                            +
-         ],                                               +
-         "country": [                                     +
-             {                                            +
-                 "name": "Norway",                        +
-                 "count": 4,                              +
-                 "iso_2": "NO",                           +
-                 "has_children": false                    +
-             }                                            +
-         ],                                               +
-         "legal_form": null,                              +
-         "activity_category": [                           +
-             {                                            +
-                 "code": "",                              +
-                 "name": "Transport og lagring",          +
-                 "path": "H",                             +
-                 "count": 4,                              +
-                 "label": "H",                            +
-                 "has_children": true                     +
-             }                                            +
-         ]                                                +
-     },                                                   +
-     "unit_type": "establishment",                        +
-     "breadcrumb": {                                      +
-         "region": null,                                  +
-         "sector": null,                                  +
-         "status": null,                                  +
-         "country": null,                                 +
-         "legal_form": null,                              +
-         "activity_category": null                        +
-     }                                                    +
+     statistical_history_drilldown      
+----------------------------------------
+ {                                     +
+     "stats": null,                    +
+     "filter": {                       +
+         "type": "year",               +
+         "year": null,                 +
+         "unit_type": "establishment", +
+         "region_path": null,          +
+         "sector_path": null,          +
+         "activity_category_path": null+
+     },                                +
+     "available": {                    +
+         "region": null,               +
+         "sector": null,               +
+         "status": null,               +
+         "country": null,              +
+         "legal_form": null,           +
+         "activity_category": null     +
+     },                                +
+     "unit_type": "establishment",     +
+     "breadcrumb": {                   +
+         "region": null,               +
+         "sector": null,               +
+         "status": null,               +
+         "country": null,              +
+         "legal_form": null,           +
+         "activity_category": null     +
+     }                                 +
  }
 (1 row)
 

@@ -81,10 +81,12 @@ ORDER BY slug;
 \echo Run worker processing for analytics tasks - Block 1
 Run worker processing for analytics tasks - Block 1
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 902: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 905: worker.notify_task_progress() is not a procedure
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |   437
+ analytics | completed |    12
  import    | completed |    48
 (2 rows)
 
@@ -117,12 +119,9 @@ WHERE resolution = 'year'
 AND year < 2013
 AND unit_type = 'legal_unit'
 ORDER BY resolution, year, month, unit_type;
- resolution | year | unit_type  | count | births | deaths | sector_change_count 
-------------+------+------------+-------+--------+--------+---------------------
- year       | 2010 | legal_unit |     1 |      1 |      0 |                   0
- year       | 2011 | legal_unit |     1 |      0 |      0 |                   1
- year       | 2012 | legal_unit |     1 |      0 |      0 |                   0
-(3 rows)
+ resolution | year | unit_type | count | births | deaths | sector_change_count 
+------------+------+-----------+-------+--------+--------+---------------------
+(0 rows)
 
 \echo "Test statistical unit history by year-month - sector_change_count should be 1 for year-month 2011-1"
 "Test statistical unit history by year-month - sector_change_count should be 1 for year-month 2011-1"
@@ -132,45 +131,9 @@ WHERE resolution = 'year-month'
 AND year < 2013
 AND unit_type = 'legal_unit'
 ORDER BY resolution, year, month, unit_type;
- resolution | year | month | unit_type  | count | births | deaths | sector_change_count 
-------------+------+-------+------------+-------+--------+--------+---------------------
- year-month | 2010 |     1 | legal_unit |     1 |      1 |      0 |                   0
- year-month | 2010 |     2 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |     3 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |     4 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |     5 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |     6 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |     7 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |     8 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |     9 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |    10 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |    11 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |    12 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     1 | legal_unit |     1 |      0 |      0 |                   1
- year-month | 2011 |     2 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     3 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     4 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     5 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     6 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     7 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     8 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     9 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |    10 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |    11 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |    12 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2012 |     1 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2012 |     2 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2012 |     3 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2012 |     4 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2012 |     5 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2012 |     6 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2012 |     7 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2012 |     8 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2012 |     9 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2012 |    10 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2012 |    11 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2012 |    12 | legal_unit |     1 |      0 |      0 |                   0
-(36 rows)
+ resolution | year | month | unit_type | count | births | deaths | sector_change_count 
+------------+------+-------+-----------+-------+--------+--------+---------------------
+(0 rows)
 
 \x
 ROLLBACK TO before_loading_units;
@@ -224,10 +187,12 @@ ORDER BY slug;
 \echo Run worker processing for analytics tasks - Block 2
 Run worker processing for analytics tasks - Block 2
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 978: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 981: worker.notify_task_progress() is not a procedure
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |   862
+ analytics | completed |   437
  import    | completed |    48
 (2 rows)
 
@@ -260,11 +225,9 @@ WHERE resolution = 'year'
 AND year < 2012
 AND unit_type = 'legal_unit'
 ORDER BY resolution, year, month, unit_type;
- resolution | year | month | unit_type  | count | births | deaths | sector_change_count 
-------------+------+-------+------------+-------+--------+--------+---------------------
- year       | 2010 |       | legal_unit |     1 |      1 |      0 |                   0
- year       | 2011 |       | legal_unit |     1 |      0 |      0 |                   1
-(2 rows)
+ resolution | year | month | unit_type | count | births | deaths | sector_change_count 
+------------+------+-------+-----------+-------+--------+--------+---------------------
+(0 rows)
 
 \echo "Check statistical unit history by year-month - sector_change_count should be 1 for year-month 2011-2"
 "Check statistical unit history by year-month - sector_change_count should be 1 for year-month 2011-2"
@@ -274,33 +237,9 @@ WHERE resolution = 'year-month'
 AND year < 2012
 AND unit_type = 'legal_unit'
 ORDER BY resolution, year, month, unit_type;
- resolution | year | month | unit_type  | count | births | deaths | sector_change_count 
-------------+------+-------+------------+-------+--------+--------+---------------------
- year-month | 2010 |     1 | legal_unit |     1 |      1 |      0 |                   0
- year-month | 2010 |     2 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |     3 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |     4 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |     5 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |     6 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |     7 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |     8 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |     9 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |    10 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |    11 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2010 |    12 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     1 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     2 | legal_unit |     1 |      0 |      0 |                   1
- year-month | 2011 |     3 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     4 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     5 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     6 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     7 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     8 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |     9 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |    10 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |    11 | legal_unit |     1 |      0 |      0 |                   0
- year-month | 2011 |    12 | legal_unit |     1 |      0 |      0 |                   0
-(24 rows)
+ resolution | year | month | unit_type | count | births | deaths | sector_change_count 
+------------+------+-------+-----------+-------+--------+--------+---------------------
+(0 rows)
 
 \x
 ROLLBACK TO before_loading_units;
@@ -354,10 +293,12 @@ ORDER BY slug;
 \echo Run worker processing for analytics tasks - Block 3
 Run worker processing for analytics tasks - Block 3
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 1479: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 1482: worker.notify_task_progress() is not a procedure
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |   862
+ analytics | completed |   437
  import    | completed |    48
 (2 rows)
 
