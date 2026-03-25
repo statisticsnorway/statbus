@@ -17,15 +17,11 @@ import (
 // runUpgradePsql runs a SQL string using psql with connection args from .env.
 func runUpgradePsql(sql string, extraArgs ...string) ([]byte, error) {
 	projDir := migrate.PsqlProjectDir()
-	psqlArgs, env, err := migrate.PsqlArgs(projDir)
+	psqlPath, prefix, env, err := migrate.PsqlCommand(projDir)
 	if err != nil {
 		return nil, err
 	}
-	psqlPath, err := exec.LookPath("psql")
-	if err != nil {
-		return nil, fmt.Errorf("psql not found: %w", err)
-	}
-	args := append(psqlArgs[1:], "-c", sql)
+	args := append(prefix, "-c", sql)
 	args = append(args, extraArgs...)
 	c := exec.Command(psqlPath, args...)
 	c.Env = env

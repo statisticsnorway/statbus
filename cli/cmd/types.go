@@ -33,17 +33,12 @@ Requires the database to be running.`,
 		}
 		defer sqlFile.Close()
 
-		psqlArgs, env, err := migrate.PsqlArgs(projDir)
+		psqlPath, prefix, env, err := migrate.PsqlCommand(projDir)
 		if err != nil {
 			return err
 		}
 
-		psqlPath, err := exec.LookPath("psql")
-		if err != nil {
-			return fmt.Errorf("psql not found: %w", err)
-		}
-
-		c := exec.Command(psqlPath, psqlArgs[1:]...)
+		c := exec.Command(psqlPath, prefix...)
 		c.Dir = projDir
 		c.Env = env
 		c.Stdin = sqlFile

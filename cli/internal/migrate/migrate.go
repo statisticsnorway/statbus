@@ -59,6 +59,48 @@ func parseMigrationFile(path string) (*MigrationFile, error) {
 	}, nil
 }
 
+// useDockerPsql determines whether to use docker compose exec for psql.
+// DOCKER_PSQL=1/true forces docker mode. DOCKER_PSQL=0/false forces host mode.
+// Otherwise auto-detects: host psql if available, docker fallback if not.
+func useDockerPsql() bool {
+	if v := os.Getenv("DOCKER_PSQL"); v != "" {
+		return v == "1" || v == "true"
+	}
+	_, err := exec.LookPath("psql")
+	return err != nil // use docker if psql not on host
+}
+
+// PsqlCommand returns the command path, arg prefix, and environment for running psql.
+// Auto-detects host psql vs docker compose exec, with DOCKER_PSQL env override.
+func PsqlCommand(projDir string) (psqlPath string, prefixArgs []string, env []string, err error) {
+	if useDockerPsql() {
+		f, loadErr := dotenv.Load(filepath.Join(projDir, ".env"))
+		if loadErr != nil {
+			return "", nil, nil, fmt.Errorf("load .env for docker psql: %w", loadErr)
+		}
+		getOr := func(key, fallback string) string {
+			if v, ok := f.Get(key); ok {
+				return v
+			}
+			return fallback
+		}
+		user := getOr("POSTGRES_ADMIN_USER", "postgres")
+		db := getOr("POSTGRES_APP_DB", "statbus_local")
+		fmt.Fprintf(os.Stderr, "note: using psql via docker compose (set DOCKER_PSQL=0 to use host psql)\n")
+		return "docker", []string{"compose", "exec", "-T", "db", "psql", "-U", user, "-d", db}, nil, nil
+	}
+
+	hostPath, err := exec.LookPath("psql")
+	if err != nil {
+		return "", nil, nil, fmt.Errorf("psql not found on host and docker fallback disabled: %w", err)
+	}
+	hostEnv, err := psqlEnv(projDir)
+	if err != nil {
+		return "", nil, nil, err
+	}
+	return hostPath, nil, hostEnv, nil
+}
+
 // psqlEnv builds the environment for psql from .env file.
 func psqlEnv(projDir string) ([]string, error) {
 	envPath := filepath.Join(projDir, ".env")
@@ -91,13 +133,14 @@ func psqlEnv(projDir string) ([]string, error) {
 
 // runPsql executes a SQL string via psql. Returns stdout+stderr and any error.
 func runPsql(projDir string, sql string, extraArgs ...string) (string, error) {
-	env, err := psqlEnv(projDir)
+	psqlPath, prefix, env, err := PsqlCommand(projDir)
 	if err != nil {
 		return "", err
 	}
 
-	args := append([]string{"-v", "ON_ERROR_STOP=on"}, extraArgs...)
-	cmd := exec.Command("psql", args...)
+	args := append(prefix, "-v", "ON_ERROR_STOP=on")
+	args = append(args, extraArgs...)
+	cmd := exec.Command(psqlPath, args...)
 	cmd.Dir = projDir
 	cmd.Env = env
 	cmd.Stdin = strings.NewReader(sql)
@@ -108,7 +151,7 @@ func runPsql(projDir string, sql string, extraArgs ...string) (string, error) {
 
 // runPsqlFile executes a SQL file via psql.
 func runPsqlFile(projDir string, filePath string) (string, error) {
-	env, err := psqlEnv(projDir)
+	psqlPath, prefix, env, err := PsqlCommand(projDir)
 	if err != nil {
 		return "", err
 	}
@@ -119,7 +162,8 @@ func runPsqlFile(projDir string, filePath string) (string, error) {
 	}
 	defer file.Close()
 
-	cmd := exec.Command("psql", "-v", "ON_ERROR_STOP=on")
+	args := append(prefix, "-v", "ON_ERROR_STOP=on")
+	cmd := exec.Command(psqlPath, args...)
 	cmd.Dir = projDir
 	cmd.Env = env
 	cmd.Stdin = file
@@ -439,14 +483,19 @@ func New(projDir string, description string, extension string) error {
 	return nil
 }
 
-// PsqlArgs returns the psql command and arguments needed to connect.
+// PsqlArgs returns the psql command args and environment needed to connect.
 // Used by `sb psql` to exec into psql with the right connection settings.
+// Returns (fullArgs, env, error) where fullArgs[0] is the argv[0] name.
 func PsqlArgs(projDir string) ([]string, []string, error) {
-	env, err := psqlEnv(projDir)
+	psqlPath, prefix, env, err := PsqlCommand(projDir)
 	if err != nil {
 		return nil, nil, err
 	}
-	return []string{"psql"}, env, nil
+	// Build full args: [argv0, prefix...]
+	// For host psql: ["psql"]
+	// For docker: ["docker", "compose", "exec", "-T", "db", "psql", "-U", user, "-d", db]
+	args := append([]string{filepath.Base(psqlPath)}, prefix...)
+	return args, env, nil
 }
 
 // PsqlProjectDir is a convenience to get projDir for psql commands.

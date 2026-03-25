@@ -181,9 +181,10 @@ func trimString(s string) string {
 }
 
 func runPsqlSQL(projDir string, psqlArgs []string, env []string, sql string) error {
-	psqlPath, err := exec.LookPath("psql")
+	// psqlArgs[0] is the command name (psql or docker), rest are prefix args
+	psqlPath, err := exec.LookPath(psqlArgs[0])
 	if err != nil {
-		return fmt.Errorf("psql not found: %w", err)
+		return fmt.Errorf("%s not found: %w", psqlArgs[0], err)
 	}
 	args := append(psqlArgs[1:], "-v", "ON_ERROR_STOP=on")
 	cmd := exec.Command(psqlPath, args...)

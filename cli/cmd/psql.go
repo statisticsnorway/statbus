@@ -16,28 +16,27 @@ var psqlCmd = &cobra.Command{
 	DisableFlagParsing: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		projDir := migrate.PsqlProjectDir()
-		psqlArgs, env, err := migrate.PsqlArgs(projDir)
+		psqlPath, prefix, env, err := migrate.PsqlCommand(projDir)
 		if err != nil {
 			return err
 		}
 
-		// Append user's extra args
-		fullArgs := append(psqlArgs, args...)
+		// Build full args: [argv0, prefix..., user_args...]
+		fullArgs := append([]string{psqlPath}, prefix...)
+		fullArgs = append(fullArgs, args...)
 
-		// If stdin is a terminal, exec into psql (replace this process)
-		// Otherwise, run as a child process (for piped input)
-		psqlPath, err := exec.LookPath("psql")
+		resolvedPath, err := exec.LookPath(psqlPath)
 		if err != nil {
 			return err
 		}
 
-		if isTerminal() {
-			// Replace current process with psql
-			return syscall.Exec(psqlPath, fullArgs, env)
+		if isTerminal() && env != nil {
+			// Host psql + terminal: exec into psql (replace this process)
+			return syscall.Exec(resolvedPath, fullArgs, env)
 		}
 
-		// Non-interactive: run as child
-		child := exec.Command(psqlPath, fullArgs[1:]...)
+		// Non-interactive or docker mode: run as child
+		child := exec.Command(resolvedPath, fullArgs[1:]...)
 		child.Env = env
 		child.Stdin = os.Stdin
 		child.Stdout = os.Stdout
