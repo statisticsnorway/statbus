@@ -161,24 +161,6 @@ ORDER BY child.priority, child.id;
 CALL worker.process_tasks(p_queue => 'analytics');
 WARNING:  Error in before_procedure worker.notify_task_progress for task 4: worker.notify_task_progress() is not a procedure
 WARNING:  Error in before_procedure worker.notify_task_progress for task 7: worker.notify_task_progress() is not a procedure
-WARNING:  Task 8 (derive_statistical_history) failed in 4.656000 ms: Error: upper bound of FOR loop cannot be null
-Context: PL/pgSQL function derive_statistical_history(jsonb,jsonb) line 65 at FOR with integer loop variable
-SQL statement "CALL worker.derive_statistical_history($1, $2)"
-PL/pgSQL function worker.process_tasks(integer,integer,text,bigint,worker.process_mode) line 206 at EXECUTE
-Detail: 
-Hint: 
-WARNING:  Task 10 (derive_statistical_unit_facet) failed in 9.104000 ms: Error: upper bound of FOR loop cannot be null
-Context: PL/pgSQL function derive_statistical_unit_facet(jsonb,jsonb) line 69 at FOR with integer loop variable
-SQL statement "CALL worker.derive_statistical_unit_facet($1, $2)"
-PL/pgSQL function worker.process_tasks(integer,integer,text,bigint,worker.process_mode) line 206 at EXECUTE
-Detail: 
-Hint: 
-WARNING:  Task 12 (derive_statistical_history_facet) failed in 7.815000 ms: Error: upper bound of FOR loop cannot be null
-Context: PL/pgSQL function derive_statistical_history_facet(jsonb,jsonb) line 79 at FOR with integer loop variable
-SQL statement "CALL worker.derive_statistical_history_facet($1, $2)"
-PL/pgSQL function worker.process_tasks(integer,integer,text,bigint,worker.process_mode) line 206 at EXECUTE
-Detail: 
-Hint: 
 \echo "=== 9. Verify all tasks completed ==="
 "=== 9. Verify all tasks completed ==="
 -- All tasks should be completed (no pending or failed)
@@ -189,9 +171,8 @@ GROUP BY state
 ORDER BY state;
    state   | cnt 
 -----------+-----
- completed |   6
- failed    |   5
-(2 rows)
+ completed |  11
+(1 row)
 
 \echo "=== 10. Verify info bubbled up to collect_changes ==="
 "=== 10. Verify info bubbled up to collect_changes ==="
