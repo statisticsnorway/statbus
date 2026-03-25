@@ -61,6 +61,13 @@ func (d *Daemon) Run(ctx context.Context) error {
 		return err
 	}
 
+	// Complete any in-progress upgrade from a previous daemon instance
+	// (e.g., after self-update restart via exit code 42)
+	d.completeInProgressUpgrade(ctx)
+
+	// Sync UPGRADE_* config from .env to system_info table
+	d.syncConfigToSystemInfo(ctx)
+
 	// Clean stale maintenance file
 	d.cleanStaleMaintenance(ctx)
 
@@ -163,6 +170,10 @@ func (d *Daemon) handleNotification(ctx context.Context, n *pgconn.Notification)
 		d.discover(ctx)
 	case "upgrade_apply":
 		payload := strings.TrimSpace(n.Payload)
+		if payload == "" {
+			// Empty payload = run whatever is scheduled
+			return
+		}
 		if d.verbose {
 			fmt.Printf("Received NOTIFY upgrade_apply: %s\n", payload)
 		}
@@ -184,6 +195,64 @@ func (d *Daemon) acquireAdvisoryLock(ctx context.Context) error {
 		return fmt.Errorf("another upgrade daemon is already running (advisory lock held)")
 	}
 	return nil
+}
+
+// completeInProgressUpgrade checks for an upgrade that was started but not
+// completed (e.g., daemon restarted after self-update). If found, verifies
+// health and marks completed_at. This ensures "completed" truly means
+// the new version is running and verified.
+func (d *Daemon) completeInProgressUpgrade(ctx context.Context) {
+	var id int
+	var version string
+	err := d.queryConn.QueryRow(ctx,
+		`SELECT id, version FROM public.upgrade
+		 WHERE started_at IS NOT NULL
+		   AND completed_at IS NULL
+		   AND error IS NULL
+		   AND rollback_completed_at IS NULL
+		 LIMIT 1`).Scan(&id, &version)
+	if err != nil {
+		return // no in-progress upgrade
+	}
+
+	fmt.Printf("Found in-progress upgrade to %s, verifying...\n", version)
+
+	// Verify services are healthy
+	if err := d.waitForDBHealth(30 * time.Second); err != nil {
+		fmt.Printf("Warning: in-progress upgrade %s health check failed: %v\n", version, err)
+		d.queryConn.Exec(ctx,
+			"UPDATE public.upgrade SET error = $1 WHERE id = $2",
+			fmt.Sprintf("post-restart health check failed: %v", err), id)
+		return
+	}
+
+	// Mark complete
+	d.queryConn.Exec(ctx,
+		"UPDATE public.upgrade SET completed_at = now() WHERE id = $1", id)
+	fmt.Printf("Upgrade to %s completed (verified after daemon restart)\n", version)
+}
+
+// syncConfigToSystemInfo writes UPGRADE_* values from .env to system_info.
+// This keeps the admin UI in sync with the config file.
+func (d *Daemon) syncConfigToSystemInfo(ctx context.Context) {
+	envPath := filepath.Join(d.projDir, ".env")
+	f, err := dotenv.Load(envPath)
+	if err != nil {
+		return
+	}
+
+	keys := []string{"upgrade_channel", "upgrade_check_interval", "upgrade_auto_download"}
+	envKeys := []string{"UPGRADE_CHANNEL", "UPGRADE_CHECK_INTERVAL", "UPGRADE_AUTO_DOWNLOAD"}
+
+	for i, key := range keys {
+		if v, ok := f.Get(envKeys[i]); ok {
+			d.queryConn.Exec(ctx,
+				`INSERT INTO public.system_info (key, value, updated_at)
+				 VALUES ($1, $2, clock_timestamp())
+				 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = clock_timestamp()`,
+				key, v)
+		}
+	}
 }
 
 func (d *Daemon) loadConfig() error {
@@ -496,7 +565,7 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 		d.rollback(ctx, id, version, previousVersion, progress)
 		return err
 	}
-	if err := runCommand(projDir, "git", "checkout", version); err != nil {
+	if err := runCommand(projDir, "git", "-c", "advice.detachedHead=false", "checkout", version); err != nil {
 		d.rollback(ctx, id, version, previousVersion, progress)
 		return err
 	}
@@ -609,7 +678,7 @@ func (d *Daemon) rollback(ctx context.Context, id int, version, previousVersion 
 
 	// Restore git state
 	if previousVersion != "" {
-		runCommand(projDir, "git", "checkout", "-f", previousVersion)
+		runCommand(projDir, "git", "-c", "advice.detachedHead=false", "checkout", "-f", previousVersion)
 		runCommand(projDir, filepath.Join(projDir, "sb"), "config", "generate")
 	}
 

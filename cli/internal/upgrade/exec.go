@@ -90,7 +90,7 @@ func (d *Daemon) archiveBackup(backupPath, version string) {
 	archiveDir := filepath.Join(os.Getenv("HOME"), "statbus-backups")
 	archivePath := filepath.Join(archiveDir, fmt.Sprintf("%s-pre.tar.gz", version))
 
-	if err := runCommand(d.projDir, "tar", "-czf", archivePath, "-C", filepath.Dir(backupPath), filepath.Base(backupPath)); err != nil {
+	if err := runCommand(d.projDir, "sudo", "tar", "-czf", archivePath, "-C", filepath.Dir(backupPath), filepath.Base(backupPath)); err != nil {
 		fmt.Printf("Warning: archive backup failed: %v\n", err)
 		return
 	}

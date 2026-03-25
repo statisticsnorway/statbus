@@ -481,11 +481,17 @@ func runRootInstall() error {
 	backupDir := homeDir + "/statbus-backups/pre-upgrade/"
 	rsyncPath := "/usr/bin/rsync"
 
+	tarPath := "/usr/bin/tar"
+	backupsBase := homeDir + "/statbus-backups"
+
 	sudoersContent := fmt.Sprintf("# StatBus upgrade daemon — rsync for database backup/restore\n"+
 		"%s ALL=(root) NOPASSWD: %s -a --delete %s %s\n"+
-		"%s ALL=(root) NOPASSWD: %s -a --delete %s %s\n",
+		"%s ALL=(root) NOPASSWD: %s -a --delete %s %s\n"+
+		"# tar for archiving backups (root-owned rsync files)\n"+
+		"%s ALL=(root) NOPASSWD: %s -czf %s/*-pre.tar.gz -C %s pre-upgrade\n",
 		user, rsyncPath, dataDir, backupDir,
 		user, rsyncPath, backupDir, dataDir,
+		user, tarPath, backupsBase, backupsBase,
 	)
 	sudoersFile := fmt.Sprintf("/etc/sudoers.d/statbus-upgrade-%s", user)
 
