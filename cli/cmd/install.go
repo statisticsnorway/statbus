@@ -52,6 +52,12 @@ type step struct {
 }
 
 func runInstall() error {
+	// Running as root? Only do the systemd step — nothing else.
+	// This prevents root from creating files owned by root in the project dir.
+	if os.Geteuid() == 0 {
+		return runRootInstall()
+	}
+
 	fmt.Println("StatBus Installation")
 	fmt.Println("====================")
 	fmt.Println()
@@ -229,12 +235,29 @@ func checkUsersDone(dir string) bool {
 	return count != "0" && count != ""
 }
 
-func checkDaemonDone(_ string) bool {
+func checkDaemonDone(dir string) bool {
 	if runtime.GOOS != "linux" {
 		return true // Skip on non-Linux
 	}
-	cmd := exec.Command("systemctl", "is-enabled", "statbus-upgrade@*")
+	instance := daemonInstance(dir)
+	if instance == "" {
+		return false
+	}
+	cmd := exec.Command("systemctl", "is-enabled", instance)
 	return cmd.Run() == nil
+}
+
+// daemonInstance returns the systemd instance name, e.g. "statbus-upgrade@statbus_dev.service"
+func daemonInstance(dir string) string {
+	f, err := dotenv.Load(filepath.Join(dir, ".env.config"))
+	if err != nil {
+		return ""
+	}
+	code, ok := f.Get("DEPLOYMENT_SLOT_CODE")
+	if !ok || code == "" {
+		return ""
+	}
+	return fmt.Sprintf("statbus-upgrade@statbus_%s.service", code)
 }
 
 // ── Step runners ──
@@ -385,17 +408,64 @@ func runInstallDaemon(dir string) error {
 		return nil
 	}
 
-	if nonInteractive {
-		installSystemd(dir)
-		return nil
+	instance := daemonInstance(dir)
+	if instance == "" {
+		return fmt.Errorf("could not determine daemon instance name (check DEPLOYMENT_SLOT_CODE in .env.config)")
 	}
 
-	fmt.Print("  Install upgrade daemon (systemd service)? [y/N] ")
-	if confirm() {
-		installSystemd(dir)
-	} else {
-		fmt.Println("  Skipped (run later with: sudo systemctl enable --now statbus-upgrade@<code>)")
+	fmt.Println()
+	fmt.Println("  The upgrade daemon requires sudo to install the systemd service.")
+	fmt.Println("  Re-run as root to install it:")
+	fmt.Println()
+	fmt.Printf("    sudo %s/sb install\n", dir)
+	fmt.Println()
+	fmt.Println("  This will ONLY install the systemd service — no other files will be touched.")
+	return fmt.Errorf("sudo required for systemd service installation")
+}
+
+// runRootInstall handles `sudo sb install` — ONLY installs the systemd service.
+// Does not touch any project files to avoid creating root-owned files.
+func runRootInstall() error {
+	fmt.Println("StatBus — Installing systemd service (running as root)")
+	fmt.Println()
+
+	if runtime.GOOS != "linux" {
+		return fmt.Errorf("systemd service installation is only supported on Linux")
 	}
+
+	// Find the project directory from the binary location
+	sbPath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("find executable: %w", err)
+	}
+	dir := filepath.Dir(sbPath)
+
+	instance := daemonInstance(dir)
+	if instance == "" {
+		return fmt.Errorf("could not determine daemon instance name (check DEPLOYMENT_SLOT_CODE in .env.config)")
+	}
+
+	serviceFile := filepath.Join(dir, "devops", "statbus-upgrade.service")
+	destFile := "/etc/systemd/system/statbus-upgrade@.service"
+
+	fmt.Printf("  Copying %s → %s\n", filepath.Base(serviceFile), destFile)
+	if err := copyFile(serviceFile, destFile); err != nil {
+		return fmt.Errorf("copy service file: %w", err)
+	}
+
+	fmt.Println("  Running systemctl daemon-reload")
+	if err := runCmd("systemctl", "daemon-reload"); err != nil {
+		return fmt.Errorf("daemon-reload: %w", err)
+	}
+
+	fmt.Printf("  Enabling and starting %s\n", instance)
+	if err := runCmd("systemctl", "enable", "--now", instance); err != nil {
+		return fmt.Errorf("enable service: %w", err)
+	}
+
+	fmt.Println()
+	fmt.Printf("  Upgrade daemon installed and started: %s\n", instance)
+	fmt.Println("  Re-run without sudo to verify: ./sb install")
 	return nil
 }
 
@@ -455,27 +525,3 @@ func copyFile(src, dst string) error {
 	return os.WriteFile(dst, data, 0755)
 }
 
-func installSystemd(installDir string) {
-	user := os.Getenv("USER")
-	serviceFile := filepath.Join(installDir, "devops", "statbus-upgrade.service")
-	destFile := "/etc/systemd/system/statbus-upgrade@.service"
-
-	fmt.Printf("  Installing systemd service for user %s...\n", user)
-
-	if err := runCmd("sudo", "cp", serviceFile, destFile); err != nil {
-		fmt.Printf("  Failed to copy service file: %v\n", err)
-		return
-	}
-	if err := runCmd("sudo", "systemctl", "daemon-reload"); err != nil {
-		fmt.Printf("  Failed to reload systemd: %v\n", err)
-		return
-	}
-
-	instance := fmt.Sprintf("statbus-upgrade@%s", user)
-	if err := runCmd("sudo", "systemctl", "enable", "--now", instance); err != nil {
-		fmt.Printf("  Failed to enable service: %v\n", err)
-		return
-	}
-
-	fmt.Printf("  Upgrade daemon installed and started as %s\n", instance)
-}
