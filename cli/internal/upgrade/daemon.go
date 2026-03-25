@@ -561,7 +561,7 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 
 	// Step 13: Start all services
 	progress.Write("Starting all services...")
-	if err := runCommand(projDir, "docker", "compose", "up", "-d", "--remove-orphans"); err != nil {
+	if err := runCommand(projDir, "docker", "compose", "--profile", "all", "up", "-d", "--remove-orphans"); err != nil {
 		d.rollback(ctx, id, version, previousVersion, progress)
 		return err
 	}
@@ -617,7 +617,7 @@ func (d *Daemon) rollback(ctx context.Context, id int, version, previousVersion 
 	d.restoreDatabase(progress)
 
 	// Start with old config
-	runCommand(projDir, "docker", "compose", "up", "-d", "--remove-orphans")
+	runCommand(projDir, "docker", "compose", "--profile", "all", "up", "-d", "--remove-orphans")
 
 	// Reconnect (may fail if DB didn't come back)
 	if err := d.reconnect(ctx); err != nil {
