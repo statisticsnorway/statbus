@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/statisticsnorway/statbus/cli/internal/config"
+	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/migrate"
 )
 
@@ -30,6 +31,12 @@ Each entry in .users.yml should have:
   - role: admin_user | regular_user | restricted_user | external_user`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		projDir := config.ProjectDir()
+
+		// Ensure JWT secret is loaded (idempotent — required for user creation)
+		if err := ensureJWTSecret(projDir); err != nil {
+			return fmt.Errorf("ensure JWT secret: %w", err)
+		}
+
 		usersFile := filepath.Join(projDir, ".users.yml")
 
 		if _, err := os.Stat(usersFile); os.IsNotExist(err) {
@@ -194,6 +201,31 @@ func runPsqlSQL(projDir string, psqlArgs []string, env []string, sql string) err
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
+}
+
+// ensureJWTSecret loads the JWT secret from .env.credentials into auth.secrets.
+// Idempotent — uses ON CONFLICT DO UPDATE.
+func ensureJWTSecret(projDir string) error {
+	credsPath := filepath.Join(projDir, ".env.credentials")
+	creds, err := dotenv.Load(credsPath)
+	if err != nil {
+		return fmt.Errorf("load .env.credentials: %w", err)
+	}
+	jwtSecret, ok := creds.Get("JWT_SECRET")
+	if !ok || jwtSecret == "" {
+		return fmt.Errorf("JWT_SECRET not found in .env.credentials")
+	}
+
+	sql := fmt.Sprintf(`INSERT INTO auth.secrets (key, value, description)
+VALUES ('jwt_secret', '%s', 'JWT signing secret')
+ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = clock_timestamp();`,
+		strings.ReplaceAll(jwtSecret, "'", "''"))
+
+	psqlArgs, env, err := migrate.PsqlArgs(projDir)
+	if err != nil {
+		return err
+	}
+	return runPsqlSQL(projDir, psqlArgs, env, sql)
 }
 
 func init() {
