@@ -343,10 +343,10 @@ export async function POST(request: NextRequest) {
       if (systemColumnIndices.size > 0) {
         const rawCsv = csvBuffer ? csvBuffer.toString('utf-8') : await file.text();
         const parsed = Papa.parse(rawCsv, { header: false, skipEmptyLines: false });
-        const cleanedRows = (parsed.data as string[][]).map(row =>
-          row.filter((_, i) => !systemColumnIndices.has(i))
-        );
-        csvBuffer = Buffer.from(Papa.unparse(cleanedRows, { header: false }) + '\n', 'utf-8');
+        const cleanedRows = (parsed.data as string[][])
+          .filter(row => row.some(cell => cell !== ''))
+          .map(row => row.filter((_, i) => !systemColumnIndices.has(i)));
+        csvBuffer = Buffer.from(Papa.unparse(cleanedRows, { header: false, newline: '\n' }) + '\n', 'utf-8');
       }
 
       const headers = rawHeaders
