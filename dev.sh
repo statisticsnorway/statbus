@@ -61,8 +61,8 @@ EOS
         docker compose exec -T db pg_isready -U postgres > /dev/null 2>&1
       ;;
     'continous-integration-test' )
-        BRANCH=${1:-${BRANCH:-}}
-        COMMIT=${2:-${COMMIT:-}}
+        BRANCH=${BRANCH:-${1:-}}
+        COMMIT=${COMMIT:-${2:-}}
 
         if [ -z "$BRANCH" ]; then
             BRANCH=$(git rev-parse --abbrev-ref HEAD)
@@ -81,8 +81,8 @@ EOS
                 echo "Error: Commit '$COMMIT' is invalid or not found."
                 exit 1
             fi
-            echo "Checking out branch '$BRANCH' at commit '$COMMIT'"
-            git checkout -B "$BRANCH" "$COMMIT"
+            echo "Checking out commit '$COMMIT' (from branch '$BRANCH')"
+            git checkout "$COMMIT"
         fi
 
         ./sb config generate

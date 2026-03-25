@@ -1,15 +1,19 @@
 name: pg_regress
 on:
   workflow_dispatch:
-  push:
-    branches-ignore:
-      - 'devops/**'  # Ignore any branch prefixed with devops/
+  workflow_run:
+    workflows: ["CI Images"]
+    types: [completed]
   pull_request:
     branches-ignore:
-      - 'devops/**'  # Ignore any branch prefixed with devops/
+      - 'devops/**'
 
 jobs:
   pg_regress:
+    # Skip if CI Images failed (only applies to workflow_run trigger)
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
     concurrency:
       group: statbus_test
       cancel-in-progress: false
@@ -17,12 +21,26 @@ jobs:
     permissions:
       contents: read
     steps:
+    - name: Determine ref and sha
+      id: ref
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_run" ]; then
+          echo "ref=${{ github.event.workflow_run.head_branch }}" >> "$GITHUB_OUTPUT"
+          echo "sha=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+        else
+          echo "ref=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+        fi
     - name: Run tests on remote server
-      uses: appleboy/ssh-action@v1.0.0
+      uses: appleboy/ssh-action@v1.2.0
       with:
         host: niue.statbus.org
         username: statbus_test
         key: ${{ secrets.SSH_KEY }}
         command_timeout: 60m
+        envs: BRANCH,COMMIT
         script: |
-          cd statbus; ./devops/manage-statbus.sh continous-integration-test "${{github.ref_name}}" "${{github.sha}}"
+          cd statbus && ./dev.sh continous-integration-test
+      env:
+        BRANCH: ${{ steps.ref.outputs.ref }}
+        COMMIT: ${{ steps.ref.outputs.sha }}
