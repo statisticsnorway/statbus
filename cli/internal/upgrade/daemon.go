@@ -20,7 +20,8 @@ import (
 // Daemon is the long-running upgrade daemon.
 type Daemon struct {
 	projDir      string
-	conn         *pgx.Conn
+	listenConn   *pgx.Conn         // dedicated to LISTEN/NOTIFY — never use for queries
+	queryConn    *pgx.Conn         // for all SELECT/INSERT/UPDATE queries
 	verbose      bool
 	channel      string
 	interval     time.Duration
@@ -52,7 +53,8 @@ func (d *Daemon) Run(ctx context.Context) error {
 	if err := d.connect(ctx); err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}
-	defer d.conn.Close(context.Background())
+	defer d.listenConn.Close(context.Background())
+	defer d.queryConn.Close(context.Background())
 
 	// Acquire advisory lock to prevent multiple daemons
 	if err := d.acquireAdvisoryLock(ctx); err != nil {
@@ -65,11 +67,11 @@ func (d *Daemon) Run(ctx context.Context) error {
 	// Check for missed scheduled upgrades
 	d.checkMissedUpgrades(ctx)
 
-	// LISTEN on channels
-	if _, err := d.conn.Exec(ctx, "LISTEN upgrade_check"); err != nil {
+	// LISTEN on channels (must use listenConn — queryConn is for queries)
+	if _, err := d.listenConn.Exec(ctx, "LISTEN upgrade_check"); err != nil {
 		return fmt.Errorf("LISTEN upgrade_check: %w", err)
 	}
-	if _, err := d.conn.Exec(ctx, "LISTEN upgrade_apply"); err != nil {
+	if _, err := d.listenConn.Exec(ctx, "LISTEN upgrade_apply"); err != nil {
 		return fmt.Errorf("LISTEN upgrade_apply: %w", err)
 	}
 
@@ -140,7 +142,7 @@ func (d *Daemon) stopListenLoop() {
 // listenLoop runs WaitForNotification in a goroutine, sending results on channels.
 func (d *Daemon) listenLoop(ctx context.Context, notifyCh chan<- *pgconn.Notification, errCh chan<- error) {
 	for {
-		notification, err := d.conn.WaitForNotification(ctx)
+		notification, err := d.listenConn.WaitForNotification(ctx)
 		if err != nil {
 			if ctx.Err() != nil {
 				return // context canceled, clean exit
@@ -174,7 +176,7 @@ func (d *Daemon) handleNotification(ctx context.Context, n *pgconn.Notification)
 
 func (d *Daemon) acquireAdvisoryLock(ctx context.Context) error {
 	var locked bool
-	err := d.conn.QueryRow(ctx, "SELECT pg_try_advisory_lock(hashtext('upgrade_daemon'))").Scan(&locked)
+	err := d.queryConn.QueryRow(ctx, "SELECT pg_try_advisory_lock(hashtext('upgrade_daemon'))").Scan(&locked)
 	if err != nil {
 		return fmt.Errorf("advisory lock: %w", err)
 	}
@@ -240,13 +242,24 @@ func (d *Daemon) connect(ctx context.Context) error {
 		getOr("POSTGRES_ADMIN_PASSWORD", ""),
 	)
 
-	d.conn, err = pgx.Connect(ctx, connStr)
-	return err
+	d.listenConn, err = pgx.Connect(ctx, connStr)
+	if err != nil {
+		return fmt.Errorf("listen connection: %w", err)
+	}
+	d.queryConn, err = pgx.Connect(ctx, connStr)
+	if err != nil {
+		d.listenConn.Close(context.Background())
+		return fmt.Errorf("query connection: %w", err)
+	}
+	return nil
 }
 
 func (d *Daemon) reconnect(ctx context.Context) error {
-	if d.conn != nil {
-		d.conn.Close(context.Background())
+	if d.listenConn != nil {
+		d.listenConn.Close(context.Background())
+	}
+	if d.queryConn != nil {
+		d.queryConn.Close(context.Background())
 	}
 	if err := d.connect(ctx); err != nil {
 		return err
@@ -255,10 +268,10 @@ func (d *Daemon) reconnect(ctx context.Context) error {
 	if err := d.acquireAdvisoryLock(ctx); err != nil {
 		return fmt.Errorf("re-acquire lock after reconnect: %w", err)
 	}
-	if _, err := d.conn.Exec(ctx, "LISTEN upgrade_check"); err != nil {
+	if _, err := d.listenConn.Exec(ctx, "LISTEN upgrade_check"); err != nil {
 		return err
 	}
-	if _, err := d.conn.Exec(ctx, "LISTEN upgrade_apply"); err != nil {
+	if _, err := d.listenConn.Exec(ctx, "LISTEN upgrade_apply"); err != nil {
 		return err
 	}
 	return nil
@@ -274,7 +287,7 @@ func (d *Daemon) cleanStaleMaintenance(ctx context.Context) {
 	// Only clean the file if we successfully confirm no active upgrade.
 	// If DB is unreachable, leave the file (safer to stay in maintenance).
 	var count int
-	err := d.conn.QueryRow(ctx,
+	err := d.queryConn.QueryRow(ctx,
 		"SELECT COUNT(*) FROM public.upgrade WHERE started_at IS NOT NULL AND completed_at IS NULL AND error IS NULL").Scan(&count)
 	if err != nil {
 		if d.verbose {
@@ -292,7 +305,7 @@ func (d *Daemon) cleanStaleMaintenance(ctx context.Context) {
 
 func (d *Daemon) checkMissedUpgrades(ctx context.Context) {
 	var count int
-	err := d.conn.QueryRow(ctx,
+	err := d.queryConn.QueryRow(ctx,
 		"SELECT COUNT(*) FROM public.upgrade WHERE scheduled_at IS NOT NULL AND started_at IS NULL").Scan(&count)
 	if err == nil && count > 0 {
 		fmt.Printf("Found %d missed scheduled upgrade(s)\n", count)
@@ -315,10 +328,14 @@ func (d *Daemon) discover(ctx context.Context) {
 
 	for _, r := range filtered {
 		var exists bool
-		err := d.conn.QueryRow(ctx,
+		err := d.queryConn.QueryRow(ctx,
 			"SELECT EXISTS(SELECT 1 FROM public.upgrade WHERE version = $1)",
 			r.TagName).Scan(&exists)
-		if err != nil || exists {
+		if err != nil {
+			fmt.Printf("  Check exists for %s: %v\n", r.TagName, err)
+			continue
+		}
+		if exists {
 			continue
 		}
 
@@ -338,7 +355,7 @@ func (d *Daemon) discover(ctx context.Context) {
 			summary = r.TagName
 		}
 
-		_, err = d.conn.Exec(ctx,
+		_, err = d.queryConn.Exec(ctx,
 			`INSERT INTO public.upgrade (version, commit_sha, is_prerelease, summary, changes, release_url, has_migrations)
 			 VALUES ($1, $2, $3, $4, $5, $6, $7)
 			 ON CONFLICT (version) DO NOTHING`,
@@ -358,7 +375,7 @@ func (d *Daemon) discover(ctx context.Context) {
 }
 
 func (d *Daemon) preDownloadImages(ctx context.Context) {
-	rows, err := d.conn.Query(ctx,
+	rows, err := d.queryConn.Query(ctx,
 		`SELECT version FROM public.upgrade
 		 WHERE images_downloaded = false AND skipped_at IS NULL AND error IS NULL
 		 ORDER BY discovered_at LIMIT 3`)
@@ -382,14 +399,14 @@ func (d *Daemon) preDownloadImages(ctx context.Context) {
 			continue
 		}
 
-		d.conn.Exec(ctx,
+		d.queryConn.Exec(ctx,
 			"UPDATE public.upgrade SET images_downloaded = true WHERE version = $1",
 			version)
 	}
 }
 
 func (d *Daemon) scheduleImmediate(ctx context.Context, version string) {
-	_, err := d.conn.Exec(ctx,
+	_, err := d.queryConn.Exec(ctx,
 		`INSERT INTO public.upgrade (version, commit_sha, is_prerelease, summary, scheduled_at)
 		 VALUES ($1, $1, false, $1, now())
 		 ON CONFLICT (version) DO UPDATE SET scheduled_at = now()`,
@@ -404,7 +421,7 @@ func (d *Daemon) scheduleImmediate(ctx context.Context, version string) {
 func (d *Daemon) executeScheduled(ctx context.Context) {
 	var id int
 	var version string
-	err := d.conn.QueryRow(ctx,
+	err := d.queryConn.QueryRow(ctx,
 		`SELECT id, version FROM public.upgrade
 		 WHERE scheduled_at <= now() AND started_at IS NULL AND skipped_at IS NULL
 		 ORDER BY scheduled_at LIMIT 1`).Scan(&id, &version)
@@ -427,7 +444,7 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 	defer progress.Close()
 
 	// Mark started
-	d.conn.Exec(ctx,
+	d.queryConn.Exec(ctx,
 		"UPDATE public.upgrade SET started_at = now(), from_version = $1 WHERE id = $2",
 		d.currentVersion(), id)
 
@@ -440,11 +457,13 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 		return err
 	}
 
-	// Step 2: Stop listen goroutine and close DB connection (we're going offline)
-	progress.Write("Closing daemon DB connection...")
+	// Step 2: Stop listen goroutine and close DB connections (we're going offline)
+	progress.Write("Closing daemon DB connections...")
 	d.stopListenLoop()
-	d.conn.Close(context.Background())
-	d.conn = nil
+	d.listenConn.Close(context.Background())
+	d.listenConn = nil
+	d.queryConn.Close(context.Background())
+	d.queryConn = nil
 
 	// Step 3: Activate maintenance mode
 	progress.Write("Activating maintenance mode...")
@@ -531,7 +550,7 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 	}
 
 	// Update backup_path now that we have a connection
-	d.conn.Exec(ctx, "UPDATE public.upgrade SET backup_path = $1 WHERE id = $2", backupPath, id)
+	d.queryConn.Exec(ctx, "UPDATE public.upgrade SET backup_path = $1 WHERE id = $2", backupPath, id)
 
 	// Step 12: Run migrations
 	progress.Write("Running migrations...")
@@ -562,7 +581,7 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 	d.archiveBackup(backupPath, version)
 
 	// Step 17: Mark complete
-	d.conn.Exec(ctx, "UPDATE public.upgrade SET completed_at = now() WHERE id = $1", id)
+	d.queryConn.Exec(ctx, "UPDATE public.upgrade SET completed_at = now() WHERE id = $1", id)
 
 	progress.Write("Upgrade to %s complete!", version)
 	fmt.Printf("Upgrade to %s completed successfully\n", version)
@@ -574,8 +593,8 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 }
 
 func (d *Daemon) failUpgrade(ctx context.Context, id int, errMsg string, progress *ProgressLog) {
-	if d.conn != nil {
-		d.conn.Exec(ctx, "UPDATE public.upgrade SET error = $1 WHERE id = $2", errMsg, id)
+	if d.queryConn != nil {
+		d.queryConn.Exec(ctx, "UPDATE public.upgrade SET error = $1 WHERE id = $2", errMsg, id)
 	}
 	progress.Write("FAILED: %s", errMsg)
 }
@@ -608,8 +627,8 @@ func (d *Daemon) rollback(ctx context.Context, id int, version, previousVersion 
 	// Deactivate maintenance
 	d.setMaintenance(false)
 
-	if d.conn != nil {
-		d.conn.Exec(ctx,
+	if d.queryConn != nil {
+		d.queryConn.Exec(ctx,
 			"UPDATE public.upgrade SET error = 'Rollback completed', rollback_completed_at = now() WHERE id = $1", id)
 	}
 
@@ -640,8 +659,8 @@ func (d *Daemon) selfUpdate(ctx context.Context, version string, progress *Progr
 		progress.Write("%s", msg)
 		fmt.Fprintln(os.Stderr, msg)
 		// Record in system_info so admins can see the failure
-		if d.conn != nil {
-			d.conn.Exec(ctx,
+		if d.queryConn != nil {
+			d.queryConn.Exec(ctx,
 				`INSERT INTO public.system_info (key, value, updated_at) VALUES ('self_update_error', $1, now())
 				 ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = now()`, msg)
 		}
