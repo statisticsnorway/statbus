@@ -244,8 +244,42 @@ func runPrereq(_ string) error {
 }
 
 func runCloneRepo(dir string) error {
-	return runCmd("git", "clone", "--depth", "1",
-		"https://github.com/statisticsnorway/statbus.git", dir)
+	if err := runCmd("git", "clone", "--depth", "1",
+		"https://github.com/statisticsnorway/statbus.git", dir); err != nil {
+		return err
+	}
+	// Configure deploy branch fetch refspec if slot code is known
+	configureDeployFetch(dir)
+	return nil
+}
+
+// configureDeployFetch adds the slot-specific deploy branch to the git fetch refspec.
+// e.g., for slot "dev": +refs/heads/devops/deploy-to-dev:refs/remotes/origin/devops/deploy-to-dev
+// Idempotent — safe to call on existing repos.
+func configureDeployFetch(dir string) {
+	cfgPath := filepath.Join(dir, ".env.config")
+	f, err := dotenv.Load(cfgPath)
+	if err != nil {
+		return // no config yet, will be called again after config is created
+	}
+	code, ok := f.Get("DEPLOYMENT_SLOT_CODE")
+	if !ok || code == "" {
+		return
+	}
+
+	refspec := fmt.Sprintf("+refs/heads/devops/deploy-to-%s:refs/remotes/origin/devops/deploy-to-%s", code, code)
+
+	// Check if already configured
+	cmd := exec.Command("git", "config", "--get-all", "remote.origin.fetch")
+	cmd.Dir = dir
+	out, _ := cmd.Output()
+	if strings.Contains(string(out), refspec) {
+		return // already configured
+	}
+
+	add := exec.Command("git", "config", "--add", "remote.origin.fetch", refspec)
+	add.Dir = dir
+	add.Run()
 }
 
 func runInstallBinary(dir string) error {
@@ -300,7 +334,12 @@ func runCreateCreds(dir string) error {
 
 func runGenerateEnv(dir string) error {
 	sb := filepath.Join(dir, "sb")
-	return runCmdDir(dir, sb, "config", "generate")
+	if err := runCmdDir(dir, sb, "config", "generate"); err != nil {
+		return err
+	}
+	// Now that config exists, ensure deploy branch fetch is configured
+	configureDeployFetch(dir)
+	return nil
 }
 
 func runPullImages(dir string) error {
