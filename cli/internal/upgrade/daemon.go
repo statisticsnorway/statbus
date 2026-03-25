@@ -517,50 +517,47 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 		"UPDATE public.upgrade SET started_at = now(), from_version = $1 WHERE id = $2",
 		d.currentVersion(), id)
 
-	progress.Write("Starting upgrade to %s...", version)
+	fromVersion := d.currentVersion()
+	progress.Write("Upgrading to %s (from %s)...", version, fromVersion)
 
-	// Step 1: Verify images pre-downloaded
-	progress.Write("Pulling images...")
+	// Step 1: Prepare images
+	progress.Write("Preparing images...")
 	if err := d.pullImages(version); err != nil {
-		d.failUpgrade(ctx, id, "pull images: "+err.Error(), progress)
+		d.failUpgrade(ctx, id, fmt.Sprintf("Failed to pull images for %s: %v", version, err), progress)
 		return err
 	}
 
-	// Step 2: Stop listen goroutine and close DB connections (we're going offline)
-	progress.Write("Closing daemon DB connections...")
+	// Step 2: Enter maintenance mode
 	d.stopListenLoop()
 	d.listenConn.Close(context.Background())
 	d.listenConn = nil
 	d.queryConn.Close(context.Background())
 	d.queryConn = nil
-
-	// Step 3: Activate maintenance mode
-	progress.Write("Activating maintenance mode...")
+	progress.Write("Entering maintenance mode...")
 	d.setMaintenance(true)
 
-	// Step 4: Stop services (keep proxy running for maintenance page)
-	progress.Write("Stopping application services...")
+	// Step 3: Stop services (keep proxy running for maintenance page)
+	progress.Write("Stopping services...")
 	if err := runCommand(projDir, "docker", "compose", "stop", "app", "worker", "rest"); err != nil {
-		progress.Write("Warning: stop services: %v", err)
+		progress.Write("Warning: could not stop some services: %v", err)
 	}
 
-	// Step 5: Stop database (must be quiescent for backup)
-	progress.Write("Stopping database...")
+	// Step 4: Stop database for consistent backup
 	if err := runCommand(projDir, "docker", "compose", "stop", "db"); err != nil {
-		progress.Write("Warning: stop db: %v", err)
+		progress.Write("Warning: could not stop database: %v", err)
 	}
 
-	// Step 6: Backup database (now quiescent — safe to rsync)
+	// Step 5: Backup database
 	progress.Write("Backing up database...")
-	previousVersion := d.currentVersion()
+	previousVersion := fromVersion
 	backupPath, err := d.backupDatabase(progress)
 	if err != nil {
 		d.rollback(ctx, id, version, previousVersion, progress)
 		return err
 	}
 
-	// Step 7: Git checkout
-	progress.Write("Checking out %s...", version)
+	// Step 6: Install new version
+	progress.Write("Installing %s...", version)
 	if err := runCommand(projDir, "git", "fetch", "--tags", "--depth", "1", "origin", "tag", version); err != nil {
 		d.rollback(ctx, id, version, previousVersion, progress)
 		return err
@@ -570,35 +567,33 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 		return err
 	}
 
-	// Step 7b: Verify checked-out SHA matches manifest (detect tag spoofing)
+	// Verify checked-out SHA matches manifest (detect tag spoofing)
 	if manifest, mErr := FetchManifest(version); mErr == nil && manifest.CommitSHA != "" {
 		if checkedOut, gErr := runCommandOutput(projDir, "git", "rev-parse", "HEAD"); gErr == nil {
 			checkedOut = strings.TrimSpace(checkedOut)
 			if !strings.HasPrefix(checkedOut, manifest.CommitSHA) && !strings.HasPrefix(manifest.CommitSHA, checkedOut) {
-				errMsg := fmt.Sprintf("tag verification failed: checked out %s but manifest expected %s", checkedOut, manifest.CommitSHA)
+				errMsg := fmt.Sprintf("Version verification failed: expected commit %s but got %s. Possible tag tampering.", manifest.CommitSHA[:12], checkedOut[:12])
 				progress.Write("%s", errMsg)
 				d.rollback(ctx, id, version, previousVersion, progress)
 				return fmt.Errorf("%s", errMsg)
 			}
-			progress.Write("Tag verified: SHA %s", checkedOut[:12])
 		}
 	}
 
-	// Step 8: Regenerate config
-	progress.Write("Regenerating configuration...")
+	// Step 7: Regenerate config
 	if err := runCommand(projDir, filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
 		d.rollback(ctx, id, version, previousVersion, progress)
 		return err
 	}
 
-	// Step 9: Pull images with new VERSION from .env
+	// Step 8: Pull updated images
 	progress.Write("Pulling updated images...")
 	if err := runCommand(projDir, "docker", "compose", "pull"); err != nil {
 		d.rollback(ctx, id, version, previousVersion, progress)
 		return err
 	}
 
-	// Step 10: Start database only
+	// Step 9: Start database
 	progress.Write("Starting database...")
 	if err := runCommand(projDir, "docker", "compose", "up", "-d", "db"); err != nil {
 		d.rollback(ctx, id, version, previousVersion, progress)
@@ -606,13 +601,12 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 	}
 
 	// Wait for DB health
-	progress.Write("Waiting for database health check...")
 	if err := d.waitForDBHealth(30 * time.Second); err != nil {
 		d.rollback(ctx, id, version, previousVersion, progress)
 		return err
 	}
 
-	// Step 11: Reconnect daemon DB connection
+	// Reconnect daemon DB connection
 	if err := d.reconnect(ctx); err != nil {
 		d.rollback(ctx, id, version, previousVersion, progress)
 		return err
@@ -621,42 +615,42 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 	// Update backup_path now that we have a connection
 	d.queryConn.Exec(ctx, "UPDATE public.upgrade SET backup_path = $1 WHERE id = $2", backupPath, id)
 
-	// Step 12: Run migrations
-	progress.Write("Running migrations...")
+	// Step 10: Run migrations
+	progress.Write("Applying database migrations...")
 	if err := runCommand(projDir, filepath.Join(projDir, "sb"), "migrate", "up", "--verbose"); err != nil {
 		d.rollback(ctx, id, version, previousVersion, progress)
 		return err
 	}
 
-	// Step 13: Start all services
-	progress.Write("Starting all services...")
+	// Step 11: Start all services
+	progress.Write("Starting services...")
 	if err := runCommand(projDir, "docker", "compose", "--profile", "all", "up", "-d", "--remove-orphans"); err != nil {
 		d.rollback(ctx, id, version, previousVersion, progress)
 		return err
 	}
 
-	// Step 14: Health check
-	progress.Write("Running health checks...")
+	// Step 12: Verify health
+	progress.Write("Verifying health...")
 	if err := d.healthCheck(5, 5*time.Second); err != nil {
 		d.rollback(ctx, id, version, previousVersion, progress)
 		return err
 	}
 
-	// Step 15: Deactivate maintenance mode
+	// Done — deactivate maintenance, archive, finalize
 	d.setMaintenance(false)
-
-	// Step 16: Archive backup
-	progress.Write("Archiving backup...")
 	d.archiveBackup(backupPath, version)
 
-	// Step 17: Mark complete
-	d.queryConn.Exec(ctx, "UPDATE public.upgrade SET completed_at = now() WHERE id = $1", id)
-
-	progress.Write("Upgrade to %s complete!", version)
 	fmt.Printf("Upgrade to %s completed successfully\n", version)
 
-	// Self-update check
+	// Self-update binary (may restart daemon via exit code 42).
+	// If self-update restarts, the NEW daemon marks completed_at on startup
+	// (completeInProgressUpgrade) — so "completed" means the new version is verified.
 	d.selfUpdate(ctx, version, progress)
+
+	// If we get here, self-update didn't restart (no binary for platform, or same version).
+	// Mark complete now since there won't be a new daemon to do it.
+	d.queryConn.Exec(ctx, "UPDATE public.upgrade SET completed_at = now() WHERE id = $1", id)
+	progress.Write("Upgrade to %s complete!", version)
 
 	return nil
 }
@@ -669,7 +663,7 @@ func (d *Daemon) failUpgrade(ctx context.Context, id int, errMsg string, progres
 }
 
 func (d *Daemon) rollback(ctx context.Context, id int, version, previousVersion string, progress *ProgressLog) {
-	progress.Write("Rolling back from %s...", version)
+	progress.Write("Upgrade failed — rolling back to previous version...")
 
 	projDir := d.projDir
 
@@ -701,7 +695,7 @@ func (d *Daemon) rollback(ctx context.Context, id int, version, previousVersion 
 			"UPDATE public.upgrade SET error = 'Rollback completed', rollback_completed_at = now() WHERE id = $1", id)
 	}
 
-	progress.Write("Rollback complete. Running on previous version.")
+	progress.Write("Rollback complete. The previous version has been restored.")
 }
 
 func (d *Daemon) selfUpdate(ctx context.Context, version string, progress *ProgressLog) {
