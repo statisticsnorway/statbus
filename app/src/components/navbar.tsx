@@ -12,6 +12,7 @@ import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useAuth, isAuthenticatedStrictAtom, currentUserAtom } from "@/atoms/auth";
 import { useBaseData } from "@/atoms/base-data";
 import { useWorkerStatus, usePipelineStepWeights, COMMAND_LABELS, type ImportStatus, type ImportJobProgress, type PhaseStatus, type PipelineStepWeight } from "@/atoms/worker_status";
+import { pendingUpgradeStatusAtom, type UpgradeStatus } from "@/atoms/upgrade-status";
 import { useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useAtomValue } from "jotai";
@@ -275,9 +276,47 @@ function NavLink({
   );
 }
 
+function UpgradeBadge({ status }: { status: UpgradeStatus }) {
+  const colorClass =
+    status === "in_progress"
+      ? "bg-yellow-400"
+      : status === "scheduled"
+        ? "bg-yellow-400"
+        : "bg-blue-400";
+
+  return (
+    <span
+      className={cn(
+        "absolute -top-0.5 -right-0.5 block h-3 w-3 rounded-full border-2 border-ssb-dark",
+        colorClass,
+        status === "in_progress" && "animate-pulse"
+      )}
+      aria-label={`Upgrade ${status}`}
+    />
+  );
+}
+
+function LogoWithUpgradeBadge({ upgradeStatus }: { upgradeStatus: UpgradeStatus | null }) {
+  const href = upgradeStatus ? "/admin/upgrades" : "/";
+
+  return (
+    <Link
+      href={href}
+      className="relative flex items-center space-x-3 rtl:space-x-reverse"
+      title={upgradeStatus ? `Software upgrade ${upgradeStatus}` : "StatBus Home"}
+    >
+      <div className="relative">
+        <Image src={logo} alt="Statbus Logo" className="h-9 w-9" />
+        {upgradeStatus && <UpgradeBadge status={upgradeStatus} />}
+      </div>
+    </Link>
+  );
+}
+
 export default function Navbar() {
   const isAuthenticated = useAtomValue(isAuthenticatedStrictAtom);
   const currentUser = useAtomValue(currentUserAtom);
+  const upgradeStatus = useAtomValue(pendingUpgradeStatusAtom);
   const { hasStatisticalUnits } = useBaseData();
   const workerStatus = useWorkerStatus();
   const { isImporting, isDerivingUnits, isDerivingReports, importing, derivingUnits, derivingReports } = workerStatus;
@@ -297,12 +336,7 @@ export default function Navbar() {
       return (
         <header className="bg-ssb-dark text-white">
           <div className="mx-auto flex max-w-(--breakpoint-xl) items-center justify-between gap-4 p-2 lg:px-4">
-            <Link
-              href="/"
-              className="flex items-center space-x-3 rtl:space-x-reverse"
-            >
-              <Image src={logo} alt="Statbus Logo" className="h-9 w-9" />
-            </Link>
+            <LogoWithUpgradeBadge upgradeStatus={null} />
             <div className="flex-1"></div>
             <div className="flex items-center space-x-3">
             </div>
@@ -323,12 +357,7 @@ export default function Navbar() {
   return (
     <header className="bg-ssb-dark text-white">
       <div className="mx-auto grid grid-cols-3 max-w-(--breakpoint-xl) items-center justify-between gap-4 p-2 lg:px-4">
-        <Link
-          href="/"
-          className="flex items-center space-x-3 rtl:space-x-reverse"
-        >
-          <Image src={logo} alt="Statbus Logo" className="h-9 w-9" />
-        </Link>
+        <LogoWithUpgradeBadge upgradeStatus={upgradeStatus} />
 
         {/* Center: Main Navigation Links / Mobile Menu Trigger */}
         <div className="flex flex-1 justify-center space-x-3">
