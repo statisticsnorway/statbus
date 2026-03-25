@@ -15654,7 +15654,13 @@ export type Database = {
           | "legal_unit"
           | "enterprise"
           | "power_group",
-      task_state: "pending" | "processing" | "waiting" | "completed" | "failed",
+      task_state: 
+          | "pending"
+          | "processing"
+          | "interrupted"
+          | "waiting"
+          | "completed"
+          | "failed",
       time_context_type: "relative_period" | "tag" | "year"
     },
     CompositeTypes: {
@@ -15962,7 +15968,14 @@ export const Constants = {
         "enterprise",
         "power_group"
       ],
-      task_state: ["pending", "processing", "waiting", "completed", "failed"],
+      task_state: [
+        "pending",
+        "processing",
+        "interrupted",
+        "waiting",
+        "completed",
+        "failed"
+      ],
       time_context_type: ["relative_period", "tag", "year"]
     }
   }
