@@ -24,10 +24,13 @@ RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store pnpm install
 COPY . .
 
 FROM install AS build
-ARG NEXT_PUBLIC_BROWSER_REST_URL
-ARG NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME
-ARG NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE
-ARG NEXT_PUBLIC_DEBUG
+# Build with placeholder values for NEXT_PUBLIC_* vars.
+# These are replaced at container startup by docker-entrypoint.sh
+# with actual runtime values from the environment.
+ARG NEXT_PUBLIC_BROWSER_REST_URL=__NEXT_PUBLIC_BROWSER_REST_URL__
+ARG NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME=__NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME__
+ARG NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE=__NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE__
+ARG NEXT_PUBLIC_DEBUG=__NEXT_PUBLIC_DEBUG__
 
 ENV NEXT_PUBLIC_BROWSER_REST_URL=${NEXT_PUBLIC_BROWSER_REST_URL}
 ENV NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME=${NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME}
@@ -70,8 +73,10 @@ COPY --from=build --chown=nextjs:nodejs /app/public ./public
 # Apply the same mapping that next.js server does exposing .next as _next
 COPY --from=build --chown=nextjs:nodejs /app/.next/static ./public/_next/static
 
+COPY docker-entrypoint.sh /usr/local/bin/
 USER nextjs
 EXPOSE 3000
 ENV PORT=3000
 ENV NODE_ENV=production
-CMD ["dumb-init","node", "server.js"]
+ENTRYPOINT ["dumb-init", "docker-entrypoint.sh"]
+CMD ["node", "server.js"]
