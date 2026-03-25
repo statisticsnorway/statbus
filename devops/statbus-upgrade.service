@@ -20,8 +20,8 @@ StandardError=journal
 SyslogIdentifier=statbus-upgrade-%i
 
 # Security hardening
-# Note: NoNewPrivileges not set — daemon needs sudo for rsync (DB backup)
-ProtectSystem=strict
+# ProtectSystem not used — daemon needs sudo rsync for DB backup,
+# which requires writable /run/sudo for timestamp files.
 ReadWritePaths=/home/%i/statbus /home/%i/statbus-backups /home/%i/statbus-maintenance
 
 [Install]

@@ -469,6 +469,36 @@ func runRootInstall() error {
 		return fmt.Errorf("daemon-reload: %w", err)
 	}
 
+	// Configure sudoers for rsync backup/restore (path-locked)
+	f, err := dotenv.Load(filepath.Join(dir, ".env.config"))
+	if err != nil {
+		return fmt.Errorf("load .env.config for sudoers: %w", err)
+	}
+	code, _ := f.Get("DEPLOYMENT_SLOT_CODE")
+	user := "statbus_" + code
+	homeDir := filepath.Join("/home", user)
+	dataDir := filepath.Join(homeDir, "statbus/postgres/volumes/db/data/")
+	backupDir := filepath.Join(homeDir, "statbus-backups/pre-upgrade/")
+	rsyncPath := "/usr/bin/rsync"
+
+	sudoersContent := fmt.Sprintf("# StatBus upgrade daemon — rsync for database backup/restore\n"+
+		"%s ALL=(root) NOPASSWD: %s -a --delete %s %s\n"+
+		"%s ALL=(root) NOPASSWD: %s -a --delete %s %s\n",
+		user, rsyncPath, dataDir, backupDir,
+		user, rsyncPath, backupDir, dataDir,
+	)
+	sudoersFile := fmt.Sprintf("/etc/sudoers.d/statbus-upgrade-%s", user)
+
+	fmt.Printf("  Writing sudoers for rsync: %s\n", sudoersFile)
+	if err := os.WriteFile(sudoersFile, []byte(sudoersContent), 0440); err != nil {
+		return fmt.Errorf("write sudoers: %w", err)
+	}
+	// Validate sudoers syntax
+	if err := runCmd("visudo", "-cf", sudoersFile); err != nil {
+		os.Remove(sudoersFile) // Remove invalid file
+		return fmt.Errorf("sudoers validation failed (removed %s): %w", sudoersFile, err)
+	}
+
 	fmt.Printf("  Enabling and starting %s\n", instance)
 	if err := runCmd("systemctl", "enable", "--now", instance); err != nil {
 		return fmt.Errorf("enable service: %w", err)
@@ -476,6 +506,7 @@ func runRootInstall() error {
 
 	fmt.Println()
 	fmt.Printf("  Upgrade daemon installed and started: %s\n", instance)
+	fmt.Printf("  Sudoers configured: %s can rsync database backups\n", user)
 	fmt.Println("  Re-run without sudo to verify: ./sb install")
 	return nil
 }
