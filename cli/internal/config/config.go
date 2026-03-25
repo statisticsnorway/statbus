@@ -439,11 +439,12 @@ func computeDerived(cfg *ConfigEnv) *Derived {
 		caddyDbTlsBind = "127.0.0.1"
 	}
 
-	// VERSION: git describe --always gives a short commit hash or tag name.
-	// Used for docker compose image tags and container env.
-	// In production: set by upgrade daemon to version tag (e.g., v2026.03.0).
+	// VERSION: git describe --tags --always returns the tag name if on a tag,
+	// or a short commit hash otherwise. Used for docker compose image tags.
+	// On a server after upgrade daemon checkout: returns "v2026.03.0-rc.3"
+	// In development: returns "v2026.03.0-rc.3-5-g59fbabd10" or just "59fbabd10"
 	version := "local"
-	if out, err := exec.Command("git", "describe", "--always").Output(); err == nil {
+	if out, err := exec.Command("git", "describe", "--tags", "--always").Output(); err == nil {
 		version = strings.TrimSpace(string(out))
 	}
 

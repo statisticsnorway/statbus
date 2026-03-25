@@ -580,7 +580,8 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 		}
 	}
 
-	// Step 7: Regenerate config
+	// Regenerate config — VERSION is derived from git describe --tags --always,
+	// which returns the tag name (e.g., v2026.03.0-rc.3) since we just checked it out.
 	if err := runCommand(projDir, filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
 		d.rollback(ctx, id, version, previousVersion, progress)
 		return err

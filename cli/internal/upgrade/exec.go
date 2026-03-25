@@ -66,7 +66,6 @@ func (d *Daemon) backupDatabase(progress *ProgressLog) (string, error) {
 
 	// rsync with sudo (postgres uid owns the files)
 	// DB must be stopped before this point for a consistent backup
-	progress.Write("rsync %s -> %s", dbDataDir, backupDir)
 	if err := runCommand(d.projDir, "sudo", "rsync", "-a", "--delete",
 		dbDataDir+"/", backupDir+"/"); err != nil {
 		return "", fmt.Errorf("rsync backup: %w", err)
