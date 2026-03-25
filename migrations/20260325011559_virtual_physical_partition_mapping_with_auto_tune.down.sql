@@ -27,7 +27,7 @@ $report_partition_seq$;
 DROP PROCEDURE IF EXISTS admin.adjust_report_partition_modulus();
 
 -- Drop function and column
-DROP FUNCTION IF EXISTS public.report_partition_modulus();
+DROP FUNCTION IF EXISTS public.get_report_partition_modulus();
 ALTER TABLE public.settings DROP COLUMN IF EXISTS report_partition_modulus;
 
 END;

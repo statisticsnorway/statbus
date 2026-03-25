@@ -10,13 +10,16 @@ BEGIN;
 ----------------------------------------------------------------------
 ALTER TABLE public.settings ADD COLUMN report_partition_modulus integer NOT NULL DEFAULT 256;
 
-CREATE OR REPLACE FUNCTION public.report_partition_modulus()
+-- Named get_report_partition_modulus (not report_partition_modulus) to avoid
+-- colliding with the settings.report_partition_modulus column name, which
+-- confuses postgrest-js type-level select inference.
+CREATE OR REPLACE FUNCTION public.get_report_partition_modulus()
  RETURNS integer
  LANGUAGE sql
  STABLE PARALLEL SAFE
-AS $report_partition_modulus$
+AS $get_report_partition_modulus$
     SELECT COALESCE((SELECT report_partition_modulus FROM public.settings LIMIT 1), 256);
-$report_partition_modulus$;
+$get_report_partition_modulus$;
 
 ----------------------------------------------------------------------
 -- 2. Hash functions stay IMMUTABLE (required by GENERATED ALWAYS column)
@@ -82,7 +85,7 @@ DECLARE
     v_range_start INT;
     v_range_end INT;
 BEGIN
-    v_modulus := public.report_partition_modulus();
+    v_modulus := public.get_report_partition_modulus();
 
     SELECT id INTO v_task_id
     FROM worker.tasks
@@ -177,7 +180,7 @@ DECLARE
     v_range_start INT;
     v_range_end INT;
 BEGIN
-    v_modulus := public.report_partition_modulus();
+    v_modulus := public.get_report_partition_modulus();
 
     SELECT id INTO v_task_id
     FROM worker.tasks
@@ -273,7 +276,7 @@ DECLARE
     v_range_start INT;
     v_range_end INT;
 BEGIN
-    v_modulus := public.report_partition_modulus();
+    v_modulus := public.get_report_partition_modulus();
 
     SELECT id INTO v_task_id
     FROM worker.tasks

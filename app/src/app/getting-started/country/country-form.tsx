@@ -31,9 +31,7 @@ import { setSettings } from "../getting-started-server-actions";
 
 interface CountryFormProps {
   readonly countries: Tables<"country">[] | null;
-  // Pick only the columns actually used — workaround for postgrest-js type inference
-  // dropping report_partition_modulus from select("*") return type
-  readonly settings: Pick<Tables<"settings">, "country_id" | "activity_category_standard_id">[] | null;
+  readonly settings: Tables<"settings">[] | null;
 }
 
 const FormSchema = z.object({

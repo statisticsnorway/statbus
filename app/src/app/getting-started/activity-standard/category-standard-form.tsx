@@ -24,9 +24,7 @@ import { ErrorBox } from "@/components/error-box";
 
 interface CategoryStandardFormProps {
   readonly standards: Tables<"activity_category_standard">[] | null;
-  // Pick only the columns actually used — workaround for postgrest-js type inference
-  // dropping report_partition_modulus from select("*") return type
-  readonly settings: Pick<Tables<"settings">, "activity_category_standard_id" | "country_id">[] | null;
+  readonly settings: Tables<"settings">[] | null;
 }
 
 const FormSchema = z.object({

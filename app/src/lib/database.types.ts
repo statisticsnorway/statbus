@@ -13731,6 +13731,10 @@ export type Database = {
         }
         Returns: Json
       },
+      get_report_partition_modulus: {
+        Args: never
+        Returns: number
+      },
       get_statistical_history_periods: {
         Args: {
           p_resolution?: Database["public"]["Enums"]["history_resolution"]
@@ -14981,10 +14985,6 @@ export type Database = {
           arg2?: string
         }
         Returns: string
-      },
-      report_partition_modulus: {
-        Args: never
-        Returns: number
       },
       report_partition_seq: {
         Args: {
