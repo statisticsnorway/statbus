@@ -936,6 +936,8 @@ ORDER BY ei_ing.ident, ei_ed.ident, lr.percentage;
 "=== Phase 5: Pipeline Integration ==="
 -- Process analytics tasks (triggered by import changes)
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 926: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 929: worker.notify_task_progress() is not a procedure
 \echo "5: Power group entries in statistical_unit:"
 "5: Power group entries in statistical_unit:"
 SELECT su.unit_type, COUNT(*) AS count

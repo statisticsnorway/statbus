@@ -19,7 +19,7 @@ DECLARE
         'unknown_rel_type_code',
         'invalid_percentage'
     ];
-    v_invalid_code_keys_arr TEXT[] := ARRAY['rel_type_code'];
+    v_warning_keys_arr TEXT[] := ARRAY['rel_type_code'];
 BEGIN
     RAISE DEBUG '[Job %] analyse_legal_relationship (Batch): Starting analysis for batch_seq %', p_job_id, p_batch_seq;
 
@@ -200,7 +200,7 @@ BEGIN
             END
         FROM deduped AS l
         WHERE dt.row_id = l.data_row_id;
-    $SQL$, v_data_table_name, v_error_keys_to_clear_arr, v_invalid_code_keys_arr, v_definition.strategy);
+    $SQL$, v_data_table_name, v_error_keys_to_clear_arr, v_warning_keys_arr, v_definition.strategy);
 
     BEGIN
         EXECUTE v_sql;
@@ -212,8 +212,8 @@ BEGIN
     END;
 
     -- STEP 4: Compute founding_row_id for rows with same natural key in the batch.
-    -- When multiple rows share (influencing_id, influenced_id, type_id) — e.g., different
-    -- temporal periods for the same relationship — they must be linked via founding_row_id
+    -- When multiple rows share (influencing_id, influenced_id, type_id) -- e.g., different
+    -- temporal periods for the same relationship -- they must be linked via founding_row_id
     -- so temporal_merge knows they belong to the same entity.
     -- Offset of 1000000000 avoids collision between legal_relationship IDs and row_ids,
     -- matching the pattern used in analyse_external_idents.

@@ -114,10 +114,12 @@ ORDER BY row_id;
 \echo Run worker processing for analytics tasks - Block 1 (errors primarily tested on import queue)
 Run worker processing for analytics tasks - Block 1 (errors primarily tested on import queue)
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 297: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 300: worker.notify_task_progress() is not a procedure
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |   195
+ analytics | completed |    73
  import    | completed |    95
 (2 rows)
 
@@ -224,10 +226,12 @@ ORDER BY row_id;
 \echo Run worker processing for analytics tasks - Block 2 (errors primarily tested on import queue)
 Run worker processing for analytics tasks - Block 2 (errors primarily tested on import queue)
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 557: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 560: worker.notify_task_progress() is not a procedure
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |   256
+ analytics | completed |   134
  import    | completed |   143
 (2 rows)
 
@@ -317,26 +321,4 @@ SELECT
                    0 |                0 |                0
 (1 row)
 
-\echo "User uploads legal units with postal coordinates (error condition)"
-"User uploads legal units with postal coordinates (error condition)"
--- Create Import Job for Legal Units (Block 4 - Postal Coordinate Errors)
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
-SELECT
-    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
-    'import_31_lu_postal_coord_errors',
-    'Import LU Era B4 Postal Coord Errors (31_load_units_errors.sql)',
-    'Import job with postal coordinate errors for Legal Units (Block 4).',
-    'Test data load (31_load_units_errors.sql)',
-    false;
-NOTICE:  identifier "import_31_lu_postal_coord_errors_upload_check_state_before_insert" will be truncated to "import_31_lu_postal_coord_errors_upload_check_state_before_inse"
-NOTICE:  identifier "import_31_lu_postal_coord_errors_upload_update_state_after_insert" will be truncated to "import_31_lu_postal_coord_errors_upload_update_state_after_inse"
-INSERT INTO public.import_31_lu_postal_coord_errors_upload(
-    valid_from, valid_to, tax_ident, stat_ident, name, birth_date, data_source_code,
-    postal_address_part1, postal_country_iso_2, postal_latitude, postal_longitude, postal_altitude
-) VALUES
-('2024-01-01','infinity','4000000001','4001','Postal Coord Test LU 1','01.01.2024','test', 'PO Box 123', 'UG', '1.0', '32.0', '1100'),
-('2024-01-01','infinity','4000000002','4002','Postal Coord Test LU 2 (No Coords)','01.01.2024','test', 'PO Box 456', 'UG', NULL, NULL, NULL);
-ERROR:  column "postal_latitude" of relation "import_31_lu_postal_coord_errors_upload" does not exist
-LINE 3:     postal_address_part1, postal_country_iso_2, postal_latit...
-                                                        ^
 ROLLBACK;

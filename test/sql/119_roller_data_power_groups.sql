@@ -144,7 +144,8 @@ SELECT
     ei_root.ident AS root_tax_ident,
     COUNT(lrc.legal_relationship_id) AS relationship_count
 FROM public.legal_relationship_cluster AS lrc
-JOIN public.external_ident AS ei_root ON ei_root.legal_unit_id = lrc.root_legal_unit_id
+JOIN public.power_root AS pr ON pr.power_group_id = lrc.power_group_id
+JOIN public.external_ident AS ei_root ON ei_root.legal_unit_id = pr.root_legal_unit_id
 JOIN public.external_ident_type AS eit_root ON eit_root.id = ei_root.type_id AND eit_root.code = 'tax_ident'
 GROUP BY ei_root.ident
 ORDER BY ei_root.ident;

@@ -202,7 +202,7 @@ BEGIN
     -- Always report state (non-numeric, last-value wins at parent)
     p_info := jsonb_build_object('job_state', job.state::text);
 
-    -- Report total_rows only on the preparing_data→analysing_data transition (once per job)
+    -- Report total_rows only on the preparing_data->analysing_data transition (once per job)
     IF job.state = 'analysing_data' AND v_old_state = 'preparing_data'
        AND job.total_rows IS NOT NULL THEN
         p_info := p_info || jsonb_build_object('total_rows', job.total_rows);

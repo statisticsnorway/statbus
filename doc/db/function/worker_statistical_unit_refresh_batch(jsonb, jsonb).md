@@ -126,7 +126,8 @@ BEGIN
         p_enterprise_id_ranges => v_enterprise_id_ranges,
         p_power_group_id_ranges => COALESCE(v_power_group_id_ranges, '{}'::int4multirange)
     );
-    CALL public.timesegments_years_refresh_concurrent();
+    -- timesegments_years_refresh_concurrent removed: years are now maintained
+    -- incrementally by timesegments_refresh, with cleanup in flush_staging.
 
     IF v_effective_est IS NOT NULL THEN
         CALL public.timeline_establishment_refresh(p_unit_id_ranges => v_effective_est);
@@ -148,7 +149,6 @@ BEGIN
         p_power_group_id_ranges => COALESCE(v_power_group_id_ranges, '{}'::int4multirange)
     );
 
-    -- NEW: Report batch counts via INOUT (was not present before)
     p_info := jsonb_build_object(
         'batch_est_count', v_batch_est_count,
         'batch_lu_count', v_batch_lu_count,

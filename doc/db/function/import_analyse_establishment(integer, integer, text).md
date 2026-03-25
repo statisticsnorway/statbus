@@ -10,7 +10,7 @@ DECLARE
     v_update_count INT := 0;
     v_sql TEXT;
     v_error_keys_to_clear_arr TEXT[] := ARRAY['name_raw', 'sector_code_raw', 'unit_size_code_raw', 'birth_date_raw', 'death_date_raw', 'status_code_raw', 'establishment'];
-    v_invalid_code_keys_arr TEXT[] := ARRAY['sector_code_raw', 'unit_size_code_raw', 'birth_date_raw', 'death_date_raw'];
+    v_warning_keys_arr TEXT[] := ARRAY['sector_code_raw', 'unit_size_code_raw', 'birth_date_raw', 'death_date_raw'];
 BEGIN
     RAISE DEBUG '[Job %] analyse_establishment (Batch): Starting analysis for batch_seq %', p_job_id, p_batch_seq;
 
@@ -120,7 +120,7 @@ BEGIN
     $SQL$,
         v_data_table_name,            -- %1$I
         v_error_keys_to_clear_arr,    -- %2$L
-        v_invalid_code_keys_arr       -- %3$L
+        v_warning_keys_arr            -- %3$L
     );
 
     BEGIN

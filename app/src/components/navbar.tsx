@@ -163,9 +163,9 @@ function UnitCountSummary({ phase }: { phase: PhaseStatus }) {
 /**
  * Phase progress popover content.
  */
-function PhaseProgressPopover({ phase, stepWeights, waitingFor }: { phase: PhaseStatus; stepWeights: { step: string; weight: number }[]; waitingFor?: string }) {
+function PhaseProgressPopover({ phase, stepWeights }: { phase: PhaseStatus; stepWeights: { step: string; weight: number }[] }) {
   const currentStep = phase.step;
-  const label = currentStep ? (COMMAND_LABELS[currentStep] ?? currentStep) : 'Pending...';
+  const label = currentStep ? (COMMAND_LABELS[currentStep] ?? currentStep) : 'Starting...';
 
   const pct = computeWeightedPhaseProgress(phase, stepWeights);
 
@@ -180,15 +180,11 @@ function PhaseProgressPopover({ phase, stepWeights, waitingFor }: { phase: Phase
           </div>
           {phase.total > 1 && <Progress value={pct} className="h-2" />}
           {phase.total <= 1 && (
-            <p className="text-xs text-gray-500">
-              {waitingFor ? `Waiting for ${waitingFor} before ${label}` : 'Running...'}
-            </p>
+            <p className="text-xs text-gray-500">Running...</p>
           )}
         </div>
       ) : (
-        <p className="text-sm text-gray-500">
-          {waitingFor ? `Waiting for ${waitingFor} before ${label}` : 'Waiting to start...'}
-        </p>
+        <p className="text-sm text-gray-500">Starting...</p>
       )}
     </div>
   );
@@ -371,7 +367,7 @@ export default function Navbar() {
                     progressPct={unitsPct}
                     popoverContent={isDerivingUnits
                       ? (derivingUnits?.active
-                        ? <PhaseProgressPopover phase={derivingUnits} stepWeights={phase1Weights} waitingFor={isDerivingReports ? "Reports" : undefined} />
+                        ? <PhaseProgressPopover phase={derivingUnits} stepWeights={phase1Weights} />
                         : <p className="text-sm text-gray-500">Deriving statistical units...</p>)
                       : null}
                   />
@@ -385,8 +381,10 @@ export default function Navbar() {
                     progressPct={reportsPct}
                     popoverContent={isDerivingReports
                       ? (derivingReports?.active
-                        ? <PhaseProgressPopover phase={derivingReports} stepWeights={phase2Weights} waitingFor={derivingUnits?.active ? "Statistical Units" : undefined} />
-                        : <p className="text-sm text-gray-500">Deriving reports...</p>)
+                        ? <PhaseProgressPopover phase={derivingReports} stepWeights={phase2Weights} />
+                        : derivingReports?.pending
+                          ? <div className="space-y-3"><UnitCountSummary phase={derivingReports} /><p className="text-sm text-gray-500">Pending...</p></div>
+                          : <p className="text-sm text-gray-500">Deriving reports...</p>)
                       : null}
                   />
                 </>

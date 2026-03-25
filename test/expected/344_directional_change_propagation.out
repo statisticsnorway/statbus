@@ -96,6 +96,8 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo Run worker processing for analytics tasks (initial full refresh)
 Run worker processing for analytics tasks (initial full refresh)
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 418: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 421: worker.notify_task_progress() is not a procedure
 \echo "Baseline: statistical_unit counts by unit_type"
 "Baseline: statistical_unit counts by unit_type"
 SELECT unit_type, count(*) AS count
@@ -167,6 +169,8 @@ SELECT command, state FROM worker.tasks WHERE command = 'collect_changes' AND st
 \echo "Run analytics worker"
 "Run analytics worker"
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 570: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 573: worker.notify_task_progress() is not a procedure
 \echo "Task payload: changed_est should be empty, changed_lu and changed_en should have ranges"
 "Task payload: changed_est should be empty, changed_lu and changed_en should have ranges"
 SELECT
@@ -229,6 +233,8 @@ SELECT command, state FROM worker.tasks WHERE command = 'collect_changes' AND st
 \echo "Run analytics worker"
 "Run analytics worker"
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 637: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 640: worker.notify_task_progress() is not a procedure
 \echo "Task payload: changed_est and changed_lu should have ranges (ES propagates to parent LU via collect_changes)"
 "Task payload: changed_est and changed_lu should have ranges (ES propagates to parent LU via collect_changes)"
 SELECT
@@ -275,6 +281,8 @@ SELECT command, state FROM worker.tasks WHERE command = 'collect_changes' AND st
 \echo "Run analytics worker"
 "Run analytics worker"
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 688: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 691: worker.notify_task_progress() is not a procedure
 \echo "Task payload: only changed_enterprise_id_ranges should have ranges (EN only, skip LU + ES)"
 "Task payload: only changed_enterprise_id_ranges should have ranges (EN only, skip LU + ES)"
 SELECT
@@ -325,6 +333,8 @@ WHERE legal_unit_id = (SELECT id FROM public.legal_unit WHERE name = 'SSB Update
 \echo "Run analytics worker"
 "Run analytics worker"
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 755: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 758: worker.notify_task_progress() is not a procedure
 \echo "Task payload: should have changed_lu ranges (stat_for_unit is LU-associated)"
 "Task payload: should have changed_lu ranges (stat_for_unit is LU-associated)"
 SELECT
@@ -376,6 +386,8 @@ WHERE legal_unit_id = (SELECT id FROM public.legal_unit WHERE name = 'SSB Update
 \echo "Run analytics worker"
 "Run analytics worker"
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 822: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 825: worker.notify_task_progress() is not a procedure
 \echo "Task payload: should have changed_lu ranges (activity is LU-associated)"
 "Task payload: should have changed_lu ranges (activity is LU-associated)"
 SELECT
@@ -425,6 +437,8 @@ WHERE legal_unit_id = (SELECT id FROM public.legal_unit WHERE name = 'SSB Update
 \echo "Run analytics worker"
 "Run analytics worker"
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 889: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 892: worker.notify_task_progress() is not a procedure
 \echo "Task payload: should have changed_lu ranges (location is LU-associated)"
 "Task payload: should have changed_lu ranges (location is LU-associated)"
 SELECT
@@ -483,6 +497,8 @@ SELECT command, state FROM worker.tasks WHERE command = 'collect_changes' AND st
 \echo "Run analytics worker"
 "Run analytics worker"
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 956: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 959: worker.notify_task_progress() is not a procedure
 \echo "Task payload: PG batch should have power_group_ids but no enterprise_ids"
 "Task payload: PG batch should have power_group_ids but no enterprise_ids"
 SELECT
@@ -520,6 +536,8 @@ SELECT command, state FROM worker.tasks WHERE command = 'collect_changes' AND st
 \echo "Run analytics worker"
 "Run analytics worker"
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 1792: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 1795: worker.notify_task_progress() is not a procedure
 \echo "Task payload: PG batch should have power_group_ids but no enterprise_ids"
 "Task payload: PG batch should have power_group_ids but no enterprise_ids"
 SELECT
@@ -572,6 +590,8 @@ SELECT
 "Step 3: Process imports and analytics"
 CALL worker.process_tasks(p_queue => 'import');
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 2720: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 2723: worker.notify_task_progress() is not a procedure
 DELETE FROM worker.tasks WHERE state = 'completed';
 \echo "Check: power_root rows exist after cycle creation"
 "Check: power_root rows exist after cycle creation"
@@ -597,6 +617,8 @@ SELECT command, state FROM worker.tasks WHERE command = 'collect_changes' AND st
 \echo "Run analytics worker"
 "Run analytics worker"
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 2789: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 2792: worker.notify_task_progress() is not a procedure
 \echo "Task payload: PG batch should have power_group_ids but no enterprise_ids"
 "Task payload: PG batch should have power_group_ids but no enterprise_ids"
 SELECT
@@ -685,6 +707,8 @@ SELECT command, state FROM worker.tasks WHERE command = 'collect_changes' AND st
 \echo "Run analytics worker"
 "Run analytics worker"
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 3644: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 3647: worker.notify_task_progress() is not a procedure
 \echo "Task payload: should have changed_lu and changed_en ranges (LU moved between enterprises)"
 "Task payload: should have changed_lu and changed_en ranges (LU moved between enterprises)"
 SELECT

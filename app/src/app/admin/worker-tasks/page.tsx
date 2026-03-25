@@ -26,6 +26,7 @@ const SWR_KEY = "/api/worker-tasks";
 
 const taskStates = [
   { value: "pending", label: "Pending" },
+  { value: "interrupted", label: "Interrupted" },
   { value: "processing", label: "Processing" },
   { value: "waiting", label: "Waiting" },
   { value: "completed", label: "Completed" },
@@ -64,6 +65,7 @@ const parseAsQueue = {
 
 const stateColors: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800",
+  interrupted: "bg-orange-100 text-orange-800",
   processing: "bg-blue-100 text-blue-800",
   waiting: "bg-purple-100 text-purple-800",
   completed: "bg-green-100 text-green-800",

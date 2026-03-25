@@ -3331,6 +3331,7 @@ export type Database = {
           id: number
           only_one_setting: boolean | null
           region_version_id: number
+          report_partition_modulus: number
           required_to_be_enabled: boolean | null
         },
         Insert: {
@@ -3339,6 +3340,7 @@ export type Database = {
           id?: never
           only_one_setting?: boolean | null
           region_version_id: number
+          report_partition_modulus?: number
           required_to_be_enabled?: boolean | null
         },
         Update: {
@@ -3347,6 +3349,7 @@ export type Database = {
           id?: never
           only_one_setting?: boolean | null
           region_version_id?: number
+          report_partition_modulus?: number
           required_to_be_enabled?: boolean | null
         },
         Relationships: [
@@ -3991,6 +3994,51 @@ export type Database = {
         },
         Relationships: []
       },
+      statistical_history_facet_pre_dirty_dims: {
+        Row: {
+          legal_form_id: number | null
+          month: number | null
+          physical_country_id: number | null
+          physical_region_path: string | null
+          primary_activity_category_path: string | null
+          resolution: Database["public"]["Enums"]["history_resolution"] | null
+          secondary_activity_category_path: string | null
+          sector_path: string | null
+          status_id: number | null
+          unit_size_id: number | null
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
+          year: number | null
+        },
+        Insert: {
+          legal_form_id?: number | null
+          month?: number | null
+          physical_country_id?: number | null
+          physical_region_path?: string | null
+          primary_activity_category_path?: string | null
+          resolution?: Database["public"]["Enums"]["history_resolution"] | null
+          secondary_activity_category_path?: string | null
+          sector_path?: string | null
+          status_id?: number | null
+          unit_size_id?: number | null
+          unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
+          year?: number | null
+        },
+        Update: {
+          legal_form_id?: number | null
+          month?: number | null
+          physical_country_id?: number | null
+          physical_region_path?: string | null
+          primary_activity_category_path?: string | null
+          resolution?: Database["public"]["Enums"]["history_resolution"] | null
+          secondary_activity_category_path?: string | null
+          sector_path?: string | null
+          status_id?: number | null
+          unit_size_id?: number | null
+          unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
+          year?: number | null
+        },
+        Relationships: []
+      },
       statistical_unit: {
         Row: {
           activity_category_paths: string[] | null
@@ -4312,6 +4360,45 @@ export type Database = {
         },
         Update: {
           partition_seq?: number
+        },
+        Relationships: []
+      },
+      statistical_unit_facet_pre_dirty_dims: {
+        Row: {
+          legal_form_id: number | null
+          physical_country_id: number | null
+          physical_region_path: string | null
+          primary_activity_category_path: string | null
+          sector_path: string | null
+          status_id: number | null
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
+          valid_from: string | null
+          valid_to: string | null
+          valid_until: string | null
+        },
+        Insert: {
+          legal_form_id?: number | null
+          physical_country_id?: number | null
+          physical_region_path?: string | null
+          primary_activity_category_path?: string | null
+          sector_path?: string | null
+          status_id?: number | null
+          unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
+          valid_from?: string | null
+          valid_to?: string | null
+          valid_until?: string | null
+        },
+        Update: {
+          legal_form_id?: number | null
+          physical_country_id?: number | null
+          physical_region_path?: string | null
+          primary_activity_category_path?: string | null
+          sector_path?: string | null
+          status_id?: number | null
+          unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
+          valid_from?: string | null
+          valid_to?: string | null
+          valid_until?: string | null
         },
         Relationships: []
       },
@@ -14895,6 +14982,10 @@ export type Database = {
         }
         Returns: string
       },
+      report_partition_modulus: {
+        Args: never
+        Returns: number
+      },
       report_partition_seq: {
         Args: {
           p_unit_type?: string
@@ -15563,7 +15654,13 @@ export type Database = {
           | "legal_unit"
           | "enterprise"
           | "power_group",
-      task_state: "pending" | "processing" | "waiting" | "completed" | "failed",
+      task_state: 
+          | "pending"
+          | "processing"
+          | "interrupted"
+          | "waiting"
+          | "completed"
+          | "failed",
       time_context_type: "relative_period" | "tag" | "year"
     },
     CompositeTypes: {
@@ -15871,7 +15968,14 @@ export const Constants = {
         "enterprise",
         "power_group"
       ],
-      task_state: ["pending", "processing", "waiting", "completed", "failed"],
+      task_state: [
+        "pending",
+        "processing",
+        "interrupted",
+        "waiting",
+        "completed",
+        "failed"
+      ],
       time_context_type: ["relative_period", "tag", "year"]
     }
   }

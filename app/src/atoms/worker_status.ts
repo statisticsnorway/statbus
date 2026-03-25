@@ -25,6 +25,8 @@ export type PipelinePhase = 'is_deriving_statistical_units' | 'is_deriving_repor
 
 export interface PhaseProgress {
   phase: PipelinePhase;
+  active: boolean;
+  pending: boolean;
   step: string | null;
   total: number;
   completed: number;
@@ -53,6 +55,7 @@ export interface ImportStatus {
 
 export interface PhaseStatus {
   active: boolean;
+  pending: boolean;
   step: string | null;
   total: number;
   completed: number;
@@ -176,7 +179,8 @@ export const setWorkerStatusAtom = atom(
       const toPhaseStatus = (p: PhaseProgress | undefined): PhaseStatus | null => {
         if (!p) return null;
         return {
-          active: true,
+          active: p.active ?? true,
+          pending: p.pending ?? false,
           step: p.step,
           total: p.total,
           completed: p.completed,
@@ -193,9 +197,9 @@ export const setWorkerStatusAtom = atom(
         error: null,
         derivingUnits: phase1 ? toPhaseStatus(phase1) : prevStatus.derivingUnits,
         derivingReports: phase2 ? toPhaseStatus(phase2) : prevStatus.derivingReports,
-        // Keep boolean fields in sync
-        isDerivingUnits: phase1 ? true : prevStatus.isDerivingUnits,
-        isDerivingReports: phase2 ? true : prevStatus.isDerivingReports,
+        // Keep boolean fields in sync — use actual active state, not just presence
+        isDerivingUnits: phase1 ? (phase1.active || phase1.pending) : prevStatus.isDerivingUnits,
+        isDerivingReports: phase2 ? (phase2.active || phase2.pending) : prevStatus.isDerivingReports,
       };
       set(workerStatusAtom, newStatus);
       return;
@@ -215,14 +219,20 @@ export const setWorkerStatusAtom = atom(
         updatedStatus.importing = { active: true, needs_review: prevStatus.importing?.needs_review ?? false, jobs: prevStatus.importing?.jobs ?? [] };
       }
     } else if (type === 'is_deriving_statistical_units') {
-      updatedStatus.isDerivingUnits = status;
-      if (!status) {
+      if (!status && !prevStatus.derivingUnits?.pending) {
+        updatedStatus.isDerivingUnits = false;
         updatedStatus.derivingUnits = null;
+      } else if (status) {
+        updatedStatus.isDerivingUnits = true;
       }
     } else if (type === 'is_deriving_reports') {
-      updatedStatus.isDerivingReports = status;
-      if (!status) {
+      // Don't clear pending reports — the pipeline_progress event has richer data.
+      // Only clear if reports isn't pending (truly idle, not just waiting to start).
+      if (!status && !prevStatus.derivingReports?.pending) {
+        updatedStatus.isDerivingReports = false;
         updatedStatus.derivingReports = null;
+      } else if (status) {
+        updatedStatus.isDerivingReports = true;
       }
     }
 
@@ -313,8 +323,8 @@ export const refreshWorkerStatusAtom = atom(
 
       set(workerStatusAtom, {
         isImporting: importData?.active ?? null,
-        isDerivingUnits: unitsData?.active ?? null,
-        isDerivingReports: reportsData?.active ?? null,
+        isDerivingUnits: (unitsData?.active || unitsData?.pending) ?? null,
+        isDerivingReports: (reportsData?.active || reportsData?.pending) ?? null,
         importing: importData,
         derivingUnits: unitsData,
         derivingReports: reportsData,

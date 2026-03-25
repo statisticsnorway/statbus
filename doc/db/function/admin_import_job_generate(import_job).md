@@ -168,6 +168,10 @@ BEGIN
       END IF;
   END;
 
+  -- Grant admin_user ALL on the upload table so admins can upload to any job
+  EXECUTE format($$GRANT ALL ON TABLE public.%I TO admin_user$$, job.upload_table_name);
+  RAISE DEBUG '[Job %] Granted ALL on % to admin_user', job.id, job.upload_table_name;
+
   -- Apply standard RLS to the data table
   PERFORM admin.add_rls_regular_user_can_edit(job.data_table_name::regclass);
   RAISE DEBUG '[Job %] Applied RLS to data table %', job.id, job.data_table_name;

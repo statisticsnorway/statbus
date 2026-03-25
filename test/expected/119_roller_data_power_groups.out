@@ -235,13 +235,15 @@ SELECT
     ei_root.ident AS root_tax_ident,
     COUNT(lrc.legal_relationship_id) AS relationship_count
 FROM public.legal_relationship_cluster AS lrc
-JOIN public.external_ident AS ei_root ON ei_root.legal_unit_id = lrc.root_legal_unit_id
+JOIN public.power_root AS pr ON pr.power_group_id = lrc.power_group_id
+JOIN public.external_ident AS ei_root ON ei_root.legal_unit_id = pr.root_legal_unit_id
 JOIN public.external_ident_type AS eit_root ON eit_root.id = ei_root.type_id AND eit_root.code = 'tax_ident'
 GROUP BY ei_root.ident
 ORDER BY ei_root.ident;
-ERROR:  column lrc.root_legal_unit_id does not exist
-LINE 5: ...ernal_ident AS ei_root ON ei_root.legal_unit_id = lrc.root_l...
-                                                             ^
+ root_tax_ident | relationship_count 
+----------------+--------------------
+(0 rows)
+
 \echo "Legal relationships with power_group_id assigned:"
 "Legal relationships with power_group_id assigned:"
 SELECT
@@ -260,7 +262,18 @@ JOIN public.external_ident_type AS eit_ed ON eit_ed.id = ei_ed.type_id AND eit_e
 JOIN public.legal_rel_type AS lrt ON lrt.id = lr.type_id
 LEFT JOIN public.power_group AS pg ON pg.id = lr.derived_power_group_id
 ORDER BY ei_ing.ident, ei_ed.ident;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ influencing | influenced | rel_type | primary_influencer_only | power_group_ident 
+-------------+------------+----------+-------------------------+-------------------
+ 100000001   | 100000002  | HFOR     | t                       | PG0001
+ 100000001   | 100000003  | HFOR     | t                       | PG0001
+ 100000002   | 100000004  | HFOR     | t                       | PG0001
+ 100000002   | 100000005  | HFOR     | t                       | PG0001
+ 100000003   | 100000006  | HFOR     | t                       | PG0001
+ 100000003   | 100000007  | HFOR     | t                       | PG0001
+ 100000008   | 100000009  | DTPR     | f                       | PG0002
+ 100000008   | 100000010  | DTPR     | f                       | PG0002
+(8 rows)
+
 -- ============================================================================
 \echo "=== Phase 4: Summary ==="
 "=== Phase 4: Summary ==="
@@ -270,9 +283,21 @@ ERROR:  current transaction is aborted, commands ignored until end of transactio
 \echo "Baltic hierarchy (DTPR) also forms its own power group"
 "Baltic hierarchy (DTPR) also forms its own power group"
 SELECT COUNT(*) AS total_power_groups FROM public.power_group;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ total_power_groups 
+--------------------
+                  2
+(1 row)
+
 SELECT COUNT(*) AS total_relationships FROM public.legal_relationship;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ total_relationships 
+---------------------
+                   8
+(1 row)
+
 SELECT COUNT(*) AS total_memberships FROM public.power_group_membership;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ total_memberships 
+-------------------
+                10
+(1 row)
+
 ROLLBACK;

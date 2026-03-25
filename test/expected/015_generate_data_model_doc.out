@@ -407,6 +407,8 @@ SELECT :'undocumented';
                                                                                                                                                                                 +
  - `public.import_source_column_type` (TABLE)                                                                                                                                   +
  - `public.import_source_column_type` (VIEW)                                                                                                                                    +
- - `public.region_version` (TABLE)
+ - `public.region_version` (TABLE)                                                                                                                                              +
+ - `public.statistical_history_facet_pre_dirty_dims` (TABLE)                                                                                                                    +
+ - `public.statistical_unit_facet_pre_dirty_dims` (TABLE)
 (1 row)
 

@@ -15,6 +15,6 @@ WITH stats AS (
 SELECT format('Stats: %s tables, %s views, %s enums, %s FK constraints', table_count, view_count, enum_count, fk_count) AS database_stats FROM stats;
                       database_stats                      
 ----------------------------------------------------------
- Stats: 66 tables, 104 views, 26 enums, 99 FK constraints
+ Stats: 68 tables, 104 views, 26 enums, 99 FK constraints
 (1 row)
 

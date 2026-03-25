@@ -12,10 +12,10 @@ DECLARE
     v_error_json_expr_sql TEXT; -- For dt.error (fatal) - though this step makes them non-fatal
     v_warnings_json_expr_sql TEXT; -- For dt.warnings (non-fatal)
     v_error_keys_to_clear_arr TEXT[];
-    v_invalid_code_keys_to_clear_arr TEXT[];
+    v_warning_keys_to_clear_arr TEXT[];
     v_skipped_update_count INT;
     error_message TEXT;
-    v_error_condition_sql TEXT; -- For non-fatal invalid codes
+    v_error_condition_sql TEXT; -- For non-fatal warnings
     v_fatal_error_condition_sql TEXT; -- For fatal errors like missing country
     v_fatal_error_json_expr_sql TEXT; -- For fatal error messages
     v_address_present_condition_sql TEXT; -- To check if any address part is present
@@ -35,7 +35,7 @@ BEGIN
     IF v_default_country_id IS NULL THEN
         RAISE EXCEPTION '[Job %] analyse_location: No country_id configured in settings table. System must be configured with a default country before processing location data. Run getting-started setup first.', p_job_id;
     END IF;
-    
+
     -- Validate that the country_id actually exists in the country table
     IF NOT EXISTS (SELECT 1 FROM public.country WHERE id = v_default_country_id) THEN
         RAISE EXCEPTION '[Job %] analyse_location: Invalid country_id % in settings table. Country does not exist in country table.', p_job_id, v_default_country_id;
@@ -54,13 +54,13 @@ BEGIN
 
     IF p_step_code = 'physical_location' THEN
         v_error_keys_to_clear_arr := ARRAY[
-            'physical_region_code_raw', 
-            'physical_country_iso_2_raw', 
+            'physical_region_code_raw',
+            'physical_country_iso_2_raw',
             'physical_latitude_raw', -- Error key for latitude issues
             'physical_longitude_raw', -- Error key for longitude issues
             'physical_altitude_raw' -- Error key for altitude issues
         ];
-        v_invalid_code_keys_to_clear_arr := ARRAY['physical_region_code_raw', 'physical_country_iso_2_raw', 'physical_latitude_raw', 'physical_longitude_raw', 'physical_altitude_raw'];
+        v_warning_keys_to_clear_arr := ARRAY['physical_region_code_raw', 'physical_country_iso_2_raw', 'physical_latitude_raw', 'physical_longitude_raw', 'physical_altitude_raw'];
         v_address_present_condition_sql := $$
             (NULLIF(dt.physical_address_part1_raw, '') IS NOT NULL OR NULLIF(dt.physical_address_part2_raw, '') IS NOT NULL OR NULLIF(dt.physical_address_part3_raw, '') IS NOT NULL OR
              NULLIF(dt.physical_postcode_raw, '') IS NOT NULL OR NULLIF(dt.physical_postplace_raw, '') IS NOT NULL OR NULLIF(dt.physical_region_code_raw, '') IS NOT NULL)
@@ -84,7 +84,7 @@ BEGIN
         $$, v_default_country_id, v_address_present_condition_sql); -- Format with default_country_id and address_present check
 
         v_warnings_json_expr_sql := format($$
-            CASE 
+            CASE
                 WHEN dt.physical_region_code_raw IS NOT NULL AND l.resolved_physical_region_id IS NULL THEN jsonb_build_object('physical_region_code_raw', dt.physical_region_code_raw)  -- Invalid region code
                 WHEN dt.physical_region_code_raw IS NULL AND dt.physical_country_iso_2_raw IS NOT NULL AND l.resolved_physical_country_id IS NOT DISTINCT FROM %1$L AND l.resolved_physical_country_id IS NOT NULL THEN jsonb_build_object('physical_region_code_raw', NULL)  -- Missing region for domestic country (include key with NULL)
                 ELSE '{}'::jsonb
@@ -125,14 +125,14 @@ BEGIN
 
     ELSIF p_step_code = 'postal_location' THEN
         v_error_keys_to_clear_arr := ARRAY[
-            'postal_region_code_raw', 
-            'postal_country_iso_2_raw', 
+            'postal_region_code_raw',
+            'postal_country_iso_2_raw',
             'postal_latitude_raw', -- Error key for latitude issues
             'postal_longitude_raw', -- Error key for longitude issues
             'postal_altitude_raw', -- Error key for altitude issues
             'postal_location_has_coordinates_error' -- Specific error for postal having coords, keep this one
         ];
-        v_invalid_code_keys_to_clear_arr := ARRAY['postal_region_code_raw', 'postal_country_iso_2_raw', 'postal_latitude_raw', 'postal_longitude_raw', 'postal_altitude_raw'];
+        v_warning_keys_to_clear_arr := ARRAY['postal_region_code_raw', 'postal_country_iso_2_raw', 'postal_latitude_raw', 'postal_longitude_raw', 'postal_altitude_raw'];
         v_address_present_condition_sql := $$
             (NULLIF(dt.postal_address_part1_raw, '') IS NOT NULL OR NULLIF(dt.postal_address_part2_raw, '') IS NOT NULL OR NULLIF(dt.postal_address_part3_raw, '') IS NOT NULL OR
              NULLIF(dt.postal_postcode_raw, '') IS NOT NULL OR NULLIF(dt.postal_postplace_raw, '') IS NOT NULL OR NULLIF(dt.postal_region_code_raw, '') IS NOT NULL)
@@ -155,7 +155,7 @@ BEGIN
         $$, v_default_country_id, v_address_present_condition_sql); -- Format with default_country_id and address_present check
 
         v_warnings_json_expr_sql := format($$
-            CASE 
+            CASE
                 WHEN dt.postal_region_code_raw IS NOT NULL AND l.resolved_postal_region_id IS NULL THEN jsonb_build_object('postal_region_code_raw', dt.postal_region_code_raw)  -- Invalid region code
                 WHEN dt.postal_region_code_raw IS NULL AND dt.postal_country_iso_2_raw IS NOT NULL AND l.resolved_postal_country_id IS NOT DISTINCT FROM %1$L AND l.resolved_postal_country_id IS NOT NULL THEN jsonb_build_object('postal_region_code_raw', NULL)  -- Missing region for domestic country (include key with NULL)
                 ELSE '{}'::jsonb
@@ -248,7 +248,7 @@ BEGIN
         cast_result.p_value, cast_result.p_error_message
     FROM distinct_numerics dn
     LEFT JOIN LATERAL import.try_cast_to_numeric_specific(dn.num_string, dn.num_type) AS cast_result ON TRUE;
-    
+
     ANALYZE t_resolved_codes;
     ANALYZE t_resolved_numerics;
 
@@ -322,7 +322,7 @@ BEGIN
                         || (%13$s) -- Add Postal coordinate present error message
                     ),
             warnings = (
-                        (dt.warnings - %8$L::text[]) -- Start with existing invalid codes, clearing old ones for this step
+                        (dt.warnings - %8$L::text[]) -- Start with existing warnings, clearing old ones for this step
                         || CASE WHEN (%4$s) AND NOT ((%6$s) OR (%10$s)) THEN (%5$s) ELSE '{}'::jsonb END -- Add Non-fatal region/country codes (if no fatal/coord error)
                         || CASE WHEN (%10$s) THEN jsonb_strip_nulls(%14$s) ELSE '{}'::jsonb END -- Add Original invalid coordinate values (strip nulls here)
                     ),
@@ -334,10 +334,10 @@ BEGIN
         v_default_country_id,                       /* %2$L (default country for region resolution) */
         v_error_keys_to_clear_arr,                  /* %3$L (for clearing error keys) */
         v_error_condition_sql,                      /* %4$s (non-fatal region/country error condition) */
-        v_warnings_json_expr_sql,              /* %5$s (for adding non-fatal region/country invalid codes) */
+        v_warnings_json_expr_sql,                   /* %5$s (for adding non-fatal region/country warnings) */
         v_fatal_error_condition_sql,                /* %6$s (fatal country error condition) */
         v_fatal_error_json_expr_sql,                /* %7$s (for adding fatal country error message) */
-        v_invalid_code_keys_to_clear_arr,           /* %8$L (for clearing warnings keys) */
+        v_warning_keys_to_clear_arr,                /* %8$L (for clearing warnings keys) */
         v_step.priority,                            /* %9$L (for last_completed_priority) */
         v_any_coord_error_condition_sql,            /* %10$s (any coordinate error condition) */
         v_coord_cast_error_json_expr_sql,           /* %11$s (coordinate cast error JSON) */
@@ -372,7 +372,7 @@ BEGIN
         USING p_batch_seq;
         RAISE DEBUG '[Job %] analyse_location: Estimated errors in this step for batch: %', p_job_id, v_error_count;
 
-    EXCEPTION 
+    EXCEPTION
         WHEN PROGRAM_LIMIT_EXCEEDED THEN -- e.g. statement too complex, or other similar limit errors
             error_message := SQLERRM;
             RAISE WARNING '[Job %] analyse_location: Program limit exceeded during single-pass batch update for step %: %. SQLSTATE: %', p_job_id, p_step_code, error_message, SQLSTATE;
@@ -383,7 +383,7 @@ BEGIN
             WHERE id = p_job_id;
             -- Don't re-throw - job is marked as failed
         WHEN OTHERS THEN
-            error_message := SQLERRM; 
+            error_message := SQLERRM;
             RAISE WARNING '[Job %] analyse_location: Unexpected error during single-pass batch update for step %: %. SQLSTATE: %', p_job_id, p_step_code, error_message, SQLSTATE;
             -- Attempt to mark individual data rows as error (best effort)
             BEGIN

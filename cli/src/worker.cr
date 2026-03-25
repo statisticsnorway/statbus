@@ -379,7 +379,7 @@ module Statbus
             begin
               reset_count = db.query_one "SELECT worker.reset_abandoned_processing_tasks()", as: Int32
               if reset_count > 0
-                @log.info { "Reset #{reset_count} abandoned processing tasks to pending state" }
+                @log.info { "Reset #{reset_count} abandoned processing tasks to interrupted state" }
               else
                 @log.debug { "No abandoned processing tasks found" }
               end
@@ -797,7 +797,7 @@ module Statbus
                                  cr.queue
                                FROM worker.tasks t
                                JOIN worker.command_registry cr ON t.command = cr.command
-                               WHERE t.state = 'pending'
+                               WHERE t.state IN ('interrupted', 'pending')
                                  AND t.scheduled_at IS NOT NULL
                                  AND t.scheduled_at > now()
                                GROUP BY cr.queue
@@ -1078,7 +1078,7 @@ module Statbus
     # Excludes tasks scheduled for the future since they aren't actionable now
     private def count_active_tasks : Int32
       DB.connect(@config.connection_string("worker")) do |db|
-        db.query_one("SELECT count(*)::int FROM worker.tasks WHERE state IN ('pending', 'processing', 'waiting') AND (scheduled_at IS NULL OR scheduled_at <= now())", as: Int32)
+        db.query_one("SELECT count(*)::int FROM worker.tasks WHERE state IN ('interrupted', 'pending', 'processing', 'waiting') AND (scheduled_at IS NULL OR scheduled_at <= now())", as: Int32)
       end
     rescue ex
       @log.debug { "Error counting active tasks: #{ex.message}" }

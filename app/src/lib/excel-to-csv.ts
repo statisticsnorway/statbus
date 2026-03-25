@@ -84,29 +84,38 @@ export async function convertExcelToCsvBlob(source: File | ArrayBuffer): Promise
   // Convert to CSV — SheetJS handles date formatting automatically with cellDates
   const csv = XLSX.utils.sheet_to_csv(sheet, { dateNF: 'yyyy-mm-dd' });
 
-  // Strip system columns (row_id, errors, warnings) if present
+  // Always normalize through Papa to fix SheetJS inconsistencies
+  // (e.g. data rows having more columns than header due to empty trailing cells)
   const parsed = Papa.parse(csv, { header: false, skipEmptyLines: false });
   const rows = parsed.data as string[][];
   if (rows.length === 0) {
     return new Blob([csv], { type: 'text/csv' });
   }
 
+  // The download route (api/import/download/route.ts) adds row_id and errors/warnings
+  // columns so users can identify which rows had problems and what went wrong.
+  // When users fix errors in the downloaded file and re-upload it, these diagnostic
+  // columns must be stripped — they don't exist in the upload table schema.
+  // Dual: server-side stripping in api/import/upload/route.ts (for CSV and curl uploads).
   const headers = rows[0];
-  const systemCols = new Set(['row_id', 'errors', 'warnings', '_errors', '_warnings']);
+  const systemCols = new Set(['row_id', 'errors', 'warnings']);
   const skipIndices = new Set<number>();
   headers.forEach((h, i) => {
     if (systemCols.has(h.trim())) skipIndices.add(i);
   });
 
-  if (skipIndices.size === 0) {
-    return new Blob([csv], { type: 'text/csv' });
-  }
-
-  // Rebuild CSV without system columns using PapaParser
-  const cleanedRows = rows.map(row =>
-    row.filter((_, i) => !skipIndices.has(i))
-  );
-  const cleanedCsv = Papa.unparse(cleanedRows, { header: false });
+  // Strip system columns and normalize row lengths to match header count
+  const cleanedRows = rows
+    .filter(row => row.some(cell => cell !== ''))
+    .map(row => {
+      const filtered = skipIndices.size > 0
+        ? row.filter((_, i) => !skipIndices.has(i))
+        : row;
+      const targetLen = headers.length - skipIndices.size;
+      if (filtered.length > targetLen) return filtered.slice(0, targetLen);
+      return filtered;
+    });
+  const cleanedCsv = Papa.unparse(cleanedRows, { header: false, newline: '\n' });
 
   return new Blob([cleanedCsv + '\n'], { type: 'text/csv' });
 }

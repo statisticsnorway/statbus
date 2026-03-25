@@ -251,7 +251,7 @@ Handles background processing. A long-running worker process calls `worker.proce
 - `refresh_session(id, user_id, created_at, last_used_at, expires_at, jti, refresh_version, user_agent, ip_address)` — **infrastructure**
   - Key FKs: user_id.
 - `secrets(value, created_at, updated_at, key, description)` — **infrastructure**
-- `settings(id, activity_category_standard_id, country_id, region_version_id, only_one_setting, required_to_be_enabled)` — **infrastructure**
+- `settings(id, activity_category_standard_id, country_id, region_version_id, only_one_setting, required_to_be_enabled, report_partition_modulus)` — **infrastructure**
   - Key FKs: activity_category_standard_id, activity_category_standard_id, country_id, region_version_id, region_version_id, required_to_be_enabled, required_to_be_enabled.
 - `region_access(id, user_id, region_id)` — **infrastructure**
   - Key FKs: region_id, user_id.

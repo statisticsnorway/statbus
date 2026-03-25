@@ -106,7 +106,10 @@ export async function addReferenceSheets(
     ws.getColumn(2).width = 50;
     ws.getColumn(3).width = 65;
 
-    // Named range points to column C (combined "code | name") for dropdown display
+    // Named range points to column C (combined "code | name") for dropdown display.
+    // When users select from the dropdown, the cell value becomes "code | name".
+    // The SQL import pipeline (import.analyse_*) must handle this format —
+    // stripping " | name" to extract just the code for lookup joins.
     const lastRow = data.length + 1;
     const safeSheetName = sheetName.includes(' ') ? `'${sheetName}'` : sheetName;
     workbook.definedNames.add(`${safeSheetName}!$C$2:$C$${lastRow}`, ref.rangeName);
@@ -249,6 +252,10 @@ export function writeReferenceSheets(
       if (streaming) dataRow.commit();
     }
 
+    // Named range points to column C (combined "code | name") for dropdown display.
+    // When users select from the dropdown, the cell value becomes "code | name".
+    // The SQL import pipeline (import.analyse_*) must handle this format —
+    // stripping " | name" to extract just the code for lookup joins.
     const lastRow = data.length + 1;
     const safeSheetName = sheetName.includes(' ') ? `'${sheetName}'` : sheetName;
     workbook.definedNames.add(`${safeSheetName}!$C$2:$C$${lastRow}`, ref.rangeName);

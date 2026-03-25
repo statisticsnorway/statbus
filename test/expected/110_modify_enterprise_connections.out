@@ -138,10 +138,12 @@ SELECT
 \echo Run worker processing for analytics tasks
 Run worker processing for analytics tasks
 CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 972: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 975: worker.notify_task_progress() is not a procedure
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |  1712
+ analytics | completed |   437
  import    | completed |    96
 (2 rows)
 
@@ -1689,10 +1691,12 @@ SELECT jsonb_pretty(
   \echo Run worker processing for analytics tasks (after manual connections)
 Run worker processing for analytics tasks (after manual connections)
   CALL worker.process_tasks(p_queue => 'analytics');
+WARNING:  Error in before_procedure worker.notify_task_progress for task 1415: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 1418: worker.notify_task_progress() is not a procedure
   SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |  2999
+ analytics | completed |  2993
  import    | completed |    96
 (2 rows)
 
