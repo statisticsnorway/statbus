@@ -6,163 +6,198 @@ AS $function$
 DECLARE
     v_payload JSONB;
     v_phases JSONB := '[]'::jsonb;
-    v_units_phase JSONB;
-    v_reports_phase JSONB;
-    -- Phase 1 variables (is_deriving_statistical_units)
+    -- Pipeline root
+    v_pipeline_id BIGINT;
+    v_pipeline_state worker.task_state;
+    -- Phase roots
+    v_units_phase_id BIGINT;
+    v_units_phase_state worker.task_state;
+    v_reports_phase_id BIGINT;
+    v_reports_phase_state worker.task_state;
+    -- Phase 1
     v_units_active BOOLEAN;
     v_units_step TEXT;
     v_units_total BIGINT;
     v_units_completed BIGINT;
-    v_affected_est INT;
-    v_affected_lu INT;
-    v_affected_en INT;
-    v_affected_pg INT;
-    -- Phase 2 variables (is_deriving_reports)
+    -- Phase 2
     v_reports_active BOOLEAN;
     v_reports_step TEXT;
     v_reports_total BIGINT;
     v_reports_completed BIGINT;
+    -- Shared
+    v_concurrent_parent_id BIGINT;
+    v_effective_info JSONB;
 BEGIN
-    -- Phase 1: is_deriving_statistical_units
-    SELECT EXISTS (
-        SELECT 1 FROM worker.tasks
-        WHERE command IN ('collect_changes', 'derive_units_phase', 'derive_statistical_unit', 'statistical_unit_refresh_batch', 'statistical_unit_flush_staging')
-          AND state IN ('pending', 'processing', 'waiting')
-    ) INTO v_units_active;
+    -- 1. Find the active pipeline root.
+    -- Prefer processing/waiting (actively running) over pending (queued).
+    -- Without this, a second queued collect_changes would shadow the running one.
+    SELECT id, state INTO v_pipeline_id, v_pipeline_state
+    FROM worker.tasks
+    WHERE command = 'collect_changes'
+      AND state NOT IN ('completed', 'failed')
+    ORDER BY
+      CASE WHEN state IN ('processing', 'waiting') THEN 0 ELSE 1 END,
+      id DESC
+    LIMIT 1;
 
-    IF v_units_active THEN
-        SELECT t.command INTO v_units_step
-        FROM worker.tasks AS t
-        WHERE t.command IN ('collect_changes', 'derive_units_phase', 'derive_statistical_unit', 'statistical_unit_refresh_batch', 'statistical_unit_flush_staging')
-          AND (t.state IN ('processing', 'waiting') OR (t.command = 'collect_changes' AND t.state = 'pending'))
-        ORDER BY t.id DESC LIMIT 1;
-
-        SELECT count(*) INTO v_units_total
-        FROM worker.tasks AS t
-        WHERE t.command = 'statistical_unit_refresh_batch'
-          AND EXISTS (
-              SELECT 1 FROM worker.tasks AS p
-              WHERE p.id = t.parent_id
-                AND p.command = 'derive_statistical_unit'
-                AND p.state IN ('processing', 'waiting')
-          );
-
-        SELECT count(*) INTO v_units_completed
-        FROM worker.tasks AS t
-        WHERE t.state IN ('completed', 'failed')
-          AND t.command = 'statistical_unit_refresh_batch'
-          AND EXISTS (
-              SELECT 1 FROM worker.tasks AS p
-              WHERE p.id = t.parent_id
-                AND p.command = 'derive_statistical_unit'
-                AND p.state IN ('processing', 'waiting')
-          );
-
-        -- Read effective counts from info (handler output)
-        SELECT (t.info->>'effective_establishment_count')::int,
-               (t.info->>'effective_legal_unit_count')::int,
-               (t.info->>'effective_enterprise_count')::int,
-               (t.info->>'effective_power_group_count')::int
-        INTO v_affected_est, v_affected_lu, v_affected_en, v_affected_pg
-        FROM worker.tasks AS t
-        WHERE t.command = 'derive_statistical_unit'
-          AND t.state IN ('processing', 'waiting')
-        ORDER BY t.id DESC LIMIT 1;
-
-        v_units_phase := jsonb_build_object(
-            'phase', 'is_deriving_statistical_units',
-            'step', v_units_step,
-            'total', COALESCE(v_units_total, 0),
-            'completed', COALESCE(v_units_completed, 0),
-            'effective_establishment_count', v_affected_est,
-            'effective_legal_unit_count', v_affected_lu,
-            'effective_enterprise_count', v_affected_en,
-            'effective_power_group_count', v_affected_pg
-        );
-        v_phases := v_phases || jsonb_build_array(v_units_phase);
+    IF v_pipeline_id IS NULL THEN
+        -- No active pipeline. Send idle for both phases.
+        PERFORM pg_notify('worker_status',
+            json_build_object('type', 'is_deriving_statistical_units', 'status', false)::text);
+        PERFORM pg_notify('worker_status',
+            json_build_object('type', 'is_deriving_reports', 'status', false)::text);
+        RETURN;
     END IF;
 
-    -- Phase 2: is_deriving_reports
-    SELECT EXISTS (
+    -- 2. Find phase roots (direct children of pipeline root)
+    SELECT id, state INTO v_units_phase_id, v_units_phase_state
+    FROM worker.tasks
+    WHERE parent_id = v_pipeline_id AND command = 'derive_units_phase';
+
+    SELECT id, state INTO v_reports_phase_id, v_reports_phase_state
+    FROM worker.tasks
+    WHERE parent_id = v_pipeline_id AND command = 'derive_reports_phase';
+
+    -- 3. Phase activity from root states
+    -- Units: active when pipeline is collecting (pending/processing)
+    --        OR units phase root is not yet terminal
+    v_units_active := v_pipeline_state IN ('pending', 'processing')
+        OR (v_units_phase_state IS NOT NULL
+            AND v_units_phase_state NOT IN ('completed', 'failed'));
+
+    -- Also check: is there a QUEUED pipeline behind the current one?
+    -- A pending collect_changes means new changes are waiting to be processed.
+    -- Show units as pending so the UI indicates queued work.
+    IF NOT v_units_active AND EXISTS (
         SELECT 1 FROM worker.tasks
-        WHERE command IN ('derive_reports_phase', 'derive_reports', 'derive_statistical_history', 'derive_statistical_history_period',
-                         'statistical_history_reduce', 'derive_statistical_unit_facet',
-                         'derive_statistical_unit_facet_partition', 'statistical_unit_facet_reduce',
-                         'derive_statistical_history_facet', 'derive_statistical_history_facet_period',
-                         'statistical_history_facet_reduce')
-          AND state IN ('pending', 'processing', 'waiting')
-    ) INTO v_reports_active;
+        WHERE command = 'collect_changes' AND state = 'pending'
+          AND id <> v_pipeline_id
+    ) THEN
+        v_units_active := true;
+        v_units_step := 'collect_changes';
+    END IF;
 
-    IF v_reports_active THEN
-        SELECT t.command INTO v_reports_step
+    -- Reports: active when reports phase root is processing/waiting,
+    -- OR when reports is pending but units is already done (bridges the gap
+    -- between derive_units_phase completing and derive_reports_phase starting).
+    v_reports_active := v_reports_phase_state IN ('processing', 'waiting')
+        OR (v_reports_phase_state = 'pending'
+            AND v_units_phase_state IN ('completed', 'failed'));
+
+    -- 4. Effective counts: from the depth-2 child that has them (persists after completion)
+    IF v_units_phase_id IS NOT NULL THEN
+        SELECT t.info INTO v_effective_info
         FROM worker.tasks AS t
-        WHERE t.command IN ('derive_reports_phase', 'derive_reports', 'derive_statistical_history',
-                           'statistical_history_reduce', 'derive_statistical_unit_facet',
-                           'statistical_unit_facet_reduce', 'derive_statistical_history_facet',
-                           'statistical_history_facet_reduce')
-          AND t.state IN ('processing', 'waiting')
-        ORDER BY t.id DESC LIMIT 1;
+        WHERE t.parent_id = v_units_phase_id
+          AND t.info ? 'effective_legal_unit_count'
+        ORDER BY t.id LIMIT 1;
+    END IF;
 
-        SELECT count(*) INTO v_reports_total
-        FROM worker.tasks AS t
-        WHERE EXISTS (
-              SELECT 1 FROM worker.tasks AS p
-              WHERE p.id = t.parent_id
-                AND p.state IN ('processing', 'waiting')
-                AND p.command IN ('derive_statistical_history', 'derive_statistical_unit_facet',
-                                'derive_statistical_history_facet')
-          );
-
-        SELECT count(*) INTO v_reports_completed
-        FROM worker.tasks AS t
-        WHERE t.state IN ('completed', 'failed')
-          AND EXISTS (
-              SELECT 1 FROM worker.tasks AS p
-              WHERE p.id = t.parent_id
-                AND p.state IN ('processing', 'waiting')
-                AND p.command IN ('derive_statistical_history', 'derive_statistical_unit_facet',
-                                'derive_statistical_history_facet')
-          );
-
-        -- Effective counts come from derive_statistical_unit task info (same pipeline run)
-        IF v_affected_est IS NULL THEN
-            SELECT (t.info->>'effective_establishment_count')::int,
-                   (t.info->>'effective_legal_unit_count')::int,
-                   (t.info->>'effective_enterprise_count')::int,
-                   (t.info->>'effective_power_group_count')::int
-            INTO v_affected_est, v_affected_lu, v_affected_en, v_affected_pg
+    -- 5. Phase 1 details
+    IF v_units_active THEN
+        -- Step: the depth-2 child of the phase root that's active.
+        -- This matches pipeline_step_weight entries for weighted progress.
+        IF v_pipeline_state IN ('pending', 'processing') THEN
+            v_units_step := 'collect_changes';
+        ELSE
+            SELECT t.command INTO v_units_step
             FROM worker.tasks AS t
-            WHERE t.command = 'derive_statistical_unit'
-              AND t.state IN ('completed', 'waiting')
+            WHERE t.parent_id = v_units_phase_id
+              AND t.state IN ('processing', 'waiting')
             ORDER BY t.id DESC LIMIT 1;
         END IF;
 
-        v_reports_phase := jsonb_build_object(
+        -- Progress: children of the deepest active concurrent parent in the phase
+        SELECT t.id INTO v_concurrent_parent_id
+        FROM worker.tasks AS t
+        WHERE t.parent_id = v_units_phase_id
+          AND t.child_mode = 'concurrent'
+          AND t.state IN ('processing', 'waiting')
+        ORDER BY t.depth DESC LIMIT 1;
+
+        IF v_concurrent_parent_id IS NOT NULL THEN
+            SELECT count(*),
+                   count(*) FILTER (WHERE state IN ('completed', 'failed'))
+            INTO v_units_total, v_units_completed
+            FROM worker.tasks
+            WHERE parent_id = v_concurrent_parent_id;
+        ELSE
+            v_units_total := 0;
+            v_units_completed := 0;
+        END IF;
+
+        v_phases := v_phases || jsonb_build_array(jsonb_build_object(
+            'phase', 'is_deriving_statistical_units',
+            'active', v_units_active,
+            'pending', false,
+            'step', v_units_step,
+            'total', COALESCE(v_units_total, 0),
+            'completed', COALESCE(v_units_completed, 0),
+            'effective_establishment_count', (v_effective_info->>'effective_establishment_count')::int,
+            'effective_legal_unit_count', (v_effective_info->>'effective_legal_unit_count')::int,
+            'effective_enterprise_count', (v_effective_info->>'effective_enterprise_count')::int,
+            'effective_power_group_count', (v_effective_info->>'effective_power_group_count')::int
+        ));
+    END IF;
+
+    -- 6. Phase 2 details
+    -- Always include reports when the phase exists (even when pending),
+    -- so the UI can show "pending" with effective counts.
+    IF v_reports_phase_id IS NOT NULL AND v_reports_phase_state NOT IN ('completed', 'failed') THEN
+        IF v_reports_active THEN
+            -- Step: the depth-2 child of the phase root that's active.
+            -- This matches pipeline_step_weight entries for weighted progress.
+            SELECT t.command INTO v_reports_step
+            FROM worker.tasks AS t
+            WHERE t.parent_id = v_reports_phase_id
+              AND t.state IN ('processing', 'waiting')
+            ORDER BY t.id DESC LIMIT 1;
+
+            -- Progress: children of the deepest active concurrent parent in the phase
+            SELECT t.id INTO v_concurrent_parent_id
+            FROM worker.tasks AS t
+            WHERE t.parent_id = v_reports_phase_id
+              AND t.child_mode = 'concurrent'
+              AND t.state IN ('processing', 'waiting')
+            ORDER BY t.depth DESC LIMIT 1;
+
+            IF v_concurrent_parent_id IS NOT NULL THEN
+                SELECT count(*),
+                       count(*) FILTER (WHERE state IN ('completed', 'failed'))
+                INTO v_reports_total, v_reports_completed
+                FROM worker.tasks
+                WHERE parent_id = v_concurrent_parent_id;
+            END IF;
+        END IF;
+
+        v_phases := v_phases || jsonb_build_array(jsonb_build_object(
             'phase', 'is_deriving_reports',
+            'active', v_reports_active,
+            'pending', v_reports_phase_state = 'pending',
             'step', v_reports_step,
             'total', COALESCE(v_reports_total, 0),
             'completed', COALESCE(v_reports_completed, 0),
-            'effective_establishment_count', v_affected_est,
-            'effective_legal_unit_count', v_affected_lu,
-            'effective_enterprise_count', v_affected_en,
-            'effective_power_group_count', v_affected_pg
-        );
-        v_phases := v_phases || jsonb_build_array(v_reports_phase);
+            'effective_establishment_count', (v_effective_info->>'effective_establishment_count')::int,
+            'effective_legal_unit_count', (v_effective_info->>'effective_legal_unit_count')::int,
+            'effective_enterprise_count', (v_effective_info->>'effective_enterprise_count')::int,
+            'effective_power_group_count', (v_effective_info->>'effective_power_group_count')::int
+        ));
     END IF;
 
-    -- Always report active phases with detailed progress
+    -- 7. Send progress and idle signals
     IF jsonb_array_length(v_phases) > 0 THEN
         v_payload := jsonb_build_object('type', 'pipeline_progress', 'phases', v_phases);
         PERFORM pg_notify('worker_status', v_payload::text);
     END IF;
 
-    -- Send explicit "idle" signals for inactive phases so the frontend clears its indicators.
-    -- Without these, the UI stays stuck showing the last active phase forever.
+    -- Only send idle signals when the phase is truly idle (not active AND not pending).
+    -- A pending phase is queued work — not idle.
     IF NOT v_units_active THEN
         PERFORM pg_notify('worker_status',
             json_build_object('type', 'is_deriving_statistical_units', 'status', false)::text);
     END IF;
-    IF NOT v_reports_active THEN
+    IF NOT v_reports_active
+       AND (v_reports_phase_state IS NULL OR v_reports_phase_state IN ('completed', 'failed')) THEN
         PERFORM pg_notify('worker_status',
             json_build_object('type', 'is_deriving_reports', 'status', false)::text);
     END IF;

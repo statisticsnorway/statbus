@@ -12,7 +12,7 @@ DECLARE
     v_skipped_update_count INT := 0;
     v_sql TEXT;
     v_error_keys_to_clear_arr TEXT[] := ARRAY['tag_path_raw'];
-    -- v_invalid_code_keys_to_clear_arr is removed as tag errors are now fatal
+    -- v_warning_keys_to_clear_arr is removed as tag errors are now fatal
 BEGIN
     RAISE DEBUG '[Job %] analyse_tags (Batch): Starting analysis for batch_seq %', p_job_id, p_batch_seq;
 

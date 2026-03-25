@@ -7,9 +7,19 @@ CREATE OR REPLACE FUNCTION public.data_source_used_derive()
 AS $function$
 BEGIN
     RAISE DEBUG 'Running data_source_used_derive()';
-    DELETE FROM public.data_source_used;
-    INSERT INTO public.data_source_used
-    SELECT * FROM public.data_source_used_def;
+    MERGE INTO public.data_source_used AS target
+    USING public.data_source_used_def AS source
+    ON target.code = source.code
+    WHEN MATCHED AND (
+        target.id IS DISTINCT FROM source.id
+        OR target.name IS DISTINCT FROM source.name
+    ) THEN UPDATE SET
+        id = source.id,
+        name = source.name
+    WHEN NOT MATCHED BY TARGET THEN INSERT
+        (id, code, name)
+        VALUES (source.id, source.code, source.name)
+    WHEN NOT MATCHED BY SOURCE THEN DELETE;
 END;
 $function$
 ```

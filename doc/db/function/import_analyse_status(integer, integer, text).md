@@ -64,10 +64,10 @@ BEGIN
                             ELSE dt.status_id -- Keep existing if no condition met (should not happen if logic is complete)
                         END,
             action = CASE
-                        WHEN (NULLIF(dt.status_code_raw, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NULL AND %2$L::INTEGER IS NULL) OR 
-                             (NULLIF(dt.status_code_raw, '') IS NULL AND %2$L::INTEGER IS NULL)      
+                        WHEN (NULLIF(dt.status_code_raw, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NULL AND %2$L::INTEGER IS NULL) OR
+                             (NULLIF(dt.status_code_raw, '') IS NULL AND %2$L::INTEGER IS NULL)
                         THEN 'skip'::public.import_row_action_type
-                        ELSE dt.action 
+                        ELSE dt.action
                      END,
             state = CASE
                         WHEN (NULLIF(dt.status_code_raw, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NULL AND %2$L::INTEGER IS NULL) OR

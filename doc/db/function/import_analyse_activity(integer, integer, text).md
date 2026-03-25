@@ -17,7 +17,7 @@ DECLARE
     v_json_key TEXT;
     v_lookup_failed_condition_sql TEXT;
     v_error_json_expr_sql TEXT;
-    v_invalid_code_json_expr_sql TEXT;
+    v_warning_json_expr_sql TEXT;
     v_parent_unit_missing_error_key TEXT;
     v_parent_unit_missing_error_message TEXT;
     v_prelim_update_count INT := 0;
@@ -59,11 +59,11 @@ BEGIN
     v_error_json_expr_sql := format('jsonb_build_object(%1$L, ''Not found'')', v_json_key);
 
     -- SQL expression string for constructing the warnings JSON object for the current activity type
-    v_invalid_code_json_expr_sql := format('jsonb_build_object(%1$L, dt.%2$I)', v_json_key, v_source_code_col_name);
+    v_warning_json_expr_sql := format('jsonb_build_object(%1$L, dt.%2$I)', v_json_key, v_source_code_col_name);
 
     -- PERF: Removed IS NOT NULL from join conditions to enable hash join optimization.
     -- NULL codes won't match any category code anyway (NULL = 'x' evaluates to NULL/false).
-    -- This reduces query time from O(n²) nested loop to O(n) hash join.
+    -- This reduces query time from O(n^2) nested loop to O(n) hash join.
     v_sql := format($$
         WITH lookups AS (
             SELECT
@@ -100,7 +100,7 @@ BEGIN
         p_step_code,
         v_error_keys_to_clear_arr,
         v_lookup_failed_condition_sql,
-        v_invalid_code_json_expr_sql,
+        v_warning_json_expr_sql,
         v_step.priority
     );
 

@@ -51,7 +51,7 @@ BEGIN
             p_series_codes
     END;
 
-    WITH 
+    WITH
     base AS (
         -- Prepare base data, calculating the Javascript-compatible millisecond timestamp once.
         SELECT

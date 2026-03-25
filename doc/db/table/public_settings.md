@@ -8,6 +8,7 @@
  only_one_setting              | boolean |           |          | generated always as (id IS NOT NULL) stored
  region_version_id             | integer |           | not null | 
  required_to_be_enabled        | boolean |           |          | generated always as (true) stored
+ report_partition_modulus      | integer |           | not null | 256
 Indexes:
     "settings_pkey" PRIMARY KEY, btree (id)
     "settings_only_one_setting_key" UNIQUE CONSTRAINT, btree (only_one_setting)
