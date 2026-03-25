@@ -1096,8 +1096,11 @@ EOS
         OS=${TARGET%/*}
         ARCH=${TARGET#*/}
         OUTPUT="sb-${OS}-${ARCH}"
-        echo "Building sb for ${OS}/${ARCH}..."
-        cd cli && CGO_ENABLED=0 GOOS=$OS GOARCH=$ARCH go build -o "../$OUTPUT" .
+        VERSION=$(git describe --tags --always 2>/dev/null || echo "dev")
+        COMMIT=$(git rev-parse --short=8 HEAD 2>/dev/null || echo "unknown")
+        LDFLAGS="-s -w -X 'github.com/statisticsnorway/statbus/cli/cmd.version=${VERSION}' -X 'github.com/statisticsnorway/statbus/cli/cmd.commit=${COMMIT}'"
+        echo "Building sb ${VERSION} for ${OS}/${ARCH}..."
+        cd cli && CGO_ENABLED=0 GOOS=$OS GOARCH=$ARCH go build -trimpath -ldflags "$LDFLAGS" -o "../$OUTPUT" .
         echo "Built: $OUTPUT"
         ls -lh "../$OUTPUT"
       ;;
