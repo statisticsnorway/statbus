@@ -370,6 +370,17 @@ func runGenerateEnv(dir string) error {
 	}
 	// Now that config exists, ensure deploy branch fetch is configured
 	configureDeployFetch(dir)
+	// Create backup directory for upgrade daemon (systemd service expects it)
+	home, _ := os.UserHomeDir()
+	backupDir := filepath.Join(home, "statbus-backups")
+	if err := os.MkdirAll(backupDir, 0755); err != nil {
+		fmt.Printf("  Warning: could not create backup dir %s: %v\n", backupDir, err)
+	}
+	// Create maintenance directory for Caddy volume mount
+	maintDir := filepath.Join(home, "statbus-maintenance")
+	if err := os.MkdirAll(maintDir, 0755); err != nil {
+		fmt.Printf("  Warning: could not create maintenance dir %s: %v\n", maintDir, err)
+	}
 	return nil
 }
 

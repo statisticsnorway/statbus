@@ -311,6 +311,7 @@ func (d *Daemon) discover(ctx context.Context) {
 	}
 
 	filtered := FilterByChannel(releases, d.channel)
+	fmt.Printf("Discovery: %d release(s) from GitHub, %d match channel %q\n", len(releases), len(filtered), d.channel)
 
 	for _, r := range filtered {
 		var exists bool
@@ -347,9 +348,7 @@ func (d *Daemon) discover(ctx context.Context) {
 			continue
 		}
 
-		if d.verbose {
-			fmt.Printf("Discovered: %s\n", ReleaseSummary(r))
-		}
+		fmt.Printf("Discovered: %s\n", ReleaseSummary(r))
 	}
 
 	// Auto-download images if enabled
