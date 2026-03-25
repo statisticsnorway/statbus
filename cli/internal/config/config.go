@@ -624,22 +624,23 @@ VERSION=%[22]s
 	// Docker build config
 	example.Set("APT_USE_HTTPS_ONLY", cfg.AptUseHttpsOnly)
 
-	// Upgrade daemon settings (read from .env.config, written to .env)
-	if cfg.CaddyDeploymentMode != "development" {
+	// Upgrade daemon settings — always written to .env so the daemon never silently defaults.
+	// Values come from .env.config if present, otherwise sensible defaults.
+	{
 		cfgFile, cfgErr := dotenv.Load(filepath.Join(projDir, ".env.config"))
-		if cfgErr == nil {
-			getOrDefault := func(key, fallback string) string {
+		getOrDefault := func(key, fallback string) string {
+			if cfgErr == nil {
 				if v, ok := cfgFile.Get(key); ok {
 					return v
 				}
-				return fallback
 			}
-			fmt.Fprintf(&b, "\n# Upgrade daemon configuration\n")
-			fmt.Fprintf(&b, "UPGRADE_CHANNEL=%s\n", getOrDefault("UPGRADE_CHANNEL", "stable"))
-			fmt.Fprintf(&b, "UPGRADE_CHECK_INTERVAL=%s\n", getOrDefault("UPGRADE_CHECK_INTERVAL", "6h"))
-			fmt.Fprintf(&b, "UPGRADE_AUTO_DOWNLOAD=%s\n", getOrDefault("UPGRADE_AUTO_DOWNLOAD", "true"))
-			fmt.Fprintf(&b, "UPGRADE_PINNED_VERSION=%s\n", getOrDefault("UPGRADE_PINNED_VERSION", ""))
+			return fallback
 		}
+		fmt.Fprintf(&b, "\n# Upgrade daemon configuration\n")
+		fmt.Fprintf(&b, "UPGRADE_CHANNEL=%s\n", getOrDefault("UPGRADE_CHANNEL", "stable"))
+		fmt.Fprintf(&b, "UPGRADE_CHECK_INTERVAL=%s\n", getOrDefault("UPGRADE_CHECK_INTERVAL", "6h"))
+		fmt.Fprintf(&b, "UPGRADE_AUTO_DOWNLOAD=%s\n", getOrDefault("UPGRADE_AUTO_DOWNLOAD", "true"))
+		fmt.Fprintf(&b, "UPGRADE_PINNED_VERSION=%s\n", getOrDefault("UPGRADE_PINNED_VERSION", ""))
 	}
 
 	fmt.Fprintf(&b, "\n\n################################################################\n")
