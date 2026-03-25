@@ -14,6 +14,10 @@ import { JotaiAppProvider } from '@/atoms/JotaiAppProvider';
 import { DebugInspector } from '@/components/dev/DebugInspector';
 import { deploymentSlotName } from "@/lib/deployment-variables";
 import { headers } from "next/headers";
+import { validateEnv } from "@/lib/validate-env";
+
+// Validate environment at module load — fails fast before any rendering.
+validateEnv();
 
 const inter = Inter({ subsets: ["latin"] });
 
