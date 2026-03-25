@@ -267,7 +267,8 @@ func configureDeployFetch(dir string) {
 		return
 	}
 
-	refspec := fmt.Sprintf("+refs/heads/devops/deploy-to-%s:refs/remotes/origin/devops/deploy-to-%s", code, code)
+	branch := fmt.Sprintf("devops/deploy-to-%s", code)
+	refspec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", branch, branch)
 
 	// Check if already configured
 	cmd := exec.Command("git", "config", "--get-all", "remote.origin.fetch")
@@ -275,6 +276,13 @@ func configureDeployFetch(dir string) {
 	out, _ := cmd.Output()
 	if strings.Contains(string(out), refspec) {
 		return // already configured
+	}
+
+	// Check if the branch exists on the remote before adding
+	check := exec.Command("git", "ls-remote", "--exit-code", "--heads", "origin", branch)
+	check.Dir = dir
+	if check.Run() != nil {
+		return // branch doesn't exist on remote, skip
 	}
 
 	add := exec.Command("git", "config", "--add", "remote.origin.fetch", refspec)
