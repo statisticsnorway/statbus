@@ -245,9 +245,16 @@ class RestClientStore {
       } else {
         // Create browser client
         const apiBaseUrl = process.env.NEXT_PUBLIC_BROWSER_REST_URL;
-        
+
         if (!apiBaseUrl) {
           throw new Error('NEXT_PUBLIC_BROWSER_REST_URL environment variable is not defined');
+        }
+        if (apiBaseUrl.startsWith('__NEXT_PUBLIC_')) {
+          throw new Error(
+            `NEXT_PUBLIC_BROWSER_REST_URL contains an unreplaced placeholder: "${apiBaseUrl}". ` +
+            'The docker-entrypoint.sh did not inject runtime values. ' +
+            'Check that NEXT_PUBLIC_BROWSER_REST_URL is set in docker-compose environment.'
+          );
         }
         
         const apiUrl = apiBaseUrl + '/rest';

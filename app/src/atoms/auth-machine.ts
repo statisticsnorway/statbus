@@ -79,7 +79,7 @@ const authMachine = setup({
     refreshToken: fromPromise(async ({ input }: { input: { client: any }}) => {
       logger.debug("auth-machine:refreshToken", "Actor invoked.");
       // Re-implement the core logic of _performClientSideRefresh here for the actor.
-      const apiUrl = process.env.NEXT_PUBLIC_BROWSER_REST_URL || '';
+      const apiUrl = process.env.NEXT_PUBLIC_BROWSER_REST_URL ?? '';
       const refreshUrl = `${apiUrl}/rest/rpc/refresh`;
       const response = await fetch(refreshUrl, {
         method: 'POST',
@@ -128,7 +128,7 @@ const authMachine = setup({
       return { parsedStatus, rawResponse: rawResponseWithTimestamp, canaryResponse: canaryResponseWithTimestamp };
     }),
     login: fromPromise(async ({ input }: { input: { client: any, credentials: { email: string; password: string } } }) => {
-      const apiUrl = process.env.NEXT_PUBLIC_BROWSER_REST_URL || '';
+      const apiUrl = process.env.NEXT_PUBLIC_BROWSER_REST_URL ?? '';
       const loginUrl = `${apiUrl}/rest/rpc/login`;
       const response = await fetch(loginUrl, {
         method: 'POST',
@@ -163,7 +163,7 @@ const authMachine = setup({
       return { status, rawResponse: rawResponseWithTimestamp, canaryResponse: canaryResponseWithTimestamp };
     }),
     logout: fromPromise(async ({ input }: { input: { client: any }}) => {
-      const apiUrl = process.env.NEXT_PUBLIC_BROWSER_REST_URL || '';
+      const apiUrl = process.env.NEXT_PUBLIC_BROWSER_REST_URL ?? '';
       const logoutUrl = `${apiUrl}/rest/rpc/logout`;
       const response = await fetch(logoutUrl, {
         method: 'POST',
