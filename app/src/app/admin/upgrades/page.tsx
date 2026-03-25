@@ -164,6 +164,16 @@ export default function UpgradesPage() {
 
   const [actionError, setActionError] = useState<string | null>(null);
 
+  // Detect when an upgrade takes the app down → redirect to progress log.
+  // SWR keeps cached data (with "scheduled" or "in_progress") and sets error on network failure.
+  const hasActiveUpgrade = upgrades?.some((u) => {
+    const s = getStatus(u);
+    return s === "in_progress" || s === "scheduled";
+  });
+  if (error && hasActiveUpgrade && typeof window !== "undefined") {
+    window.location.href = "/upgrade-progress.log";
+  }
+
   const act = useCallback(
     async (id: number, body: Record<string, unknown>) => {
       setActing(id);
