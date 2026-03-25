@@ -9,6 +9,26 @@ The worker uses **structured concurrency** — exactly ONE top-level task at a t
 
 See `doc/derive-pipeline.md` for the full pipeline diagram and `doc/worker-structured-concurrency.md` for the concurrency model. Based on [Trio nurseries](https://vorpus.org/blog/notes-on-structured-concurrency-or-go-statement-considered-harmful/).
 
+## Remote SSH + psql (CRITICAL)
+
+**NEVER `echo "SQL" | ssh host "psql"`** — quoting breaks across SSH + shell + psql layers.
+
+Instead, write SQL to a local `tmp/` file and pipe it:
+```bash
+# Write SQL to a temp file
+cat > tmp/query.sql << 'EOF'
+SELECT id, state FROM worker.tasks LIMIT 5;
+EOF
+
+# Pipe to remote psql
+ssh statbus_demo "cd statbus && cat | ./devops/manage-statbus.sh psql" < tmp/query.sql
+
+# Or for local psql
+./devops/manage-statbus.sh psql < tmp/query.sql
+```
+
+This avoids quoting hell and creates a log of what was run.
+
 ## Background Tasks (CRITICAL)
 
 **Never block the conversation waiting for background tasks.** Claude Code auto-notifies when they complete.
