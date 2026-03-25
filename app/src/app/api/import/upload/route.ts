@@ -337,9 +337,11 @@ export async function POST(request: NextRequest) {
         if (isDownloadSystemColumn(h)) systemColumnIndices.add(i);
       });
 
-      // If CSV has system columns, rewrite the buffer to strip them
-      if (systemColumnIndices.size > 0 && !csvBuffer) {
-        const rawCsv = await file.text();
+      // If CSV has system columns, rewrite the buffer to strip them.
+      // This applies to BOTH CSV and Excel uploads — Excel files already have
+      // csvBuffer set from convertExcelToCsv, but system columns still need stripping.
+      if (systemColumnIndices.size > 0) {
+        const rawCsv = csvBuffer ? csvBuffer.toString('utf-8') : await file.text();
         const parsed = Papa.parse(rawCsv, { header: false, skipEmptyLines: false });
         const cleanedRows = (parsed.data as string[][]).map(row =>
           row.filter((_, i) => !systemColumnIndices.has(i))
