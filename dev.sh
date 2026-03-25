@@ -1091,6 +1091,16 @@ EOS
         echo "Following logs for app container..."
         docker compose logs --follow app
       ;;
+    'build-sb' )
+        TARGET=${1:-linux/amd64}
+        OS=${TARGET%/*}
+        ARCH=${TARGET#*/}
+        OUTPUT="sb-${OS}-${ARCH}"
+        echo "Building sb for ${OS}/${ARCH}..."
+        cd cli && CGO_ENABLED=0 GOOS=$OS GOARCH=$ARCH go build -o "../$OUTPUT" .
+        echo "Built: $OUTPUT"
+        ls -lh "../$OUTPUT"
+      ;;
      * )
       echo "dev.sh — Development-only commands for StatBus"
       echo ""
@@ -1119,6 +1129,9 @@ EOS
       echo "  list-snapshots                     List available snapshots"
       echo "  generate-db-documentation          Generate schema docs in doc/db/"
       echo "  generate-types                     Generate TypeScript types from schema"
+      echo ""
+      echo "Build:"
+      echo "  build-sb [target]                  Cross-compile sb binary (default: linux/amd64)"
       echo ""
       echo "Helpers:"
       echo "  postgres-variables                 Export PG connection variables"
