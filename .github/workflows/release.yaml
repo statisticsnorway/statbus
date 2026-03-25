@@ -66,8 +66,8 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service }}:sha-${{ steps.meta.outputs.sha }}
             ${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service }}:${{ steps.meta.outputs.version_tag }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service }}:buildcache,mode=max
 
     outputs:
       sha: ${{ steps.meta.outputs.sha }}
