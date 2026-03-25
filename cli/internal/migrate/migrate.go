@@ -59,6 +59,8 @@ func parseMigrationFile(path string) (*MigrationFile, error) {
 	}, nil
 }
 
+var dockerPsqlNotified bool
+
 // useDockerPsql determines whether to use docker compose exec for psql.
 // DOCKER_PSQL=1/true forces docker mode. DOCKER_PSQL=0/false forces host mode.
 // Otherwise auto-detects: host psql if available, docker fallback if not.
@@ -86,8 +88,11 @@ func PsqlCommand(projDir string) (psqlPath string, prefixArgs []string, env []st
 		}
 		user := getOr("POSTGRES_ADMIN_USER", "postgres")
 		db := getOr("POSTGRES_APP_DB", "statbus_local")
-		fmt.Fprintf(os.Stderr, "note: using psql via docker compose (set DOCKER_PSQL=0 to use host psql)\n")
-		return "docker", []string{"compose", "exec", "-T", "db", "psql", "-U", user, "-d", db}, nil, nil
+		if !dockerPsqlNotified {
+			fmt.Fprintf(os.Stderr, "note: using psql via docker compose (set DOCKER_PSQL=0 to use host psql)\n")
+			dockerPsqlNotified = true
+		}
+		return "docker", []string{"compose", "exec", "-T", "-w", "/statbus", "db", "psql", "-U", user, "-d", db}, nil, nil
 	}
 
 	hostPath, err := exec.LookPath("psql")
