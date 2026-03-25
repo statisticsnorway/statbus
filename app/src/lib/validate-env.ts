@@ -13,6 +13,10 @@
  */
 
 export function validateEnv() {
+  // Skip during next build — placeholders are expected at build time.
+  // They get replaced by docker-entrypoint.sh at container startup.
+  if (process.env.NEXT_PHASE === "phase-production-build") return;
+
   const errors: string[] = [];
 
   for (const [name, value] of Object.entries(process.env)) {
