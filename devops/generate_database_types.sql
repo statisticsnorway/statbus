@@ -662,7 +662,7 @@ export type Database = {
                 f.function_name,
                 '        Args: ' ||
                 CASE
-                    WHEN f.arg_count = 0 THEN 'never'
+                    WHEN f.arg_count = 0 THEN 'Record<string, never>'
                     ELSE '{' || E'\n' || (
                         SELECT string_agg(
                             '          ' || COALESCE(NULLIF(f.arg_names[s.idx], ''), 'arg' || (s.idx - 1)) || '?: ' ||

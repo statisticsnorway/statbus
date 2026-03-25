@@ -11791,7 +11791,7 @@ export type Database = {
         Returns: Json
       },
       activity_category_used_derive: {
-        Args: never
+        Args: Record<string, never>
         Returns: unknown
       },
       activity_hierarchy: {
@@ -11830,15 +11830,15 @@ export type Database = {
         Returns: unknown
       },
       auth_expire_access_keep_refresh: {
-        Args: never
+        Args: Record<string, never>
         Returns: Json
       },
       auth_status: {
-        Args: never
+        Args: Record<string, never>
         Returns: unknown
       },
       auth_test: {
-        Args: never
+        Args: Record<string, never>
         Returns: unknown
       },
       bytea_to_text: {
@@ -12037,7 +12037,7 @@ export type Database = {
         Returns: Json
       },
       country_used_derive: {
-        Args: never
+        Args: Record<string, never>
         Returns: unknown
       },
       create_api_key: {
@@ -12061,7 +12061,7 @@ export type Database = {
         Returns: Json
       },
       data_source_used_derive: {
-        Args: never
+        Args: Record<string, never>
         Returns: unknown
       },
       date_dist: {
@@ -12150,7 +12150,7 @@ export type Database = {
         Returns: Json
       },
       external_ident_derive_shape_labels: {
-        Args: never
+        Args: Record<string, never>
         Returns: unknown
       },
       external_idents_hierarchy: {
@@ -12163,7 +12163,7 @@ export type Database = {
         Returns: Json
       },
       fips_mode: {
-        Args: never
+        Args: Record<string, never>
         Returns: boolean
       },
       float4_dist: {
@@ -13669,7 +13669,7 @@ export type Database = {
         Returns: string
       },
       gen_random_uuid: {
-        Args: never
+        Args: Record<string, never>
         Returns: string
       },
       gen_salt: {
@@ -13686,15 +13686,15 @@ export type Database = {
         Returns: string
       },
       generate_mermaid_er_diagram: {
-        Args: never
+        Args: Record<string, never>
         Returns: string
       },
       generate_power_ident: {
-        Args: never
+        Args: Record<string, never>
         Returns: string
       },
       generate_typescript_types: {
-        Args: never
+        Args: Record<string, never>
         Returns: string
       },
       get_closed_group_batches: {
@@ -13722,7 +13722,7 @@ export type Database = {
         Returns: Json
       },
       get_histogram_timings: {
-        Args: never
+        Args: Record<string, never>
         Returns: string
       },
       get_import_job_progress: {
@@ -13732,7 +13732,7 @@ export type Database = {
         Returns: Json
       },
       get_report_partition_modulus: {
-        Args: never
+        Args: Record<string, never>
         Returns: number
       },
       get_statistical_history_periods: {
@@ -13979,7 +13979,7 @@ export type Database = {
         Returns: Database["public"]["CompositeTypes"]["http_header"]
       },
       http_list_curlopt: {
-        Args: never
+        Args: Record<string, never>
         Returns: Record<string, unknown>[]
       },
       http_patch: {
@@ -14014,7 +14014,7 @@ export type Database = {
         Returns: Database["public"]["CompositeTypes"]["http_response"]
       },
       http_reset_curlopt: {
-        Args: never
+        Args: Record<string, never>
         Returns: boolean
       },
       http_set_curlopt: {
@@ -14025,7 +14025,7 @@ export type Database = {
         Returns: boolean
       },
       hypopg: {
-        Args: never
+        Args: Record<string, never>
         Returns: Record<string, unknown>[]
       },
       hypopg_create_index: {
@@ -14047,7 +14047,7 @@ export type Database = {
         Returns: string
       },
       hypopg_hidden_indexes: {
-        Args: never
+        Args: Record<string, never>
         Returns: number[]
       },
       hypopg_hide_index: {
@@ -14063,15 +14063,15 @@ export type Database = {
         Returns: number
       },
       hypopg_reset: {
-        Args: never
+        Args: Record<string, never>
         Returns: unknown
       },
       hypopg_reset_index: {
-        Args: never
+        Args: Record<string, never>
         Returns: unknown
       },
       hypopg_unhide_all_indexes: {
-        Args: never
+        Args: Record<string, never>
         Returns: unknown
       },
       hypopg_unhide_index: {
@@ -14269,15 +14269,15 @@ export type Database = {
         Returns: string
       },
       is_deriving_reports: {
-        Args: never
+        Args: Record<string, never>
         Returns: Json
       },
       is_deriving_statistical_units: {
-        Args: never
+        Args: Record<string, never>
         Returns: Json
       },
       is_importing: {
-        Args: never
+        Args: Record<string, never>
         Returns: Json
       },
       jsonb_stats_accum: {
@@ -14449,11 +14449,11 @@ export type Database = {
         Returns: Json
       },
       legal_form_used_derive: {
-        Args: never
+        Args: Record<string, never>
         Returns: unknown
       },
       legal_relationship_set_primary_influencer_only: {
-        Args: never
+        Args: Record<string, never>
         Returns: unknown
       },
       legal_unit_hierarchy: {
@@ -14466,7 +14466,7 @@ export type Database = {
         Returns: Json
       },
       list_active_sessions: {
-        Args: never
+        Args: Record<string, never>
         Returns: unknown[]
       },
       location_hierarchy: {
@@ -14478,7 +14478,7 @@ export type Database = {
         Returns: Json
       },
       location_set_region_version_id: {
-        Args: never
+        Args: Record<string, never>
         Returns: unknown
       },
       login: {
@@ -14489,11 +14489,11 @@ export type Database = {
         Returns: unknown
       },
       logout: {
-        Args: never
+        Args: Record<string, never>
         Returns: unknown
       },
       lookup_parent_and_derive_code: {
-        Args: never
+        Args: Record<string, never>
         Returns: unknown
       },
       lquery_in: {
@@ -14850,7 +14850,7 @@ export type Database = {
         }
       },
       power_root_validate_root_membership: {
-        Args: never
+        Args: Record<string, never>
         Returns: unknown
       },
       primary_activity_category: {
@@ -14866,15 +14866,15 @@ export type Database = {
         }
       },
       range: {
-        Args: never
+        Args: Record<string, never>
         Returns: string[]
       },
       recalculate_activity_category_codes: {
-        Args: never
+        Args: Record<string, never>
         Returns: unknown
       },
       refresh: {
-        Args: never
+        Args: Record<string, never>
         Returns: unknown
       },
       regexp_match: {
@@ -14961,7 +14961,7 @@ export type Database = {
         Returns: Json
       },
       region_used_derive: {
-        Args: never
+        Args: Record<string, never>
         Returns: unknown
       },
       relevant_statistical_units: {
@@ -15050,7 +15050,7 @@ export type Database = {
         Returns: Json
       },
       sector_used_derive: {
-        Args: never
+        Args: Record<string, never>
         Returns: unknown
       },
       set_limit: {
@@ -15076,11 +15076,11 @@ export type Database = {
         Returns: Json
       },
       set_report_partition_seq: {
-        Args: never
+        Args: Record<string, never>
         Returns: unknown
       },
       show_limit: {
-        Args: never
+        Args: Record<string, never>
         Returns: number
       },
       show_trgm: {
@@ -15510,7 +15510,7 @@ export type Database = {
         Returns: Record<string, unknown>[]
       },
       validate_image_on_insert: {
-        Args: never
+        Args: Record<string, never>
         Returns: unknown
       },
       websearch_to_wildcard_tsquery: {
