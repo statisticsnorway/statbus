@@ -12,7 +12,7 @@ Restart=always
 RestartSec=30
 RestartForceExitStatus=42
 SuccessExitStatus=42
-Environment=HOME=/home/%i
+Environment=HOME=/home/%i PWD=/home/%i/statbus
 
 # Logging
 StandardOutput=journal
