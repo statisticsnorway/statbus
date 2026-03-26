@@ -425,6 +425,13 @@ func (d *Daemon) discover(ctx context.Context) {
 		return
 	}
 
+	// Edge channel: discover commits from master, not releases.
+	// Auto-schedules the latest commit for immediate upgrade.
+	if d.channel == "edge" {
+		d.discoverEdge(ctx)
+		return
+	}
+
 	releases, err := FetchReleases()
 	if err != nil {
 		fmt.Printf("Discovery error: %v\n", err)
@@ -477,6 +484,66 @@ func (d *Daemon) discover(ctx context.Context) {
 	}
 
 	// Auto-download images if enabled
+	if d.autoDL {
+		d.preDownloadImages(ctx)
+	}
+}
+
+// discoverEdge fetches recent master commits and auto-schedules the latest one.
+// Unlike release-based channels, edge tracks every CI-built commit.
+func (d *Daemon) discoverEdge(ctx context.Context) {
+	commits, err := FetchCommits(5)
+	if err != nil {
+		fmt.Printf("Edge discovery error: %v\n", err)
+		return
+	}
+	if len(commits) == 0 {
+		return
+	}
+
+	fmt.Printf("Edge discovery: %d recent commit(s) from master\n", len(commits))
+
+	// Record all recent commits
+	for _, c := range commits {
+		version := "sha-" + c.SHA[:8]
+		summary := c.Commit.Message
+		// Truncate summary to first line
+		if idx := strings.Index(summary, "\n"); idx > 0 {
+			summary = summary[:idx]
+		}
+		if len(summary) > 120 {
+			summary = summary[:120]
+		}
+
+		_, err := d.queryConn.Exec(ctx,
+			`INSERT INTO public.upgrade (version, commit_sha, is_prerelease, summary, release_url, has_migrations)
+			 VALUES ($1, $2, true, $3, $4, $5)
+			 ON CONFLICT (version) DO NOTHING`,
+			version, c.SHA, summary, c.HTMLURL, HasMigrationsFromChanges(c.Commit.Message))
+		if err != nil {
+			fmt.Printf("  Failed to record commit %s: %v\n", version, err)
+		}
+	}
+
+	// Auto-schedule the latest commit if it's not already applied or scheduled
+	latest := "sha-" + commits[0].SHA[:8]
+	var needsSchedule bool
+	err = d.queryConn.QueryRow(ctx,
+		`SELECT NOT EXISTS(
+			SELECT 1 FROM public.upgrade
+			WHERE version = $1
+			  AND (completed_at IS NOT NULL OR scheduled_at IS NOT NULL OR started_at IS NOT NULL)
+		)`, latest).Scan(&needsSchedule)
+	if err != nil {
+		fmt.Printf("Edge auto-schedule check error: %v\n", err)
+		return
+	}
+
+	if needsSchedule {
+		fmt.Printf("Edge: auto-scheduling %s\n", latest)
+		d.scheduleImmediate(ctx, latest)
+	}
+
 	if d.autoDL {
 		d.preDownloadImages(ctx)
 	}

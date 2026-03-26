@@ -186,6 +186,44 @@ func ReleaseSummary(r Release) string {
 	return fmt.Sprintf("%s%s - %s", name, pre, r.Published.Format("2006-01-02"))
 }
 
+// Commit represents a GitHub commit (for edge channel discovery).
+type Commit struct {
+	SHA     string       `json:"sha"`
+	HTMLURL string       `json:"html_url"`
+	Commit  CommitDetail `json:"commit"`
+}
+
+// CommitDetail is the nested commit info from the GitHub API.
+type CommitDetail struct {
+	Message string `json:"message"`
+}
+
+// FetchCommits queries the GitHub Commits API for recent master commits.
+func FetchCommits(count int) ([]Commit, error) {
+	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/commits?sha=master&per_page=%d", owner, repo, count)
+	req, err := githubRequest("GET", url)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := githubDo(req)
+	if err != nil {
+		return nil, fmt.Errorf("fetch commits: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("GitHub API returned %d: %s", resp.StatusCode, string(body))
+	}
+
+	var commits []Commit
+	if err := json.NewDecoder(resp.Body).Decode(&commits); err != nil {
+		return nil, fmt.Errorf("decode commits: %w", err)
+	}
+	return commits, nil
+}
+
 // HasMigrationsFromChanges does a heuristic check on the release body.
 func HasMigrationsFromChanges(body string) bool {
 	lower := strings.ToLower(body)
