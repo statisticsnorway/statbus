@@ -544,6 +544,10 @@ CADDY_DB_TLS_BIND_ADDRESS=%[21]s
 # Version and commit for docker image tags and footer display
 VERSION=%[22]s
 COMMIT=%[23]s
+# NEXT_PUBLIC_* versions for local dev (pnpm run dev reads .env via next.config.js).
+# In Docker, these come from docker-compose.app.yml environment block.
+NEXT_PUBLIC_STATBUS_VERSION=%[22]s
+NEXT_PUBLIC_STATBUS_COMMIT=%[23]s
 
 # Server-side debugging for the Statbus App. Requires app restart.
 # To enable, edit .env: set DEBUG=true and comment out/remove DEBUG=false.

@@ -45,16 +45,11 @@ const nextConfig = {
   // worker thread's require('@protobi/exceljs') resolves from node_modules
   // in standalone output. This is more robust than the void-expression trick.
   serverExternalPackages: ['@protobi/exceljs'],
-  env: {
-    NEXT_PUBLIC_STATBUS_VERSION: process.env.VERSION || 'dev',
-    NEXT_PUBLIC_STATBUS_VERSION_SHA: (() => {
-      try {
-        return require('child_process').execSync('git rev-parse HEAD').toString().trim();
-      } catch {
-        return '';
-      }
-    })(),
-  },
+  // NEXT_PUBLIC_STATBUS_VERSION and NEXT_PUBLIC_STATBUS_COMMIT come from:
+  // - Docker build: ARG placeholders (__NEXT_PUBLIC_*__) replaced at container startup
+  // - Local dev: .env file loaded by dotenv.config above (VERSION → docker-compose environment)
+  // Do NOT override them here — next.config.js env: takes precedence over process.env
+  // and would bypass the Docker placeholder injection system.
   // output: 'standalone' is primarily for production builds.
   // Set it conditionally to avoid potential interference with dev server features like proxying.
   ...(isDevelopment && {
