@@ -9,6 +9,7 @@ import { Toaster } from "@/components/ui/toaster";
 import Footer, { FooterSkeleton } from "@/components/footer";
 import GlobalErrorReporter from "@/app/global-error-reporter";
 import PopStateHandler from "@/components/PopStateHandler";
+import { UpgradeMaintenanceGuard } from "@/components/upgrade-maintenance-guard";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { JotaiAppProvider } from '@/atoms/JotaiAppProvider';
 import { DebugInspector } from '@/components/dev/DebugInspector';
@@ -66,6 +67,7 @@ export default async function RootLayout({
               }>
                 {/* ServerBaseDataProvider has been removed.
                     State management and initialization are now handled by JotaiAppProvider's client-side logic. */}
+                <UpgradeMaintenanceGuard />
                 <PopStateHandler />
                 <Suspense fallback={<NavbarSkeleton />}>
                   <Navbar />
