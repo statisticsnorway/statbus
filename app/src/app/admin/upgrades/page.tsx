@@ -313,6 +313,29 @@ export default function UpgradesPage() {
   );
 }
 
+/** Renders changelog text with URLs as clickable links and **bold** as <strong>. */
+function ChangelogContent({ text }: { text: string }) {
+  // Convert **text** to bold and URLs to links
+  const parts = text.split(/(\*\*[^*]+\*\*|https?:\/\/[^\s)]+)/g);
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (part.startsWith("**") && part.endsWith("**")) {
+          return <strong key={i}>{part.slice(2, -2)}</strong>;
+        }
+        if (part.startsWith("http://") || part.startsWith("https://")) {
+          return (
+            <a key={i} href={part} target="_blank" rel="noopener noreferrer">
+              {part}
+            </a>
+          );
+        }
+        return <span key={i}>{part}</span>;
+      })}
+    </>
+  );
+}
+
 function UpgradeCard({
   upgrade: u,
   status,
@@ -343,9 +366,10 @@ function UpgradeCard({
                 </Badge>
               )}
               {u.has_migrations && (
-                <span title="This upgrade includes database migrations">
-                  <Database className="h-3.5 w-3.5 text-amber-500" />
-                </span>
+                <Badge variant="outline" className="text-xs border-amber-300 text-amber-600">
+                  <Database className="mr-1 h-3 w-3" />
+                  migrations
+                </Badge>
               )}
             </CardTitle>
             <CardDescription className="mt-1">{u.summary}</CardDescription>
@@ -387,8 +411,8 @@ function UpgradeCard({
               <ChevronDown className="h-3 w-3" />
               Changelog
             </CollapsibleTrigger>
-            <CollapsibleContent className="mt-2 rounded-md bg-muted p-3 text-xs whitespace-pre-wrap">
-              {u.changes}
+            <CollapsibleContent className="mt-2 rounded-md bg-muted p-3 text-xs whitespace-pre-wrap [&_a]:text-blue-600 [&_a]:underline [&_a]:hover:text-blue-800">
+              <ChangelogContent text={u.changes} />
             </CollapsibleContent>
           </Collapsible>
         )}
