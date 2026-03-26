@@ -550,7 +550,7 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 		return err
 	}
 
-	// Step 2: Enter maintenance mode
+	// Step 2: Enter maintenance mode and restart proxy first
 	d.stopListenLoop()
 	d.listenConn.Close(context.Background())
 	d.listenConn = nil
@@ -559,7 +559,11 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 	progress.Write("Entering maintenance mode...")
 	d.setMaintenance(true)
 
-	// Step 3: Stop services (keep proxy running for maintenance page)
+	// Restart proxy first — picks up new Caddy config, verified working
+	// before we take anything else down. Sub-second restart.
+	runCommand(projDir, "docker", "compose", "up", "-d", "--force-recreate", "proxy")
+
+	// Step 3: Stop application services (proxy stays running for maintenance page)
 	progress.Write("Stopping services...")
 	if err := runCommand(projDir, "docker", "compose", "stop", "app", "worker", "rest"); err != nil {
 		progress.Write("Warning: could not stop some services: %v", err)
@@ -646,9 +650,9 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 		return err
 	}
 
-	// Step 11: Start all services
+	// Step 11: Start application services (proxy already running from step 2)
 	progress.Write("Starting services...")
-	if err := runCommand(projDir, "docker", "compose", "--profile", "all", "up", "-d", "--remove-orphans"); err != nil {
+	if err := runCommand(projDir, "docker", "compose", "up", "-d", "app", "worker", "rest"); err != nil {
 		d.rollback(ctx, id, version, previousVersion, progress)
 		return err
 	}
