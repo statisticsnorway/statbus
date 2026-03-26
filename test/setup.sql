@@ -5,6 +5,14 @@
 -- to ensure consistent date formatting, so we must manually override this
 SET datestyle TO 'ISO, DMY';
 
+-- Enable person_ident for tests — production default is disabled (no workflow yet),
+-- but existing tests expect person_ident columns to exist in import definitions.
+-- Suppress NOTICE messages from index rebuild + definition sync to avoid polluting test output.
+SET client_min_messages TO WARNING;
+UPDATE public.external_ident_type SET enabled = true WHERE code = 'person_ident';
+CALL import.synchronize_default_definitions_all_steps();
+RESET client_min_messages;
+
 -- Reset unit sequences for deterministic IDs across test runs.
 -- nextval() is non-transactional (advances survive ROLLBACK), so shared tests
 -- that run sequentially on the same database see accumulated sequence values.
