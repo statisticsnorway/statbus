@@ -335,6 +335,19 @@ echo "SELECT value FROM public.system_info WHERE key = 'self_update_error'" | ./
 ./sb upgrade self-rollback
 ```
 
+### Testing rollback
+
+To verify the rollback path works without ruining a release, create a sentinel file before triggering an upgrade:
+
+```bash
+touch tmp/simulate-upgrade-failure
+./sb upgrade apply <version>
+```
+
+The daemon runs the full upgrade (pull, backup, checkout, migrate, restart, health check) and then sees the sentinel file, deletes it, and triggers a complete rollback. The upgrade row will show `error = "simulated upgrade failure for rollback testing"` and `rollback_completed_at` is set.
+
+The sentinel is consumed automatically. To upgrade for real, just trigger the upgrade again without the file.
+
 ### Database backup/restore requires sudo
 
 The database data directory is owned by the postgres container user. The daemon uses `sudo rsync` for backup and restore. Ensure the service user has passwordless sudo for rsync:

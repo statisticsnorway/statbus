@@ -35,7 +35,7 @@ export const pendingUpgradePromiseAtom = atomWithRefresh<Promise<UpgradeStatus |
 
     try {
       const { data, error } = await client
-        .from("upgrade" as any)
+        .from("upgrade")
         .select("started_at,scheduled_at")
         .is("completed_at", null)
         .is("rollback_completed_at", null)

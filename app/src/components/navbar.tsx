@@ -3,7 +3,7 @@ import ProfileAvatar from "@/components/profile-avatar";
 import Image from "next/image";
 import logo from "@/../public/statbus-logo.png";
 import Link from "next/link";
-import { BarChartHorizontal, Info, Search, Upload } from "lucide-react";
+import { ArrowUpCircle, BarChartHorizontal, Info, Search, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { CommandPaletteTriggerMobileMenuButton } from "@/components/command-palette/command-palette-trigger-button";
@@ -276,40 +276,34 @@ function NavLink({
   );
 }
 
-function UpgradeBadge({ status }: { status: UpgradeStatus }) {
-  const colorClass =
-    status === "in_progress"
-      ? "bg-yellow-400"
-      : status === "scheduled"
-        ? "bg-yellow-400"
-        : "bg-blue-400";
-
+function UpgradeButton({ status }: { status: UpgradeStatus }) {
   return (
-    <span
+    <Link
+      href="/admin/upgrades"
       className={cn(
-        "absolute -top-0.5 -right-0.5 block h-3 w-3 rounded-full border-2 border-ssb-dark",
-        colorClass,
-        status === "in_progress" && "animate-pulse"
+        "flex items-center gap-1.5 rounded-md border-2 border-dashed px-2.5 py-1 text-xs font-medium transition-colors",
+        status === "in_progress"
+          ? "border-yellow-400 bg-yellow-400/15 text-yellow-300 animate-pulse"
+          : status === "scheduled"
+            ? "border-yellow-400 bg-yellow-400/10 text-yellow-300"
+            : "border-blue-400 bg-blue-400/10 text-blue-300"
       )}
-      aria-label={`Upgrade ${status}`}
-    />
+      title={`Software upgrade ${status}`}
+    >
+      <ArrowUpCircle className="h-3.5 w-3.5" />
+      Upgrade
+    </Link>
   );
 }
 
-function LogoWithUpgradeBadge({ upgradeStatus }: { upgradeStatus: UpgradeStatus | null }) {
-  const href = upgradeStatus ? "/admin/upgrades" : "/";
-
+function LogoWithUpgradeButton({ upgradeStatus }: { upgradeStatus: UpgradeStatus | null }) {
   return (
-    <Link
-      href={href}
-      className="relative flex items-center space-x-3 rtl:space-x-reverse"
-      title={upgradeStatus ? `Software upgrade ${upgradeStatus}` : "StatBus Home"}
-    >
-      <div className="relative">
+    <div className="flex items-center gap-2">
+      <Link href="/" title="StatBus Home">
         <Image src={logo} alt="Statbus Logo" className="h-9 w-9" />
-        {upgradeStatus && <UpgradeBadge status={upgradeStatus} />}
-      </div>
-    </Link>
+      </Link>
+      {upgradeStatus && <UpgradeButton status={upgradeStatus} />}
+    </div>
   );
 }
 
@@ -336,7 +330,7 @@ export default function Navbar() {
       return (
         <header className="bg-ssb-dark text-white">
           <div className="mx-auto flex max-w-(--breakpoint-xl) items-center justify-between gap-4 p-2 lg:px-4">
-            <LogoWithUpgradeBadge upgradeStatus={null} />
+            <LogoWithUpgradeButton upgradeStatus={null} />
             <div className="flex-1"></div>
             <div className="flex items-center space-x-3">
             </div>
@@ -357,7 +351,7 @@ export default function Navbar() {
   return (
     <header className="bg-ssb-dark text-white">
       <div className="mx-auto grid grid-cols-3 max-w-(--breakpoint-xl) items-center justify-between gap-4 p-2 lg:px-4">
-        <LogoWithUpgradeBadge upgradeStatus={upgradeStatus} />
+        <LogoWithUpgradeButton upgradeStatus={upgradeStatus} />
 
         {/* Center: Main Navigation Links / Mobile Menu Trigger */}
         <div className="flex flex-1 justify-center space-x-3">

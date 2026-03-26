@@ -254,39 +254,61 @@ export default function UpgradesPage() {
         </Card>
       )}
 
-      {upgrades && upgrades.length > 0 && (
-        <div className="space-y-3">
-          {upgrades.map((u) => {
-            const status = getStatus(u);
-            return (
-              <UpgradeCard
-                key={u.id}
-                upgrade={u}
-                status={status}
-                acting={acting === u.id}
-                onScheduleNow={async () => {
-                  await act(u.id, { scheduled_at: new Date().toISOString() });
-                  // Redirect to maintenance page immediately — the daemon
-                  // will start the upgrade shortly and services will go down.
-                  window.location.href = `/maintenance.html?return=${encodeURIComponent(window.location.pathname)}`;
-                }}
-                onUnschedule={() => act(u.id, { scheduled_at: null })}
-                onRetry={() =>
-                  act(u.id, {
-                    started_at: null,
-                    error: null,
-                    rollback_completed_at: null,
-                    scheduled_at: new Date().toISOString(),
-                  })
-                }
-                onSkip={() =>
-                  act(u.id, { skipped_at: new Date().toISOString() })
-                }
-              />
-            );
-          })}
-        </div>
-      )}
+      {upgrades && upgrades.length > 0 && (() => {
+        const active = upgrades.filter((u) => {
+          const s = getStatus(u);
+          return s !== "completed" && s !== "skipped";
+        });
+        const history = upgrades.filter((u) => {
+          const s = getStatus(u);
+          return s === "completed" || s === "skipped";
+        });
+
+        const renderCard = (u: Upgrade) => {
+          const status = getStatus(u);
+          return (
+            <UpgradeCard
+              key={u.id}
+              upgrade={u}
+              status={status}
+              acting={acting === u.id}
+              onScheduleNow={async () => {
+                await act(u.id, { scheduled_at: new Date().toISOString() });
+                window.location.href = `/maintenance.html?return=${encodeURIComponent(window.location.pathname)}`;
+              }}
+              onUnschedule={() => act(u.id, { scheduled_at: null })}
+              onRetry={() =>
+                act(u.id, {
+                  started_at: null,
+                  error: null,
+                  rollback_completed_at: null,
+                  scheduled_at: new Date().toISOString(),
+                })
+              }
+              onSkip={() =>
+                act(u.id, { skipped_at: new Date().toISOString() })
+              }
+            />
+          );
+        };
+
+        return (
+          <div className="space-y-3">
+            {active.map(renderCard)}
+            {history.length > 0 && (
+              <Collapsible>
+                <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md border border-dashed border-muted-foreground/25 px-4 py-2 text-sm text-muted-foreground hover:bg-muted/50 transition-colors">
+                  <ChevronDown className="h-4 w-4" />
+                  {history.length} completed upgrade{history.length !== 1 ? "s" : ""}
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-3 mt-3">
+                  {history.map(renderCard)}
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+          </div>
+        );
+      })()}
     </main>
   );
 }

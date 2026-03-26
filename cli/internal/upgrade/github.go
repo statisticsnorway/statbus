@@ -128,9 +128,15 @@ func FetchReleases() ([]Release, error) {
 }
 
 // FetchManifest downloads the release-manifest.json for a given version.
+// Uses githubRequest/githubDo for auth, timeout, and rate-limit handling.
 func FetchManifest(version string) (*Manifest, error) {
 	url := fmt.Sprintf("https://github.com/%s/%s/releases/download/%s/release-manifest.json", owner, repo, version)
-	resp, err := http.Get(url)
+	req, err := githubRequest("GET", url)
+	if err != nil {
+		return nil, fmt.Errorf("fetch manifest: %w", err)
+	}
+
+	resp, err := githubDo(req)
 	if err != nil {
 		return nil, fmt.Errorf("fetch manifest: %w", err)
 	}

@@ -244,6 +244,7 @@ func (d *Daemon) syncConfigToSystemInfo(ctx context.Context) {
 	envPath := filepath.Join(d.projDir, ".env")
 	f, err := dotenv.Load(envPath)
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: cannot load .env for system_info sync: %v\n", err)
 		return
 	}
 
@@ -252,11 +253,13 @@ func (d *Daemon) syncConfigToSystemInfo(ctx context.Context) {
 
 	for i, key := range keys {
 		if v, ok := f.Get(envKeys[i]); ok {
-			d.queryConn.Exec(ctx,
+			if _, err := d.queryConn.Exec(ctx,
 				`INSERT INTO public.system_info (key, value, updated_at)
 				 VALUES ($1, $2, clock_timestamp())
 				 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = clock_timestamp()`,
-				key, v)
+				key, v); err != nil {
+				fmt.Fprintf(os.Stderr, "warning: failed to sync %s to system_info: %v\n", key, err)
+			}
 		}
 	}
 }
@@ -664,6 +667,17 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 		return err
 	}
 
+	// Check for simulated failure sentinel (for testing the rollback path).
+	// Create with: touch tmp/simulate-upgrade-failure
+	// The file is consumed (deleted) so it only triggers once.
+	sentinelPath := filepath.Join(projDir, "tmp", "simulate-upgrade-failure")
+	if _, err := os.Stat(sentinelPath); err == nil {
+		os.Remove(sentinelPath)
+		progress.Write("Simulated failure triggered (sentinel file found) — rolling back")
+		d.rollback(ctx, id, version, previousVersion, progress)
+		return fmt.Errorf("simulated upgrade failure for rollback testing")
+	}
+
 	// Done — deactivate maintenance, archive, finalize
 	d.setMaintenance(false)
 	d.archiveBackup(backupPath, version)
@@ -701,8 +715,13 @@ func (d *Daemon) rollback(ctx context.Context, id int, version, previousVersion 
 
 	// Restore git state
 	if previousVersion != "" {
-		runCommand(projDir, "git", "-c", "advice.detachedHead=false", "checkout", "-f", previousVersion)
-		runCommand(projDir, filepath.Join(projDir, "sb"), "config", "generate")
+		if err := runCommand(projDir, "git", "-c", "advice.detachedHead=false", "checkout", "-f", previousVersion); err != nil {
+			progress.Write("CRITICAL: git checkout to %s failed: %v — rollback continuing with current code", previousVersion, err)
+			fmt.Fprintf(os.Stderr, "CRITICAL: rollback git checkout failed: %v\n", err)
+		}
+		if err := runCommand(projDir, filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
+			progress.Write("Warning: config generate during rollback failed: %v", err)
+		}
 	}
 
 	// Restore database backup

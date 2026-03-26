@@ -91,11 +91,11 @@ var upgradeScheduleCmd = &cobra.Command{
 			return fmt.Errorf("invalid version: %q (expected vYYYY.MM.PATCH or sha-HEXHEX)", version)
 		}
 
-		sql := fmt.Sprintf(
-			"UPDATE public.upgrade SET scheduled_at = now() WHERE version = '%s' AND started_at IS NULL RETURNING version",
-			strings.ReplaceAll(version, "'", "''"))
+		// Use psql variable binding to avoid SQL string interpolation.
+		// The -v flag safely quotes the value when referenced as :'var'.
+		sql := "UPDATE public.upgrade SET scheduled_at = now() WHERE version = :'target_version' AND started_at IS NULL RETURNING version"
 
-		out, err := runUpgradePsql(sql, "-t", "-A")
+		out, err := runUpgradePsql(sql, "-v", "target_version="+version, "-t", "-A")
 		if err != nil {
 			return fmt.Errorf("schedule: %w\n%s", err, out)
 		}
@@ -123,6 +123,8 @@ Examples:
 			return fmt.Errorf("invalid version: %q (expected vYYYY.MM.PATCH or sha-HEXHEX)", version)
 		}
 
+		// NOTIFY payload doesn't support parameterized queries in psql.
+		// Safe because ValidateVersion above restricts to [a-f0-9.\-vw] only.
 		sql := fmt.Sprintf("NOTIFY upgrade_apply, '%s'",
 			strings.ReplaceAll(version, "'", "''"))
 

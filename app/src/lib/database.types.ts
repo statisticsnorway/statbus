@@ -4750,6 +4750,24 @@ export type Database = {
         },
         Relationships: []
       },
+      system_info: {
+        Row: {
+          key: string
+          updated_at: string
+          value: string
+        },
+        Insert: {
+          key: string
+          updated_at?: string
+          value: string
+        },
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: string
+        },
+        Relationships: []
+      },
       tag: {
         Row: {
           code: string | null
@@ -6055,6 +6073,69 @@ export type Database = {
           id?: never
           name?: string
           updated_at?: string
+        },
+        Relationships: []
+      },
+      upgrade: {
+        Row: {
+          backup_path: string | null
+          changes: string | null
+          commit_sha: string
+          completed_at: string | null
+          discovered_at: string
+          error: string | null
+          from_version: string | null
+          has_migrations: boolean
+          id: number
+          images_downloaded: boolean
+          is_prerelease: boolean
+          release_url: string | null
+          rollback_completed_at: string | null
+          scheduled_at: string | null
+          skipped_at: string | null
+          started_at: string | null
+          summary: string
+          version: string
+        },
+        Insert: {
+          backup_path?: string | null
+          changes?: string | null
+          commit_sha: string
+          completed_at?: string | null
+          discovered_at?: string
+          error?: string | null
+          from_version?: string | null
+          has_migrations?: boolean
+          id?: never
+          images_downloaded?: boolean
+          is_prerelease?: boolean
+          release_url?: string | null
+          rollback_completed_at?: string | null
+          scheduled_at?: string | null
+          skipped_at?: string | null
+          started_at?: string | null
+          summary: string
+          version: string
+        },
+        Update: {
+          backup_path?: string | null
+          changes?: string | null
+          commit_sha?: string
+          completed_at?: string | null
+          discovered_at?: string
+          error?: string | null
+          from_version?: string | null
+          has_migrations?: boolean
+          id?: never
+          images_downloaded?: boolean
+          is_prerelease?: boolean
+          release_url?: string | null
+          rollback_completed_at?: string | null
+          scheduled_at?: string | null
+          skipped_at?: string | null
+          started_at?: string | null
+          summary?: string
+          version?: string
         },
         Relationships: []
       }
@@ -15482,6 +15563,14 @@ export type Database = {
         }
         Returns: Json
       },
+      upgrade_notify_daemon: {
+        Args: Record<string, never>
+        Returns: unknown
+      },
+      upgrade_notify_frontend: {
+        Args: Record<string, never>
+        Returns: unknown
+      },
       urlencode: {
         Args: {
           string?: string
@@ -15661,7 +15750,8 @@ export type Database = {
           | "waiting"
           | "completed"
           | "failed",
-      time_context_type: "relative_period" | "tag" | "year"
+      time_context_type: "relative_period" | "tag" | "year",
+      upgrade_channel: "stable" | "prerelease" | "pinned"
     },
     CompositeTypes: {
       http_header: {
@@ -15976,7 +16066,8 @@ export const Constants = {
         "completed",
         "failed"
       ],
-      time_context_type: ["relative_period", "tag", "year"]
+      time_context_type: ["relative_period", "tag", "year"],
+      upgrade_channel: ["stable", "prerelease", "pinned"]
     }
   }
 } as const

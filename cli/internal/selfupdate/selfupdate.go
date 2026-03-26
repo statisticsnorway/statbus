@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"runtime"
+	"time"
 )
 
 // Update downloads a new binary, verifies its checksum, and replaces the current one.
@@ -17,8 +18,9 @@ func Update(currentPath, downloadURL, expectedSHA256 string) error {
 	newPath := currentPath + ".new"
 	oldPath := currentPath + ".old"
 
-	// Step 1: Download new binary
-	resp, err := http.Get(downloadURL)
+	// Step 1: Download new binary (with timeout to prevent hanging on slow connections)
+	client := &http.Client{Timeout: 120 * time.Second}
+	resp, err := client.Get(downloadURL)
 	if err != nil {
 		return fmt.Errorf("download: %w", err)
 	}
