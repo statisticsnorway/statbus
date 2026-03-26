@@ -325,6 +325,34 @@ END $$;`
 		fmt.Printf("Applied %d migration(s)\n", appliedCount)
 	}
 
+	// In development mode, auto-recreate the test template so developers
+	// don't have to remember ./dev.sh create-test-template after migrations.
+	if appliedCount > 0 {
+		envPath := filepath.Join(projDir, ".env")
+		if f, err := dotenv.Load(envPath); err == nil {
+			if mode, ok := f.Get("CADDY_DEPLOYMENT_MODE"); ok && mode == "development" {
+				templateName := "statbus_test_template"
+				// Check if template exists
+				out, err := runPsql(projDir, fmt.Sprintf(
+					"SELECT 1 FROM pg_database WHERE datname = '%s'", templateName), "-t", "-A")
+				if err == nil && strings.TrimSpace(out) == "1" {
+					fmt.Printf("Recreating stale test template %s...\n", templateName)
+					// Drop and recreate via dev.sh
+					devsh := filepath.Join(projDir, "dev.sh")
+					if _, err := os.Stat(devsh); err == nil {
+						cmd := exec.Command(devsh, "create-test-template")
+						cmd.Dir = projDir
+						cmd.Stdout = os.Stdout
+						cmd.Stderr = os.Stderr
+						if err := cmd.Run(); err != nil {
+							fmt.Fprintf(os.Stderr, "Warning: failed to recreate test template: %v\n", err)
+						}
+					}
+				}
+			}
+		}
+	}
+
 	return nil
 }
 
