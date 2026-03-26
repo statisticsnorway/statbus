@@ -229,6 +229,10 @@ func (d *Daemon) completeInProgressUpgrade(ctx context.Context) {
 	// Mark complete
 	d.queryConn.Exec(ctx,
 		"UPDATE public.upgrade SET completed_at = now() WHERE id = $1", id)
+
+	// Skip older releases that are still "available" — no point upgrading to an older version
+	d.skipOlderReleases(ctx, version)
+
 	fmt.Printf("Upgrade to %s completed (verified after daemon restart)\n", version)
 }
 
@@ -252,6 +256,24 @@ func (d *Daemon) syncConfigToSystemInfo(ctx context.Context) {
 				 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = clock_timestamp()`,
 				key, v)
 		}
+	}
+}
+
+// skipOlderReleases marks older available releases as skipped after a newer version completes.
+func (d *Daemon) skipOlderReleases(ctx context.Context, completedVersion string) {
+	result, err := d.queryConn.Exec(ctx,
+		`UPDATE public.upgrade
+		 SET skipped_at = now()
+		 WHERE completed_at IS NULL
+		   AND skipped_at IS NULL
+		   AND error IS NULL
+		   AND discovered_at < (SELECT discovered_at FROM public.upgrade WHERE version = $1)`,
+		completedVersion)
+	if err != nil {
+		return
+	}
+	if result.RowsAffected() > 0 {
+		fmt.Printf("Skipped %d older release(s)\n", result.RowsAffected())
 	}
 }
 
@@ -651,6 +673,7 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 	// If we get here, self-update didn't restart (no binary for platform, or same version).
 	// Mark complete now since there won't be a new daemon to do it.
 	d.queryConn.Exec(ctx, "UPDATE public.upgrade SET completed_at = now() WHERE id = $1", id)
+	d.skipOlderReleases(ctx, version)
 	progress.Write("Upgrade to %s complete!", version)
 
 	return nil
