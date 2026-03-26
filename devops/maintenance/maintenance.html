@@ -103,8 +103,8 @@
         // During maintenance Caddy returns 503; when app is back it returns 200.
         async function checkHealth() {
             try {
-                const resp = await fetch('/', { cache: 'no-store', redirect: 'manual' });
-                if (resp.status >= 200 && resp.status < 400) {
+                const resp = await fetch('/', { cache: 'no-store' });
+                if (resp.ok) {
                     const params = new URLSearchParams(window.location.search);
                     const returnPath = params.get('return') || '/';
                     window.location.replace(decodeURIComponent(returnPath));
