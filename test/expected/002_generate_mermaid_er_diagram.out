@@ -991,6 +991,11 @@ erDiagram
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
 	}
+	system_info["system_info"] {
+		text key
+		text value
+		timestamp_with_time_zone updated_at
+	}
 	tag["tag"] {
 		integer id
 		ltree path
@@ -1386,6 +1391,26 @@ erDiagram
 		boolean custom
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
+	}
+	upgrade["upgrade"] {
+		integer id
+		text version
+		text commit_sha
+		boolean is_prerelease
+		text summary
+		text changes
+		text release_url
+		boolean has_migrations
+		text from_version
+		timestamp_with_time_zone discovered_at
+		timestamp_with_time_zone scheduled_at
+		timestamp_with_time_zone started_at
+		timestamp_with_time_zone completed_at
+		text error
+		timestamp_with_time_zone rollback_completed_at
+		timestamp_with_time_zone skipped_at
+		boolean images_downloaded
+		text backup_path
 	}
 	sql_saga_era["sql_saga.era"] {
 		name table_schema

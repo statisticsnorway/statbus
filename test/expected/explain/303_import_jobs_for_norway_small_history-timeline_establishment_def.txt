@@ -18,9 +18,9 @@
                                        ->  Nested Loop Left Join
                                              Disabled: true
                                              ->  Hash Left Join
-                                                   Hash Cond: (phl.country_id = phc.id)
+                                                   Hash Cond: (phl.region_id = phr.id)
                                                    ->  Hash Left Join
-                                                         Hash Cond: (phl.region_id = phr.id)
+                                                         Hash Cond: (phl.country_id = phc.id)
                                                          ->  Nested Loop Left Join
                                                                Disabled: true
                                                                ->  Hash Left Join
@@ -28,15 +28,15 @@
                                                                      ->  Nested Loop Left Join
                                                                            Disabled: true
                                                                            ->  Hash Left Join
-                                                                                 Hash Cond: (es.status_id = st.id)
+                                                                                 Hash Cond: (pa.category_id = pac.id)
                                                                                  ->  Hash Left Join
-                                                                                       Hash Cond: (pa.category_id = pac.id)
+                                                                                       Hash Cond: (es.sector_id = s.id)
                                                                                        ->  Nested Loop Left Join
                                                                                              Disabled: true
                                                                                              ->  Hash Left Join
                                                                                                    Hash Cond: (es.unit_size_id = us.id)
                                                                                                    ->  Hash Left Join
-                                                                                                         Hash Cond: (es.sector_id = s.id)
+                                                                                                         Hash Cond: (es.status_id = st.id)
                                                                                                          ->  Nested Loop
                                                                                                                Disabled: true
                                                                                                                ->  Hash Left Join
@@ -69,7 +69,7 @@
                                                                                                                                        ->  Seq Scan on establishment es_1
                                                                                                                                              Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (id = t.unit_id))
                                                                                                          ->  Hash
-                                                                                                               ->  Seq Scan on sector s
+                                                                                                               ->  Seq Scan on status st
                                                                                                    ->  Hash
                                                                                                          ->  Seq Scan on unit_size us
                                                                                              ->  Memoize
@@ -79,13 +79,12 @@
                                                                                                          ->  Limit
                                                                                                                ->  Sort
                                                                                                                      Sort Key: a.id DESC
-                                                                                                                     ->  Index Scan using ix_activity_establishment_valid_from_valid_until on activity a
-                                                                                                                           Index Cond: ((establishment_id = es.id) AND (valid_from < t.valid_until) AND (valid_until > t.valid_from))
-                                                                                                                           Filter: (type = 'primary'::activity_type)
+                                                                                                                     ->  Seq Scan on activity a
+                                                                                                                           Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (establishment_id = es.id) AND (type = 'primary'::activity_type))
                                                                                        ->  Hash
-                                                                                             ->  Seq Scan on activity_category pac
+                                                                                             ->  Seq Scan on sector s
                                                                                  ->  Hash
-                                                                                       ->  Seq Scan on status st
+                                                                                       ->  Seq Scan on activity_category pac
                                                                            ->  Memoize
                                                                                  Cache Key: es.id, t.valid_from, t.valid_until
                                                                                  Cache Mode: binary
@@ -93,9 +92,8 @@
                                                                                        ->  Limit
                                                                                              ->  Sort
                                                                                                    Sort Key: a_1.id DESC
-                                                                                                   ->  Index Scan using ix_activity_establishment_valid_from_valid_until on activity a_1
-                                                                                                         Index Cond: ((establishment_id = es.id) AND (valid_from < t.valid_until) AND (valid_until > t.valid_from))
-                                                                                                         Filter: (type = 'secondary'::activity_type)
+                                                                                                   ->  Seq Scan on activity a_1
+                                                                                                         Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (establishment_id = es.id) AND (type = 'secondary'::activity_type))
                                                                      ->  Hash
                                                                            ->  Seq Scan on activity_category sac
                                                                ->  Memoize
@@ -109,9 +107,9 @@
                                                                                              Index Cond: ((type = 'physical'::location_type) AND (establishment_id = es.id))
                                                                                              Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until))
                                                          ->  Hash
-                                                               ->  Seq Scan on region phr
+                                                               ->  Seq Scan on country phc
                                                    ->  Hash
-                                                         ->  Seq Scan on country phc
+                                                         ->  Seq Scan on region phr
                                              ->  Hash Right Join
                                                    Hash Cond: (poc.id = pol.country_id)
                                                    ->  Seq Scan on country poc
@@ -166,5 +164,5 @@
                                  Sort Key: "*VALUES*".column3 DESC
                                  ->  Values Scan on "*VALUES*"
                                        Filter: (column3 IS NOT NULL)
-(166 rows)
+(164 rows)
 

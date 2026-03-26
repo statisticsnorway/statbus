@@ -67,9 +67,9 @@ SELECT * FROM import_data_column_baseline;
        4 |        1 | enterprise_id                        | INTEGER                          | internal     | t           |               | f
        4 |        2 | primary_for_enterprise               | BOOLEAN                          | internal     | t           |               | f
        5 |        1 | primary_for_legal_unit               | BOOLEAN                          | internal     | t           |               | f
-       5 |        4 | legal_unit_tax_ident_raw             | TEXT                             | source_input | t           |               | f
-       5 |        5 | legal_unit_stat_ident_raw            | TEXT                             | source_input | t           |               | f
-       5 |        6 | legal_unit_person_ident_raw          | TEXT                             | source_input | t           |               | f
+       5 |        8 | legal_unit_tax_ident_raw             | TEXT                             | source_input | t           |               | f
+       5 |        9 | legal_unit_stat_ident_raw            | TEXT                             | source_input | t           |               | f
+       5 |       10 | legal_unit_person_ident_raw          | TEXT                             | source_input | t           |               | f
        6 |        1 | data_source_code_raw                 | TEXT                             | source_input | t           |               | f
        6 |        2 | data_source_id                       | INTEGER                          | internal     | t           |               | f
        7 |        1 | status_code_raw                      | TEXT                             | source_input | t           |               | f
@@ -1242,9 +1242,9 @@ ORDER BY step_id, priority NULLS FIRST, column_name;
  step_id | priority |         column_name         | column_type |   purpose    | is_nullable | default_value | is_uniquely_identifying 
 ---------+----------+-----------------------------+-------------+--------------+-------------+---------------+-------------------------
        2 |        8 | stat_ident_raw              | TEXT        | source_input | t           |               | t
-       5 |        4 | legal_unit_tax_ident_raw    | TEXT        | source_input | t           |               | f
-       5 |        5 | legal_unit_stat_ident_raw   | TEXT        | source_input | t           |               | f
-       5 |        6 | legal_unit_person_ident_raw | TEXT        | source_input | t           |               | f
+       5 |        8 | legal_unit_tax_ident_raw    | TEXT        | source_input | t           |               | f
+       5 |        9 | legal_unit_stat_ident_raw   | TEXT        | source_input | t           |               | f
+       5 |       10 | legal_unit_person_ident_raw | TEXT        | source_input | t           |               | f
 (4 rows)
 
 \echo "Added import_data_column rows:"
@@ -1265,9 +1265,9 @@ ORDER BY step_id, priority NULLS FIRST, column_name;
  step_id | priority |         column_name         | column_type |   purpose    | is_nullable | default_value | is_uniquely_identifying 
 ---------+----------+-----------------------------+-------------+--------------+-------------+---------------+-------------------------
        2 |        8 | pin_raw                     | TEXT        | source_input | t           |               | t
-       5 |       15 | legal_unit_tax_ident_raw    | TEXT        | source_input | t           |               | f
-       5 |       16 | legal_unit_pin_raw          | TEXT        | source_input | t           |               | f
-       5 |       17 | legal_unit_person_ident_raw | TEXT        | source_input | t           |               | f
+       5 |       19 | legal_unit_tax_ident_raw    | TEXT        | source_input | t           |               | f
+       5 |       20 | legal_unit_pin_raw          | TEXT        | source_input | t           |               | f
+       5 |       21 | legal_unit_person_ident_raw | TEXT        | source_input | t           |               | f
 (4 rows)
 
 \echo "Check generated code from external_ident_type modifications for source columns"
@@ -1584,9 +1584,9 @@ NOTICE:  Created indices for stat_definition turnover
 SELECT * FROM import_data_column_baseline EXCEPT SELECT step_id, priority, column_name, column_type, purpose::text, is_nullable, default_value, is_uniquely_identifying FROM public.import_data_column ORDER BY step_id, priority NULLS FIRST, column_name;
  step_id | priority |         column_name         | column_type |   purpose    | is_nullable | default_value | is_uniquely_identifying 
 ---------+----------+-----------------------------+-------------+--------------+-------------+---------------+-------------------------
-       5 |        4 | legal_unit_tax_ident_raw    | TEXT        | source_input | t           |               | f
-       5 |        5 | legal_unit_stat_ident_raw   | TEXT        | source_input | t           |               | f
-       5 |        6 | legal_unit_person_ident_raw | TEXT        | source_input | t           |               | f
+       5 |        8 | legal_unit_tax_ident_raw    | TEXT        | source_input | t           |               | f
+       5 |        9 | legal_unit_stat_ident_raw   | TEXT        | source_input | t           |               | f
+       5 |       10 | legal_unit_person_ident_raw | TEXT        | source_input | t           |               | f
 (3 rows)
 
 \echo "Added import_data_column rows after reset (should be empty - deterministic priorities):"
