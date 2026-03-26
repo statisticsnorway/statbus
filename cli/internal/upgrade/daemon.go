@@ -489,6 +489,9 @@ func (d *Daemon) discover(ctx context.Context) {
 	filtered := FilterByChannel(releases, d.channel)
 	fmt.Printf("Discovery: %d release(s) from GitHub, %d match channel %q\n", len(releases), len(filtered), d.channel)
 
+	// The daemon's compiled-in version — used to skip older releases.
+	currentVersion := "v" + d.version
+
 	for _, r := range filtered {
 		var exists bool
 		err := d.queryConn.QueryRow(ctx,
@@ -511,6 +514,15 @@ func (d *Daemon) discover(ctx context.Context) {
 			if manifest.CommitSHA != "" {
 				commitSHA = manifest.CommitSHA
 			}
+		}
+
+		// Skip releases older than or equal to what we're currently running.
+		// CompareVersions parses numeric segments correctly (rc.9 < rc.17).
+		if CompareVersions(r.TagName, currentVersion) <= 0 {
+			if d.verbose {
+				fmt.Printf("  Skipping %s (not newer than %s)\n", r.TagName, currentVersion)
+			}
+			continue
 		}
 
 		summary := r.Name
