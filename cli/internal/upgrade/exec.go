@@ -100,22 +100,34 @@ func (d *Daemon) setMaintenance(active bool) {
 	}
 }
 
+// dbVolumeName returns the Docker named volume for PostgreSQL data.
+// Derived from COMPOSE_INSTANCE_NAME in .env (e.g., "statbus-speed-db-data").
+func (d *Daemon) dbVolumeName() string {
+	envPath := filepath.Join(d.projDir, ".env")
+	if f, err := dotenv.Load(envPath); err == nil {
+		if name, ok := f.Get("COMPOSE_INSTANCE_NAME"); ok {
+			return name + "-db-data"
+		}
+	}
+	return "statbus-db-data" // fallback
+}
+
 func (d *Daemon) backupDatabase(progress *ProgressLog) (string, error) {
 	backupDir := filepath.Join(os.Getenv("HOME"), "statbus-backups", "pre-upgrade")
 	if err := os.MkdirAll(backupDir, 0755); err != nil {
 		return "", fmt.Errorf("create backup dir: %w", err)
 	}
 
-	// Find the db data directory
-	dbDataDir := filepath.Join(d.projDir, "postgres", "volumes", "db", "data")
-	if _, err := os.Stat(dbDataDir); os.IsNotExist(err) {
-		return "", fmt.Errorf("db data dir not found: %s", dbDataDir)
-	}
-
-	// rsync with sudo (postgres uid owns the files)
-	// DB must be stopped before this point for a consistent backup
-	if err := runCommandWithTimeout(d.projDir, 10*time.Minute, "sudo", "rsync", "-a", "--delete",
-		dbDataDir+"/", backupDir+"/"); err != nil {
+	// rsync from named Docker volume into backup dir via a lightweight container.
+	// DB must be stopped before this point for a consistent backup.
+	// No sudo needed — the container runs as root and can read postgres-owned files.
+	volumeName := d.dbVolumeName()
+	if err := runCommandWithTimeout(d.projDir, 10*time.Minute,
+		"docker", "run", "--rm",
+		"-v", volumeName+":/source:ro",
+		"-v", backupDir+":/backup",
+		"alpine", "sh", "-c", "apk add --no-cache rsync >/dev/null 2>&1 && rsync -a --delete /source/ /backup/",
+	); err != nil {
 		return "", fmt.Errorf("rsync backup: %w", err)
 	}
 
@@ -124,11 +136,15 @@ func (d *Daemon) backupDatabase(progress *ProgressLog) (string, error) {
 
 func (d *Daemon) restoreDatabase(progress *ProgressLog) {
 	backupDir := filepath.Join(os.Getenv("HOME"), "statbus-backups", "pre-upgrade")
-	dbDataDir := filepath.Join(d.projDir, "postgres", "volumes", "db", "data")
+	volumeName := d.dbVolumeName()
 
 	progress.Write("Restoring database from backup...")
-	if err := runCommand(d.projDir, "sudo", "rsync", "-a", "--delete",
-		backupDir+"/", dbDataDir+"/"); err != nil {
+	if err := runCommandWithTimeout(d.projDir, 10*time.Minute,
+		"docker", "run", "--rm",
+		"-v", backupDir+":/source:ro",
+		"-v", volumeName+":/dest",
+		"alpine", "sh", "-c", "apk add --no-cache rsync >/dev/null 2>&1 && rsync -a --delete /source/ /dest/",
+	); err != nil {
 		progress.Write("WARNING: Database restore failed: %v", err)
 	}
 }
@@ -137,7 +153,7 @@ func (d *Daemon) archiveBackup(backupPath, version string) {
 	archiveDir := filepath.Join(os.Getenv("HOME"), "statbus-backups")
 	archivePath := filepath.Join(archiveDir, fmt.Sprintf("%s-pre.tar.gz", version))
 
-	if err := runCommand(d.projDir, "sudo", "tar", "-czf", archivePath, "-C", filepath.Dir(backupPath), filepath.Base(backupPath)); err != nil {
+	if err := runCommand(d.projDir, "tar", "-czf", archivePath, "-C", filepath.Dir(backupPath), filepath.Base(backupPath)); err != nil {
 		fmt.Printf("Warning: archive backup failed: %v\n", err)
 		return
 	}
