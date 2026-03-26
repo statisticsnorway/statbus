@@ -62,10 +62,23 @@ http://{{.Domain}} {
 {{.Domain}} {
     encode gzip
 
+    # Maintenance page — always accessible (admin UI redirects here during upgrade)
+    handle /maintenance.html {
+        root * /maintenance-page
+        file_server
+    }
+
+    # Upgrade progress log — always accessible
+    handle /upgrade-progress.log {
+        root * /statbus-tmp
+        file_server
+    }
+
     # Maintenance mode: upgrade daemon creates /statbus-maintenance/active
-    # Upgrade progress log is excluded so clients can monitor progress
+    # All other routes return the maintenance page with 503
     @maintenance {
         file /statbus-maintenance/active
+        not path /maintenance.html
         not path /upgrade-progress.log
     }
     handle @maintenance {
@@ -74,10 +87,6 @@ http://{{.Domain}} {
         file_server {
             status 503
         }
-    }
-    handle /upgrade-progress.log {
-        root * /statbus-tmp
-        file_server
     }
 
     # PostgREST auth endpoints (login/logout/refresh/auth_status)
