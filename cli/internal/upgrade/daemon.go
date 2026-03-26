@@ -20,6 +20,7 @@ import (
 // Daemon is the long-running upgrade daemon.
 type Daemon struct {
 	projDir      string
+	version      string           // compiled-in version from ldflags (e.g., v2026.03.0-rc.11)
 	listenConn   *pgx.Conn         // dedicated to LISTEN/NOTIFY — never use for queries
 	queryConn    *pgx.Conn         // for all SELECT/INSERT/UPDATE queries
 	verbose      bool
@@ -34,9 +35,10 @@ type Daemon struct {
 }
 
 // NewDaemon creates a new upgrade daemon.
-func NewDaemon(projDir string, verbose bool) *Daemon {
+func NewDaemon(projDir string, verbose bool, version string) *Daemon {
 	return &Daemon{
 		projDir: projDir,
+		version: version,
 		verbose: verbose,
 	}
 }
@@ -534,13 +536,12 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 	progress := NewProgressLog(projDir)
 	defer progress.Close()
 
-	// Mark started
+	// Mark started — use compiled-in version, not .env (which may be stale/updated)
 	d.queryConn.Exec(ctx,
 		"UPDATE public.upgrade SET started_at = now(), from_version = $1 WHERE id = $2",
-		d.currentVersion(), id)
+		d.version, id)
 
-	fromVersion := d.currentVersion()
-	progress.Write("Upgrading to %s (from %s)...", version, fromVersion)
+	progress.Write("Upgrading to %s (from %s)...", version, d.version)
 
 	// Step 1: Prepare images
 	progress.Write("Preparing images...")
@@ -571,7 +572,7 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 
 	// Step 5: Backup database
 	progress.Write("Backing up database...")
-	previousVersion := fromVersion
+	previousVersion := d.version
 	backupPath, err := d.backupDatabase(progress)
 	if err != nil {
 		d.rollback(ctx, id, version, previousVersion, progress)
@@ -760,14 +761,3 @@ func (d *Daemon) selfUpdate(ctx context.Context, version string, progress *Progr
 	os.Exit(42)
 }
 
-func (d *Daemon) currentVersion() string {
-	envPath := filepath.Join(d.projDir, ".env")
-	f, err := dotenv.Load(envPath)
-	if err != nil {
-		return "unknown"
-	}
-	if v, ok := f.Get("VERSION"); ok {
-		return v
-	}
-	return "unknown"
-}

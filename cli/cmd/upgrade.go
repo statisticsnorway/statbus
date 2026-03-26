@@ -149,7 +149,7 @@ var upgradeDaemonCmd = &cobra.Command{
 Typically run via systemd (devops/statbus-upgrade.service).`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		projDir := config.ProjectDir()
-		d := upgrade.NewDaemon(projDir, verbose)
+		d := upgrade.NewDaemon(projDir, verbose, rootCmd.Version)
 		return d.Run(context.Background())
 	},
 }
