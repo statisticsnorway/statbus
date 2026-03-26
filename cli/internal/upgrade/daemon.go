@@ -582,8 +582,11 @@ func (d *Daemon) preDownloadImages(ctx context.Context) {
 
 func (d *Daemon) scheduleImmediate(ctx context.Context, version string) {
 	// Reset lifecycle fields so a completed/failed version can be re-applied.
-	// This enables: ./sb upgrade apply v2026.03.0-rc.15 (re-apply same version)
-	_, err := d.queryConn.Exec(ctx,
+	// The WHERE clause prevents updating a row that's already scheduled and waiting
+	// to execute (scheduled_at IS NOT NULL AND started_at IS NULL). Without this guard,
+	// the UPDATE changes scheduled_at to now() → the upgrade_notify_daemon_trigger fires
+	// → sends NOTIFY upgrade_apply → daemon calls scheduleImmediate again → infinite loop.
+	result, err := d.queryConn.Exec(ctx,
 		`INSERT INTO public.upgrade (version, commit_sha, is_prerelease, summary, scheduled_at)
 		 VALUES ($1, $1, false, $1, now())
 		 ON CONFLICT (version) DO UPDATE SET
@@ -592,13 +595,18 @@ func (d *Daemon) scheduleImmediate(ctx context.Context, version string) {
 		   completed_at = NULL,
 		   error = NULL,
 		   rollback_completed_at = NULL,
-		   skipped_at = NULL`,
+		   skipped_at = NULL
+		 WHERE public.upgrade.scheduled_at IS NULL
+		    OR public.upgrade.started_at IS NOT NULL
+		    OR public.upgrade.completed_at IS NOT NULL
+		    OR public.upgrade.error IS NOT NULL`,
 		version)
 	if err != nil {
 		fmt.Printf("Failed to schedule %s: %v\n", version, err)
-	} else {
+	} else if result.RowsAffected() > 0 {
 		fmt.Printf("Scheduled immediate upgrade to %s\n", version)
 	}
+	// If RowsAffected() == 0, the version is already scheduled — no action needed, no log spam.
 }
 
 func (d *Daemon) executeScheduled(ctx context.Context) {
@@ -651,15 +659,17 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 
 	// Restart proxy first — picks up new Caddy config, verified working
 	// before we take anything else down. Sub-second restart.
+	progress.Write("Restarting proxy...")
 	runCommand(projDir, "docker", "compose", "up", "-d", "--force-recreate", "proxy")
 
 	// Step 3: Stop application services (proxy stays running for maintenance page)
-	progress.Write("Stopping services...")
+	progress.Write("Stopping application services...")
 	if err := runCommand(projDir, "docker", "compose", "stop", "app", "worker", "rest"); err != nil {
 		progress.Write("Warning: could not stop some services: %v", err)
 	}
 
 	// Step 4: Stop database for consistent backup
+	progress.Write("Stopping database...")
 	if err := runCommand(projDir, "docker", "compose", "stop", "db"); err != nil {
 		progress.Write("Warning: could not stop database: %v", err)
 	}
@@ -699,6 +709,7 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 
 	// Regenerate config — VERSION is derived from git describe --tags --always,
 	// which returns the tag name (e.g., v2026.03.0-rc.3) since we just checked it out.
+	progress.Write("Regenerating configuration...")
 	if err := runCommand(projDir, filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
 		d.rollback(ctx, id, version, previousVersion, progress)
 		return err
@@ -719,12 +730,14 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 	}
 
 	// Wait for DB health
+	progress.Write("Waiting for database to be healthy...")
 	if err := d.waitForDBHealth(30 * time.Second); err != nil {
 		d.rollback(ctx, id, version, previousVersion, progress)
 		return err
 	}
 
 	// Reconnect daemon DB connection
+	progress.Write("Reconnecting to database...")
 	if err := d.reconnect(ctx); err != nil {
 		d.rollback(ctx, id, version, previousVersion, progress)
 		return err
@@ -737,7 +750,7 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 	if d.pendingRecreate {
 		d.pendingRecreate = false
 		progress.Write("Recreating database from scratch (--recreate)...")
-		if err := runCommand(projDir, filepath.Join(projDir, "dev.sh"), "recreate-database"); err != nil {
+		if err := runCommandWithTimeout(projDir, 30*time.Minute, filepath.Join(projDir, "dev.sh"), "recreate-database"); err != nil {
 			d.rollback(ctx, id, version, previousVersion, progress)
 			return err
 		}

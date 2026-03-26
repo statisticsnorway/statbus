@@ -1,6 +1,7 @@
 package upgrade
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -12,32 +13,56 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 )
 
-// runCommand executes a command with inherited stdout/stderr.
+// runCommand executes a command with inherited stdout/stderr and a default 5-minute timeout.
 func runCommand(dir string, name string, args ...string) error {
-	cmd := exec.Command(name, args...)
+	return runCommandWithTimeout(dir, 5*time.Minute, name, args...)
+}
+
+// runCommandWithTimeout executes a command with a specific timeout.
+// If the timeout expires, the process is killed and an error is returned.
+func runCommandWithTimeout(dir string, timeout time.Duration, name string, args ...string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	err := cmd.Run()
+	if ctx.Err() == context.DeadlineExceeded {
+		return fmt.Errorf("command timed out after %s: %s %v", timeout, name, args)
+	}
+	return err
 }
 
 // runCommandOutput executes a command and returns combined output.
 func runCommandOutput(dir string, name string, args ...string) (string, error) {
-	cmd := exec.Command(name, args...)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
 	out, err := cmd.CombinedOutput()
+	if ctx.Err() == context.DeadlineExceeded {
+		return string(out), fmt.Errorf("command timed out after 2m: %s %v", name, args)
+	}
 	return string(out), err
 }
 
 func (d *Daemon) pullImages(version string) error {
 	// docker compose reads VERSION from .env, not from process environment.
 	// For pre-downloads before config regeneration, we pass it as an override.
-	cmd := exec.Command("docker", "compose", "pull")
+	// 10-minute timeout: image pulls can be slow on shared servers.
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "docker", "compose", "pull")
 	cmd.Dir = d.projDir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Env = append(os.Environ(), "VERSION="+version)
-	return cmd.Run()
+	err := cmd.Run()
+	if ctx.Err() == context.DeadlineExceeded {
+		return fmt.Errorf("docker compose pull timed out after 10 minutes")
+	}
+	return err
 }
 
 func (d *Daemon) setMaintenance(active bool) {
@@ -66,7 +91,7 @@ func (d *Daemon) backupDatabase(progress *ProgressLog) (string, error) {
 
 	// rsync with sudo (postgres uid owns the files)
 	// DB must be stopped before this point for a consistent backup
-	if err := runCommand(d.projDir, "sudo", "rsync", "-a", "--delete",
+	if err := runCommandWithTimeout(d.projDir, 10*time.Minute, "sudo", "rsync", "-a", "--delete",
 		dbDataDir+"/", backupDir+"/"); err != nil {
 		return "", fmt.Errorf("rsync backup: %w", err)
 	}
