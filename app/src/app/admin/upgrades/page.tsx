@@ -264,9 +264,12 @@ export default function UpgradesPage() {
                 upgrade={u}
                 status={status}
                 acting={acting === u.id}
-                onScheduleNow={() =>
-                  act(u.id, { scheduled_at: new Date().toISOString() })
-                }
+                onScheduleNow={async () => {
+                  await act(u.id, { scheduled_at: new Date().toISOString() });
+                  // Redirect to maintenance page immediately — the daemon
+                  // will start the upgrade shortly and services will go down.
+                  window.location.href = `/maintenance.html?return=${encodeURIComponent(window.location.pathname)}`;
+                }}
                 onUnschedule={() => act(u.id, { scheduled_at: null })}
                 onRetry={() =>
                   act(u.id, {
