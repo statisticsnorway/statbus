@@ -359,7 +359,13 @@ function UpgradeCard({
         <div className="flex items-start justify-between">
           <div>
             <CardTitle className="text-base flex items-center gap-2">
-              {u.version}
+              {u.release_url ? (
+                <a href={u.release_url} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                  {u.version}
+                </a>
+              ) : (
+                u.version
+              )}
               {u.is_prerelease && (
                 <Badge variant="outline" className="text-xs">
                   pre-release

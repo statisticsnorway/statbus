@@ -747,11 +747,25 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 
 	// Step 6: Install new version
 	progress.Write("Installing %s...", version)
-	if err := runCommand(projDir, "git", "fetch", "--tags", "--depth", "1", "origin", "tag", version); err != nil {
-		d.rollback(ctx, id, version, previousVersion, progress)
-		return err
+	// SHA versions (sha-abc1234f) need git fetch by SHA, not by tag.
+	if strings.HasPrefix(version, "sha-") {
+		sha := strings.TrimPrefix(version, "sha-")
+		if err := runCommand(projDir, "git", "fetch", "--depth", "1", "origin", sha); err != nil {
+			d.rollback(ctx, id, version, previousVersion, progress)
+			return err
+		}
+	} else {
+		if err := runCommand(projDir, "git", "fetch", "--tags", "--depth", "1", "origin", "tag", version); err != nil {
+			d.rollback(ctx, id, version, previousVersion, progress)
+			return err
+		}
 	}
-	if err := runCommand(projDir, "git", "-c", "advice.detachedHead=false", "checkout", version); err != nil {
+	// For SHA versions, checkout the SHA directly; for tags, checkout the tag.
+	checkoutRef := version
+	if strings.HasPrefix(version, "sha-") {
+		checkoutRef = strings.TrimPrefix(version, "sha-")
+	}
+	if err := runCommand(projDir, "git", "-c", "advice.detachedHead=false", "checkout", checkoutRef); err != nil {
 		d.rollback(ctx, id, version, previousVersion, progress)
 		return err
 	}

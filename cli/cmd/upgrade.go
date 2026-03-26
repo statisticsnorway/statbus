@@ -198,7 +198,19 @@ var upgradeDaemonCmd = &cobra.Command{
 Typically run via systemd (devops/statbus-upgrade.service).`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		projDir := config.ProjectDir()
-		d := upgrade.NewDaemon(projDir, verbose, rootCmd.Version)
+		// Pass the raw version (valid git ref like "v2026.03.0-rc.24"),
+		// not the display string ("2026.03.0-rc.24 (commit 5bd190c0)").
+		// The daemon uses this for from_version and rollback git checkout.
+		daemonVersion := "v" + version // version is the raw ldflags value
+		if version == "dev" {
+			// Local dev build — use commit SHA if available
+			if commit != "unknown" {
+				daemonVersion = commit
+			} else {
+				daemonVersion = "dev"
+			}
+		}
+		d := upgrade.NewDaemon(projDir, verbose, daemonVersion)
 		return d.Run(context.Background())
 	},
 }
