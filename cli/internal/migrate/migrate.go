@@ -78,7 +78,11 @@ func PsqlCommand(projDir string) (psqlPath string, prefixArgs []string, env []st
 		if loadErr != nil {
 			return "", nil, nil, fmt.Errorf("load .env for docker psql: %w", loadErr)
 		}
+		// Process env overrides .env file — allows PGDATABASE=... ./sb migrate up
 		getOr := func(key, fallback string) string {
+			if v := os.Getenv(key); v != "" {
+				return v
+			}
 			if v, ok := f.Get(key); ok {
 				return v
 			}
@@ -108,7 +112,11 @@ func psqlEnv(projDir string) ([]string, error) {
 		return nil, fmt.Errorf("load .env: %w", err)
 	}
 
+	// Process env overrides .env file — allows PGDATABASE=... ./sb migrate up
 	getOr := func(key, fallback string) string {
+		if v := os.Getenv(key); v != "" {
+			return v
+		}
 		if v, ok := f.Get(key); ok {
 			return v
 		}
