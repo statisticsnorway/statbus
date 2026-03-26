@@ -1,9 +1,20 @@
 <!DOCTYPE html>
+<!--
+  StatBus maintenance/upgrade page
+  Served by Caddy as a static file — works when the app is down.
+
+  Features:
+  - Multilingual support (en, nb, fr, ru, ar, tr, el)
+  - RTL support for Arabic
+  - Live upgrade progress log
+  - "Check Now" button with countdown
+  - Auto-redirect to return URL when healthy
+-->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StatBus - Upgrading</title>
+    <title>StatBus — Upgrading</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -15,6 +26,7 @@
             align-items: center;
             justify-content: center;
         }
+        body.rtl { direction: rtl; }
         .container {
             max-width: 600px;
             padding: 2rem;
@@ -37,7 +49,7 @@
         }
         .subtitle {
             color: #64748b;
-            margin-bottom: 2rem;
+            margin-bottom: 1.5rem;
         }
         .progress {
             background: #1e293b;
@@ -52,76 +64,201 @@
             overflow-y: auto;
             white-space: pre-wrap;
             display: none;
+            margin-bottom: 1.5rem;
         }
+        .countdown {
+            color: #94a3b8;
+            font-size: 0.85rem;
+            margin-bottom: 0.75rem;
+        }
+        .check-btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 0.5rem 1.5rem;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .check-btn:hover { background: #2563eb; }
         .warning {
             color: #f59e0b;
             margin-top: 1.5rem;
             font-size: 0.9rem;
             display: none;
         }
-        .auto-refresh {
-            color: #94a3b8;
-            font-size: 0.75rem;
-            margin-top: 1.5rem;
-        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="spinner"></div>
-        <h1>StatBus is upgrading</h1>
-        <p class="subtitle">This should only take a few minutes. The page will refresh automatically.</p>
+        <h1 id="headline"></h1>
+        <p class="subtitle" id="message"></p>
         <pre class="progress" id="progress"></pre>
-        <p class="warning" id="warning">Upgrade is taking longer than expected. Please contact your administrator if this persists.</p>
-        <p class="auto-refresh">This page checks for completion every 5 seconds.</p>
+        <p class="countdown" id="countdown"></p>
+        <p><button class="check-btn" id="checkNowBtn"></button></p>
+        <p class="warning" id="warning"></p>
     </div>
 
     <script>
-        const progressEl = document.getElementById('progress');
-        const warningEl = document.getElementById('warning');
-        const startTime = Date.now();
-        const TEN_MINUTES = 10 * 60 * 1000;
+        var translations = {
+            'en': {
+                title: "StatBus is upgrading",
+                message: "This should only take a few minutes. The page will refresh automatically.",
+                countdown: "Checking again in {0} seconds.",
+                checkNow: "Check Now",
+                warning: "Upgrade is taking longer than expected. Please contact your administrator.",
+                digits: "0123456789"
+            },
+            'nb': {
+                title: "StatBus oppgraderes",
+                message: "Dette tar vanligvis bare noen minutter. Siden oppdateres automatisk.",
+                countdown: "Sjekker igjen om {0} sekunder.",
+                checkNow: "Sjekk Nå",
+                warning: "Oppgraderingen tar lengre tid enn forventet. Kontakt administratoren din.",
+                digits: "0123456789"
+            },
+            'fr': {
+                title: "StatBus est en cours de mise à jour",
+                message: "Cela ne devrait prendre que quelques minutes. La page se rafraîchira automatiquement.",
+                countdown: "Vérification dans {0} secondes.",
+                checkNow: "Vérifier Maintenant",
+                warning: "La mise à jour prend plus de temps que prévu. Veuillez contacter votre administrateur.",
+                digits: "0123456789"
+            },
+            'ru': {
+                title: "StatBus обновляется",
+                message: "Это займёт всего несколько минут. Страница обновится автоматически.",
+                countdown: "Повторная проверка через {0} секунд.",
+                checkNow: "Проверить Сейчас",
+                warning: "Обновление занимает больше времени, чем ожидалось. Обратитесь к администратору.",
+                digits: "0123456789"
+            },
+            'ar': {
+                title: "جاري تحديث StatBus",
+                message: "سيستغرق هذا بضع دقائق فقط. سيتم تحديث الصفحة تلقائياً.",
+                countdown: "التحقق مرة أخرى في {0} ثوان.",
+                checkNow: "تحقق الآن",
+                warning: "يستغرق التحديث وقتاً أطول من المتوقع. يرجى الاتصال بالمسؤول.",
+                digits: "٠١٢٣٤٥٦٧٨٩"
+            },
+            'tr': {
+                title: "StatBus güncelleniyor",
+                message: "Bu sadece birkaç dakika sürecektir. Sayfa otomatik olarak yenilenecektir.",
+                countdown: "{0} saniye sonra tekrar kontrol edilecek.",
+                checkNow: "Şimdi Kontrol Et",
+                warning: "Güncelleme beklenenden uzun sürüyor. Lütfen yöneticinize başvurun.",
+                digits: "0123456789"
+            },
+            'el': {
+                title: "Το StatBus αναβαθμίζεται",
+                message: "Αυτό θα διαρκέσει μόνο λίγα λεπτά. Η σελίδα θα ανανεωθεί αυτόματα.",
+                countdown: "Έλεγχος ξανά σε {0} δευτερόλεπτα.",
+                checkNow: "Ελέγξτε Τώρα",
+                warning: "Η αναβάθμιση διαρκεί περισσότερο από το αναμενόμενο. Επικοινωνήστε με τον διαχειριστή.",
+                digits: "0123456789"
+            }
+        };
+
+        // Detect language
+        var params = new URLSearchParams(window.location.search);
+        var userLang = params.get('locale') || navigator.language || 'en';
+        var langCode = userLang.toLowerCase().substring(0, 2);
+        var t = translations[langCode] || translations['en'];
+
+        // RTL
+        if (langCode === 'ar') document.body.classList.add('rtl');
+
+        // Apply translations
+        document.getElementById('headline').textContent = t.title;
+        document.getElementById('message').textContent = t.message;
+        document.getElementById('checkNowBtn').textContent = t.checkNow;
+
+        // Digit translation (for Arabic)
+        function localizeDigits(n) {
+            return n.toString().split('').map(function(d) {
+                return t.digits[parseInt(d, 10)];
+            }).join('');
+        }
+
+        // State
+        var progressEl = document.getElementById('progress');
+        var countdownEl = document.getElementById('countdown');
+        var warningEl = document.getElementById('warning');
+        var startTime = Date.now();
+        var TEN_MINUTES = 10 * 60 * 1000;
+        var checkInterval = 5; // seconds between health checks
+        var timer = checkInterval;
+        var countdownHandle;
+
+        // Return URL from query parameter
+        var returnPath = params.get('return') || '/';
 
         // Fetch upgrade progress log
-        async function fetchProgress() {
-            try {
-                const resp = await fetch('/upgrade-progress.log', { cache: 'no-store' });
-                if (resp.ok) {
-                    const text = await resp.text();
+        function fetchProgress() {
+            fetch('/upgrade-progress.log', { cache: 'no-store' })
+                .then(function(resp) { return resp.ok ? resp.text() : ''; })
+                .then(function(text) {
                     if (text.trim()) {
                         progressEl.style.display = 'block';
                         progressEl.textContent = text;
                         progressEl.scrollTop = progressEl.scrollHeight;
                     }
-                }
-            } catch (e) {
-                // ignore fetch errors during upgrade
-            }
+                })
+                .catch(function() {});
         }
 
-        // Check if services are back by requesting root path.
-        // During maintenance Caddy returns 503; when app is back it returns 200.
-        async function checkHealth() {
-            try {
-                const resp = await fetch('/', { cache: 'no-store' });
-                if (resp.ok) {
-                    const params = new URLSearchParams(window.location.search);
-                    const returnPath = params.get('return') || '/';
-                    window.location.replace(decodeURIComponent(returnPath));
-                    return;
-                }
-            } catch (e) {
-                // services still down
-            }
+        // Check if services are back
+        function checkHealth() {
+            fetch('/', { cache: 'no-store' })
+                .then(function(resp) {
+                    if (resp.ok) {
+                        window.location.replace(decodeURIComponent(returnPath));
+                    } else {
+                        startCountdown();
+                    }
+                })
+                .catch(function() {
+                    startCountdown();
+                });
 
             if (Date.now() - startTime > TEN_MINUTES) {
+                warningEl.textContent = t.warning;
                 warningEl.style.display = 'block';
             }
         }
 
-        setInterval(fetchProgress, 3000);
-        setInterval(checkHealth, 5000);
+        // Countdown display
+        function updateCountdown() {
+            countdownEl.innerHTML = t.countdown.replace('{0}',
+                '<strong>' + localizeDigits(timer) + '</strong>');
+        }
+
+        function startCountdown() {
+            timer = checkInterval;
+            updateCountdown();
+            clearInterval(countdownHandle);
+            countdownHandle = setInterval(function() {
+                timer--;
+                updateCountdown();
+                if (timer <= 0) {
+                    clearInterval(countdownHandle);
+                    checkHealth();
+                }
+            }, 1000);
+        }
+
+        // "Check Now" button
+        document.getElementById('checkNowBtn').addEventListener('click', function() {
+            clearInterval(countdownHandle);
+            checkHealth();
+        });
+
+        // Start
         fetchProgress();
+        setInterval(fetchProgress, 3000);
+        startCountdown();
     </script>
 </body>
 </html>
