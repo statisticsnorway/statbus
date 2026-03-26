@@ -35,7 +35,7 @@ services:
       POSTGRES_PORT: 5432
       VERSION: ${VERSION:-local}
       NEXT_PUBLIC_STATBUS_VERSION: ${VERSION:-local}
-      NEXT_PUBLIC_STATBUS_VERSION_SHA: ${VERSION:-local}
+      NEXT_PUBLIC_STATBUS_COMMIT: ${COMMIT:-unknown}
       DEBUG: ${DEBUG:?DEBUG must be set in the generated .env}
       NEXT_PUBLIC_DEBUG: ${NEXT_PUBLIC_DEBUG:?NEXT_PUBLIC_DEBUG must be set in the generated .env}
     restart: unless-stopped

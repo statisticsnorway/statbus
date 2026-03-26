@@ -52,11 +52,23 @@ export default function Footer() {
             <span className="text-xs text-gray-300">
               Statbus version{" "}
               <Link
-                href={`https://github.com/statisticsnorway/statbus/commit/${process.env.NEXT_PUBLIC_STATBUS_VERSION_SHA}`}
+                href={`https://github.com/statisticsnorway/statbus/releases/tag/${process.env.NEXT_PUBLIC_STATBUS_VERSION}`}
                 className="hover:text-ssb-neon underline"
               >
                 {process.env.NEXT_PUBLIC_STATBUS_VERSION}
               </Link>
+              {process.env.NEXT_PUBLIC_STATBUS_COMMIT && process.env.NEXT_PUBLIC_STATBUS_COMMIT !== "unknown" && (
+                <>
+                  {" ("}
+                  <Link
+                    href={`https://github.com/statisticsnorway/statbus/commit/${process.env.NEXT_PUBLIC_STATBUS_COMMIT}`}
+                    className="hover:text-ssb-neon underline"
+                  >
+                    {process.env.NEXT_PUBLIC_STATBUS_COMMIT}
+                  </Link>
+                  {")"}
+                </>
+              )}
             </span>
           </div>
           {/* Only render CommandPaletteTriggerButton if mounted, not loading, and authenticated */}

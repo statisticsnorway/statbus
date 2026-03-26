@@ -116,6 +116,7 @@ type Derived struct {
 	PostgrestPort           int
 	PostgrestBindAddress    string
 	Version                 string
+	Commit                  string
 	SiteURL                 string
 	ApiExternalURL          string
 	ApiPublicURL            string
@@ -439,13 +440,15 @@ func computeDerived(cfg *ConfigEnv) *Derived {
 		caddyDbTlsBind = "127.0.0.1"
 	}
 
-	// VERSION: git describe --tags --always returns the tag name if on a tag,
-	// or a short commit hash otherwise. Used for docker compose image tags.
-	// On a server after upgrade daemon checkout: returns "v2026.03.0-rc.3"
-	// In development: returns "v2026.03.0-rc.3-5-g59fbabd10" or just "59fbabd10"
+	// VERSION: tag name for docker compose image tags and display.
+	// COMMIT: short SHA for linking to the exact code on GitHub.
 	version := "local"
 	if out, err := exec.Command("git", "describe", "--tags", "--always").Output(); err == nil {
 		version = strings.TrimSpace(string(out))
+	}
+	commit := "unknown"
+	if out, err := exec.Command("git", "rev-parse", "--short=8", "HEAD").Output(); err == nil {
+		commit = strings.TrimSpace(string(out))
 	}
 
 	return &Derived{
@@ -462,6 +465,7 @@ func computeDerived(cfg *ConfigEnv) *Derived {
 		PostgrestPort:          postgrestPort,
 		PostgrestBindAddress:   fmt.Sprintf("127.0.0.1:%d", postgrestPort),
 		Version:                version,
+		Commit:                 commit,
 		SiteURL:                cfg.StatbusURL,
 		ApiExternalURL:         cfg.BrowserAPIURL,
 		ApiPublicURL:           cfg.BrowserAPIURL,
@@ -537,14 +541,15 @@ CADDY_DB_PORT=%[18]d
 CADDY_DB_TLS_PORT=%[19]d
 CADDY_DB_BIND_ADDRESS=%[20]s
 CADDY_DB_TLS_BIND_ADDRESS=%[21]s
-# Updated by manage-statbus.sh start required
+# Version and commit for docker image tags and footer display
 VERSION=%[22]s
+COMMIT=%[23]s
 
 # Server-side debugging for the Statbus App. Requires app restart.
 # To enable, edit .env: set DEBUG=true and comment out/remove DEBUG=false.
 # To disable, edit .env: set DEBUG=false and comment out/remove DEBUG=true.
 # This setting is sourced from DEBUG in .env.config (defaults to false).
-%[23]s
+%[24]s
 `,
 		".env.credentials", ".env.config", ".env",
 		cfg.DeploymentSlotName,           // 4
@@ -566,7 +571,8 @@ VERSION=%[22]s
 		derived.CaddyDbBindAddress,       // 20
 		derived.CaddyDbTlsBindAddress,    // 21
 		derived.Version,                  // 22
-		debugBlock("DEBUG", cfg.Debug),   // 23
+		derived.Commit,                   // 23
+		debugBlock("DEBUG", cfg.Debug),   // 24
 	)
 
 	// Load .env.example and apply overrides
