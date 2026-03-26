@@ -170,8 +170,8 @@ Examples:
 		}
 
 		// NOTIFY payload doesn't support parameterized queries in psql.
-		// Safe because ValidateVersion restricts to [a-f0-9.\-vw] only,
-		// and ":recreate" is a fixed suffix.
+		// Safe because ValidateVersion restricts the version format
+		// and ":recreate" is a fixed, non-injectable suffix.
 		sql := fmt.Sprintf("NOTIFY upgrade_apply, '%s'",
 			strings.ReplaceAll(payload, "'", "''"))
 
