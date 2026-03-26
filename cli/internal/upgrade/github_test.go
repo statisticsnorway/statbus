@@ -88,6 +88,38 @@ func TestHasMigrationsFromChanges(t *testing.T) {
 	}
 }
 
+func TestCompareVersions(t *testing.T) {
+	cases := []struct {
+		a, b string
+		want int
+	}{
+		// Same version
+		{"v2026.03.0", "v2026.03.0", 0},
+		// Patch ordering
+		{"v2026.03.0", "v2026.03.1", -1},
+		{"v2026.03.1", "v2026.03.0", 1},
+		// RC ordering — the key case: rc.9 < rc.17
+		{"v2026.03.0-rc.9", "v2026.03.0-rc.17", -1},
+		{"v2026.03.0-rc.17", "v2026.03.0-rc.9", 1},
+		{"v2026.03.0-rc.1", "v2026.03.0-rc.2", -1},
+		// Stable > prerelease (fewer parts = stable = newer)
+		{"v2026.03.0", "v2026.03.0-rc.17", 1},
+		{"v2026.03.0-rc.17", "v2026.03.0", -1},
+		// Year/month ordering
+		{"v2026.03.0", "v2026.04.0", -1},
+		{"v2025.12.0", "v2026.01.0", -1},
+		// SHA tags
+		{"sha-abc1234f", "sha-def5678a", -1},
+		{"sha-def5678a", "sha-abc1234f", 1},
+	}
+	for _, c := range cases {
+		got := CompareVersions(c.a, c.b)
+		if got != c.want {
+			t.Errorf("CompareVersions(%q, %q) = %d, want %d", c.a, c.b, got, c.want)
+		}
+	}
+}
+
 func TestReleaseSummary(t *testing.T) {
 	r := Release{
 		TagName:    "v2026.03.0",

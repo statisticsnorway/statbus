@@ -286,26 +286,42 @@ func (d *Daemon) syncConfigToSystemInfo(ctx context.Context) {
 	}
 }
 
-// skipOlderReleases marks available releases older than the completed version as skipped.
-// Compares version strings lexicographically — correct for CalVer (vYYYY.MM.PATCH-rc.N)
-// and SHA tags (sha-hex sorts consistently). Only skips versions that sort BEFORE the
-// completed one, preserving newer releases that arrived during the upgrade.
-func (d *Daemon) skipOlderReleases(ctx context.Context, completedVersion string) {
-	result, err := d.queryConn.Exec(ctx,
-		`UPDATE public.upgrade
-		 SET skipped_at = now()
-		 WHERE version < $1
-		   AND completed_at IS NULL
+// skipOlderReleases marks available releases semantically older than the given version.
+// Uses CompareVersions for correct CalVer ordering (rc.9 < rc.17, stable > prerelease).
+func (d *Daemon) skipOlderReleases(ctx context.Context, selectedVersion string) {
+	rows, err := d.queryConn.Query(ctx,
+		`SELECT id, version FROM public.upgrade
+		 WHERE completed_at IS NULL
 		   AND started_at IS NULL
 		   AND skipped_at IS NULL
-		   AND error IS NULL`,
-		completedVersion)
+		   AND error IS NULL
+		   AND version != $1`,
+		selectedVersion)
 	if err != nil {
 		return
 	}
-	if result.RowsAffected() > 0 {
-		fmt.Printf("Skipped %d older release(s)\n", result.RowsAffected())
+	defer rows.Close()
+
+	var toSkip []int
+	for rows.Next() {
+		var id int
+		var version string
+		if err := rows.Scan(&id, &version); err != nil {
+			continue
+		}
+		if CompareVersions(version, selectedVersion) < 0 {
+			toSkip = append(toSkip, id)
+		}
 	}
+
+	if len(toSkip) == 0 {
+		return
+	}
+
+	for _, id := range toSkip {
+		d.queryConn.Exec(ctx, "UPDATE public.upgrade SET skipped_at = now() WHERE id = $1", id)
+	}
+	fmt.Printf("Skipped %d older release(s)\n", len(toSkip))
 }
 
 func (d *Daemon) loadConfig() error {
@@ -619,6 +635,8 @@ func (d *Daemon) scheduleImmediate(ctx context.Context, version string) {
 		fmt.Printf("Failed to schedule %s: %v\n", version, err)
 	} else if result.RowsAffected() > 0 {
 		fmt.Printf("Scheduled immediate upgrade to %s\n", version)
+		// Once a version is selected, all older versions are obsolete.
+		d.skipOlderReleases(ctx, version)
 	}
 	// If RowsAffected() == 0, the version is already scheduled — no action needed, no log spam.
 }
