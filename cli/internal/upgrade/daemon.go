@@ -286,11 +286,18 @@ func (d *Daemon) syncConfigToSystemInfo(ctx context.Context) {
 	}
 }
 
-// skipOlderReleases marks available releases semantically older than the given version.
-// Uses CompareVersions for correct CalVer ordering (rc.9 < rc.17, stable > prerelease).
+// skipOlderReleases marks available releases older than the given version as skipped.
+// Uses git merge-base --is-ancestor to check commit ordering on the branch.
+// This is ground truth — works for CalVer tags and SHA versions alike.
+// Falls back to CompareVersions if commit SHAs are unavailable.
 func (d *Daemon) skipOlderReleases(ctx context.Context, selectedVersion string) {
+	// Get the commit SHA of the selected version
+	var selectedSHA string
+	d.queryConn.QueryRow(ctx,
+		"SELECT commit_sha FROM public.upgrade WHERE version = $1", selectedVersion).Scan(&selectedSHA)
+
 	rows, err := d.queryConn.Query(ctx,
-		`SELECT id, version FROM public.upgrade
+		`SELECT id, version, commit_sha FROM public.upgrade
 		 WHERE completed_at IS NULL
 		   AND started_at IS NULL
 		   AND skipped_at IS NULL
@@ -305,11 +312,22 @@ func (d *Daemon) skipOlderReleases(ctx context.Context, selectedVersion string) 
 	var toSkip []int
 	for rows.Next() {
 		var id int
-		var version string
-		if err := rows.Scan(&id, &version); err != nil {
+		var version, commitSHA string
+		if err := rows.Scan(&id, &version, &commitSHA); err != nil {
 			continue
 		}
-		if CompareVersions(version, selectedVersion) < 0 {
+
+		older := false
+		// Try git ancestry first — is this commit an ancestor of the selected version?
+		if selectedSHA != "" && commitSHA != "" && selectedSHA != commitSHA {
+			err := runCommand(d.projDir, "git", "merge-base", "--is-ancestor", commitSHA, selectedSHA)
+			older = (err == nil) // exit 0 = is ancestor = older
+		} else {
+			// Fallback: semantic version comparison for CalVer tags
+			older = CompareVersions(version, selectedVersion) < 0
+		}
+
+		if older {
 			toSkip = append(toSkip, id)
 		}
 	}

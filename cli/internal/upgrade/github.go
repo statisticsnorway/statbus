@@ -225,9 +225,17 @@ func FetchCommits(count int) ([]Commit, error) {
 }
 
 // CompareVersions returns -1 if a < b, 0 if equal, 1 if a > b.
-// Handles CalVer (v2026.03.0-rc.9 vs v2026.03.0-rc.17) and SHA tags.
-// Parses numeric segments for correct ordering (rc.9 < rc.17).
+// For CalVer tags (vYYYY.MM.PATCH-rc.N): parses numeric segments for correct ordering.
+// For SHA tags: returns 0 (incomparable without git history — use CompareByCommitOrder instead).
 func CompareVersions(a, b string) int {
+	if a == b {
+		return 0
+	}
+	// SHA tags have no inherent ordering — they need git ancestry comparison.
+	if strings.HasPrefix(a, "sha-") || strings.HasPrefix(b, "sha-") {
+		return 0
+	}
+
 	partsA := versionParts(a)
 	partsB := versionParts(b)
 
@@ -237,7 +245,6 @@ func CompareVersions(a, b string) int {
 	}
 
 	for i := 0; i < minLen; i++ {
-		// Try numeric comparison first
 		numA, errA := strconv.Atoi(partsA[i])
 		numB, errB := strconv.Atoi(partsB[i])
 		if errA == nil && errB == nil {
@@ -249,7 +256,6 @@ func CompareVersions(a, b string) int {
 			}
 			continue
 		}
-		// Fall back to string comparison
 		if partsA[i] < partsB[i] {
 			return -1
 		}
@@ -258,14 +264,13 @@ func CompareVersions(a, b string) int {
 		}
 	}
 
-	// Shorter version is "less" (v2026.03.0 < v2026.03.0-rc.1 is wrong — stable > rc)
-	// Actually: a version WITHOUT a prerelease suffix is NEWER than one with it.
-	// v2026.03.0 > v2026.03.0-rc.17
+	// A version WITHOUT a prerelease suffix is NEWER than one with it.
+	// v2026.03.0 > v2026.03.0-rc.17 (stable release supersedes all its RCs)
 	if len(partsA) < len(partsB) {
-		return 1 // fewer parts = stable release = newer
+		return 1
 	}
 	if len(partsA) > len(partsB) {
-		return -1 // more parts = prerelease = older
+		return -1
 	}
 	return 0
 }
@@ -273,7 +278,6 @@ func CompareVersions(a, b string) int {
 // versionParts splits a version string into comparable segments.
 // "v2026.03.0-rc.17" → ["v2026", "03", "0", "rc", "17"]
 func versionParts(v string) []string {
-	// Split on . and -
 	var parts []string
 	current := ""
 	for _, c := range v {

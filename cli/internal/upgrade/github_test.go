@@ -108,9 +108,12 @@ func TestCompareVersions(t *testing.T) {
 		// Year/month ordering
 		{"v2026.03.0", "v2026.04.0", -1},
 		{"v2025.12.0", "v2026.01.0", -1},
-		// SHA tags
-		{"sha-abc1234f", "sha-def5678a", -1},
-		{"sha-def5678a", "sha-abc1234f", 1},
+		// SHA tags are incomparable without git history — returns 0
+		{"sha-abc1234f", "sha-def5678a", 0},
+		{"sha-abc1234f", "sha-abc1234f", 0},
+		// Mixed: SHA vs CalVer — incomparable
+		{"sha-abc1234f", "v2026.03.0", 0},
+		{"v2026.03.0", "sha-abc1234f", 0},
 	}
 	for _, c := range cases {
 		got := CompareVersions(c.a, c.b)
