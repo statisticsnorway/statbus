@@ -105,7 +105,9 @@
             try {
                 const resp = await fetch('/', { cache: 'no-store', redirect: 'manual' });
                 if (resp.status >= 200 && resp.status < 400) {
-                    window.location.replace('/');
+                    const params = new URLSearchParams(window.location.search);
+                    const returnPath = params.get('return') || '/';
+                    window.location.replace(decodeURIComponent(returnPath));
                     return;
                 }
             } catch (e) {

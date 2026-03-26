@@ -164,15 +164,12 @@ export default function UpgradesPage() {
 
   const [actionError, setActionError] = useState<string | null>(null);
 
-  // Detect when an upgrade takes the app down → redirect to progress log.
-  // SWR keeps cached data (with "scheduled" or "in_progress") and sets error on network failure.
+  // Detect when an upgrade takes the app down — show the maintenance page inline.
   const hasActiveUpgrade = upgrades?.some((u) => {
     const s = getStatus(u);
     return s === "in_progress" || s === "scheduled";
   });
-  if (error && hasActiveUpgrade && typeof window !== "undefined") {
-    window.location.href = "/upgrade-progress.log";
-  }
+  const showMaintenanceView = error && hasActiveUpgrade;
 
   const act = useCallback(
     async (id: number, body: Record<string, unknown>) => {
@@ -189,6 +186,14 @@ export default function UpgradesPage() {
     },
     [mutate],
   );
+
+  // When the API goes down during an active upgrade, redirect to the
+  // maintenance page with a return URL. The maintenance page shows live
+  // progress and redirects back when the app is healthy again.
+  if (showMaintenanceView && typeof window !== "undefined") {
+    const returnPath = encodeURIComponent(window.location.pathname);
+    window.location.href = `/maintenance.html?return=${returnPath}`;
+  }
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col py-8 md:py-12">
