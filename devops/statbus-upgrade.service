@@ -4,7 +4,7 @@ After=docker.service
 Wants=docker.service
 
 [Service]
-Type=simple
+Type=notify
 User=%i
 WorkingDirectory=/home/%i/statbus
 ExecStart=/home/%i/statbus/sb upgrade daemon
@@ -12,7 +12,11 @@ Restart=always
 RestartSec=30
 RestartForceExitStatus=42
 SuccessExitStatus=42
-Environment=HOME=/home/%i PWD=/home/%i/statbus
+Environment=HOME=/home/%i PWD=/home/%i/statbus PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# Watchdog: daemon must ping every 2.5 minutes (half of WatchdogSec).
+# If the daemon hangs (stuck subprocess, deadlock), systemd kills and restarts it.
+WatchdogSec=300
 
 # Logging
 StandardOutput=journal

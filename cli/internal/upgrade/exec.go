@@ -8,10 +8,29 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"syscall"
 	"time"
 
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 )
+
+// prepareCmd configures a command for robust subprocess execution:
+// - Runs in its own process group (Setpgid) so we can kill all children
+// - WaitDelay ensures cmd.Run() doesn't hang if orphaned children hold pipes open
+// - Cancel kills the entire process group, not just the direct child
+func prepareCmd(cmd *exec.Cmd) {
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.WaitDelay = 10 * time.Second
+	cmd.Cancel = func() error {
+		// Kill the entire process group — ensures docker's child processes die too.
+		// Without this, orphaned grandchildren hold stdout/stderr pipes open
+		// and cmd.Run() hangs forever (Go issue #59055).
+		if cmd.Process != nil {
+			return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+		}
+		return nil
+	}
+}
 
 // runCommand executes a command with inherited stdout/stderr and a default 5-minute timeout.
 func runCommand(dir string, name string, args ...string) error {
@@ -19,7 +38,7 @@ func runCommand(dir string, name string, args ...string) error {
 }
 
 // runCommandWithTimeout executes a command with a specific timeout.
-// If the timeout expires, the process is killed and an error is returned.
+// Uses process groups and WaitDelay to prevent hangs from orphaned subprocesses.
 func runCommandWithTimeout(dir string, timeout time.Duration, name string, args ...string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -27,6 +46,7 @@ func runCommandWithTimeout(dir string, timeout time.Duration, name string, args 
 	cmd.Dir = dir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	prepareCmd(cmd)
 	err := cmd.Run()
 	if ctx.Err() == context.DeadlineExceeded {
 		return fmt.Errorf("command timed out after %s: %s %v", timeout, name, args)
@@ -40,6 +60,7 @@ func runCommandOutput(dir string, name string, args ...string) (string, error) {
 	defer cancel()
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
+	prepareCmd(cmd)
 	out, err := cmd.CombinedOutput()
 	if ctx.Err() == context.DeadlineExceeded {
 		return string(out), fmt.Errorf("command timed out after 2m: %s %v", name, args)
@@ -51,13 +72,15 @@ func (d *Daemon) pullImages(version string) error {
 	// docker compose reads VERSION from .env, not from process environment.
 	// For pre-downloads before config regeneration, we pass it as an override.
 	// 10-minute timeout: image pulls can be slow on shared servers.
+	// --quiet suppresses progress bars that cause excessive pipe output under systemd.
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "docker", "compose", "pull")
+	cmd := exec.CommandContext(ctx, "docker", "compose", "pull", "--quiet")
 	cmd.Dir = d.projDir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Env = append(os.Environ(), "VERSION="+version)
+	prepareCmd(cmd)
 	err := cmd.Run()
 	if ctx.Err() == context.DeadlineExceeded {
 		return fmt.Errorf("docker compose pull timed out after 10 minutes")

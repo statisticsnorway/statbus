@@ -86,6 +86,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	}
 
 	fmt.Printf("Upgrade daemon started (channel=%s, interval=%s)\n", d.channel, d.interval)
+	sdNotify("READY=1") // Tell systemd we're initialized
 
 	// Main loop: use a goroutine for LISTEN/NOTIFY, select on channels
 	notifyCh := make(chan *pgconn.Notification, 1)
@@ -94,6 +95,15 @@ func (d *Daemon) Run(ctx context.Context) error {
 
 	ticker := time.NewTicker(d.interval)
 	defer ticker.Stop()
+
+	// Systemd watchdog: proves the daemon is alive and responsive.
+	// If WatchdogSec is set in the unit file, systemd kills+restarts
+	// the daemon if it stops pinging within the timeout.
+	watchdog := newWatchdog()
+	if watchdog != nil {
+		defer watchdog.Stop()
+		fmt.Printf("Systemd watchdog enabled (interval=%s)\n", watchdog.interval)
+	}
 
 	// Initial discovery on startup
 	d.discover(ctx)
