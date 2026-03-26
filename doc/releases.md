@@ -10,8 +10,10 @@ StatBus uses **Calendar Versioning (CalVer)**: `YYYY.MM.PATCH`.
 |--------|---------|---------|
 | Stable | `v2026.03.0` | First stable release of March 2026 |
 | Patch | `v2026.03.1` | Patch to the March 2026 release |
-| Release candidate | `v2026.03.0-rc.1` | Pre-release for testing |
-| Beta | `v2026.03.0-beta.1` | Early pre-release |
+| Release candidate | `v2026.03.0-rc.01` | Pre-release for testing |
+| Beta | `v2026.03.0-beta.01` | Early pre-release |
+
+**Zero-pad pre-release numbers** to two digits (`rc.01`, not `rc.1`). GitHub sorts releases lexicographically, so `rc.6` would sort after `rc.22` without padding.
 
 Tags must start with `v`. The version **without** the `v` prefix (e.g. `2026.03.0`) is used in image tags, the `VERSION` env var, and the release manifest.
 
@@ -29,8 +31,8 @@ git push origin v2026.03.0
 ### Pre-release
 
 ```bash
-git tag v2026.03.0-rc.1
-git push origin v2026.03.0-rc.1
+git tag v2026.03.0-rc.01
+git push origin v2026.03.0-rc.01
 ```
 
 That is it. Pushing a `v*` tag triggers the `release.yaml` workflow, which builds everything and creates the GitHub Release automatically.
