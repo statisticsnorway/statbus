@@ -49,7 +49,7 @@ When the Crystal worker starts, it calls `worker.reset_abandoned_processing_task
 2.  When a task begins processing, its row in `worker.tasks` is updated with the current backend's Process ID (PID) in the `worker_pid` column.
 3.  The cleanup function checks `pg_stat_activity` to see if the stored `worker_pid` for an abandoned task is still active.
 4.  If the process is still running, it is terminated using `pg_terminate_backend()` to release any locks it may be holding.
-5.  Finally, the task's state is reset to `pending`, allowing it to be safely re-processed by the new worker instance.
+5.  Finally, the task's state is set to `interrupted` (not `pending`). This avoids conflicts with dedup constraints when a pending task of the same command already exists. The serial fiber picks interrupted tasks BEFORE pending tasks, ensuring crash recovery takes priority.
 
 ## 4. Development and Testing
 

@@ -27,6 +27,7 @@ collect_changes                          depth 0, serial children
 ```
 
 Task states: `pending` → `processing` → `waiting` → `completed` (or `failed`).
+Crash recovery: `processing` → `interrupted` → `processing` (retried before pending tasks).
 
 - **pending**: Created but not yet picked up
 - **processing**: Handler executing

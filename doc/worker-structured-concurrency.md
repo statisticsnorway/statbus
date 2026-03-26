@@ -18,10 +18,13 @@ This contrasts with unstructured concurrency where tasks are "fire and forget" w
 pending → processing → completed
                     ↘ failed
                     ↘ waiting (parent with children)
+processing → interrupted (engine crash, transaction rolled back)
+interrupted → processing (serial fiber retries, picked BEFORE pending)
 ```
 
 - **pending**: Task ready to be picked up
 - **processing**: Task currently executing
+- **interrupted**: Engine crashed while processing; transaction was rolled back, safe to retry. Not subject to dedup constraints (multiple interrupted tasks can coexist with a pending task of the same command)
 - **waiting**: Parent task has spawned children and awaits their completion
 - **completed**: Task finished successfully
 - **failed**: Task encountered an error

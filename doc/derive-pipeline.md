@@ -3,6 +3,19 @@
 This document describes how STATBUS derives statistical tables from imported
 data. It covers the task flow, structured concurrency model, and queue layout.
 
+
+## Design Goals
+
+The pipeline is optimized for two competing dimensions simultaneously:
+
+**Speed for small changes.** A single unit edit should derive in seconds (measured: ~25s). Users editing data in the UI get near-instant feedback — search results, reports, and facets update within one pipeline cycle.
+
+**Throughput for large imports.** During bulk import of hundreds of thousands of units, the system works at full capacity with no idle time. Each pipeline cycle processes all changes that accumulated during the previous cycle's runtime. This means the system dynamically adjusts its effective batch size: when there's little work, it finishes fast; when changes pile up during a long cycle, the next cycle naturally absorbs a larger batch.
+
+**Progressive visibility.** The pipeline runs interleaved with imports — it does NOT wait for the import to finish. Users see derived results appearing incrementally as import batches complete. This is a deliberate design choice: deferring all derivation to after import would yield the same total compute time but zero visibility during the import.
+
+**The interleaving is optimal, not a compromise.** During heavy import, later pipeline cycles take longer because they process more accumulated changes. This is the system working at maximum throughput. The "snowball effect" (cycles growing from 25s to thousands of seconds) is not a performance bug — it's the cost of processing data as fast as it arrives. Once import finishes, the final pipeline cycles drop back to seconds, confirming the system is fast when not competing with ongoing data loading.
+
 For details on the worker system itself, see [worker.md](./worker.md).
 For structured concurrency internals, see [worker-structured-concurrency.md](./worker-structured-concurrency.md).
 For the original structured concurrency concept, see
@@ -289,32 +302,82 @@ Only **dirty partitions** (those with changed data tracked in
 
 ## Production Performance (1.1M LU + 826K ES = 3.1M stat units)
 
-Measured on `no.statbus.org`, February 2026. Since top-level tasks run
-strictly sequentially, the total wall clock is the **sum** of all stages:
+Measured on `no.statbus.org`, March 2026 (after optimization work).
 
-```
-Step  Pipeline stage                            CPU time   Children
-─────────────────────────────────────────────────────────────────────────
- ②   derive_statistical_unit (batches)          120 s      2337 batches
-      └─ statistical_unit_refresh_batch total   25.2k s    ~3.7x parallel
- ③   statistical_unit_flush_staging             1,038 s    —
- ④   derive_reports                                6 ms    —
- ⑤   derive_statistical_history (periods)           2 s    3 period children
-      └─ derive_statistical_history_period         <3 s    ~3x parallel
- ⑥   derive_statistical_unit_facet               178 s     —
- ⑦   derive_statistical_history_facet (periods)     1 s    3 period children
-      └─ derive_statistical_history_facet_period  <11 s    ~3x parallel
-─────────────────────────────────────────────────────────────────────────
-     End-to-end wall clock (incremental):       ~2.5 hours
-```
+### Scaling behavior during heavy import
 
-The dominant cost is the batch work (`statistical_unit_refresh_batch` at
-25.2k seconds CPU), which computes timeline views and `statistical_unit`
-rows for each enterprise's closed group. With 3 child fibers achieving ~3.7x
-effective parallelism, the wall clock for step ② is ~6,800 seconds (1h 53m).
+| Pipeline scale | Wall time | Batch count | Context |
+|---|---|---|---|
+| Tiny (post-import) | 25-150s | 45-586 | Single-edit responsiveness |
+| Medium (during import) | 100-500s | ~2300 | Steady-state import processing |
+| Large (accumulating) | 1000-3000s | 2500-2700 | Changes accumulate faster than processed |
+| Peak (largest) | ~10000s | 753-3251 | Maximum accumulation, still progressing |
+| Post-import cleanup | 150-250s | 45 | System fast again once import stops |
 
-The staging flush (step ③, ~17 minutes) and DSUF (step ⑥, ~3 minutes) are
-the next-largest costs. The reporting stages (DSH, DSHF) take seconds.
+### Bottleneck ranking (total self-time across 19 pipeline runs)
+
+| Step | Total self (s) | Avg self (s) | Max self (s) | Role |
+|---|---|---|---|---|
+| `statistical_unit_flush_staging` | 2702 | 142 | 734 | Serial MERGE staging→main |
+| `derive_statistical_unit` | 1527 | 80 | 727 | Parallel batch spawner |
+| `statistical_history_facet_reduce` | 1111 | 58 | 141 | Scoped MERGE facet aggregation |
+| `statistical_unit_facet_reduce` | 338 | 18 | 53 | Scoped MERGE facet partitions |
+| `derive_statistical_history_facet` | 253 | 13 | 56 | Parallel period spawner |
+| `derive_statistical_history` | 55 | 3 | 15 | Parallel period spawner |
+| `derive_statistical_unit_facet` | 47 | 2 | 6 | Parallel partition spawner |
+| `statistical_history_reduce` | 1 | 0.03 | 0.1 | Near-instant aggregation |
+
+
+## Performance Optimizations Applied
+
+These optimizations were applied in March 2026 to improve pipeline throughput:
+
+**Join strategy: COALESCE sentinels replacing IS NOT DISTINCT FROM.**
+`IS NOT DISTINCT FROM` prevents PostgreSQL from using hash/merge joins, forcing
+nested loop joins. With large tables (800K × 750K rows), this caused 37+ minute
+queries. Fix: `COALESCE(col, sentinel) = COALESCE(col, sentinel)` enables hash
+joins while preserving NULL equality semantics. Applied across MERGE ON clauses
+and timeline view joins.
+
+**Incremental reduce: scoped MERGE with dirty partition tracking.**
+Instead of recomputing all facet aggregations, only dirty partitions (those
+with changed data) are reprocessed. A three-path adaptive strategy selects
+the approach based on dirty partition count: scoped MERGE (≤128 dirty),
+full MERGE (>128), or TRUNCATE+INSERT (full refresh).
+
+**Filtered batching from affected enterprises.**
+For single-unit changes, the old approach joined all 3 base tables to find
+affected groups (380K × 1.1M × 824K). The fix starts from the affected
+enterprises (via `base_change_log`) and expands outward, reducing the query
+from 8 seconds to 16 milliseconds (500x improvement).
+
+**MERGE replacing DELETE+INSERT for `_used_derive` functions.**
+Six `_used_derive` functions were converted from DELETE+INSERT to MERGE,
+avoiding unnecessary row churn when the derived data hasn't changed.
+
+**Timesegments short-circuit.**
+`timesegments_years_refresh_concurrent` checks MIN/MAX year before running.
+If the year range hasn't changed, the refresh is skipped entirely.
+
+**Snapshot tables for pre-dirty dimension combos.**
+Two UNLOGGED snapshot tables capture dimension combinations BEFORE partition
+children rewrite staging data. The reduce step uses the UNION of current dirty
+dimensions and pre-dirty snapshots to detect dimension combos that disappeared
+(need deletion from the main table).
+
+**Temp tables replacing CTE chains.**
+Large CTE chains don't optimize well in PostgreSQL. Breaking into sequential
+temp tables with indexes allows independent optimization of each step.
+
+**UNLOGGED staging tables.**
+Fast writes with no WAL overhead. Automatically truncated on unclean shutdown
+(PostgreSQL guarantee), which is safe because the pipeline does a full refresh
+on crash recovery.
+
+**Configurable partition modulus with auto-tune.**
+The hash partition count (default 256) adapts to the data size. The
+`adjust_report_partition_modulus()` procedure runs during flush_staging and
+adjusts the modulus based on unit count.
 
 
 ## Command Registry
