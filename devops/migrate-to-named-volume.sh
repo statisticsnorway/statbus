@@ -10,12 +10,12 @@
 #   1. Stops services (old compose with bind mount)
 #   2. Pulls latest master code (new compose with named volume)
 #   3. Downloads latest sb binary from GitHub Releases
-#   4. Lets Docker Compose create the named volume (Compose owns it)
-#   5. Copies old bind mount data into the Compose-owned volume
-#   6. Runs ./sb install (config, services, migrations, users)
+#   4. Regenerates config
+#   5. Creates named volume (Compose-owned) and copies old data in
+#   6. Runs ./sb install (services, migrations, users)
 #
 # Old data is preserved at ./postgres/volumes/db/data/ as fallback.
-# Rollback: revert compose file, restart with bind mount.
+# Rollback: git checkout the old compose file, restart with bind mount.
 
 set -euo pipefail
 cd "${HOME}/statbus"
@@ -43,6 +43,18 @@ echo "Volume:   ${VOLUME}"
 echo "Old data: ${OLD_DATA}"
 echo ""
 
+# Idempotency: check if named volume already has PG data
+if docker volume inspect "${VOLUME}" >/dev/null 2>&1; then
+    HAS_DATA=$(docker run --rm -v "${VOLUME}:/data" alpine sh -c "test -f /data/PG_VERSION && echo yes || echo no")
+    if [ "$HAS_DATA" = "yes" ]; then
+        echo "Named volume ${VOLUME} already has PostgreSQL data."
+        echo "Migration already done — running ./sb install to ensure everything is up to date."
+        echo ""
+        ./sb install
+        exit 0
+    fi
+fi
+
 # 1. Stop services (old compose, bind mount)
 echo "[1/6] Stopping services..."
 docker compose --profile all down
@@ -50,15 +62,19 @@ echo ""
 
 # 2. Pull latest code (new compose with named volume)
 echo "[2/6] Pulling latest code..."
+# Stash any local changes (modified .env, configs) before checkout
+git stash --include-untracked -m "migrate-to-named-volume: stash before checkout" 2>/dev/null || true
 git fetch origin master
 git checkout master
 git merge --ff-only origin/master
+# Restore stashed changes
+git stash pop 2>/dev/null || true
 echo ""
 
-# 3. Download latest sb binary
+# 3. Download latest stable sb binary (skip pre-releases)
 echo "[3/6] Downloading sb binary..."
-LATEST=$(curl -fsSL "https://api.github.com/repos/statisticsnorway/statbus/releases?per_page=1" \
-    | grep -o '"tag_name":"[^"]*"' | head -1 | cut -d'"' -f4)
+LATEST=$(curl -fsSL "https://api.github.com/repos/statisticsnorway/statbus/releases?per_page=30" \
+    | grep -o '"tag_name":"[^"]*"' | cut -d'"' -f4 | head -1)
 if [ -z "$LATEST" ]; then
     echo "Error: could not determine latest release"
     exit 1
@@ -74,23 +90,55 @@ echo "[4/6] Regenerating configuration..."
 ./sb config generate
 echo ""
 
-# 5. Let Compose create the named volume, then copy old data in
+# 5. Create named volume (Compose-owned) and copy old data in
 echo "[5/6] Migrating data to named volume..."
-if [ -d "${OLD_DATA}" ] && [ "$(ls -A ${OLD_DATA} 2>/dev/null)" ]; then
-    # Start db briefly so Compose creates the volume
+
+# Validate old data has PostgreSQL structure
+if [ -d "${OLD_DATA}" ] && [ -f "${OLD_DATA}/PG_VERSION" ]; then
+    PG_VER=$(cat "${OLD_DATA}/PG_VERSION")
+    echo "  Found PostgreSQL ${PG_VER} data in ${OLD_DATA}"
+
+    # Let Compose create the volume by starting db briefly
+    echo "  Creating Compose-owned volume..."
     docker compose up -d db
-    sleep 3
+
+    # Wait for volume to exist (not just sleep — verify it)
+    for i in $(seq 1 30); do
+        if docker volume inspect "${VOLUME}" >/dev/null 2>&1; then
+            break
+        fi
+        sleep 1
+    done
+
+    if ! docker volume inspect "${VOLUME}" >/dev/null 2>&1; then
+        echo "  Error: volume ${VOLUME} was not created after 30 seconds"
+        exit 1
+    fi
+
     docker compose stop db
 
     # Copy old bind mount data into the Compose-owned volume
     echo "  Copying data from ${OLD_DATA} to volume ${VOLUME}..."
-    docker run --rm \
+    if ! docker run --rm \
         -v "$(pwd)/${OLD_DATA}:/source:ro" \
         -v "${VOLUME}:/dest" \
-        alpine sh -c "rm -rf /dest/* && cp -a /source/. /dest/"
-    echo "  Data copied. Old data preserved at ${OLD_DATA} as fallback."
+        alpine sh -c "rm -rf /dest/* && cp -a /source/. /dest/"; then
+        echo "  Error: data copy failed!"
+        echo "  Old data is still intact at ${OLD_DATA}"
+        exit 1
+    fi
+
+    # Verify copy succeeded
+    COPIED_VER=$(docker run --rm -v "${VOLUME}:/data" alpine cat /data/PG_VERSION 2>/dev/null || echo "")
+    if [ "${COPIED_VER}" != "${PG_VER}" ]; then
+        echo "  Error: PG_VERSION mismatch after copy (expected ${PG_VER}, got ${COPIED_VER})"
+        exit 1
+    fi
+
+    echo "  Data migrated successfully (PG ${PG_VER})."
+    echo "  Old data preserved at ${OLD_DATA} as fallback."
 else
-    echo "  No old bind mount data found — fresh installation."
+    echo "  No old PostgreSQL data found — fresh installation."
 fi
 echo ""
 
@@ -106,4 +154,3 @@ echo "  ssh root@niue \"cd ~$(whoami)/statbus && ./sb install\""
 echo ""
 echo "Verify:"
 echo "  ./sb upgrade list"
-echo "  curl -s http://localhost:$(grep CADDY_HTTP_PORT .env | cut -d= -f2)/ | head -1"
