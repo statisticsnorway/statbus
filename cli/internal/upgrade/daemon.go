@@ -286,15 +286,19 @@ func (d *Daemon) syncConfigToSystemInfo(ctx context.Context) {
 	}
 }
 
-// skipOlderReleases marks older available releases as skipped after a newer version completes.
+// skipOlderReleases marks available releases older than the completed version as skipped.
+// Compares version strings lexicographically — correct for CalVer (vYYYY.MM.PATCH-rc.N)
+// and SHA tags (sha-hex sorts consistently). Only skips versions that sort BEFORE the
+// completed one, preserving newer releases that arrived during the upgrade.
 func (d *Daemon) skipOlderReleases(ctx context.Context, completedVersion string) {
 	result, err := d.queryConn.Exec(ctx,
 		`UPDATE public.upgrade
 		 SET skipped_at = now()
-		 WHERE completed_at IS NULL
+		 WHERE version < $1
+		   AND completed_at IS NULL
+		   AND started_at IS NULL
 		   AND skipped_at IS NULL
-		   AND error IS NULL
-		   AND discovered_at < (SELECT discovered_at FROM public.upgrade WHERE version = $1)`,
+		   AND error IS NULL`,
 		completedVersion)
 	if err != nil {
 		return
