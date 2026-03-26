@@ -1,10 +1,7 @@
 name: Push master -> devops/deploy-to-dev
 on:
-  # Auto deploy master to dev on push to master
-  push:
-    branches:
-      - 'master'
-  # Allow manual deployment in github
+  # Manual only — dev is the RC testing ground.
+  # Auto-deploy from master is disabled to allow controlled RC testing.
   workflow_dispatch:
 
 jobs:

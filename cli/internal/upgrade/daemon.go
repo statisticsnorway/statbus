@@ -28,8 +28,9 @@ type Daemon struct {
 	interval     time.Duration
 	autoDL       bool
 	pinnedVer    string
-	upgrading    bool             // true during executeUpgrade; prevents ticker/notify from using nil conn
-	cachedURL    string           // cached health check URL (derived from .env at startup)
+	upgrading      bool             // true during executeUpgrade; prevents ticker/notify from using nil conn
+	pendingRecreate bool           // if true, next upgrade deletes+recreates the database instead of migrating
+	cachedURL      string           // cached health check URL (derived from .env at startup)
 	listenCancel context.CancelFunc // cancels the listenLoop goroutine
 	listenWg     sync.WaitGroup     // tracks listenLoop goroutine lifetime
 }
@@ -179,8 +180,19 @@ func (d *Daemon) handleNotification(ctx context.Context, n *pgconn.Notification)
 		if d.verbose {
 			fmt.Printf("Received NOTIFY upgrade_apply: %s\n", payload)
 		}
-		if ValidateVersion(payload) {
-			d.scheduleImmediate(ctx, payload)
+		// Parse optional :recreate suffix (e.g., "v2026.03.0:recreate")
+		version := payload
+		recreate := false
+		if strings.HasSuffix(payload, ":recreate") {
+			version = strings.TrimSuffix(payload, ":recreate")
+			recreate = true
+			fmt.Printf("Recreate mode requested for %s\n", version)
+		}
+		if ValidateVersion(version) {
+			d.scheduleImmediate(ctx, version)
+			if recreate {
+				d.pendingRecreate = true
+			}
 		} else {
 			fmt.Printf("Invalid version in NOTIFY payload: %q\n", payload)
 		}
@@ -646,11 +658,20 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 	// Update backup_path now that we have a connection
 	d.queryConn.Exec(ctx, "UPDATE public.upgrade SET backup_path = $1 WHERE id = $2", backupPath, id)
 
-	// Step 10: Run migrations
-	progress.Write("Applying database migrations...")
-	if err := runCommand(projDir, filepath.Join(projDir, "sb"), "migrate", "up", "--verbose"); err != nil {
-		d.rollback(ctx, id, version, previousVersion, progress)
-		return err
+	// Step 10: Run migrations (or recreate database if requested)
+	if d.pendingRecreate {
+		d.pendingRecreate = false
+		progress.Write("Recreating database from scratch (--recreate)...")
+		if err := runCommand(projDir, filepath.Join(projDir, "dev.sh"), "recreate-database"); err != nil {
+			d.rollback(ctx, id, version, previousVersion, progress)
+			return err
+		}
+	} else {
+		progress.Write("Applying database migrations...")
+		if err := runCommand(projDir, filepath.Join(projDir, "sb"), "migrate", "up", "--verbose"); err != nil {
+			d.rollback(ctx, id, version, previousVersion, progress)
+			return err
+		}
 	}
 
 	// Step 11: Start application services (proxy already running from step 2)

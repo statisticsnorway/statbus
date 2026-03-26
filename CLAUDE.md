@@ -38,4 +38,30 @@ This avoids quoting hell and creates a log of what was run.
 - **Continue working and talking** while background tasks run — never sleep, poll, or issue blocking `TaskOutput` calls
 - You will receive a `<task-notification>` automatically when a background task finishes
 
+## Parallel Agents
+
+All agents work on the **same working tree** (no worktrees — shared database prevents parallel Docker Compose).
+
+### Master Is the Stable Build
+Master must always build and pass tests. If master breaks, revert immediately.
+
+### Single Tree, Disjoint Files
+- **Split by file ownership.** Never two agents editing the same file.
+- **One breaker at a time.** Only one agent in a "code is broken, fixing it" state.
+- Coordinator assigns file ownership before launching parallel agents.
+
+### Coordinator Role
+Main conversation is the COORDINATOR. Agents do research and propose edits. Coordinator reviews and commits.
+
+1. Agent finishes work, reports results
+2. Coordinator inspects — read scratchpad, check changes
+3. Coordinator commits (agents don't commit directly)
+4. Verify build + tests pass after commit
+
+### Agent Scratchpads
+Every agent gets `tmp/agents/<agent-name>.md`. Writes progress, findings, decisions, next steps. If killed, read the scratchpad and continue. Not committed — working notes.
+
+### Agent Tooling Protocol
+Agents that debug issues should BUILD DIAGNOSTIC TOOLS, not just debug. Add trace flags, logging, or diagnostic endpoints as permanent infrastructure. Every time an agent wishes it could see something, it should ADD the tool to see it.
+
 @AGENTS.md

@@ -1,13 +1,11 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: "ug.statbus.org<-devops/deploy-to-ug"
 on:
-  # Allow manual deployment in github
   workflow_dispatch:
   push:
     branches:
-      - devops/deploy-to-ug
+      - "devops/deploy-to-ug"
 
-# Deploys are serial for a deploy branch.
 concurrency:
   group: ${{ github.ref_name }}
   cancel-in-progress: false
@@ -18,11 +16,14 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: executing remote ssh commands
-        uses: appleboy/ssh-action@v1.0.0
+      - name: Deploy via upgrade daemon
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: niue.statbus.org
           username: statbus_ug
           key: ${{ secrets.SSH_KEY }}
-          command_timeout: 60m
-          script: statbus/devops/deploy.sh
+          command_timeout: 5m
+          script: |
+            cd ~/statbus
+            SHA_TAG="sha-$(echo '${{ github.sha }}' | cut -c1-8)"
+            ./sb upgrade apply "${SHA_TAG}"

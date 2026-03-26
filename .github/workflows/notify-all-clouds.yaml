@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Notify cloud daemons
+on:
+  push:
+    branches: [master]
+
+# Notify all cloud installations that new code is available.
+# Each server's daemon will discover the release and make it
+# available in the admin UI. This is discovery only — not a
+# forced upgrade. Admins or deploy branches decide when to apply.
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        server:
+          - statbus_dev
+          - statbus_no
+          - statbus_demo
+          - statbus_tcc
+          - statbus_ma
+          - statbus_ug
+          - statbus_et
+          - statbus_jo
+    steps:
+      - name: Notify ${{ matrix.server }}
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: niue.statbus.org
+          username: ${{ matrix.server }}
+          key: ${{ secrets.SSH_KEY }}
+          command_timeout: 30s
+          script: |
+            cd ~/statbus
+            if [ -x ./sb ]; then
+              ./sb upgrade discover
+            else
+              echo "Skipping: ./sb not installed on ${{ matrix.server }}"
+            fi

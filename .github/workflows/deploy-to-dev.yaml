@@ -16,23 +16,14 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Trigger upgrade daemon
+      - name: Deploy via upgrade daemon
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: niue.statbus.org
           username: statbus_dev
           key: ${{ secrets.SSH_KEY }}
           command_timeout: 5m
-          envs: VERSION
           script: |
             cd ~/statbus
-            if [ -x ./sb ] && systemctl is-active --quiet statbus-upgrade@statbus_dev.service 2>/dev/null; then
-              echo "Upgrade daemon is active, sending NOTIFY..."
-              echo "NOTIFY upgrade_check;" | ./sb psql
-              echo "Done. Daemon will discover and apply new releases."
-            else
-              echo "No upgrade daemon, falling back to deploy.sh..."
-              ~/statbus/devops/deploy.sh
-            fi
-        env:
-          VERSION: ${{ github.sha }}
+            SHA_TAG="sha-$(echo '${{ github.sha }}' | cut -c1-8)"
+            ./sb upgrade apply "${SHA_TAG}"
