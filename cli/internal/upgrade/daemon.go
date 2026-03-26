@@ -514,10 +514,18 @@ func (d *Daemon) preDownloadImages(ctx context.Context) {
 }
 
 func (d *Daemon) scheduleImmediate(ctx context.Context, version string) {
+	// Reset lifecycle fields so a completed/failed version can be re-applied.
+	// This enables: ./sb upgrade apply v2026.03.0-rc.15 (re-apply same version)
 	_, err := d.queryConn.Exec(ctx,
 		`INSERT INTO public.upgrade (version, commit_sha, is_prerelease, summary, scheduled_at)
 		 VALUES ($1, $1, false, $1, now())
-		 ON CONFLICT (version) DO UPDATE SET scheduled_at = now()`,
+		 ON CONFLICT (version) DO UPDATE SET
+		   scheduled_at = now(),
+		   started_at = NULL,
+		   completed_at = NULL,
+		   error = NULL,
+		   rollback_completed_at = NULL,
+		   skipped_at = NULL`,
 		version)
 	if err != nil {
 		fmt.Printf("Failed to schedule %s: %v\n", version, err)
