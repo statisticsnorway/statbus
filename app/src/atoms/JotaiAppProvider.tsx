@@ -71,6 +71,7 @@ import {
 import { AuthCrossTabSyncer } from './AuthCrossTabSyncer';
 import { NavigationManager } from './NavigationManager';
 import { navigationMachineAtom } from './navigation-machine';
+import { pendingUpgradePromiseAtom } from './upgrade-status';
 
 // ============================================================================
 // APP INITIALIZER - Handles startup logic
@@ -293,6 +294,7 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
   const isAuthenticated = useAtomValue(isAuthenticatedStrictAtom);
   const refreshInitialWorkerStatus = useSetAtom(refreshWorkerStatusAtom)
   const setWorkerStatus = useSetAtom(setWorkerStatusAtom);
+  const refreshUpgradeStatus = useSetAtom(pendingUpgradePromiseAtom);
   const [, sendAuth] = useAtom(authMachineAtom);
   const tokenExpiresAt = useAtomValue(tokenExpiresAtAtom);
 
@@ -325,7 +327,9 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
         eventSource.onmessage = (event) => {
           try {
             const payload = JSON.parse(event.data);
-            if (payload.type === 'pipeline_progress' && Array.isArray(payload.phases)) {
+            if (payload.type === 'upgrade_changed') {
+              refreshUpgradeStatus();
+            } else if (payload.type === 'pipeline_progress' && Array.isArray(payload.phases)) {
               setWorkerStatus(payload as WorkerStatusSSEPayload);
             } else if (payload.type === 'import_job_progress') {
               setWorkerStatus(payload as WorkerStatusSSEPayload);
