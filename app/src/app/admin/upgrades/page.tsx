@@ -298,8 +298,10 @@ export default function UpgradesPage() {
               onRetry={() =>
                 act(u.id, {
                   started_at: null,
+                  completed_at: null,
                   error: null,
                   rollback_completed_at: null,
+                  skipped_at: null,
                   scheduled_at: new Date().toISOString(),
                 })
               }
