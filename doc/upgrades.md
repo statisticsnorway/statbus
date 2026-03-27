@@ -47,12 +47,43 @@ Edit `.env.config` and run `./sb config generate` to apply changes.
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `UPGRADE_CHANNEL` | `stable` | Which releases to discover: `stable` (non-prerelease only), `prerelease` (all releases), or `pinned` (no discovery). |
+| `UPGRADE_CHANNEL` | `stable` | Which releases to discover: `stable` (non-prerelease only), `prerelease` (all releases), `edge` (every master commit), or `pinned` (no discovery). |
 | `UPGRADE_CHECK_INTERVAL` | `6h` | How often the daemon polls GitHub. Any Go duration string (`30m`, `6h`, `24h`). |
 | `UPGRADE_AUTO_DOWNLOAD` | `true` | Pre-download Docker images for discovered releases. Set to `false` on metered connections. |
 | `UPGRADE_PINNED_VERSION` | *(empty)* | When channel is `pinned`, this version is the only one the daemon will accept. |
 
 The `GITHUB_TOKEN` environment variable is optional but recommended. Without it, the GitHub API allows 60 requests/hour; with it, 5000 requests/hour. Set it in the systemd unit override or in the shell environment.
+
+## Edge Upgrade Channel
+
+The `edge` channel tracks every commit pushed to the `master` branch, not just tagged releases. It is intended for development and testing servers where you want to stay on the latest code at all times.
+
+**How it works:**
+
+- CI builds and pushes Docker images for every master commit, tagged with the commit SHA (e.g., `ghcr.io/statisticsnorway/statbus-app:sha-abc1234f`).
+- The daemon discovers new commits by polling the GitHub API for the latest master HEAD.
+- When a new commit is found, the daemon auto-schedules it for immediate upgrade -- no operator action required.
+- Upgrades use the same lifecycle as tagged releases (backup, checkout, migrate, restart, health check, rollback on failure).
+
+**Enable the edge channel:**
+
+```bash
+./sb dotenv -f .env.config set UPGRADE_CHANNEL edge
+./sb config generate
+```
+
+Then restart the daemon (or start it if not running):
+
+```bash
+sudo systemctl restart statbus-upgrade@statbus_no
+```
+
+**Important considerations:**
+
+- **Development/testing only.** Edge upgrades are not suitable for production. Every master commit is deployed without manual review.
+- **High churn.** The daemon will upgrade on every push to master. Set `UPGRADE_CHECK_INTERVAL` to control how frequently it polls (default `6h`; for active development, `15m` or `30m` may be appropriate).
+- **Migrations may be untested.** Edge commits may include migrations that have not been validated in a full release cycle.
+- **Version format.** Edge versions use `sha-HEXHEX` format (e.g., `sha-abc1234f`) instead of `vYYYY.MM.PATCH`.
 
 ## Operating the Daemon
 
@@ -91,12 +122,35 @@ The service restarts automatically on failure (`Restart=always`, `RestartSec=30`
 # Trigger immediate upgrade via NOTIFY (daemon executes within seconds)
 ./sb upgrade apply v2026.03.1
 
+# Trigger upgrade with full database recreate instead of migrations
+./sb upgrade apply v2026.03.1 --recreate
+
 # Run the daemon in the foreground (for debugging)
 ./sb upgrade daemon
 ./sb upgrade daemon --verbose
 ```
 
 Version format: `vYYYY.MM.PATCH` (e.g., `v2026.03.1`) or `sha-HEXHEX` (e.g., `sha-abc1234f`).
+
+### Database recreate (`--recreate`)
+
+The `--recreate` flag tells the daemon to destroy and recreate the database from scratch instead of running incremental migrations. The full migration history is applied to a fresh database.
+
+```bash
+./sb upgrade apply v2026.03.1 --recreate
+```
+
+**When to use:**
+
+- Development or demo servers where data is disposable.
+- When migrations have accumulated to the point where a fresh start is cleaner.
+- When a migration bug makes incremental upgrade impossible.
+
+**What happens:**
+
+The upgrade follows the same lifecycle as a normal upgrade (steps 1-19 in the table above), except step 13 replaces `sb migrate up` with a full database recreate (`delete-db` + `create-db`). All existing data is destroyed. The rsync backup is still taken before the recreate (step 6), so automatic rollback works: if the recreate or any subsequent step fails, the daemon restores the backed-up database volume.
+
+**This flag is destructive.** Never use it on a production server with real data. It is intended for dev/demo environments only.
 
 ### Admin UI
 
