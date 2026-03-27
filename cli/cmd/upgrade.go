@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/statisticsnorway/statbus/cli/internal/config"
+	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/migrate"
 	"github.com/statisticsnorway/statbus/cli/internal/selfupdate"
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
@@ -241,6 +243,67 @@ var upgradeSelfRollbackCmd = &cobra.Command{
 	},
 }
 
+var upgradeChannelCmd = &cobra.Command{
+	Use:   "channel <stable|prerelease|edge>",
+	Short: "Set the upgrade channel and apply the change",
+	Long: `Changes the upgrade channel in .env.config, regenerates .env,
+and restarts the upgrade daemon to pick up the new channel.
+
+Channels:
+  stable      Only stable releases (default for production)
+  prerelease  All releases including release candidates
+  edge        Every master commit (development servers only)`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		channel := args[0]
+		switch channel {
+		case "stable", "prerelease", "edge":
+		default:
+			return fmt.Errorf("invalid channel %q (must be stable, prerelease, or edge)", channel)
+		}
+
+		projDir := config.ProjectDir()
+
+		// 1. Update .env.config
+		configPath := filepath.Join(projDir, ".env.config")
+		f, err := dotenv.Load(configPath)
+		if err != nil {
+			return fmt.Errorf("load .env.config: %w", err)
+		}
+		f.Set("UPGRADE_CHANNEL", channel)
+		if err := f.Save(); err != nil {
+			return fmt.Errorf("save .env.config: %w", err)
+		}
+		fmt.Printf("Set UPGRADE_CHANNEL=%s in .env.config\n", channel)
+
+		// 2. Regenerate .env
+		sb := filepath.Join(projDir, "sb")
+		genCmd := exec.Command(sb, "config", "generate")
+		genCmd.Dir = projDir
+		genCmd.Stdout = os.Stdout
+		genCmd.Stderr = os.Stderr
+		if err := genCmd.Run(); err != nil {
+			return fmt.Errorf("config generate: %w", err)
+		}
+
+		// 3. Restart daemon via NOTIFY (daemon re-reads config on reconnect)
+		// Send a signal to make the daemon reload — simplest is to kill it
+		// and let systemd restart it with the new config.
+		fmt.Println("Restarting upgrade daemon...")
+		restartCmd := exec.Command("systemctl", "restart",
+			fmt.Sprintf("statbus-upgrade@%s.service", os.Getenv("USER")))
+		if err := restartCmd.Run(); err != nil {
+			// Not fatal — user may not have systemctl access
+			fmt.Printf("Could not restart daemon (try: sudo systemctl restart statbus-upgrade@%s): %v\n",
+				os.Getenv("USER"), err)
+		} else {
+			fmt.Println("Daemon restarted with new channel")
+		}
+
+		return nil
+	},
+}
+
 func init() {
 	upgradeApplyCmd.Flags().BoolVar(&applyRecreate, "recreate", false, "delete and recreate database from scratch (destructive — dev/demo only)")
 
@@ -249,6 +312,7 @@ func init() {
 	upgradeCmd.AddCommand(upgradeListCmd)
 	upgradeCmd.AddCommand(upgradeScheduleCmd)
 	upgradeCmd.AddCommand(upgradeApplyCmd)
+	upgradeCmd.AddCommand(upgradeChannelCmd)
 	upgradeCmd.AddCommand(upgradeDaemonCmd)
 	upgradeCmd.AddCommand(upgradeSelfVerifyCmd)
 	upgradeCmd.AddCommand(upgradeSelfRollbackCmd)
