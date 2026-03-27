@@ -130,8 +130,29 @@ func (d *Daemon) Run(ctx context.Context) error {
 				return nil // shutdown
 			}
 			fmt.Printf("LISTEN error: %v, reconnecting...\n", err)
-			if reconnErr := d.reconnect(ctx); reconnErr != nil {
-				return fmt.Errorf("reconnect failed: %w", reconnErr)
+			// Retry reconnection with exponential backoff.
+			// The DB may be temporarily down during an upgrade on this or
+			// another instance sharing the same host.
+			var reconnErr error
+			for attempt := 1; attempt <= 30; attempt++ {
+				reconnErr = d.reconnect(ctx)
+				if reconnErr == nil {
+					break
+				}
+				if ctx.Err() != nil {
+					return nil // shutdown
+				}
+				delay := time.Duration(attempt) * 2 * time.Second
+				if delay > 30*time.Second {
+					delay = 30 * time.Second
+				}
+				if attempt%5 == 0 {
+					fmt.Printf("Reconnect attempt %d failed: %v (retrying in %s)\n", attempt, reconnErr, delay)
+				}
+				time.Sleep(delay)
+			}
+			if reconnErr != nil {
+				return fmt.Errorf("reconnect failed after 30 attempts: %w", reconnErr)
 			}
 			// Restart listen goroutine
 			d.startListenLoop(ctx, notifyCh, errCh)
@@ -482,7 +503,8 @@ func (d *Daemon) discover(ctx context.Context) {
 	fmt.Printf("Discovery: %d release(s) from GitHub, %d match channel %q\n", len(releases), len(filtered), d.channel)
 
 	// The daemon's compiled-in version — used to skip older releases.
-	currentVersion := "v" + d.version
+	// d.version already has the "v" prefix (set in upgrade.go).
+	currentVersion := d.version
 
 	for _, r := range filtered {
 		var exists bool
