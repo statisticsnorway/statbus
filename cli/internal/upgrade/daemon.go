@@ -713,6 +713,19 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 		}
 	}
 
+	// Pre-flight: check disk space. Need room for backup (~= DB size) + new images (~2GB).
+	// Refuse to start if less than 5GB free to avoid mid-upgrade disk-full failures.
+	if freeBytes, err := diskFree(d.projDir); err == nil {
+		freeGB := freeBytes / (1024 * 1024 * 1024)
+		if freeGB < 5 {
+			msg := fmt.Sprintf("Insufficient disk space: %d GB free (need at least 5 GB for backup + images)", freeGB)
+			d.failUpgrade(ctx, id, msg, progress)
+			d.queryConn.Exec(ctx, "UPDATE public.upgrade SET started_at = NULL WHERE id = $1", id)
+			return fmt.Errorf("%s", msg)
+		}
+		progress.Write("Disk space: %d GB free", freeGB)
+	}
+
 	// Step 1: Prepare images
 	progress.Write("Preparing images...")
 	if err := d.pullImages(version); err != nil {

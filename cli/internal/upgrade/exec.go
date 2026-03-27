@@ -14,6 +14,15 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 )
 
+// diskFree returns the free bytes on the filesystem containing the given path.
+func diskFree(path string) (uint64, error) {
+	var stat syscall.Statfs_t
+	if err := syscall.Statfs(path, &stat); err != nil {
+		return 0, err
+	}
+	return stat.Bavail * uint64(stat.Bsize), nil
+}
+
 // prepareCmd configures a command for robust subprocess execution:
 // - Runs in its own process group (Setpgid) so we can kill all children
 // - WaitDelay ensures cmd.Run() doesn't hang if orphaned children hold pipes open
