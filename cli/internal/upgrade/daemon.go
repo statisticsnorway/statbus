@@ -497,10 +497,11 @@ func (d *Daemon) checkMissedUpgrades(ctx context.Context) {
 }
 
 func (d *Daemon) discover(ctx context.Context) {
-	// Edge channel: discover commits from master, not releases.
+	// Edge channel: discover commits AND release tags.
+	// Commits for Docker container updates, tags for binary self-updates.
 	if d.channel == "edge" {
 		d.discoverEdge(ctx)
-		return
+		// Fall through to also discover release tags below.
 	}
 
 	// Use git fetch for discovery — no API rate limit, no GITHUB_TOKEN needed.
