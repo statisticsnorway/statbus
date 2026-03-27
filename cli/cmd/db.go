@@ -20,6 +20,7 @@ import (
 var (
 	restoreTo  string
 	restoreYes bool
+	backupKeep int
 
 	validIdentifier = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]*$`)
 )
@@ -825,6 +826,375 @@ echo "Restore complete"
 	return nil
 }
 
+// ── db backup ─────────────────────────────────────────────────────────────────
+
+// backupTimestamp returns a filename-safe ISO-ish timestamp: 2006-01-02T15-04-05.
+func backupTimestamp() string {
+	return time.Now().Format("2006-01-02T15-04-05")
+}
+
+// loadVolumeName reads COMPOSE_INSTANCE_NAME from .env and derives the Docker volume name.
+func loadVolumeName(projDir string) (string, error) {
+	f, err := dotenv.Load(filepath.Join(projDir, ".env"))
+	if err != nil {
+		return "", fmt.Errorf("load .env: %w", err)
+	}
+	name, ok := f.Get("COMPOSE_INSTANCE_NAME")
+	if !ok || name == "" {
+		return "", fmt.Errorf("COMPOSE_INSTANCE_NAME not set in .env")
+	}
+	return name + "-db-data", nil
+}
+
+// backupsDir returns ~/statbus-backups, creating it if needed.
+func backupsDir() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("determine home directory: %w", err)
+	}
+	dir := filepath.Join(home, "statbus-backups")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return "", fmt.Errorf("create backups directory: %w", err)
+	}
+	return dir, nil
+}
+
+// dockerComposeStop stops a docker compose profile (e.g., "all" or specific service).
+func dockerComposeStop(projDir string, profileOrService string) error {
+	var cmd *exec.Cmd
+	if profileOrService == "db" || profileOrService == "worker" || profileOrService == "rest" || profileOrService == "app" {
+		cmd = exec.Command("docker", "compose", "stop", profileOrService)
+	} else {
+		cmd = exec.Command("docker", "compose", "--profile", profileOrService, "down", "--remove-orphans")
+	}
+	cmd.Dir = projDir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+// dockerComposeStart starts a docker compose profile.
+func dockerComposeStart(projDir string, profileOrService string) error {
+	var cmd *exec.Cmd
+	if profileOrService == "db" || profileOrService == "worker" || profileOrService == "rest" || profileOrService == "app" {
+		cmd = exec.Command("docker", "compose", "start", profileOrService)
+	} else {
+		cmd = exec.Command("docker", "compose", "--profile", profileOrService, "up", "-d")
+	}
+	cmd.Dir = projDir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+var backupCmd = &cobra.Command{
+	Use:   "backup",
+	Short: "Manage volume-level database backups",
+	Long: `Manage volume-level database backups via rsync.
+
+These backups copy the raw PostgreSQL data directory from the Docker named volume,
+providing a complete snapshot that can be restored without pg_dump/pg_restore.
+
+Backups are stored as tar.gz archives in ~/statbus-backups/.
+
+Subcommands:
+  create    Create a new backup (stops db briefly)
+  restore   Restore a backup to the Docker volume
+  list      List available backup archives
+  purge     Delete old archives`,
+}
+
+var backupCreateCmd = &cobra.Command{
+	Use:   "create",
+	Short: "Create a volume-level backup of the database",
+	Long: `Stop the database, rsync the Docker volume to a local directory,
+restart the database, then archive to a tar.gz file.
+
+The database will be briefly unavailable during the rsync.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		projDir := config.ProjectDir()
+
+		volumeName, err := loadVolumeName(projDir)
+		if err != nil {
+			return err
+		}
+
+		bkDir, err := backupsDir()
+		if err != nil {
+			return err
+		}
+
+		ts := backupTimestamp()
+		stagingDir := filepath.Join(bkDir, "staging")
+
+		// Create staging directory
+		if err := os.MkdirAll(stagingDir, 0755); err != nil {
+			return fmt.Errorf("create staging directory: %w", err)
+		}
+
+		// Step 1: Stop the database for a consistent backup
+		fmt.Println("Stopping database ...")
+		if err := dockerComposeStop(projDir, "db"); err != nil {
+			return fmt.Errorf("stop database: %w", err)
+		}
+
+		// Step 2: rsync from Docker volume to staging directory
+		fmt.Printf("Copying volume %s to staging ...\n", volumeName)
+		rsyncCmd := exec.Command("docker", "run", "--rm",
+			"-v", volumeName+":/source:ro",
+			"-v", stagingDir+":/backup",
+			"alpine", "sh", "-c",
+			"apk add --no-cache rsync >/dev/null 2>&1 && rsync -a --delete /source/ /backup/",
+		)
+		rsyncCmd.Dir = projDir
+		rsyncCmd.Stdout = os.Stdout
+		rsyncCmd.Stderr = os.Stderr
+		if err := rsyncCmd.Run(); err != nil {
+			// Try to restart db even if rsync fails
+			fmt.Println("Restarting database after rsync failure ...")
+			dockerComposeStart(projDir, "db")
+			return fmt.Errorf("rsync from volume failed: %w", err)
+		}
+
+		// Step 3: Restart the database
+		fmt.Println("Restarting database ...")
+		if err := dockerComposeStart(projDir, "db"); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: could not restart database: %v\n", err)
+		}
+
+		// Step 4: Archive to tar.gz
+		archiveName := fmt.Sprintf("backup-%s.tar.gz", ts)
+		archivePath := filepath.Join(bkDir, archiveName)
+		fmt.Printf("Archiving to %s ...\n", archiveName)
+		tarCmd := exec.Command("tar", "-czf", archivePath,
+			"-C", bkDir, "staging")
+		tarCmd.Stdout = os.Stdout
+		tarCmd.Stderr = os.Stderr
+		if err := tarCmd.Run(); err != nil {
+			return fmt.Errorf("tar archive failed: %w", err)
+		}
+
+		// Clean up staging directory
+		os.RemoveAll(stagingDir)
+
+		info, err := os.Stat(archivePath)
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("Done: %s (%s)\n", archivePath, humanSize(info.Size()))
+		return nil
+	},
+}
+
+var backupRestoreCmd = &cobra.Command{
+	Use:   "restore <name>",
+	Short: "Restore a volume-level backup",
+	Long: `Stop all services, extract the backup archive, rsync to the Docker volume,
+then restart all services.
+
+The name can be a full filename (backup-2026-03-27T14-30-00.tar.gz),
+a basename without extension, or just the timestamp portion.`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		projDir := config.ProjectDir()
+		name := args[0]
+
+		volumeName, err := loadVolumeName(projDir)
+		if err != nil {
+			return err
+		}
+
+		bkDir, err := backupsDir()
+		if err != nil {
+			return err
+		}
+
+		// Resolve the archive path
+		archivePath, err := resolveBackupArchive(bkDir, name)
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("Restore %s to volume %s\n", filepath.Base(archivePath), volumeName)
+		if !confirmAction("This will REPLACE the database volume contents. Continue?") {
+			fmt.Println("Aborted")
+			return nil
+		}
+
+		stagingDir := filepath.Join(bkDir, "staging")
+
+		// Clean staging first
+		os.RemoveAll(stagingDir)
+
+		// Step 1: Extract archive to staging
+		fmt.Printf("Extracting %s ...\n", filepath.Base(archivePath))
+		tarCmd := exec.Command("tar", "-xzf", archivePath, "-C", bkDir)
+		tarCmd.Stdout = os.Stdout
+		tarCmd.Stderr = os.Stderr
+		if err := tarCmd.Run(); err != nil {
+			return fmt.Errorf("extract archive failed: %w", err)
+		}
+
+		// Step 2: Stop all services
+		fmt.Println("Stopping all services ...")
+		if err := dockerComposeStop(projDir, "all"); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: could not stop all services: %v\n", err)
+		}
+
+		// Step 3: rsync from staging to Docker volume
+		fmt.Printf("Restoring to volume %s ...\n", volumeName)
+		rsyncCmd := exec.Command("docker", "run", "--rm",
+			"-v", stagingDir+":/source:ro",
+			"-v", volumeName+":/dest",
+			"alpine", "sh", "-c",
+			"apk add --no-cache rsync >/dev/null 2>&1 && rsync -a --delete /source/ /dest/",
+		)
+		rsyncCmd.Dir = projDir
+		rsyncCmd.Stdout = os.Stdout
+		rsyncCmd.Stderr = os.Stderr
+		if err := rsyncCmd.Run(); err != nil {
+			return fmt.Errorf("rsync to volume failed: %w", err)
+		}
+
+		// Clean up staging
+		os.RemoveAll(stagingDir)
+
+		// Step 4: Start all services
+		fmt.Println("Starting all services ...")
+		if err := dockerComposeStart(projDir, "all"); err != nil {
+			return fmt.Errorf("start services: %w", err)
+		}
+
+		fmt.Println("Restore complete")
+		return nil
+	},
+}
+
+// resolveBackupArchive finds the archive file matching a user-provided name.
+// Accepts: full filename, basename without .tar.gz, or just a timestamp.
+func resolveBackupArchive(bkDir, name string) (string, error) {
+	// Try exact path first
+	if filepath.IsAbs(name) {
+		if _, err := os.Stat(name); err == nil {
+			return name, nil
+		}
+	}
+
+	// Try as-is in backup directory
+	candidate := filepath.Join(bkDir, name)
+	if _, err := os.Stat(candidate); err == nil {
+		return candidate, nil
+	}
+
+	// Try with .tar.gz suffix
+	candidate = filepath.Join(bkDir, name+".tar.gz")
+	if _, err := os.Stat(candidate); err == nil {
+		return candidate, nil
+	}
+
+	// Try with backup- prefix and .tar.gz suffix
+	candidate = filepath.Join(bkDir, "backup-"+name+".tar.gz")
+	if _, err := os.Stat(candidate); err == nil {
+		return candidate, nil
+	}
+
+	return "", fmt.Errorf("backup archive not found: %s\nRun 'sb db backup list' to see available backups", name)
+}
+
+var backupListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List available backup archives",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		bkDir, err := backupsDir()
+		if err != nil {
+			return err
+		}
+
+		entries, err := filepath.Glob(filepath.Join(bkDir, "*.tar.gz"))
+		if err != nil {
+			return err
+		}
+		if len(entries) == 0 {
+			fmt.Printf("No backup archives found in %s\n", bkDir)
+			return nil
+		}
+
+		sort.Strings(entries)
+		fmt.Printf("Backup archives in %s:\n\n", bkDir)
+		for _, path := range entries {
+			info, err := os.Stat(path)
+			if err != nil {
+				continue
+			}
+			fmt.Printf("  %-45s %8s  %s\n",
+				filepath.Base(path),
+				humanSize(info.Size()),
+				info.ModTime().Format("2006-01-02 15:04:05"),
+			)
+		}
+		fmt.Printf("\n%d archive(s)\n", len(entries))
+		return nil
+	},
+}
+
+var backupPurgeCmd = &cobra.Command{
+	Use:   "purge",
+	Short: "Delete old backup archives, keeping newest N (default 7)",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		bkDir, err := backupsDir()
+		if err != nil {
+			return err
+		}
+
+		entries, err := filepath.Glob(filepath.Join(bkDir, "*.tar.gz"))
+		if err != nil {
+			return err
+		}
+		if len(entries) == 0 {
+			fmt.Println("No backup archives to purge")
+			return nil
+		}
+
+		if len(entries) <= backupKeep {
+			fmt.Printf("Only %d archive(s), keeping all (--keep %d)\n", len(entries), backupKeep)
+			return nil
+		}
+
+		// Sort lexically — timestamps sort correctly
+		sort.Strings(entries)
+		toDelete := entries[:len(entries)-backupKeep]
+
+		fmt.Println("The following archives will be deleted:")
+		var totalSize int64
+		for _, p := range toDelete {
+			info, _ := os.Stat(p)
+			size := "?"
+			if info != nil {
+				size = humanSize(info.Size())
+				totalSize += info.Size()
+			}
+			fmt.Printf("  %-45s %s\n", filepath.Base(p), size)
+		}
+		fmt.Printf("\n%d archive(s), %s total\n", len(toDelete), humanSize(totalSize))
+
+		if !confirmAction(fmt.Sprintf("Delete %d archive(s)?", len(toDelete))) {
+			fmt.Println("Aborted")
+			return nil
+		}
+
+		for _, p := range toDelete {
+			if err := os.Remove(p); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: could not remove %s: %v\n", filepath.Base(p), err)
+			} else {
+				fmt.Printf("  Deleted %s\n", filepath.Base(p))
+			}
+		}
+		fmt.Printf("Purged %d archive(s)\n", len(toDelete))
+		return nil
+	},
+}
+
 // ── init ─────────────────────────────────────────────────────────────────────
 
 func init() {
@@ -834,11 +1204,18 @@ func init() {
 	dumpsCmd.AddCommand(dumpsListCmd)
 	dumpsCmd.AddCommand(dumpsPurgeCmd)
 
+	backupPurgeCmd.Flags().IntVar(&backupKeep, "keep", 7, "number of newest archives to keep")
+	backupCmd.AddCommand(backupCreateCmd)
+	backupCmd.AddCommand(backupRestoreCmd)
+	backupCmd.AddCommand(backupListCmd)
+	backupCmd.AddCommand(backupPurgeCmd)
+
 	dbCmd.AddCommand(dbStatusCmd)
 	dbCmd.AddCommand(dbDumpCmd)
 	dbCmd.AddCommand(dbDownloadCmd)
 	dbCmd.AddCommand(dumpsCmd)
 	dbCmd.AddCommand(dbRestoreCmd)
+	dbCmd.AddCommand(backupCmd)
 
 	rootCmd.AddCommand(dbCmd)
 }
