@@ -185,11 +185,12 @@ jobs:
           gh release create "${ARGS[@]}"
 
       - name: Notify Slack
-        if: success() && secrets.SLACK_TOKEN != ''
+        if: success()
         env:
           SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
           VERSION_TAG: ${{ needs.build-images.outputs.version_tag }}
         run: |
+          if [ -z "$SLACK_TOKEN" ]; then echo "SLACK_TOKEN not set, skipping"; exit 0; fi
           RELEASE_URL="https://github.com/${{ github.repository }}/releases/tag/${VERSION_TAG}"
           curl -s -X POST https://slack.com/api/chat.postMessage \
             -H "Authorization: Bearer $SLACK_TOKEN" \
