@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"runtime"
 	"time"
 )
@@ -54,6 +56,14 @@ func Update(currentPath, downloadURL, expectedSHA256 string) error {
 	if err := os.Chmod(newPath, 0755); err != nil {
 		os.Remove(newPath)
 		return fmt.Errorf("chmod: %w", err)
+	}
+
+	// Step 3b: Verify the new binary can boot (self-verify)
+	cmd := exec.Command(newPath, "upgrade", "self-verify")
+	cmd.Dir = filepath.Dir(currentPath)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		os.Remove(newPath)
+		return fmt.Errorf("self-verify failed: %w\n%s", err, string(out))
 	}
 
 	// Step 4: Keep old as rollback
