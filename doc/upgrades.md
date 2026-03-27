@@ -175,7 +175,7 @@ When the daemon executes an upgrade, it follows these steps in order. If any ste
 | 3 | Maintenance mode ON | Creates `~/statbus-maintenance/active` |
 | 4 | Stop app/worker/rest | `docker compose stop app worker rest` |
 | 5 | Stop database | `docker compose stop db` |
-| 6 | Backup database | `sudo rsync -a --delete` of `postgres/volumes/db/data/` to `~/statbus-backups/pre-upgrade/` |
+| 6 | Backup database | `docker run alpine rsync` from named volume to `~/statbus-backups/pre-upgrade/` |
 | 7 | Git checkout | `git fetch --tags --depth 1 origin tag vX.Y.Z && git checkout vX.Y.Z` |
 | 7b | Verify tag SHA | Compares checked-out HEAD against `release-manifest.json` commit SHA |
 | 8 | Regenerate config | `./sb config generate` |
