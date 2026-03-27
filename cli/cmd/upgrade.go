@@ -222,11 +222,8 @@ var upgradeSelfVerifyCmd = &cobra.Command{
 	Short:  "Verify the binary can boot and connect (used during self-update)",
 	Hidden: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// DELIBERATE FAILURE for testing binary self-update rejection.
-		// The daemon should keep the old binary when self-verify fails.
-		// Remove this in the next RC to test recovery.
-		fmt.Println("Self-verify: DELIBERATE FAILURE (testing self-update rejection)")
-		os.Exit(1)
+		fmt.Printf("sb version: %s\n", rootCmd.Version)
+		fmt.Println("Self-verify: OK")
 		return nil
 	},
 }
