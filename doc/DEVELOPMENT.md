@@ -535,6 +535,35 @@ pnpm run test:watch     # Watch mode
 pnpm run test:coverage  # With coverage
 ```
 
+### Upgrade System Hardening Tests
+
+To verify the upgrade daemon's rollback and recovery mechanisms, use these procedures. Each requires tagging deliberate broken RCs, then fixing them.
+
+**Test 1: Broken migration → database rollback**
+
+1. Create a migration that fails (e.g., `SELECT 1/0;`)
+2. Optionally add a preceding migration that creates a marker table (to verify both are rolled back)
+3. Tag as a pre-release RC
+4. Apply on a test server: `./sb upgrade apply <broken-rc>`
+5. Verify: migration fails, daemon rolls back, marker table is gone, upgrade shows "rolled back"
+6. Tag a fix RC that removes the broken migrations
+7. Apply the fix RC: verify it applies cleanly, binary self-updates
+
+**Test 2: Broken binary → self-verify rejection**
+
+1. Add `os.Exit(1)` to `upgradeSelfVerifyCmd` in `cli/cmd/upgrade.go`
+2. Tag as a pre-release RC
+3. Apply on a test server: the upgrade succeeds (migrations, health check) but self-verify fails
+4. Verify: old binary is kept, daemon logs the failure, system continues running
+5. Tag a fix RC that removes the `os.Exit(1)`
+6. Apply the fix RC: verify binary self-updates successfully
+
+**What these tests exercise:**
+- Database rollback via rsync restore (Test 1)
+- Binary self-update rejection on verify failure (Test 2)
+- Version skipping: the fix RC supersedes the broken RC
+- Daemon recovery: continues operating after failures
+
 ---
 
 ## Architecture

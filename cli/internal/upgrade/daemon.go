@@ -844,17 +844,6 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 		return err
 	}
 
-	// Check for simulated failure sentinel (for testing the rollback path).
-	// Create with: touch tmp/simulate-upgrade-failure
-	// The file is consumed (deleted) so it only triggers once.
-	sentinelPath := filepath.Join(projDir, "tmp", "simulate-upgrade-failure")
-	if _, err := os.Stat(sentinelPath); err == nil {
-		os.Remove(sentinelPath)
-		progress.Write("Simulated failure triggered (sentinel file found) — rolling back")
-		d.rollback(ctx, id, version, previousVersion, progress)
-		return fmt.Errorf("simulated upgrade failure for rollback testing")
-	}
-
 	// Done — deactivate maintenance, archive, finalize
 	d.setMaintenance(false)
 	d.archiveBackup(backupPath, version)
