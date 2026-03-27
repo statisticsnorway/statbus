@@ -131,6 +131,8 @@ each role can see and modify.
 - **`statistical_unit_staging`** — RLS OFF (exempt: internal staging table)
 - **`status`** — RLS ON
   - Policies: `status_admin_user_manage` (ALL → admin_user), `status_authenticated_read` (SELECT → authenticated), `status_regular_user_read` (SELECT → regular_user)
+- **`system_info`** — RLS ON
+  - Policies: `system_info_admin_manage` (ALL → admin_user), `system_info_authenticated_view` (SELECT → authenticated)
 - **`tag`** — RLS ON
   - Policies: `tag_admin_user_manage` (ALL → admin_user), `tag_authenticated_read` (SELECT → authenticated), `tag_regular_user_read` (SELECT → regular_user)
 - **`tag_for_unit`** — RLS ON
@@ -153,6 +155,8 @@ each role can see and modify.
   - Policies: `unit_notes_admin_user_manage` (ALL → admin_user), `unit_notes_authenticated_read` (SELECT → authenticated), `unit_notes_regular_user_manage` (ALL → regular_user)
 - **`unit_size`** — RLS ON
   - Policies: `unit_size_admin_user_manage` (ALL → admin_user), `unit_size_authenticated_read` (SELECT → authenticated), `unit_size_regular_user_read` (SELECT → regular_user)
+- **`upgrade`** — RLS ON
+  - Policies: `upgrade_admin_manage` (ALL → admin_user), `upgrade_authenticated_view` (SELECT → authenticated)
 
 ### Non-Public Schema Tables with RLS
 

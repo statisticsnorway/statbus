@@ -15751,7 +15751,7 @@ export type Database = {
           | "completed"
           | "failed",
       time_context_type: "relative_period" | "tag" | "year",
-      upgrade_channel: "stable" | "prerelease" | "pinned"
+      upgrade_channel: "stable" | "prerelease" | "pinned" | "edge"
     },
     CompositeTypes: {
       http_header: {
@@ -16067,7 +16067,7 @@ export const Constants = {
         "failed"
       ],
       time_context_type: ["relative_period", "tag", "year"],
-      upgrade_channel: ["stable", "prerelease", "pinned"]
+      upgrade_channel: ["stable", "prerelease", "pinned", "edge"]
     }
   }
 } as const

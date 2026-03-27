@@ -153,6 +153,7 @@ Enumerated types used across the schema, with their possible values.
 - **`public.statbus_role`**: `admin_user`, `regular_user`, `restricted_user`, `external_user`
 - **`public.statistical_unit_type`**: `establishment`, `legal_unit`, `enterprise`, `power_group`
 - **`public.time_context_type`**: `relative_period`, `tag`, `year`
+- **`public.upgrade_channel`**: `stable`, `prerelease`, `pinned`, `edge`
 - **`worker.child_mode`**: `concurrent`, `serial`
 - **`worker.process_mode`**: `serial`, `concurrent`
 - **`worker.task_state`**: `pending`, `processing`, `interrupted`, `waiting`, `completed`, `failed`
