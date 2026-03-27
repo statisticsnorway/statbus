@@ -166,8 +166,7 @@ func FilterByChannel(releases []Release, channel string) []Release {
 		return stable
 	case "prerelease":
 		return releases // all releases
-	case "pinned":
-		return nil // no discovery
+	// "pinned" channel removed — use skip in the UI instead
 	default:
 		return releases
 	}

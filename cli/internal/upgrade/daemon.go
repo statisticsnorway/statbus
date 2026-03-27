@@ -27,7 +27,7 @@ type Daemon struct {
 	channel      string
 	interval     time.Duration
 	autoDL       bool
-	pinnedVer    string
+	// pinnedVer removed — use "skip" in the UI instead of a channel that hides all releases
 	upgrading      bool             // true during executeUpgrade; prevents ticker/notify from using nil conn
 	pendingRecreate bool           // if true, next upgrade deletes+recreates the database instead of migrating
 	cachedURL      string           // cached health check URL (derived from .env at startup)
@@ -369,10 +369,6 @@ func (d *Daemon) loadConfig() error {
 		d.autoDL = v == "true"
 	}
 
-	if v, ok := f.Get("UPGRADE_PINNED_VERSION"); ok {
-		d.pinnedVer = v
-	}
-
 	return nil
 }
 
@@ -469,10 +465,6 @@ func (d *Daemon) checkMissedUpgrades(ctx context.Context) {
 }
 
 func (d *Daemon) discover(ctx context.Context) {
-	if d.channel == "pinned" {
-		return
-	}
-
 	// Edge channel: discover commits from master, not releases.
 	// Auto-schedules the latest commit for immediate upgrade.
 	if d.channel == "edge" {
@@ -565,7 +557,7 @@ func (d *Daemon) discoverEdge(ctx context.Context) {
 
 	// Record all recent commits
 	for _, c := range commits {
-		version := "sha-" + c.SHA[:8]
+		version := "sha-" + c.SHA
 		summary := c.Commit.Message
 		// Truncate summary to first line
 		if idx := strings.Index(summary, "\n"); idx > 0 {
@@ -586,7 +578,7 @@ func (d *Daemon) discoverEdge(ctx context.Context) {
 	}
 
 	// Auto-schedule the latest commit if it's not already applied or scheduled
-	latest := "sha-" + commits[0].SHA[:8]
+	latest := "sha-" + commits[0].SHA
 	var needsSchedule bool
 	err = d.queryConn.QueryRow(ctx,
 		`SELECT NOT EXISTS(

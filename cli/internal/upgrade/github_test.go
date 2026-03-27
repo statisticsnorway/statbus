@@ -63,10 +63,6 @@ func TestFilterByChannel(t *testing.T) {
 		t.Fatalf("prerelease: got %d, want 4", len(all))
 	}
 
-	pinned := FilterByChannel(releases, "pinned")
-	if pinned != nil {
-		t.Errorf("pinned: got %v, want nil", pinned)
-	}
 }
 
 func TestHasMigrationsFromChanges(t *testing.T) {
