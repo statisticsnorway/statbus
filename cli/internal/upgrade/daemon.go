@@ -324,7 +324,6 @@ func (d *Daemon) skipOlderReleases(ctx context.Context, selectedVersion string) 
 		 WHERE completed_at IS NULL
 		   AND started_at IS NULL
 		   AND skipped_at IS NULL
-		   AND error IS NULL
 		   AND version != $1`,
 		selectedVersion)
 	if err != nil {
@@ -370,7 +369,7 @@ func (d *Daemon) skipOlderReleases(ctx context.Context, selectedVersion string) 
 	}
 
 	for _, id := range toSkip {
-		d.queryConn.Exec(ctx, "UPDATE public.upgrade SET skipped_at = now() WHERE id = $1", id)
+		d.queryConn.Exec(ctx, "UPDATE public.upgrade SET skipped_at = now(), error = NULL WHERE id = $1", id)
 	}
 	fmt.Printf("Skipped %d older release(s)\n", len(toSkip))
 }

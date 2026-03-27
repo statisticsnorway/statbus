@@ -105,15 +105,16 @@ export async function GET(request: NextRequest) {
     // On re-upload these columns are stripped automatically:
     //   - Server-side: api/import/upload/route.ts (for CSV and curl uploads)
     //   - Client-side: lib/excel-to-csv.ts (for browser Excel uploads)
+    // The "error" filter includes both errors AND warnings — all problems in one file.
     const errorColumn = filter === "error"
-      ? `errors::text AS "errors"`
+      ? `errors::text AS "errors", warnings::text AS "warnings"`
       : filter === "warning"
       ? `warnings::text AS "warnings"`
       : null;
 
     // Build WHERE clause
     const whereClause = filter === "error"
-      ? `WHERE state = 'error'`
+      ? `WHERE state = 'error' OR (warnings IS NOT NULL AND warnings != '{}'::jsonb)`
       : filter === "warning"
       ? `WHERE warnings IS NOT NULL AND warnings != '{}'::jsonb`
       : filter === "ok"
