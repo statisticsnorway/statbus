@@ -574,7 +574,7 @@ func (d *Daemon) discover(ctx context.Context) {
 	}
 }
 
-// discoverEdge fetches recent master commits and auto-schedules the latest one.
+// discoverEdge fetches recent master commits and makes them available.
 // Unlike release-based channels, edge tracks every CI-built commit.
 func (d *Daemon) discoverEdge(ctx context.Context) {
 	commits, err := FetchCommits(5)
@@ -608,25 +608,6 @@ func (d *Daemon) discoverEdge(ctx context.Context) {
 		if err != nil {
 			fmt.Printf("  Failed to record commit %s: %v\n", version, err)
 		}
-	}
-
-	// Auto-schedule the latest commit if it's not already applied or scheduled
-	latest := "sha-" + commits[0].SHA
-	var needsSchedule bool
-	err = d.queryConn.QueryRow(ctx,
-		`SELECT NOT EXISTS(
-			SELECT 1 FROM public.upgrade
-			WHERE version = $1
-			  AND (completed_at IS NOT NULL OR scheduled_at IS NOT NULL OR started_at IS NOT NULL)
-		)`, latest).Scan(&needsSchedule)
-	if err != nil {
-		fmt.Printf("Edge auto-schedule check error: %v\n", err)
-		return
-	}
-
-	if needsSchedule {
-		fmt.Printf("Edge: auto-scheduling %s\n", latest)
-		d.scheduleImmediate(ctx, latest)
 	}
 
 	if d.autoDL {

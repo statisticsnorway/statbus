@@ -1,17 +1,21 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: Notify cloud daemons
 on:
-  push:
-    branches: [master]
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
 
-# Notify all cloud installations that new code is available.
-# Each server's daemon will discover the release and make it
-# available in the admin UI. This is discovery only — not a
-# forced upgrade. Admins or deploy branches decide when to apply.
+# Notify all cloud installations that a new release is available.
+# Triggers AFTER the Release workflow completes, so the GitHub release
+# exists when daemons check. Each server's daemon will discover the
+# release and make it available in the admin UI. This is discovery
+# only — not a forced upgrade. Admins or deploy branches decide when
+# to apply.
 
 jobs:
   notify:
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     permissions:
       contents: read
     strategy:
