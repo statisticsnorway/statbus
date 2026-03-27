@@ -10338,6 +10338,33 @@ jsonb_pretty | {                                                              +
              |     ],                                                         +
              |     "unit_type": "enterprise",                                 +
              |     "resolution": "year",                                      +
+             |     "stats_summary": {                                         +
+             |         "type": "stats_agg",                                   +
+             |         "turnover": {                                          +
+             |             "max": 70000000,                                   +
+             |             "min": 3000000,                                    +
+             |             "sum": 595000000,                                  +
+             |             "mean": 42500000.00,                               +
+             |             "type": "float_agg",                               +
+             |             "count": 14,                                       +
+             |             "stddev": 31709619.99,                             +
+             |             "variance": 1005499999999999.88,                   +
+             |             "sum_sq_diff": 13071499999999998.00,               +
+             |             "coefficient_of_variation_pct": 74.61              +
+             |         },                                                     +
+             |         "employees": {                                         +
+             |             "max": 45,                                         +
+             |             "min": 3,                                          +
+             |             "sum": 391,                                        +
+             |             "mean": 27.93,                                     +
+             |             "type": "int_agg",                                 +
+             |             "count": 14,                                       +
+             |             "stddev": 19.86,                                   +
+             |             "variance": 394.23,                                +
+             |             "sum_sq_diff": 5124.93,                            +
+             |             "coefficient_of_variation_pct": 71.09              +
+             |         }                                                      +
+             |     },                                                         +
              |     "filtered_series": [                                       +
              |         "countable_count",                                     +
              |         "births",                                              +
@@ -10453,6 +10480,9 @@ jsonb_pretty | {                                                              +
              |     ],                                                         +
              |     "unit_type": "legal_unit",                                 +
              |     "resolution": "year",                                      +
+             |     "stats_summary": {                                         +
+             |         "type": "stats_agg"                                    +
+             |     },                                                         +
              |     "filtered_series": [                                       +
              |         "countable_count",                                     +
              |         "births",                                              +
@@ -10568,6 +10598,9 @@ jsonb_pretty | {                                                              +
              |     ],                                                         +
              |     "unit_type": "establishment",                              +
              |     "resolution": "year",                                      +
+             |     "stats_summary": {                                         +
+             |         "type": "stats_agg"                                    +
+             |     },                                                         +
              |     "filtered_series": [                                       +
              |         "countable_count",                                     +
              |         "births",                                              +
@@ -10924,6 +10957,33 @@ jsonb_pretty | {                                                              +
              |     ],                                                         +
              |     "unit_type": "enterprise",                                 +
              |     "resolution": "year-month",                                +
+             |     "stats_summary": {                                         +
+             |         "type": "stats_agg",                                   +
+             |         "turnover": {                                          +
+             |             "max": 60000000,                                   +
+             |             "min": 60000000,                                   +
+             |             "sum": 720000000,                                  +
+             |             "mean": 60000000.00,                               +
+             |             "type": "float_agg",                               +
+             |             "count": 12,                                       +
+             |             "stddev": 0.00,                                    +
+             |             "variance": 0.00,                                  +
+             |             "sum_sq_diff": 0.00,                               +
+             |             "coefficient_of_variation_pct": 0.00               +
+             |         },                                                     +
+             |         "employees": {                                         +
+             |             "max": 50,                                         +
+             |             "min": 25,                                         +
+             |             "sum": 440,                                        +
+             |             "mean": 36.67,                                     +
+             |             "type": "int_agg",                                 +
+             |             "count": 12,                                       +
+             |             "stddev": 8.35,                                    +
+             |             "variance": 69.70,                                 +
+             |             "sum_sq_diff": 766.67,                             +
+             |             "coefficient_of_variation_pct": 22.77              +
+             |         }                                                      +
+             |     },                                                         +
              |     "filtered_series": [                                       +
              |         "countable_count",                                     +
              |         "births",                                              +
@@ -11040,6 +11100,9 @@ jsonb_pretty | {                                                              +
              |     ],                                                         +
              |     "unit_type": "legal_unit",                                 +
              |     "resolution": "year-month",                                +
+             |     "stats_summary": {                                         +
+             |         "type": "stats_agg"                                    +
+             |     },                                                         +
              |     "filtered_series": [                                       +
              |         "countable_count",                                     +
              |         "births",                                              +
@@ -11156,6 +11219,9 @@ jsonb_pretty | {                                                              +
              |     ],                                                         +
              |     "unit_type": "establishment",                              +
              |     "resolution": "year-month",                                +
+             |     "stats_summary": {                                         +
+             |         "type": "stats_agg"                                    +
+             |     },                                                         +
              |     "filtered_series": [                                       +
              |         "countable_count",                                     +
              |         "births",                                              +
@@ -11271,6 +11337,9 @@ jsonb_pretty | {                                                              +
              |     ],                                                         +
              |     "unit_type": "power_group",                                +
              |     "resolution": "year",                                      +
+             |     "stats_summary": {                                         +
+             |         "type": "stats_agg"                                    +
+             |     },                                                         +
              |     "filtered_series": [                                       +
              |         "countable_count",                                     +
              |         "births",                                              +
@@ -11484,6 +11553,33 @@ jsonb_pretty | {                                                              +
              |     ],                                                         +
              |     "unit_type": "enterprise",                                 +
              |     "resolution": "year",                                      +
+             |     "stats_summary": {                                         +
+             |         "type": "stats_agg",                                   +
+             |         "turnover": {                                          +
+             |             "max": 70000000,                                   +
+             |             "min": 3000000,                                    +
+             |             "sum": 595000000,                                  +
+             |             "mean": 42500000.00,                               +
+             |             "type": "float_agg",                               +
+             |             "count": 14,                                       +
+             |             "stddev": 31709619.99,                             +
+             |             "variance": 1005499999999999.88,                   +
+             |             "sum_sq_diff": 13071499999999998.00,               +
+             |             "coefficient_of_variation_pct": 74.61              +
+             |         },                                                     +
+             |         "employees": {                                         +
+             |             "max": 45,                                         +
+             |             "min": 3,                                          +
+             |             "sum": 391,                                        +
+             |             "mean": 27.93,                                     +
+             |             "type": "int_agg",                                 +
+             |             "count": 14,                                       +
+             |             "stddev": 19.86,                                   +
+             |             "variance": 394.23,                                +
+             |             "sum_sq_diff": 5124.93,                            +
+             |             "coefficient_of_variation_pct": 71.09              +
+             |         }                                                      +
+             |     },                                                         +
              |     "filtered_series": [                                       +
              |         "countable_count",                                     +
              |         "deaths"                                               +
@@ -11895,6 +11991,33 @@ jsonb_pretty | {                                                              +
              |     ],                                                         +
              |     "unit_type": "enterprise",                                 +
              |     "resolution": "year",                                      +
+             |     "stats_summary": {                                         +
+             |         "type": "stats_agg",                                   +
+             |         "turnover": {                                          +
+             |             "max": 70000000,                                   +
+             |             "min": 3000000,                                    +
+             |             "sum": 595000000,                                  +
+             |             "mean": 42500000.00,                               +
+             |             "type": "float_agg",                               +
+             |             "count": 14,                                       +
+             |             "stddev": 31709619.99,                             +
+             |             "variance": 1005499999999999.88,                   +
+             |             "sum_sq_diff": 13071499999999998.00,               +
+             |             "coefficient_of_variation_pct": 74.61              +
+             |         },                                                     +
+             |         "employees": {                                         +
+             |             "max": 45,                                         +
+             |             "min": 3,                                          +
+             |             "sum": 391,                                        +
+             |             "mean": 27.93,                                     +
+             |             "type": "int_agg",                                 +
+             |             "count": 14,                                       +
+             |             "stddev": 19.86,                                   +
+             |             "variance": 394.23,                                +
+             |             "sum_sq_diff": 5124.93,                            +
+             |             "coefficient_of_variation_pct": 71.09              +
+             |         }                                                      +
+             |     },                                                         +
              |     "filtered_series": [                                       +
              |         "countable_count",                                     +
              |         "births",                                              +
@@ -13119,6 +13242,33 @@ jsonb_pretty | {                                                              +
              |     ],                                                         +
              |     "unit_type": "enterprise",                                 +
              |     "resolution": "year",                                      +
+             |     "stats_summary": {                                         +
+             |         "type": "stats_agg",                                   +
+             |         "turnover": {                                          +
+             |             "max": 70000000,                                   +
+             |             "min": 3000000,                                    +
+             |             "sum": 595000000,                                  +
+             |             "mean": 42500000.00,                               +
+             |             "type": "float_agg",                               +
+             |             "count": 14,                                       +
+             |             "stddev": 31709619.99,                             +
+             |             "variance": 1005499999999999.88,                   +
+             |             "sum_sq_diff": 13071499999999998.00,               +
+             |             "coefficient_of_variation_pct": 74.61              +
+             |         },                                                     +
+             |         "employees": {                                         +
+             |             "max": 45,                                         +
+             |             "min": 3,                                          +
+             |             "sum": 391,                                        +
+             |             "mean": 27.93,                                     +
+             |             "type": "int_agg",                                 +
+             |             "count": 14,                                       +
+             |             "stddev": 19.86,                                   +
+             |             "variance": 394.23,                                +
+             |             "sum_sq_diff": 5124.93,                            +
+             |             "coefficient_of_variation_pct": 71.09              +
+             |         }                                                      +
+             |     },                                                         +
              |     "filtered_series": [                                       +
              |         "countable_count",                                     +
              |         "countable_change",                                    +
