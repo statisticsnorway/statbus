@@ -498,86 +498,69 @@ func (d *Daemon) checkMissedUpgrades(ctx context.Context) {
 
 func (d *Daemon) discover(ctx context.Context) {
 	// Edge channel: discover commits from master, not releases.
-	// Auto-schedules the latest commit for immediate upgrade.
 	if d.channel == "edge" {
 		d.discoverEdge(ctx)
 		return
 	}
 
-	releases, err := FetchReleases()
+	// Use git fetch for discovery — no API rate limit, no GITHUB_TOKEN needed.
+	tags, err := DiscoverTagsViaGit(d.projDir)
 	if err != nil {
 		fmt.Printf("Discovery error: %v\n", err)
 		return
 	}
 
-	filtered := FilterByChannel(releases, d.channel)
-	fmt.Printf("Discovery: %d release(s) from GitHub, %d match channel %q\n", len(releases), len(filtered), d.channel)
+	filtered := FilterTagsByChannel(tags, d.channel)
+	fmt.Printf("Discovery: %d tag(s) via git, %d match channel %q\n", len(tags), len(filtered), d.channel)
 
 	// The daemon's compiled-in version — used to skip older releases.
-	// d.version already has the "v" prefix (set in upgrade.go).
 	currentVersion := d.version
 
-	for _, r := range filtered {
+	for _, t := range filtered {
 		var exists bool
 		err := d.queryConn.QueryRow(ctx,
 			"SELECT EXISTS(SELECT 1 FROM public.upgrade WHERE version = $1)",
-			r.TagName).Scan(&exists)
+			t.TagName).Scan(&exists)
 		if err != nil {
-			fmt.Printf("  Check exists for %s: %v\n", r.TagName, err)
+			fmt.Printf("  Check exists for %s: %v\n", t.TagName, err)
 			continue
 		}
 		if exists {
 			continue
 		}
 
-		hasMigrations := HasMigrationsFromChanges(r.Body)
-
-		// Try to get commit SHA and has_migrations from manifest
-		commitSHA := r.TargetSHA // Fallback: may be branch name, not SHA
-		if manifest, err := FetchManifest(r.TagName); err == nil {
-			hasMigrations = manifest.HasMigrations
-			if manifest.CommitSHA != "" {
-				commitSHA = manifest.CommitSHA
-			}
-		}
-
 		// Skip releases older than or equal to what we're currently running.
-		// CompareVersions parses numeric segments correctly (rc.9 < rc.17).
-		if CompareVersions(r.TagName, currentVersion) <= 0 {
+		if CompareVersions(t.TagName, currentVersion) <= 0 {
 			if d.verbose {
-				fmt.Printf("  Skipping %s (not newer than %s)\n", r.TagName, currentVersion)
+				fmt.Printf("  Skipping %s (not newer than %s)\n", t.TagName, currentVersion)
 			}
 			continue
 		}
 
-		summary := r.Name
-		if summary == "" {
-			summary = r.TagName
-		}
-
+		// has_migrations will be determined from the manifest during actual upgrade.
+		// For now, default to false — the manifest check happens in executeUpgrade.
 		_, err = d.queryConn.Exec(ctx,
-			`INSERT INTO public.upgrade (version, commit_sha, is_prerelease, summary, changes, release_url, has_migrations)
-			 VALUES ($1, $2, $3, $4, $5, $6, $7)
+			`INSERT INTO public.upgrade (version, commit_sha, is_prerelease, summary, published_at, has_migrations)
+			 VALUES ($1, $2, $3, $4, $5, false)
 			 ON CONFLICT (version) DO NOTHING`,
-			r.TagName, commitSHA, r.Prerelease, summary, r.Body, r.HTMLURL, hasMigrations)
+			t.TagName, t.CommitSHA, t.Prerelease, t.TagName, t.PublishedAt)
 		if err != nil {
-			fmt.Printf("Failed to record release %s: %v\n", r.TagName, err)
+			fmt.Printf("Failed to record release %s: %v\n", t.TagName, err)
 			continue
 		}
 
-		fmt.Printf("Discovered: %s\n", ReleaseSummary(r))
+		fmt.Printf("Discovered: %s (%s)\n", t.TagName, t.PublishedAt.Format("2006-01-02"))
 	}
 
-	// Auto-download images if enabled
 	if d.autoDL {
 		d.preDownloadImages(ctx)
 	}
 }
 
 // discoverEdge fetches recent master commits and makes them available.
-// Unlike release-based channels, edge tracks every CI-built commit.
+// Uses git fetch — no API rate limit.
 func (d *Daemon) discoverEdge(ctx context.Context) {
-	commits, err := FetchCommits(5)
+	commits, err := DiscoverCommitsViaGit(d.projDir, 5)
 	if err != nil {
 		fmt.Printf("Edge discovery error: %v\n", err)
 		return
@@ -588,23 +571,18 @@ func (d *Daemon) discoverEdge(ctx context.Context) {
 
 	fmt.Printf("Edge discovery: %d recent commit(s) from master\n", len(commits))
 
-	// Record all recent commits
 	for _, c := range commits {
 		version := "sha-" + c.SHA
-		summary := c.Commit.Message
-		// Truncate summary to first line
-		if idx := strings.Index(summary, "\n"); idx > 0 {
-			summary = summary[:idx]
-		}
+		summary := c.Summary
 		if len(summary) > 120 {
 			summary = summary[:120]
 		}
 
 		_, err := d.queryConn.Exec(ctx,
-			`INSERT INTO public.upgrade (version, commit_sha, is_prerelease, summary, release_url, has_migrations)
-			 VALUES ($1, $2, true, $3, $4, $5)
+			`INSERT INTO public.upgrade (version, commit_sha, is_prerelease, summary, published_at, has_migrations)
+			 VALUES ($1, $2, true, $3, $4, false)
 			 ON CONFLICT (version) DO NOTHING`,
-			version, c.SHA, summary, c.HTMLURL, HasMigrationsFromChanges(c.Commit.Message))
+			version, c.SHA, summary, c.PublishedAt)
 		if err != nil {
 			fmt.Printf("  Failed to record commit %s: %v\n", version, err)
 		}

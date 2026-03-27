@@ -300,3 +300,120 @@ func HasMigrationsFromChanges(body string) bool {
 	lower := strings.ToLower(body)
 	return strings.Contains(lower, "migration") || strings.Contains(lower, "migrate")
 }
+
+// GitTag represents a version tag discovered via git fetch.
+type GitTag struct {
+	TagName     string
+	CommitSHA   string
+	PublishedAt time.Time
+	Prerelease  bool
+}
+
+// DiscoverTagsViaGit fetches tags from the remote and returns parsed version tags.
+// Uses git protocol — no API rate limit, works without GITHUB_TOKEN.
+func DiscoverTagsViaGit(projDir string) ([]GitTag, error) {
+	// Fetch latest tags from remote
+	if err := runCommand(projDir, "git", "fetch", "--tags", "--force", "--quiet"); err != nil {
+		return nil, fmt.Errorf("git fetch --tags: %w", err)
+	}
+
+	// List version tags with SHA and creation date.
+	// %(objectname) is the tag object SHA for annotated tags.
+	// %(*objectname) is the dereferenced commit SHA (empty for lightweight tags).
+	// %(creatordate:iso-strict) is the tag creation timestamp.
+	out, err := runCommandOutput(projDir, "git", "tag", "-l", "v*",
+		"--sort=-version:refname",
+		"--format=%(refname:short)\t%(*objectname)\t%(objectname)\t%(creatordate:iso-strict)")
+	if err != nil {
+		return nil, fmt.Errorf("git tag -l: %w", err)
+	}
+
+	var tags []GitTag
+	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, "\t", 4)
+		if len(parts) < 4 {
+			continue
+		}
+		tagName := parts[0]
+		// For annotated tags, *objectname is the commit SHA.
+		// For lightweight tags, *objectname is empty — use objectname instead.
+		commitSHA := parts[1]
+		if commitSHA == "" {
+			commitSHA = parts[2]
+		}
+		publishedAt, _ := time.Parse(time.RFC3339, parts[3])
+
+		if !ValidateVersion(tagName) {
+			continue
+		}
+
+		prerelease := strings.Contains(tagName, "-")
+
+		tags = append(tags, GitTag{
+			TagName:     tagName,
+			CommitSHA:   commitSHA,
+			PublishedAt: publishedAt,
+			Prerelease:  prerelease,
+		})
+	}
+	return tags, nil
+}
+
+// FilterTagsByChannel returns tags matching the given channel.
+func FilterTagsByChannel(tags []GitTag, channel string) []GitTag {
+	if channel == "stable" {
+		var stable []GitTag
+		for _, t := range tags {
+			if !t.Prerelease {
+				stable = append(stable, t)
+			}
+		}
+		return stable
+	}
+	return tags // prerelease: all tags
+}
+
+// GitCommit represents a commit discovered via git fetch for the edge channel.
+type GitCommit struct {
+	SHA         string
+	PublishedAt time.Time
+	Summary     string
+}
+
+// DiscoverCommitsViaGit fetches master and returns recent commits.
+// Uses git protocol — no API rate limit.
+func DiscoverCommitsViaGit(projDir string, count int) ([]GitCommit, error) {
+	// Fetch latest master from remote
+	if err := runCommand(projDir, "git", "fetch", "origin", "master", "--quiet"); err != nil {
+		return nil, fmt.Errorf("git fetch origin master: %w", err)
+	}
+
+	// Get recent commits: SHA, author date (ISO), and subject line
+	out, err := runCommandOutput(projDir, "git", "log", "origin/master",
+		fmt.Sprintf("--format=%%H\t%%aI\t%%s"),
+		fmt.Sprintf("-n%d", count))
+	if err != nil {
+		return nil, fmt.Errorf("git log: %w", err)
+	}
+
+	var commits []GitCommit
+	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, "\t", 3)
+		if len(parts) < 3 {
+			continue
+		}
+		publishedAt, _ := time.Parse(time.RFC3339, parts[1])
+		commits = append(commits, GitCommit{
+			SHA:         parts[0],
+			PublishedAt: publishedAt,
+			Summary:     parts[2],
+		})
+	}
+	return commits, nil
+}

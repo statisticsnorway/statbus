@@ -147,7 +147,7 @@ export default function UpgradesPage() {
     error,
     mutate,
   } = useSWR<Upgrade[]>(
-    "/rest/upgrade?order=discovered_at.desc&limit=20",
+    "/rest/upgrade?order=published_at.desc.nullslast,discovered_at.desc&limit=20",
     fetcher,
     { refreshInterval: 30000 },
   );
@@ -315,6 +315,9 @@ export default function UpgradesPage() {
               onSkip={() =>
                 act(u.id, { skipped_at: new Date().toISOString() })
               }
+              onRestore={() =>
+                act(u.id, { skipped_at: null, error: null })
+              }
             />
           );
         };
@@ -390,6 +393,7 @@ function UpgradeCard({
   onUnschedule,
   onRetry,
   onSkip,
+  onRestore,
 }: {
   upgrade: Upgrade;
   status: UpgradeStatus;
@@ -398,6 +402,7 @@ function UpgradeCard({
   onUnschedule: () => void;
   onRetry: () => void;
   onSkip: () => void;
+  onRestore: () => void;
 }) {
   return (
     <Card>
@@ -556,6 +561,17 @@ function UpgradeCard({
                 </Button>
               )}
             </>
+          )}
+
+          {status === "skipped" && (
+            <Button size="sm" variant="outline" disabled={acting} onClick={onRestore}>
+              {acting ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              Restore
+            </Button>
           )}
         </div>
       </CardContent>

@@ -25,5 +25,4 @@ jobs:
           command_timeout: 5m
           script: |
             cd ~/statbus
-            SHA_TAG="sha-$(echo '${{ github.sha }}' | cut -c1-8)"
-            ./sb upgrade apply "${SHA_TAG}"
+            ./sb upgrade apply "sha-${{ github.sha }}"
