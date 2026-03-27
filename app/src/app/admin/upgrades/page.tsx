@@ -255,14 +255,32 @@ export default function UpgradesPage() {
       )}
 
       {upgrades && upgrades.length > 0 && (() => {
-        const active = upgrades.filter((u) => {
+        // Categorize upgrades
+        const actionable: Upgrade[] = []; // in_progress, scheduled, failed, rolled_back
+        const available: Upgrade[] = [];
+        const history: Upgrade[] = [];
+
+        for (const u of upgrades) {
           const s = getStatus(u);
-          return s !== "completed" && s !== "skipped";
-        });
-        const history = upgrades.filter((u) => {
-          const s = getStatus(u);
-          return s === "completed" || s === "skipped";
-        });
+          if (s === "completed" || s === "skipped") {
+            history.push(u);
+          } else if (s === "available") {
+            available.push(u);
+          } else {
+            actionable.push(u);
+          }
+        }
+
+        // Only show the latest available prominently. Older ones go behind a collapsible.
+        const latestAvailable = available.length > 0 ? available[0] : null;
+        const olderAvailable = available.slice(1);
+
+        // Migrations badge propagation: if ANY available release has migrations,
+        // the latest must show it (upgrading to latest runs all intermediate migrations).
+        const anyAvailableHasMigrations = available.some((u) => u.has_migrations);
+        const latestWithMigrations = latestAvailable && anyAvailableHasMigrations
+          ? { ...latestAvailable, has_migrations: true }
+          : latestAvailable;
 
         const renderCard = (u: Upgrade) => {
           const status = getStatus(u);
@@ -294,7 +312,26 @@ export default function UpgradesPage() {
 
         return (
           <div className="space-y-3">
-            {active.map(renderCard)}
+            {/* Actionable: in progress, scheduled, failed, rolled back */}
+            {actionable.map(renderCard)}
+
+            {/* Latest available release — the one users should upgrade to */}
+            {latestWithMigrations && renderCard(latestWithMigrations)}
+
+            {/* Older available releases behind collapsible */}
+            {olderAvailable.length > 0 && (
+              <Collapsible>
+                <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md border border-dashed border-muted-foreground/25 px-4 py-2 text-sm text-muted-foreground hover:bg-muted/50 transition-colors">
+                  <ChevronDown className="h-4 w-4" />
+                  {olderAvailable.length} older available upgrade{olderAvailable.length !== 1 ? "s" : ""}
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-3 mt-3">
+                  {olderAvailable.map(renderCard)}
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+
+            {/* Completed/skipped history */}
             {history.length > 0 && (
               <Collapsible>
                 <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md border border-dashed border-muted-foreground/25 px-4 py-2 text-sm text-muted-foreground hover:bg-muted/50 transition-colors">
