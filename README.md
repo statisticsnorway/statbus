@@ -96,24 +96,15 @@ See **[User Guide](doc/USAGE.md)** for detailed instructions.
 ### For Administrators (Single Instance Deployment)
 
 ```bash
-# Clone repository
-git clone https://github.com/statisticsnorway/statbus.git
-cd statbus
-
-# Generate configuration
-./devops/manage-statbus.sh generate-config
-
-# Edit .env.config for your deployment
-nano .env.config
-
-# Start services
-./devops/manage-statbus.sh start all
-
-# Initialize database
-./devops/manage-statbus.sh create-db-structure
-./devops/manage-statbus.sh create-users
-./cli/bin/statbus migrate up
+curl -fsSL https://statbus.org/install.sh | bash
 ```
+
+For a specific version (pre-release or pinned):
+```bash
+curl -fsSL https://statbus.org/install.sh | bash -s -- --version v2026.03.0-rc.25
+```
+
+This downloads the `sb` CLI and bootstraps the full environment. Follow the on-screen prompts to configure your deployment.
 
 See **[Deployment Guide](doc/DEPLOYMENT.md)** for detailed instructions.
 

@@ -85,7 +85,6 @@ This section covers deploying StatBus for a single country or organization.
 - Docker 24.0+
 - Docker Compose 2.20+
 - Git
-- Crystal (for CLI migrations tool)
 
 #### Installing Prerequisites on Ubuntu
 
@@ -128,17 +127,6 @@ newgrp docker
 **Important Docker Security Note**:
 Docker Compose bypasses UFW firewall rules. Ensure you carefully review which ports are exposed in docker-compose.yml files. StatBus minimizes exposure by binding sensitive ports to localhost only in private mode.
 
-**Install Crystal** (for database migrations CLI):
-```bash
-curl -fsSL https://crystal-lang.org/install.sh | sudo bash
-```
-
-Verify installation:
-```bash
-crystal --version
-shards --version
-```
-
 ### Server Hardening (Recommended)
 
 Before installing StatBus on a production server, we recommend hardening the Ubuntu installation:
@@ -169,17 +157,18 @@ See [Server Hardening Guide](harden-ubuntu-lts-24.md) for full details.
 After hardening, run the STATBUS installer as your deployment user (e.g., `devops`):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/master/devops/install-statbus.sh -o install-statbus.sh
-chmod +x install-statbus.sh
-./install-statbus.sh
+curl -fsSL https://statbus.org/install.sh | bash
+```
+
+For a specific version (pre-release or pinned):
+```bash
+curl -fsSL https://statbus.org/install.sh | bash -s -- --version v2026.03.0-rc.25
 ```
 
 This script:
-- Verifies prerequisites (Docker, Git)
-- Installs Crystal language (for database migrations CLI)
-- Clones the STATBUS repository to `~/statbus`
-- Builds the CLI tool
-- Creates initial configuration files
+- Detects your OS and architecture
+- Downloads the `sb` CLI binary from the latest GitHub release
+- Runs `./sb install` which bootstraps the full environment (Docker images, configuration, database)
 
 After installation, follow the on-screen instructions to configure and start STATBUS.
 
@@ -201,14 +190,7 @@ cd statbus
 git config core.hooksPath devops/githooks
 ```
 
-#### 3. Install Crystal and Build CLI
-
-```bash
-curl -fsSL https://crystal-lang.org/install.sh | sudo bash
-cd cli && shards build --release && cd ..
-```
-
-#### 4. Create Users File
+#### 3. Create Users File
 
 ```bash
 cp .users.example .users.yml
@@ -226,10 +208,10 @@ users:
     role: regular_user
 ```
 
-#### 5. Generate Configuration
+#### 4. Generate Configuration
 
 ```bash
-./devops/manage-statbus.sh generate-config
+./sb config generate
 ```
 
 This creates:
@@ -265,37 +247,34 @@ CADDY_DB_PORT=5432  # Standard PostgreSQL port
 
 After editing, regenerate:
 ```bash
-./devops/manage-statbus.sh generate-config
+./sb config generate
 ```
 
-#### 6. Start Services
+#### 5. Start Services
 
 ```bash
 # Start all Docker containers
-./devops/manage-statbus.sh start all
+./sb start all
 
 # Initialize database (first time only)
-./devops/manage-statbus.sh create-db-structure
-./devops/manage-statbus.sh create-users
-
-# Apply migrations
-./cli/bin/statbus migrate up
+./sb migrate up
+./sb users create
 ```
 
-#### 7. Verify Deployment
+#### 6. Verify Deployment
 
 ```bash
 # Check all services are running
-docker compose ps
+./sb ps
 
 # Check Caddy logs
-docker compose logs --tail=50 proxy
+./sb logs proxy
 
 # Check database connectivity
-./devops/manage-statbus.sh psql -c "SELECT version();"
+./sb psql -c "SELECT version();"
 ```
 
-#### 8. Access Your Instance
+#### 7. Access Your Instance
 
 - **Web Interface**: https://statbus.example.com
 - **API**: https://statbus.example.com/rest/
@@ -305,39 +284,36 @@ docker compose logs --tail=50 proxy
 
 **Start/Stop Services**:
 ```bash
-./devops/manage-statbus.sh stop
-./devops/manage-statbus.sh start all
+./sb stop all
+./sb start all
 ```
 
 **View Logs**:
 ```bash
-docker compose logs -f proxy   # Caddy logs
-docker compose logs -f db      # PostgreSQL logs
-docker compose logs -f app     # Next.js logs
-docker compose logs -f rest    # PostgREST logs
+./sb logs proxy   # Caddy logs
+./sb logs db      # PostgreSQL logs
+./sb logs app     # Next.js logs
+./sb logs rest    # PostgREST logs
 ```
 
-**Database Backup**:
+**Database Backup and Restore**:
 ```bash
-# Backup
-docker compose exec db pg_dump -U postgres statbus > backup_$(date +%Y%m%d).sql
-
-# Restore
-cat backup_20240115.sql | docker compose exec -T db psql -U postgres statbus
+./sb db dump                    # Backup to dbdumps/
+./sb db dumps list              # List available dumps
+./sb db restore <file>          # Restore from dump
 ```
 
 **Apply Migrations**:
 ```bash
-./cli/bin/statbus migrate up
+./sb migrate up
 ```
 
 **Update StatBus**:
+
+Updates are handled automatically by the upgrade daemon. To manually trigger:
 ```bash
-git pull
-./devops/manage-statbus.sh stop
-docker compose build
-./cli/bin/statbus migrate up
-./devops/manage-statbus.sh start all
+./sb upgrade check              # Check for new releases
+./sb upgrade apply v2026.03.1   # Apply a specific version
 ```
 
 ---
@@ -388,7 +364,7 @@ StatBus uses a layered configuration approach:
 **Docker Build** (for HTTPS-only networks):
 - `APT_USE_HTTPS_ONLY`: Set to `true` if your network blocks HTTP traffic. This switches Docker image builds to use HTTPS mirrors for apt packages. Default: `false`
 
-> **Note**: The install script (`devops/install-statbus.sh`) automatically detects HTTP-blocked networks and offers to enable this setting.
+> **Note**: The install script (`statbus.org/install.sh`) automatically detects your platform. For HTTP-blocked networks, enable this setting manually.
 
 ### Docker Compose Profiles
 
@@ -396,10 +372,10 @@ Control which services start:
 
 ```bash
 # All services (default)
-./devops/manage-statbus.sh start all
+./sb start all
 
 # Backend only (no Next.js app)
-./devops/manage-statbus.sh start all_except_app
+./sb start all_except_app
 ```
 
 ---
@@ -539,7 +515,7 @@ TLS_KEY_FILE=/data/custom-certs/domain.key
 #### 3. Regenerate Configuration
 
 ```bash
-./devops/manage-statbus.sh generate-config
+./sb config generate
 ```
 
 This updates the Caddy configuration to use your custom certificates instead of ACME.
@@ -593,7 +569,7 @@ To return to automatic Let's Encrypt certificates:
 
 2. Regenerate and restart:
    ```bash
-   ./devops/manage-statbus.sh generate-config
+   ./sb config generate
    docker compose restart proxy
    ```
 

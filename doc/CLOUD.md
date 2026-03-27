@@ -220,15 +220,13 @@ This script will:
 4. Add user to docker group
 5. Configure SSH access for SSB GitHub users (jhf, hhz)
 6. Generate SSH deployment key for GitHub
-7. Clone StatBus repository to `/home/statbus_pk/statbus/`
-8. Generate configuration files (.env, .env.config)
-9. Create `.users.yml` from template
-10. Determine next available port offset
-11. Update deployment settings (CADDY_DEPLOYMENT_MODE=private, SITE_DOMAIN, etc.)
-12. Copy SEQ_API_KEY and SLACK_TOKEN from statbus_dev
-13. Configure ACL permissions for host Caddy
-14. Start Docker services
-15. Initialize database structure and users
+7. Bootstrap StatBus via `./sb install` (downloads CLI, pulls images, configures environment)
+8. Create `.users.yml` from template
+9. Determine next available port offset
+10. Update deployment settings (CADDY_DEPLOYMENT_MODE=private, SITE_DOMAIN, etc.)
+11. Copy SEQ_API_KEY and SLACK_TOKEN from statbus_dev
+12. Configure ACL permissions for host Caddy
+13. Start Docker services and initialize database
 
 ### Manual Steps (If Needed)
 
@@ -373,25 +371,26 @@ ssh statbus_no@niue.statbus.org
 cd ~/statbus
 
 # Stop services
-./devops/manage-statbus.sh stop all
+./sb stop all
 
 # Start services
-./devops/manage-statbus.sh start all
+./sb start all
 
 # Restart services
-./devops/manage-statbus.sh restart all
+./sb restart all
 
 # View logs
-docker compose logs -f caddy
-docker compose logs -f db
-docker compose logs -f app
+./sb logs caddy
+./sb logs db
+./sb logs app
 
 # Database operations
-./devops/manage-statbus.sh psql
-./cli/bin/statbus migrate up
+./sb psql
+./sb migrate up
 
-# Manual deployment (usually triggered by GitHub Actions)
-./devops/deploy.sh
+# Upgrades (daemon-based)
+./sb upgrade check              # Check for new releases
+./sb upgrade apply v2026.03.1   # Apply a specific version
 ```
 
 ### Automated Deployment
@@ -413,28 +412,16 @@ Deployments are automated via GitHub Actions:
 
 View deployment status in GitHub Actions or Slack channel `statbus-utvikling`.
 
-### Hybrid Deployment (via Upgrade Daemon)
+### Daemon-Based Deployment (Preferred)
 
-For servers running the upgrade daemon, deployments can be triggered via SSH + NOTIFY:
+Each instance runs an upgrade daemon that handles releases automatically. To trigger manually:
 
-```bash
-# Deploy a release:
-ssh statbus_no@niue.statbus.org "cd statbus && echo \"NOTIFY upgrade_apply, 'v2026.03.1';\" | ./devops/manage-statbus.sh psql"
-
-# Deploy an intermediate commit SHA (for testing):
-ssh statbus_dev@niue.statbus.org "cd statbus && echo \"NOTIFY upgrade_apply, 'sha-abc1234f';\" | ./devops/manage-statbus.sh psql"
-
-# Just check for new releases:
-ssh statbus_no@niue.statbus.org "cd statbus && echo \"NOTIFY upgrade_check;\" | ./devops/manage-statbus.sh psql"
-```
-
-Or use the `./sb` CLI:
 ```bash
 ssh statbus_no@niue.statbus.org "cd statbus && ./sb upgrade apply v2026.03.1"
 ssh statbus_no@niue.statbus.org "cd statbus && ./sb upgrade check"
 ```
 
-Or use the **"Deploy via upgrade daemon"** workflow in GitHub Actions UI — select the target server and version.
+Or use the **"Deploy via upgrade daemon"** workflow in GitHub Actions UI -- select the target server and version.
 
 The upgrade daemon handles: image pull, backup, migrations, restart, health check, and automatic rollback on failure. Progress is visible in the admin UI and via `journalctl -u statbus-upgrade@<user>`.
 
@@ -503,15 +490,10 @@ ssh statbus_no@niue.statbus.org
 cd ~/statbus
 
 # Backup database
-docker compose exec db pg_dump -U postgres statbus > backup_no_$(date +%Y%m%d).sql
+./sb db dump
 
 # Backup configuration
 tar -czf backup_no_config_$(date +%Y%m%d).tar.gz .env.config .env.credentials .users.yml
-
-# Backup volumes (if needed)
-docker compose stop all
-sudo tar -czf backup_no_volumes_$(date +%Y%m%d).tar.gz -C /var/lib/docker/volumes statbus-no-*.
-docker compose start all
 ```
 
 ### Restore Instance
@@ -520,14 +502,14 @@ docker compose start all
 ssh statbus_no@niue.statbus.org
 cd ~/statbus
 
-# Restore database
-cat backup_no_20240115.sql | docker compose exec -T db psql -U postgres statbus
+# Restore database from dump
+./sb db restore backup_no_20240115.sql
 
 # Restore configuration
 tar -xzf backup_no_config_20240115.tar.gz
 
 # Regenerate .env
-./devops/manage-statbus.sh generate-config
+./sb config generate
 ```
 
 ### Automated Backups
@@ -570,16 +552,16 @@ ssh statbus_no@niue.statbus.org
 cd ~/statbus
 
 # Check container status
-docker compose ps
+./sb ps
 
 # View logs
-docker compose logs
+./sb logs
 
 # Check port conflicts
 sudo netstat -tlnp | grep 3024
 
 # Restart services
-./devops/manage-statbus.sh restart all
+./sb restart all
 ```
 
 ### Host Caddy Routing Issues
@@ -689,7 +671,7 @@ Use the automated script:
 
 The script handles:
 1. User creation (`statbus_<code>`)
-2. Repository cloning to `/home/statbus_<code>/statbus/`
+2. Bootstrap via `./sb install`
 3. Port offset assignment (next available)
 4. Configuration generation
 5. ACL permissions
