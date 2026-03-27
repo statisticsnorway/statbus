@@ -52,14 +52,8 @@ _postgres_variables() {
         PGUSER=${PGUSER:-$(./sb dotenv -f .env get POSTGRES_ADMIN_USER)}
         PGPASSWORD=$(./sb dotenv -f .env get POSTGRES_ADMIN_PASSWORD)
         PGPORT=$(./sb dotenv -f .env get CADDY_DB_PORT)
-    elif [ -x "$WORKSPACE/devops/dotenv" ]; then
-        SITE_DOMAIN=$(./devops/dotenv --file .env get SITE_DOMAIN || echo "local.statbus.org")
-        PGDATABASE=$(./devops/dotenv --file .env get POSTGRES_APP_DB)
-        PGUSER=${PGUSER:-$(./devops/dotenv --file .env get POSTGRES_ADMIN_USER)}
-        PGPASSWORD=$(./devops/dotenv --file .env get POSTGRES_ADMIN_PASSWORD)
-        PGPORT=$(./devops/dotenv --file .env get CADDY_DB_PORT)
     else
-        echo "Error: Neither ./sb nor ./devops/dotenv available" >&2
+        echo "Error: ./sb not available. Build with: cd cli && make build" >&2
         exit 1
     fi
     PGHOST=$SITE_DOMAIN
@@ -95,7 +89,8 @@ case "$action" in
         if has_sb; then
             ./sb dotenv -f .env set VERSION=$VERSION
         else
-            ./devops/dotenv --file .env set VERSION=$VERSION
+            echo "Error: ./sb not available. Build with: cd cli && make build" >&2
+            exit 1
         fi
         $0 build-statbus-cli
         $0 generate-config
@@ -164,7 +159,7 @@ case "$action" in
                 read -p "Enter deployment slot port offset [1]: " user_slot_offset
                 slot_offset=${user_slot_offset:-1}
             fi
-            ./devops/dotenv --file .env.config set DEPLOYMENT_SLOT_PORT_OFFSET "${slot_offset}"
+            ./sb dotenv -f .env.config set DEPLOYMENT_SLOT_PORT_OFFSET "${slot_offset}"
             base_port=3000; slot_multiplier=10
             port_offset=$((base_port + slot_offset * slot_multiplier))
             db_port=$((port_offset + 4))
@@ -307,8 +302,8 @@ case "$action" in
             JWT_SECRET=$(./sb dotenv -f .env.credentials get JWT_SECRET)
             DEPLOYMENT_SLOT_CODE=$(./sb dotenv -f .env.config get DEPLOYMENT_SLOT_CODE)
         else
-            JWT_SECRET=$(./devops/dotenv --file .env.credentials get JWT_SECRET)
-            DEPLOYMENT_SLOT_CODE=$(./devops/dotenv --file .env.config get DEPLOYMENT_SLOT_CODE)
+            echo "Error: ./sb not available. Build with: cd cli && make build" >&2
+            exit 1
         fi
         PGDATABASE=statbus_${DEPLOYMENT_SLOT_CODE:-dev}
         $0 psql -c "INSERT INTO auth.secrets (key, value, description) VALUES ('jwt_secret', '$JWT_SECRET', 'JWT signing secret') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = clock_timestamp();"
