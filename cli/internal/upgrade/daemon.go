@@ -695,6 +695,24 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 
 	progress.Write("Upgrading to %s (from %s)...", version, d.version)
 
+	// Pre-flight: verify release manifest and binary exist before starting.
+	// If CI hasn't finished building the release assets yet, refuse to start
+	// rather than completing the upgrade without a binary self-update.
+	if !strings.HasPrefix(version, "sha-") {
+		progress.Write("Verifying release assets available...")
+		manifest, err := FetchManifest(version)
+		if err != nil {
+			d.failUpgrade(ctx, id, fmt.Sprintf("Release manifest not available for %s: %v. CI may still be building. Will retry on next check.", version, err), progress)
+			// Reset started_at so the daemon can retry later
+			d.queryConn.Exec(ctx, "UPDATE public.upgrade SET started_at = NULL WHERE id = $1", id)
+			return err
+		}
+		platform := selfupdate.Platform()
+		if _, ok := manifest.Binaries[platform]; !ok {
+			progress.Write("Warning: no binary for platform %s in release %s — self-update will be skipped", platform, version)
+		}
+	}
+
 	// Step 1: Prepare images
 	progress.Write("Preparing images...")
 	if err := d.pullImages(version); err != nil {
@@ -915,16 +933,14 @@ func (d *Daemon) rollback(ctx context.Context, id int, version, previousVersion 
 func (d *Daemon) selfUpdate(ctx context.Context, version string, progress *ProgressLog) {
 	manifest, err := FetchManifest(version)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Self-update: cannot fetch manifest for %s: %v\n", version, err)
+		progress.Write("Self-update skipped: cannot fetch manifest for %s: %v", version, err)
 		return
 	}
 
 	platform := selfupdate.Platform()
 	binary, ok := manifest.Binaries[platform]
 	if !ok {
-		if d.verbose {
-			fmt.Fprintf(os.Stderr, "Self-update: no binary for platform %s\n", platform)
-		}
+		progress.Write("Self-update skipped: no binary for platform %s in release %s", platform, version)
 		return
 	}
 
