@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"strings"
@@ -277,6 +278,7 @@ func (d *Daemon) completeInProgressUpgrade(ctx context.Context) {
 
 	// Skip older releases that are still "available" — no point upgrading to an older version
 	d.skipOlderReleases(ctx, version)
+	d.runUpgradeCallback(version)
 
 	fmt.Printf("Upgrade to %s completed (verified after daemon restart)\n", version)
 }
@@ -894,9 +896,60 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 	// Mark complete now since there won't be a new daemon to do it.
 	d.queryConn.Exec(ctx, "UPDATE public.upgrade SET completed_at = now() WHERE id = $1", id)
 	d.skipOlderReleases(ctx, version)
+	d.runUpgradeCallback(version)
 	progress.Write("Upgrade to %s complete!", version)
 
 	return nil
+}
+
+// runUpgradeCallback executes the UPGRADE_CALLBACK shell command from .env, if set.
+// Called after a successful upgrade to notify external systems (e.g., Slack).
+// Never fails the upgrade — logs errors but always returns.
+func (d *Daemon) runUpgradeCallback(version string) {
+	envPath := filepath.Join(d.projDir, ".env")
+	f, err := dotenv.Load(envPath)
+	if err != nil {
+		fmt.Printf("Upgrade callback: cannot load .env: %v\n", err)
+		return
+	}
+
+	callback, ok := f.Get("UPGRADE_CALLBACK")
+	if !ok || callback == "" {
+		return
+	}
+
+	hostname, _ := os.Hostname()
+
+	statbusURL := ""
+	if v, ok := f.Get("STATBUS_URL"); ok {
+		statbusURL = v
+	}
+
+	fmt.Printf("Running upgrade callback...\n")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "sh", "-c", callback)
+	cmd.Dir = d.projDir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = append(os.Environ(),
+		"STATBUS_VERSION="+version,
+		"STATBUS_FROM_VERSION="+d.version,
+		"STATBUS_SERVER="+hostname,
+		"STATBUS_URL="+statbusURL,
+	)
+	prepareCmd(cmd)
+
+	if err := cmd.Run(); err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			fmt.Printf("Upgrade callback timed out after 30s\n")
+		} else {
+			fmt.Printf("Upgrade callback failed: %v\n", err)
+		}
+		return
+	}
+	fmt.Printf("Upgrade callback completed successfully\n")
 }
 
 func (d *Daemon) failUpgrade(ctx context.Context, id int, errMsg string, progress *ProgressLog) {

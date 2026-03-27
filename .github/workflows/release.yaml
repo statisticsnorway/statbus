@@ -183,3 +183,15 @@ jobs:
             ARGS+=(--prerelease)
           fi
           gh release create "${ARGS[@]}"
+
+      - name: Notify Slack
+        if: success() && secrets.SLACK_TOKEN != ''
+        env:
+          SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
+          VERSION_TAG: ${{ needs.build-images.outputs.version_tag }}
+        run: |
+          RELEASE_URL="https://github.com/${{ github.repository }}/releases/tag/${VERSION_TAG}"
+          curl -s -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_TOKEN" \
+            -H "Content-type: application/json; charset=utf-8" \
+            -d "{\"channel\": \"statbus-utvikling\", \"text\": \"Release ${VERSION_TAG} published: ${RELEASE_URL}\"}"
