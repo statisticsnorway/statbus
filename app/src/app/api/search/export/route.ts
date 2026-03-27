@@ -112,7 +112,14 @@ export async function GET(request: NextRequest) {
         worksheet.addRow(fields.map(f => {
           const val = rec[f];
           if (val === null || val === undefined) return null;
-          if (dateFields.has(f) && typeof val === "string") return new Date(val);
+          if (dateFields.has(f) && typeof val === "string") {
+            // Append T00:00:00 so Date parses as local time, not UTC.
+            // Without it, "2024-01-15" parses as UTC midnight and ExcelJS
+            // converts to local time, which can shift the date by a day.
+            const d = new Date(val + 'T00:00:00');
+            if (!isNaN(d.getTime())) return d;
+            return val;
+          }
           return val;
         }));
       }
