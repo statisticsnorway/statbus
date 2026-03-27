@@ -73,7 +73,6 @@ tar czf /tmp/statbus-test.tar.gz \
     --exclude='node_modules' \
     --exclude='app/.next' \
     --exclude='cli/dist' \
-    --exclude='postgres/volumes' \
     --exclude='tmp' \
     .
 

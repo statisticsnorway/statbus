@@ -67,24 +67,15 @@ module Statbus
     end
 
     def manage_start
-      Dir.cd("../supabase_docker") do
-        system "docker compose up -d"
-      end
+      system "docker compose up -d"
     end
 
     def manage_stop
-      Dir.cd("../supabase_docker") do
-        system "docker compose down"
-      end
+      system "docker compose down"
     end
 
     def manage_status
-      # puts Dir.current
-      # puts Process.executable_path
-      # if Dir.exists?("")
-      Dir.cd("../supabase_docker") do
-        system "docker compose ps"
-      end
+      system "docker compose ps"
     end
 
     private def create_users

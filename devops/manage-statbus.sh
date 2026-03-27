@@ -255,13 +255,20 @@ case "$action" in
     'delete-db' )
         if has_devsh && has_sb; then exec ./dev.sh delete-db "$@"; fi
         $0 stop all
+        # Remove the named Docker volume for PostgreSQL data
+        INSTANCE_NAME=$(grep '^COMPOSE_INSTANCE_NAME=' .env 2>/dev/null | cut -d= -f2 || echo "")
+        if [ -n "$INSTANCE_NAME" ]; then
+          VOLUME_NAME="${INSTANCE_NAME}-db-data"
+          if docker volume inspect "$VOLUME_NAME" >/dev/null 2>&1; then
+            echo "Removing Docker volume '$VOLUME_NAME'"
+            docker volume rm "$VOLUME_NAME"
+          fi
+        fi
+        # Also clean up legacy bind-mount directory if it still exists
         POSTGRES_DIRECTORY="$WORKSPACE/postgres/volumes/db/data"
         if [ -d "$POSTGRES_DIRECTORY" ]; then
-          if ! test -r "$POSTGRES_DIRECTORY" || ! test -w "$POSTGRES_DIRECTORY" || ! test -x "$POSTGRES_DIRECTORY"; then
-            sudo rm -rf "$POSTGRES_DIRECTORY"
-          else
-            rm -rf "$POSTGRES_DIRECTORY"
-          fi
+          echo "Removing legacy bind-mount directory '$POSTGRES_DIRECTORY'"
+          rm -rf "$POSTGRES_DIRECTORY"
         fi
       ;;
     'recreate-database' )

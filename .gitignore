@@ -483,9 +483,6 @@ key-*.xml
 .env.local
 .users.yml
 
-# Ignore postgres data files
-/postgres/volumes/db/data
-
 # Ignore Caddy data directory (ACME certs, custom certs, private keys)
 /caddy/data/
 
