@@ -695,6 +695,16 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 
 	progress.Write("Upgrading to %s (from %s)...", version, d.version)
 
+	// Downgrade protection: refuse to apply an older version than currently running.
+	// Downgrades require restoring from backup instead.
+	if !strings.HasPrefix(version, "sha-") && !strings.HasPrefix(d.version, "sha-") && d.version != "dev" {
+		if CompareVersions(version, d.version) < 0 {
+			msg := fmt.Sprintf("Version %s is older than current version %s. Downgrades are not supported. To restore a previous state, use: ./sb db backup restore <name>", version, d.version)
+			d.failUpgrade(ctx, id, msg, progress)
+			return fmt.Errorf("%s", msg)
+		}
+	}
+
 	// Pre-flight: verify release manifest and binary exist before starting.
 	// If CI hasn't finished building the release assets yet, refuse to start
 	// rather than completing the upgrade without a binary self-update.
