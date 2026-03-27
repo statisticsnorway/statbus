@@ -271,9 +271,16 @@ export default function UpgradesPage() {
           }
         }
 
+        // When an upgrade is scheduled or in-progress, hide available entries entirely.
+        // The user only needs to see the active upgrade, not other options.
+        const hasActiveAction = actionable.some((u) => {
+          const s = getStatus(u);
+          return s === "scheduled" || s === "in_progress";
+        });
+
         // Only show the latest available prominently. Older ones go behind a collapsible.
-        const latestAvailable = available.length > 0 ? available[0] : null;
-        const olderAvailable = available.slice(1);
+        const latestAvailable = !hasActiveAction && available.length > 0 ? available[0] : null;
+        const olderAvailable = !hasActiveAction ? available.slice(1) : [];
 
         // Migrations badge propagation: if ANY available release has migrations,
         // the latest must show it (upgrading to latest runs all intermediate migrations).
@@ -465,37 +472,43 @@ function UpgradeCard({
         {/* Actions */}
         <div className="mt-3 flex gap-2">
           {status === "available" && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button size="sm" disabled={acting}>
-                  {acting ? (
-                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <ArrowDownToLine className="mr-1.5 h-3.5 w-3.5" />
-                  )}
-                  Upgrade Now
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Confirm Upgrade</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will schedule an immediate upgrade to {u.version}.
-                    {u.has_migrations &&
-                      " This version includes database migrations."}
-                    <br />
-                    The system will briefly go into maintenance mode during the
-                    upgrade.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={onScheduleNow}>
-                    Proceed
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            <>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button size="sm" disabled={acting}>
+                    {acting ? (
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <ArrowDownToLine className="mr-1.5 h-3.5 w-3.5" />
+                    )}
+                    Upgrade Now
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Confirm Upgrade</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will schedule an immediate upgrade to {u.version}.
+                      {u.has_migrations &&
+                        " This version includes database migrations."}
+                      <br />
+                      The system will briefly go into maintenance mode during the
+                      upgrade.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={onScheduleNow}>
+                      Proceed
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+              <Button size="sm" variant="ghost" disabled={acting} onClick={onSkip}>
+                <SkipForward className="mr-1.5 h-3.5 w-3.5" />
+                Skip
+              </Button>
+            </>
           )}
 
           {status === "scheduled" && (

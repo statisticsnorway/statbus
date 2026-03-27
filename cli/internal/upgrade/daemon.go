@@ -310,15 +310,17 @@ func (d *Daemon) syncConfigToSystemInfo(ctx context.Context) {
 // skipOlderReleases marks available releases older than the given version as skipped.
 // Uses git merge-base --is-ancestor to check commit ordering on the branch.
 // This is ground truth — works for CalVer tags and SHA versions alike.
-// Falls back to CompareVersions if commit SHAs are unavailable.
+// Falls back to CompareVersions for CalVer tags, or discovery time for SHA versions.
 func (d *Daemon) skipOlderReleases(ctx context.Context, selectedVersion string) {
-	// Get the commit SHA of the selected version
+	// Get the commit SHA and discovery time of the selected version
 	var selectedSHA string
+	var selectedDiscoveredAt time.Time
 	d.queryConn.QueryRow(ctx,
-		"SELECT commit_sha FROM public.upgrade WHERE version = $1", selectedVersion).Scan(&selectedSHA)
+		"SELECT commit_sha, discovered_at FROM public.upgrade WHERE version = $1", selectedVersion).
+		Scan(&selectedSHA, &selectedDiscoveredAt)
 
 	rows, err := d.queryConn.Query(ctx,
-		`SELECT id, version, commit_sha FROM public.upgrade
+		`SELECT id, version, commit_sha, discovered_at FROM public.upgrade
 		 WHERE completed_at IS NULL
 		   AND started_at IS NULL
 		   AND skipped_at IS NULL
@@ -334,7 +336,8 @@ func (d *Daemon) skipOlderReleases(ctx context.Context, selectedVersion string) 
 	for rows.Next() {
 		var id int
 		var version, commitSHA string
-		if err := rows.Scan(&id, &version, &commitSHA); err != nil {
+		var discoveredAt time.Time
+		if err := rows.Scan(&id, &version, &commitSHA, &discoveredAt); err != nil {
 			continue
 		}
 
@@ -343,9 +346,18 @@ func (d *Daemon) skipOlderReleases(ctx context.Context, selectedVersion string) 
 		if selectedSHA != "" && commitSHA != "" && selectedSHA != commitSHA {
 			err := runCommand(d.projDir, "git", "merge-base", "--is-ancestor", commitSHA, selectedSHA)
 			older = (err == nil) // exit 0 = is ancestor = older
-		} else {
-			// Fallback: semantic version comparison for CalVer tags
-			older = CompareVersions(version, selectedVersion) < 0
+		}
+
+		// Fallback: semantic version comparison for CalVer tags
+		if !older {
+			cmp := CompareVersions(version, selectedVersion)
+			if cmp < 0 {
+				older = true
+			} else if cmp == 0 && version != selectedVersion {
+				// SHA versions return 0 (incomparable) — use discovery time as tiebreaker.
+				// Commits discovered at the same time or earlier are older.
+				older = !discoveredAt.After(selectedDiscoveredAt)
+			}
 		}
 
 		if older {
@@ -710,12 +722,11 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 	progress := NewProgressLog(projDir)
 	defer progress.Close()
 
-	// Mark started — use compiled-in version, not .env (which may be stale/updated)
-	d.queryConn.Exec(ctx,
-		"UPDATE public.upgrade SET started_at = now(), from_version = $1 WHERE id = $2",
-		d.version, id)
-
 	progress.Write("Upgrading to %s (from %s)...", version, d.version)
+
+	// === Pre-flight checks (BEFORE marking started_at) ===
+	// These checks reject the upgrade without setting started_at, so the
+	// maintenance guard never activates and the upgrade page stays clean.
 
 	// Downgrade protection: refuse to apply an older version than currently running.
 	// Downgrades require restoring from backup instead.
@@ -727,16 +738,13 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 		}
 	}
 
-	// Pre-flight: verify release manifest and binary exist before starting.
-	// If CI hasn't finished building the release assets yet, refuse to start
-	// rather than completing the upgrade without a binary self-update.
+	// Verify release manifest and binary exist before starting.
+	// If CI hasn't finished building the release assets yet, refuse to start.
 	if !strings.HasPrefix(version, "sha-") {
 		progress.Write("Verifying release assets available...")
 		manifest, err := FetchManifest(version)
 		if err != nil {
 			d.failUpgrade(ctx, id, fmt.Sprintf("Release manifest not available for %s: %v. CI may still be building. Will retry on next check.", version, err), progress)
-			// Reset started_at so the daemon can retry later
-			d.queryConn.Exec(ctx, "UPDATE public.upgrade SET started_at = NULL WHERE id = $1", id)
 			return err
 		}
 		platform := selfupdate.Platform()
@@ -745,18 +753,23 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 		}
 	}
 
-	// Pre-flight: check disk space. Need room for backup (~= DB size) + new images (~2GB).
+	// Check disk space. Need room for backup (~= DB size) + new images (~2GB).
 	// Refuse to start if less than 5GB free to avoid mid-upgrade disk-full failures.
 	if freeBytes, err := diskFree(d.projDir); err == nil {
 		freeGB := freeBytes / (1024 * 1024 * 1024)
 		if freeGB < 5 {
 			msg := fmt.Sprintf("Insufficient disk space: %d GB free (need at least 5 GB for backup + images)", freeGB)
 			d.failUpgrade(ctx, id, msg, progress)
-			d.queryConn.Exec(ctx, "UPDATE public.upgrade SET started_at = NULL WHERE id = $1", id)
 			return fmt.Errorf("%s", msg)
 		}
 		progress.Write("Disk space: %d GB free", freeGB)
 	}
+
+	// === All pre-flight checks passed — mark the upgrade as started ===
+	// From this point on, the maintenance guard will activate.
+	d.queryConn.Exec(ctx,
+		"UPDATE public.upgrade SET started_at = now(), from_version = $1 WHERE id = $2",
+		d.version, id)
 
 	// Step 1: Prepare images
 	progress.Write("Preparing images...")

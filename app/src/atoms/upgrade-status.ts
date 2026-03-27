@@ -40,6 +40,7 @@ export const pendingUpgradePromiseAtom = atomWithRefresh<Promise<UpgradeStatus |
         .is("completed_at", null)
         .is("rollback_completed_at", null)
         .is("skipped_at", null)
+        .is("error", null)
         .order("discovered_at", { ascending: false })
         .limit(1);
 
