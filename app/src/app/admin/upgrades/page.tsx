@@ -50,6 +50,7 @@ interface Upgrade {
   release_url: string | null;
   has_migrations: boolean;
   from_version: string | null;
+  published_at: string | null;
   discovered_at: string;
   scheduled_at: string | null;
   started_at: string | null;
@@ -156,6 +157,7 @@ export default function UpgradesPage() {
     fetcher,
   );
   const [acting, setActing] = useState<number | null>(null);
+  const [checking, setChecking] = useState(false);
 
   const channel =
     systemInfo?.find((s) => s.key === "upgrade_channel")?.value ?? "stable";
@@ -217,6 +219,26 @@ export default function UpgradesPage() {
             </strong>
           </span>
         )}
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={checking}
+          onClick={async () => {
+            setChecking(true);
+            try {
+              await fetch('/rest/rpc/upgrade_request_check', {
+                method: 'POST',
+                credentials: 'include',
+              });
+              await mutate();
+            } finally {
+              setChecking(false);
+            }
+          }}
+        >
+          {checking ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="mr-1.5 h-3.5 w-3.5" />}
+          Check for updates
+        </Button>
       </div>
 
       {error && (
@@ -289,27 +311,29 @@ export default function UpgradesPage() {
           ? { ...latestAvailable, has_migrations: true }
           : latestAvailable;
 
+        // Only allow restoring skipped versions newer than the latest completed upgrade.
+        const latestCompleted = history.find(u => getStatus(u) === 'completed')?.version;
+
         const renderCard = (u: Upgrade) => {
           const status = getStatus(u);
+          const canRestore = !latestCompleted || u.version > latestCompleted;
           return (
             <UpgradeCard
               key={u.id}
               upgrade={u}
               status={status}
               acting={acting === u.id}
+              canRestore={canRestore}
               onScheduleNow={async () => {
                 await act(u.id, { scheduled_at: new Date().toISOString() });
                 window.location.href = `/maintenance.html?return=${encodeURIComponent(window.location.pathname)}`;
               }}
               onUnschedule={() => act(u.id, { scheduled_at: null })}
-              onRetry={() =>
+              onRefetch={() =>
                 act(u.id, {
-                  started_at: null,
-                  completed_at: null,
                   error: null,
-                  rollback_completed_at: null,
-                  skipped_at: null,
-                  scheduled_at: new Date().toISOString(),
+                  started_at: null,
+                  scheduled_at: null,
                 })
               }
               onSkip={() =>
@@ -389,18 +413,20 @@ function UpgradeCard({
   upgrade: u,
   status,
   acting,
+  canRestore,
   onScheduleNow,
   onUnschedule,
-  onRetry,
+  onRefetch,
   onSkip,
   onRestore,
 }: {
   upgrade: Upgrade;
   status: UpgradeStatus;
   acting: boolean;
+  canRestore: boolean;
   onScheduleNow: () => void;
   onUnschedule: () => void;
-  onRetry: () => void;
+  onRefetch: () => void;
   onSkip: () => void;
   onRestore: () => void;
 }) {
@@ -437,6 +463,11 @@ function UpgradeCard({
       <CardContent className="pt-0">
         {/* Meta info */}
         <div className="flex flex-wrap gap-4 text-xs text-muted-foreground mb-3">
+          {u.published_at && (
+            <span>
+              Published: {new Date(u.published_at).toLocaleDateString()}
+            </span>
+          )}
           <span>
             Discovered: {new Date(u.discovered_at).toLocaleDateString()}
           </span>
@@ -536,13 +567,13 @@ function UpgradeCard({
 
           {(status === "failed" || status === "rolled_back") && (
             <>
-              <Button size="sm" variant="outline" disabled={acting} onClick={onRetry}>
+              <Button size="sm" variant="outline" disabled={acting} onClick={onRefetch}>
                 {acting ? (
                   <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                 ) : (
                   <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
                 )}
-                Retry
+                Refetch
               </Button>
               <Button size="sm" variant="ghost" disabled={acting} onClick={onSkip}>
                 <SkipForward className="mr-1.5 h-3.5 w-3.5" />
@@ -563,7 +594,7 @@ function UpgradeCard({
             </>
           )}
 
-          {status === "skipped" && (
+          {status === "skipped" && canRestore && (
             <Button size="sm" variant="outline" disabled={acting} onClick={onRestore}>
               {acting ? (
                 <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />

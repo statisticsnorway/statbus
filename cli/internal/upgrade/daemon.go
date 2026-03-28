@@ -119,10 +119,18 @@ func (d *Daemon) Run(ctx context.Context) error {
 			if !d.upgrading {
 				d.discover(ctx)
 				d.executeScheduled(ctx)
+				// Catch up on work missed during any upgrade that just completed
+				// (LISTEN connection was closed, NOTIFYs were lost)
+				d.discover(ctx)
+				d.executeScheduled(ctx)
 			}
 		case n := <-notifyCh:
 			if !d.upgrading {
 				d.handleNotification(ctx, n)
+				d.executeScheduled(ctx)
+				// Catch up on work missed during any upgrade that just completed
+				// (LISTEN connection was closed, NOTIFYs were lost)
+				d.discover(ctx)
 				d.executeScheduled(ctx)
 			}
 		case err := <-errCh:
@@ -747,11 +755,6 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 	d.queryConn = nil
 	progress.Write("Entering maintenance mode...")
 	d.setMaintenance(true)
-
-	// Restart proxy first — picks up new Caddy config, verified working
-	// before we take anything else down. Sub-second restart.
-	progress.Write("Restarting proxy...")
-	runCommand(projDir, "docker", "compose", "up", "-d", "--force-recreate", "proxy")
 
 	// Step 3: Stop application services (proxy stays running for maintenance page)
 	progress.Write("Stopping application services...")
