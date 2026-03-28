@@ -29,9 +29,9 @@ Subcommands:
 func preflightChecks(projDir string) bool {
 	allPassed := true
 
-	// 1. Git working tree is clean
-	_, err1 := upgrade.RunCommandOutput(projDir, "git", "diff", "--quiet")
-	_, err2 := upgrade.RunCommandOutput(projDir, "git", "diff", "--cached", "--quiet")
+	// 1. Git working tree is clean (excluding explain/performance baselines which drift per environment)
+	_, err1 := upgrade.RunCommandOutput(projDir, "git", "diff", "--quiet", "--", ":!test/expected/explain/", ":!test/expected/performance/")
+	_, err2 := upgrade.RunCommandOutput(projDir, "git", "diff", "--cached", "--quiet", "--", ":!test/expected/explain/", ":!test/expected/performance/")
 	if err1 != nil || err2 != nil {
 		fmt.Println("  \u2717 Working tree is clean")
 		fmt.Println("    Fix: git stash or git commit")

@@ -356,7 +356,8 @@ EOF
             done
         fi
 
-        if [ $OVERALL_EXIT_CODE -eq 0 ] && git diff --quiet 2>/dev/null && git diff --cached --quiet 2>/dev/null; then
+        # Exclude explain/performance baselines — they drift with environment and are regenerated every test run
+        if [ $OVERALL_EXIT_CODE -eq 0 ] && git diff --quiet -- ':!test/expected/explain/' ':!test/expected/performance/' 2>/dev/null && git diff --cached --quiet -- ':!test/expected/explain/' ':!test/expected/performance/' 2>/dev/null; then
             mkdir -p "$WORKSPACE/tmp"
             git rev-parse HEAD > "$WORKSPACE/tmp/fast-test-passed-sha"
             echo "Fast test stamp recorded: $(cat "$WORKSPACE/tmp/fast-test-passed-sha")"
