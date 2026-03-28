@@ -44,9 +44,9 @@ Commands for operators (no daemon needed):
   check       Query GitHub Releases API directly
   list        Show upgrades tracked in the local database
 
-Commands that talk to the running daemon:
+Commands that write to the database and notify the daemon:
   discover    Tell the daemon to poll GitHub for new releases
-  apply       Tell the daemon to upgrade to a specific version NOW
+  apply       Schedule an upgrade NOW (writes DB + sends NOTIFY)
   schedule    Mark a discovered upgrade for the daemon to execute
 
 Daemon management:
@@ -152,9 +152,13 @@ var (
 
 var upgradeApplyCmd = &cobra.Command{
 	Use:   "apply <version>",
-	Short: "Tell the daemon to upgrade to a specific version NOW",
-	Long: `Validates the version and sends NOTIFY upgrade_apply to the daemon.
-The daemon creates or updates the upgrade row and executes immediately.
+	Short: "Schedule an upgrade to a specific version NOW",
+	Long: `Validates the version, writes scheduled_at directly to the database,
+and sends NOTIFY as a wake-up optimization for the daemon.
+
+The direct database write ensures the upgrade is scheduled even if the
+daemon misses the NOTIFY (e.g., not running, reconnecting). The NOTIFY
+makes the daemon act immediately instead of waiting for its next poll.
 
 Use --recreate to delete and recreate the database from scratch instead
 of running migrations. This is destructive — only for dev/demo servers.
@@ -175,22 +179,50 @@ Examples:
 			payload = version + ":recreate"
 		}
 
+		// 1. Write scheduled_at directly to the database (belt).
+		// Uses psql variable binding (-v) to avoid SQL injection.
+		// Matches by tag name OR commit_sha (full or prefix).
+		updateSQL := `UPDATE public.upgrade SET
+  scheduled_at = now(),
+  started_at = NULL,
+  completed_at = NULL,
+  error = NULL,
+  rollback_completed_at = NULL,
+  skipped_at = NULL
+WHERE :'target_version' = ANY(tags)
+   OR commit_sha = :'target_version'
+   OR commit_sha LIKE :'target_version' || '%'
+RETURNING commit_sha, tags[1]`
+
+		out, err := runUpgradePsql(updateSQL, "-v", "target_version="+version, "-t", "-A")
+		if err != nil {
+			return fmt.Errorf("apply (update): %w\n%s", err, out)
+		}
+
+		updated := strings.TrimSpace(string(out))
+		if updated == "" {
+			fmt.Printf("Version %s not yet discovered in the upgrade table.\n", version)
+			fmt.Println("NOTIFY will be sent — daemon will discover and apply on next cycle.")
+		} else {
+			fmt.Printf("Scheduled upgrade: %s\n", updated)
+		}
+
+		// 2. Send NOTIFY as wake-up optimization (suspenders).
 		// NOTIFY payload doesn't support parameterized queries in psql.
 		// Safe because ValidateVersion restricts the version format
 		// and ":recreate" is a fixed, non-injectable suffix.
-		sql := fmt.Sprintf("NOTIFY upgrade_apply, '%s'",
+		notifySQL := fmt.Sprintf("NOTIFY upgrade_apply, '%s'",
 			strings.ReplaceAll(payload, "'", "''"))
 
-		out, err := runUpgradePsql(sql)
+		out, err = runUpgradePsql(notifySQL)
 		if err != nil {
-			return fmt.Errorf("apply: %w\n%s", err, out)
+			return fmt.Errorf("apply (notify): %w\n%s", err, out)
 		}
 
 		fmt.Printf("Sent: NOTIFY upgrade_apply, '%s'\n", payload)
-		fmt.Println("Upgrade daemon will execute this shortly")
 
 		if w, err := syslog.New(syslog.LOG_INFO, "statbus-upgrade"); err == nil {
-			w.Info(fmt.Sprintf("upgrade apply: sent NOTIFY upgrade_apply '%s'", payload))
+			w.Info(fmt.Sprintf("upgrade apply: scheduled + NOTIFY '%s'", payload))
 			w.Close()
 		}
 
@@ -271,24 +303,50 @@ file changes needed.`,
 
 		fmt.Printf("Channel %s: latest version is %s\n", channel, latestVersion)
 
-		// Send NOTIFY upgrade_apply
 		payload := latestVersion
 		if applyRecreate {
 			payload = latestVersion + ":recreate"
 		}
-		sql := fmt.Sprintf("NOTIFY upgrade_apply, '%s'",
+
+		// 1. Write scheduled_at directly to the database (belt).
+		updateSQL := `UPDATE public.upgrade SET
+  scheduled_at = now(),
+  started_at = NULL,
+  completed_at = NULL,
+  error = NULL,
+  rollback_completed_at = NULL,
+  skipped_at = NULL
+WHERE :'target_version' = ANY(tags)
+   OR commit_sha = :'target_version'
+   OR commit_sha LIKE :'target_version' || '%'
+RETURNING commit_sha, tags[1]`
+
+		out, err := runUpgradePsql(updateSQL, "-v", "target_version="+latestVersion, "-t", "-A")
+		if err != nil {
+			return fmt.Errorf("apply-latest (update): %w\n%s", err, out)
+		}
+
+		updated := strings.TrimSpace(string(out))
+		if updated == "" {
+			fmt.Printf("Version %s not yet discovered in the upgrade table.\n", latestVersion)
+			fmt.Println("NOTIFY will be sent — daemon will discover and apply on next cycle.")
+		} else {
+			fmt.Printf("Scheduled upgrade: %s\n", updated)
+		}
+
+		// 2. Send NOTIFY as wake-up optimization (suspenders).
+		notifySQL := fmt.Sprintf("NOTIFY upgrade_apply, '%s'",
 			strings.ReplaceAll(payload, "'", "''"))
 
-		out, err := runUpgradePsql(sql)
+		out, err = runUpgradePsql(notifySQL)
 		if err != nil {
-			return fmt.Errorf("apply-latest: %w\n%s", err, out)
+			return fmt.Errorf("apply-latest (notify): %w\n%s", err, out)
 		}
 
 		fmt.Printf("Sent: NOTIFY upgrade_apply, '%s'\n", payload)
-		fmt.Println("Upgrade daemon will execute this shortly")
 
 		if w, err := syslog.New(syslog.LOG_INFO, "statbus-upgrade"); err == nil {
-			w.Info(fmt.Sprintf("upgrade apply-latest: sent NOTIFY upgrade_apply '%s' (channel=%s)", payload, channel))
+			w.Info(fmt.Sprintf("upgrade apply-latest: scheduled + NOTIFY '%s' (channel=%s)", payload, channel))
 			w.Close()
 		}
 

@@ -17,13 +17,9 @@ jobs:
       contents: read
     steps:
       - name: Deploy via upgrade daemon
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: niue.statbus.org
-          username: statbus_ug
-          key: ${{ secrets.SSH_KEY }}
-          command_timeout: 5m
-          script: |
-            set -x
-            cd ~/statbus
-            ./sb upgrade apply-latest
+        run: |
+          install -m 600 /dev/stdin /tmp/key <<< "${{ secrets.SSH_KEY }}"
+          ssh -i /tmp/key -o StrictHostKeyChecking=no \
+            statbus_ug@niue.statbus.org \
+            "cd ~/statbus && ./sb upgrade apply-latest"
+          rm -f /tmp/key
