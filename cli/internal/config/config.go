@@ -517,7 +517,8 @@ func generateEnvContent(creds *Credentials, cfg *ConfigEnv, derived *Derived, db
 # The name displayed on the web
 DEPLOYMENT_SLOT_NAME=%[4]s
 DEPLOYMENT_SLOT_CODE=%[5]s
-# Urls configured in Caddy and DNS.
+# Domain and URLs configured in Caddy and DNS.
+SITE_DOMAIN=%[25]s
 STATBUS_URL=%[6]s
 BROWSER_REST_URL=%[7]s
 SERVER_REST_URL=%[8]s
@@ -578,6 +579,7 @@ NEXT_PUBLIC_STATBUS_COMMIT=%[23]s
 		derived.Version,                  // 22
 		derived.Commit,                   // 23
 		debugBlock("DEBUG", cfg.Debug),   // 24
+		cfg.SiteDomain,                  // 25
 	)
 
 	// Load .env.example and apply overrides

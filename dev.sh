@@ -32,7 +32,7 @@ shift || true
 
 case "$action" in
     'postgres-variables' )
-        SITE_DOMAIN=$(./sb dotenv -f .env.config get SITE_DOMAIN || echo "local.statbus.org")
+        SITE_DOMAIN=$(./sb dotenv -f .env get SITE_DOMAIN || echo "local.statbus.org")
         CADDY_DEPLOYMENT_MODE=$(./sb dotenv -f .env get CADDY_DEPLOYMENT_MODE || echo "development")
         PGDATABASE=$(./sb dotenv -f .env get POSTGRES_APP_DB)
         PGUSER=${PGUSER:-$(./sb dotenv -f .env get POSTGRES_ADMIN_USER)}
