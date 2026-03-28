@@ -5,7 +5,7 @@
 -- inspection of how errors and warnings are displayed in the UI.
 --
 -- Run with PERSIST=true to keep data for UI review:
---   PERSIST=true ./devops/manage-statbus.sh psql < test/sql/321_import_error_scenarios_for_ui_review.sql
+--   PERSIST=true ./sb psql < test/sql/321_import_error_scenarios_for_ui_review.sql
 --
 -- Then view in the UI:
 --   - Job list: http://localhost:3012/import/jobs

@@ -594,8 +594,8 @@ module Statbus
     # containers.
     #
     # The top level `docker-compose.yml` file includes all configuration
-    # required for all statbus docker containers, but must be managed
-    # by `./devops/manage-statbus.sh` that also sets the VERSION
+    # required for all statbus docker containers, managed by
+    # `./sb config generate` which also sets the VERSION
     # required for precise logging by the statbus app.
     ################################################################
 
@@ -631,7 +631,7 @@ module Statbus
     CADDY_DB_TLS_PORT=#{derived.caddy_db_tls_port}
     CADDY_DB_BIND_ADDRESS=#{derived.caddy_db_bind_address}
     CADDY_DB_TLS_BIND_ADDRESS=#{derived.caddy_db_tls_bind_address}
-    # Updated by manage-statbus.sh start required
+    # Updated by ./sb config generate
     VERSION=#{derived.version}
 
     # Server-side debugging for the Statbus App. Requires app restart.

@@ -634,7 +634,7 @@ export const DebugInspector = () => {
                     2. Restart the application:
                   </p>
                   <pre className="mt-1 p-2 bg-gray-800 rounded">
-                    <code>./devops/manage-statbus.sh restart app</code>
+                    <code>./sb restart app</code>
                   </pre>
                 </div>
               </div>

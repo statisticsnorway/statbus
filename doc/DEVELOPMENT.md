@@ -100,10 +100,10 @@ This project uses LF line endings. Git on Windows may convert to CRLF, which bre
 Build the StatBus CLI tool for database migrations:
 
 ```bash
-./devops/manage-statbus.sh build-statbus-cli
+cd cli && go build -o ../sb .
 ```
 
-This compiles the Crystal CLI tool to `cli/bin/statbus`.
+This compiles the Go CLI tool to `./sb`.
 
 #### 4. Create User Configuration
 
@@ -122,7 +122,7 @@ users:
 #### 5. Generate Configuration
 
 ```bash
-./devops/manage-statbus.sh generate-config
+./sb config generate
 ```
 
 This creates `.env`, `.env.credentials`, and `.env.config` with development defaults.
@@ -157,7 +157,6 @@ statbus/
 │   ├── src/              # CLI source code
 │   └── bin/              # Compiled binaries
 ├── devops/               # Deployment scripts
-│   ├── manage-statbus.sh # Main management script
 │   └── githooks/         # Git hooks
 ├── doc/                  # Documentation
 │   ├── integration/      # API & PostgreSQL guides
@@ -191,12 +190,12 @@ In development mode, you run backend services in Docker and the Next.js app loca
 
 ```bash
 # Start PostgreSQL, PostgREST, Caddy, Worker
-./devops/manage-statbus.sh start all_except_app
+./sb start all_except_app
 
 # Initialize database (first time only)
-./devops/manage-statbus.sh create-db-structure
-./devops/manage-statbus.sh create-users
-./cli/bin/statbus migrate up
+./dev.sh create-db
+./sb users create
+./sb migrate up
 ```
 
 #### Run Next.js Locally
@@ -216,7 +215,7 @@ Access the application:
 #### Stop Services
 
 ```bash
-./devops/manage-statbus.sh stop
+./sb stop all
 ```
 
 ### PostgreSQL Access for Development
@@ -226,10 +225,10 @@ The development environment provides PostgreSQL access through Caddy's Layer4 TL
 **Quick Access**:
 ```bash
 # Use helper script (recommended)
-./devops/manage-statbus.sh psql
+./sb psql
 
 # Or connect manually
-eval $(./devops/manage-statbus.sh postgres-variables)
+eval $(./sb config show --postgres)
 psql
 ```
 
@@ -300,13 +299,13 @@ StatBus uses several PostgreSQL schemas:
 **Run pg_regress tests**:
 ```bash
 # Run all tests
-./devops/manage-statbus.sh test all
+./dev.sh test all
 
 # Run specific test
-./devops/manage-statbus.sh test 015_my_test
+./dev.sh test 015_my_test
 
 # Run failed tests only
-./devops/manage-statbus.sh test failed
+./dev.sh test failed
 ```
 
 Test files location:
@@ -319,7 +318,7 @@ Test files location:
 echo "SELECT 'test output';" > test/sql/999_my_test.sql
 
 # Run it to generate expected output
-./devops/manage-statbus.sh test 999_my_test
+./dev.sh test 999_my_test
 
 # If correct, copy output
 cp test/regression.out test/expected/999_my_test.out
@@ -330,7 +329,7 @@ cp test/regression.out test/expected/999_my_test.out
 After changing database schema, regenerate TypeScript types:
 
 ```bash
-./devops/manage-statbus.sh generate-types
+./sb types generate
 ```
 
 This updates `app/src/lib/database.types.ts` with current schema.
@@ -339,17 +338,17 @@ This updates `app/src/lib/database.types.ts` with current schema.
 
 **Run SQL file**:
 ```bash
-./devops/manage-statbus.sh psql < my_script.sql
+./sb psql < my_script.sql
 ```
 
 **Run SQL command**:
 ```bash
-./devops/manage-statbus.sh psql -c "SELECT * FROM auth.users LIMIT 5;"
+echo "SELECT * FROM auth.users LIMIT 5;" | ./sb psql
 ```
 
 **Interactive psql**:
 ```bash
-./devops/manage-statbus.sh psql
+./sb psql
 ```
 
 ---
@@ -511,19 +510,19 @@ docs: Update PostgreSQL connection guide
 
 ```bash
 # Run all tests
-./devops/manage-statbus.sh test all
+./dev.sh test all
 
 # Run specific test
-./devops/manage-statbus.sh test 015_jwt_auth
+./dev.sh test 015_jwt_auth
 
 # Run multiple tests
-./devops/manage-statbus.sh test 015_jwt_auth 020_temporal
+./dev.sh test 015_jwt_auth 020_temporal
 
 # Exclude tests
-./devops/manage-statbus.sh test all -010_old_test
+./dev.sh test all -010_old_test
 
 # Run failed tests
-./devops/manage-statbus.sh test failed
+./dev.sh test failed
 ```
 
 ### Frontend Tests (Jest)
@@ -647,7 +646,7 @@ SELECT * FROM pg_stat_statements;
 **Before committing**:
 ```bash
 # Backend
-./devops/manage-statbus.sh test all
+./dev.sh test all
 
 # Frontend
 cd app

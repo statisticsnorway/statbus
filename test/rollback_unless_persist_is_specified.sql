@@ -3,7 +3,7 @@
 \o /dev/null
 ---------------------------------------------------------------------------
 -- Support development loading of the data without rollback using
---   ./devops/manage-statbus.sh psql --variable=PERSIST=true < test/sql/01_load_web_examples.sql
+--   ./sb psql --variable=PERSIST=true < test/sql/01_load_web_examples.sql
 
 -- Ref. https://stackoverflow.com/a/32597876/1023558
 \set PERSIST :PERSIST

@@ -248,11 +248,11 @@ if [[ -f "$ENV_CONFIG" ]]; then
     
     # Regenerate configuration
     info "Regenerating Caddy configuration..."
-    if "$PROJECT_ROOT/devops/manage-statbus.sh" generate-config >/dev/null 2>&1; then
+    if "$PROJECT_ROOT/sb" config generate >/dev/null 2>&1; then
         success "Configuration regenerated"
     else
         warn "Failed to regenerate configuration. Run manually:"
-        echo "  ./devops/manage-statbus.sh generate-config"
+        echo "  ./sb config generate"
     fi
     echo ""
     
@@ -286,7 +286,7 @@ else
     echo ""
     echo "2. Regenerate configuration:"
     echo ""
-    echo "   ./devops/manage-statbus.sh generate-config"
+    echo "   ./sb config generate"
     echo ""
     echo "3. Restart Caddy:"
     echo ""

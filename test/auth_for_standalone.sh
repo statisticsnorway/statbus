@@ -9,7 +9,7 @@ if [ "${DEBUG:-}" = "true" ]; then
   set -x # Print all commands before running them - for easy debugging.
 fi
 
-# Determine workspace directory (similar to manage-statbus.sh)
+# Determine workspace directory
 WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 cd $WORKSPACE
 

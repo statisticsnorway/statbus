@@ -84,14 +84,14 @@ You have 5 proven optimization files in `tmp/`:
 ### **Testing Framework**
 ```bash
 # Baseline measurement
-./devops/manage-statbus.sh recreate-database
+./dev.sh recreate-database
 time USER_EMAIL=jorgen@veridit.no ./samples/norway/brreg/brreg-import-selection.sh
 
 # Monitor with logging
 docker compose logs db -f | grep -A 5 "duration.*ms.*plan"
 
 # Measure updates per row  
-echo "SELECT sql_statement, count(*) FROM import_update_log GROUP BY sql_statement;" | ./devops/manage-statbus.sh psql
+echo "SELECT sql_statement, count(*) FROM import_update_log GROUP BY sql_statement;" | ./sb psql
 ```
 
 ## **Questions for You**

@@ -5,7 +5,7 @@ REVOKE TRUNCATE ON public.statistical_unit_facet_dirty_partitions FROM admin_use
 REVOKE TRUNCATE ON public.statistical_history_facet_partitions FROM admin_user;
 
 -- Restore the original reset function before this migration.
--- Dumped via: echo "\sf public.reset" | ./devops/manage-statbus.sh psql
+-- Dumped via: echo "\sf public.reset" | ./sb psql
 CREATE OR REPLACE FUNCTION public.reset(confirmed boolean, scope reset_scope)
  RETURNS jsonb
  LANGUAGE plpgsql

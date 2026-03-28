@@ -10,7 +10,7 @@ StatBus has two command-line tools:
 - **`./sb`** — Go CLI for ops/production commands (start, stop, psql, migrate, upgrade, etc.)
 - **`./dev.sh`** — Bash script for development-only commands (test, create-db, etc.)
 
-The legacy `./devops/manage-statbus.sh` is a backward-compat wrapper that delegates to the above.
+The legacy `./devops/manage-statbus.sh` has been deleted. All references should use `./sb` or `./dev.sh` instead.
 
 ### Operations (./sb)
 ```bash
@@ -217,7 +217,7 @@ psql
 - `cli/src/templates/*.caddyfile.ecr`: Mode-specific Caddy templates
 - `sb`: Go CLI binary (built from cli/, in .gitignore)
 - `dev.sh`: Development-only commands (test, create-db, etc.)
-- `devops/manage-statbus.sh`: **DEPRECATED** — backward-compat wrapper, will be deleted once all references (deploy.sh, CI workflows, SSH aliases) are migrated to ./sb or ./dev.sh
+- `devops/manage-statbus.sh`: **DELETED** — all commands now use `./sb` or `./dev.sh` directly
 - `.env.config`: **Edit this** for deployment settings
 - `.env`: Generated file, **do not edit** directly
 - `.env.credentials`: Secrets, generated once, keep secure

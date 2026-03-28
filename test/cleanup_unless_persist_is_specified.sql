@@ -3,7 +3,7 @@
 \o /dev/null
 ---------------------------------------------------------------------------
 -- Support development loading of the data without cleanup using
---   ./devops/manage-statbus.sh psql --variable=PERSIST=true < test/sql/400_import_jobs_for_norway_history.sql
+--   ./sb psql --variable=PERSIST=true < test/sql/400_import_jobs_for_norway_history.sql
 --
 -- This script is used for tests that commit during execution (e.g., to allow
 -- worker.process_tasks() to commit between tasks for better performance).

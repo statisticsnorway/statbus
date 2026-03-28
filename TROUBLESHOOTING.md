@@ -22,13 +22,13 @@ Access to fetch at 'http://local.statbus.org:3010/rest/rpc/auth_status' from ori
 
 ```bash
 # Stop any running app
-./devops/manage-statbus.sh stop app
+./sb stop app
 
 # Rebuild with latest changes
 docker compose build app --no-cache
 
-# Start production-like environment  
-./devops/manage-statbus.sh start app
+# Start production-like environment
+./sb start app
 
 # Test at unified URL
 open http://local.statbus.org:3010
@@ -53,7 +53,7 @@ If you see the page stuck on "Loading application..." at `/login` after successf
 - Deadlock occurs
 
 **How to Test Locally:**
-1. Use Docker: `./devops/manage-statbus.sh start app`
+1. Use Docker: `./sb start app`
 2. Open `http://local.statbus.org:3010` in browser
 3. Enable debug: `localStorage.setItem('debug', 'true')`  
 4. Login and observe if it hangs at `/login`
@@ -85,7 +85,7 @@ docker compose logs rest --tail=50
 docker compose logs app --tail=50
 
 # Restart services
-./devops/manage-statbus.sh restart
+./sb restart all
 ```
 
 ### Environment Configuration Issues
@@ -93,12 +93,12 @@ docker compose logs app --tail=50
 **Missing .env file:**
 ```
 ERROR: ../.env file not found!
-Please run: ./devops/manage-statbus.sh generate-config
+Please run: ./sb config generate
 ```
 
 **Solution:**
 ```bash
-./devops/manage-statbus.sh generate-config
+./sb config generate
 ```
 
 **DNS resolution issues:**
@@ -123,7 +123,7 @@ For navigation/auth/state machine issues:
 docker compose build app --no-cache
 
 # 3. Start and test
-./devops/manage-statbus.sh start app
+./sb start app
 
 # 4. Test at unified URL
 open http://local.statbus.org:3010

@@ -29,7 +29,7 @@ import psycopg2
 
 WORKSPACE = Path(__file__).parent.parent.absolute()
 TEMPLATE_DB = os.environ.get("POSTGRES_TEST_DB", "statbus_test_template")
-MANAGE = str(WORKSPACE / "devops" / "manage-statbus.sh")
+MANAGE = str(WORKSPACE / "sb")
 ENV_CONFIG = WORKSPACE / ".env.config"
 
 # Colors
@@ -80,13 +80,13 @@ def log_print(msg, level="info"):
 
 
 def get_pg_env():
-    """Get PostgreSQL connection env vars by evaluating manage-statbus.sh postgres-variables"""
+    """Get PostgreSQL connection env vars by evaluating sb config show --postgres"""
     result = subprocess.run(
-        [MANAGE, "postgres-variables"],
+        [MANAGE, "config", "show", "--postgres"],
         capture_output=True, text=True, cwd=WORKSPACE
     )
     if result.returncode != 0:
-        raise Exception(f"Failed to get postgres-variables: {result.stderr}")
+        raise Exception(f"Failed to get config show --postgres: {result.stderr}")
 
     env = os.environ.copy()
     # Parse: export PGHOST=x PGPORT=y PGDATABASE=z PGUSER=u PGPASSWORD=p ...
@@ -111,7 +111,7 @@ def pg_env():
 
 
 def get_conn(dbname=None):
-    """Create a psycopg2 connection using the same credentials as manage-statbus.sh psql"""
+    """Create a psycopg2 connection using the same credentials as sb psql"""
     env = pg_env()
     return psycopg2.connect(
         host=env.get("PGHOST", "localhost"),
@@ -124,7 +124,7 @@ def get_conn(dbname=None):
 
 
 def run_psql(sql, dbname=None):
-    """Run SQL via manage-statbus.sh psql"""
+    """Run SQL via sb psql"""
     db = dbname or TEST_DB
     cmd = [MANAGE, "psql", "-d", db, "-v", "ON_ERROR_STOP=1"]
     log.debug(f"psql -d {db}: {sql[:200]}...")
@@ -140,7 +140,7 @@ def run_psql(sql, dbname=None):
 
 
 def run_psql_file(filepath, dbname=None):
-    """Run SQL file via manage-statbus.sh psql"""
+    """Run SQL file via sb psql"""
     db = dbname or TEST_DB
     cmd = [MANAGE, "psql", "-d", db, "-v", "ON_ERROR_STOP=1", "-f", filepath]
     log.debug(f"psql -d {db} -f {filepath}")
@@ -187,7 +187,7 @@ def drop_isolated_db(force=False):
     if not force:
         log_print(f"\n{BLUE}Database retained: {TEST_DB}{NC}")
         log_print(f"  Inspect: {MANAGE} psql -d {TEST_DB}")
-        log_print(f"  Delete:  {MANAGE} psql -d postgres -c 'DROP DATABASE \"{TEST_DB}\"'")
+        log_print(f"  Delete:  {MANAGE} psql -d postgres -c \"DROP DATABASE \\\"{TEST_DB}\\\"\"")
         return
 
     log_print(f"{YELLOW}Dropping database: {TEST_DB}{NC}")

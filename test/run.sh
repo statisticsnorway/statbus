@@ -12,12 +12,12 @@ fi
 WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 
 # TODO: Setup and prepare the test database.
-#./devops/manage-statbus.sh start
-#./devops/manage-statbus.sh create-db-structure
-#./devops/manage-statbus.sh create-users
+#./sb start all
+#./sb migrate up
+#./sb users create
 
 # Make PG* variables available
-eval $($WORKSPACE/devops/manage-statbus.sh postgres-variables)
+eval $($WORKSPACE/sb config show --postgres)
 
 # Directory setup for pg_regress
 PG_REGRESS_DIR="$WORKSPACE/test"

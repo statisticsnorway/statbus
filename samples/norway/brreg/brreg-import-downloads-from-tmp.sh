@@ -16,7 +16,7 @@ fi
 WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd ../../.. && pwd )"
 
 # Verify user exists in auth.users
-if ! $WORKSPACE/devops/manage-statbus.sh psql -t -c "select id from public.user where email = '${USER_EMAIL}'" | grep -q .; then
+if ! $WORKSPACE/sb psql -t -c "select id from public.user where email = '${USER_EMAIL}'" | grep -q .; then
   echo "Error: No user found with email ${USER_EMAIL}"
   exit 1
 fi
@@ -29,7 +29,7 @@ fi
 cd $WORKSPACE
 
 echo "Setting up Statbus for Norway"
-$WORKSPACE/devops/manage-statbus.sh psql < samples/norway/getting-started.sql
+$WORKSPACE/sb psql < samples/norway/getting-started.sql
 
 legal_unit_file=$WORKSPACE/tmp/enheter.csv
 establishment_file=$WORKSPACE/tmp/underenheter_filtered.csv
@@ -40,21 +40,21 @@ IMPORT_YEAR=$(date +%Y)
 echo "Setting up import jobs for BRREG data with valid_from=${TODAY}"
 
 # Check if import definitions exist, create them if not
-if ! $WORKSPACE/devops/manage-statbus.sh psql -t -c "SELECT id FROM public.import_definition WHERE slug = 'brreg_hovedenhet_2025'" | grep -q .; then
+if ! $WORKSPACE/sb psql -t -c "SELECT id FROM public.import_definition WHERE slug = 'brreg_hovedenhet_2025'" | grep -q .; then
   echo "Creating import definition for BRREG legal units"
-  $WORKSPACE/devops/manage-statbus.sh psql < samples/norway/brreg/create-import-definition-hovedenhet-2025.sql
+  $WORKSPACE/sb psql < samples/norway/brreg/create-import-definition-hovedenhet-2025.sql
 fi
 
-if ! $WORKSPACE/devops/manage-statbus.sh psql -t -c "SELECT id FROM public.import_definition WHERE slug = 'brreg_underenhet_2025'" | grep -q .; then
+if ! $WORKSPACE/sb psql -t -c "SELECT id FROM public.import_definition WHERE slug = 'brreg_underenhet_2025'" | grep -q .; then
   echo "Creating import definition for BRREG establishments"
-  $WORKSPACE/devops/manage-statbus.sh psql < samples/norway/brreg/create-import-definition-underenhet-2025.sql
+  $WORKSPACE/sb psql < samples/norway/brreg/create-import-definition-underenhet-2025.sql
 fi
 
 # Create import jobs
 echo "Creating import jobs for current data"
 
 # Create import job for hovedenhet (legal units)
-$WORKSPACE/devops/manage-statbus.sh psql -c "
+$WORKSPACE/sb psql -c "
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet_2025')
 INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, note, user_id, review)
 SELECT def.id,
@@ -72,7 +72,7 @@ ON CONFLICT (slug) DO UPDATE SET
     review = false;"
 
 # Create import job for underenhet (establishments)
-$WORKSPACE/devops/manage-statbus.sh psql -c "
+$WORKSPACE/sb psql -c "
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet_2025')
 INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, note, user_id, review)
 SELECT def.id,
@@ -92,14 +92,14 @@ ON CONFLICT (slug) DO UPDATE SET
 # Load data into import tables
 if [ -f "$legal_unit_file" ]; then
     echo "Loading hovedenhet data"
-    $WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_hovedenhet_2025_upload FROM 'tmp/enheter.csv' WITH CSV HEADER DELIMITER ',' QUOTE '\"' ESCAPE '\"';"
+    $WORKSPACE/sb psql -c "\copy public.import_hovedenhet_2025_upload FROM 'tmp/enheter.csv' WITH CSV HEADER DELIMITER ',' QUOTE '\"' ESCAPE '\"';"
 else
     echo "Warning: Legal unit file $legal_unit_file not found, skipping import"
 fi
 
 if [ -f "$establishment_file" ]; then
     echo "Loading underenhet data"
-    $WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_underenhet_2025_upload FROM 'tmp/underenheter_filtered.csv' WITH CSV HEADER DELIMITER ',' QUOTE '\"' ESCAPE '\"';"
+    $WORKSPACE/sb psql -c "\copy public.import_underenhet_2025_upload FROM 'tmp/underenheter_filtered.csv' WITH CSV HEADER DELIMITER ',' QUOTE '\"' ESCAPE '\"';"
 else
     echo "Warning: Establishment file $establishment_file not found, skipping import"
 fi
@@ -109,16 +109,16 @@ roller_file=$WORKSPACE/tmp/roller_legal_relationships.csv
 if [ -f "$roller_file" ]; then
     # Seed legal relationship types
     echo "Seeding legal relationship types"
-    $WORKSPACE/devops/manage-statbus.sh psql < samples/norway/brreg/seed-legal-rel-types.sql
+    $WORKSPACE/sb psql < samples/norway/brreg/seed-legal-rel-types.sql
 
     # Check/create import definition
-    if ! $WORKSPACE/devops/manage-statbus.sh psql -t -c "SELECT id FROM public.import_definition WHERE slug = 'brreg_roller_2025'" | grep -q .; then
+    if ! $WORKSPACE/sb psql -t -c "SELECT id FROM public.import_definition WHERE slug = 'brreg_roller_2025'" | grep -q .; then
         echo "Creating import definition for BRREG roller (legal relationships)"
-        $WORKSPACE/devops/manage-statbus.sh psql < samples/norway/brreg/create-import-definition-roller-2025.sql
+        $WORKSPACE/sb psql < samples/norway/brreg/create-import-definition-roller-2025.sql
     fi
 
     # Create import job
-    $WORKSPACE/devops/manage-statbus.sh psql -c "
+    $WORKSPACE/sb psql -c "
     WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_roller_2025')
     INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, note, user_id, review)
     SELECT def.id,
@@ -137,8 +137,8 @@ if [ -f "$roller_file" ]; then
 
     # Load data
     echo "Loading roller (legal relationships) data"
-    $WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_roller_2025_upload FROM 'tmp/roller_legal_relationships.csv' WITH CSV HEADER DELIMITER ',' QUOTE '\"' ESCAPE '\"';"
+    $WORKSPACE/sb psql -c "\copy public.import_roller_2025_upload FROM 'tmp/roller_legal_relationships.csv' WITH CSV HEADER DELIMITER ',' QUOTE '\"' ESCAPE '\"';"
 fi
 
 echo "Checking import job states"
-$WORKSPACE/devops/manage-statbus.sh psql -c "SELECT slug, state FROM public.import_job WHERE slug IN ('import_hovedenhet_2025', 'import_underenhet_2025', 'import_roller_2025');"
+$WORKSPACE/sb psql -c "SELECT slug, state FROM public.import_job WHERE slug IN ('import_hovedenhet_2025', 'import_underenhet_2025', 'import_roller_2025');"

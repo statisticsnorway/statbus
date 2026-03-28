@@ -16,7 +16,7 @@ fi
 WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd ../../.. && pwd )"
 
 # Verify user exists in auth.users
-if ! $WORKSPACE/devops/manage-statbus.sh psql -t -c "select id from public.user where email = '${USER_EMAIL}'" | grep -q .; then
+if ! $WORKSPACE/sb psql -t -c "select id from public.user where email = '${USER_EMAIL}'" | grep -q .; then
   echo "Error: No user found with email ${USER_EMAIL}"
   exit 1
 fi
@@ -29,11 +29,11 @@ fi
 pushd $WORKSPACE
 
 echo "Setting up Statbus for Norway"
-$WORKSPACE/devops/manage-statbus.sh psql < samples/norway/getting-started.sql
+$WORKSPACE/sb psql < samples/norway/getting-started.sql
 
 echo "Adding import definitions for BRREG units"
-$WORKSPACE/devops/manage-statbus.sh psql < samples/norway/brreg/create-import-definition-hovedenhet-2024.sql
-$WORKSPACE/devops/manage-statbus.sh psql < samples/norway/brreg/create-import-definition-underenhet-2024.sql
+$WORKSPACE/sb psql < samples/norway/brreg/create-import-definition-hovedenhet-2024.sql
+$WORKSPACE/sb psql < samples/norway/brreg/create-import-definition-underenhet-2024.sql
 
 # Note: Use relative paths for \copy to work both locally and in Docker
 # (Docker psql runs with -w /statbus, so relative paths resolve correctly)
@@ -44,7 +44,7 @@ for YEAR in $YEARS; do
     echo "Creating import jobs for year: $YEAR"
 
     # Create import jobs for hovedenhet (legal units)
-    $WORKSPACE/devops/manage-statbus.sh psql -c "
+    $WORKSPACE/sb psql -c "
     WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet_2024')
     INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, note, user_id)
     SELECT def.id,
@@ -58,7 +58,7 @@ for YEAR in $YEARS; do
     ON CONFLICT (slug) DO NOTHING;"
 
     # Create import jobs for underenhet (establishments)
-    $WORKSPACE/devops/manage-statbus.sh psql -c "
+    $WORKSPACE/sb psql -c "
     WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet_2024')
     INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, note, user_id)
     SELECT def.id,
@@ -78,14 +78,14 @@ for YEAR in $YEARS; do
 
     # Load hovedenhet (legal units) data
     echo "Loading hovedenhet data for $YEAR"
-    $WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_hovedenhet_${YEAR}_history_upload FROM 'samples/norway/history/${YEAR}-enheter.csv' WITH CSV HEADER;"
+    $WORKSPACE/sb psql -c "\copy public.import_hovedenhet_${YEAR}_history_upload FROM 'samples/norway/history/${YEAR}-enheter.csv' WITH CSV HEADER;"
 
     # Load underenhet (establishments) data
     echo "Loading underenhet data for $YEAR"
-    $WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_underenhet_${YEAR}_history_upload FROM 'samples/norway/history/${YEAR}-underenheter.csv' WITH CSV HEADER;"
+    $WORKSPACE/sb psql -c "\copy public.import_underenhet_${YEAR}_history_upload FROM 'samples/norway/history/${YEAR}-underenheter.csv' WITH CSV HEADER;"
 done
 
 echo "Checking import job states"
-$WORKSPACE/devops/manage-statbus.sh psql -c "SELECT slug, state FROM public.import_job WHERE slug LIKE '%history' ORDER BY slug;"
+$WORKSPACE/sb psql -c "SELECT slug, state FROM public.import_job WHERE slug LIKE '%history' ORDER BY slug;"
 
 popd

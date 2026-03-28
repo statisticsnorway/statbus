@@ -119,15 +119,15 @@ cd statbus
 git config core.hooksPath devops/githooks
 
 # Generate configuration
-./devops/manage-statbus.sh generate-config
+./sb config generate
 
 # Start backend services
-./devops/manage-statbus.sh start all_except_app
+./sb start all_except_app
 
 # Initialize database
-./devops/manage-statbus.sh create-db-structure
-./devops/manage-statbus.sh create-users
-./cli/bin/statbus migrate up
+./dev.sh create-db
+./sb users create
+./sb migrate up
 
 # Run Next.js locally (in separate terminal)
 cd app

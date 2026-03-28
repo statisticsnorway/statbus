@@ -345,7 +345,7 @@ module Statbus
       when "psql"
         # Execute via psql command (existing behavior)
         Dir.cd(@config.project_directory) do
-          output = `./devops/manage-statbus.sh psql --variable=ON_ERROR_STOP=on < #{migration.path} 2>&1`
+          output = `./sb psql --variable=ON_ERROR_STOP=on < #{migration.path} 2>&1`
           success = $?.success?
           if @config.debug && !output.empty?
             STDOUT.puts output
@@ -432,7 +432,7 @@ module Statbus
             end
           when "psql"
             # Execute via psql command
-            output = `./devops/manage-statbus.sh psql --variable=ON_ERROR_STOP=on < #{down_path} 2>&1`
+            output = `./sb psql --variable=ON_ERROR_STOP=on < #{down_path} 2>&1`
             success = $?.success?
             if @config.debug && !output.empty?
               STDOUT.puts output

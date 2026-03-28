@@ -175,7 +175,7 @@ ssh $DEPLOYMENT_USER@$HOST bash <<CONFIGURE_STATBUS
     fi
     echo "Generating configuration files..."
     if [ ! -f ~/statbus/.env ]; then
-        cd ~/statbus && ./devops/manage-statbus.sh generate-config
+        cd ~/statbus && ./sb config generate
         echo "Generated .env configuration"
     else
         echo "Configuration .env already exists"
@@ -304,7 +304,7 @@ ssh $DEPLOYMENT_USER@$HOST bash <<USE_ADAPTED_CONFIG
     if [ -n "${VERBOSE}" ]; then
         set -x
     fi
-    cd ~/statbus && ./devops/manage-statbus.sh generate-config
+    cd ~/statbus && ./sb config generate
     echo "Generated .env configuration with updated settings"
 USE_ADAPTED_CONFIG
 
@@ -333,11 +333,11 @@ ssh $DEPLOYMENT_USER@$HOST bash <<START_STATBUS
         set -x
     fi
     cd ~/statbus
-    ./devops/manage-statbus.sh start all
+    ./sb start all
     # Include the paths for building crystal installed with homebrew.
     source /etc/profile.d/homebrew.sh
-    ./devops/manage-statbus.sh create-db-structure
-    ./devops/manage-statbus.sh create-users
+    ./dev.sh create-db
+    ./sb users create
 START_STATBUS
 
 echo "Setup of ${DEPLOYMENT_SLOT_NAME}(${DEPLOYMENT_SLOT_CODE}) completed successfully!"

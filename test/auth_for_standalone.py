@@ -450,7 +450,7 @@ def initialize_test_environment() -> None:
             setup_sql = f.read()
             
         result = subprocess.run(
-            [str(WORKSPACE / "devops" / "manage-statbus.sh"), "psql"],
+            [str(WORKSPACE / "sb"), "psql"],
             input=setup_sql,
             capture_output=True,
             text=True,
@@ -637,7 +637,7 @@ def test_db_access(email: str, password: str, query: str, expected_result: str, 
         # Try to get more diagnostic information
         ctx.debug("Checking if the user role exists in the database...")
         role_check_process = subprocess.run(
-            [str(WORKSPACE / "devops" / "manage-statbus.sh"), "psql", "-c", f"SELECT rolname FROM pg_roles WHERE rolname = '{email}';"],
+            [str(WORKSPACE / "sb"), "psql", "-c", f"SELECT rolname FROM pg_roles WHERE rolname = '{email}';"],
             capture_output=True, text=True, check=False, timeout=5
         )
         role_check_stdout = role_check_process.stdout.strip()

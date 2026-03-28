@@ -58,9 +58,9 @@ pnpm run dev
 
 ```bash
 # Rebuild and start production-like environment
-./devops/manage-statbus.sh stop app
+./sb stop app
 docker compose build app --no-cache
-./devops/manage-statbus.sh start app
+./sb start app
 
 # Access at: http://local.statbus.org:3010
 ```

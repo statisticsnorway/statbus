@@ -3,7 +3,7 @@
 BEGIN;
 
 DO $$ BEGIN
-  RAISE EXCEPTION 'This migration cannot be rolled back automatically. Use ./devops/manage-statbus.sh recreate-database instead.';
+  RAISE EXCEPTION 'This migration cannot be rolled back automatically. Use ./dev.sh recreate-database instead.';
 END $$;
 
 END;

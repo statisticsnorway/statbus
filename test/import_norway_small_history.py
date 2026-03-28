@@ -1827,7 +1827,7 @@ def create_test_users() -> bool:
     log_info("Creating test users if they don't exist...")
     
     setup_sql_path = WORKSPACE / "test" / "setup.sql"
-    manage_script_path = WORKSPACE / "devops" / "manage-statbus.sh"
+    manage_script_path = WORKSPACE / "sb"
     
     if not setup_sql_path.exists():
         log_error(f"Setup SQL file not found: {setup_sql_path}")

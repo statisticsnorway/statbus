@@ -380,7 +380,7 @@ $statistical_history_def$;
 -- import.get_statistical_unit_data_partial) are restored by recreating the database.
 -- The down migration restores the core infrastructure (settings column, trigger, admin functions,
 -- hash functions) that blocks the up migration from running again.
--- Full function restoration requires: ./devops/manage-statbus.sh recreate-database
+-- Full function restoration requires: ./dev.sh recreate-database
 
 ------------------------------------------------------------
 -- Phase 7: Recompute with dynamic count and clear derived data

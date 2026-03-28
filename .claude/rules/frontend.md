@@ -187,7 +187,7 @@ To combat "Maximum update depth exceeded" errors and other lifecycle issues, the
     - **Reference Implementation**: The `sendContextUpdates` effect in `NavigationManager` was refactored to remove its dependency on `isInspectorVisible`.
 
 ## Database Type Definitions
-The file `app/src/lib/database.types.ts` contains TypeScript types automatically generated from the PostgreSQL schema (via `./devops/manage-statbus.sh generate-types`).
+The file `app/src/lib/database.types.ts` contains TypeScript types automatically generated from the PostgreSQL schema (via `./sb types generate`).
 - **Table Rows**: `Tables<'my_table'>`
 - **Enums**: `Enums<'my_enum'>`
 - **Insert/Update**: `TablesInsert<'my_table'>`, `TablesUpdate<'my_table'>`

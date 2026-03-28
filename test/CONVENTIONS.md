@@ -1,6 +1,6 @@
 ## SQL Test Error and Assertion Handling
 
-When writing SQL tests for `pg_regress` (executed via `./devops/manage-statbus.sh test ...`), it's crucial to handle errors and assertions correctly to ensure test isolation and clear reporting.
+When writing SQL tests for `pg_regress` (executed via `./dev.sh test ...`), it's crucial to handle errors and assertions correctly to ensure test isolation and clear reporting.
 
 See `test/sql/014_test_template_for_error_handling.sql` for runnable examples of these patterns.
 

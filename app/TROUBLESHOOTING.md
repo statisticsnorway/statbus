@@ -25,9 +25,9 @@ from origin 'http://localhost:3001' has been blocked by CORS policy
 ### ✅ DO: Use Docker for production testing
 
 ```bash
-./devops/manage-statbus.sh stop app
+./sb stop app
 docker compose build app --no-cache
-./devops/manage-statbus.sh start app
+./sb start app
 
 # Test at: http://local.statbus.org:3010
 ```
@@ -95,15 +95,15 @@ docker compose build app --no-cache
 
 ### Start Docker App for Production Testing
 ```bash
-./devops/manage-statbus.sh start app
+./sb start app
 # Access: http://local.statbus.org:3010
 ```
 
 ### Rebuild Docker App After Code Changes
 ```bash
-./devops/manage-statbus.sh stop app
+./sb stop app
 docker compose build app --no-cache
-./devops/manage-statbus.sh start app
+./sb start app
 ```
 
 ### Check Container Status
@@ -147,7 +147,7 @@ localStorage.setItem('debug', 'true')
 When you see CORS errors or API failures in production testing:
 
 1. **STOP** - You're probably using `pnpm run prod-local`
-2. **SWITCH** - Use Docker: `./devops/manage-statbus.sh start app`
+2. **SWITCH** - Use Docker: `./sb start app`
 3. **TEST** - Access `http://local.statbus.org:3010`
 
 Remember: **Unified URL = No CORS issues**

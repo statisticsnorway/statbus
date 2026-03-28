@@ -106,7 +106,7 @@ This pattern has several advantages:
 3. **Debuggability**: If the code does not behave as expected, then a test running in the same transaction can inspect those temporary tables to determine where the faulty logic lies.
 
 ## Database Inspection
-Use `psql` for direct database inspection and querying during development. For example, to list available import definitions: `echo 'SELECT slug, name FROM public.import_definition;' | ./devops/manage-statbus.sh psql`
+Use `psql` for direct database inspection and querying during development. For example, to list available import definitions: `echo 'SELECT slug, name FROM public.import_definition;' | ./sb psql`
 
 For a compact data model reference, see `doc/data-model.md`.
 
@@ -118,7 +118,7 @@ For a compact data model reference, see `doc/data-model.md`.
 
 ## SQL Testing
 Use pg_regress with `test/` as the base directory.
-Run tests via `./devops/manage-statbus.sh test [all|xx_the_test_name]`.
+Run tests via `./dev.sh test [all|xx_the_test_name]`.
 
 ### Transparent Error Testing (Avoid DO Blocks)
 DO blocks that catch exceptions hide what actually happens, violating fail-fast. If an operation silently affects 0 rows, the exception handler never fires and the test "passes" without testing anything.
@@ -168,7 +168,7 @@ All development work, especially bug fixing, must follow a rigorous, hypothesis-
 
 ### 4. Observe: Gather Empirical Evidence from the Prototype
 - **Action:** Run the verification script from Step 3. **Do not proceed until you have observed the results.** This step is mandatory.
-- **Standard Command**: `./devops/manage-statbus.sh psql < tmp/verify_fix.sql`
+- **Standard Command**: `./sb psql < tmp/verify_fix.sql`
 
 ### 5. Analyze & Refine: Analyze Prototype Results
 - **Action:** Carefully inspect the output from the verification script.
@@ -181,7 +181,7 @@ All development work, especially bug fixing, must follow a rigorous, hypothesis-
 
 ### 7. Validate: Run Full Regression Tests
 - **Action:** After applying the permanent changes, run the relevant test suite to ensure the fix works and has not introduced any regressions.
-- **Standard Command**: `./devops/manage-statbus.sh test [test_name]`
+- **Standard Command**: `./dev.sh test [test_name]`
 
 ### 8. Conclude: Update Documentation
 - **Action:** Only after the fix has been successfully validated in Step 7, update task tracking to mark the task as done.

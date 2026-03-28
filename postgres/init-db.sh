@@ -34,7 +34,7 @@ if [ ${#missing_vars[@]} -gt 0 ]; then
     done
     echo ""
     echo "These should be set in the .env file and passed via docker-compose."
-    echo "Run './devops/manage-statbus.sh generate-config' to create the .env file."
+    echo "Run './sb config generate' to create the .env file."
     exit 1
 fi
 

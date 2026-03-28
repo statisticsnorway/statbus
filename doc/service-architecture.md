@@ -132,7 +132,7 @@ The system supports three deployment modes for the Caddy service, controlled by 
   CADDY_DEPLOYMENT_MODE=development
   ```
   ```bash
-  ./devops/manage-statbus.sh start all_except_app
+  ./sb start all_except_app
   ```
 
 ### 2. Private Mode
@@ -268,7 +268,7 @@ The Layer4 configuration uses TLS+SNI+ALPN matching but **not** the `postgres` p
 
 **Development Mode**:
 ```bash
-./devops/manage-statbus.sh psql
+./sb psql
 ```
 
 **Production/Private Mode** (from server):
@@ -333,7 +333,7 @@ For local Next.js development:
 
 1. **Start Backend Services in Development Mode**:
    ```bash
-   ./devops/manage-statbus.sh start all_except_app
+   ./sb start all_except_app
    ```
 
 2. **Run Next.js Locally**:
@@ -343,7 +343,7 @@ For local Next.js development:
    ```
 
 3. **Development Environment**:
-   - In `.env.config`, set `CADDY_DEPLOYMENT_MODE=development`. Run `./devops/manage-statbus.sh generate-config` to create/update `.env`.
+   - In `.env.config`, set `CADDY_DEPLOYMENT_MODE=development`. Run `./sb config generate` to create/update `.env`.
      - This sets `NEXT_PUBLIC_BROWSER_REST_URL` in `.env` to Caddy's host-accessible URL (e.g., `http://localhost:3010`).
      - It also sets `NODE_ENV=development` in `.env`, which is then used by the `statbus-{slot}-app` container.
    - The local Next.js app (started with `cd app && pnpm run dev` on your host machine) typically runs on `http://localhost:3000`. `NODE_ENV` for this process is usually `development` (set by Next.js CLI), and `RUNNING_IN_DOCKER` is not set.

@@ -21,10 +21,10 @@ SELECT id, state FROM worker.tasks LIMIT 5;
 EOF
 
 # Pipe to remote psql
-ssh statbus_demo "cd statbus && cat | ./devops/manage-statbus.sh psql" < tmp/query.sql
+ssh statbus_demo "cd statbus && cat | ./sb psql" < tmp/query.sql
 
 # Or for local psql
-./devops/manage-statbus.sh psql < tmp/query.sql
+./sb psql < tmp/query.sql
 ```
 
 This avoids quoting hell and creates a log of what was run.
