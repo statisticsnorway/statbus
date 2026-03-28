@@ -185,8 +185,8 @@ var releasePrereleaseCmd = &cobra.Command{
 		nextRC := highestRC + 1
 		tagName := fmt.Sprintf("%s.0-rc.%d", prefix, nextRC)
 
-		// Create tag (will be signed if tag.gpgsign=true)
-		_, err = upgrade.RunCommandOutput(projDir, "git", "tag", tagName)
+		// Create tag with message (avoids $EDITOR prompt when tag.gpgsign=true)
+		_, err = upgrade.RunCommandOutput(projDir, "git", "tag", "-m", "Pre-release "+tagName, tagName)
 		if err != nil {
 			return fmt.Errorf("creating tag %s: %w", tagName, err)
 		}
@@ -255,8 +255,8 @@ var releaseStableCmd = &cobra.Command{
 		nextPatch := highestPatch + 1
 		tagName := fmt.Sprintf("%s.%d", prefix, nextPatch)
 
-		// Create tag (will be signed if tag.gpgsign=true)
-		_, err = upgrade.RunCommandOutput(projDir, "git", "tag", tagName)
+		// Create tag with message (avoids $EDITOR prompt when tag.gpgsign=true)
+		_, err = upgrade.RunCommandOutput(projDir, "git", "tag", "-m", "Release "+tagName, tagName)
 		if err != nil {
 			return fmt.Errorf("creating tag %s: %w", tagName, err)
 		}
