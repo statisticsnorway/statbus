@@ -537,8 +537,67 @@ func (d *Daemon) discover(ctx context.Context) {
 		}
 	}
 
+	// Prune tags deleted upstream: remove from the tags array in the DB
+	// any tags that no longer exist in git. If all tags are removed,
+	// demote release_status back to 'commit'.
+	d.pruneDeletedTags(ctx, filtered)
+
 	if d.autoDL {
 		d.preDownloadImages(ctx)
+	}
+}
+
+// pruneDeletedTags removes tags from the upgrade table that no longer exist in git.
+// When a tag is deleted upstream, git fetch --prune-tags removes it locally.
+// This function syncs the database to match.
+func (d *Daemon) pruneDeletedTags(ctx context.Context, currentTags []GitTag) {
+	// Build set of tags that exist in git
+	gitTags := make(map[string]bool, len(currentTags))
+	for _, t := range currentTags {
+		gitTags[t.TagName] = true
+	}
+
+	// Find rows with tags that no longer exist
+	rows, err := d.queryConn.Query(ctx,
+		`SELECT id, tags FROM public.upgrade WHERE array_length(tags, 1) > 0`)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id int
+		var tags []string
+		if err := rows.Scan(&id, &tags); err != nil {
+			continue
+		}
+
+		// Filter to only tags that still exist in git
+		var kept []string
+		for _, tag := range tags {
+			if gitTags[tag] {
+				kept = append(kept, tag)
+			}
+		}
+
+		if len(kept) == len(tags) {
+			continue // nothing pruned
+		}
+
+		// Update the row: remove deleted tags, demote status if all tags gone
+		newStatus := "commit"
+		for _, tag := range kept {
+			if !strings.Contains(tag, "-") {
+				newStatus = "release"
+				break
+			}
+			newStatus = "prerelease"
+		}
+
+		d.queryConn.Exec(ctx,
+			`UPDATE public.upgrade SET tags = $1, release_status = $2::public.release_status_type WHERE id = $3`,
+			kept, newStatus, id)
+		fmt.Printf("Pruned deleted tags from upgrade %d: %v → %v (status: %s)\n", id, tags, kept, newStatus)
 	}
 }
 

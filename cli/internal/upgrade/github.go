@@ -312,8 +312,9 @@ type GitTag struct {
 // DiscoverTagsViaGit fetches tags from the remote and returns parsed version tags.
 // Uses git protocol — no API rate limit, works without GITHUB_TOKEN.
 func DiscoverTagsViaGit(projDir string) ([]GitTag, error) {
-	// Fetch latest tags from remote
-	if err := runCommand(projDir, "git", "fetch", "--tags", "--force", "--quiet"); err != nil {
+	// Fetch latest tags from remote, pruning tags deleted upstream.
+	// Without --prune-tags, deleted tags persist locally forever.
+	if err := runCommand(projDir, "git", "fetch", "--tags", "--prune-tags", "--force", "--quiet"); err != nil {
 		return nil, fmt.Errorf("git fetch --tags: %w", err)
 	}
 
