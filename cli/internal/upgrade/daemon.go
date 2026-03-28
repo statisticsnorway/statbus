@@ -502,19 +502,31 @@ func (d *Daemon) discover(ctx context.Context) {
 			continue
 		}
 
+		// Determine release_status based on tag format and manifest availability.
+		// Tags with "-" are prereleases, without "-" are full releases.
+		// If the release manifest isn't available yet (CI still building), downgrade to "commit".
+		targetStatus := "prerelease"
+		if !t.Prerelease {
+			targetStatus = "release"
+		}
+		// Check if release artifacts exist
+		if _, err := FetchManifest(t.TagName); err != nil {
+			targetStatus = "commit" // manifest not available yet
+		}
+
 		// has_migrations will be determined from the manifest during actual upgrade.
 		// For now, default to false — the manifest check happens in executeUpgrade.
-		// ON CONFLICT: add tag to array if not already present, ensure is_release=true.
+		// ON CONFLICT: add tag to array if not already present, promote release_status.
 		result, err := d.queryConn.Exec(ctx,
-			`INSERT INTO public.upgrade (commit_sha, committed_at, tags, is_release, is_prerelease, summary, has_migrations)
-			 VALUES ($1, $2, ARRAY[$3]::text[], true, $4, $5, false)
+			`INSERT INTO public.upgrade (commit_sha, committed_at, tags, release_status, summary, has_migrations)
+			 VALUES ($1, $2, ARRAY[$3]::text[], $4::public.release_status_type, $5, false)
 			 ON CONFLICT (commit_sha) DO UPDATE SET
 			   tags = CASE WHEN $3 = ANY(upgrade.tags) THEN upgrade.tags
 			               ELSE array_append(upgrade.tags, $3) END,
-			   is_release = true,
-			   is_prerelease = EXCLUDED.is_prerelease
-			 WHERE NOT ($3 = ANY(upgrade.tags)) OR upgrade.is_release = false`,
-			t.CommitSHA, t.PublishedAt, t.TagName, t.Prerelease, t.TagName)
+			   release_status = GREATEST(upgrade.release_status, EXCLUDED.release_status)
+			 WHERE NOT ($3 = ANY(upgrade.tags))
+			    OR upgrade.release_status < EXCLUDED.release_status`,
+			t.CommitSHA, t.PublishedAt, t.TagName, targetStatus, t.TagName)
 		if err != nil {
 			fmt.Printf("Failed to record release %s: %v\n", t.TagName, err)
 			continue

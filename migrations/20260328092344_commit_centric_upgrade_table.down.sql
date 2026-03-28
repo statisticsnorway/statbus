@@ -6,13 +6,19 @@ BEGIN;
 DROP TRIGGER IF EXISTS upgrade_notify_daemon_trigger ON public.upgrade;
 DROP TRIGGER IF EXISTS upgrade_notify_frontend_trigger ON public.upgrade;
 
--- Drop the new table
+-- Drop computed column before dropping the table (depends on upgrade row type)
+DROP FUNCTION IF EXISTS public.display_name(public.upgrade);
+
+-- Drop the new table (CASCADE drops RLS policies, constraints, indexes)
 DROP TABLE IF EXISTS public.upgrade CASCADE;
 
 -- Drop functions
 DROP FUNCTION IF EXISTS public.upgrade_notify_daemon();
 DROP FUNCTION IF EXISTS public.upgrade_notify_frontend();
 DROP FUNCTION IF EXISTS public.upgrade_request_check();
+
+-- Drop the release_status_type enum
+DROP TYPE IF EXISTS public.release_status_type;
 
 -- Restore upgrade_channel enum (with 'edge' value from migration 20260326161813)
 CREATE TYPE public.upgrade_channel AS ENUM ('stable', 'prerelease', 'pinned', 'edge');

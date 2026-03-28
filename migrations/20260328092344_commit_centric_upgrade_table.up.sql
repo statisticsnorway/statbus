@@ -18,6 +18,9 @@ DROP FUNCTION IF EXISTS public.upgrade_request_check();
 -- Drop the upgrade_channel enum (no longer needed — tags[] replaces it)
 DROP TYPE IF EXISTS public.upgrade_channel;
 
+-- Enum for release status (replaces is_release + is_prerelease booleans)
+CREATE TYPE public.release_status_type AS ENUM ('commit', 'prerelease', 'release');
+
 -- New commit-centric schema
 CREATE TABLE public.upgrade (
     id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -25,8 +28,7 @@ CREATE TABLE public.upgrade (
     committed_at TIMESTAMPTZ NOT NULL,
     position INTEGER,
     tags TEXT[] NOT NULL DEFAULT '{}',
-    is_release BOOLEAN NOT NULL DEFAULT FALSE,
-    is_prerelease BOOLEAN NOT NULL DEFAULT FALSE,
+    release_status public.release_status_type NOT NULL DEFAULT 'commit',
     summary TEXT NOT NULL,
     changes TEXT,
     release_url TEXT,
@@ -47,7 +49,7 @@ COMMENT ON TABLE public.upgrade IS
     'Commit-centric software upgrade lifecycle. Each row is a commit (which may '
     'also be a tagged release). Populated by upgrade daemon, managed by admin. '
     'tags[] holds git tags on this commit (e.g. v0.78.0-rc.1). '
-    'is_release/is_prerelease derived from tags. '
+    'release_status derived from tags: commit (no release tag), prerelease, or release. '
     'To accept: SET scheduled_at. To unschedule: SET scheduled_at = NULL. '
     'To retry after failure: SET started_at = NULL, error = NULL, scheduled_at = now().';
 
@@ -66,6 +68,21 @@ CREATE POLICY upgrade_authenticated_view ON public.upgrade
 GRANT SELECT ON public.upgrade TO authenticated;
 GRANT SELECT ON public.upgrade TO regular_user;
 GRANT ALL ON public.upgrade TO admin_user;
+
+-- PostgREST computed column: best display name for a commit
+CREATE FUNCTION public.display_name(u public.upgrade)
+RETURNS text LANGUAGE sql STABLE AS $$
+  SELECT COALESCE(
+    (SELECT t FROM unnest(u.tags) AS t WHERE t NOT LIKE '%-%' LIMIT 1),
+    u.tags[array_upper(u.tags, 1)],
+    'sha-' || left(u.commit_sha, 12)
+  );
+$$;
+
+COMMENT ON FUNCTION public.display_name(public.upgrade) IS
+'PostgREST computed column. Returns the best display name: '
+'stable tag > last tag > short SHA. '
+'Usage: GET /rest/upgrade?select=*,display_name';
 
 -- Trigger: notify daemon when scheduled_at is set (sends commit_sha as payload)
 CREATE OR REPLACE FUNCTION public.upgrade_notify_daemon()

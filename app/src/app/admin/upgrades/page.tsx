@@ -46,7 +46,8 @@ interface Upgrade {
   committed_at: string;
   position: number | null;
   tags: string[];
-  is_release: boolean;
+  release_status: 'commit' | 'prerelease' | 'release';
+  display_name: string;
   summary: string;
   changes: string | null;
   release_url: string | null;
@@ -61,9 +62,6 @@ interface Upgrade {
   images_downloaded: boolean;
   backup_path: string | null;
 }
-
-const displayName = (u: Upgrade) =>
-  u.tags.length > 0 ? u.tags[u.tags.length - 1] : `sha-${u.commit_sha.substring(0, 12)}`;
 
 interface SystemInfo {
   key: string;
@@ -151,7 +149,7 @@ export default function UpgradesPage() {
     error,
     mutate,
   } = useSWR<Upgrade[]>(
-    "/rest/upgrade?order=position.desc.nullslast,committed_at.desc&limit=20",
+    "/rest/upgrade?select=*,display_name&order=position.desc.nullslast,committed_at.desc&limit=20",
     fetcher,
     { refreshInterval: 30000 },
   );
@@ -443,14 +441,18 @@ function UpgradeCard({
             <CardTitle className="text-base flex items-center gap-2">
               {u.release_url ? (
                 <a href={u.release_url} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                  {displayName(u)}
+                  {u.display_name}
                 </a>
               ) : (
-                displayName(u)
+                u.display_name
               )}
-              {!u.is_release && (
-                <Badge variant="outline" className="text-xs">
-                  pre-release
+              {u.release_status !== 'release' && (
+                <Badge variant="outline" className={
+                  u.release_status === 'prerelease'
+                    ? "text-xs border-blue-300 text-blue-600"
+                    : "text-xs border-gray-300 text-gray-500"
+                }>
+                  {u.release_status === 'prerelease' ? 'pre-release' : 'commit'}
                 </Badge>
               )}
               {u.has_migrations && (
@@ -524,7 +526,7 @@ function UpgradeCard({
                   <AlertDialogHeader>
                     <AlertDialogTitle>Confirm Upgrade</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This will schedule an immediate upgrade to {displayName(u)}.
+                      This will schedule an immediate upgrade to {u.display_name}.
                       {u.has_migrations &&
                         " This version includes database migrations."}
                       <br />
@@ -582,7 +584,7 @@ function UpgradeCard({
               {u.release_url && (
                 <Button size="sm" variant="ghost" asChild>
                   <a
-                    href={`https://github.com/statisticsnorway/statbus/issues/new?title=${encodeURIComponent(`Upgrade failed: ${displayName(u)}`)}&body=${encodeURIComponent(`## Upgrade Failure Report\n\n**Version:** ${displayName(u)}\n**Commit:** ${u.commit_sha}\n**From:** ${u.from_version ?? "unknown"}\n**Error:** ${u.error}\n**Date:** ${u.started_at}`)}`}
+                    href={`https://github.com/statisticsnorway/statbus/issues/new?title=${encodeURIComponent(`Upgrade failed: ${u.display_name}`)}&body=${encodeURIComponent(`## Upgrade Failure Report\n\n**Version:** ${u.display_name}\n**Commit:** ${u.commit_sha}\n**From:** ${u.from_version ?? "unknown"}\n**Error:** ${u.error}\n**Date:** ${u.started_at}`)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                   >

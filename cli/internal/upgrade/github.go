@@ -323,7 +323,7 @@ func DiscoverTagsViaGit(projDir string) ([]GitTag, error) {
 	// %(creatordate:iso-strict) is the tag creation timestamp.
 	out, err := runCommandOutput(projDir, "git", "tag", "-l", "v*",
 		"--sort=-version:refname",
-		"--format=%(refname:short)\t%(*objectname)\t%(objectname)\t%(creatordate:iso-strict)")
+		"--format=%(refname:short)\t%(*objectname)\t%(objectname)\t%(creatordate:iso-strict)\t%(*committerdate:iso-strict)")
 	if err != nil {
 		return nil, fmt.Errorf("git tag -l: %w", err)
 	}
@@ -333,7 +333,7 @@ func DiscoverTagsViaGit(projDir string) ([]GitTag, error) {
 		if line == "" {
 			continue
 		}
-		parts := strings.SplitN(line, "\t", 4)
+		parts := strings.SplitN(line, "\t", 5)
 		if len(parts) < 4 {
 			continue
 		}
@@ -345,6 +345,10 @@ func DiscoverTagsViaGit(projDir string) ([]GitTag, error) {
 			commitSHA = parts[2]
 		}
 		publishedAt, _ := time.Parse(time.RFC3339, parts[3])
+		if len(parts) > 4 && parts[4] != "" {
+			// Annotated tag: use the dereferenced commit date
+			publishedAt, _ = time.Parse(time.RFC3339, parts[4])
+		}
 
 		if !ValidateVersion(tagName) {
 			continue
