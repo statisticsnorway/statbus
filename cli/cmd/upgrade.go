@@ -423,6 +423,79 @@ func sshKeyFingerprint(key string) string {
 	return strings.TrimSpace(string(out))
 }
 
+// fetchGitHubKeys fetches SSH public keys for a GitHub user and returns them as a slice.
+func fetchGitHubKeys(username string) ([]string, error) {
+	url := fmt.Sprintf("https://github.com/%s.keys", username)
+
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("fetch keys from %s: %w", url, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 404 {
+		return nil, fmt.Errorf("GitHub user %q not found (404 from %s)", username, url)
+	}
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("unexpected status %d from %s", resp.StatusCode, url)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response: %w", err)
+	}
+
+	var keys []string
+	scanner := bufio.NewScanner(strings.NewReader(string(body)))
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line != "" {
+			keys = append(keys, line)
+		}
+	}
+
+	if len(keys) == 0 {
+		return nil, fmt.Errorf("no SSH keys found for github.com/%s", username)
+	}
+
+	return keys, nil
+}
+
+// trustSignerInteractive fetches keys for a GitHub user, displays them, prompts for
+// confirmation, and stores the key in the given dotenv file. Returns true if a key was trusted.
+func trustSignerInteractive(username string, f *dotenv.File, reader *bufio.Reader) (bool, error) {
+	fmt.Printf("\nFetching SSH keys from GitHub for %s...\n", username)
+	keys, err := fetchGitHubKeys(username)
+	if err != nil {
+		return false, err
+	}
+
+	fmt.Printf("Found %d key(s) for github.com/%s:\n", len(keys), username)
+	for _, key := range keys {
+		fingerprint := sshKeyFingerprint(key)
+		fmt.Printf("  %s\n", fingerprint)
+	}
+
+	fmt.Printf("\nTrust key(s) from github.com/%s? [Y/n] ", username)
+	answer, _ := reader.ReadString('\n')
+	answer = strings.TrimSpace(strings.ToLower(answer))
+	if answer == "n" || answer == "no" {
+		return false, nil
+	}
+
+	envKey := trustedSignerPrefix + username
+	f.Set(envKey, keys[0])
+	if err := f.Save(); err != nil {
+		return false, fmt.Errorf("save .env.config: %w", err)
+	}
+
+	fmt.Printf("Added %s to .env.config\n", envKey)
+	if len(keys) > 1 {
+		fmt.Printf("Note: only the first key was stored. Add others manually if needed.\n")
+	}
+	return true, nil
+}
+
 // trustedSignerPrefix is the env key prefix for trusted signers.
 const trustedSignerPrefix = "UPGRADE_TRUSTED_SIGNER_"
 
@@ -472,53 +545,6 @@ var trustKeyAddCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		username := args[0]
-		url := fmt.Sprintf("https://github.com/%s.keys", username)
-
-		resp, err := http.Get(url)
-		if err != nil {
-			return fmt.Errorf("fetch keys from %s: %w", url, err)
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode == 404 {
-			return fmt.Errorf("GitHub user %q not found (404 from %s)", username, url)
-		}
-		if resp.StatusCode != 200 {
-			return fmt.Errorf("unexpected status %d from %s", resp.StatusCode, url)
-		}
-
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return fmt.Errorf("read response: %w", err)
-		}
-
-		var keys []string
-		scanner := bufio.NewScanner(strings.NewReader(string(body)))
-		for scanner.Scan() {
-			line := strings.TrimSpace(scanner.Text())
-			if line != "" {
-				keys = append(keys, line)
-			}
-		}
-
-		if len(keys) == 0 {
-			return fmt.Errorf("no SSH keys found for github.com/%s", username)
-		}
-
-		fmt.Printf("Found %d key(s) for github.com/%s:\n", len(keys), username)
-		for i, key := range keys {
-			fingerprint := sshKeyFingerprint(key)
-			fmt.Printf("  [%d] %s\n", i+1, fingerprint)
-		}
-
-		fmt.Printf("\nTrust %d key(s) from github.com/%s? [y/N] ", len(keys), username)
-		reader := bufio.NewReader(os.Stdin)
-		answer, _ := reader.ReadString('\n')
-		answer = strings.TrimSpace(strings.ToLower(answer))
-		if answer != "y" && answer != "yes" {
-			fmt.Println("Cancelled.")
-			return nil
-		}
 
 		projDir := config.ProjectDir()
 		configPath := filepath.Join(projDir, ".env.config")
@@ -527,15 +553,13 @@ var trustKeyAddCmd = &cobra.Command{
 			return fmt.Errorf("load .env.config: %w", err)
 		}
 
-		envKey := trustedSignerPrefix + username
-		f.Set(envKey, keys[0])
-		if err := f.Save(); err != nil {
-			return fmt.Errorf("save .env.config: %w", err)
+		reader := bufio.NewReader(os.Stdin)
+		trusted, err := trustSignerInteractive(username, f, reader)
+		if err != nil {
+			return err
 		}
-
-		fmt.Printf("Added %s=%s... to .env.config\n", envKey, keys[0][:min(40, len(keys[0]))])
-		if len(keys) > 1 {
-			fmt.Printf("Note: only the first key was stored. Add others manually if needed.\n")
+		if !trusted {
+			fmt.Println("Cancelled.")
 		}
 		return nil
 	},

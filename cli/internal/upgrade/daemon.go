@@ -492,9 +492,7 @@ func (d *Daemon) verifyCommitSignature(sha string) error {
 		return nil
 	}
 
-	if d.verbose {
-		fmt.Printf("Commit %s signature verified: %s\n", sha[:12], strings.TrimSpace(out))
-	}
+	fmt.Printf("Commit %s signature verified: %s\n", sha[:12], strings.TrimSpace(out))
 	return nil
 }
 
@@ -568,16 +566,12 @@ func (d *Daemon) cleanStaleMaintenance(ctx context.Context) {
 	err := d.queryConn.QueryRow(ctx,
 		"SELECT COUNT(*) FROM public.upgrade WHERE started_at IS NOT NULL AND completed_at IS NULL AND error IS NULL").Scan(&count)
 	if err != nil {
-		if d.verbose {
-			fmt.Printf("Cannot check upgrade status (DB error: %v), leaving maintenance file\n", err)
-		}
+		fmt.Printf("Cannot check upgrade status (DB error: %v), leaving maintenance file\n", err)
 		return
 	}
 	if count == 0 {
 		os.Remove(maintenanceFile)
-		if d.verbose {
-			fmt.Println("Cleaned stale maintenance file")
-		}
+		fmt.Println("Cleaned stale maintenance file")
 	}
 }
 
@@ -784,9 +778,7 @@ func (d *Daemon) preDownloadImages(ctx context.Context) {
 			continue
 		}
 
-		if d.verbose {
-			fmt.Printf("Pre-downloading images for %s...\n", displayName)
-		}
+		fmt.Printf("Pre-downloading images for %s...\n", displayName)
 
 		// pullImages needs a version for the VERSION env var — use display name (tag or sha-prefix)
 		if err := d.pullImages(displayName); err != nil {

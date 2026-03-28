@@ -96,6 +96,7 @@ func runInstall() error {
 		{"Migrations", checkMigrationsDone, runMigrations},
 		{"JWT secret", checkJWTDone, runLoadJWT},
 		{"Users", checkUsersDone, runCreateUsers},
+		{"Trusted signers", checkSignersDone, runTrustSigners},
 		{"Upgrade daemon", checkDaemonDone, runInstallDaemon},
 	}
 
@@ -442,6 +443,79 @@ func runLoadJWT(dir string) error {
 func runCreateUsers(dir string) error {
 	sb := filepath.Join(dir, "sb")
 	return runCmdDir(dir, sb, "users", "create")
+}
+
+func checkSignersDone(dir string) bool {
+	cfgPath := filepath.Join(dir, ".env.config")
+	f, err := dotenv.Load(cfgPath)
+	if err != nil {
+		return false
+	}
+	for _, key := range f.Keys() {
+		if strings.HasPrefix(key, trustedSignerPrefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func runTrustSigners(dir string) error {
+	if nonInteractive {
+		fmt.Println("  Skipping signer trust (non-interactive mode)")
+		fmt.Println("  Add trusted signers later with: ./sb upgrade trust-key add <github-username>")
+		return nil
+	}
+
+	cfgPath := filepath.Join(dir, ".env.config")
+	f, err := dotenv.Load(cfgPath)
+	if err != nil {
+		return fmt.Errorf("load .env.config: %w", err)
+	}
+
+	reader := bufio.NewReader(os.Stdin)
+	defaultSigner := "jhf"
+
+	fmt.Println()
+	fmt.Println("  StatBus recommends trusting the following release signer:")
+	fmt.Printf("    %s (Jorgen H. Fjeld) -- https://github.com/%s\n", defaultSigner, defaultSigner)
+
+	trusted, err := trustSignerInteractive(defaultSigner, f, reader)
+	if err != nil {
+		fmt.Printf("  Warning: could not fetch keys for %s: %v\n", defaultSigner, err)
+		fmt.Println("  You can add trusted signers later with: ./sb upgrade trust-key add <github-username>")
+		return nil // Non-fatal: don't block installation
+	}
+	if !trusted {
+		fmt.Println("  Skipped. You can add trusted signers later with: ./sb upgrade trust-key add <github-username>")
+		return nil
+	}
+
+	// Offer to add additional signers
+	for {
+		fmt.Print("\n  Add additional trusted signer? (GitHub username, or Enter to skip): ")
+		username, _ := reader.ReadString('\n')
+		username = strings.TrimSpace(username)
+		if username == "" {
+			break
+		}
+
+		// Reload the file in case trustSignerInteractive saved changes
+		f, err = dotenv.Load(cfgPath)
+		if err != nil {
+			return fmt.Errorf("reload .env.config: %w", err)
+		}
+
+		trusted, err := trustSignerInteractive(username, f, reader)
+		if err != nil {
+			fmt.Printf("  Warning: could not fetch keys for %s: %v\n", username, err)
+			continue
+		}
+		if !trusted {
+			fmt.Println("  Skipped.")
+		}
+	}
+
+	return nil
 }
 
 func runInstallDaemon(dir string) error {
