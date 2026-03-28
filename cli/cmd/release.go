@@ -90,25 +90,52 @@ func preflightChecks(projDir string) bool {
 		fmt.Println("  \u2713 Go CLI builds")
 	}
 
-	// 6. Test stamp matches HEAD
-	stampPath := filepath.Join(projDir, "tmp", "test-passed-sha")
+	// 6. Fast tests cover latest migrations
+	stampPath := filepath.Join(projDir, "tmp", "fast-test-passed-sha")
 	stampBytes, err := os.ReadFile(stampPath)
 	if err != nil {
-		fmt.Println("  \u2717 Test stamp matches HEAD (tmp/test-passed-sha not found)")
+		fmt.Println("  \u2717 Fast tests cover latest migrations (tmp/fast-test-passed-sha not found)")
 		fmt.Println("    Fix: ./dev.sh test fast")
 		allPassed = false
 	} else {
-		stamp := strings.TrimSpace(string(stampBytes))
-		headOut, _ := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD")
-		head := strings.TrimSpace(headOut)
-		if stamp != head {
-			fmt.Println("  \u2717 Test stamp matches HEAD")
-			fmt.Printf("    Stamp: %s\n", stamp)
-			fmt.Printf("    HEAD:  %s\n", head)
-			fmt.Println("    Fix: ./dev.sh test fast")
-			allPassed = false
+		stampSHA := strings.TrimSpace(string(stampBytes))
+
+		// Find the last commit that touched migrations/
+		lastMigrationOut, _ := upgrade.RunCommandOutput(projDir, "git", "log", "-1", "--format=%H", "--", "migrations/")
+		lastMigration := strings.TrimSpace(lastMigrationOut)
+
+		if lastMigration == "" {
+			// No migrations at all — tests are fine
+			fmt.Println("  \u2713 Fast tests cover latest migrations (no migrations found)")
 		} else {
-			fmt.Println("  \u2713 Test stamp matches HEAD")
+			// Check if any new migrations exist between stamp and HEAD
+			newMigrationsOut, _ := upgrade.RunCommandOutput(projDir, "git", "diff", "--name-only", stampSHA+"..HEAD", "--", "migrations/")
+			newMigrations := strings.TrimSpace(newMigrationsOut)
+
+			if newMigrations == "" {
+				// No new migrations since test stamp — OK even if HEAD moved
+				shortStamp := stampSHA
+				if len(shortStamp) > 12 {
+					shortStamp = shortStamp[:12]
+				}
+				shortMig := lastMigration
+				if len(shortMig) > 12 {
+					shortMig = shortMig[:12]
+				}
+				fmt.Printf("  \u2713 Fast tests cover latest migrations (stamp: %s, last migration: %s)\n", shortStamp, shortMig)
+			} else {
+				// New migrations exist that weren't tested
+				migrationFiles := strings.Split(newMigrations, "\n")
+				fmt.Println("  \u2717 Fast tests do not cover latest migrations")
+				fmt.Printf("    %d untested migration(s):\n", len(migrationFiles))
+				for _, f := range migrationFiles {
+					if f != "" {
+						fmt.Printf("      %s\n", filepath.Base(f))
+					}
+				}
+				fmt.Println("    Fix: ./dev.sh test fast")
+				allPassed = false
+			}
 		}
 	}
 

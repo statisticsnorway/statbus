@@ -35,7 +35,6 @@ type Daemon struct {
 	cachedURL      string           // cached health check URL (derived from .env at startup)
 	listenCancel context.CancelFunc // cancels the listenLoop goroutine
 	listenWg     sync.WaitGroup     // tracks listenLoop goroutine lifetime
-	requireSigning bool            // if true, reject unsigned commits (UPGRADE_REQUIRE_SIGNING)
 	allowedSignersPath string      // path to tmp/allowed-signers file (empty if no signers configured)
 }
 
@@ -401,19 +400,14 @@ func (d *Daemon) loadConfig() error {
 }
 
 // loadTrustedSigners reads UPGRADE_TRUSTED_SIGNER_* keys from .env and
-// writes an allowed-signers file for git verify-commit. Also reads
-// UPGRADE_REQUIRE_SIGNING to control enforcement.
+// writes an allowed-signers file for git verify-commit.
+// Signing enforcement is determined by key presence: if keys are configured,
+// verification is enforced. If no keys, verification is skipped with a warning.
 func (d *Daemon) loadTrustedSigners() error {
 	envPath := filepath.Join(d.projDir, ".env")
 	f, err := dotenv.Load(envPath)
 	if err != nil {
 		return fmt.Errorf("load .env for signers: %w", err)
-	}
-
-	// Check enforcement setting
-	d.requireSigning = false
-	if v, ok := f.Get("UPGRADE_REQUIRE_SIGNING"); ok {
-		d.requireSigning = v == "true"
 	}
 
 	// Collect trusted signers
@@ -441,9 +435,6 @@ func (d *Daemon) loadTrustedSigners() error {
 	}
 
 	if len(signerLines) == 0 {
-		if d.requireSigning {
-			return fmt.Errorf("no trusted signers configured (UPGRADE_TRUSTED_SIGNER_*), daemon refuses to start")
-		}
 		fmt.Println("Warning: no trusted signers configured (UPGRADE_TRUSTED_SIGNER_*), commit signature verification disabled")
 		d.allowedSignersPath = ""
 		return nil
@@ -463,20 +454,17 @@ func (d *Daemon) loadTrustedSigners() error {
 		fmt.Printf("Warning: could not set git gpg.ssh.allowedSignersFile: %v\n", err)
 	}
 
-	fmt.Printf("Commit signature verification enabled (%d trusted signer(s), require=%v)\n", len(signerLines), d.requireSigning)
+	fmt.Printf("Commit signature verification enabled (%d trusted signer(s))\n", len(signerLines))
 	return nil
 }
 
 // verifyCommitSignature verifies an SSH signature on a git commit.
 // Returns nil if the signature is valid and trusted.
-// If no signers are configured and requireSigning is false, returns nil (permissive).
-// If the commit is unsigned and requireSigning is false, logs a warning and returns nil.
+// If no signers are configured (allowedSignersPath is empty), skips verification.
+// If signers ARE configured, enforces — unsigned/untrusted commits are rejected.
 func (d *Daemon) verifyCommitSignature(sha string) error {
 	if d.allowedSignersPath == "" {
 		// No signers configured — skip verification
-		if d.requireSigning {
-			return fmt.Errorf("no trusted signers configured but signing is required")
-		}
 		return nil
 	}
 
@@ -484,12 +472,7 @@ func (d *Daemon) verifyCommitSignature(sha string) error {
 		fmt.Sprintf("gpg.ssh.allowedSignersFile=%s", d.allowedSignersPath),
 		"verify-commit", sha)
 	if err != nil {
-		if d.requireSigning {
-			return fmt.Errorf("commit %s signature verification failed: %s", sha[:12], strings.TrimSpace(out))
-		}
-		// Transition period: warn but don't block
-		fmt.Printf("Warning: commit %s signature verification failed (not enforced): %s\n", sha[:12], strings.TrimSpace(out))
-		return nil
+		return fmt.Errorf("commit %s signature verification failed: %s", sha[:12], strings.TrimSpace(out))
 	}
 
 	fmt.Printf("Commit %s signature verified: %s\n", sha[:12], strings.TrimSpace(out))

@@ -84,6 +84,25 @@ The JWT auth system was independently reviewed and found **SECURE** across all c
 - PostgREST bypass resistance: verified
 - SQL injection protection: verified
 
+## Application Isolation
+
+The Next.js application has **no elevated database access**. It connects to PostgREST using the same JWT tokens as any external API consumer. There is no server-side database password, no admin connection string, no backdoor.
+
+This means:
+
+- **A compromised application cannot escalate privileges.** Even if an attacker gains full control of the Next.js process, they can only make requests as the currently authenticated user. The database enforces Row Level Security on every query.
+
+- **SQL injection is contained.** In the unlikely event of a SQL injection vulnerability in an API route, the injected SQL executes with the authenticated user's permissions — not as a database superuser. The attacker cannot access other users' data, modify system tables, or bypass RLS policies.
+
+- **The database is the security boundary, not the application.** PostgREST validates JWT tokens and switches to the user's database role before executing any query. The application is a thin client that formats requests and renders responses. Security does not depend on application logic being correct.
+
+This architecture is fundamentally different from traditional applications where the backend connects to the database with a shared privileged credential. In StatBus, there is no shared credential to steal.
+
+The only exceptions are two performance-optimized API routes (`/api/import/upload` and `/api/import/download`) that use direct PostgreSQL connections. These routes:
+1. Authenticate via the same JWT cookie
+2. Call `auth.jwt_switch_role()` to assume the user's database role **before** starting any transaction
+3. Operate under the same RLS policies as PostgREST
+
 ## Key Management Procedures
 
 ### Adding a New Signer

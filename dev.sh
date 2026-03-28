@@ -358,8 +358,8 @@ EOF
 
         if [ $OVERALL_EXIT_CODE -eq 0 ] && git diff --quiet 2>/dev/null && git diff --cached --quiet 2>/dev/null; then
             mkdir -p "$WORKSPACE/tmp"
-            git rev-parse HEAD > "$WORKSPACE/tmp/test-passed-sha"
-            echo "Test stamp recorded: $(cat "$WORKSPACE/tmp/test-passed-sha")"
+            git rev-parse HEAD > "$WORKSPACE/tmp/fast-test-passed-sha"
+            echo "Fast test stamp recorded: $(cat "$WORKSPACE/tmp/fast-test-passed-sha")"
         fi
 
         exit $OVERALL_EXIT_CODE
