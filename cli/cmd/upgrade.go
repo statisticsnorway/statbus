@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log/syslog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -184,6 +185,110 @@ Examples:
 
 		fmt.Printf("Sent: NOTIFY upgrade_apply, '%s'\n", payload)
 		fmt.Println("Upgrade daemon will execute this shortly")
+
+		if w, err := syslog.New(syslog.LOG_INFO, "statbus-upgrade"); err == nil {
+			w.Info(fmt.Sprintf("upgrade apply: sent NOTIFY upgrade_apply '%s'", payload))
+			w.Close()
+		}
+
+		return nil
+	},
+}
+
+var upgradeApplyLatestCmd = &cobra.Command{
+	Use:   "apply-latest",
+	Short: "Discover and apply the latest available version",
+	Long: `Fetches tags via git, finds the latest version matching the
+configured channel (prerelease/stable/edge), and tells the daemon
+to upgrade to it immediately.
+
+Used by deploy workflows — all logic is server-side, no workflow
+file changes needed.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		projDir := config.ProjectDir()
+
+		// 1. Load channel from .env
+		envPath := filepath.Join(projDir, ".env")
+		f, err := dotenv.Load(envPath)
+		if err != nil {
+			return fmt.Errorf("load .env: %w", err)
+		}
+		channel := "stable"
+		if v, ok := f.Get("UPGRADE_CHANNEL"); ok {
+			channel = v
+		}
+
+		var latestVersion string
+
+		if channel == "edge" {
+			// Edge: use latest master commit SHA
+			if _, err := upgrade.RunCommandOutput(projDir, "git", "fetch", "origin", "master", "--quiet"); err != nil {
+				return fmt.Errorf("git fetch origin master: %w", err)
+			}
+			sha, err := upgrade.RunCommandOutput(projDir, "git", "log", "origin/master", "-1", "--format=%H")
+			if err != nil {
+				return fmt.Errorf("git log origin/master: %w", err)
+			}
+			sha = strings.TrimSpace(sha)
+			if len(sha) < 7 {
+				return fmt.Errorf("unexpected git log output: %q", sha)
+			}
+			latestVersion = "sha-" + sha[:8]
+		} else {
+			// Stable or prerelease: find latest tag
+			if _, err := upgrade.RunCommandOutput(projDir, "git", "fetch", "--tags", "--quiet"); err != nil {
+				return fmt.Errorf("git fetch --tags: %w", err)
+			}
+			tagsOutput, err := upgrade.RunCommandOutput(projDir, "git", "tag", "-l", "v*", "--sort=-version:refname")
+			if err != nil {
+				return fmt.Errorf("git tag -l: %w", err)
+			}
+			tags := strings.Split(strings.TrimSpace(tagsOutput), "\n")
+			for _, tag := range tags {
+				tag = strings.TrimSpace(tag)
+				if tag == "" {
+					continue
+				}
+				if channel == "stable" && strings.Contains(tag, "-") {
+					// Stable: skip pre-release tags (contain "-")
+					continue
+				}
+				latestVersion = tag
+				break
+			}
+		}
+
+		if latestVersion == "" {
+			return fmt.Errorf("no matching version found for channel %q", channel)
+		}
+
+		if !upgrade.ValidateVersion(latestVersion) {
+			return fmt.Errorf("discovered version %q does not pass validation", latestVersion)
+		}
+
+		fmt.Printf("Channel %s: latest version is %s\n", channel, latestVersion)
+
+		// Send NOTIFY upgrade_apply
+		payload := latestVersion
+		if applyRecreate {
+			payload = latestVersion + ":recreate"
+		}
+		sql := fmt.Sprintf("NOTIFY upgrade_apply, '%s'",
+			strings.ReplaceAll(payload, "'", "''"))
+
+		out, err := runUpgradePsql(sql)
+		if err != nil {
+			return fmt.Errorf("apply-latest: %w\n%s", err, out)
+		}
+
+		fmt.Printf("Sent: NOTIFY upgrade_apply, '%s'\n", payload)
+		fmt.Println("Upgrade daemon will execute this shortly")
+
+		if w, err := syslog.New(syslog.LOG_INFO, "statbus-upgrade"); err == nil {
+			w.Info(fmt.Sprintf("upgrade apply-latest: sent NOTIFY upgrade_apply '%s' (channel=%s)", payload, channel))
+			w.Close()
+		}
+
 		return nil
 	},
 }
@@ -306,12 +411,14 @@ Channels:
 
 func init() {
 	upgradeApplyCmd.Flags().BoolVar(&applyRecreate, "recreate", false, "delete and recreate database from scratch (destructive — dev/demo only)")
+	upgradeApplyLatestCmd.Flags().BoolVar(&applyRecreate, "recreate", false, "delete and recreate database from scratch (destructive — dev/demo only)")
 
 	upgradeCmd.AddCommand(upgradeCheckCmd)
 	upgradeCmd.AddCommand(upgradeDiscoverCmd)
 	upgradeCmd.AddCommand(upgradeListCmd)
 	upgradeCmd.AddCommand(upgradeScheduleCmd)
 	upgradeCmd.AddCommand(upgradeApplyCmd)
+	upgradeCmd.AddCommand(upgradeApplyLatestCmd)
 	upgradeCmd.AddCommand(upgradeChannelCmd)
 	upgradeCmd.AddCommand(upgradeDaemonCmd)
 	upgradeCmd.AddCommand(upgradeSelfVerifyCmd)

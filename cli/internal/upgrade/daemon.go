@@ -2,6 +2,7 @@ package upgrade
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"os"
 	"os/exec"
@@ -207,9 +208,7 @@ func (d *Daemon) listenLoop(ctx context.Context, notifyCh chan<- *pgconn.Notific
 func (d *Daemon) handleNotification(ctx context.Context, n *pgconn.Notification) {
 	switch n.Channel {
 	case "upgrade_check":
-		if d.verbose {
-			fmt.Println("Received NOTIFY upgrade_check")
-		}
+		fmt.Println("Received NOTIFY upgrade_check")
 		d.discover(ctx)
 	case "upgrade_apply":
 		payload := strings.TrimSpace(n.Payload)
@@ -217,9 +216,7 @@ func (d *Daemon) handleNotification(ctx context.Context, n *pgconn.Notification)
 			// Empty payload = run whatever is scheduled
 			return
 		}
-		if d.verbose {
-			fmt.Printf("Received NOTIFY upgrade_apply: %s\n", payload)
-		}
+		fmt.Printf("Received NOTIFY upgrade_apply: %s\n", payload)
 		// Parse optional :recreate suffix (e.g., "v2026.03.0:recreate")
 		version := payload
 		recreate := false
@@ -257,23 +254,26 @@ func (d *Daemon) acquireAdvisoryLock(ctx context.Context) error {
 // the new version is running and verified.
 func (d *Daemon) completeInProgressUpgrade(ctx context.Context) {
 	var id int
-	var version string
+	var commitSHA string
+	var displayName string
 	err := d.queryConn.QueryRow(ctx,
-		`SELECT id, version FROM public.upgrade
+		`SELECT id, commit_sha,
+		        COALESCE(tags[array_upper(tags, 1)], 'sha-' || left(commit_sha, 12)) as display_name
+		 FROM public.upgrade
 		 WHERE started_at IS NOT NULL
 		   AND completed_at IS NULL
 		   AND error IS NULL
 		   AND rollback_completed_at IS NULL
-		 LIMIT 1`).Scan(&id, &version)
+		 LIMIT 1`).Scan(&id, &commitSHA, &displayName)
 	if err != nil {
 		return // no in-progress upgrade
 	}
 
-	fmt.Printf("Found in-progress upgrade to %s, verifying...\n", version)
+	fmt.Printf("Found in-progress upgrade to %s, verifying...\n", displayName)
 
 	// Verify services are healthy
 	if err := d.waitForDBHealth(30 * time.Second); err != nil {
-		fmt.Printf("Warning: in-progress upgrade %s health check failed: %v\n", version, err)
+		fmt.Printf("Warning: in-progress upgrade %s health check failed: %v\n", displayName, err)
 		d.queryConn.Exec(ctx,
 			"UPDATE public.upgrade SET error = $1 WHERE id = $2",
 			fmt.Sprintf("post-restart health check failed: %v", err), id)
@@ -285,10 +285,10 @@ func (d *Daemon) completeInProgressUpgrade(ctx context.Context) {
 		"UPDATE public.upgrade SET completed_at = now() WHERE id = $1", id)
 
 	// Skip older releases that are still "available" — no point upgrading to an older version
-	d.skipOlderReleases(ctx, version)
-	d.runUpgradeCallback(version)
+	d.skipOlderReleases(ctx, commitSHA)
+	d.runUpgradeCallback(displayName)
 
-	fmt.Printf("Upgrade to %s completed (verified after daemon restart)\n", version)
+	fmt.Printf("Upgrade to %s completed (verified after daemon restart)\n", displayName)
 }
 
 // syncConfigToSystemInfo writes UPGRADE_* values from .env to system_info.
@@ -317,71 +317,37 @@ func (d *Daemon) syncConfigToSystemInfo(ctx context.Context) {
 	}
 }
 
-// skipOlderReleases marks available releases older than the given version as skipped.
-// Uses git merge-base --is-ancestor to check commit ordering on the branch.
-// This is ground truth — works for CalVer tags and SHA versions alike.
-// Falls back to CompareVersions for CalVer tags, or discovery time for SHA versions.
-func (d *Daemon) skipOlderReleases(ctx context.Context, selectedVersion string) {
-	// Get the commit SHA and discovery time of the selected version
-	var selectedSHA string
-	var selectedDiscoveredAt time.Time
-	d.queryConn.QueryRow(ctx,
-		"SELECT commit_sha, discovered_at FROM public.upgrade WHERE version = $1", selectedVersion).
-		Scan(&selectedSHA, &selectedDiscoveredAt)
-
-	rows, err := d.queryConn.Query(ctx,
-		`SELECT id, version, commit_sha, discovered_at FROM public.upgrade
-		 WHERE completed_at IS NULL
-		   AND started_at IS NULL
-		   AND skipped_at IS NULL
-		   AND version != $1`,
-		selectedVersion)
+// skipOlderReleases marks available releases older than the selected commit as skipped.
+// Ordering is by position (topological order) then committed_at as fallback.
+func (d *Daemon) skipOlderReleases(ctx context.Context, selectedCommitSHA string) {
+	// Get the position/committed_at of the selected commit
+	var selectedPos sql.NullInt32
+	var selectedCommittedAt time.Time
+	err := d.queryConn.QueryRow(ctx,
+		"SELECT position, committed_at FROM public.upgrade WHERE commit_sha = $1",
+		selectedCommitSHA).Scan(&selectedPos, &selectedCommittedAt)
 	if err != nil {
 		return
 	}
-	defer rows.Close()
 
-	var toSkip []int
-	for rows.Next() {
-		var id int
-		var version, commitSHA string
-		var discoveredAt time.Time
-		if err := rows.Scan(&id, &version, &commitSHA, &discoveredAt); err != nil {
-			continue
-		}
-
-		older := false
-		// Try git ancestry first — is this commit an ancestor of the selected version?
-		if selectedSHA != "" && commitSHA != "" && selectedSHA != commitSHA {
-			err := runCommand(d.projDir, "git", "merge-base", "--is-ancestor", commitSHA, selectedSHA)
-			older = (err == nil) // exit 0 = is ancestor = older
-		}
-
-		// Fallback: semantic version comparison for CalVer tags
-		if !older {
-			cmp := CompareVersions(version, selectedVersion)
-			if cmp < 0 {
-				older = true
-			} else if cmp == 0 && version != selectedVersion {
-				// SHA versions return 0 (incomparable) — use discovery time as tiebreaker.
-				// Commits discovered at the same time or earlier are older.
-				older = !discoveredAt.After(selectedDiscoveredAt)
-			}
-		}
-
-		if older {
-			toSkip = append(toSkip, id)
-		}
-	}
-
-	if len(toSkip) == 0 {
+	// Skip all available entries that are older
+	result, err := d.queryConn.Exec(ctx,
+		`UPDATE public.upgrade SET skipped_at = now(), error = NULL
+		 WHERE completed_at IS NULL AND started_at IS NULL AND skipped_at IS NULL
+		   AND commit_sha != $1
+		   AND (
+		     (position IS NOT NULL AND $2::int IS NOT NULL AND position < $2)
+		     OR committed_at < $3
+		   )`,
+		selectedCommitSHA, selectedPos, selectedCommittedAt)
+	if err != nil {
+		fmt.Printf("Failed to skip older releases: %v\n", err)
 		return
 	}
 
-	for _, id := range toSkip {
-		d.queryConn.Exec(ctx, "UPDATE public.upgrade SET skipped_at = now(), error = NULL WHERE id = $1", id)
+	if result.RowsAffected() > 0 {
+		fmt.Printf("Skipped %d older release(s)\n", result.RowsAffected())
 	}
-	fmt.Printf("Skipped %d older release(s)\n", len(toSkip))
 }
 
 func (d *Daemon) loadConfig() error {
@@ -528,18 +494,6 @@ func (d *Daemon) discover(ctx context.Context) {
 	currentVersion := d.version
 
 	for _, t := range filtered {
-		var exists bool
-		err := d.queryConn.QueryRow(ctx,
-			"SELECT EXISTS(SELECT 1 FROM public.upgrade WHERE version = $1)",
-			t.TagName).Scan(&exists)
-		if err != nil {
-			fmt.Printf("  Check exists for %s: %v\n", t.TagName, err)
-			continue
-		}
-		if exists {
-			continue
-		}
-
 		// Skip releases older than or equal to what we're currently running.
 		if CompareVersions(t.TagName, currentVersion) <= 0 {
 			if d.verbose {
@@ -550,17 +504,25 @@ func (d *Daemon) discover(ctx context.Context) {
 
 		// has_migrations will be determined from the manifest during actual upgrade.
 		// For now, default to false — the manifest check happens in executeUpgrade.
-		_, err = d.queryConn.Exec(ctx,
-			`INSERT INTO public.upgrade (version, commit_sha, is_prerelease, summary, published_at, has_migrations)
-			 VALUES ($1, $2, $3, $4, $5, false)
-			 ON CONFLICT (version) DO NOTHING`,
-			t.TagName, t.CommitSHA, t.Prerelease, t.TagName, t.PublishedAt)
+		// ON CONFLICT: add tag to array if not already present, ensure is_release=true.
+		result, err := d.queryConn.Exec(ctx,
+			`INSERT INTO public.upgrade (commit_sha, committed_at, tags, is_release, is_prerelease, summary, has_migrations)
+			 VALUES ($1, $2, ARRAY[$3]::text[], true, $4, $5, false)
+			 ON CONFLICT (commit_sha) DO UPDATE SET
+			   tags = CASE WHEN $3 = ANY(upgrade.tags) THEN upgrade.tags
+			               ELSE array_append(upgrade.tags, $3) END,
+			   is_release = true,
+			   is_prerelease = EXCLUDED.is_prerelease
+			 WHERE NOT ($3 = ANY(upgrade.tags)) OR upgrade.is_release = false`,
+			t.CommitSHA, t.PublishedAt, t.TagName, t.Prerelease, t.TagName)
 		if err != nil {
 			fmt.Printf("Failed to record release %s: %v\n", t.TagName, err)
 			continue
 		}
 
-		fmt.Printf("Discovered: %s (%s)\n", t.TagName, t.PublishedAt.Format("2006-01-02"))
+		if result.RowsAffected() > 0 {
+			fmt.Printf("Discovered: %s (%s)\n", t.TagName, t.PublishedAt.Format("2006-01-02"))
+		}
 	}
 
 	if d.autoDL {
@@ -583,19 +545,18 @@ func (d *Daemon) discoverEdge(ctx context.Context) {
 	fmt.Printf("Edge discovery: %d recent commit(s) from master\n", len(commits))
 
 	for _, c := range commits {
-		version := "sha-" + c.SHA
 		summary := c.Summary
 		if len(summary) > 120 {
 			summary = summary[:120]
 		}
 
 		_, err := d.queryConn.Exec(ctx,
-			`INSERT INTO public.upgrade (version, commit_sha, is_prerelease, summary, published_at, has_migrations)
-			 VALUES ($1, $2, true, $3, $4, false)
-			 ON CONFLICT (version) DO NOTHING`,
-			version, c.SHA, summary, c.PublishedAt)
+			`INSERT INTO public.upgrade (commit_sha, committed_at, summary, has_migrations)
+			 VALUES ($1, $2, $3, false)
+			 ON CONFLICT (commit_sha) DO NOTHING`,
+			c.SHA, c.PublishedAt, summary)
 		if err != nil {
-			fmt.Printf("  Failed to record commit %s: %v\n", version, err)
+			fmt.Printf("  Failed to record commit %s: %v\n", c.SHA[:12], err)
 		}
 	}
 
@@ -606,7 +567,9 @@ func (d *Daemon) discoverEdge(ctx context.Context) {
 
 func (d *Daemon) preDownloadImages(ctx context.Context) {
 	rows, err := d.queryConn.Query(ctx,
-		`SELECT version FROM public.upgrade
+		`SELECT commit_sha,
+		        COALESCE(tags[array_upper(tags, 1)], 'sha-' || left(commit_sha, 12)) as display_name
+		 FROM public.upgrade
 		 WHERE images_downloaded = false AND skipped_at IS NULL AND error IS NULL
 		 ORDER BY discovered_at LIMIT 3`)
 	if err != nil {
@@ -615,36 +578,59 @@ func (d *Daemon) preDownloadImages(ctx context.Context) {
 	defer rows.Close()
 
 	for rows.Next() {
-		var version string
-		if err := rows.Scan(&version); err != nil {
+		var commitSHA, displayName string
+		if err := rows.Scan(&commitSHA, &displayName); err != nil {
 			continue
 		}
 
 		if d.verbose {
-			fmt.Printf("Pre-downloading images for %s...\n", version)
+			fmt.Printf("Pre-downloading images for %s...\n", displayName)
 		}
 
-		if err := d.pullImages(version); err != nil {
-			fmt.Printf("Pre-download failed for %s: %v\n", version, err)
+		// pullImages needs a version for the VERSION env var — use display name (tag or sha-prefix)
+		if err := d.pullImages(displayName); err != nil {
+			fmt.Printf("Pre-download failed for %s: %v\n", displayName, err)
 			continue
 		}
 
 		d.queryConn.Exec(ctx,
-			"UPDATE public.upgrade SET images_downloaded = true WHERE version = $1",
-			version)
+			"UPDATE public.upgrade SET images_downloaded = true WHERE commit_sha = $1",
+			commitSHA)
 	}
 }
 
-func (d *Daemon) scheduleImmediate(ctx context.Context, version string) {
-	// Reset lifecycle fields so a completed/failed version can be re-applied.
+func (d *Daemon) scheduleImmediate(ctx context.Context, versionOrSHA string) {
+	// Resolve to commit_sha
+	commitSHA := versionOrSHA
+	displayName := versionOrSHA
+	if strings.HasPrefix(versionOrSHA, "sha-") {
+		// It's a SHA reference — strip the prefix to get the raw SHA
+		commitSHA = strings.TrimPrefix(versionOrSHA, "sha-")
+	} else {
+		// It's a tag — look up the commit SHA from the database
+		err := d.queryConn.QueryRow(ctx,
+			"SELECT commit_sha FROM public.upgrade WHERE $1 = ANY(tags) LIMIT 1",
+			versionOrSHA).Scan(&commitSHA)
+		if err != nil {
+			// Not found in DB — try to resolve via git
+			sha, gitErr := runCommandOutput(d.projDir, "git", "rev-parse", versionOrSHA)
+			if gitErr != nil {
+				fmt.Printf("Cannot resolve %s to commit SHA: %v\n", versionOrSHA, gitErr)
+				return
+			}
+			commitSHA = strings.TrimSpace(sha)
+		}
+	}
+
+	// Reset lifecycle fields so a completed/failed upgrade can be re-applied.
 	// The WHERE clause prevents updating a row that's already scheduled and waiting
 	// to execute (scheduled_at IS NOT NULL AND started_at IS NULL). Without this guard,
 	// the UPDATE changes scheduled_at to now() → the upgrade_notify_daemon_trigger fires
 	// → sends NOTIFY upgrade_apply → daemon calls scheduleImmediate again → infinite loop.
 	result, err := d.queryConn.Exec(ctx,
-		`INSERT INTO public.upgrade (version, commit_sha, is_prerelease, summary, scheduled_at)
-		 VALUES ($1, $1, false, $1, now())
-		 ON CONFLICT (version) DO UPDATE SET
+		`INSERT INTO public.upgrade (commit_sha, committed_at, tags, summary, scheduled_at)
+		 VALUES ($1, now(), CASE WHEN $2 != '' AND NOT starts_with($2, 'sha-') THEN ARRAY[$2]::text[] ELSE '{}'::text[] END, $2, now())
+		 ON CONFLICT (commit_sha) DO UPDATE SET
 		   scheduled_at = now(),
 		   started_at = NULL,
 		   completed_at = NULL,
@@ -655,35 +641,38 @@ func (d *Daemon) scheduleImmediate(ctx context.Context, version string) {
 		    OR public.upgrade.started_at IS NOT NULL
 		    OR public.upgrade.completed_at IS NOT NULL
 		    OR public.upgrade.error IS NOT NULL`,
-		version)
+		commitSHA, displayName)
 	if err != nil {
-		fmt.Printf("Failed to schedule %s: %v\n", version, err)
+		fmt.Printf("Failed to schedule %s: %v\n", displayName, err)
 	} else if result.RowsAffected() > 0 {
-		fmt.Printf("Scheduled immediate upgrade to %s\n", version)
-		// Once a version is selected, all older versions are obsolete.
-		d.skipOlderReleases(ctx, version)
+		fmt.Printf("Scheduled immediate upgrade to %s\n", displayName)
+		// Once a commit is selected, all older ones are obsolete.
+		d.skipOlderReleases(ctx, commitSHA)
+	} else {
+		fmt.Printf("Version %s already scheduled, no action needed\n", displayName)
 	}
-	// If RowsAffected() == 0, the version is already scheduled — no action needed, no log spam.
 }
 
 func (d *Daemon) executeScheduled(ctx context.Context) {
 	var id int
-	var version string
+	var commitSHA, displayName string
 	err := d.queryConn.QueryRow(ctx,
-		`SELECT id, version FROM public.upgrade
+		`SELECT id, commit_sha,
+		        COALESCE(tags[array_upper(tags, 1)], 'sha-' || left(commit_sha, 12)) as display_name
+		 FROM public.upgrade
 		 WHERE scheduled_at <= now() AND started_at IS NULL AND skipped_at IS NULL
-		 ORDER BY scheduled_at LIMIT 1`).Scan(&id, &version)
+		 ORDER BY scheduled_at LIMIT 1`).Scan(&id, &commitSHA, &displayName)
 	if err != nil {
 		return // no pending upgrades
 	}
 
-	fmt.Printf("Executing upgrade to %s...\n", version)
-	if err := d.executeUpgrade(ctx, id, version); err != nil {
-		fmt.Printf("Upgrade to %s failed: %v\n", version, err)
+	fmt.Printf("Executing upgrade to %s...\n", displayName)
+	if err := d.executeUpgrade(ctx, id, commitSHA, displayName); err != nil {
+		fmt.Printf("Upgrade to %s failed: %v\n", displayName, err)
 	}
 }
 
-func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) error {
+func (d *Daemon) executeUpgrade(ctx context.Context, id int, commitSHA string, displayName string) error {
 	d.upgrading = true
 	defer func() { d.upgrading = false }()
 
@@ -691,7 +680,7 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 	progress := NewProgressLog(projDir)
 	defer progress.Close()
 
-	progress.Write("Upgrading to %s (from %s)...", version, d.version)
+	progress.Write("Upgrading to %s (from %s)...", displayName, d.version)
 
 	// === Pre-flight checks (BEFORE marking started_at) ===
 	// These checks reject the upgrade without setting started_at, so the
@@ -699,9 +688,10 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 
 	// Downgrade protection: refuse to apply an older version than currently running.
 	// Downgrades require restoring from backup instead.
-	if !strings.HasPrefix(version, "sha-") && !strings.HasPrefix(d.version, "sha-") && d.version != "dev" {
-		if CompareVersions(version, d.version) < 0 {
-			msg := fmt.Sprintf("Version %s is older than current version %s. Downgrades are not supported. To restore a previous state, use: ./sb db backup restore <name>", version, d.version)
+	// Only applies when displayName is a CalVer tag (not a SHA reference).
+	if !strings.HasPrefix(displayName, "sha-") && !strings.HasPrefix(d.version, "sha-") && d.version != "dev" {
+		if CompareVersions(displayName, d.version) < 0 {
+			msg := fmt.Sprintf("Version %s is older than current version %s. Downgrades are not supported. To restore a previous state, use: ./sb db backup restore <name>", displayName, d.version)
 			d.failUpgrade(ctx, id, msg, progress)
 			return fmt.Errorf("%s", msg)
 		}
@@ -709,16 +699,17 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 
 	// Verify release manifest and binary exist before starting.
 	// If CI hasn't finished building the release assets yet, refuse to start.
-	if !strings.HasPrefix(version, "sha-") {
+	// Only check for tagged releases, not raw SHA commits.
+	if !strings.HasPrefix(displayName, "sha-") {
 		progress.Write("Verifying release assets available...")
-		manifest, err := FetchManifest(version)
+		manifest, err := FetchManifest(displayName)
 		if err != nil {
-			d.failUpgrade(ctx, id, fmt.Sprintf("Release manifest not available for %s: %v. CI may still be building. Will retry on next check.", version, err), progress)
+			d.failUpgrade(ctx, id, fmt.Sprintf("Release manifest not available for %s: %v. CI may still be building. Will retry on next check.", displayName, err), progress)
 			return err
 		}
 		platform := selfupdate.Platform()
 		if _, ok := manifest.Binaries[platform]; !ok {
-			progress.Write("Warning: no binary for platform %s in release %s — self-update will be skipped", platform, version)
+			progress.Write("Warning: no binary for platform %s in release %s — self-update will be skipped", platform, displayName)
 		}
 	}
 
@@ -742,8 +733,8 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 
 	// Step 1: Prepare images
 	progress.Write("Preparing images...")
-	if err := d.pullImages(version); err != nil {
-		d.failUpgrade(ctx, id, fmt.Sprintf("Failed to pull images for %s: %v", version, err), progress)
+	if err := d.pullImages(displayName); err != nil {
+		d.failUpgrade(ctx, id, fmt.Sprintf("Failed to pull images for %s: %v", displayName, err), progress)
 		return err
 	}
 
@@ -773,44 +764,32 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 	previousVersion := d.version
 	backupPath, err := d.backupDatabase(progress)
 	if err != nil {
-		d.rollback(ctx, id, version, previousVersion, progress)
+		d.rollback(ctx, id, displayName, previousVersion, progress)
 		return err
 	}
 
-	// Step 6: Install new version
-	progress.Write("Installing %s...", version)
-	// SHA versions (sha-abc1234f) need git fetch by SHA, not by tag.
-	if strings.HasPrefix(version, "sha-") {
-		sha := strings.TrimPrefix(version, "sha-")
-		if err := runCommand(projDir, "git", "fetch", "--depth", "1", "origin", sha); err != nil {
-			d.rollback(ctx, id, version, previousVersion, progress)
-			return err
-		}
-	} else {
-		if err := runCommand(projDir, "git", "fetch", "--tags", "--depth", "1", "origin", "tag", version); err != nil {
-			d.rollback(ctx, id, version, previousVersion, progress)
-			return err
-		}
+	// Step 6: Install new version — always fetch/checkout by commit SHA directly.
+	progress.Write("Installing %s...", displayName)
+	if err := runCommand(projDir, "git", "fetch", "--depth", "1", "origin", commitSHA); err != nil {
+		d.rollback(ctx, id, displayName, previousVersion, progress)
+		return err
 	}
-	// For SHA versions, checkout the SHA directly; for tags, checkout the tag.
-	checkoutRef := version
-	if strings.HasPrefix(version, "sha-") {
-		checkoutRef = strings.TrimPrefix(version, "sha-")
-	}
-	if err := runCommand(projDir, "git", "-c", "advice.detachedHead=false", "checkout", checkoutRef); err != nil {
-		d.rollback(ctx, id, version, previousVersion, progress)
+	if err := runCommand(projDir, "git", "-c", "advice.detachedHead=false", "checkout", commitSHA); err != nil {
+		d.rollback(ctx, id, displayName, previousVersion, progress)
 		return err
 	}
 
-	// Verify checked-out SHA matches manifest (detect tag spoofing)
-	if manifest, mErr := FetchManifest(version); mErr == nil && manifest.CommitSHA != "" {
-		if checkedOut, gErr := runCommandOutput(projDir, "git", "rev-parse", "HEAD"); gErr == nil {
-			checkedOut = strings.TrimSpace(checkedOut)
-			if !strings.HasPrefix(checkedOut, manifest.CommitSHA) && !strings.HasPrefix(manifest.CommitSHA, checkedOut) {
-				errMsg := fmt.Sprintf("Version verification failed: expected commit %s but got %s. Possible tag tampering.", manifest.CommitSHA[:12], checkedOut[:12])
-				progress.Write("%s", errMsg)
-				d.rollback(ctx, id, version, previousVersion, progress)
-				return fmt.Errorf("%s", errMsg)
+	// Verify checked-out SHA matches manifest (detect tag spoofing) — only for tagged releases
+	if !strings.HasPrefix(displayName, "sha-") {
+		if manifest, mErr := FetchManifest(displayName); mErr == nil && manifest.CommitSHA != "" {
+			if checkedOut, gErr := runCommandOutput(projDir, "git", "rev-parse", "HEAD"); gErr == nil {
+				checkedOut = strings.TrimSpace(checkedOut)
+				if !strings.HasPrefix(checkedOut, manifest.CommitSHA) && !strings.HasPrefix(manifest.CommitSHA, checkedOut) {
+					errMsg := fmt.Sprintf("Version verification failed: expected commit %s but got %s. Possible tag tampering.", manifest.CommitSHA[:12], checkedOut[:12])
+					progress.Write("%s", errMsg)
+					d.rollback(ctx, id, displayName, previousVersion, progress)
+					return fmt.Errorf("%s", errMsg)
+				}
 			}
 		}
 	}
@@ -819,35 +798,35 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 	// which returns the tag name (e.g., v2026.03.0-rc.3) since we just checked it out.
 	progress.Write("Regenerating configuration...")
 	if err := runCommand(projDir, filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
-		d.rollback(ctx, id, version, previousVersion, progress)
+		d.rollback(ctx, id, displayName, previousVersion, progress)
 		return err
 	}
 
 	// Step 8: Pull updated images
 	progress.Write("Pulling updated images...")
 	if err := runCommand(projDir, "docker", "compose", "pull"); err != nil {
-		d.rollback(ctx, id, version, previousVersion, progress)
+		d.rollback(ctx, id, displayName, previousVersion, progress)
 		return err
 	}
 
 	// Step 9: Start database
 	progress.Write("Starting database...")
 	if err := runCommand(projDir, "docker", "compose", "up", "-d", "db"); err != nil {
-		d.rollback(ctx, id, version, previousVersion, progress)
+		d.rollback(ctx, id, displayName, previousVersion, progress)
 		return err
 	}
 
 	// Wait for DB health
 	progress.Write("Waiting for database to be healthy...")
 	if err := d.waitForDBHealth(30 * time.Second); err != nil {
-		d.rollback(ctx, id, version, previousVersion, progress)
+		d.rollback(ctx, id, displayName, previousVersion, progress)
 		return err
 	}
 
 	// Reconnect daemon DB connection
 	progress.Write("Reconnecting to database...")
 	if err := d.reconnect(ctx); err != nil {
-		d.rollback(ctx, id, version, previousVersion, progress)
+		d.rollback(ctx, id, displayName, previousVersion, progress)
 		return err
 	}
 
@@ -859,13 +838,13 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 		d.pendingRecreate = false
 		progress.Write("Recreating database from scratch (--recreate)...")
 		if err := runCommandWithTimeout(projDir, 30*time.Minute, filepath.Join(projDir, "dev.sh"), "recreate-database"); err != nil {
-			d.rollback(ctx, id, version, previousVersion, progress)
+			d.rollback(ctx, id, displayName, previousVersion, progress)
 			return err
 		}
 	} else {
 		progress.Write("Applying database migrations...")
 		if err := runCommand(projDir, filepath.Join(projDir, "sb"), "migrate", "up", "--verbose"); err != nil {
-			d.rollback(ctx, id, version, previousVersion, progress)
+			d.rollback(ctx, id, displayName, previousVersion, progress)
 			return err
 		}
 	}
@@ -873,34 +852,37 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 	// Step 11: Start application services (proxy already running from step 2)
 	progress.Write("Starting services...")
 	if err := runCommand(projDir, "docker", "compose", "up", "-d", "app", "worker", "rest"); err != nil {
-		d.rollback(ctx, id, version, previousVersion, progress)
+		d.rollback(ctx, id, displayName, previousVersion, progress)
 		return err
 	}
 
 	// Step 12: Verify health
 	progress.Write("Verifying health...")
 	if err := d.healthCheck(5, 5*time.Second); err != nil {
-		d.rollback(ctx, id, version, previousVersion, progress)
+		d.rollback(ctx, id, displayName, previousVersion, progress)
 		return err
 	}
 
 	// Done — deactivate maintenance, archive, finalize
 	d.setMaintenance(false)
-	d.archiveBackup(backupPath, version)
+	d.archiveBackup(backupPath, displayName)
 
-	fmt.Printf("Upgrade to %s completed successfully\n", version)
+	fmt.Printf("Upgrade to %s completed successfully\n", displayName)
 
 	// Self-update binary (may restart daemon via exit code 42).
 	// If self-update restarts, the NEW daemon marks completed_at on startup
 	// (completeInProgressUpgrade) — so "completed" means the new version is verified.
-	d.selfUpdate(ctx, version, progress)
+	// Only for tagged releases — SHA commits don't have release binaries.
+	if !strings.HasPrefix(displayName, "sha-") {
+		d.selfUpdate(ctx, displayName, progress)
+	}
 
 	// If we get here, self-update didn't restart (no binary for platform, or same version).
 	// Mark complete now since there won't be a new daemon to do it.
 	d.queryConn.Exec(ctx, "UPDATE public.upgrade SET completed_at = now() WHERE id = $1", id)
-	d.skipOlderReleases(ctx, version)
-	d.runUpgradeCallback(version)
-	progress.Write("Upgrade to %s complete!", version)
+	d.skipOlderReleases(ctx, commitSHA)
+	d.runUpgradeCallback(displayName)
+	progress.Write("Upgrade to %s complete!", displayName)
 
 	return nil
 }
@@ -908,7 +890,7 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, version string) err
 // runUpgradeCallback executes the UPGRADE_CALLBACK shell command from .env, if set.
 // Called after a successful upgrade to notify external systems (e.g., Slack).
 // Never fails the upgrade — logs errors but always returns.
-func (d *Daemon) runUpgradeCallback(version string) {
+func (d *Daemon) runUpgradeCallback(displayName string) {
 	envPath := filepath.Join(d.projDir, ".env")
 	f, err := dotenv.Load(envPath)
 	if err != nil {
@@ -937,7 +919,7 @@ func (d *Daemon) runUpgradeCallback(version string) {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Env = append(os.Environ(),
-		"STATBUS_VERSION="+version,
+		"STATBUS_VERSION="+displayName,
 		"STATBUS_FROM_VERSION="+d.version,
 		"STATBUS_SERVER="+hostname,
 		"STATBUS_URL="+statbusURL,

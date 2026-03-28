@@ -16,18 +16,6 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-tags: true
-      - name: Detect version
-        id: version
-        run: |
-          TAG=$(git tag --points-at ${{ github.sha }} | grep '^v' | head -1)
-          if [ -n "$TAG" ]; then
-            echo "version=$TAG" >> $GITHUB_OUTPUT
-          else
-            echo "version=sha-${{ github.sha }}" >> $GITHUB_OUTPUT
-          fi
       - name: Deploy via upgrade daemon
         uses: appleboy/ssh-action@v1.2.0
         with:
@@ -36,5 +24,6 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           command_timeout: 5m
           script: |
+            set -x
             cd ~/statbus
-            ./sb upgrade apply "${{ steps.version.outputs.version }}"
+            ./sb upgrade apply-latest

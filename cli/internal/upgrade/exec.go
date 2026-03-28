@@ -41,6 +41,11 @@ func prepareCmd(cmd *exec.Cmd) {
 	}
 }
 
+// RunCommandOutput executes a command and returns combined output (exported for cmd package).
+func RunCommandOutput(dir string, name string, args ...string) (string, error) {
+	return runCommandOutput(dir, name, args...)
+}
+
 // runCommand executes a command with inherited stdout/stderr and a default 5-minute timeout.
 func runCommand(dir string, name string, args ...string) error {
 	return runCommandWithTimeout(dir, 5*time.Minute, name, args...)

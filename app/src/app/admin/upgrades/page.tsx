@@ -42,16 +42,16 @@ import {
 
 interface Upgrade {
   id: number;
-  version: string;
   commit_sha: string;
-  is_prerelease: boolean;
+  committed_at: string;
+  position: number | null;
+  tags: string[];
+  is_release: boolean;
   summary: string;
   changes: string | null;
   release_url: string | null;
   has_migrations: boolean;
   from_version: string | null;
-  published_at: string | null;
-  discovered_at: string;
   scheduled_at: string | null;
   started_at: string | null;
   completed_at: string | null;
@@ -61,6 +61,9 @@ interface Upgrade {
   images_downloaded: boolean;
   backup_path: string | null;
 }
+
+const displayName = (u: Upgrade) =>
+  u.tags.length > 0 ? u.tags[u.tags.length - 1] : `sha-${u.commit_sha.substring(0, 12)}`;
 
 interface SystemInfo {
   key: string;
@@ -148,7 +151,7 @@ export default function UpgradesPage() {
     error,
     mutate,
   } = useSWR<Upgrade[]>(
-    "/rest/upgrade?order=published_at.desc.nullslast,discovered_at.desc&limit=20",
+    "/rest/upgrade?order=position.desc.nullslast,committed_at.desc&limit=20",
     fetcher,
     { refreshInterval: 30000 },
   );
@@ -312,11 +315,13 @@ export default function UpgradesPage() {
           : latestAvailable;
 
         // Only allow restoring skipped versions newer than the latest completed upgrade.
-        const latestCompleted = history.find(u => getStatus(u) === 'completed')?.version;
+        const latestCompleted = history.find(u => getStatus(u) === 'completed');
 
         const renderCard = (u: Upgrade) => {
           const status = getStatus(u);
-          const canRestore = !latestCompleted || u.version > latestCompleted;
+          const canRestore = latestCompleted
+            ? (u.position ?? 0) > (latestCompleted.position ?? 0) || u.committed_at > latestCompleted.committed_at
+            : true;
           return (
             <UpgradeCard
               key={u.id}
@@ -438,12 +443,12 @@ function UpgradeCard({
             <CardTitle className="text-base flex items-center gap-2">
               {u.release_url ? (
                 <a href={u.release_url} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                  {u.version}
+                  {displayName(u)}
                 </a>
               ) : (
-                u.version
+                displayName(u)
               )}
-              {u.is_prerelease && (
+              {!u.is_release && (
                 <Badge variant="outline" className="text-xs">
                   pre-release
                 </Badge>
@@ -463,13 +468,8 @@ function UpgradeCard({
       <CardContent className="pt-0">
         {/* Meta info */}
         <div className="flex flex-wrap gap-4 text-xs text-muted-foreground mb-3">
-          {u.published_at && (
-            <span>
-              Published: {new Date(u.published_at).toLocaleDateString()}
-            </span>
-          )}
           <span>
-            Discovered: {new Date(u.discovered_at).toLocaleDateString()}
+            Committed: {new Date(u.committed_at).toLocaleDateString()}
           </span>
           {u.scheduled_at && (
             <span className="flex items-center gap-1">
@@ -524,7 +524,7 @@ function UpgradeCard({
                   <AlertDialogHeader>
                     <AlertDialogTitle>Confirm Upgrade</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This will schedule an immediate upgrade to {u.version}.
+                      This will schedule an immediate upgrade to {displayName(u)}.
                       {u.has_migrations &&
                         " This version includes database migrations."}
                       <br />
@@ -582,7 +582,7 @@ function UpgradeCard({
               {u.release_url && (
                 <Button size="sm" variant="ghost" asChild>
                   <a
-                    href={`https://github.com/statisticsnorway/statbus/issues/new?title=${encodeURIComponent(`Upgrade failed: ${u.version}`)}&body=${encodeURIComponent(`## Upgrade Failure Report\n\n**Version:** ${u.version}\n**From:** ${u.from_version ?? "unknown"}\n**Error:** ${u.error}\n**Date:** ${u.started_at}`)}`}
+                    href={`https://github.com/statisticsnorway/statbus/issues/new?title=${encodeURIComponent(`Upgrade failed: ${displayName(u)}`)}&body=${encodeURIComponent(`## Upgrade Failure Report\n\n**Version:** ${displayName(u)}\n**Commit:** ${u.commit_sha}\n**From:** ${u.from_version ?? "unknown"}\n**Error:** ${u.error}\n**Date:** ${u.started_at}`)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
