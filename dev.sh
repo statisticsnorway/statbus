@@ -1096,6 +1096,53 @@ EOS
         echo "Following logs for app container..."
         docker compose logs --follow app
       ;;
+    'setup-signing' )
+        # Find SSH public keys
+        SSH_KEYS=()
+        for key_path in "$HOME/.ssh/id_ed25519.pub" "$HOME/.ssh/id_rsa.pub"; do
+            if [ -f "$key_path" ]; then
+                SSH_KEYS+=("$key_path")
+            fi
+        done
+
+        if [ ${#SSH_KEYS[@]} -eq 0 ]; then
+            echo "Error: No SSH public key found."
+            echo "Looked for: ~/.ssh/id_ed25519.pub, ~/.ssh/id_rsa.pub"
+            echo "Generate one with: ssh-keygen -t ed25519"
+            exit 1
+        fi
+
+        if [ ${#SSH_KEYS[@]} -gt 1 ]; then
+            echo "Multiple SSH keys found:"
+            for i in "${!SSH_KEYS[@]}"; do
+                fingerprint=$(ssh-keygen -l -f "${SSH_KEYS[$i]}" 2>/dev/null || echo "unknown fingerprint")
+                echo "  [$((i+1))] ${SSH_KEYS[$i]} ($fingerprint)"
+            done
+            echo ""
+            read -p "Select key [1-${#SSH_KEYS[@]}]: " -r choice < "$TTY_INPUT"
+            if ! [[ "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -lt 1 ] || [ "$choice" -gt ${#SSH_KEYS[@]} ]; then
+                echo "Error: Invalid selection."
+                exit 1
+            fi
+            KEY_PATH="${SSH_KEYS[$((choice-1))]}"
+        else
+            KEY_PATH="${SSH_KEYS[0]}"
+        fi
+
+        echo "Using SSH key: $KEY_PATH"
+        fingerprint=$(ssh-keygen -l -f "$KEY_PATH" 2>/dev/null || echo "unknown fingerprint")
+        echo "Fingerprint: $fingerprint"
+        echo ""
+
+        # Configure git at REPO level (not global)
+        git config gpg.format ssh
+        git config user.signingKey "$KEY_PATH"
+        git config commit.gpgsign true
+        git config tag.gpgsign true
+
+        echo "Signing configured. All commits and tags will be signed with $KEY_PATH"
+        echo "Remember to enable 'Require signed commits' on master in GitHub branch protection"
+      ;;
     'build-sb' )
         TARGET=${1:-linux/amd64}
         OS=${TARGET%/*}
@@ -1140,6 +1187,9 @@ EOS
       echo ""
       echo "Build:"
       echo "  build-sb [target]                  Cross-compile sb binary (default: linux/amd64)"
+      echo ""
+      echo "Git:"
+      echo "  setup-signing                      Configure SSH commit signing for this repo"
       echo ""
       echo "Helpers:"
       echo "  postgres-variables                 Export PG connection variables"

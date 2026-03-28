@@ -345,6 +345,7 @@ func loadOrGenerateConfig(projDir string, verbose bool) (*ConfigEnv, error) {
 		gen("UPGRADE_CHANNEL", "stable")
 		gen("UPGRADE_CHECK_INTERVAL", "6h")
 		gen("UPGRADE_AUTO_DOWNLOAD", "true")
+		gen("UPGRADE_REQUIRE_SIGNING", "false")
 	}
 
 	if err := f.Save(); err != nil {
@@ -650,6 +651,18 @@ NEXT_PUBLIC_STATBUS_COMMIT=%[23]s
 		fmt.Fprintf(&b, "UPGRADE_CHANNEL=%s\n", getOrDefault("UPGRADE_CHANNEL", "stable"))
 		fmt.Fprintf(&b, "UPGRADE_CHECK_INTERVAL=%s\n", getOrDefault("UPGRADE_CHECK_INTERVAL", "6h"))
 		fmt.Fprintf(&b, "UPGRADE_AUTO_DOWNLOAD=%s\n", getOrDefault("UPGRADE_AUTO_DOWNLOAD", "true"))
+		fmt.Fprintf(&b, "UPGRADE_REQUIRE_SIGNING=%s\n", getOrDefault("UPGRADE_REQUIRE_SIGNING", "false"))
+
+		// Propagate trusted signer keys from .env.config to .env
+		if cfgErr == nil {
+			for _, key := range cfgFile.Keys() {
+				if strings.HasPrefix(key, "UPGRADE_TRUSTED_SIGNER_") {
+					if v, ok := cfgFile.Get(key); ok {
+						fmt.Fprintf(&b, "%s=%s\n", key, v)
+					}
+				}
+			}
+		}
 	}
 
 	fmt.Fprintf(&b, "\n\n################################################################\n")

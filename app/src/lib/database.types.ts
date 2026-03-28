@@ -6081,6 +6081,7 @@ export type Database = {
           backup_path: string | null
           changes: string | null
           commit_sha: string
+          committed_at: string
           completed_at: string | null
           discovered_at: string
           error: string | null
@@ -6088,19 +6089,21 @@ export type Database = {
           has_migrations: boolean
           id: number
           images_downloaded: boolean
-          is_prerelease: boolean
+          position: number | null
+          release_status: Database["public"]["Enums"]["release_status_type"]
           release_url: string | null
           rollback_completed_at: string | null
           scheduled_at: string | null
           skipped_at: string | null
           started_at: string | null
           summary: string
-          version: string
+          tags: string[]
         },
         Insert: {
           backup_path?: string | null
           changes?: string | null
           commit_sha: string
+          committed_at: string
           completed_at?: string | null
           discovered_at?: string
           error?: string | null
@@ -6108,19 +6111,21 @@ export type Database = {
           has_migrations?: boolean
           id?: never
           images_downloaded?: boolean
-          is_prerelease?: boolean
+          position?: number | null
+          release_status?: Database["public"]["Enums"]["release_status_type"]
           release_url?: string | null
           rollback_completed_at?: string | null
           scheduled_at?: string | null
           skipped_at?: string | null
           started_at?: string | null
           summary: string
-          version: string
+          tags?: string[]
         },
         Update: {
           backup_path?: string | null
           changes?: string | null
           commit_sha?: string
+          committed_at?: string
           completed_at?: string | null
           discovered_at?: string
           error?: string | null
@@ -6128,14 +6133,15 @@ export type Database = {
           has_migrations?: boolean
           id?: never
           images_downloaded?: boolean
-          is_prerelease?: boolean
+          position?: number | null
+          release_status?: Database["public"]["Enums"]["release_status_type"]
           release_url?: string | null
           rollback_completed_at?: string | null
           scheduled_at?: string | null
           skipped_at?: string | null
           started_at?: string | null
           summary?: string
-          version?: string
+          tags?: string[]
         },
         Relationships: []
       }
@@ -12195,6 +12201,12 @@ export type Database = {
         }
         Returns: string
       },
+      display_name: {
+        Args: {
+          u?: Database["public"]["Tables"]["upgrade"]["Row"]
+        }
+        Returns: string
+      },
       encrypt: {
         Args: {
           arg0?: string
@@ -15571,6 +15583,10 @@ export type Database = {
         Args: Record<string, never>
         Returns: unknown
       },
+      upgrade_request_check: {
+        Args: Record<string, never>
+        Returns: unknown
+      },
       urlencode: {
         Args: {
           string?: string
@@ -15722,6 +15738,7 @@ export type Database = {
           | "stop_of_decade_prev"
           | "start_of_decade_prev",
       relative_period_scope: "input_and_query" | "query" | "input",
+      release_status_type: "commit" | "prerelease" | "release",
       reset_scope: "units" | "data" | "getting-started" | "all",
       stat_frequency: 
           | "daily"
@@ -15750,8 +15767,7 @@ export type Database = {
           | "waiting"
           | "completed"
           | "failed",
-      time_context_type: "relative_period" | "tag" | "year",
-      upgrade_channel: "stable" | "prerelease" | "pinned" | "edge"
+      time_context_type: "relative_period" | "tag" | "year"
     },
     CompositeTypes: {
       http_header: {
@@ -16034,6 +16050,7 @@ export const Constants = {
         "start_of_decade_prev"
       ],
       relative_period_scope: ["input_and_query", "query", "input"],
+      release_status_type: ["commit", "prerelease", "release"],
       reset_scope: ["units", "data", "getting-started", "all"],
       stat_frequency: [
         "daily",
@@ -16066,8 +16083,7 @@ export const Constants = {
         "completed",
         "failed"
       ],
-      time_context_type: ["relative_period", "tag", "year"],
-      upgrade_channel: ["stable", "prerelease", "pinned", "edge"]
+      time_context_type: ["relative_period", "tag", "year"]
     }
   }
 } as const

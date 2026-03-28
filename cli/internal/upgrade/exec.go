@@ -14,8 +14,8 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 )
 
-// diskFree returns the free bytes on the filesystem containing the given path.
-func diskFree(path string) (uint64, error) {
+// DiskFree returns the free bytes on the filesystem containing the given path.
+func DiskFree(path string) (uint64, error) {
 	var stat syscall.Statfs_t
 	if err := syscall.Statfs(path, &stat); err != nil {
 		return 0, err

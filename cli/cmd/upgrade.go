@@ -1,9 +1,12 @@
 package cmd
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"log/syslog"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -409,9 +412,220 @@ Channels:
 	},
 }
 
+// sshKeyFingerprint returns the fingerprint for an SSH public key string.
+func sshKeyFingerprint(key string) string {
+	cmd := exec.Command("ssh-keygen", "-l", "-f", "/dev/stdin")
+	cmd.Stdin = strings.NewReader(key)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return "unknown fingerprint"
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// trustedSignerPrefix is the env key prefix for trusted signers.
+const trustedSignerPrefix = "UPGRADE_TRUSTED_SIGNER_"
+
+var trustKeyCmd = &cobra.Command{
+	Use:   "trust-key",
+	Short: "Manage trusted commit signing keys",
+	Long: `Manage SSH public keys trusted for verifying commit signatures.
+
+Keys are stored as UPGRADE_TRUSTED_SIGNER_<name> in .env.config.
+The upgrade daemon uses these to verify commits before applying upgrades.`,
+}
+
+var trustKeyListCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List configured trusted signing keys",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		projDir := config.ProjectDir()
+		configPath := filepath.Join(projDir, ".env.config")
+		f, err := dotenv.Load(configPath)
+		if err != nil {
+			return fmt.Errorf("load .env.config: %w", err)
+		}
+
+		found := false
+		for _, key := range f.Keys() {
+			if !strings.HasPrefix(key, trustedSignerPrefix) {
+				continue
+			}
+			name := strings.TrimPrefix(key, trustedSignerPrefix)
+			val, _ := f.Get(key)
+			fingerprint := sshKeyFingerprint(val)
+			fmt.Printf("  %s: %s\n", name, fingerprint)
+			found = true
+		}
+
+		if !found {
+			fmt.Println("No trusted signers configured.")
+			fmt.Println("Add one with: ./sb upgrade trust-key add <github-username>")
+		}
+		return nil
+	},
+}
+
+var trustKeyAddCmd = &cobra.Command{
+	Use:   "add <github-username>",
+	Short: "Add trusted signing keys from a GitHub user",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		username := args[0]
+		url := fmt.Sprintf("https://github.com/%s.keys", username)
+
+		resp, err := http.Get(url)
+		if err != nil {
+			return fmt.Errorf("fetch keys from %s: %w", url, err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode == 404 {
+			return fmt.Errorf("GitHub user %q not found (404 from %s)", username, url)
+		}
+		if resp.StatusCode != 200 {
+			return fmt.Errorf("unexpected status %d from %s", resp.StatusCode, url)
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("read response: %w", err)
+		}
+
+		var keys []string
+		scanner := bufio.NewScanner(strings.NewReader(string(body)))
+		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+			if line != "" {
+				keys = append(keys, line)
+			}
+		}
+
+		if len(keys) == 0 {
+			return fmt.Errorf("no SSH keys found for github.com/%s", username)
+		}
+
+		fmt.Printf("Found %d key(s) for github.com/%s:\n", len(keys), username)
+		for i, key := range keys {
+			fingerprint := sshKeyFingerprint(key)
+			fmt.Printf("  [%d] %s\n", i+1, fingerprint)
+		}
+
+		fmt.Printf("\nTrust %d key(s) from github.com/%s? [y/N] ", len(keys), username)
+		reader := bufio.NewReader(os.Stdin)
+		answer, _ := reader.ReadString('\n')
+		answer = strings.TrimSpace(strings.ToLower(answer))
+		if answer != "y" && answer != "yes" {
+			fmt.Println("Cancelled.")
+			return nil
+		}
+
+		projDir := config.ProjectDir()
+		configPath := filepath.Join(projDir, ".env.config")
+		f, err := dotenv.Load(configPath)
+		if err != nil {
+			return fmt.Errorf("load .env.config: %w", err)
+		}
+
+		envKey := trustedSignerPrefix + username
+		f.Set(envKey, keys[0])
+		if err := f.Save(); err != nil {
+			return fmt.Errorf("save .env.config: %w", err)
+		}
+
+		fmt.Printf("Added %s=%s... to .env.config\n", envKey, keys[0][:min(40, len(keys[0]))])
+		if len(keys) > 1 {
+			fmt.Printf("Note: only the first key was stored. Add others manually if needed.\n")
+		}
+		return nil
+	},
+}
+
+var trustKeyRemoveCmd = &cobra.Command{
+	Use:   "remove <name>",
+	Short: "Remove a trusted signing key",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		name := args[0]
+		projDir := config.ProjectDir()
+		configPath := filepath.Join(projDir, ".env.config")
+		f, err := dotenv.Load(configPath)
+		if err != nil {
+			return fmt.Errorf("load .env.config: %w", err)
+		}
+
+		envKey := trustedSignerPrefix + name
+		if !f.Delete(envKey) {
+			return fmt.Errorf("no trusted signer named %q found in .env.config", name)
+		}
+
+		if err := f.Save(); err != nil {
+			return fmt.Errorf("save .env.config: %w", err)
+		}
+
+		fmt.Printf("Removed %s from .env.config\n", envKey)
+		return nil
+	},
+}
+
+var trustKeyVerifyCmd = &cobra.Command{
+	Use:   "verify",
+	Short: "Verify the current HEAD commit signature against trusted keys",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		projDir := config.ProjectDir()
+		configPath := filepath.Join(projDir, ".env.config")
+		f, err := dotenv.Load(configPath)
+		if err != nil {
+			return fmt.Errorf("load .env.config: %w", err)
+		}
+
+		// Collect trusted signers
+		var signerLines []string
+		for _, key := range f.Keys() {
+			if !strings.HasPrefix(key, trustedSignerPrefix) {
+				continue
+			}
+			name := strings.TrimPrefix(key, trustedSignerPrefix)
+			val, _ := f.Get(key)
+			// allowed_signers format: <principal> <key>
+			signerLines = append(signerLines, fmt.Sprintf("%s %s", name, val))
+		}
+
+		if len(signerLines) == 0 {
+			return fmt.Errorf("no trusted signers configured (UPGRADE_TRUSTED_SIGNER_*)")
+		}
+
+		// Write allowed-signers file
+		allowedSignersPath := filepath.Join(projDir, "tmp", "allowed-signers")
+		os.MkdirAll(filepath.Join(projDir, "tmp"), 0755)
+		if err := os.WriteFile(allowedSignersPath, []byte(strings.Join(signerLines, "\n")+"\n"), 0644); err != nil {
+			return fmt.Errorf("write allowed-signers: %w", err)
+		}
+
+		// Verify HEAD
+		verifyCmd := exec.Command("git", "-c",
+			fmt.Sprintf("gpg.ssh.allowedSignersFile=%s", allowedSignersPath),
+			"verify-commit", "HEAD")
+		verifyCmd.Dir = projDir
+		out, verifyErr := verifyCmd.CombinedOutput()
+		fmt.Print(string(out))
+
+		if verifyErr != nil {
+			return fmt.Errorf("HEAD commit signature verification failed")
+		}
+		fmt.Println("HEAD commit signature is valid and trusted.")
+		return nil
+	},
+}
+
 func init() {
 	upgradeApplyCmd.Flags().BoolVar(&applyRecreate, "recreate", false, "delete and recreate database from scratch (destructive — dev/demo only)")
 	upgradeApplyLatestCmd.Flags().BoolVar(&applyRecreate, "recreate", false, "delete and recreate database from scratch (destructive — dev/demo only)")
+
+	trustKeyCmd.AddCommand(trustKeyListCmd)
+	trustKeyCmd.AddCommand(trustKeyAddCmd)
+	trustKeyCmd.AddCommand(trustKeyRemoveCmd)
+	trustKeyCmd.AddCommand(trustKeyVerifyCmd)
 
 	upgradeCmd.AddCommand(upgradeCheckCmd)
 	upgradeCmd.AddCommand(upgradeDiscoverCmd)
@@ -423,5 +637,6 @@ func init() {
 	upgradeCmd.AddCommand(upgradeDaemonCmd)
 	upgradeCmd.AddCommand(upgradeSelfVerifyCmd)
 	upgradeCmd.AddCommand(upgradeSelfRollbackCmd)
+	upgradeCmd.AddCommand(trustKeyCmd)
 	rootCmd.AddCommand(upgradeCmd)
 }

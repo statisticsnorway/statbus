@@ -35,6 +35,8 @@ type Daemon struct {
 	cachedURL      string           // cached health check URL (derived from .env at startup)
 	listenCancel context.CancelFunc // cancels the listenLoop goroutine
 	listenWg     sync.WaitGroup     // tracks listenLoop goroutine lifetime
+	requireSigning bool            // if true, reject unsigned commits (UPGRADE_REQUIRE_SIGNING)
+	allowedSignersPath string      // path to tmp/allowed-signers file (empty if no signers configured)
 }
 
 // NewDaemon creates a new upgrade daemon.
@@ -53,6 +55,11 @@ func (d *Daemon) Run(ctx context.Context) error {
 
 	if err := d.loadConfig(); err != nil {
 		return fmt.Errorf("load config: %w", err)
+	}
+
+	// Load trusted commit signers for signature verification
+	if err := d.loadTrustedSigners(); err != nil {
+		return err
 	}
 
 	if err := d.connect(ctx); err != nil {
@@ -124,6 +131,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 				// (LISTEN connection was closed, NOTIFYs were lost)
 				d.discover(ctx)
 				d.executeScheduled(ctx)
+				d.reportDiskSpace(ctx)
 			}
 		case n := <-notifyCh:
 			if !d.upgrading {
@@ -317,6 +325,18 @@ func (d *Daemon) syncConfigToSystemInfo(ctx context.Context) {
 	}
 }
 
+// reportDiskSpace writes the current free disk space to system_info.
+func (d *Daemon) reportDiskSpace(ctx context.Context) {
+	if freeBytes, err := DiskFree(d.projDir); err == nil {
+		freeGB := freeBytes / (1024 * 1024 * 1024)
+		d.queryConn.Exec(ctx,
+			`INSERT INTO public.system_info (key, value, updated_at)
+			 VALUES ('disk_free_gb', $1::text, clock_timestamp())
+			 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = clock_timestamp()`,
+			fmt.Sprintf("%d", freeGB))
+	}
+}
+
 // skipOlderReleases marks available releases older than the selected commit as skipped.
 // Ordering is by position (topological order) then committed_at as fallback.
 func (d *Daemon) skipOlderReleases(ctx context.Context, selectedCommitSHA string) {
@@ -377,6 +397,104 @@ func (d *Daemon) loadConfig() error {
 		d.autoDL = v == "true"
 	}
 
+	return nil
+}
+
+// loadTrustedSigners reads UPGRADE_TRUSTED_SIGNER_* keys from .env and
+// writes an allowed-signers file for git verify-commit. Also reads
+// UPGRADE_REQUIRE_SIGNING to control enforcement.
+func (d *Daemon) loadTrustedSigners() error {
+	envPath := filepath.Join(d.projDir, ".env")
+	f, err := dotenv.Load(envPath)
+	if err != nil {
+		return fmt.Errorf("load .env for signers: %w", err)
+	}
+
+	// Check enforcement setting
+	d.requireSigning = false
+	if v, ok := f.Get("UPGRADE_REQUIRE_SIGNING"); ok {
+		d.requireSigning = v == "true"
+	}
+
+	// Collect trusted signers
+	var signerLines []string
+	for _, key := range f.Keys() {
+		if !strings.HasPrefix(key, "UPGRADE_TRUSTED_SIGNER_") {
+			continue
+		}
+		name := strings.TrimPrefix(key, "UPGRADE_TRUSTED_SIGNER_")
+		val, _ := f.Get(key)
+		if val == "" {
+			continue
+		}
+		// Log each signer with fingerprint
+		cmd := exec.Command("ssh-keygen", "-l", "-f", "/dev/stdin")
+		cmd.Stdin = strings.NewReader(val)
+		fpOut, fpErr := cmd.CombinedOutput()
+		fingerprint := "unknown"
+		if fpErr == nil {
+			fingerprint = strings.TrimSpace(string(fpOut))
+		}
+		fmt.Printf("Trusted signer: %s (%s)\n", name, fingerprint)
+		// allowed_signers format: <principal> <key>
+		signerLines = append(signerLines, fmt.Sprintf("%s %s", name, val))
+	}
+
+	if len(signerLines) == 0 {
+		if d.requireSigning {
+			return fmt.Errorf("no trusted signers configured (UPGRADE_TRUSTED_SIGNER_*), daemon refuses to start")
+		}
+		fmt.Println("Warning: no trusted signers configured (UPGRADE_TRUSTED_SIGNER_*), commit signature verification disabled")
+		d.allowedSignersPath = ""
+		return nil
+	}
+
+	// Write allowed-signers file
+	tmpDir := filepath.Join(d.projDir, "tmp")
+	os.MkdirAll(tmpDir, 0755)
+	allowedSignersPath := filepath.Join(tmpDir, "allowed-signers")
+	if err := os.WriteFile(allowedSignersPath, []byte(strings.Join(signerLines, "\n")+"\n"), 0644); err != nil {
+		return fmt.Errorf("write allowed-signers: %w", err)
+	}
+	d.allowedSignersPath = allowedSignersPath
+
+	// Configure git to use the allowed-signers file
+	if err := runCommand(d.projDir, "git", "config", "gpg.ssh.allowedSignersFile", allowedSignersPath); err != nil {
+		fmt.Printf("Warning: could not set git gpg.ssh.allowedSignersFile: %v\n", err)
+	}
+
+	fmt.Printf("Commit signature verification enabled (%d trusted signer(s), require=%v)\n", len(signerLines), d.requireSigning)
+	return nil
+}
+
+// verifyCommitSignature verifies an SSH signature on a git commit.
+// Returns nil if the signature is valid and trusted.
+// If no signers are configured and requireSigning is false, returns nil (permissive).
+// If the commit is unsigned and requireSigning is false, logs a warning and returns nil.
+func (d *Daemon) verifyCommitSignature(sha string) error {
+	if d.allowedSignersPath == "" {
+		// No signers configured — skip verification
+		if d.requireSigning {
+			return fmt.Errorf("no trusted signers configured but signing is required")
+		}
+		return nil
+	}
+
+	out, err := runCommandOutput(d.projDir, "git", "-c",
+		fmt.Sprintf("gpg.ssh.allowedSignersFile=%s", d.allowedSignersPath),
+		"verify-commit", sha)
+	if err != nil {
+		if d.requireSigning {
+			return fmt.Errorf("commit %s signature verification failed: %s", sha[:12], strings.TrimSpace(out))
+		}
+		// Transition period: warn but don't block
+		fmt.Printf("Warning: commit %s signature verification failed (not enforced): %s\n", sha[:12], strings.TrimSpace(out))
+		return nil
+	}
+
+	if d.verbose {
+		fmt.Printf("Commit %s signature verified: %s\n", sha[:12], strings.TrimSpace(out))
+	}
 	return nil
 }
 
@@ -514,6 +632,12 @@ func (d *Daemon) discover(ctx context.Context) {
 			targetStatus = "commit" // manifest not available yet
 		}
 
+		// Verify commit signature before recording
+		if err := d.verifyCommitSignature(t.CommitSHA); err != nil {
+			fmt.Printf("Skipping %s: %v\n", t.TagName, err)
+			continue
+		}
+
 		// has_migrations will be determined from the manifest during actual upgrade.
 		// For now, default to false — the manifest check happens in executeUpgrade.
 		// ON CONFLICT: add tag to array if not already present, promote release_status.
@@ -616,6 +740,12 @@ func (d *Daemon) discoverEdge(ctx context.Context) {
 	fmt.Printf("Edge discovery: %d recent commit(s) from master\n", len(commits))
 
 	for _, c := range commits {
+		// Verify commit signature before recording
+		if err := d.verifyCommitSignature(c.SHA); err != nil {
+			fmt.Printf("Skipping edge commit %s: %v\n", c.SHA[:12], err)
+			continue
+		}
+
 		summary := c.Summary
 		if len(summary) > 120 {
 			summary = summary[:120]
@@ -786,7 +916,7 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, commitSHA string, d
 
 	// Check disk space. Need room for backup (~= DB size) + new images (~2GB).
 	// Refuse to start if less than 5GB free to avoid mid-upgrade disk-full failures.
-	if freeBytes, err := diskFree(d.projDir); err == nil {
+	if freeBytes, err := DiskFree(d.projDir); err == nil {
 		freeGB := freeBytes / (1024 * 1024 * 1024)
 		if freeGB < 5 {
 			msg := fmt.Sprintf("Insufficient disk space: %d GB free (need at least 5 GB for backup + images)", freeGB)
@@ -794,6 +924,15 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, commitSHA string, d
 			return fmt.Errorf("%s", msg)
 		}
 		progress.Write("Disk space: %d GB free", freeGB)
+	}
+
+	// Re-verify commit signature before proceeding.
+	// This defends against DB tampering between discovery and execution.
+	progress.Write("Verifying commit signature...")
+	if err := d.verifyCommitSignature(commitSHA); err != nil {
+		msg := fmt.Sprintf("Commit %s signature verification failed: %v", commitSHA[:12], err)
+		d.failUpgrade(ctx, id, msg, progress)
+		return fmt.Errorf("%s", msg)
 	}
 
 	// === All pre-flight checks passed — mark the upgrade as started ===

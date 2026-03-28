@@ -164,6 +164,8 @@ export default function UpgradesPage() {
     systemInfo?.find((s) => s.key === "upgrade_channel")?.value ?? "stable";
   const lastChecked =
     systemInfo?.find((s) => s.key === "upgrade_last_checked")?.value;
+  const diskFreeGB = systemInfo?.find((s) => s.key === "disk_free_gb")?.value;
+  const diskFree = diskFreeGB ? parseInt(diskFreeGB, 10) : null;
 
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -219,6 +221,15 @@ export default function UpgradesPage() {
               {new Date(lastChecked).toLocaleString()}
             </strong>
           </span>
+        )}
+        {diskFree !== null && diskFree > 10 && (
+          <span>Disk: <strong className="text-foreground">{diskFree}G free</strong></span>
+        )}
+        {diskFree !== null && diskFree <= 10 && diskFree > 5 && (
+          <Badge className="bg-yellow-100 text-yellow-800">Low disk: {diskFree}G free</Badge>
+        )}
+        {diskFree !== null && diskFree <= 5 && (
+          <Badge className="bg-red-100 text-red-800">Disk critical: {diskFree}G free — contact IT</Badge>
         )}
         <Button
           size="sm"

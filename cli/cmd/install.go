@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/migrate"
+	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
 
 var nonInteractive bool
@@ -69,6 +70,15 @@ func runInstall() error {
 				nonInteractive = true
 			}
 		}
+	}
+
+	// Pre-flight: check disk space
+	if freeBytes, err := upgrade.DiskFree("."); err == nil {
+		freeGB := freeBytes / (1024 * 1024 * 1024)
+		if freeGB < 100 {
+			return fmt.Errorf("insufficient disk space: %d GB free (need at least 100 GB for database, images, and backups)", freeGB)
+		}
+		fmt.Printf("Disk space: %d GB free\n", freeGB)
 	}
 
 	home, _ := os.UserHomeDir()
