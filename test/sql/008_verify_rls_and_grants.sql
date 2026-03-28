@@ -138,6 +138,13 @@ DECLARE
         'public.generate_power_ident'
     ];
 
+    -- Upgrade: Trigger functions and RPC for upgrade daemon notifications
+    v_upgrade_funcs TEXT[] := ARRAY[
+        'public.upgrade_notify_daemon',
+        'public.upgrade_notify_frontend',
+        'public.upgrade_request_check'
+    ];
+
     -- Combined registry (excluding sql_saga which is matched by schema)
     v_all_registered_funcs TEXT[];
 
@@ -160,7 +167,8 @@ BEGIN
         v_derive_funcs ||
         v_drilldown_funcs ||
         v_graphql_funcs ||
-        v_lifecycle_funcs;
+        v_lifecycle_funcs ||
+        v_upgrade_funcs;
 
     -- ========== Generate Documentation ==========
 

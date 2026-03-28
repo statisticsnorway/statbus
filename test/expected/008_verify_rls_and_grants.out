@@ -135,6 +135,13 @@ DECLARE
         'public.generate_power_ident'
     ];
 
+    -- Upgrade: Trigger functions and RPC for upgrade daemon notifications
+    v_upgrade_funcs TEXT[] := ARRAY[
+        'public.upgrade_notify_daemon',
+        'public.upgrade_notify_frontend',
+        'public.upgrade_request_check'
+    ];
+
     -- Combined registry (excluding sql_saga which is matched by schema)
     v_all_registered_funcs TEXT[];
 
@@ -157,7 +164,8 @@ BEGIN
         v_derive_funcs ||
         v_drilldown_funcs ||
         v_graphql_funcs ||
-        v_lifecycle_funcs;
+        v_lifecycle_funcs ||
+        v_upgrade_funcs;
 
     -- ========== Generate Documentation ==========
 
@@ -573,8 +581,6 @@ SELECT :'verification';
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------
  MISSING RLS: public.statistical_history_facet_pre_dirty_dims — fix with: SELECT admin.add_rls_regular_user_can_read('public.statistical_history_facet_pre_dirty_dims');+
  MISSING RLS: public.statistical_unit_facet_pre_dirty_dims — fix with: SELECT admin.add_rls_regular_user_can_read('public.statistical_unit_facet_pre_dirty_dims');      +
- UNLISTED SECURITY DEFINER: admin.adjust_report_partition_modulus — add to registry in test/sql/008_verify_rls_and_grants.sql                                           +
- UNLISTED SECURITY DEFINER: public.upgrade_notify_daemon — add to registry in test/sql/008_verify_rls_and_grants.sql                                                    +
- UNLISTED SECURITY DEFINER: public.upgrade_notify_frontend — add to registry in test/sql/008_verify_rls_and_grants.sql
+ UNLISTED SECURITY DEFINER: admin.adjust_report_partition_modulus — add to registry in test/sql/008_verify_rls_and_grants.sql
 (1 row)
 

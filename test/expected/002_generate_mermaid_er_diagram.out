@@ -1394,14 +1394,15 @@ erDiagram
 	}
 	upgrade["upgrade"] {
 		integer id
-		text version
 		text commit_sha
-		boolean is_prerelease
+		timestamp_with_time_zone committed_at
+		integer position
+		text[] tags
+		release_status_type release_status
 		text summary
 		text changes
 		text release_url
 		boolean has_migrations
-		text from_version
 		timestamp_with_time_zone discovered_at
 		timestamp_with_time_zone scheduled_at
 		timestamp_with_time_zone started_at
@@ -1409,6 +1410,7 @@ erDiagram
 		text error
 		timestamp_with_time_zone rollback_completed_at
 		timestamp_with_time_zone skipped_at
+		text from_version
 		boolean images_downloaded
 		text backup_path
 	}
