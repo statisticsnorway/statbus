@@ -116,8 +116,12 @@ cmd_install_one() {
         echo "Installing $server (edge channel — building from master)..."
         # Edge: pull latest master, rebuild binary with version from git describe.
         # No release binary exists for untagged master commits.
+        # Follow the same pattern as install.sh: stop daemon, build to tmp, move into place.
         ssh_server "$server" "cd statbus && git fetch origin master --quiet && git checkout origin/master --quiet" 2>&1
-        ssh_server "$server" "cd statbus && export PATH=/home/linuxbrew/.linuxbrew/bin:\$PATH && ./dev.sh build-sb && cp sb-linux-amd64 sb" 2>&1
+        ssh_server "$server" "cd statbus && export PATH=/home/linuxbrew/.linuxbrew/bin:\$PATH && ./dev.sh build-sb" 2>&1
+        # Stop daemon before replacing binary (it locks the file — "Text file busy")
+        ssh_server "$server" "pkill -u \$(id -u) -f 'sb upgrade daemon' 2>/dev/null; sleep 2; cd statbus && mv sb-linux-amd64 sb" 2>&1 \
+            || true
         ssh_server "$server" "cd statbus && ./sb install" 2>&1 \
             || exit_code=$?
     else
