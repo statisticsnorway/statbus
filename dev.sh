@@ -20,20 +20,11 @@ fi
 WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$WORKSPACE"
 
-# Auto-fetch DB snapshot from origin/db-snapshot branch if not cached locally.
+# Auto-fetch DB snapshot if not cached locally.
 # Intent: speeds up create-db from ~294 migrations to one pg_restore (~2 seconds).
-# The db-snapshot branch is a CACHE, not source code. Force-pushed on each update.
-if [ ! -f "$WORKSPACE/.db-snapshot/snapshot.pg_dump" ] && git ls-remote --heads origin db-snapshot >/dev/null 2>&1; then
-    echo "No local DB snapshot found. Fetching from origin/db-snapshot..."
-    echo "  (You can do this manually: git fetch origin db-snapshot --depth=1)"
-    # Fetch may fail if branch was just deleted or network issues — not fatal
-    git fetch origin db-snapshot --depth=1 --quiet 2>/dev/null || true
-    mkdir -p "$WORKSPACE/.db-snapshot"
-    git show origin/db-snapshot:snapshot.pg_dump > "$WORKSPACE/.db-snapshot/snapshot.pg_dump" 2>/dev/null || true
-    git show origin/db-snapshot:snapshot.json > "$WORKSPACE/.db-snapshot/snapshot.json" 2>/dev/null || true
-    if [ -f "$WORKSPACE/.db-snapshot/snapshot.json" ]; then
-        echo "  Snapshot cached at .db-snapshot/ (migration $(grep migration_version "$WORKSPACE/.db-snapshot/snapshot.json" | cut -d'"' -f4))"
-    fi
+# Uses ./sb db snapshot fetch — one implementation in Go, shared by dev.sh and ./sb install.
+if [ ! -f "$WORKSPACE/.db-snapshot/snapshot.pg_dump" ] && [ -x ./sb ]; then
+    ./sb db snapshot fetch 2>/dev/null || true
 fi
 
 if ! test -x ./sb; then
@@ -555,40 +546,15 @@ EOF
     'create-db-structure' )
         eval $(./dev.sh postgres-variables)
 
-        # Use .db-snapshot/ (cached from origin/db-snapshot branch)
+        # Restore snapshot if available — delegates to ./sb which handles
+        # exit code semantics (code 1 = warnings, code 2+ = real failure).
         # Intent: pg_restore is ~2 seconds vs running 294 migrations from scratch.
-        LATEST_SNAPSHOT="$WORKSPACE/.db-snapshot/snapshot.pg_dump"
-        if [ ! -f "$LATEST_SNAPSHOT" ]; then
-            LATEST_SNAPSHOT=""
-        fi
-
-        if [ -n "$LATEST_SNAPSHOT" ]; then
-            SNAPSHOT_VERSION=$(grep migration_version "$WORKSPACE/.db-snapshot/snapshot.json" 2>/dev/null | cut -d'"' -f4)
-
-            echo "Found snapshot for migration version $SNAPSHOT_VERSION"
-            echo "Restoring from snapshot: $LATEST_SNAPSHOT"
-
-            RESTORE_EXIT_CODE=0
-
-            docker compose exec -T db pg_restore -U postgres \
-                --clean \
-                --if-exists \
-                --no-owner \
-                --disable-triggers \
-                --single-transaction \
-                -d "$PGDATABASE" \
-                < "$LATEST_SNAPSHOT" || RESTORE_EXIT_CODE=$?
-
-            if [ $RESTORE_EXIT_CODE -gt 1 ]; then
-                echo "Error: pg_restore failed with exit code $RESTORE_EXIT_CODE"
-                echo "The database may be in an inconsistent state. Consider running:"
+        if [ -f "$WORKSPACE/.db-snapshot/snapshot.pg_dump" ]; then
+            ./sb db snapshot restore || {
+                echo "Error: Snapshot restore failed. Consider running:"
                 echo "  ./dev.sh recreate-database"
                 exit 1
-            elif [ $RESTORE_EXIT_CODE -eq 1 ]; then
-                echo "Info: pg_restore completed with warnings (exit code 1) - this is normal for existing objects"
-            fi
-
-            echo "Snapshot restored. Running any newer migrations..."
+            }
         else
             echo "No snapshot found in .db-snapshot/, running all migrations..."
         fi
@@ -812,18 +778,13 @@ EOF
             GRANT USAGE ON SCHEMA public TO notify_reader;
 EOF
 
-        # Restore snapshot if available — same path as create-db-structure.
+        # Restore snapshot if available — same code path as create-db-structure.
         # Intent: template_statbus provides the foundation (extensions),
         # snapshot provides the schema (294 migrations in ~2 seconds),
         # then only remaining migrations need to run.
+        # --database targets the template DB instead of the main app DB.
         if [ -f "$WORKSPACE/.db-snapshot/snapshot.pg_dump" ]; then
-            SNAP_VERSION=$(grep migration_version "$WORKSPACE/.db-snapshot/snapshot.json" 2>/dev/null | cut -d'"' -f4)
-            echo "Restoring snapshot to template (migration $SNAP_VERSION)..."
-            docker compose exec -T db pg_restore -U postgres \
-                --clean --if-exists --no-owner --disable-triggers --single-transaction \
-                -d "$TEMPLATE_NAME" \
-                < "$WORKSPACE/.db-snapshot/snapshot.pg_dump" || true
-            echo "Snapshot restored. Running any newer migrations..."
+            ./sb db snapshot restore --database "$TEMPLATE_NAME" || true
         fi
 
         # Apply migrations (all if no snapshot, only remaining if snapshot restored).
@@ -1209,74 +1170,12 @@ EOS
         ls -lh "../$OUTPUT"
       ;;
     'update-snapshot' )
-        # Create a DB snapshot and push it to the db-snapshot branch.
-        # Intent: the snapshot is a pg_dump of the current schema + seed data.
-        # It's used by create-db, CI tests, and ./sb install to skip running
-        # all 294+ migrations from scratch.
-        eval $(./dev.sh postgres-variables)
-
-        if ! ./dev.sh is-db-running; then
-            echo "Error: Database is not running. Start with: ./sb start all"
-            exit 1
-        fi
-
-        LATEST_VERSION=$(echo "SELECT version FROM db.migration ORDER BY version DESC LIMIT 1;" \
-            | ./sb psql -t -A)
-
-        if [ -z "$LATEST_VERSION" ]; then
-            echo "Error: No migrations found in database"
-            exit 1
-        fi
-
-        COMMIT_SHA=$(git rev-parse HEAD)
-        TAGS=$(git tag --points-at HEAD 2>/dev/null | tr '\n' ',' | sed 's/,$//')
-
-        mkdir -p "$WORKSPACE/.db-snapshot"
-
-        echo "Creating snapshot for migration $LATEST_VERSION (commit ${COMMIT_SHA:0:12})..."
-        docker compose exec -T db pg_dump -U postgres -Fc --no-owner "$PGDATABASE" \
-            > "$WORKSPACE/.db-snapshot/snapshot.pg_dump"
-
-        cat > "$WORKSPACE/.db-snapshot/snapshot.json" << SNAPEOF
-{
-  "migration_version": "$LATEST_VERSION",
-  "commit_sha": "$COMMIT_SHA",
-  "tags": "$(echo $TAGS)",
-  "created_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-}
-SNAPEOF
-
-        echo "Snapshot: $(ls -lh "$WORKSPACE/.db-snapshot/snapshot.pg_dump" | awk '{print $5}')"
-
-        # Push to db-snapshot branch via worktree.
-        # Intent: worktree lets us commit to db-snapshot without leaving master.
-        # The orphan branch has no parent — it's a separate tree for cache data only.
-        WORKTREE_DIR="$WORKSPACE/../statbus-db-snapshot"
-        if [ ! -d "$WORKTREE_DIR" ]; then
-            echo "Creating worktree at $WORKTREE_DIR..."
-            echo "  (You can do this manually: git worktree add ../statbus-db-snapshot db-snapshot)"
-            if ! git rev-parse --verify db-snapshot >/dev/null 2>&1; then
-                # Create orphan branch without switching away from current branch.
-                # git switch --orphan would leave us in detached HEAD — use worktree --orphan instead.
-                git worktree add --orphan "$WORKTREE_DIR" db-snapshot
-            else
-                git worktree add "$WORKTREE_DIR" db-snapshot
-            fi
-        fi
-
-        cp "$WORKSPACE/.db-snapshot/snapshot.pg_dump" "$WORKTREE_DIR/"
-        cp "$WORKSPACE/.db-snapshot/snapshot.json" "$WORKTREE_DIR/"
-
-        (cd "$WORKTREE_DIR" && \
-            git add snapshot.pg_dump snapshot.json && \
-            git commit -m "snapshot at migration $LATEST_VERSION (${COMMIT_SHA:0:12})" && \
-            git push origin db-snapshot --force)
-
-        echo ""
-        echo "Snapshot updated and pushed to origin/db-snapshot"
-        echo "  Migration: $LATEST_VERSION"
-        echo "  Commit: ${COMMIT_SHA:0:12}"
-        echo "  Tags: ${TAGS:-none}"
+        # Delegate to ./sb which handles: pg_dump, snapshot.json metadata,
+        # worktree management, and force-push to db-snapshot branch.
+        # Intent: single code path for snapshot creation — same binary used
+        # by dev.sh, install, and release pre-flight.
+        # ./sb checks db-running internally and reads its own config.
+        ./sb db snapshot create
       ;;
      * )
       echo "dev.sh — Development-only commands for StatBus"

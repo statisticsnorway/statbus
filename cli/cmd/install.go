@@ -96,6 +96,7 @@ func runInstall() error {
 		{"Generated env", checkEnvDone, runGenerateEnv},
 		{"Images", checkImagesDone, runPullImages},
 		{"Services", checkServicesDone, runStartServices},
+		{"Snapshot", checkSnapshotRestored, runSnapshotRestore},
 		{"Migrations", checkMigrationsDone, runMigrations},
 		{"JWT secret", checkJWTDone, runLoadJWT},
 		{"Users", checkUsersDone, runCreateUsers},
@@ -453,6 +454,48 @@ func runPullImages(dir string) error {
 
 func runStartServices(dir string) error {
 	return runCmdDir(dir, "docker", "compose", "--profile", "all", "up", "-d")
+}
+
+// checkSnapshotRestored returns true if we already have a snapshot locally
+// OR if the database already has migrations applied (re-run scenario).
+// Intent: on fresh install we fetch and restore to skip 294 migrations;
+// on re-install we skip because the DB already has schema.
+func checkSnapshotRestored(dir string) bool {
+	// If DB already has migrations, snapshot restore is unnecessary.
+	if checkMigrationsDone(dir) {
+		return true
+	}
+	// If snapshot is already fetched locally, consider it done —
+	// the restore will happen as part of this step's run function.
+	// But for a truly fresh install, we need to fetch first.
+	dumpPath := filepath.Join(dir, ".db-snapshot", "snapshot.pg_dump")
+	_, err := os.Stat(dumpPath)
+	return err == nil
+}
+
+// runSnapshotRestore fetches the snapshot from origin/db-snapshot and restores
+// it into the database. This makes `migrate up` fast — only migrations newer
+// than the snapshot need to run.
+func runSnapshotRestore(dir string) error {
+	sb := filepath.Join(dir, "sb")
+
+	// Fetch snapshot from remote.
+	fmt.Println("  Fetching snapshot from origin/db-snapshot...")
+	if err := runCmdDir(dir, sb, "db", "snapshot", "fetch"); err != nil {
+		// Not fatal — fresh repos or private forks may not have the branch.
+		fmt.Println("  No snapshot available — will run all migrations")
+		return nil
+	}
+
+	// Restore into the default database (configured in .env).
+	fmt.Println("  Restoring snapshot...")
+	if err := runCmdDir(dir, sb, "db", "snapshot", "restore"); err != nil {
+		// Not fatal — migrate up will run all migrations from scratch.
+		fmt.Println("  Snapshot restore failed — will run all migrations")
+		return nil
+	}
+
+	return nil
 }
 
 func runMigrations(dir string) error {
