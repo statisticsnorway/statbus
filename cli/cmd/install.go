@@ -475,10 +475,15 @@ func runStartServices(dir string) error {
 // over an existing database drops objects while migration records survive,
 // leaving the DB in an inconsistent state.
 func checkSnapshotRestored(dir string) bool {
-	// Wait for DB to be healthy before checking migrations.
-	// Without this wait, checkMigrationsDone can fail during DB startup
-	// and we'd incorrectly conclude the DB is empty, then pg_restore
-	// over an existing database — destroying it.
+	// If services aren't running yet, we can't check the DB.
+	// Return true to skip — the Services step must run first.
+	if !checkServicesDone(dir) {
+		return true
+	}
+
+	// Services are running. Wait for DB to be healthy, then check migrations.
+	// If we can't reach the DB after 30 seconds, FAIL HARD — don't silently
+	// fall through and restore a snapshot over an existing database.
 	for attempt := 0; attempt < 15; attempt++ {
 		if checkMigrationsDone(dir) {
 			return true // DB has migrations — do NOT restore snapshot
@@ -487,15 +492,10 @@ func checkSnapshotRestored(dir string) bool {
 			time.Sleep(2 * time.Second)
 		}
 	}
-	// After 30 seconds of retries, DB either has no migrations (fresh install)
-	// or isn't reachable. Check if DB is actually running at all.
-	if checkServicesDone(dir) {
-		// Services are up but no migrations after 30s — truly a fresh DB.
-		return false
-	}
-	// Services not running — we're too early in install. Skip snapshot,
-	// let the Services step start things first.
-	return true
+
+	// DB is reachable (services running) but has no migrations.
+	// This is a genuinely fresh database — snapshot restore is appropriate.
+	return false
 }
 
 // runSnapshotRestore fetches the snapshot from origin/db-snapshot and restores

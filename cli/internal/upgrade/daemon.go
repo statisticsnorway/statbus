@@ -576,13 +576,36 @@ func (d *Daemon) connect(ctx context.Context) error {
 	// through Caddy's Layer4 proxy. CADDY_DB_BIND_ADDRESS is where Caddy listens
 	// (typically 127.0.0.1). Using SITE_DOMAIN would resolve to the public IP,
 	// which Caddy doesn't listen on in private deployment mode.
+	//
+	// No fallback defaults — if these are missing, the .env is broken and we
+	// must fail loud rather than silently connect to the wrong place.
+	requireKey := func(key string) (string, error) {
+		if v, ok := f.Get(key); ok && v != "" {
+			return v, nil
+		}
+		return "", fmt.Errorf("%s not found in .env — regenerate with: ./sb config generate", key)
+	}
+
+	dbHost, err := requireKey("CADDY_DB_BIND_ADDRESS")
+	if err != nil {
+		return err
+	}
+	dbPort, err := requireKey("CADDY_DB_PORT")
+	if err != nil {
+		return err
+	}
+	dbName, err := requireKey("POSTGRES_APP_DB")
+	if err != nil {
+		return err
+	}
+	dbUser, err := requireKey("POSTGRES_ADMIN_USER")
+	if err != nil {
+		return err
+	}
+	dbPass := getOr("POSTGRES_ADMIN_PASSWORD", "") // password CAN be empty (trust auth)
+
 	connStr := fmt.Sprintf("host=%s port=%s dbname=%s user=%s password=%s sslmode=disable",
-		getOr("CADDY_DB_BIND_ADDRESS", "127.0.0.1"),
-		getOr("CADDY_DB_PORT", "5432"),
-		getOr("POSTGRES_APP_DB", "statbus_local"),
-		getOr("POSTGRES_ADMIN_USER", "postgres"),
-		getOr("POSTGRES_ADMIN_PASSWORD", ""),
-	)
+		dbHost, dbPort, dbName, dbUser, dbPass)
 
 	d.listenConn, err = pgx.Connect(ctx, connStr)
 	if err != nil {
