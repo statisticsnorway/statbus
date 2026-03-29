@@ -16,6 +16,7 @@ import (
 )
 
 var nonInteractive bool
+var installVersion string
 
 var installCmd = &cobra.Command{
 	Use:   "install",
@@ -42,6 +43,7 @@ Example with statbus.nso.eu domain:
 func init() {
 	installCmd.Flags().BoolVar(&nonInteractive, "non-interactive", false,
 		"Run without prompts (requires .env.config to exist)")
+	installCmd.Flags().StringVar(&installVersion, "version", "", "version tag to checkout (for rescue installs)")
 	rootCmd.AddCommand(installCmd)
 }
 
@@ -85,6 +87,7 @@ func runInstall() error {
 	installDir := filepath.Join(home, "statbus")
 
 	steps := []step{
+		{"Source code", checkSourceCodeDone, runCheckoutVersion},
 		{"Prerequisites", checkPrereqDone, runPrereq},
 		{"Repository", checkRepoDone, runCloneRepo},
 		{"Binary", checkBinaryDone, runInstallBinary},
@@ -144,6 +147,28 @@ func runInstall() error {
 }
 
 // ── Step checks (return true if step is already done) ──
+
+func checkSourceCodeDone(dir string) bool {
+	if installVersion == "" {
+		return true // No --version flag, skip (fresh install uses git clone)
+	}
+	// Check if HEAD already matches the requested version tag
+	cmd := exec.Command("git", "describe", "--tags", "--exact-match", "HEAD")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(string(out)) == installVersion
+}
+
+func runCheckoutVersion(dir string) error {
+	fmt.Printf("  Checking out %s\n", installVersion)
+	if err := runCmdDir(dir, "git", "fetch", "--depth", "1", "origin", "tag", installVersion, "--quiet"); err != nil {
+		return fmt.Errorf("fetch tag %s: %w", installVersion, err)
+	}
+	return runCmdDir(dir, "git", "-c", "advice.detachedHead=false", "checkout", installVersion)
+}
 
 func checkPrereqDone(_ string) bool {
 	_, dockerErr := exec.LookPath("docker")
