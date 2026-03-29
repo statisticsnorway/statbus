@@ -12,6 +12,11 @@ if [ "${DEBUG:-}" = "true" ] || [ "${DEBUG:-}" = "1" ]; then
   set -x
 fi
 
+# Ensure Homebrew tools (Go, etc.) are in PATH on servers
+if [ -f /home/linuxbrew/.linuxbrew/bin/brew ]; then
+  eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+fi
+
 WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$WORKSPACE"
 
@@ -85,7 +90,22 @@ EOS
             git checkout "$COMMIT"
         fi
 
+        # Build sb from source if it doesn't exist or is outdated.
+        # The test server may not have a pre-built binary.
+        if [ ! -x ./sb ] || ! ./sb --version >/dev/null 2>&1; then
+            echo "Building sb from source..."
+            (cd cli && go build -o ../sb .)
+        fi
+
         ./sb config generate
+
+        # Pull pre-built Docker images from ghcr.io if available.
+        # CI Images workflow builds sha-tagged images for every master push.
+        if [ -n "$COMMIT" ]; then
+            echo "Pulling cached Docker images for sha-${COMMIT}..."
+            VERSION="sha-${COMMIT}" docker compose pull --quiet 2>/dev/null || echo "No cached images, will build locally"
+        fi
+
         ./dev.sh delete-db
 
         ./dev.sh create-db > /dev/null
