@@ -9,14 +9,15 @@
 #   ./devops/cloud.sh status              Show version on all servers
 #   ./devops/cloud.sh notify              Tell servers to check for updates (non-disruptive)
 #   ./devops/cloud.sh upgrade             Force all servers to apply latest now
-#   ./devops/cloud.sh rescue <server>     Fresh binary + re-install, keeps data (idempotent)
-#   ./devops/cloud.sh rescue all          Rescue ALL servers
+#   ./devops/cloud.sh install <server>    Full idempotent install (includes daemon via root)
+#   ./devops/cloud.sh install all         Install ALL servers
+#   ./devops/cloud.sh rescue <server>     Alias for install (backwards compat)
 #   ./devops/cloud.sh wipe <server>       DESTRUCTIVE: delete DB and recreate from scratch
 #
 # Escalation levels:
 #   notify   — gentle. Servers discover new version. Admin chooses when to upgrade.
 #   upgrade  — firm. Servers apply latest NOW. No approval needed.
-#   rescue   — repair. Downloads fresh binary, re-runs install. Keeps all data.
+#   install  — full. Downloads fresh binary, re-runs install, installs daemon via root.
 #   wipe     — destructive. Deletes database and recreates. Data is lost.
 #
 set -euo pipefail
@@ -32,8 +33,9 @@ usage() {
     echo "  status              Show version on all servers"
     echo "  notify              Tell servers to check for updates"
     echo "  upgrade             Force all servers to apply latest"
-    echo "  rescue <server>     Fresh binary + re-install (keeps data)"
-    echo "  rescue all          Rescue ALL servers"
+    echo "  install <server>    Full idempotent install (includes daemon via root)"
+    echo "  install all         Install ALL servers"
+    echo "  rescue <server>     Alias for install"
     echo "  wipe <server>       DESTRUCTIVE: delete DB and recreate"
     echo ""
     echo "Servers: $SERVERS"
@@ -84,29 +86,51 @@ cmd_upgrade() {
     done
 }
 
-cmd_rescue() {
+cmd_install() {
     local target="$1"
     validate_server "$target"
 
     if [ "$target" = "all" ]; then
-        echo "Rescuing ALL servers via install.sh"
-        echo "==================================="
+        echo "Installing ALL servers"
+        echo "======================"
         for server in $SERVERS; do
             echo ""
             echo "--- $server ---"
-            cmd_rescue_one "$server"
+            cmd_install_one "$server"
         done
     else
-        cmd_rescue_one "$target"
+        cmd_install_one "$target"
     fi
 }
 
-cmd_rescue_one() {
+cmd_install_one() {
     local server="$1"
-    echo "Rescuing $server via $INSTALL_URL ..."
+    local exit_code=0
+
+    echo "Installing $server via $INSTALL_URL ..."
+
+    # Step 1: Run install.sh as the app user.
+    # Exit code 42 = daemon needs root (not a failure).
     ssh_server "$server" \
-        "curl -fsSL ${INSTALL_URL} | bash -s -- --prerelease" 2>&1
-    echo "--- $server rescue complete ---"
+        "curl -fsSL ${INSTALL_URL} | bash -s -- --prerelease" 2>&1 \
+        || exit_code=$?
+
+    if [ "$exit_code" -eq 42 ]; then
+        # Step 2: Daemon needs root — SSH as root to install the systemd service.
+        # The app user home dir is /home/$server (our naming convention on niue).
+        echo "Daemon needs root — installing systemd service..."
+        ssh -o ConnectTimeout=10 "root@${HOST}" \
+            "cd /home/${server}/statbus && ./sb install" 2>&1
+
+        # Step 3: Re-run as app user to confirm everything passes.
+        echo "Verifying install..."
+        ssh_server "$server" "cd statbus && ./sb install" 2>&1
+    elif [ "$exit_code" -ne 0 ]; then
+        echo "--- $server install FAILED (exit code $exit_code) ---"
+        return 1
+    fi
+
+    echo "--- $server install complete ---"
 }
 
 cmd_wipe() {
@@ -146,9 +170,9 @@ case "$1" in
     upgrade)
         cmd_upgrade
         ;;
-    rescue)
-        [ $# -lt 2 ] && { echo "Error: rescue requires a server name or 'all'"; usage; }
-        cmd_rescue "$2"
+    install|rescue)
+        [ $# -lt 2 ] && { echo "Error: $1 requires a server name or 'all'"; usage; }
+        cmd_install "$2"
         ;;
     wipe)
         [ $# -lt 2 ] && { echo "Error: wipe requires a server name"; usage; }

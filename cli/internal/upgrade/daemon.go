@@ -3,6 +3,7 @@ package upgrade
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -47,6 +48,77 @@ func NewDaemon(projDir string, verbose bool, version string) *Daemon {
 	}
 }
 
+// upgradeFlag is written to tmp/upgrade-in-progress.json before destructive
+// steps begin. If the daemon crashes during an upgrade, the flag file survives
+// (it's on the filesystem, NOT in the DB volume which gets rolled back).
+// On next startup, the daemon reads the flag and marks the upgrade as failed.
+type upgradeFlag struct {
+	ID          int    `json:"id"`
+	CommitSHA   string `json:"commit_sha"`
+	DisplayName string `json:"display_name"`
+}
+
+func (d *Daemon) flagPath() string {
+	return filepath.Join(d.projDir, "tmp", "upgrade-in-progress.json")
+}
+
+func (d *Daemon) writeUpgradeFlag(id int, commitSHA, displayName string) {
+	flag := upgradeFlag{ID: id, CommitSHA: commitSHA, DisplayName: displayName}
+	data, err := json.MarshalIndent(flag, "", "  ")
+	if err != nil {
+		return
+	}
+	os.MkdirAll(filepath.Join(d.projDir, "tmp"), 0755)
+	os.WriteFile(d.flagPath(), data, 0644)
+}
+
+func (d *Daemon) removeUpgradeFlag() {
+	os.Remove(d.flagPath())
+}
+
+// recoverFromFlag checks for a flag file from a previous interrupted upgrade.
+// If found, marks the upgrade as failed in the DB using the error from the
+// progress log, then removes the flag.
+func (d *Daemon) recoverFromFlag(ctx context.Context) {
+	data, err := os.ReadFile(d.flagPath())
+	if err != nil {
+		return // no flag file — normal startup
+	}
+
+	var flag upgradeFlag
+	if err := json.Unmarshal(data, &flag); err != nil {
+		fmt.Printf("Warning: corrupt upgrade flag file, removing: %v\n", err)
+		d.removeUpgradeFlag()
+		return
+	}
+
+	fmt.Printf("Found interrupted upgrade flag for %s (id=%d)\n", flag.DisplayName, flag.ID)
+
+	// Read the progress log for the error message.
+	errMsg := "Upgrade interrupted (daemon crashed or was killed)"
+	progressPath := filepath.Join(d.projDir, "tmp", "upgrade-progress.log")
+	if logData, err := os.ReadFile(progressPath); err == nil {
+		// Extract the last meaningful lines from the progress log.
+		lines := strings.Split(strings.TrimSpace(string(logData)), "\n")
+		if len(lines) > 5 {
+			lines = lines[len(lines)-5:]
+		}
+		errMsg = strings.Join(lines, "\n")
+	}
+
+	// Mark the upgrade as failed in the DB.
+	_, err = d.queryConn.Exec(ctx,
+		"UPDATE public.upgrade SET error = $1, rollback_completed_at = now() WHERE id = $2 AND completed_at IS NULL",
+		errMsg, flag.ID)
+	if err != nil {
+		fmt.Printf("Warning: could not mark upgrade %d as failed: %v\n", flag.ID, err)
+	} else {
+		fmt.Printf("Marked upgrade %d (%s) as failed\n", flag.ID, flag.DisplayName)
+	}
+
+	d.removeUpgradeFlag()
+}
+
 // Run starts the daemon main loop.
 func (d *Daemon) Run(ctx context.Context) error {
 	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
@@ -71,6 +143,11 @@ func (d *Daemon) Run(ctx context.Context) error {
 	if err := d.acquireAdvisoryLock(ctx); err != nil {
 		return err
 	}
+
+	// Recover from interrupted upgrades. The flag file survives DB rollbacks
+	// (it's on the filesystem, not in the DB volume). Must run BEFORE
+	// completeInProgressUpgrade so the flag-based recovery takes priority.
+	d.recoverFromFlag(ctx)
 
 	// Complete any in-progress upgrade from a previous daemon instance
 	// (e.g., after self-update restart via exit code 42)
@@ -287,9 +364,10 @@ func (d *Daemon) completeInProgressUpgrade(ctx context.Context) {
 		return
 	}
 
-	// Mark complete
+	// Mark complete and remove flag file
 	d.queryConn.Exec(ctx,
 		"UPDATE public.upgrade SET completed_at = now() WHERE id = $1", id)
+	d.removeUpgradeFlag()
 
 	// Skip older releases that are still "available" — no point upgrading to an older version
 	d.skipOlderReleases(ctx, commitSHA)
@@ -911,6 +989,11 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, commitSHA string, d
 	}
 
 	// === All pre-flight checks passed — mark the upgrade as started ===
+	// Write flag file BEFORE any destructive steps. If the daemon crashes
+	// during the upgrade or rollback, this file survives (it's on the
+	// filesystem, not in the DB volume which gets rolled back).
+	d.writeUpgradeFlag(id, commitSHA, displayName)
+
 	// From this point on, the maintenance guard will activate.
 	d.queryConn.Exec(ctx,
 		"UPDATE public.upgrade SET started_at = now(), from_version = $1 WHERE id = $2",
@@ -1065,6 +1148,7 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, commitSHA string, d
 	// If we get here, self-update didn't restart (no binary for platform, or same version).
 	// Mark complete now since there won't be a new daemon to do it.
 	d.queryConn.Exec(ctx, "UPDATE public.upgrade SET completed_at = now() WHERE id = $1", id)
+	d.removeUpgradeFlag()
 	d.skipOlderReleases(ctx, commitSHA)
 	d.runUpgradeCallback(displayName)
 	progress.Write("Upgrade to %s complete!", displayName)

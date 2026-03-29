@@ -3,9 +3,14 @@
 -- It is NOT a migration — it has no version and is never recorded in db.migration.
 --
 -- WHY THIS EXISTS:
--- pg_dump only captures database-level objects. Cluster-level state (role grants)
--- and extension function overrides (ALTER FUNCTION ... SET search_path) are lost
--- when restoring from a snapshot. This file re-applies those fixes idempotently.
+-- pg_dump captures database objects but pg_restore can silently lose some of them
+-- (exit code 1 = warnings, which we tolerate). The db.migration table records
+-- migrations as "applied" from the snapshot, so migrate up skips them — but the
+-- objects they created may be missing. This file re-creates them idempotently.
+--
+-- Also: cluster-level state (role grants) is never in pg_dump, and extension
+-- function overrides (ALTER FUNCTION ... SET search_path) get wiped when
+-- pg_restore --clean recreates extensions.
 
 -- Role hierarchy grants (cluster-level, not in pg_dump).
 -- Safe to re-run: GRANT is idempotent when membership already exists.

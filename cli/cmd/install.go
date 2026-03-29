@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
@@ -17,6 +18,10 @@ import (
 
 var nonInteractive bool
 var installVersion string
+
+// ExitCodeNeedsRoot is returned when the daemon step needs root.
+// cloud.sh recognizes this code and SSHes as root to complete the install.
+const ExitCodeNeedsRoot = 42
 
 var installCmd = &cobra.Command{
 	Use:   "install",
@@ -36,7 +41,13 @@ Example with statbus.nso.eu domain:
   ./sb install
   # Prompts for: mode=standalone, domain=statbus.nso.eu, name=StatBus, code=nso`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return runInstall()
+		err := runInstall()
+		if err != nil && strings.Contains(err.Error(), "sudo required") {
+			// Exit with distinct code so cloud.sh can detect "needs root"
+			// and SSH as root to complete the install.
+			os.Exit(ExitCodeNeedsRoot)
+		}
+		return err
 	},
 }
 
@@ -456,21 +467,35 @@ func runStartServices(dir string) error {
 	return runCmdDir(dir, "docker", "compose", "--profile", "all", "up", "-d")
 }
 
-// checkSnapshotRestored returns true if we already have a snapshot locally
-// OR if the database already has migrations applied (re-run scenario).
-// Intent: on fresh install we fetch and restore to skip 294 migrations;
-// on re-install we skip because the DB already has schema.
+// checkSnapshotRestored returns true if the database already has migrations
+// (re-install scenario — snapshot restore would be destructive).
+// Returns false only for truly fresh installs where the DB is empty.
+//
+// Intent: the snapshot is a FAST PATH for fresh installs only. Restoring
+// over an existing database drops objects while migration records survive,
+// leaving the DB in an inconsistent state.
 func checkSnapshotRestored(dir string) bool {
-	// If DB already has migrations, snapshot restore is unnecessary.
-	if checkMigrationsDone(dir) {
-		return true
+	// Wait for DB to be healthy before checking migrations.
+	// Without this wait, checkMigrationsDone can fail during DB startup
+	// and we'd incorrectly conclude the DB is empty, then pg_restore
+	// over an existing database — destroying it.
+	for attempt := 0; attempt < 15; attempt++ {
+		if checkMigrationsDone(dir) {
+			return true // DB has migrations — do NOT restore snapshot
+		}
+		if attempt < 14 {
+			time.Sleep(2 * time.Second)
+		}
 	}
-	// If snapshot is already fetched locally, consider it done —
-	// the restore will happen as part of this step's run function.
-	// But for a truly fresh install, we need to fetch first.
-	dumpPath := filepath.Join(dir, ".db-snapshot", "snapshot.pg_dump")
-	_, err := os.Stat(dumpPath)
-	return err == nil
+	// After 30 seconds of retries, DB either has no migrations (fresh install)
+	// or isn't reachable. Check if DB is actually running at all.
+	if checkServicesDone(dir) {
+		// Services are up but no migrations after 30s — truly a fresh DB.
+		return false
+	}
+	// Services not running — we're too early in install. Skip snapshot,
+	// let the Services step start things first.
+	return true
 }
 
 // runSnapshotRestore fetches the snapshot from origin/db-snapshot and restores
