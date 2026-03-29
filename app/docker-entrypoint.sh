@@ -27,16 +27,18 @@ for var in $(env | grep '^NEXT_PUBLIC_' | cut -d= -f1); do
         continue
     fi
 
-    # Replace in all JS files (standalone + static)
-    find "$BUNDLE_DIR" -name '*.js' -exec sed -i "s|${placeholder}|${value}|g" {} + 2>/dev/null || true
+    # Replace in all JS files — both .next/ (server-side) and public/_next/static/ (client-side).
+    # Next.js copies static chunks to public/_next/static/ at build time, so both locations
+    # contain placeholders that need runtime substitution.
+    find "$BUNDLE_DIR" /app/public/_next/static -name '*.js' -exec sed -i "s|${placeholder}|${value}|g" {} + 2>/dev/null || true
     replaced=$((replaced + 1))
 done
 
-# Fail-fast: check for unreplaced placeholders
-remaining=$(grep -rl "${PLACEHOLDER_PREFIX}" "$BUNDLE_DIR/static/" 2>/dev/null | head -1 || true)
+# Fail-fast: check for unreplaced placeholders in both locations
+remaining=$(grep -rl "${PLACEHOLDER_PREFIX}" "$BUNDLE_DIR/static/" /app/public/_next/static/ 2>/dev/null | head -1 || true)
 if [ -n "$remaining" ]; then
     echo "FATAL: Unreplaced NEXT_PUBLIC_* placeholders found in JS bundle:" >&2
-    grep -roh "${PLACEHOLDER_PREFIX}[A-Z_]*${PLACEHOLDER_SUFFIX}" "$BUNDLE_DIR/static/" 2>/dev/null | sort -u >&2
+    grep -roh "${PLACEHOLDER_PREFIX}[A-Z_]*${PLACEHOLDER_SUFFIX}" "$BUNDLE_DIR/static/" /app/public/_next/static/ 2>/dev/null | sort -u >&2
     echo "" >&2
     echo "Set these environment variables in docker-compose.app.yml" >&2
     exit 1
