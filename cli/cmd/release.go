@@ -100,16 +100,20 @@ func preflightChecks(projDir string) bool {
 	} else {
 		stampSHA := strings.TrimSpace(string(stampBytes))
 
-		// Find the last commit that touched migrations/
-		lastMigrationOut, _ := upgrade.RunCommandOutput(projDir, "git", "log", "-1", "--format=%H", "--", "migrations/")
+		// Find the last commit that touched actual migration files.
+		// Only match versioned files (YYYYMMDDHHMMSS_*.up.*), not helper
+		// files like post_restore.sql which live in migrations/ but aren't migrations.
+		lastMigrationOut, _ := upgrade.RunCommandOutput(projDir, "git", "log", "-1", "--format=%H", "--", "migrations/*.up.sql", "migrations/*.up.psql")
 		lastMigration := strings.TrimSpace(lastMigrationOut)
 
 		if lastMigration == "" {
 			// No migrations at all — tests are fine
 			fmt.Println("  \u2713 Fast tests cover latest migrations (no migrations found)")
 		} else {
-			// Check if any new migrations exist between stamp and HEAD
-			newMigrationsOut, _ := upgrade.RunCommandOutput(projDir, "git", "diff", "--name-only", stampSHA+"..HEAD", "--", "migrations/")
+			// Check if any new migration files exist between stamp and HEAD.
+			// Only match *.up.sql / *.up.psql — post_restore.sql and other
+			// helper files in migrations/ are not schema migrations.
+			newMigrationsOut, _ := upgrade.RunCommandOutput(projDir, "git", "diff", "--name-only", stampSHA+"..HEAD", "--", "migrations/*.up.sql", "migrations/*.up.psql")
 			newMigrations := strings.TrimSpace(newMigrationsOut)
 
 			if newMigrations == "" {
