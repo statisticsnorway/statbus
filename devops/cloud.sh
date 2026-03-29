@@ -151,7 +151,7 @@ cmd_wipe() {
     fi
 
     echo "Wiping $target..."
-    ssh_server "$target" "cd statbus && ./dev.sh recreate-database" 2>&1
+    ssh_server "$target" "cd statbus && ./dev.sh recreate-database && ./sb start all" 2>&1
     echo "--- $target wipe complete ---"
 }
 
