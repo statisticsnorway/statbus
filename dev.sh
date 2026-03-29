@@ -1234,17 +1234,20 @@ SNAPEOF
 
         echo "Snapshot: $(ls -lh "$WORKSPACE/.db-snapshot/snapshot.pg_dump" | awk '{print $5}')"
 
-        # Push to db-snapshot branch via worktree
+        # Push to db-snapshot branch via worktree.
+        # Intent: worktree lets us commit to db-snapshot without leaving master.
+        # The orphan branch has no parent — it's a separate tree for cache data only.
         WORKTREE_DIR="$WORKSPACE/../statbus-db-snapshot"
         if [ ! -d "$WORKTREE_DIR" ]; then
             echo "Creating worktree at $WORKTREE_DIR..."
-            # Create orphan branch if it doesn't exist
+            echo "  (You can do this manually: git worktree add ../statbus-db-snapshot db-snapshot)"
             if ! git rev-parse --verify db-snapshot >/dev/null 2>&1; then
-                git switch --orphan db-snapshot
-                git commit --allow-empty -m "init db-snapshot branch"
-                git switch -
+                # Create orphan branch without switching away from current branch.
+                # git switch --orphan would leave us in detached HEAD — use worktree --orphan instead.
+                git worktree add --orphan "$WORKTREE_DIR" db-snapshot
+            else
+                git worktree add "$WORKTREE_DIR" db-snapshot
             fi
-            git worktree add "$WORKTREE_DIR" db-snapshot
         fi
 
         cp "$WORKSPACE/.db-snapshot/snapshot.pg_dump" "$WORKTREE_DIR/"
