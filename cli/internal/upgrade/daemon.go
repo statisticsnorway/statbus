@@ -571,8 +571,13 @@ func (d *Daemon) connect(ctx context.Context) error {
 		return fallback
 	}
 
+	// Connect to the Caddy DB proxy on the host's loopback address.
+	// The daemon runs on the host (not inside Docker), so it reaches PostgreSQL
+	// through Caddy's Layer4 proxy. CADDY_DB_BIND_ADDRESS is where Caddy listens
+	// (typically 127.0.0.1). Using SITE_DOMAIN would resolve to the public IP,
+	// which Caddy doesn't listen on in private deployment mode.
 	connStr := fmt.Sprintf("host=%s port=%s dbname=%s user=%s password=%s sslmode=disable",
-		getOr("SITE_DOMAIN", "localhost"),
+		getOr("CADDY_DB_BIND_ADDRESS", "127.0.0.1"),
 		getOr("CADDY_DB_PORT", "5432"),
 		getOr("POSTGRES_APP_DB", "statbus_local"),
 		getOr("POSTGRES_ADMIN_USER", "postgres"),
