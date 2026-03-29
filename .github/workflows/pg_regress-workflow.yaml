@@ -38,9 +38,4 @@ jobs:
         username: statbus_test
         key: ${{ secrets.SSH_KEY }}
         command_timeout: 60m
-        envs: BRANCH,COMMIT
-        script: |
-          cd statbus && ./dev.sh continous-integration-test
-      env:
-        BRANCH: ${{ steps.ref.outputs.ref }}
-        COMMIT: ${{ steps.ref.outputs.sha }}
+        script: cd statbus && git fetch origin && git checkout ${{ steps.ref.outputs.sha }} && ./dev.sh continous-integration-test
