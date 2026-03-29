@@ -635,10 +635,13 @@ EOF
           fi
         fi
         # Also clean up legacy bind-mount directory if it still exists
+        # Owned by postgres (UID 999) — use docker to remove, no sudo needed
         POSTGRES_DIRECTORY="$WORKSPACE/postgres/volumes/db/data"
         if [ -d "$POSTGRES_DIRECTORY" ]; then
           echo "Removing legacy bind-mount directory '$POSTGRES_DIRECTORY'"
-          rm -rf "$POSTGRES_DIRECTORY"
+          docker run --rm -v "$WORKSPACE/postgres/volumes:/vol" alpine rm -rf /vol/db/data 2>/dev/null \
+            || rm -rf "$POSTGRES_DIRECTORY" 2>/dev/null \
+            || echo "Warning: could not remove legacy directory (permission denied, may need sudo)"
         fi
       ;;
     'dump-snapshot' )
