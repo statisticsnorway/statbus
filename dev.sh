@@ -812,7 +812,21 @@ EOF
             GRANT USAGE ON SCHEMA public TO notify_reader;
 EOF
 
-        # Apply all migrations using the CLI.
+        # Restore snapshot if available — same path as create-db-structure.
+        # Intent: template_statbus provides the foundation (extensions),
+        # snapshot provides the schema (294 migrations in ~2 seconds),
+        # then only remaining migrations need to run.
+        if [ -f "$WORKSPACE/.db-snapshot/snapshot.pg_dump" ]; then
+            SNAP_VERSION=$(grep migration_version "$WORKSPACE/.db-snapshot/snapshot.json" 2>/dev/null | cut -d'"' -f4)
+            echo "Restoring snapshot to template (migration $SNAP_VERSION)..."
+            docker compose exec -T db pg_restore -U postgres \
+                --clean --if-exists --no-owner --disable-triggers --single-transaction \
+                -d "$TEMPLATE_NAME" \
+                < "$WORKSPACE/.db-snapshot/snapshot.pg_dump" || true
+            echo "Snapshot restored. Running any newer migrations..."
+        fi
+
+        # Apply migrations (all if no snapshot, only remaining if snapshot restored).
         # POSTGRES_APP_DB overrides the CLI's database target.
         # PGDATABASE overrides postgres-variables for .psql migrations.
         echo "Applying migrations to template..."
