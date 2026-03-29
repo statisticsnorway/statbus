@@ -121,14 +121,19 @@ cmd_install_one() {
         echo "Daemon needs root — installing systemd service..."
         ssh -o ConnectTimeout=10 "root@${HOST}" \
             "cd /home/${server}/statbus && ./sb install" 2>&1
-
-        # Step 3: Re-run as app user to confirm everything passes.
-        echo "Verifying install..."
-        ssh_server "$server" "cd statbus && ./sb install" 2>&1
     elif [ "$exit_code" -ne 0 ]; then
         echo "--- $server install FAILED (exit code $exit_code) ---"
         return 1
     fi
+
+    # Step 3: Regenerate config so VERSION in .env matches the checked-out code.
+    # Restart app so the web UI picks up the new version.
+    echo "Regenerating config and restarting app..."
+    ssh_server "$server" "cd statbus && ./sb config generate && docker compose restart app" 2>&1
+
+    # Step 4: Final verify — all steps must pass.
+    echo "Verifying install..."
+    ssh_server "$server" "cd statbus && ./sb install" 2>&1
 
     echo "--- $server install complete ---"
 }
