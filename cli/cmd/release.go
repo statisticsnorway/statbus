@@ -139,6 +139,57 @@ func preflightChecks(projDir string) bool {
 		}
 	}
 
+	// 7. Snapshot covers latest migrations
+	// Intent: every release must have a fresh .db-snapshot so installs and CI are fast.
+	// If migrations were added since the last snapshot, the developer must run
+	// ./dev.sh update-snapshot before releasing.
+	snapshotJSON := filepath.Join(projDir, ".db-snapshot", "snapshot.json")
+	snapshotBytes, err := os.ReadFile(snapshotJSON)
+	if err != nil {
+		// No snapshot at all — warn but don't block (first release before any snapshot)
+		fmt.Println("  ⚠ No DB snapshot found (.db-snapshot/snapshot.json)")
+		fmt.Println("    Create one: ./dev.sh update-snapshot")
+	} else {
+		// Parse migration_version from JSON (simple string search, no json package needed)
+		snapshotContent := string(snapshotBytes)
+		// Extract migration_version value
+		snapshotVersion := ""
+		for _, line := range strings.Split(snapshotContent, "\n") {
+			if strings.Contains(line, "migration_version") {
+				parts := strings.Split(line, "\"")
+				if len(parts) >= 4 {
+					snapshotVersion = parts[3]
+				}
+			}
+		}
+
+		// Find latest migration file
+		migrationsDir := filepath.Join(projDir, "migrations")
+		entries, _ := os.ReadDir(migrationsDir)
+		latestMigration := ""
+		for _, e := range entries {
+			name := e.Name()
+			if strings.HasSuffix(name, ".up.sql") {
+				version := strings.Split(name, "_")[0]
+				if version > latestMigration {
+					latestMigration = version
+				}
+			}
+		}
+
+		if latestMigration == "" {
+			fmt.Println("  ✓ Snapshot up to date (no migrations found)")
+		} else if snapshotVersion >= latestMigration {
+			fmt.Printf("  ✓ Snapshot covers latest migrations (snapshot: %s, latest: %s)\n", snapshotVersion, latestMigration)
+		} else {
+			fmt.Println("  ✗ Snapshot outdated")
+			fmt.Printf("    Snapshot: %s\n", snapshotVersion)
+			fmt.Printf("    Latest migration: %s\n", latestMigration)
+			fmt.Println("    Fix: ./dev.sh update-snapshot")
+			allPassed = false
+		}
+	}
+
 	return allPassed
 }
 

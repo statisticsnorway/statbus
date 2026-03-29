@@ -20,6 +20,21 @@ fi
 WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$WORKSPACE"
 
+# Auto-fetch DB snapshot from origin/db-snapshot branch if not cached locally.
+# Intent: speeds up create-db from ~294 migrations to one pg_restore (~2 seconds).
+# The db-snapshot branch is a CACHE, not source code. Force-pushed on each update.
+if [ ! -f "$WORKSPACE/.db-snapshot/snapshot.pg_dump" ] && git ls-remote --heads origin db-snapshot >/dev/null 2>&1; then
+    echo "No local DB snapshot found. Fetching from origin/db-snapshot..."
+    echo "  (You can do this manually: git fetch origin db-snapshot --depth=1)"
+    git fetch origin db-snapshot --depth=1 --quiet
+    mkdir -p "$WORKSPACE/.db-snapshot"
+    git show origin/db-snapshot:snapshot.pg_dump > "$WORKSPACE/.db-snapshot/snapshot.pg_dump" 2>/dev/null || true
+    git show origin/db-snapshot:snapshot.json > "$WORKSPACE/.db-snapshot/snapshot.json" 2>/dev/null || true
+    if [ -f "$WORKSPACE/.db-snapshot/snapshot.json" ]; then
+        echo "  Snapshot cached at .db-snapshot/ (migration $(grep migration_version "$WORKSPACE/.db-snapshot/snapshot.json" | cut -d'"' -f4))"
+    fi
+fi
+
 if ! test -x ./sb; then
     if command -v go >/dev/null 2>&1; then
         echo "Building sb from source..."
@@ -538,43 +553,30 @@ EOF
     ;;
     'create-db-structure' )
         eval $(./dev.sh postgres-variables)
-        SNAPSHOT_DIR="$WORKSPACE/migrations/snapshots"
 
-        # Find the latest snapshot file (if any)
-        LATEST_SNAPSHOT=$(find "$SNAPSHOT_DIR" -maxdepth 1 -name 'schema_*.pg_dump' -type f 2>/dev/null | sort -V | tail -1 || true)
+        # Use .db-snapshot/ (cached from origin/db-snapshot branch)
+        # Intent: pg_restore is ~2 seconds vs running 294 migrations from scratch.
+        LATEST_SNAPSHOT="$WORKSPACE/.db-snapshot/snapshot.pg_dump"
+        if [ ! -f "$LATEST_SNAPSHOT" ]; then
+            LATEST_SNAPSHOT=""
+        fi
 
         if [ -n "$LATEST_SNAPSHOT" ]; then
-            SNAPSHOT_VERSION=$(basename "$LATEST_SNAPSHOT" | sed 's/schema_\([0-9]*\)\.pg_dump/\1/')
-            SNAPSHOT_LIST="${LATEST_SNAPSHOT%.pg_dump}.pg_list"
+            SNAPSHOT_VERSION=$(grep migration_version "$WORKSPACE/.db-snapshot/snapshot.json" 2>/dev/null | cut -d'"' -f4)
 
             echo "Found snapshot for migration version $SNAPSHOT_VERSION"
             echo "Restoring from snapshot: $LATEST_SNAPSHOT"
 
             RESTORE_EXIT_CODE=0
 
-            if [ -f "$SNAPSHOT_LIST" ]; then
-                echo "Using list file: $SNAPSHOT_LIST"
-                docker compose cp "$SNAPSHOT_LIST" db:/tmp/restore.pg_list
-                docker compose exec -T db pg_restore -U postgres \
-                    --clean \
-                    --if-exists \
-                    --no-owner \
-                    --disable-triggers \
-                    --single-transaction \
-                    -L /tmp/restore.pg_list \
-                    -d "$PGDATABASE" \
-                    < "$LATEST_SNAPSHOT" || RESTORE_EXIT_CODE=$?
-                docker compose exec -T db rm -f /tmp/restore.pg_list
-            else
-                docker compose exec -T db pg_restore -U postgres \
-                    --clean \
-                    --if-exists \
-                    --no-owner \
-                    --disable-triggers \
-                    --single-transaction \
-                    -d "$PGDATABASE" \
-                    < "$LATEST_SNAPSHOT" || RESTORE_EXIT_CODE=$?
-            fi
+            docker compose exec -T db pg_restore -U postgres \
+                --clean \
+                --if-exists \
+                --no-owner \
+                --disable-triggers \
+                --single-transaction \
+                -d "$PGDATABASE" \
+                < "$LATEST_SNAPSHOT" || RESTORE_EXIT_CODE=$?
 
             if [ $RESTORE_EXIT_CODE -gt 1 ]; then
                 echo "Error: pg_restore failed with exit code $RESTORE_EXIT_CODE"
@@ -587,7 +589,7 @@ EOF
 
             echo "Snapshot restored. Running any newer migrations..."
         else
-            echo "No snapshot found in $SNAPSHOT_DIR, running all migrations..."
+            echo "No snapshot found in .db-snapshot/, running all migrations..."
         fi
 
         # Run migrations
@@ -1191,6 +1193,73 @@ EOS
         echo "Built: $OUTPUT"
         ls -lh "../$OUTPUT"
       ;;
+    'update-snapshot' )
+        # Create a DB snapshot and push it to the db-snapshot branch.
+        # Intent: the snapshot is a pg_dump of the current schema + seed data.
+        # It's used by create-db, CI tests, and ./sb install to skip running
+        # all 294+ migrations from scratch.
+        eval $(./dev.sh postgres-variables)
+
+        if ! ./dev.sh is-db-running; then
+            echo "Error: Database is not running. Start with: ./sb start all"
+            exit 1
+        fi
+
+        LATEST_VERSION=$(echo "SELECT version FROM db.migration ORDER BY version DESC LIMIT 1;" \
+            | ./sb psql -t -A)
+
+        if [ -z "$LATEST_VERSION" ]; then
+            echo "Error: No migrations found in database"
+            exit 1
+        fi
+
+        COMMIT_SHA=$(git rev-parse HEAD)
+        TAGS=$(git tag --points-at HEAD 2>/dev/null | tr '\n' ',' | sed 's/,$//')
+
+        mkdir -p "$WORKSPACE/.db-snapshot"
+
+        echo "Creating snapshot for migration $LATEST_VERSION (commit ${COMMIT_SHA:0:12})..."
+        docker compose exec -T db pg_dump -U postgres -Fc --no-owner "$PGDATABASE" \
+            > "$WORKSPACE/.db-snapshot/snapshot.pg_dump"
+
+        cat > "$WORKSPACE/.db-snapshot/snapshot.json" << SNAPEOF
+{
+  "migration_version": "$LATEST_VERSION",
+  "commit_sha": "$COMMIT_SHA",
+  "tags": "$(echo $TAGS)",
+  "created_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+}
+SNAPEOF
+
+        echo "Snapshot: $(ls -lh "$WORKSPACE/.db-snapshot/snapshot.pg_dump" | awk '{print $5}')"
+
+        # Push to db-snapshot branch via worktree
+        WORKTREE_DIR="$WORKSPACE/../statbus-db-snapshot"
+        if [ ! -d "$WORKTREE_DIR" ]; then
+            echo "Creating worktree at $WORKTREE_DIR..."
+            # Create orphan branch if it doesn't exist
+            if ! git rev-parse --verify db-snapshot >/dev/null 2>&1; then
+                git switch --orphan db-snapshot
+                git commit --allow-empty -m "init db-snapshot branch"
+                git switch -
+            fi
+            git worktree add "$WORKTREE_DIR" db-snapshot
+        fi
+
+        cp "$WORKSPACE/.db-snapshot/snapshot.pg_dump" "$WORKTREE_DIR/"
+        cp "$WORKSPACE/.db-snapshot/snapshot.json" "$WORKTREE_DIR/"
+
+        (cd "$WORKTREE_DIR" && \
+            git add snapshot.pg_dump snapshot.json && \
+            git commit -m "snapshot at migration $LATEST_VERSION (${COMMIT_SHA:0:12})" && \
+            git push origin db-snapshot --force)
+
+        echo ""
+        echo "Snapshot updated and pushed to origin/db-snapshot"
+        echo "  Migration: $LATEST_VERSION"
+        echo "  Commit: ${COMMIT_SHA:0:12}"
+        echo "  Tags: ${TAGS:-none}"
+      ;;
      * )
       echo "dev.sh — Development-only commands for StatBus"
       echo ""
@@ -1215,6 +1284,7 @@ EOS
       echo "  clean-test-databases [--force]     Drop all test_* databases"
       echo ""
       echo "Snapshots & documentation:"
+      echo "  update-snapshot                    Create snapshot and push to origin/db-snapshot"
       echo "  dump-snapshot                      Save database snapshot for fast restore"
       echo "  list-snapshots                     List available snapshots"
       echo "  generate-db-documentation          Generate schema docs in doc/db/"
