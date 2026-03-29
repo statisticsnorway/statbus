@@ -107,13 +107,27 @@ cmd_install_one() {
     local server="$1"
     local exit_code=0
 
-    echo "Installing $server via $INSTALL_URL ..."
+    # Check the server's upgrade channel to decide install strategy.
+    # Edge channel tracks master (build from source). Others use tagged releases.
+    local channel
+    channel=$(ssh_server "$server" "cd statbus && ./sb dotenv -f .env.config get UPGRADE_CHANNEL 2>/dev/null" 2>/dev/null || echo "prerelease")
 
-    # Step 1: Run install.sh as the app user.
-    # Exit code 42 = daemon needs root (not a failure).
-    ssh_server "$server" \
-        "curl -fsSL ${INSTALL_URL} | bash -s -- --prerelease" 2>&1 \
-        || exit_code=$?
+    if [ "$channel" = "edge" ]; then
+        echo "Installing $server (edge channel — building from master)..."
+        # Edge: pull latest master, rebuild binary with version from git describe.
+        # No release binary exists for untagged master commits.
+        ssh_server "$server" "cd statbus && git fetch origin master --quiet && git checkout origin/master --quiet" 2>&1
+        ssh_server "$server" "cd statbus && export PATH=/home/linuxbrew/.linuxbrew/bin:\$PATH && ./dev.sh build-sb && cp sb-linux-amd64 sb" 2>&1
+        ssh_server "$server" "cd statbus && ./sb install" 2>&1 \
+            || exit_code=$?
+    else
+        echo "Installing $server via $INSTALL_URL ..."
+        # Step 1: Run install.sh as the app user.
+        # Exit code 42 = daemon needs root (not a failure).
+        ssh_server "$server" \
+            "curl -fsSL ${INSTALL_URL} | bash -s -- --prerelease" 2>&1 \
+            || exit_code=$?
+    fi
 
     if [ "$exit_code" -eq 42 ]; then
         # Step 2: Daemon needs root — SSH as root to install the systemd service.
