@@ -21,8 +21,13 @@ WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$WORKSPACE"
 
 if ! test -x ./sb; then
-    echo "Error: ./sb binary not found. Build it with: cd cli && go build -o ../sb ."
-    exit 1
+    if command -v go >/dev/null 2>&1; then
+        echo "Building sb from source..."
+        (cd cli && go build -o ../sb .)
+    else
+        echo "Error: ./sb binary not found. Build it with: cd cli && go build -o ../sb ."
+        exit 1
+    fi
 fi
 
 # Set TTY_INPUT to /dev/tty if available (interactive), otherwise /dev/null
