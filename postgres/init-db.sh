@@ -139,6 +139,13 @@ GRANT admin_user TO authenticator;
 GRANT regular_user TO authenticator;
 GRANT restricted_user TO authenticator;
 GRANT external_user TO authenticator;
+
+-- Role hierarchy: admin inherits regular, regular inherits restricted, etc.
+-- These are cluster-level grants (pg_authid), NOT captured by pg_dump.
+-- Without these, pg_has_role() checks fail after snapshot restore.
+GRANT regular_user TO admin_user;
+GRANT restricted_user TO regular_user;
+GRANT external_user TO restricted_user;
 EOF
 
 echo "Setting up notify reader role and user..."

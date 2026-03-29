@@ -278,13 +278,11 @@ END $$;`
 		pending = pending[:1]
 	}
 
+	// Apply pending migrations (may be empty — post_restore still needs to run).
+	appliedCount := 0
 	if len(pending) == 0 {
 		fmt.Println("All migrations are up to date")
-		return nil
 	}
-
-	// Apply
-	appliedCount := 0
 	for _, m := range pending {
 		if verbose {
 			fmt.Printf("Migration %d (%s) ", m.Version, m.Description)
@@ -323,6 +321,21 @@ END $$;`
 	if appliedCount > 0 {
 		runPsql(projDir, "NOTIFY pgrst, 'reload config'; NOTIFY pgrst, 'reload schema';")
 		fmt.Printf("Applied %d migration(s)\n", appliedCount)
+	}
+
+	// Run post-restore fixups: idempotent repairs for state that
+	// pg_dump/pg_restore cannot preserve (cluster-level role grants,
+	// extension function search_path overrides). Always runs — even
+	// when no pending migrations — because snapshot restore alone
+	// can break these things.
+	postRestore := filepath.Join(projDir, "migrations", "post_restore.sql")
+	if _, err := os.Stat(postRestore); err == nil {
+		if verbose {
+			fmt.Println("Running post-restore fixups...")
+		}
+		if out, err := runPsqlFile(projDir, postRestore); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: post_restore.sql failed: %v\n%s\n", err, out)
+		}
 	}
 
 	// In development mode, auto-recreate the test template after migrations.
