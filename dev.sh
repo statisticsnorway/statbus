@@ -26,7 +26,8 @@ cd "$WORKSPACE"
 if [ ! -f "$WORKSPACE/.db-snapshot/snapshot.pg_dump" ] && git ls-remote --heads origin db-snapshot >/dev/null 2>&1; then
     echo "No local DB snapshot found. Fetching from origin/db-snapshot..."
     echo "  (You can do this manually: git fetch origin db-snapshot --depth=1)"
-    git fetch origin db-snapshot --depth=1 --quiet
+    # Fetch may fail if branch was just deleted or network issues — not fatal
+    git fetch origin db-snapshot --depth=1 --quiet 2>/dev/null || true
     mkdir -p "$WORKSPACE/.db-snapshot"
     git show origin/db-snapshot:snapshot.pg_dump > "$WORKSPACE/.db-snapshot/snapshot.pg_dump" 2>/dev/null || true
     git show origin/db-snapshot:snapshot.json > "$WORKSPACE/.db-snapshot/snapshot.json" 2>/dev/null || true
