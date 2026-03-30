@@ -154,7 +154,17 @@ export default function UpgradesPage() {
   } = useSWR<Upgrade[]>(
     "/rest/upgrade?select=*,display_name&order=position.desc.nullslast,committed_at.desc&limit=20",
     fetcher,
-    { refreshInterval: 30000 },
+    {
+      // Poll fast (3s) when an upgrade is active, slow (30s) otherwise.
+      // SSE normally handles instant updates, but the connection drops during
+      // upgrades (app container restarts). Fast polling covers the gap.
+      refreshInterval: upgrades?.some(u => u.started_at && !u.completed_at && !u.error && !u.rollback_completed_at)
+        ? 3000
+        : 30000,
+      // Refetch when tab regains focus — catches state changes that
+      // happened while SSE was disconnected during an upgrade.
+      revalidateOnFocus: true,
+    },
   );
   const { data: systemInfo } = useSWR<SystemInfo[]>(
     "/rest/system_info",
