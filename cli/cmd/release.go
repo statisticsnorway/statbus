@@ -199,7 +199,7 @@ func preflightChecks(projDir string) bool {
 
 var releasePrereleaseCmd = &cobra.Command{
 	Use:   "prerelease",
-	Short: "Tag a new release candidate (vYYYY.MM.0-rc.N)",
+	Short: "Tag a new release candidate (vYYYY.MM.PATCH-rc.N)",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		projDir := config.ProjectDir()
 
@@ -213,14 +213,46 @@ var releasePrereleaseCmd = &cobra.Command{
 		now := time.Now()
 		prefix := fmt.Sprintf("v%d.%02d", now.Year(), now.Month())
 
-		// List existing RC tags for this month
-		pattern := fmt.Sprintf("%s.*-rc.*", prefix)
-		tagsOut, err := upgrade.RunCommandOutput(projDir, "git", "tag", "-l", pattern, "--sort=-version:refname")
+		// Find the highest stable patch for this month.
+		// If v2026.03.0 exists, the next prerelease must be v2026.03.1-rc.1
+		// (not another RC for the already-released .0).
+		stablePattern := fmt.Sprintf("%s.*", prefix)
+		stableTagsOut, err := upgrade.RunCommandOutput(projDir, "git", "tag", "-l", stablePattern)
+		if err != nil {
+			return fmt.Errorf("listing stable tags: %w", err)
+		}
+
+		highestStablePatch := -1
+		patchRegex := regexp.MustCompile(fmt.Sprintf(`^%s\.(\d+)$`, regexp.QuoteMeta(prefix)))
+		for _, line := range strings.Split(strings.TrimSpace(stableTagsOut), "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.Contains(line, "-rc") {
+				continue
+			}
+			matches := patchRegex.FindStringSubmatch(line)
+			if len(matches) == 2 {
+				n, _ := strconv.Atoi(matches[1])
+				if n > highestStablePatch {
+					highestStablePatch = n
+				}
+			}
+		}
+
+		// The patch version for the next RC: if no stable exists, use 0.
+		// If v2026.03.0 exists, next RC is for patch 1. If v2026.03.1 exists, patch 2.
+		nextPatch := highestStablePatch + 1
+		if highestStablePatch < 0 {
+			nextPatch = 0 // no stable yet — RC for .0
+		}
+
+		// List existing RC tags for this patch version
+		rcPattern := fmt.Sprintf("%s.%d-rc.*", prefix, nextPatch)
+		tagsOut, err := upgrade.RunCommandOutput(projDir, "git", "tag", "-l", rcPattern, "--sort=-version:refname")
 		if err != nil {
 			return fmt.Errorf("listing tags: %w", err)
 		}
 
-		// Parse highest RC number
+		// Parse highest RC number for this patch
 		highestRC := 0
 		rcRegex := regexp.MustCompile(`-rc\.(\d+)$`)
 		for _, line := range strings.Split(strings.TrimSpace(tagsOut), "\n") {
@@ -238,7 +270,7 @@ var releasePrereleaseCmd = &cobra.Command{
 		}
 
 		nextRC := highestRC + 1
-		tagName := fmt.Sprintf("%s.0-rc.%d", prefix, nextRC)
+		tagName := fmt.Sprintf("%s.%d-rc.%d", prefix, nextPatch, nextRC)
 
 		// Create tag with message (avoids $EDITOR prompt when tag.gpgsign=true)
 		_, err = upgrade.RunCommandOutput(projDir, "git", "tag", "-m", "Pre-release "+tagName, tagName)
