@@ -6078,6 +6078,7 @@ export type Database = {
       },
       upgrade: {
         Row: {
+          artifacts_ready: boolean
           backup_path: string | null
           changes: string | null
           commit_sha: string
@@ -6100,6 +6101,7 @@ export type Database = {
           tags: string[]
         },
         Insert: {
+          artifacts_ready?: boolean
           backup_path?: string | null
           changes?: string | null
           commit_sha: string
@@ -6122,6 +6124,7 @@ export type Database = {
           tags?: string[]
         },
         Update: {
+          artifacts_ready?: boolean
           backup_path?: string | null
           changes?: string | null
           commit_sha?: string
