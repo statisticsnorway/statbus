@@ -510,9 +510,15 @@ function UpgradeCard({
 
         {/* Error display */}
         {u.error && (
-          <div className="mb-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-            <strong>Error:</strong> {u.error}
-          </div>
+          <Collapsible defaultOpen>
+            <CollapsibleTrigger className="flex items-center gap-1 text-sm font-medium text-red-800 hover:text-red-900">
+              <ChevronDown className="h-3 w-3" />
+              Error
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800 whitespace-pre-wrap">
+              {u.error}
+            </CollapsibleContent>
+          </Collapsible>
         )}
 
         {/* Changelog */}

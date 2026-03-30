@@ -77,8 +77,8 @@ func (d *Daemon) removeUpgradeFlag() {
 }
 
 // recoverFromFlag checks for a flag file from a previous interrupted upgrade.
-// If found, marks the upgrade as failed in the DB using the error from the
-// progress log, then removes the flag.
+// Distinguishes between a real crash (mark failed) and a self-update restart
+// (mark completed) by checking if git HEAD matches the upgrade target.
 func (d *Daemon) recoverFromFlag(ctx context.Context) {
 	data, err := os.ReadFile(d.flagPath())
 	if err != nil {
@@ -94,11 +94,24 @@ func (d *Daemon) recoverFromFlag(ctx context.Context) {
 
 	fmt.Printf("Found interrupted upgrade flag for %s (id=%d)\n", flag.DisplayName, flag.ID)
 
-	// Read the progress log for the error message.
+	// Check if the upgrade actually succeeded (self-update restart via exit code 42).
+	// If git HEAD matches the upgrade target, the code is at the right version.
+	headSHA, _ := runCommandOutput(d.projDir, "git", "rev-parse", "HEAD")
+	headSHA = strings.TrimSpace(headSHA)
+	if headSHA == flag.CommitSHA {
+		fmt.Printf("Upgrade %s succeeded (self-update restart detected)\n", flag.DisplayName)
+		d.queryConn.Exec(ctx,
+			"UPDATE public.upgrade SET completed_at = now() WHERE id = $1 AND completed_at IS NULL",
+			flag.ID)
+		d.removeUpgradeFlag()
+		d.skipOlderReleases(ctx, flag.CommitSHA)
+		return
+	}
+
+	// Real failure — read the progress log for the error message.
 	errMsg := "Upgrade interrupted (daemon crashed or was killed)"
 	progressPath := filepath.Join(d.projDir, "tmp", "upgrade-progress.log")
 	if logData, err := os.ReadFile(progressPath); err == nil {
-		// Extract the last meaningful lines from the progress log.
 		lines := strings.Split(strings.TrimSpace(string(logData)), "\n")
 		if len(lines) > 5 {
 			lines = lines[len(lines)-5:]
@@ -997,7 +1010,7 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, commitSHA string, d
 	defer func() { d.upgrading = false }()
 
 	projDir := d.projDir
-	progress := NewProgressLog(projDir)
+	progress := NewProgressLog(projDir, displayName)
 	defer progress.Close()
 
 	progress.Write("Upgrading to %s (from %s)...", displayName, d.version)
