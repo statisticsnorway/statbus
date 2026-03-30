@@ -357,13 +357,7 @@ export default function UpgradesPage() {
                 window.location.href = `/maintenance.html?return=${encodeURIComponent(window.location.pathname)}`;
               }}
               onUnschedule={() => act(u.id, { scheduled_at: null })}
-              onRefetch={() =>
-                act(u.id, {
-                  started_at: null,
-                  scheduled_at: null,
-                  rollback_completed_at: null,
-                })
-              }
+              onRefetch={() => {}}
               onSkip={() =>
                 act(u.id, { skipped_at: new Date().toISOString() })
               }
@@ -600,17 +594,13 @@ function UpgradeCard({
 
           {(status === "failed" || status === "rolled_back") && (
             <>
-              <Button size="sm" variant="outline" disabled={acting} onClick={onRefetch}>
+              <Button size="sm" variant="outline" disabled={acting} onClick={onSkip}>
                 {acting ? (
                   <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                 ) : (
-                  <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                  <SkipForward className="mr-1.5 h-3.5 w-3.5" />
                 )}
-                Retry
-              </Button>
-              <Button size="sm" variant="ghost" disabled={acting} onClick={onSkip}>
-                <SkipForward className="mr-1.5 h-3.5 w-3.5" />
-                Skip
+                Dismiss
               </Button>
               {u.release_url && (
                 <Button size="sm" variant="ghost" asChild>
