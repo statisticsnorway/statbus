@@ -404,6 +404,9 @@ func (d *Daemon) syncConfigToSystemInfo(ctx context.Context) {
 
 // reportDiskSpace writes the current free disk space to system_info.
 func (d *Daemon) reportDiskSpace(ctx context.Context) {
+	if err := d.ensureConnected(ctx); err != nil {
+		return
+	}
 	if freeBytes, err := DiskFree(d.projDir); err == nil {
 		freeGB := freeBytes / (1024 * 1024 * 1024)
 		d.queryConn.Exec(ctx,
@@ -619,6 +622,18 @@ func (d *Daemon) connect(ctx context.Context) error {
 	return nil
 }
 
+// ensureConnected pings queryConn and reconnects both connections if dead.
+// Called at the top of discover/executeScheduled/reportDiskSpace to detect
+// a dead queryConn (e.g., after DB restart during deploy). The listenConn
+// has its own reconnect path via errCh in the main loop.
+func (d *Daemon) ensureConnected(ctx context.Context) error {
+	if d.queryConn == nil || d.queryConn.Ping(ctx) != nil {
+		fmt.Println("Database connection lost, reconnecting...")
+		return d.reconnect(ctx)
+	}
+	return nil
+}
+
 func (d *Daemon) reconnect(ctx context.Context) error {
 	if d.listenConn != nil {
 		d.listenConn.Close(context.Background())
@@ -674,6 +689,11 @@ func (d *Daemon) checkMissedUpgrades(ctx context.Context) {
 }
 
 func (d *Daemon) discover(ctx context.Context) {
+	if err := d.ensureConnected(ctx); err != nil {
+		fmt.Printf("Reconnect failed in discover: %v\n", err)
+		return
+	}
+
 	// Edge channel: discover commits AND release tags.
 	// Commits for Docker container updates, tags for binary self-updates.
 	if d.channel == "edge" {
@@ -951,6 +971,9 @@ func (d *Daemon) scheduleImmediate(ctx context.Context, versionOrSHA string) {
 }
 
 func (d *Daemon) executeScheduled(ctx context.Context) {
+	if err := d.ensureConnected(ctx); err != nil {
+		return
+	}
 	var id int
 	var commitSHA, displayName string
 	err := d.queryConn.QueryRow(ctx,
