@@ -502,18 +502,18 @@ def determine_and_set_api_base_url() -> None:
 
     # Priority for URL checking:
     # 1. STATBUS_URL (Next.js dev server on host, e.g., http://localhost:3000, should proxy /rest/*)
-    # 2. NEXT_PUBLIC_BROWSER_REST_URL (Direct Caddy URL, e.g., http://localhost:3010)
+    # 2. PUBLIC_BROWSER_REST_URL (Direct Caddy URL, e.g., http://localhost:3010)
 
     statbus_url_env = os.environ.get("STATBUS_URL")
-    next_public_browser_rest_url_env = os.environ.get("NEXT_PUBLIC_BROWSER_REST_URL")
+    next_public_browser_rest_url_env = os.environ.get("PUBLIC_BROWSER_REST_URL")
     
     chosen_url = try_url(statbus_url_env, "STATBUS_URL (Next.js dev server on host)")
 
     if not chosen_url:
-        chosen_url = try_url(next_public_browser_rest_url_env, "NEXT_PUBLIC_BROWSER_REST_URL (direct to Caddy)")
+        chosen_url = try_url(next_public_browser_rest_url_env, "PUBLIC_BROWSER_REST_URL (direct to Caddy)")
 
     if not chosen_url:
-        log_error("CRITICAL: Failed to determine a reachable API_BASE_URL. Checked STATBUS_URL and NEXT_PUBLIC_BROWSER_REST_URL. Ensure one of these points to a running Next.js dev server (with /rest/* proxy) or Caddy.")
+        log_error("CRITICAL: Failed to determine a reachable API_BASE_URL. Checked STATBUS_URL and PUBLIC_BROWSER_REST_URL. Ensure one of these points to a running Next.js dev server (with /rest/* proxy) or Caddy.")
         # log_error calls sys.exit(1)
 
     API_BASE_URL = chosen_url

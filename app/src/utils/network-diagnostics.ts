@@ -86,7 +86,7 @@ export async function testConnectivity(url: string, options: RequestInit = {}): 
 export async function runNetworkDiagnostics() {
   const { statbusConfig } = await import("@/lib/statbus-config");
   const serverApiUrl = process.env.SERVER_REST_URL;
-  const browserApiUrl = typeof window !== 'undefined' ? statbusConfig.browserRestUrl : process.env.NEXT_PUBLIC_BROWSER_REST_URL;
+  const browserApiUrl = typeof window !== 'undefined' ? statbusConfig.browserRestUrl : process.env.PUBLIC_BROWSER_REST_URL;
   
   const results = await Promise.all([
     serverApiUrl ? testConnectivity(serverApiUrl) : Promise.resolve({
@@ -96,7 +96,7 @@ export async function runNetworkDiagnostics() {
       timing: { start: 0, end: 0, duration: 0 }
     }),
     browserApiUrl ? testConnectivity(browserApiUrl) : Promise.resolve({
-      url: 'NEXT_PUBLIC_BROWSER_REST_URL not set',
+      url: 'PUBLIC_BROWSER_REST_URL not set',
       success: false,
       error: 'Environment variable not set',
       timing: { start: 0, end: 0, duration: 0 }
@@ -116,7 +116,7 @@ export async function runNetworkDiagnostics() {
       serverApiUrl,
       browserApiUrl,
       nodeEnv: process.env.NODE_ENV,
-      deploymentSlot: typeof window !== 'undefined' ? statbusConfig.deploymentSlotCode : process.env.NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE
+      deploymentSlot: typeof window !== 'undefined' ? statbusConfig.deploymentSlotCode : process.env.PUBLIC_DEPLOYMENT_SLOT_CODE
     },
     results
   };

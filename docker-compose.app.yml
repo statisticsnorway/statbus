@@ -16,12 +16,12 @@ services:
       - "app"
     environment:
       RUNNING_IN_DOCKER: 'true' # To differentiate from true local dev (pnpm run dev on host)
-      NEXT_PUBLIC_BROWSER_REST_URL: ${NEXT_PUBLIC_BROWSER_REST_URL}
+      PUBLIC_BROWSER_REST_URL: ${PUBLIC_BROWSER_REST_URL}
       SERVER_REST_URL: "http://proxy:80"
       SEQ_SERVER_URL: ${SEQ_SERVER_URL:-https://log.statbus.org}
       SEQ_API_KEY: ${SEQ_API_KEY:?SEQ_API_KEY must be set in the generated .env}
-      NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME: ${DEPLOYMENT_SLOT_NAME:?DEPLOYMENT_SLOT_NAME must be set in the generated .env}
-      NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE: ${DEPLOYMENT_SLOT_CODE:?DEPLOYMENT_SLOT_CODE must be set in the generated .env}
+      PUBLIC_DEPLOYMENT_SLOT_NAME: ${DEPLOYMENT_SLOT_NAME:?DEPLOYMENT_SLOT_NAME must be set in the generated .env}
+      PUBLIC_DEPLOYMENT_SLOT_CODE: ${DEPLOYMENT_SLOT_CODE:?DEPLOYMENT_SLOT_CODE must be set in the generated .env}
       POSTGRES_APP_DB: statbus_${DEPLOYMENT_SLOT_CODE:?DEPLOYMENT_SLOT_CODE must be set in the generated .env}
       POSTGRES_APP_USER: statbus_${DEPLOYMENT_SLOT_CODE:?DEPLOYMENT_SLOT_CODE must be set in the generated .env}
       POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:?POSTGRES_APP_PASSWORD must be set in the generated .env}
@@ -32,10 +32,10 @@ services:
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
       VERSION: ${VERSION:-local}
-      NEXT_PUBLIC_STATBUS_VERSION: ${VERSION:-local}
-      NEXT_PUBLIC_STATBUS_COMMIT: ${COMMIT:-unknown}
+      PUBLIC_STATBUS_VERSION: ${VERSION:-local}
+      PUBLIC_STATBUS_COMMIT: ${COMMIT:-unknown}
       DEBUG: ${DEBUG:?DEBUG must be set in the generated .env}
-      NEXT_PUBLIC_DEBUG: ${NEXT_PUBLIC_DEBUG:?NEXT_PUBLIC_DEBUG must be set in the generated .env}
+      PUBLIC_DEBUG: ${PUBLIC_DEBUG:?PUBLIC_DEBUG must be set in the generated .env}
     restart: unless-stopped
     depends_on:
       db:

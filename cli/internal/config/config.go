@@ -333,7 +333,7 @@ func loadOrGenerateConfig(projDir string, verbose bool) (*ConfigEnv, error) {
 		CaddyDeploymentMode:     mode,
 		SiteDomain:               siteDomain,
 		Debug:                    gen("DEBUG", "false"),
-		NextPublicDebug:          gen("NEXT_PUBLIC_DEBUG", "false"),
+		NextPublicDebug:          gen("PUBLIC_DEBUG", "false"),
 		DbMemLimit:               gen("DB_MEM_LIMIT", "4G"),
 		TlsCertFile:              gen("TLS_CERT_FILE", ""),
 		TlsKeyFile:               gen("TLS_KEY_FILE", ""),
@@ -547,8 +547,8 @@ CADDY_DB_TLS_BIND_ADDRESS=%[21]s
 # layout.tsx reads these via process.env and injects into HTML as window.__STATBUS_CONFIG__.
 VERSION=%[22]s
 COMMIT=%[23]s
-NEXT_PUBLIC_STATBUS_VERSION=%[22]s
-NEXT_PUBLIC_STATBUS_COMMIT=%[23]s
+PUBLIC_STATBUS_VERSION=%[22]s
+PUBLIC_STATBUS_COMMIT=%[23]s
 
 # Server-side debugging for the Statbus App. Requires app restart.
 # To enable, edit .env: set DEBUG=true and comment out/remove DEBUG=false.
@@ -673,22 +673,20 @@ NEXT_PUBLIC_STATBUS_COMMIT=%[23]s
 
 	fmt.Fprintf(&b, "\n\n################################################################\n")
 	fmt.Fprintf(&b, "# Statbus App Environment Variables\n")
-	fmt.Fprintf(&b, "# Next.js only exposes environment variables with the 'NEXT_PUBLIC_' prefix\n")
-	fmt.Fprintf(&b, "# to the browser code.\n")
-	fmt.Fprintf(&b, "# Add all the variables here that are exposed publicly,\n")
-	fmt.Fprintf(&b, "# i.e. available in the web page source code for all to see.\n")
+	fmt.Fprintf(&b, "# Public variables — injected into HTML by layout.tsx as window.__STATBUS_CONFIG__.\n")
+	fmt.Fprintf(&b, "# These are visible in the web page source code.\n")
 	fmt.Fprintf(&b, "#\n")
-	fmt.Fprintf(&b, "NEXT_PUBLIC_BROWSER_REST_URL=%s\n", cfg.BrowserAPIURL)
-	fmt.Fprintf(&b, "NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME=%s\n", cfg.DeploymentSlotName)
-	fmt.Fprintf(&b, "NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE=%s\n", cfg.DeploymentSlotCode)
+	fmt.Fprintf(&b, "PUBLIC_BROWSER_REST_URL=%s\n", cfg.BrowserAPIURL)
+	fmt.Fprintf(&b, "PUBLIC_DEPLOYMENT_SLOT_NAME=%s\n", cfg.DeploymentSlotName)
+	fmt.Fprintf(&b, "PUBLIC_DEPLOYMENT_SLOT_CODE=%s\n", cfg.DeploymentSlotCode)
 	fmt.Fprintf(&b, "\n# Client-side debugging for the Statbus App. Requires app rebuild/restart.\n")
-	fmt.Fprintf(&b, "# To enable, edit .env: set NEXT_PUBLIC_DEBUG=true and comment out/remove NEXT_PUBLIC_DEBUG=false.\n")
-	fmt.Fprintf(&b, "# To disable, edit .env: set NEXT_PUBLIC_DEBUG=false and comment out/remove NEXT_PUBLIC_DEBUG=true.\n")
-	fmt.Fprintf(&b, "# This setting is sourced from NEXT_PUBLIC_DEBUG in .env.config (defaults to false).\n")
+	fmt.Fprintf(&b, "# To enable, edit .env: set PUBLIC_DEBUG=true and comment out/remove PUBLIC_DEBUG=false.\n")
+	fmt.Fprintf(&b, "# To disable, edit .env: set PUBLIC_DEBUG=false and comment out/remove PUBLIC_DEBUG=true.\n")
+	fmt.Fprintf(&b, "# This setting is sourced from PUBLIC_DEBUG in .env.config (defaults to false).\n")
 	if cfg.NextPublicDebug == "true" {
-		fmt.Fprintf(&b, "NEXT_PUBLIC_DEBUG=true\n#NEXT_PUBLIC_DEBUG=false\n")
+		fmt.Fprintf(&b, "PUBLIC_DEBUG=true\n#PUBLIC_DEBUG=false\n")
 	} else {
-		fmt.Fprintf(&b, "#NEXT_PUBLIC_DEBUG=true\nNEXT_PUBLIC_DEBUG=false\n")
+		fmt.Fprintf(&b, "#PUBLIC_DEBUG=true\nPUBLIC_DEBUG=false\n")
 	}
 	fmt.Fprintf(&b, "#\n################################################################\n")
 

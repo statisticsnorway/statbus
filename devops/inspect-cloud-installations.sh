@@ -24,7 +24,7 @@ export $(egrep -v '^#' ~/statbus/.env | xargs)
 statbus_users=$(yq '.[] | "  " + .email + " " + (.role // "admin_user") + " " + .password' ~/statbus/.users.yml)
 cat <<EOS
 ############################################################
-## ${STATBUS_URL} - ${NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE} - ${NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME}
+## ${STATBUS_URL} - ${PUBLIC_DEPLOYMENT_SLOT_CODE} - ${PUBLIC_DEPLOYMENT_SLOT_NAME}
 ############################################################
 Frontend: ${STATBUS_URL}/
 Username Role Password:
