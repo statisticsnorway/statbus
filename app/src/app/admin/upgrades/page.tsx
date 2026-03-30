@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useAtomValue } from "jotai";
 import useSWR from "swr";
+import { pendingUpgradeStatusAtom } from "@/atoms/upgrade-status";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -160,6 +163,13 @@ export default function UpgradesPage() {
   const [acting, setActing] = useState<number | null>(null);
   const [checking, setChecking] = useState(false);
 
+  // Refresh the upgrade list when SSE delivers an upgrade_changed event.
+  // The pendingUpgradeStatusAtom is already refreshed by SSEConnectionManager.
+  const upgradeStatus = useAtomValue(pendingUpgradeStatusAtom);
+  useGuardedEffect(() => {
+    mutate();
+  }, [upgradeStatus, mutate], 'UpgradesPage:sse-refresh');
+
   const channel =
     systemInfo?.find((s) => s.key === "upgrade_channel")?.value ?? "stable";
   const lastChecked =
@@ -249,7 +259,7 @@ export default function UpgradesPage() {
           }}
         >
           {checking ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="mr-1.5 h-3.5 w-3.5" />}
-          Check for updates
+          {checking ? "Checking..." : "Schedule check"}
         </Button>
       </div>
 
