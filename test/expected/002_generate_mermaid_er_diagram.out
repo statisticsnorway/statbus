@@ -1413,6 +1413,7 @@ erDiagram
 		text from_version
 		boolean images_downloaded
 		text backup_path
+		boolean artifacts_ready
 	}
 	sql_saga_era["sql_saga.era"] {
 		name table_schema
