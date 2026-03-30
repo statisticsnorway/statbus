@@ -18,7 +18,7 @@ import type { StatbusConfig } from "@/lib/statbus-config";
 
 const inter = Inter({ subsets: ["latin"] });
 
-const slotName = process.env.NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME || "";
+const slotName = process.env.PUBLIC_DEPLOYMENT_SLOT_NAME || "";
 
 export const metadata: Metadata = {
   title: {
@@ -37,15 +37,15 @@ export default async function RootLayout({
   const pathname = headersList.get("x-invoke-path") || "";
   const isReferencePage = pathname.startsWith('/jotai-state-management-reference');
 
-  // Runtime config injected into HTML — client code reads from window.__STATBUS_CONFIG__
-  // instead of process.env.NEXT_PUBLIC_*, avoiding build-time inlining and cache staleness.
+  // Runtime config injected into HTML — client code reads from window.__STATBUS_CONFIG__.
+  // PUBLIC_* env vars are set by docker-compose and read server-side at request time.
   const config: StatbusConfig = {
-    browserRestUrl: process.env.NEXT_PUBLIC_BROWSER_REST_URL || "",
-    deploymentSlotName: process.env.NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME || "",
-    deploymentSlotCode: process.env.NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE || "",
-    debug: process.env.NEXT_PUBLIC_DEBUG === "true",
-    version: process.env.NEXT_PUBLIC_STATBUS_VERSION || "",
-    commit: process.env.NEXT_PUBLIC_STATBUS_COMMIT || "",
+    browserRestUrl: process.env.PUBLIC_BROWSER_REST_URL || "",
+    deploymentSlotName: process.env.PUBLIC_DEPLOYMENT_SLOT_NAME || "",
+    deploymentSlotCode: process.env.PUBLIC_DEPLOYMENT_SLOT_CODE || "",
+    debug: process.env.PUBLIC_DEBUG === "true",
+    version: process.env.PUBLIC_STATBUS_VERSION || "",
+    commit: process.env.PUBLIC_STATBUS_COMMIT || "",
   };
 
   return (

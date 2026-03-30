@@ -400,7 +400,7 @@ module Statbus
             site_domain: config_env.generate("SITE_DOMAIN") { "#{deployment_slot_code}.statbus.org" },
             # Debug flags
             debug: config_env.generate("DEBUG") { "false" },
-            next_public_debug: config_env.generate("NEXT_PUBLIC_DEBUG") { "false" },
+            next_public_debug: config_env.generate("PUBLIC_DEBUG") { "false" },
 
             # PostgreSQL memory configuration
             # This is the total memory limit for the container. Other values are derived from this.
@@ -723,19 +723,19 @@ module Statbus
     # Add all the variables here that are exposed publicly,
     # i.e. available in the web page source code for all to see.
     #
-    NEXT_PUBLIC_BROWSER_REST_URL=#{config.browser_api_url}
-    NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME=#{config.deployment_slot_name}
-    NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE=#{config.deployment_slot_code}
+    PUBLIC_BROWSER_REST_URL=#{config.browser_api_url}
+    PUBLIC_DEPLOYMENT_SLOT_NAME=#{config.deployment_slot_name}
+    PUBLIC_DEPLOYMENT_SLOT_CODE=#{config.deployment_slot_code}
 
     # Client-side debugging for the Statbus App. Requires app rebuild/restart.
-    # To enable, edit .env: set NEXT_PUBLIC_DEBUG=true and comment out/remove NEXT_PUBLIC_DEBUG=false.
-    # To disable, edit .env: set NEXT_PUBLIC_DEBUG=false and comment out/remove NEXT_PUBLIC_DEBUG=true.
-    # This setting is sourced from NEXT_PUBLIC_DEBUG in .env.config (defaults to false).
+    # To enable, edit .env: set PUBLIC_DEBUG=true and comment out/remove PUBLIC_DEBUG=false.
+    # To disable, edit .env: set PUBLIC_DEBUG=false and comment out/remove PUBLIC_DEBUG=true.
+    # This setting is sourced from PUBLIC_DEBUG in .env.config (defaults to false).
     #{
       if config.next_public_debug == "true"
-        "NEXT_PUBLIC_DEBUG=true\n#NEXT_PUBLIC_DEBUG=false"
+        "PUBLIC_DEBUG=true\n#PUBLIC_DEBUG=false"
       else
-        "#NEXT_PUBLIC_DEBUG=true\nNEXT_PUBLIC_DEBUG=false"
+        "#PUBLIC_DEBUG=true\nPUBLIC_DEBUG=false"
       end
     }
     #

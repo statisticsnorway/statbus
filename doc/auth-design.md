@@ -91,7 +91,7 @@ The application is containerized using Docker Compose, orchestrating several ser
     *   Environment variables include:
         *   Server-side PostgREST URL (`SERVER_REST_URL`)
         *   Logging configuration (`SEQ_SERVER_URL`, `SEQ_API_KEY`)
-        *   Deployment slot information (`NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME`, `NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE`)
+        *   Deployment slot information (`PUBLIC_DEPLOYMENT_SLOT_NAME`, `PUBLIC_DEPLOYMENT_SLOT_CODE`)
     *   Interacts with the API via Caddy (`/rest/*`).
     *   Depends on the database service being healthy before starting.
 
@@ -268,7 +268,7 @@ Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, wi
     * `admin_user`, `regular_user`, `restricted_user`, `external_user` (application role types)
     * `<email>` (per-user roles created by triggers, granted one of the application roles)
 *   **Environment Variables:**
-    * `NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE`: Used to identify the deployment environment (dev, test, prod)
+    * `PUBLIC_DEPLOYMENT_SLOT_CODE`: Used to identify the deployment environment (dev, test, prod)
     * `JWT_SECRET`: Shared secret for JWT signing and verification
     * `POSTGRES_APP_DB`: Database name, typically includes the deployment slot code
     * `POSTGRES_APP_USER`: Database user for application access

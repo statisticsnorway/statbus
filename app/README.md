@@ -34,9 +34,9 @@ with adjustments:
 
 ```env
 SERVER_REST_URL=http://localhost:3001
-NEXT_PUBLIC_BROWSER_REST_URL=http://localhost:3001
-NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME=Development
-NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE=dev
+PUBLIC_BROWSER_REST_URL=http://localhost:3001
+PUBLIC_DEPLOYMENT_SLOT_NAME=Development
+PUBLIC_DEPLOYMENT_SLOT_CODE=dev
 VERSION=0.0.1.local
 SEQ_SERVER_URL=http://localhost:5341
 SEQ_API_KEY=unused-when-running-locally

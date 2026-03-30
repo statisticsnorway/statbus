@@ -22,13 +22,13 @@ if (process.env.NODE_ENV !== 'production' && !process.env.ENV_LOADED) {
 
 const isDevelopment = process.env.NODE_ENV === 'development';
 
-// Report DEBUG and NEXT_PUBLIC_DEBUG status once per process lifecycle, if they are true.
+// Report DEBUG and PUBLIC_DEBUG status once per process lifecycle, if they are true.
 if (!process.env.DEBUG_STATUS_REPORTED) {
   if (process.env.DEBUG === 'true') {
     console.log("next.config.js: DEBUG environment variable is true.");
   }
-  if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-    console.log("next.config.js: NEXT_PUBLIC_DEBUG environment variable is true.");
+  if (process.env.PUBLIC_DEBUG === 'true') {
+    console.log("next.config.js: PUBLIC_DEBUG environment variable is true.");
   }
   if (process.env.NODE_ENV === 'development') {
    console.log(`next.config.js: NODE_ENV environment variable is: ${process.env.NODE_ENV}`);
@@ -45,7 +45,7 @@ const nextConfig = {
   // worker thread's require('@protobi/exceljs') resolves from node_modules
   // in standalone output. This is more robust than the void-expression trick.
   serverExternalPackages: ['@protobi/exceljs'],
-  // NEXT_PUBLIC_* env vars are read server-side by layout.tsx and injected into
+  // PUBLIC_* env vars are read server-side by layout.tsx and injected into
   // the HTML as window.__STATBUS_CONFIG__. Client code reads from there.
   // output: 'standalone' is primarily for production builds.
   // Set it conditionally to avoid potential interference with dev server features like proxying.
@@ -60,44 +60,26 @@ if (!isDevelopment) {
 
 // Add API proxying in development mode
 if (isDevelopment) {
-  // This block runs ONCE to determine URLs, log, and override NEXT_PUBLIC_BROWSER_REST_URL for the client.
+  // This block runs ONCE to set up the dev proxy.
+  // In dev, layout.tsx reads PUBLIC_BROWSER_REST_URL to inject into __STATBUS_CONFIG__.
+  // We override it to point at the local Next.js server, which proxies to Caddy.
   if (!process.env.PROXY_ENV_VARS_CONFIGURED) {
-    // Step 1: Determine Caddy's URL (where Next.js should proxy to).
-    // Read the original NEXT_PUBLIC_BROWSER_REST_URL from .env, which points to Caddy.
-    const originalBrowserRestUrl = process.env.NEXT_PUBLIC_BROWSER_REST_URL;
+    const originalBrowserRestUrl = process.env.PUBLIC_BROWSER_REST_URL;
     if (!originalBrowserRestUrl) {
-      console.error(
-        "ERROR: NEXT_PUBLIC_BROWSER_REST_URL is not set in .env. " +
-        "This is required for local development rewrites to Caddy. " +
-        "Please run './devops/manage-statbus.sh generate-config'."
-      );
-      throw new Error('NEXT_PUBLIC_BROWSER_REST_URL is not set for local development proxy.');
+      throw new Error('PUBLIC_BROWSER_REST_URL is not set in .env. Run: ./sb config generate');
     }
-    // Store the determined Caddy URL in an internal environment variable for the rewrites rule.
     process.env.INTERNAL_CADDY_REWRITE_TARGET = originalBrowserRestUrl.startsWith('http')
       ? originalBrowserRestUrl
       : `http://${originalBrowserRestUrl}`;
 
-    // Step 2: Determine the local Next.js app URL.
-    // Use local.statbus.org instead of localhost to avoid cross-origin issues
-    // when accessing the app via local.statbus.org
     const localAppPort = process.env.PORT || 3000;
     const actualLocalAppUrl = `http://local.statbus.org:${localAppPort}`;
-    // Store this also in an internal environment variable.
     process.env.INTERNAL_LOCAL_APP_URL = actualLocalAppUrl;
-    
-    // Step 3: Log the configuration (once).
-    console.log(
-      `Local Development: Client-side API calls (NEXT_PUBLIC_BROWSER_REST_URL) will use: ${process.env.INTERNAL_LOCAL_APP_URL}`
-    );
-    // IMPORTANT: Override NEXT_PUBLIC_BROWSER_REST_URL for the client-side bundle (once).
-    // This ensures client-side fetch calls go to the Next.js server (which then proxies).
-    process.env.NEXT_PUBLIC_BROWSER_REST_URL = process.env.INTERNAL_LOCAL_APP_URL;
 
-    console.log(
-      `Local Development: Next.js server will proxy API calls from ${process.env.INTERNAL_LOCAL_APP_URL}/rest/* to ${process.env.INTERNAL_CADDY_REWRITE_TARGET}/rest/*`
-    );
-    
+    // Override so layout.tsx injects the local proxy URL into __STATBUS_CONFIG__
+    process.env.PUBLIC_BROWSER_REST_URL = actualLocalAppUrl;
+
+    console.log(`Dev proxy: ${actualLocalAppUrl}/rest/* → ${process.env.INTERNAL_CADDY_REWRITE_TARGET}/rest/*`);
     process.env.PROXY_ENV_VARS_CONFIGURED = 'true';
   }
 
