@@ -311,6 +311,9 @@ async function connectAndListen() {
         try {
           const payload: WorkerStatusPayload = JSON.parse(msg.payload);
           handleWorkerStatusNotification(payload);
+          if (payload.type === 'upgrade_changed') {
+            console.log(`DB Listener: upgrade_changed notification received, broadcasting to ${channelCallbacks.get('worker_status')?.size ?? 0} SSE client(s)`);
+          }
           if (process.env.NODE_ENV === 'development') {
              console.log(`DB Listener: Received worker_status notification:`, payload);
           }

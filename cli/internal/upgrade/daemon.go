@@ -103,6 +103,9 @@ func (d *Daemon) recoverFromFlag(ctx context.Context) {
 		d.queryConn.Exec(ctx,
 			"UPDATE public.upgrade SET completed_at = now() WHERE id = $1 AND completed_at IS NULL",
 			flag.ID)
+		// Explicit NOTIFY — the DB trigger also fires, but the app's LISTEN is
+		// definitely established by now (new daemon starts after app is healthy).
+		d.queryConn.Exec(ctx, `NOTIFY worker_status, '{"type":"upgrade_changed"}'`)
 		d.removeUpgradeFlag()
 		d.skipOlderReleases(ctx, flag.CommitSHA)
 		return
@@ -1211,6 +1214,12 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, commitSHA string, d
 		d.rollback(ctx, id, displayName, previousVersion, progress)
 		return err
 	}
+
+	// Notify frontend that the upgrade state changed. The DB trigger also fires
+	// NOTIFY on completed_at UPDATE, but there's a race: the app's LISTEN may not
+	// be established when completed_at is set. This explicit NOTIFY after the health
+	// check guarantees the app is listening.
+	d.queryConn.Exec(ctx, `NOTIFY worker_status, '{"type":"upgrade_changed"}'`)
 
 	// Done — deactivate maintenance, archive, finalize
 	d.setMaintenance(false)
