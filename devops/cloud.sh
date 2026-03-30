@@ -119,9 +119,13 @@ cmd_install_one() {
         # Follow the same pattern as install.sh: stop daemon, build to tmp, move into place.
         ssh_server "$server" "cd statbus && git fetch origin master --quiet && git checkout origin/master --quiet" 2>&1
         ssh_server "$server" "cd statbus && export PATH=/home/linuxbrew/.linuxbrew/bin:\$PATH && ./dev.sh build-sb" 2>&1
-        # Stop daemon before replacing binary (it locks the file — "Text file busy")
-        ssh_server "$server" "pkill -u \$(id -u) -f 'sb upgrade daemon' 2>/dev/null; sleep 2; cd statbus && mv sb-linux-amd64 sb" 2>&1 \
-            || true
+        # Stop daemon via systemctl before replacing binary.
+        # pkill alone doesn't work — systemd restarts it immediately (Restart=always),
+        # and the new process holds the binary open → "Text file busy" on mv.
+        # Must stop the service, replace binary, then ./sb install restarts it.
+        ssh -o ConnectTimeout=10 "root@${HOST}" \
+            "systemctl stop statbus-upgrade@${server}.service 2>/dev/null || true" 2>&1
+        ssh_server "$server" "cd statbus && mv sb-linux-amd64 sb" 2>&1
         ssh_server "$server" "cd statbus && ./sb install" 2>&1 \
             || exit_code=$?
     else
