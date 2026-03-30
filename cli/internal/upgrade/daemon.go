@@ -795,6 +795,16 @@ func (d *Daemon) discover(ctx context.Context) {
 			t.CommitSHA, t.TagName, targetStatus)
 	}
 
+	// Check manifest availability for tagged releases and update artifacts_ready.
+	// On each discovery cycle, tags with artifacts_ready=false get re-checked.
+	for _, t := range filtered {
+		if _, err := FetchManifest(t.TagName); err == nil {
+			d.queryConn.Exec(ctx,
+				"UPDATE public.upgrade SET artifacts_ready = true WHERE commit_sha = $1 AND NOT artifacts_ready",
+				t.CommitSHA)
+		}
+	}
+
 	// Prune tags deleted upstream: remove from the tags array in the DB
 	// any tags that no longer exist in git. If all tags are removed,
 	// demote release_status back to 'commit'.
@@ -886,8 +896,8 @@ func (d *Daemon) discoverEdge(ctx context.Context) {
 		}
 
 		_, err := d.queryConn.Exec(ctx,
-			`INSERT INTO public.upgrade (commit_sha, committed_at, summary, has_migrations)
-			 VALUES ($1, $2, $3, false)
+			`INSERT INTO public.upgrade (commit_sha, committed_at, summary, has_migrations, artifacts_ready)
+			 VALUES ($1, $2, $3, false, true)
 			 ON CONFLICT (commit_sha) DO NOTHING`,
 			c.SHA, c.PublishedAt, summary)
 		if err != nil {
@@ -1034,14 +1044,19 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, commitSHA string, d
 	}
 
 	// Verify release manifest and binary exist before starting.
-	// If CI hasn't finished building the release assets yet, refuse to start.
+	// If CI hasn't finished building, unschedule and return — not an error.
 	// Only check for tagged releases, not raw SHA commits.
 	if !strings.HasPrefix(displayName, "sha-") {
 		progress.Write("Verifying release assets available...")
 		manifest, err := FetchManifest(displayName)
 		if err != nil {
-			d.failUpgrade(ctx, id, fmt.Sprintf("Release manifest not available for %s: %v. CI may still be building. Will retry on next check.", displayName, err), progress)
-			return err
+			// CI not ready — unschedule without setting error. The daemon will
+			// set artifacts_ready=true on the next discovery cycle when CI finishes,
+			// and the UI will re-enable "Upgrade Now".
+			d.queryConn.Exec(ctx,
+				"UPDATE public.upgrade SET scheduled_at = NULL WHERE id = $1", id)
+			progress.Write("Release assets not ready for %s — unscheduled. Will be available when CI finishes.", displayName)
+			return nil
 		}
 		platform := selfupdate.Platform()
 		if _, ok := manifest.Binaries[platform]; !ok {

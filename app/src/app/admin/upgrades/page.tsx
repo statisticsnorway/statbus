@@ -62,6 +62,7 @@ interface Upgrade {
   error: string | null;
   rollback_completed_at: string | null;
   skipped_at: string | null;
+  artifacts_ready: boolean;
   images_downloaded: boolean;
   backup_path: string | null;
 }
@@ -147,6 +148,7 @@ async function patchUpgrade(
 }
 
 export default function UpgradesPage() {
+  const [hasActiveUpgradeForPolling, setHasActiveUpgradeForPolling] = useState(false);
   const {
     data: upgrades,
     error,
@@ -156,14 +158,13 @@ export default function UpgradesPage() {
     fetcher,
     {
       // Poll fast (3s) when an upgrade is active, slow (30s) otherwise.
-      // SSE normally handles instant updates, but the connection drops during
-      // upgrades (app container restarts). Fast polling covers the gap.
-      refreshInterval: upgrades?.some(u => u.started_at && !u.completed_at && !u.error && !u.rollback_completed_at)
-        ? 3000
-        : 30000,
-      // Refetch when tab regains focus — catches state changes that
-      // happened while SSE was disconnected during an upgrade.
+      refreshInterval: hasActiveUpgradeForPolling ? 3000 : 30000,
       revalidateOnFocus: true,
+      onSuccess: (data) => {
+        setHasActiveUpgradeForPolling(
+          data?.some(u => u.started_at && !u.completed_at && !u.error && !u.rollback_completed_at) ?? false
+        );
+      },
     },
   );
   const { data: systemInfo } = useSWR<SystemInfo[]>(
@@ -484,6 +485,12 @@ function UpgradeCard({
               }>
                 {u.release_status === 'release' ? 'release' : u.release_status === 'prerelease' ? 'pre-release' : 'commit'}
               </Badge>
+              {!u.artifacts_ready && u.release_status !== 'commit' && (
+                <Badge variant="outline" className="text-xs border-amber-300 text-amber-600">
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  building...
+                </Badge>
+              )}
               {u.has_migrations && (
                 <Badge variant="outline" className="text-xs border-amber-300 text-amber-600">
                   <Database className="mr-1 h-3 w-3" />
@@ -546,6 +553,9 @@ function UpgradeCard({
         <div className="mt-3 flex gap-2">
           {status === "available" && (
             <>
+              {!u.artifacts_ready && u.release_status !== 'commit' ? (
+                <span className="text-xs text-amber-600">Release building... upgrade will be available when CI finishes.</span>
+              ) : (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button size="sm" disabled={acting}>
@@ -577,6 +587,7 @@ function UpgradeCard({
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
+              )}
               <Button size="sm" variant="ghost" disabled={acting} onClick={onSkip}>
                 <SkipForward className="mr-1.5 h-3.5 w-3.5" />
                 Skip
