@@ -63,10 +63,8 @@ COPY --from=build --chown=nextjs:nodejs /app/public ./public
 # Apply the same mapping that next.js server does exposing .next as _next
 COPY --from=build --chown=nextjs:nodejs /app/.next/static ./public/_next/static
 
-COPY docker-entrypoint.sh /usr/local/bin/
 USER nextjs
 EXPOSE 3000
 ENV PORT=3000
 ENV NODE_ENV=production
-ENTRYPOINT ["dumb-init", "docker-entrypoint.sh"]
-CMD ["node", "server.js"]
+CMD ["dumb-init", "node", "server.js"]

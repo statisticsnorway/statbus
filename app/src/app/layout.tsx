@@ -14,10 +14,7 @@ import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { JotaiAppProvider } from '@/atoms/JotaiAppProvider';
 import { DebugInspector } from '@/components/dev/DebugInspector';
 import { headers } from "next/headers";
-import { validateEnv } from "@/lib/validate-env";
 import type { StatbusConfig } from "@/lib/statbus-config";
-
-validateEnv();
 
 const inter = Inter({ subsets: ["latin"] });
 

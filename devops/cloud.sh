@@ -142,8 +142,7 @@ cmd_install_one() {
     fi
 
     # Step 3: Regenerate config so VERSION in .env matches the checked-out code.
-    # Must use 'up -d' not 'restart' — restart doesn't re-read .env,
-    # so the app container would keep the old NEXT_PUBLIC_STATBUS_VERSION.
+    # Must use 'up -d' not 'restart' — restart doesn't re-read .env.
     echo "Regenerating config and restarting app..."
     ssh_server "$server" "cd statbus && ./sb config generate && docker compose up -d app" 2>&1
 

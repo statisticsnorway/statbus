@@ -1329,6 +1329,16 @@ func (d *Daemon) selfUpdate(ctx context.Context, version string, progress *Progr
 		return
 	}
 
+	// Skip if local code is ahead of the release (edge channel: HEAD has
+	// commits beyond the tag). Prevents downgrading to an older release binary.
+	if manifest.CommitSHA != "" {
+		ahead, _ := runCommandOutput(d.projDir, "git", "log", "--oneline", "HEAD", "^"+manifest.CommitSHA)
+		if strings.TrimSpace(ahead) != "" {
+			progress.Write("Self-update skipped: local code is ahead of release %s", version)
+			return
+		}
+	}
+
 	platform := selfupdate.Platform()
 	binary, ok := manifest.Binaries[platform]
 	if !ok {
