@@ -740,6 +740,25 @@ func (d *Daemon) discover(ctx context.Context) {
 		}
 	}
 
+	// Enrich existing rows with tag data. Separate from the discovery loop above
+	// which only INSERTs rows for versions NEWER than current. This UPDATE pass
+	// associates tags with commits already in the DB (e.g., from edge discovery),
+	// regardless of whether the tag is newer, equal, or older than the daemon.
+	for _, t := range filtered {
+		targetStatus := "prerelease"
+		if !t.Prerelease {
+			targetStatus = "release"
+		}
+		d.queryConn.Exec(ctx,
+			`UPDATE public.upgrade SET
+			   tags = CASE WHEN $2 = ANY(upgrade.tags) THEN upgrade.tags
+			               ELSE array_append(upgrade.tags, $2) END,
+			   release_status = GREATEST(upgrade.release_status, $3::public.release_status_type)
+			 WHERE commit_sha = $1
+			   AND (NOT ($2 = ANY(upgrade.tags)) OR upgrade.release_status < $3::public.release_status_type)`,
+			t.CommitSHA, t.TagName, targetStatus)
+	}
+
 	// Prune tags deleted upstream: remove from the tags array in the DB
 	// any tags that no longer exist in git. If all tags are removed,
 	// demote release_status back to 'commit'.
