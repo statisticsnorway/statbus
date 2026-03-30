@@ -1006,7 +1006,12 @@ func (d *Daemon) executeScheduled(ctx context.Context) {
 		`SELECT id, commit_sha,
 		        COALESCE(tags[array_upper(tags, 1)], 'sha-' || left(commit_sha, 12)) as display_name
 		 FROM public.upgrade
-		 WHERE scheduled_at <= now() AND started_at IS NULL AND skipped_at IS NULL
+		 WHERE scheduled_at <= now()
+		   AND started_at IS NULL
+		   AND completed_at IS NULL
+		   AND error IS NULL
+		   AND rollback_completed_at IS NULL
+		   AND skipped_at IS NULL
 		 ORDER BY scheduled_at LIMIT 1`).Scan(&id, &commitSHA, &displayName)
 	if err != nil {
 		return // no pending upgrades
@@ -1313,7 +1318,7 @@ func (d *Daemon) runUpgradeCallback(displayName string) {
 
 func (d *Daemon) failUpgrade(ctx context.Context, id int, errMsg string, progress *ProgressLog) {
 	if d.queryConn != nil {
-		d.queryConn.Exec(ctx, "UPDATE public.upgrade SET error = $1 WHERE id = $2", errMsg, id)
+		d.queryConn.Exec(ctx, "UPDATE public.upgrade SET error = $1, scheduled_at = NULL WHERE id = $2", errMsg, id)
 	}
 	progress.Write("FAILED: %s", errMsg)
 }

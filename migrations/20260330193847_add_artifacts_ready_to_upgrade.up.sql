@@ -18,4 +18,12 @@ UPDATE public.upgrade
 SET error = NULL, scheduled_at = NULL, started_at = NULL
 WHERE error LIKE '%manifest not found%' OR error LIKE '%Release manifest not available%';
 
+-- Clean up stale scheduled_at on finished rows. Rows with completed_at, error,
+-- rollback_completed_at, or skipped_at are done — they should not remain in the
+-- scheduled queue (caused the daemon to loop on failed entries).
+UPDATE public.upgrade SET scheduled_at = NULL
+WHERE scheduled_at IS NOT NULL
+  AND (completed_at IS NOT NULL OR error IS NOT NULL
+       OR rollback_completed_at IS NOT NULL OR skipped_at IS NOT NULL);
+
 END;
