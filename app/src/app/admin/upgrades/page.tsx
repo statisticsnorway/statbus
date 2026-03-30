@@ -457,15 +457,15 @@ function UpgradeCard({
               ) : (
                 u.display_name
               )}
-              {u.release_status !== 'release' && (
-                <Badge variant="outline" className={
-                  u.release_status === 'prerelease'
+              <Badge variant="outline" className={
+                u.release_status === 'release'
+                  ? "text-xs border-green-300 text-green-600"
+                  : u.release_status === 'prerelease'
                     ? "text-xs border-blue-300 text-blue-600"
                     : "text-xs border-gray-300 text-gray-500"
-                }>
-                  {u.release_status === 'prerelease' ? 'pre-release' : 'commit'}
-                </Badge>
-              )}
+              }>
+                {u.release_status === 'release' ? 'release' : u.release_status === 'prerelease' ? 'pre-release' : 'commit'}
+              </Badge>
               {u.has_migrations && (
                 <Badge variant="outline" className="text-xs border-amber-300 text-amber-600">
                   <Database className="mr-1 h-3 w-3" />
