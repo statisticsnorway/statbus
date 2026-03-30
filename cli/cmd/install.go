@@ -208,18 +208,9 @@ func checkCredsDone(dir string) bool {
 }
 
 func checkEnvDone(dir string) bool {
-	if _, err := os.Stat(filepath.Join(dir, ".env")); err != nil {
-		return false
-	}
-	// Also verify backup/maintenance dirs exist (created by runGenerateEnv)
-	home, _ := os.UserHomeDir()
-	if _, err := os.Stat(filepath.Join(home, "statbus-backups")); err != nil {
-		return false
-	}
-	if _, err := os.Stat(filepath.Join(home, "statbus-maintenance")); err != nil {
-		return false
-	}
-	return true
+	// Always regenerate .env — code checkout may change variable names
+	// (e.g., NEXT_PUBLIC_* → PUBLIC_*) and .env must match docker-compose.
+	return false
 }
 
 func checkImagesDone(dir string) bool {
