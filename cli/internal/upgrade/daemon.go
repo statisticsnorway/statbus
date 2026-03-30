@@ -1061,8 +1061,10 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, commitSHA string, d
 	}
 
 	// Step 6: Install new version — always fetch/checkout by commit SHA directly.
+	// No --depth 1: the discovery phase already fetched origin/master, so objects are local.
+	// Keeping full history ensures git-describe can find tags for config generate (VERSION).
 	progress.Write("Installing %s...", displayName)
-	if err := runCommand(projDir, "git", "fetch", "--depth", "1", "origin", commitSHA); err != nil {
+	if err := runCommand(projDir, "git", "fetch", "origin", commitSHA); err != nil {
 		d.rollback(ctx, id, displayName, previousVersion, progress)
 		return err
 	}
