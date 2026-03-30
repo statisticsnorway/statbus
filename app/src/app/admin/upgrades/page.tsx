@@ -82,8 +82,8 @@ type UpgradeStatus =
 
 function getStatus(u: Upgrade): UpgradeStatus {
   if (u.completed_at) return "completed";
+  if (u.skipped_at) return "skipped"; // User's explicit skip overrides failed/rolled-back
   if (u.rollback_completed_at) return "rolled_back";
-  if (u.skipped_at) return "skipped";
   if (u.error) return "failed";
   if (u.started_at) return "in_progress";
   if (u.scheduled_at) return "scheduled";
