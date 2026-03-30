@@ -310,6 +310,10 @@ export default function UpgradesPage() {
             history.push(u);
           } else if (s === "available") {
             available.push(u);
+          } else if (s === "failed" || s === "rolled_back") {
+            // Failed/rolled-back go to history — they're done.
+            // User can still see error details and report issues.
+            history.push(u);
           } else {
             actionable.push(u);
           }
@@ -355,9 +359,9 @@ export default function UpgradesPage() {
               onUnschedule={() => act(u.id, { scheduled_at: null })}
               onRefetch={() =>
                 act(u.id, {
-                  error: null,
                   started_at: null,
                   scheduled_at: null,
+                  rollback_completed_at: null,
                 })
               }
               onSkip={() =>
@@ -396,7 +400,7 @@ export default function UpgradesPage() {
               <Collapsible>
                 <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md border border-dashed border-muted-foreground/25 px-4 py-2 text-sm text-muted-foreground hover:bg-muted/50 transition-colors">
                   <ChevronDown className="h-4 w-4" />
-                  {history.length} completed upgrade{history.length !== 1 ? "s" : ""}
+                  {history.length} completed/past upgrade{history.length !== 1 ? "s" : ""}
                 </CollapsibleTrigger>
                 <CollapsibleContent className="space-y-3 mt-3">
                   {history.map(renderCard)}
@@ -602,7 +606,7 @@ function UpgradeCard({
                 ) : (
                   <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
                 )}
-                Refetch
+                Retry
               </Button>
               <Button size="sm" variant="ghost" disabled={acting} onClick={onSkip}>
                 <SkipForward className="mr-1.5 h-3.5 w-3.5" />
