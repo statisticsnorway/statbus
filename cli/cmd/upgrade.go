@@ -27,8 +27,9 @@ func runUpgradePsql(sql string, extraArgs ...string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	args := append(prefix, "-c", sql)
-	args = append(args, extraArgs...)
+	// Extra args (like -v variable=value) must come BEFORE -c for psql to process them.
+	args := append(prefix, extraArgs...)
+	args = append(args, "-c", sql)
 	c := exec.Command(psqlPath, args...)
 	c.Env = env
 	c.Dir = projDir
