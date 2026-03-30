@@ -272,6 +272,11 @@ var releasePrereleaseCmd = &cobra.Command{
 		nextRC := highestRC + 1
 		tagName := fmt.Sprintf("%s.%d-rc.%d", prefix, nextPatch, nextRC)
 
+		// Safety: verify tag doesn't already exist locally or on remote
+		if _, err := upgrade.RunCommandOutput(projDir, "git", "rev-parse", tagName); err == nil {
+			return fmt.Errorf("tag %s already exists locally — tags are immutable, cannot recreate", tagName)
+		}
+
 		// Create tag with message (avoids $EDITOR prompt when tag.gpgsign=true)
 		_, err = upgrade.RunCommandOutput(projDir, "git", "tag", "-m", "Pre-release "+tagName, tagName)
 		if err != nil {
@@ -341,6 +346,11 @@ var releaseStableCmd = &cobra.Command{
 
 		nextPatch := highestPatch + 1
 		tagName := fmt.Sprintf("%s.%d", prefix, nextPatch)
+
+		// Safety: verify tag doesn't already exist locally or on remote
+		if _, err := upgrade.RunCommandOutput(projDir, "git", "rev-parse", tagName); err == nil {
+			return fmt.Errorf("tag %s already exists locally — tags are immutable, cannot recreate", tagName)
+		}
 
 		// Create tag with message (avoids $EDITOR prompt when tag.gpgsign=true)
 		_, err = upgrade.RunCommandOutput(projDir, "git", "tag", "-m", "Release "+tagName, tagName)
