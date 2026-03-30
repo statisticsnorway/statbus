@@ -128,6 +128,10 @@ cmd_install_one() {
         ssh_server "$server" "cd statbus && mv sb-linux-amd64 sb" 2>&1
         ssh_server "$server" "cd statbus && ./sb install" 2>&1 \
             || exit_code=$?
+        # Restart the daemon — it was stopped to replace the binary.
+        # Must use root because it's a system-level service.
+        ssh -o ConnectTimeout=10 "root@${HOST}" \
+            "systemctl start statbus-upgrade@${server}.service" 2>&1
     else
         echo "Installing $server via $INSTALL_URL ..."
         # Step 1: Run install.sh as the app user.

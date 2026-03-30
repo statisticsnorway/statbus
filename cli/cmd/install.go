@@ -301,7 +301,10 @@ func checkDaemonDone(dir string) bool {
 	if instance == "" {
 		return false
 	}
-	cmd := exec.Command("systemctl", "is-enabled", instance)
+	// Check is-active, not just is-enabled. The service may be enabled
+	// (starts on boot) but stopped (e.g., cloud.sh stopped it to replace
+	// the binary). We need it running, not just installed.
+	cmd := exec.Command("systemctl", "is-active", instance)
 	return cmd.Run() == nil
 }
 
@@ -620,6 +623,20 @@ func runInstallDaemon(dir string) error {
 	instance := daemonInstance(dir)
 	if instance == "" {
 		return fmt.Errorf("could not determine daemon instance name (check DEPLOYMENT_SLOT_CODE in .env.config)")
+	}
+
+	// If the service is enabled but stopped, it needs root to restart.
+	// cloud.sh handles this — it stops the service to replace the binary,
+	// then starts it again via root SSH.
+	isEnabled := exec.Command("systemctl", "is-enabled", instance)
+	if isEnabled.Run() == nil {
+		fmt.Println()
+		fmt.Printf("  Service %s is enabled but not running.\n", instance)
+		fmt.Println("  Start it with:")
+		fmt.Println()
+		fmt.Printf("    sudo systemctl start %s\n", instance)
+		fmt.Println()
+		return fmt.Errorf("sudo required to start systemd service")
 	}
 
 	fmt.Println()
