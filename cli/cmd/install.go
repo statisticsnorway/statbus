@@ -41,13 +41,7 @@ Example with statbus.nso.eu domain:
   ./sb install
   # Prompts for: mode=standalone, domain=statbus.nso.eu, name=StatBus, code=nso`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		err := runInstall()
-		if err != nil && strings.Contains(err.Error(), "sudo required") {
-			// Exit with distinct code so cloud.sh can detect "needs root"
-			// and SSH as root to complete the install.
-			os.Exit(ExitCodeNeedsRoot)
-		}
-		return err
+		return runInstall()
 	},
 }
 
@@ -66,10 +60,12 @@ type step struct {
 }
 
 func runInstall() error {
-	// Running as root? Only do the systemd step — nothing else.
-	// This prevents root from creating files owned by root in the project dir.
+	// Warn if running as root — the daemon is a user-level service now,
+	// running as root would create files owned by root in the project dir.
 	if os.Geteuid() == 0 {
-		return runRootInstall()
+		fmt.Println("Warning: running as root. The upgrade daemon is a user-level service.")
+		fmt.Println("Run as the application user instead: ./sb install")
+		fmt.Println()
 	}
 
 	fmt.Println("StatBus Installation")
@@ -301,10 +297,9 @@ func checkDaemonDone(dir string) bool {
 	if instance == "" {
 		return false
 	}
-	// Check is-active, not just is-enabled. The service may be enabled
-	// (starts on boot) but stopped (e.g., cloud.sh stopped it to replace
-	// the binary). We need it running, not just installed.
-	cmd := exec.Command("systemctl", "is-active", instance)
+	// User-level systemd service — no root needed to manage.
+	// Check is-active (running), not just is-enabled (starts on boot).
+	cmd := exec.Command("systemctl", "--user", "is-active", instance)
 	return cmd.Run() == nil
 }
 
@@ -625,28 +620,40 @@ func runInstallDaemon(dir string) error {
 		return fmt.Errorf("could not determine daemon instance name (check DEPLOYMENT_SLOT_CODE in .env.config)")
 	}
 
-	// If the service is enabled but stopped, it needs root to restart.
-	// cloud.sh handles this — it stops the service to replace the binary,
-	// then starts it again via root SSH.
-	isEnabled := exec.Command("systemctl", "is-enabled", instance)
-	if isEnabled.Run() == nil {
-		fmt.Println()
-		fmt.Printf("  Service %s is enabled but not running.\n", instance)
-		fmt.Println("  Start it with:")
-		fmt.Println()
-		fmt.Printf("    sudo systemctl start %s\n", instance)
-		fmt.Println()
-		return fmt.Errorf("sudo required to start systemd service")
+	// Install as a user-level systemd service — no root needed.
+	// The service file is copied to ~/.config/systemd/user/ and managed
+	// with systemctl --user. This works on standalone deployments where
+	// the user has no root access.
+	userServiceDir := filepath.Join(os.Getenv("HOME"), ".config", "systemd", "user")
+	if err := os.MkdirAll(userServiceDir, 0755); err != nil {
+		return fmt.Errorf("create systemd user dir: %w", err)
 	}
 
-	fmt.Println()
-	fmt.Println("  The upgrade daemon requires sudo to install the systemd service.")
-	fmt.Println("  Re-run as root to install it:")
-	fmt.Println()
-	fmt.Printf("    sudo %s/sb install\n", dir)
-	fmt.Println()
-	fmt.Println("  This will ONLY install the systemd service — no other files will be touched.")
-	return fmt.Errorf("sudo required for systemd service installation")
+	serviceFile := filepath.Join(dir, "devops", "statbus-upgrade.service")
+	destFile := filepath.Join(userServiceDir, "statbus-upgrade@.service")
+
+	fmt.Printf("  Copying %s → %s\n", filepath.Base(serviceFile), destFile)
+	if err := copyFile(serviceFile, destFile); err != nil {
+		return fmt.Errorf("copy service file: %w", err)
+	}
+
+	fmt.Println("  Running systemctl --user daemon-reload")
+	if err := runCmd("systemctl", "--user", "daemon-reload"); err != nil {
+		return fmt.Errorf("daemon-reload: %w", err)
+	}
+
+	// Enable linger so the user service runs even when not logged in.
+	// This requires loginctl which is available on systemd systems.
+	fmt.Println("  Enabling linger for user services")
+	runCmd("loginctl", "enable-linger", os.Getenv("USER"))
+
+	fmt.Printf("  Enabling and starting %s\n", instance)
+	if err := runCmd("systemctl", "--user", "enable", "--now", instance); err != nil {
+		return fmt.Errorf("enable service: %w", err)
+	}
+
+	fmt.Printf("  Upgrade daemon installed and started: %s\n", instance)
+	return nil
 }
 
 // runRootInstall handles `sudo sb install` — ONLY installs the systemd service.

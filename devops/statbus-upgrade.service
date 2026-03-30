@@ -1,18 +1,18 @@
 [Unit]
 Description=StatBus Upgrade Daemon
-After=docker.service
-Wants=docker.service
+# User-level systemd service — no root required to install or manage.
+# Install: ./sb install (copies to ~/.config/systemd/user/)
+# Manage: systemctl --user {start,stop,status} statbus-upgrade@SLOT.service
 
 [Service]
 Type=notify
-User=%i
-WorkingDirectory=/home/%i/statbus
-ExecStart=/home/%i/statbus/sb upgrade daemon
+WorkingDirectory=%h/statbus
+ExecStart=%h/statbus/sb upgrade daemon
 Restart=always
 RestartSec=30
 RestartForceExitStatus=42
 SuccessExitStatus=42
-Environment=HOME=/home/%i PWD=/home/%i/statbus PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=PATH=/home/linuxbrew/.linuxbrew/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 # Watchdog: daemon must ping every 2.5 minutes (half of WatchdogSec).
 # If the daemon hangs (stuck subprocess, deadlock), systemd kills and restarts it.
@@ -23,10 +23,5 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=statbus-upgrade-%i
 
-# Security hardening
-# ProtectSystem not used — daemon needs sudo rsync for DB backup,
-# which requires writable /run/sudo for timestamp files.
-ReadWritePaths=/home/%i/statbus /home/%i/statbus-backups /home/%i/statbus-maintenance
-
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target

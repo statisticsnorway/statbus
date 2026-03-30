@@ -119,19 +119,14 @@ cmd_install_one() {
         # Follow the same pattern as install.sh: stop daemon, build to tmp, move into place.
         ssh_server "$server" "cd statbus && git fetch origin master --quiet && git checkout origin/master --quiet" 2>&1
         ssh_server "$server" "cd statbus && export PATH=/home/linuxbrew/.linuxbrew/bin:\$PATH && ./dev.sh build-sb" 2>&1
-        # Stop daemon via systemctl before replacing binary.
-        # pkill alone doesn't work — systemd restarts it immediately (Restart=always),
+        # Stop user-level daemon before replacing binary.
+        # systemd --user restarts it immediately (Restart=always),
         # and the new process holds the binary open → "Text file busy" on mv.
-        # Must stop the service, replace binary, then ./sb install restarts it.
-        ssh -o ConnectTimeout=10 "root@${HOST}" \
-            "systemctl stop statbus-upgrade@${server}.service 2>/dev/null || true" 2>&1
+        ssh_server "$server" "systemctl --user stop statbus-upgrade@${server}.service 2>/dev/null || true" 2>&1
         ssh_server "$server" "cd statbus && mv sb-linux-amd64 sb" 2>&1
+        # ./sb install detects the daemon is stopped and restarts it (user-level, no root needed).
         ssh_server "$server" "cd statbus && ./sb install" 2>&1 \
             || exit_code=$?
-        # Restart the daemon — it was stopped to replace the binary.
-        # Must use root because it's a system-level service.
-        ssh -o ConnectTimeout=10 "root@${HOST}" \
-            "systemctl start statbus-upgrade@${server}.service" 2>&1
     else
         echo "Installing $server via $INSTALL_URL ..."
         # Step 1: Run install.sh as the app user.
@@ -141,13 +136,7 @@ cmd_install_one() {
             || exit_code=$?
     fi
 
-    if [ "$exit_code" -eq 42 ]; then
-        # Step 2: Daemon needs root — SSH as root to install the systemd service.
-        # The app user home dir is /home/$server (our naming convention on niue).
-        echo "Daemon needs root — installing systemd service..."
-        ssh -o ConnectTimeout=10 "root@${HOST}" \
-            "cd /home/${server}/statbus && ./sb install" 2>&1
-    elif [ "$exit_code" -ne 0 ]; then
+    if [ "$exit_code" -ne 0 ]; then
         echo "--- $server install FAILED (exit code $exit_code) ---"
         return 1
     fi
