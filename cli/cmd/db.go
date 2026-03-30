@@ -540,10 +540,8 @@ SELECT pg_terminate_backend(pid)
 FROM pg_stat_activity
 WHERE datname = '%s' AND pid <> pg_backend_pid();
 `, strings.ReplaceAll(dbName, "'", "''"))
-	dropCreateSQL := fmt.Sprintf(`
-DROP DATABASE IF EXISTS "%s";
-CREATE DATABASE "%s";
-`, dbName, dbName)
+	dropSQL := fmt.Sprintf(`DROP DATABASE IF EXISTS "%s";`, dbName)
+	createSQL := fmt.Sprintf(`CREATE DATABASE "%s";`, dbName)
 
 	terminateCmd := exec.Command("docker", "compose", "exec", "-T", "db",
 		"psql", "-U", "postgres", "-c", terminateSQL)
@@ -552,8 +550,10 @@ CREATE DATABASE "%s";
 	terminateCmd.Stderr = os.Stderr
 	terminateCmd.Run() // Ignore error — no connections is fine
 
+	// Use separate -c flags: DROP/CREATE DATABASE cannot run inside a transaction,
+	// and a single -c with multiple statements is wrapped in a transaction by psql.
 	dropCreateCmd := exec.Command("docker", "compose", "exec", "-T", "db",
-		"psql", "-U", "postgres", "-c", dropCreateSQL)
+		"psql", "-U", "postgres", "-c", dropSQL, "-c", createSQL)
 	dropCreateCmd.Dir = projDir
 	dropCreateCmd.Stdout = os.Stdout
 	dropCreateCmd.Stderr = os.Stderr
@@ -743,10 +743,9 @@ FROM pg_stat_activity
 WHERE datname = '%[1]s' AND pid <> pg_backend_pid();
 " || true
 
-docker compose exec -T db psql -U postgres -c "
-DROP DATABASE IF EXISTS \"%[1]s\";
-CREATE DATABASE \"%[1]s\";
-"
+docker compose exec -T db psql -U postgres \
+    -c "DROP DATABASE IF EXISTS \"%[1]s\";" \
+    -c "CREATE DATABASE \"%[1]s\";"
 
 echo "Phase 1: Restoring schema (pre-data) ..."
 docker compose exec -T db pg_restore -U postgres -d %[1]s \

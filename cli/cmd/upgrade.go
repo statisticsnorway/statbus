@@ -369,7 +369,10 @@ Typically run via systemd (devops/statbus-upgrade.service).`,
 		// Pass the raw version (valid git ref like "v2026.03.0-rc.24"),
 		// not the display string ("2026.03.0-rc.24 (commit 5bd190c0)").
 		// The daemon uses this for from_version and rollback git checkout.
-		daemonVersion := "v" + version // version is the raw ldflags value
+		daemonVersion := version
+		if !strings.HasPrefix(version, "v") {
+			daemonVersion = "v" + version
+		}
 		if version == "dev" {
 			// Local dev build — use commit SHA if available
 			if commit != "unknown" {

@@ -30,8 +30,9 @@ fi
 if ! test -x ./sb; then
     if command -v go >/dev/null 2>&1; then
         echo "Building sb from source..."
-        # Inject version from git describe so ./sb --version shows e.g. "v2026.03.0-3-ga8825c8"
-        _SB_VERSION=$(git describe --tags --always 2>/dev/null || echo "dev")
+        # Inject version from git describe. Strip "v" prefix to match release.yaml
+        # convention — daemon.go adds "v" back, avoiding double-v.
+        _SB_VERSION=$(git describe --tags --always 2>/dev/null | sed 's/^v//' || echo "dev")
         _SB_COMMIT=$(git rev-parse --short=8 HEAD 2>/dev/null || echo "unknown")
         _SB_LDFLAGS="-X 'github.com/statisticsnorway/statbus/cli/cmd.version=${_SB_VERSION}' -X 'github.com/statisticsnorway/statbus/cli/cmd.commit=${_SB_COMMIT}'"
         (cd cli && go build -ldflags "$_SB_LDFLAGS" -o ../sb .)
@@ -110,7 +111,7 @@ EOS
         # The test server may not have a pre-built binary.
         if [ ! -x ./sb ] || ! ./sb --version >/dev/null 2>&1; then
             echo "Building sb from source..."
-            _SB_VERSION=$(git describe --tags --always 2>/dev/null || echo "dev")
+            _SB_VERSION=$(git describe --tags --always 2>/dev/null | sed 's/^v//' || echo "dev")
             _SB_COMMIT=$(git rev-parse --short=8 HEAD 2>/dev/null || echo "unknown")
             _SB_LDFLAGS="-X 'github.com/statisticsnorway/statbus/cli/cmd.version=${_SB_VERSION}' -X 'github.com/statisticsnorway/statbus/cli/cmd.commit=${_SB_COMMIT}'"
             (cd cli && go build -ldflags "$_SB_LDFLAGS" -o ../sb .)
@@ -1168,7 +1169,7 @@ EOS
         OS=${TARGET%/*}
         ARCH=${TARGET#*/}
         OUTPUT="sb-${OS}-${ARCH}"
-        VERSION=$(git describe --tags --always 2>/dev/null || echo "dev")
+        VERSION=$(git describe --tags --always 2>/dev/null | sed 's/^v//' || echo "dev")
         COMMIT=$(git rev-parse --short=8 HEAD 2>/dev/null || echo "unknown")
         LDFLAGS="-s -w -X 'github.com/statisticsnorway/statbus/cli/cmd.version=${VERSION}' -X 'github.com/statisticsnorway/statbus/cli/cmd.commit=${COMMIT}'"
         echo "Building sb ${VERSION} for ${OS}/${ARCH}..."

@@ -110,6 +110,13 @@ func TestCompareVersions(t *testing.T) {
 		// Mixed: SHA vs CalVer — incomparable
 		{"sha-abc1234f", "v2026.03.0", 0},
 		{"v2026.03.0", "sha-abc1234f", 0},
+		// Regression: double-v prefix from dev.sh + daemon.go must not break comparison
+		{"v2026.03.1-rc.2", "vv2026.03.0-10-g74a3353e5", 1},
+		// Mixed prefix: with/without v should compare equal
+		{"v2026.03.0", "2026.03.0", 0},
+		{"2026.03.1-rc.2", "2026.03.0", 1},
+		// git-describe format (non-tagged commit) vs tagged version
+		{"v2026.03.1-rc.2", "v2026.03.0-10-g74a3353e5", 1},
 	}
 	for _, c := range cases {
 		got := CompareVersions(c.a, c.b)

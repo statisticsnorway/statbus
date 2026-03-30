@@ -703,16 +703,12 @@ func (d *Daemon) discover(ctx context.Context) {
 			continue
 		}
 
-		// Determine release_status based on tag format and manifest availability.
+		// Determine release_status based on tag format.
 		// Tags with "-" are prereleases, without "-" are full releases.
-		// If the release manifest isn't available yet (CI still building), downgrade to "commit".
+		// Manifest availability is checked at upgrade execution time, not discovery.
 		targetStatus := "prerelease"
 		if !t.Prerelease {
 			targetStatus = "release"
-		}
-		// Check if release artifacts exist
-		if _, err := FetchManifest(t.TagName); err != nil {
-			targetStatus = "commit" // manifest not available yet
 		}
 
 		// Verify commit signature before recording

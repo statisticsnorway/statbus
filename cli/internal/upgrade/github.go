@@ -227,6 +227,11 @@ func FetchCommits(count int) ([]Commit, error) {
 // For CalVer tags (vYYYY.MM.PATCH-rc.N): parses numeric segments for correct ordering.
 // For SHA tags: returns 0 (incomparable without git history — use CompareByCommitOrder instead).
 func CompareVersions(a, b string) int {
+	// Normalize: strip leading "v" so "v2026.03.0" and "2026.03.0" compare equally.
+	// Uses TrimLeft to also handle double-v ("vv2026...") from dev.sh + daemon.go bug.
+	a = strings.TrimLeft(a, "v")
+	b = strings.TrimLeft(b, "v")
+
 	if a == b {
 		return 0
 	}
