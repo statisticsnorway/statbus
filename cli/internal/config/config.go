@@ -236,28 +236,6 @@ process.stdout.write(header + '.' + payload + '.' + sig);`,
 	return "JWT_GENERATION_REQUIRES_NODE_OR_GOLANG_JWT"
 }
 
-// migrateEnvConfigKeys renames keys in a dotenv file. Used for one-time
-// transitions (e.g., NEXT_PUBLIC_DEBUG → PUBLIC_DEBUG). Safe to call if the
-// file doesn't exist or keys are already renamed.
-func migrateEnvConfigKeys(path string, renames map[string]string) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return // file doesn't exist yet, nothing to migrate
-	}
-	content := string(data)
-	changed := false
-	for old, new_ := range renames {
-		if strings.Contains(content, old+"=") {
-			content = strings.ReplaceAll(content, old+"=", new_+"=")
-			changed = true
-		}
-	}
-	if changed {
-		os.WriteFile(path, []byte(content), 0644)
-		fmt.Printf("Migrated .env.config: renamed legacy keys\n")
-	}
-}
-
 // loadOrGenerateCredentials reads .env.credentials, generating missing values.
 func loadOrGenerateCredentials(projDir string, verbose bool) (*Credentials, error) {
 	credPath := filepath.Join(projDir, ".env.credentials")
@@ -298,12 +276,6 @@ func loadOrGenerateCredentials(projDir string, verbose bool) (*Credentials, erro
 // loadOrGenerateConfig reads .env.config, generating missing values with defaults.
 func loadOrGenerateConfig(projDir string, verbose bool) (*ConfigEnv, error) {
 	cfgPath := filepath.Join(projDir, ".env.config")
-
-	// Migrate legacy env var names (rc.4 transition: NEXT_PUBLIC_* → PUBLIC_*)
-	migrateEnvConfigKeys(cfgPath, map[string]string{
-		"NEXT_PUBLIC_DEBUG": "PUBLIC_DEBUG",
-	})
-
 	f, err := dotenv.Load(cfgPath)
 	if err != nil {
 		return nil, fmt.Errorf("load config: %w", err)
