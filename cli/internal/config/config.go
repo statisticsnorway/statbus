@@ -543,11 +543,10 @@ CADDY_DB_PORT=%[18]d
 CADDY_DB_TLS_PORT=%[19]d
 CADDY_DB_BIND_ADDRESS=%[20]s
 CADDY_DB_TLS_BIND_ADDRESS=%[21]s
-# Version and commit for docker image tags and footer display
+# Version and commit for docker image tags and server-side config injection.
+# layout.tsx reads these via process.env and injects into HTML as window.__STATBUS_CONFIG__.
 VERSION=%[22]s
 COMMIT=%[23]s
-# NEXT_PUBLIC_* versions for local dev (pnpm run dev reads .env via next.config.js).
-# In Docker, these come from docker-compose.app.yml environment block.
 NEXT_PUBLIC_STATBUS_VERSION=%[22]s
 NEXT_PUBLIC_STATBUS_COMMIT=%[23]s
 

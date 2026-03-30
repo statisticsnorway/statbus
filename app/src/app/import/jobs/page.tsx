@@ -30,6 +30,7 @@ import { DataTableActionBar, DataTableActionBarAction, DataTableActionBarSelecti
 import { Button } from "@/components/ui/button";
 import { type ImportJobWithDetails as ImportJob } from "@/atoms/import";
 import { useBaseData } from "@/atoms/base-data";
+import { statbusConfig } from '@/lib/statbus-config';
 
 const SWR_KEY_IMPORT_JOBS = "/api/import-jobs";
 
@@ -195,7 +196,7 @@ export default function ImportJobsPage() {
     eventSourceRef.current = source;
 
     source.addEventListener('heartbeat', (event) => {
-      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+      if (statbusConfig.debug) {
         const heartbeat = JSON.parse(event.data);
         console.log("SSE Heartbeat on jobs page:", heartbeat);
       }

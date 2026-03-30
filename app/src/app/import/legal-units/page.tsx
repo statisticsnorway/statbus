@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/accordion";
 import { InfoBox } from "@/components/info-box";
 import { PendingJobsList } from "../components/pending-jobs-list";
+import { statbusConfig } from '@/lib/statbus-config';
 
 export default function LegalUnitsPage() {
   const { counts, importState } = useImportManager();
@@ -53,7 +54,7 @@ export default function LegalUnitsPage() {
         if (ssePayload.type === "connection_established" || ssePayload.type === "heartbeat") return;
 
         // Any other message implies a potential change in job status
-        if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        if (statbusConfig.debug) {
           console.log('SSE: Received job update, refreshing pending jobs for legal_unit.');
         }
         refreshJobs();

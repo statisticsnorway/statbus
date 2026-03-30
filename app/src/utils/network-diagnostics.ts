@@ -84,8 +84,9 @@ export async function testConnectivity(url: string, options: RequestInit = {}): 
  * @returns Diagnostic information about all connection attempts
  */
 export async function runNetworkDiagnostics() {
+  const { statbusConfig } = await import("@/lib/statbus-config");
   const serverApiUrl = process.env.SERVER_REST_URL;
-  const browserApiUrl = process.env.NEXT_PUBLIC_BROWSER_REST_URL;
+  const browserApiUrl = typeof window !== 'undefined' ? statbusConfig.browserRestUrl : process.env.NEXT_PUBLIC_BROWSER_REST_URL;
   
   const results = await Promise.all([
     serverApiUrl ? testConnectivity(serverApiUrl) : Promise.resolve({
@@ -115,7 +116,7 @@ export async function runNetworkDiagnostics() {
       serverApiUrl,
       browserApiUrl,
       nodeEnv: process.env.NODE_ENV,
-      deploymentSlot: process.env.NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE
+      deploymentSlot: typeof window !== 'undefined' ? statbusConfig.deploymentSlotCode : process.env.NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE
     },
     results
   };

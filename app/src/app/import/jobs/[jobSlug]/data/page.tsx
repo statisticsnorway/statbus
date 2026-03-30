@@ -28,6 +28,7 @@ import {
   isJwtExpiredError, 
   JwtExpiredError 
 } from "@/hooks/use-swr-with-auth-refresh";
+import { statbusConfig } from '@/lib/statbus-config';
 // Per instruction, improve typing for ImportJobDataRow to make 'state' work
 // in useDataTable. This is a first step, with 'any' types to be refined.
 const formatNumber = (num: number | null | undefined): string => {
@@ -214,7 +215,7 @@ export default function ImportJobDataPage() {
     const eventSource = new EventSource(sseUrl);
 
     eventSource.addEventListener('heartbeat', (event) => {
-      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+      if (statbusConfig.debug) {
         const heartbeat = JSON.parse(event.data);
         console.log(`SSE Heartbeat for job ${job.id}:`, heartbeat);
       }
@@ -228,7 +229,7 @@ export default function ImportJobDataPage() {
 
         // If the update is for our job, revalidate SWR caches
         if (ssePayload.import_job?.id === job.id) {
-          if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+          if (statbusConfig.debug) {
             console.log(`SSE: Job ${job.id} updated, revalidating data page.`);
           }
           

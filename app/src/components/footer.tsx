@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { Github, Globe } from "lucide-react";
 import { CommandPaletteTriggerButton } from "@/components/command-palette/command-palette-trigger-button";
-import { useAtomValue } from "jotai"; // Import useAtomValue
+import { useAtomValue } from "jotai";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
-import { isAuthenticatedStrictAtom } from "@/atoms/auth"; // Import isAuthenticatedAtom
+import { isAuthenticatedStrictAtom } from "@/atoms/auth";
+import { statbusConfig } from "@/lib/statbus-config";
 
 export function FooterSkeleton() {
   return (
@@ -52,19 +53,19 @@ export default function Footer() {
             <span className="text-xs text-gray-300">
               Statbus version{" "}
               <Link
-                href={`https://github.com/statisticsnorway/statbus/releases/tag/${process.env.NEXT_PUBLIC_STATBUS_VERSION}`}
+                href={`https://github.com/statisticsnorway/statbus/releases/tag/${statbusConfig.version}`}
                 className="hover:text-ssb-neon underline"
               >
-                {process.env.NEXT_PUBLIC_STATBUS_VERSION}
+                {statbusConfig.version}
               </Link>
-              {process.env.NEXT_PUBLIC_STATBUS_COMMIT && process.env.NEXT_PUBLIC_STATBUS_COMMIT !== "unknown" && (
+              {statbusConfig.commit && statbusConfig.commit !== "unknown" && (
                 <>
                   {" ("}
                   <Link
-                    href={`https://github.com/statisticsnorway/statbus/commit/${process.env.NEXT_PUBLIC_STATBUS_COMMIT}`}
+                    href={`https://github.com/statisticsnorway/statbus/commit/${statbusConfig.commit}`}
                     className="hover:text-ssb-neon underline"
                   >
-                    {process.env.NEXT_PUBLIC_STATBUS_COMMIT}
+                    {statbusConfig.commit}
                   </Link>
                   {")"}
                 </>

@@ -243,11 +243,12 @@ class RestClientStore {
         // Log initialization attempt for server client
         return client;
       } else {
-        // Create browser client
-        const apiBaseUrl = process.env.NEXT_PUBLIC_BROWSER_REST_URL;
+        // Create browser client — read URL from runtime config injected by layout.tsx
+        const { statbusConfig } = await import("@/lib/statbus-config");
+        const apiBaseUrl = statbusConfig.browserRestUrl;
 
         if (!apiBaseUrl) {
-          throw new Error('NEXT_PUBLIC_BROWSER_REST_URL environment variable is not defined');
+          throw new Error('browserRestUrl not set in __STATBUS_CONFIG__');
         }
         
         const apiUrl = apiBaseUrl + '/rest';

@@ -15,6 +15,7 @@ import { ImportJobCreator } from "../components/import-job-creator";
 import { Spinner } from "@/components/ui/spinner";
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { PendingJobsList } from "../components/pending-jobs-list";
+import { statbusConfig } from '@/lib/statbus-config';
 
 export default function UploadEstablishmentsPage() {
   const { counts: { establishmentsWithLegalUnit }, importState } = useImportManager();
@@ -52,7 +53,7 @@ export default function UploadEstablishmentsPage() {
         if (ssePayload.type === "connection_established" || ssePayload.type === "heartbeat") return;
 
         // Any other message implies a potential change in job status
-        if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        if (statbusConfig.debug) {
           console.log('SSE: Received job update, refreshing pending jobs for establishment_formal.');
         }
         refreshJobs();

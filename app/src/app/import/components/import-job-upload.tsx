@@ -9,6 +9,7 @@ import { FileSpreadsheet, Upload, X } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Tables } from "@/lib/database.types";
 import { inspectFile, convertExcelToCsvBlob, type FilePreview } from "@/lib/excel-to-csv";
+import { statbusConfig } from '@/lib/statbus-config';
 
 type ImportJob = Tables<"import_job">;
 
@@ -39,7 +40,7 @@ export function ImportJobUpload({
   useGuardedEffect(() => {
     const handleFinishedJob = async () => {
       if (job?.state === "finished") {
-        if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        if (statbusConfig.debug) {
           console.log(`ImportJobUpload: Job ${job.slug} finished. Refreshing counts and base data before navigating to ${nextPage}.`);
         }
         await refreshRelevantCounts();

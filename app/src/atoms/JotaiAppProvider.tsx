@@ -72,6 +72,7 @@ import { AuthCrossTabSyncer } from './AuthCrossTabSyncer';
 import { NavigationManager } from './NavigationManager';
 import { navigationMachineAtom } from './navigation-machine';
 import { pendingUpgradePromiseAtom } from './upgrade-status';
+import { statbusConfig } from '@/lib/statbus-config';
 
 // ============================================================================
 // APP INITIALIZER - Handles startup logic
@@ -312,7 +313,7 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
     const maxReconnectAttempts = 5
     let lastHeartbeat = Date.now();
     let heartbeatCheckInterval: NodeJS.Timeout | null = null;
-    const isDebug = process.env.NEXT_PUBLIC_DEBUG === 'true';
+    const isDebug = statbusConfig.debug;
 
     const connect = () => {
       try {
@@ -439,13 +440,13 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
 
     // Schedule refresh at 80% of remaining lifetime
     const refreshDelay = Math.round(remainingMs * 0.8);
-    if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+    if (statbusConfig.debug) {
       const refreshAt = new Date(now + refreshDelay);
       console.log(`SSE: Token expires at ${new Date(expiresAtMs).toISOString()}, scheduling refresh in ${Math.round(refreshDelay / 1000)}s (at ${refreshAt.toISOString()})`);
     }
 
     const refreshTimer = setTimeout(() => {
-      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+      if (statbusConfig.debug) {
         console.log('SSE: Proactive token refresh triggered');
       }
       sendAuth({ type: 'REFRESH' });

@@ -9,6 +9,7 @@ import { useAtomValue, useSetAtom } from 'jotai';
 import { analysisPageVisualStateAtom } from '@/atoms/reports';
 import { CheckCircle, XCircle, AlertCircle, Loader2, Clock } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { statbusConfig } from '@/lib/statbus-config';
 
 function PhaseProgressBar({ phase }: { phase: PhaseStatus | null }) {
   if (!phase || !phase.active || !phase.step) return null;
@@ -67,7 +68,7 @@ export function StatisticalUnitsRefresher({
       !hasStatisticalUnits &&
       !refreshAttemptedRef.current
     ) {
-      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+      if (statbusConfig.debug) {
         console.log("StatisticalUnitsRefresher: All jobs complete, no units yet. Triggering refreshBaseData.");
       }
       doRefreshBaseData();

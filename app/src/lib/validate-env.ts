@@ -1,41 +1,27 @@
 /**
- * Validates that no NEXT_PUBLIC_* environment variable contains an
- * unreplaced __NEXT_PUBLIC_*__ placeholder from the Docker build.
+ * Validates that required server-side environment variables are set.
  *
- * Called once at app startup from layout.tsx. Throws immediately if any
- * placeholder leaked through — this ensures a clear, early error rather
- * than cryptic failures deep in the component tree.
- *
- * No hardcoded list — scans every NEXT_PUBLIC_* key in process.env.
- *
- * Compatible with local dev (pnpm run dev) where .env provides values,
- * and production Docker where docker-entrypoint.sh injects them at startup.
+ * Called once at app startup from layout.tsx. These env vars are read
+ * server-side by layout.tsx and injected into the HTML as
+ * window.__STATBUS_CONFIG__. Client code reads from there, not process.env.
  */
 
 export function validateEnv() {
-  // Skip during next build — placeholders are expected at build time.
-  // They get replaced by docker-entrypoint.sh at container startup.
+  // Skip during next build — env vars may not be set yet.
   if (process.env.NEXT_PHASE === "phase-production-build") return;
 
-  const errors: string[] = [];
+  const required = [
+    "NEXT_PUBLIC_BROWSER_REST_URL",
+    "NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME",
+    "NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE",
+  ];
 
-  for (const [name, value] of Object.entries(process.env)) {
-    if (!name.startsWith("NEXT_PUBLIC_")) continue;
-    if (!value) continue;
+  const missing = required.filter((name) => !process.env[name]);
 
-    if (value.startsWith("__NEXT_PUBLIC_") && value.endsWith("__")) {
-      errors.push(
-        `${name} contains unreplaced placeholder "${value}"`
-      );
-    }
-  }
-
-  if (errors.length > 0) {
+  if (missing.length > 0) {
     throw new Error(
-      `Unreplaced NEXT_PUBLIC_* placeholders detected:\n${errors.map((e) => `  - ${e}`).join("\n")}\n\n` +
-        `The docker-entrypoint.sh did not inject runtime values.\n` +
-        `Ensure NEXT_PUBLIC_* vars are set in docker-compose environment block.\n` +
-        `If running locally: run ./sb config generate to create .env.`
+      `Missing required environment variables:\n${missing.map((e) => `  - ${e}`).join("\n")}\n\n` +
+        `Run ./sb config generate to create .env, or set them in docker-compose.`
     );
   }
 }

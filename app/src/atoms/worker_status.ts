@@ -14,6 +14,7 @@ import { invalidateExactCountsCache, exactCountCacheGenerationAtom } from '@/com
 import { searchPageDataReadyAtom } from './search';
 import { restClientAtom } from './rest-client';
 import { isAuthenticatedStrictAtom } from './auth';
+import { statbusConfig } from '@/lib/statbus-config';
 
 // ============================================================================
 // TYPES
@@ -247,7 +248,7 @@ export const setWorkerStatusAtom = atom(
       prevStatus.isDerivingUnits === true &&
       status === false
     ) {
-      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+      if (statbusConfig.debug) {
         console.log("setWorkerStatusAtom: Detected completion of 'isDerivingUnits'. Refreshing base data and invalidating caches.");
       }
       invalidateExactCountsCache();
@@ -262,7 +263,7 @@ export const setWorkerStatusAtom = atom(
       prevStatus.isImporting === true &&
       status === false
     ) {
-      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+      if (statbusConfig.debug) {
         console.log("setWorkerStatusAtom: Detected completion of 'isImporting'. Invalidating caches.");
       }
       invalidateHasStatisticalUnitsCache();

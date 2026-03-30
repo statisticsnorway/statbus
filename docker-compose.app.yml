@@ -8,8 +8,6 @@ services:
     build:
       context: ./app
       args:
-        # NEXT_PUBLIC_* vars use placeholders at build time (see app/Dockerfile).
-        # Actual values are injected at runtime by docker-entrypoint.sh.
         DEBUG: ${DEBUG:?DEBUG must be set in the generated .env}
     ports:
       - "${APP_BIND_ADDRESS:?APP_BIND_ADDRESS must be set in the generated .env}:3000"

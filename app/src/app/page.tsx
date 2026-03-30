@@ -6,18 +6,7 @@ import { useAtomValue } from "jotai";
 import { appReadyAtom, timeContextAutoSelectEffectAtom } from "@/atoms/app-derived";
 import Dashboard from "@/app/dashboard/page";
 
-// For dynamic titles in client components, useEffect is typically used.
-// import { Metadata } from "next"; // Metadata export removed
-import { deploymentSlotName } from "@/lib/deployment-variables";
-
-// export const metadata: Metadata = { // Metadata export removed
-//   title: `${deploymentSlotName} Statbus | Home`,
-// };
-
-// Note: 'export const dynamic = 'force-dynamic';' is typically for Server Components.
-// Its effect on a Client Component page that wraps a Server Component (Dashboard) might be indirect.
-// We'll keep it for now as it was pre-existing.
-export const dynamic = 'force-dynamic'; 
+export const dynamic = 'force-dynamic';
 
 export default function HomePage() {
   // Activate the auto-select effect atom by reading it in a top-level component.

@@ -13,19 +13,20 @@ import { UpgradeMaintenanceGuard } from "@/components/upgrade-maintenance-guard"
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { JotaiAppProvider } from '@/atoms/JotaiAppProvider';
 import { DebugInspector } from '@/components/dev/DebugInspector';
-import { deploymentSlotName } from "@/lib/deployment-variables";
 import { headers } from "next/headers";
 import { validateEnv } from "@/lib/validate-env";
+import type { StatbusConfig } from "@/lib/statbus-config";
 
-// Validate environment at module load — fails fast before any rendering.
 validateEnv();
 
 const inter = Inter({ subsets: ["latin"] });
 
+const slotName = process.env.NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME || "";
+
 export const metadata: Metadata = {
   title: {
-    template: `${deploymentSlotName} Statbus | %s`,
-    default: `${deploymentSlotName} Statbus`,
+    template: `${slotName} Statbus | %s`,
+    default: `${slotName} Statbus`,
   },
   description: "Simple To Use, Simple To Understand, Simply useful!",
 };
@@ -39,8 +40,26 @@ export default async function RootLayout({
   const pathname = headersList.get("x-invoke-path") || "";
   const isReferencePage = pathname.startsWith('/jotai-state-management-reference');
 
+  // Runtime config injected into HTML — client code reads from window.__STATBUS_CONFIG__
+  // instead of process.env.NEXT_PUBLIC_*, avoiding build-time inlining and cache staleness.
+  const config: StatbusConfig = {
+    browserRestUrl: process.env.NEXT_PUBLIC_BROWSER_REST_URL || "",
+    deploymentSlotName: process.env.NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME || "",
+    deploymentSlotCode: process.env.NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE || "",
+    debug: process.env.NEXT_PUBLIC_DEBUG === "true",
+    version: process.env.NEXT_PUBLIC_STATBUS_VERSION || "",
+    commit: process.env.NEXT_PUBLIC_STATBUS_COMMIT || "",
+  };
+
   return (
     <html lang="en" className="h-full bg-white">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.__STATBUS_CONFIG__=${JSON.stringify(config)}`,
+          }}
+        />
+      </head>
       <body
         className={cn(
           isReferencePage ? "" : "grid min-h-full grid-rows-[auto_1fr_auto]",
