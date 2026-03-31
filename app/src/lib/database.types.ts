@@ -6098,6 +6098,7 @@ export type Database = {
           skipped_at: string | null
           started_at: string | null
           summary: string
+          superseded_at: string | null
           tags: string[]
         },
         Insert: {
@@ -6121,6 +6122,7 @@ export type Database = {
           skipped_at?: string | null
           started_at?: string | null
           summary: string
+          superseded_at?: string | null
           tags?: string[]
         },
         Update: {
@@ -6144,6 +6146,7 @@ export type Database = {
           skipped_at?: string | null
           started_at?: string | null
           summary?: string
+          superseded_at?: string | null
           tags?: string[]
         },
         Relationships: []
