@@ -16,6 +16,11 @@ import { DebugInspector } from '@/components/dev/DebugInspector';
 import { headers } from "next/headers";
 import type { StatbusConfig } from "@/lib/statbus-config";
 
+// Force dynamic rendering — layout injects window.__STATBUS_CONFIG__ from
+// process.env at request time. Without this, Next.js caches the HTML shell
+// at build time, freezing config values until the next deploy.
+export const dynamic = 'force-dynamic';
+
 const inter = Inter({ subsets: ["latin"] });
 
 const slotName = process.env.PUBLIC_DEPLOYMENT_SLOT_NAME || "";
