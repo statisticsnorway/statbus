@@ -1217,7 +1217,7 @@ EOS
 
         # Launch fresh Ubuntu 24.04 VM
         echo "Launching Ubuntu 24.04 VM ($VM_NAME)..."
-        multipass launch 24.04 --name "$VM_NAME" --cpus 2 --memory 4G --disk 20G
+        multipass launch 24.04 --name "$VM_NAME" --cpus 2 --memory 4G --disk 20G --timeout 600
 
         # Wait for VM to be ready
         echo "Waiting for VM to be ready..."
