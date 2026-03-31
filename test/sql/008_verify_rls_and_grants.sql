@@ -138,7 +138,7 @@ DECLARE
         'public.generate_power_ident'
     ];
 
-    -- Upgrade: Trigger functions and RPC for upgrade daemon notifications
+    -- Upgrade: Trigger functions and RPC for upgrade service notifications
     v_upgrade_funcs TEXT[] := ARRAY[
         'public.upgrade_notify_daemon',
         'public.upgrade_notify_frontend',

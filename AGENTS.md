@@ -94,7 +94,7 @@ echo "SELECT ..." | ./sb psql             # Single queries
 ./sb upgrade list                 # List discovered upgrades from database
 ./sb upgrade schedule <version>   # Schedule an upgrade
 ./sb upgrade apply <version>      # Trigger immediate upgrade via NOTIFY
-./sb upgrade daemon               # Run upgrade daemon (usually via systemd)
+./sb upgrade service              # Run upgrade service (usually via systemd)
 ```
 
 **Migration Best Practice for Modifying Existing Functions/Procedures:**
@@ -230,11 +230,11 @@ The cloud infrastructure on **niue.statbus.org** uses **branches as pointers** f
    - `master-to-X` workflow force-pushes `master` -> `ops/cloud/deploy/X` branch
    - Example: "Push master -> ops/cloud/deploy/no" deploys to Norway
 
-2. **Automatic execution**: Push to `ops/cloud/deploy/X` triggers `deploy-to-X` workflow, which SSHs to the server and triggers the upgrade daemon
+2. **Automatic execution**: Push to `ops/cloud/deploy/X` triggers `deploy-to-X` workflow, which SSHs to the server and triggers the upgrade service
 
-3. **On the server** (upgrade daemon):
+3. **On the server** (upgrade service):
    - CLI writes upgrade request to database and sends NOTIFY
-   - Daemon backs up the database
+   - The upgrade service backs up the database
    - Checks out the target version
    - Runs pending migrations (or recreates if --recreate)
    - Restarts services with health checks

@@ -9,8 +9,8 @@ import (
 )
 
 // watchdog sends periodic sd_notify(WATCHDOG=1) to systemd.
-// If the daemon hangs (stuck subprocess, deadlock), the pings stop,
-// and systemd kills+restarts the daemon after WatchdogSec expires.
+// If the service hangs (stuck subprocess, deadlock), the pings stop,
+// and systemd kills+restarts the service after WatchdogSec expires.
 //
 // Enable in the systemd unit file:
 //
@@ -18,7 +18,7 @@ import (
 //	WatchdogSec=300
 //	WatchdogSignal=SIGKILL
 //
-// The daemon pings at half the watchdog interval to provide margin.
+// The service pings at half the watchdog interval to provide margin.
 type watchdog struct {
 	ticker   *time.Ticker
 	done     chan struct{}

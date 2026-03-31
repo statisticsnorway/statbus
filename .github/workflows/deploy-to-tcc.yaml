@@ -16,7 +16,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Deploy via upgrade daemon
+      - name: Deploy via upgrade service
         run: |
           install -m 600 /dev/stdin /tmp/key <<< "${{ secrets.SSH_KEY }}"
           ssh -i /tmp/key -o StrictHostKeyChecking=no \

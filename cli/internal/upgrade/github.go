@@ -67,7 +67,7 @@ func githubRequest(method, url string) (*http.Request, error) {
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "statbus-upgrade-daemon")
+	req.Header.Set("User-Agent", "statbus-upgrade-service")
 	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
@@ -228,7 +228,7 @@ func FetchCommits(count int) ([]Commit, error) {
 // For SHA tags: returns 0 (incomparable without git history — use CompareByCommitOrder instead).
 func CompareVersions(a, b string) int {
 	// Normalize: strip leading "v" so "v2026.03.0" and "2026.03.0" compare equally.
-	// Uses TrimLeft to also handle double-v ("vv2026...") from dev.sh + daemon.go bug.
+	// Uses TrimLeft to also handle double-v ("vv2026...") from dev.sh + service.go bug.
 	a = strings.TrimLeft(a, "v")
 	b = strings.TrimLeft(b, "v")
 

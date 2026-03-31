@@ -12,8 +12,8 @@ Authentication uses **JWT tokens mapped to PostgreSQL roles** with Row Level Sec
 
 1. A developer signs a commit with their SSH key and pushes to GitHub
 2. CI builds Docker images and publishes a release with binary artifacts
-3. Each installation's upgrade daemon discovers new releases via `git fetch` (no API dependency)
-4. The daemon verifies the commit signature against locally-stored trusted keys
+3. Each installation's upgrade service discovers new releases via `git fetch` (no API dependency)
+4. The service verifies the commit signature against locally-stored trusted keys
 5. If verified: backup database, pull images, apply migrations, restart services
 6. If verification fails: the upgrade is rejected and logged
 
@@ -141,7 +141,7 @@ No central authority is needed. Each installation independently decides who to t
 
 ## Disk Space Monitoring
 
-The upgrade daemon monitors available disk space and reports it in the admin UI:
+The upgrade service monitors available disk space and reports it in the admin UI:
 - **Above 10 GB**: normal operation
 - **Below 10 GB**: warning displayed — upgrades may fail
 - **Below 5 GB**: critical alert — upgrades are blocked, contact IT

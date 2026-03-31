@@ -637,7 +637,7 @@ PUBLIC_STATBUS_COMMIT=%[23]s
 	// Docker build config
 	example.Set("APT_USE_HTTPS_ONLY", cfg.AptUseHttpsOnly)
 
-	// Upgrade daemon settings — always written to .env so the daemon never silently defaults.
+	// Upgrade service settings — always written to .env so the service never silently defaults.
 	// Values come from .env.config if present, otherwise sensible defaults.
 	{
 		cfgFile, cfgErr := dotenv.Load(filepath.Join(projDir, ".env.config"))
@@ -649,7 +649,7 @@ PUBLIC_STATBUS_COMMIT=%[23]s
 			}
 			return fallback
 		}
-		fmt.Fprintf(&b, "\n# Upgrade daemon configuration\n")
+		fmt.Fprintf(&b, "\n# Upgrade service configuration\n")
 		fmt.Fprintf(&b, "UPGRADE_CHANNEL=%s\n", getOrDefault("UPGRADE_CHANNEL", "stable"))
 		fmt.Fprintf(&b, "UPGRADE_CHECK_INTERVAL=%s\n", getOrDefault("UPGRADE_CHECK_INTERVAL", "6h"))
 		fmt.Fprintf(&b, "UPGRADE_AUTO_DOWNLOAD=%s\n", getOrDefault("UPGRADE_AUTO_DOWNLOAD", "true"))

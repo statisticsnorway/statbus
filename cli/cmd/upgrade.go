@@ -39,24 +39,24 @@ func runUpgradePsql(sql string, extraArgs ...string) ([]byte, error) {
 var upgradeCmd = &cobra.Command{
 	Use:   "upgrade",
 	Short: "Manage software upgrades",
-	Long: `Manage the upgrade daemon and software releases.
+	Long: `Manage the upgrade service and software releases.
 
-Commands for operators (no daemon needed):
+Commands for operators (no service needed):
   check       Query GitHub Releases API directly
   list        Show upgrades tracked in the local database
 
-Commands that write to the database and notify the daemon:
-  discover    Tell the daemon to poll GitHub for new releases
+Commands that write to the database and notify the service:
+  discover    Tell the service to poll GitHub for new releases
   apply       Schedule an upgrade NOW (writes DB + sends NOTIFY)
-  schedule    Mark a discovered upgrade for the daemon to execute
+  schedule    Mark a discovered upgrade for the service to execute
 
-Daemon management:
-  daemon      Run the upgrade daemon (long-running, typically via systemd)`,
+Service management:
+  service     Run the upgrade service (long-running, typically via systemd)`,
 }
 
 var upgradeCheckCmd = &cobra.Command{
 	Use:   "check",
-	Short: "Query GitHub Releases directly (no daemon needed)",
+	Short: "Query GitHub Releases directly (no service needed)",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		releases, err := upgrade.FetchReleases()
 		if err != nil {
@@ -78,12 +78,12 @@ var upgradeCheckCmd = &cobra.Command{
 
 var upgradeDiscoverCmd = &cobra.Command{
 	Use:   "discover",
-	Short: "Tell the daemon to check for new releases",
-	Long: `Sends NOTIFY upgrade_check to the running daemon, triggering it to
+	Short: "Tell the upgrade service to check for new releases",
+	Long: `Sends NOTIFY upgrade_check to the running upgrade service, triggering it to
 poll GitHub for new releases and insert them into the upgrade table.
 
 Unlike 'check' (which queries GitHub directly), 'discover' talks to
-the daemon via PostgreSQL NOTIFY. The daemon handles rate limiting,
+the service via PostgreSQL NOTIFY. The service handles rate limiting,
 channel filtering, and image pre-downloading.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		out, err := runUpgradePsql("NOTIFY upgrade_check")
@@ -91,7 +91,7 @@ channel filtering, and image pre-downloading.`,
 			return fmt.Errorf("discover: %w\n%s", err, out)
 		}
 		fmt.Println("Sent: NOTIFY upgrade_check")
-		fmt.Println("Upgrade daemon will poll GitHub for new releases")
+		fmt.Println("Upgrade service will poll GitHub for new releases")
 		return nil
 	},
 }
@@ -155,11 +155,11 @@ var upgradeApplyCmd = &cobra.Command{
 	Use:   "apply <version>",
 	Short: "Schedule an upgrade to a specific version NOW",
 	Long: `Validates the version, writes scheduled_at directly to the database,
-and sends NOTIFY as a wake-up optimization for the daemon.
+and sends NOTIFY as a wake-up optimization for the upgrade service.
 
 The direct database write ensures the upgrade is scheduled even if the
-daemon misses the NOTIFY (e.g., not running, reconnecting). The NOTIFY
-makes the daemon act immediately instead of waiting for its next poll.
+service misses the NOTIFY (e.g., not running, reconnecting). The NOTIFY
+makes the service act immediately instead of waiting for its next poll.
 
 Use --recreate to delete and recreate the database from scratch instead
 of running migrations. This is destructive — only for dev/demo servers.
@@ -203,7 +203,7 @@ RETURNING commit_sha, tags[1]`
 		updated := strings.TrimSpace(string(out))
 		if updated == "" {
 			fmt.Printf("Version %s not yet discovered in the upgrade table.\n", version)
-			fmt.Println("NOTIFY will be sent — daemon will discover and apply on next cycle.")
+			fmt.Println("NOTIFY will be sent — service will discover and apply on next cycle.")
 		} else {
 			fmt.Printf("Scheduled upgrade: %s\n", updated)
 		}
@@ -235,7 +235,7 @@ var upgradeApplyLatestCmd = &cobra.Command{
 	Use:   "apply-latest",
 	Short: "Discover and apply the latest available version",
 	Long: `Fetches tags via git, finds the latest version matching the
-configured channel (prerelease/stable/edge), and tells the daemon
+configured channel (prerelease/stable/edge), and tells the upgrade service
 to upgrade to it immediately.
 
 Used by deploy workflows — all logic is server-side, no workflow
@@ -330,7 +330,7 @@ RETURNING commit_sha, tags[1]`
 		updated := strings.TrimSpace(string(out))
 		if updated == "" {
 			fmt.Printf("Version %s not yet discovered in the upgrade table.\n", latestVersion)
-			fmt.Println("NOTIFY will be sent — daemon will discover and apply on next cycle.")
+			fmt.Println("NOTIFY will be sent — service will discover and apply on next cycle.")
 		} else {
 			fmt.Printf("Scheduled upgrade: %s\n", updated)
 		}
@@ -355,36 +355,38 @@ RETURNING commit_sha, tags[1]`
 	},
 }
 
-var upgradeDaemonCmd = &cobra.Command{
-	Use:   "daemon",
-	Short: "Run the upgrade daemon (long-running process)",
-	Long: `Starts the upgrade daemon which:
+var upgradeServiceRunE = func(cmd *cobra.Command, args []string) error {
+	projDir := config.ProjectDir()
+	// Pass the raw version (valid git ref like "v2026.03.0-rc.24"),
+	// not the display string ("2026.03.0-rc.24 (commit 5bd190c0)").
+	// The service uses this for from_version and rollback git checkout.
+	serviceVersion := version
+	if !strings.HasPrefix(version, "v") {
+		serviceVersion = "v" + version
+	}
+	if version == "dev" {
+		// Local dev build — use commit SHA if available
+		if commit != "unknown" {
+			serviceVersion = commit
+		} else {
+			serviceVersion = "dev"
+		}
+	}
+	d := upgrade.NewService(projDir, verbose, serviceVersion)
+	return d.Run(context.Background())
+}
+
+var upgradeServiceCmd = &cobra.Command{
+	Use:   "service",
+	Short: "Run the upgrade service (long-running process)",
+	Long: `Starts the upgrade service which:
   - Polls GitHub Releases for new versions
   - Pre-downloads Docker images
   - Listens for NOTIFY upgrade_check and upgrade_apply
   - Executes scheduled upgrades with backup and rollback
 
 Typically run via systemd (ops/statbus-upgrade.service).`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		projDir := config.ProjectDir()
-		// Pass the raw version (valid git ref like "v2026.03.0-rc.24"),
-		// not the display string ("2026.03.0-rc.24 (commit 5bd190c0)").
-		// The daemon uses this for from_version and rollback git checkout.
-		daemonVersion := version
-		if !strings.HasPrefix(version, "v") {
-			daemonVersion = "v" + version
-		}
-		if version == "dev" {
-			// Local dev build — use commit SHA if available
-			if commit != "unknown" {
-				daemonVersion = commit
-			} else {
-				daemonVersion = "dev"
-			}
-		}
-		d := upgrade.NewDaemon(projDir, verbose, daemonVersion)
-		return d.Run(context.Background())
-	},
+	RunE: upgradeServiceRunE,
 }
 
 var upgradeSelfVerifyCmd = &cobra.Command{
@@ -417,7 +419,7 @@ var upgradeChannelCmd = &cobra.Command{
 	Use:   "channel <stable|prerelease|edge>",
 	Short: "Set the upgrade channel and apply the change",
 	Long: `Changes the upgrade channel in .env.config, regenerates .env,
-and restarts the upgrade daemon to pick up the new channel.
+and restarts the upgrade service to pick up the new channel.
 
 Channels:
   stable      Only stable releases (default for production)
@@ -456,18 +458,18 @@ Channels:
 			return fmt.Errorf("config generate: %w", err)
 		}
 
-		// 3. Restart daemon via NOTIFY (daemon re-reads config on reconnect)
-		// Send a signal to make the daemon reload — simplest is to kill it
+		// 3. Restart service via NOTIFY (service re-reads config on reconnect)
+		// Send a signal to make the service reload — simplest is to kill it
 		// and let systemd restart it with the new config.
-		fmt.Println("Restarting upgrade daemon...")
+		fmt.Println("Restarting upgrade service...")
 		restartCmd := exec.Command("systemctl", "restart",
 			fmt.Sprintf("statbus-upgrade@%s.service", os.Getenv("USER")))
 		if err := restartCmd.Run(); err != nil {
 			// Not fatal — user may not have systemctl access
-			fmt.Printf("Could not restart daemon (try: sudo systemctl restart statbus-upgrade@%s): %v\n",
+			fmt.Printf("Could not restart service (try: sudo systemctl restart statbus-upgrade@%s): %v\n",
 				os.Getenv("USER"), err)
 		} else {
-			fmt.Println("Daemon restarted with new channel")
+			fmt.Println("Service restarted with new channel")
 		}
 
 		return nil
@@ -567,7 +569,7 @@ var trustKeyCmd = &cobra.Command{
 	Long: `Manage SSH public keys trusted for verifying commit signatures.
 
 Keys are stored as UPGRADE_TRUSTED_SIGNER_<name> in .env.config.
-The upgrade daemon uses these to verify commits before applying upgrades.`,
+The upgrade service uses these to verify commits before applying upgrades.`,
 }
 
 var trustKeyListCmd = &cobra.Command{
@@ -720,7 +722,7 @@ func init() {
 	upgradeCmd.AddCommand(upgradeApplyCmd)
 	upgradeCmd.AddCommand(upgradeApplyLatestCmd)
 	upgradeCmd.AddCommand(upgradeChannelCmd)
-	upgradeCmd.AddCommand(upgradeDaemonCmd)
+	upgradeCmd.AddCommand(upgradeServiceCmd)
 	upgradeCmd.AddCommand(upgradeSelfVerifyCmd)
 	upgradeCmd.AddCommand(upgradeSelfRollbackCmd)
 	upgradeCmd.AddCommand(trustKeyCmd)

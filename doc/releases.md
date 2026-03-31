@@ -93,7 +93,7 @@ The `ci-images.yaml` workflow builds SHA-tagged images on every push to `master`
 - **Tag format**: `sha-<full-40-char-commit-sha>`
 - **Purpose**: cloud deployments pull these images instead of building on each host
 
-These images are used by the branch-based deploy workflows (`deploy-to-*.yaml`) and the upgrade daemon for SHA-based deployments.
+These images are used by the branch-based deploy workflows (`deploy-to-*.yaml`) and the upgrade service for SHA-based deployments.
 
 ## Image Cleanup
 
@@ -144,9 +144,9 @@ git push origin v2026.03.0-rc.1
 
 Wait for the release workflow to complete in GitHub Actions.
 
-### 2. Deploy to a test server via the upgrade daemon
+### 2. Deploy to a test server via the upgrade service
 
-Use the **Deploy via upgrade daemon** workflow (`.github/workflows/deploy-via-upgrade.yaml`) from the GitHub Actions UI:
+Use the **Deploy via upgrade service** workflow (`.github/workflows/deploy-via-upgrade.yaml`) from the GitHub Actions UI:
 
 - **Target**: select the server (e.g. `statbus_dev@niue.statbus.org`)
 - **Version**: enter the tag (e.g. `v2026.03.0-rc.1`)
@@ -158,7 +158,7 @@ This SSHs to the server and sends a PostgreSQL NOTIFY:
 NOTIFY upgrade_apply, 'v2026.03.0-rc.1';
 ```
 
-The upgrade daemon on the server handles the rest: pull images, stop services, backup database, checkout tag, run migrations, restart, health check.
+The upgrade service on the server handles the rest: pull images, stop services, backup database, checkout tag, run migrations, restart, health check.
 
 ### 3. Or deploy manually via SSH
 
@@ -174,7 +174,7 @@ ssh statbus_dev@niue.statbus.org "cd statbus && ./sb version"
 
 ### Upgrade channels
 
-The upgrade daemon's behavior depends on the `UPGRADE_CHANNEL` setting in `.env`:
+The upgrade service's behavior depends on the `UPGRADE_CHANNEL` setting in `.env`:
 
 | Channel | Behavior |
 |---------|----------|
@@ -186,7 +186,7 @@ To test pre-releases on a server that normally tracks `stable`, use an explicit 
 
 ## Release Manifest
 
-Each release includes a `release-manifest.json` that the upgrade daemon downloads to verify deployments. Structure:
+Each release includes a `release-manifest.json` that the upgrade service downloads to verify deployments. Structure:
 
 ```json
 {
@@ -209,7 +209,7 @@ Each release includes a `release-manifest.json` that the upgrade daemon download
 }
 ```
 
-The daemon uses the manifest to:
+The service uses the manifest to:
 - Verify the git checkout SHA matches `commit_sha` (detects tag spoofing)
 - Determine if migrations are needed (`has_migrations`)
 - Download the correct `sb` binary for self-update after a successful upgrade

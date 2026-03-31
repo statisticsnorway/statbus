@@ -55,5 +55,5 @@ volumes:
     # Named volume — data lives inside Docker, not on host filesystem.
     # Fixes Docker Desktop crashes on macOS (no VirtioFS I/O for heavy PG writes).
     # On Linux: identical performance to bind mount (same kernel bind mount syscall).
-    # Backup: daemon uses docker run alpine rsync from this volume to backup dir.
+    # Backup: upgrade service uses docker run alpine rsync from this volume to backup dir.
     name: ${COMPOSE_INSTANCE_NAME:?}-db-data

@@ -8,7 +8,7 @@ import { usePathname } from "next/navigation";
 /**
  * Redirects ALL users to the maintenance page when an upgrade is in progress.
  *
- * Mounted in the root layout. When the upgrade daemon starts an upgrade,
+ * Mounted in the root layout. When the upgrade service starts an upgrade,
  * the status changes to "in_progress" and this component redirects to
  * /maintenance.html with a return URL. The maintenance page shows live
  * progress and auto-redirects back when the app is healthy.

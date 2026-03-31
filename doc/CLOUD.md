@@ -388,7 +388,7 @@ cd ~/statbus
 ./sb psql
 ./sb migrate up
 
-# Upgrades (daemon-based)
+# Upgrades (service-based)
 ./sb upgrade check              # Check for new releases
 ./sb upgrade apply v2026.03.1   # Apply a specific version
 ```
@@ -402,7 +402,7 @@ Deployments are automated via GitHub Actions:
 1. **`master-to-X` workflow** (manual trigger in GitHub) → force-pushes `master` to `ops/cloud/deploy/X`
 2. **Push to `ops/cloud/deploy/X`** triggers `deploy-to-X` workflow → SSHes to server, runs `./sb upgrade apply-latest`
 3. **CLI** writes upgrade request to database and sends PostgreSQL NOTIFY
-4. **Upgrade daemon** handles the rest:
+4. **Upgrade service** handles the rest:
    - Backs up the database
    - Checks out the target version
    - Runs pending migrations
@@ -412,18 +412,18 @@ Deployments are automated via GitHub Actions:
 
 View deployment status in GitHub Actions or Slack channel `statbus-utvikling`.
 
-### Daemon-Based Deployment (Preferred)
+### Service-Based Deployment (Preferred)
 
-Each instance runs an upgrade daemon that handles releases automatically. To trigger manually:
+Each instance runs an upgrade service that handles releases automatically. To trigger manually:
 
 ```bash
 ssh statbus_no@niue.statbus.org "cd statbus && ./sb upgrade apply v2026.03.1"
 ssh statbus_no@niue.statbus.org "cd statbus && ./sb upgrade check"
 ```
 
-Or use the **"Deploy via upgrade daemon"** workflow in GitHub Actions UI -- select the target server and version.
+Or use the **"Deploy via upgrade service"** workflow in GitHub Actions UI -- select the target server and version.
 
-The upgrade daemon handles: image pull, backup, migrations, restart, health check, and automatic rollback on failure. Progress is visible in the admin UI and via `journalctl -u statbus-upgrade@<user>`.
+The upgrade service handles: image pull, backup, migrations, restart, health check, and automatic rollback on failure. Progress is visible in the admin UI and via `journalctl -u statbus-upgrade@<user>`.
 
 ### Managing Host-Level Caddy
 

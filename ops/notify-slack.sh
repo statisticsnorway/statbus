@@ -5,7 +5,7 @@
 # Usage in .env:
 #   UPGRADE_CALLBACK=./ops/notify-slack.sh
 #
-# Required environment (set by the upgrade daemon):
+# Required environment (set by the upgrade service):
 #   STATBUS_VERSION      — the new version (e.g., v2026.03.1)
 #   STATBUS_FROM_VERSION — the previous version
 #   STATBUS_SERVER       — hostname of the server

@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
-name: Notify cloud daemons
+name: Notify cloud services
 on:
   push:
     branches: [master]
@@ -9,7 +9,7 @@ on:
 
 # Notify all cloud installations that a new release is available.
 # Triggers AFTER the Release workflow completes, so the GitHub release
-# exists when daemons check. Each server's daemon will discover the
+# exists when services check. Each server's upgrade service will discover the
 # release and make it available in the admin UI. This is discovery
 # only — not a forced upgrade. Admins or deploy branches decide when
 # to apply.

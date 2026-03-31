@@ -307,7 +307,7 @@ export default function UpgradesPage() {
       {upgrades && upgrades.length === 0 && (
         <Card>
           <CardContent className="pt-6 text-center text-muted-foreground">
-            No upgrades discovered yet. The upgrade daemon will check
+            No upgrades discovered yet. The upgrade service will check
             periodically.
           </CardContent>
         </Card>

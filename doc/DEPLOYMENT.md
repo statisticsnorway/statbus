@@ -310,7 +310,7 @@ After editing, regenerate:
 
 **Update StatBus**:
 
-Updates are handled automatically by the upgrade daemon. To manually trigger:
+Updates are handled automatically by the upgrade service. To manually trigger:
 ```bash
 ./sb upgrade check              # Check for new releases
 ./sb upgrade apply v2026.03.1   # Apply a specific version
@@ -623,11 +623,11 @@ chmod 600 caddy/data/custom-certs/domain.key
 
 ## Automatic Upgrades
 
-StatBus includes an upgrade daemon that automatically checks for new releases, downloads Docker images, and applies upgrades with backup and rollback support.
+StatBus includes an upgrade service that automatically checks for new releases, downloads Docker images, and applies upgrades with backup and rollback support.
 
-### Enabling the Upgrade Daemon
+### Enabling the Upgrade Service
 
-Enable the upgrade daemon via systemd:
+Enable the upgrade service via systemd:
 
 ```bash
 sudo systemctl enable --now statbus-upgrade@<slot>.service
@@ -642,7 +642,7 @@ Configure upgrade behavior in `.env.config`, then run `./sb config generate`:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `UPGRADE_CHANNEL` | `stable` | Release channel: `stable`, `prerelease`, or `pinned` |
-| `UPGRADE_CHECK_INTERVAL` | `6h` | How often the daemon polls GitHub for new releases |
+| `UPGRADE_CHECK_INTERVAL` | `6h` | How often the service polls GitHub for new releases |
 | `UPGRADE_AUTO_DOWNLOAD` | `true` | Pre-download Docker images when a new release is discovered |
 | `UPGRADE_PINNED_VERSION` | _(empty)_ | Target version when `UPGRADE_CHANNEL=pinned` (e.g., `v2026.03.0`) |
 
@@ -662,7 +662,7 @@ Configure upgrade behavior in `.env.config`, then run `./sb config generate`:
 ./sb upgrade apply v2026.03.1
 ```
 
-This sends a `NOTIFY` to the running daemon, which executes the upgrade with backup and rollback support.
+This sends a `NOTIFY` to the running upgrade service, which executes the upgrade with backup and rollback support.
 
 ### Pinning a Version
 

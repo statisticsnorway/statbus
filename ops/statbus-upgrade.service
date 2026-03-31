@@ -1,5 +1,5 @@
 [Unit]
-Description=StatBus Upgrade Daemon
+Description=StatBus Upgrade Service
 # User-level systemd service — no root required to install or manage.
 # Install: ./sb install (copies to ~/.config/systemd/user/)
 # Manage: systemctl --user {start,stop,status} statbus-upgrade@SLOT.service
@@ -7,15 +7,15 @@ Description=StatBus Upgrade Daemon
 [Service]
 Type=notify
 WorkingDirectory=%h/statbus
-ExecStart=%h/statbus/sb upgrade daemon
+ExecStart=%h/statbus/sb upgrade service
 Restart=always
 RestartSec=30
 RestartForceExitStatus=42
 SuccessExitStatus=42
 Environment=PATH=/home/linuxbrew/.linuxbrew/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-# Watchdog: daemon must ping every 2.5 minutes (half of WatchdogSec).
-# If the daemon hangs (stuck subprocess, deadlock), systemd kills and restarts it.
+# Watchdog: service must ping every 2.5 minutes (half of WatchdogSec).
+# If the service hangs (stuck subprocess, deadlock), systemd kills and restarts it.
 WatchdogSec=300
 
 # Logging

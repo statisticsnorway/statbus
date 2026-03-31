@@ -19,7 +19,7 @@ import (
 var nonInteractive bool
 var installVersion string
 
-// ExitCodeNeedsRoot is returned when the daemon step needs root.
+// ExitCodeNeedsRoot is returned when the upgrade service step needs root.
 // cloud.sh recognizes this code and SSHes as root to complete the install.
 const ExitCodeNeedsRoot = 42
 
@@ -60,10 +60,10 @@ type step struct {
 }
 
 func runInstall() error {
-	// Warn if running as root — the daemon is a user-level service now,
+	// Warn if running as root — the upgrade service is a user-level systemd unit now,
 	// running as root would create files owned by root in the project dir.
 	if os.Geteuid() == 0 {
-		fmt.Println("Warning: running as root. The upgrade daemon is a user-level service.")
+		fmt.Println("Warning: running as root. The upgrade service is a user-level systemd unit.")
 		fmt.Println("Run as the application user instead: ./sb install")
 		fmt.Println()
 	}
@@ -108,7 +108,7 @@ func runInstall() error {
 		{"JWT secret", checkJWTDone, runLoadJWT},
 		{"Users", checkUsersDone, runCreateUsers},
 		{"Trusted signers", checkSignersDone, runTrustSigners},
-		{"Upgrade daemon", checkDaemonDone, runInstallDaemon},
+		{"Upgrade service", checkServiceDone, runInstallService},
 	}
 
 	total := len(steps)
@@ -280,11 +280,11 @@ func checkUsersDone(dir string) bool {
 	return count != "0" && count != ""
 }
 
-func checkDaemonDone(dir string) bool {
+func checkServiceDone(dir string) bool {
 	if runtime.GOOS != "linux" {
 		return true // Skip on non-Linux
 	}
-	instance := daemonInstance(dir)
+	instance := serviceInstance(dir)
 	if instance == "" {
 		return false
 	}
@@ -294,8 +294,8 @@ func checkDaemonDone(dir string) bool {
 	return cmd.Run() == nil
 }
 
-// daemonInstance returns the systemd instance name, e.g. "statbus-upgrade@statbus_dev.service"
-func daemonInstance(dir string) string {
+// serviceInstance returns the systemd instance name, e.g. "statbus-upgrade@statbus_dev.service"
+func serviceInstance(dir string) string {
 	f, err := dotenv.Load(filepath.Join(dir, ".env.config"))
 	if err != nil {
 		return ""
@@ -426,7 +426,7 @@ func runCreateCreds(dir string) error {
 
 func runGenerateEnv(dir string) error {
 	// Align with latest code — but only if we're on master (not a tag/detached HEAD).
-	// The upgrade daemon checks out a specific commit; install should respect that.
+	// The upgrade service checks out a specific commit; install should respect that.
 	// Servers on ops branches (e.g. ops/cloud/deploy/no) also need to align with master.
 	branchOut, err := upgrade.RunCommandOutput(dir, "git", "symbolic-ref", "--short", "HEAD")
 	branch := strings.TrimSpace(branchOut)
@@ -451,7 +451,7 @@ func runGenerateEnv(dir string) error {
 	}
 	// Now that config exists, ensure deploy branch fetch is configured
 	configureDeployFetch(dir)
-	// Create backup directory for upgrade daemon (systemd service expects it)
+	// Create backup directory for upgrade service (systemd unit expects it)
 	home, _ := os.UserHomeDir()
 	backupDir := filepath.Join(home, "statbus-backups")
 	if err := os.MkdirAll(backupDir, 0755); err != nil {
@@ -623,15 +623,15 @@ func runTrustSigners(dir string) error {
 	return nil
 }
 
-func runInstallDaemon(dir string) error {
+func runInstallService(dir string) error {
 	if runtime.GOOS != "linux" {
 		fmt.Println("  Skipping systemd on non-Linux")
 		return nil
 	}
 
-	instance := daemonInstance(dir)
+	instance := serviceInstance(dir)
 	if instance == "" {
-		return fmt.Errorf("could not determine daemon instance name (check DEPLOYMENT_SLOT_CODE in .env.config)")
+		return fmt.Errorf("could not determine service instance name (check DEPLOYMENT_SLOT_CODE in .env.config)")
 	}
 
 	// Install as a user-level systemd service — no root needed.
@@ -653,7 +653,7 @@ func runInstallDaemon(dir string) error {
 
 	fmt.Println("  Running systemctl --user daemon-reload")
 	if err := runCmd("systemctl", "--user", "daemon-reload"); err != nil {
-		return fmt.Errorf("daemon-reload: %w", err)
+		return fmt.Errorf("systemctl daemon-reload: %w", err)
 	}
 
 	// Enable linger so the user service runs even when not logged in.
@@ -666,7 +666,7 @@ func runInstallDaemon(dir string) error {
 		return fmt.Errorf("enable service: %w", err)
 	}
 
-	fmt.Printf("  Upgrade daemon installed and started: %s\n", instance)
+	fmt.Printf("  Upgrade service installed and started: %s\n", instance)
 	return nil
 }
 
@@ -687,9 +687,9 @@ func runRootInstall() error {
 	}
 	dir := filepath.Dir(sbPath)
 
-	instance := daemonInstance(dir)
+	instance := serviceInstance(dir)
 	if instance == "" {
-		return fmt.Errorf("could not determine daemon instance name (check DEPLOYMENT_SLOT_CODE in .env.config)")
+		return fmt.Errorf("could not determine service instance name (check DEPLOYMENT_SLOT_CODE in .env.config)")
 	}
 
 	serviceFile := filepath.Join(dir, "ops", "statbus-upgrade.service")
@@ -702,7 +702,7 @@ func runRootInstall() error {
 
 	fmt.Println("  Running systemctl daemon-reload")
 	if err := runCmd("systemctl", "daemon-reload"); err != nil {
-		return fmt.Errorf("daemon-reload: %w", err)
+		return fmt.Errorf("systemctl daemon-reload: %w", err)
 	}
 
 	// No sudoers needed — backup/restore runs rsync inside a Docker container,
@@ -714,7 +714,7 @@ func runRootInstall() error {
 	}
 
 	fmt.Println()
-	fmt.Printf("  Upgrade daemon installed and started: %s\n", instance)
+	fmt.Printf("  Upgrade service installed and started: %s\n", instance)
 	fmt.Println("  Re-run without sudo to verify: ./sb install")
 	return nil
 }

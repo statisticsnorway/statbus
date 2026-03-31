@@ -1,14 +1,14 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
-name: Deploy via upgrade daemon
+name: Deploy via upgrade service
 
-# Hybrid deployment: SSH to server, trigger upgrade daemon via NOTIFY.
-# The daemon handles: pull images, stop services, backup, migrate, restart, health check.
-# This replaces the branch-based deploy workflow for servers running the upgrade daemon.
+# Hybrid deployment: SSH to server, trigger upgrade service via NOTIFY.
+# The service handles: pull images, stop services, backup, migrate, restart, health check.
+# This replaces the branch-based deploy workflow for servers running the upgrade service.
 #
 # Usage:
 #   - Manual trigger in GitHub Actions UI
 #   - Select target server and version/SHA to deploy
-#   - Daemon receives NOTIFY and executes the upgrade
+#   - Service receives NOTIFY and executes the upgrade
 
 on:
   workflow_dispatch:
@@ -74,7 +74,7 @@ jobs:
           echo "username=$USERNAME" >> "$GITHUB_OUTPUT"
           echo "host=$HOST" >> "$GITHUB_OUTPUT"
 
-      - name: Trigger upgrade daemon
+      - name: Trigger upgrade service
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ steps.target.outputs.host }}
@@ -89,11 +89,11 @@ jobs:
             if [ "$ACTION" = "check" ]; then
               echo "Sending NOTIFY upgrade_check..."
               echo "NOTIFY upgrade_check;" | ./sb psql
-              echo "Done. Daemon will poll GitHub for new releases."
+              echo "Done. Service will poll GitHub for new releases."
             elif [ "$ACTION" = "apply" ]; then
               echo "Sending NOTIFY upgrade_apply, '$VERSION'..."
               echo "NOTIFY upgrade_apply, '$VERSION';" | ./sb psql
-              echo "Done. Daemon will execute upgrade to $VERSION shortly."
+              echo "Done. Service will execute upgrade to $VERSION shortly."
             fi
 
       - name: Summary
@@ -109,5 +109,5 @@ jobs:
             echo "- **Version**: $VERSION" >> $GITHUB_STEP_SUMMARY
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "The upgrade daemon on the target server will execute the upgrade." >> $GITHUB_STEP_SUMMARY
+          echo "The upgrade service on the target server will execute the upgrade." >> $GITHUB_STEP_SUMMARY
           echo "Monitor progress via the admin UI or systemd journal." >> $GITHUB_STEP_SUMMARY

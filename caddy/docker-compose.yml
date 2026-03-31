@@ -23,7 +23,7 @@ services:
       # Using local bind mount allows easy inspection and custom cert placement
       - ./data:/data
       - caddy_logs:/var/log/caddy
-      # Maintenance mode: upgrade daemon creates active file here
+      # Maintenance mode: upgrade service creates active file here
       - ${HOME}/statbus-maintenance:/statbus-maintenance:ro
       # Maintenance HTML page
       - ../ops/maintenance:/maintenance-page:ro

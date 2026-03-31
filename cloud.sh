@@ -9,7 +9,7 @@
 #   ./cloud.sh status              Show version on all servers
 #   ./cloud.sh notify              Tell servers to check for updates (non-disruptive)
 #   ./cloud.sh upgrade             Force all servers to apply latest now
-#   ./cloud.sh install <server>    Full idempotent install (includes daemon via root)
+#   ./cloud.sh install <server>    Full idempotent install (includes service via root)
 #   ./cloud.sh install all         Install ALL servers
 #   ./cloud.sh rescue <server>     Alias for install (backwards compat)
 #   ./cloud.sh wipe <server>       DESTRUCTIVE: delete DB and recreate from scratch
@@ -17,7 +17,7 @@
 # Escalation levels:
 #   notify   — gentle. Servers discover new version. Admin chooses when to upgrade.
 #   upgrade  — firm. Servers apply latest NOW. No approval needed.
-#   install  — full. Downloads fresh binary, re-runs install, installs daemon via root.
+#   install  — full. Downloads fresh binary, re-runs install, installs service via root.
 #   create   — provision. Creates new deployment slot (DNS, user, workflows, etc.)
 #   inspect  — read-only. Shows credentials/URLs for all deployment slots.
 #   wipe     — destructive. Deletes database and recreates. Data is lost.
@@ -35,7 +35,7 @@ usage() {
     echo "  status              Show version on all servers"
     echo "  notify              Tell servers to check for updates"
     echo "  upgrade             Force all servers to apply latest"
-    echo "  install <server>    Full idempotent install (includes daemon via root)"
+    echo "  install <server>    Full idempotent install (includes service via root)"
     echo "  install all         Install ALL servers"
     echo "  rescue <server>     Alias for install"
     echo "  create <code> <name>  Create new cloud installation"
@@ -120,21 +120,21 @@ cmd_install_one() {
         echo "Installing $server (edge channel — building from master)..."
         # Edge: pull latest master, rebuild binary with version from git describe.
         # No release binary exists for untagged master commits.
-        # Follow the same pattern as install.sh: stop daemon, build to tmp, move into place.
+        # Follow the same pattern as install.sh: stop service, build to tmp, move into place.
         ssh_server "$server" "cd statbus && git fetch origin master --quiet && git checkout origin/master --quiet" 2>&1
         ssh_server "$server" "cd statbus && export PATH=/home/linuxbrew/.linuxbrew/bin:\$PATH && ./dev.sh build-sb" 2>&1
-        # Stop user-level daemon before replacing binary.
+        # Stop user-level service before replacing binary.
         # systemd --user restarts it immediately (Restart=always),
         # and the new process holds the binary open → "Text file busy" on mv.
         ssh_server "$server" "systemctl --user stop statbus-upgrade@${server}.service 2>/dev/null || true" 2>&1
         ssh_server "$server" "cd statbus && mv sb-linux-amd64 sb" 2>&1
-        # ./sb install detects the daemon is stopped and restarts it (user-level, no root needed).
+        # ./sb install detects the service is stopped and restarts it (user-level, no root needed).
         ssh_server "$server" "cd statbus && ./sb install" 2>&1 \
             || exit_code=$?
     else
         echo "Installing $server via $INSTALL_URL ..."
         # Step 1: Run install.sh as the app user.
-        # Exit code 42 = daemon needs root (not a failure).
+        # Exit code 42 = service needs root (not a failure).
         ssh_server "$server" \
             "curl -fsSL ${INSTALL_URL} | bash -s -- --prerelease" 2>&1 \
             || exit_code=$?

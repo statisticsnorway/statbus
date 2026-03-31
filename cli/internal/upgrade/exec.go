@@ -82,7 +82,7 @@ func runCommandOutput(dir string, name string, args ...string) (string, error) {
 	return string(out), err
 }
 
-func (d *Daemon) pullImages(version string) error {
+func (d *Service) pullImages(version string) error {
 	// docker compose reads VERSION from .env, not from process environment.
 	// For pre-downloads before config regeneration, we pass it as an override.
 	// 10-minute timeout: image pulls can be slow on shared servers.
@@ -102,7 +102,7 @@ func (d *Daemon) pullImages(version string) error {
 	return err
 }
 
-func (d *Daemon) setMaintenance(active bool) {
+func (d *Service) setMaintenance(active bool) {
 	dir := filepath.Join(os.Getenv("HOME"), "statbus-maintenance")
 	file := filepath.Join(dir, "active")
 
@@ -116,7 +116,7 @@ func (d *Daemon) setMaintenance(active bool) {
 
 // dbVolumeName returns the Docker named volume for PostgreSQL data.
 // Derived from COMPOSE_INSTANCE_NAME in .env (e.g., "statbus-speed-db-data").
-func (d *Daemon) dbVolumeName() string {
+func (d *Service) dbVolumeName() string {
 	envPath := filepath.Join(d.projDir, ".env")
 	if f, err := dotenv.Load(envPath); err == nil {
 		if name, ok := f.Get("COMPOSE_INSTANCE_NAME"); ok {
@@ -126,7 +126,7 @@ func (d *Daemon) dbVolumeName() string {
 	return "statbus-db-data" // fallback
 }
 
-func (d *Daemon) backupDatabase(progress *ProgressLog) (string, error) {
+func (d *Service) backupDatabase(progress *ProgressLog) (string, error) {
 	backupDir := filepath.Join(os.Getenv("HOME"), "statbus-backups", "pre-upgrade")
 	if err := os.MkdirAll(backupDir, 0755); err != nil {
 		return "", fmt.Errorf("create backup dir: %w", err)
@@ -148,7 +148,7 @@ func (d *Daemon) backupDatabase(progress *ProgressLog) (string, error) {
 	return backupDir, nil
 }
 
-func (d *Daemon) restoreDatabase(progress *ProgressLog) {
+func (d *Service) restoreDatabase(progress *ProgressLog) {
 	backupDir := filepath.Join(os.Getenv("HOME"), "statbus-backups", "pre-upgrade")
 	volumeName := d.dbVolumeName()
 
@@ -163,7 +163,7 @@ func (d *Daemon) restoreDatabase(progress *ProgressLog) {
 	}
 }
 
-func (d *Daemon) archiveBackup(backupPath, version string) {
+func (d *Service) archiveBackup(backupPath, version string) {
 	archiveDir := filepath.Join(os.Getenv("HOME"), "statbus-backups")
 	archivePath := filepath.Join(archiveDir, fmt.Sprintf("%s-pre.tar.gz", version))
 
@@ -176,7 +176,7 @@ func (d *Daemon) archiveBackup(backupPath, version string) {
 	d.pruneArchives(archiveDir, 3)
 }
 
-func (d *Daemon) pruneArchives(dir string, keep int) {
+func (d *Service) pruneArchives(dir string, keep int) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return
@@ -201,7 +201,7 @@ func (d *Daemon) pruneArchives(dir string, keep int) {
 	}
 }
 
-func (d *Daemon) waitForDBHealth(timeout time.Duration) error {
+func (d *Service) waitForDBHealth(timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
 		out, err := runCommandOutput(d.projDir, "docker", "compose", "exec", "db",
@@ -218,7 +218,7 @@ func (d *Daemon) waitForDBHealth(timeout time.Duration) error {
 }
 
 // healthURL returns the cached health check URL, loading from .env on first call.
-func (d *Daemon) healthURL() string {
+func (d *Service) healthURL() string {
 	if d.cachedURL != "" {
 		return d.cachedURL
 	}
@@ -232,7 +232,7 @@ func (d *Daemon) healthURL() string {
 	return d.cachedURL
 }
 
-func (d *Daemon) healthCheck(retries int, interval time.Duration) error {
+func (d *Service) healthCheck(retries int, interval time.Duration) error {
 	healthURL := d.healthURL()
 	client := &http.Client{Timeout: 10 * time.Second}
 

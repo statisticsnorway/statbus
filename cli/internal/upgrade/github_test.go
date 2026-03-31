@@ -110,7 +110,7 @@ func TestCompareVersions(t *testing.T) {
 		// Mixed: SHA vs CalVer — incomparable
 		{"sha-abc1234f", "v2026.03.0", 0},
 		{"v2026.03.0", "sha-abc1234f", 0},
-		// Regression: double-v prefix from dev.sh + daemon.go must not break comparison
+		// Regression: double-v prefix from dev.sh + service.go must not break comparison
 		{"v2026.03.1-rc.2", "vv2026.03.0-10-g74a3353e5", 1},
 		// Mixed prefix: with/without v should compare equal
 		{"v2026.03.0", "2026.03.0", 0},

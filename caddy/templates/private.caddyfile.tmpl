@@ -106,7 +106,7 @@ http://{{.Domain}} {
         file_server
     }
 
-    # Maintenance mode: upgrade daemon creates /statbus-maintenance/active
+    # Maintenance mode: upgrade service creates /statbus-maintenance/active
     # All other routes return the maintenance page with 503
     @maintenance {
         file /statbus-maintenance/active

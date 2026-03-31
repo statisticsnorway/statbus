@@ -20,8 +20,8 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/selfupdate"
 )
 
-// Daemon is the long-running upgrade daemon.
-type Daemon struct {
+// Service is the long-running upgrade service.
+type Service struct {
 	projDir      string
 	version      string           // compiled-in version from ldflags (e.g., v2026.03.0-rc.11)
 	listenConn   *pgx.Conn         // dedicated to LISTEN/NOTIFY — never use for queries
@@ -39,9 +39,9 @@ type Daemon struct {
 	allowedSignersPath string      // path to tmp/allowed-signers file (empty if no signers configured)
 }
 
-// NewDaemon creates a new upgrade daemon.
-func NewDaemon(projDir string, verbose bool, version string) *Daemon {
-	return &Daemon{
+// NewService creates a new upgrade service.
+func NewService(projDir string, verbose bool, version string) *Service {
+	return &Service{
 		projDir: projDir,
 		version: version,
 		verbose: verbose,
@@ -49,20 +49,20 @@ func NewDaemon(projDir string, verbose bool, version string) *Daemon {
 }
 
 // upgradeFlag is written to tmp/upgrade-in-progress.json before destructive
-// steps begin. If the daemon crashes during an upgrade, the flag file survives
+// steps begin. If the service crashes during an upgrade, the flag file survives
 // (it's on the filesystem, NOT in the DB volume which gets rolled back).
-// On next startup, the daemon reads the flag and marks the upgrade as failed.
+// On next startup, the service reads the flag and marks the upgrade as failed.
 type upgradeFlag struct {
 	ID          int    `json:"id"`
 	CommitSHA   string `json:"commit_sha"`
 	DisplayName string `json:"display_name"`
 }
 
-func (d *Daemon) flagPath() string {
+func (d *Service) flagPath() string {
 	return filepath.Join(d.projDir, "tmp", "upgrade-in-progress.json")
 }
 
-func (d *Daemon) writeUpgradeFlag(id int, commitSHA, displayName string) {
+func (d *Service) writeUpgradeFlag(id int, commitSHA, displayName string) {
 	flag := upgradeFlag{ID: id, CommitSHA: commitSHA, DisplayName: displayName}
 	data, err := json.MarshalIndent(flag, "", "  ")
 	if err != nil {
@@ -72,14 +72,14 @@ func (d *Daemon) writeUpgradeFlag(id int, commitSHA, displayName string) {
 	os.WriteFile(d.flagPath(), data, 0644)
 }
 
-func (d *Daemon) removeUpgradeFlag() {
+func (d *Service) removeUpgradeFlag() {
 	os.Remove(d.flagPath())
 }
 
 // recoverFromFlag checks for a flag file from a previous interrupted upgrade.
 // Distinguishes between a real crash (mark failed) and a self-update restart
 // (mark completed) by checking if git HEAD matches the upgrade target.
-func (d *Daemon) recoverFromFlag(ctx context.Context) {
+func (d *Service) recoverFromFlag(ctx context.Context) {
 	data, err := os.ReadFile(d.flagPath())
 	if err != nil {
 		return // no flag file — normal startup
@@ -104,7 +104,7 @@ func (d *Daemon) recoverFromFlag(ctx context.Context) {
 			"UPDATE public.upgrade SET completed_at = now() WHERE id = $1 AND completed_at IS NULL",
 			flag.ID)
 		// Explicit NOTIFY — the DB trigger also fires, but the app's LISTEN is
-		// definitely established by now (new daemon starts after app is healthy).
+		// definitely established by now (new service starts after app is healthy).
 		d.queryConn.Exec(ctx, `NOTIFY worker_status, '{"type":"upgrade_changed"}'`)
 		d.removeUpgradeFlag()
 		d.supersedeOlderReleases(ctx, flag.CommitSHA)
@@ -112,7 +112,7 @@ func (d *Daemon) recoverFromFlag(ctx context.Context) {
 	}
 
 	// Real failure — read the progress log for the error message.
-	errMsg := "Upgrade interrupted (daemon crashed or was killed)"
+	errMsg := "Upgrade interrupted (service crashed or was killed)"
 	progressPath := filepath.Join(d.projDir, "tmp", "upgrade-progress.log")
 	if logData, err := os.ReadFile(progressPath); err == nil {
 		lines := strings.Split(strings.TrimSpace(string(logData)), "\n")
@@ -135,8 +135,8 @@ func (d *Daemon) recoverFromFlag(ctx context.Context) {
 	d.removeUpgradeFlag()
 }
 
-// Run starts the daemon main loop.
-func (d *Daemon) Run(ctx context.Context) error {
+// Run starts the upgrade service main loop.
+func (d *Service) Run(ctx context.Context) error {
 	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
@@ -155,7 +155,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	defer d.listenConn.Close(context.Background())
 	defer d.queryConn.Close(context.Background())
 
-	// Acquire advisory lock to prevent multiple daemons
+	// Acquire advisory lock to prevent multiple instances
 	if err := d.acquireAdvisoryLock(ctx); err != nil {
 		return err
 	}
@@ -165,12 +165,12 @@ func (d *Daemon) Run(ctx context.Context) error {
 	// completeInProgressUpgrade so the flag-based recovery takes priority.
 	d.recoverFromFlag(ctx)
 
-	// Complete any in-progress upgrade from a previous daemon instance
+	// Complete any in-progress upgrade from a previous service instance
 	// (e.g., after self-update restart via exit code 42)
 	d.completeInProgressUpgrade(ctx)
 
 	// Mark the currently running version as completed. Handles versions
-	// installed via install.sh which bypasses the daemon upgrade flow.
+	// installed via install.sh which bypasses the upgrade service flow.
 	d.markCurrentVersionCompleted(ctx)
 
 	// Sync UPGRADE_* config from .env to system_info table
@@ -190,7 +190,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 		return fmt.Errorf("LISTEN upgrade_apply: %w", err)
 	}
 
-	fmt.Printf("Upgrade daemon started (channel=%s, interval=%s)\n", d.channel, d.interval)
+	fmt.Printf("Upgrade service started (channel=%s, interval=%s)\n", d.channel, d.interval)
 	sdNotify("READY=1") // Tell systemd we're initialized
 
 	// Main loop: use a goroutine for LISTEN/NOTIFY, select on channels
@@ -201,9 +201,9 @@ func (d *Daemon) Run(ctx context.Context) error {
 	ticker := time.NewTicker(d.interval)
 	defer ticker.Stop()
 
-	// Systemd watchdog: proves the daemon is alive and responsive.
+	// Systemd watchdog: proves the service is alive and responsive.
 	// If WatchdogSec is set in the unit file, systemd kills+restarts
-	// the daemon if it stops pinging within the timeout.
+	// the service if it stops pinging within the timeout.
 	watchdog := newWatchdog()
 	if watchdog != nil {
 		defer watchdog.Stop()
@@ -216,7 +216,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Println("Upgrade daemon shutting down")
+			fmt.Println("Upgrade service shutting down")
 			d.stopListenLoop()
 			return nil
 		case <-ticker.C:
@@ -275,7 +275,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 }
 
 // startListenLoop launches a new listenLoop goroutine with a cancellable context.
-func (d *Daemon) startListenLoop(ctx context.Context, notifyCh chan<- *pgconn.Notification, errCh chan<- error) {
+func (d *Service) startListenLoop(ctx context.Context, notifyCh chan<- *pgconn.Notification, errCh chan<- error) {
 	listenCtx, cancel := context.WithCancel(ctx)
 	d.listenCancel = cancel
 	d.listenWg.Add(1)
@@ -286,7 +286,7 @@ func (d *Daemon) startListenLoop(ctx context.Context, notifyCh chan<- *pgconn.No
 }
 
 // stopListenLoop cancels the listenLoop goroutine and waits for it to exit.
-func (d *Daemon) stopListenLoop() {
+func (d *Service) stopListenLoop() {
 	if d.listenCancel != nil {
 		d.listenCancel()
 		d.listenWg.Wait()
@@ -295,7 +295,7 @@ func (d *Daemon) stopListenLoop() {
 }
 
 // listenLoop runs WaitForNotification in a goroutine, sending results on channels.
-func (d *Daemon) listenLoop(ctx context.Context, notifyCh chan<- *pgconn.Notification, errCh chan<- error) {
+func (d *Service) listenLoop(ctx context.Context, notifyCh chan<- *pgconn.Notification, errCh chan<- error) {
 	for {
 		notification, err := d.listenConn.WaitForNotification(ctx)
 		if err != nil {
@@ -309,7 +309,7 @@ func (d *Daemon) listenLoop(ctx context.Context, notifyCh chan<- *pgconn.Notific
 	}
 }
 
-func (d *Daemon) handleNotification(ctx context.Context, n *pgconn.Notification) {
+func (d *Service) handleNotification(ctx context.Context, n *pgconn.Notification) {
 	switch n.Channel {
 	case "upgrade_check":
 		fmt.Println("Received NOTIFY upgrade_check")
@@ -340,23 +340,23 @@ func (d *Daemon) handleNotification(ctx context.Context, n *pgconn.Notification)
 	}
 }
 
-func (d *Daemon) acquireAdvisoryLock(ctx context.Context) error {
+func (d *Service) acquireAdvisoryLock(ctx context.Context) error {
 	var locked bool
 	err := d.queryConn.QueryRow(ctx, "SELECT pg_try_advisory_lock(hashtext('upgrade_daemon'))").Scan(&locked)
 	if err != nil {
 		return fmt.Errorf("advisory lock: %w", err)
 	}
 	if !locked {
-		return fmt.Errorf("another upgrade daemon is already running (advisory lock held)")
+		return fmt.Errorf("another upgrade service is already running (advisory lock held)")
 	}
 	return nil
 }
 
 // completeInProgressUpgrade checks for an upgrade that was started but not
-// completed (e.g., daemon restarted after self-update). If found, verifies
+// completed (e.g., service restarted after self-update). If found, verifies
 // health and marks completed_at. This ensures "completed" truly means
 // the new version is running and verified.
-func (d *Daemon) completeInProgressUpgrade(ctx context.Context) {
+func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 	var id int
 	var commitSHA string
 	var displayName string
@@ -393,14 +393,14 @@ func (d *Daemon) completeInProgressUpgrade(ctx context.Context) {
 	d.supersedeOlderReleases(ctx, commitSHA)
 	d.runUpgradeCallback(displayName)
 
-	fmt.Printf("Upgrade to %s completed (verified after daemon restart)\n", displayName)
+	fmt.Printf("Upgrade to %s completed (verified after service restart)\n", displayName)
 }
 
-// markCurrentVersionCompleted marks the daemon's own version as completed in
+// markCurrentVersionCompleted marks the service's own version as completed in
 // the upgrade table. This handles versions deployed via install.sh (which
-// bypasses the daemon upgrade flow) and ensures the UI doesn't show
+// bypasses the upgrade service flow) and ensures the UI doesn't show
 // "Upgrade Now" for the already-running version. Idempotent.
-func (d *Daemon) markCurrentVersionCompleted(ctx context.Context) {
+func (d *Service) markCurrentVersionCompleted(ctx context.Context) {
 	if d.version == "dev" {
 		return
 	}
@@ -429,7 +429,7 @@ func (d *Daemon) markCurrentVersionCompleted(ctx context.Context) {
 
 // syncConfigToSystemInfo writes UPGRADE_* values from .env to system_info.
 // This keeps the admin UI in sync with the config file.
-func (d *Daemon) syncConfigToSystemInfo(ctx context.Context) {
+func (d *Service) syncConfigToSystemInfo(ctx context.Context) {
 	envPath := filepath.Join(d.projDir, ".env")
 	f, err := dotenv.Load(envPath)
 	if err != nil {
@@ -454,7 +454,7 @@ func (d *Daemon) syncConfigToSystemInfo(ctx context.Context) {
 }
 
 // reportDiskSpace writes the current free disk space to system_info.
-func (d *Daemon) reportDiskSpace(ctx context.Context) {
+func (d *Service) reportDiskSpace(ctx context.Context) {
 	if err := d.ensureConnected(ctx); err != nil {
 		return
 	}
@@ -470,7 +470,7 @@ func (d *Daemon) reportDiskSpace(ctx context.Context) {
 
 // supersedeOlderReleases marks available releases older than the selected commit as superseded.
 // Ordering is by position (topological order) then committed_at as fallback.
-func (d *Daemon) supersedeOlderReleases(ctx context.Context, selectedCommitSHA string) {
+func (d *Service) supersedeOlderReleases(ctx context.Context, selectedCommitSHA string) {
 	// Get the position/committed_at of the selected commit
 	var selectedPos sql.NullInt32
 	var selectedCommittedAt time.Time
@@ -502,7 +502,7 @@ func (d *Daemon) supersedeOlderReleases(ctx context.Context, selectedCommitSHA s
 	}
 }
 
-func (d *Daemon) loadConfig() error {
+func (d *Service) loadConfig() error {
 	envPath := filepath.Join(d.projDir, ".env")
 	f, err := dotenv.Load(envPath)
 	if err != nil {
@@ -536,7 +536,7 @@ func (d *Daemon) loadConfig() error {
 // writes an allowed-signers file for git verify-commit.
 // Signing enforcement is determined by key presence: if keys are configured,
 // verification is enforced. If no keys, verification is skipped with a warning.
-func (d *Daemon) loadTrustedSigners() error {
+func (d *Service) loadTrustedSigners() error {
 	envPath := filepath.Join(d.projDir, ".env")
 	f, err := dotenv.Load(envPath)
 	if err != nil {
@@ -595,7 +595,7 @@ func (d *Daemon) loadTrustedSigners() error {
 // Returns nil if the signature is valid and trusted.
 // If no signers are configured (allowedSignersPath is empty), skips verification.
 // If signers ARE configured, enforces — unsigned/untrusted commits are rejected.
-func (d *Daemon) verifyCommitSignature(sha string) error {
+func (d *Service) verifyCommitSignature(sha string) error {
 	if d.allowedSignersPath == "" {
 		// No signers configured — skip verification
 		return nil
@@ -612,7 +612,7 @@ func (d *Daemon) verifyCommitSignature(sha string) error {
 	return nil
 }
 
-func (d *Daemon) connect(ctx context.Context) error {
+func (d *Service) connect(ctx context.Context) error {
 	envPath := filepath.Join(d.projDir, ".env")
 	f, err := dotenv.Load(envPath)
 	if err != nil {
@@ -627,7 +627,7 @@ func (d *Daemon) connect(ctx context.Context) error {
 	}
 
 	// Connect to the Caddy DB proxy on the host's loopback address.
-	// The daemon runs on the host (not inside Docker), so it reaches PostgreSQL
+	// The service runs on the host (not inside Docker), so it reaches PostgreSQL
 	// through Caddy's Layer4 proxy. CADDY_DB_BIND_ADDRESS is where Caddy listens
 	// (typically 127.0.0.1). Using SITE_DOMAIN would resolve to the public IP,
 	// which Caddy doesn't listen on in private deployment mode.
@@ -678,7 +678,7 @@ func (d *Daemon) connect(ctx context.Context) error {
 // Called at the top of discover/executeScheduled/reportDiskSpace to detect
 // a dead queryConn (e.g., after DB restart during deploy). The listenConn
 // has its own reconnect path via errCh in the main loop.
-func (d *Daemon) ensureConnected(ctx context.Context) error {
+func (d *Service) ensureConnected(ctx context.Context) error {
 	if d.queryConn == nil || d.queryConn.Ping(ctx) != nil {
 		fmt.Println("Database connection lost, reconnecting...")
 		return d.reconnect(ctx)
@@ -686,7 +686,7 @@ func (d *Daemon) ensureConnected(ctx context.Context) error {
 	return nil
 }
 
-func (d *Daemon) reconnect(ctx context.Context) error {
+func (d *Service) reconnect(ctx context.Context) error {
 	if d.listenConn != nil {
 		d.listenConn.Close(context.Background())
 	}
@@ -709,7 +709,7 @@ func (d *Daemon) reconnect(ctx context.Context) error {
 	return nil
 }
 
-func (d *Daemon) cleanStaleMaintenance(ctx context.Context) {
+func (d *Service) cleanStaleMaintenance(ctx context.Context) {
 	maintenanceFile := filepath.Join(os.Getenv("HOME"), "statbus-maintenance", "active")
 	if _, err := os.Stat(maintenanceFile); os.IsNotExist(err) {
 		return
@@ -731,7 +731,7 @@ func (d *Daemon) cleanStaleMaintenance(ctx context.Context) {
 	}
 }
 
-func (d *Daemon) checkMissedUpgrades(ctx context.Context) {
+func (d *Service) checkMissedUpgrades(ctx context.Context) {
 	var count int
 	err := d.queryConn.QueryRow(ctx,
 		"SELECT COUNT(*) FROM public.upgrade WHERE scheduled_at IS NOT NULL AND started_at IS NULL").Scan(&count)
@@ -740,7 +740,7 @@ func (d *Daemon) checkMissedUpgrades(ctx context.Context) {
 	}
 }
 
-func (d *Daemon) discover(ctx context.Context) {
+func (d *Service) discover(ctx context.Context) {
 	if err := d.ensureConnected(ctx); err != nil {
 		fmt.Printf("Reconnect failed in discover: %v\n", err)
 		return
@@ -763,7 +763,7 @@ func (d *Daemon) discover(ctx context.Context) {
 	filtered := FilterTagsByChannel(tags, d.channel)
 	fmt.Printf("Discovery: %d tag(s) via git, %d match channel %q\n", len(tags), len(filtered), d.channel)
 
-	// The daemon's compiled-in version — used to skip older releases.
+	// The service's compiled-in version — used to skip older releases.
 	currentVersion := d.version
 
 	for _, t := range filtered {
@@ -815,7 +815,7 @@ func (d *Daemon) discover(ctx context.Context) {
 	// Enrich existing rows with tag data. Separate from the discovery loop above
 	// which only INSERTs rows for versions NEWER than current. This UPDATE pass
 	// associates tags with commits already in the DB (e.g., from edge discovery),
-	// regardless of whether the tag is newer, equal, or older than the daemon.
+	// regardless of whether the tag is newer, equal, or older than the service.
 	for _, t := range filtered {
 		targetStatus := "prerelease"
 		if !t.Prerelease {
@@ -854,7 +854,7 @@ func (d *Daemon) discover(ctx context.Context) {
 // pruneDeletedTags removes tags from the upgrade table that no longer exist in git.
 // When a tag is deleted upstream, git fetch --prune-tags removes it locally.
 // This function syncs the database to match.
-func (d *Daemon) pruneDeletedTags(ctx context.Context, currentTags []GitTag) {
+func (d *Service) pruneDeletedTags(ctx context.Context, currentTags []GitTag) {
 	// Build set of tags that exist in git
 	gitTags := make(map[string]bool, len(currentTags))
 	for _, t := range currentTags {
@@ -907,7 +907,7 @@ func (d *Daemon) pruneDeletedTags(ctx context.Context, currentTags []GitTag) {
 
 // discoverEdge fetches recent master commits and makes them available.
 // Uses git fetch — no API rate limit.
-func (d *Daemon) discoverEdge(ctx context.Context) {
+func (d *Service) discoverEdge(ctx context.Context) {
 	commits, err := DiscoverCommitsViaGit(d.projDir, 5)
 	if err != nil {
 		fmt.Printf("Edge discovery error: %v\n", err)
@@ -946,7 +946,7 @@ func (d *Daemon) discoverEdge(ctx context.Context) {
 	}
 }
 
-func (d *Daemon) preDownloadImages(ctx context.Context) {
+func (d *Service) preDownloadImages(ctx context.Context) {
 	rows, err := d.queryConn.Query(ctx,
 		`SELECT commit_sha,
 		        COALESCE(tags[array_upper(tags, 1)], 'sha-' || left(commit_sha, 12)) as display_name
@@ -978,7 +978,7 @@ func (d *Daemon) preDownloadImages(ctx context.Context) {
 	}
 }
 
-func (d *Daemon) scheduleImmediate(ctx context.Context, versionOrSHA string) {
+func (d *Service) scheduleImmediate(ctx context.Context, versionOrSHA string) {
 	// Resolve to commit_sha
 	commitSHA := versionOrSHA
 	displayName := versionOrSHA
@@ -1005,7 +1005,7 @@ func (d *Daemon) scheduleImmediate(ctx context.Context, versionOrSHA string) {
 	// The WHERE clause prevents updating a row that's already scheduled and waiting
 	// to execute (scheduled_at IS NOT NULL AND started_at IS NULL). Without this guard,
 	// the UPDATE changes scheduled_at to now() → the upgrade_notify_daemon_trigger fires
-	// → sends NOTIFY upgrade_apply → daemon calls scheduleImmediate again → infinite loop.
+	// → sends NOTIFY upgrade_apply → service calls scheduleImmediate again → infinite loop.
 	result, err := d.queryConn.Exec(ctx,
 		`INSERT INTO public.upgrade (commit_sha, committed_at, tags, summary, scheduled_at)
 		 VALUES ($1, now(), CASE WHEN $2 != '' AND NOT starts_with($2, 'sha-') THEN ARRAY[$2]::text[] ELSE '{}'::text[] END, $2, now())
@@ -1032,7 +1032,7 @@ func (d *Daemon) scheduleImmediate(ctx context.Context, versionOrSHA string) {
 	}
 }
 
-func (d *Daemon) executeScheduled(ctx context.Context) {
+func (d *Service) executeScheduled(ctx context.Context) {
 	if err := d.ensureConnected(ctx); err != nil {
 		return
 	}
@@ -1059,7 +1059,7 @@ func (d *Daemon) executeScheduled(ctx context.Context) {
 	}
 }
 
-func (d *Daemon) executeUpgrade(ctx context.Context, id int, commitSHA string, displayName string) error {
+func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA string, displayName string) error {
 	d.upgrading = true
 	defer func() { d.upgrading = false }()
 
@@ -1091,7 +1091,7 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, commitSHA string, d
 		progress.Write("Verifying release assets available...")
 		manifest, err := FetchManifest(displayName)
 		if err != nil {
-			// CI not ready — unschedule without setting error. The daemon will
+			// CI not ready — unschedule without setting error. The service will
 			// set artifacts_ready=true on the next discovery cycle when CI finishes,
 			// and the UI will re-enable "Upgrade Now".
 			d.queryConn.Exec(ctx,
@@ -1127,7 +1127,7 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, commitSHA string, d
 	}
 
 	// === All pre-flight checks passed — mark the upgrade as started ===
-	// Write flag file BEFORE any destructive steps. If the daemon crashes
+	// Write flag file BEFORE any destructive steps. If the service crashes
 	// during the upgrade or rollback, this file survives (it's on the
 	// filesystem, not in the DB volume which gets rolled back).
 	d.writeUpgradeFlag(id, commitSHA, displayName)
@@ -1231,7 +1231,7 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, commitSHA string, d
 		return err
 	}
 
-	// Reconnect daemon DB connection
+	// Reconnect service DB connection
 	progress.Write("Reconnecting to database...")
 	if err := d.reconnect(ctx); err != nil {
 		d.rollback(ctx, id, displayName, previousVersion, progress)
@@ -1292,8 +1292,8 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, commitSHA string, d
 		// Non-fatal — the upgrade itself succeeded
 	}
 
-	// Self-update binary (may restart daemon via exit code 42).
-	// If self-update restarts, the NEW daemon marks completed_at on startup
+	// Self-update binary (may restart service via exit code 42).
+	// If self-update restarts, the NEW service marks completed_at on startup
 	// (completeInProgressUpgrade) — so "completed" means the new version is verified.
 	// Only for tagged releases — SHA commits don't have release binaries.
 	if !strings.HasPrefix(displayName, "sha-") {
@@ -1301,7 +1301,7 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, commitSHA string, d
 	}
 
 	// If we get here, self-update didn't restart (no binary for platform, or same version).
-	// Mark complete now since there won't be a new daemon to do it.
+	// Mark complete now since there won't be a new service to do it.
 	d.queryConn.Exec(ctx, "UPDATE public.upgrade SET completed_at = now() WHERE id = $1", id)
 	d.removeUpgradeFlag()
 	d.supersedeOlderReleases(ctx, commitSHA)
@@ -1314,7 +1314,7 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, commitSHA string, d
 // runUpgradeCallback executes the UPGRADE_CALLBACK shell command from .env, if set.
 // Called after a successful upgrade to notify external systems (e.g., Slack).
 // Never fails the upgrade — logs errors but always returns.
-func (d *Daemon) runUpgradeCallback(displayName string) {
+func (d *Service) runUpgradeCallback(displayName string) {
 	envPath := filepath.Join(d.projDir, ".env")
 	f, err := dotenv.Load(envPath)
 	if err != nil {
@@ -1361,14 +1361,14 @@ func (d *Daemon) runUpgradeCallback(displayName string) {
 	fmt.Printf("Upgrade callback completed successfully\n")
 }
 
-func (d *Daemon) failUpgrade(ctx context.Context, id int, errMsg string, progress *ProgressLog) {
+func (d *Service) failUpgrade(ctx context.Context, id int, errMsg string, progress *ProgressLog) {
 	if d.queryConn != nil {
 		d.queryConn.Exec(ctx, "UPDATE public.upgrade SET error = $1, scheduled_at = NULL WHERE id = $2", errMsg, id)
 	}
 	progress.Write("FAILED: %s", errMsg)
 }
 
-func (d *Daemon) rollback(ctx context.Context, id int, version, previousVersion string, progress *ProgressLog) {
+func (d *Service) rollback(ctx context.Context, id int, version, previousVersion string, progress *ProgressLog) {
 	progress.Write("Upgrade failed — rolling back to previous version...")
 
 	projDir := d.projDir
@@ -1409,7 +1409,7 @@ func (d *Daemon) rollback(ctx context.Context, id int, version, previousVersion 
 	progress.Write("Rollback complete. The previous version has been restored.")
 }
 
-func (d *Daemon) selfUpdate(ctx context.Context, version string, progress *ProgressLog) {
+func (d *Service) selfUpdate(ctx context.Context, version string, progress *ProgressLog) {
 	manifest, err := FetchManifest(version)
 	if err != nil {
 		progress.Write("Self-update skipped: cannot fetch manifest for %s: %v", version, err)
@@ -1449,7 +1449,7 @@ func (d *Daemon) selfUpdate(ctx context.Context, version string, progress *Progr
 		return
 	}
 
-	progress.Write("Binary updated. Restarting daemon...")
+	progress.Write("Binary updated. Restarting service...")
 	progress.Close()
 	// Exit with code 42 to signal systemd to restart
 	os.Exit(42)
