@@ -107,7 +107,7 @@ func (d *Daemon) recoverFromFlag(ctx context.Context) {
 		// definitely established by now (new daemon starts after app is healthy).
 		d.queryConn.Exec(ctx, `NOTIFY worker_status, '{"type":"upgrade_changed"}'`)
 		d.removeUpgradeFlag()
-		d.skipOlderReleases(ctx, flag.CommitSHA)
+		d.supersedeOlderReleases(ctx, flag.CommitSHA)
 		return
 	}
 
@@ -390,7 +390,7 @@ func (d *Daemon) completeInProgressUpgrade(ctx context.Context) {
 	d.removeUpgradeFlag()
 
 	// Skip older releases that are still "available" — no point upgrading to an older version
-	d.skipOlderReleases(ctx, commitSHA)
+	d.supersedeOlderReleases(ctx, commitSHA)
 	d.runUpgradeCallback(displayName)
 
 	fmt.Printf("Upgrade to %s completed (verified after daemon restart)\n", displayName)
@@ -423,7 +423,7 @@ func (d *Daemon) markCurrentVersionCompleted(ctx context.Context) {
 	}
 	if result.RowsAffected() > 0 {
 		fmt.Printf("Marked current version (%s) as completed\n", d.version)
-		d.skipOlderReleases(ctx, headSHA)
+		d.supersedeOlderReleases(ctx, headSHA)
 	}
 }
 
@@ -468,9 +468,9 @@ func (d *Daemon) reportDiskSpace(ctx context.Context) {
 	}
 }
 
-// skipOlderReleases marks available releases older than the selected commit as skipped.
+// supersedeOlderReleases marks available releases older than the selected commit as superseded.
 // Ordering is by position (topological order) then committed_at as fallback.
-func (d *Daemon) skipOlderReleases(ctx context.Context, selectedCommitSHA string) {
+func (d *Daemon) supersedeOlderReleases(ctx context.Context, selectedCommitSHA string) {
 	// Get the position/committed_at of the selected commit
 	var selectedPos sql.NullInt32
 	var selectedCommittedAt time.Time
@@ -481,10 +481,11 @@ func (d *Daemon) skipOlderReleases(ctx context.Context, selectedCommitSHA string
 		return
 	}
 
-	// Skip all available entries that are older
+	// Supersede all available entries that are older
 	result, err := d.queryConn.Exec(ctx,
-		`UPDATE public.upgrade SET skipped_at = now(), error = NULL
-		 WHERE completed_at IS NULL AND started_at IS NULL AND skipped_at IS NULL
+		`UPDATE public.upgrade SET superseded_at = now(), error = NULL
+		 WHERE completed_at IS NULL AND started_at IS NULL
+		   AND skipped_at IS NULL AND superseded_at IS NULL
 		   AND commit_sha != $1
 		   AND (
 		     (position IS NOT NULL AND $2::int IS NOT NULL AND position < $2)
@@ -492,12 +493,12 @@ func (d *Daemon) skipOlderReleases(ctx context.Context, selectedCommitSHA string
 		   )`,
 		selectedCommitSHA, selectedPos, selectedCommittedAt)
 	if err != nil {
-		fmt.Printf("Failed to skip older releases: %v\n", err)
+		fmt.Printf("Failed to supersede older releases: %v\n", err)
 		return
 	}
 
 	if result.RowsAffected() > 0 {
-		fmt.Printf("Skipped %d older release(s)\n", result.RowsAffected())
+		fmt.Printf("Superseded %d older release(s)\n", result.RowsAffected())
 	}
 }
 
@@ -1025,7 +1026,7 @@ func (d *Daemon) scheduleImmediate(ctx context.Context, versionOrSHA string) {
 	} else if result.RowsAffected() > 0 {
 		fmt.Printf("Scheduled immediate upgrade to %s\n", displayName)
 		// Once a commit is selected, all older ones are obsolete.
-		d.skipOlderReleases(ctx, commitSHA)
+		d.supersedeOlderReleases(ctx, commitSHA)
 	} else {
 		fmt.Printf("Version %s already scheduled, no action needed\n", displayName)
 	}
@@ -1303,7 +1304,7 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, commitSHA string, d
 	// Mark complete now since there won't be a new daemon to do it.
 	d.queryConn.Exec(ctx, "UPDATE public.upgrade SET completed_at = now() WHERE id = $1", id)
 	d.removeUpgradeFlag()
-	d.skipOlderReleases(ctx, commitSHA)
+	d.supersedeOlderReleases(ctx, commitSHA)
 	d.runUpgradeCallback(displayName)
 	progress.Write("Upgrade to %s complete!", displayName)
 

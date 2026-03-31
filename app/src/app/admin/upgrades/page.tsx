@@ -62,6 +62,7 @@ interface Upgrade {
   error: string | null;
   rollback_completed_at: string | null;
   skipped_at: string | null;
+  superseded_at: string | null;
   artifacts_ready: boolean;
   images_downloaded: boolean;
   backup_path: string | null;
@@ -79,11 +80,13 @@ type UpgradeStatus =
   | "completed"
   | "failed"
   | "rolled_back"
-  | "skipped";
+  | "skipped"
+  | "superseded";
 
 function getStatus(u: Upgrade): UpgradeStatus {
   if (u.completed_at) return "completed";
-  if (u.skipped_at) return "skipped"; // User's explicit skip overrides failed/rolled-back
+  if (u.superseded_at) return "superseded";
+  if (u.skipped_at) return "skipped";
   if (u.rollback_completed_at) return "rolled_back";
   if (u.error) return "failed";
   if (u.started_at) return "in_progress";
@@ -113,6 +116,7 @@ function StatusBadge({ status }: { status: UpgradeStatus }) {
         className: "bg-orange-100 text-orange-800",
       },
       skipped: { label: "Skipped", className: "bg-gray-100 text-gray-600" },
+      superseded: { label: "Superseded", className: "bg-gray-100 text-gray-500" },
     };
 
   const v = variants[status];
@@ -317,7 +321,7 @@ export default function UpgradesPage() {
 
         for (const u of upgrades) {
           const s = getStatus(u);
-          if (s === "completed" || s === "skipped") {
+          if (s === "completed" || s === "skipped" || s === "superseded") {
             history.push(u);
           } else if (s === "available") {
             available.push(u);
