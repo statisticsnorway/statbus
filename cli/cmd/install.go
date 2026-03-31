@@ -411,15 +411,21 @@ func runCreateCreds(dir string) error {
 }
 
 func runGenerateEnv(dir string) error {
-	// Ensure we're on master — existing servers may be on a deploy branch.
-	if err := runCmdDir(dir, "git", "fetch", "origin", "master"); err != nil {
-		fmt.Printf("  Warning: git fetch origin master failed: %v\n", err)
-	}
-	if err := runCmdDir(dir, "git", "checkout", "master"); err != nil {
-		fmt.Printf("  Warning: git checkout master failed: %v\n", err)
-	}
-	if err := runCmdDir(dir, "git", "merge", "--ff-only", "origin/master"); err != nil {
-		fmt.Printf("  Warning: git merge origin/master failed: %v\n", err)
+	// Align with latest code — but only if we're on master (not a tag/detached HEAD).
+	// The upgrade daemon checks out a specific commit; install should respect that.
+	// Servers on deploy branches also need to align with master.
+	branchOut, err := upgrade.RunCommandOutput(dir, "git", "symbolic-ref", "--short", "HEAD")
+	branch := strings.TrimSpace(branchOut)
+	if err == nil && (branch == "master" || strings.HasPrefix(branch, "devops/deploy-to-")) {
+		if err := runCmdDir(dir, "git", "fetch", "origin", "master"); err != nil {
+			fmt.Printf("  Warning: git fetch origin master failed: %v\n", err)
+		}
+		if err := runCmdDir(dir, "git", "checkout", "master"); err != nil {
+			fmt.Printf("  Warning: git checkout master failed: %v\n", err)
+		}
+		if err := runCmdDir(dir, "git", "merge", "--ff-only", "origin/master"); err != nil {
+			fmt.Printf("  Warning: git merge origin/master failed: %v\n", err)
+		}
 	}
 
 	sb := filepath.Join(dir, "sb")

@@ -1282,6 +1282,15 @@ func (d *Daemon) executeUpgrade(ctx context.Context, id int, commitSHA string, d
 
 	fmt.Printf("Upgrade to %s completed successfully\n", displayName)
 
+	// Run idempotent install to apply any new infrastructure (systemd service,
+	// directories, config fixes). Install steps skip what's already done.
+	// This exercises the install path on every upgrade, catching install bugs early.
+	progress.Write("Running install fixups...")
+	if err := runCommand(projDir, filepath.Join(projDir, "sb"), "install", "--non-interactive"); err != nil {
+		progress.Write("Warning: post-upgrade install fixups failed: %v", err)
+		// Non-fatal — the upgrade itself succeeded
+	}
+
 	// Self-update binary (may restart daemon via exit code 42).
 	// If self-update restarts, the NEW daemon marks completed_at on startup
 	// (completeInProgressUpgrade) — so "completed" means the new version is verified.
