@@ -6,11 +6,11 @@
 # them in the correct location for StatBus custom TLS configuration.
 #
 # Usage:
-#   ./devops/convert-pfx-cert.sh <pfx-file> [output-name]
+#   ./ops/convert-pfx-cert.sh <pfx-file> [output-name]
 #
 # Examples:
-#   ./devops/convert-pfx-cert.sh ~/Downloads/certificate.pfx
-#   ./devops/convert-pfx-cert.sh ~/Downloads/certificate.pfx albania
+#   ./ops/convert-pfx-cert.sh ~/Downloads/certificate.pfx
+#   ./ops/convert-pfx-cert.sh ~/Downloads/certificate.pfx albania
 #
 # The script will:
 #   1. Prompt for the PFX password

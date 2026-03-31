@@ -324,7 +324,7 @@ func runCloneRepo(dir string) error {
 }
 
 // configureDeployFetch adds the slot-specific deploy branch to the git fetch refspec.
-// e.g., for slot "dev": +refs/heads/devops/deploy-to-dev:refs/remotes/origin/devops/deploy-to-dev
+// e.g., for slot "dev": +refs/heads/ops/cloud/deploy/dev:refs/remotes/origin/ops/cloud/deploy/dev
 // Idempotent — safe to call on existing repos.
 func configureDeployFetch(dir string) {
 	cfgPath := filepath.Join(dir, ".env.config")
@@ -337,7 +337,7 @@ func configureDeployFetch(dir string) {
 		return
 	}
 
-	branch := fmt.Sprintf("devops/deploy-to-%s", code)
+	branch := fmt.Sprintf("ops/cloud/deploy/%s", code)
 	refspec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", branch, branch)
 
 	// Check if already configured
@@ -413,10 +413,10 @@ func runCreateCreds(dir string) error {
 func runGenerateEnv(dir string) error {
 	// Align with latest code — but only if we're on master (not a tag/detached HEAD).
 	// The upgrade daemon checks out a specific commit; install should respect that.
-	// Servers on deploy branches also need to align with master.
+	// Servers on ops branches (e.g. ops/cloud/deploy/no) also need to align with master.
 	branchOut, err := upgrade.RunCommandOutput(dir, "git", "symbolic-ref", "--short", "HEAD")
 	branch := strings.TrimSpace(branchOut)
-	if err == nil && (branch == "master" || strings.HasPrefix(branch, "devops/deploy-to-")) {
+	if err == nil && (branch == "master" || strings.HasPrefix(branch, "ops/")) {
 		if err := runCmdDir(dir, "git", "fetch", "origin", "master"); err != nil {
 			fmt.Printf("  Warning: git fetch origin master failed: %v\n", err)
 		}
@@ -427,6 +427,9 @@ func runGenerateEnv(dir string) error {
 			fmt.Printf("  Warning: git merge origin/master failed: %v\n", err)
 		}
 	}
+
+	// Migrate .env.config paths from devops/ → ops/ (one-time, idempotent)
+	migrateConfigPaths(dir)
 
 	sb := filepath.Join(dir, "sb")
 	if err := runCmdDir(dir, sb, "config", "generate"); err != nil {
@@ -626,7 +629,7 @@ func runInstallDaemon(dir string) error {
 		return fmt.Errorf("create systemd user dir: %w", err)
 	}
 
-	serviceFile := filepath.Join(dir, "devops", "statbus-upgrade.service")
+	serviceFile := filepath.Join(dir, "ops", "statbus-upgrade.service")
 	destFile := filepath.Join(userServiceDir, "statbus-upgrade@.service")
 
 	fmt.Printf("  Copying %s → %s\n", filepath.Base(serviceFile), destFile)
@@ -675,7 +678,7 @@ func runRootInstall() error {
 		return fmt.Errorf("could not determine daemon instance name (check DEPLOYMENT_SLOT_CODE in .env.config)")
 	}
 
-	serviceFile := filepath.Join(dir, "devops", "statbus-upgrade.service")
+	serviceFile := filepath.Join(dir, "ops", "statbus-upgrade.service")
 	destFile := "/etc/systemd/system/statbus-upgrade@.service"
 
 	fmt.Printf("  Copying %s → %s\n", filepath.Base(serviceFile), destFile)
@@ -749,5 +752,30 @@ func copyFile(src, dst string) error {
 		return err
 	}
 	return os.WriteFile(dst, data, 0755)
+}
+
+// migrateConfigPaths rewrites devops/ → ops/ paths in .env.config.
+// Idempotent — only changes values that still use the old prefix.
+func migrateConfigPaths(dir string) {
+	cfgPath := filepath.Join(dir, ".env.config")
+	f, err := dotenv.Load(cfgPath)
+	if err != nil {
+		return
+	}
+	changed := false
+	for _, key := range f.Keys() {
+		val, _ := f.Get(key)
+		if strings.Contains(val, "./devops/") {
+			f.Set(key, strings.ReplaceAll(val, "./devops/", "./ops/"))
+			changed = true
+		}
+	}
+	if changed {
+		if err := f.Save(); err != nil {
+			fmt.Printf("  Warning: could not migrate .env.config paths: %v\n", err)
+		} else {
+			fmt.Println("  Migrated .env.config: devops/ → ops/")
+		}
+	}
 }
 

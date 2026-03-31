@@ -1,4 +1,4 @@
-name: Push master -> devops/deploy-to-dev
+name: Push master -> ops/cloud/deploy/dev
 on:
   # Manual only — dev is the RC testing ground.
   # Auto-deploy from master is disabled to allow controlled RC testing.
@@ -16,4 +16,4 @@ jobs:
         ssh-key: ${{ secrets.SSH_KEY }}
     - name: Push for deployment
       run: |
-        git push --force origin HEAD:devops/deploy-to-dev
+        git push --force origin HEAD:ops/cloud/deploy/dev

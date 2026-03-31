@@ -1,5 +1,5 @@
 \set ECHO none
-\i /statbus/devops/generate_database_types.sql
+\i /statbus/cli/sql/generate_database_types.sql
 DROP FUNCTION IF EXISTS public.generate_typescript_types();
 \t off
 \a

@@ -6,18 +6,20 @@
 # ./sb manages a single installation. This script manages the fleet.
 #
 # Usage:
-#   ./devops/cloud.sh status              Show version on all servers
-#   ./devops/cloud.sh notify              Tell servers to check for updates (non-disruptive)
-#   ./devops/cloud.sh upgrade             Force all servers to apply latest now
-#   ./devops/cloud.sh install <server>    Full idempotent install (includes daemon via root)
-#   ./devops/cloud.sh install all         Install ALL servers
-#   ./devops/cloud.sh rescue <server>     Alias for install (backwards compat)
-#   ./devops/cloud.sh wipe <server>       DESTRUCTIVE: delete DB and recreate from scratch
+#   ./cloud.sh status              Show version on all servers
+#   ./cloud.sh notify              Tell servers to check for updates (non-disruptive)
+#   ./cloud.sh upgrade             Force all servers to apply latest now
+#   ./cloud.sh install <server>    Full idempotent install (includes daemon via root)
+#   ./cloud.sh install all         Install ALL servers
+#   ./cloud.sh rescue <server>     Alias for install (backwards compat)
+#   ./cloud.sh wipe <server>       DESTRUCTIVE: delete DB and recreate from scratch
 #
 # Escalation levels:
 #   notify   — gentle. Servers discover new version. Admin chooses when to upgrade.
 #   upgrade  — firm. Servers apply latest NOW. No approval needed.
 #   install  — full. Downloads fresh binary, re-runs install, installs daemon via root.
+#   create   — provision. Creates new deployment slot (DNS, user, workflows, etc.)
+#   inspect  — read-only. Shows credentials/URLs for all deployment slots.
 #   wipe     — destructive. Deletes database and recreates. Data is lost.
 #
 set -euo pipefail
@@ -36,6 +38,8 @@ usage() {
     echo "  install <server>    Full idempotent install (includes daemon via root)"
     echo "  install all         Install ALL servers"
     echo "  rescue <server>     Alias for install"
+    echo "  create <code> <name>  Create new cloud installation"
+    echo "  inspect             Show credentials for all installations"
     echo "  wipe <server>       DESTRUCTIVE: delete DB and recreate"
     echo ""
     echo "Servers: $SERVERS"
@@ -175,6 +179,18 @@ cmd_wipe() {
     echo "--- $target wipe complete ---"
 }
 
+cmd_create() {
+    local code="$1"
+    local name="$2"
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    exec "$SCRIPT_DIR/ops/create-new-statbus-installation.sh" "$code" "$name"
+}
+
+cmd_inspect() {
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    exec "$SCRIPT_DIR/ops/inspect-cloud-installations.sh"
+}
+
 # Main
 if [ $# -lt 1 ]; then
     usage
@@ -193,6 +209,13 @@ case "$1" in
     install|rescue)
         [ $# -lt 2 ] && { echo "Error: $1 requires a server name or 'all'"; usage; }
         cmd_install "$2"
+        ;;
+    create)
+        [ $# -lt 3 ] && { echo "Error: create requires <code> and <name>"; echo "Example: $0 create pk \"Pakistan StatBus\""; exit 1; }
+        cmd_create "$2" "$3"
+        ;;
+    inspect)
+        cmd_inspect
         ;;
     wipe)
         [ $# -lt 2 ] && { echo "Error: wipe requires a server name"; usage; }

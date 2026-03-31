@@ -82,7 +82,7 @@ Clients worldwide
 
 - **User-based isolation**: Each deployment runs under `statbus_<code>` Linux user
 - **Git repo per deployment**: `/home/statbus_<code>/statbus/` contains complete repo
-- **Deployment branch per country**: `devops/deploy-to-<code>` branch (e.g., `devops/deploy-to-ma`)
+- **Deployment branch per country**: `ops/cloud/deploy/<code>` branch (e.g., `ops/cloud/deploy/ma`)
 - **Host Caddy imports configs**: `/etc/caddy/Caddyfile` imports from all `/home/statbus_*/statbus/caddy/config/`
 - **ACL permissions**: Host Caddy user has ACL read access to deployment configs
 - **Automated deployment**: SSH-triggered script runs on push to deployment branch
@@ -207,10 +207,10 @@ Use the automated installation script from your local machine:
 
 ```bash
 # From your local statbus repository
-./devops/create-new-statbus-installation.sh <code> "<Name>"
+./ops/create-new-statbus-installation.sh <code> "<Name>"
 
 # Example:
-./devops/create-new-statbus-installation.sh pk "Pakistan"
+./ops/create-new-statbus-installation.sh pk "Pakistan"
 ```
 
 This script will:
@@ -263,8 +263,8 @@ git push origin master
 
 ```bash
 # Create deployment branch from master
-git checkout -b devops/deploy-to-pk
-git push origin devops/deploy-to-pk
+git checkout -b ops/cloud/deploy/pk
+git push origin ops/cloud/deploy/pk
 ```
 
 #### Step 5: Configure Users
@@ -305,13 +305,13 @@ sudo caddy validate --config /etc/caddy/Caddyfile
 Push a commit to the deployment branch to trigger deployment:
 
 ```bash
-git checkout devops/deploy-to-pk
+git checkout ops/cloud/deploy/pk
 # Make a change
 git commit -m "test: Initial deployment"
-git push origin devops/deploy-to-pk
+git push origin ops/cloud/deploy/pk
 ```
 
-The GitHub Action will SSH to the server and run `/home/statbus_pk/statbus/devops/deploy.sh`.
+The `deploy-to-pk` workflow SSHes to the server and runs `./sb upgrade apply-latest`.
 
 #### Step 8: Verify Access
 
@@ -399,16 +399,16 @@ cd ~/statbus
 
 Deployments are automated via GitHub Actions:
 
-1. **Merge to master** → GitHub Action merges to `devops/deploy-to-<code>` branch
-2. **Push to production branch** → GitHub Action pushes to ALL country deployment branches
-3. **Push to deployment branch** → GitHub Action SSHs to server and runs `deploy.sh`
-4. **Deploy script** (`devops/deploy.sh`) automatically:
-   - Fetches latest code
-   - Checks for migrations/dbseed changes
-   - Rebuilds database if needed
-   - Applies migrations
-   - Restarts application
-   - Sends notification to Slack
+1. **`master-to-X` workflow** (manual trigger in GitHub) → force-pushes `master` to `ops/cloud/deploy/X`
+2. **Push to `ops/cloud/deploy/X`** triggers `deploy-to-X` workflow → SSHes to server, runs `./sb upgrade apply-latest`
+3. **CLI** writes upgrade request to database and sends PostgreSQL NOTIFY
+4. **Upgrade daemon** handles the rest:
+   - Backs up the database
+   - Checks out the target version
+   - Runs pending migrations
+   - Restarts application containers with health checks
+   - Rolls back automatically on failure
+   - Sends callback notification (Slack)
 
 View deployment status in GitHub Actions or Slack channel `statbus-utvikling`.
 
@@ -450,7 +450,7 @@ Use the inspection script to get an overview of all deployments:
 
 ```bash
 # From your local machine
-./devops/inspect-cloud-installations.sh
+./ops/inspect-cloud-installations.sh
 ```
 
 This outputs connection information for all instances (frontend URLs, PostgreSQL credentials, SSH access).
@@ -666,7 +666,7 @@ Set up monitoring for:
 Use the automated script:
 
 ```bash
-./devops/create-new-statbus-installation.sh <code> "<Name>"
+./ops/create-new-statbus-installation.sh <code> "<Name>"
 ```
 
 The script handles:

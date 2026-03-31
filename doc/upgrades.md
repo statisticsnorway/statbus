@@ -89,12 +89,12 @@ sudo systemctl restart statbus-upgrade@statbus_no
 
 ### systemd (recommended for production)
 
-The unit file is at `devops/statbus-upgrade.service`. It uses a template (`%i`) so each deployment slot gets its own instance.
+The unit file is at `ops/statbus-upgrade.service`. It uses a template (`%i`) so each deployment slot gets its own instance.
 
 Install and enable:
 
 ```bash
-sudo cp devops/statbus-upgrade.service /etc/systemd/system/statbus-upgrade@.service
+sudo cp ops/statbus-upgrade.service /etc/systemd/system/statbus-upgrade@.service
 sudo systemctl daemon-reload
 sudo systemctl enable --now statbus-upgrade@statbus_no
 ```
@@ -234,7 +234,7 @@ During an upgrade, users see a maintenance page instead of the application.
 
 1. The daemon creates `~/statbus-maintenance/active` (a plain text file).
 2. Caddy checks for this file on every request via a `file` matcher in the Caddyfile.
-3. If the file exists, Caddy serves `devops/maintenance/maintenance.html` with HTTP 503.
+3. If the file exists, Caddy serves `ops/maintenance/maintenance.html` with HTTP 503.
 4. The `/upgrade-progress.log` path is excluded from maintenance mode -- Caddy serves `tmp/upgrade-progress.log` so the maintenance page can show live progress.
 5. The maintenance page auto-refreshes every 5 seconds and checks if the app is back. Once it gets a non-503 response, it redirects the user automatically.
 6. If the upgrade takes longer than 10 minutes, the maintenance page shows a warning.
@@ -244,7 +244,7 @@ During an upgrade, users see a maintenance page instead of the application.
 ```yaml
 volumes:
   - ${HOME}/statbus-maintenance:/statbus-maintenance:ro   # Active file
-  - ../devops/maintenance:/maintenance-page:ro            # HTML page
+  - ../ops/maintenance:/maintenance-page:ro               # HTML page
   - ../tmp:/statbus-tmp:ro                                # Progress log
 ```
 

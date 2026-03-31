@@ -364,7 +364,7 @@ var upgradeDaemonCmd = &cobra.Command{
   - Listens for NOTIFY upgrade_check and upgrade_apply
   - Executes scheduled upgrades with backup and rollback
 
-Typically run via systemd (devops/statbus-upgrade.service).`,
+Typically run via systemd (ops/statbus-upgrade.service).`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		projDir := config.ProjectDir()
 		// Pass the raw version (valid git ref like "v2026.03.0-rc.24"),

@@ -22,18 +22,18 @@ rectangle "Development" {
 }
 
 rectangle "Deployment Branches" {
-    rectangle "devops/deploy-to-production" as prod <<DeployBranch>> {
+    rectangle "ops/cloud/deploy/production" as prod <<DeployBranch>> {
         [Production trigger\nPushes to ALL slots]
     }
 
-    rectangle "devops/deploy-to-dev" as dev <<DeployBranch>>
-    rectangle "devops/deploy-to-demo" as demo <<DeployBranch>>
-    rectangle "devops/deploy-to-no" as no <<DeployBranch>>
-    rectangle "devops/deploy-to-ma" as ma <<DeployBranch>>
-    rectangle "devops/deploy-to-tcc" as tcc <<DeployBranch>>
-    rectangle "devops/deploy-to-ug" as ug <<DeployBranch>>
-    rectangle "devops/deploy-to-et" as et <<DeployBranch>>
-    rectangle "devops/deploy-to-jo" as jo <<DeployBranch>>
+    rectangle "ops/cloud/deploy/dev" as dev <<DeployBranch>>
+    rectangle "ops/cloud/deploy/demo" as demo <<DeployBranch>>
+    rectangle "ops/cloud/deploy/no" as no <<DeployBranch>>
+    rectangle "ops/cloud/deploy/ma" as ma <<DeployBranch>>
+    rectangle "ops/cloud/deploy/tcc" as tcc <<DeployBranch>>
+    rectangle "ops/cloud/deploy/ug" as ug <<DeployBranch>>
+    rectangle "ops/cloud/deploy/et" as et <<DeployBranch>>
+    rectangle "ops/cloud/deploy/jo" as jo <<DeployBranch>>
 }
 
 rectangle "niue.statbus.org" as niue <<Server>> {
@@ -51,7 +51,7 @@ prod --> ug : AUTOMATIC_TRIGGER
 prod --> et : AUTOMATIC_TRIGGER
 prod --> jo : AUTOMATIC_TRIGGER
 
-dev --> niue : AUTOMATIC_TRIGGER\nSSH + deploy.sh
+dev --> niue : AUTOMATIC_TRIGGER\nSSH + upgrade daemon
 demo --> niue : AUTOMATIC_TRIGGER
 no --> niue : AUTOMATIC_TRIGGER
 ma --> niue : AUTOMATIC_TRIGGER
@@ -69,8 +69,8 @@ end note
 note bottom of niue
   Each deployment branch triggers
   SSH to niue.statbus.org as
-  statbus_{code} user and runs
-  ~/statbus/devops/deploy.sh
+  statbus_{code} user and triggers
+  the upgrade daemon
 end note
 
 @enduml

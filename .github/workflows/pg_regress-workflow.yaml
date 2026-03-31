@@ -6,7 +6,7 @@ on:
     types: [completed]
   pull_request:
     branches-ignore:
-      - 'devops/**'
+      - 'ops/**'
 
 jobs:
   pg_regress:

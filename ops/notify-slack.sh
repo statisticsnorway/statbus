@@ -3,7 +3,7 @@
 # Sample UPGRADE_CALLBACK script that posts to Slack after a successful upgrade.
 #
 # Usage in .env:
-#   UPGRADE_CALLBACK=./devops/notify-slack.sh
+#   UPGRADE_CALLBACK=./ops/notify-slack.sh
 #
 # Required environment (set by the upgrade daemon):
 #   STATBUS_VERSION      — the new version (e.g., v2026.03.1)

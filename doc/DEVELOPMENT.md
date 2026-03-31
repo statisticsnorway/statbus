@@ -85,7 +85,7 @@ cd statbus
 
 **Set hooks path** (enforces conventions):
 ```bash
-git config core.hooksPath devops/githooks
+git config core.hooksPath .githooks
 ```
 
 **Configure line endings** (critical for cross-platform):
@@ -156,8 +156,9 @@ statbus/
 ├── cli/                   # Crystal CLI tool
 │   ├── src/              # CLI source code
 │   └── bin/              # Compiled binaries
-├── devops/               # Deployment scripts
-│   └── githooks/         # Git hooks
+├── ops/                  # Operations scripts
+│   └── maintenance/      # Maintenance page
+├── .githooks/            # Git hooks
 ├── doc/                  # Documentation
 │   ├── integration/      # API & PostgreSQL guides
 │   ├── deployment/       # Deployment guides

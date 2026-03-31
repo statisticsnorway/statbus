@@ -1,10 +1,10 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
-name: "jo.statbus.org<-devops/deploy-to-jo"
+name: "jo.statbus.org<-ops/cloud/deploy/jo"
 on:
   workflow_dispatch:
   push:
     branches:
-      - "devops/deploy-to-jo"
+      - "ops/cloud/deploy/jo"
 
 concurrency:
   group: ${{ github.ref_name }}

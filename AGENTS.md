@@ -10,7 +10,7 @@ StatBus has two command-line tools:
 - **`./sb`** — Go CLI for ops/production commands (start, stop, psql, migrate, upgrade, etc.)
 - **`./dev.sh`** — Bash script for development-only commands (test, create-db, etc.)
 
-The legacy `./devops/manage-statbus.sh` has been deleted. All references should use `./sb` or `./dev.sh` instead.
+The legacy `manage-statbus.sh` has been deleted. All references should use `./sb` or `./dev.sh` instead.
 
 ### Operations (./sb)
 ```bash
@@ -217,7 +217,7 @@ psql
 - `cli/src/templates/*.caddyfile.ecr`: Mode-specific Caddy templates
 - `sb`: Go CLI binary (built from cli/, in .gitignore)
 - `dev.sh`: Development-only commands (test, create-db, etc.)
-- `devops/manage-statbus.sh`: **DELETED** — all commands now use `./sb` or `./dev.sh` directly
+- `ops/`: Operations scripts (maintenance, notifications, service files)
 - `.env.config`: **Edit this** for deployment settings
 - `.env`: Generated file, **do not edit** directly
 - `.env.credentials`: Secrets, generated once, keep secure
@@ -227,32 +227,35 @@ psql
 The cloud infrastructure on **niue.statbus.org** uses **branches as pointers** for CI/CD. See `doc/CLOUD.md` for full details.
 
 1. **Trigger deployment** (GitHub Actions -> "Run workflow"):
-   - `master-to-X` workflow force-pushes `master` -> `devops/deploy-to-X` branch
-   - Example: "Push master -> devops/deploy-to-no" deploys to Norway
+   - `master-to-X` workflow force-pushes `master` -> `ops/cloud/deploy/X` branch
+   - Example: "Push master -> ops/cloud/deploy/no" deploys to Norway
 
-2. **Automatic execution**: Push to `devops/deploy-to-X` triggers `deploy-to-X` workflow, which SSHs to the server and runs `devops/deploy.sh`
+2. **Automatic execution**: Push to `ops/cloud/deploy/X` triggers `deploy-to-X` workflow, which SSHs to the server and triggers the upgrade daemon
 
-3. **On the server** (`deploy.sh`):
-   - Fetches and hard-resets to match the deploy branch
-   - If `dbseed/` or existing `migrations/` changed: full recreate (delete-db + create-db)
-   - Otherwise: applies pending migrations and restarts app
-   - Sends Slack notification to `#statbus-utvikling`
+3. **On the server** (upgrade daemon):
+   - CLI writes upgrade request to database and sends NOTIFY
+   - Daemon backs up the database
+   - Checks out the target version
+   - Runs pending migrations (or recreates if --recreate)
+   - Restarts services with health checks
+   - Rolls back automatically on failure
+   - Sends callback notification (Slack)
 
 #### Deployment Targets
 
 | Workflow | Branch | Server | Notes |
 |----------|--------|--------|-------|
-| master-to-no | devops/deploy-to-no | statbus_no@niue | Norway |
-| master-to-demo | devops/deploy-to-demo | statbus_demo@niue | Demo |
-| master-to-dev | devops/deploy-to-dev | statbus_dev@niue | Development |
-| master-to-production | devops/deploy-to-production | — | Pointer only |
+| master-to-no | ops/cloud/deploy/no | statbus_no@niue | Norway |
+| master-to-demo | ops/cloud/deploy/demo | statbus_demo@niue | Demo |
+| master-to-dev | ops/cloud/deploy/dev | statbus_dev@niue | Development |
+| master-to-production | ops/cloud/deploy/production | — | Pointer only |
 | production-to-all | — | all servers | Cascades to all |
 
 #### Triggering Deployment
 
 ```bash
-git push origin master:devops/deploy-to-no         # Deploy master to Norway
-git push origin master:devops/deploy-to-dev        # Deploy master to dev
+git push origin master:ops/cloud/deploy/no         # Deploy master to Norway
+git push origin master:ops/cloud/deploy/dev        # Deploy master to dev
 ```
 
 This directly updates the branch pointer, which triggers `deploy-to-X.yaml`. The `master-to-X` workflows in GitHub UI do the same thing but add an extra hop.
@@ -272,7 +275,7 @@ scp local/file statbus_no:statbus/path/to/file     # Copy file to server
 - `app/` - Next.js 15 application (App Router, TypeScript, Tailwind, shadcn/ui)
 - `cli/` - Crystal CLI tool for migrations and database management
 - `test/sql/` - pg_regress SQL tests with expected output in `test/expected/`
-- `devops/` - Deployment and management scripts
+- `ops/` - Operations scripts (maintenance, notifications, service files)
 - `doc/` - Architecture and design documentation
 
 ## Critical Conventions

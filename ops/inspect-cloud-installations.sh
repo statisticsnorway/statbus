@@ -1,5 +1,5 @@
 #!/bin/bash
-# devops/devops.sh
+# ops/inspect-cloud-installations.sh
 set -euo pipefail
 
 if test -n "${DEBUG:-}"; then
@@ -12,8 +12,8 @@ if ! command -v choose &> /dev/null; then
   exit 1
 fi
 
-# Get all branches matching the pattern devops/deploy-to-(.*) except production
-SUFFIXES=$(git branch -a | grep 'remotes/origin/devops/deploy-to-' | grep -v 'production' | sd 'remotes/origin/devops/deploy-to-(.*?)' '$1')
+# Get all branches matching the pattern ops/cloud/deploy/(.*) except production
+SUFFIXES=$(git branch -a | grep 'remotes/origin/ops/cloud/deploy/' | grep -v 'production' | sd 'remotes/origin/ops/cloud/deploy/(.*?)' '$1')
 
 # Function to extract information from environment files
 extract_info() {

@@ -26,7 +26,7 @@ services:
       # Maintenance mode: upgrade daemon creates active file here
       - ${HOME}/statbus-maintenance:/statbus-maintenance:ro
       # Maintenance HTML page
-      - ../devops/maintenance:/maintenance-page:ro
+      - ../ops/maintenance:/maintenance-page:ro
       # Upgrade progress log for live display
       - ../tmp:/statbus-tmp:ro
     environment:

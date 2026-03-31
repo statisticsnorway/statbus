@@ -1,4 +1,4 @@
-name: Push master -> devops/deploy-to-tcc
+name: Push master -> ops/cloud/deploy/tcc
 on:
   # Allow manual deployment in github
   workflow_dispatch:
@@ -15,4 +15,4 @@ jobs:
         ssh-key: ${{ secrets.SSH_KEY }}
     - name: Push for deployment
       run: |
-        git push --force origin HEAD:devops/deploy-to-tcc
+        git push --force origin HEAD:ops/cloud/deploy/tcc

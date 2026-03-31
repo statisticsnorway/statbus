@@ -132,7 +132,7 @@ Docker Compose bypasses UFW firewall rules. Ensure you carefully review which po
 Before installing StatBus on a production server, we recommend hardening the Ubuntu installation:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/master/devops/harden-ubuntu-lts-24.sh -o harden.sh
+curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/master/ops/harden-ubuntu-lts-24.sh -o harden.sh
 chmod +x harden.sh
 sudo ./harden.sh
 ```
@@ -187,7 +187,7 @@ cd statbus
 #### 2. Configure Git Hooks
 
 ```bash
-git config core.hooksPath devops/githooks
+git config core.hooksPath .githooks
 ```
 
 #### 3. Create Users File
@@ -458,7 +458,7 @@ The `caddy/data/` directory is gitignored to protect sensitive private keys.
 Many certificate providers deliver certificates as `.pfx` or `.p12` files (password-protected). Use the included conversion script:
 
 ```bash
-./devops/convert-pfx-cert.sh /path/to/certificate.pfx domain-name
+./ops/convert-pfx-cert.sh /path/to/certificate.pfx domain-name
 ```
 
 The script will:
@@ -472,7 +472,7 @@ The script will:
 
 Example:
 ```bash
-./devops/convert-pfx-cert.sh ~/Downloads/statbus-albania.pfx albania
+./ops/convert-pfx-cert.sh ~/Downloads/statbus-albania.pfx albania
 # Enter password when prompted
 # Script handles everything - just confirm the Caddy restart
 ```
@@ -633,7 +633,7 @@ Enable the upgrade daemon via systemd:
 sudo systemctl enable --now statbus-upgrade@<slot>.service
 ```
 
-Replace `<slot>` with your deployment slot code (e.g., `local`, `no`, `demo`). The service file is at `devops/statbus-upgrade.service`.
+Replace `<slot>` with your deployment slot code (e.g., `local`, `no`, `demo`). The service file is at `ops/statbus-upgrade.service`.
 
 ### Configuration
 

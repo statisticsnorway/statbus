@@ -30,13 +30,13 @@ branches:
     increment: Patch # Patch version increments for fixes
     source-branches: ['master', 'develop']  # Specify the branches that can be sources for feature branches
 
-  # DevOps and deployment branches (e.g., devops/deploy-to-prod)
-  devops:
-    regex: '^devops[/-]' # Regex to match DevOps branch names
-    mode: ContinuousDelivery # Continuous Delivery mode for DevOps branches
-    tag: 'devops' # Tag version numbers with 'devops'
+  # Operational branches (e.g., ops/cloud/deploy/no)
+  ops:
+    regex: '^ops[/-]' # Regex to match operational branch names
+    mode: ContinuousDelivery # Continuous Delivery mode for operational branches
+    tag: 'ops' # Tag version numbers with 'ops'
     source-branches: []  # Specify the branches that can be sources for feature branches
-    increment: None # No version increment for DevOps branches
+    increment: None # No version increment for operational branches
 
   # Dependabot branches (e.g., dependabot/npm_and_yarn/express-4.17.1)
   dependabot:

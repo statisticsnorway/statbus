@@ -6,7 +6,7 @@ Ubuntu 24.04 LTS server hardening script with interactive stage-by-stage executi
 
 ```bash
 # Download
-curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/master/devops/harden-ubuntu-lts-24.sh -o harden.sh
+curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/master/ops/harden-ubuntu-lts-24.sh -o harden.sh
 chmod +x harden.sh
 
 # Run (will prompt for configuration, then each stage)

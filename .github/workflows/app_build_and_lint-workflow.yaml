@@ -3,10 +3,10 @@ on:
   workflow_dispatch:
   push:
     branches-ignore:
-      - 'devops/**'  # Ignore any branch prefixed with devops/
+      - 'ops/**'  # Ignore any branch prefixed with ops/
   pull_request:
     branches-ignore:
-      - 'devops/**'  # Ignore any branch prefixed with devops/
+      - 'ops/**'  # Ignore any branch prefixed with ops/
 
 jobs:
   build-app:

@@ -1226,7 +1226,7 @@ EOS
         # Transfer files into the VM
         echo "Transferring files..."
         multipass transfer sb-linux-amd64 "$VM_NAME":/tmp/sb
-        multipass transfer devops/harden-ubuntu-lts-24.sh "$VM_NAME":/tmp/harden.sh
+        multipass transfer ops/harden-ubuntu-lts-24.sh "$VM_NAME":/tmp/harden.sh
 
         # Create .env.config for standalone mode
         echo "Creating test configuration..."

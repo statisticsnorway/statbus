@@ -171,13 +171,13 @@ multipass exec "$VM_NAME" -- bash -c '
 echo ""
 echo "=== Step 11: Verify maintenance page exists ==="
 multipass exec "$VM_NAME" -- bash -c '
-    test -f ~/statbus/devops/maintenance/maintenance.html && echo "Maintenance page: OK" || echo "Maintenance page: MISSING"
+    test -f ~/statbus/ops/maintenance/maintenance.html && echo "Maintenance page: OK" || echo "Maintenance page: MISSING"
 '
 
 echo ""
 echo "=== Step 12: Verify systemd service file ==="
 multipass exec "$VM_NAME" -- bash -c '
-    test -f ~/statbus/devops/statbus-upgrade.service && echo "Systemd service: OK" || echo "Systemd service: MISSING"
+    test -f ~/statbus/ops/statbus-upgrade.service && echo "Systemd service: OK" || echo "Systemd service: MISSING"
 '
 
 echo ""

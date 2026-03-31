@@ -116,7 +116,7 @@ git clone https://github.com/statisticsnorway/statbus.git
 cd statbus
 
 # Configure git hooks
-git config core.hooksPath devops/githooks
+git config core.hooksPath .githooks
 
 # Generate configuration
 ./sb config generate

@@ -1,4 +1,4 @@
-name: Push master -> devops/deploy-to-production
+name: Push master -> ops/cloud/deploy/production
 on:
   # Allow manual deployment in github
   workflow_dispatch:
@@ -18,4 +18,4 @@ jobs:
         ssh-key: ${{ secrets.SSH_KEY }}
     - name: Push for deployment
       run: |
-        git push --force origin HEAD:devops/deploy-to-production
+        git push --force origin HEAD:ops/cloud/deploy/production

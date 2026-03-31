@@ -25,7 +25,7 @@ TypeScript type definitions to app/src/lib/database.types.ts.
 Requires the database to be running.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		projDir := config.ProjectDir()
-		sqlPath := filepath.Join(projDir, "devops", "generate_database_types.sql")
+		sqlPath := filepath.Join(projDir, "cli", "sql", "generate_database_types.sql")
 
 		sqlFile, err := os.Open(sqlPath)
 		if err != nil {
