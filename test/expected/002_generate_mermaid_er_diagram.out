@@ -1414,6 +1414,7 @@ erDiagram
 		boolean images_downloaded
 		text backup_path
 		boolean artifacts_ready
+		timestamp_with_time_zone superseded_at
 	}
 	sql_saga_era["sql_saga.era"] {
 		name table_schema
