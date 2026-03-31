@@ -169,6 +169,10 @@ func (d *Daemon) Run(ctx context.Context) error {
 	// (e.g., after self-update restart via exit code 42)
 	d.completeInProgressUpgrade(ctx)
 
+	// Mark the currently running version as completed. Handles versions
+	// installed via install.sh which bypasses the daemon upgrade flow.
+	d.markCurrentVersionCompleted(ctx)
+
 	// Sync UPGRADE_* config from .env to system_info table
 	d.syncConfigToSystemInfo(ctx)
 
@@ -390,6 +394,37 @@ func (d *Daemon) completeInProgressUpgrade(ctx context.Context) {
 	d.runUpgradeCallback(displayName)
 
 	fmt.Printf("Upgrade to %s completed (verified after daemon restart)\n", displayName)
+}
+
+// markCurrentVersionCompleted marks the daemon's own version as completed in
+// the upgrade table. This handles versions deployed via install.sh (which
+// bypasses the daemon upgrade flow) and ensures the UI doesn't show
+// "Upgrade Now" for the already-running version. Idempotent.
+func (d *Daemon) markCurrentVersionCompleted(ctx context.Context) {
+	if d.version == "dev" {
+		return
+	}
+
+	// Match by tag name or commit SHA
+	headSHA, _ := runCommandOutput(d.projDir, "git", "rev-parse", "HEAD")
+	headSHA = strings.TrimSpace(headSHA)
+
+	result, err := d.queryConn.Exec(ctx,
+		`UPDATE public.upgrade
+		 SET completed_at = COALESCE(completed_at, now()),
+		     scheduled_at = NULL,
+		     error = NULL,
+		     rollback_completed_at = NULL
+		 WHERE commit_sha = $1
+		   AND completed_at IS NULL`,
+		headSHA)
+	if err != nil {
+		return
+	}
+	if result.RowsAffected() > 0 {
+		fmt.Printf("Marked current version (%s) as completed\n", d.version)
+		d.skipOlderReleases(ctx, headSHA)
+	}
 }
 
 // syncConfigToSystemInfo writes UPGRADE_* values from .env to system_info.
