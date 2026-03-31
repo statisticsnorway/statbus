@@ -24,9 +24,15 @@ ALTER FUNCTION auth.drop_user_role() SET search_path = public, auth, pg_temp;
 ALTER FUNCTION auth.generate_api_key_token() SET search_path = public, auth, pg_temp;
 ALTER FUNCTION auth.sync_user_credentials_and_roles() SET search_path = public, auth, pg_temp;
 
--- === graphql schema (2 functions) ===
-ALTER FUNCTION graphql.get_schema_version() SET search_path = public, graphql, pg_temp;
-ALTER FUNCTION graphql.increment_schema_version() SET search_path = public, graphql, pg_temp;
+-- === graphql schema (2 functions, conditional — extension may not be installed) ===
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+             WHERE n.nspname = 'graphql' AND p.proname = 'get_schema_version') THEN
+    ALTER FUNCTION graphql.get_schema_version() SET search_path = public, graphql, pg_temp;
+    ALTER FUNCTION graphql.increment_schema_version() SET search_path = public, graphql, pg_temp;
+  END IF;
+END $$;
 
 -- === lifecycle_callbacks schema (1 function) ===
 ALTER FUNCTION lifecycle_callbacks.cleanup_and_generate() SET search_path = public, lifecycle_callbacks, pg_temp;

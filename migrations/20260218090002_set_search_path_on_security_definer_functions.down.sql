@@ -15,8 +15,14 @@ ALTER FUNCTION auth.drop_user_role() RESET search_path;
 ALTER FUNCTION auth.generate_api_key_token() RESET search_path;
 ALTER FUNCTION auth.sync_user_credentials_and_roles() RESET search_path;
 
-ALTER FUNCTION graphql.get_schema_version() RESET search_path;
-ALTER FUNCTION graphql.increment_schema_version() RESET search_path;
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+             WHERE n.nspname = 'graphql' AND p.proname = 'get_schema_version') THEN
+    ALTER FUNCTION graphql.get_schema_version() RESET search_path;
+    ALTER FUNCTION graphql.increment_schema_version() RESET search_path;
+  END IF;
+END $$;
 
 ALTER FUNCTION lifecycle_callbacks.cleanup_and_generate() RESET search_path;
 
