@@ -1053,6 +1053,12 @@ func (d *Service) executeScheduled(ctx context.Context) {
 		return // no pending upgrades
 	}
 
+	// Claim immediately: mark started_at so the UI shows "In Progress"
+	// and the user can no longer unschedule. Declared before any work begins.
+	d.queryConn.Exec(ctx,
+		"UPDATE public.upgrade SET started_at = now(), from_version = $1 WHERE id = $2",
+		d.version, id)
+
 	fmt.Printf("Executing upgrade to %s...\n", displayName)
 	if err := d.executeUpgrade(ctx, id, commitSHA, displayName); err != nil {
 		fmt.Printf("Upgrade to %s failed: %v\n", displayName, err)
@@ -1132,10 +1138,8 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA string, 
 	// filesystem, not in the DB volume which gets rolled back).
 	d.writeUpgradeFlag(id, commitSHA, displayName)
 
-	// From this point on, the maintenance guard will activate.
-	d.queryConn.Exec(ctx,
-		"UPDATE public.upgrade SET started_at = now(), from_version = $1 WHERE id = $2",
-		d.version, id)
+	// started_at and from_version were already set by executeScheduled() when
+	// it claimed this task. From this point on, the maintenance guard will activate.
 
 	// Step 1: Prepare images
 	progress.Write("Preparing images...")
