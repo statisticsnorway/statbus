@@ -1185,6 +1185,154 @@ EOS
         # ./sb checks db-running internally and reads its own config.
         ./sb db snapshot create
       ;;
+    'test-install' )
+        # End-to-end install test using Multipass (Ubuntu VM).
+        # Tests the full standalone install path: hardening → install → health check.
+        # Writes a stamp file used by ./sb release stable preflight.
+        set -euo pipefail
+
+        VM_NAME="statbus-install-test"
+        STAMP_FILE="$WORKSPACE/tmp/install-test-passed-sha"
+        DOMAIN="statbus-test.local"
+
+        echo "=== StatBus Install Test (Multipass) ==="
+        echo ""
+
+        # Check Multipass is available
+        if ! command -v multipass >/dev/null 2>&1; then
+            echo "ERROR: multipass is not installed. Install it: brew install multipass"
+            exit 1
+        fi
+
+        # Clean up any previous test VM
+        if multipass info "$VM_NAME" >/dev/null 2>&1; then
+            echo "Cleaning up previous test VM..."
+            multipass delete "$VM_NAME" 2>/dev/null || true
+            multipass purge 2>/dev/null || true
+        fi
+
+        # Build the sb binary for Linux (the VM is Linux)
+        echo "Building sb for linux/amd64..."
+        ./dev.sh build-sb linux/amd64
+
+        # Launch fresh Ubuntu 24.04 VM
+        echo "Launching Ubuntu 24.04 VM ($VM_NAME)..."
+        multipass launch 24.04 --name "$VM_NAME" --cpus 2 --memory 4G --disk 20G
+
+        # Wait for VM to be ready
+        echo "Waiting for VM to be ready..."
+        multipass exec "$VM_NAME" -- cloud-init status --wait 2>/dev/null || true
+
+        # Transfer files into the VM
+        echo "Transferring files..."
+        multipass transfer sb-linux-amd64 "$VM_NAME":/tmp/sb
+        multipass transfer devops/harden-ubuntu-lts-24.sh "$VM_NAME":/tmp/harden.sh
+
+        # Create .env.config for standalone mode
+        echo "Creating test configuration..."
+        cat > /tmp/statbus-test-env-config << 'ENVCONFIG'
+DEPLOYMENT_SLOT_NAME=Install Test
+DEPLOYMENT_SLOT_CODE=test
+DEPLOYMENT_SLOT_PORT_OFFSET=1
+CADDY_DEPLOYMENT_MODE=standalone
+SITE_DOMAIN=statbus-test.local
+STATBUS_URL=https://statbus-test.local
+BROWSER_REST_URL=https://statbus-test.local
+SERVER_REST_URL=http://proxy:80
+DEBUG=false
+PUBLIC_DEBUG=false
+UPGRADE_CHANNEL=stable
+ENVCONFIG
+        multipass transfer /tmp/statbus-test-env-config "$VM_NAME":/tmp/env-config
+
+        # Create a .users.yml with a test admin user
+        cat > /tmp/statbus-test-users << 'USERS'
+- email: test@statbus.org
+  password: test-install-password-2026
+  role: admin_user
+USERS
+        multipass transfer /tmp/statbus-test-users "$VM_NAME":/tmp/users.yml
+
+        # Run hardening (non-interactive, installs Docker + prerequisites)
+        echo ""
+        echo "=== Stage: Hardening ==="
+        multipass exec "$VM_NAME" -- sudo bash /tmp/harden.sh --non-interactive 2>&1 | tee tmp/test-install-harden.log
+        HARDEN_EXIT=$?
+        if [ $HARDEN_EXIT -ne 0 ]; then
+            echo "FAILED: Hardening failed (exit $HARDEN_EXIT)"
+            echo "VM '$VM_NAME' left running for debugging: multipass shell $VM_NAME"
+            exit 1
+        fi
+
+        # Set up the install: create directory, place binary and config
+        echo ""
+        echo "=== Stage: Install ==="
+        multipass exec "$VM_NAME" -- bash -c '
+            set -e
+            # Create statbus directory
+            mkdir -p ~/statbus
+            cd ~/statbus
+
+            # Place the binary
+            cp /tmp/sb ./sb
+            chmod +x ./sb
+
+            # Place configuration
+            cp /tmp/env-config .env.config
+            cp /tmp/users.yml .users.yml
+
+            # Run install (non-interactive)
+            ./sb install --non-interactive
+        ' 2>&1 | tee tmp/test-install-install.log
+        INSTALL_EXIT=$?
+        if [ $INSTALL_EXIT -ne 0 ]; then
+            echo "FAILED: Install failed (exit $INSTALL_EXIT)"
+            echo "VM '$VM_NAME' left running for debugging: multipass shell $VM_NAME"
+            exit 1
+        fi
+
+        # Health check
+        echo ""
+        echo "=== Stage: Health Check ==="
+        VM_IP=$(multipass info "$VM_NAME" --format json | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['$VM_NAME']['ipv4'][0])")
+        echo "VM IP: $VM_IP"
+
+        HEALTHY=false
+        for i in $(seq 1 10); do
+            if curl -sk "https://$VM_IP/rest/" --resolve "statbus-test.local:443:$VM_IP" -o /dev/null -w "%{http_code}" 2>/dev/null | grep -q "^[23]"; then
+                HEALTHY=true
+                echo "Health check passed (attempt $i)"
+                break
+            fi
+            echo "Waiting for app... (attempt $i/10)"
+            sleep 5
+        done
+
+        if [ "$HEALTHY" != "true" ]; then
+            echo "FAILED: Health check failed after 10 attempts"
+            echo "VM '$VM_NAME' left running for debugging: multipass shell $VM_NAME"
+            exit 1
+        fi
+
+        # Verify version
+        echo ""
+        echo "=== Stage: Verify ==="
+        multipass exec "$VM_NAME" -- bash -c 'cd ~/statbus && ./sb --version'
+
+        # Write stamp
+        echo ""
+        echo "=== PASSED ==="
+        mkdir -p "$WORKSPACE/tmp"
+        git rev-parse HEAD > "$STAMP_FILE"
+        echo "Install test stamp recorded: $(cat "$STAMP_FILE")"
+
+        # Clean up VM
+        echo "Cleaning up VM..."
+        multipass delete "$VM_NAME"
+        multipass purge
+
+        echo "Install test complete."
+      ;;
      * )
       echo "dev.sh — Development-only commands for StatBus"
       echo ""
@@ -1216,6 +1364,7 @@ EOS
       echo "  generate-types                     Generate TypeScript types from schema"
       echo ""
       echo "Build:"
+      echo "  test-install                       End-to-end install test via Multipass VM"
       echo "  build-sb [target]                  Cross-compile sb binary (default: linux/amd64)"
       echo ""
       echo "Git:"

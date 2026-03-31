@@ -301,7 +301,38 @@ var releaseStableCmd = &cobra.Command{
 		projDir := config.ProjectDir()
 
 		fmt.Println("Pre-flight checks:")
-		if !preflightChecks(projDir) {
+		allPassed := preflightChecks(projDir)
+
+		// Stable releases also require a passing install test (Multipass VM).
+		// Prereleases skip this — too slow for rapid iteration.
+		installStampPath := filepath.Join(projDir, "tmp", "install-test-passed-sha")
+		installStampBytes, err := os.ReadFile(installStampPath)
+		if err != nil {
+			fmt.Println("  \u2717 Install test passed (tmp/install-test-passed-sha not found)")
+			fmt.Println("    Fix: ./dev.sh test-install")
+			allPassed = false
+		} else {
+			installStamp := strings.TrimSpace(string(installStampBytes))
+			headOut, _ := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD")
+			head := strings.TrimSpace(headOut)
+			if installStamp != head {
+				shortStamp := installStamp
+				if len(shortStamp) > 12 {
+					shortStamp = shortStamp[:12]
+				}
+				shortHead := head
+				if len(shortHead) > 12 {
+					shortHead = shortHead[:12]
+				}
+				fmt.Printf("  \u2717 Install test does not cover HEAD (stamp: %s, HEAD: %s)\n", shortStamp, shortHead)
+				fmt.Println("    Fix: ./dev.sh test-install")
+				allPassed = false
+			} else {
+				fmt.Printf("  \u2713 Install test passed (stamp: %s)\n", installStamp[:12])
+			}
+		}
+
+		if !allPassed {
 			return fmt.Errorf("pre-flight checks failed")
 		}
 		fmt.Println()
