@@ -2008,24 +2008,48 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 
 	projDir := d.projDir
 
-	// Stop everything
+	// Stop everything before we touch the git tree or restore the DB.
 	runCommand(projDir, "docker", "compose", "stop", "app", "worker", "rest", "db")
 
-	// Restore git state
+	// Restore git state. If this FAILS we MUST NOT bring the application
+	// services back up — they would run NEW code against the just-restored
+	// OLD database, the exact silent-data-corruption scenario rollback
+	// exists to prevent. Restore the database first so the on-disk state
+	// is consistent (old DB + old code is recoverable; new code + old DB
+	// is not), then ABORT before docker compose up.
 	if previousVersion != "" {
-		if err := runCommand(projDir, "git", "-c", "advice.detachedHead=false", "checkout", "-f", previousVersion); err != nil {
-			progress.Write("CRITICAL: git checkout to %s failed: %v — rollback continuing with current code", previousVersion, err)
-			fmt.Fprintf(os.Stderr, "CRITICAL: rollback git checkout failed: %v\n", err)
+		if err := d.restoreGitState(previousVersion, progress); err != nil {
+			progress.Write("ABORT: rollback could not restore git state to %s: %v", previousVersion, err)
+			progress.Write("Restoring database to keep on-disk state consistent...")
+			d.restoreDatabase(progress)
+			progress.Write("Services will NOT be started — manual intervention required.")
+			progress.Write("    1. Manually checkout the intended previous version: git checkout %s", previousVersion)
+			progress.Write("    2. Regenerate config: ./sb config generate")
+			progress.Write("    3. Bring services up: docker compose --profile all up -d")
+			progress.Write("    4. Reconcile DB row via: ./sb upgrade recover")
+			fmt.Fprintf(os.Stderr, "ABORT: rollback git restore to %s failed: %v\n", previousVersion, err)
+
+			rollbackFailedMsg := fmt.Sprintf("rollback_failed_git_checkout: %v (originally: %s)", err, reason)
+			logTail := readProgressLogTail(ProgressLogPath(d.projDir, version), 50)
+			if d.queryConn != nil {
+				d.queryConn.Exec(ctx,
+					"UPDATE public.upgrade SET state = 'rolled_back', error = $1, progress_log = $2, rollback_completed_at = now() WHERE id = $3",
+					rollbackFailedMsg, logTail, id)
+			}
+			// Maintenance stays ON — operator must finish the rollback.
+			// Mutex stays HELD — `./sb install` would compound the mess.
+			// `./sb upgrade recover` is documented above as the unstick path.
+			return
 		}
 		if err := runCommand(projDir, filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
 			progress.Write("Warning: config generate during rollback failed: %v", err)
 		}
 	}
 
-	// Restore database backup
+	// Restore database backup. Now safe — git state matches the DB era.
 	d.restoreDatabase(progress)
 
-	// Start with old config
+	// Start with old config — git is verified at previousVersion.
 	runCommand(projDir, "docker", "compose", "--profile", "all", "up", "-d", "--remove-orphans")
 
 	// Reconnect (may fail if DB didn't come back)
@@ -2057,6 +2081,53 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 	d.removeUpgradeFlag()
 
 	progress.Write("Rollback complete. The previous version has been restored.")
+}
+
+// restoreGitState restores the git working tree to `previousVersion`,
+// pre-validating that the ref resolves before touching the tree and
+// post-verifying that HEAD matches the expected commit afterwards.
+//
+// Returns an error if any step fails. Callers MUST treat a non-nil
+// return as "DO NOT start services on this code" — the working tree is
+// in an undefined state somewhere between the new and old versions.
+//
+// The previousVersion may be a tag, branch, or full SHA. Whatever
+// `git rev-parse --verify <ref>^{commit}` resolves to is the expected
+// HEAD after checkout.
+func (d *Service) restoreGitState(previousVersion string, progress *ProgressLog) error {
+	progress.Write("Restoring git state to %s...", previousVersion)
+
+	// Pre-validate: refuse to checkout a ref we can't resolve.
+	expectedOut, err := runCommandOutput(d.projDir, "git", "rev-parse", "--verify", previousVersion+"^{commit}")
+	if err != nil {
+		return fmt.Errorf("ref %s does not resolve: %w", previousVersion, err)
+	}
+	expectedSHA := strings.TrimSpace(expectedOut)
+	if expectedSHA == "" {
+		return fmt.Errorf("ref %s resolved to empty SHA", previousVersion)
+	}
+
+	// Force checkout — discards any local changes. We're rolling back from
+	// a partial upgrade, so any working-tree mutations are by definition
+	// part of the failure we're undoing.
+	if err := runCommand(d.projDir, "git", "-c", "advice.detachedHead=false", "checkout", "-f", previousVersion); err != nil {
+		return fmt.Errorf("git checkout -f %s: %w", previousVersion, err)
+	}
+
+	// Post-verify: HEAD must match what we resolved upfront. Belt-and-
+	// suspenders against a checkout that "succeeded" but landed on the
+	// wrong commit (e.g., refspec pointing somewhere unexpected).
+	headOut, err := runCommandOutput(d.projDir, "git", "rev-parse", "HEAD")
+	if err != nil {
+		return fmt.Errorf("post-checkout git rev-parse HEAD: %w", err)
+	}
+	headSHA := strings.TrimSpace(headOut)
+	if headSHA != expectedSHA {
+		return fmt.Errorf("git checkout landed on %s, expected %s", shortSHA(headSHA), shortSHA(expectedSHA))
+	}
+
+	progress.Write("Git state restored to %s (HEAD %s)", previousVersion, shortSHA(headSHA))
+	return nil
 }
 
 // readProgressLogTail returns the last `n` lines of the version-specific
