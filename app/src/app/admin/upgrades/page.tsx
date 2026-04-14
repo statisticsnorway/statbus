@@ -325,11 +325,11 @@ export default function UpgradesPage() {
             history.push(u);
           } else if (s === "available") {
             available.push(u);
-          } else if (s === "failed" || s === "rolled_back") {
-            // Failed/rolled-back go to history — they're done.
-            // User can still see error details and report issues.
-            history.push(u);
           } else {
+            // in_progress, scheduled, failed, rolled_back — all stay actionable.
+            // Failed/rolled_back remain visible on the main page so operators see
+            // what went wrong without expanding history; dismissing (skip) moves
+            // them to history. "Skipped" acts as the acknowledgement gesture.
             actionable.push(u);
           }
         }

@@ -1509,7 +1509,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	previousVersion := d.version
 	backupPath, err := d.backupDatabase(progress)
 	if err != nil {
-		d.rollback(ctx, id, displayName, previousVersion, progress)
+		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("Backup database: %v", err), progress)
 		return err
 	}
 
@@ -1518,11 +1518,11 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// Keeping full history ensures git-describe can find tags for config generate (VERSION).
 	progress.Write("Installing %s...", displayName)
 	if err := runCommand(projDir, "git", "fetch", "origin", commitSHA); err != nil {
-		d.rollback(ctx, id, displayName, previousVersion, progress)
+		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("git fetch %s: %v", commitSHA[:12], err), progress)
 		return err
 	}
 	if err := runCommand(projDir, "git", "-c", "advice.detachedHead=false", "checkout", commitSHA); err != nil {
-		d.rollback(ctx, id, displayName, previousVersion, progress)
+		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("git checkout %s: %v", commitSHA[:12], err), progress)
 		return err
 	}
 
@@ -1534,7 +1534,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 				if !strings.HasPrefix(checkedOut, manifest.CommitSHA) && !strings.HasPrefix(manifest.CommitSHA, checkedOut) {
 					errMsg := fmt.Sprintf("Version verification failed: expected commit %s but got %s. Possible tag tampering.", manifest.CommitSHA[:12], checkedOut[:12])
 					progress.Write("%s", errMsg)
-					d.rollback(ctx, id, displayName, previousVersion, progress)
+					d.rollback(ctx, id, displayName, previousVersion, errMsg, progress)
 					return fmt.Errorf("%s", errMsg)
 				}
 			}
@@ -1545,35 +1545,35 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// which returns the tag name (e.g., v2026.03.0-rc.3) since we just checked it out.
 	progress.Write("Regenerating configuration...")
 	if err := runCommand(projDir, filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
-		d.rollback(ctx, id, displayName, previousVersion, progress)
+		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("./sb config generate: %v", err), progress)
 		return err
 	}
 
 	// Step 8: Pull updated images
 	progress.Write("Pulling updated images...")
 	if err := runCommand(projDir, "docker", "compose", "pull"); err != nil {
-		d.rollback(ctx, id, displayName, previousVersion, progress)
+		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("docker compose pull: %v", err), progress)
 		return err
 	}
 
 	// Step 9: Start database
 	progress.Write("Starting database...")
 	if err := runCommand(projDir, "docker", "compose", "up", "-d", "db"); err != nil {
-		d.rollback(ctx, id, displayName, previousVersion, progress)
+		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("docker compose up -d db: %v", err), progress)
 		return err
 	}
 
 	// Wait for DB health
 	progress.Write("Waiting for database to be healthy...")
 	if err := d.waitForDBHealth(30 * time.Second); err != nil {
-		d.rollback(ctx, id, displayName, previousVersion, progress)
+		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("DB health check: %v", err), progress)
 		return err
 	}
 
 	// Reconnect service DB connection
 	progress.Write("Reconnecting to database...")
 	if err := d.reconnect(ctx); err != nil {
-		d.rollback(ctx, id, displayName, previousVersion, progress)
+		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("reconnect to DB: %v", err), progress)
 		return err
 	}
 
@@ -1585,13 +1585,13 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 		d.pendingRecreate = false
 		progress.Write("Recreating database from scratch (--recreate)...")
 		if err := runCommandWithTimeout(projDir, 30*time.Minute, filepath.Join(projDir, "dev.sh"), "recreate-database"); err != nil {
-			d.rollback(ctx, id, displayName, previousVersion, progress)
+			d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("./dev.sh recreate-database: %v", err), progress)
 			return err
 		}
 	} else {
 		progress.Write("Applying database migrations...")
 		if err := runCommand(projDir, filepath.Join(projDir, "sb"), "migrate", "up", "--verbose"); err != nil {
-			d.rollback(ctx, id, displayName, previousVersion, progress)
+			d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("./sb migrate up: %v", err), progress)
 			return err
 		}
 	}
@@ -1599,14 +1599,14 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// Step 11: Start application services (proxy already running from step 2)
 	progress.Write("Starting services...")
 	if err := runCommand(projDir, "docker", "compose", "up", "-d", "app", "worker", "rest"); err != nil {
-		d.rollback(ctx, id, displayName, previousVersion, progress)
+		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("docker compose up -d app worker rest: %v", err), progress)
 		return err
 	}
 
 	// Step 12: Verify health
 	progress.Write("Verifying health...")
 	if err := d.healthCheck(5, 5*time.Second); err != nil {
-		d.rollback(ctx, id, displayName, previousVersion, progress)
+		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("application health check: %v", err), progress)
 		return err
 	}
 
@@ -1719,8 +1719,9 @@ func (d *Service) failUpgrade(ctx context.Context, id int, errMsg string, progre
 	d.removeUpgradeFlag()
 }
 
-func (d *Service) rollback(ctx context.Context, id int, version, previousVersion string, progress *ProgressLog) {
+func (d *Service) rollback(ctx context.Context, id int, version, previousVersion, reason string, progress *ProgressLog) {
 	progress.Write("Upgrade failed — rolling back to previous version...")
+	progress.Write("Reason: %s", reason)
 
 	projDir := d.projDir
 
@@ -1752,9 +1753,28 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 	// Deactivate maintenance
 	d.setMaintenance(false)
 
+	// Persist the real failure context to public.upgrade.error so the admin UI
+	// can show WHY the rollback happened — not just "Rollback completed". Mix:
+	//
+	//   <reason>        — the proximate error that triggered rollback (e.g.
+	//                     "command timed out after 5m0s: docker [compose up -d db]")
+	//   --- Log tail ---
+	//   <last ~20 lines> — the actual upgrade progress log (includes docker
+	//                     compose stderr, migration output, etc.)
+	//
+	// Reading the progress log from disk here is fine: rollback runs
+	// synchronously after the failing step, so the log file still exists and
+	// holds the full narrative. No coupling to log-shipping or sidecar tooling.
+	errMsg := reason
+	if reason == "" {
+		errMsg = "Rollback completed (no reason captured — caller did not pass one)"
+	}
+	if tail := readProgressLogTail(ProgressLogPath(d.projDir, version), 20); tail != "" {
+		errMsg = errMsg + "\n\n--- Log tail ---\n" + tail
+	}
 	if d.queryConn != nil {
 		d.queryConn.Exec(ctx,
-			"UPDATE public.upgrade SET error = 'Rollback completed', rollback_completed_at = now() WHERE id = $1", id)
+			"UPDATE public.upgrade SET error = $1, rollback_completed_at = now() WHERE id = $2", errMsg, id)
 	}
 
 	// Clear the in-progress flag: the rollback has restored a consistent state,
@@ -1763,6 +1783,21 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 	d.removeUpgradeFlag()
 
 	progress.Write("Rollback complete. The previous version has been restored.")
+}
+
+// readProgressLogTail returns the last `n` lines of the version-specific
+// upgrade progress log, or "" if the file is absent or unreadable. Used by
+// rollback() to embed the real failure narrative into public.upgrade.error.
+func readProgressLogTail(path string, n int) string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	lines := strings.Split(strings.TrimRight(string(data), "\n"), "\n")
+	if len(lines) > n {
+		lines = lines[len(lines)-n:]
+	}
+	return strings.Join(lines, "\n")
 }
 
 func (d *Service) selfUpdate(ctx context.Context, version string, progress *ProgressLog) {
