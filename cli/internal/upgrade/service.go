@@ -164,23 +164,32 @@ func AcquireInstallFlag(projDir, displayName, invokedBy string) error {
 		Trigger:     "install",
 		Holder:      HolderInstall,
 	}
-	err := writeFlagAtomic(projDir, flag)
-	if err == nil {
-		return nil
+	// Bounded retry: the only realistic loop is "EEXIST then file vanished
+	// before ReadFile" — a microsecond race with another holder's release.
+	// Two attempts cover that. If we still see contention, return the
+	// formatted error (or, if file kept vanishing, give up loudly rather
+	// than spin forever — that would indicate something pathological).
+	const maxAttempts = 3
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		err := writeFlagAtomic(projDir, flag)
+		if err == nil {
+			return nil
+		}
+		if !errors.Is(err, os.ErrExist) {
+			return fmt.Errorf("write upgrade flag: %w", err)
+		}
+		existing, alive, readErr := ReadFlagFile(projDir)
+		if readErr != nil {
+			return fmt.Errorf("upgrade flag file present but unreadable: %w\n\n  Investigate %s manually, then retry.",
+				readErr, flagFilePath(projDir))
+		}
+		if existing != nil {
+			return formatContentionError(existing, alive)
+		}
+		// File vanished between O_EXCL fail and read — retry the acquire.
 	}
-	if !errors.Is(err, os.ErrExist) {
-		return fmt.Errorf("write upgrade flag: %w", err)
-	}
-	existing, alive, readErr := ReadFlagFile(projDir)
-	if readErr != nil {
-		return fmt.Errorf("upgrade flag file present but unreadable: %w\n\n  Investigate %s manually, then retry.",
-			readErr, flagFilePath(projDir))
-	}
-	if existing == nil {
-		// Race: file existed during write, gone by the time we read. Retry.
-		return AcquireInstallFlag(projDir, displayName, invokedBy)
-	}
-	return formatContentionError(existing, alive)
+	return fmt.Errorf("upgrade flag file kept appearing and disappearing across %d attempts — something is racing on %s; investigate manually",
+		maxAttempts, flagFilePath(projDir))
 }
 
 // ReleaseInstallFlag removes the flag file iff our PID owns it as
