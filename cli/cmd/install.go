@@ -26,9 +26,6 @@ var installVersion string
 // exec; either triggers the mutex bypass in runInstall.
 var insideActiveUpgrade bool
 
-// ExitCodeNeedsRoot is returned when the upgrade service step needs root.
-// cloud.sh recognizes this code and SSHes as root to complete the install.
-const ExitCodeNeedsRoot = 42
 
 var installCmd = &cobra.Command{
 	Use:   "install",
