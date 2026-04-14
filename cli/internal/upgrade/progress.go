@@ -65,6 +65,28 @@ func (p *ProgressLog) Write(format string, args ...interface{}) {
 	}
 }
 
+// AppendProgressLog opens an existing version-specific log file in append
+// mode — used by recoverFromFlag so the reconciliation narrative lands
+// inside the same log file the crashed run produced. That way the admin
+// UI's progress_log column (populated from the tail of this file after
+// reconciliation) includes both the pre-crash story and the recovery
+// summary.
+//
+// Returns nil if the file does not exist or cannot be opened; callers
+// should treat a nil ProgressLog as "log unavailable" and fall back to
+// stdout-only logging.
+func AppendProgressLog(projDir, version string) *ProgressLog {
+	path := ProgressLogPath(projDir, version)
+	if _, err := os.Stat(path); err != nil {
+		return nil
+	}
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return nil
+	}
+	return &ProgressLog{path: path, file: f}
+}
+
 // Close closes the log file.
 func (p *ProgressLog) Close() {
 	if p.file != nil {

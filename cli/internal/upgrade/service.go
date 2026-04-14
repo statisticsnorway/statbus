@@ -61,17 +61,22 @@ const (
 
 // UpgradeFlag is written to tmp/upgrade-in-progress.json before destructive
 // steps begin (by either the upgrade service or `./sb install`). The file
-// is the kernel-enforced mutex that prevents two mutators from racing:
-// O_CREATE|O_EXCL acquire makes "two writers see no flag" impossible.
+// doubles as the kernel-enforced mutex: holders take a flock(LOCK_EX) on
+// the open fd and keep it alive for the duration of the work. Kernel
+// auto-release on fd close (graceful exit, crash, or kill) makes stale
+// locks impossible.
 //
-// If the holder crashes, the flag file survives (it's on the filesystem,
-// NOT in the DB volume which gets rolled back). On next service startup
-// (or via `./sb upgrade recover`), the file is reconciled — Holder
-// determines what cleanup is needed.
+// If a holder crashes, the flag file content persists on the filesystem
+// (NOT in the DB volume which gets rolled back). The next acquirer reads
+// that prior metadata for audit + reconciliation, then truncates and
+// writes its own metadata. On next service startup recoverFromFlag
+// consults the file to decide what DB-level cleanup is needed based on
+// Holder.
 //
-// PID + pidAlive() distinguishes a live mutator from a crashed one;
-// InvokedBy records who triggered it so post-mortems can trace
-// responsibility.
+// PID + pidAlive() is diagnostic only: if the file exists, flock
+// semantics already guarantee that either someone alive holds it or no
+// one does. The PID in the JSON surfaces WHO (for error messages);
+// liveness is known from whether the flock can be acquired.
 //
 // Legacy flag files written before Release 1 lack PID/StartedAt/InvokedBy
 // and deserialize with zero values. `pidAlive` treats PID<=0 as not-alive,
@@ -334,6 +339,12 @@ func pidAlive(pid int) bool {
 // recoverFromFlag checks for a flag file from a previous interrupted upgrade.
 // Distinguishes between a real crash (mark failed) and a self-update restart
 // (mark completed) by checking if git HEAD matches the upgrade target.
+//
+// All narrative lines go through logRecover, which writes to stdout AND
+// appends to the crashed run's progress log file (if it still exists).
+// That way operators reading the admin UI's "Log" panel after
+// reconciliation see both the pre-crash story and the recovery summary
+// in one place — no need to SSH in for systemd logs.
 func (d *Service) recoverFromFlag(ctx context.Context) {
 	data, err := os.ReadFile(d.flagPath())
 	if err != nil {
@@ -343,7 +354,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 	var flag UpgradeFlag
 	if err := json.Unmarshal(data, &flag); err != nil {
 		fmt.Printf("Warning: corrupt upgrade flag file, removing: %v\n", err)
-		d.removeUpgradeFlag()
+		os.Remove(d.flagPath())
 		return
 	}
 
@@ -352,7 +363,24 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 		holder = HolderService // legacy flags pre-Release 1.1
 	}
 
-	fmt.Printf("Found interrupted %s flag for %s (id=%d, pid=%d, invoked_by=%s)\n",
+	// Append recovery narrative to the crashed run's progress log so the
+	// admin UI's progress_log column (populated below) captures both the
+	// pre-crash lines and the reconciliation summary. If the log file
+	// doesn't exist (legacy flag, missing run), appendLog is nil and we
+	// fall back to stdout-only via logRecover.
+	appendLog := AppendProgressLog(d.projDir, flag.DisplayName)
+	if appendLog != nil {
+		defer appendLog.Close()
+	}
+	logRecover := func(format string, args ...interface{}) {
+		if appendLog != nil {
+			appendLog.Write(format, args...)
+		} else {
+			fmt.Printf(format+"\n", args...)
+		}
+	}
+
+	logRecover("Service restarted. Found interrupted %s flag for %s (id=%d, pid=%d, invoked_by=%s)",
 		holder, flag.DisplayName, flag.ID, flag.PID, flag.InvokedBy)
 
 	// Refuse to clean up another live process's state. The `flag.PID != os.Getpid()`
@@ -364,20 +392,20 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 	// advisory-lock violation; install-holder collision means an operator is
 	// actively installing — neither is ours to reconcile).
 	if flag.PID > 0 && flag.PID != os.Getpid() && pidAlive(flag.PID) {
-		fmt.Fprintf(os.Stderr,
-			"REFUSING to recover: %s flag owned by live PID %d. Leaving flag in place. Investigate manually.\n",
+		logRecover("REFUSING to recover: %s flag owned by live PID %d. Leaving flag in place. Investigate manually.",
 			holder, flag.PID)
 		return
 	}
 
-	// Install-held flags have no public.upgrade row to reconcile. Install
-	// never writes that table — only the upgrade service does, in
-	// scheduleImmediate / executeScheduled. So a dead-PID install flag is
-	// purely an on-disk marker; removing it is the entire cleanup. If
-	// install ever grows DB-write semantics, revisit this branch.
+	// Install-held flag from a crashed install. The flock was released by
+	// the kernel when the install's fd closed; the on-disk JSON is pure
+	// audit now. Install never writes public.upgrade, so there's no DB
+	// state to reconcile — delete the stale file so tmp/ stays tidy and
+	// inspecting the directory doesn't suggest something is in flight.
+	// (If install ever grows DB-write semantics, add reconciliation here.)
 	if holder == HolderInstall {
-		fmt.Printf("Removing stale install flag (PID %d crashed or exited without releasing)\n", flag.PID)
-		d.removeUpgradeFlag()
+		logRecover("Clearing stale install flag (PID %d crashed or exited without releasing)", flag.PID)
+		os.Remove(d.flagPath())
 		return
 	}
 
@@ -387,7 +415,13 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 	headSHA, _ := runCommandOutput(d.projDir, "git", "rev-parse", "HEAD")
 	headSHA = strings.TrimSpace(headSHA)
 	if headSHA == flag.CommitSHA {
-		fmt.Printf("Upgrade %s succeeded (self-update restart detected)\n", flag.DisplayName)
+		logRecover("Upgrade %s succeeded (HEAD matches target commit — self-update restart detected)", flag.DisplayName)
+		// Close the appender BEFORE reading the tail so the flush lands
+		// on disk and the UPDATE below captures the recovery lines.
+		if appendLog != nil {
+			appendLog.Close()
+			appendLog = nil
+		}
 		logTail := readProgressLogTail(ProgressLogPath(d.projDir, flag.DisplayName), 50)
 		d.queryConn.Exec(ctx,
 			"UPDATE public.upgrade SET state = 'completed', completed_at = now(), progress_log = $1 WHERE id = $2 AND completed_at IS NULL",
@@ -395,19 +429,37 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 		// Explicit NOTIFY — the DB trigger also fires, but the app's LISTEN is
 		// definitely established by now (new service starts after app is healthy).
 		d.queryConn.Exec(ctx, `NOTIFY worker_status, '{"type":"upgrade_changed"}'`)
-		d.removeUpgradeFlag()
+		// The stale flag has now been reconciled — remove the on-disk
+		// file so the next executeUpgrade's acquireFlock starts from a
+		// clean state. (The kernel flock was already released when the
+		// prior service process died.)
+		os.Remove(d.flagPath())
 		d.supersedeOlderReleases(ctx, flag.CommitSHA)
 		return
 	}
 
-	// Real failure — read the per-version progress log for the error message.
-	// Use ProgressLogPath (matches NewProgressLog naming) instead of the
-	// upgrade-progress.log symlink, which always points to the most recent
-	// run and could attribute a stale tail to the wrong (older) crash.
+	// Real failure. The file we've been appending to already contains the
+	// pre-crash narrative PLUS our "Service restarted" line above; add
+	// the failure summary and use the tail for the DB error + progress_log.
+	logRecover("HEAD (%s) does not match upgrade target (%s). Treating as failed upgrade.",
+		shortSHA(headSHA), shortSHA(flag.CommitSHA))
+	logRecover("Marking upgrade %d (%s) as rolled_back", flag.ID, flag.DisplayName)
+
+	// Close the appender before reading so pending writes are flushed.
+	if appendLog != nil {
+		appendLog.Close()
+		appendLog = nil
+	}
+
+	// Grab the tail of the full log for both the error message
+	// and the progress_log column.
+	logTail := readProgressLogTail(ProgressLogPath(d.projDir, flag.DisplayName), 50)
 	errMsg := "Upgrade interrupted (service crashed or was killed)"
-	progressPath := ProgressLogPath(d.projDir, flag.DisplayName)
-	if logData, err := os.ReadFile(progressPath); err == nil {
-		lines := strings.Split(strings.TrimSpace(string(logData)), "\n")
+	if logTail != "" {
+		// Use the last five lines of the tail as the short error summary —
+		// keeps `error` compact while progress_log carries the full
+		// ~50-line context.
+		lines := strings.Split(strings.TrimSpace(logTail), "\n")
 		if len(lines) > 5 {
 			lines = lines[len(lines)-5:]
 		}
@@ -417,15 +469,24 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 	// Mark the upgrade as rolled_back in the DB. rollback_completed_at +
 	// error + state='rolled_back' — the CHECK requires all three together.
 	_, err = d.queryConn.Exec(ctx,
-		"UPDATE public.upgrade SET state = 'rolled_back', error = $1, rollback_completed_at = now() WHERE id = $2 AND completed_at IS NULL",
-		errMsg, flag.ID)
+		"UPDATE public.upgrade SET state = 'rolled_back', error = $1, rollback_completed_at = now(), progress_log = $2 WHERE id = $3 AND completed_at IS NULL",
+		errMsg, logTail, flag.ID)
 	if err != nil {
 		fmt.Printf("Warning: could not mark upgrade %d as failed: %v\n", flag.ID, err)
-	} else {
-		fmt.Printf("Marked upgrade %d (%s) as failed\n", flag.ID, flag.DisplayName)
 	}
 
-	d.removeUpgradeFlag()
+	// Reconciled — remove the on-disk file. The kernel flock was already
+	// released when the prior service process died.
+	os.Remove(d.flagPath())
+}
+
+// shortSHA trims a 40-char git SHA down to 12 for display. Returns the
+// input unchanged if it's already shorter.
+func shortSHA(sha string) string {
+	if len(sha) > 12 {
+		return sha[:12]
+	}
+	return sha
 }
 
 // verifyArtifacts runs the declarative artifact readiness check for every
@@ -511,10 +572,11 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 			}
 		}
 
-		// artifacts_ready is a PostgREST computed column (migration
-		// 20260414170000); it derives from docker_images_ready AND
-		// release_builds_ready at read time, so we no longer write it.
-		_ = dockerImagesReady // result is recorded via the UPDATE above when applicable
+		// artifacts_ready is a GENERATED ALWAYS AS (...) STORED column
+		// (migration 20260414170000): derived from docker_images_ready AND
+		// release_builds_ready at write time by PostgreSQL itself. No code
+		// path maintains it.
+		_ = dockerImagesReady // value recorded via the UPDATE above when applicable
 	}
 }
 
@@ -795,22 +857,45 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 		return // no in-progress upgrade
 	}
 
-	fmt.Printf("Found in-progress upgrade to %s, verifying...\n", displayName)
+	// Append recovery narrative to the prior run's progress log so the admin
+	// UI's progress_log column (populated below) includes the post-restart
+	// verification lines, not just the pre-crash story.
+	appendLog := AppendProgressLog(d.projDir, displayName)
+	if appendLog != nil {
+		defer appendLog.Close()
+	}
+	logRecover := func(format string, args ...interface{}) {
+		if appendLog != nil {
+			appendLog.Write(format, args...)
+		} else {
+			fmt.Printf(format+"\n", args...)
+		}
+	}
+
+	logRecover("Service restarted. Found in-progress upgrade to %s, verifying...", displayName)
 
 	// Verify services are healthy
 	if err := d.waitForDBHealth(30 * time.Second); err != nil {
-		fmt.Printf("Warning: in-progress upgrade %s health check failed: %v\n", displayName, err)
+		logRecover("Post-restart health check failed for %s: %v", displayName, err)
+		if appendLog != nil {
+			appendLog.Close()
+			appendLog = nil
+		}
+		logTail := readProgressLogTail(ProgressLogPath(d.projDir, displayName), 50)
 		d.queryConn.Exec(ctx,
-			"UPDATE public.upgrade SET state = 'failed', error = $1 WHERE id = $2",
-			fmt.Sprintf("post-restart health check failed: %v", err), id)
+			"UPDATE public.upgrade SET state = 'failed', error = $1, progress_log = $2 WHERE id = $3",
+			fmt.Sprintf("post-restart health check failed: %v", err), logTail, id)
 		return
 	}
 
-	// Mark complete and remove flag file. Also persist the version-specific
-	// progress log tail so the admin UI can show what happened — including
-	// when completion is credited by completeInProgressUpgrade after a
-	// self-update restart (the original executing process is gone, but the
-	// log file survives on the filesystem).
+	logRecover("Upgrade to %s completed (verified after service restart)", displayName)
+
+	// Close the appender before reading so pending writes are flushed into
+	// the tail captured for progress_log.
+	if appendLog != nil {
+		appendLog.Close()
+		appendLog = nil
+	}
 	logTail := readProgressLogTail(ProgressLogPath(d.projDir, displayName), 50)
 	d.queryConn.Exec(ctx,
 		"UPDATE public.upgrade SET state = 'completed', completed_at = now(), progress_log = $1 WHERE id = $2", logTail, id)
@@ -819,8 +904,6 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 	// Skip older releases that are still "available" — no point upgrading to an older version
 	d.supersedeOlderReleases(ctx, commitSHA)
 	d.runUpgradeCallback(displayName)
-
-	fmt.Printf("Upgrade to %s completed (verified after service restart)\n", displayName)
 }
 
 // markCurrentVersionCompleted marks the service's own version as completed in
@@ -1468,11 +1551,13 @@ func (d *Service) scheduleImmediate(ctx context.Context, versionOrSHA string) {
 		   rollback_completed_at = NULL,
 		   skipped_at = NULL,
 		   dismissed_at = NULL,
+		   superseded_at = NULL,
 		   progress_log = NULL
 		 WHERE public.upgrade.scheduled_at IS NULL
 		    OR public.upgrade.started_at IS NOT NULL
 		    OR public.upgrade.completed_at IS NOT NULL
-		    OR public.upgrade.error IS NOT NULL`,
+		    OR public.upgrade.error IS NOT NULL
+		    OR public.upgrade.superseded_at IS NOT NULL`,
 		commitSHA, displayName)
 	if err != nil {
 		fmt.Printf("Failed to schedule %s: %v\n", displayName, err)
@@ -1622,12 +1707,14 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	}
 
 	// === All pre-flight checks passed — mark the upgrade as started ===
-	// Atomically acquire the flag file BEFORE any destructive steps. The
-	// O_EXCL acquire prevents racing an `./sb install` that slipped between
-	// recoverFromFlag (service startup) and now. If the service crashes
-	// after this point, the file survives (it's on the filesystem, not in
-	// the DB volume which gets rolled back), and recoverFromFlag at the
-	// next service startup reconciles it.
+	// Acquire a kernel-exclusive flock on the flag file BEFORE any
+	// destructive steps. The flock (held on d.flagLock for the duration
+	// of executeUpgrade) blocks racing `./sb install` or another service
+	// instance. If the service crashes after this point, the kernel
+	// auto-releases the flock via fd teardown; the JSON metadata on disk
+	// survives and recoverFromFlag at the next service startup reconciles
+	// it (it's on the filesystem, not in the DB volume which gets rolled
+	// back).
 	if err := d.writeUpgradeFlag(id, commitSHA, displayName, invokedBy, trigger); err != nil {
 		msg := fmt.Sprintf("Could not acquire upgrade-mutex flag file: %v", err)
 		d.failUpgrade(ctx, id, msg, progress)
