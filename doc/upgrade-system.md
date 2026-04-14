@@ -81,7 +81,7 @@ Called once at service startup, before the main loop begins. Three outcomes:
 1. **No flag on disk** → Idle; proceed.
 2. **Flag on disk, owning PID is alive AND isn't us** → pathological (advisory DB lock should prevent two services coexisting). Log an error and refuse to clean up; leave the flag for the operator to investigate.
 3. **Flag on disk, owning PID is dead** → the prior upgrade crashed or was killed. Compare git HEAD to `flag.CommitSHA`:
-   - Match → the upgrade reached self-update + exit 42; mark `completed_at`.
+   - Match → the upgrade has landed at the target commit (either via normal completion, or via self-update + exit 42, or any other path that left HEAD on the target SHA); mark `completed_at`. The recovery code keys on `HEAD == flag.CommitSHA` and is intentionally agnostic about how HEAD got there.
    - Mismatch → real failure; mark `error` + `rollback_completed_at`.
    Remove the flag. State is now Idle; main loop proceeds.
 
