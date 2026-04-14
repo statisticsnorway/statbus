@@ -162,7 +162,10 @@ func runInstall() error {
 	}
 
 	// Resolve project dir early — the upgrade-in-progress flag lives under it.
-	home, _ := os.UserHomeDir()
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("cannot determine home directory (HOME unset?): %w", err)
+	}
 	installDir := filepath.Join(home, "statbus")
 
 	// === Upgrade mutex check ===
@@ -541,7 +544,10 @@ func runGenerateEnv(dir string) error {
 	// Now that config exists, ensure deploy branch fetch is configured
 	configureDeployFetch(dir)
 	// Create backup directory for upgrade service (systemd unit expects it)
-	home, _ := os.UserHomeDir()
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("cannot determine home directory (HOME unset?): %w", err)
+	}
 	backupDir := filepath.Join(home, "statbus-backups")
 	if err := os.MkdirAll(backupDir, 0755); err != nil {
 		fmt.Printf("  Warning: could not create backup dir %s: %v\n", backupDir, err)
