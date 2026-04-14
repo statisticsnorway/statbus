@@ -171,33 +171,107 @@ func (d *Service) dbVolumeName() string {
 	return "statbus-db-data" // fallback
 }
 
+// backupRoot is the directory holding all pre-upgrade-* backup
+// directories. Each backup is a separate timestamped directory inside.
+func (d *Service) backupRoot() string {
+	return filepath.Join(os.Getenv("HOME"), "statbus-backups")
+}
+
+// backupDatabase rsyncs the live Postgres data volume into a fresh
+// timestamped directory and atomically renames it on success.
+//
+// Atomicity matters because rsync --delete is not crash-safe: it
+// removes destination files before copying replacements. A SIGKILL
+// mid-rsync into a fixed path leaves the directory half-deleted /
+// half-copied — silent corruption that the next rollback would happily
+// rsync straight back into the live volume.
+//
+// Mechanism: write to pre-upgrade-<UTC>.tmp/. After rsync exits 0,
+// rename to pre-upgrade-<UTC>/. rename(2) is atomic on POSIX for dirs
+// on the same filesystem. Crash mid-rsync leaves only a .tmp
+// directory; restoreDatabase / pickLatestBackup ignore those.
 func (d *Service) backupDatabase(progress *ProgressLog) (string, error) {
-	backupDir := filepath.Join(os.Getenv("HOME"), "statbus-backups", "pre-upgrade")
-	if err := os.MkdirAll(backupDir, 0755); err != nil {
-		return "", fmt.Errorf("create backup dir: %w", err)
+	root := d.backupRoot()
+	if err := os.MkdirAll(root, 0755); err != nil {
+		return "", fmt.Errorf("create backup root: %w", err)
 	}
 
-	// rsync from named Docker volume into backup dir via a lightweight container.
-	// DB must be stopped before this point for a consistent backup.
-	// No sudo needed — the container runs as root and can read postgres-owned files.
+	stamp := time.Now().UTC().Format("20060102T150405Z")
+	tmpDir := filepath.Join(root, "pre-upgrade-"+stamp+".tmp")
+	finalDir := filepath.Join(root, "pre-upgrade-"+stamp)
+
+	if err := os.MkdirAll(tmpDir, 0755); err != nil {
+		return "", fmt.Errorf("create backup tmpdir: %w", err)
+	}
+
+	// rsync from named Docker volume into the .tmp dir via a lightweight
+	// container. DB must be stopped before this point for a consistent
+	// backup. No sudo needed — the container runs as root and can read
+	// postgres-owned files.
 	volumeName := d.dbVolumeName()
 	if err := runCommandWithTimeout(d.projDir, 10*time.Minute,
 		"docker", "run", "--rm",
 		"-v", volumeName+":/source:ro",
-		"-v", backupDir+":/backup",
+		"-v", tmpDir+":/backup",
 		"alpine", "sh", "-c", "apk add --no-cache rsync >/dev/null 2>&1 && rsync -a --delete /source/ /backup/",
 	); err != nil {
+		// Leave the .tmp dir for inspection; pruneStaleTmpBackups will
+		// clean it after 10 minutes if it's confirmed dead.
 		return "", fmt.Errorf("rsync backup: %w", err)
 	}
 
-	return backupDir, nil
+	// Atomic completion marker: directory's final name appearing IS the
+	// completion signal. No sentinel files, no symlinks.
+	if err := os.Rename(tmpDir, finalDir); err != nil {
+		return "", fmt.Errorf("finalise backup (rename %s -> %s): %w", tmpDir, finalDir, err)
+	}
+
+	// Opportunistic cleanup: keep the 3 newest finalised backups, drop
+	// stale .tmp dirs from prior crashes.
+	d.pruneBackups(3)
+
+	return finalDir, nil
+}
+
+// pickLatestBackup returns the path of the newest finalised
+// pre-upgrade-* directory (no .tmp suffix), or "" if none exists.
+// Timestamp prefix sorts lexicographically so sort.Strings + take-max
+// works.
+func (d *Service) pickLatestBackup() string {
+	entries, err := os.ReadDir(d.backupRoot())
+	if err != nil {
+		return ""
+	}
+	var finalised []string
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if !strings.HasPrefix(name, "pre-upgrade-") {
+			continue
+		}
+		if strings.HasSuffix(name, ".tmp") {
+			continue
+		}
+		finalised = append(finalised, name)
+	}
+	if len(finalised) == 0 {
+		return ""
+	}
+	sort.Strings(finalised)
+	return filepath.Join(d.backupRoot(), finalised[len(finalised)-1])
 }
 
 func (d *Service) restoreDatabase(progress *ProgressLog) {
-	backupDir := filepath.Join(os.Getenv("HOME"), "statbus-backups", "pre-upgrade")
+	backupDir := d.pickLatestBackup()
+	if backupDir == "" {
+		progress.Write("ABORT: no finalised backup directory found in %s; refusing to touch the live volume", d.backupRoot())
+		return
+	}
 	volumeName := d.dbVolumeName()
 
-	progress.Write("Restoring database from backup...")
+	progress.Write("Restoring database from backup at %s...", backupDir)
 	if err := runCommandWithTimeout(d.projDir, 10*time.Minute,
 		"docker", "run", "--rm",
 		"-v", backupDir+":/source:ro",
@@ -205,6 +279,46 @@ func (d *Service) restoreDatabase(progress *ProgressLog) {
 		"alpine", "sh", "-c", "apk add --no-cache rsync >/dev/null 2>&1 && rsync -a --delete /source/ /dest/",
 	); err != nil {
 		progress.Write("WARNING: Database restore failed: %v", err)
+	}
+}
+
+// pruneBackups deletes .tmp leftovers older than 10 minutes (long
+// enough to guarantee the originating process is dead, generous for
+// genuinely-slow rsyncs) and trims finalised backups to the `keep`
+// most recent.
+func (d *Service) pruneBackups(keep int) {
+	entries, err := os.ReadDir(d.backupRoot())
+	if err != nil {
+		return
+	}
+	var finalised, tmps []string
+	tmpCutoff := time.Now().Add(-10 * time.Minute)
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if !strings.HasPrefix(name, "pre-upgrade-") {
+			continue
+		}
+		full := filepath.Join(d.backupRoot(), name)
+		if strings.HasSuffix(name, ".tmp") {
+			info, ierr := e.Info()
+			if ierr == nil && info.ModTime().Before(tmpCutoff) {
+				tmps = append(tmps, full)
+			}
+			continue
+		}
+		finalised = append(finalised, full)
+	}
+	for _, p := range tmps {
+		os.RemoveAll(p)
+	}
+	if len(finalised) > keep {
+		sort.Strings(finalised)
+		for _, p := range finalised[:len(finalised)-keep] {
+			os.RemoveAll(p)
+		}
 	}
 }
 
