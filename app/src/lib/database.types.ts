@@ -6078,73 +6078,88 @@ export type Database = {
       },
       upgrade: {
         Row: {
-          artifacts_ready: boolean
+          artifacts_ready: boolean | null
           backup_path: string | null
           changes: string | null
           commit_sha: string
           committed_at: string
           completed_at: string | null
           discovered_at: string
+          dismissed_at: string | null
+          docker_images_ready: boolean
           error: string | null
           from_version: string | null
           has_migrations: boolean
           id: number
           images_downloaded: boolean
           position: number | null
+          progress_log: string | null
+          release_builds_ready: boolean
           release_status: Database["public"]["Enums"]["release_status_type"]
           release_url: string | null
           rollback_completed_at: string | null
           scheduled_at: string | null
           skipped_at: string | null
           started_at: string | null
+          state: Database["public"]["Enums"]["upgrade_state"]
           summary: string
           superseded_at: string | null
           tags: string[]
         },
         Insert: {
-          artifacts_ready?: boolean
+          artifacts_ready?: boolean | null
           backup_path?: string | null
           changes?: string | null
           commit_sha: string
           committed_at: string
           completed_at?: string | null
           discovered_at?: string
+          dismissed_at?: string | null
+          docker_images_ready?: boolean
           error?: string | null
           from_version?: string | null
           has_migrations?: boolean
           id?: never
           images_downloaded?: boolean
           position?: number | null
+          progress_log?: string | null
+          release_builds_ready?: boolean
           release_status?: Database["public"]["Enums"]["release_status_type"]
           release_url?: string | null
           rollback_completed_at?: string | null
           scheduled_at?: string | null
           skipped_at?: string | null
           started_at?: string | null
+          state?: Database["public"]["Enums"]["upgrade_state"]
           summary: string
           superseded_at?: string | null
           tags?: string[]
         },
         Update: {
-          artifacts_ready?: boolean
+          artifacts_ready?: boolean | null
           backup_path?: string | null
           changes?: string | null
           commit_sha?: string
           committed_at?: string
           completed_at?: string | null
           discovered_at?: string
+          dismissed_at?: string | null
+          docker_images_ready?: boolean
           error?: string | null
           from_version?: string | null
           has_migrations?: boolean
           id?: never
           images_downloaded?: boolean
           position?: number | null
+          progress_log?: string | null
+          release_builds_ready?: boolean
           release_status?: Database["public"]["Enums"]["release_status_type"]
           release_url?: string | null
           rollback_completed_at?: string | null
           scheduled_at?: string | null
           skipped_at?: string | null
           started_at?: string | null
+          state?: Database["public"]["Enums"]["upgrade_state"]
           summary?: string
           superseded_at?: string | null
           tags?: string[]
@@ -12213,6 +12228,12 @@ export type Database = {
         }
         Returns: string
       },
+      display_state: {
+        Args: {
+          u?: Database["public"]["Tables"]["upgrade"]["Row"]
+        }
+        Returns: string
+      },
       encrypt: {
         Args: {
           arg0?: string
@@ -15773,7 +15794,17 @@ export type Database = {
           | "waiting"
           | "completed"
           | "failed",
-      time_context_type: "relative_period" | "tag" | "year"
+      time_context_type: "relative_period" | "tag" | "year",
+      upgrade_state: 
+          | "available"
+          | "scheduled"
+          | "in_progress"
+          | "completed"
+          | "failed"
+          | "rolled_back"
+          | "dismissed"
+          | "skipped"
+          | "superseded"
     },
     CompositeTypes: {
       http_header: {
@@ -16089,7 +16120,18 @@ export const Constants = {
         "completed",
         "failed"
       ],
-      time_context_type: ["relative_period", "tag", "year"]
+      time_context_type: ["relative_period", "tag", "year"],
+      upgrade_state: [
+        "available",
+        "scheduled",
+        "in_progress",
+        "completed",
+        "failed",
+        "rolled_back",
+        "dismissed",
+        "skipped",
+        "superseded"
+      ]
     }
   }
 } as const
