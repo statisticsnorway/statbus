@@ -209,19 +209,56 @@
                 .catch(function() {});
         }
 
-        // Check if services are back
+        // Check if services are back.
+        // Redirects only when BOTH signals clear: app returns 200 AND no upgrade row
+        // is in an active state (scheduled or in_progress). This closes two race windows:
+        //   Window A: scheduled_at written, service not yet picked up (~poll-interval lag)
+        //   Window B: maintenance file removed but completed_at not yet written (ms gap)
+        // If the REST probe is unreachable or returns a non-2xx (e.g. 401 session expired,
+        // 503 during migration), we fail safe — stay on maintenance page.
         function checkHealth() {
-            fetch('/', { cache: 'no-store' })
-                .then(function(resp) {
-                    if (resp.ok) {
-                        window.location.replace(decodeURIComponent(returnPath));
-                    } else {
-                        startCountdown();
-                    }
-                })
-                .catch(function() {
-                    startCountdown();
+            var appStatus = '?';
+            var upgradeStatus = '?';
+
+            var appProbe = fetch('/', { cache: 'no-store' })
+                .then(function(r) { appStatus = r.status; return { ok: r.ok }; })
+                .catch(function() { appStatus = 'err'; return { ok: false }; });
+
+            var upgradeProbe = fetch(
+                '/rest/upgrade?state=in.(scheduled,in_progress)&select=state&limit=1',
+                { cache: 'no-store', credentials: 'include' }
+            ).then(function(r) {
+                if (!r.ok) { upgradeStatus = 'unknown'; return { unknown: true }; }
+                return r.json().then(function(rows) {
+                    upgradeStatus = rows.length > 0 ? 'active' : 'idle';
+                    return { active: rows.length > 0 };
                 });
+            }).catch(function() { upgradeStatus = 'unknown'; return { unknown: true }; });
+
+            Promise.all([appProbe, upgradeProbe]).then(function(results) {
+                var app = results[0];
+                var upgrade = results[1];
+                var decision, reason;
+
+                if (upgrade.unknown) {
+                    decision = 'stay'; reason = 'upgrade REST probe failed or returned non-2xx';
+                } else if (upgrade.active) {
+                    decision = 'stay'; reason = 'upgrade row in scheduled/in_progress state';
+                } else if (!app.ok) {
+                    decision = 'stay'; reason = 'app returned ' + appStatus;
+                } else {
+                    decision = 'redirect'; reason = 'app=200 and no active upgrade row';
+                }
+
+                console.log('[maintenance-check] app=' + appStatus + ' upgrade=' + upgradeStatus +
+                    ' decision=' + decision + ' reason=' + reason);
+
+                if (decision === 'redirect') {
+                    window.location.replace(decodeURIComponent(returnPath));
+                } else {
+                    startCountdown();
+                }
+            });
 
             if (Date.now() - startTime > TEN_MINUTES) {
                 warningEl.textContent = t.warning;
