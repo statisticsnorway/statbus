@@ -51,7 +51,9 @@ func preflightChecks(projDir string) bool {
 		fmt.Println("  \u2713 On master branch")
 	}
 
-	// 3. Up to date with origin
+	// 3. Up to date with origin — distinguish direction (ahead/behind/diverged)
+	// so the fix suggestion is actionable. The old one-line "Fix: git pull"
+	// was wrong half the time.
 	_, err = upgrade.RunCommandOutput(projDir, "git", "fetch", "origin", "master", "--quiet")
 	if err != nil {
 		fmt.Println("  \u2717 Up to date with origin (fetch failed)")
@@ -62,19 +64,42 @@ func preflightChecks(projDir string) bool {
 		originOut, _ := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "origin/master")
 		head := strings.TrimSpace(headOut)
 		origin := strings.TrimSpace(originOut)
-		if head != origin {
-			fmt.Println("  \u2717 Up to date with origin")
-			fmt.Println("    Fix: git pull origin master")
-			allPassed = false
-		} else {
+		if head == origin {
 			fmt.Println("  \u2713 Up to date with origin")
+		} else {
+			aheadOut, _ := upgrade.RunCommandOutput(projDir, "git", "rev-list", "--count", "origin/master..HEAD")
+			behindOut, _ := upgrade.RunCommandOutput(projDir, "git", "rev-list", "--count", "HEAD..origin/master")
+			ahead := strings.TrimSpace(aheadOut)
+			behind := strings.TrimSpace(behindOut)
+			switch {
+			case ahead != "0" && behind == "0":
+				fmt.Printf("  \u2717 Up to date with origin (%s commit(s) ahead of origin/master)\n", ahead)
+				fmt.Println("    Fix: git push origin master")
+			case ahead == "0" && behind != "0":
+				fmt.Printf("  \u2717 Up to date with origin (%s commit(s) behind origin/master)\n", behind)
+				fmt.Println("    Fix: git pull --rebase origin master")
+			default:
+				fmt.Printf("  \u2717 Up to date with origin (diverged: %s ahead, %s behind)\n", ahead, behind)
+				fmt.Println("    Fix: git pull --rebase origin master, resolve conflicts, then git push")
+			}
+			allPassed = false
 		}
 	}
 
-	// 4. HEAD commit is signed
+	// 4. HEAD commit is signed — HARD fail. master has `required_signatures`
+	// enabled on GitHub; the only reason unsigned commits land at all is
+	// admin bypass. Releases must be signed, always. If verification fails
+	// because gpg.ssh.allowedSignersFile isn't configured locally, the fix
+	// is to configure it (and sign) — not to ignore the warning.
 	_, err = upgrade.RunCommandOutput(projDir, "git", "verify-commit", "HEAD")
 	if err != nil {
-		fmt.Println("  \u26a0 HEAD commit is signed (warning: verification failed, continuing)")
+		headSHA, _ := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "--short", "HEAD")
+		fmt.Printf("  \u2717 HEAD commit is signed (verification failed on %s)\n", strings.TrimSpace(headSHA))
+		fmt.Println("    Fix (sign this commit): git commit --amend --no-edit -S")
+		fmt.Println("    Fix (sign all future commits): git config --global commit.gpgsign true")
+		fmt.Println("         (requires user.signingkey + gpg.format ssh in your global git config)")
+		fmt.Println("    Debug: git verify-commit HEAD")
+		allPassed = false
 	} else {
 		fmt.Println("  \u2713 HEAD commit is signed")
 	}
