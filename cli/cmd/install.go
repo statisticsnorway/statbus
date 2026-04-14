@@ -19,6 +19,13 @@ import (
 var nonInteractive bool
 var installVersion string
 
+// insideActiveUpgrade signals that this install invocation is a post-upgrade
+// fixup spawned by the upgrade service itself. It is NOT a user-facing flag —
+// operators must never pass it. The service at service.go:executeUpgrade sets
+// both this CLI flag and STATBUS_INSIDE_ACTIVE_UPGRADE=1 env var on its child
+// exec; either triggers the mutex bypass in runInstall.
+var insideActiveUpgrade bool
+
 // ExitCodeNeedsRoot is returned when the upgrade service step needs root.
 // cloud.sh recognizes this code and SSHes as root to complete the install.
 const ExitCodeNeedsRoot = 42
@@ -49,6 +56,10 @@ func init() {
 	installCmd.Flags().BoolVar(&nonInteractive, "non-interactive", false,
 		"Run without prompts (requires .env.config to exist)")
 	installCmd.Flags().StringVar(&installVersion, "version", "", "version tag to checkout (for rescue installs)")
+	installCmd.Flags().BoolVar(&insideActiveUpgrade, "inside-active-upgrade", false,
+		"Internal: set by the upgrade service when spawning install as a post-upgrade fixup. Operators must not pass this.")
+	// Hide the internal flag from --help; it's a contract between service and child install, not a user-facing knob.
+	_ = installCmd.Flags().MarkHidden("inside-active-upgrade")
 	rootCmd.AddCommand(installCmd)
 }
 
@@ -59,6 +70,75 @@ type step struct {
 	run   func(dir string) error
 }
 
+// checkUpgradeMutex enforces the install ↔ upgrade-service mutual exclusion.
+//
+// The upgrade service writes tmp/upgrade-in-progress.json before destructive
+// steps of executeUpgrade (service.go:writeUpgradeFlag). The flag survives
+// service crashes; it is removed on normal completion, rollback, or by
+// recoverFromFlag on the next service restart.
+//
+// When `bypass` is true, the caller is the upgrade service's own post-upgrade
+// fixup — skip the check. Otherwise:
+//   - No flag → Idle state; proceed.
+//   - Flag + owning PID still alive → an upgrade is genuinely running. Abort
+//     and tell the operator to wait.
+//   - Flag + owning PID dead → the prior upgrade crashed (or the service was
+//     stopped mid-upgrade). Abort and tell the operator to start the service,
+//     which triggers recoverFromFlag and cleans the flag.
+//
+// Install never writes the flag; it only reads. Legacy flag files (pre-Release 1,
+// missing the PID field) deserialize with PID=0, which upgrade.ReadFlagFile
+// reports as "not alive" — so legacy flags produce the crash-recovery message,
+// which is the correct recovery path (service restart will recoverFromFlag them).
+func checkUpgradeMutex(installDir string, bypass bool) error {
+	flag, alive, err := upgrade.ReadFlagFile(installDir)
+	if err != nil {
+		// Corrupt/unreadable flag file — fail loud. Operator must investigate.
+		return fmt.Errorf("upgrade flag file present but unreadable: %w\n\n  Investigate %s manually, then retry.",
+			err, filepath.Join(installDir, "tmp", "upgrade-in-progress.json"))
+	}
+	if flag == nil {
+		if bypass {
+			fmt.Printf("Note: --inside-active-upgrade set but no upgrade flag found. Proceeding.\n")
+		}
+		return nil
+	}
+
+	if bypass {
+		fmt.Printf("Upgrade mutex bypass honored (--inside-active-upgrade). Flag owned by PID %d, invoked_by=%s.\n",
+			flag.PID, flag.InvokedBy)
+		return nil
+	}
+
+	if alive {
+		return fmt.Errorf(
+			"an orchestrated upgrade is in progress: PID %d (%s, invoked_by=%s).\n\n"+
+				"  Wait for it to complete:\n"+
+				"    journalctl --user -u 'statbus-upgrade@*' -f\n\n"+
+				"  Do NOT pass --inside-active-upgrade — that flag is the upgrade service's\n"+
+				"  internal contract with its own post-upgrade install step. Using it from the\n"+
+				"  command line would corrupt an upgrade that is currently running.",
+			flag.PID, flag.DisplayName, flag.InvokedBy)
+	}
+
+	return fmt.Errorf(
+		"a prior upgrade crashed or was stopped mid-run: flag file references PID %d (%s, invoked_by=%s)\n"+
+			"but that process is no longer alive.\n\n"+
+			"  Trigger the recovery path by starting the upgrade service:\n"+
+			"    systemctl --user start 'statbus-upgrade@*'\n\n"+
+			"  The service's startup handler will clean up the stale flag (marking the\n"+
+			"  upgrade as failed or completed based on git HEAD), after which ./sb install\n"+
+			"  can run normally.",
+		flag.PID, flag.DisplayName, flag.InvokedBy)
+}
+
+// runInstall is the entry point for `./sb install`. It is safe to run while
+// an upgrade service is active on the same host because of the mutex check
+// below: if the upgrade service has written tmp/upgrade-in-progress.json
+// (which it does before any destructive step in executeUpgrade), this function
+// refuses to proceed. The only exception is the service's own post-upgrade
+// fixup, which passes --inside-active-upgrade / STATBUS_INSIDE_ACTIVE_UPGRADE=1
+// to signal "I am the active upgrade, not a conflicting actor."
 func runInstall() error {
 	// Warn if running as root — the upgrade service is a user-level systemd unit now,
 	// running as root would create files owned by root in the project dir.
@@ -81,6 +161,21 @@ func runInstall() error {
 		}
 	}
 
+	// Resolve project dir early — the upgrade-in-progress flag lives under it.
+	home, _ := os.UserHomeDir()
+	installDir := filepath.Join(home, "statbus")
+
+	// === Upgrade mutex check ===
+	// If the upgrade service has written tmp/upgrade-in-progress.json, an
+	// orchestrated upgrade is either in flight or crashed pending recovery.
+	// Either way, install must not race it. The ONLY caller allowed to bypass
+	// is the upgrade service itself (service.go:executeUpgrade spawns install
+	// as a post-upgrade fixup with --inside-active-upgrade + env var set).
+	bypass := insideActiveUpgrade || os.Getenv("STATBUS_INSIDE_ACTIVE_UPGRADE") == "1"
+	if err := checkUpgradeMutex(installDir, bypass); err != nil {
+		return err
+	}
+
 	// Pre-flight: check disk space
 	if freeBytes, err := upgrade.DiskFree("."); err == nil {
 		freeGB := freeBytes / (1024 * 1024 * 1024)
@@ -89,9 +184,6 @@ func runInstall() error {
 		}
 		fmt.Printf("Disk space: %d GB free\n", freeGB)
 	}
-
-	home, _ := os.UserHomeDir()
-	installDir := filepath.Join(home, "statbus")
 
 	steps := []step{
 		{"Source code", checkSourceCodeDone, runCheckoutVersion},
@@ -229,23 +321,20 @@ func checkServicesDone(dir string) bool {
 }
 
 func checkMigrationsDone(dir string) bool {
-	// Check if there are pending migrations by comparing file count vs applied
-	psqlPath, prefix, env, err := migrate.PsqlCommand(dir)
+	// Done iff there are no pending migration files vs db.migration.
+	// migrate.HasPending compares disk (migrations/*.up.sql) against the
+	// applied versions table; single source of truth shared with `migrate up`.
+	//
+	// Historical note: this used to return true whenever MAX(version)>0 — i.e.
+	// "any migration applied = all done" — which silently skipped newer
+	// migrations on upgrade. That bug wedged five cloud servers on v2026.03.1.
+	pending, err := migrate.HasPending(dir)
 	if err != nil {
+		// On error, fall through to runMigrations (it will surface the error
+		// cleanly). "Done" would hide a real problem.
 		return false
 	}
-	args := append(prefix, "-t", "-A", "-c",
-		"SELECT COALESCE(MAX(version), 0) FROM db.migration;")
-	cmd := exec.Command(psqlPath, args...)
-	cmd.Dir = dir
-	cmd.Env = env
-	out, err := cmd.Output()
-	if err != nil {
-		return false
-	}
-	applied := strings.TrimSpace(string(out))
-	// If we got a version number, migrations have been run at least once
-	return applied != "0" && applied != ""
+	return !pending
 }
 
 func checkJWTDone(dir string) bool {
