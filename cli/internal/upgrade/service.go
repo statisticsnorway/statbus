@@ -321,12 +321,14 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 	fmt.Printf("Found interrupted %s flag for %s (id=%d, pid=%d, invoked_by=%s)\n",
 		holder, flag.DisplayName, flag.ID, flag.PID, flag.InvokedBy)
 
-	// Sanity check: if the PID that wrote the flag is still alive AND it isn't us
-	// (os.Getpid() of a freshly-started process can never match a flag written by
-	// a prior process), someone else claims ownership. This is pathological for
-	// service holders (advisory lock should prevent two services from coexisting)
-	// and surprising for install holders (operator is running install while
-	// service starts). Either way, do NOT clean up another live process's state.
+	// Refuse to clean up another live process's state. The `flag.PID != os.Getpid()`
+	// check is defensive — in practice it can't match (this function runs at
+	// service startup or via the freshly-spawned `./sb upgrade recover`, both
+	// of which have PIDs distinct from any prior holder). The load-bearing
+	// check is `pidAlive(flag.PID)`: a live PID means an actor still owns
+	// the flag and we must not touch it (service-holder collision indicates
+	// advisory-lock violation; install-holder collision means an operator is
+	// actively installing — neither is ours to reconcile).
 	if flag.PID > 0 && flag.PID != os.Getpid() && pidAlive(flag.PID) {
 		fmt.Fprintf(os.Stderr,
 			"REFUSING to recover: %s flag owned by live PID %d. Leaving flag in place. Investigate manually.\n",
@@ -334,8 +336,11 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 		return
 	}
 
-	// Install-held flags have no public.upgrade row to reconcile — install
-	// crashes leave only the on-disk marker. Just remove it.
+	// Install-held flags have no public.upgrade row to reconcile. Install
+	// never writes that table — only the upgrade service does, in
+	// scheduleImmediate / executeScheduled. So a dead-PID install flag is
+	// purely an on-disk marker; removing it is the entire cleanup. If
+	// install ever grows DB-write semantics, revisit this branch.
 	if holder == HolderInstall {
 		fmt.Printf("Removing stale install flag (PID %d crashed or exited without releasing)\n", flag.PID)
 		d.removeUpgradeFlag()
