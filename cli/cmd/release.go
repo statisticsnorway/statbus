@@ -262,6 +262,44 @@ func preflightChecks(projDir string) bool {
 	return allPassed
 }
 
+// noSameKindTagAtHEAD refuses to tag a same-kind tag on a commit that
+// already carries one. Re-tagging the same commit (an RC twice, or a
+// stable twice) bumps the version number without any underlying
+// change — wasteful and confusing for downstream tooling.
+//
+// Cross-kind transitions are fine: tagging vX.Y.Z on top of vX.Y.Z-rc.N
+// is the legitimate prerelease → release promotion.
+func noSameKindTagAtHEAD(projDir string, isPrerelease bool) error {
+	out, err := upgrade.RunCommandOutput(projDir, "git", "tag", "--points-at", "HEAD")
+	if err != nil {
+		// Couldn't list — let the rest of the flow proceed; the tag-create
+		// step itself enforces uniqueness anyway.
+		return nil
+	}
+	for _, tag := range strings.Split(strings.TrimSpace(out), "\n") {
+		tag = strings.TrimSpace(tag)
+		if tag == "" || !strings.HasPrefix(tag, "v") {
+			continue
+		}
+		isRC := strings.Contains(tag, "-rc.")
+		switch {
+		case isPrerelease && isRC:
+			return fmt.Errorf(
+				"HEAD already carries a prerelease tag: %s\n"+
+					"  Make a new commit before tagging another RC — bumping the\n"+
+					"  number without an underlying change is wasteful.",
+				tag)
+		case !isPrerelease && !isRC:
+			return fmt.Errorf(
+				"HEAD already carries a stable release tag: %s\n"+
+					"  Make a new commit before tagging another release — bumping\n"+
+					"  the patch number without an underlying change is wasteful.",
+				tag)
+		}
+	}
+	return nil
+}
+
 var releasePrereleaseCmd = &cobra.Command{
 	Use:   "prerelease",
 	Short: "Tag a new release candidate (vYYYY.MM.PATCH-rc.N)",
@@ -271,6 +309,9 @@ var releasePrereleaseCmd = &cobra.Command{
 		fmt.Println("Pre-flight checks:")
 		if !preflightChecks(projDir) {
 			return fmt.Errorf("pre-flight checks failed")
+		}
+		if err := noSameKindTagAtHEAD(projDir, true); err != nil {
+			return err
 		}
 		fmt.Println()
 
@@ -399,6 +440,9 @@ var releaseStableCmd = &cobra.Command{
 
 		if !allPassed {
 			return fmt.Errorf("pre-flight checks failed")
+		}
+		if err := noSameKindTagAtHEAD(projDir, false); err != nil {
+			return err
 		}
 		fmt.Println()
 
