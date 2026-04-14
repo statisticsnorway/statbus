@@ -1681,6 +1681,11 @@ func (d *Service) failUpgrade(ctx context.Context, id int, errMsg string, progre
 		d.queryConn.Exec(ctx, "UPDATE public.upgrade SET error = $1, scheduled_at = NULL WHERE id = $2", errMsg, id)
 	}
 	progress.Write("FAILED: %s", errMsg)
+	// Always release the mutex on failure paths, even those that don't run
+	// rollback (e.g., pullImages failure returns directly after failUpgrade).
+	// removeUpgradeFlag is idempotent — safe when no flag was acquired (some
+	// failUpgrade callers run before writeUpgradeFlag during pre-flight).
+	d.removeUpgradeFlag()
 }
 
 func (d *Service) rollback(ctx context.Context, id int, version, previousVersion string, progress *ProgressLog) {

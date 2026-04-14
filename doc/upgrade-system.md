@@ -50,11 +50,13 @@ type UpgradeFlag struct {
 |---|---|
 | Normal completion | `executeUpgrade` end, `service.go` |
 | Rollback on failure | end of `rollback()`, `service.go` |
-| Self-update restart recovery (success) | `recoverFromFlag`, `service.go:~150` |
-| Crash recovery (failure) | `recoverFromFlag`, `service.go:~180` |
+| Direct failure (e.g., pullImages) | end of `failUpgrade()`, `service.go` |
+| Self-update restart recovery (success) | `recoverFromFlag`, `service.go` |
+| Crash recovery (failure) | `recoverFromFlag`, `service.go` |
 | completeInProgressUpgrade | `service.go` |
+| Install-holder release | `ReleaseInstallFlag`, `service.go` (deferred from `runInstall`) |
 
-If any new code path writes the flag, it MUST also remove it on all exit paths. The rollback() cleanup was specifically fixed in Release 1; without it, every failed upgrade left a permanent stale flag.
+If any new code path writes the flag, it MUST also remove it on all exit paths. The `rollback()` cleanup was added in Release 1; the `failUpgrade()` cleanup was added in Release 1.1 follow-up after a reviewer found that `pullImages` failure left the flag wedged until the next service restart.
 
 ## executeUpgrade pipeline
 
