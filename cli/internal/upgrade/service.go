@@ -423,9 +423,11 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 			appendLog = nil
 		}
 		logTail := readProgressLogTail(ProgressLogPath(d.projDir, flag.DisplayName), 50)
-		d.queryConn.Exec(ctx,
+		if tag, err := d.queryConn.Exec(ctx,
 			"UPDATE public.upgrade SET state = 'completed', completed_at = now(), progress_log = $1 WHERE id = $2 AND completed_at IS NULL",
-			logTail, flag.ID)
+			logTail, flag.ID); err != nil || tag.RowsAffected() == 0 {
+			fmt.Printf("WARN: state transition to completed matched 0 rows or errored (id=%d, err=%v) — possible CHECK constraint violation\n", flag.ID, err)
+		}
 		// Explicit NOTIFY — the DB trigger also fires, but the app's LISTEN is
 		// definitely established by now (new service starts after app is healthy).
 		d.queryConn.Exec(ctx, `NOTIFY worker_status, '{"type":"upgrade_changed"}'`)
@@ -707,6 +709,9 @@ func (d *Service) Run(ctx context.Context) error {
 			if !d.upgrading {
 				d.discover(ctx)
 				d.executeScheduled(ctx)
+				if d.listenCancel == nil { // restart if executeUpgrade stopped the loop
+					d.startListenLoop(ctx, notifyCh, errCh)
+				}
 				// Catch up on work missed during any upgrade that just completed
 				// (LISTEN connection was closed, NOTIFYs were lost)
 				d.discover(ctx)
@@ -717,13 +722,16 @@ func (d *Service) Run(ctx context.Context) error {
 			if !d.upgrading {
 				d.handleNotification(ctx, n)
 				d.executeScheduled(ctx)
+				if d.listenCancel == nil { // restart if executeUpgrade stopped the loop
+					d.startListenLoop(ctx, notifyCh, errCh)
+				}
 				// Catch up on work missed during any upgrade that just completed
 				// (LISTEN connection was closed, NOTIFYs were lost)
 				d.discover(ctx)
 				d.executeScheduled(ctx)
 			}
 		case err := <-errCh:
-			d.listenWg.Wait() // ensure old goroutine fully exited
+			d.stopListenLoop() // clears listenCancel so startListenLoop at line 756 doesn't short-circuit
 			if ctx.Err() != nil {
 				return nil // shutdown
 			}
@@ -759,10 +767,16 @@ func (d *Service) Run(ctx context.Context) error {
 }
 
 // startListenLoop launches a new listenLoop goroutine with a cancellable context.
+// Idempotent: if the goroutine is already running (listenCancel != nil), returns immediately.
+// Invariant: stopListenLoop() clears listenCancel; only startListenLoop sets it.
 func (d *Service) startListenLoop(ctx context.Context, notifyCh chan<- *pgconn.Notification, errCh chan<- error) {
+	if d.listenCancel != nil {
+		return // already running
+	}
 	listenCtx, cancel := context.WithCancel(ctx)
 	d.listenCancel = cancel
 	d.listenWg.Add(1)
+	fmt.Println("listenLoop started (channels: upgrade_check, upgrade_apply)")
 	go func() {
 		defer d.listenWg.Done()
 		d.listenLoop(listenCtx, notifyCh, errCh)
@@ -780,6 +794,7 @@ func (d *Service) stopListenLoop() {
 
 // listenLoop runs WaitForNotification in a goroutine, sending results on channels.
 func (d *Service) listenLoop(ctx context.Context, notifyCh chan<- *pgconn.Notification, errCh chan<- error) {
+	defer fmt.Printf("listenLoop exiting (ctx.Err=%v)\n", ctx.Err())
 	for {
 		notification, err := d.listenConn.WaitForNotification(ctx)
 		if err != nil {
@@ -882,9 +897,11 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 			appendLog = nil
 		}
 		logTail := readProgressLogTail(ProgressLogPath(d.projDir, displayName), 50)
-		d.queryConn.Exec(ctx,
+		if tag, uerr := d.queryConn.Exec(ctx,
 			"UPDATE public.upgrade SET state = 'failed', error = $1, progress_log = $2 WHERE id = $3",
-			fmt.Sprintf("post-restart health check failed: %v", err), logTail, id)
+			fmt.Sprintf("post-restart health check failed: %v", err), logTail, id); uerr != nil || tag.RowsAffected() == 0 {
+			fmt.Printf("WARN: state transition to failed matched 0 rows or errored (id=%d, err=%v) — possible CHECK constraint violation\n", id, uerr)
+		}
 		return
 	}
 
@@ -897,8 +914,10 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 		appendLog = nil
 	}
 	logTail := readProgressLogTail(ProgressLogPath(d.projDir, displayName), 50)
-	d.queryConn.Exec(ctx,
-		"UPDATE public.upgrade SET state = 'completed', completed_at = now(), progress_log = $1 WHERE id = $2", logTail, id)
+	if tag, err := d.queryConn.Exec(ctx,
+		"UPDATE public.upgrade SET state = 'completed', completed_at = now(), progress_log = $1 WHERE id = $2", logTail, id); err != nil || tag.RowsAffected() == 0 {
+		fmt.Printf("WARN: state transition to completed matched 0 rows or errored (id=%d, err=%v) — possible CHECK constraint violation\n", id, err)
+	}
 	d.removeUpgradeFlag()
 
 	// Skip older releases that are still "available" — no point upgrading to an older version
@@ -1933,8 +1952,10 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// shouldn't have to SSH into the server to read the log.
 	progress.Write("Upgrade to %s complete!", displayName)
 	logTail := readProgressLogTail(progress.path, 50)
-	d.queryConn.Exec(ctx,
-		"UPDATE public.upgrade SET state = 'completed', completed_at = now(), progress_log = $1 WHERE id = $2", logTail, id)
+	if tag, err := d.queryConn.Exec(ctx,
+		"UPDATE public.upgrade SET state = 'completed', completed_at = now(), progress_log = $1 WHERE id = $2", logTail, id); err != nil || tag.RowsAffected() == 0 {
+		fmt.Printf("WARN: state transition to completed matched 0 rows or errored (id=%d, err=%v) — possible CHECK constraint violation\n", id, err)
+	}
 	d.removeUpgradeFlag()
 	// Pre-upgrade branch is no longer needed — successful completion
 	// means we're committed to the new version. Best-effort delete; if
