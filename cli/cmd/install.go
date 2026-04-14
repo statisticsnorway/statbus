@@ -416,23 +416,15 @@ func configureDeployFetch(dir string) {
 	branch := fmt.Sprintf("ops/cloud/deploy/%s", code)
 	refspec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", branch, branch)
 
-	// Remove stale devops/deploy-to-* refspecs that break git fetch
-	oldBranch := fmt.Sprintf("devops/deploy-to-%s", code)
-	oldRefspec := fmt.Sprintf("+refs/heads/%s:refs/remotes/origin/%s", oldBranch, oldBranch)
+	// Remove any stale devops/* refspecs — they refer to branches renamed
+	// during R1.1 and every subsequent `git fetch` errors on them. Shared
+	// helper so `./sb upgrade apply-latest` can self-heal before its own
+	// fetch without duplicating the cleanup logic.
+	upgrade.CleanStaleRefspecs(dir)
+
 	cmd := exec.Command("git", "config", "--get-all", "remote.origin.fetch")
 	cmd.Dir = dir
 	out, _ := cmd.Output()
-	if strings.Contains(string(out), oldRefspec) {
-		rm := exec.Command("git", "config", "--unset", "remote.origin.fetch", fmt.Sprintf("refs/heads/%s", oldBranch))
-		rm.Dir = dir
-		rm.Run()
-	}
-	// Also remove the broad devops/* refspec if present
-	if strings.Contains(string(out), "refs/heads/devops/*") {
-		rm := exec.Command("git", "config", "--unset", "remote.origin.fetch", "refs/heads/devops/\\*")
-		rm.Dir = dir
-		rm.Run()
-	}
 
 	if strings.Contains(string(out), refspec) {
 		return // already configured

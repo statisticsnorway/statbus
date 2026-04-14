@@ -254,6 +254,12 @@ file changes needed.`,
 			channel = v
 		}
 
+		// Self-heal stale refspecs before any git fetch. Servers upgraded
+		// across the R1.1 devops/→ops/cloud/deploy rename can have a
+		// dangling refs/heads/devops/* refspec that makes every fetch fail.
+		// CleanStaleRefspecs is a no-op when nothing stale is configured.
+		upgrade.CleanStaleRefspecs(projDir)
+
 		var latestVersion string
 
 		if channel == "edge" {
@@ -310,13 +316,21 @@ file changes needed.`,
 		}
 
 		// 1. Write scheduled_at directly to the database (belt).
+		//    state='scheduled' is required so the CHECK
+		//    chk_upgrade_state_attributes passes (state='scheduled' demands
+		//    scheduled_at IS NOT NULL; previous state could be 'completed'
+		//    or 'failed' etc., and stale timestamps are cleared to satisfy
+		//    the scheduled-state invariants).
 		updateSQL := `UPDATE public.upgrade SET
+  state = 'scheduled',
   scheduled_at = now(),
   started_at = NULL,
   completed_at = NULL,
   error = NULL,
   rollback_completed_at = NULL,
-  skipped_at = NULL
+  skipped_at = NULL,
+  dismissed_at = NULL,
+  progress_log = NULL
 WHERE :'target_version' = ANY(tags)
    OR commit_sha = :'target_version'
    OR commit_sha LIKE :'target_version' || '%'

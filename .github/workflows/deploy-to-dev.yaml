@@ -16,10 +16,39 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Deploy via upgrade service
+      - name: Deploy via upgrade service (with refspec self-heal regression test)
+        # Inject a stale devops/* refspec BEFORE running apply-latest. If the
+        # deployed binary's CleanStaleRefspecs works, apply-latest succeeds
+        # and a post-run check confirms the stale refspec is gone. If the
+        # cleanup regresses, apply-latest fails with "couldn't find remote
+        # ref refs/heads/devops/..." and the workflow goes red — loud
+        # failure, exact regression fingerprint.
         run: |
           install -m 600 /dev/stdin /tmp/key <<< "${{ secrets.SSH_KEY }}"
-          ssh -i /tmp/key -o StrictHostKeyChecking=no \
-            statbus_dev@niue.statbus.org \
-            "cd ~/statbus && ./sb upgrade apply-latest"
+
+          ssh_dev() {
+            ssh -i /tmp/key -o StrictHostKeyChecking=no \
+              statbus_dev@niue.statbus.org "$@"
+          }
+
+          echo "::group::Seed stale refspec to exercise self-heal"
+          ssh_dev "cd ~/statbus && \
+            git config --add remote.origin.fetch \
+              '+refs/heads/devops/deploy-to-dev:refs/remotes/origin/devops/deploy-to-dev' \
+            && git config --get-all remote.origin.fetch"
+          echo "::endgroup::"
+
+          echo "::group::Run apply-latest (must self-heal the stale refspec)"
+          ssh_dev "cd ~/statbus && ./sb upgrade apply-latest"
+          echo "::endgroup::"
+
+          echo "::group::Assert stale refspec is gone"
+          if ssh_dev "cd ~/statbus && \
+            git config --get-all remote.origin.fetch" | grep -q 'devops/'; then
+            echo "FAIL: stale devops/* refspec was not removed by apply-latest"
+            exit 1
+          fi
+          echo "OK: no devops/* refspecs remain"
+          echo "::endgroup::"
+
           rm -f /tmp/key
