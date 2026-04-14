@@ -6,6 +6,7 @@
 package migrate
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -16,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/statisticsnorway/statbus/cli/internal/config"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 )
@@ -296,10 +298,86 @@ func HasPending(projDir string) (bool, error) {
 	return false, nil
 }
 
+// acquireAdvisoryLock opens a pgx connection and takes a session-scoped
+// pg_advisory_lock keyed on `migrate_up`. Holds the lock for the duration
+// the returned *pgx.Conn is kept open — callers MUST close it (typically
+// via defer) to release the lock.
+//
+// Serializes every invocation that goes through migrate.Up(), including:
+//   - direct CLI: `./sb migrate up`
+//   - install's migrations step: install.go → migrate.Up
+//   - upgrade service's executeUpgrade step: spawns `./sb migrate up` as
+//     a subprocess, which also calls this acquire path
+//
+// Uses a separate connection from the psql subprocesses that run the
+// actual migrations — the advisory lock serializes ACROSS connections by
+// key, not by connection. No interference with migration execution.
+//
+// The lock auto-releases when the connection closes (graceful exit,
+// crash, kill). No stale locks possible.
+func acquireAdvisoryLock(ctx context.Context, projDir string) (*pgx.Conn, error) {
+	envPath := filepath.Join(projDir, ".env")
+	f, err := dotenv.Load(envPath)
+	if err != nil {
+		return nil, fmt.Errorf("load .env for advisory lock: %w", err)
+	}
+	getOr := func(key, fallback string) string {
+		if v := os.Getenv(key); v != "" {
+			return v
+		}
+		if v, ok := f.Get(key); ok {
+			return v
+		}
+		return fallback
+	}
+	connStr := fmt.Sprintf(
+		"host=%s port=%s dbname=%s user=%s password=%s sslmode=disable",
+		getOr("SITE_DOMAIN", "local.statbus.org"),
+		getOr("CADDY_DB_PORT", "5432"),
+		getOr("POSTGRES_APP_DB", "statbus_local"),
+		getOr("POSTGRES_ADMIN_USER", "postgres"),
+		getOr("POSTGRES_ADMIN_PASSWORD", ""),
+	)
+	conn, err := pgx.Connect(ctx, connStr)
+	if err != nil {
+		return nil, fmt.Errorf("connect for advisory lock: %w", err)
+	}
+	// pg_advisory_lock blocks until acquired. Prints a hint after a short
+	// wait so the operator knows what's going on if another migrate is
+	// running.
+	hintTimer := time.AfterFunc(2*time.Second, func() {
+		fmt.Fprintln(os.Stderr, "Waiting for migrate lock (another ./sb migrate up or upgrade is running)...")
+	})
+	_, err = conn.Exec(ctx, "SELECT pg_advisory_lock(hashtext('migrate_up'))")
+	hintTimer.Stop()
+	if err != nil {
+		conn.Close(ctx)
+		return nil, fmt.Errorf("acquire advisory lock: %w", err)
+	}
+	return conn, nil
+}
+
 // Up applies pending migrations.
 // If migrateTo > 0, only apply up to that version.
 // If all is false, apply only one pending migration.
 func Up(projDir string, migrateTo int64, all bool, verbose bool) error {
+	// Take the migrate advisory lock for the full duration of Up(). This
+	// prevents concurrent `./sb migrate up` invocations (direct CLI,
+	// install's migrations step, service's executeUpgrade) from racing
+	// each other on the db.migration bookkeeping table. Lock auto-releases
+	// when the returned connection closes.
+	ctx := context.Background()
+	lockConn, err := acquireAdvisoryLock(ctx, projDir)
+	if err != nil {
+		return err
+	}
+	defer lockConn.Close(context.Background())
+
+	return runUp(projDir, migrateTo, all, verbose)
+}
+
+// runUp is the original Up() body, now called from under the advisory lock.
+func runUp(projDir string, migrateTo int64, all bool, verbose bool) error {
 	migrations, err := listMigrationFiles(projDir)
 	if err != nil {
 		return err
