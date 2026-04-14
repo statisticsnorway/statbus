@@ -133,7 +133,10 @@ var upgradeScheduleCmd = &cobra.Command{
 
 		// Use psql variable binding to avoid SQL string interpolation.
 		// The -v flag safely quotes the value when referenced as :'var'.
-		sql := "UPDATE public.upgrade SET scheduled_at = now() WHERE version = :'target_version' AND started_at IS NULL RETURNING version"
+		// state='scheduled' is required by chk_upgrade_state_attributes
+		// (migration 20260414180000): the CHECK rejects a scheduled_at
+		// update on an 'available' row without a matching state write.
+		sql := "UPDATE public.upgrade SET state = 'scheduled', scheduled_at = now() WHERE version = :'target_version' AND started_at IS NULL RETURNING version"
 
 		out, err := runUpgradePsql(sql, "-v", "target_version="+version, "-t", "-A")
 		if err != nil {
@@ -183,13 +186,19 @@ Examples:
 		// 1. Write scheduled_at directly to the database (belt).
 		// Uses psql variable binding (-v) to avoid SQL injection.
 		// Matches by tag name OR commit_sha (full or prefix).
+		// state='scheduled' + clearing every lifecycle timestamp satisfies
+		// chk_upgrade_state_attributes regardless of prior state
+		// (available / completed / failed / rolled_back / dismissed).
 		updateSQL := `UPDATE public.upgrade SET
+  state = 'scheduled',
   scheduled_at = now(),
   started_at = NULL,
   completed_at = NULL,
   error = NULL,
   rollback_completed_at = NULL,
-  skipped_at = NULL
+  skipped_at = NULL,
+  dismissed_at = NULL,
+  progress_log = NULL
 WHERE :'target_version' = ANY(tags)
    OR commit_sha = :'target_version'
    OR commit_sha LIKE :'target_version' || '%'
