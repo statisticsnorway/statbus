@@ -1752,6 +1752,15 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 		progress.Write("Warning: could not stop database: %v", err)
 	}
 
+	// Pin the pre-upgrade commit as a persistent branch BEFORE we touch
+	// anything destructive. The branch survives process crashes and tag
+	// pruning — restoreGitState falls back to it if `previousVersion`
+	// (a tag or describe-string) won't resolve later. Best-effort: log
+	// failure, don't abort the upgrade.
+	if out, err := runCommandOutput(projDir, "git", "branch", "-f", "statbus/pre-upgrade", "HEAD"); err != nil {
+		progress.Write("Warning: could not pin statbus/pre-upgrade branch: %v\n%s", err, out)
+	}
+
 	// Step 5: Backup database
 	progress.Write("Backing up database...")
 	previousVersion := d.version
@@ -1927,6 +1936,11 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	d.queryConn.Exec(ctx,
 		"UPDATE public.upgrade SET state = 'completed', completed_at = now(), progress_log = $1 WHERE id = $2", logTail, id)
 	d.removeUpgradeFlag()
+	// Pre-upgrade branch is no longer needed — successful completion
+	// means we're committed to the new version. Best-effort delete; if
+	// the branch is missing (best-effort create at the start failed),
+	// the -D returns non-zero and we just move on.
+	runCommand(d.projDir, "git", "branch", "-D", "statbus/pre-upgrade")
 	d.supersedeOlderReleases(ctx, commitSHA)
 	d.runUpgradeCallback(displayName)
 
@@ -2118,13 +2132,26 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 // The previousVersion may be a tag, branch, or full SHA. Whatever
 // `git rev-parse --verify <ref>^{commit}` resolves to is the expected
 // HEAD after checkout.
+//
+// If `previousVersion` doesn't resolve (e.g., the tag was pruned
+// upstream and the local mirror dropped it), falls back to the
+// `statbus/pre-upgrade` branch pinned by executeUpgrade before the
+// destructive steps started — defense in depth against ref drift.
 func (d *Service) restoreGitState(previousVersion string, progress *ProgressLog) error {
 	progress.Write("Restoring git state to %s...", previousVersion)
 
-	// Pre-validate: refuse to checkout a ref we can't resolve.
+	// Pre-validate: refuse to checkout a ref we can't resolve. If the
+	// requested ref is gone, fall back to the persistent
+	// statbus/pre-upgrade branch before erroring out.
 	expectedOut, err := runCommandOutput(d.projDir, "git", "rev-parse", "--verify", previousVersion+"^{commit}")
 	if err != nil {
-		return fmt.Errorf("ref %s does not resolve: %w", previousVersion, err)
+		progress.Write("Ref %s does not resolve, falling back to statbus/pre-upgrade...", previousVersion)
+		fallbackOut, fallbackErr := runCommandOutput(d.projDir, "git", "rev-parse", "--verify", "statbus/pre-upgrade^{commit}")
+		if fallbackErr != nil {
+			return fmt.Errorf("neither %s nor statbus/pre-upgrade resolves: %v / %v", previousVersion, err, fallbackErr)
+		}
+		expectedOut = fallbackOut
+		previousVersion = "statbus/pre-upgrade"
 	}
 	expectedSHA := strings.TrimSpace(expectedOut)
 	if expectedSHA == "" {
