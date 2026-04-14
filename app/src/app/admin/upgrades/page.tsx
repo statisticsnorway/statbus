@@ -60,6 +60,7 @@ interface Upgrade {
   started_at: string | null;
   completed_at: string | null;
   error: string | null;
+  progress_log: string | null;
   rollback_completed_at: string | null;
   skipped_at: string | null;
   superseded_at: string | null;
@@ -557,6 +558,22 @@ function UpgradeCard({
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800 whitespace-pre-wrap">
               {u.error}
+            </CollapsibleContent>
+          </Collapsible>
+        )}
+
+        {/* Progress log: the service tail that preceded completion or
+            rollback. Opened by default on failures so the operator sees
+            what happened without an extra click, closed by default on
+            successes (less noise when everything worked). */}
+        {u.progress_log && (
+          <Collapsible defaultOpen={!!u.error || !!u.rollback_completed_at} className="mt-2">
+            <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+              <ChevronDown className="h-3 w-3" />
+              Log
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-2 rounded-md bg-slate-900 p-3 text-xs font-mono text-slate-100 whitespace-pre-wrap">
+              {u.progress_log}
             </CollapsibleContent>
           </Collapsible>
         )}

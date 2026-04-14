@@ -354,9 +354,10 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 	headSHA = strings.TrimSpace(headSHA)
 	if headSHA == flag.CommitSHA {
 		fmt.Printf("Upgrade %s succeeded (self-update restart detected)\n", flag.DisplayName)
+		logTail := readProgressLogTail(ProgressLogPath(d.projDir, flag.DisplayName), 50)
 		d.queryConn.Exec(ctx,
-			"UPDATE public.upgrade SET completed_at = now() WHERE id = $1 AND completed_at IS NULL",
-			flag.ID)
+			"UPDATE public.upgrade SET completed_at = now(), progress_log = $1 WHERE id = $2 AND completed_at IS NULL",
+			logTail, flag.ID)
 		// Explicit NOTIFY — the DB trigger also fires, but the app's LISTEN is
 		// definitely established by now (new service starts after app is healthy).
 		d.queryConn.Exec(ctx, `NOTIFY worker_status, '{"type":"upgrade_changed"}'`)
@@ -680,9 +681,14 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 		return
 	}
 
-	// Mark complete and remove flag file
+	// Mark complete and remove flag file. Also persist the version-specific
+	// progress log tail so the admin UI can show what happened — including
+	// when completion is credited by completeInProgressUpgrade after a
+	// self-update restart (the original executing process is gone, but the
+	// log file survives on the filesystem).
+	logTail := readProgressLogTail(ProgressLogPath(d.projDir, displayName), 50)
 	d.queryConn.Exec(ctx,
-		"UPDATE public.upgrade SET completed_at = now() WHERE id = $1", id)
+		"UPDATE public.upgrade SET completed_at = now(), progress_log = $1 WHERE id = $2", logTail, id)
 	d.removeUpgradeFlag()
 
 	// Skip older releases that are still "available" — no point upgrading to an older version
@@ -1671,11 +1677,16 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 
 	// If we get here, self-update didn't restart (no binary for platform, or same version).
 	// Mark complete now since there won't be a new service to do it.
-	d.queryConn.Exec(ctx, "UPDATE public.upgrade SET completed_at = now() WHERE id = $1", id)
+	// Also persist the full progress log tail so the admin UI can show what
+	// happened on success, same as it does on rollback — the operator
+	// shouldn't have to SSH into the server to read the log.
+	progress.Write("Upgrade to %s complete!", displayName)
+	logTail := readProgressLogTail(progress.path, 50)
+	d.queryConn.Exec(ctx,
+		"UPDATE public.upgrade SET completed_at = now(), progress_log = $1 WHERE id = $2", logTail, id)
 	d.removeUpgradeFlag()
 	d.supersedeOlderReleases(ctx, commitSHA)
 	d.runUpgradeCallback(displayName)
-	progress.Write("Upgrade to %s complete!", displayName)
 
 	return nil
 }
@@ -1731,10 +1742,15 @@ func (d *Service) runUpgradeCallback(displayName string) {
 }
 
 func (d *Service) failUpgrade(ctx context.Context, id int, errMsg string, progress *ProgressLog) {
-	if d.queryConn != nil {
-		d.queryConn.Exec(ctx, "UPDATE public.upgrade SET error = $1, scheduled_at = NULL WHERE id = $2", errMsg, id)
-	}
 	progress.Write("FAILED: %s", errMsg)
+	if d.queryConn != nil {
+		// progress_log captures the narrative tail so the admin UI can show
+		// the operator what led up to the failure without SSH access.
+		tail := readProgressLogTail(progress.path, 50)
+		d.queryConn.Exec(ctx,
+			"UPDATE public.upgrade SET error = $1, progress_log = $2, scheduled_at = NULL WHERE id = $3",
+			errMsg, tail, id)
+	}
 	// Always release the mutex on failure paths, even those that don't run
 	// rollback (e.g., pullImages failure returns directly after failUpgrade).
 	// removeUpgradeFlag is idempotent — safe when no flag was acquired (some
@@ -1776,28 +1792,19 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 	// Deactivate maintenance
 	d.setMaintenance(false)
 
-	// Persist the real failure context to public.upgrade.error so the admin UI
-	// can show WHY the rollback happened — not just "Rollback completed". Mix:
-	//
-	//   <reason>        — the proximate error that triggered rollback (e.g.
-	//                     "command timed out after 5m0s: docker [compose up -d db]")
-	//   --- Log tail ---
-	//   <last ~20 lines> — the actual upgrade progress log (includes docker
-	//                     compose stderr, migration output, etc.)
-	//
-	// Reading the progress log from disk here is fine: rollback runs
-	// synchronously after the failing step, so the log file still exists and
-	// holds the full narrative. No coupling to log-shipping or sidecar tooling.
+	// Persist the real failure reason in `error` (short, one-line) and the
+	// full narrative in `progress_log` (last ~50 lines). Split keeps the
+	// error column small and greppable while still giving the admin UI a
+	// complete story to render in a "Log" collapsible.
 	errMsg := reason
 	if reason == "" {
 		errMsg = "Rollback completed (no reason captured — caller did not pass one)"
 	}
-	if tail := readProgressLogTail(ProgressLogPath(d.projDir, version), 20); tail != "" {
-		errMsg = errMsg + "\n\n--- Log tail ---\n" + tail
-	}
+	logTail := readProgressLogTail(ProgressLogPath(d.projDir, version), 50)
 	if d.queryConn != nil {
 		d.queryConn.Exec(ctx,
-			"UPDATE public.upgrade SET error = $1, rollback_completed_at = now() WHERE id = $2", errMsg, id)
+			"UPDATE public.upgrade SET error = $1, progress_log = $2, rollback_completed_at = now() WHERE id = $3",
+			errMsg, logTail, id)
 	}
 
 	// Clear the in-progress flag: the rollback has restored a consistent state,
