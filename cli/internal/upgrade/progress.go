@@ -16,22 +16,27 @@ type ProgressLog struct {
 	file *os.File
 }
 
-// NewProgressLog creates a progress log for a specific version in projDir/tmp/.
-// The version is sanitized for use in filenames (sha-abc → sha-abc, v2026.03.1-rc.6 → v2026.03.1-rc.6).
-func NewProgressLog(projDir, version string) *ProgressLog {
-	dir := filepath.Join(projDir, "tmp")
-	os.MkdirAll(dir, 0755)
-
-	// Sanitize version for filename safety
+// ProgressLogPath returns the per-version log path without creating the file.
+// Matches the naming used by NewProgressLog so callers can read a specific
+// version's log after the fact (e.g., recoverFromFlag reading the log of the
+// upgrade that just crashed, identified by flag.DisplayName).
+func ProgressLogPath(projDir, version string) string {
 	safe := strings.Map(func(r rune) rune {
 		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '.' || r == '-' {
 			return r
 		}
 		return '_'
 	}, version)
+	return filepath.Join(projDir, "tmp", fmt.Sprintf("upgrade-progress-%s.log", safe))
+}
 
-	logName := fmt.Sprintf("upgrade-progress-%s.log", safe)
-	path := filepath.Join(dir, logName)
+// NewProgressLog creates a progress log for a specific version in projDir/tmp/.
+// The version is sanitized for use in filenames (sha-abc → sha-abc, v2026.03.1-rc.6 → v2026.03.1-rc.6).
+func NewProgressLog(projDir, version string) *ProgressLog {
+	dir := filepath.Join(projDir, "tmp")
+	os.MkdirAll(dir, 0755)
+
+	path := ProgressLogPath(projDir, version)
 	f, err := os.Create(path)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: cannot create progress log %s: %v\n", path, err)
@@ -42,7 +47,7 @@ func NewProgressLog(projDir, version string) *ProgressLog {
 	// Maintenance page fetches /upgrade-progress.log via Caddy.
 	symlinkPath := filepath.Join(dir, "upgrade-progress.log")
 	os.Remove(symlinkPath) // remove old symlink or file
-	os.Symlink(logName, symlinkPath)
+	os.Symlink(filepath.Base(path), symlinkPath)
 
 	return &ProgressLog{path: path, file: f}
 }

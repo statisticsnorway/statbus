@@ -193,9 +193,12 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 		return
 	}
 
-	// Real failure — read the progress log for the error message.
+	// Real failure — read the per-version progress log for the error message.
+	// Use ProgressLogPath (matches NewProgressLog naming) instead of the
+	// upgrade-progress.log symlink, which always points to the most recent
+	// run and could attribute a stale tail to the wrong (older) crash.
 	errMsg := "Upgrade interrupted (service crashed or was killed)"
-	progressPath := filepath.Join(d.projDir, "tmp", "upgrade-progress.log")
+	progressPath := ProgressLogPath(d.projDir, flag.DisplayName)
 	if logData, err := os.ReadFile(progressPath); err == nil {
 		lines := strings.Split(strings.TrimSpace(string(logData)), "\n")
 		if len(lines) > 5 {
