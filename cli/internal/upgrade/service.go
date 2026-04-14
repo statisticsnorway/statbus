@@ -1556,10 +1556,24 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 		return err
 	}
 
-	// Step 9: Start database
+	// Step 9: Start database. --no-build forces compose to USE THE PULLED IMAGE
+	// and fail if it's absent, rather than silently falling back to a local
+	// build from source (which for the db service means compiling pgrx
+	// extensions — pg_graphql, sql_saga_native, jsonb_stats — from Rust/cargo,
+	// a 10+ minute operation that blows past the 5m command timeout and gives
+	// no useful error). If the image isn't in the registry yet, CI hasn't
+	// built it. Tell the operator to wait for ci-images.yaml and retry.
 	progress.Write("Starting database...")
-	if err := runCommand(projDir, "docker", "compose", "up", "-d", "db"); err != nil {
-		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("docker compose up -d db: %v", err), progress)
+	if err := runCommand(projDir, "docker", "compose", "up", "-d", "--no-build", "db"); err != nil {
+		reason := fmt.Sprintf(
+			"docker compose up -d db: %v\n\n"+
+				"The db image for %s is not available locally or in the registry. "+
+				"CI builds images on every master push (ci-images.yaml); commit-tagged "+
+				"images take a few minutes to land. Wait for that workflow to finish, "+
+				"then retry the upgrade. Check status: "+
+				"gh run list --workflow=ci-images.yaml",
+			err, displayName)
+		d.rollback(ctx, id, displayName, previousVersion, reason, progress)
 		return err
 	}
 
@@ -1596,10 +1610,19 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 		}
 	}
 
-	// Step 11: Start application services (proxy already running from step 2)
+	// Step 11: Start application services (proxy already running from step 2).
+	// --no-build for the same reason as step 9: the app/worker/rest images
+	// must come from the registry, not a local build that may time out.
 	progress.Write("Starting services...")
-	if err := runCommand(projDir, "docker", "compose", "up", "-d", "app", "worker", "rest"); err != nil {
-		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("docker compose up -d app worker rest: %v", err), progress)
+	if err := runCommand(projDir, "docker", "compose", "up", "-d", "--no-build", "app", "worker", "rest"); err != nil {
+		reason := fmt.Sprintf(
+			"docker compose up -d app worker rest: %v\n\n"+
+				"One or more application images for %s are not available locally or in the registry. "+
+				"CI builds images on every master push (ci-images.yaml). "+
+				"Wait for that workflow to finish, then retry the upgrade. Check status: "+
+				"gh run list --workflow=ci-images.yaml",
+			err, displayName)
+		d.rollback(ctx, id, displayName, previousVersion, reason, progress)
 		return err
 	}
 
