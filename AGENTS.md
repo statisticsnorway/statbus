@@ -484,3 +484,11 @@ export const loginAtom = atom(null, async (get, set, credentials) => {
 - **Single-Instance Deployment**: See `doc/DEPLOYMENT.md` for standalone server setup
 - **Import System**: See `doc/import-system.md`
 - **Integration (API/PostgreSQL)**: See `doc/INTEGRATE.md`
+
+## Engineering Principles
+
+**Never defer known bugs.** If a latent bug is found during investigation, fix it immediately or in the very next step. Silent data corruption (e.g. missing UNIQUE constraints allowing duplicates) wastes huge amounts of user/debugging/support time. No "skip for now" — deferring known bugs is considered a moral deficiency.
+
+**Always add constraints.** If a table can have duplicates that shouldn't exist, add `UNIQUE`. If a function has a race condition, fix it. The codebase has dozens of constraints by design — intentional quality engineering, not over-engineering.
+
+**There are NO flaky tests.** Never dismiss test failures as "flaky" or "transient". Every failure has a real root cause. Common actual causes: concurrent test runs colliding on shared DB resources (left a background test running); actual code bugs introduced by changes; environment issues needing fixing. "Flaky" is a lazy excuse that masks real problems.

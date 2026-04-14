@@ -65,3 +65,7 @@ Every agent gets `tmp/agents/<agent-name>.md`. Writes progress, findings, decisi
 Agents that debug issues should BUILD DIAGNOSTIC TOOLS, not just debug. Add trace flags, logging, or diagnostic endpoints as permanent infrastructure. Every time an agent wishes it could see something, it should ADD the tool to see it.
 
 @AGENTS.md
+
+## macOS dev note: restarting Docker Desktop
+
+When Docker Desktop is unresponsive, try `open -a Docker` (macOS) and wait for health — don't stall waiting for the user. If `docker compose ps` fails with "Docker Desktop is unable to start", restart it programmatically.

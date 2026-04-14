@@ -197,3 +197,6 @@ Utilize these for type safety with database interactions.
 ## Next.js Specifics
 - Use hooks from `next/navigation` (`usePathname`, `useSearchParams`) for client-side navigation.
 - Global providers, including `<JotaiAppProvider>`, are placed in `app/src/app/layout.tsx`.
+
+## Additive UI changes
+When adding new access paths to existing functionality (e.g. command-palette downloads), keep the existing inline UI controls (buttons, dropdowns) in place. The new path is additive, not a replacement, unless explicitly stated otherwise. Before removing any existing UI element, confirm with the user.
