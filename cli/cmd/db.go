@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/spf13/cobra"
 	"github.com/statisticsnorway/statbus/cli/internal/config"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
@@ -540,8 +541,15 @@ SELECT pg_terminate_backend(pid)
 FROM pg_stat_activity
 WHERE datname = '%s' AND pid <> pg_backend_pid();
 `, strings.ReplaceAll(dbName, "'", "''"))
-	dropSQL := fmt.Sprintf(`DROP DATABASE IF EXISTS "%s";`, dbName)
-	createSQL := fmt.Sprintf(`CREATE DATABASE "%s";`, dbName)
+	// pgx.Identifier.Sanitize returns the value already wrapped in
+	// double quotes with internal " doubled and NULs stripped — the
+	// canonical "always use the library's identifier quoting" path.
+	// validIdentifier already rejects malformed names upstream, so this
+	// is belt-and-suspenders, but uniform for any identifier
+	// interpolation in this codebase.
+	qDbName := pgx.Identifier{dbName}.Sanitize()
+	dropSQL := fmt.Sprintf(`DROP DATABASE IF EXISTS %s;`, qDbName)
+	createSQL := fmt.Sprintf(`CREATE DATABASE %s;`, qDbName)
 
 	terminateCmd := exec.Command("docker", "compose", "exec", "-T", "db",
 		"psql", "-U", "postgres", "-c", terminateSQL)
@@ -744,8 +752,8 @@ WHERE datname = '%[1]s' AND pid <> pg_backend_pid();
 " || true
 
 docker compose exec -T db psql -U postgres \
-    -c "DROP DATABASE IF EXISTS \"%[1]s\";" \
-    -c "CREATE DATABASE \"%[1]s\";"
+    -c 'DROP DATABASE IF EXISTS %[4]s;' \
+    -c 'CREATE DATABASE %[4]s;'
 
 echo "Phase 1: Restoring schema (pre-data) ..."
 docker compose exec -T db pg_restore -U postgres -d %[1]s \
@@ -809,7 +817,7 @@ echo "Cleaning up uploaded dump ..."
 rm -f dbdumps/%[2]s
 
 echo "Restore complete"
-`, remoteDB, filepath.Base(dumpFile), code)
+`, remoteDB, filepath.Base(dumpFile), code, pgx.Identifier{remoteDB}.Sanitize())
 
 	fmt.Println("Running remote restore ...")
 	sshRestore := exec.Command("ssh",
