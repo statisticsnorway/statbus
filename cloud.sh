@@ -52,6 +52,31 @@ ssh_server() {
     ssh -o ConnectTimeout=10 "${server}@${HOST}" "$@"
 }
 
+# Stop the user-level upgrade service, then reconcile any stale upgrade
+# flag left on disk. Idempotent — both `systemctl stop` on a stopped unit
+# and `./sb upgrade recover` with no flag file are safe no-ops.
+#
+# Why both: if `systemctl stop` interrupts an in-flight executeUpgrade,
+# tmp/upgrade-in-progress.json persists. The next install (which checks
+# the mutex) would (correctly) abort with "prior upgrade crashed —
+# recovery required". `./sb upgrade recover` runs that recovery directly
+# without needing to start the service back up just to clean up.
+stop_and_unwedge() {
+    local server="$1"
+    ssh_server "$server" "systemctl --user stop statbus-upgrade@${server}.service 2>/dev/null || true" 2>&1
+    ssh_server "$server" "cd statbus && ./sb upgrade recover 2>&1 || true" 2>&1 || true
+}
+
+# Ensure the user-level upgrade service is running on exit. Idempotent —
+# `systemctl start` on a running unit is a no-op. Used at the end of
+# `cmd_install_one` (and on its error paths) so that any cloud.sh exit
+# leaves the server in a normal "service running" state, not "stopped
+# pending operator intervention".
+ensure_service_started() {
+    local server="$1"
+    ssh_server "$server" "systemctl --user start statbus-upgrade@${server}.service" 2>&1 || true
+}
+
 validate_server() {
     local target="$1"
     if [ "$target" != "all" ] && ! echo "$SERVERS" | grep -qw "$target"; then
@@ -108,13 +133,23 @@ cmd_install() {
 }
 
 cmd_install_one() {
-    # Concurrency safety: both channel branches stop the remote upgrade service
-    # via `systemctl --user stop` BEFORE swapping the binary or running the
-    # installer. That stop removes the "active" actor from the picture, so when
-    # `./sb install` runs remotely it sees either no mutex flag (common) or a
-    # stale flag from a crashed upgrade (in which case it instructs the operator
-    # to start the service to trigger recoverFromFlag). Either way, there is no
-    # race with an in-flight executeUpgrade.
+    # Idempotent install flow:
+    #   stop_and_unwedge → install → ensure_service_started
+    #
+    # Both wrappers are no-ops when there is nothing to do, so re-running
+    # `./cloud.sh install <server>` after any partial failure (SSH drop,
+    # Ctrl-C, transient error) is safe — every step is rerun-safe.
+    #
+    # Concurrency safety: stop_and_unwedge stops the remote upgrade service
+    # AND runs `./sb upgrade recover` to reconcile any stale
+    # tmp/upgrade-in-progress.json flag left by a service kill mid-upgrade.
+    # That removes the only actor that could race the install. When `./sb
+    # install` runs remotely it sees no mutex flag (clean state); install
+    # proceeds without the "previous upgrade crashed" abort.
+    #
+    # ensure_service_started runs at the end (and on the failure-return path)
+    # so a cloud.sh exit always leaves the server with the upgrade service
+    # running, not stopped-and-wedged.
     local server="$1"
     local exit_code=0
 
@@ -133,21 +168,22 @@ cmd_install_one() {
         # Stop user-level service before replacing binary.
         # systemd --user restarts it immediately (Restart=always),
         # and the new process holds the binary open → "Text file busy" on mv.
-        ssh_server "$server" "systemctl --user stop statbus-upgrade@${server}.service 2>/dev/null || true" 2>&1
+        # stop_and_unwedge also reconciles any stale upgrade-in-progress flag
+        # that would otherwise block ./sb install with a "prior upgrade
+        # crashed" abort.
+        stop_and_unwedge "$server"
         ssh_server "$server" "cd statbus && mv sb-linux-amd64 sb" 2>&1
         # ./sb install detects the service is stopped and restarts it (user-level, no root needed).
         ssh_server "$server" "cd statbus && ./sb install" 2>&1 \
             || exit_code=$?
     else
         echo "Installing $server via $INSTALL_URL ..."
-        # Stop the user-level upgrade service before running install.sh.
-        # Mirrors the edge-channel behavior above. Without this, an in-flight
-        # executeUpgrade in the service could race the install.sh binary swap,
-        # and the new install's mutex check would (correctly) block with a
-        # "upgrade in progress" error. Stop-first is the cleanest path:
-        # install.sh's install step re-enables and starts the service on
-        # completion.
-        ssh_server "$server" "systemctl --user stop statbus-upgrade@${server}.service 2>/dev/null || true" 2>&1
+        # Stop the user-level upgrade service AND reconcile any stale flag
+        # before running install.sh. Without the recovery step, a service
+        # killed mid-upgrade leaves a flag that would (correctly) block
+        # `./sb install` with "prior upgrade crashed". install.sh's install
+        # step re-enables and starts the service on completion.
+        stop_and_unwedge "$server"
         # Step 1: Run install.sh as the app user.
         # Exit code 42 = service needs root (not a failure).
         ssh_server "$server" \
@@ -157,6 +193,7 @@ cmd_install_one() {
 
     if [ "$exit_code" -ne 0 ]; then
         echo "--- $server install FAILED (exit code $exit_code) ---"
+        ensure_service_started "$server"
         return 1
     fi
 
@@ -168,6 +205,11 @@ cmd_install_one() {
     # Step 4: Final verify — all steps must pass.
     echo "Verifying install..."
     ssh_server "$server" "cd statbus && ./sb install" 2>&1
+
+    # Always leave the upgrade service running on success, regardless of
+    # whether install's own service-install step fired (e.g., when running
+    # without root and the user-level path was used).
+    ensure_service_started "$server"
 
     echo "--- $server install complete ---"
 }

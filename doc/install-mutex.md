@@ -85,7 +85,7 @@ Flag files written before Release 1 lack `PID` and `StartedAt`. JSON unmarshal g
 | Symptom | What happened | Recovery |
 |---|---|---|
 | "Upgrade in progress: PID X is running. Wait for it to complete." | The upgrade service is genuinely executing an upgrade right now. | Wait. Monitor with `journalctl --user -u 'statbus-upgrade@*' -f`. |
-| "Prior upgrade crashed … PID X is no longer alive but the flag file remains." | Service process died mid-upgrade (OOM, kill, crash), or was stopped by an operator mid-run. | `systemctl --user start 'statbus-upgrade@*'`. The startup handler reads the flag, checks git HEAD, marks the DB row completed (if HEAD matches) or failed (if it doesn't), removes the flag. Retry install. |
+| "Prior upgrade crashed … PID X is no longer alive but the flag file remains." | Service process died mid-upgrade (OOM, kill, crash), or was stopped by an operator mid-run. | Run `./sb upgrade recover` directly (no service restart needed). It reads the flag, checks git HEAD, marks the DB row completed (if HEAD matches) or failed (if it doesn't), removes the flag. Retry install. Equivalent: `systemctl --user start 'statbus-upgrade@*'` — the service's startup handler does the same reconciliation. |
 | "Upgrade flag file present but unreadable" | JSON corruption or incompatible schema. | Investigate `~/statbus/tmp/upgrade-in-progress.json` manually. If truly garbage, remove the file and start the service so `recoverFromFlag` can operate cleanly on the next upgrade cycle. |
 
 ## What the mutex does NOT cover

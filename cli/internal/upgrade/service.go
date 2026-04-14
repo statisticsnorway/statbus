@@ -217,6 +217,45 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 	d.removeUpgradeFlag()
 }
 
+// RecoverFromFlag is the exported form of recoverFromFlag — the
+// reconciliation step that runs at service startup but can also be invoked
+// as a one-shot by `./sb upgrade recover` when the service is stopped
+// (e.g., after `./cloud.sh install` killed the unit mid-upgrade and the
+// flag file persists on disk).
+//
+// The caller MUST call LoadConfigAndConnect first so queryConn is live,
+// and Close after to release connections.
+func (d *Service) RecoverFromFlag(ctx context.Context) {
+	d.recoverFromFlag(ctx)
+}
+
+// LoadConfigAndConnect performs the startup steps needed before
+// RecoverFromFlag (or any other one-shot that reads/writes public.upgrade)
+// can run: load .env config, acquire the queryConn / listenConn.
+//
+// Does NOT acquire the advisory lock. One-shot recovery is meant to run
+// when the service is stopped — by definition there is no running service
+// to conflict with. If the service IS running, it has already done (or
+// will do) the recovery itself; calling recover as a one-shot is then
+// redundant but safe (the flag file is gone, RecoverFromFlag returns).
+func (d *Service) LoadConfigAndConnect(ctx context.Context) error {
+	if err := d.loadConfig(); err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+	return d.connect(ctx)
+}
+
+// Close releases the query/listen connections acquired by LoadConfigAndConnect.
+// Safe to call when connections were never opened.
+func (d *Service) Close() {
+	if d.queryConn != nil {
+		d.queryConn.Close(context.Background())
+	}
+	if d.listenConn != nil {
+		d.listenConn.Close(context.Background())
+	}
+}
+
 // Run starts the upgrade service main loop.
 func (d *Service) Run(ctx context.Context) error {
 	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
