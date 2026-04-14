@@ -1413,8 +1413,13 @@ erDiagram
 		text from_version
 		boolean images_downloaded
 		text backup_path
-		boolean artifacts_ready
 		timestamp_with_time_zone superseded_at
+		text progress_log
+		boolean docker_images_ready
+		boolean release_builds_ready
+		boolean artifacts_ready
+		timestamp_with_time_zone dismissed_at
+		upgrade_state state
 	}
 	sql_saga_era["sql_saga.era"] {
 		name table_schema
