@@ -148,14 +148,23 @@ func (d *Service) pullImages(version string) error {
 }
 
 func (d *Service) setMaintenance(active bool) {
-	dir := filepath.Join(os.Getenv("HOME"), "statbus-maintenance")
-	file := filepath.Join(dir, "active")
+	// ~/maintenance is the path Caddy's try_files directive watches (see
+	// cli/src/templates/private.caddyfile.ecr and standalone.caddyfile.ecr).
+	// When this file exists, Caddy serves maintenance.html with 503 for all requests.
+	file := filepath.Join(os.Getenv("HOME"), "maintenance")
 
 	if active {
-		os.MkdirAll(dir, 0755)
-		os.WriteFile(file, []byte("upgrade in progress\n"), 0644)
+		if err := os.WriteFile(file, []byte("upgrade in progress\n"), 0644); err != nil {
+			fmt.Printf("maintenance: failed to create %s: %v\n", file, err)
+		} else {
+			fmt.Printf("maintenance: created %s\n", file)
+		}
 	} else {
-		os.Remove(file)
+		if err := os.Remove(file); err != nil && !os.IsNotExist(err) {
+			fmt.Printf("maintenance: failed to remove %s: %v\n", file, err)
+		} else {
+			fmt.Printf("maintenance: removed %s\n", file)
+		}
 	}
 }
 

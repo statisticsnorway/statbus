@@ -1223,7 +1223,7 @@ func (d *Service) reconnect(ctx context.Context) error {
 }
 
 func (d *Service) cleanStaleMaintenance(ctx context.Context) {
-	maintenanceFile := filepath.Join(os.Getenv("HOME"), "statbus-maintenance", "active")
+	maintenanceFile := filepath.Join(os.Getenv("HOME"), "maintenance")
 	if _, err := os.Stat(maintenanceFile); os.IsNotExist(err) {
 		return
 	}
