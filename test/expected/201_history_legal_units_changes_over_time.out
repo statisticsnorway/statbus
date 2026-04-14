@@ -192,7 +192,7 @@ WARNING:  Error in before_procedure worker.notify_task_progress for task 981: wo
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |   437
+ analytics | completed |   439
  import    | completed |    48
 (2 rows)
 
@@ -293,12 +293,12 @@ ORDER BY slug;
 \echo Run worker processing for analytics tasks - Block 3
 Run worker processing for analytics tasks - Block 3
 CALL worker.process_tasks(p_queue => 'analytics');
-WARNING:  Error in before_procedure worker.notify_task_progress for task 1479: worker.notify_task_progress() is not a procedure
-WARNING:  Error in before_procedure worker.notify_task_progress for task 1482: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 1481: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 1484: worker.notify_task_progress() is not a procedure
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |   437
+ analytics | completed |   439
  import    | completed |    48
 (2 rows)
 

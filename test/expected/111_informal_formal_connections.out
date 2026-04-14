@@ -142,7 +142,7 @@ WARNING:  Error in before_procedure worker.notify_task_progress for task 394: wo
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |   134
+ analytics | completed |   138
  import    | completed |   144
 (2 rows)
 
@@ -795,12 +795,12 @@ FROM equator_enterprise
 \echo Run worker processing for analytics tasks (after import and manual connection)
 Run worker processing for analytics tasks (after import and manual connection)
 CALL worker.process_tasks(p_queue => 'analytics');
-WARNING:  Error in before_procedure worker.notify_task_progress for task 529: worker.notify_task_progress() is not a procedure
-WARNING:  Error in before_procedure worker.notify_task_progress for task 532: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 533: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 536: worker.notify_task_progress() is not a procedure
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |   388
+ analytics | completed |   400
  import    | completed |   144
 (2 rows)
 

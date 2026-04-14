@@ -144,8 +144,8 @@ SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT 
 \echo "Run worker processing for analytics tasks - Partial Update"
 "Run worker processing for analytics tasks - Partial Update"
 CALL worker.process_tasks(p_queue => 'analytics');
-WARNING:  Error in before_procedure worker.notify_task_progress for task 851: worker.notify_task_progress() is not a procedure
-WARNING:  Error in before_procedure worker.notify_task_progress for task 854: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 863: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 866: worker.notify_task_progress() is not a procedure
 \echo "Checking import data for partial update. Expecting one error, and 8 successful updates with merge_status showing what was applied."
 "Checking import data for partial update. Expecting one error, and 8 successful updates with merge_status showing what was applied."
 \x on

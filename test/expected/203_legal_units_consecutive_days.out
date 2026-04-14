@@ -376,7 +376,7 @@ WARNING:  Error in before_procedure worker.notify_task_progress for task 543: wo
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |    43
+ analytics | completed |    45
  import    | completed |    96
 (2 rows)
 
@@ -436,7 +436,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- analytics | completed |    43
+ analytics | completed |    45
  import    | completed |   144
 (3 rows)
 
@@ -454,12 +454,12 @@ SELECT
 \echo Run worker processing for analytics tasks (Scenario 2 - Day 1, 3 & 4)
 Run worker processing for analytics tasks (Scenario 2 - Day 1, 3 & 4)
 CALL worker.process_tasks(p_queue => 'analytics');
-WARNING:  Error in before_procedure worker.notify_task_progress for task 646: worker.notify_task_progress() is not a procedure
-WARNING:  Error in before_procedure worker.notify_task_progress for task 649: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 648: worker.notify_task_progress() is not a procedure
+WARNING:  Error in before_procedure worker.notify_task_progress for task 651: worker.notify_task_progress() is not a procedure
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |   116
+ analytics | completed |   122
  import    | completed |   144
 (2 rows)
 
