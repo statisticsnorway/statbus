@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # stamp-if-clean.sh
 #
 # Writes the current git HEAD SHA to tmp/<stamp-name> at the project
@@ -16,6 +16,11 @@
 # Consumed by cli/cmd/release.go:preflightChecks — `./sb release
 # prerelease` refuses to tag unless the stamps cover every app/ file
 # changed since the stamped SHA.
+#
+# Shebang is /bin/sh (POSIX) so this also runs inside the alpine-based
+# Dockerfile build (node:22-alpine has no /bin/bash). When the script
+# runs in a context with no .git (e.g., inside `docker build`), it
+# bails out as a no-op — there's nothing meaningful to stamp.
 
 set -e
 
@@ -23,6 +28,14 @@ STAMP="$1"
 if [ -z "$STAMP" ]; then
     echo "usage: stamp-if-clean.sh <stamp-name>" >&2
     exit 1
+fi
+
+# Bail out gracefully when we're not in a git work tree — happens
+# inside Docker builds, tarball extracts, etc. The stamp is a
+# host-side prerelease gate; running it elsewhere serves no purpose.
+if ! git rev-parse --show-toplevel >/dev/null 2>&1; then
+    echo "Note: not in a git work tree; skipping stamp ($STAMP)."
+    exit 0
 fi
 
 if git diff --quiet HEAD -- . && git diff --cached --quiet HEAD -- .; then
