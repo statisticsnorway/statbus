@@ -168,7 +168,47 @@ func preflightChecks(projDir string) bool {
 		}
 	}
 
-	// 7. Snapshot covers latest migrations
+	// 7. App tsc covers latest app changes
+	//    Stamp written by `cd app && pnpm run tsc` (or `pnpm run build`)
+	//    via app/scripts/stamp-if-clean.sh. Preflight refuses to tag if
+	//    any file in app/ changed since the stamped SHA — avoids tagging
+	//    a release whose TypeScript doesn't type-check.
+	checkAppStamp := func(stampFile, cmd, label string) {
+		stampPath := filepath.Join(projDir, "tmp", stampFile)
+		b, err := os.ReadFile(stampPath)
+		if err != nil {
+			fmt.Printf("  \u2717 %s (tmp/%s not found)\n", label, stampFile)
+			fmt.Printf("    Fix: cd app && pnpm run %s\n", cmd)
+			allPassed = false
+			return
+		}
+		stampSHA := strings.TrimSpace(string(b))
+		out, _ := upgrade.RunCommandOutput(projDir, "git", "diff", "--name-only",
+			stampSHA+"..HEAD", "--", "app")
+		changed := strings.TrimSpace(out)
+		short := stampSHA
+		if len(short) > 12 {
+			short = short[:12]
+		}
+		if changed == "" {
+			fmt.Printf("  \u2713 %s (stamp: %s)\n", label, short)
+			return
+		}
+		files := strings.Split(changed, "\n")
+		fmt.Printf("  \u2717 %s\n", label)
+		fmt.Printf("    %d change(s) in app/ since stamp %s:\n", len(files), short)
+		for _, f := range files {
+			if f != "" {
+				fmt.Printf("      %s\n", f)
+			}
+		}
+		fmt.Printf("    Fix: cd app && pnpm run %s\n", cmd)
+		allPassed = false
+	}
+	checkAppStamp("app-tsc-passed-sha", "tsc", "App tsc covers latest app changes")
+	checkAppStamp("app-build-passed-sha", "build", "App build covers latest app changes")
+
+	// 8. Snapshot covers latest migrations
 	// Intent: every release must have a fresh .db-snapshot so installs and CI are fast.
 	// If migrations were added since the last snapshot, the developer must run
 	// ./dev.sh update-snapshot before releasing.
