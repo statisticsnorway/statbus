@@ -62,6 +62,8 @@ interface Upgrade {
   error: string | null;
   progress_log: string | null;
   rollback_completed_at: string | null;
+  docker_images_ready: boolean;
+  release_builds_ready: boolean;
   skipped_at: string | null;
   superseded_at: string | null;
   artifacts_ready: boolean;
@@ -514,10 +516,21 @@ function UpgradeCard({
               }>
                 {u.release_status === 'release' ? 'release' : u.release_status === 'prerelease' ? 'pre-release' : 'commit'}
               </Badge>
-              {!u.artifacts_ready && u.release_status !== 'commit' && (
+              {/* Two distinct readiness states, both verified against their
+                  respective registries by the upgrade service's discovery
+                  cycle. Shown separately so an operator can tell which CI
+                  workflow is still running (ci-images.yaml vs release.yaml)
+                  and set realistic expectations. */}
+              {!u.docker_images_ready && (
                 <Badge variant="outline" className="text-xs border-amber-300 text-amber-600">
                   <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                  building...
+                  images building...
+                </Badge>
+              )}
+              {u.docker_images_ready && !u.release_builds_ready && (
+                <Badge variant="outline" className="text-xs border-amber-300 text-amber-600">
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  release artifacts building...
                 </Badge>
               )}
               {u.has_migrations && (
@@ -598,8 +611,12 @@ function UpgradeCard({
         <div className="mt-3 flex gap-2">
           {status === "available" && (
             <>
-              {!u.artifacts_ready && u.release_status !== 'commit' ? (
-                <span className="text-xs text-amber-600">Release building... upgrade will be available when CI finishes.</span>
+              {!u.artifacts_ready ? (
+                <span className="text-xs text-amber-600">
+                  {!u.docker_images_ready
+                    ? "Images building... upgrade will be available when ci-images.yaml finishes."
+                    : "Release artifacts building... upgrade will be available when release.yaml finishes."}
+                </span>
               ) : (
               <AlertDialog>
                 <AlertDialogTrigger asChild>

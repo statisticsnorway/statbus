@@ -393,6 +393,96 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 	d.removeUpgradeFlag()
 }
 
+// verifyArtifacts runs the declarative artifact readiness check for every
+// public.upgrade row that hasn't already been completed, rolled back, or
+// skipped. Two independent levels are tracked by separate columns so the
+// admin UI can tell an operator exactly what it is waiting for:
+//
+//   docker_images_ready            — the four Docker images (db/app/worker/proxy)
+//                             exist at the runtime VERSION tag
+//                             (git-describe output). Verified via
+//                             `docker manifest inspect` — a registry-only
+//                             query that doesn't pull.
+//   release_builds_ready — for tagged releases only: the GitHub Release
+//                             + `sb` binary + manifest.json exist. Set
+//                             by the discovery loop above via FetchManifest.
+//                             For commits this defaults to true (edge
+//                             channel doesn't use release artifacts).
+//   artifacts_ready         — composite: docker_images_ready AND
+//                             release_builds_ready. The existing "can
+//                             I start the upgrade?" flag, still checked
+//                             by UI and executeUpgrade.
+//
+// Scoped to the 30 most recent pending rows to bound per-cycle cost.
+func (d *Service) verifyArtifacts(ctx context.Context) {
+	const registryPrefix = "ghcr.io/statisticsnorway/statbus-"
+	services := []string{"db", "app", "worker", "proxy"}
+
+	rows, err := d.queryConn.Query(ctx, `
+		SELECT id, commit_sha, release_status::text, docker_images_ready, release_builds_ready
+		  FROM public.upgrade
+		 WHERE (NOT docker_images_ready OR NOT artifacts_ready)
+		   AND completed_at IS NULL
+		   AND rollback_completed_at IS NULL
+		   AND skipped_at IS NULL
+		   AND superseded_at IS NULL
+		 ORDER BY committed_at DESC
+		 LIMIT 30`)
+	if err != nil {
+		return
+	}
+
+	type pendingRow struct {
+		id                    int
+		sha                   string
+		releaseStatus         string
+		dockerImagesReady           bool
+		releaseBuildsReady bool
+	}
+	var pending []pendingRow
+	for rows.Next() {
+		var r pendingRow
+		if err := rows.Scan(&r.id, &r.sha, &r.releaseStatus, &r.dockerImagesReady, &r.releaseBuildsReady); err == nil {
+			pending = append(pending, r)
+		}
+	}
+	rows.Close()
+
+	for _, r := range pending {
+		dockerImagesReady := r.dockerImagesReady
+		if !dockerImagesReady {
+			out, err := runCommandOutput(d.projDir, "git", "describe", "--tags", "--always", r.sha)
+			if err != nil {
+				continue
+			}
+			tag := strings.TrimSpace(out)
+			if tag == "" {
+				continue
+			}
+			allPresent := true
+			for _, svc := range services {
+				ref := fmt.Sprintf("%s%s:%s", registryPrefix, svc, tag)
+				if _, mErr := runCommandOutput(d.projDir, "docker", "manifest", "inspect", ref); mErr != nil {
+					allPresent = false
+					break
+				}
+			}
+			if allPresent {
+				d.queryConn.Exec(ctx,
+					"UPDATE public.upgrade SET docker_images_ready = true WHERE id = $1 AND NOT docker_images_ready",
+					r.id)
+				fmt.Printf("Images verified for commit %s (tag=%s)\n", r.sha[:12], tag)
+				dockerImagesReady = true
+			}
+		}
+
+		// artifacts_ready is a PostgREST computed column (migration
+		// 20260414170000); it derives from docker_images_ready AND
+		// release_builds_ready at read time, so we no longer write it.
+		_ = dockerImagesReady // result is recorded via the UPDATE above when applicable
+	}
+}
+
 // RecoverFromFlag is the exported form of recoverFromFlag — the
 // reconciliation step that runs at service startup but can also be invoked
 // as a one-shot by `./sb upgrade recover` when the service is stopped
@@ -1133,15 +1223,27 @@ func (d *Service) discover(ctx context.Context) {
 			t.CommitSHA, t.TagName, targetStatus)
 	}
 
-	// Check manifest availability for tagged releases and update artifacts_ready.
-	// On each discovery cycle, tags with artifacts_ready=false get re-checked.
+	// Check GitHub Release manifest availability for tagged releases and
+	// update release_builds_ready. The manifest lives alongside the `sb`
+	// binary and changelog in the GitHub Release — if FetchManifest
+	// succeeds, all three are published. Commits never have this.
 	for _, t := range filtered {
 		if _, err := FetchManifest(t.TagName); err == nil {
 			d.queryConn.Exec(ctx,
-				"UPDATE public.upgrade SET artifacts_ready = true WHERE commit_sha = $1 AND NOT artifacts_ready",
+				"UPDATE public.upgrade SET release_builds_ready = true WHERE commit_sha = $1 AND NOT release_builds_ready",
 				t.CommitSHA)
 		}
 	}
+
+	// Two-level declarative verification covering every pending row:
+	//   1. docker_images_ready — queries ghcr.io for each of the four images at
+	//      the runtime VERSION tag.
+	//   2. artifacts_ready — composite derived from docker_images_ready AND
+	//      release_builds_ready (commits skip the release half).
+	// Runs on every discovery cycle; cheap (bounded per-cycle) and
+	// idempotent. Gives the admin UI accurate "what are we waiting for"
+	// signal without coupling to CI workflow telemetry.
+	d.verifyArtifacts(ctx)
 
 	// Prune tags deleted upstream: remove from the tags array in the DB
 	// any tags that no longer exist in git. If all tags are removed,
@@ -1233,8 +1335,16 @@ func (d *Service) discoverEdge(ctx context.Context) {
 			summary = summary[:120]
 		}
 
+		// release_builds_ready=true for commits because edge channel
+		// never needs release.yaml output (no self-update, no manifest).
+		// docker_images_ready and artifacts_ready default to false and are flipped
+		// by verifyArtifacts() once docker manifest inspect confirms the
+		// four images for this commit's git-describe tag have landed in
+		// the registry. Previously this hardcoded artifacts_ready=true,
+		// which let the UI offer "Upgrade Now" for commits whose images
+		// hadn't been built yet.
 		_, err := d.queryConn.Exec(ctx,
-			`INSERT INTO public.upgrade (commit_sha, committed_at, summary, has_migrations, artifacts_ready)
+			`INSERT INTO public.upgrade (commit_sha, committed_at, summary, has_migrations, release_builds_ready)
 			 VALUES ($1, $2, $3, false, true)
 			 ON CONFLICT (commit_sha) DO NOTHING`,
 			c.SHA, c.PublishedAt, summary)
