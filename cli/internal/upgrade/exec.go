@@ -46,6 +46,20 @@ func RunCommandOutput(dir string, name string, args ...string) (string, error) {
 	return runCommandOutput(dir, name, args...)
 }
 
+// gitArgs prepends invocation-scoped config overrides when name == "git".
+// Specifically disables log.showSignature for programmatic git invocations —
+// if the operator set it globally (for their interactive `git log`), it would
+// inject "Good 'git' signature..." lines into %H and other --format outputs,
+// corrupting any parsing we do (e.g., preflight's "last migration" SHA lookup).
+// The override is scoped to the single invocation; the operator's global
+// config is untouched.
+func gitArgs(name string, args []string) []string {
+	if name != "git" {
+		return args
+	}
+	return append([]string{"-c", "log.showSignature=false"}, args...)
+}
+
 // runCommand executes a command with inherited stdout/stderr and a default 5-minute timeout.
 func runCommand(dir string, name string, args ...string) error {
 	return runCommandWithTimeout(dir, 5*time.Minute, name, args...)
@@ -86,7 +100,7 @@ func runInstallFixup(projDir string) error {
 func runCommandWithTimeout(dir string, timeout time.Duration, name string, args ...string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, name, args...)
+	cmd := exec.CommandContext(ctx, name, gitArgs(name, args)...)
 	cmd.Dir = dir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -102,7 +116,7 @@ func runCommandWithTimeout(dir string, timeout time.Duration, name string, args 
 func runCommandOutput(dir string, name string, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, name, args...)
+	cmd := exec.CommandContext(ctx, name, gitArgs(name, args)...)
 	cmd.Dir = dir
 	prepareCmd(cmd)
 	out, err := cmd.CombinedOutput()
