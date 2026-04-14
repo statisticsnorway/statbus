@@ -27,7 +27,18 @@ if [ ! -f "$WORKSPACE/.db-snapshot/snapshot.pg_dump" ] && [ -x ./sb ]; then
     ./sb db snapshot fetch 2>/dev/null || true
 fi
 
+# Rebuild ./sb when:
+#   - the binary doesn't exist, OR
+#   - any cli/**/*.go source is newer than the binary (developer pulled
+#     new code, or hot-edited locally — without this check, dev.sh would
+#     keep using the stale binary and developers would chase ghost bugs).
+sb_needs_rebuild=false
 if ! test -x ./sb; then
+    sb_needs_rebuild=true
+elif [ -n "$(find cli -name '*.go' -newer ./sb -print -quit 2>/dev/null)" ]; then
+    sb_needs_rebuild=true
+fi
+if [ "$sb_needs_rebuild" = true ]; then
     if command -v go >/dev/null 2>&1; then
         echo "Building sb from source..."
         # Inject version from git describe. Strip "v" prefix to match release.yaml
@@ -37,7 +48,7 @@ if ! test -x ./sb; then
         _SB_LDFLAGS="-X 'github.com/statisticsnorway/statbus/cli/cmd.version=${_SB_VERSION}' -X 'github.com/statisticsnorway/statbus/cli/cmd.commit=${_SB_COMMIT}'"
         (cd cli && go build -ldflags "$_SB_LDFLAGS" -o ../sb .)
     else
-        echo "Error: ./sb binary not found. Build it with: cd cli && go build -o ../sb ."
+        echo "Error: ./sb binary not found or out of date. Build it with: cd cli && go build -o ../sb ."
         exit 1
     fi
 fi
