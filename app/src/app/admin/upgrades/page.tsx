@@ -43,6 +43,17 @@ import {
   XCircle,
 } from "lucide-react";
 
+type UpgradeState =
+  | "available"
+  | "scheduled"
+  | "in_progress"
+  | "completed"
+  | "failed"
+  | "rolled_back"
+  | "dismissed"
+  | "skipped"
+  | "superseded";
+
 interface Upgrade {
   id: number;
   commit_sha: string;
@@ -51,6 +62,8 @@ interface Upgrade {
   tags: string[];
   release_status: 'commit' | 'prerelease' | 'release';
   display_name: string;
+  display_state: string;
+  state: UpgradeState;
   summary: string;
   changes: string | null;
   release_url: string | null;
@@ -65,6 +78,7 @@ interface Upgrade {
   docker_images_ready: boolean;
   release_builds_ready: boolean;
   skipped_at: string | null;
+  dismissed_at: string | null;
   superseded_at: string | null;
   artifacts_ready: boolean;
   images_downloaded: boolean;
@@ -76,54 +90,22 @@ interface SystemInfo {
   value: string;
 }
 
-type UpgradeStatus =
-  | "available"
-  | "scheduled"
-  | "in_progress"
-  | "completed"
-  | "failed"
-  | "rolled_back"
-  | "skipped"
-  | "superseded";
-
-function getStatus(u: Upgrade): UpgradeStatus {
-  if (u.completed_at) return "completed";
-  if (u.superseded_at) return "superseded";
-  if (u.skipped_at) return "skipped";
-  if (u.rollback_completed_at) return "rolled_back";
-  if (u.error) return "failed";
-  if (u.started_at) return "in_progress";
-  if (u.scheduled_at) return "scheduled";
-  return "available";
-}
-
-function StatusBadge({ status }: { status: UpgradeStatus }) {
-  const variants: Record<UpgradeStatus, { label: string; className: string }> =
-    {
-      available: { label: "Available", className: "bg-blue-100 text-blue-800" },
-      scheduled: {
-        label: "Scheduled",
-        className: "bg-yellow-100 text-yellow-800",
-      },
-      in_progress: {
-        label: "In Progress",
-        className: "bg-purple-100 text-purple-800",
-      },
-      completed: {
-        label: "Completed",
-        className: "bg-green-100 text-green-800",
-      },
-      failed: { label: "Failed", className: "bg-red-100 text-red-800" },
-      rolled_back: {
-        label: "Rolled Back",
-        className: "bg-orange-100 text-orange-800",
-      },
-      skipped: { label: "Skipped", className: "bg-gray-100 text-gray-600" },
-      superseded: { label: "Superseded", className: "bg-gray-100 text-gray-500" },
-    };
-
-  const v = variants[status];
-  return <Badge className={v.className}>{v.label}</Badge>;
+function StateBadge({ state, label }: { state: UpgradeState; label: string }) {
+  // Label comes from PostgREST's public.display_state(upgrade) so the UI
+  // doesn't duplicate the enum → human-readable mapping. The className
+  // per state stays in the UI since it's styling, not presentation.
+  const classes: Record<UpgradeState, string> = {
+    available:   "bg-blue-100 text-blue-800",
+    scheduled:   "bg-yellow-100 text-yellow-800",
+    in_progress: "bg-purple-100 text-purple-800",
+    completed:   "bg-green-100 text-green-800",
+    failed:      "bg-red-100 text-red-800",
+    rolled_back: "bg-orange-100 text-orange-800",
+    dismissed:   "bg-gray-100 text-gray-700",
+    skipped:     "bg-gray-100 text-gray-600",
+    superseded:  "bg-gray-100 text-gray-500",
+  };
+  return <Badge className={classes[state]}>{label}</Badge>;
 }
 
 const fetcher = async (url: string) => {
@@ -161,7 +143,10 @@ export default function UpgradesPage() {
     error,
     mutate,
   } = useSWR<Upgrade[]>(
-    "/rest/upgrade?select=*,display_name&order=position.desc.nullslast,committed_at.desc&limit=20",
+    // display_name + display_state are PostgREST computed columns (functions
+    // taking the row type) — must be listed explicitly in select; select=*
+    // only covers real + GENERATED columns.
+    "/rest/upgrade?select=*,display_name,display_state&order=position.desc.nullslast,committed_at.desc&limit=20",
     fetcher,
     {
       // Poll fast (3s) when an upgrade is active, slow (30s) otherwise.
@@ -199,7 +184,7 @@ export default function UpgradesPage() {
 
   // Detect when an upgrade takes the app down — show the maintenance page inline.
   const hasActiveUpgrade = upgrades?.some((u) => {
-    const s = getStatus(u);
+    const s = u.state;
     return s === "in_progress" || s === "scheduled";
   });
   const showMaintenanceView = error && hasActiveUpgrade;
@@ -323,16 +308,21 @@ export default function UpgradesPage() {
         const history: Upgrade[] = [];
 
         for (const u of upgrades) {
-          const s = getStatus(u);
-          if (s === "completed" || s === "skipped" || s === "superseded") {
+          const s = u.state;
+          if (
+            s === "completed" ||
+            s === "skipped" ||
+            s === "dismissed" ||
+            s === "superseded"
+          ) {
             history.push(u);
           } else if (s === "available") {
             available.push(u);
           } else {
             // in_progress, scheduled, failed, rolled_back — all stay actionable.
-            // Failed/rolled_back remain visible on the main page so operators see
-            // what went wrong without expanding history; dismissing (skip) moves
-            // them to history. "Skipped" acts as the acknowledgement gesture.
+            // Failed/rolled_back remain visible on the main page so operators
+            // see what went wrong without expanding history; clicking Dismiss
+            // sets state='dismissed' and moves them to history.
             actionable.push(u);
           }
         }
@@ -340,7 +330,7 @@ export default function UpgradesPage() {
         // When an upgrade is scheduled or in-progress, hide available entries entirely.
         // The user only needs to see the active upgrade, not other options.
         const hasActiveAction = actionable.some((u) => {
-          const s = getStatus(u);
+          const s = u.state;
           return s === "scheduled" || s === "in_progress";
         });
 
@@ -356,7 +346,7 @@ export default function UpgradesPage() {
           : latestAvailable;
 
         // Only allow restoring skipped versions newer than the latest completed upgrade.
-        const latestCompleted = history.find(u => getStatus(u) === 'completed');
+        const latestCompleted = history.find(u => u.state === 'completed');
 
         // The currently-running row stays visible at all times so operators
         // always have an anchor for "what version am I on right now?". The rest
@@ -367,7 +357,7 @@ export default function UpgradesPage() {
           : history;
 
         const renderCard = (u: Upgrade) => {
-          const status = getStatus(u);
+          const status = u.state;
           const canRestore = latestCompleted
             ? (u.position ?? 0) > (latestCompleted.position ?? 0) || u.committed_at > latestCompleted.committed_at
             : true;
@@ -379,19 +369,38 @@ export default function UpgradesPage() {
               acting={acting === u.id}
               canRestore={canRestore}
               onScheduleNow={async () => {
-                await act(u.id, { scheduled_at: new Date().toISOString() });
+                await act(u.id, {
+                  state: "scheduled",
+                  scheduled_at: new Date().toISOString(),
+                });
                 window.location.href = `/maintenance.html?return=${encodeURIComponent(window.location.pathname)}`;
               }}
-              onUnschedule={() => act(u.id, { scheduled_at: null })}
+              onUnschedule={() =>
+                act(u.id, { state: "available", scheduled_at: null })
+              }
               onRefetch={() => {}}
               onSkip={() =>
-                act(u.id, { skipped_at: new Date().toISOString() })
+                // Skip is for available upgrades. State transitions
+                // available → skipped.
+                act(u.id, {
+                  state: "skipped",
+                  skipped_at: new Date().toISOString(),
+                })
+              }
+              onDismiss={() =>
+                // Dismiss is for failed / rolled_back. State transitions
+                // failed|rolled_back → dismissed. The underlying error /
+                // rollback evidence stays on the row.
+                act(u.id, {
+                  state: "dismissed",
+                  dismissed_at: new Date().toISOString(),
+                })
               }
               onRestore={() =>
-                // Only clear the skipped marker. Leave error/rollback state
-                // alone — the operator may have dismissed a failure, and
-                // restoring shouldn't pretend the failure never happened.
-                act(u.id, { skipped_at: null })
+                // Restore applies to user-skipped rows. Goes back to
+                // available; the CHECK requires other lifecycle columns
+                // to be NULL, so clearing skipped_at is enough.
+                act(u.id, { state: "available", skipped_at: null })
               }
             />
           );
@@ -482,16 +491,18 @@ function UpgradeCard({
   onUnschedule,
   onRefetch,
   onSkip,
+  onDismiss,
   onRestore,
 }: {
   upgrade: Upgrade;
-  status: UpgradeStatus;
+  status: UpgradeState;
   acting: boolean;
   canRestore: boolean;
   onScheduleNow: () => void;
   onUnschedule: () => void;
   onRefetch: () => void;
   onSkip: () => void;
+  onDismiss: () => void;
   onRestore: () => void;
 }) {
   return (
@@ -542,7 +553,7 @@ function UpgradeCard({
             </CardTitle>
             <CardDescription className="mt-1">{u.summary}</CardDescription>
           </div>
-          <StatusBadge status={status} />
+          <StateBadge state={status} label={u.display_state} />
         </div>
       </CardHeader>
       <CardContent className="pt-0">
@@ -677,7 +688,7 @@ function UpgradeCard({
 
           {(status === "failed" || status === "rolled_back") && (
             <>
-              <Button size="sm" variant="outline" disabled={acting} onClick={onSkip}>
+              <Button size="sm" variant="outline" disabled={acting} onClick={onDismiss}>
                 {acting ? (
                   <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                 ) : (

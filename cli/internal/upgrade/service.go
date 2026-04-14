@@ -356,7 +356,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 		fmt.Printf("Upgrade %s succeeded (self-update restart detected)\n", flag.DisplayName)
 		logTail := readProgressLogTail(ProgressLogPath(d.projDir, flag.DisplayName), 50)
 		d.queryConn.Exec(ctx,
-			"UPDATE public.upgrade SET completed_at = now(), progress_log = $1 WHERE id = $2 AND completed_at IS NULL",
+			"UPDATE public.upgrade SET state = 'completed', completed_at = now(), progress_log = $1 WHERE id = $2 AND completed_at IS NULL",
 			logTail, flag.ID)
 		// Explicit NOTIFY — the DB trigger also fires, but the app's LISTEN is
 		// definitely established by now (new service starts after app is healthy).
@@ -380,9 +380,10 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 		errMsg = strings.Join(lines, "\n")
 	}
 
-	// Mark the upgrade as failed in the DB.
+	// Mark the upgrade as rolled_back in the DB. rollback_completed_at +
+	// error + state='rolled_back' — the CHECK requires all three together.
 	_, err = d.queryConn.Exec(ctx,
-		"UPDATE public.upgrade SET error = $1, rollback_completed_at = now() WHERE id = $2 AND completed_at IS NULL",
+		"UPDATE public.upgrade SET state = 'rolled_back', error = $1, rollback_completed_at = now() WHERE id = $2 AND completed_at IS NULL",
 		errMsg, flag.ID)
 	if err != nil {
 		fmt.Printf("Warning: could not mark upgrade %d as failed: %v\n", flag.ID, err)
@@ -766,7 +767,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 	if err := d.waitForDBHealth(30 * time.Second); err != nil {
 		fmt.Printf("Warning: in-progress upgrade %s health check failed: %v\n", displayName, err)
 		d.queryConn.Exec(ctx,
-			"UPDATE public.upgrade SET error = $1 WHERE id = $2",
+			"UPDATE public.upgrade SET state = 'failed', error = $1 WHERE id = $2",
 			fmt.Sprintf("post-restart health check failed: %v", err), id)
 		return
 	}
@@ -778,7 +779,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 	// log file survives on the filesystem).
 	logTail := readProgressLogTail(ProgressLogPath(d.projDir, displayName), 50)
 	d.queryConn.Exec(ctx,
-		"UPDATE public.upgrade SET completed_at = now(), progress_log = $1 WHERE id = $2", logTail, id)
+		"UPDATE public.upgrade SET state = 'completed', completed_at = now(), progress_log = $1 WHERE id = $2", logTail, id)
 	d.removeUpgradeFlag()
 
 	// Skip older releases that are still "available" — no point upgrading to an older version
@@ -803,7 +804,8 @@ func (d *Service) markCurrentVersionCompleted(ctx context.Context) {
 
 	result, err := d.queryConn.Exec(ctx,
 		`UPDATE public.upgrade
-		 SET completed_at = COALESCE(completed_at, now()),
+		 SET state = 'completed',
+		     completed_at = COALESCE(completed_at, now()),
 		     scheduled_at = NULL,
 		     error = NULL,
 		     rollback_completed_at = NULL
@@ -873,9 +875,11 @@ func (d *Service) supersedeOlderReleases(ctx context.Context, selectedCommitSHA 
 		return
 	}
 
-	// Supersede all available entries that are older
+	// Supersede all available entries that are older. error=NULL matters
+	// when a previously-failed row gets auto-superseded — CHECK on
+	// state='superseded' only requires superseded_at IS NOT NULL.
 	result, err := d.queryConn.Exec(ctx,
-		`UPDATE public.upgrade SET superseded_at = now(), error = NULL
+		`UPDATE public.upgrade SET state = 'superseded', superseded_at = now(), error = NULL
 		 WHERE completed_at IS NULL AND started_at IS NULL
 		   AND skipped_at IS NULL AND superseded_at IS NULL
 		   AND commit_sha != $1
@@ -1419,15 +1423,18 @@ func (d *Service) scheduleImmediate(ctx context.Context, versionOrSHA string) {
 	// the UPDATE changes scheduled_at to now() → the upgrade_notify_daemon_trigger fires
 	// → sends NOTIFY upgrade_apply → service calls scheduleImmediate again → infinite loop.
 	result, err := d.queryConn.Exec(ctx,
-		`INSERT INTO public.upgrade (commit_sha, committed_at, tags, summary, scheduled_at)
-		 VALUES ($1, now(), CASE WHEN $2 != '' AND NOT starts_with($2, 'sha-') THEN ARRAY[$2]::text[] ELSE '{}'::text[] END, $2, now())
+		`INSERT INTO public.upgrade (commit_sha, committed_at, tags, summary, scheduled_at, state)
+		 VALUES ($1, now(), CASE WHEN $2 != '' AND NOT starts_with($2, 'sha-') THEN ARRAY[$2]::text[] ELSE '{}'::text[] END, $2, now(), 'scheduled')
 		 ON CONFLICT (commit_sha) DO UPDATE SET
+		   state = 'scheduled',
 		   scheduled_at = now(),
 		   started_at = NULL,
 		   completed_at = NULL,
 		   error = NULL,
 		   rollback_completed_at = NULL,
-		   skipped_at = NULL
+		   skipped_at = NULL,
+		   dismissed_at = NULL,
+		   progress_log = NULL
 		 WHERE public.upgrade.scheduled_at IS NULL
 		    OR public.upgrade.started_at IS NOT NULL
 		    OR public.upgrade.completed_at IS NOT NULL
@@ -1465,10 +1472,11 @@ func (d *Service) executeScheduled(ctx context.Context) {
 		return // no pending upgrades
 	}
 
-	// Claim immediately: mark started_at so the UI shows "In Progress"
-	// and the user can no longer unschedule. Declared before any work begins.
+	// Claim immediately: mark started_at + state='in_progress' so the UI
+	// shows "In Progress" and the user can no longer unschedule.
+	// Declared before any work begins.
 	d.queryConn.Exec(ctx,
-		"UPDATE public.upgrade SET started_at = now(), from_version = $1 WHERE id = $2",
+		"UPDATE public.upgrade SET state = 'in_progress', started_at = now(), from_version = $1 WHERE id = $2",
 		d.version, id)
 
 	fmt.Printf("Executing upgrade to %s...\n", displayName)
@@ -1541,11 +1549,14 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 		progress.Write("Verifying release assets available...")
 		manifest, err := FetchManifest(displayName)
 		if err != nil {
-			// CI not ready — unschedule without setting error. The service will
-			// set artifacts_ready=true on the next discovery cycle when CI finishes,
-			// and the UI will re-enable "Upgrade Now".
+			// CI not ready — unschedule without setting error. Reset to
+			// 'available' + clear started_at so the CHECK constraint holds
+			// (state='available' requires all lifecycle timestamps NULL).
+			// The service will set artifacts_ready=true on the next
+			// discovery cycle when CI finishes, and the UI re-enables
+			// "Upgrade Now".
 			d.queryConn.Exec(ctx,
-				"UPDATE public.upgrade SET scheduled_at = NULL WHERE id = $1", id)
+				"UPDATE public.upgrade SET state = 'available', scheduled_at = NULL, started_at = NULL, from_version = NULL WHERE id = $1", id)
 			progress.Write("Release assets not ready for %s — unscheduled. Will be available when CI finishes.", displayName)
 			return nil
 		}
@@ -1793,7 +1804,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	progress.Write("Upgrade to %s complete!", displayName)
 	logTail := readProgressLogTail(progress.path, 50)
 	d.queryConn.Exec(ctx,
-		"UPDATE public.upgrade SET completed_at = now(), progress_log = $1 WHERE id = $2", logTail, id)
+		"UPDATE public.upgrade SET state = 'completed', completed_at = now(), progress_log = $1 WHERE id = $2", logTail, id)
 	d.removeUpgradeFlag()
 	d.supersedeOlderReleases(ctx, commitSHA)
 	d.runUpgradeCallback(displayName)
@@ -1856,9 +1867,11 @@ func (d *Service) failUpgrade(ctx context.Context, id int, errMsg string, progre
 	if d.queryConn != nil {
 		// progress_log captures the narrative tail so the admin UI can show
 		// the operator what led up to the failure without SSH access.
+		// state='failed' requires started_at IS NOT NULL — executeScheduled
+		// always sets started_at before executeUpgrade runs, so that holds.
 		tail := readProgressLogTail(progress.path, 50)
 		d.queryConn.Exec(ctx,
-			"UPDATE public.upgrade SET error = $1, progress_log = $2, scheduled_at = NULL WHERE id = $3",
+			"UPDATE public.upgrade SET state = 'failed', error = $1, progress_log = $2, scheduled_at = NULL WHERE id = $3",
 			errMsg, tail, id)
 	}
 	// Always release the mutex on failure paths, even those that don't run
@@ -1913,7 +1926,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 	logTail := readProgressLogTail(ProgressLogPath(d.projDir, version), 50)
 	if d.queryConn != nil {
 		d.queryConn.Exec(ctx,
-			"UPDATE public.upgrade SET error = $1, progress_log = $2, rollback_completed_at = now() WHERE id = $3",
+			"UPDATE public.upgrade SET state = 'rolled_back', error = $1, progress_log = $2, rollback_completed_at = now() WHERE id = $3",
 			errMsg, logTail, id)
 	}
 
