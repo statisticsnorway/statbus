@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -48,35 +49,87 @@ func NewService(projDir string, verbose bool, version string) *Service {
 	}
 }
 
+// HolderService and HolderInstall identify which actor wrote the flag.
+// The recovery path branches on Holder: "service" needs DB reconciliation
+// (mark public.upgrade row completed/failed); "install" has no DB row to
+// touch — just remove the file. Empty Holder (legacy flags written before
+// Release 1.1) is treated as "service" for backward compatibility.
+const (
+	HolderService = "service"
+	HolderInstall = "install"
+)
+
 // UpgradeFlag is written to tmp/upgrade-in-progress.json before destructive
-// steps begin. If the service crashes during an upgrade, the flag file survives
-// (it's on the filesystem, NOT in the DB volume which gets rolled back).
-// On next startup, the service reads the flag and marks the upgrade as failed.
+// steps begin (by either the upgrade service or `./sb install`). The file
+// is the kernel-enforced mutex that prevents two mutators from racing:
+// O_CREATE|O_EXCL acquire makes "two writers see no flag" impossible.
 //
-// The flag is also the mutex that blocks `./sb install` from running while
-// an orchestrated upgrade is in flight. PID + pidAlive() distinguishes a
-// live upgrade from a crashed one; InvokedBy records who triggered the
-// upgrade so post-mortems can trace responsibility.
+// If the holder crashes, the flag file survives (it's on the filesystem,
+// NOT in the DB volume which gets rolled back). On next service startup
+// (or via `./sb upgrade recover`), the file is reconciled — Holder
+// determines what cleanup is needed.
+//
+// PID + pidAlive() distinguishes a live mutator from a crashed one;
+// InvokedBy records who triggered it so post-mortems can trace
+// responsibility.
 //
 // Legacy flag files written before Release 1 lack PID/StartedAt/InvokedBy
 // and deserialize with zero values. `pidAlive` treats PID<=0 as not-alive,
-// so a legacy flag produces the "crashed — restart service to recover" path
-// rather than a false "still running" diagnosis.
+// so a legacy flag produces the "crashed — recover required" path rather
+// than a false "still running" diagnosis. Holder also defaults to empty
+// (treated as "service").
 type UpgradeFlag struct {
-	ID          int       `json:"id"`
-	CommitSHA   string    `json:"commit_sha"`
-	DisplayName string    `json:"display_name"`
-	PID         int       `json:"pid"`         // os.Getpid() at write time
-	StartedAt   time.Time `json:"started_at"`  // time.Now() at write time
-	InvokedBy   string    `json:"invoked_by"`  // specific trigger (e.g. "notify:v2026.04.1", "scheduled", "recovery")
-	Trigger     string    `json:"trigger"`     // coarse bucket for log grouping ("notify"|"scheduled"|"recovery"|"systemd-discovery")
+	ID          int       `json:"id"`           // 0 when Holder=="install"
+	CommitSHA   string    `json:"commit_sha"`   // "" when Holder=="install"
+	DisplayName string    `json:"display_name"` // version OR install description
+	PID         int       `json:"pid"`          // os.Getpid() at write time
+	StartedAt   time.Time `json:"started_at"`   // time.Now() at write time
+	InvokedBy   string    `json:"invoked_by"`   // specific trigger (e.g. "notify:v2026.04.1", "operator:jhf")
+	Trigger     string    `json:"trigger"`      // coarse bucket ("notify"|"scheduled"|"recovery"|"install")
+	Holder      string    `json:"holder"`       // HolderService or HolderInstall
+}
+
+// flagFilePath returns the canonical flag file location under projDir.
+// Package-level (vs. method on Service) so the install path — which has
+// no Service instance — uses the same path computation.
+func flagFilePath(projDir string) string {
+	return filepath.Join(projDir, "tmp", "upgrade-in-progress.json")
 }
 
 func (d *Service) flagPath() string {
-	return filepath.Join(d.projDir, "tmp", "upgrade-in-progress.json")
+	return flagFilePath(d.projDir)
 }
 
-func (d *Service) writeUpgradeFlag(id int, commitSHA, displayName, invokedBy, trigger string) {
+// writeFlagAtomic writes the flag JSON via O_CREATE|O_EXCL — the kernel
+// guarantees that exactly one caller wins when two race. Returns
+// fs.ErrExist (matchable with errors.Is(err, os.ErrExist)) when another
+// holder already owns the file.
+func writeFlagAtomic(projDir string, flag UpgradeFlag) error {
+	data, err := json.MarshalIndent(flag, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal flag: %w", err)
+	}
+	if err := os.MkdirAll(filepath.Join(projDir, "tmp"), 0755); err != nil {
+		return fmt.Errorf("mkdir tmp: %w", err)
+	}
+	f, err := os.OpenFile(flagFilePath(projDir), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	if _, werr := f.Write(data); werr != nil {
+		f.Close()
+		os.Remove(flagFilePath(projDir))
+		return fmt.Errorf("write flag: %w", werr)
+	}
+	return f.Close()
+}
+
+// writeUpgradeFlag is the service's atomic acquire. Returns an error if
+// another actor already holds the flag — by service-startup invariants
+// (recoverFromFlag runs first; advisory lock prevents two services), this
+// can only happen if an `./sb install` slipped in between recovery and
+// now. Caller (executeUpgrade) treats that as a failure.
+func (d *Service) writeUpgradeFlag(id int, commitSHA, displayName, invokedBy, trigger string) error {
 	flag := UpgradeFlag{
 		ID:          id,
 		CommitSHA:   commitSHA,
@@ -85,17 +138,107 @@ func (d *Service) writeUpgradeFlag(id int, commitSHA, displayName, invokedBy, tr
 		StartedAt:   time.Now(),
 		InvokedBy:   invokedBy,
 		Trigger:     trigger,
+		Holder:      HolderService,
 	}
-	data, err := json.MarshalIndent(flag, "", "  ")
-	if err != nil {
-		return
-	}
-	os.MkdirAll(filepath.Join(d.projDir, "tmp"), 0755)
-	os.WriteFile(d.flagPath(), data, 0644)
+	return writeFlagAtomic(d.projDir, flag)
 }
 
 func (d *Service) removeUpgradeFlag() {
 	os.Remove(d.flagPath())
+}
+
+// AcquireInstallFlag atomically claims the upgrade-mutex marker for an
+// `./sb install` invocation. Returns nil on success — the caller MUST
+// arrange release via ReleaseInstallFlag (typically defer).
+//
+// On contention (any holder — running upgrade, running install, or a
+// stale flag from a crashed prior holder), returns an error formatted to
+// guide the operator to the right recovery action. The error message
+// distinguishes service-vs-install holders and live-vs-dead PIDs.
+func AcquireInstallFlag(projDir, displayName, invokedBy string) error {
+	flag := UpgradeFlag{
+		DisplayName: displayName,
+		PID:         os.Getpid(),
+		StartedAt:   time.Now(),
+		InvokedBy:   invokedBy,
+		Trigger:     "install",
+		Holder:      HolderInstall,
+	}
+	err := writeFlagAtomic(projDir, flag)
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, os.ErrExist) {
+		return fmt.Errorf("write upgrade flag: %w", err)
+	}
+	existing, alive, readErr := ReadFlagFile(projDir)
+	if readErr != nil {
+		return fmt.Errorf("upgrade flag file present but unreadable: %w\n\n  Investigate %s manually, then retry.",
+			readErr, flagFilePath(projDir))
+	}
+	if existing == nil {
+		// Race: file existed during write, gone by the time we read. Retry.
+		return AcquireInstallFlag(projDir, displayName, invokedBy)
+	}
+	return formatContentionError(existing, alive)
+}
+
+// ReleaseInstallFlag removes the flag file iff our PID owns it as
+// HolderInstall. Safe to call when no flag exists, when another holder
+// owns the file, or when the file has already been removed.
+func ReleaseInstallFlag(projDir string) {
+	flag, _, err := ReadFlagFile(projDir)
+	if err != nil || flag == nil {
+		return
+	}
+	if flag.PID != os.Getpid() || flag.Holder != HolderInstall {
+		return
+	}
+	os.Remove(flagFilePath(projDir))
+}
+
+// formatContentionError builds the operator-facing message for a failed
+// AcquireInstallFlag. Branches on Holder + alive to produce one of:
+//   - live service: "upgrade in progress, wait"
+//   - live install: "another install running, wait"
+//   - dead any:    "previous {upgrade|install} crashed — run upgrade recover"
+//
+// Empty Holder (legacy pre-Release-1.1 flags) is treated as service.
+func formatContentionError(flag *UpgradeFlag, alive bool) error {
+	holder := flag.Holder
+	if holder == "" {
+		holder = HolderService
+	}
+	if alive {
+		switch holder {
+		case HolderInstall:
+			return fmt.Errorf(
+				"another ./sb install is already running: PID %d (%s, invoked_by=%s).\n\n"+
+					"  Wait for it to complete, then retry.",
+				flag.PID, flag.DisplayName, flag.InvokedBy)
+		default: // HolderService
+			return fmt.Errorf(
+				"an orchestrated upgrade is in progress: PID %d (%s, invoked_by=%s).\n\n"+
+					"  Wait for it to complete:\n"+
+					"    journalctl --user -u 'statbus-upgrade@*' -f\n\n"+
+					"  Do NOT pass --inside-active-upgrade — that flag is the upgrade service's\n"+
+					"  internal contract with its own post-upgrade install step. Using it from the\n"+
+					"  command line would corrupt an upgrade that is currently running.",
+				flag.PID, flag.DisplayName, flag.InvokedBy)
+		}
+	}
+	verb := "upgrade"
+	if holder == HolderInstall {
+		verb = "install"
+	}
+	return fmt.Errorf(
+		"a prior %s crashed or was stopped mid-run: flag file references PID %d (%s, invoked_by=%s)\n"+
+			"but that process is no longer alive.\n\n"+
+			"  Reconcile the stale flag, then retry:\n"+
+			"    ./sb upgrade recover\n\n"+
+			"  (Equivalent: systemctl --user start 'statbus-upgrade@*' — the service's startup\n"+
+			"  handler runs the same reconciliation.)",
+		verb, flag.PID, flag.DisplayName, flag.InvokedBy)
 }
 
 // ReadFlagFile inspects the upgrade-in-progress flag at <projDir>/tmp/upgrade-in-progress.json.
@@ -161,21 +304,36 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 		return
 	}
 
-	fmt.Printf("Found interrupted upgrade flag for %s (id=%d, pid=%d, invoked_by=%s)\n",
-		flag.DisplayName, flag.ID, flag.PID, flag.InvokedBy)
+	holder := flag.Holder
+	if holder == "" {
+		holder = HolderService // legacy flags pre-Release 1.1
+	}
+
+	fmt.Printf("Found interrupted %s flag for %s (id=%d, pid=%d, invoked_by=%s)\n",
+		holder, flag.DisplayName, flag.ID, flag.PID, flag.InvokedBy)
 
 	// Sanity check: if the PID that wrote the flag is still alive AND it isn't us
 	// (os.Getpid() of a freshly-started process can never match a flag written by
-	// a prior process), someone else claims ownership. This is pathological — the
-	// DB advisory lock should have prevented two services from coexisting. Log and
-	// bail out; do NOT clean up another process's state.
+	// a prior process), someone else claims ownership. This is pathological for
+	// service holders (advisory lock should prevent two services from coexisting)
+	// and surprising for install holders (operator is running install while
+	// service starts). Either way, do NOT clean up another live process's state.
 	if flag.PID > 0 && flag.PID != os.Getpid() && pidAlive(flag.PID) {
 		fmt.Fprintf(os.Stderr,
-			"REFUSING to recover: upgrade flag owned by live PID %d (advisory lock should prevent this). "+
-				"Leaving flag in place. Investigate manually.\n", flag.PID)
+			"REFUSING to recover: %s flag owned by live PID %d. Leaving flag in place. Investigate manually.\n",
+			holder, flag.PID)
 		return
 	}
 
+	// Install-held flags have no public.upgrade row to reconcile — install
+	// crashes leave only the on-disk marker. Just remove it.
+	if holder == HolderInstall {
+		fmt.Printf("Removing stale install flag (PID %d crashed or exited without releasing)\n", flag.PID)
+		d.removeUpgradeFlag()
+		return
+	}
+
+	// Service-held flag: reconcile against public.upgrade.
 	// Check if the upgrade actually succeeded (self-update restart via exit code 42).
 	// If git HEAD matches the upgrade target, the code is at the right version.
 	headSHA, _ := runCommandOutput(d.projDir, "git", "rev-parse", "HEAD")
@@ -1272,15 +1430,17 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	}
 
 	// === All pre-flight checks passed — mark the upgrade as started ===
-	// Write flag file BEFORE any destructive steps. If the service crashes
-	// during the upgrade or rollback, this file survives (it's on the
-	// filesystem, not in the DB volume which gets rolled back).
-	//
-	// The flag carries our PID and invoker context. Any other process
-	// (e.g. `./sb install` run by an operator) that encounters this flag
-	// uses pidAlive(flag.PID) to decide between "wait for the live upgrade"
-	// and "start the service to recover from a crashed upgrade" messaging.
-	d.writeUpgradeFlag(id, commitSHA, displayName, invokedBy, trigger)
+	// Atomically acquire the flag file BEFORE any destructive steps. The
+	// O_EXCL acquire prevents racing an `./sb install` that slipped between
+	// recoverFromFlag (service startup) and now. If the service crashes
+	// after this point, the file survives (it's on the filesystem, not in
+	// the DB volume which gets rolled back), and recoverFromFlag at the
+	// next service startup reconciles it.
+	if err := d.writeUpgradeFlag(id, commitSHA, displayName, invokedBy, trigger); err != nil {
+		msg := fmt.Sprintf("Could not acquire upgrade-mutex flag file: %v", err)
+		d.failUpgrade(ctx, id, msg, progress)
+		return fmt.Errorf("%s", msg)
+	}
 
 	// started_at and from_version were already set by executeScheduled() when
 	// it claimed this task. From this point on, the maintenance guard will activate.

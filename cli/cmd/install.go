@@ -70,66 +70,46 @@ type step struct {
 	run   func(dir string) error
 }
 
-// checkUpgradeMutex enforces the install ↔ upgrade-service mutual exclusion.
+// acquireOrBypass enforces the install ↔ upgrade-service mutual exclusion.
 //
-// The upgrade service writes tmp/upgrade-in-progress.json before destructive
-// steps of executeUpgrade (service.go:writeUpgradeFlag). The flag survives
-// service crashes; it is removed on normal completion, rollback, or by
-// recoverFromFlag on the next service restart.
+// Both the upgrade service and `./sb install` write the same marker file
+// (tmp/upgrade-in-progress.json) via O_CREATE|O_EXCL — the kernel
+// guarantees exactly one writer wins. The Holder field distinguishes
+// service-vs-install ownership; recoverFromFlag uses Holder to decide
+// what cleanup is needed when a writer crashed (DB reconciliation for
+// service, file-removal-only for install).
 //
-// When `bypass` is true, the caller is the upgrade service's own post-upgrade
-// fixup — skip the check. Otherwise:
-//   - No flag → Idle state; proceed.
-//   - Flag + owning PID still alive → an upgrade is genuinely running. Abort
-//     and tell the operator to wait.
-//   - Flag + owning PID dead → the prior upgrade crashed (or the service was
-//     stopped mid-upgrade). Abort and tell the operator to start the service,
-//     which triggers recoverFromFlag and cleans the flag.
+// When `bypass` is true, the caller is the upgrade service's own
+// post-upgrade fixup — the parent service already holds the flag, so the
+// child install neither acquires nor releases. Otherwise:
+//   - No flag → atomic acquire succeeds; returns a release function the
+//     caller must defer.
+//   - Flag exists (any holder, alive or dead) → returns a formatted error
+//     guiding the operator to wait or run `./sb upgrade recover`.
 //
-// Install never writes the flag; it only reads. Legacy flag files (pre-Release 1,
-// missing the PID field) deserialize with PID=0, which upgrade.ReadFlagFile
-// reports as "not alive" — so legacy flags produce the crash-recovery message,
-// which is the correct recovery path (service restart will recoverFromFlag them).
-func checkUpgradeMutex(installDir string, bypass bool) error {
-	flag, alive, err := upgrade.ReadFlagFile(installDir)
-	if err != nil {
-		// Corrupt/unreadable flag file — fail loud. Operator must investigate.
-		return fmt.Errorf("upgrade flag file present but unreadable: %w\n\n  Investigate %s manually, then retry.",
-			err, filepath.Join(installDir, "tmp", "upgrade-in-progress.json"))
-	}
-	if flag == nil {
-		if bypass {
+// Returns (releaseFunc, nil) on success; (nil-no-op, err) on contention.
+func acquireOrBypass(installDir string, bypass bool) (release func(), err error) {
+	if bypass {
+		// Verify-only diagnostic. The parent's flag is on disk; we don't
+		// touch it. Print holder info for the audit log.
+		if flag, _, rerr := upgrade.ReadFlagFile(installDir); rerr == nil && flag != nil {
+			fmt.Printf("Upgrade mutex bypass honored (--inside-active-upgrade). Flag owned by PID %d (holder=%s), invoked_by=%s.\n",
+				flag.PID, flag.Holder, flag.InvokedBy)
+		} else {
 			fmt.Printf("Note: --inside-active-upgrade set but no upgrade flag found. Proceeding.\n")
 		}
-		return nil
+		return func() {}, nil
 	}
 
-	if bypass {
-		fmt.Printf("Upgrade mutex bypass honored (--inside-active-upgrade). Flag owned by PID %d, invoked_by=%s.\n",
-			flag.PID, flag.InvokedBy)
-		return nil
+	displayName := fmt.Sprintf("install (PID %d)", os.Getpid())
+	invokedBy := "operator"
+	if u := os.Getenv("USER"); u != "" {
+		invokedBy = "operator:" + u
 	}
-
-	if alive {
-		return fmt.Errorf(
-			"an orchestrated upgrade is in progress: PID %d (%s, invoked_by=%s).\n\n"+
-				"  Wait for it to complete:\n"+
-				"    journalctl --user -u 'statbus-upgrade@*' -f\n\n"+
-				"  Do NOT pass --inside-active-upgrade — that flag is the upgrade service's\n"+
-				"  internal contract with its own post-upgrade install step. Using it from the\n"+
-				"  command line would corrupt an upgrade that is currently running.",
-			flag.PID, flag.DisplayName, flag.InvokedBy)
+	if err := upgrade.AcquireInstallFlag(installDir, displayName, invokedBy); err != nil {
+		return nil, err
 	}
-
-	return fmt.Errorf(
-		"a prior upgrade crashed or was stopped mid-run: flag file references PID %d (%s, invoked_by=%s)\n"+
-			"but that process is no longer alive.\n\n"+
-			"  Trigger the recovery path by starting the upgrade service:\n"+
-			"    systemctl --user start 'statbus-upgrade@*'\n\n"+
-			"  The service's startup handler will clean up the stale flag (marking the\n"+
-			"  upgrade as failed or completed based on git HEAD), after which ./sb install\n"+
-			"  can run normally.",
-		flag.PID, flag.DisplayName, flag.InvokedBy)
+	return func() { upgrade.ReleaseInstallFlag(installDir) }, nil
 }
 
 // runInstall is the entry point for `./sb install`. It is safe to run while
@@ -168,16 +148,20 @@ func runInstall() error {
 	}
 	installDir := filepath.Join(home, "statbus")
 
-	// === Upgrade mutex check ===
-	// If the upgrade service has written tmp/upgrade-in-progress.json, an
-	// orchestrated upgrade is either in flight or crashed pending recovery.
-	// Either way, install must not race it. The ONLY caller allowed to bypass
-	// is the upgrade service itself (service.go:executeUpgrade spawns install
-	// as a post-upgrade fixup with --inside-active-upgrade + env var set).
+	// === Upgrade mutex acquire ===
+	// Atomically claim tmp/upgrade-in-progress.json (Holder="install") so
+	// any other actor — running upgrade service, another install — sees us
+	// and aborts. ReleaseInstallFlag in defer cleans up on every exit path.
+	// The ONLY caller allowed to bypass is the upgrade service itself
+	// (service.go:executeUpgrade spawns install as a post-upgrade fixup
+	// with --inside-active-upgrade + env var set; the service already holds
+	// the flag for that exec, so the child must not try to acquire it).
 	bypass := insideActiveUpgrade || os.Getenv("STATBUS_INSIDE_ACTIVE_UPGRADE") == "1"
-	if err := checkUpgradeMutex(installDir, bypass); err != nil {
+	releaseFlag, err := acquireOrBypass(installDir, bypass)
+	if err != nil {
 		return err
 	}
+	defer releaseFlag()
 
 	// Pre-flight: check disk space
 	if freeBytes, err := upgrade.DiskFree("."); err == nil {
