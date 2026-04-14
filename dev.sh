@@ -1214,11 +1214,20 @@ EOS
         ls -lh "../$OUTPUT"
       ;;
     'update-snapshot' )
-        # Delegate to ./sb which handles: pg_dump, snapshot.json metadata,
-        # worktree management, and force-push to db-snapshot branch.
-        # Intent: single code path for snapshot creation — same binary used
-        # by dev.sh, install, and release pre-flight.
-        # ./sb checks db-running internally and reads its own config.
+        # Apply any pending migrations FIRST so the snapshot reflects the
+        # latest schema. Without this, ./sb db snapshot create dumps the
+        # old in-DB schema and the prerelease preflight keeps rejecting
+        # the result as "Snapshot outdated" no matter how many times the
+        # user runs this command.
+        #
+        # ./sb migrate up is idempotent (no-op at HEAD) and serialised by
+        # pg_advisory_lock(migrate_up) since R1.1, so it's safe to call
+        # unconditionally here.
+        #
+        # If you want a snapshot of the CURRENT (pre-migration) state —
+        # e.g. to keep around for testing or rollback rehearsal — call
+        # the primitive directly: ./sb db snapshot create.
+        ./sb migrate up --verbose
         ./sb db snapshot create
       ;;
     'test-install' )
