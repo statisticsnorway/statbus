@@ -1933,10 +1933,20 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	return nil
 }
 
-// runUpgradeCallback executes the UPGRADE_CALLBACK shell command from .env, if set.
-// Called after a successful upgrade to notify external systems (e.g., Slack).
-// Never fails the upgrade — logs errors but always returns.
+// runUpgradeCallback notifies external systems after a successful upgrade.
+// Thin wrapper over runCallback with no extra env — preserved as a
+// distinct name so success-path call sites read clearly.
 func (d *Service) runUpgradeCallback(displayName string) {
+	d.runCallback(displayName, nil)
+}
+
+// runCallback executes the UPGRADE_CALLBACK shell command from .env, if
+// set, with the given displayName context plus any extraEnv overlay.
+// Used by both the success path (no extraEnv) and the rollback-failure
+// path (passes STATBUS_ROLLBACK_FAILED=1 and recovery context so the
+// callback script — typically ops/notify-slack.sh — can branch on
+// outcome). Never fails the upgrade; logs errors but always returns.
+func (d *Service) runCallback(displayName string, extraEnv map[string]string) {
 	envPath := filepath.Join(d.projDir, ".env")
 	f, err := dotenv.Load(envPath)
 	if err != nil {
@@ -1964,12 +1974,17 @@ func (d *Service) runUpgradeCallback(displayName string) {
 	cmd.Dir = d.projDir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	cmd.Env = append(os.Environ(),
+
+	env := append(os.Environ(),
 		"STATBUS_VERSION="+displayName,
 		"STATBUS_FROM_VERSION="+d.version,
 		"STATBUS_SERVER="+hostname,
 		"STATBUS_URL="+statbusURL,
 	)
+	for k, v := range extraEnv {
+		env = append(env, k+"="+v)
+	}
+	cmd.Env = env
 	prepareCmd(cmd)
 
 	if err := cmd.Run(); err != nil {
@@ -2036,6 +2051,15 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 					"UPDATE public.upgrade SET state = 'rolled_back', error = $1, progress_log = $2, rollback_completed_at = now() WHERE id = $3",
 					rollbackFailedMsg, logTail, id)
 			}
+			// Page on-call via the configured callback (Slack, etc.).
+			// extraEnv tells the script to render a distinctive
+			// rollback-failure alert with the recovery command body.
+			hostname, _ := os.Hostname()
+			d.runCallback(version, map[string]string{
+				"STATBUS_ROLLBACK_FAILED": "1",
+				"STATBUS_ROLLBACK_ERROR":  err.Error(),
+				"STATBUS_RECOVERY_CMD":    fmt.Sprintf(`ssh %s "cd statbus && ./sb upgrade recover"`, hostname),
+			})
 			// Maintenance stays ON — operator must finish the rollback.
 			// Mutex stays HELD — `./sb install` would compound the mess.
 			// `./sb upgrade recover` is documented above as the unstick path.
