@@ -108,6 +108,13 @@ cmd_install() {
 }
 
 cmd_install_one() {
+    # Concurrency safety: both channel branches stop the remote upgrade service
+    # via `systemctl --user stop` BEFORE swapping the binary or running the
+    # installer. That stop removes the "active" actor from the picture, so when
+    # `./sb install` runs remotely it sees either no mutex flag (common) or a
+    # stale flag from a crashed upgrade (in which case it instructs the operator
+    # to start the service to trigger recoverFromFlag). Either way, there is no
+    # race with an in-flight executeUpgrade.
     local server="$1"
     local exit_code=0
 
@@ -133,6 +140,14 @@ cmd_install_one() {
             || exit_code=$?
     else
         echo "Installing $server via $INSTALL_URL ..."
+        # Stop the user-level upgrade service before running install.sh.
+        # Mirrors the edge-channel behavior above. Without this, an in-flight
+        # executeUpgrade in the service could race the install.sh binary swap,
+        # and the new install's mutex check would (correctly) block with a
+        # "upgrade in progress" error. Stop-first is the cleanest path:
+        # install.sh's install step re-enables and starts the service on
+        # completion.
+        ssh_server "$server" "systemctl --user stop statbus-upgrade@${server}.service 2>/dev/null || true" 2>&1
         # Step 1: Run install.sh as the app user.
         # Exit code 42 = service needs root (not a failure).
         ssh_server "$server" \
