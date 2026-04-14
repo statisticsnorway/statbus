@@ -191,3 +191,66 @@ All development work, especially bug fixing, must follow a rigorous, hypothesis-
 - **Embrace Falsifiability**: Treat every hypothesis and plan as provisional until proven by direct, empirical observation. Frame plans as "Current Plan" or "Next Step," not "Final Plan." The goal is to be prepared to be wrong and to allow evidence to guide the development process. Optimism should be rooted in the rigor of the process itself, not in the assumed correctness of any single solution. This mindset is the primary defense against hubris and wasted effort.
 - **Fail Fast**: Functionality that is expected to work should fail immediately and clearly if an unexpected state or error occurs. Do not mask or work around problems; instead, provide sufficient error or debugging information to facilitate a solution. This is crucial for maintaining system integrity and simplifying troubleshooting, especially in backend processes and SQL procedures.
 - **Declarative Transparency**: Where possible, store the inputs and intermediate results of complex calculations directly on the relevant records. This makes the system's state self-documenting and easier to debug, inspect, and trust, rather than relying on dynamic calculations that can appear magical.
+
+## Named parameter syntax
+
+Use `=>` for named parameters in SQL function/procedure calls (PERFORM, SELECT). Reserve `:=` exclusively for PL/pgSQL variable assignment. The distinction makes it visually clear which is a call-site binding vs a mutation.
+
+```sql
+-- => for named params in function calls
+PERFORM worker.spawn(
+    p_command => 'my_command',
+    p_payload => '{}'::jsonb
+);
+
+-- := for variable assignment
+v_count := v_count + 1;
+```
+
+## Performance traps
+
+### `IS NOT DISTINCT FROM` causes cartesian products
+
+`IS NOT DISTINCT FROM` prevents PostgreSQL from using hash/merge joins, forcing nested loop joins. On large tables (800k × 750k ≈ 620 billion comparisons) this causes extreme slowness. Replace with `COALESCE(col, sentinel) = COALESCE(col, sentinel)` — allows hash joins while preserving NULL equality.
+
+```sql
+-- BAD: nested loop, minutes
+LEFT JOIN t2 ON t2.lu_id IS NOT DISTINCT FROM t1.lu_id
+           AND t2.est_id IS NOT DISTINCT FROM t1.est_id
+
+-- GOOD: hash join, sub-second
+LEFT JOIN t2 ON COALESCE(t2.lu_id, -1) = COALESCE(t1.lu_id, -1)
+           AND COALESCE(t2.est_id, -1) = COALESCE(t1.est_id, -1)
+```
+
+### Large CTE chains don't optimise well
+
+PostgreSQL struggles to optimise long CTE chains as a single query. Break into sequential temp tables with indexes to let each step optimise independently. See migration `20260205022156_optimize_import_procedures_performance` and `tmp/link_lu_fast_prototype.sql` (12-step CTE → temp tables, 17+ min → ~68 s).
+
+### NULL multirange triggers full refresh + ANALYZE
+
+`array_to_int4multirange(NULL)` returns NULL. Refresh procedures interpret NULL as "full refresh" and run ANALYZE, which takes `ShareUpdateExclusiveLock` (self-conflicting) and serialises concurrent workers. Always pass `COALESCE(v_ranges, '{}'::int4multirange)` — or skip the call when there are no IDs. Fixed in migration `20260207215705_fix_batch_null_ranges_causing_full_refresh`.
+
+Diagnostic: `SELECT c.relname, l.mode, l.granted FROM pg_locks l JOIN pg_class c ON c.oid = l.relation WHERE l.mode = 'ShareUpdateExclusiveLock';`
+
+### PG 18 gotchas
+
+- `CREATE UNLOGGED TABLE ... PARTITION BY LIST` is rejected ("partitioned tables cannot be unlogged"). Workaround: plain UNLOGGED table with a `partition_seq` column + index.
+- Enum-to-text casts are STABLE, not IMMUTABLE. Wrap in an IMMUTABLE function if used in `GENERATED ALWAYS` columns.
+- `RETURNS SETOF tablename` functions break when the table gains a column — the SELECT list has to be updated explicitly.
+
+## Cross-table side effects to remember
+
+### Adding a column to `statistical_unit`
+
+Requires updating all of:
+1. `import.get_statistical_unit_data_partial()` — `RETURNS SETOF statistical_unit`, explicit column list.
+2. `public.relevant_statistical_units()` — uses `SELECT *`, auto-includes.
+3. Test SQL files using `to_jsonb(statistical_unit.*)` — strip nondeterministic columns.
+4. `statistical_unit_refresh` temp table (`LIKE ... ON COMMIT DROP`) — gets the column but explicit column lists skip it; GENERATED columns auto-compute on the final INSERT.
+
+### Partitioning date-range tables
+
+Tables keyed by `(resolution, year, month)` (e.g. `statistical_history`, `statistical_history_facet`) split cleanly by period — each child handles exactly one period.
+
+Tables keyed by `(valid_from, valid_until, …)` (e.g. `statistical_unit_facet`) CANNOT split by period — a 5-year row overlaps 65 periods, causing 65× redundant DELETE/INSERT. Partition by `(unit_type, unit_id)` instead and use map-reduce: children write partial aggregations to an UNLOGGED staging table; a single transaction reduces and swaps into the main table. See migration `20260210193343_partition_statistical_unit_facet`.
