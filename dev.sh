@@ -777,12 +777,37 @@ EOF
         # No need to stop worker/rest — we don't touch the main DB.
         echo "Creating template from template_statbus (clean fork + migrations)..."
 
+        # Pre-flight: confirm template_statbus exists. If not, the user needs
+        # ./dev.sh create-db (which provisions it). Without this check, the
+        # CREATE below fails with a generic "template not found" that does not
+        # name the recovery command.
+        if ! TEMPLATE_STATBUS_EXISTS=$(./sb psql -d postgres -t -A -c \
+                "SELECT 1 FROM pg_database WHERE datname = 'template_statbus';" 2>&1); then
+            echo "Error: cannot reach Postgres to check for template_statbus."
+            echo "Underlying psql error:"
+            echo "  $TEMPLATE_STATBUS_EXISTS"
+            echo ""
+            echo "If the error is 'could not open file global/pg_filenode.map' or similar,"
+            echo "the Postgres data directory is broken. Fix (DESTRUCTIVE — wipes data):"
+            echo "  ./dev.sh recreate-database"
+            exit 1
+        fi
+        if [ "$TEMPLATE_STATBUS_EXISTS" != "1" ]; then
+            echo "Error: template_statbus does not exist."
+            echo "It is provisioned by ./dev.sh create-db. Fix (DESTRUCTIVE — wipes data):"
+            echo "  ./dev.sh recreate-database"
+            exit 1
+        fi
+
         if ! ./sb psql -d postgres -c "
             CREATE DATABASE $TEMPLATE_NAME
             WITH TEMPLATE template_statbus
             OWNER postgres;
         "; then
-            echo "Error: Failed to create template database from template_statbus"
+            echo "Error: Failed to create template database from template_statbus."
+            echo "(See psql error above.) If Postgres is in a broken state,"
+            echo "fix with (DESTRUCTIVE — wipes data):"
+            echo "  ./dev.sh recreate-database"
             exit 1
         fi
 
