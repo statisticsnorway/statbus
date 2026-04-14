@@ -48,22 +48,44 @@ func NewService(projDir string, verbose bool, version string) *Service {
 	}
 }
 
-// upgradeFlag is written to tmp/upgrade-in-progress.json before destructive
+// UpgradeFlag is written to tmp/upgrade-in-progress.json before destructive
 // steps begin. If the service crashes during an upgrade, the flag file survives
 // (it's on the filesystem, NOT in the DB volume which gets rolled back).
 // On next startup, the service reads the flag and marks the upgrade as failed.
-type upgradeFlag struct {
-	ID          int    `json:"id"`
-	CommitSHA   string `json:"commit_sha"`
-	DisplayName string `json:"display_name"`
+//
+// The flag is also the mutex that blocks `./sb install` from running while
+// an orchestrated upgrade is in flight. PID + pidAlive() distinguishes a
+// live upgrade from a crashed one; InvokedBy records who triggered the
+// upgrade so post-mortems can trace responsibility.
+//
+// Legacy flag files written before Release 1 lack PID/StartedAt/InvokedBy
+// and deserialize with zero values. `pidAlive` treats PID<=0 as not-alive,
+// so a legacy flag produces the "crashed — restart service to recover" path
+// rather than a false "still running" diagnosis.
+type UpgradeFlag struct {
+	ID          int       `json:"id"`
+	CommitSHA   string    `json:"commit_sha"`
+	DisplayName string    `json:"display_name"`
+	PID         int       `json:"pid"`         // os.Getpid() at write time
+	StartedAt   time.Time `json:"started_at"`  // time.Now() at write time
+	InvokedBy   string    `json:"invoked_by"`  // specific trigger (e.g. "notify:v2026.04.1", "scheduled", "recovery")
+	Trigger     string    `json:"trigger"`     // coarse bucket for log grouping ("notify"|"scheduled"|"recovery"|"systemd-discovery")
 }
 
 func (d *Service) flagPath() string {
 	return filepath.Join(d.projDir, "tmp", "upgrade-in-progress.json")
 }
 
-func (d *Service) writeUpgradeFlag(id int, commitSHA, displayName string) {
-	flag := upgradeFlag{ID: id, CommitSHA: commitSHA, DisplayName: displayName}
+func (d *Service) writeUpgradeFlag(id int, commitSHA, displayName, invokedBy, trigger string) {
+	flag := UpgradeFlag{
+		ID:          id,
+		CommitSHA:   commitSHA,
+		DisplayName: displayName,
+		PID:         os.Getpid(),
+		StartedAt:   time.Now(),
+		InvokedBy:   invokedBy,
+		Trigger:     trigger,
+	}
 	data, err := json.MarshalIndent(flag, "", "  ")
 	if err != nil {
 		return
@@ -76,6 +98,53 @@ func (d *Service) removeUpgradeFlag() {
 	os.Remove(d.flagPath())
 }
 
+// ReadFlagFile inspects the upgrade-in-progress flag at <projDir>/tmp/upgrade-in-progress.json.
+// Returns (nil, false, nil) when the flag file is absent (upgrade-mutex is "Idle").
+// Returns (flag, alive, nil) when the flag exists, where `alive` is true iff the PID that
+// wrote the flag is still running. Callers use the liveness to pick between
+// "wait for the running upgrade" vs "restart the service to recover from a crash" messaging.
+//
+// Callers outside this package should treat this as read-only: never remove or modify
+// the flag file. Ownership belongs to the upgrade service (service.go:writeUpgradeFlag
+// and removeUpgradeFlag).
+func ReadFlagFile(projDir string) (*UpgradeFlag, bool, error) {
+	path := filepath.Join(projDir, "tmp", "upgrade-in-progress.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, false, nil
+		}
+		return nil, false, err
+	}
+	var flag UpgradeFlag
+	if err := json.Unmarshal(data, &flag); err != nil {
+		return nil, false, fmt.Errorf("parse upgrade flag file: %w", err)
+	}
+	return &flag, pidAlive(flag.PID), nil
+}
+
+// pidAlive checks whether a process with the given PID currently exists and
+// is owned by a user whose signals we can deliver. Returns false for PID<=0
+// (which includes the zero value produced by deserializing legacy flag files).
+//
+// On Unix, os.FindProcess never fails; the real liveness check is
+// `kill -0 pid` (signal 0 = permission check without actually signaling).
+// ESRCH means "no such process" (dead); EPERM means "process exists but
+// we don't own it" which we treat as alive.
+func pidAlive(pid int) bool {
+	if pid <= 0 {
+		return false
+	}
+	proc, err := os.FindProcess(pid)
+	if err != nil {
+		return false
+	}
+	if err := proc.Signal(syscall.Signal(0)); err != nil {
+		return os.IsPermission(err)
+	}
+	return true
+}
+
 // recoverFromFlag checks for a flag file from a previous interrupted upgrade.
 // Distinguishes between a real crash (mark failed) and a self-update restart
 // (mark completed) by checking if git HEAD matches the upgrade target.
@@ -85,14 +154,27 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 		return // no flag file — normal startup
 	}
 
-	var flag upgradeFlag
+	var flag UpgradeFlag
 	if err := json.Unmarshal(data, &flag); err != nil {
 		fmt.Printf("Warning: corrupt upgrade flag file, removing: %v\n", err)
 		d.removeUpgradeFlag()
 		return
 	}
 
-	fmt.Printf("Found interrupted upgrade flag for %s (id=%d)\n", flag.DisplayName, flag.ID)
+	fmt.Printf("Found interrupted upgrade flag for %s (id=%d, pid=%d, invoked_by=%s)\n",
+		flag.DisplayName, flag.ID, flag.PID, flag.InvokedBy)
+
+	// Sanity check: if the PID that wrote the flag is still alive AND it isn't us
+	// (os.Getpid() of a freshly-started process can never match a flag written by
+	// a prior process), someone else claims ownership. This is pathological — the
+	// DB advisory lock should have prevented two services from coexisting. Log and
+	// bail out; do NOT clean up another process's state.
+	if flag.PID > 0 && flag.PID != os.Getpid() && pidAlive(flag.PID) {
+		fmt.Fprintf(os.Stderr,
+			"REFUSING to recover: upgrade flag owned by live PID %d (advisory lock should prevent this). "+
+				"Leaving flag in place. Investigate manually.\n", flag.PID)
+		return
+	}
 
 	// Check if the upgrade actually succeeded (self-update restart via exit code 42).
 	// If git HEAD matches the upgrade target, the code is at the right version.
@@ -1060,12 +1142,27 @@ func (d *Service) executeScheduled(ctx context.Context) {
 		d.version, id)
 
 	fmt.Printf("Executing upgrade to %s...\n", displayName)
-	if err := d.executeUpgrade(ctx, id, commitSHA, displayName); err != nil {
+	// Invoker context for the flag file: the row was picked up from the scheduled queue.
+	// This covers admin-UI "Apply now", NOTIFY upgrade_apply from ./sb upgrade apply-latest,
+	// and the discovery loop's auto-schedule — we don't currently distinguish among them
+	// at this layer. Later improvement: record originator in public.upgrade when scheduling.
+	if err := d.executeUpgrade(ctx, id, commitSHA, displayName, "scheduled", "scheduled"); err != nil {
 		fmt.Printf("Upgrade to %s failed: %v\n", displayName, err)
 	}
 }
 
-func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA string, displayName string) error {
+// executeUpgrade runs the end-to-end upgrade pipeline: pre-flight, flag-file
+// write, maintenance mode, backup, git checkout, migrations, service restart,
+// health check, completion (or rollback on failure).
+//
+// Concurrency safety: the advisory DB lock at Run() prevents a second upgrade
+// service instance from running. The flag file written at writeUpgradeFlag
+// prevents `./sb install` (and `./cloud.sh install` → install.sh → ./sb install)
+// from racing this function — those callers read the flag, check the PID is
+// alive, and abort. The only install invocation allowed through during this
+// function is the post-upgrade fixup at runInstallFixup, which sets the
+// --inside-active-upgrade flag and STATBUS_INSIDE_ACTIVE_UPGRADE=1 env var.
+func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, displayName, invokedBy, trigger string) error {
 	d.upgrading = true
 	defer func() { d.upgrading = false }()
 
@@ -1136,7 +1233,12 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA string, 
 	// Write flag file BEFORE any destructive steps. If the service crashes
 	// during the upgrade or rollback, this file survives (it's on the
 	// filesystem, not in the DB volume which gets rolled back).
-	d.writeUpgradeFlag(id, commitSHA, displayName)
+	//
+	// The flag carries our PID and invoker context. Any other process
+	// (e.g. `./sb install` run by an operator) that encounters this flag
+	// uses pidAlive(flag.PID) to decide between "wait for the live upgrade"
+	// and "start the service to recover from a crashed upgrade" messaging.
+	d.writeUpgradeFlag(id, commitSHA, displayName, invokedBy, trigger)
 
 	// started_at and from_version were already set by executeScheduled() when
 	// it claimed this task. From this point on, the maintenance guard will activate.
@@ -1290,8 +1392,15 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA string, 
 	// Run idempotent install to apply any new infrastructure (systemd service,
 	// directories, config fixes). Install steps skip what's already done.
 	// This exercises the install path on every upgrade, catching install bugs early.
+	//
+	// The flag file we wrote at writeUpgradeFlag is still on disk at this point
+	// (it's removed later on success, line ~1454). Install's upgrade-mutex check
+	// would normally abort because it sees our flag — so we pass the bypass signal
+	// both via the --inside-active-upgrade flag (visible in ps/logs for audit) and
+	// via STATBUS_INSIDE_ACTIVE_UPGRADE=1 env var (propagates through exec chains).
+	// Either is sufficient; we set both for defense in depth.
 	progress.Write("Running install fixups...")
-	if err := runCommand(projDir, filepath.Join(projDir, "sb"), "install", "--non-interactive"); err != nil {
+	if err := runInstallFixup(projDir); err != nil {
 		progress.Write("Warning: post-upgrade install fixups failed: %v", err)
 		// Non-fatal — the upgrade itself succeeded
 	}
@@ -1409,6 +1518,11 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 		d.queryConn.Exec(ctx,
 			"UPDATE public.upgrade SET error = 'Rollback completed', rollback_completed_at = now() WHERE id = $1", id)
 	}
+
+	// Clear the in-progress flag: the rollback has restored a consistent state,
+	// so the mutex that blocks `./sb install` must be released. Without this,
+	// the flag lingers until the next service restart, wedging all future installs.
+	d.removeUpgradeFlag()
 
 	progress.Write("Rollback complete. The previous version has been restored.")
 }

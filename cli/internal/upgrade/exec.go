@@ -51,6 +51,36 @@ func runCommand(dir string, name string, args ...string) error {
 	return runCommandWithTimeout(dir, 5*time.Minute, name, args...)
 }
 
+// runInstallFixup runs `./sb install` as a post-upgrade idempotency step.
+//
+// Concurrency safety: this function is the ONE legitimate caller that runs
+// `./sb install` while the upgrade mutex (tmp/upgrade-in-progress.json) is
+// held. It sets --inside-active-upgrade and STATBUS_INSIDE_ACTIVE_UPGRADE=1
+// so the child install recognizes itself as part of the active upgrade and
+// bypasses the mutex check. Without these signals, the child would abort
+// with "upgrade in progress" because our own flag is still on disk at this
+// point (it's removed later when executeUpgrade completes successfully).
+//
+// No other caller in the codebase should ever set these signals.
+func runInstallFixup(projDir string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	cmd := exec.CommandContext(ctx,
+		filepath.Join(projDir, "sb"),
+		"install", "--non-interactive", "--inside-active-upgrade",
+	)
+	cmd.Dir = projDir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = append(os.Environ(), "STATBUS_INSIDE_ACTIVE_UPGRADE=1")
+	prepareCmd(cmd)
+	err := cmd.Run()
+	if ctx.Err() == context.DeadlineExceeded {
+		return fmt.Errorf("install fixup timed out after 5m")
+	}
+	return err
+}
+
 // runCommandWithTimeout executes a command with a specific timeout.
 // Uses process groups and WaitDelay to prevent hangs from orphaned subprocesses.
 func runCommandWithTimeout(dir string, timeout time.Duration, name string, args ...string) error {
