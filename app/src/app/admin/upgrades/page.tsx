@@ -355,6 +355,14 @@ export default function UpgradesPage() {
         // Only allow restoring skipped versions newer than the latest completed upgrade.
         const latestCompleted = history.find(u => getStatus(u) === 'completed');
 
+        // The currently-running row stays visible at all times so operators
+        // always have an anchor for "what version am I on right now?". The rest
+        // of history (older completions, superseded, skipped, failed) stays in
+        // the collapsible.
+        const historyRest = latestCompleted
+          ? history.filter(u => u.id !== latestCompleted.id)
+          : history;
+
         const renderCard = (u: Upgrade) => {
           const status = getStatus(u);
           const canRestore = latestCompleted
@@ -404,15 +412,28 @@ export default function UpgradesPage() {
               </Collapsible>
             )}
 
-            {/* Completed/skipped history */}
-            {history.length > 0 && (
+            {/* Currently-running version — always visible so operators have an
+                anchor for "what version am I on right now?". Labeled above the
+                card to distinguish it from actionable/available rows. */}
+            {latestCompleted && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 px-1 text-sm font-medium text-emerald-800">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Currently running
+                </div>
+                {renderCard(latestCompleted)}
+              </div>
+            )}
+
+            {/* Rest of past upgrades (older completions, superseded, skipped, failed) */}
+            {historyRest.length > 0 && (
               <Collapsible>
                 <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md border border-dashed border-muted-foreground/25 px-4 py-2 text-sm text-muted-foreground hover:bg-muted/50 transition-colors">
                   <ChevronDown className="h-4 w-4" />
-                  {history.length} completed/past upgrade{history.length !== 1 ? "s" : ""}
+                  {historyRest.length} past upgrade{historyRest.length !== 1 ? "s" : ""}
                 </CollapsibleTrigger>
                 <CollapsibleContent className="space-y-3 mt-3">
-                  {history.map(renderCard)}
+                  {historyRest.map(renderCard)}
                 </CollapsibleContent>
               </Collapsible>
             )}
