@@ -386,7 +386,10 @@ export default function UpgradesPage() {
                 act(u.id, { skipped_at: new Date().toISOString() })
               }
               onRestore={() =>
-                act(u.id, { skipped_at: null, error: null })
+                // Only clear the skipped marker. Leave error/rollback state
+                // alone — the operator may have dismissed a failure, and
+                // restoring shouldn't pretend the failure never happened.
+                act(u.id, { skipped_at: null })
               }
             />
           );
