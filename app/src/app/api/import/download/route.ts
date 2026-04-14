@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
 
     // Build WHERE clause
     const whereClause = filter === "error"
-      ? `WHERE state = 'error' OR (warnings IS NOT NULL AND warnings != '{}'::jsonb)`
+      ? `WHERE state = 'error'`
       : filter === "warning"
       ? `WHERE warnings IS NOT NULL AND warnings != '{}'::jsonb`
       : filter === "ok"
