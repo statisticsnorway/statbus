@@ -74,6 +74,13 @@ END::public.upgrade_state;
 COMMENT ON COLUMN public.upgrade.state IS
     'Authoritative upgrade lifecycle state. Code writes this explicitly on every transition. The chk_upgrade_state_attributes CHECK constraint validates that the timestamp columns match the declared state — illegal combinations are rejected at the DB layer.';
 
+-- 5.5 Coalesce NULL errors on rolled-back rows. Some early rollbacks
+--     completed without writing an error message; the 'rolled_back'
+--     CHECK below requires error IS NOT NULL.
+UPDATE public.upgrade
+   SET error = 'Rollback completed (no error recorded)'
+ WHERE rollback_completed_at IS NOT NULL AND error IS NULL;
+
 -- 6. chk_upgrade_state_attributes — CASE state WHEN ... END per-state
 --    invariants. Same idiom as chk_batch_seq_state_action (migration
 --    20260131220347) and postal_locations_cannot_have_coordinates
