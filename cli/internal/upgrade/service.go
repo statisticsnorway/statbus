@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -38,6 +37,7 @@ type Service struct {
 	listenCancel context.CancelFunc // cancels the listenLoop goroutine
 	listenWg     sync.WaitGroup     // tracks listenLoop goroutine lifetime
 	allowedSignersPath string      // path to tmp/allowed-signers file (empty if no signers configured)
+	flagLock           *FlagLock   // holds the flock on tmp/upgrade-in-progress.json during executeUpgrade
 }
 
 // NewService creates a new upgrade service.
@@ -100,35 +100,90 @@ func (d *Service) flagPath() string {
 	return flagFilePath(d.projDir)
 }
 
-// writeFlagAtomic writes the flag JSON via O_CREATE|O_EXCL — the kernel
-// guarantees that exactly one caller wins when two race. Returns
-// fs.ErrExist (matchable with errors.Is(err, os.ErrExist)) when another
-// holder already owns the file.
-func writeFlagAtomic(projDir string, flag UpgradeFlag) error {
+// acquireFlock opens the flag file with O_CREAT|O_RDWR, takes an
+// exclusive kernel-level flock (LOCK_EX|LOCK_NB), then truncates and
+// writes the given metadata. Caller keeps the returned *os.File open for
+// the full duration of the work — closing it releases the flock. On
+// crash the kernel closes fds automatically, so stale locks are
+// impossible.
+//
+// Succeeds → returns a *FlagLock whose Close() releases the lock.
+// Fails (another live holder) → returns a formatted error with the
+// prior holder's metadata for diagnostics.
+//
+// Thread-safety: flock is kernel-enforced across the whole system;
+// multiple processes racing on the same file are serialised by the
+// kernel, no userland synchronisation needed.
+func acquireFlock(projDir string, flag UpgradeFlag) (*FlagLock, error) {
 	data, err := json.MarshalIndent(flag, "", "  ")
 	if err != nil {
-		return fmt.Errorf("marshal flag: %w", err)
+		return nil, fmt.Errorf("marshal flag: %w", err)
 	}
 	if err := os.MkdirAll(filepath.Join(projDir, "tmp"), 0755); err != nil {
-		return fmt.Errorf("mkdir tmp: %w", err)
+		return nil, fmt.Errorf("mkdir tmp: %w", err)
 	}
-	f, err := os.OpenFile(flagFilePath(projDir), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
+	path := flagFilePath(projDir)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("open flag: %w", err)
 	}
-	if _, werr := f.Write(data); werr != nil {
+	if lerr := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); lerr != nil {
+		// Contention: another live holder has the lock. Read what's on
+		// disk for diagnostics, without holding a lock.
 		f.Close()
-		os.Remove(flagFilePath(projDir))
-		return fmt.Errorf("write flag: %w", werr)
+		existing, alive, readErr := ReadFlagFile(projDir)
+		if readErr != nil {
+			return nil, fmt.Errorf("flag file unreadable while locked: %w\n  Investigate %s manually.",
+				readErr, path)
+		}
+		if existing == nil {
+			// Pathological: flock failed but file was removed before we
+			// could read it. Report generically.
+			return nil, fmt.Errorf("flag file at %s is locked by another process (could not read metadata)", path)
+		}
+		return nil, formatContentionError(existing, alive)
 	}
-	return f.Close()
+	// We hold the lock. Truncate existing content and write ours.
+	if _, err := f.Seek(0, 0); err != nil {
+		f.Close()
+		return nil, fmt.Errorf("seek flag: %w", err)
+	}
+	if err := f.Truncate(0); err != nil {
+		f.Close()
+		return nil, fmt.Errorf("truncate flag: %w", err)
+	}
+	if _, err := f.Write(data); err != nil {
+		f.Close()
+		return nil, fmt.Errorf("write flag: %w", err)
+	}
+	if err := f.Sync(); err != nil {
+		f.Close()
+		return nil, fmt.Errorf("sync flag: %w", err)
+	}
+	return &FlagLock{file: f}, nil
 }
 
-// writeUpgradeFlag is the service's atomic acquire. Returns an error if
-// another actor already holds the flag — by service-startup invariants
-// (recoverFromFlag runs first; advisory lock prevents two services), this
-// can only happen if an `./sb install` slipped in between recovery and
-// now. Caller (executeUpgrade) treats that as a failure.
+// FlagLock holds the fd whose flock protects the upgrade-in-progress
+// marker. Close releases the lock; fd death via crash also releases the
+// lock automatically via kernel fd teardown.
+type FlagLock struct {
+	file *os.File
+}
+
+// Close releases the flock by closing the fd. Safe to call multiple
+// times. File content persists on disk for the next acquirer to read
+// and reconcile.
+func (l *FlagLock) Close() {
+	if l == nil || l.file == nil {
+		return
+	}
+	l.file.Close()
+	l.file = nil
+}
+
+// writeUpgradeFlag is the service's acquire. On success, the FlagLock
+// held on d.flagLock keeps the flock alive for the duration of
+// executeUpgrade. removeUpgradeFlag closes it to release.
 func (d *Service) writeUpgradeFlag(id int, commitSHA, displayName, invokedBy, trigger string) error {
 	flag := UpgradeFlag{
 		ID:          id,
@@ -140,22 +195,33 @@ func (d *Service) writeUpgradeFlag(id int, commitSHA, displayName, invokedBy, tr
 		Trigger:     trigger,
 		Holder:      HolderService,
 	}
-	return writeFlagAtomic(d.projDir, flag)
+	lock, err := acquireFlock(d.projDir, flag)
+	if err != nil {
+		return err
+	}
+	d.flagLock = lock
+	return nil
 }
 
+// removeUpgradeFlag releases the service's flock. On crash the kernel
+// does this automatically; this is the graceful-completion path.
 func (d *Service) removeUpgradeFlag() {
-	os.Remove(d.flagPath())
+	if d.flagLock != nil {
+		d.flagLock.Close()
+		d.flagLock = nil
+	}
 }
 
 // AcquireInstallFlag atomically claims the upgrade-mutex marker for an
-// `./sb install` invocation. Returns nil on success — the caller MUST
-// arrange release via ReleaseInstallFlag (typically defer).
+// `./sb install` invocation. Returns a *FlagLock on success — the caller
+// MUST keep it alive for the full install duration and Close() it when
+// done (typically via defer).
 //
-// On contention (any holder — running upgrade, running install, or a
-// stale flag from a crashed prior holder), returns an error formatted to
-// guide the operator to the right recovery action. The error message
-// distinguishes service-vs-install holders and live-vs-dead PIDs.
-func AcquireInstallFlag(projDir, displayName, invokedBy string) error {
+// On contention (another actor — service, install, or migrate — holds
+// the flock), returns an error formatted to guide the operator to the
+// right recovery action. The prior holder's metadata is read from the
+// file for the diagnostic.
+func AcquireInstallFlag(projDir, displayName, invokedBy string) (*FlagLock, error) {
 	flag := UpgradeFlag{
 		DisplayName: displayName,
 		PID:         os.Getpid(),
@@ -164,46 +230,14 @@ func AcquireInstallFlag(projDir, displayName, invokedBy string) error {
 		Trigger:     "install",
 		Holder:      HolderInstall,
 	}
-	// Bounded retry: the only realistic loop is "EEXIST then file vanished
-	// before ReadFile" — a microsecond race with another holder's release.
-	// Two attempts cover that. If we still see contention, return the
-	// formatted error (or, if file kept vanishing, give up loudly rather
-	// than spin forever — that would indicate something pathological).
-	const maxAttempts = 3
-	for attempt := 0; attempt < maxAttempts; attempt++ {
-		err := writeFlagAtomic(projDir, flag)
-		if err == nil {
-			return nil
-		}
-		if !errors.Is(err, os.ErrExist) {
-			return fmt.Errorf("write upgrade flag: %w", err)
-		}
-		existing, alive, readErr := ReadFlagFile(projDir)
-		if readErr != nil {
-			return fmt.Errorf("upgrade flag file present but unreadable: %w\n\n  Investigate %s manually, then retry.",
-				readErr, flagFilePath(projDir))
-		}
-		if existing != nil {
-			return formatContentionError(existing, alive)
-		}
-		// File vanished between O_EXCL fail and read — retry the acquire.
-	}
-	return fmt.Errorf("upgrade flag file kept appearing and disappearing across %d attempts — something is racing on %s; investigate manually",
-		maxAttempts, flagFilePath(projDir))
+	return acquireFlock(projDir, flag)
 }
 
-// ReleaseInstallFlag removes the flag file iff our PID owns it as
-// HolderInstall. Safe to call when no flag exists, when another holder
-// owns the file, or when the file has already been removed.
-func ReleaseInstallFlag(projDir string) {
-	flag, _, err := ReadFlagFile(projDir)
-	if err != nil || flag == nil {
-		return
-	}
-	if flag.PID != os.Getpid() || flag.Holder != HolderInstall {
-		return
-	}
-	os.Remove(flagFilePath(projDir))
+// ReleaseInstallFlag releases the install flock by closing the fd.
+// Accepts the *FlagLock returned by AcquireInstallFlag. Safe to call
+// multiple times; safe to call with a nil lock.
+func ReleaseInstallFlag(lock *FlagLock) {
+	lock.Close()
 }
 
 // formatContentionError builds the operator-facing message for a failed

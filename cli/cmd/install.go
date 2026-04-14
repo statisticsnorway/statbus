@@ -106,10 +106,15 @@ func acquireOrBypass(installDir string, bypass bool) (release func(), err error)
 	if u := os.Getenv("USER"); u != "" {
 		invokedBy = "operator:" + u
 	}
-	if err := upgrade.AcquireInstallFlag(installDir, displayName, invokedBy); err != nil {
+	lock, err := upgrade.AcquireInstallFlag(installDir, displayName, invokedBy)
+	if err != nil {
 		return nil, err
 	}
-	return func() { upgrade.ReleaseInstallFlag(installDir) }, nil
+	// Keep the FlagLock alive until the install completes. The returned
+	// closure is deferred by the caller (runInstall) so normal exit and
+	// all error paths release the flock. Crash-exit releases it via
+	// kernel fd teardown.
+	return func() { upgrade.ReleaseInstallFlag(lock) }, nil
 }
 
 // runInstall is the entry point for `./sb install`. It is safe to run while
