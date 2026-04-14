@@ -91,5 +91,5 @@ Flag files written before Release 1 lack `PID` and `StartedAt`. JSON unmarshal g
 ## What the mutex does NOT cover
 
 - Two operators running `./sb install` on the same server simultaneously with no service in flight. Neither writes the flag; both proceed and race. Expected to be rare; operators coordinate out of band.
-- Operator crash mid-install (SSH drop, terminal close). The service was stopped by the prior `systemctl stop`; it stays stopped until an operator runs `systemctl start`. Not kernel-auto-recovering; see the `flock` follow-up proposal at `plans/flock-followup.md` if this becomes a real incident.
+- Operator crash mid-install (SSH drop, terminal close). The service was stopped by the prior `systemctl stop`; it stays stopped until an operator runs `systemctl start` (or re-runs `./cloud.sh install <server>`, which is idempotent end-to-end). Not kernel-auto-recovering: a future iteration could add a `flock` on a shared lock file so the kernel auto-releases on operator process exit. Deferred until observed incidents justify the added complexity.
 - Text-file-busy on the `./sb` binary if the service is still running: avoided by `./cloud.sh install` issuing `systemctl stop` before binary replacement. Direct `curl install.sh | bash` on a live server would hit this; documented as "stop the service first" in `install-statbus.md`.
