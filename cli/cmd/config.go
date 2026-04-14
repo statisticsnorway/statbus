@@ -3,6 +3,8 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/statisticsnorway/statbus/cli/internal/config"
@@ -33,7 +35,11 @@ into caddy/config/.`,
 var configShowCmd = &cobra.Command{
 	Use:   "show",
 	Short: "Show current configuration values",
-	Long: `Show current configuration values.
+	Long: `Show current configuration values from .env (read-only).
+
+Reads and prints the generated .env. Does NOT regenerate. If
+.env.config has been edited since .env was last generated, prints a
+"stale" warning on stderr suggesting ./sb config generate.
 
 With --postgres, outputs PostgreSQL connection variables in shell-evaluable
 format. Use with eval to set variables in your current shell:
@@ -47,13 +53,42 @@ Set TLS=1 to get TLS connection settings:
 		if configShowPostgres {
 			return showPostgresVars()
 		}
-		// Load .env and display key values
-		if err := LoadDotenv(); err != nil {
-			return err
-		}
-		// For now, just run generate in verbose mode to show what's happening
-		return config.Generate(true)
+		return showConfig()
 	},
+}
+
+// showConfig dumps .env to stdout (read-only) and warns on stderr if
+// .env.config is newer than .env (the typical staleness signal). It
+// never regenerates — that would surprise an operator who ran a "show"
+// command and silently mutated their tree. The matching mutation
+// command is `./sb config generate`, suggested in both the missing-file
+// error and the staleness warning.
+func showConfig() error {
+	projDir := config.ProjectDir()
+	envPath := filepath.Join(projDir, ".env")
+	cfgPath := filepath.Join(projDir, ".env.config")
+
+	envContent, err := os.ReadFile(envPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf(".env not found at %s\n\n  Generate it from .env.config + .env.credentials:\n    ./sb config generate", envPath)
+		}
+		return fmt.Errorf("read .env: %w", err)
+	}
+
+	envInfo, envStatErr := os.Stat(envPath)
+	cfgInfo, cfgStatErr := os.Stat(cfgPath)
+	if envStatErr == nil && cfgStatErr == nil && cfgInfo.ModTime().After(envInfo.ModTime()) {
+		fmt.Fprintf(os.Stderr,
+			"WARNING: .env.config (modified %s) is newer than .env (modified %s).\n"+
+				"  .env may not reflect recent .env.config edits. Regenerate with:\n"+
+				"    ./sb config generate\n\n",
+			cfgInfo.ModTime().Format(time.RFC3339),
+			envInfo.ModTime().Format(time.RFC3339))
+	}
+
+	fmt.Print(string(envContent))
+	return nil
 }
 
 func showPostgresVars() error {
