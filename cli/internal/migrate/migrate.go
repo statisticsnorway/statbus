@@ -179,11 +179,9 @@ func runPsqlFile(projDir string, filePath string) (string, error) {
 	return string(out), err
 }
 
-// Up applies pending migrations.
-// If migrateTo > 0, only apply up to that version.
-// If all is false, apply only one pending migration.
-func Up(projDir string, migrateTo int64, all bool, verbose bool) error {
-	// Find migration files
+// listMigrationFiles returns sorted, de-duplicated migration files from projDir/migrations/.
+// No database interaction; pure filesystem scan + parse.
+func listMigrationFiles(projDir string) ([]*MigrationFile, error) {
 	patterns := []string{
 		filepath.Join(projDir, "migrations", "*.up.sql"),
 		filepath.Join(projDir, "migrations", "*.up.psql"),
@@ -195,12 +193,11 @@ func Up(projDir string, migrateTo int64, all bool, verbose bool) error {
 		files = append(files, matches...)
 	}
 
-	// Parse and sort
 	var migrations []*MigrationFile
 	for _, f := range files {
 		mf, err := parseMigrationFile(f)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		migrations = append(migrations, mf)
 	}
@@ -208,22 +205,17 @@ func Up(projDir string, migrateTo int64, all bool, verbose bool) error {
 		return migrations[i].Version < migrations[j].Version
 	})
 
-	// Check for duplicate versions
 	seen := make(map[int64]string)
 	for _, m := range migrations {
 		if prev, ok := seen[m.Version]; ok {
-			return fmt.Errorf("duplicate migration version %d: %s and %s", m.Version, prev, filepath.Base(m.Path))
+			return nil, fmt.Errorf("duplicate migration version %d: %s and %s", m.Version, prev, filepath.Base(m.Path))
 		}
 		seen[m.Version] = filepath.Base(m.Path)
 	}
+	return migrations, nil
+}
 
-	if len(migrations) == 0 {
-		fmt.Println("No up migrations found")
-		return nil
-	}
-
-	// Ensure migration table exists
-	ensureSQL := `
+const ensureMigrationTableSQL = `
 DO $$ BEGIN
   IF NOT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'db' AND tablename = 'migration') THEN
     CREATE SCHEMA IF NOT EXISTS db;
@@ -241,14 +233,24 @@ DO $$ BEGIN
   END IF;
 END $$;`
 
-	if _, err := runPsql(projDir, ensureSQL); err != nil {
-		return fmt.Errorf("ensure migration table: %w", err)
-	}
-
-	// Get applied versions
+// listAppliedVersions queries db.migration for applied version numbers.
+// When the table does not exist yet (fresh database), returns an empty map
+// and no error — callers should treat "no recorded migrations" the same as
+// "table missing", since both mean nothing has been applied.
+func listAppliedVersions(projDir string) (map[int64]bool, error) {
 	appliedOut, err := runPsql(projDir, "SELECT version FROM db.migration ORDER BY version", "-t", "-A")
 	if err != nil {
-		return fmt.Errorf("query applied migrations: %w", err)
+		// Distinguish "table/schema doesn't exist yet" from real errors by looking at the message.
+		// psql reports these as `ERROR: relation "db.migration" does not exist` or
+		// `ERROR: schema "db" does not exist`. Both mean "no migrations yet applied".
+		msg := err.Error()
+		if strings.Contains(msg, "db.migration") && strings.Contains(msg, "does not exist") {
+			return map[int64]bool{}, nil
+		}
+		if strings.Contains(msg, `schema "db" does not exist`) {
+			return map[int64]bool{}, nil
+		}
+		return nil, fmt.Errorf("query applied migrations: %w", err)
 	}
 	applied := make(map[int64]bool)
 	for _, line := range strings.Split(strings.TrimSpace(appliedOut), "\n") {
@@ -260,6 +262,62 @@ END $$;`
 		if err == nil {
 			applied[v] = true
 		}
+	}
+	return applied, nil
+}
+
+// HasPending reports whether at least one migration file in projDir/migrations/
+// has not been applied according to db.migration.
+//
+// Read-only: does NOT create the db.migration table if it is missing. When the
+// table is absent, any migration files on disk count as pending, so a fresh
+// database with migrations on disk returns true.
+//
+// Use this to decide whether ./sb install should run its Migrations step.
+// Callers needing idempotent "apply everything pending" semantics should call
+// Up() instead, which ensures the table exists and applies the migrations.
+func HasPending(projDir string) (bool, error) {
+	migrations, err := listMigrationFiles(projDir)
+	if err != nil {
+		return false, err
+	}
+	if len(migrations) == 0 {
+		return false, nil
+	}
+	applied, err := listAppliedVersions(projDir)
+	if err != nil {
+		return false, err
+	}
+	for _, m := range migrations {
+		if !applied[m.Version] {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// Up applies pending migrations.
+// If migrateTo > 0, only apply up to that version.
+// If all is false, apply only one pending migration.
+func Up(projDir string, migrateTo int64, all bool, verbose bool) error {
+	migrations, err := listMigrationFiles(projDir)
+	if err != nil {
+		return err
+	}
+
+	if len(migrations) == 0 {
+		fmt.Println("No up migrations found")
+		return nil
+	}
+
+	// Ensure migration table exists (side-effect belongs to Up, NOT HasPending).
+	if _, err := runPsql(projDir, ensureMigrationTableSQL); err != nil {
+		return fmt.Errorf("ensure migration table: %w", err)
+	}
+
+	applied, err := listAppliedVersions(projDir)
+	if err != nil {
+		return err
 	}
 
 	// Filter pending
