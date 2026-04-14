@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strings"
 	"syscall"
 	"time"
 
@@ -262,17 +263,30 @@ func (d *Service) waitForDBHealth(timeout time.Duration) error {
 }
 
 // healthURL returns the cached health check URL, loading from .env on first call.
+//
+// Probes /rest/rpc/auth_status — the same PostgREST RPC the frontend
+// invokes on every page load (app/src/atoms/auth-machine.ts:66). Hitting
+// it through Caddy exercises the full request path: caddy → next.js
+// proxy → postgrest → postgres. Any failure here is a failure a real
+// user would see on first load. Older versions of this code probed `/`
+// and accepted any < 500, but the Next.js root renders even when
+// PostgREST or the DB is broken — false-positive healthy upgrade.
+//
+// auth_status is anonymous-safe (returns 200 with is_authenticated=false
+// without a JWT) and reads auth.user, so it touches both PostgREST and
+// the DB.
 func (d *Service) healthURL() string {
 	if d.cachedURL != "" {
 		return d.cachedURL
 	}
-	d.cachedURL = "http://localhost:3000/"
+	port := "3000"
 	envPath := filepath.Join(d.projDir, ".env")
 	if f, err := dotenv.Load(envPath); err == nil {
-		if port, ok := f.Get("CADDY_HTTP_PORT"); ok {
-			d.cachedURL = fmt.Sprintf("http://localhost:%s/", port)
+		if v, ok := f.Get("CADDY_HTTP_PORT"); ok {
+			port = v
 		}
 	}
+	d.cachedURL = fmt.Sprintf("http://localhost:%s/rest/rpc/auth_status", port)
 	return d.cachedURL
 }
 
@@ -281,7 +295,9 @@ func (d *Service) healthCheck(retries int, interval time.Duration) error {
 	client := &http.Client{Timeout: 10 * time.Second}
 
 	for i := 0; i < retries; i++ {
-		resp, err := client.Get(healthURL)
+		// POST {} matches what the frontend sends — PostgREST RPCs are
+		// invoked via POST with a JSON body.
+		resp, err := client.Post(healthURL, "application/json", strings.NewReader("{}"))
 		if err == nil {
 			resp.Body.Close()
 			if resp.StatusCode < 500 {
