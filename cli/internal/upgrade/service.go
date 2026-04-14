@@ -2121,9 +2121,18 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 	progress.Write("Rollback complete. The previous version has been restored.")
 }
 
-// restoreGitState restores the git working tree to `previousVersion`,
-// pre-validating that the ref resolves before touching the tree and
-// post-verifying that HEAD matches the expected commit afterwards.
+// restoreGitState is the *Service-bound wrapper around restoreGitStateFn,
+// adapting progress.Write to the free function's plain logger.
+func (d *Service) restoreGitState(previousVersion string, progress *ProgressLog) error {
+	return restoreGitStateFn(d.projDir, previousVersion, func(format string, args ...interface{}) {
+		progress.Write(format, args...)
+	})
+}
+
+// restoreGitStateFn restores the git working tree at projDir to
+// `previousVersion`, pre-validating that the ref resolves before touching
+// the tree and post-verifying that HEAD matches the expected commit
+// afterwards.
 //
 // Returns an error if any step fails. Callers MUST treat a non-nil
 // return as "DO NOT start services on this code" — the working tree is
@@ -2137,16 +2146,20 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 // upstream and the local mirror dropped it), falls back to the
 // `statbus/pre-upgrade` branch pinned by executeUpgrade before the
 // destructive steps started — defense in depth against ref drift.
-func (d *Service) restoreGitState(previousVersion string, progress *ProgressLog) error {
-	progress.Write("Restoring git state to %s...", previousVersion)
+//
+// Logger is invoked at narrative milestones; pass a no-op for tests.
+// Free function (not a method) so the unit tests don't have to
+// construct a *Service or its DB connections.
+func restoreGitStateFn(projDir, previousVersion string, log func(format string, args ...interface{})) error {
+	log("Restoring git state to %s...", previousVersion)
 
 	// Pre-validate: refuse to checkout a ref we can't resolve. If the
 	// requested ref is gone, fall back to the persistent
 	// statbus/pre-upgrade branch before erroring out.
-	expectedOut, err := runCommandOutput(d.projDir, "git", "rev-parse", "--verify", previousVersion+"^{commit}")
+	expectedOut, err := runCommandOutput(projDir, "git", "rev-parse", "--verify", previousVersion+"^{commit}")
 	if err != nil {
-		progress.Write("Ref %s does not resolve, falling back to statbus/pre-upgrade...", previousVersion)
-		fallbackOut, fallbackErr := runCommandOutput(d.projDir, "git", "rev-parse", "--verify", "statbus/pre-upgrade^{commit}")
+		log("Ref %s does not resolve, falling back to statbus/pre-upgrade...", previousVersion)
+		fallbackOut, fallbackErr := runCommandOutput(projDir, "git", "rev-parse", "--verify", "statbus/pre-upgrade^{commit}")
 		if fallbackErr != nil {
 			return fmt.Errorf("neither %s nor statbus/pre-upgrade resolves: %v / %v", previousVersion, err, fallbackErr)
 		}
@@ -2161,14 +2174,14 @@ func (d *Service) restoreGitState(previousVersion string, progress *ProgressLog)
 	// Force checkout — discards any local changes. We're rolling back from
 	// a partial upgrade, so any working-tree mutations are by definition
 	// part of the failure we're undoing.
-	if err := runCommand(d.projDir, "git", "-c", "advice.detachedHead=false", "checkout", "-f", previousVersion); err != nil {
+	if err := runCommand(projDir, "git", "-c", "advice.detachedHead=false", "checkout", "-f", previousVersion); err != nil {
 		return fmt.Errorf("git checkout -f %s: %w", previousVersion, err)
 	}
 
 	// Post-verify: HEAD must match what we resolved upfront. Belt-and-
 	// suspenders against a checkout that "succeeded" but landed on the
 	// wrong commit (e.g., refspec pointing somewhere unexpected).
-	headOut, err := runCommandOutput(d.projDir, "git", "rev-parse", "HEAD")
+	headOut, err := runCommandOutput(projDir, "git", "rev-parse", "HEAD")
 	if err != nil {
 		return fmt.Errorf("post-checkout git rev-parse HEAD: %w", err)
 	}
@@ -2177,7 +2190,7 @@ func (d *Service) restoreGitState(previousVersion string, progress *ProgressLog)
 		return fmt.Errorf("git checkout landed on %s, expected %s", shortSHA(headSHA), shortSHA(expectedSHA))
 	}
 
-	progress.Write("Git state restored to %s (HEAD %s)", previousVersion, shortSHA(headSHA))
+	log("Git state restored to %s (HEAD %s)", previousVersion, shortSHA(headSHA))
 	return nil
 }
 
