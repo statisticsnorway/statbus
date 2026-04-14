@@ -1385,6 +1385,23 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	defer progress.Close()
 
 	progress.Write("Upgrading to %s (from %s)...", displayName, d.version)
+	// For sha-prefixed targets (edge channel), displayName tells you the SHA
+	// but nothing about how far it is from the nearest tag. `git describe`
+	// fills that gap ("v2026.03.1-9-gea46d5818" → nearest tag + N commits
+	// ahead + shortened SHA). Also emit the commit subject so an operator
+	// watching the maintenance page sees what the upgrade actually brings
+	// without tailing git log. Suppress describe when it equals displayName
+	// (tagged-channel case) to avoid redundancy.
+	if out, err := runCommandOutput(projDir, "git", "describe", "--tags", "--always", commitSHA); err == nil {
+		if desc := strings.TrimSpace(out); desc != "" && desc != displayName {
+			progress.Write("  Target version: %s", desc)
+		}
+	}
+	if out, err := runCommandOutput(projDir, "git", "log", "-1", "--pretty=%s", commitSHA); err == nil {
+		if subj := strings.TrimSpace(out); subj != "" {
+			progress.Write("  Target commit: %s", subj)
+		}
+	}
 
 	// === Pre-flight checks (BEFORE marking started_at) ===
 	// These checks reject the upgrade without setting started_at, so the
