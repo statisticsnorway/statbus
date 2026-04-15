@@ -530,10 +530,6 @@ func shortSHA(sha string) string {
 //                             by the discovery loop above via FetchManifest.
 //                             For commits this defaults to true (edge
 //                             channel doesn't use release artifacts).
-//   artifacts_ready         — composite: docker_images_ready AND
-//                             release_builds_ready. The existing "can
-//                             I start the upgrade?" flag, still checked
-//                             by UI and executeUpgrade.
 //
 // Scoped to the 30 most recent pending rows to bound per-cycle cost.
 func (d *Service) verifyArtifacts(ctx context.Context) {
@@ -543,7 +539,7 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 	rows, err := d.queryConn.Query(ctx, `
 		SELECT id, commit_sha, release_status::text, docker_images_ready, release_builds_ready, version
 		  FROM public.upgrade
-		 WHERE (NOT docker_images_ready OR NOT artifacts_ready)
+		 WHERE NOT docker_images_ready
 		   AND completed_at IS NULL
 		   AND rolled_back_at IS NULL
 		   AND skipped_at IS NULL
@@ -607,10 +603,6 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 			}
 		}
 
-		// artifacts_ready is a GENERATED ALWAYS AS (...) STORED column
-		// (migration 20260414170000): derived from docker_images_ready AND
-		// release_builds_ready at write time by PostgreSQL itself. No code
-		// path maintains it.
 		_ = dockerImagesReady // value recorded via the UPDATE above when applicable
 	}
 }
@@ -1448,7 +1440,11 @@ func (d *Service) discover(ctx context.Context) {
 			 ON CONFLICT (commit_sha) DO UPDATE SET
 			   tags = CASE WHEN $3 = ANY(upgrade.tags) THEN upgrade.tags
 			               ELSE array_append(upgrade.tags, $3) END,
-			   release_status = GREATEST(upgrade.release_status, EXCLUDED.release_status)
+			   release_status = GREATEST(upgrade.release_status, EXCLUDED.release_status),
+			   release_builds_ready = CASE
+			       WHEN EXCLUDED.release_status > upgrade.release_status THEN false
+			       ELSE upgrade.release_builds_ready
+			   END
 			 WHERE NOT ($3 = ANY(upgrade.tags))
 			    OR upgrade.release_status < EXCLUDED.release_status`,
 			t.CommitSHA, t.PublishedAt, t.TagName, targetStatus, t.TagName)
@@ -1496,8 +1492,9 @@ func (d *Service) discover(ctx context.Context) {
 	// Two-level declarative verification covering every pending row:
 	//   1. docker_images_ready — queries ghcr.io for each of the four images at
 	//      the runtime VERSION tag.
-	//   2. artifacts_ready — composite derived from docker_images_ready AND
-	//      release_builds_ready (commits skip the release half).
+	//   2. release_builds_ready — for tagged releases: GitHub Release + sb binary
+	//      + manifest.json exist. Set by discoverTaggedReleases via FetchManifest.
+	//      Commits skip this level (default true).
 	// Runs on every discovery cycle; cheap (bounded per-cycle) and
 	// idempotent. Gives the admin UI accurate "what are we waiting for"
 	// signal without coupling to CI workflow telemetry.
@@ -1603,12 +1600,9 @@ func (d *Service) discoverEdge(ctx context.Context) {
 
 		// release_builds_ready=true for commits because edge channel
 		// never needs release.yaml output (no self-update, no manifest).
-		// docker_images_ready and artifacts_ready default to false and are flipped
-		// by verifyArtifacts() once docker manifest inspect confirms the
-		// four images for this commit's git-describe tag have landed in
-		// the registry. Previously this hardcoded artifacts_ready=true,
-		// which let the UI offer "Upgrade Now" for commits whose images
-		// hadn't been built yet.
+		// docker_images_ready defaults to false and is flipped by verifyArtifacts()
+		// once docker manifest inspect confirms the four images for this commit's
+		// git-describe tag have landed in the registry.
 
 		// Capture git describe output now so verifyArtifacts can look up
 		// Docker images by a stable tag — the describe output changes as
@@ -1836,9 +1830,8 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 			// CI not ready — unschedule without setting error. Reset to
 			// 'available' + clear started_at so the CHECK constraint holds
 			// (state='available' requires all lifecycle timestamps NULL).
-			// The service will set artifacts_ready=true on the next
-			// discovery cycle when CI finishes, and the UI re-enables
-			// "Upgrade Now".
+			// The service will flip docker_images_ready and release_builds_ready
+			// on the next discovery cycle when CI finishes, re-enabling "Upgrade Now".
 			d.queryConn.Exec(ctx,
 				"UPDATE public.upgrade SET state = 'available', scheduled_at = NULL, started_at = NULL, from_version = NULL WHERE id = $1", id)
 			progress.Write("Release assets not ready for %s — unscheduled. Will be available when CI finishes.", displayName)

@@ -633,7 +633,7 @@ function UpgradeCard({
         <div className="mt-3 flex gap-2">
           {status === "available" && (
             <>
-              {!u.artifacts_ready ? (
+              {(!u.docker_images_ready || (u.release_status !== 'commit' && !u.release_builds_ready)) ? (
                 <span className="text-xs text-amber-600">
                   {!u.docker_images_ready
                     ? "Images building... upgrade will be available when ci-images.yaml finishes."

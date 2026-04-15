@@ -1,7 +1,7 @@
 ```sql
-                                                                 Table "public.upgrade"
-          Column          |           Type           | Collation | Nullable |                                  Default                                  
---------------------------+--------------------------+-----------+----------+---------------------------------------------------------------------------
+                                           Table "public.upgrade"
+          Column          |           Type           | Collation | Nullable |            Default            
+--------------------------+--------------------------+-----------+----------+-------------------------------
  id                       | integer                  |           | not null | generated always as identity
  commit_sha               | text                     |           | not null | 
  committed_at             | timestamp with time zone |           | not null | 
@@ -26,10 +26,10 @@
  progress_log             | text                     |           |          | 
  docker_images_ready      | boolean                  |           | not null | false
  release_builds_ready     | boolean                  |           | not null | false
- artifacts_ready          | boolean                  |           |          | generated always as (docker_images_ready AND release_builds_ready) stored
  dismissed_at             | timestamp with time zone |           |          | 
  state                    | upgrade_state            |           | not null | 'available'::upgrade_state
  version                  | text                     |           |          | 
+ log_relative_file_path   | text                     |           |          | 
 Indexes:
     "upgrade_pkey" PRIMARY KEY, btree (id)
     "upgrade_commit_sha_key" UNIQUE CONSTRAINT, btree (commit_sha)

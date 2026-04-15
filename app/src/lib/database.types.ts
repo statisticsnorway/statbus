@@ -6078,7 +6078,6 @@ export type Database = {
       },
       upgrade: {
         Row: {
-          artifacts_ready: boolean | null
           backup_path: string | null
           changes: string | null
           commit_sha: string
@@ -6092,6 +6091,7 @@ export type Database = {
           from_version: string | null
           has_migrations: boolean
           id: number
+          log_relative_file_path: string | null
           progress_log: string | null
           release_builds_ready: boolean
           release_status: Database["public"]["Enums"]["release_status_type"]
@@ -6108,7 +6108,6 @@ export type Database = {
           version: string | null
         },
         Insert: {
-          artifacts_ready?: boolean | null
           backup_path?: string | null
           changes?: string | null
           commit_sha: string
@@ -6122,6 +6121,7 @@ export type Database = {
           from_version?: string | null
           has_migrations?: boolean
           id?: never
+          log_relative_file_path?: string | null
           progress_log?: string | null
           release_builds_ready?: boolean
           release_status?: Database["public"]["Enums"]["release_status_type"]
@@ -6138,7 +6138,6 @@ export type Database = {
           version?: string | null
         },
         Update: {
-          artifacts_ready?: boolean | null
           backup_path?: string | null
           changes?: string | null
           commit_sha?: string
@@ -6152,6 +6151,7 @@ export type Database = {
           from_version?: string | null
           has_migrations?: boolean
           id?: never
+          log_relative_file_path?: string | null
           progress_log?: string | null
           release_builds_ready?: boolean
           release_status?: Database["public"]["Enums"]["release_status_type"]
