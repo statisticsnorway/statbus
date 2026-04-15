@@ -3,6 +3,7 @@ package upgrade
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -245,11 +246,65 @@ func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (string, e
 		return "", fmt.Errorf("finalise backup (rename %s -> %s): %w", tmpDir, finalDir, err)
 	}
 
+	// Cascade tmp/upgrade-logs/ into <finalDir>/upgrade-logs/ so the
+	// historical log+bundle pairs ship alongside the DB dump. Best-effort —
+	// a log-snapshot miss must not abort the upgrade; the DB dump is the
+	// critical artifact.
+	if err := cascadeUpgradeLogsIntoBackup(d.projDir, finalDir); err != nil {
+		progress.Write("warning: cascade upgrade-logs into %s: %v", finalDir, err)
+	}
+
 	// Pruning is deferred to the service tick (reconcileBackupDir + pruneBackups)
 	// where d.queryConn is live and can NULL backup_path before deletion.
 	// No pruning here — the DB connection is closed for the duration of executeUpgrade.
 
 	return finalDir, nil
+}
+
+// cascadeUpgradeLogsIntoBackup mirrors the current tmp/upgrade-logs/
+// snapshot into <backupDir>/upgrade-logs/. Called from backupDatabase
+// after the atomic rename finalises the backup directory. Regular files
+// only (.log and .bundle.txt pairs); symlinks and subdirectories are
+// skipped. Idempotent: os.Create overwrites existing destinations.
+func cascadeUpgradeLogsIntoBackup(projDir, backupDir string) error {
+	srcDir := upgradeLogsDir(projDir)
+	entries, err := os.ReadDir(srcDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("read %s: %w", srcDir, err)
+	}
+	destDir := filepath.Join(backupDir, "upgrade-logs")
+	if err := os.MkdirAll(destDir, 0755); err != nil {
+		return fmt.Errorf("create %s: %w", destDir, err)
+	}
+	for _, e := range entries {
+		if !e.Type().IsRegular() {
+			continue
+		}
+		if err := copyRegularFile(filepath.Join(srcDir, e.Name()), filepath.Join(destDir, e.Name())); err != nil {
+			return fmt.Errorf("copy %s: %w", e.Name(), err)
+		}
+	}
+	return nil
+}
+
+func copyRegularFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		out.Close()
+		return err
+	}
+	return out.Close()
 }
 
 // pickLatestBackup returns the path of the newest finalised

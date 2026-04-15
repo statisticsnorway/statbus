@@ -668,12 +668,15 @@ function UpgradeCard({
         {/* Progress log: Caddy serves /upgrade-logs/<file> read-only from
             tmp/upgrade-logs/. We fetch on expand and show the last 50 lines.
             Opened by default on failures so the operator sees what happened
-            without an extra click. */}
-        <UpgradeLogViewer
-          id={u.id}
-          relPath={u.log_relative_file_path}
-          defaultOpen={!!u.error || !!u.rolled_back_at}
-        />
+            without an extra click. Only rendered once the upgrade has started;
+            "available" rows have nothing to show yet. */}
+        {u.started_at && (
+          <UpgradeLogViewer
+            id={u.id}
+            relPath={u.log_relative_file_path}
+            defaultOpen={!!u.error || !!u.rolled_back_at}
+          />
+        )}
 
         {/* Changelog */}
         {u.changes && (
