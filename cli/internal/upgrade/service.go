@@ -807,7 +807,8 @@ func (d *Service) Run(ctx context.Context) error {
 				d.discover(ctx)
 				d.executeScheduled(ctx)
 				d.reportDiskSpace(ctx)
-				d.reconcileBackupDir(ctx)
+				d.reconcileBackupDir(ctx)  // reconcile before prune: avoids BACKUP_MISSING for just-pruned rows
+				d.pruneBackups(ctx, 3)
 			}
 		case n := <-notifyCh:
 			if !d.upgrading {
@@ -2003,8 +2004,13 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 		return err
 	}
 
-	// Update backup_path now that we have a connection
-	d.queryConn.Exec(ctx, "UPDATE public.upgrade SET backup_path = $1 WHERE id = $2", backupPath, id)
+	// Update backup_path to the final (renamed) path now that we have a connection.
+	// Log on failure: the DB still holds the .tmp path; reconcileBackupDir will
+	// emit BACKUP_MISSING on the next tick for the missing .tmp, surfacing the issue.
+	if _, err := d.queryConn.Exec(ctx,
+		"UPDATE public.upgrade SET backup_path = $1 WHERE id = $2", backupPath, id); err != nil {
+		progress.Write("Warning: could not update backup_path to final path for upgrade id=%d: %v", id, err)
+	}
 
 	// Step 10: Run migrations (or recreate database if requested)
 	if d.pendingRecreate {

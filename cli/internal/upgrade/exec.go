@@ -245,9 +245,9 @@ func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (string, e
 		return "", fmt.Errorf("finalise backup (rename %s -> %s): %w", tmpDir, finalDir, err)
 	}
 
-	// Opportunistic cleanup: keep the 3 newest finalised backups, drop
-	// stale .tmp dirs from prior crashes.
-	d.pruneBackups(3)
+	// Pruning is deferred to the service tick (reconcileBackupDir + pruneBackups)
+	// where d.queryConn is live and can NULL backup_path before deletion.
+	// No pruning here — the DB connection is closed for the duration of executeUpgrade.
 
 	return finalDir, nil
 }
@@ -302,10 +302,13 @@ func (d *Service) restoreDatabase(progress *ProgressLog) {
 }
 
 // pruneBackups trims finalised pre-upgrade-* backups to the `keep` most recent.
-// .tmp dirs are intentionally excluded — they are handled by reconcileBackupDir,
-// which preserves referenced .tmp dirs (live mid-rsync backup) and applies the
-// 90-day grace to unreferenced ones.
-func (d *Service) pruneBackups(keep int) {
+// Before removing each dir it NULLs backup_path on the matching upgrade row so
+// reconcileBackupDir does not emit BACKUP_MISSING noise for intentionally-pruned
+// dirs on subsequent ticks.  .tmp dirs are excluded — reconcileBackupDir owns them.
+//
+// Must be called with an active d.queryConn (i.e. from the service tick, not from
+// within executeUpgrade where the DB is closed).
+func (d *Service) pruneBackups(ctx context.Context, keep int) {
 	entries, err := os.ReadDir(d.backupRoot())
 	if err != nil {
 		return
@@ -327,6 +330,12 @@ func (d *Service) pruneBackups(keep int) {
 	if len(finalised) > keep {
 		sort.Strings(finalised)
 		for _, p := range finalised[:len(finalised)-keep] {
+			// Null the DB reference before deletion so reconcileBackupDir does not
+			// report BACKUP_MISSING for this deliberately-pruned path.
+			if d.queryConn != nil {
+				d.queryConn.Exec(ctx,
+					"UPDATE public.upgrade SET backup_path = NULL WHERE backup_path = $1", p)
+			}
 			os.RemoveAll(p)
 		}
 	}
