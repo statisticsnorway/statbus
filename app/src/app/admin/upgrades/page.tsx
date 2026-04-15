@@ -74,14 +74,13 @@ interface Upgrade {
   started_at: string | null;
   completed_at: string | null;
   error: string | null;
-  progress_log: string | null;
+  log_relative_file_path: string | null;
   rolled_back_at: string | null;
   docker_images_ready: boolean;
   release_builds_ready: boolean;
   skipped_at: string | null;
   dismissed_at: string | null;
   superseded_at: string | null;
-  artifacts_ready: boolean;
   docker_images_downloaded: boolean;
   backup_path: string | null;
 }
@@ -469,6 +468,72 @@ export default function UpgradesPage() {
   );
 }
 
+/** Fetches the upgrade's log file from Caddy (/upgrade-logs/<relPath>) when
+ *  the collapsible opens, shows the last 50 lines. Log files live on disk
+ *  under tmp/upgrade-logs/ so they survive DB dumps/restores; the row's
+ *  log_relative_file_path column is the pointer. */
+function UpgradeLogViewer({
+  id,
+  relPath,
+  defaultOpen,
+}: {
+  id: number;
+  relPath: string | null;
+  defaultOpen: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  const [content, setContent] = useState<string | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
+  useGuardedEffect(
+    () => {
+      if (!open || !relPath || content !== null || fetchError !== null) return;
+      let cancelled = false;
+      fetch(`/upgrade-logs/${relPath}`, { credentials: "include" })
+        .then(async (resp) => {
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          return resp.text();
+        })
+        .then((text) => {
+          if (cancelled) return;
+          const lines = text.split("\n");
+          setContent(lines.slice(-50).join("\n"));
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          setFetchError(err instanceof Error ? err.message : String(err));
+        });
+      return () => {
+        cancelled = true;
+      };
+    },
+    [open, relPath, content, fetchError],
+    `UpgradesPage:log-fetch-${id}`,
+  );
+
+  if (!relPath) {
+    return (
+      <div className="mt-2 text-xs italic text-muted-foreground">(no log)</div>
+    );
+  }
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen} className="mt-2">
+      <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+        <ChevronDown className="h-3 w-3" />
+        Log
+      </CollapsibleTrigger>
+      <CollapsibleContent className="mt-2 max-h-64 overflow-y-auto whitespace-pre-wrap rounded-md bg-slate-900 p-3 font-mono text-xs text-slate-100">
+        {fetchError
+          ? `Failed to load log: ${fetchError}`
+          : content === null
+            ? "Loading..."
+            : content}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 /** Renders changelog text with URLs as clickable links and **bold** as <strong>. */
 function ChangelogContent({ text }: { text: string }) {
   // Convert **text** to bold and URLs to links
@@ -600,21 +665,15 @@ function UpgradeCard({
           </Collapsible>
         )}
 
-        {/* Progress log: the service tail that preceded completion or
-            rollback. Opened by default on failures so the operator sees
-            what happened without an extra click, closed by default on
-            successes (less noise when everything worked). */}
-        {u.progress_log && (
-          <Collapsible defaultOpen={!!u.error || !!u.rolled_back_at} className="mt-2">
-            <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-              <ChevronDown className="h-3 w-3" />
-              Log
-            </CollapsibleTrigger>
-            <CollapsibleContent className="mt-2 rounded-md bg-slate-900 p-3 text-xs font-mono text-slate-100 whitespace-pre-wrap">
-              {u.progress_log}
-            </CollapsibleContent>
-          </Collapsible>
-        )}
+        {/* Progress log: Caddy serves /upgrade-logs/<file> read-only from
+            tmp/upgrade-logs/. We fetch on expand and show the last 50 lines.
+            Opened by default on failures so the operator sees what happened
+            without an extra click. */}
+        <UpgradeLogViewer
+          id={u.id}
+          relPath={u.log_relative_file_path}
+          defaultOpen={!!u.error || !!u.rolled_back_at}
+        />
 
         {/* Changelog */}
         {u.changes && (
