@@ -64,11 +64,11 @@ BEGIN
         INTO task_record
         FROM worker.tasks AS t
         JOIN worker.command_registry AS cr ON t.command = cr.command
-        WHERE t.state = 'pending'::worker.task_state
+        WHERE t.state IN ('interrupted'::worker.task_state, 'pending'::worker.task_state)
           AND t.parent_id = v_waiting_serial_parent_id
           AND (t.scheduled_at IS NULL OR t.scheduled_at <= clock_timestamp())
           AND (p_max_priority IS NULL OR t.priority <= p_max_priority)
-        ORDER BY t.priority ASC NULLS LAST, t.id
+        ORDER BY CASE WHEN t.state = 'interrupted' THEN 0 ELSE 1 END, t.priority ASC NULLS LAST, t.id
         LIMIT 1
         FOR UPDATE OF t SKIP LOCKED;
       END IF;
@@ -78,12 +78,13 @@ BEGIN
         INTO task_record
         FROM worker.tasks AS t
         JOIN worker.command_registry AS cr ON t.command = cr.command
-        WHERE t.state = 'pending'::worker.task_state
+        WHERE t.state IN ('interrupted'::worker.task_state, 'pending'::worker.task_state)
           AND t.parent_id IS NULL
           AND (t.scheduled_at IS NULL OR t.scheduled_at <= clock_timestamp())
           AND (p_queue IS NULL OR cr.queue = p_queue)
           AND (p_max_priority IS NULL OR t.priority <= p_max_priority)
         ORDER BY
+          CASE WHEN t.state = 'interrupted' THEN 0 ELSE 1 END,
           CASE WHEN t.scheduled_at IS NULL THEN 0 ELSE 1 END,
           t.scheduled_at,
           t.priority ASC NULLS LAST,
@@ -102,11 +103,11 @@ BEGIN
       INTO task_record
       FROM worker.tasks AS t
       JOIN worker.command_registry AS cr ON t.command = cr.command
-      WHERE t.state = 'pending'::worker.task_state
+      WHERE t.state IN ('interrupted'::worker.task_state, 'pending'::worker.task_state)
         AND t.parent_id = v_waiting_concurrent_parent_id
         AND (t.scheduled_at IS NULL OR t.scheduled_at <= clock_timestamp())
         AND (p_max_priority IS NULL OR t.priority <= p_max_priority)
-      ORDER BY t.priority ASC NULLS LAST, t.id
+      ORDER BY CASE WHEN t.state = 'interrupted' THEN 0 ELSE 1 END, t.priority ASC NULLS LAST, t.id
       LIMIT 1
       FOR UPDATE OF t SKIP LOCKED;
 
@@ -116,11 +117,11 @@ BEGIN
         INTO task_record
         FROM worker.tasks AS t
         JOIN worker.command_registry AS cr ON t.command = cr.command
-        WHERE t.state = 'pending'::worker.task_state
+        WHERE t.state IN ('interrupted'::worker.task_state, 'pending'::worker.task_state)
           AND t.parent_id = v_waiting_concurrent_parent_id
           AND (t.scheduled_at IS NULL OR t.scheduled_at <= clock_timestamp())
           AND (p_max_priority IS NULL OR t.priority <= p_max_priority)
-        ORDER BY t.priority ASC NULLS LAST, t.id
+        ORDER BY CASE WHEN t.state = 'interrupted' THEN 0 ELSE 1 END, t.priority ASC NULLS LAST, t.id
         LIMIT 1
         FOR UPDATE OF t SKIP LOCKED;
       END IF;
@@ -130,11 +131,11 @@ BEGIN
         INTO task_record
         FROM worker.tasks AS t
         JOIN worker.command_registry AS cr ON t.command = cr.command
-        WHERE t.state = 'pending'::worker.task_state
+        WHERE t.state IN ('interrupted'::worker.task_state, 'pending'::worker.task_state)
           AND t.parent_id = v_waiting_serial_parent_id
           AND (t.scheduled_at IS NULL OR t.scheduled_at <= clock_timestamp())
           AND (p_max_priority IS NULL OR t.priority <= p_max_priority)
-        ORDER BY t.priority ASC NULLS LAST, t.id
+        ORDER BY CASE WHEN t.state = 'interrupted' THEN 0 ELSE 1 END, t.priority ASC NULLS LAST, t.id
         LIMIT 1
         FOR UPDATE OF t SKIP LOCKED;
       END IF;
@@ -144,12 +145,13 @@ BEGIN
         INTO task_record
         FROM worker.tasks AS t
         JOIN worker.command_registry AS cr ON t.command = cr.command
-        WHERE t.state = 'pending'::worker.task_state
+        WHERE t.state IN ('interrupted'::worker.task_state, 'pending'::worker.task_state)
           AND t.parent_id IS NULL
           AND (t.scheduled_at IS NULL OR t.scheduled_at <= clock_timestamp())
           AND (p_queue IS NULL OR cr.queue = p_queue)
           AND (p_max_priority IS NULL OR t.priority <= p_max_priority)
         ORDER BY
+          CASE WHEN t.state = 'interrupted' THEN 0 ELSE 1 END,
           CASE WHEN t.scheduled_at IS NULL THEN 0 ELSE 1 END,
           t.scheduled_at,
           t.priority ASC NULLS LAST,

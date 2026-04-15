@@ -11,6 +11,7 @@
 Indexes:
     "migration_pkey" PRIMARY KEY, btree (id)
     "migration_version_idx" btree (version)
+    "migration_version_unique" UNIQUE CONSTRAINT, btree (version)
 Policies:
     POLICY "migration_authenticated_read" FOR SELECT
       TO authenticated

@@ -21,12 +21,14 @@ BEGIN
         PERFORM pg_terminate_backend(v_stale_pid);
     END LOOP;
 
-    -- Find tasks stuck in 'processing' and reset their status to 'pending'.
+    -- Find tasks stuck in 'processing' and reset their status to 'interrupted'.
+    -- Using 'interrupted' instead of 'pending' avoids conflicts with existing
+    -- pending tasks that have dedup constraints.
     FOR v_task IN
         SELECT id FROM worker.tasks WHERE state = 'processing'::worker.task_state FOR UPDATE
     LOOP
         UPDATE worker.tasks
-        SET state = 'pending'::worker.task_state,
+        SET state = 'interrupted'::worker.task_state,
             worker_pid = NULL,
             process_start_at = NULL,
             error = NULL,
@@ -48,16 +50,23 @@ BEGIN
         FROM worker.base_change_log;
 
         IF v_change_log_count = 0 THEN
-            -- UNLOGGED data was lost in crash - spawn full refresh via collect_changes
-            RAISE LOG 'Crash recovery: base_change_log_has_pending=TRUE but base_change_log is empty. Spawning full refresh.';
-            PERFORM worker.spawn(
-                p_command => 'collect_changes',
-                p_payload => jsonb_build_object(
-                    'valid_from', '-infinity'::date,
-                    'valid_until', 'infinity'::date,
-                    'crash_recovery', true
-                )
-            );
+            -- Only spawn if there isn't already a pending or interrupted collect_changes
+            IF NOT EXISTS (
+                SELECT 1 FROM worker.tasks
+                WHERE command = 'collect_changes'
+                  AND state IN ('pending', 'interrupted')
+            ) THEN
+                -- UNLOGGED data was lost in crash - spawn full refresh via collect_changes
+                RAISE LOG 'Crash recovery: base_change_log_has_pending=TRUE but base_change_log is empty. Spawning full refresh.';
+                PERFORM worker.spawn(
+                    p_command => 'collect_changes',
+                    p_payload => jsonb_build_object(
+                        'valid_from', '-infinity'::date,
+                        'valid_until', 'infinity'::date,
+                        'crash_recovery', true
+                    )
+                );
+            END IF;
             UPDATE worker.base_change_log_has_pending SET has_pending = FALSE;
         END IF;
     END IF;

@@ -1420,6 +1420,7 @@ erDiagram
 		boolean artifacts_ready
 		timestamp_with_time_zone dismissed_at
 		upgrade_state state
+		text discover_version_tag
 	}
 	sql_saga_era["sql_saga.era"] {
 		name table_schema

@@ -18,7 +18,7 @@ DECLARE
     v_range_start INT;
     v_range_end INT;
 BEGIN
-    v_modulus := public.report_partition_modulus();
+    v_modulus := public.get_report_partition_modulus();
 
     SELECT id INTO v_task_id
     FROM worker.tasks

@@ -6,11 +6,11 @@ AS $function$
 BEGIN
     WITH RECURSIVE descendants AS (
         SELECT id FROM worker.tasks
-        WHERE parent_id = p_parent_id AND state IN ('pending', 'waiting')
+        WHERE parent_id = p_parent_id AND state IN ('interrupted', 'pending', 'waiting')
         UNION ALL
         SELECT t.id FROM worker.tasks AS t
         JOIN descendants AS d ON t.parent_id = d.id
-        WHERE t.state IN ('pending', 'waiting')
+        WHERE t.state IN ('interrupted', 'pending', 'waiting')
     )
     UPDATE worker.tasks
     SET state = 'failed',

@@ -37,14 +37,14 @@ BEGIN
     FROM worker.tasks
     WHERE parent_id = v_pipeline_id AND command = 'derive_reports_phase';
 
-    -- Active when processing/waiting, or pending but units already done (gap bridge)
+    -- Active when processing/waiting, or interrupted/pending but units already done (gap bridge)
     v_active := v_reports_phase_state IN ('processing', 'waiting')
-        OR (v_reports_phase_state = 'pending'
+        OR (v_reports_phase_state IN ('interrupted', 'pending')
             AND v_units_phase_state IN ('completed', 'failed'));
 
     IF NOT COALESCE(v_active, false) THEN
-        -- If pending (not active, but queued), return pending with counts
-        IF v_reports_phase_state = 'pending' THEN
+        -- If interrupted or pending (not active, but queued), return pending with counts
+        IF v_reports_phase_state IN ('interrupted', 'pending') THEN
             SELECT id INTO v_units_phase_id
             FROM worker.tasks
             WHERE parent_id = v_pipeline_id AND command = 'derive_units_phase';

@@ -9,11 +9,11 @@ DECLARE
 BEGIN
     DELETE FROM worker.tasks
     WHERE state = 'completed'::worker.task_state
-      AND processed_at < (now() - (v_completed_retention_days || ' days')::interval);
+      AND process_start_at < (now() - (v_completed_retention_days || ' days')::interval);
 
     DELETE FROM worker.tasks
     WHERE state = 'failed'::worker.task_state
-      AND processed_at < (now() - (v_failed_retention_days || ' days')::interval);
+      AND process_start_at < (now() - (v_failed_retention_days || ' days')::interval);
 
     PERFORM worker.enqueue_task_cleanup(
       v_completed_retention_days,

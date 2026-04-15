@@ -29,7 +29,7 @@ DECLARE
     v_effective_info JSONB;
 BEGIN
     -- 1. Find the active pipeline root.
-    -- Prefer processing/waiting (actively running) over pending (queued).
+    -- Prefer processing/waiting (actively running) over interrupted/pending (queued).
     -- Without this, a second queued collect_changes would shadow the running one.
     SELECT id, state INTO v_pipeline_id, v_pipeline_state
     FROM worker.tasks
@@ -59,18 +59,18 @@ BEGIN
     WHERE parent_id = v_pipeline_id AND command = 'derive_reports_phase';
 
     -- 3. Phase activity from root states
-    -- Units: active when pipeline is collecting (pending/processing)
+    -- Units: active when pipeline is collecting (interrupted/pending/processing)
     --        OR units phase root is not yet terminal
-    v_units_active := v_pipeline_state IN ('pending', 'processing')
+    v_units_active := v_pipeline_state IN ('interrupted', 'pending', 'processing')
         OR (v_units_phase_state IS NOT NULL
             AND v_units_phase_state NOT IN ('completed', 'failed'));
 
     -- Also check: is there a QUEUED pipeline behind the current one?
-    -- A pending collect_changes means new changes are waiting to be processed.
+    -- An interrupted or pending collect_changes means new changes are waiting to be processed.
     -- Show units as pending so the UI indicates queued work.
     IF NOT v_units_active AND EXISTS (
         SELECT 1 FROM worker.tasks
-        WHERE command = 'collect_changes' AND state = 'pending'
+        WHERE command = 'collect_changes' AND state IN ('interrupted', 'pending')
           AND id <> v_pipeline_id
     ) THEN
         v_units_active := true;
@@ -78,10 +78,10 @@ BEGIN
     END IF;
 
     -- Reports: active when reports phase root is processing/waiting,
-    -- OR when reports is pending but units is already done (bridges the gap
+    -- OR when reports is interrupted/pending but units is already done (bridges the gap
     -- between derive_units_phase completing and derive_reports_phase starting).
     v_reports_active := v_reports_phase_state IN ('processing', 'waiting')
-        OR (v_reports_phase_state = 'pending'
+        OR (v_reports_phase_state IN ('interrupted', 'pending')
             AND v_units_phase_state IN ('completed', 'failed'));
 
     -- 4. Effective counts: from the depth-2 child that has them (persists after completion)
@@ -97,7 +97,7 @@ BEGIN
     IF v_units_active THEN
         -- Step: the depth-2 child of the phase root that's active.
         -- This matches pipeline_step_weight entries for weighted progress.
-        IF v_pipeline_state IN ('pending', 'processing') THEN
+        IF v_pipeline_state IN ('interrupted', 'pending', 'processing') THEN
             v_units_step := 'collect_changes';
         ELSE
             SELECT t.command INTO v_units_step
@@ -141,7 +141,7 @@ BEGIN
     END IF;
 
     -- 6. Phase 2 details
-    -- Always include reports when the phase exists (even when pending),
+    -- Always include reports when the phase exists (even when interrupted/pending),
     -- so the UI can show "pending" with effective counts.
     IF v_reports_phase_id IS NOT NULL AND v_reports_phase_state NOT IN ('completed', 'failed') THEN
         IF v_reports_active THEN
@@ -173,7 +173,7 @@ BEGIN
         v_phases := v_phases || jsonb_build_array(jsonb_build_object(
             'phase', 'is_deriving_reports',
             'active', v_reports_active,
-            'pending', v_reports_phase_state = 'pending',
+            'pending', v_reports_phase_state IN ('interrupted', 'pending'),
             'step', v_reports_step,
             'total', COALESCE(v_reports_total, 0),
             'completed', COALESCE(v_reports_completed, 0),
@@ -191,7 +191,7 @@ BEGIN
     END IF;
 
     -- Only send idle signals when the phase is truly idle (not active AND not pending).
-    -- A pending phase is queued work — not idle.
+    -- An interrupted or pending phase is queued work — not idle.
     IF NOT v_units_active THEN
         PERFORM pg_notify('worker_status',
             json_build_object('type', 'is_deriving_statistical_units', 'status', false)::text);

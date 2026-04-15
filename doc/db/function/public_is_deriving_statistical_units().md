@@ -32,14 +32,14 @@ BEGIN
     FROM worker.tasks
     WHERE parent_id = v_pipeline_id AND command = 'derive_units_phase';
 
-    v_active := v_pipeline_state IN ('pending', 'processing')
+    v_active := v_pipeline_state IN ('interrupted', 'pending', 'processing')
         OR (v_units_phase_state IS NOT NULL
             AND v_units_phase_state NOT IN ('completed', 'failed'));
 
     -- Also check for a queued pipeline behind the current one
     IF NOT v_active AND EXISTS (
         SELECT 1 FROM worker.tasks
-        WHERE command = 'collect_changes' AND state = 'pending'
+        WHERE command = 'collect_changes' AND state IN ('interrupted', 'pending')
           AND id <> v_pipeline_id
     ) THEN
         v_active := true;
@@ -56,7 +56,7 @@ BEGIN
     END IF;
 
     -- Step
-    IF v_pipeline_state IN ('pending', 'processing') THEN
+    IF v_pipeline_state IN ('interrupted', 'pending', 'processing') THEN
         v_step := 'collect_changes';
     ELSE
         SELECT t.command INTO v_step

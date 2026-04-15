@@ -70,9 +70,13 @@ BEGIN
                 SELECT jsonb_array_elements_text(job.definition_snapshot->'import_definition'->'import_as_null')
             ) INTO null_values;
 
-            -- Strip ' | ...' separator from uploaded values (e.g. '01.11 | Growing of cereals'),
-            -- then check for null values.
+            -- Strip ' | ...' separator from uploaded values (e.g. '01.11 | Growing of cereals').
+            -- The Excel download (app/src/lib/excel-reference-sheets.ts) creates reference sheets
+            -- with "code | name" dropdowns so users see human-readable labels when editing.
+            -- When users select from these dropdowns, the cell value becomes "code | name".
+            -- SPLIT_PART extracts just the code before the separator for lookup joins.
             -- SPLIT_PART('01.11', ' | ', 1) returns '01.11' unchanged — harmless when no separator.
+            -- Then check for null values.
             null_case_expr := format('CASE WHEN UPPER(TRIM(SPLIT_PART(%I, %L, 1))) IN (%s) THEN NULL ELSE TRIM(SPLIT_PART(%I, %L, 1)) END',
                 current_source_column->>'column_name',
                 ' | ',

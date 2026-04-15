@@ -67,7 +67,8 @@ BEGIN
             births, deaths, name_change_count,
             primary_activity_category_change_count, secondary_activity_category_change_count,
             sector_change_count, legal_form_change_count, physical_region_change_count,
-            physical_country_change_count, physical_address_change_count
+            physical_country_change_count, physical_address_change_count,
+            stats_summary
         FROM public.statistical_history
         WHERE resolution = p_resolution
           AND unit_type = p_unit_type
@@ -95,7 +96,8 @@ BEGIN
                 'physical_region_change_count', COALESCE(jsonb_agg(jsonb_build_array(ts_epoch_ms, physical_region_change_count) ORDER BY ts_epoch_ms), '[]'::jsonb),
                 'physical_country_change_count', COALESCE(jsonb_agg(jsonb_build_array(ts_epoch_ms, physical_country_change_count) ORDER BY ts_epoch_ms), '[]'::jsonb),
                 'physical_address_change_count', COALESCE(jsonb_agg(jsonb_build_array(ts_epoch_ms, physical_address_change_count) ORDER BY ts_epoch_ms), '[]'::jsonb)
-            ) as series_data_map
+            ) as series_data_map,
+            COALESCE(public.jsonb_stats_merge_agg(stats_summary), '{}'::jsonb) AS stats_summary
         FROM base
     )
     SELECT jsonb_strip_nulls(jsonb_build_object(
@@ -118,7 +120,8 @@ BEGIN
             )
             FROM series_definition sd, aggregated_data ad
             WHERE sd.code = ANY(v_filtered_codes)
-        )
+        ),
+        'stats_summary', (SELECT stats_summary FROM aggregated_data)
     ))
     INTO result
     FROM aggregated_data;

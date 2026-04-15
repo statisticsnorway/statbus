@@ -23,15 +23,12 @@ BEGIN
     END IF;
 
     -- 1. Time Validity Method Check
-    -- All definitions must include the 'valid_time' step to ensure uniform processing.
     IF NOT EXISTS (SELECT 1 FROM public.import_definition_step ids JOIN public.import_step s ON s.id = ids.step_id WHERE ids.definition_id = p_definition_id AND s.code = 'valid_time') THEN
         v_is_valid := false;
         v_error_messages := array_append(v_error_messages, 'All import definitions must include the "valid_time" step.');
     END IF;
 
-    -- The following checks ensure the mappings for 'valid_from' and 'valid_to' are consistent with the chosen time validity mode.
     IF v_definition.valid_time_from = 'source_columns' THEN
-        -- Check that 'valid_from_raw' and 'valid_to_raw' are mapped from source columns.
         SELECT EXISTS (
             SELECT 1 FROM public.import_mapping im
             JOIN public.import_data_column idc ON im.target_data_column_id = idc.id JOIN public.import_step s ON idc.step_id = s.id
@@ -105,25 +102,18 @@ BEGIN
             v_error_messages := array_append(v_error_messages, 'Mode "establishment_informal" requires the "enterprise_link_for_establishment" step.');
         END IF;
     ELSIF v_definition.mode = 'generic_unit' THEN
-        -- Generic unit mode might have fewer structural step requirements.
-        -- It still needs external_idents to find the unit, and likely statistical_variables if that's its purpose.
-        -- For now, no specific structural checks beyond the global mandatory ones.
         RAISE DEBUG '[Validate Def ID %] Mode is generic_unit, skipping LU/ES specific step checks.', p_definition_id;
     ELSIF v_definition.mode = 'legal_relationship' THEN
-        -- Legal relationship mode imports relationships between two legal units.
-        -- It identifies units via its own step (influencing/influenced tax_ident), not external_idents.
         IF NOT ('legal_relationship' = ANY(v_step_codes)) THEN
             v_is_valid := false;
             v_error_messages := array_append(v_error_messages, 'Mode "legal_relationship" requires the "legal_relationship" step.');
         END IF;
         RAISE DEBUG '[Validate Def ID %] Mode is legal_relationship.', p_definition_id;
     ELSE
-        -- This case should ideally not be reached if the mode enum is exhaustive and NOT NULL
         v_is_valid := false;
         v_error_messages := array_append(v_error_messages, format('Unknown or unhandled import mode: %L.', v_definition.mode));
     END IF;
 
-    -- Enforce unique step priorities within a definition (prevents equal-priority deadlocks in analysis scheduling)
     IF EXISTS (
         SELECT 1
         FROM (
@@ -140,8 +130,6 @@ BEGIN
     END IF;
 
     -- 3. Check for mandatory steps
-    -- external_idents is mandatory for unit-based imports, but not for relationship imports
-    -- which resolve identities within their own step.
     IF v_definition.mode != 'legal_relationship' THEN
         IF NOT ('external_idents' = ANY(v_step_codes)) THEN
             v_is_valid := false;
@@ -158,9 +146,6 @@ BEGIN
     END IF;
 
     -- 4. Source Column and Mapping Consistency
-
-    -- Specific check for 'external_idents' step:
-    -- If 'external_idents' step is included, at least one of its 'source_input' data columns must be mapped.
     IF 'external_idents' = ANY(v_step_codes) THEN
         DECLARE
             v_has_mapped_external_ident BOOLEAN;
@@ -182,10 +167,6 @@ BEGIN
         END;
     END IF;
 
-    -- Specific check for 'status' step removed, as status_code mapping is now optional.
-
-    -- Conditional check for 'data_source_code_raw' mapping:
-    -- If import_definition.data_source_id is NULL, a mapping for 'data_source_code_raw' is required.
     IF v_definition.data_source_id IS NULL THEN
         DECLARE
             v_data_source_code_mapped BOOLEAN;
@@ -221,6 +202,9 @@ BEGIN
         END;
     END IF;
 
+    -- Unused source columns — skip columns for disabled external ident types.
+    -- When an ident type is disabled, the synchronization procedure still creates
+    -- the source column but doesn't create a mapping. That's not an error.
     FOR v_source_col_rec IN
         SELECT isc.column_name
         FROM public.import_source_column isc
@@ -228,6 +212,11 @@ BEGIN
           AND NOT EXISTS (
             SELECT 1 FROM public.import_mapping im
             WHERE im.definition_id = p_definition_id AND im.source_column_id = isc.id
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM public.external_ident_type eit
+            WHERE eit.enabled = false
+              AND (isc.column_name = eit.code OR isc.column_name LIKE '%\_' || eit.code)
           )
     LOOP
         v_is_valid := false;

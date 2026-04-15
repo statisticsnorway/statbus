@@ -6084,6 +6084,7 @@ export type Database = {
           commit_sha: string
           committed_at: string
           completed_at: string | null
+          discover_version_tag: string | null
           discovered_at: string
           dismissed_at: string | null
           docker_images_ready: boolean
@@ -6113,6 +6114,7 @@ export type Database = {
           commit_sha: string
           committed_at: string
           completed_at?: string | null
+          discover_version_tag?: string | null
           discovered_at?: string
           dismissed_at?: string | null
           docker_images_ready?: boolean
@@ -6142,6 +6144,7 @@ export type Database = {
           commit_sha?: string
           committed_at?: string
           completed_at?: string | null
+          discover_version_tag?: string | null
           discovered_at?: string
           dismissed_at?: string | null
           docker_images_ready?: boolean
