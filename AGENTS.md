@@ -184,6 +184,8 @@ Controlled by `DEPLOYMENT_SLOT_CODE` and `DEPLOYMENT_SLOT_PORT_OFFSET` - enables
 
 ### PostgreSQL Connection Patterns
 
+**Note:** `./sb migrate up` and other server-internal database clients should use `CADDY_DB_BIND_ADDRESS` + `CADDY_DB_PORT` (loopback in private mode), NOT `SITE_DOMAIN`. `SITE_DOMAIN` is the external hostname used via SSH tunnel (private) or public DNS (standalone); Caddy does not expose the DB port on that address in private-mode deployments.
+
 **Local Development** (mode=development):
 ```bash
 # Default: plaintext on slot-based port (e.g., 3014 for local slot)

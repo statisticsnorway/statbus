@@ -107,6 +107,11 @@ func PsqlCommand(projDir string) (psqlPath string, prefixArgs []string, env []st
 }
 
 // psqlEnv builds the environment for psql from .env file.
+//
+// Host/port come from CADDY_DB_BIND_ADDRESS + CADDY_DB_PORT (server-internal
+// bind, e.g. 127.0.0.1 in private mode). Using SITE_DOMAIN here breaks on
+// private-mode servers where Caddy binds :3014 only to loopback.
+// Process env still wins (PGHOST=... ./sb migrate up) via the final env pass.
 func psqlEnv(projDir string) ([]string, error) {
 	envPath := filepath.Join(projDir, ".env")
 	f, err := dotenv.Load(envPath)
@@ -114,6 +119,12 @@ func psqlEnv(projDir string) ([]string, error) {
 		return nil, fmt.Errorf("load .env: %w", err)
 	}
 
+	requireKey := func(key string) (string, error) {
+		if v, ok := f.Get(key); ok && v != "" {
+			return v, nil
+		}
+		return "", fmt.Errorf("%s not found in .env — regenerate with: ./sb config generate", key)
+	}
 	// Process env overrides .env file — allows PGDATABASE=... ./sb migrate up
 	getOr := func(key, fallback string) string {
 		if v := os.Getenv(key); v != "" {
@@ -125,12 +136,18 @@ func psqlEnv(projDir string) ([]string, error) {
 		return fallback
 	}
 
-	siteDomain := getOr("SITE_DOMAIN", "local.statbus.org")
-	dbPort := getOr("CADDY_DB_PORT", "5432")
+	dbHost, err := requireKey("CADDY_DB_BIND_ADDRESS")
+	if err != nil {
+		return nil, err
+	}
+	dbPort, err := requireKey("CADDY_DB_PORT")
+	if err != nil {
+		return nil, err
+	}
 
 	env := os.Environ()
 	env = append(env,
-		"PGHOST="+siteDomain,
+		"PGHOST="+dbHost,
 		"PGPORT="+dbPort,
 		"PGDATABASE="+getOr("POSTGRES_APP_DB", "statbus_local"),
 		"PGUSER="+getOr("POSTGRES_ADMIN_USER", "postgres"),
@@ -315,29 +332,50 @@ func HasPending(projDir string) (bool, error) {
 //
 // The lock auto-releases when the connection closes (graceful exit,
 // crash, kill). No stale locks possible.
+// advisoryLockConnStr builds the pgx connection string for the advisory-lock
+// connection. Uses CADDY_DB_BIND_ADDRESS (server-internal bind), not
+// SITE_DOMAIN — same rationale as psqlEnv.
+func advisoryLockConnStr(f *dotenv.File) (string, error) {
+	requireKey := func(key string) (string, error) {
+		if v, ok := f.Get(key); ok && v != "" {
+			return v, nil
+		}
+		return "", fmt.Errorf("%s not found in .env — regenerate with: ./sb config generate", key)
+	}
+	getOr := func(key, fallback string) string {
+		if v, ok := f.Get(key); ok {
+			return v
+		}
+		return fallback
+	}
+	dbHost, err := requireKey("CADDY_DB_BIND_ADDRESS")
+	if err != nil {
+		return "", err
+	}
+	dbPort, err := requireKey("CADDY_DB_PORT")
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf(
+		"host=%s port=%s dbname=%s user=%s password=%s sslmode=disable",
+		dbHost,
+		dbPort,
+		getOr("POSTGRES_APP_DB", "statbus_local"),
+		getOr("POSTGRES_ADMIN_USER", "postgres"),
+		getOr("POSTGRES_ADMIN_PASSWORD", ""),
+	), nil
+}
+
 func acquireAdvisoryLock(ctx context.Context, projDir string) (*pgx.Conn, error) {
 	envPath := filepath.Join(projDir, ".env")
 	f, err := dotenv.Load(envPath)
 	if err != nil {
 		return nil, fmt.Errorf("load .env for advisory lock: %w", err)
 	}
-	getOr := func(key, fallback string) string {
-		if v := os.Getenv(key); v != "" {
-			return v
-		}
-		if v, ok := f.Get(key); ok {
-			return v
-		}
-		return fallback
+	connStr, err := advisoryLockConnStr(f)
+	if err != nil {
+		return nil, fmt.Errorf("build advisory lock conn string: %w", err)
 	}
-	connStr := fmt.Sprintf(
-		"host=%s port=%s dbname=%s user=%s password=%s sslmode=disable",
-		getOr("SITE_DOMAIN", "local.statbus.org"),
-		getOr("CADDY_DB_PORT", "5432"),
-		getOr("POSTGRES_APP_DB", "statbus_local"),
-		getOr("POSTGRES_ADMIN_USER", "postgres"),
-		getOr("POSTGRES_ADMIN_PASSWORD", ""),
-	)
 	conn, err := pgx.Connect(ctx, connStr)
 	if err != nil {
 		return nil, fmt.Errorf("connect for advisory lock: %w", err)

@@ -1,8 +1,114 @@
 package migrate
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 )
+
+// writeEnv writes a throw-away .env file in a temp dir and returns the project
+// directory (parent of the .env). Uses t.TempDir() for auto-cleanup.
+func writeEnv(t *testing.T, contents string) string {
+	t.Helper()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, ".env"), []byte(contents), 0o600); err != nil {
+		t.Fatalf("write .env: %v", err)
+	}
+	return dir
+}
+
+func TestPsqlEnv_UsesCaddyBind(t *testing.T) {
+	dir := writeEnv(t, strings.Join([]string{
+		"CADDY_DB_BIND_ADDRESS=127.0.0.1",
+		"CADDY_DB_PORT=3014",
+		"POSTGRES_APP_DB=statbus_test",
+		"POSTGRES_ADMIN_USER=postgres",
+		"POSTGRES_ADMIN_PASSWORD=secret",
+	}, "\n"))
+
+	// Scrub process env so we're not testing the override path.
+	t.Setenv("PGHOST", "")
+	t.Setenv("PGPORT", "")
+	t.Setenv("SITE_DOMAIN", "")
+
+	env, err := psqlEnv(dir)
+	if err != nil {
+		t.Fatalf("psqlEnv: %v", err)
+	}
+
+	want := map[string]string{
+		"PGHOST":     "127.0.0.1",
+		"PGPORT":     "3014",
+		"PGDATABASE": "statbus_test",
+		"PGUSER":     "postgres",
+		"PGPASSWORD": "secret",
+	}
+	got := map[string]string{}
+	for _, kv := range env {
+		for k := range want {
+			if strings.HasPrefix(kv, k+"=") {
+				got[k] = strings.TrimPrefix(kv, k+"=")
+			}
+		}
+	}
+	for k, v := range want {
+		if got[k] != v {
+			t.Errorf("env[%s] = %q, want %q", k, got[k], v)
+		}
+	}
+}
+
+func TestPsqlEnv_MissingKeyFailsLoud(t *testing.T) {
+	// No CADDY_DB_BIND_ADDRESS in .env.
+	dir := writeEnv(t, "CADDY_DB_PORT=3014\n")
+	t.Setenv("PGHOST", "")
+	t.Setenv("SITE_DOMAIN", "")
+
+	_, err := psqlEnv(dir)
+	if err == nil {
+		t.Fatal("expected error for missing CADDY_DB_BIND_ADDRESS, got nil")
+	}
+	if !strings.Contains(err.Error(), "CADDY_DB_BIND_ADDRESS") {
+		t.Errorf("error should mention key name: %v", err)
+	}
+	if !strings.Contains(err.Error(), "./sb config generate") {
+		t.Errorf("error should point at config generate: %v", err)
+	}
+}
+
+func TestAcquireAdvisoryLockConnStr(t *testing.T) {
+	dir := writeEnv(t, strings.Join([]string{
+		"CADDY_DB_BIND_ADDRESS=127.0.0.1",
+		"CADDY_DB_PORT=3014",
+		"POSTGRES_APP_DB=statbus_test",
+		"POSTGRES_ADMIN_USER=postgres",
+		"POSTGRES_ADMIN_PASSWORD=secret",
+	}, "\n"))
+
+	f, err := dotenv.Load(filepath.Join(dir, ".env"))
+	if err != nil {
+		t.Fatalf("load .env: %v", err)
+	}
+	connStr, err := advisoryLockConnStr(f)
+	if err != nil {
+		t.Fatalf("advisoryLockConnStr: %v", err)
+	}
+	for _, want := range []string{
+		"host=127.0.0.1",
+		"port=3014",
+		"dbname=statbus_test",
+		"user=postgres",
+		"password=secret",
+		"sslmode=disable",
+	} {
+		if !strings.Contains(connStr, want) {
+			t.Errorf("connStr missing %q; got %q", want, connStr)
+		}
+	}
+}
 
 func TestParseMigrationFile(t *testing.T) {
 	valid := []struct {
