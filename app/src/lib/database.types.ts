@@ -6092,7 +6092,6 @@ export type Database = {
           has_migrations: boolean
           id: number
           log_relative_file_path: string | null
-          progress_log: string | null
           release_builds_ready: boolean
           release_status: Database["public"]["Enums"]["release_status_type"]
           release_url: string | null
@@ -6122,7 +6121,6 @@ export type Database = {
           has_migrations?: boolean
           id?: never
           log_relative_file_path?: string | null
-          progress_log?: string | null
           release_builds_ready?: boolean
           release_status?: Database["public"]["Enums"]["release_status_type"]
           release_url?: string | null
@@ -6152,7 +6150,6 @@ export type Database = {
           has_migrations?: boolean
           id?: never
           log_relative_file_path?: string | null
-          progress_log?: string | null
           release_builds_ready?: boolean
           release_status?: Database["public"]["Enums"]["release_status_type"]
           release_url?: string | null

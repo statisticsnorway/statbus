@@ -23,7 +23,6 @@
  docker_images_downloaded | boolean                  |           | not null | false
  backup_path              | text                     |           |          | 
  superseded_at            | timestamp with time zone |           |          | 
- progress_log             | text                     |           |          | 
  docker_images_ready      | boolean                  |           | not null | false
  release_builds_ready     | boolean                  |           | not null | false
  dismissed_at             | timestamp with time zone |           |          | 
