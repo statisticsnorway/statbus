@@ -424,7 +424,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 		}
 		logTail := readProgressLogTail(ProgressLogPath(d.projDir, flag.DisplayName), 50)
 		if tag, err := d.queryConn.Exec(ctx,
-			"UPDATE public.upgrade SET state = 'completed', completed_at = now(), progress_log = $1 WHERE id = $2 AND completed_at IS NULL",
+			"UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_ready = true, progress_log = $1 WHERE id = $2 AND completed_at IS NULL",
 			logTail, flag.ID); err != nil || tag.RowsAffected() == 0 {
 			fmt.Printf("WARN: state transition to completed matched 0 rows or errored (id=%d, err=%v) — possible CHECK constraint violation\n", flag.ID, err)
 		}
@@ -916,7 +916,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 	}
 	logTail := readProgressLogTail(ProgressLogPath(d.projDir, displayName), 50)
 	if tag, err := d.queryConn.Exec(ctx,
-		"UPDATE public.upgrade SET state = 'completed', completed_at = now(), progress_log = $1 WHERE id = $2", logTail, id); err != nil || tag.RowsAffected() == 0 {
+		"UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_ready = true, progress_log = $1 WHERE id = $2", logTail, id); err != nil || tag.RowsAffected() == 0 {
 		fmt.Printf("WARN: state transition to completed matched 0 rows or errored (id=%d, err=%v) — possible CHECK constraint violation\n", id, err)
 	}
 	d.removeUpgradeFlag()
@@ -943,6 +943,7 @@ func (d *Service) markCurrentVersionCompleted(ctx context.Context) {
 		`UPDATE public.upgrade
 		 SET state = 'completed',
 		     completed_at = COALESCE(completed_at, now()),
+		     docker_images_ready = true,
 		     scheduled_at = NULL,
 		     error = NULL,
 		     rollback_completed_at = NULL
@@ -1962,7 +1963,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	progress.Write("Upgrade to %s complete!", displayName)
 	logTail := readProgressLogTail(progress.path, 50)
 	if tag, err := d.queryConn.Exec(ctx,
-		"UPDATE public.upgrade SET state = 'completed', completed_at = now(), progress_log = $1 WHERE id = $2", logTail, id); err != nil || tag.RowsAffected() == 0 {
+		"UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_ready = true, progress_log = $1 WHERE id = $2", logTail, id); err != nil || tag.RowsAffected() == 0 {
 		fmt.Printf("WARN: state transition to completed matched 0 rows or errored (id=%d, err=%v) — possible CHECK constraint violation\n", id, err)
 	}
 	d.removeUpgradeFlag()
