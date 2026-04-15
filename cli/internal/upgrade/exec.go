@@ -154,16 +154,23 @@ func (d *Service) setMaintenance(active bool) {
 	file := filepath.Join(os.Getenv("HOME"), "maintenance")
 
 	if active {
+		_, statErr := os.Stat(file)
 		if err := os.WriteFile(file, []byte("upgrade in progress\n"), 0644); err != nil {
-			fmt.Printf("maintenance: failed to create %s: %v\n", file, err)
+			fmt.Printf("maintenance ON — failed to create %s: %v\n", file, err)
+		} else if os.IsNotExist(statErr) {
+			fmt.Printf("maintenance ON — added %s (created new)\n", file)
 		} else {
-			fmt.Printf("maintenance: created %s\n", file)
+			fmt.Printf("maintenance ON — added %s (already existed)\n", file)
 		}
 	} else {
+		var age string
+		if fi, err := os.Stat(file); err == nil {
+			age = fmt.Sprintf(" (was on for %s)", time.Since(fi.ModTime()).Truncate(time.Second))
+		}
 		if err := os.Remove(file); err != nil && !os.IsNotExist(err) {
-			fmt.Printf("maintenance: failed to remove %s: %v\n", file, err)
+			fmt.Printf("maintenance OFF — failed to remove %s: %v\n", file, err)
 		} else {
-			fmt.Printf("maintenance: removed %s\n", file)
+			fmt.Printf("maintenance OFF — removed %s%s\n", file, age)
 		}
 	}
 }

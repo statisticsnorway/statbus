@@ -1949,6 +1949,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	d.queryConn.Exec(ctx, `NOTIFY worker_status, '{"type":"upgrade_changed"}'`)
 
 	// Done — deactivate maintenance, archive, finalize
+	fmt.Println("Deactivating maintenance (app healthcheck passed)")
 	d.setMaintenance(false)
 	d.archiveBackup(backupPath, displayName)
 
@@ -1988,6 +1989,8 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	if tag, err := d.queryConn.Exec(ctx,
 		"UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_ready = true, progress_log = $1 WHERE id = $2", logTail, id); err != nil || tag.RowsAffected() == 0 {
 		fmt.Printf("WARN: state transition to completed matched 0 rows or errored (id=%d, err=%v) — possible CHECK constraint violation\n", id, err)
+	} else {
+		fmt.Println("state=completed")
 	}
 	d.removeUpgradeFlag()
 	// Pre-upgrade branch is no longer needed — successful completion
