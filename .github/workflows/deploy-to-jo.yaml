@@ -23,7 +23,7 @@ jobs:
           TIMEOUT=900
           ELAPSED=0
           while [ $ELAPSED -lt $TIMEOUT ]; do
-            STATUS=$(gh run list --workflow=ci-images.yaml --commit="$SHA" --json status,conclusion --jq '.[0]')
+            STATUS=$(gh run list --repo "${{ github.repository }}" --workflow=ci-images.yaml --commit="$SHA" --json status,conclusion --jq '.[0]')
             CONCLUSION=$(echo "$STATUS" | jq -r '.conclusion // ""')
             if [ "$CONCLUSION" = "success" ]; then exit 0; fi
             if [ "$CONCLUSION" = "failure" ] || [ "$CONCLUSION" = "cancelled" ]; then
