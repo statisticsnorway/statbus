@@ -635,8 +635,26 @@ func (d *Service) Close() {
 	}
 }
 
-// Greppable labels for terminal upgrade state transitions, used in logUpgradeRow.
+// Label taxonomy used by logUpgradeRow() to tag terminal-state transitions in
+// journalctl output. Each label corresponds to exactly one call path; grep the
+// label string to jump to its site. Add new labels here when adding new terminal
+// transition sites.
+//
 // Search the journal: journalctl -u statbus-upgrade | grep 'upgrade row \[<label>\]'
+//
+//	LabelCompletedNormal         — executeUpgrade normal path: health check passed, upgrade finished cleanly
+//	LabelCompletedSelfHeal       — recoverFromFlag: prior binary died mid-upgrade; new binary found app
+//	                               healthy and self-healed the stuck in_progress row to completed
+//	LabelCompletedFromInProgress — completeInProgressUpgrade: upgrade left in_progress by a prior run;
+//	                               completion health check passed, row finalised to completed
+//	LabelRolledBackNormal        — rollback normal path: upgrade failed, git restore succeeded,
+//	                               prior version restarted cleanly
+//	LabelRolledBackAbort         — rollback ABORT: git restore itself failed; row is rolled_back
+//	                               but the on-disk binary may be in an inconsistent state
+//	LabelRolledBackCrashRecovery — recoverFromFlag: prior binary crashed mid-upgrade; new binary
+//	                               could not self-heal and triggered a rollback to recover
+//	LabelFailed                  — two sites: (1) completeInProgressUpgrade health check failed,
+//	                               (2) failUpgrade explicit failure during executeUpgrade
 const (
 	LabelCompletedNormal         = "completed-normal"
 	LabelCompletedSelfHeal       = "completed-self-heal"
