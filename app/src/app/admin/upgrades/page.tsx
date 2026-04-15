@@ -548,7 +548,7 @@ function UpgradeCard({
                   images building...
                 </Badge>
               )}
-              {u.docker_images_ready && !u.release_builds_ready && (
+              {u.state === 'available' && u.release_status !== 'commit' && u.docker_images_ready && !u.release_builds_ready && (
                 <Badge variant="outline" className="text-xs border-amber-300 text-amber-600">
                   <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                   release artifacts building...
