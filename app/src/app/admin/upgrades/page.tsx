@@ -542,7 +542,7 @@ function UpgradeCard({
                   cycle. Shown separately so an operator can tell which CI
                   workflow is still running (ci-images.yaml vs release.yaml)
                   and set realistic expectations. */}
-              {!u.docker_images_ready && (
+              {u.state === 'available' && !u.docker_images_ready && (
                 <Badge variant="outline" className="text-xs border-amber-300 text-amber-600">
                   <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                   images building...
