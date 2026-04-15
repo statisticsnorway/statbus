@@ -423,10 +423,13 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 			appendLog = nil
 		}
 		logTail := readProgressLogTail(ProgressLogPath(d.projDir, flag.DisplayName), 50)
-		if tag, err := d.queryConn.Exec(ctx,
-			"UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_ready = true, progress_log = $1 WHERE id = $2 AND completed_at IS NULL",
-			logTail, flag.ID); err != nil || tag.RowsAffected() == 0 {
+		var selfHealJSON string
+		if err := d.queryConn.QueryRow(ctx,
+			"UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_ready = true, progress_log = $1 WHERE id = $2 AND completed_at IS NULL"+upgradeRowReturning,
+			logTail, flag.ID).Scan(&selfHealJSON); err != nil {
 			fmt.Printf("WARN: state transition to completed matched 0 rows or errored (id=%d, err=%v) — possible CHECK constraint violation\n", flag.ID, err)
+		} else {
+			logUpgradeRow(LabelCompletedSelfHeal, selfHealJSON)
 		}
 		// Explicit NOTIFY — the DB trigger also fires, but the app's LISTEN is
 		// definitely established by now (new service starts after app is healthy).
@@ -470,11 +473,13 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 
 	// Mark the upgrade as rolled_back in the DB. rollback_completed_at +
 	// error + state='rolled_back' — the CHECK requires all three together.
-	_, err = d.queryConn.Exec(ctx,
-		"UPDATE public.upgrade SET state = 'rolled_back', error = $1, rollback_completed_at = now(), progress_log = $2 WHERE id = $3 AND completed_at IS NULL",
-		errMsg, logTail, flag.ID)
-	if err != nil {
-		fmt.Printf("Warning: could not mark upgrade %d as failed: %v\n", flag.ID, err)
+	var crashJSON string
+	if scanErr := d.queryConn.QueryRow(ctx,
+		"UPDATE public.upgrade SET state = 'rolled_back', error = $1, rollback_completed_at = now(), progress_log = $2 WHERE id = $3 AND completed_at IS NULL"+upgradeRowReturning,
+		errMsg, logTail, flag.ID).Scan(&crashJSON); scanErr != nil {
+		fmt.Printf("Warning: could not mark upgrade %d as rolled_back: %v\n", flag.ID, scanErr)
+	} else {
+		logUpgradeRow(LabelRolledBackCrashRecovery, crashJSON)
 	}
 
 	// Reconciled — remove the on-disk file. The kernel flock was already
@@ -628,6 +633,32 @@ func (d *Service) Close() {
 	if d.listenConn != nil {
 		d.listenConn.Close(context.Background())
 	}
+}
+
+// Greppable labels for terminal upgrade state transitions, used in logUpgradeRow.
+// Search the journal: journalctl -u statbus-upgrade | grep 'upgrade row \[<label>\]'
+const (
+	LabelCompletedNormal         = "completed-normal"
+	LabelCompletedSelfHeal       = "completed-self-heal"
+	LabelCompletedFromInProgress = "completed-from-in-progress"
+	LabelRolledBackNormal        = "rolled-back-normal"
+	LabelRolledBackAbort         = "rolled-back-abort"
+	LabelRolledBackCrashRecovery = "rolled-back-crash-recovery"
+	LabelFailed                  = "failed"
+)
+
+// upgradeRowReturning is the RETURNING clause appended to every terminal-state
+// UPDATE. Strips progress_log (potentially large) and replaces it with
+// progress_log_len so the snapshot stays greppable and finite.
+const upgradeRowReturning = ` RETURNING (to_jsonb(public.upgrade) - 'progress_log')
+        || jsonb_build_object('progress_log_len', length(progress_log))`
+
+// logUpgradeRow prints the full upgrade row snapshot at a terminal state
+// transition. Uses raw %s (never %q) so the JSON is greppable:
+//
+//	journalctl -u statbus-upgrade | grep '"state":"completed"'
+func logUpgradeRow(label string, row string) {
+	fmt.Printf("upgrade row [%s] %s\n", label, row)
 }
 
 // Run starts the upgrade service main loop.
@@ -908,10 +939,13 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 			appendLog = nil
 		}
 		logTail := readProgressLogTail(ProgressLogPath(d.projDir, displayName), 50)
-		if tag, uerr := d.queryConn.Exec(ctx,
-			"UPDATE public.upgrade SET state = 'failed', error = $1, progress_log = $2 WHERE id = $3",
-			fmt.Sprintf("post-restart health check failed: %v", err), logTail, id); uerr != nil || tag.RowsAffected() == 0 {
-			fmt.Printf("WARN: state transition to failed matched 0 rows or errored (id=%d, err=%v) — possible CHECK constraint violation\n", id, uerr)
+		var failedJSON string
+		if scanErr := d.queryConn.QueryRow(ctx,
+			"UPDATE public.upgrade SET state = 'failed', error = $1, progress_log = $2 WHERE id = $3"+upgradeRowReturning,
+			fmt.Sprintf("post-restart health check failed: %v", err), logTail, id).Scan(&failedJSON); scanErr != nil {
+			fmt.Printf("WARN: state transition to failed matched 0 rows or errored (id=%d, err=%v) — possible CHECK constraint violation\n", id, scanErr)
+		} else {
+			logUpgradeRow(LabelFailed, failedJSON)
 		}
 		return
 	}
@@ -925,9 +959,13 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 		appendLog = nil
 	}
 	logTail := readProgressLogTail(ProgressLogPath(d.projDir, displayName), 50)
-	if tag, err := d.queryConn.Exec(ctx,
-		"UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_ready = true, progress_log = $1 WHERE id = $2", logTail, id); err != nil || tag.RowsAffected() == 0 {
-		fmt.Printf("WARN: state transition to completed matched 0 rows or errored (id=%d, err=%v) — possible CHECK constraint violation\n", id, err)
+	var fromInProgressJSON string
+	if scanErr := d.queryConn.QueryRow(ctx,
+		"UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_ready = true, progress_log = $1 WHERE id = $2"+upgradeRowReturning,
+		logTail, id).Scan(&fromInProgressJSON); scanErr != nil {
+		fmt.Printf("WARN: state transition to completed matched 0 rows or errored (id=%d, err=%v) — possible CHECK constraint violation\n", id, scanErr)
+	} else {
+		logUpgradeRow(LabelCompletedFromInProgress, fromInProgressJSON)
 	}
 	d.removeUpgradeFlag()
 
@@ -1986,11 +2024,14 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// shouldn't have to SSH into the server to read the log.
 	progress.Write("Upgrade to %s complete!", displayName)
 	logTail := readProgressLogTail(progress.path, 50)
-	if tag, err := d.queryConn.Exec(ctx,
-		"UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_ready = true, progress_log = $1 WHERE id = $2", logTail, id); err != nil || tag.RowsAffected() == 0 {
-		fmt.Printf("WARN: state transition to completed matched 0 rows or errored (id=%d, err=%v) — possible CHECK constraint violation\n", id, err)
+	var normalJSON string
+	if scanErr := d.queryConn.QueryRow(ctx,
+		"UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_ready = true, progress_log = $1 WHERE id = $2"+upgradeRowReturning,
+		logTail, id).Scan(&normalJSON); scanErr != nil {
+		fmt.Printf("WARN: state transition to completed matched 0 rows or errored (id=%d, err=%v) — possible CHECK constraint violation\n", id, scanErr)
 	} else {
 		fmt.Println("state=completed")
+		logUpgradeRow(LabelCompletedNormal, normalJSON)
 	}
 	d.removeUpgradeFlag()
 	// Pre-upgrade branch is no longer needed — successful completion
@@ -2077,9 +2118,12 @@ func (d *Service) failUpgrade(ctx context.Context, id int, errMsg string, progre
 		// state='failed' requires started_at IS NOT NULL — executeScheduled
 		// always sets started_at before executeUpgrade runs, so that holds.
 		tail := readProgressLogTail(progress.path, 50)
-		d.queryConn.Exec(ctx,
-			"UPDATE public.upgrade SET state = 'failed', error = $1, progress_log = $2, scheduled_at = NULL WHERE id = $3",
-			errMsg, tail, id)
+		var failJSON string
+		if scanErr := d.queryConn.QueryRow(ctx,
+			"UPDATE public.upgrade SET state = 'failed', error = $1, progress_log = $2, scheduled_at = NULL WHERE id = $3"+upgradeRowReturning,
+			errMsg, tail, id).Scan(&failJSON); scanErr == nil {
+			logUpgradeRow(LabelFailed, failJSON)
+		}
 	}
 	// Always release the mutex on failure paths, even those that don't run
 	// rollback (e.g., pullImages failure returns directly after failUpgrade).
@@ -2118,9 +2162,12 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 			rollbackFailedMsg := fmt.Sprintf("rollback_failed_git_checkout: %v (originally: %s)", err, reason)
 			logTail := readProgressLogTail(ProgressLogPath(d.projDir, version), 50)
 			if d.queryConn != nil {
-				d.queryConn.Exec(ctx,
-					"UPDATE public.upgrade SET state = 'rolled_back', error = $1, progress_log = $2, rollback_completed_at = now() WHERE id = $3",
-					rollbackFailedMsg, logTail, id)
+				var abortJSON string
+				if scanErr := d.queryConn.QueryRow(ctx,
+					"UPDATE public.upgrade SET state = 'rolled_back', error = $1, progress_log = $2, rollback_completed_at = now() WHERE id = $3"+upgradeRowReturning,
+					rollbackFailedMsg, logTail, id).Scan(&abortJSON); scanErr == nil {
+					logUpgradeRow(LabelRolledBackAbort, abortJSON)
+				}
 			}
 			// Page on-call via the configured callback (Slack, etc.).
 			// extraEnv tells the script to render a distinctive
@@ -2165,9 +2212,12 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 	}
 	logTail := readProgressLogTail(ProgressLogPath(d.projDir, version), 50)
 	if d.queryConn != nil {
-		d.queryConn.Exec(ctx,
-			"UPDATE public.upgrade SET state = 'rolled_back', error = $1, progress_log = $2, rollback_completed_at = now() WHERE id = $3",
-			errMsg, logTail, id)
+		var rollbackJSON string
+		if scanErr := d.queryConn.QueryRow(ctx,
+			"UPDATE public.upgrade SET state = 'rolled_back', error = $1, progress_log = $2, rollback_completed_at = now() WHERE id = $3"+upgradeRowReturning,
+			errMsg, logTail, id).Scan(&rollbackJSON); scanErr == nil {
+			logUpgradeRow(LabelRolledBackNormal, rollbackJSON)
+		}
 	}
 
 	// Clear the in-progress flag: the rollback has restored a consistent state,
