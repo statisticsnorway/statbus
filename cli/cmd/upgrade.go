@@ -103,7 +103,7 @@ var upgradeListCmd = &cobra.Command{
 		sql := `SELECT version, summary,
 			CASE
 				WHEN completed_at IS NOT NULL THEN 'completed'
-				WHEN error IS NOT NULL AND rollback_completed_at IS NOT NULL THEN 'rolled back'
+				WHEN error IS NOT NULL AND rolled_back_at IS NOT NULL THEN 'rolled back'
 				WHEN error IS NOT NULL THEN 'failed'
 				WHEN started_at IS NOT NULL THEN 'in progress'
 				WHEN scheduled_at IS NOT NULL THEN 'scheduled'
@@ -195,7 +195,7 @@ Examples:
   started_at = NULL,
   completed_at = NULL,
   error = NULL,
-  rollback_completed_at = NULL,
+  rolled_back_at = NULL,
   skipped_at = NULL,
   dismissed_at = NULL,
   progress_log = NULL
@@ -336,7 +336,7 @@ file changes needed.`,
   started_at = NULL,
   completed_at = NULL,
   error = NULL,
-  rollback_completed_at = NULL,
+  rolled_back_at = NULL,
   skipped_at = NULL,
   dismissed_at = NULL,
   progress_log = NULL

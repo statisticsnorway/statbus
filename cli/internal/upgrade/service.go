@@ -473,11 +473,11 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 		errMsg = strings.Join(lines, "\n")
 	}
 
-	// Mark the upgrade as rolled_back in the DB. rollback_completed_at +
+	// Mark the upgrade as rolled_back in the DB. rolled_back_at +
 	// error + state='rolled_back' — the CHECK requires all three together.
 	var crashJSON string
 	if scanErr := d.queryConn.QueryRow(ctx,
-		"UPDATE public.upgrade SET state = 'rolled_back', error = $1, rollback_completed_at = now(), progress_log = $2 WHERE id = $3 AND completed_at IS NULL"+upgradeRowReturning,
+		"UPDATE public.upgrade SET state = 'rolled_back', error = $1, rolled_back_at = now(), progress_log = $2 WHERE id = $3 AND completed_at IS NULL"+upgradeRowReturning,
 		errMsg, logTail, flag.ID).Scan(&crashJSON); scanErr != nil {
 		fmt.Printf("Warning: could not mark upgrade %d as rolled_back: %v\n", flag.ID, scanErr)
 	} else {
@@ -524,11 +524,11 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 	services := []string{"db", "app", "worker", "proxy"}
 
 	rows, err := d.queryConn.Query(ctx, `
-		SELECT id, commit_sha, release_status::text, docker_images_ready, release_builds_ready, discover_version_tag
+		SELECT id, commit_sha, release_status::text, docker_images_ready, release_builds_ready, version
 		  FROM public.upgrade
 		 WHERE (NOT docker_images_ready OR NOT artifacts_ready)
 		   AND completed_at IS NULL
-		   AND rollback_completed_at IS NULL
+		   AND rolled_back_at IS NULL
 		   AND skipped_at IS NULL
 		   AND superseded_at IS NULL
 		 ORDER BY committed_at DESC
@@ -543,12 +543,12 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 		releaseStatus      string
 		dockerImagesReady  bool
 		releaseBuildsReady bool
-		discoverVersionTag *string // NULL for rows predating the discover_version_tag column
+		version *string // NULL for rows predating the version column
 	}
 	var pending []pendingRow
 	for rows.Next() {
 		var r pendingRow
-		if err := rows.Scan(&r.id, &r.sha, &r.releaseStatus, &r.dockerImagesReady, &r.releaseBuildsReady, &r.discoverVersionTag); err == nil {
+		if err := rows.Scan(&r.id, &r.sha, &r.releaseStatus, &r.dockerImagesReady, &r.releaseBuildsReady, &r.version); err == nil {
 			pending = append(pending, r)
 		}
 	}
@@ -561,8 +561,8 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 			// from new tags being pushed past this commit. Fall back to a
 			// dynamic git describe for rows predating the column (NULL).
 			var tag string
-			if r.discoverVersionTag != nil && *r.discoverVersionTag != "" {
-				tag = *r.discoverVersionTag
+			if r.version != nil && *r.version != "" {
+				tag = *r.version
 			} else {
 				out, err := runCommandOutput(d.projDir, "git", "describe", "--tags", "--always", r.sha)
 				if err != nil {
@@ -957,7 +957,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 		 WHERE started_at IS NOT NULL
 		   AND completed_at IS NULL
 		   AND error IS NULL
-		   AND rollback_completed_at IS NULL
+		   AND rolled_back_at IS NULL
 		 LIMIT 1`).Scan(&id, &commitSHA, &displayName)
 	if err != nil {
 		return // no in-progress upgrade
@@ -1043,7 +1043,7 @@ func (d *Service) markCurrentVersionCompleted(ctx context.Context) {
 		     docker_images_ready = true,
 		     scheduled_at = NULL,
 		     error = NULL,
-		     rollback_completed_at = NULL
+		     rolled_back_at = NULL
 		 WHERE commit_sha = $1
 		   AND completed_at IS NULL`,
 		headSHA)
@@ -1098,13 +1098,13 @@ func (d *Service) reportDiskSpace(ctx context.Context) {
 }
 
 // supersedeOlderReleases marks available releases older than the selected commit as superseded.
-// Ordering is by position (topological order) then committed_at as fallback.
+// Ordering is by topological_order then committed_at as fallback.
 func (d *Service) supersedeOlderReleases(ctx context.Context, selectedCommitSHA string) {
-	// Get the position/committed_at of the selected commit
+	// Get the topological_order/committed_at of the selected commit
 	var selectedPos sql.NullInt32
 	var selectedCommittedAt time.Time
 	err := d.queryConn.QueryRow(ctx,
-		"SELECT position, committed_at FROM public.upgrade WHERE commit_sha = $1",
+		"SELECT topological_order, committed_at FROM public.upgrade WHERE commit_sha = $1",
 		selectedCommitSHA).Scan(&selectedPos, &selectedCommittedAt)
 	if err != nil {
 		return
@@ -1119,7 +1119,7 @@ func (d *Service) supersedeOlderReleases(ctx context.Context, selectedCommitSHA 
 		   AND skipped_at IS NULL AND superseded_at IS NULL
 		   AND commit_sha != $1
 		   AND (
-		     (position IS NOT NULL AND $2::int IS NOT NULL AND position < $2)
+		     (topological_order IS NOT NULL AND $2::int IS NOT NULL AND topological_order < $2)
 		     OR committed_at < $3
 		   )`,
 		selectedCommitSHA, selectedPos, selectedCommittedAt)
@@ -1423,11 +1423,11 @@ func (d *Service) discover(ctx context.Context) {
 		// has_migrations will be determined from the manifest during actual upgrade.
 		// For now, default to false — the manifest check happens in executeUpgrade.
 		// ON CONFLICT: add tag to array if not already present, promote release_status.
-		// discover_version_tag: for tagged releases the tag name IS the docker image
+		// version: for tagged releases the tag name IS the docker image
 		// tag (git describe on the exact commit returns the tag directly). Store it
 		// so verifyArtifacts uses it even if new tags are later pushed past this commit.
 		result, err := d.queryConn.Exec(ctx,
-			`INSERT INTO public.upgrade (commit_sha, committed_at, tags, release_status, summary, has_migrations, discover_version_tag)
+			`INSERT INTO public.upgrade (commit_sha, committed_at, tags, release_status, summary, has_migrations, version)
 			 VALUES ($1, $2, ARRAY[$3]::text[], $4::public.release_status_type, $5, false, $3)
 			 ON CONFLICT (commit_sha) DO UPDATE SET
 			   tags = CASE WHEN $3 = ANY(upgrade.tags) THEN upgrade.tags
@@ -1601,7 +1601,7 @@ func (d *Service) discoverEdge(ctx context.Context) {
 		versionTag = strings.TrimSpace(versionTag)
 
 		_, err := d.queryConn.Exec(ctx,
-			`INSERT INTO public.upgrade (commit_sha, committed_at, summary, has_migrations, release_builds_ready, discover_version_tag)
+			`INSERT INTO public.upgrade (commit_sha, committed_at, summary, has_migrations, release_builds_ready, version)
 			 VALUES ($1, $2, $3, false, true, NULLIF($4, ''))
 			 ON CONFLICT (commit_sha) DO NOTHING`,
 			c.SHA, c.PublishedAt, summary, versionTag)
@@ -1620,7 +1620,7 @@ func (d *Service) preDownloadImages(ctx context.Context) {
 		`SELECT commit_sha,
 		        COALESCE(tags[array_upper(tags, 1)], 'sha-' || left(commit_sha, 12)) as display_name
 		 FROM public.upgrade
-		 WHERE images_downloaded = false AND skipped_at IS NULL AND error IS NULL
+		 WHERE docker_images_downloaded = false AND skipped_at IS NULL AND error IS NULL
 		 ORDER BY discovered_at LIMIT 3`)
 	if err != nil {
 		return
@@ -1642,7 +1642,7 @@ func (d *Service) preDownloadImages(ctx context.Context) {
 		}
 
 		d.queryConn.Exec(ctx,
-			"UPDATE public.upgrade SET images_downloaded = true WHERE commit_sha = $1",
+			"UPDATE public.upgrade SET docker_images_downloaded = true WHERE commit_sha = $1",
 			commitSHA)
 	}
 }
@@ -1684,7 +1684,7 @@ func (d *Service) scheduleImmediate(ctx context.Context, versionOrSHA string) {
 		   started_at = NULL,
 		   completed_at = NULL,
 		   error = NULL,
-		   rollback_completed_at = NULL,
+		   rolled_back_at = NULL,
 		   skipped_at = NULL,
 		   dismissed_at = NULL,
 		   superseded_at = NULL,
@@ -1722,7 +1722,7 @@ func (d *Service) executeScheduled(ctx context.Context) {
 		   AND started_at IS NULL
 		   AND completed_at IS NULL
 		   AND error IS NULL
-		   AND rollback_completed_at IS NULL
+		   AND rolled_back_at IS NULL
 		   AND skipped_at IS NULL
 		 ORDER BY scheduled_at LIMIT 1`).Scan(&id, &commitSHA, &displayName, &scheduledAt)
 	if err != nil {
@@ -2221,7 +2221,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 			if d.queryConn != nil {
 				var abortJSON string
 				if scanErr := d.queryConn.QueryRow(ctx,
-					"UPDATE public.upgrade SET state = 'rolled_back', error = $1, progress_log = $2, rollback_completed_at = now() WHERE id = $3"+upgradeRowReturning,
+					"UPDATE public.upgrade SET state = 'rolled_back', error = $1, progress_log = $2, rolled_back_at = now() WHERE id = $3"+upgradeRowReturning,
 					rollbackFailedMsg, logTail, id).Scan(&abortJSON); scanErr == nil {
 					logUpgradeRow(LabelRolledBackAbort, abortJSON)
 				}
@@ -2273,7 +2273,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 	if d.queryConn != nil {
 		var rollbackJSON string
 		if scanErr := d.queryConn.QueryRow(ctx,
-			"UPDATE public.upgrade SET state = 'rolled_back', error = $1, progress_log = $2, rollback_completed_at = now() WHERE id = $3"+upgradeRowReturning,
+			"UPDATE public.upgrade SET state = 'rolled_back', error = $1, progress_log = $2, rolled_back_at = now() WHERE id = $3"+upgradeRowReturning,
 			errMsg, logTail, id).Scan(&rollbackJSON); scanErr == nil {
 			logUpgradeRow(LabelRolledBackNormal, rollbackJSON)
 		}

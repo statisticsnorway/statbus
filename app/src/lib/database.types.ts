@@ -6084,21 +6084,19 @@ export type Database = {
           commit_sha: string
           committed_at: string
           completed_at: string | null
-          discover_version_tag: string | null
           discovered_at: string
           dismissed_at: string | null
+          docker_images_downloaded: boolean
           docker_images_ready: boolean
           error: string | null
           from_version: string | null
           has_migrations: boolean
           id: number
-          images_downloaded: boolean
-          position: number | null
           progress_log: string | null
           release_builds_ready: boolean
           release_status: Database["public"]["Enums"]["release_status_type"]
           release_url: string | null
-          rollback_completed_at: string | null
+          rolled_back_at: string | null
           scheduled_at: string | null
           skipped_at: string | null
           started_at: string | null
@@ -6106,6 +6104,8 @@ export type Database = {
           summary: string
           superseded_at: string | null
           tags: string[]
+          topological_order: number | null
+          version: string | null
         },
         Insert: {
           artifacts_ready?: boolean | null
@@ -6114,21 +6114,19 @@ export type Database = {
           commit_sha: string
           committed_at: string
           completed_at?: string | null
-          discover_version_tag?: string | null
           discovered_at?: string
           dismissed_at?: string | null
+          docker_images_downloaded?: boolean
           docker_images_ready?: boolean
           error?: string | null
           from_version?: string | null
           has_migrations?: boolean
           id?: never
-          images_downloaded?: boolean
-          position?: number | null
           progress_log?: string | null
           release_builds_ready?: boolean
           release_status?: Database["public"]["Enums"]["release_status_type"]
           release_url?: string | null
-          rollback_completed_at?: string | null
+          rolled_back_at?: string | null
           scheduled_at?: string | null
           skipped_at?: string | null
           started_at?: string | null
@@ -6136,6 +6134,8 @@ export type Database = {
           summary: string
           superseded_at?: string | null
           tags?: string[]
+          topological_order?: number | null
+          version?: string | null
         },
         Update: {
           artifacts_ready?: boolean | null
@@ -6144,21 +6144,19 @@ export type Database = {
           commit_sha?: string
           committed_at?: string
           completed_at?: string | null
-          discover_version_tag?: string | null
           discovered_at?: string
           dismissed_at?: string | null
+          docker_images_downloaded?: boolean
           docker_images_ready?: boolean
           error?: string | null
           from_version?: string | null
           has_migrations?: boolean
           id?: never
-          images_downloaded?: boolean
-          position?: number | null
           progress_log?: string | null
           release_builds_ready?: boolean
           release_status?: Database["public"]["Enums"]["release_status_type"]
           release_url?: string | null
-          rollback_completed_at?: string | null
+          rolled_back_at?: string | null
           scheduled_at?: string | null
           skipped_at?: string | null
           started_at?: string | null
@@ -6166,6 +6164,8 @@ export type Database = {
           summary?: string
           superseded_at?: string | null
           tags?: string[]
+          topological_order?: number | null
+          version?: string | null
         },
         Relationships: []
       }

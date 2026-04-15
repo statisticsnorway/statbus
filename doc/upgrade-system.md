@@ -86,7 +86,7 @@ Called once at service startup, before the main loop begins. Also exposed as `./
 3. **Flag on disk, owning PID is dead, Holder == "install"** → install crashed or was killed. There is no `public.upgrade` row to reconcile (install doesn't write one). Just remove the flag.
 4. **Flag on disk, owning PID is dead, Holder == "service"** (or empty for legacy) → service crashed mid-upgrade. Compare git HEAD to `flag.CommitSHA`:
    - Match → the upgrade has landed at the target commit (either via normal completion, or via self-update + exit 42, or any other path that left HEAD on the target SHA); mark `completed_at`. The recovery code keys on `HEAD == flag.CommitSHA` and is intentionally agnostic about how HEAD got there.
-   - Mismatch → real failure; mark `error` + `rollback_completed_at`.
+   - Mismatch → real failure; mark `error` + `rolled_back_at`.
    Remove the flag. State is now Idle; main loop proceeds.
 
 This is the ground-truth for "service autocorrects on startup." It is not optional, not a sweep, not belt-and-suspenders — it runs every time the service process starts (including every systemd restart) and must leave the server consistent before the main loop ticks.

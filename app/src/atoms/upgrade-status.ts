@@ -38,7 +38,7 @@ export const pendingUpgradePromiseAtom = atomWithRefresh<Promise<UpgradeStatus |
         .from("upgrade")
         .select("started_at,scheduled_at")
         .is("completed_at", null)
-        .is("rollback_completed_at", null)
+        .is("rolled_back_at", null)
         .is("skipped_at", null)
         .is("superseded_at", null)
         .is("error", null)

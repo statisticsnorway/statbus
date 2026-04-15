@@ -1396,7 +1396,7 @@ erDiagram
 		integer id
 		text commit_sha
 		timestamp_with_time_zone committed_at
-		integer position
+		integer topological_order
 		text[] tags
 		release_status_type release_status
 		text summary
@@ -1408,10 +1408,10 @@ erDiagram
 		timestamp_with_time_zone started_at
 		timestamp_with_time_zone completed_at
 		text error
-		timestamp_with_time_zone rollback_completed_at
+		timestamp_with_time_zone rolled_back_at
 		timestamp_with_time_zone skipped_at
 		text from_version
-		boolean images_downloaded
+		boolean docker_images_downloaded
 		text backup_path
 		timestamp_with_time_zone superseded_at
 		text progress_log
@@ -1420,7 +1420,7 @@ erDiagram
 		boolean artifacts_ready
 		timestamp_with_time_zone dismissed_at
 		upgrade_state state
-		text discover_version_tag
+		text version
 	}
 	sql_saga_era["sql_saga.era"] {
 		name table_schema

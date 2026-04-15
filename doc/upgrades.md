@@ -204,7 +204,7 @@ If any step from 7 onward fails, the service automatically:
 5. Starts all services (`docker compose up -d --remove-orphans`)
 6. Reconnects to the database
 7. Deactivates maintenance mode
-8. Records `error` and `rollback_completed_at` in the upgrade table
+8. Records `error` and `rolled_back_at` in the upgrade table
 
 ### Manual binary rollback
 
@@ -221,7 +221,7 @@ From the CLI:
 
 ```bash
 # Reset the upgrade for re-execution
-echo "UPDATE public.upgrade SET started_at = NULL, error = NULL, rollback_completed_at = NULL, scheduled_at = now() WHERE version = 'v2026.03.1'" | ./sb psql
+echo "UPDATE public.upgrade SET started_at = NULL, error = NULL, rolled_back_at = NULL, scheduled_at = now() WHERE version = 'v2026.03.1'" | ./sb psql
 ```
 
 Or use the **Retry** button in the admin UI at `/admin/upgrades`.
@@ -272,16 +272,16 @@ Tracks the full lifecycle of every discovered release.
 | `started_at` | `timestamptz` | When execution began |
 | `completed_at` | `timestamptz` | When the upgrade finished successfully |
 | `error` | `text` | Error message if the upgrade failed |
-| `rollback_completed_at` | `timestamptz` | When rollback finished (only if `error` is set) |
+| `rolled_back_at` | `timestamptz` | When rollback finished (only if `error` is set) |
 | `skipped_at` | `timestamptz` | When the operator chose to skip this version |
-| `images_downloaded` | `boolean` | Whether Docker images have been pre-downloaded |
+| `docker_images_downloaded` | `boolean` | Whether Docker images have been pre-downloaded |
 | `backup_path` | `text` | Filesystem path to the pre-upgrade database backup |
 
 **Lifecycle constraint:** The table enforces a CHECK constraint ensuring valid state transitions:
 - `completed_at` requires `started_at`
 - `started_at` requires `scheduled_at`
 - Cannot be both skipped and completed
-- `rollback_completed_at` requires `error`
+- `rolled_back_at` requires `error`
 - Cannot be both completed and have an error
 - Cannot be both completed and rolled back
 

@@ -59,7 +59,7 @@ interface Upgrade {
   id: number;
   commit_sha: string;
   committed_at: string;
-  position: number | null;
+  topological_order: number | null;
   tags: string[];
   release_status: 'commit' | 'prerelease' | 'release';
   display_name: string;
@@ -75,14 +75,14 @@ interface Upgrade {
   completed_at: string | null;
   error: string | null;
   progress_log: string | null;
-  rollback_completed_at: string | null;
+  rolled_back_at: string | null;
   docker_images_ready: boolean;
   release_builds_ready: boolean;
   skipped_at: string | null;
   dismissed_at: string | null;
   superseded_at: string | null;
   artifacts_ready: boolean;
-  images_downloaded: boolean;
+  docker_images_downloaded: boolean;
   backup_path: string | null;
 }
 
@@ -147,7 +147,7 @@ export default function UpgradesPage() {
     // display_name + display_state are PostgREST computed columns (functions
     // taking the row type) — must be listed explicitly in select; select=*
     // only covers real + GENERATED columns.
-    "/rest/upgrade?select=*,display_name,display_state&order=position.desc.nullslast,committed_at.desc&limit=20",
+    "/rest/upgrade?select=*,display_name,display_state&order=topological_order.desc.nullslast,committed_at.desc&limit=20",
     fetcher,
     {
       // Poll fast (3s) when an upgrade is active, slow (30s) otherwise.
@@ -155,7 +155,7 @@ export default function UpgradesPage() {
       revalidateOnFocus: true,
       onSuccess: (data) => {
         setHasActiveUpgradeForPolling(
-          data?.some(u => u.started_at && !u.completed_at && !u.error && !u.rollback_completed_at) ?? false
+          data?.some(u => u.started_at && !u.completed_at && !u.error && !u.rolled_back_at) ?? false
         );
       },
     },
@@ -369,7 +369,7 @@ export default function UpgradesPage() {
         const renderCard = (u: Upgrade) => {
           const status = u.state;
           const canRestore = latestCompleted
-            ? (u.position ?? 0) > (latestCompleted.position ?? 0) || u.committed_at > latestCompleted.committed_at
+            ? (u.topological_order ?? 0) > (latestCompleted.topological_order ?? 0) || u.committed_at > latestCompleted.committed_at
             : true;
           return (
             <UpgradeCard
@@ -605,7 +605,7 @@ function UpgradeCard({
             what happened without an extra click, closed by default on
             successes (less noise when everything worked). */}
         {u.progress_log && (
-          <Collapsible defaultOpen={!!u.error || !!u.rollback_completed_at} className="mt-2">
+          <Collapsible defaultOpen={!!u.error || !!u.rolled_back_at} className="mt-2">
             <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
               <ChevronDown className="h-3 w-3" />
               Log
