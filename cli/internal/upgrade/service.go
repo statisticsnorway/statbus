@@ -816,6 +816,7 @@ func (d *Service) Run(ctx context.Context) error {
 				d.reportDiskSpace(ctx)
 				d.reconcileBackupDir(ctx)  // reconcile before prune: avoids BACKUP_MISSING for just-pruned rows
 				d.pruneBackups(ctx, 3)
+				d.pruneUpgradeLogs(20) // keep the 20 newest upgrade-log + bundle pairs
 			}
 		case n := <-notifyCh:
 			if !d.upgrading {
@@ -993,10 +994,13 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 	// Verify services are healthy
 	if err := d.waitForDBHealth(30 * time.Second); err != nil {
 		logRecover("Post-restart health check failed for %s: %v", displayName, err)
+		// Close so post-restart lines are on disk before the bundle
+		// reads them; bundle BEFORE the terminal UPDATE.
 		if appendLog != nil {
 			appendLog.Close()
-			appendLog = nil
 		}
+		d.writeDiagnosticBundle(ctx, int(id), appendLog)
+		appendLog = nil
 		var failedJSON string
 		if scanErr := d.queryConn.QueryRow(ctx,
 			"UPDATE public.upgrade SET state = 'failed', error = $1 WHERE id = $2"+upgradeRowReturning,
@@ -2197,6 +2201,9 @@ func (d *Service) runCallback(displayName string, extraEnv map[string]string) {
 
 func (d *Service) failUpgrade(ctx context.Context, id int, errMsg string, progress *ProgressLog) {
 	progress.Write("FAILED: %s", errMsg)
+	// Bundle BEFORE the terminal UPDATE so inspecting a `failed` row on
+	// disk is guaranteed to have a sibling .bundle.txt. Non-fatal.
+	d.writeDiagnosticBundle(ctx, id, progress)
 	if d.queryConn != nil {
 		// The on-disk log (referenced by log_relative_file_path) holds the
 		// full narrative; the admin UI fetches it via /upgrade-logs/<name>.
@@ -2244,6 +2251,9 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 			fmt.Fprintf(os.Stderr, "ABORT: rollback git restore to %s failed: %v\n", previousVersion, err)
 
 			rollbackFailedMsg := fmt.Sprintf("%s: %v (originally: %s)", ErrRollbackGitCorrupt, err, reason)
+			// Bundle BEFORE the ABORT UPDATE so a forensic inspection of
+			// a wedged `rolled_back` row has the sibling .bundle.txt.
+			d.writeDiagnosticBundle(ctx, id, progress)
 			if d.queryConn != nil {
 				var abortJSON string
 				if scanErr := d.queryConn.QueryRow(ctx,
@@ -2295,6 +2305,9 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 	if reason == "" {
 		errMsg = "Rollback completed (no reason captured — caller did not pass one)"
 	}
+	// Bundle BEFORE the terminal UPDATE so a support ticket on any
+	// `rolled_back` row has the sibling .bundle.txt available.
+	d.writeDiagnosticBundle(ctx, id, progress)
 	if d.queryConn != nil {
 		var rollbackJSON string
 		if scanErr := d.queryConn.QueryRow(ctx,

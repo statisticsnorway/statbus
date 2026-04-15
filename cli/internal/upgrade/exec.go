@@ -344,6 +344,73 @@ func (d *Service) pruneBackups(ctx context.Context, keep int) {
 	}
 }
 
+// pruneUpgradeLogs trims tmp/upgrade-logs/ to the `keep` newest log+bundle
+// pairs. Sibling of pruneBackups. Safe to call on every service tick —
+// O(entries) readdir, cheap. Any upgrade row that still references a
+// just-deleted log file will see empty content when the admin UI
+// fetches /upgrade-logs/<name>; retention v2's row DELETE is expected
+// to run first, so dangling references are transient.
+//
+// Pairs share a stem — the `.log` basename without suffix is also the
+// prefix of the `.bundle.txt`. We scan both suffixes so an orphan
+// bundle (written when the log was already pruned, or vice versa)
+// still counts against the keep window and gets its own chance at
+// eviction. Age is taken as the newest mtime across the pair so a
+// late-written bundle doesn't get evicted ahead of its own log.
+//
+// Sort is by mtime, NOT filename. Filenames start with the numeric
+// upgrade id — lexicographic ordering picks the wrong oldest once ids
+// span varying widths ("10-…" sorts before "2-…").
+func (d *Service) pruneUpgradeLogs(keep int) {
+	dir := upgradeLogsDir(d.projDir)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	type pair struct {
+		stem  string
+		mtime time.Time
+	}
+	pairs := make(map[string]*pair)
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		var stem string
+		switch {
+		case strings.HasSuffix(e.Name(), ".log"):
+			stem = strings.TrimSuffix(e.Name(), ".log")
+		case strings.HasSuffix(e.Name(), ".bundle.txt"):
+			stem = strings.TrimSuffix(e.Name(), ".bundle.txt")
+		default:
+			continue
+		}
+		info, err := e.Info()
+		if err != nil {
+			continue
+		}
+		if existing, ok := pairs[stem]; ok {
+			if info.ModTime().After(existing.mtime) {
+				existing.mtime = info.ModTime()
+			}
+		} else {
+			pairs[stem] = &pair{stem: stem, mtime: info.ModTime()}
+		}
+	}
+	if len(pairs) <= keep {
+		return
+	}
+	sorted := make([]*pair, 0, len(pairs))
+	for _, p := range pairs {
+		sorted = append(sorted, p)
+	}
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].mtime.Before(sorted[j].mtime) })
+	for _, p := range sorted[:len(sorted)-keep] {
+		os.Remove(filepath.Join(dir, p.stem+".log"))        // no-op if absent
+		os.Remove(filepath.Join(dir, p.stem+".bundle.txt")) // no-op if absent
+	}
+}
+
 func (d *Service) archiveBackup(backupPath, version string) {
 	archiveDir := filepath.Join(os.Getenv("HOME"), "statbus-backups")
 	archivePath := filepath.Join(archiveDir, fmt.Sprintf("%s-pre.tar.gz", version))
