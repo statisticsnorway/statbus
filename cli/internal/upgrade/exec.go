@@ -294,7 +294,7 @@ func (d *Service) restoreDatabase(progress *ProgressLog) {
 		"-v", volumeName+":/dest",
 		"alpine", "sh", "-c", "apk add --no-cache rsync >/dev/null 2>&1 && rsync -a --delete /source/ /dest/",
 	); err != nil {
-		progress.Write("WARNING: Database restore failed: %v", err)
+		progress.Write("%s: database restore failed: %v", ErrRollbackDBRestore, err)
 	}
 }
 

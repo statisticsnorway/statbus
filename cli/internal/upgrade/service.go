@@ -459,6 +459,8 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 	// Grab the tail of the full log for both the error message
 	// and the progress_log column.
 	logTail := readProgressLogTail(ProgressLogPath(d.projDir, flag.DisplayName), 50)
+	// TODO: pick code — crash-recovery errMsg is derived from log tail; need to
+	// inspect the last line for an existing Err* prefix before adding one here.
 	errMsg := "Upgrade interrupted (service crashed or was killed)"
 	if logTail != "" {
 		// Use the last five lines of the tail as the short error summary —
@@ -678,6 +680,35 @@ const upgradeRowReturning = ` RETURNING (to_jsonb(public.upgrade) - 'progress_lo
 func logUpgradeRow(label string, row string) {
 	fmt.Printf("upgrade row [%s] %s\n", label, row)
 }
+
+// Stable error codes written as a prefix to public.upgrade.error.
+// Operator-searchable, translation-friendly, machine-filterable.
+// Sub-coded where the distinction drives a different recovery action.
+// Always use codedError() or fmt.Sprintf("%s: ...", ErrX, ...) — never
+// embed the code as a raw string literal in the error message.
+//
+//	ErrMigrationFailed       — ./sb migrate up or ./dev.sh recreate-database failed
+//	ErrBackupFailed          — pre-upgrade database backup failed
+//	ErrDockerUpFailed        — docker compose pull / up / start failed
+//	ErrHealthcheckRESTDown   — PostgREST health probe failed
+//	ErrHealthcheckAppDown    — Next.js application health probe failed
+//	ErrHealthcheckDBDown     — PostgreSQL health probe / reconnect failed
+//	ErrRollbackGitCorrupt    — rollback git-restore failed: other / corrupt (support-only)
+//	ErrRollbackDBRestore     — rollback database volume restore failed
+//	ErrRollbackServicesUp    — rollback docker compose up failed after DB restore
+//	ErrInstallFixupFailed    — post-upgrade ./sb install fixup step failed (non-fatal)
+const (
+	ErrMigrationFailed       = "MIGRATION_FAILED"
+	ErrBackupFailed          = "BACKUP_FAILED"
+	ErrDockerUpFailed        = "DOCKER_UP_FAILED"
+	ErrHealthcheckRESTDown   = "HEALTHCHECK_REST_DOWN"
+	ErrHealthcheckAppDown    = "HEALTHCHECK_APP_DOWN"
+	ErrHealthcheckDBDown     = "HEALTHCHECK_DB_DOWN"
+	ErrRollbackGitCorrupt = "ROLLBACK_FAILED_GIT_CORRUPT"
+	ErrRollbackDBRestore     = "ROLLBACK_FAILED_DB_RESTORE"
+	ErrRollbackServicesUp    = "ROLLBACK_FAILED_SERVICES_UP"
+	ErrInstallFixupFailed    = "INSTALL_FIXUP_FAILED"
+)
 
 // Run starts the upgrade service main loop.
 func (d *Service) Run(ctx context.Context) error {
@@ -960,7 +991,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 		var failedJSON string
 		if scanErr := d.queryConn.QueryRow(ctx,
 			"UPDATE public.upgrade SET state = 'failed', error = $1, progress_log = $2 WHERE id = $3"+upgradeRowReturning,
-			fmt.Sprintf("post-restart health check failed: %v", err), logTail, id).Scan(&failedJSON); scanErr != nil {
+			fmt.Sprintf("%s: post-restart health check failed: %v", ErrHealthcheckDBDown, err), logTail, id).Scan(&failedJSON); scanErr != nil {
 			fmt.Printf("WARN: state transition to failed matched 0 rows or errored (id=%d, err=%v) — possible CHECK constraint violation\n", id, scanErr)
 		} else {
 			logUpgradeRow(LabelFailed, failedJSON)
@@ -1763,6 +1794,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// Only applies when displayName is a CalVer tag (not a SHA reference).
 	if !strings.HasPrefix(displayName, "sha-") && !strings.HasPrefix(d.version, "sha-") && d.version != "dev" {
 		if CompareVersions(displayName, d.version) < 0 {
+			// TODO: pick code — downgrade precondition; consider adding ErrInstallPreconditionFailed
 			msg := fmt.Sprintf("Version %s is older than current version %s. Downgrades are not supported. To restore a previous state, use: ./sb db backup restore <name>", displayName, d.version)
 			d.failUpgrade(ctx, id, msg, progress)
 			return fmt.Errorf("%s", msg)
@@ -1798,6 +1830,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	if freeBytes, err := DiskFree(d.projDir); err == nil {
 		freeGB := freeBytes / (1024 * 1024 * 1024)
 		if freeGB < 5 {
+			// TODO: pick code — disk-space preflight; consider ErrRollbackGitDiskFull or a new ErrInstallPreconditionFailed
 			msg := fmt.Sprintf("Insufficient disk space: %d GB free (need at least 5 GB for backup + images)", freeGB)
 			d.failUpgrade(ctx, id, msg, progress)
 			return fmt.Errorf("%s", msg)
@@ -1809,6 +1842,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// This defends against DB tampering between discovery and execution.
 	progress.Write("Verifying commit signature...")
 	if err := d.verifyCommitSignature(commitSHA); err != nil {
+		// TODO: pick code — signature verification; consider adding ErrInstallPreconditionFailed
 		msg := fmt.Sprintf("Commit %s signature verification failed: %v", commitSHA[:12], err)
 		d.failUpgrade(ctx, id, msg, progress)
 		return fmt.Errorf("%s", msg)
@@ -1824,6 +1858,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// it (it's on the filesystem, not in the DB volume which gets rolled
 	// back).
 	if err := d.writeUpgradeFlag(id, commitSHA, displayName, invokedBy, trigger); err != nil {
+		// TODO: pick code — mutex flag acquisition failure; consider adding ErrInstallPreconditionFailed
 		msg := fmt.Sprintf("Could not acquire upgrade-mutex flag file: %v", err)
 		d.failUpgrade(ctx, id, msg, progress)
 		return fmt.Errorf("%s", msg)
@@ -1835,7 +1870,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// Step 1: Prepare images
 	progress.Write("Preparing images...")
 	if err := d.pullImages(displayName); err != nil {
-		d.failUpgrade(ctx, id, fmt.Sprintf("Failed to pull images for %s: %v", displayName, err), progress)
+		d.failUpgrade(ctx, id, fmt.Sprintf("%s: Failed to pull images for %s: %v", ErrDockerUpFailed, displayName, err), progress)
 		return err
 	}
 
@@ -1874,7 +1909,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	previousVersion := d.version
 	backupPath, err := d.backupDatabase(progress)
 	if err != nil {
-		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("Backup database: %v", err), progress)
+		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: %v", ErrBackupFailed, err), progress)
 		return err
 	}
 
@@ -1883,10 +1918,12 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// Keeping full history ensures git-describe can find tags for config generate (VERSION).
 	progress.Write("Installing %s...", displayName)
 	if err := runCommand(projDir, "git", "fetch", "origin", commitSHA); err != nil {
+		// TODO: pick code — forward git fetch failure; no Err* code covers install-time git errors yet
 		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("git fetch %s: %v", commitSHA[:12], err), progress)
 		return err
 	}
 	if err := runCommand(projDir, "git", "-c", "advice.detachedHead=false", "checkout", commitSHA); err != nil {
+		// TODO: pick code — forward git checkout failure; no Err* code covers install-time git errors yet
 		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("git checkout %s: %v", commitSHA[:12], err), progress)
 		return err
 	}
@@ -1897,6 +1934,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 			if checkedOut, gErr := runCommandOutput(projDir, "git", "rev-parse", "HEAD"); gErr == nil {
 				checkedOut = strings.TrimSpace(checkedOut)
 				if !strings.HasPrefix(checkedOut, manifest.CommitSHA) && !strings.HasPrefix(manifest.CommitSHA, checkedOut) {
+					// TODO: pick code — tag-tampering detection; consider adding ErrInstallPreconditionFailed
 					errMsg := fmt.Sprintf("Version verification failed: expected commit %s but got %s. Possible tag tampering.", manifest.CommitSHA[:12], checkedOut[:12])
 					progress.Write("%s", errMsg)
 					d.rollback(ctx, id, displayName, previousVersion, errMsg, progress)
@@ -1910,6 +1948,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// which returns the tag name (e.g., v2026.03.0-rc.3) since we just checked it out.
 	progress.Write("Regenerating configuration...")
 	if err := runCommand(projDir, filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
+		// TODO: pick code — config generate failure; no Err* code defined yet
 		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("./sb config generate: %v", err), progress)
 		return err
 	}
@@ -1917,7 +1956,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// Step 8: Pull updated images
 	progress.Write("Pulling updated images...")
 	if err := runCommand(projDir, "docker", "compose", "pull"); err != nil {
-		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("docker compose pull: %v", err), progress)
+		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: docker compose pull: %v", ErrDockerUpFailed, err), progress)
 		return err
 	}
 
@@ -1931,13 +1970,13 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	progress.Write("Starting database...")
 	if err := runCommand(projDir, "docker", "compose", "up", "-d", "--no-build", "db"); err != nil {
 		reason := fmt.Sprintf(
-			"docker compose up -d db: %v\n\n"+
+			"%s: docker compose up -d db: %v\n\n"+
 				"The db image for %s is not available locally or in the registry. "+
 				"CI builds images on every master push (ci-images.yaml); commit-tagged "+
 				"images take a few minutes to land. Wait for that workflow to finish, "+
 				"then retry the upgrade. Check status: "+
 				"gh run list --workflow=ci-images.yaml",
-			err, displayName)
+			ErrDockerUpFailed, err, displayName)
 		d.rollback(ctx, id, displayName, previousVersion, reason, progress)
 		return err
 	}
@@ -1945,14 +1984,14 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// Wait for DB health
 	progress.Write("Waiting for database to be healthy...")
 	if err := d.waitForDBHealth(30 * time.Second); err != nil {
-		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("DB health check: %v", err), progress)
+		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: DB health check: %v", ErrHealthcheckDBDown, err), progress)
 		return err
 	}
 
 	// Reconnect service DB connection
 	progress.Write("Reconnecting to database...")
 	if err := d.reconnect(ctx); err != nil {
-		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("reconnect to DB: %v", err), progress)
+		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: reconnect to DB: %v", ErrHealthcheckDBDown, err), progress)
 		return err
 	}
 
@@ -1964,13 +2003,13 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 		d.pendingRecreate = false
 		progress.Write("Recreating database from scratch (--recreate)...")
 		if err := runCommandWithTimeout(projDir, 30*time.Minute, filepath.Join(projDir, "dev.sh"), "recreate-database"); err != nil {
-			d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("./dev.sh recreate-database: %v", err), progress)
+			d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: ./dev.sh recreate-database: %v", ErrMigrationFailed, err), progress)
 			return err
 		}
 	} else {
 		progress.Write("Applying database migrations...")
 		if err := runCommand(projDir, filepath.Join(projDir, "sb"), "migrate", "up", "--verbose"); err != nil {
-			d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("./sb migrate up: %v", err), progress)
+			d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: ./sb migrate up: %v", ErrMigrationFailed, err), progress)
 			return err
 		}
 	}
@@ -1981,12 +2020,12 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	progress.Write("Starting services...")
 	if err := runCommand(projDir, "docker", "compose", "up", "-d", "--no-build", "app", "worker", "rest"); err != nil {
 		reason := fmt.Sprintf(
-			"docker compose up -d app worker rest: %v\n\n"+
+			"%s: docker compose up -d app worker rest: %v\n\n"+
 				"One or more application images for %s are not available locally or in the registry. "+
 				"CI builds images on every master push (ci-images.yaml). "+
 				"Wait for that workflow to finish, then retry the upgrade. Check status: "+
 				"gh run list --workflow=ci-images.yaml",
-			err, displayName)
+			ErrDockerUpFailed, err, displayName)
 		d.rollback(ctx, id, displayName, previousVersion, reason, progress)
 		return err
 	}
@@ -1994,7 +2033,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// Step 12: Verify health
 	progress.Write("Verifying health...")
 	if err := d.healthCheck(5, 5*time.Second); err != nil {
-		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("application health check: %v", err), progress)
+		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: application health check: %v", ErrHealthcheckRESTDown, err), progress)
 		return err
 	}
 
@@ -2023,7 +2062,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// Either is sufficient; we set both for defense in depth.
 	progress.Write("Running install fixups...")
 	if err := runInstallFixup(projDir); err != nil {
-		progress.Write("Warning: post-upgrade install fixups failed: %v", err)
+		progress.Write("%s: post-upgrade install fixups failed: %v", ErrInstallFixupFailed, err)
 		// Non-fatal — the upgrade itself succeeded
 	}
 
@@ -2177,7 +2216,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 			progress.Write("    4. Reconcile DB row via: ./sb upgrade recover")
 			fmt.Fprintf(os.Stderr, "ABORT: rollback git restore to %s failed: %v\n", previousVersion, err)
 
-			rollbackFailedMsg := fmt.Sprintf("rollback_failed_git_checkout: %v (originally: %s)", err, reason)
+			rollbackFailedMsg := fmt.Sprintf("%s: %v (originally: %s)", ErrRollbackGitCorrupt, err, reason)
 			logTail := readProgressLogTail(ProgressLogPath(d.projDir, version), 50)
 			if d.queryConn != nil {
 				var abortJSON string
@@ -2210,7 +2249,9 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 	d.restoreDatabase(progress)
 
 	// Start with old config — git is verified at previousVersion.
-	runCommand(projDir, "docker", "compose", "--profile", "all", "up", "-d", "--remove-orphans")
+	if err := runCommand(projDir, "docker", "compose", "--profile", "all", "up", "-d", "--remove-orphans"); err != nil {
+		progress.Write("%s: docker compose up failed after rollback: %v", ErrRollbackServicesUp, err)
+	}
 
 	// Reconnect (may fail if DB didn't come back)
 	if err := d.reconnect(ctx); err != nil {
