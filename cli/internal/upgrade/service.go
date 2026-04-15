@@ -715,6 +715,7 @@ func (d *Service) Run(ctx context.Context) error {
 			d.stopListenLoop()
 			return nil
 		case <-ticker.C:
+			fmt.Printf("Poll tick (next in %s)\n", d.interval)
 			if !d.upgrading {
 				d.discover(ctx)
 				d.executeScheduled(ctx)
@@ -1624,9 +1625,11 @@ func (d *Service) executeScheduled(ctx context.Context) {
 	}
 	var id int
 	var commitSHA, displayName string
+	var scheduledAt time.Time
 	err := d.queryConn.QueryRow(ctx,
 		`SELECT id, commit_sha,
-		        COALESCE(tags[array_upper(tags, 1)], 'sha-' || left(commit_sha, 12)) as display_name
+		        COALESCE(tags[array_upper(tags, 1)], 'sha-' || left(commit_sha, 12)) as display_name,
+		        scheduled_at
 		 FROM public.upgrade
 		 WHERE scheduled_at <= now()
 		   AND started_at IS NULL
@@ -1634,10 +1637,11 @@ func (d *Service) executeScheduled(ctx context.Context) {
 		   AND error IS NULL
 		   AND rollback_completed_at IS NULL
 		   AND skipped_at IS NULL
-		 ORDER BY scheduled_at LIMIT 1`).Scan(&id, &commitSHA, &displayName)
+		 ORDER BY scheduled_at LIMIT 1`).Scan(&id, &commitSHA, &displayName, &scheduledAt)
 	if err != nil {
 		return // no pending upgrades
 	}
+	fmt.Printf("Claiming id=%d, lag=%s\n", id, time.Since(scheduledAt).Truncate(time.Second))
 
 	// Claim immediately: mark started_at + state='in_progress' so the UI
 	// shows "In Progress" and the user can no longer unschedule.
