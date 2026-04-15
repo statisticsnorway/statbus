@@ -517,7 +517,7 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 	services := []string{"db", "app", "worker", "proxy"}
 
 	rows, err := d.queryConn.Query(ctx, `
-		SELECT id, commit_sha, release_status::text, docker_images_ready, release_builds_ready
+		SELECT id, commit_sha, release_status::text, docker_images_ready, release_builds_ready, discover_version_tag
 		  FROM public.upgrade
 		 WHERE (NOT docker_images_ready OR NOT artifacts_ready)
 		   AND completed_at IS NULL
@@ -531,16 +531,17 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 	}
 
 	type pendingRow struct {
-		id                    int
-		sha                   string
-		releaseStatus         string
-		dockerImagesReady           bool
+		id                 int
+		sha                string
+		releaseStatus      string
+		dockerImagesReady  bool
 		releaseBuildsReady bool
+		discoverVersionTag *string // NULL for rows predating the discover_version_tag column
 	}
 	var pending []pendingRow
 	for rows.Next() {
 		var r pendingRow
-		if err := rows.Scan(&r.id, &r.sha, &r.releaseStatus, &r.dockerImagesReady, &r.releaseBuildsReady); err == nil {
+		if err := rows.Scan(&r.id, &r.sha, &r.releaseStatus, &r.dockerImagesReady, &r.releaseBuildsReady, &r.discoverVersionTag); err == nil {
 			pending = append(pending, r)
 		}
 	}
@@ -549,13 +550,21 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 	for _, r := range pending {
 		dockerImagesReady := r.dockerImagesReady
 		if !dockerImagesReady {
-			out, err := runCommandOutput(d.projDir, "git", "describe", "--tags", "--always", r.sha)
-			if err != nil {
-				continue
-			}
-			tag := strings.TrimSpace(out)
-			if tag == "" {
-				continue
+			// Use the tag captured at discovery time (stable) to avoid drift
+			// from new tags being pushed past this commit. Fall back to a
+			// dynamic git describe for rows predating the column (NULL).
+			var tag string
+			if r.discoverVersionTag != nil && *r.discoverVersionTag != "" {
+				tag = *r.discoverVersionTag
+			} else {
+				out, err := runCommandOutput(d.projDir, "git", "describe", "--tags", "--always", r.sha)
+				if err != nil {
+					continue
+				}
+				tag = strings.TrimSpace(out)
+				if tag == "" {
+					continue
+				}
 			}
 			allPresent := true
 			for _, svc := range services {
@@ -1326,9 +1335,12 @@ func (d *Service) discover(ctx context.Context) {
 		// has_migrations will be determined from the manifest during actual upgrade.
 		// For now, default to false — the manifest check happens in executeUpgrade.
 		// ON CONFLICT: add tag to array if not already present, promote release_status.
+		// discover_version_tag: for tagged releases the tag name IS the docker image
+		// tag (git describe on the exact commit returns the tag directly). Store it
+		// so verifyArtifacts uses it even if new tags are later pushed past this commit.
 		result, err := d.queryConn.Exec(ctx,
-			`INSERT INTO public.upgrade (commit_sha, committed_at, tags, release_status, summary, has_migrations)
-			 VALUES ($1, $2, ARRAY[$3]::text[], $4::public.release_status_type, $5, false)
+			`INSERT INTO public.upgrade (commit_sha, committed_at, tags, release_status, summary, has_migrations, discover_version_tag)
+			 VALUES ($1, $2, ARRAY[$3]::text[], $4::public.release_status_type, $5, false, $3)
 			 ON CONFLICT (commit_sha) DO UPDATE SET
 			   tags = CASE WHEN $3 = ANY(upgrade.tags) THEN upgrade.tags
 			               ELSE array_append(upgrade.tags, $3) END,
@@ -1493,11 +1505,18 @@ func (d *Service) discoverEdge(ctx context.Context) {
 		// the registry. Previously this hardcoded artifacts_ready=true,
 		// which let the UI offer "Upgrade Now" for commits whose images
 		// hadn't been built yet.
+
+		// Capture git describe output now so verifyArtifacts can look up
+		// Docker images by a stable tag — the describe output changes as
+		// new tags are pushed past this commit after discovery.
+		versionTag, _ := runCommandOutput(d.projDir, "git", "describe", "--tags", "--always", c.SHA)
+		versionTag = strings.TrimSpace(versionTag)
+
 		_, err := d.queryConn.Exec(ctx,
-			`INSERT INTO public.upgrade (commit_sha, committed_at, summary, has_migrations, release_builds_ready)
-			 VALUES ($1, $2, $3, false, true)
+			`INSERT INTO public.upgrade (commit_sha, committed_at, summary, has_migrations, release_builds_ready, discover_version_tag)
+			 VALUES ($1, $2, $3, false, true, NULLIF($4, ''))
 			 ON CONFLICT (commit_sha) DO NOTHING`,
-			c.SHA, c.PublishedAt, summary)
+			c.SHA, c.PublishedAt, summary, versionTag)
 		if err != nil {
 			fmt.Printf("  Failed to record commit %s: %v\n", c.SHA[:12], err)
 		}
