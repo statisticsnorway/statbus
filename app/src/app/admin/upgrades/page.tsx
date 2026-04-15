@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { useAtomValue } from "jotai";
 import useSWR from "swr";
+import { logger } from "@/lib/client-logger";
 import { pendingUpgradeStatusAtom } from "@/atoms/upgrade-status";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { Badge } from "@/components/ui/badge";
@@ -210,6 +211,15 @@ export default function UpgradesPage() {
   // progress and redirects back when the app is healthy again.
   if (showMaintenanceView && typeof window !== "undefined") {
     const returnPath = encodeURIComponent(window.location.pathname);
+    const activeUpgradeRow = upgrades?.find(
+      (u) => u.state === "in_progress" || u.state === "scheduled",
+    );
+    logger.info("UpgradesPage", "Redirecting to maintenance.html", {
+      reason: error ? `fetch failed: ${error.message}` : "active upgrade detected",
+      activeUpgrade: activeUpgradeRow
+        ? { commit_sha: activeUpgradeRow.commit_sha, state: activeUpgradeRow.state }
+        : null,
+    });
     window.location.href = `/maintenance.html?return=${returnPath}`;
   }
 
