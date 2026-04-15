@@ -807,6 +807,7 @@ func (d *Service) Run(ctx context.Context) error {
 				d.discover(ctx)
 				d.executeScheduled(ctx)
 				d.reportDiskSpace(ctx)
+				d.reconcileBackupDir(ctx)
 			}
 		case n := <-notifyCh:
 			if !d.upgrading {
@@ -1874,6 +1875,13 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 		return err
 	}
 
+	// Pre-compute backup stamp and record the .tmp path in the DB before the
+	// DB connection is closed.  The stamp ties the on-disk directory name to
+	// the DB row so reconcileBackupDir can detect crashed or missing backups.
+	backupStamp := time.Now().UTC().Format("20060102T150405Z")
+	backupTmpPath := filepath.Join(d.backupRoot(), "pre-upgrade-"+backupStamp+".tmp")
+	d.queryConn.Exec(ctx, "UPDATE public.upgrade SET backup_path = $1 WHERE id = $2", backupTmpPath, id)
+
 	// Step 2: Enter maintenance mode and restart proxy first
 	d.stopListenLoop()
 	d.listenConn.Close(context.Background())
@@ -1907,7 +1915,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// Step 5: Backup database
 	progress.Write("Backing up database...")
 	previousVersion := d.version
-	backupPath, err := d.backupDatabase(progress)
+	backupPath, err := d.backupDatabase(progress, backupStamp)
 	if err != nil {
 		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: %v", ErrBackupFailed, err), progress)
 		return err

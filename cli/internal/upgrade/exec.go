@@ -206,13 +206,16 @@ func (d *Service) backupRoot() string {
 // rename to pre-upgrade-<UTC>/. rename(2) is atomic on POSIX for dirs
 // on the same filesystem. Crash mid-rsync leaves only a .tmp
 // directory; restoreDatabase / pickLatestBackup ignore those.
-func (d *Service) backupDatabase(progress *ProgressLog) (string, error) {
+//
+// stamp is the UTC timestamp string already written to public.upgrade.backup_path
+// (as the .tmp path) by executeUpgrade before the DB connection was closed.
+// Passing it here ensures the on-disk directory name matches the DB record.
+func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (string, error) {
 	root := d.backupRoot()
 	if err := os.MkdirAll(root, 0755); err != nil {
 		return "", fmt.Errorf("create backup root: %w", err)
 	}
 
-	stamp := time.Now().UTC().Format("20060102T150405Z")
 	tmpDir := filepath.Join(root, "pre-upgrade-"+stamp+".tmp")
 	finalDir := filepath.Join(root, "pre-upgrade-"+stamp)
 
@@ -441,4 +444,115 @@ func (d *Service) healthCheck(retries int, interval time.Duration) error {
 		time.Sleep(interval)
 	}
 	return fmt.Errorf("health check failed after %d attempts", retries)
+}
+
+// reconcileBackupDir audits the backup directory against public.upgrade rows.
+// Called on every ticker tick (alongside pruneBackups) while not upgrading.
+//
+// Three outcomes:
+//   (1) DB row backup_path exists on disk → silent.
+//   (2) DB row backup_path NOT on disk → LOUD log BACKUP_MISSING (do not auto-fix DB).
+//   (3) On-disk dir has no referencing DB row → LOUD log BACKUP_ORPHAN; purge after 90-day grace.
+//
+// The loud logs surface code bugs (crashed backup, missed DB write) rather than
+// masking them.  The grace period allows manual rescue before purge.
+//
+// Race (dir disappeared between ReadDir and Stat) → debug-level, continue.
+func (d *Service) reconcileBackupDir(ctx context.Context) {
+	if err := d.ensureConnected(ctx); err != nil {
+		return
+	}
+
+	root := d.backupRoot()
+
+	// --- 1. Collect DB-referenced backup paths ---
+	rows, err := d.queryConn.Query(ctx,
+		"SELECT id, backup_path FROM public.upgrade WHERE backup_path IS NOT NULL")
+	if err != nil {
+		if d.verbose {
+			fmt.Printf("reconcileBackupDir: query failed: %v\n", err)
+		}
+		return
+	}
+	defer rows.Close()
+
+	referencedPaths := make(map[string]int) // path → upgrade id
+	for rows.Next() {
+		var id int
+		var path string
+		if err := rows.Scan(&id, &path); err != nil {
+			continue
+		}
+		referencedPaths[path] = id
+	}
+	if err := rows.Err(); err != nil {
+		if d.verbose {
+			fmt.Printf("reconcileBackupDir: row scan error: %v\n", err)
+		}
+		return
+	}
+
+	// --- 2. Check each DB-referenced path exists on disk ---
+	for path, id := range referencedPaths {
+		_, statErr := os.Stat(path)
+		if statErr == nil {
+			continue // exists — silent
+		}
+		if os.IsNotExist(statErr) {
+			fmt.Printf("BACKUP_MISSING: upgrade id=%d backup_path=%s not found on disk\n", id, path)
+			continue
+		}
+		// Race or permission error — debug only
+		if d.verbose {
+			fmt.Printf("reconcileBackupDir: stat %s: %v\n", path, statErr)
+		}
+	}
+
+	// --- 3. Check each on-disk finalised dir has a DB reference ---
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		if !os.IsNotExist(err) && d.verbose {
+			fmt.Printf("reconcileBackupDir: readdir %s: %v\n", root, err)
+		}
+		return
+	}
+
+	const orphanGrace = 90 * 24 * time.Hour
+
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if !strings.HasPrefix(name, "pre-upgrade-") {
+			continue
+		}
+		if strings.HasSuffix(name, ".tmp") {
+			continue // .tmp dirs are handled by pruneBackups
+		}
+		fullPath := filepath.Join(root, name)
+		if _, referenced := referencedPaths[fullPath]; referenced {
+			continue // known to DB — silent
+		}
+
+		// Orphan: no DB row references this directory.
+		info, infoErr := e.Info()
+		if infoErr != nil {
+			// Race: dir disappeared between ReadDir and Info()
+			if d.verbose {
+				fmt.Printf("reconcileBackupDir: info %s: %v\n", fullPath, infoErr)
+			}
+			continue
+		}
+		age := time.Since(info.ModTime())
+		if age >= orphanGrace {
+			fmt.Printf("BACKUP_ORPHAN: %s has no referencing upgrade row (age=%s) — purging\n",
+				fullPath, age.Truncate(time.Hour))
+			os.RemoveAll(fullPath)
+		} else {
+			remaining := orphanGrace - age
+			fmt.Printf("BACKUP_ORPHAN: %s has no referencing upgrade row (age=%s, %s until purge)\n",
+				fullPath, age.Truncate(time.Hour), remaining.Truncate(time.Hour))
+		}
+	}
 }
