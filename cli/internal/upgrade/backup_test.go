@@ -1,6 +1,7 @@
 package upgrade
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -96,7 +97,7 @@ func TestPruneBackups_KeepsTopN(t *testing.T) {
 	}
 
 	d := &Service{}
-	d.pruneBackups(3)
+	d.pruneBackups(context.Background(), 3)
 
 	for _, n := range keep {
 		if _, err := os.Stat(filepath.Join(root, n)); err != nil {
@@ -110,27 +111,29 @@ func TestPruneBackups_KeepsTopN(t *testing.T) {
 	}
 }
 
-func TestPruneBackups_OnlyOldTmpsRemoved(t *testing.T) {
+func TestPruneBackups_TmpDirsNeverTouched(t *testing.T) {
+	// pruneBackups must not touch .tmp dirs regardless of age —
+	// reconcileBackupDir owns their lifecycle (10-min grace for unreferenced).
 	root := scopedBackupRoot(t)
 
-	// Old .tmp — should be removed.
+	// Old .tmp — pruneBackups must leave it alone (reconcileBackupDir will purge it).
 	old := makeBackupDir(t, root, "pre-upgrade-20260101T000000Z.tmp")
 	pastCutoff := time.Now().Add(-30 * time.Minute)
 	if err := os.Chtimes(old, pastCutoff, pastCutoff); err != nil {
 		t.Fatal(err)
 	}
 
-	// Fresh .tmp — should survive (could be an in-flight rsync).
+	// Fresh .tmp — must also survive.
 	fresh := makeBackupDir(t, root, "pre-upgrade-20260601T000000Z.tmp")
 
 	d := &Service{}
-	d.pruneBackups(3)
+	d.pruneBackups(context.Background(), 3)
 
-	if _, err := os.Stat(old); err == nil {
-		t.Errorf("expected old .tmp to be removed, still present: %s", old)
+	if _, err := os.Stat(old); err != nil {
+		t.Errorf("pruneBackups removed old .tmp (should be left to reconcileBackupDir): %v", err)
 	}
 	if _, err := os.Stat(fresh); err != nil {
-		t.Errorf("expected fresh .tmp to survive (in-flight rsync), removed: %v", err)
+		t.Errorf("pruneBackups removed fresh .tmp: %v", err)
 	}
 }
 
@@ -142,7 +145,7 @@ func TestPruneBackups_NoTouchOnNoExcess(t *testing.T) {
 	c := makeBackupDir(t, root, "pre-upgrade-20260103T000000Z.tmp")
 
 	d := &Service{}
-	d.pruneBackups(3)
+	d.pruneBackups(context.Background(), 3)
 
 	for _, p := range []string{a, b, c} {
 		if _, err := os.Stat(p); err != nil {
