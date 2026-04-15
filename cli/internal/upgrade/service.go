@@ -1394,6 +1394,14 @@ func (d *Service) discover(ctx context.Context) {
 	if d.autoDL {
 		d.preDownloadImages(ctx)
 	}
+
+	// Record last-discover timestamp for the admin UI "Last checked" display.
+	// Best-effort — ignore error so observability noise never blocks the main path.
+	_, _ = d.queryConn.Exec(ctx,
+		`INSERT INTO public.system_info (key, value, updated_at)
+		 VALUES ('upgrade_last_discover_at', now()::text, now())
+		 ON CONFLICT (key) DO UPDATE
+		   SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at`)
 }
 
 // pruneDeletedTags removes tags from the upgrade table that no longer exist in git.

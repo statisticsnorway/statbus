@@ -175,8 +175,8 @@ export default function UpgradesPage() {
 
   const channel =
     systemInfo?.find((s) => s.key === "upgrade_channel")?.value ?? "stable";
-  const lastChecked =
-    systemInfo?.find((s) => s.key === "upgrade_last_checked")?.value;
+  const lastDiscoverAt =
+    systemInfo?.find((s) => s.key === "upgrade_last_discover_at")?.value;
   const diskFreeGB = systemInfo?.find((s) => s.key === "disk_free_gb")?.value;
   const diskFree = diskFreeGB ? parseInt(diskFreeGB, 10) : null;
 
@@ -227,11 +227,11 @@ export default function UpgradesPage() {
         <span>
           Channel: <strong className="text-foreground">{channel}</strong>
         </span>
-        {lastChecked && (
+        {lastDiscoverAt && (
           <span>
             Last checked:{" "}
             <strong className="text-foreground">
-              {new Date(lastChecked).toLocaleString()}
+              {new Date(lastDiscoverAt).toLocaleString()}
             </strong>
           </span>
         )}
