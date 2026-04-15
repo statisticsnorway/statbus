@@ -688,7 +688,11 @@ func New(projDir string, description string, extension string) error {
 
 	timestamp := time.Now().UTC().Format("20060102150405")
 	safeDesc := strings.ToLower(description)
+	// Strip issue-number references like "(#31)" or "#31" before slugging so
+	// they don't appear as trailing _31_ artifacts in the filename.
+	safeDesc = regexp.MustCompile(`\s*\(#\d+\)\s*|\s*#\d+`).ReplaceAllString(safeDesc, "")
 	safeDesc = regexp.MustCompile(`[^a-z0-9]+`).ReplaceAllString(safeDesc, "_")
+	safeDesc = strings.Trim(safeDesc, "_")
 
 	if extension == "" {
 		extension = "sql"

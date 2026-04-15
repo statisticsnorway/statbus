@@ -1,4 +1,4 @@
--- Migration 20260415230000: drop_artifacts_ready_column_30
+-- Migration 20260415230000: drop_artifacts_ready_column
 --
 -- `artifacts_ready` was a GENERATED ALWAYS AS (docker_images_ready AND release_builds_ready) STORED
 -- convenience column. All consumers have been updated to reference the two source-of-truth columns

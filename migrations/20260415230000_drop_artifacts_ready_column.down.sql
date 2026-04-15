@@ -1,4 +1,4 @@
--- Down migration 20260415230000: drop_artifacts_ready_column_30
+-- Down migration 20260415230000: drop_artifacts_ready_column
 --
 -- Restores the GENERATED ALWAYS AS derived column that was dropped in the up migration.
 
