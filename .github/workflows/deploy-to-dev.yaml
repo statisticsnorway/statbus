@@ -15,7 +15,28 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      actions: read
     steps:
+      - name: Wait for CI Images to succeed on this commit
+        run: |
+          SHA="${{ github.sha }}"
+          TIMEOUT=900
+          ELAPSED=0
+          while [ $ELAPSED -lt $TIMEOUT ]; do
+            STATUS=$(gh run list --workflow=ci-images.yaml --commit="$SHA" --json status,conclusion --jq '.[0]')
+            CONCLUSION=$(echo "$STATUS" | jq -r '.conclusion // ""')
+            if [ "$CONCLUSION" = "success" ]; then exit 0; fi
+            if [ "$CONCLUSION" = "failure" ] || [ "$CONCLUSION" = "cancelled" ]; then
+              echo "CI Images failed for $SHA — aborting deploy"
+              exit 1
+            fi
+            sleep 30
+            ELAPSED=$((ELAPSED + 30))
+          done
+          echo "Timed out waiting for CI Images after 15 minutes"
+          exit 1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Deploy via upgrade service (with refspec self-heal regression test)
         # Inject a stale devops/* refspec BEFORE running apply-latest. If the
         # deployed binary's CleanStaleRefspecs works, apply-latest succeeds
