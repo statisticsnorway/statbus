@@ -330,11 +330,14 @@ func (d *Service) pruneBackups(ctx context.Context, keep int) {
 	if len(finalised) > keep {
 		sort.Strings(finalised)
 		for _, p := range finalised[:len(finalised)-keep] {
-			// Null the DB reference before deletion so reconcileBackupDir does not
-			// report BACKUP_MISSING for this deliberately-pruned path.
+			// NULL the DB reference before deletion.  If the Exec fails, skip
+			// os.RemoveAll for this cycle: deleting without nulling would cause
+			// permanent BACKUP_MISSING noise — one extra cycle is the lesser cost.
 			if d.queryConn != nil {
-				d.queryConn.Exec(ctx,
-					"UPDATE public.upgrade SET backup_path = NULL WHERE backup_path = $1", p)
+				if _, err := d.queryConn.Exec(ctx,
+					"UPDATE public.upgrade SET backup_path = NULL WHERE backup_path = $1", p); err != nil {
+					continue // retry next tick
+				}
 			}
 			os.RemoveAll(p)
 		}
@@ -537,21 +540,31 @@ func (d *Service) reconcileBackupDir(ctx context.Context) {
 	}
 
 	// --- 4. Remaining entries are orphans (no DB row references them) ---
-	const orphanGrace = 90 * 24 * time.Hour
+	// Differential grace:
+	//   .tmp  — 10 minutes (crash artifact; rsync never completed, low recovery value)
+	//   final — 90 days   (may hold genuine recovery value; allow manual rescue)
+	const tmpGrace      = 10 * time.Minute
+	const finalisedGrace = 90 * 24 * time.Hour
+	now := time.Now()
 	for path, di := range onDisk {
-		age := time.Since(di.mtime)
-		graceUntil := di.mtime.Add(orphanGrace).Format(time.RFC3339)
-		if di.mtime.Before(time.Now().Add(-orphanGrace)) {
+		isTmp := strings.HasSuffix(path, ".tmp")
+		grace := finalisedGrace
+		if isTmp {
+			grace = tmpGrace
+		}
+		age := now.Sub(di.mtime)
+		if di.mtime.Before(now.Add(-grace)) {
 			if err := os.RemoveAll(path); err != nil {
 				fmt.Printf("BACKUP_ORPHAN_PURGE_FAILED: %s age=%s: %v\n",
-					path, age.Truncate(time.Hour), err)
+					path, age.Truncate(time.Minute), err)
 			} else {
-				fmt.Printf("BACKUP_ORPHAN_PURGED: %s age=%s exceeded 90-day grace\n",
-					path, age.Truncate(time.Hour))
+				fmt.Printf("BACKUP_ORPHAN_PURGED: %s age=%s exceeded grace (%s)\n",
+					path, age.Truncate(time.Minute), grace)
 			}
 		} else {
+			graceUntil := di.mtime.Add(grace).Format(time.RFC3339)
 			fmt.Printf("BACKUP_ORPHAN: %s unreferenced, age=%s (grace until %s)\n",
-				path, age.Truncate(time.Hour), graceUntil)
+				path, age.Truncate(time.Minute), graceUntil)
 		}
 	}
 }
