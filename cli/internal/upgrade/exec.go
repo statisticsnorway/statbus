@@ -301,17 +301,16 @@ func (d *Service) restoreDatabase(progress *ProgressLog) {
 	}
 }
 
-// pruneBackups deletes .tmp leftovers older than 10 minutes (long
-// enough to guarantee the originating process is dead, generous for
-// genuinely-slow rsyncs) and trims finalised backups to the `keep`
-// most recent.
+// pruneBackups trims finalised pre-upgrade-* backups to the `keep` most recent.
+// .tmp dirs are intentionally excluded — they are handled by reconcileBackupDir,
+// which preserves referenced .tmp dirs (live mid-rsync backup) and applies the
+// 90-day grace to unreferenced ones.
 func (d *Service) pruneBackups(keep int) {
 	entries, err := os.ReadDir(d.backupRoot())
 	if err != nil {
 		return
 	}
-	var finalised, tmps []string
-	tmpCutoff := time.Now().Add(-10 * time.Minute)
+	var finalised []string
 	for _, e := range entries {
 		if !e.IsDir() {
 			continue
@@ -320,18 +319,10 @@ func (d *Service) pruneBackups(keep int) {
 		if !strings.HasPrefix(name, "pre-upgrade-") {
 			continue
 		}
-		full := filepath.Join(d.backupRoot(), name)
 		if strings.HasSuffix(name, ".tmp") {
-			info, ierr := e.Info()
-			if ierr == nil && info.ModTime().Before(tmpCutoff) {
-				tmps = append(tmps, full)
-			}
-			continue
+			continue // reconcileBackupDir handles orphan .tmp dirs
 		}
-		finalised = append(finalised, full)
-	}
-	for _, p := range tmps {
-		os.RemoveAll(p)
+		finalised = append(finalised, filepath.Join(d.backupRoot(), name))
 	}
 	if len(finalised) > keep {
 		sort.Strings(finalised)
@@ -447,112 +438,111 @@ func (d *Service) healthCheck(retries int, interval time.Duration) error {
 }
 
 // reconcileBackupDir audits the backup directory against public.upgrade rows.
-// Called on every ticker tick (alongside pruneBackups) while not upgrading.
+// Called on every ticker tick while not upgrading.
 //
-// Three outcomes:
-//   (1) DB row backup_path exists on disk → silent.
-//   (2) DB row backup_path NOT on disk → LOUD log BACKUP_MISSING (do not auto-fix DB).
-//   (3) On-disk dir has no referencing DB row → LOUD log BACKUP_ORPHAN; purge after 90-day grace.
+// Algorithm (matches partner design):
+//  1. Load all non-NULL backup_path values from public.upgrade.
+//  2. Build an on-disk map of all pre-upgrade-* dirs (including .tmp —
+//     a referenced .tmp is a live mid-rsync backup and must survive).
+//  3. For each DB-referenced path: consume from the on-disk map (silent),
+//     or log BACKUP_MISSING if absent.
+//  4. Remaining on-disk entries have no DB row → orphans.
+//     Grace < 90 days: BACKUP_ORPHAN (loud, no action).
+//     Grace ≥ 90 days: BACKUP_ORPHAN_PURGED (purge) or BACKUP_ORPHAN_PURGE_FAILED.
 //
-// The loud logs surface code bugs (crashed backup, missed DB write) rather than
-// masking them.  The grace period allows manual rescue before purge.
+// BACKUP_MISSING is advisory only — the column value is forensic evidence;
+// do NOT auto-NULL it.
 //
-// Race (dir disappeared between ReadDir and Stat) → debug-level, continue.
+// Greppable stable log tokens (parallel to the Err* taxonomy):
+//
+//	BACKUP_MISSING           — DB row references missing path (loud)
+//	BACKUP_ORPHAN            — unreferenced dir, within 90-day grace (loud)
+//	BACKUP_ORPHAN_PURGED     — unreferenced dir, past grace, deleted (loud)
+//	BACKUP_ORPHAN_PURGE_FAILED — deletion failed; retried next tick (loud)
+//	BACKUP_RECONCILE_SKIP    — tick aborted (query or readdir failed)
+//	BACKUP_RECONCILE_DEBUG   — per-entry noise demoted to verbose
 func (d *Service) reconcileBackupDir(ctx context.Context) {
 	if err := d.ensureConnected(ctx); err != nil {
+		fmt.Printf("BACKUP_RECONCILE_SKIP: cannot connect to DB: %v\n", err)
 		return
 	}
 
 	root := d.backupRoot()
 
-	// --- 1. Collect DB-referenced backup paths ---
+	// --- 1. Load DB-referenced paths ---
 	rows, err := d.queryConn.Query(ctx,
 		"SELECT id, backup_path FROM public.upgrade WHERE backup_path IS NOT NULL")
 	if err != nil {
-		if d.verbose {
-			fmt.Printf("reconcileBackupDir: query failed: %v\n", err)
-		}
+		fmt.Printf("BACKUP_RECONCILE_SKIP: query failed: %v\n", err)
 		return
 	}
 	defer rows.Close()
 
-	referencedPaths := make(map[string]int) // path → upgrade id
+	referenced := make(map[string]int) // abs path → upgrade id
 	for rows.Next() {
 		var id int
 		var path string
 		if err := rows.Scan(&id, &path); err != nil {
 			continue
 		}
-		referencedPaths[path] = id
+		referenced[path] = id
 	}
 	if err := rows.Err(); err != nil {
-		if d.verbose {
-			fmt.Printf("reconcileBackupDir: row scan error: %v\n", err)
-		}
+		fmt.Printf("BACKUP_RECONCILE_SKIP: row scan error: %v\n", err)
 		return
 	}
 
-	// --- 2. Check each DB-referenced path exists on disk ---
-	for path, id := range referencedPaths {
-		_, statErr := os.Stat(path)
-		if statErr == nil {
-			continue // exists — silent
-		}
-		if os.IsNotExist(statErr) {
-			fmt.Printf("BACKUP_MISSING: upgrade id=%d backup_path=%s not found on disk\n", id, path)
-			continue
-		}
-		// Race or permission error — debug only
-		if d.verbose {
-			fmt.Printf("reconcileBackupDir: stat %s: %v\n", path, statErr)
-		}
-	}
-
-	// --- 3. Check each on-disk finalised dir has a DB reference ---
+	// --- 2. Build on-disk map (all pre-upgrade-* including .tmp) ---
 	entries, err := os.ReadDir(root)
 	if err != nil {
-		if !os.IsNotExist(err) && d.verbose {
-			fmt.Printf("reconcileBackupDir: readdir %s: %v\n", root, err)
+		if !os.IsNotExist(err) {
+			fmt.Printf("BACKUP_RECONCILE_SKIP: readdir %s: %v\n", root, err)
 		}
 		return
 	}
 
-	const orphanGrace = 90 * 24 * time.Hour
-
+	type diskInfo struct{ mtime time.Time }
+	onDisk := make(map[string]diskInfo)
 	for _, e := range entries {
-		if !e.IsDir() {
+		if !e.IsDir() || !strings.HasPrefix(e.Name(), "pre-upgrade-") {
 			continue
 		}
-		name := e.Name()
-		if !strings.HasPrefix(name, "pre-upgrade-") {
-			continue
-		}
-		if strings.HasSuffix(name, ".tmp") {
-			continue // .tmp dirs are handled by pruneBackups
-		}
-		fullPath := filepath.Join(root, name)
-		if _, referenced := referencedPaths[fullPath]; referenced {
-			continue // known to DB — silent
-		}
-
-		// Orphan: no DB row references this directory.
 		info, infoErr := e.Info()
 		if infoErr != nil {
-			// Race: dir disappeared between ReadDir and Info()
+			// Race: dir disappeared between ReadDir and Info().
 			if d.verbose {
-				fmt.Printf("reconcileBackupDir: info %s: %v\n", fullPath, infoErr)
+				fmt.Printf("BACKUP_RECONCILE_DEBUG: stat %s: %v\n", e.Name(), infoErr)
 			}
 			continue
 		}
-		age := time.Since(info.ModTime())
-		if age >= orphanGrace {
-			fmt.Printf("BACKUP_ORPHAN: %s has no referencing upgrade row (age=%s) — purging\n",
-				fullPath, age.Truncate(time.Hour))
-			os.RemoveAll(fullPath)
+		onDisk[filepath.Join(root, e.Name())] = diskInfo{mtime: info.ModTime()}
+	}
+
+	// --- 3. Check each referenced path; consume from onDisk map ---
+	for path, id := range referenced {
+		if _, ok := onDisk[path]; ok {
+			delete(onDisk, path) // matched — not an orphan
+			continue
+		}
+		fmt.Printf("BACKUP_MISSING: upgrade id=%d backup_path=%s not found on disk\n", id, path)
+	}
+
+	// --- 4. Remaining entries are orphans (no DB row references them) ---
+	const orphanGrace = 90 * 24 * time.Hour
+	for path, di := range onDisk {
+		age := time.Since(di.mtime)
+		graceUntil := di.mtime.Add(orphanGrace).Format(time.RFC3339)
+		if di.mtime.Before(time.Now().Add(-orphanGrace)) {
+			if err := os.RemoveAll(path); err != nil {
+				fmt.Printf("BACKUP_ORPHAN_PURGE_FAILED: %s age=%s: %v\n",
+					path, age.Truncate(time.Hour), err)
+			} else {
+				fmt.Printf("BACKUP_ORPHAN_PURGED: %s age=%s exceeded 90-day grace\n",
+					path, age.Truncate(time.Hour))
+			}
 		} else {
-			remaining := orphanGrace - age
-			fmt.Printf("BACKUP_ORPHAN: %s has no referencing upgrade row (age=%s, %s until purge)\n",
-				fullPath, age.Truncate(time.Hour), remaining.Truncate(time.Hour))
+			fmt.Printf("BACKUP_ORPHAN: %s unreferenced, age=%s (grace until %s)\n",
+				path, age.Truncate(time.Hour), graceUntil)
 		}
 	}
 }
