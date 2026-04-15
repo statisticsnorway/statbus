@@ -106,12 +106,21 @@ http://{{.Domain}} {
         file_server
     }
 
+    # Per-upgrade log files and support bundles under tmp/upgrade-logs/ —
+    # always accessible so operators can triage a failed upgrade from the
+    # admin UI even while maintenance mode is active.
+    handle /upgrade-logs/* {
+        root * /statbus-tmp
+        file_server
+    }
+
     # Maintenance mode: upgrade service creates /statbus-maintenance/active
     # All other routes return the maintenance page with 503
     @maintenance {
         file /statbus-maintenance/active
         not path /maintenance.html
         not path /upgrade-progress.log
+        not path /upgrade-logs/*
     }
     handle @maintenance {
         root * /maintenance-page

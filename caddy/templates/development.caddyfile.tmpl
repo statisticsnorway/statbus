@@ -128,6 +128,15 @@ http://127.0.0.1:19999 {
 
 # Shared routing configuration for both HTTP and HTTPS
 (statbus_routes) {
+    # Per-upgrade log files and support bundles under tmp/upgrade-logs/ —
+    # served directly by Caddy so admin UI can fetch log/bundle content
+    # regardless of app state. Upgrade service writes to tmp/upgrade-logs/
+    # and Caddy's /statbus-tmp mount is read-only.
+    handle /upgrade-logs/* {
+        root * /statbus-tmp
+        file_server
+    }
+
     # PostgREST auth endpoints (login/logout/refresh/auth_status)
     # These should not have Authorization header as they handle cookies directly
     @auth_paths {
