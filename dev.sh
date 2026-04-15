@@ -1142,6 +1142,9 @@ EOS
         done
 
         echo "Database documentation generated in doc/db/{table,view,function}/"
+        mkdir -p "$WORKSPACE/tmp"
+        git -C "$WORKSPACE" rev-parse HEAD > "$WORKSPACE/tmp/db-docs-passed-sha"
+        echo "DB documentation stamp recorded: $(cat "$WORKSPACE/tmp/db-docs-passed-sha")"
         ;;
     'compile-run-and-trace-dev-app-in-container' )
         echo "Stopping app container..."

@@ -5,10 +5,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/statisticsnorway/statbus/cli/internal/config"
 	"github.com/statisticsnorway/statbus/cli/internal/migrate"
+	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
 
 var typesCmd = &cobra.Command{
@@ -49,6 +51,14 @@ Requires the database to be running.`,
 		}
 
 		fmt.Println("TypeScript types generated in app/src/lib/database.types.ts")
+
+		// Write stamp for ./sb release preflight (check: types cover latest migrations)
+		if sha, err2 := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD"); err2 == nil {
+			stampPath := filepath.Join(projDir, "tmp", "types-passed-sha")
+			_ = os.MkdirAll(filepath.Dir(stampPath), 0755)
+			_ = os.WriteFile(stampPath, []byte(strings.TrimSpace(sha)+"\n"), 0644)
+			fmt.Println("TypeScript types stamp recorded:", strings.TrimSpace(sha))
+		}
 		return nil
 	},
 }
