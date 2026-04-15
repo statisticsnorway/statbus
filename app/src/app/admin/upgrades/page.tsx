@@ -569,6 +569,7 @@ function UpgradeCard({
       <CardContent className="pt-0">
         {/* Meta info */}
         <div className="flex flex-wrap gap-4 text-xs text-muted-foreground mb-3">
+          <span>#{u.id}</span>
           <span>
             Committed: {new Date(u.committed_at).toLocaleDateString()}
           </span>

@@ -9,6 +9,7 @@ package config
 
 import (
 	"crypto/rand"
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/big"
@@ -83,6 +84,7 @@ type ConfigEnv struct {
 	TlsCertFile              string
 	TlsKeyFile               string
 	AptUseHttpsOnly          string
+	AdministratorContact     string
 }
 
 // DbMemory holds derived PostgreSQL memory tuning values.
@@ -338,6 +340,7 @@ func loadOrGenerateConfig(projDir string, verbose bool) (*ConfigEnv, error) {
 		TlsCertFile:              gen("TLS_CERT_FILE", ""),
 		TlsKeyFile:               gen("TLS_KEY_FILE", ""),
 		AptUseHttpsOnly:          gen("APT_USE_HTTPS_ONLY", "false"),
+		AdministratorContact:     gen("ADMINISTRATOR_CONTACT", ""),
 	}
 
 	// Upgrade settings (only written for non-development modes)
@@ -653,6 +656,8 @@ PUBLIC_STATBUS_COMMIT=%[23]s
 		fmt.Fprintf(&b, "UPGRADE_CHANNEL=%s\n", getOrDefault("UPGRADE_CHANNEL", "stable"))
 		fmt.Fprintf(&b, "UPGRADE_CHECK_INTERVAL=%s\n", getOrDefault("UPGRADE_CHECK_INTERVAL", "6h"))
 		fmt.Fprintf(&b, "UPGRADE_AUTO_DOWNLOAD=%s\n", getOrDefault("UPGRADE_AUTO_DOWNLOAD", "true"))
+		fmt.Fprintf(&b, "# Contact shown on maintenance.html when set; leave empty to omit\n")
+		fmt.Fprintf(&b, "ADMINISTRATOR_CONTACT=%s\n", getOrDefault("ADMINISTRATOR_CONTACT", ""))
 		// Propagate trusted signer keys from .env.config to .env
 		if cfgErr == nil {
 			for _, key := range cfgFile.Keys() {
@@ -841,6 +846,34 @@ func Generate(verbose bool) error {
 		return err
 	}
 
+	// Generate ops/maintenance/contact.js — loaded optionally by maintenance.html
+	// to show the administrator contact in the "upgrade taking too long" warning.
+	// Empty contact = file is removed (maintenance.html omits the fragment).
+	if err := generateMaintenanceContact(cfg.AdministratorContact, projDir, verbose); err != nil {
+		return fmt.Errorf("generate maintenance contact: %w", err)
+	}
+
 	fmt.Println("Config generated successfully.")
+	return nil
+}
+
+// generateMaintenanceContact writes ops/maintenance/contact.js with the
+// ADMINISTRATOR_CONTACT value (may be empty string). maintenance.html loads
+// this file optionally (onerror=void 0) and appends the contact to the
+// warning message. Always writing — even when empty — avoids stale files
+// left behind when the variable is cleared after an earlier non-empty run.
+func generateMaintenanceContact(contact, projDir string, verbose bool) error {
+	outPath := filepath.Join(projDir, "ops", "maintenance", "contact.js")
+	data, err := json.Marshal(contact)
+	if err != nil {
+		return fmt.Errorf("marshal contact: %w", err)
+	}
+	content := fmt.Sprintf("window.STATBUS_ADMIN_CONTACT=%s;\n", data)
+	if err := os.WriteFile(outPath, []byte(content), 0644); err != nil {
+		return fmt.Errorf("write %s: %w", outPath, err)
+	}
+	if verbose {
+		fmt.Fprintf(os.Stderr, "Wrote %s\n", outPath)
+	}
 	return nil
 }
