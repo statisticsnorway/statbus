@@ -841,6 +841,7 @@ func (d *Service) handleNotification(ctx context.Context, n *pgconn.Notification
 
 func (d *Service) acquireAdvisoryLock(ctx context.Context) error {
 	var locked bool
+	// advisory lock objid: hashtext('upgrade_daemon') = 959307579
 	err := d.queryConn.QueryRow(ctx, "SELECT pg_try_advisory_lock(hashtext('upgrade_daemon'))").Scan(&locked)
 	if err != nil {
 		return fmt.Errorf("advisory lock: %w", err)

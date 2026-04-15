@@ -380,6 +380,7 @@ func acquireAdvisoryLock(ctx context.Context, projDir string) (*pgx.Conn, error)
 	if err != nil {
 		return nil, fmt.Errorf("connect for advisory lock: %w", err)
 	}
+	// advisory lock objid: hashtext('migrate_up') = -1978276407
 	// pg_advisory_lock blocks until acquired. Prints a hint after a short
 	// wait so the operator knows what's going on if another migrate is
 	// running.
