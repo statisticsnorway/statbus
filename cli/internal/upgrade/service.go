@@ -336,6 +336,24 @@ func pidAlive(pid int) bool {
 	return true
 }
 
+// loadLogRelPath fetches the per-upgrade log basename stored on
+// public.upgrade.log_relative_file_path. Returns "" if the row is missing,
+// the column is NULL, or the query errors — all of which are non-fatal
+// because the on-disk log is an operator-facing artifact, not load-bearing
+// for reconciliation logic.
+func (d *Service) loadLogRelPath(ctx context.Context, id int64) string {
+	if id <= 0 {
+		return ""
+	}
+	var relPath sql.NullString
+	if err := d.queryConn.QueryRow(ctx,
+		"SELECT log_relative_file_path FROM public.upgrade WHERE id = $1", id).
+		Scan(&relPath); err != nil {
+		return ""
+	}
+	return relPath.String
+}
+
 // recoverFromFlag checks for a flag file from a previous interrupted upgrade.
 // Distinguishes between a real crash (mark failed) and a self-update restart
 // (mark completed) by checking if git HEAD matches the upgrade target.
@@ -364,11 +382,13 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 	}
 
 	// Append recovery narrative to the crashed run's progress log so the
-	// admin UI's progress_log column (populated below) captures both the
+	// on-disk log (served via /upgrade-logs/<name>) captures both the
 	// pre-crash lines and the reconciliation summary. If the log file
-	// doesn't exist (legacy flag, missing run), appendLog is nil and we
-	// fall back to stdout-only via logRecover.
-	appendLog := AppendProgressLog(d.projDir, flag.DisplayName)
+	// doesn't exist (legacy flag, missing run, row already cleared), the
+	// lookup returns an empty relPath and AppendProgressLog returns nil —
+	// logRecover then falls back to stdout.
+	logRelPath := d.loadLogRelPath(ctx, int64(flag.ID))
+	appendLog := AppendProgressLog(d.projDir, logRelPath)
 	if appendLog != nil {
 		defer appendLog.Close()
 	}
@@ -422,11 +442,10 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 			appendLog.Close()
 			appendLog = nil
 		}
-		logTail := readProgressLogTail(ProgressLogPath(d.projDir, flag.DisplayName), 50)
 		var selfHealJSON string
 		if err := d.queryConn.QueryRow(ctx,
-			"UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_ready = true, progress_log = $1 WHERE id = $2 AND completed_at IS NULL"+upgradeRowReturning,
-			logTail, flag.ID).Scan(&selfHealJSON); err != nil {
+			"UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_ready = true WHERE id = $1 AND completed_at IS NULL"+upgradeRowReturning,
+			flag.ID).Scan(&selfHealJSON); err != nil {
 			fmt.Printf("WARN: state transition to completed matched 0 rows or errored (id=%d, err=%v) — possible CHECK constraint violation\n", flag.ID, err)
 		} else {
 			logUpgradeRow(LabelCompletedSelfHeal, selfHealJSON)
@@ -445,7 +464,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 
 	// Real failure. The file we've been appending to already contains the
 	// pre-crash narrative PLUS our "Service restarted" line above; add
-	// the failure summary and use the tail for the DB error + progress_log.
+	// the failure summary and use the tail to derive a short `error`.
 	logRecover("HEAD (%s) does not match upgrade target (%s). Treating as failed upgrade.",
 		shortSHA(headSHA), shortSHA(flag.CommitSHA))
 	logRecover("Marking upgrade %d (%s) as rolled_back", flag.ID, flag.DisplayName)
@@ -456,16 +475,14 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 		appendLog = nil
 	}
 
-	// Grab the tail of the full log for both the error message
-	// and the progress_log column.
-	logTail := readProgressLogTail(ProgressLogPath(d.projDir, flag.DisplayName), 50)
+	// Grab the tail of the full log to build a short error summary. The
+	// full narrative lives in the on-disk log (served via /upgrade-logs/)
+	// so we only need the last handful of lines here.
+	logTail := readProgressLogTail(UpgradeLogAbsPath(d.projDir, logRelPath), 50)
 	// TODO: pick code — crash-recovery errMsg is derived from log tail; need to
 	// inspect the last line for an existing Err* prefix before adding one here.
 	errMsg := "Upgrade interrupted (service crashed or was killed)"
 	if logTail != "" {
-		// Use the last five lines of the tail as the short error summary —
-		// keeps `error` compact while progress_log carries the full
-		// ~50-line context.
 		lines := strings.Split(strings.TrimSpace(logTail), "\n")
 		if len(lines) > 5 {
 			lines = lines[len(lines)-5:]
@@ -477,8 +494,8 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 	// error + state='rolled_back' — the CHECK requires all three together.
 	var crashJSON string
 	if scanErr := d.queryConn.QueryRow(ctx,
-		"UPDATE public.upgrade SET state = 'rolled_back', error = $1, rolled_back_at = now(), progress_log = $2 WHERE id = $3 AND completed_at IS NULL"+upgradeRowReturning,
-		errMsg, logTail, flag.ID).Scan(&crashJSON); scanErr != nil {
+		"UPDATE public.upgrade SET state = 'rolled_back', error = $1, rolled_back_at = now() WHERE id = $2 AND completed_at IS NULL"+upgradeRowReturning,
+		errMsg, flag.ID).Scan(&crashJSON); scanErr != nil {
 		fmt.Printf("Warning: could not mark upgrade %d as rolled_back: %v\n", flag.ID, scanErr)
 	} else {
 		logUpgradeRow(LabelRolledBackCrashRecovery, crashJSON)
@@ -668,10 +685,8 @@ const (
 )
 
 // upgradeRowReturning is the RETURNING clause appended to every terminal-state
-// UPDATE. Strips progress_log (potentially large) and replaces it with
-// progress_log_len so the snapshot stays greppable and finite.
-const upgradeRowReturning = ` RETURNING (to_jsonb(public.upgrade) - 'progress_log')
-        || jsonb_build_object('progress_log_len', length(progress_log))`
+// UPDATE. Returns the full row as JSON for greppable state-transition logging.
+const upgradeRowReturning = ` RETURNING to_jsonb(public.upgrade)`
 
 // logUpgradeRow prints the full upgrade row snapshot at a terminal state
 // transition. Uses raw %s (never %q) so the JSON is greppable:
@@ -965,10 +980,11 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 		return // no in-progress upgrade
 	}
 
-	// Append recovery narrative to the prior run's progress log so the admin
-	// UI's progress_log column (populated below) includes the post-restart
-	// verification lines, not just the pre-crash story.
-	appendLog := AppendProgressLog(d.projDir, displayName)
+	// Append recovery narrative to the prior run's progress log so the
+	// on-disk log (served via /upgrade-logs/<name>) captures both the
+	// pre-crash lines and the post-restart verification summary.
+	logRelPath := d.loadLogRelPath(ctx, int64(id))
+	appendLog := AppendProgressLog(d.projDir, logRelPath)
 	if appendLog != nil {
 		defer appendLog.Close()
 	}
@@ -989,11 +1005,10 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 			appendLog.Close()
 			appendLog = nil
 		}
-		logTail := readProgressLogTail(ProgressLogPath(d.projDir, displayName), 50)
 		var failedJSON string
 		if scanErr := d.queryConn.QueryRow(ctx,
-			"UPDATE public.upgrade SET state = 'failed', error = $1, progress_log = $2 WHERE id = $3"+upgradeRowReturning,
-			fmt.Sprintf("%s: post-restart health check failed: %v", ErrHealthcheckDBDown, err), logTail, id).Scan(&failedJSON); scanErr != nil {
+			"UPDATE public.upgrade SET state = 'failed', error = $1 WHERE id = $2"+upgradeRowReturning,
+			fmt.Sprintf("%s: post-restart health check failed: %v", ErrHealthcheckDBDown, err), id).Scan(&failedJSON); scanErr != nil {
 			fmt.Printf("WARN: state transition to failed matched 0 rows or errored (id=%d, err=%v) — possible CHECK constraint violation\n", id, scanErr)
 		} else {
 			logUpgradeRow(LabelFailed, failedJSON)
@@ -1003,17 +1018,16 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 
 	logRecover("Upgrade to %s completed (verified after service restart)", displayName)
 
-	// Close the appender before reading so pending writes are flushed into
-	// the tail captured for progress_log.
+	// Close the appender so the post-restart lines are flushed to disk
+	// before we mark the row completed.
 	if appendLog != nil {
 		appendLog.Close()
 		appendLog = nil
 	}
-	logTail := readProgressLogTail(ProgressLogPath(d.projDir, displayName), 50)
 	var fromInProgressJSON string
 	if scanErr := d.queryConn.QueryRow(ctx,
-		"UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_ready = true, progress_log = $1 WHERE id = $2"+upgradeRowReturning,
-		logTail, id).Scan(&fromInProgressJSON); scanErr != nil {
+		"UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_ready = true WHERE id = $1"+upgradeRowReturning,
+		id).Scan(&fromInProgressJSON); scanErr != nil {
 		fmt.Printf("WARN: state transition to completed matched 0 rows or errored (id=%d, err=%v) — possible CHECK constraint violation\n", id, scanErr)
 	} else {
 		logUpgradeRow(LabelCompletedFromInProgress, fromInProgressJSON)
@@ -1690,7 +1704,7 @@ func (d *Service) scheduleImmediate(ctx context.Context, versionOrSHA string) {
 		   skipped_at = NULL,
 		   dismissed_at = NULL,
 		   superseded_at = NULL,
-		   progress_log = NULL
+		   log_relative_file_path = NULL
 		 WHERE public.upgrade.scheduled_at IS NULL
 		    OR public.upgrade.started_at IS NOT NULL
 		    OR public.upgrade.completed_at IS NOT NULL
@@ -1765,8 +1779,17 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	defer func() { d.upgrading = false }()
 
 	projDir := d.projDir
-	progress := NewProgressLog(projDir, displayName)
+	progress := NewProgressLog(projDir, int64(id), displayName, time.Now().UTC())
 	defer progress.Close()
+
+	// Stamp log_relative_file_path on the row as early as possible so crash
+	// recovery, the admin UI, and the support-bundle collector can all find
+	// the on-disk log. Best-effort; failure doesn't abort the upgrade.
+	if _, err := d.queryConn.Exec(ctx,
+		"UPDATE public.upgrade SET log_relative_file_path = $1 WHERE id = $2",
+		progress.RelPath(), id); err != nil {
+		fmt.Printf("Warning: could not set log_relative_file_path for upgrade %d: %v\n", id, err)
+	}
 
 	progress.Write("Upgrading to %s (from %s)...", displayName, d.version)
 	// For sha-prefixed targets (edge channel), displayName tells you the SHA
@@ -2089,16 +2112,14 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	}
 
 	// If we get here, self-update didn't restart (no binary for platform, or same version).
-	// Mark complete now since there won't be a new service to do it.
-	// Also persist the full progress log tail so the admin UI can show what
-	// happened on success, same as it does on rollback — the operator
-	// shouldn't have to SSH into the server to read the log.
+	// Mark complete now since there won't be a new service to do it. The full
+	// narrative lives in the on-disk log (served via /upgrade-logs/<name>); the
+	// admin UI fetches it by name when the operator expands the "Log" panel.
 	progress.Write("Upgrade to %s complete!", displayName)
-	logTail := readProgressLogTail(progress.path, 50)
 	var normalJSON string
 	if scanErr := d.queryConn.QueryRow(ctx,
-		"UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_ready = true, progress_log = $1 WHERE id = $2"+upgradeRowReturning,
-		logTail, id).Scan(&normalJSON); scanErr != nil {
+		"UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_ready = true WHERE id = $1"+upgradeRowReturning,
+		id).Scan(&normalJSON); scanErr != nil {
 		fmt.Printf("WARN: state transition to completed matched 0 rows or errored (id=%d, err=%v) — possible CHECK constraint violation\n", id, scanErr)
 	} else {
 		fmt.Println("state=completed")
@@ -2184,15 +2205,14 @@ func (d *Service) runCallback(displayName string, extraEnv map[string]string) {
 func (d *Service) failUpgrade(ctx context.Context, id int, errMsg string, progress *ProgressLog) {
 	progress.Write("FAILED: %s", errMsg)
 	if d.queryConn != nil {
-		// progress_log captures the narrative tail so the admin UI can show
-		// the operator what led up to the failure without SSH access.
+		// The on-disk log (referenced by log_relative_file_path) holds the
+		// full narrative; the admin UI fetches it via /upgrade-logs/<name>.
 		// state='failed' requires started_at IS NOT NULL — executeScheduled
 		// always sets started_at before executeUpgrade runs, so that holds.
-		tail := readProgressLogTail(progress.path, 50)
 		var failJSON string
 		if scanErr := d.queryConn.QueryRow(ctx,
-			"UPDATE public.upgrade SET state = 'failed', error = $1, progress_log = $2, scheduled_at = NULL WHERE id = $3"+upgradeRowReturning,
-			errMsg, tail, id).Scan(&failJSON); scanErr == nil {
+			"UPDATE public.upgrade SET state = 'failed', error = $1, scheduled_at = NULL WHERE id = $2"+upgradeRowReturning,
+			errMsg, id).Scan(&failJSON); scanErr == nil {
 			logUpgradeRow(LabelFailed, failJSON)
 		}
 	}
@@ -2231,12 +2251,11 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 			fmt.Fprintf(os.Stderr, "ABORT: rollback git restore to %s failed: %v\n", previousVersion, err)
 
 			rollbackFailedMsg := fmt.Sprintf("%s: %v (originally: %s)", ErrRollbackGitCorrupt, err, reason)
-			logTail := readProgressLogTail(ProgressLogPath(d.projDir, version), 50)
 			if d.queryConn != nil {
 				var abortJSON string
 				if scanErr := d.queryConn.QueryRow(ctx,
-					"UPDATE public.upgrade SET state = 'rolled_back', error = $1, progress_log = $2, rolled_back_at = now() WHERE id = $3"+upgradeRowReturning,
-					rollbackFailedMsg, logTail, id).Scan(&abortJSON); scanErr == nil {
+					"UPDATE public.upgrade SET state = 'rolled_back', error = $1, rolled_back_at = now() WHERE id = $2"+upgradeRowReturning,
+					rollbackFailedMsg, id).Scan(&abortJSON); scanErr == nil {
 					logUpgradeRow(LabelRolledBackAbort, abortJSON)
 				}
 			}
@@ -2275,20 +2294,19 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 	// Deactivate maintenance
 	d.setMaintenance(false)
 
-	// Persist the real failure reason in `error` (short, one-line) and the
-	// full narrative in `progress_log` (last ~50 lines). Split keeps the
-	// error column small and greppable while still giving the admin UI a
-	// complete story to render in a "Log" collapsible.
+	// Persist the real failure reason in `error` (short, one-line). The
+	// full narrative lives in the on-disk log (referenced by
+	// log_relative_file_path) and is fetched by the admin UI's "Log"
+	// collapsible via /upgrade-logs/<name>.
 	errMsg := reason
 	if reason == "" {
 		errMsg = "Rollback completed (no reason captured — caller did not pass one)"
 	}
-	logTail := readProgressLogTail(ProgressLogPath(d.projDir, version), 50)
 	if d.queryConn != nil {
 		var rollbackJSON string
 		if scanErr := d.queryConn.QueryRow(ctx,
-			"UPDATE public.upgrade SET state = 'rolled_back', error = $1, progress_log = $2, rolled_back_at = now() WHERE id = $3"+upgradeRowReturning,
-			errMsg, logTail, id).Scan(&rollbackJSON); scanErr == nil {
+			"UPDATE public.upgrade SET state = 'rolled_back', error = $1, rolled_back_at = now() WHERE id = $2"+upgradeRowReturning,
+			errMsg, id).Scan(&rollbackJSON); scanErr == nil {
 			logUpgradeRow(LabelRolledBackNormal, rollbackJSON)
 		}
 	}

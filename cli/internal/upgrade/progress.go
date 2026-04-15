@@ -8,48 +8,121 @@ import (
 	"time"
 )
 
-// ProgressLog writes timestamped progress to a version-specific log file.
-// A symlink upgrade-progress.log always points to the current version's log,
-// so the maintenance page fetches the right content without knowing the version.
+// ProgressLog writes timestamped progress to a per-upgrade log file under
+// <projDir>/tmp/upgrade-logs/<id>-<safe_version>-<ts>.log. The basename is
+// stored on public.upgrade.log_relative_file_path so the admin UI and the
+// service can locate the file later (e.g. to append the recovery narrative
+// when resurrecting a crashed run).
+//
+// A transitional symlink <projDir>/tmp/upgrade-progress.log points at the
+// active log. It keeps the legacy Caddy /upgrade-progress.log handle (used
+// by maintenance.html) serving fresh content until that handler is retired.
 type ProgressLog struct {
-	path string
-	file *os.File
+	projDir string
+	relPath string
+	absPath string
+	file    *os.File
 }
 
-// ProgressLogPath returns the per-version log path without creating the file.
-// Matches the naming used by NewProgressLog so callers can read a specific
-// version's log after the fact (e.g., recoverFromFlag reading the log of the
-// upgrade that just crashed, identified by flag.DisplayName).
-func ProgressLogPath(projDir, version string) string {
-	safe := strings.Map(func(r rune) rune {
+func upgradeLogsDir(projDir string) string {
+	return filepath.Join(projDir, "tmp", "upgrade-logs")
+}
+
+// UpgradeLogAbsPath returns the absolute path on disk for a given per-upgrade
+// log basename (the value stored on public.upgrade.log_relative_file_path).
+// Returns "" when relPath is empty so callers can short-circuit.
+func UpgradeLogAbsPath(projDir, relPath string) string {
+	if relPath == "" {
+		return ""
+	}
+	return filepath.Join(upgradeLogsDir(projDir), relPath)
+}
+
+func sanitizeVersion(version string) string {
+	return strings.Map(func(r rune) rune {
 		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '.' || r == '-' {
 			return r
 		}
 		return '_'
 	}, version)
-	return filepath.Join(projDir, "tmp", fmt.Sprintf("upgrade-progress-%s.log", safe))
 }
 
-// NewProgressLog creates a progress log for a specific version in projDir/tmp/.
-// The version is sanitized for use in filenames (sha-abc → sha-abc, v2026.03.1-rc.6 → v2026.03.1-rc.6).
-func NewProgressLog(projDir, version string) *ProgressLog {
-	dir := filepath.Join(projDir, "tmp")
+// BuildLogRelPath returns the per-upgrade log basename derived from id,
+// version, and startTime. The value is what gets stored on
+// public.upgrade.log_relative_file_path.
+func BuildLogRelPath(id int64, version string, startTime time.Time) string {
+	return fmt.Sprintf("%d-%s-%s.log",
+		id,
+		sanitizeVersion(version),
+		startTime.UTC().Format("20060102T150405Z"),
+	)
+}
+
+// NewProgressLog creates a new per-upgrade log and returns a ProgressLog
+// bound to it. Use RelPath() to get the value to persist on
+// public.upgrade.log_relative_file_path.
+func NewProgressLog(projDir string, id int64, version string, startTime time.Time) *ProgressLog {
+	dir := upgradeLogsDir(projDir)
 	os.MkdirAll(dir, 0755)
 
-	path := ProgressLogPath(projDir, version)
-	f, err := os.Create(path)
+	relPath := BuildLogRelPath(id, version, startTime)
+	absPath := filepath.Join(dir, relPath)
+
+	f, err := os.Create(absPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: cannot create progress log %s: %v\n", path, err)
-		return &ProgressLog{path: path}
+		fmt.Fprintf(os.Stderr, "Warning: cannot create progress log %s: %v\n", absPath, err)
+		return &ProgressLog{projDir: projDir, relPath: relPath, absPath: absPath}
 	}
 
-	// Symlink upgrade-progress.log → version-specific file.
-	// Maintenance page fetches /upgrade-progress.log via Caddy.
-	symlinkPath := filepath.Join(dir, "upgrade-progress.log")
-	os.Remove(symlinkPath) // remove old symlink or file
-	os.Symlink(filepath.Base(path), symlinkPath)
+	refreshLegacySymlink(projDir, relPath)
 
-	return &ProgressLog{path: path, file: f}
+	return &ProgressLog{projDir: projDir, relPath: relPath, absPath: absPath, file: f}
+}
+
+// AppendProgressLog opens an existing per-upgrade log in append mode. Used
+// by recoverFromFlag and completeInProgressUpgrade so the reconciliation
+// narrative lands in the same file the crashed run produced. Returns nil if
+// the file cannot be opened; callers fall back to stdout-only logging.
+func AppendProgressLog(projDir, relPath string) *ProgressLog {
+	if relPath == "" {
+		return nil
+	}
+	absPath := filepath.Join(upgradeLogsDir(projDir), relPath)
+	if _, err := os.Stat(absPath); err != nil {
+		return nil
+	}
+	f, err := os.OpenFile(absPath, os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return nil
+	}
+	refreshLegacySymlink(projDir, relPath)
+	return &ProgressLog{projDir: projDir, relPath: relPath, absPath: absPath, file: f}
+}
+
+// refreshLegacySymlink keeps <projDir>/tmp/upgrade-progress.log pointing at
+// the currently active per-upgrade log. Best-effort — symlink errors are
+// non-fatal.
+func refreshLegacySymlink(projDir, relPath string) {
+	symlinkPath := filepath.Join(projDir, "tmp", "upgrade-progress.log")
+	os.Remove(symlinkPath)
+	os.Symlink(filepath.Join("upgrade-logs", relPath), symlinkPath)
+}
+
+// RelPath returns the basename of the log file — the value stored on
+// public.upgrade.log_relative_file_path.
+func (p *ProgressLog) RelPath() string {
+	if p == nil {
+		return ""
+	}
+	return p.relPath
+}
+
+// AbsPath returns the absolute path to the log file on disk.
+func (p *ProgressLog) AbsPath() string {
+	if p == nil {
+		return ""
+	}
+	return p.absPath
 }
 
 // Write appends a timestamped line.
@@ -59,37 +132,15 @@ func (p *ProgressLog) Write(format string, args ...interface{}) {
 
 	fmt.Print(line)
 
-	if p.file != nil {
+	if p != nil && p.file != nil {
 		p.file.WriteString(line)
 		p.file.Sync()
 	}
 }
 
-// AppendProgressLog opens an existing version-specific log file in append
-// mode — used by recoverFromFlag so the reconciliation narrative lands
-// inside the same log file the crashed run produced. That way the admin
-// UI's progress_log column (populated from the tail of this file after
-// reconciliation) includes both the pre-crash story and the recovery
-// summary.
-//
-// Returns nil if the file does not exist or cannot be opened; callers
-// should treat a nil ProgressLog as "log unavailable" and fall back to
-// stdout-only logging.
-func AppendProgressLog(projDir, version string) *ProgressLog {
-	path := ProgressLogPath(projDir, version)
-	if _, err := os.Stat(path); err != nil {
-		return nil
-	}
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0644)
-	if err != nil {
-		return nil
-	}
-	return &ProgressLog{path: path, file: f}
-}
-
 // Close closes the log file.
 func (p *ProgressLog) Close() {
-	if p.file != nil {
+	if p != nil && p.file != nil {
 		p.file.Close()
 	}
 }

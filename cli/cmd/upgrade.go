@@ -198,7 +198,7 @@ Examples:
   rolled_back_at = NULL,
   skipped_at = NULL,
   dismissed_at = NULL,
-  progress_log = NULL
+  log_relative_file_path = NULL
 WHERE :'target_version' = ANY(tags)
    OR commit_sha = :'target_version'
    OR commit_sha LIKE :'target_version' || '%'
@@ -339,7 +339,7 @@ file changes needed.`,
   rolled_back_at = NULL,
   skipped_at = NULL,
   dismissed_at = NULL,
-  progress_log = NULL
+  log_relative_file_path = NULL
 WHERE :'target_version' = ANY(tags)
    OR commit_sha = :'target_version'
    OR commit_sha LIKE :'target_version' || '%'
