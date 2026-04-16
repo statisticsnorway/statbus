@@ -1946,12 +1946,12 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// No --depth 1: the discovery phase already fetched origin/master, so objects are local.
 	// Keeping full history ensures git-describe can find tags for config generate (VERSION).
 	progress.Write("Installing %s...", displayName)
-	if err := runCommand(projDir, "git", "fetch", "origin", commitSHA); err != nil {
+	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "git", "git", "fetch", "origin", commitSHA); err != nil {
 		// TODO: pick code — forward git fetch failure; no Err* code covers install-time git errors yet
 		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("git fetch %s: %v", commitSHA[:12], err), progress)
 		return err
 	}
-	if err := runCommand(projDir, "git", "-c", "advice.detachedHead=false", "checkout", commitSHA); err != nil {
+	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "git", "git", "-c", "advice.detachedHead=false", "checkout", commitSHA); err != nil {
 		// TODO: pick code — forward git checkout failure; no Err* code covers install-time git errors yet
 		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("git checkout %s: %v", commitSHA[:12], err), progress)
 		return err
@@ -1984,7 +1984,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 
 	// Step 8: Pull updated images
 	progress.Write("Pulling updated images...")
-	if err := runCommand(projDir, "docker", "compose", "pull"); err != nil {
+	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", "docker", "compose", "pull"); err != nil {
 		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: docker compose pull: %v", ErrDockerUpFailed, err), progress)
 		return err
 	}
@@ -1997,7 +1997,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// no useful error). If the image isn't in the registry yet, CI hasn't
 	// built it. Tell the operator to wait for ci-images.yaml and retry.
 	progress.Write("Starting database...")
-	if err := runCommand(projDir, "docker", "compose", "up", "-d", "--no-build", "db"); err != nil {
+	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", "docker", "compose", "up", "-d", "--no-build", "db"); err != nil {
 		reason := fmt.Sprintf(
 			"%s: docker compose up -d db: %v\n\n"+
 				"The db image for %s is not available locally or in the registry. "+
@@ -2042,7 +2042,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 		}
 	} else {
 		progress.Write("Applying database migrations...")
-		if err := runCommand(projDir, filepath.Join(projDir, "sb"), "migrate", "up", "--verbose"); err != nil {
+		if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "migrate", filepath.Join(projDir, "sb"), "migrate", "up", "--verbose"); err != nil {
 			d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: ./sb migrate up: %v", ErrMigrationFailed, err), progress)
 			return err
 		}
@@ -2052,7 +2052,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// --no-build for the same reason as step 9: the app/worker/rest images
 	// must come from the registry, not a local build that may time out.
 	progress.Write("Starting services...")
-	if err := runCommand(projDir, "docker", "compose", "up", "-d", "--no-build", "app", "worker", "rest"); err != nil {
+	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", "docker", "compose", "up", "-d", "--no-build", "app", "worker", "rest"); err != nil {
 		reason := fmt.Sprintf(
 			"%s: docker compose up -d app worker rest: %v\n\n"+
 				"One or more application images for %s are not available locally or in the registry. "+

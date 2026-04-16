@@ -482,12 +482,13 @@ function UpgradeLogViewer({
   defaultOpen: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
-  const [content, setContent] = useState<string | null>(null);
+  const [rawContent, setRawContent] = useState<string | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [showRaw, setShowRaw] = useState(false);
 
   useGuardedEffect(
     () => {
-      if (!open || !relPath || content !== null || fetchError !== null) return;
+      if (!open || !relPath || rawContent !== null || fetchError !== null) return;
       let cancelled = false;
       fetch(`/upgrade-logs/${relPath}`, { credentials: "include" })
         .then(async (resp) => {
@@ -496,8 +497,7 @@ function UpgradeLogViewer({
         })
         .then((text) => {
           if (cancelled) return;
-          const lines = text.split("\n");
-          setContent(lines.slice(-50).join("\n"));
+          setRawContent(text);
         })
         .catch((err) => {
           if (cancelled) return;
@@ -507,7 +507,7 @@ function UpgradeLogViewer({
         cancelled = true;
       };
     },
-    [open, relPath, content, fetchError],
+    [open, relPath, rawContent, fetchError],
     `UpgradesPage:log-fetch-${id}`,
   );
 
@@ -517,18 +517,39 @@ function UpgradeLogViewer({
     );
   }
 
+  const displayContent = (() => {
+    if (fetchError) return `Failed to load log: ${fetchError}`;
+    if (rawContent === null) return "Loading...";
+    if (showRaw) return rawContent.split("\n").slice(-50).join("\n");
+    // Default: show only main-narrative lines (M prefix), strip the 2-char code prefix.
+    // Lines starting with #  (legend) and O/E (child output) are hidden unless raw.
+    const filtered = rawContent
+      .split("\n")
+      .filter((l) => l.startsWith("M "))
+      .map((l) => l.slice(2));
+    // Fall back to raw tail if no M-lines found (old-format logs pre-#63).
+    if (filtered.length === 0) return rawContent.split("\n").slice(-50).join("\n");
+    return filtered.slice(-50).join("\n");
+  })();
+
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="mt-2">
       <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
         <ChevronDown className="h-3 w-3" />
         Log
       </CollapsibleTrigger>
-      <CollapsibleContent className="mt-2 max-h-64 overflow-y-auto whitespace-pre-wrap rounded-md bg-slate-900 p-3 font-mono text-xs text-slate-100">
-        {fetchError
-          ? `Failed to load log: ${fetchError}`
-          : content === null
-            ? "Loading..."
-            : content}
+      <CollapsibleContent className="mt-2">
+        <div className="mb-1 flex justify-end">
+          <button
+            onClick={() => setShowRaw((v) => !v)}
+            className="text-xs text-slate-400 hover:text-slate-200"
+          >
+            {showRaw ? "hide raw" : "show raw"}
+          </button>
+        </div>
+        <div className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded-md bg-slate-900 p-3 font-mono text-xs text-slate-100">
+          {displayContent}
+        </div>
       </CollapsibleContent>
     </Collapsible>
   );

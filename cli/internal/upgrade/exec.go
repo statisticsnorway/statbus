@@ -114,6 +114,29 @@ func runCommandWithTimeout(dir string, timeout time.Duration, name string, args 
 	return err
 }
 
+// runCommandToLog executes a command like runCommandWithTimeout but also
+// tees child stdout/stderr into logWriter using PrefixWriter so the
+// per-upgrade log captures subprocess output alongside service narration.
+// Raw output still flows to os.Stdout/Stderr for daemon journal capture.
+func runCommandToLog(dir string, timeout time.Duration, logWriter io.Writer, source string, name string, args ...string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, name, gitArgs(name, args)...)
+	cmd.Dir = dir
+	outW := NewPrefixWriter("O", source, logWriter)
+	errW := NewPrefixWriter("E", source, logWriter)
+	cmd.Stdout = io.MultiWriter(os.Stdout, outW)
+	cmd.Stderr = io.MultiWriter(os.Stderr, errW)
+	prepareCmd(cmd)
+	err := cmd.Run()
+	outW.Flush()
+	errW.Flush()
+	if ctx.Err() == context.DeadlineExceeded {
+		return fmt.Errorf("command timed out after %s: %s %v", timeout, name, args)
+	}
+	return err
+}
+
 // runCommandOutput executes a command and returns combined output.
 func runCommandOutput(dir string, name string, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
@@ -229,7 +252,7 @@ func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (string, e
 	// backup. No sudo needed — the container runs as root and can read
 	// postgres-owned files.
 	volumeName := d.dbVolumeName()
-	if err := runCommandWithTimeout(d.projDir, 10*time.Minute,
+	if err := runCommandToLog(d.projDir, 10*time.Minute, progress.File(), "rsync",
 		"docker", "run", "--rm",
 		"-v", volumeName+":/source:ro",
 		"-v", tmpDir+":/backup",
@@ -346,7 +369,7 @@ func (d *Service) restoreDatabase(progress *ProgressLog) {
 	volumeName := d.dbVolumeName()
 
 	progress.Write("Restoring database from backup at %s...", backupDir)
-	if err := runCommandWithTimeout(d.projDir, 10*time.Minute,
+	if err := runCommandToLog(d.projDir, 10*time.Minute, progress.File(), "rsync",
 		"docker", "run", "--rm",
 		"-v", backupDir+":/source:ro",
 		"-v", volumeName+":/dest",

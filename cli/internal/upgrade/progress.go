@@ -2,6 +2,7 @@ package upgrade
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -74,6 +75,13 @@ func NewProgressLog(projDir string, id int64, version string, startTime time.Tim
 		return &ProgressLog{projDir: projDir, relPath: relPath, absPath: absPath}
 	}
 
+	// Write legend so every log is self-describing.
+	fmt.Fprintf(f, "# Statbus upgrade log v1\n")
+	fmt.Fprintf(f, "# M <time> content               main service narration\n")
+	fmt.Fprintf(f, "# O <name> <time> content        child stdout  (name: migrate, docker-compose, git, rsync)\n")
+	fmt.Fprintf(f, "# E <name> <time> content        child stderr\n")
+	fmt.Fprintf(f, "# ---\n")
+
 	refreshLegacySymlink(projDir, relPath)
 
 	return &ProgressLog{projDir: projDir, relPath: relPath, absPath: absPath, file: f}
@@ -125,10 +133,19 @@ func (p *ProgressLog) AbsPath() string {
 	return p.absPath
 }
 
-// Write appends a timestamped line.
+// File returns the underlying log file writer for use by child-process prefix
+// writers. Returns io.Discard when the log is nil or already closed.
+func (p *ProgressLog) File() io.Writer {
+	if p != nil && p.file != nil {
+		return p.file
+	}
+	return io.Discard
+}
+
+// Write appends a timestamped line in `M HH:MM:SS content` format.
 func (p *ProgressLog) Write(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
-	line := fmt.Sprintf("[%s] %s\n", time.Now().Format("15:04:05"), msg)
+	line := fmt.Sprintf("M %s %s\n", time.Now().Format("15:04:05"), msg)
 
 	fmt.Print(line)
 
