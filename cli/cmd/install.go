@@ -18,7 +18,6 @@ import (
 )
 
 var nonInteractive bool
-var installVersion string
 
 // insideActiveUpgrade signals that this install invocation is a post-upgrade
 // fixup spawned by the upgrade service itself. It is NOT a user-facing flag —
@@ -31,9 +30,25 @@ var insideActiveUpgrade bool
 var installCmd = &cobra.Command{
 	Use:   "install",
 	Short: "Install or resume StatBus installation",
-	Long: `Idempotent installation of StatBus. Each run checks what's already
-done and performs the next pending step. Safe to re-run — completed
-steps are skipped automatically.
+	Long: `Unified entrypoint for first-install, repair, and dispatching a
+pending upgrade. Probes the install state and routes:
+
+  - Fresh directory         → runs the install step-table.
+  - Existing install        → idempotent config-refresh (safe to re-run).
+  - Scheduled upgrade row   → dispatches the upgrade inline through the
+                              same pipeline the service uses (backup,
+                              checkout, migrate, restart, health-check,
+                              rollback on failure).
+  - Crashed upgrade flag    → reconciles, re-probes, re-dispatches.
+  - Live upgrade running    → refuses (points at journalctl).
+  - Pre-1.0 database        → refuses (points at the manual upgrade path).
+
+To upgrade an existing install, schedule the target version first:
+
+  ./sb upgrade schedule v2026.03.1
+  ./sb install                  # dispatches the scheduled upgrade
+
+Or let the systemd upgrade service pick it up on its next tick.
 
 Example first install (interactive):
   ./sb install
@@ -53,7 +68,6 @@ Example with statbus.nso.eu domain:
 func init() {
 	installCmd.Flags().BoolVar(&nonInteractive, "non-interactive", false,
 		"Run without prompts (requires .env.config to exist)")
-	installCmd.Flags().StringVar(&installVersion, "version", "", "version tag to checkout (for rescue installs)")
 	installCmd.Flags().BoolVar(&insideActiveUpgrade, "inside-active-upgrade", false,
 		"Internal: set by the upgrade service when spawning install as a post-upgrade fixup. Operators must not pass this.")
 	// Hide the internal flag from --help; it's a contract between service and child install, not a user-facing knob.
@@ -220,7 +234,6 @@ func runInstall() error {
 	}
 
 	steps := []step{
-		{"Source code", checkSourceCodeDone, runCheckoutVersion},
 		{"Prerequisites", checkPrereqDone, runPrereq},
 		{"Repository", checkRepoDone, runCloneRepo},
 		{"Binary", checkBinaryDone, runInstallBinary},
@@ -281,28 +294,6 @@ func runInstall() error {
 }
 
 // ── Step checks (return true if step is already done) ──
-
-func checkSourceCodeDone(dir string) bool {
-	if installVersion == "" {
-		return true // No --version flag, skip (fresh install uses git clone)
-	}
-	// Check if HEAD already matches the requested version tag
-	cmd := exec.Command("git", "describe", "--tags", "--exact-match", "HEAD")
-	cmd.Dir = dir
-	out, err := cmd.Output()
-	if err != nil {
-		return false
-	}
-	return strings.TrimSpace(string(out)) == installVersion
-}
-
-func runCheckoutVersion(dir string) error {
-	fmt.Printf("  Checking out %s\n", installVersion)
-	if err := runCmdDir(dir, "git", "fetch", "--depth", "1", "origin", "tag", installVersion, "--quiet"); err != nil {
-		return fmt.Errorf("fetch tag %s: %w", installVersion, err)
-	}
-	return runCmdDir(dir, "git", "-c", "advice.detachedHead=false", "checkout", installVersion)
-}
 
 func checkPrereqDone(_ string) bool {
 	_, dockerErr := exec.LookPath("docker")
