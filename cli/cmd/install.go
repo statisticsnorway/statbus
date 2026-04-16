@@ -176,6 +176,11 @@ func runInstall() error {
 	//                           destructive step. This is Option A of the
 	//                           flag-lock ownership design: ownership transfer
 	//                           matches the flock primitive.
+	//   StateCrashedUpgrade   → run RecoverFromFlag (clears stale flag,
+	//                           reconciles the DB row), re-detect, re-dispatch.
+	//                           The re-detect may land us in any other state.
+	//   StateLegacyNoUpgradeTable → refuse with a pointer to #65.6 (the
+	//                           pre-1.0 cascade lands there).
 	//   all other states      → fall through to acquireOrBypass + step-table.
 	if !bypass {
 		state, detail, derr := install.Detect(installDir, version)
@@ -183,17 +188,18 @@ func runInstall() error {
 			fmt.Printf("Warning: state detection failed: %v\n", derr)
 		} else {
 			logInstallState(state, detail)
-			switch state {
-			case install.StateLiveUpgrade:
-				if detail.Flag != nil {
-					return fmt.Errorf("upgrade in progress (PID %d, %s, started %s); wait for it to finish or run './sb upgrade recover' if the process is dead",
-						detail.Flag.PID, detail.Flag.DisplayName, detail.Flag.StartedAt.Format(time.RFC3339))
+			if state == install.StateCrashedUpgrade {
+				if err := runCrashRecovery(installDir); err != nil {
+					return fmt.Errorf("crash recovery: %w", err)
 				}
-				return fmt.Errorf("upgrade in progress; wait or run './sb upgrade recover'")
-			case install.StateScheduledUpgrade:
-				return runInlineUpgradeScheduled(installDir, detail)
-			case install.StateLegacyNoUpgradeTable:
-				return fmt.Errorf("pre-1.0 install detected (public.upgrade table absent). Automatic upgrade from pre-1.0 is not yet implemented (tracked as #65.6). Contact support or follow the manual upgrade path in doc/CLOUD.md")
+				state, detail, derr = install.Detect(installDir, version)
+				if derr != nil {
+					return fmt.Errorf("re-detect after recovery: %w", derr)
+				}
+				fmt.Printf("  State after recovery: %s (target=%s)\n", state, detail.TargetVersion)
+			}
+			if handled, err := dispatchInstallState(installDir, state, detail); handled {
+				return err
 			}
 		}
 	}
@@ -920,7 +926,7 @@ func logInstallState(state install.State, detail *install.Detail) {
 		}
 	case install.StateCrashedUpgrade:
 		if detail.Flag != nil {
-			fmt.Printf("  Prior upgrade crashed (PID %d, %s). Install will take the stale lock and proceed.\n",
+			fmt.Printf("  Prior upgrade crashed (PID %d, %s). The stale lock was released when the PID died; recovering.\n",
 				detail.Flag.PID, detail.Flag.DisplayName)
 		}
 	case install.StateHalfConfigured:
