@@ -161,14 +161,38 @@ func runInstall() error {
 	// the flag for that exec, so the child must not try to acquire it).
 	bypass := insideActiveUpgrade || os.Getenv("STATBUS_INSIDE_ACTIVE_UPGRADE") == "1"
 
-	// === State detection (log-only in this commit) ===
+	// === State detection + dispatch ===
 	// Detect reads the install directory + DB to classify the install state.
 	// In the bypass path the parent upgrade service already knows; skip
-	// detection to avoid probing the DB mid-upgrade. Dispatch lands in
-	// follow-up commits; for now we only log.
+	// detection to avoid probing the DB mid-upgrade.
+	//
+	// Dispatch policy:
+	//   StateLiveUpgrade      → refuse BEFORE acquireOrBypass so the message
+	//                           is an authoritative refusal, not a flock error.
+	//   StateScheduledUpgrade → hand off to executeUpgrade (the upgrade
+	//                           service's pipeline) WITHOUT acquiring the
+	//                           install flag — executeUpgrade writes its own
+	//                           HolderService flag internally before any
+	//                           destructive step. This is Option A of the
+	//                           flag-lock ownership design: ownership transfer
+	//                           matches the flock primitive.
+	//   all other states      → fall through to acquireOrBypass + step-table.
 	if !bypass {
-		if err := logInstallState(installDir); err != nil {
-			fmt.Printf("Warning: state detection failed: %v\n", err)
+		state, detail, derr := install.Detect(installDir, version)
+		if derr != nil {
+			fmt.Printf("Warning: state detection failed: %v\n", derr)
+		} else {
+			logInstallState(state, detail)
+			switch state {
+			case install.StateLiveUpgrade:
+				if detail.Flag != nil {
+					return fmt.Errorf("upgrade in progress (PID %d, %s, started %s); wait for it to finish or run './sb upgrade recover' if the process is dead",
+						detail.Flag.PID, detail.Flag.DisplayName, detail.Flag.StartedAt.Format(time.RFC3339))
+				}
+				return fmt.Errorf("upgrade in progress; wait or run './sb upgrade recover'")
+			case install.StateScheduledUpgrade:
+				return runInlineUpgradeScheduled(installDir, detail)
+			}
 		}
 	}
 
@@ -879,23 +903,15 @@ func migrateConfigPaths(dir string) {
 	}
 }
 
-// logInstallState classifies the install directory and prints the result.
-// In this commit the output is advisory only — every state still flows into
-// the idempotent step-table. Follow-up commits replace the notes with real
-// dispatch (inline upgrade for StateScheduledUpgrade, pre-1.0 bootstrap for
-// StateLegacyNoUpgradeTable, early-exit guidance for bail-out states).
-func logInstallState(installDir string) error {
-	state, detail, err := install.Detect(installDir, version)
-	if err != nil {
-		return err
-	}
+// logInstallState prints the state classification produced by install.Detect.
+// Dispatch policy lives in runInstall; this function is print-only.
+func logInstallState(state install.State, detail *install.Detail) {
 	fmt.Printf("Detected install state: %s (current=%s, target=%s)\n",
 		state, detail.CurrentVersion, detail.TargetVersion)
 	switch state {
 	case install.StateFresh:
 		fmt.Printf("  Fresh install; target version = %s (binary).\n", detail.TargetVersion)
 	case install.StateLiveUpgrade:
-		// acquireOrBypass below will produce the authoritative refusal.
 		if detail.Flag != nil {
 			fmt.Printf("  Upgrade in progress (PID %d, %s). Install will refuse.\n",
 				detail.Flag.PID, detail.Flag.DisplayName)
@@ -910,13 +926,12 @@ func logInstallState(installDir string) error {
 	case install.StateDBUnreachable:
 		fmt.Println("  Database not reachable; step-table will start services.")
 	case install.StateLegacyNoUpgradeTable:
-		fmt.Println("  Pre-1.0 install detected (public.upgrade absent). Inline upgrade path not yet wired (#65.3).")
+		fmt.Println("  Pre-1.0 install detected (public.upgrade absent). Inline upgrade path not yet wired (#65.3-E).")
 	case install.StateScheduledUpgrade:
-		fmt.Printf("  Upgrade scheduled (id=%d, version=%s). Inline dispatch not yet wired (#65.3); falling through to step-table.\n",
+		fmt.Printf("  Upgrade scheduled (id=%d, version=%s). Dispatching inline upgrade.\n",
 			detail.ScheduledRowID, detail.TargetVersion)
 	case install.StateNothingScheduled:
 		fmt.Println("  Existing install, no upgrade scheduled; running idempotent step-table to refresh.")
 	}
 	fmt.Println()
-	return nil
 }

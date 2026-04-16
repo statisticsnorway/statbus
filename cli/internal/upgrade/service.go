@@ -659,15 +659,32 @@ func (d *Service) Close() {
 
 // ExecuteUpgradeInline runs executeUpgrade from a one-shot caller (./sb install
 // inline upgrade dispatch). Caller is responsible for:
-//   - acquiring the install flag-lock (or transferring it via the upgrade
-//     flag written inside executeUpgrade),
 //   - opening DB connections via LoadConfigAndConnect,
-//   - ensuring the public.upgrade row at `id` exists and is in an appropriate
-//     state for executeUpgrade to pick up.
+//   - ensuring the public.upgrade row at `id` exists and is in 'scheduled'
+//     state with started_at IS NULL (the claim UPDATE below enforces this).
+//
+// This function does NOT acquire the install flag-lock: executeUpgrade writes
+// its own HolderService flag internally before any destructive step
+// (service.go:writeUpgradeFlag), which serialises against concurrent actors
+// via the kernel flock.
+//
+// Concurrency: the claim UPDATE mirrors executeScheduled's claim with the
+// same state guard. If a racing upgrade service claimed the row first,
+// RowsAffected() == 0 and we bail cleanly so the operator can re-run once
+// the other path finishes.
 //
 // invokedBy / trigger are hardcoded to distinguish operator-driven inline
 // upgrades from scheduler-driven service runs in post-mortem queries.
 func (d *Service) ExecuteUpgradeInline(ctx context.Context, id int, commitSHA, displayName string) error {
+	tag, err := d.queryConn.Exec(ctx,
+		"UPDATE public.upgrade SET state = 'in_progress', started_at = now(), from_version = $1 WHERE id = $2 AND state = 'scheduled' AND started_at IS NULL",
+		d.version, id)
+	if err != nil {
+		return fmt.Errorf("claim scheduled upgrade row %d: %w", id, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("upgrade row %d no longer in 'scheduled' state (another actor claimed it first); re-run ./sb install after it finishes", id)
+	}
 	return d.executeUpgrade(ctx, id, commitSHA, displayName, "operator:install", "install-cli")
 }
 
@@ -1778,10 +1795,20 @@ func (d *Service) executeScheduled(ctx context.Context) {
 
 	// Claim immediately: mark started_at + state='in_progress' so the UI
 	// shows "In Progress" and the user can no longer unschedule.
-	// Declared before any work begins.
-	d.queryConn.Exec(ctx,
-		"UPDATE public.upgrade SET state = 'in_progress', started_at = now(), from_version = $1 WHERE id = $2",
+	// State guard makes the claim safe against a racing inline install
+	// (./sb install dispatching StateScheduledUpgrade): whichever UPDATE
+	// commits first wins, the other gets 0 rows affected and bails.
+	tag, err := d.queryConn.Exec(ctx,
+		"UPDATE public.upgrade SET state = 'in_progress', started_at = now(), from_version = $1 WHERE id = $2 AND state = 'scheduled' AND started_at IS NULL",
 		d.version, id)
+	if err != nil {
+		fmt.Printf("Warning: could not claim scheduled upgrade id=%d: %v\n", id, err)
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		fmt.Printf("Scheduled upgrade id=%d already claimed by another actor; skipping.\n", id)
+		return
+	}
 
 	fmt.Printf("Executing upgrade to %s...\n", displayName)
 	// Invoker context for the flag file: the row was picked up from the scheduled queue.
