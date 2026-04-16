@@ -298,6 +298,14 @@ func runInstall() error {
 		fmt.Printf("%s DONE\n", prefix)
 	}
 
+	// Record the installed version in public.upgrade so the admin UI shows
+	// the correct "Currently running" version. Skip in the bypass path
+	// (the upgrade service writes its own row in executeUpgrade) and for
+	// dev builds.
+	if !bypass {
+		recordInstallVersion(installDir)
+	}
+
 	fmt.Println()
 	if allDone {
 		fmt.Println("All steps complete. Nothing to do.")
@@ -801,6 +809,90 @@ func runInstallService(dir string) error {
 
 	fmt.Printf("  Upgrade service installed and started: %s\n", instance)
 	return nil
+}
+
+// recordInstallVersion inserts (or promotes) a completed row in public.upgrade
+// so the admin UI shows the correct "Currently running" version after a
+// step-table install. Best-effort — failures are logged but don't block install.
+func recordInstallVersion(dir string) {
+	if version == "dev" {
+		return
+	}
+
+	sha, err := upgrade.RunCommandOutput(dir, "git", "rev-parse", "HEAD")
+	if err != nil {
+		fmt.Printf("  Note: could not determine commit SHA; skipping upgrade row recording\n")
+		return
+	}
+	sha = strings.TrimSpace(sha)
+	if len(sha) != 40 {
+		return
+	}
+
+	commitDate, err := upgrade.RunCommandOutput(dir, "git", "log", "-1", "--format=%cI", "HEAD")
+	if err != nil {
+		fmt.Printf("  Note: could not determine commit date; skipping upgrade row recording\n")
+		return
+	}
+	commitDate = strings.TrimSpace(commitDate)
+
+	releaseStatus := "commit"
+	if strings.HasPrefix(version, "v") {
+		if strings.Contains(version[1:], "-") {
+			releaseStatus = "prerelease"
+		} else {
+			releaseStatus = "release"
+		}
+	}
+
+	summary := fmt.Sprintf("Installed via ./sb install (%s)", version)
+
+	psqlPath, prefix, env, err := migrate.PsqlCommand(dir)
+	if err != nil {
+		fmt.Printf("  Note: database not reachable; skipping upgrade row recording\n")
+		return
+	}
+
+	sql := `INSERT INTO public.upgrade (
+  commit_sha, committed_at, summary, state, completed_at,
+  version, release_status, scheduled_at, started_at
+) VALUES (
+  :'sha', :'committed_at'::timestamptz,
+  :'summary',
+  'completed', clock_timestamp(),
+  :'version', :'release_status'::release_status_type,
+  clock_timestamp(), clock_timestamp()
+)
+ON CONFLICT (commit_sha) DO UPDATE SET
+  state = 'completed',
+  completed_at = COALESCE(upgrade.completed_at, clock_timestamp()),
+  started_at = COALESCE(upgrade.started_at, clock_timestamp()),
+  scheduled_at = COALESCE(upgrade.scheduled_at, clock_timestamp()),
+  error = NULL,
+  rolled_back_at = NULL,
+  version = COALESCE(EXCLUDED.version, upgrade.version)
+WHERE upgrade.state != 'completed'`
+
+	args := append(append([]string{}, prefix...),
+		"-v", fmt.Sprintf("sha=%s", sha),
+		"-v", fmt.Sprintf("committed_at=%s", commitDate),
+		"-v", fmt.Sprintf("summary=%s", summary),
+		"-v", fmt.Sprintf("version=%s", version),
+		"-v", fmt.Sprintf("release_status=%s", releaseStatus),
+		"-v", "ON_ERROR_STOP=on",
+		"-X", "-A", "-t",
+		"-c", sql)
+
+	cmd := exec.Command(psqlPath, args...)
+	cmd.Dir = dir
+	cmd.Env = env
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Printf("  Note: could not record upgrade row: %v (%s)\n", err, strings.TrimSpace(string(out)))
+		return
+	}
+
+	fmt.Printf("  Recorded installed version %s in upgrade table\n", version)
 }
 
 // runRootInstall handles `sudo sb install` — ONLY installs the systemd service.
