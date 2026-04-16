@@ -192,6 +192,8 @@ func runInstall() error {
 				return fmt.Errorf("upgrade in progress; wait or run './sb upgrade recover'")
 			case install.StateScheduledUpgrade:
 				return runInlineUpgradeScheduled(installDir, detail)
+			case install.StateLegacyNoUpgradeTable:
+				return fmt.Errorf("pre-1.0 install detected (public.upgrade table absent). Automatic upgrade from pre-1.0 is not yet implemented (tracked as #65.6). Contact support or follow the manual upgrade path in doc/CLOUD.md")
 			}
 		}
 	}
@@ -926,7 +928,7 @@ func logInstallState(state install.State, detail *install.Detail) {
 	case install.StateDBUnreachable:
 		fmt.Println("  Database not reachable; step-table will start services.")
 	case install.StateLegacyNoUpgradeTable:
-		fmt.Println("  Pre-1.0 install detected (public.upgrade absent). Inline upgrade path not yet wired (#65.3-E).")
+		fmt.Println("  Pre-1.0 install detected (public.upgrade absent). Install will refuse; automatic upgrade from pre-1.0 tracked as #65.6.")
 	case install.StateScheduledUpgrade:
 		fmt.Printf("  Upgrade scheduled (id=%d, version=%s). Dispatching inline upgrade.\n",
 			detail.ScheduledRowID, detail.TargetVersion)
