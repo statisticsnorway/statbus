@@ -15,18 +15,24 @@ import (
 )
 
 // Update downloads a new binary, verifies its checksum, and replaces the current one.
-// Returns nil on success. The caller should exit with code 42 for systemd restart.
+// Returns (swapped, err). The caller should exit with code 42 for systemd restart
+// regardless of swapped — the restart is the handoff to whatever is on disk.
 //
 // Idempotency shortcut: if the file at currentPath already hashes to the
-// expected SHA-256, Update is a no-op (no download, no rename). This lets
-// the end-of-flow self-update call from the upgrade service be harmless
-// when an earlier step in the flow (replaceBinaryOnDisk before migrations)
-// has already swapped the binary.
-func Update(currentPath, downloadURL, expectedSHA256 string) error {
-	if match, err := sha256Match(currentPath, expectedSHA256); err == nil && match {
-		return nil
+// expected SHA-256, Update is a no-op (no download, no rename) and returns
+// swapped=false. This lets the end-of-flow self-update call from the
+// upgrade service be harmless when an earlier step in the flow
+// (replaceBinaryOnDisk before migrations) has already swapped the binary,
+// and lets the caller pick an honest log phrasing ("already at target"
+// vs "Self-updating binary...").
+func Update(currentPath, downloadURL, expectedSHA256 string) (swapped bool, err error) {
+	if match, _ := sha256Match(currentPath, expectedSHA256); match {
+		return false, nil
 	}
-	return ReplaceBinaryOnDisk(currentPath, downloadURL, expectedSHA256)
+	if err := ReplaceBinaryOnDisk(currentPath, downloadURL, expectedSHA256); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // ReplaceBinaryOnDisk downloads the binary, verifies SHA-256, self-verifies

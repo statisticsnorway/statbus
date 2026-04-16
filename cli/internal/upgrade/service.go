@@ -2532,6 +2532,13 @@ func (d *Service) restoreBinary(progress *ProgressLog) {
 	sbPath := filepath.Join(d.projDir, "sb")
 	sbOldPath := sbPath + ".old"
 	if _, err := os.Stat(sbOldPath); err != nil {
+		// ENOENT is the legitimate "swap never happened" case — silent no-op.
+		// Anything else (EPERM, EIO, ELOOP) means we can't even tell whether
+		// there's a rollback candidate; log loudly so the operator can
+		// investigate. Matches selfupdate.Rollback's own ENOENT handling.
+		if !os.IsNotExist(err) {
+			progress.Write("%s: could not stat ./sb.old: %v — manual recovery may be required", ErrRollbackBinaryCorrupt, err)
+		}
 		return
 	}
 	if err := selfupdate.Rollback(sbPath); err != nil {
@@ -2565,10 +2572,10 @@ func (d *Service) selfUpdate(ctx context.Context, version string, progress *Prog
 		return
 	}
 
-	progress.Write("Self-updating binary...")
-
 	sbPath := filepath.Join(d.projDir, "sb")
-	if err := selfupdate.Update(sbPath, binary.URL, binary.SHA256); err != nil {
+	progress.Write("Self-updating binary...")
+	swapped, err := selfupdate.Update(sbPath, binary.URL, binary.SHA256)
+	if err != nil {
 		msg := fmt.Sprintf("Self-update failed for %s: %v", version, err)
 		progress.Write("%s", msg)
 		fmt.Fprintln(os.Stderr, msg)
@@ -2581,7 +2588,16 @@ func (d *Service) selfUpdate(ctx context.Context, version string, progress *Prog
 		return
 	}
 
-	progress.Write("Binary updated. Restarting service...")
+	if swapped {
+		progress.Write("Binary updated. Restarting service...")
+	} else {
+		// Mid-flow replaceBinaryOnDisk already placed the target binary;
+		// end-of-flow self-update was a pure no-op. Log honestly so the
+		// narrative on disk / in maintenance.html doesn't lie about what
+		// just happened. Restart is still required — the running service
+		// process is still holding the old binary image in memory.
+		progress.Write("Binary already at target (swapped mid-flow). Restarting service...")
+	}
 	progress.Close()
 	// Exit with code 42 to signal systemd to restart
 	os.Exit(42)
