@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -336,6 +337,23 @@ func pidAlive(pid int) bool {
 		return os.IsPermission(err)
 	}
 	return true
+}
+
+// isConnError returns true for errors that indicate a dead/stale TCP
+// connection rather than a database-level error like a CHECK constraint
+// violation. Used to gate a single reconnect-and-retry on the final
+// state='completed' UPDATE, which can hit a stale queryConn if Docker
+// recreation RSTs the TCP socket during runInstallFixup.
+func isConnError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+		return true
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "conn closed") ||
+		strings.Contains(msg, "connection reset")
 }
 
 // loadLogRelPath fetches the per-upgrade log basename stored on
@@ -2227,10 +2245,18 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// admin UI fetches it by name when the operator expands the "Log" panel.
 	progress.Write("Upgrade to %s complete!", displayName)
 	var normalJSON string
-	if scanErr := d.queryConn.QueryRow(ctx,
-		"UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_ready = true WHERE id = $1"+upgradeRowReturning,
-		id).Scan(&normalJSON); scanErr != nil {
-		fmt.Printf("WARN: state transition to completed matched 0 rows or errored (id=%d, err=%v) — possible CHECK constraint violation\n", id, scanErr)
+	completedSQL := "UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_ready = true WHERE id = $1" + upgradeRowReturning
+	scanErr := d.queryConn.QueryRow(ctx, completedSQL, id).Scan(&normalJSON)
+	if isConnError(scanErr) {
+		fmt.Printf("Connection stale on state=completed UPDATE (id=%d, err=%v), reconnecting...\n", id, scanErr)
+		if reconErr := d.reconnect(ctx); reconErr == nil {
+			scanErr = d.queryConn.QueryRow(ctx, completedSQL, id).Scan(&normalJSON)
+		} else {
+			fmt.Printf("WARN: reconnect failed: %v\n", reconErr)
+		}
+	}
+	if scanErr != nil {
+		fmt.Printf("WARN: state transition to completed failed (id=%d, err=%v)\n", id, scanErr)
 	} else {
 		fmt.Println("state=completed")
 		logUpgradeRow(LabelCompletedNormal, normalJSON)
