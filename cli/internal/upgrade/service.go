@@ -622,8 +622,10 @@ func (d *Service) RecoverFromFlag(ctx context.Context) {
 }
 
 // LoadConfigAndConnect performs the startup steps needed before
-// RecoverFromFlag (or any other one-shot that reads/writes public.upgrade)
-// can run: load .env config, acquire the queryConn / listenConn.
+// RecoverFromFlag, ExecuteUpgradeInline, or any other one-shot that
+// reads/writes public.upgrade: load .env config, load trusted signers
+// (so verifyCommitSignature enforces signatures), acquire the query /
+// listen conns.
 //
 // Does NOT acquire the advisory lock. One-shot recovery is meant to run
 // when the service is stopped — by definition there is no running service
@@ -633,6 +635,13 @@ func (d *Service) RecoverFromFlag(ctx context.Context) {
 func (d *Service) LoadConfigAndConnect(ctx context.Context) error {
 	if err := d.loadConfig(); err != nil {
 		return fmt.Errorf("load config: %w", err)
+	}
+	// Trusted signers must be loaded before executeUpgrade runs, or
+	// verifyCommitSignature silently no-ops (service.go:1265) — a security
+	// regression on the inline-upgrade path. Run() calls loadTrustedSigners
+	// directly; this mirrors that for one-shot callers.
+	if err := d.loadTrustedSigners(); err != nil {
+		return fmt.Errorf("load trusted signers: %w", err)
 	}
 	return d.connect(ctx)
 }
