@@ -1019,7 +1019,35 @@ EOF
         exit $TEST_EXIT_CODE
       ;;
      'generate-types' )
-        ./sb types generate
+        TEMPLATE_NAME="${POSTGRES_TEST_DB:-statbus_test_template}"
+        TYPES_DB="statbus_types_gen_$$"
+
+        TEMPLATE_EXISTS=$(./sb psql -d postgres -t -A -c \
+            "SELECT 1 FROM pg_database WHERE datname = '$TEMPLATE_NAME';" 2>/dev/null || echo "0")
+        if [ "$TEMPLATE_EXISTS" != "1" ]; then
+            echo "Error: Template database '$TEMPLATE_NAME' not found."
+            echo "Create it with: ./dev.sh create-test-template"
+            exit 1
+        fi
+
+        echo "Creating temporary types database: $TYPES_DB from $TEMPLATE_NAME"
+        ./sb psql -d postgres -v ON_ERROR_STOP=1 <<EOF
+            SELECT pg_advisory_lock(59328);
+            ALTER DATABASE $TEMPLATE_NAME WITH ALLOW_CONNECTIONS = true;
+            CREATE DATABASE "$TYPES_DB" WITH TEMPLATE $TEMPLATE_NAME;
+            ALTER DATABASE $TEMPLATE_NAME WITH ALLOW_CONNECTIONS = false;
+            SELECT pg_advisory_unlock(59328);
+EOF
+
+        cleanup_types_db() {
+            local exit_code=$?
+            echo "Cleaning up types database: $TYPES_DB"
+            ./sb psql -d postgres -c "DROP DATABASE IF EXISTS \"$TYPES_DB\";" 2>/dev/null || true
+            return $exit_code
+        }
+        trap cleanup_types_db EXIT
+
+        POSTGRES_APP_DB="$TYPES_DB" ./sb types generate
       ;;
     'generate-db-documentation' )
         TEMPLATE_NAME="${POSTGRES_TEST_DB:-statbus_test_template}"
