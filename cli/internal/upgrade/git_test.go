@@ -1,6 +1,7 @@
 package upgrade
 
 import (
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -76,7 +77,7 @@ func discardLog(format string, args ...interface{}) {}
 func TestRestoreGitState_HappyPathByTag(t *testing.T) {
 	fix := newGitRepoFixture(t)
 
-	if err := restoreGitStateFn(fix.dir, fix.tagOnOld, discardLog); err != nil {
+	if err := restoreGitStateFn(fix.dir, fix.tagOnOld, discardLog, io.Discard); err != nil {
 		t.Fatalf("restoreGitStateFn: %v", err)
 	}
 
@@ -93,7 +94,7 @@ func TestRestoreGitState_HappyPathByTag(t *testing.T) {
 func TestRestoreGitState_HappyPathBySHA(t *testing.T) {
 	fix := newGitRepoFixture(t)
 
-	if err := restoreGitStateFn(fix.dir, fix.oldSHA, discardLog); err != nil {
+	if err := restoreGitStateFn(fix.dir, fix.oldSHA, discardLog, io.Discard); err != nil {
 		t.Fatalf("restoreGitStateFn: %v", err)
 	}
 }
@@ -103,7 +104,7 @@ func TestRestoreGitState_BogusRefNoFallback(t *testing.T) {
 	// Remove the fallback branch so we exercise the pure-failure path.
 	exec.Command("git", "-C", fix.dir, "branch", "-D", fix.branchOnOld).Run()
 
-	err := restoreGitStateFn(fix.dir, "v999.999.999", discardLog)
+	err := restoreGitStateFn(fix.dir, "v999.999.999", discardLog, io.Discard)
 	if err == nil {
 		t.Fatal("restoreGitStateFn returned nil, want error")
 	}
@@ -123,7 +124,7 @@ func TestRestoreGitState_FallbackToBranch(t *testing.T) {
 	// Remove the tag so the primary ref doesn't resolve.
 	exec.Command("git", "-C", fix.dir, "tag", "-d", fix.tagOnOld).Run()
 
-	err := restoreGitStateFn(fix.dir, fix.tagOnOld, discardLog)
+	err := restoreGitStateFn(fix.dir, fix.tagOnOld, discardLog, io.Discard)
 	if err != nil {
 		t.Fatalf("restoreGitStateFn (with fallback): %v", err)
 	}
@@ -138,7 +139,7 @@ func TestRestoreGitState_DetachedHeadOK(t *testing.T) {
 	// Checkout by SHA always lands in detached-HEAD; the function must
 	// still post-verify successfully.
 	fix := newGitRepoFixture(t)
-	if err := restoreGitStateFn(fix.dir, fix.oldSHA, discardLog); err != nil {
+	if err := restoreGitStateFn(fix.dir, fix.oldSHA, discardLog, io.Discard); err != nil {
 		t.Fatalf("restoreGitStateFn detached: %v", err)
 	}
 	// Confirm it really is detached.

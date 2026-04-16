@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -1992,7 +1993,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// Regenerate config — VERSION is derived from git describe --tags --always,
 	// which returns the tag name (e.g., v2026.03.0-rc.3) since we just checked it out.
 	progress.Write("Regenerating configuration...")
-	if err := runCommand(projDir, filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
+	if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "config-generate", filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
 		// TODO: pick code — config generate failure; no Err* code defined yet
 		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("./sb config generate: %v", err), progress)
 		return err
@@ -2052,7 +2053,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	if d.pendingRecreate {
 		d.pendingRecreate = false
 		progress.Write("Recreating database from scratch (--recreate)...")
-		if err := runCommandWithTimeout(projDir, 30*time.Minute, filepath.Join(projDir, "dev.sh"), "recreate-database"); err != nil {
+		if err := runCommandToLog(projDir, 30*time.Minute, progress.File(), "recreate-database", filepath.Join(projDir, "dev.sh"), "recreate-database"); err != nil {
 			d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: ./dev.sh recreate-database: %v", ErrMigrationFailed, err), progress)
 			return err
 		}
@@ -2332,7 +2333,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 			// `./sb upgrade recover` is documented above as the unstick path.
 			return
 		}
-		if err := runCommand(projDir, filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
+		if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "rollback-config-generate", filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
 			progress.Write("Warning: config generate during rollback failed: %v", err)
 		}
 	}
@@ -2348,7 +2349,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 	d.restoreBinary(progress)
 
 	// Start with old config — git is verified at previousVersion.
-	if err := runCommand(projDir, "docker", "compose", "--profile", "all", "up", "-d", "--remove-orphans"); err != nil {
+	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "rollback-docker-up", "docker", "compose", "--profile", "all", "up", "-d", "--remove-orphans"); err != nil {
 		progress.Write("%s: docker compose up failed after rollback: %v", ErrRollbackServicesUp, err)
 	}
 
@@ -2393,7 +2394,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 func (d *Service) restoreGitState(previousVersion string, progress *ProgressLog) error {
 	return restoreGitStateFn(d.projDir, previousVersion, func(format string, args ...interface{}) {
 		progress.Write(format, args...)
-	})
+	}, progress.File())
 }
 
 // restoreGitStateFn restores the git working tree at projDir to
@@ -2417,7 +2418,7 @@ func (d *Service) restoreGitState(previousVersion string, progress *ProgressLog)
 // Logger is invoked at narrative milestones; pass a no-op for tests.
 // Free function (not a method) so the unit tests don't have to
 // construct a *Service or its DB connections.
-func restoreGitStateFn(projDir, previousVersion string, log func(format string, args ...interface{})) error {
+func restoreGitStateFn(projDir, previousVersion string, log func(format string, args ...interface{}), logWriter io.Writer) error {
 	log("Restoring git state to %s...", previousVersion)
 
 	// Pre-validate: refuse to checkout a ref we can't resolve. If the
@@ -2441,7 +2442,7 @@ func restoreGitStateFn(projDir, previousVersion string, log func(format string, 
 	// Force checkout — discards any local changes. We're rolling back from
 	// a partial upgrade, so any working-tree mutations are by definition
 	// part of the failure we're undoing.
-	if err := runCommand(projDir, "git", "-c", "advice.detachedHead=false", "checkout", "-f", previousVersion); err != nil {
+	if err := runCommandToLog(projDir, 5*time.Minute, logWriter, "rollback-git-checkout", "git", "-c", "advice.detachedHead=false", "checkout", "-f", previousVersion); err != nil {
 		return fmt.Errorf("git checkout -f %s: %w", previousVersion, err)
 	}
 
