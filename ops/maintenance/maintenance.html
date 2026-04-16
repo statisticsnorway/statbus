@@ -236,7 +236,7 @@
 
         // Fetch upgrade progress log
         function fetchProgress() {
-            fetch('/upgrade-progress.log', { cache: 'no-store' })
+            fetch('/upgrade-progress.log?t=' + Date.now(), { cache: 'no-store' })
                 .then(function(resp) { return resp.ok ? resp.text() : ''; })
                 .then(function(text) {
                     if (text.trim()) {

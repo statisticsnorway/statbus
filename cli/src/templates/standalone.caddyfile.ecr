@@ -62,11 +62,21 @@ http://<%= @domain %> {
 <%= @domain %> {
     encode gzip
     
+    # Upgrade progress log — always accessible, even during maintenance
+    handle /upgrade-progress.log {
+        root * /home/<%= @deployment_user %>/statbus/tmp
+        header Cache-Control "no-cache, no-store, must-revalidate"
+        header Pragma "no-cache"
+        header Expires "0"
+        file_server
+    }
+
     # Maintenance mode handling
     @maintenance {
         file {
             try_files /home/<%= @deployment_user %>/maintenance
         }
+        not path /upgrade-progress.log
     }
     handle @maintenance {
         root * /home/<%= @deployment_user %>/statbus/app/public
