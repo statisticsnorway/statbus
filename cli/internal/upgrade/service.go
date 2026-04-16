@@ -602,6 +602,38 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 					r.id)
 				fmt.Printf("Images verified for commit %s (tag=%s)\n", r.sha[:12], tag)
 				dockerImagesReady = true
+
+				// Auto-supersede intermediate commit rows that are ancestors of
+				// this commit but will never have CI images of their own.
+				// ci-images.yaml triggers once per push and only tags images for
+				// the push tip (github.sha). Intermediate commits from the same
+				// push have docker_images_ready=FALSE permanently, keeping a stale
+				// "Images building..." badge in the UI.
+				//
+				// Guards:
+				//   release_status='commit' — never touch tagged release rows.
+				//   NOT docker_images_ready — don't supersede a sibling that just
+				//     had its own images verified earlier in this same cycle.
+				for _, anc := range pending {
+					if anc.sha == r.sha || anc.releaseStatus != "commit" {
+						continue
+					}
+					if _, isAncErr := runCommandOutput(d.projDir, "git", "merge-base", "--is-ancestor", anc.sha, r.sha); isAncErr != nil {
+						continue // exit 1 = not an ancestor, or git error — skip either way
+					}
+					res, dbErr := d.queryConn.Exec(ctx,
+						`UPDATE public.upgrade
+						    SET state = 'superseded', superseded_at = now()
+						  WHERE id = $1
+						    AND state = 'available'
+						    AND release_status = 'commit'
+						    AND superseded_at IS NULL
+						    AND NOT docker_images_ready`,
+						anc.id)
+					if dbErr == nil && res.RowsAffected() > 0 {
+						fmt.Printf("Superseded intermediate commit %s (no CI images; ancestor of %s)\n", anc.sha[:12], r.sha[:12])
+					}
+				}
 			}
 		}
 
