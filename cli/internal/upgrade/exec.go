@@ -269,12 +269,13 @@ func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (string, e
 		return "", fmt.Errorf("finalise backup (rename %s -> %s): %w", tmpDir, finalDir, err)
 	}
 
-	// Cascade tmp/upgrade-logs/ into <finalDir>/upgrade-logs/ so the
-	// historical log+bundle pairs ship alongside the DB dump. Best-effort —
-	// a log-snapshot miss must not abort the upgrade; the DB dump is the
-	// critical artifact.
-	if err := cascadeUpgradeLogsIntoBackup(d.projDir, finalDir); err != nil {
-		progress.Write("warning: cascade upgrade-logs into %s: %v", finalDir, err)
+	// Cascade tmp/upgrade-logs/ into <root>/upgrade-logs-<stamp>/ (sibling
+	// of the backup dir) so the historical log+bundle pairs are accessible
+	// to the deploying user without touching the rsync-root-owned backup dir.
+	// Best-effort — a log-snapshot miss must not abort the upgrade; the DB
+	// dump is the critical artifact.
+	if err := cascadeUpgradeLogsIntoBackup(d.projDir, root, stamp); err != nil {
+		progress.Write("warning: cascade upgrade-logs into %s/upgrade-logs-%s: %v", root, stamp, err)
 	}
 
 	// Pruning is deferred to the service tick (reconcileBackupDir + pruneBackups)
@@ -285,11 +286,22 @@ func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (string, e
 }
 
 // cascadeUpgradeLogsIntoBackup mirrors the current tmp/upgrade-logs/
-// snapshot into <backupDir>/upgrade-logs/. Called from backupDatabase
-// after the atomic rename finalises the backup directory. Regular files
-// only (.log and .bundle.txt pairs); symlinks and subdirectories are
-// skipped. Idempotent: os.Create overwrites existing destinations.
-func cascadeUpgradeLogsIntoBackup(projDir, backupDir string) error {
+// snapshot into <root>/upgrade-logs-<stamp>/ — a sibling of the
+// pre-upgrade-<stamp> backup directory rather than a subdirectory of it.
+//
+// Rationale: the backup dir is rsync-populated from inside an Alpine
+// container running as root, which chowns the mount point to uid 70
+// (postgres inside Alpine = messagebus on the host) with mode 0700.
+// After the atomic rename the backup dir is inaccessible to the
+// deploying user (statbus_dev). Writing logs into a sibling that is
+// always MkdirAll'd by the Go process keeps ownership at the deploying
+// user (0755) while leaving the DB restoration artifact pristine.
+//
+// Called from backupDatabase after the atomic rename finalises the
+// backup directory. Regular files only (.log and .bundle.txt pairs);
+// symlinks and subdirectories are skipped. Idempotent: os.Create
+// overwrites existing destinations.
+func cascadeUpgradeLogsIntoBackup(projDir, root, stamp string) error {
 	srcDir := upgradeLogsDir(projDir)
 	entries, err := os.ReadDir(srcDir)
 	if err != nil {
@@ -298,7 +310,7 @@ func cascadeUpgradeLogsIntoBackup(projDir, backupDir string) error {
 		}
 		return fmt.Errorf("read %s: %w", srcDir, err)
 	}
-	destDir := filepath.Join(backupDir, "upgrade-logs")
+	destDir := filepath.Join(root, "upgrade-logs-"+stamp)
 	if err := os.MkdirAll(destDir, 0755); err != nil {
 		return fmt.Errorf("create %s: %w", destDir, err)
 	}
@@ -418,6 +430,15 @@ func (d *Service) pruneBackups(ctx context.Context, keep int) {
 				}
 			}
 			os.RemoveAll(p)
+			// Prune the matching upgrade-logs-<stamp> sibling (created by
+			// cascadeUpgradeLogsIntoBackup). It has no DB row reference so
+			// reconcileBackupDir would not touch it — we must co-prune here.
+			base := filepath.Base(p) // "pre-upgrade-<stamp>"
+			stamp := strings.TrimPrefix(base, "pre-upgrade-")
+			if stamp != base { // only if the prefix was present
+				logsDir := filepath.Join(d.backupRoot(), "upgrade-logs-"+stamp)
+				os.RemoveAll(logsDir)
+			}
 		}
 	}
 }
