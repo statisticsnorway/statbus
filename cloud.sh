@@ -206,14 +206,10 @@ cmd_install_one() {
         return 1
     fi
 
-    # Step 3: Regenerate config so VERSION in .env matches the checked-out code.
+    # Regenerate config so VERSION in .env matches the checked-out code.
     # Must use 'up -d' not 'restart' — restart doesn't re-read .env.
     echo "Regenerating config and restarting app..."
     ssh_server "$server" "cd statbus && ./sb config generate && docker compose up -d app" 2>&1
-
-    # Step 4: Final verify — all steps must pass.
-    echo "Verifying install..."
-    ssh_server "$server" "cd statbus && ./sb install" 2>&1
 
     # Always leave the upgrade service running on success, regardless of
     # whether install's own service-install step fired (e.g., when running
