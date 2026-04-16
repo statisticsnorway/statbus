@@ -4,8 +4,8 @@
 //
 // Detection policy (locked):
 //   1. No .env.config ........................... StateFresh (use binary's version)
-//   2. Flag file present + PID alive ............ StateLiveUpgrade (refuse)
-//   3. Flag file present + PID dead ............. StateCrashedUpgrade (recover)
+//   2. Flag file present + flock held ........... StateLiveUpgrade (refuse)
+//   3. Flag file present + flock free ........... StateCrashedUpgrade (recover)
 //   4. Config present, credentials missing ...... StateHalfConfigured
 //   5. Config + creds, DB down .................. StateDBUnreachable
 //   6. DB up, no public.upgrade ................. StateLegacyNoUpgradeTable
@@ -165,7 +165,11 @@ func (defaultProbe) FileExists(path string) bool {
 }
 
 func (defaultProbe) ReadFlag(projDir string) (*upgrade.UpgradeFlag, bool, error) {
-	return upgrade.ReadFlagFile(projDir)
+	flag, _, err := upgrade.ReadFlagFile(projDir)
+	if err != nil || flag == nil {
+		return flag, false, err
+	}
+	return flag, upgrade.IsFlockHeld(projDir), nil
 }
 
 func (defaultProbe) DBReachable(projDir string) bool {

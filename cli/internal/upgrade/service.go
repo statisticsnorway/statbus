@@ -356,6 +356,29 @@ func isConnError(err error) bool {
 		strings.Contains(msg, "connection reset")
 }
 
+// IsFlockHeld tries a non-blocking LOCK_EX on the flag file. Returns true
+// if the flock is held (genuinely active upgrade), false if the flock is
+// free (ghost flag from a completed upgrade whose file wasn't cleaned up).
+// Returns false when the file doesn't exist or can't be opened.
+//
+// Used by install.defaultProbe.ReadFlag to distinguish a ghost flag
+// (service alive but flock released — completed upgrade) from a live flag
+// (service holding flock — upgrade in progress). pidAlive alone can't
+// distinguish these because the service survives SHA upgrades.
+func IsFlockHeld(projDir string) bool {
+	path := flagFilePath(projDir)
+	f, err := os.OpenFile(path, os.O_RDWR, 0)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		return true // flock held → genuinely live upgrade
+	}
+	_ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+	return false // flock was free → ghost flag
+}
+
 // loadLogRelPath fetches the per-upgrade log basename stored on
 // public.upgrade.log_relative_file_path. Returns "" if the row is missing,
 // the column is NULL, or the query errors — all of which are non-fatal
@@ -423,19 +446,12 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 	logRecover("Service restarted. Found interrupted %s flag for %s (id=%d, pid=%d, invoked_by=%s)",
 		holder, flag.DisplayName, flag.ID, flag.PID, flag.InvokedBy)
 
-	// Refuse to clean up another live process's state. The `flag.PID != os.Getpid()`
-	// check is defensive — in practice it can't match (this function runs at
-	// service startup or via the freshly-spawned `./sb upgrade recover`, both
-	// of which have PIDs distinct from any prior holder). The load-bearing
-	// check is `pidAlive(flag.PID)`: a live PID means an actor still owns
-	// the flag and we must not touch it (service-holder collision indicates
-	// advisory-lock violation; install-holder collision means an operator is
-	// actively installing — neither is ours to reconcile).
-	if flag.PID > 0 && flag.PID != os.Getpid() && pidAlive(flag.PID) {
-		logRecover("REFUSING to recover: %s flag owned by live PID %d. Leaving flag in place. Investigate manually.",
-			holder, flag.PID)
-		return
-	}
+	// Guard removed: DetectState's flock-try is now authoritative for
+	// distinguishing ghost flags from live upgrades. If we reach here, the
+	// caller (DetectState → StateCrashedUpgrade, or service startup) has
+	// already confirmed the flock is NOT held. pidAlive was unreliable:
+	// the service survives SHA upgrades, so PID stays alive after the
+	// upgrade completes — creating a ghost flag that pidAlive can't detect.
 
 	// Install-held flag from a crashed install. The flock was released by
 	// the kernel when the install's fd closed; the on-disk JSON is pure

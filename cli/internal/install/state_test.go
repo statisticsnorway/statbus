@@ -80,6 +80,20 @@ func TestDetectWith(t *testing.T) {
 			wantState: StateCrashedUpgrade,
 		},
 		{
+			name: "ghost flag: PID alive but flock free → crashed (not live)",
+			probe: fakeProbe{
+				files:     map[string]bool{cfgPath: true, credPath: true},
+				flag:      &upgrade.UpgradeFlag{PID: 999, DisplayName: "sha-abc1234f"},
+				flagAlive: false, // flock free — ghost flag from completed upgrade
+			},
+			wantState: StateCrashedUpgrade,
+			checkDetail: func(t *testing.T, d *Detail) {
+				if d.Flag == nil || d.Flag.PID != 999 {
+					t.Errorf("expected flag with PID 999, got %+v", d.Flag)
+				}
+			},
+		},
+		{
 			name: "half-configured: .env.config present, .env.credentials absent",
 			probe: fakeProbe{
 				files: map[string]bool{cfgPath: true},
