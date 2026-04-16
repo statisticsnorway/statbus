@@ -241,11 +241,20 @@ func AcquireInstallFlag(projDir, displayName, invokedBy string) (*FlagLock, erro
 	return acquireFlock(projDir, flag)
 }
 
-// ReleaseInstallFlag releases the install flock by closing the fd.
+// ReleaseInstallFlag releases the install flock AND removes the flag file.
+// Install flags (Holder="install") have no DB row to reconcile — they're
+// purely a mutex. Leaving them on disk creates a false "crashed-upgrade"
+// detection on the next install run.
 // Accepts the *FlagLock returned by AcquireInstallFlag. Safe to call
 // multiple times; safe to call with a nil lock.
 func ReleaseInstallFlag(lock *FlagLock) {
-	lock.Close()
+	if lock != nil && lock.file != nil {
+		path := lock.file.Name()
+		lock.Close()
+		os.Remove(path)
+	} else {
+		lock.Close()
+	}
 }
 
 // formatContentionError builds the operator-facing message for a failed
