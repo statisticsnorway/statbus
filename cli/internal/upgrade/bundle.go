@@ -125,6 +125,9 @@ func (d *Service) writeDiagnosticBundle(parent context.Context, id int, progress
 		return
 	}
 	narrate("Support bundle written to %s", bundlePath)
+	if progress != nil {
+		progress.Write("Support bundle written to %s", bundlePath)
+	}
 }
 
 // writeBundleSections emits all 8 sections to w in the canonical order.
