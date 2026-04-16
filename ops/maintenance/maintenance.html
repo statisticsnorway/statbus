@@ -233,7 +233,9 @@
                 .then(function(text) {
                     if (text.trim()) {
                         progressEl.style.display = 'block';
-                        progressEl.textContent = text;
+                        var lines = text.split('\n');
+                        var mlines = lines.filter(function(l) { return l.startsWith('M '); }).map(function(l) { return l.slice(2); });
+                        progressEl.textContent = mlines.length ? mlines.join('\n') : text;
                         if (stickBottom) progressEl.scrollTop = progressEl.scrollHeight;
                     }
                 })
