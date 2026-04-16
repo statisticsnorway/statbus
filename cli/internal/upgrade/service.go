@@ -1910,11 +1910,17 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	d.queryConn.Exec(ctx, "UPDATE public.upgrade SET backup_path = $1 WHERE id = $2", backupTmpPath, id)
 
 	// Step 2: Enter maintenance mode and restart proxy first
+	// Guards let one-shot callers (./sb install inline upgrade) reach
+	// executeUpgrade without a listenConn.
 	d.stopListenLoop()
-	d.listenConn.Close(context.Background())
-	d.listenConn = nil
-	d.queryConn.Close(context.Background())
-	d.queryConn = nil
+	if d.listenConn != nil {
+		d.listenConn.Close(context.Background())
+		d.listenConn = nil
+	}
+	if d.queryConn != nil {
+		d.queryConn.Close(context.Background())
+		d.queryConn = nil
+	}
 	progress.Write("Entering maintenance mode...")
 	d.setMaintenance(true)
 
