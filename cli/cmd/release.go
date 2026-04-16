@@ -611,15 +611,24 @@ Exit 0 when all checks pass; exit 1 with retry advice when any fail.`,
 
 		if tag == "" {
 			// Resolve latest prerelease from GitHub.
+			// GitHub's API does not guarantee release order, so we collect
+			// all non-draft prereleases and sort by CalVer+RC descending to
+			// reliably pick the highest version (not just the first returned).
 			releases, err := upgrade.FetchReleases()
 			if err != nil {
 				return fmt.Errorf("fetch releases: %w", err)
 			}
+			var pres []upgrade.Release
 			for _, r := range releases {
 				if r.Prerelease && !r.Draft {
-					tag = r.TagName
-					break
+					pres = append(pres, r)
 				}
+			}
+			sort.Slice(pres, func(i, j int) bool {
+				return calVerRCKey(pres[i].TagName) > calVerRCKey(pres[j].TagName)
+			})
+			if len(pres) > 0 {
+				tag = pres[0].TagName
 			}
 			if tag == "" {
 				return fmt.Errorf("no pre-release found on GitHub")
@@ -663,6 +672,32 @@ Exit 0 when all checks pass; exit 1 with retry advice when any fail.`,
 		os.Exit(1)
 		return nil // unreachable; os.Exit above carries the exit code
 	},
+}
+
+// calVerRCKey returns a sortable int64 for tags of the form vYYYY.MM.PATCH-rc.N.
+// Larger value = newer version. Non-conforming tags return 0 and sort last.
+// Encoding: year*1e8 + month*1e6 + patch*1e4 + rc
+func calVerRCKey(tag string) int64 {
+	s := strings.TrimPrefix(tag, "v")
+	parts := strings.SplitN(s, "-rc.", 2)
+	if len(parts) != 2 {
+		return 0
+	}
+	rc, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return 0
+	}
+	vparts := strings.SplitN(parts[0], ".", 3)
+	if len(vparts) != 3 {
+		return 0
+	}
+	year, e1 := strconv.Atoi(vparts[0])
+	month, e2 := strconv.Atoi(vparts[1])
+	patch, e3 := strconv.Atoi(vparts[2])
+	if e1 != nil || e2 != nil || e3 != nil {
+		return 0
+	}
+	return int64(year)*100_000_000 + int64(month)*1_000_000 + int64(patch)*10_000 + int64(rc)
 }
 
 func init() {
