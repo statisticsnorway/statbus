@@ -470,8 +470,19 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 	// If git HEAD matches the upgrade target, the code is at the right version.
 	headSHA, _ := runCommandOutput(d.projDir, "git", "rev-parse", "HEAD")
 	headSHA = strings.TrimSpace(headSHA)
-	if headSHA == flag.CommitSHA {
-		logRecover("Upgrade %s succeeded (HEAD matches target commit — self-update restart detected)", flag.DisplayName)
+	targetIsAncestor := false
+	if headSHA != flag.CommitSHA {
+		if _, err := runCommandOutput(d.projDir, "git", "merge-base", "--is-ancestor", flag.CommitSHA, headSHA); err == nil {
+			targetIsAncestor = true
+		}
+	}
+	if headSHA == flag.CommitSHA || targetIsAncestor {
+		if targetIsAncestor {
+			logRecover("Upgrade %s succeeded (target %s is ancestor of HEAD %s — code advanced past target)",
+				flag.DisplayName, shortSHA(flag.CommitSHA), shortSHA(headSHA))
+		} else {
+			logRecover("Upgrade %s succeeded (HEAD matches target commit — self-update restart detected)", flag.DisplayName)
+		}
 		// Close the appender BEFORE reading the tail so the flush lands
 		// on disk and the UPDATE below captures the recovery lines.
 		if appendLog != nil {
@@ -786,7 +797,7 @@ const (
 
 // upgradeRowReturning is the RETURNING clause appended to every terminal-state
 // UPDATE. Returns the full row as JSON for greppable state-transition logging.
-const upgradeRowReturning = ` RETURNING to_jsonb(public.upgrade)`
+const upgradeRowReturning = ` RETURNING to_jsonb(upgrade.*)`
 
 // logUpgradeRow prints the full upgrade row snapshot at a terminal state
 // transition. Uses raw %s (never %q) so the JSON is greppable:

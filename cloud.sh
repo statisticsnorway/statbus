@@ -150,11 +150,27 @@ cmd_install_one() {
 
     if [ "$channel" = "edge" ]; then
         echo "Installing $server (edge channel — building from master)..."
-        # Edge: pull latest master, rebuild binary with version from git describe.
-        # No release binary exists for untagged master commits.
-        # Follow the same pattern as install.sh: stop service, build to tmp, move into place.
-        ssh_server "$server" "cd statbus && git fetch origin master --quiet && git checkout origin/master --quiet" 2>&1
-        ssh_server "$server" "cd statbus && export PATH=/home/linuxbrew/.linuxbrew/bin:\$PATH && ./dev.sh build-sb" 2>&1
+        # Edge: pull latest master. If HEAD is a tagged release with a
+        # published binary, download it (faster, no Go toolchain needed).
+        # Otherwise fall back to building from source.
+        ssh_server "$server" "cd statbus && git fetch origin master --tags --quiet && git checkout origin/master --quiet" 2>&1
+        # Check if HEAD is a tagged release with a downloadable binary.
+        local head_tag
+        head_tag=$(ssh_server "$server" "cd statbus && git describe --exact-match HEAD 2>/dev/null" 2>/dev/null || true)
+        if [ -n "$head_tag" ]; then
+            echo "HEAD is tagged ($head_tag) — checking for release binary..."
+            if ./sb release check --tag "$head_tag" 2>/dev/null; then
+                echo "Release binary available — downloading instead of building."
+                ssh_server "$server" \
+                    "cd statbus && curl -fsSL https://github.com/statisticsnorway/statbus/releases/download/${head_tag}/sb-linux-amd64 -o sb-linux-amd64" 2>&1
+            else
+                echo "Release binary not ready — building from source..."
+                ssh_server "$server" "cd statbus && export PATH=/home/linuxbrew/.linuxbrew/bin:\$PATH && ./dev.sh build-sb" 2>&1
+            fi
+        else
+            echo "HEAD is untagged — building from source..."
+            ssh_server "$server" "cd statbus && export PATH=/home/linuxbrew/.linuxbrew/bin:\$PATH && ./dev.sh build-sb" 2>&1
+        fi
         # Stop user-level service before replacing binary — systemd --user
         # restarts it on exit (Restart=always), and the running process holds
         # the binary open → "text file busy" on mv.
