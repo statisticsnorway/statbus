@@ -703,6 +703,8 @@ func logUpgradeRow(label string, row string) {
 //	ErrRollbackGitCorrupt    — rollback git-restore failed: other / corrupt (support-only)
 //	ErrRollbackDBRestore     — rollback database volume restore failed
 //	ErrRollbackServicesUp    — rollback docker compose up failed after DB restore
+//	ErrRollbackBinaryCorrupt — rollback could not restore ./sb from ./sb.old (operator must mv manually)
+//	ErrBinaryReplaceFailed   — mid-flow binary replacement (download/verify/swap) failed before migrations
 //	ErrInstallFixupFailed    — post-upgrade ./sb install fixup step failed (non-fatal)
 const (
 	ErrMigrationFailed       = "MIGRATION_FAILED"
@@ -711,9 +713,11 @@ const (
 	ErrHealthcheckRESTDown   = "HEALTHCHECK_REST_DOWN"
 	ErrHealthcheckAppDown    = "HEALTHCHECK_APP_DOWN"
 	ErrHealthcheckDBDown     = "HEALTHCHECK_DB_DOWN"
-	ErrRollbackGitCorrupt = "ROLLBACK_FAILED_GIT_CORRUPT"
+	ErrRollbackGitCorrupt    = "ROLLBACK_FAILED_GIT_CORRUPT"
 	ErrRollbackDBRestore     = "ROLLBACK_FAILED_DB_RESTORE"
 	ErrRollbackServicesUp    = "ROLLBACK_FAILED_SERVICES_UP"
+	ErrRollbackBinaryCorrupt = "ROLLBACK_FAILED_BINARY_CORRUPT"
+	ErrBinaryReplaceFailed   = "BINARY_REPLACE_FAILED"
 	ErrInstallFixupFailed    = "INSTALL_FIXUP_FAILED"
 )
 
@@ -1973,6 +1977,18 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 		}
 	}
 
+	// Step 6b: Swap ./sb for the release binary BEFORE any subprocess runs.
+	// Without this, `./sb config generate` and `./sb migrate up` below would
+	// execute the OLD compiled Go against NEW templates/migrations — the
+	// rc.6→rc.7 SITE_DOMAIN/PGHOST class of bug (#9). Tagged releases only
+	// (sha-* edge commits have no release binary in the manifest).
+	if !strings.HasPrefix(displayName, "sha-") {
+		if err := d.replaceBinaryOnDisk(displayName, progress); err != nil {
+			d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: %v", ErrBinaryReplaceFailed, err), progress)
+			return err
+		}
+	}
+
 	// Regenerate config — VERSION is derived from git describe --tags --always,
 	// which returns the tag name (e.g., v2026.03.0-rc.3) since we just checked it out.
 	progress.Write("Regenerating configuration...")
@@ -2270,6 +2286,11 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 			progress.Write("ABORT: rollback could not restore git state to %s: %v", previousVersion, err)
 			progress.Write("Restoring database to keep on-disk state consistent...")
 			d.restoreDatabase(progress)
+			// Restore ./sb to match the attempted-but-failed git era so the
+			// operator's `./sb` at least stops being the NEW (mismatched)
+			// binary. Best-effort: if it fails, we log ErrRollbackBinaryCorrupt
+			// and move on — the ABORT headline below already escalates.
+			d.restoreBinary(progress)
 			progress.Write("Services will NOT be started — manual intervention required.")
 			progress.Write("    1. Manually checkout the intended previous version: git checkout %s", previousVersion)
 			progress.Write("    2. Regenerate config: ./sb config generate")
@@ -2318,6 +2339,13 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 
 	// Restore database backup. Now safe — git state matches the DB era.
 	d.restoreDatabase(progress)
+
+	// Restore ./sb to match the restored git era BEFORE `docker compose up`.
+	// `docker compose` uses whatever `sb` happens to be on disk for any later
+	// operator invocation; keeping the new binary around after a DB rollback
+	// is the worst-of-both state. Best-effort; ErrRollbackBinaryCorrupt is
+	// logged (non-fatal) if the rename fails.
+	d.restoreBinary(progress)
 
 	// Start with old config — git is verified at previousVersion.
 	if err := runCommand(projDir, "docker", "compose", "--profile", "all", "up", "-d", "--remove-orphans"); err != nil {
@@ -2446,6 +2474,71 @@ func readProgressLogTail(path string, n int) string {
 		lines = lines[len(lines)-n:]
 	}
 	return strings.Join(lines, "\n")
+}
+
+// replaceBinaryOnDisk swaps ./sb for the release binary matching `version`.
+//
+// Called mid-flow in executeUpgrade (between git checkout and ./sb config
+// generate), so subsequent `./sb …` subprocesses (config generate, migrate
+// up, install fixup) run the NEW compiled Go code — not just the new
+// templates/SQL pulled in by the git checkout. This closes the rc.6→rc.7
+// class of bug where template-level fixes landed but the binary still ran
+// old Go against them.
+//
+// Does NOT self-replace the running upgrade-service process; that still
+// happens end-of-flow via selfUpdate() + exit-42. By then the file on
+// disk already matches the target, so selfUpdate()'s same-hash shortcut
+// in selfupdate.Update() makes it a no-op download and a pure exit-42 handoff.
+//
+// Skips silently (non-fatal) when:
+//   - no binary in manifest for the current platform (e.g. dev-only build)
+//   - version is an edge sha-* commit with no release binary
+func (d *Service) replaceBinaryOnDisk(version string, progress *ProgressLog) error {
+	manifest, err := FetchManifest(version)
+	if err != nil {
+		return fmt.Errorf("fetch manifest for %s: %w", version, err)
+	}
+	platform := selfupdate.Platform()
+	binary, ok := manifest.Binaries[platform]
+	if !ok {
+		progress.Write("Binary replace skipped: no binary for platform %s in release %s", platform, version)
+		return nil
+	}
+	sbPath := filepath.Join(d.projDir, "sb")
+	progress.Write("Replacing ./sb with %s binary (subsequent subprocesses will run the new code)...", version)
+	if err := selfupdate.ReplaceBinaryOnDisk(sbPath, binary.URL, binary.SHA256); err != nil {
+		return err
+	}
+	progress.Write("./sb replaced; ./sb.old kept as rollback.")
+	return nil
+}
+
+// restoreBinary reverts ./sb from ./sb.old. Best-effort, non-fatal.
+// Called from rollback() AFTER git-restore and DB-restore have run so that
+// the operator's ./sb matches the restored source tree.
+//
+// If ./sb.old is absent, assumes the swap never happened (e.g. rollback
+// fired before replaceBinaryOnDisk reached its rename step) and returns
+// without touching anything.
+//
+// If the rename itself fails (disk full, permissions), logs with
+// ErrRollbackBinaryCorrupt and returns — rollback does NOT re-raise. The
+// operator's ./sb is now the new (mismatched) binary; their next
+// command must be a manual `mv ./sb.old ./sb` before doing anything else.
+// No separate CATASTROPHIC headline: the data-layer rollback succeeded,
+// so maintenance already reflects the right state; the binary mismatch
+// is a cosmetic-but-loud error in the log.
+func (d *Service) restoreBinary(progress *ProgressLog) {
+	sbPath := filepath.Join(d.projDir, "sb")
+	sbOldPath := sbPath + ".old"
+	if _, err := os.Stat(sbOldPath); err != nil {
+		return
+	}
+	if err := selfupdate.Rollback(sbPath); err != nil {
+		progress.Write("%s: could not restore ./sb from ./sb.old: %v — manual recovery: mv ./sb.old ./sb", ErrRollbackBinaryCorrupt, err)
+		return
+	}
+	progress.Write("Restored ./sb from ./sb.old.")
 }
 
 func (d *Service) selfUpdate(ctx context.Context, version string, progress *ProgressLog) {

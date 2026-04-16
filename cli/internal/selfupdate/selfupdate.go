@@ -16,7 +16,28 @@ import (
 
 // Update downloads a new binary, verifies its checksum, and replaces the current one.
 // Returns nil on success. The caller should exit with code 42 for systemd restart.
+//
+// Idempotency shortcut: if the file at currentPath already hashes to the
+// expected SHA-256, Update is a no-op (no download, no rename). This lets
+// the end-of-flow self-update call from the upgrade service be harmless
+// when an earlier step in the flow (replaceBinaryOnDisk before migrations)
+// has already swapped the binary.
 func Update(currentPath, downloadURL, expectedSHA256 string) error {
+	if match, err := sha256Match(currentPath, expectedSHA256); err == nil && match {
+		return nil
+	}
+	return ReplaceBinaryOnDisk(currentPath, downloadURL, expectedSHA256)
+}
+
+// ReplaceBinaryOnDisk downloads the binary, verifies SHA-256, self-verifies
+// by invoking `upgrade self-verify` on the freshly-downloaded file, and then
+// atomically swaps it in: renames the current binary to <path>.old and the
+// new one into place.
+//
+// Unlike Update, this always performs the download+swap even if the current
+// file already matches — callers use it as the explicit "swap now" primitive
+// (e.g. upgrade service's mid-flow swap between git-checkout and migrate).
+func ReplaceBinaryOnDisk(currentPath, downloadURL, expectedSHA256 string) error {
 	newPath := currentPath + ".new"
 	oldPath := currentPath + ".old"
 
@@ -81,6 +102,21 @@ func Update(currentPath, downloadURL, expectedSHA256 string) error {
 	}
 
 	return nil
+}
+
+// sha256Match returns true if the file at path hashes to expectedHex.
+// Returns (false, err) if the file cannot be opened or read.
+func sha256Match(path, expectedHex string) (bool, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return false, err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return false, err
+	}
+	return hex.EncodeToString(h.Sum(nil)) == expectedHex, nil
 }
 
 // Rollback restores the previous binary from .old.
