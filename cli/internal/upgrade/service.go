@@ -1622,7 +1622,7 @@ func (d *Service) discoverEdge(ctx context.Context) {
 		_, err := d.queryConn.Exec(ctx,
 			`INSERT INTO public.upgrade (commit_sha, committed_at, summary, has_migrations, release_builds_ready, version)
 			 VALUES ($1, $2, $3, false, true, NULLIF($4, ''))
-			 ON CONFLICT (commit_sha) DO NOTHING`,
+			 ON CONFLICT (commit_sha) DO UPDATE SET version = EXCLUDED.version WHERE upgrade.version IS NULL`,
 			c.SHA, c.PublishedAt, summary, versionTag)
 		if err != nil {
 			fmt.Printf("  Failed to record commit %s: %v\n", c.SHA[:12], err)
