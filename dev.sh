@@ -327,6 +327,21 @@ EOS
           debug_arg="--debug"
         fi
 
+        # Auto-rebuild test template if migrations have changed since last rebuild.
+        # Compares tmp/test-template-migrations-sha (written by create-test-template)
+        # against the timestamp prefix of the latest *.up.sql file.
+        LATEST_MIGRATION=$(ls "$WORKSPACE/migrations/"*.up.sql 2>/dev/null | sort | tail -1 | xargs basename 2>/dev/null | cut -d_ -f1)
+        if [ -n "$LATEST_MIGRATION" ]; then
+            TEMPLATE_STAMP=""
+            if [ -f "$WORKSPACE/tmp/test-template-migrations-sha" ]; then
+                TEMPLATE_STAMP=$(cat "$WORKSPACE/tmp/test-template-migrations-sha")
+            fi
+            if [ "$TEMPLATE_STAMP" != "$LATEST_MIGRATION" ]; then
+                echo "Test template is stale (stamp='$TEMPLATE_STAMP', latest='$LATEST_MIGRATION'). Rebuilding automatically..."
+                ./dev.sh create-test-template
+            fi
+        fi
+
         OVERALL_EXIT_CODE=0
 
         if [ -n "$SHARED_TESTS" ]; then
@@ -858,6 +873,15 @@ EOF
 
         echo "Template created: $TEMPLATE_NAME"
         echo "This template can be used to quickly create isolated test databases."
+
+        # Record the latest migration timestamp so `./dev.sh test fast` can
+        # detect when the template is stale relative to new migration files.
+        LATEST_MIGRATION=$(ls "$WORKSPACE/migrations/"*.up.sql 2>/dev/null | sort | tail -1 | xargs basename 2>/dev/null | cut -d_ -f1)
+        if [ -n "$LATEST_MIGRATION" ]; then
+            mkdir -p "$WORKSPACE/tmp"
+            echo "$LATEST_MIGRATION" > "$WORKSPACE/tmp/test-template-migrations-sha"
+            echo "Test template migration stamp recorded: $LATEST_MIGRATION"
+        fi
       ;;
     'test-isolated' )
         eval $(./dev.sh postgres-variables)
