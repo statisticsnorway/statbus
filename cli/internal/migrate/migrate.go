@@ -387,8 +387,12 @@ func acquireAdvisoryLock(ctx context.Context, projDir string) (*pgx.Conn, error)
 	hintTimer := time.AfterFunc(2*time.Second, func() {
 		fmt.Fprintln(os.Stderr, "Waiting for migrate lock (another ./sb migrate up or upgrade is running)...")
 	})
+	recursionHintTimer := time.AfterFunc(30*time.Second, func() {
+		fmt.Fprintln(os.Stderr, "Still waiting for migrate lock — check for recursive ./sb migrate up calls (e.g. via dev.sh create-test-template).")
+	})
 	_, err = conn.Exec(ctx, "SELECT pg_advisory_lock(hashtext('migrate_up'))")
 	hintTimer.Stop()
+	recursionHintTimer.Stop()
 	if err != nil {
 		conn.Close(ctx)
 		return nil, fmt.Errorf("acquire advisory lock: %w", err)
@@ -400,41 +404,53 @@ func acquireAdvisoryLock(ctx context.Context, projDir string) (*pgx.Conn, error)
 // If migrateTo > 0, only apply up to that version.
 // If all is false, apply only one pending migration.
 func Up(projDir string, migrateTo int64, all bool, verbose bool) error {
-	// Take the migrate advisory lock for the full duration of Up(). This
-	// prevents concurrent `./sb migrate up` invocations (direct CLI,
-	// install's migrations step, service's executeUpgrade) from racing
-	// each other on the db.migration bookkeeping table. Lock auto-releases
-	// when the returned connection closes.
+	// Take the migrate advisory lock to prevent concurrent invocations from
+	// racing on the db.migration bookkeeping table. The lock is released
+	// BEFORE spawning the test-template rebuild so that the rebuild's own
+	// `./sb migrate up` call can re-acquire it without self-deadlocking.
 	ctx := context.Background()
 	lockConn, err := acquireAdvisoryLock(ctx, projDir)
 	if err != nil {
 		return err
 	}
-	defer lockConn.Close(context.Background())
 
-	return runUp(projDir, migrateTo, all, verbose)
-}
-
-// runUp is the original Up() body, now called from under the advisory lock.
-func runUp(projDir string, migrateTo int64, all bool, verbose bool) error {
-	migrations, err := listMigrationFiles(projDir)
+	appliedCount, err := runUp(projDir, migrateTo, all, verbose)
+	// Explicit close — do NOT defer. The template rebuild spawns
+	// `dev.sh create-test-template` which calls `./sb migrate up`, which
+	// tries to acquire the same lock. Holding it through the spawn causes
+	// a self-deadlock (parent waits for child; child blocks on parent's lock).
+	lockConn.Close(context.Background())
 	if err != nil {
 		return err
+	}
+
+	if appliedCount > 0 {
+		maybeRebuildTestTemplate(projDir)
+	}
+	return nil
+}
+
+// runUp applies pending migrations and returns the number applied.
+// It does NOT rebuild the test template — Up() does that after releasing the lock.
+func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error) {
+	migrations, err := listMigrationFiles(projDir)
+	if err != nil {
+		return 0, err
 	}
 
 	if len(migrations) == 0 {
 		fmt.Println("No up migrations found")
-		return nil
+		return 0, nil
 	}
 
 	// Ensure migration table exists (side-effect belongs to Up, NOT HasPending).
 	if _, err := runPsql(projDir, ensureMigrationTableSQL); err != nil {
-		return fmt.Errorf("ensure migration table: %w", err)
+		return 0, fmt.Errorf("ensure migration table: %w", err)
 	}
 
 	applied, err := listAppliedVersions(projDir)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	// Filter pending
@@ -472,7 +488,7 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) error {
 				fmt.Println("[FAILED]")
 				fmt.Println(out)
 			}
-			return fmt.Errorf("migration %d (%s) failed: %w\n%s", m.Version, filepath.Base(m.Path), err, out)
+			return 0, fmt.Errorf("migration %d (%s) failed: %w\n%s", m.Version, filepath.Base(m.Path), err, out)
 		}
 
 		// Record success using psql variables (:'var' = safely quoted string literal)
@@ -483,7 +499,7 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) error {
 			"-v", "description="+m.Description,
 			"-v", fmt.Sprintf("duration_ms=%d", durationMs),
 		); err != nil {
-			return fmt.Errorf("record migration %d: %w", m.Version, err)
+			return 0, fmt.Errorf("record migration %d: %w", m.Version, err)
 		}
 
 		if verbose {
@@ -513,42 +529,57 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) error {
 		}
 	}
 
-	// In development mode, auto-recreate the test template after migrations.
+	return appliedCount, nil
+}
+
+// maybeRebuildTestTemplate recreates the statbus_test_template database in
+// development mode when the template already exists. Called from Up() AFTER
+// the advisory lock has been released so that the spawned `dev.sh
+// create-test-template` process (which calls `./sb migrate up` internally)
+// can acquire the lock without deadlocking.
+func maybeRebuildTestTemplate(projDir string) {
 	// Guard: skip if we ARE migrating the template (prevents recursion when
 	// create-test-template calls ./sb migrate up on the template database).
-	if appliedCount > 0 {
-		targetDB := os.Getenv("POSTGRES_APP_DB")
-		if targetDB == "" {
-			targetDB = os.Getenv("PGDATABASE")
-		}
-		isTemplate := strings.Contains(targetDB, "test_template")
-
-		if !isTemplate {
-			envPath := filepath.Join(projDir, ".env")
-			if f, err := dotenv.Load(envPath); err == nil {
-				if mode, ok := f.Get("CADDY_DEPLOYMENT_MODE"); ok && mode == "development" {
-					templateName := "statbus_test_template"
-					out, _ := runPsql(projDir, fmt.Sprintf(
-						"SELECT 1 FROM pg_database WHERE datname = '%s'", templateName), "-t", "-A")
-					if strings.TrimSpace(out) == "1" {
-						fmt.Printf("Recreating stale test template %s...\n", templateName)
-						devsh := filepath.Join(projDir, "dev.sh")
-						if _, err := os.Stat(devsh); err == nil {
-							cmd := exec.Command(devsh, "create-test-template")
-							cmd.Dir = projDir
-							cmd.Stdout = os.Stdout
-							cmd.Stderr = os.Stderr
-							if err := cmd.Run(); err != nil {
-								fmt.Fprintf(os.Stderr, "Warning: failed to recreate test template: %v\n", err)
-							}
-						}
-					}
-				}
-			}
-		}
+	targetDB := os.Getenv("POSTGRES_APP_DB")
+	if targetDB == "" {
+		targetDB = os.Getenv("PGDATABASE")
+	}
+	if strings.Contains(targetDB, "test_template") {
+		return
 	}
 
-	return nil
+	envPath := filepath.Join(projDir, ".env")
+	f, err := dotenv.Load(envPath)
+	if err != nil {
+		return
+	}
+	mode, ok := f.Get("CADDY_DEPLOYMENT_MODE")
+	if !ok || mode != "development" {
+		return
+	}
+
+	templateName := "statbus_test_template"
+	out, _ := runPsql(projDir, fmt.Sprintf(
+		"SELECT 1 FROM pg_database WHERE datname = '%s'", templateName), "-t", "-A")
+	if strings.TrimSpace(out) != "1" {
+		return
+	}
+
+	devsh := filepath.Join(projDir, "dev.sh")
+	if _, err := os.Stat(devsh); err != nil {
+		return
+	}
+
+	fmt.Printf("Recreating stale test template %s...\n", templateName)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, devsh, "create-test-template")
+	cmd.Dir = projDir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to recreate test template: %v\n", err)
+	}
 }
 
 // Down rolls back migrations.
