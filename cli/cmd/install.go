@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
+	"github.com/statisticsnorway/statbus/cli/internal/install"
 	"github.com/statisticsnorway/statbus/cli/internal/migrate"
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
@@ -159,6 +160,18 @@ func runInstall() error {
 	// with --inside-active-upgrade + env var set; the service already holds
 	// the flag for that exec, so the child must not try to acquire it).
 	bypass := insideActiveUpgrade || os.Getenv("STATBUS_INSIDE_ACTIVE_UPGRADE") == "1"
+
+	// === State detection (log-only in this commit) ===
+	// Detect reads the install directory + DB to classify the install state.
+	// In the bypass path the parent upgrade service already knows; skip
+	// detection to avoid probing the DB mid-upgrade. Dispatch lands in
+	// follow-up commits; for now we only log.
+	if !bypass {
+		if err := logInstallState(installDir); err != nil {
+			fmt.Printf("Warning: state detection failed: %v\n", err)
+		}
+	}
+
 	releaseFlag, err := acquireOrBypass(installDir, bypass)
 	if err != nil {
 		return err
@@ -866,3 +879,44 @@ func migrateConfigPaths(dir string) {
 	}
 }
 
+// logInstallState classifies the install directory and prints the result.
+// In this commit the output is advisory only — every state still flows into
+// the idempotent step-table. Follow-up commits replace the notes with real
+// dispatch (inline upgrade for StateScheduledUpgrade, pre-1.0 bootstrap for
+// StateLegacyNoUpgradeTable, early-exit guidance for bail-out states).
+func logInstallState(installDir string) error {
+	state, detail, err := install.Detect(installDir, version)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Detected install state: %s (current=%s, target=%s)\n",
+		state, detail.CurrentVersion, detail.TargetVersion)
+	switch state {
+	case install.StateFresh:
+		fmt.Printf("  Fresh install; target version = %s (binary).\n", detail.TargetVersion)
+	case install.StateLiveUpgrade:
+		// acquireOrBypass below will produce the authoritative refusal.
+		if detail.Flag != nil {
+			fmt.Printf("  Upgrade in progress (PID %d, %s). Install will refuse.\n",
+				detail.Flag.PID, detail.Flag.DisplayName)
+		}
+	case install.StateCrashedUpgrade:
+		if detail.Flag != nil {
+			fmt.Printf("  Prior upgrade crashed (PID %d, %s). Install will take the stale lock and proceed.\n",
+				detail.Flag.PID, detail.Flag.DisplayName)
+		}
+	case install.StateHalfConfigured:
+		fmt.Println("  .env.credentials missing; step-table will generate it.")
+	case install.StateDBUnreachable:
+		fmt.Println("  Database not reachable; step-table will start services.")
+	case install.StateLegacyNoUpgradeTable:
+		fmt.Println("  Pre-1.0 install detected (public.upgrade absent). Inline upgrade path not yet wired (#65.3).")
+	case install.StateScheduledUpgrade:
+		fmt.Printf("  Upgrade scheduled (id=%d, version=%s). Inline dispatch not yet wired (#65.3); falling through to step-table.\n",
+			detail.ScheduledRowID, detail.TargetVersion)
+	case install.StateNothingScheduled:
+		fmt.Println("  Existing install, no upgrade scheduled; running idempotent step-table to refresh.")
+	}
+	fmt.Println()
+	return nil
+}
