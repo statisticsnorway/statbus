@@ -2223,6 +2223,33 @@ func (d *Service) failUpgrade(ctx context.Context, id int, errMsg string, progre
 	d.removeUpgradeFlag()
 }
 
+// readAdministratorContact returns the ADMINISTRATOR_CONTACT value from
+// <projDir>/.env (set by ./sb config generate), or "" if unset/unreadable.
+// Callers MUST tolerate the empty-string case — development installs leave
+// it empty and the UI renders sensibly without it.
+func readAdministratorContact(projDir string) string {
+	envPath := filepath.Join(projDir, ".env")
+	f, err := dotenv.Load(envPath)
+	if err != nil {
+		return ""
+	}
+	v, _ := f.Get("ADMINISTRATOR_CONTACT")
+	return strings.TrimSpace(v)
+}
+
+// contactSuffix formats the trailing ": <contact>" fragment for the
+// CATASTROPHIC FAILURE headline. Empty contact → empty suffix (so the
+// headline still reads as a complete sentence without trailing ": .").
+// Any literal "%" in the contact is doubled so downstream format()
+// consumers can't accidentally treat it as a directive.
+func contactSuffix(contact string) string {
+	contact = strings.TrimSpace(contact)
+	if contact == "" {
+		return ""
+	}
+	return ": " + strings.ReplaceAll(contact, "%", "%%")
+}
+
 func (d *Service) rollback(ctx context.Context, id int, version, previousVersion, reason string, progress *ProgressLog) {
 	progress.Write("Upgrade failed — rolling back to previous version...")
 	progress.Write("Reason: %s", reason)
@@ -2248,6 +2275,14 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 			progress.Write("    2. Regenerate config: ./sb config generate")
 			progress.Write("    3. Bring services up: docker compose --profile all up -d")
 			progress.Write("    4. Reconcile DB row via: ./sb upgrade recover")
+			// Headline for the operator reading maintenance.html — the four
+			// lines above are the technical recovery trail for an admin
+			// reviewing service logs; this one sentence is what a
+			// non-technical operator sees as the last (and biggest) line on
+			// the maintenance screen. Keep the error code + contact so the
+			// operator can escalate with a concrete identifier.
+			progress.Write("CATASTROPHIC FAILURE [%s]. Services stopped. Contact your administrator%s.",
+				ErrRollbackGitCorrupt, contactSuffix(readAdministratorContact(d.projDir)))
 			fmt.Fprintf(os.Stderr, "ABORT: rollback git restore to %s failed: %v\n", previousVersion, err)
 
 			rollbackFailedMsg := fmt.Sprintf("%s: %v (originally: %s)", ErrRollbackGitCorrupt, err, reason)
