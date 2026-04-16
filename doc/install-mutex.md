@@ -37,7 +37,14 @@ type UpgradeFlag struct {
 
 `Holder` drives recovery: a crashed service-held flag triggers `public.upgrade` reconciliation (mark completed if HEAD matches, failed otherwise); a crashed install-held flag is just a stale file to remove (install never writes a `public.upgrade` row).
 
-## Decision tree at `./sb install` entry (`acquireOrBypass`)
+## Decision tree at `./sb install` entry
+
+`./sb install` first runs `install.Detect` (see `doc/upgrade-system.md` for the state ladder). Dispatch then branches:
+
+- **StateLiveUpgrade** (flag present, PID alive) → refuse without touching state; point at `journalctl --user -u 'statbus-upgrade@*' -f`.
+- **StateCrashedUpgrade** (flag present, PID dead) → call `RecoverFromFlag` directly (no install-flag acquire), then re-`Detect` and re-dispatch. Recovery reads `Holder`: `"service"` reconciles the `public.upgrade` row (completed if HEAD matches `flag.CommitSHA`, failed otherwise), `"install"` just removes the file.
+- **StateScheduledUpgrade** (pending row) → delegate to `upgrade.Service.ExecuteUpgradeInline`. Install does NOT acquire the flag itself; `executeUpgrade` writes its own `Holder="service"` flag internally via `writeUpgradeFlag`. Ownership transfers cleanly via the filesystem-level O_EXCL handshake.
+- **All other states** (Fresh, HalfConfigured, DBUnreachable, NothingScheduled) → run `acquireOrBypass`, then the step-table:
 
 ```
 Bypass signal set (--inside-active-upgrade or env var)?
@@ -65,6 +72,8 @@ Bypass signal set (--inside-active-upgrade or env var)?
                       ./sb upgrade recover
                     Equivalent: systemctl --user start 'statbus-upgrade@*'."
 ```
+
+Key invariant: exactly one actor ever holds the flag. The step-table path and the inline-dispatch path are mutually exclusive within a single `./sb install` run, so there is no moment where install holds the flag and then tries to hand off to `executeUpgrade`. Either `acquireOrBypass` runs (step-table) or it doesn't (inline dispatch).
 
 ## Bypass signals — use with care
 

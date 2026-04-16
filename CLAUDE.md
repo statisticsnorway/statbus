@@ -66,6 +66,27 @@ Agents that debug issues should BUILD DIAGNOSTIC TOOLS, not just debug. Add trac
 
 @AGENTS.md
 
+## Install / Upgrade: the unified `./sb install` entrypoint
+
+`./sb install` is the single operator-facing entrypoint that covers first-install, repair, and dispatching a pending upgrade. It runs an 8-state probe ladder (`cli/internal/install/state.go`) and selects an action:
+
+1. **fresh** — no `.env.config` → step-table
+2. **live-upgrade** — flag present, holder PID alive → refuse
+3. **crashed-upgrade** — flag present, holder PID dead → `RecoverFromFlag`, re-detect, re-dispatch
+4. **half-configured** — config present, `.env.credentials` missing → step-table
+5. **db-unreachable** — creds present, DB down → step-table (will start it)
+6. **legacy-no-upgrade-table** — DB up, no `public.upgrade` → refuse (pre-1.0; manual upgrade)
+7. **scheduled-upgrade** — pending row in `public.upgrade` → dispatch through `executeUpgrade` inline
+8. **nothing-scheduled** — everything healthy → step-table as an idempotent config refresh
+
+**Flag-file ownership contract.** The mutex primitive is `tmp/upgrade-in-progress.json`. Two distinct holders:
+- `Holder="install"` — written by `acquireOrBypass` when install runs the step-table. Released by `defer ReleaseInstallFlag` on any exit.
+- `Holder="service"` — written by `writeUpgradeFlag` inside `executeUpgrade`, regardless of who invoked it.
+
+When `./sb install` routes to the scheduled-upgrade dispatch, it does **not** acquire the install-held flag. `executeUpgrade` writes its own service-held flag internally before any destructive step. Ownership of the mutex transfers cleanly across the boundary via this filesystem-level handshake. Don't wrap `svc.ExecuteUpgradeInline` with an install-flag acquire — you'll self-deadlock on the second writer's `O_EXCL`.
+
+Full reference: `doc/upgrade-system.md` and `doc/install-mutex.md`.
+
 ## macOS dev note: restarting Docker Desktop
 
 When Docker Desktop is unresponsive, try `open -a Docker` (macOS) and wait for health — don't stall waiting for the user. If `docker compose ps` fails with "Docker Desktop is unable to start", restart it programmatically.

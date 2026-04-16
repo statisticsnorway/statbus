@@ -7,10 +7,27 @@ The canonical reference for how StatBus upgrades itself. Three orchestration pat
 | Path | Entry point | Owns | Respects | When to use |
 |---|---|---|---|---|
 | **Service** (automatic) | `./sb upgrade service` running as systemd user unit `statbus-upgrade@<slot>.service` | End-to-end upgrade lifecycle: discover → schedule → execute → recover | Its own advisory lock, the shared O_EXCL mutex flag | Production norm. Discovers and applies releases on a 6-hour cycle or on NOTIFY. |
-| **Manual install** | `./sb install` | Step-by-step repair of a single host (Prerequisites, Repository, Binary, Config, …, Migrations, …, Upgrade service) | The shared O_EXCL mutex flag — atomically acquires before any destructive step, releases via defer | First-time install or when an operator needs to repair a specific host. |
-| **Cloud tool** | `./cloud.sh install <server>` | Fleet-level remote install: SSH + stop_and_unwedge + run install + ensure_service_started | Its own fleet semantics; defers to the shared mutex for per-host safety | Operator updating a remote host from their own machine. |
+| **Unified install** | `./sb install` | Single operator entrypoint — probes state and dispatches: fresh → step-table; scheduled row pending → `executeUpgrade` inline; crashed flag → recover + re-detect; live upgrade → refuse; pre-1.0 → refuse. | The shared O_EXCL mutex flag — step-table path acquires as `Holder="install"`, inline-upgrade path lets `executeUpgrade` write its own `Holder="service"` flag. | First-time install, repair, or dispatching a pending upgrade without waiting for the service tick. |
+| **Cloud tool** | `./cloud.sh install <server>` | Fleet-level remote install: SSH + stop_and_unwedge + run `./sb install` + ensure_service_started | Its own fleet semantics; defers to the shared mutex for per-host safety | Operator updating a remote host from their own machine. |
 
 GitHub Actions workflows (`deploy-to-<slot>.yaml`) trigger the service path — they run `./sb upgrade apply-latest` remotely, which sends a NOTIFY that the service picks up. Actions never call `./sb install` directly.
+
+## Install state ladder
+
+`./sb install` runs `install.Detect` (in `cli/internal/install/state.go`) once and dispatches on the result. The 8 states are ordered — detection is a top-down ladder.
+
+| # | State | Probe signal | Dispatch |
+|---|---|---|---|
+| 1 | `StateFresh` | no `.env.config` | step-table (sets up a clean install) |
+| 2 | `StateLiveUpgrade` | flag present, holder PID alive | refuse with diagnostic — point at `journalctl` |
+| 3 | `StateCrashedUpgrade` | flag present, holder PID dead | `RecoverFromFlag` → re-`Detect` → re-dispatch (state may have advanced to scheduled-upgrade, nothing-scheduled, etc.) |
+| 4 | `StateHalfConfigured` | `.env.config` present, `.env.credentials` missing | step-table |
+| 5 | `StateDBUnreachable` | creds present, DB not reachable | step-table (brings services up) |
+| 6 | `StateLegacyNoUpgradeTable` | DB up, no `public.upgrade` table | refuse — pre-1.0 install, manual upgrade path documented in `doc/CLOUD.md` |
+| 7 | `StateScheduledUpgrade` | pending row in `public.upgrade` (state=`scheduled`, started_at IS NULL) | `executeUpgrade` inline via `upgrade.Service.ExecuteUpgradeInline` |
+| 8 | `StateNothingScheduled` | no pending row; everything else healthy | step-table (idempotent config-refresh checkpoint) |
+
+The inline dispatch for state 7 claims the scheduled row atomically (`UPDATE … WHERE state='scheduled' AND started_at IS NULL`) — if a racing service or concurrent install wins first, the losing caller sees `RowsAffected = 0` and bails with a clear diagnostic. After a successful inline upgrade, if the systemd upgrade unit is currently active, install restarts it so the long-running service picks up the new binary and migrations.
 
 ## Flag-file state machine
 
@@ -93,10 +110,15 @@ This is the ground-truth for "service autocorrects on startup." It is not option
 
 ## Mutex acquire in `./sb install`
 
-See `cli/cmd/install.go:acquireOrBypass` and `cli/internal/upgrade/service.go:AcquireInstallFlag`. Called at the top of `runInstall` before any destructive step; release is deferred so all exit paths clean up.
+See `cli/cmd/install.go:acquireOrBypass` and `cli/internal/upgrade/service.go:AcquireInstallFlag`. The acquire is gated on dispatch: only the step-table path acquires; the inline-upgrade path delegates mutex ownership to `executeUpgrade`.
 
+**Step-table path** (states 1, 4, 5, 8):
 - If the `--inside-active-upgrade` flag is set OR `STATBUS_INSIDE_ACTIVE_UPGRADE=1` env var is set, install does NOT acquire (the parent service already holds the flag). The ONLY legitimate caller that sets these is `runInstallFixup` in the upgrade service. Operators must never pass them.
-- Otherwise, install attempts an O_EXCL acquire. On success, defer-release on exit. On contention, abort with a diagnostic that branches on `Holder` and `pidAlive(flag.PID)` — see `install-mutex.md` for the message table.
+- Otherwise, install attempts an O_EXCL acquire with `Holder="install"`. On success, defer-release on exit. On contention, abort with a diagnostic that branches on `Holder` and `pidAlive(flag.PID)` — see `install-mutex.md` for the message table.
+
+**Inline-upgrade path** (state 7): install does NOT acquire the install-held flag. `executeUpgrade` writes its own `Holder="service"` flag internally (step 2 of the pipeline below) before any destructive step, serialising against any concurrent install or service via the O_EXCL primitive. This is the same flag the service path uses — two concurrent callers racing into `executeUpgrade` are serialised by the kernel on the flag file; the losing caller sees EEXIST and aborts cleanly.
+
+**Crashed-upgrade path** (state 3): install calls `RecoverFromFlag` directly (via `runCrashRecovery` in `cli/cmd/install_upgrade.go`), which reads the stale flag, branches on `Holder` to reconcile `public.upgrade` if needed, and removes the file. Install then re-runs `Detect` and re-dispatches — recovery may have surfaced a freshly-scheduled row or left the install otherwise healthy.
 
 ## Related
 

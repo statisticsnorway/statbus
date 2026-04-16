@@ -22,9 +22,18 @@ cd ~/statbus
 
 ## What It Does
 
-1. **Checks prerequisites** - Verifies Docker, Docker Compose, and Git are installed
-2. **Clones repository** - Downloads STATBUS to `~/statbus` (or custom directory)
-3. **Creates config files** - Generates initial `.users.yml` and `.env.config`
+`./sb install` is the unified entrypoint for first-install, repair, and dispatching a pending upgrade. It probes the install directory (the 8-state ladder in `cli/internal/install/state.go`) and routes to the right action:
+
+- **Fresh directory** — runs the step-table: checks prerequisites (Docker, Docker Compose, Git), clones the repository, writes initial `.users.yml` and `.env.config`, generates credentials, and starts services.
+- **Existing install with no pending upgrade** — runs the same step-table as an idempotent config-refresh checkpoint. Safe to re-run.
+- **Scheduled upgrade pending** (a row in `public.upgrade` with state=`scheduled`) — dispatches the upgrade inline through the same pipeline the service uses (backup, checkout, migrate, restart, health-check, rollback on failure).
+- **Stale crashed-upgrade flag** — reconciles the flag, re-probes state, and re-dispatches.
+- **Live upgrade running** — refuses and points at `journalctl --user -u 'statbus-upgrade@*' -f`.
+- **Pre-1.0 database** (no `public.upgrade` table) — refuses and points at the manual upgrade path in `doc/CLOUD.md`.
+
+For operator-triggered upgrades on an existing install, the canonical workflow is: `./sb upgrade schedule <version>` to queue, then either wait for the systemd service's next tick, or run `./sb install` to dispatch immediately.
+
+See `doc/upgrade-system.md` for the full dispatch reference and `doc/install-mutex.md` for the concurrency contract.
 
 ## After Installation
 

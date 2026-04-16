@@ -388,10 +388,16 @@ cd ~/statbus
 ./sb psql
 ./sb migrate up
 
-# Upgrades (service-based)
+# Upgrades
 ./sb upgrade check              # Check for new releases
-./sb upgrade apply v2026.03.1   # Apply a specific version
+./sb upgrade list               # List discovered upgrades from the database
+./sb upgrade schedule v2026.03.1  # Queue a specific version for execution
+./sb upgrade apply v2026.03.1   # Trigger immediate upgrade via NOTIFY (requires running service)
+./sb install                    # Unified entrypoint: detects state and dispatches (step-table,
+                                # inline upgrade for a scheduled row, or crash-recovery)
 ```
+
+**Operator workflow:** `./sb upgrade schedule <version>` writes a `public.upgrade` row. After that, either let the service pick it up on its next tick (production norm), or run `./sb install` to dispatch inline — useful when you want the upgrade to run now without waiting, or when the service is stopped.
 
 ### Automated Deployment
 

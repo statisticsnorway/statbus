@@ -128,7 +128,14 @@ The service restarts automatically on failure (`Restart=always`, `RestartSec=30`
 # Run the upgrade service in the foreground (for debugging)
 ./sb upgrade service
 ./sb upgrade service --verbose
+
+# Dispatch a scheduled upgrade inline without going through the service
+# (useful when the service is stopped or you want to run the upgrade
+# in the current shell for debugging).
+./sb install
 ```
+
+`./sb install` is the unified entrypoint. When a scheduled row exists it claims it atomically and runs the same pipeline the service uses (backup, checkout, migrate, restart, health-check, rollback on failure). If the service unit is active, it gets restarted at the end so it picks up the new binary. See `doc/upgrade-system.md` for the full state-detection ladder.
 
 Version format: `vYYYY.MM.PATCH` (e.g., `v2026.03.1`) or `sha-HEXHEX` (e.g., `sha-abc1234f`).
 

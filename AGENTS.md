@@ -88,14 +88,30 @@ echo "SELECT ..." | ./sb psql             # Single queries
 ./sb migrate down                           # ⚠️ Rollback (destructive)
 ```
 
-### Upgrades (./sb)
+### Install / Upgrade (./sb)
 ```bash
+./sb install                      # Unified entrypoint — detects state and dispatches
 ./sb upgrade check                # Check GitHub for new releases
 ./sb upgrade list                 # List discovered upgrades from database
-./sb upgrade schedule <version>   # Schedule an upgrade
-./sb upgrade apply <version>      # Trigger immediate upgrade via NOTIFY
+./sb upgrade schedule <version>   # Queue an upgrade (writes a public.upgrade row)
+./sb upgrade apply <version>      # Trigger immediate upgrade via NOTIFY (needs running service)
 ./sb upgrade service              # Run upgrade service (usually via systemd)
+./sb upgrade recover              # One-shot: reconcile a crashed upgrade flag
 ```
+
+`./sb install` is the single operator-facing entrypoint for first-install, repair, and applying a pending upgrade without waiting for the service. On each run it probes install state and dispatches:
+
+| Detected state                     | Action                                                                                  |
+|------------------------------------|-----------------------------------------------------------------------------------------|
+| fresh (no `.env.config`)           | Run the step-table to set up a clean install                                            |
+| half-configured / DB unreachable   | Run the step-table to repair / continue setup                                           |
+| nothing-scheduled                  | Run the step-table as an idempotent config refresh                                      |
+| scheduled-upgrade                  | Dispatch the pending `public.upgrade` row through the same pipeline the service uses    |
+| crashed-upgrade (stale flag + dead PID) | Reconcile the flag, re-detect, re-dispatch                                         |
+| live-upgrade (service running)     | Refuse with diagnostic; do not touch state                                              |
+| legacy pre-1.0 (no `public.upgrade` table) | Refuse with pointer to manual upgrade path (`doc/CLOUD.md`)                     |
+
+Canonical operator upgrade workflow: `./sb upgrade schedule <version>` to queue, then either wait for the service's next tick (production norm) or run `./sb install` to dispatch immediately. After a successful inline upgrade the systemd upgrade unit (if active) is restarted so it picks up the new binary + migrations. Full contract in `doc/upgrade-system.md` and `doc/install-mutex.md`.
 
 **Migration Best Practice for Modifying Existing Functions/Procedures:**
 

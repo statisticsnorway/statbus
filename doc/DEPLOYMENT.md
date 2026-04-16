@@ -318,9 +318,14 @@ After editing, regenerate:
 
 Updates are handled automatically by the upgrade service. To manually trigger:
 ```bash
-./sb upgrade check              # Check for new releases
-./sb upgrade apply v2026.03.1   # Apply a specific version
+./sb upgrade check                  # Check for new releases
+./sb upgrade schedule v2026.03.1    # Queue a version (service picks it up on next tick)
+./sb upgrade apply v2026.03.1       # Immediate via NOTIFY (requires running service)
+./sb install                        # Alternative: dispatch any scheduled row inline,
+                                    # without waiting for the service tick
 ```
+
+`./sb install` is the unified entrypoint — safe to run on a healthy install (acts as an idempotent config refresh), and it routes to inline upgrade when a scheduled row is pending. See `doc/upgrade-system.md` for the full dispatch ladder.
 
 ---
 
