@@ -423,7 +423,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 
 	var flag UpgradeFlag
 	if err := json.Unmarshal(data, &flag); err != nil {
-		fmt.Printf("Warning: corrupt upgrade flag file, removing: %v\n", err)
+		fmt.Printf("FLAG_CORRUPT: upgrade flag file unreadable, removing: %v\n", err)
 		os.Remove(d.flagPath())
 		return
 	}
@@ -1316,8 +1316,9 @@ func (d *Service) loadConfig() error {
 
 // loadTrustedSigners reads UPGRADE_TRUSTED_SIGNER_* keys from .env and
 // writes an allowed-signers file for git verify-commit.
-// Signing enforcement is determined by key presence: if keys are configured,
-// verification is enforced. If no keys, verification is skipped with a warning.
+// Signing enforcement: if keys are configured, verification is enforced at
+// upgrade time (#114). If no keys, the service starts but upgrades refuse to
+// execute until at least one signer is added.
 func (d *Service) loadTrustedSigners() error {
 	envPath := filepath.Join(d.projDir, ".env")
 	f, err := dotenv.Load(envPath)
@@ -1350,7 +1351,7 @@ func (d *Service) loadTrustedSigners() error {
 	}
 
 	if len(signerLines) == 0 {
-		fmt.Println("Warning: no trusted signers configured (UPGRADE_TRUSTED_SIGNER_*), commit signature verification disabled")
+		fmt.Println("No trusted signers configured (UPGRADE_TRUSTED_SIGNER_*) — upgrades will refuse to execute until at least one signer is added via: ./sb upgrade trust-key add <github-username>")
 		d.allowedSignersPath = ""
 		return nil
 	}
@@ -1892,7 +1893,7 @@ func (d *Service) executeScheduled(ctx context.Context) {
 		"UPDATE public.upgrade SET state = 'in_progress', started_at = now(), from_version = $1 WHERE id = $2 AND state = 'scheduled' AND started_at IS NULL",
 		d.version, id)
 	if err != nil {
-		fmt.Printf("Warning: could not claim scheduled upgrade id=%d: %v\n", id, err)
+		fmt.Printf("UPGRADE_CLAIM_FAILED: could not claim scheduled upgrade id=%d: %v\n", id, err)
 		return
 	}
 	if tag.RowsAffected() == 0 {
@@ -1992,7 +1993,9 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 		}
 		platform := selfupdate.Platform()
 		if _, ok := manifest.Binaries[platform]; !ok {
-			progress.Write("Warning: no binary for platform %s in release %s — self-update will be skipped", platform, displayName)
+			msg := fmt.Sprintf("release %s has no binary for platform %s — upgrade cannot proceed without a matching binary", displayName, platform)
+			d.failUpgrade(ctx, id, msg, progress)
+			return fmt.Errorf("%s", msg)
 		}
 	}
 
@@ -2067,16 +2070,36 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	progress.Write("Entering maintenance mode...")
 	d.setMaintenance(true)
 
-	// Step 3: Stop application services (proxy stays running for maintenance page)
+	// Step 3: Stop application services (proxy stays running for maintenance page).
+	// Hard error: running services during backup risk inconsistent state.
 	progress.Write("Stopping application services...")
 	if err := runCommand(projDir, "docker", "compose", "stop", "app", "worker", "rest"); err != nil {
-		progress.Write("Warning: could not stop some services: %v", err)
+		errMsg := fmt.Sprintf("could not stop application services before backup: %v", err)
+		progress.Write("FAILED: %s", errMsg)
+		runCommand(projDir, "docker", "compose", "up", "-d", "app", "worker", "rest")
+		d.setMaintenance(false)
+		if reconErr := d.reconnect(ctx); reconErr == nil {
+			d.failUpgrade(ctx, id, errMsg, progress)
+		} else {
+			d.removeUpgradeFlag()
+		}
+		return fmt.Errorf("%s", errMsg)
 	}
 
-	// Step 4: Stop database for consistent backup
+	// Step 4: Stop database for consistent backup.
+	// Hard error: rsync of a running Postgres data dir is NOT crash-consistent.
 	progress.Write("Stopping database...")
 	if err := runCommand(projDir, "docker", "compose", "stop", "db"); err != nil {
-		progress.Write("Warning: could not stop database: %v", err)
+		errMsg := fmt.Sprintf("could not stop database for consistent backup: %v", err)
+		progress.Write("FAILED: %s", errMsg)
+		runCommand(projDir, "docker", "compose", "up", "-d", "app", "worker", "rest", "db")
+		d.setMaintenance(false)
+		if reconErr := d.reconnect(ctx); reconErr == nil {
+			d.failUpgrade(ctx, id, errMsg, progress)
+		} else {
+			d.removeUpgradeFlag()
+		}
+		return fmt.Errorf("%s", errMsg)
 	}
 
 	// Pin the pre-upgrade commit as a persistent branch BEFORE we touch
@@ -2655,9 +2678,9 @@ func readProgressLogTail(path string, n int) string {
 // disk already matches the target, so selfUpdate()'s same-hash shortcut
 // in selfupdate.Update() makes it a no-op download and a pure exit-42 handoff.
 //
-// Skips silently (non-fatal) when:
-//   - no binary in manifest for the current platform (e.g. dev-only build)
-//   - version is an edge sha-* commit with no release binary
+// Errors when no binary exists for the current platform — the pre-flight
+// check should have caught this, but defense-in-depth catches late changes.
+// Edge sha-* commits skip this function entirely (caller guards on displayName).
 func (d *Service) replaceBinaryOnDisk(version string, progress *ProgressLog) error {
 	manifest, err := FetchManifest(version)
 	if err != nil {
@@ -2666,8 +2689,7 @@ func (d *Service) replaceBinaryOnDisk(version string, progress *ProgressLog) err
 	platform := selfupdate.Platform()
 	binary, ok := manifest.Binaries[platform]
 	if !ok {
-		progress.Write("Binary replace skipped: no binary for platform %s in release %s", platform, version)
-		return nil
+		return fmt.Errorf("no binary for platform %s in release %s", platform, version)
 	}
 	sbPath := filepath.Join(d.projDir, "sb")
 	progress.Write("Replacing ./sb with %s binary (subsequent subprocesses will run the new code)...", version)
