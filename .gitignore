@@ -499,6 +499,7 @@ app/tmp/
 # Claude Code: ignore local settings, but keep rules (committed conventions)
 .claude/settings.local.json
 .claude/todos.local.json
+.claude/scheduled_tasks.lock
 
 # Ignore migration snapshots (large binary dumps and list files, generated locally)
 migrations/snapshots/*.pg_dump

@@ -168,7 +168,46 @@ func preflightChecks(projDir string) bool {
 		}
 	}
 
-	// 7. App tsc covers latest app changes
+	// 7. TypeScript types cover latest migrations — checked BEFORE app tsc/build
+	//    because stale types hide drift: tsc can pass against a stale
+	//    app/src/lib/database.types.ts while the real schema has changed.
+	//    Regenerating types first ensures tsc/build stamps reflect the
+	//    current schema.
+	checkMigrationStamp := func(stampFile, label, fixCmd string) {
+		sp := filepath.Join(projDir, "tmp", stampFile)
+		sb, err := os.ReadFile(sp)
+		if err != nil {
+			fmt.Printf("  \u2717 %s (tmp/%s not found)\n", label, stampFile)
+			fmt.Printf("    Fix: %s\n", fixCmd)
+			allPassed = false
+			return
+		}
+		stampSHA := strings.TrimSpace(string(sb))
+		newMigrationsOut, _ := upgrade.RunCommandOutput(projDir, "git", "diff", "--name-only",
+			stampSHA+"..HEAD", "--", "migrations/*.up.sql", "migrations/*.up.psql")
+		newMigrations := strings.TrimSpace(newMigrationsOut)
+		if newMigrations == "" {
+			short := stampSHA
+			if len(short) > 12 {
+				short = short[:12]
+			}
+			fmt.Printf("  \u2713 %s (stamp: %s)\n", label, short)
+		} else {
+			migrationFiles := strings.Split(newMigrations, "\n")
+			fmt.Printf("  \u2717 %s\n", label)
+			fmt.Printf("    %d new migration(s) since stamp:\n", len(migrationFiles))
+			for _, f := range migrationFiles {
+				if f != "" {
+					fmt.Printf("      %s\n", filepath.Base(f))
+				}
+			}
+			fmt.Printf("    Fix: %s\n", fixCmd)
+			allPassed = false
+		}
+	}
+	checkMigrationStamp("types-passed-sha", "TypeScript types cover latest migrations", "./sb types generate")
+
+	// 8. App tsc covers latest app changes  (check 9 is app build — same helper)
 	//    Stamp written by `cd app && pnpm run tsc` (or `pnpm run build`)
 	//    via app/scripts/stamp-if-clean.sh. Preflight refuses to tag if
 	//    any file in app/ changed since the stamped SHA — avoids tagging
@@ -208,7 +247,7 @@ func preflightChecks(projDir string) bool {
 	checkAppStamp("app-tsc-passed-sha", "tsc", "App tsc covers latest app changes")
 	checkAppStamp("app-build-passed-sha", "build", "App build covers latest app changes")
 
-	// 8. Snapshot covers latest migrations
+	// 10. Snapshot covers latest migrations
 	// Intent: every release must have a fresh .db-snapshot so installs and CI are fast.
 	// If migrations were added since the last snapshot, the developer must run
 	// ./dev.sh update-snapshot before releasing.
@@ -259,43 +298,8 @@ func preflightChecks(projDir string) bool {
 		}
 	}
 
-	// 9. DB documentation covers latest migrations
-	checkMigrationStamp := func(stampFile, label, fixCmd string) {
-		sp := filepath.Join(projDir, "tmp", stampFile)
-		sb, err := os.ReadFile(sp)
-		if err != nil {
-			fmt.Printf("  \u2717 %s (tmp/%s not found)\n", label, stampFile)
-			fmt.Printf("    Fix: %s\n", fixCmd)
-			allPassed = false
-			return
-		}
-		stampSHA := strings.TrimSpace(string(sb))
-		newMigrationsOut, _ := upgrade.RunCommandOutput(projDir, "git", "diff", "--name-only",
-			stampSHA+"..HEAD", "--", "migrations/*.up.sql", "migrations/*.up.psql")
-		newMigrations := strings.TrimSpace(newMigrationsOut)
-		if newMigrations == "" {
-			short := stampSHA
-			if len(short) > 12 {
-				short = short[:12]
-			}
-			fmt.Printf("  \u2713 %s (stamp: %s)\n", label, short)
-		} else {
-			migrationFiles := strings.Split(newMigrations, "\n")
-			fmt.Printf("  \u2717 %s\n", label)
-			fmt.Printf("    %d new migration(s) since stamp:\n", len(migrationFiles))
-			for _, f := range migrationFiles {
-				if f != "" {
-					fmt.Printf("      %s\n", filepath.Base(f))
-				}
-			}
-			fmt.Printf("    Fix: %s\n", fixCmd)
-			allPassed = false
-		}
-	}
+	// 11. DB documentation covers latest migrations
 	checkMigrationStamp("db-docs-passed-sha", "DB documentation covers latest migrations", "./dev.sh generate-db-documentation")
-
-	// 10. TypeScript types cover latest migrations
-	checkMigrationStamp("types-passed-sha", "TypeScript types cover latest migrations", "./sb types generate")
 
 	return allPassed
 }
