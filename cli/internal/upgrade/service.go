@@ -1366,12 +1366,12 @@ func (d *Service) loadTrustedSigners() error {
 
 // verifyCommitSignature verifies an SSH signature on a git commit.
 // Returns nil if the signature is valid and trusted.
-// If no signers are configured (allowedSignersPath is empty), skips verification.
-// If signers ARE configured, enforces — unsigned/untrusted commits are rejected.
+// Returns a hard error when no signers are configured — signature
+// verification is mandatory. Operators must run
+// `./sb upgrade trust-key add <github-username>` before upgrades work.
 func (d *Service) verifyCommitSignature(sha string) error {
 	if d.allowedSignersPath == "" {
-		// No signers configured — skip verification
-		return nil
+		return fmt.Errorf("no trusted signers configured — signature verification is mandatory. Run: ./sb upgrade trust-key add <github-username>")
 	}
 
 	out, err := runCommandOutput(d.projDir, "git", "-c",

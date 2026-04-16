@@ -162,7 +162,7 @@ cmd_install_one() {
             if ./sb release check --tag "$head_tag" 2>/dev/null; then
                 echo "Release binary available — downloading instead of building."
                 ssh_server "$server" \
-                    "cd statbus && curl -fsSL https://github.com/statisticsnorway/statbus/releases/download/${head_tag}/sb-linux-amd64 -o sb-linux-amd64" 2>&1
+                    "cd statbus && curl -fsSL https://github.com/statisticsnorway/statbus/releases/download/${head_tag}/sb-linux-amd64 -o sb-linux-amd64 && chmod +x sb-linux-amd64" 2>&1
             else
                 echo "Release binary not ready — building from source..."
                 ssh_server "$server" "cd statbus && export PATH=/home/linuxbrew/.linuxbrew/bin:\$PATH && ./dev.sh build-sb" 2>&1
