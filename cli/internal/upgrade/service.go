@@ -884,6 +884,10 @@ func (d *Service) Run(ctx context.Context) error {
 		case <-ticker.C:
 			fmt.Printf("Poll tick (next in %s)\n", d.interval)
 			if !d.upgrading {
+				// Belt: reconcile any in_progress row whose final UPDATE was
+				// lost (e.g. stale DB connection during executeUpgrade). Low-
+				// cost — returns immediately when no orphan row exists.
+				d.completeInProgressUpgrade(ctx)
 				d.discover(ctx)
 				d.executeScheduled(ctx)
 				if d.listenCancel == nil { // restart if executeUpgrade stopped the loop
