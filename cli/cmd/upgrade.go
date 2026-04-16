@@ -650,6 +650,8 @@ var trustKeyListCmd = &cobra.Command{
 	},
 }
 
+var trustKeyAddYes bool
+
 var trustKeyAddCmd = &cobra.Command{
 	Use:   "add <github-username>",
 	Short: "Add trusted signing keys from a GitHub user",
@@ -664,6 +666,10 @@ var trustKeyAddCmd = &cobra.Command{
 			return fmt.Errorf("load .env.config: %w", err)
 		}
 
+		if trustKeyAddYes {
+			return trustSignerNonInteractive(username, f)
+		}
+
 		reader := bufio.NewReader(os.Stdin)
 		trusted, err := trustSignerInteractive(username, f, reader)
 		if err != nil {
@@ -674,6 +680,28 @@ var trustKeyAddCmd = &cobra.Command{
 		}
 		return nil
 	},
+}
+
+// trustSignerNonInteractive fetches keys and trusts the first one without
+// prompting. Used by --yes flag for scripted / AI-driven installs.
+func trustSignerNonInteractive(username string, f *dotenv.File) error {
+	fmt.Printf("Fetching SSH keys from GitHub for %s...\n", username)
+	keys, err := fetchGitHubKeys(username)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Found %d key(s) for github.com/%s:\n", len(keys), username)
+	for _, key := range keys {
+		fmt.Printf("  %s\n", sshKeyFingerprint(key))
+	}
+
+	envKey := trustedSignerPrefix + username
+	f.Set(envKey, keys[0])
+	if err := f.Save(); err != nil {
+		return fmt.Errorf("save .env.config: %w", err)
+	}
+	fmt.Printf("Added %s to .env.config (--yes, no prompt)\n", envKey)
+	return nil
 }
 
 var trustKeyRemoveCmd = &cobra.Command{
@@ -757,6 +785,7 @@ func init() {
 	upgradeApplyCmd.Flags().BoolVar(&applyRecreate, "recreate", false, "delete and recreate database from scratch (destructive — dev/demo only)")
 	upgradeApplyLatestCmd.Flags().BoolVar(&applyRecreate, "recreate", false, "delete and recreate database from scratch (destructive — dev/demo only)")
 
+	trustKeyAddCmd.Flags().BoolVarP(&trustKeyAddYes, "yes", "y", false, "skip confirmation prompt (for scripted / AI-driven installs)")
 	trustKeyCmd.AddCommand(trustKeyListCmd)
 	trustKeyCmd.AddCommand(trustKeyAddCmd)
 	trustKeyCmd.AddCommand(trustKeyRemoveCmd)
