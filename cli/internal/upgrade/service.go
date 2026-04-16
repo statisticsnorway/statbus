@@ -39,6 +39,7 @@ type Service struct {
 	listenWg     sync.WaitGroup     // tracks listenLoop goroutine lifetime
 	allowedSignersPath string      // path to tmp/allowed-signers file (empty if no signers configured)
 	flagLock           *FlagLock   // holds the flock on tmp/upgrade-in-progress.json during executeUpgrade
+	runningAsService   bool        // true when Run() is the entry point; false for one-shot callers
 }
 
 // NewService creates a new upgrade service.
@@ -724,6 +725,8 @@ const (
 
 // Run starts the upgrade service main loop.
 func (d *Service) Run(ctx context.Context) error {
+	d.runningAsService = true
+
 	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
@@ -2613,7 +2616,11 @@ func (d *Service) selfUpdate(ctx context.Context, version string, progress *Prog
 		progress.Write("Binary already at target (swapped mid-flow). Restarting service...")
 	}
 	progress.Close()
-	// Exit with code 42 to signal systemd to restart
-	os.Exit(42)
+	// Exit 42 triggers systemd restart on the new binary. One-shot callers
+	// (./sb install inline upgrade) must not exit 42 — the shell would read
+	// it as failure; the install caller orchestrates unit restart itself.
+	if d.runningAsService {
+		os.Exit(42)
+	}
 }
 
