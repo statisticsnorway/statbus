@@ -98,6 +98,9 @@
             font-size: 0.9rem;
             display: none;
         }
+        .refresh-toggle-row { text-align: center; margin-top: 2rem; }
+        .refresh-toggle { font-size: 0.75rem; color: #888; text-decoration: none; }
+        .refresh-toggle:hover { color: #555; text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -112,6 +115,9 @@
             <p class="countdown" id="countdown"></p>
             <p><button class="check-btn" id="checkNowBtn"></button></p>
             <p class="warning" id="warning"></p>
+        </div>
+        <div class="refresh-toggle-row">
+            <a href="#" id="refreshToggle" class="refresh-toggle">Pause auto-refresh</a>
         </div>
     </div>
 
@@ -212,6 +218,8 @@
         var checkInterval = 5; // seconds between health checks
         var timer = checkInterval;
         var countdownHandle;
+        var progressPollHandle;
+        var autoRefresh = params.get('refresh') !== 'false';
 
         // Return URL from query parameter
         var returnPath = params.get('return') || '/';
@@ -325,10 +333,38 @@
             checkHealth();
         });
 
-        // Start
+        // Auto-refresh toggle — pauses log polling + health-check redirect.
+        // State is URL-persistent (?refresh=false) so a shared link lands in paused mode.
+        function applyAutoRefreshState() {
+            var link = document.getElementById('refreshToggle');
+            link.textContent = autoRefresh ? 'Pause auto-refresh' : 'Resume auto-refresh';
+            if (autoRefresh) {
+                if (!progressPollHandle) {
+                    progressPollHandle = setInterval(fetchProgress, 3000);
+                }
+                startCountdown();
+            } else {
+                clearInterval(progressPollHandle);
+                progressPollHandle = null;
+                clearInterval(countdownHandle);
+                countdownEl.textContent = '';
+            }
+        }
+
+        document.getElementById('refreshToggle').addEventListener('click', function(e) {
+            e.preventDefault();
+            autoRefresh = !autoRefresh;
+            var u = new URL(location.href);
+            if (autoRefresh) { u.searchParams.delete('refresh'); }
+            else             { u.searchParams.set('refresh', 'false'); }
+            history.replaceState(null, '', u);
+            applyAutoRefreshState();
+        });
+
+        // Start — always fetch once so log is visible even when paused;
+        // polling + redirect are gated by applyAutoRefreshState().
         fetchProgress();
-        setInterval(fetchProgress, 3000);
-        startCountdown();
+        applyAutoRefreshState();
     </script>
 </body>
 </html>
