@@ -132,7 +132,9 @@
                 countdown: "Checking again in {0} seconds.",
                 checkNow: "Check Now",
                 warning: "Upgrade is taking longer than expected. Please contact your administrator.",
-                digits: "0123456789"
+                digits: "0123456789",
+                pauseAutoRefresh: "Pause auto-refresh",
+                resumeAutoRefresh: "Resume auto-refresh"
             },
             'nb': {
                 title: "StatBus oppgraderes",
@@ -140,7 +142,9 @@
                 countdown: "Sjekker igjen om {0} sekunder.",
                 checkNow: "Sjekk Nå",
                 warning: "Oppgraderingen tar lengre tid enn forventet. Kontakt administratoren din.",
-                digits: "0123456789"
+                digits: "0123456789",
+                pauseAutoRefresh: "Pause auto-oppdatering",
+                resumeAutoRefresh: "Gjenoppta auto-oppdatering"
             },
             'fr': {
                 title: "StatBus est en cours de mise à jour",
@@ -148,7 +152,9 @@
                 countdown: "Vérification dans {0} secondes.",
                 checkNow: "Vérifier Maintenant",
                 warning: "La mise à jour prend plus de temps que prévu. Veuillez contacter votre administrateur.",
-                digits: "0123456789"
+                digits: "0123456789",
+                pauseAutoRefresh: "Mettre en pause le rafraîchissement",
+                resumeAutoRefresh: "Reprendre le rafraîchissement"
             },
             'ru': {
                 title: "StatBus обновляется",
@@ -156,7 +162,9 @@
                 countdown: "Повторная проверка через {0} секунд.",
                 checkNow: "Проверить Сейчас",
                 warning: "Обновление занимает больше времени, чем ожидалось. Обратитесь к администратору.",
-                digits: "0123456789"
+                digits: "0123456789",
+                pauseAutoRefresh: "Приостановить автообновление",
+                resumeAutoRefresh: "Возобновить автообновление"
             },
             'ar': {
                 title: "جاري تحديث StatBus",
@@ -164,7 +172,9 @@
                 countdown: "التحقق مرة أخرى في {0} ثوان.",
                 checkNow: "تحقق الآن",
                 warning: "يستغرق التحديث وقتاً أطول من المتوقع. يرجى الاتصال بالمسؤول.",
-                digits: "٠١٢٣٤٥٦٧٨٩"
+                digits: "٠١٢٣٤٥٦٧٨٩",
+                pauseAutoRefresh: "إيقاف التحديث التلقائي",
+                resumeAutoRefresh: "استئناف التحديث التلقائي"
             },
             'tr': {
                 title: "StatBus güncelleniyor",
@@ -172,7 +182,9 @@
                 countdown: "{0} saniye sonra tekrar kontrol edilecek.",
                 checkNow: "Şimdi Kontrol Et",
                 warning: "Güncelleme beklenenden uzun sürüyor. Lütfen yöneticinize başvurun.",
-                digits: "0123456789"
+                digits: "0123456789",
+                pauseAutoRefresh: "Otomatik yenilemeyi duraklat",
+                resumeAutoRefresh: "Otomatik yenilemeyi sürdür"
             },
             'el': {
                 title: "Το StatBus αναβαθμίζεται",
@@ -180,7 +192,9 @@
                 countdown: "Έλεγχος ξανά σε {0} δευτερόλεπτα.",
                 checkNow: "Ελέγξτε Τώρα",
                 warning: "Η αναβάθμιση διαρκεί περισσότερο από το αναμενόμενο. Επικοινωνήστε με τον διαχειριστή.",
-                digits: "0123456789"
+                digits: "0123456789",
+                pauseAutoRefresh: "Παύση αυτόματης ανανέωσης",
+                resumeAutoRefresh: "Συνέχιση αυτόματης ανανέωσης"
             }
         };
 
@@ -337,7 +351,7 @@
         // State is URL-persistent (?refresh=false) so a shared link lands in paused mode.
         function applyAutoRefreshState() {
             var link = document.getElementById('refreshToggle');
-            link.textContent = autoRefresh ? 'Pause auto-refresh' : 'Resume auto-refresh';
+            link.textContent = autoRefresh ? t.pauseAutoRefresh : t.resumeAutoRefresh;
             if (autoRefresh) {
                 if (!progressPollHandle) {
                     progressPollHandle = setInterval(fetchProgress, 3000);
