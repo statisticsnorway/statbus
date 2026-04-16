@@ -2240,14 +2240,14 @@ func readAdministratorContact(projDir string) string {
 // contactSuffix formats the trailing ": <contact>" fragment for the
 // CATASTROPHIC FAILURE headline. Empty contact → empty suffix (so the
 // headline still reads as a complete sentence without trailing ": .").
-// Any literal "%" in the contact is doubled so downstream format()
-// consumers can't accidentally treat it as a directive.
+// The caller interpolates the result via a %s verb, which inserts the
+// value verbatim — no %-escaping needed and none applied.
 func contactSuffix(contact string) string {
 	contact = strings.TrimSpace(contact)
 	if contact == "" {
 		return ""
 	}
-	return ": " + strings.ReplaceAll(contact, "%", "%%")
+	return ": " + contact
 }
 
 func (d *Service) rollback(ctx context.Context, id int, version, previousVersion, reason string, progress *ProgressLog) {
