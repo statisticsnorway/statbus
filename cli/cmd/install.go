@@ -218,6 +218,28 @@ func runInstall() error {
 		}
 	}
 
+	// Pre-flight: on existing installs (.env.config exists), require at
+	// least one trusted signer BEFORE doing any work. Fresh installs skip
+	// this — .env.config doesn't exist yet (step 5 creates it, step 13
+	// prompts for signers). Re-installs that removed their signer get a
+	// fast, actionable failure instead of wasting 2 minutes on steps 1-12.
+	if !bypass {
+		cfgPath := filepath.Join(installDir, ".env.config")
+		if _, statErr := os.Stat(cfgPath); statErr == nil && !checkSignersDone(installDir) {
+			if nonInteractive {
+				return fmt.Errorf("no trusted signers configured.\n" +
+					"  The upgrade service requires at least one trusted signer to verify release signatures.\n" +
+					"  Pre-configure before running install:\n" +
+					"    ./sb upgrade trust-key add <github-username>\n" +
+					"  Then re-run the install.")
+			}
+			fmt.Println("No trusted signers configured. You must approve at least one signer before the install can proceed.")
+			if err := runTrustSigners(installDir); err != nil {
+				return err
+			}
+		}
+	}
+
 	releaseFlag, err := acquireOrBypass(installDir, bypass)
 	if err != nil {
 		return err
