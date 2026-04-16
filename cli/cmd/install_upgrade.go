@@ -3,6 +3,8 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os/exec"
+	"runtime"
 	"time"
 
 	"github.com/statisticsnorway/statbus/cli/internal/install"
@@ -65,7 +67,37 @@ func runInlineUpgradeScheduled(projDir string, detail *install.Detail) error {
 	fmt.Printf("Dispatching scheduled upgrade id=%d to %s (commit %s)\n",
 		detail.ScheduledRowID, detail.TargetDisplayName, shortSHA)
 
-	return svc.ExecuteUpgradeInline(ctx, int(detail.ScheduledRowID), detail.TargetCommitSHA, detail.TargetDisplayName)
+	if err := svc.ExecuteUpgradeInline(ctx, int(detail.ScheduledRowID), detail.TargetCommitSHA, detail.TargetDisplayName); err != nil {
+		return err
+	}
+	restartUpgradeService(projDir)
+	return nil
+}
+
+// restartUpgradeService kicks the systemd upgrade-service unit after a
+// successful inline upgrade so the long-running service loads the new binary
+// and migrations. Without this, the running service keeps the pre-upgrade
+// code in memory (R3) until someone restarts it manually.
+//
+// Best-effort: non-Linux, non-systemd, and missing-instance cases are silent
+// no-ops. If the service is not currently active we do NOT start it — an
+// operator may have stopped it deliberately, and `./sb install` should not
+// resurrect it. Restart errors log a warning but do not fail the install.
+func restartUpgradeService(projDir string) {
+	if runtime.GOOS != "linux" {
+		return
+	}
+	instance := serviceInstance(projDir)
+	if instance == "" {
+		return
+	}
+	if err := exec.Command("systemctl", "--user", "is-active", "--quiet", instance).Run(); err != nil {
+		return // not active — leave it alone
+	}
+	fmt.Printf("Restarting upgrade service %s to pick up new binary/migrations.\n", instance)
+	if err := exec.Command("systemctl", "--user", "restart", instance).Run(); err != nil {
+		fmt.Printf("Warning: systemctl --user restart %s failed: %v (upgrade succeeded; restart the service manually)\n", instance, err)
+	}
 }
 
 // runCrashRecovery reconciles a crashed upgrade (StateCrashedUpgrade).
