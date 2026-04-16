@@ -61,6 +61,14 @@ func (d *Service) writeDiagnosticBundle(parent context.Context, id int, progress
 		return // pre-connect failure path — no DB to query, no bundle
 	}
 
+	// Narrate via stderr rather than through the progress pointer.
+	// In completeInProgressUpgrade the progress log is closed before
+	// writeDiagnosticBundle is called, so progress.Write() would silently
+	// fail to reach the log file. Stderr is always open.
+	narrate := func(format string, args ...interface{}) {
+		fmt.Fprintf(os.Stderr, "[%s] %s\n", time.Now().Format("15:04:05"), fmt.Sprintf(format, args...))
+	}
+
 	ctx, cancel := context.WithTimeout(parent, 10*time.Second)
 	defer cancel()
 
@@ -68,7 +76,7 @@ func (d *Service) writeDiagnosticBundle(parent context.Context, id int, progress
 	if err := d.queryConn.QueryRow(ctx,
 		"SELECT to_jsonb(public.upgrade)::text FROM public.upgrade WHERE id = $1", id).
 		Scan(&rowJSON); err != nil {
-		progress.Write("Warning: bundle write skipped — could not read upgrade row id=%d: %v", id, err)
+		narrate("Warning: bundle write skipped — could not read upgrade row id=%d: %v", id, err)
 		return
 	}
 
@@ -76,7 +84,7 @@ func (d *Service) writeDiagnosticBundle(parent context.Context, id int, progress
 	if logRelPath == "" {
 		// No on-disk log path means no sibling location — bundle can't
 		// sit next to a log that doesn't exist.
-		progress.Write("Warning: bundle write skipped — progress log has no RelPath (id=%d)", id)
+		narrate("Warning: bundle write skipped — progress log has no RelPath (id=%d)", id)
 		return
 	}
 	logAbsPath := progress.AbsPath()
@@ -87,7 +95,7 @@ func (d *Service) writeDiagnosticBundle(parent context.Context, id int, progress
 	tmpPath := bundlePath + ".tmp"
 	f, err := os.Create(tmpPath)
 	if err != nil {
-		progress.Write("Warning: bundle write failed (create %s): %v", tmpPath, err)
+		narrate("Warning: bundle write failed (create %s): %v", tmpPath, err)
 		return
 	}
 	bw := bufio.NewWriter(f)
@@ -95,28 +103,28 @@ func (d *Service) writeDiagnosticBundle(parent context.Context, id int, progress
 	writeBundleSections(ctx, bw, d.projDir, id, rowJSON, logAbsPath)
 
 	if err := bw.Flush(); err != nil {
-		progress.Write("Warning: bundle write failed (flush): %v", err)
+		narrate("Warning: bundle write failed (flush): %v", err)
 		f.Close()
 		os.Remove(tmpPath)
 		return
 	}
 	if err := f.Sync(); err != nil {
-		progress.Write("Warning: bundle write failed (fsync): %v", err)
+		narrate("Warning: bundle write failed (fsync): %v", err)
 		f.Close()
 		os.Remove(tmpPath)
 		return
 	}
 	if err := f.Close(); err != nil {
-		progress.Write("Warning: bundle write failed (close): %v", err)
+		narrate("Warning: bundle write failed (close): %v", err)
 		os.Remove(tmpPath)
 		return
 	}
 	if err := os.Rename(tmpPath, bundlePath); err != nil {
-		progress.Write("Warning: bundle write failed (rename): %v", err)
+		narrate("Warning: bundle write failed (rename): %v", err)
 		os.Remove(tmpPath)
 		return
 	}
-	progress.Write("Support bundle written to %s", bundlePath)
+	narrate("Support bundle written to %s", bundlePath)
 }
 
 // writeBundleSections emits all 8 sections to w in the canonical order.
