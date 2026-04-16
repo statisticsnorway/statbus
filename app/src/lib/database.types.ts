@@ -6165,6 +6165,30 @@ export type Database = {
           version?: string | null
         },
         Relationships: []
+      },
+      upgrade_retention_caps: {
+        Row: {
+          count_cap: number | null
+          install_purge: boolean
+          release_status: Database["public"]["Enums"]["release_status_type"]
+          state: Database["public"]["Enums"]["upgrade_state"]
+          time_cap: string | null
+        },
+        Insert: {
+          count_cap?: number | null
+          install_purge?: boolean
+          release_status: Database["public"]["Enums"]["release_status_type"]
+          state: Database["public"]["Enums"]["upgrade_state"]
+          time_cap?: string | null
+        },
+        Update: {
+          count_cap?: number | null
+          install_purge?: boolean
+          release_status?: Database["public"]["Enums"]["release_status_type"]
+          state?: Database["public"]["Enums"]["upgrade_state"]
+          time_cap?: string | null
+        },
+        Relationships: []
       }
     },
     Views: {
@@ -15602,6 +15626,12 @@ export type Database = {
         }
         Returns: Json
       },
+      upgrade_family: {
+        Args: {
+          u?: Database["public"]["Tables"]["upgrade"]["Row"]
+        }
+        Returns: string
+      },
       upgrade_notify_daemon: {
         Args: Record<string, never>
         Returns: unknown
@@ -15613,6 +15643,13 @@ export type Database = {
       upgrade_request_check: {
         Args: Record<string, never>
         Returns: unknown
+      },
+      upgrade_retention_plan: {
+        Args: {
+          p_context?: string
+          p_installed_id?: number
+        }
+        Returns: Record<string, unknown>[]
       },
       urlencode: {
         Args: {
@@ -15644,6 +15681,12 @@ export type Database = {
       validate_image_on_insert: {
         Args: Record<string, never>
         Returns: unknown
+      },
+      version_family: {
+        Args: {
+          tag?: string
+        }
+        Returns: string
       },
       websearch_to_wildcard_tsquery: {
         Args: {

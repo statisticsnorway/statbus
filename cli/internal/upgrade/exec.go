@@ -422,6 +422,73 @@ func (d *Service) pruneBackups(ctx context.Context, keep int) {
 	}
 }
 
+// runRetentionPurge executes the v2 retention policy for public.upgrade.
+//
+//   - context: "all" for the periodic time-safety sweep, or one of
+//     {"commit","prerelease","release"} to scope the sweep (rarely used).
+//   - installedID: when the caller just transitioned a row to 'completed',
+//     pass its id so rules A/B/C (install-triggered purges) fire. NULL for
+//     the time-safety tick.
+//
+// File-first cascade: fetch the plan, delete each row's log + .bundle.txt
+// sibling on disk, THEN call upgrade_retention_apply to DELETE the DB rows.
+// If the process dies between file-delete and row-delete, the DB row
+// survives but references a missing log — the admin UI shows empty content
+// for that log; retention will pick the row up again on the next tick.
+// All errors are logged and swallowed: retention is opportunistic, not a
+// hard upgrade dependency.
+func (d *Service) runRetentionPurge(ctx context.Context, scope string, installedID *int) {
+	if d.queryConn == nil {
+		return
+	}
+	rows, err := d.queryConn.Query(ctx,
+		"SELECT id, log_relative_file_path FROM public.upgrade_retention_plan($1, $2)",
+		scope, installedID)
+	if err != nil {
+		fmt.Printf("retention: plan query failed (scope=%s, installed=%v): %v\n", scope, installedID, err)
+		return
+	}
+	var plannedLogs []string
+	var plannedCount int
+	for rows.Next() {
+		var id int
+		var logPath *string
+		if err := rows.Scan(&id, &logPath); err != nil {
+			fmt.Printf("retention: plan scan failed: %v\n", err)
+			rows.Close()
+			return
+		}
+		plannedCount++
+		if logPath != nil && *logPath != "" {
+			plannedLogs = append(plannedLogs, *logPath)
+		}
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		fmt.Printf("retention: plan iterate failed: %v\n", err)
+		return
+	}
+	if plannedCount == 0 {
+		return
+	}
+
+	logsDir := upgradeLogsDir(d.projDir)
+	for _, rel := range plannedLogs {
+		stem := strings.TrimSuffix(rel, ".log")
+		os.Remove(filepath.Join(logsDir, rel))
+		os.Remove(filepath.Join(logsDir, stem+".bundle.txt"))
+	}
+
+	// Third arg is the INOUT p_deleted; the procedure overwrites it. We pass 0
+	// and discard the result — plannedCount above already serves as our log.
+	if _, err := d.queryConn.Exec(ctx,
+		"CALL public.upgrade_retention_apply($1, $2, 0)", scope, installedID); err != nil {
+		fmt.Printf("retention: apply failed (scope=%s, installed=%v): %v\n", scope, installedID, err)
+		return
+	}
+	fmt.Printf("retention: purged %d upgrade row(s) (scope=%s, installed=%v)\n", plannedCount, scope, installedID)
+}
+
 // pruneUpgradeLogs trims tmp/upgrade-logs/ to the `keep` newest log+bundle
 // pairs. Sibling of pruneBackups. Safe to call on every service tick —
 // O(entries) readdir, cheap. Any upgrade row that still references a

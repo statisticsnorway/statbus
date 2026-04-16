@@ -822,6 +822,7 @@ func (d *Service) Run(ctx context.Context) error {
 				d.reconcileBackupDir(ctx)  // reconcile before prune: avoids BACKUP_MISSING for just-pruned rows
 				d.pruneBackups(ctx, 3)
 				d.pruneUpgradeLogs(20) // keep the 20 newest upgrade-log + bundle pairs
+				d.runRetentionPurge(ctx, "all", nil) // time-safety sweep over public.upgrade
 			}
 		case n := <-notifyCh:
 			if !d.upgrading {
@@ -2146,6 +2147,12 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// the -D returns non-zero and we just move on.
 	runCommand(d.projDir, "git", "branch", "-D", "statbus/pre-upgrade")
 	d.supersedeOlderReleases(ctx, commitSHA)
+	// Retention pass scoped to the just-installed row: rules A/B/C fire
+	// (same-family prereleases, stale commits) so admins aren't stuck
+	// with obsolete dogfood entries after a release lands. Must run AFTER
+	// supersedeOlderReleases — rule D's ranking depends on the older
+	// releases' new 'superseded' state.
+	d.runRetentionPurge(ctx, "all", &id)
 	d.runUpgradeCallback(displayName)
 
 	return nil

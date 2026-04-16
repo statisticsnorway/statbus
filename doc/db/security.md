@@ -157,6 +157,8 @@ each role can see and modify.
   - Policies: `unit_size_admin_user_manage` (ALL → admin_user), `unit_size_authenticated_read` (SELECT → authenticated), `unit_size_regular_user_read` (SELECT → regular_user)
 - **`upgrade`** — RLS ON
   - Policies: `upgrade_admin_manage` (ALL → admin_user), `upgrade_authenticated_view` (SELECT → authenticated)
+- **`upgrade_retention_caps`** — RLS ON
+  - Policies: `upgrade_retention_caps_admin_manage` (ALL → admin_user), `upgrade_retention_caps_authenticated_view` (SELECT → authenticated)
 
 ### Non-Public Schema Tables with RLS
 

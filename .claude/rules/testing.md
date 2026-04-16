@@ -10,6 +10,15 @@ Always ask the user before running commands that destroy or recreate the develop
 
 Tests (`./dev.sh test`) are safe — they run against cloned databases, not the user's active development database.
 
+## pg_regress shared tests do NOT auto-wrap in a transaction
+
+The runner message "BEGIN/ROLLBACK isolation on cloned database" refers to
+cloned-template isolation, NOT to transaction wrapping of each test file.
+If a test uses `SAVEPOINT`, it must open its own transaction with `BEGIN;`
+at the top and `ROLLBACK;` at the bottom — otherwise the SAVEPOINT errors
+and, with `\set ON_ERROR_STOP on`, psql exits 3 and truncates the output
+file silently.
+
 ## Performance and explain baselines are not strict tests
 
 Files in `test/expected/performance/` and `test/expected/explain/` track baseline snapshots
