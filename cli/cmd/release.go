@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/statisticsnorway/statbus/cli/internal/config"
+	"github.com/statisticsnorway/statbus/cli/internal/release"
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
 
@@ -585,9 +586,90 @@ var releaseListCmd = &cobra.Command{
 	},
 }
 
+// releaseCheckTag is the optional --tag flag for `release check`.
+var releaseCheckTag string
+
+// releaseCheckCmd verifies that all release artifacts (GitHub assets + Docker
+// images) exist for a given tag. Intended as a gate in cloud.sh and in CI
+// to avoid installing a release that is still being published.
+//
+// Exit 0: all checks passed.
+// Exit 1: one or more checks failed (with "Retry in ~5 minutes" guidance).
+var releaseCheckCmd = &cobra.Command{
+	Use:   "check",
+	Short: "Verify release artifacts are fully published",
+	Long: `Check that all artifacts for a release are ready:
+  - GitHub Release assets (binaries, checksums, manifest)
+  - ghcr.io Docker manifests (app, db, worker, proxy)
+
+Without --tag, resolves the latest pre-release from GitHub.
+With    --tag vX, checks that specific tag.
+
+Exit 0 when all checks pass; exit 1 with retry advice when any fail.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		tag := releaseCheckTag
+
+		if tag == "" {
+			// Resolve latest prerelease from GitHub.
+			releases, err := upgrade.FetchReleases()
+			if err != nil {
+				return fmt.Errorf("fetch releases: %w", err)
+			}
+			for _, r := range releases {
+				if r.Prerelease && !r.Draft {
+					tag = r.TagName
+					break
+				}
+			}
+			if tag == "" {
+				return fmt.Errorf("no pre-release found on GitHub")
+			}
+			fmt.Printf("Checking latest pre-release: %s\n", tag)
+		} else {
+			fmt.Printf("Checking release: %s\n", tag)
+		}
+
+		fmt.Println()
+
+		// Run both probes — collect results from each.
+		assetResults := release.CheckAssets(tag)
+		manifestResults := release.CheckManifests(tag)
+
+		allPassed := true
+		printResults := func(results []release.CheckResult) {
+			for _, r := range results {
+				if r.OK {
+					fmt.Printf("  \u2713 %s\n", r.Name)
+				} else {
+					fmt.Printf("  \u2717 %s (%s)\n", r.Name, r.Err)
+					allPassed = false
+				}
+			}
+		}
+
+		fmt.Println("GitHub Release assets:")
+		printResults(assetResults)
+		fmt.Println()
+		fmt.Println("Docker images (ghcr.io):")
+		printResults(manifestResults)
+		fmt.Println()
+
+		if allPassed {
+			fmt.Printf("All artifacts ready for %s\n", tag)
+			return nil
+		}
+		fmt.Println("Some artifacts are not yet available.")
+		fmt.Println("Retry in ~5 minutes — CI may still be publishing.")
+		os.Exit(1)
+		return nil // unreachable; os.Exit above carries the exit code
+	},
+}
+
 func init() {
+	releaseCheckCmd.Flags().StringVar(&releaseCheckTag, "tag", "", "tag to check (default: latest pre-release)")
 	releaseCmd.AddCommand(releasePrereleaseCmd)
 	releaseCmd.AddCommand(releaseStableCmd)
 	releaseCmd.AddCommand(releaseListCmd)
+	releaseCmd.AddCommand(releaseCheckCmd)
 	rootCmd.AddCommand(releaseCmd)
 }

@@ -177,6 +177,14 @@ cmd_install_one() {
         ssh_server "$server" "cd statbus && ./sb install" 2>&1 \
             || exit_code=$?
     else
+        # Gate: verify release artifacts are fully published before stopping
+        # the running service. If CI is still uploading assets or pushing
+        # images, abort early — the server stays up and the operator retries.
+        echo "Checking release artifacts are ready..."
+        if ! ./sb release check; then
+            echo "--- Release artifacts not ready. Retry in ~5 minutes. ---"
+            return 1
+        fi
         echo "Installing $server via $INSTALL_URL ..."
         # Stop the user-level upgrade service AND reconcile any stale flag
         # before running install.sh. Without the recovery step, a service
