@@ -675,9 +675,11 @@ func checkSignersDone(dir string) bool {
 
 func runTrustSigners(dir string) error {
 	if nonInteractive {
-		fmt.Println("  Skipping signer trust (non-interactive mode)")
-		fmt.Println("  Add trusted signers later with: ./sb upgrade trust-key add <github-username>")
-		return nil
+		return fmt.Errorf("no trusted signers configured (non-interactive mode cannot prompt).\n" +
+			"  The upgrade service requires at least one trusted signer to verify release signatures.\n" +
+			"  Pre-configure before running install:\n" +
+			"    ./sb upgrade trust-key add <github-username>\n" +
+			"  Then re-run: ./sb install --non-interactive")
 	}
 
 	cfgPath := filepath.Join(dir, ".env.config")
