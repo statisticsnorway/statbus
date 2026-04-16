@@ -648,6 +648,20 @@ func (d *Service) Close() {
 	}
 }
 
+// ExecuteUpgradeInline runs executeUpgrade from a one-shot caller (./sb install
+// inline upgrade dispatch). Caller is responsible for:
+//   - acquiring the install flag-lock (or transferring it via the upgrade
+//     flag written inside executeUpgrade),
+//   - opening DB connections via LoadConfigAndConnect,
+//   - ensuring the public.upgrade row at `id` exists and is in an appropriate
+//     state for executeUpgrade to pick up.
+//
+// invokedBy / trigger are hardcoded to distinguish operator-driven inline
+// upgrades from scheduler-driven service runs in post-mortem queries.
+func (d *Service) ExecuteUpgradeInline(ctx context.Context, id int, commitSHA, displayName string) error {
+	return d.executeUpgrade(ctx, id, commitSHA, displayName, "operator:install", "install-cli")
+}
+
 // Label taxonomy used by logUpgradeRow() to tag terminal-state transitions in
 // journalctl output. Each label corresponds to exactly one call path; grep the
 // label string to jump to its site. Add new labels here when adding new terminal
