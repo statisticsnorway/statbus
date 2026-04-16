@@ -100,7 +100,7 @@ func (d *Service) writeDiagnosticBundle(parent context.Context, id int, progress
 	}
 	bw := bufio.NewWriter(f)
 
-	writeBundleSections(ctx, bw, d.projDir, id, rowJSON, logAbsPath)
+	WriteBundleSections(ctx, bw, d.projDir, id, rowJSON, logAbsPath)
 
 	if err := bw.Flush(); err != nil {
 		narrate("Warning: bundle write failed (flush): %v", err)
@@ -130,10 +130,11 @@ func (d *Service) writeDiagnosticBundle(parent context.Context, id int, progress
 	}
 }
 
-// writeBundleSections emits all 8 sections to w in the canonical order.
+// WriteBundleSections emits all 8 sections to w in the canonical order.
 // Extracted so bundle_test.go can drive the same writer against a byte
-// buffer with a fixture row + env file.
-func writeBundleSections(ctx context.Context, w io.Writer, projDir string, id int, rowJSON, logAbsPath string) {
+// buffer with a fixture row + env file, and so cli/cmd/support_bundle.go
+// can call it without a live database connection.
+func WriteBundleSections(ctx context.Context, w io.Writer, projDir string, id int, rowJSON, logAbsPath string) {
 	// Pull summary fields out of the row JSON for the header line.
 	// Best-effort — a parse failure produces a header with blanks.
 	var rowMap map[string]interface{}
