@@ -1421,6 +1421,13 @@ erDiagram
 		text version
 		text log_relative_file_path
 	}
+	upgrade_retention_caps["upgrade_retention_caps"] {
+		release_status_type release_status
+		upgrade_state state
+		interval time_cap
+		integer count_cap
+		boolean install_purge
+	}
 	sql_saga_era["sql_saga.era"] {
 		name table_schema
 		name table_name

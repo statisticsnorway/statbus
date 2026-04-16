@@ -411,6 +411,7 @@ SELECT :'undocumented';
  - `public.statistical_history_facet_pre_dirty_dims` (TABLE)                                                                                                                    +
  - `public.statistical_unit_facet_pre_dirty_dims` (TABLE)                                                                                                                       +
  - `public.system_info` (TABLE)                                                                                                                                                 +
- - `public.upgrade` (TABLE)
+ - `public.upgrade` (TABLE)                                                                                                                                                     +
+ - `public.upgrade_retention_caps` (TABLE)
 (1 row)
 
