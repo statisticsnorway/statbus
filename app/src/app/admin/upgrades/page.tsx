@@ -365,7 +365,7 @@ export default function UpgradesPage() {
           ? history.filter(u => u.id !== latestCompleted.id)
           : history;
 
-        const renderCard = (u: Upgrade) => {
+        const renderCard = (u: Upgrade, variant?: "recommended" | "superseded") => {
           const status = u.state;
           const canRestore = latestCompleted
             ? (u.topological_order ?? 0) > (latestCompleted.topological_order ?? 0) || u.committed_at > latestCompleted.committed_at
@@ -375,6 +375,7 @@ export default function UpgradesPage() {
               key={u.id}
               upgrade={u}
               status={status}
+              variant={variant}
               acting={acting === u.id}
               canRestore={canRestore}
               onScheduleNow={async () => {
@@ -418,20 +419,20 @@ export default function UpgradesPage() {
         return (
           <div className="space-y-3">
             {/* Actionable: in progress, scheduled, failed, rolled back */}
-            {actionable.map(renderCard)}
+            {actionable.map((u) => renderCard(u))}
 
             {/* Latest available release — the one users should upgrade to */}
-            {latestWithMigrations && renderCard(latestWithMigrations)}
+            {latestWithMigrations && renderCard(latestWithMigrations, "recommended")}
 
-            {/* Older available releases behind collapsible */}
+            {/* Older available releases behind collapsible — labelled as superseded */}
             {olderAvailable.length > 0 && (
               <Collapsible>
                 <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md border border-dashed border-muted-foreground/25 px-4 py-2 text-sm text-muted-foreground hover:bg-muted/50 transition-colors">
                   <ChevronDown className="h-4 w-4" />
-                  {olderAvailable.length} older available upgrade{olderAvailable.length !== 1 ? "s" : ""}
+                  {olderAvailable.length} superseded upgrade{olderAvailable.length !== 1 ? "s" : ""}
                 </CollapsibleTrigger>
                 <CollapsibleContent className="space-y-3 mt-3">
-                  {olderAvailable.map(renderCard)}
+                  {olderAvailable.map((u) => renderCard(u, "superseded"))}
                 </CollapsibleContent>
               </Collapsible>
             )}
@@ -457,7 +458,7 @@ export default function UpgradesPage() {
                   {historyRest.length} past upgrade{historyRest.length !== 1 ? "s" : ""}
                 </CollapsibleTrigger>
                 <CollapsibleContent className="space-y-3 mt-3">
-                  {historyRest.map(renderCard)}
+                  {historyRest.map((u) => renderCard(u))}
                 </CollapsibleContent>
               </Collapsible>
             )}
@@ -581,6 +582,7 @@ function ChangelogContent({ text }: { text: string }) {
 function UpgradeCard({
   upgrade: u,
   status,
+  variant,
   acting,
   canRestore,
   onScheduleNow,
@@ -592,6 +594,7 @@ function UpgradeCard({
 }: {
   upgrade: Upgrade;
   status: UpgradeState;
+  variant?: "recommended" | "superseded";
   acting: boolean;
   canRestore: boolean;
   onScheduleNow: () => void;
@@ -602,7 +605,11 @@ function UpgradeCard({
   onRestore: () => void;
 }) {
   return (
-    <Card>
+    <Card className={
+      variant === "recommended" ? "ring-2 ring-blue-200 border-blue-200" :
+      variant === "superseded" ? "border-muted opacity-80" :
+      undefined
+    }>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div>
@@ -613,6 +620,11 @@ function UpgradeCard({
                 </a>
               ) : (
                 u.display_name
+              )}
+              {variant === "recommended" && (
+                <Badge className="text-xs bg-blue-50 text-blue-700 border-blue-200" variant="outline">
+                  Recommended
+                </Badge>
               )}
               <Badge variant="outline" className={
                 u.release_status === 'release'
@@ -725,19 +737,22 @@ function UpgradeCard({
               ) : (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button size="sm" disabled={acting}>
+                  <Button size="sm" variant={variant === "superseded" ? "outline" : "default"} disabled={acting}>
                     {acting ? (
                       <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                     ) : (
                       <ArrowDownToLine className="mr-1.5 h-3.5 w-3.5" />
                     )}
-                    Upgrade Now
+                    {variant === "superseded" ? "Superseded — upgrade now?" : "Upgrade Now"}
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
                     <AlertDialogTitle>Confirm Upgrade</AlertDialogTitle>
                     <AlertDialogDescription>
+                      {variant === "superseded" && (
+                        <>A newer version is available and recommended. </>
+                      )}
                       This will schedule an immediate upgrade to {u.display_name}.
                       {u.has_migrations &&
                         " This version includes database migrations."}
