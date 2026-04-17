@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -844,14 +845,28 @@ func gitHeadInfo(dir string) (sha, commitDate string) {
 	return sha, strings.TrimSpace(out)
 }
 
+var gitDescribeRe = regexp.MustCompile(`-g[0-9a-f]+$`)
+
 func classifyReleaseStatus(ver string) string {
-	if !strings.HasPrefix(ver, "v") {
+	v := strings.TrimPrefix(ver, "v")
+	if v == "" || v == "dev" {
 		return "commit"
 	}
-	if strings.Contains(ver[1:], "-") {
+	// Git-describe with distance: "2026.04.0-rc.15-1-gf483d1d2e" has "-g<hex>"
+	// suffix indicating commits past the tag. These are "commit" not "prerelease".
+	if gitDescribeRe.MatchString(v) {
+		return "commit"
+	}
+	// Clean tag with -rc.N → prerelease
+	if strings.Contains(v, "-rc.") {
 		return "prerelease"
 	}
-	return "release"
+	// Clean tag without -rc → release (e.g., "2026.04.0")
+	parts := strings.SplitN(v, ".", 3)
+	if len(parts) >= 3 {
+		return "release"
+	}
+	return "commit"
 }
 
 // sqlLiteral escapes a string for use as a SQL single-quoted literal.
