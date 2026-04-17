@@ -38,4 +38,4 @@ jobs:
         username: statbus_test
         key: ${{ secrets.SSH_KEY }}
         command_timeout: 60m
-        script: cd statbus && git fetch origin && git checkout ${{ steps.ref.outputs.sha }} && ./dev.sh continous-integration-test
+        script: cd statbus && git fetch origin && git checkout -- . && git checkout ${{ steps.ref.outputs.sha }} && ./dev.sh continous-integration-test
