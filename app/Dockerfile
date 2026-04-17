@@ -18,6 +18,7 @@ RUN PNPM_VERSION_IN_PACKAGE=$(grep -o '"packageManager": "pnpm@[0-9]*' package.j
     fi
 WORKDIR /app
 COPY pnpm-lock.yaml ./
+COPY vendor/ ./vendor/
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store pnpm fetch --frozen-lockfile
 COPY package.json ./
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store pnpm install -r --offline --frozen-lockfile --aggregate-output
