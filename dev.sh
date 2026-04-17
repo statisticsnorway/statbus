@@ -20,13 +20,6 @@ fi
 WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$WORKSPACE"
 
-# Auto-fetch DB snapshot if not cached locally.
-# Intent: speeds up create-db from ~294 migrations to one pg_restore (~2 seconds).
-# Uses ./sb db snapshot fetch — one implementation in Go, shared by dev.sh and ./sb install.
-if [ ! -f "$WORKSPACE/.db-snapshot/snapshot.pg_dump" ] && [ -x ./sb ]; then
-    ./sb db snapshot fetch
-fi
-
 # Rebuild ./sb when:
 #   - the binary doesn't exist, OR
 #   - any cli/**/*.go source is newer than the binary (developer pulled
@@ -51,6 +44,14 @@ if [ "$sb_needs_rebuild" = true ]; then
         echo "Error: ./sb binary not found or out of date. Build it with: cd cli && go build -o ../sb ."
         exit 1
     fi
+fi
+
+# Auto-fetch DB snapshot if not cached locally.
+# Intent: speeds up create-db from ~294 migrations to one pg_restore (~2 seconds).
+# Uses ./sb db snapshot fetch — one implementation in Go, shared by dev.sh and ./sb install.
+# Placed AFTER the rebuild block so the current binary is always used.
+if [ ! -f "$WORKSPACE/.db-snapshot/snapshot.pg_dump" ] && [ -x ./sb ]; then
+    ./sb db snapshot fetch
 fi
 
 # Set TTY_INPUT to /dev/tty if available (interactive), otherwise /dev/null
