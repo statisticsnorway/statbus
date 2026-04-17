@@ -7,7 +7,6 @@ DECLARE
     _topo   integer;
     _committed timestamptz;
 BEGIN
-    -- Look up the installed row's position.
     SELECT topological_order, committed_at
       INTO _topo, _committed
       FROM public.upgrade
@@ -19,23 +18,14 @@ BEGIN
         RETURN;
     END IF;
 
-    -- Supersede all rows that are:
-    --   (a) not yet in a terminal state (no completed/started/skipped/superseded timestamp)
-    --   (b) a different commit than the just-installed one
-    --   (c) older by topological_order (if both have it) OR by committed_at
-    --
-    -- Clearing error=NULL matters when a previously-failed row gets
-    -- auto-superseded — the CHECK on state='superseded' only requires
-    -- superseded_at IS NOT NULL.
+    -- Filter by STATE — the single source of truth — not timestamps.
+    -- States superseded: available, scheduled, failed, rolled_back
+    -- States left alone: in_progress, completed, superseded, skipped, dismissed
     WITH superseded AS (
         UPDATE public.upgrade SET
             state = 'superseded',
-            superseded_at = now(),
-            error = NULL
-         WHERE completed_at IS NULL
-           AND started_at IS NULL
-           AND skipped_at IS NULL
-           AND superseded_at IS NULL
+            superseded_at = COALESCE(superseded_at, now())
+         WHERE state IN ('available', 'scheduled', 'failed', 'rolled_back')
            AND commit_sha != p_commit_sha
            AND (
                (_topo IS NOT NULL
