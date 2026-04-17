@@ -596,10 +596,7 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 		SELECT id, commit_sha, release_status::text, docker_images_ready, release_builds_ready, version
 		  FROM public.upgrade
 		 WHERE NOT docker_images_ready
-		   AND completed_at IS NULL
-		   AND rolled_back_at IS NULL
-		   AND skipped_at IS NULL
-		   AND superseded_at IS NULL
+		   AND state IN ('available', 'scheduled', 'in_progress', 'failed')
 		 ORDER BY committed_at DESC
 		 LIMIT 30`)
 	if err != nil {
@@ -1103,10 +1100,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 		`SELECT id, commit_sha,
 		        COALESCE(tags[array_upper(tags, 1)], 'sha-' || left(commit_sha, 12)) as display_name
 		 FROM public.upgrade
-		 WHERE started_at IS NOT NULL
-		   AND completed_at IS NULL
-		   AND error IS NULL
-		   AND rolled_back_at IS NULL
+		 WHERE state = 'in_progress'
 		 LIMIT 1`).Scan(&id, &commitSHA, &displayName)
 	if err != nil {
 		return // no in-progress upgrade
@@ -1485,7 +1479,7 @@ func (d *Service) cleanStaleMaintenance(ctx context.Context) {
 	// If DB is unreachable, leave the file (safer to stay in maintenance).
 	var count int
 	err := d.queryConn.QueryRow(ctx,
-		"SELECT COUNT(*) FROM public.upgrade WHERE started_at IS NOT NULL AND completed_at IS NULL AND error IS NULL").Scan(&count)
+		"SELECT COUNT(*) FROM public.upgrade WHERE state = 'in_progress'").Scan(&count)
 	if err != nil {
 		fmt.Printf("Cannot check upgrade status (DB error: %v), leaving maintenance file\n", err)
 		return
@@ -1499,7 +1493,7 @@ func (d *Service) cleanStaleMaintenance(ctx context.Context) {
 func (d *Service) checkMissedUpgrades(ctx context.Context) {
 	var count int
 	err := d.queryConn.QueryRow(ctx,
-		"SELECT COUNT(*) FROM public.upgrade WHERE scheduled_at IS NOT NULL AND started_at IS NULL").Scan(&count)
+		"SELECT COUNT(*) FROM public.upgrade WHERE state = 'scheduled'").Scan(&count)
 	if err == nil && count > 0 {
 		fmt.Printf("Found %d missed scheduled upgrade(s)\n", count)
 	}
@@ -1756,7 +1750,7 @@ func (d *Service) preDownloadImages(ctx context.Context) {
 		`SELECT commit_sha,
 		        COALESCE(tags[array_upper(tags, 1)], 'sha-' || left(commit_sha, 12)) as display_name
 		 FROM public.upgrade
-		 WHERE docker_images_downloaded = false AND skipped_at IS NULL AND error IS NULL
+		 WHERE docker_images_downloaded = false AND state IN ('available', 'scheduled')
 		 ORDER BY discovered_at LIMIT 3`)
 	if err != nil {
 		return
@@ -1807,10 +1801,10 @@ func (d *Service) scheduleImmediate(ctx context.Context, versionOrSHA string) {
 	}
 
 	// Reset lifecycle fields so a completed/failed upgrade can be re-applied.
-	// The WHERE clause prevents updating a row that's already scheduled and waiting
-	// to execute (scheduled_at IS NOT NULL AND started_at IS NULL). Without this guard,
-	// the UPDATE changes scheduled_at to now() → the upgrade_notify_daemon_trigger fires
-	// → sends NOTIFY upgrade_apply → service calls scheduleImmediate again → infinite loop.
+	// The WHERE clause prevents updating a row that's already in 'scheduled' state.
+	// Without this guard, the UPDATE changes scheduled_at to now() →
+	// upgrade_notify_daemon_trigger fires → sends NOTIFY upgrade_apply →
+	// service calls scheduleImmediate again → infinite loop.
 	result, err := d.queryConn.Exec(ctx,
 		`INSERT INTO public.upgrade (commit_sha, committed_at, tags, summary, scheduled_at, state)
 		 VALUES ($1, now(), CASE WHEN $2 != '' AND NOT starts_with($2, 'sha-') THEN ARRAY[$2]::text[] ELSE '{}'::text[] END, $2, now(), 'scheduled')
@@ -1825,11 +1819,7 @@ func (d *Service) scheduleImmediate(ctx context.Context, versionOrSHA string) {
 		   dismissed_at = NULL,
 		   superseded_at = NULL,
 		   log_relative_file_path = NULL
-		 WHERE public.upgrade.scheduled_at IS NULL
-		    OR public.upgrade.started_at IS NOT NULL
-		    OR public.upgrade.completed_at IS NOT NULL
-		    OR public.upgrade.error IS NOT NULL
-		    OR public.upgrade.superseded_at IS NOT NULL`,
+		 WHERE public.upgrade.state != 'scheduled'`,
 		commitSHA, displayName)
 	if err != nil {
 		fmt.Printf("Failed to schedule %s: %v\n", displayName, err)
@@ -1854,12 +1844,8 @@ func (d *Service) executeScheduled(ctx context.Context) {
 		        COALESCE(tags[array_upper(tags, 1)], 'sha-' || left(commit_sha, 12)) as display_name,
 		        scheduled_at
 		 FROM public.upgrade
-		 WHERE scheduled_at <= now()
-		   AND started_at IS NULL
-		   AND completed_at IS NULL
-		   AND error IS NULL
-		   AND rolled_back_at IS NULL
-		   AND skipped_at IS NULL
+		 WHERE state = 'scheduled'
+		   AND scheduled_at <= now()
 		 ORDER BY scheduled_at LIMIT 1`).Scan(&id, &commitSHA, &displayName, &scheduledAt)
 	if err != nil {
 		return // no pending upgrades

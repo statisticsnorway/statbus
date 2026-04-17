@@ -137,7 +137,7 @@ var upgradeScheduleCmd = &cobra.Command{
 		// state='scheduled' is required by chk_upgrade_state_attributes
 		// (migration 20260414180000): the CHECK rejects a scheduled_at
 		// update on an 'available' row without a matching state write.
-		sql := "UPDATE public.upgrade SET state = 'scheduled', scheduled_at = now() WHERE version = :'target_version' AND started_at IS NULL RETURNING version"
+		sql := "UPDATE public.upgrade SET state = 'scheduled', scheduled_at = now() WHERE version = :'target_version' AND state = 'available' RETURNING version"
 
 		out, err := runUpgradePsql(sql, "-v", "target_version="+version, "-t", "-A")
 		if err != nil {
