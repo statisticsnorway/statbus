@@ -275,6 +275,7 @@ func runInstall() (installErr error) {
 				failInstallUpgradeRow(installDir, upgradeRowID, installErr)
 			} else if installErr == nil {
 				completeInstallUpgradeRow(installDir, upgradeRowID)
+				runInstallRetention(installDir, upgradeRowID)
 			}
 		}()
 	}
@@ -1013,6 +1014,28 @@ WHERE id = %d AND state = 'in_progress'`,
 		return
 	}
 	fmt.Printf("  Upgrade row %d: failed\n", rowID)
+}
+
+// runInstallRetention runs the upgrade retention policy after a successful
+// install. This ensures the step-table path (used by cloud.sh) triggers the
+// same retention as the service's executeUpgrade path. Errors are logged and
+// swallowed — retention is opportunistic, not a hard install dependency.
+func runInstallRetention(dir string, rowID int64) {
+	idArg := "NULL"
+	if rowID > 0 {
+		idArg = strconv.FormatInt(rowID, 10)
+	}
+	sql := fmt.Sprintf("CALL public.upgrade_retention_apply('all', %s, 0)", idArg)
+	out, err := runInstallSQL(dir, sql)
+	if err != nil {
+		fmt.Printf("  Note: retention purge skipped: %v\n", err)
+		return
+	}
+	// Parse the INOUT p_deleted from psql output (single integer line).
+	deleted := strings.TrimSpace(out)
+	if deleted != "" && deleted != "0" {
+		fmt.Printf("  Retention: purged %s old upgrade rows\n", deleted)
+	}
 }
 
 // runRootInstall handles `sudo sb install` — ONLY installs the systemd service.
