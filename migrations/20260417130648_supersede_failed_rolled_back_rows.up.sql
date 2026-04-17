@@ -1,15 +1,17 @@
 BEGIN;
 
 -- Widen upgrade_supersede_older to also supersede failed and rolled_back
--- rows that are older than the newly completed version. Previously these
--- lingered as "actionable" in the UI even though a newer version had
--- been successfully installed.
+-- rows that are older than the newly completed version.
 --
--- Two changes from the previous version:
---   1. Remove `AND started_at IS NULL` — failed/rolled_back have started_at
---   2. Keep error intact (remove `error = NULL`) — the error column preserves
---      the history of what went wrong. The CHECK constraint on state='superseded'
---      only requires superseded_at IS NOT NULL; error is unconstrained.
+-- KEY DESIGN PRINCIPLE: filter by STATE, not by timestamp columns.
+-- The state column is the single source of truth for the upgrade lifecycle.
+-- Timestamp columns (started_at, superseded_at, etc.) record WHEN transitions
+-- happened but must NOT be used as filters for WHAT to do next. A row can
+-- have superseded_at set from a previous event while still being in
+-- rolled_back state — filtering on superseded_at IS NULL misses it.
+--
+-- The error column is preserved on supersede so the history of failures
+-- remains visible in the collapsed history view.
 CREATE OR REPLACE PROCEDURE public.upgrade_supersede_older(
     IN p_commit_sha text,
     INOUT p_superseded integer DEFAULT 0
@@ -33,22 +35,19 @@ BEGIN
         RETURN;
     END IF;
 
-    -- Supersede all rows that are:
-    --   (a) not already in a terminal state (completed, skipped, superseded)
-    --   (b) a different commit than the just-installed one
-    --   (c) older by topological_order (if both have it) OR by committed_at
+    -- Supersede all non-terminal rows older than the just-completed version.
+    -- Uses STATE as the filter — not timestamp columns — because state is
+    -- the single source of truth. Timestamps can have stale values from
+    -- previous lifecycle events (e.g. superseded_at set before a rollback).
     --
-    -- This catches available, scheduled, failed, and rolled_back rows.
-    -- The error column is preserved so the history of failures remains
-    -- visible in the UI even after supersession.
+    -- States superseded: available, scheduled, failed, rolled_back
+    -- States left alone:  in_progress (dangerous), completed, superseded,
+    --                     skipped, dismissed (already terminal)
     WITH superseded AS (
         UPDATE public.upgrade SET
             state = 'superseded',
-            superseded_at = now()
-         WHERE completed_at IS NULL
-           AND superseded_at IS NULL
-           AND skipped_at IS NULL
-           AND dismissed_at IS NULL
+            superseded_at = COALESCE(superseded_at, now())
+         WHERE state IN ('available', 'scheduled', 'failed', 'rolled_back')
            AND commit_sha != p_commit_sha
            AND (
                (_topo IS NOT NULL
