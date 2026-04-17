@@ -14,7 +14,8 @@
     "clean": "rimraf .next && rimraf node_modules",
     "update-pnpm": "corepack use pnpm@latest",
     "update-shadcn": "npx shadcn@latest add -y -o $(find src/components/ui/ -name '*.tsx' -exec basename {} .tsx \\; | grep -v 'toaster')",
-    "update": "pnpm up --latest"
+    "update": "pnpm up --latest",
+    "update-xlsx": "rm -rf vendor/xlsx && mkdir -p vendor/xlsx && curl -fsSL https://cdn.sheetjs.com/xlsx-${npm_config_xlsx_version:-0.20.3}/xlsx-${npm_config_xlsx_version:-0.20.3}.tgz | tar xz -C vendor/xlsx --strip-components=1 && echo 'Updated xlsx to ${npm_config_xlsx_version:-0.20.3}. Run: pnpm install && pnpm run build'"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -74,7 +75,7 @@
     "tailwind-merge": "^3.4.0",
     "tailwindcss-animate": "^1.0.7",
     "undici": "^7.24.0",
-    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
+    "xlsx": "file:./vendor/xlsx",
     "xstate": "^5.26.0",
     "zod": "^3.25.76",
     "zod-form-data": "^2.0.8"
@@ -113,7 +114,7 @@
       "lodash-es": "^4.18.1",
       "dompurify": "^3.4.0",
       "minimatch": "^10.2.3",
-      "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+      "xlsx": "file:./vendor/xlsx"
     }
   }
 }
