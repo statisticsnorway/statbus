@@ -24,7 +24,7 @@
 #
 set -euo pipefail
 
-SERVERS="statbus_demo statbus_no statbus_tcc statbus_ma statbus_ug statbus_et statbus_jo statbus_dev"
+SERVERS="statbus_dev statbus_demo statbus_et statbus_jo statbus_ma statbus_tcc statbus_ug statbus_no"
 HOST="niue.statbus.org"
 INSTALL_URL="https://statbus.org/install.sh"
 
