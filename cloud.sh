@@ -49,7 +49,8 @@ usage() {
     echo "  inspect             Show credentials for all installations"
     echo "  wipe <server>       DESTRUCTIVE: delete DB and recreate"
     echo ""
-    echo "  migrate-down <server> <migration>  Run down migration on edge server"
+    echo "  migrate-down <server> <migration>  Roll back to before this migration (edge only)"
+    echo "  migrate-up <server>               Apply pending migrations (edge only)"
     echo ""
     echo "Servers: $SERVERS"
     exit 1
@@ -229,6 +230,25 @@ cmd_migrate_down() {
         ssh_server "$server" "cd statbus && ./sb migrate down" 2>&1
     done
     echo "Done. Re-run: ./cloud.sh install $server"
+}
+
+# cmd_migrate_up applies pending migrations on an edge server.
+# Symmetric counterpart to migrate-down. Edge-only.
+cmd_migrate_up() {
+    local server="$1"
+    validate_server "$server"
+
+    local channel
+    channel=$(ssh_server "$server" "cd statbus && ./sb dotenv -f .env.config get UPGRADE_CHANNEL 2>/dev/null" 2>/dev/null || echo "prerelease")
+    if [ "$channel" != "edge" ]; then
+        echo "Error: migrate-up is only supported on edge channel servers."
+        echo "  $server is on channel: $channel"
+        exit 1
+    fi
+
+    echo "Applying pending migrations on $server..."
+    ssh_server "$server" "cd statbus && ./sb migrate up" 2>&1
+    echo "Done."
 }
 
 cmd_install_one() {
@@ -427,6 +447,10 @@ case "$1" in
     migrate-down)
         [ $# -lt 3 ] && { echo "Error: migrate-down requires <server> and <migration>"; echo "Example: $0 migrate-down statbus_dev 20260417130648"; exit 1; }
         cmd_migrate_down "$2" "$3"
+        ;;
+    migrate-up)
+        [ $# -lt 2 ] && { echo "Error: migrate-up requires a server name"; exit 1; }
+        cmd_migrate_up "$2"
         ;;
     *)
         echo "Unknown command: $1"
