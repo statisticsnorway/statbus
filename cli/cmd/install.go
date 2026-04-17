@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -136,7 +137,7 @@ func acquireOrBypass(installDir string, bypass bool) (release func(), err error)
 // refuses to proceed. The only exception is the service's own post-upgrade
 // fixup, which passes --inside-active-upgrade / STATBUS_INSIDE_ACTIVE_UPGRADE=1
 // to signal "I am the active upgrade, not a conflicting actor."
-func runInstall() error {
+func runInstall() (installErr error) {
 	// Warn if running as root — the upgrade service is a user-level systemd unit now,
 	// running as root would create files owned by root in the project dir.
 	if os.Geteuid() == 0 {
@@ -196,11 +197,13 @@ func runInstall() error {
 	//   StateLegacyNoUpgradeTable → refuse with a pointer to #65.6 (the
 	//                           pre-1.0 cascade lands there).
 	//   all other states      → fall through to acquireOrBypass + step-table.
+	var detectedState install.State
 	if !bypass {
 		state, detail, derr := install.Detect(installDir, version)
 		if derr != nil {
 			fmt.Printf("Warning: state detection failed: %v\n", derr)
 		} else {
+			detectedState = state
 			logInstallState(state, detail)
 			if state == install.StateCrashedUpgrade {
 				if err := runCrashRecovery(installDir); err != nil {
@@ -210,6 +213,7 @@ func runInstall() error {
 				if derr != nil {
 					return fmt.Errorf("re-detect after recovery: %w", derr)
 				}
+				detectedState = state
 				fmt.Printf("  State after recovery: %s (target=%s)\n", state, detail.TargetVersion)
 			}
 			if handled, err := dispatchInstallState(installDir, state, detail); handled {
@@ -255,6 +259,25 @@ func runInstall() error {
 		fmt.Printf("Disk space: %d GB free\n", freeGB)
 	}
 
+	// --- Upgrade row lifecycle ---
+	// Mirror the service path: in_progress at start, completed/failed at end.
+	// For re-installs (StateNothingScheduled) the DB is up — write in_progress
+	// so the admin UI shows the install in progress. For fresh installs the DB
+	// doesn't exist until step 10 (migrations), so we only write at the end.
+	var upgradeRowID int64
+	if !bypass && version != "dev" && detectedState == install.StateNothingScheduled {
+		upgradeRowID = startInstallUpgradeRow(installDir)
+	}
+	if !bypass && version != "dev" {
+		defer func() {
+			if installErr != nil && upgradeRowID > 0 {
+				failInstallUpgradeRow(installDir, upgradeRowID, installErr)
+			} else if installErr == nil {
+				completeInstallUpgradeRow(installDir, upgradeRowID)
+			}
+		}()
+	}
+
 	steps := []step{
 		{"Prerequisites", checkPrereqDone, runPrereq},
 		{"Repository", checkRepoDone, runCloneRepo},
@@ -296,14 +319,6 @@ func runInstall() error {
 		}
 
 		fmt.Printf("%s DONE\n", prefix)
-	}
-
-	// Record the installed version in public.upgrade so the admin UI shows
-	// the correct "Currently running" version. Skip in the bypass path
-	// (the upgrade service writes its own row in executeUpgrade) and for
-	// dev builds.
-	if !bypass {
-		recordInstallVersion(installDir)
 	}
 
 	fmt.Println()
@@ -811,57 +826,136 @@ func runInstallService(dir string) error {
 	return nil
 }
 
-// recordInstallVersion inserts (or promotes) a completed row in public.upgrade
-// so the admin UI shows the correct "Currently running" version after a
-// step-table install. Best-effort — failures are logged but don't block install.
-func recordInstallVersion(dir string) {
-	if version == "dev" {
-		return
-	}
-
-	sha, err := upgrade.RunCommandOutput(dir, "git", "rev-parse", "HEAD")
+// gitHeadInfo returns the HEAD commit SHA and ISO-8601 commit date, or empty
+// strings if git is unavailable (e.g., non-git install from tarball).
+func gitHeadInfo(dir string) (sha, commitDate string) {
+	out, err := upgrade.RunCommandOutput(dir, "git", "rev-parse", "HEAD")
 	if err != nil {
-		fmt.Printf("  Note: could not determine commit SHA; skipping upgrade row recording\n")
-		return
+		return "", ""
 	}
-	sha = strings.TrimSpace(sha)
+	sha = strings.TrimSpace(out)
 	if len(sha) != 40 {
-		return
+		return "", ""
 	}
-
-	commitDate, err := upgrade.RunCommandOutput(dir, "git", "log", "-1", "--format=%cI", "HEAD")
+	out, err = upgrade.RunCommandOutput(dir, "git", "log", "-1", "--format=%cI", "HEAD")
 	if err != nil {
-		fmt.Printf("  Note: could not determine commit date; skipping upgrade row recording\n")
-		return
+		return sha, ""
 	}
-	commitDate = strings.TrimSpace(commitDate)
+	return sha, strings.TrimSpace(out)
+}
 
-	releaseStatus := "commit"
-	if strings.HasPrefix(version, "v") {
-		if strings.Contains(version[1:], "-") {
-			releaseStatus = "prerelease"
-		} else {
-			releaseStatus = "release"
-		}
+func classifyReleaseStatus(ver string) string {
+	if !strings.HasPrefix(ver, "v") {
+		return "commit"
 	}
+	if strings.Contains(ver[1:], "-") {
+		return "prerelease"
+	}
+	return "release"
+}
 
-	summary := fmt.Sprintf("Installed via ./sb install (%s)", version)
-
+// runInstallSQL runs a single psql statement with named-parameter binding.
+// vars is a flat list of name, value pairs (e.g., "sha", "abc123", "version", "v1.0").
+// Returns combined output and any error.
+func runInstallSQL(dir, sql string, vars ...string) (string, error) {
 	psqlPath, prefix, env, err := migrate.PsqlCommand(dir)
 	if err != nil {
-		fmt.Printf("  Note: database not reachable; skipping upgrade row recording\n")
+		return "", err
+	}
+	args := append(append([]string{}, prefix...), "-v", "ON_ERROR_STOP=on", "-X", "-A", "-t")
+	for i := 0; i+1 < len(vars); i += 2 {
+		args = append(args, "-v", fmt.Sprintf("%s=%s", vars[i], vars[i+1]))
+	}
+	args = append(args, "-c", sql)
+	cmd := exec.Command(psqlPath, args...)
+	cmd.Dir = dir
+	cmd.Env = env
+	out, err := cmd.CombinedOutput()
+	return string(out), err
+}
+
+// startInstallUpgradeRow inserts an in_progress row for the current HEAD so the
+// admin UI shows the install in progress. Only called for re-installs where the
+// DB is already up (StateNothingScheduled). Returns the row ID, or 0 on failure.
+func startInstallUpgradeRow(dir string) int64 {
+	sha, commitDate := gitHeadInfo(dir)
+	if sha == "" || commitDate == "" {
+		return 0
+	}
+
+	sql := `INSERT INTO public.upgrade (
+  commit_sha, committed_at, summary, state,
+  version, release_status, scheduled_at, started_at, from_version
+) VALUES (
+  :'sha', :'committed_at'::timestamptz,
+  :'summary', 'in_progress',
+  :'version', :'release_status'::release_status_type,
+  clock_timestamp(), clock_timestamp(),
+  (SELECT version FROM public.upgrade WHERE state = 'completed' ORDER BY completed_at DESC NULLS LAST LIMIT 1)
+)
+ON CONFLICT (commit_sha) DO UPDATE SET
+  state = 'in_progress',
+  started_at = COALESCE(upgrade.started_at, clock_timestamp()),
+  scheduled_at = COALESCE(upgrade.scheduled_at, clock_timestamp()),
+  completed_at = NULL,
+  error = NULL,
+  rolled_back_at = NULL,
+  from_version = COALESCE(upgrade.from_version, EXCLUDED.from_version),
+  version = COALESCE(EXCLUDED.version, upgrade.version)
+WHERE upgrade.state NOT IN ('in_progress', 'completed')
+RETURNING id`
+
+	out, err := runInstallSQL(dir, sql,
+		"sha", sha,
+		"committed_at", commitDate,
+		"summary", fmt.Sprintf("Installing via ./sb install (%s)", version),
+		"version", version,
+		"release_status", classifyReleaseStatus(version))
+	if err != nil {
+		fmt.Printf("  Note: could not start upgrade row: %v\n", err)
+		return 0
+	}
+	line := strings.TrimSpace(out)
+	if line == "" {
+		return 0
+	}
+	id, err := strconv.ParseInt(line, 10, 64)
+	if err != nil {
+		return 0
+	}
+	fmt.Printf("  Upgrade row %d: in_progress (%s)\n", id, version)
+	return id
+}
+
+// completeInstallUpgradeRow marks the upgrade row completed (or creates a new
+// completed row if no in_progress row was started — e.g., fresh installs).
+func completeInstallUpgradeRow(dir string, rowID int64) {
+	if rowID > 0 {
+		sql := `UPDATE public.upgrade SET state = 'completed', completed_at = clock_timestamp()
+WHERE id = :'row_id' AND state = 'in_progress'`
+		if _, err := runInstallSQL(dir, sql, "row_id", strconv.FormatInt(rowID, 10)); err != nil {
+			fmt.Printf("  Note: could not mark upgrade row %d completed: %v\n", rowID, err)
+			return
+		}
+		fmt.Printf("  Upgrade row %d: completed\n", rowID)
+		return
+	}
+
+	sha, commitDate := gitHeadInfo(dir)
+	if sha == "" || commitDate == "" {
+		fmt.Printf("  Note: could not determine commit SHA; skipping upgrade row\n")
 		return
 	}
 
 	sql := `INSERT INTO public.upgrade (
   commit_sha, committed_at, summary, state, completed_at,
-  version, release_status, scheduled_at, started_at
+  version, release_status, scheduled_at, started_at, from_version
 ) VALUES (
   :'sha', :'committed_at'::timestamptz,
-  :'summary',
-  'completed', clock_timestamp(),
+  :'summary', 'completed', clock_timestamp(),
   :'version', :'release_status'::release_status_type,
-  clock_timestamp(), clock_timestamp()
+  clock_timestamp(), clock_timestamp(),
+  (SELECT version FROM public.upgrade WHERE state = 'completed' ORDER BY completed_at DESC NULLS LAST LIMIT 1)
 )
 ON CONFLICT (commit_sha) DO UPDATE SET
   state = 'completed',
@@ -873,26 +967,33 @@ ON CONFLICT (commit_sha) DO UPDATE SET
   version = COALESCE(EXCLUDED.version, upgrade.version)
 WHERE upgrade.state != 'completed'`
 
-	args := append(append([]string{}, prefix...),
-		"-v", fmt.Sprintf("sha=%s", sha),
-		"-v", fmt.Sprintf("committed_at=%s", commitDate),
-		"-v", fmt.Sprintf("summary=%s", summary),
-		"-v", fmt.Sprintf("version=%s", version),
-		"-v", fmt.Sprintf("release_status=%s", releaseStatus),
-		"-v", "ON_ERROR_STOP=on",
-		"-X", "-A", "-t",
-		"-c", sql)
-
-	cmd := exec.Command(psqlPath, args...)
-	cmd.Dir = dir
-	cmd.Env = env
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		fmt.Printf("  Note: could not record upgrade row: %v (%s)\n", err, strings.TrimSpace(string(out)))
+	if _, err := runInstallSQL(dir, sql,
+		"sha", sha,
+		"committed_at", commitDate,
+		"summary", fmt.Sprintf("Installed via ./sb install (%s)", version),
+		"version", version,
+		"release_status", classifyReleaseStatus(version)); err != nil {
+		fmt.Printf("  Note: could not record upgrade row: %v\n", err)
 		return
 	}
-
 	fmt.Printf("  Recorded installed version %s in upgrade table\n", version)
+}
+
+// failInstallUpgradeRow marks the in_progress row as failed.
+func failInstallUpgradeRow(dir string, rowID int64, stepErr error) {
+	errMsg := stepErr.Error()
+	if len(errMsg) > 500 {
+		errMsg = errMsg[:500]
+	}
+	sql := `UPDATE public.upgrade SET state = 'failed', error = :'error_msg'
+WHERE id = :'row_id' AND state = 'in_progress'`
+	if _, err := runInstallSQL(dir, sql,
+		"row_id", strconv.FormatInt(rowID, 10),
+		"error_msg", errMsg); err != nil {
+		fmt.Printf("  Note: could not mark upgrade row %d failed: %v\n", rowID, err)
+		return
+	}
+	fmt.Printf("  Upgrade row %d: failed\n", rowID)
 }
 
 // runRootInstall handles `sudo sb install` — ONLY installs the systemd service.
