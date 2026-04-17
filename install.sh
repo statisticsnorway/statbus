@@ -27,13 +27,16 @@
 #
 set -euo pipefail
 
-# Parse arguments
+# Parse arguments — install.sh-specific flags are consumed here;
+# anything else is forwarded to ./sb install (e.g. --trust-github-user).
 VERSION=""
 PRERELEASE=false
+SB_INSTALL_ARGS=""
 while [ $# -gt 0 ]; do
     case "$1" in
         --version) VERSION="$2"; shift 2 ;;
         --prerelease) PRERELEASE=true; shift ;;
+        --trust-github-user) SB_INSTALL_ARGS="$SB_INSTALL_ARGS --trust-github-user $2"; shift 2 ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
 done
@@ -109,7 +112,7 @@ if [ -d "$STATBUS_DIR/.git" ]; then
     echo "Checking out $VERSION..."
     git fetch origin --tags --quiet
     git checkout "$VERSION" --quiet
-    exec ./sb install
+    exec ./sb install $SB_INSTALL_ARGS
 else
     # FRESH: git clone creates the directory
     echo "Cloning StatBus repository..."
@@ -119,5 +122,5 @@ else
     cd "$STATBUS_DIR"
     echo "Binary: $(./sb --version)"
     echo ""
-    exec ./sb install
+    exec ./sb install $SB_INSTALL_ARGS
 fi

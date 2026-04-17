@@ -23,6 +23,11 @@ import (
 
 var nonInteractive bool
 
+// trustGitHubUser is set by --trust-github-user to auto-trust a GitHub user's
+// signing key during install. This runs trust-key add non-interactively before
+// the step table, so cloud.sh can pass it through for fleet-wide key repair.
+var trustGitHubUser string
+
 // insideActiveUpgrade signals that this install invocation is a post-upgrade
 // fixup spawned by the upgrade service itself. It is NOT a user-facing flag —
 // operators must never pass it. The service at service.go:executeUpgrade sets
@@ -72,6 +77,8 @@ Example with statbus.nso.eu domain:
 func init() {
 	installCmd.Flags().BoolVar(&nonInteractive, "non-interactive", false,
 		"Run without prompts (requires .env.config to exist)")
+	installCmd.Flags().StringVar(&trustGitHubUser, "trust-github-user", "",
+		"Auto-trust this GitHub user's signing key (non-interactive, for scripted installs)")
 	installCmd.Flags().BoolVar(&insideActiveUpgrade, "inside-active-upgrade", false,
 		"Internal: set by the upgrade service when spawning install as a post-upgrade fixup. Operators must not pass this.")
 	// Hide the internal flag from --help; it's a contract between service and child install, not a user-facing knob.
@@ -225,6 +232,26 @@ func runInstall() (installErr error) {
 		}
 	}
 
+	// Pre-flight: if --trust-github-user is set, trust that user's signing
+	// key before any validation. This makes one-pass fleet repair possible:
+	//   ./sb install --trust-github-user jhf
+	if !bypass && trustGitHubUser != "" {
+		cfgPath := filepath.Join(installDir, ".env.config")
+		if _, statErr := os.Stat(cfgPath); statErr == nil {
+			f, loadErr := dotenv.Load(cfgPath)
+			if loadErr == nil {
+				fmt.Printf("Trusting GitHub user %s (--trust-github-user)...\n", trustGitHubUser)
+				if err := trustSignerNonInteractive(trustGitHubUser, f); err != nil {
+					fmt.Printf("  Warning: could not trust %s: %v\n", trustGitHubUser, err)
+				} else {
+					if err := f.Save(); err != nil {
+						fmt.Printf("  Warning: could not save .env.config: %v\n", err)
+					}
+				}
+			}
+		}
+	}
+
 	// Pre-flight: on existing installs (.env.config exists), require at
 	// least one trusted signer BEFORE doing any work. Fresh installs skip
 	// this — .env.config doesn't exist yet (step 5 creates it, step 13
@@ -238,6 +265,7 @@ func runInstall() (installErr error) {
 					"  The upgrade service requires at least one trusted signer that can verify commit signatures.\n" +
 					"  Pre-configure before running install:\n" +
 					"    ./sb upgrade trust-key add <github-username>\n" +
+					"  Or pass --trust-github-user <username> to install.\n" +
 					"  Then re-run the install.")
 			}
 			fmt.Println("No valid trusted signers configured. You must approve at least one signer before the install can proceed.")
@@ -767,8 +795,17 @@ func checkSignersDone(dir string) bool {
 			// HEAD is unsigned (development) — can't verify key, accept existence
 			return true
 		}
-		// Signed commit but verification failed — wrong key configured
-		fmt.Printf("  Note: configured signing key does not verify HEAD commit — will re-prompt\n")
+		// Signed commit but verification failed — wrong key configured.
+		// Remove the invalid key(s) so step 13 starts clean.
+		fmt.Printf("  Configured signing key does not verify HEAD commit — removing invalid key(s)\n")
+		for _, key := range f.Keys() {
+			if strings.HasPrefix(key, trustedSignerPrefix) {
+				f.Delete(key)
+			}
+		}
+		if err := f.Save(); err != nil {
+			fmt.Printf("  Warning: could not save .env.config after removing invalid keys: %v\n", err)
+		}
 		return false
 	}
 	return true

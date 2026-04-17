@@ -28,7 +28,8 @@ SERVERS="statbus_dev statbus_demo statbus_et statbus_jo statbus_ma statbus_tcc s
 HOST="niue.statbus.org"
 INSTALL_URL="https://statbus.org/install.sh"
 # GitHub username whose signing key should be trusted on each server.
-# When set, `./sb upgrade trust-key add <user> --yes` runs before install.
+# Passed as --trust-github-user to ./sb install so the installer handles
+# key validation, removal of invalid keys, and re-fetching in one pass.
 # Default: jhf (primary release signer). Set empty to skip.
 CLOUD_TRUST_KEY_USER="${CLOUD_TRUST_KEY_USER:-jhf}"
 
@@ -132,17 +133,11 @@ cmd_install() {
     fi
 }
 
-# ensure_trust_key runs `./sb upgrade trust-key add <user> --yes` on a server
-# so the correct signing key is configured before install. Idempotent: overwrites
-# any existing (possibly wrong) key. Silently skipped when CLOUD_TRUST_KEY_USER
-# is empty, the sb binary doesn't exist, or GitHub is unreachable.
-ensure_trust_key() {
-    local server="$1"
-    if [ -z "$CLOUD_TRUST_KEY_USER" ]; then
-        return 0
+# trust_flag returns the --trust-github-user flag for ./sb install if configured.
+trust_flag() {
+    if [ -n "$CLOUD_TRUST_KEY_USER" ]; then
+        echo "--trust-github-user $CLOUD_TRUST_KEY_USER"
     fi
-    echo "Ensuring trusted signing key for $CLOUD_TRUST_KEY_USER..."
-    ssh_server "$server" "cd statbus && ./sb upgrade trust-key add $CLOUD_TRUST_KEY_USER --yes" 2>/dev/null || true
 }
 
 cmd_install_one() {
@@ -204,10 +199,9 @@ cmd_install_one() {
         # the binary open → "text file busy" on mv.
         stop_upgrade_service "$server"
         ssh_server "$server" "cd statbus && mv sb-linux-amd64 sb" 2>&1
-        # Ensure the correct signing key is configured with the new binary.
-        ensure_trust_key "$server"
         # ./sb install detects the service is stopped and restarts it (user-level, no root needed).
-        ssh_server "$server" "cd statbus && ./sb install" 2>&1 \
+        # --trust-github-user validates/repairs the signing key in one pass.
+        ssh_server "$server" "cd statbus && ./sb install $(trust_flag)" 2>&1 \
             || exit_code=$?
     else
         if [ -n "$version" ]; then
@@ -218,10 +212,9 @@ cmd_install_one() {
                 return 1
             fi
             echo "Installing $server at $version via $INSTALL_URL ..."
-            ensure_trust_key "$server"
             stop_upgrade_service "$server"
             ssh_server "$server" \
-                "curl -fsSL ${INSTALL_URL} | bash -s -- --version $version" 2>&1 \
+                "curl -fsSL ${INSTALL_URL} | bash -s -- --version $version $(trust_flag)" 2>&1 \
                 || exit_code=$?
         else
             # Gate: verify release artifacts are fully published before stopping
@@ -233,7 +226,6 @@ cmd_install_one() {
                 return 1
             fi
             echo "Installing $server via $INSTALL_URL ..."
-            ensure_trust_key "$server"
             # Stop the user-level upgrade service so install.sh can replace the
             # `./sb` binary without hitting "text file busy". install.sh's
             # install step re-enables and starts the service on completion.
@@ -241,7 +233,7 @@ cmd_install_one() {
             # Step 1: Run install.sh as the app user.
             # Exit code 42 = service needs root (not a failure).
             ssh_server "$server" \
-                "curl -fsSL ${INSTALL_URL} | bash -s -- --prerelease" 2>&1 \
+                "curl -fsSL ${INSTALL_URL} | bash -s -- --prerelease $(trust_flag)" 2>&1 \
                 || exit_code=$?
         fi
     fi
