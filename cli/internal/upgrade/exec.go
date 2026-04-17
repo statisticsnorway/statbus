@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -419,7 +420,9 @@ func (d *Service) pruneBackups(ctx context.Context, keep int) {
 	}
 	if len(finalised) > keep {
 		sort.Strings(finalised)
-		for _, p := range finalised[:len(finalised)-keep] {
+		toPrune := finalised[:len(finalised)-keep]
+		pruned := 0
+		for _, p := range toPrune {
 			// NULL the DB reference before deletion.  If the Exec fails, skip
 			// os.RemoveAll for this cycle: deleting without nulling would cause
 			// permanent BACKUP_MISSING noise — one extra cycle is the lesser cost.
@@ -430,6 +433,8 @@ func (d *Service) pruneBackups(ctx context.Context, keep int) {
 				}
 			}
 			os.RemoveAll(p)
+			log.Printf("Pruned backup: %s", filepath.Base(p))
+			pruned++
 			// Prune the matching upgrade-logs-<stamp> sibling (created by
 			// cascadeUpgradeLogsIntoBackup). It has no DB row reference so
 			// reconcileBackupDir would not touch it — we must co-prune here.
@@ -439,6 +444,9 @@ func (d *Service) pruneBackups(ctx context.Context, keep int) {
 				logsDir := filepath.Join(d.backupRoot(), "upgrade-logs-"+stamp)
 				os.RemoveAll(logsDir)
 			}
+		}
+		if pruned > 0 {
+			log.Printf("Pruned %d backup(s), keeping %d newest", pruned, keep)
 		}
 	}
 }
@@ -571,9 +579,13 @@ func (d *Service) pruneUpgradeLogs(keep int) {
 		sorted = append(sorted, p)
 	}
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i].mtime.Before(sorted[j].mtime) })
-	for _, p := range sorted[:len(sorted)-keep] {
+	toPrune := sorted[:len(sorted)-keep]
+	for _, p := range toPrune {
 		os.Remove(filepath.Join(dir, p.stem+".log"))        // no-op if absent
 		os.Remove(filepath.Join(dir, p.stem+".bundle.txt")) // no-op if absent
+	}
+	if len(toPrune) > 0 {
+		log.Printf("Pruned %d upgrade log(s), keeping %d newest", len(toPrune), keep)
 	}
 }
 
