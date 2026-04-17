@@ -291,7 +291,7 @@ function UpgradeButton({ status }: { status: UpgradeStatus }) {
       title={`Software upgrade ${status}`}
     >
       <ArrowUpCircle className="h-3.5 w-3.5" />
-      Upgrade
+      {status === "in_progress" ? "Upgrading..." : "Upgrade"}
     </Link>
   );
 }
