@@ -24,7 +24,7 @@ cd "$WORKSPACE"
 # Intent: speeds up create-db from ~294 migrations to one pg_restore (~2 seconds).
 # Uses ./sb db snapshot fetch — one implementation in Go, shared by dev.sh and ./sb install.
 if [ ! -f "$WORKSPACE/.db-snapshot/snapshot.pg_dump" ] && [ -x ./sb ]; then
-    ./sb db snapshot fetch 2>/dev/null || true
+    ./sb db snapshot fetch
 fi
 
 # Rebuild ./sb when:
