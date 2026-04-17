@@ -30,8 +30,10 @@ INSTALL_URL="https://statbus.org/install.sh"
 # GitHub username whose signing key should be trusted on each server.
 # Passed as --trust-github-user to ./sb install so the installer handles
 # key validation, removal of invalid keys, and re-fetching in one pass.
-# Default: jhf (primary release signer). Set empty to skip.
-CLOUD_TRUST_KEY_USER="${CLOUD_TRUST_KEY_USER:-jhf}"
+# No default — install must fail if the wrong key is configured, forcing
+# the operator to explicitly provide the fix:
+#   CLOUD_TRUST_KEY_USER=jhf ./cloud.sh install all
+CLOUD_TRUST_KEY_USER="${CLOUD_TRUST_KEY_USER:-}"
 
 usage() {
     echo "Usage: $0 <command> [args]"
