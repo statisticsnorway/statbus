@@ -242,6 +242,12 @@ cmd_install_one() {
 
     if [ "$exit_code" -ne 0 ]; then
         echo "--- $server install FAILED (exit code $exit_code) ---"
+        if [ -z "$CLOUD_TRUST_KEY_USER" ]; then
+            echo ""
+            echo "If this failed because of an invalid signing key, re-run with:"
+            echo "  CLOUD_TRUST_KEY_USER=jhf ./cloud.sh install $server"
+            echo ""
+        fi
         ensure_service_started "$server"
         return 1
     fi
