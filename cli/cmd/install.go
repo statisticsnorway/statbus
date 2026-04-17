@@ -856,6 +856,9 @@ func classifyReleaseStatus(ver string) string {
 
 // runInstallSQL runs a single psql statement with named-parameter binding.
 // vars is a flat list of name, value pairs (e.g., "sha", "abc123", "version", "v1.0").
+// The SQL is piped via stdin (not -c) because psql's :'name' variable
+// interpolation is a client-side feature that only works in interactive/stdin
+// mode — -c passes the string directly to the server without interpolation.
 // Returns combined output and any error.
 func runInstallSQL(dir, sql string, vars ...string) (string, error) {
 	psqlPath, prefix, env, err := migrate.PsqlCommand(dir)
@@ -866,10 +869,10 @@ func runInstallSQL(dir, sql string, vars ...string) (string, error) {
 	for i := 0; i+1 < len(vars); i += 2 {
 		args = append(args, "-v", fmt.Sprintf("%s=%s", vars[i], vars[i+1]))
 	}
-	args = append(args, "-c", sql)
 	cmd := exec.Command(psqlPath, args...)
 	cmd.Dir = dir
 	cmd.Env = env
+	cmd.Stdin = strings.NewReader(sql)
 	out, err := cmd.CombinedOutput()
 	return string(out), err
 }
@@ -912,7 +915,7 @@ RETURNING id`
 		"version", version,
 		"release_status", classifyReleaseStatus(version))
 	if err != nil {
-		fmt.Printf("  Note: could not start upgrade row: %v\n", err)
+		fmt.Printf("  Note: could not start upgrade row: %v (%s)\n", err, strings.TrimSpace(out))
 		return 0
 	}
 	line := strings.TrimSpace(out)
@@ -933,8 +936,8 @@ func completeInstallUpgradeRow(dir string, rowID int64) {
 	if rowID > 0 {
 		sql := `UPDATE public.upgrade SET state = 'completed', completed_at = clock_timestamp()
 WHERE id = :'row_id' AND state = 'in_progress'`
-		if _, err := runInstallSQL(dir, sql, "row_id", strconv.FormatInt(rowID, 10)); err != nil {
-			fmt.Printf("  Note: could not mark upgrade row %d completed: %v\n", rowID, err)
+		if out, err := runInstallSQL(dir, sql, "row_id", strconv.FormatInt(rowID, 10)); err != nil {
+			fmt.Printf("  Note: could not mark upgrade row %d completed: %v (%s)\n", rowID, err, strings.TrimSpace(out))
 			return
 		}
 		fmt.Printf("  Upgrade row %d: completed\n", rowID)
@@ -967,13 +970,13 @@ ON CONFLICT (commit_sha) DO UPDATE SET
   version = COALESCE(EXCLUDED.version, upgrade.version)
 WHERE upgrade.state != 'completed'`
 
-	if _, err := runInstallSQL(dir, sql,
+	if out, err := runInstallSQL(dir, sql,
 		"sha", sha,
 		"committed_at", commitDate,
 		"summary", fmt.Sprintf("Installed via ./sb install (%s)", version),
 		"version", version,
 		"release_status", classifyReleaseStatus(version)); err != nil {
-		fmt.Printf("  Note: could not record upgrade row: %v\n", err)
+		fmt.Printf("  Note: could not record upgrade row: %v (%s)\n", err, strings.TrimSpace(out))
 		return
 	}
 	fmt.Printf("  Recorded installed version %s in upgrade table\n", version)
@@ -987,10 +990,10 @@ func failInstallUpgradeRow(dir string, rowID int64, stepErr error) {
 	}
 	sql := `UPDATE public.upgrade SET state = 'failed', error = :'error_msg'
 WHERE id = :'row_id' AND state = 'in_progress'`
-	if _, err := runInstallSQL(dir, sql,
+	if out, err := runInstallSQL(dir, sql,
 		"row_id", strconv.FormatInt(rowID, 10),
 		"error_msg", errMsg); err != nil {
-		fmt.Printf("  Note: could not mark upgrade row %d failed: %v\n", rowID, err)
+		fmt.Printf("  Note: could not mark upgrade row %d failed: %v (%s)\n", rowID, err, strings.TrimSpace(out))
 		return
 	}
 	fmt.Printf("  Upgrade row %d: failed\n", rowID)
