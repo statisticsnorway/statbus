@@ -49,6 +49,8 @@ usage() {
     echo "  inspect             Show credentials for all installations"
     echo "  wipe <server>       DESTRUCTIVE: delete DB and recreate"
     echo ""
+    echo "  migrate-down <server> <migration>  Run down migration on edge server"
+    echo ""
     echo "Servers: $SERVERS"
     exit 1
 }
@@ -142,6 +144,93 @@ trust_flag() {
     fi
 }
 
+# check_migration_immutability detects if any deployed migration was modified
+# between the server's previous HEAD and the new HEAD. Edge-only — release
+# channels use tagged versions where the RC preflight already enforces this.
+# Returns 0 if clean, 1 if modified (with actionable instructions printed).
+check_migration_immutability() {
+    local server="$1"
+    # Get the previous HEAD (before our checkout) from git reflog.
+    local prev_head
+    prev_head=$(ssh_server "$server" "cd statbus && git rev-parse 'HEAD@{1}' 2>/dev/null" 2>/dev/null || true)
+    if [ -z "$prev_head" ]; then
+        return 0  # no reflog (fresh clone) — nothing to check
+    fi
+
+    # Diff migrations/ between previous HEAD and current HEAD.
+    # Only care about M (modified) and D (deleted), not A (added).
+    local modified
+    modified=$(ssh_server "$server" \
+        "cd statbus && git diff --name-status $prev_head..HEAD -- migrations/ 2>/dev/null | grep -E '^[MD]'" \
+        2>/dev/null || true)
+
+    if [ -z "$modified" ]; then
+        return 0  # no modifications to existing migrations
+    fi
+
+    echo ""
+    echo "*** MIGRATION IMMUTABILITY VIOLATION ***"
+    echo "The following deployed migration(s) were modified or deleted:"
+    echo "$modified" | while read -r line; do
+        echo "  $line"
+    done
+    echo ""
+    echo "The upgrade service only runs forward (up). To apply the modified"
+    echo "migration, you must manually roll back to before it, then re-apply."
+    echo ""
+
+    # Extract the earliest modified migration number for the suggested command.
+    local earliest
+    earliest=$(echo "$modified" | awk -F'[/_]' '{print $2}' | sort | head -1)
+    echo "Run:"
+    echo "  ./cloud.sh migrate-down $server $earliest"
+    echo "Then re-run:"
+    echo "  ./cloud.sh install $server"
+    echo ""
+    return 1
+}
+
+# cmd_migrate_down rolls back a specific migration on an edge server.
+# Takes a migration number — rolls back until that migration is gone.
+# This is a manual, explicit, operator-invoked command — the upgrade
+# service NEVER runs down migrations.
+cmd_migrate_down() {
+    local server="$1"
+    local migration="$2"
+
+    if [ -z "$server" ] || [ -z "$migration" ]; then
+        echo "Usage: ./cloud.sh migrate-down <server> <migration>"
+        echo "Example: ./cloud.sh migrate-down statbus_dev 20260417130648"
+        exit 1
+    fi
+
+    validate_server "$server"
+
+    local channel
+    channel=$(ssh_server "$server" "cd statbus && ./sb dotenv -f .env.config get UPGRADE_CHANNEL 2>/dev/null" 2>/dev/null || echo "prerelease")
+    if [ "$channel" != "edge" ]; then
+        echo "Error: migrate-down is only supported on edge channel servers."
+        echo "  $server is on channel: $channel"
+        echo "  Release/prerelease servers use immutable migrations enforced by RC preflight."
+        exit 1
+    fi
+
+    echo "Rolling back migration $migration on $server..."
+    local current
+    while true; do
+        current=$(ssh_server "$server" \
+            "cd statbus && echo 'SELECT MAX(version) FROM public.schema_migrations;' | ./sb psql -t -A" \
+            2>/dev/null || true)
+        if [ -z "$current" ] || [ "$current" -lt "$migration" ]; then
+            echo "Migration $migration is no longer applied."
+            break
+        fi
+        echo "  Rolling back migration $current..."
+        ssh_server "$server" "cd statbus && ./sb migrate down" 2>&1
+    done
+    echo "Done. Re-run: ./cloud.sh install $server"
+}
+
 cmd_install_one() {
     # Idempotent install flow:
     #   stop_upgrade_service → install → ensure_service_started
@@ -196,6 +285,12 @@ cmd_install_one() {
                 ssh_server "$server" "cd statbus && export PATH=/home/linuxbrew/.linuxbrew/bin:\$PATH && ./dev.sh build-sb" 2>&1
             fi
         fi
+        # Check for modified migrations before proceeding. Edge channel only.
+        if ! check_migration_immutability "$server"; then
+            ensure_service_started "$server"
+            return 1
+        fi
+
         # Stop user-level service before replacing binary — systemd --user
         # restarts it on exit (Restart=always), and the running process holds
         # the binary open → "text file busy" on mv.
@@ -328,6 +423,10 @@ case "$1" in
     wipe)
         [ $# -lt 2 ] && { echo "Error: wipe requires a server name"; usage; }
         cmd_wipe "$2"
+        ;;
+    migrate-down)
+        [ $# -lt 3 ] && { echo "Error: migrate-down requires <server> and <migration>"; echo "Example: $0 migrate-down statbus_dev 20260417130648"; exit 1; }
+        cmd_migrate_down "$2" "$3"
         ;;
     *)
         echo "Unknown command: $1"
