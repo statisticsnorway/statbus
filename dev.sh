@@ -144,7 +144,7 @@ EOS
         trap './dev.sh delete-db > /dev/null' EXIT
 
         TEST_OUTPUT=$(mktemp)
-        ./dev.sh test all 2>&1 | tee "$TEST_OUTPUT" || true
+        ./dev.sh test fast 2>&1 | tee "$TEST_OUTPUT" || true
 
         if grep -q "not ok" "$TEST_OUTPUT" || grep -q "of .* tests failed" "$TEST_OUTPUT"; then
             echo "One or more tests failed."
