@@ -65,10 +65,10 @@ SELECT id, state, topological_order AS topo,
 \echo '=== supersede: call procedure ==='
 === supersede: call procedure ===
 CALL public.upgrade_supersede_older(lpad(to_hex(100), 40, '0'), 0);
-NOTICE:  upgrade_supersede_older: superseded 2 row(s) older than 0000000000000000000000000000000000000064
+NOTICE:  upgrade_supersede_older: superseded 3 row(s) older than 0000000000000000000000000000000000000064
  p_superseded 
 --------------
-            2
+            3
 (1 row)
 
 \echo '=== supersede: verify results ==='
@@ -84,7 +84,7 @@ SELECT id, state, superseded_at IS NOT NULL AS has_superseded_at,
   4 | completed   | f                 | 
   5 | in_progress | f                 | 
   6 | available   | f                 | 
-  7 | failed      | f                 | has error
+  7 | superseded  | t                 | has error
 (7 rows)
 
 -- Verify exact counts by state
@@ -94,9 +94,8 @@ SELECT state, count(*) AS cnt FROM public.upgrade GROUP BY state ORDER BY state;
  available   |   1
  in_progress |   1
  completed   |   2
- failed      |   1
- superseded  |   2
-(5 rows)
+ superseded  |   3
+(4 rows)
 
 \echo '=== supersede: unknown commit_sha returns 0 ==='
 === supersede: unknown commit_sha returns 0 ===
