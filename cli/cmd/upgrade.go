@@ -3,6 +3,7 @@ package cmd
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/syslog"
@@ -534,10 +535,67 @@ func sshKeyFingerprint(key string) string {
 	return strings.TrimSpace(string(out))
 }
 
-// fetchGitHubKeys fetches SSH public keys for a GitHub user and returns them as a slice.
-func fetchGitHubKeys(username string) ([]string, error) {
-	url := fmt.Sprintf("https://github.com/%s.keys", username)
+// gitHubSigningKey represents one entry from the GitHub SSH signing keys API.
+type gitHubSigningKey struct {
+	Key string `json:"key"`
+}
 
+// fetchGitHubKeys fetches SSH public keys for a GitHub user. It tries the
+// signing keys API first (correct for commit verification), falling back to
+// the authentication keys endpoint for backward compatibility. Returns the
+// keys and whether they came from the signing keys endpoint.
+func fetchGitHubKeys(username string) (keys []string, signing bool, err error) {
+	// Try signing keys first — these are what git uses for commit verification.
+	sigURL := fmt.Sprintf("https://api.github.com/users/%s/ssh_signing_keys", username)
+	if sk, fetchErr := fetchGitHubSigningKeys(sigURL); fetchErr == nil && len(sk) > 0 {
+		return sk, true, nil
+	}
+
+	// Fall back to authentication keys (plain-text, one per line).
+	authURL := fmt.Sprintf("https://github.com/%s.keys", username)
+	ak, fetchErr := fetchGitHubAuthKeys(authURL, username)
+	if fetchErr != nil {
+		return nil, false, fetchErr
+	}
+	return ak, false, nil
+}
+
+// fetchGitHubSigningKeys queries the GitHub API for SSH signing keys.
+// Returns (nil, nil) when the endpoint succeeds but the user has no signing keys.
+func fetchGitHubSigningKeys(url string) ([]string, error) {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("User-Agent", "statbus-cli")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("fetch signing keys from %s: %w", url, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("status %d from %s", resp.StatusCode, url)
+	}
+
+	var entries []gitHubSigningKey
+	if err := json.NewDecoder(resp.Body).Decode(&entries); err != nil {
+		return nil, fmt.Errorf("decode signing keys JSON: %w", err)
+	}
+
+	var keys []string
+	for _, e := range entries {
+		if k := strings.TrimSpace(e.Key); k != "" {
+			keys = append(keys, k)
+		}
+	}
+	return keys, nil
+}
+
+// fetchGitHubAuthKeys fetches the plain-text SSH authentication keys for a GitHub user.
+func fetchGitHubAuthKeys(url, username string) ([]string, error) {
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("fetch keys from %s: %w", url, err)
@@ -576,12 +634,16 @@ func fetchGitHubKeys(username string) ([]string, error) {
 // confirmation, and stores the key in the given dotenv file. Returns true if a key was trusted.
 func trustSignerInteractive(username string, f *dotenv.File, reader *bufio.Reader) (bool, error) {
 	fmt.Printf("\nFetching SSH keys from GitHub for %s...\n", username)
-	keys, err := fetchGitHubKeys(username)
+	keys, signing, err := fetchGitHubKeys(username)
 	if err != nil {
 		return false, err
 	}
 
-	fmt.Printf("Found %d key(s) for github.com/%s:\n", len(keys), username)
+	if signing {
+		fmt.Printf("Found %d signing key(s) for github.com/%s:\n", len(keys), username)
+	} else {
+		fmt.Printf("Found %d auth key(s) for github.com/%s (no signing keys configured — consider adding at github.com/settings/keys):\n", len(keys), username)
+	}
 	for _, key := range keys {
 		fingerprint := sshKeyFingerprint(key)
 		fmt.Printf("  %s\n", fingerprint)
@@ -686,11 +748,15 @@ var trustKeyAddCmd = &cobra.Command{
 // prompting. Used by --yes flag for scripted / AI-driven installs.
 func trustSignerNonInteractive(username string, f *dotenv.File) error {
 	fmt.Printf("Fetching SSH keys from GitHub for %s...\n", username)
-	keys, err := fetchGitHubKeys(username)
+	keys, signing, err := fetchGitHubKeys(username)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Found %d key(s) for github.com/%s:\n", len(keys), username)
+	if signing {
+		fmt.Printf("Found %d signing key(s) for github.com/%s:\n", len(keys), username)
+	} else {
+		fmt.Printf("Found %d auth key(s) for github.com/%s (no signing keys configured — consider adding at github.com/settings/keys):\n", len(keys), username)
+	}
 	for _, key := range keys {
 		fmt.Printf("  %s\n", sshKeyFingerprint(key))
 	}
