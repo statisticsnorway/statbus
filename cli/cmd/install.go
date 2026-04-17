@@ -233,19 +233,23 @@ func runInstall() (installErr error) {
 	}
 
 	// Pre-flight: if --trust-github-user is set, trust that user's signing
-	// key before any validation. This makes one-pass fleet repair possible:
-	//   ./sb install --trust-github-user jhf
+	// key before any validation. Skips the GitHub fetch if a valid key is
+	// already configured (idempotent — no API call on re-run).
 	if !bypass && trustGitHubUser != "" {
 		cfgPath := filepath.Join(installDir, ".env.config")
 		if _, statErr := os.Stat(cfgPath); statErr == nil {
-			f, loadErr := dotenv.Load(cfgPath)
-			if loadErr == nil {
-				fmt.Printf("Trusting GitHub user %s (--trust-github-user)...\n", trustGitHubUser)
-				if err := trustSignerNonInteractive(trustGitHubUser, f); err != nil {
-					fmt.Printf("  Warning: could not trust %s: %v\n", trustGitHubUser, err)
-				} else {
-					if err := f.Save(); err != nil {
-						fmt.Printf("  Warning: could not save .env.config: %v\n", err)
+			if checkSignersDone(installDir) {
+				fmt.Printf("Trusted signer already configured and verified — skipping GitHub fetch\n")
+			} else {
+				f, loadErr := dotenv.Load(cfgPath)
+				if loadErr == nil {
+					fmt.Printf("Trusting GitHub user %s (--trust-github-user)...\n", trustGitHubUser)
+					if err := trustSignerNonInteractive(trustGitHubUser, f); err != nil {
+						fmt.Printf("  Warning: could not trust %s: %v\n", trustGitHubUser, err)
+					} else {
+						if err := f.Save(); err != nil {
+							fmt.Printf("  Warning: could not save .env.config: %v\n", err)
+						}
 					}
 				}
 			}
