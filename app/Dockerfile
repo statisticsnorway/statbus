@@ -21,7 +21,7 @@ COPY pnpm-lock.yaml ./
 COPY vendor/ ./vendor/
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store pnpm fetch --frozen-lockfile
 COPY package.json ./
-RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store pnpm install -r --offline --frozen-lockfile --aggregate-output
+RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store pnpm install --offline --frozen-lockfile
 COPY . .
 
 FROM install AS build
