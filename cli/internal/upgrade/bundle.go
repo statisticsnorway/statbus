@@ -130,7 +130,7 @@ func (d *Service) writeDiagnosticBundle(parent context.Context, id int, progress
 	}
 }
 
-// WriteBundleSections emits all 8 sections to w in the canonical order.
+// WriteBundleSections emits all sections to w in the canonical order.
 // Extracted so bundle_test.go can drive the same writer against a byte
 // buffer with a fixture row + env file, and so cli/cmd/support_bundle.go
 // can call it without a live database connection.
@@ -156,6 +156,7 @@ func WriteBundleSections(ctx context.Context, w io.Writer, projDir string, id in
 	}
 	bundleSection(w, fmt.Sprintf("git log -%d", bundleGitLogCount),
 		bundleCommandBody(ctx, projDir, "git", "log", fmt.Sprintf("-%d", bundleGitLogCount), "--oneline", "--decorate"))
+	bundleSection(w, "caddy config", bundleCaddyConfigBody(projDir))
 	bundleSection(w, "redacted env", bundleRedactedEnvBody(projDir))
 }
 
@@ -303,6 +304,38 @@ func bundleRedactedEnvBody(projDir string) string {
 			value = "***REDACTED***"
 		}
 		fmt.Fprintf(&sb, "%s=%s\n", k, value)
+	}
+	return sb.String()
+}
+
+// bundleCaddyConfigBody concatenates all .caddyfile files from
+// caddy/config/ into a single body with sub-headers per file. These are
+// generated files (gitignored) that capture the deployed Caddy routing,
+// TLS, and proxy config — critical for diagnosing connection and
+// certificate issues.
+func bundleCaddyConfigBody(projDir string) string {
+	configDir := filepath.Join(projDir, "caddy", "config")
+	entries, err := os.ReadDir(configDir)
+	if err != nil {
+		return fmt.Sprintf("(caddy config unavailable: %v)", err)
+	}
+
+	var sb strings.Builder
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), "caddyfile") {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(configDir, e.Name()))
+		if err != nil {
+			fmt.Fprintf(&sb, "--- %s ---\n(read error: %v)\n\n", e.Name(), err)
+			continue
+		}
+		// Redact any inline secrets (e.g., basic_auth passwords, API tokens)
+		content := bundleInlineSecretRe.ReplaceAllString(string(data), "$1=***REDACTED***")
+		fmt.Fprintf(&sb, "--- %s ---\n%s\n", e.Name(), strings.TrimRight(content, "\n"))
+	}
+	if sb.Len() == 0 {
+		return "(no .caddyfile files found in caddy/config/)"
 	}
 	return sb.String()
 }

@@ -36,6 +36,7 @@ func TestWriteBundleSections_Composition(t *testing.T) {
 		"=== docker compose ps ===",
 		// journalctl section is skipped on hosts without journalctl — don't assert it
 		"=== git log -20 ===",
+		"=== caddy config ===",
 		"=== redacted env ===",
 	}
 
