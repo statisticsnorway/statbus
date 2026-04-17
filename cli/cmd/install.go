@@ -234,13 +234,13 @@ func runInstall() (installErr error) {
 		cfgPath := filepath.Join(installDir, ".env.config")
 		if _, statErr := os.Stat(cfgPath); statErr == nil && !checkSignersDone(installDir) {
 			if nonInteractive {
-				return fmt.Errorf("no trusted signers configured.\n" +
-					"  The upgrade service requires at least one trusted signer to verify release signatures.\n" +
+				return fmt.Errorf("no valid trusted signers configured.\n" +
+					"  The upgrade service requires at least one trusted signer that can verify commit signatures.\n" +
 					"  Pre-configure before running install:\n" +
 					"    ./sb upgrade trust-key add <github-username>\n" +
 					"  Then re-run the install.")
 			}
-			fmt.Println("No trusted signers configured. You must approve at least one signer before the install can proceed.")
+			fmt.Println("No valid trusted signers configured. You must approve at least one signer before the install can proceed.")
 			if err := runTrustSigners(installDir); err != nil {
 				return err
 			}
@@ -729,12 +729,49 @@ func checkSignersDone(dir string) bool {
 	if err != nil {
 		return false
 	}
+
+	// Collect signer lines — we need both existence and content for verification.
+	var signerLines []string
 	for _, key := range f.Keys() {
-		if strings.HasPrefix(key, trustedSignerPrefix) {
+		if !strings.HasPrefix(key, trustedSignerPrefix) {
+			continue
+		}
+		val, _ := f.Get(key)
+		if val == "" {
+			continue
+		}
+		name := strings.TrimPrefix(key, trustedSignerPrefix)
+		// allowed_signers format: <principal> <key>
+		signerLines = append(signerLines, fmt.Sprintf("%s %s", name, val))
+	}
+	if len(signerLines) == 0 {
+		return false
+	}
+
+	// Key(s) exist — verify they actually work against HEAD's signature.
+	// Write a temporary allowed-signers file and run git verify-commit.
+	// If HEAD is unsigned (development), accept key existence alone.
+	tmpDir := filepath.Join(dir, "tmp")
+	os.MkdirAll(tmpDir, 0755)
+	allowedSignersPath := filepath.Join(tmpDir, "allowed-signers")
+	if err := os.WriteFile(allowedSignersPath, []byte(strings.Join(signerLines, "\n")+"\n"), 0644); err != nil {
+		return true // can't write temp file — don't block install
+	}
+
+	verifyCmd := exec.Command("git", "-C", dir, "-c",
+		fmt.Sprintf("gpg.ssh.allowedSignersFile=%s", allowedSignersPath),
+		"verify-commit", "HEAD")
+	out, verifyErr := verifyCmd.CombinedOutput()
+	if verifyErr != nil {
+		if strings.Contains(string(out), "no signature found") {
+			// HEAD is unsigned (development) — can't verify key, accept existence
 			return true
 		}
+		// Signed commit but verification failed — wrong key configured
+		fmt.Printf("  Note: configured signing key does not verify HEAD commit — will re-prompt\n")
+		return false
 	}
-	return false
+	return true
 }
 
 func runTrustSigners(dir string) error {
