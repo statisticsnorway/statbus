@@ -430,7 +430,10 @@ export default function UpgradesPage() {
             {/* Actionable + recommended, sorted by topology (newest first) */}
             {topSection.map(({ u, variant }) => renderCard(u, variant))}
 
-            {/* Older available releases behind collapsible — labelled as superseded */}
+            {/* Older available releases behind collapsible — labelled "superseded"
+                with "Superseded — upgrade now?" on the button. This is intentional:
+                it tells the operator a newer version exists (the recommended one above)
+                but still lets them install this specific version if they need it. */}
             {olderAvailable.length > 0 && (
               <Collapsible>
                 <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md border border-dashed border-muted-foreground/25 px-4 py-2 text-sm text-muted-foreground hover:bg-muted/50 transition-colors">
