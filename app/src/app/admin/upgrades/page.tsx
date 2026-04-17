@@ -146,7 +146,7 @@ export default function UpgradesPage() {
     // display_name + display_state are PostgREST computed columns (functions
     // taking the row type) — must be listed explicitly in select; select=*
     // only covers real + GENERATED columns.
-    "/rest/upgrade?select=*,display_name,display_state&order=topological_order.desc.nullslast,committed_at.desc&limit=20",
+    "/rest/upgrade?select=*,display_name,display_state&order=topological_order.desc.nullslast,committed_at.desc&limit=100",
     fetcher,
     {
       // Poll fast (3s) when an upgrade is active, slow (30s) otherwise.
