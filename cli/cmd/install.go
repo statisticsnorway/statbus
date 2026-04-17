@@ -854,27 +854,29 @@ func classifyReleaseStatus(ver string) string {
 	return "release"
 }
 
-// runInstallSQL runs a single psql statement with named-parameter binding.
-// vars is a flat list of name, value pairs (e.g., "sha", "abc123", "version", "v1.0").
-// The SQL is piped via stdin (not -c) because psql's :'name' variable
-// interpolation is a client-side feature that only works in interactive/stdin
-// mode — -c passes the string directly to the server without interpolation.
-// Returns combined output and any error.
-func runInstallSQL(dir, sql string, vars ...string) (string, error) {
+// sqlLiteral escapes a string for use as a SQL single-quoted literal.
+func sqlLiteral(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "''") + "'"
+}
+
+// runInstallSQL pipes a SQL statement to psql via stdin and returns the output.
+// No psql-specific interpolation (no -v / :'name') — callers build the SQL
+// with fmt.Sprintf + sqlLiteral. Wraps psql output into the error for debugging.
+func runInstallSQL(dir, sql string) (string, error) {
 	psqlPath, prefix, env, err := migrate.PsqlCommand(dir)
 	if err != nil {
 		return "", err
 	}
 	args := append(append([]string{}, prefix...), "-v", "ON_ERROR_STOP=on", "-X", "-A", "-t")
-	for i := 0; i+1 < len(vars); i += 2 {
-		args = append(args, "-v", fmt.Sprintf("%s=%s", vars[i], vars[i+1]))
-	}
 	cmd := exec.Command(psqlPath, args...)
 	cmd.Dir = dir
 	cmd.Env = env
 	cmd.Stdin = strings.NewReader(sql)
 	out, err := cmd.CombinedOutput()
-	return string(out), err
+	if err != nil {
+		return string(out), fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
+	}
+	return string(out), nil
 }
 
 // startInstallUpgradeRow inserts an in_progress row for the current HEAD so the
@@ -886,13 +888,13 @@ func startInstallUpgradeRow(dir string) int64 {
 		return 0
 	}
 
-	sql := `INSERT INTO public.upgrade (
+	sql := fmt.Sprintf(`INSERT INTO public.upgrade (
   commit_sha, committed_at, summary, state,
   version, release_status, scheduled_at, started_at, from_version
 ) VALUES (
-  :'sha', :'committed_at'::timestamptz,
-  :'summary', 'in_progress',
-  :'version', :'release_status'::release_status_type,
+  %s, %s::timestamptz,
+  %s, 'in_progress',
+  %s, %s::release_status_type,
   clock_timestamp(), clock_timestamp(),
   (SELECT version FROM public.upgrade WHERE state = 'completed' ORDER BY completed_at DESC NULLS LAST LIMIT 1)
 )
@@ -906,16 +908,16 @@ ON CONFLICT (commit_sha) DO UPDATE SET
   from_version = COALESCE(upgrade.from_version, EXCLUDED.from_version),
   version = COALESCE(EXCLUDED.version, upgrade.version)
 WHERE upgrade.state NOT IN ('in_progress', 'completed')
-RETURNING id`
+RETURNING id`,
+		sqlLiteral(sha),
+		sqlLiteral(commitDate),
+		sqlLiteral(fmt.Sprintf("Installing via ./sb install (%s)", version)),
+		sqlLiteral(version),
+		sqlLiteral(classifyReleaseStatus(version)))
 
-	out, err := runInstallSQL(dir, sql,
-		"sha", sha,
-		"committed_at", commitDate,
-		"summary", fmt.Sprintf("Installing via ./sb install (%s)", version),
-		"version", version,
-		"release_status", classifyReleaseStatus(version))
+	out, err := runInstallSQL(dir, sql)
 	if err != nil {
-		fmt.Printf("  Note: could not start upgrade row: %v (%s)\n", err, strings.TrimSpace(out))
+		fmt.Printf("  Note: could not start upgrade row: %v\n", err)
 		return 0
 	}
 	line := strings.TrimSpace(out)
@@ -934,10 +936,10 @@ RETURNING id`
 // completed row if no in_progress row was started — e.g., fresh installs).
 func completeInstallUpgradeRow(dir string, rowID int64) {
 	if rowID > 0 {
-		sql := `UPDATE public.upgrade SET state = 'completed', completed_at = clock_timestamp()
-WHERE id = :'row_id' AND state = 'in_progress'`
-		if out, err := runInstallSQL(dir, sql, "row_id", strconv.FormatInt(rowID, 10)); err != nil {
-			fmt.Printf("  Note: could not mark upgrade row %d completed: %v (%s)\n", rowID, err, strings.TrimSpace(out))
+		sql := fmt.Sprintf(`UPDATE public.upgrade SET state = 'completed', completed_at = clock_timestamp()
+WHERE id = %d AND state = 'in_progress'`, rowID)
+		if _, err := runInstallSQL(dir, sql); err != nil {
+			fmt.Printf("  Note: could not mark upgrade row %d completed: %v\n", rowID, err)
 			return
 		}
 		fmt.Printf("  Upgrade row %d: completed\n", rowID)
@@ -950,13 +952,13 @@ WHERE id = :'row_id' AND state = 'in_progress'`
 		return
 	}
 
-	sql := `INSERT INTO public.upgrade (
+	sql := fmt.Sprintf(`INSERT INTO public.upgrade (
   commit_sha, committed_at, summary, state, completed_at,
   version, release_status, scheduled_at, started_at, from_version
 ) VALUES (
-  :'sha', :'committed_at'::timestamptz,
-  :'summary', 'completed', clock_timestamp(),
-  :'version', :'release_status'::release_status_type,
+  %s, %s::timestamptz,
+  %s, 'completed', clock_timestamp(),
+  %s, %s::release_status_type,
   clock_timestamp(), clock_timestamp(),
   (SELECT version FROM public.upgrade WHERE state = 'completed' ORDER BY completed_at DESC NULLS LAST LIMIT 1)
 )
@@ -968,15 +970,15 @@ ON CONFLICT (commit_sha) DO UPDATE SET
   error = NULL,
   rolled_back_at = NULL,
   version = COALESCE(EXCLUDED.version, upgrade.version)
-WHERE upgrade.state != 'completed'`
+WHERE upgrade.state != 'completed'`,
+		sqlLiteral(sha),
+		sqlLiteral(commitDate),
+		sqlLiteral(fmt.Sprintf("Installed via ./sb install (%s)", version)),
+		sqlLiteral(version),
+		sqlLiteral(classifyReleaseStatus(version)))
 
-	if out, err := runInstallSQL(dir, sql,
-		"sha", sha,
-		"committed_at", commitDate,
-		"summary", fmt.Sprintf("Installed via ./sb install (%s)", version),
-		"version", version,
-		"release_status", classifyReleaseStatus(version)); err != nil {
-		fmt.Printf("  Note: could not record upgrade row: %v (%s)\n", err, strings.TrimSpace(out))
+	if _, err := runInstallSQL(dir, sql); err != nil {
+		fmt.Printf("  Note: could not record upgrade row: %v\n", err)
 		return
 	}
 	fmt.Printf("  Recorded installed version %s in upgrade table\n", version)
@@ -988,12 +990,11 @@ func failInstallUpgradeRow(dir string, rowID int64, stepErr error) {
 	if len(errMsg) > 500 {
 		errMsg = errMsg[:500]
 	}
-	sql := `UPDATE public.upgrade SET state = 'failed', error = :'error_msg'
-WHERE id = :'row_id' AND state = 'in_progress'`
-	if out, err := runInstallSQL(dir, sql,
-		"row_id", strconv.FormatInt(rowID, 10),
-		"error_msg", errMsg); err != nil {
-		fmt.Printf("  Note: could not mark upgrade row %d failed: %v (%s)\n", rowID, err, strings.TrimSpace(out))
+	sql := fmt.Sprintf(`UPDATE public.upgrade SET state = 'failed', error = %s
+WHERE id = %d AND state = 'in_progress'`,
+		sqlLiteral(errMsg), rowID)
+	if _, err := runInstallSQL(dir, sql); err != nil {
+		fmt.Printf("  Note: could not mark upgrade row %d failed: %v\n", rowID, err)
 		return
 	}
 	fmt.Printf("  Upgrade row %d: failed\n", rowID)
