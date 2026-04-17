@@ -515,6 +515,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 		// prior service process died.)
 		os.Remove(d.flagPath())
 		d.supersedeOlderReleases(ctx, flag.CommitSHA)
+		d.supersedeCompletedPrereleases(ctx, flag.CommitSHA)
 		return
 	}
 
@@ -1165,6 +1166,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 
 	// Skip older releases that are still "available" — no point upgrading to an older version
 	d.supersedeOlderReleases(ctx, commitSHA)
+	d.supersedeCompletedPrereleases(ctx, commitSHA)
 	d.runUpgradeCallback(displayName)
 }
 
@@ -1198,6 +1200,7 @@ func (d *Service) markCurrentVersionCompleted(ctx context.Context) {
 	if result.RowsAffected() > 0 {
 		fmt.Printf("Marked current version (%s) as completed\n", d.version)
 		d.supersedeOlderReleases(ctx, headSHA)
+		d.supersedeCompletedPrereleases(ctx, headSHA)
 	}
 }
 
@@ -1257,6 +1260,23 @@ func (d *Service) supersedeOlderReleases(ctx context.Context, selectedCommitSHA 
 	}
 	if superseded > 0 {
 		fmt.Printf("Superseded %d older release(s)\n", superseded)
+	}
+}
+
+// supersedeCompletedPrereleases supersedes older completed prereleases in the
+// same version family when a prerelease completes. Safe to call for any row —
+// the procedure is a no-op for non-prereleases.
+func (d *Service) supersedeCompletedPrereleases(ctx context.Context, commitSHA string) {
+	var superseded int
+	err := d.queryConn.QueryRow(ctx,
+		"CALL public.upgrade_supersede_completed_prereleases($1, 0)",
+		commitSHA).Scan(&superseded)
+	if err != nil {
+		fmt.Printf("Failed to supersede completed prereleases: %v\n", err)
+		return
+	}
+	if superseded > 0 {
+		fmt.Printf("Superseded %d completed prerelease(s) in same family\n", superseded)
 	}
 }
 
@@ -2295,6 +2315,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// the -D returns non-zero and we just move on.
 	runCommand(d.projDir, "git", "branch", "-D", "statbus/pre-upgrade")
 	d.supersedeOlderReleases(ctx, commitSHA)
+	d.supersedeCompletedPrereleases(ctx, commitSHA)
 	// Retention pass scoped to the just-installed row: rules A/B/C fire
 	// (same-family prereleases, stale commits) so admins aren't stuck
 	// with obsolete dogfood entries after a release lands. Must run AFTER

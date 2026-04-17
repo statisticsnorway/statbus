@@ -1187,6 +1187,20 @@ func runInstallSupersede(conn *pgx.Conn, dir string) {
 	if superseded > 0 {
 		fmt.Printf("  Superseded %d older release(s)\n", superseded)
 	}
+
+	// Also supersede older completed prereleases in the same version family.
+	// Safe no-op for non-prereleases.
+	var supersededPrereleases int
+	err = conn.QueryRow(context.Background(),
+		"CALL public.upgrade_supersede_completed_prereleases($1, 0)",
+		sha).Scan(&supersededPrereleases)
+	if err != nil {
+		fmt.Printf("  Note: supersede completed prereleases skipped: %v\n", err)
+		return
+	}
+	if supersededPrereleases > 0 {
+		fmt.Printf("  Superseded %d completed prerelease(s) in same family\n", supersededPrereleases)
+	}
 }
 
 // runInstallCallback executes the UPGRADE_CALLBACK shell command from .env
