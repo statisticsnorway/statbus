@@ -114,7 +114,8 @@
       "lodash-es": "^4.18.1",
       "dompurify": "^3.4.0",
       "minimatch": "^10.2.3",
-      "xlsx": "file:./vendor/xlsx"
+      "xlsx": "file:./vendor/xlsx",
+      "picomatch": ">=2.3.2"
     }
   }
 }
