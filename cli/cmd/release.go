@@ -504,6 +504,34 @@ var releaseStableCmd = &cobra.Command{
 			return fmt.Errorf("no pre-release candidates for %s. Tag a prerelease first", prefix)
 		}
 
+		// Gate: verify the latest RC's CI artifacts are all published.
+		// A stable release that promotes a broken RC is worse than no release.
+		latestRC := resolveLatestRC(rcTags)
+		if latestRC != "" {
+			fmt.Printf("  Checking CI artifacts for %s...\n", latestRC)
+			assetResults := release.CheckAssets(latestRC)
+			manifestResults := release.CheckManifests(latestRC)
+			artifactsOK := true
+			for _, r := range assetResults {
+				if !r.OK {
+					fmt.Printf("  ✗ %s (%s)\n", r.Name, r.Err)
+					artifactsOK = false
+				}
+			}
+			for _, r := range manifestResults {
+				if !r.OK {
+					fmt.Printf("  ✗ %s (%s)\n", r.Name, r.Err)
+					artifactsOK = false
+				}
+			}
+			if !artifactsOK {
+				return fmt.Errorf("latest RC %s has missing CI artifacts.\n"+
+					"  Fix: wait for CI to finish, or cut a new RC and retry.\n"+
+					"  Check: ./sb release check --tag %s", latestRC, latestRC)
+			}
+			fmt.Printf("  ✓ All CI artifacts verified for %s\n", latestRC)
+		}
+
 		// Find the patch number from existing stable tags
 		stablePattern := fmt.Sprintf("%s.*", prefix)
 		stableTagsOut, err := upgrade.RunCommandOutput(projDir, "git", "tag", "-l", stablePattern)
@@ -698,6 +726,24 @@ func calVerRCKey(tag string) int64 {
 		return 0
 	}
 	return int64(year)*100_000_000 + int64(month)*1_000_000 + int64(patch)*10_000 + int64(rc)
+}
+
+// resolveLatestRC takes newline-separated RC tags and returns the highest by CalVer sort.
+func resolveLatestRC(rcTagsNewlineSep string) string {
+	var tags []string
+	for _, t := range strings.Split(rcTagsNewlineSep, "\n") {
+		t = strings.TrimSpace(t)
+		if t != "" && strings.Contains(t, "-rc.") {
+			tags = append(tags, t)
+		}
+	}
+	if len(tags) == 0 {
+		return ""
+	}
+	sort.Slice(tags, func(i, j int) bool {
+		return calVerRCKey(tags[i]) > calVerRCKey(tags[j])
+	})
+	return tags[0]
 }
 
 func init() {
