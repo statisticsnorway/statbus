@@ -416,13 +416,19 @@ export default function UpgradesPage() {
           );
         };
 
+        // Merge actionable items + recommended upgrade into one list, sorted
+        // by topology (newest first). The recommended upgrade IS the fix for
+        // a failed upgrade — it belongs in the same visual priority as errors,
+        // not in a separate section below them.
+        const topSection: { u: Upgrade; variant?: "recommended" | "superseded" }[] = [
+          ...actionable.map(u => ({ u })),
+          ...(latestWithMigrations ? [{ u: latestWithMigrations, variant: "recommended" as const }] : []),
+        ].sort((a, b) => (b.u.topological_order ?? b.u.id) - (a.u.topological_order ?? a.u.id));
+
         return (
           <div className="space-y-3">
-            {/* Actionable: in progress, scheduled, failed, rolled back */}
-            {actionable.map((u) => renderCard(u))}
-
-            {/* Latest available release — the one users should upgrade to */}
-            {latestWithMigrations && renderCard(latestWithMigrations, "recommended")}
+            {/* Actionable + recommended, sorted by topology (newest first) */}
+            {topSection.map(({ u, variant }) => renderCard(u, variant))}
 
             {/* Older available releases behind collapsible — labelled as superseded */}
             {olderAvailable.length > 0 && (
