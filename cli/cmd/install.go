@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/spf13/cobra"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/install"
@@ -272,12 +273,25 @@ func runInstall() (installErr error) {
 	}
 	if !bypass && version != "dev" {
 		defer func() {
+			// Post-completion DB ops use pgx (parameter binding, no shell
+			// escaping). The connection goes through Caddy's L4 proxy on
+			// the loopback address — Caddy is guaranteed running because
+			// the step-table's "Services" step completed before we get here.
+			conn, connErr := connectInstallDB(installDir)
+			if connErr != nil {
+				fmt.Printf("  Note: could not open DB connection for post-completion ops: %v\n", connErr)
+				// Fall through — callback doesn't need DB.
+			}
+			if conn != nil {
+				defer conn.Close(context.Background())
+			}
+
 			if installErr != nil && upgradeRowID > 0 {
-				failInstallUpgradeRow(installDir, upgradeRowID, installErr)
+				failInstallUpgradeRow(conn, upgradeRowID, installErr)
 			} else if installErr == nil {
-				completeInstallUpgradeRow(installDir, upgradeRowID)
-				runInstallSupersede(installDir)
-				runInstallRetention(installDir, upgradeRowID)
+				completeInstallUpgradeRow(conn, installDir, upgradeRowID)
+				runInstallSupersede(conn, installDir)
+				runInstallRetention(conn, upgradeRowID)
 				runInstallCallback(installDir)
 			}
 		}()
@@ -951,13 +965,32 @@ RETURNING id`,
 	return id
 }
 
+// connectInstallDB opens a pgx connection for post-completion operations.
+// Uses migrate.AdminConnStr which reads CADDY_DB_BIND_ADDRESS from .env.
+func connectInstallDB(dir string) (*pgx.Conn, error) {
+	connStr, err := migrate.AdminConnStr(dir)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return pgx.Connect(ctx, connStr)
+}
+
 // completeInstallUpgradeRow marks the upgrade row completed (or creates a new
 // completed row if no in_progress row was started — e.g., fresh installs).
-func completeInstallUpgradeRow(dir string, rowID int64) {
+func completeInstallUpgradeRow(conn *pgx.Conn, dir string, rowID int64) {
+	if conn == nil {
+		fmt.Printf("  Note: no DB connection; skipping upgrade row completion\n")
+		return
+	}
+	ctx := context.Background()
+
 	if rowID > 0 {
-		sql := fmt.Sprintf(`UPDATE public.upgrade SET state = 'completed', completed_at = clock_timestamp()
-WHERE id = %d AND state = 'in_progress'`, rowID)
-		if _, err := runInstallSQL(dir, sql); err != nil {
+		_, err := conn.Exec(ctx,
+			`UPDATE public.upgrade SET state = 'completed', completed_at = clock_timestamp()
+			 WHERE id = $1 AND state = 'in_progress'`, rowID)
+		if err != nil {
 			fmt.Printf("  Note: could not mark upgrade row %d completed: %v\n", rowID, err)
 			return
 		}
@@ -971,32 +1004,32 @@ WHERE id = %d AND state = 'in_progress'`, rowID)
 		return
 	}
 
-	sql := fmt.Sprintf(`INSERT INTO public.upgrade (
-  commit_sha, committed_at, summary, state, completed_at,
-  version, release_status, scheduled_at, started_at, from_version
-) VALUES (
-  %s, %s::timestamptz,
-  %s, 'completed', clock_timestamp(),
-  %s, %s::release_status_type,
-  clock_timestamp(), clock_timestamp(),
-  (SELECT version FROM public.upgrade WHERE state = 'completed' ORDER BY completed_at DESC NULLS LAST LIMIT 1)
-)
-ON CONFLICT (commit_sha) DO UPDATE SET
-  state = 'completed',
-  completed_at = COALESCE(upgrade.completed_at, clock_timestamp()),
-  started_at = COALESCE(upgrade.started_at, clock_timestamp()),
-  scheduled_at = COALESCE(upgrade.scheduled_at, clock_timestamp()),
-  error = NULL,
-  rolled_back_at = NULL,
-  version = COALESCE(EXCLUDED.version, upgrade.version)
-WHERE upgrade.state != 'completed'`,
-		sqlLiteral(sha),
-		sqlLiteral(commitDate),
-		sqlLiteral(fmt.Sprintf("Installed via ./sb install (%s)", version)),
-		sqlLiteral(version),
-		sqlLiteral(classifyReleaseStatus(version)))
-
-	if _, err := runInstallSQL(dir, sql); err != nil {
+	_, err := conn.Exec(ctx,
+		`INSERT INTO public.upgrade (
+		   commit_sha, committed_at, summary, state, completed_at,
+		   version, release_status, scheduled_at, started_at, from_version
+		 ) VALUES (
+		   $1, $2::timestamptz,
+		   $3, 'completed', clock_timestamp(),
+		   $4, $5::release_status_type,
+		   clock_timestamp(), clock_timestamp(),
+		   (SELECT version FROM public.upgrade WHERE state = 'completed' ORDER BY completed_at DESC NULLS LAST LIMIT 1)
+		 )
+		 ON CONFLICT (commit_sha) DO UPDATE SET
+		   state = 'completed',
+		   completed_at = COALESCE(upgrade.completed_at, clock_timestamp()),
+		   started_at = COALESCE(upgrade.started_at, clock_timestamp()),
+		   scheduled_at = COALESCE(upgrade.scheduled_at, clock_timestamp()),
+		   error = NULL,
+		   rolled_back_at = NULL,
+		   version = COALESCE(EXCLUDED.version, upgrade.version)
+		 WHERE upgrade.state != 'completed'`,
+		sha,
+		commitDate,
+		fmt.Sprintf("Installed via ./sb install (%s)", version),
+		version,
+		classifyReleaseStatus(version))
+	if err != nil {
 		fmt.Printf("  Note: could not record upgrade row: %v\n", err)
 		return
 	}
@@ -1004,15 +1037,20 @@ WHERE upgrade.state != 'completed'`,
 }
 
 // failInstallUpgradeRow marks the in_progress row as failed.
-func failInstallUpgradeRow(dir string, rowID int64, stepErr error) {
+func failInstallUpgradeRow(conn *pgx.Conn, rowID int64, stepErr error) {
+	if conn == nil {
+		fmt.Printf("  Note: no DB connection; could not mark upgrade row %d failed\n", rowID)
+		return
+	}
 	errMsg := stepErr.Error()
 	if len(errMsg) > 500 {
 		errMsg = errMsg[:500]
 	}
-	sql := fmt.Sprintf(`UPDATE public.upgrade SET state = 'failed', error = %s
-WHERE id = %d AND state = 'in_progress'`,
-		sqlLiteral(errMsg), rowID)
-	if _, err := runInstallSQL(dir, sql); err != nil {
+	_, err := conn.Exec(context.Background(),
+		`UPDATE public.upgrade SET state = 'failed', error = $1
+		 WHERE id = $2 AND state = 'in_progress'`,
+		errMsg, rowID)
+	if err != nil {
 		fmt.Printf("  Note: could not mark upgrade row %d failed: %v\n", rowID, err)
 		return
 	}
@@ -1023,21 +1061,27 @@ WHERE id = %d AND state = 'in_progress'`,
 // install. This ensures the step-table path (used by cloud.sh) triggers the
 // same retention as the service's executeUpgrade path. Errors are logged and
 // swallowed — retention is opportunistic, not a hard install dependency.
-func runInstallRetention(dir string, rowID int64) {
-	idArg := "NULL"
-	if rowID > 0 {
-		idArg = strconv.FormatInt(rowID, 10)
+func runInstallRetention(conn *pgx.Conn, rowID int64) {
+	if conn == nil {
+		fmt.Printf("  Note: no DB connection; retention purge skipped\n")
+		return
 	}
-	sql := fmt.Sprintf("CALL public.upgrade_retention_apply('all', %s, 0)", idArg)
-	out, err := runInstallSQL(dir, sql)
+	// upgrade_retention_apply(scope, installed_id, INOUT p_deleted)
+	// Pass NULL for installed_id when rowID is 0 (fresh install with no row).
+	var installedID *int64
+	if rowID > 0 {
+		installedID = &rowID
+	}
+	var deleted int
+	err := conn.QueryRow(context.Background(),
+		"CALL public.upgrade_retention_apply($1, $2, 0)",
+		"all", installedID).Scan(&deleted)
 	if err != nil {
 		fmt.Printf("  Note: retention purge skipped: %v\n", err)
 		return
 	}
-	// Parse the INOUT p_deleted from psql output (single integer line).
-	deleted := strings.TrimSpace(out)
-	if deleted != "" && deleted != "0" {
-		fmt.Printf("  Retention: purged %s old upgrade rows\n", deleted)
+	if deleted > 0 {
+		fmt.Printf("  Retention: purged %d old upgrade rows\n", deleted)
 	}
 }
 
@@ -1045,20 +1089,25 @@ func runInstallRetention(dir string, rowID int64) {
 // successful install. Calls the shared SQL procedure so both install
 // and service paths use the same logic. Best-effort — errors are
 // logged and swallowed.
-func runInstallSupersede(dir string) {
+func runInstallSupersede(conn *pgx.Conn, dir string) {
+	if conn == nil {
+		fmt.Printf("  Note: no DB connection; supersede skipped\n")
+		return
+	}
 	sha, _ := gitHeadInfo(dir)
 	if sha == "" {
 		return
 	}
-	sql := fmt.Sprintf("CALL public.upgrade_supersede_older(%s, 0)", sqlLiteral(sha))
-	out, err := runInstallSQL(dir, sql)
+	var superseded int
+	err := conn.QueryRow(context.Background(),
+		"CALL public.upgrade_supersede_older($1, 0)",
+		sha).Scan(&superseded)
 	if err != nil {
 		fmt.Printf("  Note: supersede older releases skipped: %v\n", err)
 		return
 	}
-	count := strings.TrimSpace(out)
-	if count != "" && count != "0" {
-		fmt.Printf("  Superseded %s older release(s)\n", count)
+	if superseded > 0 {
+		fmt.Printf("  Superseded %d older release(s)\n", superseded)
 	}
 }
 

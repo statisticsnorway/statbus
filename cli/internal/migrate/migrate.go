@@ -366,13 +366,21 @@ func advisoryLockConnStr(f *dotenv.File) (string, error) {
 	), nil
 }
 
-func acquireAdvisoryLock(ctx context.Context, projDir string) (*pgx.Conn, error) {
+// AdminConnStr returns a pgx connection string for the admin user, built from
+// the .env file in projDir. Uses CADDY_DB_BIND_ADDRESS (server-internal bind)
+// for the host — safe for post-step-table operations where Caddy is guaranteed
+// running. Callers: install.go post-completion ops (pgx), advisory lock.
+func AdminConnStr(projDir string) (string, error) {
 	envPath := filepath.Join(projDir, ".env")
 	f, err := dotenv.Load(envPath)
 	if err != nil {
-		return nil, fmt.Errorf("load .env for advisory lock: %w", err)
+		return "", fmt.Errorf("load .env: %w", err)
 	}
-	connStr, err := advisoryLockConnStr(f)
+	return advisoryLockConnStr(f)
+}
+
+func acquireAdvisoryLock(ctx context.Context, projDir string) (*pgx.Conn, error) {
+	connStr, err := AdminConnStr(projDir)
 	if err != nil {
 		return nil, fmt.Errorf("build advisory lock conn string: %w", err)
 	}
