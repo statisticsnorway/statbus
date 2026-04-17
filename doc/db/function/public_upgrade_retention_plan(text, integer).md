@@ -10,7 +10,7 @@ AS $function$
           FROM public.upgrade u
          WHERE u.id = p_installed_id
     ),
-    -- Rule A: just-installed release → purge same-family prereleases in
+    -- Rule A: just-installed release -> purge same-family prereleases in
     -- non-evidence states. Families line up; these are now "the old rc's
     -- for the thing that shipped". Gated by install_purge = true on the
     -- candidate's (release_status, state) cell so the operator can opt out.
@@ -31,7 +31,7 @@ AS $function$
            AND c.install_purge  = true
            AND public.upgrade_family(u) = i.family
     ),
-    -- Rule B: just-installed release → purge commits committed_at-older
+    -- Rule B: just-installed release -> purge commits committed_at-older
     -- than the most recent OTHER completed release. Gives commit-channel
     -- a safety hold-back to the previous release cycle, not to the just-
     -- installed one (which would be the trivial "everything before now").
@@ -58,9 +58,9 @@ AS $function$
                   AND id <> i.id
            )
     ),
-    -- Rule C: just-installed prerelease → purge commits older than the
+    -- Rule C: just-installed prerelease -> purge commits older than the
     -- most recent OTHER completed prerelease. Symmetric to Rule B but on
-    -- the prerelease channel — gives rc-driven dogfood a similar hold-back.
+    -- the prerelease channel -- gives rc-driven dogfood a similar hold-back.
     -- Gated by install_purge on the candidate commit's state cell.
     install_old_commits_vs_prerelease AS (
         SELECT u.id,
@@ -88,8 +88,8 @@ AS $function$
     --   age(committed_at) > time_cap   AND
     --   channel population > count_cap AND
     --   this row ranks older than count_cap in its (release_status,state) bucket.
-    -- Ranking by committed_at DESC → row_number ascending from newest; rn
-    -- > count_cap → this row is beyond the "newest N kept" window.
+    -- Ranking by committed_at DESC -> row_number ascending from newest; rn
+    -- > count_cap -> this row is beyond the "newest N kept" window.
     time_safety AS (
         SELECT ranked.id,
                'delete'::text AS action,
@@ -115,6 +115,30 @@ AS $function$
          WHERE now() - ranked.committed_at > ranked.time_cap
            AND ranked.chan_count           > ranked.count_cap
            AND ranked.rn                   > ranked.count_cap
+    ),
+    -- Rule E: just-installed prerelease -> purge same-family prereleases
+    -- in non-evidence states. Symmetric to Rule A but for prerelease-only
+    -- servers (like NO) where no release is ever installed. Without this,
+    -- superseded prereleases from the same family accumulate because Rule A
+    -- only fires on release installs. Excludes the just-installed row itself.
+    -- Gated by install_purge on the candidate's cell.
+    install_same_family_prerelease_to_prerelease AS (
+        SELECT u.id,
+               'delete'::text AS action,
+               format('prerelease/%s install-purge: same family %s as just-installed prerelease',
+                      u.state, i.family) AS reason,
+               u.log_relative_file_path
+          FROM public.upgrade u
+          JOIN installed i ON TRUE
+          JOIN public.upgrade_retention_caps c
+            ON c.release_status = u.release_status
+           AND c.state          = u.state
+         WHERE i.release_status = 'prerelease'
+           AND u.release_status = 'prerelease'
+           AND u.id <> i.id
+           AND u.state IN ('available','superseded','dismissed','skipped')
+           AND c.install_purge  = true
+           AND public.upgrade_family(u) = i.family
     )
     SELECT DISTINCT ON (all_rules.id)
            all_rules.id, all_rules.action, all_rules.reason, all_rules.log_relative_file_path
@@ -123,6 +147,7 @@ AS $function$
           UNION ALL SELECT * FROM install_old_commits_vs_release
           UNION ALL SELECT * FROM install_old_commits_vs_prerelease
           UNION ALL SELECT * FROM time_safety
+          UNION ALL SELECT * FROM install_same_family_prerelease_to_prerelease
       ) AS all_rules
      ORDER BY all_rules.id, all_rules.action;
 $function$
