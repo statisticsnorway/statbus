@@ -35,8 +35,8 @@ usage() {
     echo "  status              Show version on all servers"
     echo "  notify              Tell servers to check for updates"
     echo "  upgrade             Force all servers to apply latest"
-    echo "  install <server>    Full idempotent install (includes service via root)"
-    echo "  install all         Install ALL servers"
+    echo "  install <server> [version]  Install server (optionally pin to specific version)"
+    echo "  install all [version]       Install ALL servers (optionally pin to specific version)"
     echo "  rescue <server>     Alias for install"
     echo "  create <code> <name>  Create new cloud installation"
     echo "  inspect             Show credentials for all installations"
@@ -112,18 +112,19 @@ cmd_upgrade() {
 
 cmd_install() {
     local target="$1"
+    local version="${2:-}"
     validate_server "$target"
 
     if [ "$target" = "all" ]; then
-        echo "Installing ALL servers"
+        echo "Installing ALL servers${version:+ (pinned to $version)}"
         echo "======================"
         for server in $SERVERS; do
             echo ""
             echo "--- $server ---"
-            cmd_install_one "$server"
+            cmd_install_one "$server" "$version"
         done
     else
-        cmd_install_one "$target"
+        cmd_install_one "$target" "$version"
     fi
 }
 
@@ -141,6 +142,7 @@ cmd_install_one() {
     # so a cloud.sh exit always leaves the server with the upgrade service
     # running, not stopped.
     local server="$1"
+    local version="${2:-}"
     local exit_code=0
 
     # Check the server's upgrade channel to decide install strategy.
@@ -149,27 +151,36 @@ cmd_install_one() {
     channel=$(ssh_server "$server" "cd statbus && ./sb dotenv -f .env.config get UPGRADE_CHANNEL 2>/dev/null" 2>/dev/null || echo "prerelease")
 
     if [ "$channel" = "edge" ]; then
-        echo "Installing $server (edge channel — building from master)..."
-        # Edge: pull latest master. If HEAD is a tagged release with a
-        # published binary, download it (faster, no Go toolchain needed).
-        # Otherwise fall back to building from source.
-        ssh_server "$server" "cd statbus && git fetch origin master --tags --quiet && git checkout origin/master --quiet" 2>&1
-        # Check if HEAD is a tagged release with a downloadable binary.
-        local head_tag
-        head_tag=$(ssh_server "$server" "cd statbus && git describe --exact-match HEAD 2>/dev/null" 2>/dev/null || true)
-        if [ -n "$head_tag" ]; then
-            echo "HEAD is tagged ($head_tag) — checking for release binary..."
-            if ./sb release check --tag "$head_tag" 2>/dev/null; then
-                echo "Release binary available — downloading instead of building."
-                ssh_server "$server" \
-                    "cd statbus && curl -fsSL https://github.com/statisticsnorway/statbus/releases/download/${head_tag}/sb-linux-amd64 -o sb-linux-amd64 && chmod +x sb-linux-amd64" 2>&1
+        if [ -n "$version" ]; then
+            echo "Installing $server (edge — pinned to $version)..."
+            # Pinned edge: checkout the specified tag and download its release binary.
+            ssh_server "$server" "cd statbus && git fetch origin --tags --quiet && git checkout $version --quiet" 2>&1
+            echo "Downloading release binary for $version..."
+            ssh_server "$server" \
+                "cd statbus && curl -fsSL https://github.com/statisticsnorway/statbus/releases/download/${version}/sb-linux-amd64 -o sb-linux-amd64 && chmod +x sb-linux-amd64" 2>&1
+        else
+            echo "Installing $server (edge channel — building from master)..."
+            # Edge: pull latest master. If HEAD is a tagged release with a
+            # published binary, download it (faster, no Go toolchain needed).
+            # Otherwise fall back to building from source.
+            ssh_server "$server" "cd statbus && git fetch origin master --tags --quiet && git checkout origin/master --quiet" 2>&1
+            # Check if HEAD is a tagged release with a downloadable binary.
+            local head_tag
+            head_tag=$(ssh_server "$server" "cd statbus && git describe --exact-match HEAD 2>/dev/null" 2>/dev/null || true)
+            if [ -n "$head_tag" ]; then
+                echo "HEAD is tagged ($head_tag) — checking for release binary..."
+                if ./sb release check --tag "$head_tag" 2>/dev/null; then
+                    echo "Release binary available — downloading instead of building."
+                    ssh_server "$server" \
+                        "cd statbus && curl -fsSL https://github.com/statisticsnorway/statbus/releases/download/${head_tag}/sb-linux-amd64 -o sb-linux-amd64 && chmod +x sb-linux-amd64" 2>&1
+                else
+                    echo "Release binary not ready — building from source..."
+                    ssh_server "$server" "cd statbus && export PATH=/home/linuxbrew/.linuxbrew/bin:\$PATH && ./dev.sh build-sb" 2>&1
+                fi
             else
-                echo "Release binary not ready — building from source..."
+                echo "HEAD is untagged — building from source..."
                 ssh_server "$server" "cd statbus && export PATH=/home/linuxbrew/.linuxbrew/bin:\$PATH && ./dev.sh build-sb" 2>&1
             fi
-        else
-            echo "HEAD is untagged — building from source..."
-            ssh_server "$server" "cd statbus && export PATH=/home/linuxbrew/.linuxbrew/bin:\$PATH && ./dev.sh build-sb" 2>&1
         fi
         # Stop user-level service before replacing binary — systemd --user
         # restarts it on exit (Restart=always), and the running process holds
@@ -180,24 +191,38 @@ cmd_install_one() {
         ssh_server "$server" "cd statbus && ./sb install" 2>&1 \
             || exit_code=$?
     else
-        # Gate: verify release artifacts are fully published before stopping
-        # the running service. If CI is still uploading assets or pushing
-        # images, abort early — the server stays up and the operator retries.
-        echo "Checking release artifacts are ready..."
-        if ! ./sb release check; then
-            echo "--- Release artifacts not ready. Retry in ~5 minutes. ---"
-            return 1
+        if [ -n "$version" ]; then
+            # Pinned: verify artifacts for the specific version before stopping.
+            echo "Checking release artifacts for $version are ready..."
+            if ! ./sb release check --tag "$version"; then
+                echo "--- Release artifacts for $version not ready. Retry later. ---"
+                return 1
+            fi
+            echo "Installing $server at $version via $INSTALL_URL ..."
+            stop_upgrade_service "$server"
+            ssh_server "$server" \
+                "curl -fsSL ${INSTALL_URL} | bash -s -- --version $version" 2>&1 \
+                || exit_code=$?
+        else
+            # Gate: verify release artifacts are fully published before stopping
+            # the running service. If CI is still uploading assets or pushing
+            # images, abort early — the server stays up and the operator retries.
+            echo "Checking release artifacts are ready..."
+            if ! ./sb release check; then
+                echo "--- Release artifacts not ready. Retry in ~5 minutes. ---"
+                return 1
+            fi
+            echo "Installing $server via $INSTALL_URL ..."
+            # Stop the user-level upgrade service so install.sh can replace the
+            # `./sb` binary without hitting "text file busy". install.sh's
+            # install step re-enables and starts the service on completion.
+            stop_upgrade_service "$server"
+            # Step 1: Run install.sh as the app user.
+            # Exit code 42 = service needs root (not a failure).
+            ssh_server "$server" \
+                "curl -fsSL ${INSTALL_URL} | bash -s -- --prerelease" 2>&1 \
+                || exit_code=$?
         fi
-        echo "Installing $server via $INSTALL_URL ..."
-        # Stop the user-level upgrade service so install.sh can replace the
-        # `./sb` binary without hitting "text file busy". install.sh's
-        # install step re-enables and starts the service on completion.
-        stop_upgrade_service "$server"
-        # Step 1: Run install.sh as the app user.
-        # Exit code 42 = service needs root (not a failure).
-        ssh_server "$server" \
-            "curl -fsSL ${INSTALL_URL} | bash -s -- --prerelease" 2>&1 \
-            || exit_code=$?
     fi
 
     if [ "$exit_code" -ne 0 ]; then
@@ -270,7 +295,7 @@ case "$1" in
         ;;
     install|rescue)
         [ $# -lt 2 ] && { echo "Error: $1 requires a server name or 'all'"; usage; }
-        cmd_install "$2"
+        cmd_install "$2" "${3:-}"
         ;;
     create)
         [ $# -lt 3 ] && { echo "Error: create requires <code> and <name>"; echo "Example: $0 create pk \"Pakistan StatBus\""; exit 1; }
