@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -277,6 +278,7 @@ func runInstall() (installErr error) {
 				completeInstallUpgradeRow(installDir, upgradeRowID)
 				runInstallSupersede(installDir)
 				runInstallRetention(installDir, upgradeRowID)
+				runInstallCallback(installDir)
 			}
 		}()
 	}
@@ -1079,6 +1081,50 @@ SELECT count(*) FROM superseded`, sqlLiteral(sha))
 	if count != "" && count != "0" {
 		fmt.Printf("  Superseded %s older release(s)\n", count)
 	}
+}
+
+// runInstallCallback executes the UPGRADE_CALLBACK shell command from .env
+// after a successful install. Mirrors the service's runUpgradeCallback.
+// Best-effort — errors are logged and swallowed.
+func runInstallCallback(dir string) {
+	envPath := filepath.Join(dir, ".env")
+	f, err := dotenv.Load(envPath)
+	if err != nil {
+		// No .env → no callback configured; not an error on fresh installs.
+		return
+	}
+
+	callback, ok := f.Get("UPGRADE_CALLBACK")
+	if !ok || callback == "" {
+		return
+	}
+
+	hostname, _ := os.Hostname()
+	statbusURL, _ := f.Get("STATBUS_URL")
+
+	fmt.Printf("  Running upgrade callback...\n")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "sh", "-c", callback)
+	cmd.Dir = dir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = append(os.Environ(),
+		"STATBUS_VERSION="+version,
+		"STATBUS_SERVER="+hostname,
+		"STATBUS_URL="+statbusURL,
+	)
+
+	if err := cmd.Run(); err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			fmt.Printf("  Upgrade callback timed out after 30s\n")
+		} else {
+			fmt.Printf("  Upgrade callback failed: %v\n", err)
+		}
+		return
+	}
+	fmt.Printf("  Upgrade callback completed successfully\n")
 }
 
 // runRootInstall handles `sudo sb install` — ONLY installs the systemd service.
