@@ -635,25 +635,41 @@ function UpgradeCard({
                   Recommended
                 </Badge>
               )}
-              <Badge variant="outline" className={
-                u.release_status === 'release'
-                  ? "text-xs border-green-300 text-green-600"
-                  : u.release_status === 'prerelease'
-                    ? "text-xs border-blue-300 text-blue-600"
-                    : "text-xs border-gray-300 text-gray-500"
-              }>
-                {u.release_status === 'release' ? 'release' : u.release_status === 'prerelease' ? 'pre-release' : 'commit'}
-              </Badge>
+              <a
+                href={
+                  u.release_status === 'commit'
+                    ? `https://github.com/statisticsnorway/statbus/commit/${u.commit_sha}`
+                    : `https://github.com/statisticsnorway/statbus/releases/tag/${u.tags?.[0] ?? ""}`
+                }
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Badge variant="outline" className={
+                  u.release_status === 'release'
+                    ? "text-xs border-green-300 text-green-600 hover:bg-green-50"
+                    : u.release_status === 'prerelease'
+                      ? "text-xs border-blue-300 text-blue-600 hover:bg-blue-50"
+                      : "text-xs border-gray-300 text-gray-500 hover:bg-gray-50"
+                }>
+                  {u.release_status === 'release' ? 'release' : u.release_status === 'prerelease' ? 'pre-release' : 'commit'}
+                </Badge>
+              </a>
               {/* Two distinct readiness states, both verified against their
                   respective registries by the upgrade service's discovery
                   cycle. Shown separately so an operator can tell which CI
                   workflow is still running (ci-images.yaml vs release.yaml)
                   and set realistic expectations. */}
               {u.state === 'available' && !u.docker_images_ready && (
-                <Badge variant="outline" className="text-xs border-amber-300 text-amber-600">
-                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                  images building...
-                </Badge>
+                <a
+                  href="https://github.com/statisticsnorway/statbus/actions/workflows/ci-images.yaml"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Badge variant="outline" className="text-xs border-amber-300 text-amber-600 hover:bg-amber-50">
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                    images building...
+                  </Badge>
+                </a>
               )}
               {u.state === 'available' && u.release_status !== 'commit' && u.docker_images_ready && !u.release_builds_ready && (
                 <Badge variant="outline" className="text-xs border-amber-300 text-amber-600">
