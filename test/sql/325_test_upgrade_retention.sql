@@ -5,6 +5,7 @@
 --   B. install_old_commits_vs_release      (purge old commits when release installed)
 --   C. install_old_commits_vs_prerelease   (purge old commits when prerelease installed)
 --   D. time_safety                         (AND-gate: age > time_cap AND channel_count > count_cap AND rank > count_cap)
+--   E. install_same_family_prerelease_to_prerelease (purge same-family rc's when prerelease installed)
 --   + zombie protection for scheduled/in_progress (NULL cap cells never purged)
 --   + executor matches planner output
 --
@@ -139,14 +140,14 @@ SELECT p.id,
   FROM public.upgrade_retention_plan('all', 16) AS p
  ORDER BY p.id;
 
-\echo '=== rule C: install_old_commits_vs_prerelease (install prerelease id=13) ==='
+\echo '=== rule C+E: install prerelease id=13 (family=v2026.04.0) ==='
 
 -- Install prerelease with family=v2026.04.0. The prior completed prerelease
 -- is id=11 (committed 30 days ago). Rule C → commits older than 30d ago
 -- → ids 6..10 (40, 60, 80, 100, 120 days old).
--- Rule D time-safety still fires on commits 5..10 (scoped to commit channel
--- when p_context='commit'; here we use 'all' so release/prerelease time-safety
--- also applies where caps match).
+-- Rule E → same-family prerelease id=12 (v2026.04.0-rc.2, available).
+-- Rule D time-safety still fires on commits 5..10.
+-- id=14 (v2026.02.0-rc.1) is different family → NOT purged by Rule E.
 SELECT p.id,
        p.action
   FROM public.upgrade_retention_plan('all', 13) AS p
@@ -194,6 +195,36 @@ SELECT count(*) FILTER (WHERE id IN (12, 13)) AS same_family_prereleases_remaini
        count(*) FILTER (WHERE id IN (17, 18)) AS zombies_remaining
   FROM public.upgrade;
 ROLLBACK TO SAVEPOINT before_apply_install;
+
+\echo '=== rule E: prerelease-only server (install prerelease id=11, family=v2026.03.0) ==='
+
+-- Install prerelease id=11 (v2026.03.0-rc.1, completed). This is a different
+-- family from ids 12,13 (v2026.04.0-rc.*). Rule E targets same-family prereleases
+-- only — so ids 12, 13 (v2026.04.0) are NOT purged by Rule E.
+-- id=14 (v2026.02.0-rc.1) is also a different family → NOT purged.
+-- Only time-safety (Rule D) fires on commits 5..10 as usual.
+-- This verifies Rule E doesn't over-purge across families.
+SELECT p.id, p.action
+  FROM public.upgrade_retention_plan('all', 11) AS p
+ ORDER BY p.id;
+
+\echo '=== rule E: apply with prerelease install id=13 purges same-family ==='
+
+-- Execute retention with prerelease install context (id=13, v2026.04.0-rc.3).
+-- Rule E purges id=12 (same family). Rule C purges commits 6..10.
+-- Rule D purges commits 5..10. DISTINCT ON collapses overlaps.
+-- Expected: 7 rows deleted (ids 5..10 + 12).
+SAVEPOINT before_apply_prerelease;
+SET client_min_messages TO WARNING;
+CALL public.upgrade_retention_apply('all', 13, 0);
+RESET client_min_messages;
+
+SELECT count(*) FILTER (WHERE id = 12) AS same_family_prerelease_remaining,
+       count(*) FILTER (WHERE id = 14) AS other_family_prerelease_remaining,
+       count(*) FILTER (WHERE id IN (17, 18)) AS zombies_remaining,
+       count(*) FILTER (WHERE id BETWEEN 5 AND 10) AS old_commits_remaining
+  FROM public.upgrade;
+ROLLBACK TO SAVEPOINT before_apply_prerelease;
 
 \echo '=== caps flip: install_purge=false + NULL cap → zero-plan ==='
 
