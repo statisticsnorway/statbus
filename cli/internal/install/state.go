@@ -193,7 +193,10 @@ func (defaultProbe) HasUpgradeTable(projDir string) (bool, error) {
 
 func (defaultProbe) QueryScheduledUpgrade(projDir string) (*ScheduledRow, error) {
 	// Oldest pending row wins; the scheduler enforces at-most-one.
-	sql := `SELECT id, commit_sha, COALESCE(version, commit_sha)
+	// Use commit_sha as the version fallback — the version column was
+	// added by migration 20260415183106 and may not exist on servers
+	// that haven't run it yet.
+	sql := `SELECT id, commit_sha, commit_sha
               FROM public.upgrade
              WHERE state = 'scheduled' AND started_at IS NULL
              ORDER BY id ASC LIMIT 1`
