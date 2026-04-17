@@ -74,7 +74,7 @@
     "tailwind-merge": "^3.4.0",
     "tailwindcss-animate": "^1.0.7",
     "undici": "^7.24.0",
-    "xlsx": "^0.18.5",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "xstate": "^5.26.0",
     "zod": "^3.25.76",
     "zod-form-data": "^2.0.8"
