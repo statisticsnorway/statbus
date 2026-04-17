@@ -343,6 +343,84 @@ func noSameKindTagAtHEAD(projDir string, isPrerelease bool) error {
 	return nil
 }
 
+// checkMigrationImmutability diffs the migrations/ directory between prevTag
+// and HEAD. If any migration file that EXISTED in prevTag has been modified
+// or deleted, the check fails. New migrations (only in HEAD) are fine.
+//
+// The diff is tag-to-HEAD, NOT commit-by-commit. A modify+revert sequence
+// shows no diff in total — which is correct (the end result is clean).
+func checkMigrationImmutability(projDir, prevTag, label string) error {
+	// List files in migrations/ that changed between prevTag and HEAD.
+	diffOut, err := upgrade.RunCommandOutput(projDir, "git", "diff",
+		"--name-status", prevTag+"..HEAD", "--", "migrations/")
+	if err != nil {
+		return fmt.Errorf("git diff %s..HEAD failed: %w", prevTag, err)
+	}
+	diff := strings.TrimSpace(diffOut)
+	if diff == "" {
+		fmt.Printf("  ✓ No migrations modified since %s (%s)\n", prevTag, label)
+		return nil
+	}
+
+	// Parse the diff output. Format: "M\tmigrations/file" or "D\tmigrations/file"
+	// A (added) = new migration, fine. M (modified) or D (deleted) = immutability violation.
+	var modified []string
+	for _, line := range strings.Split(diff, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, "\t", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		status := parts[0]
+		file := parts[1]
+		if status == "A" {
+			continue // new migration — always allowed
+		}
+		modified = append(modified, fmt.Sprintf("  %s %s", status, file))
+	}
+
+	if len(modified) == 0 {
+		fmt.Printf("  ✓ No migrations modified since %s (%s)\n", prevTag, label)
+		return nil
+	}
+
+	fmt.Printf("  ✗ Migrations modified since %s (%s)\n", prevTag, label)
+	for _, m := range modified {
+		fmt.Println("   ", m)
+	}
+	return fmt.Errorf("migrations modified since %s.\n"+
+		"  Deployed migrations are immutable — create a NEW migration instead.\n"+
+		"  If the change was intentional, create a corrective migration\n"+
+		"  and revert the modification to the original file:\n"+
+		"    git checkout %s -- migrations/<file>\n"+
+		"    ./sb migrate new --description \"fix_<description>\"", prevTag, prevTag)
+}
+
+// findPreviousTag finds the most recent tag matching the pattern that is
+// an ancestor of HEAD. Returns "" if none found.
+func findPreviousTag(projDir, pattern string, isRC bool) string {
+	tagsOut, _ := upgrade.RunCommandOutput(projDir, "git", "tag", "-l", pattern, "--sort=-version:refname")
+	for _, tag := range strings.Split(strings.TrimSpace(tagsOut), "\n") {
+		tag = strings.TrimSpace(tag)
+		if tag == "" {
+			continue
+		}
+		// Skip non-RC tags when looking for RC, and vice versa
+		tagIsRC := strings.Contains(tag, "-rc.")
+		if isRC != tagIsRC {
+			continue
+		}
+		// Check if this tag is an ancestor of HEAD (i.e., already deployed)
+		if _, err := upgrade.RunCommandOutput(projDir, "git", "merge-base", "--is-ancestor", tag, "HEAD"); err == nil {
+			return tag
+		}
+	}
+	return ""
+}
+
 var releasePrereleaseCmd = &cobra.Command{
 	Use:   "prerelease",
 	Short: "Tag a new release candidate (vYYYY.MM.PATCH-rc.N)",
@@ -356,10 +434,22 @@ var releasePrereleaseCmd = &cobra.Command{
 		if err := noSameKindTagAtHEAD(projDir, true); err != nil {
 			return err
 		}
+
+		// Migration immutability: no modifications to migrations that existed
+		// in the previous RC. New migrations are fine.
+		now := time.Now()
+		immPattern := fmt.Sprintf("v%d.%02d.*-rc.*", now.Year(), now.Month())
+		prevRC := findPreviousTag(projDir, immPattern, true)
+		if prevRC != "" {
+			if err := checkMigrationImmutability(projDir, prevRC, "previous RC"); err != nil {
+				return err
+			}
+		} else {
+			fmt.Println("  ✓ No previous RC to check migrations against (first RC this month)")
+		}
 		fmt.Println()
 
 		// Get current date prefix
-		now := time.Now()
 		prefix := fmt.Sprintf("v%d.%02d", now.Year(), now.Month())
 
 		// Find the highest stable patch for this month.
@@ -487,10 +577,22 @@ var releaseStableCmd = &cobra.Command{
 		if err := noSameKindTagAtHEAD(projDir, false); err != nil {
 			return err
 		}
+
+		// Migration immutability: no modifications to migrations that existed
+		// in the previous stable release. New migrations are fine.
+		now := time.Now()
+		stableImmPattern := fmt.Sprintf("v%d.*", now.Year())
+		prevStable := findPreviousTag(projDir, stableImmPattern, false)
+		if prevStable != "" {
+			if err := checkMigrationImmutability(projDir, prevStable, "previous release"); err != nil {
+				return err
+			}
+		} else {
+			fmt.Println("  ✓ No previous release to check migrations against (first release)")
+		}
 		fmt.Println()
 
-		// Get current date prefix
-		now := time.Now()
+		// Get current date prefix (already computed above for immutability check)
 		prefix := fmt.Sprintf("v%d.%02d", now.Year(), now.Month())
 
 		// Check that at least one RC exists for this month
