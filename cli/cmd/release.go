@@ -120,10 +120,22 @@ func preflightChecks(projDir string) bool {
 	stampPath := filepath.Join(projDir, "tmp", "fast-test-passed-sha")
 	stampBytes, err := os.ReadFile(stampPath)
 	if err != nil {
-		fmt.Println("  \u2717 Fast tests cover latest migrations (tmp/fast-test-passed-sha not found)")
-		fmt.Println("    Fix: ./dev.sh test fast")
-		allPassed = false
-	} else {
+		// No local stamp — try CI as fallback.
+		headOut, _ := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD")
+		headSHA := strings.TrimSpace(headOut)
+		if ciPassed := checkCITestPassed(headSHA); ciPassed {
+			fmt.Printf("  ✓ Fast tests passed in CI for %s (writing local stamp)\n", headSHA[:12])
+			os.MkdirAll(filepath.Join(projDir, "tmp"), 0755)
+			os.WriteFile(stampPath, []byte(headSHA+"\n"), 0644)
+			stampBytes = []byte(headSHA)
+		} else {
+			fmt.Println("  ✗ Fast tests cover latest migrations (no local stamp, CI not green)")
+			fmt.Println("    Fix: ./dev.sh test fast")
+			fmt.Println("    Or wait for pg_regress CI to pass on this commit")
+			allPassed = false
+		}
+	}
+	if stampBytes != nil {
 		stampSHA := strings.TrimSpace(string(stampBytes))
 
 		// Find the last commit that touched actual migration files.
@@ -828,6 +840,20 @@ func calVerRCKey(tag string) int64 {
 		return 0
 	}
 	return int64(year)*100_000_000 + int64(month)*1_000_000 + int64(patch)*10_000 + int64(rc)
+}
+
+// checkCITestPassed queries GitHub Actions to see if pg_regress passed for the given SHA.
+// Uses the `gh` CLI if available. Returns false if gh is not installed, the API fails,
+// or no successful run exists for this SHA.
+func checkCITestPassed(commitSHA string) bool {
+	// gh api returns workflow runs for a specific head_sha.
+	out, err := upgrade.RunCommandOutput(".", "gh", "api",
+		fmt.Sprintf("repos/statisticsnorway/statbus/actions/workflows/pg_regress-workflow.yaml/runs?head_sha=%s&status=completed&per_page=5", commitSHA),
+		"--jq", ".workflow_runs[] | select(.conclusion == \"success\") | .id")
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(out) != ""
 }
 
 // resolveLatestRC takes newline-separated RC tags and returns the highest by CalVer sort.
