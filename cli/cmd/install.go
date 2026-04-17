@@ -1042,36 +1042,15 @@ func runInstallRetention(dir string, rowID int64) {
 }
 
 // runInstallSupersede marks older upgrade rows as superseded after a
-// successful install. Mirrors the service's supersedeOlderReleases logic
-// but runs via psql. Best-effort — errors are logged and swallowed.
+// successful install. Calls the shared SQL procedure so both install
+// and service paths use the same logic. Best-effort — errors are
+// logged and swallowed.
 func runInstallSupersede(dir string) {
 	sha, _ := gitHeadInfo(dir)
 	if sha == "" {
 		return
 	}
-	sql := fmt.Sprintf(`WITH installed AS (
-  SELECT commit_sha, topological_order, committed_at
-    FROM public.upgrade WHERE commit_sha = %s LIMIT 1
-),
-superseded AS (
-  UPDATE public.upgrade SET
-    state = 'superseded', superseded_at = now(), error = NULL
-  FROM installed
-  WHERE public.upgrade.completed_at IS NULL
-    AND public.upgrade.started_at IS NULL
-    AND public.upgrade.skipped_at IS NULL
-    AND public.upgrade.superseded_at IS NULL
-    AND public.upgrade.commit_sha != installed.commit_sha
-    AND (
-      (public.upgrade.topological_order IS NOT NULL
-       AND installed.topological_order IS NOT NULL
-       AND public.upgrade.topological_order < installed.topological_order)
-      OR public.upgrade.committed_at < installed.committed_at
-    )
-  RETURNING public.upgrade.id
-)
-SELECT count(*) FROM superseded`, sqlLiteral(sha))
-
+	sql := fmt.Sprintf("CALL public.upgrade_supersede_older(%s, 0)", sqlLiteral(sha))
 	out, err := runInstallSQL(dir, sql)
 	if err != nil {
 		fmt.Printf("  Note: supersede older releases skipped: %v\n", err)

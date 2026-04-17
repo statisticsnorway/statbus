@@ -1251,36 +1251,18 @@ func (d *Service) reportDiskSpace(ctx context.Context) {
 // supersedeOlderReleases marks available releases older than the selected commit as superseded.
 // Ordering is by topological_order then committed_at as fallback.
 func (d *Service) supersedeOlderReleases(ctx context.Context, selectedCommitSHA string) {
-	// Get the topological_order/committed_at of the selected commit
-	var selectedPos sql.NullInt32
-	var selectedCommittedAt time.Time
+	// Call the shared SQL procedure — single source of truth for both
+	// the service (pgx) and the step-table install path (psql).
+	var superseded int
 	err := d.queryConn.QueryRow(ctx,
-		"SELECT topological_order, committed_at FROM public.upgrade WHERE commit_sha = $1",
-		selectedCommitSHA).Scan(&selectedPos, &selectedCommittedAt)
-	if err != nil {
-		return
-	}
-
-	// Supersede all available entries that are older. error=NULL matters
-	// when a previously-failed row gets auto-superseded — CHECK on
-	// state='superseded' only requires superseded_at IS NOT NULL.
-	result, err := d.queryConn.Exec(ctx,
-		`UPDATE public.upgrade SET state = 'superseded', superseded_at = now(), error = NULL
-		 WHERE completed_at IS NULL AND started_at IS NULL
-		   AND skipped_at IS NULL AND superseded_at IS NULL
-		   AND commit_sha != $1
-		   AND (
-		     (topological_order IS NOT NULL AND $2::int IS NOT NULL AND topological_order < $2)
-		     OR committed_at < $3
-		   )`,
-		selectedCommitSHA, selectedPos, selectedCommittedAt)
+		"CALL public.upgrade_supersede_older($1, 0)",
+		selectedCommitSHA).Scan(&superseded)
 	if err != nil {
 		fmt.Printf("Failed to supersede older releases: %v\n", err)
 		return
 	}
-
-	if result.RowsAffected() > 0 {
-		fmt.Printf("Superseded %d older release(s)\n", result.RowsAffected())
+	if superseded > 0 {
+		fmt.Printf("Superseded %d older release(s)\n", superseded)
 	}
 }
 
