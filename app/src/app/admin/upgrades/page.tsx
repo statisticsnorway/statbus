@@ -337,6 +337,17 @@ export default function UpgradesPage() {
           }
         }
 
+        // Sort available: tagged releases first (release > prerelease > commit),
+        // then by topology within each tier. This ensures the "Recommended" badge
+        // goes to the latest tagged release, not a newer plain commit.
+        const statusRank: Record<string, number> = { release: 3, prerelease: 2, commit: 1 };
+        available.sort((a, b) => {
+          const sa = statusRank[a.release_status] ?? 0;
+          const sb = statusRank[b.release_status] ?? 0;
+          if (sa !== sb) return sb - sa;
+          return (b.topological_order ?? b.id) - (a.topological_order ?? a.id);
+        });
+
         // When an upgrade is scheduled or in-progress, hide available entries entirely.
         // The user only needs to see the active upgrade, not other options.
         const hasActiveAction = actionable.some((u) => {
