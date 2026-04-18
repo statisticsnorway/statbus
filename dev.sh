@@ -1294,6 +1294,7 @@ EOS
         # Writes a stamp file used by ./sb release stable preflight.
         set -euo pipefail
 
+        INSTALL_VERSION="${1:-}"  # optional: use published release instead of local build
         VM_NAME="statbus-install-test"
         STAMP_FILE="$WORKSPACE/tmp/install-test-passed-sha"
         DOMAIN="statbus-test.local"
@@ -1314,13 +1315,22 @@ EOS
             multipass purge 2>/dev/null || true
         fi
 
-        # Build the sb binary for Linux (the VM is Linux)
-        echo "Building sb for linux/amd64..."
-        ./dev.sh build-sb linux/amd64
+        if [ -z "$INSTALL_VERSION" ]; then
+            # Build the sb binary for Linux (matching the host architecture).
+            # On Apple Silicon, Multipass creates ARM64 VMs.
+            HOST_ARCH=$(uname -m)
+            case "$HOST_ARCH" in
+                x86_64)  BUILD_TARGET="linux/amd64" ;;
+                arm64|aarch64) BUILD_TARGET="linux/arm64" ;;
+                *) echo "Unsupported architecture: $HOST_ARCH"; exit 1 ;;
+            esac
+            echo "Building sb for $BUILD_TARGET..."
+            ./dev.sh build-sb "$BUILD_TARGET"
+        fi
 
         # Launch fresh Ubuntu 24.04 VM
         echo "Launching Ubuntu 24.04 VM ($VM_NAME)..."
-        multipass launch 24.04 --name "$VM_NAME" --cpus 2 --memory 4G --disk 20G --timeout 600
+        multipass launch 24.04 --name "$VM_NAME" --cpus 2 --memory 4G --disk 10G --timeout 600
 
         # Wait for VM to be ready
         echo "Waiting for VM to be ready..."
@@ -1328,7 +1338,11 @@ EOS
 
         # Transfer files into the VM
         echo "Transferring files..."
-        multipass transfer sb-linux-amd64 "$VM_NAME":/tmp/sb
+        if [ -z "$INSTALL_VERSION" ]; then
+            # Transfer the binary matching the local build target
+            SB_BINARY="sb-${BUILD_TARGET//\//-}"  # e.g. sb-linux-arm64
+            multipass transfer "$SB_BINARY" "$VM_NAME":/tmp/sb
+        fi
         multipass transfer ops/harden-ubuntu-lts-24.sh "$VM_NAME":/tmp/harden.sh
 
         # Create .env.config for standalone mode
@@ -1337,7 +1351,7 @@ EOS
 DEPLOYMENT_SLOT_NAME=Install Test
 DEPLOYMENT_SLOT_CODE=test
 DEPLOYMENT_SLOT_PORT_OFFSET=1
-CADDY_DEPLOYMENT_MODE=standalone
+CADDY_DEPLOYMENT_MODE=development
 SITE_DOMAIN=statbus-test.local
 STATBUS_URL=https://statbus-test.local
 BROWSER_REST_URL=https://statbus-test.local
@@ -1356,6 +1370,14 @@ ENVCONFIG
 USERS
         multipass transfer /tmp/statbus-test-users "$VM_NAME":/tmp/users.yml
 
+        # Create hardening config for non-interactive mode
+        multipass exec "$VM_NAME" -- sudo bash -c 'cat > /root/.harden-ubuntu.env << EOF
+ADMIN_EMAIL="test@statbus.org"
+GITHUB_USERS="jhf"
+EXTRA_LOCALES=""
+CADDY_PLUGINS=""
+EOF'
+
         # Run hardening (non-interactive, installs Docker + prerequisites)
         echo ""
         echo "=== Stage: Hardening ==="
@@ -1367,26 +1389,43 @@ USERS
             exit 1
         fi
 
-        # Set up the install: create directory, place binary and config
+        # Create dedicated statbus user (after hardening installs Docker)
+        multipass exec "$VM_NAME" -- sudo useradd -m -G docker statbus
+
+        # Set up the install: place binary and config, then run install as statbus user
         echo ""
         echo "=== Stage: Install ==="
-        multipass exec "$VM_NAME" -- bash -c '
-            set -e
-            # Create statbus directory
-            mkdir -p ~/statbus
-            cd ~/statbus
-
-            # Place the binary
-            cp /tmp/sb ./sb
-            chmod +x ./sb
-
-            # Place configuration
-            cp /tmp/env-config .env.config
-            cp /tmp/users.yml .users.yml
-
-            # Run install (non-interactive)
-            ./sb install --non-interactive
-        ' 2>&1 | tee tmp/test-install-install.log
+        if [ -z "$INSTALL_VERSION" ]; then
+            multipass exec "$VM_NAME" -- sudo -u statbus bash -c '
+                set -e
+                mkdir -p ~/statbus
+                cd ~/statbus
+                cp /tmp/sb ./sb
+                chmod +x ./sb
+                cp /tmp/env-config .env.config
+                cp /tmp/users.yml .users.yml
+                STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf
+            ' 2>&1 | tee tmp/test-install-install.log
+        else
+            multipass exec "$VM_NAME" -- sudo -u statbus bash -c "
+                set -e
+                VM_ARCH=\$(uname -m)
+                case \"\$VM_ARCH\" in
+                    x86_64)  GOARCH=amd64 ;;
+                    arm64|aarch64) GOARCH=arm64 ;;
+                    *) echo \"Unsupported: \$VM_ARCH\"; exit 1 ;;
+                esac
+                SB_URL=\"https://github.com/statisticsnorway/statbus/releases/download/${INSTALL_VERSION}/sb-linux-\${GOARCH}\"
+                curl -fsSL \"\$SB_URL\" -o ~/sb.tmp
+                chmod +x ~/sb.tmp
+                git clone --depth 1 --branch ${INSTALL_VERSION} https://github.com/statisticsnorway/statbus.git ~/statbus
+                mv ~/sb.tmp ~/statbus/sb
+                cd ~/statbus
+                cp /tmp/env-config .env.config
+                cp /tmp/users.yml .users.yml
+                STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf
+            " 2>&1 | tee tmp/test-install-install.log
+        fi
         INSTALL_EXIT=$?
         if [ $INSTALL_EXIT -ne 0 ]; then
             echo "FAILED: Install failed (exit $INSTALL_EXIT)"
@@ -1420,7 +1459,7 @@ USERS
         # Verify version
         echo ""
         echo "=== Stage: Verify ==="
-        multipass exec "$VM_NAME" -- bash -c 'cd ~/statbus && ./sb --version'
+        multipass exec "$VM_NAME" -- sudo -u statbus bash -c 'cd ~/statbus && ./sb --version'
 
         # Write stamp
         echo ""
