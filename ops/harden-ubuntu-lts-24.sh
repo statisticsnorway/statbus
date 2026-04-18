@@ -24,16 +24,6 @@ ENV_FILE="${HOME}/.harden-ubuntu.env"
 SCRIPT_VERSION="1.0.0"
 NON_INTERACTIVE=false
 
-# Common Caddy plugins for selection
-declare -A CADDY_PLUGIN_OPTIONS=(
-    ["1"]="github.com/mholt/caddy-l4|Layer 4 (TCP/UDP) proxying"
-    ["2"]="github.com/caddy-dns/cloudflare|Cloudflare DNS for ACME"
-    ["3"]="github.com/caddy-dns/namedotcom|Name.com DNS for ACME"
-    ["4"]="github.com/caddy-dns/route53|AWS Route53 DNS for ACME"
-    ["5"]="github.com/caddy-dns/digitalocean|DigitalOcean DNS for ACME"
-    ["6"]="github.com/greenpau/caddy-security|Authentication/Authorization"
-)
-
 # =============================================================================
 # Colors and Formatting
 # =============================================================================
@@ -143,8 +133,6 @@ GITHUB_USERS="${GITHUB_USERS:-}"
 # The script adds .UTF-8 automatically. C.UTF-8 and en_US.UTF-8 are always included.
 EXTRA_LOCALES="${EXTRA_LOCALES:-}"
 
-# Space-separated Caddy plugins for xcaddy build (empty = standard Caddy)
-CADDY_PLUGINS="${CADDY_PLUGINS:-}"
 EOF
     chmod 600 "$ENV_FILE"
 }
@@ -169,41 +157,6 @@ prompt_env_value() {
     fi
 }
 
-prompt_caddy_plugins() {
-    echo ""
-    echo -e "${BOLD}Caddy Plugins${NC}"
-    echo "Select plugins to include in custom Caddy build (space-separated numbers),"
-    echo "or enter custom plugin paths, or leave empty for standard Caddy."
-    echo ""
-    
-    for key in $(echo "${!CADDY_PLUGIN_OPTIONS[@]}" | tr ' ' '\n' | sort -n); do
-        IFS='|' read -r plugin desc <<< "${CADDY_PLUGIN_OPTIONS[$key]}"
-        echo "  $key) $desc"
-        echo "     ($plugin)"
-    done
-    echo ""
-    
-    if [[ -n "$CADDY_PLUGINS" ]]; then
-        echo -e "Current: ${CYAN}$CADDY_PLUGINS${NC}"
-    fi
-    
-    read -r -p "Selection (e.g., '1 2' or custom paths, Enter to keep/skip): " selection
-    
-    if [[ -n "$selection" ]]; then
-        local plugins=""
-        for item in $selection; do
-            if [[ -n "${CADDY_PLUGIN_OPTIONS[$item]}" ]]; then
-                IFS='|' read -r plugin _ <<< "${CADDY_PLUGIN_OPTIONS[$item]}"
-                plugins="$plugins $plugin"
-            else
-                # Assume it's a custom plugin path
-                plugins="$plugins $item"
-            fi
-        done
-        CADDY_PLUGINS="${plugins# }"
-    fi
-}
-
 setup_env() {
     log_header "Configuration Setup"
     
@@ -216,7 +169,6 @@ setup_env() {
         echo -e "  ADMIN_EMAIL:   ${CYAN}${ADMIN_EMAIL:-<not set>}${NC}"
         echo -e "  GITHUB_USERS:  ${CYAN}${GITHUB_USERS:-<not set>}${NC}"
         echo -e "  EXTRA_LOCALES: ${CYAN}${EXTRA_LOCALES:-<not set>}${NC}"
-        echo -e "  CADDY_PLUGINS: ${CYAN}${CADDY_PLUGINS:-<not set>}${NC}"
         echo ""
         
         if [[ "$NON_INTERACTIVE" == "true" ]]; then
@@ -235,7 +187,6 @@ setup_env() {
             echo "  ADMIN_EMAIL=\"your@email.com\""
             echo "  GITHUB_USERS=\"username1 username2\""
             echo "  EXTRA_LOCALES=\"sq_AL nb_NO\""
-            echo "  CADDY_PLUGINS=\"\""
             exit 1
         fi
         log "No configuration found. Let's set up your preferences."
@@ -244,8 +195,7 @@ setup_env() {
     prompt_env_value "ADMIN_EMAIL" "Email address for system notifications (unattended-upgrades):"
     prompt_env_value "GITHUB_USERS" "GitHub usernames for SSH key fetching (space-separated):"
     prompt_env_value "EXTRA_LOCALES" "Extra locales to enable without .UTF-8 suffix (e.g., 'sq_AL nb_NO'):"
-    prompt_caddy_plugins
-    
+
     save_env
     log_success "Configuration saved to $ENV_FILE"
 }
@@ -563,7 +513,7 @@ stage_security_tools() {
     echo "This stage will:"
     echo "  - Install CrowdSec intrusion detection"
     echo "  - Install CrowdSec firewall bouncer (nftables)"
-    echo "  - Install SSH and Caddy log parsers"
+    echo "  - Install SSH log parsers"
     echo "  - Configure UFW firewall"
     echo "  - Allow SSH, HTTP, HTTPS, PostgreSQL through firewall"
     echo ""
@@ -584,8 +534,7 @@ stage_security_tools() {
     
     log "Installing CrowdSec collections..."
     cscli collections install crowdsecurity/sshd
-    cscli parsers install crowdsecurity/caddy-logs
-    
+
     log "Reloading CrowdSec..."
     systemctl reload crowdsec
     
@@ -606,7 +555,6 @@ stage_security_tools() {
     verify "CrowdSec running" "systemctl is-active crowdsec"
     verify "Firewall bouncer installed" "dpkg -l | grep -q crowdsec-firewall-bouncer"
     verify "SSHD collection installed" "cscli collections list | grep -q sshd"
-    verify "Caddy parser installed" "cscli parsers list | grep -q caddy"
     verify "UFW active" "ufw status | grep -q 'Status: active'"
     verify "SSH allowed in UFW" "ufw status | grep -q 'OpenSSH'"
     verify "HTTP allowed in UFW" "ufw status | grep -q '80/tcp'"
@@ -863,94 +811,6 @@ EOF
 }
 
 # =============================================================================
-# Stage 7: Web Server (Caddy)
-# =============================================================================
-
-stage_caddy() {
-    log_header "Stage 7: Web Server (Caddy)"
-    
-    echo -e "${YELLOW}NOTE: If deploying STATBUS, Caddy runs inside Docker.${NC}"
-    echo -e "${YELLOW}      Skip this stage unless you need host-level Caddy for other services.${NC}"
-    echo ""
-    
-    local custom_build=false
-    if [[ -n "$CADDY_PLUGINS" ]]; then
-        custom_build=true
-    fi
-    
-    echo "This stage will:"
-    echo "  - Install Caddy web server"
-    if [[ "$custom_build" == "true" ]]; then
-        echo "  - Build custom Caddy with plugins: $CADDY_PLUGINS"
-    else
-        echo "  - Install standard Caddy (no custom plugins)"
-    fi
-    echo ""
-    
-    if ! ask_yes_no "Run this stage?"; then
-        log "Skipping Stage 7"
-        return 0
-    fi
-    
-    log "Adding Caddy repository..."
-    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list > /dev/null
-    
-    apt-get update -qq
-    apt-get install -y caddy
-    
-    if [[ "$custom_build" == "true" ]]; then
-        log "Building custom Caddy with xcaddy..."
-        
-        apt-get install -y debian-keyring debian-archive-keyring apt-transport-https
-        curl -1sLf 'https://dl.cloudsmith.io/public/caddy/xcaddy/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-xcaddy-archive-keyring.gpg
-        curl -1sLf 'https://dl.cloudsmith.io/public/caddy/xcaddy/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-xcaddy.list > /dev/null
-        
-        apt-get update -qq
-        apt-get install -y xcaddy
-        
-        # Build xcaddy command with plugins
-        local xcaddy_cmd="xcaddy build"
-        for plugin in $CADDY_PLUGINS; do
-            xcaddy_cmd="$xcaddy_cmd --with $plugin"
-        done
-        
-        log "Running: $xcaddy_cmd"
-        pushd /tmp > /dev/null
-        eval "$xcaddy_cmd"
-        
-        # Set up alternatives for custom caddy
-        dpkg-divert --divert /usr/bin/caddy.default --rename /usr/bin/caddy 2>/dev/null || true
-        mv ./caddy /usr/bin/caddy.custom
-        update-alternatives --install /usr/bin/caddy caddy /usr/bin/caddy.default 10
-        update-alternatives --install /usr/bin/caddy caddy /usr/bin/caddy.custom 50
-        update-alternatives --set caddy /usr/bin/caddy.custom
-        popd > /dev/null
-        
-        log "Custom Caddy installed"
-    fi
-    
-    # Ensure Caddy service is enabled
-    systemctl enable caddy
-    
-    # Verification
-    echo ""
-    log "Verifying Stage 7..."
-    verify "Caddy installed" "which caddy"
-    verify "Caddy version" "caddy version"
-    verify "Caddy service enabled" "systemctl is-enabled caddy"
-    
-    if [[ "$custom_build" == "true" ]]; then
-        echo ""
-        log "Installed Caddy modules:"
-        caddy list-modules 2>/dev/null | head -20
-        echo "  ..."
-    fi
-    
-    pause
-}
-
-# =============================================================================
 # Main
 # =============================================================================
 
@@ -1042,8 +902,7 @@ main() {
     stage_security_tools
     stage_core_tools
     stage_user_setup
-    stage_caddy
-    
+
     log_header "Hardening Complete!"
     
     echo "Summary of configuration:"
@@ -1054,13 +913,11 @@ main() {
     echo "  - Docker installed"
     echo "  - devops user created"
     echo "  - Homebrew + developer tools installed"
-    echo "  - Caddy web server installed"
     echo ""
     echo "Recommended next steps:"
     echo "  1. Log in as devops user and verify SSH key access"
-    echo "  2. Configure /etc/caddy/Caddyfile for your sites"
-    echo "  3. Review CrowdSec with: cscli metrics"
-    echo "  4. Check firewall status with: ufw status"
+    echo "  2. Review CrowdSec with: cscli metrics"
+    echo "  3. Check firewall status with: ufw status"
     echo ""
     
     if [[ -f /var/run/reboot-required ]]; then
