@@ -1391,7 +1391,7 @@ EOF'
         fi
 
         # Create dedicated statbus user (after hardening installs Docker)
-        multipass exec "$VM_NAME" -- sudo useradd -m -G docker statbus
+        multipass exec "$VM_NAME" -- sudo useradd -m -s /bin/bash -G docker statbus
 
         # Enable systemd linger so the user's systemd instance starts on first login
         multipass exec "$VM_NAME" -- sudo loginctl enable-linger statbus

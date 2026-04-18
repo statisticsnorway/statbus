@@ -758,13 +758,13 @@ if [ -d "/home/linuxbrew/.linuxbrew/sbin" ]; then
     export PATH="/home/linuxbrew/.linuxbrew/sbin:$PATH"
 fi
 
-# Load Homebrew environment
-if [ -x "/home/linuxbrew/.linuxbrew/bin/brew" ]; then
+# Load Homebrew environment (bash only — brew shellenv uses bash-specific syntax)
+if [ -n "$BASH_VERSION" ] && [ -x "/home/linuxbrew/.linuxbrew/bin/brew" ]; then
     eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 fi
 
-# Enable bash completion for Homebrew packages
-if [ -d /home/linuxbrew/.linuxbrew/etc/bash_completion.d ]; then
+# Enable bash completion for Homebrew packages (bash only)
+if [ -n "$BASH_VERSION" ] && [ -d /home/linuxbrew/.linuxbrew/etc/bash_completion.d ]; then
     for bcfile in /home/linuxbrew/.linuxbrew/etc/bash_completion.d/*; do
         [ -r "$bcfile" ] && . "$bcfile"
     done
