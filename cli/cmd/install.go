@@ -285,11 +285,17 @@ func runInstall() (installErr error) {
 	}
 	defer releaseFlag()
 
-	// Pre-flight: check disk space
+	// Pre-flight: check disk space (default 100 GB, override with STATBUS_MIN_DISK_GB)
+	minDiskGB := uint64(100)
+	if v := os.Getenv("STATBUS_MIN_DISK_GB"); v != "" {
+		if n, err := strconv.ParseUint(v, 10, 64); err == nil {
+			minDiskGB = n
+		}
+	}
 	if freeBytes, err := upgrade.DiskFree("."); err == nil {
 		freeGB := freeBytes / (1024 * 1024 * 1024)
-		if freeGB < 100 {
-			return fmt.Errorf("insufficient disk space: %d GB free (need at least 100 GB for database, images, and backups)", freeGB)
+		if freeGB < minDiskGB {
+			return fmt.Errorf("insufficient disk space: %d GB free (need at least %d GB for database, images, and backups)", freeGB, minDiskGB)
 		}
 		fmt.Printf("Disk space: %d GB free\n", freeGB)
 	}
@@ -303,6 +309,56 @@ func runInstall() (installErr error) {
 	if !bypass && version != "dev" && detectedState == install.StateNothingScheduled {
 		upgradeRowID = startInstallUpgradeRow(installDir)
 	}
+
+	// Create an install log for the upgrade row so the admin UI can show
+	// what happened. Must be registered BEFORE the post-completion defer
+	// so the pipe stays active during completion/supersede/retention prints
+	// (defers are LIFO — this one drains last).
+	var installLog *upgrade.ProgressLog
+	var origStdout *os.File
+	var pipeW *os.File
+	var teeDone chan struct{}
+	if upgradeRowID > 0 {
+		installLog = upgrade.NewProgressLog(installDir, upgradeRowID, version, time.Now().UTC())
+		stampSQL := fmt.Sprintf("UPDATE public.upgrade SET log_relative_file_path = %s WHERE id = %d",
+			sqlLiteral(installLog.RelPath()), upgradeRowID)
+		if _, err := runInstallSQL(installDir, stampSQL); err != nil {
+			fmt.Printf("  Note: could not stamp log path: %v\n", err)
+		}
+		// Tee stdout to the log file for the entire install duration.
+		origStdout = os.Stdout
+		pr, pw, pipeErr := os.Pipe()
+		if pipeErr == nil {
+			pipeW = pw
+			os.Stdout = pw
+			teeDone = make(chan struct{})
+			go func() {
+				defer close(teeDone)
+				buf := make([]byte, 4096)
+				for {
+					n, readErr := pr.Read(buf)
+					if n > 0 {
+						origStdout.Write(buf[:n])
+						installLog.File().Write(buf[:n])
+					}
+					if readErr != nil {
+						break
+					}
+				}
+			}()
+		}
+	}
+	defer func() {
+		if pipeW != nil {
+			pipeW.Close()
+			<-teeDone
+			os.Stdout = origStdout
+		}
+		if installLog != nil {
+			installLog.Close()
+		}
+	}()
+
 	if !bypass && version != "dev" {
 		defer func() {
 			// Post-completion DB ops use pgx (parameter binding, no shell
