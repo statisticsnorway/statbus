@@ -181,6 +181,7 @@ export default function UpgradesPage() {
   const diskFree = diskFreeGB ? parseInt(diskFreeGB, 10) : null;
 
   const [actionError, setActionError] = useState<string | null>(null);
+  const [showSuperseded, setShowSuperseded] = useState(false);
 
   // Detect when an upgrade takes the app down — show the maintenance page inline.
   const hasActiveUpgrade = upgrades?.some((u) => {
@@ -365,6 +366,10 @@ export default function UpgradesPage() {
           ? history.filter(u => u.id !== latestCompleted.id)
           : history;
 
+        const filteredHistory = showSuperseded
+          ? historyRest
+          : historyRest.filter(u => u.state === 'completed');
+
         const renderCard = (u: Upgrade, variant?: "recommended" | "superseded") => {
           const status = u.state;
           const canRestore = latestCompleted
@@ -464,10 +469,26 @@ export default function UpgradesPage() {
               <Collapsible>
                 <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md border border-dashed border-muted-foreground/25 px-4 py-2 text-sm text-muted-foreground hover:bg-muted/50 transition-colors">
                   <ChevronDown className="h-4 w-4" />
-                  {historyRest.length} past upgrade{historyRest.length !== 1 ? "s" : ""}
+                  {filteredHistory.length} past upgrade{filteredHistory.length !== 1 ? "s" : ""}
+                  <div
+                    className="ml-auto flex items-center gap-1"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <span className="rounded px-1.5 py-0.5 text-xs bg-green-100 text-green-800">
+                      Completed
+                    </span>
+                    <span
+                      onClick={() => setShowSuperseded((v) => !v)}
+                      className={`cursor-pointer rounded px-1.5 py-0.5 text-xs bg-gray-100 transition-opacity ${
+                        showSuperseded ? "text-gray-500" : "text-gray-400 opacity-40"
+                      }`}
+                    >
+                      Superseded
+                    </span>
+                  </div>
                 </CollapsibleTrigger>
                 <CollapsibleContent className="space-y-3 mt-3">
-                  {historyRest.map((u) => renderCard(u))}
+                  {filteredHistory.map((u) => renderCard(u))}
                 </CollapsibleContent>
               </Collapsible>
             )}
