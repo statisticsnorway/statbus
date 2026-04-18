@@ -962,11 +962,7 @@ func runInstallService(dir string) error {
 
 	fmt.Println("  Running systemctl --user daemon-reload")
 	if err := runCmd("systemctl", "--user", "daemon-reload"); err != nil {
-		// No systemd user session (e.g. CI, Multipass, headless install). The
-		// service file is in place; a user session can activate it later.
-		fmt.Printf("  Warning: no systemd user session — service file installed but not activated.\n"+
-			"  To activate: systemctl --user enable --now %s\n", instance)
-		return nil
+		return fmt.Errorf("systemctl daemon-reload: %w", err)
 	}
 
 	// Enable linger so the user service runs even when not logged in.
