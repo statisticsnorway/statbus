@@ -1396,29 +1396,33 @@ EOF'
         # Enable systemd linger so the user's systemd instance starts on first login
         multipass exec "$VM_NAME" -- sudo loginctl enable-linger statbus
 
-        # Set up SSH access for the statbus user — SSH gives a real PAM login session
-        # with XDG_RUNTIME_DIR and D-Bus, which systemctl --user requires.
-        SSH_KEY_FILE=$(mktemp /tmp/statbus-test-key-XXXXXX)
-        rm -f "${SSH_KEY_FILE}"
-        ssh-keygen -t ed25519 -f "${SSH_KEY_FILE}" -N "" -C "statbus-test" -q
-        multipass transfer "${SSH_KEY_FILE}.pub" "$VM_NAME":/tmp/statbus-pubkey
-        multipass exec "$VM_NAME" -- sudo bash -c '
-            mkdir -p /home/statbus/.ssh
-            chmod 700 /home/statbus/.ssh
-            cat /tmp/statbus-pubkey > /home/statbus/.ssh/authorized_keys
-            chmod 600 /home/statbus/.ssh/authorized_keys
-            chown -R statbus:statbus /home/statbus/.ssh
-            rm /tmp/statbus-pubkey
-        '
-        VM_IP=$(multipass info "$VM_NAME" --format json | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['$VM_NAME']['ipv4'][0])")
-        echo "VM IP: $VM_IP"
-        SSH="ssh -i ${SSH_KEY_FILE} -o StrictHostKeyChecking=no -o BatchMode=yes statbus@${VM_IP}"
+        # Set XDG_RUNTIME_DIR in statbus's .profile so that `sudo -i -u statbus`
+        # gets a working systemd --user session (PAM doesn't set this for sudo).
+        multipass exec "$VM_NAME" -- sudo bash -c \
+            'echo "export XDG_RUNTIME_DIR=/run/user/\$(id -u)" >> /home/statbus/.profile'
 
-        # Set up the install: place binary and config, then run install via SSH
+        # Wait for user manager to be ready after linger enable (~100ms)
+        STATBUS_UID=$(multipass exec "$VM_NAME" -- id -u statbus)
+        for i in $(seq 1 20); do
+            multipass exec "$VM_NAME" -- sudo -u statbus \
+                XDG_RUNTIME_DIR=/run/user/$STATBUS_UID \
+                systemctl --user is-system-running 2>/dev/null | grep -qE "running|degraded" && break
+            sleep 0.1
+        done
+
+        # Helper: run a command as the statbus user with a full login shell.
+        # sudo -i sources .profile, which sets XDG_RUNTIME_DIR.
+        VM_EXEC="multipass exec $VM_NAME -- sudo -i -u statbus"
+
+        # Verify systemctl --user works via sudo -i
+        echo "Verifying systemctl --user via sudo -i -u statbus..."
+        $VM_EXEC systemctl --user is-system-running || true
+
+        # Set up the install: place binary and config, then run install
         echo ""
         echo "=== Stage: Install ==="
         if [ -z "$INSTALL_VERSION" ]; then
-            $SSH bash -l -c '
+            $VM_EXEC bash -c '
                 set -e
                 mkdir -p ~/statbus
                 cd ~/statbus
@@ -1429,7 +1433,7 @@ EOF'
                 STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf
             ' 2>&1 | tee tmp/test-install-install.log
         else
-            $SSH bash -l -c "
+            $VM_EXEC bash -c "
                 set -e
                 VM_ARCH=\$(uname -m)
                 case \"\$VM_ARCH\" in
@@ -1455,14 +1459,14 @@ EOF'
             exit 1
         fi
 
-        # Health check — runs from inside the VM via SSH.
+        # Health check — runs from inside the VM.
         # Development mode binds all ports to 127.0.0.1 inside the VM, so the
         # host cannot reach them. HTTP port = 3000 + (DEPLOYMENT_SLOT_PORT_OFFSET * 10).
         echo ""
         echo "=== Stage: Health Check ==="
         HEALTHY=false
         for i in $(seq 1 10); do
-            HTTP_CODE=$($SSH -- curl -s http://127.0.0.1:3010/rest/ -o /dev/null -w "%{http_code}" 2>/dev/null || echo "000")
+            HTTP_CODE=$($VM_EXEC bash -c 'curl -s http://127.0.0.1:3010/rest/ -o /dev/null -w "%{http_code}"' 2>/dev/null || echo "000")
             if echo "$HTTP_CODE" | grep -q "^[23]"; then
                 HEALTHY=true
                 echo "Health check passed (attempt $i, code=$HTTP_CODE)"
@@ -1481,7 +1485,7 @@ EOF'
         # Verify version
         echo ""
         echo "=== Stage: Verify ==="
-        $SSH bash -l -c 'cd ~/statbus && ./sb --version'
+        $VM_EXEC bash -c 'cd ~/statbus && ./sb --version'
 
         # Write stamp
         echo ""
@@ -1490,8 +1494,7 @@ EOF'
         git rev-parse HEAD > "$STAMP_FILE"
         echo "Install test stamp recorded: $(cat "$STAMP_FILE")"
 
-        # Clean up temp SSH key and VM
-        rm -f "${SSH_KEY_FILE}" "${SSH_KEY_FILE}.pub"
+        # Clean up VM
         echo "Cleaning up VM..."
         multipass delete "$VM_NAME"
         multipass purge
