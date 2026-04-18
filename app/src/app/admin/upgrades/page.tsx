@@ -651,6 +651,16 @@ function UpgradeCard({
               ) : (
                 u.display_name
               )}
+              {u.release_status !== 'commit' && (
+                <a
+                  href={`https://github.com/statisticsnorway/statbus/commit/${u.commit_sha}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-muted-foreground font-normal hover:underline"
+                >
+                  ({u.commit_sha.substring(0, 8)})
+                </a>
+              )}
               {variant === "recommended" && (
                 <Badge className="text-xs bg-blue-50 text-blue-700 border-blue-200" variant="outline">
                   Recommended
