@@ -1367,6 +1367,7 @@ ENVCONFIG
 - email: test@statbus.org
   password: test-install-password-2026
   role: admin_user
+  display_name: Admin
 USERS
         multipass transfer /tmp/statbus-test-users "$VM_NAME":/tmp/users.yml
 
