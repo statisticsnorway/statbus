@@ -1418,40 +1418,44 @@ EOF'
         echo "Verifying systemctl --user via sudo -i -u statbus..."
         $VM_EXEC systemctl --user is-system-running || true
 
-        # Set up the install: place binary and config, then run install
+        # Set up the install: write commands to a script file and transfer it.
+        # Using a script file avoids quoting issues with case statements and
+        # nested variables that break when passed via bash -c '...'.
         echo ""
         echo "=== Stage: Install ==="
         if [ -z "$INSTALL_VERSION" ]; then
-            $VM_EXEC bash -c '
-                set -e
-                mkdir -p ~/statbus
-                cd ~/statbus
-                cp /tmp/sb ./sb
-                chmod +x ./sb
-                cp /tmp/env-config .env.config
-                cp /tmp/users.yml .users.yml
-                STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf
-            ' 2>&1 | tee tmp/test-install-install.log
+            cat > /tmp/statbus-test-install.sh << 'SCRIPT'
+set -e
+mkdir -p ~/statbus
+cd ~/statbus
+cp /tmp/sb ./sb
+chmod +x ./sb
+cp /tmp/env-config .env.config
+cp /tmp/users.yml .users.yml
+STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf
+SCRIPT
         else
-            $VM_EXEC bash -c "
-                set -e
-                VM_ARCH=\$(uname -m)
-                case \"\$VM_ARCH\" in
-                    x86_64)  GOARCH=amd64 ;;
-                    arm64|aarch64) GOARCH=arm64 ;;
-                    *) echo \"Unsupported: \$VM_ARCH\"; exit 1 ;;
-                esac
-                SB_URL=\"https://github.com/statisticsnorway/statbus/releases/download/${INSTALL_VERSION}/sb-linux-\${GOARCH}\"
-                curl -fsSL \"\$SB_URL\" -o ~/sb.tmp
-                chmod +x ~/sb.tmp
-                git clone --depth 1 --branch ${INSTALL_VERSION} https://github.com/statisticsnorway/statbus.git ~/statbus
-                mv ~/sb.tmp ~/statbus/sb
-                cd ~/statbus
-                cp /tmp/env-config .env.config
-                cp /tmp/users.yml .users.yml
-                STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf
-            " 2>&1 | tee tmp/test-install-install.log
+            cat > /tmp/statbus-test-install.sh << SCRIPT
+set -e
+VM_ARCH=\$(uname -m)
+case "\$VM_ARCH" in
+    x86_64)  GOARCH=amd64 ;;
+    arm64|aarch64) GOARCH=arm64 ;;
+    *) echo "Unsupported: \$VM_ARCH"; exit 1 ;;
+esac
+SB_URL="https://github.com/statisticsnorway/statbus/releases/download/${INSTALL_VERSION}/sb-linux-\${GOARCH}"
+curl -fsSL "\$SB_URL" -o ~/sb.tmp
+chmod +x ~/sb.tmp
+git clone --depth 1 --branch ${INSTALL_VERSION} https://github.com/statisticsnorway/statbus.git ~/statbus
+mv ~/sb.tmp ~/statbus/sb
+cd ~/statbus
+cp /tmp/env-config .env.config
+cp /tmp/users.yml .users.yml
+STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf
+SCRIPT
         fi
+        multipass transfer /tmp/statbus-test-install.sh "$VM_NAME":/tmp/install.sh
+        multipass exec "$VM_NAME" -- sudo -i -u statbus bash /tmp/install.sh 2>&1 | tee tmp/test-install-install.log
         INSTALL_EXIT=$?
         if [ $INSTALL_EXIT -ne 0 ]; then
             echo "FAILED: Install failed (exit $INSTALL_EXIT)"
