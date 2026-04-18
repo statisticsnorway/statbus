@@ -1393,11 +1393,32 @@ EOF'
         # Create dedicated statbus user (after hardening installs Docker)
         multipass exec "$VM_NAME" -- sudo useradd -m -G docker statbus
 
-        # Set up the install: place binary and config, then run install as statbus user
+        # Enable systemd linger so the user's systemd instance starts on first login
+        multipass exec "$VM_NAME" -- sudo loginctl enable-linger statbus
+
+        # Set up SSH access for the statbus user — SSH gives a real PAM login session
+        # with XDG_RUNTIME_DIR and D-Bus, which systemctl --user requires.
+        SSH_KEY_FILE=$(mktemp /tmp/statbus-test-key-XXXXXX)
+        rm -f "${SSH_KEY_FILE}"
+        ssh-keygen -t ed25519 -f "${SSH_KEY_FILE}" -N "" -C "statbus-test" -q
+        multipass transfer "${SSH_KEY_FILE}.pub" "$VM_NAME":/tmp/statbus-pubkey
+        multipass exec "$VM_NAME" -- sudo bash -c '
+            mkdir -p /home/statbus/.ssh
+            chmod 700 /home/statbus/.ssh
+            cat /tmp/statbus-pubkey > /home/statbus/.ssh/authorized_keys
+            chmod 600 /home/statbus/.ssh/authorized_keys
+            chown -R statbus:statbus /home/statbus/.ssh
+            rm /tmp/statbus-pubkey
+        '
+        VM_IP=$(multipass info "$VM_NAME" --format json | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['$VM_NAME']['ipv4'][0])")
+        echo "VM IP: $VM_IP"
+        SSH="ssh -i ${SSH_KEY_FILE} -o StrictHostKeyChecking=no -o BatchMode=yes statbus@${VM_IP}"
+
+        # Set up the install: place binary and config, then run install via SSH
         echo ""
         echo "=== Stage: Install ==="
         if [ -z "$INSTALL_VERSION" ]; then
-            multipass exec "$VM_NAME" -- sudo -u statbus bash -c '
+            $SSH bash -l -c '
                 set -e
                 mkdir -p ~/statbus
                 cd ~/statbus
@@ -1408,7 +1429,7 @@ EOF'
                 STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf
             ' 2>&1 | tee tmp/test-install-install.log
         else
-            multipass exec "$VM_NAME" -- sudo -u statbus bash -c "
+            $SSH bash -l -c "
                 set -e
                 VM_ARCH=\$(uname -m)
                 case \"\$VM_ARCH\" in
@@ -1434,20 +1455,20 @@ EOF'
             exit 1
         fi
 
-        # Health check
+        # Health check — runs from inside the VM via SSH.
+        # Development mode binds all ports to 127.0.0.1 inside the VM, so the
+        # host cannot reach them. HTTP port = 3000 + (DEPLOYMENT_SLOT_PORT_OFFSET * 10).
         echo ""
         echo "=== Stage: Health Check ==="
-        VM_IP=$(multipass info "$VM_NAME" --format json | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['$VM_NAME']['ipv4'][0])")
-        echo "VM IP: $VM_IP"
-
         HEALTHY=false
         for i in $(seq 1 10); do
-            if curl -sk "https://$VM_IP/rest/" --resolve "statbus-test.local:443:$VM_IP" -o /dev/null -w "%{http_code}" 2>/dev/null | grep -q "^[23]"; then
+            HTTP_CODE=$($SSH -- curl -s http://127.0.0.1:3010/rest/ -o /dev/null -w "%{http_code}" 2>/dev/null || echo "000")
+            if echo "$HTTP_CODE" | grep -q "^[23]"; then
                 HEALTHY=true
-                echo "Health check passed (attempt $i)"
+                echo "Health check passed (attempt $i, code=$HTTP_CODE)"
                 break
             fi
-            echo "Waiting for app... (attempt $i/10)"
+            echo "Waiting for app... (attempt $i/10, code=$HTTP_CODE)"
             sleep 5
         done
 
@@ -1460,7 +1481,7 @@ EOF'
         # Verify version
         echo ""
         echo "=== Stage: Verify ==="
-        multipass exec "$VM_NAME" -- sudo -u statbus bash -c 'cd ~/statbus && ./sb --version'
+        $SSH bash -l -c 'cd ~/statbus && ./sb --version'
 
         # Write stamp
         echo ""
@@ -1469,7 +1490,8 @@ EOF'
         git rev-parse HEAD > "$STAMP_FILE"
         echo "Install test stamp recorded: $(cat "$STAMP_FILE")"
 
-        # Clean up VM
+        # Clean up temp SSH key and VM
+        rm -f "${SSH_KEY_FILE}" "${SSH_KEY_FILE}.pub"
         echo "Cleaning up VM..."
         multipass delete "$VM_NAME"
         multipass purge
