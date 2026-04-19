@@ -295,7 +295,8 @@ func runInstall() (installErr error) {
 	if freeBytes, err := upgrade.DiskFree("."); err == nil {
 		freeGB := freeBytes / (1024 * 1024 * 1024)
 		if freeGB < minDiskGB {
-			return fmt.Errorf("insufficient disk space: %d GB free (need at least %d GB for database, images, and backups)", freeGB, minDiskGB)
+			return fmt.Errorf("insufficient disk space: %d GB free (need at least %d GB for database, images, and backups).\n"+
+				"  For smaller installations, override with: STATBUS_MIN_DISK_GB=%d ./sb install", freeGB, minDiskGB, freeGB)
 		}
 		fmt.Printf("Disk space: %d GB free\n", freeGB)
 	}
