@@ -77,7 +77,7 @@ interface Upgrade {
   log_relative_file_path: string | null;
   rolled_back_at: string | null;
   docker_images_status: 'building' | 'ready' | 'failed';
-  release_builds_ready: boolean;
+  release_builds_status: 'building' | 'ready' | 'failed';
   skipped_at: string | null;
   dismissed_at: string | null;
   superseded_at: string | null;
@@ -725,11 +725,23 @@ function UpgradeCard({
                   </Badge>
                 </a>
               )}
-              {u.state === 'available' && u.release_status !== 'commit' && u.docker_images_status === 'ready' && !u.release_builds_ready && (
+              {u.state === 'available' && u.release_status !== 'commit' && u.docker_images_status === 'ready' && u.release_builds_status === 'building' && (
                 <Badge variant="outline" className="text-xs border-amber-300 text-amber-600">
                   <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                   release artifacts building...
                 </Badge>
+              )}
+              {u.state === 'available' && u.release_status !== 'commit' && u.release_builds_status === 'failed' && (
+                <a
+                  href="https://github.com/statisticsnorway/statbus/actions/workflows/release.yaml"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Badge variant="outline" className="text-xs border-red-300 text-red-600 hover:bg-red-50">
+                    <XCircle className="mr-1 h-3 w-3" />
+                    release build failed
+                  </Badge>
+                </a>
               )}
               {u.has_migrations && (
                 <Badge variant="outline" className="text-xs border-amber-300 text-amber-600">
@@ -807,12 +819,14 @@ function UpgradeCard({
         <div className="mt-3 flex gap-2">
           {status === "available" && (
             <>
-              {(u.docker_images_status !== 'ready' || (u.release_status !== 'commit' && !u.release_builds_ready)) ? (
-                <span className={`text-xs ${u.docker_images_status === 'failed' ? 'text-red-600' : 'text-amber-600'}`}>
+              {(u.docker_images_status !== 'ready' || (u.release_status !== 'commit' && u.release_builds_status !== 'ready')) ? (
+                <span className={`text-xs ${u.docker_images_status === 'failed' || u.release_builds_status === 'failed' ? 'text-red-600' : 'text-amber-600'}`}>
                   {u.docker_images_status === 'failed'
                     ? "CI image build failed. Check the ci-images.yaml workflow for details."
                     : u.docker_images_status === 'building'
                     ? "Images building... upgrade will be available when ci-images.yaml finishes."
+                    : u.release_builds_status === 'failed'
+                    ? "Release build failed. Check the release.yaml workflow for details."
                     : "Release artifacts building... upgrade will be available when release.yaml finishes."}
                 </span>
               ) : (

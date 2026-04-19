@@ -584,11 +584,12 @@ func shortSHA(sha string) string {
 //                             query that doesn't pull. Three states:
 //                             building (CI in progress), ready (verified),
 //                             failed (CI workflow failed).
-//   release_builds_ready — for tagged releases only: the GitHub Release
+//   release_builds_status          — for tagged releases only: the GitHub Release
 //                             + `sb` binary + manifest.json exist. Set
 //                             by the discovery loop above via FetchManifest.
-//                             For commits this defaults to true (edge
+//                             For commits this defaults to ready (edge
 //                             channel doesn't use release artifacts).
+//                             Three states: building, ready, failed.
 //
 // Scoped to the 30 most recent pending rows to bound per-cycle cost.
 func (d *Service) verifyArtifacts(ctx context.Context) {
@@ -596,7 +597,7 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 	services := []string{"db", "app", "worker", "proxy"}
 
 	rows, err := d.queryConn.Query(ctx, `
-		SELECT id, commit_sha, release_status::text, docker_images_status::text, release_builds_ready, version
+		SELECT id, commit_sha, release_status::text, docker_images_status::text, release_builds_status::text, version
 		  FROM public.upgrade
 		 WHERE docker_images_status != 'ready'
 		   AND state IN ('available', 'scheduled', 'in_progress', 'failed')
@@ -607,17 +608,17 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 	}
 
 	type pendingRow struct {
-		id                  int
-		sha                 string
-		releaseStatus       string
-		dockerImagesStatus  string
-		releaseBuildsReady  bool
+		id                   int
+		sha                  string
+		releaseStatus        string
+		dockerImagesStatus   string
+		releaseBuildsStatus  string
 		version *string // NULL for rows predating the version column
 	}
 	var pending []pendingRow
 	for rows.Next() {
 		var r pendingRow
-		if err := rows.Scan(&r.id, &r.sha, &r.releaseStatus, &r.dockerImagesStatus, &r.releaseBuildsReady, &r.version); err == nil {
+		if err := rows.Scan(&r.id, &r.sha, &r.releaseStatus, &r.dockerImagesStatus, &r.releaseBuildsStatus, &r.version); err == nil {
 			pending = append(pending, r)
 		}
 	}
@@ -1611,9 +1612,9 @@ func (d *Service) discover(ctx context.Context) {
 			   tags = CASE WHEN $3 = ANY(upgrade.tags) THEN upgrade.tags
 			               ELSE array_append(upgrade.tags, $3) END,
 			   release_status = GREATEST(upgrade.release_status, EXCLUDED.release_status),
-			   release_builds_ready = CASE
-			       WHEN EXCLUDED.release_status > upgrade.release_status THEN false
-			       ELSE upgrade.release_builds_ready
+			   release_builds_status = CASE
+			       WHEN EXCLUDED.release_status > upgrade.release_status THEN 'building'::public.release_builds_status_type
+			       ELSE upgrade.release_builds_status
 			   END
 			 WHERE NOT ($3 = ANY(upgrade.tags))
 			    OR upgrade.release_status < EXCLUDED.release_status`,
@@ -1648,23 +1649,47 @@ func (d *Service) discover(ctx context.Context) {
 	}
 
 	// Check GitHub Release manifest availability for tagged releases and
-	// update release_builds_ready. The manifest lives alongside the `sb`
+	// update release_builds_status. The manifest lives alongside the `sb`
 	// binary and changelog in the GitHub Release — if FetchManifest
 	// succeeds, all three are published. Commits never have this.
+	// If manifest is missing, check if the release workflow has failed.
 	for _, t := range filtered {
 		if _, err := FetchManifest(t.TagName); err == nil {
 			d.queryConn.Exec(ctx,
-				"UPDATE public.upgrade SET release_builds_ready = true WHERE commit_sha = $1 AND NOT release_builds_ready",
+				"UPDATE public.upgrade SET release_builds_status = 'ready' WHERE commit_sha = $1 AND release_builds_status != 'ready'",
 				t.CommitSHA)
+		} else {
+			// Manifest not available — check if the release workflow failed.
+			ciOutput, ciErr := runCommandOutput(d.projDir, "gh", "api",
+				fmt.Sprintf("repos/statisticsnorway/statbus/actions/workflows/release.yaml/runs?head_sha=%s&status=completed&per_page=5", t.CommitSHA),
+				"--jq", ".workflow_runs[] | .conclusion")
+			if ciErr == nil && ciOutput != "" {
+				conclusions := strings.Fields(strings.TrimSpace(ciOutput))
+				hasSuccess := false
+				hasFailure := false
+				for _, c := range conclusions {
+					if c == "success" {
+						hasSuccess = true
+					} else if c == "failure" {
+						hasFailure = true
+					}
+				}
+				if hasFailure && !hasSuccess {
+					d.queryConn.Exec(ctx,
+						"UPDATE public.upgrade SET release_builds_status = 'failed' WHERE commit_sha = $1 AND release_builds_status = 'building'",
+						t.CommitSHA)
+					fmt.Printf("Release build failed for %s\n", t.TagName)
+				}
+			}
 		}
 	}
 
 	// Two-level declarative verification covering every pending row:
 	//   1. docker_images_status — queries ghcr.io for each of the four images at
 	//      the runtime VERSION tag (building → ready or failed).
-	//   2. release_builds_ready — for tagged releases: GitHub Release + sb binary
+	//   2. release_builds_status — for tagged releases: GitHub Release + sb binary
 	//      + manifest.json exist. Set by discoverTaggedReleases via FetchManifest.
-	//      Commits skip this level (default true).
+	//      Commits skip this level (default ready). Three states: building/ready/failed.
 	// Runs on every discovery cycle; cheap (bounded per-cycle) and
 	// idempotent. Gives the admin UI accurate "what are we waiting for"
 	// signal without coupling to CI workflow telemetry.
@@ -1768,7 +1793,7 @@ func (d *Service) discoverEdge(ctx context.Context) {
 			summary = summary[:120]
 		}
 
-		// release_builds_ready=true for commits because edge channel
+		// release_builds_status='ready' for commits because edge channel
 		// never needs release.yaml output (no self-update, no manifest).
 		// docker_images_status defaults to 'building' and is set to 'ready'
 		// by verifyArtifacts() once docker manifest inspect confirms the four
@@ -1781,8 +1806,8 @@ func (d *Service) discoverEdge(ctx context.Context) {
 		versionTag = strings.TrimSpace(versionTag)
 
 		_, err := d.queryConn.Exec(ctx,
-			`INSERT INTO public.upgrade (commit_sha, committed_at, summary, has_migrations, release_builds_ready, version)
-			 VALUES ($1, $2, $3, false, true, NULLIF($4, ''))
+			`INSERT INTO public.upgrade (commit_sha, committed_at, summary, has_migrations, release_builds_status, version)
+			 VALUES ($1, $2, $3, false, 'ready'::public.release_builds_status_type, NULLIF($4, ''))
 			 ON CONFLICT (commit_sha) DO UPDATE SET version = EXCLUDED.version WHERE upgrade.version IS NULL`,
 			c.SHA, c.PublishedAt, summary, versionTag)
 		if err != nil {
@@ -2002,7 +2027,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 			// CI not ready — unschedule without setting error. Reset to
 			// 'available' + clear started_at so the CHECK constraint holds
 			// (state='available' requires all lifecycle timestamps NULL).
-			// The service will flip docker_images_status and release_builds_ready
+			// The service will flip docker_images_status and release_builds_status
 			// on the next discovery cycle when CI finishes, re-enabling "Upgrade Now".
 			d.queryConn.Exec(ctx,
 				"UPDATE public.upgrade SET state = 'available', scheduled_at = NULL, started_at = NULL, from_version = NULL WHERE id = $1", id)
