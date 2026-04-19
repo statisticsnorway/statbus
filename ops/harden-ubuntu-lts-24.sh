@@ -533,6 +533,11 @@ stage_security_tools() {
     apt-get install -y crowdsec crowdsec-firewall-bouncer-nftables
     
     log "Installing CrowdSec collections..."
+    # Wait for CrowdSec config to be fully written before running cscli
+    for i in $(seq 1 10); do
+        [ -f /etc/crowdsec/config.yaml ] && break
+        sleep 1
+    done
     cscli collections install crowdsecurity/sshd
 
     log "Reloading CrowdSec..."
@@ -776,7 +781,9 @@ EOF
     git config --system --add safe.directory /home/linuxbrew/.linuxbrew/Homebrew 2>/dev/null || true
     
     log "Installing developer tools via Homebrew..."
-    sudo -u devops bash -c 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" && brew install helix bottom zellij'
+    sudo -u devops bash -c 'cd /tmp && eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" && brew install helix bottom zellij' || {
+        log "Optional developer tools (helix/bottom/zellij) not available for this architecture — skipping"
+    }
     
     log "Configuring zellij auto-attach..."
     cat > /etc/profile.d/zellij.sh <<'EOF'
