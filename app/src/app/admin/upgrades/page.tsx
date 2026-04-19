@@ -76,7 +76,7 @@ interface Upgrade {
   error: string | null;
   log_relative_file_path: string | null;
   rolled_back_at: string | null;
-  docker_images_ready: boolean;
+  docker_images_status: 'building' | 'ready' | 'failed';
   release_builds_ready: boolean;
   skipped_at: string | null;
   dismissed_at: string | null;
@@ -701,7 +701,7 @@ function UpgradeCard({
                   cycle. Shown separately so an operator can tell which CI
                   workflow is still running (ci-images.yaml vs release.yaml)
                   and set realistic expectations. */}
-              {u.state === 'available' && !u.docker_images_ready && (
+              {u.state === 'available' && u.docker_images_status === 'building' && (
                 <a
                   href="https://github.com/statisticsnorway/statbus/actions/workflows/ci-images.yaml"
                   target="_blank"
@@ -713,7 +713,19 @@ function UpgradeCard({
                   </Badge>
                 </a>
               )}
-              {u.state === 'available' && u.release_status !== 'commit' && u.docker_images_ready && !u.release_builds_ready && (
+              {u.state === 'available' && u.docker_images_status === 'failed' && (
+                <a
+                  href="https://github.com/statisticsnorway/statbus/actions/workflows/ci-images.yaml"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Badge variant="outline" className="text-xs border-red-300 text-red-600 hover:bg-red-50">
+                    <XCircle className="mr-1 h-3 w-3" />
+                    images failed
+                  </Badge>
+                </a>
+              )}
+              {u.state === 'available' && u.release_status !== 'commit' && u.docker_images_status === 'ready' && !u.release_builds_ready && (
                 <Badge variant="outline" className="text-xs border-amber-300 text-amber-600">
                   <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                   release artifacts building...
@@ -795,9 +807,11 @@ function UpgradeCard({
         <div className="mt-3 flex gap-2">
           {status === "available" && (
             <>
-              {(!u.docker_images_ready || (u.release_status !== 'commit' && !u.release_builds_ready)) ? (
-                <span className="text-xs text-amber-600">
-                  {!u.docker_images_ready
+              {(u.docker_images_status !== 'ready' || (u.release_status !== 'commit' && !u.release_builds_ready)) ? (
+                <span className={`text-xs ${u.docker_images_status === 'failed' ? 'text-red-600' : 'text-amber-600'}`}>
+                  {u.docker_images_status === 'failed'
+                    ? "CI image build failed. Check the ci-images.yaml workflow for details."
+                    : u.docker_images_status === 'building'
                     ? "Images building... upgrade will be available when ci-images.yaml finishes."
                     : "Release artifacts building... upgrade will be available when release.yaml finishes."}
                 </span>

@@ -500,7 +500,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 		}
 		var selfHealJSON string
 		if err := d.queryConn.QueryRow(ctx,
-			"UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_ready = true WHERE id = $1 AND completed_at IS NULL"+upgradeRowReturning,
+			"UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_status = 'ready' WHERE id = $1 AND completed_at IS NULL"+upgradeRowReturning,
 			flag.ID).Scan(&selfHealJSON); err != nil {
 			fmt.Printf("WARN: state transition to completed matched 0 rows or errored (id=%d, err=%v) — possible CHECK constraint violation\n", flag.ID, err)
 		} else {
@@ -577,11 +577,13 @@ func shortSHA(sha string) string {
 // skipped. Two independent levels are tracked by separate columns so the
 // admin UI can tell an operator exactly what it is waiting for:
 //
-//   docker_images_ready            — the four Docker images (db/app/worker/proxy)
+//   docker_images_status           — the four Docker images (db/app/worker/proxy)
 //                             exist at the runtime VERSION tag
 //                             (git-describe output). Verified via
 //                             `docker manifest inspect` — a registry-only
-//                             query that doesn't pull.
+//                             query that doesn't pull. Three states:
+//                             building (CI in progress), ready (verified),
+//                             failed (CI workflow failed).
 //   release_builds_ready — for tagged releases only: the GitHub Release
 //                             + `sb` binary + manifest.json exist. Set
 //                             by the discovery loop above via FetchManifest.
@@ -594,9 +596,9 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 	services := []string{"db", "app", "worker", "proxy"}
 
 	rows, err := d.queryConn.Query(ctx, `
-		SELECT id, commit_sha, release_status::text, docker_images_ready, release_builds_ready, version
+		SELECT id, commit_sha, release_status::text, docker_images_status::text, release_builds_ready, version
 		  FROM public.upgrade
-		 WHERE NOT docker_images_ready
+		 WHERE docker_images_status != 'ready'
 		   AND state IN ('available', 'scheduled', 'in_progress', 'failed')
 		 ORDER BY committed_at DESC
 		 LIMIT 30`)
@@ -605,25 +607,28 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 	}
 
 	type pendingRow struct {
-		id                 int
-		sha                string
-		releaseStatus      string
-		dockerImagesReady  bool
-		releaseBuildsReady bool
+		id                  int
+		sha                 string
+		releaseStatus       string
+		dockerImagesStatus  string
+		releaseBuildsReady  bool
 		version *string // NULL for rows predating the version column
 	}
 	var pending []pendingRow
 	for rows.Next() {
 		var r pendingRow
-		if err := rows.Scan(&r.id, &r.sha, &r.releaseStatus, &r.dockerImagesReady, &r.releaseBuildsReady, &r.version); err == nil {
+		if err := rows.Scan(&r.id, &r.sha, &r.releaseStatus, &r.dockerImagesStatus, &r.releaseBuildsReady, &r.version); err == nil {
 			pending = append(pending, r)
 		}
 	}
 	rows.Close()
 
 	for _, r := range pending {
-		dockerImagesReady := r.dockerImagesReady
-		if !dockerImagesReady {
+		if r.dockerImagesStatus == "failed" {
+			continue // Already marked as failed — don't re-check
+		}
+		dockerImagesReady := false
+		{
 			// Use the tag captured at discovery time (stable) to avoid drift
 			// from new tags being pushed past this commit. Fall back to a
 			// dynamic git describe for rows predating the column (NULL).
@@ -650,7 +655,7 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 			}
 			if allPresent {
 				d.queryConn.Exec(ctx,
-					"UPDATE public.upgrade SET docker_images_ready = true WHERE id = $1 AND NOT docker_images_ready",
+					"UPDATE public.upgrade SET docker_images_status = 'ready' WHERE id = $1 AND docker_images_status != 'ready'",
 					r.id)
 				fmt.Printf("Images verified for commit %s (tag=%s)\n", r.sha[:12], tag)
 				dockerImagesReady = true
@@ -659,13 +664,13 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 				// this commit but will never have CI images of their own.
 				// ci-images.yaml triggers once per push and only tags images for
 				// the push tip (github.sha). Intermediate commits from the same
-				// push have docker_images_ready=FALSE permanently, keeping a stale
-				// "Images building..." badge in the UI.
+				// push have docker_images_status != 'ready' permanently, keeping
+				// a stale "Images building..." badge in the UI.
 				//
 				// Guards:
 				//   release_status='commit' — never touch tagged release rows.
-				//   NOT docker_images_ready — don't supersede a sibling that just
-				//     had its own images verified earlier in this same cycle.
+				//   docker_images_status != 'ready' — don't supersede a sibling
+				//     that just had its own images verified earlier in this cycle.
 				for _, anc := range pending {
 					if anc.sha == r.sha || anc.releaseStatus != "commit" {
 						continue
@@ -680,10 +685,35 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 						    AND state = 'available'
 						    AND release_status = 'commit'
 						    AND superseded_at IS NULL
-						    AND NOT docker_images_ready`,
+						    AND docker_images_status != 'ready'`,
 						anc.id)
 					if dbErr == nil && res.RowsAffected() > 0 {
 						fmt.Printf("Superseded intermediate commit %s (no CI images; ancestor of %s)\n", anc.sha[:12], r.sha[:12])
+					}
+				}
+			} else {
+				// Images not in registry — check if the CI workflow has failed.
+				// Use gh CLI to query GitHub Actions (no GITHUB_TOKEN needed
+				// when the repo is public — gh handles auth from its own config).
+				ciOutput, ciErr := runCommandOutput(d.projDir, "gh", "api",
+					fmt.Sprintf("repos/statisticsnorway/statbus/actions/workflows/ci-images.yaml/runs?head_sha=%s&status=completed&per_page=5", r.sha),
+					"--jq", ".workflow_runs[] | .conclusion")
+				if ciErr == nil && ciOutput != "" {
+					conclusions := strings.Fields(strings.TrimSpace(ciOutput))
+					hasSuccess := false
+					hasFailure := false
+					for _, c := range conclusions {
+						if c == "success" {
+							hasSuccess = true
+						} else if c == "failure" {
+							hasFailure = true
+						}
+					}
+					if hasFailure && !hasSuccess {
+						d.queryConn.Exec(ctx,
+							"UPDATE public.upgrade SET docker_images_status = 'failed' WHERE id = $1 AND docker_images_status = 'building'",
+							r.id)
+						fmt.Printf("CI images failed for commit %s\n", r.sha[:12])
 					}
 				}
 			}
@@ -1156,7 +1186,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 	}
 	var fromInProgressJSON string
 	if scanErr := d.queryConn.QueryRow(ctx,
-		"UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_ready = true WHERE id = $1"+upgradeRowReturning,
+		"UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_status = 'ready' WHERE id = $1"+upgradeRowReturning,
 		id).Scan(&fromInProgressJSON); scanErr != nil {
 		fmt.Printf("WARN: state transition to completed matched 0 rows or errored (id=%d, err=%v) — possible CHECK constraint violation\n", id, scanErr)
 	} else {
@@ -1187,7 +1217,7 @@ func (d *Service) markCurrentVersionCompleted(ctx context.Context) {
 		`UPDATE public.upgrade
 		 SET state = 'completed',
 		     completed_at = COALESCE(completed_at, now()),
-		     docker_images_ready = true,
+		     docker_images_status = 'ready',
 		     scheduled_at = NULL,
 		     error = NULL,
 		     rolled_back_at = NULL
@@ -1630,8 +1660,8 @@ func (d *Service) discover(ctx context.Context) {
 	}
 
 	// Two-level declarative verification covering every pending row:
-	//   1. docker_images_ready — queries ghcr.io for each of the four images at
-	//      the runtime VERSION tag.
+	//   1. docker_images_status — queries ghcr.io for each of the four images at
+	//      the runtime VERSION tag (building → ready or failed).
 	//   2. release_builds_ready — for tagged releases: GitHub Release + sb binary
 	//      + manifest.json exist. Set by discoverTaggedReleases via FetchManifest.
 	//      Commits skip this level (default true).
@@ -1740,9 +1770,9 @@ func (d *Service) discoverEdge(ctx context.Context) {
 
 		// release_builds_ready=true for commits because edge channel
 		// never needs release.yaml output (no self-update, no manifest).
-		// docker_images_ready defaults to false and is flipped by verifyArtifacts()
-		// once docker manifest inspect confirms the four images for this commit's
-		// git-describe tag have landed in the registry.
+		// docker_images_status defaults to 'building' and is set to 'ready'
+		// by verifyArtifacts() once docker manifest inspect confirms the four
+		// images, or to 'failed' if CI workflow failed.
 
 		// Capture git describe output now so verifyArtifacts can look up
 		// Docker images by a stable tag — the describe output changes as
@@ -1972,7 +2002,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 			// CI not ready — unschedule without setting error. Reset to
 			// 'available' + clear started_at so the CHECK constraint holds
 			// (state='available' requires all lifecycle timestamps NULL).
-			// The service will flip docker_images_ready and release_builds_ready
+			// The service will flip docker_images_status and release_builds_ready
 			// on the next discovery cycle when CI finishes, re-enabling "Upgrade Now".
 			d.queryConn.Exec(ctx,
 				"UPDATE public.upgrade SET state = 'available', scheduled_at = NULL, started_at = NULL, from_version = NULL WHERE id = $1", id)
@@ -2292,7 +2322,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// admin UI fetches it by name when the operator expands the "Log" panel.
 	progress.Write("Upgrade to %s complete!", displayName)
 	var normalJSON string
-	completedSQL := "UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_ready = true WHERE id = $1" + upgradeRowReturning
+	completedSQL := "UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_status = 'ready' WHERE id = $1" + upgradeRowReturning
 	scanErr := d.queryConn.QueryRow(ctx, completedSQL, id).Scan(&normalJSON)
 	if isConnError(scanErr) {
 		fmt.Printf("Connection stale on state=completed UPDATE (id=%d, err=%v), reconnecting...\n", id, scanErr)
