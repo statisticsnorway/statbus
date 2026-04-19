@@ -311,20 +311,28 @@ func runInstall() (installErr error) {
 		upgradeRowID = startInstallUpgradeRow(installDir)
 	}
 
-	// Create an install log for the upgrade row so the admin UI can show
-	// what happened. Must be registered BEFORE the post-completion defer
-	// so the pipe stays active during completion/supersede/retention prints
-	// (defers are LIFO — this one drains last).
+	// Create an install log so the admin UI can show what happened. Always
+	// create the log for real installs (not bypass, not dev) — even for fresh
+	// installs where the DB doesn't exist yet (upgradeRowID == 0). The log
+	// file lives on disk; the DB stamp happens later in completeInstallUpgradeRow.
+	// Must be registered BEFORE the post-completion defer so the pipe stays
+	// active during completion/supersede/retention prints (defers are LIFO —
+	// this one drains last).
 	var installLog *upgrade.ProgressLog
 	var origStdout *os.File
 	var pipeW *os.File
 	var teeDone chan struct{}
-	if upgradeRowID > 0 {
+	if !bypass && version != "dev" {
 		installLog = upgrade.NewProgressLog(installDir, upgradeRowID, version, time.Now().UTC())
-		stampSQL := fmt.Sprintf("UPDATE public.upgrade SET log_relative_file_path = %s WHERE id = %d",
-			sqlLiteral(installLog.RelPath()), upgradeRowID)
-		if _, err := runInstallSQL(installDir, stampSQL); err != nil {
-			fmt.Printf("  Note: could not stamp log path: %v\n", err)
+		// Stamp the log path on the DB row immediately if we already have one.
+		// For fresh installs (upgradeRowID == 0) the stamp happens later in
+		// completeInstallUpgradeRow when the row is first created.
+		if upgradeRowID > 0 {
+			stampSQL := fmt.Sprintf("UPDATE public.upgrade SET log_relative_file_path = %s WHERE id = %d",
+				sqlLiteral(installLog.RelPath()), upgradeRowID)
+			if _, err := runInstallSQL(installDir, stampSQL); err != nil {
+				fmt.Printf("  Note: could not stamp log path: %v\n", err)
+			}
 		}
 		// Tee stdout to the log file for the entire install duration.
 		origStdout = os.Stdout
@@ -378,7 +386,11 @@ func runInstall() (installErr error) {
 			if installErr != nil && upgradeRowID > 0 {
 				failInstallUpgradeRow(conn, upgradeRowID, installErr)
 			} else if installErr == nil {
-				completeInstallUpgradeRow(conn, installDir, upgradeRowID)
+				logRelPath := ""
+				if installLog != nil {
+					logRelPath = installLog.RelPath()
+				}
+				completeInstallUpgradeRow(conn, installDir, upgradeRowID, logRelPath)
 				runInstallSupersede(conn, installDir)
 				runInstallRetention(conn, upgradeRowID)
 				runInstallCallback(installDir)
@@ -1114,7 +1126,9 @@ func connectInstallDB(dir string) (*pgx.Conn, error) {
 
 // completeInstallUpgradeRow marks the upgrade row completed (or creates a new
 // completed row if no in_progress row was started — e.g., fresh installs).
-func completeInstallUpgradeRow(conn *pgx.Conn, dir string, rowID int64) {
+// logRelPath is stamped on the new row when rowID == 0 (the log was created
+// before the step-table but couldn't be stamped until the row exists).
+func completeInstallUpgradeRow(conn *pgx.Conn, dir string, rowID int64, logRelPath string) {
 	if conn == nil {
 		fmt.Printf("  Note: no DB connection; skipping upgrade row completion\n")
 		return
@@ -1142,13 +1156,15 @@ func completeInstallUpgradeRow(conn *pgx.Conn, dir string, rowID int64) {
 	_, err := conn.Exec(ctx,
 		`INSERT INTO public.upgrade (
 		   commit_sha, committed_at, summary, state, completed_at,
-		   version, release_status, scheduled_at, started_at, from_version
+		   version, release_status, scheduled_at, started_at, from_version,
+		   log_relative_file_path
 		 ) VALUES (
 		   $1, $2::timestamptz,
 		   $3, 'completed', clock_timestamp(),
 		   $4, $5::release_status_type,
 		   clock_timestamp(), clock_timestamp(),
-		   (SELECT version FROM public.upgrade WHERE state = 'completed' ORDER BY completed_at DESC NULLS LAST LIMIT 1)
+		   (SELECT version FROM public.upgrade WHERE state = 'completed' ORDER BY completed_at DESC NULLS LAST LIMIT 1),
+		   NULLIF($6, '')
 		 )
 		 ON CONFLICT (commit_sha) DO UPDATE SET
 		   state = 'completed',
@@ -1157,13 +1173,15 @@ func completeInstallUpgradeRow(conn *pgx.Conn, dir string, rowID int64) {
 		   scheduled_at = COALESCE(upgrade.scheduled_at, clock_timestamp()),
 		   error = NULL,
 		   rolled_back_at = NULL,
-		   version = COALESCE(EXCLUDED.version, upgrade.version)
+		   version = COALESCE(EXCLUDED.version, upgrade.version),
+		   log_relative_file_path = COALESCE(EXCLUDED.log_relative_file_path, upgrade.log_relative_file_path)
 		 WHERE upgrade.state != 'completed'`,
 		sha,
 		commitDate,
 		fmt.Sprintf("Installed via ./sb install (%s)", version),
 		version,
-		classifyReleaseStatus(version))
+		classifyReleaseStatus(version),
+		logRelPath)
 	if err != nil {
 		fmt.Printf("  Note: could not record upgrade row: %v\n", err)
 		return
