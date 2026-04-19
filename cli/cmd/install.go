@@ -1137,8 +1137,9 @@ func completeInstallUpgradeRow(conn *pgx.Conn, dir string, rowID int64, logRelPa
 
 	if rowID > 0 {
 		_, err := conn.Exec(ctx,
-			`UPDATE public.upgrade SET state = 'completed', completed_at = clock_timestamp()
-			 WHERE id = $1 AND state = 'in_progress'`, rowID)
+			`UPDATE public.upgrade SET state = 'completed', completed_at = clock_timestamp(),
+			   log_relative_file_path = COALESCE($2, log_relative_file_path)
+			 WHERE id = $1 AND state = 'in_progress'`, rowID, logRelPath)
 		if err != nil {
 			fmt.Printf("  Note: could not mark upgrade row %d completed: %v\n", rowID, err)
 			return
