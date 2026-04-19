@@ -1,8 +1,7 @@
 ```sql
-CREATE OR REPLACE FUNCTION worker.notify_task_progress()
- RETURNS void
+CREATE OR REPLACE PROCEDURE worker.notify_task_progress()
  LANGUAGE plpgsql
-AS $function$
+AS $procedure$
 DECLARE
     v_payload JSONB;
     v_phases JSONB := '[]'::jsonb;
@@ -202,5 +201,5 @@ BEGIN
             json_build_object('type', 'is_deriving_reports', 'status', false)::text);
     END IF;
 END;
-$function$
+$procedure$
 ```

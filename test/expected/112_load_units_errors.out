@@ -114,8 +114,6 @@ ORDER BY row_id;
 \echo Run worker processing for analytics tasks - Block 1 (errors primarily tested on import queue)
 Run worker processing for analytics tasks - Block 1 (errors primarily tested on import queue)
 CALL worker.process_tasks(p_queue => 'analytics');
-WARNING:  Error in before_procedure worker.notify_task_progress for task 297: worker.notify_task_progress() is not a procedure
-WARNING:  Error in before_procedure worker.notify_task_progress for task 300: worker.notify_task_progress() is not a procedure
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
@@ -226,8 +224,6 @@ ORDER BY row_id;
 \echo Run worker processing for analytics tasks - Block 2 (errors primarily tested on import queue)
 Run worker processing for analytics tasks - Block 2 (errors primarily tested on import queue)
 CALL worker.process_tasks(p_queue => 'analytics');
-WARNING:  Error in before_procedure worker.notify_task_progress for task 559: worker.notify_task_progress() is not a procedure
-WARNING:  Error in before_procedure worker.notify_task_progress for task 562: worker.notify_task_progress() is not a procedure
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------

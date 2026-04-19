@@ -159,8 +159,6 @@ ORDER BY child.priority, child.id;
 "=== 8. Process all remaining analytics tasks ==="
 -- Process all remaining tasks to completion
 CALL worker.process_tasks(p_queue => 'analytics');
-WARNING:  Error in before_procedure worker.notify_task_progress for task 4: worker.notify_task_progress() is not a procedure
-WARNING:  Error in before_procedure worker.notify_task_progress for task 7: worker.notify_task_progress() is not a procedure
 \echo "=== 9. Verify all tasks completed ==="
 "=== 9. Verify all tasks completed ==="
 -- All tasks should be completed (no pending or failed)

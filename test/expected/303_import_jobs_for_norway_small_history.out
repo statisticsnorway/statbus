@@ -5400,8 +5400,6 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 
 -- Once the Imports are finished, then all the analytics can be processed, but only once.
 CALL worker.process_tasks(p_queue => 'analytics');
-WARNING:  Error in before_procedure worker.notify_task_progress for task 1387: worker.notify_task_progress() is not a procedure
-WARNING:  Error in before_procedure worker.notify_task_progress for task 1390: worker.notify_task_progress() is not a procedure
 \echo Check the state of all tasks after running analytics.
 Check the state of all tasks after running analytics.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;

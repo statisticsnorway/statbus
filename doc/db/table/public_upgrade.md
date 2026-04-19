@@ -1,34 +1,34 @@
 ```sql
-                                           Table "public.upgrade"
-          Column          |           Type           | Collation | Nullable |            Default            
---------------------------+--------------------------+-----------+----------+-------------------------------
- id                       | integer                  |           | not null | generated always as identity
- commit_sha               | text                     |           | not null | 
- committed_at             | timestamp with time zone |           | not null | 
- topological_order        | integer                  |           |          | 
- tags                     | text[]                   |           | not null | '{}'::text[]
- release_status           | release_status_type      |           | not null | 'commit'::release_status_type
- summary                  | text                     |           | not null | 
- changes                  | text                     |           |          | 
- release_url              | text                     |           |          | 
- has_migrations           | boolean                  |           | not null | false
- discovered_at            | timestamp with time zone |           | not null | clock_timestamp()
- scheduled_at             | timestamp with time zone |           |          | 
- started_at               | timestamp with time zone |           |          | 
- completed_at             | timestamp with time zone |           |          | 
- error                    | text                     |           |          | 
- rolled_back_at           | timestamp with time zone |           |          | 
- skipped_at               | timestamp with time zone |           |          | 
- from_version             | text                     |           |          | 
- docker_images_downloaded | boolean                  |           | not null | false
- backup_path              | text                     |           |          | 
- superseded_at            | timestamp with time zone |           |          | 
- docker_images_ready      | boolean                  |           | not null | false
- release_builds_ready     | boolean                  |           | not null | false
- dismissed_at             | timestamp with time zone |           |          | 
- state                    | upgrade_state            |           | not null | 'available'::upgrade_state
- version                  | text                     |           |          | 
- log_relative_file_path   | text                     |           |          | 
+                                                Table "public.upgrade"
+          Column          |            Type            | Collation | Nullable |                Default                 
+--------------------------+----------------------------+-----------+----------+----------------------------------------
+ id                       | integer                    |           | not null | generated always as identity
+ commit_sha               | text                       |           | not null | 
+ committed_at             | timestamp with time zone   |           | not null | 
+ topological_order        | integer                    |           |          | 
+ tags                     | text[]                     |           | not null | '{}'::text[]
+ release_status           | release_status_type        |           | not null | 'commit'::release_status_type
+ summary                  | text                       |           | not null | 
+ changes                  | text                       |           |          | 
+ release_url              | text                       |           |          | 
+ has_migrations           | boolean                    |           | not null | false
+ discovered_at            | timestamp with time zone   |           | not null | clock_timestamp()
+ scheduled_at             | timestamp with time zone   |           |          | 
+ started_at               | timestamp with time zone   |           |          | 
+ completed_at             | timestamp with time zone   |           |          | 
+ error                    | text                       |           |          | 
+ rolled_back_at           | timestamp with time zone   |           |          | 
+ skipped_at               | timestamp with time zone   |           |          | 
+ from_version             | text                       |           |          | 
+ docker_images_downloaded | boolean                    |           | not null | false
+ backup_path              | text                       |           |          | 
+ superseded_at            | timestamp with time zone   |           |          | 
+ dismissed_at             | timestamp with time zone   |           |          | 
+ state                    | upgrade_state              |           | not null | 'available'::upgrade_state
+ version                  | text                       |           |          | 
+ log_relative_file_path   | text                       |           |          | 
+ docker_images_status     | docker_images_status_type  |           | not null | 'building'::docker_images_status_type
+ release_builds_status    | release_builds_status_type |           | not null | 'building'::release_builds_status_type
 Indexes:
     "upgrade_pkey" PRIMARY KEY, btree (id)
     "upgrade_commit_sha_key" UNIQUE CONSTRAINT, btree (commit_sha)

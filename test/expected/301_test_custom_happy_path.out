@@ -615,8 +615,6 @@ WHERE ei.ident = '71A000001' AND sd.code IN ('men_employees', 'women_employees')
 \echo "Consolidated Statistical Unit view for LU-71A (71A000001) across all periods:"
 "Consolidated Statistical Unit view for LU-71A (71A000001) across all periods:"
 CALL worker.process_tasks(p_queue => 'analytics');
-WARNING:  Error in before_procedure worker.notify_task_progress for task 985: worker.notify_task_progress() is not a procedure
-WARNING:  Error in before_procedure worker.notify_task_progress for task 988: worker.notify_task_progress() is not a procedure
 SELECT
     su.name, su.valid_from, su.valid_to,
     su.external_idents->>'tax_ident' as tax_ident, su.external_idents->>'nin_ident' as nin_ident,
@@ -698,8 +696,6 @@ WHERE ei.ident = 'E71B00001' AND sd.code IN ('men_employees', 'women_employees')
 \echo "Consolidated Statistical Unit view for ES-71B (E71B00001) across all periods:"
 "Consolidated Statistical Unit view for ES-71B (E71B00001) across all periods:"
 CALL worker.process_tasks(p_queue => 'analytics');
-WARNING:  Error in before_procedure worker.notify_task_progress for task 1129: worker.notify_task_progress() is not a procedure
-WARNING:  Error in before_procedure worker.notify_task_progress for task 1132: worker.notify_task_progress() is not a procedure
 SELECT
     su.name, su.valid_from, su.valid_to,
     su.external_idents->>'tax_ident' as tax_ident, su.external_idents->>'nin_ident' as nin_ident,
@@ -768,8 +764,6 @@ WHERE ei.ident = 'E71C00001' AND sd.code IN ('men_employees', 'women_employees')
 \echo "Consolidated Statistical Unit view for ES-71C (E71C00001) across all periods:"
 "Consolidated Statistical Unit view for ES-71C (E71C00001) across all periods:"
 CALL worker.process_tasks(p_queue => 'analytics');
-WARNING:  Error in before_procedure worker.notify_task_progress for task 1242: worker.notify_task_progress() is not a procedure
-WARNING:  Error in before_procedure worker.notify_task_progress for task 1245: worker.notify_task_progress() is not a procedure
 SELECT
     su.name, su.valid_from, su.valid_to,
     su.external_idents->>'tax_ident' as tax_ident, su.external_idents->>'nin_ident' as nin_ident,

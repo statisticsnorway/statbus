@@ -6092,7 +6092,7 @@ export type Database = {
           has_migrations: boolean
           id: number
           log_relative_file_path: string | null
-          release_builds_ready: boolean
+          release_builds_status: Database["public"]["Enums"]["release_builds_status_type"]
           release_status: Database["public"]["Enums"]["release_status_type"]
           release_url: string | null
           rolled_back_at: string | null
@@ -6121,7 +6121,7 @@ export type Database = {
           has_migrations?: boolean
           id?: never
           log_relative_file_path?: string | null
-          release_builds_ready?: boolean
+          release_builds_status?: Database["public"]["Enums"]["release_builds_status_type"]
           release_status?: Database["public"]["Enums"]["release_status_type"]
           release_url?: string | null
           rolled_back_at?: string | null
@@ -6150,7 +6150,7 @@ export type Database = {
           has_migrations?: boolean
           id?: never
           log_relative_file_path?: string | null
-          release_builds_ready?: boolean
+          release_builds_status?: Database["public"]["Enums"]["release_builds_status_type"]
           release_status?: Database["public"]["Enums"]["release_status_type"]
           release_url?: string | null
           rolled_back_at?: string | null
@@ -15809,6 +15809,7 @@ export type Database = {
           | "stop_of_decade_prev"
           | "start_of_decade_prev",
       relative_period_scope: "input_and_query" | "query" | "input",
+      release_builds_status_type: "building" | "ready" | "failed",
       release_status_type: "commit" | "prerelease" | "release",
       reset_scope: "units" | "data" | "getting-started" | "all",
       stat_frequency: 
@@ -16132,6 +16133,7 @@ export const Constants = {
         "start_of_decade_prev"
       ],
       relative_period_scope: ["input_and_query", "query", "input"],
+      release_builds_status_type: ["building", "ready", "failed"],
       release_status_type: ["commit", "prerelease", "release"],
       reset_scope: ["units", "data", "getting-started", "all"],
       stat_frequency: [

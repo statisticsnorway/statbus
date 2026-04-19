@@ -332,7 +332,8 @@ BEGIN
       END IF;
 
       IF task_record.queue = 'analytics' THEN
-        PERFORM worker.notify_task_progress();
+        -- Changed from PERFORM to CALL: notify_task_progress is now a procedure
+        CALL worker.notify_task_progress();
         IF NOT v_inside_transaction THEN
           COMMIT;
         END IF;
