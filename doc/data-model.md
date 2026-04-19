@@ -129,6 +129,7 @@ Enumerated types used across the schema, with their possible values.
 - **`auth.login_error_code`**: `USER_NOT_FOUND`, `USER_NOT_CONFIRMED_EMAIL`, `USER_DELETED`, `USER_MISSING_PASSWORD`, `WRONG_PASSWORD`, `REFRESH_NO_TOKEN_COOKIE`, `REFRESH_INVALID_TOKEN_TYPE`, `REFRESH_USER_NOT_FOUND_OR_DELETED`, `REFRESH_SESSION_INVALID_OR_SUPERSEDED`
 - **`public.activity_category_code_behaviour`**: `digits`, `dot_after_two_digits`
 - **`public.activity_type`**: `primary`, `secondary`, `ancilliary`
+- **`public.docker_images_status_type`**: `building`, `ready`, `failed`
 - **`public.external_ident_shape`**: `regular`, `hierarchical`
 - **`public.hierarchy_scope`**: `all`, `tree`, `details`
 - **`public.history_resolution`**: `year`, `year-month`

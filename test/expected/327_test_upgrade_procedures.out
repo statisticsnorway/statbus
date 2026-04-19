@@ -106,7 +106,7 @@ SELECT id, state, topological_order AS topo,
 \echo '=== supersede: call procedure ==='
 === supersede: call procedure ===
 CALL public.upgrade_supersede_older(lpad(to_hex(100), 40, '0'), 0);
-NOTICE:  upgrade_supersede_older: superseded 4 row(s) older than 0000000000000000000000000000000000000064
+NOTICE:  upgrade_supersede_older: superseded 4 row(s) older than 0000000000000000000000000000000000000064 (status=release)
  p_superseded 
 --------------
             4

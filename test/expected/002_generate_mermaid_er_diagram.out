@@ -1414,7 +1414,7 @@ erDiagram
 		boolean docker_images_downloaded
 		text backup_path
 		timestamp_with_time_zone superseded_at
-		boolean docker_images_ready
+		docker_images_status_type docker_images_status
 		boolean release_builds_ready
 		timestamp_with_time_zone dismissed_at
 		upgrade_state state

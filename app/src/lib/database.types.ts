@@ -6086,7 +6086,7 @@ export type Database = {
           discovered_at: string
           dismissed_at: string | null
           docker_images_downloaded: boolean
-          docker_images_ready: boolean
+          docker_images_status: Database["public"]["Enums"]["docker_images_status_type"]
           error: string | null
           from_version: string | null
           has_migrations: boolean
@@ -6115,7 +6115,7 @@ export type Database = {
           discovered_at?: string
           dismissed_at?: string | null
           docker_images_downloaded?: boolean
-          docker_images_ready?: boolean
+          docker_images_status?: Database["public"]["Enums"]["docker_images_status_type"]
           error?: string | null
           from_version?: string | null
           has_migrations?: boolean
@@ -6144,7 +6144,7 @@ export type Database = {
           discovered_at?: string
           dismissed_at?: string | null
           docker_images_downloaded?: boolean
-          docker_images_ready?: boolean
+          docker_images_status?: Database["public"]["Enums"]["docker_images_status_type"]
           error?: string | null
           from_version?: string | null
           has_migrations?: boolean
@@ -15734,6 +15734,7 @@ export type Database = {
       activity_category_code_behaviour: "digits" | "dot_after_two_digits",
       activity_type: "primary" | "secondary" | "ancilliary",
       child_mode: "concurrent" | "serial",
+      docker_images_status_type: "building" | "ready" | "failed",
       external_ident_shape: "regular" | "hierarchical",
       hierarchy_scope: "all" | "tree" | "details",
       history_resolution: "year" | "year-month",
@@ -16050,6 +16051,7 @@ export const Constants = {
       activity_category_code_behaviour: ["digits", "dot_after_two_digits"],
       activity_type: ["primary", "secondary", "ancilliary"],
       child_mode: ["concurrent", "serial"],
+      docker_images_status_type: ["building", "ready", "failed"],
       external_ident_shape: ["regular", "hierarchical"],
       hierarchy_scope: ["all", "tree", "details"],
       history_resolution: ["year", "year-month"],
