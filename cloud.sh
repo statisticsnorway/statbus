@@ -23,6 +23,7 @@
 #   wipe     — destructive. Deletes database and recreates. Data is lost.
 #
 set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 SERVERS="statbus_dev statbus_demo statbus_et statbus_jo statbus_ma statbus_tcc statbus_ug statbus_no"
 HOST="niue.statbus.org"
@@ -292,7 +293,7 @@ cmd_install_one() {
             head_tag=$(ssh_server "$server" "cd statbus && git describe --exact-match HEAD 2>/dev/null" 2>/dev/null || true)
             if [ -n "$head_tag" ]; then
                 echo "HEAD is tagged ($head_tag) — checking for release binary..."
-                if ./sb release check --tag "$head_tag" 2>/dev/null; then
+                if "$SCRIPT_DIR/sb" release check --tag "$head_tag" 2>/dev/null; then
                     echo "Release binary available — downloading instead of building."
                     ssh_server "$server" \
                         "cd statbus && curl -fsSL https://github.com/statisticsnorway/statbus/releases/download/${head_tag}/sb-linux-amd64 -o sb-linux-amd64 && chmod +x sb-linux-amd64" 2>&1
@@ -324,7 +325,7 @@ cmd_install_one() {
         if [ -n "$version" ]; then
             # Pinned: verify artifacts for the specific version before stopping.
             echo "Checking release artifacts for $version are ready..."
-            if ! ./sb release check --tag "$version"; then
+            if ! "$SCRIPT_DIR/sb" release check --tag "$version"; then
                 echo "--- Release artifacts for $version not ready. Retry later. ---"
                 return 1
             fi
@@ -338,7 +339,7 @@ cmd_install_one() {
             # the running service. If CI is still uploading assets or pushing
             # images, abort early — the server stays up and the operator retries.
             echo "Checking release artifacts are ready..."
-            if ! ./sb release check; then
+            if ! "$SCRIPT_DIR/sb" release check; then
                 echo "--- Release artifacts not ready. Retry in ~5 minutes. ---"
                 return 1
             fi
@@ -405,12 +406,10 @@ cmd_wipe() {
 cmd_create() {
     local code="$1"
     local name="$2"
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     exec "$SCRIPT_DIR/ops/create-new-statbus-installation.sh" "$code" "$name"
 }
 
 cmd_inspect() {
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     exec "$SCRIPT_DIR/ops/inspect-cloud-installations.sh"
 }
 
