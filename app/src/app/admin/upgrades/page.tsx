@@ -703,7 +703,7 @@ function UpgradeCard({
                   and set realistic expectations. */}
               {u.state === 'available' && u.docker_images_status === 'building' && (
                 <a
-                  href="https://github.com/statisticsnorway/statbus/actions/workflows/ci-images.yaml"
+                  href={`https://github.com/statisticsnorway/statbus/commit/${u.commit_sha}/checks`}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -715,7 +715,7 @@ function UpgradeCard({
               )}
               {u.state === 'available' && u.docker_images_status === 'failed' && (
                 <a
-                  href="https://github.com/statisticsnorway/statbus/actions/workflows/ci-images.yaml"
+                  href={`https://github.com/statisticsnorway/statbus/commit/${u.commit_sha}/checks`}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
