@@ -9,6 +9,8 @@ name: CI Images
 on:
   push:
     branches: [master]
+    tags: ['v*']
+  workflow_dispatch:
 
 permissions:
   packages: write
