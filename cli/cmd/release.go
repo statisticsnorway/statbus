@@ -534,6 +534,15 @@ var releasePrereleaseCmd = &cobra.Command{
 			return fmt.Errorf("creating tag %s: %w", tagName, err)
 		}
 
+		// Re-validate the just-created tag through the same gate the pre-push
+		// hook uses. If ValidatePrereleaseTag disagrees with the compute-tag
+		// logic above, delete the tag and abort — better to fail locally than
+		// to push a malformed tag.
+		if err := ValidatePrereleaseTag(projDir, tagName); err != nil {
+			_, _ = upgrade.RunCommandOutput(projDir, "git", "tag", "-d", tagName)
+			return fmt.Errorf("post-create validation of %s failed: %w", tagName, err)
+		}
+
 		// Push tag
 		_, err = upgrade.RunCommandOutput(projDir, "git", "push", "origin", tagName)
 		if err != nil {
@@ -681,6 +690,14 @@ var releaseStableCmd = &cobra.Command{
 		_, err = upgrade.RunCommandOutput(projDir, "git", "tag", "-m", "Release "+tagName, tagName)
 		if err != nil {
 			return fmt.Errorf("creating tag %s: %w", tagName, err)
+		}
+
+		// Re-validate the just-created tag through the same gate the pre-push
+		// hook uses, so drift between the compute-tag logic and the validator
+		// fails locally instead of on push.
+		if err := ValidateStableTag(projDir, tagName); err != nil {
+			_, _ = upgrade.RunCommandOutput(projDir, "git", "tag", "-d", tagName)
+			return fmt.Errorf("post-create validation of %s failed: %w", tagName, err)
 		}
 
 		// Push tag

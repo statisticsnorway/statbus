@@ -1,27 +1,27 @@
 #!/bin/sh
 #
-# pre-push hook — guard the postgres/Dockerfile pgrx-builder stages.
+# pre-push hook — two independent guards:
 #
-# This file was introduced because commit 13fc8a7f7 broke ci-images
-# with a classic Dockerfile regression that a single `docker build`
-# locally would have caught in seconds. The follow-up fix
-# (commit c2e342e7d) restored green, but we want future pushes that
-# touch this Dockerfile to surface the same class of bug before it
-# reaches master.
+#   1. Release-tag gate. Any ref pushed under refs/tags/v* is handed to
+#      `./sb release verify-tag`, which rejects hand-rolled tags that
+#      skip the signature / next-in-sequence / immutability checks that
+#      `./sb release prerelease` and `./sb release stable` enforce.
+#      Lightweight tags are rejected unconditionally (release tags must
+#      be annotated).
 #
-# Behavior:
-#   - If any commit being pushed modifies postgres/Dockerfile, build
-#     all three pgrx-builder stages locally. Fail the push on any
-#     build error.
-#   - Otherwise, no-op (instant).
+#   2. Dockerfile pgrx-builder gate. If any commit being pushed modifies
+#      postgres/Dockerfile, build the three pgrx-builder stages locally
+#      and fail the push on any build error. Introduced after commit
+#      13fc8a7f7 broke ci-images with a regression a single local
+#      `docker build` would have caught in seconds.
 #
-# Bypass (e.g. when you've just built locally by hand):
+# Bypass (e.g. when you've just validated by hand):
 #   git push --no-verify
 #
 # Activation (once, per clone):
 #   git config core.hooksPath .githooks
 #
-# Cost when triggered:
+# Cost when the Dockerfile gate triggers:
 #   First run from cold: ~10-15 minutes (clones + cargo pgrx init +
 #   three Rust builds). Subsequent runs reuse build cache, typically
 #   <2 minutes unless the extension versions advance.
@@ -31,12 +31,77 @@ set -eu
 remote="$1"
 # url="$2"   # unused; pushing to any remote triggers the same check
 
+# Both guards want to walk the list of refs/SHAs being pushed. stdin can
+# be read only once, so buffer it into a temp file and feed each loop
+# from the file.
+hook_input=$(mktemp)
+trap 'rm -f "$hook_input"' EXIT
+cat > "$hook_input"
+
+zero='0000000000000000000000000000000000000000'
+root=$(git rev-parse --show-toplevel)
+
+# --- Guard 1: release-tag gate ---------------------------------------
+# For every ref being pushed that lives under refs/tags/v*, validate it
+# with ./sb release verify-tag. Lightweight tags are rejected before the
+# subcommand even runs (verify-tag also rejects them, but this branch
+# gives a clearer error and is free).
+#
+# Bypass compatibility: if the local sb binary is older than the one
+# that introduced verify-tag, we skip with a warning rather than block
+# all tag pushes. The subcommand is considered present when
+# `./sb release verify-tag --help` exits 0.
+sb_verify_tag_available=0
+if [ -x "$root/sb" ] && "$root/sb" release verify-tag --help >/dev/null 2>&1; then
+    sb_verify_tag_available=1
+fi
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+    [ -z "${local_ref:-}" ] && continue
+    [ "$local_sha" = "$zero" ] && continue   # skip deletions
+    case "$remote_ref" in
+        refs/tags/v*)
+            tag_name="${remote_ref#refs/tags/}"
+            tag_type=$(git cat-file -t "$local_sha" 2>/dev/null || echo 'missing')
+            if [ "$tag_type" != "tag" ]; then
+                cat >&2 <<MSG
+
+pre-push: $tag_name is a lightweight tag — release tags must be annotated.
+pre-push: Create via './sb release prerelease' or './sb release stable',
+pre-push: not 'git tag' by hand. Bypass (discouraged): git push --no-verify
+
+MSG
+                exit 1
+            fi
+            if [ "$sb_verify_tag_available" -eq 0 ]; then
+                cat >&2 <<MSG
+pre-push: ./sb release verify-tag not available in this binary.
+pre-push: Rebuild: (cd cli && go build -o ../sb .)
+pre-push: Skipping tag validation for $tag_name; CI will still catch bad tags.
+MSG
+                continue
+            fi
+            if ! "$root/sb" release verify-tag "$tag_name" >&2; then
+                cat >&2 <<MSG
+
+pre-push: tag $tag_name failed pre-creation validation.
+pre-push: Create via './sb release prerelease' or './sb release stable',
+pre-push: not 'git tag' by hand. Bypass (discouraged): git push --no-verify
+
+MSG
+                exit 1
+            fi
+            ;;
+    esac
+done < "$hook_input"
+
+# --- Guard 2: Dockerfile pgrx-builder gate ---------------------------
 # Gather the list of local SHAs being pushed. stdin lines look like:
 #   <local-ref> <local-sha> <remote-ref> <remote-sha>
 # A zero sha means branch deletion or an empty remote.
-zero='0000000000000000000000000000000000000000'
 shas=''
 while read -r local_ref local_sha remote_ref remote_sha; do
+    [ -z "${local_ref:-}" ] && continue
     [ "$local_sha" = "$zero" ] && continue   # skip deletions
     if [ "$remote_sha" = "$zero" ]; then
         # New branch — diff against the merge-base with the default head
@@ -45,7 +110,7 @@ while read -r local_ref local_sha remote_ref remote_sha; do
         range="$remote_sha..$local_sha"
     fi
     shas="$shas $range"
-done
+done < "$hook_input"
 
 # Nothing being pushed (e.g. --delete of nonexistent) — pass.
 [ -z "$shas" ] && exit 0
@@ -76,7 +141,6 @@ MSG
     exit 0
 fi
 
-root=$(git rev-parse --show-toplevel)
 cd "$root/postgres"
 
 for stage in pg_graphql-builder jsonb_stats-builder sql_saga_native-builder; do
