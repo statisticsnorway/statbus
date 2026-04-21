@@ -15,6 +15,8 @@
 --  10. Does NOT supersede newer rows
 --  11. Returns correct count via INOUT p_superseded
 --  12. Idempotent: second call returns 0
+--  13. Hierarchy: commit does NOT supersede prerelease or release
+--  14. Hierarchy: prerelease supersedes commits but NOT releases
 --
 -- Part 2 — upgrade_retention_plan / upgrade_retention_apply:
 --   A. install_same_family_prereleases     (purge same-family rc's when release installed)
@@ -22,6 +24,8 @@
 --   C. install_old_commits_vs_prerelease   (purge old commits when prerelease installed)
 --   D. time_safety                         (AND-gate: age > time_cap AND count > count_cap)
 --   E. install_same_family_prerelease_to_prerelease (purge same-family rc's on prerelease install)
+--   + p_context='commit' scoping (time-safety limited to commit channel)
+--   + executor apply with prerelease install id (Rule E executor path)
 --   + zombie protection for scheduled/in_progress (NULL cap cells never purged)
 --   + executor matches planner output
 --
@@ -129,6 +133,70 @@ CALL public.upgrade_supersede_older('0000000000000000000000000000000000000000', 
 \echo '=== supersede: idempotent — second call returns 0 ==='
 
 CALL public.upgrade_supersede_older(lpad(to_hex(100), 40, '0'), 0);
+
+\echo '=== supersede: hierarchy — commit cannot supersede prerelease or release ==='
+
+-- Fresh fixture for hierarchy check. Triggering row is a plain commit; older
+-- prerelease and release rows must remain available (commit < prerelease < release).
+TRUNCATE public.upgrade RESTART IDENTITY;
+
+-- Row 1: a newer COMMIT (the triggering row)
+INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, completed_at, log_relative_file_path)
+VALUES (lpad(to_hex(110), 40, '0'), now(), 110, 'commit', 'completed',
+        'newer plain commit (dev.sh fix)', now(), 'test-fixture-log.txt');
+
+-- Row 2: older available PRERELEASE (should NOT be superseded by a commit)
+INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, tags)
+VALUES (lpad(to_hex(90), 40, '0'), now() - '2 days'::interval, 90, 'prerelease', 'available',
+        'rc.30 prerelease', ARRAY['v2026.04.0-rc.30']);
+
+-- Row 3: older available RELEASE (should NOT be superseded by a commit)
+INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, tags)
+VALUES (lpad(to_hex(80), 40, '0'), now() - '5 days'::interval, 80, 'release', 'available',
+        'release v2026.03.0', ARRAY['v2026.03.0']);
+
+-- Row 4: older available COMMIT (should be superseded — same status)
+INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary)
+VALUES (lpad(to_hex(70), 40, '0'), now() - '7 days'::interval, 70, 'commit', 'available',
+        'older commit');
+
+CALL public.upgrade_supersede_older(lpad(to_hex(110), 40, '0'), 0);
+
+-- Only the older commit (id=4) should be superseded; prerelease and release are untouched
+SELECT id, state, release_status, superseded_at IS NOT NULL AS has_superseded_at
+  FROM public.upgrade ORDER BY id;
+
+\echo '=== supersede: hierarchy — prerelease supersedes commits but not releases ==='
+
+-- Fresh fixture. Triggering row is a prerelease; it must supersede older commits
+-- and same-channel prereleases, but NOT an older release.
+TRUNCATE public.upgrade RESTART IDENTITY;
+
+-- Row 1: a newer PRERELEASE (the triggering row)
+INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, tags, completed_at, log_relative_file_path)
+VALUES (lpad(to_hex(120), 40, '0'), now(), 120, 'prerelease', 'completed',
+        'rc.31 prerelease', ARRAY['v2026.04.0-rc.31'], now(), 'test-fixture-log.txt');
+
+-- Row 2: older available COMMIT (should be superseded — prerelease > commit)
+INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary)
+VALUES (lpad(to_hex(100), 40, '0'), now() - '3 days'::interval, 100, 'commit', 'available',
+        'older commit');
+
+-- Row 3: older available PRERELEASE (should be superseded — same status)
+INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, tags)
+VALUES (lpad(to_hex(90), 40, '0'), now() - '5 days'::interval, 90, 'prerelease', 'available',
+        'rc.29 older prerelease', ARRAY['v2026.04.0-rc.29']);
+
+-- Row 4: older available RELEASE (should NOT be superseded — release > prerelease)
+INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, tags)
+VALUES (lpad(to_hex(80), 40, '0'), now() - '10 days'::interval, 80, 'release', 'available',
+        'release v2026.03.0', ARRAY['v2026.03.0']);
+
+CALL public.upgrade_supersede_older(lpad(to_hex(120), 40, '0'), 0);
+
+-- Commit (id=2) and prerelease (id=3) superseded; release (id=4) untouched
+SELECT id, state, release_status, superseded_at IS NOT NULL AS has_superseded_at
+  FROM public.upgrade ORDER BY id;
 
 -- ============================================================
 -- PART 2: RETENTION
@@ -254,6 +322,15 @@ SELECT p.id, p.action
   FROM public.upgrade_retention_plan('all', 11) AS p
  ORDER BY p.id;
 
+\echo '=== retention: p_context=commit scopes time-safety to commit channel only ==='
+
+-- With p_context='commit', only commit-channel rows hit time-safety. The
+-- install_* CTEs still check i.release_status; since p_installed_id is NULL,
+-- they yield nothing. So the result equals "commit channel time-safety only".
+SELECT p.id, p.action
+  FROM public.upgrade_retention_plan('commit', NULL) AS p
+ ORDER BY p.id;
+
 \echo '=== retention: executor deletes planned rows ==='
 
 SAVEPOINT before_apply;
@@ -280,6 +357,24 @@ SELECT count(*) FILTER (WHERE id IN (12, 13)) AS same_family_prereleases_remaini
        count(*) FILTER (WHERE id IN (17, 18)) AS zombies_remaining
   FROM public.upgrade;
 ROLLBACK TO SAVEPOINT before_apply_install;
+
+\echo '=== retention: apply with prerelease install id=13 purges same-family ==='
+
+-- Execute retention with prerelease install context (id=13, v2026.04.0-rc.3).
+-- Rule E purges id=12 (same family). Rule C purges commits 6..10.
+-- Rule D purges commits 5..10. DISTINCT ON collapses overlaps.
+-- Expected: 7 rows deleted (ids 5..10 + 12).
+SAVEPOINT before_apply_prerelease;
+SET client_min_messages TO WARNING;
+CALL public.upgrade_retention_apply('all', 13, 0);
+RESET client_min_messages;
+
+SELECT count(*) FILTER (WHERE id = 12) AS same_family_prerelease_remaining,
+       count(*) FILTER (WHERE id = 14) AS other_family_prerelease_remaining,
+       count(*) FILTER (WHERE id IN (17, 18)) AS zombies_remaining,
+       count(*) FILTER (WHERE id BETWEEN 5 AND 10) AS old_commits_remaining
+  FROM public.upgrade;
+ROLLBACK TO SAVEPOINT before_apply_prerelease;
 
 \echo '=== retention: caps flip — NULL caps + install_purge=false → zero plan ==='
 
