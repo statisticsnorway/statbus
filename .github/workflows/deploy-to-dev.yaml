@@ -44,32 +44,41 @@ jobs:
         # cleanup regresses, apply-latest fails with "couldn't find remote
         # ref refs/heads/devops/..." and the workflow goes red — loud
         # failure, exact regression fingerprint.
+        #
+        # Verbosity: `set -x` echoes each local command; each `ssh_dev` call
+        # is a single-line remote string (no backslash-newline folding
+        # inside the double-quoted arg, which was silently short-circuiting
+        # earlier runs), and every SSH invocation captures both stdout and
+        # stderr so a remote failure surfaces its error text instead of a
+        # bare "exit 1".
         run: |
+          set -x
           install -m 600 /dev/stdin /tmp/key <<< "${{ secrets.SSH_KEY }}"
+          trap 'rm -f /tmp/key' EXIT
 
           ssh_dev() {
-            ssh -i /tmp/key -o StrictHostKeyChecking=no \
-              statbus_dev@niue.statbus.org "$@"
+            ssh -i /tmp/key -o StrictHostKeyChecking=no -o BatchMode=yes \
+              statbus_dev@niue.statbus.org "$@" 2>&1
           }
 
+          STALE='+refs/heads/devops/deploy-to-dev:refs/remotes/origin/devops/deploy-to-dev'
+
           echo "::group::Seed stale refspec to exercise self-heal"
-          ssh_dev "cd ~/statbus && \
-            git config --add remote.origin.fetch \
-              '+refs/heads/devops/deploy-to-dev:refs/remotes/origin/devops/deploy-to-dev' \
-            && git config --get-all remote.origin.fetch"
+          ssh_dev "cd ~/statbus && git config --add remote.origin.fetch '$STALE' && git config --get-all remote.origin.fetch" \
+            || { echo "::error::Seed step failed (see output above)"; exit 1; }
           echo "::endgroup::"
 
           echo "::group::Run apply-latest (must self-heal the stale refspec)"
-          ssh_dev "cd ~/statbus && ./sb upgrade apply-latest"
+          ssh_dev "cd ~/statbus && ./sb upgrade apply-latest" \
+            || { echo "::error::apply-latest failed on remote"; exit 1; }
           echo "::endgroup::"
 
           echo "::group::Assert stale refspec is gone"
-          if ssh_dev "cd ~/statbus && \
-            git config --get-all remote.origin.fetch" | grep -q 'devops/'; then
-            echo "FAIL: stale devops/* refspec was not removed by apply-latest"
+          REMAINING=$(ssh_dev "cd ~/statbus && git config --get-all remote.origin.fetch" | grep 'devops/' || true)
+          if [ -n "$REMAINING" ]; then
+            echo "::error::stale devops/* refspec was not removed by apply-latest:"
+            echo "$REMAINING"
             exit 1
           fi
           echo "OK: no devops/* refspecs remain"
           echo "::endgroup::"
-
-          rm -f /tmp/key
