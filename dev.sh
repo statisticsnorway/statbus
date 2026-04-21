@@ -20,6 +20,16 @@ fi
 WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$WORKSPACE"
 
+# Activate repo git hooks. `.githooks/pre-push` blocks hand-rolled release
+# tags and guards the postgres/Dockerfile pgrx-builder stages. A fresh
+# clone has core.hooksPath unset (defaults to .git/hooks, which is empty
+# here), so the guards silently wouldn't run until a developer manually
+# ran the config. Setting it on every dev.sh invocation is idempotent and
+# ensures the guards are live for anyone who uses dev.sh at all.
+if [ "$(git config core.hooksPath 2>/dev/null || true)" != ".githooks" ]; then
+    git config core.hooksPath .githooks
+fi
+
 # Rebuild ./sb when:
 #   - the binary doesn't exist, OR
 #   - any cli/**/*.go source is newer than the binary (developer pulled
