@@ -379,13 +379,7 @@ func runInstall() (installErr error) {
 	// daemon running yet. upgradeRowID therefore stays 0 for every current
 	// caller; the variable is retained so future state transitions that need
 	// mid-flight row authoring can slot in without re-plumbing the defer.
-	//
-	// Side effect of option (i): startInstallUpgradeRow, the log-path stamp
-	// block below, and invariants A1/A2/A4/A5 become dead code in this build.
-	// Removing them is a separate cleanup task; leaving in place keeps this
-	// change minimal and reversible.
 	var upgradeRowID int64
-	var insertCompletedAt time.Time
 
 	// Create an install log so the admin UI can show what happened. Always
 	// create the log for real installs (not bypass, not dev) — even for fresh
@@ -400,27 +394,6 @@ func runInstall() (installErr error) {
 	var teeDone chan struct{}
 	if !bypass && version != "dev" {
 		installLog = upgrade.NewProgressLog(installDir, upgradeRowID, version, time.Now().UTC())
-		// Stamp the log path on the DB row immediately if we already have one.
-		// For fresh installs (upgradeRowID == 0) the stamp happens later in
-		// completeInstallUpgradeRow when the row is first created.
-		if upgradeRowID > 0 {
-			stampSQL := fmt.Sprintf("UPDATE public.upgrade SET log_relative_file_path = %s WHERE id = %d",
-				sqlLiteral(installLog.RelPath()), upgradeRowID)
-			if _, err := runInstallSQL(installDir, stampSQL); err != nil {
-				// A4: DB_CONNECTIVITY_STABLE_ACROSS_ADJACENT_SQL
-				// The INSERT in startInstallUpgradeRow just succeeded; this UPDATE
-				// is the next runInstallSQL subprocess call. If it fails we've
-				// lost DB reachability between two adjacent psql invocations —
-				// catastrophic (docker killed, network blip, OOM). Fail-fast.
-				elapsedMs := time.Since(insertCompletedAt).Milliseconds()
-				fmt.Fprintf(os.Stderr,
-					"INVARIANT DB_CONNECTIVITY_STABLE_ACROSS_ADJACENT_SQL violated: UPDATE failed %d ms after INSERT succeeded: %v (install.go:%d, pid=%d, row=%d)\n",
-					elapsedMs, err, thisLine(), os.Getpid(), upgradeRowID)
-				markTerminal(installDir, "DB_CONNECTIVITY_STABLE_ACROSS_ADJACENT_SQL",
-					fmt.Sprintf("UPDATE failed %d ms after INSERT; row=%d; err=%v", elapsedMs, upgradeRowID, err))
-				return fmt.Errorf("DB_CONNECTIVITY_STABLE_ACROSS_ADJACENT_SQL: %w", err)
-			}
-		}
 		// Tee stdout to the log file for the entire install duration.
 		origStdout = os.Stdout
 		pr, pw, pipeErr := os.Pipe()
@@ -511,11 +484,11 @@ func runInstall() (installErr error) {
 
 			// A21: FAILED_INSTALL_HAS_AUDIT_TRAIL — secondary audit breadcrumb
 			// for failures where no upgrade row was ever created (fresh install
-			// that died before DB reachable, or startInstallUpgradeRow returned
-			// (0, nil) for an idempotent path). The primary `installErr` return
-			// already drives the shell fail-fast; this log-only line guarantees
-			// the bundle has a greppable invariant anchor even when the DB has
-			// no row for SSB triage to grep against.
+			// that died before DB reachable; upgradeRowID stays 0 for every
+			// current caller under capability separation). The primary
+			// `installErr` return already drives the shell fail-fast; this
+			// log-only line guarantees the bundle has a greppable invariant
+			// anchor even when the DB has no row for SSB triage to grep against.
 			if installErr != nil && upgradeRowID == 0 {
 				log.Printf(
 					"INVARIANT FAILED_INSTALL_HAS_AUDIT_TRAIL violated (audit-only): install failed with no upgrade row (detectedState=%s): %v — support bundle's install.log has full context (install.go:%d, pid=%d)",
@@ -1185,175 +1158,6 @@ func runInstallSQL(dir, sql string) (string, error) {
 	return string(out), nil
 }
 
-// startInstallUpgradeRow inserts an in_progress row for the current HEAD so the
-// admin UI shows the install in progress. Only called for re-installs where the
-// DB is already up (StateNothingScheduled).
-//
-// Guards three named invariants:
-//   - A5 UPGRADE_ROW_INSERT_SUCCEEDS_POST_DETECT — INSERT must not fail when
-//     DetectState just confirmed DB + schema reachable.
-//   - A1 NO_ORPHAN_IN_PROGRESS_ON_NOTHING_SCHEDULED — if the INSERT hits an
-//     existing `in_progress` row it is necessarily an orphan (the install-held
-//     flag is O_EXCL-ours; no live owner by mutex construction). Auto-heal it
-//     to `failed` and re-INSERT. AUTOHEAL_FAILED is the fallthrough if that
-//     UPDATE errors.
-//   - A2 UPGRADE_ROW_ID_INTEGER — RETURNING id always round-trips as int64
-//     through psql -A -t.
-//
-// Returns (0, nil) on idempotent no-op (existing `completed` row for this SHA,
-// or defensive fall-through for states the WHERE clause should have handled).
-func startInstallUpgradeRow(dir string) (int64, error) {
-	sha, commitDate := gitHeadInfo(dir)
-	if sha == "" || commitDate == "" {
-		return 0, nil
-	}
-
-	insertSQL := fmt.Sprintf(`INSERT INTO public.upgrade (
-  commit_sha, committed_at, summary, state,
-  version, release_status, scheduled_at, started_at, from_version
-) VALUES (
-  %s, %s::timestamptz,
-  %s, 'in_progress',
-  %s, %s::release_status_type,
-  clock_timestamp(), clock_timestamp(),
-  (SELECT version FROM public.upgrade WHERE state = 'completed' ORDER BY completed_at DESC NULLS LAST LIMIT 1)
-)
-ON CONFLICT (commit_sha) DO UPDATE SET
-  state = 'in_progress',
-  started_at = COALESCE(upgrade.started_at, clock_timestamp()),
-  scheduled_at = COALESCE(upgrade.scheduled_at, clock_timestamp()),
-  completed_at = NULL,
-  error = NULL,
-  rolled_back_at = NULL,
-  from_version = COALESCE(upgrade.from_version, EXCLUDED.from_version),
-  version = COALESCE(EXCLUDED.version, upgrade.version)
-WHERE upgrade.state NOT IN ('in_progress', 'completed')
-RETURNING id`,
-		sqlLiteral(sha),
-		sqlLiteral(commitDate),
-		sqlLiteral(fmt.Sprintf("Installing via ./sb install (%s)", version)),
-		sqlLiteral(version),
-		sqlLiteral(classifyReleaseStatus(version)))
-
-	out, err := runInstallSQL(dir, insertSQL)
-	if err != nil {
-		// A5: UPGRADE_ROW_INSERT_SUCCEEDS_POST_DETECT
-		fmt.Fprintf(os.Stderr,
-			"INVARIANT UPGRADE_ROW_INSERT_SUCCEEDS_POST_DETECT violated: INSERT into public.upgrade failed immediately after DetectState=StateNothingScheduled: %v (install.go:%d, pid=%d)\n",
-			err, thisLine(), os.Getpid())
-		markTerminal(dir, "UPGRADE_ROW_INSERT_SUCCEEDS_POST_DETECT",
-			fmt.Sprintf("INSERT err=%v after DetectState=StateNothingScheduled", err))
-		return 0, fmt.Errorf("UPGRADE_ROW_INSERT_SUCCEEDS_POST_DETECT: %w", err)
-	}
-
-	line := strings.TrimSpace(out)
-	if line != "" {
-		id, parseErr := strconv.ParseInt(line, 10, 64)
-		if parseErr != nil {
-			// A2: UPGRADE_ROW_ID_INTEGER
-			fmt.Fprintf(os.Stderr,
-				"INVARIANT UPGRADE_ROW_ID_INTEGER violated: RETURNING yielded %q (not parseable as int64): %v (install.go:%d, pid=%d)\n",
-				line, parseErr, thisLine(), os.Getpid())
-			markTerminal(dir, "UPGRADE_ROW_ID_INTEGER",
-				fmt.Sprintf("RETURNING=%q; parse err=%v", line, parseErr))
-			return 0, fmt.Errorf("UPGRADE_ROW_ID_INTEGER: %w", parseErr)
-		}
-		fmt.Printf("  Upgrade row %d: in_progress (%s)\n", id, version)
-		return id, nil
-	}
-
-	// A1: Empty RETURNING → row exists for this SHA with state in
-	// {in_progress, completed} (other states would have passed the WHERE clause
-	// and returned an id). Query to decide auto-heal vs idempotent no-op.
-	stateSQL := fmt.Sprintf(
-		`SELECT id, state FROM public.upgrade WHERE commit_sha = %s`,
-		sqlLiteral(sha))
-	stateOut, stateErr := runInstallSQL(dir, stateSQL)
-	if stateErr != nil {
-		// Same class as A5 — DB just worked for INSERT, now fails for SELECT.
-		fmt.Fprintf(os.Stderr,
-			"INVARIANT UPGRADE_ROW_INSERT_SUCCEEDS_POST_DETECT violated: SELECT of row state after empty RETURNING failed: %v (install.go:%d, pid=%d)\n",
-			stateErr, thisLine(), os.Getpid())
-		markTerminal(dir, "UPGRADE_ROW_INSERT_SUCCEEDS_POST_DETECT",
-			fmt.Sprintf("state SELECT err=%v after empty RETURNING", stateErr))
-		return 0, fmt.Errorf("UPGRADE_ROW_INSERT_SUCCEEDS_POST_DETECT: %w", stateErr)
-	}
-
-	stateLine := strings.TrimSpace(stateOut)
-	if stateLine == "" {
-		// Row does not exist — cannot reach this branch per plan's decision
-		// matrix, but log a defensive breadcrumb and continue.
-		log.Printf("No upgrade row for SHA %s after empty RETURNING; skipping row creation", sha)
-		return 0, nil
-	}
-
-	parts := strings.SplitN(stateLine, "|", 2)
-	if len(parts) != 2 {
-		log.Printf("Unexpected upgrade-row SELECT output %q; skipping row creation", stateLine)
-		return 0, nil
-	}
-	orphanID, parseErr := strconv.ParseInt(strings.TrimSpace(parts[0]), 10, 64)
-	if parseErr != nil {
-		log.Printf("Unparseable upgrade-row id %q; skipping row creation", parts[0])
-		return 0, nil
-	}
-	observedState := strings.TrimSpace(parts[1])
-
-	switch observedState {
-	case "completed":
-		// Idempotent no-op — re-install on the same binary SHA.
-		fmt.Printf("  Upgrade row already marked completed for this SHA (re-install is idempotent); skipping row creation\n")
-		return 0, nil
-	case "in_progress":
-		// Auto-heal: mutex guarantees no live owner (O_EXCL install flag is
-		// ours; a live service would have appeared as StateLiveUpgrade in
-		// DetectState). Mark the orphan `failed` and re-INSERT.
-		healSQL := fmt.Sprintf(
-			`UPDATE public.upgrade SET state='failed', error='orphaned in_progress row; auto-recovered by ./sb install (no live owner — mutex guarantee)' WHERE id=%d AND state='in_progress'`,
-			orphanID)
-		if _, err := runInstallSQL(dir, healSQL); err != nil {
-			fmt.Fprintf(os.Stderr,
-				"INVARIANT AUTOHEAL_FAILED violated: UPDATE to mark orphan in_progress row %d as failed returned err=%v (install.go:%d, pid=%d)\n",
-				orphanID, err, thisLine(), os.Getpid())
-			markTerminal(dir, "AUTOHEAL_FAILED",
-				fmt.Sprintf("orphan row %d; UPDATE err=%v", orphanID, err))
-			return 0, fmt.Errorf("AUTOHEAL_FAILED: %w", err)
-		}
-		// Retry the INSERT now that the orphan is failed — WHERE clause passes.
-		out2, err := runInstallSQL(dir, insertSQL)
-		if err != nil {
-			fmt.Fprintf(os.Stderr,
-				"INVARIANT UPGRADE_ROW_INSERT_SUCCEEDS_POST_DETECT violated: post-autoheal INSERT failed: %v (install.go:%d, pid=%d)\n",
-				err, thisLine(), os.Getpid())
-			markTerminal(dir, "UPGRADE_ROW_INSERT_SUCCEEDS_POST_DETECT",
-				fmt.Sprintf("post-autoheal INSERT err=%v", err))
-			return 0, fmt.Errorf("UPGRADE_ROW_INSERT_SUCCEEDS_POST_DETECT: %w", err)
-		}
-		line2 := strings.TrimSpace(out2)
-		if line2 == "" {
-			log.Printf("Post-autoheal INSERT returned empty RETURNING; skipping row creation")
-			return 0, nil
-		}
-		newID, parseErr := strconv.ParseInt(line2, 10, 64)
-		if parseErr != nil {
-			fmt.Fprintf(os.Stderr,
-				"INVARIANT UPGRADE_ROW_ID_INTEGER violated: post-autoheal RETURNING yielded %q: %v (install.go:%d, pid=%d)\n",
-				line2, parseErr, thisLine(), os.Getpid())
-			markTerminal(dir, "UPGRADE_ROW_ID_INTEGER",
-				fmt.Sprintf("post-autoheal RETURNING=%q; parse err=%v", line2, parseErr))
-			return 0, fmt.Errorf("UPGRADE_ROW_ID_INTEGER: %w", parseErr)
-		}
-		fmt.Printf("  Auto-healed orphaned in_progress row %d (no live owner by mutex invariant); starting fresh row %d\n", orphanID, newID)
-		return newID, nil
-	default:
-		// failed / scheduled / rolled_back would have passed the WHERE clause
-		// and returned an id. Reaching here means schema drift or an added
-		// enum value; print a warning and continue.
-		log.Printf("Unexpected upgrade-row state %q for SHA %s; returning 0", observedState, sha)
-		return 0, nil
-	}
-}
-
 // connectInstallDB opens a pgx connection for post-completion operations.
 // Uses migrate.AdminConnStr which reads CADDY_DB_BIND_ADDRESS from .env.
 func connectInstallDB(dir string) (*pgx.Conn, error) {
@@ -1793,42 +1597,6 @@ func logInstallState(state install.State, detail *install.Detail) {
 // coupling stays authoritative. TestEveryInvariantHasTriadDocumented gates
 // this on every build.
 func init() {
-	invariants.Register(invariants.Invariant{
-		Name:             "UPGRADE_ROW_INSERT_SUCCEEDS_POST_DETECT",
-		Class:            invariants.FailFast,
-		SourceLocation:   "cli/cmd/install.go:startInstallUpgradeRow",
-		ExpectedToHold:   "The INSERT into public.upgrade succeeds when DetectState just confirmed DB reachable and schema present.",
-		WhyExpected:      "DetectState=StateNothingScheduled asserts both DB reachability and public.upgrade schema presence; the INSERT fires milliseconds later with no intervening state change.",
-		ViolationShape:   "runInstallSQL returns a non-nil error for the INSERT ... RETURNING id (or a follow-up SELECT querying row state after an empty RETURNING).",
-		TranscriptFormat: "INVARIANT UPGRADE_ROW_INSERT_SUCCEEDS_POST_DETECT violated: INSERT into public.upgrade failed immediately after DetectState=StateNothingScheduled: <err>",
-	})
-	invariants.Register(invariants.Invariant{
-		Name:             "UPGRADE_ROW_ID_INTEGER",
-		Class:            invariants.FailFast,
-		SourceLocation:   "cli/cmd/install.go:startInstallUpgradeRow",
-		ExpectedToHold:   "RETURNING id from the public.upgrade INSERT yields a parseable int64 through psql -A -t.",
-		WhyExpected:      "id is bigint in the schema; psql -A -t emits bare integer text for a single-column RETURNING; no test fixture injects non-integer text.",
-		ViolationShape:   "strconv.ParseInt returns an error on the trimmed RETURNING output — observed input is non-numeric or empty after an ostensibly-successful INSERT.",
-		TranscriptFormat: "INVARIANT UPGRADE_ROW_ID_INTEGER violated: RETURNING yielded <raw> (not parseable as int64): <err>",
-	})
-	invariants.Register(invariants.Invariant{
-		Name:             "AUTOHEAL_FAILED",
-		Class:            invariants.FailFast,
-		SourceLocation:   "cli/cmd/install.go:startInstallUpgradeRow",
-		ExpectedToHold:   "The UPDATE marking an orphan in_progress row as failed succeeds when invoked inside startInstallUpgradeRow (mutex guarantees no live owner).",
-		WhyExpected:      "The install-held O_EXCL flag means no upgrade-service or sibling install can hold the row; the orphan is by construction unclaimed. A live DB that just accepted the INSERT must accept this UPDATE.",
-		ViolationShape:   "runInstallSQL returns a non-nil error for the UPDATE public.upgrade SET state='failed' ... WHERE id=<orphanID> AND state='in_progress'.",
-		TranscriptFormat: "INVARIANT AUTOHEAL_FAILED violated: UPDATE to mark orphan in_progress row <id> as failed returned err=<err>",
-	})
-	invariants.Register(invariants.Invariant{
-		Name:             "DB_CONNECTIVITY_STABLE_ACROSS_ADJACENT_SQL",
-		Class:            invariants.FailFast,
-		SourceLocation:   "cli/cmd/install.go:runInstall (log-path stamp)",
-		ExpectedToHold:   "The runInstallSQL UPDATE stamping log_relative_file_path succeeds when the preceding INSERT into public.upgrade just succeeded milliseconds earlier.",
-		WhyExpected:      "Two adjacent runInstallSQL subprocess calls hit the same DB over the same Caddy L4 proxy with no intervening state change. DB loss in between means docker killed / network blip / OOM — catastrophic and not recoverable by retry.",
-		ViolationShape:   "runInstallSQL returns a non-nil error for the UPDATE public.upgrade SET log_relative_file_path=... WHERE id=<rowID>, after the startInstallUpgradeRow INSERT had already succeeded.",
-		TranscriptFormat: "INVARIANT DB_CONNECTIVITY_STABLE_ACROSS_ADJACENT_SQL violated: UPDATE failed <ms> ms after INSERT succeeded: <err>",
-	})
 	invariants.Register(invariants.Invariant{
 		Name:             "POST_COMPLETION_DB_REACHABLE_AFTER_STEP_TABLE",
 		Class:            invariants.FailFast,
