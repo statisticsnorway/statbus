@@ -15,6 +15,29 @@ import (
 	"time"
 
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
+	"github.com/statisticsnorway/statbus/cli/internal/invariants"
+)
+
+// Trigger identifies which path asked for the bundle. SSB triage uses it
+// to know which upstream contract to hold the bundle against.
+type Trigger string
+
+const (
+	// TriggerService — the upgrade service is gathering a bundle as part
+	// of a failed/rolled_back state transition. Called from
+	// (*Service).writeDiagnosticBundle.
+	TriggerService Trigger = "service"
+
+	// TriggerInstall — install.sh caught a non-zero exit from ./sb install.
+	// The bundle includes install-terminal.txt so the wrapper can surface
+	// the named invariant in the SYSTEM UNUSABLE banner.
+	TriggerInstall Trigger = "install"
+
+	// TriggerAdhoc — an operator invoked `./sb support gather` directly
+	// (the "lifeline" path when the upgrade service is down). Behaves
+	// like TriggerInstall with a different header so the triage reader
+	// knows the bundle was operator-initiated, not failure-initiated.
+	TriggerAdhoc Trigger = "adhoc"
 )
 
 // Support bundle — written beside the per-upgrade log as
@@ -100,7 +123,7 @@ func (d *Service) writeDiagnosticBundle(parent context.Context, id int, progress
 	}
 	bw := bufio.NewWriter(f)
 
-	WriteBundleSections(ctx, bw, d.projDir, id, rowJSON, logAbsPath)
+	WriteBundleSections(ctx, bw, d.projDir, id, rowJSON, logAbsPath, TriggerService)
 
 	if err := bw.Flush(); err != nil {
 		narrate("Warning: bundle write failed (flush): %v", err)
@@ -134,7 +157,14 @@ func (d *Service) writeDiagnosticBundle(parent context.Context, id int, progress
 // Extracted so bundle_test.go can drive the same writer against a byte
 // buffer with a fixture row + env file, and so cli/cmd/support_bundle.go
 // can call it without a live database connection.
-func WriteBundleSections(ctx context.Context, w io.Writer, projDir string, id int, rowJSON, logAbsPath string) {
+//
+// trigger identifies the path that asked for the bundle (service
+// failure transition / install.sh wrapper / operator ad-hoc). It is
+// embedded in the header so SSB triage knows the upstream contract.
+// Install and adhoc triggers additionally emit install-terminal.txt
+// so the wrapper's SYSTEM UNUSABLE banner has a named-invariant
+// anchor even when the upgrade row does not exist.
+func WriteBundleSections(ctx context.Context, w io.Writer, projDir string, id int, rowJSON, logAbsPath string, trigger Trigger) {
 	// Pull summary fields out of the row JSON for the header line.
 	// Best-effort — a parse failure produces a header with blanks.
 	var rowMap map[string]interface{}
@@ -142,9 +172,13 @@ func WriteBundleSections(ctx context.Context, w io.Writer, projDir string, id in
 	sha12 := shortField(rowMap, "commit_sha", 12)
 	state := stringField(rowMap, "state")
 
-	bundleSection(w, fmt.Sprintf("bundle for upgrade id=%d commit=%s state=%s", id, sha12, state), "")
+	bundleSection(w, fmt.Sprintf("bundle for upgrade id=%d commit=%s state=%s trigger=%s", id, sha12, state, trigger), "")
 	bundleSection(w, fmt.Sprintf("generated %s", time.Now().UTC().Format(time.RFC3339)), "")
 	bundleSection(w, "upgrade row (key=value)", bundleRowBody(rowMap))
+	if trigger == TriggerInstall || trigger == TriggerAdhoc {
+		bundleSection(w, "install-terminal.txt (named invariant that drove termination)", bundleInstallTerminalBody(projDir))
+	}
+	bundleSection(w, "invariants registered in the shipped binary", bundleInvariantsBody())
 	bundleSection(w,
 		fmt.Sprintf("log tail (last %d lines from %s)", bundleLogTailLines, filepath.Base(logAbsPath)),
 		bundleLogTailBody(logAbsPath, bundleLogTailLines))
@@ -158,6 +192,31 @@ func WriteBundleSections(ctx context.Context, w io.Writer, projDir string, id in
 		bundleCommandBody(ctx, projDir, "git", "log", fmt.Sprintf("-%d", bundleGitLogCount), "--oneline", "--decorate"))
 	bundleSection(w, "caddy config", bundleCaddyConfigBody(projDir))
 	bundleSection(w, "redacted env", bundleRedactedEnvBody(projDir))
+}
+
+// bundleInvariantsBody dumps the runtime registry. Always emitted so a
+// bundle reader can confirm which named invariants the binary was
+// capable of checking at the moment the bundle was written.
+func bundleInvariantsBody() string {
+	var sb strings.Builder
+	invariants.Dump(&sb)
+	if sb.Len() == 0 {
+		return "(registry is empty)"
+	}
+	return sb.String()
+}
+
+// bundleInstallTerminalBody reads <projDir>/tmp/install-terminal.txt,
+// which install-path guard sites append to via invariants.MarkTerminal.
+// Empty/absent file renders as a placeholder — the absence itself is
+// diagnostic (install.sh may have fired after a SIGKILL that preceded
+// any invariant site).
+func bundleInstallTerminalBody(projDir string) string {
+	body := invariants.ReadTerminal(projDir)
+	if body == "" {
+		return "(file absent — install terminated without reaching a named-invariant site; see log tail)"
+	}
+	return body
 }
 
 // bundleSection writes `=== name ===\nbody\n\n` uniformly. Empty body

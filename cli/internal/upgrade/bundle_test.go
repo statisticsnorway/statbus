@@ -25,11 +25,11 @@ func TestWriteBundleSections_Composition(t *testing.T) {
 	rowJSON := `{"id":42,"commit_sha":"abc123def456","state":"failed","version":"v2026.04.0-rc.9"}`
 
 	var buf bytes.Buffer
-	WriteBundleSections(context.Background(), &buf, dir, 42, rowJSON, logPath)
+	WriteBundleSections(context.Background(), &buf, dir, 42, rowJSON, logPath, TriggerService)
 	output := buf.String()
 
 	wantSections := []string{
-		"=== bundle for upgrade id=42 commit=abc123def456 state=failed ===",
+		"=== bundle for upgrade id=42 commit=abc123def456 state=failed trigger=service ===",
 		"=== generated ",
 		"=== upgrade row (key=value) ===",
 		"=== log tail (last 500 lines from upgrade-abc123.log) ===",
@@ -76,7 +76,7 @@ func TestWriteBundleSections_RedactedEnv(t *testing.T) {
 	logPath := filepath.Join(dir, "no.log")
 
 	var buf bytes.Buffer
-	WriteBundleSections(context.Background(), &buf, dir, 1, `{"id":1,"state":"failed"}`, logPath)
+	WriteBundleSections(context.Background(), &buf, dir, 1, `{"id":1,"state":"failed"}`, logPath, TriggerService)
 	output := buf.String()
 
 	// Secret keys must have their values replaced
@@ -131,7 +131,7 @@ func TestWriteBundleSections_InlineLogRedaction(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	WriteBundleSections(context.Background(), &buf, dir, 1, `{"id":1,"state":"failed"}`, logPath)
+	WriteBundleSections(context.Background(), &buf, dir, 1, `{"id":1,"state":"failed"}`, logPath, TriggerService)
 	output := buf.String()
 
 	// Inline secret values must not appear verbatim
