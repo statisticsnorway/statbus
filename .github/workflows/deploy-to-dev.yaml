@@ -37,20 +37,23 @@ jobs:
           exit 1
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Deploy via upgrade service (with refspec self-heal regression test)
-        # Inject a stale devops/* refspec BEFORE running apply-latest. If the
-        # deployed binary's CleanStaleRefspecs works, apply-latest succeeds
-        # and a post-run check confirms the stale refspec is gone. If the
-        # cleanup regresses, apply-latest fails with "couldn't find remote
-        # ref refs/heads/devops/..." and the workflow goes red — loud
-        # failure, exact regression fingerprint.
+      - name: Deploy via upgrade service
+        # SSH to statbus_dev@niue and trigger the upgrade service through
+        # `./sb upgrade apply-latest`. The server-side sshdo allowlist
+        # constrains what can run over this channel; `./sb upgrade
+        # apply-latest` is explicitly permitted.
         #
-        # Verbosity: `set -x` echoes each local command; each `ssh_dev` call
-        # is a single-line remote string (no backslash-newline folding
-        # inside the double-quoted arg, which was silently short-circuiting
-        # earlier runs), and every SSH invocation captures both stdout and
-        # stderr so a remote failure surfaces its error text instead of a
-        # bare "exit 1".
+        # Refspec self-heal (`CleanStaleRefspecs`) is still covered by unit
+        # tests in `cli/internal/upgrade/refspec_test.go`; the earlier
+        # workflow-level regression test is retired because sshdo
+        # (correctly) blocks the seed step's `git config --add` — the
+        # safer gate is to keep the allowlist tight, not to loosen it for
+        # a CI probe.
+        #
+        # Diagnostics kept: `set -x` echoes each local command, SSH
+        # captures both stdout and stderr, and failure paths emit
+        # `::error::` annotations so the root cause shows up in the
+        # GitHub Actions log instead of a bare "exit 1".
         run: |
           set -x
           install -m 600 /dev/stdin /tmp/key <<< "${{ secrets.SSH_KEY }}"
@@ -61,24 +64,7 @@ jobs:
               statbus_dev@niue.statbus.org "$@" 2>&1
           }
 
-          STALE='+refs/heads/devops/deploy-to-dev:refs/remotes/origin/devops/deploy-to-dev'
-
-          echo "::group::Seed stale refspec to exercise self-heal"
-          ssh_dev "cd ~/statbus && git config --add remote.origin.fetch '$STALE' && git config --get-all remote.origin.fetch" \
-            || { echo "::error::Seed step failed (see output above)"; exit 1; }
-          echo "::endgroup::"
-
-          echo "::group::Run apply-latest (must self-heal the stale refspec)"
+          echo "::group::Run apply-latest on statbus_dev"
           ssh_dev "cd ~/statbus && ./sb upgrade apply-latest" \
             || { echo "::error::apply-latest failed on remote"; exit 1; }
-          echo "::endgroup::"
-
-          echo "::group::Assert stale refspec is gone"
-          REMAINING=$(ssh_dev "cd ~/statbus && git config --get-all remote.origin.fetch" | grep 'devops/' || true)
-          if [ -n "$REMAINING" ]; then
-            echo "::error::stale devops/* refspec was not removed by apply-latest:"
-            echo "$REMAINING"
-            exit 1
-          fi
-          echo "OK: no devops/* refspecs remain"
           echo "::endgroup::"
