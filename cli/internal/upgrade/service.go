@@ -261,7 +261,7 @@ func ReleaseInstallFlag(lock *FlagLock) {
 // AcquireInstallFlag. Branches on Holder + alive to produce one of:
 //   - live service: "upgrade in progress, wait"
 //   - live install: "another install running, wait"
-//   - dead any:    "previous {upgrade|install} crashed — run upgrade recover"
+//   - dead any:    "previous {upgrade|install} crashed — re-run ./sb install"
 //
 // Empty Holder (legacy pre-Release-1.1 flags) is treated as service.
 func formatContentionError(flag *UpgradeFlag, alive bool) error {
@@ -294,10 +294,7 @@ func formatContentionError(flag *UpgradeFlag, alive bool) error {
 	return fmt.Errorf(
 		"a prior %s crashed or was stopped mid-run: flag file references PID %d (%s, invoked_by=%s)\n"+
 			"but that process is no longer alive.\n\n"+
-			"  Reconcile the stale flag, then retry:\n"+
-			"    ./sb upgrade recover\n\n"+
-			"  (Equivalent: systemctl --user start 'statbus-upgrade@*' — the service's startup\n"+
-			"  handler runs the same reconciliation.)",
+			"  Re-run ./sb install — it detects the stale flag and reconciles it automatically.",
 		verb, flag.PID, flag.DisplayName, flag.InvokedBy)
 }
 
@@ -725,10 +722,9 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 }
 
 // RecoverFromFlag is the exported form of recoverFromFlag — the
-// reconciliation step that runs at service startup but can also be invoked
-// as a one-shot by `./sb upgrade recover` when the service is stopped
-// (e.g., after `./cloud.sh install` killed the unit mid-upgrade and the
-// flag file persists on disk).
+// reconciliation step that runs at service startup and is also called by
+// ./sb install's crashed-upgrade path (StateCrashedUpgrade) before
+// re-detecting and re-dispatching.
 //
 // The caller MUST call LoadConfigAndConnect first so queryConn is live,
 // and Close after to release connections.
@@ -2527,7 +2523,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 			progress.Write("    1. Manually checkout the intended previous version: git checkout %s", previousVersion)
 			progress.Write("    2. Regenerate config: ./sb config generate")
 			progress.Write("    3. Bring services up: docker compose --profile all up -d")
-			progress.Write("    4. Reconcile DB row via: ./sb upgrade recover")
+			progress.Write("    4. Re-run ./sb install — it detects the stale flag and reconciles the upgrade row automatically.")
 			// Headline for the operator reading maintenance.html — the four
 			// lines above are the technical recovery trail for an admin
 			// reviewing service logs; this one sentence is what a
@@ -2557,11 +2553,11 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 			d.runCallback(version, map[string]string{
 				"STATBUS_ROLLBACK_FAILED": "1",
 				"STATBUS_ROLLBACK_ERROR":  err.Error(),
-				"STATBUS_RECOVERY_CMD":    fmt.Sprintf(`ssh %s "cd statbus && ./sb upgrade recover"`, hostname),
+				"STATBUS_RECOVERY_CMD":    fmt.Sprintf(`ssh %s "cd statbus && ./sb install"`, hostname),
 			})
-			// Maintenance stays ON — operator must finish the rollback.
-			// Mutex stays HELD — `./sb install` would compound the mess.
-			// `./sb upgrade recover` is documented above as the unstick path.
+			// Maintenance stays ON — operator must complete the manual rollback steps above.
+			// Mutex flag stays on disk (dead PID after this service exits).
+			// After completing the manual steps, re-run ./sb install to reconcile.
 			return
 		}
 		if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "rollback-config-generate", filepath.Join(projDir, "sb"), "config", "generate"); err != nil {

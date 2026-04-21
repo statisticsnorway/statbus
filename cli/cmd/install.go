@@ -107,8 +107,11 @@ type step struct {
 // child install neither acquires nor releases. Otherwise:
 //   - No flag → atomic acquire succeeds; returns a release function the
 //     caller must defer.
-//   - Flag exists (any holder, alive or dead) → returns a formatted error
-//     guiding the operator to wait or run `./sb upgrade recover`.
+//   - Flag exists, live PID → returns a formatted error guiding the
+//     operator to wait.
+//   - Flag exists, dead PID → unreachable: install.Detect returns
+//     StateCrashedUpgrade before acquireOrBypass is called, so the
+//     stale-flag path is handled by RecoverFromFlag, not here.
 //
 // Returns (releaseFunc, nil) on success; (nil-no-op, err) on contention.
 func acquireOrBypass(installDir string, bypass bool) (release func(), err error) {

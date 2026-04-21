@@ -96,7 +96,6 @@ echo "SELECT ..." | ./sb psql             # Single queries
 ./sb upgrade schedule <version>   # Queue an upgrade (writes a public.upgrade row)
 ./sb upgrade apply <version>      # Trigger immediate upgrade via NOTIFY (needs running service)
 ./sb upgrade service              # Run upgrade service (usually via systemd)
-./sb upgrade recover              # One-shot: reconcile a crashed upgrade flag
 ```
 
 `./sb install` is the single operator-facing entrypoint for first-install, repair, and applying a pending upgrade without waiting for the service. On each run it probes install state and dispatches:

@@ -42,7 +42,7 @@ Two formal states:
 
 Inside InProgress, the flag carries a PID and `pidAlive(PID)` acts as a **diagnostic subquery** that selects between two messages:
 - PID alive → "wait for the running {upgrade|install}"
-- PID dead → "previous {upgrade|install} crashed — run `./sb upgrade recover`"
+- PID dead → unreachable from `acquireOrBypass`; install.Detect returns StateCrashedUpgrade first and RecoverFromFlag reconciles the flag before dispatch
 
 This is not a third state: it's an explanation for why the same InProgress state blocks the caller.
 
@@ -96,7 +96,7 @@ If any step from 4 onward fails, `rollback()` is called. It restores the previou
 
 ## Recovery contract (`recoverFromFlag`)
 
-Called once at service startup, before the main loop begins. Also exposed as `./sb upgrade recover` for one-shot reconciliation when the service is stopped (e.g., after `./cloud.sh install` killed the unit mid-upgrade). Outcomes:
+Called once at service startup, before the main loop begins. Also called by `./sb install`'s crashed-upgrade detection path (StateCrashedUpgrade) before re-detecting and re-dispatching. Outcomes:
 
 1. **No flag on disk** → Idle; proceed.
 2. **Flag on disk, owning PID is alive AND isn't us** → pathological (advisory DB lock should prevent two services coexisting; an install holder would be a surprise concurrent operator). Log an error and refuse to clean up; leave the flag for the operator to investigate.
@@ -119,6 +119,16 @@ See `cli/cmd/install.go:acquireOrBypass` and `cli/internal/upgrade/service.go:Ac
 **Inline-upgrade path** (state 7): install does NOT acquire the install-held flag. `executeUpgrade` writes its own `Holder="service"` flag internally (step 2 of the pipeline below) before any destructive step, serialising against any concurrent install or service via the O_EXCL primitive. This is the same flag the service path uses — two concurrent callers racing into `executeUpgrade` are serialised by the kernel on the flag file; the losing caller sees EEXIST and aborts cleanly.
 
 **Crashed-upgrade path** (state 3): install calls `RecoverFromFlag` directly (via `runCrashRecovery` in `cli/cmd/install_upgrade.go`), which reads the stale flag, branches on `Holder` to reconcile `public.upgrade` if needed, and removes the file. Install then re-runs `Detect` and re-dispatches — recovery may have surfaced a freshly-scheduled row or left the install otherwise healthy.
+
+## Design principle: silent soft-warnings are forbidden
+
+A soft-swallowed warning (a `Note:` or `Notice:` printed to stdout but not acted on) is an operator lie: the system claims partial success while leaving state inconsistent. In the upgrade/install paths, this manifests as a `WARN: state transition matched 0 rows` that does nothing — the operator's admin UI or DB row is then wrong, silently.
+
+Every failure that violates an expected invariant MUST either:
+1. Fail fast with a named `INVARIANT <NAME> violated: …` message and (where applicable) write a support bundle so SSB can diagnose the failure remotely, or
+2. Propagate the error up the call stack to the operator-facing exit path.
+
+Logging a warning and continuing is never acceptable at a state-transition site. The only acceptable "continue" behaviour is when the failure is explicitly cosmetic (e.g., optional system_info key that is informational only) — and even then, the log line must be a WARN with a clear explanation of why continuation is safe, not a silent swallow.
 
 ## Related
 

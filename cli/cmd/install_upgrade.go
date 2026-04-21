@@ -25,10 +25,10 @@ func dispatchInstallState(projDir string, state install.State, detail *install.D
 	switch state {
 	case install.StateLiveUpgrade:
 		if detail.Flag != nil {
-			return true, fmt.Errorf("upgrade in progress (PID %d, %s, started %s); wait for it to finish or run './sb upgrade recover' if the process is dead",
+			return true, fmt.Errorf("upgrade in progress (PID %d, %s, started %s); wait for it to finish or re-run './sb install' if the process is dead",
 				detail.Flag.PID, detail.Flag.DisplayName, detail.Flag.StartedAt.Format(time.RFC3339))
 		}
-		return true, fmt.Errorf("upgrade in progress; wait or run './sb upgrade recover'")
+		return true, fmt.Errorf("upgrade in progress; wait or re-run './sb install'")
 	case install.StateScheduledUpgrade:
 		return true, runInlineUpgradeScheduled(projDir, detail)
 	case install.StateLegacyNoUpgradeTable:

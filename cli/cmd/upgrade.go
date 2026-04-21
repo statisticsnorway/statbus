@@ -413,29 +413,6 @@ Typically run via systemd (ops/statbus-upgrade.service).`,
 	RunE: upgradeServiceRunE,
 }
 
-var upgradeRecoverCmd = &cobra.Command{
-	Use:   "recover",
-	Short: "Reconcile a stale tmp/upgrade-in-progress.json flag file",
-	Long: `One-shot recovery: reads the upgrade flag, checks git HEAD, marks the
-public.upgrade row completed or failed, removes the flag. Idempotent —
-if there is no flag file, does nothing.
-
-Use this when a prior upgrade was interrupted (e.g., the service was
-stopped mid-upgrade by ./cloud.sh install) and the flag remains on disk.
-Running ./sb upgrade recover lets you proceed with install without
-waiting for the upgrade service to next start.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		projDir := config.ProjectDir()
-		svc := upgrade.NewService(projDir, verbose, version)
-		ctx := context.Background()
-		if err := svc.LoadConfigAndConnect(ctx); err != nil {
-			return err
-		}
-		defer svc.Close()
-		svc.RecoverFromFlag(ctx)
-		return nil
-	},
-}
 
 var upgradeSelfVerifyCmd = &cobra.Command{
 	Use:    "self-verify",
@@ -865,7 +842,6 @@ func init() {
 	upgradeCmd.AddCommand(upgradeApplyLatestCmd)
 	upgradeCmd.AddCommand(upgradeChannelCmd)
 	upgradeCmd.AddCommand(upgradeServiceCmd)
-	upgradeCmd.AddCommand(upgradeRecoverCmd)
 	upgradeCmd.AddCommand(upgradeSelfVerifyCmd)
 	upgradeCmd.AddCommand(upgradeSelfRollbackCmd)
 	upgradeCmd.AddCommand(trustKeyCmd)

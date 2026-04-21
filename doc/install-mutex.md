@@ -16,7 +16,7 @@ Running both concurrently would interleave these mutations unpredictably. The mu
 
 Both the upgrade service and `./sb install` write this file via `O_CREATE|O_EXCL` — the kernel guarantees exactly one writer wins when two race. The `Holder` field distinguishes ownership ("service" or "install"). The file's presence means "an orchestrated mutator is either running or crashed pending recovery."
 
-Each holder removes the file on its own normal completion path. The service additionally reconciles any flag found at startup (or on demand via `./sb upgrade recover`), branching on `Holder` to decide whether DB cleanup is needed.
+Each holder removes the file on its own normal completion path. The service additionally reconciles any flag found at startup, branching on `Holder` to decide whether DB cleanup is needed. `./sb install` performs the same reconciliation on its crashed-upgrade detection path before re-dispatching.
 
 ## Flag schema
 
@@ -67,10 +67,9 @@ Bypass signal set (--inside-active-upgrade or env var)?
             ├── Live PID, Holder=="install" → "Another ./sb install is
             │       already running: PID X. Wait for it to complete."
             │
-            └── Dead PID (any holder) → "Prior {upgrade|install} crashed.
-                    Reconcile the stale flag:
-                      ./sb upgrade recover
-                    Equivalent: systemctl --user start 'statbus-upgrade@*'."
+            └── Dead PID (any holder) → unreachable from acquireOrBypass.
+                    install.Detect returns StateCrashedUpgrade first;
+                    RecoverFromFlag reconciles the flag before dispatch.
 ```
 
 Key invariant: exactly one actor ever holds the flag. The step-table path and the inline-dispatch path are mutually exclusive within a single `./sb install` run, so there is no moment where install holds the flag and then tries to hand off to `executeUpgrade`. Either `acquireOrBypass` runs (step-table) or it doesn't (inline dispatch).
@@ -98,10 +97,20 @@ Flag files written before Release 1.1 lack `Holder`. The empty default is treate
 |---|---|---|
 | "Upgrade in progress: PID X is running. Wait for it to complete." | The upgrade service is genuinely executing an upgrade right now. | Wait. Monitor with `journalctl --user -u 'statbus-upgrade@*' -f`. |
 | "Another ./sb install is already running: PID X." | A second operator (or a script) started install while another install was still going. | Wait for the other invocation to finish, then retry. |
-| "Prior {upgrade,install} crashed … PID X is no longer alive but the flag file remains." | Holder process died mid-run (OOM, kill, crash), or was stopped by an operator mid-run. | Run `./sb upgrade recover` directly (no service restart needed). It reads the flag, branches on `Holder` (service → mark DB row completed/failed by HEAD; install → just remove file), removes the flag. Retry install. Equivalent: `systemctl --user start 'statbus-upgrade@*'` — the service's startup handler does the same reconciliation. |
+| "Prior {upgrade,install} crashed … PID X is no longer alive but the flag file remains." | Holder process died mid-run (OOM, kill, crash), or was stopped by an operator mid-run. | Re-run `./sb install` — it detects the stale flag automatically (StateCrashedUpgrade), calls RecoverFromFlag (service → mark DB row completed/failed by HEAD; install → just remove file), and continues. No separate recovery command needed. |
 | "Upgrade flag file present but unreadable" | JSON corruption or incompatible schema. | Investigate `~/statbus/tmp/upgrade-in-progress.json` manually. If truly garbage, remove the file and start the service so `recoverFromFlag` can operate cleanly on the next cycle. |
 
 ## What the mutex does NOT cover
 
-- Operator crash mid-install (SSH drop, terminal close). The flag's `defer release` doesn't fire when the process is killed. The flag persists with a dead PID; the next `./sb install` (or service start) sees it and points the operator at `./sb upgrade recover`. Re-running `./cloud.sh install <server>` is idempotent end-to-end and handles this automatically. Not kernel-auto-recovering: a future iteration could add a `flock` on a shared lock file so the kernel auto-releases on operator process exit. Deferred until observed incidents justify the added complexity.
+- Operator crash mid-install (SSH drop, terminal close). The flag's `defer release` doesn't fire when the process is killed. The flag persists with a dead PID; re-running `./sb install` (or `./cloud.sh install <server>`, which is idempotent end-to-end) detects it as StateCrashedUpgrade and reconciles automatically. Not kernel-auto-recovering: a future iteration could add a `flock` on a shared lock file so the kernel auto-releases on operator process exit. Deferred until observed incidents justify the added complexity.
 - Text-file-busy on the `./sb` binary if the service is still running: avoided by `./cloud.sh install` issuing `systemctl stop` before binary replacement. Direct `curl install.sh | bash` on a live server would hit this; documented as "stop the service first" in `install-statbus.md`.
+
+## Design principle: silent soft-warnings are forbidden
+
+A soft-swallowed warning (a `Note:` or `Notice:` printed to stdout but not acted on) is an operator lie: the system claims partial success while leaving state inconsistent. In the upgrade/install paths, this manifests as a `WARN: state transition matched 0 rows` that does nothing — the operator's admin UI or DB row is then wrong, silently.
+
+Every failure that violates an expected invariant MUST either:
+1. Fail fast with a named `INVARIANT <NAME> violated: …` message and (where applicable) write a support bundle so SSB can diagnose the failure remotely, or
+2. Propagate the error up the call stack to the operator-facing exit path.
+
+Logging a warning and continuing is never acceptable at a state-transition site. The only acceptable "continue" behaviour is when the failure is explicitly cosmetic (e.g., optional system_info key that is informational only) — and even then, the log line must be a WARN with a clear explanation of why continuation is safe, not a silent swallow.
