@@ -32,18 +32,21 @@
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Host registry: "<name>|<host_fqdn>|<served_domain>|<slot_code>"
-#   name           short identifier used as CLI arg (e.g. "rune-no")
-#   host_fqdn      SSH target; always <name before dash>.statbus.org by
-#                  convention but stored explicitly for flexibility
-#   served_domain  public domain the host serves (e.g. no.statbus.org)
-#   slot_code      DEPLOYMENT_SLOT_CODE; used in systemd unit names
-#                  (statbus-upgrade@<slot_code>.service)
+# Host registry: "<name>|<host_fqdn>|<served_domain>"
+#   name           short identifier used as CLI arg. By design this IS the
+#                  DEPLOYMENT_SLOT_CODE of the host's install — operators think
+#                  in deployments, not hardware. Used both as CLI argument
+#                  and as the slot_code in systemd unit names
+#                  (statbus-upgrade@<name>.service).
+#   host_fqdn      SSH target, e.g. rune.statbus.org.
+#   served_domain  public domain the host serves, e.g. no.statbus.org.
 #
-# To add a new standalone host: append a line here, plus .github/workflows/
-# {master,deploy}-to-<name>.yaml modeled on -rune-no.yaml.
+# Each standalone host has exactly one slot by design, so <name> uniquely
+# identifies the deployment. To add a new standalone host, append a line
+# here plus .github/workflows/{master,deploy}-to-<host>-<name>.yaml
+# modeled on -rune-no.yaml.
 HOSTS=(
-    "rune-no|rune.statbus.org|no.statbus.org|no"
+    "no|rune.statbus.org|no.statbus.org"
 )
 
 # GitHub username whose signing key should be trusted on each host.
@@ -99,17 +102,6 @@ served_domain() {
     return 1
 }
 
-slot_code() {
-    local name="$1"
-    for entry in "${HOSTS[@]}"; do
-        if [ "${entry%%|*}" = "$name" ]; then
-            echo "$entry" | cut -d'|' -f4
-            return 0
-        fi
-    done
-    return 1
-}
-
 all_names() {
     for entry in "${HOSTS[@]}"; do
         echo "${entry%%|*}"
@@ -135,20 +127,16 @@ ssh_host() {
 }
 
 # Stop the user-level upgrade service on the target host so ./sb can be
-# replaced without "text file busy". The unit is statbus-upgrade@<slot_code>.service
-# (slot_code from the host's .env.config — queried once per call).
+# replaced without "text file busy". The unit is statbus-upgrade@<name>.service
+# — $name IS the DEPLOYMENT_SLOT_CODE by our registry convention.
 stop_upgrade_service() {
     local name="$1"
-    local slot
-    slot=$(slot_code "$name")
-    ssh_host "$name" "systemctl --user stop statbus-upgrade@${slot}.service 2>/dev/null || true" 2>&1
+    ssh_host "$name" "systemctl --user stop statbus-upgrade@${name}.service 2>/dev/null || true" 2>&1
 }
 
 ensure_service_started() {
     local name="$1"
-    local slot
-    slot=$(slot_code "$name")
-    ssh_host "$name" "systemctl --user start statbus-upgrade@${slot}.service" 2>&1 || true
+    ssh_host "$name" "systemctl --user start statbus-upgrade@${name}.service" 2>&1 || true
 }
 
 trust_flag() {
@@ -264,35 +252,79 @@ cmd_install() {
 }
 
 cmd_wipe() {
+    # Production-safe DB wipe for standalone hosts. Does NOT use dev.sh —
+    # dev.sh assumes the Go toolchain is installed (for the sb-rebuild
+    # check) and also calls `./sb build all_except_app` + `./dev.sh
+    # create-test-template`, neither of which belong on a pinned-release
+    # production host. Instead:
+    #
+    #   1. ./sb stop all              — stop app/worker/rest/proxy/db
+    #   2. docker volume rm <db-data> — blow away the PG data volume
+    #   3. ./sb install --non-interactive
+    #                                 — 14-step dispatcher handles
+    #                                   start db + snapshot restore +
+    #                                   migrate up + JWT secret + users
+    #                                   + trusted signers + upgrade svc
+    #                                   all idempotently.
+    #
+    # End state is identical to `dev.sh recreate-database` on a dev box,
+    # minus the test-template db (which we never want on prod anyway).
     local target="$1"
     validate_name "$target"
 
     if [ "$target" = "all" ]; then
-        echo "ERROR: wipe all is not supported. Wipe hosts one at a time."
+        echo "ERROR: wipe all is not supported. Wipe deployments one at a time."
         exit 1
     fi
 
-    echo "WARNING: This will DELETE the database on $target ($(served_domain "$target")) and recreate from scratch."
+    local fqdn dom
+    fqdn=$(host_fqdn "$target")
+    dom=$(served_domain "$target")
+    echo "WARNING: This will DELETE the database for the '$target' deployment"
+    echo "         (serving $dom, hosted on $fqdn) and recreate it from scratch."
     echo "ALL DATA WILL BE LOST."
-    read -p "Type the host name to confirm: " confirm
+    read -p "Type '$target' to confirm: " confirm
     if [ "$confirm" != "$target" ]; then
         echo "Aborted."
         exit 1
     fi
 
     echo "Wiping $target..."
-    ssh_host "$target" "cd statbus && ./dev.sh recreate-database && ./sb start all" 2>&1
+    ssh_host "$target" "set -e
+        cd statbus
+        echo '--- stopping services ---'
+        ./sb stop all
+        echo '--- removing DB docker volume ---'
+        INSTANCE_NAME=\$(./sb dotenv -f .env get COMPOSE_INSTANCE_NAME 2>/dev/null || echo '')
+        if [ -z \"\$INSTANCE_NAME\" ]; then
+          echo 'ERROR: COMPOSE_INSTANCE_NAME not set in .env — cannot identify DB volume'
+          exit 1
+        fi
+        VOL=\"\${INSTANCE_NAME}-db-data\"
+        if docker volume inspect \"\$VOL\" >/dev/null 2>&1; then
+          docker volume rm \"\$VOL\"
+          echo \"Removed volume \$VOL\"
+        else
+          echo \"Volume \$VOL already absent\"
+        fi
+        echo '--- re-running ./sb install (step-table populates empty DB) ---'
+        ./sb install --non-interactive" 2>&1
     echo "--- $target wipe complete ---"
 }
 
 cmd_inspect() {
     echo "StatBus Standalone Hosts"
     echo "========================"
-    printf "%-14s  %-24s  %-22s  %-6s  %s\n" "NAME" "HOST (SSH)" "SERVES" "SLOT" "DEPLOY BRANCH"
+    printf "%-8s  %-24s  %-22s  %s\n" "NAME" "HOST (SSH)" "SERVES" "DEPLOY BRANCH"
     for entry in "${HOSTS[@]}"; do
-        IFS='|' read -r name fqdn dom slot <<< "$entry"
-        printf "%-14s  %-24s  %-22s  %-6s  %s\n" \
-            "$name" "statbus@$fqdn" "$dom" "$slot" "ops/standalone/deploy/$name"
+        IFS='|' read -r name fqdn dom <<< "$entry"
+        # Deploy branch is ops/standalone/deploy/<host-short>-<name> where
+        # <host-short> is the first label of the fqdn. rune.statbus.org → rune,
+        # so no → ops/standalone/deploy/rune-no (matches the existing workflow
+        # filename pair).
+        local host_short="${fqdn%%.*}"
+        printf "%-8s  %-24s  %-22s  %s\n" \
+            "$name" "statbus@$fqdn" "$dom" "ops/standalone/deploy/${host_short}-${name}"
     done
 }
 
