@@ -133,7 +133,7 @@ Logging a warning and continuing is never acceptable at a state-transition site.
 ## Related
 
 - `doc/install-mutex.md` — mutex schema, decision tree, operator guidance.
-- `doc/install-statbus.md` — where `install.sh` lives (spoiler: sibling repo `statbus-web`) and how it gets deployed.
+- `doc/install-statbus.md` — where `install.sh` lives (this repo, served via niue host-Caddy 302-redirect to `raw.githubusercontent.com` on master) and how `--prerelease` resolves a version via the `install-verified` ref.
 - `doc/CLOUD.md` — fleet-level deployment flow via GitHub Actions.
 - `doc/DEPLOYMENT.md` — single-instance install and service management.
 - `doc/upgrades.md` — operator runbook: troubleshooting, log locations, manual triggers.

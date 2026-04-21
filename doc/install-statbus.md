@@ -116,39 +116,55 @@ curl -fsSL https://statbus.org/install.sh | bash -s -- --prerelease
 
 ### Where the script source lives
 
-**Not in this repository.** It lives in the sibling repo:
+`install.sh` lives at the root of **this** repository:
 
 ```
-/Users/jhf/ssb/statbus-web/install.sh
+/Users/jhf/ssb/statbus_speed/install.sh
 ```
 
-That same repo also owns the marketing site content.
+(The script was moved here from the sibling `statbus-web` repo at commit
+`08bf0420a`, "feat: move install.sh into statbus repo (public)". The
+marketing site content stayed in `statbus-web`.)
 
 ### Serving chain
 
 ```
   statbus.org/install.sh
-         │  (301 redirect in /etc/caddy/Caddyfile on niue.statbus.org)
+         │  (302 redirect in /etc/caddy/Caddyfile on niue.statbus.org)
          ▼
-  www.statbus.org/install.sh
-         │  (Caddy file_server, root = /home/statbus_www/public_html)
-         ▼
-  /home/statbus_www/public_html/install.sh on niue.statbus.org
+  raw.githubusercontent.com/statisticsnorway/statbus/refs/heads/master/install.sh
 ```
 
-The file on the server is synced from the statbus-web repo by CI.
+The redirect always points at `master`, so the served script is whatever
+is committed to master at the moment the operator runs `curl`.
 
-### Deployment pipeline
+### How `--prerelease` picks a version
 
-Push to `master` in `statbus-web` → `.github/workflows/deploy.yml` SSHes as `statbus_www@niue.statbus.org` → server-side `deploy.sh` syncs files into `/home/statbus_www/public_html/`.
+`install.sh --prerelease` resolves a release tag in this order:
 
-No manual server-side editing is needed; changes go through normal git + CI.
+1. **install-verified** — query the moving `install-verified` git tag
+   (advanced by `.github/workflows/install-verified.yaml` to commits
+   that passed BOTH `ci-images.yaml` AND `install-test.yaml`). Pick
+   the release tag pointing at that commit. Logged as
+   `Latest verified pre-release: <ver> (matches install-verified ref ...)`.
+2. **Fallback** — if `install-verified` is unavailable or no release
+   tag points at its commit exactly, fall back to "newest `-rc.` tag
+   by CalVer + RC number sort". Logged as
+   `Latest pre-release (UNVERIFIED — install-verified ref unavailable)`.
+3. **`--version v<X>`** — if the operator passes an explicit version,
+   honour it as-is (no resolver detour, no validation against
+   install-verified). Use this only when you know what you're doing.
+
+Operators reading the install log can tell from the `Latest verified`
+vs `UNVERIFIED` line which path was taken.
 
 ### Updating install.sh
 
-1. Edit `/Users/jhf/ssb/statbus-web/install.sh`.
-2. Commit and push to master in statbus-web.
-3. Verify: `curl -fsSL https://statbus.org/install.sh | head -5` should show the change after CI runs.
+1. Edit `install.sh` in this repo.
+2. Commit and push to master.
+3. The change is live immediately because the redirect always points
+   at `refs/heads/master`. Verify with
+   `curl -fsSL https://statbus.org/install.sh | head -5`.
 
 ### Concurrency safety
 

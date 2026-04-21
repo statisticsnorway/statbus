@@ -66,21 +66,53 @@ esac
 if [ -n "$VERSION" ]; then
     echo "Installing specified version: $VERSION"
 elif [ "$PRERELEASE" = true ]; then
-    echo "Checking for latest pre-release..."
-    # Fetch enough releases to cover all recent RCs, extract tag names,
-    # filter to RC tags, sort by CalVer+RC numerically, pick the highest.
-    # GitHub's API does not guarantee version order. `sort -V` is unavailable
-    # on some servers, so we use awk to extract numeric components and sort
-    # by year, month, patch, rc-number — works everywhere.
-    VERSION=$(curl -sL "https://api.github.com/repos/statisticsnorway/statbus/releases?per_page=50" 2>/dev/null \
-        | grep '"tag_name"' | cut -d'"' -f4 | grep '\-rc\.' \
-        | awk -F'[v.\\-]' '{print $2*1e8 + $3*1e6 + $4*1e4 + $6+0, $0}' \
-        | sort -n | tail -1 | awk '{print $2}') || true
-    if [ -z "$VERSION" ]; then
-        echo "Error: No pre-release found."
-        exit 1
+    echo "Checking for latest verified pre-release..."
+
+    # First try the install-verified moving git tag — it advances to the
+    # latest master commit that passed BOTH ci-images.yaml AND
+    # install-test.yaml (see .github/workflows/install-verified.yaml).
+    # Picking the release tag pointing at this commit means we install
+    # only versions that have been validated end-to-end. This guards
+    # against the bootstrap trap of picking a freshly-tagged RC whose
+    # CI hasn't finished — or whose CI failed — before the operator
+    # ran install.sh.
+    #
+    # `git ls-remote --tags` returns one round trip:
+    #   <commit-sha>  refs/tags/install-verified         (lightweight tag)
+    #   <tag-obj-sha> refs/tags/v2026.04.0-rc.43         (annotated tag's tag-object SHA)
+    #   <commit-sha>  refs/tags/v2026.04.0-rc.43^{}      (annotated tag, dereferenced)
+    # We match install-verified's commit SHA against each release's
+    # ^{}-line. No GitHub API rate limit risk.
+    VERSION=$(git ls-remote --tags https://github.com/statisticsnorway/statbus.git 2>/dev/null \
+        | awk '
+            /refs\/tags\/install-verified$/ { v_sha = $1; next }
+            /refs\/tags\/v[0-9].*\^\{\}$/ {
+                tag = $2
+                sub(/refs\/tags\//, "", tag)
+                sub(/\^\{\}$/, "", tag)
+                commits[$1] = tag
+            }
+            END {
+                if (v_sha != "" && (v_sha in commits)) print commits[v_sha]
+            }') || true
+
+    if [ -n "$VERSION" ]; then
+        echo "Latest verified pre-release: $VERSION (matches install-verified ref — passed ci-images + install-test)"
+    else
+        echo "Note: install-verified ref absent or no exact-match release tag — falling back to newest -rc."
+        # Existing fallback: fetch releases, extract RC tags, sort by
+        # CalVer + RC number numerically (sort -V isn't always available),
+        # pick the highest.
+        VERSION=$(curl -sL "https://api.github.com/repos/statisticsnorway/statbus/releases?per_page=50" 2>/dev/null \
+            | grep '"tag_name"' | cut -d'"' -f4 | grep '\-rc\.' \
+            | awk -F'[v.\\-]' '{print $2*1e8 + $3*1e6 + $4*1e4 + $6+0, $0}' \
+            | sort -n | tail -1 | awk '{print $2}') || true
+        if [ -z "$VERSION" ]; then
+            echo "Error: No pre-release found."
+            exit 1
+        fi
+        echo "Latest pre-release (UNVERIFIED — install-verified ref unavailable): $VERSION"
     fi
-    echo "Latest pre-release: $VERSION"
 else
     echo "Checking for latest stable release..."
     VERSION=$(curl -sL https://api.github.com/repos/statisticsnorway/statbus/releases/latest 2>/dev/null \
