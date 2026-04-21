@@ -369,26 +369,23 @@ func runInstall() (installErr error) {
 	}
 
 	// --- Upgrade row lifecycle ---
-	// Mirror the service path: in_progress at start, completed/failed at end.
-	// For re-installs (StateNothingScheduled) the DB is up — write in_progress
-	// so the admin UI shows the install in progress. For fresh installs the DB
-	// doesn't exist until step 10 (migrations), so we only write at the end.
+	// Capability separation: install runs the step-table; the upgrade daemon
+	// owns public.upgrade (discovery + ledger). On StateNothingScheduled the
+	// completion defer emits NOTIFY upgrade_check so the daemon materializes a
+	// commit-centric row on its next tick — install itself authors no row on
+	// that path. On fresh / half-configured / db-unreachable the completion
+	// defer still writes a 'completed' row via completeInstallUpgradeRow
+	// (rowID=0 → INSERT path), since there is no pre-existing row and no
+	// daemon running yet. upgradeRowID therefore stays 0 for every current
+	// caller; the variable is retained so future state transitions that need
+	// mid-flight row authoring can slot in without re-plumbing the defer.
+	//
+	// Side effect of option (i): startInstallUpgradeRow, the log-path stamp
+	// block below, and invariants A1/A2/A4/A5 become dead code in this build.
+	// Removing them is a separate cleanup task; leaving in place keeps this
+	// change minimal and reversible.
 	var upgradeRowID int64
-	// insertCompletedAt is the earliest wall-clock moment after the upgrade-row
-	// INSERT succeeded. A4 (DB_CONNECTIVITY_STABLE_ACROSS_ADJACENT_SQL) uses
-	// it to show the ms-delta between INSERT and the immediately-following
-	// log-path UPDATE in the stderr transcript — isolates the failure window.
 	var insertCompletedAt time.Time
-	if !bypass && version != "dev" && detectedState == install.StateNothingScheduled {
-		id, startErr := startInstallUpgradeRow(installDir)
-		if startErr != nil {
-			// A1/A2/A5 already emitted the transcript + markTerminal; propagate
-			// the wrapped error so install.sh surfaces the SYSTEM UNUSABLE banner.
-			return startErr
-		}
-		upgradeRowID = id
-		insertCompletedAt = time.Now()
-	}
 
 	// Create an install log so the admin UI can show what happened. Always
 	// create the log for real installs (not bypass, not dev) — even for fresh
@@ -486,13 +483,26 @@ func runInstall() (installErr error) {
 			if installErr != nil && upgradeRowID > 0 {
 				failInstallUpgradeRow(conn, upgradeRowID, installErr)
 			} else if installErr == nil {
-				logRelPath := ""
-				if installLog != nil {
-					logRelPath = installLog.RelPath()
-				}
-				if err := completeInstallUpgradeRow(installDir, conn, upgradeRowID, logRelPath); err != nil {
-					installErr = err
-					return
+				if detectedState == install.StateNothingScheduled {
+					// Capability separation: the daemon owns the ledger on
+					// NothingScheduled. Emit NOTIFY upgrade_check so it
+					// materializes a commit-centric row for the current SHA
+					// on its next tick. Best-effort: periodic discovery tick
+					// recovers if NOTIFY drops.
+					if _, err := conn.Exec(context.Background(), "NOTIFY upgrade_check"); err != nil {
+						log.Printf(
+							"INVARIANT NOTIFY_UPGRADE_CHECK_BEST_EFFORT_LOGGED violated (audit-only): NOTIFY upgrade_check failed post-install: %v (install.go:%d, pid=%d) — next daemon tick will recover",
+							err, thisLine(), os.Getpid())
+					}
+				} else {
+					logRelPath := ""
+					if installLog != nil {
+						logRelPath = installLog.RelPath()
+					}
+					if err := completeInstallUpgradeRow(installDir, conn, upgradeRowID, logRelPath); err != nil {
+						installErr = err
+						return
+					}
 				}
 				runInstallSupersede(conn, installDir)
 				runInstallRetention(conn, upgradeRowID)
@@ -1899,5 +1909,14 @@ func init() {
 		WhyExpected:      "Primary installErr return already drives install.sh's shell-level banner; the DB-side row is missing by construction on this branch. An explicit named log line keeps the support bundle's invariants grep aligned with SSB triage expectations.",
 		ViolationShape:   "runInstall returns a non-nil installErr while upgradeRowID == 0 — the audit line prints but neither markTerminal nor installErr wrapping is applied (log-only class).",
 		TranscriptFormat: "INVARIANT FAILED_INSTALL_HAS_AUDIT_TRAIL violated (audit-only): install failed with no upgrade row (detectedState=<state>): <err>",
+	})
+	invariants.Register(invariants.Invariant{
+		Name:             "NOTIFY_UPGRADE_CHECK_BEST_EFFORT_LOGGED",
+		Class:            invariants.LogOnly,
+		SourceLocation:   "cli/cmd/install.go:runInstall (post-completion defer, NothingScheduled arm)",
+		ExpectedToHold:   "After a successful install on StateNothingScheduled, NOTIFY upgrade_check reaches the discovery daemon on the open pgx connection so the daemon materializes the current commit_sha row on its next tick without waiting for the periodic interval.",
+		WhyExpected:      "The pgx connection was just used successfully for post-completion ops (A3 guards that connect succeeded); no hang-up is expected in the few microseconds between ops. NOTIFY is a single async send. The periodic discovery tick guarantees eventual recovery if the send fails transiently.",
+		ViolationShape:   "conn.Exec(ctx, \"NOTIFY upgrade_check\") returns a non-nil error after the step-table completed healthily.",
+		TranscriptFormat: "INVARIANT NOTIFY_UPGRADE_CHECK_BEST_EFFORT_LOGGED violated (audit-only): NOTIFY upgrade_check failed post-install: <err> — next daemon tick will recover",
 	})
 }
