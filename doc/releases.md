@@ -180,9 +180,9 @@ The upgrade service's behavior depends on the `UPGRADE_CHANNEL` setting in `.env
 |---------|----------|
 | `stable` (default) | Only discovers non-prerelease releases |
 | `prerelease` | Discovers all releases including rc/beta/alpha |
-| `pinned` | No automatic discovery; only responds to explicit NOTIFY |
+| `edge` | Discovers every commit pushed to `master` |
 
-To test pre-releases on a server that normally tracks `stable`, use an explicit `NOTIFY upgrade_apply` -- this bypasses channel filtering.
+To target a specific version for a one-off upgrade (e.g. pin or downgrade), use `./sb upgrade schedule <version>` or an explicit `NOTIFY upgrade_apply` — both bypass channel filtering.
 
 ## Release Manifest
 

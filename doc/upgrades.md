@@ -47,10 +47,9 @@ Edit `.env.config` and run `./sb config generate` to apply changes.
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `UPGRADE_CHANNEL` | `stable` | Which releases to discover: `stable` (non-prerelease only), `prerelease` (all releases), `edge` (every master commit), or `pinned` (no discovery). |
+| `UPGRADE_CHANNEL` | `stable` | Which releases to discover: `stable` (non-prerelease only), `prerelease` (all releases), or `edge` (every master commit). To target a specific version for a one-off upgrade, use `./sb upgrade schedule <version>` instead. |
 | `UPGRADE_CHECK_INTERVAL` | `6h` | How often the service polls GitHub. Any Go duration string (`30m`, `6h`, `24h`). |
 | `UPGRADE_AUTO_DOWNLOAD` | `true` | Pre-download Docker images for discovered releases. Set to `false` on metered connections. |
-| `UPGRADE_PINNED_VERSION` | *(empty)* | When channel is `pinned`, this version is the only one the service will accept. |
 
 The `GITHUB_TOKEN` environment variable is optional but recommended. Without it, the GitHub API allows 60 requests/hour; with it, 5000 requests/hour. Set it in the systemd unit override or in the shell environment.
 

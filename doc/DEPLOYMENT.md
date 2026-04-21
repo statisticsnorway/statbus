@@ -160,7 +160,7 @@ After hardening, run the STATBUS installer as your deployment user (e.g., `devop
 curl -fsSL https://statbus.org/install.sh | bash
 ```
 
-For a specific version (pre-release or pinned):
+For a specific version (e.g. a release candidate, or downgrading):
 ```bash
 curl -fsSL https://statbus.org/install.sh | bash -s -- --version v2026.03.0-rc.25
 ```
@@ -652,10 +652,9 @@ Configure upgrade behavior in `.env.config`, then run `./sb config generate`:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `UPGRADE_CHANNEL` | `stable` | Release channel: `stable`, `prerelease`, or `pinned` |
+| `UPGRADE_CHANNEL` | `stable` | Release channel: `stable`, `prerelease`, or `edge` |
 | `UPGRADE_CHECK_INTERVAL` | `6h` | How often the service polls GitHub for new releases |
 | `UPGRADE_AUTO_DOWNLOAD` | `true` | Pre-download Docker images when a new release is discovered |
-| `UPGRADE_PINNED_VERSION` | _(empty)_ | Target version when `UPGRADE_CHANNEL=pinned` (e.g., `v2026.03.0`) |
 
 ### Monitoring
 
@@ -675,15 +674,16 @@ Configure upgrade behavior in `.env.config`, then run `./sb config generate`:
 
 This sends a `NOTIFY` to the running upgrade service, which executes the upgrade with backup and rollback support.
 
-### Pinning a Version
+### Targeting a specific version
+
+To run a specific version as a one-off (instead of whatever the channel polls up), schedule it explicitly:
 
 ```bash
-# In .env.config:
-UPGRADE_CHANNEL=pinned
-UPGRADE_PINNED_VERSION=v2026.03.0
+./sb upgrade schedule v2026.03.0   # queues the version; service picks it up on next tick
+./sb install                       # or dispatch immediately without waiting for the service
 ```
 
-Then `./sb config generate` to apply.
+Scheduled rows bypass channel filtering, so you can target any released version regardless of `UPGRADE_CHANNEL`.
 
 ### Reference
 
