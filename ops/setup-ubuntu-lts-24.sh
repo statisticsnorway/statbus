@@ -23,6 +23,9 @@ set -o pipefail
 ENV_FILE="${HOME}/.setup-ubuntu.env"
 SCRIPT_VERSION="1.0.0"
 NON_INTERACTIVE=false
+# Space-separated list of stage numbers to skip (e.g. "0 4"). Honored in both
+# interactive and non-interactive mode. Also settable via --skip-stages.
+SKIP_STAGES="${SKIP_STAGES:-}"
 
 # =============================================================================
 # Colors and Formatting
@@ -80,14 +83,14 @@ verify() {
 ask_yes_no() {
     local prompt="$1"
     local default="${2:-n}"
-    
+
     if [[ "$NON_INTERACTIVE" == "true" ]]; then
         return 0  # Default to yes in non-interactive mode
     fi
-    
+
     local yn_hint="[y/N]"
     [[ "$default" == "y" ]] && yn_hint="[Y/n]"
-    
+
     while true; do
         read -r -p "$prompt $yn_hint: " answer
         answer="${answer:-$default}"
@@ -97,6 +100,19 @@ ask_yes_no() {
             *) echo "Please answer yes or no." ;;
         esac
     done
+}
+
+# stage_skipped <N> — return 0 if stage N appears in SKIP_STAGES.
+# Used at the top of each stage so both interactive and non-interactive
+# runs can honor a "skip this one" instruction.
+stage_skipped() {
+    local n="$1"
+    # SKIP_STAGES is space-separated; add spaces on both sides to anchor
+    # matching so "1" doesn't match "10" etc.
+    case " ${SKIP_STAGES} " in
+        *" $n "*) return 0 ;;
+        *) return 1 ;;
+    esac
 }
 
 pause() {
@@ -132,6 +148,11 @@ GITHUB_USERS="${GITHUB_USERS:-}"
 # Space-separated extra locale codes without .UTF-8 suffix (e.g., "sq_AL nb_NO")
 # The script adds .UTF-8 automatically. C.UTF-8 and en_US.UTF-8 are always included.
 EXTRA_LOCALES="${EXTRA_LOCALES:-}"
+
+# Username for the StatBus deployment service account created by Stage 7.
+# This is the user operators will ssh as to run ./sb install and operate the
+# deployment (distinct from devops, which is the ops/admin user from Stage 6).
+SERVICE_USER="${SERVICE_USER:-statbus}"
 
 EOF
     chmod 600 "$ENV_FILE"
@@ -187,14 +208,17 @@ setup_env() {
             echo "  ADMIN_EMAIL=\"your@email.com\""
             echo "  GITHUB_USERS=\"username1 username2\""
             echo "  EXTRA_LOCALES=\"sq_AL nb_NO\""
+            echo "  SERVICE_USER=\"statbus\"   # optional; default is 'statbus'"
             exit 1
         fi
         log "No configuration found. Let's set up your preferences."
     fi
-    
+
     prompt_env_value "ADMIN_EMAIL" "Email address for system notifications (unattended-upgrades):"
     prompt_env_value "GITHUB_USERS" "GitHub usernames for SSH key fetching (space-separated):"
     prompt_env_value "EXTRA_LOCALES" "Extra locales to enable without .UTF-8 suffix (e.g., 'sq_AL nb_NO'):"
+    SERVICE_USER="${SERVICE_USER:-statbus}"
+    prompt_env_value "SERVICE_USER" "Deployment service-account username for Stage 7 (default: statbus):"
 
     save_env
     log_success "Configuration saved to $ENV_FILE"
@@ -206,7 +230,12 @@ setup_env() {
 
 stage_https_sources() {
     log_header "Stage 0: HTTPS APT Sources"
-    
+
+    if stage_skipped 0; then
+        log_warn "Stage 0 skipped via SKIP_STAGES"
+        return 0
+    fi
+
     echo "This stage will:"
     echo "  - Switch APT sources from HTTP to HTTPS"
     echo "  - Use mirrors.edge.kernel.org (reliable HTTPS mirror)"
@@ -270,7 +299,12 @@ stage_https_sources() {
 
 stage_base_system() {
     log_header "Stage 1: Base System Setup"
-    
+
+    if stage_skipped 1; then
+        log_warn "Stage 1 skipped via SKIP_STAGES"
+        return 0
+    fi
+
     echo "This stage will:"
     echo "  - Install etckeeper for /etc version control"
     echo "  - Configure eternal bash history"
@@ -297,23 +331,26 @@ stage_base_system() {
     
     log "Configuring eternal bash history..."
     if ! grep -q "HISTFILE=~/.bash_eternal_history" /etc/bash.bashrc; then
+        # NB: `<<'EOF'` is a quoted heredoc — the shell writes every byte
+        # between here and EOF verbatim, without expansion. So do NOT
+        # backslash-escape `$`; the contents below are what bash will read
+        # from /etc/bash.bashrc, not a string being assembled in this script.
         cat >> /etc/bash.bashrc <<'EOF'
 
 #### Keep eternal command history for auditing purposes
 #### Ref: http://superuser.com/a/664061/103683
-# Eternal bash history.
-# ---------------------
-# Undocumented feature which sets the size to "unlimited".
-# http://stackoverflow.com/questions/9457233/unlimited-bash-history
 export HISTFILESIZE=
 export HISTSIZE=
 export HISTTIMEFORMAT="[%F %T] "
-# Change the file location because certain bash sessions truncate .bash_history file upon close.
-# http://superuser.com/questions/575479/bash-history-truncated-to-500-lines-on-each-login
 export HISTFILE=~/.bash_eternal_history
-# Force prompt to write history after every command.
-# http://superuser.com/questions/20900/bash-history-loss
-PROMPT_COMMAND="history -a\${PROMPT_COMMAND:+; \$PROMPT_COMMAND}"
+# Flush history after every command. Guarded with a case-match so re-sourcing
+# this file (or a nested login shell) doesn't stack "history -a; history -a;..."
+# which previously produced a self-referential expansion and the classic
+# `bash: history: -;: invalid option` banner on every prompt draw.
+case ":${PROMPT_COMMAND:-}:" in
+    *":history -a:"*) ;;
+    *) PROMPT_COMMAND="history -a${PROMPT_COMMAND:+;$PROMPT_COMMAND}" ;;
+esac
 EOF
     else
         log "Eternal bash history already configured"
@@ -352,7 +389,10 @@ EOF
     verify "etckeeper installed" "which etckeeper"
     verify "etckeeper initialized" "test -d /etc/.git"
     verify "Bash history config present" "grep -q 'bash_eternal_history' /etc/bash.bashrc"
-    verify "C.UTF-8 locale available" "locale -a | grep -q 'C.UTF-8'"
+    # C.UTF-8 is a built-in locale on Ubuntu 24.04 and does NOT appear in
+    # `locale -a` output (which only lists generated locales). Test usability
+    # instead: try to use it and catch the "Cannot set" failure mode.
+    verify "C.UTF-8 locale available" "LC_ALL=C.UTF-8 locale 2>&1 | grep -qv 'Cannot set'"
     verify "en_US.UTF-8 locale available" "locale -a | grep -q 'en_US.utf8'"
     
     pause
@@ -364,7 +404,12 @@ EOF
 
 stage_ssh_hardening() {
     log_header "Stage 2: SSH Hardening"
-    
+
+    if stage_skipped 2; then
+        log_warn "Stage 2 skipped via SKIP_STAGES"
+        return 0
+    fi
+
     echo "This stage will:"
     echo "  - Disable root password login (key-only)"
     echo "  - Disable password authentication"
@@ -420,7 +465,12 @@ EOF
 
 stage_auto_updates() {
     log_header "Stage 3: Automatic Updates"
-    
+
+    if stage_skipped 3; then
+        log_warn "Stage 3 skipped via SKIP_STAGES"
+        return 0
+    fi
+
     echo "This stage will:"
     echo "  - Install unattended-upgrades"
     echo "  - Configure automatic security updates"
@@ -509,7 +559,12 @@ EOF
 
 stage_security_tools() {
     log_header "Stage 4: Security Tools (CrowdSec + UFW)"
-    
+
+    if stage_skipped 4; then
+        log_warn "Stage 4 skipped via SKIP_STAGES"
+        return 0
+    fi
+
     echo "This stage will:"
     echo "  - Install CrowdSec intrusion detection"
     echo "  - Install CrowdSec firewall bouncer (nftables)"
@@ -558,7 +613,10 @@ stage_security_tools() {
     log "Verifying Stage 4..."
     verify "CrowdSec installed" "which crowdsec"
     verify "CrowdSec running" "systemctl is-active crowdsec"
-    verify "Firewall bouncer installed" "dpkg -l | grep -q crowdsec-firewall-bouncer"
+    # The nftables bouncer installs as `crowdsec-firewall-bouncer-nftables`. Anchor
+    # to the `ii` install state prefix so we don't false-positive on config-kept
+    # entries (`rc`), and include either the plain or -nftables variant.
+    verify "Firewall bouncer installed" "dpkg -l | grep -qE '^ii\s+crowdsec-firewall-bouncer(-nftables)?\s'"
     verify "SSHD collection installed" "cscli collections list | grep -q sshd"
     verify "UFW active" "ufw status | grep -q 'Status: active'"
     verify "SSH allowed in UFW" "ufw status | grep -q 'OpenSSH'"
@@ -575,7 +633,12 @@ stage_security_tools() {
 
 stage_core_tools() {
     log_header "Stage 5: Core Tools & System Tuning"
-    
+
+    if stage_skipped 5; then
+        log_warn "Stage 5 skipped via SKIP_STAGES"
+        return 0
+    fi
+
     echo "This stage will:"
     echo "  - Install tools: neovim, htop, net-tools, jnettop, git, acl, ripgrep, aptitude"
     echo "  - Set neovim as default editor"
@@ -660,7 +723,12 @@ EOF
 
 stage_user_setup() {
     log_header "Stage 6: User Setup & Developer Tools"
-    
+
+    if stage_skipped 6; then
+        log_warn "Stage 6 skipped via SKIP_STAGES"
+        return 0
+    fi
+
     echo "This stage will:"
     echo "  - Create 'devops' user with passwordless sudo"
     echo "  - Fetch SSH keys from GitHub: ${GITHUB_USERS:-<not configured>}"
@@ -729,7 +797,19 @@ chmod 644 ~/.ssh/id_ed25519.pub 2>/dev/null || true
 DEVOPS_SETUP
     
     chown -R devops:devops /home/devops/.ssh
-    
+
+    # Grant devops Docker API access. The docker-ce package from Stage 5 creates
+    # the `docker` group but does not populate it — an easy thing to miss, and
+    # without this membership `docker ps` as devops fails with "permission denied
+    # on /var/run/docker.sock", which defeats the whole "log in as devops and
+    # operate the box" path that the StatBus docs prescribe.
+    if getent group docker >/dev/null; then
+        log "Adding devops to docker group..."
+        usermod -aG docker devops
+    else
+        log_warn "docker group missing (Stage 5 may have been skipped) — not adding devops to it"
+    fi
+
     log "Installing Homebrew dependencies..."
     apt-get install -y build-essential curl file git procps
     
@@ -804,6 +884,9 @@ EOF
     verify "devops user exists" "id devops"
     verify "devops has passwordless sudo" "test -f /etc/sudoers.d/devops"
     verify "devops SSH directory exists" "test -d /home/devops/.ssh"
+    if getent group docker >/dev/null; then
+        verify "devops is in docker group" "id -nG devops | tr ' ' '\n' | grep -qx docker"
+    fi
     verify "Homebrew installed" "test -x /home/linuxbrew/.linuxbrew/bin/brew"
     verify "helix installed" "test -x /home/linuxbrew/.linuxbrew/bin/hx"
     verify "bottom installed" "test -x /home/linuxbrew/.linuxbrew/bin/btm"
@@ -813,7 +896,114 @@ EOF
     if [[ -n "$GITHUB_USERS" ]]; then
         verify "SSH authorized_keys populated" "test -s /home/devops/.ssh/authorized_keys"
     fi
-    
+
+    pause
+}
+
+# =============================================================================
+# Stage 7: StatBus Service Account
+# =============================================================================
+#
+# Creates the Linux user that StatBus will be installed under and operated as.
+# Separate from devops (Stage 6) on purpose:
+#   - devops is the ops/admin user. It has passwordless sudo and is how you
+#     do host-level maintenance (journalctl, apt, systemctl, etc.).
+#   - SERVICE_USER (default: statbus) owns the ~/statbus/ install tree and
+#     runs the docker compose stack. It has docker group membership but no
+#     sudo. It's what install.sh expects the invoking user to be (install.sh
+#     clones into $HOME and does NOT create a user).
+#
+# Without this stage, operators following our published procedure hit a
+# paper cut: ssh'ing in as the default cloud-image user and running
+# install.sh lands the StatBus install in the wrong home (e.g. /home/ubuntu
+# or /home/devops). We want /home/<SERVICE_USER>/statbus/ and nothing else.
+
+stage_service_account() {
+    log_header "Stage 7: StatBus Service Account"
+
+    if stage_skipped 7; then
+        log_warn "Stage 7 skipped via SKIP_STAGES"
+        return 0
+    fi
+
+    local user="${SERVICE_USER:-statbus}"
+
+    echo "This stage will:"
+    echo "  - Create Linux user '$user' with /home/$user as home"
+    echo "  - Add '$user' to the docker group"
+    echo "  - Populate ~$user/.ssh/authorized_keys from GitHub: ${GITHUB_USERS:-<not configured>}"
+    echo "  - Enable systemd linger so user units survive logout"
+    echo ""
+    echo "  Operators will SSH as '$user' to install/operate StatBus."
+    echo ""
+
+    if [[ -z "$GITHUB_USERS" ]]; then
+        log_warn "No GitHub users configured — SSH keys won't be fetched and"
+        log_warn "nobody will be able to SSH in as '$user' until you add keys manually."
+    fi
+
+    if ! ask_yes_no "Run this stage?"; then
+        log "Skipping Stage 7"
+        return 0
+    fi
+
+    log "Creating service-account user '$user'..."
+    if id "$user" &>/dev/null; then
+        log "User '$user' already exists — reusing"
+    else
+        useradd -m -s /bin/bash -c "StatBus service account" "$user"
+    fi
+
+    if getent group docker >/dev/null; then
+        log "Adding '$user' to docker group..."
+        usermod -aG docker "$user"
+    else
+        log_warn "docker group missing (Stage 5 may have been skipped) — not adding '$user' to it"
+    fi
+
+    log "Populating SSH keys for '$user'..."
+    sudo -i -u "$user" bash <<SETUP
+mkdir -p ~/.ssh
+chmod 700 ~/.ssh
+: > ~/.ssh/authorized_keys.new
+for gh_user in $GITHUB_USERS; do
+    echo "Fetching keys for GitHub user: \$gh_user"
+    keys=\$(curl -sL "https://github.com/\$gh_user.keys" 2>/dev/null || true)
+    if [[ -n "\$keys" ]]; then
+        echo "\$keys" | while read -r key; do
+            [[ -z "\$key" ]] && continue
+            echo "\$key # https://github.com/\$gh_user.keys" >> ~/.ssh/authorized_keys.new
+        done
+    else
+        echo "Warning: no keys returned for \$gh_user"
+    fi
+done
+# Merge new keys with any pre-existing ones, deduplicate.
+if [[ -s ~/.ssh/authorized_keys ]]; then
+    cat ~/.ssh/authorized_keys >> ~/.ssh/authorized_keys.new
+fi
+awk '!seen[\$0]++' ~/.ssh/authorized_keys.new > ~/.ssh/authorized_keys
+rm -f ~/.ssh/authorized_keys.new
+chmod 600 ~/.ssh/authorized_keys 2>/dev/null || true
+SETUP
+    chown -R "$user:$user" "/home/$user/.ssh"
+
+    log "Enabling systemd --user linger for '$user' (so systemctl --user services persist)..."
+    loginctl enable-linger "$user"
+
+    # Verification
+    echo ""
+    log "Verifying Stage 7..."
+    verify "$user user exists" "id $user"
+    if getent group docker >/dev/null; then
+        verify "$user is in docker group" "id -nG $user | tr ' ' '\n' | grep -qx docker"
+    fi
+    verify "$user .ssh dir exists with correct mode" "test -d /home/$user/.ssh"
+    if [[ -n "$GITHUB_USERS" ]]; then
+        verify "$user authorized_keys populated" "test -s /home/$user/.ssh/authorized_keys"
+    fi
+    verify "$user linger enabled" "loginctl show-user $user -p Linger 2>/dev/null | grep -q 'Linger=yes'"
+
     pause
 }
 
@@ -865,42 +1055,70 @@ check_prerequisites() {
 
 main() {
     # Parse arguments
-    for arg in "$@"; do
-        case $arg in
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
             --non-interactive)
                 NON_INTERACTIVE=true
+                shift
+                ;;
+            --skip-stages)
+                if [[ -z "${2:-}" ]]; then
+                    log_error "--skip-stages requires an argument (e.g. --skip-stages \"0 4\")"
+                    exit 1
+                fi
+                SKIP_STAGES="$2"
+                shift 2
+                ;;
+            --skip-stages=*)
+                SKIP_STAGES="${1#*=}"
+                shift
                 ;;
             --help|-h)
                 show_banner
                 echo "Usage: $0 [OPTIONS]"
                 echo ""
                 echo "Options:"
-                echo "  --non-interactive  Run all stages without prompting (requires .env file)"
-                echo "  --help, -h         Show this help message"
+                echo "  --non-interactive          Run all stages without prompting (requires .env file)"
+                echo "  --skip-stages \"N [N ...]\"  Skip the given stages (space-separated numbers)."
+                echo "                              Also settable via SKIP_STAGES env var."
+                echo "  --help, -h                 Show this help message"
+                echo ""
+                echo "Stages:"
+                echo "  0  HTTPS APT Sources (optional)"
+                echo "  1  Base System (etckeeper, bash history, locales)"
+                echo "  2  SSH Hardening"
+                echo "  3  Automatic Updates"
+                echo "  4  Security Tools (CrowdSec + UFW, optional)"
+                echo "  5  Core Tools (docker, neovim, htop, ...)"
+                echo "  6  User Setup (devops user + Homebrew developer tools)"
+                echo "  7  StatBus Service Account (statbus user)"
                 echo ""
                 exit 0
                 ;;
             *)
-                log_error "Unknown option: $arg"
+                log_error "Unknown option: $1"
                 exit 1
                 ;;
         esac
     done
-    
+
     show_banner
     check_prerequisites
     setup_env
-    
-    log_header "Starting Hardening Process"
-    
+
+    log_header "Starting Setup Process"
+
+    if [[ -n "$SKIP_STAGES" ]]; then
+        log "SKIP_STAGES=\"$SKIP_STAGES\" — those stages will be short-circuited"
+    fi
     if [[ "$NON_INTERACTIVE" == "true" ]]; then
-        log "Running in non-interactive mode - all stages will be executed"
+        log "Running in non-interactive mode — all non-skipped stages will be executed"
     else
-        echo "You will be prompted before each stage."
+        echo "You will be prompted before each non-skipped stage."
         echo "Answer 'y' to run a stage, 'n' to skip it."
     fi
     echo ""
-    
+
     # Run stages
     stage_https_sources
     stage_base_system
@@ -909,24 +1127,30 @@ main() {
     stage_security_tools
     stage_core_tools
     stage_user_setup
+    stage_service_account
 
-    log_header "Hardening Complete!"
-    
+    log_header "Setup Complete!"
+
     echo "Summary of configuration:"
     echo "  - SSH hardened (key-only authentication)"
     echo "  - Automatic security updates enabled"
     echo "  - CrowdSec intrusion detection active"
     echo "  - UFW firewall enabled"
     echo "  - Docker installed"
-    echo "  - devops user created"
+    echo "  - devops user created (ops/admin)"
     echo "  - Homebrew + developer tools installed"
+    echo "  - ${SERVICE_USER:-statbus} service account created (for StatBus install)"
     echo ""
     echo "Recommended next steps:"
-    echo "  1. Log in as devops user and verify SSH key access"
-    echo "  2. Review CrowdSec with: cscli metrics"
-    echo "  3. Check firewall status with: ufw status"
+    echo "  1. Log in as '${SERVICE_USER:-statbus}' and verify SSH key access"
+    echo "  2. Run the StatBus installer as that user:"
+    echo "       ssh ${SERVICE_USER:-statbus}@\$(hostname --fqdn)"
+    echo "       curl -fsSL https://statbus.org/install.sh | bash -s -- --prerelease"
+    echo "  3. (ops) Log in as 'devops' for host administration tasks"
+    echo "  4. Review CrowdSec with: cscli metrics"
+    echo "  5. Check firewall status with: ufw status"
     echo ""
-    
+
     if [[ -f /var/run/reboot-required ]]; then
         log_warn "A reboot is required to complete the setup"
     fi
