@@ -6,6 +6,15 @@ name: CI Images
 # Multi-arch: builds natively on amd64 and arm64 runners (no QEMU
 # cross-compilation — too slow and unreliable for heavy images like db).
 # A final manifest job merges per-arch images into multi-arch tags.
+#
+# Tag-parity contract: a single `describe` job computes
+# `git describe --tags --always` once and feeds it to all per-arch
+# build jobs AND the manifest job. Without this, the moving
+# `install-verified` tag (advanced by install-verified.yaml) could race
+# with the ci-images build — amd64 finishing before the move and arm64
+# finishing after, producing two different describe tags. The manifest
+# step would then look for `install-verified-N-g<sha>-arm64` against an
+# image that was pushed under the prior tag, and fail.
 on:
   push:
     branches: [master]
@@ -20,7 +29,26 @@ env:
   ORG: statisticsnorway
 
 jobs:
+  describe:
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.compute.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # fetch-depth: 0 so `git describe --tags` finds the nearest tag.
+          fetch-depth: 0
+      - id: compute
+        # Computed ONCE here, then propagated to every build/manifest job
+        # via needs.describe.outputs.tag — guarantees per-arch tag parity
+        # even if the moving install-verified tag advances mid-workflow.
+        run: |
+          TAG=$(git describe --tags --always)
+          echo "Computed describe tag: $TAG"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: describe
     strategy:
       fail-fast: false
       matrix:
@@ -36,20 +64,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # fetch-depth: 0 so `git describe --tags` finds the nearest tag.
-          # Default shallow checkout has no tag refs and would return only
-          # the bare SHA, defeating the point of the describe-based tag.
-          fetch-depth: 0
-
-      - name: Compute describe tag
-        id: describe
-        # Must match exactly what `./sb config generate` writes into .env as
-        # VERSION — that's the string docker compose resolves in
-        # `image: .../statbus-${service}:${VERSION}` at upgrade time. Keeping
-        # these in sync lets commit-based upgrades pull CI-built images
-        # instead of falling through to a local source build.
-        # See cli/internal/config/config.go (computeDerived: Version).
-        run: echo "tag=$(git describe --tags --always)" >> "$GITHUB_OUTPUT"
+          # We don't `git describe` here anymore (parity is guaranteed by
+          # the describe job above), but checkout is still needed for the
+          # build context.
+          fetch-depth: 1
 
       - uses: docker/setup-buildx-action@v3
 
@@ -68,27 +86,17 @@ jobs:
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service.name }}:sha-${{ github.sha }}-${{ matrix.platform.arch }}
-            ${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service.name }}:${{ steps.describe.outputs.tag }}-${{ matrix.platform.arch }}
+            ${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service.name }}:${{ needs.describe.outputs.tag }}-${{ matrix.platform.arch }}
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service.name }}:buildcache-${{ matrix.platform.arch }}
           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service.name }}:buildcache-${{ matrix.platform.arch }},mode=max
 
   manifest:
-    needs: build
+    needs: [describe, build]
     runs-on: ubuntu-24.04
     strategy:
       matrix:
         service: [app, worker, db, proxy]
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Compute describe tag
-        id: describe
-        run: echo "tag=$(git describe --tags --always)" >> "$GITHUB_OUTPUT"
-
-      - uses: docker/setup-buildx-action@v3
-
       - uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -96,8 +104,11 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create multi-arch manifests
+        # Loops over the same two tag variants the build job pushed, in
+        # the same order, using the same describe-tag value — so each
+        # manifest's per-arch references are guaranteed to exist.
         run: |
-          for TAG in "sha-${{ github.sha }}" "${{ steps.describe.outputs.tag }}"; do
+          for TAG in "sha-${{ github.sha }}" "${{ needs.describe.outputs.tag }}"; do
             docker buildx imagetools create \
               --tag ${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service }}:${TAG} \
               ${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service }}:${TAG}-amd64 \
