@@ -7,10 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"syscall"
@@ -19,8 +21,44 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
+	"github.com/statisticsnorway/statbus/cli/internal/invariants"
 	"github.com/statisticsnorway/statbus/cli/internal/selfupdate"
 )
+
+// markTerminal pins invariants.MarkTerminal to this service's projDir.
+// Every fail-fast guard site in this file calls markTerminal before
+// returning/continuing so the support bundle's install-terminal.txt has
+// a named-invariant anchor for SSB triage.
+func (d *Service) markTerminal(name, observed string) {
+	invariants.MarkTerminal(d.projDir, name, observed)
+}
+
+// thisLine returns the caller's source line number. Guard-site transcripts
+// embed it so the stderr message always points at the real code location
+// even as the file is edited.
+func thisLine() int {
+	_, _, line, ok := runtime.Caller(1)
+	if !ok {
+		return 0
+	}
+	return line
+}
+
+// retryBackoff is the sleep duration between bounded-retry attempts on
+// transient DB connection errors (isConnError). Attempt 0 is the initial
+// try (never reached from a retry branch); attempts 1/2/3 back off by
+// 100ms/500ms/1s. Keep tight — the upgrade service's pipeline must not
+// stall the admin UI for long.
+func retryBackoff(attempt int) time.Duration {
+	switch attempt {
+	case 1:
+		return 100 * time.Millisecond
+	case 2:
+		return 500 * time.Millisecond
+	default:
+		return 1 * time.Second
+	}
+}
 
 // Service is the long-running upgrade service.
 type Service struct {
@@ -499,10 +537,20 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 		if err := d.queryConn.QueryRow(ctx,
 			"UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_status = 'ready' WHERE id = $1 AND completed_at IS NULL"+upgradeRowReturning,
 			flag.ID).Scan(&selfHealJSON); err != nil {
-			fmt.Printf("WARN: state transition to completed matched 0 rows or errored (id=%d, err=%v) — possible CHECK constraint violation\n", flag.ID, err)
-		} else {
-			logUpgradeRow(LabelCompletedSelfHeal, selfHealJSON)
+			// C1: SELF_HEAL_COMPLETED_TRANSITION_PERSISTED — bug-class. The
+			// flag's SHA matches a completed-on-disk state, the row is still
+			// in_progress, and we hold the mutex. A CHECK violation or 0-row
+			// UPDATE means the state machine has drifted; retrying next tick
+			// won't reconcile it. Fail-fast + bundle.
+			fmt.Fprintf(os.Stderr,
+				"INVARIANT SELF_HEAL_COMPLETED_TRANSITION_PERSISTED violated: state transition to completed matched 0 rows or errored (id=%d, err=%v) — possible CHECK constraint violation (service.go:%d, pid=%d)\n",
+				flag.ID, err, thisLine(), os.Getpid())
+			d.markTerminal("SELF_HEAL_COMPLETED_TRANSITION_PERSISTED",
+				fmt.Sprintf("id=%d; Scan err=%v", flag.ID, err))
+			d.writeDiagnosticBundle(ctx, int(flag.ID), appendLog)
+			return
 		}
+		logUpgradeRow(LabelCompletedSelfHeal, selfHealJSON)
 		// Explicit NOTIFY — the DB trigger also fires, but the app's LISTEN is
 		// definitely established by now (new service starts after app is healthy).
 		d.queryConn.Exec(ctx, `NOTIFY worker_status, '{"type":"upgrade_changed"}'`)
@@ -550,10 +598,20 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 	if scanErr := d.queryConn.QueryRow(ctx,
 		"UPDATE public.upgrade SET state = 'rolled_back', error = $1, rolled_back_at = now() WHERE id = $2 AND completed_at IS NULL"+upgradeRowReturning,
 		errMsg, flag.ID).Scan(&crashJSON); scanErr != nil {
-		fmt.Printf("Warning: could not mark upgrade %d as rolled_back: %v\n", flag.ID, scanErr)
-	} else {
-		logUpgradeRow(LabelRolledBackCrashRecovery, crashJSON)
+		// C2: CRASH_ROLLED_BACK_TRANSITION_PERSISTED — bug-class. Same
+		// contract as C1 (mutex-held, CHECK permits in_progress →
+		// rolled_back). An error here (not 0-row; 0 is a valid no-op
+		// when self-heal already completed the row in the concurrent
+		// branch) means the DB state machine is drifted.
+		fmt.Fprintf(os.Stderr,
+			"INVARIANT CRASH_ROLLED_BACK_TRANSITION_PERSISTED violated: could not mark upgrade %d as rolled_back: %v (service.go:%d, pid=%d)\n",
+			flag.ID, scanErr, thisLine(), os.Getpid())
+		d.markTerminal("CRASH_ROLLED_BACK_TRANSITION_PERSISTED",
+			fmt.Sprintf("id=%d; Scan err=%v", flag.ID, scanErr))
+		d.writeDiagnosticBundle(ctx, int(flag.ID), nil)
+		return
 	}
+	logUpgradeRow(LabelRolledBackCrashRecovery, crashJSON)
 
 	// Reconciled — remove the on-disk file. The kernel flock was already
 	// released when the prior service process died.
@@ -567,6 +625,32 @@ func shortSHA(sha string) string {
 		return sha[:12]
 	}
 	return sha
+}
+
+// markCIImagesFailed transitions a discovery row to
+// docker_images_status='failed' with an actionable error string. Called
+// from verifyArtifacts on two paths: (a) gh reported the CI workflow as
+// failed; (b) gh is unavailable AND the manifest-timeout grace window
+// elapsed. Either UPDATE that fails escalates to fail-fast under
+// CI_FAILURE_DETECTED_TRANSITIONS_ROW — admin UI spinning on a failed CI
+// is the exact bug this whole invariant was written to prevent.
+//
+// No bundle is emitted — no upgrade is in progress; the service log
+// (journald) already has the narrative. See plan C-head "End-state
+// contract".
+func (d *Service) markCIImagesFailed(ctx context.Context, id int, sha, reason string) {
+	_, err := d.queryConn.Exec(ctx,
+		"UPDATE public.upgrade SET docker_images_status = 'failed', error = $1 WHERE id = $2 AND docker_images_status = 'building'",
+		reason, id)
+	if err != nil {
+		fmt.Fprintf(os.Stderr,
+			"INVARIANT CI_FAILURE_DETECTED_TRANSITIONS_ROW violated: UPDATE docker_images_status=failed failed for sha=%s: %v (service.go:%d, pid=%d)\n",
+			sha, err, thisLine(), os.Getpid())
+		d.markTerminal("CI_FAILURE_DETECTED_TRANSITIONS_ROW",
+			fmt.Sprintf("sha=%s; UPDATE err=%v", sha, err))
+		return
+	}
+	log.Printf("CI images marked failed for commit %s: %s", sha[:12], reason)
 }
 
 // verifyArtifacts runs the declarative artifact readiness check for every
@@ -591,10 +675,17 @@ func shortSHA(sha string) string {
 // Scoped to the 30 most recent pending rows to bound per-cycle cost.
 func (d *Service) verifyArtifacts(ctx context.Context) {
 	const registryPrefix = "ghcr.io/statisticsnorway/statbus-"
+	// manifestTimeout is the fallback grace window used when `gh` is absent or
+	// errors: once a discovery row has been in docker_images_status='building'
+	// longer than this AND the registry manifests are still missing, we mark
+	// the row 'failed' so the admin UI stops spinning. Production hosts
+	// typically have no `gh`; this ensures CI_FAILURE_DETECTED_TRANSITIONS_ROW
+	// still holds without it.
+	const manifestTimeout = 20 * time.Minute
 	services := []string{"db", "app", "worker", "proxy"}
 
 	rows, err := d.queryConn.Query(ctx, `
-		SELECT id, commit_sha, release_status::text, docker_images_status::text, release_builds_status::text, version
+		SELECT id, commit_sha, release_status::text, docker_images_status::text, release_builds_status::text, version, discovered_at
 		  FROM public.upgrade
 		 WHERE docker_images_status != 'ready'
 		   AND state IN ('available', 'scheduled', 'in_progress', 'failed')
@@ -610,12 +701,13 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 		releaseStatus        string
 		dockerImagesStatus   string
 		releaseBuildsStatus  string
-		version *string // NULL for rows predating the version column
+		version              *string // NULL for rows predating the version column
+		discoveredAt         time.Time
 	}
 	var pending []pendingRow
 	for rows.Next() {
 		var r pendingRow
-		if err := rows.Scan(&r.id, &r.sha, &r.releaseStatus, &r.dockerImagesStatus, &r.releaseBuildsStatus, &r.version); err == nil {
+		if err := rows.Scan(&r.id, &r.sha, &r.releaseStatus, &r.dockerImagesStatus, &r.releaseBuildsStatus, &r.version, &r.discoveredAt); err == nil {
 			pending = append(pending, r)
 		}
 	}
@@ -690,9 +782,9 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 					}
 				}
 			} else {
-				// Images not in registry — check if the CI workflow has failed.
-				// Use gh CLI to query GitHub Actions (no GITHUB_TOKEN needed
-				// when the repo is public — gh handles auth from its own config).
+				// Images not in registry — try gh first, fall back to a time-
+				// bounded manifest check so CI_FAILURE_DETECTED_TRANSITIONS_ROW
+				// holds on hosts where `gh` is absent (production norm).
 				ciOutput, ciErr := runCommandOutput(d.projDir, "gh", "api",
 					fmt.Sprintf("repos/statisticsnorway/statbus/actions/workflows/ci-images.yaml/runs?head_sha=%s&status=completed&per_page=5", r.sha),
 					"--jq", ".workflow_runs[] | .conclusion")
@@ -708,10 +800,21 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 						}
 					}
 					if hasFailure && !hasSuccess {
-						d.queryConn.Exec(ctx,
-							"UPDATE public.upgrade SET docker_images_status = 'failed' WHERE id = $1 AND docker_images_status = 'building'",
-							r.id)
-						fmt.Printf("CI images failed for commit %s\n", r.sha[:12])
+						d.markCIImagesFailed(ctx, r.id, r.sha, fmt.Sprintf(
+							"CI images workflow reported failure for commit %s", r.sha[:12]))
+					}
+				} else if ciErr != nil {
+					// gh unavailable / errored. Fall back to manifest-timeout:
+					// if the row has been waiting in 'building' longer than
+					// manifestTimeout and the registry still has no manifests,
+					// CI must have failed (or been skipped) — mark failed.
+					age := time.Since(r.discoveredAt)
+					log.Printf(
+						"verifyArtifacts: gh unavailable (%v); falling back to manifest-timeout check (sha=%s, age=%s, timeout=%s)",
+						ciErr, r.sha[:12], age.Truncate(time.Second), manifestTimeout)
+					if age > manifestTimeout {
+						d.markCIImagesFailed(ctx, r.id, r.sha, fmt.Sprintf(
+							"CI images absent after %s timeout; gh probe err=%v", manifestTimeout, ciErr))
 					}
 				}
 			}
@@ -1162,13 +1265,31 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 		}
 		d.writeDiagnosticBundle(ctx, int(id), appendLog)
 		appendLog = nil
+		failedSQL := "UPDATE public.upgrade SET state = 'failed', error = $1 WHERE id = $2" + upgradeRowReturning
+		errStr := fmt.Sprintf("%s: post-restart health check failed: %v", ErrHealthcheckDBDown, err)
 		var failedJSON string
-		if scanErr := d.queryConn.QueryRow(ctx,
-			"UPDATE public.upgrade SET state = 'failed', error = $1 WHERE id = $2"+upgradeRowReturning,
-			fmt.Sprintf("%s: post-restart health check failed: %v", ErrHealthcheckDBDown, err), id).Scan(&failedJSON); scanErr != nil {
-			fmt.Printf("WARN: state transition to failed matched 0 rows or errored (id=%d, err=%v) — possible CHECK constraint violation\n", id, scanErr)
-		} else {
-			logUpgradeRow(LabelFailed, failedJSON)
+		var scanErr error
+		for attempt := 0; attempt < 4; attempt++ {
+			scanErr = d.queryConn.QueryRow(ctx, failedSQL, errStr, id).Scan(&failedJSON)
+			if scanErr == nil {
+				logUpgradeRow(LabelFailed, failedJSON)
+				break
+			}
+			if attempt < 3 && isConnError(scanErr) {
+				time.Sleep(retryBackoff(attempt + 1))
+				continue
+			}
+			// C3: POST_RESTART_FAILED_TRANSITION_PERSISTED — bounded retry
+			// exhausted. Row was just in_progress, no concurrent writer, CHECK
+			// permits in_progress → failed with non-null error. Persistent
+			// failure is bug-class.
+			fmt.Fprintf(os.Stderr,
+				"INVARIANT POST_RESTART_FAILED_TRANSITION_PERSISTED violated: state transition to failed matched 0 rows or errored (id=%d, err=%v) after %d attempts (service.go:%d, pid=%d)\n",
+				id, scanErr, attempt+1, thisLine(), os.Getpid())
+			d.markTerminal("POST_RESTART_FAILED_TRANSITION_PERSISTED",
+				fmt.Sprintf("id=%d; final Scan err=%v; attempts=%d", id, scanErr, attempt+1))
+			d.writeDiagnosticBundle(ctx, int(id), nil)
+			break
 		}
 		return
 	}
@@ -1181,13 +1302,29 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 		appendLog.Close()
 		appendLog = nil
 	}
+	completedSQL := "UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_status = 'ready' WHERE id = $1" + upgradeRowReturning
 	var fromInProgressJSON string
-	if scanErr := d.queryConn.QueryRow(ctx,
-		"UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_status = 'ready' WHERE id = $1"+upgradeRowReturning,
-		id).Scan(&fromInProgressJSON); scanErr != nil {
-		fmt.Printf("WARN: state transition to completed matched 0 rows or errored (id=%d, err=%v) — possible CHECK constraint violation\n", id, scanErr)
-	} else {
-		logUpgradeRow(LabelCompletedFromInProgress, fromInProgressJSON)
+	var scanErr error
+	for attempt := 0; attempt < 4; attempt++ {
+		scanErr = d.queryConn.QueryRow(ctx, completedSQL, id).Scan(&fromInProgressJSON)
+		if scanErr == nil {
+			logUpgradeRow(LabelCompletedFromInProgress, fromInProgressJSON)
+			break
+		}
+		if attempt < 3 && isConnError(scanErr) {
+			time.Sleep(retryBackoff(attempt + 1))
+			continue
+		}
+		// C4: POST_RESTART_COMPLETED_TRANSITION_PERSISTED — bounded retry
+		// exhausted. Symmetric to C3; row was in_progress, we hold the flag,
+		// CHECK permits in_progress → completed. Fail-fast + bundle.
+		fmt.Fprintf(os.Stderr,
+			"INVARIANT POST_RESTART_COMPLETED_TRANSITION_PERSISTED violated: state transition to completed matched 0 rows or errored (id=%d, err=%v) after %d attempts (service.go:%d, pid=%d)\n",
+			id, scanErr, attempt+1, thisLine(), os.Getpid())
+		d.markTerminal("POST_RESTART_COMPLETED_TRANSITION_PERSISTED",
+			fmt.Sprintf("id=%d; final Scan err=%v; attempts=%d", id, scanErr, attempt+1))
+		d.writeDiagnosticBundle(ctx, int(id), nil)
+		break
 	}
 	d.removeUpgradeFlag()
 
@@ -1388,9 +1525,13 @@ func (d *Service) loadTrustedSigners() error {
 	}
 	d.allowedSignersPath = allowedSignersPath
 
-	// Configure git to use the allowed-signers file
+	// Configure git to use the allowed-signers file. If this fails
+	// verifyCommitSignature downstream will refuse to verify and the
+	// next upgrade that reaches signature verification will fail there
+	// with a hard error — so this is a log-only breadcrumb whose primary
+	// failure path is owned elsewhere.
 	if err := runCommand(d.projDir, "git", "config", "gpg.ssh.allowedSignersFile", allowedSignersPath); err != nil {
-		fmt.Printf("Warning: could not set git gpg.ssh.allowedSignersFile: %v\n", err)
+		log.Printf("could not set git gpg.ssh.allowedSignersFile: %v", err)
 	}
 
 	fmt.Printf("Commit signature verification enabled (%d trusted signer(s))\n", len(signerLines))
@@ -1971,11 +2112,32 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 
 	// Stamp log_relative_file_path on the row as early as possible so crash
 	// recovery, the admin UI, and the support-bundle collector can all find
-	// the on-disk log. Best-effort; failure doesn't abort the upgrade.
-	if _, err := d.queryConn.Exec(ctx,
-		"UPDATE public.upgrade SET log_relative_file_path = $1 WHERE id = $2",
-		progress.RelPath(), id); err != nil {
-		fmt.Printf("Warning: could not set log_relative_file_path for upgrade %d: %v\n", id, err)
+	// the on-disk log. If the pointer is lost, later crash-recovery cannot
+	// find the log file — so a persistent failure is fail-fast + bundle.
+	logPathSQL := "UPDATE public.upgrade SET log_relative_file_path = $1 WHERE id = $2"
+	insertCompletedAt := time.Now()
+	var stampErr error
+	for attempt := 0; attempt < 4; attempt++ {
+		_, stampErr = d.queryConn.Exec(ctx, logPathSQL, progress.RelPath(), id)
+		if stampErr == nil {
+			break
+		}
+		if attempt < 3 && isConnError(stampErr) {
+			time.Sleep(retryBackoff(attempt + 1))
+			continue
+		}
+		// C5: LOG_POINTER_STAMPED — bounded retry exhausted. INSERT just
+		// succeeded ms ago on the same connection; no state change. A
+		// persistent failure is a real DB issue, and the crash-recovery
+		// + admin UI + bundle collector all depend on this pointer.
+		elapsedMs := time.Since(insertCompletedAt).Milliseconds()
+		fmt.Fprintf(os.Stderr,
+			"INVARIANT LOG_POINTER_STAMPED violated: could not set log_relative_file_path for upgrade %d after %d attempts: %v; elapsedMs=%d (service.go:%d, pid=%d)\n",
+			id, attempt+1, stampErr, elapsedMs, thisLine(), os.Getpid())
+		d.markTerminal("LOG_POINTER_STAMPED",
+			fmt.Sprintf("id=%d; final Exec err=%v; elapsedMs=%d", id, stampErr, elapsedMs))
+		d.writeDiagnosticBundle(ctx, int(id), progress)
+		return fmt.Errorf("LOG_POINTER_STAMPED: %w", stampErr)
 	}
 
 	progress.Write("Upgrading to %s (from %s)...", displayName, d.version)
@@ -2344,21 +2506,42 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	progress.Write("Upgrade to %s complete!", displayName)
 	var normalJSON string
 	completedSQL := "UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_status = 'ready' WHERE id = $1" + upgradeRowReturning
-	scanErr := d.queryConn.QueryRow(ctx, completedSQL, id).Scan(&normalJSON)
-	if isConnError(scanErr) {
-		fmt.Printf("Connection stale on state=completed UPDATE (id=%d, err=%v), reconnecting...\n", id, scanErr)
-		if reconErr := d.reconnect(ctx); reconErr == nil {
-			scanErr = d.queryConn.QueryRow(ctx, completedSQL, id).Scan(&normalJSON)
-		} else {
-			fmt.Printf("WARN: reconnect failed: %v\n", reconErr)
+	var lastScanErr error
+	for attempt := 0; attempt < 4; attempt++ {
+		// C6: on retry following a stale-connection error, refresh the pool
+		// before issuing the UPDATE. If reconnect itself errors the pool is
+		// unrecoverable in this process — fail fast.
+		if attempt > 0 && isConnError(lastScanErr) {
+			log.Printf("Connection stale on state=completed UPDATE (id=%d, err=%v), reconnecting...", id, lastScanErr)
+			if reconErr := d.reconnect(ctx); reconErr != nil {
+				fmt.Fprintf(os.Stderr,
+					"INVARIANT RECONNECT_ON_STALE_CONN_SUCCEEDS violated: reconnect after stale conn on id=%d failed: %v (service.go:%d, pid=%d)\n",
+					id, reconErr, thisLine(), os.Getpid())
+				d.markTerminal("RECONNECT_ON_STALE_CONN_SUCCEEDS",
+					fmt.Sprintf("id=%d; reconnect err=%v", id, reconErr))
+				d.writeDiagnosticBundle(ctx, int(id), progress)
+				return fmt.Errorf("RECONNECT_ON_STALE_CONN_SUCCEEDS: %w", reconErr)
+			}
 		}
+		lastScanErr = d.queryConn.QueryRow(ctx, completedSQL, id).Scan(&normalJSON)
+		if lastScanErr == nil {
+			break
+		}
+		if attempt < 3 && isConnError(lastScanErr) {
+			time.Sleep(retryBackoff(attempt + 1))
+			continue
+		}
+		// C7: terminal UPDATE errored (non-conn error, or retry budget exhausted).
+		fmt.Fprintf(os.Stderr,
+			"INVARIANT NORMAL_COMPLETED_TRANSITION_PERSISTED violated: terminal state transition to completed errored for id=%d: %v after %d attempts (service.go:%d, pid=%d)\n",
+			id, lastScanErr, attempt+1, thisLine(), os.Getpid())
+		d.markTerminal("NORMAL_COMPLETED_TRANSITION_PERSISTED",
+			fmt.Sprintf("id=%d; final Scan err=%v; attempts=%d", id, lastScanErr, attempt+1))
+		d.writeDiagnosticBundle(ctx, int(id), progress)
+		return fmt.Errorf("NORMAL_COMPLETED_TRANSITION_PERSISTED: %w", lastScanErr)
 	}
-	if scanErr != nil {
-		fmt.Printf("WARN: state transition to completed failed (id=%d, err=%v)\n", id, scanErr)
-	} else {
-		fmt.Println("state=completed")
-		logUpgradeRow(LabelCompletedNormal, normalJSON)
-	}
+	log.Println("state=completed")
+	logUpgradeRow(LabelCompletedNormal, normalJSON)
 	d.removeUpgradeFlag()
 	// Pre-upgrade branch is no longer needed — successful completion
 	// means we're committed to the new version. Best-effort delete; if
@@ -2832,5 +3015,85 @@ func (d *Service) selfUpdate(ctx context.Context, version string, progress *Prog
 	if d.runningAsService {
 		os.Exit(42)
 	}
+}
+
+// Runtime invariant registration for Phase 5 / Issue C — every fail-fast
+// guard site in this file declares its triad so the support-bundle
+// `invariants` section and the plan ↔ code ↔ bundle coupling stays
+// authoritative. TestEveryInvariantHasTriadDocumented gates this on every
+// build.
+func init() {
+	invariants.Register(invariants.Invariant{
+		Name:             "CI_FAILURE_DETECTED_TRANSITIONS_ROW",
+		Class:            invariants.FailFast,
+		SourceLocation:   "cli/internal/upgrade/service.go:markCIImagesFailed",
+		ExpectedToHold:   "When CI image failure is detected (via gh-reported failure or manifest-timeout fallback on hosts without gh), the UPDATE transitioning docker_images_status to 'failed' succeeds.",
+		WhyExpected:      "The upgrade row exists (we just SELECT'd it); the WHERE clause matches by id and current state 'building'; the DB was reachable milliseconds earlier when the SELECT ran.",
+		ViolationShape:   "queryConn.Exec returns a non-nil error on the UPDATE despite an immediately-preceding successful SELECT — schema drift, DB crash mid-cycle, or transaction state issue.",
+		TranscriptFormat: "INVARIANT CI_FAILURE_DETECTED_TRANSITIONS_ROW violated: UPDATE docker_images_status=failed failed for sha=<sha>: <err> (service.go:<line>, pid=<pid>)",
+	})
+	invariants.Register(invariants.Invariant{
+		Name:             "SELF_HEAL_COMPLETED_TRANSITION_PERSISTED",
+		Class:            invariants.FailFast,
+		SourceLocation:   "cli/internal/upgrade/service.go:recoverFromFlag",
+		ExpectedToHold:   "When recoverFromFlag detects a stale in_progress row whose post-upgrade service is healthy, the UPDATE ... SET state='completed' RETURNING to_jsonb(upgrade.*) succeeds.",
+		WhyExpected:      "The row is in_progress (we just SELECT'd it on that state); the CHECK constraint permits in_progress→completed with completed_at non-null and docker_images_status='ready'; the DB is reachable.",
+		ViolationShape:   "QueryRow.Scan returns an error OR the RETURNING clause yields zero rows — CHECK violation, transient DB failure, or row disappeared between SELECT and UPDATE.",
+		TranscriptFormat: "INVARIANT SELF_HEAL_COMPLETED_TRANSITION_PERSISTED violated: state transition to completed matched 0 rows or errored (id=<id>, err=<err>) — possible CHECK constraint violation (service.go:<line>, pid=<pid>)",
+	})
+	invariants.Register(invariants.Invariant{
+		Name:             "CRASH_ROLLED_BACK_TRANSITION_PERSISTED",
+		Class:            invariants.FailFast,
+		SourceLocation:   "cli/internal/upgrade/service.go:recoverFromFlag",
+		ExpectedToHold:   "When recoverFromFlag detects a crashed upgrade (stale flag + dead holder PID), the UPDATE marking the row rolled_back succeeds.",
+		WhyExpected:      "The row is in_progress (we just confirmed it); the CHECK constraint permits in_progress→rolled_back with rolled_back_at non-null; the DB is reachable.",
+		ViolationShape:   "QueryRow.Scan returns an error OR the RETURNING clause yields zero rows — CHECK violation, transient DB failure, or row disappeared between SELECT and UPDATE.",
+		TranscriptFormat: "INVARIANT CRASH_ROLLED_BACK_TRANSITION_PERSISTED violated: could not mark upgrade <id> as rolled_back: <err> (service.go:<line>, pid=<pid>)",
+	})
+	invariants.Register(invariants.Invariant{
+		Name:             "POST_RESTART_FAILED_TRANSITION_PERSISTED",
+		Class:            invariants.FailFast,
+		SourceLocation:   "cli/internal/upgrade/service.go:completeInProgressUpgrade",
+		ExpectedToHold:   "After a restart that detects a failed in-progress upgrade, the UPDATE ... SET state='failed' RETURNING succeeds within the bounded retry budget (up to 4 attempts with exponential backoff on isConnError).",
+		WhyExpected:      "The row is in_progress (SELECT confirmed it); CHECK permits in_progress→failed with failed_at non-null; transient isConnError errors are tolerated via reconnect-on-next-attempt.",
+		ViolationShape:   "All retry attempts exhaust with Scan returning a non-conn error, or the RETURNING clause yields zero rows — persistent CHECK violation, schema drift, or sustained DB outage.",
+		TranscriptFormat: "INVARIANT POST_RESTART_FAILED_TRANSITION_PERSISTED violated: state transition to failed matched 0 rows or errored (id=<id>, err=<err>) after <n> attempts (service.go:<line>, pid=<pid>)",
+	})
+	invariants.Register(invariants.Invariant{
+		Name:             "POST_RESTART_COMPLETED_TRANSITION_PERSISTED",
+		Class:            invariants.FailFast,
+		SourceLocation:   "cli/internal/upgrade/service.go:completeInProgressUpgrade",
+		ExpectedToHold:   "After a successful restart on the new binary, the UPDATE ... SET state='completed', completed_at=now(), docker_images_status='ready' RETURNING succeeds within the bounded retry budget.",
+		WhyExpected:      "The row is in_progress (SELECT confirmed it); CHECK permits in_progress→completed; the new binary has already established a live pool to the DB.",
+		ViolationShape:   "All retry attempts exhaust with Scan returning a non-conn error, or the RETURNING clause yields zero rows — CHECK violation or sustained DB outage despite successful SELECT.",
+		TranscriptFormat: "INVARIANT POST_RESTART_COMPLETED_TRANSITION_PERSISTED violated: state transition to completed matched 0 rows or errored (id=<id>, err=<err>) after <n> attempts (service.go:<line>, pid=<pid>)",
+	})
+	invariants.Register(invariants.Invariant{
+		Name:             "LOG_POINTER_STAMPED",
+		Class:            invariants.FailFast,
+		SourceLocation:   "cli/internal/upgrade/service.go:executeUpgrade",
+		ExpectedToHold:   "After the upgrade INSERT completes, the UPDATE stamping log_relative_file_path on the just-inserted row succeeds within the bounded retry budget.",
+		WhyExpected:      "The row was INSERTed a handful of milliseconds earlier on this same connection; isConnError retries are bounded so transient pool staleness is tolerated.",
+		ViolationShape:   "Exec returns a non-conn error, or all retries exhaust with isConnError — DB failure sustained across 2+ seconds, or the row was deleted by an external actor.",
+		TranscriptFormat: "INVARIANT LOG_POINTER_STAMPED violated: could not set log_relative_file_path for upgrade <id> after <n> attempts: <err>; elapsedMs=<ms> (service.go:<line>, pid=<pid>)",
+	})
+	invariants.Register(invariants.Invariant{
+		Name:             "RECONNECT_ON_STALE_CONN_SUCCEEDS",
+		Class:            invariants.FailFast,
+		SourceLocation:   "cli/internal/upgrade/service.go:executeUpgrade",
+		ExpectedToHold:   "When executeUpgrade detects an isConnError on the terminal state=completed UPDATE, d.reconnect(ctx) refreshes the pool successfully so the retried UPDATE can land.",
+		WhyExpected:      "The DB container is healthy (the upgraded binary just exchanged SQL with it); only the pooled connection went stale; reconnect uses the same DSN that worked at service startup.",
+		ViolationShape:   "reconnect returns a non-nil error despite the DB being reachable — DSN / auth / TLS drift, or genuine DB failure concurrent with the state-transition window.",
+		TranscriptFormat: "INVARIANT RECONNECT_ON_STALE_CONN_SUCCEEDS violated: reconnect after stale conn on id=<id> failed: <err> (service.go:<line>, pid=<pid>)",
+	})
+	invariants.Register(invariants.Invariant{
+		Name:             "NORMAL_COMPLETED_TRANSITION_PERSISTED",
+		Class:            invariants.FailFast,
+		SourceLocation:   "cli/internal/upgrade/service.go:executeUpgrade",
+		ExpectedToHold:   "The terminal UPDATE on a successful upgrade (state=completed, completed_at=now(), docker_images_status='ready') matches exactly one row within the bounded retry budget.",
+		WhyExpected:      "The row was in_progress (we inserted it and held the flag through the upgrade); CHECK permits the transition; RECONNECT_ON_STALE_CONN_SUCCEEDS guarantees a live connection on every retry.",
+		ViolationShape:   "All retry attempts exhaust with Scan returning a non-conn error, or the RETURNING clause yields zero rows — CHECK violation, DB failure, or row disappeared mid-upgrade.",
+		TranscriptFormat: "INVARIANT NORMAL_COMPLETED_TRANSITION_PERSISTED violated: terminal state transition to completed errored for id=<id>: <err> after <n> attempts (service.go:<line>, pid=<pid>)",
+	})
 }
 
