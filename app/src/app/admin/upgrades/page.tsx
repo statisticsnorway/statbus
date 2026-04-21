@@ -180,6 +180,19 @@ export default function UpgradesPage() {
   const diskFreeGB = systemInfo?.find((s) => s.key === "disk_free_gb")?.value;
   const diskFree = diskFreeGB ? parseInt(diskFreeGB, 10) : null;
 
+  // Fresh-install-failure banner. Populated by install.sh via
+  // `./sb support write-admin-ui-row` when ./sb install exits non-zero;
+  // cleared by the next successful install (Phase 4 concern).
+  const installLastError = systemInfo?.find(
+    (s) => s.key === "install_last_error",
+  )?.value;
+  const installLastErrorAt = systemInfo?.find(
+    (s) => s.key === "install_last_error_at",
+  )?.value;
+  const installLastBundlePath = systemInfo?.find(
+    (s) => s.key === "install_last_bundle_path",
+  )?.value;
+
   const [actionError, setActionError] = useState<string | null>(null);
   const [showSuperseded, setShowSuperseded] = useState(false);
 
@@ -275,6 +288,33 @@ export default function UpgradesPage() {
           {checking ? "Checking..." : "Schedule check"}
         </Button>
       </div>
+
+      {installLastError && (
+        <Card className="mb-4 border-red-300 bg-red-50">
+          <CardContent className="space-y-2 pt-6">
+            <p className="font-semibold text-red-900">
+              Last install attempt failed
+            </p>
+            <p className="font-mono text-sm text-red-900">{installLastError}</p>
+            {installLastErrorAt && (
+              <p className="text-xs text-red-800">
+                Recorded {new Date(installLastErrorAt).toLocaleString()}
+              </p>
+            )}
+            {installLastBundlePath && (
+              <p className="text-xs text-red-800">
+                Support bundle on disk:{" "}
+                <span className="font-mono">{installLastBundlePath}</span>
+              </p>
+            )}
+            <p className="text-xs text-red-800">
+              Re-run <span className="font-mono">./install.sh</span> after the
+              underlying issue is resolved. A successful install will clear
+              this banner.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {error && (
         <Card className="mb-4 border-red-200 bg-red-50">
