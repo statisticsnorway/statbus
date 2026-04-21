@@ -18,17 +18,9 @@ import (
 // such condition must either be a named invariant (class=fail-fast, which
 // emits the transcript + MarkTerminal and returns a wrapped error) or a
 // class=log-only breadcrumb whose primary failure path has already
-// terminated the run.
-//
-// The test is currently skipped because the Note purge lands in Phase 4.
-// Removing the t.Skip line is the commit that activates the gate.
+// terminated the run. Log-only breadcrumbs use log.Printf (which prepends
+// a timestamp) rather than fmt.Printf, keeping them outside this gate.
 func TestNoSilentNotesInInstall(t *testing.T) {
-	t.Skip("Phase 4: install.go silent-note purge has not landed yet. " +
-		"Remove this t.Skip line in the same commit that rewrites all silent " +
-		"`fmt.Printf(\"Note: ...\")` sites as named invariants or explicit " +
-		"log-only breadcrumbs. This test is the gate that locks in the " +
-		"contract.")
-
 	pattern := regexp.MustCompile(`fmt\.Printf\("[^"]*(Note|Warning):`)
 	files := []string{
 		thisRepoFile(t, "cli/cmd/install.go"),
@@ -125,4 +117,3 @@ func relPath(abs string) string {
 	}
 	return rel
 }
-

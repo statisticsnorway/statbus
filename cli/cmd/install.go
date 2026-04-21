@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,9 +18,63 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/install"
+	"github.com/statisticsnorway/statbus/cli/internal/invariants"
 	"github.com/statisticsnorway/statbus/cli/internal/migrate"
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
+
+// markTerminal is a thin wrapper over invariants.MarkTerminal that pins
+// the projDir to the install dir. Every fail-fast guard site in this file
+// calls markTerminal BEFORE returning the wrapped error, so install.sh
+// can surface the invariant name in its SYSTEM UNUSABLE banner.
+func markTerminal(installDir, name, observed string) {
+	invariants.MarkTerminal(installDir, name, observed)
+}
+
+// thisLine returns the caller's source line number. Guard-site transcripts
+// embed it so the stderr message always points at the real code location
+// even as the file is edited — keeping the `install.go:NNN` anchor
+// stable enough for support-bundle triage.
+func thisLine() int {
+	_, _, line, ok := runtime.Caller(1)
+	if !ok {
+		return 0
+	}
+	return line
+}
+
+// capturePanicInvariant is a deferred helper registered at the top of
+// runInstall. It catches panics whose string form starts with
+// "INVARIANT <name> violated:" (emitted by log.Panicf at bug-class
+// assert sites — class=panic-regression) and writes the name to
+// install-terminal.txt so install.sh's banner still has an anchor.
+// The panic is re-raised so the Go runtime prints the stack trace
+// and the process exits non-zero.
+func capturePanicInvariant(installDir string) {
+	r := recover()
+	if r == nil {
+		return
+	}
+	var msg string
+	switch v := r.(type) {
+	case string:
+		msg = v
+	case error:
+		msg = v.Error()
+	default:
+		msg = fmt.Sprintf("%v", v)
+	}
+	const prefix = "INVARIANT "
+	if strings.HasPrefix(msg, prefix) {
+		rest := strings.TrimPrefix(msg, prefix)
+		if sp := strings.IndexByte(rest, ' '); sp > 0 {
+			name := rest[:sp]
+			observed := strings.TrimSpace(rest[sp:])
+			markTerminal(installDir, name, observed)
+		}
+	}
+	panic(r)
+}
 
 var nonInteractive bool
 
@@ -34,7 +89,6 @@ var trustGitHubUser string
 // both this CLI flag and STATBUS_INSIDE_ACTIVE_UPGRADE=1 env var on its child
 // exec; either triggers the mutex bypass in runInstall.
 var insideActiveUpgrade bool
-
 
 var installCmd = &cobra.Command{
 	Use:   "install",
@@ -122,7 +176,10 @@ func acquireOrBypass(installDir string, bypass bool) (release func(), err error)
 			fmt.Printf("Upgrade mutex bypass honored (--inside-active-upgrade). Flag owned by PID %d (holder=%s), invoked_by=%s.\n",
 				flag.PID, flag.Holder, flag.InvokedBy)
 		} else {
-			fmt.Printf("Note: --inside-active-upgrade set but no upgrade flag found. Proceeding.\n")
+			// A17: OPPORTUNISTIC_CLEANUP_BEST_EFFORT_LOGGED (unexpected-bypass)
+			log.Printf(
+				"INVARIANT OPPORTUNISTIC_CLEANUP_BEST_EFFORT_LOGGED violated (A17 — unexpected-bypass): --inside-active-upgrade set but no upgrade flag found; proceeding (install.go:%d, pid=%d)",
+				thisLine(), os.Getpid())
 		}
 		return func() {}, nil
 	}
@@ -179,6 +236,13 @@ func runInstall() (installErr error) {
 	}
 	installDir := filepath.Join(home, "statbus")
 
+	// Register the panic-capturing defer FIRST so it runs LAST during unwind
+	// and catches panics from every later defer, including the post-completion
+	// block. Any `INVARIANT X violated: ...` panic (class=panic-regression,
+	// e.g., A6) gets its name written to install-terminal.txt before the Go
+	// runtime prints the stack trace.
+	defer capturePanicInvariant(installDir)
+
 	// === Upgrade mutex acquire ===
 	// Atomically claim tmp/upgrade-in-progress.json (Holder="install") so
 	// any other actor — running upgrade service, another install — sees us
@@ -214,7 +278,7 @@ func runInstall() (installErr error) {
 	if !bypass {
 		state, detail, derr := install.Detect(installDir, version)
 		if derr != nil {
-			fmt.Printf("Warning: state detection failed: %v\n", derr)
+			log.Printf("State detection failed (continuing with step-table fallback): %v", derr)
 		} else {
 			detectedState = state
 			logInstallState(state, detail)
@@ -248,10 +312,10 @@ func runInstall() (installErr error) {
 				if loadErr == nil {
 					fmt.Printf("Trusting GitHub user %s (--trust-github-user)...\n", trustGitHubUser)
 					if err := trustSignerNonInteractive(trustGitHubUser, f); err != nil {
-						fmt.Printf("  Warning: could not trust %s: %v\n", trustGitHubUser, err)
+						log.Printf("Could not trust %s (continuing, operator may add manually): %v", trustGitHubUser, err)
 					} else {
 						if err := f.Save(); err != nil {
-							fmt.Printf("  Warning: could not save .env.config: %v\n", err)
+							log.Printf("Could not save .env.config after adding trusted signer: %v", err)
 						}
 					}
 				}
@@ -310,8 +374,20 @@ func runInstall() (installErr error) {
 	// so the admin UI shows the install in progress. For fresh installs the DB
 	// doesn't exist until step 10 (migrations), so we only write at the end.
 	var upgradeRowID int64
+	// insertCompletedAt is the earliest wall-clock moment after the upgrade-row
+	// INSERT succeeded. A4 (DB_CONNECTIVITY_STABLE_ACROSS_ADJACENT_SQL) uses
+	// it to show the ms-delta between INSERT and the immediately-following
+	// log-path UPDATE in the stderr transcript — isolates the failure window.
+	var insertCompletedAt time.Time
 	if !bypass && version != "dev" && detectedState == install.StateNothingScheduled {
-		upgradeRowID = startInstallUpgradeRow(installDir)
+		id, startErr := startInstallUpgradeRow(installDir)
+		if startErr != nil {
+			// A1/A2/A5 already emitted the transcript + markTerminal; propagate
+			// the wrapped error so install.sh surfaces the SYSTEM UNUSABLE banner.
+			return startErr
+		}
+		upgradeRowID = id
+		insertCompletedAt = time.Now()
 	}
 
 	// Create an install log so the admin UI can show what happened. Always
@@ -334,7 +410,18 @@ func runInstall() (installErr error) {
 			stampSQL := fmt.Sprintf("UPDATE public.upgrade SET log_relative_file_path = %s WHERE id = %d",
 				sqlLiteral(installLog.RelPath()), upgradeRowID)
 			if _, err := runInstallSQL(installDir, stampSQL); err != nil {
-				fmt.Printf("  Note: could not stamp log path: %v\n", err)
+				// A4: DB_CONNECTIVITY_STABLE_ACROSS_ADJACENT_SQL
+				// The INSERT in startInstallUpgradeRow just succeeded; this UPDATE
+				// is the next runInstallSQL subprocess call. If it fails we've
+				// lost DB reachability between two adjacent psql invocations —
+				// catastrophic (docker killed, network blip, OOM). Fail-fast.
+				elapsedMs := time.Since(insertCompletedAt).Milliseconds()
+				fmt.Fprintf(os.Stderr,
+					"INVARIANT DB_CONNECTIVITY_STABLE_ACROSS_ADJACENT_SQL violated: UPDATE failed %d ms after INSERT succeeded: %v (install.go:%d, pid=%d, row=%d)\n",
+					elapsedMs, err, thisLine(), os.Getpid(), upgradeRowID)
+				markTerminal(installDir, "DB_CONNECTIVITY_STABLE_ACROSS_ADJACENT_SQL",
+					fmt.Sprintf("UPDATE failed %d ms after INSERT; row=%d; err=%v", elapsedMs, upgradeRowID, err))
+				return fmt.Errorf("DB_CONNECTIVITY_STABLE_ACROSS_ADJACENT_SQL: %w", err)
 			}
 		}
 		// Tee stdout to the log file for the entire install duration.
@@ -378,12 +465,22 @@ func runInstall() (installErr error) {
 			// the loopback address — Caddy is guaranteed running because
 			// the step-table's "Services" step completed before we get here.
 			conn, connErr := connectInstallDB(installDir)
-			if connErr != nil {
-				fmt.Printf("  Note: could not open DB connection for post-completion ops: %v\n", connErr)
-				// Fall through — callback doesn't need DB.
-			}
 			if conn != nil {
 				defer conn.Close(context.Background())
+			}
+
+			// A3: POST_COMPLETION_DB_REACHABLE_AFTER_STEP_TABLE —
+			// only fires when the primary install succeeded. If installErr is
+			// already set we fall through to the cleanup branch; A10/A11 emit
+			// log-only breadcrumbs if conn/UPDATE fail.
+			if installErr == nil && connErr != nil {
+				fmt.Fprintf(os.Stderr,
+					"INVARIANT POST_COMPLETION_DB_REACHABLE_AFTER_STEP_TABLE violated: pgx.Connect failed after healthy step-table: %v (install.go:%d, pid=%d)\n",
+					connErr, thisLine(), os.Getpid())
+				markTerminal(installDir, "POST_COMPLETION_DB_REACHABLE_AFTER_STEP_TABLE",
+					fmt.Sprintf("pgx.Connect failed after healthy step-table: %v", connErr))
+				installErr = fmt.Errorf("POST_COMPLETION_DB_REACHABLE_AFTER_STEP_TABLE: %w", connErr)
+				return
 			}
 
 			if installErr != nil && upgradeRowID > 0 {
@@ -393,10 +490,26 @@ func runInstall() (installErr error) {
 				if installLog != nil {
 					logRelPath = installLog.RelPath()
 				}
-				completeInstallUpgradeRow(conn, installDir, upgradeRowID, logRelPath)
+				if err := completeInstallUpgradeRow(installDir, conn, upgradeRowID, logRelPath); err != nil {
+					installErr = err
+					return
+				}
 				runInstallSupersede(conn, installDir)
 				runInstallRetention(conn, upgradeRowID)
 				runInstallCallback(installDir)
+			}
+
+			// A21: FAILED_INSTALL_HAS_AUDIT_TRAIL — secondary audit breadcrumb
+			// for failures where no upgrade row was ever created (fresh install
+			// that died before DB reachable, or startInstallUpgradeRow returned
+			// (0, nil) for an idempotent path). The primary `installErr` return
+			// already drives the shell fail-fast; this log-only line guarantees
+			// the bundle has a greppable invariant anchor even when the DB has
+			// no row for SSB triage to grep against.
+			if installErr != nil && upgradeRowID == 0 {
+				log.Printf(
+					"INVARIANT FAILED_INSTALL_HAS_AUDIT_TRAIL violated (audit-only): install failed with no upgrade row (detectedState=%s): %v — support bundle's install.log has full context (install.go:%d, pid=%d)",
+					detectedState, installErr, thisLine(), os.Getpid())
 			}
 		}()
 	}
@@ -706,13 +819,13 @@ func runGenerateEnv(dir string) error {
 	branch := strings.TrimSpace(branchOut)
 	if err == nil && (branch == "master" || strings.HasPrefix(branch, "ops/")) {
 		if err := runCmdDir(dir, "git", "fetch", "origin", "master"); err != nil {
-			fmt.Printf("  Warning: git fetch origin master failed: %v\n", err)
+			log.Printf("git fetch origin master failed (continuing with existing checkout): %v", err)
 		}
 		if err := runCmdDir(dir, "git", "checkout", "master"); err != nil {
-			fmt.Printf("  Warning: git checkout master failed: %v\n", err)
+			log.Printf("git checkout master failed (continuing with existing checkout): %v", err)
 		}
 		if err := runCmdDir(dir, "git", "merge", "--ff-only", "origin/master"); err != nil {
-			fmt.Printf("  Warning: git merge origin/master failed: %v\n", err)
+			log.Printf("git merge origin/master failed (continuing with existing checkout): %v", err)
 		}
 	}
 
@@ -732,12 +845,12 @@ func runGenerateEnv(dir string) error {
 	}
 	backupDir := filepath.Join(home, "statbus-backups")
 	if err := os.MkdirAll(backupDir, 0755); err != nil {
-		fmt.Printf("  Warning: could not create backup dir %s: %v\n", backupDir, err)
+		log.Printf("Could not create backup dir %s: %v", backupDir, err)
 	}
 	// Create maintenance directory for Caddy volume mount
 	maintDir := filepath.Join(home, "statbus-maintenance")
 	if err := os.MkdirAll(maintDir, 0755); err != nil {
-		fmt.Printf("  Warning: could not create maintenance dir %s: %v\n", maintDir, err)
+		log.Printf("Could not create maintenance dir %s: %v", maintDir, err)
 	}
 	return nil
 }
@@ -880,7 +993,7 @@ func checkSignersDone(dir string) bool {
 			}
 		}
 		if err := f.Save(); err != nil {
-			fmt.Printf("  Warning: could not save .env.config after removing invalid keys: %v\n", err)
+			log.Printf("Could not save .env.config after removing invalid keys: %v", err)
 		}
 		return false
 	}
@@ -911,7 +1024,7 @@ func runTrustSigners(dir string) error {
 
 	trusted, err := trustSignerInteractive(defaultSigner, f, reader)
 	if err != nil {
-		fmt.Printf("  Warning: could not fetch keys for %s: %v\n", defaultSigner, err)
+		log.Printf("Could not fetch keys for %s: %v", defaultSigner, err)
 		fmt.Println("  You can add trusted signers later with: ./sb upgrade trust-key add <github-username>")
 		return nil // Non-fatal: don't block installation
 	}
@@ -937,7 +1050,7 @@ func runTrustSigners(dir string) error {
 
 		trusted, err := trustSignerInteractive(username, f, reader)
 		if err != nil {
-			fmt.Printf("  Warning: could not fetch keys for %s: %v\n", username, err)
+			log.Printf("Could not fetch keys for %s: %v", username, err)
 			continue
 		}
 		if !trusted {
@@ -1064,14 +1177,28 @@ func runInstallSQL(dir, sql string) (string, error) {
 
 // startInstallUpgradeRow inserts an in_progress row for the current HEAD so the
 // admin UI shows the install in progress. Only called for re-installs where the
-// DB is already up (StateNothingScheduled). Returns the row ID, or 0 on failure.
-func startInstallUpgradeRow(dir string) int64 {
+// DB is already up (StateNothingScheduled).
+//
+// Guards three named invariants:
+//   - A5 UPGRADE_ROW_INSERT_SUCCEEDS_POST_DETECT — INSERT must not fail when
+//     DetectState just confirmed DB + schema reachable.
+//   - A1 NO_ORPHAN_IN_PROGRESS_ON_NOTHING_SCHEDULED — if the INSERT hits an
+//     existing `in_progress` row it is necessarily an orphan (the install-held
+//     flag is O_EXCL-ours; no live owner by mutex construction). Auto-heal it
+//     to `failed` and re-INSERT. AUTOHEAL_FAILED is the fallthrough if that
+//     UPDATE errors.
+//   - A2 UPGRADE_ROW_ID_INTEGER — RETURNING id always round-trips as int64
+//     through psql -A -t.
+//
+// Returns (0, nil) on idempotent no-op (existing `completed` row for this SHA,
+// or defensive fall-through for states the WHERE clause should have handled).
+func startInstallUpgradeRow(dir string) (int64, error) {
 	sha, commitDate := gitHeadInfo(dir)
 	if sha == "" || commitDate == "" {
-		return 0
+		return 0, nil
 	}
 
-	sql := fmt.Sprintf(`INSERT INTO public.upgrade (
+	insertSQL := fmt.Sprintf(`INSERT INTO public.upgrade (
   commit_sha, committed_at, summary, state,
   version, release_status, scheduled_at, started_at, from_version
 ) VALUES (
@@ -1098,21 +1225,123 @@ RETURNING id`,
 		sqlLiteral(version),
 		sqlLiteral(classifyReleaseStatus(version)))
 
-	out, err := runInstallSQL(dir, sql)
+	out, err := runInstallSQL(dir, insertSQL)
 	if err != nil {
-		fmt.Printf("  Note: could not start upgrade row: %v\n", err)
-		return 0
+		// A5: UPGRADE_ROW_INSERT_SUCCEEDS_POST_DETECT
+		fmt.Fprintf(os.Stderr,
+			"INVARIANT UPGRADE_ROW_INSERT_SUCCEEDS_POST_DETECT violated: INSERT into public.upgrade failed immediately after DetectState=StateNothingScheduled: %v (install.go:%d, pid=%d)\n",
+			err, thisLine(), os.Getpid())
+		markTerminal(dir, "UPGRADE_ROW_INSERT_SUCCEEDS_POST_DETECT",
+			fmt.Sprintf("INSERT err=%v after DetectState=StateNothingScheduled", err))
+		return 0, fmt.Errorf("UPGRADE_ROW_INSERT_SUCCEEDS_POST_DETECT: %w", err)
 	}
+
 	line := strings.TrimSpace(out)
-	if line == "" {
-		return 0
+	if line != "" {
+		id, parseErr := strconv.ParseInt(line, 10, 64)
+		if parseErr != nil {
+			// A2: UPGRADE_ROW_ID_INTEGER
+			fmt.Fprintf(os.Stderr,
+				"INVARIANT UPGRADE_ROW_ID_INTEGER violated: RETURNING yielded %q (not parseable as int64): %v (install.go:%d, pid=%d)\n",
+				line, parseErr, thisLine(), os.Getpid())
+			markTerminal(dir, "UPGRADE_ROW_ID_INTEGER",
+				fmt.Sprintf("RETURNING=%q; parse err=%v", line, parseErr))
+			return 0, fmt.Errorf("UPGRADE_ROW_ID_INTEGER: %w", parseErr)
+		}
+		fmt.Printf("  Upgrade row %d: in_progress (%s)\n", id, version)
+		return id, nil
 	}
-	id, err := strconv.ParseInt(line, 10, 64)
-	if err != nil {
-		return 0
+
+	// A1: Empty RETURNING → row exists for this SHA with state in
+	// {in_progress, completed} (other states would have passed the WHERE clause
+	// and returned an id). Query to decide auto-heal vs idempotent no-op.
+	stateSQL := fmt.Sprintf(
+		`SELECT id, state FROM public.upgrade WHERE commit_sha = %s`,
+		sqlLiteral(sha))
+	stateOut, stateErr := runInstallSQL(dir, stateSQL)
+	if stateErr != nil {
+		// Same class as A5 — DB just worked for INSERT, now fails for SELECT.
+		fmt.Fprintf(os.Stderr,
+			"INVARIANT UPGRADE_ROW_INSERT_SUCCEEDS_POST_DETECT violated: SELECT of row state after empty RETURNING failed: %v (install.go:%d, pid=%d)\n",
+			stateErr, thisLine(), os.Getpid())
+		markTerminal(dir, "UPGRADE_ROW_INSERT_SUCCEEDS_POST_DETECT",
+			fmt.Sprintf("state SELECT err=%v after empty RETURNING", stateErr))
+		return 0, fmt.Errorf("UPGRADE_ROW_INSERT_SUCCEEDS_POST_DETECT: %w", stateErr)
 	}
-	fmt.Printf("  Upgrade row %d: in_progress (%s)\n", id, version)
-	return id
+
+	stateLine := strings.TrimSpace(stateOut)
+	if stateLine == "" {
+		// Row does not exist — cannot reach this branch per plan's decision
+		// matrix, but log a defensive breadcrumb and continue.
+		log.Printf("No upgrade row for SHA %s after empty RETURNING; skipping row creation", sha)
+		return 0, nil
+	}
+
+	parts := strings.SplitN(stateLine, "|", 2)
+	if len(parts) != 2 {
+		log.Printf("Unexpected upgrade-row SELECT output %q; skipping row creation", stateLine)
+		return 0, nil
+	}
+	orphanID, parseErr := strconv.ParseInt(strings.TrimSpace(parts[0]), 10, 64)
+	if parseErr != nil {
+		log.Printf("Unparseable upgrade-row id %q; skipping row creation", parts[0])
+		return 0, nil
+	}
+	observedState := strings.TrimSpace(parts[1])
+
+	switch observedState {
+	case "completed":
+		// Idempotent no-op — re-install on the same binary SHA.
+		fmt.Printf("  Upgrade row already marked completed for this SHA (re-install is idempotent); skipping row creation\n")
+		return 0, nil
+	case "in_progress":
+		// Auto-heal: mutex guarantees no live owner (O_EXCL install flag is
+		// ours; a live service would have appeared as StateLiveUpgrade in
+		// DetectState). Mark the orphan `failed` and re-INSERT.
+		healSQL := fmt.Sprintf(
+			`UPDATE public.upgrade SET state='failed', error='orphaned in_progress row; auto-recovered by ./sb install (no live owner — mutex guarantee)' WHERE id=%d AND state='in_progress'`,
+			orphanID)
+		if _, err := runInstallSQL(dir, healSQL); err != nil {
+			fmt.Fprintf(os.Stderr,
+				"INVARIANT AUTOHEAL_FAILED violated: UPDATE to mark orphan in_progress row %d as failed returned err=%v (install.go:%d, pid=%d)\n",
+				orphanID, err, thisLine(), os.Getpid())
+			markTerminal(dir, "AUTOHEAL_FAILED",
+				fmt.Sprintf("orphan row %d; UPDATE err=%v", orphanID, err))
+			return 0, fmt.Errorf("AUTOHEAL_FAILED: %w", err)
+		}
+		// Retry the INSERT now that the orphan is failed — WHERE clause passes.
+		out2, err := runInstallSQL(dir, insertSQL)
+		if err != nil {
+			fmt.Fprintf(os.Stderr,
+				"INVARIANT UPGRADE_ROW_INSERT_SUCCEEDS_POST_DETECT violated: post-autoheal INSERT failed: %v (install.go:%d, pid=%d)\n",
+				err, thisLine(), os.Getpid())
+			markTerminal(dir, "UPGRADE_ROW_INSERT_SUCCEEDS_POST_DETECT",
+				fmt.Sprintf("post-autoheal INSERT err=%v", err))
+			return 0, fmt.Errorf("UPGRADE_ROW_INSERT_SUCCEEDS_POST_DETECT: %w", err)
+		}
+		line2 := strings.TrimSpace(out2)
+		if line2 == "" {
+			log.Printf("Post-autoheal INSERT returned empty RETURNING; skipping row creation")
+			return 0, nil
+		}
+		newID, parseErr := strconv.ParseInt(line2, 10, 64)
+		if parseErr != nil {
+			fmt.Fprintf(os.Stderr,
+				"INVARIANT UPGRADE_ROW_ID_INTEGER violated: post-autoheal RETURNING yielded %q: %v (install.go:%d, pid=%d)\n",
+				line2, parseErr, thisLine(), os.Getpid())
+			markTerminal(dir, "UPGRADE_ROW_ID_INTEGER",
+				fmt.Sprintf("post-autoheal RETURNING=%q; parse err=%v", line2, parseErr))
+			return 0, fmt.Errorf("UPGRADE_ROW_ID_INTEGER: %w", parseErr)
+		}
+		fmt.Printf("  Auto-healed orphaned in_progress row %d (no live owner by mutex invariant); starting fresh row %d\n", orphanID, newID)
+		return newID, nil
+	default:
+		// failed / scheduled / rolled_back would have passed the WHERE clause
+		// and returned an id. Reaching here means schema drift or an added
+		// enum value; print a warning and continue.
+		log.Printf("Unexpected upgrade-row state %q for SHA %s; returning 0", observedState, sha)
+		return 0, nil
+	}
 }
 
 // connectInstallDB opens a pgx connection for post-completion operations.
@@ -1131,30 +1360,62 @@ func connectInstallDB(dir string) (*pgx.Conn, error) {
 // completed row if no in_progress row was started — e.g., fresh installs).
 // logRelPath is stamped on the new row when rowID == 0 (the log was created
 // before the step-table but couldn't be stamped until the row exists).
-func completeInstallUpgradeRow(conn *pgx.Conn, dir string, rowID int64, logRelPath string) {
+//
+// Guards four named invariants:
+//   - A6 COMPLETION_CONN_NON_NIL — nil conn is a bug-class assert (A3's
+//     post-completion defer fail-fasts first on connect failure). log.Panicf
+//     so the runtime prints the stack trace; the panic handler in runInstall
+//     writes install-terminal.txt.
+//   - A7 COMPLETION_UPDATE_SUCCEEDS — UPDATE must succeed when conn is live
+//     and the row exists.
+//   - A8 GIT_HEAD_RESOLVABLE — gitHeadInfo yields a non-empty SHA inside a
+//     checked-out repo.
+//   - A9 POST_COMPLETION_UPGRADE_ROW_INSERT_SUCCEEDS — the fresh-install INSERT
+//     creating the `completed` row succeeds when conn is live and schema is
+//     migrated.
+func completeInstallUpgradeRow(installDir string, conn *pgx.Conn, rowID int64, logRelPath string) error {
+	// A6: COMPLETION_CONN_NON_NIL — bug-class panic. A3's post-completion defer
+	// returns early on connect failure so this function is reached only when
+	// conn is non-nil. If a future refactor drops that guard, fail loudly.
 	if conn == nil {
-		fmt.Printf("  Note: no DB connection; skipping upgrade row completion\n")
-		return
+		log.Panicf(
+			"INVARIANT COMPLETION_CONN_NON_NIL violated: completeInstallUpgradeRow called with nil conn; A3 guarantee broken in runInstall defer chain (install.go:%d, pid=%d)",
+			thisLine(), os.Getpid())
 	}
 	ctx := context.Background()
 
 	if rowID > 0 {
-		_, err := conn.Exec(ctx,
+		tag, err := conn.Exec(ctx,
 			`UPDATE public.upgrade SET state = 'completed', completed_at = clock_timestamp(),
 			   log_relative_file_path = COALESCE($2, log_relative_file_path)
 			 WHERE id = $1 AND state = 'in_progress'`, rowID, logRelPath)
-		if err != nil {
-			fmt.Printf("  Note: could not mark upgrade row %d completed: %v\n", rowID, err)
-			return
+		rowsAffected := tag.RowsAffected()
+		if err != nil || rowsAffected == 0 {
+			// A7: COMPLETION_UPDATE_SUCCEEDS
+			fmt.Fprintf(os.Stderr,
+				"INVARIANT COMPLETION_UPDATE_SUCCEEDS violated: upgrade row %d UPDATE to 'completed' failed: %v; rowsAffected=%d (install.go:%d, pid=%d)\n",
+				rowID, err, rowsAffected, thisLine(), os.Getpid())
+			markTerminal(installDir, "COMPLETION_UPDATE_SUCCEEDS",
+				fmt.Sprintf("row %d UPDATE err=%v; rowsAffected=%d", rowID, err, rowsAffected))
+			if err != nil {
+				return fmt.Errorf("COMPLETION_UPDATE_SUCCEEDS: %w", err)
+			}
+			return fmt.Errorf("COMPLETION_UPDATE_SUCCEEDS: row %d UPDATE affected 0 rows", rowID)
 		}
 		fmt.Printf("  Upgrade row %d: completed\n", rowID)
-		return
+		return nil
 	}
 
-	sha, commitDate := gitHeadInfo(dir)
+	sha, commitDate := gitHeadInfo(installDir)
 	if sha == "" || commitDate == "" {
-		fmt.Printf("  Note: could not determine commit SHA; skipping upgrade row\n")
-		return
+		// A8: GIT_HEAD_RESOLVABLE
+		cwd, _ := os.Getwd()
+		fmt.Fprintf(os.Stderr,
+			"INVARIANT GIT_HEAD_RESOLVABLE violated: gitHeadInfo returned sha=%q commitDate=%q at post-completion; cannot record version (install.go:%d, pid=%d, cwd=%s)\n",
+			sha, commitDate, thisLine(), os.Getpid(), cwd)
+		markTerminal(installDir, "GIT_HEAD_RESOLVABLE",
+			fmt.Sprintf("sha=%q; commitDate=%q; cwd=%s", sha, commitDate, cwd))
+		return fmt.Errorf("GIT_HEAD_RESOLVABLE: gitHeadInfo returned empty (sha=%q commitDate=%q)", sha, commitDate)
 	}
 
 	_, err := conn.Exec(ctx,
@@ -1187,28 +1448,44 @@ func completeInstallUpgradeRow(conn *pgx.Conn, dir string, rowID int64, logRelPa
 		classifyReleaseStatus(version),
 		logRelPath)
 	if err != nil {
-		fmt.Printf("  Note: could not record upgrade row: %v\n", err)
-		return
+		// A9: POST_COMPLETION_UPGRADE_ROW_INSERT_SUCCEEDS
+		fmt.Fprintf(os.Stderr,
+			"INVARIANT POST_COMPLETION_UPGRADE_ROW_INSERT_SUCCEEDS violated: could not record completed upgrade row for sha=%s: %v (install.go:%d, pid=%d)\n",
+			sha, err, thisLine(), os.Getpid())
+		markTerminal(installDir, "POST_COMPLETION_UPGRADE_ROW_INSERT_SUCCEEDS",
+			fmt.Sprintf("sha=%s; INSERT err=%v", sha, err))
+		return fmt.Errorf("POST_COMPLETION_UPGRADE_ROW_INSERT_SUCCEEDS: %w", err)
 	}
 	fmt.Printf("  Recorded installed version %s in upgrade table\n", version)
+	return nil
 }
 
-// failInstallUpgradeRow marks the in_progress row as failed.
+// failInstallUpgradeRow marks the in_progress row as failed. Secondary
+// cleanup — the primary `installErr` return already drives the shell
+// fail-fast path. A10/A11 are log-only named breadcrumbs so the support
+// bundle has a greppable anchor when the DB row could not be updated.
 func failInstallUpgradeRow(conn *pgx.Conn, rowID int64, stepErr error) {
 	if conn == nil {
-		fmt.Printf("  Note: no DB connection; could not mark upgrade row %d failed\n", rowID)
+		// A10: FAIL_ROW_DB_CONN_LIVE_FOR_CLEANUP
+		log.Printf(
+			"INVARIANT FAIL_ROW_DB_CONN_LIVE_FOR_CLEANUP violated (secondary cleanup): conn==nil; upgrade row %d will be auto-healed on next install.sh run (install.go:%d, pid=%d)",
+			rowID, thisLine(), os.Getpid())
 		return
 	}
 	errMsg := stepErr.Error()
 	if len(errMsg) > 500 {
 		errMsg = errMsg[:500]
 	}
-	_, err := conn.Exec(context.Background(),
+	tag, err := conn.Exec(context.Background(),
 		`UPDATE public.upgrade SET state = 'failed', error = $1
 		 WHERE id = $2 AND state = 'in_progress'`,
 		errMsg, rowID)
-	if err != nil {
-		fmt.Printf("  Note: could not mark upgrade row %d failed: %v\n", rowID, err)
+	rowsAffected := tag.RowsAffected()
+	if err != nil || rowsAffected == 0 {
+		// A11: FAIL_ROW_UPDATE_SUCCEEDS
+		log.Printf(
+			"INVARIANT FAIL_ROW_UPDATE_SUCCEEDS violated (secondary cleanup): UPDATE failed for row %d: %v; rowsAffected=%d; next install.sh run's A1 auto-heal will resolve (install.go:%d, pid=%d)",
+			rowID, err, rowsAffected, thisLine(), os.Getpid())
 		return
 	}
 	fmt.Printf("  Upgrade row %d: failed\n", rowID)
@@ -1218,9 +1495,14 @@ func failInstallUpgradeRow(conn *pgx.Conn, rowID int64, stepErr error) {
 // install. This ensures the step-table path (used by cloud.sh) triggers the
 // same retention as the service's executeUpgrade path. Errors are logged and
 // swallowed — retention is opportunistic, not a hard install dependency.
+// Log lines are named under the class invariant OPPORTUNISTIC_CLEANUP_BEST_EFFORT_LOGGED
+// so the support bundle has a greppable anchor for SSB triage.
 func runInstallRetention(conn *pgx.Conn, rowID int64) {
 	if conn == nil {
-		fmt.Printf("  Note: no DB connection; retention purge skipped\n")
+		// A12: OPPORTUNISTIC_CLEANUP_BEST_EFFORT_LOGGED (retention-no-conn)
+		log.Printf(
+			"INVARIANT OPPORTUNISTIC_CLEANUP_BEST_EFFORT_LOGGED violated (A12 — retention-no-conn): conn==nil; skip (install.go:%d, pid=%d)",
+			thisLine(), os.Getpid())
 		return
 	}
 	// upgrade_retention_apply(scope, installed_id, INOUT p_deleted)
@@ -1234,7 +1516,10 @@ func runInstallRetention(conn *pgx.Conn, rowID int64) {
 		"CALL public.upgrade_retention_apply($1, $2, 0)",
 		"all", installedID).Scan(&deleted)
 	if err != nil {
-		fmt.Printf("  Note: retention purge skipped: %v\n", err)
+		// A13: OPPORTUNISTIC_CLEANUP_BEST_EFFORT_LOGGED (retention-sql)
+		log.Printf(
+			"INVARIANT OPPORTUNISTIC_CLEANUP_BEST_EFFORT_LOGGED violated (A13 — retention-sql): CALL upgrade_retention_apply err=%v (install.go:%d, pid=%d)",
+			err, thisLine(), os.Getpid())
 		return
 	}
 	if deleted > 0 {
@@ -1244,11 +1529,15 @@ func runInstallRetention(conn *pgx.Conn, rowID int64) {
 
 // runInstallSupersede marks older upgrade rows as superseded after a
 // successful install. Calls the shared SQL procedure so both install
-// and service paths use the same logic. Best-effort — errors are
-// logged and swallowed.
+// and service paths use the same logic. Best-effort — errors are named
+// breadcrumbs under OPPORTUNISTIC_CLEANUP_BEST_EFFORT_LOGGED so the
+// support bundle retains a greppable anchor.
 func runInstallSupersede(conn *pgx.Conn, dir string) {
 	if conn == nil {
-		fmt.Printf("  Note: no DB connection; supersede skipped\n")
+		// Sub-index reuses A12 class (no dedicated sub-idx; same no-conn shape).
+		log.Printf(
+			"INVARIANT OPPORTUNISTIC_CLEANUP_BEST_EFFORT_LOGGED violated (A12 — supersede-no-conn): conn==nil; skip (install.go:%d, pid=%d)",
+			thisLine(), os.Getpid())
 		return
 	}
 	sha, _ := gitHeadInfo(dir)
@@ -1260,7 +1549,10 @@ func runInstallSupersede(conn *pgx.Conn, dir string) {
 		"CALL public.upgrade_supersede_older($1, 0)",
 		sha).Scan(&superseded)
 	if err != nil {
-		fmt.Printf("  Note: supersede older releases skipped: %v\n", err)
+		// A14: OPPORTUNISTIC_CLEANUP_BEST_EFFORT_LOGGED (supersede-sql)
+		log.Printf(
+			"INVARIANT OPPORTUNISTIC_CLEANUP_BEST_EFFORT_LOGGED violated (A14 — supersede-sql): CALL upgrade_supersede_older err=%v; rowsAffected=%d (install.go:%d, pid=%d)",
+			err, superseded, thisLine(), os.Getpid())
 		return
 	}
 	if superseded > 0 {
@@ -1274,7 +1566,10 @@ func runInstallSupersede(conn *pgx.Conn, dir string) {
 		"CALL public.upgrade_supersede_completed_prereleases($1, 0)",
 		sha).Scan(&supersededPrereleases)
 	if err != nil {
-		fmt.Printf("  Note: supersede completed prereleases skipped: %v\n", err)
+		// A16: OPPORTUNISTIC_CLEANUP_BEST_EFFORT_LOGGED (prerelease-sql)
+		log.Printf(
+			"INVARIANT OPPORTUNISTIC_CLEANUP_BEST_EFFORT_LOGGED violated (A16 — prerelease-sql): CALL upgrade_supersede_completed_prereleases err=%v (install.go:%d, pid=%d)",
+			err, thisLine(), os.Getpid())
 		return
 	}
 	if supersededPrereleases > 0 {
@@ -1442,7 +1737,7 @@ func migrateConfigPaths(dir string) {
 	}
 	if changed {
 		if err := f.Save(); err != nil {
-			fmt.Printf("  Warning: could not migrate .env.config paths: %v\n", err)
+			log.Printf("Could not migrate .env.config paths: %v", err)
 		} else {
 			fmt.Println("  Migrated .env.config: devops/ → ops/")
 		}
@@ -1480,4 +1775,129 @@ func logInstallState(state install.State, detail *install.Detail) {
 		fmt.Println("  Existing install, no upgrade scheduled; running idempotent step-table to refresh.")
 	}
 	fmt.Println()
+}
+
+// Runtime invariant registration — every guard site in this file declares
+// its triad (ExpectedToHold / WhyExpected / ViolationShape / TranscriptFormat)
+// so the support-bundle `invariants` section and the plan ↔ code ↔ bundle
+// coupling stays authoritative. TestEveryInvariantHasTriadDocumented gates
+// this on every build.
+func init() {
+	invariants.Register(invariants.Invariant{
+		Name:             "UPGRADE_ROW_INSERT_SUCCEEDS_POST_DETECT",
+		Class:            invariants.FailFast,
+		SourceLocation:   "cli/cmd/install.go:startInstallUpgradeRow",
+		ExpectedToHold:   "The INSERT into public.upgrade succeeds when DetectState just confirmed DB reachable and schema present.",
+		WhyExpected:      "DetectState=StateNothingScheduled asserts both DB reachability and public.upgrade schema presence; the INSERT fires milliseconds later with no intervening state change.",
+		ViolationShape:   "runInstallSQL returns a non-nil error for the INSERT ... RETURNING id (or a follow-up SELECT querying row state after an empty RETURNING).",
+		TranscriptFormat: "INVARIANT UPGRADE_ROW_INSERT_SUCCEEDS_POST_DETECT violated: INSERT into public.upgrade failed immediately after DetectState=StateNothingScheduled: <err>",
+	})
+	invariants.Register(invariants.Invariant{
+		Name:             "UPGRADE_ROW_ID_INTEGER",
+		Class:            invariants.FailFast,
+		SourceLocation:   "cli/cmd/install.go:startInstallUpgradeRow",
+		ExpectedToHold:   "RETURNING id from the public.upgrade INSERT yields a parseable int64 through psql -A -t.",
+		WhyExpected:      "id is bigint in the schema; psql -A -t emits bare integer text for a single-column RETURNING; no test fixture injects non-integer text.",
+		ViolationShape:   "strconv.ParseInt returns an error on the trimmed RETURNING output — observed input is non-numeric or empty after an ostensibly-successful INSERT.",
+		TranscriptFormat: "INVARIANT UPGRADE_ROW_ID_INTEGER violated: RETURNING yielded <raw> (not parseable as int64): <err>",
+	})
+	invariants.Register(invariants.Invariant{
+		Name:             "AUTOHEAL_FAILED",
+		Class:            invariants.FailFast,
+		SourceLocation:   "cli/cmd/install.go:startInstallUpgradeRow",
+		ExpectedToHold:   "The UPDATE marking an orphan in_progress row as failed succeeds when invoked inside startInstallUpgradeRow (mutex guarantees no live owner).",
+		WhyExpected:      "The install-held O_EXCL flag means no upgrade-service or sibling install can hold the row; the orphan is by construction unclaimed. A live DB that just accepted the INSERT must accept this UPDATE.",
+		ViolationShape:   "runInstallSQL returns a non-nil error for the UPDATE public.upgrade SET state='failed' ... WHERE id=<orphanID> AND state='in_progress'.",
+		TranscriptFormat: "INVARIANT AUTOHEAL_FAILED violated: UPDATE to mark orphan in_progress row <id> as failed returned err=<err>",
+	})
+	invariants.Register(invariants.Invariant{
+		Name:             "DB_CONNECTIVITY_STABLE_ACROSS_ADJACENT_SQL",
+		Class:            invariants.FailFast,
+		SourceLocation:   "cli/cmd/install.go:runInstall (log-path stamp)",
+		ExpectedToHold:   "The runInstallSQL UPDATE stamping log_relative_file_path succeeds when the preceding INSERT into public.upgrade just succeeded milliseconds earlier.",
+		WhyExpected:      "Two adjacent runInstallSQL subprocess calls hit the same DB over the same Caddy L4 proxy with no intervening state change. DB loss in between means docker killed / network blip / OOM — catastrophic and not recoverable by retry.",
+		ViolationShape:   "runInstallSQL returns a non-nil error for the UPDATE public.upgrade SET log_relative_file_path=... WHERE id=<rowID>, after the startInstallUpgradeRow INSERT had already succeeded.",
+		TranscriptFormat: "INVARIANT DB_CONNECTIVITY_STABLE_ACROSS_ADJACENT_SQL violated: UPDATE failed <ms> ms after INSERT succeeded: <err>",
+	})
+	invariants.Register(invariants.Invariant{
+		Name:             "POST_COMPLETION_DB_REACHABLE_AFTER_STEP_TABLE",
+		Class:            invariants.FailFast,
+		SourceLocation:   "cli/cmd/install.go:runInstall (post-completion defer)",
+		ExpectedToHold:   "pgx.Connect to the admin DSN succeeds in the post-completion defer when the step-table (including the Services step) completed without error.",
+		WhyExpected:      "Successful step-table completion requires a healthy DB — the Services and Migrations steps both exercise it moments earlier. A fresh pgx.Connect failing here means the DB went away in the narrow window after step-table success.",
+		ViolationShape:   "pgx.Connect returns a non-nil error in the runInstall post-completion defer, on a path where installErr == nil (primary install succeeded).",
+		TranscriptFormat: "INVARIANT POST_COMPLETION_DB_REACHABLE_AFTER_STEP_TABLE violated: pgx.Connect failed after healthy step-table: <err>",
+	})
+	invariants.Register(invariants.Invariant{
+		Name:             "COMPLETION_CONN_NON_NIL",
+		Class:            invariants.PanicRegression,
+		SourceLocation:   "cli/cmd/install.go:completeInstallUpgradeRow",
+		ExpectedToHold:   "completeInstallUpgradeRow is never called with a nil *pgx.Conn — A3 fail-fast in the runInstall defer guarantees the connect succeeded on the success path.",
+		WhyExpected:      "The runInstall defer only calls completeInstallUpgradeRow when installErr == nil and (implicitly) after the A3 guard has returned early on connect failure. If this branch fires, the defer chain has drifted and quiet corruption is likely.",
+		ViolationShape:   "conn == nil on entry to completeInstallUpgradeRow — a refactor of runInstall's defer chain has broken the A3 guarantee.",
+		TranscriptFormat: "INVARIANT COMPLETION_CONN_NON_NIL violated: completeInstallUpgradeRow called with nil conn; A3 guarantee broken in runInstall defer chain",
+	})
+	invariants.Register(invariants.Invariant{
+		Name:             "COMPLETION_UPDATE_SUCCEEDS",
+		Class:            invariants.FailFast,
+		SourceLocation:   "cli/cmd/install.go:completeInstallUpgradeRow",
+		ExpectedToHold:   "The UPDATE marking the in_progress upgrade row as completed both returns err=nil AND affects exactly one row.",
+		WhyExpected:      "The row was written by this same process in startInstallUpgradeRow seconds earlier; the mutex guarantees nobody else has claimed it; the WHERE clause matches state='in_progress' which this path owns. A 0-row UPDATE means a concurrent writer stole the row — a mutex-invariant breach.",
+		ViolationShape:   "pgx.Exec returns a non-nil error OR CommandTag.RowsAffected() returns 0 for the UPDATE public.upgrade SET state='completed' ... WHERE id=<rowID> AND state='in_progress'.",
+		TranscriptFormat: "INVARIANT COMPLETION_UPDATE_SUCCEEDS violated: upgrade row <id> UPDATE to 'completed' failed: <err>; rowsAffected=<n>",
+	})
+	invariants.Register(invariants.Invariant{
+		Name:             "GIT_HEAD_RESOLVABLE",
+		Class:            invariants.FailFast,
+		SourceLocation:   "cli/cmd/install.go:completeInstallUpgradeRow",
+		ExpectedToHold:   "gitHeadInfo(installDir) returns non-empty sha and commitDate during the post-completion path.",
+		WhyExpected:      "./sb install operates from inside a git clone (the Repository step ran earlier); HEAD is the commit just installed. Empty fields mean .git was removed mid-install or we're in the wrong directory — neither is recoverable.",
+		ViolationShape:   "gitHeadInfo returns sha=\"\" or commitDate=\"\" inside completeInstallUpgradeRow.",
+		TranscriptFormat: "INVARIANT GIT_HEAD_RESOLVABLE violated: gitHeadInfo returned sha=<sha> commitDate=<date>; cwd=<cwd>",
+	})
+	invariants.Register(invariants.Invariant{
+		Name:             "POST_COMPLETION_UPGRADE_ROW_INSERT_SUCCEEDS",
+		Class:            invariants.FailFast,
+		SourceLocation:   "cli/cmd/install.go:completeInstallUpgradeRow",
+		ExpectedToHold:   "The INSERT/upsert recording the completed upgrade row for this SHA succeeds when no prior row existed (fresh-install path, rowID == 0).",
+		WhyExpected:      "A3 just guaranteed the DB is reachable, gitHeadInfo (A8) yielded real values, and this is an idempotent INSERT ... ON CONFLICT upsert. Failure means the DB dropped between A3 and this call or a schema drift broke the INSERT.",
+		ViolationShape:   "pgx.Exec returns a non-nil error for the fresh-install INSERT INTO public.upgrade (...) VALUES (...) ON CONFLICT (commit_sha) DO UPDATE SET ...",
+		TranscriptFormat: "INVARIANT POST_COMPLETION_UPGRADE_ROW_INSERT_SUCCEEDS violated: could not record completed upgrade row for sha=<sha>: <err>",
+	})
+	invariants.Register(invariants.Invariant{
+		Name:             "FAIL_ROW_DB_CONN_LIVE_FOR_CLEANUP",
+		Class:            invariants.LogOnly,
+		SourceLocation:   "cli/cmd/install.go:failInstallUpgradeRow",
+		ExpectedToHold:   "failInstallUpgradeRow is invoked with a live *pgx.Conn so the in_progress row can be marked failed as a secondary audit step.",
+		WhyExpected:      "The caller (runInstall defer) passes the conn from its own connectInstallDB call; if that succeeded we have a live handle. A nil conn here means A3 already fired on the cleanup path — primary fail-fast drives the shell; this breadcrumb only.",
+		ViolationShape:   "failInstallUpgradeRow(conn, ...) called with conn==nil.",
+		TranscriptFormat: "INVARIANT FAIL_ROW_DB_CONN_LIVE_FOR_CLEANUP violated (secondary cleanup): conn==nil; upgrade row <id> will be auto-healed on next install.sh run",
+	})
+	invariants.Register(invariants.Invariant{
+		Name:             "FAIL_ROW_UPDATE_SUCCEEDS",
+		Class:            invariants.LogOnly,
+		SourceLocation:   "cli/cmd/install.go:failInstallUpgradeRow",
+		ExpectedToHold:   "The UPDATE marking the in_progress row as failed succeeds and affects one row during cleanup of a failed install.",
+		WhyExpected:      "Row exists (this process wrote it), state is still 'in_progress' (nobody else could claim it), and the conn is live. Failure here is a non-recoverable DB issue that the primary installErr return already surfaces.",
+		ViolationShape:   "pgx.Exec returns a non-nil error OR RowsAffected() == 0 for the cleanup UPDATE public.upgrade SET state='failed', error=... WHERE id=<rowID> AND state='in_progress'.",
+		TranscriptFormat: "INVARIANT FAIL_ROW_UPDATE_SUCCEEDS violated (secondary cleanup): UPDATE failed for row <id>: <err>; rowsAffected=<n>; next install.sh run's A1 auto-heal will resolve",
+	})
+	invariants.Register(invariants.Invariant{
+		Name:             "OPPORTUNISTIC_CLEANUP_BEST_EFFORT_LOGGED",
+		Class:            invariants.LogOnly,
+		SourceLocation:   "cli/cmd/install.go:runInstallRetention/runInstallSupersede/acquireOrBypass",
+		ExpectedToHold:   "Post-success cleanup calls (retention purge, supersede older rows, prerelease supersede, unexpected-bypass audit) succeed, but their failure never aborts the install.",
+		WhyExpected:      "These are housekeeping operations whose failure is tolerable — the primary install already succeeded; stale rows accumulate but do not break future installs. A4's A1 auto-heal is the backstop.",
+		ViolationShape:   "conn==nil, or CALL upgrade_retention_apply / upgrade_supersede_older / upgrade_supersede_completed_prereleases returns err, or --inside-active-upgrade observed without an on-disk flag. Each sub-site prints a named log line with sub-index (A12/A13/A14/A16/A17).",
+		TranscriptFormat: "INVARIANT OPPORTUNISTIC_CLEANUP_BEST_EFFORT_LOGGED violated (A<sub> — <subsite>): <observed>; proceeding",
+	})
+	invariants.Register(invariants.Invariant{
+		Name:             "FAILED_INSTALL_HAS_AUDIT_TRAIL",
+		Class:            invariants.LogOnly,
+		SourceLocation:   "cli/cmd/install.go:runInstall (post-completion defer, audit branch)",
+		ExpectedToHold:   "Every failed install leaves a greppable audit breadcrumb in stderr/log, even when no upgrade row was created (fresh install that died before DB reachable).",
+		WhyExpected:      "Primary installErr return already drives install.sh's shell-level banner; the DB-side row is missing by construction on this branch. An explicit named log line keeps the support bundle's invariants grep aligned with SSB triage expectations.",
+		ViolationShape:   "runInstall returns a non-nil installErr while upgradeRowID == 0 — the audit line prints but neither markTerminal nor installErr wrapping is applied (log-only class).",
+		TranscriptFormat: "INVARIANT FAILED_INSTALL_HAS_AUDIT_TRAIL violated (audit-only): install failed with no upgrade row (detectedState=<state>): <err>",
+	})
 }
