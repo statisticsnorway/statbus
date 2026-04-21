@@ -300,16 +300,23 @@ RUN git clone https://github.com/supabase/pg_graphql.git && \
   git checkout ${pg_graphql_release} && \
   cargo pgrx install --release --features pg18
 
-# Prepare files for installation — copy from the pgrx-installed paths directly.
-# Using `find /` would also match the source-tree .control in /tmp/pg_graphql and
-# clobber pgrx's substituted output in last-write order (see jsonb_stats-builder).
+# Prepare files for installation. Scoped find, NOT `find /`:
+#   - bounds the search to pgrx's authoritative install dir, so the source-tree
+#     .control under /tmp/pg_graphql/ can never clobber the substituted output
+#   - handles "extension ships no SQL file" gracefully (find skips cp when no
+#     match); a literal `cp <ext>--*.sql` would fail on shell glob pass-through
+#
+# Sanity: pgrx must have substituted default_version; fail the build loudly
+# if it didn't (belt-and-braces against a future pgrx regression).
+RUN grep -qE "default_version = '[0-9]" \
+      /usr/share/postgresql/${postgresql_major}/extension/pg_graphql.control
 RUN mkdir -p /tmp/pg_graphql-dist/usr/lib/postgresql/${postgresql_major}/lib \
              /tmp/pg_graphql-dist/usr/share/postgresql/${postgresql_major}/extension && \
   cp /usr/lib/postgresql/${postgresql_major}/lib/pg_graphql.so \
      /tmp/pg_graphql-dist/usr/lib/postgresql/${postgresql_major}/lib/ && \
-  cp /usr/share/postgresql/${postgresql_major}/extension/pg_graphql.control \
-     /usr/share/postgresql/${postgresql_major}/extension/pg_graphql--*.sql \
-     /tmp/pg_graphql-dist/usr/share/postgresql/${postgresql_major}/extension/
+  find /usr/share/postgresql/${postgresql_major}/extension -maxdepth 1 \
+       \( -name "pg_graphql.control" -o -name "pg_graphql--*.sql" \) \
+       -exec cp {} /tmp/pg_graphql-dist/usr/share/postgresql/${postgresql_major}/extension/ \;
 
 ####################
 # Build jsonb_stats
@@ -324,20 +331,19 @@ RUN git clone https://github.com/veridit/jsonb_stats.git && \
   git checkout ${jsonb_stats_release} && \
   cargo pgrx install --release --features pg18
 
-# Prepare files for installation — copy from pgrx's install paths directly.
-# `find / -name jsonb_stats.control` ALSO matches /tmp/jsonb_stats/jsonb_stats.control
-# (source tree with literal @CARGO_VERSION@), and in cp-per-match traversal order the
-# source copy clobbers pgrx's substituted /usr/share/.../extension/jsonb_stats.control
-# (which correctly has default_version = '2.0.0' after pgrx's CARGO_PKG_VERSION subst).
-# This is why previously shipped images had `@CARGO_VERSION@` leaking into PG, breaking
-# `CREATE EXTENSION jsonb_stats;`. See pgrx-sql-entity-graph-0.16.1/src/control_file.rs:72.
+# See pg_graphql-builder above for the full rationale on scoped-find + sanity.
+# jsonb_stats uses pgrx's @CARGO_VERSION@ template; the sanity check below
+# fails image build if pgrx ever stops substituting (ref
+# pgrx-sql-entity-graph-0.16.1/src/control_file.rs:72 `do_var_replacements`).
+RUN grep -qE "default_version = '[0-9]" \
+      /usr/share/postgresql/${postgresql_major}/extension/jsonb_stats.control
 RUN mkdir -p /tmp/jsonb_stats-dist/usr/lib/postgresql/${postgresql_major}/lib \
              /tmp/jsonb_stats-dist/usr/share/postgresql/${postgresql_major}/extension && \
   cp /usr/lib/postgresql/${postgresql_major}/lib/jsonb_stats.so \
      /tmp/jsonb_stats-dist/usr/lib/postgresql/${postgresql_major}/lib/ && \
-  cp /usr/share/postgresql/${postgresql_major}/extension/jsonb_stats.control \
-     /usr/share/postgresql/${postgresql_major}/extension/jsonb_stats--*.sql \
-     /tmp/jsonb_stats-dist/usr/share/postgresql/${postgresql_major}/extension/
+  find /usr/share/postgresql/${postgresql_major}/extension -maxdepth 1 \
+       \( -name "jsonb_stats.control" -o -name "jsonb_stats--*.sql" \) \
+       -exec cp {} /tmp/jsonb_stats-dist/usr/share/postgresql/${postgresql_major}/extension/ \;
 
 ####################
 # Build sql_saga_native (Rust native planner for sql_saga temporal_merge)
@@ -353,16 +359,20 @@ RUN git clone https://github.com/veridit/sql_saga.git && \
   cd native && \
   cargo pgrx install --release --features pg18
 
-# Prepare files for installation — copy from the pgrx-installed paths directly.
-# Using `find /` would also match the source-tree .control and last-write-clobber
-# pgrx's substituted output (same bug as jsonb_stats-builder).
+# See pg_graphql-builder above for the full rationale on scoped-find + sanity.
+# sql_saga_native is a pgrx extension with NO generated SQL file (only .so and
+# .control), which is why the previous literal-glob `cp <name>--*.sql` failed:
+# the unexpanded glob reached `cp` and errored.  Scoped find handles this
+# correctly — if no .sql file exists, find just doesn't invoke cp on it.
+RUN grep -qE "default_version = '[0-9]" \
+      /usr/share/postgresql/${postgresql_major}/extension/sql_saga_native.control
 RUN mkdir -p /tmp/sql_saga_native-dist/usr/lib/postgresql/${postgresql_major}/lib \
              /tmp/sql_saga_native-dist/usr/share/postgresql/${postgresql_major}/extension && \
   cp /usr/lib/postgresql/${postgresql_major}/lib/sql_saga_native.so \
      /tmp/sql_saga_native-dist/usr/lib/postgresql/${postgresql_major}/lib/ && \
-  cp /usr/share/postgresql/${postgresql_major}/extension/sql_saga_native.control \
-     /usr/share/postgresql/${postgresql_major}/extension/sql_saga_native--*.sql \
-     /tmp/sql_saga_native-dist/usr/share/postgresql/${postgresql_major}/extension/
+  find /usr/share/postgresql/${postgresql_major}/extension -maxdepth 1 \
+       \( -name "sql_saga_native.control" -o -name "sql_saga_native--*.sql" \) \
+       -exec cp {} /tmp/sql_saga_native-dist/usr/share/postgresql/${postgresql_major}/extension/ \;
 
 ####################
 # Final image
