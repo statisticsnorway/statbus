@@ -275,13 +275,22 @@ func (d *Service) writeUpgradeFlag(id int, commitSHA, displayName, invokedBy, tr
 	return nil
 }
 
-// removeUpgradeFlag releases the service's flock. On crash the kernel
-// does this automatically; this is the graceful-completion path.
+// removeUpgradeFlag releases the service's flock AND removes the
+// on-disk JSON. Symmetric with ReleaseInstallFlag (line 314): once
+// the service has reconciled the upgrade row to a terminal state,
+// the flag file's reconciliation purpose is exhausted, and leaving
+// it on disk creates a ghost flag that the install probe
+// misclassifies as StateCrashedUpgrade.
+//
+// On a true crash the kernel releases the flock automatically (fd
+// teardown) but the file persists — that's the genuine recovery
+// case, handled by recoverFromFlag at next service startup.
 func (d *Service) removeUpgradeFlag() {
 	if d.flagLock != nil {
 		d.flagLock.Close()
 		d.flagLock = nil
 	}
+	os.Remove(d.flagPath())
 }
 
 // AcquireInstallFlag atomically claims the upgrade-mutex marker for an
