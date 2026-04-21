@@ -756,7 +756,7 @@ The deploy automation is structurally the same as the multi-tenant one (force-pu
 The high-level shape (concrete walkthrough belongs in the per-host bootstrap plan):
 
 1. Provision the box. Install Ubuntu 24.04 LTS with the desired filesystem (mdadm RAID where applicable; XFS recommended for `/`).
-2. Run `ops/harden-ubuntu-lts-24.sh` (stages 1-6; skip 0 if the network allows HTTP).
+2. Run `ops/setup-ubuntu-lts-24.sh` (stages 1-6; skip 0 if the network allows HTTP).
 3. Bootstrap StatBus as `devops`: `curl -fsSL https://statbus.org/install.sh | bash -s -- --prerelease`.
 4. Author `.env.config` with `CADDY_DEPLOYMENT_MODE=standalone`, `SITE_DOMAIN=<the public domain>`, `UPGRADE_CHANNEL=prerelease`, plus `SEQ_API_KEY` / `SLACK_TOKEN` copied from an existing instance for observability continuity.
 5. Add a `.github/workflows/deploy-to-<host>-<slot>.yaml` and `master-to-<host>-<slot>.yaml` pair, modeled on `deploy-to-rune-no.yaml` and `master-to-rune-no.yaml`. Branch name: `ops/standalone/deploy/<host>-<slot>`.

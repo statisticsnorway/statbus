@@ -1,4 +1,4 @@
-# harden-ubuntu-lts-24.sh
+# setup-ubuntu-lts-24.sh
 
 Ubuntu 24.04 LTS server hardening script with interactive stage-by-stage execution.
 
@@ -6,7 +6,7 @@ Ubuntu 24.04 LTS server hardening script with interactive stage-by-stage executi
 
 ```bash
 # Download
-curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/master/ops/harden-ubuntu-lts-24.sh -o harden.sh
+curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/master/ops/setup-ubuntu-lts-24.sh -o harden.sh
 chmod +x harden.sh
 
 # Run (will prompt for configuration, then each stage)
@@ -17,7 +17,7 @@ sudo ./harden.sh
 
 - **Interactive**: Prompts Yes/No before each stage - safe to run from uncomfortable consoles
 - **Verification**: Automatic checks after each stage with pass/fail indicators
-- **Configurable**: Settings stored in `~/.harden-ubuntu.env`
+- **Configurable**: Settings stored in `~/.setup-ubuntu.env`
 - **Non-interactive mode**: `--non-interactive` flag for automation
 
 ## Stages
@@ -42,14 +42,14 @@ On first run, you'll be prompted for:
 | `GITHUB_USERS` | Space-separated GitHub usernames for SSH key fetching |
 | `EXTRA_LOCALES` | Extra locales to enable, without `.UTF-8` suffix (e.g., `sq_AL nb_NO`) |
 
-Configuration is saved to `~/.harden-ubuntu.env` and reused on subsequent runs.
+Configuration is saved to `~/.setup-ubuntu.env` and reused on subsequent runs.
 
 ## Non-Interactive Mode
 
 For automation, create the `.env` file first:
 
 ```bash
-cat > ~/.harden-ubuntu.env << 'EOF'
+cat > ~/.setup-ubuntu.env << 'EOF'
 ADMIN_EMAIL="admin@example.com"
 GITHUB_USERS="githubuser1 githubuser2"
 EXTRA_LOCALES="sq_AL nb_NO"

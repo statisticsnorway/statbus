@@ -132,7 +132,7 @@ Docker Compose bypasses UFW firewall rules. Ensure you carefully review which po
 Before installing StatBus on a production server, we recommend hardening the Ubuntu installation:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/master/ops/harden-ubuntu-lts-24.sh -o harden.sh
+curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/master/ops/setup-ubuntu-lts-24.sh -o harden.sh
 chmod +x harden.sh
 sudo ./harden.sh
 ```
@@ -150,7 +150,7 @@ This interactive script configures:
 - **Skip Stage 4** if your server is on a private network with existing firewall infrastructure
 - **Skip Stage 7** (Caddy) — StatBus runs Caddy inside Docker
 
-See [Server Hardening Guide](harden-ubuntu-lts-24.md) for full details.
+See [Server Hardening Guide](setup-ubuntu-lts-24.md) for full details.
 
 ### Quick Install
 

@@ -1343,7 +1343,7 @@ EOS
             SB_BINARY="sb-${BUILD_TARGET//\//-}"  # e.g. sb-linux-arm64
             multipass transfer "$SB_BINARY" "$VM_NAME":/tmp/sb
         fi
-        multipass transfer ops/harden-ubuntu-lts-24.sh "$VM_NAME":/tmp/harden.sh
+        multipass transfer ops/setup-ubuntu-lts-24.sh "$VM_NAME":/tmp/setup.sh
 
         # Create .env.config for standalone mode
         echo "Creating test configuration..."
@@ -1372,7 +1372,7 @@ USERS
         multipass transfer /tmp/statbus-test-users "$VM_NAME":/tmp/users.yml
 
         # Create hardening config for non-interactive mode
-        multipass exec "$VM_NAME" -- sudo bash -c 'cat > /root/.harden-ubuntu.env << EOF
+        multipass exec "$VM_NAME" -- sudo bash -c 'cat > /root/.setup-ubuntu.env << EOF
 ADMIN_EMAIL="test@statbus.org"
 GITHUB_USERS="jhf"
 EXTRA_LOCALES=""
@@ -1382,7 +1382,7 @@ EOF'
         # Run hardening (non-interactive, installs Docker + prerequisites)
         echo ""
         echo "=== Stage: Hardening ==="
-        multipass exec "$VM_NAME" -- sudo bash /tmp/harden.sh --non-interactive 2>&1 | tee tmp/test-install-harden.log
+        multipass exec "$VM_NAME" -- sudo bash /tmp/setup.sh --non-interactive 2>&1 | tee tmp/test-install-setup.log
         HARDEN_EXIT=$?
         if [ $HARDEN_EXIT -ne 0 ]; then
             echo "FAILED: Hardening failed (exit $HARDEN_EXIT)"

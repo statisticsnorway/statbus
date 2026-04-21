@@ -183,6 +183,6 @@ SSD is the single most impactful hardware choice after having sufficient RAM. If
 
 ## Operating System
 
-StatBus is tested on Ubuntu LTS 24.04. Any Linux distribution with Docker Engine 24+ and Docker Compose v2 will work. See `doc/harden-ubuntu-lts-24.md` for security hardening guidance.
+StatBus is tested on Ubuntu LTS 24.04. Any Linux distribution with Docker Engine 24+ and Docker Compose v2 will work. See `doc/setup-ubuntu-lts-24.md` for security hardening guidance.
 
 Windows Server with Docker (WSL2 or Hyper-V backend) is not tested but should work. Linux is recommended for production.

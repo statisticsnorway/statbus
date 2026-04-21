@@ -4,7 +4,7 @@ STATBUS installation for Ubuntu 24.04 LTS servers.
 
 ## Prerequisites
 
-Run the [server hardening script](harden-ubuntu-lts-24.md) first, or ensure you have:
+Run the [server hardening script](setup-ubuntu-lts-24.md) first, or ensure you have:
 - Docker and Docker Compose installed
 - Git installed
 - User with docker group access (can run `docker ps` without sudo)
@@ -57,7 +57,7 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed configuration options.
                   │
                   ▼
 ┌─────────────────────────────────────┐
-│  2. Run harden-ubuntu-lts-24.sh     │
+│  2. Run setup-ubuntu-lts-24.sh     │
 │     (as root, creates devops user)  │
 └─────────────────┬───────────────────┘
                   │
