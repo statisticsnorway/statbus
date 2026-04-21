@@ -559,17 +559,30 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 			appendLog.Close()
 			appendLog = nil
 		}
+		// Guard: only self-heal an in_progress row. A row already in a
+		// terminal state (completed/failed/rolled_back) means the prior
+		// service instance reconciled before exiting (clean rollback or
+		// success path) and left the file as a ghost — this recovery
+		// pass should silently remove the file, not overwrite the
+		// audit trail. ErrNoRows here means "ghost flag, terminal row";
+		// any other error is the real C1 invariant violation.
 		var selfHealJSON string
 		if err := d.queryConn.QueryRow(ctx,
-			"UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_status = 'ready' WHERE id = $1 AND completed_at IS NULL"+upgradeRowReturning,
+			"UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_status = 'ready' WHERE id = $1 AND state = 'in_progress'"+upgradeRowReturning,
 			flag.ID).Scan(&selfHealJSON); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				logRecover("Ghost flag detected for upgrade %d (%s): row is already terminal, removing stale flag file without overwriting audit trail",
+					flag.ID, flag.DisplayName)
+				os.Remove(d.flagPath())
+				return
+			}
 			// C1: SELF_HEAL_COMPLETED_TRANSITION_PERSISTED — bug-class. The
 			// flag's SHA matches a completed-on-disk state, the row is still
-			// in_progress, and we hold the mutex. A CHECK violation or 0-row
-			// UPDATE means the state machine has drifted; retrying next tick
-			// won't reconcile it. Fail-fast + bundle.
+			// in_progress (per the WHERE guard), and we hold the mutex. A
+			// CHECK violation here means the state machine has drifted;
+			// retrying next tick won't reconcile it. Fail-fast + bundle.
 			fmt.Fprintf(os.Stderr,
-				"INVARIANT SELF_HEAL_COMPLETED_TRANSITION_PERSISTED violated: state transition to completed matched 0 rows or errored (id=%d, err=%v) — possible CHECK constraint violation (service.go:%d, pid=%d)\n",
+				"INVARIANT SELF_HEAL_COMPLETED_TRANSITION_PERSISTED violated: state transition to completed errored for in_progress row (id=%d, err=%v) — possible CHECK constraint violation (service.go:%d, pid=%d)\n",
 				flag.ID, err, thisLine(), os.Getpid())
 			d.markTerminal("SELF_HEAL_COMPLETED_TRANSITION_PERSISTED",
 				fmt.Sprintf("id=%d; Scan err=%v", flag.ID, err))
@@ -618,17 +631,26 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 		errMsg = strings.Join(lines, "\n")
 	}
 
-	// Mark the upgrade as rolled_back in the DB. rolled_back_at +
-	// error + state='rolled_back' — the CHECK requires all three together.
+	// Mark the upgrade as rolled_back in the DB. Guard with state =
+	// 'in_progress': a row already in a terminal state means the prior
+	// service instance reconciled before exiting (clean rollback) and
+	// left the file as a ghost — overwriting `error` + `rolled_back_at`
+	// here would corrupt the audit trail. ErrNoRows ⇒ ghost flag, just
+	// remove the file. Any other error is the real C2 invariant.
 	var crashJSON string
 	if scanErr := d.queryConn.QueryRow(ctx,
-		"UPDATE public.upgrade SET state = 'rolled_back', error = $1, rolled_back_at = now() WHERE id = $2 AND completed_at IS NULL"+upgradeRowReturning,
+		"UPDATE public.upgrade SET state = 'rolled_back', error = $1, rolled_back_at = now() WHERE id = $2 AND state = 'in_progress'"+upgradeRowReturning,
 		errMsg, flag.ID).Scan(&crashJSON); scanErr != nil {
+		if errors.Is(scanErr, pgx.ErrNoRows) {
+			logRecover("Ghost flag detected for upgrade %d (%s): row is already terminal, removing stale flag file without overwriting audit trail",
+				flag.ID, flag.DisplayName)
+			os.Remove(d.flagPath())
+			return
+		}
 		// C2: CRASH_ROLLED_BACK_TRANSITION_PERSISTED — bug-class. Same
 		// contract as C1 (mutex-held, CHECK permits in_progress →
-		// rolled_back). An error here (not 0-row; 0 is a valid no-op
-		// when self-heal already completed the row in the concurrent
-		// branch) means the DB state machine is drifted.
+		// rolled_back, WHERE guards on in_progress). A non-NoRows error
+		// means the DB state machine is drifted.
 		fmt.Fprintf(os.Stderr,
 			"INVARIANT CRASH_ROLLED_BACK_TRANSITION_PERSISTED violated: could not mark upgrade %d as rolled_back: %v (service.go:%d, pid=%d)\n",
 			flag.ID, scanErr, thisLine(), os.Getpid())
@@ -2490,7 +2512,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 
 	// Step 12: Verify health
 	progress.Write("Verifying health...")
-	if err := d.healthCheck(5, 5*time.Second); err != nil {
+	if err := d.healthCheck(progress, 5, 5*time.Second); err != nil {
 		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: application health check: %v", ErrHealthcheckRESTDown, err), progress)
 		return err
 	}
@@ -2694,6 +2716,44 @@ func (d *Service) failUpgrade(ctx context.Context, id int, errMsg string, progre
 // <projDir>/.env (set by ./sb config generate), or "" if unset/unreadable.
 // Callers MUST tolerate the empty-string case — development installs leave
 // it empty and the UI renders sensibly without it.
+// captureContainerLogs writes per-service docker logs into a sibling
+// directory of the per-upgrade log so a failure-time snapshot survives
+// the rollback's docker compose stop+recreate. The directory is named
+// <log-basename>.containers/ and contains one file per service. Best
+// effort: if the docker call hangs or fails, log via progress and move
+// on — capture must NOT block rollback's recovery path. Each per-service
+// command has its own 8s deadline.
+func captureContainerLogs(projDir string, progress *ProgressLog, services []string) {
+	if progress == nil || progress.RelPath() == "" {
+		return
+	}
+	base := strings.TrimSuffix(progress.RelPath(), filepath.Ext(progress.RelPath()))
+	dirRel := filepath.Join("tmp", "upgrade-logs", base+".containers")
+	dirAbs := filepath.Join(projDir, dirRel)
+	if err := os.MkdirAll(dirAbs, 0755); err != nil {
+		progress.Write("Warning: could not create container log dir %s: %v", dirRel, err)
+		return
+	}
+
+	for _, svc := range services {
+		ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+		cmd := exec.CommandContext(ctx, "docker", "compose", "logs",
+			"--tail", "500", "--no-color", svc)
+		cmd.Dir = projDir
+		out, err := cmd.CombinedOutput()
+		cancel()
+		path := filepath.Join(dirAbs, svc+".log")
+		if err != nil && len(out) == 0 {
+			os.WriteFile(path, []byte(fmt.Sprintf("# capture failed: %v\n", err)), 0644)
+			continue
+		}
+		if writeErr := os.WriteFile(path, out, 0644); writeErr != nil {
+			progress.Write("Warning: could not write %s: %v", filepath.Join(dirRel, svc+".log"), writeErr)
+		}
+	}
+	progress.Write("Captured pre-rollback container logs to %s/", dirRel)
+}
+
 func readAdministratorContact(projDir string) string {
 	envPath := filepath.Join(projDir, ".env")
 	f, err := dotenv.Load(envPath)
@@ -2722,6 +2782,14 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 	progress.Write("Reason: %s", reason)
 
 	projDir := d.projDir
+
+	// Capture failure-time container logs BEFORE the docker compose stop
+	// destroys the running containers. The rollback later does
+	// `docker compose up -d --remove-orphans` which recreates fresh
+	// containers — without this snapshot, the REST 5xx body, db
+	// startup output, and app connection-attempt logs that explain
+	// the failure are gone forever.
+	captureContainerLogs(projDir, progress, []string{"rest", "app", "worker", "db"})
 
 	// Stop everything before we touch the git tree or restore the DB.
 	runCommand(projDir, "docker", "compose", "stop", "app", "worker", "rest", "db")
@@ -2779,8 +2847,15 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 				"STATBUS_RECOVERY_CMD":    fmt.Sprintf(`ssh %s "cd statbus && ./sb install"`, hostname),
 			})
 			// Maintenance stays ON — operator must complete the manual rollback steps above.
-			// Mutex flag stays on disk (dead PID after this service exits).
-			// After completing the manual steps, re-run ./sb install to reconcile.
+			// Release the flock so the operator's prescribed step 4
+			// (`./sb install`) can proceed: the service is a long-running
+			// daemon and does NOT exit on this ABORT path, so leaving the
+			// flock held would wedge install with StateLiveUpgrade.
+			// The on-disk JSON persists as the audit cue; the next install's
+			// RecoverFromFlag pass is a no-op against the rolled_back row
+			// (guarded by `state = 'in_progress'` since 2026-04-22) and
+			// just removes the file.
+			d.removeUpgradeFlag()
 			return
 		}
 		if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "rollback-config-generate", filepath.Join(projDir, "sb"), "config", "generate"); err != nil {

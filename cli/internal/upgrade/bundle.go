@@ -183,6 +183,7 @@ func WriteBundleSections(ctx context.Context, w io.Writer, projDir string, id in
 		fmt.Sprintf("log tail (last %d lines from %s)", bundleLogTailLines, filepath.Base(logAbsPath)),
 		bundleLogTailBody(logAbsPath, bundleLogTailLines))
 	bundleSection(w, "docker compose ps", bundleCommandBody(ctx, projDir, "docker", "compose", "ps"))
+	bundleSection(w, "container log snapshot (pre-rollback capture)", bundleContainerLogsBody(projDir, logAbsPath))
 	if body, ok := bundleJournalctlBody(ctx); ok {
 		bundleSection(w,
 			fmt.Sprintf("journalctl tail (last %d lines from statbus-upgrade)", bundleJournalctlLines),
@@ -217,6 +218,36 @@ func bundleInstallTerminalBody(projDir string) string {
 		return "(file absent — install terminated without reaching a named-invariant site; see log tail)"
 	}
 	return body
+}
+
+// bundleContainerLogsBody describes the per-service log snapshot taken
+// by captureContainerLogs() at rollback time. Reports the directory path
+// + file sizes, not the file contents — operators triaging from the
+// bundle follow the path to read the verbatim per-service logs. This
+// keeps the bundle size bounded (4 services × 500 lines could otherwise
+// add tens of KB of low-signal output) while still surfacing the snapshot's
+// existence and where to look.
+func bundleContainerLogsBody(projDir, logAbsPath string) string {
+	if logAbsPath == "" {
+		return "(no log path — pre-connect failure path)"
+	}
+	base := strings.TrimSuffix(filepath.Base(logAbsPath), filepath.Ext(logAbsPath))
+	dirRel := filepath.Join("tmp", "upgrade-logs", base+".containers")
+	dirAbs := filepath.Join(projDir, dirRel)
+	entries, err := os.ReadDir(dirAbs)
+	if err != nil {
+		return fmt.Sprintf("(no snapshot at %s: %v — capture may have failed or this row never ran rollback)", dirRel, err)
+	}
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "snapshot dir: %s\n", dirRel)
+	for _, e := range entries {
+		info, ierr := e.Info()
+		if ierr != nil {
+			continue
+		}
+		fmt.Fprintf(&sb, "  %s  %d bytes\n", e.Name(), info.Size())
+	}
+	return sb.String()
 }
 
 // bundleSection writes `=== name ===\nbody\n\n` uniformly. Empty body

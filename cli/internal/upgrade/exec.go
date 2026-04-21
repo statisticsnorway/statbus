@@ -671,27 +671,49 @@ func (d *Service) healthURL() string {
 	return d.cachedURL
 }
 
-func (d *Service) healthCheck(retries int, interval time.Duration) error {
+// healthCheck POSTs {} to the auth_status RPC and retries on 5xx /
+// transport errors. Each failed attempt is logged via progress with
+// the actionable detail (status + body excerpt for 5xx, transport
+// error class otherwise) so a triage reader of the per-upgrade log
+// can identify the failure mode without grepping container logs.
+//
+// progress may be nil — falls back to stderr so the older verbose
+// path keeps working for ad-hoc invocations.
+func (d *Service) healthCheck(progress *ProgressLog, retries int, interval time.Duration) error {
 	healthURL := d.healthURL()
 	client := &http.Client{Timeout: 10 * time.Second}
 
+	logf := func(format string, args ...interface{}) {
+		if progress != nil {
+			progress.Write(format, args...)
+		} else {
+			fmt.Printf(format+"\n", args...)
+		}
+	}
+
+	var lastDetail string
 	for i := 0; i < retries; i++ {
 		// POST {} matches what the frontend sends — PostgREST RPCs are
 		// invoked via POST with a JSON body.
 		resp, err := client.Post(healthURL, "application/json", strings.NewReader("{}"))
-		if err == nil {
+		switch {
+		case err != nil:
+			lastDetail = fmt.Sprintf("transport error: %v", err)
+		case resp.StatusCode < 500:
 			resp.Body.Close()
-			if resp.StatusCode < 500 {
-				return nil
+			if i > 0 {
+				logf("Health check OK on attempt %d/%d (status=%d)", i+1, retries, resp.StatusCode)
 			}
+			return nil
+		default:
+			body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+			resp.Body.Close()
+			lastDetail = fmt.Sprintf("status=%d body=%q", resp.StatusCode, strings.TrimSpace(string(body)))
 		}
-
-		if d.verbose {
-			fmt.Printf("Health check attempt %d/%d failed (url=%s)\n", i+1, retries, healthURL)
-		}
+		logf("Health check attempt %d/%d failed: %s (url=%s)", i+1, retries, lastDetail, healthURL)
 		time.Sleep(interval)
 	}
-	return fmt.Errorf("health check failed after %d attempts", retries)
+	return fmt.Errorf("health check failed after %d attempts; last: %s", retries, lastDetail)
 }
 
 // reconcileBackupDir audits the backup directory against public.upgrade rows.
