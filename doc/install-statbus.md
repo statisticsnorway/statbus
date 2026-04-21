@@ -142,15 +142,22 @@ is committed to master at the moment the operator runs `curl`.
 
 `install.sh --prerelease` resolves a release tag in this order:
 
-1. **install-verified** — query the moving `install-verified` git tag
-   (advanced by `.github/workflows/install-verified.yaml` to commits
-   that passed BOTH `ci-images.yaml` AND `install-test.yaml`). Pick
-   the release tag pointing at that commit. Logged as
-   `Latest verified pre-release: <ver> (matches install-verified ref ...)`.
-2. **Fallback** — if `install-verified` is unavailable or no release
-   tag points at its commit exactly, fall back to "newest `-rc.` tag
-   by CalVer + RC number sort". Logged as
-   `Latest pre-release (UNVERIFIED — install-verified ref unavailable)`.
+1. **install-verified ancestor walk** — `install-verified` is a
+   moving git tag advanced by `.github/workflows/install-verified.yaml`
+   to the latest master commit that passed BOTH `ci-images.yaml` AND
+   `install-test.yaml`. The resolver does a bare blob-less clone of
+   the repo (~1-2 s, no file content), then walks RC release tags
+   newest-first (`git tag --sort=-version:refname`) and picks the
+   **first whose commit is install-verified itself OR an ancestor
+   of it**. This avoids the bootstrap trap where install-verified is
+   at commit A (its CI passed) while a newer release tag exists at
+   commit B (its CI hasn't finished — picking B would defeat the
+   verification gate). Logged as
+   `Latest verified pre-release: <ver> (commit <short> is install-verified or an ancestor; ...)`.
+2. **Fallback** — if `install-verified` is unavailable (clone failed,
+   ref missing) or no RC tag is an ancestor of it, fall back to
+   "newest `-rc.` tag by CalVer + RC number sort". Logged as
+   `Latest pre-release (UNVERIFIED — install-verified ref unavailable or no ancestor RC): <ver>`.
 3. **`--version v<X>`** — if the operator passes an explicit version,
    honour it as-is (no resolver detour, no validation against
    install-verified). Use this only when you know what you're doing.
