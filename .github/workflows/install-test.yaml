@@ -1,10 +1,20 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: Install Test
 
-# End-to-end test of the installation and upgrade path.
-# Verifies: fresh install → services healthy → upgrade → services healthy.
+# End-to-end test of the installation path.
+# Verifies two things that are liable to break separately:
+#   1. ops/setup-ubuntu-lts-24.sh Stage 7 (stage_service_account) — creates
+#      the `statbus` service account with the right groups and linger state.
+#   2. `./sb install` + `docker compose --profile all up` — the application
+#      stack reaches a healthy state with the upgrade table present.
+# Runs on push to master AND on workflow_dispatch. Also runs on schedule
+# (daily) so moving-ref consumers (install-verified) stay reasonably fresh.
 on:
-  workflow_dispatch:  # Manual trigger only (resource-intensive)
+  push:
+    branches: [master]
+  workflow_dispatch:
+  schedule:
+    - cron: '27 5 * * *'   # 05:27 UTC daily — cheap freshness check
 
 permissions:
   contents: read
@@ -15,7 +25,48 @@ env:
   ORG: statisticsnorway
 
 jobs:
-  install-test:
+  setup-script-stage-7:
+    # Verify that setup-ubuntu-lts-24.sh Stage 7 creates the statbus service
+    # account correctly when run non-interactively. We don't run stages 0-6
+    # on the runner itself (they'd reconfigure SSH, apt sources, etc — noisy
+    # and potentially fragile). Just Stage 7 via SKIP_STAGES.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run setup.sh Stage 7 only (service-account creation)
+        run: |
+          set -euxo pipefail
+          # Seed the env file so --non-interactive has what it needs.
+          sudo mkdir -p /root
+          sudo tee /root/.setup-ubuntu.env <<'EOF' >/dev/null
+          ADMIN_EMAIL="ci@example.invalid"
+          GITHUB_USERS=""
+          EXTRA_LOCALES=""
+          SERVICE_USER="statbus"
+          EOF
+          sudo chmod +x ops/setup-ubuntu-lts-24.sh
+          sudo SKIP_STAGES="0 1 2 3 4 5 6" ops/setup-ubuntu-lts-24.sh --non-interactive
+
+      - name: Verify Stage 7 outcomes
+        run: |
+          set -euxo pipefail
+          # User exists with /home/statbus
+          getent passwd statbus | grep -q ':/home/statbus:'
+          # docker group present and statbus is in it
+          getent group docker >/dev/null
+          id -nG statbus | tr ' ' '\n' | grep -qx docker
+          # .ssh dir created with correct mode
+          sudo test -d /home/statbus/.ssh
+          # Linger enabled
+          loginctl show-user statbus -p Linger | grep -q 'Linger=yes'
+
+  install-stack:
+    # Exercise ./sb install + docker compose up in development mode. This
+    # part does NOT run setup.sh (the runner is not a fresh box), but it
+    # catches regressions in the stack itself (migrations, docker-compose
+    # wiring, config generator).
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -32,14 +83,12 @@ jobs:
 
       - name: Run install (non-interactive)
         env:
-          # Non-interactive mode: pre-configure via env vars
           DEPLOYMENT_SLOT_NAME: Test
           DEPLOYMENT_SLOT_CODE: test
           DEPLOYMENT_SLOT_PORT_OFFSET: "1"
           CADDY_DEPLOYMENT_MODE: development
           SITE_DOMAIN: localhost
         run: |
-          # Create .env.config directly (skip interactive prompts)
           cat > .env.config <<CFG
           DEPLOYMENT_SLOT_NAME=$DEPLOYMENT_SLOT_NAME
           DEPLOYMENT_SLOT_CODE=$DEPLOYMENT_SLOT_CODE
@@ -48,13 +97,9 @@ jobs:
           SITE_DOMAIN=$SITE_DOMAIN
           CFG
 
-          # Generate config
           ./sb config generate
-
-          # Pull/build and start
           docker compose --profile all up -d --build
 
-          # Wait for DB
           for i in $(seq 1 30); do
             if docker compose exec db pg_isready -U postgres 2>/dev/null; then
               echo "DB ready after ${i}s"
@@ -63,20 +108,18 @@ jobs:
             sleep 1
           done
 
-          # Run migrations
           ./sb migrate up --verbose
 
       - name: Verify services healthy
         run: |
-          # Check all containers running
           docker compose ps --format json | jq -e '.[] | select(.State != "running")' && exit 1 || true
-
-          # Check DB responds
           docker compose exec db pg_isready -U postgres
-
-          # Check upgrade table exists
           echo "SELECT COUNT(*) FROM public.upgrade;" | ./sb psql
-
+          # jsonb_stats is the canary for the postgres/Dockerfile pgrx copy
+          # stages: if default_version isn't substituted, CREATE EXTENSION
+          # would have failed earlier during migrations, and this line would
+          # also fail.
+          echo "SELECT extname, extversion FROM pg_extension WHERE extname = 'jsonb_stats';" | ./sb psql
           echo "All services healthy"
 
       - name: Cleanup
