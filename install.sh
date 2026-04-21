@@ -112,7 +112,6 @@ if [ -d "$STATBUS_DIR/.git" ]; then
     echo "Checking out $VERSION..."
     git fetch origin --tags --quiet
     git checkout "$VERSION" --quiet
-    exec ./sb install $SB_INSTALL_ARGS
 else
     # FRESH: git clone creates the directory
     echo "Cloning StatBus repository..."
@@ -122,5 +121,70 @@ else
     cd "$STATBUS_DIR"
     echo "Binary: $(./sb --version)"
     echo ""
-    exec ./sb install $SB_INSTALL_ARGS
 fi
+
+# Clear any stale terminal file from a prior failed run so the banner below
+# only reflects invariants fired during THIS install, not ghosts from before.
+rm -f "$STATBUS_DIR/tmp/install-terminal.txt" 2>/dev/null || true
+
+# Run the Go-side installer. Do NOT `exec` — we need to handle non-zero
+# exits and write a named-invariant banner + support bundle so operators
+# have something actionable when they come back to "what happened".
+set +e
+./sb install $SB_INSTALL_ARGS
+sb_rc=$?
+set -e
+
+if [ "$sb_rc" -eq 0 ]; then
+    exit 0
+fi
+
+# ./sb install failed — gather a support bundle and write admin-UI state.
+# Everything below is best-effort. If a step fails, continue to the next
+# so the SYSTEM UNUSABLE banner always prints even when the DB is down or
+# the bundle disk write fails.
+echo ""
+echo "==============================================================================="
+echo "SYSTEM UNUSABLE — ./sb install failed (exit $sb_rc)"
+echo "==============================================================================="
+
+# 1. Named invariant that drove termination (empty when a panic or SIGKILL
+#    aborted before a guard site could write install-terminal.txt).
+terminal_file="$STATBUS_DIR/tmp/install-terminal.txt"
+if [ -s "$terminal_file" ]; then
+    invariant_line=$(tail -1 "$terminal_file")
+    echo ""
+    echo "Invariant breached:"
+    echo "  $invariant_line"
+else
+    invariant_line="(no named invariant — ./sb install aborted before a guard site fired)"
+    echo ""
+    echo "Invariant breached: $invariant_line"
+fi
+
+# 2. Support bundle: writes ./support-bundle-<ts>.txt and prints the abs path.
+bundle_path=""
+if bundle_path=$(./sb support gather --trigger=install 2>/tmp/sb-support-gather.err); then
+    echo ""
+    echo "Support bundle: $bundle_path"
+else
+    echo ""
+    echo "Support bundle: (gather failed — see /tmp/sb-support-gather.err)"
+fi
+
+# 3. Admin-UI state (best-effort — ./sb support write-admin-ui-row exits 0
+#    when the DB is unreachable; we ignore the exit code either way).
+./sb support write-admin-ui-row \
+    --message "$invariant_line" \
+    --bundle-path "${bundle_path:-}" \
+    >/dev/null 2>&1 || true
+
+# 4. Operator-facing instruction.
+contact="${ADMINISTRATOR_CONTACT:-Contact your administrator}"
+echo ""
+echo "Next steps:"
+echo "  $contact"
+echo "  Attach the support bundle above to your support ticket."
+echo "==============================================================================="
+
+exit "$sb_rc"
