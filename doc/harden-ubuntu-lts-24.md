@@ -31,7 +31,6 @@ sudo ./harden.sh
 | 4 | Security Tools *(optional)* | CrowdSec IDS + firewall bouncer, UFW firewall |
 | 5 | Core Tools | neovim, htop, ripgrep, Docker CE + compose |
 | 6 | User Setup | devops user, GitHub SSH keys, Homebrew, helix/bottom/zellij |
-| 7 | Caddy *(optional)* | Caddy web server with optional plugin support via xcaddy |
 
 ## Configuration
 
@@ -42,20 +41,8 @@ On first run, you'll be prompted for:
 | `ADMIN_EMAIL` | Email for unattended-upgrades notifications |
 | `GITHUB_USERS` | Space-separated GitHub usernames for SSH key fetching |
 | `EXTRA_LOCALES` | Extra locales to enable, without `.UTF-8` suffix (e.g., `sq_AL nb_NO`) |
-| `CADDY_PLUGINS` | Caddy plugins for custom build (empty = standard Caddy) |
 
 Configuration is saved to `~/.harden-ubuntu.env` and reused on subsequent runs.
-
-### Caddy Plugin Options
-
-When prompted, select by number or enter custom plugin paths:
-
-1. `github.com/mholt/caddy-l4` - Layer 4 (TCP/UDP) proxying
-2. `github.com/caddy-dns/cloudflare` - Cloudflare DNS for ACME
-3. `github.com/caddy-dns/namedotcom` - Name.com DNS for ACME
-4. `github.com/caddy-dns/route53` - AWS Route53 DNS for ACME
-5. `github.com/caddy-dns/digitalocean` - DigitalOcean DNS for ACME
-6. `github.com/greenpau/caddy-security` - Authentication/Authorization
 
 ## Non-Interactive Mode
 
@@ -66,7 +53,6 @@ cat > ~/.harden-ubuntu.env << 'EOF'
 ADMIN_EMAIL="admin@example.com"
 GITHUB_USERS="githubuser1 githubuser2"
 EXTRA_LOCALES="sq_AL nb_NO"
-CADDY_PLUGINS=""
 EOF
 
 sudo ./harden.sh --non-interactive
@@ -77,9 +63,8 @@ sudo ./harden.sh --non-interactive
 After running:
 
 1. **Test SSH access** as `devops` user before closing console session
-2. **Configure Caddy** at `/etc/caddy/Caddyfile`
-3. **Review CrowdSec**: `cscli metrics`, `cscli decisions list`
-4. **Check firewall**: `ufw status`
+2. **Review CrowdSec**: `cscli metrics`, `cscli decisions list`
+3. **Check firewall**: `ufw status`
 
 ## What Gets Hardened
 
@@ -123,7 +108,6 @@ When using this script to prepare a server for STATBUS deployment:
 1. **Stage 0 (HTTPS Sources)** — Run if your network blocks HTTP traffic
 2. **Run Stages 1-3, 5-6** — Essential hardening and tools
 3. **Stage 4 (Security Tools)** — Skip if on a private network with existing firewall
-4. **Stage 7 (Caddy)** — Skip, as STATBUS runs Caddy inside Docker
 
 After hardening, log in as the `devops` user and install STATBUS:
 
