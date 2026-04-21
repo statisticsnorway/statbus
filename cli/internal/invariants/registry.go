@@ -41,6 +41,19 @@ const (
 	// BundleOnly: the site runs inside the upgrade service and merely
 	// records context for the support bundle. Not operator-visible.
 	BundleOnly Class = "bundle-only"
+
+	// DBUnique: invariant enforced by a PostgreSQL UNIQUE (or partial
+	// UNIQUE) index. The DB is the authoritative checker — any caller
+	// that attempts to violate the constraint receives a pgconn.PgError
+	// with Code=23505. Go-side sites that trip such an error translate
+	// it back to the registered name via invariants.MapPgConstraint.
+	DBUnique Class = "db-unique"
+
+	// DBCheck: invariant enforced by a PostgreSQL CHECK constraint.
+	// Violations surface as pgconn.PgError with Code=23514. The
+	// registered triad documents the expectation; the migration file
+	// is the source of truth for the constraint body.
+	DBCheck Class = "db-check"
 )
 
 // Invariant is one registered guard site. Keep fields short strings —

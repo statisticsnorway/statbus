@@ -44,6 +44,32 @@ func thisLine() int {
 	return line
 }
 
+// markPgInvariantTerminal inspects err for a pgx constraint violation
+// that maps to a registered DB-enforced invariant. On a match it emits
+// the INVARIANT-violated stderr transcript and writes install-terminal.txt
+// so the on-disk audit channel is identical whether the check fired in
+// Go or in PG. Returns the invariant name on match; empty string when
+// err is nil or not a mapped constraint — caller then follows its
+// usual error path.
+//
+// The caller string identifies the UPDATE/INSERT site; pass a stable
+// label like "service.go:executeScheduled:claim" so support-bundle grep
+// survives file edits.
+func (d *Service) markPgInvariantTerminal(err error, caller string) string {
+	if err == nil {
+		return ""
+	}
+	name, observed := invariants.MapPgConstraint(err)
+	if name == "" {
+		return ""
+	}
+	fmt.Fprintf(os.Stderr,
+		"INVARIANT %s violated (DB-enforced): %s (%s, pid=%d)\n",
+		name, observed, caller, os.Getpid())
+	d.markTerminal(name, fmt.Sprintf("caller=%s %s", caller, observed))
+	return name
+}
+
 // retryBackoff is the sleep duration between bounded-retry attempts on
 // transient DB connection errors (isConnError). Attempt 0 is the initial
 // try (never reached from a retry branch); attempts 1/2/3 back off by
@@ -894,6 +920,7 @@ func (d *Service) ExecuteUpgradeInline(ctx context.Context, id int, commitSHA, d
 		"UPDATE public.upgrade SET state = 'in_progress', started_at = now(), from_version = $1 WHERE id = $2 AND state = 'scheduled' AND started_at IS NULL",
 		d.version, id)
 	if err != nil {
+		d.markPgInvariantTerminal(err, "service.go:ExecuteUpgradeInline:claim")
 		return fmt.Errorf("claim scheduled upgrade row %d: %w", id, err)
 	}
 	if tag.RowsAffected() == 0 {
@@ -1318,6 +1345,10 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 		// C4: POST_RESTART_COMPLETED_TRANSITION_PERSISTED — bounded retry
 		// exhausted. Symmetric to C3; row was in_progress, we hold the flag,
 		// CHECK permits in_progress → completed. Fail-fast + bundle.
+		if dbName := d.markPgInvariantTerminal(scanErr, "service.go:completeInProgressUpgrade:completed"); dbName != "" {
+			d.writeDiagnosticBundle(ctx, int(id), nil)
+			break
+		}
 		fmt.Fprintf(os.Stderr,
 			"INVARIANT POST_RESTART_COMPLETED_TRANSITION_PERSISTED violated: state transition to completed matched 0 rows or errored (id=%d, err=%v) after %d attempts (service.go:%d, pid=%d)\n",
 			id, scanErr, attempt+1, thisLine(), os.Getpid())
@@ -2034,6 +2065,7 @@ func (d *Service) scheduleImmediate(ctx context.Context, versionOrSHA string) {
 		 WHERE public.upgrade.state != 'scheduled'`,
 		commitSHA, displayName)
 	if err != nil {
+		d.markPgInvariantTerminal(err, "service.go:scheduleImmediate:upsert")
 		fmt.Printf("Failed to schedule %s: %v\n", displayName, err)
 	} else if result.RowsAffected() > 0 {
 		fmt.Printf("Scheduled immediate upgrade to %s\n", displayName)
@@ -2073,6 +2105,7 @@ func (d *Service) executeScheduled(ctx context.Context) {
 		"UPDATE public.upgrade SET state = 'in_progress', started_at = now(), from_version = $1 WHERE id = $2 AND state = 'scheduled' AND started_at IS NULL",
 		d.version, id)
 	if err != nil {
+		d.markPgInvariantTerminal(err, "service.go:executeScheduled:claim")
 		fmt.Printf("UPGRADE_CLAIM_FAILED: could not claim scheduled upgrade id=%d: %v\n", id, err)
 		return
 	}
@@ -2532,6 +2565,13 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 			continue
 		}
 		// C7: terminal UPDATE errored (non-conn error, or retry budget exhausted).
+		// If the error is a DB-enforced invariant (e.g. chk_upgrade_state_attributes
+		// log-pointer arm), prefer the specific name so the support bundle surfaces
+		// the precise cause rather than the generic transition-persisted name.
+		if dbName := d.markPgInvariantTerminal(lastScanErr, "service.go:executeUpgrade:completed-terminal"); dbName != "" {
+			d.writeDiagnosticBundle(ctx, int(id), progress)
+			return fmt.Errorf("%s: %w", dbName, lastScanErr)
+		}
 		fmt.Fprintf(os.Stderr,
 			"INVARIANT NORMAL_COMPLETED_TRANSITION_PERSISTED violated: terminal state transition to completed errored for id=%d: %v after %d attempts (service.go:%d, pid=%d)\n",
 			id, lastScanErr, attempt+1, thisLine(), os.Getpid())
