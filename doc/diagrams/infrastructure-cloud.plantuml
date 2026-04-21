@@ -12,44 +12,45 @@ caption Multiple countries on niue.statbus.org with SNI-based routing
 
 rectangle "Internet" <<Internet>> {
     actor "dev.statbus.org\nusers" as devusers
-    actor "no.statbus.org\nusers" as nousers
     actor "ma.statbus.org\nusers" as mausers
+    actor "no.statbus.org\nusers" as nousers
 }
 
 rectangle "niue.statbus.org" <<Host>> {
     rectangle "Host Caddy (systemd)" as hostcaddy {
         [• ACME certs for all domains\n• SNI-based HTTP routing\n• SNI-based PostgreSQL routing\n• Imports configs from\n  /home/statbus_*/statbus/caddy/config/]
     }
-    
+
     rectangle "/home/statbus_dev/" <<Installation>> as devinstall {
         rectangle "Docker Stack (private mode)" as devstack {
             [caddy → app, rest, db, worker\nPorts: 3010-3015]
         }
     }
-    
-    rectangle "/home/statbus_no/" <<Installation>> as noinstall {
-        rectangle "Docker Stack (private mode)" as nostack {
-            [caddy → app, rest, db, worker\nPorts: 3020-3025]
-        }
-    }
-    
+
     rectangle "/home/statbus_ma/" <<Installation>> as mainstall {
         rectangle "Docker Stack (private mode)" as mastack {
             [caddy → app, rest, db, worker\nPorts: 3050-3055]
         }
     }
-    
+
     rectangle "... more installations ..." as more {
-        [et, jo, tcc, ug, demo]
+        [demo, tcc, ug, et, jo]
+    }
+}
+
+rectangle "rune.statbus.org" <<Host>> as runehost {
+    rectangle "/home/statbus/" <<Installation>> as nostandalone {
+        rectangle "Docker Stack (standalone mode)" as nostack {
+            [caddy → app, rest, db, worker\nCaddy terminates TLS directly\non ports 80/443/5432]
+        }
     }
 }
 
 devusers --> hostcaddy : HTTPS :443\nPostgreSQL :5432\nSNI=dev.statbus.org
-nousers --> hostcaddy : HTTPS :443\nPostgreSQL :5432\nSNI=no.statbus.org
 mausers --> hostcaddy : HTTPS :443\nPostgreSQL :5432\nSNI=ma.statbus.org
+nousers --> nostandalone : HTTPS :443\nPostgreSQL :5432\ndirect to rune
 
 hostcaddy --> devstack : 127.0.0.1:3010\n127.0.0.1:3014 (db)
-hostcaddy --> nostack : 127.0.0.1:3020\n127.0.0.1:3024 (db)
 hostcaddy --> mastack : 127.0.0.1:3050\n127.0.0.1:3054 (db)
 
 note right of hostcaddy

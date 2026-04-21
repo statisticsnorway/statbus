@@ -17,15 +17,18 @@ on:
         description: 'Target server (user@host)'
         required: true
         type: choice
+        # statbus_no@niue was removed 2026-04-21 — Norway now served from
+        # rune.statbus.org (standalone). Deploys for Norway run via
+        # deploy-to-rune-no.yaml, not this workflow.
         options:
           - statbus_dev@niue.statbus.org
-          - statbus_no@niue.statbus.org
           - statbus_demo@niue.statbus.org
           - statbus_tcc@niue.statbus.org
           - statbus_ma@niue.statbus.org
           - statbus_ug@niue.statbus.org
           - statbus_et@niue.statbus.org
           - statbus_jo@niue.statbus.org
+          - statbus@rune.statbus.org
       version:
         description: 'Version tag (e.g., v2026.03.0) or commit SHA (e.g., sha-abc1234f). Leave empty to just check for new releases.'
         required: false

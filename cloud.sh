@@ -25,7 +25,11 @@
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-SERVERS="statbus_dev statbus_demo statbus_et statbus_jo statbus_ma statbus_tcc statbus_ug statbus_no"
+# Multi-tenant cloud slots on niue. `statbus_no` was removed on 2026-04-21
+# when Norway migrated to the dedicated standalone box rune.statbus.org;
+# standalone hosts are NOT managed by cloud.sh (they use the per-host
+# ./sb and the standalone deploy workflows, see doc/CLOUD.md §Standalone).
+SERVERS="statbus_dev statbus_demo statbus_et statbus_jo statbus_ma statbus_tcc statbus_ug"
 HOST="niue.statbus.org"
 INSTALL_URL="https://statbus.org/install.sh"
 # GitHub username whose signing key should be trusted on each server.

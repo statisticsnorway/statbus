@@ -34,7 +34,7 @@ Active multi-tenant instances on niue.statbus.org:
 | jo | Jordan | statbus_jo | jo.statbus.org | 9 |
 
 **Moved off niue:**
-- `no` (Norway) — migrated to a dedicated standalone box `rune.statbus.org` to dog-food the standalone deployment mode that external clients use. See [Related: SSB-operated standalone instances](#related-ssb-operated-standalone-instances). Port offset 2 stays reserved on niue for any future use; the `statbus_no` Linux home and last DB dump remain on niue for ~2 weeks as rollback insurance.
+- `no` (Norway) — migrated to a dedicated standalone box `rune.statbus.org` to dog-food the standalone deployment mode that external clients use. See [SSB-Operated Standalone Instances](#ssb-operated-standalone-instances). Port offset 2 stays reserved on niue for future use. The `statbus_no` Linux user and home were cleaned up from niue on 2026-04-21 after the rune install was verified live; final pre-decomm DB dumps are preserved on rune at `/home/statbus/statbus/tmp/` alongside the niue import source CSVs.
 
 ## Architecture
 
@@ -371,7 +371,7 @@ Each instance is managed independently by SSH-ing as the deployment user:
 
 ```bash
 # SSH to specific instance
-ssh statbus_no@niue.statbus.org
+ssh statbus_ma@niue.statbus.org
 cd ~/statbus
 
 # Stop services
@@ -427,8 +427,8 @@ View deployment status in GitHub Actions or Slack channel `statbus-utvikling`.
 Each instance runs an upgrade service that handles releases automatically. To trigger manually:
 
 ```bash
-ssh statbus_no@niue.statbus.org "cd statbus && ./sb upgrade apply v2026.03.1"
-ssh statbus_no@niue.statbus.org "cd statbus && ./sb upgrade check"
+ssh statbus_ma@niue.statbus.org "cd statbus && ./sb upgrade apply v2026.03.1"
+ssh statbus_ma@niue.statbus.org "cd statbus && ./sb upgrade check"
 ```
 
 Or use the **"Deploy via upgrade service"** workflow in GitHub Actions UI -- select the target server and version.
@@ -496,27 +496,27 @@ grep DEPLOYMENT_SLOT_PORT_OFFSET /home/statbus_*/statbus/.env.config
 ### Individual Instance Backup
 
 ```bash
-ssh statbus_no@niue.statbus.org
+ssh statbus_ma@niue.statbus.org
 cd ~/statbus
 
 # Backup database
 ./sb db dump
 
 # Backup configuration
-tar -czf backup_no_config_$(date +%Y%m%d).tar.gz .env.config .env.credentials .users.yml
+tar -czf backup_ma_config_$(date +%Y%m%d).tar.gz .env.config .env.credentials .users.yml
 ```
 
 ### Restore Instance
 
 ```bash
-ssh statbus_no@niue.statbus.org
+ssh statbus_ma@niue.statbus.org
 cd ~/statbus
 
 # Restore database from dump
-./sb db restore backup_no_20240115.sql
+./sb db restore backup_ma_20240115.sql
 
 # Restore configuration
-tar -xzf backup_no_config_20240115.tar.gz
+tar -xzf backup_ma_config_20240115.tar.gz
 
 # Regenerate .env
 ./sb config generate
@@ -558,7 +558,7 @@ sudo crontab -e
 ### Instance Won't Start
 
 ```bash
-ssh statbus_no@niue.statbus.org
+ssh statbus_ma@niue.statbus.org
 cd ~/statbus
 
 # Check container status
@@ -597,14 +597,14 @@ sudo systemctl reload caddy
 # Check host Caddy is listening on 5432
 sudo netstat -tlnp | grep 5432
 
-# Check instance Caddy is listening on internal port (e.g., 3024 for Norway)
-ssh statbus_no@niue.statbus.org 'cd ~/statbus && docker compose exec caddy netstat -tlnp | grep 3024'
+# Check instance Caddy is listening on internal port (port = 3000 + offset*10 + 4, e.g. 3054 for Morocco)
+ssh statbus_ma@niue.statbus.org 'cd ~/statbus && docker compose exec caddy netstat -tlnp | grep 3054'
 
-# Test from host machine (as statbus_no user)
-PGHOST=127.0.0.1 PGPORT=3024 PGDATABASE=statbus PGUSER=postgres psql
+# Test from host machine (as statbus_ma user)
+PGHOST=127.0.0.1 PGPORT=3054 PGDATABASE=statbus PGUSER=postgres psql
 
-# Check TLS certificate
-echo | openssl s_client -connect no.statbus.org:443 -servername no.statbus.org
+# Check TLS certificate for a slot domain
+echo | openssl s_client -connect ma.statbus.org:443 -servername ma.statbus.org
 ```
 
 ### DNS and Certificate Issues

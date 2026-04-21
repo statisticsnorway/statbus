@@ -23,9 +23,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # statbus_no was removed 2026-04-21 when Norway migrated to rune.statbus.org
+        # (standalone, not multi-tenant cloud). Standalone hosts have their own
+        # deploy workflow (ops/standalone/deploy/<host>-<slot>) and don't need
+        # notify-all-clouds, which is niue-specific.
         server:
           - statbus_dev
-          - statbus_no
           - statbus_demo
           - statbus_tcc
           - statbus_ma
