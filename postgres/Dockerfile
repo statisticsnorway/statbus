@@ -300,12 +300,16 @@ RUN git clone https://github.com/supabase/pg_graphql.git && \
   git checkout ${pg_graphql_release} && \
   cargo pgrx install --release --features pg18
 
-# Prepare files for installation
-RUN mkdir -p /tmp/pg_graphql-dist/usr/lib/postgresql/${postgresql_major}/lib && \
-  mkdir -p /tmp/pg_graphql-dist/usr/share/postgresql/${postgresql_major}/extension && \
-  cp /usr/lib/postgresql/18/lib/pg_graphql.so /tmp/pg_graphql-dist/usr/lib/postgresql/${postgresql_major}/lib/ && \
-  find / -name "pg_graphql.control" -exec cp {} /tmp/pg_graphql-dist/usr/share/postgresql/${postgresql_major}/extension/ \; && \
-  find / -name "pg_graphql--*.sql" -exec cp {} /tmp/pg_graphql-dist/usr/share/postgresql/${postgresql_major}/extension/ \;
+# Prepare files for installation — copy from the pgrx-installed paths directly.
+# Using `find /` would also match the source-tree .control in /tmp/pg_graphql and
+# clobber pgrx's substituted output in last-write order (see jsonb_stats-builder).
+RUN mkdir -p /tmp/pg_graphql-dist/usr/lib/postgresql/${postgresql_major}/lib \
+             /tmp/pg_graphql-dist/usr/share/postgresql/${postgresql_major}/extension && \
+  cp /usr/lib/postgresql/${postgresql_major}/lib/pg_graphql.so \
+     /tmp/pg_graphql-dist/usr/lib/postgresql/${postgresql_major}/lib/ && \
+  cp /usr/share/postgresql/${postgresql_major}/extension/pg_graphql.control \
+     /usr/share/postgresql/${postgresql_major}/extension/pg_graphql--*.sql \
+     /tmp/pg_graphql-dist/usr/share/postgresql/${postgresql_major}/extension/
 
 ####################
 # Build jsonb_stats
@@ -320,12 +324,20 @@ RUN git clone https://github.com/veridit/jsonb_stats.git && \
   git checkout ${jsonb_stats_release} && \
   cargo pgrx install --release --features pg18
 
-# Prepare files for installation
-RUN mkdir -p /tmp/jsonb_stats-dist/usr/lib/postgresql/${postgresql_major}/lib && \
-  mkdir -p /tmp/jsonb_stats-dist/usr/share/postgresql/${postgresql_major}/extension && \
-  cp /usr/lib/postgresql/${postgresql_major}/lib/jsonb_stats.so /tmp/jsonb_stats-dist/usr/lib/postgresql/${postgresql_major}/lib/ && \
-  find / -name "jsonb_stats.control" -exec cp {} /tmp/jsonb_stats-dist/usr/share/postgresql/${postgresql_major}/extension/ \; && \
-  find / -name "jsonb_stats--*.sql" -exec cp {} /tmp/jsonb_stats-dist/usr/share/postgresql/${postgresql_major}/extension/ \;
+# Prepare files for installation — copy from pgrx's install paths directly.
+# `find / -name jsonb_stats.control` ALSO matches /tmp/jsonb_stats/jsonb_stats.control
+# (source tree with literal @CARGO_VERSION@), and in cp-per-match traversal order the
+# source copy clobbers pgrx's substituted /usr/share/.../extension/jsonb_stats.control
+# (which correctly has default_version = '2.0.0' after pgrx's CARGO_PKG_VERSION subst).
+# This is why previously shipped images had `@CARGO_VERSION@` leaking into PG, breaking
+# `CREATE EXTENSION jsonb_stats;`. See pgrx-sql-entity-graph-0.16.1/src/control_file.rs:72.
+RUN mkdir -p /tmp/jsonb_stats-dist/usr/lib/postgresql/${postgresql_major}/lib \
+             /tmp/jsonb_stats-dist/usr/share/postgresql/${postgresql_major}/extension && \
+  cp /usr/lib/postgresql/${postgresql_major}/lib/jsonb_stats.so \
+     /tmp/jsonb_stats-dist/usr/lib/postgresql/${postgresql_major}/lib/ && \
+  cp /usr/share/postgresql/${postgresql_major}/extension/jsonb_stats.control \
+     /usr/share/postgresql/${postgresql_major}/extension/jsonb_stats--*.sql \
+     /tmp/jsonb_stats-dist/usr/share/postgresql/${postgresql_major}/extension/
 
 ####################
 # Build sql_saga_native (Rust native planner for sql_saga temporal_merge)
@@ -341,12 +353,16 @@ RUN git clone https://github.com/veridit/sql_saga.git && \
   cd native && \
   cargo pgrx install --release --features pg18
 
-# Prepare files for installation
-RUN mkdir -p /tmp/sql_saga_native-dist/usr/lib/postgresql/${postgresql_major}/lib && \
-  mkdir -p /tmp/sql_saga_native-dist/usr/share/postgresql/${postgresql_major}/extension && \
-  cp /usr/lib/postgresql/${postgresql_major}/lib/sql_saga_native.so /tmp/sql_saga_native-dist/usr/lib/postgresql/${postgresql_major}/lib/ && \
-  find / -name "sql_saga_native.control" -exec cp {} /tmp/sql_saga_native-dist/usr/share/postgresql/${postgresql_major}/extension/ \; && \
-  find / -name "sql_saga_native--*.sql" -exec cp {} /tmp/sql_saga_native-dist/usr/share/postgresql/${postgresql_major}/extension/ \;
+# Prepare files for installation — copy from the pgrx-installed paths directly.
+# Using `find /` would also match the source-tree .control and last-write-clobber
+# pgrx's substituted output (same bug as jsonb_stats-builder).
+RUN mkdir -p /tmp/sql_saga_native-dist/usr/lib/postgresql/${postgresql_major}/lib \
+             /tmp/sql_saga_native-dist/usr/share/postgresql/${postgresql_major}/extension && \
+  cp /usr/lib/postgresql/${postgresql_major}/lib/sql_saga_native.so \
+     /tmp/sql_saga_native-dist/usr/lib/postgresql/${postgresql_major}/lib/ && \
+  cp /usr/share/postgresql/${postgresql_major}/extension/sql_saga_native.control \
+     /usr/share/postgresql/${postgresql_major}/extension/sql_saga_native--*.sql \
+     /tmp/sql_saga_native-dist/usr/share/postgresql/${postgresql_major}/extension/
 
 ####################
 # Final image
