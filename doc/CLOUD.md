@@ -729,7 +729,24 @@ New standalone boxes should follow the same spirit (short word with a tie to the
 
 ## Operating a standalone instance
 
-Day-to-day ops follow [DEPLOYMENT.md](DEPLOYMENT.md) verbatim — `./sb` works identically to how it does on niue's multi-tenant slots, you just log in as the `statbus` service account (created by Stage 7 of `setup-ubuntu-lts-24.sh`):
+Two entry points, both available from the repo root:
+
+**`./standalone.sh`** — fleet-level operator tool parallel to `./cloud.sh`. For when you're driving an operation from your workstation:
+
+```bash
+./standalone.sh status              # sb version on every registered host
+./standalone.sh notify              # tell hosts to check for updates
+./standalone.sh upgrade             # force every host to apply latest
+./standalone.sh install rune-no     # re-run install.sh on rune (pinned or prerelease)
+./standalone.sh install all         # same for every host
+./standalone.sh inspect             # show hosts, served domains, slot codes, deploy branches
+./standalone.sh wipe rune-no        # DESTRUCTIVE: delete DB and recreate (confirm prompt)
+./standalone.sh ssh rune-no         # interactive shell as statbus@rune.statbus.org
+```
+
+The registry of hosts lives near the top of `standalone.sh` as a simple `HOSTS=()` array — one line per host with `name|ssh_fqdn|served_domain|slot_code`. Add a new host: append a line.
+
+**Direct `./sb`** — when you want to run a specific operation on the host itself. Log in as the `statbus` service account (created by Stage 7 of `setup-ubuntu-lts-24.sh`):
 
 ```bash
 # rune-no example
