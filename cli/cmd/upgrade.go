@@ -28,12 +28,14 @@ func runUpgradePsql(sql string, extraArgs ...string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Extra args (like -v variable=value) must come BEFORE -c for psql to process them.
 	args := append(prefix, extraArgs...)
-	args = append(args, "-c", sql)
+	// SQL goes via stdin so psql's variable-substitution preprocessor runs.
+	// `-c` bypasses the preprocessor and sends the string literally to the
+	// server, which fails on :'var' with "syntax error at or near ':'".
 	c := exec.Command(psqlPath, args...)
 	c.Env = env
 	c.Dir = projDir
+	c.Stdin = strings.NewReader(sql)
 	return c.CombinedOutput()
 }
 
