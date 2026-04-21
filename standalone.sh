@@ -70,8 +70,10 @@ usage() {
     echo "  rescue <name>           Alias for install"
     echo "  inspect                 Show urls, slot codes, and deploy branches"
     echo "  wipe <name>             DESTRUCTIVE: delete DB and recreate"
-    echo "  import <name> [email]   Schedule BRREG import on <name> (USER_EMAIL via flag/env/prompt)"
-    echo "  reimport <name> [email] DESTRUCTIVE: wipe DB then schedule fresh BRREG import"
+    echo "  import <name> <selection|downloads> [email]"
+    echo "                          Schedule BRREG import (selection ships in-repo, downloads needs tmp/ data on host)"
+    echo "  reimport <name> <selection|downloads> [email]"
+    echo "                          DESTRUCTIVE: wipe DB then schedule fresh BRREG import"
     echo "  ssh <name>              Open interactive shell as statbus@<host>"
     echo ""
     echo "Registered hosts:"
@@ -369,61 +371,93 @@ resolve_user_email() {
     echo "$email"
 }
 
-# cmd_import schedules the BRREG import jobs on the target deployment by
-# running samples/norway/brreg/brreg-import-downloads-from-tmp.sh remotely
-# with USER_EMAIL exported. The script is idempotent — it ON-CONFLICT-
-# UPDATEs the import_job rows and re-COPYs the upload tables. After
-# scheduling, the worker picks up the import_job rows via LISTEN and
-# processes them asynchronously; this command does NOT wait for completion.
+# cmd_import schedules BRREG import jobs on the target deployment by
+# running the appropriate sample script remotely with USER_EMAIL
+# exported. After scheduling, the worker picks up the import_job rows
+# via LISTEN and processes them asynchronously; this command does NOT
+# wait for completion.
 #
-# Source CSVs live under ~statbus/statbus/tmp/ on the target and are
-# preserved across wipes (Docker volume removal does NOT touch the host
-# filesystem). For a clean re-import after a wipe, see cmd_reimport.
+# Two variants:
+#   selection — small dataset, CSVs ship in-repo under
+#               samples/norway/{legal_unit,establishment,legal_relationship}/.
+#               Loaded by samples/norway/brreg/brreg-import-selection.sh.
+#               No external download needed; runs on a fresh wipe.
+#   downloads — full BRREG dataset, CSVs must already be on the target
+#               host under ~statbus/statbus/tmp/. Loaded by
+#               samples/norway/brreg/brreg-import-downloads-from-tmp.sh.
+#               These CSVs are preserved across wipes (host filesystem,
+#               not the Docker volume).
+#
+# Variant is REQUIRED, not defaulted — the two scripts have different
+# correctness implications and an operator running the wrong one is a
+# real failure mode. Fail loud on missing or unknown variant.
 cmd_import() {
     local target="$1"
-    local email_flag="${2:-}"
+    local variant="${2:-}"
+    local email_flag="${3:-}"
     validate_name "$target"
+
+    case "$variant" in
+        selection|downloads) ;;
+        "") echo "ERROR: import requires variant: selection (small, ships in-repo) or downloads (large, requires tmp/ data on host)" >&2; exit 1 ;;
+        *)  echo "ERROR: unknown variant '$variant'. Valid: selection | downloads" >&2; exit 1 ;;
+    esac
+
     if [ "$target" = "all" ]; then
-        echo "ERROR: import all is not supported. Import deployments one at a time."
+        echo "ERROR: import all is not supported. Import deployments one at a time." >&2
         exit 1
     fi
     local email
     email=$(resolve_user_email "$email_flag")
 
+    local script
+    case "$variant" in
+        selection) script="./samples/norway/brreg/brreg-import-selection.sh" ;;
+        downloads) script="./samples/norway/brreg/brreg-import-downloads-from-tmp.sh" ;;
+    esac
+
     local fqdn dom
     fqdn=$(host_fqdn "$target")
     dom=$(served_domain "$target")
-    echo "Scheduling BRREG import on '$target' ($dom) as $email ..."
+    echo "Scheduling BRREG $variant import on '$target' ($dom) as $email ..."
     ssh_host "$target" "set -e
         cd statbus
         export USER_EMAIL='${email}'
-        ./samples/norway/brreg/brreg-import-downloads-from-tmp.sh" 2>&1
-    echo "--- $target import scheduled. Worker will process asynchronously."
-    echo "    Watch progress: ./standalone.sh ssh $target -> ./sb psql -c \"SELECT slug, state FROM public.import_job\""
+        ${script}" 2>&1
+    echo "--- $target $variant import scheduled. Worker will process asynchronously."
+    echo "    Watch progress: ./standalone.sh ssh $target  → ./sb psql -c \"SELECT slug, state FROM public.import_job ORDER BY slug\""
 }
 
-# cmd_reimport is shorthand for `wipe <name>` + `import <name>` — the
-# typical flow when the operator wants a clean DB + fresh BRREG load
-# in one command (e.g. before a major release that invalidates the
-# prior import). The wipe prompt's typed-confirm step still runs, so
-# the destructive action is acknowledged.
+# cmd_reimport is shorthand for `wipe <name>` + `import <name>
+# <variant>` — the typical flow when the operator wants a clean DB +
+# fresh BRREG load in one command (e.g. before a major release that
+# invalidates the prior import). The wipe prompt's typed-confirm step
+# still runs, so the destructive action is acknowledged.
 cmd_reimport() {
     local target="$1"
-    local email_flag="${2:-}"
+    local variant="${2:-}"
+    local email_flag="${3:-}"
     validate_name "$target"
+    # Validate variant up-front BEFORE the destructive wipe so a typo
+    # doesn't cost the operator a wipe + retype the long confirm.
+    case "$variant" in
+        selection|downloads) ;;
+        "") echo "ERROR: reimport requires variant: selection or downloads" >&2; exit 1 ;;
+        *)  echo "ERROR: unknown variant '$variant'. Valid: selection | downloads" >&2; exit 1 ;;
+    esac
     if [ "$target" = "all" ]; then
-        echo "ERROR: reimport all is not supported. Reimport deployments one at a time."
+        echo "ERROR: reimport all is not supported. Reimport deployments one at a time." >&2
         exit 1
     fi
-    # Resolve email up-front so the operator catches a missing flag BEFORE
-    # they sit through the wipe's destructive confirm step.
+    # Resolve email up-front so the operator catches a missing flag
+    # BEFORE they sit through the wipe's destructive confirm step.
     local email
     email=$(resolve_user_email "$email_flag")
 
     cmd_wipe "$target"
     echo
-    echo "Wipe complete. Scheduling fresh BRREG import as $email ..."
-    cmd_import "$target" "$email"
+    echo "Wipe complete. Scheduling fresh BRREG $variant import as $email ..."
+    cmd_import "$target" "$variant" "$email"
 }
 
 # Main
@@ -453,12 +487,12 @@ case "$1" in
         cmd_wipe "$2"
         ;;
     import)
-        [ $# -lt 2 ] && { echo "Error: import requires a deployment name"; usage; }
-        cmd_import "$2" "${3:-}"
+        [ $# -lt 3 ] && { echo "Error: import requires <name> <selection|downloads>"; usage; }
+        cmd_import "$2" "$3" "${4:-}"
         ;;
     reimport)
-        [ $# -lt 2 ] && { echo "Error: reimport requires a deployment name"; usage; }
-        cmd_reimport "$2" "${3:-}"
+        [ $# -lt 3 ] && { echo "Error: reimport requires <name> <selection|downloads>"; usage; }
+        cmd_reimport "$2" "$3" "${4:-}"
         ;;
     ssh)
         [ $# -lt 2 ] && { echo "Error: ssh requires a host name"; usage; }
