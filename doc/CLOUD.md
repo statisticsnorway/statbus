@@ -729,11 +729,11 @@ New standalone boxes should follow the same spirit (short word with a tie to the
 
 ## Operating a standalone instance
 
-Day-to-day ops follow [DEPLOYMENT.md](DEPLOYMENT.md) verbatim — `./sb` works identically to how it does on niue's multi-tenant slots:
+Day-to-day ops follow [DEPLOYMENT.md](DEPLOYMENT.md) verbatim — `./sb` works identically to how it does on niue's multi-tenant slots, you just log in as the `statbus` service account (created by Stage 7 of `setup-ubuntu-lts-24.sh`):
 
 ```bash
 # rune-no example
-ssh devops@rune.statbus.org
+ssh statbus@rune.statbus.org
 cd ~/statbus
 ./sb ps                        # container status
 ./sb logs proxy                # Caddy / ACME / TLS
@@ -742,25 +742,27 @@ cd ~/statbus
 ./sb install                   # idempotent config refresh / dispatch pending upgrade
 ```
 
+For host-level administration (journalctl, apt, systemctl system units, etc.) log in as `devops` instead.
+
 The deploy automation is structurally the same as the multi-tenant one (force-push master → branch → Actions workflow → SSH + `./sb upgrade apply-latest`), just on a different branch namespace:
 
 | Multi-tenant (niue) | Standalone (rune et al.) |
 |---|---|
 | Branch: `ops/cloud/deploy/<slot>` | Branch: `ops/standalone/deploy/<host>-<slot>` |
 | Workflow: `master-to-<slot>.yaml` + `deploy-to-<slot>.yaml` | Workflow: `master-to-<host>-<slot>.yaml` + `deploy-to-<host>-<slot>.yaml` |
-| SSH target: `statbus_<slot>@niue.statbus.org` | SSH target: `devops@<host>.statbus.org` |
+| SSH target: `statbus_<slot>@niue.statbus.org` | SSH target: `statbus@<host>.statbus.org` |
 | Same shared `SSH_KEY` repo secret in both. |
 
 ## Adding a new SSB standalone instance
 
-The high-level shape (concrete walkthrough belongs in the per-host bootstrap plan):
+The high-level shape (concrete walkthrough belongs in the per-host bootstrap plan; see [hetzner-bootstrap.md](hetzner-bootstrap.md) for Hetzner rescue → Ubuntu):
 
 1. Provision the box. Install Ubuntu 24.04 LTS with the desired filesystem (mdadm RAID where applicable; XFS recommended for `/`).
-2. Run `ops/setup-ubuntu-lts-24.sh` (stages 1-6; skip 0 if the network allows HTTP).
-3. Bootstrap StatBus as `devops`: `curl -fsSL https://statbus.org/install.sh | bash -s -- --prerelease`.
+2. Run `ops/setup-ubuntu-lts-24.sh` as root/sudo — creates `devops` + `statbus` accounts, hardens OS. `SKIP_STAGES="0"` if the network allows HTTP.
+3. Bootstrap StatBus as the service account: `ssh statbus@<host>` then `curl -fsSL https://statbus.org/install.sh | bash -s -- --prerelease`.
 4. Author `.env.config` with `CADDY_DEPLOYMENT_MODE=standalone`, `SITE_DOMAIN=<the public domain>`, `UPGRADE_CHANNEL=prerelease`, plus `SEQ_API_KEY` / `SLACK_TOKEN` copied from an existing instance for observability continuity.
-5. Add a `.github/workflows/deploy-to-<host>-<slot>.yaml` and `master-to-<host>-<slot>.yaml` pair, modeled on `deploy-to-rune-no.yaml` and `master-to-rune-no.yaml`. Branch name: `ops/standalone/deploy/<host>-<slot>`.
-6. Register the existing repo `SSH_KEY` pubkey in `devops@<host>:~/.ssh/authorized_keys`.
+5. Add a `.github/workflows/deploy-to-<host>-<slot>.yaml` and `master-to-<host>-<slot>.yaml` pair, modeled on `deploy-to-rune-no.yaml` and `master-to-rune-no.yaml`. Branch name: `ops/standalone/deploy/<host>-<slot>`. SSH target `statbus@<host>.<domain>`.
+6. The existing repo `SSH_KEY` pubkey is already populated in `statbus`'s `authorized_keys` by `setup.sh` Stage 7 from the `GITHUB_USERS` list — no extra step needed if those users own the deploy key too.
 
 For migrating an existing slot off niue (as `no` was migrated to rune): also dump the niue slot, restore on the new host, then stop the niue slot's containers and let DNS (CNAME on the public domain pointing at the new host) drive the cutover.
 

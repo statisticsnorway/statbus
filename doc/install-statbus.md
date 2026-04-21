@@ -4,19 +4,35 @@ STATBUS installation for Ubuntu 24.04 LTS servers.
 
 ## Prerequisites
 
-Run the [server hardening script](setup-ubuntu-lts-24.md) first, or ensure you have:
-- Docker and Docker Compose installed
-- Git installed
-- User with docker group access (can run `docker ps` without sudo)
+Run the [server setup script](setup-ubuntu-lts-24.md) first — it hardens the
+OS **and** creates the Linux accounts StatBus expects:
+
+- `devops` — ops/admin user (passwordless sudo, docker group)
+- `statbus` — deployment service account that owns the install (docker group,
+  no sudo)
+
+If you didn't use that script, ensure you have equivalent state: Docker +
+Compose installed, git available, and a non-root Linux user that has docker
+group access. That user is what you'll install StatBus under.
 
 ## Quick Start
 
 ```bash
-# Clone the repository
+# From your workstation — SSH as the service account, NOT as devops/ubuntu/root.
+# install.sh always installs into $HOME/statbus/ of the invoking user, so
+# you get /home/statbus/statbus/ if (and only if) you run it as statbus.
+ssh statbus@<your-host>
+
+# Install and configure (clones the repo and runs ./sb install end to end):
+curl -fsSL https://statbus.org/install.sh | bash -s -- --prerelease
+```
+
+If you prefer to do it by hand instead of the bootstrap script:
+
+```bash
+ssh statbus@<your-host>
 git clone https://github.com/statisticsnorway/statbus.git ~/statbus
 cd ~/statbus
-
-# Install and configure
 ./sb install
 ```
 
@@ -51,37 +67,43 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed configuration options.
 ## Typical Deployment Flow
 
 ```
-┌─────────────────────────────────────┐
-│  1. Provision Ubuntu 24.04 server   │
-└─────────────────┬───────────────────┘
+┌─────────────────────────────────────────┐
+│  1. Provision Ubuntu 24.04 server       │
+└─────────────────┬───────────────────────┘
                   │
                   ▼
-┌─────────────────────────────────────┐
-│  2. Run setup-ubuntu-lts-24.sh     │
-│     (as root, creates devops user)  │
-└─────────────────┬───────────────────┘
+┌─────────────────────────────────────────┐
+│  2. Run setup-ubuntu-lts-24.sh          │
+│     (as root/sudo)                      │
+│     Creates: devops (ops) + statbus     │
+│     (service account), hardens OS.      │
+└─────────────────┬───────────────────────┘
                   │
                   ▼
-┌─────────────────────────────────────┐
-│  3. SSH as devops user              │
-└─────────────────┬───────────────────┘
+┌─────────────────────────────────────────┐
+│  3. SSH as the statbus service account  │
+│     (NOT devops, NOT ubuntu)            │
+└─────────────────┬───────────────────────┘
                   │
                   ▼
-┌─────────────────────────────────────┐
-│  4. Clone repo and run ./sb install │
-└─────────────────┬───────────────────┘
+┌─────────────────────────────────────────┐
+│  4. curl install.sh | bash              │
+│     Installs into /home/statbus/statbus │
+│     and runs ./sb install end-to-end.   │
+└─────────────────┬───────────────────────┘
                   │
                   ▼
-┌─────────────────────────────────────┐
-│  5. Configure .env.config           │
-│     and .users.yml                  │
-└─────────────────┬───────────────────┘
+┌─────────────────────────────────────────┐
+│  5. Configure .env.config + .users.yml  │
+│     Re-run ./sb install --non-interactive│
+│     (it picks up from where it paused). │
+└─────────────────┬───────────────────────┘
                   │
                   ▼
-┌─────────────────────────────────────┐
-│  6. Start services and create DB    │
-│     ./sb start all && ./dev.sh ...  │
-└─────────────────────────────────────┘
+┌─────────────────────────────────────────┐
+│  6. Services running, DB migrated.      │
+│     Verify: ./sb ps ; ./sb logs proxy   │
+└─────────────────────────────────────────┘
 ```
 
 ## Alternative: the `statbus.org/install.sh` bootstrap script

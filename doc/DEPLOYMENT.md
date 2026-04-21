@@ -127,45 +127,60 @@ newgrp docker
 **Important Docker Security Note**:
 Docker Compose bypasses UFW firewall rules. Ensure you carefully review which ports are exposed in docker-compose.yml files. StatBus minimizes exposure by binding sensitive ports to localhost only in private mode.
 
-### Server Hardening (Recommended)
+### Server Setup (Required)
 
-Before installing StatBus on a production server, we recommend hardening the Ubuntu installation:
+Before installing StatBus, run the setup script to harden the OS and create
+the accounts StatBus expects. This is step 1 of a two-phase install:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/master/ops/setup-ubuntu-lts-24.sh -o harden.sh
-chmod +x harden.sh
-sudo ./harden.sh
+curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/master/ops/setup-ubuntu-lts-24.sh -o setup.sh
+chmod +x setup.sh
+sudo ./setup.sh
 ```
 
-This interactive script configures:
+The script configures:
 - HTTPS APT sources (optional, for networks that block HTTP)
 - SSH key-only authentication (no passwords)
 - Automatic security updates
 - CrowdSec intrusion detection and UFW firewall (optional for private networks)
-- Docker and essential tools
-- `devops` user with GitHub SSH keys
+- Docker CE + Compose plugin
+- `devops` user (ops/admin) with passwordless sudo, docker group, and GitHub
+  SSH keys
+- **`statbus` service account** (Stage 7) — this is the user StatBus itself
+  will be installed under and operated as. Docker group membership; SSH keys
+  from the same GitHub users; systemd `--user` linger enabled
 
 **For STATBUS deployments:**
-- **Run Stage 0** if your network blocks HTTP (switches APT to HTTPS mirror)
-- **Skip Stage 4** if your server is on a private network with existing firewall infrastructure
-- **Skip Stage 7** (Caddy) — StatBus runs Caddy inside Docker
+- **Skip Stage 0** if your network allows HTTP (use `SKIP_STAGES="0"`). Our
+  recommendation on Hetzner dedicated / standard cloud hosts.
+- **Skip Stage 4** only if your server is on a private network with existing
+  firewall infrastructure.
 
-See [Server Hardening Guide](setup-ubuntu-lts-24.md) for full details.
+See [setup-ubuntu-lts-24.md](setup-ubuntu-lts-24.md) for full details.
+For Hetzner physical hosts booted in rescue mode, also see
+[hetzner-bootstrap.md](hetzner-bootstrap.md).
 
 ### Quick Install
 
-After hardening, run the STATBUS installer as your deployment user (e.g., `devops`):
+After setup finishes, **log in as the service account** (not as devops or
+ubuntu) and run the StatBus installer:
 
 ```bash
+ssh statbus@<your-host>
 curl -fsSL https://statbus.org/install.sh | bash
 ```
 
 For a specific version (e.g. a release candidate, or downgrading):
 ```bash
+ssh statbus@<your-host>
 curl -fsSL https://statbus.org/install.sh | bash -s -- --version v2026.03.0-rc.25
 ```
 
-This script:
+`install.sh` always installs into `${HOME}/statbus/` of the invoking user;
+that's why it must be run as `statbus` specifically. Running as `devops` or
+the default cloud-image user places the install in the wrong home.
+
+The installer:
 - Detects your OS and architecture
 - Downloads the `sb` CLI binary from the latest GitHub release
 - Runs `./sb install` which bootstraps the full environment (Docker images, configuration, database)
