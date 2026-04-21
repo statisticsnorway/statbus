@@ -264,7 +264,7 @@ SSB runs production StatBus on two host shapes — multi-tenant cloud (`niue.sta
 
 | Workflow | Branch | Server | Notes |
 |----------|--------|--------|-------|
-| master-to-rune-no | ops/standalone/deploy/rune-no | devops@rune.statbus.org | **Norway** (standalone, dedicated Hetzner box) |
+| master-to-rune-no | ops/standalone/deploy/rune-no | statbus@rune.statbus.org | **Norway** (standalone, dedicated Hetzner box) |
 | master-to-demo | ops/cloud/deploy/demo | statbus_demo@niue | Demo (multi-tenant) |
 | master-to-dev | ops/cloud/deploy/dev | statbus_dev@niue | Development (multi-tenant) |
 | master-to-production | ops/cloud/deploy/production | — | Pointer only |
@@ -287,8 +287,8 @@ ssh statbus_<slot> "cd statbus && <command>"          # e.g. statbus_dev
 scp local/file statbus_<slot>:statbus/path/to/file
 
 # Standalone box (one user per host: devops)
-ssh devops@rune.statbus.org "cd statbus && <command>"
-scp local/file devops@rune.statbus.org:statbus/path/to/file
+ssh statbus@rune.statbus.org "cd statbus && <command>"
+scp local/file statbus@rune.statbus.org:statbus/path/to/file
 ```
 
 **Before deploying**: Ensure remote working directory is clean (no uncommitted changes), or deploy will fail.
