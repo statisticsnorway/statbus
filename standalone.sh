@@ -70,6 +70,8 @@ usage() {
     echo "  rescue <name>           Alias for install"
     echo "  inspect                 Show urls, slot codes, and deploy branches"
     echo "  wipe <name>             DESTRUCTIVE: delete DB and recreate"
+    echo "  import <name> [email]   Schedule BRREG import on <name> (USER_EMAIL via flag/env/prompt)"
+    echo "  reimport <name> [email] DESTRUCTIVE: wipe DB then schedule fresh BRREG import"
     echo "  ssh <name>              Open interactive shell as statbus@<host>"
     echo ""
     echo "Registered hosts:"
@@ -337,6 +339,93 @@ cmd_ssh() {
     exec ssh "statbus@${fqdn}"
 }
 
+# resolve_user_email returns the email to use for cmd_import / cmd_reimport.
+# Precedence: explicit --user-email FLAG > STATBUS_REIMPORT_USER_EMAIL env >
+# interactive prompt (TTY only). Aborts with a clear message on a closed
+# stdin (e.g. piped invocation in CI) so the caller fixes the call site
+# rather than silently importing as a default user.
+resolve_user_email() {
+    local flag_value="${1:-}"
+    if [ -n "$flag_value" ]; then
+        echo "$flag_value"
+        return 0
+    fi
+    if [ -n "${STATBUS_REIMPORT_USER_EMAIL:-}" ]; then
+        echo "$STATBUS_REIMPORT_USER_EMAIL"
+        return 0
+    fi
+    if [ ! -t 0 ]; then
+        echo "ERROR: --user-email <addr> required (or set STATBUS_REIMPORT_USER_EMAIL)" >&2
+        echo "       The BRREG import script verifies the email exists in public.user;" >&2
+        echo "       the import_job rows are then attributed to that user." >&2
+        exit 1
+    fi
+    local email
+    read -p "User email (must exist in public.user on the target): " email </dev/tty
+    if [ -z "$email" ]; then
+        echo "Aborted: empty email." >&2
+        exit 1
+    fi
+    echo "$email"
+}
+
+# cmd_import schedules the BRREG import jobs on the target deployment by
+# running samples/norway/brreg/brreg-import-downloads-from-tmp.sh remotely
+# with USER_EMAIL exported. The script is idempotent — it ON-CONFLICT-
+# UPDATEs the import_job rows and re-COPYs the upload tables. After
+# scheduling, the worker picks up the import_job rows via LISTEN and
+# processes them asynchronously; this command does NOT wait for completion.
+#
+# Source CSVs live under ~statbus/statbus/tmp/ on the target and are
+# preserved across wipes (Docker volume removal does NOT touch the host
+# filesystem). For a clean re-import after a wipe, see cmd_reimport.
+cmd_import() {
+    local target="$1"
+    local email_flag="${2:-}"
+    validate_name "$target"
+    if [ "$target" = "all" ]; then
+        echo "ERROR: import all is not supported. Import deployments one at a time."
+        exit 1
+    fi
+    local email
+    email=$(resolve_user_email "$email_flag")
+
+    local fqdn dom
+    fqdn=$(host_fqdn "$target")
+    dom=$(served_domain "$target")
+    echo "Scheduling BRREG import on '$target' ($dom) as $email ..."
+    ssh_host "$target" "set -e
+        cd statbus
+        export USER_EMAIL='${email}'
+        ./samples/norway/brreg/brreg-import-downloads-from-tmp.sh" 2>&1
+    echo "--- $target import scheduled. Worker will process asynchronously."
+    echo "    Watch progress: ./standalone.sh ssh $target -> ./sb psql -c \"SELECT slug, state FROM public.import_job\""
+}
+
+# cmd_reimport is shorthand for `wipe <name>` + `import <name>` — the
+# typical flow when the operator wants a clean DB + fresh BRREG load
+# in one command (e.g. before a major release that invalidates the
+# prior import). The wipe prompt's typed-confirm step still runs, so
+# the destructive action is acknowledged.
+cmd_reimport() {
+    local target="$1"
+    local email_flag="${2:-}"
+    validate_name "$target"
+    if [ "$target" = "all" ]; then
+        echo "ERROR: reimport all is not supported. Reimport deployments one at a time."
+        exit 1
+    fi
+    # Resolve email up-front so the operator catches a missing flag BEFORE
+    # they sit through the wipe's destructive confirm step.
+    local email
+    email=$(resolve_user_email "$email_flag")
+
+    cmd_wipe "$target"
+    echo
+    echo "Wipe complete. Scheduling fresh BRREG import as $email ..."
+    cmd_import "$target" "$email"
+}
+
 # Main
 if [ $# -lt 1 ]; then
     usage
@@ -362,6 +451,14 @@ case "$1" in
     wipe)
         [ $# -lt 2 ] && { echo "Error: wipe requires a host name"; usage; }
         cmd_wipe "$2"
+        ;;
+    import)
+        [ $# -lt 2 ] && { echo "Error: import requires a deployment name"; usage; }
+        cmd_import "$2" "${3:-}"
+        ;;
+    reimport)
+        [ $# -lt 2 ] && { echo "Error: reimport requires a deployment name"; usage; }
+        cmd_reimport "$2" "${3:-}"
         ;;
     ssh)
         [ $# -lt 2 ] && { echo "Error: ssh requires a host name"; usage; }
