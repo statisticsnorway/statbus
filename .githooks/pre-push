@@ -1,0 +1,100 @@
+#!/bin/sh
+#
+# pre-push hook — guard the postgres/Dockerfile pgrx-builder stages.
+#
+# This file was introduced because commit 13fc8a7f7 broke ci-images
+# with a classic Dockerfile regression that a single `docker build`
+# locally would have caught in seconds. The follow-up fix
+# (commit c2e342e7d) restored green, but we want future pushes that
+# touch this Dockerfile to surface the same class of bug before it
+# reaches master.
+#
+# Behavior:
+#   - If any commit being pushed modifies postgres/Dockerfile, build
+#     all three pgrx-builder stages locally. Fail the push on any
+#     build error.
+#   - Otherwise, no-op (instant).
+#
+# Bypass (e.g. when you've just built locally by hand):
+#   git push --no-verify
+#
+# Activation (once, per clone):
+#   git config core.hooksPath .githooks
+#
+# Cost when triggered:
+#   First run from cold: ~10-15 minutes (clones + cargo pgrx init +
+#   three Rust builds). Subsequent runs reuse build cache, typically
+#   <2 minutes unless the extension versions advance.
+
+set -eu
+
+remote="$1"
+# url="$2"   # unused; pushing to any remote triggers the same check
+
+# Gather the list of local SHAs being pushed. stdin lines look like:
+#   <local-ref> <local-sha> <remote-ref> <remote-sha>
+# A zero sha means branch deletion or an empty remote.
+zero='0000000000000000000000000000000000000000'
+shas=''
+while read -r local_ref local_sha remote_ref remote_sha; do
+    [ "$local_sha" = "$zero" ] && continue   # skip deletions
+    if [ "$remote_sha" = "$zero" ]; then
+        # New branch — diff against the merge-base with the default head
+        range="$local_sha"
+    else
+        range="$remote_sha..$local_sha"
+    fi
+    shas="$shas $range"
+done
+
+# Nothing being pushed (e.g. --delete of nonexistent) — pass.
+[ -z "$shas" ] && exit 0
+
+# Does any commit in any pushed range touch postgres/Dockerfile?
+touched=$(git log --name-only --pretty=format: $shas 2>/dev/null | \
+    grep -xF 'postgres/Dockerfile' | head -1 || true)
+
+if [ -z "$touched" ]; then
+    exit 0
+fi
+
+cat >&2 <<'MSG'
+
+pre-push: postgres/Dockerfile is modified in commits being pushed.
+pre-push: Validating all three pgrx-builder stages locally before allowing push.
+pre-push: (pass --no-verify to skip; CI will still catch failures on master.)
+
+MSG
+
+# Need a working docker daemon. If it's not available, warn and bail
+# (we don't want to block pushes on a dev laptop where docker is off).
+if ! docker info >/dev/null 2>&1; then
+    cat >&2 <<'MSG'
+pre-push: docker is not running on this machine. Skipping the build
+pre-push: check. CI on master WILL catch any Dockerfile regression.
+MSG
+    exit 0
+fi
+
+root=$(git rev-parse --show-toplevel)
+cd "$root/postgres"
+
+for stage in pg_graphql-builder jsonb_stats-builder sql_saga_native-builder; do
+    echo "pre-push: docker build --target=$stage ..." >&2
+    if ! docker build -f Dockerfile --target="$stage" -q . >/dev/null; then
+        cat >&2 <<MSG
+
+pre-push: FAILED — '$stage' did not build cleanly. Fix the Dockerfile
+pre-push: and try again. Run manually to iterate:
+pre-push:
+pre-push:   docker build -f postgres/Dockerfile --target=$stage ./postgres
+pre-push:
+pre-push: Bypass (only if you know what you're doing):
+pre-push:   git push --no-verify
+MSG
+        exit 1
+    fi
+done
+
+echo "pre-push: all three pgrx-builder stages built cleanly." >&2
+exit 0

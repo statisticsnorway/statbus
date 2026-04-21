@@ -48,6 +48,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      actions: read
     steps:
       - name: Validate inputs
         run: |
@@ -73,6 +74,64 @@ jobs:
           HOST="${TARGET##*@}"
           echo "username=$USERNAME" >> "$GITHUB_OUTPUT"
           echo "host=$HOST" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve commit SHA for the requested version
+        id: sha
+        if: github.event.inputs.action == 'apply'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          if [[ "$VERSION" == sha-* ]]; then
+            # Edge-channel SHA; strip the prefix.
+            SHA="${VERSION#sha-}"
+          else
+            # Tag — resolve to the commit it points to.
+            SHA=$(gh api "repos/${{ github.repository }}/git/refs/tags/$VERSION" --jq '.object.sha' 2>/dev/null || true)
+            if [ -z "$SHA" ] || [ "$SHA" = "null" ]; then
+              echo "::warning::could not resolve $VERSION to a commit SHA — skipping ci-images gate"
+              echo "sha=" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            # Tag objects dereference one more level.
+            TYPE=$(gh api "repos/${{ github.repository }}/git/refs/tags/$VERSION" --jq '.object.type' 2>/dev/null || echo "commit")
+            if [ "$TYPE" = "tag" ]; then
+              SHA=$(gh api "repos/${{ github.repository }}/git/tags/$SHA" --jq '.object.sha')
+            fi
+          fi
+          echo "Resolved $VERSION -> $SHA"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for CI Images to succeed on this commit
+        if: github.event.inputs.action == 'apply' && steps.sha.outputs.sha != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SHA="${{ steps.sha.outputs.sha }}"
+          TIMEOUT=900
+          ELAPSED=0
+          while [ $ELAPSED -lt $TIMEOUT ]; do
+            STATUS=$(gh run list --repo "${{ github.repository }}" --workflow=ci-images.yaml --commit="$SHA" --json status,conclusion --jq '.[0]' 2>/dev/null)
+            if [ -z "$STATUS" ] || [ "$STATUS" = "null" ]; then
+              echo "No ci-images run found yet for $SHA. Waiting..."
+            else
+              CONCLUSION=$(echo "$STATUS" | jq -r '.conclusion // ""')
+              if [ "$CONCLUSION" = "success" ]; then
+                echo "ci-images green for $SHA — proceeding"
+                exit 0
+              fi
+              if [ "$CONCLUSION" = "failure" ] || [ "$CONCLUSION" = "cancelled" ]; then
+                echo "::error::ci-images is $CONCLUSION for $SHA. Refusing to deploy a broken build."
+                echo "::error::Fix master and re-run, or bypass by deploying a commit with green ci-images."
+                exit 1
+              fi
+              # in_progress / queued — keep waiting
+            fi
+            sleep 30
+            ELAPSED=$((ELAPSED + 30))
+          done
+          echo "::error::Timed out waiting for ci-images on $SHA after 15 minutes"
+          exit 1
 
       - name: Trigger upgrade service
         uses: appleboy/ssh-action@v1.0.0
