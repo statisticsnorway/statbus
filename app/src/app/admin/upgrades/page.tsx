@@ -182,7 +182,7 @@ export default function UpgradesPage() {
 
   // Fresh-install-failure banner. Populated by install.sh via
   // `./sb support write-admin-ui-row` when ./sb install exits non-zero;
-  // cleared by the next successful install (Phase 4 concern).
+  // cleared by the next successful install (stampInstallInvocationTracking).
   const installLastError = systemInfo?.find(
     (s) => s.key === "install_last_error",
   )?.value;
@@ -191,6 +191,14 @@ export default function UpgradesPage() {
   )?.value;
   const installLastBundlePath = systemInfo?.find(
     (s) => s.key === "install_last_bundle_path",
+  )?.value;
+  // Last successful install-invocation tracking. Written by install.go's
+  // post-completion defer via stampInstallInvocationTracking.
+  const installLastAt = systemInfo?.find(
+    (s) => s.key === "install_last_at",
+  )?.value;
+  const installLastLogRelativeFilePath = systemInfo?.find(
+    (s) => s.key === "install_last_log_relative_file_path",
   )?.value;
 
   const [actionError, setActionError] = useState<string | null>(null);
@@ -314,6 +322,22 @@ export default function UpgradesPage() {
             </p>
           </CardContent>
         </Card>
+      )}
+
+      {!installLastError && installLastAt && (
+        <p className="mb-4 text-center text-xs text-muted-foreground">
+          Last install invocation: {new Date(installLastAt).toLocaleString()}
+          {installLastLogRelativeFilePath && (
+            <>
+              {" "}
+              (log:{" "}
+              <span className="font-mono">
+                tmp/install-logs/{installLastLogRelativeFilePath}
+              </span>
+              )
+            </>
+          )}
+        </p>
       )}
 
       {error && (

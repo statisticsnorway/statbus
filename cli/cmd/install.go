@@ -368,32 +368,45 @@ func runInstall() (installErr error) {
 		fmt.Printf("Disk space: %d GB free\n", freeGB)
 	}
 
-	// --- Upgrade row lifecycle ---
+	// --- Install-invocation / upgrade row lifecycle ---
 	// Capability separation: install runs the step-table; the upgrade daemon
-	// owns public.upgrade (discovery + ledger). On StateNothingScheduled the
-	// completion defer emits NOTIFY upgrade_check so the daemon materializes a
-	// commit-centric row on its next tick — install itself authors no row on
-	// that path. On fresh / half-configured / db-unreachable the completion
-	// defer still writes a 'completed' row via completeInstallUpgradeRow
-	// (rowID=0 → INSERT path), since there is no pre-existing row and no
-	// daemon running yet. upgradeRowID therefore stays 0 for every current
-	// caller; the variable is retained so future state transitions that need
-	// mid-flight row authoring can slot in without re-plumbing the defer.
+	// owns public.upgrade (discovery + ledger).
+	//
+	// Log layout by detected state:
+	//   StateNothingScheduled        → tmp/install-logs/<ver>-<ts>.log
+	//                                  (no row authored; system_info stamps
+	//                                  install_last_log_relative_file_path +
+	//                                  install_last_at on success; daemon
+	//                                  materializes the public.upgrade row on
+	//                                  its next tick via NOTIFY upgrade_check)
+	//   StateFresh/HalfConfigured/
+	//   StateDBUnreachable           → tmp/upgrade-logs/0-<ver>-<ts>.log
+	//                                  (fresh row authored via rowID=0 INSERT
+	//                                  path in completeInstallUpgradeRow,
+	//                                  stamping log_relative_file_path on the
+	//                                  new row)
+	//
+	// The daemon / scheduled-upgrade path uses executeUpgrade's own NewUpgradeLog
+	// with a real row id — those calls happen elsewhere in the upgrade service.
+	// Install itself never authors an in_progress row under A20 capability
+	// separation, so upgradeRowID stays 0 for the completion-defer path.
 	var upgradeRowID int64
 
-	// Create an install log so the admin UI can show what happened. Always
-	// create the log for real installs (not bypass, not dev) — even for fresh
-	// installs where the DB doesn't exist yet (upgradeRowID == 0). The log
-	// file lives on disk; the DB stamp happens later in completeInstallUpgradeRow.
-	// Must be registered BEFORE the post-completion defer so the pipe stays
-	// active during completion/supersede/retention prints (defers are LIFO —
-	// this one drains last).
+	// Create the run log so the admin UI can show what happened. Always create
+	// for real installs (not bypass, not dev) — even for fresh installs where
+	// the DB doesn't exist yet. Must be registered BEFORE the post-completion
+	// defer so the pipe stays active during completion/supersede/retention
+	// prints (defers are LIFO — this one drains last).
 	var installLog *upgrade.ProgressLog
 	var origStdout *os.File
 	var pipeW *os.File
 	var teeDone chan struct{}
 	if !bypass && version != "dev" {
-		installLog = upgrade.NewProgressLog(installDir, upgradeRowID, version, time.Now().UTC())
+		if detectedState == install.StateNothingScheduled {
+			installLog = upgrade.NewInstallLog(installDir, version, time.Now().UTC())
+		} else {
+			installLog = upgrade.NewUpgradeLog(installDir, upgradeRowID, version, time.Now().UTC())
+		}
 		// Tee stdout to the log file for the entire install duration.
 		origStdout = os.Stdout
 		pr, pw, pipeErr := os.Pipe()
@@ -453,9 +466,11 @@ func runInstall() (installErr error) {
 				return
 			}
 
-			if installErr != nil && upgradeRowID > 0 {
-				failInstallUpgradeRow(conn, upgradeRowID, installErr)
-			} else if installErr == nil {
+			if installErr == nil {
+				logRelPath := ""
+				if installLog != nil {
+					logRelPath = installLog.RelPath()
+				}
 				if detectedState == install.StateNothingScheduled {
 					// Capability separation: the daemon owns the ledger on
 					// NothingScheduled. Emit NOTIFY upgrade_check so it
@@ -468,15 +483,16 @@ func runInstall() (installErr error) {
 							err, thisLine(), os.Getpid())
 					}
 				} else {
-					logRelPath := ""
-					if installLog != nil {
-						logRelPath = installLog.RelPath()
-					}
-					if err := completeInstallUpgradeRow(installDir, conn, upgradeRowID, logRelPath); err != nil {
+					if err := completeInstallUpgradeRow(installDir, conn, logRelPath); err != nil {
 						installErr = err
 						return
 					}
 				}
+				// Stamp install-invocation tracking in public.system_info.
+				// Mirrors the support.go install_last_error* upsert pattern.
+				// Best-effort: a failure here is a log-only breadcrumb — the
+				// admin UI simply shows stale values until the next install.
+				stampInstallInvocationTracking(conn, logRelPath)
 				runInstallSupersede(conn, installDir)
 				runInstallRetention(conn, upgradeRowID)
 				runInstallCallback(installDir)
@@ -1170,24 +1186,29 @@ func connectInstallDB(dir string) (*pgx.Conn, error) {
 	return pgx.Connect(ctx, connStr)
 }
 
-// completeInstallUpgradeRow marks the upgrade row completed (or creates a new
-// completed row if no in_progress row was started — e.g., fresh installs).
-// logRelPath is stamped on the new row when rowID == 0 (the log was created
-// before the step-table but couldn't be stamped until the row exists).
+// completeInstallUpgradeRow creates a fresh `completed` upgrade row for the
+// current SHA (idempotent INSERT ... ON CONFLICT upsert). Used on
+// StateFresh/StateHalfConfigured/StateDBUnreachable where install is the
+// first actor to touch public.upgrade; the daemon has not yet authored a row.
+// logRelPath is stamped on the new row (the on-disk log was created before
+// the step-table but couldn't be stamped until the row exists).
 //
-// Guards four named invariants:
+// Under A20 capability separation, install itself NEVER authors an in_progress
+// row — so the UPDATE branch that used to exist here was removed in rc.38.
+// StateNothingScheduled takes a separate code path that emits NOTIFY
+// upgrade_check instead of calling this function.
+//
+// Guards three named invariants:
 //   - A6 COMPLETION_CONN_NON_NIL — nil conn is a bug-class assert (A3's
 //     post-completion defer fail-fasts first on connect failure). log.Panicf
 //     so the runtime prints the stack trace; the panic handler in runInstall
 //     writes install-terminal.txt.
-//   - A7 COMPLETION_UPDATE_SUCCEEDS — UPDATE must succeed when conn is live
-//     and the row exists.
 //   - A8 GIT_HEAD_RESOLVABLE — gitHeadInfo yields a non-empty SHA inside a
 //     checked-out repo.
 //   - A9 POST_COMPLETION_UPGRADE_ROW_INSERT_SUCCEEDS — the fresh-install INSERT
 //     creating the `completed` row succeeds when conn is live and schema is
 //     migrated.
-func completeInstallUpgradeRow(installDir string, conn *pgx.Conn, rowID int64, logRelPath string) error {
+func completeInstallUpgradeRow(installDir string, conn *pgx.Conn, logRelPath string) error {
 	// A6: COMPLETION_CONN_NON_NIL — bug-class panic. A3's post-completion defer
 	// returns early on connect failure so this function is reached only when
 	// conn is non-nil. If a future refactor drops that guard, fail loudly.
@@ -1197,28 +1218,6 @@ func completeInstallUpgradeRow(installDir string, conn *pgx.Conn, rowID int64, l
 			thisLine(), os.Getpid())
 	}
 	ctx := context.Background()
-
-	if rowID > 0 {
-		tag, err := conn.Exec(ctx,
-			`UPDATE public.upgrade SET state = 'completed', completed_at = clock_timestamp(),
-			   log_relative_file_path = COALESCE($2, log_relative_file_path)
-			 WHERE id = $1 AND state = 'in_progress'`, rowID, logRelPath)
-		rowsAffected := tag.RowsAffected()
-		if err != nil || rowsAffected == 0 {
-			// A7: COMPLETION_UPDATE_SUCCEEDS
-			fmt.Fprintf(os.Stderr,
-				"INVARIANT COMPLETION_UPDATE_SUCCEEDS violated: upgrade row %d UPDATE to 'completed' failed: %v; rowsAffected=%d (install.go:%d, pid=%d)\n",
-				rowID, err, rowsAffected, thisLine(), os.Getpid())
-			markTerminal(installDir, "COMPLETION_UPDATE_SUCCEEDS",
-				fmt.Sprintf("row %d UPDATE err=%v; rowsAffected=%d", rowID, err, rowsAffected))
-			if err != nil {
-				return fmt.Errorf("COMPLETION_UPDATE_SUCCEEDS: %w", err)
-			}
-			return fmt.Errorf("COMPLETION_UPDATE_SUCCEEDS: row %d UPDATE affected 0 rows", rowID)
-		}
-		fmt.Printf("  Upgrade row %d: completed\n", rowID)
-		return nil
-	}
 
 	sha, commitDate := gitHeadInfo(installDir)
 	if sha == "" || commitDate == "" {
@@ -1274,35 +1273,33 @@ func completeInstallUpgradeRow(installDir string, conn *pgx.Conn, rowID int64, l
 	return nil
 }
 
-// failInstallUpgradeRow marks the in_progress row as failed. Secondary
-// cleanup — the primary `installErr` return already drives the shell
-// fail-fast path. A10/A11 are log-only named breadcrumbs so the support
-// bundle has a greppable anchor when the DB row could not be updated.
-func failInstallUpgradeRow(conn *pgx.Conn, rowID int64, stepErr error) {
+// stampInstallInvocationTracking records the latest install invocation in
+// public.system_info. Mirrors the support.go install_last_error* upsert pattern.
+// Called on successful install completion (all states). Best-effort: failures
+// here only affect the admin UI banner freshness — the install itself succeeded.
+// Also clears install_last_error / install_last_error_at / install_last_bundle_path
+// so a previously-failed install stops showing a stale error banner after a
+// successful re-run.
+func stampInstallInvocationTracking(conn *pgx.Conn, logRelPath string) {
 	if conn == nil {
-		// A10: FAIL_ROW_DB_CONN_LIVE_FOR_CLEANUP
-		log.Printf(
-			"INVARIANT FAIL_ROW_DB_CONN_LIVE_FOR_CLEANUP violated (secondary cleanup): conn==nil; upgrade row %d will be auto-healed on next install.sh run (install.go:%d, pid=%d)",
-			rowID, thisLine(), os.Getpid())
 		return
 	}
-	errMsg := stepErr.Error()
-	if len(errMsg) > 500 {
-		errMsg = errMsg[:500]
-	}
-	tag, err := conn.Exec(context.Background(),
-		`UPDATE public.upgrade SET state = 'failed', error = $1
-		 WHERE id = $2 AND state = 'in_progress'`,
-		errMsg, rowID)
-	rowsAffected := tag.RowsAffected()
-	if err != nil || rowsAffected == 0 {
-		// A11: FAIL_ROW_UPDATE_SUCCEEDS
+	_, err := conn.Exec(context.Background(),
+		`INSERT INTO public.system_info (key, value) VALUES
+		     ('install_last_log_relative_file_path', $1),
+		     ('install_last_at', clock_timestamp()::text),
+		     ('install_last_error', ''),
+		     ('install_last_error_at', ''),
+		     ('install_last_bundle_path', '')
+		 ON CONFLICT (key) DO UPDATE SET
+		     value = EXCLUDED.value,
+		     updated_at = clock_timestamp()`,
+		logRelPath)
+	if err != nil {
 		log.Printf(
-			"INVARIANT FAIL_ROW_UPDATE_SUCCEEDS violated (secondary cleanup): UPDATE failed for row %d: %v; rowsAffected=%d; next install.sh run's A1 auto-heal will resolve (install.go:%d, pid=%d)",
-			rowID, err, rowsAffected, thisLine(), os.Getpid())
-		return
+			"stampInstallInvocationTracking: upsert failed (non-fatal): %v (install.go:%d, pid=%d)",
+			err, thisLine(), os.Getpid())
 	}
-	fmt.Printf("  Upgrade row %d: failed\n", rowID)
 }
 
 // runInstallRetention runs the upgrade retention policy after a successful
@@ -1616,15 +1613,6 @@ func init() {
 		TranscriptFormat: "INVARIANT COMPLETION_CONN_NON_NIL violated: completeInstallUpgradeRow called with nil conn; A3 guarantee broken in runInstall defer chain",
 	})
 	invariants.Register(invariants.Invariant{
-		Name:             "COMPLETION_UPDATE_SUCCEEDS",
-		Class:            invariants.FailFast,
-		SourceLocation:   "cli/cmd/install.go:completeInstallUpgradeRow",
-		ExpectedToHold:   "The UPDATE marking the in_progress upgrade row as completed both returns err=nil AND affects exactly one row.",
-		WhyExpected:      "The row was written by this same process in startInstallUpgradeRow seconds earlier; the mutex guarantees nobody else has claimed it; the WHERE clause matches state='in_progress' which this path owns. A 0-row UPDATE means a concurrent writer stole the row — a mutex-invariant breach.",
-		ViolationShape:   "pgx.Exec returns a non-nil error OR CommandTag.RowsAffected() returns 0 for the UPDATE public.upgrade SET state='completed' ... WHERE id=<rowID> AND state='in_progress'.",
-		TranscriptFormat: "INVARIANT COMPLETION_UPDATE_SUCCEEDS violated: upgrade row <id> UPDATE to 'completed' failed: <err>; rowsAffected=<n>",
-	})
-	invariants.Register(invariants.Invariant{
 		Name:             "GIT_HEAD_RESOLVABLE",
 		Class:            invariants.FailFast,
 		SourceLocation:   "cli/cmd/install.go:completeInstallUpgradeRow",
@@ -1641,24 +1629,6 @@ func init() {
 		WhyExpected:      "A3 just guaranteed the DB is reachable, gitHeadInfo (A8) yielded real values, and this is an idempotent INSERT ... ON CONFLICT upsert. Failure means the DB dropped between A3 and this call or a schema drift broke the INSERT.",
 		ViolationShape:   "pgx.Exec returns a non-nil error for the fresh-install INSERT INTO public.upgrade (...) VALUES (...) ON CONFLICT (commit_sha) DO UPDATE SET ...",
 		TranscriptFormat: "INVARIANT POST_COMPLETION_UPGRADE_ROW_INSERT_SUCCEEDS violated: could not record completed upgrade row for sha=<sha>: <err>",
-	})
-	invariants.Register(invariants.Invariant{
-		Name:             "FAIL_ROW_DB_CONN_LIVE_FOR_CLEANUP",
-		Class:            invariants.LogOnly,
-		SourceLocation:   "cli/cmd/install.go:failInstallUpgradeRow",
-		ExpectedToHold:   "failInstallUpgradeRow is invoked with a live *pgx.Conn so the in_progress row can be marked failed as a secondary audit step.",
-		WhyExpected:      "The caller (runInstall defer) passes the conn from its own connectInstallDB call; if that succeeded we have a live handle. A nil conn here means A3 already fired on the cleanup path — primary fail-fast drives the shell; this breadcrumb only.",
-		ViolationShape:   "failInstallUpgradeRow(conn, ...) called with conn==nil.",
-		TranscriptFormat: "INVARIANT FAIL_ROW_DB_CONN_LIVE_FOR_CLEANUP violated (secondary cleanup): conn==nil; upgrade row <id> will be auto-healed on next install.sh run",
-	})
-	invariants.Register(invariants.Invariant{
-		Name:             "FAIL_ROW_UPDATE_SUCCEEDS",
-		Class:            invariants.LogOnly,
-		SourceLocation:   "cli/cmd/install.go:failInstallUpgradeRow",
-		ExpectedToHold:   "The UPDATE marking the in_progress row as failed succeeds and affects one row during cleanup of a failed install.",
-		WhyExpected:      "Row exists (this process wrote it), state is still 'in_progress' (nobody else could claim it), and the conn is live. Failure here is a non-recoverable DB issue that the primary installErr return already surfaces.",
-		ViolationShape:   "pgx.Exec returns a non-nil error OR RowsAffected() == 0 for the cleanup UPDATE public.upgrade SET state='failed', error=... WHERE id=<rowID> AND state='in_progress'.",
-		TranscriptFormat: "INVARIANT FAIL_ROW_UPDATE_SUCCEEDS violated (secondary cleanup): UPDATE failed for row <id>: <err>; rowsAffected=<n>; next install.sh run's A1 auto-heal will resolve",
 	})
 	invariants.Register(invariants.Invariant{
 		Name:             "OPPORTUNISTIC_CLEANUP_BEST_EFFORT_LOGGED",

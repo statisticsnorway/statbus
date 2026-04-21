@@ -2140,7 +2140,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	defer func() { d.upgrading = false }()
 
 	projDir := d.projDir
-	progress := NewProgressLog(projDir, int64(id), displayName, time.Now().UTC())
+	progress := NewUpgradeLog(projDir, int64(id), displayName, time.Now().UTC())
 	defer progress.Close()
 
 	// Stamp log_relative_file_path on the row as early as possible so crash
