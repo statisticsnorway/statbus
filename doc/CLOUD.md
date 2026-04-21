@@ -2,7 +2,7 @@
 
 This guide is for **SSB staff** managing the multi-tenant cloud infrastructure on **niue.statbus.org**.
 
-**Note**: For single-country deployments, see [DEPLOYMENT.md](DEPLOYMENT.md).
+**Note**: For single-country deployments, see [DEPLOYMENT.md](DEPLOYMENT.md). SSB also operates one production-grade dedicated standalone instance — `no.statbus.org` on `rune.statbus.org` — which serves to keep the standalone code path exercised against real production traffic; see the [Related: SSB-operated standalone instances](#related-ssb-operated-standalone-instances) section below.
 
 <img src="diagrams/infrastructure-cloud.svg" alt="Cloud Multi-Tenant Architecture" style="max-width:100%;">
 
@@ -20,12 +20,11 @@ The StatBus cloud infrastructure hosts multiple country instances on a single se
 
 ## Current Deployments
 
-Active instances on niue.statbus.org:
+Active multi-tenant instances on niue.statbus.org:
 
 | Code | Name | User | Domain | Offset |
 |------|------|------|--------|--------|
 | dev | Development | statbus_dev | dev.statbus.org | 1 |
-| no | Norway | statbus_no | no.statbus.org | 2 |
 | demo | Demo | statbus_demo | demo.statbus.org | 3 |
 | tcc | Turkish Cypriotic Community | statbus_tcc | tcc.statbus.org | 4 |
 | ma | Morocco | statbus_ma | ma.statbus.org | 5 |
@@ -33,6 +32,9 @@ Active instances on niue.statbus.org:
 | test | Test | statbus_test | test.statbus.org | 7 |
 | et | Ethiopia | statbus_et | et.statbus.org | 8 |
 | jo | Jordan | statbus_jo | jo.statbus.org | 9 |
+
+**Moved off niue:**
+- `no` (Norway) — migrated to a dedicated standalone box `rune.statbus.org` to dog-food the standalone deployment mode that external clients use. See [Related: SSB-operated standalone instances](#related-ssb-operated-standalone-instances). Port offset 2 stays reserved on niue for any future use; the `statbus_no` Linux home and last DB dump remain on niue for ~2 weeks as rollback insurance.
 
 ## Architecture
 
@@ -341,7 +343,7 @@ Current allocations on niue.statbus.org:
 | Code | Name | Offset | HTTP  | HTTPS | PostgreSQL | REST |
 |------|------|--------|-------|-------|------------|------|
 | dev  | Development | 1 | 3010  | 3011  | 3014       | 3011 |
-| no   | Norway | 2      | 3020  | 3021  | 3024       | 3021 |
+| _no_ | _Norway (moved to rune.statbus.org)_ | _2_ | _3020_ | _3021_ | _3024_ | _3021_ |
 | demo | Demo | 3      | 3030  | 3031  | 3034       | 3031 |
 | tcc  | Turkish Cypriotic Community | 4 | 3040 | 3041 | 3044 | 3041 |
 | ma   | Morocco | 5     | 3050  | 3051  | 3054       | 3051 |
@@ -349,6 +351,8 @@ Current allocations on niue.statbus.org:
 | test | Test | 7       | 3070  | 3071  | 3074       | 3071 |
 | et   | Ethiopia | 8    | 3080  | 3081  | 3084       | 3081 |
 | jo   | Jordan | 9      | 3090  | 3091  | 3094       | 3091 |
+
+Offset 2 is reserved (kept for rollback if `no` ever needs to come back to niue).
 
 **Public Ports** (shared by all instances):
 - **80** (HTTP) → Host Caddy → redirects to HTTPS
@@ -703,9 +707,68 @@ To distribute instances across multiple servers:
 
 ---
 
+---
+
+# SSB-Operated Standalone Instances
+
+In addition to the multi-tenant cloud on niue, SSB operates **dedicated standalone boxes** for individual production deployments. These are managed by the same SSB team, share the same Slack/Seq observability, and follow the same release cadence — but they run with `CADDY_DEPLOYMENT_MODE=standalone`, exactly as external clients deploy from [DEPLOYMENT.md](DEPLOYMENT.md). The point is to dog-food the standalone code path against real production traffic so we discover paper cuts before clients do.
+
+## Active standalone instances
+
+| Host | Domain served | OS / FS | Slot code | Deploy branch | Hardware |
+|------|---------------|---------|-----------|---------------|----------|
+| `rune.statbus.org` | `no.statbus.org` (Norway) | Ubuntu 24.04 LTS, mdadm RAID1 + XFS | `no` | `ops/standalone/deploy/rune-no` | Hetzner physical: Intel Xeon E3-1275v5 (4C/8T), 64 GB DDR4 ECC, 2× 512 GB NVMe RAID1, 1 Gbit |
+
+Each standalone box has HTTPS and PostgreSQL TLS+SNI on its own public IP, served by Caddy inside Docker (port 80, 443, 5432). No host-level Caddy, no SNI multiplexing — same shape as a client install per [DEPLOYMENT.md](DEPLOYMENT.md).
+
+## Naming convention
+
+Short, memorable, tied to the geography it serves where possible. `niue` (a Pacific island) is the multi-tenant cloud — its deployments span continents, so a Pacific name is fitting (multi-cultural collection). `rune` is Norse and a common Norwegian first name, fitting for the box that hosts Norway's instance — easy to commit to memory.
+
+New standalone boxes should follow the same spirit (short word with a tie to the deployment, easy to remember, easy to type).
+
+## Operating a standalone instance
+
+Day-to-day ops follow [DEPLOYMENT.md](DEPLOYMENT.md) verbatim — `./sb` works identically to how it does on niue's multi-tenant slots:
+
+```bash
+# rune-no example
+ssh devops@rune.statbus.org
+cd ~/statbus
+./sb ps                        # container status
+./sb logs proxy                # Caddy / ACME / TLS
+./sb upgrade list              # discovered upgrades
+./sb upgrade apply v2026.04.1  # immediate via NOTIFY
+./sb install                   # idempotent config refresh / dispatch pending upgrade
+```
+
+The deploy automation is structurally the same as the multi-tenant one (force-push master → branch → Actions workflow → SSH + `./sb upgrade apply-latest`), just on a different branch namespace:
+
+| Multi-tenant (niue) | Standalone (rune et al.) |
+|---|---|
+| Branch: `ops/cloud/deploy/<slot>` | Branch: `ops/standalone/deploy/<host>-<slot>` |
+| Workflow: `master-to-<slot>.yaml` + `deploy-to-<slot>.yaml` | Workflow: `master-to-<host>-<slot>.yaml` + `deploy-to-<host>-<slot>.yaml` |
+| SSH target: `statbus_<slot>@niue.statbus.org` | SSH target: `devops@<host>.statbus.org` |
+| Same shared `SSH_KEY` repo secret in both. |
+
+## Adding a new SSB standalone instance
+
+The high-level shape (concrete walkthrough belongs in the per-host bootstrap plan):
+
+1. Provision the box. Install Ubuntu 24.04 LTS with the desired filesystem (mdadm RAID where applicable; XFS recommended for `/`).
+2. Run `ops/harden-ubuntu-lts-24.sh` (stages 1-6; skip 0 if the network allows HTTP).
+3. Bootstrap StatBus as `devops`: `curl -fsSL https://statbus.org/install.sh | bash -s -- --prerelease`.
+4. Author `.env.config` with `CADDY_DEPLOYMENT_MODE=standalone`, `SITE_DOMAIN=<the public domain>`, `UPGRADE_CHANNEL=prerelease`, plus `SEQ_API_KEY` / `SLACK_TOKEN` copied from an existing instance for observability continuity.
+5. Add a `.github/workflows/deploy-to-<host>-<slot>.yaml` and `master-to-<host>-<slot>.yaml` pair, modeled on `deploy-to-rune-no.yaml` and `master-to-rune-no.yaml`. Branch name: `ops/standalone/deploy/<host>-<slot>`.
+6. Register the existing repo `SSH_KEY` pubkey in `devops@<host>:~/.ssh/authorized_keys`.
+
+For migrating an existing slot off niue (as `no` was migrated to rune): also dump the niue slot, restore on the new host, then stop the niue slot's containers and let DNS (CNAME on the public domain pointing at the new host) drive the cutover.
+
+---
+
 ## Additional Resources
 
-- **[Deployment Guide](DEPLOYMENT.md)**: Single instance deployment
+- **[Deployment Guide](DEPLOYMENT.md)**: Single instance deployment (the standalone shape used by both clients and SSB's own standalone boxes)
 - **[Development Guide](DEVELOPMENT.md)**: For developers
 - **[Service Architecture](doc/service-architecture.md)**: Technical architecture
 - **[Integration Guide](INTEGRATE.md)**: API and PostgreSQL access
@@ -714,7 +777,7 @@ To distribute instances across multiple servers:
 
 ## Support
 
-For SSB staff managing cloud infrastructure:
+For SSB staff managing cloud and standalone infrastructure:
 - Internal documentation: [SSB internal wiki]
 - Contact: StatBus team at SSB
 - Issues: https://github.com/statisticsnorway/statbus/issues

@@ -239,15 +239,17 @@ psql
 - `.env`: Generated file, **do not edit** directly
 - `.env.credentials`: Secrets, generated once, keep secure
 
-### Cloud Multi-Tenant Deployment
+### SSB-Operated Deployments (cloud + standalone)
 
-The cloud infrastructure on **niue.statbus.org** uses **branches as pointers** for CI/CD. See `doc/CLOUD.md` for full details.
+SSB runs production StatBus on two host shapes — multi-tenant cloud (`niue.statbus.org`) and dedicated standalone boxes (e.g. `rune.statbus.org`). Both use **branches as pointers** for CI/CD. See `doc/CLOUD.md` for full details on each.
 
 1. **Trigger deployment** (GitHub Actions -> "Run workflow"):
-   - `master-to-X` workflow force-pushes `master` -> `ops/cloud/deploy/X` branch
-   - Example: "Push master -> ops/cloud/deploy/no" deploys to Norway
+   - `master-to-X` workflow force-pushes `master` -> the deployment branch for X.
+   - Cloud (multi-tenant on niue): branch is `ops/cloud/deploy/<slot>`.
+   - Standalone (dedicated host): branch is `ops/standalone/deploy/<host>-<slot>`.
+   - Example: "Push master -> ops/standalone/deploy/rune-no" deploys Norway on the dedicated rune box; "Push master -> ops/cloud/deploy/dev" deploys Development on niue.
 
-2. **Automatic execution**: Push to `ops/cloud/deploy/X` triggers `deploy-to-X` workflow, which SSHs to the server and triggers the upgrade service
+2. **Automatic execution**: Push to the deployment branch triggers the matching `deploy-to-X` workflow, which SSHs to the server and triggers the upgrade service.
 
 3. **On the server** (upgrade service):
    - CLI writes upgrade request to database and sends NOTIFY
@@ -262,17 +264,17 @@ The cloud infrastructure on **niue.statbus.org** uses **branches as pointers** f
 
 | Workflow | Branch | Server | Notes |
 |----------|--------|--------|-------|
-| master-to-no | ops/cloud/deploy/no | statbus_no@niue | Norway |
-| master-to-demo | ops/cloud/deploy/demo | statbus_demo@niue | Demo |
-| master-to-dev | ops/cloud/deploy/dev | statbus_dev@niue | Development |
+| master-to-rune-no | ops/standalone/deploy/rune-no | devops@rune.statbus.org | **Norway** (standalone, dedicated Hetzner box) |
+| master-to-demo | ops/cloud/deploy/demo | statbus_demo@niue | Demo (multi-tenant) |
+| master-to-dev | ops/cloud/deploy/dev | statbus_dev@niue | Development (multi-tenant) |
 | master-to-production | ops/cloud/deploy/production | — | Pointer only |
 | production-to-all | — | all servers | Cascades to all |
 
 #### Triggering Deployment
 
 ```bash
-git push origin master:ops/cloud/deploy/no         # Deploy master to Norway
-git push origin master:ops/cloud/deploy/dev        # Deploy master to dev
+git push origin master:ops/standalone/deploy/rune-no  # Deploy master to Norway (standalone on rune)
+git push origin master:ops/cloud/deploy/dev           # Deploy master to Development (multi-tenant on niue)
 ```
 
 This directly updates the branch pointer, which triggers `deploy-to-X.yaml`. The `master-to-X` workflows in GitHub UI do the same thing but add an extra hop.
@@ -280,8 +282,13 @@ This directly updates the branch pointer, which triggers `deploy-to-X.yaml`. The
 #### Manual Server Access
 
 ```bash
-ssh statbus_no "cd statbus && <command>"           # Run command on server
-scp local/file statbus_no:statbus/path/to/file     # Copy file to server
+# Multi-tenant slot on niue (one user per slot)
+ssh statbus_<slot> "cd statbus && <command>"          # e.g. statbus_dev
+scp local/file statbus_<slot>:statbus/path/to/file
+
+# Standalone box (one user per host: devops)
+ssh devops@rune.statbus.org "cd statbus && <command>"
+scp local/file devops@rune.statbus.org:statbus/path/to/file
 ```
 
 **Before deploying**: Ensure remote working directory is clean (no uncommitted changes), or deploy will fail.

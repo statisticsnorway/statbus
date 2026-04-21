@@ -148,7 +148,9 @@ Wait for the release workflow to complete in GitHub Actions.
 
 Use the **Deploy via upgrade service** workflow (`.github/workflows/deploy-via-upgrade.yaml`) from the GitHub Actions UI:
 
-- **Target**: select the server (e.g. `statbus_dev@niue.statbus.org`)
+- **Target**: select the server.
+  - Multi-tenant cloud slot: `statbus_<slot>@niue.statbus.org` (e.g. `statbus_dev@niue.statbus.org`).
+  - Standalone box: `devops@<host>.statbus.org` (e.g. `devops@rune.statbus.org` for Norway).
 - **Version**: enter the tag (e.g. `v2026.03.0-rc.1`)
 - **Action**: `apply`
 
@@ -163,13 +165,18 @@ The upgrade service on the server handles the rest: pull images, stop services, 
 ### 3. Or deploy manually via SSH
 
 ```bash
+# Multi-tenant slot on niue
 ssh statbus_dev@niue.statbus.org "cd statbus && echo \"NOTIFY upgrade_apply, 'v2026.03.0-rc.1';\" | ./sb psql"
+
+# Standalone box (e.g. rune for Norway)
+ssh devops@rune.statbus.org   "cd statbus && echo \"NOTIFY upgrade_apply, 'v2026.03.0-rc.1';\" | ./sb psql"
 ```
 
 ### 4. Verify
 
 ```bash
 ssh statbus_dev@niue.statbus.org "cd statbus && ./sb version"
+ssh devops@rune.statbus.org      "cd statbus && ./sb version"
 ```
 
 ### Upgrade channels
