@@ -71,6 +71,107 @@ else
   export TTY_INPUT=/dev/null
 fi
 
+# ---- Tier-1 stamp guard ----
+#
+# Used by `./dev.sh test fast`, `./dev.sh generate-db-documentation`, and
+# (via a parallel Go implementation in cli/cmd/types.go) `./sb types generate`.
+# Three outcomes, each printed verbatim to stdout with reason + evidence +
+# override hint:
+#
+#   REFUSED  migrations/ has uncommitted changes. A stamp written now would
+#            not honestly reflect HEAD (dirty files aren't in the commit the
+#            stamp records), so refuse before doing any work.
+#   SKIPPED  the stamp file exists, points to an ancestor of HEAD, and no
+#            file in the caller's content scope has changed between that
+#            ancestor and HEAD — re-running the command would produce an
+#            identical result.
+#   RUNNING  normal execution. No stamp, or the stamp is orphaned (not an
+#            ancestor of HEAD — branch switch, rebase, unknown commit), or
+#            in-scope content drifted since the stamp.
+#
+# Escape hatches:
+#   FORCE=1              bypass all guards, always run.
+#   rm tmp/<stamp>       force next invocation from SKIP to RUN.
+#
+# Arguments: <command_label> <stamp_basename> <skip_scope_path...>
+# REFUSE scope is fixed to "migrations/" — the stamping precondition is the
+# same for every command (can't stamp a dirty migration tree). SKIP scope is
+# the caller's content scope: what the command actually consumes. Fast-test
+# passes "migrations test"; types/db-docs pass just "migrations".
+#
+# Return codes: 0 = RUN (continue), 1 = SKIP (caller should exit 0),
+#               2 = REFUSE (caller should exit 1).
+check_stamp_guard() {
+    local label="$1"
+    local stamp_basename="$2"
+    shift 2
+    local skip_scopes=("$@")
+    local stamp_path="$WORKSPACE/tmp/$stamp_basename"
+
+    if [ "${FORCE:-}" = "1" ] || [ "${FORCE:-}" = "true" ]; then
+        echo "RUNNING: $label"
+        echo "Reason:  FORCE=1 — guard bypassed."
+        return 0
+    fi
+
+    local dirty
+    dirty=$(git -C "$WORKSPACE" status --porcelain -- migrations/ 2>/dev/null)
+    if [ -n "$dirty" ]; then
+        echo "REFUSED: $label"
+        echo "Reason:  migrations/ has uncommitted changes — stamping would not"
+        echo "         honestly reflect HEAD."
+        echo "Evidence:"
+        printf '%s\n' "$dirty" | sed 's/^/  /'
+        echo "Override: commit or stash migrations/ changes, or set FORCE=1 to bypass."
+        return 2
+    fi
+
+    if [ ! -f "$stamp_path" ]; then
+        echo "RUNNING: $label"
+        echo "Reason:  no stamp at tmp/$stamp_basename — no prior successful run to skip."
+        return 0
+    fi
+
+    local stamp_sha
+    stamp_sha=$(tr -d '[:space:]' < "$stamp_path" 2>/dev/null)
+    if [ -z "$stamp_sha" ]; then
+        echo "RUNNING: $label"
+        echo "Reason:  stamp tmp/$stamp_basename is empty."
+        return 0
+    fi
+
+    if ! git -C "$WORKSPACE" merge-base --is-ancestor "$stamp_sha" HEAD 2>/dev/null; then
+        echo "RUNNING: $label"
+        echo "Reason:  stamp SHA $stamp_sha is not an ancestor of HEAD (branch switch, rebase, or unknown commit)."
+        return 0
+    fi
+
+    local head_sha
+    head_sha=$(git -C "$WORKSPACE" rev-parse HEAD 2>/dev/null)
+
+    local changed
+    changed=$(git -C "$WORKSPACE" diff --name-only "$stamp_sha" HEAD -- "${skip_scopes[@]}" 2>/dev/null)
+    if [ -z "$changed" ]; then
+        echo "SKIPPED: $label"
+        echo "Reason:  stamp tmp/$stamp_basename points to a commit whose ${skip_scopes[*]} content matches HEAD — re-running would produce an identical result."
+        echo "Evidence:"
+        echo "  stamp SHA: $stamp_sha"
+        echo "  HEAD SHA:  $head_sha"
+        echo "  files changed in scope (${skip_scopes[*]}): 0"
+        echo "Override: rm tmp/$stamp_basename, or set FORCE=1."
+        return 1
+    fi
+
+    echo "RUNNING: $label"
+    echo "Reason:  in-scope content has drifted since stamp."
+    echo "Evidence:"
+    echo "  stamp SHA: $stamp_sha"
+    echo "  HEAD SHA:  $head_sha"
+    echo "  files changed in scope (${skip_scopes[*]}):"
+    printf '%s\n' "$changed" | sed 's/^/    /'
+    return 0
+}
+
 action=${1:-}
 shift || true
 
@@ -315,6 +416,22 @@ EOS
             echo "Individual tests:"
             basename -s .sql "$PG_REGRESS_DIR/sql"/*.sql | sed 's/^/  /'
             exit 1
+        fi
+
+        # Tier-1 stamp guard — only on the `fast` selector, which writes
+        # tmp/fast-test-passed-sha on success. Refuse dirty migrations (stamp
+        # would lie), skip when the stamp still represents HEAD's migrations +
+        # test content.
+        if [ "${TEST_ARGS[0]}" = "fast" ]; then
+            set +e
+            check_stamp_guard "./dev.sh test fast" "fast-test-passed-sha" "migrations" "test"
+            guard_rc=$?
+            set -e
+            case $guard_rc in
+                0) : ;;
+                1) exit 0 ;;
+                2) exit 1 ;;
+            esac
         fi
 
         SHARED_TESTS=""
@@ -1061,6 +1178,16 @@ EOF
         POSTGRES_APP_DB="$TYPES_DB" ./sb types generate
       ;;
     'generate-db-documentation' )
+        set +e
+        check_stamp_guard "./dev.sh generate-db-documentation" "db-docs-passed-sha" "migrations"
+        guard_rc=$?
+        set -e
+        case $guard_rc in
+            0) : ;;
+            1) exit 0 ;;
+            2) exit 1 ;;
+        esac
+
         TEMPLATE_NAME="${POSTGRES_TEST_DB:-statbus_test_template}"
         DOC_DB="statbus_doc_gen_$$"
 
