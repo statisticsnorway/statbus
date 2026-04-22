@@ -91,7 +91,9 @@ caller=""
 if [[ -n "$session_id" && -n "$lead_session_id" && "$session_id" == "$lead_session_id" ]]; then
   caller="team-lead"
 elif [[ -n "$transcript_path" && -f "$transcript_path" ]]; then
-  caller=$(grep -m1 -oE '"agentName":"[^"]*"' "$transcript_path" 2>/dev/null \
+  # `|| true` so a no-match grep (normal case when the session isn't a team
+  # member) doesn't trip `pipefail` + `set -e` and exit the hook silently.
+  caller=$({ grep -m1 -oE '"agentName":"[^"]*"' "$transcript_path" 2>/dev/null || true; } \
     | sed 's/.*:"//;s/"$//' \
     | head -1)
 fi
