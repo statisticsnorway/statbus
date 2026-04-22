@@ -126,3 +126,61 @@ jobs:
         if: always()
         run: |
           docker compose --profile all down -v || true
+
+  bootstrap-script:
+    # Exercise install.sh end-to-end against a pinned version. install.sh is
+    # the public bootstrap (curl -fsSL https://statbus.org/install.sh | bash)
+    # whose pre-./sb-install logic — binary download + version pinning + git
+    # clone — was previously NEVER CI-tested. install-verified gates on
+    # install-test, so without this job changes to install.sh could pass
+    # install-verified despite breaking the bootstrap. Discovered 2026-04-22
+    # during the rc.44/rc.45 cycle.
+    #
+    # We test the --version path (pre-./sb-install logic). The --prerelease
+    # resolver path is exercised by tests/units in install.sh's caller; a
+    # future iteration of this job can add a matrix dimension for
+    # --prerelease + --prerelease-with-forced-fallback once stable.
+    #
+    # ./sb install in fresh non-interactive mode will fail (no config) and
+    # that's expected — install.sh's `|| true` swallows it. We assert on
+    # the artifacts install.sh OWNS (the binary, the cloned repo, the
+    # checked-out tag), not on ./sb install's success.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run install.sh end-to-end against pinned version
+        env:
+          # Bump as the latest published RC advances. Just needs to be a tag
+          # with a published sb-linux-amd64 binary asset.
+          TARGET_VERSION: v2026.04.0-rc.45
+        run: |
+          set -uxo pipefail
+          # Use the LOCAL install.sh from this checkout (the one being tested),
+          # NOT the public statbus.org/install.sh (that would test what's
+          # already on master, defeating the point of pre-merge CI).
+          #
+          # install.sh installs into $HOME/statbus = /home/runner/statbus on
+          # the runner — empty, fresh-install path. We tolerate ./sb install
+          # failure (no .env.config in fresh non-interactive mode); we're
+          # testing install.sh's bootstrap logic, not ./sb install itself
+          # (install-stack job above covers ./sb install).
+          bash install.sh --version "$TARGET_VERSION" || INSTALL_SH_RC=$?
+          echo "install.sh exit code: ${INSTALL_SH_RC:-0} (non-zero is expected — ./sb install needs config)"
+
+          # Assert install.sh's owned artifacts:
+          test -x "$HOME/statbus/sb" || { echo "FAIL: $HOME/statbus/sb missing or not executable"; exit 1; }
+
+          SB_VERSION_OUT=$("$HOME/statbus/sb" --version 2>&1 | head -1)
+          echo "sb --version: $SB_VERSION_OUT"
+          echo "$SB_VERSION_OUT" | grep -qF "${TARGET_VERSION#v}" \
+              || { echo "FAIL: sb binary version doesn't match $TARGET_VERSION"; exit 1; }
+
+          test -d "$HOME/statbus/.git" || { echo "FAIL: $HOME/statbus/.git missing"; exit 1; }
+          HEAD_TAG=$(cd "$HOME/statbus" && git describe --tags --exact-match HEAD 2>&1)
+          echo "git HEAD tag: $HEAD_TAG"
+          echo "$HEAD_TAG" | grep -qF "$TARGET_VERSION" \
+              || { echo "FAIL: git HEAD doesn't match $TARGET_VERSION"; exit 1; }
+
+          echo "install.sh bootstrap path validated for $TARGET_VERSION"
