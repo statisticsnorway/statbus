@@ -478,8 +478,22 @@ case "$1" in
         cmd_upgrade
         ;;
     install|rescue)
-        [ $# -lt 2 ] && { echo "Error: $1 requires a host name or 'all'"; usage; }
-        cmd_install "$2" "${3:-}"
+        # Accept both positional version (`install no v2026.04.0-rc.48`) and
+        # --version flag (`install no --version v2026.04.0-rc.48`) — the
+        # latter matches install.sh's interface so operators' muscle memory
+        # doesn't silently 404 on tag literal "--version".
+        sub="$1"; shift
+        [ $# -lt 1 ] && { echo "Error: $sub requires a host name or 'all'"; usage; }
+        name="$1"; shift
+        version=""
+        while [ $# -gt 0 ]; do
+            case "$1" in
+                --version) version="$2"; shift 2 ;;
+                --version=*) version="${1#*=}"; shift ;;
+                *) version="$1"; shift ;;
+            esac
+        done
+        cmd_install "$name" "$version"
         ;;
     inspect)
         cmd_inspect
