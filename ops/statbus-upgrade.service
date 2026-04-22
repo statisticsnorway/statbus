@@ -2,11 +2,28 @@
 Description=StatBus Upgrade Service
 # User-level systemd service — no root required to install or manage.
 # Install: ./sb install (copies to ~/.config/systemd/user/)
-# Manage: systemctl --user {start,stop,status} statbus-upgrade@SLOT.service
+# Manage: systemctl --user {start,stop,status} statbus-upgrade@$USER.service
 
 [Service]
 Type=notify
 WorkingDirectory=%h/statbus
+
+# Invariant: the template instance label (%i) MUST equal the user running
+# this service manager (%u). Both cli/cmd/install.go (serviceInstance) and
+# cli/cmd/upgrade.go (the channel-set restart) format the unit name as
+# statbus-upgrade@$USER.service — this assertion refuses to start if they
+# ever drift again.
+#
+# Drift history (2026-04-22): install.go once hardcoded
+# `statbus-upgrade@statbus_<DEPLOYMENT_SLOT_CODE>.service`, which coincided
+# with $USER on multi-tenant cloud (user IS statbus_<slot>) but was wrong
+# on standalone (user is just `statbus`, producing e.g.
+# `statbus-upgrade@statbus_no.service` on rune). Neither `./standalone.sh`
+# nor `./sb upgrade channel --set` could address the running unit by the
+# expected name, so a stuck rc.42 upgrade could not be cleanly recovered.
+# Fixed in the install.go commit that lands this file; guarded here.
+ExecStartPre=/usr/bin/test "%i" = "%u"
+
 ExecStart=%h/statbus/sb upgrade service
 Restart=always
 RestartSec=30
