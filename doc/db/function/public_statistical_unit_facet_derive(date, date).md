@@ -7,16 +7,27 @@ BEGIN
     RAISE DEBUG 'Running statistical_unit_facet_derive(p_valid_from=%, p_valid_until=%)', p_valid_from, p_valid_until;
     DELETE FROM public.statistical_unit_facet AS suf
     WHERE from_until_overlaps(suf.valid_from, suf.valid_until,
-                          p_valid_from,
-                          p_valid_until);
+                              p_valid_from,
+                              p_valid_until);
 
     -- ON CONFLICT DO UPDATE: if a concurrent worker already inserted,
     -- overwrite with the freshest computed data (count + stats_summary).
-    INSERT INTO public.statistical_unit_facet
-    SELECT * FROM public.statistical_unit_facet_def AS sufd
+    -- Explicit INSERT column list excludes hash_slot from the target.
+    INSERT INTO public.statistical_unit_facet (
+        valid_from, valid_to, valid_until, unit_type,
+        physical_region_path, primary_activity_category_path,
+        sector_path, legal_form_id, physical_country_id, status_id,
+        count, stats_summary
+    )
+    SELECT
+        sufd.valid_from, sufd.valid_to, sufd.valid_until, sufd.unit_type,
+        sufd.physical_region_path, sufd.primary_activity_category_path,
+        sufd.sector_path, sufd.legal_form_id, sufd.physical_country_id, sufd.status_id,
+        sufd.count, sufd.stats_summary
+    FROM public.statistical_unit_facet_def AS sufd
     WHERE from_until_overlaps(sufd.valid_from, sufd.valid_until,
-                          p_valid_from,
-                          p_valid_until)
+                              p_valid_from,
+                              p_valid_until)
     ON CONFLICT (valid_from, valid_to, valid_until, unit_type,
                  physical_region_path, primary_activity_category_path,
                  sector_path, legal_form_id, physical_country_id, status_id)
