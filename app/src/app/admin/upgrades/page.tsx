@@ -444,7 +444,7 @@ export default function UpgradesPage() {
 
         const filteredHistory = showSuperseded
           ? historyRest
-          : historyRest.filter(u => u.state === 'completed');
+          : historyRest.filter(u => u.state !== 'superseded');
 
         const renderCard = (u: Upgrade, variant?: "recommended" | "superseded") => {
           const status = u.state;
@@ -551,7 +551,7 @@ export default function UpgradesPage() {
                     onClick={(e) => e.stopPropagation()}
                   >
                     <span className="rounded px-1.5 py-0.5 text-xs bg-green-100 text-green-800">
-                      Completed
+                      History
                     </span>
                     <span
                       onClick={() => setShowSuperseded((v) => !v)}
