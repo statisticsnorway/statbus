@@ -9,9 +9,20 @@ BEGIN;
 --   - worker.derive_statistical_history_period  (SECURITY DEFINER, runs as owner)
 --   - public.statistical_history_derive         (SECURITY DEFINER, runs as owner)
 -- Both are unaffected by revoking from PUBLIC.
+--
+-- REVOKE is DDL and fires the sql_saga_health_checks event trigger, which
+-- scans all sql_saga-managed objects for grant consistency.  The trigger finds
+-- a pre-existing INSERT grant on activity__for_portion_of_valid (propagated
+-- from GRANT ALL ON activity) and raises an error unrelated to this migration.
+-- Disable the trigger for the duration of this REVOKE, matching the pattern
+-- established in migration 20260223185108.
+
+ALTER EVENT TRIGGER sql_saga_health_checks DISABLE;
 
 REVOKE EXECUTE ON FUNCTION public.statistical_history_def(
     history_resolution, integer, integer, int4range
 ) FROM PUBLIC;
+
+ALTER EVENT TRIGGER sql_saga_health_checks ENABLE;
 
 END;
