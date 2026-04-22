@@ -471,22 +471,16 @@ func runInstall() (installErr error) {
 				if installLog != nil {
 					logRelPath = installLog.RelPath()
 				}
-				if detectedState == install.StateNothingScheduled {
-					// Capability separation: the daemon owns the ledger on
-					// NothingScheduled. Emit NOTIFY upgrade_check so it
-					// materializes a commit-centric row for the current SHA
-					// on its next tick. Best-effort: periodic discovery tick
-					// recovers if NOTIFY drops.
-					if _, err := conn.Exec(context.Background(), "NOTIFY upgrade_check"); err != nil {
-						log.Printf(
-							"INVARIANT NOTIFY_UPGRADE_CHECK_BEST_EFFORT_LOGGED violated (audit-only): NOTIFY upgrade_check failed post-install: %v (install.go:%d, pid=%d) — next daemon tick will recover",
-							err, thisLine(), os.Getpid())
-					}
-				} else {
-					if err := completeInstallUpgradeRow(installDir, conn, logRelPath); err != nil {
-						installErr = err
-						return
-					}
+				if err := completeInstallUpgradeRow(installDir, conn, logRelPath); err != nil {
+					installErr = err
+					return
+				}
+				// Notify the daemon so it picks up any newly available releases.
+				// Best-effort: periodic discovery tick recovers on drop.
+				if _, err := conn.Exec(context.Background(), "NOTIFY upgrade_check"); err != nil {
+					log.Printf(
+						"INVARIANT NOTIFY_UPGRADE_CHECK_BEST_EFFORT_LOGGED violated (audit-only): NOTIFY upgrade_check failed post-install: %v (install.go:%d, pid=%d) — next daemon tick will recover",
+						err, thisLine(), os.Getpid())
 				}
 				// Stamp install-invocation tracking in public.system_info.
 				// Mirrors the support.go install_last_error* upsert pattern.
@@ -1247,6 +1241,8 @@ func completeInstallUpgradeRow(installDir string, conn *pgx.Conn, logRelPath str
 		`INSERT INTO public.upgrade (
 		   commit_sha, committed_at, summary, state, completed_at,
 		   version, release_status, scheduled_at, started_at, from_version,
+		   tags, has_migrations,
+		   docker_images_status, release_builds_status,
 		   log_relative_file_path
 		 ) VALUES (
 		   $1, $2::timestamptz,
@@ -1254,6 +1250,8 @@ func completeInstallUpgradeRow(installDir string, conn *pgx.Conn, logRelPath str
 		   $4, $5::release_status_type,
 		   clock_timestamp(), clock_timestamp(),
 		   (SELECT version FROM public.upgrade WHERE state = 'completed' ORDER BY completed_at DESC NULLS LAST LIMIT 1),
+		   ARRAY[$4]::text[], false,
+		   'ready', 'ready',
 		   NULLIF($6, '')
 		 )
 		 ON CONFLICT (commit_sha) DO UPDATE SET
@@ -1263,6 +1261,9 @@ func completeInstallUpgradeRow(installDir string, conn *pgx.Conn, logRelPath str
 		   scheduled_at = COALESCE(upgrade.scheduled_at, clock_timestamp()),
 		   error = NULL,
 		   rolled_back_at = NULL,
+		   dismissed_at = NULL,
+		   docker_images_status = 'ready',
+		   release_builds_status = 'ready',
 		   version = COALESCE(EXCLUDED.version, upgrade.version),
 		   log_relative_file_path = COALESCE(EXCLUDED.log_relative_file_path, upgrade.log_relative_file_path)
 		 WHERE upgrade.state != 'completed'`,
