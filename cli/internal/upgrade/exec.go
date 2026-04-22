@@ -643,6 +643,26 @@ func (d *Service) waitForDBHealth(timeout time.Duration) error {
 	return fmt.Errorf("database did not become healthy within %s", timeout)
 }
 
+// EnsureDBUp guarantees the db container is running and healthy. Idempotent
+// when the DB is already up (`docker compose up -d db` is a no-op in that
+// case). Used by startup/recovery paths where the DB may be intentionally
+// stopped — specifically, the post-swap intermediate state set up by
+// applyPostSwap step 2 (DB container stopped for consistent backup) and
+// cleared by step 9 (DB container restarted on the new binary). Both
+// Service.Run() at daemon startup and install.runCrashRecovery call this
+// before connect() / LoadConfigAndConnect so the crash-recovery path can
+// proceed against a stopped DB without systemd loop-restarting the daemon
+// or install bailing out with a listen-connection error.
+func (d *Service) EnsureDBUp(ctx context.Context) error {
+	if out, err := runCommandOutput(d.projDir, "docker", "compose", "up", "-d", "db"); err != nil {
+		return fmt.Errorf("docker compose up -d db: %w (%s)", err, strings.TrimSpace(out))
+	}
+	if err := d.waitForDBHealth(60 * time.Second); err != nil {
+		return fmt.Errorf("db did not become healthy after compose up: %w", err)
+	}
+	return nil
+}
+
 // healthURL returns the cached health check URL, loading REST_BIND_ADDRESS
 // from .env on first call and probing PostgREST directly on its host-side
 // loopback bind (typically 127.0.0.1:<port>). Bypasses Caddy entirely.

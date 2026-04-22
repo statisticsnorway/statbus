@@ -115,6 +115,18 @@ func runCrashRecovery(projDir string) error {
 	ctx := context.Background()
 	svc := upgrade.NewService(projDir, true /* verbose */, version)
 	defer svc.Close()
+
+	// The crashed flag may have Phase=post_swap, meaning the DB is
+	// intentionally stopped (applyPostSwap step 2 stopped it for the
+	// consistent backup; step 9 on the new binary is what restarts it —
+	// but we never reached that step if the prior process died mid-flow).
+	// LoadConfigAndConnect needs a reachable DB to query public.upgrade,
+	// so start it here. Idempotent when the DB is already up (the
+	// non-post-swap crash path).
+	if err := svc.EnsureDBUp(ctx); err != nil {
+		return fmt.Errorf("ensure DB up for crash recovery: %w", err)
+	}
+
 	if err := svc.LoadConfigAndConnect(ctx); err != nil {
 		return fmt.Errorf("load upgrade config: %w", err)
 	}

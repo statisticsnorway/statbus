@@ -1137,6 +1137,23 @@ func (d *Service) Run(ctx context.Context) error {
 		return err
 	}
 
+	// Post-swap recovery guard. If the prior process image exited 42 after
+	// stamping Phase=post_swap, the DB container is intentionally stopped
+	// (applyPostSwap step 2 stopped it for the consistent backup; step 9
+	// on the new binary is what restarts it). connect() here would fail
+	// against that stopped DB and systemd would loop-restart us before
+	// recoverFromFlag → resumePostSwap → applyPostSwap ever runs. Pre-start
+	// the DB so connect() succeeds and the recovery pipeline proceeds.
+	// Idempotent: a no-op when the DB is already up (non-post-swap path).
+	if flag, _, ferr := ReadFlagFile(d.projDir); ferr == nil && flag != nil &&
+		flag.Holder == HolderService && flag.Phase == FlagPhasePostSwap {
+		fmt.Printf("Post-swap flag detected at startup — ensuring DB is up before connecting (upgrade id=%d, target=%s)\n",
+			flag.ID, flag.DisplayName)
+		if err := d.EnsureDBUp(ctx); err != nil {
+			return fmt.Errorf("post-swap recovery: ensure DB up: %w", err)
+		}
+	}
+
 	if err := d.connect(ctx); err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}
