@@ -1,0 +1,60 @@
+#!/bin/bash
+# commit-msg hook — reject ephemeral task numbers in commit messages.
+#
+# Task numbers (e.g. "Task #94", "task 42", "tasks #7") are session-scoped
+# and ephemeral: they come from the in-session TaskCreate list and have no
+# meaning outside the session that created them. Commits are permanent.
+# A task number in a commit message misleads future readers who cannot look
+# up what the task was.
+#
+# GitHub issue/PR refs like "#25135" are PASS — they have a permanent record
+# at github.com/anthropics/... and are NOT preceded by the word "task".
+#
+# Pattern (case-insensitive):
+#   \btask[s-]?\s*#?\s*[0-9]+\b
+#
+#   Matches: Task #94, task 94, tasks #7, task-42, TASK #100
+#   Does not match: #25135, fix #25135, see issue #100
+#
+# Override: git commit --no-verify
+
+set -euo pipefail
+
+COMMIT_MSG_FILE="$1"
+MSG="$(cat "$COMMIT_MSG_FILE")"
+
+# Strip comment lines (lines starting with #) — they're not part of the message.
+STRIPPED=$(echo "$MSG" | grep -v '^[[:space:]]*#' || true)
+
+# Search for the pattern (case-insensitive).
+MATCHES=$(echo "$STRIPPED" | grep -inE '\btask[s-]?[[:space:]]*#?[[:space:]]*[0-9]+\b' || true)
+
+if [[ -n "$MATCHES" ]]; then
+  MATCHED_LINES=$(echo "$MATCHES" | sed 's/^/  /')
+  cat >&2 <<EOF
+COMMIT-MSG BLOCKED: your commit message references an ephemeral task number.
+
+WHY: Task IDs come from the session's shared task list (TaskCreate) — they're
+meaningful only within the session where they were assigned. Six months from
+now, "task #90" is a dead pointer. Commit messages are permanent; task IDs
+are ephemeral. Never mix them.
+
+Matched lines:
+${MATCHED_LINES}
+
+HOW TO FIX:
+- Rewrite the message so it stands alone. Describe what changed and why
+  without referring to the task number.
+- If you want to reference a permanent ID, use a GitHub issue or PR number —
+  those persist. Task IDs do not.
+
+OVERRIDE (strongly discouraged — this rule exists because we've already
+polluted history with dead task-IDs):
+  git commit --no-verify
+
+Hook source: .githooks/commit-msg
+EOF
+  exit 1
+fi
+
+exit 0

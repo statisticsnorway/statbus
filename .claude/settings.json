@@ -1,0 +1,42 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/require-bash-background.sh", "timeout": 5 },
+          { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/restrict-agent-spawn.sh", "timeout": 5 },
+          { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/ban-force-add.sh", "timeout": 5, "_deactivated": "enable with HOOK_ENABLED_BAN_FORCE_ADD=1" },
+          { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/require-git-c.sh", "timeout": 5, "_deactivated": "enable with HOOK_ENABLED_REQUIRE_GIT_C=1" }
+        ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/restrict-agent-spawn.sh", "timeout": 5 }
+        ]
+      },
+      {
+        "matcher": "SendMessage",
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/route-alias.sh", "timeout": 5 }
+        ]
+      },
+      {
+        "matcher": "TaskCreate",
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/require-task-slug.sh", "timeout": 5 },
+          { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/route-alias.sh", "timeout": 5 }
+        ]
+      },
+      {
+        "matcher": "TaskUpdate",
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/require-task-slug.sh", "timeout": 5 },
+          { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/remind-plan-update.sh", "timeout": 5 },
+          { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/route-alias.sh", "timeout": 5 }
+        ]
+      }
+    ]
+  }
+}
