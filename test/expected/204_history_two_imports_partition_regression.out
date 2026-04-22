@@ -1,0 +1,1706 @@
+SET datestyle TO 'ISO, DMY';
+BEGIN;
+\i test/setup.sql
+\echo -- test/setup.sql output suppressed for cleaner test output
+-- test/setup.sql output suppressed for cleaner test output
+\set ECHO none
+\echo -- test/setup.sql done, test output follows
+-- test/setup.sql done, test output follows
+\echo "Regression for ET history-count drift: two sequential imports of"
+"Regression for ET history-count drift: two sequential imports of"
+\echo "LU+Establishment where unit IDs hash to distinct hash_slot"
+"LU+Establishment where unit IDs hash to distinct hash_slot"
+\echo "values must both appear in statistical_history after the second import."
+"values must both appear in statistical_history after the second import."
+CALL test.set_user_from_email('test.admin@statbus.org');
+\i samples/norway/getting-started.sql
+\i samples/norway/settings.sql
+INSERT INTO settings(activity_category_standard_id,country_id,region_version_id)
+SELECT (SELECT id FROM activity_category_standard WHERE code = 'nace_v2.1')
+     , (SELECT id FROM public.country WHERE iso_2 = 'NO')
+     , (SELECT id FROM public.region_version WHERE code = 'initial')
+ON CONFLICT (only_one_setting)
+DO UPDATE SET
+   activity_category_standard_id = EXCLUDED.activity_category_standard_id,
+   country_id = EXCLUDED.country_id,
+   region_version_id = EXCLUDED.region_version_id
+   WHERE settings.only_one_setting = EXCLUDED.only_one_setting;
+;
+\i samples/norway/activity_category/activity_category_norway.sql
+\copy public.activity_category_enabled_custom FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/regions/norway-regions-2024.sql
+\copy public.region_upload(path, name) FROM 'samples/norway/regions/norway-regions-2024.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/sector/sector_norway.sql
+\copy public.sector_custom_only FROM 'samples/norway/sector/sector_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/legal_form/legal_form_norway.sql
+\copy public.legal_form_custom_only FROM 'samples/norway/legal_form/legal_form_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/data_source/data_source_norway.sql
+\copy public.data_source_custom (code, name) FROM 'samples/norway/data_source/data_source_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\echo "--- Baseline: no units loaded ---"
+"--- Baseline: no units loaded ---"
+SELECT
+    (SELECT COUNT(DISTINCT id) FROM public.legal_unit) AS legal_unit_count,
+    (SELECT COUNT(DISTINCT id) FROM public.establishment) AS establishment_count,
+    (SELECT COUNT(DISTINCT id) FROM public.enterprise) AS enterprise_count;
+ legal_unit_count | establishment_count | enterprise_count 
+------------------+---------------------+------------------
+                0 |                   0 |                0
+(1 row)
+
+-- ===================================================================
+-- IMPORT 1: LU A + Establishment A (tax_idents 100000001 / 300000001)
+-- ===================================================================
+\echo "--- Import 1a: LU A ---"
+"--- Import 1a: LU A ---"
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
+    'import_204_lu_a',
+    'Import LU A for partition regression',
+    'Import job for test/data/204_regression_lu_a.csv.',
+    'Test data load (204_history_two_imports_partition_regression.sql)';
+\copy public.import_204_lu_a_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code) FROM 'test/data/204_regression_lu_a.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+CALL worker.process_tasks(p_queue => 'import');
+\echo "--- Import 1b: Establishment A ---"
+"--- Import 1b: Establishment A ---"
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_source_dates'),
+    'import_204_est_a',
+    'Import Establishment A for partition regression',
+    'Import job for test/data/204_regression_est_a.csv.',
+    'Test data load (204_history_two_imports_partition_regression.sql)';
+\copy public.import_204_est_a_upload(valid_from, valid_to, tax_ident, legal_unit_tax_ident, name, birth_date, death_date, physical_address_part1, physical_postcode, physical_postplace, physical_region_code, physical_country_iso_2, postal_address_part1, postal_postcode, postal_postplace, postal_region_code, postal_country_iso_2, primary_activity_category_code, secondary_activity_category_code, data_source_code, unit_size_code, employees, turnover) FROM 'test/data/204_regression_est_a.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+CALL worker.process_tasks(p_queue => 'import');
+CALL worker.process_tasks(p_queue => 'analytics');
+\echo "--- Base table counts after import 1 ---"
+"--- Base table counts after import 1 ---"
+SELECT
+    (SELECT COUNT(DISTINCT id) FROM public.legal_unit) AS legal_unit_count,
+    (SELECT COUNT(DISTINCT id) FROM public.establishment) AS establishment_count,
+    (SELECT COUNT(DISTINCT id) FROM public.enterprise) AS enterprise_count;
+ legal_unit_count | establishment_count | enterprise_count 
+------------------+---------------------+------------------
+                1 |                   1 |                1
+(1 row)
+
+\echo "--- Unit IDs + hash slots after import 1 ---"
+"--- Unit IDs + hash slots after import 1 ---"
+SELECT
+    'legal_unit'::text AS unit_type, lu.id AS unit_id,
+    public.hash_slot('legal_unit'::text, lu.id) AS hash_slot
+FROM public.legal_unit AS lu
+UNION ALL
+SELECT 'establishment', es.id, public.hash_slot('establishment'::text, es.id)
+FROM public.establishment AS es
+UNION ALL
+SELECT 'enterprise', e.id, public.hash_slot('enterprise'::text, e.id)
+FROM public.enterprise AS e
+ORDER BY unit_type, unit_id;
+   unit_type   | unit_id | hash_slot 
+---------------+---------+-----------
+ enterprise    |       1 |      3496
+ establishment |       1 |      4453
+ legal_unit    |       1 |      2955
+(3 rows)
+
+\echo "--- statistical_history year=2021 after import 1 (expect exists_count=1 per unit_type) ---"
+"--- statistical_history year=2021 after import 1 (expect exists_count=1 per unit_type) ---"
+SELECT unit_type, exists_count, countable_count
+FROM public.statistical_history
+WHERE resolution = 'year' AND year = 2021 AND hash_partition IS NULL
+  AND unit_type IN ('legal_unit', 'establishment', 'enterprise')
+ORDER BY unit_type;
+   unit_type   | exists_count | countable_count 
+---------------+--------------+-----------------
+ establishment |            1 |               1
+ legal_unit    |            1 |               1
+ enterprise    |            1 |               1
+(3 rows)
+
+\echo "--- Per-partition rows after import 1 (year=2021) [as postgres, bypass RLS] ---"
+"--- Per-partition rows after import 1 (year=2021) [as postgres, bypass RLS] ---"
+SET LOCAL ROLE postgres;
+SELECT unit_type, hash_partition, exists_count
+FROM public.statistical_history
+WHERE resolution = 'year' AND year = 2021 AND hash_partition IS NOT NULL
+  AND unit_type IN ('legal_unit', 'establishment', 'enterprise')
+ORDER BY unit_type, lower(hash_partition);
+   unit_type   | hash_partition | exists_count 
+---------------+----------------+--------------
+ establishment | [4096,8192)    |            1
+ legal_unit    | [0,4096)       |            1
+ enterprise    | [0,4096)       |            1
+(3 rows)
+
+\echo "--- ALL statistical_history rows after import 1 (any year/resolution) [as postgres] ---"
+"--- ALL statistical_history rows after import 1 (any year/resolution) [as postgres] ---"
+SELECT resolution, year, unit_type, hash_partition, exists_count
+FROM public.statistical_history
+WHERE unit_type IN ('legal_unit', 'establishment', 'enterprise')
+ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
+ resolution | year |   unit_type   | hash_partition | exists_count 
+------------+------+---------------+----------------+--------------
+ year       | 2020 | establishment |                |            1
+ year       | 2020 | establishment | [4096,8192)    |            1
+ year       | 2020 | legal_unit    |                |            1
+ year       | 2020 | legal_unit    | [0,4096)       |            1
+ year       | 2020 | enterprise    |                |            1
+ year       | 2020 | enterprise    | [0,4096)       |            1
+ year       | 2021 | establishment |                |            1
+ year       | 2021 | establishment | [4096,8192)    |            1
+ year       | 2021 | legal_unit    |                |            1
+ year       | 2021 | legal_unit    | [0,4096)       |            1
+ year       | 2021 | enterprise    |                |            1
+ year       | 2021 | enterprise    | [0,4096)       |            1
+ year       | 2022 | establishment |                |            1
+ year       | 2022 | establishment | [4096,8192)    |            1
+ year       | 2022 | legal_unit    |                |            1
+ year       | 2022 | legal_unit    | [0,4096)       |            1
+ year       | 2022 | enterprise    |                |            1
+ year       | 2022 | enterprise    | [0,4096)       |            1
+ year       | 2023 | establishment |                |            1
+ year       | 2023 | establishment | [4096,8192)    |            1
+ year       | 2023 | legal_unit    |                |            1
+ year       | 2023 | legal_unit    | [0,4096)       |            1
+ year       | 2023 | enterprise    |                |            1
+ year       | 2023 | enterprise    | [0,4096)       |            1
+ year       | 2024 | establishment |                |            1
+ year       | 2024 | establishment | [4096,8192)    |            1
+ year       | 2024 | legal_unit    |                |            1
+ year       | 2024 | legal_unit    | [0,4096)       |            1
+ year       | 2024 | enterprise    |                |            1
+ year       | 2024 | enterprise    | [0,4096)       |            1
+ year       | 2025 | establishment |                |            1
+ year       | 2025 | establishment | [4096,8192)    |            1
+ year       | 2025 | legal_unit    |                |            1
+ year       | 2025 | legal_unit    | [0,4096)       |            1
+ year       | 2025 | enterprise    |                |            1
+ year       | 2025 | enterprise    | [0,4096)       |            1
+ year       | 2026 | establishment |                |            1
+ year       | 2026 | establishment | [4096,8192)    |            1
+ year       | 2026 | legal_unit    |                |            1
+ year       | 2026 | legal_unit    | [0,4096)       |            1
+ year       | 2026 | enterprise    |                |            1
+ year       | 2026 | enterprise    | [0,4096)       |            1
+ year-month | 2020 | establishment |                |            1
+ year-month | 2020 | establishment |                |            1
+ year-month | 2020 | establishment |                |            1
+ year-month | 2020 | establishment |                |            1
+ year-month | 2020 | establishment |                |            1
+ year-month | 2020 | establishment |                |            1
+ year-month | 2020 | establishment |                |            1
+ year-month | 2020 | establishment |                |            1
+ year-month | 2020 | establishment |                |            1
+ year-month | 2020 | establishment |                |            1
+ year-month | 2020 | establishment |                |            1
+ year-month | 2020 | establishment |                |            1
+ year-month | 2020 | establishment | [4096,8192)    |            1
+ year-month | 2020 | establishment | [4096,8192)    |            1
+ year-month | 2020 | establishment | [4096,8192)    |            1
+ year-month | 2020 | establishment | [4096,8192)    |            1
+ year-month | 2020 | establishment | [4096,8192)    |            1
+ year-month | 2020 | establishment | [4096,8192)    |            1
+ year-month | 2020 | establishment | [4096,8192)    |            1
+ year-month | 2020 | establishment | [4096,8192)    |            1
+ year-month | 2020 | establishment | [4096,8192)    |            1
+ year-month | 2020 | establishment | [4096,8192)    |            1
+ year-month | 2020 | establishment | [4096,8192)    |            1
+ year-month | 2020 | establishment | [4096,8192)    |            1
+ year-month | 2020 | legal_unit    |                |            1
+ year-month | 2020 | legal_unit    |                |            1
+ year-month | 2020 | legal_unit    |                |            1
+ year-month | 2020 | legal_unit    |                |            1
+ year-month | 2020 | legal_unit    |                |            1
+ year-month | 2020 | legal_unit    |                |            1
+ year-month | 2020 | legal_unit    |                |            1
+ year-month | 2020 | legal_unit    |                |            1
+ year-month | 2020 | legal_unit    |                |            1
+ year-month | 2020 | legal_unit    |                |            1
+ year-month | 2020 | legal_unit    |                |            1
+ year-month | 2020 | legal_unit    |                |            1
+ year-month | 2020 | legal_unit    | [0,4096)       |            1
+ year-month | 2020 | legal_unit    | [0,4096)       |            1
+ year-month | 2020 | legal_unit    | [0,4096)       |            1
+ year-month | 2020 | legal_unit    | [0,4096)       |            1
+ year-month | 2020 | legal_unit    | [0,4096)       |            1
+ year-month | 2020 | legal_unit    | [0,4096)       |            1
+ year-month | 2020 | legal_unit    | [0,4096)       |            1
+ year-month | 2020 | legal_unit    | [0,4096)       |            1
+ year-month | 2020 | legal_unit    | [0,4096)       |            1
+ year-month | 2020 | legal_unit    | [0,4096)       |            1
+ year-month | 2020 | legal_unit    | [0,4096)       |            1
+ year-month | 2020 | legal_unit    | [0,4096)       |            1
+ year-month | 2020 | enterprise    |                |            1
+ year-month | 2020 | enterprise    |                |            1
+ year-month | 2020 | enterprise    |                |            1
+ year-month | 2020 | enterprise    |                |            1
+ year-month | 2020 | enterprise    |                |            1
+ year-month | 2020 | enterprise    |                |            1
+ year-month | 2020 | enterprise    |                |            1
+ year-month | 2020 | enterprise    |                |            1
+ year-month | 2020 | enterprise    |                |            1
+ year-month | 2020 | enterprise    |                |            1
+ year-month | 2020 | enterprise    |                |            1
+ year-month | 2020 | enterprise    |                |            1
+ year-month | 2020 | enterprise    | [0,4096)       |            1
+ year-month | 2020 | enterprise    | [0,4096)       |            1
+ year-month | 2020 | enterprise    | [0,4096)       |            1
+ year-month | 2020 | enterprise    | [0,4096)       |            1
+ year-month | 2020 | enterprise    | [0,4096)       |            1
+ year-month | 2020 | enterprise    | [0,4096)       |            1
+ year-month | 2020 | enterprise    | [0,4096)       |            1
+ year-month | 2020 | enterprise    | [0,4096)       |            1
+ year-month | 2020 | enterprise    | [0,4096)       |            1
+ year-month | 2020 | enterprise    | [0,4096)       |            1
+ year-month | 2020 | enterprise    | [0,4096)       |            1
+ year-month | 2020 | enterprise    | [0,4096)       |            1
+ year-month | 2021 | establishment |                |            1
+ year-month | 2021 | establishment |                |            1
+ year-month | 2021 | establishment |                |            1
+ year-month | 2021 | establishment |                |            1
+ year-month | 2021 | establishment |                |            1
+ year-month | 2021 | establishment |                |            1
+ year-month | 2021 | establishment |                |            1
+ year-month | 2021 | establishment |                |            1
+ year-month | 2021 | establishment |                |            1
+ year-month | 2021 | establishment |                |            1
+ year-month | 2021 | establishment |                |            1
+ year-month | 2021 | establishment |                |            1
+ year-month | 2021 | establishment | [4096,8192)    |            1
+ year-month | 2021 | establishment | [4096,8192)    |            1
+ year-month | 2021 | establishment | [4096,8192)    |            1
+ year-month | 2021 | establishment | [4096,8192)    |            1
+ year-month | 2021 | establishment | [4096,8192)    |            1
+ year-month | 2021 | establishment | [4096,8192)    |            1
+ year-month | 2021 | establishment | [4096,8192)    |            1
+ year-month | 2021 | establishment | [4096,8192)    |            1
+ year-month | 2021 | establishment | [4096,8192)    |            1
+ year-month | 2021 | establishment | [4096,8192)    |            1
+ year-month | 2021 | establishment | [4096,8192)    |            1
+ year-month | 2021 | establishment | [4096,8192)    |            1
+ year-month | 2021 | legal_unit    |                |            1
+ year-month | 2021 | legal_unit    |                |            1
+ year-month | 2021 | legal_unit    |                |            1
+ year-month | 2021 | legal_unit    |                |            1
+ year-month | 2021 | legal_unit    |                |            1
+ year-month | 2021 | legal_unit    |                |            1
+ year-month | 2021 | legal_unit    |                |            1
+ year-month | 2021 | legal_unit    |                |            1
+ year-month | 2021 | legal_unit    |                |            1
+ year-month | 2021 | legal_unit    |                |            1
+ year-month | 2021 | legal_unit    |                |            1
+ year-month | 2021 | legal_unit    |                |            1
+ year-month | 2021 | legal_unit    | [0,4096)       |            1
+ year-month | 2021 | legal_unit    | [0,4096)       |            1
+ year-month | 2021 | legal_unit    | [0,4096)       |            1
+ year-month | 2021 | legal_unit    | [0,4096)       |            1
+ year-month | 2021 | legal_unit    | [0,4096)       |            1
+ year-month | 2021 | legal_unit    | [0,4096)       |            1
+ year-month | 2021 | legal_unit    | [0,4096)       |            1
+ year-month | 2021 | legal_unit    | [0,4096)       |            1
+ year-month | 2021 | legal_unit    | [0,4096)       |            1
+ year-month | 2021 | legal_unit    | [0,4096)       |            1
+ year-month | 2021 | legal_unit    | [0,4096)       |            1
+ year-month | 2021 | legal_unit    | [0,4096)       |            1
+ year-month | 2021 | enterprise    |                |            1
+ year-month | 2021 | enterprise    |                |            1
+ year-month | 2021 | enterprise    |                |            1
+ year-month | 2021 | enterprise    |                |            1
+ year-month | 2021 | enterprise    |                |            1
+ year-month | 2021 | enterprise    |                |            1
+ year-month | 2021 | enterprise    |                |            1
+ year-month | 2021 | enterprise    |                |            1
+ year-month | 2021 | enterprise    |                |            1
+ year-month | 2021 | enterprise    |                |            1
+ year-month | 2021 | enterprise    |                |            1
+ year-month | 2021 | enterprise    |                |            1
+ year-month | 2021 | enterprise    | [0,4096)       |            1
+ year-month | 2021 | enterprise    | [0,4096)       |            1
+ year-month | 2021 | enterprise    | [0,4096)       |            1
+ year-month | 2021 | enterprise    | [0,4096)       |            1
+ year-month | 2021 | enterprise    | [0,4096)       |            1
+ year-month | 2021 | enterprise    | [0,4096)       |            1
+ year-month | 2021 | enterprise    | [0,4096)       |            1
+ year-month | 2021 | enterprise    | [0,4096)       |            1
+ year-month | 2021 | enterprise    | [0,4096)       |            1
+ year-month | 2021 | enterprise    | [0,4096)       |            1
+ year-month | 2021 | enterprise    | [0,4096)       |            1
+ year-month | 2021 | enterprise    | [0,4096)       |            1
+ year-month | 2022 | establishment |                |            1
+ year-month | 2022 | establishment |                |            1
+ year-month | 2022 | establishment |                |            1
+ year-month | 2022 | establishment |                |            1
+ year-month | 2022 | establishment |                |            1
+ year-month | 2022 | establishment |                |            1
+ year-month | 2022 | establishment |                |            1
+ year-month | 2022 | establishment |                |            1
+ year-month | 2022 | establishment |                |            1
+ year-month | 2022 | establishment |                |            1
+ year-month | 2022 | establishment |                |            1
+ year-month | 2022 | establishment |                |            1
+ year-month | 2022 | establishment | [4096,8192)    |            1
+ year-month | 2022 | establishment | [4096,8192)    |            1
+ year-month | 2022 | establishment | [4096,8192)    |            1
+ year-month | 2022 | establishment | [4096,8192)    |            1
+ year-month | 2022 | establishment | [4096,8192)    |            1
+ year-month | 2022 | establishment | [4096,8192)    |            1
+ year-month | 2022 | establishment | [4096,8192)    |            1
+ year-month | 2022 | establishment | [4096,8192)    |            1
+ year-month | 2022 | establishment | [4096,8192)    |            1
+ year-month | 2022 | establishment | [4096,8192)    |            1
+ year-month | 2022 | establishment | [4096,8192)    |            1
+ year-month | 2022 | establishment | [4096,8192)    |            1
+ year-month | 2022 | legal_unit    |                |            1
+ year-month | 2022 | legal_unit    |                |            1
+ year-month | 2022 | legal_unit    |                |            1
+ year-month | 2022 | legal_unit    |                |            1
+ year-month | 2022 | legal_unit    |                |            1
+ year-month | 2022 | legal_unit    |                |            1
+ year-month | 2022 | legal_unit    |                |            1
+ year-month | 2022 | legal_unit    |                |            1
+ year-month | 2022 | legal_unit    |                |            1
+ year-month | 2022 | legal_unit    |                |            1
+ year-month | 2022 | legal_unit    |                |            1
+ year-month | 2022 | legal_unit    |                |            1
+ year-month | 2022 | legal_unit    | [0,4096)       |            1
+ year-month | 2022 | legal_unit    | [0,4096)       |            1
+ year-month | 2022 | legal_unit    | [0,4096)       |            1
+ year-month | 2022 | legal_unit    | [0,4096)       |            1
+ year-month | 2022 | legal_unit    | [0,4096)       |            1
+ year-month | 2022 | legal_unit    | [0,4096)       |            1
+ year-month | 2022 | legal_unit    | [0,4096)       |            1
+ year-month | 2022 | legal_unit    | [0,4096)       |            1
+ year-month | 2022 | legal_unit    | [0,4096)       |            1
+ year-month | 2022 | legal_unit    | [0,4096)       |            1
+ year-month | 2022 | legal_unit    | [0,4096)       |            1
+ year-month | 2022 | legal_unit    | [0,4096)       |            1
+ year-month | 2022 | enterprise    |                |            1
+ year-month | 2022 | enterprise    |                |            1
+ year-month | 2022 | enterprise    |                |            1
+ year-month | 2022 | enterprise    |                |            1
+ year-month | 2022 | enterprise    |                |            1
+ year-month | 2022 | enterprise    |                |            1
+ year-month | 2022 | enterprise    |                |            1
+ year-month | 2022 | enterprise    |                |            1
+ year-month | 2022 | enterprise    |                |            1
+ year-month | 2022 | enterprise    |                |            1
+ year-month | 2022 | enterprise    |                |            1
+ year-month | 2022 | enterprise    |                |            1
+ year-month | 2022 | enterprise    | [0,4096)       |            1
+ year-month | 2022 | enterprise    | [0,4096)       |            1
+ year-month | 2022 | enterprise    | [0,4096)       |            1
+ year-month | 2022 | enterprise    | [0,4096)       |            1
+ year-month | 2022 | enterprise    | [0,4096)       |            1
+ year-month | 2022 | enterprise    | [0,4096)       |            1
+ year-month | 2022 | enterprise    | [0,4096)       |            1
+ year-month | 2022 | enterprise    | [0,4096)       |            1
+ year-month | 2022 | enterprise    | [0,4096)       |            1
+ year-month | 2022 | enterprise    | [0,4096)       |            1
+ year-month | 2022 | enterprise    | [0,4096)       |            1
+ year-month | 2022 | enterprise    | [0,4096)       |            1
+ year-month | 2023 | establishment |                |            1
+ year-month | 2023 | establishment |                |            1
+ year-month | 2023 | establishment |                |            1
+ year-month | 2023 | establishment |                |            1
+ year-month | 2023 | establishment |                |            1
+ year-month | 2023 | establishment |                |            1
+ year-month | 2023 | establishment |                |            1
+ year-month | 2023 | establishment |                |            1
+ year-month | 2023 | establishment |                |            1
+ year-month | 2023 | establishment |                |            1
+ year-month | 2023 | establishment |                |            1
+ year-month | 2023 | establishment |                |            1
+ year-month | 2023 | establishment | [4096,8192)    |            1
+ year-month | 2023 | establishment | [4096,8192)    |            1
+ year-month | 2023 | establishment | [4096,8192)    |            1
+ year-month | 2023 | establishment | [4096,8192)    |            1
+ year-month | 2023 | establishment | [4096,8192)    |            1
+ year-month | 2023 | establishment | [4096,8192)    |            1
+ year-month | 2023 | establishment | [4096,8192)    |            1
+ year-month | 2023 | establishment | [4096,8192)    |            1
+ year-month | 2023 | establishment | [4096,8192)    |            1
+ year-month | 2023 | establishment | [4096,8192)    |            1
+ year-month | 2023 | establishment | [4096,8192)    |            1
+ year-month | 2023 | establishment | [4096,8192)    |            1
+ year-month | 2023 | legal_unit    |                |            1
+ year-month | 2023 | legal_unit    |                |            1
+ year-month | 2023 | legal_unit    |                |            1
+ year-month | 2023 | legal_unit    |                |            1
+ year-month | 2023 | legal_unit    |                |            1
+ year-month | 2023 | legal_unit    |                |            1
+ year-month | 2023 | legal_unit    |                |            1
+ year-month | 2023 | legal_unit    |                |            1
+ year-month | 2023 | legal_unit    |                |            1
+ year-month | 2023 | legal_unit    |                |            1
+ year-month | 2023 | legal_unit    |                |            1
+ year-month | 2023 | legal_unit    |                |            1
+ year-month | 2023 | legal_unit    | [0,4096)       |            1
+ year-month | 2023 | legal_unit    | [0,4096)       |            1
+ year-month | 2023 | legal_unit    | [0,4096)       |            1
+ year-month | 2023 | legal_unit    | [0,4096)       |            1
+ year-month | 2023 | legal_unit    | [0,4096)       |            1
+ year-month | 2023 | legal_unit    | [0,4096)       |            1
+ year-month | 2023 | legal_unit    | [0,4096)       |            1
+ year-month | 2023 | legal_unit    | [0,4096)       |            1
+ year-month | 2023 | legal_unit    | [0,4096)       |            1
+ year-month | 2023 | legal_unit    | [0,4096)       |            1
+ year-month | 2023 | legal_unit    | [0,4096)       |            1
+ year-month | 2023 | legal_unit    | [0,4096)       |            1
+ year-month | 2023 | enterprise    |                |            1
+ year-month | 2023 | enterprise    |                |            1
+ year-month | 2023 | enterprise    |                |            1
+ year-month | 2023 | enterprise    |                |            1
+ year-month | 2023 | enterprise    |                |            1
+ year-month | 2023 | enterprise    |                |            1
+ year-month | 2023 | enterprise    |                |            1
+ year-month | 2023 | enterprise    |                |            1
+ year-month | 2023 | enterprise    |                |            1
+ year-month | 2023 | enterprise    |                |            1
+ year-month | 2023 | enterprise    |                |            1
+ year-month | 2023 | enterprise    |                |            1
+ year-month | 2023 | enterprise    | [0,4096)       |            1
+ year-month | 2023 | enterprise    | [0,4096)       |            1
+ year-month | 2023 | enterprise    | [0,4096)       |            1
+ year-month | 2023 | enterprise    | [0,4096)       |            1
+ year-month | 2023 | enterprise    | [0,4096)       |            1
+ year-month | 2023 | enterprise    | [0,4096)       |            1
+ year-month | 2023 | enterprise    | [0,4096)       |            1
+ year-month | 2023 | enterprise    | [0,4096)       |            1
+ year-month | 2023 | enterprise    | [0,4096)       |            1
+ year-month | 2023 | enterprise    | [0,4096)       |            1
+ year-month | 2023 | enterprise    | [0,4096)       |            1
+ year-month | 2023 | enterprise    | [0,4096)       |            1
+ year-month | 2024 | establishment |                |            1
+ year-month | 2024 | establishment |                |            1
+ year-month | 2024 | establishment |                |            1
+ year-month | 2024 | establishment |                |            1
+ year-month | 2024 | establishment |                |            1
+ year-month | 2024 | establishment |                |            1
+ year-month | 2024 | establishment |                |            1
+ year-month | 2024 | establishment |                |            1
+ year-month | 2024 | establishment |                |            1
+ year-month | 2024 | establishment |                |            1
+ year-month | 2024 | establishment |                |            1
+ year-month | 2024 | establishment |                |            1
+ year-month | 2024 | establishment | [4096,8192)    |            1
+ year-month | 2024 | establishment | [4096,8192)    |            1
+ year-month | 2024 | establishment | [4096,8192)    |            1
+ year-month | 2024 | establishment | [4096,8192)    |            1
+ year-month | 2024 | establishment | [4096,8192)    |            1
+ year-month | 2024 | establishment | [4096,8192)    |            1
+ year-month | 2024 | establishment | [4096,8192)    |            1
+ year-month | 2024 | establishment | [4096,8192)    |            1
+ year-month | 2024 | establishment | [4096,8192)    |            1
+ year-month | 2024 | establishment | [4096,8192)    |            1
+ year-month | 2024 | establishment | [4096,8192)    |            1
+ year-month | 2024 | establishment | [4096,8192)    |            1
+ year-month | 2024 | legal_unit    |                |            1
+ year-month | 2024 | legal_unit    |                |            1
+ year-month | 2024 | legal_unit    |                |            1
+ year-month | 2024 | legal_unit    |                |            1
+ year-month | 2024 | legal_unit    |                |            1
+ year-month | 2024 | legal_unit    |                |            1
+ year-month | 2024 | legal_unit    |                |            1
+ year-month | 2024 | legal_unit    |                |            1
+ year-month | 2024 | legal_unit    |                |            1
+ year-month | 2024 | legal_unit    |                |            1
+ year-month | 2024 | legal_unit    |                |            1
+ year-month | 2024 | legal_unit    |                |            1
+ year-month | 2024 | legal_unit    | [0,4096)       |            1
+ year-month | 2024 | legal_unit    | [0,4096)       |            1
+ year-month | 2024 | legal_unit    | [0,4096)       |            1
+ year-month | 2024 | legal_unit    | [0,4096)       |            1
+ year-month | 2024 | legal_unit    | [0,4096)       |            1
+ year-month | 2024 | legal_unit    | [0,4096)       |            1
+ year-month | 2024 | legal_unit    | [0,4096)       |            1
+ year-month | 2024 | legal_unit    | [0,4096)       |            1
+ year-month | 2024 | legal_unit    | [0,4096)       |            1
+ year-month | 2024 | legal_unit    | [0,4096)       |            1
+ year-month | 2024 | legal_unit    | [0,4096)       |            1
+ year-month | 2024 | legal_unit    | [0,4096)       |            1
+ year-month | 2024 | enterprise    |                |            1
+ year-month | 2024 | enterprise    |                |            1
+ year-month | 2024 | enterprise    |                |            1
+ year-month | 2024 | enterprise    |                |            1
+ year-month | 2024 | enterprise    |                |            1
+ year-month | 2024 | enterprise    |                |            1
+ year-month | 2024 | enterprise    |                |            1
+ year-month | 2024 | enterprise    |                |            1
+ year-month | 2024 | enterprise    |                |            1
+ year-month | 2024 | enterprise    |                |            1
+ year-month | 2024 | enterprise    |                |            1
+ year-month | 2024 | enterprise    |                |            1
+ year-month | 2024 | enterprise    | [0,4096)       |            1
+ year-month | 2024 | enterprise    | [0,4096)       |            1
+ year-month | 2024 | enterprise    | [0,4096)       |            1
+ year-month | 2024 | enterprise    | [0,4096)       |            1
+ year-month | 2024 | enterprise    | [0,4096)       |            1
+ year-month | 2024 | enterprise    | [0,4096)       |            1
+ year-month | 2024 | enterprise    | [0,4096)       |            1
+ year-month | 2024 | enterprise    | [0,4096)       |            1
+ year-month | 2024 | enterprise    | [0,4096)       |            1
+ year-month | 2024 | enterprise    | [0,4096)       |            1
+ year-month | 2024 | enterprise    | [0,4096)       |            1
+ year-month | 2024 | enterprise    | [0,4096)       |            1
+ year-month | 2025 | establishment |                |            1
+ year-month | 2025 | establishment |                |            1
+ year-month | 2025 | establishment |                |            1
+ year-month | 2025 | establishment |                |            1
+ year-month | 2025 | establishment |                |            1
+ year-month | 2025 | establishment |                |            1
+ year-month | 2025 | establishment |                |            1
+ year-month | 2025 | establishment |                |            1
+ year-month | 2025 | establishment |                |            1
+ year-month | 2025 | establishment |                |            1
+ year-month | 2025 | establishment |                |            1
+ year-month | 2025 | establishment |                |            1
+ year-month | 2025 | establishment | [4096,8192)    |            1
+ year-month | 2025 | establishment | [4096,8192)    |            1
+ year-month | 2025 | establishment | [4096,8192)    |            1
+ year-month | 2025 | establishment | [4096,8192)    |            1
+ year-month | 2025 | establishment | [4096,8192)    |            1
+ year-month | 2025 | establishment | [4096,8192)    |            1
+ year-month | 2025 | establishment | [4096,8192)    |            1
+ year-month | 2025 | establishment | [4096,8192)    |            1
+ year-month | 2025 | establishment | [4096,8192)    |            1
+ year-month | 2025 | establishment | [4096,8192)    |            1
+ year-month | 2025 | establishment | [4096,8192)    |            1
+ year-month | 2025 | establishment | [4096,8192)    |            1
+ year-month | 2025 | legal_unit    |                |            1
+ year-month | 2025 | legal_unit    |                |            1
+ year-month | 2025 | legal_unit    |                |            1
+ year-month | 2025 | legal_unit    |                |            1
+ year-month | 2025 | legal_unit    |                |            1
+ year-month | 2025 | legal_unit    |                |            1
+ year-month | 2025 | legal_unit    |                |            1
+ year-month | 2025 | legal_unit    |                |            1
+ year-month | 2025 | legal_unit    |                |            1
+ year-month | 2025 | legal_unit    |                |            1
+ year-month | 2025 | legal_unit    |                |            1
+ year-month | 2025 | legal_unit    |                |            1
+ year-month | 2025 | legal_unit    | [0,4096)       |            1
+ year-month | 2025 | legal_unit    | [0,4096)       |            1
+ year-month | 2025 | legal_unit    | [0,4096)       |            1
+ year-month | 2025 | legal_unit    | [0,4096)       |            1
+ year-month | 2025 | legal_unit    | [0,4096)       |            1
+ year-month | 2025 | legal_unit    | [0,4096)       |            1
+ year-month | 2025 | legal_unit    | [0,4096)       |            1
+ year-month | 2025 | legal_unit    | [0,4096)       |            1
+ year-month | 2025 | legal_unit    | [0,4096)       |            1
+ year-month | 2025 | legal_unit    | [0,4096)       |            1
+ year-month | 2025 | legal_unit    | [0,4096)       |            1
+ year-month | 2025 | legal_unit    | [0,4096)       |            1
+ year-month | 2025 | enterprise    |                |            1
+ year-month | 2025 | enterprise    |                |            1
+ year-month | 2025 | enterprise    |                |            1
+ year-month | 2025 | enterprise    |                |            1
+ year-month | 2025 | enterprise    |                |            1
+ year-month | 2025 | enterprise    |                |            1
+ year-month | 2025 | enterprise    |                |            1
+ year-month | 2025 | enterprise    |                |            1
+ year-month | 2025 | enterprise    |                |            1
+ year-month | 2025 | enterprise    |                |            1
+ year-month | 2025 | enterprise    |                |            1
+ year-month | 2025 | enterprise    |                |            1
+ year-month | 2025 | enterprise    | [0,4096)       |            1
+ year-month | 2025 | enterprise    | [0,4096)       |            1
+ year-month | 2025 | enterprise    | [0,4096)       |            1
+ year-month | 2025 | enterprise    | [0,4096)       |            1
+ year-month | 2025 | enterprise    | [0,4096)       |            1
+ year-month | 2025 | enterprise    | [0,4096)       |            1
+ year-month | 2025 | enterprise    | [0,4096)       |            1
+ year-month | 2025 | enterprise    | [0,4096)       |            1
+ year-month | 2025 | enterprise    | [0,4096)       |            1
+ year-month | 2025 | enterprise    | [0,4096)       |            1
+ year-month | 2025 | enterprise    | [0,4096)       |            1
+ year-month | 2025 | enterprise    | [0,4096)       |            1
+ year-month | 2026 | establishment |                |            1
+ year-month | 2026 | establishment |                |            1
+ year-month | 2026 | establishment |                |            1
+ year-month | 2026 | establishment |                |            1
+ year-month | 2026 | establishment | [4096,8192)    |            1
+ year-month | 2026 | establishment | [4096,8192)    |            1
+ year-month | 2026 | establishment | [4096,8192)    |            1
+ year-month | 2026 | establishment | [4096,8192)    |            1
+ year-month | 2026 | legal_unit    |                |            1
+ year-month | 2026 | legal_unit    |                |            1
+ year-month | 2026 | legal_unit    |                |            1
+ year-month | 2026 | legal_unit    |                |            1
+ year-month | 2026 | legal_unit    | [0,4096)       |            1
+ year-month | 2026 | legal_unit    | [0,4096)       |            1
+ year-month | 2026 | legal_unit    | [0,4096)       |            1
+ year-month | 2026 | legal_unit    | [0,4096)       |            1
+ year-month | 2026 | enterprise    |                |            1
+ year-month | 2026 | enterprise    |                |            1
+ year-month | 2026 | enterprise    |                |            1
+ year-month | 2026 | enterprise    |                |            1
+ year-month | 2026 | enterprise    | [0,4096)       |            1
+ year-month | 2026 | enterprise    | [0,4096)       |            1
+ year-month | 2026 | enterprise    | [0,4096)       |            1
+ year-month | 2026 | enterprise    | [0,4096)       |            1
+(498 rows)
+
+RESET ROLE;
+CALL test.set_user_from_email('test.admin@statbus.org');
+\echo "--- statistical_unit coverage after import 1 (year range) ---"
+"--- statistical_unit coverage after import 1 (year range) ---"
+SELECT unit_type, MIN(valid_from) AS min_from, MAX(valid_until) AS max_until, COUNT(*) AS row_count
+FROM public.statistical_unit
+WHERE unit_type IN ('legal_unit', 'establishment', 'enterprise')
+GROUP BY unit_type
+ORDER BY unit_type;
+   unit_type   |  min_from  | max_until | row_count 
+---------------+------------+-----------+-----------
+ establishment | 2020-01-01 | infinity  |         1
+ legal_unit    | 2020-01-01 | infinity  |         1
+ enterprise    | 2020-01-01 | infinity  |         1
+(3 rows)
+
+-- ===================================================================
+-- IMPORT 2: LU B + Establishment B (tax_idents 100000002 / 300000002)
+-- ===================================================================
+\echo "--- Import 2a: LU B ---"
+"--- Import 2a: LU B ---"
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
+    'import_204_lu_b',
+    'Import LU B for partition regression',
+    'Import job for test/data/204_regression_lu_b.csv.',
+    'Test data load (204_history_two_imports_partition_regression.sql)';
+\copy public.import_204_lu_b_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code) FROM 'test/data/204_regression_lu_b.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+CALL worker.process_tasks(p_queue => 'import');
+\echo "--- Import 2b: Establishment B ---"
+"--- Import 2b: Establishment B ---"
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_source_dates'),
+    'import_204_est_b',
+    'Import Establishment B for partition regression',
+    'Import job for test/data/204_regression_est_b.csv.',
+    'Test data load (204_history_two_imports_partition_regression.sql)';
+\copy public.import_204_est_b_upload(valid_from, valid_to, tax_ident, legal_unit_tax_ident, name, birth_date, death_date, physical_address_part1, physical_postcode, physical_postplace, physical_region_code, physical_country_iso_2, postal_address_part1, postal_postcode, postal_postplace, postal_region_code, postal_country_iso_2, primary_activity_category_code, secondary_activity_category_code, data_source_code, unit_size_code, employees, turnover) FROM 'test/data/204_regression_est_b.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+CALL worker.process_tasks(p_queue => 'import');
+CALL worker.process_tasks(p_queue => 'analytics');
+\echo "--- Base table counts after import 2 ---"
+"--- Base table counts after import 2 ---"
+SELECT
+    (SELECT COUNT(DISTINCT id) FROM public.legal_unit) AS legal_unit_count,
+    (SELECT COUNT(DISTINCT id) FROM public.establishment) AS establishment_count,
+    (SELECT COUNT(DISTINCT id) FROM public.enterprise) AS enterprise_count;
+ legal_unit_count | establishment_count | enterprise_count 
+------------------+---------------------+------------------
+                2 |                   2 |                2
+(1 row)
+
+\echo "--- Unit IDs + hash slots after import 2 ---"
+"--- Unit IDs + hash slots after import 2 ---"
+SELECT
+    'legal_unit'::text AS unit_type, lu.id AS unit_id,
+    public.hash_slot('legal_unit'::text, lu.id) AS hash_slot
+FROM public.legal_unit AS lu
+UNION ALL
+SELECT 'establishment', es.id, public.hash_slot('establishment'::text, es.id)
+FROM public.establishment AS es
+UNION ALL
+SELECT 'enterprise', e.id, public.hash_slot('enterprise'::text, e.id)
+FROM public.enterprise AS e
+ORDER BY unit_type, unit_id;
+   unit_type   | unit_id | hash_slot 
+---------------+---------+-----------
+ enterprise    |       1 |      3496
+ enterprise    |       2 |     12292
+ establishment |       1 |      4453
+ establishment |       2 |      7113
+ legal_unit    |       1 |      2955
+ legal_unit    |       2 |     14449
+(6 rows)
+
+\echo "--- statistical_history year=2021 after import 2 (expect exists_count=2 per unit_type; master bug: 1) ---"
+"--- statistical_history year=2021 after import 2 (expect exists_count=2 per unit_type; master bug: 1) ---"
+SELECT unit_type, exists_count, countable_count
+FROM public.statistical_history
+WHERE resolution = 'year' AND year = 2021 AND hash_partition IS NULL
+  AND unit_type IN ('legal_unit', 'establishment', 'enterprise')
+ORDER BY unit_type;
+   unit_type   | exists_count | countable_count 
+---------------+--------------+-----------------
+ establishment |            2 |               2
+ legal_unit    |            2 |               2
+ enterprise    |            2 |               2
+(3 rows)
+
+\echo "--- Per-partition rows after import 2 (year=2021) [as postgres, bypass RLS] ---"
+"--- Per-partition rows after import 2 (year=2021) [as postgres, bypass RLS] ---"
+SET LOCAL ROLE postgres;
+SELECT unit_type, hash_partition, exists_count
+FROM public.statistical_history
+WHERE resolution = 'year' AND year = 2021 AND hash_partition IS NOT NULL
+  AND unit_type IN ('legal_unit', 'establishment', 'enterprise')
+ORDER BY unit_type, lower(hash_partition);
+   unit_type   | hash_partition | exists_count 
+---------------+----------------+--------------
+ establishment | [4096,8192)    |            1
+ establishment | [7113,7114)    |            1
+ legal_unit    | [0,4096)       |            1
+ legal_unit    | [14449,14450)  |            1
+ enterprise    | [0,4096)       |            1
+ enterprise    | [12292,12293)  |            1
+(6 rows)
+
+\echo "--- ALL statistical_history rows after import 2 (any year/resolution) [as postgres] ---"
+"--- ALL statistical_history rows after import 2 (any year/resolution) [as postgres] ---"
+SELECT resolution, year, unit_type, hash_partition, exists_count
+FROM public.statistical_history
+WHERE unit_type IN ('legal_unit', 'establishment', 'enterprise')
+ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
+ resolution | year |   unit_type   | hash_partition | exists_count 
+------------+------+---------------+----------------+--------------
+ year       | 2020 | establishment |                |            2
+ year       | 2020 | establishment | [4096,8192)    |            1
+ year       | 2020 | establishment | [7113,7114)    |            1
+ year       | 2020 | legal_unit    |                |            2
+ year       | 2020 | legal_unit    | [0,4096)       |            1
+ year       | 2020 | legal_unit    | [14449,14450)  |            1
+ year       | 2020 | enterprise    |                |            2
+ year       | 2020 | enterprise    | [0,4096)       |            1
+ year       | 2020 | enterprise    | [12292,12293)  |            1
+ year       | 2021 | establishment |                |            2
+ year       | 2021 | establishment | [4096,8192)    |            1
+ year       | 2021 | establishment | [7113,7114)    |            1
+ year       | 2021 | legal_unit    |                |            2
+ year       | 2021 | legal_unit    | [0,4096)       |            1
+ year       | 2021 | legal_unit    | [14449,14450)  |            1
+ year       | 2021 | enterprise    |                |            2
+ year       | 2021 | enterprise    | [0,4096)       |            1
+ year       | 2021 | enterprise    | [12292,12293)  |            1
+ year       | 2022 | establishment |                |            2
+ year       | 2022 | establishment | [4096,8192)    |            1
+ year       | 2022 | establishment | [7113,7114)    |            1
+ year       | 2022 | legal_unit    |                |            2
+ year       | 2022 | legal_unit    | [0,4096)       |            1
+ year       | 2022 | legal_unit    | [14449,14450)  |            1
+ year       | 2022 | enterprise    |                |            2
+ year       | 2022 | enterprise    | [0,4096)       |            1
+ year       | 2022 | enterprise    | [12292,12293)  |            1
+ year       | 2023 | establishment |                |            2
+ year       | 2023 | establishment | [4096,8192)    |            1
+ year       | 2023 | establishment | [7113,7114)    |            1
+ year       | 2023 | legal_unit    |                |            2
+ year       | 2023 | legal_unit    | [0,4096)       |            1
+ year       | 2023 | legal_unit    | [14449,14450)  |            1
+ year       | 2023 | enterprise    |                |            2
+ year       | 2023 | enterprise    | [0,4096)       |            1
+ year       | 2023 | enterprise    | [12292,12293)  |            1
+ year       | 2024 | establishment |                |            2
+ year       | 2024 | establishment | [4096,8192)    |            1
+ year       | 2024 | establishment | [7113,7114)    |            1
+ year       | 2024 | legal_unit    |                |            2
+ year       | 2024 | legal_unit    | [0,4096)       |            1
+ year       | 2024 | legal_unit    | [14449,14450)  |            1
+ year       | 2024 | enterprise    |                |            2
+ year       | 2024 | enterprise    | [0,4096)       |            1
+ year       | 2024 | enterprise    | [12292,12293)  |            1
+ year       | 2025 | establishment |                |            2
+ year       | 2025 | establishment | [4096,8192)    |            1
+ year       | 2025 | establishment | [7113,7114)    |            1
+ year       | 2025 | legal_unit    |                |            2
+ year       | 2025 | legal_unit    | [0,4096)       |            1
+ year       | 2025 | legal_unit    | [14449,14450)  |            1
+ year       | 2025 | enterprise    |                |            2
+ year       | 2025 | enterprise    | [0,4096)       |            1
+ year       | 2025 | enterprise    | [12292,12293)  |            1
+ year       | 2026 | establishment |                |            2
+ year       | 2026 | establishment | [4096,8192)    |            1
+ year       | 2026 | establishment | [7113,7114)    |            1
+ year       | 2026 | legal_unit    |                |            2
+ year       | 2026 | legal_unit    | [0,4096)       |            1
+ year       | 2026 | legal_unit    | [14449,14450)  |            1
+ year       | 2026 | enterprise    |                |            2
+ year       | 2026 | enterprise    | [0,4096)       |            1
+ year       | 2026 | enterprise    | [12292,12293)  |            1
+ year-month | 2020 | establishment |                |            2
+ year-month | 2020 | establishment |                |            2
+ year-month | 2020 | establishment |                |            2
+ year-month | 2020 | establishment |                |            2
+ year-month | 2020 | establishment |                |            2
+ year-month | 2020 | establishment |                |            2
+ year-month | 2020 | establishment |                |            2
+ year-month | 2020 | establishment |                |            2
+ year-month | 2020 | establishment |                |            2
+ year-month | 2020 | establishment |                |            2
+ year-month | 2020 | establishment |                |            2
+ year-month | 2020 | establishment |                |            2
+ year-month | 2020 | establishment | [4096,8192)    |            1
+ year-month | 2020 | establishment | [4096,8192)    |            1
+ year-month | 2020 | establishment | [4096,8192)    |            1
+ year-month | 2020 | establishment | [4096,8192)    |            1
+ year-month | 2020 | establishment | [4096,8192)    |            1
+ year-month | 2020 | establishment | [4096,8192)    |            1
+ year-month | 2020 | establishment | [4096,8192)    |            1
+ year-month | 2020 | establishment | [4096,8192)    |            1
+ year-month | 2020 | establishment | [4096,8192)    |            1
+ year-month | 2020 | establishment | [4096,8192)    |            1
+ year-month | 2020 | establishment | [4096,8192)    |            1
+ year-month | 2020 | establishment | [4096,8192)    |            1
+ year-month | 2020 | establishment | [7113,7114)    |            1
+ year-month | 2020 | establishment | [7113,7114)    |            1
+ year-month | 2020 | establishment | [7113,7114)    |            1
+ year-month | 2020 | establishment | [7113,7114)    |            1
+ year-month | 2020 | establishment | [7113,7114)    |            1
+ year-month | 2020 | establishment | [7113,7114)    |            1
+ year-month | 2020 | establishment | [7113,7114)    |            1
+ year-month | 2020 | establishment | [7113,7114)    |            1
+ year-month | 2020 | establishment | [7113,7114)    |            1
+ year-month | 2020 | establishment | [7113,7114)    |            1
+ year-month | 2020 | establishment | [7113,7114)    |            1
+ year-month | 2020 | establishment | [7113,7114)    |            1
+ year-month | 2020 | legal_unit    |                |            2
+ year-month | 2020 | legal_unit    |                |            2
+ year-month | 2020 | legal_unit    |                |            2
+ year-month | 2020 | legal_unit    |                |            2
+ year-month | 2020 | legal_unit    |                |            2
+ year-month | 2020 | legal_unit    |                |            2
+ year-month | 2020 | legal_unit    |                |            2
+ year-month | 2020 | legal_unit    |                |            2
+ year-month | 2020 | legal_unit    |                |            2
+ year-month | 2020 | legal_unit    |                |            2
+ year-month | 2020 | legal_unit    |                |            2
+ year-month | 2020 | legal_unit    |                |            2
+ year-month | 2020 | legal_unit    | [0,4096)       |            1
+ year-month | 2020 | legal_unit    | [0,4096)       |            1
+ year-month | 2020 | legal_unit    | [0,4096)       |            1
+ year-month | 2020 | legal_unit    | [0,4096)       |            1
+ year-month | 2020 | legal_unit    | [0,4096)       |            1
+ year-month | 2020 | legal_unit    | [0,4096)       |            1
+ year-month | 2020 | legal_unit    | [0,4096)       |            1
+ year-month | 2020 | legal_unit    | [0,4096)       |            1
+ year-month | 2020 | legal_unit    | [0,4096)       |            1
+ year-month | 2020 | legal_unit    | [0,4096)       |            1
+ year-month | 2020 | legal_unit    | [0,4096)       |            1
+ year-month | 2020 | legal_unit    | [0,4096)       |            1
+ year-month | 2020 | legal_unit    | [14449,14450)  |            1
+ year-month | 2020 | legal_unit    | [14449,14450)  |            1
+ year-month | 2020 | legal_unit    | [14449,14450)  |            1
+ year-month | 2020 | legal_unit    | [14449,14450)  |            1
+ year-month | 2020 | legal_unit    | [14449,14450)  |            1
+ year-month | 2020 | legal_unit    | [14449,14450)  |            1
+ year-month | 2020 | legal_unit    | [14449,14450)  |            1
+ year-month | 2020 | legal_unit    | [14449,14450)  |            1
+ year-month | 2020 | legal_unit    | [14449,14450)  |            1
+ year-month | 2020 | legal_unit    | [14449,14450)  |            1
+ year-month | 2020 | legal_unit    | [14449,14450)  |            1
+ year-month | 2020 | legal_unit    | [14449,14450)  |            1
+ year-month | 2020 | enterprise    |                |            2
+ year-month | 2020 | enterprise    |                |            2
+ year-month | 2020 | enterprise    |                |            2
+ year-month | 2020 | enterprise    |                |            2
+ year-month | 2020 | enterprise    |                |            2
+ year-month | 2020 | enterprise    |                |            2
+ year-month | 2020 | enterprise    |                |            2
+ year-month | 2020 | enterprise    |                |            2
+ year-month | 2020 | enterprise    |                |            2
+ year-month | 2020 | enterprise    |                |            2
+ year-month | 2020 | enterprise    |                |            2
+ year-month | 2020 | enterprise    |                |            2
+ year-month | 2020 | enterprise    | [0,4096)       |            1
+ year-month | 2020 | enterprise    | [0,4096)       |            1
+ year-month | 2020 | enterprise    | [0,4096)       |            1
+ year-month | 2020 | enterprise    | [0,4096)       |            1
+ year-month | 2020 | enterprise    | [0,4096)       |            1
+ year-month | 2020 | enterprise    | [0,4096)       |            1
+ year-month | 2020 | enterprise    | [0,4096)       |            1
+ year-month | 2020 | enterprise    | [0,4096)       |            1
+ year-month | 2020 | enterprise    | [0,4096)       |            1
+ year-month | 2020 | enterprise    | [0,4096)       |            1
+ year-month | 2020 | enterprise    | [0,4096)       |            1
+ year-month | 2020 | enterprise    | [0,4096)       |            1
+ year-month | 2020 | enterprise    | [12292,12293)  |            1
+ year-month | 2020 | enterprise    | [12292,12293)  |            1
+ year-month | 2020 | enterprise    | [12292,12293)  |            1
+ year-month | 2020 | enterprise    | [12292,12293)  |            1
+ year-month | 2020 | enterprise    | [12292,12293)  |            1
+ year-month | 2020 | enterprise    | [12292,12293)  |            1
+ year-month | 2020 | enterprise    | [12292,12293)  |            1
+ year-month | 2020 | enterprise    | [12292,12293)  |            1
+ year-month | 2020 | enterprise    | [12292,12293)  |            1
+ year-month | 2020 | enterprise    | [12292,12293)  |            1
+ year-month | 2020 | enterprise    | [12292,12293)  |            1
+ year-month | 2020 | enterprise    | [12292,12293)  |            1
+ year-month | 2021 | establishment |                |            2
+ year-month | 2021 | establishment |                |            2
+ year-month | 2021 | establishment |                |            2
+ year-month | 2021 | establishment |                |            2
+ year-month | 2021 | establishment |                |            2
+ year-month | 2021 | establishment |                |            2
+ year-month | 2021 | establishment |                |            2
+ year-month | 2021 | establishment |                |            2
+ year-month | 2021 | establishment |                |            2
+ year-month | 2021 | establishment |                |            2
+ year-month | 2021 | establishment |                |            2
+ year-month | 2021 | establishment |                |            2
+ year-month | 2021 | establishment | [4096,8192)    |            1
+ year-month | 2021 | establishment | [4096,8192)    |            1
+ year-month | 2021 | establishment | [4096,8192)    |            1
+ year-month | 2021 | establishment | [4096,8192)    |            1
+ year-month | 2021 | establishment | [4096,8192)    |            1
+ year-month | 2021 | establishment | [4096,8192)    |            1
+ year-month | 2021 | establishment | [4096,8192)    |            1
+ year-month | 2021 | establishment | [4096,8192)    |            1
+ year-month | 2021 | establishment | [4096,8192)    |            1
+ year-month | 2021 | establishment | [4096,8192)    |            1
+ year-month | 2021 | establishment | [4096,8192)    |            1
+ year-month | 2021 | establishment | [4096,8192)    |            1
+ year-month | 2021 | establishment | [7113,7114)    |            1
+ year-month | 2021 | establishment | [7113,7114)    |            1
+ year-month | 2021 | establishment | [7113,7114)    |            1
+ year-month | 2021 | establishment | [7113,7114)    |            1
+ year-month | 2021 | establishment | [7113,7114)    |            1
+ year-month | 2021 | establishment | [7113,7114)    |            1
+ year-month | 2021 | establishment | [7113,7114)    |            1
+ year-month | 2021 | establishment | [7113,7114)    |            1
+ year-month | 2021 | establishment | [7113,7114)    |            1
+ year-month | 2021 | establishment | [7113,7114)    |            1
+ year-month | 2021 | establishment | [7113,7114)    |            1
+ year-month | 2021 | establishment | [7113,7114)    |            1
+ year-month | 2021 | legal_unit    |                |            2
+ year-month | 2021 | legal_unit    |                |            2
+ year-month | 2021 | legal_unit    |                |            2
+ year-month | 2021 | legal_unit    |                |            2
+ year-month | 2021 | legal_unit    |                |            2
+ year-month | 2021 | legal_unit    |                |            2
+ year-month | 2021 | legal_unit    |                |            2
+ year-month | 2021 | legal_unit    |                |            2
+ year-month | 2021 | legal_unit    |                |            2
+ year-month | 2021 | legal_unit    |                |            2
+ year-month | 2021 | legal_unit    |                |            2
+ year-month | 2021 | legal_unit    |                |            2
+ year-month | 2021 | legal_unit    | [0,4096)       |            1
+ year-month | 2021 | legal_unit    | [0,4096)       |            1
+ year-month | 2021 | legal_unit    | [0,4096)       |            1
+ year-month | 2021 | legal_unit    | [0,4096)       |            1
+ year-month | 2021 | legal_unit    | [0,4096)       |            1
+ year-month | 2021 | legal_unit    | [0,4096)       |            1
+ year-month | 2021 | legal_unit    | [0,4096)       |            1
+ year-month | 2021 | legal_unit    | [0,4096)       |            1
+ year-month | 2021 | legal_unit    | [0,4096)       |            1
+ year-month | 2021 | legal_unit    | [0,4096)       |            1
+ year-month | 2021 | legal_unit    | [0,4096)       |            1
+ year-month | 2021 | legal_unit    | [0,4096)       |            1
+ year-month | 2021 | legal_unit    | [14449,14450)  |            1
+ year-month | 2021 | legal_unit    | [14449,14450)  |            1
+ year-month | 2021 | legal_unit    | [14449,14450)  |            1
+ year-month | 2021 | legal_unit    | [14449,14450)  |            1
+ year-month | 2021 | legal_unit    | [14449,14450)  |            1
+ year-month | 2021 | legal_unit    | [14449,14450)  |            1
+ year-month | 2021 | legal_unit    | [14449,14450)  |            1
+ year-month | 2021 | legal_unit    | [14449,14450)  |            1
+ year-month | 2021 | legal_unit    | [14449,14450)  |            1
+ year-month | 2021 | legal_unit    | [14449,14450)  |            1
+ year-month | 2021 | legal_unit    | [14449,14450)  |            1
+ year-month | 2021 | legal_unit    | [14449,14450)  |            1
+ year-month | 2021 | enterprise    |                |            2
+ year-month | 2021 | enterprise    |                |            2
+ year-month | 2021 | enterprise    |                |            2
+ year-month | 2021 | enterprise    |                |            2
+ year-month | 2021 | enterprise    |                |            2
+ year-month | 2021 | enterprise    |                |            2
+ year-month | 2021 | enterprise    |                |            2
+ year-month | 2021 | enterprise    |                |            2
+ year-month | 2021 | enterprise    |                |            2
+ year-month | 2021 | enterprise    |                |            2
+ year-month | 2021 | enterprise    |                |            2
+ year-month | 2021 | enterprise    |                |            2
+ year-month | 2021 | enterprise    | [0,4096)       |            1
+ year-month | 2021 | enterprise    | [0,4096)       |            1
+ year-month | 2021 | enterprise    | [0,4096)       |            1
+ year-month | 2021 | enterprise    | [0,4096)       |            1
+ year-month | 2021 | enterprise    | [0,4096)       |            1
+ year-month | 2021 | enterprise    | [0,4096)       |            1
+ year-month | 2021 | enterprise    | [0,4096)       |            1
+ year-month | 2021 | enterprise    | [0,4096)       |            1
+ year-month | 2021 | enterprise    | [0,4096)       |            1
+ year-month | 2021 | enterprise    | [0,4096)       |            1
+ year-month | 2021 | enterprise    | [0,4096)       |            1
+ year-month | 2021 | enterprise    | [0,4096)       |            1
+ year-month | 2021 | enterprise    | [12292,12293)  |            1
+ year-month | 2021 | enterprise    | [12292,12293)  |            1
+ year-month | 2021 | enterprise    | [12292,12293)  |            1
+ year-month | 2021 | enterprise    | [12292,12293)  |            1
+ year-month | 2021 | enterprise    | [12292,12293)  |            1
+ year-month | 2021 | enterprise    | [12292,12293)  |            1
+ year-month | 2021 | enterprise    | [12292,12293)  |            1
+ year-month | 2021 | enterprise    | [12292,12293)  |            1
+ year-month | 2021 | enterprise    | [12292,12293)  |            1
+ year-month | 2021 | enterprise    | [12292,12293)  |            1
+ year-month | 2021 | enterprise    | [12292,12293)  |            1
+ year-month | 2021 | enterprise    | [12292,12293)  |            1
+ year-month | 2022 | establishment |                |            2
+ year-month | 2022 | establishment |                |            2
+ year-month | 2022 | establishment |                |            2
+ year-month | 2022 | establishment |                |            2
+ year-month | 2022 | establishment |                |            2
+ year-month | 2022 | establishment |                |            2
+ year-month | 2022 | establishment |                |            2
+ year-month | 2022 | establishment |                |            2
+ year-month | 2022 | establishment |                |            2
+ year-month | 2022 | establishment |                |            2
+ year-month | 2022 | establishment |                |            2
+ year-month | 2022 | establishment |                |            2
+ year-month | 2022 | establishment | [4096,8192)    |            1
+ year-month | 2022 | establishment | [4096,8192)    |            1
+ year-month | 2022 | establishment | [4096,8192)    |            1
+ year-month | 2022 | establishment | [4096,8192)    |            1
+ year-month | 2022 | establishment | [4096,8192)    |            1
+ year-month | 2022 | establishment | [4096,8192)    |            1
+ year-month | 2022 | establishment | [4096,8192)    |            1
+ year-month | 2022 | establishment | [4096,8192)    |            1
+ year-month | 2022 | establishment | [4096,8192)    |            1
+ year-month | 2022 | establishment | [4096,8192)    |            1
+ year-month | 2022 | establishment | [4096,8192)    |            1
+ year-month | 2022 | establishment | [4096,8192)    |            1
+ year-month | 2022 | establishment | [7113,7114)    |            1
+ year-month | 2022 | establishment | [7113,7114)    |            1
+ year-month | 2022 | establishment | [7113,7114)    |            1
+ year-month | 2022 | establishment | [7113,7114)    |            1
+ year-month | 2022 | establishment | [7113,7114)    |            1
+ year-month | 2022 | establishment | [7113,7114)    |            1
+ year-month | 2022 | establishment | [7113,7114)    |            1
+ year-month | 2022 | establishment | [7113,7114)    |            1
+ year-month | 2022 | establishment | [7113,7114)    |            1
+ year-month | 2022 | establishment | [7113,7114)    |            1
+ year-month | 2022 | establishment | [7113,7114)    |            1
+ year-month | 2022 | establishment | [7113,7114)    |            1
+ year-month | 2022 | legal_unit    |                |            2
+ year-month | 2022 | legal_unit    |                |            2
+ year-month | 2022 | legal_unit    |                |            2
+ year-month | 2022 | legal_unit    |                |            2
+ year-month | 2022 | legal_unit    |                |            2
+ year-month | 2022 | legal_unit    |                |            2
+ year-month | 2022 | legal_unit    |                |            2
+ year-month | 2022 | legal_unit    |                |            2
+ year-month | 2022 | legal_unit    |                |            2
+ year-month | 2022 | legal_unit    |                |            2
+ year-month | 2022 | legal_unit    |                |            2
+ year-month | 2022 | legal_unit    |                |            2
+ year-month | 2022 | legal_unit    | [0,4096)       |            1
+ year-month | 2022 | legal_unit    | [0,4096)       |            1
+ year-month | 2022 | legal_unit    | [0,4096)       |            1
+ year-month | 2022 | legal_unit    | [0,4096)       |            1
+ year-month | 2022 | legal_unit    | [0,4096)       |            1
+ year-month | 2022 | legal_unit    | [0,4096)       |            1
+ year-month | 2022 | legal_unit    | [0,4096)       |            1
+ year-month | 2022 | legal_unit    | [0,4096)       |            1
+ year-month | 2022 | legal_unit    | [0,4096)       |            1
+ year-month | 2022 | legal_unit    | [0,4096)       |            1
+ year-month | 2022 | legal_unit    | [0,4096)       |            1
+ year-month | 2022 | legal_unit    | [0,4096)       |            1
+ year-month | 2022 | legal_unit    | [14449,14450)  |            1
+ year-month | 2022 | legal_unit    | [14449,14450)  |            1
+ year-month | 2022 | legal_unit    | [14449,14450)  |            1
+ year-month | 2022 | legal_unit    | [14449,14450)  |            1
+ year-month | 2022 | legal_unit    | [14449,14450)  |            1
+ year-month | 2022 | legal_unit    | [14449,14450)  |            1
+ year-month | 2022 | legal_unit    | [14449,14450)  |            1
+ year-month | 2022 | legal_unit    | [14449,14450)  |            1
+ year-month | 2022 | legal_unit    | [14449,14450)  |            1
+ year-month | 2022 | legal_unit    | [14449,14450)  |            1
+ year-month | 2022 | legal_unit    | [14449,14450)  |            1
+ year-month | 2022 | legal_unit    | [14449,14450)  |            1
+ year-month | 2022 | enterprise    |                |            2
+ year-month | 2022 | enterprise    |                |            2
+ year-month | 2022 | enterprise    |                |            2
+ year-month | 2022 | enterprise    |                |            2
+ year-month | 2022 | enterprise    |                |            2
+ year-month | 2022 | enterprise    |                |            2
+ year-month | 2022 | enterprise    |                |            2
+ year-month | 2022 | enterprise    |                |            2
+ year-month | 2022 | enterprise    |                |            2
+ year-month | 2022 | enterprise    |                |            2
+ year-month | 2022 | enterprise    |                |            2
+ year-month | 2022 | enterprise    |                |            2
+ year-month | 2022 | enterprise    | [0,4096)       |            1
+ year-month | 2022 | enterprise    | [0,4096)       |            1
+ year-month | 2022 | enterprise    | [0,4096)       |            1
+ year-month | 2022 | enterprise    | [0,4096)       |            1
+ year-month | 2022 | enterprise    | [0,4096)       |            1
+ year-month | 2022 | enterprise    | [0,4096)       |            1
+ year-month | 2022 | enterprise    | [0,4096)       |            1
+ year-month | 2022 | enterprise    | [0,4096)       |            1
+ year-month | 2022 | enterprise    | [0,4096)       |            1
+ year-month | 2022 | enterprise    | [0,4096)       |            1
+ year-month | 2022 | enterprise    | [0,4096)       |            1
+ year-month | 2022 | enterprise    | [0,4096)       |            1
+ year-month | 2022 | enterprise    | [12292,12293)  |            1
+ year-month | 2022 | enterprise    | [12292,12293)  |            1
+ year-month | 2022 | enterprise    | [12292,12293)  |            1
+ year-month | 2022 | enterprise    | [12292,12293)  |            1
+ year-month | 2022 | enterprise    | [12292,12293)  |            1
+ year-month | 2022 | enterprise    | [12292,12293)  |            1
+ year-month | 2022 | enterprise    | [12292,12293)  |            1
+ year-month | 2022 | enterprise    | [12292,12293)  |            1
+ year-month | 2022 | enterprise    | [12292,12293)  |            1
+ year-month | 2022 | enterprise    | [12292,12293)  |            1
+ year-month | 2022 | enterprise    | [12292,12293)  |            1
+ year-month | 2022 | enterprise    | [12292,12293)  |            1
+ year-month | 2023 | establishment |                |            2
+ year-month | 2023 | establishment |                |            2
+ year-month | 2023 | establishment |                |            2
+ year-month | 2023 | establishment |                |            2
+ year-month | 2023 | establishment |                |            2
+ year-month | 2023 | establishment |                |            2
+ year-month | 2023 | establishment |                |            2
+ year-month | 2023 | establishment |                |            2
+ year-month | 2023 | establishment |                |            2
+ year-month | 2023 | establishment |                |            2
+ year-month | 2023 | establishment |                |            2
+ year-month | 2023 | establishment |                |            2
+ year-month | 2023 | establishment | [4096,8192)    |            1
+ year-month | 2023 | establishment | [4096,8192)    |            1
+ year-month | 2023 | establishment | [4096,8192)    |            1
+ year-month | 2023 | establishment | [4096,8192)    |            1
+ year-month | 2023 | establishment | [4096,8192)    |            1
+ year-month | 2023 | establishment | [4096,8192)    |            1
+ year-month | 2023 | establishment | [4096,8192)    |            1
+ year-month | 2023 | establishment | [4096,8192)    |            1
+ year-month | 2023 | establishment | [4096,8192)    |            1
+ year-month | 2023 | establishment | [4096,8192)    |            1
+ year-month | 2023 | establishment | [4096,8192)    |            1
+ year-month | 2023 | establishment | [4096,8192)    |            1
+ year-month | 2023 | establishment | [7113,7114)    |            1
+ year-month | 2023 | establishment | [7113,7114)    |            1
+ year-month | 2023 | establishment | [7113,7114)    |            1
+ year-month | 2023 | establishment | [7113,7114)    |            1
+ year-month | 2023 | establishment | [7113,7114)    |            1
+ year-month | 2023 | establishment | [7113,7114)    |            1
+ year-month | 2023 | establishment | [7113,7114)    |            1
+ year-month | 2023 | establishment | [7113,7114)    |            1
+ year-month | 2023 | establishment | [7113,7114)    |            1
+ year-month | 2023 | establishment | [7113,7114)    |            1
+ year-month | 2023 | establishment | [7113,7114)    |            1
+ year-month | 2023 | establishment | [7113,7114)    |            1
+ year-month | 2023 | legal_unit    |                |            2
+ year-month | 2023 | legal_unit    |                |            2
+ year-month | 2023 | legal_unit    |                |            2
+ year-month | 2023 | legal_unit    |                |            2
+ year-month | 2023 | legal_unit    |                |            2
+ year-month | 2023 | legal_unit    |                |            2
+ year-month | 2023 | legal_unit    |                |            2
+ year-month | 2023 | legal_unit    |                |            2
+ year-month | 2023 | legal_unit    |                |            2
+ year-month | 2023 | legal_unit    |                |            2
+ year-month | 2023 | legal_unit    |                |            2
+ year-month | 2023 | legal_unit    |                |            2
+ year-month | 2023 | legal_unit    | [0,4096)       |            1
+ year-month | 2023 | legal_unit    | [0,4096)       |            1
+ year-month | 2023 | legal_unit    | [0,4096)       |            1
+ year-month | 2023 | legal_unit    | [0,4096)       |            1
+ year-month | 2023 | legal_unit    | [0,4096)       |            1
+ year-month | 2023 | legal_unit    | [0,4096)       |            1
+ year-month | 2023 | legal_unit    | [0,4096)       |            1
+ year-month | 2023 | legal_unit    | [0,4096)       |            1
+ year-month | 2023 | legal_unit    | [0,4096)       |            1
+ year-month | 2023 | legal_unit    | [0,4096)       |            1
+ year-month | 2023 | legal_unit    | [0,4096)       |            1
+ year-month | 2023 | legal_unit    | [0,4096)       |            1
+ year-month | 2023 | legal_unit    | [14449,14450)  |            1
+ year-month | 2023 | legal_unit    | [14449,14450)  |            1
+ year-month | 2023 | legal_unit    | [14449,14450)  |            1
+ year-month | 2023 | legal_unit    | [14449,14450)  |            1
+ year-month | 2023 | legal_unit    | [14449,14450)  |            1
+ year-month | 2023 | legal_unit    | [14449,14450)  |            1
+ year-month | 2023 | legal_unit    | [14449,14450)  |            1
+ year-month | 2023 | legal_unit    | [14449,14450)  |            1
+ year-month | 2023 | legal_unit    | [14449,14450)  |            1
+ year-month | 2023 | legal_unit    | [14449,14450)  |            1
+ year-month | 2023 | legal_unit    | [14449,14450)  |            1
+ year-month | 2023 | legal_unit    | [14449,14450)  |            1
+ year-month | 2023 | enterprise    |                |            2
+ year-month | 2023 | enterprise    |                |            2
+ year-month | 2023 | enterprise    |                |            2
+ year-month | 2023 | enterprise    |                |            2
+ year-month | 2023 | enterprise    |                |            2
+ year-month | 2023 | enterprise    |                |            2
+ year-month | 2023 | enterprise    |                |            2
+ year-month | 2023 | enterprise    |                |            2
+ year-month | 2023 | enterprise    |                |            2
+ year-month | 2023 | enterprise    |                |            2
+ year-month | 2023 | enterprise    |                |            2
+ year-month | 2023 | enterprise    |                |            2
+ year-month | 2023 | enterprise    | [0,4096)       |            1
+ year-month | 2023 | enterprise    | [0,4096)       |            1
+ year-month | 2023 | enterprise    | [0,4096)       |            1
+ year-month | 2023 | enterprise    | [0,4096)       |            1
+ year-month | 2023 | enterprise    | [0,4096)       |            1
+ year-month | 2023 | enterprise    | [0,4096)       |            1
+ year-month | 2023 | enterprise    | [0,4096)       |            1
+ year-month | 2023 | enterprise    | [0,4096)       |            1
+ year-month | 2023 | enterprise    | [0,4096)       |            1
+ year-month | 2023 | enterprise    | [0,4096)       |            1
+ year-month | 2023 | enterprise    | [0,4096)       |            1
+ year-month | 2023 | enterprise    | [0,4096)       |            1
+ year-month | 2023 | enterprise    | [12292,12293)  |            1
+ year-month | 2023 | enterprise    | [12292,12293)  |            1
+ year-month | 2023 | enterprise    | [12292,12293)  |            1
+ year-month | 2023 | enterprise    | [12292,12293)  |            1
+ year-month | 2023 | enterprise    | [12292,12293)  |            1
+ year-month | 2023 | enterprise    | [12292,12293)  |            1
+ year-month | 2023 | enterprise    | [12292,12293)  |            1
+ year-month | 2023 | enterprise    | [12292,12293)  |            1
+ year-month | 2023 | enterprise    | [12292,12293)  |            1
+ year-month | 2023 | enterprise    | [12292,12293)  |            1
+ year-month | 2023 | enterprise    | [12292,12293)  |            1
+ year-month | 2023 | enterprise    | [12292,12293)  |            1
+ year-month | 2024 | establishment |                |            2
+ year-month | 2024 | establishment |                |            2
+ year-month | 2024 | establishment |                |            2
+ year-month | 2024 | establishment |                |            2
+ year-month | 2024 | establishment |                |            2
+ year-month | 2024 | establishment |                |            2
+ year-month | 2024 | establishment |                |            2
+ year-month | 2024 | establishment |                |            2
+ year-month | 2024 | establishment |                |            2
+ year-month | 2024 | establishment |                |            2
+ year-month | 2024 | establishment |                |            2
+ year-month | 2024 | establishment |                |            2
+ year-month | 2024 | establishment | [4096,8192)    |            1
+ year-month | 2024 | establishment | [4096,8192)    |            1
+ year-month | 2024 | establishment | [4096,8192)    |            1
+ year-month | 2024 | establishment | [4096,8192)    |            1
+ year-month | 2024 | establishment | [4096,8192)    |            1
+ year-month | 2024 | establishment | [4096,8192)    |            1
+ year-month | 2024 | establishment | [4096,8192)    |            1
+ year-month | 2024 | establishment | [4096,8192)    |            1
+ year-month | 2024 | establishment | [4096,8192)    |            1
+ year-month | 2024 | establishment | [4096,8192)    |            1
+ year-month | 2024 | establishment | [4096,8192)    |            1
+ year-month | 2024 | establishment | [4096,8192)    |            1
+ year-month | 2024 | establishment | [7113,7114)    |            1
+ year-month | 2024 | establishment | [7113,7114)    |            1
+ year-month | 2024 | establishment | [7113,7114)    |            1
+ year-month | 2024 | establishment | [7113,7114)    |            1
+ year-month | 2024 | establishment | [7113,7114)    |            1
+ year-month | 2024 | establishment | [7113,7114)    |            1
+ year-month | 2024 | establishment | [7113,7114)    |            1
+ year-month | 2024 | establishment | [7113,7114)    |            1
+ year-month | 2024 | establishment | [7113,7114)    |            1
+ year-month | 2024 | establishment | [7113,7114)    |            1
+ year-month | 2024 | establishment | [7113,7114)    |            1
+ year-month | 2024 | establishment | [7113,7114)    |            1
+ year-month | 2024 | legal_unit    |                |            2
+ year-month | 2024 | legal_unit    |                |            2
+ year-month | 2024 | legal_unit    |                |            2
+ year-month | 2024 | legal_unit    |                |            2
+ year-month | 2024 | legal_unit    |                |            2
+ year-month | 2024 | legal_unit    |                |            2
+ year-month | 2024 | legal_unit    |                |            2
+ year-month | 2024 | legal_unit    |                |            2
+ year-month | 2024 | legal_unit    |                |            2
+ year-month | 2024 | legal_unit    |                |            2
+ year-month | 2024 | legal_unit    |                |            2
+ year-month | 2024 | legal_unit    |                |            2
+ year-month | 2024 | legal_unit    | [0,4096)       |            1
+ year-month | 2024 | legal_unit    | [0,4096)       |            1
+ year-month | 2024 | legal_unit    | [0,4096)       |            1
+ year-month | 2024 | legal_unit    | [0,4096)       |            1
+ year-month | 2024 | legal_unit    | [0,4096)       |            1
+ year-month | 2024 | legal_unit    | [0,4096)       |            1
+ year-month | 2024 | legal_unit    | [0,4096)       |            1
+ year-month | 2024 | legal_unit    | [0,4096)       |            1
+ year-month | 2024 | legal_unit    | [0,4096)       |            1
+ year-month | 2024 | legal_unit    | [0,4096)       |            1
+ year-month | 2024 | legal_unit    | [0,4096)       |            1
+ year-month | 2024 | legal_unit    | [0,4096)       |            1
+ year-month | 2024 | legal_unit    | [14449,14450)  |            1
+ year-month | 2024 | legal_unit    | [14449,14450)  |            1
+ year-month | 2024 | legal_unit    | [14449,14450)  |            1
+ year-month | 2024 | legal_unit    | [14449,14450)  |            1
+ year-month | 2024 | legal_unit    | [14449,14450)  |            1
+ year-month | 2024 | legal_unit    | [14449,14450)  |            1
+ year-month | 2024 | legal_unit    | [14449,14450)  |            1
+ year-month | 2024 | legal_unit    | [14449,14450)  |            1
+ year-month | 2024 | legal_unit    | [14449,14450)  |            1
+ year-month | 2024 | legal_unit    | [14449,14450)  |            1
+ year-month | 2024 | legal_unit    | [14449,14450)  |            1
+ year-month | 2024 | legal_unit    | [14449,14450)  |            1
+ year-month | 2024 | enterprise    |                |            2
+ year-month | 2024 | enterprise    |                |            2
+ year-month | 2024 | enterprise    |                |            2
+ year-month | 2024 | enterprise    |                |            2
+ year-month | 2024 | enterprise    |                |            2
+ year-month | 2024 | enterprise    |                |            2
+ year-month | 2024 | enterprise    |                |            2
+ year-month | 2024 | enterprise    |                |            2
+ year-month | 2024 | enterprise    |                |            2
+ year-month | 2024 | enterprise    |                |            2
+ year-month | 2024 | enterprise    |                |            2
+ year-month | 2024 | enterprise    |                |            2
+ year-month | 2024 | enterprise    | [0,4096)       |            1
+ year-month | 2024 | enterprise    | [0,4096)       |            1
+ year-month | 2024 | enterprise    | [0,4096)       |            1
+ year-month | 2024 | enterprise    | [0,4096)       |            1
+ year-month | 2024 | enterprise    | [0,4096)       |            1
+ year-month | 2024 | enterprise    | [0,4096)       |            1
+ year-month | 2024 | enterprise    | [0,4096)       |            1
+ year-month | 2024 | enterprise    | [0,4096)       |            1
+ year-month | 2024 | enterprise    | [0,4096)       |            1
+ year-month | 2024 | enterprise    | [0,4096)       |            1
+ year-month | 2024 | enterprise    | [0,4096)       |            1
+ year-month | 2024 | enterprise    | [0,4096)       |            1
+ year-month | 2024 | enterprise    | [12292,12293)  |            1
+ year-month | 2024 | enterprise    | [12292,12293)  |            1
+ year-month | 2024 | enterprise    | [12292,12293)  |            1
+ year-month | 2024 | enterprise    | [12292,12293)  |            1
+ year-month | 2024 | enterprise    | [12292,12293)  |            1
+ year-month | 2024 | enterprise    | [12292,12293)  |            1
+ year-month | 2024 | enterprise    | [12292,12293)  |            1
+ year-month | 2024 | enterprise    | [12292,12293)  |            1
+ year-month | 2024 | enterprise    | [12292,12293)  |            1
+ year-month | 2024 | enterprise    | [12292,12293)  |            1
+ year-month | 2024 | enterprise    | [12292,12293)  |            1
+ year-month | 2024 | enterprise    | [12292,12293)  |            1
+ year-month | 2025 | establishment |                |            2
+ year-month | 2025 | establishment |                |            2
+ year-month | 2025 | establishment |                |            2
+ year-month | 2025 | establishment |                |            2
+ year-month | 2025 | establishment |                |            2
+ year-month | 2025 | establishment |                |            2
+ year-month | 2025 | establishment |                |            2
+ year-month | 2025 | establishment |                |            2
+ year-month | 2025 | establishment |                |            2
+ year-month | 2025 | establishment |                |            2
+ year-month | 2025 | establishment |                |            2
+ year-month | 2025 | establishment |                |            2
+ year-month | 2025 | establishment | [4096,8192)    |            1
+ year-month | 2025 | establishment | [4096,8192)    |            1
+ year-month | 2025 | establishment | [4096,8192)    |            1
+ year-month | 2025 | establishment | [4096,8192)    |            1
+ year-month | 2025 | establishment | [4096,8192)    |            1
+ year-month | 2025 | establishment | [4096,8192)    |            1
+ year-month | 2025 | establishment | [4096,8192)    |            1
+ year-month | 2025 | establishment | [4096,8192)    |            1
+ year-month | 2025 | establishment | [4096,8192)    |            1
+ year-month | 2025 | establishment | [4096,8192)    |            1
+ year-month | 2025 | establishment | [4096,8192)    |            1
+ year-month | 2025 | establishment | [4096,8192)    |            1
+ year-month | 2025 | establishment | [7113,7114)    |            1
+ year-month | 2025 | establishment | [7113,7114)    |            1
+ year-month | 2025 | establishment | [7113,7114)    |            1
+ year-month | 2025 | establishment | [7113,7114)    |            1
+ year-month | 2025 | establishment | [7113,7114)    |            1
+ year-month | 2025 | establishment | [7113,7114)    |            1
+ year-month | 2025 | establishment | [7113,7114)    |            1
+ year-month | 2025 | establishment | [7113,7114)    |            1
+ year-month | 2025 | establishment | [7113,7114)    |            1
+ year-month | 2025 | establishment | [7113,7114)    |            1
+ year-month | 2025 | establishment | [7113,7114)    |            1
+ year-month | 2025 | establishment | [7113,7114)    |            1
+ year-month | 2025 | legal_unit    |                |            2
+ year-month | 2025 | legal_unit    |                |            2
+ year-month | 2025 | legal_unit    |                |            2
+ year-month | 2025 | legal_unit    |                |            2
+ year-month | 2025 | legal_unit    |                |            2
+ year-month | 2025 | legal_unit    |                |            2
+ year-month | 2025 | legal_unit    |                |            2
+ year-month | 2025 | legal_unit    |                |            2
+ year-month | 2025 | legal_unit    |                |            2
+ year-month | 2025 | legal_unit    |                |            2
+ year-month | 2025 | legal_unit    |                |            2
+ year-month | 2025 | legal_unit    |                |            2
+ year-month | 2025 | legal_unit    | [0,4096)       |            1
+ year-month | 2025 | legal_unit    | [0,4096)       |            1
+ year-month | 2025 | legal_unit    | [0,4096)       |            1
+ year-month | 2025 | legal_unit    | [0,4096)       |            1
+ year-month | 2025 | legal_unit    | [0,4096)       |            1
+ year-month | 2025 | legal_unit    | [0,4096)       |            1
+ year-month | 2025 | legal_unit    | [0,4096)       |            1
+ year-month | 2025 | legal_unit    | [0,4096)       |            1
+ year-month | 2025 | legal_unit    | [0,4096)       |            1
+ year-month | 2025 | legal_unit    | [0,4096)       |            1
+ year-month | 2025 | legal_unit    | [0,4096)       |            1
+ year-month | 2025 | legal_unit    | [0,4096)       |            1
+ year-month | 2025 | legal_unit    | [14449,14450)  |            1
+ year-month | 2025 | legal_unit    | [14449,14450)  |            1
+ year-month | 2025 | legal_unit    | [14449,14450)  |            1
+ year-month | 2025 | legal_unit    | [14449,14450)  |            1
+ year-month | 2025 | legal_unit    | [14449,14450)  |            1
+ year-month | 2025 | legal_unit    | [14449,14450)  |            1
+ year-month | 2025 | legal_unit    | [14449,14450)  |            1
+ year-month | 2025 | legal_unit    | [14449,14450)  |            1
+ year-month | 2025 | legal_unit    | [14449,14450)  |            1
+ year-month | 2025 | legal_unit    | [14449,14450)  |            1
+ year-month | 2025 | legal_unit    | [14449,14450)  |            1
+ year-month | 2025 | legal_unit    | [14449,14450)  |            1
+ year-month | 2025 | enterprise    |                |            2
+ year-month | 2025 | enterprise    |                |            2
+ year-month | 2025 | enterprise    |                |            2
+ year-month | 2025 | enterprise    |                |            2
+ year-month | 2025 | enterprise    |                |            2
+ year-month | 2025 | enterprise    |                |            2
+ year-month | 2025 | enterprise    |                |            2
+ year-month | 2025 | enterprise    |                |            2
+ year-month | 2025 | enterprise    |                |            2
+ year-month | 2025 | enterprise    |                |            2
+ year-month | 2025 | enterprise    |                |            2
+ year-month | 2025 | enterprise    |                |            2
+ year-month | 2025 | enterprise    | [0,4096)       |            1
+ year-month | 2025 | enterprise    | [0,4096)       |            1
+ year-month | 2025 | enterprise    | [0,4096)       |            1
+ year-month | 2025 | enterprise    | [0,4096)       |            1
+ year-month | 2025 | enterprise    | [0,4096)       |            1
+ year-month | 2025 | enterprise    | [0,4096)       |            1
+ year-month | 2025 | enterprise    | [0,4096)       |            1
+ year-month | 2025 | enterprise    | [0,4096)       |            1
+ year-month | 2025 | enterprise    | [0,4096)       |            1
+ year-month | 2025 | enterprise    | [0,4096)       |            1
+ year-month | 2025 | enterprise    | [0,4096)       |            1
+ year-month | 2025 | enterprise    | [0,4096)       |            1
+ year-month | 2025 | enterprise    | [12292,12293)  |            1
+ year-month | 2025 | enterprise    | [12292,12293)  |            1
+ year-month | 2025 | enterprise    | [12292,12293)  |            1
+ year-month | 2025 | enterprise    | [12292,12293)  |            1
+ year-month | 2025 | enterprise    | [12292,12293)  |            1
+ year-month | 2025 | enterprise    | [12292,12293)  |            1
+ year-month | 2025 | enterprise    | [12292,12293)  |            1
+ year-month | 2025 | enterprise    | [12292,12293)  |            1
+ year-month | 2025 | enterprise    | [12292,12293)  |            1
+ year-month | 2025 | enterprise    | [12292,12293)  |            1
+ year-month | 2025 | enterprise    | [12292,12293)  |            1
+ year-month | 2025 | enterprise    | [12292,12293)  |            1
+ year-month | 2026 | establishment |                |            2
+ year-month | 2026 | establishment |                |            2
+ year-month | 2026 | establishment |                |            2
+ year-month | 2026 | establishment |                |            2
+ year-month | 2026 | establishment | [4096,8192)    |            1
+ year-month | 2026 | establishment | [4096,8192)    |            1
+ year-month | 2026 | establishment | [4096,8192)    |            1
+ year-month | 2026 | establishment | [4096,8192)    |            1
+ year-month | 2026 | establishment | [7113,7114)    |            1
+ year-month | 2026 | establishment | [7113,7114)    |            1
+ year-month | 2026 | establishment | [7113,7114)    |            1
+ year-month | 2026 | establishment | [7113,7114)    |            1
+ year-month | 2026 | legal_unit    |                |            2
+ year-month | 2026 | legal_unit    |                |            2
+ year-month | 2026 | legal_unit    |                |            2
+ year-month | 2026 | legal_unit    |                |            2
+ year-month | 2026 | legal_unit    | [0,4096)       |            1
+ year-month | 2026 | legal_unit    | [0,4096)       |            1
+ year-month | 2026 | legal_unit    | [0,4096)       |            1
+ year-month | 2026 | legal_unit    | [0,4096)       |            1
+ year-month | 2026 | legal_unit    | [14449,14450)  |            1
+ year-month | 2026 | legal_unit    | [14449,14450)  |            1
+ year-month | 2026 | legal_unit    | [14449,14450)  |            1
+ year-month | 2026 | legal_unit    | [14449,14450)  |            1
+ year-month | 2026 | enterprise    |                |            2
+ year-month | 2026 | enterprise    |                |            2
+ year-month | 2026 | enterprise    |                |            2
+ year-month | 2026 | enterprise    |                |            2
+ year-month | 2026 | enterprise    | [0,4096)       |            1
+ year-month | 2026 | enterprise    | [0,4096)       |            1
+ year-month | 2026 | enterprise    | [0,4096)       |            1
+ year-month | 2026 | enterprise    | [0,4096)       |            1
+ year-month | 2026 | enterprise    | [12292,12293)  |            1
+ year-month | 2026 | enterprise    | [12292,12293)  |            1
+ year-month | 2026 | enterprise    | [12292,12293)  |            1
+ year-month | 2026 | enterprise    | [12292,12293)  |            1
+(747 rows)
+
+RESET ROLE;
+CALL test.set_user_from_email('test.admin@statbus.org');
+\echo "--- statistical_unit coverage after import 2 (year range) ---"
+"--- statistical_unit coverage after import 2 (year range) ---"
+SELECT unit_type, MIN(valid_from) AS min_from, MAX(valid_until) AS max_until, COUNT(*) AS row_count
+FROM public.statistical_unit
+WHERE unit_type IN ('legal_unit', 'establishment', 'enterprise')
+GROUP BY unit_type
+ORDER BY unit_type;
+   unit_type   |  min_from  | max_until | row_count 
+---------------+------------+-----------+-----------
+ establishment | 2020-01-01 | infinity  |         2
+ legal_unit    | 2020-01-01 | infinity  |         2
+ enterprise    | 2020-01-01 | infinity  |         2
+(3 rows)
+
+\echo "--- statistical_unit temporal fields per unit_type after import 2 ---"
+"--- statistical_unit temporal fields per unit_type after import 2 ---"
+SELECT unit_type, unit_id, valid_from, valid_to, valid_until, birth_date, death_date,
+       used_for_counting, hash_slot
+FROM public.statistical_unit
+WHERE unit_type IN ('legal_unit', 'establishment', 'enterprise')
+ORDER BY unit_type, unit_id, valid_from;
+   unit_type   | unit_id | valid_from | valid_to | valid_until | birth_date | death_date | used_for_counting | hash_slot 
+---------------+---------+------------+----------+-------------+------------+------------+-------------------+-----------
+ establishment |       1 | 2020-01-01 | infinity | infinity    | 2020-01-01 |            | t                 |      4453
+ establishment |       2 | 2020-01-01 | infinity | infinity    | 2020-01-01 |            | t                 |      7113
+ legal_unit    |       1 | 2020-01-01 | infinity | infinity    | 2020-01-01 |            | t                 |      2955
+ legal_unit    |       2 | 2020-01-01 | infinity | infinity    | 2020-01-01 |            | t                 |     14449
+ enterprise    |       1 | 2020-01-01 | infinity | infinity    | 2020-01-01 |            | t                 |      3496
+ enterprise    |       2 | 2020-01-01 | infinity | infinity    | 2020-01-01 |            | t                 |     12292
+(6 rows)
+
+\echo "--- RAW statistical_history_def(year, 2021, NULL) output — root-entry (hash_partition IS NULL) ---"
+"--- RAW statistical_history_def(year, 2021, NULL) output — root-entry (hash_partition IS NULL) ---"
+SELECT unit_type, hash_partition, exists_count, countable_count
+FROM public.statistical_history_def('year'::public.history_resolution, 2021, NULL)
+WHERE unit_type IN ('legal_unit', 'establishment', 'enterprise')
+ORDER BY unit_type;
+   unit_type   | hash_partition | exists_count | countable_count 
+---------------+----------------+--------------+-----------------
+ establishment |                |            2 |               2
+ legal_unit    |                |            2 |               2
+ enterprise    |                |            2 |               2
+(3 rows)
+
+\echo "--- RAW statistical_history_def(year, 2021, '[0,16384)'::int4range) output — full hash range ---"
+"--- RAW statistical_history_def(year, 2021, '[0,16384)'::int4range) output — full hash range ---"
+SELECT unit_type, hash_partition, exists_count, countable_count
+FROM public.statistical_history_def('year'::public.history_resolution, 2021, NULL, '[0,16384)'::int4range)
+WHERE unit_type IN ('legal_unit', 'establishment', 'enterprise')
+ORDER BY unit_type;
+   unit_type   | hash_partition | exists_count | countable_count 
+---------------+----------------+--------------+-----------------
+ establishment | [0,16384)      |            2 |               2
+ legal_unit    | [0,16384)      |            2 |               2
+ enterprise    | [0,16384)      |            2 |               2
+(3 rows)
+
+\echo "--- Worker task summary across the full run [as postgres, bypass RLS] ---"
+"--- Worker task summary across the full run [as postgres, bypass RLS] ---"
+SET LOCAL ROLE postgres;
+\set ON_ERROR_STOP off
+SAVEPOINT diag;
+SELECT command, state, COUNT(*) AS task_count
+FROM worker.tasks
+WHERE command IN ('collect_changes', 'command_collect_changes',
+                  'derive_units_phase', 'derive_reports_phase',
+                  'derive_statistical_unit', 'statistical_unit_flush_staging',
+                  'derive_statistical_history', 'derive_statistical_history_period',
+                  'statistical_history_reduce')
+GROUP BY command, state
+ORDER BY command, state;
+              command              |   state   | task_count 
+-----------------------------------+-----------+------------
+ collect_changes                   | completed |          2
+ derive_reports_phase              | completed |          2
+ derive_statistical_history        | completed |          2
+ derive_statistical_history_period | completed |        415
+ derive_statistical_unit           | completed |          2
+ derive_units_phase                | completed |          2
+ statistical_history_reduce        | completed |          2
+ statistical_unit_flush_staging    | completed |          2
+(8 rows)
+
+ROLLBACK TO SAVEPOINT diag;
+\echo "--- derive_statistical_history tasks (the spawner; info.child_count reports fan-out) [as postgres] ---"
+"--- derive_statistical_history tasks (the spawner; info.child_count reports fan-out) [as postgres] ---"
+SAVEPOINT diag;
+SELECT id, state, info, payload->>'valid_from' AS valid_from, payload->>'valid_until' AS valid_until
+FROM worker.tasks
+WHERE command = 'derive_statistical_history'
+ORDER BY id;
+  id  |   state   |                    info                    | valid_from | valid_until 
+------+-----------+--------------------------------------------+------------+-------------
+  976 | completed | {"child_count": 166, "rows_inserted": 249} | 2020-01-01 | infinity
+ 1456 | completed | {"child_count": 249, "rows_inserted": 249} | 2020-01-01 | infinity
+(2 rows)
+
+ROLLBACK TO SAVEPOINT diag;
+\echo "--- derive_statistical_history_period task distribution by hash_partition [as postgres] ---"
+"--- derive_statistical_history_period task distribution by hash_partition [as postgres] ---"
+SAVEPOINT diag;
+SELECT payload->>'resolution' AS resolution,
+       NULLIF(payload->>'hash_partition', '')::int4range AS hash_partition,
+       state,
+       COUNT(*) AS task_count,
+       SUM((info->>'rows_inserted')::bigint) AS total_rows_inserted
+FROM worker.tasks
+WHERE command = 'derive_statistical_history_period'
+GROUP BY 1,2,3
+ORDER BY resolution, lower(hash_partition) NULLS FIRST;
+ERROR:  column "hash_partition" does not exist
+LINE 9: ORDER BY resolution, lower(hash_partition) NULLS FIRST;
+                                   ^
+ROLLBACK TO SAVEPOINT diag;
+\echo "--- year=2021 hash_partition spawns specifically [as postgres] ---"
+"--- year=2021 hash_partition spawns specifically [as postgres] ---"
+SAVEPOINT diag;
+SELECT id, state,
+       NULLIF(payload->>'hash_partition', '')::int4range AS hash_partition,
+       info->>'rows_inserted' AS inserted
+FROM worker.tasks
+WHERE command = 'derive_statistical_history_period'
+  AND payload->>'resolution' = 'year'
+  AND (payload->>'year')::int = 2021
+ORDER BY lower(NULLIF(payload->>'hash_partition', '')::int4range) NULLS FIRST;
+  id  |   state   | hash_partition | inserted 
+------+-----------+----------------+----------
+  985 | completed | [0,4096)       | 2
+  986 | completed | [4096,8192)    | 1
+ 1466 | completed | [7113,7114)    | 1
+ 1467 | completed | [12292,12293)  | 1
+ 1468 | completed | [14449,14450)  | 1
+(5 rows)
+
+ROLLBACK TO SAVEPOINT diag;
+\echo "--- Any failed/error tasks in the analytics pipeline [as postgres] ---"
+"--- Any failed/error tasks in the analytics pipeline [as postgres] ---"
+SAVEPOINT diag;
+SELECT id, command, state, LEFT(COALESCE(error, ''), 200) AS error_short, payload
+FROM worker.tasks
+WHERE state IN ('failed', 'error')
+  AND (command LIKE 'derive_%' OR command LIKE 'statistical_%')
+ORDER BY id
+LIMIT 20;
+ERROR:  invalid input value for enum worker.task_state: "error"
+LINE 3: WHERE state IN ('failed', 'error')
+                                  ^
+ROLLBACK TO SAVEPOINT diag;
+\echo "--- statistical_unit snapshot at read time used by derive_statistical_history (proxy: full table as postgres) ---"
+"--- statistical_unit snapshot at read time used by derive_statistical_history (proxy: full table as postgres) ---"
+SAVEPOINT diag;
+SELECT unit_type, COUNT(*) AS row_count,
+       array_agg(DISTINCT hash_slot ORDER BY hash_slot) AS distinct_slots
+FROM public.statistical_unit
+GROUP BY unit_type
+ORDER BY unit_type;
+   unit_type   | row_count | distinct_slots 
+---------------+-----------+----------------
+ establishment |         2 | {4453,7113}
+ legal_unit    |         2 | {2955,14449}
+ enterprise    |         2 | {3496,12292}
+(3 rows)
+
+ROLLBACK TO SAVEPOINT diag;
+\set ON_ERROR_STOP on
+\echo "--- Consistency: root (hash_partition IS NULL) aggregate must equal SUM of per-partition rows [as postgres, bypass RLS] ---"
+"--- Consistency: root (hash_partition IS NULL) aggregate must equal SUM of per-partition rows [as postgres, bypass RLS] ---"
+SELECT
+    a.unit_type,
+    a.aggregate_exists_count,
+    COALESCE(p.partitions_sum, 0) AS per_partition_sum,
+    a.aggregate_exists_count = COALESCE(p.partitions_sum, 0) AS consistent
+FROM (
+    SELECT unit_type, exists_count AS aggregate_exists_count
+    FROM public.statistical_history
+    WHERE resolution = 'year' AND year = 2021 AND hash_partition IS NULL
+      AND unit_type IN ('legal_unit', 'establishment', 'enterprise')
+) AS a
+LEFT JOIN (
+    SELECT unit_type, SUM(exists_count)::integer AS partitions_sum
+    FROM public.statistical_history
+    WHERE resolution = 'year' AND year = 2021 AND hash_partition IS NOT NULL
+      AND unit_type IN ('legal_unit', 'establishment', 'enterprise')
+    GROUP BY unit_type
+) AS p USING (unit_type)
+ORDER BY a.unit_type;
+   unit_type   | aggregate_exists_count | per_partition_sum | consistent 
+---------------+------------------------+-------------------+------------
+ establishment |                      2 |                 2 | t
+ legal_unit    |                      2 |                 2 | t
+ enterprise    |                      2 |                 2 | t
+(3 rows)
+
+RESET ROLE;
+CALL test.set_user_from_email('test.admin@statbus.org');
+ROLLBACK;

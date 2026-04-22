@@ -3330,8 +3330,8 @@ export type Database = {
           country_id: number
           id: number
           only_one_setting: boolean | null
+          partition_count_target: number
           region_version_id: number
-          report_partition_modulus: number
           required_to_be_enabled: boolean | null
         },
         Insert: {
@@ -3339,8 +3339,8 @@ export type Database = {
           country_id: number
           id?: never
           only_one_setting?: boolean | null
+          partition_count_target?: number
           region_version_id: number
-          report_partition_modulus?: number
           required_to_be_enabled?: boolean | null
         },
         Update: {
@@ -3348,8 +3348,8 @@ export type Database = {
           country_id?: number
           id?: never
           only_one_setting?: boolean | null
+          partition_count_target?: number
           region_version_id?: number
-          report_partition_modulus?: number
           required_to_be_enabled?: boolean | null
         },
         Relationships: [
@@ -3706,10 +3706,10 @@ export type Database = {
           exists_change: number | null
           exists_count: number | null
           exists_removed_count: number | null
+          hash_partition: string | null
           legal_form_change_count: number | null
           month: number | null
           name_change_count: number | null
-          partition_seq: number | null
           physical_address_change_count: number | null
           physical_country_change_count: number | null
           physical_region_change_count: number | null
@@ -3732,10 +3732,10 @@ export type Database = {
           exists_change?: number | null
           exists_count?: number | null
           exists_removed_count?: number | null
+          hash_partition?: string | null
           legal_form_change_count?: number | null
           month?: number | null
           name_change_count?: number | null
-          partition_seq?: number | null
           physical_address_change_count?: number | null
           physical_country_change_count?: number | null
           physical_region_change_count?: number | null
@@ -3758,10 +3758,10 @@ export type Database = {
           exists_change?: number | null
           exists_count?: number | null
           exists_removed_count?: number | null
+          hash_partition?: string | null
           legal_form_change_count?: number | null
           month?: number | null
           name_change_count?: number | null
-          partition_seq?: number | null
           physical_address_change_count?: number | null
           physical_country_change_count?: number | null
           physical_region_change_count?: number | null
@@ -3895,11 +3895,11 @@ export type Database = {
           exists_change: number | null
           exists_count: number | null
           exists_removed_count: number | null
+          hash_slot: number
           legal_form_change_count: number | null
           legal_form_id: number | null
           month: number | null
           name_change_count: number | null
-          partition_seq: number
           physical_address_change_count: number | null
           physical_country_change_count: number | null
           physical_country_id: number | null
@@ -3931,11 +3931,11 @@ export type Database = {
           exists_change?: number | null
           exists_count?: number | null
           exists_removed_count?: number | null
+          hash_slot: number
           legal_form_change_count?: number | null
           legal_form_id?: number | null
           month?: number | null
           name_change_count?: number | null
-          partition_seq: number
           physical_address_change_count?: number | null
           physical_country_change_count?: number | null
           physical_country_id?: number | null
@@ -3967,11 +3967,11 @@ export type Database = {
           exists_change?: number | null
           exists_count?: number | null
           exists_removed_count?: number | null
+          hash_slot?: number
           legal_form_change_count?: number | null
           legal_form_id?: number | null
           month?: number | null
           name_change_count?: number | null
-          partition_seq?: number
           physical_address_change_count?: number | null
           physical_country_change_count?: number | null
           physical_country_id?: number | null
@@ -4054,6 +4054,7 @@ export type Database = {
           external_idents: Json | null
           fax_number: string | null
           has_legal_unit: boolean | null
+          hash_slot: number | null
           included_enterprise_count: number | null
           included_enterprise_ids: number[] | null
           included_establishment_count: number | null
@@ -4102,7 +4103,6 @@ export type Database = {
           related_enterprise_ids: number[] | null
           related_establishment_ids: number[] | null
           related_legal_unit_ids: number[] | null
-          report_partition_seq: number | null
           search: string | null
           secondary_activity_category_code: string | null
           secondary_activity_category_id: number | null
@@ -4141,6 +4141,7 @@ export type Database = {
           external_idents?: Json | null
           fax_number?: string | null
           has_legal_unit?: boolean | null
+          hash_slot?: number | null
           included_enterprise_count?: number | null
           included_enterprise_ids?: number[] | null
           included_establishment_count?: number | null
@@ -4189,7 +4190,6 @@ export type Database = {
           related_enterprise_ids?: number[] | null
           related_establishment_ids?: number[] | null
           related_legal_unit_ids?: number[] | null
-          report_partition_seq?: number | null
           search?: string | null
           secondary_activity_category_code?: string | null
           secondary_activity_category_id?: number | null
@@ -4228,6 +4228,7 @@ export type Database = {
           external_idents?: Json | null
           fax_number?: string | null
           has_legal_unit?: boolean | null
+          hash_slot?: number | null
           included_enterprise_count?: number | null
           included_enterprise_ids?: number[] | null
           included_establishment_count?: number | null
@@ -4276,7 +4277,6 @@ export type Database = {
           related_enterprise_ids?: number[] | null
           related_establishment_ids?: number[] | null
           related_legal_unit_ids?: number[] | null
-          report_partition_seq?: number | null
           search?: string | null
           secondary_activity_category_code?: string | null
           secondary_activity_category_id?: number | null
@@ -4306,8 +4306,8 @@ export type Database = {
       statistical_unit_facet: {
         Row: {
           count: number | null
+          hash_slot: number | null
           legal_form_id: number | null
-          partition_seq: number | null
           physical_country_id: number | null
           physical_region_path: string | null
           primary_activity_category_path: string | null
@@ -4321,8 +4321,8 @@ export type Database = {
         },
         Insert: {
           count?: number | null
+          hash_slot?: number | null
           legal_form_id?: number | null
-          partition_seq?: number | null
           physical_country_id?: number | null
           physical_region_path?: string | null
           primary_activity_category_path?: string | null
@@ -4336,8 +4336,8 @@ export type Database = {
         },
         Update: {
           count?: number | null
+          hash_slot?: number | null
           legal_form_id?: number | null
-          partition_seq?: number | null
           physical_country_id?: number | null
           physical_region_path?: string | null
           primary_activity_category_path?: string | null
@@ -4351,15 +4351,15 @@ export type Database = {
         },
         Relationships: []
       },
-      statistical_unit_facet_dirty_partitions: {
+      statistical_unit_facet_dirty_hash_slots: {
         Row: {
-          partition_seq: number
+          dirty_hash_slot: number
         },
         Insert: {
-          partition_seq: number
+          dirty_hash_slot: number
         },
         Update: {
-          partition_seq?: number
+          dirty_hash_slot?: number
         },
         Relationships: []
       },
@@ -4405,8 +4405,8 @@ export type Database = {
       statistical_unit_facet_staging: {
         Row: {
           count: number
+          hash_slot: number
           legal_form_id: number | null
-          partition_seq: number
           physical_country_id: number | null
           physical_region_path: string | null
           primary_activity_category_path: string | null
@@ -4420,8 +4420,8 @@ export type Database = {
         },
         Insert: {
           count: number
+          hash_slot: number
           legal_form_id?: number | null
-          partition_seq: number
           physical_country_id?: number | null
           physical_region_path?: string | null
           primary_activity_category_path?: string | null
@@ -4435,8 +4435,8 @@ export type Database = {
         },
         Update: {
           count?: number
+          hash_slot?: number
           legal_form_id?: number | null
-          partition_seq?: number
           physical_country_id?: number | null
           physical_region_path?: string | null
           primary_activity_category_path?: string | null
@@ -4465,6 +4465,7 @@ export type Database = {
           external_idents: Json | null
           fax_number: string | null
           has_legal_unit: boolean | null
+          hash_slot: number | null
           included_enterprise_count: number | null
           included_enterprise_ids: number[] | null
           included_establishment_count: number | null
@@ -4513,7 +4514,6 @@ export type Database = {
           related_enterprise_ids: number[] | null
           related_establishment_ids: number[] | null
           related_legal_unit_ids: number[] | null
-          report_partition_seq: number | null
           search: string | null
           secondary_activity_category_code: string | null
           secondary_activity_category_id: number | null
@@ -4551,6 +4551,7 @@ export type Database = {
           external_idents?: Json | null
           fax_number?: string | null
           has_legal_unit?: boolean | null
+          hash_slot?: number | null
           included_enterprise_count?: number | null
           included_enterprise_ids?: number[] | null
           included_establishment_count?: number | null
@@ -4599,7 +4600,6 @@ export type Database = {
           related_enterprise_ids?: number[] | null
           related_establishment_ids?: number[] | null
           related_legal_unit_ids?: number[] | null
-          report_partition_seq?: number | null
           search?: string | null
           secondary_activity_category_code?: string | null
           secondary_activity_category_id?: number | null
@@ -4637,6 +4637,7 @@ export type Database = {
           external_idents?: Json | null
           fax_number?: string | null
           has_legal_unit?: boolean | null
+          hash_slot?: number | null
           included_enterprise_count?: number | null
           included_enterprise_ids?: number[] | null
           included_establishment_count?: number | null
@@ -4685,7 +4686,6 @@ export type Database = {
           related_enterprise_ids?: number[] | null
           related_establishment_ids?: number[] | null
           related_legal_unit_ids?: number[] | null
-          report_partition_seq?: number | null
           search?: string | null
           secondary_activity_category_code?: string | null
           secondary_activity_category_id?: number | null
@@ -13875,7 +13875,7 @@ export type Database = {
         }
         Returns: Json
       },
-      get_report_partition_modulus: {
+      get_partition_count_target: {
         Args: Record<string, never>
         Returns: number
       },
@@ -14056,6 +14056,20 @@ export type Database = {
         Args: {
           arg0?: string
           arg1?: number
+        }
+        Returns: number
+      },
+      hash_slot: {
+        Args: {
+          p_unit_type?: string
+          p_unit_id?: number
+        }
+        Returns: number
+      }
+        | {
+        Args: {
+          p_unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
+          p_unit_id?: number
         }
         Returns: number
       },
@@ -15130,20 +15144,6 @@ export type Database = {
         }
         Returns: string
       },
-      report_partition_seq: {
-        Args: {
-          p_unit_type?: string
-          p_unit_id?: number
-        }
-        Returns: number
-      }
-        | {
-        Args: {
-          p_unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
-          p_unit_id?: number
-        }
-        Returns: number
-      },
       reset: {
         Args: {
           confirmed?: boolean
@@ -15197,6 +15197,10 @@ export type Database = {
         Args: Record<string, never>
         Returns: unknown
       },
+      set_hash_slot: {
+        Args: Record<string, never>
+        Returns: unknown
+      },
       set_limit: {
         Args: {
           arg0?: number
@@ -15218,10 +15222,6 @@ export type Database = {
           valid_to_param?: string
         }
         Returns: Json
-      },
-      set_report_partition_seq: {
-        Args: Record<string, never>
-        Returns: unknown
       },
       show_limit: {
         Args: Record<string, never>
@@ -15281,8 +15281,7 @@ export type Database = {
           p_resolution?: Database["public"]["Enums"]["history_resolution"]
           p_year?: number
           p_month?: number
-          p_partition_seq_from?: number
-          p_partition_seq_to?: number
+          p_hash_partition?: string
         }
         Returns: Database["public"]["CompositeTypes"]["statistical_history_type"][]
       },
@@ -15314,7 +15313,7 @@ export type Database = {
           p_resolution?: Database["public"]["Enums"]["history_resolution"]
           p_year?: number
           p_month?: number
-          p_partition_seq?: number
+          p_hash_slot?: number
         }
         Returns: Database["public"]["CompositeTypes"]["statistical_history_facet_type"][]
       },
@@ -15928,7 +15927,7 @@ export type Database = {
         physical_country_change_count: number | null
         physical_address_change_count: number | null
         stats_summary: Json | null
-        partition_seq: number | null
+        hash_partition: string | null
       },
       statistical_unit_stats: {
         unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null

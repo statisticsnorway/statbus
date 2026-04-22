@@ -40,7 +40,7 @@ DECLARE
     -- (created by admin.import_job_generate(), RLS TODO tracked separately).
     v_exempt_tables TEXT[] := ARRAY[
         'statistical_history_facet_partitions',
-        'statistical_unit_facet_dirty_partitions',
+        'statistical_unit_facet_dirty_hash_slots',
         'statistical_unit_facet_staging',
         'statistical_unit_staging'
     ];

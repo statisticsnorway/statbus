@@ -125,7 +125,7 @@ DECLARE
         )),
         (4, 2, 3, 'Derivations for drilling on facets of statistical_unit (/reports)', NULL, jsonb_build_array(
             '{"schema": "public", "name": "statistical_unit_facet", "class": "derived"}'::jsonb,
-            '{"schema": "public", "name": "statistical_unit_facet_dirty_partitions", "class": "derived"}'::jsonb
+            '{"schema": "public", "name": "statistical_unit_facet_dirty_hash_slots", "class": "derived"}'::jsonb
         )),
         (4, 2, 4, 'Derivations to create statistical_history for reporting and statistical_history_facet for drilldown.', NULL, jsonb_build_array(
             '{"schema": "public", "name": "statistical_history", "class": "derived"}'::jsonb,

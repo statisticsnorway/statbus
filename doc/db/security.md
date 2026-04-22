@@ -125,7 +125,7 @@ each role can see and modify.
   - Policies: `statistical_unit_admin_user_manage` (ALL → admin_user), `statistical_unit_authenticated_read` (SELECT → authenticated), `statistical_unit_regular_user_read` (SELECT → regular_user)
 - **`statistical_unit_facet`** — RLS ON
   - Policies: `statistical_unit_facet_admin_user_manage` (ALL → admin_user), `statistical_unit_facet_authenticated_read` (SELECT → authenticated), `statistical_unit_facet_regular_user_read` (SELECT → regular_user)
-- **`statistical_unit_facet_dirty_partitions`** — RLS OFF (exempt: internal staging table)
+- **`statistical_unit_facet_dirty_hash_slots`** — RLS OFF (exempt: internal staging table)
 - **`statistical_unit_facet_pre_dirty_dims`** — **RLS OFF** ⚠️
 - **`statistical_unit_facet_staging`** — RLS OFF (exempt: internal staging table)
 - **`statistical_unit_staging`** — RLS OFF (exempt: internal staging table)

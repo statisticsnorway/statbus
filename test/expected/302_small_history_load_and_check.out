@@ -746,7 +746,7 @@ CALL worker.process_tasks(p_queue => 'analytics'); -- This will call all of the 
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |   903
+ analytics | completed |  1200
  import    | completed |   384
 (2 rows)
 
@@ -876,7 +876,7 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |   903
+ analytics | completed |  1200
  import    | completed |   384
 (2 rows)
 
@@ -897,7 +897,7 @@ SELECT valid_from
           -'valid_to'
           -'unit_type'
           -'external_idents'
-          -'report_partition_seq'
+          -'hash_slot'
           )
      ) AS statistical_unit_data
      , jsonb_pretty(stats) AS stats

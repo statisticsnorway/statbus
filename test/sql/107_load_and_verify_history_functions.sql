@@ -453,7 +453,7 @@ SELECT valid_from
           -'unit_type'
           -'external_idents'
           -'tax_ident_for_ordering'
-          -'report_partition_seq'
+          -'hash_slot'
           )
      ) AS statistical_unit_data
      , jsonb_pretty(stats) AS stats
