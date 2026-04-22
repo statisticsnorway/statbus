@@ -1,4 +1,5 @@
 import { Tables } from "@/lib/database.types";
+import { describeError } from "@/lib/error-format";
 import { isEqual } from "moderndash";
 import { atom, useAtomValue, useSetAtom } from "jotai";
 import { atomWithRefresh, loadable, selectAtom } from "jotai/utils";
@@ -224,7 +225,7 @@ const detailsPageDataUnstableAtom = atom<
       return {
         ...initialDetailsPageData,
         loading: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: describeError(error),
       };
     case "hasData":
       return { ...loadableState.data, loading: false, error: null };

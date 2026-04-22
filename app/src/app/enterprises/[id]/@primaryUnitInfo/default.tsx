@@ -4,6 +4,7 @@ import { InfoBox } from "@/components/info-box";
 import UnitNotFound from "@/components/statistical-unit-details/unit-not-found";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { describeError } from "@/lib/error-format";
 
 export default function PrimaryUnitInfo() {
   const params = useParams();
@@ -14,8 +15,7 @@ export default function PrimaryUnitInfo() {
     "enterprise"
   );
   if (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    throw new Error(errorMessage, { cause: error });
+    throw new Error(describeError(error), { cause: error });
   }
   if (error || (!isLoading && !hierarchy)) {
     return (

@@ -3,6 +3,8 @@
  * This file provides functions to test connectivity to various services
  */
 
+import { describeError } from "@/lib/error-format";
+
 /**
  * Tests connectivity to a URL and returns diagnostic information
  * @param url The URL to test
@@ -69,7 +71,7 @@ export async function testConnectivity(url: string, options: RequestInit = {}): 
     return {
       url,
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: describeError(error),
       timing: {
         start,
         end,

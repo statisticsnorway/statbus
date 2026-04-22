@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
+import { describeError } from "@/lib/error-format";
 
 export interface DownloadProgress {
   phase: 'idle' | 'downloading' | 'complete' | 'error';
@@ -142,7 +143,7 @@ export function useProgressDownload() {
 
     } catch (err) {
       if (controller.signal.aborted) return; // cancelled, don't update state
-      const message = err instanceof Error ? err.message : String(err);
+      const message = describeError(err);
       setProgress({
         phase: 'error',
         bytesReceived: 0,

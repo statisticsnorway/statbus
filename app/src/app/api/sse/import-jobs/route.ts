@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerRestClient } from "@/context/RestClientStore";
 import { addClientCallback, removeClientCallback, NotificationData } from "@/lib/db-listener";
 import { createServerLogger } from "@/lib/server-logger";
+import { describeError } from "@/lib/error-format";
 
 export const dynamic = "force-dynamic";
 
@@ -182,7 +183,7 @@ export async function GET(request: NextRequest) {
           // Send error message to client
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ 
             error: "Server error", 
-            message: error instanceof Error ? error.message : String(error),
+            message: describeError(error),
             timestamp: new Date().toISOString()
           })}\n\n`));
           

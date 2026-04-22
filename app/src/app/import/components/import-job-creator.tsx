@@ -7,6 +7,7 @@ import { useImportManager, ImportMode } from "@/atoms/import"; // Updated import
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { describeError } from "@/lib/error-format";
 
 interface ImportJobCreatorProps {
   importMode: ImportMode;
@@ -60,7 +61,7 @@ export function ImportJobCreator({ importMode, uploadPath, unitType, onJobCreate
         setError("Failed to create import job");
       }
     } catch (err) {
-      setError(`Error creating import job: ${err instanceof Error ? err.message : String(err)}`);
+      setError(`Error creating import job: ${describeError(err)}`);
     } finally {
       setIsCreating(false);
     }

@@ -7,6 +7,7 @@ import { Worker } from 'node:worker_threads';
 import { statfs } from 'node:fs/promises';
 import Papa from 'papaparse';
 import { createServerLogger } from "@/lib/server-logger";
+import { describeError } from "@/lib/error-format";
 
 import { getDbHostPort } from "@/lib/db-listener";
 
@@ -271,9 +272,9 @@ export async function POST(request: NextRequest) {
         await pgClient.query('SELECT auth.jwt_switch_role($1)', [accessToken]);
         logger.info(`Successfully switched to user role for import job ${job.id}`);
       } catch (error) {
-        logger.error({ error }, `Failed to switch role: ${error instanceof Error ? error.message : String(error)}`);
+        logger.error({ error }, `Failed to switch role: ${describeError(error)}`);
         return NextResponse.json(
-          { message: `Authentication error: ${error instanceof Error ? error.message : String(error)}` },
+          { message: `Authentication error: ${describeError(error)}` },
           { status: 403 }
         );
       }
@@ -438,7 +439,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       // Rollback transaction on error
       await pgClient.query('ROLLBACK');
-      logger.error({ error, jobId: job?.id, jobSlug: job?.slug }, `Error during COPY FROM transaction: ${error instanceof Error ? error.message : String(error)}`);
+      logger.error({ error, jobId: job?.id, jobSlug: job?.slug }, `Error during COPY FROM transaction: ${describeError(error)}`);
       throw error; // Re-throw after logging and rollback
     } finally {
       // Release the client back to the pool
@@ -448,7 +449,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Error in upload handler:", error);
     return NextResponse.json(
-      { message: `Server error: ${error instanceof Error ? error.message : String(error)}` },
+      { message: `Server error: ${describeError(error)}` },
       { status: 500 }
     );
   }

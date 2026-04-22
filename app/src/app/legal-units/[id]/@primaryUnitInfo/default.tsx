@@ -7,6 +7,7 @@ import { useParams } from "next/navigation";
 import { useStatisticalUnitHierarchy } from "@/components/statistical-unit-details/use-unit-details";
 import UnitNotFound from "@/components/statistical-unit-details/unit-not-found";
 import { usePermission } from "@/atoms/auth";
+import { describeError } from "@/lib/error-format";
 
 export default function PrimaryUnitInfo() {
   const params = useParams();
@@ -17,8 +18,7 @@ export default function PrimaryUnitInfo() {
   );
   const { canEdit } = usePermission();
   if (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    throw new Error(errorMessage, { cause: error });
+    throw new Error(describeError(error), { cause: error });
   }
   if (error || (!isLoading && !hierarchy)) {
     return (

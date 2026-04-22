@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { useAtomValue } from "jotai";
 import useSWR from "swr";
 import { logger } from "@/lib/client-logger";
+import { describeError } from "@/lib/error-format";
 import { pendingUpgradeStatusAtom } from "@/atoms/upgrade-status";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { Badge } from "@/components/ui/badge";
@@ -219,7 +220,7 @@ export default function UpgradesPage() {
         await patchUpgrade(id, body);
         await mutate();
       } catch (err) {
-        setActionError(err instanceof Error ? err.message : String(err));
+        setActionError(describeError(err));
       } finally {
         setActing(null);
       }
@@ -607,7 +608,7 @@ function UpgradeLogViewer({
         })
         .catch((err) => {
           if (cancelled) return;
-          setFetchError(err instanceof Error ? err.message : String(err));
+          setFetchError(describeError(err));
         });
       return () => {
         cancelled = true;

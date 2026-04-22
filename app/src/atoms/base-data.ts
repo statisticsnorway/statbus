@@ -16,6 +16,7 @@ import { atomWithRefresh } from 'jotai/utils'
 import { useCallback } from 'react'
 
 import type { Database, Tables } from '@/lib/database.types'
+import { describeError } from '@/lib/error-format'
 import { restClientAtom } from './rest-client'
 import { authStatusUnstableDetailsAtom } from './auth'
 
@@ -230,7 +231,7 @@ const baseDataUnstableDetailsAtom = atom<BaseData & { loading: boolean; error: s
         break;
       case 'hasError':
         const error = loadableState.error;
-        result = { ...initialBaseData, loading: false, error: error instanceof Error ? error.message : String(error) };
+        result = { ...initialBaseData, loading: false, error: describeError(error) };
         break;
       case 'hasData':
         result = { ...loadableState.data, loading: false, error: null };

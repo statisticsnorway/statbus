@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { runNetworkDiagnostics } from '@/utils/network-diagnostics';
+import { describeError } from "@/lib/error-format";
 
 /**
  * API endpoint for network diagnostics
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.json({
       success: false,
-      error: error instanceof Error ? error.message : String(error)
+      error: describeError(error)
     }, { status: 500 });
   }
 }

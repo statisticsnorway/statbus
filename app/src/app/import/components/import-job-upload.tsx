@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tables } from "@/lib/database.types";
 import { inspectFile, convertExcelToCsvBlob, type FilePreview } from "@/lib/excel-to-csv";
 import { statbusConfig } from '@/lib/statbus-config';
+import { describeError } from "@/lib/error-format";
 
 type ImportJob = Tables<"import_job">;
 
@@ -61,7 +62,7 @@ export function ImportJobUpload({
       setPreview(filePreview);
       setPhase('previewing');
     } catch (err) {
-      setError(`Error reading file: ${err instanceof Error ? err.message : String(err)}`);
+      setError(`Error reading file: ${describeError(err)}`);
       setPhase('idle');
       setFile(null);
     }
@@ -127,7 +128,7 @@ export function ImportJobUpload({
 
     } catch (err) {
       setError(
-        `Error uploading file: ${err instanceof Error ? err.message : String(err)}`
+        `Error uploading file: ${describeError(err)}`
       );
       setPhase('previewing');
       setUploadProgress(0);

@@ -6,6 +6,7 @@ import fs from 'fs';
 import path from 'path';
 import Papa from 'papaparse';
 import { typeToNumFmt, addReferenceSheets, applyColumnValidation } from '@/lib/excel-reference-sheets';
+import { describeError } from "@/lib/error-format";
 
 function parseValueForExcel(value: string, colType: string): string | number | Date {
   if (!value) return '';
@@ -174,7 +175,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Error in template handler:", error);
     return NextResponse.json(
-      { message: `Server error: ${error instanceof Error ? error.message : String(error)}` },
+      { message: `Server error: ${describeError(error)}` },
       { status: 500 }
     );
   }

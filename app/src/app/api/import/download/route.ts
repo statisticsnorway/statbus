@@ -7,6 +7,7 @@ import ExcelJS from '@protobi/exceljs';
 import { getDbHostPort } from "@/lib/db-listener";
 import type { DefinitionSnapshot } from "@/atoms/import";
 import { fetchReferenceData, writeReferenceSheets, getColumnValidationMap } from '@/lib/excel-reference-sheets';
+import { describeError } from "@/lib/error-format";
 
 const getDbConfig = () => {
   const { dbHost, dbPort, dbName } = getDbHostPort();
@@ -313,7 +314,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Error in download handler:", error);
     return NextResponse.json(
-      { message: `Server error: ${error instanceof Error ? error.message : String(error)}` },
+      { message: `Server error: ${describeError(error)}` },
       { status: 500 }
     );
   }
