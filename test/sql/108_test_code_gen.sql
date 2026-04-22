@@ -320,6 +320,60 @@ SELECT * FROM import_mapping_baseline_2
 ORDER BY definition_id, source_column_name NULLS FIRST, source_expression, target_data_column_name;
 
 \echo "---"
+\echo "REGRESSION: rename + delete of external_ident_type / stat_definition must NOT leave orphan import_source_column rows"
+\echo "---"
+\echo "  Reproduces the JO production bug where renamed/deleted lookup-table codes"
+\echo "  leave behind orphan import_source_column rows that trip"
+\echo "  admin.validate_import_definition with 'Unused import_source_column'."
+\echo "  Operator-visible symptom: definition becomes valid=false, future"
+\echo "  import_jobs cannot be created against it."
+
+\echo ""
+\echo "Setup: add 'national_ident' as an external_ident_type and 'absences' as a stat_definition"
+INSERT INTO public.external_ident_type(code, name, priority, description) VALUES
+    ('national_ident', 'National Identifier', 5, 'Country-issued national identifier — to be renamed.');
+INSERT INTO public.stat_definition(code, type, frequency, name, description, priority) VALUES
+    ('absences', 'int', 'yearly', 'Absences', 'Number of employee absence days per year — to be renamed.', 50);
+
+\echo ""
+\echo "Confirm both new codes appear as source_column rows on definition 1 (legal_unit_job_provided):"
+SELECT column_name FROM public.import_source_column
+WHERE definition_id = 1 AND column_name IN ('national_ident', 'absences')
+ORDER BY column_name;
+
+\echo ""
+\echo "RENAME the external_ident_type code (national_ident -> personal_ident)"
+UPDATE public.external_ident_type SET code = 'personal_ident' WHERE code = 'national_ident';
+
+\echo "RENAME the stat_definition code (absences -> sick_days)"
+UPDATE public.stat_definition SET code = 'sick_days' WHERE code = 'absences';
+
+\echo ""
+\echo "After rename: orphan source_column rows MUST be cleaned up (this is the bug — currently they linger)"
+\echo "Expected (after fix): both 'national_ident' and 'absences' are GONE from import_source_column."
+SELECT column_name FROM public.import_source_column
+WHERE definition_id = 1 AND column_name IN ('national_ident', 'absences', 'personal_ident', 'sick_days')
+ORDER BY column_name;
+
+\echo ""
+\echo "After rename: definition must remain valid (no Unused import_source_column errors from the orphans)"
+SELECT id, slug, valid, validation_error FROM public.import_definition WHERE id = 1;
+
+\echo ""
+\echo "DELETE the (renamed) external_ident_type entirely"
+DELETE FROM public.external_ident_type WHERE code = 'personal_ident';
+
+\echo "DELETE the (renamed) stat_definition entirely"
+DELETE FROM public.stat_definition WHERE code = 'sick_days';
+
+\echo ""
+\echo "After delete: both source_columns MUST be gone, definition MUST stay valid"
+SELECT column_name FROM public.import_source_column
+WHERE definition_id = 1 AND column_name IN ('personal_ident', 'sick_days')
+ORDER BY column_name;
+SELECT id, slug, valid, validation_error FROM public.import_definition WHERE id = 1;
+
+\echo "---"
 \echo "Testing that public.reset() correctly restores the initial state"
 \echo "---"
 

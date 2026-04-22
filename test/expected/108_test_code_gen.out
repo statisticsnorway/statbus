@@ -925,7 +925,15 @@ WHERE definition_id IN (SELECT id FROM public.import_definition WHERE custom = f
 ORDER BY definition_id, priority, column_name;
  definition_id | priority | column_name 
 ---------------+----------+-------------
-(0 rows)
+             1 |       37 | employees
+             2 |       39 | employees
+             3 |       38 | employees
+             4 |       40 | employees
+             5 |       36 | employees
+             6 |       38 | employees
+             7 |        3 | employees
+             8 |        5 | employees
+(8 rows)
 
 \echo "Added import_source_column rows:"
 "Added import_source_column rows:"
@@ -1283,9 +1291,19 @@ SELECT
 FROM public.import_source_column
 WHERE definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
 ORDER BY definition_id, priority, column_name;
- definition_id | priority | column_name 
----------------+----------+-------------
-(0 rows)
+ definition_id | priority |      column_name      
+---------------+----------+-----------------------
+             1 |       36 | stat_ident
+             2 |       38 | stat_ident
+             3 |       35 | legal_unit_stat_ident
+             3 |       37 | stat_ident
+             4 |       35 | legal_unit_stat_ident
+             4 |       39 | stat_ident
+             5 |       35 | stat_ident
+             6 |       37 | stat_ident
+             7 |        2 | stat_ident
+             8 |        4 | stat_ident
+(10 rows)
 
 \echo "Added import_source_column rows:"
 "Added import_source_column rows:"
@@ -1298,29 +1316,19 @@ WHERE definition_id IN (SELECT id FROM public.import_definition WHERE custom = f
 EXCEPT
 SELECT * FROM import_source_column_baseline_2
 ORDER BY definition_id, priority, column_name;
- definition_id | priority |    column_name    
----------------+----------+-------------------
+ definition_id | priority |  column_name   
+---------------+----------+----------------
              1 |       44 | pin
-             1 |       45 | mobile
              2 |       46 | pin
-             2 |       47 | mobile
              3 |       46 | pin
-             3 |       47 | mobile
              3 |       48 | legal_unit_pin
-             3 |       49 | legal_unit_mobile
              4 |       48 | pin
-             4 |       49 | mobile
              4 |       50 | legal_unit_pin
-             4 |       51 | legal_unit_mobile
              5 |       43 | pin
-             5 |       44 | mobile
              6 |       45 | pin
-             6 |       46 | mobile
              7 |       10 | pin
-             7 |       11 | mobile
              8 |       12 | pin
-             8 |       13 | mobile
-(20 rows)
+(10 rows)
 
 \echo "Check generated code from external_ident_type modifications for mappings"
 "Check generated code from external_ident_type modifications for mappings"
@@ -1385,6 +1393,281 @@ ORDER BY definition_id, source_column_name NULLS FIRST, source_expression, targe
              7 | pin                |                   | pin_raw                 | source_input               | f          | 
              8 | pin                |                   | pin_raw                 | source_input               | f          | 
 (10 rows)
+
+\echo "---"
+"---"
+\echo "REGRESSION: rename + delete of external_ident_type / stat_definition must NOT leave orphan import_source_column rows"
+"REGRESSION: rename + delete of external_ident_type / stat_definition must NOT leave orphan import_source_column rows"
+\echo "---"
+"---"
+\echo "  Reproduces the JO production bug where renamed/deleted lookup-table codes"
+"  Reproduces the JO production bug where renamed/deleted lookup-table codes"
+\echo "  leave behind orphan import_source_column rows that trip"
+"  leave behind orphan import_source_column rows that trip"
+\echo "  admin.validate_import_definition with 'Unused import_source_column'."
+"  admin.validate_import_definition with 'Unused import_source_column'."
+\echo "  Operator-visible symptom: definition becomes valid=false, future"
+"  Operator-visible symptom: definition becomes valid=false, future"
+\echo "  import_jobs cannot be created against it."
+"  import_jobs cannot be created against it."
+\echo ""
+""
+\echo "Setup: add 'national_ident' as an external_ident_type and 'absences' as a stat_definition"
+"Setup: add 'national_ident' as an external_ident_type and 'absences' as a stat_definition"
+INSERT INTO public.external_ident_type(code, name, priority, description) VALUES
+    ('national_ident', 'National Identifier', 5, 'Country-issued national identifier — to be renamed.');
+NOTICE:  Dropped index su_ei_person_ident_idx
+NOTICE:  Dropped index su_ei_pin_idx
+NOTICE:  Dropped index su_ei_tax_ident_idx
+NOTICE:  Dropped index su_s_boy_employees_idx
+NOTICE:  Dropped index su_s_girl_employees_idx
+NOTICE:  Dropped index su_s_men_employees_idx
+NOTICE:  Dropped index su_s_turnover_idx
+NOTICE:  Dropped index su_s_women_employees_idx
+NOTICE:  Dropped index su_ss_boy_employees_count_idx
+NOTICE:  Dropped index su_ss_boy_employees_sum_idx
+NOTICE:  Dropped index su_ss_girl_employees_count_idx
+NOTICE:  Dropped index su_ss_girl_employees_sum_idx
+NOTICE:  Dropped index su_ss_men_employees_count_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_idx
+NOTICE:  Dropped index su_ss_turnover_count_idx
+NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Dropped index su_ss_women_employees_count_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_idx
+NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_pin_idx for external_ident_type
+NOTICE:  Created btree index su_ei_national_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
+NOTICE:  Created indices for stat_definition turnover
+NOTICE:  Created indices for stat_definition men_employees
+NOTICE:  Created indices for stat_definition women_employees
+NOTICE:  Created indices for stat_definition boy_employees
+NOTICE:  Created indices for stat_definition girl_employees
+INSERT INTO public.stat_definition(code, type, frequency, name, description, priority) VALUES
+    ('absences', 'int', 'yearly', 'Absences', 'Number of employee absence days per year — to be renamed.', 50);
+NOTICE:  Dropped index su_ei_national_ident_idx
+NOTICE:  Dropped index su_ei_person_ident_idx
+NOTICE:  Dropped index su_ei_pin_idx
+NOTICE:  Dropped index su_ei_tax_ident_idx
+NOTICE:  Dropped index su_s_boy_employees_idx
+NOTICE:  Dropped index su_s_girl_employees_idx
+NOTICE:  Dropped index su_s_men_employees_idx
+NOTICE:  Dropped index su_s_turnover_idx
+NOTICE:  Dropped index su_s_women_employees_idx
+NOTICE:  Dropped index su_ss_boy_employees_count_idx
+NOTICE:  Dropped index su_ss_boy_employees_sum_idx
+NOTICE:  Dropped index su_ss_girl_employees_count_idx
+NOTICE:  Dropped index su_ss_girl_employees_sum_idx
+NOTICE:  Dropped index su_ss_men_employees_count_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_idx
+NOTICE:  Dropped index su_ss_turnover_count_idx
+NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Dropped index su_ss_women_employees_count_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_idx
+NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_pin_idx for external_ident_type
+NOTICE:  Created btree index su_ei_national_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
+NOTICE:  Created indices for stat_definition turnover
+NOTICE:  Created indices for stat_definition men_employees
+NOTICE:  Created indices for stat_definition women_employees
+NOTICE:  Created indices for stat_definition boy_employees
+NOTICE:  Created indices for stat_definition girl_employees
+NOTICE:  Created indices for stat_definition absences
+\echo ""
+""
+\echo "Confirm both new codes appear as source_column rows on definition 1 (legal_unit_job_provided):"
+"Confirm both new codes appear as source_column rows on definition 1 (legal_unit_job_provided):"
+SELECT column_name FROM public.import_source_column
+WHERE definition_id = 1 AND column_name IN ('national_ident', 'absences')
+ORDER BY column_name;
+  column_name   
+----------------
+ absences
+ national_ident
+(2 rows)
+
+\echo ""
+""
+\echo "RENAME the external_ident_type code (national_ident -> personal_ident)"
+"RENAME the external_ident_type code (national_ident -> personal_ident)"
+UPDATE public.external_ident_type SET code = 'personal_ident' WHERE code = 'national_ident';
+NOTICE:  Dropped index su_ei_national_ident_idx
+NOTICE:  Dropped index su_ei_person_ident_idx
+NOTICE:  Dropped index su_ei_pin_idx
+NOTICE:  Dropped index su_ei_tax_ident_idx
+NOTICE:  Dropped index su_s_absences_idx
+NOTICE:  Dropped index su_s_boy_employees_idx
+NOTICE:  Dropped index su_s_girl_employees_idx
+NOTICE:  Dropped index su_s_men_employees_idx
+NOTICE:  Dropped index su_s_turnover_idx
+NOTICE:  Dropped index su_s_women_employees_idx
+NOTICE:  Dropped index su_ss_absences_count_idx
+NOTICE:  Dropped index su_ss_absences_sum_idx
+NOTICE:  Dropped index su_ss_boy_employees_count_idx
+NOTICE:  Dropped index su_ss_boy_employees_sum_idx
+NOTICE:  Dropped index su_ss_girl_employees_count_idx
+NOTICE:  Dropped index su_ss_girl_employees_sum_idx
+NOTICE:  Dropped index su_ss_men_employees_count_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_idx
+NOTICE:  Dropped index su_ss_turnover_count_idx
+NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Dropped index su_ss_women_employees_count_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_idx
+NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_pin_idx for external_ident_type
+NOTICE:  Created btree index su_ei_personal_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
+NOTICE:  Created indices for stat_definition turnover
+NOTICE:  Created indices for stat_definition men_employees
+NOTICE:  Created indices for stat_definition women_employees
+NOTICE:  Created indices for stat_definition boy_employees
+NOTICE:  Created indices for stat_definition girl_employees
+NOTICE:  Created indices for stat_definition absences
+\echo "RENAME the stat_definition code (absences -> sick_days)"
+"RENAME the stat_definition code (absences -> sick_days)"
+UPDATE public.stat_definition SET code = 'sick_days' WHERE code = 'absences';
+NOTICE:  Dropped index su_ei_person_ident_idx
+NOTICE:  Dropped index su_ei_personal_ident_idx
+NOTICE:  Dropped index su_ei_pin_idx
+NOTICE:  Dropped index su_ei_tax_ident_idx
+NOTICE:  Dropped index su_s_absences_idx
+NOTICE:  Dropped index su_s_boy_employees_idx
+NOTICE:  Dropped index su_s_girl_employees_idx
+NOTICE:  Dropped index su_s_men_employees_idx
+NOTICE:  Dropped index su_s_turnover_idx
+NOTICE:  Dropped index su_s_women_employees_idx
+NOTICE:  Dropped index su_ss_absences_count_idx
+NOTICE:  Dropped index su_ss_absences_sum_idx
+NOTICE:  Dropped index su_ss_boy_employees_count_idx
+NOTICE:  Dropped index su_ss_boy_employees_sum_idx
+NOTICE:  Dropped index su_ss_girl_employees_count_idx
+NOTICE:  Dropped index su_ss_girl_employees_sum_idx
+NOTICE:  Dropped index su_ss_men_employees_count_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_idx
+NOTICE:  Dropped index su_ss_turnover_count_idx
+NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Dropped index su_ss_women_employees_count_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_idx
+NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_pin_idx for external_ident_type
+NOTICE:  Created btree index su_ei_personal_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
+NOTICE:  Created indices for stat_definition turnover
+NOTICE:  Created indices for stat_definition men_employees
+NOTICE:  Created indices for stat_definition women_employees
+NOTICE:  Created indices for stat_definition boy_employees
+NOTICE:  Created indices for stat_definition girl_employees
+NOTICE:  Created indices for stat_definition sick_days
+\echo ""
+""
+\echo "After rename: orphan source_column rows MUST be cleaned up (this is the bug — currently they linger)"
+"After rename: orphan source_column rows MUST be cleaned up (this is the bug — currently they linger)"
+\echo "Expected (after fix): both 'national_ident' and 'absences' are GONE from import_source_column."
+"Expected (after fix): both 'national_ident' and 'absences' are GONE from import_source_column."
+SELECT column_name FROM public.import_source_column
+WHERE definition_id = 1 AND column_name IN ('national_ident', 'absences', 'personal_ident', 'sick_days')
+ORDER BY column_name;
+  column_name   
+----------------
+ personal_ident
+ sick_days
+(2 rows)
+
+\echo ""
+""
+\echo "After rename: definition must remain valid (no Unused import_source_column errors from the orphans)"
+"After rename: definition must remain valid (no Unused import_source_column errors from the orphans)"
+SELECT id, slug, valid, validation_error FROM public.import_definition WHERE id = 1;
+ id |          slug           | valid | validation_error 
+----+-------------------------+-------+------------------
+  1 | legal_unit_job_provided | t     | 
+(1 row)
+
+\echo ""
+""
+\echo "DELETE the (renamed) external_ident_type entirely"
+"DELETE the (renamed) external_ident_type entirely"
+DELETE FROM public.external_ident_type WHERE code = 'personal_ident';
+NOTICE:  Dropped index su_ei_person_ident_idx
+NOTICE:  Dropped index su_ei_personal_ident_idx
+NOTICE:  Dropped index su_ei_pin_idx
+NOTICE:  Dropped index su_ei_tax_ident_idx
+NOTICE:  Dropped index su_s_boy_employees_idx
+NOTICE:  Dropped index su_s_girl_employees_idx
+NOTICE:  Dropped index su_s_men_employees_idx
+NOTICE:  Dropped index su_s_sick_days_idx
+NOTICE:  Dropped index su_s_turnover_idx
+NOTICE:  Dropped index su_s_women_employees_idx
+NOTICE:  Dropped index su_ss_boy_employees_count_idx
+NOTICE:  Dropped index su_ss_boy_employees_sum_idx
+NOTICE:  Dropped index su_ss_girl_employees_count_idx
+NOTICE:  Dropped index su_ss_girl_employees_sum_idx
+NOTICE:  Dropped index su_ss_men_employees_count_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_idx
+NOTICE:  Dropped index su_ss_sick_days_count_idx
+NOTICE:  Dropped index su_ss_sick_days_sum_idx
+NOTICE:  Dropped index su_ss_turnover_count_idx
+NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Dropped index su_ss_women_employees_count_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_idx
+NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_pin_idx for external_ident_type
+NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
+NOTICE:  Created indices for stat_definition turnover
+NOTICE:  Created indices for stat_definition men_employees
+NOTICE:  Created indices for stat_definition women_employees
+NOTICE:  Created indices for stat_definition boy_employees
+NOTICE:  Created indices for stat_definition girl_employees
+NOTICE:  Created indices for stat_definition sick_days
+\echo "DELETE the (renamed) stat_definition entirely"
+"DELETE the (renamed) stat_definition entirely"
+DELETE FROM public.stat_definition WHERE code = 'sick_days';
+NOTICE:  Dropped index su_ei_person_ident_idx
+NOTICE:  Dropped index su_ei_pin_idx
+NOTICE:  Dropped index su_ei_tax_ident_idx
+NOTICE:  Dropped index su_s_boy_employees_idx
+NOTICE:  Dropped index su_s_girl_employees_idx
+NOTICE:  Dropped index su_s_men_employees_idx
+NOTICE:  Dropped index su_s_sick_days_idx
+NOTICE:  Dropped index su_s_turnover_idx
+NOTICE:  Dropped index su_s_women_employees_idx
+NOTICE:  Dropped index su_ss_boy_employees_count_idx
+NOTICE:  Dropped index su_ss_boy_employees_sum_idx
+NOTICE:  Dropped index su_ss_girl_employees_count_idx
+NOTICE:  Dropped index su_ss_girl_employees_sum_idx
+NOTICE:  Dropped index su_ss_men_employees_count_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_idx
+NOTICE:  Dropped index su_ss_sick_days_count_idx
+NOTICE:  Dropped index su_ss_sick_days_sum_idx
+NOTICE:  Dropped index su_ss_turnover_count_idx
+NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Dropped index su_ss_women_employees_count_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_idx
+NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_pin_idx for external_ident_type
+NOTICE:  Created btree index su_ei_person_ident_idx for external_ident_type
+NOTICE:  Created indices for stat_definition turnover
+NOTICE:  Created indices for stat_definition men_employees
+NOTICE:  Created indices for stat_definition women_employees
+NOTICE:  Created indices for stat_definition boy_employees
+NOTICE:  Created indices for stat_definition girl_employees
+\echo ""
+""
+\echo "After delete: both source_columns MUST be gone, definition MUST stay valid"
+"After delete: both source_columns MUST be gone, definition MUST stay valid"
+SELECT column_name FROM public.import_source_column
+WHERE definition_id = 1 AND column_name IN ('personal_ident', 'sick_days')
+ORDER BY column_name;
+ column_name 
+-------------
+(0 rows)
+
+SELECT id, slug, valid, validation_error FROM public.import_definition WHERE id = 1;
+ id |          slug           | valid | validation_error 
+----+-------------------------+-------+------------------
+  1 | legal_unit_job_provided | t     | 
+(1 row)
 
 \echo "---"
 "---"
@@ -1879,16 +2162,13 @@ ORDER BY definition_id, column_name;
  definition_id |           column_name            
 ---------------+----------------------------------
              1 | birth_date
-             1 | boy_employees
              1 | data_source_code
              1 | death_date
              1 | email_address
              1 | employees
              1 | fax_number
-             1 | girl_employees
              1 | landline
              1 | legal_form_code
-             1 | men_employees
              1 | mobile_number
              1 | name
              1 | person_ident
@@ -1903,7 +2183,6 @@ ORDER BY definition_id, column_name;
              1 | physical_postcode
              1 | physical_postplace
              1 | physical_region_code
-             1 | pin
              1 | postal_address_part1
              1 | postal_address_part2
              1 | postal_address_part3
@@ -1921,18 +2200,14 @@ ORDER BY definition_id, column_name;
              1 | turnover
              1 | unit_size_code
              1 | web_address
-             1 | women_employees
              2 | birth_date
-             2 | boy_employees
              2 | data_source_code
              2 | death_date
              2 | email_address
              2 | employees
              2 | fax_number
-             2 | girl_employees
              2 | landline
              2 | legal_form_code
-             2 | men_employees
              2 | mobile_number
              2 | name
              2 | person_ident
@@ -1947,7 +2222,6 @@ ORDER BY definition_id, column_name;
              2 | physical_postcode
              2 | physical_postplace
              2 | physical_region_code
-             2 | pin
              2 | postal_address_part1
              2 | postal_address_part2
              2 | postal_address_part3
@@ -1967,21 +2241,16 @@ ORDER BY definition_id, column_name;
              2 | valid_from
              2 | valid_to
              2 | web_address
-             2 | women_employees
              3 | birth_date
-             3 | boy_employees
              3 | data_source_code
              3 | death_date
              3 | email_address
              3 | employees
              3 | fax_number
-             3 | girl_employees
              3 | landline
              3 | legal_unit_person_ident
-             3 | legal_unit_pin
              3 | legal_unit_stat_ident
              3 | legal_unit_tax_ident
-             3 | men_employees
              3 | mobile_number
              3 | name
              3 | person_ident
@@ -1996,7 +2265,6 @@ ORDER BY definition_id, column_name;
              3 | physical_postcode
              3 | physical_postplace
              3 | physical_region_code
-             3 | pin
              3 | postal_address_part1
              3 | postal_address_part2
              3 | postal_address_part3
@@ -2014,21 +2282,16 @@ ORDER BY definition_id, column_name;
              3 | turnover
              3 | unit_size_code
              3 | web_address
-             3 | women_employees
              4 | birth_date
-             4 | boy_employees
              4 | data_source_code
              4 | death_date
              4 | email_address
              4 | employees
              4 | fax_number
-             4 | girl_employees
              4 | landline
              4 | legal_unit_person_ident
-             4 | legal_unit_pin
              4 | legal_unit_stat_ident
              4 | legal_unit_tax_ident
-             4 | men_employees
              4 | mobile_number
              4 | name
              4 | person_ident
@@ -2043,7 +2306,6 @@ ORDER BY definition_id, column_name;
              4 | physical_postcode
              4 | physical_postplace
              4 | physical_region_code
-             4 | pin
              4 | postal_address_part1
              4 | postal_address_part2
              4 | postal_address_part3
@@ -2063,17 +2325,13 @@ ORDER BY definition_id, column_name;
              4 | valid_from
              4 | valid_to
              4 | web_address
-             4 | women_employees
              5 | birth_date
-             5 | boy_employees
              5 | data_source_code
              5 | death_date
              5 | email_address
              5 | employees
              5 | fax_number
-             5 | girl_employees
              5 | landline
-             5 | men_employees
              5 | mobile_number
              5 | name
              5 | person_ident
@@ -2088,7 +2346,6 @@ ORDER BY definition_id, column_name;
              5 | physical_postcode
              5 | physical_postplace
              5 | physical_region_code
-             5 | pin
              5 | postal_address_part1
              5 | postal_address_part2
              5 | postal_address_part3
@@ -2106,17 +2363,13 @@ ORDER BY definition_id, column_name;
              5 | turnover
              5 | unit_size_code
              5 | web_address
-             5 | women_employees
              6 | birth_date
-             6 | boy_employees
              6 | data_source_code
              6 | death_date
              6 | email_address
              6 | employees
              6 | fax_number
-             6 | girl_employees
              6 | landline
-             6 | men_employees
              6 | mobile_number
              6 | name
              6 | person_ident
@@ -2131,7 +2384,6 @@ ORDER BY definition_id, column_name;
              6 | physical_postcode
              6 | physical_postplace
              6 | physical_region_code
-             6 | pin
              6 | postal_address_part1
              6 | postal_address_part2
              6 | postal_address_part3
@@ -2151,29 +2403,18 @@ ORDER BY definition_id, column_name;
              6 | valid_from
              6 | valid_to
              6 | web_address
-             6 | women_employees
-             7 | boy_employees
              7 | employees
-             7 | girl_employees
-             7 | men_employees
              7 | person_ident
-             7 | pin
              7 | stat_ident
              7 | tax_ident
              7 | turnover
-             7 | women_employees
-             8 | boy_employees
              8 | employees
-             8 | girl_employees
-             8 | men_employees
              8 | person_ident
-             8 | pin
              8 | stat_ident
              8 | tax_ident
              8 | turnover
              8 | valid_from
              8 | valid_to
-             8 | women_employees
              9 | influenced_tax_ident
              9 | influencing_tax_ident
              9 | percentage
@@ -2184,7 +2425,7 @@ ORDER BY definition_id, column_name;
             10 | influencing_tax_ident
             10 | percentage
             10 | rel_type_code
-(306 rows)
+(264 rows)
 
 \echo "Baseline import_mapping content (ordered by columns for comparison):"
 "Baseline import_mapping content (ordered by columns for comparison):"
