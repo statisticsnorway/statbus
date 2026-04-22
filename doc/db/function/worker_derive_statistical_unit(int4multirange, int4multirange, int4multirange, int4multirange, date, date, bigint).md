@@ -130,9 +130,9 @@ BEGIN
                 p_legal_unit_id_ranges => NULLIF(p_legal_unit_id_ranges, '{}'::int4multirange),
                 p_enterprise_id_ranges => NULLIF(p_enterprise_id_ranges, '{}'::int4multirange)
             );
-            -- Fixed modulus 256: no settings lookup needed
-            INSERT INTO public.statistical_unit_facet_dirty_partitions (partition_seq)
-            SELECT DISTINCT public.report_partition_seq(t.unit_type, t.unit_id)
+            -- hash_slot() is IMMUTABLE with fixed space 16384; no settings lookup needed
+            INSERT INTO public.statistical_unit_facet_dirty_hash_slots (dirty_hash_slot)
+            SELECT DISTINCT public.hash_slot(t.unit_type, t.unit_id)
             FROM (
                 SELECT 'enterprise'::text AS unit_type, unnest(b.enterprise_ids) AS unit_id FROM _batches AS b
                 UNION ALL SELECT 'legal_unit', unnest(b.legal_unit_ids) FROM _batches AS b
@@ -213,9 +213,9 @@ BEGIN
 
         IF COALESCE(array_length(v_power_group_ids, 1), 0) > 0 THEN
             v_power_group_count := array_length(v_power_group_ids, 1);
-            -- Fixed modulus 256: no settings lookup needed
-            INSERT INTO public.statistical_unit_facet_dirty_partitions (partition_seq)
-            SELECT DISTINCT public.report_partition_seq('power_group', pg_id)
+            -- hash_slot() is IMMUTABLE with fixed space 16384; no settings lookup needed
+            INSERT INTO public.statistical_unit_facet_dirty_hash_slots (dirty_hash_slot)
+            SELECT DISTINCT public.hash_slot('power_group', pg_id)
             FROM unnest(v_power_group_ids) AS pg_id
             ON CONFLICT DO NOTHING;
 

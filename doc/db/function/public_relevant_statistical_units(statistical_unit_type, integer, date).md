@@ -130,7 +130,7 @@ AS $function$
          , included_enterprise_count
          , tag_paths
          , daterange(valid_from, valid_until) AS valid_range
-         , report_partition_seq
+         , hash_slot
     FROM full_units;
 $function$
 ```

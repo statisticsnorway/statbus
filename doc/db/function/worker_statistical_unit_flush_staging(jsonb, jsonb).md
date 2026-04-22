@@ -16,8 +16,8 @@ BEGIN
         LIMIT 1
     );
 
-    -- Auto-tune partition modulus based on current data size
-    CALL admin.adjust_report_partition_modulus();
+    -- Auto-tune partition count target based on current data size
+    CALL admin.adjust_partition_count_target();
 
     SELECT count(*) INTO v_staging_count FROM public.statistical_unit_staging;
     CALL public.statistical_unit_flush_staging();

@@ -5,16 +5,16 @@ CREATE OR REPLACE PROCEDURE worker.statistical_history_facet_reduce(IN payload j
  SET search_path TO 'public', 'worker', 'pg_temp'
 AS $procedure$
 DECLARE
-    v_dirty_partitions int[];
+    v_dirty_hash_slots int[];
     v_row_count bigint;
     v_delete_count bigint;
 BEGIN
     -- Read dirty partitions before truncating them at the end.
-    SELECT array_agg(dp.partition_seq)
-      INTO v_dirty_partitions
-      FROM public.statistical_unit_facet_dirty_partitions AS dp;
+    SELECT array_agg(dp.dirty_hash_slot)
+      INTO v_dirty_hash_slots
+      FROM public.statistical_unit_facet_dirty_hash_slots AS dp;
 
-    IF v_dirty_partitions IS NULL OR array_length(v_dirty_partitions, 1) IS NULL THEN
+    IF v_dirty_hash_slots IS NULL OR array_length(v_dirty_hash_slots, 1) IS NULL THEN
         ---------------------------------------------------------------
         -- Full refresh: drop indexes, TRUNCATE + INSERT, rebuild indexes
         ---------------------------------------------------------------
@@ -101,7 +101,7 @@ BEGIN
         CREATE INDEX idx_statistical_history_facet_stats_summary ON public.statistical_history_facet USING GIN (stats_summary jsonb_path_ops);
 
         p_info := jsonb_build_object('mode', 'full', 'rows_reduced', v_row_count);
-    ELSIF array_length(v_dirty_partitions, 1) <= 128 THEN
+    ELSIF array_length(v_dirty_hash_slots, 1) <= 128 THEN
         ---------------------------------------------------------------
         -- Path B: Scoped MERGE (few dirty partitions).
         -- Uses row-value IN with ::text cast for Hash Join.
@@ -159,7 +159,7 @@ BEGIN
                        COALESCE(d.unit_size_id, -1),
                        COALESCE(d.status_id, -1)
                 FROM public.statistical_history_facet_partitions AS d
-                WHERE d.partition_seq = ANY(v_dirty_partitions)
+                WHERE d.hash_slot = ANY(v_dirty_hash_slots)
                 UNION
                 SELECT p.resolution::text, p.year, COALESCE(p.month, -1), p.unit_type::text,
                        COALESCE(p.primary_activity_category_path::text, ''),
@@ -309,7 +309,7 @@ BEGIN
 
         p_info := jsonb_build_object(
             'mode', 'scoped',
-            'dirty_partitions', to_jsonb(v_dirty_partitions),
+            'dirty_hash_slots', to_jsonb(v_dirty_hash_slots),
             'rows_merged', v_row_count,
             'rows_deleted', v_delete_count);
     ELSE
@@ -422,12 +422,12 @@ BEGIN
 
         p_info := jsonb_build_object(
             'mode', 'incremental',
-            'dirty_partitions', to_jsonb(v_dirty_partitions),
+            'dirty_hash_slots', to_jsonb(v_dirty_hash_slots),
             'rows_merged', v_row_count);
     END IF;
 
     -- Clean up dirty partitions at the very end, after all consumers have read them
-    TRUNCATE public.statistical_unit_facet_dirty_partitions;
+    TRUNCATE public.statistical_unit_facet_dirty_hash_slots;
 
     PERFORM pg_notify('worker_status',
         json_build_object('type', 'is_deriving_reports', 'status', false)::text);

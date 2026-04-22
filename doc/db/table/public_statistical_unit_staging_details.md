@@ -85,14 +85,14 @@
  included_legal_unit_count        | integer                  |           |          |         | plain    |             |              | 
  included_enterprise_count        | integer                  |           |          |         | plain    |             |              | 
  tag_paths                        | ltree[]                  |           |          |         | extended |             |              | 
- report_partition_seq             | integer                  |           |          |         | plain    |             |              | 
+ hash_slot                        | integer                  |           |          |         | plain    |             |              | 
 Indexes:
     "statistical_unit_staging_unit_type_unit_id_idx" btree (unit_type, unit_id)
 Not-null constraints:
     "statistical_unit_unit_type_not_null" NOT NULL "unit_type"
     "statistical_unit_unit_id_not_null" NOT NULL "unit_id"
 Triggers:
-    trg_set_report_partition_seq BEFORE INSERT ON statistical_unit_staging FOR EACH ROW EXECUTE FUNCTION set_report_partition_seq()
+    trg_set_hash_slot BEFORE INSERT ON statistical_unit_staging FOR EACH ROW EXECUTE FUNCTION set_hash_slot()
 Access method: heap
 
 ```

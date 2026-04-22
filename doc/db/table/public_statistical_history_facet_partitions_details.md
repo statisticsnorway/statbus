@@ -2,7 +2,7 @@
                                               Unlogged table "public.statistical_history_facet_partitions"
                   Column                  |         Type          | Collation | Nullable | Default | Storage  | Compression | Stats target | Description 
 ------------------------------------------+-----------------------+-----------+----------+---------+----------+-------------+--------------+-------------
- partition_seq                            | integer               |           | not null |         | plain    |             |              | 
+ hash_slot                                | integer               |           | not null |         | plain    |             |              | 
  resolution                               | history_resolution    |           |          |         | plain    |             |              | 
  year                                     | integer               |           |          |         | plain    |             |              | 
  month                                    | integer               |           |          |         | plain    |             |              | 
@@ -37,10 +37,10 @@
  status_change_count                      | integer               |           |          |         | plain    |             |              | 
  stats_summary                            | jsonb                 |           |          |         | extended |             |              | 
 Indexes:
-    "idx_shf_partitions_seq" btree (partition_seq)
-    "statistical_history_facet_par_partition_seq_resolution_year_key" UNIQUE CONSTRAINT, btree (partition_seq, resolution, year, month, unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path, legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id) NULLS NOT DISTINCT
+    "idx_shf_partitions_hash_slot" btree (hash_slot)
+    "statistical_history_facet_par_hash_slot_resolution_year_key" UNIQUE CONSTRAINT, btree (hash_slot, resolution, year, month, unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path, legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id) NULLS NOT DISTINCT
 Not-null constraints:
-    "statistical_history_facet_partitions_partition_seq_not_null" NOT NULL "partition_seq"
+    "statistical_history_facet_partitions_hash_slot_not_null" NOT NULL "hash_slot"
 Access method: heap
 
 ```

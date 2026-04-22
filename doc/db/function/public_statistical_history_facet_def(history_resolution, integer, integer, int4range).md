@@ -1,6 +1,6 @@
 ```sql
-CREATE OR REPLACE FUNCTION public.statistical_history_facet_def(p_resolution history_resolution, p_year integer, p_month integer, p_partition_seq integer DEFAULT NULL::integer)
- RETURNS SETOF statistical_history_facet_type
+CREATE OR REPLACE FUNCTION public.statistical_history_facet_def(p_resolution history_resolution, p_year integer, p_month integer, p_hash_partition int4range DEFAULT NULL::int4range)
+ RETURNS SETOF statistical_history_facet_partitions
  LANGUAGE plpgsql
 AS $function$
 DECLARE
@@ -27,7 +27,11 @@ BEGIN
         SELECT *
         FROM public.statistical_unit su
         WHERE daterange(su.valid_from, su.valid_to, '[)') && daterange(v_prev_start, v_curr_stop + 1, '[)')
-          AND (p_partition_seq IS NULL OR su.report_partition_seq = p_partition_seq)
+          -- Partition filter: explicit half-open bounds hit the btree index on
+          -- statistical_unit(hash_slot). Mirrors statistical_history_def.
+          AND (p_hash_partition IS NULL
+               OR (su.hash_slot >= lower(p_hash_partition)
+                   AND su.hash_slot <  upper(p_hash_partition)))
     ),
     latest_versions_curr AS (
         SELECT DISTINCT ON (uip.unit_id, uip.unit_type) uip.*
@@ -53,13 +57,12 @@ BEGIN
           AND COALESCE(lvp.birth_date, lvp.valid_from) <= v_prev_stop
           AND (lvp.death_date IS NULL OR lvp.death_date > v_prev_stop)
     ),
-    -- PERF: Pre-aggregate stats with composite key for fast hash join.
-    -- The composite key concatenates all facet dimensions with '|' separator,
-    -- using COALESCE to convert NULLs to empty strings (hashable).
-    -- This enables a single-column equality join instead of IS NOT DISTINCT FROM
-    -- on 9 nullable columns, which prevents hash joins.
+    -- PERF: pre-aggregate per-(slot, facet) stats for fast hash join.
+    -- hash_slot is a pure function of (unit_type, unit_id) so every lvc row
+    -- already has the slot it belongs to.
     stats_by_facet AS (
         SELECT
+            hash_slot,
             unit_type::text || '|' ||
             COALESCE(primary_activity_category_path::text, '') || '|' ||
             COALESCE(secondary_activity_category_path::text, '') || '|' ||
@@ -72,16 +75,16 @@ BEGIN
             COALESCE(public.jsonb_stats_merge_agg(stats_summary), '{}'::jsonb) AS stats_summary
         FROM latest_versions_curr
         WHERE used_for_counting
-        GROUP BY 1
+        GROUP BY 1, 2
     ),
-    -- PERF: Flatten columns instead of storing entire ROW types.
-    -- Accessing fields from composite ROW types (e.g., (curr).name) is expensive
-    -- when done repeatedly in aggregate FILTER clauses. Flattening to plain columns
-    -- avoids repeated detoasting and field extraction.
+    -- PERF: flatten columns instead of storing entire ROW types. Carry hash_slot
+    -- forward via COALESCE(c.hash_slot, p.hash_slot) — both are equal for any
+    -- matching (unit_id, unit_type) because hash_slot is a pure function.
     changed_units AS (
         SELECT
             COALESCE(c.unit_id, p.unit_id) AS unit_id,
             COALESCE(c.unit_type, p.unit_type) AS unit_type,
+            COALESCE(c.hash_slot, p.hash_slot) AS hash_slot,
             c.unit_id AS c_unit_id, c.used_for_counting AS c_used_for_counting,
             c.primary_activity_category_path AS c_pac_path,
             c.secondary_activity_category_path AS c_sac_path,
@@ -109,6 +112,7 @@ BEGIN
     ),
     demographics AS (
         SELECT
+            hash_slot,
             p_resolution, p_year, p_month,
             unit_type,
             COALESCE(c_pac_path, p_pac_path) AS primary_activity_category_path,
@@ -119,7 +123,6 @@ BEGIN
             COALESCE(c_country_id, p_country_id) AS physical_country_id,
             COALESCE(c_size_id, p_size_id) AS unit_size_id,
             COALESCE(c_status_id, p_status_id) AS status_id,
-            -- PERF: Composite key matches stats_by_facet for hash join
             unit_type::text || '|' ||
             COALESCE(COALESCE(c_pac_path, p_pac_path)::text, '') || '|' ||
             COALESCE(COALESCE(c_sac_path, p_sac_path)::text, '') || '|' ||
@@ -152,9 +155,10 @@ BEGIN
             count(*) FILTER (WHERE p_used_for_counting AND c_used_for_counting AND c_size_id IS DISTINCT FROM p_size_id)::integer AS unit_size_change_count,
             count(*) FILTER (WHERE p_used_for_counting AND c_used_for_counting AND c_status_id IS DISTINCT FROM p_status_id)::integer AS status_change_count
         FROM changed_units
-        GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
+        GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14
     )
     SELECT
+        d.hash_slot,
         d.p_resolution AS resolution,
         d.p_year AS year,
         d.p_month AS month,
@@ -189,7 +193,7 @@ BEGIN
         d.status_change_count,
         COALESCE(s.stats_summary, '{}'::jsonb) AS stats_summary
     FROM demographics d
-    LEFT JOIN stats_by_facet s ON s.facet_key = d.facet_key;
+    LEFT JOIN stats_by_facet s ON s.hash_slot = d.hash_slot AND s.facet_key = d.facet_key;
 END;
 $function$
 ```

@@ -85,10 +85,10 @@
  included_legal_unit_count        | integer                  |           |          | 
  included_enterprise_count        | integer                  |           |          | 
  tag_paths                        | ltree[]                  |           |          | 
- report_partition_seq             | integer                  |           |          | 
+ hash_slot                        | integer                  |           |          | 
 Indexes:
     "statistical_unit_staging_unit_type_unit_id_idx" btree (unit_type, unit_id)
 Triggers:
-    trg_set_report_partition_seq BEFORE INSERT ON statistical_unit_staging FOR EACH ROW EXECUTE FUNCTION set_report_partition_seq()
+    trg_set_hash_slot BEFORE INSERT ON statistical_unit_staging FOR EACH ROW EXECUTE FUNCTION set_hash_slot()
 
 ```

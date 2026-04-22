@@ -5,17 +5,17 @@ CREATE OR REPLACE PROCEDURE worker.statistical_unit_facet_reduce(IN payload json
  SET search_path TO 'public', 'worker', 'pg_temp'
 AS $procedure$
 DECLARE
-    v_dirty_partitions int[];
+    v_dirty_hash_slots int[];
     v_row_count bigint;
     v_delete_count bigint;
 BEGIN
     -- Read dirty partitions BEFORE anything else, because
     -- statistical_history_facet_reduce (which runs later) truncates them.
-    SELECT array_agg(dp.partition_seq)
-      INTO v_dirty_partitions
-      FROM public.statistical_unit_facet_dirty_partitions AS dp;
+    SELECT array_agg(dp.dirty_hash_slot)
+      INTO v_dirty_hash_slots
+      FROM public.statistical_unit_facet_dirty_hash_slots AS dp;
 
-    IF v_dirty_partitions IS NULL OR array_length(v_dirty_partitions, 1) IS NULL THEN
+    IF v_dirty_hash_slots IS NULL OR array_length(v_dirty_hash_slots, 1) IS NULL THEN
         ---------------------------------------------------------------
         -- Full refresh: TRUNCATE + INSERT (original path, unchanged)
         ---------------------------------------------------------------
@@ -38,7 +38,7 @@ BEGIN
         GET DIAGNOSTICS v_row_count := ROW_COUNT;
 
         p_info := jsonb_build_object('mode', 'full', 'rows_reduced', v_row_count);
-    ELSIF array_length(v_dirty_partitions, 1) <= 128 THEN
+    ELSIF array_length(v_dirty_hash_slots, 1) <= 128 THEN
         ---------------------------------------------------------------
         -- Path B: Scoped MERGE (few dirty partitions).
         -- Uses row-value IN with ::text cast for Hash Join (3.8s verified).
@@ -75,7 +75,7 @@ BEGIN
                        COALESCE(d.physical_country_id, -1),
                        COALESCE(d.status_id, -1)
                 FROM public.statistical_unit_facet_staging AS d
-                WHERE d.partition_seq = ANY(v_dirty_partitions)
+                WHERE d.hash_slot = ANY(v_dirty_hash_slots)
                 UNION
                 -- Pre-dirty snapshot (disappeared combos)
                 SELECT p.valid_from, p.valid_to,
@@ -158,7 +158,7 @@ BEGIN
 
         p_info := jsonb_build_object(
             'mode', 'scoped',
-            'dirty_partitions', to_jsonb(v_dirty_partitions),
+            'dirty_hash_slots', to_jsonb(v_dirty_hash_slots),
             'rows_merged', v_row_count,
             'rows_deleted', v_delete_count);
     ELSE
@@ -206,7 +206,7 @@ BEGIN
 
         p_info := jsonb_build_object(
             'mode', 'incremental',
-            'dirty_partitions', to_jsonb(v_dirty_partitions),
+            'dirty_hash_slots', to_jsonb(v_dirty_hash_slots),
             'rows_merged', v_row_count);
     END IF;
 END;

@@ -1,5 +1,5 @@
 ```sql
-CREATE OR REPLACE FUNCTION public.statistical_history_def(p_resolution history_resolution, p_year integer, p_month integer, p_partition_seq_from integer DEFAULT NULL::integer, p_partition_seq_to integer DEFAULT NULL::integer)
+CREATE OR REPLACE FUNCTION public.statistical_history_def(p_resolution history_resolution, p_year integer, p_month integer, p_hash_partition int4range DEFAULT NULL::int4range)
  RETURNS SETOF statistical_history_type
  LANGUAGE plpgsql
 AS $function$
@@ -9,7 +9,6 @@ DECLARE
     v_prev_start date;
     v_prev_stop date;
 BEGIN
-    -- Manually calculate the date ranges for the current and previous periods.
     IF p_resolution = 'year'::public.history_resolution THEN
         v_curr_start := make_date(p_year, 1, 1);
         v_curr_stop  := make_date(p_year, 12, 31);
@@ -27,10 +26,13 @@ BEGIN
     units_in_period AS (
         SELECT *
         FROM public.statistical_unit su
-        WHERE from_to_overlaps(su.valid_from, su.valid_to, v_prev_start, v_curr_stop)
-          -- When computing a partition range, filter by report_partition_seq
-          AND (p_partition_seq_from IS NULL
-               OR su.report_partition_seq BETWEEN p_partition_seq_from AND p_partition_seq_to)
+        WHERE public.from_to_overlaps(su.valid_from, su.valid_to, v_prev_start, v_curr_stop)
+          -- When computing a partition range, filter by hash_slot within the range.
+          -- Use explicit half-open bounds (not <@) so the btree index on
+          -- statistical_unit(hash_slot) is used at 2.2M-row scale.
+          AND (p_hash_partition IS NULL
+               OR (su.hash_slot >= lower(p_hash_partition)
+                   AND su.hash_slot <  upper(p_hash_partition)))
     ),
     latest_versions_curr AS (
         SELECT DISTINCT ON (uip.unit_id, uip.unit_type) uip.*
@@ -67,7 +69,6 @@ BEGIN
         FULL JOIN stock_at_end_of_prev p ON c.unit_id = p.unit_id AND c.unit_type = p.unit_type
         LEFT JOIN latest_versions_curr lvc ON lvc.unit_id = COALESCE(p.unit_id, c.unit_id) AND lvc.unit_type = COALESCE(p.unit_type, c.unit_type)
     ),
-    -- PERF: Pre-aggregate stats_summary by unit_type instead of using LATERAL JOIN.
     stats_by_unit_type AS (
         SELECT
             lvc.unit_type,
@@ -109,9 +110,10 @@ BEGIN
         d.sector_change_count, d.legal_form_change_count, d.physical_region_change_count,
         d.physical_country_change_count, d.physical_address_change_count,
         COALESCE(sbut.stats_summary, '{}'::jsonb) AS stats_summary,
-        -- partition_seq stores the range start. DELETE uses BETWEEN so range boundaries
-        -- are self-consistent: the same range that INSERTs data also DELETEs it.
-        p_partition_seq_from AS partition_seq
+        -- hash_partition stores the int4range the DELETE/INSERT pair uses.
+        -- DELETE gates on `hash_partition = p_hash_partition`; INSERT writes
+        -- the same range, so boundaries are self-consistent by construction.
+        p_hash_partition AS hash_partition
     FROM demographics d
     LEFT JOIN stats_by_unit_type sbut ON sbut.unit_type = d.unit_type;
 END;

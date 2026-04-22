@@ -8,7 +8,7 @@
  only_one_setting              | boolean |           |          | generated always as (id IS NOT NULL) stored | plain   |             |              | 
  region_version_id             | integer |           | not null |                                             | plain   |             |              | 
  required_to_be_enabled        | boolean |           |          | generated always as (true) stored           | plain   |             |              | 
- report_partition_modulus      | integer |           | not null | 256                                         | plain   |             |              | 
+ partition_count_target        | integer |           | not null | 256                                         | plain   |             |              | 
 Indexes:
     "settings_pkey" PRIMARY KEY, btree (id)
     "settings_only_one_setting_key" UNIQUE CONSTRAINT, btree (only_one_setting)
@@ -34,7 +34,7 @@ Not-null constraints:
     "settings_activity_category_standard_id_not_null" NOT NULL "activity_category_standard_id"
     "settings_country_id_not_null" NOT NULL "country_id"
     "settings_region_version_id_not_null" NOT NULL "region_version_id"
-    "settings_report_partition_modulus_not_null" NOT NULL "report_partition_modulus"
+    "settings_report_partition_modulus_not_null" NOT NULL "partition_count_target"
 Triggers:
     trigger_prevent_settings_id_update BEFORE UPDATE OF id ON settings FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap
