@@ -123,7 +123,8 @@ ORDER BY child.priority, child.id;
 --------------------------------+---------+-------
  derive_statistical_unit        | pending |     2
  statistical_unit_flush_staging | pending |     2
-(2 rows)
+ derive_used_tables             | pending |     2
+(3 rows)
 
 \echo "=== 7. Verify serial children of derive_reports_phase ==="
 "=== 7. Verify serial children of derive_reports_phase ==="
@@ -169,7 +170,7 @@ GROUP BY state
 ORDER BY state;
    state   | cnt 
 -----------+-----
- completed |  11
+ completed |  12
 (1 row)
 
 \echo "=== 10. Verify info bubbled up to collect_changes ==="

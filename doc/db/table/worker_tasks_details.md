@@ -33,6 +33,7 @@ Indexes:
     "tasks_pkey" PRIMARY KEY, btree (id)
     "idx_tasks_collect_changes_dedup" UNIQUE, btree (command) WHERE command = 'collect_changes'::text AND state = 'pending'::worker.task_state
     "idx_tasks_depth" btree (depth) WHERE state = 'waiting'::worker.task_state
+    "idx_tasks_derive_used_tables_dedup" UNIQUE, btree (command) WHERE command = 'derive_used_tables'::text AND state = 'pending'::worker.task_state
     "idx_tasks_import_job_cleanup_dedup" UNIQUE, btree (command) WHERE command = 'import_job_cleanup'::text AND state = 'pending'::worker.task_state
     "idx_tasks_parent_id" btree (parent_id) WHERE parent_id IS NOT NULL
     "idx_tasks_scheduled_at" btree (scheduled_at) WHERE state = 'pending'::worker.task_state AND scheduled_at IS NOT NULL

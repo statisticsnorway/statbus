@@ -326,6 +326,7 @@ Write to RLS-protected tables, DDL, worker orchestration.
 - `worker.derive_statistical_unit_facet`
 - `worker.derive_statistical_unit_facet_partition`
 - `worker.derive_units_phase`
+- `worker.derive_used_tables`
 - `worker.notify_task_changed`
 - `worker.statistical_history_facet_reduce`
 - `worker.statistical_history_reduce`

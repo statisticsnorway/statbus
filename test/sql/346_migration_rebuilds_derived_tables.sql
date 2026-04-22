@@ -1,0 +1,185 @@
+SET datestyle TO 'ISO, DMY';
+
+BEGIN;
+
+\i test/setup.sql
+
+\set ON_ERROR_STOP on
+
+\echo "Test: post-migration derived table rebuild (regression for rc.42/rc.48)"
+
+-- A Super User configures statbus.
+CALL test.set_user_from_email('test.admin@statbus.org');
+
+\i samples/norway/getting-started.sql
+
+-- ============================================================
+-- PHASE 1: Baseline — import units and drain the pipeline
+-- ============================================================
+
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
+    'import_346_lu_rebuild_test',
+    'Import LU for rebuild regression test (346_migration_rebuilds_derived_tables.sql)',
+    'Import job for test/data/05_norwegian-legal-units.csv.',
+    'Test data load (346_migration_rebuilds_derived_tables.sql)';
+
+\echo "User uploads the Norwegian legal units"
+\copy public.import_346_lu_rebuild_test_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code) FROM 'test/data/05_norwegian-legal-units.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+
+\echo "Run worker processing for import jobs"
+CALL worker.process_tasks(p_queue => 'import');
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
+
+\echo "Checking import job status"
+SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
+       (SELECT COUNT(*) FROM public.import_346_lu_rebuild_test_data dr WHERE dr.state = 'error') AS error_rows
+FROM public.import_job
+WHERE slug = 'import_346_lu_rebuild_test'
+ORDER BY slug;
+
+\echo "Run worker processing for analytics tasks"
+CALL worker.process_tasks(p_queue => 'analytics');
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
+
+\echo "Analytics queue fully drained"
+SELECT c.queue, t.state, count(*)
+FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command
+WHERE c.queue = 'analytics' AND t.state IN ('pending', 'processing')
+GROUP BY c.queue, t.state;
+
+\echo "Baseline unit counts"
+SELECT
+    (SELECT COUNT(DISTINCT id) FROM public.establishment) AS establishment_count,
+    (SELECT COUNT(DISTINCT id) FROM public.legal_unit) AS legal_unit_count,
+    (SELECT COUNT(DISTINCT id) FROM public.enterprise) AS enterprise_count;
+
+\echo "Baseline: statistical_history has rows for the fixture year (2010)"
+SELECT count(*) > 0 AS has_history_for_fixture_year
+FROM public.statistical_history
+WHERE resolution = 'year' AND year = 2010 AND unit_type = 'legal_unit';
+
+\echo "Baseline: *_used tables correct relative to fixture data"
+WITH fixture_has_activity AS (
+    SELECT count(*) > 0 AS yes FROM public.statistical_unit
+    WHERE primary_activity_category_path IS NOT NULL
+),
+fixture_has_region AS (
+    SELECT count(*) > 0 AS yes FROM public.statistical_unit
+    WHERE physical_region_path IS NOT NULL
+),
+fixture_has_sector AS (
+    SELECT count(*) > 0 AS yes FROM public.statistical_unit
+    WHERE sector_path IS NOT NULL
+),
+fixture_has_legal_form AS (
+    SELECT count(*) > 0 AS yes FROM public.statistical_unit
+    WHERE legal_form_id IS NOT NULL
+),
+fixture_has_country AS (
+    SELECT count(*) > 0 AS yes FROM public.statistical_unit
+    WHERE physical_country_id IS NOT NULL
+),
+fixture_has_data_source AS (
+    SELECT count(*) > 0 AS yes FROM public.statistical_unit
+    WHERE data_source_ids IS NOT NULL AND array_length(data_source_ids, 1) > 0
+)
+SELECT
+    (SELECT yes FROM fixture_has_activity)   = (SELECT count(*) > 0 FROM public.activity_category_used) AS activity_category_used_correct,
+    (SELECT yes FROM fixture_has_region)     = (SELECT count(*) > 0 FROM public.region_used)            AS region_used_correct,
+    (SELECT yes FROM fixture_has_sector)     = (SELECT count(*) > 0 FROM public.sector_used)            AS sector_used_correct,
+    (SELECT yes FROM fixture_has_legal_form) = (SELECT count(*) > 0 FROM public.legal_form_used)        AS legal_form_used_correct,
+    (SELECT yes FROM fixture_has_country)    = (SELECT count(*) > 0 FROM public.country_used)           AS country_used_correct,
+    (SELECT yes FROM fixture_has_data_source) = (SELECT count(*) > 0 FROM public.data_source_used)      AS data_source_used_correct;
+
+-- ============================================================
+-- PHASE 2: Wipe — simulate rc.42-style DROP CASCADE on derived tables
+-- ============================================================
+
+\echo "Simulate rc.42 migration wipe: TRUNCATE derived tables"
+TRUNCATE public.statistical_history;
+TRUNCATE public.statistical_history_facet;
+TRUNCATE public.activity_category_used;
+TRUNCATE public.region_used;
+TRUNCATE public.sector_used;
+TRUNCATE public.legal_form_used;
+TRUNCATE public.country_used;
+TRUNCATE public.data_source_used;
+
+\echo "After wipe: all derived tables are empty"
+SELECT
+    (SELECT count(*) FROM public.statistical_history)       AS statistical_history_count,
+    (SELECT count(*) FROM public.statistical_history_facet) AS statistical_history_facet_count,
+    (SELECT count(*) FROM public.activity_category_used)    AS activity_category_used_count,
+    (SELECT count(*) FROM public.region_used)               AS region_used_count,
+    (SELECT count(*) FROM public.sector_used)               AS sector_used_count,
+    (SELECT count(*) FROM public.legal_form_used)           AS legal_form_used_count,
+    (SELECT count(*) FROM public.country_used)              AS country_used_count,
+    (SELECT count(*) FROM public.data_source_used)          AS data_source_used_count;
+
+-- ============================================================
+-- PHASE 3: Rebuild — apply rc.48 direct-mode full refresh
+-- ============================================================
+
+\echo "Apply rc.48 rebuild: spawn collect_changes with all-NULL id_ranges (direct-mode full refresh)"
+SELECT worker.spawn(
+    p_command => 'collect_changes',
+    p_payload => jsonb_build_object(
+        'establishment_id_ranges', NULL,
+        'legal_unit_id_ranges',    NULL,
+        'enterprise_id_ranges',    NULL,
+        'power_group_id_ranges',   NULL,
+        'valid_ranges',            NULL
+    )
+) IS NOT NULL AS task_queued;
+
+\echo "Run worker processing for rebuild"
+CALL worker.process_tasks(p_queue => 'analytics');
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
+
+\echo "Analytics queue fully drained after rebuild"
+SELECT c.queue, t.state, count(*)
+FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command
+WHERE c.queue = 'analytics' AND t.state IN ('pending', 'processing')
+GROUP BY c.queue, t.state;
+
+\echo "After rebuild: statistical_history has rows for the fixture year (2010)"
+SELECT count(*) > 0 AS has_history_for_fixture_year
+FROM public.statistical_history
+WHERE resolution = 'year' AND year = 2010 AND unit_type = 'legal_unit';
+
+\echo "After rebuild: *_used tables correct relative to fixture data"
+WITH fixture_has_activity AS (
+    SELECT count(*) > 0 AS yes FROM public.statistical_unit
+    WHERE primary_activity_category_path IS NOT NULL
+),
+fixture_has_region AS (
+    SELECT count(*) > 0 AS yes FROM public.statistical_unit
+    WHERE physical_region_path IS NOT NULL
+),
+fixture_has_sector AS (
+    SELECT count(*) > 0 AS yes FROM public.statistical_unit
+    WHERE sector_path IS NOT NULL
+),
+fixture_has_legal_form AS (
+    SELECT count(*) > 0 AS yes FROM public.statistical_unit
+    WHERE legal_form_id IS NOT NULL
+),
+fixture_has_country AS (
+    SELECT count(*) > 0 AS yes FROM public.statistical_unit
+    WHERE physical_country_id IS NOT NULL
+),
+fixture_has_data_source AS (
+    SELECT count(*) > 0 AS yes FROM public.statistical_unit
+    WHERE data_source_ids IS NOT NULL AND array_length(data_source_ids, 1) > 0
+)
+SELECT
+    (SELECT yes FROM fixture_has_activity)   = (SELECT count(*) > 0 FROM public.activity_category_used) AS activity_category_used_correct,
+    (SELECT yes FROM fixture_has_region)     = (SELECT count(*) > 0 FROM public.region_used)            AS region_used_correct,
+    (SELECT yes FROM fixture_has_sector)     = (SELECT count(*) > 0 FROM public.sector_used)            AS sector_used_correct,
+    (SELECT yes FROM fixture_has_legal_form) = (SELECT count(*) > 0 FROM public.legal_form_used)        AS legal_form_used_correct,
+    (SELECT yes FROM fixture_has_country)    = (SELECT count(*) > 0 FROM public.country_used)           AS country_used_correct,
+    (SELECT yes FROM fixture_has_data_source) = (SELECT count(*) > 0 FROM public.data_source_used)      AS data_source_used_correct;
+
+ROLLBACK;

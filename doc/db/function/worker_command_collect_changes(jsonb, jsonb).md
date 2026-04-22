@@ -16,16 +16,64 @@ DECLARE
     v_phase1_id BIGINT;
     v_phase2_id BIGINT;
     v_payload JSONB;
+    v_direct_mode BOOLEAN;
 BEGIN
-    FOR v_row IN DELETE FROM worker.base_change_log RETURNING * LOOP
-        v_est_ids := v_est_ids + v_row.establishment_ids;
-        v_lu_ids := v_lu_ids + v_row.legal_unit_ids;
-        v_ent_ids := v_ent_ids + v_row.enterprise_ids;
-        v_pg_ids := v_pg_ids + v_row.power_group_ids;
-        v_valid_range := v_valid_range + v_row.valid_ranges;
-    END LOOP;
+    v_direct_mode :=
+        p_payload ? 'establishment_id_ranges'
+        OR p_payload ? 'legal_unit_id_ranges'
+        OR p_payload ? 'enterprise_id_ranges'
+        OR p_payload ? 'power_group_id_ranges';
 
-    UPDATE worker.base_change_log_has_pending SET has_pending = FALSE;
+    IF v_direct_mode THEN
+        -- Caller supplied explicit ranges. A NULL / JSON-null value for a
+        -- given key means "all ids of that kind" — synthesise from base
+        -- tables. The established NULL-means-everything convention
+        -- (cf. worker.derive_statistical_unit.v_is_full_refresh).
+        v_est_ids := COALESCE(
+            NULLIF(p_payload->>'establishment_id_ranges', '')::int4multirange,
+            COALESCE(
+                (SELECT range_agg(int4range(id, id, '[]'))::int4multirange FROM public.establishment),
+                '{}'::int4multirange
+            )
+        );
+        v_lu_ids := COALESCE(
+            NULLIF(p_payload->>'legal_unit_id_ranges', '')::int4multirange,
+            COALESCE(
+                (SELECT range_agg(int4range(id, id, '[]'))::int4multirange FROM public.legal_unit),
+                '{}'::int4multirange
+            )
+        );
+        v_ent_ids := COALESCE(
+            NULLIF(p_payload->>'enterprise_id_ranges', '')::int4multirange,
+            COALESCE(
+                (SELECT range_agg(int4range(id, id, '[]'))::int4multirange FROM public.enterprise),
+                '{}'::int4multirange
+            )
+        );
+        v_pg_ids := COALESCE(
+            NULLIF(p_payload->>'power_group_id_ranges', '')::int4multirange,
+            COALESCE(
+                (SELECT range_agg(int4range(id, id, '[]'))::int4multirange FROM public.power_group),
+                '{}'::int4multirange
+            )
+        );
+        v_valid_range := COALESCE(
+            NULLIF(p_payload->>'valid_ranges', '')::datemultirange,
+            '{}'::datemultirange
+        );
+        UPDATE worker.base_change_log_has_pending SET has_pending = FALSE;
+    ELSE
+        -- Drain-log mode: unchanged from 20260319124229.
+        FOR v_row IN DELETE FROM worker.base_change_log RETURNING * LOOP
+            v_est_ids := v_est_ids + v_row.establishment_ids;
+            v_lu_ids := v_lu_ids + v_row.legal_unit_ids;
+            v_ent_ids := v_ent_ids + v_row.enterprise_ids;
+            v_pg_ids := v_pg_ids + v_row.power_group_ids;
+            v_valid_range := v_valid_range + v_row.valid_ranges;
+        END LOOP;
+
+        UPDATE worker.base_change_log_has_pending SET has_pending = FALSE;
+    END IF;
 
     IF v_est_ids != '{}'::int4multirange
        OR v_lu_ids != '{}'::int4multirange
@@ -38,7 +86,6 @@ BEGIN
         WHERE state = 'processing' AND worker_pid = pg_backend_pid()
         ORDER BY id DESC LIMIT 1;
 
-        -- Return affected counts via INOUT instead of UPDATE worker.tasks
         p_info := jsonb_build_object(
             'affected_establishment_count', (SELECT COALESCE(sum(upper(r) - lower(r)), 0) FROM unnest(v_est_ids) AS r),
             'affected_legal_unit_count', (SELECT COALESCE(sum(upper(r) - lower(r)), 0) FROM unnest(v_lu_ids) AS r),
@@ -87,6 +134,18 @@ BEGIN
 
         PERFORM worker.spawn(
             p_command => 'statistical_unit_flush_staging',
+            p_payload => v_payload,
+            p_parent_id => v_phase1_id,
+            p_child_mode => 'serial'
+        );
+
+        -- BLOCK D: derive_used_tables runs AFTER statistical_unit_flush_staging
+        -- has published activity/region/sector/… paths to public.statistical_unit.
+        -- Previously these were invoked inline from worker.derive_statistical_unit,
+        -- which ran before the flush — the views filtering on *_path IS NOT NULL
+        -- returned 0 rows and *_used stayed empty on first-import cycles.
+        PERFORM worker.spawn(
+            p_command => 'derive_used_tables',
             p_payload => v_payload,
             p_parent_id => v_phase1_id,
             p_child_mode => 'serial'
