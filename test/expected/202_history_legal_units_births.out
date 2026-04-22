@@ -86,7 +86,7 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |   439
+ analytics | completed |   866
  import    | completed |    48
 (2 rows)
 
@@ -120,9 +120,12 @@ WHERE resolution = 'year'
 AND year < 2013
 AND unit_type = 'legal_unit'
 ORDER BY year, unit_type;
- resolution | year | month | unit_type | count | births | deaths 
-------------+------+-------+-----------+-------+--------+--------
-(0 rows)
+ resolution | year | month | unit_type  | count | births | deaths 
+------------+------+-------+------------+-------+--------+--------
+ year       | 2010 |       | legal_unit |     1 |      1 |      0
+ year       | 2011 |       | legal_unit |     2 |      1 |      0
+ year       | 2012 |       | legal_unit |     2 |      0 |      0
+(3 rows)
 
 \echo "Check statistical unit history by year-month - births should be 1 for year-month 2010-1 and 2011-1"
 "Check statistical unit history by year-month - births should be 1 for year-month 2010-1 and 2011-1"
@@ -132,9 +135,45 @@ WHERE resolution = 'year-month'
 AND year < 2013
 AND unit_type = 'legal_unit'
 ORDER BY year, month, unit_type;
- resolution | year | month | unit_type | count | births | deaths 
-------------+------+-------+-----------+-------+--------+--------
-(0 rows)
+ resolution | year | month | unit_type  | count | births | deaths 
+------------+------+-------+------------+-------+--------+--------
+ year-month | 2010 |     1 | legal_unit |     1 |      1 |      0
+ year-month | 2010 |     2 | legal_unit |     1 |      0 |      0
+ year-month | 2010 |     3 | legal_unit |     1 |      0 |      0
+ year-month | 2010 |     4 | legal_unit |     1 |      0 |      0
+ year-month | 2010 |     5 | legal_unit |     1 |      0 |      0
+ year-month | 2010 |     6 | legal_unit |     1 |      0 |      0
+ year-month | 2010 |     7 | legal_unit |     1 |      0 |      0
+ year-month | 2010 |     8 | legal_unit |     1 |      0 |      0
+ year-month | 2010 |     9 | legal_unit |     1 |      0 |      0
+ year-month | 2010 |    10 | legal_unit |     1 |      0 |      0
+ year-month | 2010 |    11 | legal_unit |     1 |      0 |      0
+ year-month | 2010 |    12 | legal_unit |     1 |      0 |      0
+ year-month | 2011 |     1 | legal_unit |     2 |      1 |      0
+ year-month | 2011 |     2 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |     3 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |     4 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |     5 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |     6 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |     7 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |     8 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |     9 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |    10 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |    11 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |    12 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     1 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     2 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     3 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     4 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     5 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     6 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     7 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     8 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     9 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |    10 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |    11 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |    12 | legal_unit |     2 |      0 |      0
+(36 rows)
 
 \x
 ROLLBACK TO before_loading_units;
@@ -191,7 +230,7 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |   862
+ analytics | completed |  1287
  import    | completed |    48
 (2 rows)
 
@@ -227,8 +266,8 @@ ORDER BY year, unit_type;
  resolution | year | month | unit_type  | count | births | deaths 
 ------------+------+-------+------------+-------+--------+--------
  year       | 2010 |       | legal_unit |     1 |      1 |      0
- year       | 2011 |       | legal_unit |     1 |      0 |      0
- year       | 2012 |       | legal_unit |     1 |      0 |      0
+ year       | 2011 |       | legal_unit |     2 |      1 |      0
+ year       | 2012 |       | legal_unit |     2 |      0 |      0
 (3 rows)
 
 \echo "Check statistical unit history by year-month - births should be 1 for year-month 2010-2 and 2011-2"
@@ -253,29 +292,29 @@ ORDER BY year, month, unit_type;
  year-month | 2010 |    11 | legal_unit |     1 |      0 |      0
  year-month | 2010 |    12 | legal_unit |     1 |      0 |      0
  year-month | 2011 |     1 | legal_unit |     1 |      0 |      0
- year-month | 2011 |     2 | legal_unit |     1 |      0 |      0
- year-month | 2011 |     3 | legal_unit |     1 |      0 |      0
- year-month | 2011 |     4 | legal_unit |     1 |      0 |      0
- year-month | 2011 |     5 | legal_unit |     1 |      0 |      0
- year-month | 2011 |     6 | legal_unit |     1 |      0 |      0
- year-month | 2011 |     7 | legal_unit |     1 |      0 |      0
- year-month | 2011 |     8 | legal_unit |     1 |      0 |      0
- year-month | 2011 |     9 | legal_unit |     1 |      0 |      0
- year-month | 2011 |    10 | legal_unit |     1 |      0 |      0
- year-month | 2011 |    11 | legal_unit |     1 |      0 |      0
- year-month | 2011 |    12 | legal_unit |     1 |      0 |      0
- year-month | 2012 |     1 | legal_unit |     1 |      0 |      0
- year-month | 2012 |     2 | legal_unit |     1 |      0 |      0
- year-month | 2012 |     3 | legal_unit |     1 |      0 |      0
- year-month | 2012 |     4 | legal_unit |     1 |      0 |      0
- year-month | 2012 |     5 | legal_unit |     1 |      0 |      0
- year-month | 2012 |     6 | legal_unit |     1 |      0 |      0
- year-month | 2012 |     7 | legal_unit |     1 |      0 |      0
- year-month | 2012 |     8 | legal_unit |     1 |      0 |      0
- year-month | 2012 |     9 | legal_unit |     1 |      0 |      0
- year-month | 2012 |    10 | legal_unit |     1 |      0 |      0
- year-month | 2012 |    11 | legal_unit |     1 |      0 |      0
- year-month | 2012 |    12 | legal_unit |     1 |      0 |      0
+ year-month | 2011 |     2 | legal_unit |     2 |      1 |      0
+ year-month | 2011 |     3 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |     4 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |     5 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |     6 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |     7 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |     8 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |     9 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |    10 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |    11 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |    12 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     1 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     2 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     3 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     4 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     5 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     6 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     7 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     8 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     9 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |    10 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |    11 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |    12 | legal_unit |     2 |      0 |      0
 (35 rows)
 
 \x
@@ -333,7 +372,7 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |   439
+ analytics | completed |  1293
  import    | completed |    48
 (2 rows)
 
@@ -366,9 +405,12 @@ WHERE resolution = 'year'
 AND year < 2013
 AND unit_type = 'legal_unit'
 ORDER BY year, unit_type;
- resolution | year | month | unit_type | count | births | deaths 
-------------+------+-------+-----------+-------+--------+--------
-(0 rows)
+ resolution | year | month | unit_type  | count | births | deaths 
+------------+------+-------+------------+-------+--------+--------
+ year       | 2010 |       | legal_unit |     1 |      1 |      0
+ year       | 2011 |       | legal_unit |     2 |      1 |      0
+ year       | 2012 |       | legal_unit |     2 |      0 |      0
+(3 rows)
 
 \echo "Check statistical unit history by year-month - births should be 1 for year-month 2010-1 and 2011-1"
 "Check statistical unit history by year-month - births should be 1 for year-month 2010-1 and 2011-1"
@@ -378,9 +420,45 @@ WHERE resolution = 'year-month'
 AND year < 2013
 AND unit_type = 'legal_unit'
 ORDER BY year, month, unit_type;
- resolution | year | month | unit_type | count | births | deaths 
-------------+------+-------+-----------+-------+--------+--------
-(0 rows)
+ resolution | year | month | unit_type  | count | births | deaths 
+------------+------+-------+------------+-------+--------+--------
+ year-month | 2010 |     1 | legal_unit |     1 |      1 |      0
+ year-month | 2010 |     2 | legal_unit |     1 |      0 |      0
+ year-month | 2010 |     3 | legal_unit |     1 |      0 |      0
+ year-month | 2010 |     4 | legal_unit |     1 |      0 |      0
+ year-month | 2010 |     5 | legal_unit |     1 |      0 |      0
+ year-month | 2010 |     6 | legal_unit |     1 |      0 |      0
+ year-month | 2010 |     7 | legal_unit |     1 |      0 |      0
+ year-month | 2010 |     8 | legal_unit |     1 |      0 |      0
+ year-month | 2010 |     9 | legal_unit |     1 |      0 |      0
+ year-month | 2010 |    10 | legal_unit |     1 |      0 |      0
+ year-month | 2010 |    11 | legal_unit |     1 |      0 |      0
+ year-month | 2010 |    12 | legal_unit |     1 |      0 |      0
+ year-month | 2011 |     1 | legal_unit |     2 |      1 |      0
+ year-month | 2011 |     2 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |     3 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |     4 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |     5 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |     6 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |     7 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |     8 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |     9 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |    10 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |    11 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |    12 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     1 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     2 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     3 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     4 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     5 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     6 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     7 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     8 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     9 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |    10 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |    11 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |    12 | legal_unit |     2 |      0 |      0
+(36 rows)
 
 \x
 ROLLBACK;
