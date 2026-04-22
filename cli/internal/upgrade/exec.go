@@ -643,32 +643,62 @@ func (d *Service) waitForDBHealth(timeout time.Duration) error {
 	return fmt.Errorf("database did not become healthy within %s", timeout)
 }
 
-// healthURL returns the cached health check URL, loading from .env on first call.
+// healthURL returns the cached health check URL, loading REST_BIND_ADDRESS
+// from .env on first call and probing PostgREST directly on its host-side
+// loopback bind (typically 127.0.0.1:<port>). Bypasses Caddy entirely.
 //
-// Probes /rest/rpc/auth_status — the same PostgREST RPC the frontend
-// invokes on every page load (app/src/atoms/auth-machine.ts:66). Hitting
-// it through Caddy exercises the full request path: caddy → next.js
-// proxy → postgrest → postgres. Any failure here is a failure a real
-// user would see on first load. Older versions of this code probed `/`
-// and accepted any < 500, but the Next.js root renders even when
-// PostgREST or the DB is broken — false-positive healthy upgrade.
+// Why direct probe, not through Caddy:
+//
+//	An earlier version of this code built the URL as
+//	http://localhost:<CADDY_HTTP_PORT>/rest/rpc/auth_status — relying on
+//	Caddy to strip /rest and forward to the rest container. That failed
+//	on standalone deploys with a confusing TLS error: Caddy's :80 listener
+//	has no site block matching Host=localhost, so the default-match
+//	fallback was `http://<domain> { redir https://{host}{uri} permanent }`.
+//	Caddy returned 301 → https://localhost{uri} → Go's client followed the
+//	redirect → TLS handshake to localhost:443 → "remote error: tls:
+//	internal error" because Caddy has no cert for SNI=localhost. Private
+//	mode passed this check by accident: its fallback block was a full
+//	site handler, not a redirect.
+//
+// Coverage trade-off: direct probe exercises postgrest → postgres. It
+// does NOT exercise Caddy's reverse-proxy, header rewrites, or container
+// networking. That's acceptable because (a) Caddy misconfiguration fails
+// loudly on real user traffic, (b) what the health check uniquely catches
+// is migration / PostgREST / DB damage — exactly what can force a
+// rollback.
 //
 // auth_status is anonymous-safe (returns 200 with is_authenticated=false
 // without a JWT) and reads auth.user, so it touches both PostgREST and
-// the DB.
-func (d *Service) healthURL() string {
+// the DB — the two things an upgrade's migrate step can break.
+//
+// Fails fast with an actionable error if REST_BIND_ADDRESS is missing or
+// empty — silent fallback to a guess would re-hide the class of config
+// drift this function is supposed to surface.
+func (d *Service) healthURL() (string, error) {
 	if d.cachedURL != "" {
-		return d.cachedURL
+		return d.cachedURL, nil
 	}
-	port := "3000"
 	envPath := filepath.Join(d.projDir, ".env")
-	if f, err := dotenv.Load(envPath); err == nil {
-		if v, ok := f.Get("CADDY_HTTP_PORT"); ok {
-			port = v
-		}
+	f, err := dotenv.Load(envPath)
+	if err != nil {
+		return "", fmt.Errorf(
+			"health check: cannot read %s to resolve REST_BIND_ADDRESS: %w\n"+
+				"Fix: run `./sb config generate` to regenerate .env from .env.config, "+
+				"or verify the file exists and is readable.",
+			envPath, err)
 	}
-	d.cachedURL = fmt.Sprintf("http://localhost:%s/rest/rpc/auth_status", port)
-	return d.cachedURL
+	bind, ok := f.Get("REST_BIND_ADDRESS")
+	bind = strings.TrimSpace(bind)
+	if !ok || bind == "" {
+		return "", fmt.Errorf(
+			"health check: REST_BIND_ADDRESS is not set in %s.\n"+
+				"Fix: run `./sb config generate` to regenerate .env from .env.config, "+
+				"or check that REST_BIND_ADDRESS=<host>:<port> is populated in your .env file.",
+			envPath)
+	}
+	d.cachedURL = fmt.Sprintf("http://%s/rpc/auth_status", bind)
+	return d.cachedURL, nil
 }
 
 // healthCheck POSTs {} to the auth_status RPC and retries on 5xx /
@@ -680,7 +710,10 @@ func (d *Service) healthURL() string {
 // progress may be nil — falls back to stderr so the older verbose
 // path keeps working for ad-hoc invocations.
 func (d *Service) healthCheck(progress *ProgressLog, retries int, interval time.Duration) error {
-	healthURL := d.healthURL()
+	healthURL, err := d.healthURL()
+	if err != nil {
+		return err
+	}
 	client := &http.Client{Timeout: 10 * time.Second}
 
 	logf := func(format string, args ...interface{}) {
