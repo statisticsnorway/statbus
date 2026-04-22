@@ -122,4 +122,13 @@ BEGIN
 END;
 $synchronize_default_definitions_all_steps$;
 
+-- One-shot data fix: any orphan import_source_column rows already on
+-- disk from BEFORE this migration was applied won't be cleared by the
+-- updated procedures alone — the procedures only fire on subsequent
+-- lifecycle events. Run the cleanup once now so deployments with
+-- pre-existing orphans (observed live on jo.statbus.org rc.34) are
+-- self-healed at apply time. Idempotent: a no-op when no orphans
+-- exist (the dev/CI case).
+CALL import.cleanup_orphaned_synced_mappings();
+
 END;
