@@ -8,14 +8,10 @@ BEGIN;
 -- Lock worker.tasks to prevent background worker interference and ensure deterministic IDs
 LOCK TABLE worker.tasks IN EXCLUSIVE MODE;
 
--- Clean slate: delete non-maintenance tasks, pending maintenance stubs, reset sequence.
--- Use setval(MAX+1) rather than RESTART WITH N to handle varying IDs left by
--- migration-seeded maint rows (the maint-queue migration inserts at whatever
--- sequence value it finds, so the residual max changes across template builds).
+-- Clean slate: delete non-maintenance tasks, restart sequences
 DELETE FROM worker.tasks WHERE parent_id IS NOT NULL;
 DELETE FROM worker.tasks WHERE command NOT IN ('task_cleanup', 'import_job_cleanup');
-DELETE FROM worker.tasks WHERE state = 'pending';
-SELECT setval('worker.tasks_id_seq', COALESCE(MAX(id), 0)) FROM worker.tasks;
+ALTER SEQUENCE worker.tasks_id_seq RESTART WITH 3;
 
 -- Suppress DEBUG noise from process_tasks
 SET client_min_messages = warning;

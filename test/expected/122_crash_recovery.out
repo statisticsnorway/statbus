@@ -9,10 +9,9 @@
 BEGIN;
 -- Lock worker.tasks to prevent background worker interference and ensure deterministic IDs
 LOCK TABLE worker.tasks IN EXCLUSIVE MODE;
--- Clean slate: delete non-maintenance tasks, pending maintenance stubs, restart sequences
+-- Clean slate: delete non-maintenance tasks, restart sequences
 DELETE FROM worker.tasks WHERE parent_id IS NOT NULL;
 DELETE FROM worker.tasks WHERE command NOT IN ('task_cleanup', 'import_job_cleanup');
-DELETE FROM worker.tasks WHERE state = 'pending';
 ALTER SEQUENCE worker.tasks_id_seq RESTART WITH 3;
 -- Suppress DEBUG noise from process_tasks
 SET client_min_messages = warning;
@@ -154,8 +153,8 @@ WHERE command = 'derive_statistical_unit'
 ORDER BY id;
  id |         command         |    state    | priority 
 ----+-------------------------+-------------+----------
-  6 | derive_statistical_unit | interrupted |       50
-  7 | derive_statistical_unit | pending     |       10
+  7 | derive_statistical_unit | interrupted |       50
+  8 | derive_statistical_unit | pending     |       10
 (2 rows)
 
 \echo "--- C2. Process one task — interrupted should be picked first ---"
@@ -175,8 +174,8 @@ WHERE command = 'derive_statistical_unit'
 ORDER BY id;
  id |         command         |   state   | priority |        label        
 ----+-------------------------+-----------+----------+---------------------
-  6 | derive_statistical_unit | completed |       50 | A (was interrupted)
-  7 | derive_statistical_unit | pending   |       10 | B (was pending)
+  7 | derive_statistical_unit | completed |       50 | A (was interrupted)
+  8 | derive_statistical_unit | pending   |       10 | B (was pending)
 (2 rows)
 
 ROLLBACK TO SAVEPOINT scenario_c;
@@ -216,8 +215,8 @@ WHERE id IN (:parent_id, :child_id)
 ORDER BY id;
  id |            command             |   state   |  role  
 ----+--------------------------------+-----------+--------
-  8 | derive_statistical_unit        | completed | parent
-  9 | statistical_unit_refresh_batch | completed | child
+  9 | derive_statistical_unit        | completed | parent
+ 10 | statistical_unit_refresh_batch | completed | child
 (2 rows)
 
 ROLLBACK TO SAVEPOINT scenario_d;
@@ -252,9 +251,9 @@ WHERE id IN (:fail_parent_id, :fail_child_id, :fail_child2_id)
 ORDER BY id;
  id |            command             |    state    |        role         
 ----+--------------------------------+-------------+---------------------
- 10 | derive_statistical_unit        | failed      | parent
- 11 | statistical_unit_refresh_batch | interrupted | child (interrupted)
- 12 | statistical_unit_refresh_batch | pending     | child (pending)
+ 11 | derive_statistical_unit        | failed      | parent
+ 12 | statistical_unit_refresh_batch | interrupted | child (interrupted)
+ 13 | statistical_unit_refresh_batch | pending     | child (pending)
 (3 rows)
 
 \echo "--- E2. Cascade fail descendants ---"
@@ -279,9 +278,9 @@ WHERE id IN (:fail_parent_id, :fail_child_id, :fail_child2_id)
 ORDER BY id;
  id |            command             | state  |       error        |          role           
 ----+--------------------------------+--------+--------------------+-------------------------
- 10 | derive_statistical_unit        | failed | Simulated failure  | parent
- 11 | statistical_unit_refresh_batch | failed | Parent task failed | child (was interrupted)
- 12 | statistical_unit_refresh_batch | failed | Parent task failed | child (was pending)
+ 11 | derive_statistical_unit        | failed | Simulated failure  | parent
+ 12 | statistical_unit_refresh_batch | failed | Parent task failed | child (was interrupted)
+ 13 | statistical_unit_refresh_batch | failed | Parent task failed | child (was pending)
 (3 rows)
 
 ROLLBACK TO SAVEPOINT scenario_e;
