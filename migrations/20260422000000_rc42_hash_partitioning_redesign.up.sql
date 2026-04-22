@@ -681,19 +681,18 @@ BEGIN
 END;
 $statistical_history_def$;
 
--- -- public.statistical_history_facet_def (param rename, same signature) -----
--- Parameter name changes (p_partition_seq → p_hash_slot) but arg types are
--- unchanged. PostgreSQL `CREATE OR REPLACE FUNCTION` CANNOT rename IN
--- parameters ("cannot change name of input parameter"), so we must DROP
--- first. statistical_history_facet_type is NOT dropped by Block C (only
--- statistical_history_type is), so the pre-rc.42 facet_def is still live
--- here and blocks CREATE OR REPLACE. Explicit DROP frees the slot.
+-- -- public.statistical_history_facet_def (rewrite: p_hash_partition int4range) -
+-- rc.42 fix: the pre-rc.42 contract was (resolution, year, month, p_partition_seq int),
+-- where one invocation covered all slots in that partition_seq via hash_slot % modulus.
+-- The initial rc.42 rewrite kept it as (resolution, year, month, p_hash_slot int),
+-- forcing the period handler to fan out via generate_series + CROSS JOIN LATERAL and
+-- call this function once per slot — 16,384 CTE invocations per period at default
+-- settings vs pre-rc.42's 256, yielding a 64× regression (measured 70× on tests 106/107).
 --
--- Body is verbatim from
--- doc/db/function/public_statistical_history_facet_def(history_resolution, integer, integer, integer).md
--- with TWO substitutions:
---   p_partition_seq            → p_hash_slot
---   su.report_partition_seq    → su.hash_slot
+-- The correct shape matches the sibling statistical_history_def: accept an int4range
+-- and do ONE CTE pipeline over every slot in the range, GROUP BY hash_slot. Returns
+-- SETOF statistical_history_facet_partitions (the target table rowtype) so the period
+-- handler is a trivial INSERT ... SELECT *.
 DROP FUNCTION IF EXISTS public.statistical_history_facet_def(
     public.history_resolution, integer, integer, integer
 );
@@ -701,9 +700,9 @@ CREATE OR REPLACE FUNCTION public.statistical_history_facet_def(
     p_resolution public.history_resolution,
     p_year integer,
     p_month integer,
-    p_hash_slot integer DEFAULT NULL
+    p_hash_partition int4range DEFAULT NULL
 )
-RETURNS SETOF public.statistical_history_facet_type
+RETURNS SETOF public.statistical_history_facet_partitions
 LANGUAGE plpgsql
 AS $statistical_history_facet_def$
 DECLARE
@@ -730,7 +729,11 @@ BEGIN
         SELECT *
         FROM public.statistical_unit su
         WHERE daterange(su.valid_from, su.valid_to, '[)') && daterange(v_prev_start, v_curr_stop + 1, '[)')
-          AND (p_hash_slot IS NULL OR su.hash_slot = p_hash_slot)
+          -- Partition filter: explicit half-open bounds hit the btree index on
+          -- statistical_unit(hash_slot). Mirrors statistical_history_def.
+          AND (p_hash_partition IS NULL
+               OR (su.hash_slot >= lower(p_hash_partition)
+                   AND su.hash_slot <  upper(p_hash_partition)))
     ),
     latest_versions_curr AS (
         SELECT DISTINCT ON (uip.unit_id, uip.unit_type) uip.*
@@ -756,9 +759,12 @@ BEGIN
           AND COALESCE(lvp.birth_date, lvp.valid_from) <= v_prev_stop
           AND (lvp.death_date IS NULL OR lvp.death_date > v_prev_stop)
     ),
-    -- PERF: pre-aggregate stats with composite key for fast hash join.
+    -- PERF: pre-aggregate per-(slot, facet) stats for fast hash join.
+    -- hash_slot is a pure function of (unit_type, unit_id) so every lvc row
+    -- already has the slot it belongs to.
     stats_by_facet AS (
         SELECT
+            hash_slot,
             unit_type::text || '|' ||
             COALESCE(primary_activity_category_path::text, '') || '|' ||
             COALESCE(secondary_activity_category_path::text, '') || '|' ||
@@ -771,13 +777,16 @@ BEGIN
             COALESCE(public.jsonb_stats_merge_agg(stats_summary), '{}'::jsonb) AS stats_summary
         FROM latest_versions_curr
         WHERE used_for_counting
-        GROUP BY 1
+        GROUP BY 1, 2
     ),
-    -- PERF: flatten columns instead of storing entire ROW types.
+    -- PERF: flatten columns instead of storing entire ROW types. Carry hash_slot
+    -- forward via COALESCE(c.hash_slot, p.hash_slot) — both are equal for any
+    -- matching (unit_id, unit_type) because hash_slot is a pure function.
     changed_units AS (
         SELECT
             COALESCE(c.unit_id, p.unit_id) AS unit_id,
             COALESCE(c.unit_type, p.unit_type) AS unit_type,
+            COALESCE(c.hash_slot, p.hash_slot) AS hash_slot,
             c.unit_id AS c_unit_id, c.used_for_counting AS c_used_for_counting,
             c.primary_activity_category_path AS c_pac_path,
             c.secondary_activity_category_path AS c_sac_path,
@@ -805,6 +814,7 @@ BEGIN
     ),
     demographics AS (
         SELECT
+            hash_slot,
             p_resolution, p_year, p_month,
             unit_type,
             COALESCE(c_pac_path, p_pac_path) AS primary_activity_category_path,
@@ -847,9 +857,10 @@ BEGIN
             count(*) FILTER (WHERE p_used_for_counting AND c_used_for_counting AND c_size_id IS DISTINCT FROM p_size_id)::integer AS unit_size_change_count,
             count(*) FILTER (WHERE p_used_for_counting AND c_used_for_counting AND c_status_id IS DISTINCT FROM p_status_id)::integer AS status_change_count
         FROM changed_units
-        GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
+        GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14
     )
     SELECT
+        d.hash_slot,
         d.p_resolution AS resolution,
         d.p_year AS year,
         d.p_month AS month,
@@ -884,7 +895,7 @@ BEGIN
         d.status_change_count,
         COALESCE(s.stats_summary, '{}'::jsonb) AS stats_summary
     FROM demographics d
-    LEFT JOIN stats_by_facet s ON s.facet_key = d.facet_key;
+    LEFT JOIN stats_by_facet s ON s.hash_slot = d.hash_slot AND s.facet_key = d.facet_key;
 END;
 $statistical_history_facet_def$;
 
@@ -938,9 +949,11 @@ BEGIN
 END;
 $derive_statistical_history_period$;
 
--- -- worker.derive_statistical_history_facet_period -------------------------
--- Fans the int4range out slot-by-slot (generate_series) and calls the
--- per-slot statistical_history_facet_def for each.
+-- -- worker.derive_statistical_history_facet_period (payload key: hash_partition) -
+-- rc.42 fix: mirrors the sibling derive_statistical_history_period shape.
+-- The old generate_series + CROSS JOIN LATERAL called statistical_history_facet_def
+-- once per slot (up to 16,384× per period at fixture scale) — root cause of the 70×
+-- regression. New shape: one INSERT, one CTE pipeline, GROUP BY hash_slot internally.
 CREATE OR REPLACE PROCEDURE worker.derive_statistical_history_facet_period(IN payload jsonb, INOUT p_info jsonb DEFAULT NULL::jsonb)
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -951,20 +964,19 @@ DECLARE
     v_year integer := (payload->>'year')::integer;
     v_month integer := (payload->>'month')::integer;
     v_hash_partition int4range := (payload->>'hash_partition')::int4range;
-    v_hash_slot_from integer := lower(v_hash_partition);
-    v_hash_slot_to   integer := upper(v_hash_partition) - 1;  -- int4range upper is exclusive
     v_row_count bigint;
 BEGIN
     DELETE FROM public.statistical_history_facet_partitions
      WHERE resolution = v_resolution
        AND year = v_year
        AND month IS NOT DISTINCT FROM v_month
-       AND hash_slot BETWEEN v_hash_slot_from AND v_hash_slot_to;
+       AND hash_slot >= lower(v_hash_partition)
+       AND hash_slot <  upper(v_hash_partition);
 
     INSERT INTO public.statistical_history_facet_partitions
-    SELECT hash_slot, h.*
-    FROM generate_series(v_hash_slot_from, v_hash_slot_to) AS hash_slot
-    CROSS JOIN LATERAL public.statistical_history_facet_def(v_resolution, v_year, v_month, hash_slot) AS h;
+    SELECT * FROM public.statistical_history_facet_def(
+        v_resolution, v_year, v_month, v_hash_partition
+    );
 
     GET DIAGNOSTICS v_row_count := ROW_COUNT;
     p_info := jsonb_build_object('rows_inserted', v_row_count);
