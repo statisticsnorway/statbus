@@ -1102,7 +1102,20 @@ func runInstallService(dir string) error {
 		return fmt.Errorf("enable service: %w", err)
 	}
 
-	fmt.Printf("  Upgrade service installed and started: %s\n", instance)
+	// Verify the boot-enable symlink was actually created. Bug observed on
+	// rune 2026-04-22: `systemctl --user enable --now` exited 0 but the
+	// default.target.wants/ symlink was missing — service ran but wouldn't
+	// start after a reboot. Reproducer: enable invoked when the service was
+	// already started externally (standalone.sh's ensure_service_started
+	// failure-path ran `start` earlier). Fail loudly so the installer
+	// doesn't silently deliver a host that regresses on its next reboot.
+	out, isEnabledErr := exec.Command("systemctl", "--user", "is-enabled", instance).Output()
+	state := strings.TrimSpace(string(out))
+	if state != "enabled" {
+		return fmt.Errorf("enable reported success but is-enabled=%q (err=%v); service will not start on boot — investigate systemctl user-bus / loginctl linger", state, isEnabledErr)
+	}
+
+	fmt.Printf("  Upgrade service installed and started: %s (is-enabled=%s)\n", instance, state)
 	return nil
 }
 
@@ -1474,8 +1487,16 @@ func runRootInstall() error {
 		return fmt.Errorf("enable service: %w", err)
 	}
 
+	// Mirror the user-service verification above: confirm the boot-enable
+	// symlink exists. See runInstallService for the bug-history comment.
+	out, isEnabledErr := exec.Command("systemctl", "is-enabled", instance).Output()
+	state := strings.TrimSpace(string(out))
+	if state != "enabled" {
+		return fmt.Errorf("enable reported success but is-enabled=%q (err=%v); service will not start on boot", state, isEnabledErr)
+	}
+
 	fmt.Println()
-	fmt.Printf("  Upgrade service installed and started: %s\n", instance)
+	fmt.Printf("  Upgrade service installed and started: %s (is-enabled=%s)\n", instance, state)
 	fmt.Println("  Re-run without sudo to verify: ./sb install")
 	return nil
 }
