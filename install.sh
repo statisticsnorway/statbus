@@ -153,8 +153,12 @@ if [ -d "$STATBUS_DIR/.git" ]; then
     echo "Binary: $(./sb --version)"
     echo ""
     echo "Checking out $VERSION..."
+    # No --quiet on checkout: bug observed 2026-04-22 on rune canary
+    # where a silent checkout failure (resolved on retry) hid its cause
+    # behind --quiet, forcing operators to ssh in and re-run manually.
+    # Keep fetch quiet (progress spam) but let checkout speak for itself.
     git fetch origin --tags --quiet
-    git checkout "$VERSION" --quiet
+    git checkout "$VERSION"
 else
     # FRESH: git clone creates the directory
     echo "Cloning StatBus repository..."
