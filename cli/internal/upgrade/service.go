@@ -126,6 +126,21 @@ const (
 	HolderInstall = "install"
 )
 
+// FlagPhase discriminates where executeUpgrade had reached when the holder's
+// process last ran. The service swaps the ./sb binary on disk mid-flow then
+// hands off to a fresh process via exit 42 / systemd restart so the remaining
+// steps run against the NEW compiled Go. recoverFromFlag branches on Phase to
+// distinguish a crashed pre-swap run (rollback) from an expected post-swap
+// handoff (resume).
+//
+// Legacy flags pre-dating Option C lack the field and deserialize as empty;
+// recoverFromFlag treats empty as FlagPhasePreSwap, preserving the prior
+// "HEAD=target => self-heal to completed" semantics.
+const (
+	FlagPhasePreSwap  = ""          // default: written before replaceBinaryOnDisk, or legacy
+	FlagPhasePostSwap = "post_swap" // stamped after binary swap, before exit-42 handoff
+)
+
 // UpgradeFlag is written to tmp/upgrade-in-progress.json before destructive
 // steps begin (by either the upgrade service or `./sb install`). The file
 // doubles as the kernel-enforced mutex: holders take a flock(LOCK_EX) on
@@ -151,14 +166,17 @@ const (
 // than a false "still running" diagnosis. Holder also defaults to empty
 // (treated as "service").
 type UpgradeFlag struct {
-	ID          int       `json:"id"`           // 0 when Holder=="install"
-	CommitSHA   string    `json:"commit_sha"`   // "" when Holder=="install"
-	DisplayName string    `json:"display_name"` // version OR install description
-	PID         int       `json:"pid"`          // os.Getpid() at write time
-	StartedAt   time.Time `json:"started_at"`   // time.Now() at write time
-	InvokedBy   string    `json:"invoked_by"`   // specific trigger (e.g. "notify:v2026.04.1", "operator:jhf")
-	Trigger     string    `json:"trigger"`      // coarse bucket ("notify"|"scheduled"|"recovery"|"install")
-	Holder      string    `json:"holder"`       // HolderService or HolderInstall
+	ID          int       `json:"id"`                 // 0 when Holder=="install"
+	CommitSHA   string    `json:"commit_sha"`         // "" when Holder=="install"
+	DisplayName string    `json:"display_name"`       // version OR install description
+	PID         int       `json:"pid"`                // os.Getpid() at write time
+	StartedAt   time.Time `json:"started_at"`         // time.Now() at write time
+	InvokedBy   string    `json:"invoked_by"`         // specific trigger (e.g. "notify:v2026.04.1", "operator:jhf")
+	Trigger     string    `json:"trigger"`            // coarse bucket ("notify"|"scheduled"|"recovery"|"install")
+	Holder      string    `json:"holder"`             // HolderService or HolderInstall
+	Phase       string    `json:"phase,omitempty"`       // FlagPhasePreSwap (default) or FlagPhasePostSwap
+	Recreate    bool      `json:"recreate,omitempty"`    // captures d.pendingRecreate so resumePostSwap can replay --recreate
+	BackupPath  string    `json:"backup_path,omitempty"` // finalized backup dir, populated at Phase=post_swap so resumePostSwap can roll back without DB
 }
 
 // flagFilePath returns the canonical flag file location under projDir.
@@ -256,7 +274,12 @@ func (l *FlagLock) Close() {
 // writeUpgradeFlag is the service's acquire. On success, the FlagLock
 // held on d.flagLock keeps the flock alive for the duration of
 // executeUpgrade. removeUpgradeFlag closes it to release.
-func (d *Service) writeUpgradeFlag(id int, commitSHA, displayName, invokedBy, trigger string) error {
+//
+// Phase is initialised to FlagPhasePreSwap; writeFlagPhase rewrites it to
+// FlagPhasePostSwap after replaceBinaryOnDisk, right before the exit-42
+// handoff. Recreate captures d.pendingRecreate so the resumed post-swap
+// process can replay the --recreate branch identically.
+func (d *Service) writeUpgradeFlag(id int, commitSHA, displayName, invokedBy, trigger string, recreate bool) error {
 	flag := UpgradeFlag{
 		ID:          id,
 		CommitSHA:   commitSHA,
@@ -266,12 +289,58 @@ func (d *Service) writeUpgradeFlag(id int, commitSHA, displayName, invokedBy, tr
 		InvokedBy:   invokedBy,
 		Trigger:     trigger,
 		Holder:      HolderService,
+		Phase:       FlagPhasePreSwap,
+		Recreate:    recreate,
 	}
 	lock, err := acquireFlock(d.projDir, flag)
 	if err != nil {
 		return err
 	}
 	d.flagLock = lock
+	return nil
+}
+
+// updateFlagPostSwap rewrites the on-disk flag JSON without releasing the
+// flock: sets Phase=FlagPhasePostSwap and stores backupPath so the new
+// binary's recoverFromFlag → resumePostSwap can resume without a live DB
+// connection (queryConn is closed mid-flow for the consistent backup).
+//
+// Preconditions: d.flagLock holds the flock (set by writeUpgradeFlag).
+// Uses the already-open fd so the flock is preserved across the rewrite.
+func (d *Service) updateFlagPostSwap(backupPath string) error {
+	if d.flagLock == nil || d.flagLock.file == nil {
+		return fmt.Errorf("updateFlagPostSwap: no flag file held")
+	}
+	f := d.flagLock.file
+	if _, err := f.Seek(0, 0); err != nil {
+		return fmt.Errorf("seek flag for read: %w", err)
+	}
+	data, err := io.ReadAll(f)
+	if err != nil {
+		return fmt.Errorf("read flag: %w", err)
+	}
+	var flag UpgradeFlag
+	if err := json.Unmarshal(data, &flag); err != nil {
+		return fmt.Errorf("unmarshal flag: %w", err)
+	}
+	flag.Phase = FlagPhasePostSwap
+	flag.BackupPath = backupPath
+	newData, err := json.MarshalIndent(flag, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal flag: %w", err)
+	}
+	if _, err := f.Seek(0, 0); err != nil {
+		return fmt.Errorf("seek flag for write: %w", err)
+	}
+	if err := f.Truncate(0); err != nil {
+		return fmt.Errorf("truncate flag: %w", err)
+	}
+	if _, err := f.Write(newData); err != nil {
+		return fmt.Errorf("write flag: %w", err)
+	}
+	if err := f.Sync(); err != nil {
+		return fmt.Errorf("sync flag: %w", err)
+	}
 	return nil
 }
 
@@ -541,6 +610,23 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 	if holder == HolderInstall {
 		logRecover("Clearing stale install flag (PID %d crashed or exited without releasing)", flag.PID)
 		os.Remove(d.flagPath())
+		return
+	}
+
+	// Post-swap restart (exit 42 after replaceBinaryOnDisk): this is NOT a
+	// crash. The prior process image intentionally handed off to the new
+	// binary so that migrate + health-check + post-swap steps run against
+	// the freshly-compiled Go. Resume the pipeline from config-generate
+	// onward rather than marking the row completed — the upgrade isn't
+	// actually done yet.
+	if flag.Phase == FlagPhasePostSwap {
+		logRecover("Post-swap restart detected for upgrade %d (%s) — resuming pipeline on new binary (pid=%d)",
+			flag.ID, flag.DisplayName, os.Getpid())
+		if appendLog != nil {
+			appendLog.Close()
+			appendLog = nil
+		}
+		d.resumePostSwap(ctx, flag)
 		return
 	}
 
@@ -2296,7 +2382,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// survives and recoverFromFlag at the next service startup reconciles
 	// it (it's on the filesystem, not in the DB volume which gets rolled
 	// back).
-	if err := d.writeUpgradeFlag(id, commitSHA, displayName, invokedBy, trigger); err != nil {
+	if err := d.writeUpgradeFlag(id, commitSHA, displayName, invokedBy, trigger, d.pendingRecreate); err != nil {
 		// TODO: pick code — mutex flag acquisition failure; consider adding ErrInstallPreconditionFailed
 		msg := fmt.Sprintf("Could not acquire upgrade-mutex flag file: %v", err)
 		d.failUpgrade(ctx, id, msg, progress)
@@ -2416,20 +2502,74 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 		}
 	}
 
-	// Step 6b: Swap ./sb for the release binary BEFORE any subprocess runs.
-	// Without this, `./sb config generate` and `./sb migrate up` below would
-	// execute the OLD compiled Go against NEW templates/migrations — the
-	// rc.6→rc.7 SITE_DOMAIN/PGHOST class of bug (#9). Tagged releases only
-	// (sha-* edge commits have no release binary in the manifest).
+	// Step 6b: Swap ./sb for the release binary BEFORE any subprocess runs,
+	// then hand off to a fresh process so the remaining in-process Go runs
+	// against the NEW compiled code. Without this handoff, bugs fixed between
+	// releases (e.g. rc.48→rc.51's healthURL) stay latent because the long-
+	// running daemon's .text segment still holds the old binary image even
+	// though ./sb on disk is the new version.
+	//
+	// Tagged releases only (sha-* edge commits have no release binary in the
+	// manifest).
+	needsRestartForNewBinary := false
 	if !strings.HasPrefix(displayName, "sha-") {
 		if err := d.replaceBinaryOnDisk(displayName, progress); err != nil {
 			d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: %v", ErrBinaryReplaceFailed, err), progress)
 			return err
 		}
+		// Under the service (long-running daemon), hand off via exit 42.
+		// Install-inline (ExecuteUpgradeInline) already runs in a fresh
+		// `./sb install` process image with the new binary on disk — no
+		// handoff needed; fall through to applyPostSwap in-process.
+		needsRestartForNewBinary = d.runningAsService
 	}
 
-	// Regenerate config — VERSION is derived from git describe --tags --always,
-	// which returns the tag name (e.g., v2026.03.0-rc.3) since we just checked it out.
+	if needsRestartForNewBinary {
+		// Stamp the flag as post-swap and store the finalised backup path
+		// so resumePostSwap (after systemd restart) can roll back without
+		// a live DB connection. queryConn was closed back at Step 2 for the
+		// consistent-backup stop, so we can't persist to public.upgrade
+		// here — the flag file is the handoff channel.
+		if err := d.updateFlagPostSwap(backupPath); err != nil {
+			d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("stamp post_swap flag: %v", err), progress)
+			return err
+		}
+		progress.Write("Binary swapped on disk. Handing off to fresh process on the new binary via systemd restart...")
+		progress.Close()
+		// Exit 42 → systemd restart → new binary's Run() → recoverFromFlag
+		// sees Phase=FlagPhasePostSwap and dispatches resumePostSwap, which
+		// re-enters the pipeline at applyPostSwap.
+		os.Exit(42)
+	}
+
+	// Install-inline (one-shot, runningAsService=false) and sha-* edge commits
+	// (no release binary to swap) both continue in-process. applyPostSwap
+	// runs the same steps the resumed service would run.
+	return d.applyPostSwap(ctx, id, commitSHA, displayName, previousVersion, backupPath, d.pendingRecreate, progress)
+}
+
+// applyPostSwap runs the upgrade steps that require the target binary's
+// compiled code: config generate → docker pull → db up → waitForDBHealth →
+// reconnect → persist final backup_path → migrate → app/worker/rest up →
+// health check → maintenance off → archive → install-fixup → state=completed.
+//
+// Entry points:
+//
+//  1. executeUpgrade — fall-through path for install-inline (already a fresh
+//     process image) and sha-* edge commits (no mid-flow binary swap).
+//  2. resumePostSwap — after a systemd restart following exit 42; the new
+//     service process rebuilt its progress log + flock from flag state and
+//     re-enters here.
+//
+// Preconditions on entry: db container stopped; maintenance mode on; backup
+// on disk at backupPath; git HEAD at target commit; ./sb binary at target
+// version; d.queryConn is nil (reopened via reconnect() below). Flag file
+// and its flock are held by d.flagLock.
+func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayName, previousVersion, backupPath string, recreate bool, progress *ProgressLog) error {
+	projDir := d.projDir
+
+	// Regenerate config via the NEW binary. VERSION comes from git describe
+	// --tags --always against the just-checked-out HEAD.
 	progress.Write("Regenerating configuration...")
 	if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "config-generate", filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
 		// TODO: pick code — config generate failure; no Err* code defined yet
@@ -2487,8 +2627,11 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 		progress.Write("Warning: could not update backup_path to final path for upgrade id=%d: %v", id, err)
 	}
 
-	// Step 10: Run migrations (or recreate database if requested)
-	if d.pendingRecreate {
+	// Step 10: Run migrations (or recreate database if requested).
+	// `recreate` arrives via parameter (from d.pendingRecreate at pre-swap time,
+	// or from flag.Recreate after a post-swap restart). d.pendingRecreate is
+	// reset to false so a subsequent upgrade doesn't accidentally recreate.
+	if recreate {
 		d.pendingRecreate = false
 		progress.Write("Recreating database from scratch (--recreate)...")
 		if err := runCommandToLog(projDir, 30*time.Minute, progress.File(), "recreate-database", filepath.Join(projDir, "dev.sh"), "recreate-database"); err != nil {
@@ -2544,29 +2687,24 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// This exercises the install path on every upgrade, catching install bugs early.
 	//
 	// The flag file we wrote at writeUpgradeFlag is still on disk at this point
-	// (it's removed later on success, line ~1454). Install's upgrade-mutex check
-	// would normally abort because it sees our flag — so we pass the bypass signal
-	// both via the --inside-active-upgrade flag (visible in ps/logs for audit) and
-	// via STATBUS_INSIDE_ACTIVE_UPGRADE=1 env var (propagates through exec chains).
-	// Either is sufficient; we set both for defense in depth.
+	// (it's removed below on success). Install's upgrade-mutex check would
+	// normally abort because it sees our flag — so we pass the bypass signal
+	// both via the --inside-active-upgrade flag (visible in ps/logs for audit)
+	// and via STATBUS_INSIDE_ACTIVE_UPGRADE=1 env var (propagates through exec
+	// chains). Either is sufficient; we set both for defense in depth.
 	progress.Write("Running install fixups...")
 	if err := runInstallFixup(projDir); err != nil {
 		progress.Write("%s: post-upgrade install fixups failed: %v", ErrInstallFixupFailed, err)
 		// Non-fatal — the upgrade itself succeeded
 	}
 
-	// Self-update binary (may restart service via exit code 42).
-	// If self-update restarts, the NEW service marks completed_at on startup
-	// (completeInProgressUpgrade) — so "completed" means the new version is verified.
-	// Only for tagged releases — SHA commits don't have release binaries.
-	if !strings.HasPrefix(displayName, "sha-") {
-		d.selfUpdate(ctx, displayName, progress)
-	}
+	// selfUpdate is intentionally NOT invoked here: Option C moved the
+	// binary-swap handoff earlier (right after replaceBinaryOnDisk in
+	// executeUpgrade) so the current process is already running the target
+	// binary. A second exit-42 here would be a no-op systemd restart
+	// costing ~30s of extra downtime for nothing.
 
-	// If we get here, self-update didn't restart (no binary for platform, or same version).
-	// Mark complete now since there won't be a new service to do it. The full
-	// narrative lives in the on-disk log (served via /upgrade-logs/<name>); the
-	// admin UI fetches it by name when the operator expands the "Log" panel.
+	// Mark complete.
 	progress.Write("Upgrade to %s complete!", displayName)
 	var normalJSON string
 	completedSQL := "UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_status = 'ready' WHERE id = $1" + upgradeRowReturning
@@ -2583,7 +2721,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 					id, reconErr, thisLine(), os.Getpid())
 				d.markTerminal("RECONNECT_ON_STALE_CONN_SUCCEEDS",
 					fmt.Sprintf("id=%d; reconnect err=%v", id, reconErr))
-				d.writeDiagnosticBundle(ctx, int(id), progress)
+				d.writeDiagnosticBundle(ctx, id, progress)
 				return fmt.Errorf("RECONNECT_ON_STALE_CONN_SUCCEEDS: %w", reconErr)
 			}
 		}
@@ -2599,8 +2737,8 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 		// If the error is a DB-enforced invariant (e.g. chk_upgrade_state_attributes
 		// log-pointer arm), prefer the specific name so the support bundle surfaces
 		// the precise cause rather than the generic transition-persisted name.
-		if dbName := d.markPgInvariantTerminal(lastScanErr, "service.go:executeUpgrade:completed-terminal"); dbName != "" {
-			d.writeDiagnosticBundle(ctx, int(id), progress)
+		if dbName := d.markPgInvariantTerminal(lastScanErr, "service.go:applyPostSwap:completed-terminal"); dbName != "" {
+			d.writeDiagnosticBundle(ctx, id, progress)
 			return fmt.Errorf("%s: %w", dbName, lastScanErr)
 		}
 		fmt.Fprintf(os.Stderr,
@@ -2608,7 +2746,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 			id, lastScanErr, attempt+1, thisLine(), os.Getpid())
 		d.markTerminal("NORMAL_COMPLETED_TRANSITION_PERSISTED",
 			fmt.Sprintf("id=%d; final Scan err=%v; attempts=%d", id, lastScanErr, attempt+1))
-		d.writeDiagnosticBundle(ctx, int(id), progress)
+		d.writeDiagnosticBundle(ctx, id, progress)
 		return fmt.Errorf("NORMAL_COMPLETED_TRANSITION_PERSISTED: %w", lastScanErr)
 	}
 	log.Println("state=completed")
@@ -2630,6 +2768,71 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	d.runUpgradeCallback(displayName)
 
 	return nil
+}
+
+// resumePostSwap re-enters the upgrade pipeline in the new binary after a
+// mid-flow exit-42 restart. Called from recoverFromFlag when the flag's
+// Phase is FlagPhasePostSwap.
+//
+// Recovers state from: flag (CommitSHA, DisplayName, BackupPath, Recreate,
+// InvokedBy, Trigger, ID) and DB row (from_version, log_relative_file_path).
+// Then re-acquires the flock (prior process died, kernel released it),
+// reopens the progress log in append mode, and calls applyPostSwap.
+//
+// Control returns to Run() after applyPostSwap completes. If applyPostSwap
+// fails, rollback() has already run inside it.
+func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) {
+	var fromVersion sql.NullString
+	var logRelPath sql.NullString
+	err := d.queryConn.QueryRow(ctx,
+		"SELECT from_version, log_relative_file_path FROM public.upgrade WHERE id = $1", flag.ID).
+		Scan(&fromVersion, &logRelPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr,
+			"resumePostSwap: cannot load upgrade %d state (err=%v) — giving up and leaving flag for manual triage\n",
+			flag.ID, err)
+		return
+	}
+
+	// Reopen the progress log. Append-mode so the narrative is continuous
+	// across the restart. If the file is missing (manual tmp cleanup), fall
+	// through to a fresh log so the resume path still reports progress.
+	progress := AppendProgressLog(d.projDir, logRelPath.String)
+	if progress == nil {
+		progress = NewUpgradeLog(d.projDir, int64(flag.ID), flag.DisplayName, time.Now().UTC())
+	}
+	progress.Write("Post-swap restart detected — resuming upgrade on new binary (pid=%d)", os.Getpid())
+
+	// Re-acquire the flock on the flag file. The prior holder's fd was
+	// released by the kernel at exit; the file on disk still has our
+	// Phase=post_swap stamp.
+	reacquired := UpgradeFlag{
+		ID:          flag.ID,
+		CommitSHA:   flag.CommitSHA,
+		DisplayName: flag.DisplayName,
+		PID:         os.Getpid(),
+		StartedAt:   time.Now(),
+		InvokedBy:   flag.InvokedBy,
+		Trigger:     flag.Trigger,
+		Holder:      HolderService,
+		Phase:       FlagPhasePostSwap,
+		Recreate:    flag.Recreate,
+		BackupPath:  flag.BackupPath,
+	}
+	lock, lerr := acquireFlock(d.projDir, reacquired)
+	if lerr != nil {
+		progress.Write("resumePostSwap: re-acquire flock failed: %v", lerr)
+		progress.Close()
+		return
+	}
+	d.flagLock = lock
+	d.upgrading = true
+	defer func() { d.upgrading = false }()
+
+	if applyErr := d.applyPostSwap(ctx, flag.ID, flag.CommitSHA, flag.DisplayName, fromVersion.String, flag.BackupPath, flag.Recreate, progress); applyErr != nil {
+		// rollback() already ran inside applyPostSwap; just return.
+		return
+	}
 }
 
 // runUpgradeCallback notifies external systems after a successful upgrade.

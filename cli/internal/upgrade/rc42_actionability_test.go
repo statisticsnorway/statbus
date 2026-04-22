@@ -127,7 +127,7 @@ func TestRemoveUpgradeFlag_RemovesFile(t *testing.T) {
 	}
 
 	d := &Service{projDir: projDir}
-	if err := d.writeUpgradeFlag(42, "abc123def456", "v0.0.0-test", "test", string(TriggerService)); err != nil {
+	if err := d.writeUpgradeFlag(42, "abc123def456", "v0.0.0-test", "test", string(TriggerService), false); err != nil {
 		t.Fatalf("writeUpgradeFlag failed: %v", err)
 	}
 
@@ -143,7 +143,7 @@ func TestRemoveUpgradeFlag_RemovesFile(t *testing.T) {
 	}
 
 	// Re-acquire should succeed (flock was released, file is gone).
-	if err := d.writeUpgradeFlag(43, "abc123def457", "v0.0.0-test2", "test", string(TriggerService)); err != nil {
+	if err := d.writeUpgradeFlag(43, "abc123def457", "v0.0.0-test2", "test", string(TriggerService), false); err != nil {
 		t.Errorf("re-acquire after removeUpgradeFlag should succeed; got: %v", err)
 	}
 	d.removeUpgradeFlag()
