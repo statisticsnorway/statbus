@@ -15313,9 +15313,9 @@ export type Database = {
           p_resolution?: Database["public"]["Enums"]["history_resolution"]
           p_year?: number
           p_month?: number
-          p_hash_slot?: number
+          p_hash_partition?: string
         }
-        Returns: Database["public"]["CompositeTypes"]["statistical_history_facet_type"][]
+        Returns: Database["public"]["Tables"]["statistical_history_facet_partitions"]["Row"][]
       },
       statistical_history_facet_derive: {
         Args: {
