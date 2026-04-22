@@ -79,7 +79,7 @@ LEFT JOIN (
     GROUP BY unit_type
 ) AS p USING (unit_type)
 ORDER BY a.unit_type;
- unit_type  | aggregate_exists_count | per_partition_sum | consistent
+ unit_type  | aggregate_exists_count | per_partition_sum | consistent 
 ------------+------------------------+-------------------+------------
  legal_unit |                      2 |                 2 | t
  enterprise |                      2 |                 2 | t
@@ -87,71 +87,62 @@ ORDER BY a.unit_type;
 
 RESET ROLE;
 CALL test.set_user_from_email('test.admin@statbus.org');
--- === Inject orphan: simulate stale partition rows from a prior upgrade ===
--- hash_partition [999999,1000000) is outside the normal [0,16384) range.
--- A full rebuild only spawns children for partitions occupied by current
--- statistical_unit rows. This orphan is never visited, so on HEAD it
--- survives the rebuild and statistical_history_reduce sums it into the
--- NULL summary row.
+-- === Capture lu_a's legal_unit.id before deletion ===
+-- We need the id to (a) perform the DELETE, (b) compute the expected hash_slot
+-- post-deletion for the structural assertion. psql \gset captures the column
+-- as a ':' variable interpolated into later statements.
 SET LOCAL ROLE postgres;
-INSERT INTO public.statistical_history
-  (resolution, year, month, unit_type,
-   exists_count, exists_change, exists_added_count, exists_removed_count,
-   countable_count, countable_change, countable_added_count, countable_removed_count,
-   births, deaths, name_change_count, primary_activity_category_change_count,
-   secondary_activity_category_change_count, sector_change_count, legal_form_change_count,
-   physical_region_change_count, physical_country_change_count, physical_address_change_count,
-   stats_summary, hash_partition)
-VALUES
-  ('year', 2021, NULL, 'enterprise',
-   7, 0, 0, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-   '{}'::jsonb, '[999999,1000000)'::int4range),
-  ('year', 2021, NULL, 'legal_unit',
-   7, 0, 0, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-   '{}'::jsonb, '[999999,1000000)'::int4range);
+SELECT lu.id AS lu_a_id,
+       public.hash_slot('legal_unit'::public.statistical_unit_type, lu.id) AS lu_a_slot
+  FROM public.legal_unit AS lu
+  JOIN public.external_ident AS ei ON ei.legal_unit_id = lu.id
+  JOIN public.external_ident_type AS eit ON eit.id = ei.type_id
+ WHERE eit.code = 'tax_ident'
+   AND ei.ident = '100000001'  -- tax_ident of 204_regression_lu_a.csv
+\gset
 RESET ROLE;
 CALL test.set_user_from_email('test.admin@statbus.org');
--- === Full rebuild: all-NULL payload triggers full refresh path ===
-DO $spawn_collect_changes$
-BEGIN
-  PERFORM worker.spawn(
-      p_command => 'collect_changes',
-      p_payload => jsonb_build_object(
-          'establishment_id_ranges', NULL,
-          'legal_unit_id_ranges',    NULL,
-          'enterprise_id_ranges',    NULL,
-          'power_group_id_ranges',   NULL,
-          'valid_ranges',            NULL
-      )
-  );
-END;
-$spawn_collect_changes$;
+\echo "--- Captured lu_a.id and its computed hash_slot (will be the orphan slot after DELETE) ---"
+"--- Captured lu_a.id and its computed hash_slot (will be the orphan slot after DELETE) ---"
+\echo :lu_a_id
+1
+\echo :lu_a_slot
+2955
+-- === Natural orphan trigger: user-driven DELETE of one legal_unit ===
+-- log_base_change fires → base_change_log captures lu_a.id.
+-- derive_statistical_unit (scoped branch) orphan-cleanup DELETEs lu_a from
+-- statistical_unit + timeline + timepoints + timesegments.
+-- Under HEAD code: lu_a's hash_slot is NOT marked dirty (it's absent from
+-- _batches, which reads from base tables where lu_a no longer exists), so
+-- derive_statistical_{history, unit_facet, history_facet} never visit that
+-- slot. Stale rows survive in all three carriers.
+SET LOCAL ROLE postgres;
+SET CONSTRAINTS ALL DEFERRED;
+DELETE FROM public.legal_unit WHERE id = :lu_a_id;
+RESET ROLE;
+CALL test.set_user_from_email('test.admin@statbus.org');
 CALL worker.process_tasks(p_queue => 'analytics');
--- === Assert A: orphan partition row must be gone after fix ===
--- Expected AFTER FIX: 0 rows.
--- Expected ON HEAD:   2 rows (enterprise=7, legal_unit=7) -- orphan survived.
-\echo "--- Assert A: orphan hash_partition=[999999,1000000) absent after rebuild (0 rows = pass) ---"
-"--- Assert A: orphan hash_partition=[999999,1000000) absent after rebuild (0 rows = pass) ---"
-SET LOCAL ROLE postgres;
-SELECT hash_partition, unit_type, exists_count
-FROM public.statistical_history
-WHERE hash_partition = '[999999,1000000)'::int4range
-ORDER BY unit_type;
-(0 rows)
-
-RESET ROLE;
-CALL test.set_user_from_email('test.admin@statbus.org');
--- === Assert B: NULL summary equals sum of partition rows ===
--- Expected AFTER FIX: consistent=t, aggregate_exists_count=2, per_partition_sum=2.
--- Expected ON HEAD:   consistent=t but both are 9 (inflated by orphan).
-\echo "--- Assert B: NULL summary equals sum of partition rows ---"
-"--- Assert B: NULL summary equals sum of partition rows ---"
+-- === Assert (a) statistical_history NULL-summary == partition SUM == truth ===
+-- Catches the original #102 / #97 inflation. On HEAD: NULL summary sums the
+-- orphan partition row belonging to deleted lu_a → exists_count=2 when truth=1.
+\echo "--- Assert (a): history NULL-summary consistent with partition sums AND matches statistical_unit truth ---"
+"--- Assert (a): history NULL-summary consistent with partition sums AND matches statistical_unit truth ---"
 SET LOCAL ROLE postgres;
 SELECT
     a.unit_type,
     a.aggregate_exists_count,
     COALESCE(p.partitions_sum, 0) AS per_partition_sum,
-    a.aggregate_exists_count = COALESCE(p.partitions_sum, 0) AS consistent
+    (SELECT COUNT(*)::integer
+       FROM public.statistical_unit AS su
+      WHERE su.unit_type = a.unit_type
+        AND su.valid_from <= '2021-01-01'::date
+        AND '2021-01-01'::date < su.valid_until) AS truth,
+    a.aggregate_exists_count = COALESCE(p.partitions_sum, 0)
+      AND a.aggregate_exists_count = (SELECT COUNT(*)::integer
+            FROM public.statistical_unit AS su
+           WHERE su.unit_type = a.unit_type
+             AND su.valid_from <= '2021-01-01'::date
+             AND '2021-01-01'::date < su.valid_until) AS consistent_and_truthful
 FROM (
     SELECT unit_type, exists_count AS aggregate_exists_count
     FROM public.statistical_history
@@ -166,40 +157,102 @@ LEFT JOIN (
     GROUP BY unit_type
 ) AS p USING (unit_type)
 ORDER BY a.unit_type;
- unit_type  | aggregate_exists_count | per_partition_sum | consistent
-------------+------------------------+-------------------+------------
- legal_unit |                      2 |                 2 | t
- enterprise |                      2 |                 2 | t
+ unit_type  | aggregate_exists_count | per_partition_sum | truth | consistent_and_truthful 
+------------+------------------------+-------------------+-------+-------------------------
+ legal_unit |                      1 |                 1 |     1 | t
+ enterprise |                      1 |                 1 |     1 | t
 (2 rows)
 
 RESET ROLE;
 CALL test.set_user_from_email('test.admin@statbus.org');
--- === Assert C: NULL summary matches direct unit count (truth) ===
--- Expected AFTER FIX: matches_truth=t, null_row_count=truth=2.
--- Expected ON HEAD:   matches_truth=f, null_row_count=9 vs truth=2.
-\echo "--- Assert C: NULL summary exists_count matches statistical_unit truth ---"
-"--- Assert C: NULL summary exists_count matches statistical_unit truth ---"
+-- === Assert (b) statistical_unit_facet current-state matches statistical_unit truth ===
+-- Catches #109 (inflation) + #110 (overlap). On HEAD: facet SUM > truth
+-- because the deleted unit's slot still contributes via statistical_unit_facet_staging.
+\echo "--- Assert (b): statistical_unit_facet current-state equals statistical_unit truth ---"
+"--- Assert (b): statistical_unit_facet current-state equals statistical_unit truth ---"
 SELECT
-    sh.unit_type,
-    sh.exists_count                                     AS null_row_count,
+    f.unit_type,
+    SUM(f.count)::integer AS facet_implied_count,
     (SELECT COUNT(*)::integer
        FROM public.statistical_unit AS su
-      WHERE su.unit_type = sh.unit_type
-        AND su.valid_from <= '2021-01-01'::date
-        AND '2021-01-01'::date < su.valid_until)        AS truth,
-    sh.exists_count = (SELECT COUNT(*)::integer
+      WHERE su.unit_type = f.unit_type
+        AND su.valid_until = 'infinity'::date) AS truth,
+    SUM(f.count)::integer = (SELECT COUNT(*)::integer
        FROM public.statistical_unit AS su
-      WHERE su.unit_type = sh.unit_type
-        AND su.valid_from <= '2021-01-01'::date
-        AND '2021-01-01'::date < su.valid_until)        AS matches_truth
-FROM public.statistical_history AS sh
-WHERE sh.resolution = 'year' AND sh.year = 2021 AND sh.hash_partition IS NULL
-  AND sh.unit_type IN ('enterprise', 'legal_unit')
-ORDER BY sh.unit_type;
- unit_type  | null_row_count | truth | matches_truth
-------------+----------------+-------+---------------
- legal_unit |              2 |     2 | t
- enterprise |              2 |     2 | t
+      WHERE su.unit_type = f.unit_type
+        AND su.valid_until = 'infinity'::date) AS matches
+FROM public.statistical_unit_facet AS f
+WHERE f.valid_until = 'infinity'::date
+  AND f.unit_type IN ('enterprise', 'legal_unit')
+GROUP BY f.unit_type
+ORDER BY f.unit_type;
+ unit_type  | facet_implied_count | truth | matches 
+------------+---------------------+-------+---------
+ legal_unit |                   1 |     1 | t
+ enterprise |                   1 |     1 | t
 (2 rows)
+
+-- === Assert (c) structural — zero orphan rows at deleted slot in every carrier ===
+-- The strongest version: after deletion + pipeline, the deleted unit's hash_slot
+-- must have ZERO rows in every downstream carrier. On HEAD: nonzero in each.
+\echo "--- Assert (c): no orphan rows at deleted lu_a's hash_slot in any carrier ---"
+"--- Assert (c): no orphan rows at deleted lu_a's hash_slot in any carrier ---"
+SET LOCAL ROLE postgres;
+SELECT
+    'statistical_history'::text                   AS carrier,
+    COUNT(*)::integer                             AS orphan_rows
+FROM public.statistical_history AS sh
+WHERE sh.hash_partition IS NOT NULL
+  AND sh.hash_partition @> :lu_a_slot
+  AND sh.unit_type IN ('enterprise', 'legal_unit')
+  AND sh.exists_count > 0
+UNION ALL
+SELECT 'statistical_unit_facet_staging',
+       COUNT(*)::integer
+FROM public.statistical_unit_facet_staging AS s
+WHERE s.hash_slot = :lu_a_slot
+UNION ALL
+SELECT 'statistical_history_facet_partitions',
+       COUNT(*)::integer
+FROM public.statistical_history_facet_partitions AS p
+WHERE p.hash_slot = :lu_a_slot
+ORDER BY carrier;
+               carrier                | orphan_rows 
+--------------------------------------+-------------
+ statistical_history                  |           0
+ statistical_history_facet_partitions |           0
+ statistical_unit_facet_staging       |           0
+(3 rows)
+
+RESET ROLE;
+CALL test.set_user_from_email('test.admin@statbus.org');
+-- === Assert (c') user-surface drilldown parity ===
+-- statistical_history_drilldown reads from statistical_history_facet.
+-- Aggregated enterprise count at year=2021 must equal the number of enterprises
+-- actually present in statistical_unit at that point. On HEAD: inflated by the
+-- orphan's legacy facet contribution.
+\echo "--- Assert (c'): statistical_history_facet enterprise year=2021 total equals statistical_unit truth ---"
+"--- Assert (c'): statistical_history_facet enterprise year=2021 total equals statistical_unit truth ---"
+SELECT
+    'enterprise'::text                                         AS unit_type,
+    COALESCE(SUM(shf.exists_count), 0)::integer                AS drilldown_count,
+    (SELECT COUNT(*)::integer
+       FROM public.statistical_unit AS su
+      WHERE su.unit_type = 'enterprise'
+        AND su.valid_from <= '2021-01-01'::date
+        AND '2021-01-01'::date < su.valid_until)               AS truth,
+    COALESCE(SUM(shf.exists_count), 0)::integer = (SELECT COUNT(*)::integer
+       FROM public.statistical_unit AS su
+      WHERE su.unit_type = 'enterprise'
+        AND su.valid_from <= '2021-01-01'::date
+        AND '2021-01-01'::date < su.valid_until)               AS matches
+FROM public.statistical_history_facet AS shf
+WHERE shf.resolution = 'year'
+  AND shf.year = 2021
+  AND shf.unit_type = 'enterprise';
+ unit_type  | drilldown_count | truth | matches 
+------------+-----------------+-------+---------
+ enterprise |               1 |     1 | t
+(1 row)
 
 ROLLBACK;
