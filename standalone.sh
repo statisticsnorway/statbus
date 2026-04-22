@@ -131,16 +131,18 @@ ssh_host() {
 }
 
 # Stop the user-level upgrade service on the target host so ./sb can be
-# replaced without "text file busy". The unit is statbus-upgrade@<name>.service
-# — $name IS the DEPLOYMENT_SLOT_CODE by our registry convention.
+# replaced without "text file busy". The unit instance suffix after `@` is
+# the deployment user (see cli/cmd/install.go:serviceInstance). On standalone
+# hosts the user is always `statbus` (single-tenant convention), so the
+# instance is `statbus-upgrade@statbus.service` regardless of slot code.
 stop_upgrade_service() {
     local name="$1"
-    ssh_host "$name" "systemctl --user stop statbus-upgrade@${name}.service 2>/dev/null || true" 2>&1
+    ssh_host "$name" "systemctl --user stop statbus-upgrade@statbus.service 2>/dev/null || true" 2>&1
 }
 
 ensure_service_started() {
     local name="$1"
-    ssh_host "$name" "systemctl --user start statbus-upgrade@${name}.service" 2>&1 || true
+    ssh_host "$name" "systemctl --user start statbus-upgrade@statbus.service" 2>&1 || true
 }
 
 trust_flag() {

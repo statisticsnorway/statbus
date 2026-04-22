@@ -689,16 +689,15 @@ func checkServiceDone(dir string) bool {
 }
 
 // serviceInstance returns the systemd instance name, e.g. "statbus-upgrade@statbus_dev.service"
-func serviceInstance(dir string) string {
-	f, err := dotenv.Load(filepath.Join(dir, ".env.config"))
-	if err != nil {
+// (cloud, user is statbus_<slot>) or "statbus-upgrade@statbus.service" (standalone, user is statbus).
+// The instance suffix after `@` is the deployment user — matches the convention already used
+// by upgrade.go's channel-set restart, and works on both deployment shapes.
+func serviceInstance(_ string) string {
+	u := os.Getenv("USER")
+	if u == "" {
 		return ""
 	}
-	code, ok := f.Get("DEPLOYMENT_SLOT_CODE")
-	if !ok || code == "" {
-		return ""
-	}
-	return fmt.Sprintf("statbus-upgrade@statbus_%s.service", code)
+	return fmt.Sprintf("statbus-upgrade@%s.service", u)
 }
 
 // ── Step runners ──
