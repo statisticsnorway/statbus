@@ -274,7 +274,13 @@ AS $function$
          , included_enterprise_count
          , tag_paths
          , daterange(valid_from, valid_until) AS valid_range
-         , report_partition_seq
+         -- R-B renames this column back to report_partition_seq later in the
+         -- down migration. At function CREATE time the column is still
+         -- hash_slot (from rc.42 up migration Block A), and LANGUAGE sql
+         -- validates column refs immediately. Alias to the pre-rc.42 output
+         -- name; the stored parse tree binds by column oid, which survives
+         -- the later rename, so runtime resolution is stable.
+         , hash_slot AS report_partition_seq
     FROM full_units;
 $function$;
 
