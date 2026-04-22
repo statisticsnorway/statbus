@@ -8,9 +8,10 @@ BEGIN;
 -- Lock worker.tasks to prevent background worker interference and ensure deterministic IDs
 LOCK TABLE worker.tasks IN EXCLUSIVE MODE;
 
--- Clean slate: delete non-maintenance tasks, restart sequences
+-- Clean slate: delete non-maintenance tasks, pending maintenance stubs, restart sequences
 DELETE FROM worker.tasks WHERE parent_id IS NOT NULL;
 DELETE FROM worker.tasks WHERE command NOT IN ('task_cleanup', 'import_job_cleanup');
+DELETE FROM worker.tasks WHERE state = 'pending';
 ALTER SEQUENCE worker.tasks_id_seq RESTART WITH 3;
 
 -- Suppress DEBUG noise from process_tasks

@@ -23,10 +23,15 @@ ALTER SEQUENCE public.legal_unit_id_seq RESTART WITH 1;
 ALTER SEQUENCE public.establishment_id_seq RESTART WITH 1;
 
 -- Clean up accumulated worker tasks for test isolation.
--- Only maintenance tasks (task_cleanup, import_job_cleanup) are kept.
--- Delete children first (FK on parent_id), then remaining non-maintenance tasks.
+-- Keep only the original stuck-failed maintenance stubs (id=1,2).
+-- Delete children first (FK on parent_id), then non-maintenance tasks,
+-- then any pending maintenance rows seeded by migrations after the original
+-- two stubs were created (e.g. the maint-queue-migration enqueues fresh
+-- pending rows at higher IDs — leaving them would conflict with the
+-- hardcoded RESTART WITH 3 used by tests 116/121/122).
 DELETE FROM worker.tasks WHERE parent_id IS NOT NULL;
 DELETE FROM worker.tasks WHERE command NOT IN ('task_cleanup', 'import_job_cleanup');
+DELETE FROM worker.tasks WHERE state = 'pending';
 ALTER SEQUENCE worker.tasks_id_seq RESTART WITH 3;
 
 \if :{?DEBUG}

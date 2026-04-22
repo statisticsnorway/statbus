@@ -111,8 +111,8 @@ ORDER BY ei.ident;
 SELECT slug, name, valid FROM public.import_definition WHERE slug LIKE 'legal_relationship%';
               slug               |                  name                   | valid 
 ---------------------------------+-----------------------------------------+-------
- legal_relationship_source_dates | Legal Relationships (Source Dates)      | t
  legal_relationship_job_provided | Legal Relationships (Job Provided Time) | t
+ legal_relationship_source_dates | Legal Relationships (Source Dates)      | t
 (2 rows)
 
 -- Create import job for legal relationships
