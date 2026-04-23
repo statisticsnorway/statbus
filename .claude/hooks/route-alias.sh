@@ -1,17 +1,19 @@
 #!/bin/bash
-# route-alias.sh — two-pass name handling for SendMessage + Task* tools.
+# route-alias.sh — two-step name handling for SendMessage + Task* tools.
 #
-#   Pass 1: rewrite natural-language aliases (`main`, `counsel`) to the
-#           canonical roster name (`team-lead`).
-#   Pass 2: validate the final recipient / owner against the team roster.
-#           Unknown names are denied with a visible error listing valid
-#           names — converts the claude-code#25135 silent-drop bug into
-#           a loud failure the caller has to fix.
+#   Step 1: rewrite the agent-facing role name to the harness's internal
+#           routing name. In our vocabulary the team-lead is the
+#           `foreman`; agents always use `foreman` (or legacy aliases
+#           `main` / `counsel`). This step rewrites all three to the
+#           harness name `team-lead` so message delivery works.
+#   Step 2: validate the final recipient / owner against the team roster.
+#           Unknown names are denied with a visible error — converts the
+#           claude-code#25135 silent-drop bug into a loud failure.
 #
-# Both passes are necessary. Pass 1 alone restores natural language but
-# still lets typos ("prtnr", "test-interrn") silently vanish.
-# Pass 2 alone would reject `main` and `counsel` (not real members)
-# — so the rewrite must run first.
+# Both steps are necessary. Step 1 alone restores natural names but
+# still lets typos ("fromen", "operatr") silently vanish.
+# Step 2 alone would reject `foreman` (not a roster member, the
+# harness knows it as `team-lead`) — so the rewrite must run first.
 #
 # Broadcast (`to: "*"`) is always allowed — no validation needed.
 # Empty owner on TaskCreate/TaskUpdate is allowed (not every task op
@@ -40,7 +42,7 @@ emit_rewrite() {
   "hookSpecificOutput": {
     "hookEventName": "PreToolUse",
     "permissionDecision": "allow",
-    "permissionDecisionReason": "route-alias: rewrote ${_tool} ${_field} '${_orig}' -> 'team-lead' (alias; claude-code#25135)",
+    "permissionDecisionReason": "route-alias: canonicalised ${_tool} ${_field} '${_orig}' -> 'team-lead' (harness routing name)",
     "updatedInput": ${_updated}
   }
 }
@@ -86,9 +88,10 @@ format_roster_inline() {
   fi
 }
 
-# is_alias: returns 0 (true) if the name is a known alias for team-lead
+# is_alias: returns 0 (true) if the name aliases the team-lead (the foreman).
+# Agents use `foreman`; legacy aliases `main` and `counsel` also accepted.
 is_alias() {
-  [[ "$1" == "main" || "$1" == "counsel" ]]
+  [[ "$1" == "foreman" || "$1" == "main" || "$1" == "counsel" ]]
 }
 
 # ── main ──
@@ -114,14 +117,12 @@ case "$tool" in
       roster_inline=$(format_roster_inline)
       emit_deny "BLOCKED: no team member named \"${recipient}\" (shutdown-protocol message — aliases not rewritten).
 
-Current roster (canonical names):
+Current roster:
   ${roster_inline}
 
-Aliases (rewritten transparently for normal traffic, NOT for shutdown protocol):
-  main    → team-lead
-  counsel → team-lead
-
-Use the canonical name for shutdown_request / shutdown_response.
+Use the exact roster name for shutdown_request / shutdown_response.
+For the team-lead (foreman), use \"team-lead\" here — this is the one
+place shutdown traffic requires the harness name directly.
 
 Hook source: .claude/hooks/route-alias.sh"
       exit 0
@@ -131,13 +132,7 @@ Hook source: .claude/hooks/route-alias.sh"
     rewritten_input="$input"
     final_recipient="$recipient"
     if is_alias "$recipient"; then
-      rewritten_input=$(jq --arg orig "$recipient" \
-        'if (.message | type) == "string"
-           then .summary = "(alias " + $orig + " -> team-lead) " + (.summary // "")
-           else .
-         end
-         | .to = "team-lead"' \
-        <<<"$input")
+      rewritten_input=$(jq '.to = "team-lead"' <<<"$input")
       final_recipient="team-lead"
     fi
 
@@ -164,20 +159,16 @@ Hook source: .claude/hooks/route-alias.sh"
     roster_inline=$(format_roster_inline)
     emit_deny "BLOCKED: no team member named \"${recipient}\".
 
-Current roster (canonical names, SendMessage these directly):
+Current roster:
   ${roster_inline}
 
-Aliases (rewritten transparently):
-  main    → team-lead
-  counsel → team-lead
+To reach the foreman, use SendMessage(to: \"foreman\", ...). For any other
+role, use the roster name exactly.
 
 Why this hook exists: SendMessage returns success:true for any string,
 but only names matching a real member's .name field have a readable
 inbox. Typo'd names silently drop — GitHub issue #25135 (closed not
 planned). Hence this hook turns the silent drop into a loud typo-catch.
-
-Example: to reach team-lead, SendMessage(to: \"team-lead\", ...) or
-SendMessage(to: \"main\", ...) (aliased). Not SendMessage(to: \"${recipient}\").
 
 Hook source: .claude/hooks/route-alias.sh"
     exit 0
@@ -214,19 +205,16 @@ Hook source: .claude/hooks/route-alias.sh"
     roster_inline=$(format_roster_inline)
     emit_deny "BLOCKED: no team member named \"${owner}\" (${tool} owner field).
 
-Current roster (canonical names):
+Current roster:
   ${roster_inline}
 
-Aliases (rewritten transparently):
-  main    → team-lead
-  counsel → team-lead
+To assign to the foreman, use owner: \"foreman\". For any other role,
+use the roster name exactly (e.g. \"tester\", \"operator\", \"mechanic\",
+\"engineer\").
 
 Why this hook exists: an unknown owner orphans the task silently — the
 same silent-drop class as GitHub issue #25135. This hook turns it into
 a loud typo-catch.
-
-Example: TaskUpdate(owner: \"tester\") or TaskUpdate(owner: \"main\") (aliased).
-Not TaskUpdate(owner: \"${owner}\").
 
 Hook source: .claude/hooks/route-alias.sh"
     exit 0
