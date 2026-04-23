@@ -78,9 +78,10 @@ fi
 # Three outcomes, each printed verbatim to stdout with reason + evidence +
 # override hint:
 #
-#   REFUSED  migrations/ has uncommitted changes. A stamp written now would
-#            not honestly reflect HEAD (dirty files aren't in the commit the
-#            stamp records), so refuse before doing any work.
+#   REFUSED  any file inside the caller's content scope has uncommitted
+#            changes. A stamp written now would not honestly reflect HEAD
+#            (dirty files aren't in the commit the stamp records), so refuse
+#            before doing any work.
 #   SKIPPED  the stamp file exists, points to an ancestor of HEAD, and no
 #            file in the caller's content scope has changed between that
 #            ancestor and HEAD — re-running the command would produce an
@@ -90,14 +91,15 @@ fi
 #            in-scope content drifted since the stamp.
 #
 # Escape hatches:
-#   FORCE=1              bypass all guards, always run.
+#   FORCE=1              bypass all guards, always run + stamp.
 #   rm tmp/<stamp>       force next invocation from SKIP to RUN.
 #
-# Arguments: <command_label> <stamp_basename> <skip_scope_path...>
-# REFUSE scope is fixed to "migrations/" — the stamping precondition is the
-# same for every command (can't stamp a dirty migration tree). SKIP scope is
-# the caller's content scope: what the command actually consumes. Fast-test
-# passes "migrations test"; types/db-docs pass just "migrations".
+# Arguments: <command_label> <stamp_basename> <scope_path...>
+# REFUSE and SKIP share the same scope — the files the command actually
+# consumes. Fast-test passes "migrations test"; types/db-docs pass just
+# "migrations". Non-strict baseline paths (test/expected/explain,
+# test/expected/performance) are always excluded from dirty-checks: they
+# drift with environment and shouldn't block a release.
 #
 # Return codes: 0 = RUN (continue), 1 = SKIP (caller should exit 0),
 #               2 = REFUSE (caller should exit 1).
@@ -105,8 +107,10 @@ check_stamp_guard() {
     local label="$1"
     local stamp_basename="$2"
     shift 2
-    local skip_scopes=("$@")
+    local scopes=("$@")
     local stamp_path="$WORKSPACE/tmp/$stamp_basename"
+    # Non-strict baselines: routine environment drift, never block release.
+    local excludes=(':!test/expected/explain/' ':!test/expected/performance/')
 
     if [ "${FORCE:-}" = "1" ] || [ "${FORCE:-}" = "true" ]; then
         echo "RUNNING: $label"
@@ -114,15 +118,17 @@ check_stamp_guard() {
         return 0
     fi
 
+    # REFUSE: any file inside the scope (minus excludes) has uncommitted
+    # staged or unstaged changes. A stamp written on top of that would lie.
     local dirty
-    dirty=$(git -C "$WORKSPACE" status --porcelain -- migrations/ 2>/dev/null)
+    dirty=$(git -C "$WORKSPACE" status --porcelain -- "${scopes[@]}" "${excludes[@]}" 2>/dev/null)
     if [ -n "$dirty" ]; then
         echo "REFUSED: $label"
-        echo "Reason:  migrations/ has uncommitted changes — stamping would not"
+        echo "Reason:  ${scopes[*]} has uncommitted changes — stamping would not"
         echo "         honestly reflect HEAD."
         echo "Evidence:"
         printf '%s\n' "$dirty" | sed 's/^/  /'
-        echo "Override: commit or stash migrations/ changes, or set FORCE=1 to bypass."
+        echo "Override: commit or stash the changes, or set FORCE=1 to bypass."
         return 2
     fi
 
@@ -150,14 +156,14 @@ check_stamp_guard() {
     head_sha=$(git -C "$WORKSPACE" rev-parse HEAD 2>/dev/null)
 
     local changed
-    changed=$(git -C "$WORKSPACE" diff --name-only "$stamp_sha" HEAD -- "${skip_scopes[@]}" 2>/dev/null)
+    changed=$(git -C "$WORKSPACE" diff --name-only "$stamp_sha" HEAD -- "${scopes[@]}" 2>/dev/null)
     if [ -z "$changed" ]; then
         echo "SKIPPED: $label"
-        echo "Reason:  stamp tmp/$stamp_basename points to a commit whose ${skip_scopes[*]} content matches HEAD — re-running would produce an identical result."
+        echo "Reason:  stamp tmp/$stamp_basename points to a commit whose ${scopes[*]} content matches HEAD — re-running would produce an identical result."
         echo "Evidence:"
         echo "  stamp SHA: $stamp_sha"
         echo "  HEAD SHA:  $head_sha"
-        echo "  files changed in scope (${skip_scopes[*]}): 0"
+        echo "  files changed in scope (${scopes[*]}): 0"
         echo "Override: rm tmp/$stamp_basename, or set FORCE=1."
         return 1
     fi
@@ -167,7 +173,7 @@ check_stamp_guard() {
     echo "Evidence:"
     echo "  stamp SHA: $stamp_sha"
     echo "  HEAD SHA:  $head_sha"
-    echo "  files changed in scope (${skip_scopes[*]}):"
+    echo "  files changed in scope (${scopes[*]}):"
     printf '%s\n' "$changed" | sed 's/^/    /'
     return 0
 }
@@ -550,8 +556,11 @@ EOF
             done
         fi
 
-        # Exclude explain/performance baselines — they drift with environment and are regenerated every test run
-        if [ $OVERALL_EXIT_CODE -eq 0 ] && git diff --quiet -- ':!test/expected/explain/' ':!test/expected/performance/' 2>/dev/null && git diff --cached --quiet -- ':!test/expected/explain/' ':!test/expected/performance/' 2>/dev/null; then
+        # Write the stamp unconditionally on success — the upfront REFUSE
+        # guard already verified migrations/ and test/ (minus non-strict
+        # baselines) were clean at RUN time, so HEAD is an honest anchor.
+        # No silent skip: if we got here, we stamp.
+        if [ $OVERALL_EXIT_CODE -eq 0 ]; then
             mkdir -p "$WORKSPACE/tmp"
             git rev-parse HEAD > "$WORKSPACE/tmp/fast-test-passed-sha"
             echo "Fast test stamp recorded: $(cat "$WORKSPACE/tmp/fast-test-passed-sha")"
