@@ -8,16 +8,21 @@
 # Usage:
 #   ./cloud.sh status              Show version on all servers
 #   ./cloud.sh notify              Tell servers to check for updates (non-disruptive)
-#   ./cloud.sh upgrade             Force all servers to apply latest now
-#   ./cloud.sh install <server>    Full idempotent install (includes service via root)
-#   ./cloud.sh install all         Install ALL servers
+#   ./cloud.sh upgrade             Force all servers to apply latest now (via upgrade service)
+#   ./cloud.sh install <server>    Smart install: tries upgrade service first; full bootstrap if unreachable
+#   ./cloud.sh install <server> <version>  Pin to specific version — always full bootstrap
+#   ./cloud.sh install all         Install ALL servers (smart, in sequence)
+#   ./cloud.sh tail <server|all>   Follow upgrade log; auto-disconnects on completion
 #   ./cloud.sh rescue <server>     Alias for install (backwards compat)
 #   ./cloud.sh wipe <server>       DESTRUCTIVE: delete DB and recreate from scratch
 #
 # Escalation levels:
 #   notify   — gentle. Servers discover new version. Admin chooses when to upgrade.
-#   upgrade  — firm. Servers apply latest NOW. No approval needed.
-#   install  — full. Downloads fresh binary, re-runs install, installs service via root.
+#   upgrade  — firm. All servers apply latest NOW via upgrade service (non-disruptive binary).
+#   install  — smart. Tries upgrade service first (fast path); falls back to full bootstrap
+#              (stop service, replace binary, re-run install) only if service is unreachable.
+#              Pinning a version always takes the full bootstrap path.
+#   tail     — observe. Streams upgrade service journal; exits automatically on completion.
 #   create   — provision. Creates new deployment slot (DNS, user, workflows, etc.)
 #   inspect  — read-only. Shows credentials/URLs for all deployment slots.
 #   wipe     — destructive. Deletes database and recreates. Data is lost.
@@ -51,15 +56,17 @@ usage() {
     echo "Usage: $0 <command> [args]"
     echo ""
     echo "Commands:"
-    echo "  status              Show version on all servers"
-    echo "  notify              Tell servers to check for updates"
-    echo "  upgrade             Force all servers to apply latest"
-    echo "  install <server> [version]  Install server (optionally pin to specific version)"
-    echo "  install all [version]       Install ALL servers (optionally pin to specific version)"
-    echo "  rescue <server>     Alias for install"
-    echo "  create <code> <name>  Create new cloud installation"
-    echo "  inspect             Show credentials for all installations"
-    echo "  wipe <server>       DESTRUCTIVE: delete DB and recreate"
+    echo "  status                     Show version on all servers"
+    echo "  notify                     Tell servers to check for updates (non-disruptive)"
+    echo "  upgrade                    Force all servers to apply latest via upgrade service"
+    echo "  install <server>           Smart install: upgrade service first, full bootstrap fallback"
+    echo "  install <server> <version> Pin to version — always full bootstrap, no fast-path"
+    echo "  install all [version]      Install ALL servers in sequence"
+    echo "  tail <server|all>          Follow upgrade log; auto-disconnects on completion"
+    echo "  rescue <server>            Alias for install"
+    echo "  create <code> <name>       Create new cloud installation"
+    echo "  inspect                    Show credentials for all installations"
+    echo "  wipe <server>              DESTRUCTIVE: delete DB and recreate"
     echo ""
     echo "  migrate-down <server> <migration>  Roll back to before this migration (edge only)"
     echo "  migrate-up <server>               Apply pending migrations (edge only)"
@@ -263,6 +270,37 @@ cmd_migrate_up() {
     echo "Done."
 }
 
+# cmd_tail_one tails the upgrade service journal for one server and
+# auto-disconnects when a terminal state is logged. Prints the final
+# upgrade status afterwards.
+cmd_tail_one() {
+    local server="$1"
+    echo "--- Tailing upgrade log for $server (auto-disconnect on completion) ---"
+    ssh_server "$server" \
+        "journalctl --user -u 'statbus-upgrade@${server}.service' -f -n 50 2>&1 | \
+         awk '/Installation complete|upgrade completed|upgrade failed|upgrade rolled_back|FAILED:/{print; fflush(); exit} {print; fflush()}'" \
+        || true
+    echo "--- Log tail disconnected for $server ---"
+    echo "Final upgrade status on $server:"
+    ssh_server "$server" "cd statbus && ./sb upgrade list" 2>&1 || true
+}
+
+# cmd_tail tails the upgrade log for one server or all servers in parallel.
+cmd_tail() {
+    local target="$1"
+    validate_server "$target"
+    if [ "$target" = "all" ]; then
+        local pids=()
+        for server in $SERVERS; do
+            cmd_tail_one "$server" &
+            pids+=($!)
+        done
+        wait "${pids[@]}"
+    else
+        cmd_tail_one "$target"
+    fi
+}
+
 cmd_install_one() {
     # Idempotent install flow:
     #   stop_upgrade_service → install → ensure_service_started
@@ -280,6 +318,19 @@ cmd_install_one() {
     local version="${2:-}"
     local exit_code=0
 
+    # Fast path: if no version is pinned, try the upgrade service first.
+    # If it accepts the request (exit 0), tail the journal and return.
+    # If it fails (service not running, DB down, etc.), fall through to the
+    # full bootstrap install below.
+    if [ -z "$version" ]; then
+        echo "Trying upgrade service on $server..."
+        if ssh_server "$server" "cd statbus && ./sb upgrade apply-latest" 2>&1; then
+            cmd_tail_one "$server"
+            return $?
+        fi
+        echo "Upgrade service not responsive — falling back to full bootstrap install..."
+    fi
+
     # Check the server's upgrade channel to decide install strategy.
     # Edge channel tracks master (build from source). Others use tagged releases.
     local channel
@@ -289,16 +340,22 @@ cmd_install_one() {
         if [ -n "$version" ]; then
             echo "Installing $server (edge — pinned to $version)..."
             # Pinned edge: checkout the specified tag and download its release binary.
-            ssh_server "$server" "cd statbus && git fetch origin --tags --quiet && git checkout $version --quiet" 2>&1
+            ssh_server "$server" "cd statbus && git fetch origin --tags --quiet && git checkout $version --quiet" 2>&1 \
+                || { echo "--- $server FAILED: git fetch/checkout $version (exit $?) ---"; \
+                     ensure_service_started "$server"; return 1; }
             echo "Downloading release binary for $version..."
             ssh_server "$server" \
-                "cd statbus && curl -fsSL https://github.com/statisticsnorway/statbus/releases/download/${version}/sb-linux-amd64 -o sb-linux-amd64 && chmod +x sb-linux-amd64" 2>&1
+                "cd statbus && curl -fsSL https://github.com/statisticsnorway/statbus/releases/download/${version}/sb-linux-amd64 -o sb-linux-amd64 && chmod +x sb-linux-amd64" 2>&1 \
+                || { echo "--- $server FAILED: download binary for $version (exit $?) ---"; \
+                     ensure_service_started "$server"; return 1; }
         else
             echo "Installing $server (edge channel — building from master)..."
             # Edge: pull latest master. If HEAD is a tagged release with a
             # published binary, download it (faster, no Go toolchain needed).
             # Otherwise fall back to building from source.
-            ssh_server "$server" "cd statbus && git fetch origin master --tags --quiet && git checkout origin/master --quiet" 2>&1
+            ssh_server "$server" "cd statbus && git fetch origin master --tags --quiet && git checkout origin/master --quiet" 2>&1 \
+                || { echo "--- $server FAILED: git fetch/checkout master (exit $?) ---"; \
+                     ensure_service_started "$server"; return 1; }
             # Check if HEAD is a tagged release with a downloadable binary.
             local head_tag
             head_tag=$(ssh_server "$server" "cd statbus && git describe --exact-match HEAD 2>/dev/null" 2>/dev/null || true)
@@ -307,14 +364,20 @@ cmd_install_one() {
                 if "$SCRIPT_DIR/sb" release check --tag "$head_tag" 2>/dev/null; then
                     echo "Release binary available — downloading instead of building."
                     ssh_server "$server" \
-                        "cd statbus && curl -fsSL https://github.com/statisticsnorway/statbus/releases/download/${head_tag}/sb-linux-amd64 -o sb-linux-amd64 && chmod +x sb-linux-amd64" 2>&1
+                        "cd statbus && curl -fsSL https://github.com/statisticsnorway/statbus/releases/download/${head_tag}/sb-linux-amd64 -o sb-linux-amd64 && chmod +x sb-linux-amd64" 2>&1 \
+                        || { echo "--- $server FAILED: download binary for $head_tag (exit $?) ---"; \
+                             ensure_service_started "$server"; return 1; }
                 else
                     echo "Release binary not ready — building from source..."
-                    ssh_server "$server" "cd statbus && export PATH=/home/linuxbrew/.linuxbrew/bin:\$PATH && ./dev.sh build-sb" 2>&1
+                    ssh_server "$server" "cd statbus && export PATH=/home/linuxbrew/.linuxbrew/bin:\$PATH && ./dev.sh build-sb" 2>&1 \
+                        || { echo "--- $server FAILED: build from source (exit $?) ---"; \
+                             ensure_service_started "$server"; return 1; }
                 fi
             else
                 echo "HEAD is untagged — building from source..."
-                ssh_server "$server" "cd statbus && export PATH=/home/linuxbrew/.linuxbrew/bin:\$PATH && ./dev.sh build-sb" 2>&1
+                ssh_server "$server" "cd statbus && export PATH=/home/linuxbrew/.linuxbrew/bin:\$PATH && ./dev.sh build-sb" 2>&1 \
+                    || { echo "--- $server FAILED: build from source (exit $?) ---"; \
+                         ensure_service_started "$server"; return 1; }
             fi
         fi
         # Check for modified migrations before proceeding. Edge channel only.
@@ -327,7 +390,9 @@ cmd_install_one() {
         # restarts it on exit (Restart=always), and the running process holds
         # the binary open → "text file busy" on mv.
         stop_upgrade_service "$server"
-        ssh_server "$server" "cd statbus && mv sb-linux-amd64 sb" 2>&1
+        ssh_server "$server" "cd statbus && mv sb-linux-amd64 sb" 2>&1 \
+            || { echo "--- $server FAILED: replace binary (exit $?) ---"; \
+                 ensure_service_started "$server"; return 1; }
         # ./sb install detects the service is stopped and restarts it (user-level, no root needed).
         # --trust-github-user validates/repairs the signing key in one pass.
         ssh_server "$server" "cd statbus && ./sb install $(trust_flag)" 2>&1 \
@@ -461,6 +526,10 @@ case "$1" in
     migrate-up)
         [ $# -lt 2 ] && { echo "Error: migrate-up requires a server name"; exit 1; }
         cmd_migrate_up "$2"
+        ;;
+    tail)
+        [ $# -lt 2 ] && { echo "Error: tail requires a server name or 'all'"; usage; }
+        cmd_tail "$2"
         ;;
     *)
         echo "Unknown command: $1"
