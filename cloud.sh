@@ -340,7 +340,7 @@ cmd_install_one() {
         if [ -n "$version" ]; then
             echo "Installing $server (edge — pinned to $version)..."
             # Pinned edge: checkout the specified tag and download its release binary.
-            ssh_server "$server" "cd statbus && git fetch origin --tags --quiet && git checkout $version --quiet" 2>&1 \
+            ssh_server "$server" "cd statbus && git fetch origin --tags --force --quiet && git checkout $version --quiet" 2>&1 \
                 || { echo "--- $server FAILED: git fetch/checkout $version (exit $?) ---"; \
                      ensure_service_started "$server"; return 1; }
             echo "Downloading release binary for $version..."
@@ -353,7 +353,7 @@ cmd_install_one() {
             # Edge: pull latest master. If HEAD is a tagged release with a
             # published binary, download it (faster, no Go toolchain needed).
             # Otherwise fall back to building from source.
-            ssh_server "$server" "cd statbus && git fetch origin master --tags --quiet && git checkout origin/master --quiet" 2>&1 \
+            ssh_server "$server" "cd statbus && git fetch origin master --tags --force --quiet && git checkout origin/master --quiet" 2>&1 \
                 || { echo "--- $server FAILED: git fetch/checkout master (exit $?) ---"; \
                      ensure_service_started "$server"; return 1; }
             # Check if HEAD is a tagged release with a downloadable binary.
