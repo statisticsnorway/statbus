@@ -30,6 +30,13 @@
 #     from the host's .env.config, NOT the host short name).
 #
 set -euo pipefail
+
+# DEBUG=1 ./standalone.sh <command> traces every command to stderr via `set -x`.
+# Matches the convention in dev.sh.
+if [ "${DEBUG:-}" = "true" ] || [ "${DEBUG:-}" = "1" ]; then
+    set -x
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Host registry: "<name>|<host_fqdn>|<served_domain>"

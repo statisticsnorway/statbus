@@ -23,6 +23,13 @@
 #   wipe     — destructive. Deletes database and recreates. Data is lost.
 #
 set -euo pipefail
+
+# DEBUG=1 ./cloud.sh <command> traces every command to stderr via `set -x`.
+# Matches the convention in dev.sh.
+if [ "${DEBUG:-}" = "true" ] || [ "${DEBUG:-}" = "1" ]; then
+    set -x
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Multi-tenant cloud slots on niue. `statbus_no` was removed on 2026-04-21
