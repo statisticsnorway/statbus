@@ -187,10 +187,16 @@ func preflightChecks(projDir string) bool {
 	//    Regenerating types first ensures tsc/build stamps reflect the
 	//    current schema.
 	checkMigrationStamp := func(stampFile, label, fixCmd string) {
+		failLabel := label
+		if strings.Contains(label, " covers ") {
+			failLabel = strings.Replace(label, " covers ", " does not cover ", 1)
+		} else if strings.Contains(label, " cover ") {
+			failLabel = strings.Replace(label, " cover ", " do not cover ", 1)
+		}
 		sp := filepath.Join(projDir, "tmp", stampFile)
 		sb, err := os.ReadFile(sp)
 		if err != nil {
-			fmt.Printf("  \u2717 %s (tmp/%s not found)\n", label, stampFile)
+			fmt.Printf("  \u2717 %s (tmp/%s not found)\n", failLabel, stampFile)
 			fmt.Printf("    Fix: %s\n", fixCmd)
 			allPassed = false
 			return
@@ -207,7 +213,7 @@ func preflightChecks(projDir string) bool {
 			fmt.Printf("  \u2713 %s (stamp: %s)\n", label, short)
 		} else {
 			migrationFiles := strings.Split(newMigrations, "\n")
-			fmt.Printf("  \u2717 %s\n", label)
+			fmt.Printf("  \u2717 %s\n", failLabel)
 			fmt.Printf("    %d new migration(s) since stamp:\n", len(migrationFiles))
 			for _, f := range migrationFiles {
 				if f != "" {
