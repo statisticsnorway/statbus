@@ -278,7 +278,7 @@ cmd_tail_one() {
     echo "--- Tailing upgrade log for $server (auto-disconnect on completion) ---"
     ssh_server "$server" \
         "journalctl --user -u 'statbus-upgrade@${server}.service' -o cat -f -n 50 2>&1 | \
-         awk '/Installation complete|upgrade completed|upgrade failed|upgrade rolled_back|FAILED:/{print; fflush(); exit} {print; fflush()}'" \
+         awk '/Upgrade to .*(completed|failed)|FAILED:/{print; fflush(); exit} {print; fflush()}'" \
         || true
     echo "--- Log tail disconnected for $server ---"
     echo "Final upgrade status on $server:"
