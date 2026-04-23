@@ -1,0 +1,11 @@
+-- Down Migration 20260423123858: maint_queue_cleanup_and_conditional_reboot
+--
+-- No-op: this migration's forward effect is either a no-op (fresh/healthy
+-- DBs) or a state transition from "pending-alongside-failed" to a
+-- canonical "pending-via-enqueue_X()" shape (stuck cloud sites). Reversing
+-- the latter would re-introduce the incorrect shape — worse, deleting the
+-- canonical pending rows would re-stick the maintenance cycle on any site
+-- that was recovered by this migration. If a rollback is ever required,
+-- the self-re-enqueue-on-success loop continues running normally and no
+-- manual action is needed.
+SELECT 1;

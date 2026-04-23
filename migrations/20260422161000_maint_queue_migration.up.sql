@@ -1,48 +1,28 @@
 BEGIN;
 
--- Re-enqueue stuck maintenance commands, but ONLY where they are stuck.
--- Guard: a command is "stuck" when a failed row exists AND there is no
--- pending successor. This matches the real production class observed on
--- installed sites (statbus_et, rune, etc. — task_cleanup / import_job_cleanup
--- at state='failed' from an old schema mismatch, no pending row because
--- the self-re-enqueue-on-success loop broke when the failed row landed).
---
--- Consequence: on any DB without that stuck state — fresh test DBs, fresh
--- dev DBs, installed sites that already recovered manually — this migration
--- is a no-op. No rows inserted, no sequence advanced, no test fixtures
--- perturbed.
-DO $maint_queue_reboot$
-DECLARE
-    v_rebooted text[] := ARRAY[]::text[];
+-- Reboot maintenance-queue self-scheduling: failed rows (not covered by the
+-- partial unique index on state='pending') never get retried because the
+-- command re-enqueues itself only on successful completion. Insert fresh
+-- pending rows via the canonical enqueue paths. Idempotent on healthy
+-- installs — existing pending rows are merged via ON CONFLICT.
+SELECT worker.enqueue_task_cleanup();
+SELECT worker.enqueue_import_job_cleanup();
+
+-- Assertion: after this migration, each command MUST have a pending row.
+-- If not, the migration silently failed and we want to know immediately.
+DO $maint_queue_assert$
 BEGIN
-    IF EXISTS (SELECT 1 FROM worker.tasks
-                WHERE command = 'task_cleanup'
-                  AND state = 'failed'::worker.task_state)
-       AND NOT EXISTS (SELECT 1 FROM worker.tasks
-                        WHERE command = 'task_cleanup'
-                          AND state = 'pending'::worker.task_state)
-    THEN
-        PERFORM worker.enqueue_task_cleanup();
-        v_rebooted := array_append(v_rebooted, 'task_cleanup');
-    END IF;
-
-    IF EXISTS (SELECT 1 FROM worker.tasks
-                WHERE command = 'import_job_cleanup'
-                  AND state = 'failed'::worker.task_state)
-       AND NOT EXISTS (SELECT 1 FROM worker.tasks
-                        WHERE command = 'import_job_cleanup'
-                          AND state = 'pending'::worker.task_state)
-    THEN
-        PERFORM worker.enqueue_import_job_cleanup();
-        v_rebooted := array_append(v_rebooted, 'import_job_cleanup');
-    END IF;
-
-    IF array_length(v_rebooted, 1) IS NOT NULL THEN
-        RAISE NOTICE 'maint-queue-migration: re-enqueued stuck commands: %', v_rebooted;
-    ELSE
-        RAISE NOTICE 'maint-queue-migration: no stuck maintenance state — no-op.';
-    END IF;
+  IF NOT EXISTS (SELECT 1 FROM worker.tasks
+                 WHERE command = 'task_cleanup'
+                   AND state = 'pending'::worker.task_state) THEN
+    RAISE EXCEPTION 'maint-queue-migration: no pending task_cleanup row after enqueue';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM worker.tasks
+                 WHERE command = 'import_job_cleanup'
+                   AND state = 'pending'::worker.task_state) THEN
+    RAISE EXCEPTION 'maint-queue-migration: no pending import_job_cleanup row after enqueue';
+  END IF;
 END;
-$maint_queue_reboot$;
+$maint_queue_assert$;
 
 COMMIT;
