@@ -225,7 +225,7 @@ Why this hook exists: an unknown owner orphans the task silently — the
 same silent-drop class as GitHub issue #25135. This hook turns it into
 a loud typo-catch.
 
-Example: TaskUpdate(owner: \"intern\") or TaskUpdate(owner: \"main\") (aliased).
+Example: TaskUpdate(owner: \"tester\") or TaskUpdate(owner: \"main\") (aliased).
 Not TaskUpdate(owner: \"${owner}\").
 
 Hook source: .claude/hooks/route-alias.sh"

@@ -1,33 +1,36 @@
 #!/bin/bash
 # restrict-agent-spawn.sh — PreToolUse hook on Agent and Bash tools.
 #
+# Team roles on this project: foreman (team-lead), engineer, mechanic,
+# tester, operator. See .claude/team/README.md for the full roster and
+# the cost-aware delegation pattern.
+#
 # === AGENT tool rules ===
 #
-# 1. team-lead + interns (names matching (^|-)intern$): Agent spawns MUST have
-#    run_in_background: true AND mode: "bypassPermissions". Otherwise DENY.
-#    Without bypassPermissions a background subagent silently hangs on the
-#    first permission-prompted tool call (no interactive user to approve).
+# 1. Only the foreman may spawn agents. All other roles → DENY. Use
+#    SendMessage to reach an existing teammate, or ask the foreman to
+#    spawn a new one.
 #
-# 2. Lane actors (partner, paralegal — any identified non-intern non-team-lead):
-#    Agent tool DENIED ENTIRELY. Must use SendMessage(to: "intern"|"lead-intern")
-#    for legwork, or SendMessage(to: "team-lead") to request a new spawn.
+# 2. Foreman-spawned agents must set run_in_background: true AND
+#    mode: "bypassPermissions". Without bypassPermissions, a background
+#    subagent silently hangs on the first permission-prompted tool call
+#    (no interactive user to approve).
 #
-# 3. Name-collision guard (all callers): if the `name` parameter matches an
-#    existing team roster member, DENY — almost certainly a mistake. Lists the
-#    current roster and points to SendMessage as the correct path.
+# 3. Name-collision guard (all callers): if the `name` parameter matches
+#    an existing team roster member, DENY — almost certainly a mistake.
 #
 # === BASH tool rules ===
 #
-# 4. Tier-1 gating: if command matches a Tier-1 pattern AND caller is NOT
-#    "test-intern", DENY. Route via TaskCreate(owner:"test-intern") or
-#    SendMessage(to:"test-intern"). Unknown callers get permissive pass.
-#    Tier-1 patterns: ./dev.sh test, ./sb types generate,
-#    ./dev.sh generate-db-documentation, ./sb release prerelease.
+# 4. `./dev.sh test …` → only the tester may run it. Concurrent test
+#    runs from different agents corrupt shared DB templates.
 #
-# Caller identification (same mechanism as upstream):
-#   - session_id == leadSessionId (from team config) → "team-lead"
-#   - else grep "agentName" from the session's transcript .jsonl
-#   - if unidentifiable → allow (permissive fallback — never hard-break legitimate work)
+# 5. `./sb release prerelease` → only the foreman may run it. Release
+#    commands modify tags and branches — foreman's authority.
+#
+# Caller identification:
+#   - session_id == leadSessionId (from team config) → "foreman"
+#   - else grep agentName from the session's transcript .jsonl
+#   - if unidentifiable → permissive fallback (never hard-break legitimate work)
 #
 # Parameterization:
 #   CLAUDE_TEAM_CONFIG — full path to team config (overrides constructed path; used by tests)
@@ -81,6 +84,7 @@ EOF
 }
 
 # ── identify caller ──
+# The harness concept is "team-lead"; in our vocabulary that's the foreman.
 
 lead_session_id=""
 if [[ -f "$TEAM_CONFIG" ]]; then
@@ -89,7 +93,7 @@ fi
 
 caller=""
 if [[ -n "$session_id" && -n "$lead_session_id" && "$session_id" == "$lead_session_id" ]]; then
-  caller="team-lead"
+  caller="foreman"
 elif [[ -n "$transcript_path" && -f "$transcript_path" ]]; then
   # `|| true` so a no-match grep (normal case when the session isn't a team
   # member) doesn't trip `pipefail` + `set -e` and exit the hook silently.
@@ -97,11 +101,6 @@ elif [[ -n "$transcript_path" && -f "$transcript_path" ]]; then
     | sed 's/.*:"//;s/"$//' \
     | head -1)
 fi
-
-# is_intern: names matching (^|-)intern$ — intern, lead-intern, test-intern, etc.
-is_intern() {
-  [[ "$1" =~ (^|-)intern$ ]]
-}
 
 # ── Agent tool ────────────────────────────────────────────────────────
 
@@ -135,9 +134,19 @@ Hook source: .claude/hooks/restrict-agent-spawn.sh"
     fi
   fi
 
-  # Shared check: background spawns must also set bypassPermissions.
-  require_bypass_permissions() {
-    if [[ "$run_in_bg" == "true" && "$spawn_mode" != "bypassPermissions" ]]; then
+  # Shared check: background + bypassPermissions requirement.
+  check_bg_and_bypass() {
+    if [[ "$run_in_bg" != "true" ]]; then
+      emit_deny "BLOCKED: Agent spawn must use run_in_background: true.
+
+WHY: foreground Agent calls stall the conversation — you can't continue working or respond to the user until the subagent finishes, which can take minutes. Background spawns let you dispatch work and keep talking to the user; you get a notification when the subagent messages you.
+
+WHAT TO DO: retry the Agent call with 'run_in_background: true'.${context_suffix}
+
+Hook source: .claude/hooks/restrict-agent-spawn.sh"
+      exit 0
+    fi
+    if [[ "$spawn_mode" != "bypassPermissions" ]]; then
       emit_deny "BLOCKED: background Agent spawn must set mode: \"bypassPermissions\".
 
 WHY: a subagent running in the background has no interactive user to approve tool-permission prompts. Without bypassPermissions, the first time the subagent calls a tool that requires approval (Edit, Write, many Bash commands), the harness queues a prompt that nobody will ever answer. The agent appears to be working but silently does nothing — classic confusing failure.
@@ -149,61 +158,33 @@ Hook source: .claude/hooks/restrict-agent-spawn.sh"
     fi
   }
 
-  # Rules 1 & 2: role-based enforcement.
   case "$caller" in
-    "team-lead")
-      # Rule 1a: must be background.
-      if [[ "$run_in_bg" != "true" ]]; then
-        emit_deny "BLOCKED: team-lead must spawn agents with run_in_background: true.
-
-WHY: foreground Agent calls stall the conversation — you can't continue working or respond to the user until the subagent finishes, which can take minutes. Background spawns let you dispatch work and keep talking to the user; you get a notification when the subagent messages you.
-
-WHAT TO DO: retry the Agent call with 'run_in_background: true'. All team members should be background-spawned; there is no legitimate use case for a foreground spawn in this team.${context_suffix}
-
-Hook source: .claude/hooks/restrict-agent-spawn.sh"
-        exit 0
-      fi
-      # Rule 1b: must be bypassPermissions.
-      require_bypass_permissions
+    "foreman")
+      check_bg_and_bypass
       ;;
 
     "")
-      # Unknown caller — enforce blanket rules (background + bypassPermissions) but skip
-      # lane-actor denial (can't know if they're a lane actor without identity).
-      if [[ "$run_in_bg" != "true" ]]; then
-        emit_deny "BLOCKED: Agent spawn must use run_in_background: true. (Caller identity unknown; blanket rule applies regardless.)${context_suffix}
-
-Hook source: .claude/hooks/restrict-agent-spawn.sh"
-        exit 0
-      fi
-      require_bypass_permissions
-      emit_allow_note "restrict-agent-spawn: caller identity could not be determined (session_id=${session_id}, leadSessionId=${lead_session_id}, transcript_path=${transcript_path}). Background + bypassPermissions verified. Allowing — if caller is a lane actor it should use SendMessage instead."
+      # Unknown caller — apply background + bypassPermissions blanket rules.
+      check_bg_and_bypass
+      emit_allow_note "restrict-agent-spawn: caller identity could not be determined (session_id=${session_id}, leadSessionId=${lead_session_id}, transcript_path=${transcript_path}). Background + bypassPermissions verified. Allowing."
       exit 0
       ;;
 
     *)
-      if is_intern "$caller"; then
-        # Rule 1 (intern variant): same as team-lead — background + bypassPermissions.
-        if [[ "$run_in_bg" != "true" ]]; then
-          emit_deny "BLOCKED: Intern '${caller}' must spawn agents with run_in_background: true. Foreground spawns stall the intern's work queue.${context_suffix}
+      # Rule 1: any identified non-foreman caller — DENY entirely.
+      emit_deny "BLOCKED: '${caller}' cannot spawn agents. Only the foreman may spawn.
 
-Hook source: .claude/hooks/restrict-agent-spawn.sh"
-          exit 0
-        fi
-        require_bypass_permissions
-      else
-        # Rule 2: Lane actor (partner, paralegal, etc.) — deny entirely.
-        emit_deny "BLOCKED: '${caller}' is a lane actor and cannot spawn agents directly.
-
-WHY: lane actors hold expensive Opus contexts focused on their work lane. Spawning a fresh Agent from within a lane actor burns Opus tokens re-bootstrapping context and hides work from team-lead, who needs visibility into what's running.
+WHY: the cost-aware team pattern has one spawner (the foreman) and a fixed roster. Spawning from inside a specialist or worker role burns tokens on cold starts and hides work from the foreman.
 
 WHAT TO DO:
-  - For LEGWORK (file reads, greps, audits, log tails): SendMessage(to: 'intern', ...) or SendMessage(to: 'lead-intern', ...). Interns run Sonnet — a fraction of the cost.
-  - For a NEW AGENT in a different role: SendMessage 'team-lead' describing what you need. Team-lead decides whether to spawn and with what configuration.${context_suffix}
+  - LEGWORK (reads, greps, SSH, log tails, summaries): SendMessage(to: 'operator', ...).
+  - TESTS: SendMessage(to: 'tester', ...) or TaskCreate(owner: 'tester').
+  - DIAGNOSIS and targeted fixes: SendMessage(to: 'mechanic', ...).
+  - DESIGN or architectural work: SendMessage(to: 'engineer', ...).
+  - NEW ROLE (truly needed): SendMessage(to: 'foreman', ...) and ask.${context_suffix}
 
 Hook source: .claude/hooks/restrict-agent-spawn.sh"
-        exit 0
-      fi
+      exit 0
       ;;
   esac
 
@@ -213,55 +194,66 @@ elif [[ "$tool" == "Bash" ]]; then
   command=$(jq -r '.tool_input.command // empty' <<<"$payload")
   normalized=$(echo "$command" | tr '\n' ' ' | tr -s ' ')
 
-  # Tier-1 patterns that only test-intern may execute.
-  tier1_patterns=(
-    '\./dev\.sh\s+test\b'
-    '\./sb\s+types\s+generate\b'
-    '\./dev\.sh\s+generate-db-documentation\b'
-    '\./sb\s+release\s+prerelease\b'
-  )
-
-  matched_pattern=""
-  for pattern in "${tier1_patterns[@]}"; do
-    if echo "$normalized" | grep -qE "$pattern"; then
-      matched_pattern="$pattern"
-      break
-    fi
-  done
-
-  if [[ -n "$matched_pattern" ]]; then
-    # test-intern is the sole authorized Tier-1 runner.
-    if [[ "$caller" == "test-intern" ]]; then
+  # Rule 4: `./dev.sh test …` → only the tester.
+  if echo "$normalized" | grep -qE '\./dev\.sh\s+test\b'; then
+    if [[ "$caller" == "tester" ]]; then
       echo "{}"
       exit 0
     fi
-    # Unknown caller: deny (only test-intern is exempt; can't confirm identity → safer to block).
     if [[ -z "$caller" ]]; then
-      emit_deny "BLOCKED (restrict-agent-spawn.sh): Tier-1 command from unidentified caller — cannot confirm this is 'test-intern'.
+      emit_deny "BLOCKED (restrict-agent-spawn.sh): test command from unidentified caller — cannot confirm this is the tester.
 
-WHY: only 'test-intern' may run Tier-1 commands. Caller identity could not be determined from session_id or transcript. Blocking conservatively.
+WHY: only the tester may run \`./dev.sh test\`. Concurrent test runs from different agents corrupt shared DB templates.
 
 WHAT TO DO:
-  - TaskCreate({subject: 'Run: ${normalized:0:100}', owner: 'test-intern'})
-  - Or: SendMessage({to: 'test-intern', message: 'run: ${normalized:0:120}'})
+  - TaskCreate({subject: 'slug-for-run: <description>', owner: 'tester'})
+  - Or: SendMessage({to: 'tester', message: 'run: ${normalized:0:120}'})
 
 Command: ${normalized:0:200}
-Pattern matched: ${matched_pattern}
 
 Hook source: .claude/hooks/restrict-agent-spawn.sh"
       exit 0
     fi
-    # Identified non-test-intern caller — deny.
-    emit_deny "BLOCKED (restrict-agent-spawn.sh): Tier-1 command must be run by 'test-intern', not '${caller}'.
+    emit_deny "BLOCKED (restrict-agent-spawn.sh): only the tester may run \`./dev.sh test\`, not '${caller}'.
 
-WHY: Tier-1 commands (tests, type generation, doc generation, releases) touch shared DB templates and stamp files. Running them from multiple agents in parallel causes collisions. The test-intern agent serializes them.
+WHY: concurrent test runs from different agents corrupt shared DB templates. The tester is the single serializer.
 
 WHAT TO DO:
-  - TaskCreate({subject: 'Run: ${normalized:0:100}', owner: 'test-intern'})
-  - Or: SendMessage({to: 'test-intern', message: 'run: ${normalized:0:120}'})
+  - TaskCreate({subject: 'slug-for-run: <description>', owner: 'tester'})
+  - Or: SendMessage({to: 'tester', message: 'run: ${normalized:0:120}'})
 
 Command: ${normalized:0:200}
-Pattern matched: ${matched_pattern}
+Caller: ${caller}
+
+Hook source: .claude/hooks/restrict-agent-spawn.sh"
+    exit 0
+  fi
+
+  # Rule 5: `./sb release prerelease` → only the foreman.
+  if echo "$normalized" | grep -qE '\./sb\s+release\s+prerelease\b'; then
+    if [[ "$caller" == "foreman" ]]; then
+      echo "{}"
+      exit 0
+    fi
+    if [[ -z "$caller" ]]; then
+      emit_deny "BLOCKED (restrict-agent-spawn.sh): release command from unidentified caller — cannot confirm this is the foreman.
+
+WHY: only the foreman may run release commands. They modify tags and branches — foreman's authority.
+
+WHAT TO DO: SendMessage(to: 'foreman') and ask them to run it.
+
+Command: ${normalized:0:200}
+
+Hook source: .claude/hooks/restrict-agent-spawn.sh"
+      exit 0
+    fi
+    emit_deny "BLOCKED (restrict-agent-spawn.sh): only the foreman may run \`./sb release prerelease\`, not '${caller}'.
+
+WHY: release commands are foreman's authority — they modify tags and branches.
+
+WHAT TO DO: SendMessage({to: 'foreman', message: 'please run: ${normalized:0:120}'}).
+
+Command: ${normalized:0:200}
 Caller: ${caller}
 
 Hook source: .claude/hooks/restrict-agent-spawn.sh"
