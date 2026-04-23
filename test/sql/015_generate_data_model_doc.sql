@@ -83,6 +83,7 @@ DECLARE
             '{"schema": "public", "name": "location", "class": "base_data"}'::jsonb,
             '{"schema": "public", "name": "contact", "class": "base_data"}'::jsonb,
             '{"schema": "public", "name": "region", "class": "reference"}'::jsonb,
+            '{"schema": "public", "name": "region_version", "class": "reference"}'::jsonb,
             '{"schema": "public", "name": "country", "class": "reference"}'::jsonb,
             '{"schema": "public", "name": "country_view", "type": "VIEW"}'::jsonb
         )),
@@ -125,12 +126,14 @@ DECLARE
         )),
         (4, 2, 3, 'Derivations for drilling on facets of statistical_unit (/reports)', NULL, jsonb_build_array(
             '{"schema": "public", "name": "statistical_unit_facet", "class": "derived"}'::jsonb,
-            '{"schema": "public", "name": "statistical_unit_facet_dirty_hash_slots", "class": "derived"}'::jsonb
+            '{"schema": "public", "name": "statistical_unit_facet_dirty_hash_slots", "class": "derived"}'::jsonb,
+            '{"schema": "public", "name": "statistical_unit_facet_pre_dirty_dims", "class": "derived"}'::jsonb
         )),
         (4, 2, 4, 'Derivations to create statistical_history for reporting and statistical_history_facet for drilldown.', NULL, jsonb_build_array(
             '{"schema": "public", "name": "statistical_history", "class": "derived"}'::jsonb,
             '{"schema": "public", "name": "statistical_history_facet", "class": "derived"}'::jsonb,
-            '{"schema": "public", "name": "statistical_history_facet_partitions", "class": "derived"}'::jsonb
+            '{"schema": "public", "name": "statistical_history_facet_partitions", "class": "derived"}'::jsonb,
+            '{"schema": "public", "name": "statistical_history_facet_pre_dirty_dims", "class": "derived"}'::jsonb
         )),
         (4, 2, 5, 'Pipeline Weights', 'Configuration for pipeline step ordering and progress tracking.', jsonb_build_array(
             '{"schema": "worker", "name": "pipeline_step_weight", "class": "infrastructure"}'::jsonb,
@@ -141,6 +144,7 @@ DECLARE
             '{"schema": "public", "name": "import_step", "class": "transient"}'::jsonb,
             '{"schema": "public", "name": "import_definition_step", "class": "transient"}'::jsonb,
             '{"schema": "public", "name": "import_source_column", "class": "transient"}'::jsonb,
+            '{"schema": "public", "name": "import_source_column_type", "type": "VIEW"}'::jsonb,
             '{"schema": "public", "name": "import_data_column", "class": "transient"}'::jsonb,
             '{"schema": "public", "name": "import_mapping", "class": "transient"}'::jsonb,
             '{"schema": "public", "name": "import_job", "class": "transient"}'::jsonb
@@ -163,6 +167,9 @@ DECLARE
             '{"schema": "public", "name": "settings", "class": "infrastructure"}'::jsonb,
             '{"schema": "public", "name": "region_access", "class": "infrastructure"}'::jsonb,
             '{"schema": "public", "name": "activity_category_access", "class": "infrastructure"}'::jsonb,
+            '{"schema": "public", "name": "system_info", "class": "infrastructure"}'::jsonb,
+            '{"schema": "public", "name": "upgrade", "class": "infrastructure"}'::jsonb,
+            '{"schema": "public", "name": "upgrade_retention_caps", "class": "infrastructure"}'::jsonb,
             '{"schema": "db", "name": "migration", "class": "infrastructure"}'::jsonb,
             '{"schema": "lifecycle_callbacks", "name": "registered_callback", "suffix": " and `supported_table`", "class": "infrastructure"}'::jsonb
         )),
@@ -345,10 +352,15 @@ Views have no class (they follow their underlying table).
 - `x_on`: Date (DATE).
 ';
 
-    -- Check for undocumented entities
+    -- Check for undocumented entities.
+    -- information_schema.tables reports both BASE TABLE and VIEW rows, so
+    -- filter to BASE TABLE only in the first branch — otherwise every view
+    -- would appear twice (once as TABLE, once as VIEW) and show as
+    -- undocumented with conflicting type labels.
     WITH all_entities AS (
         SELECT table_schema, table_name, 'TABLE' as type FROM information_schema.tables
         WHERE table_schema IN ('public', 'worker', 'auth', 'db', 'lifecycle_callbacks')
+          AND table_type = 'BASE TABLE'
         UNION ALL
         SELECT table_schema, table_name, 'VIEW' as type FROM information_schema.views
         WHERE table_schema IN ('public', 'worker', 'auth', 'db', 'lifecycle_callbacks')

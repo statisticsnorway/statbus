@@ -87,6 +87,7 @@ These tables link to any of the four core statistical units:
   - Key FKs: data_source_id, edit_by_user_id, establishment_id, legal_unit_id, valid_range, valid_range.
 - `region(id, path, label, code, name, parent_id, version_id, level, center_latitude, center_longitude, center_altitude)` — **reference**
   - Key FKs: parent_id, version_id.
+- `region_version(id, code, name, created_at, updated_at, enabled, description, lasts_to, custom)` — **reference**
 - `country(id, name, created_at, updated_at, enabled, iso_2, iso_3, iso_num, custom)` — **reference**
 - `country_view(id, name, enabled, iso_2, iso_3, iso_num, custom)`
 
@@ -191,6 +192,8 @@ Enumerated types used across the schema, with their possible values.
 - `statistical_unit_facet(unit_type, physical_region_path, primary_activity_category_path, sector_path, legal_form_id, physical_country_id, status_id, valid_from, valid_to, valid_until, count, stats_summary, hash_slot)` (temporal) — **derived**
   - Enums: `unit_type` (`public.statistical_unit_type`).
 - `statistical_unit_facet_dirty_hash_slots(dirty_hash_slot)` — **derived**
+- `statistical_unit_facet_pre_dirty_dims(unit_type, physical_region_path, primary_activity_category_path, sector_path, legal_form_id, physical_country_id, status_id, valid_from, valid_to, valid_until)` (temporal) — **derived**
+  - Enums: `unit_type` (`public.statistical_unit_type`).
 
 ### Derivations to create statistical_history for reporting and statistical_history_facet for drilldown.
 
@@ -199,6 +202,8 @@ Enumerated types used across the schema, with their possible values.
 - `statistical_history_facet(unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path, physical_region_path, name_change_count, legal_form_id, physical_country_id, unit_size_id, status_id, resolution, year, month, exists_count, exists_change, exists_added_count, exists_removed_count, countable_count, countable_change, countable_added_count, countable_removed_count, births, deaths, primary_activity_category_change_count, secondary_activity_category_change_count, sector_change_count, legal_form_change_count, physical_region_change_count, physical_country_change_count, physical_address_change_count, unit_size_change_count, status_change_count, stats_summary)` — **derived**
   - Enums: `resolution` (`public.history_resolution`), `unit_type` (`public.statistical_unit_type`).
 - `statistical_history_facet_partitions(unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path, physical_region_path, name_change_count, legal_form_id, physical_country_id, unit_size_id, status_id, hash_slot, resolution, year, month, exists_count, exists_change, exists_added_count, exists_removed_count, countable_count, countable_change, countable_added_count, countable_removed_count, births, deaths, primary_activity_category_change_count, secondary_activity_category_change_count, sector_change_count, legal_form_change_count, physical_region_change_count, physical_country_change_count, physical_address_change_count, unit_size_change_count, status_change_count, stats_summary)` — **derived**
+  - Enums: `resolution` (`public.history_resolution`), `unit_type` (`public.statistical_unit_type`).
+- `statistical_history_facet_pre_dirty_dims(unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path, physical_region_path, legal_form_id, physical_country_id, unit_size_id, status_id, resolution, year, month)` — **derived**
   - Enums: `resolution` (`public.history_resolution`), `unit_type` (`public.statistical_unit_type`).
 
 ### Pipeline Weights
@@ -219,6 +224,7 @@ Handles the ingestion of data from external files.
   - Key FKs: definition_id, step_id.
 - `import_source_column(id, column_name, definition_id, created_at, updated_at, priority)` — **transient**
   - Key FKs: definition_id.
+- `import_source_column_type(column_name, target_pg_type, definition_id, priority)`
 - `import_data_column(id, column_name, column_type, default_value, is_uniquely_identifying, target_pg_type, step_id, created_at, updated_at, priority, purpose, is_nullable)` — **transient**
   - Key FKs: step_id.
   - Enums: `purpose` (`public.import_data_column_purpose`).
@@ -261,6 +267,11 @@ Handles background processing. A long-running worker process calls `worker.proce
   - Key FKs: region_id, user_id.
 - `activity_category_access(id, user_id, activity_category_id)` — **infrastructure**
   - Key FKs: activity_category_id, user_id.
+- `system_info(value, updated_at, key)` — **infrastructure**
+- `upgrade(id, backup_path, log_relative_file_path, committed_at, discovered_at, scheduled_at, started_at, completed_at, rolled_back_at, skipped_at, superseded_at, dismissed_at, commit_sha, topological_order, tags, release_status, summary, changes, release_url, has_migrations, error, from_version, docker_images_downloaded, state, version, docker_images_status, release_builds_status)` — **infrastructure**
+  - Enums: `docker_images_status` (`public.docker_images_status_type`), `release_builds_status` (`public.release_builds_status_type`), `release_status` (`public.release_status_type`), `state` (`public.upgrade_state`).
+- `upgrade_retention_caps(release_status, state, time_cap, count_cap, install_purge)` — **infrastructure**
+  - Enums: `release_status` (`public.release_status_type`), `state` (`public.upgrade_state`).
 - `migration(id, filename, applied_at, version, description, duration_ms)` — **infrastructure**
 - `registered_callback and `supported_table`(label, table_names, priority, generate_procedure, cleanup_procedure)` — **infrastructure**
 
