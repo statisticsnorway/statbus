@@ -191,6 +191,12 @@ jobs:
           }
           MANIFEST
 
+      - name: Fetch snapshot assets
+        run: |
+          git fetch --depth=1 origin db-snapshot
+          git checkout FETCH_HEAD -- snapshot.pg_dump snapshot.json
+          mv snapshot.pg_dump snapshot.json dist/
+
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -204,6 +210,8 @@ jobs:
             dist/sb-darwin-arm64
             dist/checksums.txt
             dist/release-manifest.json
+            dist/snapshot.pg_dump
+            dist/snapshot.json
           )
           if [ "${{ needs.metadata.outputs.prerelease }}" = "true" ]; then
             ARGS+=(--prerelease)
