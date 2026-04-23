@@ -192,19 +192,21 @@ jobs:
           MANIFEST
 
       - name: Fetch snapshot assets
-        # Fetch from the version-scoped snapshot/<release-tag> branch written by
-        # `./sb db snapshot create` when HEAD carries a release tag. Version
-        # pinning here ensures this workflow run uploads the snapshot that was
-        # generated FOR this release commit, not whatever the db-snapshot cache
-        # branch happens to point at (which drifts between releases).
+        # Fetch from the SHA-named snapshot/<short-sha> branch written by
+        # `./sb db snapshot create`. SHA-based naming (rather than tag-based)
+        # removes the chicken-and-egg between tag-at-HEAD and snapshot-create:
+        # every snapshot is keyed by the project commit it pins to, known at
+        # create time, independent of whether that commit has been tagged yet.
+        #
+        # Short-SHA length (12) matches snapshotSHALen in cli/cmd/snapshot.go.
         #
         # The commit_sha check below is the workflow-side guard complementing
         # the release preflight's same check: even if the operator forgot to
         # regenerate before tagging, the release workflow refuses to publish
         # a snapshot that doesn't pin to this commit.
         run: |
-          VERSION_TAG="${{ needs.metadata.outputs.version_tag }}"
-          git fetch --depth=1 origin "snapshot/${VERSION_TAG}"
+          SHORT_SHA="${GITHUB_SHA:0:12}"
+          git fetch --depth=1 origin "snapshot/${SHORT_SHA}"
           git checkout FETCH_HEAD -- snapshot.pg_dump snapshot.json
           SNAPSHOT_SHA=$(jq -r '.commit_sha' snapshot.json)
           if [ "$SNAPSHOT_SHA" != "$GITHUB_SHA" ]; then

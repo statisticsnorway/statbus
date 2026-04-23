@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -16,24 +15,11 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
 
-// releaseTagPattern matches the project's release tag shape:
-// `vYYYY.MM.PATCH` (stable) and `vYYYY.MM.PATCH-rc.N` (prerelease).
-// Used to distinguish release tags from other refs pointing at HEAD.
-var releaseTagPattern = regexp.MustCompile(`^v\d{4}\.\d{2}\.\d+(-rc\.\d+)?$`)
-
-// findReleaseTag returns the first release-shaped tag in a newline-separated
-// string of tag names, or "" if none match. git tag --points-at HEAD may
-// return multiple tags (release + local markers + signing tags); we only
-// act on the release-shaped one.
-func findReleaseTag(tags string) string {
-	for _, t := range strings.Split(strings.TrimSpace(tags), "\n") {
-		t = strings.TrimSpace(t)
-		if releaseTagPattern.MatchString(t) {
-			return t
-		}
-	}
-	return ""
-}
+// snapshotSHALen is the short-SHA length used in snapshot branch names
+// (`snapshot/<sha12>`). 12 hex chars → ~1 in 2^24 birthday-collision
+// risk at O(1M) snapshots; safe for the lifetime of the repo and still
+// human-readable. Must match `${GITHUB_SHA:0:12}` in release.yaml.
+const snapshotSHALen = 12
 
 // snapshotMeta is the JSON structure stored in .db-snapshot/snapshot.json.
 // It records which migration and commit the snapshot covers, so callers
@@ -303,47 +289,14 @@ var snapshotCreateCmd = &cobra.Command{
 		fmt.Printf("Snapshot created: migration %s, commit %s (%s)\n",
 			migrationVersion, commitSHA[:8], humanSize(info.Size()))
 
-		// Release-staging: if HEAD carries a release tag (v… or v…-rc.N),
-		// we will additionally publish a branch `snapshot/<release-tag>`
-		// pinned to the new snapshot commit. First, clean up any STALE
-		// snapshot branches on origin that belong to earlier releases —
-		// they remain in-tree after their release workflow finishes
-		// (cleanup is intentionally deferred to the next prerelease cut).
-		// Keep any branch whose suffix matches the current release tag so
-		// an in-progress abort-and-retry doesn't lose its snapshot pin.
-		//
-		// On origin only, per the single-source-of-truth principle for
-		// release pins. Non-release snapshot runs (operator-local,
-		// rc-less commits) skip both cleanup and branch publication.
-		releaseTag := findReleaseTag(tags)
-		if releaseTag != "" {
-			staleOut, lsErr := upgrade.RunCommandOutput(projDir, "git", "ls-remote", "--heads", "origin", "snapshot/v*")
-			if lsErr != nil {
-				fmt.Printf("warning: list remote snapshot branches: %v\n", lsErr)
-			} else {
-				for _, line := range strings.Split(strings.TrimSpace(staleOut), "\n") {
-					line = strings.TrimSpace(line)
-					if line == "" {
-						continue
-					}
-					// ls-remote lines: "<sha>\trefs/heads/snapshot/vX.Y.Z"
-					parts := strings.SplitN(line, "\t", 2)
-					if len(parts) != 2 {
-						continue
-					}
-					ref := strings.TrimPrefix(parts[1], "refs/heads/")
-					if ref == "snapshot/"+releaseTag {
-						continue // keep the in-flight snapshot for this release
-					}
-					fmt.Printf("Cleaning up stale snapshot branch: %s\n", ref)
-					if _, delErr := upgrade.RunCommandOutput(projDir, "git", "push", "origin", "--delete", ref); delErr != nil {
-						fmt.Printf("warning: git push origin --delete %s: %v\n", ref, delErr)
-					}
-					// Remove the local tracking branch too if present.
-					_, _ = upgrade.RunCommandOutput(projDir, "git", "branch", "-D", ref)
-				}
-			}
-		}
+		// Sweep stale peer `snapshot/<sha>` branches BEFORE publishing the
+		// new one. Unified gate in cleanupSnapshotBranches (defined in
+		// release.go): delete untagged ephemeral peers, delete tagged
+		// peers whose release is fully published (canonical store = GH
+		// release assets), retain tagged in-flight peers. preserveSHA is
+		// the project commit the new snapshot pins to — so the cleanup
+		// never touches the slot we're about to write.
+		cleanupSnapshotBranches(projDir, commitSHA)
 
 		// Push to the db-snapshot branch using a git worktree.
 		// A worktree lets us commit to an orphan branch without touching the
@@ -397,37 +350,41 @@ var snapshotCreateCmd = &cobra.Command{
 
 		fmt.Printf("Snapshot created and pushed (migration %s, commit %s)\n", migrationVersion, commitSHA[:8])
 
-		// Release-staging: publish the snapshot under a branch
-		// `snapshot/<release-tag>` so the release workflow can fetch a
-		// version-scoped ref whose commit_sha is verifiable against the
-		// release commit. The branch is deleted on the next prerelease
-		// cut after the release workflow has uploaded the snapshot as a
-		// GitHub release asset (canonical, immutable store).
-		if releaseTag != "" {
-			snapshotSHA, err := upgrade.RunCommandOutput(worktreePath, "git", "rev-parse", "HEAD")
-			if err != nil {
-				return fmt.Errorf("git rev-parse HEAD in worktree: %w", err)
-			}
-			snapshotSHA = strings.TrimSpace(snapshotSHA)
-			branchName := "snapshot/" + releaseTag
-
-			// Force-create the local branch — if a stale local ref exists
-			// from an aborted prior attempt at this same release tag we
-			// want it replaced, not refused.
-			if _, err := upgrade.RunCommandOutput(worktreePath, "git", "branch", "-f", branchName, snapshotSHA); err != nil {
-				return fmt.Errorf("git branch %s: %w", branchName, err)
-			}
-			// Non-force push: this is a freshly-cleaned slot (earlier
-			// cleanup step removed any prior branch at this name) except
-			// when the operator is legitimately re-running the same
-			// release's snapshot create (abort + retry), in which case
-			// the remote branch and our local branch point at different
-			// commits and we need --force-with-lease for safety.
-			if _, err := upgrade.RunCommandOutput(worktreePath, "git", "push", "origin", "--force-with-lease", branchName); err != nil {
-				return fmt.Errorf("git push origin %s: %w", branchName, err)
-			}
-			fmt.Printf("Release snapshot pinned: %s → %s\n", branchName, snapshotSHA[:8])
+		// Publish the snapshot under a SHA-named branch
+		// `snapshot/<commitSHA12>` so downstream consumers — release
+		// workflow, operator fetches, historical lookups — have a
+		// deterministic, collision-safe reference keyed by the project
+		// commit the snapshot pins to. Every snapshot gets a branch;
+		// the tag-conditional gate from the prior release-only design
+		// is gone. This removes the chicken-and-egg where a snapshot
+		// could be created before its HEAD was tagged.
+		//
+		// The branch points at the new commit on the db-snapshot
+		// worktree (where snapshot.pg_dump + snapshot.json live);
+		// the branch NAME reflects the project commit; snapshot.json's
+		// commit_sha field records the full project SHA (preflight and
+		// workflow use the full value for verification).
+		snapshotCommit, err := upgrade.RunCommandOutput(worktreePath, "git", "rev-parse", "HEAD")
+		if err != nil {
+			return fmt.Errorf("git rev-parse HEAD in worktree: %w", err)
 		}
+		snapshotCommit = strings.TrimSpace(snapshotCommit)
+		branchName := "snapshot/" + commitSHA[:snapshotSHALen]
+
+		// Force-create the local branch — a stale local ref from an
+		// aborted prior attempt at this same project SHA should be
+		// replaced, not refused.
+		if _, err := upgrade.RunCommandOutput(worktreePath, "git", "branch", "-f", branchName, snapshotCommit); err != nil {
+			return fmt.Errorf("git branch %s: %w", branchName, err)
+		}
+		// --force-with-lease: cleanupSnapshotBranches typically leaves
+		// this slot empty (or honors preserveSHA to keep us); the
+		// --force-with-lease is the safety net for the abort-and-retry
+		// case where remote and local diverge mid-run.
+		if _, err := upgrade.RunCommandOutput(worktreePath, "git", "push", "origin", "--force-with-lease", branchName); err != nil {
+			return fmt.Errorf("git push origin %s: %w", branchName, err)
+		}
+		fmt.Printf("Snapshot pinned: %s → %s\n", branchName, snapshotCommit[:8])
 		return nil
 	},
 }

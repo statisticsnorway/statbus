@@ -484,14 +484,14 @@ var releasePrereleaseCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		projDir := config.ProjectDir()
 
-		// Sweep stale snapshot/v* branches published by prior releases.
-		// Gate deletion on `./sb release check` equivalent — a branch is
-		// safe to delete only when its matching release has all GitHub
-		// assets + Docker manifests published (the canonical immutable
-		// store). In-flight releases (workflow still running) and
-		// permanently-aborted releases both keep their branches;
-		// operators prune the latter manually.
-		cleanupPublishedSnapshotBranches(projDir)
+		// Sweep stale snapshot/<sha> branches published by prior releases
+		// and operator-local dev-tip runs. See cleanupSnapshotBranches
+		// for the full retention policy (released-and-published → delete;
+		// in-flight tagged → retain; untagged ephemeral peer → delete).
+		// preserveSHA = HEAD so the snapshot just generated for this
+		// release cut survives the sweep.
+		headSHAOut, _ := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD")
+		cleanupSnapshotBranches(projDir, strings.TrimSpace(headSHAOut))
 
 		fmt.Println("Pre-flight checks:")
 		if !preflightChecks(projDir) {
@@ -887,25 +887,57 @@ Exit 0 when all checks pass; exit 1 with retry advice when any fail.`,
 	},
 }
 
-// cleanupPublishedSnapshotBranches sweeps origin's snapshot/v* branches and
-// deletes those whose corresponding release has every artifact published
-// (GitHub release assets + ghcr.io Docker manifests) — i.e. the release-page
-// canonical store is live, so the branch's staging role is exhausted.
-// In-flight or aborted releases skip deletion; operator prunes aborted ones
-// manually with `git push origin :refs/heads/snapshot/v…`.
+// releaseTagPattern matches the project's release tag shape:
+// `vYYYY.MM.PATCH` (stable) and `vYYYY.MM.PATCH-rc.N` (prerelease).
+// Used to distinguish release tags from other refs pointing at a commit.
+var releaseTagPattern = regexp.MustCompile(`^v\d{4}\.\d{2}\.\d+(-rc\.\d+)?$`)
+
+// findReleaseTag returns the first release-shaped tag in a newline-separated
+// string of tag names, or "" if none match. `git tag --points-at <sha>` may
+// return multiple tags (release + local markers + signing tags); we only
+// act on the release-shaped one.
+func findReleaseTag(tags string) string {
+	for _, t := range strings.Split(strings.TrimSpace(tags), "\n") {
+		t = strings.TrimSpace(t)
+		if releaseTagPattern.MatchString(t) {
+			return t
+		}
+	}
+	return ""
+}
+
+// snapshotBranchPattern matches branches of the form `snapshot/<12-hex>`
+// written by `./sb db snapshot create`. The SHA portion is the short
+// (snapshotSHALen-char) project commit the snapshot pins to.
+var snapshotBranchPattern = regexp.MustCompile(`^snapshot/[0-9a-f]{12}$`)
+
+// cleanupSnapshotBranches sweeps origin's `snapshot/<sha>` branches and
+// deletes those whose retention no longer serves any purpose:
 //
-// Called at the top of `./sb release prerelease` as the release-cycle
-// boundary sweep. `./sb db snapshot create` does its own narrower cleanup
-// at snapshot creation time; this function is belt-and-suspenders at the
-// release-cut boundary and catches any leftovers independent of whether
-// update-snapshot was re-run.
+//   - Tagged with a release AND release-check passes → canonical store
+//     (GitHub release assets) is live. Branch's staging role is done.
+//   - Untagged AND <sha> ≠ preserveSHA → ephemeral dev peer superseded
+//     by any subsequent snapshot; safe to drop.
 //
-// Failures inside this sweep are warnings, not fatal — a network/auth blip
-// on `git ls-remote` or a transient `CheckAssets` failure must not block a
-// legitimate release cut. Operator sees the warning and retries if
-// needed.
-func cleanupPublishedSnapshotBranches(projDir string) {
-	staleOut, err := upgrade.RunCommandOutput(projDir, "git", "ls-remote", "--heads", "origin", "snapshot/v*")
+// Retained:
+//   - <sha> == preserveSHA → the snapshot the caller is about to write
+//     (or just wrote) and MUST survive this sweep.
+//   - Tagged with a release AND release-check fails → in-flight release,
+//     workflow may still need this branch to upload the asset.
+//   - Anything that doesn't match `snapshot/<12-hex>` — forward-compat
+//     for future naming, and avoids surprising deletes.
+//
+// Two callers share this function:
+//   - `./sb db snapshot create` — preserveSHA = new snapshot's project
+//     commit, so the just-written slot is never deleted.
+//   - `./sb release prerelease` — preserveSHA = HEAD, so the snapshot
+//     the operator just generated for this release cut is never deleted.
+//
+// Failures inside this sweep are warnings, not fatal — a network/auth
+// blip on `git ls-remote` or a transient release-check failure must not
+// block a legitimate release cut or snapshot refresh.
+func cleanupSnapshotBranches(projDir, preserveSHA string) {
+	staleOut, err := upgrade.RunCommandOutput(projDir, "git", "ls-remote", "--heads", "origin", "snapshot/*")
 	if err != nil {
 		fmt.Printf("warning: list remote snapshot branches: %v\n", err)
 		return
@@ -919,40 +951,53 @@ func cleanupPublishedSnapshotBranches(projDir string) {
 		if line == "" {
 			continue
 		}
-		// ls-remote lines: "<sha>\trefs/heads/snapshot/vX.Y.Z"
+		// ls-remote lines: "<sha>\trefs/heads/snapshot/<12-hex>"
 		parts := strings.SplitN(line, "\t", 2)
 		if len(parts) != 2 {
 			continue
 		}
 		ref := strings.TrimPrefix(parts[1], "refs/heads/")
-		tag := strings.TrimPrefix(ref, "snapshot/")
-		if tag == "" {
+		if !snapshotBranchPattern.MatchString(ref) {
+			// Unknown shape (legacy `snapshot/v…` or future schema) —
+			// leave alone. Migration/pruning is a separate concern.
 			continue
 		}
-
-		// Gate: all release artifacts must be published.
-		// Mirrors `./sb release check --tag <tag>`'s success criterion.
-		allPassed := true
-		for _, r := range release.CheckAssets(tag) {
-			if !r.OK {
-				allPassed = false
-				break
-			}
+		branchSHA := strings.TrimPrefix(ref, "snapshot/")
+		if preserveSHA != "" && strings.HasPrefix(preserveSHA, branchSHA) {
+			continue // self or caller-asserted keeper
 		}
-		if allPassed {
-			for _, r := range release.CheckManifests(tag) {
+
+		// Tagged with a release?
+		tagsOut, _ := upgrade.RunCommandOutput(projDir, "git", "tag", "--points-at", branchSHA)
+		tag := findReleaseTag(tagsOut)
+		if tag != "" {
+			// Gate: all release artifacts must be published before delete.
+			allPassed := true
+			for _, r := range release.CheckAssets(tag) {
 				if !r.OK {
 					allPassed = false
 					break
 				}
 			}
+			if allPassed {
+				for _, r := range release.CheckManifests(tag) {
+					if !r.OK {
+						allPassed = false
+						break
+					}
+				}
+			}
+			if !allPassed {
+				fmt.Printf("  %s retained (release %s not fully published)\n", ref, tag)
+				fmt.Printf("    To force-prune: git push origin :refs/heads/%s\n", ref)
+				continue
+			}
+			fmt.Printf("  Cleaning up %s (release %s fully published)\n", ref, tag)
+		} else {
+			// Untagged ephemeral dev peer — supersede.
+			fmt.Printf("  Cleaning up %s (untagged ephemeral peer)\n", ref)
 		}
-		if !allPassed {
-			fmt.Printf("  snapshot/%s retained (release not fully published)\n", tag)
-			fmt.Printf("    To force-prune: git push origin :refs/heads/snapshot/%s\n", tag)
-			continue
-		}
-		fmt.Printf("  Cleaning up snapshot/%s (release fully published)\n", tag)
+
 		if _, delErr := upgrade.RunCommandOutput(projDir, "git", "push", "origin", "--delete", ref); delErr != nil {
 			fmt.Printf("    warning: git push origin --delete %s: %v\n", ref, delErr)
 			continue
