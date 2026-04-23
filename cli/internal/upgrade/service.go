@@ -1398,6 +1398,19 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 		return // no in-progress upgrade
 	}
 
+	// Guarantee flag cleanup on every exit path of this recovery routine.
+	// The explicit removeUpgradeFlag() at the end of the happy path
+	// (post-completed-UPDATE) remains — this defer only fires if that path
+	// was not reached, e.g. the post-restart DB health check failed or a
+	// terminal-state UPDATE persistently errored. Without it, a stale flag
+	// survives the crash-recovery attempt and the next `./sb install`
+	// misclassifies the state as StateCrashedUpgrade instead of reaching
+	// the step-table that reinstalls the upgrade service.
+	// removeUpgradeFlag is idempotent: nil flagLock falls through to
+	// os.Remove, and a second invocation after the explicit call is a
+	// harmless no-op.
+	defer d.removeUpgradeFlag()
+
 	// Append recovery narrative to the prior run's progress log so the
 	// on-disk log (served via /upgrade-logs/<name>) captures both the
 	// pre-crash lines and the post-restart verification summary.
