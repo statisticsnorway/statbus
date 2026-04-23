@@ -192,9 +192,28 @@ jobs:
           MANIFEST
 
       - name: Fetch snapshot assets
+        # Fetch from the version-scoped snapshot/<release-tag> branch written by
+        # `./sb db snapshot create` when HEAD carries a release tag. Version
+        # pinning here ensures this workflow run uploads the snapshot that was
+        # generated FOR this release commit, not whatever the db-snapshot cache
+        # branch happens to point at (which drifts between releases).
+        #
+        # The commit_sha check below is the workflow-side guard complementing
+        # the release preflight's same check: even if the operator forgot to
+        # regenerate before tagging, the release workflow refuses to publish
+        # a snapshot that doesn't pin to this commit.
         run: |
-          git fetch --depth=1 origin db-snapshot
+          VERSION_TAG="${{ needs.metadata.outputs.version_tag }}"
+          git fetch --depth=1 origin "snapshot/${VERSION_TAG}"
           git checkout FETCH_HEAD -- snapshot.pg_dump snapshot.json
+          SNAPSHOT_SHA=$(jq -r '.commit_sha' snapshot.json)
+          if [ "$SNAPSHOT_SHA" != "$GITHUB_SHA" ]; then
+            echo "::error::Snapshot commit_sha does not match release commit"
+            echo "  snapshot.json: $SNAPSHOT_SHA"
+            echo "  release SHA:   $GITHUB_SHA"
+            echo "  Regenerate with: ./dev.sh update-snapshot  (on the release commit), re-tag, re-push."
+            exit 1
+          fi
           mv snapshot.pg_dump snapshot.json dist/
 
       - name: Create GitHub Release
