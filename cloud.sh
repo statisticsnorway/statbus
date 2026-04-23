@@ -277,12 +277,20 @@ cmd_tail_one() {
     local server="$1"
     echo "--- Tailing upgrade log for $server (auto-disconnect on completion) ---"
     ssh_server "$server" \
-        "journalctl --user -u 'statbus-upgrade@${server}.service' -f -n 50 2>&1 | \
+        "journalctl --user -u 'statbus-upgrade@${server}.service' -o cat -f -n 50 2>&1 | \
          awk '/Installation complete|upgrade completed|upgrade failed|upgrade rolled_back|FAILED:/{print; fflush(); exit} {print; fflush()}'" \
         || true
     echo "--- Log tail disconnected for $server ---"
     echo "Final upgrade status on $server:"
-    ssh_server "$server" "cd statbus && ./sb upgrade list" 2>&1 || true
+    # Poll until the DB reflects the terminal state (service commits the
+    # in_progress→completed transition after logging "Installation complete!").
+    # Bounded at 8 tries × 2 s = 16 s max; exits early once state clears.
+    ssh_server "$server" \
+        'cd statbus && i=0; while [ $i -lt 8 ]; do
+             out=$(./sb upgrade list 2>&1)
+             echo "$out" | head -5 | grep -qE "in[_ ]progress" || { echo "$out"; exit 0; }
+             i=$((i+1)); [ $i -lt 8 ] && sleep 2
+         done; ./sb upgrade list' 2>&1 || true
 }
 
 # cmd_tail tails the upgrade log for one server or all servers in parallel.
