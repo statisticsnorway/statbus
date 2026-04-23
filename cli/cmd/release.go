@@ -315,6 +315,45 @@ func preflightChecks(projDir string) bool {
 			fmt.Println("    Fix: ./dev.sh update-snapshot")
 			allPassed = false
 		}
+
+		// 10b. Snapshot commit_sha matches HEAD
+		// Intent: the release workflow will upload this snapshot as a GitHub
+		// release asset for the release commit. A commit_sha mismatch means
+		// the snapshot was generated against a different tree — any later
+		// migrate/tsc/docs work has moved HEAD, but update-snapshot was not
+		// re-run. The workflow-side check (release.yaml) catches branch-tip
+		// drift; this preflight catches local drift before the tag is
+		// pushed, so the commit_sha pin lines up end-to-end.
+		snapshotCommitSHA := ""
+		for _, line := range strings.Split(snapshotContent, "\n") {
+			if strings.Contains(line, "commit_sha") {
+				parts := strings.Split(line, "\"")
+				if len(parts) >= 4 {
+					snapshotCommitSHA = parts[3]
+				}
+			}
+		}
+		headSHAOut, err := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD")
+		if err != nil {
+			fmt.Println("  ✗ Snapshot commit pin check: git rev-parse HEAD failed")
+			fmt.Printf("    %v\n", err)
+			allPassed = false
+		} else {
+			headSHA := strings.TrimSpace(headSHAOut)
+			if snapshotCommitSHA == headSHA {
+				fmt.Printf("  ✓ Snapshot pinned to HEAD (commit: %s)\n", headSHA[:12])
+			} else {
+				fmt.Println("  ✗ Snapshot commit does not match HEAD")
+				if snapshotCommitSHA == "" {
+					fmt.Println("    Snapshot: (commit_sha missing from snapshot.json)")
+				} else {
+					fmt.Printf("    Snapshot: %s\n", snapshotCommitSHA)
+				}
+				fmt.Printf("    HEAD:     %s\n", headSHA)
+				fmt.Println("    Fix: ./dev.sh update-snapshot")
+				allPassed = false
+			}
+		}
 	}
 
 	// 11. DB documentation covers latest migrations
@@ -444,6 +483,15 @@ var releasePrereleaseCmd = &cobra.Command{
 	Short: "Tag a new release candidate (vYYYY.MM.PATCH-rc.N)",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		projDir := config.ProjectDir()
+
+		// Sweep stale snapshot/v* branches published by prior releases.
+		// Gate deletion on `./sb release check` equivalent — a branch is
+		// safe to delete only when its matching release has all GitHub
+		// assets + Docker manifests published (the canonical immutable
+		// store). In-flight releases (workflow still running) and
+		// permanently-aborted releases both keep their branches;
+		// operators prune the latter manually.
+		cleanupPublishedSnapshotBranches(projDir)
 
 		fmt.Println("Pre-flight checks:")
 		if !preflightChecks(projDir) {
@@ -837,6 +885,80 @@ Exit 0 when all checks pass; exit 1 with retry advice when any fail.`,
 		os.Exit(1)
 		return nil // unreachable; os.Exit above carries the exit code
 	},
+}
+
+// cleanupPublishedSnapshotBranches sweeps origin's snapshot/v* branches and
+// deletes those whose corresponding release has every artifact published
+// (GitHub release assets + ghcr.io Docker manifests) — i.e. the release-page
+// canonical store is live, so the branch's staging role is exhausted.
+// In-flight or aborted releases skip deletion; operator prunes aborted ones
+// manually with `git push origin :refs/heads/snapshot/v…`.
+//
+// Called at the top of `./sb release prerelease` as the release-cycle
+// boundary sweep. `./sb db snapshot create` does its own narrower cleanup
+// at snapshot creation time; this function is belt-and-suspenders at the
+// release-cut boundary and catches any leftovers independent of whether
+// update-snapshot was re-run.
+//
+// Failures inside this sweep are warnings, not fatal — a network/auth blip
+// on `git ls-remote` or a transient `CheckAssets` failure must not block a
+// legitimate release cut. Operator sees the warning and retries if
+// needed.
+func cleanupPublishedSnapshotBranches(projDir string) {
+	staleOut, err := upgrade.RunCommandOutput(projDir, "git", "ls-remote", "--heads", "origin", "snapshot/v*")
+	if err != nil {
+		fmt.Printf("warning: list remote snapshot branches: %v\n", err)
+		return
+	}
+	trimmed := strings.TrimSpace(staleOut)
+	if trimmed == "" {
+		return
+	}
+	for _, line := range strings.Split(trimmed, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		// ls-remote lines: "<sha>\trefs/heads/snapshot/vX.Y.Z"
+		parts := strings.SplitN(line, "\t", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		ref := strings.TrimPrefix(parts[1], "refs/heads/")
+		tag := strings.TrimPrefix(ref, "snapshot/")
+		if tag == "" {
+			continue
+		}
+
+		// Gate: all release artifacts must be published.
+		// Mirrors `./sb release check --tag <tag>`'s success criterion.
+		allPassed := true
+		for _, r := range release.CheckAssets(tag) {
+			if !r.OK {
+				allPassed = false
+				break
+			}
+		}
+		if allPassed {
+			for _, r := range release.CheckManifests(tag) {
+				if !r.OK {
+					allPassed = false
+					break
+				}
+			}
+		}
+		if !allPassed {
+			fmt.Printf("  snapshot/%s retained (release not fully published)\n", tag)
+			fmt.Printf("    To force-prune: git push origin :refs/heads/snapshot/%s\n", tag)
+			continue
+		}
+		fmt.Printf("  Cleaning up snapshot/%s (release fully published)\n", tag)
+		if _, delErr := upgrade.RunCommandOutput(projDir, "git", "push", "origin", "--delete", ref); delErr != nil {
+			fmt.Printf("    warning: git push origin --delete %s: %v\n", ref, delErr)
+			continue
+		}
+		_, _ = upgrade.RunCommandOutput(projDir, "git", "branch", "-D", ref)
+	}
 }
 
 // calVerRCKey returns a sortable int64 for tags of the form vYYYY.MM.PATCH-rc.N.
