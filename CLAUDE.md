@@ -3,6 +3,10 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 Claude Code also auto-loads `.claude/rules/*.md` files contextually based on which files are being edited.
 
+## Team roles (read only yours)
+
+If you are assigned a role on this project, read `.claude/team/<your-role>.md` and nothing else from that folder. If you are the foreman, also read `.claude/team/README.md` for the full roster, delegation pattern, and cost rationale. Do not read other roles' files — each agent loads only what they need.
+
 ## Worker: Structured Concurrency (MUST READ)
 
 The worker uses **structured concurrency** — exactly ONE top-level task at a time per queue, with parallel children within scoped parent-child relationships. Top fiber blocks until all children complete. This is NOT "fire and forget" concurrency.
