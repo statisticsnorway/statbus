@@ -56,7 +56,8 @@ usage() {
     echo "Usage: $0 <command> [args]"
     echo ""
     echo "Commands:"
-    echo "  status                     Show version on all servers"
+    echo "  status                     Show binary version on all servers"
+    echo "  health [server|all]        Upgrade health: service state, last activity, upgrade status"
     echo "  notify                     Tell servers to check for updates (non-disruptive)"
     echo "  upgrade                    Force all servers to apply latest via upgrade service"
     echo "  install <server>           Smart install: upgrade service first, full bootstrap fallback"
@@ -119,6 +120,77 @@ cmd_status() {
             "cd statbus && ./sb --version 2>/dev/null || echo 'UNKNOWN'" 2>/dev/null \
             || echo "SSH FAILED"
     done
+}
+
+# cmd_health_one gathers upgrade-subsystem health for one server in a single
+# SSH call. Outputs one formatted line. Designed to run in parallel.
+cmd_health_one() {
+    local server="$1"
+    local result
+    result=$(ssh_server "$server" "
+        cd statbus 2>/dev/null || { printf 'NO_DIR|||'; exit; }
+        ver=\$(./sb --version 2>/dev/null | head -1 || echo 'UNKNOWN')
+        svc=\$(systemctl --user is-active 'statbus-upgrade@${server}.service' 2>/dev/null || echo 'unknown')
+        hb='tmp/upgrade-heartbeat'
+        if [ -f \"\$hb\" ]; then
+            hb_ts=\$(cat \"\$hb\" | tr -d '[:space:]')
+            now=\$(date +%s); age=\$((now - hb_ts))
+            if   [ \"\$age\" -lt 60 ];   then progress=\"\${age}s ago\"
+            elif [ \"\$age\" -lt 3600 ]; then progress=\"\$((age/60))m ago\"
+            else progress=\"stale \$((age/3600))h\"; fi
+        else
+            last=\$(journalctl --user -u 'statbus-upgrade@${server}.service' \
+                -n 1 -o short-unix --no-pager 2>/dev/null | awk '{print int(\$1)}')
+            if [ -n \"\$last\" ] && [ \"\$last\" -gt 0 ] 2>/dev/null; then
+                now=\$(date +%s); age=\$((now - last))
+                if   [ \"\$age\" -lt 60 ];   then progress=\"\${age}s ago\"
+                elif [ \"\$age\" -lt 3600 ]; then progress=\"\$((age/60))m ago\"
+                else progress=\"stale \$((age/3600))h\"; fi
+            else
+                progress='no data'
+            fi
+        fi
+        state=\$(./sb upgrade list 2>/dev/null \
+            | grep -oE 'completed|failed|in progress|in_progress|rolled_back|pending' | head -1)
+        [ -z \"\$state\" ] && state='none'
+        printf '%s|%s|%s|%s' \"\$ver\" \"\$svc\" \"\$progress\" \"\$state\"
+    " 2>/dev/null) || result="SSH FAILED|||"
+
+    if [ -z "$result" ] || [ "$result" = "SSH FAILED|||" ]; then
+        printf "  %-22s SSH FAILED\n" "$server"
+        return
+    fi
+
+    local ver svc progress state flag
+    IFS='|' read -r ver svc progress state <<< "$result"
+    flag=""
+    [ "${svc:-unknown}" != "active" ] && flag=" ← service ${svc:-unknown}"
+    echo "${state:-}" | grep -qE 'in[_ ]progress' && flag="${flag} ← WEDGED?"
+    printf "  %-22s %-12s service=%-10s last=%-18s upgrade=%s%s\n" \
+        "$server" "${ver:-UNKNOWN}" "${svc:-unknown}" "${progress:-?}" "${state:-none}" "$flag"
+}
+
+# cmd_health shows upgrade health for one or all servers, in parallel.
+cmd_health() {
+    local target="${1:-all}"
+    validate_server "$target"
+    echo "StatBus Cloud Health"
+    echo "===================="
+    if [ "$target" = "all" ]; then
+        local tmpdir pids=()
+        tmpdir=$(mktemp -d)
+        for server in $SERVERS; do
+            cmd_health_one "$server" > "$tmpdir/$server" &
+            pids+=($!)
+        done
+        wait "${pids[@]}"
+        for server in $SERVERS; do
+            cat "$tmpdir/$server"
+        done
+        rm -rf "$tmpdir"
+    else
+        cmd_health_one "$target"
+    fi
 }
 
 cmd_notify() {
@@ -530,6 +602,9 @@ fi
 case "$1" in
     status)
         cmd_status
+        ;;
+    health)
+        cmd_health "${2:-all}"
         ;;
     notify)
         cmd_notify
