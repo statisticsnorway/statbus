@@ -6,7 +6,7 @@
  commit_sha               | text                       |           | not null | 
  committed_at             | timestamp with time zone   |           | not null | 
  topological_order        | integer                    |           |          | 
- tags                     | text[]                     |           | not null | '{}'::text[]
+ commit_tags              | text[]                     |           | not null | '{}'::text[]
  release_status           | release_status_type        |           | not null | 'commit'::release_status_type
  summary                  | text                       |           | not null | 
  changes                  | text                       |           |          | 
@@ -19,13 +19,13 @@
  error                    | text                       |           |          | 
  rolled_back_at           | timestamp with time zone   |           |          | 
  skipped_at               | timestamp with time zone   |           |          | 
- from_version             | text                       |           |          | 
+ from_commit_version      | text                       |           |          | 
  docker_images_downloaded | boolean                    |           | not null | false
  backup_path              | text                       |           |          | 
  superseded_at            | timestamp with time zone   |           |          | 
  dismissed_at             | timestamp with time zone   |           |          | 
  state                    | upgrade_state              |           | not null | 'available'::upgrade_state
- version                  | text                       |           |          | 
+ commit_version           | text                       |           |          | 
  log_relative_file_path   | text                       |           |          | 
  docker_images_status     | docker_images_status_type  |           | not null | 'building'::docker_images_status_type
  release_builds_status    | release_builds_status_type |           | not null | 'building'::release_builds_status_type
@@ -38,9 +38,9 @@ Check constraints:
     "chk_upgrade_commit_sha_is_full_hex" CHECK (commit_sha ~ '^[a-f0-9]{40}$'::text)
     "chk_upgrade_state_attributes" CHECK (
 CASE state
-    WHEN 'available'::upgrade_state THEN scheduled_at IS NULL AND started_at IS NULL AND completed_at IS NULL AND error IS NULL AND rolled_back_at IS NULL AND skipped_at IS NULL AND dismissed_at IS NULL AND superseded_at IS NULL
-    WHEN 'scheduled'::upgrade_state THEN scheduled_at IS NOT NULL AND started_at IS NULL AND completed_at IS NULL AND error IS NULL AND rolled_back_at IS NULL
-    WHEN 'in_progress'::upgrade_state THEN scheduled_at IS NOT NULL AND started_at IS NOT NULL AND completed_at IS NULL AND error IS NULL AND rolled_back_at IS NULL
+    WHEN 'available'::upgrade_state THEN scheduled_at IS NULL AND started_at IS NULL AND completed_at IS NULL AND rolled_back_at IS NULL AND skipped_at IS NULL AND dismissed_at IS NULL AND superseded_at IS NULL
+    WHEN 'scheduled'::upgrade_state THEN scheduled_at IS NOT NULL AND started_at IS NULL AND completed_at IS NULL AND rolled_back_at IS NULL
+    WHEN 'in_progress'::upgrade_state THEN scheduled_at IS NOT NULL AND started_at IS NOT NULL AND completed_at IS NULL AND rolled_back_at IS NULL
     WHEN 'completed'::upgrade_state THEN completed_at IS NOT NULL AND error IS NULL AND rolled_back_at IS NULL AND log_relative_file_path IS NOT NULL
     WHEN 'failed'::upgrade_state THEN error IS NOT NULL AND started_at IS NOT NULL AND completed_at IS NULL AND rolled_back_at IS NULL
     WHEN 'rolled_back'::upgrade_state THEN rolled_back_at IS NOT NULL AND error IS NOT NULL AND completed_at IS NULL

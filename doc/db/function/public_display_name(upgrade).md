@@ -5,9 +5,9 @@ CREATE OR REPLACE FUNCTION public.display_name(u upgrade)
  STABLE
 AS $function$
   SELECT COALESCE(
-    (SELECT t FROM unnest(u.tags) AS t WHERE t NOT LIKE '%-%' LIMIT 1),
-    u.tags[array_upper(u.tags, 1)],
-    'sha-' || left(u.commit_sha, 12)
+    (SELECT t FROM unnest(u.commit_tags) AS t WHERE t NOT LIKE '%-%' LIMIT 1),
+    u.commit_tags[array_upper(u.commit_tags, 1)],
+    left(u.commit_sha, 8)
   );
 $function$
 ```

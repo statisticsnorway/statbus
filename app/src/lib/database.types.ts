@@ -6081,6 +6081,8 @@ export type Database = {
           backup_path: string | null
           changes: string | null
           commit_sha: string
+          commit_tags: string[]
+          commit_version: string | null
           committed_at: string
           completed_at: string | null
           discovered_at: string
@@ -6102,14 +6104,14 @@ export type Database = {
           state: Database["public"]["Enums"]["upgrade_state"]
           summary: string
           superseded_at: string | null
-          commit_tags: string[]
           topological_order: number | null
-          commit_version: string | null
         },
         Insert: {
           backup_path?: string | null
           changes?: string | null
           commit_sha: string
+          commit_tags?: string[]
+          commit_version?: string | null
           committed_at: string
           completed_at?: string | null
           discovered_at?: string
@@ -6131,14 +6133,14 @@ export type Database = {
           state?: Database["public"]["Enums"]["upgrade_state"]
           summary: string
           superseded_at?: string | null
-          commit_tags?: string[]
           topological_order?: number | null
-          commit_version?: string | null
         },
         Update: {
           backup_path?: string | null
           changes?: string | null
           commit_sha?: string
+          commit_tags?: string[]
+          commit_version?: string | null
           committed_at?: string
           completed_at?: string | null
           discovered_at?: string
@@ -6160,9 +6162,7 @@ export type Database = {
           state?: Database["public"]["Enums"]["upgrade_state"]
           summary?: string
           superseded_at?: string | null
-          commit_tags?: string[]
           topological_order?: number | null
-          commit_version?: string | null
         },
         Relationships: []
       },
