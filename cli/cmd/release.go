@@ -266,94 +266,17 @@ func preflightChecks(projDir string) bool {
 	checkAppStamp("app-tsc-passed-sha", "tsc", "App tsc covers latest app changes")
 	checkAppStamp("app-build-passed-sha", "build", "App build covers latest app changes")
 
-	// 10. Snapshot covers latest migrations
-	// Intent: every release must have a fresh .db-snapshot so installs and CI are fast.
-	// If migrations were added since the last snapshot, the developer must run
-	// ./dev.sh update-snapshot before releasing.
-	snapshotJSON := filepath.Join(projDir, ".db-snapshot", "snapshot.json")
-	snapshotBytes, err := os.ReadFile(snapshotJSON)
-	if err != nil {
-		// No snapshot at all — warn but don't block (first release before any snapshot)
-		fmt.Println("  ⚠ No DB snapshot found (.db-snapshot/snapshot.json)")
-		fmt.Println("    Create one: ./dev.sh update-snapshot")
-	} else {
-		// Parse migration_version from JSON (simple string search, no json package needed)
-		snapshotContent := string(snapshotBytes)
-		// Extract migration_version value
-		snapshotVersion := ""
-		for _, line := range strings.Split(snapshotContent, "\n") {
-			if strings.Contains(line, "migration_version") {
-				parts := strings.Split(line, "\"")
-				if len(parts) >= 4 {
-					snapshotVersion = parts[3]
-				}
-			}
-		}
-
-		// Find latest migration file
-		migrationsDir := filepath.Join(projDir, "migrations")
-		entries, _ := os.ReadDir(migrationsDir)
-		latestMigration := ""
-		for _, e := range entries {
-			name := e.Name()
-			if strings.HasSuffix(name, ".up.sql") {
-				version := strings.Split(name, "_")[0]
-				if version > latestMigration {
-					latestMigration = version
-				}
-			}
-		}
-
-		if latestMigration == "" {
-			fmt.Println("  ✓ Snapshot up to date (no migrations found)")
-		} else if snapshotVersion >= latestMigration {
-			fmt.Printf("  ✓ Snapshot covers latest migrations (snapshot: %s, latest: %s)\n", snapshotVersion, latestMigration)
-		} else {
-			fmt.Println("  ✗ Snapshot outdated")
-			fmt.Printf("    Snapshot: %s\n", snapshotVersion)
-			fmt.Printf("    Latest migration: %s\n", latestMigration)
-			fmt.Println("    Fix: ./dev.sh update-snapshot")
-			allPassed = false
-		}
-
-		// 10b. Snapshot commit_sha matches HEAD
-		// Intent: the release workflow will upload this snapshot as a GitHub
-		// release asset for the release commit. A commit_sha mismatch means
-		// the snapshot was generated against a different tree — any later
-		// migrate/tsc/docs work has moved HEAD, but update-snapshot was not
-		// re-run. The workflow-side check (release.yaml) catches branch-tip
-		// drift; this preflight catches local drift before the tag is
-		// pushed, so the commit_sha pin lines up end-to-end.
-		snapshotCommitSHA := ""
-		for _, line := range strings.Split(snapshotContent, "\n") {
-			if strings.Contains(line, "commit_sha") {
-				parts := strings.Split(line, "\"")
-				if len(parts) >= 4 {
-					snapshotCommitSHA = parts[3]
-				}
-			}
-		}
-		headSHAOut, err := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD")
-		if err != nil {
-			fmt.Println("  ✗ Snapshot commit pin check: git rev-parse HEAD failed")
-			fmt.Printf("    %v\n", err)
-			allPassed = false
-		} else {
-			headSHA := strings.TrimSpace(headSHAOut)
-			if snapshotCommitSHA == headSHA {
-				fmt.Printf("  ✓ Snapshot pinned to HEAD (commit: %s)\n", headSHA[:12])
-			} else {
-				fmt.Println("  ✗ Snapshot commit does not match HEAD")
-				if snapshotCommitSHA == "" {
-					fmt.Println("    Snapshot: (commit_sha missing from snapshot.json)")
-				} else {
-					fmt.Printf("    Snapshot: %s\n", snapshotCommitSHA)
-				}
-				fmt.Printf("    HEAD:     %s\n", headSHA)
-				fmt.Println("    Fix: ./dev.sh update-snapshot")
-				allPassed = false
-			}
-		}
+	// 10. Snapshot freshness gate (auto-regen on stale).
+	// Previously this block just reported ✗ and pointed the operator at
+	// `./dev.sh update-snapshot`. That invited every release to be a
+	// two-command sequence (update-snapshot, then prerelease) with the
+	// lurking bug that operator skips the first step. Now the preflight
+	// DETECTS staleness and RUNS the regen, then re-verifies.
+	//
+	// Single command: `./sb release prerelease` is now the sole operator
+	// step for cutting a release from a clean tree.
+	if !checkAndRefreshSnapshot(projDir) {
+		allPassed = false
 	}
 
 	// 11. DB documentation covers latest migrations
@@ -885,6 +808,119 @@ Exit 0 when all checks pass; exit 1 with retry advice when any fail.`,
 		os.Exit(1)
 		return nil // unreachable; os.Exit above carries the exit code
 	},
+}
+
+// snapshotCreator is the regenerator the preflight invokes when it detects
+// a stale snapshot. Package-level function variable for test injection:
+// tests override it with a mock that writes a canned snapshot.json without
+// hitting docker/pg_dump. Production default is CreateSnapshot.
+var snapshotCreator = CreateSnapshot
+
+// checkSnapshotFresh evaluates the current .db-snapshot/snapshot.json
+// against on-disk migrations and HEAD SHA.
+//
+// Returns (fresh, reason). `reason` describes why staleness was detected
+// (operator-visible log message); empty when fresh == true.
+//
+// Failure modes:
+//   - snapshot.json missing → stale, reason "no snapshot.json found"
+//   - commit_sha missing from JSON → stale
+//   - migration_version < latest on-disk migration → stale, versions in reason
+//   - commit_sha != HEAD SHA → stale, both SHAs in reason
+//   - git rev-parse HEAD fails → (false, err text); caller decides treatment
+func checkSnapshotFresh(projDir string) (fresh bool, reason string) {
+	snapshotJSON := filepath.Join(projDir, ".db-snapshot", "snapshot.json")
+	snapshotBytes, err := os.ReadFile(snapshotJSON)
+	if err != nil {
+		return false, "snapshot.json not found or unreadable"
+	}
+	snapshotContent := string(snapshotBytes)
+
+	// Parse migration_version and commit_sha via the same line-split
+	// pattern the prior preflight used — avoids pulling in a JSON dep
+	// just for two string fields.
+	snapshotVersion := ""
+	snapshotCommitSHA := ""
+	for _, line := range strings.Split(snapshotContent, "\n") {
+		if strings.Contains(line, "migration_version") {
+			parts := strings.Split(line, "\"")
+			if len(parts) >= 4 {
+				snapshotVersion = parts[3]
+			}
+		}
+		if strings.Contains(line, "commit_sha") {
+			parts := strings.Split(line, "\"")
+			if len(parts) >= 4 {
+				snapshotCommitSHA = parts[3]
+			}
+		}
+	}
+
+	// migration_version vs latest on-disk migration
+	migrationsDir := filepath.Join(projDir, "migrations")
+	entries, _ := os.ReadDir(migrationsDir)
+	latestMigration := ""
+	for _, e := range entries {
+		name := e.Name()
+		if strings.HasSuffix(name, ".up.sql") {
+			version := strings.Split(name, "_")[0]
+			if version > latestMigration {
+				latestMigration = version
+			}
+		}
+	}
+	if latestMigration != "" && snapshotVersion < latestMigration {
+		return false, fmt.Sprintf("migration_version %s older than latest %s", snapshotVersion, latestMigration)
+	}
+
+	// commit_sha vs HEAD
+	headSHAOut, err := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD")
+	if err != nil {
+		return false, fmt.Sprintf("git rev-parse HEAD failed: %v", err)
+	}
+	headSHA := strings.TrimSpace(headSHAOut)
+	if snapshotCommitSHA == "" {
+		return false, "commit_sha missing from snapshot.json"
+	}
+	if snapshotCommitSHA != headSHA {
+		return false, fmt.Sprintf("commit_sha %s != HEAD %s", snapshotCommitSHA, headSHA)
+	}
+
+	return true, ""
+}
+
+// checkAndRefreshSnapshot gates the release on snapshot freshness. If
+// the snapshot is stale, it invokes snapshotCreator to regenerate, then
+// re-checks once. Logs each decision + outcome so the operator's
+// preflight log reads as a coherent narrative.
+//
+// Returns true when the snapshot is fresh (on first try OR after regen);
+// false when regeneration failed or the re-check still shows staleness.
+func checkAndRefreshSnapshot(projDir string) bool {
+	fresh, reason := checkSnapshotFresh(projDir)
+	if fresh {
+		headSHAOut, _ := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD")
+		headSHA := strings.TrimSpace(headSHAOut)
+		if len(headSHA) > 12 {
+			headSHA = headSHA[:12]
+		}
+		fmt.Printf("  ✓ Snapshot fresh (pinned to HEAD: %s)\n", headSHA)
+		return true
+	}
+
+	fmt.Printf("  → Snapshot stale: %s — regenerating...\n", reason)
+	if err := snapshotCreator(projDir); err != nil {
+		fmt.Printf("  ✗ Snapshot regeneration failed: %v\n", err)
+		return false
+	}
+
+	fresh2, reason2 := checkSnapshotFresh(projDir)
+	if !fresh2 {
+		fmt.Printf("  ✗ Snapshot still stale after regeneration: %s\n", reason2)
+		return false
+	}
+	fmt.Println("  ✓ Snapshot regenerated and verified fresh")
+	return true
 }
 
 // releaseTagPattern matches the project's release tag shape:

@@ -192,201 +192,208 @@ var snapshotCreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Dump current DB and push to db-snapshot branch",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		projDir := config.ProjectDir()
-
-		// Verify the database is running — we need it for pg_dump and the
-		// migration version query.
-		if !dbIsRunning(projDir) {
-			return fmt.Errorf("database is not running — start it with 'sb start all'")
-		}
-
-		dbName, err := loadDbName(projDir)
-		if err != nil {
-			return err
-		}
-
-		// Get the latest migration version from the database.
-		// This tells us exactly what schema state the snapshot captures.
-		migrationOut, err := upgrade.RunCommandOutput(projDir,
-			"docker", "compose", "exec", "-T", "db",
-			"psql", "-U", "postgres", "-d", dbName,
-			"-t", "-A", "-c",
-			"SELECT version FROM db.migration ORDER BY version DESC LIMIT 1")
-		if err != nil {
-			return fmt.Errorf("query migration version: %w\n%s", err, migrationOut)
-		}
-		migrationVersion := strings.TrimSpace(migrationOut)
-		if migrationVersion == "" {
-			return fmt.Errorf("no migrations found in db.migration table")
-		}
-
-		// Get the current git commit SHA for traceability.
-		commitSHA, err := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD")
-		if err != nil {
-			return fmt.Errorf("git rev-parse HEAD: %w", err)
-		}
-		commitSHA = strings.TrimSpace(commitSHA)
-
-		// Get tags pointing at HEAD (if any) for display purposes.
-		tagsOut, _ := upgrade.RunCommandOutput(projDir, "git", "tag", "--points-at", "HEAD")
-		tags := strings.TrimSpace(tagsOut)
-
-		snapshotDir := filepath.Join(projDir, ".db-snapshot")
-		if err := os.MkdirAll(snapshotDir, 0755); err != nil {
-			return fmt.Errorf("create .db-snapshot directory: %w", err)
-		}
-
-		// Dump the database in custom format (compact, supports parallel restore).
-		// Exclude auth.secrets — those contain per-deployment JWT secrets that
-		// must not leak into the shared snapshot branch.
-		fmt.Printf("Dumping %s ...\n", dbName)
-		dumpPath := filepath.Join(snapshotDir, "snapshot.pg_dump")
-		dumpFile, err := os.Create(dumpPath)
-		if err != nil {
-			return fmt.Errorf("create dump file: %w", err)
-		}
-
-		dumpCmd := exec.Command("docker", "compose", "exec", "-T", "db",
-			"pg_dump", "-U", "postgres", "-Fc", "--no-owner",
-			"--exclude-table-data=auth.secrets",
-			dbName)
-		dumpCmd.Dir = projDir
-		dumpCmd.Stdout = dumpFile
-		dumpCmd.Stderr = os.Stderr
-
-		if err := dumpCmd.Run(); err != nil {
-			dumpFile.Close()
-			os.Remove(dumpPath)
-			return fmt.Errorf("pg_dump failed: %w", err)
-		}
-		dumpFile.Close()
-
-		info, err := os.Stat(dumpPath)
-		if err != nil {
-			return err
-		}
-		if info.Size() == 0 {
-			os.Remove(dumpPath)
-			return fmt.Errorf("pg_dump produced an empty file — check database connectivity")
-		}
-
-		// Write metadata JSON alongside the dump.
-		meta := snapshotMeta{
-			MigrationVersion: migrationVersion,
-			CommitSHA:        commitSHA,
-			Tags:             tags,
-			CreatedAt:        time.Now().UTC().Format(time.RFC3339),
-		}
-		metaJSON, err := json.MarshalIndent(meta, "", "  ")
-		if err != nil {
-			return fmt.Errorf("marshal snapshot.json: %w", err)
-		}
-		jsonPath := filepath.Join(snapshotDir, "snapshot.json")
-		if err := os.WriteFile(jsonPath, metaJSON, 0644); err != nil {
-			return fmt.Errorf("write snapshot.json: %w", err)
-		}
-
-		fmt.Printf("Snapshot created: migration %s, commit %s (%s)\n",
-			migrationVersion, commitSHA[:8], humanSize(info.Size()))
-
-		// Sweep stale peer `snapshot/<sha>` branches BEFORE publishing the
-		// new one. Unified gate in cleanupSnapshotBranches (defined in
-		// release.go): delete untagged ephemeral peers, delete tagged
-		// peers whose release is fully published (canonical store = GH
-		// release assets), retain tagged in-flight peers. preserveSHA is
-		// the project commit the new snapshot pins to — so the cleanup
-		// never touches the slot we're about to write.
-		cleanupSnapshotBranches(projDir, commitSHA)
-
-		// Push to the db-snapshot branch using a git worktree.
-		// A worktree lets us commit to an orphan branch without touching the
-		// current working tree or index. The worktree lives outside the main
-		// repo to avoid confusion.
-		worktreePath := filepath.Join(filepath.Dir(projDir), "statbus-db-snapshot")
-
-		// Check if the worktree already exists.
-		if _, err := os.Stat(worktreePath); os.IsNotExist(err) {
-			// Try to add worktree for existing branch first.
-			_, addErr := upgrade.RunCommandOutput(projDir, "git", "worktree", "add", worktreePath, "db-snapshot")
-			if addErr != nil {
-				// Branch doesn't exist — create an orphan worktree.
-				// --orphan creates a new branch with no history, which is what
-				// we want: the snapshot branch has no relationship to master.
-				_, orphanErr := upgrade.RunCommandOutput(projDir, "git", "worktree", "add", "--orphan", worktreePath, "db-snapshot")
-				if orphanErr != nil {
-					return fmt.Errorf("git worktree add: %w\n%s", orphanErr, addErr)
-				}
-			}
-		}
-
-		// Copy snapshot files to the worktree.
-		for _, name := range []string{"snapshot.pg_dump", "snapshot.json"} {
-			src := filepath.Join(snapshotDir, name)
-			dst := filepath.Join(worktreePath, name)
-			data, err := os.ReadFile(src)
-			if err != nil {
-				return fmt.Errorf("read %s: %w", name, err)
-			}
-			if err := os.WriteFile(dst, data, 0644); err != nil {
-				return fmt.Errorf("write %s to worktree: %w", name, err)
-			}
-		}
-
-		// Stage, commit, and force-push.
-		// Force-push is intentional: the snapshot branch is a cache with a
-		// single commit. History is meaningless — only the latest state matters.
-		if _, err := upgrade.RunCommandOutput(worktreePath, "git", "add", "snapshot.pg_dump", "snapshot.json"); err != nil {
-			return fmt.Errorf("git add in worktree: %w", err)
-		}
-
-		commitMsg := fmt.Sprintf("snapshot: migration %s (commit %s)", migrationVersion, commitSHA[:8])
-		if _, err := upgrade.RunCommandOutput(worktreePath, "git", "commit", "--allow-empty", "-m", commitMsg); err != nil {
-			return fmt.Errorf("git commit in worktree: %w", err)
-		}
-
-		if _, err := upgrade.RunCommandOutput(worktreePath, "git", "push", "origin", "db-snapshot", "--force"); err != nil {
-			return fmt.Errorf("git push --force db-snapshot: %w", err)
-		}
-
-		fmt.Printf("Snapshot created and pushed (migration %s, commit %s)\n", migrationVersion, commitSHA[:8])
-
-		// Publish the snapshot under a SHA-named branch
-		// `snapshot/<commitSHA12>` so downstream consumers — release
-		// workflow, operator fetches, historical lookups — have a
-		// deterministic, collision-safe reference keyed by the project
-		// commit the snapshot pins to. Every snapshot gets a branch;
-		// the tag-conditional gate from the prior release-only design
-		// is gone. This removes the chicken-and-egg where a snapshot
-		// could be created before its HEAD was tagged.
-		//
-		// The branch points at the new commit on the db-snapshot
-		// worktree (where snapshot.pg_dump + snapshot.json live);
-		// the branch NAME reflects the project commit; snapshot.json's
-		// commit_sha field records the full project SHA (preflight and
-		// workflow use the full value for verification).
-		snapshotCommit, err := upgrade.RunCommandOutput(worktreePath, "git", "rev-parse", "HEAD")
-		if err != nil {
-			return fmt.Errorf("git rev-parse HEAD in worktree: %w", err)
-		}
-		snapshotCommit = strings.TrimSpace(snapshotCommit)
-		branchName := "snapshot/" + commitSHA[:snapshotSHALen]
-
-		// Force-create the local branch — a stale local ref from an
-		// aborted prior attempt at this same project SHA should be
-		// replaced, not refused.
-		if _, err := upgrade.RunCommandOutput(worktreePath, "git", "branch", "-f", branchName, snapshotCommit); err != nil {
-			return fmt.Errorf("git branch %s: %w", branchName, err)
-		}
-		// --force-with-lease: cleanupSnapshotBranches typically leaves
-		// this slot empty (or honors preserveSHA to keep us); the
-		// --force-with-lease is the safety net for the abort-and-retry
-		// case where remote and local diverge mid-run.
-		if _, err := upgrade.RunCommandOutput(worktreePath, "git", "push", "origin", "--force-with-lease", branchName); err != nil {
-			return fmt.Errorf("git push origin %s: %w", branchName, err)
-		}
-		fmt.Printf("Snapshot pinned: %s → %s\n", branchName, snapshotCommit[:8])
-		return nil
+		return CreateSnapshot(config.ProjectDir())
 	},
+}
+
+// CreateSnapshot is the reusable body of `./sb db snapshot create`. Exposed
+// so the release-prerelease preflight (cli/cmd/release.go) can invoke the
+// same regen path in-process when it detects a stale snapshot — no
+// subprocess, no separate operator step. Behaviour-identical to invoking
+// the cobra subcommand.
+func CreateSnapshot(projDir string) error {
+	// Verify the database is running — we need it for pg_dump and the
+	// migration version query.
+	if !dbIsRunning(projDir) {
+		return fmt.Errorf("database is not running — start it with 'sb start all'")
+	}
+
+	dbName, err := loadDbName(projDir)
+	if err != nil {
+		return err
+	}
+
+	// Get the latest migration version from the database.
+	// This tells us exactly what schema state the snapshot captures.
+	migrationOut, err := upgrade.RunCommandOutput(projDir,
+		"docker", "compose", "exec", "-T", "db",
+		"psql", "-U", "postgres", "-d", dbName,
+		"-t", "-A", "-c",
+		"SELECT version FROM db.migration ORDER BY version DESC LIMIT 1")
+	if err != nil {
+		return fmt.Errorf("query migration version: %w\n%s", err, migrationOut)
+	}
+	migrationVersion := strings.TrimSpace(migrationOut)
+	if migrationVersion == "" {
+		return fmt.Errorf("no migrations found in db.migration table")
+	}
+
+	// Get the current git commit SHA for traceability.
+	commitSHA, err := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD")
+	if err != nil {
+		return fmt.Errorf("git rev-parse HEAD: %w", err)
+	}
+	commitSHA = strings.TrimSpace(commitSHA)
+
+	// Get tags pointing at HEAD (if any) for display purposes.
+	tagsOut, _ := upgrade.RunCommandOutput(projDir, "git", "tag", "--points-at", "HEAD")
+	tags := strings.TrimSpace(tagsOut)
+
+	snapshotDir := filepath.Join(projDir, ".db-snapshot")
+	if err := os.MkdirAll(snapshotDir, 0755); err != nil {
+		return fmt.Errorf("create .db-snapshot directory: %w", err)
+	}
+
+	// Dump the database in custom format (compact, supports parallel restore).
+	// Exclude auth.secrets — those contain per-deployment JWT secrets that
+	// must not leak into the shared snapshot branch.
+	fmt.Printf("Dumping %s ...\n", dbName)
+	dumpPath := filepath.Join(snapshotDir, "snapshot.pg_dump")
+	dumpFile, err := os.Create(dumpPath)
+	if err != nil {
+		return fmt.Errorf("create dump file: %w", err)
+	}
+
+	dumpCmd := exec.Command("docker", "compose", "exec", "-T", "db",
+		"pg_dump", "-U", "postgres", "-Fc", "--no-owner",
+		"--exclude-table-data=auth.secrets",
+		dbName)
+	dumpCmd.Dir = projDir
+	dumpCmd.Stdout = dumpFile
+	dumpCmd.Stderr = os.Stderr
+
+	if err := dumpCmd.Run(); err != nil {
+		dumpFile.Close()
+		os.Remove(dumpPath)
+		return fmt.Errorf("pg_dump failed: %w", err)
+	}
+	dumpFile.Close()
+
+	info, err := os.Stat(dumpPath)
+	if err != nil {
+		return err
+	}
+	if info.Size() == 0 {
+		os.Remove(dumpPath)
+		return fmt.Errorf("pg_dump produced an empty file — check database connectivity")
+	}
+
+	// Write metadata JSON alongside the dump.
+	meta := snapshotMeta{
+		MigrationVersion: migrationVersion,
+		CommitSHA:        commitSHA,
+		Tags:             tags,
+		CreatedAt:        time.Now().UTC().Format(time.RFC3339),
+	}
+	metaJSON, err := json.MarshalIndent(meta, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal snapshot.json: %w", err)
+	}
+	jsonPath := filepath.Join(snapshotDir, "snapshot.json")
+	if err := os.WriteFile(jsonPath, metaJSON, 0644); err != nil {
+		return fmt.Errorf("write snapshot.json: %w", err)
+	}
+
+	fmt.Printf("Snapshot created: migration %s, commit %s (%s)\n",
+		migrationVersion, commitSHA[:8], humanSize(info.Size()))
+
+	// Sweep stale peer `snapshot/<sha>` branches BEFORE publishing the
+	// new one. Unified gate in cleanupSnapshotBranches (defined in
+	// release.go): delete untagged ephemeral peers, delete tagged
+	// peers whose release is fully published (canonical store = GH
+	// release assets), retain tagged in-flight peers. preserveSHA is
+	// the project commit the new snapshot pins to — so the cleanup
+	// never touches the slot we're about to write.
+	cleanupSnapshotBranches(projDir, commitSHA)
+
+	// Push to the db-snapshot branch using a git worktree.
+	// A worktree lets us commit to an orphan branch without touching the
+	// current working tree or index. The worktree lives outside the main
+	// repo to avoid confusion.
+	worktreePath := filepath.Join(filepath.Dir(projDir), "statbus-db-snapshot")
+
+	// Check if the worktree already exists.
+	if _, err := os.Stat(worktreePath); os.IsNotExist(err) {
+		// Try to add worktree for existing branch first.
+		_, addErr := upgrade.RunCommandOutput(projDir, "git", "worktree", "add", worktreePath, "db-snapshot")
+		if addErr != nil {
+			// Branch doesn't exist — create an orphan worktree.
+			// --orphan creates a new branch with no history, which is what
+			// we want: the snapshot branch has no relationship to master.
+			_, orphanErr := upgrade.RunCommandOutput(projDir, "git", "worktree", "add", "--orphan", worktreePath, "db-snapshot")
+			if orphanErr != nil {
+				return fmt.Errorf("git worktree add: %w\n%s", orphanErr, addErr)
+			}
+		}
+	}
+
+	// Copy snapshot files to the worktree.
+	for _, name := range []string{"snapshot.pg_dump", "snapshot.json"} {
+		src := filepath.Join(snapshotDir, name)
+		dst := filepath.Join(worktreePath, name)
+		data, err := os.ReadFile(src)
+		if err != nil {
+			return fmt.Errorf("read %s: %w", name, err)
+		}
+		if err := os.WriteFile(dst, data, 0644); err != nil {
+			return fmt.Errorf("write %s to worktree: %w", name, err)
+		}
+	}
+
+	// Stage, commit, and force-push.
+	// Force-push is intentional: the snapshot branch is a cache with a
+	// single commit. History is meaningless — only the latest state matters.
+	if _, err := upgrade.RunCommandOutput(worktreePath, "git", "add", "snapshot.pg_dump", "snapshot.json"); err != nil {
+		return fmt.Errorf("git add in worktree: %w", err)
+	}
+
+	commitMsg := fmt.Sprintf("snapshot: migration %s (commit %s)", migrationVersion, commitSHA[:8])
+	if _, err := upgrade.RunCommandOutput(worktreePath, "git", "commit", "--allow-empty", "-m", commitMsg); err != nil {
+		return fmt.Errorf("git commit in worktree: %w", err)
+	}
+
+	if _, err := upgrade.RunCommandOutput(worktreePath, "git", "push", "origin", "db-snapshot", "--force"); err != nil {
+		return fmt.Errorf("git push --force db-snapshot: %w", err)
+	}
+
+	fmt.Printf("Snapshot created and pushed (migration %s, commit %s)\n", migrationVersion, commitSHA[:8])
+
+	// Publish the snapshot under a SHA-named branch
+	// `snapshot/<commitSHA12>` so downstream consumers — release
+	// workflow, operator fetches, historical lookups — have a
+	// deterministic, collision-safe reference keyed by the project
+	// commit the snapshot pins to. Every snapshot gets a branch;
+	// the tag-conditional gate from the prior release-only design
+	// is gone. This removes the chicken-and-egg where a snapshot
+	// could be created before its HEAD was tagged.
+	//
+	// The branch points at the new commit on the db-snapshot
+	// worktree (where snapshot.pg_dump + snapshot.json live);
+	// the branch NAME reflects the project commit; snapshot.json's
+	// commit_sha field records the full project SHA (preflight and
+	// workflow use the full value for verification).
+	snapshotCommit, err := upgrade.RunCommandOutput(worktreePath, "git", "rev-parse", "HEAD")
+	if err != nil {
+		return fmt.Errorf("git rev-parse HEAD in worktree: %w", err)
+	}
+	snapshotCommit = strings.TrimSpace(snapshotCommit)
+	branchName := "snapshot/" + commitSHA[:snapshotSHALen]
+
+	// Force-create the local branch — a stale local ref from an
+	// aborted prior attempt at this same project SHA should be
+	// replaced, not refused.
+	if _, err := upgrade.RunCommandOutput(worktreePath, "git", "branch", "-f", branchName, snapshotCommit); err != nil {
+		return fmt.Errorf("git branch %s: %w", branchName, err)
+	}
+	// --force-with-lease: cleanupSnapshotBranches typically leaves
+	// this slot empty (or honors preserveSHA to keep us); the
+	// --force-with-lease is the safety net for the abort-and-retry
+	// case where remote and local diverge mid-run.
+	if _, err := upgrade.RunCommandOutput(worktreePath, "git", "push", "origin", "--force-with-lease", branchName); err != nil {
+		return fmt.Errorf("git push origin %s: %w", branchName, err)
+	}
+	fmt.Printf("Snapshot pinned: %s → %s\n", branchName, snapshotCommit[:8])
+	return nil
 }
 
 // ── snapshot status ─────────────────────────────────────────────────────────
