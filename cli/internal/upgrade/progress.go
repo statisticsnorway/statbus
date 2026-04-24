@@ -193,7 +193,14 @@ func (p *ProgressLog) File() io.Writer {
 	return io.Discard
 }
 
-// Write appends a timestamped line in `M HH:MM:SS content` format.
+// Write appends a timestamped line in `M HH:MM:SS content` format AND
+// emits the unified heartbeat (sd_notify WATCHDOG=1 + mtime touch on
+// tmp/upgrade-service-heartbeat). See watchdog.go for the rationale.
+//
+// Single signal path: one Write call fires all three liveness signals
+// (journal / heartbeat file / systemd watchdog). No drift between them,
+// no way for one to tick while another is silent. If Write isn't called,
+// progress didn't happen and systemd notices within WatchdogSec.
 func (p *ProgressLog) Write(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
 	line := fmt.Sprintf("M %s %s\n", time.Now().Format("15:04:05"), msg)
@@ -203,6 +210,15 @@ func (p *ProgressLog) Write(format string, args ...interface{}) {
 	if p != nil && p.file != nil {
 		p.file.WriteString(line)
 		p.file.Sync()
+	}
+
+	// Heartbeat. Nil ProgressLog still fires sd_notify + file touch
+	// because the signal is about the service, not the log — but we
+	// need projDir from somewhere. Skip when p is nil (one-shot/test
+	// paths that don't wire a log); main-loop liveness is handled by
+	// its own emitHeartbeat calls.
+	if p != nil {
+		emitHeartbeat(p.projDir)
 	}
 }
 

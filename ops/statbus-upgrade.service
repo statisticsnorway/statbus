@@ -31,9 +31,18 @@ RestartForceExitStatus=42
 SuccessExitStatus=42
 Environment=PATH=/home/linuxbrew/.linuxbrew/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-# Watchdog: service must ping every 2.5 minutes (half of WatchdogSec).
-# If the service hangs (stuck subprocess, deadlock), systemd kills and restarts it.
-WatchdogSec=300
+# Watchdog: service must ping every 60s (half of WatchdogSec). Tightened
+# from 300s (task #42): heartbeats are now main-goroutine-driven — every
+# progress.Write emits WATCHDOG=1, plus a dedicated 30s idle-tick in the
+# main loop. A 120s silence reliably means the main goroutine is hung
+# (not just a quiet idle period), so systemd kills + restarts within
+# 120s of the hang start instead of 5 minutes.
+#
+# The long-running pullImages step is wrapped with a 30s "still
+# preparing images..." ticker in service.go so it too emits heartbeats
+# during legitimately slow docker pulls — matches the 10-min internal
+# timeout in pullImages itself (exec.go:160).
+WatchdogSec=120
 
 # Logging
 StandardOutput=journal

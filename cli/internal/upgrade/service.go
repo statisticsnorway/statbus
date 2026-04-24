@@ -1273,14 +1273,20 @@ func (d *Service) Run(ctx context.Context) error {
 	ticker := time.NewTicker(d.interval)
 	defer ticker.Stop()
 
-	// Systemd watchdog: proves the service is alive and responsive.
-	// If WatchdogSec is set in the unit file, systemd kills+restarts
-	// the service if it stops pinging within the timeout.
-	watchdog := newWatchdog()
-	if watchdog != nil {
-		defer watchdog.Stop()
-		fmt.Printf("Systemd watchdog enabled (interval=%s)\n", watchdog.interval)
-	}
+	// Unified liveness heartbeat. 30s cadence is tuned for
+	// WatchdogSec=120 in the systemd unit (ping at 1/4 the
+	// deadline gives plenty of jitter tolerance).
+	//
+	// This ticker runs ON the main goroutine via the select below —
+	// NOT in a separate goroutine (contrast the prior newWatchdog
+	// helper, which this commit removes). The failure mode we're
+	// closing: if the main goroutine parks on a deadlock, a
+	// goroutine-local ticker keeps pinging systemd and the hang is
+	// invisible for hours (observed Apr 23 2026, task #37). With
+	// the ticker case in this select, a hung main goroutine stops
+	// emitting heartbeats → systemd kills + restarts within 120s.
+	heartbeatTicker := time.NewTicker(30 * time.Second)
+	defer heartbeatTicker.Stop()
 
 	// Initial discovery on startup
 	d.discover(ctx)
@@ -1291,6 +1297,12 @@ func (d *Service) Run(ctx context.Context) error {
 			fmt.Println("Upgrade service shutting down")
 			d.stopListenLoop()
 			return nil
+		case <-heartbeatTicker.C:
+			// Main-goroutine liveness heartbeat. Fires while idle; during
+			// executeUpgrade, progress.Write covers heartbeats via its
+			// embedded emitHeartbeat call, and this case does not fire
+			// because the main goroutine is deep inside executeUpgrade.
+			emitHeartbeat(d.projDir)
 		case <-ticker.C:
 			fmt.Printf("Poll tick (next in %s)\n", d.interval)
 			if !d.upgrading {
@@ -2589,9 +2601,40 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// return. Zero behaviour change; pure observability.
 	progress.Write("Preparing images...")
 	pullStart := time.Now()
-	if err := d.pullImages(displayName); err != nil {
-		d.failUpgrade(ctx, id, fmt.Sprintf("%s: Failed to pull images for %s: %v", ErrDockerUpFailed, displayName, err), progress)
-		return err
+
+	// pullImages is the one step in executeUpgrade that can legitimately
+	// exceed the 120s watchdog window (large registry pulls over slow
+	// links). Emit a periodic "still pulling" progress line so each tick
+	// fires emitHeartbeat and systemd sees liveness. 30s cadence matches
+	// the main-loop heartbeatTicker's; net effect is at most ~30s of
+	// silence between watchdog pings regardless of where the main
+	// goroutine is executing.
+	//
+	// Known blind spot: this ticker fires from a background goroutine.
+	// If pullImages hangs and the main goroutine is stuck inside
+	// cmd.Run, the ticker keeps pinging and systemd doesn't restart.
+	// Bounded by pullImages' own 10-minute ctx timeout (see exec.go:160)
+	// — cmd.Run returns at the 10-min mark even on subprocess hang, so
+	// the main goroutine resumes within that budget.
+	pullDone := make(chan struct{})
+	pullTicker := time.NewTicker(30 * time.Second)
+	go func() {
+		defer pullTicker.Stop()
+		for {
+			select {
+			case <-pullDone:
+				return
+			case <-pullTicker.C:
+				progress.Write("Still preparing images (%s elapsed)...",
+					time.Since(pullStart).Truncate(time.Second))
+			}
+		}
+	}()
+	pullErr := d.pullImages(displayName)
+	close(pullDone)
+	if pullErr != nil {
+		d.failUpgrade(ctx, id, fmt.Sprintf("%s: Failed to pull images for %s: %v", ErrDockerUpFailed, displayName, pullErr), progress)
+		return pullErr
 	}
 	progress.Write("Images prepared (elapsed %s).", time.Since(pullStart).Truncate(time.Millisecond))
 
