@@ -7,7 +7,8 @@ services:
       dockerfile: Dockerfile
       args:
         APT_USE_HTTPS_ONLY: ${APT_USE_HTTPS_ONLY:-false}
-    image: ghcr.io/statisticsnorway/statbus-db:${VERSION:-local}
+    # Rc.63: images are pulled by commit_short, not version_tag.
+    image: ghcr.io/statisticsnorway/statbus-db:${COMMIT_SHORT:-local}
     restart: unless-stopped
     healthcheck:
       test: pg_isready -U postgres -h localhost

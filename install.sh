@@ -170,10 +170,11 @@ elif [ "$CHANNEL" = "edge" ]; then
             https://github.com/statisticsnorway/statbus.git "$STATBUS_DIR"
         cd "$STATBUS_DIR"
     fi
-    # Short-SHA length matches .env COMMIT_SHORT8 and release.yaml
-    # sha_short. Kept deliberately at 8 here so "sha-<short>" displays
-    # are consistent across all install-time tooling.
-    VERSION="sha-$(git rev-parse --short=8 HEAD)"
+    # Rc.63: VERSION for edge is the bare commit_short (8-char). No
+    # "sha-" prefix anywhere. The `./sb config generate` step below
+    # re-computes COMMIT_SHORT from git, so .env is coherent even when
+    # VERSION is set here and .env.config is generated later.
+    VERSION="$(git rev-parse --short=8 HEAD)"
     echo "Edge version: $VERSION"
     echo "Building sb from source..."
     ./dev.sh build-sb >/dev/null

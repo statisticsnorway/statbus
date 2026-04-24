@@ -4,7 +4,9 @@
 services:
   app:
     container_name: ${COMPOSE_INSTANCE_NAME:?COMPOSE_INSTANCE_NAME must be set in the generated .env}-app
-    image: ghcr.io/statisticsnorway/statbus-app:${VERSION:-local}
+    # Rc.63: images are pulled by commit_short, not version_tag.
+    # COMMIT_SHORT is generated in .env by `./sb config generate`.
+    image: ghcr.io/statisticsnorway/statbus-app:${COMMIT_SHORT:-local}
     build:
       context: ./app
       args:
@@ -33,7 +35,7 @@ services:
       POSTGRES_PORT: 5432
       VERSION: ${VERSION:-local}
       PUBLIC_STATBUS_VERSION: ${VERSION:-local}
-      PUBLIC_STATBUS_COMMIT_SHORT8: ${COMMIT_SHORT8:-unknown}
+      PUBLIC_STATBUS_COMMIT_SHORT: ${COMMIT_SHORT:-unknown}
       DEBUG: ${DEBUG:?DEBUG must be set in the generated .env}
       PUBLIC_DEBUG: ${PUBLIC_DEBUG:?PUBLIC_DEBUG must be set in the generated .env}
     restart: unless-stopped

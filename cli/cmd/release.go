@@ -722,8 +722,15 @@ var releaseListCmd = &cobra.Command{
 	},
 }
 
-// releaseCheckTag is the optional --tag flag for `release check`.
-var releaseCheckTag string
+// Release check accepts either --tag (explicit tag to check) or
+// --channel (resolve channel → latest tag, then check). Exactly one
+// must be set; neither defaults to --channel prerelease for
+// backward-compat with pre-rc.63 callers that used the bare `check`
+// form.
+var (
+	releaseCheckTag     string
+	releaseCheckChannel string
+)
 
 // releaseCheckCmd verifies that all release artifacts (GitHub assets including
 // snapshot, Docker images) exist for a given tag. Intended as a gate in
@@ -738,38 +745,43 @@ var releaseCheckCmd = &cobra.Command{
   - GitHub Release assets (binaries, checksums, manifest, snapshot)
   - ghcr.io Docker manifests (app, db, worker, proxy)
 
-Without --tag, resolves the latest pre-release from GitHub.
-With    --tag vX, checks that specific tag.
+Input forms:
+  --tag vX                  check a specific tag
+  --channel stable          check the latest stable release
+  --channel prerelease      check the latest pre-release (default for bare invocation)
+  --channel edge            skip — edge builds from source; no release artifacts
 
-Exit 0 when all checks pass; exit 1 with retry advice when any fail.`,
+Exit 0 when all checks pass (or when --channel edge short-circuits);
+exit 1 with retry advice when any check fails.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		tag := releaseCheckTag
+		if releaseCheckTag != "" && releaseCheckChannel != "" {
+			return fmt.Errorf("--tag and --channel are mutually exclusive")
+		}
 
+		// Edge channel short-circuits: nothing to verify.
+		if releaseCheckChannel == "edge" {
+			fmt.Println("edge channel builds from source; no release artifacts to verify.")
+			return nil
+		}
+
+		tag := releaseCheckTag
 		if tag == "" {
-			// Resolve latest prerelease from GitHub.
-			// GitHub's API does not guarantee release order, so we collect
-			// all non-draft prereleases and sort by CalVer+RC descending to
-			// reliably pick the highest version (not just the first returned).
-			releases, err := upgrade.FetchReleases()
+			// Resolve from channel (defaults to prerelease for
+			// backward-compat with pre-rc.63 callers).
+			channel := releaseCheckChannel
+			if channel == "" {
+				channel = "prerelease"
+			}
+			resolved, err := upgrade.ResolveChannelToLatestTag(channel)
 			if err != nil {
-				return fmt.Errorf("fetch releases: %w", err)
+				return fmt.Errorf("resolve channel %q: %w", channel, err)
 			}
-			var pres []upgrade.Release
-			for _, r := range releases {
-				if r.Prerelease && !r.Draft {
-					pres = append(pres, r)
-				}
+			if resolved == "" {
+				// Only edge returns empty; handled above.
+				return fmt.Errorf("channel %q resolved to empty tag (unexpected)", channel)
 			}
-			sort.Slice(pres, func(i, j int) bool {
-				return calVerRCKey(pres[i].TagName) > calVerRCKey(pres[j].TagName)
-			})
-			if len(pres) > 0 {
-				tag = pres[0].TagName
-			}
-			if tag == "" {
-				return fmt.Errorf("no pre-release found on GitHub")
-			}
-			fmt.Printf("Checking latest pre-release: %s\n", tag)
+			tag = resolved
+			fmt.Printf("Checking release: %s → %s\n", channel, tag)
 		} else {
 			fmt.Printf("Checking release: %s\n", tag)
 		}
@@ -1101,7 +1113,8 @@ func resolveLatestRC(rcTagsNewlineSep string) string {
 }
 
 func init() {
-	releaseCheckCmd.Flags().StringVar(&releaseCheckTag, "tag", "", "tag to check (default: latest pre-release)")
+	releaseCheckCmd.Flags().StringVar(&releaseCheckTag, "tag", "", "specific tag to check (mutually exclusive with --channel)")
+	releaseCheckCmd.Flags().StringVar(&releaseCheckChannel, "channel", "", "channel to check: stable | prerelease | edge (mutually exclusive with --tag)")
 	releaseCmd.AddCommand(releasePrereleaseCmd)
 	releaseCmd.AddCommand(releaseStableCmd)
 	releaseCmd.AddCommand(releaseListCmd)

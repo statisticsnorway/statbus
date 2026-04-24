@@ -16,10 +16,11 @@ import (
 )
 
 // snapshotSHALen is the short-SHA length used in snapshot branch names
-// (`snapshot/<sha12>`). 12 hex chars → ~1 in 2^24 birthday-collision
-// risk at O(1M) snapshots; safe for the lifetime of the repo and still
-// human-readable. Must match `${GITHUB_SHA:0:12}` in release.yaml.
-const snapshotSHALen = 12
+// (`snapshot/<sha8>`). Rc.63: aligned with the canonical commit_short
+// length (8). 8 hex chars → ~1 in 2^16 birthday-collision risk at
+// O(256) snapshots, rising to ~1 in 2 at O(64k) — acceptable for the
+// lifetime of the repo. Must match `${GITHUB_SHA:0:8}` in release.yaml.
+const snapshotSHALen = 8
 
 // snapshotMeta is the JSON structure stored in .db-snapshot/snapshot.json.
 // It records which migration and commit the snapshot covers, so callers

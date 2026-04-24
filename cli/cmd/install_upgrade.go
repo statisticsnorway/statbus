@@ -26,7 +26,7 @@ func dispatchInstallState(projDir string, state install.State, detail *install.D
 	case install.StateLiveUpgrade:
 		if detail.Flag != nil {
 			return true, fmt.Errorf("upgrade in progress (PID %d, %s, started %s); wait for it to finish or re-run './sb install' if the process is dead",
-				detail.Flag.PID, detail.Flag.DisplayName, detail.Flag.StartedAt.Format(time.RFC3339))
+				detail.Flag.PID, detail.Flag.Label(), detail.Flag.StartedAt.Format(time.RFC3339))
 		}
 		return true, fmt.Errorf("upgrade in progress; wait or re-run './sb install'")
 	case install.StateScheduledUpgrade:
@@ -60,12 +60,9 @@ func runInlineUpgradeScheduled(projDir string, detail *install.Detail) error {
 		return fmt.Errorf("load upgrade config: %w", err)
 	}
 
-	shortSHA := detail.TargetCommitSHA
-	if len(shortSHA) > 12 {
-		shortSHA = shortSHA[:12]
-	}
 	fmt.Printf("Dispatching scheduled upgrade id=%d to %s (commit %s)\n",
-		detail.ScheduledRowID, detail.TargetDisplayName, shortSHA)
+		detail.ScheduledRowID, detail.TargetDisplayName,
+		upgrade.ShortForDisplay(detail.TargetCommitSHA))
 
 	if err := svc.ExecuteUpgradeInline(ctx, int(detail.ScheduledRowID), detail.TargetCommitSHA, detail.TargetDisplayName); err != nil {
 		return err

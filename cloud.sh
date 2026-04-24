@@ -434,8 +434,8 @@ cmd_install_one() {
         echo "$apply_out"
         if [ "$apply_rc" -eq 0 ]; then
             # Extract target version from apply-latest output, e.g.:
-            #   Sent: NOTIFY upgrade_apply, 'sha-9bf48bb8'
-            #   Sent: NOTIFY upgrade_apply, 'v2026.04.0-rc.55'
+            #   Sent: NOTIFY upgrade_apply, '9bf48bb8'             # commit_short
+            #   Sent: NOTIFY upgrade_apply, 'v2026.04.0-rc.55'     # release tag
             # Passed to cmd_tail_one so the awk exit pattern is version-specific,
             # preventing stale recovery lines for previous upgrades from terminating early.
             local target_version
@@ -533,8 +533,11 @@ cmd_install_one() {
             # Gate: verify release artifacts are fully published before stopping
             # the running service. If CI is still uploading assets or pushing
             # images, abort early — the server stays up and the operator retries.
-            echo "Checking release artifacts are ready..."
-            if ! "$SCRIPT_DIR/sb" release check; then
+            # Rc.63: use --channel so the check resolves to the
+            # current latest RC instead of treating "prerelease" as a
+            # literal tag.
+            echo "Checking release artifacts for channel prerelease are ready..."
+            if ! "$SCRIPT_DIR/sb" release check --channel prerelease; then
                 echo "--- Release artifacts not ready. Retry in ~5 minutes. ---"
                 return 1
             fi

@@ -77,7 +77,7 @@ func (s State) String() string {
 type ScheduledRow struct {
 	ID          int64
 	CommitSHA   string
-	Version     string // e.g. "v2026.04.0" or "sha-abc1234"
+	Version     string // commit_version shape: CalVer tag, describe-off-tag, or 8-char commit_short
 }
 
 // Detail is the evidence surfaced alongside a State.

@@ -44,63 +44,63 @@ TRUNCATE public.upgrade RESTART IDENTITY;
 \echo '=== supersede: fixtures ==='
 
 -- Row 1: the just-installed commit (newest by both topo and committed_at)
-INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, tags, completed_at, log_relative_file_path)
+INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, commit_tags, completed_at, log_relative_file_path)
 VALUES (lpad(to_hex(100), 40, '0'), now() - '1 hour'::interval, 100, 'release', 'completed',
         'installed release v2026.04.0', ARRAY['v2026.04.0'], now(), 'test-fixture-log.txt');
 
 -- Row 2: older available (should be superseded — older topo + committed_at)
-INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, tags)
+INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, commit_tags)
 VALUES (lpad(to_hex(50), 40, '0'), now() - '10 days'::interval, 50, 'release', 'available',
         'older release v2026.03.0', ARRAY['v2026.03.0']);
 
 -- Row 3: older available commit (no topo, should be superseded by committed_at)
-INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, tags)
+INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, commit_tags)
 VALUES (lpad(to_hex(30), 40, '0'), now() - '20 days'::interval, NULL, 'commit', 'available',
-        'old commit', ARRAY['sha-000000001e']);
+        'old commit', ARRAY['fixture-tag-000000001e']);
 
 -- Row 4: older but COMPLETED (should NOT be superseded — completed_at IS NOT NULL)
-INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, tags, completed_at, log_relative_file_path)
+INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, commit_tags, completed_at, log_relative_file_path)
 VALUES (lpad(to_hex(40), 40, '0'), now() - '15 days'::interval, 40, 'release', 'completed',
         'prior completed release', ARRAY['v2026.02.0'], now() - '14 days'::interval, 'test-fixture-log.txt');
 
 -- Row 5: older IN_PROGRESS (should NOT be superseded — may still be running)
-INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, tags, scheduled_at, started_at)
+INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, commit_tags, scheduled_at, started_at)
 VALUES (lpad(to_hex(45), 40, '0'), now() - '12 days'::interval, 45, 'prerelease', 'in_progress',
         'stale in_progress', ARRAY['v2026.03.0-rc.1'], now() - '12 days'::interval, now() - '12 days'::interval);
 
 -- Row 6: NEWER than installed (should NOT be superseded — topo 200 > 100)
-INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, tags)
+INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, commit_tags)
 VALUES (lpad(to_hex(200), 40, '0'), now() + '1 day'::interval, 200, 'release', 'available',
         'newer release v2026.05.0', ARRAY['v2026.05.0']);
 
 -- Row 7: older FAILED (now superseded — error preserved)
-INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, tags, scheduled_at, started_at, error)
+INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, commit_tags, scheduled_at, started_at, error)
 VALUES (lpad(to_hex(35), 40, '0'), now() - '18 days'::interval, 35, 'prerelease', 'failed',
         'failed prerelease', ARRAY['v2026.02.0-rc.5'],
         now() - '18 days'::interval, now() - '18 days'::interval,
         'download failed');
 
 -- Row 8: older ROLLED_BACK (now superseded — error preserved)
-INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, tags, scheduled_at, started_at, error, rolled_back_at)
+INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, commit_tags, scheduled_at, started_at, error, rolled_back_at)
 VALUES (lpad(to_hex(25), 40, '0'), now() - '22 days'::interval, 25, 'prerelease', 'rolled_back',
         'rolled back prerelease', ARRAY['v2026.01.0-rc.3'],
         now() - '22 days'::interval, now() - '22 days'::interval,
         'migration failed', now() - '22 days'::interval);
 
 -- Row 9: older SKIPPED (should NOT be superseded — skipped_at IS NOT NULL)
-INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, tags, skipped_at)
+INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, commit_tags, skipped_at)
 VALUES (lpad(to_hex(20), 40, '0'), now() - '25 days'::interval, 20, 'release', 'skipped',
         'skipped release', ARRAY['v2026.01.0'], now() - '24 days'::interval);
 
 -- Row 10: older DISMISSED (should NOT be superseded — dismissed_at IS NOT NULL)
-INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, tags, scheduled_at, started_at, error, dismissed_at)
+INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, commit_tags, scheduled_at, started_at, error, dismissed_at)
 VALUES (lpad(to_hex(15), 40, '0'), now() - '28 days'::interval, 15, 'prerelease', 'dismissed',
         'dismissed failure', ARRAY['v2026.01.0-rc.1'],
         now() - '28 days'::interval, now() - '28 days'::interval,
         'build failed', now() - '27 days'::interval);
 
 -- Row 11: older already SUPERSEDED (should NOT be superseded again)
-INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, tags, superseded_at)
+INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, commit_tags, superseded_at)
 VALUES (lpad(to_hex(10), 40, '0'), now() - '30 days'::interval, 10, 'release', 'superseded',
         'already superseded', ARRAY['v2025.12.0'], now() - '29 days'::interval);
 
@@ -146,12 +146,12 @@ VALUES (lpad(to_hex(110), 40, '0'), now(), 110, 'commit', 'completed',
         'newer plain commit (dev.sh fix)', now(), 'test-fixture-log.txt');
 
 -- Row 2: older available PRERELEASE (should NOT be superseded by a commit)
-INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, tags)
+INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, commit_tags)
 VALUES (lpad(to_hex(90), 40, '0'), now() - '2 days'::interval, 90, 'prerelease', 'available',
         'rc.30 prerelease', ARRAY['v2026.04.0-rc.30']);
 
 -- Row 3: older available RELEASE (should NOT be superseded by a commit)
-INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, tags)
+INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, commit_tags)
 VALUES (lpad(to_hex(80), 40, '0'), now() - '5 days'::interval, 80, 'release', 'available',
         'release v2026.03.0', ARRAY['v2026.03.0']);
 
@@ -173,7 +173,7 @@ SELECT id, state, release_status, superseded_at IS NOT NULL AS has_superseded_at
 TRUNCATE public.upgrade RESTART IDENTITY;
 
 -- Row 1: a newer PRERELEASE (the triggering row)
-INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, tags, completed_at, log_relative_file_path)
+INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, commit_tags, completed_at, log_relative_file_path)
 VALUES (lpad(to_hex(120), 40, '0'), now(), 120, 'prerelease', 'completed',
         'rc.31 prerelease', ARRAY['v2026.04.0-rc.31'], now(), 'test-fixture-log.txt');
 
@@ -183,12 +183,12 @@ VALUES (lpad(to_hex(100), 40, '0'), now() - '3 days'::interval, 100, 'commit', '
         'older commit');
 
 -- Row 3: older available PRERELEASE (should be superseded — same status)
-INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, tags)
+INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, commit_tags)
 VALUES (lpad(to_hex(90), 40, '0'), now() - '5 days'::interval, 90, 'prerelease', 'available',
         'rc.29 older prerelease', ARRAY['v2026.04.0-rc.29']);
 
 -- Row 4: older available RELEASE (should NOT be superseded — release > prerelease)
-INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, tags)
+INSERT INTO public.upgrade (commit_sha, committed_at, topological_order, release_status, state, summary, commit_tags)
 VALUES (lpad(to_hex(80), 40, '0'), now() - '10 days'::interval, 80, 'release', 'available',
         'release v2026.03.0', ARRAY['v2026.03.0']);
 
@@ -230,47 +230,47 @@ INSERT INTO public.upgrade_retention_caps (release_status, state, time_cap, coun
 \echo '=== retention: fixtures — 3 channels × stamped committed_at ==='
 
 -- Commits (10 rows): 1 completed (1d), 9 superseded spanning newest→oldest
-INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary, tags, completed_at, log_relative_file_path) VALUES
+INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary, commit_tags, completed_at, log_relative_file_path) VALUES
     (lpad(to_hex( 1), 40, '0'), now() - '1 day'::interval, 'commit', 'completed',
-     'commit #1 completed',  ARRAY['sha-0000000001'], now() - '1 day'::interval, 'test-fixture-log.txt');
+     'commit #1 completed',  ARRAY['fixture-tag-0000000001'], now() - '1 day'::interval, 'test-fixture-log.txt');
 
-INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary, tags, superseded_at) VALUES
-    (lpad(to_hex( 2), 40, '0'), now() - ' 2 days'::interval, 'commit', 'superseded', 'commit #2 newest sup',  ARRAY['sha-0000000002'], now()),
-    (lpad(to_hex( 3), 40, '0'), now() - ' 5 days'::interval, 'commit', 'superseded', 'commit #3 sup',         ARRAY['sha-0000000003'], now()),
-    (lpad(to_hex( 4), 40, '0'), now() - '10 days'::interval, 'commit', 'superseded', 'commit #4 sup',         ARRAY['sha-0000000004'], now()),
+INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary, commit_tags, superseded_at) VALUES
+    (lpad(to_hex( 2), 40, '0'), now() - ' 2 days'::interval, 'commit', 'superseded', 'commit #2 newest sup',  ARRAY['fixture-tag-0000000002'], now()),
+    (lpad(to_hex( 3), 40, '0'), now() - ' 5 days'::interval, 'commit', 'superseded', 'commit #3 sup',         ARRAY['fixture-tag-0000000003'], now()),
+    (lpad(to_hex( 4), 40, '0'), now() - '10 days'::interval, 'commit', 'superseded', 'commit #4 sup',         ARRAY['fixture-tag-0000000004'], now()),
     -- below the 14-day cap AND beyond count_cap=2 → time-safety candidates
-    (lpad(to_hex( 5), 40, '0'), now() - '20 days'::interval, 'commit', 'superseded', 'commit #5 old',         ARRAY['sha-0000000005'], now()),
-    (lpad(to_hex( 6), 40, '0'), now() - '40 days'::interval, 'commit', 'superseded', 'commit #6 older',       ARRAY['sha-0000000006'], now()),
-    (lpad(to_hex( 7), 40, '0'), now() - '60 days'::interval, 'commit', 'superseded', 'commit #7 older still', ARRAY['sha-0000000007'], now()),
-    (lpad(to_hex( 8), 40, '0'), now() - '80 days'::interval, 'commit', 'superseded', 'commit #8 ancient',     ARRAY['sha-0000000008'], now()),
-    (lpad(to_hex( 9), 40, '0'), now() - '100 days'::interval,'commit', 'superseded', 'commit #9 ancient-2',   ARRAY['sha-0000000009'], now()),
-    (lpad(to_hex(10), 40, '0'), now() - '120 days'::interval,'commit', 'superseded', 'commit #10 oldest',     ARRAY['sha-000000000a'], now());
+    (lpad(to_hex( 5), 40, '0'), now() - '20 days'::interval, 'commit', 'superseded', 'commit #5 old',         ARRAY['fixture-tag-0000000005'], now()),
+    (lpad(to_hex( 6), 40, '0'), now() - '40 days'::interval, 'commit', 'superseded', 'commit #6 older',       ARRAY['fixture-tag-0000000006'], now()),
+    (lpad(to_hex( 7), 40, '0'), now() - '60 days'::interval, 'commit', 'superseded', 'commit #7 older still', ARRAY['fixture-tag-0000000007'], now()),
+    (lpad(to_hex( 8), 40, '0'), now() - '80 days'::interval, 'commit', 'superseded', 'commit #8 ancient',     ARRAY['fixture-tag-0000000008'], now()),
+    (lpad(to_hex( 9), 40, '0'), now() - '100 days'::interval,'commit', 'superseded', 'commit #9 ancient-2',   ARRAY['fixture-tag-0000000009'], now()),
+    (lpad(to_hex(10), 40, '0'), now() - '120 days'::interval,'commit', 'superseded', 'commit #10 oldest',     ARRAY['fixture-tag-000000000a'], now());
 
 -- Prereleases (ids 11..14): one completed recent, two same-family available, one older superseded.
-INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary, tags, completed_at, log_relative_file_path) VALUES
+INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary, commit_tags, completed_at, log_relative_file_path) VALUES
     (lpad(to_hex(11), 40, '0'), now() - '30 days'::interval, 'prerelease', 'completed',
      'prerelease rc1 completed', ARRAY['v2026.03.0-rc.1'], now() - '29 days'::interval, 'test-fixture-log.txt');
-INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary, tags) VALUES
+INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary, commit_tags) VALUES
     (lpad(to_hex(12), 40, '0'), now() - '10 days'::interval, 'prerelease', 'available',
      'prerelease rc2 same-family as installed release', ARRAY['v2026.04.0-rc.2']),
     (lpad(to_hex(13), 40, '0'), now() - ' 5 days'::interval, 'prerelease', 'available',
      'prerelease rc3 same-family as installed release', ARRAY['v2026.04.0-rc.3']);
-INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary, tags, superseded_at) VALUES
+INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary, commit_tags, superseded_at) VALUES
     (lpad(to_hex(14), 40, '0'), now() - '40 days'::interval, 'prerelease', 'superseded',
      'prerelease rc old', ARRAY['v2026.02.0-rc.1'], now());
 
 -- Releases (ids 15..16): the just-installed release + a prior completed release.
-INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary, tags, completed_at, log_relative_file_path) VALUES
+INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary, commit_tags, completed_at, log_relative_file_path) VALUES
     (lpad(to_hex(15), 40, '0'), now() - '50 days'::interval, 'release', 'completed',
      'prior release v2026.03.0', ARRAY['v2026.03.0'], now() - '49 days'::interval, 'test-fixture-log.txt'),
     (lpad(to_hex(16), 40, '0'), now() - '2 hours'::interval, 'release', 'completed',
      'just-installed release v2026.04.0', ARRAY['v2026.04.0'], now(), 'test-fixture-log.txt');
 
 -- Zombie rows: absurdly old, NULL caps → must NEVER be purged.
-INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary, tags, scheduled_at, started_at) VALUES
+INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary, commit_tags, scheduled_at, started_at) VALUES
     (lpad(to_hex(17), 40, '0'), now() - '5 years'::interval, 'commit', 'in_progress',
-     'ancient zombie in_progress', ARRAY['sha-0000000011'], now() - '5 years'::interval, now() - '5 years'::interval);
-INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary, tags, scheduled_at) VALUES
+     'ancient zombie in_progress', ARRAY['fixture-tag-0000000011'], now() - '5 years'::interval, now() - '5 years'::interval);
+INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary, commit_tags, scheduled_at) VALUES
     (lpad(to_hex(18), 40, '0'), now() - '5 years'::interval, 'prerelease', 'scheduled',
      'ancient zombie scheduled', ARRAY['v2020.01.0-rc.99'], now() - '5 years'::interval);
 

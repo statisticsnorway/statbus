@@ -222,8 +222,12 @@ cmd_install_one() {
             "curl -fsSL ${INSTALL_URL} | bash -s -- --version $version $(trust_flag "$resolved_trust_user")" 2>&1 \
             || exit_code=$?
     else
-        echo "Checking release artifacts are ready..."
-        if ! "$SCRIPT_DIR/sb" release check 2>/dev/null; then
+        # Rc.63: release check resolves the channel to its current
+        # latest tag and checks THAT. Prior versions passed "prerelease"
+        # as a literal tag name which produced a hollow "not found"
+        # failure.
+        echo "Checking release artifacts for channel prerelease are ready..."
+        if ! "$SCRIPT_DIR/sb" release check --channel prerelease 2>/dev/null; then
             echo "--- Release artifacts not ready. Retry in ~5 minutes. ---"
             return 1
         fi

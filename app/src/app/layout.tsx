@@ -50,12 +50,14 @@ export default async function RootLayout({
     deploymentSlotCode: process.env.PUBLIC_DEPLOYMENT_SLOT_CODE || "",
     debug: process.env.PUBLIC_DEBUG === "true",
     version: process.env.PUBLIC_STATBUS_VERSION || "",
-    // Short-form (8-char) commit SHA for display in footer / status —
-    // sourced from PUBLIC_STATBUS_COMMIT_SHORT8 which is the name written
-    // by `./sb config generate` (see cli/internal/config/config.go). The
-    // property name stays short ("commit") because this object is
-    // display-only; no equality comparison ever reads it.
-    commit: process.env.PUBLIC_STATBUS_COMMIT_SHORT8 || "",
+    // Short-form (8-char) commit_short for display in footer / status —
+    // sourced from PUBLIC_STATBUS_COMMIT_SHORT which is the name written
+    // by `./sb config generate` (see cli/internal/config/config.go). Rc.63:
+    // length suffix dropped from the env-var name — there's only one
+    // short form (8 chars, documented at the Go helper). The property
+    // name stays short ("commit") because this object is display-only;
+    // no equality comparison ever reads it.
+    commit: process.env.PUBLIC_STATBUS_COMMIT_SHORT || "",
   };
 
   return (

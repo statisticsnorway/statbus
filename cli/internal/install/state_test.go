@@ -60,7 +60,7 @@ func TestDetectWith(t *testing.T) {
 			name: "live upgrade: flag with alive pid",
 			probe: fakeProbe{
 				files:     map[string]bool{cfgPath: true, credPath: true},
-				flag:      &upgrade.UpgradeFlag{PID: 42, DisplayName: "v2026.04.0"},
+				flag:      &upgrade.UpgradeFlag{PID: 42, CommitTags: []string{"v2026.04.0"}},
 				flagAlive: true,
 			},
 			wantState: StateLiveUpgrade,
@@ -74,7 +74,7 @@ func TestDetectWith(t *testing.T) {
 			name: "crashed upgrade: flag with dead pid",
 			probe: fakeProbe{
 				files:     map[string]bool{cfgPath: true, credPath: true},
-				flag:      &upgrade.UpgradeFlag{PID: 1, DisplayName: "v2026.04.0"},
+				flag:      &upgrade.UpgradeFlag{PID: 1, CommitTags: []string{"v2026.04.0"}},
 				flagAlive: false,
 			},
 			wantState: StateCrashedUpgrade,
@@ -83,7 +83,7 @@ func TestDetectWith(t *testing.T) {
 			name: "ghost flag: PID alive but flock free → crashed (not live)",
 			probe: fakeProbe{
 				files:     map[string]bool{cfgPath: true, credPath: true},
-				flag:      &upgrade.UpgradeFlag{PID: 999, DisplayName: "sha-abc1234f"},
+				flag:      &upgrade.UpgradeFlag{PID: 999, CommitSHA: "abc1234f0000000000000000000000000000abcd"},
 				flagAlive: false, // flock free — ghost flag from completed upgrade
 			},
 			wantState: StateCrashedUpgrade,

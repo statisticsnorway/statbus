@@ -28,17 +28,17 @@ import (
 // Recreate, BackupPath) serialise and deserialise cleanly.
 func TestUpgradeFlagJSONRoundTrip_PostSwap(t *testing.T) {
 	original := UpgradeFlag{
-		ID:          42,
-		CommitSHA:   "abc123def456",
-		DisplayName: "v0.0.0-rc.test",
-		PID:         os.Getpid(),
-		StartedAt:   time.Now().UTC().Truncate(time.Second),
-		InvokedBy:   "test",
-		Trigger:     "notify",
-		Holder:      HolderService,
-		Phase:       FlagPhasePostSwap,
-		Recreate:    true,
-		BackupPath:  "/home/x/statbus-backups/pre-upgrade-20260422T010203Z",
+		ID:         42,
+		CommitSHA:  "abc123def456",
+		CommitTags: []string{"v0.0.0-rc.test"},
+		PID:        os.Getpid(),
+		StartedAt:  time.Now().UTC().Truncate(time.Second),
+		InvokedBy:  "test",
+		Trigger:    "notify",
+		Holder:     HolderService,
+		Phase:      FlagPhasePostSwap,
+		Recreate:   true,
+		BackupPath: "/home/x/statbus-backups/pre-upgrade-20260422T010203Z",
 	}
 
 	data, err := json.Marshal(original)
@@ -117,7 +117,7 @@ func TestWriteUpgradeFlag_PersistsRecreate(t *testing.T) {
 				t.Fatal(err)
 			}
 			d := &Service{projDir: projDir}
-			if err := d.writeUpgradeFlag(7, "sha7", "v0.0.0-test", "test", string(TriggerService), recreate); err != nil {
+			if err := d.writeUpgradeFlag(7, "sha7", []string{"v0.0.0-test"}, "test", string(TriggerService), recreate); err != nil {
 				t.Fatalf("writeUpgradeFlag: %v", err)
 			}
 			defer d.removeUpgradeFlag()
@@ -152,7 +152,7 @@ func TestUpdateFlagPostSwap_RewritesInPlace(t *testing.T) {
 		t.Fatal(err)
 	}
 	d := &Service{projDir: projDir}
-	if err := d.writeUpgradeFlag(99, "sha99", "v0.0.0-stamp", "test", string(TriggerService), true); err != nil {
+	if err := d.writeUpgradeFlag(99, "sha99", []string{"v0.0.0-stamp"}, "test", string(TriggerService), true); err != nil {
 		t.Fatalf("writeUpgradeFlag: %v", err)
 	}
 	defer d.removeUpgradeFlag()
@@ -184,7 +184,7 @@ func TestUpdateFlagPostSwap_RewritesInPlace(t *testing.T) {
 	// Flock must still be held: a second acquirer in the same process
 	// gets a contention error (non-blocking LOCK_NB).
 	if _, err := acquireFlock(projDir, UpgradeFlag{
-		ID: 100, CommitSHA: "x", DisplayName: "v0-other", PID: os.Getpid(),
+		ID: 100, CommitSHA: "x", CommitTags: []string{"v0-other"}, PID: os.Getpid(),
 		Holder: HolderService, Trigger: "notify",
 	}); err == nil {
 		t.Errorf("expected second acquireFlock to fail (flock still held after updateFlagPostSwap)")

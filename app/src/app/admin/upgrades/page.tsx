@@ -61,7 +61,7 @@ interface Upgrade {
   commit_sha: string;
   committed_at: string;
   topological_order: number | null;
-  tags: string[];
+  commit_tags: string[];
   release_status: 'commit' | 'prerelease' | 'release';
   display_name: string;
   display_state: string;
@@ -70,7 +70,7 @@ interface Upgrade {
   changes: string | null;
   release_url: string | null;
   has_migrations: boolean;
-  from_version: string | null;
+  from_commit_version: string | null;
   scheduled_at: string | null;
   started_at: string | null;
   completed_at: string | null;
@@ -746,7 +746,7 @@ function UpgradeCard({
                 href={
                   u.release_status === 'commit'
                     ? `https://github.com/statisticsnorway/statbus/commit/${u.commit_sha}`
-                    : `https://github.com/statisticsnorway/statbus/releases/tag/${u.tags?.[0] ?? ""}`
+                    : `https://github.com/statisticsnorway/statbus/releases/tag/${u.commit_tags?.[0] ?? ""}`
                 }
                 target="_blank"
                 rel="noopener noreferrer"
@@ -968,7 +968,7 @@ function UpgradeCard({
               {u.release_url && (
                 <Button size="sm" variant="ghost" asChild>
                   <a
-                    href={`https://github.com/statisticsnorway/statbus/issues/new?title=${encodeURIComponent(`Upgrade failed: ${u.display_name}`)}&body=${encodeURIComponent(`## Upgrade Failure Report\n\n**Version:** ${u.display_name}\n**Commit:** ${u.commit_sha}\n**From:** ${u.from_version ?? "unknown"}\n**Error:** ${u.error}\n**Date:** ${u.started_at}`)}`}
+                    href={`https://github.com/statisticsnorway/statbus/issues/new?title=${encodeURIComponent(`Upgrade failed: ${u.display_name}`)}&body=${encodeURIComponent(`## Upgrade Failure Report\n\n**Version:** ${u.display_name}\n**Commit:** ${u.commit_sha}\n**From:** ${u.from_commit_version ?? "unknown"}\n**Error:** ${u.error}\n**Date:** ${u.started_at}`)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                   >

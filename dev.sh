@@ -50,9 +50,10 @@ if [ "$sb_needs_rebuild" = true ]; then
         # install-verified tag was deleted in rc.62; this filter remains as
         # defense against any stray non-release tags landing in the refs/tags/ space.
         _SB_VERSION=$(git describe --tags --always --match 'v[0-9]*' 2>/dev/null | sed 's/^v//' || echo "dev")
-        # Full 40-char SHA for cmd.commit ldflag — equality-compared against
-        # public.upgrade.commit_sha in the upgrade service's ground-truth
-        # check. Display-only trimming happens via shortSHA() in Go.
+        # Full 40-char commit_sha for cmd.commit ldflag — equality-compared
+        # against public.upgrade.commit_sha in the upgrade service's
+        # ground-truth check. Display-only trimming happens via
+        # upgrade.ShortForDisplay() / commitShort() in Go (rc.63 canonical).
         _SB_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
         _SB_LDFLAGS="-X 'github.com/statisticsnorway/statbus/cli/cmd.version=${_SB_VERSION}' -X 'github.com/statisticsnorway/statbus/cli/cmd.commit=${_SB_COMMIT}'"
         (cd cli && go build -ldflags "$_SB_LDFLAGS" -o ../sb .)

@@ -59,7 +59,7 @@ The `edge` channel tracks every commit pushed to the `master` branch, not just t
 
 **How it works:**
 
-- CI builds and pushes Docker images for every master commit, tagged with the commit SHA (e.g., `ghcr.io/statisticsnorway/statbus-app:sha-abc1234f`).
+- CI builds and pushes Docker images for every master commit, tagged with the 8-char commit_short (rc.63: `ghcr.io/statisticsnorway/statbus-app:abc1234f`).
 - The service discovers new commits by polling the GitHub API for the latest master HEAD.
 - When a new commit is found, the service auto-schedules it for immediate upgrade -- no operator action required.
 - Upgrades use the same lifecycle as tagged releases (backup, checkout, migrate, restart, health check, rollback on failure).
@@ -82,7 +82,7 @@ sudo systemctl restart statbus-upgrade@statbus_no
 - **Development/testing only.** Edge upgrades are not suitable for production. Every master commit is deployed without manual review.
 - **High churn.** The service will upgrade on every push to master. Set `UPGRADE_CHECK_INTERVAL` to control how frequently it polls (default `6h`; for active development, `15m` or `30m` may be appropriate).
 - **Migrations may be untested.** Edge commits may include migrations that have not been validated in a full release cycle.
-- **Version format.** Edge versions use `sha-HEXHEX` format (e.g., `sha-abc1234f`) instead of `vYYYY.MM.PATCH`.
+- **Version format.** Edge versions use the bare 8-char `commit_short` (e.g., `abc1234f`) instead of `vYYYY.MM.PATCH`. Rc.63 canonical naming — no `sha-` prefix.
 
 ## Operating the Service
 
@@ -136,7 +136,7 @@ The service restarts automatically on failure (`Restart=always`, `RestartSec=30`
 
 `./sb install` is the unified entrypoint. When a scheduled row exists it claims it atomically and runs the same pipeline the service uses (backup, checkout, migrate, restart, health-check, rollback on failure). If the service unit is active, it gets restarted at the end so it picks up the new binary. See `doc/upgrade-system.md` for the full state-detection ladder.
 
-Version format: `vYYYY.MM.PATCH` (e.g., `v2026.03.1`) or `sha-HEXHEX` (e.g., `sha-abc1234f`).
+Version format: `vYYYY.MM.PATCH` (e.g., `v2026.03.1`) or 8-char `commit_short` (e.g., `abc1234f`).
 
 ### Database recreate (`--recreate`)
 

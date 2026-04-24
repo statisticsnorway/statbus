@@ -184,12 +184,11 @@ func acquireOrBypass(installDir string, bypass bool) (release func(), err error)
 		return func() {}, nil
 	}
 
-	displayName := fmt.Sprintf("install (PID %d)", os.Getpid())
 	invokedBy := "operator"
 	if u := os.Getenv("USER"); u != "" {
 		invokedBy = "operator:" + u
 	}
-	lock, err := upgrade.AcquireInstallFlag(installDir, displayName, invokedBy)
+	lock, err := upgrade.AcquireInstallFlag(installDir, invokedBy)
 	if err != nil {
 		return nil, err
 	}
@@ -1240,8 +1239,8 @@ func completeInstallUpgradeRow(installDir string, conn *pgx.Conn, logRelPath str
 	_, err := conn.Exec(ctx,
 		`INSERT INTO public.upgrade (
 		   commit_sha, committed_at, summary, state, completed_at,
-		   version, release_status, scheduled_at, started_at, from_version,
-		   tags, has_migrations,
+		   commit_version, release_status, scheduled_at, started_at, from_commit_version,
+		   commit_tags, has_migrations,
 		   docker_images_status, release_builds_status,
 		   log_relative_file_path
 		 ) VALUES (
@@ -1249,7 +1248,7 @@ func completeInstallUpgradeRow(installDir string, conn *pgx.Conn, logRelPath str
 		   $3, 'completed', clock_timestamp(),
 		   $4, $5::release_status_type,
 		   clock_timestamp(), clock_timestamp(),
-		   (SELECT version FROM public.upgrade WHERE state = 'completed' ORDER BY completed_at DESC NULLS LAST LIMIT 1),
+		   (SELECT commit_version FROM public.upgrade WHERE state = 'completed' ORDER BY completed_at DESC NULLS LAST LIMIT 1),
 		   ARRAY[$4]::text[], false,
 		   'ready', 'ready',
 		   NULLIF($6, '')
@@ -1264,7 +1263,7 @@ func completeInstallUpgradeRow(installDir string, conn *pgx.Conn, logRelPath str
 		   dismissed_at = NULL,
 		   docker_images_status = 'ready',
 		   release_builds_status = 'ready',
-		   version = COALESCE(EXCLUDED.version, upgrade.version),
+		   commit_version = COALESCE(EXCLUDED.commit_version, upgrade.commit_version),
 		   log_relative_file_path = COALESCE(EXCLUDED.log_relative_file_path, upgrade.log_relative_file_path)
 		 WHERE upgrade.state != 'completed'`,
 		sha,
@@ -1587,12 +1586,12 @@ func logInstallState(state install.State, detail *install.Detail) {
 	case install.StateLiveUpgrade:
 		if detail.Flag != nil {
 			fmt.Printf("  Upgrade in progress (PID %d, %s). Install will refuse.\n",
-				detail.Flag.PID, detail.Flag.DisplayName)
+				detail.Flag.PID, detail.Flag.Label())
 		}
 	case install.StateCrashedUpgrade:
 		if detail.Flag != nil {
 			fmt.Printf("  Prior upgrade crashed (PID %d, %s). The stale lock was released when the PID died; recovering.\n",
-				detail.Flag.PID, detail.Flag.DisplayName)
+				detail.Flag.PID, detail.Flag.Label())
 		}
 	case install.StateHalfConfigured:
 		fmt.Println("  .env.credentials missing; step-table will generate it.")

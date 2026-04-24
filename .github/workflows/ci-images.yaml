@@ -29,20 +29,21 @@ jobs:
   describe:
     runs-on: ubuntu-24.04
     outputs:
-      tag: ${{ steps.compute.outputs.tag }}
+      commit_short: ${{ steps.compute.outputs.commit_short }}
     steps:
       - uses: actions/checkout@v4
         with:
-          # fetch-depth: 0 so `git describe --tags` finds the nearest tag.
+          # fetch-depth: 0 so `git rev-parse --short=8 HEAD` works even
+          # on shallow clones (rare here, defensive).
           fetch-depth: 0
       - id: compute
-        # Computed ONCE here, then propagated to every build/manifest job
-        # via needs.describe.outputs.tag — guarantees per-arch tag parity
-        # across all build shards.
+        # Rc.63: images tagged by commit_short only. The describe job
+        # computes once and propagates via needs.describe.outputs for
+        # per-arch parity.
         run: |
-          TAG=$(git describe --tags --always)
-          echo "Computed describe tag: $TAG"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          COMMIT_SHORT=$(git rev-parse --short=8 HEAD)
+          echo "Computed commit_short: $COMMIT_SHORT"
+          echo "commit_short=$COMMIT_SHORT" >> "$GITHUB_OUTPUT"
 
   build:
     needs: describe
@@ -82,8 +83,7 @@ jobs:
           platforms: linux/${{ matrix.platform.arch }}
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service.name }}:sha-${{ github.sha }}-${{ matrix.platform.arch }}
-            ${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service.name }}:${{ needs.describe.outputs.tag }}-${{ matrix.platform.arch }}
+            ${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service.name }}:${{ needs.describe.outputs.commit_short }}-${{ matrix.platform.arch }}
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service.name }}:buildcache-${{ matrix.platform.arch }}
           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service.name }}:buildcache-${{ matrix.platform.arch }},mode=max
 
@@ -100,14 +100,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create multi-arch manifests
-        # Loops over the same two tag variants the build job pushed, in
-        # the same order, using the same describe-tag value — so each
-        # manifest's per-arch references are guaranteed to exist.
+      - name: Create multi-arch manifest (commit_short)
+        # Rc.63: images tagged by commit_short only. One multi-arch
+        # manifest per image combines the per-arch builds pushed by the
+        # build job.
         run: |
-          for TAG in "sha-${{ github.sha }}" "${{ needs.describe.outputs.tag }}"; do
-            docker buildx imagetools create \
-              --tag ${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service }}:${TAG} \
-              ${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service }}:${TAG}-amd64 \
-              ${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service }}:${TAG}-arm64
-          done
+          TAG="${{ needs.describe.outputs.commit_short }}"
+          docker buildx imagetools create \
+            --tag ${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service }}:${TAG} \
+            ${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service }}:${TAG}-amd64 \
+            ${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service }}:${TAG}-arm64

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -51,10 +52,19 @@ type Manifest struct {
 	} `json:"binaries"`
 }
 
-// versionRegex validates version tags and commit SHAs.
-var versionRegex = regexp.MustCompile(`^(v\d{4}\.\d{2}\.\d+(-[\w.]+)?|sha-[a-f0-9]{7,40})$`)
+// versionRegex validates CalVer tag strings. Tightened in rc.63 to
+// release-tag shape ONLY — pre-rc.63 the regex also accepted
+// `sha-<7-40 hex>`, which required every caller to distinguish the
+// two alternatives. Post-rc.63 ValidateVersion answers exactly one
+// question: is this a release tag. For untagged commit references,
+// callers now carry typed CommitSHA / CommitShort values instead of
+// inspecting strings.
+var versionRegex = regexp.MustCompile(`^v\d{4}\.\d{2}\.\d+(-[\w.]+)?$`)
 
-// ValidateVersion checks if a version string is valid.
+// ValidateVersion reports whether v is a valid CalVer release tag
+// (v<YYYY>.<MM>.<patch>[-suffix]). Equivalent to NewReleaseTag's
+// validation — the function is kept for backward-compat with
+// call sites that don't need the typed value.
 func ValidateVersion(v string) bool {
 	return versionRegex.MatchString(v)
 }
@@ -172,6 +182,74 @@ func FilterByChannel(releases []Release, channel string) []Release {
 	}
 }
 
+// selectLatestTag is the pure (no-network) logic that picks the latest
+// release tag from an already-fetched set of releases. Returns:
+//   - channel=edge       → ("", nil); caller handles "no artifact to check".
+//   - channel=stable     → highest-CalVer non-prerelease release tag, or error if none.
+//   - channel=prerelease → highest-CalVer prerelease tag, or error if none.
+//   - unrecognised       → error listing accepted channels.
+//
+// Hermetic: the test suite drives selectLatestTag with canned
+// []Release inputs; ResolveChannelToLatestTag wraps it with the
+// network call.
+func selectLatestTag(releases []Release, channel string) (string, error) {
+	switch channel {
+	case "edge":
+		return "", nil
+	case "stable", "prerelease":
+		// fall through
+	default:
+		return "", fmt.Errorf("unknown channel %q (valid: stable, prerelease, edge)", channel)
+	}
+
+	// Filter. Note: FilterByChannel("prerelease") returns ALL releases
+	// (both stable and prerelease). The operator-facing semantic of the
+	// prerelease channel is "latest RC", so filter explicitly here —
+	// otherwise a stable tag at HEAD would beat the newest RC on a
+	// release-cutting day.
+	var filtered []Release
+	switch channel {
+	case "stable":
+		for _, r := range releases {
+			if !r.Prerelease && !r.Draft {
+				filtered = append(filtered, r)
+			}
+		}
+	case "prerelease":
+		for _, r := range releases {
+			if r.Prerelease && !r.Draft {
+				filtered = append(filtered, r)
+			}
+		}
+	}
+	if len(filtered) == 0 {
+		return "", fmt.Errorf("no %s release published", channel)
+	}
+	// Sort newest-first via CompareVersions (CalVer+RC ordering).
+	sort.Slice(filtered, func(i, j int) bool {
+		return CompareVersions(filtered[i].TagName, filtered[j].TagName) > 0
+	})
+	return filtered[0].TagName, nil
+}
+
+// ResolveChannelToLatestTag resolves a channel name to the current
+// latest release tag. Wraps selectLatestTag with the live GitHub API.
+// See selectLatestTag for the resolution semantics per channel.
+//
+// This is the sole resolution site used by both install.sh (via
+// `./sb install`) and `./sb release check --channel`, so the two
+// stay aligned.
+func ResolveChannelToLatestTag(channel string) (string, error) {
+	if channel == "edge" {
+		return "", nil
+	}
+	releases, err := FetchReleases()
+	if err != nil {
+		return "", fmt.Errorf("fetch releases: %w", err)
+	}
+	return selectLatestTag(releases, channel)
+}
+
 // ReleaseSummary returns a human-readable summary of a release.
 func ReleaseSummary(r Release) string {
 	name := r.Name
@@ -224,8 +302,11 @@ func FetchCommits(count int) ([]Commit, error) {
 }
 
 // CompareVersions returns -1 if a < b, 0 if equal, 1 if a > b.
-// For CalVer tags (vYYYY.MM.PATCH-rc.N): parses numeric segments for correct ordering.
-// For SHA tags: returns 0 (incomparable without git history — use CompareByCommitOrder instead).
+// Both inputs MUST be CalVer release tags — callers that hold untagged
+// commit references should not reach here (they're not ordered by
+// release version). Callers guard via ValidateVersion upstream;
+// passing a non-CalVer string produces an undefined (but non-panicking)
+// ordering derived from lexical segment comparison.
 func CompareVersions(a, b string) int {
 	// Normalize: strip leading "v" so "v2026.03.0" and "2026.03.0" compare equally.
 	// Uses TrimLeft to also handle double-v ("vv2026...") from dev.sh + service.go bug.
@@ -233,10 +314,6 @@ func CompareVersions(a, b string) int {
 	b = strings.TrimLeft(b, "v")
 
 	if a == b {
-		return 0
-	}
-	// SHA tags have no inherent ordering — they need git ancestry comparison.
-	if strings.HasPrefix(a, "sha-") || strings.HasPrefix(b, "sha-") {
 		return 0
 	}
 

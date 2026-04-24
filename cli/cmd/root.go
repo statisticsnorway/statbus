@@ -5,6 +5,7 @@ import (
 	"runtime/debug"
 
 	"github.com/spf13/cobra"
+	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
 
 // Set at build time via -ldflags.
@@ -38,7 +39,7 @@ func init() {
 
 func versionString() string {
 	if version != "dev" {
-		return fmt.Sprintf("%s (commit %s)", version, shortCommit(commit))
+		return fmt.Sprintf("%s (commit %s)", version, upgrade.ShortForDisplay(commit))
 	}
 	if info, ok := debug.ReadBuildInfo(); ok {
 		for _, setting := range info.Settings {
@@ -49,19 +50,6 @@ func versionString() string {
 		return fmt.Sprintf("dev (%s)", info.GoVersion)
 	}
 	return "dev"
-}
-
-// shortCommit trims the build-time commit SHA to 8 chars for the --version
-// display. The `cmd.commit` ldflag receives the full 40-char SHA (see
-// cli/Makefile and .github/workflows/release.yaml) so Go equality
-// comparisons against public.upgrade.commit_sha (also 40 chars) work —
-// this helper is the display seam. Degraded-mode input like "unknown"
-// passes through unchanged (< 8 chars).
-func shortCommit(c string) string {
-	if len(c) >= 8 {
-		return c[:8]
-	}
-	return c
 }
 
 func Execute() error {

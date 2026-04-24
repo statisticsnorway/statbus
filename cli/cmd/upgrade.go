@@ -104,7 +104,7 @@ var upgradeListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List discovered upgrades from the database",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		sql := `SELECT version, summary,
+		sql := `SELECT commit_version AS version, summary,
 			CASE
 				WHEN completed_at IS NOT NULL THEN 'completed'
 				WHEN error IS NOT NULL AND rolled_back_at IS NOT NULL THEN 'rolled back'
@@ -140,7 +140,7 @@ var upgradeScheduleCmd = &cobra.Command{
 		// state='scheduled' is required by chk_upgrade_state_attributes
 		// (migration 20260414180000): the CHECK rejects a scheduled_at
 		// update on an 'available' row without a matching state write.
-		sql := "UPDATE public.upgrade SET state = 'scheduled', scheduled_at = now() WHERE version = :'target_version' AND state = 'available' RETURNING version"
+		sql := "UPDATE public.upgrade SET state = 'scheduled', scheduled_at = now() WHERE commit_version = :'target_version' AND state = 'available' RETURNING commit_version"
 
 		out, err := runUpgradePsql(sql, "-v", "target_version="+version, "-t", "-A")
 		if err != nil {
@@ -173,13 +173,15 @@ of running migrations. This is destructive — only for dev/demo servers.
 
 Examples:
   sb upgrade apply v2026.03.1
-  sb upgrade apply sha-abc1234f
+  sb upgrade apply abc1234f
   sb upgrade apply v2026.03.1 --recreate`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		version := args[0]
-		if !upgrade.ValidateVersion(version) {
-			return fmt.Errorf("invalid version: %q (expected vYYYY.MM.PATCH or sha-HEXHEX)", version)
+		// Accept either a CalVer release tag or a commit_short reference
+		// (the scheduler's resolveUpgradeTarget will validate the final shape).
+		if !upgrade.ValidateVersion(version) && !upgrade.IsCommitShort(version) {
+			return fmt.Errorf("invalid version: %q (expected vYYYY.MM.PATCH release tag or an 8-char commit_short)", version)
 		}
 
 		payload := version
@@ -203,10 +205,10 @@ Examples:
   skipped_at = NULL,
   dismissed_at = NULL,
   log_relative_file_path = NULL
-WHERE :'target_version' = ANY(tags)
+WHERE :'target_version' = ANY(commit_tags)
    OR commit_sha = :'target_version'
    OR commit_sha LIKE :'target_version' || '%'
-RETURNING commit_sha, tags[1]`
+RETURNING commit_sha, commit_tags[1]`
 
 		out, err := runUpgradePsql(updateSQL, "-v", "target_version="+version, "-t", "-A")
 		if err != nil {
@@ -344,10 +346,10 @@ file changes needed.`,
   skipped_at = NULL,
   dismissed_at = NULL,
   log_relative_file_path = NULL
-WHERE :'target_version' = ANY(tags)
+WHERE :'target_version' = ANY(commit_tags)
    OR commit_sha = :'target_version'
    OR commit_sha LIKE :'target_version' || '%'
-RETURNING commit_sha, tags[1]`
+RETURNING commit_sha, commit_tags[1]`
 
 		out, err := runUpgradePsql(updateSQL, "-v", "target_version="+latestVersion, "-t", "-A")
 		if err != nil {
@@ -392,16 +394,18 @@ var upgradeServiceRunE = func(cmd *cobra.Command, args []string) error {
 	projDir := config.ProjectDir()
 	// Derive serviceVersion — a valid git ref the service can git-checkout.
 	// Rules (in priority order):
-	//   1. "dev" ldflag  → sha-<commit> or "dev" (skips downgrade guard)
+	//   1. "dev" ldflag  → 8-char commit_short or "dev" (skips downgrade guard)
 	//   2. Already has "v" prefix → use as-is (CalVer from release.yaml)
 	//   3. Matches CalVer digits (YYYY.MM…) → prepend "v"
-	//   4. Anything else → sha-<commit> or "dev", so the downgrade guard
+	//   4. Anything else → 8-char commit_short or "dev". Downgrade guard
 	//      treats it as an unversioned local build.
+	//
+	// No "sha-" prefix anywhere (rc.63 canonical naming).
 	var serviceVersion string
 	switch {
 	case version == "dev":
 		if commit != "unknown" {
-			serviceVersion = "sha-" + commit
+			serviceVersion = upgrade.ShortForDisplay(commit)
 		} else {
 			serviceVersion = "dev"
 		}
@@ -412,7 +416,7 @@ var upgradeServiceRunE = func(cmd *cobra.Command, args []string) error {
 	default:
 		// Non-CalVer ldflag (stray tag, hand-built binary, etc.) — treat as local build.
 		if commit != "unknown" {
-			serviceVersion = "sha-" + commit
+			serviceVersion = upgrade.ShortForDisplay(commit)
 		} else {
 			serviceVersion = "dev"
 		}

@@ -52,7 +52,7 @@ This is not a third state: it's an explanation for why the same InProgress state
 type UpgradeFlag struct {
     ID          int       `json:"id"`           // public.upgrade.id (0 when Holder=="install")
     CommitSHA   string    `json:"commit_sha"`   // target commit ("" when Holder=="install")
-    DisplayName string    `json:"display_name"` // tag, sha-prefix, or install description
+    CommitTags  []string  `json:"commit_tags,omitempty"` // release tags at CommitSHA; empty for install-held or untagged
     PID         int       `json:"pid"`          // os.Getpid() at write
     StartedAt   time.Time `json:"started_at"`
     InvokedBy   string    `json:"invoked_by"`   // e.g. "scheduled", "operator:jhf"

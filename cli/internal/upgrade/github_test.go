@@ -13,9 +13,6 @@ func TestValidateVersion(t *testing.T) {
 		"v2026.03.0-rc.1",
 		"v2026.03.0-beta.2",
 		"v2026.03.0-alpha.1",
-		"sha-abc1234",
-		"sha-abc1234f",
-		"sha-abcdef1234567890abcdef1234567890abcdef12",
 	}
 	for _, v := range valid {
 		if !ValidateVersion(v) {
@@ -23,23 +20,88 @@ func TestValidateVersion(t *testing.T) {
 		}
 	}
 
+	// Rc.63: versionRegex tightened to CalVer-only. Every string
+	// here was accepted pre-rc.63 (the sha-* alternation) OR is a
+	// common non-CalVer shape; all now rejected.
 	invalid := []string{
 		"",
 		"2026.03.0",          // missing v prefix
 		"v2026.3.0",          // single-digit month
 		"v26.03.0",           // two-digit year
-		"sha-xyz123",         // non-hex
-		"sha-ab",             // too short (< 7)
 		"v2026.03.0-",        // trailing dash
 		"latest",             // not a version
-		"sha-ABCDEF1",        // uppercase hex
 		"v2026.03.0 --force", // injection attempt
+		// Rc.63 regression guard: sha- prefix no longer accepted here.
+		"sha-abc1234f",
+		"sha-abcdef1234567890abcdef1234567890abcdef12",
+		"sha-xyz123",
+		"sha-ab",
+		"sha-ABCDEF1",
 	}
 	for _, v := range invalid {
 		if ValidateVersion(v) {
 			t.Errorf("expected invalid: %q", v)
 		}
 	}
+}
+
+// TestSelectLatestTag covers the pure channel→tag selection logic
+// used by `./sb release check --channel` and install.sh. Hermetic —
+// no network I/O.
+func TestSelectLatestTag(t *testing.T) {
+	releases := []Release{
+		{TagName: "v2026.03.0", Prerelease: false, Draft: false},
+		{TagName: "v2026.03.1-rc.1", Prerelease: true, Draft: false},
+		{TagName: "v2026.04.0", Prerelease: false, Draft: false},
+		{TagName: "v2026.04.1-beta.1", Prerelease: true, Draft: false},
+		{TagName: "v2026.04.2-rc.5", Prerelease: true, Draft: false},
+		{TagName: "v2026.99.0-draft", Prerelease: true, Draft: true}, // ignored
+	}
+
+	cases := []struct {
+		name      string
+		channel   string
+		want      string
+		wantError bool
+	}{
+		{"stable picks latest CalVer", "stable", "v2026.04.0", false},
+		{"prerelease picks latest RC", "prerelease", "v2026.04.2-rc.5", false},
+		{"edge returns empty", "edge", "", false},
+		{"unknown channel errors", "nightly", "", true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got, err := selectLatestTag(releases, c.channel)
+			if (err != nil) != c.wantError {
+				t.Fatalf("err=%v, wantError=%v", err, c.wantError)
+			}
+			if got != c.want {
+				t.Errorf("got %q, want %q", got, c.want)
+			}
+		})
+	}
+
+	// Degraded cases: empty release list.
+	t.Run("empty stable errors", func(t *testing.T) {
+		_, err := selectLatestTag([]Release{}, "stable")
+		if err == nil {
+			t.Errorf("expected error on empty stable set")
+		}
+	})
+	t.Run("empty prerelease errors", func(t *testing.T) {
+		_, err := selectLatestTag([]Release{}, "prerelease")
+		if err == nil {
+			t.Errorf("expected error on empty prerelease set")
+		}
+	})
+	t.Run("only-draft does not satisfy stable", func(t *testing.T) {
+		_, err := selectLatestTag([]Release{
+			{TagName: "v2026.04.0", Prerelease: false, Draft: true},
+		}, "stable")
+		if err == nil {
+			t.Errorf("expected error when only release is a draft")
+		}
+	})
 }
 
 func TestFilterByChannel(t *testing.T) {
@@ -104,12 +166,6 @@ func TestCompareVersions(t *testing.T) {
 		// Year/month ordering
 		{"v2026.03.0", "v2026.04.0", -1},
 		{"v2025.12.0", "v2026.01.0", -1},
-		// SHA tags are incomparable without git history — returns 0
-		{"sha-abc1234f", "sha-def5678a", 0},
-		{"sha-abc1234f", "sha-abc1234f", 0},
-		// Mixed: SHA vs CalVer — incomparable
-		{"sha-abc1234f", "v2026.03.0", 0},
-		{"v2026.03.0", "sha-abc1234f", 0},
 		// Regression: double-v prefix from dev.sh + service.go must not break comparison
 		{"v2026.03.1-rc.2", "vv2026.03.0-10-g74a3353e5", 1},
 		// Mixed prefix: with/without v should compare equal
@@ -117,6 +173,10 @@ func TestCompareVersions(t *testing.T) {
 		{"2026.03.1-rc.2", "2026.03.0", 1},
 		// git-describe format (non-tagged commit) vs tagged version
 		{"v2026.03.1-rc.2", "v2026.03.0-10-g74a3353e5", 1},
+		// Rc.63: sha- prefix is no longer a valid input to CompareVersions
+		// (callers must ValidateVersion upstream). Tests for sha- inputs
+		// moved out — behaviour is now undefined (but non-panicking) for
+		// non-CalVer strings.
 	}
 	for _, c := range cases {
 		got := CompareVersions(c.a, c.b)

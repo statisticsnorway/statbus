@@ -191,17 +191,31 @@ const (
 // than a false "still running" diagnosis. Holder also defaults to empty
 // (treated as "service").
 type UpgradeFlag struct {
-	ID          int       `json:"id"`                 // 0 when Holder=="install"
-	CommitSHA   string    `json:"commit_sha"`         // "" when Holder=="install"
-	DisplayName string    `json:"display_name"`       // version OR install description
-	PID         int       `json:"pid"`                // os.Getpid() at write time
-	StartedAt   time.Time `json:"started_at"`         // time.Now() at write time
-	InvokedBy   string    `json:"invoked_by"`         // specific trigger (e.g. "notify:v2026.04.1", "operator:jhf")
-	Trigger     string    `json:"trigger"`            // coarse bucket ("notify"|"scheduled"|"recovery"|"install")
-	Holder      string    `json:"holder"`             // HolderService or HolderInstall
-	Phase       string    `json:"phase,omitempty"`       // FlagPhasePreSwap (default) or FlagPhasePostSwap
-	Recreate    bool      `json:"recreate,omitempty"`    // captures d.pendingRecreate so resumePostSwap can replay --recreate
-	BackupPath  string    `json:"backup_path,omitempty"` // finalized backup dir, populated at Phase=post_swap so resumePostSwap can roll back without DB
+	ID         int       `json:"id"`                    // 0 when Holder=="install"
+	CommitSHA  string    `json:"commit_sha"`            // "" when Holder=="install"
+	CommitTags []string  `json:"commit_tags,omitempty"` // release tags at CommitSHA; empty for install-held and untagged commits
+	PID        int       `json:"pid"`                   // os.Getpid() at write time
+	StartedAt  time.Time `json:"started_at"`            // time.Now() at write time
+	InvokedBy  string    `json:"invoked_by"`            // specific trigger (e.g. "notify:v2026.04.1", "operator:jhf")
+	Trigger    string    `json:"trigger"`               // coarse bucket ("notify"|"scheduled"|"recovery"|"install")
+	Holder     string    `json:"holder"`                // HolderService or HolderInstall
+	Phase      string    `json:"phase,omitempty"`       // FlagPhasePreSwap (default) or FlagPhasePostSwap
+	Recreate   bool      `json:"recreate,omitempty"`    // captures d.pendingRecreate so resumePostSwap can replay --recreate
+	BackupPath string    `json:"backup_path,omitempty"` // finalized backup dir, populated at Phase=post_swap so resumePostSwap can roll back without DB
+}
+
+// Label returns a human-readable label for the flag. For service-held
+// flags, the label is renderDisplayName(CommitSHA, CommitTags). For
+// install-held flags, returns a synthetic "install (PID N)" string
+// since there is no commit-centric label.
+func (f *UpgradeFlag) Label() string {
+	if f == nil {
+		return ""
+	}
+	if f.Holder == HolderInstall {
+		return fmt.Sprintf("install (PID %d)", f.PID)
+	}
+	return renderDisplayName(CommitSHA(f.CommitSHA), f.CommitTags)
 }
 
 // flagFilePath returns the canonical flag file location under projDir.
@@ -304,18 +318,18 @@ func (l *FlagLock) Close() {
 // FlagPhasePostSwap after replaceBinaryOnDisk, right before the exit-42
 // handoff. Recreate captures d.pendingRecreate so the resumed post-swap
 // process can replay the --recreate branch identically.
-func (d *Service) writeUpgradeFlag(id int, commitSHA, displayName, invokedBy, trigger string, recreate bool) error {
+func (d *Service) writeUpgradeFlag(id int, commitSHA string, commitTags []string, invokedBy, trigger string, recreate bool) error {
 	flag := UpgradeFlag{
-		ID:          id,
-		CommitSHA:   commitSHA,
-		DisplayName: displayName,
-		PID:         os.Getpid(),
-		StartedAt:   time.Now(),
-		InvokedBy:   invokedBy,
-		Trigger:     trigger,
-		Holder:      HolderService,
-		Phase:       FlagPhasePreSwap,
-		Recreate:    recreate,
+		ID:         id,
+		CommitSHA:  commitSHA,
+		CommitTags: commitTags,
+		PID:        os.Getpid(),
+		StartedAt:  time.Now(),
+		InvokedBy:  invokedBy,
+		Trigger:    trigger,
+		Holder:     HolderService,
+		Phase:      FlagPhasePreSwap,
+		Recreate:   recreate,
 	}
 	lock, err := acquireFlock(d.projDir, flag)
 	if err != nil {
@@ -430,14 +444,13 @@ func (d *Service) writeGoroutineDump() (string, error) {
 // the flock), returns an error formatted to guide the operator to the
 // right recovery action. The prior holder's metadata is read from the
 // file for the diagnostic.
-func AcquireInstallFlag(projDir, displayName, invokedBy string) (*FlagLock, error) {
+func AcquireInstallFlag(projDir, invokedBy string) (*FlagLock, error) {
 	flag := UpgradeFlag{
-		DisplayName: displayName,
-		PID:         os.Getpid(),
-		StartedAt:   time.Now(),
-		InvokedBy:   invokedBy,
-		Trigger:     "install",
-		Holder:      HolderInstall,
+		PID:       os.Getpid(),
+		StartedAt: time.Now(),
+		InvokedBy: invokedBy,
+		Trigger:   "install",
+		Holder:    HolderInstall,
 	}
 	return acquireFlock(projDir, flag)
 }
@@ -476,7 +489,7 @@ func formatContentionError(flag *UpgradeFlag, alive bool) error {
 			return fmt.Errorf(
 				"another ./sb install is already running: PID %d (%s, invoked_by=%s).\n\n"+
 					"  Wait for it to complete, then retry.",
-				flag.PID, flag.DisplayName, flag.InvokedBy)
+				flag.PID, flag.Label(), flag.InvokedBy)
 		default: // HolderService
 			return fmt.Errorf(
 				"an orchestrated upgrade is in progress: PID %d (%s, invoked_by=%s).\n\n"+
@@ -485,7 +498,7 @@ func formatContentionError(flag *UpgradeFlag, alive bool) error {
 					"  Do NOT pass --inside-active-upgrade — that flag is the upgrade service's\n"+
 					"  internal contract with its own post-upgrade install step. Using it from the\n"+
 					"  command line would corrupt an upgrade that is currently running.",
-				flag.PID, flag.DisplayName, flag.InvokedBy)
+				flag.PID, flag.Label(), flag.InvokedBy)
 		}
 	}
 	verb := "upgrade"
@@ -496,7 +509,7 @@ func formatContentionError(flag *UpgradeFlag, alive bool) error {
 		"a prior %s crashed or was stopped mid-run: flag file references PID %d (%s, invoked_by=%s)\n"+
 			"but that process is no longer alive.\n\n"+
 			"  Re-run ./sb install — it detects the stale flag and reconciles it automatically.",
-		verb, flag.PID, flag.DisplayName, flag.InvokedBy)
+		verb, flag.PID, flag.Label(), flag.InvokedBy)
 }
 
 // ReadFlagFile inspects the upgrade-in-progress flag at <projDir>/tmp/upgrade-in-progress.json.
@@ -666,7 +679,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 	}
 
 	logRecover("Service restarted. Found interrupted %s flag for %s (id=%d, pid=%d, invoked_by=%s)",
-		holder, flag.DisplayName, flag.ID, flag.PID, flag.InvokedBy)
+		holder, flag.Label(), flag.ID, flag.PID, flag.InvokedBy)
 
 	// Guard removed: DetectState's flock-try is now authoritative for
 	// distinguishing ghost flags from live upgrades. If we reach here, the
@@ -695,7 +708,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 	// actually done yet.
 	if flag.Phase == FlagPhasePostSwap {
 		logRecover("Post-swap restart detected for upgrade %d (%s) — resuming pipeline on new binary (pid=%d)",
-			flag.ID, flag.DisplayName, os.Getpid())
+			flag.ID, flag.Label(), os.Getpid())
 		if appendLog != nil {
 			appendLog.Close()
 			appendLog = nil
@@ -718,9 +731,9 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 	if headSHA == flag.CommitSHA || targetIsAncestor {
 		if targetIsAncestor {
 			logRecover("Upgrade %s succeeded (target %s is ancestor of HEAD %s — code advanced past target)",
-				flag.DisplayName, shortSHA(flag.CommitSHA), shortSHA(headSHA))
+				flag.Label(), ShortForDisplay(flag.CommitSHA), ShortForDisplay(headSHA))
 		} else {
-			logRecover("Upgrade %s succeeded (HEAD matches target commit — self-update restart detected)", flag.DisplayName)
+			logRecover("Upgrade %s succeeded (HEAD matches target commit — self-update restart detected)", flag.Label())
 		}
 
 		// Ground-truth verification (task #49 / Gap #1). HEAD-matches-target
@@ -732,12 +745,12 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 		// On failure, fall through to the rollback path (Branch D below)
 		// rather than the success-mark UPDATE.
 		if ok, reason := d.verifyUpgradeGroundTruth(ctx, flag.CommitSHA); !ok {
-			logRecover("Ground-truth verification FAILED for %s: %s — falling through to rollback", flag.DisplayName, reason)
+			logRecover("Ground-truth verification FAILED for %s: %s — falling through to rollback", flag.Label(), reason)
 			if appendLog != nil {
 				appendLog.Close()
 				appendLog = nil
 			}
-			d.recoveryRollback(ctx, int(flag.ID), flag.DisplayName, logRelPath, fmt.Sprintf(
+			d.recoveryRollback(ctx, int(flag.ID), flag.Label(), logRelPath, fmt.Sprintf(
 				"%s: post-restart ground-truth check failed: %s",
 				ErrInstallPreconditionFailed, reason))
 			return
@@ -762,7 +775,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 			flag.ID).Scan(&selfHealJSON); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				logRecover("Ghost flag detected for upgrade %d (%s): row is already terminal, removing stale flag file without overwriting audit trail",
-					flag.ID, flag.DisplayName)
+					flag.ID, flag.Label())
 				os.Remove(d.flagPath())
 				return
 			}
@@ -808,7 +821,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 	// steps are mostly no-ops — that's fine; the UPDATE still happens
 	// coherently and the operator-facing row matches reality.
 	logRecover("HEAD (%s) does not match upgrade target (%s). Invoking rollback to %s.",
-		shortSHA(headSHA), shortSHA(flag.CommitSHA), d.version)
+		ShortForDisplay(headSHA), ShortForDisplay(flag.CommitSHA), d.version)
 
 	// Build a short error summary from the log tail. The full narrative
 	// lives in the on-disk log (served via /upgrade-logs/); we only need
@@ -833,7 +846,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 		"SELECT state FROM public.upgrade WHERE id = $1", flag.ID).Scan(&probeState); probeErr != nil {
 		if errors.Is(probeErr, pgx.ErrNoRows) {
 			logRecover("Ghost flag detected for upgrade %d (%s): row missing, removing stale flag file",
-				flag.ID, flag.DisplayName)
+				flag.ID, flag.Label())
 			os.Remove(d.flagPath())
 			return
 		}
@@ -845,7 +858,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 	}
 	if probeState != "in_progress" {
 		logRecover("Ghost flag detected for upgrade %d (%s): row is already %s, removing stale flag file without overwriting audit trail",
-			flag.ID, flag.DisplayName, probeState)
+			flag.ID, flag.Label(), probeState)
 		os.Remove(d.flagPath())
 		return
 	}
@@ -856,19 +869,13 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 		appendLog = nil
 	}
 
-	d.recoveryRollback(ctx, int(flag.ID), flag.DisplayName, logRelPath, errMsg)
+	d.recoveryRollback(ctx, int(flag.ID), flag.Label(), logRelPath, errMsg)
 	// rollback() removes the flag and emits LabelRolledBackNormal logs;
 	// nothing more to do here.
 }
 
-// shortSHA trims a 40-char git SHA down to 12 for display. Returns the
-// input unchanged if it's already shorter.
-func shortSHA(sha string) string {
-	if len(sha) > 12 {
-		return sha[:12]
-	}
-	return sha
-}
+// (shortSHA helper deleted in rc.63; use commit.go's commitShort for
+// typed CommitSHA values and ShortForDisplay for untyped log strings.)
 
 // markCIImagesFailed transitions a discovery row to
 // docker_images_status='failed' with an actionable error string. Called
@@ -882,10 +889,33 @@ func shortSHA(sha string) string {
 // (journald) already has the narrative. See plan C-head "End-state
 // contract".
 func (d *Service) markCIImagesFailed(ctx context.Context, id int, sha, reason string) {
-	_, err := d.queryConn.Exec(ctx,
-		"UPDATE public.upgrade SET docker_images_status = 'failed', error = $1 WHERE id = $2 AND docker_images_status = 'building'",
+	// Atomic WHERE-clause guard.
+	//
+	// Terminal lifecycle states (completed, failed, rolled_back, skipped,
+	// dismissed, superseded) reject docker_images_status writes via
+	// chk_upgrade_state_attributes. Including a state filter in the
+	// same UPDATE makes the check atomic — the row is either
+	// transitionable or silently skipped. Pre-rc.63 this site
+	// erroneously fired CI_FAILURE_DETECTED_TRANSITIONS_ROW on terminal
+	// rows (observed on statbus_dev rc.62).
+	//
+	// The `error` column is written alongside docker_images_status.
+	// Rc.63's chk_upgrade_state_attributes relaxation (migration
+	// 20260424160235) permits `error` on pre-terminal states
+	// (available/scheduled/in_progress) — so the CI failure reason is
+	// durably attached to the row instead of being log-only. Admin UI
+	// renders `error` in the upgrade list.
+	result, err := d.queryConn.Exec(ctx,
+		`UPDATE public.upgrade
+		   SET docker_images_status = 'failed',
+		       error = $1
+		 WHERE id = $2
+		   AND docker_images_status = 'building'
+		   AND state NOT IN ('completed', 'failed', 'rolled_back', 'skipped', 'dismissed', 'superseded')`,
 		reason, id)
 	if err != nil {
+		// Real DB error (connection dead, unexpected constraint
+		// violation). Escalate.
 		fmt.Fprintf(os.Stderr,
 			"INVARIANT CI_FAILURE_DETECTED_TRANSITIONS_ROW violated: UPDATE docker_images_status=failed failed for sha=%s: %v (service.go:%d, pid=%d)\n",
 			sha, err, thisLine(), os.Getpid())
@@ -893,7 +923,21 @@ func (d *Service) markCIImagesFailed(ctx context.Context, id int, sha, reason st
 			fmt.Sprintf("sha=%s; UPDATE err=%v", sha, err))
 		return
 	}
-	log.Printf("CI images marked failed for commit %s: %s", sha[:12], reason)
+	if result.RowsAffected() == 0 {
+		// The WHERE clause filtered out the row. Either docker_images_status
+		// is no longer 'building' (already transitioned by another path),
+		// or state is terminal. Not an invariant breach: the row is not
+		// stuck in the spinning admin-UI shape that the invariant guards
+		// against.
+		var probeState, probeImgStatus string
+		_ = d.queryConn.QueryRow(ctx,
+			"SELECT state::text, docker_images_status::text FROM public.upgrade WHERE id = $1",
+			id).Scan(&probeState, &probeImgStatus)
+		log.Printf("verifyArtifacts: skipping docker_images_status='failed' UPDATE for commit %s: row %d is already in terminal state (state=%s, docker_images_status=%s; reason would have been %q)",
+			ShortForDisplay(sha), id, probeState, probeImgStatus, reason)
+		return
+	}
+	log.Printf("CI images marked failed for commit %s: %s", ShortForDisplay(sha), reason)
 }
 
 // verifyArtifacts runs the declarative artifact readiness check for every
@@ -928,7 +972,7 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 	services := []string{"db", "app", "worker", "proxy"}
 
 	rows, err := d.queryConn.Query(ctx, `
-		SELECT id, commit_sha, release_status::text, docker_images_status::text, release_builds_status::text, version, discovered_at
+		SELECT id, commit_sha, release_status::text, docker_images_status::text, release_builds_status::text, commit_version, discovered_at
 		  FROM public.upgrade
 		 WHERE docker_images_status != 'ready'
 		   AND state IN ('available', 'scheduled', 'in_progress', 'failed')
@@ -962,22 +1006,11 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 		}
 		dockerImagesReady := false
 		{
-			// Use the tag captured at discovery time (stable) to avoid drift
-			// from new tags being pushed past this commit. Fall back to a
-			// dynamic git describe for rows predating the column (NULL).
-			var tag string
-			if r.version != nil && *r.version != "" {
-				tag = *r.version
-			} else {
-				out, err := runCommandOutput(d.projDir, "git", "describe", "--tags", "--always", r.sha)
-				if err != nil {
-					continue
-				}
-				tag = strings.TrimSpace(out)
-				if tag == "" {
-					continue
-				}
-			}
+			// Rc.63: images are tagged by commit_short (8-char) only, so
+			// the manifest-inspect reference is deterministic from the
+			// row's commit_sha — no more dependence on describe output
+			// drift, and no special-case for rows predating the column.
+			tag := ShortForDisplay(r.sha)
 			allPresent := true
 			for _, svc := range services {
 				ref := fmt.Sprintf("%s%s:%s", registryPrefix, svc, tag)
@@ -990,7 +1023,7 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 				d.queryConn.Exec(ctx,
 					"UPDATE public.upgrade SET docker_images_status = 'ready' WHERE id = $1 AND docker_images_status != 'ready'",
 					r.id)
-				fmt.Printf("Images verified for commit %s (tag=%s)\n", r.sha[:12], tag)
+				fmt.Printf("Images verified for commit %s (tag=%s)\n", ShortForDisplay(r.sha), tag)
 				dockerImagesReady = true
 
 				// Auto-supersede intermediate commit rows that are ancestors of
@@ -1021,7 +1054,7 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 						    AND docker_images_status != 'ready'`,
 						anc.id)
 					if dbErr == nil && res.RowsAffected() > 0 {
-						fmt.Printf("Superseded intermediate commit %s (no CI images; ancestor of %s)\n", anc.sha[:12], r.sha[:12])
+						fmt.Printf("Superseded intermediate commit %s (no CI images; ancestor of %s)\n", ShortForDisplay(anc.sha), ShortForDisplay(r.sha))
 					}
 				}
 			} else {
@@ -1044,7 +1077,7 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 					}
 					if hasFailure && !hasSuccess {
 						d.markCIImagesFailed(ctx, r.id, r.sha, fmt.Sprintf(
-							"CI images workflow reported failure for commit %s", r.sha[:12]))
+							"CI images workflow reported failure for commit %s", ShortForDisplay(r.sha)))
 					}
 				} else if ciErr != nil {
 					// gh unavailable / errored. Fall back to manifest-timeout:
@@ -1054,7 +1087,7 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 					age := time.Since(r.discoveredAt)
 					log.Printf(
 						"verifyArtifacts: gh unavailable (%v); falling back to manifest-timeout check (sha=%s, age=%s, timeout=%s)",
-						ciErr, r.sha[:12], age.Truncate(time.Second), manifestTimeout)
+						ciErr, ShortForDisplay(r.sha), age.Truncate(time.Second), manifestTimeout)
 					if age > manifestTimeout {
 						d.markCIImagesFailed(ctx, r.id, r.sha, fmt.Sprintf(
 							"CI images absent after %s timeout; gh probe err=%v", manifestTimeout, ciErr))
@@ -1134,7 +1167,7 @@ func (d *Service) Close() {
 // upgrades from scheduler-driven service runs in post-mortem queries.
 func (d *Service) ExecuteUpgradeInline(ctx context.Context, id int, commitSHA, displayName string) error {
 	tag, err := d.queryConn.Exec(ctx,
-		"UPDATE public.upgrade SET state = 'in_progress', started_at = now(), from_version = $1 WHERE id = $2 AND state = 'scheduled' AND started_at IS NULL",
+		"UPDATE public.upgrade SET state = 'in_progress', started_at = now(), from_commit_version = $1 WHERE id = $2 AND state = 'scheduled' AND started_at IS NULL",
 		d.version, id)
 	if err != nil {
 		d.markPgInvariantTerminal(err, "service.go:ExecuteUpgradeInline:claim")
@@ -1143,7 +1176,11 @@ func (d *Service) ExecuteUpgradeInline(ctx context.Context, id int, commitSHA, d
 	if tag.RowsAffected() == 0 {
 		return fmt.Errorf("upgrade row %d no longer in 'scheduled' state (another actor claimed it first); re-run ./sb install after it finishes", id)
 	}
-	return d.executeUpgrade(ctx, id, commitSHA, displayName, "operator:install", "install-cli")
+	// Load the row's tags so the flag file captures the full commit identity.
+	var commitTags []string
+	_ = d.queryConn.QueryRow(ctx,
+		"SELECT commit_tags FROM public.upgrade WHERE id = $1", id).Scan(&commitTags)
+	return d.executeUpgrade(ctx, id, commitSHA, displayName, commitTags, "operator:install", "install-cli")
 }
 
 // Label taxonomy used by logUpgradeRow() to tag terminal-state transitions in
@@ -1281,7 +1318,7 @@ func (d *Service) Run(ctx context.Context) error {
 	if flag, _, ferr := ReadFlagFile(d.projDir); ferr == nil && flag != nil &&
 		flag.Holder == HolderService && flag.Phase == FlagPhasePostSwap {
 		fmt.Printf("Post-swap flag detected at startup — ensuring DB is up before connecting (upgrade id=%d, target=%s)\n",
-			flag.ID, flag.DisplayName)
+			flag.ID, flag.Label())
 		if err := d.EnsureDBUp(ctx); err != nil {
 			return fmt.Errorf("post-swap recovery: ensure DB up: %w", err)
 		}
@@ -1542,13 +1579,14 @@ func (d *Service) handleNotification(ctx context.Context, n *pgconn.Notification
 			recreate = true
 			fmt.Printf("Recreate mode requested for %s\n", version)
 		}
-		if ValidateVersion(version) {
-			d.scheduleImmediate(ctx, version)
-			if recreate {
-				d.pendingRecreate = true
-			}
-		} else {
-			fmt.Printf("Invalid version in NOTIFY payload: %q\n", payload)
+		// No pre-validation: scheduleImmediate calls resolveUpgradeTarget,
+		// which is the sole parser for operator/NOTIFY payloads. It accepts
+		// CalVer tags, commit_sha, commit_short, and the legacy `sha-<hex>`
+		// form the pre-Commit-B trigger emits (transitional). Bad payloads
+		// surface as clear error messages from there.
+		d.scheduleImmediate(ctx, version)
+		if recreate {
+			d.pendingRecreate = true
 		}
 	}
 }
@@ -1595,7 +1633,7 @@ func (d *Service) verifyUpgradeGroundTruth(ctx context.Context, rowCommitSHA str
 	} else if d.binaryCommit != rowCommitSHA {
 		return false, fmt.Sprintf(
 			"binary commit %s != row target %s (upgrade crashed before binary swap)",
-			shortSHA(d.binaryCommit), shortSHA(rowCommitSHA))
+			ShortForDisplay(d.binaryCommit), ShortForDisplay(rowCommitSHA))
 	}
 
 	// Check 2: migration max version — DB vs on-disk
@@ -1644,7 +1682,7 @@ func needsPostSwapRollback(binaryCommit, flagCommitSHA string) (bool, string) {
 	}
 	if binaryCommit != flagCommitSHA {
 		return true, fmt.Sprintf("binary commit %s does not match flag target %s",
-			shortSHA(binaryCommit), shortSHA(flagCommitSHA))
+			ShortForDisplay(binaryCommit), ShortForDisplay(flagCommitSHA))
 	}
 	return false, ""
 }
@@ -1707,7 +1745,7 @@ func latestDiskMigrationVersion(projDir string) int64 {
 func (d *Service) recoveryRollback(ctx context.Context, id int, displayName, logRelPath, reason string) {
 	var fromVersion sql.NullString
 	if err := d.queryConn.QueryRow(ctx,
-		"SELECT from_version FROM public.upgrade WHERE id = $1", id).Scan(&fromVersion); err != nil {
+		"SELECT from_commit_version FROM public.upgrade WHERE id = $1", id).Scan(&fromVersion); err != nil {
 		fmt.Fprintf(os.Stderr, "recoveryRollback: could not read from_version for id=%d: %v\n", id, err)
 	}
 	prev := d.version
@@ -1738,7 +1776,7 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 	var displayName string
 	err := d.queryConn.QueryRow(ctx,
 		`SELECT id, commit_sha,
-		        COALESCE(tags[array_upper(tags, 1)], 'sha-' || left(commit_sha, 12)) as display_name
+		        COALESCE(commit_tags[array_upper(commit_tags, 1)], left(commit_sha, 8)) as display_name
 		 FROM public.upgrade
 		 WHERE state = 'in_progress'
 		 LIMIT 1`).Scan(&id, &commitSHA, &displayName)
@@ -1919,7 +1957,7 @@ func (d *Service) markCurrentVersionCompleted(ctx context.Context) {
 	// optimistically) so dev workflows keep working.
 	if d.binaryCommit != "" && d.binaryCommit != "unknown" && d.binaryCommit != headSHA {
 		fmt.Printf("markCurrentVersionCompleted: skipping — binary commit %s does not match git HEAD %s (incomplete swap?)\n",
-			shortSHA(d.binaryCommit), shortSHA(headSHA))
+			ShortForDisplay(d.binaryCommit), ShortForDisplay(headSHA))
 		return
 	}
 
@@ -2128,10 +2166,10 @@ func (d *Service) verifyCommitSignature(sha string) error {
 		fmt.Sprintf("gpg.ssh.allowedSignersFile=%s", d.allowedSignersPath),
 		"verify-commit", sha)
 	if err != nil {
-		return fmt.Errorf("commit %s signature verification failed: %s", sha[:12], strings.TrimSpace(out))
+		return fmt.Errorf("commit %s signature verification failed: %s", ShortForDisplay(sha), strings.TrimSpace(out))
 	}
 
-	fmt.Printf("Commit %s signature verified: %s\n", sha[:12], strings.TrimSpace(out))
+	fmt.Printf("Commit %s signature verified: %s\n", ShortForDisplay(sha), strings.TrimSpace(out))
 	return nil
 }
 
@@ -2341,17 +2379,17 @@ func (d *Service) discover(ctx context.Context) {
 		// tag (git describe on the exact commit returns the tag directly). Store it
 		// so verifyArtifacts uses it even if new tags are later pushed past this commit.
 		result, err := d.queryConn.Exec(ctx,
-			`INSERT INTO public.upgrade (commit_sha, committed_at, tags, release_status, summary, has_migrations, version)
+			`INSERT INTO public.upgrade (commit_sha, committed_at, commit_tags, release_status, summary, has_migrations, commit_version)
 			 VALUES ($1, $2, ARRAY[$3]::text[], $4::public.release_status_type, $5, false, $3)
 			 ON CONFLICT (commit_sha) DO UPDATE SET
-			   tags = CASE WHEN $3 = ANY(upgrade.tags) THEN upgrade.tags
-			               ELSE array_append(upgrade.tags, $3) END,
+			   commit_tags = CASE WHEN $3 = ANY(upgrade.commit_tags) THEN upgrade.commit_tags
+			                      ELSE array_append(upgrade.commit_tags, $3) END,
 			   release_status = GREATEST(upgrade.release_status, EXCLUDED.release_status),
 			   release_builds_status = CASE
 			       WHEN EXCLUDED.release_status > upgrade.release_status THEN 'building'::public.release_builds_status_type
 			       ELSE upgrade.release_builds_status
 			   END
-			 WHERE NOT ($3 = ANY(upgrade.tags))
+			 WHERE NOT ($3 = ANY(upgrade.commit_tags))
 			    OR upgrade.release_status < EXCLUDED.release_status`,
 			t.CommitSHA, t.PublishedAt, t.TagName, targetStatus, t.TagName)
 		if err != nil {
@@ -2375,11 +2413,11 @@ func (d *Service) discover(ctx context.Context) {
 		}
 		d.queryConn.Exec(ctx,
 			`UPDATE public.upgrade SET
-			   tags = CASE WHEN $2 = ANY(upgrade.tags) THEN upgrade.tags
-			               ELSE array_append(upgrade.tags, $2) END,
+			   commit_tags = CASE WHEN $2 = ANY(upgrade.commit_tags) THEN upgrade.commit_tags
+			                      ELSE array_append(upgrade.commit_tags, $2) END,
 			   release_status = GREATEST(upgrade.release_status, $3::public.release_status_type)
 			 WHERE commit_sha = $1
-			   AND (NOT ($2 = ANY(upgrade.tags)) OR upgrade.release_status < $3::public.release_status_type)`,
+			   AND (NOT ($2 = ANY(upgrade.commit_tags)) OR upgrade.release_status < $3::public.release_status_type)`,
 			t.CommitSHA, t.TagName, targetStatus)
 	}
 
@@ -2460,7 +2498,7 @@ func (d *Service) pruneDeletedTags(ctx context.Context, currentTags []GitTag) {
 
 	// Find rows with tags that no longer exist
 	rows, err := d.queryConn.Query(ctx,
-		`SELECT id, tags FROM public.upgrade WHERE array_length(tags, 1) > 0`)
+		`SELECT id, commit_tags FROM public.upgrade WHERE array_length(commit_tags, 1) > 0`)
 	if err != nil {
 		return
 	}
@@ -2496,7 +2534,7 @@ func (d *Service) pruneDeletedTags(ctx context.Context, currentTags []GitTag) {
 		}
 
 		d.queryConn.Exec(ctx,
-			`UPDATE public.upgrade SET tags = $1, release_status = $2::public.release_status_type WHERE id = $3`,
+			`UPDATE public.upgrade SET commit_tags = $1, release_status = $2::public.release_status_type WHERE id = $3`,
 			kept, newStatus, id)
 		fmt.Printf("Pruned deleted tags from upgrade %d: %v → %v (status: %s)\n", id, tags, kept, newStatus)
 	}
@@ -2519,7 +2557,7 @@ func (d *Service) discoverEdge(ctx context.Context) {
 	for _, c := range commits {
 		// Verify commit signature before recording
 		if err := d.verifyCommitSignature(c.SHA); err != nil {
-			fmt.Printf("Skipping edge commit %s: %v\n", c.SHA[:12], err)
+			fmt.Printf("Skipping edge commit %s: %v\n", ShortForDisplay(c.SHA), err)
 			continue
 		}
 
@@ -2541,12 +2579,12 @@ func (d *Service) discoverEdge(ctx context.Context) {
 		versionTag = strings.TrimSpace(versionTag)
 
 		_, err := d.queryConn.Exec(ctx,
-			`INSERT INTO public.upgrade (commit_sha, committed_at, summary, has_migrations, release_builds_status, version)
+			`INSERT INTO public.upgrade (commit_sha, committed_at, summary, has_migrations, release_builds_status, commit_version)
 			 VALUES ($1, $2, $3, false, 'ready'::public.release_builds_status_type, NULLIF($4, ''))
-			 ON CONFLICT (commit_sha) DO UPDATE SET version = EXCLUDED.version WHERE upgrade.version IS NULL`,
+			 ON CONFLICT (commit_sha) DO UPDATE SET commit_version = EXCLUDED.commit_version WHERE upgrade.commit_version IS NULL`,
 			c.SHA, c.PublishedAt, summary, versionTag)
 		if err != nil {
-			fmt.Printf("  Failed to record commit %s: %v\n", c.SHA[:12], err)
+			fmt.Printf("  Failed to record commit %s: %v\n", ShortForDisplay(c.SHA), err)
 		}
 	}
 
@@ -2558,7 +2596,7 @@ func (d *Service) discoverEdge(ctx context.Context) {
 func (d *Service) preDownloadImages(ctx context.Context) {
 	rows, err := d.queryConn.Query(ctx,
 		`SELECT commit_sha,
-		        COALESCE(tags[array_upper(tags, 1)], 'sha-' || left(commit_sha, 12)) as display_name
+		        COALESCE(commit_tags[array_upper(commit_tags, 1)], left(commit_sha, 8)) as display_name
 		 FROM public.upgrade
 		 WHERE docker_images_downloaded = false AND state IN ('available', 'scheduled')
 		 ORDER BY discovered_at LIMIT 3`)
@@ -2587,27 +2625,32 @@ func (d *Service) preDownloadImages(ctx context.Context) {
 	}
 }
 
-func (d *Service) scheduleImmediate(ctx context.Context, versionOrSHA string) {
-	// Resolve to commit_sha
-	commitSHA := versionOrSHA
-	displayName := versionOrSHA
-	if strings.HasPrefix(versionOrSHA, "sha-") {
-		// It's a SHA reference — strip the prefix to get the raw SHA
-		commitSHA = strings.TrimPrefix(versionOrSHA, "sha-")
-	} else {
-		// It's a tag — look up the commit SHA from the database
-		err := d.queryConn.QueryRow(ctx,
-			"SELECT commit_sha FROM public.upgrade WHERE $1 = ANY(tags) LIMIT 1",
-			versionOrSHA).Scan(&commitSHA)
-		if err != nil {
-			// Not found in DB — try to resolve via git
-			sha, gitErr := runCommandOutput(d.projDir, "git", "rev-parse", versionOrSHA)
-			if gitErr != nil {
-				fmt.Printf("Cannot resolve %s to commit SHA: %v\n", versionOrSHA, gitErr)
-				return
-			}
-			commitSHA = strings.TrimSpace(sha)
-		}
+// scheduleImmediate routes an operator-supplied upgrade target through
+// the parser, then upserts a scheduled row. The input may be a full
+// 40-char commit_sha, an 8-char commit_short, or a CalVer release tag
+// (see resolveUpgradeTarget for the parse contract).
+func (d *Service) scheduleImmediate(ctx context.Context, input string) {
+	target, err := resolveUpgradeTarget(ctx, d, input)
+	if err != nil {
+		fmt.Printf("Cannot resolve %q: %v\n", input, err)
+		return
+	}
+
+	var commitSHA CommitSHA
+	var tagsToStore []string
+	var displayName string
+	switch t := target.(type) {
+	case TaggedTarget:
+		commitSHA = t.SHA
+		tagsToStore = []string{string(t.Tag)}
+		displayName = string(t.Tag)
+	case UntaggedTarget:
+		commitSHA = t.SHA
+		tagsToStore = nil // stored as NULL → COALESCE to '{}' in SQL
+		displayName = string(commitShort(t.SHA))
+	default:
+		fmt.Printf("unhandled UpgradeTarget type %T\n", target)
+		return
 	}
 
 	// Reset lifecycle fields so a completed/failed upgrade can be re-applied.
@@ -2616,8 +2659,8 @@ func (d *Service) scheduleImmediate(ctx context.Context, versionOrSHA string) {
 	// upgrade_notify_daemon_trigger fires → sends NOTIFY upgrade_apply →
 	// service calls scheduleImmediate again → infinite loop.
 	result, err := d.queryConn.Exec(ctx,
-		`INSERT INTO public.upgrade (commit_sha, committed_at, tags, summary, scheduled_at, state)
-		 VALUES ($1, now(), CASE WHEN $2 != '' AND NOT starts_with($2, 'sha-') THEN ARRAY[$2]::text[] ELSE '{}'::text[] END, $2, now(), 'scheduled')
+		`INSERT INTO public.upgrade (commit_sha, committed_at, commit_tags, summary, scheduled_at, state)
+		 VALUES ($1, now(), COALESCE($3::text[], '{}'::text[]), $2, now(), 'scheduled')
 		 ON CONFLICT (commit_sha) DO UPDATE SET
 		   state = 'scheduled',
 		   scheduled_at = now(),
@@ -2630,17 +2673,66 @@ func (d *Service) scheduleImmediate(ctx context.Context, versionOrSHA string) {
 		   superseded_at = NULL,
 		   log_relative_file_path = NULL
 		 WHERE public.upgrade.state != 'scheduled'`,
-		commitSHA, displayName)
+		string(commitSHA), displayName, tagsToStore)
 	if err != nil {
 		d.markPgInvariantTerminal(err, "service.go:scheduleImmediate:upsert")
 		fmt.Printf("Failed to schedule %s: %v\n", displayName, err)
 	} else if result.RowsAffected() > 0 {
 		fmt.Printf("Scheduled immediate upgrade to %s\n", displayName)
 		// Once a commit is selected, all older ones are obsolete.
-		d.supersedeOlderReleases(ctx, commitSHA)
+		d.supersedeOlderReleases(ctx, string(commitSHA))
 	} else {
 		fmt.Printf("Version %s already scheduled, no action needed\n", displayName)
 	}
+}
+
+// --- CommitLookup implementation -------------------------------------
+//
+// Service satisfies the CommitLookup interface used by
+// resolveUpgradeTarget (see commit.go). These methods are the
+// DB/git-accessing primitives; all shape detection lives in commit.go.
+
+// LookupSHAByTag satisfies CommitLookup.
+func (d *Service) LookupSHAByTag(ctx context.Context, tag ReleaseTag) (CommitSHA, bool, error) {
+	var sha string
+	err := d.queryConn.QueryRow(ctx,
+		"SELECT commit_sha FROM public.upgrade WHERE $1 = ANY(commit_tags) LIMIT 1",
+		string(tag)).Scan(&sha)
+	if err != nil {
+		// pgx returns ErrNoRows or similar on empty result; treat as not-found.
+		return "", false, nil
+	}
+	return CommitSHA(sha), true, nil
+}
+
+// RevParse satisfies CommitLookup.
+func (d *Service) RevParse(_ context.Context, ref string) (CommitSHA, error) {
+	out, err := runCommandOutput(d.projDir, "git", "rev-parse", ref)
+	if err != nil {
+		return "", err
+	}
+	return NewCommitSHA(strings.TrimSpace(out))
+}
+
+// TagsAtCommit satisfies CommitLookup.
+func (d *Service) TagsAtCommit(ctx context.Context, sha CommitSHA) ([]string, error) {
+	var tags []string
+	err := d.queryConn.QueryRow(ctx,
+		"SELECT commit_tags FROM public.upgrade WHERE commit_sha = $1",
+		string(sha)).Scan(&tags)
+	if err != nil {
+		// Not in DB yet — consult git for tags at this commit.
+		out, gErr := runCommandOutput(d.projDir, "git", "tag", "--points-at", string(sha))
+		if gErr != nil {
+			return nil, nil
+		}
+		for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+			if t := strings.TrimSpace(line); t != "" {
+				tags = append(tags, t)
+			}
+		}
+	}
+	return tags, nil
 }
 
 func (d *Service) executeScheduled(ctx context.Context) {
@@ -2648,19 +2740,19 @@ func (d *Service) executeScheduled(ctx context.Context) {
 		return
 	}
 	var id int
-	var commitSHA, displayName string
+	var commitSHA string
+	var commitTags []string
 	var scheduledAt time.Time
 	err := d.queryConn.QueryRow(ctx,
-		`SELECT id, commit_sha,
-		        COALESCE(tags[array_upper(tags, 1)], 'sha-' || left(commit_sha, 12)) as display_name,
-		        scheduled_at
+		`SELECT id, commit_sha, commit_tags, scheduled_at
 		 FROM public.upgrade
 		 WHERE state = 'scheduled'
 		   AND scheduled_at <= now()
-		 ORDER BY scheduled_at LIMIT 1`).Scan(&id, &commitSHA, &displayName, &scheduledAt)
+		 ORDER BY scheduled_at LIMIT 1`).Scan(&id, &commitSHA, &commitTags, &scheduledAt)
 	if err != nil {
 		return // no pending upgrades
 	}
+	displayName := renderDisplayName(CommitSHA(commitSHA), commitTags)
 	fmt.Printf("Claiming id=%d, lag=%s\n", id, time.Since(scheduledAt).Truncate(time.Second))
 
 	// Claim immediately: mark started_at + state='in_progress' so the UI
@@ -2669,7 +2761,7 @@ func (d *Service) executeScheduled(ctx context.Context) {
 	// (./sb install dispatching StateScheduledUpgrade): whichever UPDATE
 	// commits first wins, the other gets 0 rows affected and bails.
 	tag, err := d.queryConn.Exec(ctx,
-		"UPDATE public.upgrade SET state = 'in_progress', started_at = now(), from_version = $1 WHERE id = $2 AND state = 'scheduled' AND started_at IS NULL",
+		"UPDATE public.upgrade SET state = 'in_progress', started_at = now(), from_commit_version = $1 WHERE id = $2 AND state = 'scheduled' AND started_at IS NULL",
 		d.version, id)
 	if err != nil {
 		d.markPgInvariantTerminal(err, "service.go:executeScheduled:claim")
@@ -2686,7 +2778,7 @@ func (d *Service) executeScheduled(ctx context.Context) {
 	// This covers admin-UI "Apply now", NOTIFY upgrade_apply from ./sb upgrade apply-latest,
 	// and the discovery loop's auto-schedule — we don't currently distinguish among them
 	// at this layer. Later improvement: record originator in public.upgrade when scheduling.
-	if err := d.executeUpgrade(ctx, id, commitSHA, displayName, "scheduled", "scheduled"); err != nil {
+	if err := d.executeUpgrade(ctx, id, commitSHA, displayName, commitTags, "scheduled", "scheduled"); err != nil {
 		fmt.Printf("Upgrade to %s failed: %v\n", displayName, err)
 	}
 }
@@ -2702,7 +2794,7 @@ func (d *Service) executeScheduled(ctx context.Context) {
 // alive, and abort. The only install invocation allowed through during this
 // function is the post-upgrade fixup at runInstallFixup, which sets the
 // --inside-active-upgrade flag and STATBUS_INSIDE_ACTIVE_UPGRADE=1 env var.
-func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, displayName, invokedBy, trigger string) error {
+func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, displayName string, commitTags []string, invokedBy, trigger string) error {
 	d.upgrading = true
 	defer func() { d.upgrading = false }()
 
@@ -2741,13 +2833,14 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	}
 
 	progress.Write("Upgrading to %s (from %s)...", displayName, d.version)
-	// For sha-prefixed targets (edge channel), displayName tells you the SHA
-	// but nothing about how far it is from the nearest tag. `git describe`
-	// fills that gap ("v2026.03.1-9-gea46d5818" → nearest tag + N commits
-	// ahead + shortened SHA). Also emit the commit subject so an operator
-	// watching the maintenance page sees what the upgrade actually brings
-	// without tailing git log. Suppress describe when it equals displayName
-	// (tagged-channel case) to avoid redundancy.
+	// For untagged-commit targets (edge channel), displayName is the
+	// 8-char commit_short — it identifies the commit but says nothing
+	// about how far it is from the nearest tag. `git describe` fills
+	// that gap ("v2026.03.1-9-gea46d58" → nearest tag + N commits
+	// ahead + shortened SHA). Also emit the commit subject so an
+	// operator watching the maintenance page sees what the upgrade
+	// actually brings without tailing git log. Suppress describe when
+	// it equals displayName (tagged-channel case) to avoid redundancy.
 	if out, err := runCommandOutput(projDir, "git", "describe", "--tags", "--always", commitSHA); err == nil {
 		if desc := strings.TrimSpace(out); desc != "" && desc != displayName {
 			progress.Write("  Target version: %s", desc)
@@ -2765,11 +2858,13 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 
 	// Downgrade protection: refuse to apply an older version than currently running.
 	// Downgrades require restoring from backup instead.
-	// Only applies when both displayName and d.version are valid CalVer strings.
-	// Non-CalVer d.version (stray tag, hand-built binary, etc.) would produce
-	// a nonsense comparison, so we skip the guard entirely.
-	if !strings.HasPrefix(displayName, "sha-") && !strings.HasPrefix(d.version, "sha-") &&
-		d.version != "dev" && ValidateVersion(d.version) {
+	//
+	// Applies only when BOTH sides are valid CalVer release tags — the
+	// only case where CompareVersions returns a meaningful ordering.
+	// Untagged commits (commit_short, describe-off-tag) and the "dev"
+	// placeholder are not release-ordered, so ValidateVersion() rejects
+	// them and the guard short-circuits. No shape detection needed.
+	if ValidateVersion(displayName) && ValidateVersion(d.version) {
 		if CompareVersions(displayName, d.version) < 0 {
 			// TODO: pick code — downgrade precondition; consider adding ErrInstallPreconditionFailed
 			msg := fmt.Sprintf("Version %s is older than current version %s. Downgrades are not supported. To restore a previous state, use: ./sb db backup restore <name>", displayName, d.version)
@@ -2780,8 +2875,8 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 
 	// Verify release manifest and binary exist before starting.
 	// If CI hasn't finished building, unschedule and return — not an error.
-	// Only check for tagged releases, not raw SHA commits.
-	if !strings.HasPrefix(displayName, "sha-") {
+	// Only tagged releases have a manifest; untagged commits skip this check.
+	if ValidateVersion(displayName) {
 		progress.Write("Verifying release assets available...")
 		manifest, err := FetchManifest(displayName)
 		if err != nil {
@@ -2791,7 +2886,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 			// The service will flip docker_images_status and release_builds_status
 			// on the next discovery cycle when CI finishes, re-enabling "Upgrade Now".
 			d.queryConn.Exec(ctx,
-				"UPDATE public.upgrade SET state = 'available', scheduled_at = NULL, started_at = NULL, from_version = NULL WHERE id = $1", id)
+				"UPDATE public.upgrade SET state = 'available', scheduled_at = NULL, started_at = NULL, from_commit_version = NULL WHERE id = $1", id)
 			progress.Write("Release assets not ready for %s — unscheduled. Will be available when CI finishes.", displayName)
 			return nil
 		}
@@ -2821,7 +2916,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	progress.Write("Verifying commit signature...")
 	if err := d.verifyCommitSignature(commitSHA); err != nil {
 		// TODO: pick code — signature verification; consider adding ErrInstallPreconditionFailed
-		msg := fmt.Sprintf("Commit %s signature verification failed: %v", commitSHA[:12], err)
+		msg := fmt.Sprintf("Commit %s signature verification failed: %v", ShortForDisplay(commitSHA), err)
 		d.failUpgrade(ctx, id, msg, progress)
 		return fmt.Errorf("%s", msg)
 	}
@@ -2835,7 +2930,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// survives and recoverFromFlag at the next service startup reconciles
 	// it (it's on the filesystem, not in the DB volume which gets rolled
 	// back).
-	if err := d.writeUpgradeFlag(id, commitSHA, displayName, invokedBy, trigger, d.pendingRecreate); err != nil {
+	if err := d.writeUpgradeFlag(id, commitSHA, commitTags, invokedBy, trigger, d.pendingRecreate); err != nil {
 		// TODO: pick code — mutex flag acquisition failure; consider adding ErrInstallPreconditionFailed
 		msg := fmt.Sprintf("Could not acquire upgrade-mutex flag file: %v", err)
 		d.failUpgrade(ctx, id, msg, progress)
@@ -3005,23 +3100,25 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	progress.Write("Installing %s...", displayName)
 	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "git", "git", "fetch", "origin", commitSHA); err != nil {
 		// TODO: pick code — forward git fetch failure; no Err* code covers install-time git errors yet
-		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("git fetch %s: %v", commitSHA[:12], err), progress)
+		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("git fetch %s: %v", ShortForDisplay(commitSHA), err), progress)
 		return err
 	}
 	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "git", "git", "-c", "advice.detachedHead=false", "checkout", commitSHA); err != nil {
 		// TODO: pick code — forward git checkout failure; no Err* code covers install-time git errors yet
-		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("git checkout %s: %v", commitSHA[:12], err), progress)
+		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("git checkout %s: %v", ShortForDisplay(commitSHA), err), progress)
 		return err
 	}
 
-	// Verify checked-out SHA matches manifest (detect tag spoofing) — only for tagged releases
-	if !strings.HasPrefix(displayName, "sha-") {
+	// Verify checked-out SHA matches manifest (detect tag spoofing).
+	// Only tagged releases carry a manifest; untagged commits skip.
+	if ValidateVersion(displayName) {
 		if manifest, mErr := FetchManifest(displayName); mErr == nil && manifest.CommitSHA != "" {
 			if checkedOut, gErr := runCommandOutput(projDir, "git", "rev-parse", "HEAD"); gErr == nil {
 				checkedOut = strings.TrimSpace(checkedOut)
 				if !strings.HasPrefix(checkedOut, manifest.CommitSHA) && !strings.HasPrefix(manifest.CommitSHA, checkedOut) {
 					// TODO: pick code — tag-tampering detection; consider adding ErrInstallPreconditionFailed
-					errMsg := fmt.Sprintf("Version verification failed: expected commit %s but got %s. Possible tag tampering.", manifest.CommitSHA[:12], checkedOut[:12])
+					errMsg := fmt.Sprintf("Version verification failed: expected commit %s but got %s. Possible tag tampering.",
+						ShortForDisplay(manifest.CommitSHA), ShortForDisplay(checkedOut))
 					progress.Write("%s", errMsg)
 					d.rollback(ctx, id, displayName, previousVersion, errMsg, progress)
 					return fmt.Errorf("%s", errMsg)
@@ -3037,10 +3134,10 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// running daemon's .text segment still holds the old binary image even
 	// though ./sb on disk is the new version.
 	//
-	// Tagged releases only (sha-* edge commits have no release binary in the
-	// manifest).
+	// Tagged releases only — untagged commit targets (edge channel) have
+	// no release binary in the manifest.
 	needsRestartForNewBinary := false
-	if !strings.HasPrefix(displayName, "sha-") {
+	if ValidateVersion(displayName) {
 		if err := d.replaceBinaryOnDisk(displayName, progress); err != nil {
 			d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: %v", ErrBinaryReplaceFailed, err), progress)
 			return err
@@ -3070,9 +3167,10 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 		os.Exit(42)
 	}
 
-	// Install-inline (one-shot, runningAsService=false) and sha-* edge commits
-	// (no release binary to swap) both continue in-process. applyPostSwap
-	// runs the same steps the resumed service would run.
+	// Install-inline (one-shot, runningAsService=false) and untagged
+	// edge commits (no release binary to swap) both continue
+	// in-process. applyPostSwap runs the same steps the resumed
+	// service would run.
 	return d.applyPostSwap(ctx, id, commitSHA, displayName, previousVersion, backupPath, d.pendingRecreate, progress)
 }
 
@@ -3084,7 +3182,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 // Entry points:
 //
 //  1. executeUpgrade — fall-through path for install-inline (already a fresh
-//     process image) and sha-* edge commits (no mid-flow binary swap).
+//     process image) and untagged edge commits (no mid-flow binary swap).
 //  2. resumePostSwap — after a systemd restart following exit 42; the new
 //     service process rebuilt its progress log + flock from flag state and
 //     re-enters here.
@@ -3321,7 +3419,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 // mid-flow exit-42 restart. Called from recoverFromFlag when the flag's
 // Phase is FlagPhasePostSwap.
 //
-// Recovers state from: flag (CommitSHA, DisplayName, BackupPath, Recreate,
+// Recovers state from: flag (CommitSHA, CommitTags, BackupPath, Recreate,
 // InvokedBy, Trigger, ID) and DB row (from_version, log_relative_file_path).
 // Then re-acquires the flock (prior process died, kernel released it),
 // reopens the progress log in append mode, and calls applyPostSwap.
@@ -3332,7 +3430,7 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) {
 	var fromVersion sql.NullString
 	var logRelPath sql.NullString
 	err := d.queryConn.QueryRow(ctx,
-		"SELECT from_version, log_relative_file_path FROM public.upgrade WHERE id = $1", flag.ID).
+		"SELECT from_commit_version, log_relative_file_path FROM public.upgrade WHERE id = $1", flag.ID).
 		Scan(&fromVersion, &logRelPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr,
@@ -3346,7 +3444,7 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) {
 	// through to a fresh log so the resume path still reports progress.
 	progress := AppendProgressLog(d.projDir, logRelPath.String)
 	if progress == nil {
-		progress = NewUpgradeLog(d.projDir, int64(flag.ID), flag.DisplayName, time.Now().UTC())
+		progress = NewUpgradeLog(d.projDir, int64(flag.ID), flag.Label(), time.Now().UTC())
 	}
 	progress.Write("Post-swap restart detected — resuming upgrade on new binary (pid=%d)", os.Getpid())
 
@@ -3369,7 +3467,7 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) {
 	if needs, reason := needsPostSwapRollback(d.binaryCommit, flag.CommitSHA); needs {
 		progress.Write("Post-swap guard: %s — flag is stale; rolling back row and clearing flag (skipping applyPostSwap on mismatched binary).", reason)
 		progress.Close()
-		d.recoveryRollback(ctx, int(flag.ID), flag.DisplayName, logRelPath.String, fmt.Sprintf(
+		d.recoveryRollback(ctx, int(flag.ID), flag.Label(), logRelPath.String, fmt.Sprintf(
 			"%s: post_swap binary mismatch: %s", ErrInstallPreconditionFailed, reason))
 		return
 	}
@@ -3378,17 +3476,17 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) {
 	// released by the kernel at exit; the file on disk still has our
 	// Phase=post_swap stamp.
 	reacquired := UpgradeFlag{
-		ID:          flag.ID,
-		CommitSHA:   flag.CommitSHA,
-		DisplayName: flag.DisplayName,
-		PID:         os.Getpid(),
-		StartedAt:   time.Now(),
-		InvokedBy:   flag.InvokedBy,
-		Trigger:     flag.Trigger,
-		Holder:      HolderService,
-		Phase:       FlagPhasePostSwap,
-		Recreate:    flag.Recreate,
-		BackupPath:  flag.BackupPath,
+		ID:         flag.ID,
+		CommitSHA:  flag.CommitSHA,
+		CommitTags: flag.CommitTags,
+		PID:        os.Getpid(),
+		StartedAt:  time.Now(),
+		InvokedBy:  flag.InvokedBy,
+		Trigger:    flag.Trigger,
+		Holder:     HolderService,
+		Phase:      FlagPhasePostSwap,
+		Recreate:   flag.Recreate,
+		BackupPath: flag.BackupPath,
 	}
 	lock, lerr := acquireFlock(d.projDir, reacquired)
 	if lerr != nil {
@@ -3400,7 +3498,7 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) {
 	d.upgrading = true
 	defer func() { d.upgrading = false }()
 
-	if applyErr := d.applyPostSwap(ctx, flag.ID, flag.CommitSHA, flag.DisplayName, fromVersion.String, flag.BackupPath, flag.Recreate, progress); applyErr != nil {
+	if applyErr := d.applyPostSwap(ctx, flag.ID, flag.CommitSHA, flag.Label(), fromVersion.String, flag.BackupPath, flag.Recreate, progress); applyErr != nil {
 		// rollback() already ran inside applyPostSwap; just return.
 		return
 	}
@@ -3783,10 +3881,10 @@ func restoreGitStateFn(projDir, previousVersion string, log func(format string, 
 	}
 	headSHA := strings.TrimSpace(headOut)
 	if headSHA != expectedSHA {
-		return fmt.Errorf("git checkout landed on %s, expected %s", shortSHA(headSHA), shortSHA(expectedSHA))
+		return fmt.Errorf("git checkout landed on %s, expected %s", ShortForDisplay(headSHA), ShortForDisplay(expectedSHA))
 	}
 
-	log("Git state restored to %s (HEAD %s)", previousVersion, shortSHA(headSHA))
+	log("Git state restored to %s (HEAD %s)", previousVersion, ShortForDisplay(headSHA))
 	return nil
 }
 
@@ -3821,7 +3919,7 @@ func readProgressLogTail(path string, n int) string {
 //
 // Errors when no binary exists for the current platform — the pre-flight
 // check should have caught this, but defense-in-depth catches late changes.
-// Edge sha-* commits skip this function entirely (caller guards on displayName).
+// Untagged edge commits skip this function entirely (caller guards on displayName).
 func (d *Service) replaceBinaryOnDisk(version string, progress *ProgressLog) error {
 	manifest, err := FetchManifest(version)
 	if err != nil {

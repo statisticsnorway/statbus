@@ -6088,7 +6088,7 @@ export type Database = {
           docker_images_downloaded: boolean
           docker_images_status: Database["public"]["Enums"]["docker_images_status_type"]
           error: string | null
-          from_version: string | null
+          from_commit_version: string | null
           has_migrations: boolean
           id: number
           log_relative_file_path: string | null
@@ -6102,9 +6102,9 @@ export type Database = {
           state: Database["public"]["Enums"]["upgrade_state"]
           summary: string
           superseded_at: string | null
-          tags: string[]
+          commit_tags: string[]
           topological_order: number | null
-          version: string | null
+          commit_version: string | null
         },
         Insert: {
           backup_path?: string | null
@@ -6117,7 +6117,7 @@ export type Database = {
           docker_images_downloaded?: boolean
           docker_images_status?: Database["public"]["Enums"]["docker_images_status_type"]
           error?: string | null
-          from_version?: string | null
+          from_commit_version?: string | null
           has_migrations?: boolean
           id?: never
           log_relative_file_path?: string | null
@@ -6131,9 +6131,9 @@ export type Database = {
           state?: Database["public"]["Enums"]["upgrade_state"]
           summary: string
           superseded_at?: string | null
-          tags?: string[]
+          commit_tags?: string[]
           topological_order?: number | null
-          version?: string | null
+          commit_version?: string | null
         },
         Update: {
           backup_path?: string | null
@@ -6146,7 +6146,7 @@ export type Database = {
           docker_images_downloaded?: boolean
           docker_images_status?: Database["public"]["Enums"]["docker_images_status_type"]
           error?: string | null
-          from_version?: string | null
+          from_commit_version?: string | null
           has_migrations?: boolean
           id?: never
           log_relative_file_path?: string | null
@@ -6160,9 +6160,9 @@ export type Database = {
           state?: Database["public"]["Enums"]["upgrade_state"]
           summary?: string
           superseded_at?: string | null
-          tags?: string[]
+          commit_tags?: string[]
           topological_order?: number | null
-          version?: string | null
+          commit_version?: string | null
         },
         Relationships: []
       },

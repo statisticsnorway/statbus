@@ -35,11 +35,11 @@ func TestVerifyUpgradeGroundTruth_BinarySHAmismatch(t *testing.T) {
 	if !strings.Contains(reason, "binary commit") {
 		t.Errorf("reason should mention 'binary commit', got: %q", reason)
 	}
-	if !strings.Contains(reason, "aaaaaaaaaaaa") {
-		t.Errorf("reason should contain the binary SHA prefix, got: %q", reason)
+	if !strings.Contains(reason, "aaaaaaaa") {
+		t.Errorf("reason should contain the binary commit_short prefix, got: %q", reason)
 	}
-	if !strings.Contains(reason, "bbbbbbbbbbbb") {
-		t.Errorf("reason should contain the row SHA prefix, got: %q", reason)
+	if !strings.Contains(reason, "bbbbbbbb") {
+		t.Errorf("reason should contain the row commit_short prefix, got: %q", reason)
 	}
 }
 
@@ -175,8 +175,8 @@ func TestNeedsPostSwapRollback_BinaryMismatchTriggersRollback(t *testing.T) {
 			wantNeeds:     true,
 			wantReasonSubs: []string{
 				"does not match flag target",
-				"41405da37abc",
-				"12d9a1b24a99",
+				"41405da3",
+				"12d9a1b2",
 			},
 		},
 		{

@@ -149,7 +149,7 @@ channel has a well-defined, independent resolver path.
 |--------------|-------------------------------------------------------|-------------------------|
 | `stable`     | GitHub `/releases/latest` (excludes prereleases)      | Release artifact        |
 | `prerelease` | Newest `v*-rc.*` via `/releases?per_page=50`          | Release artifact        |
-| `edge`       | `master` HEAD; version string becomes `sha-<short>`   | Built from source (`./dev.sh build-sb`, requires `go`) |
+| `edge`       | `master` HEAD; version string becomes bare `<commit_short>` (8-char)  | Built from source (`./dev.sh build-sb`, requires `go`) |
 
 Explicit override:
 
