@@ -1397,7 +1397,7 @@ erDiagram
 		text commit_sha
 		timestamp_with_time_zone committed_at
 		integer topological_order
-		text[] tags
+		text[] commit_tags
 		release_status_type release_status
 		text summary
 		text changes
@@ -1410,13 +1410,13 @@ erDiagram
 		text error
 		timestamp_with_time_zone rolled_back_at
 		timestamp_with_time_zone skipped_at
-		text from_version
+		text from_commit_version
 		boolean docker_images_downloaded
 		text backup_path
 		timestamp_with_time_zone superseded_at
 		timestamp_with_time_zone dismissed_at
 		upgrade_state state
-		text version
+		text commit_version
 		text log_relative_file_path
 		docker_images_status_type docker_images_status
 		release_builds_status_type release_builds_status

@@ -41,6 +41,15 @@ COMMENT ON FUNCTION public.display_name(public.upgrade) IS
   'stable tag > last tag > short SHA. '
   'Usage: GET /rest/upgrade?select=*,display_name';
 
+-- 3b. Restore upgrade_family() at rc.62 shape (uses u.tags).
+CREATE OR REPLACE FUNCTION public.upgrade_family(u public.upgrade)
+RETURNS text LANGUAGE sql IMMUTABLE AS $upgrade_family$
+    SELECT public.version_family(COALESCE(
+        (SELECT t FROM unnest(u.tags) AS t WHERE t NOT LIKE '%-%' LIMIT 1),
+        u.tags[array_upper(u.tags, 1)]
+    ))
+$upgrade_family$;
+
 -- 4. Restore the rc.62 notify trigger (emits "sha-<40>").
 CREATE OR REPLACE FUNCTION public.upgrade_notify_daemon()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER

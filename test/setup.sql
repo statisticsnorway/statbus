@@ -23,10 +23,16 @@ ALTER SEQUENCE public.legal_unit_id_seq RESTART WITH 1;
 ALTER SEQUENCE public.establishment_id_seq RESTART WITH 1;
 
 -- Clean up accumulated worker tasks for test isolation.
--- Only maintenance tasks (task_cleanup, import_job_cleanup) are kept.
--- Delete children first (FK on parent_id), then remaining non-maintenance tasks.
+-- Only completed maintenance tasks (task_cleanup, import_job_cleanup) are kept.
+-- Delete children first (FK on parent_id), then remaining non-maintenance tasks,
+-- then pending maintenance stubs seeded by migration 20260422161000
+-- (maint_queue_migration) which unconditionally calls worker.enqueue_task_cleanup()
+-- + worker.enqueue_import_job_cleanup() on every install. Without the pending
+-- delete, the sequence RESTART WITH 3 collides with the pre-existing pending
+-- rows at ids 7, 8 as soon as the test inserts enough rows.
 DELETE FROM worker.tasks WHERE parent_id IS NOT NULL;
 DELETE FROM worker.tasks WHERE command NOT IN ('task_cleanup', 'import_job_cleanup');
+DELETE FROM worker.tasks WHERE state = 'pending';
 ALTER SEQUENCE worker.tasks_id_seq RESTART WITH 3;
 
 \if :{?DEBUG}

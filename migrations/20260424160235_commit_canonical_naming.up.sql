@@ -61,6 +61,21 @@ COMMENT ON FUNCTION public.display_name(public.upgrade) IS
   'stable release tag > last tag > 8-char commit_short (no sha- prefix). '
   'Usage: GET /rest/upgrade?select=*,display_name';
 
+-- 3b. Rewrite public.upgrade_family() to use commit_tags.
+--     Defined in migration 20260416112355 against the old column name;
+--     the column rename above leaves the function body with stale
+--     `u.tags` references. upgrade_retention_plan() inlines this
+--     function, so any call path (post-restore fixups, retention
+--     ticks, test setup) errors with 'missing FROM-clause entry for
+--     table "u"' until this is rewritten.
+CREATE OR REPLACE FUNCTION public.upgrade_family(u public.upgrade)
+RETURNS text LANGUAGE sql IMMUTABLE AS $upgrade_family$
+    SELECT public.version_family(COALESCE(
+        (SELECT t FROM unnest(u.commit_tags) AS t WHERE t NOT LIKE '%-%' LIMIT 1),
+        u.commit_tags[array_upper(u.commit_tags, 1)]
+    ))
+$upgrade_family$;
+
 -- 4. upgrade_notify_daemon trigger: emit bare commit_sha (rc.63) instead
 --    of "sha-<40>" (rc.62 and earlier). The rc.63 receiver strips the
 --    legacy prefix during the transition window, so both forms are

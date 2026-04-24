@@ -268,7 +268,7 @@ Handles background processing. A long-running worker process calls `worker.proce
 - `activity_category_access(id, user_id, activity_category_id)` — **infrastructure**
   - Key FKs: activity_category_id, user_id.
 - `system_info(value, updated_at, key)` — **infrastructure**
-- `upgrade(id, backup_path, log_relative_file_path, committed_at, discovered_at, scheduled_at, started_at, completed_at, rolled_back_at, skipped_at, superseded_at, dismissed_at, commit_sha, topological_order, tags, release_status, summary, changes, release_url, has_migrations, error, from_version, docker_images_downloaded, state, version, docker_images_status, release_builds_status)` — **infrastructure**
+- `upgrade(id, backup_path, log_relative_file_path, committed_at, discovered_at, scheduled_at, started_at, completed_at, rolled_back_at, skipped_at, superseded_at, dismissed_at, commit_sha, topological_order, commit_tags, release_status, summary, changes, release_url, has_migrations, error, from_commit_version, docker_images_downloaded, state, commit_version, docker_images_status, release_builds_status)` — **infrastructure**
   - Enums: `docker_images_status` (`public.docker_images_status_type`), `release_builds_status` (`public.release_builds_status_type`), `release_status` (`public.release_status_type`), `state` (`public.upgrade_state`).
 - `upgrade_retention_caps(release_status, state, time_cap, count_cap, install_purge)` — **infrastructure**
   - Enums: `release_status` (`public.release_status_type`), `state` (`public.upgrade_state`).

@@ -6,8 +6,13 @@ BEGIN;
 -- Lock worker.tasks to prevent the background worker from advancing the sequence
 -- during the test. This ensures deterministic task IDs in error messages.
 LOCK TABLE worker.tasks IN EXCLUSIVE MODE;
--- Delete any non-maintenance tasks created between setup.sql and this transaction
+-- Delete any non-maintenance tasks created between setup.sql and this transaction.
+-- Also delete pending maintenance stubs seeded by migration 20260422161000
+-- (maint_queue_migration) which unconditionally re-enqueues task_cleanup +
+-- import_job_cleanup on every install; the pending rows at ids 7, 8 collide
+-- with the RESTART WITH 3 sequence below as soon as enough rows are inserted.
 DELETE FROM worker.tasks WHERE command NOT IN ('task_cleanup', 'import_job_cleanup');
+DELETE FROM worker.tasks WHERE state = 'pending';
 ALTER SEQUENCE worker.tasks_id_seq RESTART WITH 3;
 \echo "=== 1. Verify task_state enum includes 'waiting' ==="
 "=== 1. Verify task_state enum includes 'waiting' ==="

@@ -46,7 +46,7 @@ INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, sum
 \echo '=== rows before guarded UPDATE ==='
 === rows before guarded UPDATE ===
 SELECT id, state, docker_images_status FROM public.upgrade ORDER BY id;
- id |    state    | docker_images_status
+ id |    state    | docker_images_status 
 ----+-------------+----------------------
   1 | completed   | building
   2 | failed      | building
@@ -97,7 +97,7 @@ Row 7 (available) must transition to docker_images_status='failed' with error se
 SELECT id, state, docker_images_status, (error IS NOT NULL) AS has_error
   FROM public.upgrade
  ORDER BY id;
- id |    state    | docker_images_status | has_error
+ id |    state    | docker_images_status | has_error 
 ----+-------------+----------------------+-----------
   1 | completed   | building             | f
   2 | failed      | building             | t
