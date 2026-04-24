@@ -725,9 +725,9 @@ var releaseListCmd = &cobra.Command{
 // releaseCheckTag is the optional --tag flag for `release check`.
 var releaseCheckTag string
 
-// releaseCheckCmd verifies that all release artifacts (GitHub assets + Docker
-// images) exist for a given tag. Intended as a gate in cloud.sh and in CI
-// to avoid installing a release that is still being published.
+// releaseCheckCmd verifies that all release artifacts (GitHub assets including
+// snapshot, Docker images) exist for a given tag. Intended as a gate in
+// cloud.sh and in CI to avoid installing a release that is still being published.
 //
 // Exit 0: all checks passed.
 // Exit 1: one or more checks failed (with "Retry in ~5 minutes" guidance).
@@ -735,7 +735,7 @@ var releaseCheckCmd = &cobra.Command{
 	Use:   "check",
 	Short: "Verify release artifacts are fully published",
 	Long: `Check that all artifacts for a release are ready:
-  - GitHub Release assets (binaries, checksums, manifest)
+  - GitHub Release assets (binaries, checksums, manifest, snapshot)
   - ghcr.io Docker manifests (app, db, worker, proxy)
 
 Without --tag, resolves the latest pre-release from GitHub.
