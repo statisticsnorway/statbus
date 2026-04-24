@@ -218,6 +218,45 @@ func (d *Service) backupRoot() string {
 	return filepath.Join(os.Getenv("HOME"), "statbus-backups")
 }
 
+// dirSize returns the aggregate byte count of a directory tree. Walk
+// errors (e.g. a file removed mid-walk) are silently skipped — the
+// returned size is informational, not authoritative. Only used for
+// heartbeat log messages during rsync.
+func dirSize(root string) int64 {
+	var total int64
+	_ = filepath.Walk(root, func(_ string, info os.FileInfo, err error) error {
+		if err != nil || info == nil {
+			return nil
+		}
+		if !info.IsDir() {
+			total += info.Size()
+		}
+		return nil
+	})
+	return total
+}
+
+// humanBytes formats a byte count as a human-readable string.
+// Local duplicate of cmd/db.go humanSize — different package, and we
+// don't want to promote this to a shared util just for two callers.
+func humanBytes(bytes int64) string {
+	const (
+		kb = 1024
+		mb = 1024 * kb
+		gb = 1024 * mb
+	)
+	switch {
+	case bytes >= gb:
+		return fmt.Sprintf("%.1f GB", float64(bytes)/float64(gb))
+	case bytes >= mb:
+		return fmt.Sprintf("%.1f MB", float64(bytes)/float64(mb))
+	case bytes >= kb:
+		return fmt.Sprintf("%.1f KB", float64(bytes)/float64(kb))
+	default:
+		return fmt.Sprintf("%d B", bytes)
+	}
+}
+
 // backupDatabase rsyncs the live Postgres data volume into a fresh
 // timestamped directory and atomically renames it on success.
 //
@@ -253,15 +292,51 @@ func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (string, e
 	// backup. No sudo needed — the container runs as root and can read
 	// postgres-owned files.
 	volumeName := d.dbVolumeName()
-	if err := runCommandToLog(d.projDir, 10*time.Minute, progress.File(), "rsync",
+
+	// Heartbeat wrapper. Raw rsync stdout is streamed via progress.File()
+	// (bypasses progress.Write, which is where the unified emitHeartbeat
+	// lives — task #42). A large DB can keep rsync running for minutes,
+	// which would silence the main goroutine for the duration and
+	// tickle WatchdogSec=120. Emit a progress.Write every 30s so each
+	// tick fires emitHeartbeat via the unified path.
+	//
+	// %s copied: walk the growing tmpDir and sum file sizes. Cheap on a
+	// backup-shaped directory (dozens to thousands of files, all small
+	// or PG data files); racy against concurrent rsync writes which is
+	// fine — the number in the log line is informational.
+	//
+	// Same blind-spot trade-off as pullImages (task #42): the ticker
+	// runs in a background goroutine, so a stuck main goroutine inside
+	// runCommandToLog would still emit heartbeats. Bounded by the
+	// 10-minute context timeout inside runCommandToLog.
+	rsyncStart := time.Now()
+	rsyncDone := make(chan struct{})
+	rsyncTicker := time.NewTicker(30 * time.Second)
+	go func() {
+		defer rsyncTicker.Stop()
+		for {
+			select {
+			case <-rsyncDone:
+				return
+			case <-rsyncTicker.C:
+				copied := dirSize(tmpDir)
+				progress.Write("Still backing up database (%s elapsed, %s copied)...",
+					time.Since(rsyncStart).Truncate(time.Second),
+					humanBytes(copied))
+			}
+		}
+	}()
+	rsyncErr := runCommandToLog(d.projDir, 10*time.Minute, progress.File(), "rsync",
 		"docker", "run", "--rm",
 		"-v", volumeName+":/source:ro",
 		"-v", tmpDir+":/backup",
 		"alpine", "sh", "-c", "apk add --no-cache rsync >/dev/null 2>&1 && rsync -a --delete /source/ /backup/",
-	); err != nil {
+	)
+	close(rsyncDone)
+	if rsyncErr != nil {
 		// Leave the .tmp dir for inspection; pruneStaleTmpBackups will
 		// clean it after 10 minutes if it's confirmed dead.
-		return "", fmt.Errorf("rsync backup: %w", err)
+		return "", fmt.Errorf("rsync backup: %w", rsyncErr)
 	}
 
 	// Atomic completion marker: directory's final name appearing IS the
