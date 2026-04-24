@@ -362,6 +362,40 @@ func (d *Service) removeUpgradeFlag() {
 	os.Remove(d.flagPath())
 }
 
+// writeGoroutineDump captures all goroutine stacks via runtime.Stack and
+// writes them to a timestamped file under <projDir>/tmp/. Non-destructive
+// — the service keeps running. Called from the SIGUSR1 handler installed
+// in Run().
+//
+// The dump size is unpredictable (proportional to goroutine count × stack
+// depth). Start at 64 KB, double until runtime.Stack returns a length
+// less than the buffer — that's the reliable "fit" signal.
+//
+// Returns the file path (for the caller to log) and any error encountered.
+func (d *Service) writeGoroutineDump() (string, error) {
+	buf := make([]byte, 64*1024)
+	for {
+		n := runtime.Stack(buf, true)
+		if n < len(buf) {
+			buf = buf[:n]
+			break
+		}
+		// Dump filled the buffer — may have been truncated. Grow and retry.
+		buf = make([]byte, 2*len(buf))
+	}
+	dumpDir := filepath.Join(d.projDir, "tmp")
+	if err := os.MkdirAll(dumpDir, 0755); err != nil {
+		return "", fmt.Errorf("mkdir %s: %w", dumpDir, err)
+	}
+	name := fmt.Sprintf("upgrade-service-goroutines-%s.txt",
+		time.Now().UTC().Format("20060102T150405Z"))
+	path := filepath.Join(dumpDir, name)
+	if err := os.WriteFile(path, buf, 0644); err != nil {
+		return "", fmt.Errorf("write %s: %w", path, err)
+	}
+	return path, nil
+}
+
 // AcquireInstallFlag atomically claims the upgrade-mutex marker for an
 // `./sb install` invocation. Returns a *FlagLock on success — the caller
 // MUST keep it alive for the full install duration and Close() it when
@@ -1127,6 +1161,34 @@ func (d *Service) Run(ctx context.Context) error {
 
 	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
+
+	// SIGUSR1 → non-destructive goroutine dump. Contrast with SIGQUIT
+	// (Go's default: dump + exit). Operator workflow for a hung service:
+	//
+	//     kill -USR1 <pid>
+	//     # dump written to tmp/upgrade-service-goroutines-<utc>.txt
+	//     # service keeps running
+	//
+	// The dump names every goroutine, its current stack, and the call
+	// that parked it — enough to diagnose pgx cancellation races, mutex
+	// deadlocks, netpoll hangs, etc. without killing the forensic target.
+	sigUSR1 := make(chan os.Signal, 1)
+	signal.Notify(sigUSR1, syscall.SIGUSR1)
+	go func() {
+		defer signal.Stop(sigUSR1)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-sigUSR1:
+				if path, err := d.writeGoroutineDump(); err != nil {
+					fmt.Fprintf(os.Stderr, "SIGUSR1: failed to write goroutine dump: %v\n", err)
+				} else {
+					fmt.Printf("SIGUSR1: wrote goroutine dump to %s\n", path)
+				}
+			}
+		}
+	}()
 
 	if err := d.loadConfig(); err != nil {
 		return fmt.Errorf("load config: %w", err)
