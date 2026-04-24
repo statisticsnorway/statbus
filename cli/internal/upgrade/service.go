@@ -14,7 +14,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -101,7 +100,12 @@ type Service struct {
 	pendingRecreate bool           // if true, next upgrade deletes+recreates the database instead of migrating
 	cachedURL      string           // cached health check URL (derived from .env at startup)
 	listenCancel context.CancelFunc // cancels the listenLoop goroutine
-	listenWg     sync.WaitGroup     // tracks listenLoop goroutine lifetime
+	listenDone   chan struct{}      // closed when the active listenLoop goroutine exits
+	// listenWg retired in favour of listenDone: we need to tolerate a leaked
+	// goroutine after a force-close timeout (task #40 / #37 root cause), and
+	// sync.WaitGroup's counter would go negative on the leaked goroutine's
+	// eventual Done() if the field was reassigned during restart. A per-run
+	// channel has no state to corrupt.
 	allowedSignersPath string      // path to tmp/allowed-signers file (empty if no signers configured)
 	flagLock           *FlagLock   // holds the flock on tmp/upgrade-in-progress.json during executeUpgrade
 	runningAsService   bool        // true when Run() is the entry point; false for one-shot callers
@@ -1365,20 +1369,61 @@ func (d *Service) startListenLoop(ctx context.Context, notifyCh chan<- *pgconn.N
 	}
 	listenCtx, cancel := context.WithCancel(ctx)
 	d.listenCancel = cancel
-	d.listenWg.Add(1)
+	done := make(chan struct{})
+	d.listenDone = done
 	fmt.Println("listenLoop started (channels: upgrade_check, upgrade_apply)")
 	go func() {
-		defer d.listenWg.Done()
+		defer close(done)
 		d.listenLoop(listenCtx, notifyCh, errCh)
 	}()
 }
 
-// stopListenLoop cancels the listenLoop goroutine and waits for it to exit.
+// stopListenLoop terminates the listenLoop goroutine and waits bounded time
+// for its clean exit. The order is deliberate:
+//
+//  1. Force-close listenConn first. pgx v5.9.0 has a race where a NOTIFY
+//     arriving simultaneously with a ctx.Cancel() keeps the WaitForNotification
+//     reader parked on netpoll forever (observed on statbus_dev Apr 23 2026,
+//     PID 902940 wedged 9h54m+; full forensic in task #37 /
+//     tmp/engineer-dev-hang-meticulous.md). Closing the underlying net.Conn
+//     from outside wakes the in-flight socket read with EBADF regardless
+//     of pgx's internal state.
+//  2. Cancel the listenLoop's ctx for state consistency.
+//  3. Wait up to 10s on d.listenDone. 10s is generous: with the connection
+//     closed, WaitForNotification returns in milliseconds. The timeout is a
+//     LOUD cleanup budget, not a silent hang-extender.
+//  4. On timeout: warn to stderr and continue. The listenLoop goroutine is
+//     leaked (bounded to service lifetime — the next systemd restart frees
+//     it). Better than blocking executeUpgrade forever, which is the
+//     failure mode this replaces.
+//
+// This is not a blind timeout — the force-close is ACTIVE detection: we force
+// the state we want rather than hope pgx notices. The 10s bound is a cleanup
+// budget with loud failure, respecting the task #37 principle "you should be
+// able to detect what you're waiting for."
 func (d *Service) stopListenLoop() {
-	if d.listenCancel != nil {
-		d.listenCancel()
-		d.listenWg.Wait()
-		d.listenCancel = nil
+	if d.listenCancel == nil {
+		return
+	}
+	if d.listenConn != nil {
+		closeCtx, closeCancel := context.WithTimeout(context.Background(), 2*time.Second)
+		_ = d.listenConn.Close(closeCtx)
+		closeCancel()
+	}
+	d.listenCancel()
+	done := d.listenDone
+	d.listenCancel = nil
+	d.listenDone = nil
+	if done == nil {
+		return // never started (startListenLoop wasn't reached)
+	}
+	select {
+	case <-done:
+		// clean exit
+	case <-time.After(10 * time.Second):
+		fmt.Fprintf(os.Stderr,
+			"WARNING: listenLoop goroutine did not exit within 10s after force-close + ctx cancel; leaking goroutine and continuing (pid=%d)\n",
+			os.Getpid())
 	}
 }
 
