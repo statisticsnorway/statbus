@@ -2418,38 +2418,59 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 		d.failUpgrade(ctx, id, msg, progress)
 		return fmt.Errorf("%s", msg)
 	}
+	progress.Write("Upgrade-flag file written; taking ownership of the upgrade pipeline.")
 
 	// started_at and from_version were already set by executeScheduled() when
 	// it claimed this task. From this point on, the maintenance guard will activate.
 
 	// Step 1: Prepare images
+	// Fine-grained progress lines bracket each state transition here so that
+	// if the service hangs (as seen on statbus_dev Apr 23 2026 — task #37),
+	// the LAST journalctl line identifies the exact step that failed to
+	// return. Zero behaviour change; pure observability.
 	progress.Write("Preparing images...")
+	pullStart := time.Now()
 	if err := d.pullImages(displayName); err != nil {
 		d.failUpgrade(ctx, id, fmt.Sprintf("%s: Failed to pull images for %s: %v", ErrDockerUpFailed, displayName, err), progress)
 		return err
 	}
+	progress.Write("Images prepared (elapsed %s).", time.Since(pullStart).Truncate(time.Millisecond))
 
 	// Pre-compute backup stamp and record the .tmp path in the DB before the
 	// DB connection is closed.  The stamp ties the on-disk directory name to
 	// the DB row so reconcileBackupDir can detect crashed or missing backups.
 	backupStamp := time.Now().UTC().Format("20060102T150405Z")
 	backupTmpPath := filepath.Join(d.backupRoot(), "pre-upgrade-"+backupStamp+".tmp")
-	d.queryConn.Exec(ctx, "UPDATE public.upgrade SET backup_path = $1 WHERE id = $2", backupTmpPath, id)
+	progress.Write("Recording backup path on upgrade row (id=%d, path=%s)...", id, backupTmpPath)
+	if _, err := d.queryConn.Exec(ctx, "UPDATE public.upgrade SET backup_path = $1 WHERE id = $2", backupTmpPath, id); err != nil {
+		// Not fatal: the recovery path can still locate the backup via the
+		// on-disk stamp if the DB write didn't land. Log and proceed.
+		progress.Write("Warning: backup_path UPDATE failed: %v (proceeding — reconcileBackupDir can still correlate via stamp)", err)
+	} else {
+		progress.Write("Backup path recorded.")
+	}
 
 	// Step 2: Enter maintenance mode and restart proxy first
 	// Guards let one-shot callers (./sb install inline upgrade) reach
 	// executeUpgrade without a listenConn.
+	progress.Write("Stopping listen-loop goroutine (canceling listener context)...")
 	d.stopListenLoop()
+	progress.Write("Listen-loop goroutine stopped.")
 	if d.listenConn != nil {
+		progress.Write("Closing listen connection to the database...")
 		d.listenConn.Close(context.Background())
 		d.listenConn = nil
+		progress.Write("Listen connection closed.")
 	}
 	if d.queryConn != nil {
+		progress.Write("Closing query connection to the database...")
 		d.queryConn.Close(context.Background())
 		d.queryConn = nil
+		progress.Write("Query connection closed.")
 	}
 	progress.Write("Entering maintenance mode...")
 	d.setMaintenance(true)
+	progress.Write("Maintenance mode active (~/maintenance file written; Caddy now returns 503).")
 
 	// Step 3: Stop application services (proxy stays running for maintenance page).
 	// Hard error: running services during backup risk inconsistent state.
