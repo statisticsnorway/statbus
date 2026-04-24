@@ -273,12 +273,26 @@ cmd_migrate_up() {
 # cmd_tail_one tails the upgrade service journal for one server and
 # auto-disconnects when a terminal state is logged. Prints the final
 # upgrade status afterwards.
+# Optional $2 = target_version: narrows the exit pattern to that specific
+# upgrade so stale recovery log lines for previous versions don't cause
+# a premature exit.
 cmd_tail_one() {
     local server="$1"
+    local target_version="${2:-}"
+    # Build the awk exit pattern locally before SSH so we avoid nested-quote
+    # hell. The pattern is embedded in the remote awk /.../ regex via double-
+    # quote expansion of the outer SSH string. Version strings (sha-*, v*.*)
+    # contain no single quotes or shell metacharacters, so expansion is safe.
+    local awk_pattern
+    if [ -n "$target_version" ]; then
+        awk_pattern="Upgrade to ${target_version} .*(completed|failed)|FAILED:"
+    else
+        awk_pattern="Upgrade to .*(completed|failed)|FAILED:"
+    fi
     echo "--- Tailing upgrade log for $server (auto-disconnect on completion) ---"
     ssh_server "$server" \
         "journalctl --user -u 'statbus-upgrade@${server}.service' -o cat -f -n 50 2>&1 | \
-         awk '/Upgrade to .*(completed|failed)|FAILED:/{print; fflush(); exit} {print; fflush()}'" \
+         awk '/${awk_pattern}/{print; fflush(); exit} {print; fflush()}'" \
         || true
     echo "--- Log tail disconnected for $server ---"
     echo "Final upgrade status on $server:"
@@ -332,8 +346,19 @@ cmd_install_one() {
     # full bootstrap install below.
     if [ -z "$version" ]; then
         echo "Trying upgrade service on $server..."
-        if ssh_server "$server" "cd statbus && ./sb upgrade apply-latest" 2>&1; then
-            cmd_tail_one "$server"
+        local apply_out apply_rc
+        apply_out=$(ssh_server "$server" "cd statbus && ./sb upgrade apply-latest" 2>&1)
+        apply_rc=$?
+        echo "$apply_out"
+        if [ "$apply_rc" -eq 0 ]; then
+            # Extract target version from apply-latest output, e.g.:
+            #   Sent: NOTIFY upgrade_apply, 'sha-9bf48bb8'
+            #   Sent: NOTIFY upgrade_apply, 'v2026.04.0-rc.55'
+            # Passed to cmd_tail_one so the awk exit pattern is version-specific,
+            # preventing stale recovery lines for previous upgrades from terminating early.
+            local target_version
+            target_version=$(echo "$apply_out" | grep "upgrade_apply" | grep -oE "'[^']+'" | tr -d "'" | head -1)
+            cmd_tail_one "$server" "$target_version"
             return $?
         fi
         echo "Upgrade service not responsive — falling back to full bootstrap install..."
