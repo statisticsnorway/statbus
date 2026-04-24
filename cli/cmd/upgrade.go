@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -381,19 +382,36 @@ RETURNING commit_sha, tags[1]`
 	},
 }
 
+// calVerRe matches a CalVer version string with or without a leading "v"
+// (e.g. "2026.04.0-rc.56" or "v2026.04.0-rc.56"). Moving git tags such as
+// "install-verified" or "install-certified" do NOT match and must be rejected.
+var calVerRe = regexp.MustCompile(`^\d{4}\.\d{2}`)
+
 var upgradeServiceRunE = func(cmd *cobra.Command, args []string) error {
 	projDir := config.ProjectDir()
-	// Pass the raw version (valid git ref like "v2026.03.0-rc.24"),
-	// not the display string ("2026.03.0-rc.24 (commit 5bd190c0)").
-	// The service uses this for from_version and rollback git checkout.
-	serviceVersion := version
-	if !strings.HasPrefix(version, "v") {
-		serviceVersion = "v" + version
-	}
-	if version == "dev" {
-		// Local dev build — use commit SHA if available
+	// Derive serviceVersion — a valid git ref the service can git-checkout.
+	// Rules (in priority order):
+	//   1. "dev" ldflag  → sha-<commit> or "dev" (skips downgrade guard)
+	//   2. Already has "v" prefix → use as-is (CalVer from release.yaml)
+	//   3. Matches CalVer digits (YYYY.MM…) → prepend "v"
+	//   4. Anything else (moving tags like "install-verified") → sha-<commit> or "dev"
+	//      so the downgrade guard treats it as an unversioned local build.
+	var serviceVersion string
+	switch {
+	case version == "dev":
 		if commit != "unknown" {
-			serviceVersion = commit
+			serviceVersion = "sha-" + commit
+		} else {
+			serviceVersion = "dev"
+		}
+	case strings.HasPrefix(version, "v"):
+		serviceVersion = version
+	case calVerRe.MatchString(version):
+		serviceVersion = "v" + version
+	default:
+		// Non-CalVer ldflag (e.g. moving tag "install-verified") — treat as local build.
+		if commit != "unknown" {
+			serviceVersion = "sha-" + commit
 		} else {
 			serviceVersion = "dev"
 		}
