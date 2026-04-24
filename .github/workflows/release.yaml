@@ -21,10 +21,22 @@ jobs:
       - name: Extract metadata
         id: meta
         run: |
-          SHA=$(git rev-parse --short=8 HEAD)
+          # Two commit SHAs, two names — see cli/internal/upgrade/service.go
+          # shortSHA() for the project-wide one-name-one-concept rule:
+          #   sha_full  = 40-char canonical form (git rev-parse HEAD), used
+          #               for ldflags cmd.commit (the equality source of
+          #               truth for d.binaryCommit vs public.upgrade.commit_sha).
+          #   sha_short = 8-char display form (git rev-parse --short=8 HEAD),
+          #               used in Docker image tags `sha-<short>-<arch>` and
+          #               multi-arch manifests. Short form is for the
+          #               operator-visible ghcr.io tag UI — long tags work
+          #               but are visually noisy. Not a canonical identifier.
+          SHA_FULL=$(git rev-parse HEAD)
+          SHA_SHORT=$(git rev-parse --short=8 HEAD)
           VERSION=${GITHUB_REF_NAME#v}
-          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
-          echo "sha_tag=sha-$SHA" >> "$GITHUB_OUTPUT"
+          echo "sha_full=$SHA_FULL" >> "$GITHUB_OUTPUT"
+          echo "sha_short=$SHA_SHORT" >> "$GITHUB_OUTPUT"
+          echo "sha_tag=sha-$SHA_SHORT" >> "$GITHUB_OUTPUT"
           echo "version_tag=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           # Detect pre-release
@@ -34,7 +46,8 @@ jobs:
             echo "prerelease=false" >> "$GITHUB_OUTPUT"
           fi
     outputs:
-      sha: ${{ steps.meta.outputs.sha }}
+      sha_full: ${{ steps.meta.outputs.sha_full }}
+      sha_short: ${{ steps.meta.outputs.sha_short }}
       sha_tag: ${{ steps.meta.outputs.sha_tag }}
       version_tag: ${{ steps.meta.outputs.version_tag }}
       version: ${{ steps.meta.outputs.version }}
@@ -73,7 +86,7 @@ jobs:
           platforms: linux/${{ matrix.platform.arch }}
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service.name }}:sha-${{ needs.metadata.outputs.sha }}-${{ matrix.platform.arch }}
+            ${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service.name }}:sha-${{ needs.metadata.outputs.sha_short }}-${{ matrix.platform.arch }}
             ${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service.name }}:${{ needs.metadata.outputs.version_tag }}-${{ matrix.platform.arch }}
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service.name }}:buildcache-${{ matrix.platform.arch }}
           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service.name }}:buildcache-${{ matrix.platform.arch }},mode=max
@@ -95,7 +108,7 @@ jobs:
 
       - name: Create multi-arch manifests
         run: |
-          for TAG in "sha-${{ needs.metadata.outputs.sha }}" "${{ needs.metadata.outputs.version_tag }}"; do
+          for TAG in "sha-${{ needs.metadata.outputs.sha_short }}" "${{ needs.metadata.outputs.version_tag }}"; do
             docker buildx imagetools create \
               --tag ${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service }}:${TAG} \
               ${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service }}:${TAG}-amd64 \
@@ -116,7 +129,13 @@ jobs:
         working-directory: cli
         run: |
           VERSION=${{ needs.metadata.outputs.version }}
-          COMMIT=${{ needs.metadata.outputs.sha }}
+          # cmd.commit ldflag receives the 40-char canonical SHA so it can
+          # be equality-compared against public.upgrade.commit_sha (also 40
+          # chars) in the upgrade service's ground-truth check. Display-only
+          # sites use shortSHA(commit) — see cli/cmd/root.go's --version
+          # printer. The 8-char sha_short is used for Docker image tags
+          # (operator-visible, short-tag-friendly) above.
+          COMMIT=${{ needs.metadata.outputs.sha_full }}
           LDFLAGS="-s -w -X 'github.com/statisticsnorway/statbus/cli/cmd.version=${VERSION}' -X 'github.com/statisticsnorway/statbus/cli/cmd.commit=${COMMIT}'"
 
           mkdir -p dist

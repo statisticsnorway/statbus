@@ -2,7 +2,7 @@ BINARY   := sb
 OUT      := ../$(BINARY)
 MODULE   := github.com/statisticsnorway/statbus/cli
 VERSION  ?= $(shell git describe --tags --always 2>/dev/null | sed 's/^v//' || echo dev)
-COMMIT   := $(shell git rev-parse --short=8 HEAD 2>/dev/null || echo unknown)
+COMMIT   := $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
 LDFLAGS  := -s -w -X '$(MODULE)/cmd.version=$(VERSION)' -X '$(MODULE)/cmd.commit=$(COMMIT)'
 GOFLAGS  := -trimpath
 

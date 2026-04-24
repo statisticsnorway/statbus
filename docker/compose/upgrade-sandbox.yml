@@ -130,7 +130,7 @@ services:
       POSTGRES_PORT: "5432"
       VERSION: ${SANDBOX_VERSION:-latest}
       PUBLIC_STATBUS_VERSION: ${SANDBOX_VERSION:-latest}
-      PUBLIC_STATBUS_COMMIT: unknown
+      PUBLIC_STATBUS_COMMIT_SHORT8: unknown
       DEBUG: "false"
       PUBLIC_DEBUG: "false"
     ports:

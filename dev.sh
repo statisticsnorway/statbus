@@ -48,7 +48,10 @@ if [ "$sb_needs_rebuild" = true ]; then
         # convention — service.go adds "v" back, avoiding double-v.
         # --match 'v[0-9]*' ensures moving tags (install-verified, etc.) are never picked.
         _SB_VERSION=$(git describe --tags --always --match 'v[0-9]*' 2>/dev/null | sed 's/^v//' || echo "dev")
-        _SB_COMMIT=$(git rev-parse --short=8 HEAD 2>/dev/null || echo "unknown")
+        # Full 40-char SHA for cmd.commit ldflag — equality-compared against
+        # public.upgrade.commit_sha in the upgrade service's ground-truth
+        # check. Display-only trimming happens via shortSHA() in Go.
+        _SB_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
         _SB_LDFLAGS="-X 'github.com/statisticsnorway/statbus/cli/cmd.version=${_SB_VERSION}' -X 'github.com/statisticsnorway/statbus/cli/cmd.commit=${_SB_COMMIT}'"
         (cd cli && go build -ldflags "$_SB_LDFLAGS" -o ../sb .)
     else
@@ -242,7 +245,8 @@ EOS
         if [ ! -x ./sb ] || ! ./sb --version >/dev/null 2>&1; then
             echo "Building sb from source..."
             _SB_VERSION=$(git describe --tags --always --match 'v[0-9]*' 2>/dev/null | sed 's/^v//' || echo "dev")
-            _SB_COMMIT=$(git rev-parse --short=8 HEAD 2>/dev/null || echo "unknown")
+            # Full 40-char SHA — see note at line ~51 for rationale.
+            _SB_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
             _SB_LDFLAGS="-X 'github.com/statisticsnorway/statbus/cli/cmd.version=${_SB_VERSION}' -X 'github.com/statisticsnorway/statbus/cli/cmd.commit=${_SB_COMMIT}'"
             (cd cli && go build -ldflags "$_SB_LDFLAGS" -o ../sb .)
         fi
@@ -1411,7 +1415,8 @@ EOS
         ARCH=${TARGET#*/}
         OUTPUT="sb-${OS}-${ARCH}"
         VERSION=$(git describe --tags --always --match 'v[0-9]*' 2>/dev/null | sed 's/^v//' || echo "dev")
-        COMMIT=$(git rev-parse --short=8 HEAD 2>/dev/null || echo "unknown")
+        # Full 40-char SHA — see note at line ~51 for rationale.
+        COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
         LDFLAGS="-s -w -X 'github.com/statisticsnorway/statbus/cli/cmd.version=${VERSION}' -X 'github.com/statisticsnorway/statbus/cli/cmd.commit=${COMMIT}'"
         echo "Building sb ${VERSION} for ${OS}/${ARCH}..."
         cd cli && CGO_ENABLED=0 GOOS=$OS GOARCH=$ARCH go build -trimpath -ldflags "$LDFLAGS" -o "../$OUTPUT" .

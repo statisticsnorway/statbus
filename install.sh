@@ -39,7 +39,7 @@ exec 2>&1
 # Print the failing command and line number before set -e exits so the
 # operator sees exactly which step broke, even when the command itself is
 # silent or its error went to stderr before the merge above took effect.
-trap 'rc=$?; echo ""; echo "install.sh: failed at line $LINENO: $BASH_COMMAND (exit $rc)"' ERR
+trap 'rc=$?; echo "" >&2; echo "install.sh FAILED at line $LINENO: $BASH_COMMAND (exit $rc)" >&2' ERR
 
 # Parse arguments — install.sh-specific flags are consumed here;
 # anything else is forwarded to ./sb install (e.g. --trust-github-user).
@@ -195,6 +195,11 @@ set +e
 ./sb install $SB_INSTALL_ARGS
 sb_rc=$?
 set -e
+# Sentinel: we reached here, so every bash-level step above succeeded.
+# If the script died before this line (git checkout, curl, mv, etc.) the
+# ERR trap fired and printed the failing command. If sb_rc != 0 the
+# failure was inside the Go binary — not a bash-level exit.
+echo "install.sh: ./sb install returned (exit $sb_rc)" >&2
 
 if [ "$sb_rc" -eq 0 ]; then
     exit 0

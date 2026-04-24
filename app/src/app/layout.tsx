@@ -50,7 +50,12 @@ export default async function RootLayout({
     deploymentSlotCode: process.env.PUBLIC_DEPLOYMENT_SLOT_CODE || "",
     debug: process.env.PUBLIC_DEBUG === "true",
     version: process.env.PUBLIC_STATBUS_VERSION || "",
-    commit: process.env.PUBLIC_STATBUS_COMMIT || "",
+    // Short-form (8-char) commit SHA for display in footer / status —
+    // sourced from PUBLIC_STATBUS_COMMIT_SHORT8 which is the name written
+    // by `./sb config generate` (see cli/internal/config/config.go). The
+    // property name stays short ("commit") because this object is
+    // display-only; no equality comparison ever reads it.
+    commit: process.env.PUBLIC_STATBUS_COMMIT_SHORT8 || "",
   };
 
   return (

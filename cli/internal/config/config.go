@@ -118,7 +118,13 @@ type Derived struct {
 	PostgrestPort           int
 	PostgrestBindAddress    string
 	Version                 string
-	Commit                  string
+	// CommitShort8 is the 8-char display form of the git commit (produced by
+	// `git rev-parse --short=8 HEAD` — the field name tracks the command).
+	// Display-only: used in .env as COMMIT_SHORT8 / PUBLIC_STATBUS_COMMIT_SHORT8
+	// so the frontend can show "commit 61e79e26" links. Equality comparisons
+	// against public.upgrade.commit_sha (40 chars) go through the ldflag-set
+	// cmd.commit in Go, NOT through this .env-materialised form.
+	CommitShort8            string
 	SiteURL                 string
 	ApiExternalURL          string
 	ApiPublicURL            string
@@ -445,14 +451,19 @@ func computeDerived(cfg *ConfigEnv) *Derived {
 	}
 
 	// VERSION: tag name for docker compose image tags and display.
-	// COMMIT: short SHA for linking to the exact code on GitHub.
+	// COMMIT_SHORT8: 8-char commit SHA for linking to the exact code on
+	// GitHub. Tracks `git rev-parse --short=8 HEAD` — variable name
+	// encodes the command (the "one name one concept" rule, see
+	// cli/cmd/root.go shortCommit). For equality comparisons the 40-char
+	// form shipped via cmd.commit ldflag is the source of truth; this
+	// 8-char form is display-only, materialised in .env for the web app.
 	version := "local"
 	if out, err := exec.Command("git", "describe", "--tags", "--always").Output(); err == nil {
 		version = strings.TrimSpace(string(out))
 	}
-	commit := "unknown"
+	commitShort8 := "unknown"
 	if out, err := exec.Command("git", "rev-parse", "--short=8", "HEAD").Output(); err == nil {
-		commit = strings.TrimSpace(string(out))
+		commitShort8 = strings.TrimSpace(string(out))
 	}
 
 	return &Derived{
@@ -469,7 +480,7 @@ func computeDerived(cfg *ConfigEnv) *Derived {
 		PostgrestPort:          postgrestPort,
 		PostgrestBindAddress:   fmt.Sprintf("127.0.0.1:%d", postgrestPort),
 		Version:                version,
-		Commit:                 commit,
+		CommitShort8:           commitShort8,
 		SiteURL:                cfg.StatbusURL,
 		ApiExternalURL:         cfg.BrowserAPIURL,
 		ApiPublicURL:           cfg.BrowserAPIURL,
@@ -548,10 +559,13 @@ CADDY_DB_BIND_ADDRESS=%[20]s
 CADDY_DB_TLS_BIND_ADDRESS=%[21]s
 # Version and commit for docker image tags and server-side config injection.
 # layout.tsx reads these via process.env and injects into HTML as window.__STATBUS_CONFIG__.
+# COMMIT_SHORT8 is the 8-char display form (git rev-parse --short=8 HEAD).
+# Equality comparisons against public.upgrade.commit_sha use the 40-char
+# cmd.commit ldflag in Go, not this .env value.
 VERSION=%[22]s
-COMMIT=%[23]s
+COMMIT_SHORT8=%[23]s
 PUBLIC_STATBUS_VERSION=%[22]s
-PUBLIC_STATBUS_COMMIT=%[23]s
+PUBLIC_STATBUS_COMMIT_SHORT8=%[23]s
 
 # Server-side debugging for the Statbus App. Requires app restart.
 # To enable, edit .env: set DEBUG=true and comment out/remove DEBUG=false.
@@ -579,7 +593,7 @@ PUBLIC_STATBUS_COMMIT=%[23]s
 		derived.CaddyDbBindAddress,       // 20
 		derived.CaddyDbTlsBindAddress,    // 21
 		derived.Version,                  // 22
-		derived.Commit,                   // 23
+		derived.CommitShort8,             // 23
 		debugBlock("DEBUG", cfg.Debug),   // 24
 		cfg.SiteDomain,                  // 25
 	)
