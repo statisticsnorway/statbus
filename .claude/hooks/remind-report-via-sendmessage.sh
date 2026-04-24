@@ -74,10 +74,11 @@ fi
 #   - "report to foreman"
 #   - "reply to foreman"
 # ... anywhere in the last 400 chars of the message (the "closing" window).
-# Use awk for the tail-slice — bash's ${var: -N} returns empty when the
-# string is shorter than N, which defeats the check for short-but-≥200 briefs.
+# bash's ${var: -N} returns empty when the string is shorter than N — so only
+# take a suffix when we know the string is longer. (Don't use awk here: awk
+# mishandles literal newlines in variables passed via -v.)
 if (( msg_len > 400 )); then
-  tail_window=$(awk -v s="$message" 'BEGIN { print substr(s, length(s)-399) }')
+  tail_window="${message: -400}"
 else
   tail_window="$message"
 fi
