@@ -180,60 +180,227 @@ func allImages(present bool) map[string]bool {
 	return m
 }
 
-func TestCheckManifests_HappyPath(t *testing.T) {
-	srv := ghcrServer(t, allImages(true))
-	defer srv.Close()
-
-	results := checkManifestsAt(srv.URL, "v2026.04.0-rc.9")
-	if !allOK(results) {
-		t.Fatalf("expected all manifests OK, got: %+v", results)
-	}
-	if len(results) != len(dockerServices) {
-		t.Fatalf("expected %d results, got %d", len(dockerServices), len(results))
-	}
+// ghcrServerWithTags extends ghcrServer to accept a per-image map of
+// ALLOWED TAGS. A manifest lookup returns 200 only when the image is
+// present AND the tag is in its allowed-tags set; otherwise 404. Used
+// to simulate rc.63's commit_short-only images vs. rc.61's CalVer-only.
+func ghcrServerWithTags(t *testing.T, allowed map[string]map[string]bool) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/token" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"token":"test-token"}`))
+			return
+		}
+		path := r.URL.Path
+		const v2 = "/v2/"
+		const mfst = "/manifests/"
+		if len(path) > len(v2) {
+			after := path[len(v2):]
+			if idx := lastIndex(after, mfst); idx >= 0 {
+				image := after[:idx]
+				tag := after[idx+len(mfst):]
+				if tags, ok := allowed[image]; ok && tags[tag] {
+					w.WriteHeader(http.StatusOK)
+					return
+				}
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
 }
 
-func TestCheckManifests_MissingOneManifest(t *testing.T) {
-	// All images present except statbus-proxy
-	present := allImages(true)
-	present[githubOrg+"/statbus-proxy"] = false
-	srv := ghcrServer(t, present)
-	defer srv.Close()
+// apiServer mocks the GitHub /repos/*/commits/{tag} endpoint. tagToSHA
+// maps CalVer tag → full 40-char commit SHA; unknown tags return 404.
+func apiServer(t *testing.T, tagToSHA map[string]string) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		const prefix = "/repos/statisticsnorway/statbus/commits/"
+		if !strings.HasPrefix(r.URL.Path, prefix) {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		tag := r.URL.Path[len(prefix):]
+		sha, ok := tagToSHA[tag]
+		if !ok {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"sha":"` + sha + `"}`))
+	}))
+}
 
-	results := checkManifestsAt(srv.URL, "v2026.04.0-rc.9")
-	if countFailed(results) != 1 {
-		t.Fatalf("expected exactly 1 failure, got %d: %+v", countFailed(results), results)
+// TestCheckManifests_NewStyleCommitShort covers the rc.63+ canonical
+// path: GitHub API resolves the CalVer tag to a commit_sha; images are
+// tagged by commit_short (first 8 chars) only; the CalVer-tagged lookup
+// returns 404 (because rc.63+ release.yaml doesn't push that variant).
+func TestCheckManifests_NewStyleCommitShort(t *testing.T) {
+	api := apiServer(t, map[string]string{
+		"v2026.04.0-rc.63": "e2355634abcdef0123456789abcdef0123456789",
+	})
+	defer api.Close()
+
+	allowed := map[string]map[string]bool{}
+	for _, svc := range dockerServices {
+		allowed[githubOrg+"/statbus-"+svc] = map[string]bool{"e2355634": true}
 	}
+	registry := ghcrServerWithTags(t, allowed)
+	defer registry.Close()
+
+	results := checkManifestsAt(api.URL, registry.URL, "v2026.04.0-rc.63")
+	if !allOK(results) {
+		t.Fatalf("expected all manifests OK via commit_short, got: %+v", results)
+	}
+	// Display names must expose both the logical tag and the physical
+	// commit_short so the operator sees what was actually checked.
 	for _, r := range results {
-		if !r.OK && !contains(r.Name, "statbus-proxy") {
-			t.Errorf("expected failure on statbus-proxy, got %q", r.Name)
+		if !strings.Contains(r.Name, "v2026.04.0-rc.63") || !strings.Contains(r.Name, "e2355634") {
+			t.Errorf("expected display to include both CalVer and commit_short; got %q", r.Name)
 		}
 	}
 }
 
-func TestCheckManifests_AllMissing(t *testing.T) {
-	srv := ghcrServer(t, allImages(false))
-	defer srv.Close()
+// TestCheckManifests_OldStyleCalverFallback covers backward compat for
+// rc.61 and earlier: commit_short lookup 404s (rc.61's release.yaml
+// didn't push commit_short variants for every image, or the image was
+// never pushed to ghcr); CalVer lookup succeeds. The fallback kicks in.
+func TestCheckManifests_OldStyleCalverFallback(t *testing.T) {
+	api := apiServer(t, map[string]string{
+		"v2026.04.0-rc.61": "a1b2c3d4deadbeefcafebabe0000000000000000",
+	})
+	defer api.Close()
 
-	results := checkManifestsAt(srv.URL, "v9999.99.0-rc.1")
+	allowed := map[string]map[string]bool{}
+	for _, svc := range dockerServices {
+		// Only CalVer tag present, not commit_short.
+		allowed[githubOrg+"/statbus-"+svc] = map[string]bool{"v2026.04.0-rc.61": true}
+	}
+	registry := ghcrServerWithTags(t, allowed)
+	defer registry.Close()
+
+	results := checkManifestsAt(api.URL, registry.URL, "v2026.04.0-rc.61")
+	if !allOK(results) {
+		t.Fatalf("expected CalVer fallback to succeed, got: %+v", results)
+	}
+	// Display should explicitly mark "legacy CalVer tag" so operators
+	// know the backward-compat path was taken.
+	for _, r := range results {
+		if !strings.Contains(r.Name, "legacy CalVer tag") {
+			t.Errorf("expected 'legacy CalVer tag' marker in display; got %q", r.Name)
+		}
+	}
+}
+
+// TestCheckManifests_AllMissing_BothProbesFail covers the hard-error
+// case: commit_short and CalVer both 404. Error message should name
+// both attempts.
+func TestCheckManifests_AllMissing_BothProbesFail(t *testing.T) {
+	api := apiServer(t, map[string]string{
+		"v9999.99.0-rc.1": "ffffffffffffffffffffffffffffffffffffffff",
+	})
+	defer api.Close()
+
+	registry := ghcrServerWithTags(t, map[string]map[string]bool{})
+	defer registry.Close()
+
+	results := checkManifestsAt(api.URL, registry.URL, "v9999.99.0-rc.1")
 	if countFailed(results) != len(dockerServices) {
 		t.Fatalf("expected all %d manifests to fail, got %d: %+v",
 			len(dockerServices), countFailed(results), results)
 	}
+	for _, r := range results {
+		if r.OK {
+			continue
+		}
+		if !strings.Contains(r.Err, "commit_short or CalVer") {
+			t.Errorf("expected error to name both probe attempts; got %q", r.Err)
+		}
+	}
 }
 
-func TestCheckManifests_NetworkError(t *testing.T) {
+// TestCheckManifests_GithubApiUnreachable covers the degraded-mode
+// path where the GitHub API is unreachable (tag→commit_short resolution
+// fails). Probe falls through to pure-CalVer lookup.
+func TestCheckManifests_GithubApiUnreachable(t *testing.T) {
+	// Grab a port, then release it — any API call to this address fails.
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
-	addr := "http://" + ln.Addr().String()
+	deadAPI := "http://" + ln.Addr().String()
 	ln.Close()
 
-	results := checkManifestsAt(addr, "v2026.04.0-rc.9")
+	allowed := map[string]map[string]bool{}
+	for _, svc := range dockerServices {
+		allowed[githubOrg+"/statbus-"+svc] = map[string]bool{"v2026.04.0-rc.61": true}
+	}
+	registry := ghcrServerWithTags(t, allowed)
+	defer registry.Close()
+
+	results := checkManifestsAt(deadAPI, registry.URL, "v2026.04.0-rc.61")
+	if !allOK(results) {
+		t.Fatalf("expected CalVer-only fallback to succeed with unreachable API, got: %+v", results)
+	}
+}
+
+// TestCheckManifests_GithubApi404OnTag covers the case where the tag
+// doesn't exist on GitHub at all. Same fallback as unreachable: skip
+// commit_short probe, try CalVer only. Probe fails (correct: tag
+// genuinely doesn't exist).
+func TestCheckManifests_GithubApi404OnTag(t *testing.T) {
+	api := apiServer(t, map[string]string{}) // nothing
+	defer api.Close()
+
+	registry := ghcrServerWithTags(t, map[string]map[string]bool{})
+	defer registry.Close()
+
+	results := checkManifestsAt(api.URL, registry.URL, "v2099.99.0-fake")
 	if countFailed(results) != len(dockerServices) {
-		t.Fatalf("expected all results to fail on network error, got %d failed",
-			countFailed(results))
+		t.Fatalf("expected all %d to fail, got %d", len(dockerServices), countFailed(results))
+	}
+	for _, r := range results {
+		if r.OK {
+			continue
+		}
+		if !strings.Contains(r.Err, "commit_short unresolved") {
+			t.Errorf("expected 'commit_short unresolved' in err when API returns 404; got %q", r.Err)
+		}
+	}
+}
+
+// TestCheckManifests_MissingOneManifest_NewStyle covers the rc.63+
+// version of the "one image failed" scenario: three images tagged at
+// commit_short, one missing both commit_short and CalVer.
+func TestCheckManifests_MissingOneManifest_NewStyle(t *testing.T) {
+	api := apiServer(t, map[string]string{
+		"v2026.04.0-rc.63": "e2355634abcdef0123456789abcdef0123456789",
+	})
+	defer api.Close()
+
+	allowed := map[string]map[string]bool{}
+	for _, svc := range dockerServices {
+		image := githubOrg + "/statbus-" + svc
+		if svc == "proxy" {
+			allowed[image] = map[string]bool{} // no tags present — hard fail
+		} else {
+			allowed[image] = map[string]bool{"e2355634": true}
+		}
+	}
+	registry := ghcrServerWithTags(t, allowed)
+	defer registry.Close()
+
+	results := checkManifestsAt(api.URL, registry.URL, "v2026.04.0-rc.63")
+	if countFailed(results) != 1 {
+		t.Fatalf("expected exactly 1 failure (statbus-proxy), got %d: %+v",
+			countFailed(results), results)
+	}
+	for _, r := range results {
+		if !r.OK && !contains(r.Name, "statbus-proxy") {
+			t.Errorf("expected failure only on statbus-proxy; got %q", r.Name)
+		}
 	}
 }
 

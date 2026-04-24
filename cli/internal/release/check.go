@@ -47,8 +47,22 @@ func CheckAssets(tag string) []CheckResult {
 
 // CheckManifests verifies that all four Docker images for the given tag exist
 // on ghcr.io. Checks run in parallel.
+//
+// Image lookup strategy (rc.63+):
+//
+//  1. Resolve tag → commit_sha via the GitHub API once, up front. Trim to
+//     8-char commit_short. This is the canonical image tag produced by
+//     .github/workflows/release.yaml (one image per commit identity, no
+//     CalVer-tagged variant).
+//  2. For each image, HEAD the manifest at commit_short first.
+//  3. On 404, HEAD the manifest at the CalVer tag itself — backward compat
+//     for rc.61 and earlier releases, where images were tagged by both
+//     commit_short AND the CalVer tag.
+//
+// If tag→commit_short resolution fails entirely (GitHub unreachable, tag
+// doesn't exist), per-image checks fall back to pure-CalVer lookup.
 func CheckManifests(tag string) []CheckResult {
-	return checkManifestsAt("https://ghcr.io", tag)
+	return checkManifestsAt("https://api.github.com", "https://ghcr.io", tag)
 }
 
 // checkAssetsAt is the testable inner variant; apiBase is the GitHub API root.
@@ -102,9 +116,20 @@ func checkAssetsAt(apiBase, tag string) []CheckResult {
 	return results
 }
 
-// checkManifestsAt is the testable inner variant; registryBase is the OCI
+// checkManifestsAt is the testable inner variant; apiBase is the GitHub
+// API root (for commit_short resolution), registryBase is the OCI
 // registry root (e.g. "https://ghcr.io").
-func checkManifestsAt(registryBase, tag string) []CheckResult {
+//
+// Resolves the CalVer tag to commit_short once up front, then runs
+// per-image checks in parallel. Each per-image check tries commit_short
+// first and falls back to the CalVer tag on 404 (backward compat for
+// rc.61 and earlier).
+func checkManifestsAt(apiBase, registryBase, tag string) []CheckResult {
+	// Best-effort resolution; empty commitShort disables the commit_short
+	// probe and leaves only the CalVer fallback (matches pre-rc.63
+	// behaviour).
+	commitShort, resolveErr := resolveTagToCommitShort(apiBase, tag)
+
 	results := make([]CheckResult, len(dockerServices))
 	var wg sync.WaitGroup
 	for i, svc := range dockerServices {
@@ -112,50 +137,160 @@ func checkManifestsAt(registryBase, tag string) []CheckResult {
 		go func(i int, svc string) {
 			defer wg.Done()
 			image := fmt.Sprintf("%s/statbus-%s", githubOrg, svc)
-			results[i] = checkManifest(registryBase, image, tag)
+			results[i] = checkManifest(registryBase, image, tag, commitShort, resolveErr)
 		}(i, svc)
 	}
 	wg.Wait()
 	return results
 }
 
-func checkManifest(registryBase, image, tag string) CheckResult {
-	// Display name: just the image short name + tag (e.g. "statbus-app:v2026.04.0-rc.9")
+// resolveTagToCommitShort resolves a CalVer tag name (e.g. "v2026.04.0-rc.62")
+// to its 8-char commit_short via the GitHub API. Works for both lightweight
+// and annotated tags (the /commits/{ref} endpoint dereferences either).
+func resolveTagToCommitShort(apiBase, tag string) (string, error) {
+	url := fmt.Sprintf("%s/repos/%s/%s/commits/%s", apiBase, githubOrg, githubRepo, tag)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", fmt.Errorf("build request: %w", err)
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("User-Agent", "statbus-release-check")
+	if auth := githubAuthHeader(); auth != "" {
+		req.Header.Set("Authorization", auth)
+	}
+	resp, err := httpClient().Do(req)
+	if err != nil {
+		return "", fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("GitHub API returned HTTP %d", resp.StatusCode)
+	}
+	var body struct {
+		SHA string `json:"sha"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return "", fmt.Errorf("decode response: %w", err)
+	}
+	if len(body.SHA) < 8 {
+		return "", fmt.Errorf("unexpected short SHA from API: %q", body.SHA)
+	}
+	return body.SHA[:8], nil
+}
+
+// checkManifest probes a single image by commit_short first (rc.63+ image
+// tag scheme), falling back to CalVer on 404 (rc.61 and earlier, where
+// release.yaml still published CalVer-tagged image variants). The display
+// name reflects which tag form succeeded so the operator sees the physical
+// lookup.
+//
+// resolveErr is non-nil when commit_short resolution failed earlier; in
+// that case the function skips the commit_short probe and attempts only
+// the CalVer fallback. commitShort is "" when resolveErr != nil.
+func checkManifest(registryBase, image, calverTag, commitShort string, resolveErr error) CheckResult {
 	parts := strings.SplitN(image, "/", 2)
 	shortName := image
 	if len(parts) == 2 {
 		shortName = parts[1]
 	}
-	name := fmt.Sprintf("image: %s:%s", shortName, tag)
 
 	token, err := ghcrPullToken(registryBase, image)
 	if err != nil {
-		return CheckResult{Name: name, OK: false, Err: fmt.Sprintf("auth: %v", err)}
+		return CheckResult{
+			Name: fmt.Sprintf("image: %s:%s", shortName, calverTag),
+			OK:   false,
+			Err:  fmt.Sprintf("auth: %v", err),
+		}
 	}
 
+	// Phase 1: try commit_short (rc.63+ canonical). Skip if resolution
+	// failed earlier.
+	if commitShort != "" {
+		status, err := headManifest(registryBase, image, commitShort, token)
+		if err == nil && status == http.StatusOK {
+			return CheckResult{
+				Name: fmt.Sprintf("image: %s:%s → sha %s", shortName, calverTag, commitShort),
+				OK:   true,
+			}
+		}
+		// Fall through to CalVer only on 404 — other errors (network,
+		// auth, 5xx) are genuine and should not be masked by a second
+		// attempt.
+		if err != nil {
+			return CheckResult{
+				Name: fmt.Sprintf("image: %s:%s → sha %s", shortName, calverTag, commitShort),
+				OK:   false,
+				Err:  fmt.Sprintf("commit_short probe failed: %v", err),
+			}
+		}
+		if status != http.StatusNotFound {
+			return CheckResult{
+				Name: fmt.Sprintf("image: %s:%s → sha %s", shortName, calverTag, commitShort),
+				OK:   false,
+				Err:  fmt.Sprintf("commit_short probe: HTTP %d", status),
+			}
+		}
+		// 404 on commit_short → fall through to CalVer backward-compat path.
+	}
+
+	// Phase 2: try CalVer tag (rc.61 and earlier). Also the sole probe
+	// when commit_short resolution failed.
+	status, err := headManifest(registryBase, image, calverTag, token)
+	if err != nil {
+		return CheckResult{
+			Name: fmt.Sprintf("image: %s:%s", shortName, calverTag),
+			OK:   false,
+			Err:  fmt.Sprintf("request failed: %v", err),
+		}
+	}
+	if status == http.StatusOK {
+		return CheckResult{
+			Name: fmt.Sprintf("image: %s:%s (legacy CalVer tag)", shortName, calverTag),
+			OK:   true,
+		}
+	}
+	// Both probes failed. Surface a message that names both attempts
+	// when commit_short resolution succeeded; name only the CalVer
+	// attempt otherwise.
+	if commitShort != "" {
+		return CheckResult{
+			Name: fmt.Sprintf("image: %s:%s → sha %s", shortName, calverTag, commitShort),
+			OK:   false,
+			Err:  fmt.Sprintf("not found at commit_short or CalVer tag (HTTP %d)", status),
+		}
+	}
+	reason := fmt.Sprintf("HTTP %d", status)
+	if resolveErr != nil {
+		reason = fmt.Sprintf("commit_short unresolved (%v); CalVer HTTP %d", resolveErr, status)
+	}
+	return CheckResult{
+		Name: fmt.Sprintf("image: %s:%s", shortName, calverTag),
+		OK:   false,
+		Err:  reason,
+	}
+}
+
+// headManifest issues a HEAD against the OCI manifest endpoint and returns
+// the status code. Separated from checkManifest for reuse across the
+// commit_short probe and the CalVer fallback.
+func headManifest(registryBase, image, tag, token string) (int, error) {
 	url := fmt.Sprintf("%s/v2/%s/manifests/%s", registryBase, image, tag)
 	req, err := http.NewRequest("HEAD", url, nil)
 	if err != nil {
-		return CheckResult{Name: name, OK: false, Err: fmt.Sprintf("build request: %v", err)}
+		return 0, fmt.Errorf("build request: %w", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
-	// Accept multi-arch index and single-arch manifests.
 	req.Header.Set("Accept", strings.Join([]string{
 		"application/vnd.oci.image.index.v1+json",
 		"application/vnd.docker.distribution.manifest.list.v2+json",
 		"application/vnd.docker.distribution.manifest.v2+json",
 	}, ","))
-
 	resp, err := httpClient().Do(req)
 	if err != nil {
-		return CheckResult{Name: name, OK: false, Err: fmt.Sprintf("request failed: %v", err)}
+		return 0, err
 	}
 	resp.Body.Close()
-
-	if resp.StatusCode == http.StatusOK {
-		return CheckResult{Name: name, OK: true}
-	}
-	return CheckResult{Name: name, OK: false, Err: fmt.Sprintf("HTTP %d", resp.StatusCode)}
+	return resp.StatusCode, nil
 }
 
 // ghcrPullToken returns a bearer token for pulling from the given registry.
