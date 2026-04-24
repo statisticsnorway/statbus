@@ -551,6 +551,15 @@ func pidAlive(pid int) bool {
 // violation. Used to gate a single reconnect-and-retry on the final
 // state='completed' UPDATE, which can hit a stale queryConn if Docker
 // recreation RSTs the TCP socket during runInstallFixup.
+//
+// Widened for rune-stuck fix B (Apr 24): pgx surfaces a TCP RST as
+// "timeout: context already done: context canceled" when its internal
+// context-watcher fires on the dropped conn. The prior matcher looked
+// for "conn closed" / "connection reset" and missed this shape, so
+// the stale-conn retry never ran — first attempt failed, invariant
+// fired, upgrade stuck in_progress. We now also match the
+// context-cancellation sentinels via errors.Is + substring fallback
+// for pgx-wrapped variants.
 func isConnError(err error) bool {
 	if err == nil {
 		return false
@@ -558,9 +567,15 @@ func isConnError(err error) bool {
 	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
 		return true
 	}
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
 	msg := err.Error()
 	return strings.Contains(msg, "conn closed") ||
-		strings.Contains(msg, "connection reset")
+		strings.Contains(msg, "connection reset") ||
+		strings.Contains(msg, "context already done") ||
+		strings.Contains(msg, "context canceled") ||
+		strings.Contains(msg, "context deadline exceeded")
 }
 
 // IsFlockHeld tries a non-blocking LOCK_EX on the flag file. Returns true
@@ -1606,6 +1621,32 @@ func (d *Service) verifyUpgradeGroundTruth(ctx context.Context, rowCommitSHA str
 	}
 
 	return true, ""
+}
+
+// needsPostSwapRollback decides whether `resumePostSwap` should
+// short-circuit into recoveryRollback rather than calling applyPostSwap
+// on a flag that doesn't match the running binary. Task #49 Gap #6 /
+// rune-stuck fix (Apr 24).
+//
+// Returns (true, reason) when the binary SHA is known AND doesn't
+// match the flag's target — the flag is stale from a subsequent
+// install that advanced past this in_progress upgrade. Returns (false,
+// "") when the check is skipped (local go-run build with
+// binaryCommit=="unknown") OR the binary matches (the normal post-
+// swap-restart case where we genuinely want to resume).
+//
+// Extracted as a free function so it's unit-testable without wiring a
+// *Service + DB. Parallels snapshotCreator / checkSnapshotFresh from
+// task #47's same test-seam discipline.
+func needsPostSwapRollback(binaryCommit, flagCommitSHA string) (bool, string) {
+	if binaryCommit == "" || binaryCommit == "unknown" {
+		return false, ""
+	}
+	if binaryCommit != flagCommitSHA {
+		return true, fmt.Sprintf("binary commit %s does not match flag target %s",
+			shortSHA(binaryCommit), shortSHA(flagCommitSHA))
+	}
+	return false, ""
 }
 
 // latestDiskMigrationVersion returns the max YYYYMMDDHHMMSS version number
@@ -3169,30 +3210,25 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 
 	fmt.Printf("Upgrade to %s completed successfully\n", displayName)
 
-	// Run idempotent install to apply any new infrastructure (systemd service,
-	// directories, config fixes). Install steps skip what's already done.
-	// This exercises the install path on every upgrade, catching install bugs early.
-	//
-	// The flag file we wrote at writeUpgradeFlag is still on disk at this point
-	// (it's removed below on success). Install's upgrade-mutex check would
-	// normally abort because it sees our flag — so we pass the bypass signal
-	// both via the --inside-active-upgrade flag (visible in ps/logs for audit)
-	// and via STATBUS_INSIDE_ACTIVE_UPGRADE=1 env var (propagates through exec
-	// chains). Either is sufficient; we set both for defense in depth.
-	progress.Write("Running install fixups...")
-	if err := runInstallFixup(projDir); err != nil {
-		progress.Write("%s: post-upgrade install fixups failed: %v", ErrInstallFixupFailed, err)
-		// Non-fatal — the upgrade itself succeeded
-	}
-
 	// selfUpdate is intentionally NOT invoked here: Option C moved the
 	// binary-swap handoff earlier (right after replaceBinaryOnDisk in
 	// executeUpgrade) so the current process is already running the target
 	// binary. A second exit-42 here would be a no-op systemd restart
 	// costing ~30s of extra downtime for nothing.
 
-	// Mark complete.
-	progress.Write("Upgrade to %s complete!", displayName)
+	// Mark complete. Task rune-stuck fix A (Apr 24): the terminal UPDATE
+	// MUST happen BEFORE runInstallFixup, not after. Install-fixup runs
+	// `./sb install --inside-active-upgrade` which triggers docker
+	// compose up and can restart the DB container mid-run, RST'ing the
+	// pgx TCP socket. Running fixup first would leave the parent's
+	// queryConn dead when it tries to issue the state='completed'
+	// UPDATE, producing "context already done: context canceled" and
+	// firing NORMAL_COMPLETED_TRANSITION_PERSISTED on the first (and
+	// only, because isConnError didn't match ctx-cancel pre-rc.59)
+	// attempt. The "Upgrade complete!" log must also wait until the
+	// UPDATE actually lands — emitting it earlier was a lie in the
+	// operator-facing log. Fixup moves to AFTER the UPDATE + flag
+	// removal + supersede/retention; its failure is still non-fatal.
 	var normalJSON string
 	completedSQL := "UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_status = 'ready' WHERE id = $1" + upgradeRowReturning
 	var lastScanErr error
@@ -3254,6 +3290,30 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	d.runRetentionPurge(ctx, "all", &id)
 	d.runUpgradeCallback(displayName)
 
+	// Now the row is truly `completed` (UPDATE + removeUpgradeFlag done),
+	// emit the operator-facing "complete!" line and run the post-success
+	// install fixup. See the "Mark complete" comment above for the
+	// ordering rationale. Fixup can restart docker services (including
+	// db) — that's fine here because we're past the terminal UPDATE;
+	// anything that breaks after this point is a fixup-side concern the
+	// operator can re-run idempotently.
+	progress.Write("Upgrade to %s complete!", displayName)
+
+	// Run idempotent install to apply any new infrastructure (systemd service,
+	// directories, config fixes). Install steps skip what's already done.
+	// This exercises the install path on every upgrade, catching install bugs early.
+	//
+	// The flag file has already been removed above. Install's upgrade-mutex
+	// check sees no flag and proceeds normally, but we keep the
+	// --inside-active-upgrade flag + STATBUS_INSIDE_ACTIVE_UPGRADE=1 env var
+	// for audit-trail + belt-and-suspenders in case a future install path
+	// adds additional mutex checks.
+	progress.Write("Running install fixups...")
+	if err := runInstallFixup(projDir); err != nil {
+		progress.Write("%s: post-upgrade install fixups failed: %v", ErrInstallFixupFailed, err)
+		// Non-fatal — the upgrade itself succeeded and the row reflects it.
+	}
+
 	return nil
 }
 
@@ -3289,6 +3349,30 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) {
 		progress = NewUpgradeLog(d.projDir, int64(flag.ID), flag.DisplayName, time.Now().UTC())
 	}
 	progress.Write("Post-swap restart detected — resuming upgrade on new binary (pid=%d)", os.Getpid())
+
+	// Ground-truth guard (task #49 Gap #6, rune-stuck fix). If the
+	// running binary's compile-time commit SHA doesn't match the flag's
+	// target commit SHA, the flag is stale: a subsequent install
+	// advanced the server past this in_progress upgrade without
+	// clearing the flag. Running applyPostSwap in this state would
+	// "complete" the row against a different binary — a silent lie.
+	// Treat it as a rollback instead: mark row rolled_back via
+	// recoveryRollback (which also clears the flag), leave the running
+	// binary's services alone (rollback's restore-from-previous-version
+	// is a no-op when there's no destructive state to undo — the
+	// binary/git are already at the NEWER version the operator
+	// explicitly installed).
+	//
+	// Degraded mode: skip the check when binaryCommit is unset (local
+	// go-run builds); matches the #49 pattern. The on-prem production
+	// builds always have cmd.commit set via ldflags.
+	if needs, reason := needsPostSwapRollback(d.binaryCommit, flag.CommitSHA); needs {
+		progress.Write("Post-swap guard: %s — flag is stale; rolling back row and clearing flag (skipping applyPostSwap on mismatched binary).", reason)
+		progress.Close()
+		d.recoveryRollback(ctx, int(flag.ID), flag.DisplayName, logRelPath.String, fmt.Sprintf(
+			"%s: post_swap binary mismatch: %s", ErrInstallPreconditionFailed, reason))
+		return
+	}
 
 	// Re-acquire the flock on the flag file. The prior holder's fd was
 	// released by the kernel at exit; the file on disk still has our

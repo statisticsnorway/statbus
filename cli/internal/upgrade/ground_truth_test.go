@@ -2,8 +2,12 @@ package upgrade
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -145,4 +149,154 @@ func TestVerifyUpgradeGroundTruth_MatchingBinaryAndNoMigrations(t *testing.T) {
 	// visible when tests are run: `go test -v -run TestVerifyUpgradeGroundTruth`
 	// lists all four cases and operator sees what's covered.
 	t.Skip("happy-path requires a live queryConn; covered by integration testing on dev — see task #49 description")
+}
+
+// ─── rune-stuck fixes (Apr 24) ───────────────────────────────────────────
+
+// TestNeedsPostSwapRollback_BinaryMismatchTriggersRollback is the Gap #6
+// contract: resumePostSwap must short-circuit into recoveryRollback when
+// the running binary's commit SHA doesn't match the flag's target. Rune
+// ran into exactly this: flag.CommitSHA=rc.55, binary=rc.58 after
+// subsequent installs advanced git+binary without clearing the flag.
+// Without this guard, resumePostSwap would call applyPostSwap which would
+// "complete" the rc.55 row against the rc.58 binary — a silent lie.
+func TestNeedsPostSwapRollback_BinaryMismatchTriggersRollback(t *testing.T) {
+	cases := []struct {
+		name           string
+		binaryCommit   string
+		flagCommitSHA  string
+		wantNeeds      bool
+		wantReasonSubs []string
+	}{
+		{
+			name:          "rune-scenario-binary-advanced-past-flag",
+			binaryCommit:  "41405da37abcdef0123456789abcdef0123456789",
+			flagCommitSHA: "12d9a1b24a9900000000000000000000000000aa",
+			wantNeeds:     true,
+			wantReasonSubs: []string{
+				"does not match flag target",
+				"41405da37abc",
+				"12d9a1b24a99",
+			},
+		},
+		{
+			name:          "matching-binary-normal-post-swap-resume",
+			binaryCommit:  "41405da37abcdef0123456789abcdef0123456789",
+			flagCommitSHA: "41405da37abcdef0123456789abcdef0123456789",
+			wantNeeds:     false,
+		},
+		{
+			name:          "local-go-run-unknown-binary-skips",
+			binaryCommit:  "unknown",
+			flagCommitSHA: "41405da37abcdef0123456789abcdef0123456789",
+			wantNeeds:     false,
+		},
+		{
+			name:          "empty-binary-commit-skips",
+			binaryCommit:  "",
+			flagCommitSHA: "41405da37abcdef0123456789abcdef0123456789",
+			wantNeeds:     false,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			gotNeeds, gotReason := needsPostSwapRollback(c.binaryCommit, c.flagCommitSHA)
+			if gotNeeds != c.wantNeeds {
+				t.Fatalf("needs=%v, want %v (reason=%q)", gotNeeds, c.wantNeeds, gotReason)
+			}
+			for _, sub := range c.wantReasonSubs {
+				if !strings.Contains(gotReason, sub) {
+					t.Errorf("reason %q missing expected substring %q", gotReason, sub)
+				}
+			}
+		})
+	}
+}
+
+// TestIsConnError_CancellationStrings verifies Fix B: isConnError must
+// match context-cancel shapes so the bounded-retry at the completed
+// UPDATE triggers when Docker recreation RST's the pgx socket. Pre-fix,
+// "timeout: context already done: context canceled" was NOT recognised —
+// first attempt failed → no retry → NORMAL_COMPLETED_TRANSITION_PERSISTED
+// invariant fired → row stuck in_progress (rune scenario).
+func TestIsConnError_CancellationStrings(t *testing.T) {
+	cases := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{name: "nil-returns-false", err: nil, want: false},
+		{name: "io.EOF-kept", err: io.EOF, want: true},
+		{name: "io.ErrUnexpectedEOF-kept", err: io.ErrUnexpectedEOF, want: true},
+		{name: "context.Canceled-new", err: context.Canceled, want: true},
+		{name: "context.DeadlineExceeded-new", err: context.DeadlineExceeded, want: true},
+		{name: "wrapped-context.Canceled-new", err: fmt.Errorf("scan failed: %w", context.Canceled), want: true},
+		{name: "conn-closed-string-kept", err: errors.New("pgx: conn closed"), want: true},
+		{name: "connection-reset-string-kept", err: errors.New("write tcp ...: connection reset by peer"), want: true},
+		{name: "pgx-context-already-done-new", err: errors.New("timeout: context already done: context canceled"), want: true},
+		{name: "pgx-context-canceled-new", err: errors.New("query failed: context canceled"), want: true},
+		{name: "pgx-context-deadline-exceeded-new", err: errors.New("query failed: context deadline exceeded"), want: true},
+		{name: "check-constraint-still-false", err: errors.New(`ERROR: new row for relation "upgrade" violates check constraint "chk_upgrade_state_attributes"`), want: false},
+		{name: "pgx-no-rows-still-false", err: errors.New("no rows in result set"), want: false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := isConnError(c.err)
+			if got != c.want {
+				t.Fatalf("isConnError(%q) = %v, want %v", c.err, got, c.want)
+			}
+		})
+	}
+}
+
+// TestApplyPostSwap_CompletedUpdateBeforeCompleteLog verifies Fix A's
+// source-ordering contract: in applyPostSwap, the `state='completed'`
+// UPDATE (line with `completedSQL`) must appear BEFORE the
+// "Upgrade to %s complete!" progress.Write AND before the
+// runInstallFixup call. Violating this ordering would revive the rune
+// stuck-state: fixup can restart the DB container mid-run, RST'ing the
+// pgx socket, so the terminal UPDATE MUST land first.
+//
+// Hermetic test — parses service.go directly and asserts line-number
+// ordering. Regression guard for the specific mistake.
+func TestApplyPostSwap_CompletedUpdateBeforeCompleteLog(t *testing.T) {
+	source, err := os.ReadFile("service.go")
+	if err != nil {
+		t.Fatalf("read service.go: %v", err)
+	}
+
+	// Find the applyPostSwap function body and assert the ordering within it.
+	funcRe := regexp.MustCompile(`func \(d \*Service\) applyPostSwap\(`)
+	funcLoc := funcRe.FindIndex(source)
+	if funcLoc == nil {
+		t.Fatal("couldn't locate applyPostSwap in service.go")
+	}
+	// Scan forward to the next top-level func boundary.
+	body := source[funcLoc[0]:]
+	nextFuncRe := regexp.MustCompile(`\nfunc \(d \*Service\) resumePostSwap\(`)
+	end := nextFuncRe.FindIndex(body)
+	if end == nil {
+		t.Fatal("couldn't locate end of applyPostSwap (resumePostSwap not found after it)")
+	}
+	body = body[:end[0]]
+
+	idxCompletedSQL := strings.Index(string(body), `completedSQL := "UPDATE public.upgrade SET state = 'completed'`)
+	idxCompleteLog := strings.Index(string(body), `"Upgrade to %s complete!"`)
+	idxFixup := strings.Index(string(body), `runInstallFixup(projDir)`)
+
+	if idxCompletedSQL < 0 {
+		t.Fatal("applyPostSwap does not contain the expected completedSQL UPDATE — did you rename?")
+	}
+	if idxCompleteLog < 0 {
+		t.Fatal(`applyPostSwap does not contain the "Upgrade to ... complete!" log — did you remove it?`)
+	}
+	if idxFixup < 0 {
+		t.Fatal("applyPostSwap does not contain runInstallFixup(projDir) call — did you rename?")
+	}
+	if idxCompleteLog < idxCompletedSQL {
+		t.Errorf(`"Upgrade to %%s complete!" log appears BEFORE completedSQL UPDATE (rune-stuck-fix A regression)`)
+	}
+	if idxFixup < idxCompletedSQL {
+		t.Errorf("runInstallFixup call appears BEFORE completedSQL UPDATE (rune-stuck-fix A regression)")
+	}
 }
