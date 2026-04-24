@@ -19,7 +19,8 @@
       {
         "matcher": "SendMessage",
         "hooks": [
-          { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/route-alias.sh", "timeout": 5 }
+          { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/route-alias.sh", "timeout": 5 },
+          { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/remind-report-via-sendmessage.sh", "timeout": 5 }
         ]
       },
       {
