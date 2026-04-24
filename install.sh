@@ -167,11 +167,12 @@ if [ -d "$STATBUS_DIR/.git" ]; then
     echo "Binary: $(./sb --version)"
     echo ""
     echo "Checking out $VERSION..."
-    # No --quiet on checkout: bug observed 2026-04-22 on rune canary
-    # where a silent checkout failure (resolved on retry) hid its cause
-    # behind --quiet, forcing operators to ssh in and re-run manually.
-    # Keep fetch quiet (progress spam) but let checkout speak for itself.
-    git fetch origin --tags --quiet
+    # --force: CI advances moving tags (install-verified, install-certified)
+    # on every green build. Without --force, git rejects the fetch when a
+    # tag ref has moved forward — seen on rune rc.60 (exit 1 at this line).
+    # No --quiet: same rationale as checkout below — silent failures hid the
+    # root cause on rune rc.59; let both fetch and checkout speak for themselves.
+    git fetch origin --tags --force
     git checkout "$VERSION"
 else
     # FRESH: git clone creates the directory
