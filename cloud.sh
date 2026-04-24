@@ -79,7 +79,7 @@ usage() {
 ssh_server() {
     local server="$1"
     shift
-    ssh -o ConnectTimeout=10 "${server}@${HOST}" "$@"
+    ssh -o ConnectTimeout=10 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 "${server}@${HOST}" "$@"
 }
 
 # Stop the user-level upgrade service so the `./sb` binary can be
@@ -231,8 +231,9 @@ cmd_install() {
 
 # trust_flag returns the --trust-github-user flag for ./sb install if configured.
 trust_flag() {
-    if [ -n "$CLOUD_TRUST_KEY_USER" ]; then
-        echo "--trust-github-user $CLOUD_TRUST_KEY_USER"
+    local user="${1:-}"
+    if [ -n "$user" ]; then
+        echo "--trust-github-user $user"
     fi
 }
 
@@ -412,6 +413,15 @@ cmd_install_one() {
     local version="${2:-}"
     local exit_code=0
 
+    # Resolve trust key user: explicit env var first, then remote .env.config
+    # written by a prior successful run — operator sets it once, remembered forever.
+    local resolved_trust_user="$CLOUD_TRUST_KEY_USER"
+    if [ -z "$resolved_trust_user" ]; then
+        resolved_trust_user=$(ssh_server "$server" \
+            "cd statbus && ./sb dotenv -f .env.config get TRUST_GITHUB_USER 2>/dev/null" \
+            2>/dev/null || true)
+    fi
+
     # Fast path: if no version is pinned, try the upgrade service first.
     # If it accepts the request (exit 0), tail the journal and return.
     # If it fails (service not running, DB down, etc.), fall through to the
@@ -500,7 +510,7 @@ cmd_install_one() {
                  ensure_service_started "$server"; return 1; }
         # ./sb install detects the service is stopped and restarts it (user-level, no root needed).
         # --trust-github-user validates/repairs the signing key in one pass.
-        ssh_server "$server" "cd statbus && ./sb install $(trust_flag)" 2>&1 \
+        ssh_server "$server" "cd statbus && ./sb install $(trust_flag "$resolved_trust_user")" 2>&1 \
             || exit_code=$?
     else
         if [ -n "$version" ]; then
@@ -513,7 +523,7 @@ cmd_install_one() {
             echo "Installing $server at $version via $INSTALL_URL ..."
             stop_upgrade_service "$server"
             ssh_server "$server" \
-                "curl -fsSL ${INSTALL_URL} | bash -s -- --version $version $(trust_flag)" 2>&1 \
+                "curl -fsSL ${INSTALL_URL} | bash -s -- --version $version $(trust_flag "$resolved_trust_user")" 2>&1 \
                 || exit_code=$?
         else
             # Gate: verify release artifacts are fully published before stopping
@@ -532,21 +542,31 @@ cmd_install_one() {
             # Step 1: Run install.sh as the app user.
             # Exit code 42 = service needs root (not a failure).
             ssh_server "$server" \
-                "curl -fsSL ${INSTALL_URL} | bash -s -- --prerelease $(trust_flag)" 2>&1 \
+                "curl -fsSL ${INSTALL_URL} | bash -s -- --prerelease $(trust_flag "$resolved_trust_user")" 2>&1 \
                 || exit_code=$?
         fi
     fi
 
     if [ "$exit_code" -ne 0 ]; then
         echo "--- $server install FAILED (exit code $exit_code) ---"
-        if [ -z "$CLOUD_TRUST_KEY_USER" ]; then
+        if [ -z "$resolved_trust_user" ]; then
             echo ""
             echo "If this failed because of an invalid signing key, re-run with:"
             echo "  CLOUD_TRUST_KEY_USER=jhf ./cloud.sh install $server"
             echo ""
         fi
-        ensure_service_started "$server"
+        # Do NOT call ensure_service_started on failure — starting the upgrade
+        # service after a broken install can hang (systemctl waiting on a broken
+        # binary/DB). The operator re-runs ./cloud.sh install which calls it on success.
         return 1
+    fi
+
+    # Persist trust user for future runs so CLOUD_TRUST_KEY_USER need not
+    # be set again. Idempotent — safe to re-write the same value.
+    if [ -n "$resolved_trust_user" ]; then
+        ssh_server "$server" \
+            "cd statbus && ./sb dotenv -f .env.config set TRUST_GITHUB_USER '$resolved_trust_user'" \
+            2>/dev/null || true
     fi
 
     # Regenerate config so VERSION in .env matches the checked-out code.

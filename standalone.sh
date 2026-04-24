@@ -134,7 +134,7 @@ ssh_host() {
     local name="$1"; shift
     local fqdn
     fqdn=$(host_fqdn "$name") || { echo "Error: no fqdn for $name" >&2; return 1; }
-    ssh -o ConnectTimeout=10 "statbus@${fqdn}" "$@"
+    ssh -o ConnectTimeout=10 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 "statbus@${fqdn}" "$@"
 }
 
 # Stop the user-level upgrade service on the target host so ./sb can be
@@ -153,8 +153,9 @@ ensure_service_started() {
 }
 
 trust_flag() {
-    if [ -n "$STANDALONE_TRUST_KEY_USER" ]; then
-        echo "--trust-github-user $STANDALONE_TRUST_KEY_USER"
+    local user="${1:-}"
+    if [ -n "$user" ]; then
+        echo "--trust-github-user $user"
     fi
 }
 
@@ -200,6 +201,15 @@ cmd_install_one() {
     local version="${2:-}"
     local exit_code=0
 
+    # Resolve trust key user: explicit env var first, then remote .env.config
+    # written by a prior successful run — operator sets it once, remembered forever.
+    local resolved_trust_user="$STANDALONE_TRUST_KEY_USER"
+    if [ -z "$resolved_trust_user" ]; then
+        resolved_trust_user=$(ssh_host "$name" \
+            "cd statbus && ./sb dotenv -f .env.config get TRUST_GITHUB_USER 2>/dev/null" \
+            2>/dev/null || true)
+    fi
+
     if [ -n "$version" ]; then
         echo "Checking release artifacts for $version are ready..."
         if ! "$SCRIPT_DIR/sb" release check --tag "$version" 2>/dev/null; then
@@ -209,7 +219,7 @@ cmd_install_one() {
         echo "Installing $name at $version via $INSTALL_URL ..."
         stop_upgrade_service "$name"
         ssh_host "$name" \
-            "curl -fsSL ${INSTALL_URL} | bash -s -- --version $version $(trust_flag)" 2>&1 \
+            "curl -fsSL ${INSTALL_URL} | bash -s -- --version $version $(trust_flag "$resolved_trust_user")" 2>&1 \
             || exit_code=$?
     else
         echo "Checking release artifacts are ready..."
@@ -220,20 +230,31 @@ cmd_install_one() {
         echo "Installing $name via $INSTALL_URL (--prerelease) ..."
         stop_upgrade_service "$name"
         ssh_host "$name" \
-            "curl -fsSL ${INSTALL_URL} | bash -s -- --prerelease $(trust_flag)" 2>&1 \
+            "curl -fsSL ${INSTALL_URL} | bash -s -- --prerelease $(trust_flag "$resolved_trust_user")" 2>&1 \
             || exit_code=$?
     fi
 
     if [ "$exit_code" -ne 0 ]; then
         echo "--- $name install FAILED (exit code $exit_code) ---"
-        if [ -z "$STANDALONE_TRUST_KEY_USER" ]; then
+        if [ -z "$resolved_trust_user" ]; then
             echo ""
             echo "If this failed because of an invalid signing key, re-run with:"
             echo "  STANDALONE_TRUST_KEY_USER=jhf ./standalone.sh install $name"
             echo ""
         fi
-        ensure_service_started "$name"
+        # Do NOT call ensure_service_started on failure — the server is in an
+        # unknown state and starting the upgrade service could trigger another
+        # SSH call that hangs (systemctl waiting on a broken binary/DB). The
+        # operator must re-run ./standalone.sh install which calls it on success.
         return 1
+    fi
+
+    # Persist trust user for future runs so STANDALONE_TRUST_KEY_USER need not
+    # be set again. Idempotent — safe to re-write the same value.
+    if [ -n "$resolved_trust_user" ]; then
+        ssh_host "$name" \
+            "cd statbus && ./sb dotenv -f .env.config set TRUST_GITHUB_USER '$resolved_trust_user'" \
+            2>/dev/null || true
     fi
 
     # Regenerate config so VERSION in .env matches the checked-out code.
