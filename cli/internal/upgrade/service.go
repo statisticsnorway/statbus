@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -1894,16 +1895,67 @@ func (d *Service) connect(ctx context.Context) error {
 	connStr := fmt.Sprintf("host=%s port=%s dbname=%s user=%s password=%s sslmode=disable",
 		dbHost, dbPort, dbName, dbUser, dbPass)
 
-	d.listenConn, err = pgx.Connect(ctx, connStr)
+	// Build a pgx config with aggressive TCP keepalive so a dead peer is
+	// detected at the kernel level within ~60s (30s idle + 3 × 10s probes)
+	// instead of the ~2h+ kernel default. pgx v5.9.0's default dialer is
+	// `&net.Dialer{}` (zero KeepAlive = kernel default TCP_KEEPIDLE=7200)
+	// — see cli forensic doc tmp/engineer-dev-hang-meticulous.md §3. This
+	// doesn't cure every stale-conn failure (Docker's userland-proxy can
+	// absorb keepalive probes), but it reliably catches the common case.
+	config, err := pgx.ParseConfig(connStr)
+	if err != nil {
+		return fmt.Errorf("parse connection string: %w", err)
+	}
+	config.DialFunc = keepaliveDialer
+
+	d.listenConn, err = pgx.ConnectConfig(ctx, config)
 	if err != nil {
 		return fmt.Errorf("listen connection: %w", err)
 	}
-	d.queryConn, err = pgx.Connect(ctx, connStr)
+	d.queryConn, err = pgx.ConnectConfig(ctx, config)
 	if err != nil {
 		d.listenConn.Close(context.Background())
 		return fmt.Errorf("query connection: %w", err)
 	}
 	return nil
+}
+
+// keepaliveDialer is the pgx DialFunc used by connect(). It sets
+// aggressive TCP keepalive on the underlying socket:
+//
+//   - TCP_KEEPIDLE = 30s   (first probe after 30s idle; via net.Dialer.KeepAlive)
+//   - TCP_KEEPINTVL = 10s  (10s between probes; via setsockopt in Control)
+//   - TCP_KEEPCNT = 3      (3 probes then RST; via setsockopt in Control)
+//
+// Dead-peer detection window: ~60s (30s idle + 3 × 10s). Compare to
+// pgx v5.9.0's default ~2h+ (kernel TCP_KEEPIDLE=7200s).
+//
+// TCP_KEEPINTVL and TCP_KEEPCNT constants exist on Linux and Darwin in the
+// stdlib `syscall` package. The service is supported on those two platforms
+// only; Windows is not a target. If a future platform lacks the constants,
+// the per-socket setsockopt call will error out in Control and the
+// connection attempt fails loud — better than silently missing keepalive.
+func keepaliveDialer(ctx context.Context, network, addr string) (net.Conn, error) {
+	dialer := &net.Dialer{
+		KeepAlive: 30 * time.Second, // TCP_KEEPIDLE
+		Control: func(network, address string, c syscall.RawConn) error {
+			var sockoptErr error
+			if err := c.Control(func(fd uintptr) {
+				if e := syscall.SetsockoptInt(int(fd), syscall.IPPROTO_TCP, syscall.TCP_KEEPINTVL, 10); e != nil {
+					sockoptErr = fmt.Errorf("TCP_KEEPINTVL: %w", e)
+					return
+				}
+				if e := syscall.SetsockoptInt(int(fd), syscall.IPPROTO_TCP, syscall.TCP_KEEPCNT, 3); e != nil {
+					sockoptErr = fmt.Errorf("TCP_KEEPCNT: %w", e)
+					return
+				}
+			}); err != nil {
+				return err
+			}
+			return sockoptErr
+		},
+	}
+	return dialer.DialContext(ctx, network, addr)
 }
 
 // ensureConnected pings queryConn and reconnects both connections if dead.
@@ -2548,6 +2600,29 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// the DB row so reconcileBackupDir can detect crashed or missing backups.
 	backupStamp := time.Now().UTC().Format("20060102T150405Z")
 	backupTmpPath := filepath.Join(d.backupRoot(), "pre-upgrade-"+backupStamp+".tmp")
+
+	// L2 — stale-connection detection before the first DB write after the
+	// multi-second pullImages step. pullImages leaves queryConn idle for the
+	// duration of the docker pull; in networking environments that absorb
+	// TCP keepalive probes (Docker userland-proxy is a documented example —
+	// see tmp/engineer-dev-hang-meticulous.md §3), an otherwise-dead socket
+	// still appears ESTABLISHED to the kernel and L1's keepalive doesn't
+	// fire. The explicit Ping forces actual bidirectional traffic and
+	// detects staleness in ~5s regardless of kernel keepalive state. On
+	// detected staleness we reconnect via the existing d.reconnect(ctx)
+	// and proceed to the Exec, which then acts as the single retry.
+	pingCtx, pingCancel := context.WithTimeout(ctx, 5*time.Second)
+	pingErr := d.queryConn.Ping(pingCtx)
+	pingCancel()
+	if pingErr != nil {
+		progress.Write("Stale queryConn detected before backup_path UPDATE (Ping: %v) — reconnecting...", pingErr)
+		if reErr := d.reconnect(ctx); reErr != nil {
+			progress.Write("Reconnect failed: %v — proceeding; reconcileBackupDir can still correlate via on-disk stamp if the Exec also fails.", reErr)
+		} else {
+			progress.Write("queryConn reconnected successfully.")
+		}
+	}
+
 	progress.Write("Recording backup path on upgrade row (id=%d, path=%s)...", id, backupTmpPath)
 	if _, err := d.queryConn.Exec(ctx, "UPDATE public.upgrade SET backup_path = $1 WHERE id = $2", backupTmpPath, id); err != nil {
 		// Not fatal: the recovery path can still locate the backup via the
