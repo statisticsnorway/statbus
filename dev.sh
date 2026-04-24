@@ -1652,6 +1652,44 @@ SCRIPT
 
         echo "Install test complete."
       ;;
+    'upgrade-sandbox' )
+      # Isolated upgrade-service test harness on port offset 9 (3090-3094).
+      # Collision-free with dev/ma/no slots (offsets 1/2/3 = 3010/3020/3030).
+      # All credentials are hardcoded in docker/compose/upgrade-sandbox.yml.
+      SANDBOX_COMPOSE="${WORKSPACE}/docker/compose/upgrade-sandbox.yml"
+      SANDBOX_CMD="${1:-}"
+      shift || true
+      case "$SANDBOX_CMD" in
+        'up' )
+          echo "Starting upgrade sandbox (db=3094, rest=3093, app=3092)..."
+          docker compose -f "$SANDBOX_COMPOSE" up -d --wait
+          echo "Sandbox up. psql: ./dev.sh upgrade-sandbox psql"
+          ;;
+        'down' )
+          docker compose -f "$SANDBOX_COMPOSE" down -v
+          ;;
+        'status' )
+          docker compose -f "$SANDBOX_COMPOSE" ps
+          ;;
+        'psql' )
+          docker compose -f "$SANDBOX_COMPOSE" exec db \
+            psql -U postgres statbus_sandbox "$@"
+          ;;
+        * )
+          echo "Usage: ./dev.sh upgrade-sandbox <up|down|status|psql>"
+          echo ""
+          echo "  up      Start sandbox services (detached, waits for healthy)"
+          echo "  down    Stop and remove sandbox containers + volumes"
+          echo "  status  Show container status"
+          echo "  psql    Open psql in the sandbox database"
+          if [ -n "$SANDBOX_CMD" ]; then
+              echo ""
+              echo "Error: Unknown subcommand '$SANDBOX_CMD'"
+              exit 1
+          fi
+          ;;
+      esac
+      ;;
      * )
       echo "dev.sh — Development-only commands for StatBus"
       echo ""
@@ -1681,6 +1719,12 @@ SCRIPT
       echo "  list-snapshots                     List available snapshots"
       echo "  generate-db-documentation          Generate schema docs in doc/db/"
       echo "  generate-types                     Generate TypeScript types from schema"
+      echo ""
+      echo "Upgrade sandbox (port offset 9 — 3090-3094, isolated from dev slots):"
+      echo "  upgrade-sandbox up                 Start sandbox: db/rest/worker/app"
+      echo "  upgrade-sandbox down               Stop and remove sandbox containers + volumes"
+      echo "  upgrade-sandbox status             Show sandbox container status"
+      echo "  upgrade-sandbox psql               Open psql in statbus_sandbox database"
       echo ""
       echo "Build:"
       echo "  test-install                       End-to-end install test via Multipass VM"

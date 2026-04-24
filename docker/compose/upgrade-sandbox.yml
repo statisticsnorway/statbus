@@ -1,0 +1,141 @@
+# Upgrade-service test harness — isolated sandbox environment.
+#
+# Purpose: run crash-recovery and signal-handling scenarios locally without
+# touching dev/ma/no slots.  Port offset 9 → 3090-3095 (collision-free).
+#
+# Usage:
+#   ./dev.sh upgrade-sandbox up
+#   ./dev.sh upgrade-sandbox down
+#   ./dev.sh upgrade-sandbox status
+#   ./dev.sh upgrade-sandbox psql
+#
+# Image version: set SANDBOX_VERSION (default: latest).
+# All credentials are hardcoded — this sandbox is never exposed to production.
+
+name: statbus-sandbox
+
+services:
+  db:
+    container_name: statbus-sandbox-db
+    image: ghcr.io/statisticsnorway/statbus-db:${SANDBOX_VERSION:-latest}
+    restart: "no"
+    healthcheck:
+      test: pg_isready -U postgres -h localhost
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    environment:
+      POSTGRES_ADMIN_DB: postgres
+      POSTGRES_ADMIN_USER: postgres
+      POSTGRES_ADMIN_PASSWORD: sandbox_admin_pw
+      POSTGRES_APP_DB: statbus_sandbox
+      POSTGRES_APP_USER: statbus_sandbox
+      POSTGRES_APP_PASSWORD: sandbox_app_pw
+      POSTGRES_NOTIFY_USER: statbus_sandbox_notify
+      POSTGRES_NOTIFY_PASSWORD: sandbox_notify_pw
+      POSTGRES_AUTHENTICATOR_PASSWORD: sandbox_auth_pw
+      POSTGRES_PASSWORD: sandbox_admin_pw
+      JWT_SECRET: sandbox_jwt_secret_32_chars_min__
+      JWT_EXP: "3600"
+      DEPLOYMENT_SLOT_CODE: sandbox
+      DEBUG: "false"
+      DB_SHARED_BUFFERS: "256MB"
+      DB_MAINTENANCE_WORK_MEM: "64MB"
+      DB_EFFECTIVE_CACHE_SIZE: "512MB"
+      DB_WORK_MEM: "16MB"
+      DB_TEMP_BUFFERS: "32MB"
+      DB_WAL_BUFFERS: "16MB"
+      DB_MAX_CONNECTIONS: "20"
+      DB_MAX_WAL_SIZE: "512MB"
+      DB_MIN_WAL_SIZE: "80MB"
+    volumes:
+      - statbus-sandbox-db-data:/var/lib/postgresql/data
+      - ../../postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ../../postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - ../../postgres/start-postgres.sh:/usr/local/bin/start-postgres.sh:ro
+      # Repo root available inside container for migrations and tests
+      - ../..:/statbus
+    ports:
+      - "127.0.0.1:3094:5432"
+    shm_size: "256m"
+    entrypoint: /usr/local/bin/start-postgres.sh
+
+  rest:
+    container_name: statbus-sandbox-rest
+    image: postgrest/postgrest:v12.2.8
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGRST_DB_URI: postgres://authenticator:sandbox_auth_pw@db:5432/statbus_sandbox
+      PGRST_DB_SCHEMAS: public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_DB_USE_LEGACY_GUCS: "false"
+      PGRST_JWT_SECRET: sandbox_jwt_secret_32_chars_min__
+      PGRST_APP_SETTINGS_ACCESS_JWT_EXP: "3600"
+      PGRST_APP_SETTINGS_REFRESH_JWT_EXP: "2592000"
+      PGRST_DB_AGGREGATES_ENABLED: "true"
+      PGRST_JWT_AUD: "statbus"
+      PGRST_OPENAPI_SERVER_PROXY_URI: http://localhost:3093/postgrest
+      PGRST_DB_CONFIG: app.settings.deployment_slot_code=sandbox
+      PGRST_DB_PRE_REQUEST: auth.check_api_key_revocation
+    ports:
+      - "127.0.0.1:3093:3000"
+    command: "postgrest"
+
+  worker:
+    container_name: statbus-sandbox-worker
+    image: ghcr.io/statisticsnorway/statbus-worker:${SANDBOX_VERSION:-latest}
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      RUNNING_IN_DOCKER: "true"
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_APP_DB: statbus_sandbox
+      POSTGRES_ADMIN_USER: postgres
+      POSTGRES_ADMIN_PASSWORD: sandbox_admin_pw
+      SEQ_SERVER_URL: https://log.statbus.org
+      SEQ_API_KEY: sandbox_seq_key
+      VERSION: ${SANDBOX_VERSION:-latest}
+      VERBOSE: "0"
+      DEBUG: "0"
+
+  app:
+    container_name: statbus-sandbox-app
+    image: ghcr.io/statisticsnorway/statbus-app:${SANDBOX_VERSION:-latest}
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      RUNNING_IN_DOCKER: "true"
+      PUBLIC_BROWSER_REST_URL: http://localhost:3093
+      SERVER_REST_URL: http://rest:3000
+      SEQ_SERVER_URL: https://log.statbus.org
+      SEQ_API_KEY: sandbox_seq_key
+      PUBLIC_DEPLOYMENT_SLOT_NAME: Sandbox
+      PUBLIC_DEPLOYMENT_SLOT_CODE: sandbox
+      POSTGRES_APP_DB: statbus_sandbox
+      POSTGRES_APP_USER: statbus_sandbox
+      POSTGRES_APP_PASSWORD: sandbox_app_pw
+      POSTGRES_NOTIFY_USER: statbus_sandbox_notify
+      POSTGRES_NOTIFY_PASSWORD: sandbox_notify_pw
+      POSTGRES_AUTHENTICATOR_USER: authenticator
+      POSTGRES_AUTHENTICATOR_PASSWORD: sandbox_auth_pw
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      VERSION: ${SANDBOX_VERSION:-latest}
+      PUBLIC_STATBUS_VERSION: ${SANDBOX_VERSION:-latest}
+      PUBLIC_STATBUS_COMMIT: unknown
+      DEBUG: "false"
+      PUBLIC_DEBUG: "false"
+    ports:
+      - "127.0.0.1:3092:3000"
+
+volumes:
+  statbus-sandbox-db-data:
+    name: statbus-sandbox-db-data
