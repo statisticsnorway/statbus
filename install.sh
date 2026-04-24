@@ -27,6 +27,20 @@
 #
 set -euo pipefail
 
+# Merge stderr → stdout so every error (git, curl, ./sb) reaches the
+# operator regardless of how the script was invoked. The primary path is
+# `curl | bash` over SSH, where standalone.sh / cloud.sh capture SSH's
+# stdout+stderr via `2>&1` on the outer SSH call. Without this merge,
+# there is a narrow window where SSH closes its stderr channel before the
+# remote process fully flushes — swallowing e.g. "pathspec 'v…' did not
+# match" from git checkout. Merging at the source eliminates that window.
+exec 2>&1
+
+# Print the failing command and line number before set -e exits so the
+# operator sees exactly which step broke, even when the command itself is
+# silent or its error went to stderr before the merge above took effect.
+trap 'rc=$?; echo ""; echo "install.sh: failed at line $LINENO: $BASH_COMMAND (exit $rc)"' ERR
+
 # Parse arguments — install.sh-specific flags are consumed here;
 # anything else is forwarded to ./sb install (e.g. --trust-github-user).
 VERSION=""
