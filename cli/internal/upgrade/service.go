@@ -14,6 +14,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -110,14 +111,33 @@ type Service struct {
 	allowedSignersPath string      // path to tmp/allowed-signers file (empty if no signers configured)
 	flagLock           *FlagLock   // holds the flock on tmp/upgrade-in-progress.json during executeUpgrade
 	runningAsService   bool        // true when Run() is the entry point; false for one-shot callers
+	// binaryCommit is the compile-time commit SHA (ldflags -X cmd.commit=<sha>),
+	// a ground-truth anchor the service uses to answer "what version is this
+	// binary itself?" independent of git checkout state or row-recorded
+	// targets. Used by completeInProgressUpgrade's ground-truth verification
+	// (task #49): if an in_progress row's commit_sha differs from
+	// binaryCommit at post-restart recovery time, the upgrade did not
+	// actually complete — mark failed, don't silently lie.
+	//
+	// "unknown" when the build has no ldflags (local go-run paths); in that
+	// case the ground-truth check degrades to a skip rather than a false
+	// failure, since we can't know the binary's true identity.
+	binaryCommit       string
 }
 
 // NewService creates a new upgrade service.
-func NewService(projDir string, verbose bool, version string) *Service {
+//
+// binaryCommit is the compile-time commit SHA from cli/cmd/root.go's
+// `commit` ldflag. Pass cmd.commit directly from the caller. Leave
+// "unknown" in non-release builds (go run, local test); the ground-truth
+// checks in completeInProgressUpgrade degrade to skip-with-log rather
+// than false-negative in that case.
+func NewService(projDir string, verbose bool, version, binaryCommit string) *Service {
 	return &Service{
-		projDir: projDir,
-		version: version,
-		verbose: verbose,
+		projDir:      projDir,
+		version:      version,
+		verbose:      verbose,
+		binaryCommit: binaryCommit,
 	}
 }
 
@@ -687,6 +707,27 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 		} else {
 			logRecover("Upgrade %s succeeded (HEAD matches target commit — self-update restart detected)", flag.DisplayName)
 		}
+
+		// Ground-truth verification (task #49 / Gap #1). HEAD-matches-target
+		// is necessary but not sufficient — git checkout (executeUpgrade
+		// step 6) succeeds BEFORE replaceBinaryOnDisk (step 6b). A crash in
+		// that window leaves HEAD at the target but the running binary at
+		// the prior version. Without this check, recoverFromFlag would
+		// silently mark the row completed despite a stale binary.
+		// On failure, fall through to the rollback path (Branch D below)
+		// rather than the success-mark UPDATE.
+		if ok, reason := d.verifyUpgradeGroundTruth(ctx, flag.CommitSHA); !ok {
+			logRecover("Ground-truth verification FAILED for %s: %s — falling through to rollback", flag.DisplayName, reason)
+			if appendLog != nil {
+				appendLog.Close()
+				appendLog = nil
+			}
+			d.recoveryRollback(ctx, int(flag.ID), flag.DisplayName, logRelPath, fmt.Sprintf(
+				"%s: post-restart ground-truth check failed: %s",
+				ErrInstallPreconditionFailed, reason))
+			return
+		}
+
 		// Close the appender BEFORE reading the tail so the flush lands
 		// on disk and the UPDATE below captures the recovery lines.
 		if appendLog != nil {
@@ -737,25 +778,27 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 		return
 	}
 
-	// Real failure. The file we've been appending to already contains the
-	// pre-crash narrative PLUS our "Service restarted" line above; add
-	// the failure summary and use the tail to derive a short `error`.
-	logRecover("HEAD (%s) does not match upgrade target (%s). Treating as failed upgrade.",
-		shortSHA(headSHA), shortSHA(flag.CommitSHA))
-	logRecover("Marking upgrade %d (%s) as rolled_back", flag.ID, flag.DisplayName)
+	// Real failure. HEAD doesn't match the upgrade target — the binary
+	// swap (and likely earlier steps) didn't complete. Task #49 / Gap #2
+	// rewrite: previously this branch only marked the row rolled_back
+	// without touching the running system, leaving services possibly
+	// stopped, maintenance possibly on, DB possibly half-migrated, etc.
+	// That made the row a lie about the on-disk reality.
+	//
+	// Now: invoke recoveryRollback → d.rollback(), which runs the full
+	// restoration pipeline (capture container logs, stop services, restore
+	// git/DB/binary, restart services, deactivate maintenance, mark
+	// state='rolled_back'). For the pre-destructive-step crash case (no
+	// services were stopped, no maintenance was activated) the restore
+	// steps are mostly no-ops — that's fine; the UPDATE still happens
+	// coherently and the operator-facing row matches reality.
+	logRecover("HEAD (%s) does not match upgrade target (%s). Invoking rollback to %s.",
+		shortSHA(headSHA), shortSHA(flag.CommitSHA), d.version)
 
-	// Close the appender before reading so pending writes are flushed.
-	if appendLog != nil {
-		appendLog.Close()
-		appendLog = nil
-	}
-
-	// Grab the tail of the full log to build a short error summary. The
-	// full narrative lives in the on-disk log (served via /upgrade-logs/)
-	// so we only need the last handful of lines here.
+	// Build a short error summary from the log tail. The full narrative
+	// lives in the on-disk log (served via /upgrade-logs/); we only need
+	// the last handful of lines here for the row's `error` column.
 	logTail := readProgressLogTail(UpgradeLogAbsPath(d.projDir, logRelPath), 50)
-	// TODO: pick code — crash-recovery errMsg is derived from log tail; need to
-	// inspect the last line for an existing Err* prefix before adding one here.
 	errMsg := "Upgrade interrupted (service crashed or was killed)"
 	if logTail != "" {
 		lines := strings.Split(strings.TrimSpace(logTail), "\n")
@@ -765,39 +808,42 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 		errMsg = strings.Join(lines, "\n")
 	}
 
-	// Mark the upgrade as rolled_back in the DB. Guard with state =
-	// 'in_progress': a row already in a terminal state means the prior
-	// service instance reconciled before exiting (clean rollback) and
-	// left the file as a ghost — overwriting `error` + `rolled_back_at`
-	// here would corrupt the audit trail. ErrNoRows ⇒ ghost flag, just
-	// remove the file. Any other error is the real C2 invariant.
-	var crashJSON string
-	if scanErr := d.queryConn.QueryRow(ctx,
-		"UPDATE public.upgrade SET state = 'rolled_back', error = $1, rolled_back_at = now() WHERE id = $2 AND state = 'in_progress'"+upgradeRowReturning,
-		errMsg, flag.ID).Scan(&crashJSON); scanErr != nil {
-		if errors.Is(scanErr, pgx.ErrNoRows) {
-			logRecover("Ghost flag detected for upgrade %d (%s): row is already terminal, removing stale flag file without overwriting audit trail",
+	// Guard: if the row is no longer in_progress (terminal state already
+	// recorded by a prior service instance before exit), this is a ghost
+	// flag — just remove the file and don't overwrite the audit trail.
+	// Check with a probe SELECT before invoking the heavyweight rollback
+	// machinery so we don't run a full restore on a row we shouldn't touch.
+	var probeState string
+	if probeErr := d.queryConn.QueryRow(ctx,
+		"SELECT state FROM public.upgrade WHERE id = $1", flag.ID).Scan(&probeState); probeErr != nil {
+		if errors.Is(probeErr, pgx.ErrNoRows) {
+			logRecover("Ghost flag detected for upgrade %d (%s): row missing, removing stale flag file",
 				flag.ID, flag.DisplayName)
 			os.Remove(d.flagPath())
 			return
 		}
-		// C2: CRASH_ROLLED_BACK_TRANSITION_PERSISTED — bug-class. Same
-		// contract as C1 (mutex-held, CHECK permits in_progress →
-		// rolled_back, WHERE guards on in_progress). A non-NoRows error
-		// means the DB state machine is drifted.
+		// Real DB error — preserve flag + bundle so an operator can investigate.
 		fmt.Fprintf(os.Stderr,
-			"INVARIANT CRASH_ROLLED_BACK_TRANSITION_PERSISTED violated: could not mark upgrade %d as rolled_back: %v (service.go:%d, pid=%d)\n",
-			flag.ID, scanErr, thisLine(), os.Getpid())
-		d.markTerminal("CRASH_ROLLED_BACK_TRANSITION_PERSISTED",
-			fmt.Sprintf("id=%d; Scan err=%v", flag.ID, scanErr))
+			"recoverFromFlag: probe SELECT failed for upgrade %d: %v\n", flag.ID, probeErr)
 		d.writeDiagnosticBundle(ctx, int(flag.ID), nil)
 		return
 	}
-	logUpgradeRow(LabelRolledBackCrashRecovery, crashJSON)
+	if probeState != "in_progress" {
+		logRecover("Ghost flag detected for upgrade %d (%s): row is already %s, removing stale flag file without overwriting audit trail",
+			flag.ID, flag.DisplayName, probeState)
+		os.Remove(d.flagPath())
+		return
+	}
 
-	// Reconciled — remove the on-disk file. The kernel flock was already
-	// released when the prior service process died.
-	os.Remove(d.flagPath())
+	// Close appender before rollback acquires its own log handle.
+	if appendLog != nil {
+		appendLog.Close()
+		appendLog = nil
+	}
+
+	d.recoveryRollback(ctx, int(flag.ID), flag.DisplayName, logRelPath, errMsg)
+	// rollback() removes the flag and emits LabelRolledBackNormal logs;
+	// nothing more to do here.
 }
 
 // shortSHA trims a 40-char git SHA down to 12 for display. Returns the
@@ -1158,6 +1204,11 @@ const (
 	ErrRollbackBinaryCorrupt = "ROLLBACK_FAILED_BINARY_CORRUPT"
 	ErrBinaryReplaceFailed   = "BINARY_REPLACE_FAILED"
 	ErrInstallFixupFailed    = "INSTALL_FIXUP_FAILED"
+	// ErrInstallPreconditionFailed — an installable precondition was not
+	// met at recovery time (binary SHA mismatch, migration gap, etc.).
+	// Used by completeInProgressUpgrade's ground-truth check (task #49)
+	// to mark rows FAILED rather than silently completing them.
+	ErrInstallPreconditionFailed = "INSTALL_PRECONDITION_FAILED"
 )
 
 // Run starts the upgrade service main loop.
@@ -1500,6 +1551,142 @@ func (d *Service) acquireAdvisoryLock(ctx context.Context) error {
 	return nil
 }
 
+// verifyUpgradeGroundTruth is the ground-truth verification step for
+// completeInProgressUpgrade (task #49). Given an in_progress row's target
+// commit SHA, it checks TWO independent facts about the running system:
+//
+//  1. The binary's compile-time commit (d.binaryCommit, from cli/cmd/root.go
+//     `commit` ldflag) matches the row's target commit_sha. A mismatch
+//     means the binary was never actually swapped — the upgrade crashed
+//     before replaceBinaryOnDisk, or the swap silently rolled back.
+//
+//  2. The DB's max applied migration (db.migration.version) is ≥ the max
+//     on-disk migration version (migrations/*.up.sql). A gap means new
+//     migrations shipped with the target version but never ran — the
+//     upgrade crashed between git checkout and migrate up.
+//
+// Returns (ok, reason). `reason` is a descriptive string suitable for
+// surfacing as the row's `error` column when ok == false.
+//
+// Degraded paths (returns ok=true to avoid false-positive FAILED rows):
+//   - d.binaryCommit == "unknown" (non-release build, no ldflags): skip
+//     binary check with a log line. Migration check still runs.
+//   - DB query or on-disk read fails transiently: skip with a log line.
+//     The next recovery cycle will retry.
+func (d *Service) verifyUpgradeGroundTruth(ctx context.Context, rowCommitSHA string) (ok bool, reason string) {
+	// Check 1: binary SHA
+	if d.binaryCommit == "" || d.binaryCommit == "unknown" {
+		fmt.Printf("Ground-truth: binary SHA unknown (local build?); skipping binary check.\n")
+	} else if d.binaryCommit != rowCommitSHA {
+		return false, fmt.Sprintf(
+			"binary commit %s != row target %s (upgrade crashed before binary swap)",
+			shortSHA(d.binaryCommit), shortSHA(rowCommitSHA))
+	}
+
+	// Check 2: migration max version — DB vs on-disk
+	var dbMaxVersion int64
+	queryErr := d.queryConn.QueryRow(ctx,
+		`SELECT COALESCE(MAX(version), 0) FROM db.migration`).Scan(&dbMaxVersion)
+	if queryErr != nil {
+		fmt.Printf("Ground-truth: DB migration-version query failed (%v); skipping migration check.\n", queryErr)
+		return true, ""
+	}
+
+	diskMaxVersion := latestDiskMigrationVersion(d.projDir)
+	if diskMaxVersion == 0 {
+		// No on-disk migrations found (odd but non-fatal); skip check.
+		fmt.Printf("Ground-truth: no on-disk migrations found; skipping migration check.\n")
+		return true, ""
+	}
+
+	if dbMaxVersion < diskMaxVersion {
+		return false, fmt.Sprintf(
+			"db.migration max version %d < on-disk max %d (migrations did not run)",
+			dbMaxVersion, diskMaxVersion)
+	}
+
+	return true, ""
+}
+
+// latestDiskMigrationVersion returns the max YYYYMMDDHHMMSS version number
+// parsed from migrations/*.up.sql file basenames in projDir. Returns 0 when
+// the directory is unreadable or empty. Used by verifyUpgradeGroundTruth to
+// compare against db.migration's recorded max.
+func latestDiskMigrationVersion(projDir string) int64 {
+	entries, err := os.ReadDir(filepath.Join(projDir, "migrations"))
+	if err != nil {
+		return 0
+	}
+	var latest int64
+	for _, e := range entries {
+		name := e.Name()
+		if !strings.HasSuffix(name, ".up.sql") {
+			continue
+		}
+		parts := strings.SplitN(name, "_", 2)
+		if len(parts) == 0 {
+			continue
+		}
+		v, convErr := strconv.ParseInt(parts[0], 10, 64)
+		if convErr != nil {
+			continue
+		}
+		if v > latest {
+			latest = v
+		}
+	}
+	return latest
+}
+
+// recoveryRollback is the recovery-path wrapper around d.rollback() used by
+// completeInProgressUpgrade and recoverFromFlag (task #49). It bridges the
+// recovery context — where we have an upgrade row id + log relative path
+// but the in-process rollback() machinery expects a live ProgressLog and
+// previousVersion string — to a real rollback invocation.
+//
+// User principle (task #49): every code path that today marks
+// `failed`/`rolled_back` WITHOUT calling rollback() must now call it.
+// "Status without reality-restore is a lie."
+//
+// Steps:
+//  1. Read previousVersion from public.upgrade.from_version. If unreadable
+//     or empty, fall back to d.version (the binary's running version).
+//     A working previousVersion is what restoreGitState needs to know
+//     what to git-checkout back to.
+//  2. Open the row's log in append mode so the rollback narrative lands
+//     on the same on-disk log the prior pre-crash run wrote to. If the
+//     log is gone (manually pruned), open a fresh one.
+//  3. Invoke d.rollback(). It runs the full robust rollback pipeline:
+//     captureContainerLogs → docker stop → restoreGitState →
+//     restoreDatabase → restoreBinary → docker up → reconnect →
+//     setMaintenance(false) → UPDATE state='rolled_back' → removeFlag.
+//     For the pre-backup-crash case (no destructive state to undo), the
+//     restore steps are mostly no-ops — that's fine; the UPDATE still
+//     transitions the row coherently.
+func (d *Service) recoveryRollback(ctx context.Context, id int, displayName, logRelPath, reason string) {
+	var fromVersion sql.NullString
+	if err := d.queryConn.QueryRow(ctx,
+		"SELECT from_version FROM public.upgrade WHERE id = $1", id).Scan(&fromVersion); err != nil {
+		fmt.Fprintf(os.Stderr, "recoveryRollback: could not read from_version for id=%d: %v\n", id, err)
+	}
+	prev := d.version
+	if fromVersion.Valid && fromVersion.String != "" {
+		prev = fromVersion.String
+	}
+
+	// Reopen the per-upgrade log in append mode so the rollback narrative
+	// continues the existing file. AppendProgressLog returns nil when the
+	// file is gone; in that case open a fresh log so rollback() has a
+	// writable channel for its progress.Write calls.
+	rollbackLog := AppendProgressLog(d.projDir, logRelPath)
+	if rollbackLog == nil {
+		rollbackLog = NewUpgradeLog(d.projDir, int64(id), displayName, time.Now().UTC())
+	}
+	defer rollbackLog.Close()
+
+	d.rollback(ctx, id, displayName, prev, reason, rollbackLog)
+}
+
 // completeInProgressUpgrade checks for an upgrade that was started but not
 // completed (e.g., service restarted after self-update). If found, verifies
 // health and marks completed_at. This ensures "completed" truly means
@@ -1588,6 +1775,36 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 		return
 	}
 
+	// Ground-truth verification (task #49). The row is about to be marked
+	// completed because the DB is healthy after restart — but "DB healthy"
+	// doesn't prove the upgrade actually finished. A crash between
+	// writeUpgradeFlag and binary swap leaves the DB perfectly healthy
+	// while the binary is still the OLD version and the new migrations
+	// are unapplied. Marking completed in that state is a silent lie in
+	// the operator-facing history.
+	//
+	// Two checks:
+	//   1. Binary SHA == row.commit_sha — the running binary IS the one
+	//      the upgrade was supposed to deliver.
+	//   2. db.migration's max version >= on-disk max migration — all
+	//      migrations that the current tree expects are applied.
+	//
+	// On failure, invoke d.rollback() — restores git/DB/binary/services
+	// to the previous version and marks state='rolled_back'. The
+	// alternative — just marking state='failed' — would leave the system
+	// in a half-broken state that contradicts the row's claim.
+	if ok, reason := d.verifyUpgradeGroundTruth(ctx, commitSHA); !ok {
+		logRecover("Ground-truth verification FAILED for %s: %s", displayName, reason)
+		if appendLog != nil {
+			appendLog.Close()
+			appendLog = nil
+		}
+		d.recoveryRollback(ctx, id, displayName, logRelPath, fmt.Sprintf(
+			"%s: post-restart ground-truth check failed: %s",
+			ErrInstallPreconditionFailed, reason))
+		return
+	}
+
 	logRecover("Upgrade to %s completed (verified after service restart)", displayName)
 
 	// Close the appender so the post-restart lines are flushed to disk
@@ -1636,6 +1853,16 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 // the upgrade table. This handles versions deployed via install.sh (which
 // bypasses the upgrade service flow) and ensures the UI doesn't show
 // "Upgrade Now" for the already-running version. Idempotent.
+//
+// Task #49 / Gap #5: ground-truth check before the mark. Same blind spot
+// as recoverFromFlag's success branch — git HEAD might match a row's
+// commit_sha while the actual binary on disk is a prior version (crash
+// between git checkout and replaceBinaryOnDisk). On startup, that would
+// have us silently mark a "completed" upgrade we never actually ran.
+//
+// Resolution: if d.binaryCommit != git HEAD, the binary doesn't match
+// the checked-out tree — skip the auto-mark and log. The operator's
+// next install or the upgrade service's recovery path will reconcile.
 func (d *Service) markCurrentVersionCompleted(ctx context.Context) {
 	if d.version == "dev" {
 		return
@@ -1644,6 +1871,16 @@ func (d *Service) markCurrentVersionCompleted(ctx context.Context) {
 	// Match by tag name or commit SHA
 	headSHA, _ := runCommandOutput(d.projDir, "git", "rev-parse", "HEAD")
 	headSHA = strings.TrimSpace(headSHA)
+
+	// Ground-truth: only mark completed if the binary actually corresponds
+	// to git HEAD. d.binaryCommit==unknown is the local-build degraded
+	// path — preserve the prior behaviour there (skip the check, mark
+	// optimistically) so dev workflows keep working.
+	if d.binaryCommit != "" && d.binaryCommit != "unknown" && d.binaryCommit != headSHA {
+		fmt.Printf("markCurrentVersionCompleted: skipping — binary commit %s does not match git HEAD %s (incomplete swap?)\n",
+			shortSHA(d.binaryCommit), shortSHA(headSHA))
+		return
+	}
 
 	result, err := d.queryConn.Exec(ctx,
 		`UPDATE public.upgrade
@@ -3176,6 +3413,26 @@ func (d *Service) runCallback(displayName string, extraEnv map[string]string) {
 	fmt.Printf("Upgrade callback completed successfully\n")
 }
 
+// failUpgrade marks an upgrade row state='failed' WITHOUT invoking
+// rollback(). This is correct ONLY for failures that happen BEFORE any
+// destructive step (i.e. before backupDatabase at executeUpgrade step 5):
+//
+//   - downgrade refusal (no destructive work)
+//   - missing release manifest / platform binary (no destructive work)
+//   - disk-space precondition (no destructive work)
+//   - signature verification (no destructive work)
+//   - flag-file write (no destructive work)
+//   - pullImages (downloads images but doesn't touch live DB or services)
+//
+// AUDIT (task #49 / Gap #4): if a future executeUpgrade step adds
+// destructive side effects (stops services, modifies the DB schema,
+// swaps the binary, etc.) BEFORE backupDatabase, its handler MUST NOT
+// use failUpgrade — it MUST call d.rollback() so the live system is
+// actually restored to the previous version. The user's principle is
+// "two outcomes only — completed, or failed-with-rollback. No silent
+// in-between." failUpgrade as it stands is the "no destructive state to
+// undo" exception; preserve that contract by reading this comment
+// before extending it.
 func (d *Service) failUpgrade(ctx context.Context, id int, errMsg string, progress *ProgressLog) {
 	progress.Write("FAILED: %s", errMsg)
 	// Bundle BEFORE the terminal UPDATE so inspecting a `failed` row on

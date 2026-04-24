@@ -53,7 +53,7 @@ func dispatchInstallState(projDir string, state install.State, detail *install.D
 // flock on tmp/upgrade-in-progress.json.
 func runInlineUpgradeScheduled(projDir string, detail *install.Detail) error {
 	ctx := context.Background()
-	svc := upgrade.NewService(projDir, true /* verbose */, version)
+	svc := upgrade.NewService(projDir, true /* verbose */, version, commit)
 	defer svc.Close()
 
 	if err := svc.LoadConfigAndConnect(ctx); err != nil {
@@ -113,7 +113,7 @@ func restartUpgradeService(projDir string) {
 // previous version on disk, or left the install otherwise consistent.
 func runCrashRecovery(projDir string) error {
 	ctx := context.Background()
-	svc := upgrade.NewService(projDir, true /* verbose */, version)
+	svc := upgrade.NewService(projDir, true /* verbose */, version, commit)
 	defer svc.Close()
 
 	// The crashed flag may have Phase=post_swap, meaning the DB is

@@ -398,7 +398,7 @@ var upgradeServiceRunE = func(cmd *cobra.Command, args []string) error {
 			serviceVersion = "dev"
 		}
 	}
-	d := upgrade.NewService(projDir, verbose, serviceVersion)
+	d := upgrade.NewService(projDir, verbose, serviceVersion, commit)
 	return d.Run(context.Background())
 }
 
