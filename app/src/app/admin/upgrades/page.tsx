@@ -512,7 +512,7 @@ export default function UpgradesPage() {
             {topSection.map(({ u, variant }) => renderCard(u, variant))}
 
             {/* Older available releases behind collapsible — labelled "superseded"
-                with "Superseded — upgrade now?" on the button. This is intentional:
+                with "Install anyway" on the button. This is intentional:
                 it tells the operator a newer version exists (the recommended one above)
                 but still lets them install this specific version if they need it. */}
             {olderAvailable.length > 0 && (
@@ -903,7 +903,7 @@ function UpgradeCard({
                     ) : (
                       <ArrowDownToLine className="mr-1.5 h-3.5 w-3.5" />
                     )}
-                    {variant === "superseded" ? "Superseded — upgrade now?" : "Upgrade Now"}
+                    {variant === "superseded" ? "Install anyway" : "Upgrade Now"}
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
