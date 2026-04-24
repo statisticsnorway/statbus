@@ -110,7 +110,7 @@ After running:
    [install-statbus.md](install-statbus.md)):
    ```bash
    ssh "${SERVICE_USER:-statbus}@<host>"
-   curl -fsSL https://statbus.org/install.sh | bash -s -- --prerelease
+   curl -fsSL https://statbus.org/install.sh | bash -s -- --channel prerelease
    ```
 4. **Review CrowdSec** (if Stage 4 ran): `cscli metrics`, `cscli decisions list`
 5. **Check firewall** (if Stage 4 ran): `ufw status`
@@ -180,7 +180,7 @@ After setup finishes, continue with the install phase as the service account:
 
 ```bash
 ssh "${SERVICE_USER:-statbus}@<host>"
-curl -fsSL https://statbus.org/install.sh | bash -s -- --prerelease
+curl -fsSL https://statbus.org/install.sh | bash -s -- --channel prerelease
 ```
 
 See [install-statbus.md](install-statbus.md) and [DEPLOYMENT.md](DEPLOYMENT.md)

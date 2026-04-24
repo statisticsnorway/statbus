@@ -2,7 +2,10 @@
 # StatBus installer
 #
 # This is the ONE command for both fresh installs and rescue/upgrade:
-#   curl -fsSL https://statbus.org/install.sh | bash -s -- --prerelease
+#   curl -fsSL https://statbus.org/install.sh | bash                         # stable channel (default)
+#   curl -fsSL https://statbus.org/install.sh | bash -s -- --channel prerelease
+#   curl -fsSL https://statbus.org/install.sh | bash -s -- --channel edge
+#   curl -fsSL https://statbus.org/install.sh | bash -s -- --version vX.Y.Z
 #
 # It always runs from the user's home directory (via curl | bash).
 # It always targets ~/statbus/ as the installation directory.
@@ -43,17 +46,48 @@ trap 'rc=$?; echo "" >&2; echo "install.sh FAILED at line $LINENO: $BASH_COMMAND
 
 # Parse arguments — install.sh-specific flags are consumed here;
 # anything else is forwarded to ./sb install (e.g. --trust-github-user).
+#
+# --version vX.Y.Z   install the explicit tag
+# --channel <name>   resolve version from channel. Valid names:
+#                      stable     — latest non-prerelease via /releases/latest (default)
+#                      prerelease — latest v*-rc.* via /releases API
+#                      edge       — master HEAD, version string "sha-<short>"
+# No flag            equivalent to --channel stable.
+# --prerelease       REMOVED. Prints a rename notice and exits 1. Callers must
+#                    switch to --channel prerelease (cloud.sh + standalone.sh
+#                    already do so post-rc.62).
 VERSION=""
-PRERELEASE=false
+CHANNEL=""
 SB_INSTALL_ARGS=""
 while [ $# -gt 0 ]; do
     case "$1" in
         --version) VERSION="$2"; shift 2 ;;
-        --prerelease) PRERELEASE=true; shift ;;
+        --channel) CHANNEL="$2"; shift 2 ;;
+        --prerelease)
+            echo "Error: --prerelease was renamed. Use --channel prerelease instead." >&2
+            exit 1
+            ;;
         --trust-github-user) SB_INSTALL_ARGS="$SB_INSTALL_ARGS --trust-github-user $2"; shift 2 ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
 done
+
+# Default channel when neither --version nor --channel supplied.
+if [ -z "$VERSION" ] && [ -z "$CHANNEL" ]; then
+    CHANNEL="stable"
+fi
+
+# Validate channel name up front so the error message lands before any
+# network work.
+if [ -n "$CHANNEL" ]; then
+    case "$CHANNEL" in
+        stable|prerelease|edge) ;;
+        *)
+            echo "Error: Unknown channel '$CHANNEL'. Valid: stable, prerelease, edge." >&2
+            exit 1
+            ;;
+    esac
+fi
 
 echo "StatBus Installer"
 echo "================="
@@ -76,113 +110,112 @@ case "$ARCH" in
     *)       echo "Unsupported architecture: $ARCH"; exit 1 ;;
 esac
 
-# Resolve version
+# Resolve version from --version or --channel.
+#
+# All non-edge paths end with $VERSION set to a v-tag that has a published
+# release binary at
+#   https://github.com/statisticsnorway/statbus/releases/download/$VERSION/sb-$OS-$ARCH
+# The edge path sets $VERSION to "sha-<short>" and builds from source
+# (see edge block further down — it doesn't use $BINARY_URL).
+STATBUS_DIR="${HOME}/statbus"
 if [ -n "$VERSION" ]; then
     echo "Installing specified version: $VERSION"
-elif [ "$PRERELEASE" = true ]; then
-    echo "Checking for latest verified pre-release..."
-
-    # Pick the latest release tag whose commit IS install-verified or
-    # an ANCESTOR of install-verified.
-    #
-    # `install-verified` is a moving git tag advanced by
-    # .github/workflows/install-verified.yaml to the latest master
-    # commit that passed BOTH ci-images.yaml AND install-test.yaml.
-    # Releases at install-verified's commit (or earlier) have been
-    # validated; releases at NEWER commits (descendants of
-    # install-verified) have NOT — their CI may still be running, or
-    # may have failed. Picking the latest verified-or-older release
-    # avoids the bootstrap trap of installing a freshly-tagged RC
-    # whose CI hasn't finished.
-    #
-    # We need ancestor information, which `git ls-remote` cannot
-    # provide. Use a bare blob-less local clone — fast (~MB-scale,
-    # seconds) since we don't pull file content, only commit/tree
-    # metadata. The clone is ephemeral; trap removes it on exit.
-    TMP_REF_REPO=$(mktemp -d -t statbus-resolver-XXXXXX)
-    trap 'rm -rf "$TMP_REF_REPO"' EXIT
-    if git clone --bare --filter=blob:none --quiet \
-            https://github.com/statisticsnorway/statbus.git "$TMP_REF_REPO" >/dev/null 2>&1; then
-        V_SHA=$(git -C "$TMP_REF_REPO" rev-parse install-verified 2>/dev/null) || V_SHA=""
-        if [ -n "$V_SHA" ]; then
-            # Walk RC tags newest-first by tag name. `--sort=-version:refname`
-            # works on standard CalVer/SemVer-shaped tags.
-            for TAG in $(git -C "$TMP_REF_REPO" tag -l 'v*' --sort=-version:refname); do
-                case "$TAG" in
-                    *-rc.*) ;;
-                    *) continue ;;
-                esac
-                R_SHA=$(git -C "$TMP_REF_REPO" rev-parse "$TAG^{commit}" 2>/dev/null) || continue
-                if git -C "$TMP_REF_REPO" merge-base --is-ancestor "$R_SHA" "$V_SHA" 2>/dev/null; then
-                    VERSION="$TAG"
-                    break
-                fi
-            done
-        fi
-    fi
-
-    if [ -n "$VERSION" ]; then
-        echo "Latest verified pre-release: $VERSION (commit $(git -C "$TMP_REF_REPO" rev-parse --short "$VERSION^{commit}") is install-verified or an ancestor; passed ci-images + install-test)"
-    else
-        echo "Note: install-verified ref unavailable or no RC ancestor of it — falling back to newest -rc."
-        # Fallback: fetch releases, extract RC tags, sort by CalVer +
-        # RC number numerically (sort -V isn't always available), pick
-        # the highest. UNVERIFIED — operator should know.
-        VERSION=$(curl -sL "https://api.github.com/repos/statisticsnorway/statbus/releases?per_page=50" 2>/dev/null \
-            | grep '"tag_name"' | cut -d'"' -f4 | grep '\-rc\.' \
-            | awk -F'[v.\\-]' '{print $2*1e8 + $3*1e6 + $4*1e4 + $6+0, $0}' \
-            | sort -n | tail -1 | awk '{print $2}') || true
-        if [ -z "$VERSION" ]; then
-            echo "Error: No pre-release found."
-            exit 1
-        fi
-        echo "Latest pre-release (UNVERIFIED — install-verified ref unavailable or no ancestor RC): $VERSION"
-    fi
-else
+elif [ "$CHANNEL" = "stable" ]; then
     echo "Checking for latest stable release..."
     VERSION=$(curl -sL https://api.github.com/repos/statisticsnorway/statbus/releases/latest 2>/dev/null \
         | grep '"tag_name"' | cut -d'"' -f4) || true
     if [ -z "$VERSION" ]; then
-        echo "Error: No stable release found."
-        echo "Options:"
-        echo "  --prerelease           Install the latest pre-release"
-        echo "  --version v2026.03.0   Install a specific version"
+        echo "Error: No stable release published." >&2
+        echo "Options:" >&2
+        echo "  --channel prerelease     Install the latest pre-release (v*-rc.*)" >&2
+        echo "  --channel edge           Install master HEAD (builds from source)" >&2
+        echo "  --version v2026.03.0     Install a specific tag" >&2
         exit 1
     fi
+    echo "Latest stable release: $VERSION"
+elif [ "$CHANNEL" = "prerelease" ]; then
+    echo "Checking for latest pre-release..."
+    # Extract newest v*-rc.* tag via the /releases API. Sort numerically
+    # by (year, month, patch, rc) to handle cross-month ordering without
+    # relying on sort -V being available.
+    VERSION=$(curl -sL "https://api.github.com/repos/statisticsnorway/statbus/releases?per_page=50" 2>/dev/null \
+        | grep '"tag_name"' | cut -d'"' -f4 | grep '\-rc\.' \
+        | awk -F'[v.\\-]' '{print $2*1e8 + $3*1e6 + $4*1e4 + $6+0, $0}' \
+        | sort -n | tail -1 | awk '{print $2}') || true
+    if [ -z "$VERSION" ]; then
+        echo "Error: No pre-release published." >&2
+        exit 1
+    fi
+    echo "Latest pre-release: $VERSION"
+elif [ "$CHANNEL" = "edge" ]; then
+    # Edge channel: clone master (no release tag to pin), version string
+    # becomes "sha-<short>". No release binary exists for arbitrary
+    # master commits — `go` must be installed locally so ./dev.sh
+    # build-sb can compile from source. Edge is the dev-oriented path;
+    # production operators use stable or prerelease.
+    if ! command -v go >/dev/null 2>&1; then
+        echo "Error: --channel edge requires 'go' to build from source." >&2
+        echo "  Install Go (https://go.dev/dl/), OR" >&2
+        echo "  Use --channel prerelease for a pre-built binary." >&2
+        exit 1
+    fi
+    if [ -d "$STATBUS_DIR/.git" ]; then
+        echo "Updating existing installation (edge: master HEAD)..."
+        cd "$STATBUS_DIR"
+        git fetch origin master
+        git checkout origin/master
+    else
+        echo "Cloning StatBus repository (edge: master)..."
+        git clone --branch master \
+            https://github.com/statisticsnorway/statbus.git "$STATBUS_DIR"
+        cd "$STATBUS_DIR"
+    fi
+    # Short-SHA length matches .env COMMIT_SHORT8 and release.yaml
+    # sha_short. Kept deliberately at 8 here so "sha-<short>" displays
+    # are consistent across all install-time tooling.
+    VERSION="sha-$(git rev-parse --short=8 HEAD)"
+    echo "Edge version: $VERSION"
+    echo "Building sb from source..."
+    ./dev.sh build-sb >/dev/null
+    echo "Binary: $(./sb --version)"
+    echo ""
+    # Edge path is fully resolved — skip the download-and-checkout
+    # block below by jumping straight to the post-install steps.
+    SKIP_BINARY_DOWNLOAD=1
 fi
 
-STATBUS_DIR="${HOME}/statbus"
 BINARY_URL="https://github.com/statisticsnorway/statbus/releases/download/${VERSION}/sb-${OS}-${ARCH}"
 
-# Download binary to temp file (avoids conflict with running daemon)
-echo "Downloading StatBus $VERSION for ${OS}/${ARCH}..."
-curl -fsSL "$BINARY_URL" -o "${HOME}/sb.tmp"
-chmod +x "${HOME}/sb.tmp"
+if [ -z "${SKIP_BINARY_DOWNLOAD:-}" ]; then
+    # Download binary to temp file (avoids conflict with running daemon)
+    echo "Downloading StatBus $VERSION for ${OS}/${ARCH}..."
+    curl -fsSL "$BINARY_URL" -o "${HOME}/sb.tmp"
+    chmod +x "${HOME}/sb.tmp"
 
-if [ -d "$STATBUS_DIR/.git" ]; then
-    # RESCUE: directory exists from previous install
-    echo "Updating existing installation..."
-    mv "${HOME}/sb.tmp" "${STATBUS_DIR}/sb"
-    cd "$STATBUS_DIR"
-    echo "Binary: $(./sb --version)"
-    echo ""
-    echo "Checking out $VERSION..."
-    # --force: CI advances moving tags (install-verified, install-certified)
-    # on every green build. Without --force, git rejects the fetch when a
-    # tag ref has moved forward — seen on rune rc.60 (exit 1 at this line).
-    # No --quiet: same rationale as checkout below — silent failures hid the
-    # root cause on rune rc.59; let both fetch and checkout speak for themselves.
-    git fetch origin --tags --force
-    git checkout "$VERSION"
-else
-    # FRESH: git clone creates the directory
-    echo "Cloning StatBus repository..."
-    git clone --depth 1 --branch "$VERSION" \
-        https://github.com/statisticsnorway/statbus.git "$STATBUS_DIR"
-    mv "${HOME}/sb.tmp" "${STATBUS_DIR}/sb"
-    cd "$STATBUS_DIR"
-    echo "Binary: $(./sb --version)"
-    echo ""
+    if [ -d "$STATBUS_DIR/.git" ]; then
+        # RESCUE: directory exists from previous install
+        echo "Updating existing installation..."
+        mv "${HOME}/sb.tmp" "${STATBUS_DIR}/sb"
+        cd "$STATBUS_DIR"
+        echo "Binary: $(./sb --version)"
+        echo ""
+        echo "Checking out $VERSION..."
+        # No --force, no --quiet. install-verified moving tag was deleted
+        # in rc.62; there is no moving tag to force past anymore. Silent
+        # failures hid rune's rc.59 / rc.60 root causes — let fetch and
+        # checkout print their own errors.
+        git fetch origin --tags
+        git checkout "$VERSION"
+    else
+        # FRESH: git clone creates the directory
+        echo "Cloning StatBus repository..."
+        git clone --depth 1 --branch "$VERSION" \
+            https://github.com/statisticsnorway/statbus.git "$STATBUS_DIR"
+        mv "${HOME}/sb.tmp" "${STATBUS_DIR}/sb"
+        cd "$STATBUS_DIR"
+        echo "Binary: $(./sb --version)"
+        echo ""
+    fi
 fi
 
 # Clear any stale terminal file from a prior failed run so the banner below

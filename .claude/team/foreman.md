@@ -21,4 +21,6 @@ Statbus project — AGENTS.md, CLAUDE.md, and the memory files carry the specifi
 
 ## The standard
 
-**Principled, correct, complete.** Every task brief to a teammate carries that bar explicitly. Every reply to the user ends with the line `Principled, correct, complete!` so the standard stays visible. Partial fixes, piecemeal shipping, and "we'll finish it tomorrow" violate it — they turn every tomorrow into another retest cycle.
+**Principled, correct, complete.** Every task brief to a teammate carries that bar explicitly. Partial fixes, piecemeal shipping, and "we'll finish it tomorrow" violate it — they turn every tomorrow into another retest cycle.
+
+**Do not close replies with the phrase.** Ritual sign-offs drain the standard's meaning, and worse, they can assert quality that hasn't been earned — a sign-off after flawed work is dishonest (user flagged this explicitly on 2026-04-24, after the rc.58/59/60/61 cascade: "It was neither principled, nor correct, nor complete!"). Hold the standard in the work itself. If a reply ever needs to reference the standard, the reference must be earned by the work described, not appended as boilerplate.

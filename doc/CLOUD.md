@@ -776,7 +776,7 @@ The high-level shape (concrete walkthrough belongs in the per-host bootstrap pla
 
 1. Provision the box. Install Ubuntu 24.04 LTS with the desired filesystem (mdadm RAID where applicable; XFS recommended for `/`).
 2. Run `ops/setup-ubuntu-lts-24.sh` as root/sudo — creates `devops` + `statbus` accounts, hardens OS. `SKIP_STAGES="0"` if the network allows HTTP.
-3. Bootstrap StatBus as the service account: `ssh statbus@<host>` then `curl -fsSL https://statbus.org/install.sh | bash -s -- --prerelease`.
+3. Bootstrap StatBus as the service account: `ssh statbus@<host>` then `curl -fsSL https://statbus.org/install.sh | bash -s -- --channel prerelease`.
 4. Author `.env.config` with `CADDY_DEPLOYMENT_MODE=standalone`, `SITE_DOMAIN=<the public domain>`, `UPGRADE_CHANNEL=prerelease`, plus `SEQ_API_KEY` / `SLACK_TOKEN` copied from an existing instance for observability continuity.
 5. Add a `.github/workflows/deploy-to-<host>-<slot>.yaml` and `master-to-<host>-<slot>.yaml` pair, modeled on `deploy-to-rune-no.yaml` and `master-to-rune-no.yaml`. Branch name: `ops/standalone/deploy/<host>-<slot>`. SSH target `statbus@<host>.<domain>`.
 6. The existing repo `SSH_KEY` pubkey is already populated in `statbus`'s `authorized_keys` by `setup.sh` Stage 7 from the `GITHUB_USERS` list — no extra step needed if those users own the deploy key too.

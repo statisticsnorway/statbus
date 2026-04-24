@@ -190,7 +190,7 @@ After installation, follow the on-screen instructions to configure and start STA
 > **If the server already has an upgrade service running**, stop it before re-invoking the installer, or use `./cloud.sh install <server>` which handles this automatically. `./sb install` refuses to proceed if an orchestrated upgrade is in flight (see [install-mutex.md](install-mutex.md)).
 > ```bash
 > systemctl --user stop 'statbus-upgrade@*.service'
-> curl -fsSL https://statbus.org/install.sh | bash -s -- --prerelease
+> curl -fsSL https://statbus.org/install.sh | bash -s -- --channel prerelease
 > ```
 
 ### Manual Installation Steps

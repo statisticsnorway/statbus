@@ -24,7 +24,7 @@ group access. That user is what you'll install StatBus under.
 ssh statbus@<your-host>
 
 # Install and configure (clones the repo and runs ./sb install end to end):
-curl -fsSL https://statbus.org/install.sh | bash -s -- --prerelease
+curl -fsSL https://statbus.org/install.sh | bash -s -- --channel prerelease
 ```
 
 If you prefer to do it by hand instead of the bootstrap script:
@@ -111,7 +111,7 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed configuration options.
 For fresh-server and rescue installs, StatBus also exposes a single-command bootstrap:
 
 ```bash
-curl -fsSL https://statbus.org/install.sh | bash -s -- --prerelease
+curl -fsSL https://statbus.org/install.sh | bash -s -- --channel prerelease
 ```
 
 ### Where the script source lives
@@ -138,32 +138,44 @@ marketing site content stayed in `statbus-web`.)
 The redirect always points at `master`, so the served script is whatever
 is committed to master at the moment the operator runs `curl`.
 
-### How `--prerelease` picks a version
+### Channels
 
-`install.sh --prerelease` resolves a release tag in this order:
+`install.sh` resolves a version via one of three channels, selected by
+`--channel <name>` (default: `stable`). Channels are the organizing
+principle: there is no moving git tag mediating the resolver. Each
+channel has a well-defined, independent resolver path.
 
-1. **install-verified ancestor walk** — `install-verified` is a
-   moving git tag advanced by `.github/workflows/install-verified.yaml`
-   to the latest master commit that passed BOTH `ci-images.yaml` AND
-   `install-test.yaml`. The resolver does a bare blob-less clone of
-   the repo (~1-2 s, no file content), then walks RC release tags
-   newest-first (`git tag --sort=-version:refname`) and picks the
-   **first whose commit is install-verified itself OR an ancestor
-   of it**. This avoids the bootstrap trap where install-verified is
-   at commit A (its CI passed) while a newer release tag exists at
-   commit B (its CI hasn't finished — picking B would defeat the
-   verification gate). Logged as
-   `Latest verified pre-release: <ver> (commit <short> is install-verified or an ancestor; ...)`.
-2. **Fallback** — if `install-verified` is unavailable (clone failed,
-   ref missing) or no RC tag is an ancestor of it, fall back to
-   "newest `-rc.` tag by CalVer + RC number sort". Logged as
-   `Latest pre-release (UNVERIFIED — install-verified ref unavailable or no ancestor RC): <ver>`.
-3. **`--version v<X>`** — if the operator passes an explicit version,
-   honour it as-is (no resolver detour, no validation against
-   install-verified). Use this only when you know what you're doing.
+| Channel      | Resolver                                              | Binary source           |
+|--------------|-------------------------------------------------------|-------------------------|
+| `stable`     | GitHub `/releases/latest` (excludes prereleases)      | Release artifact        |
+| `prerelease` | Newest `v*-rc.*` via `/releases?per_page=50`          | Release artifact        |
+| `edge`       | `master` HEAD; version string becomes `sha-<short>`   | Built from source (`./dev.sh build-sb`, requires `go`) |
 
-Operators reading the install log can tell from the `Latest verified`
-vs `UNVERIFIED` line which path was taken.
+Explicit override:
+
+- **`--version vX.Y.Z`** — skip channel resolution and install the
+  exact tag. Useful for rollbacks or repeated deterministic installs.
+
+Rationale for the shape:
+
+- **No moving tags.** The `install-verified` tag approach (rc.41-rc.61)
+  coupled CI pipeline outcomes to install-time resolver logic, and
+  needed `--force` on every consumer's `git fetch` to handle the tag
+  being moved. Deleted in rc.62. Channels replace it: each one resolves
+  independently from real release metadata, nothing forces tags over.
+- **No `--force` anywhere in the installer toolchain.** Silent
+  failures previously hid rune's rc.59/rc.60 root causes. Every
+  `git fetch --tags` in `install.sh`, `cloud.sh`, and
+  `cli/internal/upgrade/github.go` runs without `--force` so operators
+  see the real error.
+- **Stable is the default** so a bare `curl … | bash` with no flags
+  gets the most conservative track.
+
+Migration note (rc.62): `--prerelease` was renamed to
+`--channel prerelease`. The old flag now prints an error message
+pointing at the new form and exits 1. `cloud.sh` and `standalone.sh`
+were updated in the same commit, so operator workflows that shell out
+to those scripts continue working without change.
 
 ### Updating install.sh
 
@@ -181,7 +193,7 @@ To update a live server without tripping the mutex, stop the upgrade service fir
 
 ```bash
 systemctl --user stop 'statbus-upgrade@*.service'
-curl -fsSL https://statbus.org/install.sh | bash -s -- --prerelease
+curl -fsSL https://statbus.org/install.sh | bash -s -- --channel prerelease
 ```
 
 `./cloud.sh install <server>` does this automatically for both edge and release channels. Fresh installs on a brand-new server have no running service to conflict with.

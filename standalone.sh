@@ -227,10 +227,10 @@ cmd_install_one() {
             echo "--- Release artifacts not ready. Retry in ~5 minutes. ---"
             return 1
         fi
-        echo "Installing $name via $INSTALL_URL (--prerelease) ..."
+        echo "Installing $name via $INSTALL_URL (--channel prerelease) ..."
         stop_upgrade_service "$name"
         ssh_host "$name" \
-            "curl -fsSL ${INSTALL_URL} | bash -s -- --prerelease $(trust_flag "$resolved_trust_user")" 2>&1 \
+            "curl -fsSL ${INSTALL_URL} | bash -s -- --channel prerelease $(trust_flag "$resolved_trust_user")" 2>&1 \
             || exit_code=$?
     fi
 

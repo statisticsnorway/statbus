@@ -8,7 +8,7 @@ name: Install Test
 #   2. `./sb install` + `docker compose --profile all up` — the application
 #      stack reaches a healthy state with the upgrade table present.
 # Runs on push to master AND on workflow_dispatch. Also runs on schedule
-# (daily) so moving-ref consumers (install-verified) stay reasonably fresh.
+# (daily) to catch drift in the install path that master-only triggers would miss.
 on:
   push:
     branches: [master]
@@ -131,15 +131,13 @@ jobs:
     # Exercise install.sh end-to-end against a pinned version. install.sh is
     # the public bootstrap (curl -fsSL https://statbus.org/install.sh | bash)
     # whose pre-./sb-install logic — binary download + version pinning + git
-    # clone — was previously NEVER CI-tested. install-verified gates on
-    # install-test, so without this job changes to install.sh could pass
-    # install-verified despite breaking the bootstrap. Discovered 2026-04-22
-    # during the rc.44/rc.45 cycle.
+    # clone — was previously NEVER CI-tested. Discovered 2026-04-22 during
+    # the rc.44/rc.45 cycle.
     #
-    # We test the --version path (pre-./sb-install logic). The --prerelease
-    # resolver path is exercised by tests/units in install.sh's caller; a
-    # future iteration of this job can add a matrix dimension for
-    # --prerelease + --prerelease-with-forced-fallback once stable.
+    # We test the --version path (pre-./sb-install logic). The --channel
+    # resolver paths (stable / prerelease / edge) are exercised by tests/units
+    # in install.sh's caller; a future iteration of this job can add a matrix
+    # dimension across channels once stable.
     #
     # ./sb install in fresh non-interactive mode will fail (no config) and
     # that's expected — install.sh's `|| true` swallows it. We assert on

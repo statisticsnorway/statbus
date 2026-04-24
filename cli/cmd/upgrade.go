@@ -383,8 +383,9 @@ RETURNING commit_sha, tags[1]`
 }
 
 // calVerRe matches a CalVer version string with or without a leading "v"
-// (e.g. "2026.04.0-rc.56" or "v2026.04.0-rc.56"). Moving git tags such as
-// "install-verified" or "install-certified" do NOT match and must be rejected.
+// (e.g. "2026.04.0-rc.56" or "v2026.04.0-rc.56"). Anything that doesn't
+// match (stray non-CalVer git tags, "dev", "sha-<short>", etc.) is rejected
+// and handled by the default branch below.
 var calVerRe = regexp.MustCompile(`^\d{4}\.\d{2}`)
 
 var upgradeServiceRunE = func(cmd *cobra.Command, args []string) error {
@@ -394,8 +395,8 @@ var upgradeServiceRunE = func(cmd *cobra.Command, args []string) error {
 	//   1. "dev" ldflag  → sha-<commit> or "dev" (skips downgrade guard)
 	//   2. Already has "v" prefix → use as-is (CalVer from release.yaml)
 	//   3. Matches CalVer digits (YYYY.MM…) → prepend "v"
-	//   4. Anything else (moving tags like "install-verified") → sha-<commit> or "dev"
-	//      so the downgrade guard treats it as an unversioned local build.
+	//   4. Anything else → sha-<commit> or "dev", so the downgrade guard
+	//      treats it as an unversioned local build.
 	var serviceVersion string
 	switch {
 	case version == "dev":
@@ -409,7 +410,7 @@ var upgradeServiceRunE = func(cmd *cobra.Command, args []string) error {
 	case calVerRe.MatchString(version):
 		serviceVersion = "v" + version
 	default:
-		// Non-CalVer ldflag (e.g. moving tag "install-verified") — treat as local build.
+		// Non-CalVer ldflag (stray tag, hand-built binary, etc.) — treat as local build.
 		if commit != "unknown" {
 			serviceVersion = "sha-" + commit
 		} else {

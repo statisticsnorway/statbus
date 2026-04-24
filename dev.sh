@@ -46,7 +46,9 @@ if [ "$sb_needs_rebuild" = true ]; then
         echo "Building sb from source..."
         # Inject version from git describe. Strip "v" prefix to match release.yaml
         # convention — service.go adds "v" back, avoiding double-v.
-        # --match 'v[0-9]*' ensures moving tags (install-verified, etc.) are never picked.
+        # --match 'v[0-9]*' restricts git describe to release tags. The moving
+        # install-verified tag was deleted in rc.62; this filter remains as
+        # defense against any stray non-release tags landing in the refs/tags/ space.
         _SB_VERSION=$(git describe --tags --always --match 'v[0-9]*' 2>/dev/null | sed 's/^v//' || echo "dev")
         # Full 40-char SHA for cmd.commit ldflag — equality-compared against
         # public.upgrade.commit_sha in the upgrade service's ground-truth

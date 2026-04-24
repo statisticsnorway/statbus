@@ -2766,8 +2766,8 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// Downgrade protection: refuse to apply an older version than currently running.
 	// Downgrades require restoring from backup instead.
 	// Only applies when both displayName and d.version are valid CalVer strings.
-	// Non-CalVer d.version (e.g. a moving tag like "vinstall-verified" from a dev
-	// build) would produce a nonsense comparison, so we skip the guard entirely.
+	// Non-CalVer d.version (stray tag, hand-built binary, etc.) would produce
+	// a nonsense comparison, so we skip the guard entirely.
 	if !strings.HasPrefix(displayName, "sha-") && !strings.HasPrefix(d.version, "sha-") &&
 		d.version != "dev" && ValidateVersion(d.version) {
 		if CompareVersions(displayName, d.version) < 0 {

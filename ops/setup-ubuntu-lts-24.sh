@@ -1145,7 +1145,7 @@ main() {
     echo "  1. Log in as '${SERVICE_USER:-statbus}' and verify SSH key access"
     echo "  2. Run the StatBus installer as that user:"
     echo "       ssh ${SERVICE_USER:-statbus}@\$(hostname --fqdn)"
-    echo "       curl -fsSL https://statbus.org/install.sh | bash -s -- --prerelease"
+    echo "       curl -fsSL https://statbus.org/install.sh | bash -s -- --channel prerelease"
     echo "  3. (ops) Log in as 'devops' for host administration tasks"
     echo "  4. Review CrowdSec with: cscli metrics"
     echo "  5. Check firewall status with: ufw status"

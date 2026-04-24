@@ -455,7 +455,10 @@ cmd_install_one() {
         if [ -n "$version" ]; then
             echo "Installing $server (edge — pinned to $version)..."
             # Pinned edge: checkout the specified tag and download its release binary.
-            ssh_server "$server" "cd statbus && git fetch origin --tags --force --quiet && git checkout $version --quiet" 2>&1 \
+            # No --force, no --quiet: install-verified moving tag was deleted
+            # in rc.62, so there's nothing to force past. Silent failures
+            # previously hid rune's rc.59/rc.60 root causes — let git print.
+            ssh_server "$server" "cd statbus && git fetch origin --tags && git checkout $version" 2>&1 \
                 || { echo "--- $server FAILED: git fetch/checkout $version (exit $?) ---"; \
                      ensure_service_started "$server"; return 1; }
             echo "Downloading release binary for $version..."
@@ -468,7 +471,8 @@ cmd_install_one() {
             # Edge: pull latest master. If HEAD is a tagged release with a
             # published binary, download it (faster, no Go toolchain needed).
             # Otherwise fall back to building from source.
-            ssh_server "$server" "cd statbus && git fetch origin master --tags --force --quiet && git checkout origin/master --quiet" 2>&1 \
+            # No --force, no --quiet (see rc.62 rationale above).
+            ssh_server "$server" "cd statbus && git fetch origin master --tags && git checkout origin/master" 2>&1 \
                 || { echo "--- $server FAILED: git fetch/checkout master (exit $?) ---"; \
                      ensure_service_started "$server"; return 1; }
             # Check if HEAD is a tagged release with a downloadable binary.
@@ -542,7 +546,7 @@ cmd_install_one() {
             # Step 1: Run install.sh as the app user.
             # Exit code 42 = service needs root (not a failure).
             ssh_server "$server" \
-                "curl -fsSL ${INSTALL_URL} | bash -s -- --prerelease $(trust_flag "$resolved_trust_user")" 2>&1 \
+                "curl -fsSL ${INSTALL_URL} | bash -s -- --channel prerelease $(trust_flag "$resolved_trust_user")" 2>&1 \
                 || exit_code=$?
         fi
     fi

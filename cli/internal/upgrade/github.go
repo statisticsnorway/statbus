@@ -319,7 +319,10 @@ type GitTag struct {
 func DiscoverTagsViaGit(projDir string) ([]GitTag, error) {
 	// Fetch latest tags from remote, pruning tags deleted upstream.
 	// Without --prune-tags, deleted tags persist locally forever.
-	if err := runCommand(projDir, "git", "fetch", "--tags", "--prune-tags", "--force", "--quiet"); err != nil {
+	// No --force: install-verified was deleted in rc.62, so there is no
+	// moving tag to force-overwrite locally. A force here would have
+	// hidden rune's rc.59/rc.60 root causes.
+	if err := runCommand(projDir, "git", "fetch", "--tags", "--prune-tags"); err != nil {
 		return nil, fmt.Errorf("git fetch --tags: %w", err)
 	}
 

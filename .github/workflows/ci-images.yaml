@@ -9,12 +9,9 @@ name: CI Images
 #
 # Tag-parity contract: a single `describe` job computes
 # `git describe --tags --always` once and feeds it to all per-arch
-# build jobs AND the manifest job. Without this, the moving
-# `install-verified` tag (advanced by install-verified.yaml) could race
-# with the ci-images build — amd64 finishing before the move and arm64
-# finishing after, producing two different describe tags. The manifest
-# step would then look for `install-verified-N-g<sha>-arm64` against an
-# image that was pushed under the prior tag, and fail.
+# build jobs AND the manifest job. This guarantees that amd64 and
+# arm64 builds carry identical tags so the manifest merge step finds
+# both architectures under the same reference.
 on:
   push:
     branches: [master]
@@ -41,7 +38,7 @@ jobs:
       - id: compute
         # Computed ONCE here, then propagated to every build/manifest job
         # via needs.describe.outputs.tag — guarantees per-arch tag parity
-        # even if the moving install-verified tag advances mid-workflow.
+        # across all build shards.
         run: |
           TAG=$(git describe --tags --always)
           echo "Computed describe tag: $TAG"
