@@ -1,0 +1,174 @@
+-- Test: schema-skew between rc.63 binary and rc.62 schema.
+--
+-- Background (demo failure 2026-04-25):
+--   Migration 20260424160235_commit_canonical_naming renamed three columns
+--   on public.upgrade: version → commit_version, from_version →
+--   from_commit_version, tags → commit_tags. The rc.63 Go binary issues
+--   ~23 SELECT/INSERT/UPDATE statements against those new column names
+--   (cli/internal/upgrade/service.go). When the daemon boots against a
+--   schema where the migration has NOT yet been applied, every such
+--   query fails with SQLSTATE 42703 (undefined_column).
+--
+-- This test demonstrates the failure surface at the SQL layer:
+--   PART A: With the old (rc.62) schema in place, the rc.63-style queries
+--           the service issues are rejected with 42703.
+--   PART B: After applying the rename migration, the same queries succeed.
+--
+-- The structural fix (boot-time `./sb migrate up` in cli/internal/upgrade
+-- service Run() and cli/cmd/install_upgrade.go runCrashRecovery) guarantees
+-- the schema is at HEAD before any service-level query runs — i.e. the
+-- precondition exercised by PART B is always met. This test is the
+-- SQL-level reproducer for the bug; the Go-side fix is reviewed
+-- separately. Both parts must show the expected behaviour for the fix
+-- to be sound.
+--
+-- Shared-test harness: wrap in BEGIN/ROLLBACK for cloned-template isolation.
+BEGIN;
+\echo '=== Part A: revert schema to rc.62 (apply down migration in-line) ==='
+=== Part A: revert schema to rc.62 (apply down migration in-line) ===
+-- 1. Restore column names. Mirrors migrations/20260424160235_commit_canonical_naming.down.sql.
+ALTER TABLE public.upgrade RENAME COLUMN commit_tags         TO tags;
+ALTER TABLE public.upgrade RENAME COLUMN from_commit_version TO from_version;
+ALTER TABLE public.upgrade RENAME COLUMN commit_version      TO version;
+-- 2. Refresh dependent objects so the schema is internally consistent.
+DROP FUNCTION IF EXISTS public.display_name(public.upgrade);
+CREATE FUNCTION public.display_name(u public.upgrade)
+RETURNS text LANGUAGE sql STABLE AS $display_name$
+  SELECT COALESCE(
+    (SELECT t FROM unnest(u.tags) AS t WHERE t NOT LIKE '%-%' LIMIT 1),
+    u.tags[array_upper(u.tags, 1)],
+    'sha-' || left(u.commit_sha, 12)
+  );
+$display_name$;
+CREATE OR REPLACE FUNCTION public.upgrade_family(u public.upgrade)
+RETURNS text LANGUAGE sql IMMUTABLE AS $upgrade_family$
+    SELECT public.version_family(COALESCE(
+        (SELECT t FROM unnest(u.tags) AS t WHERE t NOT LIKE '%-%' LIMIT 1),
+        u.tags[array_upper(u.tags, 1)]
+    ))
+$upgrade_family$;
+\echo '=== Part A: confirm columns are at rc.62 names ==='
+=== Part A: confirm columns are at rc.62 names ===
+SELECT column_name
+  FROM information_schema.columns
+ WHERE table_schema = 'public'
+   AND table_name = 'upgrade'
+   AND column_name IN ('version', 'from_version', 'tags',
+                       'commit_version', 'from_commit_version', 'commit_tags')
+ ORDER BY column_name;
+ column_name  
+--------------
+ from_version
+ tags
+ version
+(3 rows)
+
+\echo '=== Part A: rc.63 service queries fail with SQLSTATE 42703 ==='
+=== Part A: rc.63 service queries fail with SQLSTATE 42703 ===
+-- Demo Error 1: recoveryRollback (cli/internal/upgrade/service.go:1776).
+-- SELECT from_commit_version FROM public.upgrade WHERE id = $1
+SAVEPOINT sp_err1;
+\set ON_ERROR_STOP off
+SELECT from_commit_version FROM public.upgrade WHERE id = 1;
+ERROR:  column "from_commit_version" does not exist
+LINE 1: SELECT from_commit_version FROM public.upgrade WHERE id = 1;
+               ^
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT sp_err1;
+-- Demo Error 2: discovery INSERT (cli/internal/upgrade/service.go:2412).
+-- INSERT INTO public.upgrade (commit_sha, committed_at, commit_tags, ...,
+--                             commit_version) VALUES (...)
+SAVEPOINT sp_err2;
+\set ON_ERROR_STOP off
+INSERT INTO public.upgrade (commit_sha, committed_at, commit_tags,
+                            release_status, summary, has_migrations,
+                            commit_version)
+VALUES (lpad(to_hex(999), 40, '0'), now(), ARRAY['fixture-tag'],
+        'commit', 'fixture-summary', false, 'fixture-version');
+ERROR:  column "commit_tags" of relation "upgrade" does not exist
+LINE 1: ...RT INTO public.upgrade (commit_sha, committed_at, commit_tag...
+                                                             ^
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT sp_err2;
+-- Pre-rc.63 callers (using the old column names) still work — proves the
+-- schema is genuinely at the old shape, not a phantom failure.
+\echo '=== Part A: rc.62 queries succeed against rc.62 schema ==='
+=== Part A: rc.62 queries succeed against rc.62 schema ===
+INSERT INTO public.upgrade (commit_sha, committed_at, tags,
+                            release_status, summary, has_migrations,
+                            version)
+VALUES (lpad(to_hex(999), 40, '0'), now(), ARRAY['fixture-tag'],
+        'commit', 'fixture-summary', false, 'fixture-version');
+SELECT commit_sha, version, tags, release_status, state
+  FROM public.upgrade
+ WHERE commit_sha = lpad(to_hex(999), 40, '0');
+                commit_sha                |     version     |     tags      | release_status |   state   
+------------------------------------------+-----------------+---------------+----------------+-----------
+ 00000000000000000000000000000000000003e7 | fixture-version | {fixture-tag} | commit         | available
+(1 row)
+
+\echo '=== Part B: re-apply the rename migration to bring schema to HEAD ==='
+=== Part B: re-apply the rename migration to bring schema to HEAD ===
+-- Mirrors migrations/20260424160235_commit_canonical_naming.up.sql sections 1, 3, 3b.
+ALTER TABLE public.upgrade RENAME COLUMN version      TO commit_version;
+ALTER TABLE public.upgrade RENAME COLUMN from_version TO from_commit_version;
+ALTER TABLE public.upgrade RENAME COLUMN tags         TO commit_tags;
+DROP FUNCTION IF EXISTS public.display_name(public.upgrade);
+CREATE FUNCTION public.display_name(u public.upgrade)
+RETURNS text LANGUAGE sql STABLE AS $display_name$
+  SELECT COALESCE(
+    (SELECT t FROM unnest(u.commit_tags) AS t WHERE t NOT LIKE '%-%' LIMIT 1),
+    u.commit_tags[array_upper(u.commit_tags, 1)],
+    left(u.commit_sha, 8)
+  );
+$display_name$;
+CREATE OR REPLACE FUNCTION public.upgrade_family(u public.upgrade)
+RETURNS text LANGUAGE sql IMMUTABLE AS $upgrade_family$
+    SELECT public.version_family(COALESCE(
+        (SELECT t FROM unnest(u.commit_tags) AS t WHERE t NOT LIKE '%-%' LIMIT 1),
+        u.commit_tags[array_upper(u.commit_tags, 1)]
+    ))
+$upgrade_family$;
+\echo '=== Part B: confirm columns are at rc.63 names ==='
+=== Part B: confirm columns are at rc.63 names ===
+SELECT column_name
+  FROM information_schema.columns
+ WHERE table_schema = 'public'
+   AND table_name = 'upgrade'
+   AND column_name IN ('version', 'from_version', 'tags',
+                       'commit_version', 'from_commit_version', 'commit_tags')
+ ORDER BY column_name;
+     column_name     
+---------------------
+ commit_tags
+ commit_version
+ from_commit_version
+(3 rows)
+
+\echo '=== Part B: rc.63 service queries succeed ==='
+=== Part B: rc.63 service queries succeed ===
+-- The same SELECT that fired Demo Error 1 — no error this time.
+SELECT count(*) AS rows_with_from_commit_version_visible
+  FROM public.upgrade WHERE id = 1 OR from_commit_version IS NOT NULL;
+ rows_with_from_commit_version_visible 
+---------------------------------------
+                                     1
+(1 row)
+
+-- The same INSERT that fired Demo Error 2 — succeeds.
+INSERT INTO public.upgrade (commit_sha, committed_at, commit_tags,
+                            release_status, summary, has_migrations,
+                            commit_version)
+VALUES (lpad(to_hex(998), 40, '0'), now(), ARRAY['fixture-tag-998'],
+        'commit', 'fixture-summary-998', false, 'fixture-version-998');
+SELECT commit_sha, commit_version, commit_tags, release_status, state
+  FROM public.upgrade
+ WHERE commit_sha = lpad(to_hex(998), 40, '0');
+                commit_sha                |   commit_version    |    commit_tags    | release_status |   state   
+------------------------------------------+---------------------+-------------------+----------------+-----------
+ 00000000000000000000000000000000000003e6 | fixture-version-998 | {fixture-tag-998} | commit         | available
+(1 row)
+
+\echo '=== Done ==='
+=== Done ===
+ROLLBACK;

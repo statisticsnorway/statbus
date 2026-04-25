@@ -134,6 +134,15 @@ func runCrashRecovery(projDir string) error {
 		return fmt.Errorf("ensure DB up for crash recovery: %w", err)
 	}
 
+	// Schema-skew guard (rc.65 structural fix). Mirrors Service.Run() —
+	// bring the schema to HEAD before any RecoverFromFlag query touches
+	// public.upgrade. Without this, recoveryRollback's SELECT on a
+	// renamed column (rc.63 commit_canonical_naming migration) fires
+	// SQLSTATE 42703 against an unmigrated schema. Idempotent.
+	if err := runCmdDir(projDir, sb, "migrate", "up", "--verbose"); err != nil {
+		return fmt.Errorf("crash recovery: boot migrate up: %w", err)
+	}
+
 	if err := svc.LoadConfigAndConnect(ctx); err != nil {
 		return fmt.Errorf("load upgrade config: %w", err)
 	}

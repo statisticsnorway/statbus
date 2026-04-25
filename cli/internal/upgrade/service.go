@@ -1335,21 +1335,39 @@ func (d *Service) Run(ctx context.Context) error {
 		return err
 	}
 
-	// Post-swap recovery guard. If the prior process image exited 42 after
-	// stamping Phase=post_swap, the DB container is intentionally stopped
-	// (applyPostSwap step 2 stopped it for the consistent backup; step 9
-	// on the new binary is what restarts it). connect() here would fail
-	// against that stopped DB and systemd would loop-restart us before
-	// recoverFromFlag → resumePostSwap → applyPostSwap ever runs. Pre-start
-	// the DB so connect() succeeds and the recovery pipeline proceeds.
-	// Idempotent: a no-op when the DB is already up (non-post-swap path).
+	// Pre-flight: ensure DB is up. Idempotent (no-op when already up).
+	// Always run — covers both the normal-boot path and the post-swap
+	// recovery path where the prior process image exited 42 after stamping
+	// Phase=post_swap and intentionally stopped the DB (applyPostSwap step 2
+	// for the consistent backup). Without this pre-start, connect() would
+	// fail against the stopped DB and systemd would loop-restart us before
+	// recoverFromFlag → resumePostSwap → applyPostSwap ever runs.
 	if flag, _, ferr := ReadFlagFile(d.projDir); ferr == nil && flag != nil &&
 		flag.Holder == HolderService && flag.Phase == FlagPhasePostSwap {
 		fmt.Printf("Post-swap flag detected at startup — ensuring DB is up before connecting (upgrade id=%d, target=%s)\n",
 			flag.ID, flag.Label())
-		if err := d.EnsureDBUp(ctx); err != nil {
-			return fmt.Errorf("post-swap recovery: ensure DB up: %w", err)
-		}
+	}
+	if err := d.EnsureDBUp(ctx); err != nil {
+		return fmt.Errorf("ensure DB up: %w", err)
+	}
+
+	// Schema-skew guard (rc.65 structural fix). The binary's column-name
+	// expectations must match the running schema before any service-level
+	// query touches public.upgrade. Run `./sb migrate up` to bring the
+	// schema to HEAD; idempotent — a no-op when already current.
+	//
+	// Background: rc.63 renamed three columns (version → commit_version,
+	// from_version → from_commit_version, tags → commit_tags). When a new
+	// binary boots against an unmigrated schema, ~23 SELECT/INSERT/UPDATE
+	// sites in this file fail with SQLSTATE 42703. Rather than scatter
+	// per-site compat shims, we migrate forward at boot. If migrate up
+	// itself fails, refuse to enter the loop — operator must fix the
+	// migration or restore the DB from backup.
+	if err := runCommandToLog(d.projDir, 5*time.Minute, io.Discard, "boot-migrate-up",
+		filepath.Join(d.projDir, "sb"), "migrate", "up", "--verbose"); err != nil {
+		d.markTerminal("BOOT_MIGRATE_UP_FAILED",
+			fmt.Sprintf("./sb migrate up at boot failed: %v; service refuses to enter the loop on a stale schema", err))
+		return fmt.Errorf("boot migrate up: %w", err)
 	}
 
 	if err := d.connect(ctx); err != nil {
@@ -3445,22 +3463,20 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	return nil
 }
 
-// isMissingColumnError returns true when err is a PostgreSQL SQLSTATE 42703
-// (undefined_column), indicating a schema-skew between the running binary's
-// expected columns and the database's current schema.
-func isMissingColumnError(err error) bool {
-	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.Code == "42703"
-}
-
 // resumePostSwap re-enters the upgrade pipeline in the new binary after a
 // mid-flow exit-42 restart. Called from recoverFromFlag when the flag's
 // Phase is FlagPhasePostSwap.
 //
 // Recovers state from: flag (CommitSHA, CommitTags, BackupPath, Recreate,
-// InvokedBy, Trigger, ID) and DB row (from_version, log_relative_file_path).
-// Then re-acquires the flock (prior process died, kernel released it),
-// reopens the progress log in append mode, and calls applyPostSwap.
+// InvokedBy, Trigger, ID) and DB row (from_commit_version,
+// log_relative_file_path). Then re-acquires the flock (prior process died,
+// kernel released it), reopens the progress log in append mode, and calls
+// applyPostSwap.
+//
+// Schema-skew note: the SELECT below uses the rc.63 column name
+// `from_commit_version`. The boot-time `./sb migrate up` in Service.Run()
+// guarantees the schema is at HEAD before resumePostSwap is reached, so no
+// per-site compat shim is needed for renamed columns.
 //
 // Control returns to Run() after applyPostSwap completes. If applyPostSwap
 // fails, rollback() has already run inside it.
@@ -3471,24 +3487,10 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) {
 		"SELECT from_commit_version, log_relative_file_path FROM public.upgrade WHERE id = $1", flag.ID).
 		Scan(&fromVersion, &logRelPath)
 	if err != nil {
-		if isMissingColumnError(err) {
-			// Schema skew: migration 20260424160235 (commit_version column rename)
-			// not yet applied. Retry with legacy column name.
-			// Recovery path: needsPostSwapRollback will fire (new binary ≠ flag target),
-			// rollback clears the flag, then step-table migrate up applies the migration.
-			fmt.Fprintf(os.Stderr,
-				"resumePostSwap: SCHEMA_SKEW_DETECTED id=%d: from_commit_version absent, "+
-				"retrying with from_version; migration 20260424160235 pending\n", flag.ID)
-			err = d.queryConn.QueryRow(ctx,
-				"SELECT from_version, log_relative_file_path FROM public.upgrade WHERE id = $1", flag.ID).
-				Scan(&fromVersion, &logRelPath)
-		}
-		if err != nil {
-			fmt.Fprintf(os.Stderr,
-				"resumePostSwap: cannot load upgrade %d state (err=%v) — giving up and leaving flag for manual triage\n",
-				flag.ID, err)
-			return
-		}
+		fmt.Fprintf(os.Stderr,
+			"resumePostSwap: cannot load upgrade %d state (err=%v) — giving up and leaving flag for manual triage\n",
+			flag.ID, err)
+		return
 	}
 
 	// Reopen the progress log. Append-mode so the narrative is continuous
@@ -3801,14 +3803,24 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 			})
 			// Maintenance stays ON — operator must complete the manual rollback steps above.
 			// Release the flock so the operator's prescribed step 4
-			// (`./sb install`) can proceed: the service is a long-running
-			// daemon and does NOT exit on this ABORT path, so leaving the
-			// flock held would wedge install with StateLiveUpgrade.
+			// (`./sb install`) can proceed: leaving the flock held would
+			// wedge install with StateLiveUpgrade.
 			// The on-disk JSON persists as the audit cue; the next install's
 			// RecoverFromFlag pass is a no-op against the rolled_back row
 			// (guarded by `state = 'in_progress'` since 2026-04-22) and
 			// just removes the file.
 			d.removeUpgradeFlag()
+
+			// Exit so systemd boots a fresh process against the restored
+			// binary (rc.65 schema-skew structural fix). Same reasoning as
+			// the normal-rollback exit below: the in-memory image cannot
+			// safely query the rolled-back schema. systemd Restart=always
+			// brings the restored ./sb back as a fresh process; the
+			// CATASTROPHIC FAILURE banner stays visible because
+			// maintenance.html's terminal marker persists across restarts.
+			if d.runningAsService {
+				os.Exit(0)
+			}
 			return
 		}
 		if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "rollback-config-generate", filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
@@ -3865,6 +3877,18 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 	d.removeUpgradeFlag()
 
 	progress.Write("Rollback complete. The previous version has been restored.")
+
+	// Exit so systemd boots a fresh process against the restored binary
+	// (rc.65 schema-skew structural fix). The in-memory image of the new
+	// binary cannot speak the rolled-back schema — every subsequent query
+	// would 42703 against renamed/added columns. Exit 0 = clean shutdown;
+	// systemd Restart=always brings the restored ./sb back as a fresh
+	// process. Exit 42 is reserved for the upgrade-handoff signal — not
+	// used here.
+	if d.runningAsService {
+		progress.Close()
+		os.Exit(0)
+	}
 }
 
 // restoreGitState is the *Service-bound wrapper around restoreGitStateFn,
