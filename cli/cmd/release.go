@@ -34,22 +34,22 @@ func preflightChecks(projDir string) bool {
 	_, err1 := upgrade.RunCommandOutput(projDir, "git", "diff", "--quiet", "--", ":!test/expected/explain/", ":!test/expected/performance/")
 	_, err2 := upgrade.RunCommandOutput(projDir, "git", "diff", "--cached", "--quiet", "--", ":!test/expected/explain/", ":!test/expected/performance/")
 	if err1 != nil || err2 != nil {
-		fmt.Println("  \u2717 Working tree is clean")
+		fmt.Println("  ✗ Working tree is clean")
 		fmt.Println("    Fix: git stash or git commit")
 		allPassed = false
 	} else {
-		fmt.Println("  \u2713 Working tree is clean")
+		fmt.Println("  ✓ Working tree is clean")
 	}
 
 	// 2. On master branch
 	branchOut, err := upgrade.RunCommandOutput(projDir, "git", "symbolic-ref", "--short", "HEAD")
 	branch := strings.TrimSpace(branchOut)
 	if err != nil || branch != "master" {
-		fmt.Printf("  \u2717 On master branch (current: %s)\n", branch)
+		fmt.Printf("  ✗ On master branch (current: %s)\n", branch)
 		fmt.Println("    Fix: git checkout master")
 		allPassed = false
 	} else {
-		fmt.Println("  \u2713 On master branch")
+		fmt.Println("  ✓ On master branch")
 	}
 
 	// 3. Up to date with origin — distinguish direction (ahead/behind/diverged)
@@ -57,7 +57,7 @@ func preflightChecks(projDir string) bool {
 	// was wrong half the time.
 	_, err = upgrade.RunCommandOutput(projDir, "git", "fetch", "origin", "master", "--quiet")
 	if err != nil {
-		fmt.Println("  \u2717 Up to date with origin (fetch failed)")
+		fmt.Println("  ✗ Up to date with origin (fetch failed)")
 		fmt.Println("    Fix: check network connectivity")
 		allPassed = false
 	} else {
@@ -66,7 +66,7 @@ func preflightChecks(projDir string) bool {
 		head := strings.TrimSpace(headOut)
 		origin := strings.TrimSpace(originOut)
 		if head == origin {
-			fmt.Println("  \u2713 Up to date with origin")
+			fmt.Println("  ✓ Up to date with origin")
 		} else {
 			aheadOut, _ := upgrade.RunCommandOutput(projDir, "git", "rev-list", "--count", "origin/master..HEAD")
 			behindOut, _ := upgrade.RunCommandOutput(projDir, "git", "rev-list", "--count", "HEAD..origin/master")
@@ -74,13 +74,13 @@ func preflightChecks(projDir string) bool {
 			behind := strings.TrimSpace(behindOut)
 			switch {
 			case ahead != "0" && behind == "0":
-				fmt.Printf("  \u2717 Up to date with origin (%s commit(s) ahead of origin/master)\n", ahead)
+				fmt.Printf("  ✗ Up to date with origin (%s commit(s) ahead of origin/master)\n", ahead)
 				fmt.Println("    Fix: git push origin master")
 			case ahead == "0" && behind != "0":
-				fmt.Printf("  \u2717 Up to date with origin (%s commit(s) behind origin/master)\n", behind)
+				fmt.Printf("  ✗ Up to date with origin (%s commit(s) behind origin/master)\n", behind)
 				fmt.Println("    Fix: git pull --rebase origin master")
 			default:
-				fmt.Printf("  \u2717 Up to date with origin (diverged: %s ahead, %s behind)\n", ahead, behind)
+				fmt.Printf("  ✗ Up to date with origin (diverged: %s ahead, %s behind)\n", ahead, behind)
 				fmt.Println("    Fix: git pull --rebase origin master, resolve conflicts, then git push")
 			}
 			allPassed = false
@@ -95,25 +95,25 @@ func preflightChecks(projDir string) bool {
 	_, err = upgrade.RunCommandOutput(projDir, "git", "verify-commit", "HEAD")
 	if err != nil {
 		headSHA, _ := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "--short", "HEAD")
-		fmt.Printf("  \u2717 HEAD commit is signed (verification failed on %s)\n", strings.TrimSpace(headSHA))
+		fmt.Printf("  ✗ HEAD commit is signed (verification failed on %s)\n", strings.TrimSpace(headSHA))
 		fmt.Println("    Fix (sign this commit): git commit --amend --no-edit -S")
 		fmt.Println("    Fix (sign all future commits): git config --global commit.gpgsign true")
 		fmt.Println("         (requires user.signingkey + gpg.format ssh in your global git config)")
 		fmt.Println("    Debug: git verify-commit HEAD")
 		allPassed = false
 	} else {
-		fmt.Println("  \u2713 HEAD commit is signed")
+		fmt.Println("  ✓ HEAD commit is signed")
 	}
 
 	// 5. Go CLI builds
 	cliDir := filepath.Join(projDir, "cli")
 	_, err = upgrade.RunCommandOutput(cliDir, "go", "build", "-o", "/dev/null", "./...")
 	if err != nil {
-		fmt.Println("  \u2717 Go CLI builds")
+		fmt.Println("  ✗ Go CLI builds")
 		fmt.Println("    Fix: cd cli && go build ./...")
 		allPassed = false
 	} else {
-		fmt.Println("  \u2713 Go CLI builds")
+		fmt.Println("  ✓ Go CLI builds")
 	}
 
 	// 6. Fast tests cover latest migrations
@@ -146,7 +146,7 @@ func preflightChecks(projDir string) bool {
 
 		if lastMigration == "" {
 			// No migrations at all — tests are fine
-			fmt.Println("  \u2713 Fast tests cover latest migrations (no migrations found)")
+			fmt.Println("  ✓ Fast tests cover latest migrations (no migrations found)")
 		} else {
 			// Check if any new migration files exist between stamp and HEAD.
 			// Only match *.up.sql / *.up.psql — post_restore.sql and other
@@ -155,20 +155,39 @@ func preflightChecks(projDir string) bool {
 			newMigrations := strings.TrimSpace(newMigrationsOut)
 
 			if newMigrations == "" {
-				// No new migrations since test stamp — OK even if HEAD moved
-				shortStamp := stampSHA
-				if len(shortStamp) > 12 {
-					shortStamp = shortStamp[:12]
+				// No new migrations since test stamp. Also check test/expected drift
+				// (explain plans, performance baselines) — both must be clean.
+				testExpectedOut, _ := upgrade.RunCommandOutput(projDir, "git", "diff", "--name-only", stampSHA+"..HEAD", "--", "test/expected/")
+				testExpectedDrift := strings.TrimSpace(testExpectedOut)
+
+				if testExpectedDrift == "" {
+					// No new migrations and no test expected file drift — OK
+					shortStamp := stampSHA
+					if len(shortStamp) > 12 {
+						shortStamp = shortStamp[:12]
+					}
+					shortMig := lastMigration
+					if len(shortMig) > 12 {
+						shortMig = shortMig[:12]
+					}
+					fmt.Printf("  ✓ Fast tests cover latest migrations (stamp: %s, last migration: %s)\n", shortStamp, shortMig)
+				} else {
+					// Test expected files have drifted (explain plans, performance baselines)
+					expectedFiles := strings.Split(testExpectedDrift, "\n")
+					fmt.Println("  ✗ Fast tests do not cover test expected file drift")
+					fmt.Printf("    %d changed expected file(s):\n", len(expectedFiles))
+					for _, f := range expectedFiles {
+						if f != "" {
+							fmt.Printf("      %s\n", f)
+						}
+					}
+					fmt.Println("    Fix: ./dev.sh test fast")
+					allPassed = false
 				}
-				shortMig := lastMigration
-				if len(shortMig) > 12 {
-					shortMig = shortMig[:12]
-				}
-				fmt.Printf("  \u2713 Fast tests cover latest migrations (stamp: %s, last migration: %s)\n", shortStamp, shortMig)
 			} else {
 				// New migrations exist that weren't tested
 				migrationFiles := strings.Split(newMigrations, "\n")
-				fmt.Println("  \u2717 Fast tests do not cover latest migrations")
+				fmt.Println("  ✗ Fast tests do not cover latest migrations")
 				fmt.Printf("    %d untested migration(s):\n", len(migrationFiles))
 				for _, f := range migrationFiles {
 					if f != "" {
@@ -196,7 +215,7 @@ func preflightChecks(projDir string) bool {
 		sp := filepath.Join(projDir, "tmp", stampFile)
 		sb, err := os.ReadFile(sp)
 		if err != nil {
-			fmt.Printf("  \u2717 %s (tmp/%s not found)\n", failLabel, stampFile)
+			fmt.Printf("  ✗ %s (tmp/%s not found)\n", failLabel, stampFile)
 			fmt.Printf("    Fix: %s\n", fixCmd)
 			allPassed = false
 			return
@@ -210,10 +229,10 @@ func preflightChecks(projDir string) bool {
 			if len(short) > 12 {
 				short = short[:12]
 			}
-			fmt.Printf("  \u2713 %s (stamp: %s)\n", label, short)
+			fmt.Printf("  ✓ %s (stamp: %s)\n", label, short)
 		} else {
 			migrationFiles := strings.Split(newMigrations, "\n")
-			fmt.Printf("  \u2717 %s\n", failLabel)
+			fmt.Printf("  ✗ %s\n", failLabel)
 			fmt.Printf("    %d new migration(s) since stamp:\n", len(migrationFiles))
 			for _, f := range migrationFiles {
 				if f != "" {
@@ -235,7 +254,7 @@ func preflightChecks(projDir string) bool {
 		stampPath := filepath.Join(projDir, "tmp", stampFile)
 		b, err := os.ReadFile(stampPath)
 		if err != nil {
-			fmt.Printf("  \u2717 %s (tmp/%s not found)\n", label, stampFile)
+			fmt.Printf("  ✗ %s (tmp/%s not found)\n", label, stampFile)
 			fmt.Printf("    Fix: cd app && pnpm run %s\n", cmd)
 			allPassed = false
 			return
@@ -249,11 +268,11 @@ func preflightChecks(projDir string) bool {
 			short = short[:12]
 		}
 		if changed == "" {
-			fmt.Printf("  \u2713 %s (stamp: %s)\n", label, short)
+			fmt.Printf("  ✓ %s (stamp: %s)\n", label, short)
 			return
 		}
 		files := strings.Split(changed, "\n")
-		fmt.Printf("  \u2717 %s\n", label)
+		fmt.Printf("  ✗ %s\n", label)
 		fmt.Printf("    %d change(s) in app/ since stamp %s:\n", len(files), short)
 		for _, f := range files {
 			if f != "" {
@@ -545,7 +564,7 @@ var releaseStableCmd = &cobra.Command{
 		installStampPath := filepath.Join(projDir, "tmp", "install-test-passed-sha")
 		installStampBytes, err := os.ReadFile(installStampPath)
 		if err != nil {
-			fmt.Println("  \u2717 Install test passed (tmp/install-test-passed-sha not found)")
+			fmt.Println("  ✗ Install test passed (tmp/install-test-passed-sha not found)")
 			fmt.Println("    Fix: ./dev.sh test-install")
 			allPassed = false
 		} else {
@@ -561,11 +580,11 @@ var releaseStableCmd = &cobra.Command{
 				if len(shortHead) > 12 {
 					shortHead = shortHead[:12]
 				}
-				fmt.Printf("  \u2717 Install test does not cover HEAD (stamp: %s, HEAD: %s)\n", shortStamp, shortHead)
+				fmt.Printf("  ✗ Install test does not cover HEAD (stamp: %s, HEAD: %s)\n", shortStamp, shortHead)
 				fmt.Println("    Fix: ./dev.sh test-install")
 				allPassed = false
 			} else {
-				fmt.Printf("  \u2713 Install test passed (stamp: %s)\n", installStamp[:12])
+				fmt.Printf("  ✓ Install test passed (stamp: %s)\n", installStamp[:12])
 			}
 		}
 
@@ -796,9 +815,9 @@ exit 1 with retry advice when any check fails.`,
 		printResults := func(results []release.CheckResult) {
 			for _, r := range results {
 				if r.OK {
-					fmt.Printf("  \u2713 %s\n", r.Name)
+					fmt.Printf("  ✓ %s\n", r.Name)
 				} else {
-					fmt.Printf("  \u2717 %s (%s)\n", r.Name, r.Err)
+					fmt.Printf("  ✗ %s (%s)\n", r.Name, r.Err)
 					allPassed = false
 				}
 			}
