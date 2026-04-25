@@ -915,6 +915,35 @@ func (d *Service) markCIImagesFailed(ctx context.Context, id int, sha, reason st
 		   AND state NOT IN ('completed', 'failed', 'rolled_back', 'skipped', 'dismissed', 'superseded')`,
 		reason, id)
 	if err != nil {
+		// SQLSTATE 23514 on chk_upgrade_state_attributes: the row is in a
+		// pre-terminal state with timestamp columns inconsistent with that
+		// state — historical contamination from pre-rc.63 lifecycle bugs.
+		// Migration 20260425163029_dismiss_corrupt_upgrade_lifecycle_rows
+		// sweeps every such row to state='dismissed'; this branch is the
+		// belt-and-braces guard against any future bypass path that
+		// re-creates the shape (e.g., manual UPDATE, recovery tooling).
+		//
+		// The row is NOT in the spinning admin-UI shape that
+		// CI_FAILURE_DETECTED_TRANSITIONS_ROW guards against — the admin
+		// UI surfaces it via the `error` column on the upgrade row, not
+		// through `docker_images_status='building'` alone. Treat as
+		// silent-skip (parallel to the 0-rows-affected branch below); do
+		// NOT fire INVARIANT and do NOT increment the attempt tracker
+		// (this isn't "service is stuck retrying", it's "this specific
+		// row needs the data migration to run").
+		var pgerr *pgconn.PgError
+		if errors.As(err, &pgerr) && pgerr.Code == "23514" && pgerr.ConstraintName == "chk_upgrade_state_attributes" {
+			var probeState, probeImgStatus string
+			_ = d.queryConn.QueryRow(ctx,
+				"SELECT state::text, docker_images_status::text FROM public.upgrade WHERE id = $1",
+				id).Scan(&probeState, &probeImgStatus)
+			log.Printf("verifyArtifacts: skipping docker_images_status='failed' UPDATE for commit %s: row %d has corrupted state/timestamp combination (state=%s, docker_images_status=%s, sqlstate=23514, constraint=chk_upgrade_state_attributes; reason would have been %q). Migration 20260425163029_dismiss_corrupt_upgrade_lifecycle_rows repairs these rows.",
+				ShortForDisplay(sha), id, probeState, probeImgStatus, reason)
+			tracker := NewAttemptTracker(d.projDir, 3)
+			decision := fmt.Sprintf("markCIImagesFailed/%s", sha[:12])
+			tracker.Clear(decision)
+			return
+		}
 		// Real DB error (connection dead, unexpected constraint
 		// violation). Escalate — but first check if we're in a retry loop
 		// (item #5 rc.64: attempt tracker for SERVICE_STUCK_RETRY_LOOP).
