@@ -105,6 +105,15 @@ Flag files written before Release 1.1 lack `Holder`. The empty default is treate
 - Operator crash mid-install (SSH drop, terminal close). The flag's `defer release` doesn't fire when the process is killed. The flag persists with a dead PID; re-running `./sb install` (or `./cloud.sh install <server>`, which is idempotent end-to-end) detects it as StateCrashedUpgrade and reconciles automatically. Not kernel-auto-recovering: a future iteration could add a `flock` on a shared lock file so the kernel auto-releases on operator process exit. Deferred until observed incidents justify the added complexity.
 - Text-file-busy on the `./sb` binary if the service is still running: avoided by `./cloud.sh install` issuing `systemctl stop` before binary replacement. Direct `curl install.sh | bash` on a live server would hit this; documented as "stop the service first" in `install-statbus.md`.
 
+## Git branch pointers maintained by install/upgrade
+
+The install/upgrade machinery keeps two local-only git branches under the `statbus/` namespace as per-host state pointers — neither is pushed to origin:
+
+- **`statbus/installed`** — written by `install.sh` at every checkout (idempotent via `git checkout -B`). Replaces detached-HEAD checkouts on tags so `git status` shows a real branch and `git reflog statbus/installed` records the install history on this host. Semantic: "what install.sh last checked out" (in-progress or completed; the canonical "currently running" answer comes from `./sb --version` or `public.upgrade.state='completed'`).
+- **`statbus/pre-upgrade`** — written by `executeUpgrade` in `cli/internal/upgrade/service.go` before destructive steps. Acts as the rollback fallback ref when the explicit `previousVersion` doesn't resolve (e.g., upstream tag pruning). See `restoreGitStateFn`.
+
+Both branches are slot-implicit: each multi-tenant slot on niue has its own `~/statbus/.git`, so the same name on two slots refers to two independent pointers. Origin's deployment branches (`ops/cloud/deploy/<slot>`, `ops/standalone/deploy/<host>-<slot>`) are CI-driven and unrelated — they may diverge briefly from `statbus/installed` during install, which is expected.
+
 ## Design principle: silent soft-warnings are forbidden
 
 A soft-swallowed warning (a `Note:` or `Notice:` printed to stdout but not acted on) is an operator lie: the system claims partial success while leaving state inconsistent. In the upgrade/install paths, this manifests as a `WARN: state transition matched 0 rows` that does nothing — the operator's admin UI or DB row is then wrong, silently.

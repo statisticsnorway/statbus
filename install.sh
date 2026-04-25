@@ -163,7 +163,7 @@ elif [ "$CHANNEL" = "edge" ]; then
         echo "Updating existing installation (edge: master HEAD)..."
         cd "$STATBUS_DIR"
         git fetch origin master
-        git checkout origin/master
+        git checkout -B statbus/installed origin/master
     else
         echo "Cloning StatBus repository (edge: master)..."
         git clone --branch master \
@@ -206,12 +206,19 @@ if [ -z "${SKIP_BINARY_DOWNLOAD:-}" ]; then
         # failures hid rune's rc.59 / rc.60 root causes — let fetch and
         # checkout print their own errors.
         git fetch origin --tags
-        git checkout "$VERSION"
+        # Use a named local branch (statbus/installed) so HEAD is never
+        # detached on a tag. Parallels statbus/pre-upgrade — see
+        # doc/install-mutex.md. -B resets the branch on each install,
+        # so this is idempotent across re-runs.
+        git checkout -B statbus/installed "$VERSION"
     else
         # FRESH: git clone creates the directory
         echo "Cloning StatBus repository..."
         git clone --depth 1 --branch "$VERSION" \
             https://github.com/statisticsnorway/statbus.git "$STATBUS_DIR"
+        # `clone --branch <tag>` leaves HEAD detached on the tag commit;
+        # promote to the same statbus/installed branch the rescue path uses.
+        git -C "$STATBUS_DIR" checkout -B statbus/installed "$VERSION"
         mv "${HOME}/sb.tmp" "${STATBUS_DIR}/sb"
         cd "$STATBUS_DIR"
         echo "Binary: $(./sb --version)"
