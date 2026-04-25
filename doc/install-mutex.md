@@ -107,12 +107,12 @@ Flag files written before Release 1.1 lack `Holder`. The empty default is treate
 
 ## Git branch pointers maintained by install/upgrade
 
-The install/upgrade machinery keeps two local-only git branches under the `statbus/` namespace as per-host state pointers — neither is pushed to origin:
+The install/upgrade machinery keeps two local-only git branches under the `statbus/` namespace as per-host state pointers — neither is pushed to origin. They are complementary: `statbus/current` is **time-anchored** ("what is checked out right now"), while `statbus/pre-upgrade` is **event-anchored** ("what was checked out before the most recent upgrade started").
 
-- **`statbus/installed`** — written by `install.sh` at every checkout (idempotent via `git checkout -B`). Replaces detached-HEAD checkouts on tags so `git status` shows a real branch and `git reflog statbus/installed` records the install history on this host. Semantic: "what install.sh last checked out" (in-progress or completed; the canonical "currently running" answer comes from `./sb --version` or `public.upgrade.state='completed'`).
-- **`statbus/pre-upgrade`** — written by `executeUpgrade` in `cli/internal/upgrade/service.go` before destructive steps. Acts as the rollback fallback ref when the explicit `previousVersion` doesn't resolve (e.g., upstream tag pruning). See `restoreGitStateFn`.
+- **`statbus/current`** — written by `install.sh` at every checkout (idempotent via `git checkout -B`). Replaces detached-HEAD checkouts on tags so `git status` shows a real branch and `git reflog statbus/current` records the install history on this host. Semantic: "what install.sh last checked out" — the time-anchored pointer always reflects the latest install action (in-progress or completed; the canonical "currently running" answer comes from `./sb --version` or `public.upgrade.state='completed'`).
+- **`statbus/pre-upgrade`** — written by `executeUpgrade` in `cli/internal/upgrade/service.go` before destructive steps. The event-anchored pointer freezes "the version BEFORE the upgrade started" and stays put through the upgrade, then advances on the next upgrade. Acts as the rollback fallback ref when the explicit `previousVersion` doesn't resolve (e.g., upstream tag pruning). See `restoreGitStateFn`.
 
-Both branches are slot-implicit: each multi-tenant slot on niue has its own `~/statbus/.git`, so the same name on two slots refers to two independent pointers. Origin's deployment branches (`ops/cloud/deploy/<slot>`, `ops/standalone/deploy/<host>-<slot>`) are CI-driven and unrelated — they may diverge briefly from `statbus/installed` during install, which is expected.
+Both branches are slot-implicit: each multi-tenant slot on niue has its own `~/statbus/.git`, so the same name on two slots refers to two independent pointers. Origin's deployment branches (`ops/cloud/deploy/<slot>`, `ops/standalone/deploy/<host>-<slot>`) are CI-driven and unrelated — they may diverge briefly from `statbus/current` during install, which is expected.
 
 ## Design principle: silent soft-warnings are forbidden
 
