@@ -426,24 +426,37 @@ cmd_install_one() {
     # If it accepts the request (exit 0), tail the journal and return.
     # If it fails (service not running, DB down, etc.), fall through to the
     # full bootstrap install below.
+    # Version-skew guard: if remote binary != local binary, skip fast-path
+    # and always bootstrap (item #2 rc.64 fix — dev's looping service returned
+    # 0 on NOTIFY but never completed, blocking indefinitely).
     if [ -z "$version" ]; then
-        echo "Trying upgrade service on $server..."
-        local apply_out apply_rc
-        apply_out=$(ssh_server "$server" "cd statbus && ./sb upgrade apply-latest" 2>&1)
-        apply_rc=$?
-        echo "$apply_out"
-        if [ "$apply_rc" -eq 0 ]; then
-            # Extract target version from apply-latest output, e.g.:
-            #   Sent: NOTIFY upgrade_apply, '9bf48bb8'             # commit_short
-            #   Sent: NOTIFY upgrade_apply, 'v2026.04.0-rc.55'     # release tag
-            # Passed to cmd_tail_one so the awk exit pattern is version-specific,
-            # preventing stale recovery lines for previous upgrades from terminating early.
-            local target_version
-            target_version=$(echo "$apply_out" | grep "upgrade_apply" | grep -oE "'[^']+'" | tr -d "'" | head -1)
-            cmd_tail_one "$server" "$target_version"
-            return $?
+        local remote_commit local_commit
+        remote_commit=$(ssh_server "$server" "cd statbus && ./sb --version 2>/dev/null" \
+            | grep -oE 'commit [a-f0-9]+' | awk '{print $2}') || remote_commit=""
+        local_commit=$(./sb --version 2>/dev/null | grep -oE 'commit [a-f0-9]+' | awk '{print $2}')
+
+        if [ -z "$remote_commit" ] || [ "$remote_commit" != "$local_commit" ]; then
+            echo "Version skew detected: remote=$remote_commit local=$local_commit — skipping fast-path, using bootstrap"
+            # Fall through to bootstrap block (do NOT enter the upgrade-service fast-path)
+        else
+            echo "Trying upgrade service on $server..."
+            local apply_out apply_rc
+            apply_out=$(ssh_server "$server" "cd statbus && ./sb upgrade apply-latest" 2>&1)
+            apply_rc=$?
+            echo "$apply_out"
+            if [ "$apply_rc" -eq 0 ]; then
+                # Extract target version from apply-latest output, e.g.:
+                #   Sent: NOTIFY upgrade_apply, '9bf48bb8'             # commit_short
+                #   Sent: NOTIFY upgrade_apply, 'v2026.04.0-rc.55'     # release tag
+                # Passed to cmd_tail_one so the awk exit pattern is version-specific,
+                # preventing stale recovery lines for previous upgrades from terminating early.
+                local target_version
+                target_version=$(echo "$apply_out" | grep "upgrade_apply" | grep -oE "'[^']+'" | tr -d "'" | head -1)
+                cmd_tail_one "$server" "$target_version"
+                return $?
+            fi
+            echo "Upgrade service not responsive — falling back to full bootstrap install..."
         fi
-        echo "Upgrade service not responsive — falling back to full bootstrap install..."
     fi
 
     # Check the server's upgrade channel to decide install strategy.

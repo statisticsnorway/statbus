@@ -6,7 +6,7 @@ services:
     container_name: ${COMPOSE_INSTANCE_NAME:?COMPOSE_INSTANCE_NAME must be set in the generated .env}-app
     # Rc.63: images are pulled by commit_short, not version_tag.
     # COMMIT_SHORT is generated in .env by `./sb config generate`.
-    image: ghcr.io/statisticsnorway/statbus-app:${COMMIT_SHORT:-local}
+    image: ghcr.io/statisticsnorway/statbus-app:${COMMIT_SHORT:?COMMIT_SHORT not set — run ./sb config generate}
     build:
       context: ./app
       args:

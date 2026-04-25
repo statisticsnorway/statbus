@@ -123,6 +123,7 @@ type Service struct {
 	// case the ground-truth check degrades to a skip rather than a false
 	// failure, since we can't know the binary's true identity.
 	binaryCommit       string
+	stuckLoopFired     bool            // set to true after SERVICE_STUCK_RETRY_LOOP is emitted, to avoid spam
 }
 
 // NewService creates a new upgrade service.
@@ -915,7 +916,26 @@ func (d *Service) markCIImagesFailed(ctx context.Context, id int, sha, reason st
 		reason, id)
 	if err != nil {
 		// Real DB error (connection dead, unexpected constraint
-		// violation). Escalate.
+		// violation). Escalate — but first check if we're in a retry loop
+		// (item #5 rc.64: attempt tracker for SERVICE_STUCK_RETRY_LOOP).
+		tracker := NewAttemptTracker(d.projDir, 3)
+		decision := fmt.Sprintf("markCIImagesFailed/%s", sha[:12])
+		var errCode string
+		if pgerr := ((*pgconn.PgError)(nil)); errors.As(err, &pgerr) {
+			errCode = pgerr.Code
+		}
+		if abandon, n := tracker.Record(decision, errCode, err.Error()); abandon {
+			// Fire SERVICE_STUCK_RETRY_LOOP exactly once to avoid audit-channel spam.
+			// After the first invariant emission, subsequent ticks are no-ops.
+			if !d.stuckLoopFired {
+				d.markTerminal("SERVICE_STUCK_RETRY_LOOP",
+					fmt.Sprintf("decision=%s failed %d consecutive times with sqlstate=%s (last: %v); "+
+						"operator must investigate and clear manually", decision, n, errCode, err))
+				d.stuckLoopFired = true
+			}
+			return
+		}
+
 		fmt.Fprintf(os.Stderr,
 			"INVARIANT CI_FAILURE_DETECTED_TRANSITIONS_ROW violated: UPDATE docker_images_status=failed failed for sha=%s: %v (service.go:%d, pid=%d)\n",
 			sha, err, thisLine(), os.Getpid())
@@ -935,8 +955,16 @@ func (d *Service) markCIImagesFailed(ctx context.Context, id int, sha, reason st
 			id).Scan(&probeState, &probeImgStatus)
 		log.Printf("verifyArtifacts: skipping docker_images_status='failed' UPDATE for commit %s: row %d is already in terminal state (state=%s, docker_images_status=%s; reason would have been %q)",
 			ShortForDisplay(sha), id, probeState, probeImgStatus, reason)
+		// Clear attempt counter on the silent-skip path (row already in terminal state)
+		tracker := NewAttemptTracker(d.projDir, 3)
+		decision := fmt.Sprintf("markCIImagesFailed/%s", sha[:12])
+		tracker.Clear(decision)
 		return
 	}
+	// Clear attempt counter on success
+	tracker := NewAttemptTracker(d.projDir, 3)
+	decision := fmt.Sprintf("markCIImagesFailed/%s", sha[:12])
+	tracker.Clear(decision)
 	log.Printf("CI images marked failed for commit %s: %s", ShortForDisplay(sha), reason)
 }
 
@@ -1951,13 +1979,15 @@ func (d *Service) markCurrentVersionCompleted(ctx context.Context) {
 	headSHA, _ := runCommandOutput(d.projDir, "git", "rev-parse", "HEAD")
 	headSHA = strings.TrimSpace(headSHA)
 
-	// Ground-truth: only mark completed if the binary actually corresponds
-	// to git HEAD. d.binaryCommit==unknown is the local-build degraded
-	// path — preserve the prior behaviour there (skip the check, mark
-	// optimistically) so dev workflows keep working.
-	if d.binaryCommit != "" && d.binaryCommit != "unknown" && d.binaryCommit != headSHA {
-		fmt.Printf("markCurrentVersionCompleted: skipping — binary commit %s does not match git HEAD %s (incomplete swap?)\n",
-			ShortForDisplay(d.binaryCommit), ShortForDisplay(headSHA))
+	// Ground-truth verification (task #49 Gap #5): verify the running binary
+	// matches git HEAD AND that all required migrations have been applied.
+	// verifyUpgradeGroundTruth checks both conditions; it returns false if
+	// either condition fails. Demo bug (rc.63): binary=rc.63 ✓ but schema=rc.62
+	// (migration not applied) — without this check, markCurrentVersionCompleted
+	// would silently mark the row completed despite missing migrations.
+	if ok, reason := d.verifyUpgradeGroundTruth(ctx, headSHA); !ok {
+		fmt.Printf("markCurrentVersionCompleted: blocked — %s; "+
+			"leaving row in_progress for proper applyPostSwap\n", reason)
 		return
 	}
 
@@ -3415,6 +3445,14 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	return nil
 }
 
+// isMissingColumnError returns true when err is a PostgreSQL SQLSTATE 42703
+// (undefined_column), indicating a schema-skew between the running binary's
+// expected columns and the database's current schema.
+func isMissingColumnError(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "42703"
+}
+
 // resumePostSwap re-enters the upgrade pipeline in the new binary after a
 // mid-flow exit-42 restart. Called from recoverFromFlag when the flag's
 // Phase is FlagPhasePostSwap.
@@ -3433,10 +3471,24 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) {
 		"SELECT from_commit_version, log_relative_file_path FROM public.upgrade WHERE id = $1", flag.ID).
 		Scan(&fromVersion, &logRelPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr,
-			"resumePostSwap: cannot load upgrade %d state (err=%v) — giving up and leaving flag for manual triage\n",
-			flag.ID, err)
-		return
+		if isMissingColumnError(err) {
+			// Schema skew: migration 20260424160235 (commit_version column rename)
+			// not yet applied. Retry with legacy column name.
+			// Recovery path: needsPostSwapRollback will fire (new binary ≠ flag target),
+			// rollback clears the flag, then step-table migrate up applies the migration.
+			fmt.Fprintf(os.Stderr,
+				"resumePostSwap: SCHEMA_SKEW_DETECTED id=%d: from_commit_version absent, "+
+				"retrying with from_version; migration 20260424160235 pending\n", flag.ID)
+			err = d.queryConn.QueryRow(ctx,
+				"SELECT from_version, log_relative_file_path FROM public.upgrade WHERE id = $1", flag.ID).
+				Scan(&fromVersion, &logRelPath)
+		}
+		if err != nil {
+			fmt.Fprintf(os.Stderr,
+				"resumePostSwap: cannot load upgrade %d state (err=%v) — giving up and leaving flag for manual triage\n",
+				flag.ID, err)
+			return
+		}
 	}
 
 	// Reopen the progress log. Append-mode so the narrative is continuous

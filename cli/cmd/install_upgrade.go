@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"time"
 
@@ -112,6 +113,15 @@ func runCrashRecovery(projDir string) error {
 	ctx := context.Background()
 	svc := upgrade.NewService(projDir, true /* verbose */, version, commit)
 	defer svc.Close()
+
+	// Regenerate .env from .env.config so current-binary-expected keys
+	// (e.g. COMMIT_SHORT added in rc.62) are present before EnsureDBUp,
+	// which calls docker-compose. This fixes rune's crash recovery loop
+	// where crash recovery ran EnsureDBUp → docker pulled :local → timeout.
+	sb := filepath.Join(projDir, "sb")
+	if err := runCmdDir(projDir, sb, "config", "generate"); err != nil {
+		return fmt.Errorf("crash recovery: regenerate config: %w", err)
+	}
 
 	// The crashed flag may have Phase=post_swap, meaning the DB is
 	// intentionally stopped (applyPostSwap step 2 stopped it for the
