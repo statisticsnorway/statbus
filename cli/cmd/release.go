@@ -498,7 +498,7 @@ var releasePrereleaseCmd = &cobra.Command{
 		}
 
 		nextRC := highestRC + 1
-		tagName := fmt.Sprintf("%s.%d-rc.%d", prefix, nextPatch, nextRC)
+		tagName := fmt.Sprintf("%s.%d-rc.%02d", prefix, nextPatch, nextRC)
 
 		// Safety: verify tag doesn't already exist locally or on remote
 		if _, err := upgrade.RunCommandOutput(projDir, "git", "rev-parse", tagName); err == nil {
