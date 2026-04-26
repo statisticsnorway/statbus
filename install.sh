@@ -163,7 +163,12 @@ elif [ "$CHANNEL" = "edge" ]; then
         echo "Updating existing installation (edge: master HEAD)..."
         cd "$STATBUS_DIR"
         git fetch origin master
-        git checkout -B statbus/current origin/master
+        git checkout -B current origin/master
+        # Item M (plan-rc.66): drop the legacy statbus/ namespace from
+        # local-only state branches. Idempotent — swallows the "branch
+        # not found" error on hosts that never had the legacy names.
+        git branch -D statbus/current 2>/dev/null || true
+        git branch -D statbus/pre-upgrade 2>/dev/null || true
     else
         echo "Cloning StatBus repository (edge: master)..."
         git clone --branch master \
@@ -206,19 +211,24 @@ if [ -z "${SKIP_BINARY_DOWNLOAD:-}" ]; then
         # failures hid rune's rc.59 / rc.60 root causes — let fetch and
         # checkout print their own errors.
         git fetch origin --tags
-        # Use a named local branch (statbus/current) so HEAD is never
-        # detached on a tag. Parallels statbus/pre-upgrade — see
+        # Use a named local branch (`current`) so HEAD is never
+        # detached on a tag. Parallels `pre-upgrade` — see
         # doc/install-mutex.md. -B resets the branch on each install,
         # so this is idempotent across re-runs.
-        git checkout -B statbus/current "$VERSION"
+        git checkout -B current "$VERSION"
+        # Item M (plan-rc.66): drop the legacy statbus/ namespace from
+        # local-only state branches. Idempotent — swallows the "branch
+        # not found" error on hosts that never had the legacy names.
+        git branch -D statbus/current 2>/dev/null || true
+        git branch -D statbus/pre-upgrade 2>/dev/null || true
     else
         # FRESH: git clone creates the directory
         echo "Cloning StatBus repository..."
         git clone --depth 1 --branch "$VERSION" \
             https://github.com/statisticsnorway/statbus.git "$STATBUS_DIR"
         # `clone --branch <tag>` leaves HEAD detached on the tag commit;
-        # promote to the same statbus/current branch the rescue path uses.
-        git -C "$STATBUS_DIR" checkout -B statbus/current "$VERSION"
+        # promote to the same `current` branch the rescue path uses.
+        git -C "$STATBUS_DIR" checkout -B current "$VERSION"
         mv "${HOME}/sb.tmp" "${STATBUS_DIR}/sb"
         cd "$STATBUS_DIR"
         echo "Binary: $(./sb --version)"

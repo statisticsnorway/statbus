@@ -54,7 +54,7 @@ func newGitRepoFixture(t *testing.T) *gitRepoFixture {
 	run("commit", "-q", "-m", "commit 1")
 	oldSHA := run("rev-parse", "HEAD")
 	run("tag", "v0.1.0")
-	run("branch", "statbus/pre-upgrade", "HEAD")
+	run("branch", "pre-upgrade", "HEAD")
 
 	if err := os.WriteFile(filepath.Join(dir, "README.md"), []byte("v2\n"), 0644); err != nil {
 		t.Fatal(err)
@@ -68,7 +68,7 @@ func newGitRepoFixture(t *testing.T) *gitRepoFixture {
 		oldSHA:      oldSHA,
 		newSHA:      newSHA,
 		tagOnOld:    "v0.1.0",
-		branchOnOld: "statbus/pre-upgrade",
+		branchOnOld: "pre-upgrade",
 	}
 }
 
@@ -108,7 +108,7 @@ func TestRestoreGitState_BogusRefNoFallback(t *testing.T) {
 	if err == nil {
 		t.Fatal("restoreGitStateFn returned nil, want error")
 	}
-	if !strings.Contains(err.Error(), "neither v999.999.999 nor statbus/pre-upgrade resolves") {
+	if !strings.Contains(err.Error(), "neither v999.999.999 nor pre-upgrade resolves") {
 		t.Errorf("error %q does not name both refs", err)
 	}
 

@@ -3158,8 +3158,8 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// pruning — restoreGitState falls back to it if `previousVersion`
 	// (a tag or describe-string) won't resolve later. Best-effort: log
 	// failure, don't abort the upgrade.
-	if out, err := runCommandOutput(projDir, "git", "branch", "-f", "statbus/pre-upgrade", "HEAD"); err != nil {
-		progress.Write("Warning: could not pin statbus/pre-upgrade branch: %v\n%s", err, out)
+	if out, err := runCommandOutput(projDir, "git", "branch", "-f", "pre-upgrade", "HEAD"); err != nil {
+		progress.Write("Warning: could not pin pre-upgrade branch: %v\n%s", err, out)
 	}
 
 	// Step 5: Backup database
@@ -3454,7 +3454,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// means we're committed to the new version. Best-effort delete; if
 	// the branch is missing (best-effort create at the start failed),
 	// the -D returns non-zero and we just move on.
-	runCommand(d.projDir, "git", "branch", "-D", "statbus/pre-upgrade")
+	runCommand(d.projDir, "git", "branch", "-D", "pre-upgrade")
 	d.supersedeOlderReleases(ctx, commitSHA)
 	d.supersedeCompletedPrereleases(ctx, commitSHA)
 	// Retention pass scoped to the just-installed row: rules A/B/C fire
@@ -3983,8 +3983,8 @@ func (d *Service) restoreGitState(previousVersion string, progress *ProgressLog)
 //
 // If `previousVersion` doesn't resolve (e.g., the tag was pruned
 // upstream and the local mirror dropped it), falls back to the
-// `statbus/pre-upgrade` branch pinned by executeUpgrade before the
-// destructive steps started — defense in depth against ref drift.
+// `pre-upgrade` branch pinned by executeUpgrade before the destructive
+// steps started — defense in depth against ref drift.
 //
 // Logger is invoked at narrative milestones; pass a no-op for tests.
 // Free function (not a method) so the unit tests don't have to
@@ -3993,17 +3993,17 @@ func restoreGitStateFn(projDir, previousVersion string, log func(format string, 
 	log("Restoring git state to %s...", previousVersion)
 
 	// Pre-validate: refuse to checkout a ref we can't resolve. If the
-	// requested ref is gone, fall back to the persistent
-	// statbus/pre-upgrade branch before erroring out.
+	// requested ref is gone, fall back to the persistent `pre-upgrade`
+	// branch before erroring out.
 	expectedOut, err := runCommandOutput(projDir, "git", "rev-parse", "--verify", previousVersion+"^{commit}")
 	if err != nil {
-		log("Ref %s does not resolve, falling back to statbus/pre-upgrade...", previousVersion)
-		fallbackOut, fallbackErr := runCommandOutput(projDir, "git", "rev-parse", "--verify", "statbus/pre-upgrade^{commit}")
+		log("Ref %s does not resolve, falling back to pre-upgrade...", previousVersion)
+		fallbackOut, fallbackErr := runCommandOutput(projDir, "git", "rev-parse", "--verify", "pre-upgrade^{commit}")
 		if fallbackErr != nil {
-			return fmt.Errorf("neither %s nor statbus/pre-upgrade resolves: %v / %v", previousVersion, err, fallbackErr)
+			return fmt.Errorf("neither %s nor pre-upgrade resolves: %v / %v", previousVersion, err, fallbackErr)
 		}
 		expectedOut = fallbackOut
-		previousVersion = "statbus/pre-upgrade"
+		previousVersion = "pre-upgrade"
 	}
 	expectedSHA := strings.TrimSpace(expectedOut)
 	if expectedSHA == "" {
