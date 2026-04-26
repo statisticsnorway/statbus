@@ -254,3 +254,56 @@ func TestRecoverFromFlag_PhaseDiscriminationPresent(t *testing.T) {
 		t.Errorf("Phase discrimination branch must call d.resumePostSwap(ctx, flag). Body:\n%s", branchBody)
 	}
 }
+
+// TestResumePostSwap_ContainersProbeBeforeRollback is the structural
+// guard for Item E (plan-rc.66): the containersAtFlagTarget self-heal
+// probe MUST run BEFORE the needsPostSwapRollback branch in
+// resumePostSwap. Without that ordering, a successful upgrade whose
+// completion UPDATE didn't land (rune Apr 24 SDNOTIFY case) gets rolled
+// back instead of self-healed.
+func TestResumePostSwap_ContainersProbeBeforeRollback(t *testing.T) {
+	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))
+	if err != nil {
+		t.Fatalf("read service.go: %v", err)
+	}
+	body := string(src)
+	start := strings.Index(body, "func (d *Service) resumePostSwap(")
+	if start < 0 {
+		t.Fatal("resumePostSwap not found in service.go")
+	}
+	rest := body[start:]
+	end := regexp.MustCompile(`(?m)^}\n`).FindStringIndex(rest)
+	if end == nil {
+		t.Fatal("resumePostSwap closing brace not found")
+	}
+	fn := rest[:end[1]]
+
+	probeIdx := strings.Index(fn, "d.containersAtFlagTarget(ctx, flag)")
+	if probeIdx < 0 {
+		t.Fatal("resumePostSwap missing self-heal probe call. Add: " +
+			"`if ok, mismatched := d.containersAtFlagTarget(ctx, flag); ok { ... }` " +
+			"BEFORE the needsPostSwapRollback branch.")
+	}
+	rollbackIdx := strings.Index(fn, "needsPostSwapRollback(d.binaryCommit, flag.CommitSHA)")
+	if rollbackIdx < 0 {
+		t.Fatal("resumePostSwap missing needsPostSwapRollback call — test is stale")
+	}
+	if probeIdx > rollbackIdx {
+		t.Errorf("containersAtFlagTarget probe must come BEFORE needsPostSwapRollback "+
+			"(probeIdx=%d, rollbackIdx=%d). Otherwise a converged-but-unbookkept upgrade "+
+			"gets rolled back instead of self-healed.", probeIdx, rollbackIdx)
+	}
+
+	// The self-heal branch must mark state=completed (matching the
+	// existing LabelCompletedSelfHeal pattern) and remove the flag.
+	probeBody := fn[probeIdx:rollbackIdx]
+	for _, want := range []string{
+		"state = 'completed'",
+		"LabelCompletedSelfHeal",
+		"os.Remove(d.flagPath())",
+	} {
+		if !strings.Contains(probeBody, want) {
+			t.Errorf("self-heal branch missing required token %q. Body:\n%s", want, probeBody)
+		}
+	}
+}

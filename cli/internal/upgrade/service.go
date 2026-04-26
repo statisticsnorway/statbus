@@ -3547,6 +3547,46 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) {
 	// Degraded mode: skip the check when binaryCommit is unset (local
 	// go-run builds); matches the #49 pattern. The on-prem production
 	// builds always have cmd.commit set via ldflags.
+	//
+	// Self-heal canary (Item E, plan-rc.66). Before the binary-skew
+	// rollback fires, probe docker compose ps. If every production
+	// container already runs at the flag's target — db/app/worker/proxy
+	// tagged with CommitSHA[:8] OR DisplayName (rc.55-era scheme), rest
+	// just running — the upgrade actually converged; only the bookkeeping
+	// UPDATE didn't land (rune Apr 24 case: SDNOTIFY collision aborted
+	// the parent before the row UPDATE). Mark the row completed and
+	// return so the next state probe selects StateNothingScheduled
+	// instead of triggering a rollback of a successful deploy.
+	if ok, mismatched := d.containersAtFlagTarget(ctx, flag); ok {
+		log.Printf("resumePostSwap: containers healthy at %s (sha %s) — self-healing row %d to completed",
+			flag.Label(), ShortForDisplay(flag.CommitSHA), flag.ID)
+		var selfHealJSON string
+		err := d.queryConn.QueryRow(ctx,
+			"UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_status = 'ready' WHERE id = $1 AND state = 'in_progress'"+upgradeRowReturning,
+			flag.ID).Scan(&selfHealJSON)
+		if err == nil {
+			logUpgradeRow(LabelCompletedSelfHeal, selfHealJSON)
+			d.queryConn.Exec(ctx, `NOTIFY worker_status, '{"type":"upgrade_changed"}'`)
+			os.Remove(d.flagPath())
+			d.supersedeOlderReleases(ctx, flag.CommitSHA)
+			d.supersedeCompletedPrereleases(ctx, flag.CommitSHA)
+			progress.Write("Post-swap self-heal: containers already at %s; row %d marked completed without re-running applyPostSwap.",
+				flag.Label(), flag.ID)
+			progress.Close()
+			return
+		}
+		// UPDATE didn't land (ErrNoRows: row already terminal; or
+		// chk_upgrade_state_attributes violation: row carries an `error`
+		// the constraint forbids on completed). Fall through to the
+		// existing rollback path; recoveryRollback handles its own
+		// terminal-row idempotency.
+		log.Printf("resumePostSwap: self-heal UPDATE skipped for row %d (err=%v) — falling through to rollback check",
+			flag.ID, err)
+	} else {
+		log.Printf("resumePostSwap: containers NOT at flag target %s — falling through to rollback check. Mismatched: %v",
+			flag.Label(), mismatched)
+	}
+
 	if needs, reason := needsPostSwapRollback(d.binaryCommit, flag.CommitSHA); needs {
 		progress.Write("Post-swap guard: %s — flag is stale; rolling back row and clearing flag (skipping applyPostSwap on mismatched binary).", reason)
 		progress.Close()
