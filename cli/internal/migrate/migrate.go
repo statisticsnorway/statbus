@@ -7,6 +7,8 @@ package migrate
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"os/exec"
@@ -20,6 +22,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/statisticsnorway/statbus/cli/internal/config"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
+	"github.com/statisticsnorway/statbus/cli/internal/release"
 )
 
 // MigrationFile represents a parsed migration filename.
@@ -456,6 +459,17 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error)
 		return 0, fmt.Errorf("ensure migration table: %w", err)
 	}
 
+	// Content-hash mismatch sweep — runs BEFORE the pending filter so it
+	// catches in-place edits to migrations that are no longer pending.
+	// Hard-fails on immutability violations (released-tag rows whose
+	// file bytes have changed); emits a remediation error pointing at
+	// `./sb migrate redo <version>` for WIP rows. Silent no-op on
+	// legacy DBs that haven't yet applied the content_hash column
+	// migration. See plan-rc.66 section R.
+	if err := eagerContentHashCheck(projDir); err != nil {
+		return 0, err
+	}
+
 	applied, err := listAppliedVersions(projDir)
 	if err != nil {
 		return 0, err
@@ -514,6 +528,15 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error)
 			fmt.Printf("[applied] (%dms)\n", durationMs)
 		}
 		appliedCount++
+	}
+
+	// Lazy-backfill content_hash for any tracked rows still missing it.
+	// Runs unconditionally (even when no migrations were applied) so a
+	// legacy DB upgrading through the content_hash column migration gets
+	// its existing rows stamped on the first migrate up post-rc.67. The
+	// helper is a silent no-op when the column doesn't exist yet.
+	if err := backfillContentHash(projDir, verbose); err != nil {
+		return appliedCount, fmt.Errorf("content_hash backfill: %w", err)
 	}
 
 	// Notify PostgREST
@@ -774,4 +797,358 @@ func PsqlArgs(projDir string) ([]string, []string, error) {
 // PsqlProjectDir is a convenience to get projDir for psql commands.
 func PsqlProjectDir() string {
 	return config.ProjectDir()
+}
+
+// ── content_hash machinery (plan-rc.66 section R, commit 2/4) ───────────────
+//
+// db.migration.content_hash carries sha256(file bytes at apply time) for
+// every tracked migration. The runner uses it to detect in-place edits to
+// already-applied migrations — the rc63-fixes immutability violation
+// pattern. Two helpers:
+//
+//   - eagerContentHashCheck — runs at the top of every `migrate up`, BEFORE
+//     pending-only filtering, so it catches edits to migrations that are no
+//     longer pending. Compares stored hash to live file bytes; on mismatch,
+//     branches on whether the migration is in a released tag.
+//   - backfillContentHash — runs at the bottom of every `migrate up`. For
+//     every tracked row with NULL content_hash, computes the file hash and
+//     stamps it. Lazy: existing legacy rows get backfilled on the first
+//     migrate up after the column migration applies.
+//
+// Both helpers are silent no-ops when the content_hash column doesn't yet
+// exist (legacy DB pre-rc.67-migration). The column-presence probe is a
+// cheap information_schema lookup per call.
+
+// sha256File reads the file's bytes and returns lowercase hex sha256.
+func sha256File(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	h := sha256.Sum256(data)
+	return hex.EncodeToString(h[:]), nil
+}
+
+// contentHashColumnExists probes information_schema for the column.
+// Returns false (no error) when the column hasn't been added yet.
+func contentHashColumnExists(projDir string) (bool, error) {
+	out, err := runPsql(projDir,
+		"SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_schema='db' AND table_name='migration' AND column_name='content_hash')",
+		"-t", "-A")
+	if err != nil {
+		// If db.migration table itself is missing (very fresh DB pre-ensureMigrationTableSQL),
+		// treat as "column doesn't exist".
+		msg := err.Error()
+		if strings.Contains(msg, "db.migration") && strings.Contains(msg, "does not exist") {
+			return false, nil
+		}
+		if strings.Contains(msg, `schema "db" does not exist`) {
+			return false, nil
+		}
+		return false, fmt.Errorf("probe content_hash column: %w", err)
+	}
+	return strings.TrimSpace(out) == "t", nil
+}
+
+// eagerContentHashCheck verifies that every tracked migration's stored
+// content_hash matches the live file's sha256. On mismatch, branches:
+//   - migration version IS in a released tag → immutability violation
+//     (hard fail; no override). The error names the tag and tells the
+//     operator to create a new migration.
+//   - migration version NOT in any released tag → recoverable WIP edit.
+//     Error tells the operator to run `./sb migrate redo <version>`.
+//
+// Skips files that don't exist at HEAD (likely deleted via git revert);
+// not the immutability check's concern.
+//
+// Skips silently when the content_hash column doesn't exist (legacy DB
+// upgrading through this RC's column-add migration; the column will be
+// added during the apply pass that follows).
+func eagerContentHashCheck(projDir string) error {
+	exists, err := contentHashColumnExists(projDir)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return nil
+	}
+
+	rowsOut, err := runPsql(projDir,
+		"SELECT version || '|' || content_hash FROM db.migration WHERE content_hash IS NOT NULL ORDER BY version",
+		"-t", "-A")
+	if err != nil {
+		return fmt.Errorf("query content_hash rows: %w", err)
+	}
+
+	for _, line := range strings.Split(strings.TrimSpace(rowsOut), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, "|", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		version, parseErr := strconv.ParseInt(parts[0], 10, 64)
+		if parseErr != nil {
+			continue
+		}
+		storedHash := strings.TrimSpace(parts[1])
+
+		pattern := filepath.Join(projDir, "migrations", fmt.Sprintf("%d_*.up.sql", version))
+		matches, _ := filepath.Glob(pattern)
+		if len(matches) == 0 {
+			// File missing at HEAD (git revert?). Out of scope for this
+			// check; let the pending-set logic handle reconciliation.
+			continue
+		}
+		filePath := matches[0]
+		liveHash, hashErr := sha256File(filePath)
+		if hashErr != nil {
+			return fmt.Errorf("hash %s: %w", filePath, hashErr)
+		}
+		if liveHash == storedHash {
+			continue
+		}
+
+		// Mismatch — branch on released-tag containment.
+		releasedTag, relErr := release.MigrationInReleasedTag(projDir, version)
+		if relErr != nil {
+			return fmt.Errorf("released-tag detection for migration %d: %w", version, relErr)
+		}
+		if releasedTag != "" {
+			return fmt.Errorf(
+				"immutability violation: migration %d (%s) is in release %s and its file bytes have changed since apply.\n"+
+					"  Migration files in released tags must not be edited; create a new migration instead:\n"+
+					"    ./sb migrate new --description \"fix_<description>\"\n"+
+					"  Then revert the modification to the original file:\n"+
+					"    git checkout %s -- migrations/%s",
+				version, filepath.Base(filePath), releasedTag,
+				releasedTag, filepath.Base(filePath))
+		}
+		return fmt.Errorf(
+			"migration %d (%s) content has changed since apply (WIP edit).\n"+
+				"  Run: ./sb migrate redo %d\n"+
+				"  This re-runs the migration's down + up against the seed DB and re-stamps content_hash.",
+			version, filepath.Base(filePath), version)
+	}
+	return nil
+}
+
+// backfillContentHash UPDATEs every tracked row with NULL content_hash to
+// hold sha256(file bytes). Silent no-op when the column doesn't exist or
+// no rows need stamping. On a legacy DB upgrading through the column-add
+// migration, this is the first time hashes get computed; subsequent calls
+// are no-ops because all rows already have non-NULL hashes.
+func backfillContentHash(projDir string, verbose bool) error {
+	exists, err := contentHashColumnExists(projDir)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return nil
+	}
+
+	rowsOut, err := runPsql(projDir,
+		"SELECT version FROM db.migration WHERE content_hash IS NULL ORDER BY version",
+		"-t", "-A")
+	if err != nil {
+		return fmt.Errorf("query NULL-hash rows: %w", err)
+	}
+
+	stamped := 0
+	for _, line := range strings.Split(strings.TrimSpace(rowsOut), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		version, parseErr := strconv.ParseInt(line, 10, 64)
+		if parseErr != nil {
+			continue
+		}
+
+		pattern := filepath.Join(projDir, "migrations", fmt.Sprintf("%d_*.up.sql", version))
+		matches, _ := filepath.Glob(pattern)
+		if len(matches) == 0 {
+			// File missing at HEAD (git revert?). Skip — leaves the row
+			// at NULL; eager check will skip it too.
+			continue
+		}
+		filePath := matches[0]
+		liveHash, hashErr := sha256File(filePath)
+		if hashErr != nil {
+			return fmt.Errorf("hash %s: %w", filePath, hashErr)
+		}
+
+		if _, err := runPsql(projDir,
+			"UPDATE db.migration SET content_hash = :'hash' WHERE version = :version",
+			"-v", "version="+strconv.FormatInt(version, 10),
+			"-v", "hash="+liveHash,
+		); err != nil {
+			return fmt.Errorf("backfill content_hash for migration %d: %w", version, err)
+		}
+		stamped++
+	}
+
+	if stamped > 0 && verbose {
+		fmt.Printf("Backfilled content_hash on %d row(s)\n", stamped)
+	}
+	return nil
+}
+
+// Redo re-runs a migration's down + up cycle and re-stamps the tracking
+// row. The principled use case is recovering from a WIP edit to an
+// already-applied migration: the operator edits up.sql, the next
+// migrate up errors with "Run: ./sb migrate redo <version>", and this
+// command does the work.
+//
+// Constraints (enforced; clear errors on violation):
+//   - target ∈ {"dev", "seed"}; default "seed".
+//   - target=="seed" requires POSTGRES_SEED_DB configured (introduced
+//     in commit 3 of the seed feature). Until then this branch errors.
+//   - target=="dev" requires confirm=true — destructive on dev DBs
+//     with custom data.
+//   - Restricted to LATEST applied version only. Intermediate redos
+//     leave dependent migrations' effects orphaned over a reverted
+//     base. Cascade semantics deferred until needed.
+func Redo(projDir string, version int64, target string, confirm bool, verbose bool) error {
+	if target == "" {
+		target = "seed"
+	}
+	if target != "dev" && target != "seed" {
+		return fmt.Errorf("--target must be 'dev' or 'seed', got %q", target)
+	}
+
+	// Resolve the actual database name and override env so all subsequent
+	// psql/pgx calls in this command target it. Reverted via defer.
+	envPath := filepath.Join(projDir, ".env")
+	f, err := dotenv.Load(envPath)
+	if err != nil {
+		return fmt.Errorf("load .env: %w", err)
+	}
+
+	var dbName string
+	switch target {
+	case "seed":
+		v, ok := f.Get("POSTGRES_SEED_DB")
+		if !ok || v == "" {
+			return fmt.Errorf("POSTGRES_SEED_DB not configured; the seed DB is introduced in commit 3 of the seed feature.\n" +
+				"  For now, use `--target dev --confirm` at your own risk.")
+		}
+		dbName = v
+	case "dev":
+		if !confirm {
+			return fmt.Errorf("./sb migrate redo --target dev requires --confirm.\n" +
+				"  Redo runs the migration's down.sql which is destructive on a dev DB with custom data.\n" +
+				"  Default --target seed is safe (build-time DB; disposable).")
+		}
+		v, ok := f.Get("POSTGRES_APP_DB")
+		if !ok || v == "" {
+			v = "statbus_local"
+		}
+		dbName = v
+	}
+
+	prevApp, hadApp := os.LookupEnv("POSTGRES_APP_DB")
+	prevPG, hadPG := os.LookupEnv("PGDATABASE")
+	os.Setenv("POSTGRES_APP_DB", dbName)
+	os.Setenv("PGDATABASE", dbName)
+	defer func() {
+		if hadApp {
+			os.Setenv("POSTGRES_APP_DB", prevApp)
+		} else {
+			os.Unsetenv("POSTGRES_APP_DB")
+		}
+		if hadPG {
+			os.Setenv("PGDATABASE", prevPG)
+		} else {
+			os.Unsetenv("PGDATABASE")
+		}
+	}()
+
+	ctx := context.Background()
+	lockConn, err := acquireAdvisoryLock(ctx, projDir)
+	if err != nil {
+		return err
+	}
+	defer lockConn.Close(context.Background())
+
+	applied, err := listAppliedVersions(projDir)
+	if err != nil {
+		return err
+	}
+	if !applied[version] {
+		return fmt.Errorf("./sb migrate redo: version %d is not applied to %s", version, dbName)
+	}
+	var latest int64
+	for v := range applied {
+		if v > latest {
+			latest = v
+		}
+	}
+	if version != latest {
+		return fmt.Errorf("./sb migrate redo only supports the latest applied migration (currently %d in %s).\n"+
+			"  To revisit older migrations, manually migrate down past it then back up.",
+			latest, dbName)
+	}
+
+	upPattern := filepath.Join(projDir, "migrations", fmt.Sprintf("%d_*.up.sql", version))
+	upMatches, _ := filepath.Glob(upPattern)
+	if len(upMatches) == 0 {
+		return fmt.Errorf("no up.sql for version %d", version)
+	}
+	upPath := upMatches[0]
+
+	downPattern := filepath.Join(projDir, "migrations", fmt.Sprintf("%d_*.down.sql", version))
+	downMatches, _ := filepath.Glob(downPattern)
+	if len(downMatches) == 0 {
+		return fmt.Errorf("no down.sql for version %d", version)
+	}
+	downPath := downMatches[0]
+
+	mf, err := parseMigrationFile(upPath)
+	if err != nil {
+		return err
+	}
+
+	if verbose {
+		fmt.Printf("./sb migrate redo: target=%s db=%s version=%d\n", target, dbName, version)
+		fmt.Printf("Running down.sql: %s\n", filepath.Base(downPath))
+	}
+	if out, err := runPsqlFile(projDir, downPath); err != nil {
+		return fmt.Errorf("redo %d: down failed: %w\n%s", version, err, out)
+	}
+
+	if _, err := runPsql(projDir, fmt.Sprintf("DELETE FROM db.migration WHERE version = %d", version)); err != nil {
+		return fmt.Errorf("redo %d: delete tracking row: %w", version, err)
+	}
+
+	if verbose {
+		fmt.Printf("Running up.sql:   %s\n", filepath.Base(upPath))
+	}
+	start := time.Now()
+	if out, err := runPsqlFile(projDir, upPath); err != nil {
+		return fmt.Errorf("redo %d: up failed: %w\n%s", version, err, out)
+	}
+	durationMs := time.Since(start).Milliseconds()
+
+	recordSQL := `INSERT INTO db.migration (version, filename, description, duration_ms) VALUES (:version, :'filename', :'description', :duration_ms)`
+	if _, err := runPsql(projDir, recordSQL,
+		"-v", fmt.Sprintf("version=%d", version),
+		"-v", "filename="+filepath.Base(upPath),
+		"-v", "description="+mf.Description,
+		"-v", fmt.Sprintf("duration_ms=%d", durationMs),
+	); err != nil {
+		return fmt.Errorf("redo %d: re-record tracking row: %w", version, err)
+	}
+
+	// Backfill the new content_hash so the next migrate up doesn't
+	// re-detect this same migration as a WIP edit.
+	if err := backfillContentHash(projDir, verbose); err != nil {
+		// Non-fatal — the hash will be backfilled on next migrate up.
+		fmt.Fprintf(os.Stderr, "Note: content_hash backfill skipped: %v (will retry on next `./sb migrate up`)\n", err)
+	}
+
+	fmt.Printf("Migration %d redone against %s\n", version, dbName)
+	return nil
 }
