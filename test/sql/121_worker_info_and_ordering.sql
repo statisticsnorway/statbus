@@ -9,15 +9,18 @@ BEGIN;
 -- Lock worker.tasks to prevent background worker interference and ensure deterministic IDs
 LOCK TABLE worker.tasks IN EXCLUSIVE MODE;
 
--- Clean slate: delete non-maintenance tasks, restart sequences.
--- Also delete pending maintenance stubs seeded by migration 20260422161000
--- (maint_queue_migration) which unconditionally re-enqueues task_cleanup +
--- import_job_cleanup on every install; the pending rows at ids 7, 8 collide
--- with the RESTART WITH 3 sequence below as soon as enough rows are inserted.
-DELETE FROM worker.tasks WHERE parent_id IS NOT NULL;
-DELETE FROM worker.tasks WHERE command NOT IN ('task_cleanup', 'import_job_cleanup');
-DELETE FROM worker.tasks WHERE state = 'pending';
-ALTER SEQUENCE worker.tasks_id_seq RESTART WITH 3;
+-- Canonical worker.tasks baseline: clean slate + freshly-seeded maint pair.
+-- Tests get predictable maint at ids 1, 2; subsequent inserts at id=3+.
+-- Same shape as a fresh production install. The historical id-7 collision
+-- from accumulated completed maint rows (migration 20260422161000 seeds
+-- pending stubs; worker transitions them to completed and re-enqueues at
+-- later sequence values) is gone because we DELETE everything and
+-- re-enqueue from scratch.
+DELETE FROM worker.tasks;
+ALTER SEQUENCE worker.tasks_id_seq RESTART WITH 1;
+SELECT worker.enqueue_task_cleanup();         -- INSERTs at id=1 (no conflict, fresh table)
+SELECT worker.enqueue_import_job_cleanup();   -- INSERTs at id=2 (no conflict, fresh table)
+-- Sequence is now at 3 implicitly; test inserts continue from there.
 
 -- Suppress DEBUG noise
 SET client_min_messages = warning;
@@ -178,10 +181,14 @@ ORDER BY id DESC LIMIT 1;
 
 \echo "=== 11. Clean up and test ELSE branch (no pending changes) ==="
 
--- Clean slate
-DELETE FROM worker.tasks WHERE parent_id IS NOT NULL;
-DELETE FROM worker.tasks WHERE command NOT IN ('task_cleanup', 'import_job_cleanup');
-ALTER SEQUENCE worker.tasks_id_seq RESTART WITH 100;
+-- Canonical worker.tasks baseline: clean slate + freshly-seeded maint pair.
+-- Same shape as the per-test setup above; applied between scenarios so the
+-- ELSE-branch test below starts from a known maint=1,2; seq=3 state.
+DELETE FROM worker.tasks;
+ALTER SEQUENCE worker.tasks_id_seq RESTART WITH 1;
+SELECT worker.enqueue_task_cleanup();         -- INSERTs at id=1
+SELECT worker.enqueue_import_job_cleanup();   -- INSERTs at id=2
+-- Sequence is now at 3 implicitly; test inserts continue from there.
 
 -- Ensure base_change_log is empty (no pending changes)
 DELETE FROM worker.base_change_log;
