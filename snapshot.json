@@ -1,6 +1,6 @@
 {
-  "migration_version": "20260424160235",
-  "commit_sha": "9ac0666c8ad8e2fb071cd3d411087cdbe0730992",
+  "migration_version": "20260425163029",
+  "commit_sha": "2be9da13d183f01424b60906d9e5239c662d07b6",
   "tags": "",
-  "created_at": "2026-04-25T09:47:58Z"
+  "created_at": "2026-04-26T18:21:39Z"
 }
