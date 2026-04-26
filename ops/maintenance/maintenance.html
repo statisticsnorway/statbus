@@ -134,7 +134,11 @@
                 warning: "Upgrade is taking longer than expected. Please contact your administrator.",
                 digits: "0123456789",
                 pauseAutoRefresh: "Pause auto-refresh",
-                resumeAutoRefresh: "Resume auto-refresh"
+                resumeAutoRefresh: "Resume auto-refresh",
+                loginRequiredTitle: "Sign in to continue",
+                loginRequiredSessionExpired: "Your session expired during the upgrade. Sign in to be redirected when it completes.",
+                loginRequiredGeneric: "Sign in to be redirected when the upgrade completes.",
+                logIn: "Log In"
             },
             'nb': {
                 title: "StatBus oppgraderes",
@@ -144,7 +148,11 @@
                 warning: "Oppgraderingen tar lengre tid enn forventet. Kontakt administratoren din.",
                 digits: "0123456789",
                 pauseAutoRefresh: "Pause auto-oppdatering",
-                resumeAutoRefresh: "Gjenoppta auto-oppdatering"
+                resumeAutoRefresh: "Gjenoppta auto-oppdatering",
+                loginRequiredTitle: "Logg inn for å fortsette",
+                loginRequiredSessionExpired: "Økten din utløp under oppgraderingen. Logg inn for å bli omdirigert når den er ferdig.",
+                loginRequiredGeneric: "Logg inn for å bli omdirigert når oppgraderingen er ferdig.",
+                logIn: "Logg Inn"
             },
             'fr': {
                 title: "StatBus est en cours de mise à jour",
@@ -154,7 +162,11 @@
                 warning: "La mise à jour prend plus de temps que prévu. Veuillez contacter votre administrateur.",
                 digits: "0123456789",
                 pauseAutoRefresh: "Mettre en pause le rafraîchissement",
-                resumeAutoRefresh: "Reprendre le rafraîchissement"
+                resumeAutoRefresh: "Reprendre le rafraîchissement",
+                loginRequiredTitle: "Connectez-vous pour continuer",
+                loginRequiredSessionExpired: "Votre session a expiré pendant la mise à jour. Connectez-vous pour être redirigé à la fin.",
+                loginRequiredGeneric: "Connectez-vous pour être redirigé à la fin de la mise à jour.",
+                logIn: "Se Connecter"
             },
             'ru': {
                 title: "StatBus обновляется",
@@ -164,7 +176,11 @@
                 warning: "Обновление занимает больше времени, чем ожидалось. Обратитесь к администратору.",
                 digits: "0123456789",
                 pauseAutoRefresh: "Приостановить автообновление",
-                resumeAutoRefresh: "Возобновить автообновление"
+                resumeAutoRefresh: "Возобновить автообновление",
+                loginRequiredTitle: "Войдите, чтобы продолжить",
+                loginRequiredSessionExpired: "Ваша сессия истекла во время обновления. Войдите, чтобы быть перенаправленным после его завершения.",
+                loginRequiredGeneric: "Войдите, чтобы быть перенаправленным после завершения обновления.",
+                logIn: "Войти"
             },
             'ar': {
                 title: "جاري تحديث StatBus",
@@ -174,7 +190,11 @@
                 warning: "يستغرق التحديث وقتاً أطول من المتوقع. يرجى الاتصال بالمسؤول.",
                 digits: "٠١٢٣٤٥٦٧٨٩",
                 pauseAutoRefresh: "إيقاف التحديث التلقائي",
-                resumeAutoRefresh: "استئناف التحديث التلقائي"
+                resumeAutoRefresh: "استئناف التحديث التلقائي",
+                loginRequiredTitle: "سجّل الدخول للمتابعة",
+                loginRequiredSessionExpired: "انتهت جلستك أثناء التحديث. سجّل الدخول لتتم إعادة توجيهك عند اكتماله.",
+                loginRequiredGeneric: "سجّل الدخول لتتم إعادة توجيهك عند اكتمال التحديث.",
+                logIn: "تسجيل الدخول"
             },
             'tr': {
                 title: "StatBus güncelleniyor",
@@ -184,7 +204,11 @@
                 warning: "Güncelleme beklenenden uzun sürüyor. Lütfen yöneticinize başvurun.",
                 digits: "0123456789",
                 pauseAutoRefresh: "Otomatik yenilemeyi duraklat",
-                resumeAutoRefresh: "Otomatik yenilemeyi sürdür"
+                resumeAutoRefresh: "Otomatik yenilemeyi sürdür",
+                loginRequiredTitle: "Devam etmek için giriş yapın",
+                loginRequiredSessionExpired: "Güncelleme sırasında oturumunuzun süresi doldu. Tamamlandığında yönlendirilmek için giriş yapın.",
+                loginRequiredGeneric: "Güncelleme tamamlandığında yönlendirilmek için giriş yapın.",
+                logIn: "Giriş Yap"
             },
             'el': {
                 title: "Το StatBus αναβαθμίζεται",
@@ -194,7 +218,11 @@
                 warning: "Η αναβάθμιση διαρκεί περισσότερο από το αναμενόμενο. Επικοινωνήστε με τον διαχειριστή.",
                 digits: "0123456789",
                 pauseAutoRefresh: "Παύση αυτόματης ανανέωσης",
-                resumeAutoRefresh: "Συνέχιση αυτόματης ανανέωσης"
+                resumeAutoRefresh: "Συνέχιση αυτόματης ανανέωσης",
+                loginRequiredTitle: "Συνδεθείτε για να συνεχίσετε",
+                loginRequiredSessionExpired: "Η συνεδρία σας έληξε κατά τη διάρκεια της αναβάθμισης. Συνδεθείτε για ανακατεύθυνση όταν ολοκληρωθεί.",
+                loginRequiredGeneric: "Συνδεθείτε για ανακατεύθυνση όταν ολοκληρωθεί η αναβάθμιση.",
+                logIn: "Σύνδεση"
             }
         };
 
@@ -265,54 +293,158 @@
         }
 
         // Check if services are back.
-        // Redirects only when BOTH signals clear: app returns 200 AND no upgrade row
-        // is in an active state (scheduled or in_progress). This closes two race windows:
+        //
+        // Redirects only when BOTH signals clear: app returns 200 AND no
+        // upgrade row is in an active state (scheduled or in_progress).
+        // This closes two race windows:
         //   Window A: scheduled_at written, service not yet picked up (~poll-interval lag)
         //   Window B: maintenance file removed but completed_at not yet written (ms gap)
-        // If the REST probe is unreachable or returns a non-2xx (e.g. 401 session expired,
-        // 503 during migration), we fail safe — stay on maintenance page.
+        //
+        // The /rest/upgrade probe requires authentication. JWT access
+        // tokens default to 5 minutes; a typical 2–10 minute upgrade
+        // outlasts the access token, so the probe would 401 and the page
+        // would stay forever (Item J, plan-rc.66). Gate the probe on an
+        // auth-state check first: call auth_status, attempt one refresh
+        // when the access token expired but a refresh-cookie is present,
+        // and surface a Log-In affordance when neither path leaves us
+        // authenticated. The login flow round-trips back through
+        // /maintenance.html so the user lands at returnPath only after
+        // the upgrade is also idle.
+        function getAuthState() {
+            // Step 1: auth_status is anon-callable and returns
+            // auth.auth_response — the same shape refresh returns —
+            // so the branching below uses one type.
+            return fetch('/rest/rpc/auth_status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: '{}',
+                credentials: 'include',
+                cache: 'no-store'
+            })
+            .then(function(r) { return r.ok ? r.json() : null; })
+            .then(function(auth) {
+                // Step 2: if auth_status told us the access token expired
+                // but a refresh-cookie should be tried, refresh once.
+                // refresh returns auth.auth_response too — feed its
+                // body straight back into `auth`, no second auth_status
+                // call required.
+                if (auth && !auth.is_authenticated && auth.expired_access_token_call_refresh) {
+                    return fetch('/rest/rpc/refresh', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: '{}',
+                        credentials: 'include',
+                        cache: 'no-store'
+                    })
+                    .then(function(rr) {
+                        // refresh returns 401 when the refresh cookie is
+                        // missing/invalid; 200 when it succeeded. Both
+                        // carry an auth_response body in the documented
+                        // contract, but be defensive and keep `auth` if
+                        // parsing fails.
+                        if (rr.status !== 200 && rr.status !== 401) {
+                            return auth;
+                        }
+                        return rr.json().then(function(refreshed) {
+                            return refreshed || auth;
+                        }).catch(function() { return auth; });
+                    })
+                    .catch(function() { return auth; });
+                }
+                return auth;
+            })
+            .catch(function() { return null; }); // PostgREST unreachable
+        }
+
+        function showLoginPrompt(returnPath, errorCode) {
+            // Hide the spinner so the page reads as actionable, not waiting.
+            var spinner = document.querySelector('.spinner');
+            if (spinner) spinner.style.display = 'none';
+            document.getElementById('headline').textContent = t.loginRequiredTitle;
+            document.getElementById('message').textContent =
+                (errorCode === 'REFRESH_NO_TOKEN_COOKIE')
+                    ? t.loginRequiredSessionExpired
+                    : t.loginRequiredGeneric;
+
+            // Repurpose the existing Check Now button as the Log-In button.
+            var btn = document.getElementById('checkNowBtn');
+            btn.textContent = t.logIn;
+            btn.onclick = function() {
+                // Round-trip through /login then back through
+                // /maintenance.html so the React app's
+                // UpgradeMaintenanceGuard re-checks the upgrade row when
+                // the user lands on returnPath.
+                window.location.href = '/login?return=' +
+                    encodeURIComponent('/maintenance.html?return=' + encodeURIComponent(returnPath));
+            };
+
+            // Stop the polling — without a session the upgrade probe
+            // can't say anything useful, and an auto-redirect won't
+            // recover. The user must click Log In.
+            clearInterval(countdownHandle);
+            countdownEl.textContent = '';
+        }
+
         function checkHealth() {
-            var appStatus = '?';
-            var upgradeStatus = '?';
-
-            var appProbe = fetch('/', { cache: 'no-store' })
-                .then(function(r) { appStatus = r.status; return { ok: r.ok }; })
-                .catch(function() { appStatus = 'err'; return { ok: false }; });
-
-            var upgradeProbe = fetch(
-                '/rest/upgrade?state=in.(scheduled,in_progress)&select=state&limit=1',
-                { cache: 'no-store', credentials: 'include' }
-            ).then(function(r) {
-                if (!r.ok) { upgradeStatus = 'unknown'; return { unknown: true }; }
-                return r.json().then(function(rows) {
-                    upgradeStatus = rows.length > 0 ? 'active' : 'idle';
-                    return { active: rows.length > 0 };
-                });
-            }).catch(function() { upgradeStatus = 'unknown'; return { unknown: true }; });
-
-            Promise.all([appProbe, upgradeProbe]).then(function(results) {
-                var app = results[0];
-                var upgrade = results[1];
-                var decision, reason;
-
-                if (upgrade.unknown) {
-                    decision = 'stay'; reason = 'upgrade REST probe failed or returned non-2xx';
-                } else if (upgrade.active) {
-                    decision = 'stay'; reason = 'upgrade row in scheduled/in_progress state';
-                } else if (!app.ok) {
-                    decision = 'stay'; reason = 'app returned ' + appStatus;
-                } else {
-                    decision = 'redirect'; reason = 'app=200 and no active upgrade row';
-                }
-
-                console.log('[maintenance-check] app=' + appStatus + ' upgrade=' + upgradeStatus +
-                    ' decision=' + decision + ' reason=' + reason);
-
-                if (decision === 'redirect') {
-                    window.location.replace(decodeURIComponent(returnPath));
-                } else {
+            getAuthState().then(function(auth) {
+                if (auth === null) {
+                    // PostgREST itself unreachable. Fail safe — stay,
+                    // retry next cycle.
+                    console.log('[maintenance-check] auth=unreachable decision=stay reason=PostgREST unreachable');
                     startCountdown();
+                    return;
                 }
+
+                if (!auth.is_authenticated) {
+                    console.log('[maintenance-check] auth=anon error_code=' + (auth.error_code || '?') +
+                        ' decision=login reason=cannot read upgrade table without session');
+                    showLoginPrompt(returnPath, auth.error_code);
+                    return;
+                }
+
+                // Authenticated — run the existing dual-probe.
+                var appStatus = '?';
+                var upgradeStatus = '?';
+
+                var appProbe = fetch('/', { cache: 'no-store' })
+                    .then(function(r) { appStatus = r.status; return { ok: r.ok }; })
+                    .catch(function() { appStatus = 'err'; return { ok: false }; });
+
+                var upgradeProbe = fetch(
+                    '/rest/upgrade?state=in.(scheduled,in_progress)&select=state&limit=1',
+                    { cache: 'no-store', credentials: 'include' }
+                ).then(function(r) {
+                    if (!r.ok) { upgradeStatus = 'unknown'; return { unknown: true }; }
+                    return r.json().then(function(rows) {
+                        upgradeStatus = rows.length > 0 ? 'active' : 'idle';
+                        return { active: rows.length > 0 };
+                    });
+                }).catch(function() { upgradeStatus = 'unknown'; return { unknown: true }; });
+
+                Promise.all([appProbe, upgradeProbe]).then(function(results) {
+                    var app = results[0];
+                    var upgrade = results[1];
+                    var decision, reason;
+
+                    if (upgrade.unknown) {
+                        decision = 'stay'; reason = 'upgrade REST probe failed or returned non-2xx';
+                    } else if (upgrade.active) {
+                        decision = 'stay'; reason = 'upgrade row in scheduled/in_progress state';
+                    } else if (!app.ok) {
+                        decision = 'stay'; reason = 'app returned ' + appStatus;
+                    } else {
+                        decision = 'redirect'; reason = 'app=200 and no active upgrade row';
+                    }
+
+                    console.log('[maintenance-check] auth=ok app=' + appStatus + ' upgrade=' + upgradeStatus +
+                        ' decision=' + decision + ' reason=' + reason);
+
+                    if (decision === 'redirect') {
+                        window.location.replace(decodeURIComponent(returnPath));
+                    } else {
+                        startCountdown();
+                    }
+                });
             });
 
             if (Date.now() - startTime > TEN_MINUTES) {
