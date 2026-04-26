@@ -4,6 +4,21 @@ Description=StatBus Upgrade Service
 # Install: ./sb install (copies to ~/.config/systemd/user/)
 # Manage: systemctl --user {start,stop,status} statbus-upgrade@$USER.service
 
+# Start-limit cap (Item L, plan-rc.66). Without this, Restart=always +
+# RestartSec=30 retries forever — observed on statbus_jo (11000+ restarts
+# over 91h, the unit reporting `activating` instead of `failed`, missed
+# by every standard health-check). After 10 failed starts within 600s,
+# systemd transitions the unit to `failed` and stops retrying. Recovery
+# requires `systemctl --user reset-failed` + restart, OR `./sb install`
+# (the install ladder detects DB-down and runs the step-table).
+#
+# Threshold rationale: 10-in-10min is forgiving enough for legitimate
+# transient issues (a DB restart during a maintenance window: ~3
+# retries) and tight enough that a wedged state surfaces within ~10
+# minutes instead of 91 hours.
+StartLimitIntervalSec=600
+StartLimitBurst=10
+
 [Service]
 Type=notify
 WorkingDirectory=%h/statbus
