@@ -2,7 +2,7 @@
 # remind-report-via-sendmessage.sh — PreToolUse hook on SendMessage.
 #
 # When foreman (team-lead) sends a substantive task brief to a smaller-model
-# teammate (operator / mechanic / tester / paralegal / scout), inject a
+# teammate (operator / mechanic / tester / scout), inject a
 # reminder that the closing instruction MUST be "Report back to foreman via
 # SendMessage with: ...". Otherwise these models print findings to their own
 # console and never transmit back, leaving foreman to re-do the work.
@@ -44,7 +44,7 @@ to=$(jq -r '.tool_input.to // empty' <<<"$payload")
 # Small-model teammates who benefit most from an explicit closing.
 # Broadcast ("*") and larger models (engineer, foreman, team-lead) skip.
 case "$to" in
-  operator|mechanic|tester|paralegal|scout) : ;;
+  operator|mechanic|tester|scout) : ;;
   *) echo "{}"; exit 0 ;;
 esac
 
