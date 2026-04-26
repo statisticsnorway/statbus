@@ -300,7 +300,7 @@ cmd_wipe() {
     #   2. docker volume rm <db-data> — blow away the PG data volume
     #   3. ./sb install --non-interactive
     #                                 — 14-step dispatcher handles
-    #                                   start db + snapshot restore +
+    #                                   start db + seed restore +
     #                                   migrate up + JWT secret + users
     #                                   + trusted signers + upgrade svc
     #                                   all idempotently.

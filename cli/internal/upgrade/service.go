@@ -1749,7 +1749,7 @@ func (d *Service) verifyUpgradeGroundTruth(ctx context.Context, rowCommitSHA str
 // swap-restart case where we genuinely want to resume).
 //
 // Extracted as a free function so it's unit-testable without wiring a
-// *Service + DB. Parallels snapshotCreator / checkSnapshotFresh from
+// *Service + DB. Parallels seedCreator / checkSeedFresh from
 // task #47's same test-seam discipline.
 func needsPostSwapRollback(binaryCommit, flagCommitSHA string) (bool, string) {
 	if binaryCommit == "" || binaryCommit == "unknown" {

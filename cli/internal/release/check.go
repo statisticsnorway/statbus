@@ -32,8 +32,8 @@ var requiredAssets = []string{
 	"sb-darwin-arm64",
 	"checksums.txt",
 	"release-manifest.json",
-	"snapshot.pg_dump",
-	"snapshot.json",
+	"seed.pg_dump",
+	"seed.json",
 }
 
 // dockerServices are the four images built by release.yaml's build-images job.

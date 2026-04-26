@@ -15,115 +15,142 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
 
-// snapshotSHALen is the short-SHA length used in snapshot branch names
-// (`snapshot/<sha8>`). Rc.63: aligned with the canonical commit_short
+// seedSHALen is the short-SHA length used in seed branch names
+// (`seed/<sha8>`). Rc.63: aligned with the canonical commit_short
 // length (8). 8 hex chars → ~1 in 2^16 birthday-collision risk at
-// O(256) snapshots, rising to ~1 in 2 at O(64k) — acceptable for the
+// O(256) seeds, rising to ~1 in 2 at O(64k) — acceptable for the
 // lifetime of the repo. Must match `${GITHUB_SHA:0:8}` in release.yaml.
-const snapshotSHALen = 8
+const seedSHALen = 8
 
-// snapshotMeta is the JSON structure stored in .db-snapshot/snapshot.json.
-// It records which migration and commit the snapshot covers, so callers
-// can decide whether the snapshot is fresh enough to use.
-type snapshotMeta struct {
+// seedMeta is the JSON structure stored in .db-seed/seed.json.
+// It records which migration and commit the seed covers, so callers
+// can decide whether the seed is fresh enough to use.
+type seedMeta struct {
 	MigrationVersion string `json:"migration_version"`
 	CommitSHA        string `json:"commit_sha"`
 	Tags             string `json:"tags"`
 	CreatedAt        string `json:"created_at"`
 }
 
-var snapshotDatabase string
+var seedDatabase string
 
-// ── snapshot command group ──────────────────────────────────────────────────
+// ── seed command group ──────────────────────────────────────────────────────
 
-var snapshotCmd = &cobra.Command{
-	Use:   "snapshot",
-	Short: "Manage database snapshots for fast DB creation",
-	Long: `Manage pg_dump snapshots cached on the db-snapshot git branch.
+var seedCmd = &cobra.Command{
+	Use:   "seed",
+	Short: "Manage database seeds for fast DB creation",
+	Long: `Manage pg_dump seeds cached on the db-seed git branch.
 
-A snapshot lets dev.sh skip running ~294 migrations and instead
-pg_restore a single dump file (~2 seconds). The snapshot branch
+A seed lets dev.sh skip running ~294 migrations and instead
+pg_restore a single dump file (~2 seconds). The seed branch
 is a CACHE — it's force-pushed on each update.
 
 Subcommands:
-  fetch     Download snapshot from origin/db-snapshot
-  restore   Restore snapshot into a database
-  create    Dump current DB and push to db-snapshot branch
-  status    Compare snapshot version to latest migration`,
+  fetch     Download seed from origin/db-seed
+  restore   Restore seed into a database
+  create    Dump current DB and push to db-seed branch
+  status    Compare seed version to latest migration`,
 }
 
-// ── snapshot fetch ──────────────────────────────────────────────────────────
+// ── seed fetch ──────────────────────────────────────────────────────────────
 
-// snapshotFetchCmd downloads the cached DB snapshot from the db-snapshot git
-// branch. The snapshot is a pg_dump that speeds up DB creation from ~294
+// seedFetchCmd downloads the cached DB seed from the db-seed git
+// branch. The seed is a pg_dump that speeds up DB creation from ~294
 // migrations to one pg_restore (~2 seconds). Auto-called by dev.sh on first run.
-var snapshotFetchCmd = &cobra.Command{
+//
+// Legacy-name fallback (R, rc.66 → rc.67 transition): if the modern
+// branch `origin/db-seed` doesn't exist, fall back to the legacy
+// `origin/db-snapshot` and emit a clear remediation. Once the
+// origin-branch rename has been performed (operator runbook step,
+// pre-merge of the seed feature), the legacy branch is gone and the
+// fallback simply never fires. Slated for removal in the next RC
+// after the seed feature merges.
+var seedFetchCmd = &cobra.Command{
 	Use:   "fetch",
-	Short: "Fetch snapshot from origin/db-snapshot branch",
+	Short: "Fetch seed from origin/db-seed branch",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		projDir := config.ProjectDir()
-		snapshotDir := filepath.Join(projDir, ".db-snapshot")
+		seedDir := filepath.Join(projDir, ".db-seed")
 
-		// Fetch the db-snapshot branch (shallow — we only need the tip).
+		// Fetch the db-seed branch (shallow — we only need the tip).
 		// Tolerate failure: the branch may not exist yet on the remote.
-		_, err := upgrade.RunCommandOutput(projDir, "git", "fetch", "origin", "db-snapshot", "--depth=1", "--quiet")
+		usedLegacy := false
+		_, err := upgrade.RunCommandOutput(projDir, "git", "fetch", "origin", "db-seed", "--depth=1", "--quiet")
 		if err != nil {
-			fmt.Println("No snapshot branch found on remote. Create one with: ./sb db snapshot create")
-			return nil
+			// Try the legacy name.
+			_, legacyErr := upgrade.RunCommandOutput(projDir, "git", "fetch", "origin", "db-snapshot", "--depth=1", "--quiet")
+			if legacyErr != nil {
+				fmt.Println("No seed branch found on remote. Create one with: ./sb db seed create")
+				return nil
+			}
+			usedLegacy = true
+			fmt.Fprintln(os.Stderr, "WARN: fetched legacy db-snapshot branch; operator should run "+
+				"`git push origin origin/db-snapshot:db-seed && git push origin :db-snapshot` "+
+				"to complete the rename.")
 		}
 
-		// Ensure the local directory exists for the snapshot files.
-		if err := os.MkdirAll(snapshotDir, 0755); err != nil {
-			return fmt.Errorf("create .db-snapshot directory: %w", err)
+		// Ensure the local directory exists for the seed files.
+		if err := os.MkdirAll(seedDir, 0755); err != nil {
+			return fmt.Errorf("create .db-seed directory: %w", err)
 		}
 
-		// Extract snapshot.pg_dump from the fetched branch.
+		// Choose the ref the fetch landed on.
+		branchRef := "origin/db-seed"
+		dumpName := "seed.pg_dump"
+		jsonName := "seed.json"
+		if usedLegacy {
+			branchRef = "origin/db-snapshot"
+			dumpName = "snapshot.pg_dump"
+			jsonName = "snapshot.json"
+		}
+
+		// Extract dump from the fetched branch.
 		// We pipe git show output directly to a file instead of going through
 		// a string, because pg_dump custom format is binary and string
 		// conversion would corrupt it.
-		dumpPath := filepath.Join(snapshotDir, "snapshot.pg_dump")
-		if err := gitShowToFile(projDir, "origin/db-snapshot:snapshot.pg_dump", dumpPath); err != nil {
-			return fmt.Errorf("extract snapshot.pg_dump from branch: %w", err)
+		dumpPath := filepath.Join(seedDir, "seed.pg_dump")
+		if err := gitShowToFile(projDir, branchRef+":"+dumpName, dumpPath); err != nil {
+			return fmt.Errorf("extract %s from branch: %w", dumpName, err)
 		}
 
-		// Extract snapshot.json from the fetched branch.
-		jsonPath := filepath.Join(snapshotDir, "snapshot.json")
-		if err := gitShowToFile(projDir, "origin/db-snapshot:snapshot.json", jsonPath); err != nil {
-			return fmt.Errorf("extract snapshot.json from branch: %w", err)
+		// Extract metadata JSON from the fetched branch.
+		jsonPath := filepath.Join(seedDir, "seed.json")
+		if err := gitShowToFile(projDir, branchRef+":"+jsonName, jsonPath); err != nil {
+			return fmt.Errorf("extract %s from branch: %w", jsonName, err)
 		}
 
 		// Read migration version from the metadata to confirm success.
-		meta, err := loadSnapshotMeta(projDir)
+		meta, err := loadSeedMeta(projDir)
 		if err != nil {
-			return fmt.Errorf("parse snapshot.json: %w", err)
+			return fmt.Errorf("parse seed.json: %w", err)
 		}
 
-		fmt.Printf("Snapshot fetched: migration %s\n", meta.MigrationVersion)
+		fmt.Printf("Seed fetched: migration %s\n", meta.MigrationVersion)
 		return nil
 	},
 }
 
-// ── snapshot restore ────────────────────────────────────────────────────────
+// ── seed restore ────────────────────────────────────────────────────────────
 
-// snapshotRestoreCmd restores the cached snapshot into the target database.
+// seedRestoreCmd restores the cached seed into the target database.
 // The database should already exist (created from template_statbus or CREATE DATABASE).
-// After restore, only migrations newer than the snapshot need to run.
-var snapshotRestoreCmd = &cobra.Command{
+// After restore, only migrations newer than the seed need to run.
+var seedRestoreCmd = &cobra.Command{
 	Use:   "restore",
-	Short: "Restore snapshot into a database via pg_restore",
+	Short: "Restore seed into a database via pg_restore",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		projDir := config.ProjectDir()
 
-		// Check that the snapshot file exists locally.
-		dumpPath := filepath.Join(projDir, ".db-snapshot", "snapshot.pg_dump")
+		// Check that the seed file exists locally.
+		dumpPath := filepath.Join(projDir, ".db-seed", "seed.pg_dump")
 		if _, err := os.Stat(dumpPath); os.IsNotExist(err) {
-			return fmt.Errorf("snapshot not found at %s\nRun: ./sb db snapshot fetch", dumpPath)
+			return fmt.Errorf("seed not found at %s\nRun: ./sb db seed fetch", dumpPath)
 		}
 
 		// Determine target database: --database flag overrides .env default.
 		// The flag is needed for test template databases that differ from the
 		// main application database.
-		dbName := snapshotDatabase
+		dbName := seedDatabase
 		if dbName == "" {
 			var err error
 			dbName, err = loadDbName(projDir)
@@ -137,7 +164,7 @@ var snapshotRestoreCmd = &cobra.Command{
 		}
 
 		// Read metadata to report the migration version.
-		meta, err := loadSnapshotMeta(projDir)
+		meta, err := loadSeedMeta(projDir)
 		if err != nil {
 			return err
 		}
@@ -147,11 +174,11 @@ var snapshotRestoreCmd = &cobra.Command{
 		// freshly created databases — the DROP errors are harmless).
 		// --single-transaction ensures atomicity: either the whole restore
 		// succeeds or nothing changes.
-		fmt.Printf("Restoring snapshot to %s ...\n", dbName)
+		fmt.Printf("Restoring seed to %s ...\n", dbName)
 
 		dumpFile, err := os.Open(dumpPath)
 		if err != nil {
-			return fmt.Errorf("open snapshot file: %w", err)
+			return fmt.Errorf("open seed file: %w", err)
 		}
 		defer dumpFile.Close()
 
@@ -178,31 +205,31 @@ var snapshotRestoreCmd = &cobra.Command{
 			}
 		}
 
-		fmt.Printf("Snapshot restored to %s (migration %s)\n", dbName, meta.MigrationVersion)
+		fmt.Printf("Seed restored to %s (migration %s)\n", dbName, meta.MigrationVersion)
 		return nil
 	},
 }
 
-// ── snapshot create ─────────────────────────────────────────────────────────
+// ── seed create ─────────────────────────────────────────────────────────────
 
-// snapshotCreateCmd dumps the current database state and pushes it to the
-// db-snapshot branch. This branch is a CACHE — it's force-pushed on each
-// update. Old snapshots are intentionally discarded because only the latest
+// seedCreateCmd dumps the current database state and pushes it to the
+// db-seed branch. This branch is a CACHE — it's force-pushed on each
+// update. Old seeds are intentionally discarded because only the latest
 // migration state matters.
-var snapshotCreateCmd = &cobra.Command{
+var seedCreateCmd = &cobra.Command{
 	Use:   "create",
-	Short: "Dump current DB and push to db-snapshot branch",
+	Short: "Dump current DB and push to db-seed branch",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return CreateSnapshot(config.ProjectDir())
+		return CreateSeed(config.ProjectDir())
 	},
 }
 
-// CreateSnapshot is the reusable body of `./sb db snapshot create`. Exposed
+// CreateSeed is the reusable body of `./sb db seed create`. Exposed
 // so the release-prerelease preflight (cli/cmd/release.go) can invoke the
-// same regen path in-process when it detects a stale snapshot — no
+// same regen path in-process when it detects a stale seed — no
 // subprocess, no separate operator step. Behaviour-identical to invoking
 // the cobra subcommand.
-func CreateSnapshot(projDir string) error {
+func CreateSeed(projDir string) error {
 	// Verify the database is running — we need it for pg_dump and the
 	// migration version query.
 	if !dbIsRunning(projDir) {
@@ -215,7 +242,7 @@ func CreateSnapshot(projDir string) error {
 	}
 
 	// Get the latest migration version from the database.
-	// This tells us exactly what schema state the snapshot captures.
+	// This tells us exactly what schema state the seed captures.
 	migrationOut, err := upgrade.RunCommandOutput(projDir,
 		"docker", "compose", "exec", "-T", "db",
 		"psql", "-U", "postgres", "-d", dbName,
@@ -240,16 +267,16 @@ func CreateSnapshot(projDir string) error {
 	tagsOut, _ := upgrade.RunCommandOutput(projDir, "git", "tag", "--points-at", "HEAD")
 	tags := strings.TrimSpace(tagsOut)
 
-	snapshotDir := filepath.Join(projDir, ".db-snapshot")
-	if err := os.MkdirAll(snapshotDir, 0755); err != nil {
-		return fmt.Errorf("create .db-snapshot directory: %w", err)
+	seedDir := filepath.Join(projDir, ".db-seed")
+	if err := os.MkdirAll(seedDir, 0755); err != nil {
+		return fmt.Errorf("create .db-seed directory: %w", err)
 	}
 
 	// Dump the database in custom format (compact, supports parallel restore).
 	// Exclude auth.secrets — those contain per-deployment JWT secrets that
-	// must not leak into the shared snapshot branch.
+	// must not leak into the shared seed branch.
 	fmt.Printf("Dumping %s ...\n", dbName)
-	dumpPath := filepath.Join(snapshotDir, "snapshot.pg_dump")
+	dumpPath := filepath.Join(seedDir, "seed.pg_dump")
 	dumpFile, err := os.Create(dumpPath)
 	if err != nil {
 		return fmt.Errorf("create dump file: %w", err)
@@ -280,7 +307,7 @@ func CreateSnapshot(projDir string) error {
 	}
 
 	// Write metadata JSON alongside the dump.
-	meta := snapshotMeta{
+	meta := seedMeta{
 		MigrationVersion: migrationVersion,
 		CommitSHA:        commitSHA,
 		Tags:             tags,
@@ -288,49 +315,49 @@ func CreateSnapshot(projDir string) error {
 	}
 	metaJSON, err := json.MarshalIndent(meta, "", "  ")
 	if err != nil {
-		return fmt.Errorf("marshal snapshot.json: %w", err)
+		return fmt.Errorf("marshal seed.json: %w", err)
 	}
-	jsonPath := filepath.Join(snapshotDir, "snapshot.json")
+	jsonPath := filepath.Join(seedDir, "seed.json")
 	if err := os.WriteFile(jsonPath, metaJSON, 0644); err != nil {
-		return fmt.Errorf("write snapshot.json: %w", err)
+		return fmt.Errorf("write seed.json: %w", err)
 	}
 
-	fmt.Printf("Snapshot created: migration %s, commit %s (%s)\n",
+	fmt.Printf("Seed created: migration %s, commit %s (%s)\n",
 		migrationVersion, commitSHA[:8], humanSize(info.Size()))
 
-	// Sweep stale peer `snapshot/<sha>` branches BEFORE publishing the
-	// new one. Unified gate in cleanupSnapshotBranches (defined in
+	// Sweep stale peer `seed/<sha>` branches BEFORE publishing the
+	// new one. Unified gate in cleanupSeedBranches (defined in
 	// release.go): delete untagged ephemeral peers, delete tagged
 	// peers whose release is fully published (canonical store = GH
 	// release assets), retain tagged in-flight peers. preserveSHA is
-	// the project commit the new snapshot pins to — so the cleanup
+	// the project commit the new seed pins to — so the cleanup
 	// never touches the slot we're about to write.
-	cleanupSnapshotBranches(projDir, commitSHA)
+	cleanupSeedBranches(projDir, commitSHA)
 
-	// Push to the db-snapshot branch using a git worktree.
+	// Push to the db-seed branch using a git worktree.
 	// A worktree lets us commit to an orphan branch without touching the
 	// current working tree or index. The worktree lives outside the main
 	// repo to avoid confusion.
-	worktreePath := filepath.Join(filepath.Dir(projDir), "statbus-db-snapshot")
+	worktreePath := filepath.Join(filepath.Dir(projDir), "statbus-db-seed")
 
 	// Check if the worktree already exists.
 	if _, err := os.Stat(worktreePath); os.IsNotExist(err) {
 		// Try to add worktree for existing branch first.
-		_, addErr := upgrade.RunCommandOutput(projDir, "git", "worktree", "add", worktreePath, "db-snapshot")
+		_, addErr := upgrade.RunCommandOutput(projDir, "git", "worktree", "add", worktreePath, "db-seed")
 		if addErr != nil {
 			// Branch doesn't exist — create an orphan worktree.
 			// --orphan creates a new branch with no history, which is what
-			// we want: the snapshot branch has no relationship to master.
-			_, orphanErr := upgrade.RunCommandOutput(projDir, "git", "worktree", "add", "--orphan", worktreePath, "db-snapshot")
+			// we want: the seed branch has no relationship to master.
+			_, orphanErr := upgrade.RunCommandOutput(projDir, "git", "worktree", "add", "--orphan", worktreePath, "db-seed")
 			if orphanErr != nil {
 				return fmt.Errorf("git worktree add: %w\n%s", orphanErr, addErr)
 			}
 		}
 	}
 
-	// Copy snapshot files to the worktree.
-	for _, name := range []string{"snapshot.pg_dump", "snapshot.json"} {
-		src := filepath.Join(snapshotDir, name)
+	// Copy seed files to the worktree.
+	for _, name := range []string{"seed.pg_dump", "seed.json"} {
+		src := filepath.Join(seedDir, name)
 		dst := filepath.Join(worktreePath, name)
 		data, err := os.ReadFile(src)
 		if err != nil {
@@ -342,75 +369,75 @@ func CreateSnapshot(projDir string) error {
 	}
 
 	// Stage, commit, and force-push.
-	// Force-push is intentional: the snapshot branch is a cache with a
+	// Force-push is intentional: the seed branch is a cache with a
 	// single commit. History is meaningless — only the latest state matters.
-	if _, err := upgrade.RunCommandOutput(worktreePath, "git", "add", "snapshot.pg_dump", "snapshot.json"); err != nil {
+	if _, err := upgrade.RunCommandOutput(worktreePath, "git", "add", "seed.pg_dump", "seed.json"); err != nil {
 		return fmt.Errorf("git add in worktree: %w", err)
 	}
 
-	commitMsg := fmt.Sprintf("snapshot: migration %s (commit %s)", migrationVersion, commitSHA[:8])
+	commitMsg := fmt.Sprintf("seed: migration %s (commit %s)", migrationVersion, commitSHA[:8])
 	if _, err := upgrade.RunCommandOutput(worktreePath, "git", "commit", "--allow-empty", "-m", commitMsg); err != nil {
 		return fmt.Errorf("git commit in worktree: %w", err)
 	}
 
-	if _, err := upgrade.RunCommandOutput(worktreePath, "git", "push", "origin", "db-snapshot", "--force"); err != nil {
-		return fmt.Errorf("git push --force db-snapshot: %w", err)
+	if _, err := upgrade.RunCommandOutput(worktreePath, "git", "push", "origin", "db-seed", "--force"); err != nil {
+		return fmt.Errorf("git push --force db-seed: %w", err)
 	}
 
-	fmt.Printf("Snapshot created and pushed (migration %s, commit %s)\n", migrationVersion, commitSHA[:8])
+	fmt.Printf("Seed created and pushed (migration %s, commit %s)\n", migrationVersion, commitSHA[:8])
 
-	// Publish the snapshot under a SHA-named branch
-	// `snapshot/<commitSHA12>` so downstream consumers — release
+	// Publish the seed under a SHA-named branch
+	// `seed/<commitSHA12>` so downstream consumers — release
 	// workflow, operator fetches, historical lookups — have a
 	// deterministic, collision-safe reference keyed by the project
-	// commit the snapshot pins to. Every snapshot gets a branch;
+	// commit the seed pins to. Every seed gets a branch;
 	// the tag-conditional gate from the prior release-only design
-	// is gone. This removes the chicken-and-egg where a snapshot
+	// is gone. This removes the chicken-and-egg where a seed
 	// could be created before its HEAD was tagged.
 	//
-	// The branch points at the new commit on the db-snapshot
-	// worktree (where snapshot.pg_dump + snapshot.json live);
-	// the branch NAME reflects the project commit; snapshot.json's
+	// The branch points at the new commit on the db-seed
+	// worktree (where seed.pg_dump + seed.json live);
+	// the branch NAME reflects the project commit; seed.json's
 	// commit_sha field records the full project SHA (preflight and
 	// workflow use the full value for verification).
-	snapshotCommit, err := upgrade.RunCommandOutput(worktreePath, "git", "rev-parse", "HEAD")
+	seedCommit, err := upgrade.RunCommandOutput(worktreePath, "git", "rev-parse", "HEAD")
 	if err != nil {
 		return fmt.Errorf("git rev-parse HEAD in worktree: %w", err)
 	}
-	snapshotCommit = strings.TrimSpace(snapshotCommit)
-	branchName := "snapshot/" + commitSHA[:snapshotSHALen]
+	seedCommit = strings.TrimSpace(seedCommit)
+	branchName := "seed/" + commitSHA[:seedSHALen]
 
 	// Force-create the local branch — a stale local ref from an
 	// aborted prior attempt at this same project SHA should be
 	// replaced, not refused.
-	if _, err := upgrade.RunCommandOutput(worktreePath, "git", "branch", "-f", branchName, snapshotCommit); err != nil {
+	if _, err := upgrade.RunCommandOutput(worktreePath, "git", "branch", "-f", branchName, seedCommit); err != nil {
 		return fmt.Errorf("git branch %s: %w", branchName, err)
 	}
-	// --force-with-lease: cleanupSnapshotBranches typically leaves
+	// --force-with-lease: cleanupSeedBranches typically leaves
 	// this slot empty (or honors preserveSHA to keep us); the
 	// --force-with-lease is the safety net for the abort-and-retry
 	// case where remote and local diverge mid-run.
 	if _, err := upgrade.RunCommandOutput(worktreePath, "git", "push", "origin", "--force-with-lease", branchName); err != nil {
 		return fmt.Errorf("git push origin %s: %w", branchName, err)
 	}
-	fmt.Printf("Snapshot pinned: %s → %s\n", branchName, snapshotCommit[:8])
+	fmt.Printf("Seed pinned: %s → %s\n", branchName, seedCommit[:8])
 	return nil
 }
 
-// ── snapshot status ─────────────────────────────────────────────────────────
+// ── seed status ─────────────────────────────────────────────────────────────
 
-// snapshotStatusCmd shows whether the snapshot covers the latest migrations.
+// seedStatusCmd shows whether the seed covers the latest migrations.
 // Used by release pre-flight and by developers to check freshness.
-var snapshotStatusCmd = &cobra.Command{
+var seedStatusCmd = &cobra.Command{
 	Use:   "status",
-	Short: "Show snapshot version vs latest migration",
+	Short: "Show seed version vs latest migration",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		projDir := config.ProjectDir()
 
-		// Read snapshot metadata. If missing, tell the user how to get it.
-		meta, err := loadSnapshotMeta(projDir)
+		// Read seed metadata. If missing, tell the user how to get it.
+		meta, err := loadSeedMeta(projDir)
 		if err != nil {
-			fmt.Println("No snapshot cached. Run: ./sb db snapshot fetch")
+			fmt.Println("No seed cached. Run: ./sb db seed fetch")
 			return nil
 		}
 
@@ -422,7 +449,7 @@ var snapshotStatusCmd = &cobra.Command{
 			return err
 		}
 
-		fmt.Printf("Snapshot:         %s\n", meta.MigrationVersion)
+		fmt.Printf("Seed:             %s\n", meta.MigrationVersion)
 		fmt.Printf("Latest migration: %s\n", latestMigration)
 
 		if meta.MigrationVersion == latestMigration {
@@ -432,7 +459,7 @@ var snapshotStatusCmd = &cobra.Command{
 		}
 
 		if meta.CommitSHA != "" {
-			fmt.Printf("Snapshot commit:  %s\n", meta.CommitSHA[:min(8, len(meta.CommitSHA))])
+			fmt.Printf("Seed commit:      %s\n", meta.CommitSHA[:min(8, len(meta.CommitSHA))])
 		}
 		if meta.CreatedAt != "" {
 			fmt.Printf("Created at:       %s\n", meta.CreatedAt)
@@ -466,17 +493,17 @@ func gitShowToFile(projDir, ref, destPath string) error {
 	return nil
 }
 
-// loadSnapshotMeta reads and parses .db-snapshot/snapshot.json.
+// loadSeedMeta reads and parses .db-seed/seed.json.
 // Returns an error if the file doesn't exist or can't be parsed.
-func loadSnapshotMeta(projDir string) (*snapshotMeta, error) {
-	jsonPath := filepath.Join(projDir, ".db-snapshot", "snapshot.json")
+func loadSeedMeta(projDir string) (*seedMeta, error) {
+	jsonPath := filepath.Join(projDir, ".db-seed", "seed.json")
 	data, err := os.ReadFile(jsonPath)
 	if err != nil {
-		return nil, fmt.Errorf("read snapshot.json: %w", err)
+		return nil, fmt.Errorf("read seed.json: %w", err)
 	}
-	var meta snapshotMeta
+	var meta seedMeta
 	if err := json.Unmarshal(data, &meta); err != nil {
-		return nil, fmt.Errorf("parse snapshot.json: %w", err)
+		return nil, fmt.Errorf("parse seed.json: %w", err)
 	}
 	return &meta, nil
 }
@@ -512,13 +539,13 @@ func findLatestMigration(projDir string) (string, error) {
 // ── init ────────────────────────────────────────────────────────────────────
 
 func init() {
-	snapshotRestoreCmd.Flags().StringVar(&snapshotDatabase, "database", "",
+	seedRestoreCmd.Flags().StringVar(&seedDatabase, "database", "",
 		"target database name (default: POSTGRES_APP_DB from .env)")
 
-	snapshotCmd.AddCommand(snapshotFetchCmd)
-	snapshotCmd.AddCommand(snapshotRestoreCmd)
-	snapshotCmd.AddCommand(snapshotCreateCmd)
-	snapshotCmd.AddCommand(snapshotStatusCmd)
+	seedCmd.AddCommand(seedFetchCmd)
+	seedCmd.AddCommand(seedRestoreCmd)
+	seedCmd.AddCommand(seedCreateCmd)
+	seedCmd.AddCommand(seedStatusCmd)
 
-	dbCmd.AddCommand(snapshotCmd)
+	dbCmd.AddCommand(seedCmd)
 }

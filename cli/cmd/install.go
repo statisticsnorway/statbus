@@ -515,7 +515,7 @@ func runInstall() (installErr error) {
 		{"Generated env", checkEnvDone, runGenerateEnv},
 		{"Images", checkImagesDone, runPullImages},
 		{"Services", checkServicesDone, runStartServices},
-		{"Snapshot", checkSnapshotRestored, runSnapshotRestore},
+		{"Seed", checkSeedRestored, runSeedRestore},
 		{"Migrations", checkMigrationsDone, runMigrations},
 		{"JWT secret", checkJWTDone, runLoadJWT},
 		{"Users", checkUsersDone, runCreateUsers},
@@ -860,14 +860,14 @@ func runStartServices(dir string) error {
 	return runCmdDir(dir, "docker", "compose", "--profile", "all", "up", "-d")
 }
 
-// checkSnapshotRestored returns true if the database already has migrations
-// (re-install scenario — snapshot restore would be destructive).
+// checkSeedRestored returns true if the database already has migrations
+// (re-install scenario — seed restore would be destructive).
 // Returns false only for truly fresh installs where the DB is empty.
 //
-// Intent: the snapshot is a FAST PATH for fresh installs only. Restoring
+// Intent: the seed is a FAST PATH for fresh installs only. Restoring
 // over an existing database drops objects while migration records survive,
 // leaving the DB in an inconsistent state.
-func checkSnapshotRestored(dir string) bool {
+func checkSeedRestored(dir string) bool {
 	// If services aren't running yet, we can't check the DB.
 	// Return true to skip — the Services step must run first.
 	if !checkServicesDone(dir) {
@@ -876,10 +876,10 @@ func checkSnapshotRestored(dir string) bool {
 
 	// Services are running. Wait for DB to be healthy, then check migrations.
 	// If we can't reach the DB after 30 seconds, FAIL HARD — don't silently
-	// fall through and restore a snapshot over an existing database.
+	// fall through and restore a seed over an existing database.
 	for attempt := 0; attempt < 15; attempt++ {
 		if checkMigrationsDone(dir) {
-			return true // DB has migrations — do NOT restore snapshot
+			return true // DB has migrations — do NOT restore seed
 		}
 		if attempt < 14 {
 			time.Sleep(2 * time.Second)
@@ -887,29 +887,29 @@ func checkSnapshotRestored(dir string) bool {
 	}
 
 	// DB is reachable (services running) but has no migrations.
-	// This is a genuinely fresh database — snapshot restore is appropriate.
+	// This is a genuinely fresh database — seed restore is appropriate.
 	return false
 }
 
-// runSnapshotRestore fetches the snapshot from origin/db-snapshot and restores
+// runSeedRestore fetches the seed from origin/db-seed and restores
 // it into the database. This makes `migrate up` fast — only migrations newer
-// than the snapshot need to run.
-func runSnapshotRestore(dir string) error {
+// than the seed need to run.
+func runSeedRestore(dir string) error {
 	sb := filepath.Join(dir, "sb")
 
-	// Fetch snapshot from remote.
-	fmt.Println("  Fetching snapshot from origin/db-snapshot...")
-	if err := runCmdDir(dir, sb, "db", "snapshot", "fetch"); err != nil {
+	// Fetch seed from remote.
+	fmt.Println("  Fetching seed from origin/db-seed...")
+	if err := runCmdDir(dir, sb, "db", "seed", "fetch"); err != nil {
 		// Not fatal — fresh repos or private forks may not have the branch.
-		fmt.Println("  No snapshot available — will run all migrations")
+		fmt.Println("  No seed available — will run all migrations")
 		return nil
 	}
 
 	// Restore into the default database (configured in .env).
-	fmt.Println("  Restoring snapshot...")
-	if err := runCmdDir(dir, sb, "db", "snapshot", "restore"); err != nil {
+	fmt.Println("  Restoring seed...")
+	if err := runCmdDir(dir, sb, "db", "seed", "restore"); err != nil {
 		// Not fatal — migrate up will run all migrations from scratch.
-		fmt.Println("  Snapshot restore failed — will run all migrations")
+		fmt.Println("  Seed restore failed — will run all migrations")
 		return nil
 	}
 

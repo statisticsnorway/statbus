@@ -525,7 +525,7 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error)
 	// Run post-restore fixups: idempotent repairs for state that
 	// pg_dump/pg_restore cannot preserve (cluster-level role grants,
 	// extension function search_path overrides). Always runs — even
-	// when no pending migrations — because snapshot restore alone
+	// when no pending migrations — because seed restore alone
 	// can break these things.
 	postRestore := filepath.Join(projDir, "migrations", "post_restore.sql")
 	if _, err := os.Stat(postRestore); err == nil {

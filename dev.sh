@@ -63,12 +63,12 @@ if [ "$sb_needs_rebuild" = true ]; then
     fi
 fi
 
-# Auto-fetch DB snapshot if not cached locally.
+# Auto-fetch DB seed if not cached locally.
 # Intent: speeds up create-db from ~294 migrations to one pg_restore (~2 seconds).
-# Uses ./sb db snapshot fetch — one implementation in Go, shared by dev.sh and ./sb install.
+# Uses ./sb db seed fetch — one implementation in Go, shared by dev.sh and ./sb install.
 # Placed AFTER the rebuild block so the current binary is always used.
-if [ ! -f "$WORKSPACE/.db-snapshot/snapshot.pg_dump" ] && [ -x ./sb ]; then
-    ./sb db snapshot fetch
+if [ ! -f "$WORKSPACE/.db-seed/seed.pg_dump" ] && [ -x ./sb ]; then
+    ./sb db seed fetch
 fi
 
 # Set TTY_INPUT to /dev/tty if available (interactive), otherwise /dev/null
@@ -725,17 +725,17 @@ EOF
     'create-db-structure' )
         eval $(./dev.sh postgres-variables)
 
-        # Restore snapshot if available — delegates to ./sb which handles
+        # Restore seed if available — delegates to ./sb which handles
         # exit code semantics (code 1 = warnings, code 2+ = real failure).
         # Intent: pg_restore is ~2 seconds vs running 294 migrations from scratch.
-        if [ -f "$WORKSPACE/.db-snapshot/snapshot.pg_dump" ]; then
-            ./sb db snapshot restore || {
-                echo "Error: Snapshot restore failed. Consider running:"
+        if [ -f "$WORKSPACE/.db-seed/seed.pg_dump" ]; then
+            ./sb db seed restore || {
+                echo "Error: Seed restore failed. Consider running:"
                 echo "  ./dev.sh recreate-database"
                 exit 1
             }
         else
-            echo "No snapshot found in .db-snapshot/, running all migrations..."
+            echo "No seed found in .db-seed/, running all migrations..."
         fi
 
         # Run migrations
@@ -792,7 +792,7 @@ EOF
             || echo "Warning: could not remove legacy directory (permission denied, may need sudo)"
         fi
       ;;
-    'dump-snapshot' )
+    'dump-seed' )
         eval $(./dev.sh postgres-variables)
 
         if ! ./dev.sh is-db-running; then
@@ -808,37 +808,37 @@ EOF
             exit 1
         fi
 
-        SNAPSHOT_DIR="$WORKSPACE/migrations/snapshots"
-        SNAPSHOT_DUMP="$SNAPSHOT_DIR/schema_${LATEST_VERSION}.pg_dump"
-        SNAPSHOT_LIST="$SNAPSHOT_DIR/schema_${LATEST_VERSION}.pg_list"
-        mkdir -p "$SNAPSHOT_DIR"
+        SEED_DIR="$WORKSPACE/migrations/seeds"
+        SEED_DUMP="$SEED_DIR/schema_${LATEST_VERSION}.pg_dump"
+        SEED_LIST="$SEED_DIR/schema_${LATEST_VERSION}.pg_list"
+        mkdir -p "$SEED_DIR"
 
-        echo "Creating snapshot for migration version $LATEST_VERSION..."
+        echo "Creating seed for migration version $LATEST_VERSION..."
         docker compose exec -T db pg_dump -U postgres \
             -Fc \
             --no-owner \
-            "$PGDATABASE" > "$SNAPSHOT_DUMP"
+            "$PGDATABASE" > "$SEED_DUMP"
 
-        echo "Snapshot dump created: $SNAPSHOT_DUMP"
-        ls -lh "$SNAPSHOT_DUMP"
+        echo "Seed dump created: $SEED_DUMP"
+        ls -lh "$SEED_DUMP"
 
-        docker compose cp "$SNAPSHOT_DUMP" db:/tmp/snapshot.pg_dump
-        docker compose exec -T db pg_restore -l /tmp/snapshot.pg_dump > "$SNAPSHOT_LIST"
-        docker compose exec -T db rm -f /tmp/snapshot.pg_dump
+        docker compose cp "$SEED_DUMP" db:/tmp/seed.pg_dump
+        docker compose exec -T db pg_restore -l /tmp/seed.pg_dump > "$SEED_LIST"
+        docker compose exec -T db rm -f /tmp/seed.pg_dump
 
-        echo "Snapshot list created: $SNAPSHOT_LIST"
+        echo "Seed list created: $SEED_LIST"
         echo "Edit this file to comment out items that cause restore issues."
       ;;
-    'list-snapshots' )
-        SNAPSHOT_DIR="$WORKSPACE/migrations/snapshots"
-        echo "Available snapshots in $SNAPSHOT_DIR:"
-        ls -lh "$SNAPSHOT_DIR"/*.pg_dump 2>/dev/null || echo "  (none - run 'dump-snapshot' to create one)"
+    'list-seeds' )
+        SEED_DIR="$WORKSPACE/migrations/seeds"
+        echo "Available seeds in $SEED_DIR:"
+        ls -lh "$SEED_DIR"/*.pg_dump 2>/dev/null || echo "  (none - run 'dump-seed' to create one)"
 
-        LIST_FILES=$(ls "$SNAPSHOT_DIR"/*.pg_list 2>/dev/null)
+        LIST_FILES=$(ls "$SEED_DIR"/*.pg_list 2>/dev/null)
         if [ -n "$LIST_FILES" ]; then
             echo ""
             echo "List files (edit these to customize restore):"
-            ls -lh "$SNAPSHOT_DIR"/*.pg_list
+            ls -lh "$SEED_DIR"/*.pg_list
         fi
 
         if ./dev.sh is-db-running 2>/dev/null; then
@@ -982,16 +982,16 @@ EOF
             GRANT USAGE ON SCHEMA public TO notify_reader;
 EOF
 
-        # Restore snapshot if available — same code path as create-db-structure.
+        # Restore seed if available — same code path as create-db-structure.
         # Intent: template_statbus provides the foundation (extensions),
-        # snapshot provides the schema (294 migrations in ~2 seconds),
+        # seed provides the schema (294 migrations in ~2 seconds),
         # then only remaining migrations need to run.
         # --database targets the template DB instead of the main app DB.
-        if [ -f "$WORKSPACE/.db-snapshot/snapshot.pg_dump" ]; then
-            ./sb db snapshot restore --database "$TEMPLATE_NAME" || true
+        if [ -f "$WORKSPACE/.db-seed/seed.pg_dump" ]; then
+            ./sb db seed restore --database "$TEMPLATE_NAME" || true
         fi
 
-        # Apply migrations (all if no snapshot, only remaining if snapshot restored).
+        # Apply migrations (all if no seed, only remaining if seed restored).
         # POSTGRES_APP_DB overrides the CLI's database target.
         # PGDATABASE overrides postgres-variables for .psql migrations.
         echo "Applying migrations to template..."
@@ -1426,22 +1426,22 @@ EOS
         echo "Built: $OUTPUT"
         ls -lh "../$OUTPUT"
       ;;
-    'update-snapshot' )
-        # Apply any pending migrations FIRST so the snapshot reflects the
-        # latest schema. Without this, ./sb db snapshot create dumps the
+    'update-seed' )
+        # Apply any pending migrations FIRST so the seed reflects the
+        # latest schema. Without this, ./sb db seed create dumps the
         # old in-DB schema and the prerelease preflight keeps rejecting
-        # the result as "Snapshot outdated" no matter how many times the
+        # the result as "Seed outdated" no matter how many times the
         # user runs this command.
         #
         # ./sb migrate up is idempotent (no-op at HEAD) and serialised by
         # pg_advisory_lock(migrate_up) since R1.1, so it's safe to call
         # unconditionally here.
         #
-        # If you want a snapshot of the CURRENT (pre-migration) state —
+        # If you want a seed of the CURRENT (pre-migration) state —
         # e.g. to keep around for testing or rollback rehearsal — call
-        # the primitive directly: ./sb db snapshot create.
+        # the primitive directly: ./sb db seed create.
         ./sb migrate up --verbose
-        ./sb db snapshot create
+        ./sb db seed create
       ;;
     'test-install' )
         # End-to-end install test using Multipass (Ubuntu VM).
@@ -1707,7 +1707,7 @@ SCRIPT
       echo "  create-db                          Create database with migrations"
       echo "  delete-db                          Delete database and data directory"
       echo "  recreate-database                  Delete + create (fresh start)"
-      echo "  create-db-structure                Run migrations (snapshot + incremental)"
+      echo "  create-db-structure                Run migrations (seed + incremental)"
       echo "  delete-db-structure                Roll back all migrations"
       echo "  reset-db-structure                 Roll back + re-apply all migrations"
       echo ""
@@ -1721,10 +1721,10 @@ SCRIPT
       echo "  create-test-template               Create template database for test isolation"
       echo "  clean-test-databases [--force]     Drop all test_* databases"
       echo ""
-      echo "Snapshots & documentation:"
-      echo "  update-snapshot                    Create snapshot and push to origin/db-snapshot"
-      echo "  dump-snapshot                      Save database snapshot for fast restore"
-      echo "  list-snapshots                     List available snapshots"
+      echo "Seeds & documentation:"
+      echo "  update-seed                        Create seed and push to origin/db-seed"
+      echo "  dump-seed                          Save database seed for fast restore"
+      echo "  list-seeds                         List available seeds"
       echo "  generate-db-documentation          Generate schema docs in doc/db/"
       echo "  generate-types                     Generate TypeScript types from schema"
       echo ""

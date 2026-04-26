@@ -285,16 +285,16 @@ func preflightChecks(projDir string) bool {
 	checkAppStamp("app-tsc-passed-sha", "tsc", "App tsc covers latest app changes")
 	checkAppStamp("app-build-passed-sha", "build", "App build covers latest app changes")
 
-	// 10. Snapshot freshness gate (auto-regen on stale).
+	// 10. Seed freshness gate (auto-regen on stale).
 	// Previously this block just reported ✗ and pointed the operator at
-	// `./dev.sh update-snapshot`. That invited every release to be a
-	// two-command sequence (update-snapshot, then prerelease) with the
+	// `./dev.sh update-seed`. That invited every release to be a
+	// two-command sequence (update-seed, then prerelease) with the
 	// lurking bug that operator skips the first step. Now the preflight
 	// DETECTS staleness and RUNS the regen, then re-verifies.
 	//
 	// Single command: `./sb release prerelease` is now the sole operator
 	// step for cutting a release from a clean tree.
-	if !checkAndRefreshSnapshot(projDir) {
+	if !checkAndRefreshSeed(projDir) {
 		allPassed = false
 	}
 
@@ -426,14 +426,14 @@ var releasePrereleaseCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		projDir := config.ProjectDir()
 
-		// Sweep stale snapshot/<sha> branches published by prior releases
-		// and operator-local dev-tip runs. See cleanupSnapshotBranches
+		// Sweep stale seed/<sha> branches published by prior releases
+		// and operator-local dev-tip runs. See cleanupSeedBranches
 		// for the full retention policy (released-and-published → delete;
 		// in-flight tagged → retain; untagged ephemeral peer → delete).
-		// preserveSHA = HEAD so the snapshot just generated for this
+		// preserveSHA = HEAD so the seed just generated for this
 		// release cut survives the sweep.
 		headSHAOut, _ := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD")
-		cleanupSnapshotBranches(projDir, strings.TrimSpace(headSHAOut))
+		cleanupSeedBranches(projDir, strings.TrimSpace(headSHAOut))
 
 		fmt.Println("Pre-flight checks:")
 		if !preflightChecks(projDir) {
@@ -752,7 +752,7 @@ var (
 )
 
 // releaseCheckCmd verifies that all release artifacts (GitHub assets including
-// snapshot, Docker images) exist for a given tag. Intended as a gate in
+// seed, Docker images) exist for a given tag. Intended as a gate in
 // cloud.sh and in CI to avoid installing a release that is still being published.
 //
 // Exit 0: all checks passed.
@@ -761,7 +761,7 @@ var releaseCheckCmd = &cobra.Command{
 	Use:   "check",
 	Short: "Verify release artifacts are fully published",
 	Long: `Check that all artifacts for a release are ready:
-  - GitHub Release assets (binaries, checksums, manifest, snapshot)
+  - GitHub Release assets (binaries, checksums, manifest, seed)
   - ghcr.io Docker manifests (app, db, worker, proxy)
 
 Input forms:
@@ -841,48 +841,48 @@ exit 1 with retry advice when any check fails.`,
 	},
 }
 
-// snapshotCreator is the regenerator the preflight invokes when it detects
-// a stale snapshot. Package-level function variable for test injection:
-// tests override it with a mock that writes a canned snapshot.json without
-// hitting docker/pg_dump. Production default is CreateSnapshot.
-var snapshotCreator = CreateSnapshot
+// seedCreator is the regenerator the preflight invokes when it detects
+// a stale seed. Package-level function variable for test injection:
+// tests override it with a mock that writes a canned seed.json without
+// hitting docker/pg_dump. Production default is CreateSeed.
+var seedCreator = CreateSeed
 
-// checkSnapshotFresh evaluates the current .db-snapshot/snapshot.json
+// checkSeedFresh evaluates the current .db-seed/seed.json
 // against on-disk migrations and HEAD SHA.
 //
 // Returns (fresh, reason). `reason` describes why staleness was detected
 // (operator-visible log message); empty when fresh == true.
 //
 // Failure modes:
-//   - snapshot.json missing → stale, reason "no snapshot.json found"
+//   - seed.json missing → stale, reason "no seed.json found"
 //   - commit_sha missing from JSON → stale
 //   - migration_version < latest on-disk migration → stale, versions in reason
 //   - commit_sha != HEAD SHA → stale, both SHAs in reason
 //   - git rev-parse HEAD fails → (false, err text); caller decides treatment
-func checkSnapshotFresh(projDir string) (fresh bool, reason string) {
-	snapshotJSON := filepath.Join(projDir, ".db-snapshot", "snapshot.json")
-	snapshotBytes, err := os.ReadFile(snapshotJSON)
+func checkSeedFresh(projDir string) (fresh bool, reason string) {
+	seedJSON := filepath.Join(projDir, ".db-seed", "seed.json")
+	seedBytes, err := os.ReadFile(seedJSON)
 	if err != nil {
-		return false, "snapshot.json not found or unreadable"
+		return false, "seed.json not found or unreadable"
 	}
-	snapshotContent := string(snapshotBytes)
+	seedContent := string(seedBytes)
 
 	// Parse migration_version and commit_sha via the same line-split
 	// pattern the prior preflight used — avoids pulling in a JSON dep
 	// just for two string fields.
-	snapshotVersion := ""
-	snapshotCommitSHA := ""
-	for _, line := range strings.Split(snapshotContent, "\n") {
+	seedVersion := ""
+	seedCommitSHA := ""
+	for _, line := range strings.Split(seedContent, "\n") {
 		if strings.Contains(line, "migration_version") {
 			parts := strings.Split(line, "\"")
 			if len(parts) >= 4 {
-				snapshotVersion = parts[3]
+				seedVersion = parts[3]
 			}
 		}
 		if strings.Contains(line, "commit_sha") {
 			parts := strings.Split(line, "\"")
 			if len(parts) >= 4 {
-				snapshotCommitSHA = parts[3]
+				seedCommitSHA = parts[3]
 			}
 		}
 	}
@@ -900,8 +900,8 @@ func checkSnapshotFresh(projDir string) (fresh bool, reason string) {
 			}
 		}
 	}
-	if latestMigration != "" && snapshotVersion < latestMigration {
-		return false, fmt.Sprintf("migration_version %s older than latest %s", snapshotVersion, latestMigration)
+	if latestMigration != "" && seedVersion < latestMigration {
+		return false, fmt.Sprintf("migration_version %s older than latest %s", seedVersion, latestMigration)
 	}
 
 	// commit_sha vs HEAD
@@ -910,47 +910,47 @@ func checkSnapshotFresh(projDir string) (fresh bool, reason string) {
 		return false, fmt.Sprintf("git rev-parse HEAD failed: %v", err)
 	}
 	headSHA := strings.TrimSpace(headSHAOut)
-	if snapshotCommitSHA == "" {
-		return false, "commit_sha missing from snapshot.json"
+	if seedCommitSHA == "" {
+		return false, "commit_sha missing from seed.json"
 	}
-	if snapshotCommitSHA != headSHA {
-		return false, fmt.Sprintf("commit_sha %s != HEAD %s", snapshotCommitSHA, headSHA)
+	if seedCommitSHA != headSHA {
+		return false, fmt.Sprintf("commit_sha %s != HEAD %s", seedCommitSHA, headSHA)
 	}
 
 	return true, ""
 }
 
-// checkAndRefreshSnapshot gates the release on snapshot freshness. If
-// the snapshot is stale, it invokes snapshotCreator to regenerate, then
+// checkAndRefreshSeed gates the release on seed freshness. If
+// the seed is stale, it invokes seedCreator to regenerate, then
 // re-checks once. Logs each decision + outcome so the operator's
 // preflight log reads as a coherent narrative.
 //
-// Returns true when the snapshot is fresh (on first try OR after regen);
+// Returns true when the seed is fresh (on first try OR after regen);
 // false when regeneration failed or the re-check still shows staleness.
-func checkAndRefreshSnapshot(projDir string) bool {
-	fresh, reason := checkSnapshotFresh(projDir)
+func checkAndRefreshSeed(projDir string) bool {
+	fresh, reason := checkSeedFresh(projDir)
 	if fresh {
 		headSHAOut, _ := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD")
 		headSHA := strings.TrimSpace(headSHAOut)
 		if len(headSHA) > 12 {
 			headSHA = headSHA[:12]
 		}
-		fmt.Printf("  ✓ Snapshot fresh (pinned to HEAD: %s)\n", headSHA)
+		fmt.Printf("  ✓ Seed fresh (pinned to HEAD: %s)\n", headSHA)
 		return true
 	}
 
-	fmt.Printf("  → Snapshot stale: %s — regenerating...\n", reason)
-	if err := snapshotCreator(projDir); err != nil {
-		fmt.Printf("  ✗ Snapshot regeneration failed: %v\n", err)
+	fmt.Printf("  → Seed stale: %s — regenerating...\n", reason)
+	if err := seedCreator(projDir); err != nil {
+		fmt.Printf("  ✗ Seed regeneration failed: %v\n", err)
 		return false
 	}
 
-	fresh2, reason2 := checkSnapshotFresh(projDir)
+	fresh2, reason2 := checkSeedFresh(projDir)
 	if !fresh2 {
-		fmt.Printf("  ✗ Snapshot still stale after regeneration: %s\n", reason2)
+		fmt.Printf("  ✗ Seed still stale after regeneration: %s\n", reason2)
 		return false
 	}
-	fmt.Println("  ✓ Snapshot regenerated and verified fresh")
+	fmt.Println("  ✓ Seed regenerated and verified fresh")
 	return true
 }
 
@@ -973,40 +973,40 @@ func findReleaseTag(tags string) string {
 	return ""
 }
 
-// snapshotBranchPattern matches branches of the form `snapshot/<12-hex>`
-// written by `./sb db snapshot create`. The SHA portion is the short
-// (snapshotSHALen-char) project commit the snapshot pins to.
-var snapshotBranchPattern = regexp.MustCompile(`^snapshot/[0-9a-f]{12}$`)
+// seedBranchPattern matches branches of the form `seed/<12-hex>`
+// written by `./sb db seed create`. The SHA portion is the short
+// (seedSHALen-char) project commit the seed pins to.
+var seedBranchPattern = regexp.MustCompile(`^seed/[0-9a-f]{12}$`)
 
-// cleanupSnapshotBranches sweeps origin's `snapshot/<sha>` branches and
+// cleanupSeedBranches sweeps origin's `seed/<sha>` branches and
 // deletes those whose retention no longer serves any purpose:
 //
 //   - Tagged with a release AND release-check passes → canonical store
 //     (GitHub release assets) is live. Branch's staging role is done.
 //   - Untagged AND <sha> ≠ preserveSHA → ephemeral dev peer superseded
-//     by any subsequent snapshot; safe to drop.
+//     by any subsequent seed; safe to drop.
 //
 // Retained:
-//   - <sha> == preserveSHA → the snapshot the caller is about to write
+//   - <sha> == preserveSHA → the seed the caller is about to write
 //     (or just wrote) and MUST survive this sweep.
 //   - Tagged with a release AND release-check fails → in-flight release,
 //     workflow may still need this branch to upload the asset.
-//   - Anything that doesn't match `snapshot/<12-hex>` — forward-compat
+//   - Anything that doesn't match `seed/<12-hex>` — forward-compat
 //     for future naming, and avoids surprising deletes.
 //
 // Two callers share this function:
-//   - `./sb db snapshot create` — preserveSHA = new snapshot's project
+//   - `./sb db seed create` — preserveSHA = new seed's project
 //     commit, so the just-written slot is never deleted.
-//   - `./sb release prerelease` — preserveSHA = HEAD, so the snapshot
+//   - `./sb release prerelease` — preserveSHA = HEAD, so the seed
 //     the operator just generated for this release cut is never deleted.
 //
 // Failures inside this sweep are warnings, not fatal — a network/auth
 // blip on `git ls-remote` or a transient release-check failure must not
-// block a legitimate release cut or snapshot refresh.
-func cleanupSnapshotBranches(projDir, preserveSHA string) {
-	staleOut, err := upgrade.RunCommandOutput(projDir, "git", "ls-remote", "--heads", "origin", "snapshot/*")
+// block a legitimate release cut or seed refresh.
+func cleanupSeedBranches(projDir, preserveSHA string) {
+	staleOut, err := upgrade.RunCommandOutput(projDir, "git", "ls-remote", "--heads", "origin", "seed/*")
 	if err != nil {
-		fmt.Printf("warning: list remote snapshot branches: %v\n", err)
+		fmt.Printf("warning: list remote seed branches: %v\n", err)
 		return
 	}
 	trimmed := strings.TrimSpace(staleOut)
@@ -1018,18 +1018,18 @@ func cleanupSnapshotBranches(projDir, preserveSHA string) {
 		if line == "" {
 			continue
 		}
-		// ls-remote lines: "<sha>\trefs/heads/snapshot/<12-hex>"
+		// ls-remote lines: "<sha>\trefs/heads/seed/<12-hex>"
 		parts := strings.SplitN(line, "\t", 2)
 		if len(parts) != 2 {
 			continue
 		}
 		ref := strings.TrimPrefix(parts[1], "refs/heads/")
-		if !snapshotBranchPattern.MatchString(ref) {
-			// Unknown shape (legacy `snapshot/v…` or future schema) —
+		if !seedBranchPattern.MatchString(ref) {
+			// Unknown shape (legacy `seed/v…` or future schema) —
 			// leave alone. Migration/pruning is a separate concern.
 			continue
 		}
-		branchSHA := strings.TrimPrefix(ref, "snapshot/")
+		branchSHA := strings.TrimPrefix(ref, "seed/")
 		if preserveSHA != "" && strings.HasPrefix(preserveSHA, branchSHA) {
 			continue // self or caller-asserted keeper
 		}
