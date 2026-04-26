@@ -501,10 +501,10 @@ app/tmp/
 .claude/todos.local.json
 .claude/scheduled_tasks.lock
 
-# Ignore migration snapshots (large binary dumps and list files, generated locally)
-migrations/snapshots/*.pg_dump
-migrations/snapshots/*.pg_list
-!migrations/snapshots/.gitkeep
+# Ignore migration seeds (large binary dumps and list files, generated locally)
+migrations/seeds/*.pg_dump
+migrations/seeds/*.pg_list
+!migrations/seeds/.gitkeep
 
 # Database dumps for debugging (large binary files)
 dbdumps/*.pg_dump
