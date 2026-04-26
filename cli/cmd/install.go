@@ -1090,9 +1090,26 @@ func runInstallService(dir string) error {
 	fmt.Println("  Enabling linger for user services")
 	runCmd("loginctl", "enable-linger", os.Getenv("USER"))
 
-	fmt.Printf("  Enabling and starting %s\n", instance)
-	if err := runCmd("systemctl", "--user", "enable", "--now", instance); err != nil {
-		return fmt.Errorf("enable service: %w", err)
+	// Item H (plan-rc.66): step 14/14 SDNOTIFY collision. When this
+	// install runs as a child of the active upgrade service (Type=notify
+	// unit, parent PID is the main daemon), `enable --now` joins the
+	// existing start job and waits for READY=1 from a new main PID.
+	// systemctl's helper PIDs send READY=1; systemd rejects them as
+	// not-main-PID; start times out at ~47s and terminates the parent.
+	// Skip --now in that case — the unit declares
+	// SuccessExitStatus=42/RestartForceExitStatus=42/Restart=always so
+	// the parent's exit-42 → systemd auto-restart picks up the new
+	// binary. The is-enabled verification below still fires.
+	if insideActiveUpgrade {
+		fmt.Printf("  Enabling %s (start deferred — service is the active main PID, will exit-42 → systemd auto-restart)\n", instance)
+		if err := runCmd("systemctl", "--user", "enable", instance); err != nil {
+			return fmt.Errorf("enable service: %w", err)
+		}
+	} else {
+		fmt.Printf("  Enabling and starting %s\n", instance)
+		if err := runCmd("systemctl", "--user", "enable", "--now", instance); err != nil {
+			return fmt.Errorf("enable service: %w", err)
+		}
 	}
 
 	// Verify the boot-enable symlink was actually created. Bug observed on

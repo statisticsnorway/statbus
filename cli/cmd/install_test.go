@@ -93,6 +93,100 @@ func TestEveryInvariantHasTriadDocumented(t *testing.T) {
 	}
 }
 
+// TestRunInstallService_GatesNowOnInsideActiveUpgrade is the structural
+// guard for Item H (plan-rc.66): runInstallService must conditionally
+// drop --now when invoked from inside an active upgrade. The Type=notify
+// statbus-upgrade unit goes into a SDNOTIFY collision when systemctl
+// --user enable --now joins the existing start job from a child PID;
+// the parent times out at ~47s and is terminated. Skip --now in that
+// case and let the parent's exit-42 → systemd auto-restart pick up the
+// new binary.
+//
+// Source-level assertion (rather than a mocked runCmd) keeps the test
+// honest about WHERE in the function the gate sits and matches the
+// pattern other install-path guards use.
+func TestRunInstallService_GatesNowOnInsideActiveUpgrade(t *testing.T) {
+	src, err := os.ReadFile(thisRepoFile(t, "cli/cmd/install.go"))
+	if err != nil {
+		t.Fatalf("read install.go: %v", err)
+	}
+	body := string(src)
+	start := strings.Index(body, "func runInstallService(")
+	if start < 0 {
+		t.Fatal("runInstallService not found in install.go")
+	}
+	rest := body[start:]
+	end := regexp.MustCompile(`(?m)^}\n`).FindStringIndex(rest)
+	if end == nil {
+		t.Fatal("runInstallService closing brace not found")
+	}
+	fn := rest[:end[1]]
+
+	gateIdx := strings.Index(fn, "if insideActiveUpgrade {")
+	if gateIdx < 0 {
+		t.Fatal("runInstallService missing `if insideActiveUpgrade {` gate. " +
+			"Without it, step 14/14's `systemctl --user enable --now` " +
+			"collides with the active service's SDNOTIFY contract — see Item H.")
+	}
+
+	// The gate must come BEFORE the is-enabled verification call
+	// (otherwise the verification fires against an unenabled unit).
+	// Anchor on the exec.Command call, not on bare "is-enabled" text
+	// which may appear in the surrounding doc comment.
+	verifyIdx := strings.Index(fn, `exec.Command("systemctl", "--user", "is-enabled"`)
+	if verifyIdx < 0 {
+		t.Fatal("runInstallService missing is-enabled verification call — test is stale")
+	}
+	if gateIdx > verifyIdx {
+		t.Errorf("insideActiveUpgrade gate (idx=%d) must come BEFORE is-enabled verification (idx=%d)",
+			gateIdx, verifyIdx)
+	}
+
+	// Find the gate's true-branch body and assert it omits "--now".
+	gateBody := fn[gateIdx:]
+	openBrace := strings.Index(gateBody, "{")
+	if openBrace < 0 {
+		t.Fatal("gate body open brace not found")
+	}
+	// Find matching close. Naive depth counter suffices for this snippet.
+	depth := 0
+	closeIdx := -1
+	for i := openBrace; i < len(gateBody); i++ {
+		switch gateBody[i] {
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				closeIdx = i
+			}
+		}
+		if closeIdx >= 0 {
+			break
+		}
+	}
+	if closeIdx < 0 {
+		t.Fatal("gate body close brace not found")
+	}
+	trueBranch := gateBody[openBrace : closeIdx+1]
+	if !strings.Contains(trueBranch, `"systemctl", "--user", "enable", instance`) {
+		t.Errorf("true branch must call `systemctl --user enable <instance>` (no --now). Body:\n%s", trueBranch)
+	}
+	if strings.Contains(trueBranch, `"--now"`) {
+		t.Errorf("true branch must NOT pass --now (Item H). Body:\n%s", trueBranch)
+	}
+
+	// And after the gate (else branch / fall-through), `--now` must
+	// still be present so the cold-install path keeps starting the
+	// service. We check the rest of the function up to the
+	// is-enabled verification.
+	remainder := fn[gateIdx+closeIdx : verifyIdx]
+	if !strings.Contains(remainder, `"systemctl", "--user", "enable", "--now", instance`) {
+		t.Errorf("else/fall-through branch must keep `systemctl --user enable --now <instance>` " +
+			"for cold installs. Otherwise nothing starts the service on a fresh box.")
+	}
+}
+
 // thisRepoFile resolves a repo-relative path from the test's source
 // location, so the test works regardless of go test's cwd.
 func thisRepoFile(t *testing.T, relPath string) string {
