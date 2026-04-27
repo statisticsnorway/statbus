@@ -229,6 +229,17 @@ var seedCreateCmd = &cobra.Command{
 // same regen path in-process when it detects a stale seed — no
 // subprocess, no separate operator step. Behaviour-identical to invoking
 // the cobra subcommand.
+//
+// Per plan section R commit 4: dumps from `${POSTGRES_SEED_DB}` (the
+// canonical fresh-from-migrations baseline), NOT from `${POSTGRES_APP_DB}`
+// (the runtime dev DB which is contaminable by definition). The
+// architectural rationale that motivated the whole seed feature.
+//
+// Operator workflow:
+//   1. ./dev.sh recreate-seed          # rebuild the seed from migrations
+//   2. ./sb db seed create             # dump it; push to origin/db-seed
+// or composite:
+//   ./dev.sh update-seed
 func CreateSeed(projDir string) error {
 	// Verify the database is running — we need it for pg_dump and the
 	// migration version query.
@@ -236,9 +247,23 @@ func CreateSeed(projDir string) error {
 		return fmt.Errorf("database is not running — start it with 'sb start all'")
 	}
 
-	dbName, err := loadDbName(projDir)
+	dbName, err := loadSeedDbName(projDir)
 	if err != nil {
-		return err
+		return fmt.Errorf("load seed DB name: %w", err)
+	}
+
+	// Verify the seed DB exists. If not, point the operator at the
+	// recovery primitive — don't silently dump from somewhere else.
+	seedExistsOut, _ := upgrade.RunCommandOutput(projDir,
+		"docker", "compose", "exec", "-T", "db",
+		"psql", "-U", "postgres", "-d", "postgres",
+		"-t", "-A", "-c",
+		fmt.Sprintf("SELECT 1 FROM pg_database WHERE datname = '%s'", dbName))
+	if strings.TrimSpace(seedExistsOut) != "1" {
+		return fmt.Errorf("seed database %q does not exist.\n"+
+			"  Build it first: ./dev.sh recreate-seed\n"+
+			"  Or run: ./dev.sh update-seed (recreate-seed + db seed create)",
+			dbName)
 	}
 
 	// Get the latest migration version from the database.

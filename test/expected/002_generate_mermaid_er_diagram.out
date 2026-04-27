@@ -57,6 +57,7 @@ erDiagram
 		text description
 		timestamp_with_time_zone applied_at
 		integer duration_ms
+		text content_hash
 	}
 	lifecycle_callbacks_registered_callback["lifecycle_callbacks.registered_callback"] {
 		text label

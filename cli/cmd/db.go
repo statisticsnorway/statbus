@@ -70,6 +70,23 @@ func loadDbName(projDir string) (string, error) {
 	return db, nil
 }
 
+// loadSeedDbName reads POSTGRES_SEED_DB from .env. The seed DB is the
+// canonical fresh-from-migrations baseline (build-time only; never
+// worker-active). Source of `./sb db seed create`'s pg_dump artifact.
+// Plan section R commit 4.
+func loadSeedDbName(projDir string) (string, error) {
+	f, err := dotenv.Load(filepath.Join(projDir, ".env"))
+	if err != nil {
+		return "", fmt.Errorf("load .env: %w", err)
+	}
+	db, ok := f.Get("POSTGRES_SEED_DB")
+	if !ok || db == "" {
+		return "", fmt.Errorf("POSTGRES_SEED_DB not set in .env. " +
+			"Regenerate config to materialise it: `./sb config generate`")
+	}
+	return db, nil
+}
+
 // dumpTimestamp returns a filename-safe timestamp: YYYYMMDD_HHMMSS.
 func dumpTimestamp() string {
 	return time.Now().Format("20060102_150405")

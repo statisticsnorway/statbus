@@ -269,7 +269,11 @@ EOS
         trap './dev.sh delete-db > /dev/null' EXIT
 
         TEST_OUTPUT=$(mktemp)
-        ./dev.sh test fast 2>&1 | tee "$TEST_OUTPUT" || true
+        # Use the auto-fix composition for CI: bootstraps seed +
+        # test template if a fresh runner needs them. Human-facing
+        # `./dev.sh test fast` is check-don't-fix; this path is the
+        # CI-friendly equivalent. Plan section R commit 4.
+        ./dev.sh migrate-and-test fast 2>&1 | tee "$TEST_OUTPUT" || true
 
         if grep -q "not ok" "$TEST_OUTPUT" || grep -q "of .* tests failed" "$TEST_OUTPUT"; then
             echo "One or more tests failed."
@@ -469,19 +473,48 @@ EOS
           debug_arg="--debug"
         fi
 
-        # Auto-rebuild test template if migrations have changed since last rebuild.
-        # Compares tmp/test-template-migrations-sha (written by create-test-template)
-        # against the timestamp prefix of the latest *.up.sql file.
-        LATEST_MIGRATION=$(ls "$WORKSPACE/migrations/"*.up.sql 2>/dev/null | sort | tail -1 | xargs basename 2>/dev/null | cut -d_ -f1)
-        if [ -n "$LATEST_MIGRATION" ]; then
-            TEMPLATE_STAMP=""
-            if [ -f "$WORKSPACE/tmp/test-template-migrations-sha" ]; then
-                TEMPLATE_STAMP=$(cat "$WORKSPACE/tmp/test-template-migrations-sha")
-            fi
-            if [ "$TEMPLATE_STAMP" != "$LATEST_MIGRATION" ]; then
-                echo "Test template is stale (stamp='$TEMPLATE_STAMP', latest='$LATEST_MIGRATION'). Rebuilding automatically..."
-                ./dev.sh create-test-template
-            fi
+        # Precondition checks (plan section R commit 4: check, don't fix).
+        # `./dev.sh test ...` is human-facing — refuses to run with stale
+        # state and prints the exact remediation command. CI/automation
+        # that wants auto-rebuild should call `./dev.sh migrate-and-test ...`
+        # instead.
+        SEED_NAME="${POSTGRES_SEED_DB:-statbus_seed}"
+        TEMPLATE_NAME_PRECHECK="${POSTGRES_TEST_DB:-statbus_test_template}"
+        LATEST_MIGRATION=$(for f in "$WORKSPACE/migrations/"*.up.sql "$WORKSPACE/migrations/"*.up.psql; do
+            [ -e "$f" ] || continue
+            basename "$f" | cut -d_ -f1
+        done | sort | tail -1)
+
+        # Check 1: seed exists.
+        SEED_EXISTS_PRECHECK=$(./sb psql -d postgres -t -A -c \
+            "SELECT 1 FROM pg_database WHERE datname = '$SEED_NAME';" 2>/dev/null || echo "0")
+        if [ "$SEED_EXISTS_PRECHECK" != "1" ]; then
+            echo "Test precondition failed: seed database '$SEED_NAME' does not exist."
+            echo "  Run:  ./dev.sh recreate-seed"
+            echo "  Or:   ./dev.sh migrate-and-test ${TEST_ARGS[*]}  (composition that auto-rebuilds)"
+            exit 1
+        fi
+
+        # Check 2: seed at HEAD.
+        SEED_MAX_VERSION=$(./sb psql -d "$SEED_NAME" -t -A -c \
+            "SELECT MAX(version) FROM db.migration" 2>/dev/null | tr -d ' ' || true)
+        if [ -n "$LATEST_MIGRATION" ] && [ "$SEED_MAX_VERSION" != "$LATEST_MIGRATION" ]; then
+            echo "Test precondition failed: seed at version '$SEED_MAX_VERSION', HEAD has '$LATEST_MIGRATION'."
+            echo "  Run:  ./sb migrate up --target seed"
+            echo "  Or:   ./dev.sh migrate-and-test ${TEST_ARGS[*]}  (composition that auto-rebuilds)"
+            exit 1
+        fi
+
+        # Check 3: test template cloned from current seed (stamp matches latest).
+        TEMPLATE_STAMP=""
+        if [ -f "$WORKSPACE/tmp/test-template-migrations-sha" ]; then
+            TEMPLATE_STAMP=$(cat "$WORKSPACE/tmp/test-template-migrations-sha")
+        fi
+        if [ -n "$LATEST_MIGRATION" ] && [ "$TEMPLATE_STAMP" != "$LATEST_MIGRATION" ]; then
+            echo "Test precondition failed: test template stamp '$TEMPLATE_STAMP' != latest migration '$LATEST_MIGRATION'."
+            echo "  Run:  ./dev.sh create-test-template"
+            echo "  Or:   ./dev.sh migrate-and-test ${TEST_ARGS[*]}  (composition that auto-rebuilds)"
+            exit 1
         fi
 
         OVERALL_EXIT_CODE=0
@@ -575,6 +608,52 @@ EOF
         fi
 
         exit $OVERALL_EXIT_CODE
+    ;;
+    'migrate-and-test' )
+        # CI-friendly composition (plan section R commit 4): bootstrap
+        # the seed + test template if needed, then run tests. Auto-fix
+        # complement to the human-facing `./dev.sh test ...` (which is
+        # check-don't-fix).
+        #
+        # Use case: CI workflow on a fresh runner with no DB state, OR
+        # a local cold workspace post-`git pull` with new migrations.
+        # Bootstraps from cold to running tests in one command.
+        eval $(./dev.sh postgres-variables)
+        SEED_NAME="${POSTGRES_SEED_DB:-statbus_seed}"
+        LATEST_MIGRATION=$(for f in "$WORKSPACE/migrations/"*.up.sql "$WORKSPACE/migrations/"*.up.psql; do
+            [ -e "$f" ] || continue
+            basename "$f" | cut -d_ -f1
+        done | sort | tail -1)
+
+        # Step 1: ensure seed exists and is at HEAD.
+        SEED_EXISTS=$(./sb psql -d postgres -t -A -c \
+            "SELECT 1 FROM pg_database WHERE datname = '$SEED_NAME';" 2>/dev/null || echo "0")
+        SEED_MAX_VERSION=""
+        if [ "$SEED_EXISTS" = "1" ]; then
+            SEED_MAX_VERSION=$(./sb psql -d "$SEED_NAME" -t -A -c \
+                "SELECT MAX(version) FROM db.migration" 2>/dev/null | tr -d ' ' || true)
+        fi
+        if [ "$SEED_EXISTS" != "1" ] || [ "$SEED_MAX_VERSION" != "$LATEST_MIGRATION" ]; then
+            echo "migrate-and-test: seed bootstrap (exists=$SEED_EXISTS, version='$SEED_MAX_VERSION', want '$LATEST_MIGRATION')..."
+            ./dev.sh recreate-seed
+        else
+            echo "migrate-and-test: seed already at $SEED_MAX_VERSION (matches HEAD)."
+        fi
+
+        # Step 2: ensure test template fresh.
+        TEMPLATE_STAMP=""
+        if [ -f "$WORKSPACE/tmp/test-template-migrations-sha" ]; then
+            TEMPLATE_STAMP=$(cat "$WORKSPACE/tmp/test-template-migrations-sha")
+        fi
+        if [ "$TEMPLATE_STAMP" != "$LATEST_MIGRATION" ]; then
+            echo "migrate-and-test: test template stale (stamp='$TEMPLATE_STAMP', want '$LATEST_MIGRATION'). Rebuilding..."
+            ./dev.sh create-test-template
+        else
+            echo "migrate-and-test: test template already at $TEMPLATE_STAMP."
+        fi
+
+        # Step 3: run tests with whatever args were passed.
+        ./dev.sh test "$@"
     ;;
     'diff-fail-first' )
       if [ ! -f "$WORKSPACE/test/regression.out" ]; then
@@ -762,6 +841,11 @@ EOF
         docker compose up --detach db proxy rest
         ./dev.sh create-db-structure
         ./sb users create
+        # Build the canonical seed (statbus_seed) before the test
+        # template, since create-test-template now clones from the
+        # seed instead of forking template_statbus + running migrations.
+        # Plan section R commit 4.
+        ./dev.sh recreate-seed
         ./dev.sh create-test-template
         # Now start worker with clean, fully-migrated DB
         docker compose up --detach worker
@@ -900,12 +984,32 @@ EOF
     'create-test-template' )
         eval $(./dev.sh postgres-variables)
         TEMPLATE_NAME="${POSTGRES_TEST_DB:-statbus_test_template}"
+        SEED_NAME="${POSTGRES_SEED_DB:-statbus_seed}"
 
-        echo "Creating migrated template database: $TEMPLATE_NAME"
+        # Per plan section R commit 4: build the test template by
+        # cloning the canonical seed (POSTGRES_SEED_DB) — NOT by
+        # forking template_statbus + restoring the published artifact
+        # + running migrate up. The seed is already at HEAD; clone is
+        # a millisecond-scale CREATE DATABASE WITH TEMPLATE.
+        #
+        # Pre-condition: seed must exist and be at HEAD. Operator
+        # bootstraps via `./dev.sh recreate-seed` (or composite
+        # `./dev.sh migrate-and-test fast`).
 
+        SEED_EXISTS=$(./sb psql -d postgres -t -A -c \
+            "SELECT 1 FROM pg_database WHERE datname = '$SEED_NAME';" 2>/dev/null || echo "0")
+        if [ "$SEED_EXISTS" != "1" ]; then
+            echo "Error: seed database '$SEED_NAME' does not exist."
+            echo "  Build it: ./dev.sh recreate-seed"
+            echo "  Or run end-to-end: ./dev.sh migrate-and-test fast"
+            exit 1
+        fi
+
+        echo "Creating test template by cloning seed: $SEED_NAME -> $TEMPLATE_NAME"
+
+        # Drop any existing template — clone won't replace.
         TEMPLATE_EXISTS=$(./sb psql -d postgres -t -A -c \
             "SELECT 1 FROM pg_database WHERE datname = '$TEMPLATE_NAME';" 2>/dev/null || echo "0")
-
         if [ "$TEMPLATE_EXISTS" = "1" ]; then
             echo "Existing template found, removing it..."
 
@@ -930,79 +1034,12 @@ EOF
             fi
         fi
 
-        # Create new template by forking from template_statbus (clean, ~9 MB)
-        # and running migrations. This avoids copying the main DB (which may be
-        # 36+ GB with user-imported data), keeping the template small and test
-        # cloning fast (seconds instead of minutes).
-        # No need to stop worker/rest — we don't touch the main DB.
-        echo "Creating template from template_statbus (clean fork + migrations)..."
+        # Fast clone via the seed-clone primitive.
+        ./dev.sh seed-clone "$TEMPLATE_NAME"
 
-        # Pre-flight: confirm template_statbus exists. If not, the user needs
-        # ./dev.sh create-db (which provisions it). Without this check, the
-        # CREATE below fails with a generic "template not found" that does not
-        # name the recovery command.
-        if ! TEMPLATE_STATBUS_EXISTS=$(./sb psql -d postgres -t -A -c \
-                "SELECT 1 FROM pg_database WHERE datname = 'template_statbus';" 2>&1); then
-            echo "Error: cannot reach Postgres to check for template_statbus."
-            echo "Underlying psql error:"
-            echo "  $TEMPLATE_STATBUS_EXISTS"
-            echo ""
-            echo "If the error is 'could not open file global/pg_filenode.map' or similar,"
-            echo "the Postgres data directory is broken. Fix (DESTRUCTIVE — wipes data):"
-            echo "  ./dev.sh recreate-database"
-            exit 1
-        fi
-        if [ "$TEMPLATE_STATBUS_EXISTS" != "1" ]; then
-            echo "Error: template_statbus does not exist."
-            echo "It is provisioned by ./dev.sh create-db. Fix (DESTRUCTIVE — wipes data):"
-            echo "  ./dev.sh recreate-database"
-            exit 1
-        fi
-
-        if ! ./sb psql -d postgres -c "
-            CREATE DATABASE $TEMPLATE_NAME
-            WITH TEMPLATE template_statbus
-            OWNER postgres;
-        "; then
-            echo "Error: Failed to create template database from template_statbus."
-            echo "(See psql error above.) If Postgres is in a broken state,"
-            echo "fix with (DESTRUCTIVE — wipes data):"
-            echo "  ./dev.sh recreate-database"
-            exit 1
-        fi
-
-        # Set up roles and schemas that init-db.sh creates for the main DB
-        # but are not in template_statbus. Roles are cluster-wide (already exist),
-        # but the auth schema and grants must be per-database.
-        echo "Setting up schemas and grants for template..."
-        ./sb psql -d $TEMPLATE_NAME -v ON_ERROR_STOP=1 <<'EOF'
-            CREATE SCHEMA IF NOT EXISTS auth;
-            GRANT USAGE ON SCHEMA auth TO authenticated;
-            GRANT USAGE ON SCHEMA auth TO anon;
-            GRANT USAGE ON SCHEMA public TO notify_reader;
-EOF
-
-        # Restore seed if available — same code path as create-db-structure.
-        # Intent: template_statbus provides the foundation (extensions),
-        # seed provides the schema (294 migrations in ~2 seconds),
-        # then only remaining migrations need to run.
-        # --database targets the template DB instead of the main app DB.
-        if [ -f "$WORKSPACE/.db-seed/seed.pg_dump" ]; then
-            ./sb db seed restore --database "$TEMPLATE_NAME" || true
-        fi
-
-        # Apply migrations (all if no seed, only remaining if seed restored).
-        # POSTGRES_APP_DB overrides the CLI's database target.
-        # PGDATABASE overrides postgres-variables for .psql migrations.
-        echo "Applying migrations to template..."
-        if ! POSTGRES_APP_DB=$TEMPLATE_NAME PGDATABASE=$TEMPLATE_NAME ./sb migrate up --verbose; then
-            echo "Error: Failed to apply migrations to template database"
-            ./sb psql -d postgres -c "DROP DATABASE IF EXISTS $TEMPLATE_NAME;" || true
-            exit 1
-        fi
-        echo "All migrations applied to template."
-
-        # Load JWT secret so auth works in tests
+        # Load JWT secret so auth works in tests. Seed excludes
+        # auth.secrets data (security hard-rule); each consumer
+        # injects its own JWT. Same as pre-rc.66 behavior.
         JWT_SECRET=$(./sb dotenv -f .env.credentials get JWT_SECRET)
         ./sb psql -d $TEMPLATE_NAME -c \
             "INSERT INTO auth.secrets (key, value, description) VALUES ('jwt_secret', '$JWT_SECRET', 'JWT signing secret') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = clock_timestamp();"
@@ -1016,12 +1053,15 @@ EOF
             exit 1
         fi
 
-        echo "Template created: $TEMPLATE_NAME"
-        echo "This template can be used to quickly create isolated test databases."
+        echo "Template created: $TEMPLATE_NAME (cloned from $SEED_NAME)"
 
-        # Record the latest migration timestamp so `./dev.sh test fast` can
-        # detect when the template is stale relative to new migration files.
-        LATEST_MIGRATION=$(ls "$WORKSPACE/migrations/"*.up.sql 2>/dev/null | sort | tail -1 | xargs basename 2>/dev/null | cut -d_ -f1)
+        # Record the latest migration timestamp so `./dev.sh test fast`
+        # precondition check can detect when the template is stale.
+        # Includes both .up.sql and .up.psql migrations.
+        LATEST_MIGRATION=$(for f in "$WORKSPACE/migrations/"*.up.sql "$WORKSPACE/migrations/"*.up.psql; do
+            [ -e "$f" ] || continue
+            basename "$f" | cut -d_ -f1
+        done | sort | tail -1)
         if [ -n "$LATEST_MIGRATION" ]; then
             mkdir -p "$WORKSPACE/tmp"
             echo "$LATEST_MIGRATION" > "$WORKSPACE/tmp/test-template-migrations-sha"
@@ -1914,13 +1954,14 @@ SCRIPT
       echo "  reset-db-structure                 Roll back + re-apply all migrations"
       echo ""
       echo "Testing:"
-      echo "  test <all|fast|benchmarks|name>    Run pg_regress tests"
+      echo "  test <all|fast|benchmarks|name>    Run pg_regress tests (check-don't-fix preconditions)"
+      echo "  migrate-and-test <args...>         CI-friendly: bootstrap seed + test template, then test"
       echo "  test-isolated <name>               Run single test in isolated database"
       echo "  continous-integration-test [branch] [commit]  Full CI test pipeline"
       echo "  diff-fail-first [gui|vim|pipe]     Show diff for first failed test"
       echo "  diff-fail-all [gui|vim|pipe]       Show diffs for all failed tests"
       echo "  make-all-failed-test-results-expected  Accept all test failures"
-      echo "  create-test-template               Create template database for test isolation"
+      echo "  create-test-template               Clone POSTGRES_SEED_DB → POSTGRES_TEST_DB"
       echo "  clean-test-databases [--force]     Drop all test_* databases"
       echo ""
       echo "Seed lifecycle (build-time canonical schema):"
