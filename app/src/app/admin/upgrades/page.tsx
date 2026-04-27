@@ -379,7 +379,7 @@ export default function UpgradesPage() {
       {upgrades && upgrades.length > 0 && (() => {
         // Categorize upgrades
         const actionable: Upgrade[] = []; // in_progress, scheduled, failed, rolled_back
-        const available: Upgrade[] = [];
+        let available: Upgrade[] = [];
         const history: Upgrade[] = [];
 
         for (const u of upgrades) {
@@ -400,6 +400,27 @@ export default function UpgradesPage() {
             // sets state='dismissed' and moves them to history.
             actionable.push(u);
           }
+        }
+
+        // The currently-running version. Used to filter the available list
+        // (don't recommend a downgrade) and as the anchor for the history
+        // section below.
+        const latestCompleted = history.find(u => u.state === 'completed');
+
+        // Drop available rows that aren't newer than what's running. Without
+        // this filter, an older prerelease (say rc.64) outranks newer edge
+        // commits via the tier-first sort below, surfacing a downgrade as
+        // "Recommended". Mirrors the backend's supersede semantics in
+        // migrations/20260418204304_supersede_respects_release_status_hierarchy.up.sql:
+        // a row is candidate-for-action only when it's strictly newer than
+        // the running version. Falls back to committed_at when topological_order
+        // is NULL (the discovery daemon doesn't currently populate that column;
+        // tracked as an rc.67 follow-up).
+        if (latestCompleted) {
+          available = available.filter(u =>
+            (u.topological_order ?? 0) > (latestCompleted.topological_order ?? 0)
+            || u.committed_at > latestCompleted.committed_at
+          );
         }
 
         // Sort available: tagged releases first (release > prerelease > commit),
@@ -430,9 +451,6 @@ export default function UpgradesPage() {
         const latestWithMigrations = latestAvailable && anyAvailableHasMigrations
           ? { ...latestAvailable, has_migrations: true }
           : latestAvailable;
-
-        // Only allow restoring skipped versions newer than the latest completed upgrade.
-        const latestCompleted = history.find(u => u.state === 'completed');
 
         // The currently-running row stays visible at all times so operators
         // always have an anchor for "what version am I on right now?". The rest
