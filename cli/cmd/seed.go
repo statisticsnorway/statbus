@@ -367,15 +367,27 @@ func CreateSeed(projDir string) error {
 
 	// Check if the worktree already exists.
 	if _, err := os.Stat(worktreePath); os.IsNotExist(err) {
-		// Try to add worktree for existing branch first.
-		_, addErr := upgrade.RunCommandOutput(projDir, "git", "worktree", "add", worktreePath, "db-seed")
+		// Try to add worktree for existing branch first.  DWIM: if there's
+		// no local `db-seed` but `origin/db-seed` exists, git auto-creates
+		// the local tracking branch.  Falls through to orphan when neither
+		// local nor remote `db-seed` exists (first-time bootstrap).
+		addOut, addErr := upgrade.RunCommandOutput(projDir, "git", "worktree", "add", worktreePath, "db-seed")
 		if addErr != nil {
-			// Branch doesn't exist — create an orphan worktree.
-			// --orphan creates a new branch with no history, which is what
-			// we want: the seed branch has no relationship to master.
-			_, orphanErr := upgrade.RunCommandOutput(projDir, "git", "worktree", "add", "--orphan", worktreePath, "db-seed")
+			// Branch doesn't exist locally and no remote-tracking ref to
+			// DWIM from — create an orphan worktree with a new branch.
+			// Git 2.x requires `-b <name>` for orphan; a trailing branch
+			// arg would be parsed as a (forbidden) commit-ish.
+			orphanOut, orphanErr := upgrade.RunCommandOutput(projDir, "git", "worktree", "add", "--orphan", "-b", "db-seed", worktreePath)
 			if orphanErr != nil {
-				return fmt.Errorf("git worktree add: %w\n%s", orphanErr, addErr)
+				return fmt.Errorf(
+					"git worktree add db-seed failed in both attempts:\n"+
+						"  attempt 1 (track existing branch / DWIM origin/db-seed): %v\n"+
+						"    output: %s\n"+
+						"  attempt 2 (orphan -b db-seed): %v\n"+
+						"    output: %s",
+					addErr, strings.TrimSpace(addOut),
+					orphanErr, strings.TrimSpace(orphanOut),
+				)
 			}
 		}
 	}
