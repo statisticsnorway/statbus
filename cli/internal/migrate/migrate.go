@@ -496,6 +496,14 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error)
 	if len(pending) == 0 {
 		fmt.Println("All migrations are up to date")
 	}
+	// Track whether the content_hash column exists. Initially false
+	// before the column-add migration applies; flips to true the moment
+	// it does. Re-probe ONLY while we still think it's false — once the
+	// column exists we don't pay for redundant probes.
+	hasContentHash, err := contentHashColumnExists(projDir)
+	if err != nil {
+		return 0, err
+	}
 	for _, m := range pending {
 		if verbose {
 			fmt.Printf("Migration %d (%s) ", m.Version, m.Description)
@@ -513,30 +521,52 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error)
 			return 0, fmt.Errorf("migration %d (%s) failed: %w\n%s", m.Version, filepath.Base(m.Path), err, out)
 		}
 
-		// Record success using psql variables (:'var' = safely quoted string literal)
-		recordSQL := `INSERT INTO db.migration (version, filename, description, duration_ms) VALUES (:version, :'filename', :'description', :duration_ms)`
-		if _, err := runPsql(projDir, recordSQL,
-			"-v", fmt.Sprintf("version=%d", m.Version),
-			"-v", "filename="+filepath.Base(m.Path),
-			"-v", "description="+m.Description,
-			"-v", fmt.Sprintf("duration_ms=%d", durationMs),
-		); err != nil {
-			return 0, fmt.Errorf("record migration %d: %w", m.Version, err)
+		// Re-probe content_hash column existence AFTER apply only while
+		// we still think it's false — the just-applied migration may have
+		// added the column. Stops probing once the column exists.
+		if !hasContentHash {
+			hasContentHash, _ = contentHashColumnExists(projDir)
+		}
+
+		// Record success. Two INSERT shapes:
+		//  - Pre-content_hash-column: legacy fields only. Used while
+		//    applying migrations 1..N-1 of the column-add migration on
+		//    a fresh DB. The column-add migration (20260426220000)
+		//    backfills these rows in the same transaction.
+		//  - Post-content_hash-column: include the hash. NOT NULL
+		//    constraint requires it. Hash is computed from the file
+		//    bytes that just ran.
+		var insertErr error
+		if hasContentHash {
+			hash, hashErr := sha256File(m.Path)
+			if hashErr != nil {
+				return 0, fmt.Errorf("hash migration %d (%s): %w", m.Version, filepath.Base(m.Path), hashErr)
+			}
+			recordSQL := `INSERT INTO db.migration (version, filename, description, duration_ms, content_hash) VALUES (:version, :'filename', :'description', :duration_ms, :'content_hash')`
+			_, insertErr = runPsql(projDir, recordSQL,
+				"-v", fmt.Sprintf("version=%d", m.Version),
+				"-v", "filename="+filepath.Base(m.Path),
+				"-v", "description="+m.Description,
+				"-v", fmt.Sprintf("duration_ms=%d", durationMs),
+				"-v", "content_hash="+hash,
+			)
+		} else {
+			recordSQL := `INSERT INTO db.migration (version, filename, description, duration_ms) VALUES (:version, :'filename', :'description', :duration_ms)`
+			_, insertErr = runPsql(projDir, recordSQL,
+				"-v", fmt.Sprintf("version=%d", m.Version),
+				"-v", "filename="+filepath.Base(m.Path),
+				"-v", "description="+m.Description,
+				"-v", fmt.Sprintf("duration_ms=%d", durationMs),
+			)
+		}
+		if insertErr != nil {
+			return 0, fmt.Errorf("record migration %d: %w", m.Version, insertErr)
 		}
 
 		if verbose {
 			fmt.Printf("[applied] (%dms)\n", durationMs)
 		}
 		appliedCount++
-	}
-
-	// Lazy-backfill content_hash for any tracked rows still missing it.
-	// Runs unconditionally (even when no migrations were applied) so a
-	// legacy DB upgrading through the content_hash column migration gets
-	// its existing rows stamped on the first migrate up post-rc.67. The
-	// helper is a silent no-op when the column doesn't exist yet.
-	if err := backfillContentHash(projDir, verbose); err != nil {
-		return appliedCount, fmt.Errorf("content_hash backfill: %w", err)
 	}
 
 	// Notify PostgREST
@@ -658,20 +688,8 @@ func Down(projDir string, migrateTo int64, all bool, verbose bool) error {
 
 	appliedCount := 0
 	for _, version := range versions {
-		// Find down migration file
-		downPatterns := []string{
-			filepath.Join(projDir, "migrations", fmt.Sprintf("%d_*.down.sql", version)),
-			filepath.Join(projDir, "migrations", fmt.Sprintf("%d_*.down.psql", version)),
-		}
-		var downPath string
-		for _, p := range downPatterns {
-			matches, _ := filepath.Glob(p)
-			if len(matches) > 0 {
-				downPath = matches[0]
-				break
-			}
-		}
-		if downPath == "" {
+		downPath, err := findDownFile(projDir, version)
+		if err != nil {
 			return fmt.Errorf("missing down migration for version %d", version)
 		}
 
@@ -804,20 +822,25 @@ func PsqlProjectDir() string {
 // db.migration.content_hash carries sha256(file bytes at apply time) for
 // every tracked migration. The runner uses it to detect in-place edits to
 // already-applied migrations — the rc63-fixes immutability violation
-// pattern. Two helpers:
+// pattern.
 //
-//   - eagerContentHashCheck — runs at the top of every `migrate up`, BEFORE
-//     pending-only filtering, so it catches edits to migrations that are no
-//     longer pending. Compares stored hash to live file bytes; on mismatch,
-//     branches on whether the migration is in a released tag.
-//   - backfillContentHash — runs at the bottom of every `migrate up`. For
-//     every tracked row with NULL content_hash, computes the file hash and
-//     stamps it. Lazy: existing legacy rows get backfilled on the first
-//     migrate up after the column migration applies.
+// Backfill is structural, not lazy: migration 20260426220000 hardcodes
+// one UPDATE per prior version inside its body, then sets the column
+// NOT NULL. After the migration applies, every db.migration row has a
+// non-null hash and the constraint forbids any future NULL. The runner
+// stamps the hash on every subsequent INSERT (apply + redo).
 //
-// Both helpers are silent no-ops when the content_hash column doesn't yet
-// exist (legacy DB pre-rc.67-migration). The column-presence probe is a
-// cheap information_schema lookup per call.
+// Per-call helpers:
+//   - eagerContentHashCheck — runs at the top of every `migrate up`,
+//     BEFORE pending-only filtering, so it catches edits to migrations
+//     that are no longer pending. Compares stored hash to live file
+//     bytes; on mismatch, branches on whether the migration is in a
+//     released tag.
+//
+// The eager check is a silent no-op when the content_hash column
+// doesn't yet exist (legacy DB pre-rc.67-migration; the column will
+// be added during the apply pass that follows). Cheap
+// information_schema probe per call.
 
 // sha256File reads the file's bytes and returns lowercase hex sha256.
 func sha256File(path string) (string, error) {
@@ -850,6 +873,31 @@ func contentHashColumnExists(projDir string) (bool, error) {
 	return strings.TrimSpace(out) == "t", nil
 }
 
+// findUpFile returns the path to the up.sql or up.psql file for a given
+// migration version. Both extensions are valid migration shapes (see
+// listMigrationFiles); callers that resolve files by version must accept
+// either. Returns an error when neither exists.
+func findUpFile(projDir string, version int64) (string, error) {
+	for _, ext := range []string{"sql", "psql"} {
+		pattern := filepath.Join(projDir, "migrations", fmt.Sprintf("%d_*.up.%s", version, ext))
+		if matches, _ := filepath.Glob(pattern); len(matches) > 0 {
+			return matches[0], nil
+		}
+	}
+	return "", fmt.Errorf("no up.{sql,psql} file for version %d", version)
+}
+
+// findDownFile is the down-migration counterpart to findUpFile.
+func findDownFile(projDir string, version int64) (string, error) {
+	for _, ext := range []string{"sql", "psql"} {
+		pattern := filepath.Join(projDir, "migrations", fmt.Sprintf("%d_*.down.%s", version, ext))
+		if matches, _ := filepath.Glob(pattern); len(matches) > 0 {
+			return matches[0], nil
+		}
+	}
+	return "", fmt.Errorf("no down.{sql,psql} file for version %d", version)
+}
+
 // eagerContentHashCheck verifies that every tracked migration's stored
 // content_hash matches the live file's sha256. On mismatch, branches:
 //   - migration version IS in a released tag → immutability violation
@@ -864,6 +912,12 @@ func contentHashColumnExists(projDir string) (bool, error) {
 // Skips silently when the content_hash column doesn't exist (legacy DB
 // upgrading through this RC's column-add migration; the column will be
 // added during the apply pass that follows).
+//
+// NOT NULL constraint on content_hash means every row carries a hash
+// post-column-add. The check iterates all rows; no `WHERE IS NOT NULL`
+// filter (silent skips violate fail-fast). If a NULL ever surfaces here
+// despite the constraint, that's a genuine inconsistency and the check
+// fails loudly.
 func eagerContentHashCheck(projDir string) error {
 	exists, err := contentHashColumnExists(projDir)
 	if err != nil {
@@ -874,7 +928,7 @@ func eagerContentHashCheck(projDir string) error {
 	}
 
 	rowsOut, err := runPsql(projDir,
-		"SELECT version || '|' || content_hash FROM db.migration WHERE content_hash IS NOT NULL ORDER BY version",
+		"SELECT version || '|' || COALESCE(content_hash, '<NULL>') FROM db.migration ORDER BY version",
 		"-t", "-A")
 	if err != nil {
 		return fmt.Errorf("query content_hash rows: %w", err)
@@ -895,14 +949,20 @@ func eagerContentHashCheck(projDir string) error {
 		}
 		storedHash := strings.TrimSpace(parts[1])
 
-		pattern := filepath.Join(projDir, "migrations", fmt.Sprintf("%d_*.up.sql", version))
-		matches, _ := filepath.Glob(pattern)
-		if len(matches) == 0 {
+		if storedHash == "<NULL>" {
+			// Should be impossible — NOT NULL constraint forbids it.
+			// If we ever see it, the constraint was bypassed (manual
+			// SQL, schema desync). Fail loudly.
+			return fmt.Errorf("invariant violated: db.migration.content_hash is NULL for version %d "+
+				"despite NOT NULL constraint. Schema desync; investigate manually.", version)
+		}
+
+		filePath, fileErr := findUpFile(projDir, version)
+		if fileErr != nil {
 			// File missing at HEAD (git revert?). Out of scope for this
 			// check; let the pending-set logic handle reconciliation.
 			continue
 		}
-		filePath := matches[0]
 		liveHash, hashErr := sha256File(filePath)
 		if hashErr != nil {
 			return fmt.Errorf("hash %s: %w", filePath, hashErr)
@@ -931,67 +991,6 @@ func eagerContentHashCheck(projDir string) error {
 				"  Run: ./sb migrate redo %d\n"+
 				"  This re-runs the migration's down + up against the seed DB and re-stamps content_hash.",
 			version, filepath.Base(filePath), version)
-	}
-	return nil
-}
-
-// backfillContentHash UPDATEs every tracked row with NULL content_hash to
-// hold sha256(file bytes). Silent no-op when the column doesn't exist or
-// no rows need stamping. On a legacy DB upgrading through the column-add
-// migration, this is the first time hashes get computed; subsequent calls
-// are no-ops because all rows already have non-NULL hashes.
-func backfillContentHash(projDir string, verbose bool) error {
-	exists, err := contentHashColumnExists(projDir)
-	if err != nil {
-		return err
-	}
-	if !exists {
-		return nil
-	}
-
-	rowsOut, err := runPsql(projDir,
-		"SELECT version FROM db.migration WHERE content_hash IS NULL ORDER BY version",
-		"-t", "-A")
-	if err != nil {
-		return fmt.Errorf("query NULL-hash rows: %w", err)
-	}
-
-	stamped := 0
-	for _, line := range strings.Split(strings.TrimSpace(rowsOut), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		version, parseErr := strconv.ParseInt(line, 10, 64)
-		if parseErr != nil {
-			continue
-		}
-
-		pattern := filepath.Join(projDir, "migrations", fmt.Sprintf("%d_*.up.sql", version))
-		matches, _ := filepath.Glob(pattern)
-		if len(matches) == 0 {
-			// File missing at HEAD (git revert?). Skip — leaves the row
-			// at NULL; eager check will skip it too.
-			continue
-		}
-		filePath := matches[0]
-		liveHash, hashErr := sha256File(filePath)
-		if hashErr != nil {
-			return fmt.Errorf("hash %s: %w", filePath, hashErr)
-		}
-
-		if _, err := runPsql(projDir,
-			"UPDATE db.migration SET content_hash = :'hash' WHERE version = :version",
-			"-v", "version="+strconv.FormatInt(version, 10),
-			"-v", "hash="+liveHash,
-		); err != nil {
-			return fmt.Errorf("backfill content_hash for migration %d: %w", version, err)
-		}
-		stamped++
-	}
-
-	if stamped > 0 && verbose {
-		fmt.Printf("Backfilled content_hash on %d row(s)\n", stamped)
 	}
 	return nil
 }
@@ -1092,20 +1091,14 @@ func Redo(projDir string, version int64, target string, confirm bool, verbose bo
 			latest, dbName)
 	}
 
-	upPattern := filepath.Join(projDir, "migrations", fmt.Sprintf("%d_*.up.sql", version))
-	upMatches, _ := filepath.Glob(upPattern)
-	if len(upMatches) == 0 {
-		return fmt.Errorf("no up.sql for version %d", version)
+	upPath, err := findUpFile(projDir, version)
+	if err != nil {
+		return err
 	}
-	upPath := upMatches[0]
-
-	downPattern := filepath.Join(projDir, "migrations", fmt.Sprintf("%d_*.down.sql", version))
-	downMatches, _ := filepath.Glob(downPattern)
-	if len(downMatches) == 0 {
-		return fmt.Errorf("no down.sql for version %d", version)
+	downPath, err := findDownFile(projDir, version)
+	if err != nil {
+		return err
 	}
-	downPath := downMatches[0]
-
 	mf, err := parseMigrationFile(upPath)
 	if err != nil {
 		return err
@@ -1113,7 +1106,7 @@ func Redo(projDir string, version int64, target string, confirm bool, verbose bo
 
 	if verbose {
 		fmt.Printf("./sb migrate redo: target=%s db=%s version=%d\n", target, dbName, version)
-		fmt.Printf("Running down.sql: %s\n", filepath.Base(downPath))
+		fmt.Printf("Running down: %s\n", filepath.Base(downPath))
 	}
 	if out, err := runPsqlFile(projDir, downPath); err != nil {
 		return fmt.Errorf("redo %d: down failed: %w\n%s", version, err, out)
@@ -1124,7 +1117,7 @@ func Redo(projDir string, version int64, target string, confirm bool, verbose bo
 	}
 
 	if verbose {
-		fmt.Printf("Running up.sql:   %s\n", filepath.Base(upPath))
+		fmt.Printf("Running up:   %s\n", filepath.Base(upPath))
 	}
 	start := time.Now()
 	if out, err := runPsqlFile(projDir, upPath); err != nil {
@@ -1132,21 +1125,48 @@ func Redo(projDir string, version int64, target string, confirm bool, verbose bo
 	}
 	durationMs := time.Since(start).Milliseconds()
 
-	recordSQL := `INSERT INTO db.migration (version, filename, description, duration_ms) VALUES (:version, :'filename', :'description', :duration_ms)`
-	if _, err := runPsql(projDir, recordSQL,
-		"-v", fmt.Sprintf("version=%d", version),
-		"-v", "filename="+filepath.Base(upPath),
-		"-v", "description="+mf.Description,
-		"-v", fmt.Sprintf("duration_ms=%d", durationMs),
-	); err != nil {
-		return fmt.Errorf("redo %d: re-record tracking row: %w", version, err)
+	// Re-INSERT tracking row WITH the freshly-computed content_hash.
+	// NOT NULL constraint requires it. The Redo command always runs
+	// against a target where the column exists (Redo is gated on the
+	// content_hash migration having already applied — by the time
+	// Redo can be invoked at all, the column must already exist
+	// because Redo's `--target seed` requires POSTGRES_SEED_DB which
+	// arrives with commit 3, and `--target dev --confirm` against a
+	// pre-content_hash-column DB would no-op the content_hash column
+	// existence check, but the INSERT shape still works because we
+	// branch on column existence below).
+	hash, hashErr := sha256File(upPath)
+	if hashErr != nil {
+		return fmt.Errorf("redo %d: hash up file: %w", version, hashErr)
 	}
 
-	// Backfill the new content_hash so the next migrate up doesn't
-	// re-detect this same migration as a WIP edit.
-	if err := backfillContentHash(projDir, verbose); err != nil {
-		// Non-fatal — the hash will be backfilled on next migrate up.
-		fmt.Fprintf(os.Stderr, "Note: content_hash backfill skipped: %v (will retry on next `./sb migrate up`)\n", err)
+	hasContentHash, err := contentHashColumnExists(projDir)
+	if err != nil {
+		return fmt.Errorf("redo %d: probe content_hash column: %w", version, err)
+	}
+	if hasContentHash {
+		recordSQL := `INSERT INTO db.migration (version, filename, description, duration_ms, content_hash) VALUES (:version, :'filename', :'description', :duration_ms, :'content_hash')`
+		if _, err := runPsql(projDir, recordSQL,
+			"-v", fmt.Sprintf("version=%d", version),
+			"-v", "filename="+filepath.Base(upPath),
+			"-v", "description="+mf.Description,
+			"-v", fmt.Sprintf("duration_ms=%d", durationMs),
+			"-v", "content_hash="+hash,
+		); err != nil {
+			return fmt.Errorf("redo %d: re-record tracking row: %w", version, err)
+		}
+	} else {
+		// Pre-content_hash-column DB. Redo can still run for legacy
+		// recovery use-cases; INSERT without the column.
+		recordSQL := `INSERT INTO db.migration (version, filename, description, duration_ms) VALUES (:version, :'filename', :'description', :duration_ms)`
+		if _, err := runPsql(projDir, recordSQL,
+			"-v", fmt.Sprintf("version=%d", version),
+			"-v", "filename="+filepath.Base(upPath),
+			"-v", "description="+mf.Description,
+			"-v", fmt.Sprintf("duration_ms=%d", durationMs),
+		); err != nil {
+			return fmt.Errorf("redo %d: re-record tracking row: %w", version, err)
+		}
 	}
 
 	fmt.Printf("Migration %d redone against %s\n", version, dbName)
