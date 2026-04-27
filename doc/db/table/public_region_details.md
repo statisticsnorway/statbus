@@ -59,7 +59,6 @@ Triggers:
     a_region_log_delete AFTER DELETE ON region REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_region_change()
     a_region_log_insert AFTER INSERT ON region REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_region_change()
     a_region_log_update AFTER UPDATE ON region REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_region_change()
-    b_region_ensure_collect AFTER INSERT OR DELETE OR UPDATE ON region FOR EACH STATEMENT EXECUTE FUNCTION worker.ensure_collect_changes()
     trigger_prevent_region_id_update BEFORE UPDATE OF id ON region FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap
 

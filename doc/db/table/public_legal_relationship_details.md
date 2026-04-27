@@ -76,7 +76,6 @@ Triggers:
     a_legal_relationship_log_delete AFTER DELETE ON legal_relationship REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_legal_relationship_log_insert AFTER INSERT ON legal_relationship REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_legal_relationship_log_update AFTER UPDATE ON legal_relationship REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
-    b_legal_relationship_ensure_collect_delete AFTER DELETE ON legal_relationship REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.ensure_collect_changes()
     b_legal_relationship_ensure_collect_insert AFTER INSERT ON legal_relationship REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.ensure_collect_changes_for_legal_relationship()
     b_legal_relationship_ensure_collect_update AFTER UPDATE ON legal_relationship REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.ensure_collect_changes_for_legal_relationship()
     legal_relationship_valid_sync_temporal_trg BEFORE INSERT OR UPDATE OF valid_range, valid_to, valid_from, valid_until ON legal_relationship FOR EACH ROW EXECUTE FUNCTION sql_saga.public_legal_relationship_valid_template_sync()

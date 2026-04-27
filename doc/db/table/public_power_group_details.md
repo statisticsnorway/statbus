@@ -53,7 +53,6 @@ Triggers:
     a_power_group_log_delete AFTER DELETE ON power_group REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_power_group_log_insert AFTER INSERT ON power_group REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_power_group_log_update AFTER UPDATE ON power_group REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
-    b_power_group_ensure_collect AFTER INSERT OR DELETE OR UPDATE ON power_group FOR EACH STATEMENT EXECUTE FUNCTION worker.ensure_collect_changes()
     trigger_prevent_power_group_id_update BEFORE UPDATE OF id ON power_group FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap
 

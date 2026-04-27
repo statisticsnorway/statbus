@@ -87,7 +87,6 @@ Triggers:
     a_establishment_log_delete AFTER DELETE ON establishment REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_establishment_log_insert AFTER INSERT ON establishment REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_establishment_log_update AFTER UPDATE ON establishment REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
-    b_establishment_ensure_collect AFTER INSERT OR DELETE OR UPDATE ON establishment FOR EACH STATEMENT EXECUTE FUNCTION worker.ensure_collect_changes()
     establishment_valid_sync_temporal_trg BEFORE INSERT OR UPDATE OF valid_range, valid_to, valid_from, valid_until ON establishment FOR EACH ROW EXECUTE FUNCTION sql_saga.public_establishment_valid_template_sync()
     trigger_prevent_establishment_id_update BEFORE UPDATE OF id ON establishment FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 

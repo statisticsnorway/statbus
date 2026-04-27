@@ -34,6 +34,19 @@ BEGIN
        OR v_lu_ids != '{}'::int4multirange THEN
         INSERT INTO worker.base_change_log (establishment_ids, legal_unit_ids, enterprise_ids, power_group_ids, valid_ranges)
         VALUES (v_est_ids, v_lu_ids, '{}'::int4multirange, '{}'::int4multirange, v_valid_ranges);
+
+        -- Folded from former worker.ensure_collect_changes (rc.66, task #32):
+        -- scheduling now fires only when actual change data was logged.
+        UPDATE worker.base_change_log_has_pending
+        SET has_pending = TRUE WHERE has_pending = FALSE;
+
+        INSERT INTO worker.tasks (command, payload)
+        VALUES ('collect_changes', '{"command":"collect_changes"}'::jsonb)
+        ON CONFLICT (command)
+        WHERE command = 'collect_changes' AND state = 'pending'::worker.task_state
+        DO NOTHING;
+
+        PERFORM pg_notify('worker_tasks', 'analytics');
     END IF;
 
     RETURN NULL;

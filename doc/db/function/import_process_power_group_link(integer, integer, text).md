@@ -264,7 +264,6 @@ BEGIN
     ALTER TABLE public.power_root DISABLE TRIGGER a_power_root_log_delete;
     ALTER TABLE public.power_root DISABLE TRIGGER b_power_root_ensure_collect_insert;
     ALTER TABLE public.power_root DISABLE TRIGGER b_power_root_ensure_collect_update;
-    ALTER TABLE public.power_root DISABLE TRIGGER b_power_root_ensure_collect_delete;
 
     -- Detect natural roots: LUs that influence others but are NOT influenced
     IF to_regclass('pg_temp._natural_roots') IS NOT NULL THEN
@@ -360,7 +359,6 @@ BEGIN
     ALTER TABLE public.power_root ENABLE TRIGGER a_power_root_log_delete;
     ALTER TABLE public.power_root ENABLE TRIGGER b_power_root_ensure_collect_insert;
     ALTER TABLE public.power_root ENABLE TRIGGER b_power_root_ensure_collect_update;
-    ALTER TABLE public.power_root ENABLE TRIGGER b_power_root_ensure_collect_delete;
 END;
 $procedure$
 ```

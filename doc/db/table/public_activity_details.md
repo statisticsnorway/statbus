@@ -79,7 +79,6 @@ Triggers:
     a_activity_log_insert AFTER INSERT ON activity REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_activity_log_update AFTER UPDATE ON activity REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     activity_valid_sync_temporal_trg BEFORE INSERT OR UPDATE OF valid_range, valid_to, valid_from, valid_until ON activity FOR EACH ROW EXECUTE FUNCTION sql_saga.public_activity_valid_template_sync()
-    b_activity_ensure_collect AFTER INSERT OR DELETE OR UPDATE ON activity FOR EACH STATEMENT EXECUTE FUNCTION worker.ensure_collect_changes()
     trigger_prevent_activity_id_update BEFORE UPDATE OF id ON activity FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap
 

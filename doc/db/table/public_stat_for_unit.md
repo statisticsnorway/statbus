@@ -65,7 +65,6 @@ Triggers:
     a_stat_for_unit_log_delete AFTER DELETE ON stat_for_unit REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_stat_for_unit_log_insert AFTER INSERT ON stat_for_unit REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_stat_for_unit_log_update AFTER UPDATE ON stat_for_unit REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
-    b_stat_for_unit_ensure_collect AFTER INSERT OR DELETE OR UPDATE ON stat_for_unit FOR EACH STATEMENT EXECUTE FUNCTION worker.ensure_collect_changes()
     check_stat_for_unit_values_trigger BEFORE INSERT OR UPDATE ON stat_for_unit FOR EACH ROW EXECUTE FUNCTION admin.check_stat_for_unit_values()
     stat_for_unit_valid_sync_temporal_trg BEFORE INSERT OR UPDATE OF valid_range, valid_to, valid_from, valid_until ON stat_for_unit FOR EACH ROW EXECUTE FUNCTION sql_saga.public_stat_for_unit_valid_template_sync()
     trigger_prevent_stat_for_unit_id_update BEFORE UPDATE OF id ON stat_for_unit FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()

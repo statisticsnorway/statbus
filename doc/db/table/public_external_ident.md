@@ -57,7 +57,6 @@ Triggers:
     a_external_ident_log_delete AFTER DELETE ON external_ident REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_external_ident_log_insert AFTER INSERT ON external_ident REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_external_ident_log_update AFTER UPDATE ON external_ident REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
-    b_external_ident_ensure_collect AFTER INSERT OR DELETE OR UPDATE ON external_ident FOR EACH STATEMENT EXECUTE FUNCTION worker.ensure_collect_changes()
     external_ident_derive_shape_labels BEFORE INSERT OR UPDATE OF type_id ON external_ident FOR EACH ROW EXECUTE FUNCTION external_ident_derive_shape_labels()
     trigger_prevent_external_ident_id_update BEFORE UPDATE OF id ON external_ident FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 

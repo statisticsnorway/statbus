@@ -106,7 +106,6 @@ Triggers:
     a_location_log_delete AFTER DELETE ON location REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_location_log_insert AFTER INSERT ON location REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_location_log_update AFTER UPDATE ON location REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
-    b_location_ensure_collect AFTER INSERT OR DELETE OR UPDATE ON location FOR EACH STATEMENT EXECUTE FUNCTION worker.ensure_collect_changes()
     location_set_region_version_id_trigger BEFORE INSERT OR UPDATE OF region_id ON location FOR EACH ROW WHEN (new.region_id IS NOT NULL AND new.region_version_id IS NULL) EXECUTE FUNCTION location_set_region_version_id()
     location_valid_sync_temporal_trg BEFORE INSERT OR UPDATE OF valid_range, valid_to, valid_from, valid_until ON location FOR EACH ROW EXECUTE FUNCTION sql_saga.public_location_valid_template_sync()
     trigger_prevent_location_id_update BEFORE UPDATE OF id ON location FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()

@@ -63,7 +63,6 @@ Triggers:
     a_contact_log_delete AFTER DELETE ON contact REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_contact_log_insert AFTER INSERT ON contact REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_contact_log_update AFTER UPDATE ON contact REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
-    b_contact_ensure_collect AFTER INSERT OR DELETE OR UPDATE ON contact FOR EACH STATEMENT EXECUTE FUNCTION worker.ensure_collect_changes()
     contact_valid_sync_temporal_trg BEFORE INSERT OR UPDATE OF valid_range, valid_to, valid_from, valid_until ON contact FOR EACH ROW EXECUTE FUNCTION sql_saga.public_contact_valid_template_sync()
     trigger_prevent_contact_id_update BEFORE UPDATE OF id ON contact FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 

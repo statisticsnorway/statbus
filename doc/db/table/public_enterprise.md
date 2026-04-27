@@ -36,7 +36,6 @@ Triggers:
     a_enterprise_log_delete AFTER DELETE ON enterprise REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_enterprise_log_insert AFTER INSERT ON enterprise REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_enterprise_log_update AFTER UPDATE ON enterprise REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
-    b_enterprise_ensure_collect AFTER INSERT OR DELETE OR UPDATE ON enterprise FOR EACH STATEMENT EXECUTE FUNCTION worker.ensure_collect_changes()
     trigger_prevent_enterprise_id_update BEFORE UPDATE OF id ON enterprise FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 
 ```
