@@ -1180,12 +1180,6 @@ EOF
         SEED_NAME="${POSTGRES_SEED_DB:-statbus_seed}"
         echo "Draining worker.tasks via worker.process_tasks() on $SEED_NAME ..."
         ./sb psql -d "$SEED_NAME" -v ON_ERROR_STOP=1 -c "CALL worker.process_tasks();"
-        # Rebuild the test template AFTER the seed drain so the clone
-        # inherits the canonical "production at rest" state. The auto-rebuild
-        # in cli/internal/migrate/migrate.go is suppressed for `--target seed`
-        # via its POSTGRES_SEED_DB guard, leaving recreate-seed as the
-        # sole orchestrator of post-rebuild template state.
-        ./dev.sh create-test-template
       ;;
     'seed-status' )
         eval $(./dev.sh postgres-variables)
