@@ -621,6 +621,19 @@ func maybeRebuildTestTemplate(projDir string) {
 		return
 	}
 
+	// Guard: skip if we ARE migrating the seed. recreate-seed orchestrates
+	// its own template rebuild AFTER its drain step (see dev.sh
+	// 'recreate-seed' action). Auto-rebuild here would fire prematurely
+	// against the un-drained seed, capturing transient has_pending=TRUE
+	// state into the template and contaminating downstream test clones.
+	seedDB := os.Getenv("POSTGRES_SEED_DB")
+	if seedDB == "" {
+		seedDB = "statbus_seed"
+	}
+	if targetDB == seedDB {
+		return
+	}
+
 	envPath := filepath.Join(projDir, ".env")
 	f, err := dotenv.Load(envPath)
 	if err != nil {
