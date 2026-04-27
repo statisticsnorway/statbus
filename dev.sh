@@ -1037,6 +1037,18 @@ EOF
         # Fast clone via the seed-clone primitive.
         ./dev.sh seed-clone "$TEMPLATE_NAME"
 
+        # Drain any has_pending=TRUE / pending collect_changes inherited
+        # from the seed at clone time. The auto-rebuild path in
+        # cli/internal/migrate/migrate.go:451 fires `./dev.sh
+        # create-test-template` right after migrations apply but BEFORE
+        # `recreate-seed`'s explicit `CALL worker.process_tasks()` on
+        # the seed — so the template can inherit a transient
+        # has_pending=TRUE even though the eventual seed reaches FALSE.
+        # Production semantics for the test_template: "fresh production
+        # install at rest" (has_pending=FALSE, no pending collect_changes).
+        # Symmetrical with recreate-seed's drain step.
+        ./sb psql -d "$TEMPLATE_NAME" -v ON_ERROR_STOP=1 -c "CALL worker.process_tasks();"
+
         # Load JWT secret so auth works in tests. Seed excludes
         # auth.secrets data (security hard-rule); each consumer
         # injects its own JWT. Same as pre-rc.66 behavior.
