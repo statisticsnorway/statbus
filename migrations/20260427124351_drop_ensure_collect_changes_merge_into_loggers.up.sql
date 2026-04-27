@@ -246,4 +246,30 @@ BEGIN
 END;
 $log_region_change$;
 
+-- ============================================================================
+-- Step 5: Drain residual has_pending=TRUE left by the now-dropped triggers.
+--
+-- During chronological migrate up, the OLD unconditional ensure_collect_changes
+-- trigger fired on the 3 tracked-table writes that happen between its creation
+-- (migration 20260212123759) and its drop above (Step 1): region/location
+-- UPDATEs in 20260312114522 and the external_ident INSERT in 20260312114524.
+-- Those firings set has_pending=TRUE and queued spurious collect_changes
+-- tasks despite all multiranges being empty (no real units to track yet).
+-- Steps 1-4 dropped the over-zealous triggers and replaced them with the
+-- conditional fold, but didn't clear the residual flag and tasks.
+--
+-- worker.process_tasks is the production drain procedure. It checks
+-- pg_current_xact_id_if_assigned() and skips its inner COMMITs when called
+-- from inside a transaction (this migration's BEGIN/END), so it processes
+-- pending tasks but commits everything atomically with the migration.
+-- Concurrent worker daemons (in production migrate-up) coordinate via
+-- FOR UPDATE SKIP LOCKED — race-safe.
+--
+-- Net effect: any migrate-up that crosses this migration's boundary leaves
+-- has_pending=FALSE and no spurious collect_changes tasks. No build-pipeline
+-- drain step needed (recreate-seed in dev.sh stays simple).
+-- ============================================================================
+
+CALL worker.process_tasks();
+
 END;
