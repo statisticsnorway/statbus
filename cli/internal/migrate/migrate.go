@@ -345,7 +345,19 @@ func advisoryLockConnStr(f *dotenv.File) (string, error) {
 		}
 		return "", fmt.Errorf("%s not found in .env — regenerate with: ./sb config generate", key)
 	}
+	// Process env wins over .env file — matches psqlEnv's pattern.
+	// Critical for `./sb migrate up --target seed` (and `migrate redo`)
+	// where the env override must reach the lock connection so the
+	// advisory lock is acquired against the same database the
+	// migrations run against. Without env-awareness, `--target seed`
+	// would migrate against statbus_seed but lock against
+	// statbus_local — pg_advisory_lock is per-database, so the lock
+	// wouldn't actually serialise concurrent invocations. Plan
+	// section R commit 3.
 	getOr := func(key, fallback string) string {
+		if v := os.Getenv(key); v != "" {
+			return v
+		}
 		if v, ok := f.Get(key); ok {
 			return v
 		}
@@ -817,6 +829,45 @@ func PsqlProjectDir() string {
 	return config.ProjectDir()
 }
 
+// ResolveTargetDB maps a `--target {dev,seed}` flag to the actual
+// PostgreSQL database name read from .env. Used by `./sb migrate up
+// --target` and `./sb migrate redo --target` to centralise the
+// dev↔POSTGRES_APP_DB / seed↔POSTGRES_SEED_DB resolution.
+//
+// Returns a clear error when target is unrecognised, when .env can't
+// be loaded, or when --target seed is requested but POSTGRES_SEED_DB
+// hasn't been configured (operator hasn't regenerated .env after
+// pulling commit 3 of the seed feature).
+func ResolveTargetDB(projDir, target string) (string, error) {
+	if target == "" {
+		target = "dev"
+	}
+	if target != "dev" && target != "seed" {
+		return "", fmt.Errorf("--target must be 'dev' or 'seed', got %q", target)
+	}
+	f, err := dotenv.Load(filepath.Join(projDir, ".env"))
+	if err != nil {
+		return "", fmt.Errorf("load .env: %w", err)
+	}
+	switch target {
+	case "seed":
+		v, ok := f.Get("POSTGRES_SEED_DB")
+		if !ok || v == "" {
+			return "", fmt.Errorf("POSTGRES_SEED_DB not configured in .env. " +
+				"Regenerate config to materialise it: `./sb config generate`")
+		}
+		return v, nil
+	case "dev":
+		v, ok := f.Get("POSTGRES_APP_DB")
+		if !ok || v == "" {
+			return "", fmt.Errorf("POSTGRES_APP_DB not configured in .env. " +
+				"Regenerate config: `./sb config generate`")
+		}
+		return v, nil
+	}
+	return "", fmt.Errorf("unreachable: target %q", target)
+}
+
 // ── content_hash machinery (plan-rc.66 section R, commit 2/4) ───────────────
 //
 // db.migration.content_hash carries sha256(file bytes at apply time) for
@@ -1014,38 +1065,17 @@ func Redo(projDir string, version int64, target string, confirm bool, verbose bo
 	if target == "" {
 		target = "seed"
 	}
-	if target != "dev" && target != "seed" {
-		return fmt.Errorf("--target must be 'dev' or 'seed', got %q", target)
+	// Dev requires --confirm; check that BEFORE asking for the DB
+	// name so the user gets the safety message even if .env isn't
+	// loadable for some reason.
+	if target == "dev" && !confirm {
+		return fmt.Errorf("./sb migrate redo --target dev requires --confirm.\n" +
+			"  Redo runs the migration's down.sql which is destructive on a dev DB with custom data.\n" +
+			"  Default --target seed is safe (build-time DB; disposable).")
 	}
-
-	// Resolve the actual database name and override env so all subsequent
-	// psql/pgx calls in this command target it. Reverted via defer.
-	envPath := filepath.Join(projDir, ".env")
-	f, err := dotenv.Load(envPath)
+	dbName, err := ResolveTargetDB(projDir, target)
 	if err != nil {
-		return fmt.Errorf("load .env: %w", err)
-	}
-
-	var dbName string
-	switch target {
-	case "seed":
-		v, ok := f.Get("POSTGRES_SEED_DB")
-		if !ok || v == "" {
-			return fmt.Errorf("POSTGRES_SEED_DB not configured; the seed DB is introduced in commit 3 of the seed feature.\n" +
-				"  For now, use `--target dev --confirm` at your own risk.")
-		}
-		dbName = v
-	case "dev":
-		if !confirm {
-			return fmt.Errorf("./sb migrate redo --target dev requires --confirm.\n" +
-				"  Redo runs the migration's down.sql which is destructive on a dev DB with custom data.\n" +
-				"  Default --target seed is safe (build-time DB; disposable).")
-		}
-		v, ok := f.Get("POSTGRES_APP_DB")
-		if !ok || v == "" {
-			v = "statbus_local"
-		}
-		dbName = v
+		return err
 	}
 
 	prevApp, hadApp := os.LookupEnv("POSTGRES_APP_DB")

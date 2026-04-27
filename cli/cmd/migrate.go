@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 
 	"github.com/spf13/cobra"
@@ -13,6 +14,7 @@ var (
 	migrateDescription string
 	migrateExtension   string
 	migrateTo          int64
+	migrateUpTarget    string
 	migrateRedoTarget  string
 	migrateRedoConfirm bool
 )
@@ -25,8 +27,21 @@ var migrateCmd = &cobra.Command{
 var migrateUpCmd = &cobra.Command{
 	Use:   "up",
 	Short: "Apply pending migrations",
+	Long: `Apply pending migrations to the target database.
+
+The --target flag selects which database to migrate:
+  --target dev   (default) — POSTGRES_APP_DB (the working dev/runtime DB)
+  --target seed             — POSTGRES_SEED_DB (the canonical fresh-from-
+                              migrations DB; build-time only, never
+                              worker-active). The seed sources the
+                              published artifact via ./sb db seed create.
+
+The --target flag overrides POSTGRES_APP_DB + PGDATABASE in the process
+env for this invocation; existing in-process callers (install, upgrade)
+that don't pass --target keep targeting POSTGRES_APP_DB exactly as
+before.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return migrate.Up(config.ProjectDir(), migrateTo, true, verbose)
+		return runMigrateUp(migrateTo, true)
 	},
 }
 
@@ -34,8 +49,43 @@ var migrateUpOneCmd = &cobra.Command{
 	Use:   "one",
 	Short: "Apply only one pending migration",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return migrate.Up(config.ProjectDir(), migrateTo, false, verbose)
+		return runMigrateUp(migrateTo, false)
 	},
+}
+
+// runMigrateUp resolves --target to a database name, overrides
+// POSTGRES_APP_DB + PGDATABASE in the process env (reverted on
+// defer so subsequent in-process commands aren't affected), and
+// invokes migrate.Up. The env override is the same shape Redo uses
+// and matches the existing dev.sh:998 pattern.
+func runMigrateUp(migrateTo int64, all bool) error {
+	projDir := config.ProjectDir()
+	if migrateUpTarget == "" {
+		migrateUpTarget = "dev"
+	}
+	dbName, err := migrate.ResolveTargetDB(projDir, migrateUpTarget)
+	if err != nil {
+		return err
+	}
+
+	prevApp, hadApp := os.LookupEnv("POSTGRES_APP_DB")
+	prevPG, hadPG := os.LookupEnv("PGDATABASE")
+	os.Setenv("POSTGRES_APP_DB", dbName)
+	os.Setenv("PGDATABASE", dbName)
+	defer func() {
+		if hadApp {
+			os.Setenv("POSTGRES_APP_DB", prevApp)
+		} else {
+			os.Unsetenv("POSTGRES_APP_DB")
+		}
+		if hadPG {
+			os.Setenv("PGDATABASE", prevPG)
+		} else {
+			os.Unsetenv("PGDATABASE")
+		}
+	}()
+
+	return migrate.Up(projDir, migrateTo, all, verbose)
 }
 
 var migrateDownCmd = &cobra.Command{
@@ -93,6 +143,8 @@ Constraints (enforced):
 
 func init() {
 	migrateUpCmd.Flags().Int64Var(&migrateTo, "to", 0, "migrate up to this version (inclusive)")
+	migrateUpCmd.Flags().StringVar(&migrateUpTarget, "target", "dev", "target DB: 'dev' (POSTGRES_APP_DB) or 'seed' (POSTGRES_SEED_DB)")
+	migrateUpOneCmd.Flags().StringVar(&migrateUpTarget, "target", "dev", "target DB: 'dev' (POSTGRES_APP_DB) or 'seed' (POSTGRES_SEED_DB)")
 	migrateUpCmd.AddCommand(migrateUpOneCmd)
 
 	migrateDownCmd.Flags().Int64Var(&migrateTo, "to", 0, "roll back to this version (inclusive)")

@@ -1028,6 +1028,205 @@ EOF
             echo "Test template migration stamp recorded: $LATEST_MIGRATION"
         fi
       ;;
+    # ── Seed lifecycle primitives (plan section R, commit 3/4) ─────
+    # Each does ONE thing — no auto-rebuild magic. Composition is
+    # explicit (recreate-seed = delete + create + migrate; that's the
+    # only convenience wrapper). Operators run primitives directly when
+    # they need finer control, or use the wrapper for the common case.
+    #
+    # The seed DB is build-time-only: never worker-active, never
+    # contains app data, never written to by ./sb commands other than
+    # `migrate up --target seed` and these primitives. Source of the
+    # `./sb db seed create` artifact published to origin/db-seed.
+    'create-seed' )
+        eval $(./dev.sh postgres-variables)
+        SEED_NAME="${POSTGRES_SEED_DB:-statbus_seed}"
+
+        echo "Creating empty seed database from template_statbus: $SEED_NAME"
+
+        SEED_EXISTS=$(./sb psql -d postgres -t -A -c \
+            "SELECT 1 FROM pg_database WHERE datname = '$SEED_NAME';" 2>/dev/null || echo "0")
+        if [ "$SEED_EXISTS" = "1" ]; then
+            echo "Error: seed database '$SEED_NAME' already exists."
+            echo "  Drop it first: ./dev.sh delete-seed"
+            echo "  Or rebuild end-to-end: ./dev.sh recreate-seed"
+            exit 1
+        fi
+
+        # Pre-flight: confirm template_statbus exists (provisioned by
+        # ./dev.sh create-db). Without this check the CREATE below
+        # fails with a generic "template not found" that doesn't name
+        # the recovery command.
+        if ! TEMPLATE_STATBUS_EXISTS=$(./sb psql -d postgres -t -A -c \
+                "SELECT 1 FROM pg_database WHERE datname = 'template_statbus';" 2>&1); then
+            echo "Error: cannot reach Postgres to check for template_statbus."
+            echo "  Underlying psql error: $TEMPLATE_STATBUS_EXISTS"
+            exit 1
+        fi
+        if [ "$TEMPLATE_STATBUS_EXISTS" != "1" ]; then
+            echo "Error: template_statbus does not exist."
+            echo "  Provisioned by: ./dev.sh create-db"
+            exit 1
+        fi
+
+        if ! ./sb psql -d postgres -c "
+            CREATE DATABASE $SEED_NAME
+            WITH TEMPLATE template_statbus
+            OWNER postgres;
+        "; then
+            echo "Error: Failed to create seed database from template_statbus."
+            exit 1
+        fi
+
+        # Set up roles and schemas that init-db.sh creates for the main
+        # DB but are not in template_statbus. Roles are cluster-wide
+        # (already exist), but the auth schema and grants must be
+        # per-database. Mirrors create-test-template.
+        echo "Setting up schemas and grants for seed..."
+        ./sb psql -d $SEED_NAME -v ON_ERROR_STOP=1 <<'EOF'
+            CREATE SCHEMA IF NOT EXISTS auth;
+            GRANT USAGE ON SCHEMA auth TO authenticated;
+            GRANT USAGE ON SCHEMA auth TO anon;
+            GRANT USAGE ON SCHEMA public TO notify_reader;
+EOF
+
+        echo "Seed database created (empty): $SEED_NAME"
+        echo "  Apply migrations next: ./sb migrate up --target seed"
+        echo "  Or rebuild end-to-end:  ./dev.sh recreate-seed"
+      ;;
+    'delete-seed' )
+        eval $(./dev.sh postgres-variables)
+        SEED_NAME="${POSTGRES_SEED_DB:-statbus_seed}"
+
+        SEED_EXISTS=$(./sb psql -d postgres -t -A -c \
+            "SELECT 1 FROM pg_database WHERE datname = '$SEED_NAME';" 2>/dev/null || echo "0")
+        if [ "$SEED_EXISTS" != "1" ]; then
+            echo "Seed database '$SEED_NAME' does not exist; nothing to delete."
+            exit 0
+        fi
+
+        ./sb psql -d postgres -c "
+            SELECT pg_terminate_backend(pid)
+            FROM pg_stat_activity
+            WHERE datname = '$SEED_NAME';
+        " || true
+
+        if ! ./sb psql -d postgres -c "DROP DATABASE $SEED_NAME;"; then
+            echo "Error: Failed to drop seed database $SEED_NAME."
+            exit 1
+        fi
+        echo "Seed database dropped: $SEED_NAME"
+      ;;
+    'recreate-seed' )
+        # Composition: delete-seed + create-seed + migrate up --target seed.
+        # The only convenience wrapper in the seed lifecycle. Each step
+        # is independently runnable; if a stage fails the operator sees
+        # which step + can re-run the primitive directly.
+        ./dev.sh delete-seed
+        ./dev.sh create-seed
+        ./sb migrate up --target seed --verbose
+      ;;
+    'seed-status' )
+        eval $(./dev.sh postgres-variables)
+        SEED_NAME="${POSTGRES_SEED_DB:-statbus_seed}"
+
+        SEED_EXISTS=$(./sb psql -d postgres -t -A -c \
+            "SELECT 1 FROM pg_database WHERE datname = '$SEED_NAME';" 2>/dev/null || echo "0")
+        if [ "$SEED_EXISTS" != "1" ]; then
+            echo "Status: missing"
+            echo "  Seed database '$SEED_NAME' does not exist."
+            echo "  Bootstrap: ./dev.sh recreate-seed"
+            exit 1
+        fi
+
+        # Set comparison: db.migration rows vs migrations/*.up.{sql,psql}
+        # at HEAD. Asymmetric reporting (missing|behind|ahead|mismatch|
+        # in sync) per plan section R. Detects git revert / branch-switch
+        # scenarios that a max-version-only check would miss.
+        DB_VERSIONS=$(./sb psql -d "$SEED_NAME" -t -A -c \
+            "SELECT version FROM db.migration ORDER BY version" 2>/dev/null | sort -u)
+        FS_VERSIONS=$(for f in "$WORKSPACE/migrations/"*.up.sql "$WORKSPACE/migrations/"*.up.psql; do
+            [ -e "$f" ] || continue
+            basename "$f" | cut -d_ -f1
+        done | sort -u)
+
+        BEHIND=$(comm -13 <(echo "$DB_VERSIONS") <(echo "$FS_VERSIONS"))   # in HEAD, not in DB
+        AHEAD=$(comm -23 <(echo "$DB_VERSIONS") <(echo "$FS_VERSIONS"))    # in DB, not in HEAD
+        BEHIND_N=$(echo -n "$BEHIND" | grep -c .)
+        AHEAD_N=$(echo -n "$AHEAD" | grep -c .)
+
+        if [ "$BEHIND_N" -eq 0 ] && [ "$AHEAD_N" -eq 0 ]; then
+            echo "Status: in sync"
+            echo "  Seed at version $(echo "$DB_VERSIONS" | tail -1) matches HEAD."
+            exit 0
+        fi
+        if [ "$BEHIND_N" -gt 0 ] && [ "$AHEAD_N" -eq 0 ]; then
+            echo "Status: behind by $BEHIND_N migration(s)"
+            echo "$BEHIND" | sed 's/^/  + /'
+            echo "  Apply pending migrations: ./sb migrate up --target seed"
+            exit 1
+        fi
+        if [ "$BEHIND_N" -eq 0 ] && [ "$AHEAD_N" -gt 0 ]; then
+            echo "Status: ahead by $AHEAD_N migration(s)"
+            echo "$AHEAD" | sed 's/^/  - /'
+            echo "  Rebuild from HEAD: ./dev.sh recreate-seed"
+            exit 1
+        fi
+        echo "Status: mismatch ($BEHIND_N missing, $AHEAD_N orphan)"
+        echo "  Missing in seed (in HEAD, not applied):"
+        echo "$BEHIND" | sed 's/^/    + /'
+        echo "  Orphan in seed (applied, not in HEAD):"
+        echo "$AHEAD" | sed 's/^/    - /'
+        echo "  Rebuild from HEAD: ./dev.sh recreate-seed"
+        exit 1
+      ;;
+    'seed-clone' )
+        # Clone ${POSTGRES_SEED_DB} into the named target DB. Used by
+        # commit 4's create-test-template retarget; exposed as a
+        # primitive so other consumers (cross-machine bootstrap, dev
+        # convenience) can compose on top.
+        eval $(./dev.sh postgres-variables)
+        SEED_NAME="${POSTGRES_SEED_DB:-statbus_seed}"
+
+        TARGET_NAME="${1:-}"
+        if [ -z "$TARGET_NAME" ]; then
+            echo "Error: ./dev.sh seed-clone <target_db> requires a target name."
+            echo "  Example: ./dev.sh seed-clone statbus_test_template"
+            exit 1
+        fi
+
+        SEED_EXISTS=$(./sb psql -d postgres -t -A -c \
+            "SELECT 1 FROM pg_database WHERE datname = '$SEED_NAME';" 2>/dev/null || echo "0")
+        if [ "$SEED_EXISTS" != "1" ]; then
+            echo "Error: seed database '$SEED_NAME' does not exist."
+            echo "  Bootstrap: ./dev.sh recreate-seed"
+            exit 1
+        fi
+
+        TARGET_EXISTS=$(./sb psql -d postgres -t -A -c \
+            "SELECT 1 FROM pg_database WHERE datname = '$TARGET_NAME';" 2>/dev/null || echo "0")
+        if [ "$TARGET_EXISTS" = "1" ]; then
+            echo "Error: target database '$TARGET_NAME' already exists. Drop it first."
+            exit 1
+        fi
+
+        # Postgres CREATE DATABASE WITH TEMPLATE requires the source DB
+        # to have no active connections. Terminate any stragglers (the
+        # seed should never have any but be defensive).
+        ./sb psql -d postgres -c "
+            SELECT pg_terminate_backend(pid)
+            FROM pg_stat_activity
+            WHERE datname = '$SEED_NAME';
+        " || true
+
+        if ! ./sb psql -d postgres -c "
+            CREATE DATABASE $TARGET_NAME WITH TEMPLATE $SEED_NAME OWNER postgres;
+        "; then
+            echo "Error: Failed to clone $SEED_NAME -> $TARGET_NAME."
+            exit 1
+        fi
+        echo "Seed cloned: $SEED_NAME -> $TARGET_NAME"
+      ;;
     'test-isolated' )
         eval $(./dev.sh postgres-variables)
         TEMPLATE_NAME="${POSTGRES_TEST_DB:-statbus_test_template}"
@@ -1721,8 +1920,15 @@ SCRIPT
       echo "  create-test-template               Create template database for test isolation"
       echo "  clean-test-databases [--force]     Drop all test_* databases"
       echo ""
-      echo "Seeds & documentation:"
-      echo "  update-seed                        Create seed and push to origin/db-seed"
+      echo "Seed lifecycle (build-time canonical schema):"
+      echo "  create-seed                        Create empty \${POSTGRES_SEED_DB} from template_statbus"
+      echo "  delete-seed                        Drop \${POSTGRES_SEED_DB}"
+      echo "  recreate-seed                      delete-seed + create-seed + ./sb migrate up --target seed"
+      echo "  seed-status                        Compare seed DB to migrations/ at HEAD (set diff)"
+      echo "  seed-clone <target>                Clone seed → <target> via pg CREATE DATABASE WITH TEMPLATE"
+      echo ""
+      echo "Seed publishing & documentation:"
+      echo "  update-seed                        Create seed.pg_dump and push to origin/db-seed"
       echo "  dump-seed                          Save database seed for fast restore"
       echo "  list-seeds                         List available seeds"
       echo "  generate-db-documentation          Generate schema docs in doc/db/"

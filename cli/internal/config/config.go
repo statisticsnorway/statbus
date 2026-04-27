@@ -72,8 +72,14 @@ type ConfigEnv struct {
 	PostgresAdminDB          string
 	PostgresAdminUser        string
 	PostgresAppDB            string
-	PostgresAppUser          string
-	PostgresNotifyUser       string
+	// PostgresSeedDB is the canonical fresh-from-migrations DB.
+	// Build-time only; never worker-active. Source of `./sb db seed
+	// create` artifact pushed to origin/db-seed. Slot-independent
+	// (one seed per workspace, not per deployment slot). See plan
+	// section R.
+	PostgresSeedDB     string
+	PostgresAppUser    string
+	PostgresNotifyUser string
 	AccessJwtExpiry          string
 	RefreshJwtExpiry         string
 	CaddyDeploymentMode      string
@@ -302,6 +308,10 @@ func loadOrGenerateConfig(projDir string, verbose bool) (*ConfigEnv, error) {
 	slotCode := gen("DEPLOYMENT_SLOT_CODE", "local")
 	slotName := gen("DEPLOYMENT_SLOT_NAME", "local")
 	appDB := gen("POSTGRES_APP_DB", "statbus_"+slotCode)
+	// POSTGRES_SEED_DB intentionally NOT slot-suffixed — the seed DB
+	// is build-time-only (no worker, no per-deployment data); one
+	// canonical seed per workspace serves every slot. Plan section R.
+	seedDB := gen("POSTGRES_SEED_DB", "statbus_seed")
 	appUser := gen("POSTGRES_APP_USER", "statbus_"+slotCode)
 	notifyUser := gen("POSTGRES_NOTIFY_USER", "statbus_notify_"+slotCode)
 	mode := gen("CADDY_DEPLOYMENT_MODE", "development")
@@ -339,6 +349,7 @@ func loadOrGenerateConfig(projDir string, verbose bool) (*ConfigEnv, error) {
 		PostgresAdminDB:          gen("POSTGRES_ADMIN_DB", "postgres"),
 		PostgresAdminUser:        gen("POSTGRES_ADMIN_USER", "postgres"),
 		PostgresAppDB:            appDB,
+		PostgresSeedDB:           seedDB,
 		PostgresAppUser:          appUser,
 		PostgresNotifyUser:       notifyUser,
 		AccessJwtExpiry:          gen("ACCESS_JWT_EXPIRY", "3600"),
@@ -622,6 +633,7 @@ PUBLIC_STATBUS_COMMIT_SHORT=%[23]s
 	example.Set("POSTGRES_ADMIN_USER", cfg.PostgresAdminUser)
 	example.Set("POSTGRES_ADMIN_PASSWORD", creds.PostgresAdminPassword)
 	example.Set("POSTGRES_APP_DB", cfg.PostgresAppDB)
+	example.Set("POSTGRES_SEED_DB", cfg.PostgresSeedDB)
 	example.Set("POSTGRES_APP_USER", cfg.PostgresAppUser)
 	example.Set("POSTGRES_NOTIFY_USER", cfg.PostgresNotifyUser)
 	example.Set("CADDY_DEPLOYMENT_MODE", cfg.CaddyDeploymentMode)

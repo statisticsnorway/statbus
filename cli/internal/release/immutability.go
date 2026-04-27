@@ -11,10 +11,11 @@ import (
 // ReleaseTagPattern matches the project's release tag shape:
 // `vYYYY.MM.PATCH` (stable) and `vYYYY.MM.PATCH-rc.N` (prerelease).
 //
-// Mirrored in `cli/cmd/release.go` (private `releaseTagPattern`); the
-// two are kept in sync. Exported here because the migrate runner needs
-// to identify release tags from the lower `internal/migrate` package
-// (which cannot import `cli/cmd`).
+// Single source of truth: `cli/cmd/release.go`'s findReleaseTag and
+// the migrate runner's mismatch-detection branch both reference this
+// exported regex. Lives in `internal/release` so the lower
+// `internal/migrate` package can import it (`cli/cmd` is an upper
+// package and can't be imported from internals).
 var ReleaseTagPattern = regexp.MustCompile(`^v\d{4}\.\d{2}\.\d+(-rc\.\d+)?$`)
 
 // MigrationInReleasedTag returns the first release-shaped tag whose

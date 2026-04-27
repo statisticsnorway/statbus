@@ -954,19 +954,18 @@ func checkAndRefreshSeed(projDir string) bool {
 	return true
 }
 
-// releaseTagPattern matches the project's release tag shape:
-// `vYYYY.MM.PATCH` (stable) and `vYYYY.MM.PATCH-rc.N` (prerelease).
-// Used to distinguish release tags from other refs pointing at a commit.
-var releaseTagPattern = regexp.MustCompile(`^v\d{4}\.\d{2}\.\d+(-rc\.\d+)?$`)
-
 // findReleaseTag returns the first release-shaped tag in a newline-separated
 // string of tag names, or "" if none match. `git tag --points-at <sha>` may
 // return multiple tags (release + local markers + signing tags); we only
 // act on the release-shaped one.
+//
+// The release-shape regex lives at `cli/internal/release.ReleaseTagPattern`
+// (single source of truth — the migrate runner needs the same pattern from
+// a lower package and cannot import cli/cmd).
 func findReleaseTag(tags string) string {
 	for _, t := range strings.Split(strings.TrimSpace(tags), "\n") {
 		t = strings.TrimSpace(t)
-		if releaseTagPattern.MatchString(t) {
+		if release.ReleaseTagPattern.MatchString(t) {
 			return t
 		}
 	}
