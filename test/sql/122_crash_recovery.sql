@@ -5,6 +5,8 @@
 
 BEGIN;
 
+\i test/setup.sql
+
 -- Lock worker.tasks to prevent background worker interference and ensure deterministic IDs
 LOCK TABLE worker.tasks IN EXCLUSIVE MODE;
 

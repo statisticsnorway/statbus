@@ -1158,13 +1158,28 @@ EOF
         echo "Seed database dropped: $SEED_NAME"
       ;;
     'recreate-seed' )
-        # Composition: delete-seed + create-seed + migrate up --target seed.
+        # Composition: delete-seed + create-seed + migrate up --target seed
+        # + drain worker.tasks via the production code path.
         # The only convenience wrapper in the seed lifecycle. Each step
         # is independently runnable; if a stage fails the operator sees
         # which step + can re-run the primitive directly.
+        #
+        # Final drain step (`CALL worker.process_tasks()`): migrations 20260422161000
+        # seed pending maintenance stubs whose triggers also enqueue
+        # transient false-positive tasks (the "over-zealous trigger"
+        # contamination diagnosed in plan section R commit 4 follow-up).
+        # Running the production worker entry point against the seed DB
+        # transitions the legitimate maint pair to completed and drains
+        # the false-positives — so the seed.pg_dump captures the same
+        # quiescent worker.tasks state a healthy production install
+        # converges to. No background worker needed; CALL runs inline.
         ./dev.sh delete-seed
         ./dev.sh create-seed
         ./sb migrate up --target seed --verbose
+        eval $(./dev.sh postgres-variables)
+        SEED_NAME="${POSTGRES_SEED_DB:-statbus_seed}"
+        echo "Draining worker.tasks via worker.process_tasks() on $SEED_NAME ..."
+        ./sb psql -d "$SEED_NAME" -v ON_ERROR_STOP=1 -c "CALL worker.process_tasks();"
       ;;
     'seed-status' )
         eval $(./dev.sh postgres-variables)

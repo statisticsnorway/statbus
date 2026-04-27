@@ -7,6 +7,12 @@
 \echo "          and cascade-fail all handle the interrupted state correctly."
 "          and cascade-fail all handle the interrupted state correctly."
 BEGIN;
+\i test/setup.sql
+\echo -- test/setup.sql output suppressed for cleaner test output
+-- test/setup.sql output suppressed for cleaner test output
+\set ECHO none
+\echo -- test/setup.sql done, test output follows
+-- test/setup.sql done, test output follows
 -- Lock worker.tasks to prevent background worker interference and ensure deterministic IDs
 LOCK TABLE worker.tasks IN EXCLUSIVE MODE;
 -- Canonical worker.tasks baseline: clean slate + freshly-seeded maint pair.
