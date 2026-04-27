@@ -12,32 +12,45 @@
 package freshness
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
-// IsStale returns "" when the binary's build commit matches (or is
-// indistinguishable from) the worktree's cli/ tree, and a human-readable
-// diagnostic when cli/ has drifted since the build.
+// IsStale returns "" when the binary's build commit matches the
+// worktree's cli/ tree (no drift), and a human-readable diagnostic
+// otherwise — covering both stale-binary detection AND broken-
+// freshness-check states the operator should know about.
 //
 // Silent skips (return ""):
 //   - buildCommit empty or "unknown" — built without ldflags (local
-//     `go run` paths and CI builds without -X cmd.commit). The runtime
-//     can't make the comparison; surfacing a warning here would be
-//     noise during day-to-day dev.
+//     `go run` paths and CI builds without -X cmd.commit). The
+//     runtime can't make the comparison; surfacing a warning here
+//     would be noise during day-to-day dev.
 //   - projDir doesn't have a `.git/` directory at its top — tarball
 //     install or sparse layout. Without the project's own git repo
 //     we can't make the comparison (and git would walk upward to a
 //     parent repo, producing false positives).
-//   - `git diff` errors with anything other than exit-1 — the build
-//     commit isn't in the local repo (sparse fetch, fresh clone),
-//     git itself isn't installed. None of these are the
-//     stale-binary case; staying silent avoids false positives.
 //
-// The exit-1 from `git diff --quiet` specifically means "differences
-// found" — that's the only positive signal that returns a diagnostic.
+// Diagnostic returns (non-empty):
+//   - `git diff --quiet` exit 1 → cli/ tree drifted since build.
+//     Stale-binary diagnostic with rebuild remediation.
+//   - exec failure (git not installed, fork failed, permission
+//     denied) → freshness-check-could-not-run diagnostic.
+//   - `git diff` non-1 exit (e.g. 128 = bad revision: build commit
+//     missing from local repo, sparse clone, force-rebase) →
+//     freshness-check-failed diagnostic naming the exit code +
+//     stderr.
+//
+// Per plan section R commit 5 / fixup: silent skips on non-1 exits
+// were a fail-fast violation — they swallowed real environment
+// problems and let mutating commands proceed against a broken
+// freshness check. PersistentPreRun routes any non-empty return
+// through the same hard-fail-on-mutating / warn-on-read-only path,
+// so the operator sees and acts on these.
 func IsStale(projDir, buildCommit string) string {
 	if buildCommit == "" || buildCommit == "unknown" {
 		return ""
@@ -49,25 +62,52 @@ func IsStale(projDir, buildCommit string) string {
 		return ""
 	}
 
-	cmd := exec.Command("git", "diff", "--quiet", buildCommit, "--", "cli/")
-	cmd.Dir = projDir
-	err := cmd.Run()
-	if err == nil {
-		return ""
-	}
-	exitErr, ok := err.(*exec.ExitError)
-	if !ok || exitErr.ExitCode() != 1 {
-		// Anything other than "differences found" → silent skip.
-		return ""
-	}
-
 	short := buildCommit
 	if len(short) > 8 {
 		short = short[:8]
 	}
+
+	cmd := exec.Command("git", "diff", "--quiet", buildCommit, "--", "cli/")
+	cmd.Dir = projDir
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err == nil {
+		return ""
+	}
+
+	exitErr, ok := err.(*exec.ExitError)
+	if !ok {
+		// Couldn't run git at all — not installed, fork failed,
+		// permission denied, etc.
+		return fmt.Sprintf(
+			"freshness check could not run git: %v.\n"+
+				"  Investigate the git environment (PATH, install, permissions), then retry.",
+			err)
+	}
+
+	if exitErr.ExitCode() == 1 {
+		return fmt.Sprintf(
+			"./sb is stale: built from %s, but cli/ has changed since.\n"+
+				"  Rebuild: (cd cli && go build -o ../sb .)\n"+
+				"  Or run via dev.sh (auto-rebuilds): ./dev.sh <command>",
+			short)
+	}
+
+	// Other exit codes — typically 128 ("fatal: bad revision" when the
+	// build commit isn't in the local repo). Surface the failure rather
+	// than silently treating it as fresh; the operator needs to know
+	// the freshness check itself is broken.
+	stderrMsg := strings.TrimSpace(stderr.String())
+	if len(stderrMsg) > 200 {
+		stderrMsg = stderrMsg[:200] + "..."
+	}
 	return fmt.Sprintf(
-		"./sb is stale: built from %s, but cli/ has changed since.\n"+
-			"  Rebuild: (cd cli && go build -o ../sb .)\n"+
-			"  Or run via dev.sh (auto-rebuilds): ./dev.sh <command>",
+		"freshness check failed: `git diff` exited %d.\n"+
+			"  stderr: %s\n"+
+			"  This usually means the build commit (%s) isn't in the local repo —\n"+
+			"  rebuild from a tree that resolves it, or `git fetch` to retrieve it.",
+		exitErr.ExitCode(),
+		stderrMsg,
 		short)
 }

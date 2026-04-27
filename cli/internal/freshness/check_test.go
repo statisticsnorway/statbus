@@ -96,15 +96,61 @@ func TestIsStale_NonCliChangeIgnored(t *testing.T) {
 	}
 }
 
-// TestIsStale_NonexistentCommit covers the silent-skip path when the
-// build commit isn't in the local repo (sparse fetch, depth-1 clone,
-// reset to a different upstream). git diff returns a non-1 exit code;
-// IsStale must NOT return a diagnostic — the comparison is uncertain.
+// TestIsStale_NonexistentCommit covers the surface-the-failure path
+// when the build commit isn't in the local repo (sparse fetch,
+// depth-1 clone, reset to a different upstream). `git diff` returns
+// a non-1 exit code (typically 128, "fatal: bad revision"). IsStale
+// MUST return a diagnostic naming the exit code + stderr — silent
+// skip would let mutating commands proceed against a broken
+// freshness check, violating fail-fast.
+//
+// Behavior change from commit 5's initial implementation: previously
+// silent-skipped (returned ""); now surfaces the failure.
 func TestIsStale_NonexistentCommit(t *testing.T) {
 	dir, _ := setupGitRepoWithCli(t)
 	bogus := "0000000000000000000000000000000000000000"
-	if got := IsStale(dir, bogus); got != "" {
-		t.Errorf("nonexistent commit: got %q, want empty (silent skip)", got)
+	got := IsStale(dir, bogus)
+	if got == "" {
+		t.Fatal("nonexistent commit: got empty, want diagnostic")
+	}
+	if !strings.Contains(got, "freshness check failed") {
+		t.Errorf("diagnostic missing prefix: %q", got)
+	}
+	if !strings.Contains(got, "exited") {
+		t.Errorf("diagnostic missing exit-code label: %q", got)
+	}
+	short := bogus[:8]
+	if !strings.Contains(got, short) {
+		t.Errorf("diagnostic missing short build commit %q: %q", short, got)
+	}
+}
+
+// TestIsStale_ExecFailure covers the exec-error path: git itself
+// can't be run (not installed, PATH broken, permission denied). The
+// !ok branch must surface a "freshness check could not run git"
+// diagnostic — same fail-fast principle as the non-1 exit case.
+func TestIsStale_ExecFailure(t *testing.T) {
+	dir, head := setupGitRepoWithCli(t)
+
+	// Point PATH at an empty directory so the git binary isn't
+	// resolvable. Restore on cleanup.
+	emptyDir := t.TempDir()
+	prevPath, hadPath := os.LookupEnv("PATH")
+	os.Setenv("PATH", emptyDir)
+	t.Cleanup(func() {
+		if hadPath {
+			os.Setenv("PATH", prevPath)
+		} else {
+			os.Unsetenv("PATH")
+		}
+	})
+
+	got := IsStale(dir, head)
+	if got == "" {
+		t.Fatal("exec failure: got empty, want diagnostic")
+	}
+	if !strings.Contains(got, "freshness check could not run git") {
+		t.Errorf("diagnostic missing prefix: %q", got)
 	}
 }
 

@@ -1152,8 +1152,11 @@ EOF
 
         BEHIND=$(comm -13 <(echo "$DB_VERSIONS") <(echo "$FS_VERSIONS"))   # in HEAD, not in DB
         AHEAD=$(comm -23 <(echo "$DB_VERSIONS") <(echo "$FS_VERSIONS"))    # in DB, not in HEAD
-        BEHIND_N=$(echo -n "$BEHIND" | grep -c .)
-        AHEAD_N=$(echo -n "$AHEAD" | grep -c .)
+        # `grep -c .` exits 1 when there are no matches (empty BEHIND/AHEAD).
+        # With `set -euo pipefail` (line 9) that exit aborts the script before
+        # we reach the in-sync branch. `|| true` keeps the count = "0" path alive.
+        BEHIND_N=$(echo -n "$BEHIND" | grep -c . || true)
+        AHEAD_N=$(echo -n "$AHEAD" | grep -c . || true)
 
         if [ "$BEHIND_N" -eq 0 ] && [ "$AHEAD_N" -eq 0 ]; then
             echo "Status: in sync"
