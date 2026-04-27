@@ -37,6 +37,21 @@ SELECT worker.enqueue_task_cleanup();         -- INSERTs at id=1 (no conflict, f
 SELECT worker.enqueue_import_job_cleanup();   -- INSERTs at id=2 (no conflict, fresh table)
 -- Sequence is now at 3 implicitly; test inserts continue from there.
 
+-- Canonical change-tracking baseline: drained queue + empty change log.
+-- Same shape as a fresh-from-recreate-seed database. Required because
+-- shared tests run sequentially with BEGIN/ROLLBACK; preceding tests
+-- (e.g. 118/119/120 power_group writers) leave has_pending=TRUE +
+-- entries in worker.base_change_log via worker.log_base_change()
+-- (rc.66 trigger merge in 20260427124351). nextval() on worker.tasks_id_seq
+-- is non-transactional, so even if the rows roll back, sequence advances
+-- persist — and worker.reset_abandoned_processing_tasks() in test 122
+-- treats has_pending=TRUE + empty base_change_log + no pending
+-- collect_changes as crash-recovery and SPAWNs a collect_changes task,
+-- consuming nextval and shifting subsequent IDs by 1. Resetting both
+-- here makes every shared test start from the canonical drained state.
+UPDATE worker.base_change_log_has_pending SET has_pending = FALSE;
+DELETE FROM worker.base_change_log;
+
 \if :{?DEBUG}
 SET client_min_messages TO debug1;
 \else
