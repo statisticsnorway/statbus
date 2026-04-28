@@ -3959,20 +3959,24 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 
 	progress.Write("Rollback complete. The previous version has been restored.")
 
-	// Exit unconditionally (rc.67 trifecta). Rollback is a process-state
-	// break: the binary on disk is now different from the one in memory.
-	// The new binary's image cannot speak the rolled-back schema — every
-	// subsequent query would 42703 against renamed/added columns.
+	// Exit 75 (sysexits EX_TEMPFAIL: "temporary failure, retry later")
+	// per the rc.67 trifecta. Distinct from:
+	//   - 0  : true success (no rollback ran)
+	//   - 1  : catastrophic ABORT (rollback itself failed, system in
+	//          undefined state — see the runtime branch above)
+	//   - 42 : successful-upgrade handoff to systemd (selfUpdate)
+	// install.sh branches on this code to render a "UPGRADE FAILED,
+	// ROLLED BACK" banner instead of either silent success or the
+	// SYSTEM UNUSABLE banner — operator instantly sees that the upgrade
+	// attempt failed but the system is back at the prior known-good
+	// version and the right next step is "fix the root cause, retry".
 	//
-	// Under systemd this is a clean shutdown — Restart=always brings the
-	// restored ./sb back as a fresh process. Under one-shot ./sb install
-	// the operator's shell exits and the next install invocation comes
-	// back fresh against the restored binary. Exit 42 is reserved for
-	// the successful-upgrade handoff signal; rollback uses 0 because the
-	// rollback itself succeeded (the upgrade attempt failed, the system
-	// is now back at a known state, maintenance is off).
+	// Under systemd Restart=always cycles cleanly regardless of code; 75
+	// counts toward StartLimitBurst (Item L: 10/600s), which is the
+	// correct behaviour — repeated rollbacks indicate something
+	// structurally wrong that warrants stopping the unit.
 	progress.Close()
-	os.Exit(0)
+	os.Exit(75)
 }
 
 // restoreGitState is the *Service-bound wrapper around restoreGitStateFn,

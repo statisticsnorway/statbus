@@ -257,10 +257,32 @@ if [ "$sb_rc" -eq 0 ]; then
     exit 0
 fi
 
-# ./sb install failed — gather a support bundle and write admin-UI state.
-# Everything below is best-effort. If a step fails, continue to the next
-# so the SYSTEM UNUSABLE banner always prints even when the DB is down or
-# the bundle disk write fails.
+# Exit 75 (sysexits EX_TEMPFAIL): the upgrade attempt failed BUT rollback
+# succeeded. System is back at the previous known-good version, services
+# are up, maintenance is off. This is Category 2 of the recovery trifecta
+# (rc.67) — distinct from a catastrophic ABORT. Print a banner that says
+# so, and exit 0 (clean rollback IS a successful outcome of the failure
+# path). The progress log printed above already carries the failure
+# narrative; this banner just summarises it for an operator skimming the
+# scrollback.
+if [ "$sb_rc" -eq 75 ]; then
+    echo ""
+    echo "==============================================================================="
+    echo "UPGRADE FAILED — system rolled back to previous version"
+    echo "==============================================================================="
+    echo ""
+    echo "The upgrade attempt did not succeed, but rollback restored the prior"
+    echo "version cleanly. Services are running; the maintenance banner is off."
+    echo ""
+    echo "To retry the upgrade after addressing the root cause: re-run this script."
+    echo "==============================================================================="
+    exit 0
+fi
+
+# Anything else is a catastrophic failure — gather a support bundle and
+# write admin-UI state. Everything below is best-effort. If a step fails,
+# continue to the next so the SYSTEM UNUSABLE banner always prints even
+# when the DB is down or the bundle disk write fails.
 echo ""
 echo "==============================================================================="
 echo "SYSTEM UNUSABLE — ./sb install failed (exit $sb_rc)"
