@@ -440,9 +440,15 @@ cmd_install_one() {
             # Fall through to bootstrap block (do NOT enter the upgrade-service fast-path)
         else
             echo "Trying upgrade service on $server..."
-            local apply_out apply_rc
-            apply_out=$(ssh_server "$server" "cd statbus && ./sb upgrade apply-latest" 2>&1)
-            apply_rc=$?
+            # Capture exit code WITHOUT triggering set -e. Pre-fix: a plain
+            # `apply_out=$(ssh ...)` assignment is part of the surrounding
+            # `set -euo pipefail` scope, so a non-zero SSH exit kills cloud.sh
+            # before line `apply_rc=$?` runs — operator sees only this echo
+            # and a bare prompt (anti-fail-fast). The `|| apply_rc=$?` form
+            # captures the failure code AND short-circuits set -e so the
+            # fall-through to the bootstrap install fires.
+            local apply_out apply_rc=0
+            apply_out=$(ssh_server "$server" "cd statbus && ./sb upgrade apply-latest" 2>&1) || apply_rc=$?
             echo "$apply_out"
             if [ "$apply_rc" -eq 0 ]; then
                 # Extract target version from apply-latest output, e.g.:
