@@ -1077,8 +1077,11 @@ func cleanupSeedBranches(projDir, preserveSHA string) {
 			fmt.Printf("  Cleaning up %s (untagged ephemeral peer)\n", ref)
 		}
 
-		if _, delErr := upgrade.RunCommandOutput(projDir, "git", "push", "origin", "--delete", ref); delErr != nil {
+		if delOut, delErr := upgrade.RunCommandOutput(projDir, "git", "push", "origin", "--delete", ref); delErr != nil {
 			fmt.Printf("    warning: git push origin --delete %s: %v\n", ref, delErr)
+			if trimmed := strings.TrimSpace(delOut); trimmed != "" {
+				fmt.Printf("      output: %s\n", strings.ReplaceAll(trimmed, "\n", "\n      "))
+			}
 			continue
 		}
 		_, _ = upgrade.RunCommandOutput(projDir, "git", "branch", "-D", ref)
