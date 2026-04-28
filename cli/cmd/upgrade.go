@@ -333,6 +333,37 @@ file changes needed.`,
 
 		fmt.Printf("Channel %s: latest version is %s\n", channel, latestVersion)
 
+		// Skip when the running binary is already at the latest. Without
+		// this, apply-latest unconditionally flips state='scheduled', the
+		// upgrade_notify_daemon_trigger fires NOTIFY upgrade_apply, and the
+		// service runs a full no-op upgrade pipeline (stop containers,
+		// backup, exit-42, restart, applyPostSwap) for nothing.
+		//
+		// Lookup the latest's resolved commit_sha and compare to the
+		// running binary's compiled-in `commit` (cli/cmd/root.go:17,
+		// ldflags-set). Three fall-throughs to existing behavior:
+		//   - commit=="unknown" (local go run): can't compare reliably.
+		//   - SELECT returns nothing: discovery race; let apply-latest
+		//     schedule it normally.
+		//   - returned commit_sha != running binary: slot is genuinely
+		//     behind; proceed with the apply.
+		if commit != "" && commit != "unknown" {
+			lookupSQL := `SELECT commit_sha FROM public.upgrade
+ WHERE state = 'completed'
+   AND (:'tv' = ANY(commit_tags)
+        OR commit_sha = :'tv'
+        OR commit_sha LIKE :'tv' || '%')
+ LIMIT 1`
+			lookupOut, lookupErr := runUpgradePsql(lookupSQL, "-v", "tv="+latestVersion, "-t", "-A")
+			if lookupErr == nil {
+				latestCommitSHA := strings.TrimSpace(string(lookupOut))
+				if len(latestCommitSHA) >= 8 && len(commit) >= 8 && latestCommitSHA[:8] == commit[:8] {
+					fmt.Printf("Already at %s (commit %s) — nothing to apply.\n", latestVersion, commit[:8])
+					return nil
+				}
+			}
+		}
+
 		payload := latestVersion
 		if applyRecreate {
 			payload = latestVersion + ":recreate"
