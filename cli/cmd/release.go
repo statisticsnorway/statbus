@@ -378,6 +378,13 @@ func checkMigrationImmutability(projDir, prevTag, label string) error {
 		if status == "A" {
 			continue // new migration — always allowed
 		}
+		// Filter to actual migration content. Directory placeholders (.gitkeep)
+		// and other housekeeping files under migrations/ aren't deployed
+		// migrations and don't carry the immutability constraint.
+		if !strings.HasSuffix(file, ".up.sql") && !strings.HasSuffix(file, ".down.sql") &&
+			!strings.HasSuffix(file, ".up.psql") && !strings.HasSuffix(file, ".down.psql") {
+			continue
+		}
 		modified = append(modified, fmt.Sprintf("  %s %s", status, file))
 	}
 
