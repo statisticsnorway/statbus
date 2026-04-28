@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
+	"github.com/statisticsnorway/statbus/cli/internal/migrate"
 )
 
 // DiskFree returns the free bytes on the filesystem containing the given path.
@@ -720,20 +721,70 @@ func (d *Service) waitForDBHealth(timeout time.Duration) error {
 
 // EnsureDBUp guarantees the db container is running and healthy. Idempotent
 // when the DB is already up (`docker compose up -d db` is a no-op in that
-// case). Used by startup/recovery paths where the DB may be intentionally
-// stopped — specifically, the post-swap intermediate state set up by
-// applyPostSwap step 2 (DB container stopped for consistent backup) and
-// cleared by step 9 (DB container restarted on the new binary). Both
-// Service.Run() at daemon startup and install.runCrashRecovery call this
-// before connect() / LoadConfigAndConnect so the crash-recovery path can
-// proceed against a stopped DB without systemd loop-restarting the daemon
-// or install bailing out with a listen-connection error.
+// case). Used by Service.Run() at daemon startup, where the DB may be
+// intentionally stopped (post-swap intermediate state set up by
+// applyPostSwap step 2 for the consistent backup, cleared by step 9 on
+// the new binary). The post-swap restart of the daemon comes back as the
+// IN-FLIGHT TARGET binary (exit-42 handoff), so this docker compose up uses
+// the in-flight target's compose template — pulling the in-flight target's
+// image, which is consistent with the flag's recovery target.
+//
+// NOT used by install.runCrashRecovery (operator-driven recovery): the
+// operator's `./sb install` invokes a binary whose compose template may
+// have a different image-tag scheme than what's actually running. A
+// docker compose up there would silently swap the DB container to the
+// operator's binary's image, destroying resumePostSwap's
+// containersAtFlagTarget self-heal precondition. That caller uses
+// EnsureDBReachable below.
 func (d *Service) EnsureDBUp(ctx context.Context) error {
 	if out, err := runCommandOutput(d.projDir, "docker", "compose", "up", "-d", "db"); err != nil {
 		return fmt.Errorf("docker compose up -d db: %w (%s)", err, strings.TrimSpace(out))
 	}
 	if err := d.waitForDBHealth(60 * time.Second); err != nil {
 		return fmt.Errorf("db did not become healthy after compose up: %w", err)
+	}
+	return nil
+}
+
+// EnsureDBReachable verifies the DB is reachable via the .env-configured
+// connection. Connect-only — no docker compose up, no image pull. Used by
+// operator-driven crash recovery where touching the container set with the
+// operator's binary's compose template would partially-swap the in-flight
+// upgrade's containers and break resumePostSwap's containersAtFlagTarget
+// self-heal (the rc.66 → rc.67 lesson learned from jo's failed deploy).
+//
+// Returns a category-3 error per the recovery trifecta when the DB isn't
+// reachable: the prior in-flight upgrade's containers must still be
+// running for recovery to proceed safely. If they aren't, fail loudly so
+// the operator can investigate, not silently bring up containers using a
+// possibly-mismatched compose template.
+func (d *Service) EnsureDBReachable(ctx context.Context) error {
+	psqlPath, prefix, env, err := migrate.PsqlCommand(d.projDir)
+	if err != nil {
+		return fmt.Errorf("EnsureDBReachable: resolve psql command: %w", err)
+	}
+	args := append(append([]string{}, prefix...),
+		"-v", "ON_ERROR_STOP=on",
+		"-X", "-A", "-t",
+		"-c", "SELECT 1")
+
+	timedCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(timedCtx, psqlPath, args...)
+	cmd.Dir = d.projDir
+	cmd.Env = env
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf(
+			"DB not reachable for crash recovery: %w\n"+
+				"  output: %s\n"+
+				"  Containers from the prior in-flight upgrade must be running for recovery to proceed safely.\n"+
+				"  Investigate `docker compose ps` and the upgrade-progress log; do not blindly `docker compose up -d` (the\n"+
+				"  current binary's compose template may have a different image-tag scheme than what's actually running).",
+			err, strings.TrimSpace(string(out)))
+	}
+	if strings.TrimSpace(string(out)) != "1" {
+		return fmt.Errorf("DB not reachable for crash recovery: SELECT 1 returned %q", strings.TrimSpace(string(out)))
 	}
 	return nil
 }

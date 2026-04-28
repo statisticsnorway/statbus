@@ -115,23 +115,27 @@ func runCrashRecovery(projDir string) error {
 	defer svc.Close()
 
 	// Regenerate .env from .env.config so current-binary-expected keys
-	// (e.g. COMMIT_SHORT added in rc.62) are present before EnsureDBUp,
-	// which calls docker-compose. This fixes rune's crash recovery loop
-	// where crash recovery ran EnsureDBUp → docker pulled :local → timeout.
+	// (e.g. COMMIT_SHORT added in rc.62) are present before EnsureDBReachable,
+	// which uses .env's connection settings to verify the DB is reachable.
 	sb := filepath.Join(projDir, "sb")
 	if err := runCmdDir(projDir, sb, "config", "generate"); err != nil {
 		return fmt.Errorf("crash recovery: regenerate config: %w", err)
 	}
 
-	// The crashed flag may have Phase=post_swap, meaning the DB is
-	// intentionally stopped (applyPostSwap step 2 stopped it for the
-	// consistent backup; step 9 on the new binary is what restarts it —
-	// but we never reached that step if the prior process died mid-flow).
-	// LoadConfigAndConnect needs a reachable DB to query public.upgrade,
-	// so start it here. Idempotent when the DB is already up (the
-	// non-post-swap crash path).
-	if err := svc.EnsureDBUp(ctx); err != nil {
-		return fmt.Errorf("ensure DB up for crash recovery: %w", err)
+	// Connect-only check (rc.67 trifecta fix). Operator-driven recovery
+	// MUST NOT touch the container set: the operator's binary's compose
+	// template may reference a different image-tag scheme than what's
+	// actually running, so `docker compose up -d db` would silently swap
+	// the DB container to the operator's binary's image, destroying
+	// resumePostSwap's containersAtFlagTarget self-heal precondition.
+	// (Pre-rc.67 used EnsureDBUp here; that's the bug class jo's
+	// 2026-04-28 deploy exposed.)
+	//
+	// If the DB isn't reachable, fail loudly per category 3 of the
+	// recovery trifecta — the prior in-flight upgrade's containers must
+	// still be running for recovery to proceed safely.
+	if err := svc.EnsureDBReachable(ctx); err != nil {
+		return fmt.Errorf("crash recovery: %w", err)
 	}
 
 	// Schema-skew guard (rc.65 structural fix). Mirrors Service.Run() —
