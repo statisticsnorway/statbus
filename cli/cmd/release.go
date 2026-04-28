@@ -55,9 +55,12 @@ func preflightChecks(projDir string) bool {
 	// 3. Up to date with origin — distinguish direction (ahead/behind/diverged)
 	// so the fix suggestion is actionable. The old one-line "Fix: git pull"
 	// was wrong half the time.
-	_, err = upgrade.RunCommandOutput(projDir, "git", "fetch", "origin", "master", "--quiet")
+	fetchOut, err := upgrade.RunCommandOutput(projDir, "git", "fetch", "origin", "master", "--quiet")
 	if err != nil {
 		fmt.Println("  ✗ Up to date with origin (fetch failed)")
+		if trimmed := strings.TrimSpace(fetchOut); trimmed != "" {
+			fmt.Printf("    git output:\n      %s\n", strings.ReplaceAll(trimmed, "\n", "\n      "))
+		}
 		fmt.Println("    Fix: check network connectivity")
 		allPassed = false
 	} else {
