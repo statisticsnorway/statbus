@@ -450,6 +450,15 @@ cmd_install_one() {
             local apply_out apply_rc=0
             apply_out=$(ssh_server "$server" "cd statbus && ./sb upgrade apply-latest" 2>&1) || apply_rc=$?
             echo "$apply_out"
+            # Skip-current short-circuit: when apply-latest detects the slot
+            # is already at the latest, it prints "Already at <ver> ..." and
+            # exits 0 without scheduling — no NOTIFY upgrade_apply, so the
+            # daemon doesn't run a pipeline. cmd_tail_one would tail forever
+            # waiting for a completion line that won't come. Detect the
+            # marker and return cleanly.
+            if [ "$apply_rc" -eq 0 ] && echo "$apply_out" | grep -q "^Already at "; then
+                return 0
+            fi
             if [ "$apply_rc" -eq 0 ]; then
                 # Extract target version from apply-latest output, e.g.:
                 #   Sent: NOTIFY upgrade_apply, '9bf48bb8'             # commit_short
