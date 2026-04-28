@@ -1274,7 +1274,17 @@ func completeInstallUpgradeRow(installDir string, conn *pgx.Conn, logRelPath str
 		   state = 'completed',
 		   completed_at = COALESCE(upgrade.completed_at, clock_timestamp()),
 		   started_at = COALESCE(upgrade.started_at, clock_timestamp()),
-		   scheduled_at = COALESCE(upgrade.scheduled_at, clock_timestamp()),
+		   -- DO NOT touch scheduled_at on this path. The
+		   -- upgrade_notify_daemon_trigger fires AFTER UPDATE when
+		   -- scheduled_at goes NULL → value, sending NOTIFY upgrade_apply
+		   -- which the daemon picks up and treats as a fresh upgrade
+		   -- request. For the install-record path we are bookkeeping
+		   -- "we are already at this version" — there is no upgrade
+		   -- to apply. Leaving scheduled_at unchanged means: if it was
+		   -- NULL (state='available' from discovery), it stays NULL
+		   -- and the trigger does NOT fire. Pre-fix: dev's deploy
+		   -- triggered a no-op rc.67→rc.67 self-upgrade that wedged
+		   -- the post-swap pipeline (rootcause for #55).
 		   error = NULL,
 		   rolled_back_at = NULL,
 		   dismissed_at = NULL,
