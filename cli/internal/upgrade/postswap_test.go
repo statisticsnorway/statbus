@@ -255,13 +255,14 @@ func TestRecoverFromFlag_PhaseDiscriminationPresent(t *testing.T) {
 	}
 }
 
-// TestResumePostSwap_ContainersProbeBeforeRollback is the structural
-// guard for Item E (plan-rc.66): the containersAtFlagTarget self-heal
-// probe MUST run BEFORE the needsPostSwapRollback branch in
-// resumePostSwap. Without that ordering, a successful upgrade whose
-// completion UPDATE didn't land (rune Apr 24 SDNOTIFY case) gets rolled
-// back instead of self-healed.
-func TestResumePostSwap_ContainersProbeBeforeRollback(t *testing.T) {
+// TestResumePostSwap_SelfHealOrFailLoud is the structural guard for the
+// rc.67 recovery trifecta: resumePostSwap MUST self-heal when containers
+// are at the flag's target and MUST fail loudly (return an error) when
+// they are not. The pre-rc.67 code auto-rolled back via recoveryRollback
+// here — that path produced jo's catastrophic deploy on 2026-04-28 and
+// is now removed entirely (see tmp/rc67-recovery-rootcause.md, Findings
+// 4 + 7-14).
+func TestResumePostSwap_SelfHealOrFailLoud(t *testing.T) {
 	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))
 	if err != nil {
 		t.Fatalf("read service.go: %v", err)
@@ -281,29 +282,62 @@ func TestResumePostSwap_ContainersProbeBeforeRollback(t *testing.T) {
 	probeIdx := strings.Index(fn, "d.containersAtFlagTarget(ctx, flag)")
 	if probeIdx < 0 {
 		t.Fatal("resumePostSwap missing self-heal probe call. Add: " +
-			"`if ok, mismatched := d.containersAtFlagTarget(ctx, flag); ok { ... }` " +
-			"BEFORE the needsPostSwapRollback branch.")
-	}
-	rollbackIdx := strings.Index(fn, "needsPostSwapRollback(d.binaryCommit, flag.CommitSHA)")
-	if rollbackIdx < 0 {
-		t.Fatal("resumePostSwap missing needsPostSwapRollback call — test is stale")
-	}
-	if probeIdx > rollbackIdx {
-		t.Errorf("containersAtFlagTarget probe must come BEFORE needsPostSwapRollback "+
-			"(probeIdx=%d, rollbackIdx=%d). Otherwise a converged-but-unbookkept upgrade "+
-			"gets rolled back instead of self-healed.", probeIdx, rollbackIdx)
+			"`if ok, mismatched := d.containersAtFlagTarget(ctx, flag); ok { ... }`")
 	}
 
 	// The self-heal branch must mark state=completed (matching the
 	// existing LabelCompletedSelfHeal pattern) and remove the flag.
-	probeBody := fn[probeIdx:rollbackIdx]
 	for _, want := range []string{
 		"state = 'completed'",
 		"LabelCompletedSelfHeal",
 		"os.Remove(d.flagPath())",
 	} {
-		if !strings.Contains(probeBody, want) {
-			t.Errorf("self-heal branch missing required token %q. Body:\n%s", want, probeBody)
+		if !strings.Contains(fn, want) {
+			t.Errorf("self-heal branch missing required token %q. Body:\n%s", want, fn)
 		}
 	}
+
+	// rc.67 trifecta: NO auto-rollback in resumePostSwap. Both the
+	// helper and the heavyweight rollback driver must be absent here.
+	// Strip line comments first — the function body still mentions both
+	// names in a "removed in rc.67" comment for historical context, and
+	// that shouldn't fail the structural guard.
+	codeOnly := stripLineComments(fn)
+	for _, banned := range []string{
+		"needsPostSwapRollback",
+		"recoveryRollback",
+	} {
+		if strings.Contains(codeOnly, banned) {
+			t.Errorf("resumePostSwap must not call %q (rc.67 trifecta: containers-not-at-flag-target is "+
+				"category-3, fail loudly with a returned error instead of auto-rolling-back)", banned)
+		}
+	}
+
+	// The mismatch branch must surface a category-3 error rather than
+	// silently masking the divergence. Match on the unique phrase from
+	// the error message we now produce.
+	if !strings.Contains(fn, "category-3") {
+		t.Error("resumePostSwap mismatch branch must return a category-3 error " +
+			"(per the recovery trifecta) — looked for the literal token \"category-3\" " +
+			"in the function body and didn't find it.")
+	}
+}
+
+// stripLineComments removes everything from `//` to end-of-line on each
+// line of src, returning code-only text. Used by structural-guard tests
+// that need to forbid a token in active code while allowing it in a
+// "removed-in-rcXX" historical comment.
+//
+// Naive — does not understand strings or rune literals. Sufficient for
+// the structural guards that scan idiomatic Go in this package.
+func stripLineComments(src string) string {
+	var b strings.Builder
+	for _, line := range strings.Split(src, "\n") {
+		if i := strings.Index(line, "//"); i >= 0 {
+			line = line[:i]
+		}
+		b.WriteString(line)
+		b.WriteByte('\n')
+	}
+	return b.String()
 }

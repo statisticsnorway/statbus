@@ -642,17 +642,17 @@ func (d *Service) loadLogRelPath(ctx context.Context, id int64) string {
 // That way operators reading the admin UI's "Log" panel after
 // reconciliation see both the pre-crash story and the recovery summary
 // in one place — no need to SSH in for systemd logs.
-func (d *Service) recoverFromFlag(ctx context.Context) {
-	data, err := os.ReadFile(d.flagPath())
-	if err != nil {
-		return // no flag file — normal startup
+func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
+	data, readErr := os.ReadFile(d.flagPath())
+	if readErr != nil {
+		return nil // no flag file — normal startup
 	}
 
 	var flag UpgradeFlag
-	if err := json.Unmarshal(data, &flag); err != nil {
-		fmt.Printf("FLAG_CORRUPT: upgrade flag file unreadable, removing: %v\n", err)
+	if jsonErr := json.Unmarshal(data, &flag); jsonErr != nil {
+		fmt.Printf("FLAG_CORRUPT: upgrade flag file unreadable, removing: %v\n", jsonErr)
 		os.Remove(d.flagPath())
-		return
+		return nil
 	}
 
 	holder := flag.Holder
@@ -698,7 +698,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 	if holder == HolderInstall {
 		logRecover("Clearing stale install flag (PID %d crashed or exited without releasing)", flag.PID)
 		os.Remove(d.flagPath())
-		return
+		return nil
 	}
 
 	// Post-swap restart (exit 42 after replaceBinaryOnDisk): this is NOT a
@@ -714,8 +714,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 			appendLog.Close()
 			appendLog = nil
 		}
-		d.resumePostSwap(ctx, flag)
-		return
+		return d.resumePostSwap(ctx, flag)
 	}
 
 	// Service-held flag: reconcile against public.upgrade.
@@ -754,7 +753,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 			d.recoveryRollback(ctx, int(flag.ID), flag.Label(), logRelPath, fmt.Sprintf(
 				"%s: post-restart ground-truth check failed: %s",
 				ErrInstallPreconditionFailed, reason))
-			return
+			return nil
 		}
 
 		// Close the appender BEFORE reading the tail so the flush lands
@@ -778,7 +777,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 				logRecover("Ghost flag detected for upgrade %d (%s): row is already terminal, removing stale flag file without overwriting audit trail",
 					flag.ID, flag.Label())
 				os.Remove(d.flagPath())
-				return
+				return nil
 			}
 			// C1: SELF_HEAL_COMPLETED_TRANSITION_PERSISTED — bug-class. The
 			// flag's SHA matches a completed-on-disk state, the row is still
@@ -791,7 +790,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 			d.markTerminal("SELF_HEAL_COMPLETED_TRANSITION_PERSISTED",
 				fmt.Sprintf("id=%d; Scan err=%v", flag.ID, err))
 			d.writeDiagnosticBundle(ctx, int(flag.ID), appendLog)
-			return
+			return nil
 		}
 		logUpgradeRow(LabelCompletedSelfHeal, selfHealJSON)
 		// Explicit NOTIFY — the DB trigger also fires, but the app's LISTEN is
@@ -804,7 +803,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 		os.Remove(d.flagPath())
 		d.supersedeOlderReleases(ctx, flag.CommitSHA)
 		d.supersedeCompletedPrereleases(ctx, flag.CommitSHA)
-		return
+		return nil
 	}
 
 	// Real failure. HEAD doesn't match the upgrade target — the binary
@@ -849,19 +848,19 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 			logRecover("Ghost flag detected for upgrade %d (%s): row missing, removing stale flag file",
 				flag.ID, flag.Label())
 			os.Remove(d.flagPath())
-			return
+			return nil
 		}
 		// Real DB error — preserve flag + bundle so an operator can investigate.
 		fmt.Fprintf(os.Stderr,
 			"recoverFromFlag: probe SELECT failed for upgrade %d: %v\n", flag.ID, probeErr)
 		d.writeDiagnosticBundle(ctx, int(flag.ID), nil)
-		return
+		return fmt.Errorf("recoverFromFlag: probe SELECT failed for upgrade %d: %w", flag.ID, probeErr)
 	}
 	if probeState != "in_progress" {
 		logRecover("Ghost flag detected for upgrade %d (%s): row is already %s, removing stale flag file without overwriting audit trail",
 			flag.ID, flag.Label(), probeState)
 		os.Remove(d.flagPath())
-		return
+		return nil
 	}
 
 	// Close appender before rollback acquires its own log handle.
@@ -873,6 +872,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) {
 	d.recoveryRollback(ctx, int(flag.ID), flag.Label(), logRelPath, errMsg)
 	// rollback() removes the flag and emits LabelRolledBackNormal logs;
 	// nothing more to do here.
+	return nil
 }
 
 // (shortSHA helper deleted in rc.63; use commit.go's commitShort for
@@ -1164,8 +1164,13 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 //
 // The caller MUST call LoadConfigAndConnect first so queryConn is live,
 // and Close after to release connections.
-func (d *Service) RecoverFromFlag(ctx context.Context) {
-	d.recoverFromFlag(ctx)
+//
+// Returns nil for category-1 (success) and category-2 (auto-rolled-back)
+// outcomes; returns a non-nil error for category-3 divergences per the
+// recovery trifecta — the caller (./sb install) surfaces these to the
+// operator instead of silently continuing.
+func (d *Service) RecoverFromFlag(ctx context.Context) error {
+	return d.recoverFromFlag(ctx)
 }
 
 // LoadConfigAndConnect performs the startup steps needed before
@@ -1413,7 +1418,14 @@ func (d *Service) Run(ctx context.Context) error {
 	// Recover from interrupted upgrades. The flag file survives DB rollbacks
 	// (it's on the filesystem, not in the DB volume). Must run BEFORE
 	// completeInProgressUpgrade so the flag-based recovery takes priority.
-	d.recoverFromFlag(ctx)
+	//
+	// A non-nil return is a category-3 divergence per the recovery trifecta
+	// (rc.67) — exit so systemd's StartLimit (Item L: 10 in 600s) catches a
+	// thrashing daemon that can't reconcile its own state instead of letting
+	// the loop schedule new upgrades against a broken world.
+	if err := d.recoverFromFlag(ctx); err != nil {
+		return fmt.Errorf("recover from flag: %w", err)
+	}
 
 	// Complete any in-progress upgrade from a previous service instance
 	// (e.g., after self-update restart via exit code 42)
@@ -1734,32 +1746,6 @@ func (d *Service) verifyUpgradeGroundTruth(ctx context.Context, rowCommitSHA str
 	}
 
 	return true, ""
-}
-
-// needsPostSwapRollback decides whether `resumePostSwap` should
-// short-circuit into recoveryRollback rather than calling applyPostSwap
-// on a flag that doesn't match the running binary. Task #49 Gap #6 /
-// rune-stuck fix (Apr 24).
-//
-// Returns (true, reason) when the binary SHA is known AND doesn't
-// match the flag's target — the flag is stale from a subsequent
-// install that advanced past this in_progress upgrade. Returns (false,
-// "") when the check is skipped (local go-run build with
-// binaryCommit=="unknown") OR the binary matches (the normal post-
-// swap-restart case where we genuinely want to resume).
-//
-// Extracted as a free function so it's unit-testable without wiring a
-// *Service + DB. Parallels seedCreator / checkSeedFresh from
-// task #47's same test-seam discipline.
-func needsPostSwapRollback(binaryCommit, flagCommitSHA string) (bool, string) {
-	if binaryCommit == "" || binaryCommit == "unknown" {
-		return false, ""
-	}
-	if binaryCommit != flagCommitSHA {
-		return true, fmt.Sprintf("binary commit %s does not match flag target %s",
-			ShortForDisplay(binaryCommit), ShortForDisplay(flagCommitSHA))
-	}
-	return false, ""
 }
 
 // latestDiskMigrationVersion returns the max YYYYMMDDHHMMSS version number
@@ -3509,17 +3495,16 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 //
 // Control returns to Run() after applyPostSwap completes. If applyPostSwap
 // fails, rollback() has already run inside it.
-func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) {
+func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 	var fromVersion sql.NullString
 	var logRelPath sql.NullString
 	err := d.queryConn.QueryRow(ctx,
 		"SELECT from_commit_version, log_relative_file_path FROM public.upgrade WHERE id = $1", flag.ID).
 		Scan(&fromVersion, &logRelPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr,
-			"resumePostSwap: cannot load upgrade %d state (err=%v) — giving up and leaving flag for manual triage\n",
+		return fmt.Errorf(
+			"resumePostSwap: cannot load upgrade %d state (err=%v) — leaving flag for manual triage",
 			flag.ID, err)
-		return
 	}
 
 	// Reopen the progress log. Append-mode so the narrative is continuous
@@ -3573,26 +3558,43 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) {
 			progress.Write("Post-swap self-heal: containers already at %s; row %d marked completed without re-running applyPostSwap.",
 				flag.Label(), flag.ID)
 			progress.Close()
-			return
+			return nil
 		}
 		// UPDATE didn't land (ErrNoRows: row already terminal; or
 		// chk_upgrade_state_attributes violation: row carries an `error`
 		// the constraint forbids on completed). Fall through to the
-		// existing rollback path; recoveryRollback handles its own
-		// terminal-row idempotency.
-		log.Printf("resumePostSwap: self-heal UPDATE skipped for row %d (err=%v) — falling through to rollback check",
+		// continuation path — re-acquire flock and resume applyPostSwap
+		// from where the prior process died. The continuation handles
+		// its own terminal-row idempotency.
+		log.Printf("resumePostSwap: self-heal UPDATE skipped for row %d (err=%v) — falling through to continuation",
 			flag.ID, err)
 	} else {
-		log.Printf("resumePostSwap: containers NOT at flag target %s — falling through to rollback check. Mismatched: %v",
+		// Containers don't match flag's target. Per the rc.67 recovery
+		// trifecta (tmp/rc67-recovery-rootcause.md), this is a category-3
+		// divergence: the in-flight upgrade left the world in a state we
+		// cannot reconcile automatically. Fail loudly. The operator
+		// inspects the divergence list, decides on a manual recovery
+		// path, then re-runs ./sb install.
+		//
+		// Auto-rollback was REMOVED here in rc.67 (was: recoveryRollback
+		// via the now-deleted needsPostSwapRollback guard). It produced
+		// a chain of bad outcomes (Findings 4, 7-14 in the rc.67
+		// rootcause investigation): roll back to from_commit_version
+		// went TWO releases back; the rolled-back compose template
+		// referenced a defunct image-tag scheme; the rolled-back schema
+		// couldn't speak the in-memory binary's column names; etc.
+		// Better to fail-loud than to "recover" into a worse state.
+		progress.Write("Post-swap recovery: containers do not match flag target %s. Mismatched: %v",
 			flag.Label(), mismatched)
-	}
-
-	if needs, reason := needsPostSwapRollback(d.binaryCommit, flag.CommitSHA); needs {
-		progress.Write("Post-swap guard: %s — flag is stale; rolling back row and clearing flag (skipping applyPostSwap on mismatched binary).", reason)
 		progress.Close()
-		d.recoveryRollback(ctx, int(flag.ID), flag.Label(), logRelPath.String, fmt.Sprintf(
-			"%s: post_swap binary mismatch: %s", ErrInstallPreconditionFailed, reason))
-		return
+		return fmt.Errorf(
+			"post-swap recovery: containers do not match flag target %s.\n"+
+				"  Mismatched: %v\n"+
+				"  This is a category-3 divergence per the recovery trifecta — the running\n"+
+				"  state cannot be recovered automatically. Investigate `docker compose ps`\n"+
+				"  and the upgrade-progress log; ./sb install will resume after the\n"+
+				"  divergence is resolved.",
+			flag.Label(), mismatched)
 	}
 
 	// Re-acquire the flock on the flag file. The prior holder's fd was
@@ -3615,16 +3617,19 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) {
 	if lerr != nil {
 		progress.Write("resumePostSwap: re-acquire flock failed: %v", lerr)
 		progress.Close()
-		return
+		return fmt.Errorf("resumePostSwap: re-acquire flock: %w", lerr)
 	}
 	d.flagLock = lock
 	d.upgrading = true
 	defer func() { d.upgrading = false }()
 
 	if applyErr := d.applyPostSwap(ctx, flag.ID, flag.CommitSHA, flag.Label(), fromVersion.String, flag.BackupPath, flag.Recreate, progress); applyErr != nil {
-		// rollback() already ran inside applyPostSwap; just return.
-		return
+		// rollback() already ran inside applyPostSwap and (post-rc.67)
+		// exits the process unconditionally. If we somehow got here
+		// without exiting, propagate the error to the caller.
+		return applyErr
 	}
+	return nil
 }
 
 // runUpgradeCallback notifies external systems after a successful upgrade.

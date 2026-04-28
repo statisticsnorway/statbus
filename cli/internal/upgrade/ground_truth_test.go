@@ -152,66 +152,13 @@ func TestVerifyUpgradeGroundTruth_MatchingBinaryAndNoMigrations(t *testing.T) {
 }
 
 // ─── rune-stuck fixes (Apr 24) ───────────────────────────────────────────
-
-// TestNeedsPostSwapRollback_BinaryMismatchTriggersRollback is the Gap #6
-// contract: resumePostSwap must short-circuit into recoveryRollback when
-// the running binary's commit SHA doesn't match the flag's target. Rune
-// ran into exactly this: flag.CommitSHA=rc.55, binary=rc.58 after
-// subsequent installs advanced git+binary without clearing the flag.
-// Without this guard, resumePostSwap would call applyPostSwap which would
-// "complete" the rc.55 row against the rc.58 binary — a silent lie.
-func TestNeedsPostSwapRollback_BinaryMismatchTriggersRollback(t *testing.T) {
-	cases := []struct {
-		name           string
-		binaryCommit   string
-		flagCommitSHA  string
-		wantNeeds      bool
-		wantReasonSubs []string
-	}{
-		{
-			name:          "rune-scenario-binary-advanced-past-flag",
-			binaryCommit:  "41405da37abcdef0123456789abcdef0123456789",
-			flagCommitSHA: "12d9a1b24a9900000000000000000000000000aa",
-			wantNeeds:     true,
-			wantReasonSubs: []string{
-				"does not match flag target",
-				"41405da3",
-				"12d9a1b2",
-			},
-		},
-		{
-			name:          "matching-binary-normal-post-swap-resume",
-			binaryCommit:  "41405da37abcdef0123456789abcdef0123456789",
-			flagCommitSHA: "41405da37abcdef0123456789abcdef0123456789",
-			wantNeeds:     false,
-		},
-		{
-			name:          "local-go-run-unknown-binary-skips",
-			binaryCommit:  "unknown",
-			flagCommitSHA: "41405da37abcdef0123456789abcdef0123456789",
-			wantNeeds:     false,
-		},
-		{
-			name:          "empty-binary-commit-skips",
-			binaryCommit:  "",
-			flagCommitSHA: "41405da37abcdef0123456789abcdef0123456789",
-			wantNeeds:     false,
-		},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			gotNeeds, gotReason := needsPostSwapRollback(c.binaryCommit, c.flagCommitSHA)
-			if gotNeeds != c.wantNeeds {
-				t.Fatalf("needs=%v, want %v (reason=%q)", gotNeeds, c.wantNeeds, gotReason)
-			}
-			for _, sub := range c.wantReasonSubs {
-				if !strings.Contains(gotReason, sub) {
-					t.Errorf("reason %q missing expected substring %q", gotReason, sub)
-				}
-			}
-		})
-	}
-}
+//
+// Note: the binary-mismatch → auto-rollback branch (Gap #6) is gone in
+// rc.67. The test that pinned needsPostSwapRollback was removed when
+// the helper itself was deleted; the structural guard now lives in
+// postswap_test.go's TestResumePostSwap_SelfHealOrFailLoud, which
+// asserts the function fails loudly with a category-3 error instead
+// of auto-rolling back. See tmp/rc67-recovery-rootcause.md.
 
 // TestIsConnError_CancellationStrings verifies Fix B: isConnError must
 // match context-cancel shapes so the bounded-retry at the completed

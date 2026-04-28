@@ -150,6 +150,8 @@ func runCrashRecovery(projDir string) error {
 	if err := svc.LoadConfigAndConnect(ctx); err != nil {
 		return fmt.Errorf("load upgrade config: %w", err)
 	}
-	svc.RecoverFromFlag(ctx)
+	if err := svc.RecoverFromFlag(ctx); err != nil {
+		return fmt.Errorf("crash recovery: %w", err)
+	}
 	return nil
 }
