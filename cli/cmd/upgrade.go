@@ -279,12 +279,12 @@ file changes needed.`,
 
 		if channel == "edge" {
 			// Edge: use latest master commit SHA
-			if _, err := upgrade.RunCommandOutput(projDir, "git", "fetch", "origin", "master", "--quiet"); err != nil {
-				return fmt.Errorf("git fetch origin master: %w", err)
+			if fetchOut, err := upgrade.RunCommandOutput(projDir, "git", "fetch", "origin", "master", "--quiet"); err != nil {
+				return fmt.Errorf("git fetch origin master: %w\n  output: %s", err, strings.TrimSpace(fetchOut))
 			}
 			sha, err := upgrade.RunCommandOutput(projDir, "git", "log", "origin/master", "-1", "--format=%H")
 			if err != nil {
-				return fmt.Errorf("git log origin/master: %w", err)
+				return fmt.Errorf("git log origin/master: %w\n  output: %s", err, strings.TrimSpace(sha))
 			}
 			sha = strings.TrimSpace(sha)
 			if len(sha) < 7 {
@@ -293,8 +293,8 @@ file changes needed.`,
 			latestVersion = "sha-" + sha[:8]
 		} else {
 			// Stable or prerelease: find latest tag
-			if _, err := upgrade.RunCommandOutput(projDir, "git", "fetch", "--tags", "--quiet"); err != nil {
-				return fmt.Errorf("git fetch --tags: %w", err)
+			if fetchOut, err := upgrade.RunCommandOutput(projDir, "git", "fetch", "--tags", "--quiet"); err != nil {
+				return fmt.Errorf("git fetch --tags: %w\n  output: %s", err, strings.TrimSpace(fetchOut))
 			}
 			tagsOutput, err := upgrade.RunCommandOutput(projDir, "git", "tag", "-l", "v*", "--sort=-version:refname")
 			if err != nil {
