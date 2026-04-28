@@ -278,7 +278,12 @@ file changes needed.`,
 		var latestVersion string
 
 		if channel == "edge" {
-			// Edge: use latest master commit SHA
+			// Edge: use latest master commit short. Bare 8-char hex (no
+			// "sha-" prefix) — the rc.63 canonical-naming cleanup
+			// retired that prefix, and ValidateVersion's regex was
+			// tightened to release-tag shape only. The bare commit-
+			// short form is what the SQL match below expects via
+			// `commit_sha LIKE :'target_version' || '%'`.
 			if fetchOut, err := upgrade.RunCommandOutput(projDir, "git", "fetch", "origin", "master", "--quiet"); err != nil {
 				return fmt.Errorf("git fetch origin master: %w\n  output: %s", err, strings.TrimSpace(fetchOut))
 			}
@@ -287,10 +292,10 @@ file changes needed.`,
 				return fmt.Errorf("git log origin/master: %w\n  output: %s", err, strings.TrimSpace(sha))
 			}
 			sha = strings.TrimSpace(sha)
-			if len(sha) < 7 {
+			if len(sha) < 8 {
 				return fmt.Errorf("unexpected git log output: %q", sha)
 			}
-			latestVersion = "sha-" + sha[:8]
+			latestVersion = sha[:8]
 		} else {
 			// Stable or prerelease: find latest tag
 			if fetchOut, err := upgrade.RunCommandOutput(projDir, "git", "fetch", "--tags", "--quiet"); err != nil {
@@ -319,8 +324,11 @@ file changes needed.`,
 			return fmt.Errorf("no matching version found for channel %q", channel)
 		}
 
-		if !upgrade.ValidateVersion(latestVersion) {
-			return fmt.Errorf("discovered version %q does not pass validation", latestVersion)
+		// ValidateVersion answers "is this a release tag" only (rc.63
+		// canonical-naming cleanup). Edge channel produces an 8-char
+		// commit_short instead — accept either shape.
+		if !upgrade.ValidateVersion(latestVersion) && !upgrade.IsCommitShort(latestVersion) {
+			return fmt.Errorf("discovered version %q does not pass validation (expected release tag or 8-char commit_short)", latestVersion)
 		}
 
 		fmt.Printf("Channel %s: latest version is %s\n", channel, latestVersion)
