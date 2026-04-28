@@ -3569,46 +3569,68 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 		log.Printf("resumePostSwap: self-heal UPDATE skipped for row %d (err=%v) — falling through to continuation",
 			flag.ID, err)
 	} else {
-		// Containers don't match flag's target. TWO sub-cases — the
-		// discriminator is the running binary's commit:
+		// Containers don't match flag's target. The discriminator is
+		// the running binary's commit relative to flag.CommitSHA:
 		//
 		// (a) Normal mid-pipeline state. Binary was just swapped on
 		//     disk by replaceBinaryOnDisk; old containers were stopped
 		//     before swap; new containers haven't been started yet
 		//     (that's literally applyPostSwap's job below). The running
 		//     process IS the freshly-restarted post-swap binary, so
-		//     d.binaryCommit MATCHES flag.CommitSHA. Fall through to
-		//     applyPostSwap — it brings the new containers up.
+		//     d.binaryCommit == flag.CommitSHA exactly. Continue.
 		//
-		// (b) Genuine category-3 divergence (rc.67 trifecta). The
-		//     running binary does NOT match the flag's target. That
-		//     can only happen if a separate install advanced the
-		//     binary past this in-flight flag without clearing it.
-		//     Fail loudly — no automatic recovery possible.
+		// (b) Operator-driven recovery roll-forward. The operator
+		//     deployed a binary newer than the stuck flag's target to
+		//     fix this exact wedge. d.binaryCommit is a DESCENDANT of
+		//     flag.CommitSHA — the new binary subsumes everything the
+		//     flag's target could do (its column-name expectations,
+		//     its compose template, its post-swap steps). Continuing
+		//     is safe; the new binary's applyPostSwap brings the
+		//     world to a state at LEAST as new as the flag implies.
+		//
+		// (c) Genuine category-3 divergence (rc.67 trifecta). The
+		//     running binary is NOT at flag.CommitSHA AND NOT a
+		//     descendant of it — i.e. the operator regressed the
+		//     binary, OR a sibling branch was installed. Continuing
+		//     would query the rolled-back/sibling schema with the
+		//     new binary's column expectations. Fail loudly.
 		//
 		// (Auto-rollback was removed in rc.67: tmp/rc67-recovery-
 		// rootcause.md Findings 4, 7-14 — it cascaded into a worse
 		// state.)
 		binaryAtFlag := d.binaryCommit == "" || d.binaryCommit == "unknown" || d.binaryCommit == flag.CommitSHA
-		if !binaryAtFlag {
-			progress.Write("Post-swap recovery: containers do not match flag target %s, AND running binary %s != flag target. Mismatched: %v",
+		binaryDescendsFlag := false
+		if !binaryAtFlag && d.binaryCommit != "" && d.binaryCommit != "unknown" {
+			// `git merge-base --is-ancestor flag binary` exits 0 iff
+			// flag is reachable from binary in git history (i.e.
+			// binary is at flag or beyond). Errors (no such ref,
+			// shallow clone) are conservative-false: fall through to
+			// fail-loud rather than guess.
+			if _, err := runCommandOutput(d.projDir, "git", "merge-base", "--is-ancestor", flag.CommitSHA, d.binaryCommit); err == nil {
+				binaryDescendsFlag = true
+			}
+		}
+		if !binaryAtFlag && !binaryDescendsFlag {
+			progress.Write("Post-swap recovery: containers do not match flag target %s, AND running binary %s is not at or descendant of flag target. Mismatched: %v",
 				flag.Label(), ShortForDisplay(d.binaryCommit), mismatched)
 			progress.Close()
 			return fmt.Errorf(
-				"post-swap recovery: containers do not match flag target %s and running binary %s != flag target.\n"+
+				"post-swap recovery: containers do not match flag target %s and running binary %s is not at or descendant of flag target.\n"+
 					"  Mismatched: %v\n"+
-					"  This is a category-3 divergence per the recovery trifecta — the running\n"+
-					"  state cannot be reconciled automatically (a separate install advanced\n"+
-					"  the binary past this in-flight flag). Investigate `docker compose ps`\n"+
-					"  and the upgrade-progress log; ./sb install will resume after the\n"+
-					"  divergence is resolved.",
+					"  This is a category-3 divergence per the recovery trifecta — the\n"+
+					"  running binary is BEHIND the flag's target (or on a sibling branch).\n"+
+					"  Continuing would query a schema newer than the binary speaks.\n"+
+					"  Investigate `docker compose ps` and the upgrade-progress log;\n"+
+					"  ./sb install will resume after the divergence is resolved.",
 				flag.Label(), ShortForDisplay(d.binaryCommit), mismatched)
 		}
-		// Sub-case (a): binary at flag target, containers stopped/missing
-		// because the post-swap pipeline hadn't started them yet. Fall
-		// through to applyPostSwap below — that's the normal continuation.
-		progress.Write("Post-swap continuation: binary at target %s; containers stopped mid-pipeline (mismatched: %v). Resuming via applyPostSwap.",
-			flag.Label(), mismatched)
+		if binaryDescendsFlag {
+			progress.Write("Post-swap continuation: binary %s is descendant of flag target %s — operator-driven roll-forward, continuing via applyPostSwap (mismatched: %v).",
+				ShortForDisplay(d.binaryCommit), flag.Label(), mismatched)
+		} else {
+			progress.Write("Post-swap continuation: binary at target %s; containers stopped mid-pipeline (mismatched: %v). Resuming via applyPostSwap.",
+				flag.Label(), mismatched)
+		}
 	}
 
 	// Re-acquire the flock on the flag file. The prior holder's fd was
