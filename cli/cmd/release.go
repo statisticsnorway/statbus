@@ -532,9 +532,9 @@ var releasePrereleaseCmd = &cobra.Command{
 		}
 
 		// Create tag with message (avoids $EDITOR prompt when tag.gpgsign=true)
-		_, err = upgrade.RunCommandOutput(projDir, "git", "tag", "-m", "Pre-release "+tagName, tagName)
+		tagOut, err := upgrade.RunCommandOutput(projDir, "git", "tag", "-m", "Pre-release "+tagName, tagName)
 		if err != nil {
-			return fmt.Errorf("creating tag %s: %w", tagName, err)
+			return fmt.Errorf("creating tag %s: %w\n  output: %s", tagName, err, strings.TrimSpace(tagOut))
 		}
 
 		// Re-validate the just-created tag through the same gate the pre-push
@@ -690,9 +690,9 @@ var releaseStableCmd = &cobra.Command{
 		}
 
 		// Create tag with message (avoids $EDITOR prompt when tag.gpgsign=true)
-		_, err = upgrade.RunCommandOutput(projDir, "git", "tag", "-m", "Release "+tagName, tagName)
+		tagOut, err := upgrade.RunCommandOutput(projDir, "git", "tag", "-m", "Release "+tagName, tagName)
 		if err != nil {
-			return fmt.Errorf("creating tag %s: %w", tagName, err)
+			return fmt.Errorf("creating tag %s: %w\n  output: %s", tagName, err, strings.TrimSpace(tagOut))
 		}
 
 		// Re-validate the just-created tag through the same gate the pre-push
