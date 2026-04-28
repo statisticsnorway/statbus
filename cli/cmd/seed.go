@@ -408,13 +408,13 @@ func CreateSeed(projDir string) error {
 	// Stage, commit, and force-push.
 	// Force-push is intentional: the seed branch is a cache with a
 	// single commit. History is meaningless — only the latest state matters.
-	if _, err := upgrade.RunCommandOutput(worktreePath, "git", "add", "seed.pg_dump", "seed.json"); err != nil {
-		return fmt.Errorf("git add in worktree: %w", err)
+	if addOut, err := upgrade.RunCommandOutput(worktreePath, "git", "add", "seed.pg_dump", "seed.json"); err != nil {
+		return fmt.Errorf("git add in worktree: %w\n  output: %s", err, strings.TrimSpace(addOut))
 	}
 
 	commitMsg := fmt.Sprintf("seed: migration %s (commit %s)", migrationVersion, commitSHA[:8])
-	if _, err := upgrade.RunCommandOutput(worktreePath, "git", "commit", "--allow-empty", "-m", commitMsg); err != nil {
-		return fmt.Errorf("git commit in worktree: %w", err)
+	if commitOut, err := upgrade.RunCommandOutput(worktreePath, "git", "commit", "--allow-empty", "-m", commitMsg); err != nil {
+		return fmt.Errorf("git commit in worktree: %w\n  output: %s", err, strings.TrimSpace(commitOut))
 	}
 
 	if pushOut, err := upgrade.RunCommandOutput(worktreePath, "git", "push", "origin", "db-seed", "--force"); err != nil {
@@ -447,15 +447,15 @@ func CreateSeed(projDir string) error {
 	// Force-create the local branch — a stale local ref from an
 	// aborted prior attempt at this same project SHA should be
 	// replaced, not refused.
-	if _, err := upgrade.RunCommandOutput(worktreePath, "git", "branch", "-f", branchName, seedCommit); err != nil {
-		return fmt.Errorf("git branch %s: %w", branchName, err)
+	if branchOut, err := upgrade.RunCommandOutput(worktreePath, "git", "branch", "-f", branchName, seedCommit); err != nil {
+		return fmt.Errorf("git branch %s: %w\n  output: %s", branchName, err, strings.TrimSpace(branchOut))
 	}
 	// --force-with-lease: cleanupSeedBranches typically leaves
 	// this slot empty (or honors preserveSHA to keep us); the
 	// --force-with-lease is the safety net for the abort-and-retry
 	// case where remote and local diverge mid-run.
-	if _, err := upgrade.RunCommandOutput(worktreePath, "git", "push", "origin", "--force-with-lease", branchName); err != nil {
-		return fmt.Errorf("git push origin %s: %w", branchName, err)
+	if pushOut, err := upgrade.RunCommandOutput(worktreePath, "git", "push", "origin", "--force-with-lease", branchName); err != nil {
+		return fmt.Errorf("git push origin %s: %w\n  output: %s", branchName, err, strings.TrimSpace(pushOut))
 	}
 	fmt.Printf("Seed pinned: %s → %s\n", branchName, seedCommit[:8])
 	return nil
