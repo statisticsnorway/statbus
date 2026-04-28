@@ -255,14 +255,28 @@ func TestRecoverFromFlag_PhaseDiscriminationPresent(t *testing.T) {
 	}
 }
 
-// TestResumePostSwap_SelfHealOrFailLoud is the structural guard for the
-// rc.67 recovery trifecta: resumePostSwap MUST self-heal when containers
-// are at the flag's target and MUST fail loudly (return an error) when
-// they are not. The pre-rc.67 code auto-rolled back via recoveryRollback
-// here — that path produced jo's catastrophic deploy on 2026-04-28 and
-// is now removed entirely (see tmp/rc67-recovery-rootcause.md, Findings
-// 4 + 7-14).
-func TestResumePostSwap_SelfHealOrFailLoud(t *testing.T) {
+// TestResumePostSwap_SelfHealContinueOrFailLoud is the structural guard
+// for the rc.67 recovery trifecta. resumePostSwap takes ONE of three
+// paths when handling a flagged in-flight upgrade after process restart:
+//
+//  1. self-heal: containers ARE at flag target → mark row completed
+//  2. continuation: containers stopped/missing AND running binary IS at
+//     flag target → fall through to applyPostSwap (normal mid-pipeline
+//     resume after the binary swap that triggered exit-42)
+//  3. category-3 fail-loud: containers stopped/missing AND running binary
+//     is NOT at flag target (an unrelated install advanced past) → return
+//     a category-3 error
+//
+// The pre-rc.67 code auto-rolled back via recoveryRollback in case (3) —
+// that path produced jo's catastrophic deploy on 2026-04-28 and is now
+// removed entirely (tmp/rc67-recovery-rootcause.md, Findings 4 + 7-14).
+//
+// rc.67's first cut conflated cases (2) and (3) into a single fail-loud
+// path, which wedged dev's normal forward upgrade post-swap with
+// "containers do not match flag target [app: missing worker: missing
+// rest: missing]". The fix discriminates on d.binaryCommit vs
+// flag.CommitSHA.
+func TestResumePostSwap_SelfHealContinueOrFailLoud(t *testing.T) {
 	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))
 	if err != nil {
 		t.Fatalf("read service.go: %v", err)
@@ -320,6 +334,17 @@ func TestResumePostSwap_SelfHealOrFailLoud(t *testing.T) {
 		t.Error("resumePostSwap mismatch branch must return a category-3 error " +
 			"(per the recovery trifecta) — looked for the literal token \"category-3\" " +
 			"in the function body and didn't find it.")
+	}
+
+	// rc.67 follow-up (case 2 vs case 3 discrimination): the mismatch
+	// branch MUST consult d.binaryCommit before deciding fail-loud vs
+	// continue. Without this discriminator, every normal forward upgrade
+	// fails post-swap because containers are stopped mid-pipeline by
+	// design.
+	if !strings.Contains(codeOnly, "d.binaryCommit") {
+		t.Error("resumePostSwap mismatch branch must check d.binaryCommit vs flag.CommitSHA " +
+			"to discriminate normal mid-pipeline state (binary at flag target → continue) " +
+			"from genuine category-3 divergence (binary != flag target → fail loud).")
 	}
 }
 

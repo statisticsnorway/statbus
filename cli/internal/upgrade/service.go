@@ -3569,31 +3569,45 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 		log.Printf("resumePostSwap: self-heal UPDATE skipped for row %d (err=%v) — falling through to continuation",
 			flag.ID, err)
 	} else {
-		// Containers don't match flag's target. Per the rc.67 recovery
-		// trifecta (tmp/rc67-recovery-rootcause.md), this is a category-3
-		// divergence: the in-flight upgrade left the world in a state we
-		// cannot reconcile automatically. Fail loudly. The operator
-		// inspects the divergence list, decides on a manual recovery
-		// path, then re-runs ./sb install.
+		// Containers don't match flag's target. TWO sub-cases — the
+		// discriminator is the running binary's commit:
 		//
-		// Auto-rollback was REMOVED here in rc.67 (was: recoveryRollback
-		// via the now-deleted needsPostSwapRollback guard). It produced
-		// a chain of bad outcomes (Findings 4, 7-14 in the rc.67
-		// rootcause investigation): roll back to from_commit_version
-		// went TWO releases back; the rolled-back compose template
-		// referenced a defunct image-tag scheme; the rolled-back schema
-		// couldn't speak the in-memory binary's column names; etc.
-		// Better to fail-loud than to "recover" into a worse state.
-		progress.Write("Post-swap recovery: containers do not match flag target %s. Mismatched: %v",
-			flag.Label(), mismatched)
-		progress.Close()
-		return fmt.Errorf(
-			"post-swap recovery: containers do not match flag target %s.\n"+
-				"  Mismatched: %v\n"+
-				"  This is a category-3 divergence per the recovery trifecta — the running\n"+
-				"  state cannot be recovered automatically. Investigate `docker compose ps`\n"+
-				"  and the upgrade-progress log; ./sb install will resume after the\n"+
-				"  divergence is resolved.",
+		// (a) Normal mid-pipeline state. Binary was just swapped on
+		//     disk by replaceBinaryOnDisk; old containers were stopped
+		//     before swap; new containers haven't been started yet
+		//     (that's literally applyPostSwap's job below). The running
+		//     process IS the freshly-restarted post-swap binary, so
+		//     d.binaryCommit MATCHES flag.CommitSHA. Fall through to
+		//     applyPostSwap — it brings the new containers up.
+		//
+		// (b) Genuine category-3 divergence (rc.67 trifecta). The
+		//     running binary does NOT match the flag's target. That
+		//     can only happen if a separate install advanced the
+		//     binary past this in-flight flag without clearing it.
+		//     Fail loudly — no automatic recovery possible.
+		//
+		// (Auto-rollback was removed in rc.67: tmp/rc67-recovery-
+		// rootcause.md Findings 4, 7-14 — it cascaded into a worse
+		// state.)
+		binaryAtFlag := d.binaryCommit == "" || d.binaryCommit == "unknown" || d.binaryCommit == flag.CommitSHA
+		if !binaryAtFlag {
+			progress.Write("Post-swap recovery: containers do not match flag target %s, AND running binary %s != flag target. Mismatched: %v",
+				flag.Label(), ShortForDisplay(d.binaryCommit), mismatched)
+			progress.Close()
+			return fmt.Errorf(
+				"post-swap recovery: containers do not match flag target %s and running binary %s != flag target.\n"+
+					"  Mismatched: %v\n"+
+					"  This is a category-3 divergence per the recovery trifecta — the running\n"+
+					"  state cannot be reconciled automatically (a separate install advanced\n"+
+					"  the binary past this in-flight flag). Investigate `docker compose ps`\n"+
+					"  and the upgrade-progress log; ./sb install will resume after the\n"+
+					"  divergence is resolved.",
+				flag.Label(), ShortForDisplay(d.binaryCommit), mismatched)
+		}
+		// Sub-case (a): binary at flag target, containers stopped/missing
+		// because the post-swap pipeline hadn't started them yet. Fall
+		// through to applyPostSwap below — that's the normal continuation.
+		progress.Write("Post-swap continuation: binary at target %s; containers stopped mid-pipeline (mismatched: %v). Resuming via applyPostSwap.",
 			flag.Label(), mismatched)
 	}
 
