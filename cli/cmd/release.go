@@ -107,9 +107,12 @@ func preflightChecks(projDir string) bool {
 
 	// 5. Go CLI builds
 	cliDir := filepath.Join(projDir, "cli")
-	_, err = upgrade.RunCommandOutput(cliDir, "go", "build", "-o", "/dev/null", "./...")
+	buildOut, err := upgrade.RunCommandOutput(cliDir, "go", "build", "-o", "/dev/null", "./...")
 	if err != nil {
 		fmt.Println("  ✗ Go CLI builds")
+		if trimmed := strings.TrimSpace(buildOut); trimmed != "" {
+			fmt.Printf("    Compiler output:\n      %s\n", strings.ReplaceAll(trimmed, "\n", "\n      "))
+		}
 		fmt.Println("    Fix: cd cli && go build ./...")
 		allPassed = false
 	} else {
