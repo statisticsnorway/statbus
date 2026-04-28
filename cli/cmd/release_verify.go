@@ -169,12 +169,13 @@ func verifyCommonTagShape(projDir, tagName, expectedSubject string) (commit stri
 	if err != nil {
 		return "", fmt.Errorf("resolving %s^{commit}: %w", tagName, err)
 	}
-	if _, err := upgrade.RunCommandOutput(projDir, "git", "verify-commit", commit); err != nil {
+	if verifyOut, err := upgrade.RunCommandOutput(projDir, "git", "verify-commit", commit); err != nil {
 		short := commit
 		if len(short) > 12 {
 			short = short[:12]
 		}
-		return "", fmt.Errorf("commit %s (target of %s) failed signature verification — all release commits must be signed.\n  Fix: sign the commit (git commit --amend --no-edit -S) and re-tag.", short, tagName)
+		return "", fmt.Errorf("commit %s (target of %s) failed signature verification — all release commits must be signed.\n  output: %s\n  Fix: sign the commit (git commit --amend --no-edit -S) and re-tag.",
+			short, tagName, strings.TrimSpace(verifyOut))
 	}
 	return commit, nil
 }
