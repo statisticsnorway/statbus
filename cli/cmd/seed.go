@@ -417,8 +417,8 @@ func CreateSeed(projDir string) error {
 		return fmt.Errorf("git commit in worktree: %w", err)
 	}
 
-	if _, err := upgrade.RunCommandOutput(worktreePath, "git", "push", "origin", "db-seed", "--force"); err != nil {
-		return fmt.Errorf("git push --force db-seed: %w", err)
+	if pushOut, err := upgrade.RunCommandOutput(worktreePath, "git", "push", "origin", "db-seed", "--force"); err != nil {
+		return fmt.Errorf("git push --force db-seed: %w\n  output: %s", err, strings.TrimSpace(pushOut))
 	}
 
 	fmt.Printf("Seed created and pushed (migration %s, commit %s)\n", migrationVersion, commitSHA[:8])

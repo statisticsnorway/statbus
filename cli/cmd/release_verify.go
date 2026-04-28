@@ -78,7 +78,15 @@ func compareMigrationsForTag(projDir, prevTag, tag string) error {
 		if parts[0] == "A" {
 			continue
 		}
-		modified = append(modified, parts[0]+" "+parts[1])
+		file := parts[1]
+		// Filter to actual migration content. Directory placeholders (.gitkeep)
+		// and other housekeeping files under migrations/ aren't deployed
+		// migrations and don't carry the immutability constraint.
+		if !strings.HasSuffix(file, ".up.sql") && !strings.HasSuffix(file, ".down.sql") &&
+			!strings.HasSuffix(file, ".up.psql") && !strings.HasSuffix(file, ".down.psql") {
+			continue
+		}
+		modified = append(modified, parts[0]+" "+file)
 	}
 	if len(modified) == 0 {
 		return nil

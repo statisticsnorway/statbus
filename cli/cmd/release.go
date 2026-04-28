@@ -547,9 +547,9 @@ var releasePrereleaseCmd = &cobra.Command{
 		}
 
 		// Push tag
-		_, err = upgrade.RunCommandOutput(projDir, "git", "push", "origin", tagName)
+		pushOut, err := upgrade.RunCommandOutput(projDir, "git", "push", "origin", tagName)
 		if err != nil {
-			return fmt.Errorf("pushing tag %s: %w", tagName, err)
+			return fmt.Errorf("pushing tag %s: %w\n  output: %s", tagName, err, strings.TrimSpace(pushOut))
 		}
 
 		fmt.Printf("Tagged %s and pushed to origin\n", tagName)
@@ -704,9 +704,9 @@ var releaseStableCmd = &cobra.Command{
 		}
 
 		// Push tag
-		_, err = upgrade.RunCommandOutput(projDir, "git", "push", "origin", tagName)
+		pushOut, err := upgrade.RunCommandOutput(projDir, "git", "push", "origin", tagName)
 		if err != nil {
-			return fmt.Errorf("pushing tag %s: %w", tagName, err)
+			return fmt.Errorf("pushing tag %s: %w\n  output: %s", tagName, err, strings.TrimSpace(pushOut))
 		}
 
 		fmt.Printf("Tagged %s and pushed to origin\n", tagName)
