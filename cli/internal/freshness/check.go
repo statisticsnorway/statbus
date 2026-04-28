@@ -25,11 +25,18 @@ import (
 // otherwise — covering both stale-binary detection AND broken-
 // freshness-check states the operator should know about.
 //
+// Parameter naming: `commitSHA` mirrors the upgrade table's commit_sha
+// column and the `upgrade.CommitSHA` typed value the caller now
+// constructs at init (see cli/cmd/root.go resolveCommitSHA). The
+// parameter is still typed `string` to keep this leaf package free of
+// internal cross-deps; validation happens at the caller's boundary.
+//
 // Silent skips (return ""):
-//   - buildCommit empty or "unknown" — built without ldflags (local
-//     `go run` paths and CI builds without -X cmd.commit). The
-//     runtime can't make the comparison; surfacing a warning here
-//     would be noise during day-to-day dev.
+//   - commitSHA empty or "unknown" — defensive coverage for a caller
+//     that hasn't gone through resolveCommitSHA. Today's primary
+//     caller (root.go stalenessGuard) refuses such binaries BEFORE
+//     reaching this function; the early-return here is belt to that
+//     suspenders.
 //   - projDir doesn't have a `.git/` directory at its top — tarball
 //     install or sparse layout. Without the project's own git repo
 //     we can't make the comparison (and git would walk upward to a
@@ -51,8 +58,8 @@ import (
 // freshness check. PersistentPreRun routes any non-empty return
 // through the same hard-fail-on-mutating / warn-on-read-only path,
 // so the operator sees and acts on these.
-func IsStale(projDir, buildCommit string) string {
-	if buildCommit == "" || buildCommit == "unknown" {
+func IsStale(projDir, commitSHA string) string {
+	if commitSHA == "" || commitSHA == "unknown" {
 		return ""
 	}
 	// Require .git AT projDir (not somewhere up the tree). Otherwise
@@ -62,12 +69,12 @@ func IsStale(projDir, buildCommit string) string {
 		return ""
 	}
 
-	short := buildCommit
+	short := commitSHA
 	if len(short) > 8 {
 		short = short[:8]
 	}
 
-	cmd := exec.Command("git", "diff", "--quiet", buildCommit, "--", "cli/")
+	cmd := exec.Command("git", "diff", "--quiet", commitSHA, "--", "cli/")
 	cmd.Dir = projDir
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
