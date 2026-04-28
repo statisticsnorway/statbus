@@ -3885,17 +3885,19 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 			// just removes the file.
 			d.removeUpgradeFlag()
 
-			// Exit so systemd boots a fresh process against the restored
-			// binary (rc.65 schema-skew structural fix). Same reasoning as
-			// the normal-rollback exit below: the in-memory image cannot
-			// safely query the rolled-back schema. systemd Restart=always
-			// brings the restored ./sb back as a fresh process; the
-			// CATASTROPHIC FAILURE banner stays visible because
-			// maintenance.html's terminal marker persists across restarts.
-			if d.runningAsService {
-				os.Exit(0)
-			}
-			return
+			// Exit unconditionally (rc.67 trifecta). Same reasoning as the
+			// normal-rollback exit below: rollback is a process-state break,
+			// the binary on disk is now different from the one in memory,
+			// continuing execution would query the rolled-back schema with
+			// the new binary's column expectations. Under systemd this is a
+			// clean restart (Restart=always brings the restored ./sb back as
+			// a fresh process); under one-shot ./sb install the operator's
+			// shell exits and the next install invocation comes back fresh
+			// against the restored binary. The CATASTROPHIC FAILURE banner
+			// stays visible because maintenance.html's terminal marker
+			// persists across restarts.
+			progress.Close()
+			os.Exit(1)
 		}
 		// Restore ./sb to match the restored git era BEFORE running config
 		// generate (rc.67 trifecta). The current ./sb is the NEW binary; its
@@ -3957,17 +3959,20 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 
 	progress.Write("Rollback complete. The previous version has been restored.")
 
-	// Exit so systemd boots a fresh process against the restored binary
-	// (rc.65 schema-skew structural fix). The in-memory image of the new
-	// binary cannot speak the rolled-back schema — every subsequent query
-	// would 42703 against renamed/added columns. Exit 0 = clean shutdown;
-	// systemd Restart=always brings the restored ./sb back as a fresh
-	// process. Exit 42 is reserved for the upgrade-handoff signal — not
-	// used here.
-	if d.runningAsService {
-		progress.Close()
-		os.Exit(0)
-	}
+	// Exit unconditionally (rc.67 trifecta). Rollback is a process-state
+	// break: the binary on disk is now different from the one in memory.
+	// The new binary's image cannot speak the rolled-back schema — every
+	// subsequent query would 42703 against renamed/added columns.
+	//
+	// Under systemd this is a clean shutdown — Restart=always brings the
+	// restored ./sb back as a fresh process. Under one-shot ./sb install
+	// the operator's shell exits and the next install invocation comes
+	// back fresh against the restored binary. Exit 42 is reserved for
+	// the successful-upgrade handoff signal; rollback uses 0 because the
+	// rollback itself succeeded (the upgrade attempt failed, the system
+	// is now back at a known state, maintenance is off).
+	progress.Close()
+	os.Exit(0)
 }
 
 // restoreGitState is the *Service-bound wrapper around restoreGitStateFn,
