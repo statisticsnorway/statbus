@@ -3897,6 +3897,18 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 			}
 			return
 		}
+		// Restore ./sb to match the restored git era BEFORE running config
+		// generate (rc.67 trifecta). The current ./sb is the NEW binary; its
+		// PersistentPreRun staleness guard (rc.65 freshness check) compares
+		// the binary's compile-time COMMIT against git HEAD, which is now at
+		// previousVersion. The guard fires exit-2 → "Warning: config generate
+		// during rollback failed" (jo's 2026-04-28 deploy log line 105).
+		// Restoring the binary first puts ./sb back at the same era as the
+		// rolled-back git tree, so the staleness guard sees a match and
+		// config generate runs cleanly. Best-effort; ErrRollbackBinaryCorrupt
+		// is logged (non-fatal) if the rename fails.
+		d.restoreBinary(progress)
+
 		if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "rollback-config-generate", filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
 			progress.Write("Warning: config generate during rollback failed: %v", err)
 		}
@@ -3904,13 +3916,6 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 
 	// Restore database backup. Now safe — git state matches the DB era.
 	d.restoreDatabase(progress)
-
-	// Restore ./sb to match the restored git era BEFORE `docker compose up`.
-	// `docker compose` uses whatever `sb` happens to be on disk for any later
-	// operator invocation; keeping the new binary around after a DB rollback
-	// is the worst-of-both state. Best-effort; ErrRollbackBinaryCorrupt is
-	// logged (non-fatal) if the rename fails.
-	d.restoreBinary(progress)
 
 	// Start with old config — git is verified at previousVersion.
 	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "rollback-docker-up", "docker", "compose", "--profile", "all", "up", "-d", "--remove-orphans"); err != nil {
