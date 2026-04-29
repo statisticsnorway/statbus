@@ -31,37 +31,42 @@ Each entry in .users.yml should have:
   - role: admin_user | regular_user | restricted_user | external_user`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		projDir := config.ProjectDir()
-
-		// Ensure JWT secret is loaded (idempotent — required for user creation)
-		if err := ensureJWTSecret(projDir); err != nil {
-			return fmt.Errorf("ensure JWT secret: %w", err)
-		}
-
-		usersFile := filepath.Join(projDir, ".users.yml")
-
-		if _, err := os.Stat(usersFile); os.IsNotExist(err) {
+		if _, err := os.Stat(filepath.Join(projDir, ".users.yml")); os.IsNotExist(err) {
 			return fmt.Errorf(".users.yml not found in %s", projDir)
 		}
-
-		// Use psql to call user_create for each user
-		// Parse YAML and generate SQL
-		data, err := os.ReadFile(usersFile)
-		if err != nil {
-			return fmt.Errorf("read .users.yml: %w", err)
-		}
-
-		sql, err := usersYAMLToSQL(string(data))
-		if err != nil {
-			return err
-		}
-
-		psqlArgs, env, err := migrate.PsqlArgs(projDir)
-		if err != nil {
-			return err
-		}
-
-		return runPsqlSQL(projDir, psqlArgs, env, sql)
+		return applyUsersYML(projDir)
 	},
+}
+
+// applyUsersYML reads .users.yml and upserts each entry via
+// public.user_create(). Caller is responsible for checking that the file
+// exists when missing-is-an-error semantics are wanted; this function
+// returns an error from os.ReadFile when the file is absent.
+//
+// Used by `./sb users create` and by restoreLocal as a post-restore step
+// so the operator can sign in with their .users.yml password again after a
+// restore replaced auth.user with a foreign deployment's rows.
+func applyUsersYML(projDir string) error {
+	if err := ensureJWTSecret(projDir); err != nil {
+		return fmt.Errorf("ensure JWT secret: %w", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(projDir, ".users.yml"))
+	if err != nil {
+		return fmt.Errorf("read .users.yml: %w", err)
+	}
+
+	sql, err := usersYAMLToSQL(string(data))
+	if err != nil {
+		return err
+	}
+
+	psqlArgs, env, err := migrate.PsqlArgs(projDir)
+	if err != nil {
+		return err
+	}
+
+	return runPsqlSQL(projDir, psqlArgs, env, sql)
 }
 
 // usersYAMLToSQL parses simple YAML user entries and generates SQL.

@@ -807,6 +807,20 @@ END $$;
 		}
 	}
 
+	// Re-apply local .users.yml so the operator can sign in again. Restore
+	// replaces auth.user with the source deployment's rows; the bcrypt
+	// hashes in encrypted_password are theirs (and cluster role passwords
+	// aren't in the dump at all). Upserting via public.user_create() fires
+	// the auth.user trigger, which resets encrypted_password to bcrypt of
+	// the .users.yml password and runs ALTER ROLE %I WITH PASSWORD %L on
+	// the cluster role. Skipped silently if .users.yml is absent.
+	if _, err := os.Stat(filepath.Join(projDir, ".users.yml")); err == nil {
+		fmt.Println("Re-applying .users.yml so local sign-in works ...")
+		if err := applyUsersYML(projDir); err != nil {
+			return fmt.Errorf("apply .users.yml: %w", err)
+		}
+	}
+
 	// Restart worker and rest
 	fmt.Println("Restarting worker and rest ...")
 	startServices := exec.Command("docker", "compose", "start", "worker", "rest")
