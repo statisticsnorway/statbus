@@ -586,24 +586,61 @@ WHERE datname = '%s' AND pid <> pg_backend_pid();
 		return fmt.Errorf("drop/create database failed: %w", err)
 	}
 
-	// Phase 1: pre-data (schema only)
-	fmt.Println("Phase 1: Restoring schema (pre-data) ...")
-	phase1File, err := os.Open(dumpFile)
-	if err != nil {
-		return err
+	// Copy dump into container once and build a TOC list that reorders ACLs
+	// to run AFTER data + post-data. pg_dump files per-relation ACLs in
+	// pre-data adjacent to their CREATE TABLE; running them there fails when
+	// they reference end-user roles whose names are emails — those roles only
+	// exist after auth.user data loads (the BEFORE INSERT trigger creates
+	// them). By restoring data first with triggers ENABLED, then post-data,
+	// then ACLs, in a single transaction, the application's own role-creation
+	// logic runs naturally during COPY and every grantee exists by the time
+	// GRANTs fire.
+	fmt.Println("Copying dump into container and building TOC list ...")
+	cpCmd := exec.Command("docker", "compose", "cp", dumpFile, "db:/tmp/restore.pg_dump")
+	cpCmd.Dir = projDir
+	cpCmd.Stdout = os.Stdout
+	cpCmd.Stderr = os.Stderr
+	if err := cpCmd.Run(); err != nil {
+		return fmt.Errorf("copy dump into container: %w", err)
 	}
+	defer func() {
+		rm := exec.Command("docker", "compose", "exec", "-T", "db",
+			"rm", "-f",
+			"/tmp/restore.pg_dump",
+			"/tmp/restore-data.list",
+			"/tmp/restore-post.list",
+			"/tmp/restore-acl.list",
+			"/tmp/restore-phase3.list")
+		rm.Dir = projDir
+		rm.Run()
+	}()
+
+	buildList := exec.Command("docker", "compose", "exec", "-T", "db", "sh", "-c",
+		`set -e
+pg_restore -l --section=data      /tmp/restore.pg_dump | grep -E '^[0-9]+;'        > /tmp/restore-data.list
+pg_restore -l --section=post-data /tmp/restore.pg_dump | grep -E '^[0-9]+;'        > /tmp/restore-post.list
+pg_restore -l --section=pre-data  /tmp/restore.pg_dump | grep -E '^[0-9]+;.* ACL ' > /tmp/restore-acl.list
+cat /tmp/restore-data.list /tmp/restore-post.list /tmp/restore-acl.list > /tmp/restore-phase3.list`)
+	buildList.Dir = projDir
+	buildList.Stdout = os.Stdout
+	buildList.Stderr = os.Stderr
+	if err := buildList.Run(); err != nil {
+		return fmt.Errorf("build TOC list: %w", err)
+	}
+
+	// Phase 1: pre-data WITHOUT ACLs (deferred to Phase 3).
+	fmt.Println("Phase 1: Restoring schema (pre-data, no ACLs) ...")
 	phase1 := exec.Command("docker", "compose", "exec", "-T", "db",
 		"pg_restore", "-U", "postgres", "-d", dbName,
-		"--no-owner", "--section=pre-data")
+		"--no-owner", "--no-acl", "--single-transaction",
+		"--section=pre-data",
+		"/tmp/restore.pg_dump")
 	phase1.Dir = projDir
-	phase1.Stdin = phase1File
 	phase1.Stdout = os.Stdout
 	phase1.Stderr = os.Stderr
 	if err := phase1.Run(); err != nil {
-		phase1File.Close()
 		return fmt.Errorf("phase 1 (pre-data) failed: %w", err)
 	}
-	phase1File.Close()
 
 	// Phase 2: save and drop cross-schema CHECK constraints
 	fmt.Println("Phase 2: Deferring cross-schema CHECK constraints ...")
@@ -616,26 +653,23 @@ WHERE datname = '%s' AND pid <> pg_backend_pid();
 		return fmt.Errorf("phase 2 (defer constraints) failed: %w", err)
 	}
 
-	// Phase 3: data + post-data
-	fmt.Println("Phase 3: Restoring data and post-data ...")
-	phase3File, err := os.Open(dumpFile)
-	if err != nil {
-		return err
-	}
+	// Phase 3: data + post-data + ACLs in one transaction, in TOC list order.
+	// Triggers ENABLED so auth.user BEFORE INSERT trigger creates each end-user
+	// role with LOGIN INHERIT + authenticated/statbus_role grants exactly as
+	// production does on live signup. ACLs run last, after every grantee exists.
+	// CREATE ROLE is transactional — failure rolls everything back cleanly.
+	fmt.Println("Phase 3: Restoring data + post-data + ACLs (single transaction, triggers ENABLED) ...")
 	phase3 := exec.Command("docker", "compose", "exec", "-T", "db",
 		"pg_restore", "-U", "postgres", "-d", dbName,
-		"--no-owner", "--section=data", "--section=post-data",
-		"--disable-triggers")
+		"--no-owner", "--single-transaction",
+		"-L", "/tmp/restore-phase3.list",
+		"/tmp/restore.pg_dump")
 	phase3.Dir = projDir
-	phase3.Stdin = phase3File
 	phase3.Stdout = os.Stdout
 	phase3.Stderr = os.Stderr
 	if err := phase3.Run(); err != nil {
-		phase3File.Close()
-		// pg_restore may return non-zero for warnings — log but continue
-		fmt.Fprintf(os.Stderr, "Warning: phase 3 exited with: %v (continuing)\n", err)
+		return fmt.Errorf("phase 3 (data + post-data + ACLs) failed: %w", err)
 	}
-	phase3File.Close()
 
 	// Phase 4: re-add CHECK constraints
 	fmt.Println("Phase 4: Re-adding cross-schema CHECK constraints ...")
@@ -772,9 +806,20 @@ docker compose exec -T db psql -U postgres \
     -c 'DROP DATABASE IF EXISTS %[4]s;' \
     -c 'CREATE DATABASE %[4]s;'
 
-echo "Phase 1: Restoring schema (pre-data) ..."
+echo "Copying dump into container and building TOC list ..."
+docker compose cp dbdumps/%[2]s db:/tmp/restore.pg_dump
+docker compose exec -T db sh -c '
+set -e
+pg_restore -l --section=data      /tmp/restore.pg_dump | grep -E "^[0-9]+;"        > /tmp/restore-data.list
+pg_restore -l --section=post-data /tmp/restore.pg_dump | grep -E "^[0-9]+;"        > /tmp/restore-post.list
+pg_restore -l --section=pre-data  /tmp/restore.pg_dump | grep -E "^[0-9]+;.* ACL " > /tmp/restore-acl.list
+cat /tmp/restore-data.list /tmp/restore-post.list /tmp/restore-acl.list > /tmp/restore-phase3.list
+'
+
+echo "Phase 1: Restoring schema (pre-data, no ACLs) ..."
 docker compose exec -T db pg_restore -U postgres -d %[1]s \
-    --no-owner --section=pre-data < dbdumps/%[2]s
+    --no-owner --no-acl --single-transaction \
+    --section=pre-data /tmp/restore.pg_dump
 
 echo "Phase 2: Deferring cross-schema CHECK constraints ..."
 docker compose exec -T db psql -U postgres -d %[1]s -c "
@@ -797,10 +842,10 @@ BEGIN
 END \$\$;
 "
 
-echo "Phase 3: Restoring data and post-data ..."
+echo "Phase 3: Restoring data + post-data + ACLs (single transaction, triggers ENABLED) ..."
 docker compose exec -T db pg_restore -U postgres -d %[1]s \
-    --no-owner --section=data --section=post-data \
-    --disable-triggers < dbdumps/%[2]s || true
+    --no-owner --single-transaction \
+    -L /tmp/restore-phase3.list /tmp/restore.pg_dump
 
 echo "Phase 4: Re-adding cross-schema CHECK constraints ..."
 docker compose exec -T db psql -U postgres -d %[1]s -c "
@@ -814,6 +859,11 @@ BEGIN
 END \$\$;
 DROP TABLE public._deferred_checks;
 "
+
+docker compose exec -T db rm -f \
+    /tmp/restore.pg_dump \
+    /tmp/restore-data.list /tmp/restore-post.list \
+    /tmp/restore-acl.list /tmp/restore-phase3.list
 
 echo "Setting deployment_slot_code ..."
 docker compose exec -T db psql -U postgres -d %[1]s -c "
