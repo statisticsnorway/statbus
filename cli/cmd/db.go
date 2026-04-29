@@ -783,29 +783,28 @@ END $$;
 		}
 	}
 
-	// Set deployment_slot_code
+	// Set deployment_slot_code as a per-database GUC. Consumed by
+	// auth/...:1312 via current_setting('app.settings.deployment_slot_code',
+	// true). Public.settings was never a (key,value) table — that shape was
+	// fabricated by an earlier port; see migrations/0010_create_table_settings.up.sql
+	// for the real columnar schema.
 	slotCode, err := loadSlotCode(projDir)
 	if err == nil {
 		if err := validateIdentifier(slotCode, "slot code"); err != nil {
 			return err
 		}
-		escapedSlot := strings.ReplaceAll(slotCode, "'", "''")
-		slotSQL := fmt.Sprintf(`
-DO $$ BEGIN
-  IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'settings') THEN
-    UPDATE public.settings SET value = '%s' WHERE key = 'deployment_slot_code';
-    IF NOT FOUND THEN
-      INSERT INTO public.settings (key, value) VALUES ('deployment_slot_code', '%s');
-    END IF;
-  END IF;
-END $$;
-`, escapedSlot, escapedSlot)
+		// validateIdentifier guarantees [a-zA-Z][a-zA-Z0-9_]*, so single-quote
+		// wrapping is safe; qDbName is already sanitized as an identifier.
+		slotSQL := fmt.Sprintf(`ALTER DATABASE %s SET app.settings.deployment_slot_code TO '%s';`,
+			qDbName, slotCode)
 		slotCmd := exec.Command("docker", "compose", "exec", "-T", "db",
-			"psql", "-U", "postgres", "-d", dbName, "-c", slotSQL)
+			"psql", "-U", "postgres", "-c", slotSQL)
 		slotCmd.Dir = projDir
 		slotCmd.Stdout = os.Stdout
 		slotCmd.Stderr = os.Stderr
-		slotCmd.Run()
+		if err := slotCmd.Run(); err != nil {
+			return fmt.Errorf("set deployment_slot_code failed: %w", err)
+		}
 	}
 
 	// Restart worker and rest
@@ -969,16 +968,8 @@ docker compose exec -T db rm -f \
     /tmp/restore-post.list /tmp/restore-acl.list /tmp/restore-phase3.list
 
 echo "Setting deployment_slot_code ..."
-docker compose exec -T db psql -U postgres -d %[1]s -c "
-DO \$\$ BEGIN
-  IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'settings') THEN
-    UPDATE public.settings SET value = '%[3]s' WHERE key = 'deployment_slot_code';
-    IF NOT FOUND THEN
-      INSERT INTO public.settings (key, value) VALUES ('deployment_slot_code', '%[3]s');
-    END IF;
-  END IF;
-END \$\$;
-"
+docker compose exec -T db psql -U postgres -c \
+    "ALTER DATABASE %[4]s SET app.settings.deployment_slot_code TO '%[3]s';"
 
 echo "Restarting worker and rest ..."
 docker compose start worker rest || true
