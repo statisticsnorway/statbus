@@ -478,6 +478,33 @@ END $$;
 DROP TABLE public._deferred_checks;
 `
 
+// materializeUserRolesSQL replicates the role-creation block of
+// auth.sync_user_credentials_and_roles() — see
+// migrations/20260129150046_add_email_normalization_trigger.up.sql:78-95.
+//
+// The trigger fires per row on live INSERT/UPDATE of auth.user, but pg_dump
+// places it in post-data, so it is not yet installed when COPY auth.user
+// runs during pg_restore. After Phase 2.5 loads auth.user data via plain
+// COPY, this block walks the table and materialises the cluster-level
+// roles + memberships the trigger would have created. Cluster passwords
+// are NOT set here — they aren't in the dump (encrypted_password lives in
+// auth.user; the cluster-level password is only set when NEW.password is
+// passed in plaintext, which restore can't provide).
+const materializeUserRolesSQL = `
+DO $$
+DECLARE u RECORD;
+BEGIN
+    FOR u IN SELECT email, statbus_role::text AS sb_role FROM auth.user LOOP
+        IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = u.email) THEN
+            EXECUTE format('CREATE ROLE %I LOGIN INHERIT', u.email);
+            EXECUTE format('GRANT authenticated TO %I', u.email);
+            EXECUTE format('GRANT %I TO authenticator', u.email);
+            EXECUTE format('GRANT %I TO %I', u.sb_role, u.email);
+        END IF;
+    END LOOP;
+END $$;
+`
+
 var dbRestoreCmd = &cobra.Command{
 	Use:   "restore <file>",
 	Short: "Restore a database dump (locally or to a remote server)",
@@ -586,16 +613,29 @@ WHERE datname = '%s' AND pid <> pg_backend_pid();
 		return fmt.Errorf("drop/create database failed: %w", err)
 	}
 
-	// Copy dump into container once and build a TOC list that reorders ACLs
-	// to run AFTER data + post-data. pg_dump files per-relation ACLs in
-	// pre-data adjacent to their CREATE TABLE; running them there fails when
-	// they reference end-user roles whose names are emails — those roles only
-	// exist after auth.user data loads (the BEFORE INSERT trigger creates
-	// them). By restoring data first with triggers ENABLED, then post-data,
-	// then ACLs, in a single transaction, the application's own role-creation
-	// logic runs naturally during COPY and every grantee exists by the time
-	// GRANTs fire.
-	fmt.Println("Copying dump into container and building TOC list ...")
+	// Copy dump into container once and build TOC lists that reorder ACLs to
+	// run AFTER data + post-data. pg_dump files per-relation ACLs in pre-data
+	// adjacent to their CREATE TABLE; running them there fails when they
+	// reference end-user roles whose names are emails — those roles only
+	// exist on production because the auth.user BEFORE INSERT trigger
+	// sync_user_credentials_and_roles_trigger creates them on signup. The
+	// trigger itself is in post-data (pg_dump default for triggers), so it's
+	// NOT installed when auth.user data loads in pg_restore — replaying the
+	// trigger pathway via --section=data alone won't work.
+	//
+	// Pipeline:
+	//   Phase 1   pre-data, --no-acl                (schema, no GRANTs)
+	//   Phase 2   defer cross-schema CHECKs         (psql)
+	//   Phase 2.5 auth.user data ONLY               (pg_restore -L)
+	//   Phase 2.6 materialize PG roles per row      (psql, replicates trigger)
+	//   Phase 3   data (minus auth.user) + post-data + ACLs in one transaction
+	//   Phase 4   re-add CHECKs                     (psql)
+	//
+	// CREATE ROLE is transactional — Phase 2.6 inside its own psql call commits
+	// the roles. Phase 3 runs in its own transaction; if it fails, data rolls
+	// back but roles persist (cluster-level). On retry, Phase 2.6 is idempotent
+	// (IF NOT EXISTS guard), so the second run is clean.
+	fmt.Println("Copying dump into container and building TOC lists ...")
 	cpCmd := exec.Command("docker", "compose", "cp", dumpFile, "db:/tmp/restore.pg_dump")
 	cpCmd.Dir = projDir
 	cpCmd.Stdout = os.Stdout
@@ -608,6 +648,8 @@ WHERE datname = '%s' AND pid <> pg_backend_pid();
 			"rm", "-f",
 			"/tmp/restore.pg_dump",
 			"/tmp/restore-data.list",
+			"/tmp/restore-data-other.list",
+			"/tmp/restore-auth-user.list",
 			"/tmp/restore-post.list",
 			"/tmp/restore-acl.list",
 			"/tmp/restore-phase3.list")
@@ -620,7 +662,15 @@ WHERE datname = '%s' AND pid <> pg_backend_pid();
 pg_restore -l --section=data      /tmp/restore.pg_dump | grep -E '^[0-9]+;'        > /tmp/restore-data.list
 pg_restore -l --section=post-data /tmp/restore.pg_dump | grep -E '^[0-9]+;'        > /tmp/restore-post.list
 pg_restore -l --section=pre-data  /tmp/restore.pg_dump | grep -E '^[0-9]+;.* ACL ' > /tmp/restore-acl.list
-cat /tmp/restore-data.list /tmp/restore-post.list /tmp/restore-acl.list > /tmp/restore-phase3.list`)
+
+# Split auth.user TABLE DATA out so we can load it BEFORE materializing roles.
+# Triggers on auth.user are in post-data and don't exist at data-load time, so
+# the role-creation trigger pathway is unavailable; the restore tool replays
+# the trigger's role logic in Phase 2.6 against the just-loaded data.
+grep    ' TABLE DATA auth user ' /tmp/restore-data.list > /tmp/restore-auth-user.list
+grep -v ' TABLE DATA auth user ' /tmp/restore-data.list > /tmp/restore-data-other.list
+
+cat /tmp/restore-data-other.list /tmp/restore-post.list /tmp/restore-acl.list > /tmp/restore-phase3.list`)
 	buildList.Dir = projDir
 	buildList.Stdout = os.Stdout
 	buildList.Stderr = os.Stderr
@@ -653,12 +703,42 @@ cat /tmp/restore-data.list /tmp/restore-post.list /tmp/restore-acl.list > /tmp/r
 		return fmt.Errorf("phase 2 (defer constraints) failed: %w", err)
 	}
 
-	// Phase 3: data + post-data + ACLs in one transaction, in TOC list order.
-	// Triggers ENABLED so auth.user BEFORE INSERT trigger creates each end-user
-	// role with LOGIN INHERIT + authenticated/statbus_role grants exactly as
-	// production does on live signup. ACLs run last, after every grantee exists.
-	// CREATE ROLE is transactional — failure rolls everything back cleanly.
-	fmt.Println("Phase 3: Restoring data + post-data + ACLs (single transaction, triggers ENABLED) ...")
+	// Phase 2.5: Load auth.user data in isolation. Triggers don't exist yet
+	// (created in post-data), so no side effects from BEFORE/AFTER triggers
+	// fire during this targeted COPY.
+	fmt.Println("Phase 2.5: Loading auth.user data ...")
+	phase25 := exec.Command("docker", "compose", "exec", "-T", "db",
+		"pg_restore", "-U", "postgres", "-d", dbName,
+		"--no-owner", "--single-transaction",
+		"-L", "/tmp/restore-auth-user.list",
+		"/tmp/restore.pg_dump")
+	phase25.Dir = projDir
+	phase25.Stdout = os.Stdout
+	phase25.Stderr = os.Stderr
+	if err := phase25.Run(); err != nil {
+		return fmt.Errorf("phase 2.5 (auth.user data) failed: %w", err)
+	}
+
+	// Phase 2.6: Materialize PG roles from auth.user. Replicates the
+	// role-creation block of auth.sync_user_credentials_and_roles() (see
+	// migrations/20260129150046_add_email_normalization_trigger.up.sql:78-95).
+	// Idempotent (IF NOT EXISTS guard) so re-runs after a Phase 3 failure are
+	// safe. Drift risk is low — the trigger's role block changes rarely.
+	fmt.Println("Phase 2.6: Materializing PG roles from auth.user ...")
+	materializeCmd := exec.Command("docker", "compose", "exec", "-T", "db",
+		"psql", "-U", "postgres", "-d", dbName,
+		"-v", "ON_ERROR_STOP=1",
+		"-c", materializeUserRolesSQL)
+	materializeCmd.Dir = projDir
+	materializeCmd.Stdout = os.Stdout
+	materializeCmd.Stderr = os.Stderr
+	if err := materializeCmd.Run(); err != nil {
+		return fmt.Errorf("phase 2.6 (materialize roles) failed: %w", err)
+	}
+
+	// Phase 3: remaining data + post-data + ACLs in one transaction. ACLs run
+	// last in the TOC list order, after every grantee role has been created.
+	fmt.Println("Phase 3: Restoring remaining data + post-data + ACLs (single transaction) ...")
 	phase3 := exec.Command("docker", "compose", "exec", "-T", "db",
 		"pg_restore", "-U", "postgres", "-d", dbName,
 		"--no-owner", "--single-transaction",
@@ -806,14 +886,16 @@ docker compose exec -T db psql -U postgres \
     -c 'DROP DATABASE IF EXISTS %[4]s;' \
     -c 'CREATE DATABASE %[4]s;'
 
-echo "Copying dump into container and building TOC list ..."
+echo "Copying dump into container and building TOC lists ..."
 docker compose cp dbdumps/%[2]s db:/tmp/restore.pg_dump
 docker compose exec -T db sh -c '
 set -e
 pg_restore -l --section=data      /tmp/restore.pg_dump | grep -E "^[0-9]+;"        > /tmp/restore-data.list
 pg_restore -l --section=post-data /tmp/restore.pg_dump | grep -E "^[0-9]+;"        > /tmp/restore-post.list
 pg_restore -l --section=pre-data  /tmp/restore.pg_dump | grep -E "^[0-9]+;.* ACL " > /tmp/restore-acl.list
-cat /tmp/restore-data.list /tmp/restore-post.list /tmp/restore-acl.list > /tmp/restore-phase3.list
+grep    " TABLE DATA auth user " /tmp/restore-data.list > /tmp/restore-auth-user.list
+grep -v " TABLE DATA auth user " /tmp/restore-data.list > /tmp/restore-data-other.list
+cat /tmp/restore-data-other.list /tmp/restore-post.list /tmp/restore-acl.list > /tmp/restore-phase3.list
 '
 
 echo "Phase 1: Restoring schema (pre-data, no ACLs) ..."
@@ -842,7 +924,28 @@ BEGIN
 END \$\$;
 "
 
-echo "Phase 3: Restoring data + post-data + ACLs (single transaction, triggers ENABLED) ..."
+echo "Phase 2.5: Loading auth.user data ..."
+docker compose exec -T db pg_restore -U postgres -d %[1]s \
+    --no-owner --single-transaction \
+    -L /tmp/restore-auth-user.list /tmp/restore.pg_dump
+
+echo "Phase 2.6: Materializing PG roles from auth.user ..."
+docker compose exec -T db psql -U postgres -d %[1]s -v ON_ERROR_STOP=1 -c "
+DO \$\$
+DECLARE u RECORD;
+BEGIN
+    FOR u IN SELECT email, statbus_role::text AS sb_role FROM auth.user LOOP
+        IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = u.email) THEN
+            EXECUTE format('CREATE ROLE %%I LOGIN INHERIT', u.email);
+            EXECUTE format('GRANT authenticated TO %%I', u.email);
+            EXECUTE format('GRANT %%I TO authenticator', u.email);
+            EXECUTE format('GRANT %%I TO %%I', u.sb_role, u.email);
+        END IF;
+    END LOOP;
+END \$\$;
+"
+
+echo "Phase 3: Restoring remaining data + post-data + ACLs (single transaction) ..."
 docker compose exec -T db pg_restore -U postgres -d %[1]s \
     --no-owner --single-transaction \
     -L /tmp/restore-phase3.list /tmp/restore.pg_dump
@@ -862,8 +965,8 @@ DROP TABLE public._deferred_checks;
 
 docker compose exec -T db rm -f \
     /tmp/restore.pg_dump \
-    /tmp/restore-data.list /tmp/restore-post.list \
-    /tmp/restore-acl.list /tmp/restore-phase3.list
+    /tmp/restore-data.list /tmp/restore-data-other.list /tmp/restore-auth-user.list \
+    /tmp/restore-post.list /tmp/restore-acl.list /tmp/restore-phase3.list
 
 echo "Setting deployment_slot_code ..."
 docker compose exec -T db psql -U postgres -d %[1]s -c "
