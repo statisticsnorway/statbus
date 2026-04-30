@@ -55,8 +55,11 @@ const ProgressStatusContent = () => {
       </li>
       <li className="mb-6">
         <NavItem
-          done={!!numberOfCustomActivityCategoryCodes && numberOfCustomActivityCategoryCodes > 0}
-          title="2. Upload Custom Activity Category Standard Codes (optional)"
+          done={
+            !!numberOfCustomActivityCategoryCodes &&
+            numberOfCustomActivityCategoryCodes > 0
+          }
+          title="3. Upload Custom Activity Category Standard Codes (optional)"
           href="/getting-started/upload-custom-activity-standard-codes"
           subtitle={`${numberOfCustomActivityCategoryCodes ?? 0} custom activity category codes uploaded`}
         />
@@ -64,7 +67,7 @@ const ProgressStatusContent = () => {
       <li className="mb-6">
         <NavItem
           done={!!numberOfRegions && numberOfRegions > 0}
-          title="3. Upload Region Hierarchy"
+          title="4. Upload Region Hierarchy"
           href="/getting-started/upload-regions"
           subtitle={`${numberOfRegions ?? 0} regions uploaded`}
         />
@@ -72,7 +75,7 @@ const ProgressStatusContent = () => {
       <li className="mb-6">
         <NavItem
           done={!!numberOfCustomSectors && numberOfCustomSectors > 0}
-          title="4. Upload Custom Sectors (optional)"
+          title="5. Upload Custom Sectors (optional)"
           href="/getting-started/upload-custom-sectors"
           subtitle={`${numberOfCustomSectors ?? 0} custom sectors uploaded`}
         />
@@ -80,13 +83,13 @@ const ProgressStatusContent = () => {
       <li className="mb-6">
         <NavItem
           done={!!numberOfCustomLegalForms && numberOfCustomLegalForms > 0}
-          title="5. Upload Custom Legal Forms (optional)"
+          title="6. Upload Custom Legal Forms (optional)"
           href="/getting-started/upload-custom-legal-forms"
           subtitle={`${numberOfCustomLegalForms ?? 0} custom legal forms codes uploaded`}
         />
       </li>
       <li>
-        <NavItem title="6. Summary" href="/getting-started/summary" />
+        <NavItem title="7. Summary" href="/getting-started/summary" />
       </li>
     </ul>
   );
