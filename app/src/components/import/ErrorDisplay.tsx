@@ -37,13 +37,10 @@ function extractMainError(value: string): string {
 }
 
 /**
- * Formats a field name from snake_case to Title Case.
+ * Formats a field name by removing _raw.
  */
 function formatFieldName(field: string): string {
-  return field
-    .replace(/_raw$/, "") // Remove _raw suffix
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return field.replace(/_raw$/, ""); // Remove _raw suffix
 }
 
 /**
