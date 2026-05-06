@@ -122,6 +122,137 @@ pause() {
 }
 
 # =============================================================================
+# Centralized SSH-key Installer
+# =============================================================================
+#
+# populate_authorized_keys — single source of truth for seeding a system
+# user's ~/.ssh/authorized_keys from GitHub.
+#
+# Behaviour contract:
+#   * ED25519-only filter. RSA keys are dropped at the source — keeping
+#     them just because GitHub exposes them is dead weight on modern
+#     OpenSSH (and they were the symptom of a previous "8KB MaxAuthSize
+#     exceeded" lockout).
+#   * Both source forms are supported, auto-detected by presence of `/`:
+#       - `<user>`        → https://github.com/<user>.keys
+#       - `<org>/<repo>`  → https://github.com/<org>/<repo>.keys
+#     The repo form returns the repo's deploy keys; this is how CI like
+#     deploy-to-* gets ssh access without a personal key being in play.
+#   * Idempotent: existing keys (added by hand, by a prior run, or by
+#     another mechanism) are preserved. Re-runs converge — no duplicates.
+#   * Each key is annotated with `# <source URL>` so an operator looking
+#     at authorized_keys later can tell which line came from where.
+#
+# Usage (must be run as root; switches to target user via sudo internally):
+#   populate_authorized_keys <target_user> "<users_list>" "<deploy_keys_list>"
+#
+# Both list args are whitespace-separated. Empty strings are valid.
+populate_authorized_keys() {
+    local target_user="$1"
+    local users_list="$2"
+    local deploy_keys_list="$3"
+
+    local home_dir
+    home_dir="$(getent passwd "$target_user" | cut -d: -f6)"
+    if [[ -z "$home_dir" ]]; then
+        log_error "populate_authorized_keys: user '$target_user' has no home directory"
+        return 1
+    fi
+
+    local ssh_dir="$home_dir/.ssh"
+    local auth_keys="$ssh_dir/authorized_keys"
+    local stage_file="$ssh_dir/.authorized_keys.stage.$$"
+
+    # Ensure .ssh dir exists with correct ownership/mode.
+    mkdir -p "$ssh_dir"
+    chown "$target_user:$target_user" "$ssh_dir"
+    chmod 700 "$ssh_dir"
+
+    # Build a fresh staging file with all fetched keys, then merge with any
+    # pre-existing authorized_keys before deduplicating. This preserves
+    # operator-added entries that aren't tracked here.
+    : > "$stage_file"
+
+    local source url keys key
+    for source in $users_list; do
+        if [[ "$source" == */* ]]; then
+            log_warn "populate_authorized_keys: '$source' looks like a deploy-key (org/repo) but appears in users list — moving it to GITHUB_DEPLOY_KEYS is recommended"
+        fi
+        url="https://github.com/${source}.keys"
+        log "Fetching ED25519 keys from $url"
+        keys="$(curl -sL --fail "$url" 2>/dev/null || true)"
+        if [[ -z "$keys" ]]; then
+            log_warn "No keys returned from $url"
+            continue
+        fi
+        while IFS= read -r key; do
+            [[ -z "$key" ]] && continue
+            # Match ssh-ed25519 only — anchor to start, allow optional
+            # `<options> ` prefix and require a space after the type tag
+            # so `ssh-ed25519abcd` (would not occur, but defensively) fails.
+            if [[ "$key" =~ (^|[[:space:]])ssh-ed25519[[:space:]] ]]; then
+                printf '%s # %s\n' "$key" "$url" >> "$stage_file"
+            fi
+        done <<< "$keys"
+    done
+
+    for source in $deploy_keys_list; do
+        if [[ "$source" != */* ]]; then
+            log_warn "populate_authorized_keys: '$source' has no '/' but appears in deploy-keys list — expected <org>/<repo> form"
+        fi
+        url="https://github.com/${source}.keys"
+        log "Fetching ED25519 deploy keys from $url"
+        keys="$(curl -sL --fail "$url" 2>/dev/null || true)"
+        if [[ -z "$keys" ]]; then
+            log_warn "No deploy keys returned from $url (repo public + deploy-keys readable?)"
+            continue
+        fi
+        while IFS= read -r key; do
+            [[ -z "$key" ]] && continue
+            if [[ "$key" =~ (^|[[:space:]])ssh-ed25519[[:space:]] ]]; then
+                printf '%s # %s\n' "$key" "$url" >> "$stage_file"
+            fi
+        done <<< "$keys"
+    done
+
+    # Merge in any pre-existing authorized_keys (operator-added entries).
+    if [[ -s "$auth_keys" ]]; then
+        cat "$auth_keys" >> "$stage_file"
+    fi
+
+    # Dedupe by key body (algo + base64), preserving order. This keeps the
+    # first source-comment that introduced each key. Lines that aren't a
+    # recognisable key (blank or `# comment-only`) are filtered.
+    awk '
+        {
+            # Skip blank lines and comment-only lines.
+            if ($0 ~ /^[[:space:]]*$/) next
+            stripped = $0
+            sub(/^[[:space:]]*/, "", stripped)
+            if (substr(stripped, 1, 1) == "#") next
+            # Identify the key body. SSH authorized_keys allows optional
+            # `<options>` before the algo+base64 pair. Robust extract: scan
+            # tokens until we find one whose tag starts with `ssh-` or
+            # `ecdsa-` etc; the next token is the base64 body.
+            n = split($0, t, /[[:space:]]+/)
+            algo_idx = 0
+            for (i = 1; i <= n; i++) {
+                if (t[i] ~ /^(ssh-|ecdsa-|sk-)/) { algo_idx = i; break }
+            }
+            if (algo_idx == 0 || algo_idx + 1 > n) next
+            keybody = t[algo_idx] " " t[algo_idx + 1]
+            if (!seen[keybody]++) print
+        }
+    ' "$stage_file" > "$auth_keys"
+    rm -f "$stage_file"
+
+    chown "$target_user:$target_user" "$auth_keys"
+    chmod 600 "$auth_keys"
+
+    log_success "populate_authorized_keys: $(wc -l < "$auth_keys") key(s) written to $auth_keys"
+}
+
+# =============================================================================
 # Environment File Handling
 # =============================================================================
 
@@ -144,6 +275,13 @@ ADMIN_EMAIL="${ADMIN_EMAIL:-}"
 
 # Space-separated GitHub usernames for SSH key fetching
 GITHUB_USERS="${GITHUB_USERS:-}"
+
+# Space-separated GitHub repo deploy-key sources in <org>/<repo> form,
+# fetched from https://github.com/<org>/<repo>.keys. Used to authorize
+# CI deploy access (the deploy-to-rune-no GitHub Actions workflow needs
+# its repo deploy key in ~statbus/.ssh/authorized_keys to ssh in).
+# SSB-operated default is "statisticsnorway/statbus".
+GITHUB_DEPLOY_KEYS="${GITHUB_DEPLOY_KEYS:-statisticsnorway/statbus}"
 
 # Space-separated extra locale codes without .UTF-8 suffix (e.g., "sq_AL nb_NO")
 # The script adds .UTF-8 automatically. C.UTF-8 and en_US.UTF-8 are always included.
@@ -187,9 +325,10 @@ setup_env() {
         log "Found existing configuration at $ENV_FILE"
         echo ""
         echo "Current configuration:"
-        echo -e "  ADMIN_EMAIL:   ${CYAN}${ADMIN_EMAIL:-<not set>}${NC}"
-        echo -e "  GITHUB_USERS:  ${CYAN}${GITHUB_USERS:-<not set>}${NC}"
-        echo -e "  EXTRA_LOCALES: ${CYAN}${EXTRA_LOCALES:-<not set>}${NC}"
+        echo -e "  ADMIN_EMAIL:        ${CYAN}${ADMIN_EMAIL:-<not set>}${NC}"
+        echo -e "  GITHUB_USERS:       ${CYAN}${GITHUB_USERS:-<not set>}${NC}"
+        echo -e "  GITHUB_DEPLOY_KEYS: ${CYAN}${GITHUB_DEPLOY_KEYS:-<not set>}${NC}"
+        echo -e "  EXTRA_LOCALES:      ${CYAN}${EXTRA_LOCALES:-<not set>}${NC}"
         echo ""
         
         if [[ "$NON_INTERACTIVE" == "true" ]]; then
@@ -207,6 +346,7 @@ setup_env() {
             log "Create one with the following variables:"
             echo "  ADMIN_EMAIL=\"your@email.com\""
             echo "  GITHUB_USERS=\"username1 username2\""
+            echo "  GITHUB_DEPLOY_KEYS=\"statisticsnorway/statbus\"   # optional; CI deploy keys"
             echo "  EXTRA_LOCALES=\"sq_AL nb_NO\""
             echo "  SERVICE_USER=\"statbus\"   # optional; default is 'statbus'"
             exit 1
@@ -215,7 +355,9 @@ setup_env() {
     fi
 
     prompt_env_value "ADMIN_EMAIL" "Email address for system notifications (unattended-upgrades):"
-    prompt_env_value "GITHUB_USERS" "GitHub usernames for SSH key fetching (space-separated):"
+    prompt_env_value "GITHUB_USERS" "GitHub usernames for SSH key fetching (space-separated, ED25519-only):"
+    GITHUB_DEPLOY_KEYS="${GITHUB_DEPLOY_KEYS:-statisticsnorway/statbus}"
+    prompt_env_value "GITHUB_DEPLOY_KEYS" "GitHub repo deploy-key sources for CI access (space-separated <org>/<repo>; default: statisticsnorway/statbus):"
     prompt_env_value "EXTRA_LOCALES" "Extra locales to enable without .UTF-8 suffix (e.g., 'sq_AL nb_NO'):"
     SERVICE_USER="${SERVICE_USER:-statbus}"
     prompt_env_value "SERVICE_USER" "Deployment service-account username for Stage 7 (default: statbus):"
@@ -731,7 +873,9 @@ stage_user_setup() {
 
     echo "This stage will:"
     echo "  - Create 'devops' user with passwordless sudo"
-    echo "  - Fetch SSH keys from GitHub: ${GITHUB_USERS:-<not configured>}"
+    echo "  - Fetch SSH keys (ED25519-only) from GitHub:"
+    echo "      Users:       ${GITHUB_USERS:-<not configured>}"
+    echo "      Deploy keys: ${GITHUB_DEPLOY_KEYS:-<not configured>}"
     echo "  - Generate ed25519 SSH keypair for devops"
     echo "  - Install Homebrew (owned by devops)"
     echo "  - Install: helix, bottom, zellij"
@@ -759,43 +903,18 @@ stage_user_setup() {
     chmod 440 /etc/sudoers.d/devops
     
     log "Setting up SSH for devops..."
-    sudo -i -u devops bash <<DEVOPS_SETUP
-mkdir -p ~/.ssh
-chmod 700 ~/.ssh
+    populate_authorized_keys "devops" "$GITHUB_USERS" "$GITHUB_DEPLOY_KEYS"
 
-# Fetch SSH keys from GitHub
-GITHUB_USERS="$GITHUB_USERS"
-for user in \$GITHUB_USERS; do
-    echo "Fetching keys for GitHub user: \$user"
-    keys=\$(curl -sL "https://github.com/\$user.keys" 2>/dev/null)
-    if [[ -n "\$keys" ]]; then
-        echo "\$keys" | while read -r key; do
-            if [[ -n "\$key" ]]; then
-                # Add comment with source
-                echo "\$key # https://github.com/\$user.keys" >> ~/.ssh/authorized_keys
-            fi
-        done
-    else
-        echo "Warning: No keys found for \$user"
-    fi
-done
-
-# Remove duplicates while preserving order
-if [[ -f ~/.ssh/authorized_keys ]]; then
-    awk '!seen[\$0]++' ~/.ssh/authorized_keys > ~/.ssh/authorized_keys.tmp
-    mv ~/.ssh/authorized_keys.tmp ~/.ssh/authorized_keys
-fi
-
-# Generate SSH keypair if not exists
+    # Generate ed25519 SSH keypair for devops if not present, and ensure
+    # mode/ownership on the resulting files.
+    sudo -i -u devops bash <<'DEVOPS_KEYPAIR'
 if [[ ! -f ~/.ssh/id_ed25519 ]]; then
-    ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N "" -C "devops@\$(hostname --fqdn)"
+    ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N "" -C "devops@$(hostname --fqdn)"
 fi
-
-chmod 600 ~/.ssh/authorized_keys 2>/dev/null || true
 chmod 600 ~/.ssh/id_ed25519 2>/dev/null || true
 chmod 644 ~/.ssh/id_ed25519.pub 2>/dev/null || true
-DEVOPS_SETUP
-    
+DEVOPS_KEYPAIR
+
     chown -R devops:devops /home/devops/.ssh
 
     # Grant devops Docker API access. The docker-ce package from Stage 5 creates
@@ -893,7 +1012,7 @@ EOF
     verify "zellij installed" "test -x /home/linuxbrew/.linuxbrew/bin/zellij"
     verify "zellij auto-attach configured" "test -f /etc/profile.d/zellij.sh"
     
-    if [[ -n "$GITHUB_USERS" ]]; then
+    if [[ -n "$GITHUB_USERS" || -n "$GITHUB_DEPLOY_KEYS" ]]; then
         verify "SSH authorized_keys populated" "test -s /home/devops/.ssh/authorized_keys"
     fi
 
@@ -931,15 +1050,19 @@ stage_service_account() {
     echo "This stage will:"
     echo "  - Create Linux user '$user' with /home/$user as home"
     echo "  - Add '$user' to the docker group"
-    echo "  - Populate ~$user/.ssh/authorized_keys from GitHub: ${GITHUB_USERS:-<not configured>}"
+    echo "  - Populate ~$user/.ssh/authorized_keys (ED25519-only) from GitHub:"
+    echo "      Users:       ${GITHUB_USERS:-<not configured>}"
+    echo "      Deploy keys: ${GITHUB_DEPLOY_KEYS:-<not configured>}"
     echo "  - Enable systemd linger so user units survive logout"
     echo ""
-    echo "  Operators will SSH as '$user' to install/operate StatBus."
+    echo "  Operators (and CI deploy workflows) SSH as '$user' to install"
+    echo "  and operate StatBus. The repo deploy key is required for the"
+    echo "  GitHub Actions deploy-to-* workflows to land on this box."
     echo ""
 
-    if [[ -z "$GITHUB_USERS" ]]; then
-        log_warn "No GitHub users configured — SSH keys won't be fetched and"
-        log_warn "nobody will be able to SSH in as '$user' until you add keys manually."
+    if [[ -z "$GITHUB_USERS" && -z "$GITHUB_DEPLOY_KEYS" ]]; then
+        log_warn "No GitHub users OR deploy keys configured — SSH keys won't be fetched and"
+        log_warn "nobody (operator or CI) will be able to SSH in as '$user' until you add keys manually."
     fi
 
     if ! ask_yes_no "Run this stage?"; then
@@ -962,31 +1085,7 @@ stage_service_account() {
     fi
 
     log "Populating SSH keys for '$user'..."
-    sudo -i -u "$user" bash <<SETUP
-mkdir -p ~/.ssh
-chmod 700 ~/.ssh
-: > ~/.ssh/authorized_keys.new
-for gh_user in $GITHUB_USERS; do
-    echo "Fetching keys for GitHub user: \$gh_user"
-    keys=\$(curl -sL "https://github.com/\$gh_user.keys" 2>/dev/null || true)
-    if [[ -n "\$keys" ]]; then
-        echo "\$keys" | while read -r key; do
-            [[ -z "\$key" ]] && continue
-            echo "\$key # https://github.com/\$gh_user.keys" >> ~/.ssh/authorized_keys.new
-        done
-    else
-        echo "Warning: no keys returned for \$gh_user"
-    fi
-done
-# Merge new keys with any pre-existing ones, deduplicate.
-if [[ -s ~/.ssh/authorized_keys ]]; then
-    cat ~/.ssh/authorized_keys >> ~/.ssh/authorized_keys.new
-fi
-awk '!seen[\$0]++' ~/.ssh/authorized_keys.new > ~/.ssh/authorized_keys
-rm -f ~/.ssh/authorized_keys.new
-chmod 600 ~/.ssh/authorized_keys 2>/dev/null || true
-SETUP
-    chown -R "$user:$user" "/home/$user/.ssh"
+    populate_authorized_keys "$user" "$GITHUB_USERS" "$GITHUB_DEPLOY_KEYS"
 
     log "Enabling systemd --user linger for '$user' (so systemctl --user services persist)..."
     loginctl enable-linger "$user"
@@ -999,7 +1098,7 @@ SETUP
         verify "$user is in docker group" "id -nG $user | tr ' ' '\n' | grep -qx docker"
     fi
     verify "$user .ssh dir exists with correct mode" "test -d /home/$user/.ssh"
-    if [[ -n "$GITHUB_USERS" ]]; then
+    if [[ -n "$GITHUB_USERS" || -n "$GITHUB_DEPLOY_KEYS" ]]; then
         verify "$user authorized_keys populated" "test -s /home/$user/.ssh/authorized_keys"
     fi
     verify "$user linger enabled" "loginctl show-user $user -p Linger 2>/dev/null | grep -q 'Linger=yes'"

@@ -22,6 +22,69 @@ DOMAIN="${DEPLOYMENT_SLOT_CODE}.statbus.org"
 DEPLOYMENT_USER="statbus_${DEPLOYMENT_SLOT_CODE}"
 HOST="niue.statbus.org"
 
+# =============================================================================
+# Operator config: which GitHub keys to authorize on this slot
+# =============================================================================
+#
+# Two sources, both fetched via https://github.com/<source>.keys:
+#   GITHUB_USERS       — personal keys for human SSH access (e.g. "jhf hhz")
+#   GITHUB_DEPLOY_KEYS — repo deploy keys for CI access (e.g.
+#                         "statisticsnorway/statbus" gives the deploy-to-*
+#                         workflow ssh ability)
+#
+# Persisted to ~/.create-new-statbus-installation.env so re-runs don't
+# re-prompt. Either var can be overridden inline:
+#     GITHUB_USERS="jhf hhz" GITHUB_DEPLOY_KEYS="statisticsnorway/statbus" \
+#       ./create-new-statbus-installation.sh <slot> "<name>"
+#
+# Empty values are valid (no keys for that source).
+
+OPERATOR_ENV="${HOME}/.create-new-statbus-installation.env"
+
+# shellcheck source=/dev/null
+[[ -f "$OPERATOR_ENV" ]] && source "$OPERATOR_ENV"
+
+# Defaults if neither env nor config file has set them.
+: "${GITHUB_USERS:=jhf hhz}"
+: "${GITHUB_DEPLOY_KEYS:=statisticsnorway/statbus}"
+
+# Interactive prompt if stdin is a tty and the values weren't pre-set
+# (either from env or persisted config). Headless / CI runs use the
+# defaults / pre-set values silently.
+prompt_var() {
+    local name="$1" desc="$2"
+    local current="${!name}"
+    echo ""
+    echo "$desc"
+    echo "  Current: ${current:-<empty>}"
+    if [[ -t 0 ]]; then
+        read -r -p "  New value (Enter to keep current): " new
+        if [[ -n "$new" ]]; then
+            eval "$name=\"\$new\""
+        fi
+    fi
+}
+
+if [[ -t 0 && ! -f "$OPERATOR_ENV" ]]; then
+    echo "First run — choose which GitHub keys to authorize on $DEPLOYMENT_USER@$HOST."
+    echo "Selection persists to $OPERATOR_ENV; subsequent runs skip these prompts."
+    prompt_var GITHUB_USERS "GitHub usernames for human SSH access (space-separated):"
+    prompt_var GITHUB_DEPLOY_KEYS "GitHub repo deploy-key sources for CI access (space-separated <org>/<repo>):"
+
+    cat > "$OPERATOR_ENV" <<EOF
+# create-new-statbus-installation.sh operator config
+# Generated: $(date -Iseconds)
+GITHUB_USERS="$GITHUB_USERS"
+GITHUB_DEPLOY_KEYS="$GITHUB_DEPLOY_KEYS"
+EOF
+    chmod 600 "$OPERATOR_ENV"
+    echo "Saved selection to $OPERATOR_ENV"
+fi
+
+echo "Authorizing on $DEPLOYMENT_USER@$HOST:"
+echo "  GITHUB_USERS:       ${GITHUB_USERS:-<empty>}"
+echo "  GITHUB_DEPLOY_KEYS: ${GITHUB_DEPLOY_KEYS:-<empty>}"
+
 # Verify DNS setup
 echo "Verifying DNS setup..."
 for subdomain in "" "api." "www."; do
@@ -87,36 +150,89 @@ ssh root@$HOST bash <<CREATE_USER
 CREATE_USER
 
 echo "Configuring SSH Access"
+# Inline the same fetch+filter+dedupe contract used by ops/setup-ubuntu-lts-24.sh's
+# populate_authorized_keys helper:
+#   * ED25519-only filter (no RSA dead weight)
+#   * Both source forms — `<user>.keys` and `<org>/<repo>.keys` — auto-detected
+#     by presence of '/'
+#   * Idempotent: existing keys preserved, no duplicates
+# We pass GITHUB_USERS and GITHUB_DEPLOY_KEYS into the heredoc as plain
+# variables; the remote script uses them directly.
 ssh root@$HOST bash <<CONFIGURE_SSH_ACCESS
-    # Print commands if VERBOSE is defined
     if [ -n "${VERBOSE}" ]; then
         set -x
     fi
-    # Configure GitHub users' SSH access
-    echo "Configuring GitHub users SSH access..."
-    GITHUB_USERS=("jhf" "hhz")
+    set -e
 
-    # Add GitHub users' SSH keys
-    for gh_user in "\${GITHUB_USERS[@]}"; do
-        # Create .ssh directory if it doesn't exist
-        sudo -i -u "$DEPLOYMENT_USER" bash -c 'mkdir -p "\$HOME/.ssh"'
+    target_user="$DEPLOYMENT_USER"
+    users_list="$GITHUB_USERS"
+    deploy_keys_list="$GITHUB_DEPLOY_KEYS"
 
-        # Extract the key
-        KEY=\$(curl -sL "https://github.com/\$gh_user.keys" | grep ed25519 | head -n1)
+    home_dir=\$(getent passwd "\$target_user" | cut -d: -f6)
+    if [ -z "\$home_dir" ]; then
+        echo "Error: user '\$target_user' has no home directory" >&2
+        exit 1
+    fi
+    ssh_dir="\$home_dir/.ssh"
+    auth_keys="\$ssh_dir/authorized_keys"
+    stage_file="\$ssh_dir/.authorized_keys.stage.\$\$"
 
-        if [ -n "\$KEY" ]; then
-            # Check if key already exists
-            if ! sudo -i -u "$DEPLOYMENT_USER" bash -c "grep -q \"\$KEY\" \"\\\$HOME/.ssh/authorized_keys\"" 2>/dev/null; then
-                # Add the key with comment
-                echo "\$KEY # https://github.com/\$gh_user.keys" | sudo -i -u "$DEPLOYMENT_USER" bash -c 'cat >> "\$HOME/.ssh/authorized_keys"'
-                echo "Added SSH key for GitHub user \$gh_user"
-            else
-                echo "SSH key for GitHub user \$gh_user already exists"
-            fi
+    mkdir -p "\$ssh_dir"
+    chown "\$target_user:\$target_user" "\$ssh_dir"
+    chmod 700 "\$ssh_dir"
+
+    : > "\$stage_file"
+
+    fetch_source() {
+        local source="\$1" url keys key
+        url="https://github.com/\${source}.keys"
+        echo "Fetching ED25519 keys from \$url"
+        keys=\$(curl -sL --fail "\$url" 2>/dev/null || true)
+        if [ -z "\$keys" ]; then
+            echo "Warning: no keys returned from \$url" >&2
+            return 0
         fi
-        # Set proper permissions on SSH directory and files
-        sudo -i -u "$DEPLOYMENT_USER" bash -c 'chmod 700 "\$HOME/.ssh" && chmod 600 "\$HOME/.ssh/authorized_keys"'
+        while IFS= read -r key; do
+            [ -z "\$key" ] && continue
+            if [[ "\$key" =~ (^|[[:space:]])ssh-ed25519[[:space:]] ]]; then
+                printf '%s # %s\n' "\$key" "\$url" >> "\$stage_file"
+            fi
+        done <<< "\$keys"
+    }
+
+    for s in \$users_list; do
+        fetch_source "\$s"
     done
+    for s in \$deploy_keys_list; do
+        fetch_source "\$s"
+    done
+
+    if [ -s "\$auth_keys" ]; then
+        cat "\$auth_keys" >> "\$stage_file"
+    fi
+
+    awk '
+        {
+            if (\$0 ~ /^[[:space:]]*\$/) next
+            stripped = \$0
+            sub(/^[[:space:]]*/, "", stripped)
+            if (substr(stripped, 1, 1) == "#") next
+            n = split(\$0, t, /[[:space:]]+/)
+            algo_idx = 0
+            for (i = 1; i <= n; i++) {
+                if (t[i] ~ /^(ssh-|ecdsa-|sk-)/) { algo_idx = i; break }
+            }
+            if (algo_idx == 0 || algo_idx + 1 > n) next
+            keybody = t[algo_idx] " " t[algo_idx + 1]
+            if (!seen[keybody]++) print
+        }
+    ' "\$stage_file" > "\$auth_keys"
+    rm -f "\$stage_file"
+
+    chown "\$target_user:\$target_user" "\$auth_keys"
+    chmod 600 "\$auth_keys"
+
+    echo "Wrote \$(wc -l < "\$auth_keys") authorized key(s) for \$target_user"
 CONFIGURE_SSH_ACCESS
 
 echo "Configuring github deployment with ssh"
