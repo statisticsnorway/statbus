@@ -616,6 +616,11 @@ def check_consistency():
             internal_divergent = cur.fetchall()
 
             # --- Layer B: ground-truth via statistical_unit at year-end ---
+            # Truth predicate matches statistical_history_def's stock_at_end_of_curr CTE:
+            #   slice covers year-end AND birth_date <= year-end AND (death_date IS NULL OR death_date > year-end).
+            # The slice-only naive form (valid_from/valid_until) overcounts units whose
+            # temporal slice happens to cover the year-end but whose birth_date is later —
+            # statistical_history excludes those, correctly.
             cur.execute("""
                 WITH years AS (
                     SELECT DISTINCT year FROM public.statistical_history
@@ -626,12 +631,16 @@ def check_consistency():
                        FROM public.statistical_unit AS su
                        WHERE su.unit_type = sh.unit_type
                          AND su.valid_from <= make_date(y.year, 12, 31)
-                         AND su.valid_until > make_date(y.year, 12, 31)) AS truth_exists,
+                         AND su.valid_until > make_date(y.year, 12, 31)
+                         AND COALESCE(su.birth_date, su.valid_from) <= make_date(y.year, 12, 31)
+                         AND (su.death_date IS NULL OR su.death_date > make_date(y.year, 12, 31))) AS truth_exists,
                     (SELECT COUNT(DISTINCT su.unit_id)
                        FROM public.statistical_unit AS su
                        WHERE su.unit_type = sh.unit_type
                          AND su.valid_from <= make_date(y.year, 12, 31)
                          AND su.valid_until > make_date(y.year, 12, 31)
+                         AND COALESCE(su.birth_date, su.valid_from) <= make_date(y.year, 12, 31)
+                         AND (su.death_date IS NULL OR su.death_date > make_date(y.year, 12, 31))
                          AND su.used_for_counting) AS truth_countable
                 FROM years AS y
                 JOIN public.statistical_history AS sh
