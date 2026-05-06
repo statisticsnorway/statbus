@@ -32,13 +32,35 @@
 #   - else grep agentName from the session's transcript .jsonl
 #   - if unidentifiable → permissive fallback (never hard-break legitimate work)
 #
-# Parameterization:
-#   CLAUDE_TEAM_CONFIG — full path to team config (overrides constructed path; used by tests)
-#   CLAUDE_TEAM_NAME   — team name inside ~/.claude-veridit/teams/ (default: team)
+# Parameterization (precedence: high → low):
+#   CLAUDE_TEAM_NAME   — team name inside ${CLAUDE_CONFIG_DIR}/teams/. Set
+#                        per-shell when you want a non-default team.
+#   .claude/team.name  — project-local file, single line containing a team
+#                        name. Lets per-checkout teams coexist (e.g. one user
+#                        running two statbus checkouts in parallel, each with
+#                        its own tester slot) without touching settings.json
+#                        or shell env.
+#   default            — "team"
 
 set -euo pipefail
 
-TEAM_CONFIG="${CLAUDE_TEAM_CONFIG:-${HOME}/.claude-veridit/teams/${CLAUDE_TEAM_NAME:-team}/config.json}"
+resolve_team_name() {
+  if [[ -n "${CLAUDE_TEAM_NAME:-}" ]]; then
+    echo "$CLAUDE_TEAM_NAME"
+    return
+  fi
+  if [[ -f ".claude/team.name" ]]; then
+    local _name
+    _name=$(head -1 ".claude/team.name" | tr -d '[:space:]' || true)
+    if [[ -n "$_name" ]]; then
+      echo "$_name"
+      return
+    fi
+  fi
+  echo "team"
+}
+
+TEAM_CONFIG="${CLAUDE_CONFIG_DIR}/teams/$(resolve_team_name)/config.json"
 
 payload=$(cat)
 tool=$(jq -r '.tool_name // empty' <<<"$payload")

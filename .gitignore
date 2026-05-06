@@ -500,6 +500,7 @@ app/tmp/
 .claude/settings.local.json
 .claude/todos.local.json
 .claude/scheduled_tasks.lock
+.claude/team.name
 
 # Ignore migration seeds (large binary dumps and list files, generated locally)
 migrations/seeds/*.pg_dump

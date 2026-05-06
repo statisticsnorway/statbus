@@ -16,8 +16,8 @@
 #
 # Parameterisation:
 #   HOOK_ENABLED_REQUIRE_TASK_SLUG — set to 0 to disable (default: 1 = active)
-#   CLAUDE_TASK_DIR                — override task directory (used by tests)
-#   CLAUDE_TEAM_NAME               — team name inside ~/.claude-veridit/tasks/
+#   CLAUDE_TEAM_NAME               — team name inside ${CLAUDE_CONFIG_DIR}/tasks/
+#   .claude/team.name              — project-local team-name fallback (single line)
 #
 set -euo pipefail
 
@@ -28,7 +28,23 @@ if [[ "$HOOK_ENABLED" != "1" ]]; then
 fi
 # ─── live hook logic below ──────────────────────────────────────────────
 
-TASK_DIR="${CLAUDE_TASK_DIR:-${HOME}/.claude-veridit/tasks/${CLAUDE_TEAM_NAME:-team}}"
+resolve_team_name() {
+  if [[ -n "${CLAUDE_TEAM_NAME:-}" ]]; then
+    echo "$CLAUDE_TEAM_NAME"
+    return
+  fi
+  if [[ -f ".claude/team.name" ]]; then
+    local _name
+    _name=$(head -1 ".claude/team.name" | tr -d '[:space:]' || true)
+    if [[ -n "$_name" ]]; then
+      echo "$_name"
+      return
+    fi
+  fi
+  echo "team"
+}
+
+TASK_DIR="${CLAUDE_CONFIG_DIR}/tasks/$(resolve_team_name)"
 
 payload=$(cat)
 tool=$(jq -r '.tool_name // empty' <<<"$payload")
