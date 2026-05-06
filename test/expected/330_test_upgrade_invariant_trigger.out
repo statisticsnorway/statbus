@@ -1,0 +1,199 @@
+-- Test: BEFORE-INSERT-OR-UPDATE trigger upgrade_block_obsolete_pending_trigger
+--       and backstop procedure upgrade_reap_ancestors_of_completed.
+--
+-- The trigger enforces the cross-row invariant:
+--   "no available/scheduled row may be a strict ancestor of a completed
+--    row whose release_status is greater than or equal to its own."
+--
+-- Auto-supersede on insert preserves audit trail (the row exists, with
+-- state=superseded and superseded_at timestamp) — vs erroring, which
+-- would lose the row entirely.
+--
+-- Coverage:
+--   T1. Insert obsolete-ancestor available row → trigger flips to superseded
+--   T2. Hierarchy guard: tagged prerelease NOT auto-superseded by older
+--       commit-status completed row
+--   T3. Insert with state=completed → trigger no-op (terminal state)
+--   T4. UPDATE state to available on a row that is now obsolete → trigger fires
+--   T5. UPDATE release_status promotes a row that becomes obsolete → trigger fires
+--   T6. Backstop procedure: with trigger temporarily disabled, manually
+--       insert orphan ancestor; backstop reaps it
+--   T7. Backstop is idempotent (second call returns 0 from outer count)
+--
+-- Shared-test harness: wrap in BEGIN/ROLLBACK for cloned-template isolation.
+BEGIN;
+TRUNCATE public.upgrade RESTART IDENTITY;
+\echo '=== T1: trigger flips obsolete-ancestor available row to superseded on insert ==='
+=== T1: trigger flips obsolete-ancestor available row to superseded on insert ===
+-- Anchor: a completed prerelease (the "running" row).
+INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary, commit_tags, completed_at, log_relative_file_path)
+VALUES (lpad(to_hex(100), 40, '0'), now(), 'prerelease', 'completed',
+        'running v2026.04.0-rc.10', ARRAY['v2026.04.0-rc.10'], now(), 'log.txt');
+-- Insert an older prerelease as available — trigger should auto-supersede it.
+INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary, commit_tags)
+VALUES (lpad(to_hex(50), 40, '0'), now() - '1 day'::interval, 'prerelease', 'available',
+        'older retroactive tag v2026.04.0-rc.9', ARRAY['v2026.04.0-rc.9']);
+SELECT id, commit_tags[1] AS tag, state, superseded_at IS NOT NULL AS has_superseded_at
+  FROM public.upgrade ORDER BY id;
+ id |       tag        |   state    | has_superseded_at 
+----+------------------+------------+-------------------
+  1 | v2026.04.0-rc.10 | completed  | f
+  2 | v2026.04.0-rc.9  | superseded | t
+(2 rows)
+
+\echo '=== T2: hierarchy guard — tagged prerelease NOT auto-superseded by completed plain commit ==='
+=== T2: hierarchy guard — tagged prerelease NOT auto-superseded by completed plain commit ===
+TRUNCATE public.upgrade RESTART IDENTITY;
+-- Anchor: a completed plain commit (release_status='commit').
+INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary, completed_at, log_relative_file_path)
+VALUES (lpad(to_hex(100), 40, '0'), now(), 'commit', 'completed',
+        'running plain commit', now(), 'log.txt');
+-- Insert an older PRERELEASE as available — must NOT be auto-superseded
+-- because release_status='prerelease' > 'commit'. Tagged milestones beat
+-- plain commits in the hierarchy.
+INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary, commit_tags)
+VALUES (lpad(to_hex(50), 40, '0'), now() - '1 day'::interval, 'prerelease', 'available',
+        'older but tagged prerelease', ARRAY['v2026.04.0-rc.9']);
+SELECT id, commit_tags[1] AS tag, release_status, state, superseded_at IS NOT NULL AS has_superseded_at
+  FROM public.upgrade ORDER BY id;
+ id |       tag       | release_status |   state   | has_superseded_at 
+----+-----------------+----------------+-----------+-------------------
+  1 |                 | commit         | completed | f
+  2 | v2026.04.0-rc.9 | prerelease     | available | f
+(2 rows)
+
+\echo '=== T3: completed-state insert is a trigger no-op ==='
+=== T3: completed-state insert is a trigger no-op ===
+TRUNCATE public.upgrade RESTART IDENTITY;
+-- Anchor: completed prerelease.
+INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary, commit_tags, completed_at, log_relative_file_path)
+VALUES (lpad(to_hex(100), 40, '0'), now(), 'prerelease', 'completed',
+        'running v2026.04.0-rc.10', ARRAY['v2026.04.0-rc.10'], now(), 'log.txt');
+-- Insert another completed row at older time — trigger only acts on
+-- (available, scheduled). Completed rows pass through unchanged.
+INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary, commit_tags, completed_at, log_relative_file_path)
+VALUES (lpad(to_hex(50), 40, '0'), now() - '1 day'::interval, 'prerelease', 'completed',
+        'older completed prerelease', ARRAY['v2026.04.0-rc.9'], now() - '1 day'::interval, 'log.txt');
+SELECT id, commit_tags[1] AS tag, state, superseded_at IS NOT NULL AS has_superseded_at
+  FROM public.upgrade ORDER BY id;
+ id |       tag        |   state   | has_superseded_at 
+----+------------------+-----------+-------------------
+  1 | v2026.04.0-rc.10 | completed | f
+  2 | v2026.04.0-rc.9  | completed | f
+(2 rows)
+
+\echo '=== T4: UPDATE state available → trigger fires when row becomes obsolete ==='
+=== T4: UPDATE state available → trigger fires when row becomes obsolete ===
+TRUNCATE public.upgrade RESTART IDENTITY;
+-- Insert a not-yet-obsolete available row first (no completed anchor exists).
+INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary, commit_tags)
+VALUES (lpad(to_hex(50), 40, '0'), now() - '1 day'::interval, 'prerelease', 'available',
+        'pre-existing available', ARRAY['v2026.04.0-rc.9']);
+-- Now add the completed anchor.
+INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary, commit_tags, completed_at, log_relative_file_path)
+VALUES (lpad(to_hex(100), 40, '0'), now(), 'prerelease', 'completed',
+        'running v2026.04.0-rc.10', ARRAY['v2026.04.0-rc.10'], now(), 'log.txt');
+-- Force a "no-op" UPDATE on the available row's state — the trigger fires
+-- because state is in the OF list, and now the row IS obsolete vs the
+-- newly-arrived anchor. UPDATE sets state=state to drive the trigger.
+UPDATE public.upgrade SET state = state WHERE id = 1;
+SELECT id, commit_tags[1] AS tag, state, superseded_at IS NOT NULL AS has_superseded_at
+  FROM public.upgrade ORDER BY id;
+ id |       tag        |   state    | has_superseded_at 
+----+------------------+------------+-------------------
+  1 | v2026.04.0-rc.9  | superseded | t
+  2 | v2026.04.0-rc.10 | completed  | f
+(2 rows)
+
+\echo '=== T5: UPDATE release_status promoting row that becomes obsolete ==='
+=== T5: UPDATE release_status promoting row that becomes obsolete ===
+TRUNCATE public.upgrade RESTART IDENTITY;
+-- Anchor: completed prerelease.
+INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary, commit_tags, completed_at, log_relative_file_path)
+VALUES (lpad(to_hex(100), 40, '0'), now(), 'prerelease', 'completed',
+        'running v2026.04.0-rc.10', ARRAY['v2026.04.0-rc.10'], now(), 'log.txt');
+-- Available row with release_status='commit' — NOT obsolete vs the anchor
+-- (anchor.release_status='prerelease' > 'commit', hierarchy lets it stay).
+INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary)
+VALUES (lpad(to_hex(50), 40, '0'), now() - '1 day'::interval, 'commit', 'available',
+        'plain commit, older');
+SELECT id, release_status, state FROM public.upgrade ORDER BY id;
+ id | release_status |   state    
+----+----------------+------------
+  1 | prerelease     | completed
+  2 | commit         | superseded
+(2 rows)
+
+-- Promote the commit-status row to prerelease (e.g. tag landed on it).
+-- After the promotion, the row IS obsolete (older than anchor with
+-- release_status >= prerelease). Trigger should auto-supersede.
+UPDATE public.upgrade SET release_status = 'prerelease' WHERE id = 2;
+SELECT id, release_status, state, superseded_at IS NOT NULL AS has_superseded_at
+  FROM public.upgrade ORDER BY id;
+ id | release_status |   state    | has_superseded_at 
+----+----------------+------------+-------------------
+  1 | prerelease     | completed  | f
+  2 | prerelease     | superseded | t
+(2 rows)
+
+\echo '=== T6: backstop procedure reaps trigger-bypassed orphan ==='
+=== T6: backstop procedure reaps trigger-bypassed orphan ===
+TRUNCATE public.upgrade RESTART IDENTITY;
+-- Anchor: completed prerelease.
+INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary, commit_tags, completed_at, log_relative_file_path)
+VALUES (lpad(to_hex(100), 40, '0'), now(), 'prerelease', 'completed',
+        'running', ARRAY['v2026.04.0-rc.10'], now(), 'log.txt');
+-- Disable trigger to simulate a pre-trigger-era orphan landing in available.
+ALTER TABLE public.upgrade DISABLE TRIGGER upgrade_block_obsolete_pending_trigger;
+INSERT INTO public.upgrade (commit_sha, committed_at, release_status, state, summary, commit_tags)
+VALUES (lpad(to_hex(50), 40, '0'), now() - '1 day'::interval, 'prerelease', 'available',
+        'orphan ancestor', ARRAY['v2026.04.0-rc.9']);
+ALTER TABLE public.upgrade ENABLE TRIGGER upgrade_block_obsolete_pending_trigger;
+\echo 'before backstop:'
+before backstop:
+SELECT id, state FROM public.upgrade ORDER BY id;
+ id |   state   
+----+-----------
+  1 | completed
+  2 | available
+(2 rows)
+
+CALL public.upgrade_reap_ancestors_of_completed(0);
+NOTICE:  upgrade_supersede_older: superseded 1 row(s) older than 0000000000000000000000000000000000000064 (status=prerelease)
+NOTICE:  upgrade_reap_ancestors_of_completed: superseded 1 row(s)
+ p_superseded 
+--------------
+            1
+(1 row)
+
+\echo 'after backstop:'
+after backstop:
+SELECT id, state, superseded_at IS NOT NULL AS has_superseded_at
+  FROM public.upgrade ORDER BY id;
+ id |   state    | has_superseded_at 
+----+------------+-------------------
+  1 | completed  | f
+  2 | superseded | t
+(2 rows)
+
+\echo '=== T7: backstop is idempotent ==='
+=== T7: backstop is idempotent ===
+-- Already-superseded rows are not in supersede_older's WHERE filter;
+-- re-running finds nothing to do.
+CALL public.upgrade_reap_ancestors_of_completed(0);
+ p_superseded 
+--------------
+            0
+(1 row)
+
+SELECT count(*) FILTER (WHERE state = 'superseded') AS superseded_count,
+       count(*) FILTER (WHERE state = 'available')  AS available_count
+  FROM public.upgrade;
+ superseded_count | available_count 
+------------------+-----------------
+                1 |               0
+(1 row)
+
+\echo '=== all trigger + backstop tests done ==='
+=== all trigger + backstop tests done ===
+ROLLBACK;
