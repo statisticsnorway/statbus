@@ -60,7 +60,6 @@ interface Upgrade {
   id: number;
   commit_sha: string;
   committed_at: string;
-  topological_order: number | null;
   commit_tags: string[];
   release_status: 'commit' | 'prerelease' | 'release';
   display_name: string;
@@ -147,7 +146,7 @@ export default function UpgradesPage() {
     // display_name + display_state are PostgREST computed columns (functions
     // taking the row type) — must be listed explicitly in select; select=*
     // only covers real + GENERATED columns.
-    "/rest/upgrade?select=*,display_name,display_state&order=topological_order.desc.nullslast,committed_at.desc&limit=100",
+    "/rest/upgrade?select=*,display_name,display_state&order=committed_at.desc&limit=100",
     fetcher,
     {
       // Poll fast (3s) when an upgrade is active, slow (30s) otherwise.
@@ -411,27 +410,23 @@ export default function UpgradesPage() {
         // this filter, an older prerelease (say rc.64) outranks newer edge
         // commits via the tier-first sort below, surfacing a downgrade as
         // "Recommended". Mirrors the backend's supersede semantics in
-        // migrations/20260418204304_supersede_respects_release_status_hierarchy.up.sql:
-        // a row is candidate-for-action only when it's strictly newer than
-        // the running version. Falls back to committed_at when topological_order
-        // is NULL (the discovery daemon doesn't currently populate that column;
-        // tracked as an rc.67 follow-up).
+        // migrations/20260418204304_supersede_respects_release_status_hierarchy.up.sql.
         if (latestCompleted) {
           available = available.filter(u =>
-            (u.topological_order ?? 0) > (latestCompleted.topological_order ?? 0)
-            || u.committed_at > latestCompleted.committed_at
+            u.committed_at > latestCompleted.committed_at
           );
         }
 
         // Sort available: tagged releases first (release > prerelease > commit),
-        // then by topology within each tier. This ensures the "Recommended" badge
-        // goes to the latest tagged release, not a newer plain commit.
+        // then by id (monotonic with discovery, equivalent to commit-time order
+        // within a tier). This ensures the "Recommended" badge goes to the
+        // latest tagged release, not a newer plain commit.
         const statusRank: Record<string, number> = { release: 3, prerelease: 2, commit: 1 };
         available.sort((a, b) => {
           const sa = statusRank[a.release_status] ?? 0;
           const sb = statusRank[b.release_status] ?? 0;
           if (sa !== sb) return sb - sa;
-          return (b.topological_order ?? b.id) - (a.topological_order ?? a.id);
+          return b.id - a.id;
         });
 
         // When an upgrade is scheduled or in-progress, hide available entries entirely.
@@ -467,7 +462,7 @@ export default function UpgradesPage() {
         const renderCard = (u: Upgrade, variant?: "recommended" | "superseded") => {
           const status = u.state;
           const canRestore = latestCompleted
-            ? (u.topological_order ?? 0) > (latestCompleted.topological_order ?? 0) || u.committed_at > latestCompleted.committed_at
+            ? u.committed_at > latestCompleted.committed_at
             : true;
           return (
             <UpgradeCard
@@ -522,7 +517,7 @@ export default function UpgradesPage() {
         const topSection: { u: Upgrade; variant?: "recommended" | "superseded" }[] = [
           ...actionable.map(u => ({ u })),
           ...(latestWithMigrations ? [{ u: latestWithMigrations, variant: "recommended" as const }] : []),
-        ].sort((a, b) => (b.u.topological_order ?? b.u.id) - (a.u.topological_order ?? a.u.id));
+        ].sort((a, b) => b.u.id - a.u.id);
 
         return (
           <div className="space-y-3">

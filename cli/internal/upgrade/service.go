@@ -2451,7 +2451,9 @@ func (d *Service) discover(ctx context.Context) {
 			   release_builds_status = CASE
 			       WHEN EXCLUDED.release_status > upgrade.release_status THEN 'building'::public.release_builds_status_type
 			       ELSE upgrade.release_builds_status
-			   END
+			   END,
+			   commit_version = (CASE WHEN $3 = ANY(upgrade.commit_tags) THEN upgrade.commit_tags
+			                          ELSE array_append(upgrade.commit_tags, $3) END)[1]
 			 WHERE NOT ($3 = ANY(upgrade.commit_tags))
 			    OR upgrade.release_status < EXCLUDED.release_status`,
 			t.CommitSHA, t.PublishedAt, t.TagName, targetStatus, t.TagName)
@@ -2478,7 +2480,9 @@ func (d *Service) discover(ctx context.Context) {
 			`UPDATE public.upgrade SET
 			   commit_tags = CASE WHEN $2 = ANY(upgrade.commit_tags) THEN upgrade.commit_tags
 			                      ELSE array_append(upgrade.commit_tags, $2) END,
-			   release_status = GREATEST(upgrade.release_status, $3::public.release_status_type)
+			   release_status = GREATEST(upgrade.release_status, $3::public.release_status_type),
+			   commit_version = (CASE WHEN $2 = ANY(upgrade.commit_tags) THEN upgrade.commit_tags
+			                          ELSE array_append(upgrade.commit_tags, $2) END)[1]
 			 WHERE commit_sha = $1
 			   AND (NOT ($2 = ANY(upgrade.commit_tags)) OR upgrade.release_status < $3::public.release_status_type)`,
 			t.CommitSHA, t.TagName, targetStatus)
