@@ -1304,6 +1304,7 @@ func logUpgradeRow(label string, row string) {
 //	ErrRollbackServicesUp    — rollback docker compose up failed after DB restore
 //	ErrRollbackBinaryCorrupt — rollback could not restore ./sb from ./sb.old (operator must mv manually)
 //	ErrBinaryReplaceFailed   — mid-flow binary replacement (download/verify/swap) failed before migrations
+//	ErrBinaryBuildFailed     — mid-flow `make -C cli build` from source failed (edge channel; no release artifact)
 //	ErrInstallFixupFailed    — post-upgrade ./sb install fixup step failed (non-fatal)
 const (
 	ErrMigrationFailed       = "MIGRATION_FAILED"
@@ -1317,6 +1318,7 @@ const (
 	ErrRollbackServicesUp    = "ROLLBACK_FAILED_SERVICES_UP"
 	ErrRollbackBinaryCorrupt = "ROLLBACK_FAILED_BINARY_CORRUPT"
 	ErrBinaryReplaceFailed   = "BINARY_REPLACE_FAILED"
+	ErrBinaryBuildFailed     = "BINARY_BUILD_FAILED"
 	ErrInstallFixupFailed    = "INSTALL_FIXUP_FAILED"
 	// ErrInstallPreconditionFailed — an installable precondition was not
 	// met at recovery time (binary SHA mismatch, migration gap, etc.).
@@ -4109,21 +4111,20 @@ func readProgressLogTail(path string, n int) string {
 
 // replaceBinaryOnDisk swaps ./sb for the release binary matching `version`.
 //
-// Called mid-flow in executeUpgrade (between git checkout and ./sb config
-// generate), so subsequent `./sb …` subprocesses (config generate, migrate
-// up, install fixup) run the NEW compiled Go code — not just the new
-// templates/SQL pulled in by the git checkout. This closes the rc.6→rc.7
-// class of bug where template-level fixes landed but the binary still ran
-// old Go against them.
+// Called mid-flow in executeUpgrade (between git checkout and the post-swap
+// handoff). Tagged-release path: source is the GitHub release manifest.
+// Edge-commit path uses buildBinaryOnDisk instead. Both produce a fresh
+// ./sb on disk so the post-swap process (handed off via exit-42 or exec)
+// runs the NEW compiled Go code — not just the new templates/SQL pulled
+// in by the git checkout. This closes the rc.6→rc.7 class of bug where
+// template-level fixes landed but the binary still ran old Go against them.
 //
-// Does NOT self-replace the running upgrade-service process; that still
-// happens end-of-flow via selfUpdate() + exit-42. By then the file on
-// disk already matches the target, so selfUpdate()'s same-hash shortcut
-// in selfupdate.Update() makes it a no-op download and a pure exit-42 handoff.
+// Does NOT self-replace the running upgrade-service process; that happens
+// via the explicit handoff in executeUpgrade (os.Exit(42) under systemd,
+// syscall.Exec inline).
 //
 // Errors when no binary exists for the current platform — the pre-flight
 // check should have caught this, but defense-in-depth catches late changes.
-// Untagged edge commits skip this function entirely (caller guards on displayName).
 func (d *Service) replaceBinaryOnDisk(version string, progress *ProgressLog) error {
 	manifest, err := FetchManifest(version)
 	if err != nil {
@@ -4140,6 +4141,46 @@ func (d *Service) replaceBinaryOnDisk(version string, progress *ProgressLog) err
 		return err
 	}
 	progress.Write("./sb replaced; ./sb.old kept as rollback.")
+	return nil
+}
+
+// buildBinaryOnDisk compiles ./sb from the just-checked-out cli/ tree and
+// swaps it in, mirroring replaceBinaryOnDisk for tagged releases. Called
+// mid-flow in executeUpgrade for edge commits, where no release artifact
+// exists in any GitHub manifest.
+//
+// Build inputs come from cli/Makefile: VERSION=$(git describe --tags),
+// COMMIT=$(git rev-parse HEAD). Since git checkout already moved HEAD to
+// the target, the resulting binary's compile-time commit matches HEAD
+// and the freshness check in subsequent ./sb subprocesses passes.
+//
+// Atomicity: rename ./sb → ./sb.old, then `make -C cli build` writes
+// directly to ../sb (i.e. ./sb) using Go's tempfile-then-rename. There
+// is a brief window between the .old rename and Go's rename where ./sb
+// does not exist — safe inside the upgrade pipeline because maintenance
+// mode is on, all services are stopped, and the only ./sb consumer is
+// this very process which is busy running `make`.
+//
+// On failure: rename .old back to ./sb so the deploy host isn't left
+// without a usable binary. The caller (executeUpgrade) then invokes
+// rollback() with ErrBinaryBuildFailed.
+func (d *Service) buildBinaryOnDisk(displayName string, progress *ProgressLog) error {
+	sbPath := filepath.Join(d.projDir, "sb")
+	sbOldPath := sbPath + ".old"
+
+	if err := os.Rename(sbPath, sbOldPath); err != nil {
+		return fmt.Errorf("preserve ./sb.old: %w", err)
+	}
+	progress.Write("Building ./sb from source for edge commit %s...", displayName)
+	if err := runCommandToLog(d.projDir, 5*time.Minute, progress.File(),
+		"make-build-sb", "make", "-C", "cli", "build"); err != nil {
+		// Restore .old so the host still has a working ./sb after rollback.
+		if rerr := os.Rename(sbOldPath, sbPath); rerr != nil {
+			return fmt.Errorf("make -C cli build failed AND ./sb.old restore failed: build=%v restore=%v", err, rerr)
+		}
+		return fmt.Errorf("make -C cli build: %w", err)
+	}
+	progress.Write("./sb rebuilt; ./sb.old kept as rollback.")
 	return nil
 }
 
