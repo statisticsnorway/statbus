@@ -1397,7 +1397,6 @@ erDiagram
 		integer id
 		text commit_sha
 		timestamp_with_time_zone committed_at
-		integer topological_order
 		text[] commit_tags
 		release_status_type release_status
 		text summary
