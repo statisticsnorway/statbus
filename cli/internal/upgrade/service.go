@@ -3196,51 +3196,69 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 		}
 	}
 
-	// Step 6b: Swap ./sb for the release binary BEFORE any subprocess runs,
-	// then hand off to a fresh process so the remaining in-process Go runs
-	// against the NEW compiled code. Without this handoff, bugs fixed between
-	// releases (e.g. rc.48→rc.51's healthURL) stay latent because the long-
-	// running daemon's .text segment still holds the old binary image even
-	// though ./sb on disk is the new version.
+	// Step 6b: Procure a fresh ./sb on disk, then ALWAYS hand off to a new
+	// process so the remaining pipeline runs against the NEW compiled Go
+	// code. Without this handoff, bugs fixed between releases (e.g.
+	// rc.48→rc.51's healthURL) stay latent because the running daemon's
+	// .text segment still holds the old binary image even though ./sb on
+	// disk is the new version.
 	//
-	// Tagged releases only — untagged commit targets (edge channel) have
-	// no release binary in the manifest.
-	needsRestartForNewBinary := false
+	// Two procurement sources, one swap+handoff path:
+	//   - tagged release: replaceBinaryOnDisk pulls the manifest artifact
+	//   - edge commit:    buildBinaryOnDisk runs `make -C cli build`
+	//
+	// Both produce ./sb at the target commit and preserve ./sb.old for
+	// rollback. Both upgrades go through the same swap+handoff plumbing,
+	// so every upgrade exercises the path — no rarely-run "skip handoff"
+	// branch can rot silently (the failure mode that bit edge in rc.70).
+	var (
+		procureErr  error
+		procureCode string
+	)
 	if ValidateVersion(displayName) {
-		if err := d.replaceBinaryOnDisk(displayName, progress); err != nil {
-			d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: %v", ErrBinaryReplaceFailed, err), progress)
-			return err
-		}
-		// Under the service (long-running daemon), hand off via exit 42.
-		// Install-inline (ExecuteUpgradeInline) already runs in a fresh
-		// `./sb install` process image with the new binary on disk — no
-		// handoff needed; fall through to applyPostSwap in-process.
-		needsRestartForNewBinary = d.runningAsService
+		procureErr = d.replaceBinaryOnDisk(displayName, progress)
+		procureCode = ErrBinaryReplaceFailed
+	} else {
+		procureErr = d.buildBinaryOnDisk(displayName, progress)
+		procureCode = ErrBinaryBuildFailed
+	}
+	if procureErr != nil {
+		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: %v", procureCode, procureErr), progress)
+		return procureErr
 	}
 
-	if needsRestartForNewBinary {
-		// Stamp the flag as post-swap and store the finalised backup path
-		// so resumePostSwap (after systemd restart) can roll back without
-		// a live DB connection. queryConn was closed back at Step 2 for the
-		// consistent-backup stop, so we can't persist to public.upgrade
-		// here — the flag file is the handoff channel.
-		if err := d.updateFlagPostSwap(backupPath); err != nil {
-			d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("stamp post_swap flag: %v", err), progress)
-			return err
-		}
-		progress.Write("Binary swapped on disk. Handing off to fresh process on the new binary via systemd restart...")
-		progress.Close()
-		// Exit 42 → systemd restart → new binary's Run() → recoverFromFlag
-		// sees Phase=FlagPhasePostSwap and dispatches resumePostSwap, which
-		// re-enters the pipeline at applyPostSwap.
+	// Stamp the flag as post-swap and store the finalised backup path so
+	// the next process (after exit-42 restart or syscall.Exec) can roll
+	// back without a live DB connection. queryConn was closed back at
+	// Step 2 for the consistent-backup stop, so we can't persist to
+	// public.upgrade here — the flag file is the handoff channel.
+	if err := d.updateFlagPostSwap(backupPath); err != nil {
+		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("stamp post_swap flag: %v", err), progress)
+		return err
+	}
+	progress.Write("Binary swapped on disk. Handing off to fresh process on the new code...")
+	progress.Close()
+
+	// Hand off to fresh process. Mechanism differs by mode; the semantic
+	// (next process sees post_swap flag → dispatches resumePostSwap →
+	// re-enters the pipeline at applyPostSwap) is the same.
+	if d.runningAsService {
+		// systemd-managed daemon: exit-42 → unit restarts on the new binary.
 		os.Exit(42)
 	}
-
-	// Install-inline (one-shot, runningAsService=false) and untagged
-	// edge commits (no release binary to swap) both continue
-	// in-process. applyPostSwap runs the same steps the resumed
-	// service would run.
-	return d.applyPostSwap(ctx, id, commitSHA, displayName, previousVersion, backupPath, d.pendingRecreate, progress)
+	// Install-inline (one-shot foreground): replace this process image
+	// with the new ./sb in-place. argv/env preserved; the new binary
+	// hits recoverFromFlag at startup and resumes at applyPostSwap.
+	sbPath := filepath.Join(d.projDir, "sb")
+	if err := syscall.Exec(sbPath, os.Args, os.Environ()); err != nil {
+		// exec is rare-fail (ENOEXEC on a corrupted just-built binary,
+		// EACCES on a perm bug). Surface rather than fall back to the
+		// in-process orchestrator — the post-swap flag is set, so the
+		// operator's next ./sb invocation will pick up resume-from-flag.
+		return fmt.Errorf("exec into new binary at %s: %w", sbPath, err)
+	}
+	// unreachable
+	return nil
 }
 
 // applyPostSwap runs the upgrade steps that require the target binary's
@@ -3248,13 +3266,12 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 // reconnect → persist final backup_path → migrate → app/worker/rest up →
 // health check → maintenance off → archive → install-fixup → state=completed.
 //
-// Entry points:
-//
-//  1. executeUpgrade — fall-through path for install-inline (already a fresh
-//     process image) and untagged edge commits (no mid-flow binary swap).
-//  2. resumePostSwap — after a systemd restart following exit 42; the new
-//     service process rebuilt its progress log + flock from flag state and
-//     re-enters here.
+// Single entry point: resumePostSwap, dispatched by recoverFromFlag when
+// a fresh process (post exit-42 systemd restart for service mode, post
+// syscall.Exec for inline mode) sees Phase=FlagPhasePostSwap. Every
+// upgrade — tagged or edge, service or inline — handsoff in executeUpgrade
+// before reaching here, so applyPostSwap always runs against the NEW
+// compiled Go code.
 //
 // Preconditions on entry: db container stopped; maintenance mode on; backup
 // on disk at backupPath; git HEAD at target commit; ./sb binary at target
