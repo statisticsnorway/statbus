@@ -6104,7 +6104,6 @@ export type Database = {
           state: Database["public"]["Enums"]["upgrade_state"]
           summary: string
           superseded_at: string | null
-          topological_order: number | null
         },
         Insert: {
           backup_path?: string | null
@@ -6133,7 +6132,6 @@ export type Database = {
           state?: Database["public"]["Enums"]["upgrade_state"]
           summary: string
           superseded_at?: string | null
-          topological_order?: number | null
         },
         Update: {
           backup_path?: string | null
@@ -6162,7 +6160,6 @@ export type Database = {
           state?: Database["public"]["Enums"]["upgrade_state"]
           summary?: string
           superseded_at?: string | null
-          topological_order?: number | null
         },
         Relationships: []
       },
@@ -15624,6 +15621,10 @@ export type Database = {
           unit_size_id?: number
         }
         Returns: Json
+      },
+      upgrade_block_obsolete_pending: {
+        Args: Record<string, never>
+        Returns: unknown
       },
       upgrade_family: {
         Args: {
