@@ -386,13 +386,9 @@ export function CommandPalette() {
                   <span>Reports</span>
                 </CommandItem>
                 <CommandItem
-                  onSelect={() => navigate("/reports/history-changes")}
-                  value="History changes chart"
+                  onSelect={() => navigate("/profile")}
+                  value="Profile"
                 >
-                  <ChartColumn className="mr-2 h-4 w-4" />
-                  <span>History chart</span>
-                </CommandItem>
-                <CommandItem onSelect={() => navigate("/profile")} value="Profile">
                   <User className="mr-2 h-4 w-4" />
                   <span>Profile</span>
                 </CommandItem>
