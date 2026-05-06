@@ -3,6 +3,18 @@
 This document describes how STATBUS derives statistical tables from imported
 data. It covers the task flow, structured concurrency model, and queue layout.
 
+> **Recent changes (April 30, 2026):**
+> - **Phase 2 (`cdbc9c0ec`)** — `statistical_history` per-partition rows are
+>   now stored per-slot as singleton `int4range(slot, slot+1)`. Decouples
+>   cached per-slot rows from `partition_count_target` changes.
+> - **Phase 3 (`159b8c9e8`)** — both `worker.statistical_unit_facet_reduce` and
+>   `worker.statistical_history_facet_reduce` collapsed to a single global MERGE
+>   shape. The previous three-path adaptive strategy (Path A/B/C) is gone; Path
+>   B's structurally-incomplete cleanup gap is fixed by construction.
+> - The `statistical_*_facet_pre_dirty_dims` UNLOGGED snapshot tables are no
+>   longer read by reduces (parents still TRUNCATE+INSERT into them — pending
+>   cleanup migration).
+
 
 ## Design Goals
 
@@ -74,29 +86,40 @@ The worker has three independent queues. Each runs its own serial + concurrent
 fiber group. The queues are fully independent — work on one queue never blocks another.
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           WORKER PROCESS (Crystal)                          │
-│                                                                             │
-│  ┌─────────────────────┐  ┌──────────────────────┐  ┌───────────────────┐  │
-│  │   import queue       │  │   analytics queue     │  │ maintenance queue │  │
-│  │   1 serial + 0 conc  │  │   1 serial + 3 conc   │  │ 1 serial + 0 conc│  │
-│  │                      │  │                        │  │                  │  │
-│  │  ┌────────────────┐  │  │  ┌──┐ ┌──┐ ┌──┐ ┌──┐ │  │  ┌────────────┐ │  │
-│  │  │ serial fiber   │  │  │  │S │ │C1│ │C2│ │C3│ │  │  │serial fiber│ │  │
-│  │  └────────────────┘  │  │  └──┘ └──┘ └──┘ └──┘ │  │  └────────────┘ │  │
-│  └─────────────────────┘  └──────────────────────┘  └───────────────────┘  │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                           WORKER PROCESS (Crystal)                               │
+│                                                                                  │
+│  ┌─────────────────────┐  ┌────────────────────────────┐  ┌───────────────────┐ │
+│  │   import queue       │  │   analytics queue           │  │ maintenance queue │ │
+│  │   1 serial + 1 conc  │  │   1 serial + 4 concurrent   │  │ 1 serial + 1 conc │ │
+│  │                      │  │                              │  │                   │ │
+│  │  ┌──┐ ┌──┐           │  │  ┌──┐ ┌──┐ ┌──┐ ┌──┐ ┌──┐ │  │  ┌──┐ ┌──┐         │ │
+│  │  │S │ │C1│           │  │  │S │ │C1│ │C2│ │C3│ │C4│ │  │  │S │ │C1│         │ │
+│  │  └──┘ └──┘           │  │  └──┘ └──┘ └──┘ └──┘ └──┘ │  │  └──┘ └──┘         │ │
+│  └─────────────────────┘  └────────────────────────────┘  └───────────────────┘ │
+└──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Import queue** (1 fiber): Processes `import_job` parents, each with serial
+Each queue spawns **1 serial fiber + N concurrent fibers** where N is
+`worker.queue_registry.default_concurrency` (verified by
+`cli/src/worker.cr:288-309`). The registry value is the *concurrent* count; the
+serial fiber is always present in addition.
+
+| Queue        | default_concurrency | Total fibers |
+|--------------|---------------------|--------------|
+| import       | 1                   | 2            |
+| analytics    | 4                   | 5            |
+| maintenance  | 1                   | 2            |
+
+**Import queue** (2 fibers): Processes `import_job` parents, each with serial
 `import_job_process` children (one per state transition). When an import modifies
 data, it triggers `collect_changes` on the analytics queue.
 
-**Analytics queue** (4 fibers = 1 serial + 3 concurrent): Derives all statistical
+**Analytics queue** (5 fibers = 1 serial + 4 concurrent): Derives all statistical
 tables. The serial fiber walks each pipeline stage; when a stage spawns concurrent
-children, the 3 concurrent fibers process them in parallel.
+children, the 4 concurrent fibers process them in parallel.
 
-**Maintenance queue** (1 fiber): Runs `task_cleanup` and `import_job_cleanup`.
+**Maintenance queue** (2 fibers): Runs `task_cleanup` and `import_job_cleanup`.
 
 Because the queues are independent, imports and analytics run **truly
 concurrently** — a long-running analytics pipeline does not block new imports
@@ -142,7 +165,7 @@ parallel on the child fibers.
     ▼                             │  │~1000 e.│ │~1000 e.│       │~1000 e.│   │
                                   │  └────────┘ └────────┘       └────────┘   │
                                   │  statistical_unit_refresh_batch             │
-                                  │  (3 concurrent fibers process in parallel)  │
+                                  │  (4 concurrent fibers process in parallel)  │
                                   │                                             │
                                   │  Also enqueues uncle tasks:                 │
                                   │  • statistical_unit_flush_staging            │
@@ -296,13 +319,21 @@ pattern: each partition child writes partial aggregations to an UNLOGGED
 staging table, then `statistical_unit_facet_reduce` merges and swaps the
 results into the main table in a single transaction.
 
-Only **dirty partitions** (those with changed data tracked in
-`statistical_unit_facet_dirty_partitions`) are recomputed.
+Only **dirty hash slots** (those with changed data tracked in
+`statistical_unit_facet_dirty_hash_slots`) are recomputed at the partition-derive
+level. The reduce step does a global MERGE over the full staging-aggregate (see
+the *Reduce strategy* section below); incremental savings come from skipping
+non-dirty slots' partition derives, not from scoping the reduce.
 
 
 ## Production Performance (1.1M LU + 826K ES = 3.1M stat units)
 
-Measured on `no.statbus.org`, March 2026 (after optimization work).
+Measured on `no.statbus.org`, **March 2026**, predating the Phase 2
+slot-keyed `statistical_history` aggregation (commit `cdbc9c0ec`, April 30) and
+the Phase 3 facet-reduce collapse (commit `159b8c9e8`, April 30). The numbers
+below are historical baseline. The Phase 3 reduces no longer use the scoped
+Path B; expect different (likely slightly higher) `*_facet_reduce` self-times
+on subsequent measurements. Re-measure on the next 2M-row test cycle.
 
 ### Scaling behavior during heavy import
 
@@ -339,11 +370,21 @@ queries. Fix: `COALESCE(col, sentinel) = COALESCE(col, sentinel)` enables hash
 joins while preserving NULL equality semantics. Applied across MERGE ON clauses
 and timeline view joins.
 
-**Incremental reduce: scoped MERGE with dirty partition tracking.**
-Instead of recomputing all facet aggregations, only dirty partitions (those
-with changed data) are reprocessed. A three-path adaptive strategy selects
-the approach based on dirty partition count: scoped MERGE (≤128 dirty),
-full MERGE (>128), or TRUNCATE+INSERT (full refresh).
+**Incremental partition derives + global reduce.**
+At the partition-derive level: only dirty hash slots' staging rows are
+recomputed. Non-dirty slots' staging is reused as-is (the cache).
+
+At the reduce level (after Phase 3, migration `159b8c9e8`): both
+`worker.statistical_unit_facet_reduce` and `worker.statistical_history_facet_reduce`
+collapse to a single global MERGE shape with `WHEN NOT MATCHED BY SOURCE THEN
+DELETE`. The previous three-path adaptive strategy (scoped MERGE for ≤128 dirty,
+full MERGE for >128, TRUNCATE+INSERT for full refresh) had a structural cleanup
+gap in the scoped path (Path B's DELETE was gated by `dim_tuple IN
+pre_dirty_dims`, so stale target rows whose dim+temporal wasn't in any
+subsequent drain's pre_dirty couldn't self-heal). The global MERGE is
+self-healing by construction; the per-slot cache in staging still provides
+the aggregation-side incremental property. Cost is bounded by aggregated
+cardinality (`distinct_dim_combos × distinct_slice_count`), not raw row count.
 
 **Filtered batching from affected enterprises.**
 For single-unit changes, the old approach joined all 3 base tables to find
@@ -359,11 +400,15 @@ avoiding unnecessary row churn when the derived data hasn't changed.
 `timesegments_years_refresh_concurrent` checks MIN/MAX year before running.
 If the year range hasn't changed, the refresh is skipped entirely.
 
-**Snapshot tables for pre-dirty dimension combos.**
-Two UNLOGGED snapshot tables capture dimension combinations BEFORE partition
-children rewrite staging data. The reduce step uses the UNION of current dirty
-dimensions and pre-dirty snapshots to detect dimension combos that disappeared
-(need deletion from the main table).
+**Snapshot tables for pre-dirty dimension combos (legacy; no longer read).**
+Two UNLOGGED snapshot tables (`statistical_unit_facet_pre_dirty_dims`,
+`statistical_history_facet_pre_dirty_dims`) were used by the old Path B scoped
+MERGE to detect disappeared dim combos. After Phase 3's collapse to global MERGE
+(migration `159b8c9e8`), the reduces no longer read these snapshots; the global
+MERGE's `WHEN NOT MATCHED BY SOURCE THEN DELETE` catches disappeared combos by
+construction. The parent `derive_*_facet` procedures still TRUNCATE+INSERT into
+the snapshots — dead state pending a follow-up cleanup migration that drops the
+tables and the parent's snapshot writes.
 
 **Temp tables replacing CTE chains.**
 Large CTE chains don't optimize well in PostgreSQL. Breaking into sequential
@@ -375,9 +420,14 @@ Fast writes with no WAL overhead. Automatically truncated on unclean shutdown
 on crash recovery.
 
 **Configurable partition modulus with auto-tune.**
-The hash partition count (default 256) adapts to the data size. The
-`adjust_report_partition_modulus()` procedure runs during flush_staging and
-adjusts the modulus based on unit count.
+`partition_count_target` adapts to the data size via
+`admin.adjust_partition_count_target()` called during `statistical_unit_flush_staging`.
+Targets bands roughly: ≤100 units → 4, ≤10000 → 16, ≤100000 → 64, ≤1000000 → 128,
+larger → 256. After Phase 2 (`cdbc9c0ec`), `statistical_history` per-slot rows
+are stored as singleton `int4range(slot, slot+1)` regardless of target — the
+target only controls compute batch grain at derive time, not storage geometry.
+This decouples cached per-slot rows from target changes; no invalidation
+needed when auto-tune adjusts.
 
 
 ## Command Registry
