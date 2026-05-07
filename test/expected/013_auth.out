@@ -3878,4 +3878,7 @@ WHERE user_id IN (
 );
 DELETE FROM auth.user
 WHERE email LIKE 'test.%@statbus.org'; -- Updated domain
+ERROR:  Cannot delete the last active admin user (test.admin@statbus.org)
+HINT:  Promote another user to admin_user before deleting this one.
+CONTEXT:  PL/pgSQL function auth.prevent_removal_of_last_admin() line 46 at RAISE
 ROLLBACK;
