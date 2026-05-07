@@ -643,7 +643,13 @@ func checkImagesDone(dir string) bool {
 }
 
 func checkServicesDone(dir string) bool {
-	cmd := exec.Command("docker", "compose", "ps", "--format", "{{.Health}}", "--filter", "name=db")
+	// Use positional service name `db` rather than `--filter name=db`. The
+	// `--filter` flag's `name=` key is rejected by docker-compose v2.x as
+	// "unknown filter name" — observed on rune.statbus.org (statbus-no-db
+	// container, docker-compose Plugin 2025+). Positional service-name is
+	// the supported invocation; the legacy filter-style only worked on
+	// older lenient builds that silently accepted unknown filters.
+	cmd := exec.Command("docker", "compose", "ps", "db", "--format", "{{.Health}}")
 	cmd.Dir = dir
 	out, err := cmd.Output()
 	return err == nil && strings.Contains(string(out), "healthy")
