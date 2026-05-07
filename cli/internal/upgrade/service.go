@@ -3382,7 +3382,46 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 		}
 	} else {
 		progress.Write("Applying database migrations...")
-		if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "migrate", filepath.Join(projDir, "sb"), "migrate", "up", "--verbose"); err != nil {
+
+		// Post-swap migrate-up runs while the unit is still "activating"
+		// (READY=1 has not been sent yet — see top of executeUpgrade
+		// where READY=1 fires AFTER applyPostSwap). systemd enforces
+		// TimeoutStartSec=90s during this window, not WatchdogSec. A
+		// genuine multi-minute migration (e.g. statistical_history
+		// re-derive on Norway-sized data) blows past 90s and systemd
+		// SIGTERMs the daemon, restart-loops, and eventually trips
+		// StartLimitBurst — leaving the host wedged.
+		//
+		// Ticker calls sdNotifyExtendTimeout(120s) every 30s. systemd
+		// rolls the start deadline forward continuously while the
+		// migration is alive; if the migration actually hangs (no
+		// extend for >2 min) systemd kills it for real. Idiomatic
+		// sd_notify pattern for this phase. Existing WATCHDOG=1 path
+		// (post-READY=1) is untouched.
+		extendCtx, extendCancel := context.WithCancel(ctx)
+		extendDone := make(chan struct{})
+		go func() {
+			defer close(extendDone)
+			// First extend fires immediately so the deadline pushes out
+			// before the original 90s window expires.
+			sdNotifyExtendTimeout(120 * time.Second)
+			ticker := time.NewTicker(30 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-extendCtx.Done():
+					return
+				case <-ticker.C:
+					sdNotifyExtendTimeout(120 * time.Second)
+				}
+			}
+		}()
+
+		err := runCommandToLog(projDir, 30*time.Minute, progress.File(), "migrate", filepath.Join(projDir, "sb"), "migrate", "up", "--verbose")
+		extendCancel()
+		<-extendDone
+
+		if err != nil {
 			d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: ./sb migrate up: %v", ErrMigrationFailed, err), progress)
 			return err
 		}
