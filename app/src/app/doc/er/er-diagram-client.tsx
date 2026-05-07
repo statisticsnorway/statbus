@@ -8,6 +8,10 @@ import { Spinner } from "@/components/ui/spinner";
 
 mermaid.initialize({
   startOnLoad: false,
+  // Default maxTextSize is 50,000; the auto-generated diagram is just over
+  // that and Mermaid renders the "Maximum text size in diagram" warning
+  // instead of the diagram. 500,000 leaves headroom for ~10x schema growth.
+  maxTextSize: 500000,
 });
 
 export default function ErDiagramClientComponent() {
