@@ -183,13 +183,13 @@ ORDER BY unit_type, unit_id, valid_from;
 SELECT unit_type, hash_partition, exists_count, countable_count
 FROM public.statistical_history_def('year'::public.history_resolution, 2021, NULL)
 WHERE unit_type IN ('legal_unit', 'establishment', 'enterprise')
-ORDER BY unit_type;
+ORDER BY unit_type, lower(hash_partition) NULLS FIRST;
 
 \echo "--- RAW statistical_history_def(year, 2021, '[0,16384)'::int4range) output — full hash range ---"
 SELECT unit_type, hash_partition, exists_count, countable_count
 FROM public.statistical_history_def('year'::public.history_resolution, 2021, NULL, '[0,16384)'::int4range)
 WHERE unit_type IN ('legal_unit', 'establishment', 'enterprise')
-ORDER BY unit_type;
+ORDER BY unit_type, lower(hash_partition) NULLS FIRST;
 
 \echo "--- Worker task summary across the full run [as postgres, bypass RLS] ---"
 SET LOCAL ROLE postgres;

@@ -1559,13 +1559,13 @@ ORDER BY unit_type, unit_id, valid_from;
 SELECT unit_type, hash_partition, exists_count, countable_count
 FROM public.statistical_history_def('year'::public.history_resolution, 2021, NULL)
 WHERE unit_type IN ('legal_unit', 'establishment', 'enterprise')
-ORDER BY unit_type;
+ORDER BY unit_type, lower(hash_partition) NULLS FIRST;
    unit_type   | hash_partition | exists_count | countable_count 
 ---------------+----------------+--------------+-----------------
  establishment | [4453,4454)    |            1 |               1
  establishment | [7113,7114)    |            1 |               1
- legal_unit    | [14449,14450)  |            1 |               1
  legal_unit    | [2955,2956)    |            1 |               1
+ legal_unit    | [14449,14450)  |            1 |               1
  enterprise    | [3496,3497)    |            1 |               1
  enterprise    | [12292,12293)  |            1 |               1
 (6 rows)
@@ -1575,13 +1575,13 @@ ORDER BY unit_type;
 SELECT unit_type, hash_partition, exists_count, countable_count
 FROM public.statistical_history_def('year'::public.history_resolution, 2021, NULL, '[0,16384)'::int4range)
 WHERE unit_type IN ('legal_unit', 'establishment', 'enterprise')
-ORDER BY unit_type;
+ORDER BY unit_type, lower(hash_partition) NULLS FIRST;
    unit_type   | hash_partition | exists_count | countable_count 
 ---------------+----------------+--------------+-----------------
  establishment | [4453,4454)    |            1 |               1
  establishment | [7113,7114)    |            1 |               1
- legal_unit    | [14449,14450)  |            1 |               1
  legal_unit    | [2955,2956)    |            1 |               1
+ legal_unit    | [14449,14450)  |            1 |               1
  enterprise    | [3496,3497)    |            1 |               1
  enterprise    | [12292,12293)  |            1 |               1
 (6 rows)
