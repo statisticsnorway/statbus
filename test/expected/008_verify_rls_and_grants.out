@@ -578,10 +578,8 @@ SELECT 'Security documentation generated in doc/db/security.md' AS result;
 
 -- Output the verification result (this is what the test compares)
 SELECT :'verification';
-                                                                                ?column?                                                                                 
--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- MISSING RLS: public.statistical_history_facet_pre_dirty_dims — fix with: SELECT admin.add_rls_regular_user_can_read('public.statistical_history_facet_pre_dirty_dims');+
- MISSING RLS: public.statistical_unit_facet_pre_dirty_dims — fix with: SELECT admin.add_rls_regular_user_can_read('public.statistical_unit_facet_pre_dirty_dims');      +
+                                                          ?column?                                                          
+----------------------------------------------------------------------------------------------------------------------------
  UNLISTED SECURITY DEFINER: admin.adjust_partition_count_target — add to registry in test/sql/008_verify_rls_and_grants.sql
 (1 row)
 
