@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/statisticsnorway/statbus/cli/internal/config"
+	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/migrate"
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
@@ -51,6 +52,25 @@ Requires the database to be running.`,
 		psqlPath, prefix, env, err := migrate.PsqlCommand(projDir)
 		if err != nil {
 			return err
+		}
+
+		// Override PGDATABASE to the seed DB. Types are derived from
+		// canonical schema; the seed DB has migrations applied but no
+		// per-job tables (import_job_<N>_data). The app DB is whatever
+		// the operator's dev environment is using, which on a working
+		// dev box has live import jobs whose dynamically-created tables
+		// would otherwise pollute database.types.ts.
+		seedDB := "statbus_seed"
+		if envFile, derr := dotenv.Load(filepath.Join(projDir, ".env")); derr == nil {
+			if v, ok := envFile.Get("POSTGRES_SEED_DB"); ok && v != "" {
+				seedDB = v
+			}
+		}
+		for i, e := range env {
+			if strings.HasPrefix(e, "PGDATABASE=") {
+				env[i] = "PGDATABASE=" + seedDB
+				break
+			}
 		}
 
 		c := exec.Command(psqlPath, prefix...)
