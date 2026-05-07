@@ -517,6 +517,15 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error)
 		return 0, err
 	}
 	for _, m := range pending {
+		// Unconditional per-migration log line. Emitted on stdout so the
+		// upgrade-service journal (via runCommandToLog → MultiWriter) and
+		// the local terminal both see "migrate is working" without
+		// needing --verbose. Each line also flows through progress.Write
+		// (PrefixWriter) which fires WATCHDOG=1, so per-migration output
+		// also serves as a heartbeat during multi-minute migrations
+		// (complements sdNotifyExtendTimeout in applyPostSwap).
+		fmt.Printf("[migrate]   ▶ applying %s\n", filepath.Base(m.Path))
+
 		if verbose {
 			fmt.Printf("Migration %d (%s) ", m.Version, m.Description)
 		}
@@ -524,12 +533,14 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error)
 		start := time.Now()
 		out, err := runPsqlFile(projDir, m.Path)
 		durationMs := time.Since(start).Milliseconds()
+		elapsed := time.Since(start).Round(time.Millisecond)
 
 		if err != nil {
 			if verbose {
 				fmt.Println("[FAILED]")
 				fmt.Println(out)
 			}
+			fmt.Printf("[migrate]   ✗ FAILED   %s after %s\n", filepath.Base(m.Path), elapsed)
 			return 0, fmt.Errorf("migration %d (%s) failed: %w\n%s", m.Version, filepath.Base(m.Path), err, out)
 		}
 
@@ -574,6 +585,8 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error)
 		if insertErr != nil {
 			return 0, fmt.Errorf("record migration %d: %w", m.Version, insertErr)
 		}
+
+		fmt.Printf("[migrate]   ✔ applied  %s in %s\n", filepath.Base(m.Path), elapsed)
 
 		if verbose {
 			fmt.Printf("[applied] (%dms)\n", durationMs)
