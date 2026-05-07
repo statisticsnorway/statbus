@@ -1,0 +1,173 @@
+-- Test 322: public.statistical_history_facet_derive(date, date) operator-recovery surface.
+--
+-- Pre-fix (rc.42 → migration 20260507123326), this function INSERTed rows
+-- from the per-slot statistical_history_facet_def() into the per-period-dim
+-- statistical_history_facet target without aggregating across slots. With
+-- multiple slots producing rows for the same (resolution, year, month, dims)
+-- tuple, the INSERT violated the target's partial unique indexes
+-- (statistical_history_facet_year_key / statistical_history_facet_month_key)
+-- and aborted.
+--
+-- The fix adds GROUP BY + SUM/jsonb_stats_merge_agg across slots in the
+-- INSERT … SELECT, mirroring worker.statistical_history_facet_reduce's
+-- aggregation shape.
+--
+-- This test:
+--   1. Loads small demo dataset and runs the standard pipeline (TRUNCATE +
+--      worker.statistical_history_facet_reduce produces the canonical
+--      target state).
+--   2. Snapshots that canonical target state.
+--   3. TRUNCATEs target.
+--   4. Calls public.statistical_history_facet_derive('-infinity', 'infinity')
+--      — the operator-recovery surface.
+--   5. Asserts: function returned successfully (no UNIQUE violation), and
+--      the resulting target state EQUALS the pipeline's canonical state.
+--
+-- Equivalence between recovery and pipeline is the function's contract.
+BEGIN;
+\i test/setup.sql
+\echo -- test/setup.sql output suppressed for cleaner test output
+-- test/setup.sql output suppressed for cleaner test output
+\set ECHO none
+\echo -- test/setup.sql done, test output follows
+-- test/setup.sql done, test output follows
+\echo "Setting up Statbus using the demo examples"
+"Setting up Statbus using the demo examples"
+CALL test.set_user_from_email('test.admin@statbus.org');
+\i samples/demo/getting-started.sql
+-- Set the activity category standard to ISIC v4 for the demo data.
+\echo "User selected the Activity Category Standard"
+"User selected the Activity Category Standard"
+INSERT INTO settings(activity_category_standard_id,country_id,region_version_id)
+SELECT (SELECT id FROM activity_category_standard WHERE code = 'isic_v4')
+     , (SELECT id FROM public.country WHERE iso_2 = 'UN')
+     , (SELECT id FROM public.region_version WHERE code = 'initial')
+ON CONFLICT (only_one_setting)
+DO UPDATE SET
+    activity_category_standard_id = EXCLUDED.activity_category_standard_id,
+    country_id = EXCLUDED.country_id,
+    region_version_id = EXCLUDED.region_version_id;
+\echo "User uploads the demo activity categories"
+"User uploads the demo activity categories"
+\copy public.activity_category_enabled_custom(path,name) FROM 'app/public/demo/activity_custom_isic_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\echo "User uploads the demo regions"
+"User uploads the demo regions"
+\copy public.region_upload(path, name) FROM 'app/public/demo/regions_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\echo "User uploads the demo sectors"
+"User uploads the demo sectors"
+\copy public.sector_custom_only(path,name,description) FROM 'app/public/demo/sectors_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\echo "User uploads the demo legal forms"
+"User uploads the demo legal forms"
+\copy public.legal_form_custom_only(code,name) FROM 'app/public/demo/legal_forms_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+-- The demo data uses data sources that are part of the core database seed.
+-- This file is included for structural consistency with other sample data sets.
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
+    'import_322_lu',
+    'Test 322 legal unit load',
+    'small dataset for statistical_history_facet_derive recovery test',
+    'test 322',
+    false;
+\copy public.import_322_lu_upload(tax_ident,stat_ident,name,valid_from,physical_address_part1,valid_to,postal_address_part1,postal_address_part2,physical_address_part2,physical_postcode,postal_postcode,physical_address_part3,physical_postplace,postal_address_part3,postal_postplace,phone_number,landline,mobile_number,fax_number,web_address,email_address,secondary_activity_category_code,physical_latitude,physical_longitude,physical_altitude,birth_date,physical_region_code,postal_country_iso_2,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code,status_code,unit_size_code) FROM 'app/public/demo/legal_units_with_source_dates_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+CALL worker.process_tasks(p_queue => 'import');
+CALL worker.process_tasks(p_queue => 'analytics');
+\echo "=== STEP 1: Snapshot canonical target state from pipeline reduce ==="
+"=== STEP 1: Snapshot canonical target state from pipeline reduce ==="
+\x off
+CREATE TEMP TABLE _pipeline_snapshot ON COMMIT DROP AS
+SELECT
+    resolution, year, month, unit_type,
+    primary_activity_category_path, secondary_activity_category_path,
+    sector_path, legal_form_id, physical_region_path,
+    physical_country_id, unit_size_id, status_id,
+    exists_count, exists_change, exists_added_count, exists_removed_count,
+    countable_count, countable_change, countable_added_count, countable_removed_count,
+    births, deaths,
+    name_change_count, primary_activity_category_change_count,
+    secondary_activity_category_change_count, sector_change_count,
+    legal_form_change_count, physical_region_change_count, physical_country_change_count,
+    physical_address_change_count, unit_size_change_count, status_change_count,
+    stats_summary
+FROM public.statistical_history_facet;
+SELECT 'pipeline_snapshot_rows' AS step, COUNT(*) AS row_count
+FROM _pipeline_snapshot;
+          step          | row_count 
+------------------------+-----------
+ pipeline_snapshot_rows |      1980
+(1 row)
+
+\echo
+
+\echo "=== STEP 2: TRUNCATE target and call public.statistical_history_facet_derive ==="
+"=== STEP 2: TRUNCATE target and call public.statistical_history_facet_derive ==="
+\echo "Pre-fix: this would crash with duplicate-key violation when multi-slot dim+temporal collide."
+"Pre-fix: this would crash with duplicate-key violation when multi-slot dim+temporal collide."
+\echo "Post-fix: GROUP BY + SUM/jsonb_stats_merge_agg yields one row per (resolution, year, month, dims)."
+"Post-fix: GROUP BY + SUM/jsonb_stats_merge_agg yields one row per (resolution, year, month, dims)."
+TRUNCATE public.statistical_history_facet;
+SELECT public.statistical_history_facet_derive('-infinity'::date, 'infinity'::date);
+ statistical_history_facet_derive 
+----------------------------------
+ 
+(1 row)
+
+SELECT 'recovery_target_rows' AS step, COUNT(*) AS row_count
+FROM public.statistical_history_facet;
+         step         | row_count 
+----------------------+-----------
+ recovery_target_rows |      1980
+(1 row)
+
+\echo
+
+\echo "=== STEP 3: Assert recovery state equals pipeline state ==="
+"=== STEP 3: Assert recovery state equals pipeline state ==="
+\echo "Symmetric difference between snapshot and recovery: should be 0 in both directions."
+"Symmetric difference between snapshot and recovery: should be 0 in both directions."
+WITH pipeline_minus_recovery AS (
+    SELECT resolution, year, month, unit_type,
+           primary_activity_category_path, secondary_activity_category_path,
+           sector_path, legal_form_id, physical_region_path,
+           physical_country_id, unit_size_id, status_id,
+           exists_count, countable_count
+    FROM _pipeline_snapshot
+    EXCEPT
+    SELECT resolution, year, month, unit_type,
+           primary_activity_category_path, secondary_activity_category_path,
+           sector_path, legal_form_id, physical_region_path,
+           physical_country_id, unit_size_id, status_id,
+           exists_count, countable_count
+    FROM public.statistical_history_facet
+), recovery_minus_pipeline AS (
+    SELECT resolution, year, month, unit_type,
+           primary_activity_category_path, secondary_activity_category_path,
+           sector_path, legal_form_id, physical_region_path,
+           physical_country_id, unit_size_id, status_id,
+           exists_count, countable_count
+    FROM public.statistical_history_facet
+    EXCEPT
+    SELECT resolution, year, month, unit_type,
+           primary_activity_category_path, secondary_activity_category_path,
+           sector_path, legal_form_id, physical_region_path,
+           physical_country_id, unit_size_id, status_id,
+           exists_count, countable_count
+    FROM _pipeline_snapshot
+)
+SELECT 'pipeline_minus_recovery' AS check_name,
+       COUNT(*) AS rows,
+       CASE WHEN COUNT(*) = 0 THEN 'PASS' ELSE 'FAIL' END AS verdict
+FROM pipeline_minus_recovery
+UNION ALL
+SELECT 'recovery_minus_pipeline' AS check_name,
+       COUNT(*) AS rows,
+       CASE WHEN COUNT(*) = 0 THEN 'PASS' ELSE 'FAIL' END AS verdict
+FROM recovery_minus_pipeline;
+       check_name        | rows | verdict 
+-------------------------+------+---------
+ pipeline_minus_recovery |    0 | PASS
+ recovery_minus_pipeline |    0 | PASS
+(2 rows)
+
+\x auto
+ROLLBACK;
