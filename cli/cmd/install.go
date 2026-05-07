@@ -93,6 +93,10 @@ var insideActiveUpgrade bool
 var installCmd = &cobra.Command{
 	Use:   "install",
 	Short: "Install or resume StatBus installation",
+	// install is part of the recovery surface — its job is to fix the
+	// stale-binary state. stalenessGuard rebuilds + re-execs instead of
+	// hard-failing when this annotation is present. See cli/cmd/root.go.
+	Annotations: map[string]string{"selfheal": "true"},
 	Long: `Unified entrypoint for first-install, repair, and dispatching a
 pending upgrade. Probes the install state and routes:
 

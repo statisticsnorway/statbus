@@ -255,6 +255,11 @@ to upgrade to it immediately.
 
 Used by deploy workflows — all logic is server-side, no workflow
 file changes needed.`,
+	// apply-latest is the deploy-workflow target. If the binary is stale
+	// (e.g. a prior upgrade rolled back leaving cli/ ahead of the binary),
+	// stalenessGuard rebuilds + re-execs instead of hard-failing. See
+	// cli/cmd/root.go.
+	Annotations: map[string]string{"selfheal": "true"},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		projDir := config.ProjectDir()
 
@@ -474,7 +479,11 @@ var upgradeServiceCmd = &cobra.Command{
   - Executes scheduled upgrades with backup and rollback
 
 Typically run via systemd (ops/statbus-upgrade.service).`,
-	RunE: upgradeServiceRunE,
+	// systemd entrypoint. If a previous upgrade rolled back leaving cli/
+	// ahead of the binary, stalenessGuard rebuilds + re-execs instead of
+	// crash-looping the service. See cli/cmd/root.go.
+	Annotations: map[string]string{"selfheal": "true"},
+	RunE:        upgradeServiceRunE,
 }
 
 

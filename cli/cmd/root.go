@@ -74,6 +74,8 @@ var rootCmd = &cobra.Command{
 //  2. commitSHA set but cli/ tree drifted since build — classic stale.
 func stalenessGuard(c *cobra.Command, _ []string) {
 	if commitSHA == "" {
+		// Tier-1/tier-2 ambiguous identity. A binary with no identity can't
+		// reliably know what to rebuild against, so self-heal can't help here.
 		const msg = "./sb has no reliable commit identity (built without ldflags, or with uncommitted changes, or non-git build).\n" +
 			"  Rebuild from a clean tree: ./dev.sh build-sb"
 		if isMutatingCommand(c) {
@@ -88,6 +90,32 @@ func stalenessGuard(c *cobra.Command, _ []string) {
 		return
 	}
 	if isMutatingCommand(c) {
+		// Self-heal path: a small set of recovery commands annotated with
+		// "selfheal" exist precisely to fix the situation a stale binary
+		// represents (install, upgrade service, upgrade apply-latest).
+		// Rather than refuse-and-tell-the-operator-to-rebuild-by-hand,
+		// rebuild here and re-exec into the new binary. The child marks
+		// itself via SelfHealAttemptEnv so a recursive failure exits
+		// loudly instead of looping.
+		if c.Annotations["selfheal"] == "true" && os.Getenv(freshness.SelfHealAttemptEnv) == "" {
+			fmt.Fprintln(os.Stderr, "WARN: "+msg)
+			fmt.Fprintln(os.Stderr, "Self-healing: rebuilding ./sb from the current cli/ tree...")
+			if err := freshness.RebuildAndReexec(config.ProjectDir()); err != nil {
+				fmt.Fprintf(os.Stderr, "Self-heal rebuild/exec failed: %v\n", err)
+				os.Exit(2)
+			}
+			// unreachable; syscall.Exec replaced the process on success
+			return
+		}
+		// Recursion guard: we already rebuilt once, but freshness still
+		// fails. Race between rebuild and tree-update, or build produced
+		// a binary whose ldflags don't match HEAD. Surface and stop.
+		if os.Getenv(freshness.SelfHealAttemptEnv) != "" {
+			fmt.Fprintln(os.Stderr, "Self-heal failed: rebuilt binary is still reported stale.")
+			fmt.Fprintln(os.Stderr, "  Race between rebuild and tree update? Manual rebuild: (cd cli && go build -o ../sb .)")
+			os.Exit(2)
+		}
+		// Non-self-healing mutating command on stale binary: hard-fail.
 		fmt.Fprintln(os.Stderr, msg)
 		os.Exit(2)
 	}
