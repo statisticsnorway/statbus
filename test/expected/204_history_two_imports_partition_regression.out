@@ -128,9 +128,9 @@ WHERE resolution = 'year' AND year = 2021 AND hash_partition IS NOT NULL
 ORDER BY unit_type, lower(hash_partition);
    unit_type   | hash_partition | exists_count 
 ---------------+----------------+--------------
- establishment | [4096,8192)    |            1
- legal_unit    | [0,4096)       |            1
- enterprise    | [0,4096)       |            1
+ establishment | [4453,4454)    |            1
+ legal_unit    | [2955,2956)    |            1
+ enterprise    | [3496,3497)    |            1
 (3 rows)
 
 \echo "--- ALL statistical_history rows after import 1 (any year/resolution) [as postgres] ---"
@@ -142,47 +142,47 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  resolution | year |   unit_type   | hash_partition | exists_count 
 ------------+------+---------------+----------------+--------------
  year       | 2020 | establishment |                |            1
- year       | 2020 | establishment | [4096,8192)    |            1
+ year       | 2020 | establishment | [4453,4454)    |            1
  year       | 2020 | legal_unit    |                |            1
- year       | 2020 | legal_unit    | [0,4096)       |            1
+ year       | 2020 | legal_unit    | [2955,2956)    |            1
  year       | 2020 | enterprise    |                |            1
- year       | 2020 | enterprise    | [0,4096)       |            1
+ year       | 2020 | enterprise    | [3496,3497)    |            1
  year       | 2021 | establishment |                |            1
- year       | 2021 | establishment | [4096,8192)    |            1
+ year       | 2021 | establishment | [4453,4454)    |            1
  year       | 2021 | legal_unit    |                |            1
- year       | 2021 | legal_unit    | [0,4096)       |            1
+ year       | 2021 | legal_unit    | [2955,2956)    |            1
  year       | 2021 | enterprise    |                |            1
- year       | 2021 | enterprise    | [0,4096)       |            1
+ year       | 2021 | enterprise    | [3496,3497)    |            1
  year       | 2022 | establishment |                |            1
- year       | 2022 | establishment | [4096,8192)    |            1
+ year       | 2022 | establishment | [4453,4454)    |            1
  year       | 2022 | legal_unit    |                |            1
- year       | 2022 | legal_unit    | [0,4096)       |            1
+ year       | 2022 | legal_unit    | [2955,2956)    |            1
  year       | 2022 | enterprise    |                |            1
- year       | 2022 | enterprise    | [0,4096)       |            1
+ year       | 2022 | enterprise    | [3496,3497)    |            1
  year       | 2023 | establishment |                |            1
- year       | 2023 | establishment | [4096,8192)    |            1
+ year       | 2023 | establishment | [4453,4454)    |            1
  year       | 2023 | legal_unit    |                |            1
- year       | 2023 | legal_unit    | [0,4096)       |            1
+ year       | 2023 | legal_unit    | [2955,2956)    |            1
  year       | 2023 | enterprise    |                |            1
- year       | 2023 | enterprise    | [0,4096)       |            1
+ year       | 2023 | enterprise    | [3496,3497)    |            1
  year       | 2024 | establishment |                |            1
- year       | 2024 | establishment | [4096,8192)    |            1
+ year       | 2024 | establishment | [4453,4454)    |            1
  year       | 2024 | legal_unit    |                |            1
- year       | 2024 | legal_unit    | [0,4096)       |            1
+ year       | 2024 | legal_unit    | [2955,2956)    |            1
  year       | 2024 | enterprise    |                |            1
- year       | 2024 | enterprise    | [0,4096)       |            1
+ year       | 2024 | enterprise    | [3496,3497)    |            1
  year       | 2025 | establishment |                |            1
- year       | 2025 | establishment | [4096,8192)    |            1
+ year       | 2025 | establishment | [4453,4454)    |            1
  year       | 2025 | legal_unit    |                |            1
- year       | 2025 | legal_unit    | [0,4096)       |            1
+ year       | 2025 | legal_unit    | [2955,2956)    |            1
  year       | 2025 | enterprise    |                |            1
- year       | 2025 | enterprise    | [0,4096)       |            1
+ year       | 2025 | enterprise    | [3496,3497)    |            1
  year       | 2026 | establishment |                |            1
- year       | 2026 | establishment | [4096,8192)    |            1
+ year       | 2026 | establishment | [4453,4454)    |            1
  year       | 2026 | legal_unit    |                |            1
- year       | 2026 | legal_unit    | [0,4096)       |            1
+ year       | 2026 | legal_unit    | [2955,2956)    |            1
  year       | 2026 | enterprise    |                |            1
- year       | 2026 | enterprise    | [0,4096)       |            1
+ year       | 2026 | enterprise    | [3496,3497)    |            1
  year-month | 2020 | establishment |                |            1
  year-month | 2020 | establishment |                |            1
  year-month | 2020 | establishment |                |            1
@@ -195,18 +195,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2020 | establishment |                |            1
  year-month | 2020 | establishment |                |            1
  year-month | 2020 | establishment |                |            1
- year-month | 2020 | establishment | [4096,8192)    |            1
- year-month | 2020 | establishment | [4096,8192)    |            1
- year-month | 2020 | establishment | [4096,8192)    |            1
- year-month | 2020 | establishment | [4096,8192)    |            1
- year-month | 2020 | establishment | [4096,8192)    |            1
- year-month | 2020 | establishment | [4096,8192)    |            1
- year-month | 2020 | establishment | [4096,8192)    |            1
- year-month | 2020 | establishment | [4096,8192)    |            1
- year-month | 2020 | establishment | [4096,8192)    |            1
- year-month | 2020 | establishment | [4096,8192)    |            1
- year-month | 2020 | establishment | [4096,8192)    |            1
- year-month | 2020 | establishment | [4096,8192)    |            1
+ year-month | 2020 | establishment | [4453,4454)    |            1
+ year-month | 2020 | establishment | [4453,4454)    |            1
+ year-month | 2020 | establishment | [4453,4454)    |            1
+ year-month | 2020 | establishment | [4453,4454)    |            1
+ year-month | 2020 | establishment | [4453,4454)    |            1
+ year-month | 2020 | establishment | [4453,4454)    |            1
+ year-month | 2020 | establishment | [4453,4454)    |            1
+ year-month | 2020 | establishment | [4453,4454)    |            1
+ year-month | 2020 | establishment | [4453,4454)    |            1
+ year-month | 2020 | establishment | [4453,4454)    |            1
+ year-month | 2020 | establishment | [4453,4454)    |            1
+ year-month | 2020 | establishment | [4453,4454)    |            1
  year-month | 2020 | legal_unit    |                |            1
  year-month | 2020 | legal_unit    |                |            1
  year-month | 2020 | legal_unit    |                |            1
@@ -219,18 +219,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2020 | legal_unit    |                |            1
  year-month | 2020 | legal_unit    |                |            1
  year-month | 2020 | legal_unit    |                |            1
- year-month | 2020 | legal_unit    | [0,4096)       |            1
- year-month | 2020 | legal_unit    | [0,4096)       |            1
- year-month | 2020 | legal_unit    | [0,4096)       |            1
- year-month | 2020 | legal_unit    | [0,4096)       |            1
- year-month | 2020 | legal_unit    | [0,4096)       |            1
- year-month | 2020 | legal_unit    | [0,4096)       |            1
- year-month | 2020 | legal_unit    | [0,4096)       |            1
- year-month | 2020 | legal_unit    | [0,4096)       |            1
- year-month | 2020 | legal_unit    | [0,4096)       |            1
- year-month | 2020 | legal_unit    | [0,4096)       |            1
- year-month | 2020 | legal_unit    | [0,4096)       |            1
- year-month | 2020 | legal_unit    | [0,4096)       |            1
+ year-month | 2020 | legal_unit    | [2955,2956)    |            1
+ year-month | 2020 | legal_unit    | [2955,2956)    |            1
+ year-month | 2020 | legal_unit    | [2955,2956)    |            1
+ year-month | 2020 | legal_unit    | [2955,2956)    |            1
+ year-month | 2020 | legal_unit    | [2955,2956)    |            1
+ year-month | 2020 | legal_unit    | [2955,2956)    |            1
+ year-month | 2020 | legal_unit    | [2955,2956)    |            1
+ year-month | 2020 | legal_unit    | [2955,2956)    |            1
+ year-month | 2020 | legal_unit    | [2955,2956)    |            1
+ year-month | 2020 | legal_unit    | [2955,2956)    |            1
+ year-month | 2020 | legal_unit    | [2955,2956)    |            1
+ year-month | 2020 | legal_unit    | [2955,2956)    |            1
  year-month | 2020 | enterprise    |                |            1
  year-month | 2020 | enterprise    |                |            1
  year-month | 2020 | enterprise    |                |            1
@@ -243,18 +243,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2020 | enterprise    |                |            1
  year-month | 2020 | enterprise    |                |            1
  year-month | 2020 | enterprise    |                |            1
- year-month | 2020 | enterprise    | [0,4096)       |            1
- year-month | 2020 | enterprise    | [0,4096)       |            1
- year-month | 2020 | enterprise    | [0,4096)       |            1
- year-month | 2020 | enterprise    | [0,4096)       |            1
- year-month | 2020 | enterprise    | [0,4096)       |            1
- year-month | 2020 | enterprise    | [0,4096)       |            1
- year-month | 2020 | enterprise    | [0,4096)       |            1
- year-month | 2020 | enterprise    | [0,4096)       |            1
- year-month | 2020 | enterprise    | [0,4096)       |            1
- year-month | 2020 | enterprise    | [0,4096)       |            1
- year-month | 2020 | enterprise    | [0,4096)       |            1
- year-month | 2020 | enterprise    | [0,4096)       |            1
+ year-month | 2020 | enterprise    | [3496,3497)    |            1
+ year-month | 2020 | enterprise    | [3496,3497)    |            1
+ year-month | 2020 | enterprise    | [3496,3497)    |            1
+ year-month | 2020 | enterprise    | [3496,3497)    |            1
+ year-month | 2020 | enterprise    | [3496,3497)    |            1
+ year-month | 2020 | enterprise    | [3496,3497)    |            1
+ year-month | 2020 | enterprise    | [3496,3497)    |            1
+ year-month | 2020 | enterprise    | [3496,3497)    |            1
+ year-month | 2020 | enterprise    | [3496,3497)    |            1
+ year-month | 2020 | enterprise    | [3496,3497)    |            1
+ year-month | 2020 | enterprise    | [3496,3497)    |            1
+ year-month | 2020 | enterprise    | [3496,3497)    |            1
  year-month | 2021 | establishment |                |            1
  year-month | 2021 | establishment |                |            1
  year-month | 2021 | establishment |                |            1
@@ -267,18 +267,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2021 | establishment |                |            1
  year-month | 2021 | establishment |                |            1
  year-month | 2021 | establishment |                |            1
- year-month | 2021 | establishment | [4096,8192)    |            1
- year-month | 2021 | establishment | [4096,8192)    |            1
- year-month | 2021 | establishment | [4096,8192)    |            1
- year-month | 2021 | establishment | [4096,8192)    |            1
- year-month | 2021 | establishment | [4096,8192)    |            1
- year-month | 2021 | establishment | [4096,8192)    |            1
- year-month | 2021 | establishment | [4096,8192)    |            1
- year-month | 2021 | establishment | [4096,8192)    |            1
- year-month | 2021 | establishment | [4096,8192)    |            1
- year-month | 2021 | establishment | [4096,8192)    |            1
- year-month | 2021 | establishment | [4096,8192)    |            1
- year-month | 2021 | establishment | [4096,8192)    |            1
+ year-month | 2021 | establishment | [4453,4454)    |            1
+ year-month | 2021 | establishment | [4453,4454)    |            1
+ year-month | 2021 | establishment | [4453,4454)    |            1
+ year-month | 2021 | establishment | [4453,4454)    |            1
+ year-month | 2021 | establishment | [4453,4454)    |            1
+ year-month | 2021 | establishment | [4453,4454)    |            1
+ year-month | 2021 | establishment | [4453,4454)    |            1
+ year-month | 2021 | establishment | [4453,4454)    |            1
+ year-month | 2021 | establishment | [4453,4454)    |            1
+ year-month | 2021 | establishment | [4453,4454)    |            1
+ year-month | 2021 | establishment | [4453,4454)    |            1
+ year-month | 2021 | establishment | [4453,4454)    |            1
  year-month | 2021 | legal_unit    |                |            1
  year-month | 2021 | legal_unit    |                |            1
  year-month | 2021 | legal_unit    |                |            1
@@ -291,18 +291,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2021 | legal_unit    |                |            1
  year-month | 2021 | legal_unit    |                |            1
  year-month | 2021 | legal_unit    |                |            1
- year-month | 2021 | legal_unit    | [0,4096)       |            1
- year-month | 2021 | legal_unit    | [0,4096)       |            1
- year-month | 2021 | legal_unit    | [0,4096)       |            1
- year-month | 2021 | legal_unit    | [0,4096)       |            1
- year-month | 2021 | legal_unit    | [0,4096)       |            1
- year-month | 2021 | legal_unit    | [0,4096)       |            1
- year-month | 2021 | legal_unit    | [0,4096)       |            1
- year-month | 2021 | legal_unit    | [0,4096)       |            1
- year-month | 2021 | legal_unit    | [0,4096)       |            1
- year-month | 2021 | legal_unit    | [0,4096)       |            1
- year-month | 2021 | legal_unit    | [0,4096)       |            1
- year-month | 2021 | legal_unit    | [0,4096)       |            1
+ year-month | 2021 | legal_unit    | [2955,2956)    |            1
+ year-month | 2021 | legal_unit    | [2955,2956)    |            1
+ year-month | 2021 | legal_unit    | [2955,2956)    |            1
+ year-month | 2021 | legal_unit    | [2955,2956)    |            1
+ year-month | 2021 | legal_unit    | [2955,2956)    |            1
+ year-month | 2021 | legal_unit    | [2955,2956)    |            1
+ year-month | 2021 | legal_unit    | [2955,2956)    |            1
+ year-month | 2021 | legal_unit    | [2955,2956)    |            1
+ year-month | 2021 | legal_unit    | [2955,2956)    |            1
+ year-month | 2021 | legal_unit    | [2955,2956)    |            1
+ year-month | 2021 | legal_unit    | [2955,2956)    |            1
+ year-month | 2021 | legal_unit    | [2955,2956)    |            1
  year-month | 2021 | enterprise    |                |            1
  year-month | 2021 | enterprise    |                |            1
  year-month | 2021 | enterprise    |                |            1
@@ -315,18 +315,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2021 | enterprise    |                |            1
  year-month | 2021 | enterprise    |                |            1
  year-month | 2021 | enterprise    |                |            1
- year-month | 2021 | enterprise    | [0,4096)       |            1
- year-month | 2021 | enterprise    | [0,4096)       |            1
- year-month | 2021 | enterprise    | [0,4096)       |            1
- year-month | 2021 | enterprise    | [0,4096)       |            1
- year-month | 2021 | enterprise    | [0,4096)       |            1
- year-month | 2021 | enterprise    | [0,4096)       |            1
- year-month | 2021 | enterprise    | [0,4096)       |            1
- year-month | 2021 | enterprise    | [0,4096)       |            1
- year-month | 2021 | enterprise    | [0,4096)       |            1
- year-month | 2021 | enterprise    | [0,4096)       |            1
- year-month | 2021 | enterprise    | [0,4096)       |            1
- year-month | 2021 | enterprise    | [0,4096)       |            1
+ year-month | 2021 | enterprise    | [3496,3497)    |            1
+ year-month | 2021 | enterprise    | [3496,3497)    |            1
+ year-month | 2021 | enterprise    | [3496,3497)    |            1
+ year-month | 2021 | enterprise    | [3496,3497)    |            1
+ year-month | 2021 | enterprise    | [3496,3497)    |            1
+ year-month | 2021 | enterprise    | [3496,3497)    |            1
+ year-month | 2021 | enterprise    | [3496,3497)    |            1
+ year-month | 2021 | enterprise    | [3496,3497)    |            1
+ year-month | 2021 | enterprise    | [3496,3497)    |            1
+ year-month | 2021 | enterprise    | [3496,3497)    |            1
+ year-month | 2021 | enterprise    | [3496,3497)    |            1
+ year-month | 2021 | enterprise    | [3496,3497)    |            1
  year-month | 2022 | establishment |                |            1
  year-month | 2022 | establishment |                |            1
  year-month | 2022 | establishment |                |            1
@@ -339,18 +339,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2022 | establishment |                |            1
  year-month | 2022 | establishment |                |            1
  year-month | 2022 | establishment |                |            1
- year-month | 2022 | establishment | [4096,8192)    |            1
- year-month | 2022 | establishment | [4096,8192)    |            1
- year-month | 2022 | establishment | [4096,8192)    |            1
- year-month | 2022 | establishment | [4096,8192)    |            1
- year-month | 2022 | establishment | [4096,8192)    |            1
- year-month | 2022 | establishment | [4096,8192)    |            1
- year-month | 2022 | establishment | [4096,8192)    |            1
- year-month | 2022 | establishment | [4096,8192)    |            1
- year-month | 2022 | establishment | [4096,8192)    |            1
- year-month | 2022 | establishment | [4096,8192)    |            1
- year-month | 2022 | establishment | [4096,8192)    |            1
- year-month | 2022 | establishment | [4096,8192)    |            1
+ year-month | 2022 | establishment | [4453,4454)    |            1
+ year-month | 2022 | establishment | [4453,4454)    |            1
+ year-month | 2022 | establishment | [4453,4454)    |            1
+ year-month | 2022 | establishment | [4453,4454)    |            1
+ year-month | 2022 | establishment | [4453,4454)    |            1
+ year-month | 2022 | establishment | [4453,4454)    |            1
+ year-month | 2022 | establishment | [4453,4454)    |            1
+ year-month | 2022 | establishment | [4453,4454)    |            1
+ year-month | 2022 | establishment | [4453,4454)    |            1
+ year-month | 2022 | establishment | [4453,4454)    |            1
+ year-month | 2022 | establishment | [4453,4454)    |            1
+ year-month | 2022 | establishment | [4453,4454)    |            1
  year-month | 2022 | legal_unit    |                |            1
  year-month | 2022 | legal_unit    |                |            1
  year-month | 2022 | legal_unit    |                |            1
@@ -363,18 +363,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2022 | legal_unit    |                |            1
  year-month | 2022 | legal_unit    |                |            1
  year-month | 2022 | legal_unit    |                |            1
- year-month | 2022 | legal_unit    | [0,4096)       |            1
- year-month | 2022 | legal_unit    | [0,4096)       |            1
- year-month | 2022 | legal_unit    | [0,4096)       |            1
- year-month | 2022 | legal_unit    | [0,4096)       |            1
- year-month | 2022 | legal_unit    | [0,4096)       |            1
- year-month | 2022 | legal_unit    | [0,4096)       |            1
- year-month | 2022 | legal_unit    | [0,4096)       |            1
- year-month | 2022 | legal_unit    | [0,4096)       |            1
- year-month | 2022 | legal_unit    | [0,4096)       |            1
- year-month | 2022 | legal_unit    | [0,4096)       |            1
- year-month | 2022 | legal_unit    | [0,4096)       |            1
- year-month | 2022 | legal_unit    | [0,4096)       |            1
+ year-month | 2022 | legal_unit    | [2955,2956)    |            1
+ year-month | 2022 | legal_unit    | [2955,2956)    |            1
+ year-month | 2022 | legal_unit    | [2955,2956)    |            1
+ year-month | 2022 | legal_unit    | [2955,2956)    |            1
+ year-month | 2022 | legal_unit    | [2955,2956)    |            1
+ year-month | 2022 | legal_unit    | [2955,2956)    |            1
+ year-month | 2022 | legal_unit    | [2955,2956)    |            1
+ year-month | 2022 | legal_unit    | [2955,2956)    |            1
+ year-month | 2022 | legal_unit    | [2955,2956)    |            1
+ year-month | 2022 | legal_unit    | [2955,2956)    |            1
+ year-month | 2022 | legal_unit    | [2955,2956)    |            1
+ year-month | 2022 | legal_unit    | [2955,2956)    |            1
  year-month | 2022 | enterprise    |                |            1
  year-month | 2022 | enterprise    |                |            1
  year-month | 2022 | enterprise    |                |            1
@@ -387,18 +387,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2022 | enterprise    |                |            1
  year-month | 2022 | enterprise    |                |            1
  year-month | 2022 | enterprise    |                |            1
- year-month | 2022 | enterprise    | [0,4096)       |            1
- year-month | 2022 | enterprise    | [0,4096)       |            1
- year-month | 2022 | enterprise    | [0,4096)       |            1
- year-month | 2022 | enterprise    | [0,4096)       |            1
- year-month | 2022 | enterprise    | [0,4096)       |            1
- year-month | 2022 | enterprise    | [0,4096)       |            1
- year-month | 2022 | enterprise    | [0,4096)       |            1
- year-month | 2022 | enterprise    | [0,4096)       |            1
- year-month | 2022 | enterprise    | [0,4096)       |            1
- year-month | 2022 | enterprise    | [0,4096)       |            1
- year-month | 2022 | enterprise    | [0,4096)       |            1
- year-month | 2022 | enterprise    | [0,4096)       |            1
+ year-month | 2022 | enterprise    | [3496,3497)    |            1
+ year-month | 2022 | enterprise    | [3496,3497)    |            1
+ year-month | 2022 | enterprise    | [3496,3497)    |            1
+ year-month | 2022 | enterprise    | [3496,3497)    |            1
+ year-month | 2022 | enterprise    | [3496,3497)    |            1
+ year-month | 2022 | enterprise    | [3496,3497)    |            1
+ year-month | 2022 | enterprise    | [3496,3497)    |            1
+ year-month | 2022 | enterprise    | [3496,3497)    |            1
+ year-month | 2022 | enterprise    | [3496,3497)    |            1
+ year-month | 2022 | enterprise    | [3496,3497)    |            1
+ year-month | 2022 | enterprise    | [3496,3497)    |            1
+ year-month | 2022 | enterprise    | [3496,3497)    |            1
  year-month | 2023 | establishment |                |            1
  year-month | 2023 | establishment |                |            1
  year-month | 2023 | establishment |                |            1
@@ -411,18 +411,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2023 | establishment |                |            1
  year-month | 2023 | establishment |                |            1
  year-month | 2023 | establishment |                |            1
- year-month | 2023 | establishment | [4096,8192)    |            1
- year-month | 2023 | establishment | [4096,8192)    |            1
- year-month | 2023 | establishment | [4096,8192)    |            1
- year-month | 2023 | establishment | [4096,8192)    |            1
- year-month | 2023 | establishment | [4096,8192)    |            1
- year-month | 2023 | establishment | [4096,8192)    |            1
- year-month | 2023 | establishment | [4096,8192)    |            1
- year-month | 2023 | establishment | [4096,8192)    |            1
- year-month | 2023 | establishment | [4096,8192)    |            1
- year-month | 2023 | establishment | [4096,8192)    |            1
- year-month | 2023 | establishment | [4096,8192)    |            1
- year-month | 2023 | establishment | [4096,8192)    |            1
+ year-month | 2023 | establishment | [4453,4454)    |            1
+ year-month | 2023 | establishment | [4453,4454)    |            1
+ year-month | 2023 | establishment | [4453,4454)    |            1
+ year-month | 2023 | establishment | [4453,4454)    |            1
+ year-month | 2023 | establishment | [4453,4454)    |            1
+ year-month | 2023 | establishment | [4453,4454)    |            1
+ year-month | 2023 | establishment | [4453,4454)    |            1
+ year-month | 2023 | establishment | [4453,4454)    |            1
+ year-month | 2023 | establishment | [4453,4454)    |            1
+ year-month | 2023 | establishment | [4453,4454)    |            1
+ year-month | 2023 | establishment | [4453,4454)    |            1
+ year-month | 2023 | establishment | [4453,4454)    |            1
  year-month | 2023 | legal_unit    |                |            1
  year-month | 2023 | legal_unit    |                |            1
  year-month | 2023 | legal_unit    |                |            1
@@ -435,18 +435,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2023 | legal_unit    |                |            1
  year-month | 2023 | legal_unit    |                |            1
  year-month | 2023 | legal_unit    |                |            1
- year-month | 2023 | legal_unit    | [0,4096)       |            1
- year-month | 2023 | legal_unit    | [0,4096)       |            1
- year-month | 2023 | legal_unit    | [0,4096)       |            1
- year-month | 2023 | legal_unit    | [0,4096)       |            1
- year-month | 2023 | legal_unit    | [0,4096)       |            1
- year-month | 2023 | legal_unit    | [0,4096)       |            1
- year-month | 2023 | legal_unit    | [0,4096)       |            1
- year-month | 2023 | legal_unit    | [0,4096)       |            1
- year-month | 2023 | legal_unit    | [0,4096)       |            1
- year-month | 2023 | legal_unit    | [0,4096)       |            1
- year-month | 2023 | legal_unit    | [0,4096)       |            1
- year-month | 2023 | legal_unit    | [0,4096)       |            1
+ year-month | 2023 | legal_unit    | [2955,2956)    |            1
+ year-month | 2023 | legal_unit    | [2955,2956)    |            1
+ year-month | 2023 | legal_unit    | [2955,2956)    |            1
+ year-month | 2023 | legal_unit    | [2955,2956)    |            1
+ year-month | 2023 | legal_unit    | [2955,2956)    |            1
+ year-month | 2023 | legal_unit    | [2955,2956)    |            1
+ year-month | 2023 | legal_unit    | [2955,2956)    |            1
+ year-month | 2023 | legal_unit    | [2955,2956)    |            1
+ year-month | 2023 | legal_unit    | [2955,2956)    |            1
+ year-month | 2023 | legal_unit    | [2955,2956)    |            1
+ year-month | 2023 | legal_unit    | [2955,2956)    |            1
+ year-month | 2023 | legal_unit    | [2955,2956)    |            1
  year-month | 2023 | enterprise    |                |            1
  year-month | 2023 | enterprise    |                |            1
  year-month | 2023 | enterprise    |                |            1
@@ -459,18 +459,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2023 | enterprise    |                |            1
  year-month | 2023 | enterprise    |                |            1
  year-month | 2023 | enterprise    |                |            1
- year-month | 2023 | enterprise    | [0,4096)       |            1
- year-month | 2023 | enterprise    | [0,4096)       |            1
- year-month | 2023 | enterprise    | [0,4096)       |            1
- year-month | 2023 | enterprise    | [0,4096)       |            1
- year-month | 2023 | enterprise    | [0,4096)       |            1
- year-month | 2023 | enterprise    | [0,4096)       |            1
- year-month | 2023 | enterprise    | [0,4096)       |            1
- year-month | 2023 | enterprise    | [0,4096)       |            1
- year-month | 2023 | enterprise    | [0,4096)       |            1
- year-month | 2023 | enterprise    | [0,4096)       |            1
- year-month | 2023 | enterprise    | [0,4096)       |            1
- year-month | 2023 | enterprise    | [0,4096)       |            1
+ year-month | 2023 | enterprise    | [3496,3497)    |            1
+ year-month | 2023 | enterprise    | [3496,3497)    |            1
+ year-month | 2023 | enterprise    | [3496,3497)    |            1
+ year-month | 2023 | enterprise    | [3496,3497)    |            1
+ year-month | 2023 | enterprise    | [3496,3497)    |            1
+ year-month | 2023 | enterprise    | [3496,3497)    |            1
+ year-month | 2023 | enterprise    | [3496,3497)    |            1
+ year-month | 2023 | enterprise    | [3496,3497)    |            1
+ year-month | 2023 | enterprise    | [3496,3497)    |            1
+ year-month | 2023 | enterprise    | [3496,3497)    |            1
+ year-month | 2023 | enterprise    | [3496,3497)    |            1
+ year-month | 2023 | enterprise    | [3496,3497)    |            1
  year-month | 2024 | establishment |                |            1
  year-month | 2024 | establishment |                |            1
  year-month | 2024 | establishment |                |            1
@@ -483,18 +483,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2024 | establishment |                |            1
  year-month | 2024 | establishment |                |            1
  year-month | 2024 | establishment |                |            1
- year-month | 2024 | establishment | [4096,8192)    |            1
- year-month | 2024 | establishment | [4096,8192)    |            1
- year-month | 2024 | establishment | [4096,8192)    |            1
- year-month | 2024 | establishment | [4096,8192)    |            1
- year-month | 2024 | establishment | [4096,8192)    |            1
- year-month | 2024 | establishment | [4096,8192)    |            1
- year-month | 2024 | establishment | [4096,8192)    |            1
- year-month | 2024 | establishment | [4096,8192)    |            1
- year-month | 2024 | establishment | [4096,8192)    |            1
- year-month | 2024 | establishment | [4096,8192)    |            1
- year-month | 2024 | establishment | [4096,8192)    |            1
- year-month | 2024 | establishment | [4096,8192)    |            1
+ year-month | 2024 | establishment | [4453,4454)    |            1
+ year-month | 2024 | establishment | [4453,4454)    |            1
+ year-month | 2024 | establishment | [4453,4454)    |            1
+ year-month | 2024 | establishment | [4453,4454)    |            1
+ year-month | 2024 | establishment | [4453,4454)    |            1
+ year-month | 2024 | establishment | [4453,4454)    |            1
+ year-month | 2024 | establishment | [4453,4454)    |            1
+ year-month | 2024 | establishment | [4453,4454)    |            1
+ year-month | 2024 | establishment | [4453,4454)    |            1
+ year-month | 2024 | establishment | [4453,4454)    |            1
+ year-month | 2024 | establishment | [4453,4454)    |            1
+ year-month | 2024 | establishment | [4453,4454)    |            1
  year-month | 2024 | legal_unit    |                |            1
  year-month | 2024 | legal_unit    |                |            1
  year-month | 2024 | legal_unit    |                |            1
@@ -507,18 +507,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2024 | legal_unit    |                |            1
  year-month | 2024 | legal_unit    |                |            1
  year-month | 2024 | legal_unit    |                |            1
- year-month | 2024 | legal_unit    | [0,4096)       |            1
- year-month | 2024 | legal_unit    | [0,4096)       |            1
- year-month | 2024 | legal_unit    | [0,4096)       |            1
- year-month | 2024 | legal_unit    | [0,4096)       |            1
- year-month | 2024 | legal_unit    | [0,4096)       |            1
- year-month | 2024 | legal_unit    | [0,4096)       |            1
- year-month | 2024 | legal_unit    | [0,4096)       |            1
- year-month | 2024 | legal_unit    | [0,4096)       |            1
- year-month | 2024 | legal_unit    | [0,4096)       |            1
- year-month | 2024 | legal_unit    | [0,4096)       |            1
- year-month | 2024 | legal_unit    | [0,4096)       |            1
- year-month | 2024 | legal_unit    | [0,4096)       |            1
+ year-month | 2024 | legal_unit    | [2955,2956)    |            1
+ year-month | 2024 | legal_unit    | [2955,2956)    |            1
+ year-month | 2024 | legal_unit    | [2955,2956)    |            1
+ year-month | 2024 | legal_unit    | [2955,2956)    |            1
+ year-month | 2024 | legal_unit    | [2955,2956)    |            1
+ year-month | 2024 | legal_unit    | [2955,2956)    |            1
+ year-month | 2024 | legal_unit    | [2955,2956)    |            1
+ year-month | 2024 | legal_unit    | [2955,2956)    |            1
+ year-month | 2024 | legal_unit    | [2955,2956)    |            1
+ year-month | 2024 | legal_unit    | [2955,2956)    |            1
+ year-month | 2024 | legal_unit    | [2955,2956)    |            1
+ year-month | 2024 | legal_unit    | [2955,2956)    |            1
  year-month | 2024 | enterprise    |                |            1
  year-month | 2024 | enterprise    |                |            1
  year-month | 2024 | enterprise    |                |            1
@@ -531,18 +531,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2024 | enterprise    |                |            1
  year-month | 2024 | enterprise    |                |            1
  year-month | 2024 | enterprise    |                |            1
- year-month | 2024 | enterprise    | [0,4096)       |            1
- year-month | 2024 | enterprise    | [0,4096)       |            1
- year-month | 2024 | enterprise    | [0,4096)       |            1
- year-month | 2024 | enterprise    | [0,4096)       |            1
- year-month | 2024 | enterprise    | [0,4096)       |            1
- year-month | 2024 | enterprise    | [0,4096)       |            1
- year-month | 2024 | enterprise    | [0,4096)       |            1
- year-month | 2024 | enterprise    | [0,4096)       |            1
- year-month | 2024 | enterprise    | [0,4096)       |            1
- year-month | 2024 | enterprise    | [0,4096)       |            1
- year-month | 2024 | enterprise    | [0,4096)       |            1
- year-month | 2024 | enterprise    | [0,4096)       |            1
+ year-month | 2024 | enterprise    | [3496,3497)    |            1
+ year-month | 2024 | enterprise    | [3496,3497)    |            1
+ year-month | 2024 | enterprise    | [3496,3497)    |            1
+ year-month | 2024 | enterprise    | [3496,3497)    |            1
+ year-month | 2024 | enterprise    | [3496,3497)    |            1
+ year-month | 2024 | enterprise    | [3496,3497)    |            1
+ year-month | 2024 | enterprise    | [3496,3497)    |            1
+ year-month | 2024 | enterprise    | [3496,3497)    |            1
+ year-month | 2024 | enterprise    | [3496,3497)    |            1
+ year-month | 2024 | enterprise    | [3496,3497)    |            1
+ year-month | 2024 | enterprise    | [3496,3497)    |            1
+ year-month | 2024 | enterprise    | [3496,3497)    |            1
  year-month | 2025 | establishment |                |            1
  year-month | 2025 | establishment |                |            1
  year-month | 2025 | establishment |                |            1
@@ -555,18 +555,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2025 | establishment |                |            1
  year-month | 2025 | establishment |                |            1
  year-month | 2025 | establishment |                |            1
- year-month | 2025 | establishment | [4096,8192)    |            1
- year-month | 2025 | establishment | [4096,8192)    |            1
- year-month | 2025 | establishment | [4096,8192)    |            1
- year-month | 2025 | establishment | [4096,8192)    |            1
- year-month | 2025 | establishment | [4096,8192)    |            1
- year-month | 2025 | establishment | [4096,8192)    |            1
- year-month | 2025 | establishment | [4096,8192)    |            1
- year-month | 2025 | establishment | [4096,8192)    |            1
- year-month | 2025 | establishment | [4096,8192)    |            1
- year-month | 2025 | establishment | [4096,8192)    |            1
- year-month | 2025 | establishment | [4096,8192)    |            1
- year-month | 2025 | establishment | [4096,8192)    |            1
+ year-month | 2025 | establishment | [4453,4454)    |            1
+ year-month | 2025 | establishment | [4453,4454)    |            1
+ year-month | 2025 | establishment | [4453,4454)    |            1
+ year-month | 2025 | establishment | [4453,4454)    |            1
+ year-month | 2025 | establishment | [4453,4454)    |            1
+ year-month | 2025 | establishment | [4453,4454)    |            1
+ year-month | 2025 | establishment | [4453,4454)    |            1
+ year-month | 2025 | establishment | [4453,4454)    |            1
+ year-month | 2025 | establishment | [4453,4454)    |            1
+ year-month | 2025 | establishment | [4453,4454)    |            1
+ year-month | 2025 | establishment | [4453,4454)    |            1
+ year-month | 2025 | establishment | [4453,4454)    |            1
  year-month | 2025 | legal_unit    |                |            1
  year-month | 2025 | legal_unit    |                |            1
  year-month | 2025 | legal_unit    |                |            1
@@ -579,18 +579,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2025 | legal_unit    |                |            1
  year-month | 2025 | legal_unit    |                |            1
  year-month | 2025 | legal_unit    |                |            1
- year-month | 2025 | legal_unit    | [0,4096)       |            1
- year-month | 2025 | legal_unit    | [0,4096)       |            1
- year-month | 2025 | legal_unit    | [0,4096)       |            1
- year-month | 2025 | legal_unit    | [0,4096)       |            1
- year-month | 2025 | legal_unit    | [0,4096)       |            1
- year-month | 2025 | legal_unit    | [0,4096)       |            1
- year-month | 2025 | legal_unit    | [0,4096)       |            1
- year-month | 2025 | legal_unit    | [0,4096)       |            1
- year-month | 2025 | legal_unit    | [0,4096)       |            1
- year-month | 2025 | legal_unit    | [0,4096)       |            1
- year-month | 2025 | legal_unit    | [0,4096)       |            1
- year-month | 2025 | legal_unit    | [0,4096)       |            1
+ year-month | 2025 | legal_unit    | [2955,2956)    |            1
+ year-month | 2025 | legal_unit    | [2955,2956)    |            1
+ year-month | 2025 | legal_unit    | [2955,2956)    |            1
+ year-month | 2025 | legal_unit    | [2955,2956)    |            1
+ year-month | 2025 | legal_unit    | [2955,2956)    |            1
+ year-month | 2025 | legal_unit    | [2955,2956)    |            1
+ year-month | 2025 | legal_unit    | [2955,2956)    |            1
+ year-month | 2025 | legal_unit    | [2955,2956)    |            1
+ year-month | 2025 | legal_unit    | [2955,2956)    |            1
+ year-month | 2025 | legal_unit    | [2955,2956)    |            1
+ year-month | 2025 | legal_unit    | [2955,2956)    |            1
+ year-month | 2025 | legal_unit    | [2955,2956)    |            1
  year-month | 2025 | enterprise    |                |            1
  year-month | 2025 | enterprise    |                |            1
  year-month | 2025 | enterprise    |                |            1
@@ -603,43 +603,49 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2025 | enterprise    |                |            1
  year-month | 2025 | enterprise    |                |            1
  year-month | 2025 | enterprise    |                |            1
- year-month | 2025 | enterprise    | [0,4096)       |            1
- year-month | 2025 | enterprise    | [0,4096)       |            1
- year-month | 2025 | enterprise    | [0,4096)       |            1
- year-month | 2025 | enterprise    | [0,4096)       |            1
- year-month | 2025 | enterprise    | [0,4096)       |            1
- year-month | 2025 | enterprise    | [0,4096)       |            1
- year-month | 2025 | enterprise    | [0,4096)       |            1
- year-month | 2025 | enterprise    | [0,4096)       |            1
- year-month | 2025 | enterprise    | [0,4096)       |            1
- year-month | 2025 | enterprise    | [0,4096)       |            1
- year-month | 2025 | enterprise    | [0,4096)       |            1
- year-month | 2025 | enterprise    | [0,4096)       |            1
+ year-month | 2025 | enterprise    | [3496,3497)    |            1
+ year-month | 2025 | enterprise    | [3496,3497)    |            1
+ year-month | 2025 | enterprise    | [3496,3497)    |            1
+ year-month | 2025 | enterprise    | [3496,3497)    |            1
+ year-month | 2025 | enterprise    | [3496,3497)    |            1
+ year-month | 2025 | enterprise    | [3496,3497)    |            1
+ year-month | 2025 | enterprise    | [3496,3497)    |            1
+ year-month | 2025 | enterprise    | [3496,3497)    |            1
+ year-month | 2025 | enterprise    | [3496,3497)    |            1
+ year-month | 2025 | enterprise    | [3496,3497)    |            1
+ year-month | 2025 | enterprise    | [3496,3497)    |            1
+ year-month | 2025 | enterprise    | [3496,3497)    |            1
  year-month | 2026 | establishment |                |            1
  year-month | 2026 | establishment |                |            1
  year-month | 2026 | establishment |                |            1
  year-month | 2026 | establishment |                |            1
- year-month | 2026 | establishment | [4096,8192)    |            1
- year-month | 2026 | establishment | [4096,8192)    |            1
- year-month | 2026 | establishment | [4096,8192)    |            1
- year-month | 2026 | establishment | [4096,8192)    |            1
+ year-month | 2026 | establishment |                |            1
+ year-month | 2026 | establishment | [4453,4454)    |            1
+ year-month | 2026 | establishment | [4453,4454)    |            1
+ year-month | 2026 | establishment | [4453,4454)    |            1
+ year-month | 2026 | establishment | [4453,4454)    |            1
+ year-month | 2026 | establishment | [4453,4454)    |            1
  year-month | 2026 | legal_unit    |                |            1
  year-month | 2026 | legal_unit    |                |            1
  year-month | 2026 | legal_unit    |                |            1
  year-month | 2026 | legal_unit    |                |            1
- year-month | 2026 | legal_unit    | [0,4096)       |            1
- year-month | 2026 | legal_unit    | [0,4096)       |            1
- year-month | 2026 | legal_unit    | [0,4096)       |            1
- year-month | 2026 | legal_unit    | [0,4096)       |            1
+ year-month | 2026 | legal_unit    |                |            1
+ year-month | 2026 | legal_unit    | [2955,2956)    |            1
+ year-month | 2026 | legal_unit    | [2955,2956)    |            1
+ year-month | 2026 | legal_unit    | [2955,2956)    |            1
+ year-month | 2026 | legal_unit    | [2955,2956)    |            1
+ year-month | 2026 | legal_unit    | [2955,2956)    |            1
  year-month | 2026 | enterprise    |                |            1
  year-month | 2026 | enterprise    |                |            1
  year-month | 2026 | enterprise    |                |            1
  year-month | 2026 | enterprise    |                |            1
- year-month | 2026 | enterprise    | [0,4096)       |            1
- year-month | 2026 | enterprise    | [0,4096)       |            1
- year-month | 2026 | enterprise    | [0,4096)       |            1
- year-month | 2026 | enterprise    | [0,4096)       |            1
-(498 rows)
+ year-month | 2026 | enterprise    |                |            1
+ year-month | 2026 | enterprise    | [3496,3497)    |            1
+ year-month | 2026 | enterprise    | [3496,3497)    |            1
+ year-month | 2026 | enterprise    | [3496,3497)    |            1
+ year-month | 2026 | enterprise    | [3496,3497)    |            1
+ year-month | 2026 | enterprise    | [3496,3497)    |            1
+(504 rows)
 
 RESET ROLE;
 CALL test.set_user_from_email('test.admin@statbus.org');
@@ -741,11 +747,11 @@ WHERE resolution = 'year' AND year = 2021 AND hash_partition IS NOT NULL
 ORDER BY unit_type, lower(hash_partition);
    unit_type   | hash_partition | exists_count 
 ---------------+----------------+--------------
- establishment | [4096,8192)    |            1
+ establishment | [4453,4454)    |            1
  establishment | [7113,7114)    |            1
- legal_unit    | [0,4096)       |            1
+ legal_unit    | [2955,2956)    |            1
  legal_unit    | [14449,14450)  |            1
- enterprise    | [0,4096)       |            1
+ enterprise    | [3496,3497)    |            1
  enterprise    | [12292,12293)  |            1
 (6 rows)
 
@@ -758,67 +764,67 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  resolution | year |   unit_type   | hash_partition | exists_count 
 ------------+------+---------------+----------------+--------------
  year       | 2020 | establishment |                |            2
- year       | 2020 | establishment | [4096,8192)    |            1
+ year       | 2020 | establishment | [4453,4454)    |            1
  year       | 2020 | establishment | [7113,7114)    |            1
  year       | 2020 | legal_unit    |                |            2
- year       | 2020 | legal_unit    | [0,4096)       |            1
+ year       | 2020 | legal_unit    | [2955,2956)    |            1
  year       | 2020 | legal_unit    | [14449,14450)  |            1
  year       | 2020 | enterprise    |                |            2
- year       | 2020 | enterprise    | [0,4096)       |            1
+ year       | 2020 | enterprise    | [3496,3497)    |            1
  year       | 2020 | enterprise    | [12292,12293)  |            1
  year       | 2021 | establishment |                |            2
- year       | 2021 | establishment | [4096,8192)    |            1
+ year       | 2021 | establishment | [4453,4454)    |            1
  year       | 2021 | establishment | [7113,7114)    |            1
  year       | 2021 | legal_unit    |                |            2
- year       | 2021 | legal_unit    | [0,4096)       |            1
+ year       | 2021 | legal_unit    | [2955,2956)    |            1
  year       | 2021 | legal_unit    | [14449,14450)  |            1
  year       | 2021 | enterprise    |                |            2
- year       | 2021 | enterprise    | [0,4096)       |            1
+ year       | 2021 | enterprise    | [3496,3497)    |            1
  year       | 2021 | enterprise    | [12292,12293)  |            1
  year       | 2022 | establishment |                |            2
- year       | 2022 | establishment | [4096,8192)    |            1
+ year       | 2022 | establishment | [4453,4454)    |            1
  year       | 2022 | establishment | [7113,7114)    |            1
  year       | 2022 | legal_unit    |                |            2
- year       | 2022 | legal_unit    | [0,4096)       |            1
+ year       | 2022 | legal_unit    | [2955,2956)    |            1
  year       | 2022 | legal_unit    | [14449,14450)  |            1
  year       | 2022 | enterprise    |                |            2
- year       | 2022 | enterprise    | [0,4096)       |            1
+ year       | 2022 | enterprise    | [3496,3497)    |            1
  year       | 2022 | enterprise    | [12292,12293)  |            1
  year       | 2023 | establishment |                |            2
- year       | 2023 | establishment | [4096,8192)    |            1
+ year       | 2023 | establishment | [4453,4454)    |            1
  year       | 2023 | establishment | [7113,7114)    |            1
  year       | 2023 | legal_unit    |                |            2
- year       | 2023 | legal_unit    | [0,4096)       |            1
+ year       | 2023 | legal_unit    | [2955,2956)    |            1
  year       | 2023 | legal_unit    | [14449,14450)  |            1
  year       | 2023 | enterprise    |                |            2
- year       | 2023 | enterprise    | [0,4096)       |            1
+ year       | 2023 | enterprise    | [3496,3497)    |            1
  year       | 2023 | enterprise    | [12292,12293)  |            1
  year       | 2024 | establishment |                |            2
- year       | 2024 | establishment | [4096,8192)    |            1
+ year       | 2024 | establishment | [4453,4454)    |            1
  year       | 2024 | establishment | [7113,7114)    |            1
  year       | 2024 | legal_unit    |                |            2
- year       | 2024 | legal_unit    | [0,4096)       |            1
+ year       | 2024 | legal_unit    | [2955,2956)    |            1
  year       | 2024 | legal_unit    | [14449,14450)  |            1
  year       | 2024 | enterprise    |                |            2
- year       | 2024 | enterprise    | [0,4096)       |            1
+ year       | 2024 | enterprise    | [3496,3497)    |            1
  year       | 2024 | enterprise    | [12292,12293)  |            1
  year       | 2025 | establishment |                |            2
- year       | 2025 | establishment | [4096,8192)    |            1
+ year       | 2025 | establishment | [4453,4454)    |            1
  year       | 2025 | establishment | [7113,7114)    |            1
  year       | 2025 | legal_unit    |                |            2
- year       | 2025 | legal_unit    | [0,4096)       |            1
+ year       | 2025 | legal_unit    | [2955,2956)    |            1
  year       | 2025 | legal_unit    | [14449,14450)  |            1
  year       | 2025 | enterprise    |                |            2
- year       | 2025 | enterprise    | [0,4096)       |            1
+ year       | 2025 | enterprise    | [3496,3497)    |            1
  year       | 2025 | enterprise    | [12292,12293)  |            1
  year       | 2026 | establishment |                |            2
- year       | 2026 | establishment | [4096,8192)    |            1
+ year       | 2026 | establishment | [4453,4454)    |            1
  year       | 2026 | establishment | [7113,7114)    |            1
  year       | 2026 | legal_unit    |                |            2
- year       | 2026 | legal_unit    | [0,4096)       |            1
+ year       | 2026 | legal_unit    | [2955,2956)    |            1
  year       | 2026 | legal_unit    | [14449,14450)  |            1
  year       | 2026 | enterprise    |                |            2
- year       | 2026 | enterprise    | [0,4096)       |            1
+ year       | 2026 | enterprise    | [3496,3497)    |            1
  year       | 2026 | enterprise    | [12292,12293)  |            1
  year-month | 2020 | establishment |                |            2
  year-month | 2020 | establishment |                |            2
@@ -832,18 +838,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2020 | establishment |                |            2
  year-month | 2020 | establishment |                |            2
  year-month | 2020 | establishment |                |            2
- year-month | 2020 | establishment | [4096,8192)    |            1
- year-month | 2020 | establishment | [4096,8192)    |            1
- year-month | 2020 | establishment | [4096,8192)    |            1
- year-month | 2020 | establishment | [4096,8192)    |            1
- year-month | 2020 | establishment | [4096,8192)    |            1
- year-month | 2020 | establishment | [4096,8192)    |            1
- year-month | 2020 | establishment | [4096,8192)    |            1
- year-month | 2020 | establishment | [4096,8192)    |            1
- year-month | 2020 | establishment | [4096,8192)    |            1
- year-month | 2020 | establishment | [4096,8192)    |            1
- year-month | 2020 | establishment | [4096,8192)    |            1
- year-month | 2020 | establishment | [4096,8192)    |            1
+ year-month | 2020 | establishment | [4453,4454)    |            1
+ year-month | 2020 | establishment | [4453,4454)    |            1
+ year-month | 2020 | establishment | [4453,4454)    |            1
+ year-month | 2020 | establishment | [4453,4454)    |            1
+ year-month | 2020 | establishment | [4453,4454)    |            1
+ year-month | 2020 | establishment | [4453,4454)    |            1
+ year-month | 2020 | establishment | [4453,4454)    |            1
+ year-month | 2020 | establishment | [4453,4454)    |            1
+ year-month | 2020 | establishment | [4453,4454)    |            1
+ year-month | 2020 | establishment | [4453,4454)    |            1
+ year-month | 2020 | establishment | [4453,4454)    |            1
+ year-month | 2020 | establishment | [4453,4454)    |            1
  year-month | 2020 | establishment | [7113,7114)    |            1
  year-month | 2020 | establishment | [7113,7114)    |            1
  year-month | 2020 | establishment | [7113,7114)    |            1
@@ -868,18 +874,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2020 | legal_unit    |                |            2
  year-month | 2020 | legal_unit    |                |            2
  year-month | 2020 | legal_unit    |                |            2
- year-month | 2020 | legal_unit    | [0,4096)       |            1
- year-month | 2020 | legal_unit    | [0,4096)       |            1
- year-month | 2020 | legal_unit    | [0,4096)       |            1
- year-month | 2020 | legal_unit    | [0,4096)       |            1
- year-month | 2020 | legal_unit    | [0,4096)       |            1
- year-month | 2020 | legal_unit    | [0,4096)       |            1
- year-month | 2020 | legal_unit    | [0,4096)       |            1
- year-month | 2020 | legal_unit    | [0,4096)       |            1
- year-month | 2020 | legal_unit    | [0,4096)       |            1
- year-month | 2020 | legal_unit    | [0,4096)       |            1
- year-month | 2020 | legal_unit    | [0,4096)       |            1
- year-month | 2020 | legal_unit    | [0,4096)       |            1
+ year-month | 2020 | legal_unit    | [2955,2956)    |            1
+ year-month | 2020 | legal_unit    | [2955,2956)    |            1
+ year-month | 2020 | legal_unit    | [2955,2956)    |            1
+ year-month | 2020 | legal_unit    | [2955,2956)    |            1
+ year-month | 2020 | legal_unit    | [2955,2956)    |            1
+ year-month | 2020 | legal_unit    | [2955,2956)    |            1
+ year-month | 2020 | legal_unit    | [2955,2956)    |            1
+ year-month | 2020 | legal_unit    | [2955,2956)    |            1
+ year-month | 2020 | legal_unit    | [2955,2956)    |            1
+ year-month | 2020 | legal_unit    | [2955,2956)    |            1
+ year-month | 2020 | legal_unit    | [2955,2956)    |            1
+ year-month | 2020 | legal_unit    | [2955,2956)    |            1
  year-month | 2020 | legal_unit    | [14449,14450)  |            1
  year-month | 2020 | legal_unit    | [14449,14450)  |            1
  year-month | 2020 | legal_unit    | [14449,14450)  |            1
@@ -904,18 +910,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2020 | enterprise    |                |            2
  year-month | 2020 | enterprise    |                |            2
  year-month | 2020 | enterprise    |                |            2
- year-month | 2020 | enterprise    | [0,4096)       |            1
- year-month | 2020 | enterprise    | [0,4096)       |            1
- year-month | 2020 | enterprise    | [0,4096)       |            1
- year-month | 2020 | enterprise    | [0,4096)       |            1
- year-month | 2020 | enterprise    | [0,4096)       |            1
- year-month | 2020 | enterprise    | [0,4096)       |            1
- year-month | 2020 | enterprise    | [0,4096)       |            1
- year-month | 2020 | enterprise    | [0,4096)       |            1
- year-month | 2020 | enterprise    | [0,4096)       |            1
- year-month | 2020 | enterprise    | [0,4096)       |            1
- year-month | 2020 | enterprise    | [0,4096)       |            1
- year-month | 2020 | enterprise    | [0,4096)       |            1
+ year-month | 2020 | enterprise    | [3496,3497)    |            1
+ year-month | 2020 | enterprise    | [3496,3497)    |            1
+ year-month | 2020 | enterprise    | [3496,3497)    |            1
+ year-month | 2020 | enterprise    | [3496,3497)    |            1
+ year-month | 2020 | enterprise    | [3496,3497)    |            1
+ year-month | 2020 | enterprise    | [3496,3497)    |            1
+ year-month | 2020 | enterprise    | [3496,3497)    |            1
+ year-month | 2020 | enterprise    | [3496,3497)    |            1
+ year-month | 2020 | enterprise    | [3496,3497)    |            1
+ year-month | 2020 | enterprise    | [3496,3497)    |            1
+ year-month | 2020 | enterprise    | [3496,3497)    |            1
+ year-month | 2020 | enterprise    | [3496,3497)    |            1
  year-month | 2020 | enterprise    | [12292,12293)  |            1
  year-month | 2020 | enterprise    | [12292,12293)  |            1
  year-month | 2020 | enterprise    | [12292,12293)  |            1
@@ -940,18 +946,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2021 | establishment |                |            2
  year-month | 2021 | establishment |                |            2
  year-month | 2021 | establishment |                |            2
- year-month | 2021 | establishment | [4096,8192)    |            1
- year-month | 2021 | establishment | [4096,8192)    |            1
- year-month | 2021 | establishment | [4096,8192)    |            1
- year-month | 2021 | establishment | [4096,8192)    |            1
- year-month | 2021 | establishment | [4096,8192)    |            1
- year-month | 2021 | establishment | [4096,8192)    |            1
- year-month | 2021 | establishment | [4096,8192)    |            1
- year-month | 2021 | establishment | [4096,8192)    |            1
- year-month | 2021 | establishment | [4096,8192)    |            1
- year-month | 2021 | establishment | [4096,8192)    |            1
- year-month | 2021 | establishment | [4096,8192)    |            1
- year-month | 2021 | establishment | [4096,8192)    |            1
+ year-month | 2021 | establishment | [4453,4454)    |            1
+ year-month | 2021 | establishment | [4453,4454)    |            1
+ year-month | 2021 | establishment | [4453,4454)    |            1
+ year-month | 2021 | establishment | [4453,4454)    |            1
+ year-month | 2021 | establishment | [4453,4454)    |            1
+ year-month | 2021 | establishment | [4453,4454)    |            1
+ year-month | 2021 | establishment | [4453,4454)    |            1
+ year-month | 2021 | establishment | [4453,4454)    |            1
+ year-month | 2021 | establishment | [4453,4454)    |            1
+ year-month | 2021 | establishment | [4453,4454)    |            1
+ year-month | 2021 | establishment | [4453,4454)    |            1
+ year-month | 2021 | establishment | [4453,4454)    |            1
  year-month | 2021 | establishment | [7113,7114)    |            1
  year-month | 2021 | establishment | [7113,7114)    |            1
  year-month | 2021 | establishment | [7113,7114)    |            1
@@ -976,18 +982,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2021 | legal_unit    |                |            2
  year-month | 2021 | legal_unit    |                |            2
  year-month | 2021 | legal_unit    |                |            2
- year-month | 2021 | legal_unit    | [0,4096)       |            1
- year-month | 2021 | legal_unit    | [0,4096)       |            1
- year-month | 2021 | legal_unit    | [0,4096)       |            1
- year-month | 2021 | legal_unit    | [0,4096)       |            1
- year-month | 2021 | legal_unit    | [0,4096)       |            1
- year-month | 2021 | legal_unit    | [0,4096)       |            1
- year-month | 2021 | legal_unit    | [0,4096)       |            1
- year-month | 2021 | legal_unit    | [0,4096)       |            1
- year-month | 2021 | legal_unit    | [0,4096)       |            1
- year-month | 2021 | legal_unit    | [0,4096)       |            1
- year-month | 2021 | legal_unit    | [0,4096)       |            1
- year-month | 2021 | legal_unit    | [0,4096)       |            1
+ year-month | 2021 | legal_unit    | [2955,2956)    |            1
+ year-month | 2021 | legal_unit    | [2955,2956)    |            1
+ year-month | 2021 | legal_unit    | [2955,2956)    |            1
+ year-month | 2021 | legal_unit    | [2955,2956)    |            1
+ year-month | 2021 | legal_unit    | [2955,2956)    |            1
+ year-month | 2021 | legal_unit    | [2955,2956)    |            1
+ year-month | 2021 | legal_unit    | [2955,2956)    |            1
+ year-month | 2021 | legal_unit    | [2955,2956)    |            1
+ year-month | 2021 | legal_unit    | [2955,2956)    |            1
+ year-month | 2021 | legal_unit    | [2955,2956)    |            1
+ year-month | 2021 | legal_unit    | [2955,2956)    |            1
+ year-month | 2021 | legal_unit    | [2955,2956)    |            1
  year-month | 2021 | legal_unit    | [14449,14450)  |            1
  year-month | 2021 | legal_unit    | [14449,14450)  |            1
  year-month | 2021 | legal_unit    | [14449,14450)  |            1
@@ -1012,18 +1018,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2021 | enterprise    |                |            2
  year-month | 2021 | enterprise    |                |            2
  year-month | 2021 | enterprise    |                |            2
- year-month | 2021 | enterprise    | [0,4096)       |            1
- year-month | 2021 | enterprise    | [0,4096)       |            1
- year-month | 2021 | enterprise    | [0,4096)       |            1
- year-month | 2021 | enterprise    | [0,4096)       |            1
- year-month | 2021 | enterprise    | [0,4096)       |            1
- year-month | 2021 | enterprise    | [0,4096)       |            1
- year-month | 2021 | enterprise    | [0,4096)       |            1
- year-month | 2021 | enterprise    | [0,4096)       |            1
- year-month | 2021 | enterprise    | [0,4096)       |            1
- year-month | 2021 | enterprise    | [0,4096)       |            1
- year-month | 2021 | enterprise    | [0,4096)       |            1
- year-month | 2021 | enterprise    | [0,4096)       |            1
+ year-month | 2021 | enterprise    | [3496,3497)    |            1
+ year-month | 2021 | enterprise    | [3496,3497)    |            1
+ year-month | 2021 | enterprise    | [3496,3497)    |            1
+ year-month | 2021 | enterprise    | [3496,3497)    |            1
+ year-month | 2021 | enterprise    | [3496,3497)    |            1
+ year-month | 2021 | enterprise    | [3496,3497)    |            1
+ year-month | 2021 | enterprise    | [3496,3497)    |            1
+ year-month | 2021 | enterprise    | [3496,3497)    |            1
+ year-month | 2021 | enterprise    | [3496,3497)    |            1
+ year-month | 2021 | enterprise    | [3496,3497)    |            1
+ year-month | 2021 | enterprise    | [3496,3497)    |            1
+ year-month | 2021 | enterprise    | [3496,3497)    |            1
  year-month | 2021 | enterprise    | [12292,12293)  |            1
  year-month | 2021 | enterprise    | [12292,12293)  |            1
  year-month | 2021 | enterprise    | [12292,12293)  |            1
@@ -1048,18 +1054,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2022 | establishment |                |            2
  year-month | 2022 | establishment |                |            2
  year-month | 2022 | establishment |                |            2
- year-month | 2022 | establishment | [4096,8192)    |            1
- year-month | 2022 | establishment | [4096,8192)    |            1
- year-month | 2022 | establishment | [4096,8192)    |            1
- year-month | 2022 | establishment | [4096,8192)    |            1
- year-month | 2022 | establishment | [4096,8192)    |            1
- year-month | 2022 | establishment | [4096,8192)    |            1
- year-month | 2022 | establishment | [4096,8192)    |            1
- year-month | 2022 | establishment | [4096,8192)    |            1
- year-month | 2022 | establishment | [4096,8192)    |            1
- year-month | 2022 | establishment | [4096,8192)    |            1
- year-month | 2022 | establishment | [4096,8192)    |            1
- year-month | 2022 | establishment | [4096,8192)    |            1
+ year-month | 2022 | establishment | [4453,4454)    |            1
+ year-month | 2022 | establishment | [4453,4454)    |            1
+ year-month | 2022 | establishment | [4453,4454)    |            1
+ year-month | 2022 | establishment | [4453,4454)    |            1
+ year-month | 2022 | establishment | [4453,4454)    |            1
+ year-month | 2022 | establishment | [4453,4454)    |            1
+ year-month | 2022 | establishment | [4453,4454)    |            1
+ year-month | 2022 | establishment | [4453,4454)    |            1
+ year-month | 2022 | establishment | [4453,4454)    |            1
+ year-month | 2022 | establishment | [4453,4454)    |            1
+ year-month | 2022 | establishment | [4453,4454)    |            1
+ year-month | 2022 | establishment | [4453,4454)    |            1
  year-month | 2022 | establishment | [7113,7114)    |            1
  year-month | 2022 | establishment | [7113,7114)    |            1
  year-month | 2022 | establishment | [7113,7114)    |            1
@@ -1084,18 +1090,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2022 | legal_unit    |                |            2
  year-month | 2022 | legal_unit    |                |            2
  year-month | 2022 | legal_unit    |                |            2
- year-month | 2022 | legal_unit    | [0,4096)       |            1
- year-month | 2022 | legal_unit    | [0,4096)       |            1
- year-month | 2022 | legal_unit    | [0,4096)       |            1
- year-month | 2022 | legal_unit    | [0,4096)       |            1
- year-month | 2022 | legal_unit    | [0,4096)       |            1
- year-month | 2022 | legal_unit    | [0,4096)       |            1
- year-month | 2022 | legal_unit    | [0,4096)       |            1
- year-month | 2022 | legal_unit    | [0,4096)       |            1
- year-month | 2022 | legal_unit    | [0,4096)       |            1
- year-month | 2022 | legal_unit    | [0,4096)       |            1
- year-month | 2022 | legal_unit    | [0,4096)       |            1
- year-month | 2022 | legal_unit    | [0,4096)       |            1
+ year-month | 2022 | legal_unit    | [2955,2956)    |            1
+ year-month | 2022 | legal_unit    | [2955,2956)    |            1
+ year-month | 2022 | legal_unit    | [2955,2956)    |            1
+ year-month | 2022 | legal_unit    | [2955,2956)    |            1
+ year-month | 2022 | legal_unit    | [2955,2956)    |            1
+ year-month | 2022 | legal_unit    | [2955,2956)    |            1
+ year-month | 2022 | legal_unit    | [2955,2956)    |            1
+ year-month | 2022 | legal_unit    | [2955,2956)    |            1
+ year-month | 2022 | legal_unit    | [2955,2956)    |            1
+ year-month | 2022 | legal_unit    | [2955,2956)    |            1
+ year-month | 2022 | legal_unit    | [2955,2956)    |            1
+ year-month | 2022 | legal_unit    | [2955,2956)    |            1
  year-month | 2022 | legal_unit    | [14449,14450)  |            1
  year-month | 2022 | legal_unit    | [14449,14450)  |            1
  year-month | 2022 | legal_unit    | [14449,14450)  |            1
@@ -1120,18 +1126,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2022 | enterprise    |                |            2
  year-month | 2022 | enterprise    |                |            2
  year-month | 2022 | enterprise    |                |            2
- year-month | 2022 | enterprise    | [0,4096)       |            1
- year-month | 2022 | enterprise    | [0,4096)       |            1
- year-month | 2022 | enterprise    | [0,4096)       |            1
- year-month | 2022 | enterprise    | [0,4096)       |            1
- year-month | 2022 | enterprise    | [0,4096)       |            1
- year-month | 2022 | enterprise    | [0,4096)       |            1
- year-month | 2022 | enterprise    | [0,4096)       |            1
- year-month | 2022 | enterprise    | [0,4096)       |            1
- year-month | 2022 | enterprise    | [0,4096)       |            1
- year-month | 2022 | enterprise    | [0,4096)       |            1
- year-month | 2022 | enterprise    | [0,4096)       |            1
- year-month | 2022 | enterprise    | [0,4096)       |            1
+ year-month | 2022 | enterprise    | [3496,3497)    |            1
+ year-month | 2022 | enterprise    | [3496,3497)    |            1
+ year-month | 2022 | enterprise    | [3496,3497)    |            1
+ year-month | 2022 | enterprise    | [3496,3497)    |            1
+ year-month | 2022 | enterprise    | [3496,3497)    |            1
+ year-month | 2022 | enterprise    | [3496,3497)    |            1
+ year-month | 2022 | enterprise    | [3496,3497)    |            1
+ year-month | 2022 | enterprise    | [3496,3497)    |            1
+ year-month | 2022 | enterprise    | [3496,3497)    |            1
+ year-month | 2022 | enterprise    | [3496,3497)    |            1
+ year-month | 2022 | enterprise    | [3496,3497)    |            1
+ year-month | 2022 | enterprise    | [3496,3497)    |            1
  year-month | 2022 | enterprise    | [12292,12293)  |            1
  year-month | 2022 | enterprise    | [12292,12293)  |            1
  year-month | 2022 | enterprise    | [12292,12293)  |            1
@@ -1156,18 +1162,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2023 | establishment |                |            2
  year-month | 2023 | establishment |                |            2
  year-month | 2023 | establishment |                |            2
- year-month | 2023 | establishment | [4096,8192)    |            1
- year-month | 2023 | establishment | [4096,8192)    |            1
- year-month | 2023 | establishment | [4096,8192)    |            1
- year-month | 2023 | establishment | [4096,8192)    |            1
- year-month | 2023 | establishment | [4096,8192)    |            1
- year-month | 2023 | establishment | [4096,8192)    |            1
- year-month | 2023 | establishment | [4096,8192)    |            1
- year-month | 2023 | establishment | [4096,8192)    |            1
- year-month | 2023 | establishment | [4096,8192)    |            1
- year-month | 2023 | establishment | [4096,8192)    |            1
- year-month | 2023 | establishment | [4096,8192)    |            1
- year-month | 2023 | establishment | [4096,8192)    |            1
+ year-month | 2023 | establishment | [4453,4454)    |            1
+ year-month | 2023 | establishment | [4453,4454)    |            1
+ year-month | 2023 | establishment | [4453,4454)    |            1
+ year-month | 2023 | establishment | [4453,4454)    |            1
+ year-month | 2023 | establishment | [4453,4454)    |            1
+ year-month | 2023 | establishment | [4453,4454)    |            1
+ year-month | 2023 | establishment | [4453,4454)    |            1
+ year-month | 2023 | establishment | [4453,4454)    |            1
+ year-month | 2023 | establishment | [4453,4454)    |            1
+ year-month | 2023 | establishment | [4453,4454)    |            1
+ year-month | 2023 | establishment | [4453,4454)    |            1
+ year-month | 2023 | establishment | [4453,4454)    |            1
  year-month | 2023 | establishment | [7113,7114)    |            1
  year-month | 2023 | establishment | [7113,7114)    |            1
  year-month | 2023 | establishment | [7113,7114)    |            1
@@ -1192,18 +1198,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2023 | legal_unit    |                |            2
  year-month | 2023 | legal_unit    |                |            2
  year-month | 2023 | legal_unit    |                |            2
- year-month | 2023 | legal_unit    | [0,4096)       |            1
- year-month | 2023 | legal_unit    | [0,4096)       |            1
- year-month | 2023 | legal_unit    | [0,4096)       |            1
- year-month | 2023 | legal_unit    | [0,4096)       |            1
- year-month | 2023 | legal_unit    | [0,4096)       |            1
- year-month | 2023 | legal_unit    | [0,4096)       |            1
- year-month | 2023 | legal_unit    | [0,4096)       |            1
- year-month | 2023 | legal_unit    | [0,4096)       |            1
- year-month | 2023 | legal_unit    | [0,4096)       |            1
- year-month | 2023 | legal_unit    | [0,4096)       |            1
- year-month | 2023 | legal_unit    | [0,4096)       |            1
- year-month | 2023 | legal_unit    | [0,4096)       |            1
+ year-month | 2023 | legal_unit    | [2955,2956)    |            1
+ year-month | 2023 | legal_unit    | [2955,2956)    |            1
+ year-month | 2023 | legal_unit    | [2955,2956)    |            1
+ year-month | 2023 | legal_unit    | [2955,2956)    |            1
+ year-month | 2023 | legal_unit    | [2955,2956)    |            1
+ year-month | 2023 | legal_unit    | [2955,2956)    |            1
+ year-month | 2023 | legal_unit    | [2955,2956)    |            1
+ year-month | 2023 | legal_unit    | [2955,2956)    |            1
+ year-month | 2023 | legal_unit    | [2955,2956)    |            1
+ year-month | 2023 | legal_unit    | [2955,2956)    |            1
+ year-month | 2023 | legal_unit    | [2955,2956)    |            1
+ year-month | 2023 | legal_unit    | [2955,2956)    |            1
  year-month | 2023 | legal_unit    | [14449,14450)  |            1
  year-month | 2023 | legal_unit    | [14449,14450)  |            1
  year-month | 2023 | legal_unit    | [14449,14450)  |            1
@@ -1228,18 +1234,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2023 | enterprise    |                |            2
  year-month | 2023 | enterprise    |                |            2
  year-month | 2023 | enterprise    |                |            2
- year-month | 2023 | enterprise    | [0,4096)       |            1
- year-month | 2023 | enterprise    | [0,4096)       |            1
- year-month | 2023 | enterprise    | [0,4096)       |            1
- year-month | 2023 | enterprise    | [0,4096)       |            1
- year-month | 2023 | enterprise    | [0,4096)       |            1
- year-month | 2023 | enterprise    | [0,4096)       |            1
- year-month | 2023 | enterprise    | [0,4096)       |            1
- year-month | 2023 | enterprise    | [0,4096)       |            1
- year-month | 2023 | enterprise    | [0,4096)       |            1
- year-month | 2023 | enterprise    | [0,4096)       |            1
- year-month | 2023 | enterprise    | [0,4096)       |            1
- year-month | 2023 | enterprise    | [0,4096)       |            1
+ year-month | 2023 | enterprise    | [3496,3497)    |            1
+ year-month | 2023 | enterprise    | [3496,3497)    |            1
+ year-month | 2023 | enterprise    | [3496,3497)    |            1
+ year-month | 2023 | enterprise    | [3496,3497)    |            1
+ year-month | 2023 | enterprise    | [3496,3497)    |            1
+ year-month | 2023 | enterprise    | [3496,3497)    |            1
+ year-month | 2023 | enterprise    | [3496,3497)    |            1
+ year-month | 2023 | enterprise    | [3496,3497)    |            1
+ year-month | 2023 | enterprise    | [3496,3497)    |            1
+ year-month | 2023 | enterprise    | [3496,3497)    |            1
+ year-month | 2023 | enterprise    | [3496,3497)    |            1
+ year-month | 2023 | enterprise    | [3496,3497)    |            1
  year-month | 2023 | enterprise    | [12292,12293)  |            1
  year-month | 2023 | enterprise    | [12292,12293)  |            1
  year-month | 2023 | enterprise    | [12292,12293)  |            1
@@ -1264,18 +1270,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2024 | establishment |                |            2
  year-month | 2024 | establishment |                |            2
  year-month | 2024 | establishment |                |            2
- year-month | 2024 | establishment | [4096,8192)    |            1
- year-month | 2024 | establishment | [4096,8192)    |            1
- year-month | 2024 | establishment | [4096,8192)    |            1
- year-month | 2024 | establishment | [4096,8192)    |            1
- year-month | 2024 | establishment | [4096,8192)    |            1
- year-month | 2024 | establishment | [4096,8192)    |            1
- year-month | 2024 | establishment | [4096,8192)    |            1
- year-month | 2024 | establishment | [4096,8192)    |            1
- year-month | 2024 | establishment | [4096,8192)    |            1
- year-month | 2024 | establishment | [4096,8192)    |            1
- year-month | 2024 | establishment | [4096,8192)    |            1
- year-month | 2024 | establishment | [4096,8192)    |            1
+ year-month | 2024 | establishment | [4453,4454)    |            1
+ year-month | 2024 | establishment | [4453,4454)    |            1
+ year-month | 2024 | establishment | [4453,4454)    |            1
+ year-month | 2024 | establishment | [4453,4454)    |            1
+ year-month | 2024 | establishment | [4453,4454)    |            1
+ year-month | 2024 | establishment | [4453,4454)    |            1
+ year-month | 2024 | establishment | [4453,4454)    |            1
+ year-month | 2024 | establishment | [4453,4454)    |            1
+ year-month | 2024 | establishment | [4453,4454)    |            1
+ year-month | 2024 | establishment | [4453,4454)    |            1
+ year-month | 2024 | establishment | [4453,4454)    |            1
+ year-month | 2024 | establishment | [4453,4454)    |            1
  year-month | 2024 | establishment | [7113,7114)    |            1
  year-month | 2024 | establishment | [7113,7114)    |            1
  year-month | 2024 | establishment | [7113,7114)    |            1
@@ -1300,18 +1306,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2024 | legal_unit    |                |            2
  year-month | 2024 | legal_unit    |                |            2
  year-month | 2024 | legal_unit    |                |            2
- year-month | 2024 | legal_unit    | [0,4096)       |            1
- year-month | 2024 | legal_unit    | [0,4096)       |            1
- year-month | 2024 | legal_unit    | [0,4096)       |            1
- year-month | 2024 | legal_unit    | [0,4096)       |            1
- year-month | 2024 | legal_unit    | [0,4096)       |            1
- year-month | 2024 | legal_unit    | [0,4096)       |            1
- year-month | 2024 | legal_unit    | [0,4096)       |            1
- year-month | 2024 | legal_unit    | [0,4096)       |            1
- year-month | 2024 | legal_unit    | [0,4096)       |            1
- year-month | 2024 | legal_unit    | [0,4096)       |            1
- year-month | 2024 | legal_unit    | [0,4096)       |            1
- year-month | 2024 | legal_unit    | [0,4096)       |            1
+ year-month | 2024 | legal_unit    | [2955,2956)    |            1
+ year-month | 2024 | legal_unit    | [2955,2956)    |            1
+ year-month | 2024 | legal_unit    | [2955,2956)    |            1
+ year-month | 2024 | legal_unit    | [2955,2956)    |            1
+ year-month | 2024 | legal_unit    | [2955,2956)    |            1
+ year-month | 2024 | legal_unit    | [2955,2956)    |            1
+ year-month | 2024 | legal_unit    | [2955,2956)    |            1
+ year-month | 2024 | legal_unit    | [2955,2956)    |            1
+ year-month | 2024 | legal_unit    | [2955,2956)    |            1
+ year-month | 2024 | legal_unit    | [2955,2956)    |            1
+ year-month | 2024 | legal_unit    | [2955,2956)    |            1
+ year-month | 2024 | legal_unit    | [2955,2956)    |            1
  year-month | 2024 | legal_unit    | [14449,14450)  |            1
  year-month | 2024 | legal_unit    | [14449,14450)  |            1
  year-month | 2024 | legal_unit    | [14449,14450)  |            1
@@ -1336,18 +1342,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2024 | enterprise    |                |            2
  year-month | 2024 | enterprise    |                |            2
  year-month | 2024 | enterprise    |                |            2
- year-month | 2024 | enterprise    | [0,4096)       |            1
- year-month | 2024 | enterprise    | [0,4096)       |            1
- year-month | 2024 | enterprise    | [0,4096)       |            1
- year-month | 2024 | enterprise    | [0,4096)       |            1
- year-month | 2024 | enterprise    | [0,4096)       |            1
- year-month | 2024 | enterprise    | [0,4096)       |            1
- year-month | 2024 | enterprise    | [0,4096)       |            1
- year-month | 2024 | enterprise    | [0,4096)       |            1
- year-month | 2024 | enterprise    | [0,4096)       |            1
- year-month | 2024 | enterprise    | [0,4096)       |            1
- year-month | 2024 | enterprise    | [0,4096)       |            1
- year-month | 2024 | enterprise    | [0,4096)       |            1
+ year-month | 2024 | enterprise    | [3496,3497)    |            1
+ year-month | 2024 | enterprise    | [3496,3497)    |            1
+ year-month | 2024 | enterprise    | [3496,3497)    |            1
+ year-month | 2024 | enterprise    | [3496,3497)    |            1
+ year-month | 2024 | enterprise    | [3496,3497)    |            1
+ year-month | 2024 | enterprise    | [3496,3497)    |            1
+ year-month | 2024 | enterprise    | [3496,3497)    |            1
+ year-month | 2024 | enterprise    | [3496,3497)    |            1
+ year-month | 2024 | enterprise    | [3496,3497)    |            1
+ year-month | 2024 | enterprise    | [3496,3497)    |            1
+ year-month | 2024 | enterprise    | [3496,3497)    |            1
+ year-month | 2024 | enterprise    | [3496,3497)    |            1
  year-month | 2024 | enterprise    | [12292,12293)  |            1
  year-month | 2024 | enterprise    | [12292,12293)  |            1
  year-month | 2024 | enterprise    | [12292,12293)  |            1
@@ -1372,18 +1378,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2025 | establishment |                |            2
  year-month | 2025 | establishment |                |            2
  year-month | 2025 | establishment |                |            2
- year-month | 2025 | establishment | [4096,8192)    |            1
- year-month | 2025 | establishment | [4096,8192)    |            1
- year-month | 2025 | establishment | [4096,8192)    |            1
- year-month | 2025 | establishment | [4096,8192)    |            1
- year-month | 2025 | establishment | [4096,8192)    |            1
- year-month | 2025 | establishment | [4096,8192)    |            1
- year-month | 2025 | establishment | [4096,8192)    |            1
- year-month | 2025 | establishment | [4096,8192)    |            1
- year-month | 2025 | establishment | [4096,8192)    |            1
- year-month | 2025 | establishment | [4096,8192)    |            1
- year-month | 2025 | establishment | [4096,8192)    |            1
- year-month | 2025 | establishment | [4096,8192)    |            1
+ year-month | 2025 | establishment | [4453,4454)    |            1
+ year-month | 2025 | establishment | [4453,4454)    |            1
+ year-month | 2025 | establishment | [4453,4454)    |            1
+ year-month | 2025 | establishment | [4453,4454)    |            1
+ year-month | 2025 | establishment | [4453,4454)    |            1
+ year-month | 2025 | establishment | [4453,4454)    |            1
+ year-month | 2025 | establishment | [4453,4454)    |            1
+ year-month | 2025 | establishment | [4453,4454)    |            1
+ year-month | 2025 | establishment | [4453,4454)    |            1
+ year-month | 2025 | establishment | [4453,4454)    |            1
+ year-month | 2025 | establishment | [4453,4454)    |            1
+ year-month | 2025 | establishment | [4453,4454)    |            1
  year-month | 2025 | establishment | [7113,7114)    |            1
  year-month | 2025 | establishment | [7113,7114)    |            1
  year-month | 2025 | establishment | [7113,7114)    |            1
@@ -1408,18 +1414,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2025 | legal_unit    |                |            2
  year-month | 2025 | legal_unit    |                |            2
  year-month | 2025 | legal_unit    |                |            2
- year-month | 2025 | legal_unit    | [0,4096)       |            1
- year-month | 2025 | legal_unit    | [0,4096)       |            1
- year-month | 2025 | legal_unit    | [0,4096)       |            1
- year-month | 2025 | legal_unit    | [0,4096)       |            1
- year-month | 2025 | legal_unit    | [0,4096)       |            1
- year-month | 2025 | legal_unit    | [0,4096)       |            1
- year-month | 2025 | legal_unit    | [0,4096)       |            1
- year-month | 2025 | legal_unit    | [0,4096)       |            1
- year-month | 2025 | legal_unit    | [0,4096)       |            1
- year-month | 2025 | legal_unit    | [0,4096)       |            1
- year-month | 2025 | legal_unit    | [0,4096)       |            1
- year-month | 2025 | legal_unit    | [0,4096)       |            1
+ year-month | 2025 | legal_unit    | [2955,2956)    |            1
+ year-month | 2025 | legal_unit    | [2955,2956)    |            1
+ year-month | 2025 | legal_unit    | [2955,2956)    |            1
+ year-month | 2025 | legal_unit    | [2955,2956)    |            1
+ year-month | 2025 | legal_unit    | [2955,2956)    |            1
+ year-month | 2025 | legal_unit    | [2955,2956)    |            1
+ year-month | 2025 | legal_unit    | [2955,2956)    |            1
+ year-month | 2025 | legal_unit    | [2955,2956)    |            1
+ year-month | 2025 | legal_unit    | [2955,2956)    |            1
+ year-month | 2025 | legal_unit    | [2955,2956)    |            1
+ year-month | 2025 | legal_unit    | [2955,2956)    |            1
+ year-month | 2025 | legal_unit    | [2955,2956)    |            1
  year-month | 2025 | legal_unit    | [14449,14450)  |            1
  year-month | 2025 | legal_unit    | [14449,14450)  |            1
  year-month | 2025 | legal_unit    | [14449,14450)  |            1
@@ -1444,18 +1450,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2025 | enterprise    |                |            2
  year-month | 2025 | enterprise    |                |            2
  year-month | 2025 | enterprise    |                |            2
- year-month | 2025 | enterprise    | [0,4096)       |            1
- year-month | 2025 | enterprise    | [0,4096)       |            1
- year-month | 2025 | enterprise    | [0,4096)       |            1
- year-month | 2025 | enterprise    | [0,4096)       |            1
- year-month | 2025 | enterprise    | [0,4096)       |            1
- year-month | 2025 | enterprise    | [0,4096)       |            1
- year-month | 2025 | enterprise    | [0,4096)       |            1
- year-month | 2025 | enterprise    | [0,4096)       |            1
- year-month | 2025 | enterprise    | [0,4096)       |            1
- year-month | 2025 | enterprise    | [0,4096)       |            1
- year-month | 2025 | enterprise    | [0,4096)       |            1
- year-month | 2025 | enterprise    | [0,4096)       |            1
+ year-month | 2025 | enterprise    | [3496,3497)    |            1
+ year-month | 2025 | enterprise    | [3496,3497)    |            1
+ year-month | 2025 | enterprise    | [3496,3497)    |            1
+ year-month | 2025 | enterprise    | [3496,3497)    |            1
+ year-month | 2025 | enterprise    | [3496,3497)    |            1
+ year-month | 2025 | enterprise    | [3496,3497)    |            1
+ year-month | 2025 | enterprise    | [3496,3497)    |            1
+ year-month | 2025 | enterprise    | [3496,3497)    |            1
+ year-month | 2025 | enterprise    | [3496,3497)    |            1
+ year-month | 2025 | enterprise    | [3496,3497)    |            1
+ year-month | 2025 | enterprise    | [3496,3497)    |            1
+ year-month | 2025 | enterprise    | [3496,3497)    |            1
  year-month | 2025 | enterprise    | [12292,12293)  |            1
  year-month | 2025 | enterprise    | [12292,12293)  |            1
  year-month | 2025 | enterprise    | [12292,12293)  |            1
@@ -1472,10 +1478,13 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2026 | establishment |                |            2
  year-month | 2026 | establishment |                |            2
  year-month | 2026 | establishment |                |            2
- year-month | 2026 | establishment | [4096,8192)    |            1
- year-month | 2026 | establishment | [4096,8192)    |            1
- year-month | 2026 | establishment | [4096,8192)    |            1
- year-month | 2026 | establishment | [4096,8192)    |            1
+ year-month | 2026 | establishment |                |            2
+ year-month | 2026 | establishment | [4453,4454)    |            1
+ year-month | 2026 | establishment | [4453,4454)    |            1
+ year-month | 2026 | establishment | [4453,4454)    |            1
+ year-month | 2026 | establishment | [4453,4454)    |            1
+ year-month | 2026 | establishment | [4453,4454)    |            1
+ year-month | 2026 | establishment | [7113,7114)    |            1
  year-month | 2026 | establishment | [7113,7114)    |            1
  year-month | 2026 | establishment | [7113,7114)    |            1
  year-month | 2026 | establishment | [7113,7114)    |            1
@@ -1484,10 +1493,13 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2026 | legal_unit    |                |            2
  year-month | 2026 | legal_unit    |                |            2
  year-month | 2026 | legal_unit    |                |            2
- year-month | 2026 | legal_unit    | [0,4096)       |            1
- year-month | 2026 | legal_unit    | [0,4096)       |            1
- year-month | 2026 | legal_unit    | [0,4096)       |            1
- year-month | 2026 | legal_unit    | [0,4096)       |            1
+ year-month | 2026 | legal_unit    |                |            2
+ year-month | 2026 | legal_unit    | [2955,2956)    |            1
+ year-month | 2026 | legal_unit    | [2955,2956)    |            1
+ year-month | 2026 | legal_unit    | [2955,2956)    |            1
+ year-month | 2026 | legal_unit    | [2955,2956)    |            1
+ year-month | 2026 | legal_unit    | [2955,2956)    |            1
+ year-month | 2026 | legal_unit    | [14449,14450)  |            1
  year-month | 2026 | legal_unit    | [14449,14450)  |            1
  year-month | 2026 | legal_unit    | [14449,14450)  |            1
  year-month | 2026 | legal_unit    | [14449,14450)  |            1
@@ -1496,15 +1508,18 @@ ORDER BY resolution, year, unit_type, lower(hash_partition) NULLS FIRST;
  year-month | 2026 | enterprise    |                |            2
  year-month | 2026 | enterprise    |                |            2
  year-month | 2026 | enterprise    |                |            2
- year-month | 2026 | enterprise    | [0,4096)       |            1
- year-month | 2026 | enterprise    | [0,4096)       |            1
- year-month | 2026 | enterprise    | [0,4096)       |            1
- year-month | 2026 | enterprise    | [0,4096)       |            1
+ year-month | 2026 | enterprise    |                |            2
+ year-month | 2026 | enterprise    | [3496,3497)    |            1
+ year-month | 2026 | enterprise    | [3496,3497)    |            1
+ year-month | 2026 | enterprise    | [3496,3497)    |            1
+ year-month | 2026 | enterprise    | [3496,3497)    |            1
+ year-month | 2026 | enterprise    | [3496,3497)    |            1
  year-month | 2026 | enterprise    | [12292,12293)  |            1
  year-month | 2026 | enterprise    | [12292,12293)  |            1
  year-month | 2026 | enterprise    | [12292,12293)  |            1
  year-month | 2026 | enterprise    | [12292,12293)  |            1
-(747 rows)
+ year-month | 2026 | enterprise    | [12292,12293)  |            1
+(756 rows)
 
 RESET ROLE;
 CALL test.set_user_from_email('test.admin@statbus.org');
@@ -1547,10 +1562,13 @@ WHERE unit_type IN ('legal_unit', 'establishment', 'enterprise')
 ORDER BY unit_type;
    unit_type   | hash_partition | exists_count | countable_count 
 ---------------+----------------+--------------+-----------------
- establishment |                |            2 |               2
- legal_unit    |                |            2 |               2
- enterprise    |                |            2 |               2
-(3 rows)
+ establishment | [7113,7114)    |            1 |               1
+ establishment | [4453,4454)    |            1 |               1
+ legal_unit    | [2955,2956)    |            1 |               1
+ legal_unit    | [14449,14450)  |            1 |               1
+ enterprise    | [12292,12293)  |            1 |               1
+ enterprise    | [3496,3497)    |            1 |               1
+(6 rows)
 
 \echo "--- RAW statistical_history_def(year, 2021, '[0,16384)'::int4range) output — full hash range ---"
 "--- RAW statistical_history_def(year, 2021, '[0,16384)'::int4range) output — full hash range ---"
@@ -1560,10 +1578,13 @@ WHERE unit_type IN ('legal_unit', 'establishment', 'enterprise')
 ORDER BY unit_type;
    unit_type   | hash_partition | exists_count | countable_count 
 ---------------+----------------+--------------+-----------------
- establishment | [0,16384)      |            2 |               2
- legal_unit    | [0,16384)      |            2 |               2
- enterprise    | [0,16384)      |            2 |               2
-(3 rows)
+ establishment | [7113,7114)    |            1 |               1
+ establishment | [4453,4454)    |            1 |               1
+ legal_unit    | [2955,2956)    |            1 |               1
+ legal_unit    | [14449,14450)  |            1 |               1
+ enterprise    | [12292,12293)  |            1 |               1
+ enterprise    | [3496,3497)    |            1 |               1
+(6 rows)
 
 \echo "--- Worker task summary across the full run [as postgres, bypass RLS] ---"
 "--- Worker task summary across the full run [as postgres, bypass RLS] ---"
@@ -1584,7 +1605,7 @@ ORDER BY command, state;
  collect_changes                   | completed |          2
  derive_reports_phase              | completed |          2
  derive_statistical_history        | completed |          2
- derive_statistical_history_period | completed |        415
+ derive_statistical_history_period | completed |        420
  derive_statistical_unit           | completed |          2
  derive_units_phase                | completed |          2
  statistical_history_reduce        | completed |          2
@@ -1601,8 +1622,8 @@ WHERE command = 'derive_statistical_history'
 ORDER BY id;
  id  |   state   |                    info                    | valid_from | valid_until 
 -----+-----------+--------------------------------------------+------------+-------------
- 115 | completed | {"child_count": 166, "rows_inserted": 249} | 2020-01-01 | infinity
- 568 | completed | {"child_count": 249, "rows_inserted": 249} | 2020-01-01 | infinity
+ 115 | completed | {"child_count": 168, "rows_inserted": 252} | 2020-01-01 | infinity
+ 572 | completed | {"child_count": 252, "rows_inserted": 252} | 2020-01-01 | infinity
 (2 rows)
 
 ROLLBACK TO SAVEPOINT diag;
@@ -1637,9 +1658,9 @@ ORDER BY lower(NULLIF(payload->>'hash_partition', '')::int4range) NULLS FIRST;
 -----+-----------+----------------+----------
  124 | completed | [0,4096)       | 2
  125 | completed | [4096,8192)    | 1
- 578 | completed | [7113,7114)    | 1
- 579 | completed | [12292,12293)  | 1
- 580 | completed | [14449,14450)  | 1
+ 582 | completed | [7113,7114)    | 1
+ 583 | completed | [12292,12293)  | 1
+ 584 | completed | [14449,14450)  | 1
 (5 rows)
 
 ROLLBACK TO SAVEPOINT diag;
