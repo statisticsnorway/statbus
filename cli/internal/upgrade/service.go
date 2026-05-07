@@ -23,6 +23,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/invariants"
+	"github.com/statisticsnorway/statbus/cli/internal/migrate"
 	"github.com/statisticsnorway/statbus/cli/internal/selfupdate"
 )
 
@@ -745,15 +746,64 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 		// On failure, fall through to the rollback path (Branch D below)
 		// rather than the success-mark UPDATE.
 		if ok, reason := d.verifyUpgradeGroundTruth(ctx, flag.CommitSHA); !ok {
-			logRecover("Ground-truth verification FAILED for %s: %s — falling through to rollback", flag.Label(), reason)
-			if appendLog != nil {
-				appendLog.Close()
-				appendLog = nil
+			// Forward-recovery branch (Fix 5b): when the only failure
+			// is "migrations missing" (binary verified at-or-descendant
+			// of target, DB reachable, but db.migration max version <
+			// on-disk max), the upgrade is forward-recoverable. Run
+			// migrate.Up inline (no systemd timeout, idempotent), then
+			// re-verify. On success: fall through to the existing mark-
+			// completed path. On failure: real error, fall to rollback.
+			//
+			// Pattern-match on reason string is acceptable here because
+			// verifyUpgradeGroundTruth lives in this same file — no
+			// API contract to break. Restricted to the migrations-
+			// pending case; binary-mismatch and DB-error reasons still
+			// route to recoveryRollback (their semantics genuinely
+			// require the rollback path).
+			if strings.HasPrefix(reason, "db.migration max version") {
+				logRecover("Ground-truth: %s — forward-recovering via migrate.Up", reason)
+				if mErr := migrate.Up(d.projDir, 0, true, true); mErr != nil {
+					logRecover("Forward-recovery migrate.Up failed: %v — falling through to rollback", mErr)
+					if appendLog != nil {
+						appendLog.Close()
+						appendLog = nil
+					}
+					d.recoveryRollback(ctx, int(flag.ID), flag.Label(), logRelPath, fmt.Sprintf(
+						"%s: forward-recovery migrate.Up failed: %v",
+						ErrInstallPreconditionFailed, mErr))
+					return nil
+				}
+				// Re-verify after migrations applied. If still failing,
+				// the failure mode is genuinely unrecoverable (e.g.
+				// migrate.Up "succeeded" but didn't bump max version —
+				// shouldn't happen, but rollback is correct then).
+				okRetry, reasonRetry := d.verifyUpgradeGroundTruth(ctx, flag.CommitSHA)
+				if !okRetry {
+					logRecover("Ground-truth still failed after migrate.Up: %s — falling through to rollback", reasonRetry)
+					if appendLog != nil {
+						appendLog.Close()
+						appendLog = nil
+					}
+					d.recoveryRollback(ctx, int(flag.ID), flag.Label(), logRelPath, fmt.Sprintf(
+						"%s: post-migrate-up ground-truth still failed: %s",
+						ErrInstallPreconditionFailed, reasonRetry))
+					return nil
+				}
+				logRecover("Forward-recovery complete: migrations applied, ground-truth verified. Marking row completed.")
+				// fall through to the mark-completed path below
+			} else {
+				// Not a migrations-pending case (binary mismatch, DB
+				// error, etc.) — rollback is the correct path.
+				logRecover("Ground-truth verification FAILED for %s: %s — falling through to rollback", flag.Label(), reason)
+				if appendLog != nil {
+					appendLog.Close()
+					appendLog = nil
+				}
+				d.recoveryRollback(ctx, int(flag.ID), flag.Label(), logRelPath, fmt.Sprintf(
+					"%s: post-restart ground-truth check failed: %s",
+					ErrInstallPreconditionFailed, reason))
+				return nil
 			}
-			d.recoveryRollback(ctx, int(flag.ID), flag.Label(), logRelPath, fmt.Sprintf(
-				"%s: post-restart ground-truth check failed: %s",
-				ErrInstallPreconditionFailed, reason))
-			return nil
 		}
 
 		// Close the appender BEFORE reading the tail so the flush lands
