@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -922,11 +923,21 @@ func checkSessionsClean(dir string) bool {
 				    AND (query ILIKE '%TRUNCATE %statistical_%'
 				         OR query ILIKE '%INSERT INTO %statistical_%'
 				         OR query ILIKE '%CALL %statistical_%')
-				) AS leaked
+				) AS leaked,
+				(SELECT count(*) FROM pg_stat_activity a
+				    JOIN pg_locks l ON l.pid = a.pid
+				  WHERE l.locktype = 'advisory'
+				    AND l.granted
+				    AND a.datname = current_database()
+				    AND a.pid <> pg_backend_pid()
+				) AS advisory_holders
 		)
 		SELECT
 			active::text || '/' || max_conn::text AS pool,
-			(active::numeric < (max_conn::numeric * 0.8) AND leaked = 0)::text AS healthy
+			(active::numeric < (max_conn::numeric * 0.8)
+			   AND leaked = 0
+			   AND advisory_holders = 0
+			)::text AS healthy
 		FROM s;`)
 	cmd := exec.Command(psqlPath, args...)
 	cmd.Dir = dir
@@ -960,21 +971,41 @@ func checkSessionsClean(dir string) bool {
 // connection pool entirely. This is the only path that works when the
 // pool is wedged.
 //
-// Targets two backend classes:
-//   1. Any backend > 2 minutes old in the current database (other than
-//      this connection) — likely orphaned by a SIGKILLed migrate-up
-//      subprocess.
-//   2. Any backend running a query touching statistical_history —
-//      these are the heavy migrations that get caught in the timeout
-//      loop on at-scale data.
+// TWO-PHASE design:
 //
-// 2-second sleep + recheck after termination. If the pool is still
-// saturated afterwards, returns an error pointing at the upgrade
-// service journal — we do NOT silently retry, because that would hide
-// a real problem (e.g. genuine load, or a crashed cleanup).
+//	Phase 1 — heuristic kill via SQL alone:
+//	  1a. Backend > 2 minutes old in active or idle-in-transaction state
+//	      (orphaned subprocess connections from killed migrate-up runs).
+//	  1b. Backend running a query touching statistical_history (the
+//	      heavy migration that gets caught in the timeout loop on
+//	      at-scale data — usually subprocess-level).
 //
-// Idempotent: on a healthy system the WHERE clause matches zero rows
-// and the recheck passes cleanly. Self-targeting is excluded via
+//	Phase 2 — advisory-lock holder triage with PID liveness:
+//	  Pure SQL can't probe host-side process liveness. Phase 1's
+//	  heuristic misses the most damaging zombie type: an IDLE backend
+//	  holding the migrate_up advisory lock (post-acquire, between SQL
+//	  statements) whose owning Go process died. The session is in
+//	  state='idle' which Phase 1 explicitly avoids — killing healthy
+//	  idle sessions would be unsafe.
+//
+//	  Phase 2 queries advisory-lock holders, parses the
+//	  application_name marker (set by migrate.acquireAdvisoryLock as
+//	  'statbus-migrate-<PID>'), and runs syscall.Kill(PID, 0) per
+//	  candidate. ESRCH → owner is dead → zombie → terminate. Empty
+//	  application_name → pre-rc.07 binary or unknown client → also
+//	  terminate. Live PID → legitimate work, skip.
+//
+//	  This is what protects a healthy 30-minute migration whose
+//	  parent connection is idle for most of the wall-clock time:
+//	  the marker resolves to a live PID, cleanup skips it.
+//
+// 2-second sleep + recheck after both phases. Recheck failure is hard
+// fail — we do NOT silently retry, because that would hide a real
+// problem (e.g. genuine load, or a crashed cleanup).
+//
+// Idempotent: on a healthy system Phase 1's WHERE clause matches zero
+// rows, Phase 2's advisory-lock query matches zero, and the recheck
+// passes cleanly. Self-targeting is excluded via
 // `pid <> pg_backend_pid()`.
 func cleanOrphanSessions(dir string) error {
 	envFile, err := dotenv.Load(filepath.Join(dir, ".env"))
@@ -990,25 +1021,94 @@ func cleanOrphanSessions(dir string) error {
 		adminUser = v
 	}
 
-	cmd := exec.Command("docker", "compose", "exec", "-T", "db",
+	// Phase 1: heuristic kill of obvious zombies.
+	phase1 := exec.Command("docker", "compose", "exec", "-T", "db",
 		"psql", "-U", adminUser, "-d", dbName, "-c", `
 		SELECT pg_terminate_backend(pid), pid, query_start, left(query, 80) AS query
 		  FROM pg_stat_activity
 		 WHERE datname = current_database()
 		   AND pid <> pg_backend_pid()
 		   AND (
-			   -- Orphans from killed migrate-up subprocesses
 			   (state IN ('active', 'idle in transaction')
 			    AND query_start < now() - interval '2 minutes')
 			   OR
-			   -- Backends still wedged on the upgrade's heavy migration
 			   query ILIKE '%statistical_history%'
 		   );`)
-	cmd.Dir = dir
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("pg_terminate_backend (docker exec): %w", err)
+	phase1.Dir = dir
+	phase1.Stdout = os.Stdout
+	phase1.Stderr = os.Stderr
+	if err := phase1.Run(); err != nil {
+		return fmt.Errorf("phase 1 pg_terminate_backend (docker exec): %w", err)
+	}
+
+	// Phase 2: identify advisory-lock holders, probe owner-PID liveness.
+	phase2 := exec.Command("docker", "compose", "exec", "-T", "db",
+		"psql", "-U", adminUser, "-d", dbName,
+		"-t", "-A", "-F", "|", "-c", `
+		SELECT a.pid, COALESCE(a.application_name, '')
+		  FROM pg_stat_activity a
+		  JOIN pg_locks l ON l.pid = a.pid
+		 WHERE l.locktype = 'advisory'
+		   AND l.granted
+		   AND a.datname = current_database()
+		   AND a.pid <> pg_backend_pid()
+		 ORDER BY a.pid;`)
+	phase2.Dir = dir
+	out, err := phase2.Output()
+	if err != nil {
+		return fmt.Errorf("phase 2 query advisory-lock holders: %w", err)
+	}
+	var pidsToKill []int
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, "|", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		backendPID, perr := strconv.Atoi(strings.TrimSpace(parts[0]))
+		if perr != nil {
+			continue
+		}
+		appName := strings.TrimSpace(parts[1])
+		switch {
+		case appName == "":
+			fmt.Printf("  Advisory-lock holder PID %d has empty application_name → unidentified zombie, killing\n", backendPID)
+			pidsToKill = append(pidsToKill, backendPID)
+		case strings.HasPrefix(appName, "statbus-migrate-"):
+			ownerStr := strings.TrimPrefix(appName, "statbus-migrate-")
+			ownerPID, perr := strconv.Atoi(ownerStr)
+			if perr != nil {
+				fmt.Printf("  Advisory-lock holder PID %d: malformed application_name %q → leaving alone\n", backendPID, appName)
+				continue
+			}
+			if procErr := syscall.Kill(ownerPID, 0); procErr != nil {
+				fmt.Printf("  Advisory-lock holder PID %d: owner PID %d is dead (%v) → zombie, killing\n", backendPID, ownerPID, procErr)
+				pidsToKill = append(pidsToKill, backendPID)
+			} else {
+				fmt.Printf("  Advisory-lock holder PID %d: owner PID %d is alive → legitimate, leaving alone\n", backendPID, ownerPID)
+			}
+		default:
+			fmt.Printf("  Advisory-lock holder PID %d: unrecognized application_name %q → leaving alone\n", backendPID, appName)
+		}
+	}
+	if len(pidsToKill) > 0 {
+		sqlPids := make([]string, len(pidsToKill))
+		for i, p := range pidsToKill {
+			sqlPids[i] = strconv.Itoa(p)
+		}
+		killSQL := fmt.Sprintf(`SELECT pg_terminate_backend(pid), pid FROM pg_stat_activity WHERE pid IN (%s);`,
+			strings.Join(sqlPids, ","))
+		killCmd := exec.Command("docker", "compose", "exec", "-T", "db",
+			"psql", "-U", adminUser, "-d", dbName, "-c", killSQL)
+		killCmd.Dir = dir
+		killCmd.Stdout = os.Stdout
+		killCmd.Stderr = os.Stderr
+		if err := killCmd.Run(); err != nil {
+			return fmt.Errorf("phase 2 pg_terminate_backend: %w", err)
+		}
 	}
 
 	// Give postgres a moment to actually free the slots after
