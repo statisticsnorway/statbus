@@ -62,6 +62,9 @@ BEGIN
         SELECT
             COALESCE(c.unit_id, p.unit_id) AS unit_id,
             COALESCE(c.unit_type, p.unit_type) AS unit_type,
+            -- hash_slot is stable per unit (function of unit_type + unit_id),
+            -- so c and p (when both present) carry the same value.
+            COALESCE(c.hash_slot, p.hash_slot) AS hash_slot,
             c AS curr,
             p AS prev,
             lvc AS last_version_in_curr
@@ -69,17 +72,18 @@ BEGIN
         FULL JOIN stock_at_end_of_prev p ON c.unit_id = p.unit_id AND c.unit_type = p.unit_type
         LEFT JOIN latest_versions_curr lvc ON lvc.unit_id = COALESCE(p.unit_id, c.unit_id) AND lvc.unit_type = COALESCE(p.unit_type, c.unit_type)
     ),
-    stats_by_unit_type AS (
+    stats_by_slot AS (
         SELECT
             lvc.unit_type,
+            lvc.hash_slot,
             COALESCE(public.jsonb_stats_merge_agg(lvc.stats_summary), '{}'::jsonb) AS stats_summary
         FROM latest_versions_curr lvc
         WHERE lvc.used_for_counting
-        GROUP BY lvc.unit_type
+        GROUP BY lvc.unit_type, lvc.hash_slot
     ),
     demographics AS (
         SELECT
-            p_resolution, p_year, p_month, unit_type,
+            p_resolution, p_year, p_month, unit_type, hash_slot,
             count((curr).unit_id)::integer AS exists_count,
             (count((curr).unit_id) - count((prev).unit_id))::integer AS exists_change,
             count((curr).unit_id) FILTER (WHERE (prev).unit_id IS NULL)::integer AS exists_added_count,
@@ -99,7 +103,7 @@ BEGIN
             count(*) FILTER (WHERE (prev).used_for_counting AND (curr).used_for_counting AND (curr).physical_country_id IS DISTINCT FROM (prev).physical_country_id)::integer AS physical_country_change_count,
             count(*) FILTER (WHERE (prev).used_for_counting AND (curr).used_for_counting AND ((curr).physical_address_part1, (curr).physical_address_part2, (curr).physical_address_part3, (curr).physical_postcode, (curr).physical_postplace) IS DISTINCT FROM ((prev).physical_address_part1, (prev).physical_address_part2, (prev).physical_address_part3, (prev).physical_postcode, (prev).physical_postplace))::integer AS physical_address_change_count
         FROM changed_units
-        GROUP BY 1, 2, 3, 4
+        GROUP BY 1, 2, 3, 4, 5
     )
     SELECT
         d.p_resolution AS resolution, d.p_year AS year, d.p_month AS month, d.unit_type,
@@ -109,13 +113,12 @@ BEGIN
         d.name_change_count, d.primary_activity_category_change_count, d.secondary_activity_category_change_count,
         d.sector_change_count, d.legal_form_change_count, d.physical_region_change_count,
         d.physical_country_change_count, d.physical_address_change_count,
-        COALESCE(sbut.stats_summary, '{}'::jsonb) AS stats_summary,
-        -- hash_partition stores the int4range the DELETE/INSERT pair uses.
-        -- DELETE gates on `hash_partition = p_hash_partition`; INSERT writes
-        -- the same range, so boundaries are self-consistent by construction.
-        p_hash_partition AS hash_partition
+        COALESCE(sbs.stats_summary, '{}'::jsonb) AS stats_summary,
+        -- Slot-keyed storage: each output row corresponds to exactly one slot.
+        -- The hash_partition column stores int4range(hash_slot, hash_slot+1).
+        int4range(d.hash_slot, d.hash_slot + 1) AS hash_partition
     FROM demographics d
-    LEFT JOIN stats_by_unit_type sbut ON sbut.unit_type = d.unit_type;
+    LEFT JOIN stats_by_slot sbs ON sbs.unit_type = d.unit_type AND sbs.hash_slot = d.hash_slot;
 END;
 $function$
 ```

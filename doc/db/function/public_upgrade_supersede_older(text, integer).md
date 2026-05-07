@@ -4,12 +4,11 @@ CREATE OR REPLACE PROCEDURE public.upgrade_supersede_older(IN p_commit_sha text,
  SET search_path TO 'public', 'pg_temp'
 AS $procedure$
 DECLARE
-    _topo      integer;
     _committed timestamptz;
     _status    public.release_status_type;
 BEGIN
-    SELECT topological_order, committed_at, release_status
-      INTO _topo, _committed, _status
+    SELECT committed_at, release_status
+      INTO _committed, _status
       FROM public.upgrade
      WHERE commit_sha = p_commit_sha
      LIMIT 1;
@@ -35,12 +34,7 @@ BEGIN
          WHERE state IN ('available', 'scheduled', 'failed', 'rolled_back')
            AND commit_sha != p_commit_sha
            AND release_status <= _status
-           AND (
-               (_topo IS NOT NULL
-                AND topological_order IS NOT NULL
-                AND topological_order < _topo)
-               OR committed_at < _committed
-           )
+           AND committed_at < _committed
         RETURNING id
     )
     SELECT count(*) INTO p_superseded FROM superseded;

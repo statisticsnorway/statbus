@@ -5,7 +5,6 @@
  id                       | integer                    |           | not null | generated always as identity
  commit_sha               | text                       |           | not null | 
  committed_at             | timestamp with time zone   |           | not null | 
- topological_order        | integer                    |           |          | 
  commit_tags              | text[]                     |           | not null | '{}'::text[]
  release_status           | release_status_type        |           | not null | 'commit'::release_status_type
  summary                  | text                       |           | not null | 
@@ -58,6 +57,7 @@ Policies:
       TO authenticated
       USING (true)
 Triggers:
+    upgrade_block_obsolete_pending_trigger BEFORE INSERT OR UPDATE OF state, committed_at, release_status ON upgrade FOR EACH ROW EXECUTE FUNCTION upgrade_block_obsolete_pending()
     upgrade_notify_daemon_trigger AFTER UPDATE ON upgrade FOR EACH ROW EXECUTE FUNCTION upgrade_notify_daemon()
     upgrade_notify_frontend_trigger AFTER INSERT OR DELETE OR UPDATE ON upgrade FOR EACH ROW EXECUTE FUNCTION upgrade_notify_frontend()
 

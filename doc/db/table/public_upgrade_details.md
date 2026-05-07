@@ -5,7 +5,6 @@
  id                       | integer                    |           | not null | generated always as identity           | plain    |             |              | 
  commit_sha               | text                       |           | not null |                                        | extended |             |              | 
  committed_at             | timestamp with time zone   |           | not null |                                        | plain    |             |              | 
- topological_order        | integer                    |           |          |                                        | plain    |             |              | 
  commit_tags              | text[]                     |           | not null | '{}'::text[]                           | extended |             |              | 
  release_status           | release_status_type        |           | not null | 'commit'::release_status_type          | plain    |             |              | 
  summary                  | text                       |           | not null |                                        | extended |             |              | 
@@ -71,6 +70,7 @@ Not-null constraints:
     "upgrade_docker_images_status_not_null" NOT NULL "docker_images_status"
     "upgrade_release_builds_status_not_null" NOT NULL "release_builds_status"
 Triggers:
+    upgrade_block_obsolete_pending_trigger BEFORE INSERT OR UPDATE OF state, committed_at, release_status ON upgrade FOR EACH ROW EXECUTE FUNCTION upgrade_block_obsolete_pending()
     upgrade_notify_daemon_trigger AFTER UPDATE ON upgrade FOR EACH ROW EXECUTE FUNCTION upgrade_notify_daemon()
     upgrade_notify_frontend_trigger AFTER INSERT OR DELETE OR UPDATE ON upgrade FOR EACH ROW EXECUTE FUNCTION upgrade_notify_frontend()
 Access method: heap
