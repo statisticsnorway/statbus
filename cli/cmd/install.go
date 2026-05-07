@@ -1219,6 +1219,25 @@ func runInstallService(dir string) error {
 	fmt.Println("  Enabling linger for user services")
 	runCmd("loginctl", "enable-linger", os.Getenv("USER"))
 
+	// Recovery: if the unit is in `failed` state from a prior crashed
+	// upgrade (e.g. the rune wedge — systemd hit StartLimitBurst after
+	// repeated SIGKILL → restart cycles trying to satisfy
+	// TimeoutStartSec for an at-scale migrate-up), `enable --now`
+	// won't restart it. Probe ActiveState/Result and run reset-failed
+	// first if needed. Idempotent: on a healthy unit the probe finds
+	// active/inactive and reset is skipped.
+	if probeOut, probeErr := exec.Command("systemctl", "--user", "show",
+		"--property=ActiveState", "--property=Result", instance).Output(); probeErr == nil {
+		probe := string(probeOut)
+		if strings.Contains(probe, "ActiveState=failed") ||
+			strings.Contains(probe, "Result=start-limit-hit") {
+			fmt.Printf("  Unit %s is in failed state — running reset-failed\n", instance)
+			if err := runCmd("systemctl", "--user", "reset-failed", instance); err != nil {
+				return fmt.Errorf("reset-failed for %s: %w", instance, err)
+			}
+		}
+	}
+
 	// Item H (plan-rc.66): step 14/14 SDNOTIFY collision. When this
 	// install runs as a child of the active upgrade service (Type=notify
 	// unit, parent PID is the main daemon), `enable --now` joins the
