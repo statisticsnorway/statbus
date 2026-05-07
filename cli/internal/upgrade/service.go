@@ -1760,8 +1760,18 @@ func (d *Service) verifyUpgradeGroundTruth(ctx context.Context, rowCommitSHA str
 	queryErr := d.queryConn.QueryRow(ctx,
 		`SELECT COALESCE(MAX(version), 0) FROM db.migration`).Scan(&dbMaxVersion)
 	if queryErr != nil {
-		fmt.Printf("Ground-truth: DB migration-version query failed (%v); skipping migration check.\n", queryErr)
-		return true, ""
+		// Fail-loud per upgrade-system.md ("silent soft-warnings are
+		// forbidden"). Previously this returned (true, "") on query
+		// failure, masking exactly the conditions ground-truth is
+		// supposed to catch — e.g. on rune (Stage B wedge), this
+		// branch silently marked the upgrade row completed even
+		// though we couldn't verify migrations applied. With Fix 3
+		// ensuring DB is reachable, a query error here is genuinely
+		// exceptional (DB-down) and rollback IS the correct
+		// disposition.
+		return false, fmt.Sprintf(
+			"DB migration-version query failed: %v (cannot verify migrations applied)",
+			queryErr)
 	}
 
 	diskMaxVersion := latestDiskMigrationVersion(d.projDir)
