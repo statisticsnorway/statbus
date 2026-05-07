@@ -1,18 +1,25 @@
 -- Verifies the BEFORE UPDATE / DELETE trigger on auth.user that prevents
--- removal of the last active admin (statbus_role 'admin_user' AND
--- deleted_at IS NULL).
+-- (a) removal of the last active admin and (b) admins removing themselves.
+-- Active admin = statbus_role 'admin_user' AND deleted_at IS NULL.
 --
--- Removal paths exercised:
+-- Last-active-admin removal paths (must be blocked, runs as postgres):
 --   B1. demote: UPDATE … SET statbus_role = '<not admin>'
 --   B2. soft-delete: UPDATE … SET deleted_at = now()
 --   B3. hard-delete: DELETE FROM auth.user
 --   B4. combined demote + soft-delete in one UPDATE
 --
+-- Self-removal paths (must be blocked, runs as the admin themselves):
+--   F1. self-demote
+--   F2. self-soft-delete
+--   F3. self-hard-delete
+--
 -- Sanity scenarios (must succeed):
---   A. with multiple admins, demoting one is allowed
+--   A. with multiple admins, demoting one (as postgres) is allowed
 --   C. same-transaction swap (promote regular first, then demote old admin)
 --   D. unrelated UPDATE (display_name) on the last admin
 --   E. re-activating a soft-deleted admin (deleted_at -> NULL)
+--   G. as admin X, demoting a different admin Y is allowed
+--   H. break-glass: postgres can demote any admin (auth.uid() is NULL)
 
 BEGIN;
 
@@ -119,5 +126,61 @@ UPDATE auth."user" SET deleted_at = NULL
  WHERE email = 'test.regular@statbus.org'
 RETURNING email, statbus_role, (deleted_at IS NULL) AS active;
 ROLLBACK TO SAVEPOINT e;
+
+\echo
+\echo === SCENARIO G: as admin X, demoting a different admin Y is allowed ===
+-- Promote regular to admin so we have two admins, then act as one of them.
+SAVEPOINT g;
+UPDATE auth."user" SET statbus_role = 'admin_user'
+ WHERE email = 'test.regular@statbus.org';
+CALL test.set_user_from_email('test.admin@statbus.org');
+SELECT current_user, auth.uid() = (SELECT id FROM auth."user" WHERE email = 'test.admin@statbus.org') AS uid_is_self;
+-- demote the OTHER admin — should succeed
+UPDATE auth."user" SET statbus_role = 'regular_user'
+ WHERE email = 'test.regular@statbus.org'
+RETURNING email, statbus_role;
+ROLLBACK TO SAVEPOINT g;
+
+\echo
+\echo === SCENARIO F1: as admin X, self-demote is blocked ===
+-- Need at least one OTHER admin so the last-admin check doesn't fire first.
+SAVEPOINT f1;
+UPDATE auth."user" SET statbus_role = 'admin_user'
+ WHERE email = 'test.regular@statbus.org';
+CALL test.set_user_from_email('test.admin@statbus.org');
+\set ON_ERROR_STOP off
+UPDATE auth."user" SET statbus_role = 'regular_user'
+ WHERE email = 'test.admin@statbus.org';
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT f1;
+
+\echo
+\echo === SCENARIO F2: as admin X, self-soft-delete is blocked ===
+SAVEPOINT f2;
+UPDATE auth."user" SET statbus_role = 'admin_user'
+ WHERE email = 'test.regular@statbus.org';
+CALL test.set_user_from_email('test.admin@statbus.org');
+\set ON_ERROR_STOP off
+UPDATE auth."user" SET deleted_at = '2026-01-01 00:00:00+00'
+ WHERE email = 'test.admin@statbus.org';
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT f2;
+
+\echo
+\echo === SCENARIO F3: as admin X, self-hard-delete is blocked ===
+SAVEPOINT f3;
+UPDATE auth."user" SET statbus_role = 'admin_user'
+ WHERE email = 'test.regular@statbus.org';
+CALL test.set_user_from_email('test.admin@statbus.org');
+\set ON_ERROR_STOP off
+DELETE FROM auth."user" WHERE email = 'test.admin@statbus.org';
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT f3;
+
+\echo
+\echo === SCENARIO H: break-glass — postgres can demote any admin (auth.uid() is NULL) ===
+-- Already exercised by SCENARIO A above (postgres demoting an admin while
+-- multiple exist). Re-asserting auth.uid() IS NULL here for clarity.
+SELECT current_user AS session_role, auth.uid() AS caller_id;
 
 ROLLBACK;
