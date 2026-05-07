@@ -1562,12 +1562,12 @@ WHERE unit_type IN ('legal_unit', 'establishment', 'enterprise')
 ORDER BY unit_type;
    unit_type   | hash_partition | exists_count | countable_count 
 ---------------+----------------+--------------+-----------------
- establishment | [7113,7114)    |            1 |               1
  establishment | [4453,4454)    |            1 |               1
- legal_unit    | [2955,2956)    |            1 |               1
+ establishment | [7113,7114)    |            1 |               1
  legal_unit    | [14449,14450)  |            1 |               1
- enterprise    | [12292,12293)  |            1 |               1
+ legal_unit    | [2955,2956)    |            1 |               1
  enterprise    | [3496,3497)    |            1 |               1
+ enterprise    | [12292,12293)  |            1 |               1
 (6 rows)
 
 \echo "--- RAW statistical_history_def(year, 2021, '[0,16384)'::int4range) output — full hash range ---"
@@ -1578,12 +1578,12 @@ WHERE unit_type IN ('legal_unit', 'establishment', 'enterprise')
 ORDER BY unit_type;
    unit_type   | hash_partition | exists_count | countable_count 
 ---------------+----------------+--------------+-----------------
- establishment | [7113,7114)    |            1 |               1
  establishment | [4453,4454)    |            1 |               1
- legal_unit    | [2955,2956)    |            1 |               1
+ establishment | [7113,7114)    |            1 |               1
  legal_unit    | [14449,14450)  |            1 |               1
- enterprise    | [12292,12293)  |            1 |               1
+ legal_unit    | [2955,2956)    |            1 |               1
  enterprise    | [3496,3497)    |            1 |               1
+ enterprise    | [12292,12293)  |            1 |               1
 (6 rows)
 
 \echo "--- Worker task summary across the full run [as postgres, bypass RLS] ---"
