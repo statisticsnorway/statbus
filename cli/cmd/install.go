@@ -961,7 +961,11 @@ func checkSessionsClean(dir string) bool {
 		)
 		SELECT
 			leaked::text || '/' || advisory_holders::text AS zombies,
-			(leaked = 0 AND advisory_holders = 0)::text AS healthy
+			-- DO NOT cast bool to text. With psql -t -A, raw boolean renders
+			-- as 't'/'f' which the Go parser checks. (bool)::text would
+			-- render as 'true'/'false' — silently breaking the check; bug
+			-- latent since Fix 8 caused every install's recheck to fail.
+			leaked = 0 AND advisory_holders = 0 AS healthy
 		FROM s;`)
 	cmd := exec.Command(psqlPath, args...)
 	cmd.Dir = dir
