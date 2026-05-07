@@ -16214,33 +16214,6 @@ jsonb_pretty | {                                                              +
              |     ],                                                         +
              |     "unit_type": "enterprise",                                 +
              |     "resolution": "year",                                      +
-             |     "stats_summary": {                                         +
-             |         "type": "stats_agg",                                   +
-             |         "turnover": {                                          +
-             |             "max": 70000000,                                   +
-             |             "min": 1500000,                                    +
-             |             "sum": 599500000,                                  +
-             |             "mean": 35264705.88,                               +
-             |             "type": "float_agg",                               +
-             |             "count": 17,                                       +
-             |             "stddev": 32810591.68,                             +
-             |             "variance": 1076534926470588.12,                   +
-             |             "sum_sq_diff": 17224558823529410.00,               +
-             |             "coefficient_of_variation_pct": 93.04              +
-             |         },                                                     +
-             |         "employees": {                                         +
-             |             "max": 45,                                         +
-             |             "min": 1,                                          +
-             |             "sum": 394,                                        +
-             |             "mean": 23.18,                                     +
-             |             "type": "int_agg",                                 +
-             |             "count": 17,                                       +
-             |             "stddev": 20.79,                                   +
-             |             "variance": 432.28,                                +
-             |             "sum_sq_diff": 6916.47,                            +
-             |             "coefficient_of_variation_pct": 89.71              +
-             |         }                                                      +
-             |     },                                                         +
              |     "filtered_series": [                                       +
              |         "countable_count",                                     +
              |         "births",                                              +
@@ -16313,6 +16286,11 @@ jsonb_pretty | {                                                              +
              |             "code": "physical_address_change_count",           +
              |             "name": "Physical Address Changes",                +
              |             "priority": 110                                    +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "stats_summary",                           +
+             |             "name": "Statistics Summary",                      +
+             |             "priority": 200                                    +
              |         }                                                      +
              |     ]                                                          +
              | }
@@ -16696,33 +16674,6 @@ jsonb_pretty | {                                                              +
              |     ],                                                         +
              |     "unit_type": "legal_unit",                                 +
              |     "resolution": "year",                                      +
-             |     "stats_summary": {                                         +
-             |         "type": "stats_agg",                                   +
-             |         "turnover": {                                          +
-             |             "max": 70000000,                                   +
-             |             "min": 1500000,                                    +
-             |             "sum": 599500000,                                  +
-             |             "mean": 35264705.88,                               +
-             |             "type": "float_agg",                               +
-             |             "count": 17,                                       +
-             |             "stddev": 32810591.68,                             +
-             |             "variance": 1076534926470588.12,                   +
-             |             "sum_sq_diff": 17224558823529410.00,               +
-             |             "coefficient_of_variation_pct": 93.04              +
-             |         },                                                     +
-             |         "employees": {                                         +
-             |             "max": 45,                                         +
-             |             "min": 1,                                          +
-             |             "sum": 394,                                        +
-             |             "mean": 23.18,                                     +
-             |             "type": "int_agg",                                 +
-             |             "count": 17,                                       +
-             |             "stddev": 20.79,                                   +
-             |             "variance": 432.28,                                +
-             |             "sum_sq_diff": 6916.47,                            +
-             |             "coefficient_of_variation_pct": 89.71              +
-             |         }                                                      +
-             |     },                                                         +
              |     "filtered_series": [                                       +
              |         "countable_count",                                     +
              |         "births",                                              +
@@ -16795,6 +16746,11 @@ jsonb_pretty | {                                                              +
              |             "code": "physical_address_change_count",           +
              |             "name": "Physical Address Changes",                +
              |             "priority": 110                                    +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "stats_summary",                           +
+             |             "name": "Statistics Summary",                      +
+             |             "priority": 200                                    +
              |         }                                                      +
              |     ]                                                          +
              | }
@@ -17178,33 +17134,6 @@ jsonb_pretty | {                                                              +
              |     ],                                                         +
              |     "unit_type": "establishment",                              +
              |     "resolution": "year",                                      +
-             |     "stats_summary": {                                         +
-             |         "type": "stats_agg",                                   +
-             |         "turnover": {                                          +
-             |             "max": 70000000,                                   +
-             |             "min": 1500000,                                    +
-             |             "sum": 599500000,                                  +
-             |             "mean": 35264705.88,                               +
-             |             "type": "float_agg",                               +
-             |             "count": 17,                                       +
-             |             "stddev": 32810591.68,                             +
-             |             "variance": 1076534926470588.12,                   +
-             |             "sum_sq_diff": 17224558823529410.00,               +
-             |             "coefficient_of_variation_pct": 93.04              +
-             |         },                                                     +
-             |         "employees": {                                         +
-             |             "max": 45,                                         +
-             |             "min": 1,                                          +
-             |             "sum": 394,                                        +
-             |             "mean": 23.18,                                     +
-             |             "type": "int_agg",                                 +
-             |             "count": 17,                                       +
-             |             "stddev": 20.79,                                   +
-             |             "variance": 432.28,                                +
-             |             "sum_sq_diff": 6916.47,                            +
-             |             "coefficient_of_variation_pct": 89.71              +
-             |         }                                                      +
-             |     },                                                         +
              |     "filtered_series": [                                       +
              |         "countable_count",                                     +
              |         "births",                                              +
@@ -17277,6 +17206,11 @@ jsonb_pretty | {                                                              +
              |             "code": "physical_address_change_count",           +
              |             "name": "Physical Address Changes",                +
              |             "priority": 110                                    +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "stats_summary",                           +
+             |             "name": "Statistics Summary",                      +
+             |             "priority": 200                                    +
              |         }                                                      +
              |     ]                                                          +
              | }
@@ -17561,33 +17495,6 @@ jsonb_pretty | {                                                              +
              |     ],                                                         +
              |     "unit_type": "enterprise",                                 +
              |     "resolution": "year-month",                                +
-             |     "stats_summary": {                                         +
-             |         "type": "stats_agg",                                   +
-             |         "turnover": {                                          +
-             |             "max": 60000000,                                   +
-             |             "min": 60000000,                                   +
-             |             "sum": 720000000,                                  +
-             |             "mean": 60000000.00,                               +
-             |             "type": "float_agg",                               +
-             |             "count": 12,                                       +
-             |             "stddev": 0.00,                                    +
-             |             "variance": 0.00,                                  +
-             |             "sum_sq_diff": 0.00,                               +
-             |             "coefficient_of_variation_pct": 0.00               +
-             |         },                                                     +
-             |         "employees": {                                         +
-             |             "max": 50,                                         +
-             |             "min": 25,                                         +
-             |             "sum": 440,                                        +
-             |             "mean": 36.67,                                     +
-             |             "type": "int_agg",                                 +
-             |             "count": 12,                                       +
-             |             "stddev": 8.35,                                    +
-             |             "variance": 69.70,                                 +
-             |             "sum_sq_diff": 766.67,                             +
-             |             "coefficient_of_variation_pct": 22.77              +
-             |         }                                                      +
-             |     },                                                         +
              |     "filtered_series": [                                       +
              |         "countable_count",                                     +
              |         "births",                                              +
@@ -17660,6 +17567,11 @@ jsonb_pretty | {                                                              +
              |             "code": "physical_address_change_count",           +
              |             "name": "Physical Address Changes",                +
              |             "priority": 110                                    +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "stats_summary",                           +
+             |             "name": "Statistics Summary",                      +
+             |             "priority": 200                                    +
              |         }                                                      +
              |     ]                                                          +
              | }
@@ -17944,33 +17856,6 @@ jsonb_pretty | {                                                              +
              |     ],                                                         +
              |     "unit_type": "legal_unit",                                 +
              |     "resolution": "year-month",                                +
-             |     "stats_summary": {                                         +
-             |         "type": "stats_agg",                                   +
-             |         "turnover": {                                          +
-             |             "max": 60000000,                                   +
-             |             "min": 60000000,                                   +
-             |             "sum": 720000000,                                  +
-             |             "mean": 60000000.00,                               +
-             |             "type": "float_agg",                               +
-             |             "count": 12,                                       +
-             |             "stddev": 0.00,                                    +
-             |             "variance": 0.00,                                  +
-             |             "sum_sq_diff": 0.00,                               +
-             |             "coefficient_of_variation_pct": 0.00               +
-             |         },                                                     +
-             |         "employees": {                                         +
-             |             "max": 50,                                         +
-             |             "min": 25,                                         +
-             |             "sum": 440,                                        +
-             |             "mean": 36.67,                                     +
-             |             "type": "int_agg",                                 +
-             |             "count": 12,                                       +
-             |             "stddev": 8.35,                                    +
-             |             "variance": 69.70,                                 +
-             |             "sum_sq_diff": 766.67,                             +
-             |             "coefficient_of_variation_pct": 22.77              +
-             |         }                                                      +
-             |     },                                                         +
              |     "filtered_series": [                                       +
              |         "countable_count",                                     +
              |         "births",                                              +
@@ -18043,6 +17928,11 @@ jsonb_pretty | {                                                              +
              |             "code": "physical_address_change_count",           +
              |             "name": "Physical Address Changes",                +
              |             "priority": 110                                    +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "stats_summary",                           +
+             |             "name": "Statistics Summary",                      +
+             |             "priority": 200                                    +
              |         }                                                      +
              |     ]                                                          +
              | }
@@ -18327,33 +18217,6 @@ jsonb_pretty | {                                                              +
              |     ],                                                         +
              |     "unit_type": "establishment",                              +
              |     "resolution": "year-month",                                +
-             |     "stats_summary": {                                         +
-             |         "type": "stats_agg",                                   +
-             |         "turnover": {                                          +
-             |             "max": 60000000,                                   +
-             |             "min": 60000000,                                   +
-             |             "sum": 720000000,                                  +
-             |             "mean": 60000000.00,                               +
-             |             "type": "float_agg",                               +
-             |             "count": 12,                                       +
-             |             "stddev": 0.00,                                    +
-             |             "variance": 0.00,                                  +
-             |             "sum_sq_diff": 0.00,                               +
-             |             "coefficient_of_variation_pct": 0.00               +
-             |         },                                                     +
-             |         "employees": {                                         +
-             |             "max": 50,                                         +
-             |             "min": 25,                                         +
-             |             "sum": 440,                                        +
-             |             "mean": 36.67,                                     +
-             |             "type": "int_agg",                                 +
-             |             "count": 12,                                       +
-             |             "stddev": 8.35,                                    +
-             |             "variance": 69.70,                                 +
-             |             "sum_sq_diff": 766.67,                             +
-             |             "coefficient_of_variation_pct": 22.77              +
-             |         }                                                      +
-             |     },                                                         +
              |     "filtered_series": [                                       +
              |         "countable_count",                                     +
              |         "births",                                              +
@@ -18426,6 +18289,11 @@ jsonb_pretty | {                                                              +
              |             "code": "physical_address_change_count",           +
              |             "name": "Physical Address Changes",                +
              |             "priority": 110                                    +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "stats_summary",                           +
+             |             "name": "Statistics Summary",                      +
+             |             "priority": 200                                    +
              |         }                                                      +
              |     ]                                                          +
              | }
@@ -18469,9 +18337,6 @@ jsonb_pretty | {                                                              +
              |     ],                                                         +
              |     "unit_type": "power_group",                                +
              |     "resolution": "year",                                      +
-             |     "stats_summary": {                                         +
-             |         "type": "stats_agg"                                    +
-             |     },                                                         +
              |     "filtered_series": [                                       +
              |         "countable_count",                                     +
              |         "births",                                              +
@@ -18544,6 +18409,11 @@ jsonb_pretty | {                                                              +
              |             "code": "physical_address_change_count",           +
              |             "name": "Physical Address Changes",                +
              |             "priority": 110                                    +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "stats_summary",                           +
+             |             "name": "Statistics Summary",                      +
+             |             "priority": 200                                    +
              |         }                                                      +
              |     ]                                                          +
              | }
@@ -18555,273 +18425,164 @@ SELECT jsonb_pretty(public.statistical_history_highcharts(
     p_unit_type => 'enterprise',
     p_series_codes => ARRAY['countable_count', 'deaths']
 ));
--[ RECORD 1 ]+----------------------------------------------------------------
-jsonb_pretty | {                                                              +
-             |     "series": [                                                +
-             |         {                                                      +
-             |             "code": "countable_count",                         +
-             |             "data": [                                          +
-             |                 [                                              +
-             |                     1262304000000,                             +
-             |                     1                                          +
-             |                 ],                                             +
-             |                 [                                              +
-             |                     1293840000000,                             +
-             |                     1                                          +
-             |                 ],                                             +
-             |                 [                                              +
-             |                     1325376000000,                             +
-             |                     0                                          +
-             |                 ],                                             +
-             |                 [                                              +
-             |                     1356998400000,                             +
-             |                     1                                          +
-             |                 ],                                             +
-             |                 [                                              +
-             |                     1388534400000,                             +
-             |                     1                                          +
-             |                 ],                                             +
-             |                 [                                              +
-             |                     1420070400000,                             +
-             |                     1                                          +
-             |                 ],                                             +
-             |                 [                                              +
-             |                     1451606400000,                             +
-             |                     1                                          +
-             |                 ],                                             +
-             |                 [                                              +
-             |                     1483228800000,                             +
-             |                     1                                          +
-             |                 ],                                             +
-             |                 [                                              +
-             |                     1514764800000,                             +
-             |                     1                                          +
-             |                 ],                                             +
-             |                 [                                              +
-             |                     1546300800000,                             +
-             |                     1                                          +
-             |                 ],                                             +
-             |                 [                                              +
-             |                     1577836800000,                             +
-             |                     1                                          +
-             |                 ],                                             +
-             |                 [                                              +
-             |                     1609459200000,                             +
-             |                     1                                          +
-             |                 ],                                             +
-             |                 [                                              +
-             |                     1640995200000,                             +
-             |                     1                                          +
-             |                 ],                                             +
-             |                 [                                              +
-             |                     1672531200000,                             +
-             |                     1                                          +
-             |                 ],                                             +
-             |                 [                                              +
-             |                     1704067200000,                             +
-             |                     1                                          +
-             |                 ],                                             +
-             |                 [                                              +
-             |                     1735689600000,                             +
-             |                     1                                          +
-             |                 ],                                             +
-             |                 [                                              +
-             |                     1767225600000,                             +
-             |                     1                                          +
-             |                 ]                                              +
-             |             ],                                                 +
-             |             "name": "Unit Count"                               +
-             |         },                                                     +
-             |         {                                                      +
-             |             "code": "deaths",                                  +
-             |             "data": [                                          +
-             |                 [                                              +
-             |                     1262304000000,                             +
-             |                     0                                          +
-             |                 ],                                             +
-             |                 [                                              +
-             |                     1293840000000,                             +
-             |                     0                                          +
-             |                 ],                                             +
-             |                 [                                              +
-             |                     1325376000000,                             +
-             |                     1                                          +
-             |                 ],                                             +
-             |                 [                                              +
-             |                     1356998400000,                             +
-             |                     0                                          +
-             |                 ],                                             +
-             |                 [                                              +
-             |                     1388534400000,                             +
-             |                     0                                          +
-             |                 ],                                             +
-             |                 [                                              +
-             |                     1420070400000,                             +
-             |                     0                                          +
-             |                 ],                                             +
-             |                 [                                              +
-             |                     1451606400000,                             +
-             |                     0                                          +
-             |                 ],                                             +
-             |                 [                                              +
-             |                     1483228800000,                             +
-             |                     0                                          +
-             |                 ],                                             +
-             |                 [                                              +
-             |                     1514764800000,                             +
-             |                     0                                          +
-             |                 ],                                             +
-             |                 [                                              +
-             |                     1546300800000,                             +
-             |                     0                                          +
-             |                 ],                                             +
-             |                 [                                              +
-             |                     1577836800000,                             +
-             |                     0                                          +
-             |                 ],                                             +
-             |                 [                                              +
-             |                     1609459200000,                             +
-             |                     0                                          +
-             |                 ],                                             +
-             |                 [                                              +
-             |                     1640995200000,                             +
-             |                     0                                          +
-             |                 ],                                             +
-             |                 [                                              +
-             |                     1672531200000,                             +
-             |                     0                                          +
-             |                 ],                                             +
-             |                 [                                              +
-             |                     1704067200000,                             +
-             |                     0                                          +
-             |                 ],                                             +
-             |                 [                                              +
-             |                     1735689600000,                             +
-             |                     0                                          +
-             |                 ],                                             +
-             |                 [                                              +
-             |                     1767225600000,                             +
-             |                     0                                          +
-             |                 ]                                              +
-             |             ],                                                 +
-             |             "name": "Deaths"                                   +
-             |         }                                                      +
-             |     ],                                                         +
-             |     "unit_type": "enterprise",                                 +
-             |     "resolution": "year",                                      +
-             |     "stats_summary": {                                         +
-             |         "type": "stats_agg",                                   +
-             |         "turnover": {                                          +
-             |             "max": 70000000,                                   +
-             |             "min": 1500000,                                    +
-             |             "sum": 599500000,                                  +
-             |             "mean": 35264705.88,                               +
-             |             "type": "float_agg",                               +
-             |             "count": 17,                                       +
-             |             "stddev": 32810591.68,                             +
-             |             "variance": 1076534926470588.12,                   +
-             |             "sum_sq_diff": 17224558823529410.00,               +
-             |             "coefficient_of_variation_pct": 93.04              +
-             |         },                                                     +
-             |         "employees": {                                         +
-             |             "max": 45,                                         +
-             |             "min": 1,                                          +
-             |             "sum": 394,                                        +
-             |             "mean": 23.18,                                     +
-             |             "type": "int_agg",                                 +
-             |             "count": 17,                                       +
-             |             "stddev": 20.79,                                   +
-             |             "variance": 432.28,                                +
-             |             "sum_sq_diff": 6916.47,                            +
-             |             "coefficient_of_variation_pct": 89.71              +
-             |         }                                                      +
-             |     },                                                         +
-             |     "filtered_series": [                                       +
-             |         "countable_count",                                     +
-             |         "deaths"                                               +
-             |     ],                                                         +
-             |     "available_series": [                                      +
-             |         {                                                      +
-             |             "code": "countable_change",                        +
-             |             "name": "Unit Count Change",                       +
-             |             "priority": 11                                     +
-             |         },                                                     +
-             |         {                                                      +
-             |             "code": "countable_added_count",                   +
-             |             "name": "Units Added (Countable)",                 +
-             |             "priority": 12                                     +
-             |         },                                                     +
-             |         {                                                      +
-             |             "code": "countable_removed_count",                 +
-             |             "name": "Units Removed (Countable)",               +
-             |             "priority": 13                                     +
-             |         },                                                     +
-             |         {                                                      +
-             |             "code": "exists_count",                            +
-             |             "name": "Existing Units",                          +
-             |             "priority": 14                                     +
-             |         },                                                     +
-             |         {                                                      +
-             |             "code": "exists_change",                           +
-             |             "name": "Existing Units Change",                   +
-             |             "priority": 15                                     +
-             |         },                                                     +
-             |         {                                                      +
-             |             "code": "exists_added_count",                      +
-             |             "name": "Units Added (Existence)",                 +
-             |             "priority": 16                                     +
-             |         },                                                     +
-             |         {                                                      +
-             |             "code": "exists_removed_count",                    +
-             |             "name": "Units Removed (Existence)",               +
-             |             "priority": 17                                     +
-             |         },                                                     +
-             |         {                                                      +
-             |             "code": "births",                                  +
-             |             "name": "Births",                                  +
-             |             "priority": 20                                     +
-             |         },                                                     +
-             |         {                                                      +
-             |             "code": "name_change_count",                       +
-             |             "name": "Name Changes",                            +
-             |             "priority": 40                                     +
-             |         },                                                     +
-             |         {                                                      +
-             |             "code": "primary_activity_category_change_count",  +
-             |             "name": "Primary Activity Changes",                +
-             |             "priority": 50                                     +
-             |         },                                                     +
-             |         {                                                      +
-             |             "code": "secondary_activity_category_change_count",+
-             |             "name": "Secondary Activity Changes",              +
-             |             "priority": 60                                     +
-             |         },                                                     +
-             |         {                                                      +
-             |             "code": "sector_change_count",                     +
-             |             "name": "Sector Changes",                          +
-             |             "priority": 70                                     +
-             |         },                                                     +
-             |         {                                                      +
-             |             "code": "legal_form_change_count",                 +
-             |             "name": "Legal Form Changes",                      +
-             |             "priority": 80                                     +
-             |         },                                                     +
-             |         {                                                      +
-             |             "code": "physical_region_change_count",            +
-             |             "name": "Region Changes",                          +
-             |             "priority": 90                                     +
-             |         },                                                     +
-             |         {                                                      +
-             |             "code": "physical_country_change_count",           +
-             |             "name": "Country Changes",                         +
-             |             "priority": 100                                    +
-             |         },                                                     +
-             |         {                                                      +
-             |             "code": "physical_address_change_count",           +
-             |             "name": "Physical Address Changes",                +
-             |             "priority": 110                                    +
-             |         }                                                      +
-             |     ]                                                          +
+-[ RECORD 1 ]+---------------------------------------
+jsonb_pretty | {                                     +
+             |     "series": [                       +
+             |         {                             +
+             |             "code": "countable_count",+
+             |             "data": [                 +
+             |                 [                     +
+             |                     1262304000000,    +
+             |                     1                 +
+             |                 ],                    +
+             |                 [                     +
+             |                     1293840000000,    +
+             |                     1                 +
+             |                 ],                    +
+             |                 [                     +
+             |                     1325376000000,    +
+             |                     0                 +
+             |                 ],                    +
+             |                 [                     +
+             |                     1356998400000,    +
+             |                     1                 +
+             |                 ],                    +
+             |                 [                     +
+             |                     1388534400000,    +
+             |                     1                 +
+             |                 ],                    +
+             |                 [                     +
+             |                     1420070400000,    +
+             |                     1                 +
+             |                 ],                    +
+             |                 [                     +
+             |                     1451606400000,    +
+             |                     1                 +
+             |                 ],                    +
+             |                 [                     +
+             |                     1483228800000,    +
+             |                     1                 +
+             |                 ],                    +
+             |                 [                     +
+             |                     1514764800000,    +
+             |                     1                 +
+             |                 ],                    +
+             |                 [                     +
+             |                     1546300800000,    +
+             |                     1                 +
+             |                 ],                    +
+             |                 [                     +
+             |                     1577836800000,    +
+             |                     1                 +
+             |                 ],                    +
+             |                 [                     +
+             |                     1609459200000,    +
+             |                     1                 +
+             |                 ],                    +
+             |                 [                     +
+             |                     1640995200000,    +
+             |                     1                 +
+             |                 ],                    +
+             |                 [                     +
+             |                     1672531200000,    +
+             |                     1                 +
+             |                 ],                    +
+             |                 [                     +
+             |                     1704067200000,    +
+             |                     1                 +
+             |                 ],                    +
+             |                 [                     +
+             |                     1735689600000,    +
+             |                     1                 +
+             |                 ],                    +
+             |                 [                     +
+             |                     1767225600000,    +
+             |                     1                 +
+             |                 ]                     +
+             |             ],                        +
+             |             "name": "Unit Count"      +
+             |         },                            +
+             |         {                             +
+             |             "code": "deaths",         +
+             |             "data": [                 +
+             |                 [                     +
+             |                     1262304000000,    +
+             |                     0                 +
+             |                 ],                    +
+             |                 [                     +
+             |                     1293840000000,    +
+             |                     0                 +
+             |                 ],                    +
+             |                 [                     +
+             |                     1325376000000,    +
+             |                     1                 +
+             |                 ],                    +
+             |                 [                     +
+             |                     1356998400000,    +
+             |                     0                 +
+             |                 ],                    +
+             |                 [                     +
+             |                     1388534400000,    +
+             |                     0                 +
+             |                 ],                    +
+             |                 [                     +
+             |                     1420070400000,    +
+             |                     0                 +
+             |                 ],                    +
+             |                 [                     +
+             |                     1451606400000,    +
+             |                     0                 +
+             |                 ],                    +
+             |                 [                     +
+             |                     1483228800000,    +
+             |                     0                 +
+             |                 ],                    +
+             |                 [                     +
+             |                     1514764800000,    +
+             |                     0                 +
+             |                 ],                    +
+             |                 [                     +
+             |                     1546300800000,    +
+             |                     0                 +
+             |                 ],                    +
+             |                 [                     +
+             |                     1577836800000,    +
+             |                     0                 +
+             |                 ],                    +
+             |                 [                     +
+             |                     1609459200000,    +
+             |                     0                 +
+             |                 ],                    +
+             |                 [                     +
+             |                     1640995200000,    +
+             |                     0                 +
+             |                 ],                    +
+             |                 [                     +
+             |                     1672531200000,    +
+             |                     0                 +
+             |                 ],                    +
+             |                 [                     +
+             |                     1704067200000,    +
+             |                     0                 +
+             |                 ],                    +
+             |                 [                     +
+             |                     1735689600000,    +
+             |                     0                 +
+             |                 ],                    +
+             |                 [                     +
+             |                     1767225600000,    +
+             |                     0                 +
+             |                 ]                     +
+             |             ],                        +
+             |             "name": "Deaths"          +
+             |         }                             +
+             |     ],                                +
+             |     "unit_type": "enterprise",        +
+             |     "resolution": "year",             +
+             |     "filtered_series": [              +
+             |         "countable_count",            +
+             |         "deaths"                      +
+             |     ]                                 +
              | }
 
 \echo "Test public.statistical_history_highcharts - with empty series filter (should use default)"
@@ -19207,33 +18968,6 @@ jsonb_pretty | {                                                              +
              |     ],                                                         +
              |     "unit_type": "enterprise",                                 +
              |     "resolution": "year",                                      +
-             |     "stats_summary": {                                         +
-             |         "type": "stats_agg",                                   +
-             |         "turnover": {                                          +
-             |             "max": 70000000,                                   +
-             |             "min": 1500000,                                    +
-             |             "sum": 599500000,                                  +
-             |             "mean": 35264705.88,                               +
-             |             "type": "float_agg",                               +
-             |             "count": 17,                                       +
-             |             "stddev": 32810591.68,                             +
-             |             "variance": 1076534926470588.12,                   +
-             |             "sum_sq_diff": 17224558823529410.00,               +
-             |             "coefficient_of_variation_pct": 93.04              +
-             |         },                                                     +
-             |         "employees": {                                         +
-             |             "max": 45,                                         +
-             |             "min": 1,                                          +
-             |             "sum": 394,                                        +
-             |             "mean": 23.18,                                     +
-             |             "type": "int_agg",                                 +
-             |             "count": 17,                                       +
-             |             "stddev": 20.79,                                   +
-             |             "variance": 432.28,                                +
-             |             "sum_sq_diff": 6916.47,                            +
-             |             "coefficient_of_variation_pct": 89.71              +
-             |         }                                                      +
-             |     },                                                         +
              |     "filtered_series": [                                       +
              |         "countable_count",                                     +
              |         "births",                                              +
@@ -19306,6 +19040,11 @@ jsonb_pretty | {                                                              +
              |             "code": "physical_address_change_count",           +
              |             "name": "Physical Address Changes",                +
              |             "priority": 110                                    +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "stats_summary",                           +
+             |             "name": "Statistics Summary",                      +
+             |             "priority": 200                                    +
              |         }                                                      +
              |     ]                                                          +
              | }
@@ -20674,33 +20413,6 @@ jsonb_pretty | {                                                              +
              |     ],                                                         +
              |     "unit_type": "enterprise",                                 +
              |     "resolution": "year",                                      +
-             |     "stats_summary": {                                         +
-             |         "type": "stats_agg",                                   +
-             |         "turnover": {                                          +
-             |             "max": 70000000,                                   +
-             |             "min": 1500000,                                    +
-             |             "sum": 599500000,                                  +
-             |             "mean": 35264705.88,                               +
-             |             "type": "float_agg",                               +
-             |             "count": 17,                                       +
-             |             "stddev": 32810591.68,                             +
-             |             "variance": 1076534926470588.12,                   +
-             |             "sum_sq_diff": 17224558823529410.00,               +
-             |             "coefficient_of_variation_pct": 93.04              +
-             |         },                                                     +
-             |         "employees": {                                         +
-             |             "max": 45,                                         +
-             |             "min": 1,                                          +
-             |             "sum": 394,                                        +
-             |             "mean": 23.18,                                     +
-             |             "type": "int_agg",                                 +
-             |             "count": 17,                                       +
-             |             "stddev": 20.79,                                   +
-             |             "variance": 432.28,                                +
-             |             "sum_sq_diff": 6916.47,                            +
-             |             "coefficient_of_variation_pct": 89.71              +
-             |         }                                                      +
-             |     },                                                         +
              |     "filtered_series": [                                       +
              |         "countable_count",                                     +
              |         "countable_change",                                    +
@@ -20725,16 +20437,534 @@ jsonb_pretty | {                                                              +
 
 \echo "Test public.statistical_history_highcharts - with an invalid series code"
 "Test public.statistical_history_highcharts - with an invalid series code"
+SAVEPOINT before_invalid_code;
+\set ON_ERROR_STOP off
 SELECT jsonb_pretty(public.statistical_history_highcharts(
     p_resolution => 'year',
     p_unit_type => 'enterprise',
     p_series_codes => ARRAY['countable_count', 'invalid_code', 'deaths']
 ));
-ERROR:  Invalid series code(s) provided: invalid_code
-CONTEXT:  PL/pgSQL function statistical_history_highcharts(history_resolution,statistical_unit_type,integer,text[]) line 39 at RAISE
+ERROR:  Unknown series code "invalid_code"
+CONTEXT:  PL/pgSQL function statistical_history_highcharts(history_resolution,statistical_unit_type,integer,text[]) line 110 at RAISE
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT before_invalid_code;
+\echo "Test public.statistical_history_highcharts - leaf stats path (numeric stat)"
+"Test public.statistical_history_highcharts - leaf stats path (numeric stat)"
+SELECT jsonb_pretty(public.statistical_history_highcharts(
+    p_resolution => 'year',
+    p_unit_type => 'enterprise',
+    p_series_codes => ARRAY['countable_count', 'stats_summary.turnover.sum']
+));
+-[ RECORD 1 ]+--------------------------------------------------
+jsonb_pretty | {                                                +
+             |     "series": [                                  +
+             |         {                                        +
+             |             "code": "countable_count",           +
+             |             "data": [                            +
+             |                 [                                +
+             |                     1262304000000,               +
+             |                     1                            +
+             |                 ],                               +
+             |                 [                                +
+             |                     1293840000000,               +
+             |                     1                            +
+             |                 ],                               +
+             |                 [                                +
+             |                     1325376000000,               +
+             |                     0                            +
+             |                 ],                               +
+             |                 [                                +
+             |                     1356998400000,               +
+             |                     1                            +
+             |                 ],                               +
+             |                 [                                +
+             |                     1388534400000,               +
+             |                     1                            +
+             |                 ],                               +
+             |                 [                                +
+             |                     1420070400000,               +
+             |                     1                            +
+             |                 ],                               +
+             |                 [                                +
+             |                     1451606400000,               +
+             |                     1                            +
+             |                 ],                               +
+             |                 [                                +
+             |                     1483228800000,               +
+             |                     1                            +
+             |                 ],                               +
+             |                 [                                +
+             |                     1514764800000,               +
+             |                     1                            +
+             |                 ],                               +
+             |                 [                                +
+             |                     1546300800000,               +
+             |                     1                            +
+             |                 ],                               +
+             |                 [                                +
+             |                     1577836800000,               +
+             |                     1                            +
+             |                 ],                               +
+             |                 [                                +
+             |                     1609459200000,               +
+             |                     1                            +
+             |                 ],                               +
+             |                 [                                +
+             |                     1640995200000,               +
+             |                     1                            +
+             |                 ],                               +
+             |                 [                                +
+             |                     1672531200000,               +
+             |                     1                            +
+             |                 ],                               +
+             |                 [                                +
+             |                     1704067200000,               +
+             |                     1                            +
+             |                 ],                               +
+             |                 [                                +
+             |                     1735689600000,               +
+             |                     1                            +
+             |                 ],                               +
+             |                 [                                +
+             |                     1767225600000,               +
+             |                     1                            +
+             |                 ]                                +
+             |             ],                                   +
+             |             "name": "Unit Count"                 +
+             |         },                                       +
+             |         {                                        +
+             |             "code": "stats_summary.turnover.sum",+
+             |             "data": [                            +
+             |                 [                                +
+             |                     1262304000000,               +
+             |                     1500000                      +
+             |                 ],                               +
+             |                 [                                +
+             |                     1293840000000,               +
+             |                     1500000                      +
+             |                 ],                               +
+             |                 [                                +
+             |                     1325376000000,               +
+             |                     1500000                      +
+             |                 ],                               +
+             |                 [                                +
+             |                     1356998400000,               +
+             |                     3000000                      +
+             |                 ],                               +
+             |                 [                                +
+             |                     1388534400000,               +
+             |                     3000000                      +
+             |                 ],                               +
+             |                 [                                +
+             |                     1420070400000,               +
+             |                     3000000                      +
+             |                 ],                               +
+             |                 [                                +
+             |                     1451606400000,               +
+             |                     12000000                     +
+             |                 ],                               +
+             |                 [                                +
+             |                     1483228800000,               +
+             |                     12000000                     +
+             |                 ],                               +
+             |                 [                                +
+             |                     1514764800000,               +
+             |                     12000000                     +
+             |                 ],                               +
+             |                 [                                +
+             |                     1546300800000,               +
+             |                     60000000                     +
+             |                 ],                               +
+             |                 [                                +
+             |                     1577836800000,               +
+             |                     70000000                     +
+             |                 ],                               +
+             |                 [                                +
+             |                     1609459200000,               +
+             |                     70000000                     +
+             |                 ],                               +
+             |                 [                                +
+             |                     1640995200000,               +
+             |                     70000000                     +
+             |                 ],                               +
+             |                 [                                +
+             |                     1672531200000,               +
+             |                     70000000                     +
+             |                 ],                               +
+             |                 [                                +
+             |                     1704067200000,               +
+             |                     70000000                     +
+             |                 ],                               +
+             |                 [                                +
+             |                     1735689600000,               +
+             |                     70000000                     +
+             |                 ],                               +
+             |                 [                                +
+             |                     1767225600000,               +
+             |                     70000000                     +
+             |                 ]                                +
+             |             ],                                   +
+             |             "name": "Turnover Sum"               +
+             |         }                                        +
+             |     ],                                           +
+             |     "unit_type": "enterprise",                   +
+             |     "resolution": "year",                        +
+             |     "filtered_series": [                         +
+             |         "countable_count",                       +
+             |         "stats_summary.turnover.sum"             +
+             |     ]                                            +
+             | }
+
+\echo "Test public.statistical_history_highcharts - mixed numeric leaves (turnover.sum + employees.mean)"
+"Test public.statistical_history_highcharts - mixed numeric leaves (turnover.sum + employees.mean)"
+SELECT jsonb_pretty(public.statistical_history_highcharts(
+    p_resolution => 'year',
+    p_unit_type => 'enterprise',
+    p_series_codes => ARRAY['stats_summary.turnover.sum', 'stats_summary.employees.mean']
+));
+-[ RECORD 1 ]+----------------------------------------------------
+jsonb_pretty | {                                                  +
+             |     "series": [                                    +
+             |         {                                          +
+             |             "code": "stats_summary.turnover.sum",  +
+             |             "data": [                              +
+             |                 [                                  +
+             |                     1262304000000,                 +
+             |                     1500000                        +
+             |                 ],                                 +
+             |                 [                                  +
+             |                     1293840000000,                 +
+             |                     1500000                        +
+             |                 ],                                 +
+             |                 [                                  +
+             |                     1325376000000,                 +
+             |                     1500000                        +
+             |                 ],                                 +
+             |                 [                                  +
+             |                     1356998400000,                 +
+             |                     3000000                        +
+             |                 ],                                 +
+             |                 [                                  +
+             |                     1388534400000,                 +
+             |                     3000000                        +
+             |                 ],                                 +
+             |                 [                                  +
+             |                     1420070400000,                 +
+             |                     3000000                        +
+             |                 ],                                 +
+             |                 [                                  +
+             |                     1451606400000,                 +
+             |                     12000000                       +
+             |                 ],                                 +
+             |                 [                                  +
+             |                     1483228800000,                 +
+             |                     12000000                       +
+             |                 ],                                 +
+             |                 [                                  +
+             |                     1514764800000,                 +
+             |                     12000000                       +
+             |                 ],                                 +
+             |                 [                                  +
+             |                     1546300800000,                 +
+             |                     60000000                       +
+             |                 ],                                 +
+             |                 [                                  +
+             |                     1577836800000,                 +
+             |                     70000000                       +
+             |                 ],                                 +
+             |                 [                                  +
+             |                     1609459200000,                 +
+             |                     70000000                       +
+             |                 ],                                 +
+             |                 [                                  +
+             |                     1640995200000,                 +
+             |                     70000000                       +
+             |                 ],                                 +
+             |                 [                                  +
+             |                     1672531200000,                 +
+             |                     70000000                       +
+             |                 ],                                 +
+             |                 [                                  +
+             |                     1704067200000,                 +
+             |                     70000000                       +
+             |                 ],                                 +
+             |                 [                                  +
+             |                     1735689600000,                 +
+             |                     70000000                       +
+             |                 ],                                 +
+             |                 [                                  +
+             |                     1767225600000,                 +
+             |                     70000000                       +
+             |                 ]                                  +
+             |             ],                                     +
+             |             "name": "Turnover Sum"                 +
+             |         },                                         +
+             |         {                                          +
+             |             "code": "stats_summary.employees.mean",+
+             |             "data": [                              +
+             |                 [                                  +
+             |                     1262304000000,                 +
+             |                     1.00                           +
+             |                 ],                                 +
+             |                 [                                  +
+             |                     1293840000000,                 +
+             |                     1.00                           +
+             |                 ],                                 +
+             |                 [                                  +
+             |                     1325376000000,                 +
+             |                     1.00                           +
+             |                 ],                                 +
+             |                 [                                  +
+             |                     1356998400000,                 +
+             |                     3.00                           +
+             |                 ],                                 +
+             |                 [                                  +
+             |                     1388534400000,                 +
+             |                     3.00                           +
+             |                 ],                                 +
+             |                 [                                  +
+             |                     1420070400000,                 +
+             |                     3.00                           +
+             |                 ],                                 +
+             |                 [                                  +
+             |                     1451606400000,                 +
+             |                     9.00                           +
+             |                 ],                                 +
+             |                 [                                  +
+             |                     1483228800000,                 +
+             |                     9.00                           +
+             |                 ],                                 +
+             |                 [                                  +
+             |                     1514764800000,                 +
+             |                     9.00                           +
+             |                 ],                                 +
+             |                 [                                  +
+             |                     1546300800000,                 +
+             |                     40.00                          +
+             |                 ],                                 +
+             |                 [                                  +
+             |                     1577836800000,                 +
+             |                     45.00                          +
+             |                 ],                                 +
+             |                 [                                  +
+             |                     1609459200000,                 +
+             |                     45.00                          +
+             |                 ],                                 +
+             |                 [                                  +
+             |                     1640995200000,                 +
+             |                     45.00                          +
+             |                 ],                                 +
+             |                 [                                  +
+             |                     1672531200000,                 +
+             |                     45.00                          +
+             |                 ],                                 +
+             |                 [                                  +
+             |                     1704067200000,                 +
+             |                     45.00                          +
+             |                 ],                                 +
+             |                 [                                  +
+             |                     1735689600000,                 +
+             |                     45.00                          +
+             |                 ],                                 +
+             |                 [                                  +
+             |                     1767225600000,                 +
+             |                     45.00                          +
+             |                 ]                                  +
+             |             ],                                     +
+             |             "name": "Employees Mean"               +
+             |         }                                          +
+             |     ],                                             +
+             |     "unit_type": "enterprise",                     +
+             |     "resolution": "year",                          +
+             |     "filtered_series": [                           +
+             |         "stats_summary.turnover.sum",              +
+             |         "stats_summary.employees.mean"             +
+             |     ]                                              +
+             | }
+
+\echo "Test public.statistical_history_highcharts - partial stats path returns error with HINT listing children"
+"Test public.statistical_history_highcharts - partial stats path returns error with HINT listing children"
+SAVEPOINT before_partial;
+\set ON_ERROR_STOP off
+SELECT public.statistical_history_highcharts(
+    p_resolution => 'year',
+    p_unit_type => 'enterprise',
+    p_series_codes => ARRAY['stats_summary.turnover']);
+ERROR:  Series code "stats_summary.turnover" is incomplete; pick a leaf
+HINT:  Try one of: stats_summary.turnover.coefficient_of_variation_pct, stats_summary.turnover.count, stats_summary.turnover.max, stats_summary.turnover.mean, stats_summary.turnover.min, stats_summary.turnover.stddev, stats_summary.turnover.sum, stats_summary.turnover.sum_sq_diff, stats_summary.turnover.variance
+CONTEXT:  PL/pgSQL function statistical_history_highcharts(history_resolution,statistical_unit_type,integer,text[]) line 108 at RAISE
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT before_partial;
+\echo "Test public.statistical_history_highcharts - top-level partial 'stats_summary' returns error listing top stats"
+"Test public.statistical_history_highcharts - top-level partial 'stats_summary' returns error listing top stats"
+SAVEPOINT before_top_partial;
+\set ON_ERROR_STOP off
+SELECT public.statistical_history_highcharts(
+    p_resolution => 'year',
+    p_unit_type => 'enterprise',
+    p_series_codes => ARRAY['stats_summary']);
+ERROR:  Series code "stats_summary" is incomplete; pick a leaf
+HINT:  Try one of: stats_summary.employees, stats_summary.turnover
+CONTEXT:  PL/pgSQL function statistical_history_highcharts(history_resolution,statistical_unit_type,integer,text[]) line 108 at RAISE
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT before_top_partial;
+\echo "Test public.statistical_history_highcharts - unknown leaf under known stat returns Unknown error"
+"Test public.statistical_history_highcharts - unknown leaf under known stat returns Unknown error"
+SAVEPOINT before_unknown_leaf;
+\set ON_ERROR_STOP off
+SELECT public.statistical_history_highcharts(
+    p_resolution => 'year',
+    p_unit_type => 'enterprise',
+    p_series_codes => ARRAY['stats_summary.turnover.bogus']);
+ERROR:  Unknown series code "stats_summary.turnover.bogus"
+CONTEXT:  PL/pgSQL function statistical_history_highcharts(history_resolution,statistical_unit_type,integer,text[]) line 110 at RAISE
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT before_unknown_leaf;
+\echo "Test public.statistical_history_highcharts - 'type' segment is bookkeeping, must error as Unknown"
+"Test public.statistical_history_highcharts - 'type' segment is bookkeeping, must error as Unknown"
+SAVEPOINT before_type_segment;
+\set ON_ERROR_STOP off
+SELECT public.statistical_history_highcharts(
+    p_resolution => 'year',
+    p_unit_type => 'enterprise',
+    p_series_codes => ARRAY['stats_summary.type']);
+ERROR:  Unknown series code "stats_summary.type"
+CONTEXT:  PL/pgSQL function statistical_history_highcharts(history_resolution,statistical_unit_type,integer,text[]) line 110 at RAISE
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT before_type_segment;
+-- Note: the bootstrap 'stats_summary' entry in available_series is already exercised by
+-- the existing bare-call tests above (e.g. "year resolution, enterprise"), since
+-- available_series is now only emitted in discovery mode (no p_series_codes supplied).
+\echo "Test public.statistical_history_highcharts - year-month resolution with stats path"
+"Test public.statistical_history_highcharts - year-month resolution with stats path"
+SELECT jsonb_pretty(public.statistical_history_highcharts(
+    p_resolution => 'year-month',
+    p_unit_type => 'enterprise',
+    p_year => 2019,
+    p_series_codes => ARRAY['countable_count', 'stats_summary.turnover.sum']
+));
+-[ RECORD 1 ]+--------------------------------------------------
+jsonb_pretty | {                                                +
+             |     "year": 2019,                                +
+             |     "series": [                                  +
+             |         {                                        +
+             |             "code": "countable_count",           +
+             |             "data": [                            +
+             |                 [                                +
+             |                     1546300800000,               +
+             |                     1                            +
+             |                 ],                               +
+             |                 [                                +
+             |                     1548979200000,               +
+             |                     1                            +
+             |                 ],                               +
+             |                 [                                +
+             |                     1551398400000,               +
+             |                     1                            +
+             |                 ],                               +
+             |                 [                                +
+             |                     1554076800000,               +
+             |                     1                            +
+             |                 ],                               +
+             |                 [                                +
+             |                     1556668800000,               +
+             |                     1                            +
+             |                 ],                               +
+             |                 [                                +
+             |                     1559347200000,               +
+             |                     1                            +
+             |                 ],                               +
+             |                 [                                +
+             |                     1561939200000,               +
+             |                     1                            +
+             |                 ],                               +
+             |                 [                                +
+             |                     1564617600000,               +
+             |                     1                            +
+             |                 ],                               +
+             |                 [                                +
+             |                     1567296000000,               +
+             |                     1                            +
+             |                 ],                               +
+             |                 [                                +
+             |                     1569888000000,               +
+             |                     1                            +
+             |                 ],                               +
+             |                 [                                +
+             |                     1572566400000,               +
+             |                     1                            +
+             |                 ],                               +
+             |                 [                                +
+             |                     1575158400000,               +
+             |                     1                            +
+             |                 ]                                +
+             |             ],                                   +
+             |             "name": "Unit Count"                 +
+             |         },                                       +
+             |         {                                        +
+             |             "code": "stats_summary.turnover.sum",+
+             |             "data": [                            +
+             |                 [                                +
+             |                     1546300800000,               +
+             |                     60000000                     +
+             |                 ],                               +
+             |                 [                                +
+             |                     1548979200000,               +
+             |                     60000000                     +
+             |                 ],                               +
+             |                 [                                +
+             |                     1551398400000,               +
+             |                     60000000                     +
+             |                 ],                               +
+             |                 [                                +
+             |                     1554076800000,               +
+             |                     60000000                     +
+             |                 ],                               +
+             |                 [                                +
+             |                     1556668800000,               +
+             |                     60000000                     +
+             |                 ],                               +
+             |                 [                                +
+             |                     1559347200000,               +
+             |                     60000000                     +
+             |                 ],                               +
+             |                 [                                +
+             |                     1561939200000,               +
+             |                     60000000                     +
+             |                 ],                               +
+             |                 [                                +
+             |                     1564617600000,               +
+             |                     60000000                     +
+             |                 ],                               +
+             |                 [                                +
+             |                     1567296000000,               +
+             |                     60000000                     +
+             |                 ],                               +
+             |                 [                                +
+             |                     1569888000000,               +
+             |                     60000000                     +
+             |                 ],                               +
+             |                 [                                +
+             |                     1572566400000,               +
+             |                     60000000                     +
+             |                 ],                               +
+             |                 [                                +
+             |                     1575158400000,               +
+             |                     60000000                     +
+             |                 ]                                +
+             |             ],                                   +
+             |             "name": "Turnover Sum"               +
+             |         }                                        +
+             |     ],                                           +
+             |     "unit_type": "enterprise",                   +
+             |     "resolution": "year-month",                  +
+             |     "filtered_series": [                         +
+             |         "countable_count",                       +
+             |         "stats_summary.turnover.sum"             +
+             |     ]                                            +
+             | }
+
 \i test/rollback_unless_persist_is_specified.sql
 \echo -- test/rollback_unless_persist_is_specified.sql output suppressed
 -- test/rollback_unless_persist_is_specified.sql output suppressed
 \set ECHO none
-psql:test/rollback_unless_persist_is_specified.sql:16: ERROR:  current transaction is aborted, commands ignored until end of transaction block
-psql:test/rollback_unless_persist_is_specified.sql:19: error: unrecognized value ":PERSIST" for "\if expression": Boolean expected

@@ -949,10 +949,80 @@ SELECT jsonb_pretty(public.statistical_history_highcharts(
 ));
 
 \echo "Test public.statistical_history_highcharts - with an invalid series code"
+SAVEPOINT before_invalid_code;
+\set ON_ERROR_STOP off
 SELECT jsonb_pretty(public.statistical_history_highcharts(
     p_resolution => 'year',
     p_unit_type => 'enterprise',
     p_series_codes => ARRAY['countable_count', 'invalid_code', 'deaths']
+));
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT before_invalid_code;
+
+\echo "Test public.statistical_history_highcharts - leaf stats path (numeric stat)"
+SELECT jsonb_pretty(public.statistical_history_highcharts(
+    p_resolution => 'year',
+    p_unit_type => 'enterprise',
+    p_series_codes => ARRAY['countable_count', 'stats_summary.turnover.sum']
+));
+
+\echo "Test public.statistical_history_highcharts - mixed numeric leaves (turnover.sum + employees.mean)"
+SELECT jsonb_pretty(public.statistical_history_highcharts(
+    p_resolution => 'year',
+    p_unit_type => 'enterprise',
+    p_series_codes => ARRAY['stats_summary.turnover.sum', 'stats_summary.employees.mean']
+));
+
+\echo "Test public.statistical_history_highcharts - partial stats path returns error with HINT listing children"
+SAVEPOINT before_partial;
+\set ON_ERROR_STOP off
+SELECT public.statistical_history_highcharts(
+    p_resolution => 'year',
+    p_unit_type => 'enterprise',
+    p_series_codes => ARRAY['stats_summary.turnover']);
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT before_partial;
+
+\echo "Test public.statistical_history_highcharts - top-level partial 'stats_summary' returns error listing top stats"
+SAVEPOINT before_top_partial;
+\set ON_ERROR_STOP off
+SELECT public.statistical_history_highcharts(
+    p_resolution => 'year',
+    p_unit_type => 'enterprise',
+    p_series_codes => ARRAY['stats_summary']);
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT before_top_partial;
+
+\echo "Test public.statistical_history_highcharts - unknown leaf under known stat returns Unknown error"
+SAVEPOINT before_unknown_leaf;
+\set ON_ERROR_STOP off
+SELECT public.statistical_history_highcharts(
+    p_resolution => 'year',
+    p_unit_type => 'enterprise',
+    p_series_codes => ARRAY['stats_summary.turnover.bogus']);
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT before_unknown_leaf;
+
+\echo "Test public.statistical_history_highcharts - 'type' segment is bookkeeping, must error as Unknown"
+SAVEPOINT before_type_segment;
+\set ON_ERROR_STOP off
+SELECT public.statistical_history_highcharts(
+    p_resolution => 'year',
+    p_unit_type => 'enterprise',
+    p_series_codes => ARRAY['stats_summary.type']);
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT before_type_segment;
+
+-- Note: the bootstrap 'stats_summary' entry in available_series is already exercised by
+-- the existing bare-call tests above (e.g. "year resolution, enterprise"), since
+-- available_series is now only emitted in discovery mode (no p_series_codes supplied).
+
+\echo "Test public.statistical_history_highcharts - year-month resolution with stats path"
+SELECT jsonb_pretty(public.statistical_history_highcharts(
+    p_resolution => 'year-month',
+    p_unit_type => 'enterprise',
+    p_year => 2019,
+    p_series_codes => ARRAY['countable_count', 'stats_summary.turnover.sum']
 ));
 
 \i test/rollback_unless_persist_is_specified.sql
