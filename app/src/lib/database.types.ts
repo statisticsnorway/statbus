@@ -3994,51 +3994,6 @@ export type Database = {
         },
         Relationships: []
       },
-      statistical_history_facet_pre_dirty_dims: {
-        Row: {
-          legal_form_id: number | null
-          month: number | null
-          physical_country_id: number | null
-          physical_region_path: string | null
-          primary_activity_category_path: string | null
-          resolution: Database["public"]["Enums"]["history_resolution"] | null
-          secondary_activity_category_path: string | null
-          sector_path: string | null
-          status_id: number | null
-          unit_size_id: number | null
-          unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
-          year: number | null
-        },
-        Insert: {
-          legal_form_id?: number | null
-          month?: number | null
-          physical_country_id?: number | null
-          physical_region_path?: string | null
-          primary_activity_category_path?: string | null
-          resolution?: Database["public"]["Enums"]["history_resolution"] | null
-          secondary_activity_category_path?: string | null
-          sector_path?: string | null
-          status_id?: number | null
-          unit_size_id?: number | null
-          unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
-          year?: number | null
-        },
-        Update: {
-          legal_form_id?: number | null
-          month?: number | null
-          physical_country_id?: number | null
-          physical_region_path?: string | null
-          primary_activity_category_path?: string | null
-          resolution?: Database["public"]["Enums"]["history_resolution"] | null
-          secondary_activity_category_path?: string | null
-          sector_path?: string | null
-          status_id?: number | null
-          unit_size_id?: number | null
-          unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
-          year?: number | null
-        },
-        Relationships: []
-      },
       statistical_unit: {
         Row: {
           activity_category_paths: string[] | null
@@ -4306,7 +4261,6 @@ export type Database = {
       statistical_unit_facet: {
         Row: {
           count: number | null
-          hash_slot: number | null
           legal_form_id: number | null
           physical_country_id: number | null
           physical_region_path: string | null
@@ -4321,7 +4275,6 @@ export type Database = {
         },
         Insert: {
           count?: number | null
-          hash_slot?: number | null
           legal_form_id?: number | null
           physical_country_id?: number | null
           physical_region_path?: string | null
@@ -4336,7 +4289,6 @@ export type Database = {
         },
         Update: {
           count?: number | null
-          hash_slot?: number | null
           legal_form_id?: number | null
           physical_country_id?: number | null
           physical_region_path?: string | null
@@ -4360,45 +4312,6 @@ export type Database = {
         },
         Update: {
           dirty_hash_slot?: number
-        },
-        Relationships: []
-      },
-      statistical_unit_facet_pre_dirty_dims: {
-        Row: {
-          legal_form_id: number | null
-          physical_country_id: number | null
-          physical_region_path: string | null
-          primary_activity_category_path: string | null
-          sector_path: string | null
-          status_id: number | null
-          unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
-          valid_from: string | null
-          valid_to: string | null
-          valid_until: string | null
-        },
-        Insert: {
-          legal_form_id?: number | null
-          physical_country_id?: number | null
-          physical_region_path?: string | null
-          primary_activity_category_path?: string | null
-          sector_path?: string | null
-          status_id?: number | null
-          unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
-          valid_from?: string | null
-          valid_to?: string | null
-          valid_until?: string | null
-        },
-        Update: {
-          legal_form_id?: number | null
-          physical_country_id?: number | null
-          physical_region_path?: string | null
-          primary_activity_category_path?: string | null
-          sector_path?: string | null
-          status_id?: number | null
-          unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
-          valid_from?: string | null
-          valid_to?: string | null
-          valid_until?: string | null
         },
         Relationships: []
       },

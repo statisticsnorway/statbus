@@ -11,9 +11,11 @@ data. It covers the task flow, structured concurrency model, and queue layout.
 >   `worker.statistical_history_facet_reduce` collapsed to a single global MERGE
 >   shape. The previous three-path adaptive strategy (Path A/B/C) is gone; Path
 >   B's structurally-incomplete cleanup gap is fixed by construction.
-> - The `statistical_*_facet_pre_dirty_dims` UNLOGGED snapshot tables are no
->   longer read by reduces (parents still TRUNCATE+INSERT into them — pending
->   cleanup migration).
+> - **Cleanup (May 7, 2026)** — the `statistical_*_facet_pre_dirty_dims`
+>   UNLOGGED snapshot tables and the orphaned `statistical_unit_facet.hash_slot`
+>   column + index were dropped (migration
+>   `20260507115831_drop_dead_state_pre_dirty_dims_and_unused_hash_slot_on_statistical_unit_facet`).
+>   The parent `derive_*_facet` procedures no longer write into the snapshots.
 
 
 ## Design Goals
@@ -400,15 +402,17 @@ avoiding unnecessary row churn when the derived data hasn't changed.
 `timesegments_years_refresh_concurrent` checks MIN/MAX year before running.
 If the year range hasn't changed, the refresh is skipped entirely.
 
-**Snapshot tables for pre-dirty dimension combos (legacy; no longer read).**
+**Snapshot tables for pre-dirty dimension combos (removed).**
 Two UNLOGGED snapshot tables (`statistical_unit_facet_pre_dirty_dims`,
 `statistical_history_facet_pre_dirty_dims`) were used by the old Path B scoped
 MERGE to detect disappeared dim combos. After Phase 3's collapse to global MERGE
 (migration `159b8c9e8`), the reduces no longer read these snapshots; the global
 MERGE's `WHEN NOT MATCHED BY SOURCE THEN DELETE` catches disappeared combos by
-construction. The parent `derive_*_facet` procedures still TRUNCATE+INSERT into
-the snapshots — dead state pending a follow-up cleanup migration that drops the
-tables and the parent's snapshot writes.
+construction. The cleanup migration
+`20260507115831_drop_dead_state_pre_dirty_dims_and_unused_hash_slot_on_statistical_unit_facet`
+dropped the tables and removed the parent's TRUNCATE+INSERT writes. The same
+migration also dropped the orphaned `hash_slot` column + index on
+`statistical_unit_facet` (uniformly NULL — never written by any reducer).
 
 **Temp tables replacing CTE chains.**
 Large CTE chains don't optimize well in PostgreSQL. Breaking into sequential

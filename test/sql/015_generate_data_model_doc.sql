@@ -126,14 +126,12 @@ DECLARE
         )),
         (4, 2, 3, 'Derivations for drilling on facets of statistical_unit (/reports)', NULL, jsonb_build_array(
             '{"schema": "public", "name": "statistical_unit_facet", "class": "derived"}'::jsonb,
-            '{"schema": "public", "name": "statistical_unit_facet_dirty_hash_slots", "class": "derived"}'::jsonb,
-            '{"schema": "public", "name": "statistical_unit_facet_pre_dirty_dims", "class": "derived"}'::jsonb
+            '{"schema": "public", "name": "statistical_unit_facet_dirty_hash_slots", "class": "derived"}'::jsonb
         )),
         (4, 2, 4, 'Derivations to create statistical_history for reporting and statistical_history_facet for drilldown.', NULL, jsonb_build_array(
             '{"schema": "public", "name": "statistical_history", "class": "derived"}'::jsonb,
             '{"schema": "public", "name": "statistical_history_facet", "class": "derived"}'::jsonb,
-            '{"schema": "public", "name": "statistical_history_facet_partitions", "class": "derived"}'::jsonb,
-            '{"schema": "public", "name": "statistical_history_facet_pre_dirty_dims", "class": "derived"}'::jsonb
+            '{"schema": "public", "name": "statistical_history_facet_partitions", "class": "derived"}'::jsonb
         )),
         (4, 2, 5, 'Pipeline Weights', 'Configuration for pipeline step ordering and progress tracking.', jsonb_build_array(
             '{"schema": "worker", "name": "pipeline_step_weight", "class": "infrastructure"}'::jsonb,
