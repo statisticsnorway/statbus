@@ -11,6 +11,11 @@
 --   B. View security_invoker check — missing security_invoker on non-exempt views
 --   C. Duplicate policy detection — same (command, role) on one table
 --   D. search_path check on SECURITY DEFINER — missing SET search_path
+--   E. RLS policies subquerying other tables must have SELECT granted to
+--      authenticated on the referenced table. Without this GRANT the planner
+--      errors with "permission denied for table X" before RLS evaluation,
+--      because PostgreSQL ORs all permissive policies that match any
+--      inherited role membership and must read every referenced table.
 -- Turn off decorative output for clean markdown generation
 \t
 \a
@@ -546,6 +551,50 @@ each role can see and modify.
         v_problems := array_append(v_problems,
             format('MISSING SEARCH_PATH: %s — SECURITY DEFINER without SET search_path is a privilege escalation risk',
                 v_rec.func_name));
+    END LOOP;
+
+    -- Check 7 (E): RLS policies that subquery another table must have SELECT
+    -- granted to `authenticated` on the referenced table.
+    --
+    -- Why: pg_depend records every table referenced inside a policy's
+    -- USING/WITH CHECK expression (deptype 'n', refclassid 'pg_class').
+    -- PostgreSQL ORs all permissive policies that apply to any role the active
+    -- session role inherits from, so the planner must read every referenced
+    -- table — even if the inheriting role has its own short-circuiting
+    -- USING (true) policy. Without GRANT SELECT, the query errors at planning
+    -- time with "permission denied for table <referenced>". Per-user roles
+    -- (created by user_create) inherit `authenticated`, so granting there is
+    -- the canonical fix.
+    FOR v_rec IN
+        SELECT DISTINCT pol.polname,
+               polc.relname AS table_with_policy,
+               refn.nspname AS ref_schema,
+               refc.relname AS ref_table
+        FROM pg_policy pol
+        JOIN pg_depend dep
+          ON dep.objid = pol.oid
+         AND dep.classid = 'pg_policy'::regclass
+         AND dep.refclassid = 'pg_class'::regclass
+         AND dep.refobjid <> pol.polrelid
+        JOIN pg_class refc ON refc.oid = dep.refobjid
+        JOIN pg_namespace refn ON refn.oid = refc.relnamespace
+        JOIN pg_class polc ON polc.oid = pol.polrelid
+        JOIN pg_namespace poln ON poln.oid = polc.relnamespace
+        WHERE poln.nspname = 'public'
+          AND refc.relkind = 'r'  -- only ordinary tables (skip views/seqs)
+        ORDER BY polc.relname, pol.polname, refn.nspname, refc.relname
+    LOOP
+        IF NOT has_table_privilege(
+            'authenticated',
+            format('%I.%I', v_rec.ref_schema, v_rec.ref_table)::regclass,
+            'SELECT'
+        ) THEN
+            v_problems := array_append(v_problems,
+                format('MISSING GRANT FOR RLS: policy %s on public.%s subqueries %s.%s but authenticated lacks SELECT — fix with: GRANT SELECT ON %I.%I TO authenticated;',
+                    v_rec.polname, v_rec.table_with_policy,
+                    v_rec.ref_schema, v_rec.ref_table,
+                    v_rec.ref_schema, v_rec.ref_table));
+        END IF;
     END LOOP;
 
     -- Build verification output
