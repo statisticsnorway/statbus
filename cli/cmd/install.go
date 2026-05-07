@@ -277,6 +277,25 @@ func runInstall() (installErr error) {
 	//   StateLegacyNoUpgradeTable → refuse with a pointer to #65.6 (the
 	//                           pre-1.0 cascade lands there).
 	//   all other states      → fall through to acquireOrBypass + step-table.
+	// Pre-Detect orphan-backend cleanup. Critical for recovery from a
+	// crashed upgrade that exhausted max_connections (rune wedge Stage B).
+	// install.Detect runs DB queries; if pool is exhausted, Detect fails
+	// and we'd skip the recovery path entirely. cleanOrphanSessions uses
+	// docker exec → peer auth → superuser inside the container, which
+	// works even when external connections all fail with "too many
+	// clients". Idempotent: the check is a single SELECT count(*); if the
+	// pool has headroom this is a no-op. Gated on services-up so fresh
+	// installs (no DB container yet) skip cleanly.
+	if !bypass && checkServicesDone(installDir) && !checkSessionsClean(installDir) {
+		fmt.Println("  Pre-detect: connection pool not clean, running cleanOrphanSessions")
+		if err := cleanOrphanSessions(installDir); err != nil {
+			// Best-effort here — log and proceed. install.Detect's own
+			// error path (and the step-table's later "Database sessions"
+			// step) will surface a real DB-down state with a clean error.
+			log.Printf("Pre-detect cleanOrphanSessions: %v", err)
+		}
+	}
+
 	var detectedState install.State
 	if !bypass {
 		state, detail, derr := install.Detect(installDir, version)
@@ -928,16 +947,24 @@ func checkSessionsClean(dir string) bool {
 // cleanOrphanSessions terminates leaked backends from prior crashed
 // upgrade attempts so the next migrate-up has free connection slots.
 //
-// Connects via the standard psql path (which uses
-// `superuser_reserved_connections` if ordinary slots are full —
-// postgres reserves 3 slots for superuser by default, enough to acquire
-// a connection even when normal slots are exhausted).
+// Connects via `docker compose exec -T db psql -U postgres`, NOT
+// migrate.PsqlCommand. Critical: when max_connections is exhausted,
+// EVERY external connection fails — including ones nominally targeting
+// `superuser_reserved_connections` — because the reserved slots are
+// gated on the AUTH ROLE (must be superuser), not the connection
+// target. The statbus role is not superuser; reserved slots are
+// unreachable from the host.
+//
+// Connecting *inside* the container as the postgres OS user via peer
+// authentication gives full superuser privileges and bypasses the
+// connection pool entirely. This is the only path that works when the
+// pool is wedged.
 //
 // Targets two backend classes:
 //   1. Any backend > 2 minutes old in the current database (other than
 //      this connection) — likely orphaned by a SIGKILLed migrate-up
 //      subprocess.
-//   2. Any backend running a query touching statistical_history* —
+//   2. Any backend running a query touching statistical_history —
 //      these are the heavy migrations that get caught in the timeout
 //      loop on at-scale data.
 //
@@ -950,12 +977,21 @@ func checkSessionsClean(dir string) bool {
 // and the recheck passes cleanly. Self-targeting is excluded via
 // `pid <> pg_backend_pid()`.
 func cleanOrphanSessions(dir string) error {
-	psqlPath, prefix, env, err := migrate.PsqlCommand(dir)
+	envFile, err := dotenv.Load(filepath.Join(dir, ".env"))
 	if err != nil {
-		return fmt.Errorf("psql command: %w", err)
+		return fmt.Errorf("load .env for docker psql: %w", err)
+	}
+	dbName := "statbus_local"
+	if v, ok := envFile.Get("POSTGRES_APP_DB"); ok && v != "" {
+		dbName = v
+	}
+	adminUser := "postgres"
+	if v, ok := envFile.Get("POSTGRES_ADMIN_USER"); ok && v != "" {
+		adminUser = v
 	}
 
-	args := append(prefix, "-c", `
+	cmd := exec.Command("docker", "compose", "exec", "-T", "db",
+		"psql", "-U", adminUser, "-d", dbName, "-c", `
 		SELECT pg_terminate_backend(pid), pid, query_start, left(query, 80) AS query
 		  FROM pg_stat_activity
 		 WHERE datname = current_database()
@@ -968,13 +1004,11 @@ func cleanOrphanSessions(dir string) error {
 			   -- Backends still wedged on the upgrade's heavy migration
 			   query ILIKE '%statistical_history%'
 		   );`)
-	cmd := exec.Command(psqlPath, args...)
 	cmd.Dir = dir
-	cmd.Env = env
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("pg_terminate_backend: %w", err)
+		return fmt.Errorf("pg_terminate_backend (docker exec): %w", err)
 	}
 
 	// Give postgres a moment to actually free the slots after
