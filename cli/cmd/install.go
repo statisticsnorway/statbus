@@ -937,6 +937,15 @@ func checkSessionsClean(dir string) bool {
 				  WHERE datname = current_database()
 				    AND state IN ('active', 'idle in transaction')
 				    AND query_start < now() - interval '5 minutes'
+				    -- Only psql subprocess zombies. The worker (application_name='worker')
+				    -- legitimately runs CALL worker.statistical_*_reduce as part of normal
+				    -- task processing — those reduces can take minutes on Norway-sized
+				    -- data and matched our 'CALL %statistical_%' pattern, causing
+				    -- false-positive cleanup-failures during healthy worker operation.
+				    -- Migrate.Up's psql subprocesses default to application_name='psql'
+				    -- (psql's libpq default); when SIGKILL'd they leave wedged backends
+				    -- with that marker. That's the actual zombie class we care about.
+				    AND application_name = 'psql'
 				    AND (query ILIKE '%TRUNCATE %statistical_%'
 				         OR query ILIKE '%INSERT INTO %statistical_%'
 				         OR query ILIKE '%CALL %statistical_%')
@@ -1037,12 +1046,21 @@ func cleanOrphanSessions(dir string) error {
 	}
 
 	// Phase 1: heuristic kill of obvious zombies.
+	// CRITICAL: filter by application_name = 'psql' to avoid terminating
+	// legitimate worker connections. The worker (application_name='worker')
+	// runs CALL worker.statistical_*_reduce as part of normal task
+	// processing — those reduces match the statistical_history pattern AND
+	// can run for >2 minutes on Norway-sized data, so without this filter
+	// Phase 1 would aggressively terminate healthy worker connections.
+	// Migrate.Up's psql subprocesses default to application_name='psql'
+	// (libpq default) — that's the actual zombie class we want to clean.
 	phase1 := exec.Command("docker", "compose", "exec", "-T", "db",
 		"psql", "-U", adminUser, "-d", dbName, "-c", `
 		SELECT pg_terminate_backend(pid), pid, query_start, left(query, 80) AS query
 		  FROM pg_stat_activity
 		 WHERE datname = current_database()
 		   AND pid <> pg_backend_pid()
+		   AND application_name = 'psql'
 		   AND (
 			   (state IN ('active', 'idle in transaction')
 			    AND query_start < now() - interval '2 minutes')
