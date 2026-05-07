@@ -897,21 +897,34 @@ func runStartServices(dir string) error {
 	return runCmdDir(dir, "docker", "compose", "--profile", "all", "up", "-d")
 }
 
-// checkSessionsClean returns true iff the database is reachable AND its
-// session pool is in a healthy state. Returns false if any of:
-//   - DB is unreachable (caller's runStartServices should have started
-//     it, but the connection pool may still be exhausted)
-//   - active backend count is ≥ 80% of max_connections (saturation
-//     headroom — leaves room for migrate-up + reserved superuser slots)
-//   - any backend > 5 minutes old is wedged on a TRUNCATE/INSERT/CALL
-//     against a `statistical_*` table (heuristic for "leaked from a
-//     prior crashed upgrade")
+// checkSessionsClean returns true iff there are no detectable ZOMBIES
+// requiring cleanup. Two zombie classes:
+//   - Empty-application_name advisory-lock holders (pre-rc.07 zombies
+//     from a killed migrate.Up before Fix 6a tagged its sessions, OR
+//     unknown external clients holding session-level locks)
+//   - Backends > 5 minutes old running TRUNCATE/INSERT/CALL on
+//     statistical_* tables (subprocess zombies from a killed migrate.Up's
+//     psql children)
 //
-// Recovery sequence: Stage A (systemd timeout kills migrate-up) leaves
-// postgres backends running their TRUNCATE/INSERT/CALL until the
-// backends notice their dead client. After enough cycles
-// max_connections is exhausted, blocking the next migrate-up. This
-// check is the gate that triggers cleanOrphanSessions when needed.
+// Pool saturation alone is NOT a zombie signal. PostgREST + worker + app
+// generate legitimate connection bursts that exceed any reasonable
+// "% of max_connections" threshold during normal operation —
+// worker.process_tasks alone can spike connections during queue draining.
+// Earlier versions of this function flagged saturation as unhealthy, which
+// caused cleanOrphanSessions's recheck-after-cleanup to falsely fail on
+// healthy busy systems (observed on rune post-recovery; the rc.07/08/09
+// install-fixups all failed at step 9 not because cleanup didn't work
+// but because the worker was momentarily busy when the recheck SQL ran).
+//
+// If you genuinely have max_clients exhausted with no zombies visible,
+// the system is just overloaded — that's a different problem with a
+// different remedy (raise max_connections, reduce client count). Not
+// something cleanOrphanSessions can fix.
+//
+// cleanOrphanSessions's Phase 2 still does Go-side PID-liveness probing
+// for statbus-migrate-<PID> markers regardless of this gate, so a dead-PID
+// statbus-migrate session is caught even though SQL alone can't probe its
+// owner.
 func checkSessionsClean(dir string) bool {
 	psqlPath, prefix, env, err := migrate.PsqlCommand(dir)
 	if err != nil {
@@ -920,8 +933,6 @@ func checkSessionsClean(dir string) bool {
 	args := append(prefix, "-t", "-A", "-c", `
 		WITH s AS (
 			SELECT
-				(SELECT setting::int FROM pg_settings WHERE name = 'max_connections') AS max_conn,
-				(SELECT count(*) FROM pg_stat_activity WHERE datname = current_database()) AS active,
 				(SELECT count(*) FROM pg_stat_activity
 				  WHERE datname = current_database()
 				    AND state IN ('active', 'idle in transaction')
@@ -936,21 +947,12 @@ func checkSessionsClean(dir string) bool {
 				    AND l.granted
 				    AND a.datname = current_database()
 				    AND a.pid <> pg_backend_pid()
-				    -- Only count UNIDENTIFIED holders. Recognized owners
-				    -- (application_name='worker', 'statbus-migrate-<PID>', etc.)
-				    -- are legitimate — the worker holds advisory locks during
-				    -- normal operation. cleanOrphanSessions's Go-side phase-2
-				    -- still does PID-liveness check for statbus-migrate-<dead>
-				    -- markers separately, so this gate doesn't need to flag them.
 				    AND COALESCE(a.application_name, '') = ''
 				) AS advisory_holders
 		)
 		SELECT
-			active::text || '/' || max_conn::text AS pool,
-			(active::numeric < (max_conn::numeric * 0.8)
-			   AND leaked = 0
-			   AND advisory_holders = 0
-			)::text AS healthy
+			leaked::text || '/' || advisory_holders::text AS zombies,
+			(leaked = 0 AND advisory_holders = 0)::text AS healthy
 		FROM s;`)
 	cmd := exec.Command(psqlPath, args...)
 	cmd.Dir = dir
@@ -959,7 +961,7 @@ func checkSessionsClean(dir string) bool {
 	if err != nil {
 		return false
 	}
-	// Format: "<active>/<max>|<healthy>"
+	// Format: "<leaked>/<advisory_holders>|<healthy>"
 	line := strings.TrimSpace(string(out))
 	parts := strings.Split(line, "|")
 	if len(parts) != 2 {
