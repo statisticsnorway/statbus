@@ -936,6 +936,13 @@ func checkSessionsClean(dir string) bool {
 				    AND l.granted
 				    AND a.datname = current_database()
 				    AND a.pid <> pg_backend_pid()
+				    -- Only count UNIDENTIFIED holders. Recognized owners
+				    -- (application_name='worker', 'statbus-migrate-<PID>', etc.)
+				    -- are legitimate — the worker holds advisory locks during
+				    -- normal operation. cleanOrphanSessions's Go-side phase-2
+				    -- still does PID-liveness check for statbus-migrate-<dead>
+				    -- markers separately, so this gate doesn't need to flag them.
+				    AND COALESCE(a.application_name, '') = ''
 				) AS advisory_holders
 		)
 		SELECT
@@ -1097,7 +1104,10 @@ func cleanOrphanSessions(dir string) error {
 				fmt.Printf("  Advisory-lock holder PID %d: owner PID %d is alive → legitimate, leaving alone\n", backendPID, ownerPID)
 			}
 		default:
-			fmt.Printf("  Advisory-lock holder PID %d: unrecognized application_name %q → leaving alone\n", backendPID, appName)
+			// Recognized non-statbus-managed owners (e.g. "worker", "psql"
+			// from a live operator session, PostgREST connection pool):
+			// legitimate, leave alone.
+			fmt.Printf("  Advisory-lock holder PID %d: non-statbus-managed application_name %q → legitimate, leaving alone\n", backendPID, appName)
 		}
 	}
 	if len(pidsToKill) > 0 {
