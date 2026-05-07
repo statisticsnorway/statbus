@@ -403,6 +403,18 @@ func acquireAdvisoryLock(ctx context.Context, projDir string) (*pgx.Conn, error)
 	if err != nil {
 		return nil, fmt.Errorf("connect for advisory lock: %w", err)
 	}
+	// Tag this session with our PID before acquiring the advisory lock.
+	// install.cleanOrphanSessions uses application_name to distinguish a
+	// living migrate.Up's parent connection (which can sit idle for many
+	// minutes while psql subprocesses run a slow migration) from a zombie
+	// session whose owning Go process died. Format: 'statbus-migrate-<pid>'.
+	// The cleanup probes liveness via syscall.Kill(pid, 0); a healthy
+	// migration's owner is alive and gets skipped, a killed migration's
+	// owner is ESRCH and gets terminated.
+	if _, tagErr := conn.Exec(ctx, fmt.Sprintf("SET application_name = 'statbus-migrate-%d'", os.Getpid())); tagErr != nil {
+		conn.Close(ctx)
+		return nil, fmt.Errorf("tag advisory lock connection: %w", tagErr)
+	}
 	// advisory lock objid: hashtext('migrate_up') = -1978276407
 	// pg_advisory_lock blocks until acquired. Prints a hint after a short
 	// wait so the operator knows what's going on if another migrate is
