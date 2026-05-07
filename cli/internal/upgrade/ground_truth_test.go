@@ -43,6 +43,83 @@ func TestVerifyUpgradeGroundTruth_BinarySHAmismatch(t *testing.T) {
 	}
 }
 
+// TestVerifyBinaryAtOrDescendantOf_DescendantAccepted is the regression
+// guard for commit 230e4e249 (groundtruth-ancestor). The fix changed
+// the binary-check predicate from strict equality to "at or descendant
+// of target", so a binary built from a commit one ahead of the in_progress
+// row's target is treated as success — the upgrade reached the goal,
+// just landed past it.
+//
+// Real failure that drove this fix: cloud-install advanced dev's binary
+// to fd403f29 (descendant of leftover row's target 2ba04e95). Pre-fix
+// the strict-equality check rolled the git tree back, re-introducing
+// the binary↔tree mismatch we'd just fixed. Post-fix, the descendant is
+// accepted and the row marks complete.
+//
+// Hermetic — no DB needed; the helper is pure (extracted from
+// verifyUpgradeGroundTruth specifically to be testable).
+func TestVerifyBinaryAtOrDescendantOf_DescendantAccepted(t *testing.T) {
+	fix := newGitRepoFixture(t)
+	svc := &Service{
+		binaryCommit: fix.newSHA, // running binary at child commit
+		projDir:      fix.dir,
+	}
+	ok, reason := svc.verifyBinaryAtOrDescendantOf(fix.oldSHA)
+	if !ok {
+		t.Fatalf("expected ok=true (binary %s descends from target %s); got reason=%q",
+			fix.newSHA[:8], fix.oldSHA[:8], reason)
+	}
+	if reason != "" {
+		t.Errorf("expected empty reason on success; got %q", reason)
+	}
+}
+
+// TestVerifyBinaryAtOrDescendantOf_NonAncestorRejected is the symmetric
+// negative: a binary at a SHA that is NOT in the target's ancestry must
+// still fail loudly. The fix relaxed strict-equality to allow descendants,
+// but conservative-false on `git merge-base --is-ancestor` errors must
+// continue to reject non-ancestors so we don't accept arbitrary mismatches.
+//
+// Uses an out-of-band synthetic SHA that is definitely not in the test
+// repo's history. `git merge-base --is-ancestor <unknown> <known>` exits
+// non-zero (or 128 with "unknown revision"), runCommandOutput returns
+// err != nil, and the function returns ok=false.
+func TestVerifyBinaryAtOrDescendantOf_NonAncestorRejected(t *testing.T) {
+	fix := newGitRepoFixture(t)
+	const unknownSHA = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+	svc := &Service{
+		binaryCommit: unknownSHA, // not in fix's git history at all
+		projDir:      fix.dir,
+	}
+	ok, reason := svc.verifyBinaryAtOrDescendantOf(fix.oldSHA)
+	if ok {
+		t.Fatalf("expected ok=false (binary %s is unknown to repo); got ok=true", unknownSHA[:8])
+	}
+	if !strings.Contains(reason, "is not its descendant") {
+		t.Errorf("expected reason to mention 'is not its descendant'; got %q", reason)
+	}
+	if !strings.Contains(reason, unknownSHA[:8]) {
+		t.Errorf("expected reason to contain the binary commit short prefix; got %q", reason)
+	}
+}
+
+// TestVerifyBinaryAtOrDescendantOf_EqualSHAtrivially returns ok=true
+// without invoking git. The legacy strict-equality contract preserved.
+func TestVerifyBinaryAtOrDescendantOf_EqualSHAtrivially(t *testing.T) {
+	fix := newGitRepoFixture(t)
+	svc := &Service{
+		binaryCommit: fix.newSHA,
+		projDir:      fix.dir,
+	}
+	ok, reason := svc.verifyBinaryAtOrDescendantOf(fix.newSHA)
+	if !ok {
+		t.Fatalf("expected ok=true on equal SHAs; got reason=%q", reason)
+	}
+	if reason != "" {
+		t.Errorf("expected empty reason; got %q", reason)
+	}
+}
+
 // TestVerifyUpgradeGroundTruth_UnknownBinarySkipsCheck verifies the
 // degraded-mode path: when the binary was built without ldflags (e.g.
 // `go run`), binaryCommit is "unknown" and the check cannot assert

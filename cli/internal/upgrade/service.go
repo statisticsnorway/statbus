@@ -1693,6 +1693,40 @@ func (d *Service) acquireAdvisoryLock(ctx context.Context) error {
 	return nil
 }
 
+// verifyBinaryAtOrDescendantOf is Check 1 of the ground-truth verification
+// (extracted as a pure function for testability — no DB access, no migration-
+// version check).
+//
+//   binary == "" / "unknown"   → tier-1/tier-2 ambiguous; skip check
+//                                 (degraded path per verifyUpgradeGroundTruth's
+//                                 docstring). Returns ok=true with no reason.
+//   binary == rowCommitSHA     → trivially success.
+//   `git merge-base --is-ancestor rowCommitSHA binary` exit 0
+//                               → binary descends from target; success.
+//                               The upgrade reached at-or-past the goal,
+//                               even if a later commit landed on top.
+//   error / non-ancestor        → conservative-false: the upgrade did
+//                               not advance to (or past) the target.
+//
+// Mirrors the pattern in resumePostSwap (search for "binaryDescendsFlag")
+// so the at-or-descendant predicate is uniform across post-restart
+// recovery paths.
+func (d *Service) verifyBinaryAtOrDescendantOf(rowCommitSHA string) (ok bool, reason string) {
+	if d.binaryCommit == "" || d.binaryCommit == "unknown" {
+		fmt.Printf("Ground-truth: binary SHA unknown (local build?); skipping binary check.\n")
+		return true, ""
+	}
+	if d.binaryCommit == rowCommitSHA {
+		return true, ""
+	}
+	if _, err := runCommandOutput(d.projDir, "git", "merge-base", "--is-ancestor", rowCommitSHA, d.binaryCommit); err == nil {
+		return true, ""
+	}
+	return false, fmt.Sprintf(
+		"binary commit %s != row target %s and is not its descendant (upgrade crashed before binary swap)",
+		ShortForDisplay(d.binaryCommit), ShortForDisplay(rowCommitSHA))
+}
+
 // verifyUpgradeGroundTruth is the ground-truth verification step for
 // completeInProgressUpgrade (task #49). Given an in_progress row's target
 // commit SHA, it checks TWO independent facts about the running system:
@@ -1717,32 +1751,8 @@ func (d *Service) acquireAdvisoryLock(ctx context.Context) error {
 //     The next recovery cycle will retry.
 func (d *Service) verifyUpgradeGroundTruth(ctx context.Context, rowCommitSHA string) (ok bool, reason string) {
 	// Check 1: binary SHA at-or-descendant-of target.
-	//
-	//   binary == "" / "unknown"  → tier-1/tier-2 ambiguous; skip check
-	//                                (degraded path per the docstring).
-	//   binary == rowCommitSHA    → trivially success.
-	//   `git merge-base --is-ancestor rowCommitSHA binary` exit 0
-	//                              → binary descends from target; success.
-	//                              The upgrade reached at-or-past the goal,
-	//                              even if a later commit landed on top.
-	//   error / non-ancestor       → conservative-false: the upgrade did
-	//                              not advance to (or past) the target.
-	//
-	// Mirrors the pattern in resumePostSwap (search for
-	// "binaryDescendsFlag") so the at-or-descendant predicate is uniform
-	// across post-restart recovery paths.
-	if d.binaryCommit == "" || d.binaryCommit == "unknown" {
-		fmt.Printf("Ground-truth: binary SHA unknown (local build?); skipping binary check.\n")
-	} else if d.binaryCommit != rowCommitSHA {
-		binaryDescendsTarget := false
-		if _, err := runCommandOutput(d.projDir, "git", "merge-base", "--is-ancestor", rowCommitSHA, d.binaryCommit); err == nil {
-			binaryDescendsTarget = true
-		}
-		if !binaryDescendsTarget {
-			return false, fmt.Sprintf(
-				"binary commit %s != row target %s and is not its descendant (upgrade crashed before binary swap)",
-				ShortForDisplay(d.binaryCommit), ShortForDisplay(rowCommitSHA))
-		}
+	if ok, reason := d.verifyBinaryAtOrDescendantOf(rowCommitSHA); !ok {
+		return false, reason
 	}
 
 	// Check 2: migration max version — DB vs on-disk

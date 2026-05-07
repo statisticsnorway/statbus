@@ -9,6 +9,12 @@
 // Cheap structural enforcement at the cobra root: PersistentPreRun
 // calls IsStale; if it reports drift, mutating commands hard-fail
 // (exit 2) and read-only commands warn-and-proceed.
+//
+// Recovery primitive: when a `selfheal=true` command (install, upgrade
+// service, upgrade apply-latest) hits the staleness case, RebuildAndReexec
+// (sibling file rebuild.go) handles the rebuild + re-exec dance.
+// Detection (this file) is decoupled from recovery (rebuild.go); IsStale
+// stays a pure read.
 package freshness
 
 import (

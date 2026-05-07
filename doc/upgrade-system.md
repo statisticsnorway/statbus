@@ -12,6 +12,45 @@ The canonical reference for how StatBus upgrades itself. Three orchestration pat
 
 GitHub Actions workflows (`deploy-to-<slot>.yaml`) trigger the service path — they run `./sb upgrade apply-latest` remotely, which sends a NOTIFY that the service picks up. Actions never call `./sb install` directly.
 
+## Binary-staleness self-recovery
+
+Every `./sb` invocation runs through `stalenessGuard` (`cli/cmd/root.go`, `rootCmd.PersistentPreRun`) before any subcommand. The guard compares the binary's compile-time commit (set via ldflags from `git rev-parse HEAD` at build time) against the worktree's `cli/` tree using `git diff --quiet <commit> -- cli/`. If they disagree, the binary is "stale" — running its old logic against a newer source tree.
+
+Without intervention this is a foot-gun: an operator pulls master, runs `./sb migrate up`, and the migrate runner uses pre-pull binary logic against post-pull migration files. Pre-rc.66 the check was inert on common builds (rc.69's `freshness-debug` made it actually fire); post-rc.71 the recovery surface self-heals instead of refusing to run.
+
+### Self-heal carve-out
+
+A small set of recovery commands carry `Annotations["selfheal"] = "true"` on their Cobra literal:
+
+- `install` — the documented operator entrypoint for first-install, repair, and dispatching pending upgrades.
+- `upgrade service` — the systemd unit's entrypoint. Without self-heal it crash-loops on stale.
+- `upgrade apply-latest` — the deploy-workflow target, invoked unattended over SSH.
+
+The guiding rule: **a command that exists to recover from a wedged installation must not require the very wedged binary to be hand-rebuilt first**. Destructive ops (`migrate up`, `db delete-db`, `users create`) intentionally remain hard-fail — their job is mutation, not recovery, and on a stale binary they would mutate state using the wrong logic.
+
+When a self-heal command hits the staleness case, `freshness.RebuildAndReexec` (`cli/internal/freshness/rebuild.go`) runs `make -C cli build` (5-minute budget, matches `Service.buildBinaryOnDisk` in the upgrade pipeline), then `syscall.Exec`'s into the freshly-built `./sb` with the original argv plus `_SB_SELFHEAL_ATTEMPT=1` in the environment. The new process re-enters `stalenessGuard`; if freshness *still* fails, the env var trips a recursion guard and the process exits 2 with a manual-rebuild hint.
+
+### Fail-fast audit
+
+Every condition the staleness layer can encounter has a documented, actionable outcome. No silent failures.
+
+| Condition | Outcome | Why |
+|---|---|---|
+| `commitSHA == ""` (tier-1/tier-2 ambiguous: built without ldflags AND not from a clean git tree) | exit 2 with `Rebuild from a clean tree: ./dev.sh build-sb` | Binary has no identity to rebuild against |
+| Stale + selfheal command + first attempt | rebuild + re-exec | Recovery commands must work from wedged state |
+| Stale + selfheal command + `_SB_SELFHEAL_ATTEMPT=1` already set | exit 2 with manual-rebuild hint | Single-attempt contract; the loop won't help if rebuild didn't fix freshness |
+| Stale + non-selfheal mutating command | exit 2 with stale diagnostic | Destructive ops must not auto-modify state with old logic |
+| Stale + read-only command (e.g., `psql`, `db status`, `upgrade list`) | WARN, proceed | Reads tolerate slight drift |
+| `make -C cli build` fails (compile error / disk full / no Go toolchain) | rebuild error → exit 2 | Cannot recover automatically; operator action required |
+| 5-minute build timeout | timeout error → exit 2 | Likely runaway build; operator should investigate |
+| `syscall.Exec` fails (rare: ENOEXEC on corrupted just-built binary, EACCES on perms) | exec error → exit 2 | Cannot continue with old code in memory; the post-swap flag is set so a manual `./sb install` resumes from the flag |
+
+### Recovery interaction with the post-restart ground-truth check
+
+The upgrade service's `verifyUpgradeGroundTruth` (`cli/internal/upgrade/service.go`) runs on service start when an `in_progress` row is found in `public.upgrade` without a matching flag file (i.e. the previous attempt crashed mid-flight). It uses an at-or-descendant predicate: `verifyBinaryAtOrDescendantOf` (extracted as a pure helper for testability) accepts both `binary == row.commit_sha` and `git merge-base --is-ancestor row.commit_sha binary`. Mirrors the pattern in `resumePostSwap`'s `binaryDescendsFlag` — uniform across post-restart recovery paths so the descendant case (e.g. the binary advanced past a leftover row's target) is treated as success rather than crash-mid-flight.
+
+The conservative-false on `git merge-base` errors (no such ref, shallow clone, no git) keeps the check honest: if we can't determine ancestry, we fail loud rather than guess.
+
 ## Install state ladder
 
 `./sb install` runs `install.Detect` (in `cli/internal/install/state.go`) once and dispatches on the result. The 8 states are ordered — detection is a top-down ladder.

@@ -72,6 +72,15 @@ var rootCmd = &cobra.Command{
 //     Pre-fix this case silently bypassed the check (task #30 root cause).
 //
 //  2. commitSHA set but cli/ tree drifted since build — classic stale.
+//
+// Self-heal carve-out: commands annotated `selfheal=true` — the recovery
+// surface (`install`, `upgrade service`, `upgrade apply-latest`) —
+// rebuild + re-exec instead of hard-failing when (2) fires. A wedged
+// installation must not require the very wedged binary to be hand-rebuilt
+// first. Single-attempt: SelfHealAttemptEnv prevents recursion. Tier-1
+// ambiguous identity (case 1) cannot self-heal (no identity to rebuild
+// against). See doc/upgrade-system.md for the full state matrix and the
+// fail-fast audit table.
 func stalenessGuard(c *cobra.Command, _ []string) {
 	if commitSHA == "" {
 		// Tier-1/tier-2 ambiguous identity. A binary with no identity can't
