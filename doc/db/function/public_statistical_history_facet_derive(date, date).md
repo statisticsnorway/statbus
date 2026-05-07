@@ -6,18 +6,21 @@ AS $function$
 BEGIN
     RAISE DEBUG 'Running statistical_history_facet_derive(p_valid_from=%, p_valid_until=%)', p_valid_from, p_valid_until;
 
-    -- Delete existing records for the affected periods
-    DELETE FROM public.statistical_history_facet shf
+    -- Clear target rows for the requested temporal scope.
+    DELETE FROM public.statistical_history_facet AS shf
     USING public.get_statistical_history_periods(
         p_resolution := null::public.history_resolution,
         p_valid_from := p_valid_from,
         p_valid_until := p_valid_until
-    ) tp
-    WHERE shf.year = tp.year
-      AND shf.month IS NOT DISTINCT FROM tp.month
-      AND shf.resolution = tp.resolution;
+    ) AS tp
+    WHERE shf.resolution = tp.resolution
+      AND shf.year = tp.year
+      AND shf.month IS NOT DISTINCT FROM tp.month;
 
-    -- Bulk INSERT using LATERAL join — explicit column list excludes hash_slot.
+    -- Bulk INSERT with cross-slot aggregation. The def function returns
+    -- per-slot rows (RETURNS SETOF statistical_history_facet_partitions);
+    -- target is keyed by (resolution, year, month, dims_8). GROUP BY the
+    -- target's natural key and SUM/jsonb_stats_merge_agg across slots.
     INSERT INTO public.statistical_history_facet (
         resolution, year, month, unit_type,
         primary_activity_category_path, secondary_activity_category_path,
@@ -37,20 +40,37 @@ BEGIN
         f.primary_activity_category_path, f.secondary_activity_category_path,
         f.sector_path, f.legal_form_id, f.physical_region_path,
         f.physical_country_id, f.unit_size_id, f.status_id,
-        f.exists_count, f.exists_change, f.exists_added_count, f.exists_removed_count,
-        f.countable_count, f.countable_change, f.countable_added_count, f.countable_removed_count,
-        f.births, f.deaths,
-        f.name_change_count, f.primary_activity_category_change_count,
-        f.secondary_activity_category_change_count, f.sector_change_count,
-        f.legal_form_change_count, f.physical_region_change_count, f.physical_country_change_count,
-        f.physical_address_change_count, f.unit_size_change_count, f.status_change_count,
-        f.stats_summary
+        SUM(f.exists_count)::integer,
+        SUM(f.exists_change)::integer,
+        SUM(f.exists_added_count)::integer,
+        SUM(f.exists_removed_count)::integer,
+        SUM(f.countable_count)::integer,
+        SUM(f.countable_change)::integer,
+        SUM(f.countable_added_count)::integer,
+        SUM(f.countable_removed_count)::integer,
+        SUM(f.births)::integer,
+        SUM(f.deaths)::integer,
+        SUM(f.name_change_count)::integer,
+        SUM(f.primary_activity_category_change_count)::integer,
+        SUM(f.secondary_activity_category_change_count)::integer,
+        SUM(f.sector_change_count)::integer,
+        SUM(f.legal_form_change_count)::integer,
+        SUM(f.physical_region_change_count)::integer,
+        SUM(f.physical_country_change_count)::integer,
+        SUM(f.physical_address_change_count)::integer,
+        SUM(f.unit_size_change_count)::integer,
+        SUM(f.status_change_count)::integer,
+        public.jsonb_stats_merge_agg(f.stats_summary)
     FROM public.get_statistical_history_periods(
         p_resolution := null::public.history_resolution,
         p_valid_from := p_valid_from,
         p_valid_until := p_valid_until
-    ) tp
-    CROSS JOIN LATERAL public.statistical_history_facet_def(tp.resolution, tp.year, tp.month) f;
+    ) AS tp
+    CROSS JOIN LATERAL public.statistical_history_facet_def(tp.resolution, tp.year, tp.month) AS f
+    GROUP BY f.resolution, f.year, f.month, f.unit_type,
+             f.primary_activity_category_path, f.secondary_activity_category_path,
+             f.sector_path, f.legal_form_id, f.physical_region_path,
+             f.physical_country_id, f.unit_size_id, f.status_id;
 END;
 $function$
 ```

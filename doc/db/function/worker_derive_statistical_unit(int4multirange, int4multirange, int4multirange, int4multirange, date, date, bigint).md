@@ -27,7 +27,7 @@ BEGIN
                          AND p_power_group_id_ranges IS NULL);
 
     IF v_is_full_refresh THEN
-        FOR v_batch IN SELECT * FROM public.get_closed_group_batches(p_target_batch_size => 1000)
+        FOR v_batch IN SELECT * FROM public.get_temporally_closed_change_sets(p_target_change_set_size => 1000)
         LOOP
             v_enterprise_count := v_enterprise_count + COALESCE(array_length(v_batch.enterprise_ids, 1), 0);
             v_legal_unit_count := v_legal_unit_count + COALESCE(array_length(v_batch.legal_unit_ids, 1), 0);
@@ -37,7 +37,7 @@ BEGIN
                 p_command => 'statistical_unit_refresh_batch',
                 p_payload => jsonb_build_object(
                     'command', 'statistical_unit_refresh_batch',
-                    'batch_seq', v_batch.batch_seq,
+                    'batch_seq', v_batch.change_set_seq,
                     'enterprise_ids', v_batch.enterprise_ids,
                     'legal_unit_ids', v_batch.legal_unit_ids,
                     'establishment_ids', v_batch.establishment_ids,
@@ -119,10 +119,10 @@ BEGIN
         IF p_establishment_id_ranges IS NOT NULL
            OR p_legal_unit_id_ranges IS NOT NULL
            OR p_enterprise_id_ranges IS NOT NULL THEN
-            IF to_regclass('pg_temp._batches') IS NOT NULL THEN DROP TABLE _batches; END IF;
-            CREATE TEMP TABLE _batches ON COMMIT DROP AS
-            SELECT * FROM public.get_closed_group_batches(
-                p_target_batch_size => 1000,
+            IF to_regclass('pg_temp._change_sets') IS NOT NULL THEN DROP TABLE _change_sets; END IF;
+            CREATE TEMP TABLE _change_sets ON COMMIT DROP AS
+            SELECT * FROM public.get_temporally_closed_change_sets(
+                p_target_change_set_size => 1000,
                 p_establishment_id_ranges => NULLIF(p_establishment_id_ranges, '{}'::int4multirange),
                 p_legal_unit_id_ranges => NULLIF(p_legal_unit_id_ranges, '{}'::int4multirange),
                 p_enterprise_id_ranges => NULLIF(p_enterprise_id_ranges, '{}'::int4multirange)
@@ -130,9 +130,9 @@ BEGIN
             INSERT INTO public.statistical_unit_facet_dirty_hash_slots (dirty_hash_slot)
             SELECT DISTINCT public.hash_slot(t.unit_type, t.unit_id)
             FROM (
-                SELECT 'enterprise'::text AS unit_type, unnest(b.enterprise_ids) AS unit_id FROM _batches AS b
-                UNION ALL SELECT 'legal_unit', unnest(b.legal_unit_ids) FROM _batches AS b
-                UNION ALL SELECT 'establishment', unnest(b.establishment_ids) FROM _batches AS b
+                SELECT 'enterprise'::text AS unit_type, unnest(b.enterprise_ids) AS unit_id FROM _change_sets AS b
+                UNION ALL SELECT 'legal_unit', unnest(b.legal_unit_ids) FROM _change_sets AS b
+                UNION ALL SELECT 'establishment', unnest(b.establishment_ids) FROM _change_sets AS b
             ) AS t WHERE t.unit_id IS NOT NULL
             ON CONFLICT DO NOTHING;
 
@@ -148,11 +148,11 @@ BEGIN
                 v_eff_en int4multirange;
             BEGIN
                 v_all_batch_est_ranges := (SELECT range_agg(int4range(id, id, '[]'))
-                    FROM (SELECT unnest(establishment_ids) AS id FROM _batches) AS t);
+                    FROM (SELECT unnest(establishment_ids) AS id FROM _change_sets) AS t);
                 v_all_batch_lu_ranges := (SELECT range_agg(int4range(id, id, '[]'))
-                    FROM (SELECT unnest(legal_unit_ids) AS id FROM _batches) AS t);
+                    FROM (SELECT unnest(legal_unit_ids) AS id FROM _change_sets) AS t);
                 v_all_batch_en_ranges := (SELECT range_agg(int4range(id, id, '[]'))
-                    FROM (SELECT unnest(enterprise_ids) AS id FROM _batches) AS t);
+                    FROM (SELECT unnest(enterprise_ids) AS id FROM _change_sets) AS t);
 
                 v_eff_est := NULLIF(
                     COALESCE(v_all_batch_est_ranges, '{}'::int4multirange)
@@ -186,12 +186,12 @@ BEGIN
                 v_enterprise_count := COALESCE((SELECT count(*) FROM unnest(COALESCE(v_eff_en, '{}'::int4multirange)) AS r, generate_series(lower(r), upper(r)-1))::INT, 0);
             END effective_counts;
 
-            FOR v_batch IN SELECT * FROM _batches LOOP
+            FOR v_batch IN SELECT * FROM _change_sets LOOP
                 PERFORM worker.spawn(
                     p_command => 'statistical_unit_refresh_batch',
                     p_payload => jsonb_build_object(
                         'command', 'statistical_unit_refresh_batch',
-                        'batch_seq', v_batch.batch_seq,
+                        'batch_seq', v_batch.change_set_seq,
                         'enterprise_ids', v_batch.enterprise_ids,
                         'legal_unit_ids', v_batch.legal_unit_ids,
                         'establishment_ids', v_batch.establishment_ids,

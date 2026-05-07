@@ -30,16 +30,7 @@ BEGIN
         v_dirty_hash_slots := NULL;
     END IF;
 
-    -- Snapshot dirty dims BEFORE children rewrite staging.
     IF v_dirty_hash_slots IS NOT NULL THEN
-        TRUNCATE public.statistical_unit_facet_pre_dirty_dims;
-        INSERT INTO public.statistical_unit_facet_pre_dirty_dims
-        SELECT DISTINCT s.valid_from, s.valid_to, s.valid_until, s.unit_type,
-               s.physical_region_path, s.primary_activity_category_path,
-               s.sector_path, s.legal_form_id, s.physical_country_id, s.status_id
-        FROM public.statistical_unit_facet_staging AS s
-        WHERE s.hash_slot = ANY(v_dirty_hash_slots);
-
         FOR i IN 1..COALESCE(array_length(v_dirty_hash_slots, 1), 0) LOOP
             PERFORM worker.spawn(
                 p_command => 'derive_statistical_unit_facet_partition',
@@ -52,8 +43,6 @@ BEGIN
             v_child_count := v_child_count + 1;
         END LOOP;
     ELSE
-        TRUNCATE public.statistical_unit_facet_pre_dirty_dims;
-
         FOR v_hash_partition IN
             SELECT DISTINCT int4range(
                 (su.hash_slot / v_hash_partition_size) * v_hash_partition_size,

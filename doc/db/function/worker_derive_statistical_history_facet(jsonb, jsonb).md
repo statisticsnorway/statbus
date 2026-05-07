@@ -30,20 +30,6 @@ BEGIN
         v_dirty_hash_slots := NULL;
     END IF;
 
-    -- Snapshot dirty dims BEFORE children rewrite partitions.
-    IF v_dirty_hash_slots IS NOT NULL THEN
-        TRUNCATE public.statistical_history_facet_pre_dirty_dims;
-        INSERT INTO public.statistical_history_facet_pre_dirty_dims
-        SELECT DISTINCT s.resolution, s.year, s.month, s.unit_type,
-               s.primary_activity_category_path, s.secondary_activity_category_path,
-               s.sector_path, s.legal_form_id, s.physical_region_path,
-               s.physical_country_id, s.unit_size_id, s.status_id
-        FROM public.statistical_history_facet_partitions AS s
-        WHERE s.hash_slot = ANY(v_dirty_hash_slots);
-    ELSE
-        TRUNCATE public.statistical_history_facet_pre_dirty_dims;
-    END IF;
-
     FOR v_period IN
         SELECT resolution, year, month
         FROM public.get_statistical_history_periods(
