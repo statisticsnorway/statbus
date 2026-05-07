@@ -13751,17 +13751,6 @@ export type Database = {
         Args: Record<string, never>
         Returns: string
       },
-      get_closed_group_batches: {
-        Args: {
-          p_target_batch_size?: number
-          p_establishment_id_ranges?: unknown
-          p_legal_unit_id_ranges?: unknown
-          p_enterprise_id_ranges?: unknown
-          p_offset?: number
-          p_limit?: number
-        }
-        Returns: Record<string, unknown>[]
-      },
       get_cmd_type: {
         Args: {
           cmd_type?: number
@@ -13794,6 +13783,17 @@ export type Database = {
           p_resolution?: Database["public"]["Enums"]["history_resolution"]
           p_valid_from?: string
           p_valid_until?: string
+        }
+        Returns: Record<string, unknown>[]
+      },
+      get_temporally_closed_change_sets: {
+        Args: {
+          p_target_change_set_size?: number
+          p_establishment_id_ranges?: unknown
+          p_legal_unit_id_ranges?: unknown
+          p_enterprise_id_ranges?: unknown
+          p_offset?: number
+          p_limit?: number
         }
         Returns: Record<string, unknown>[]
       },
