@@ -1,0 +1,196 @@
+-- Verifies the BEFORE UPDATE / DELETE trigger on auth.user that prevents
+-- removal of the last active admin (statbus_role 'admin_user' AND
+-- deleted_at IS NULL).
+--
+-- Removal paths exercised:
+--   B1. demote: UPDATE … SET statbus_role = '<not admin>'
+--   B2. soft-delete: UPDATE … SET deleted_at = now()
+--   B3. hard-delete: DELETE FROM auth.user
+--   B4. combined demote + soft-delete in one UPDATE
+--
+-- Sanity scenarios (must succeed):
+--   A. with multiple admins, demoting one is allowed
+--   C. same-transaction swap (promote regular first, then demote old admin)
+--   D. unrelated UPDATE (display_name) on the last admin
+--   E. re-activating a soft-deleted admin (deleted_at -> NULL)
+BEGIN;
+\i test/setup.sql
+\echo -- test/setup.sql output suppressed for cleaner test output
+-- test/setup.sql output suppressed for cleaner test output
+\set ECHO none
+\echo -- test/setup.sql done, test output follows
+-- test/setup.sql done, test output follows
+\echo === Initial: count of active admins ===
+=== Initial: count of active admins ===
+SELECT COUNT(*) AS active_admins
+  FROM auth."user"
+ WHERE statbus_role = 'admin_user' AND deleted_at IS NULL;
+ active_admins 
+---------------
+             1
+(1 row)
+
+\echo
+
+\echo === SCENARIO A: with multiple admins, demoting one is allowed ===
+=== SCENARIO A: with multiple admins, demoting one is allowed ===
+SAVEPOINT a;
+UPDATE auth."user" SET statbus_role = 'regular_user'
+ WHERE email = 'test.admin@statbus.org'
+RETURNING email, statbus_role;
+ERROR:  Cannot remove the last active admin user (test.admin@statbus.org)
+HINT:  Promote another user to admin_user before demoting or soft-deleting this one.
+CONTEXT:  PL/pgSQL function auth.prevent_removal_of_last_admin() line 17 at RAISE
+ROLLBACK TO SAVEPOINT a;
+\echo
+
+\echo === Collapse to a single active admin (test.admin@statbus.org) ===
+=== Collapse to a single active admin (test.admin@statbus.org) ===
+DELETE FROM auth."user"
+ WHERE email IN ('jorgen@veridit.no', 'erik.soberg@ssb.no', 'hhz@ssb.no');
+SELECT email, statbus_role, (deleted_at IS NULL) AS active
+  FROM auth."user"
+ WHERE statbus_role = 'admin_user'
+ ORDER BY email;
+         email          | statbus_role | active 
+------------------------+--------------+--------
+ test.admin@statbus.org | admin_user   | t
+(1 row)
+
+\echo
+
+\echo --- B1: demote the last admin (UPDATE statbus_role) is blocked ---
+--- B1: demote the last admin (UPDATE statbus_role) is blocked ---
+SAVEPOINT b1;
+\set ON_ERROR_STOP off
+UPDATE auth."user" SET statbus_role = 'regular_user'
+ WHERE email = 'test.admin@statbus.org';
+ERROR:  Cannot remove the last active admin user (test.admin@statbus.org)
+HINT:  Promote another user to admin_user before demoting or soft-deleting this one.
+CONTEXT:  PL/pgSQL function auth.prevent_removal_of_last_admin() line 17 at RAISE
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT b1;
+\echo
+
+\echo --- B2: soft-delete the last admin (UPDATE deleted_at) is blocked ---
+--- B2: soft-delete the last admin (UPDATE deleted_at) is blocked ---
+SAVEPOINT b2;
+\set ON_ERROR_STOP off
+UPDATE auth."user" SET deleted_at = '2026-01-01 00:00:00+00'
+ WHERE email = 'test.admin@statbus.org';
+ERROR:  Cannot remove the last active admin user (test.admin@statbus.org)
+HINT:  Promote another user to admin_user before demoting or soft-deleting this one.
+CONTEXT:  PL/pgSQL function auth.prevent_removal_of_last_admin() line 17 at RAISE
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT b2;
+\echo
+
+\echo --- B3: hard-delete the last admin (DELETE) is blocked ---
+--- B3: hard-delete the last admin (DELETE) is blocked ---
+SAVEPOINT b3;
+\set ON_ERROR_STOP off
+DELETE FROM auth."user" WHERE email = 'test.admin@statbus.org';
+ERROR:  Cannot delete the last active admin user (test.admin@statbus.org)
+HINT:  Promote another user to admin_user before deleting this one.
+CONTEXT:  PL/pgSQL function auth.prevent_removal_of_last_admin() line 31 at RAISE
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT b3;
+\echo
+
+\echo --- B4: combined demote + soft-delete in one UPDATE is blocked ---
+--- B4: combined demote + soft-delete in one UPDATE is blocked ---
+SAVEPOINT b4;
+\set ON_ERROR_STOP off
+UPDATE auth."user" SET statbus_role = 'regular_user', deleted_at = '2026-01-01 00:00:00+00'
+ WHERE email = 'test.admin@statbus.org';
+ERROR:  Cannot remove the last active admin user (test.admin@statbus.org)
+HINT:  Promote another user to admin_user before demoting or soft-deleting this one.
+CONTEXT:  PL/pgSQL function auth.prevent_removal_of_last_admin() line 17 at RAISE
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT b4;
+\echo
+
+\echo === SCENARIO C: same-tx swap (promote regular first, then demote old admin) ===
+=== SCENARIO C: same-tx swap (promote regular first, then demote old admin) ===
+SAVEPOINT c;
+UPDATE auth."user" SET statbus_role = 'admin_user'
+ WHERE email = 'test.regular@statbus.org'
+RETURNING email, statbus_role;
+          email           | statbus_role 
+--------------------------+--------------
+ test.regular@statbus.org | admin_user
+(1 row)
+
+SELECT email, statbus_role
+  FROM auth."user"
+ WHERE statbus_role = 'admin_user' AND deleted_at IS NULL
+ ORDER BY email;
+          email           | statbus_role 
+--------------------------+--------------
+ test.admin@statbus.org   | admin_user
+ test.regular@statbus.org | admin_user
+(2 rows)
+
+UPDATE auth."user" SET statbus_role = 'regular_user'
+ WHERE email = 'test.admin@statbus.org'
+RETURNING email, statbus_role;
+         email          | statbus_role 
+------------------------+--------------
+ test.admin@statbus.org | regular_user
+(1 row)
+
+SELECT email, statbus_role
+  FROM auth."user"
+ WHERE statbus_role = 'admin_user' AND deleted_at IS NULL
+ ORDER BY email;
+          email           | statbus_role 
+--------------------------+--------------
+ test.regular@statbus.org | admin_user
+(1 row)
+
+ROLLBACK TO SAVEPOINT c;
+\echo
+
+\echo === SCENARIO D: unrelated UPDATE (display_name) on the last admin is allowed ===
+=== SCENARIO D: unrelated UPDATE (display_name) on the last admin is allowed ===
+SAVEPOINT d;
+UPDATE auth."user" SET display_name = 'Updated Display'
+ WHERE email = 'test.admin@statbus.org'
+RETURNING email, display_name;
+         email          |  display_name   
+------------------------+-----------------
+ test.admin@statbus.org | Updated Display
+(1 row)
+
+ROLLBACK TO SAVEPOINT d;
+\echo
+
+\echo === SCENARIO E: re-activating a soft-deleted admin (deleted_at -> NULL) is allowed ===
+=== SCENARIO E: re-activating a soft-deleted admin (deleted_at -> NULL) is allowed ===
+-- First create a second admin and soft-delete them while the first remains.
+SAVEPOINT e;
+UPDATE auth."user" SET statbus_role = 'admin_user'
+ WHERE email = 'test.regular@statbus.org';
+UPDATE auth."user" SET deleted_at = '2026-01-01 00:00:00+00'
+ WHERE email = 'test.regular@statbus.org';
+SELECT email, statbus_role, (deleted_at IS NULL) AS active
+  FROM auth."user"
+ WHERE email IN ('test.admin@statbus.org', 'test.regular@statbus.org')
+ ORDER BY email;
+          email           | statbus_role | active 
+--------------------------+--------------+--------
+ test.admin@statbus.org   | admin_user   | t
+ test.regular@statbus.org | admin_user   | f
+(2 rows)
+
+-- Re-activate the soft-deleted admin: deleted_at -> NULL
+UPDATE auth."user" SET deleted_at = NULL
+ WHERE email = 'test.regular@statbus.org'
+RETURNING email, statbus_role, (deleted_at IS NULL) AS active;
+          email           | statbus_role | active 
+--------------------------+--------------+--------
+ test.regular@statbus.org | admin_user   | t
+(1 row)
+
+ROLLBACK TO SAVEPOINT e;
+ROLLBACK;
