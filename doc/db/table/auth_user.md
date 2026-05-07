@@ -58,6 +58,7 @@ Triggers:
     auto_create_api_token_on_confirmation_trigger AFTER INSERT OR UPDATE OF email_confirmed_at ON auth."user" FOR EACH ROW EXECUTE FUNCTION auth.auto_create_api_token_on_confirmation()
     check_role_permission_trigger BEFORE INSERT OR UPDATE ON auth."user" FOR EACH ROW EXECUTE FUNCTION auth.check_role_permission()
     drop_user_role_trigger AFTER DELETE ON auth."user" FOR EACH ROW EXECUTE FUNCTION auth.drop_user_role()
+    prevent_removal_of_last_admin_trigger BEFORE DELETE OR UPDATE ON auth."user" FOR EACH ROW EXECUTE FUNCTION auth.prevent_removal_of_last_admin()
     sync_user_credentials_and_roles_trigger BEFORE INSERT OR UPDATE ON auth."user" FOR EACH ROW EXECUTE FUNCTION auth.sync_user_credentials_and_roles()
 
 ```
