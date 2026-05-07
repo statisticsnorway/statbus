@@ -519,6 +519,13 @@ func runInstall() (installErr error) {
 		{"Generated env", checkEnvDone, runGenerateEnv},
 		{"Images", checkImagesDone, runPullImages},
 		{"Services", checkServicesDone, runStartServices},
+		// "Database sessions" gates Seed + Migrations. Recovers from
+		// Stage B of the rune.statbus.org wedge: prior systemd-killed
+		// migrate-up loops leak postgres backends until max_connections
+		// is exhausted, blocking subsequent migrate-up attempts. On a
+		// healthy install this is a no-op: WHERE clause matches zero
+		// rows, recheck passes immediately.
+		{"Database sessions", checkSessionsClean, cleanOrphanSessions},
 		{"Seed", checkSeedRestored, runSeedRestore},
 		{"Migrations", checkMigrationsDone, runMigrations},
 		{"JWT secret", checkJWTDone, runLoadJWT},
@@ -862,6 +869,124 @@ func runPullImages(dir string) error {
 
 func runStartServices(dir string) error {
 	return runCmdDir(dir, "docker", "compose", "--profile", "all", "up", "-d")
+}
+
+// checkSessionsClean returns true iff the database is reachable AND its
+// session pool is in a healthy state. Returns false if any of:
+//   - DB is unreachable (caller's runStartServices should have started
+//     it, but the connection pool may still be exhausted)
+//   - active backend count is ≥ 80% of max_connections (saturation
+//     headroom — leaves room for migrate-up + reserved superuser slots)
+//   - any backend > 5 minutes old is wedged on a TRUNCATE/INSERT/CALL
+//     against a `statistical_*` table (heuristic for "leaked from a
+//     prior crashed upgrade")
+//
+// Recovery sequence: Stage A (systemd timeout kills migrate-up) leaves
+// postgres backends running their TRUNCATE/INSERT/CALL until the
+// backends notice their dead client. After enough cycles
+// max_connections is exhausted, blocking the next migrate-up. This
+// check is the gate that triggers cleanOrphanSessions when needed.
+func checkSessionsClean(dir string) bool {
+	psqlPath, prefix, env, err := migrate.PsqlCommand(dir)
+	if err != nil {
+		return false
+	}
+	args := append(prefix, "-t", "-A", "-c", `
+		WITH s AS (
+			SELECT
+				(SELECT setting::int FROM pg_settings WHERE name = 'max_connections') AS max_conn,
+				(SELECT count(*) FROM pg_stat_activity WHERE datname = current_database()) AS active,
+				(SELECT count(*) FROM pg_stat_activity
+				  WHERE datname = current_database()
+				    AND state IN ('active', 'idle in transaction')
+				    AND query_start < now() - interval '5 minutes'
+				    AND (query ILIKE '%TRUNCATE %statistical_%'
+				         OR query ILIKE '%INSERT INTO %statistical_%'
+				         OR query ILIKE '%CALL %statistical_%')
+				) AS leaked
+		)
+		SELECT
+			active::text || '/' || max_conn::text AS pool,
+			(active::numeric < (max_conn::numeric * 0.8) AND leaked = 0)::text AS healthy
+		FROM s;`)
+	cmd := exec.Command(psqlPath, args...)
+	cmd.Dir = dir
+	cmd.Env = env
+	out, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+	// Format: "<active>/<max>|<healthy>"
+	line := strings.TrimSpace(string(out))
+	parts := strings.Split(line, "|")
+	if len(parts) != 2 {
+		return false
+	}
+	return parts[1] == "t"
+}
+
+// cleanOrphanSessions terminates leaked backends from prior crashed
+// upgrade attempts so the next migrate-up has free connection slots.
+//
+// Connects via the standard psql path (which uses
+// `superuser_reserved_connections` if ordinary slots are full —
+// postgres reserves 3 slots for superuser by default, enough to acquire
+// a connection even when normal slots are exhausted).
+//
+// Targets two backend classes:
+//   1. Any backend > 2 minutes old in the current database (other than
+//      this connection) — likely orphaned by a SIGKILLed migrate-up
+//      subprocess.
+//   2. Any backend running a query touching statistical_history* —
+//      these are the heavy migrations that get caught in the timeout
+//      loop on at-scale data.
+//
+// 2-second sleep + recheck after termination. If the pool is still
+// saturated afterwards, returns an error pointing at the upgrade
+// service journal — we do NOT silently retry, because that would hide
+// a real problem (e.g. genuine load, or a crashed cleanup).
+//
+// Idempotent: on a healthy system the WHERE clause matches zero rows
+// and the recheck passes cleanly. Self-targeting is excluded via
+// `pid <> pg_backend_pid()`.
+func cleanOrphanSessions(dir string) error {
+	psqlPath, prefix, env, err := migrate.PsqlCommand(dir)
+	if err != nil {
+		return fmt.Errorf("psql command: %w", err)
+	}
+
+	args := append(prefix, "-c", `
+		SELECT pg_terminate_backend(pid), pid, query_start, left(query, 80) AS query
+		  FROM pg_stat_activity
+		 WHERE datname = current_database()
+		   AND pid <> pg_backend_pid()
+		   AND (
+			   -- Orphans from killed migrate-up subprocesses
+			   (state IN ('active', 'idle in transaction')
+			    AND query_start < now() - interval '2 minutes')
+			   OR
+			   -- Backends still wedged on the upgrade's heavy migration
+			   query ILIKE '%statistical_history%'
+		   );`)
+	cmd := exec.Command(psqlPath, args...)
+	cmd.Dir = dir
+	cmd.Env = env
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("pg_terminate_backend: %w", err)
+	}
+
+	// Give postgres a moment to actually free the slots after
+	// pg_terminate_backend. Slot release is async wrt the SQL return.
+	time.Sleep(2 * time.Second)
+
+	if !checkSessionsClean(dir) {
+		return fmt.Errorf(
+			"connection pool still saturated after cleanOrphanSessions; " +
+				"check `journalctl --user -u 'statbus-upgrade@*'` for the underlying cause")
+	}
+	return nil
 }
 
 // checkSeedRestored returns true if the database already has migrations
