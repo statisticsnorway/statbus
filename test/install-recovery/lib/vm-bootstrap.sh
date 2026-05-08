@@ -62,7 +62,18 @@ bootstrap_install_test_vm() {
     fi
 
     echo "Launching Ubuntu 24.04 VM ($vm_name)..."
-    multipass launch 24.04 --name "$vm_name" --cpus 2 --memory 4G --disk 10G --timeout 600
+    # MULTIPASS_BRIDGE workaround: when macOS vmnet-shared is broken (commonly
+    # after network swaps — VPN connect/disconnect, hotel/train wifi, etc.),
+    # the default NAT bridge has no host-side IP and VMs are unreachable
+    # via `multipass exec` ("No route to host"). Setting MULTIPASS_BRIDGE=en0
+    # (or any active interface from `multipass networks`) adds a second NIC
+    # in bridged mode that DOES work. No-op when unset (uses default vmnet-shared).
+    local network_args=()
+    if [ -n "${MULTIPASS_BRIDGE:-}" ]; then
+        echo "  using bridged network: --network $MULTIPASS_BRIDGE"
+        network_args=(--network "$MULTIPASS_BRIDGE")
+    fi
+    multipass launch 24.04 --name "$vm_name" --cpus 2 --memory 4G --disk 10G --timeout 600 "${network_args[@]}"
 
     echo "Waiting for VM to be ready..."
     multipass exec "$vm_name" -- cloud-init status --wait 2>/dev/null || true
