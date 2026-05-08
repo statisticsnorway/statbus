@@ -59,6 +59,24 @@ Environment=PATH=/home/linuxbrew/.linuxbrew/bin:/usr/local/sbin:/usr/local/bin:/
 # timeout in pullImages itself (exec.go:160).
 WatchdogSec=120
 
+# Stop-grace window (Layer 1 of rollback-on-SIGKILL hole plug). When systemd
+# stops the unit (operator-driven `systemctl stop`, or upstream cause like
+# TimeoutStartSec or WatchdogSec firing), it sends KillSignal (default
+# SIGTERM), waits TimeoutStopSec, then sends SIGKILL. The signal handler
+# in service.go:Run() catches SIGTERM and cancels the upgrade context,
+# which fires executeUpgrade's deferred rollback() — pg_restore from
+# pre-upgrade backup, restoreGitState, restoreBinary, mark public.upgrade
+# state='rolled_back'. On Norway-sized data the pg_restore alone can take
+# 5-10 min. Default TimeoutStopSec=90s is far too short — SIGKILL would
+# fire mid-rollback, leaving public.upgrade.rolled_back_at=NULL and the
+# pre-upgrade-* backup directory orphaned on disk (observed on rune;
+# the rolled_back_at on upgrade row 62 was NULL despite 50+ kill cycles).
+#
+# 15 minutes covers worst-case rollback for current statbus deployments;
+# operators running `systemctl stop` see a longer wait, but a long-but-
+# clean stop is better than a fast-but-corrupted one.
+TimeoutStopSec=15min
+
 # Logging
 StandardOutput=journal
 StandardError=journal

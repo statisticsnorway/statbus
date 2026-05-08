@@ -2074,6 +2074,10 @@ func (d *Service) completeInProgressUpgrade(ctx context.Context) {
 		break
 	}
 	d.removeUpgradeFlag()
+	// Layer 3 of the rollback-on-SIGKILL hole plug — also fire pruneBackups
+	// after the post-restart completion path. See the matching call in the
+	// resumePostSwap branch for full rationale. keep=3.
+	d.pruneBackups(ctx, 3)
 
 	// Skip older releases that are still "available" — no point upgrading to an older version
 	d.supersedeOlderReleases(ctx, commitSHA)
@@ -3588,6 +3592,14 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	log.Println("state=completed")
 	logUpgradeRow(LabelCompletedNormal, normalJSON)
 	d.removeUpgradeFlag()
+	// Layer 3 of the rollback-on-SIGKILL hole plug: now that the upgrade
+	// has reached terminal state='completed', the pre-upgrade backup is no
+	// longer needed for rollback. pruneBackups (defined in exec.go) trims
+	// finalised pre-upgrade-* directories to the `keep` most-recent. Until
+	// this call site existed, pruneBackups was only exercised by tests —
+	// orphan backups accumulated forever (rune still has one from April 21).
+	// keep=3 retains the last few for forensic / disaster-recovery purposes.
+	d.pruneBackups(ctx, 3)
 	// Pre-upgrade branch is no longer needed — successful completion
 	// means we're committed to the new version. Best-effort delete; if
 	// the branch is missing (best-effort create at the start failed),
