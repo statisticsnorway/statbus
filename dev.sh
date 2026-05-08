@@ -1904,6 +1904,17 @@ SCRIPT
 
         echo "Install test complete."
       ;;
+    'test-install-recovery' )
+        # End-to-end install RECOVERY tests (Multipass). Sister to test-install:
+        # validates wedge-recovery scenarios that the install ladder must
+        # survive (Stage A killed migrate, B pool exhaustion, C systemd
+        # failed, D advisory zombie, E worker busy, F SIGKILL mid-upgrade,
+        # plus happy paths and bool-text regression).
+        #
+        # Each scenario is a fresh Multipass VM. ~10 min per scenario.
+        # See test/install-recovery/README.md for the catalogue.
+        exec bash "$WORKSPACE/test/install-recovery/run.sh" "$@"
+      ;;
     'upgrade-sandbox' )
       # Isolated upgrade-service test harness on port offset 9 (3090-3094).
       # Collision-free with dev/ma/no slots (offsets 1/2/3 = 3010/3020/3030).
