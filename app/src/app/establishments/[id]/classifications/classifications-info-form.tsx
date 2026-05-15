@@ -44,12 +44,16 @@ export default function ClassificationsInfoForm({
   const secondaryActivity = establishment?.activity?.find(
     (act) => act.type === "secondary"
   );
-  const activityCategoryOptions = activityCategories.map(
-    (activityCategory) => ({
-      value: activityCategory.id!,
-      label: `${activityCategory.code} ${activityCategory.name}`,
-    })
-  );
+   const parentPaths = new Set(activityCategories.map((a) => a.parent_path));
+   const activityCategoryOptions = activityCategories.map(
+     (activityCategory) => {
+       return {
+         value: activityCategory.id!,
+         label: `${activityCategory.code} ${activityCategory.name}`,
+         disabled: parentPaths.has(activityCategory.path),
+       };
+     }
+   );
   return (
     <div>
       <EditableSelectWithMetadata

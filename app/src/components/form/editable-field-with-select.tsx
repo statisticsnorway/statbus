@@ -26,6 +26,7 @@ import { MetadataTooltip } from "./metadata-tooltip";
 interface Option {
   value: string | number;
   label: string;
+  disabled?: boolean;
 }
 
 interface EditableSelectWithMetadataProps {
@@ -142,6 +143,7 @@ export const EditableSelectWithMetadata = ({
                     <CommandItem
                       key={option.value}
                       value={option.label}
+                      disabled={option.disabled}
                       onSelect={() => {
                         setCurrentValue(option.value.toString());
                         setOpen(false);
