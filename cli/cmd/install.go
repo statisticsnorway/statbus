@@ -91,6 +91,28 @@ var trustGitHubUser string
 // exec; either triggers the mutex bypass in runInstall.
 var insideActiveUpgrade bool
 
+// recoveryModeFlag is the operator-facing --recovery selector for the
+// crashed-upgrade dispatch path. Only consulted when install.Detect
+// classifies the install as StateCrashedUpgrade (stale upgrade flag,
+// holder PID dead) AND verifyUpgradeGroundTruth's reason in
+// recoverFromFlag is "binary swapped, migrations missing". Values:
+//
+//   - "auto" (default): autoChooseRecovery picks based on whether a
+//     readable backup is on disk — restore-from-snapshot when yes,
+//     forward-recovery when no.
+//   - "forward": explicit Fix 5b path. Re-runs migrate.Up inline on top
+//     of the partial DB state. Operator promises the killed migration is
+//     idempotent.
+//   - "restore": pg_restore from the pre-upgrade snapshot, restore git
+//     state to from_commit_version, restore the prior `sb` binary,
+//     mark the row 'rolled_back'. Operator must re-schedule the upgrade
+//     after a successful restore.
+//
+// The flag is parsed via upgrade.ParseRecoveryMode early in runInstall so
+// invalid values fail fast before any DB or filesystem state is touched.
+// On non-crashed-upgrade detection the value is silently ignored.
+var recoveryModeFlag string
+
 var installCmd = &cobra.Command{
 	Use:   "install",
 	Short: "Install or resume StatBus installation",
@@ -142,6 +164,13 @@ func init() {
 		"Internal: set by the upgrade service when spawning install as a post-upgrade fixup. Operators must not pass this.")
 	// Hide the internal flag from --help; it's a contract between service and child install, not a user-facing knob.
 	_ = installCmd.Flags().MarkHidden("inside-active-upgrade")
+	installCmd.Flags().StringVar(&recoveryModeFlag, "recovery", "auto",
+		"Recovery mode for a crashed upgrade detected at install time. "+
+			"`auto` (default) picks restore-from-snapshot when a readable backup is on disk, "+
+			"otherwise forward-recovery. "+
+			"`forward` re-runs pending migrations on top of the partial state — safe only for idempotent migrations. "+
+			"`restore` pg_restores from the pre-upgrade backup and rolls the upgrade row back; "+
+			"operator must re-schedule the upgrade after.")
 	rootCmd.AddCommand(installCmd)
 }
 
@@ -223,6 +252,15 @@ func runInstall() (installErr error) {
 	fmt.Println("StatBus Installation")
 	fmt.Println("====================")
 	fmt.Println()
+
+	// Validate --recovery early. Invalid mode → fail fast before any DB or
+	// filesystem state is touched. Only consulted on the StateCrashedUpgrade
+	// branch below, but parse here so a typo reports cleanly regardless of
+	// detected state.
+	recoveryMode, err := upgrade.ParseRecoveryMode(recoveryModeFlag)
+	if err != nil {
+		return err
+	}
 
 	// Detect non-interactive from stdin if not explicitly set
 	if !nonInteractive {
@@ -306,7 +344,7 @@ func runInstall() (installErr error) {
 			detectedState = state
 			logInstallState(state, detail)
 			if state == install.StateCrashedUpgrade {
-				if err := runCrashRecovery(installDir); err != nil {
+				if err := runCrashRecovery(installDir, recoveryMode); err != nil {
 					return fmt.Errorf("crash recovery: %w", err)
 				}
 				state, detail, derr = install.Detect(installDir, version)

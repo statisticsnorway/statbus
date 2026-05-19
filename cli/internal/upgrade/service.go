@@ -153,6 +153,53 @@ const (
 	HolderInstall = "install"
 )
 
+// RecoveryMode chooses how recoverFromFlag handles the "binary swapped, but
+// migrations didn't fully apply" case (verifyUpgradeGroundTruth returns
+// reason starting with "db.migration max version"). Three modes:
+//
+//   - RecoveryForward: re-run migrate.Up inline on top of the partial state,
+//     then re-verify. Safe when the killed migration is idempotent
+//     (e.g. TRUNCATE+INSERT, ON CONFLICT upserts). The operator promises
+//     this — failure modes for non-idempotent migrations are silent
+//     data corruption.
+//
+//   - RecoveryRestore: pg_restore from flag.BackupPath, restore git state to
+//     from_commit_version, restore old `sb` binary, mark row 'rolled_back'.
+//     Operator must re-schedule the upgrade after. Safe regardless of
+//     migration shape — DB is brought back to the pre-upgrade snapshot.
+//
+//   - RecoveryAuto (default): pick one of the two. Heuristic in
+//     autoChooseRecovery: if flag.BackupPath is non-empty AND the directory
+//     exists on disk AND is readable, prefer RecoveryRestore (safer for
+//     non-idempotent migrations). Otherwise fall back to RecoveryForward.
+//
+// The long-running upgrade service path (Run) uses RecoveryAuto. Operator-
+// driven `./sb install` plumbs an explicit choice via --recovery.
+type RecoveryMode string
+
+const (
+	RecoveryAuto    RecoveryMode = "auto"
+	RecoveryForward RecoveryMode = "forward"
+	RecoveryRestore RecoveryMode = "restore"
+)
+
+// ParseRecoveryMode validates an operator-supplied --recovery string and
+// returns the typed mode. Empty string is treated as RecoveryAuto. Returns
+// a descriptive error for unknown values so the install CLI can surface a
+// fast, actionable failure before any DB or filesystem state is touched.
+func ParseRecoveryMode(s string) (RecoveryMode, error) {
+	switch s {
+	case "", string(RecoveryAuto):
+		return RecoveryAuto, nil
+	case string(RecoveryForward):
+		return RecoveryForward, nil
+	case string(RecoveryRestore):
+		return RecoveryRestore, nil
+	default:
+		return "", fmt.Errorf("invalid --recovery mode %q (must be one of: auto, forward, restore)", s)
+	}
+}
+
 // FlagPhase discriminates where executeUpgrade had reached when the holder's
 // process last ran. The service swaps the ./sb binary on disk mid-flow then
 // hands off to a fresh process via exit 42 / systemd restart so the remaining
@@ -643,7 +690,14 @@ func (d *Service) loadLogRelPath(ctx context.Context, id int64) string {
 // That way operators reading the admin UI's "Log" panel after
 // reconciliation see both the pre-crash story and the recovery summary
 // in one place — no need to SSH in for systemd logs.
-func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
+//
+// `mode` selects the disposition for the "binary swapped, migrations
+// missing" case (verifyUpgradeGroundTruth reason "db.migration max
+// version ..."). RecoveryAuto picks via autoChooseRecovery; RecoveryForward
+// always re-runs migrate.Up; RecoveryRestore always restores from the
+// pre-upgrade backup. The long-running service path passes RecoveryAuto;
+// `./sb install --recovery=<mode>` plumbs the operator's choice.
+func (d *Service) recoverFromFlag(ctx context.Context, mode RecoveryMode) (err error) {
 	data, readErr := os.ReadFile(d.flagPath())
 	if readErr != nil {
 		return nil // no flag file — normal startup
@@ -1215,12 +1269,16 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 // The caller MUST call LoadConfigAndConnect first so queryConn is live,
 // and Close after to release connections.
 //
+// `mode` is the operator's recovery preference (RecoveryAuto / RecoveryForward
+// / RecoveryRestore) — surfaced via `./sb install --recovery=<mode>`. The
+// long-running service path (Service.Run) passes RecoveryAuto.
+//
 // Returns nil for category-1 (success) and category-2 (auto-rolled-back)
 // outcomes; returns a non-nil error for category-3 divergences per the
 // recovery trifecta — the caller (./sb install) surfaces these to the
 // operator instead of silently continuing.
-func (d *Service) RecoverFromFlag(ctx context.Context) error {
-	return d.recoverFromFlag(ctx)
+func (d *Service) RecoverFromFlag(ctx context.Context, mode RecoveryMode) error {
+	return d.recoverFromFlag(ctx, mode)
 }
 
 // LoadConfigAndConnect performs the startup steps needed before
@@ -1475,7 +1533,12 @@ func (d *Service) Run(ctx context.Context) error {
 	// (rc.67) — exit so systemd's StartLimit (Item L: 10 in 600s) catches a
 	// thrashing daemon that can't reconcile its own state instead of letting
 	// the loop schedule new upgrades against a broken world.
-	if err := d.recoverFromFlag(ctx); err != nil {
+	//
+	// Service-driven recovery uses RecoveryAuto: no operator is in the loop
+	// to choose, so the heuristic in autoChooseRecovery makes the call.
+	// Operator-driven `./sb install` plumbs an explicit mode through the
+	// crashed-upgrade dispatch path instead.
+	if err := d.recoverFromFlag(ctx, RecoveryAuto); err != nil {
 		return fmt.Errorf("recover from flag: %w", err)
 	}
 

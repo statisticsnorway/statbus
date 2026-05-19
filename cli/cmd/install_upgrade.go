@@ -106,10 +106,15 @@ func restartUpgradeService(projDir string) {
 // the flag file. Safe to call concurrently — idempotent on a missing
 // flag.
 //
+// `mode` is the operator-supplied --recovery preference (auto / forward /
+// restore). It is forwarded to RecoverFromFlag, which only consults it on
+// the "binary swapped, migrations missing" branch — every other recovery
+// path is unaffected.
+//
 // After recovery the caller MUST re-run install.Detect before dispatching:
 // recovery may have surfaced a freshly-scheduled row, restored the
 // previous version on disk, or left the install otherwise consistent.
-func runCrashRecovery(projDir string) error {
+func runCrashRecovery(projDir string, mode upgrade.RecoveryMode) error {
 	ctx := context.Background()
 	svc := upgrade.NewService(projDir, true /* verbose */, version, commit)
 	defer svc.Close()
@@ -150,7 +155,7 @@ func runCrashRecovery(projDir string) error {
 	if err := svc.LoadConfigAndConnect(ctx); err != nil {
 		return fmt.Errorf("load upgrade config: %w", err)
 	}
-	if err := svc.RecoverFromFlag(ctx); err != nil {
+	if err := svc.RecoverFromFlag(ctx, mode); err != nil {
 		return fmt.Errorf("crash recovery: %w", err)
 	}
 	return nil
