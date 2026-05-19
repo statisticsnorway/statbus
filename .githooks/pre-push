@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# pre-push hook — two independent guards:
+# pre-push hook — two independent guards on release-tag pushes:
 #
 #   1. Release-tag gate. Any ref pushed under refs/tags/v* is handed to
 #      `./sb release verify-tag`, which rejects hand-rolled tags that
@@ -9,31 +9,29 @@
 #      Lightweight tags are rejected unconditionally (release tags must
 #      be annotated).
 #
-#   2. Dockerfile pgrx-builder gate. If any commit being pushed modifies
-#      postgres/Dockerfile, build the three pgrx-builder stages locally
-#      and fail the push on any build error. Introduced after commit
-#      13fc8a7f7 broke ci-images with a regression a single local
-#      `docker build` would have caught in seconds.
+#   2. CI Images gate. Any release tag push must point at a commit for
+#      which ci-images.yaml on GitHub Actions has completed successfully.
+#      `./sb release verify-ci <commit>` asks the GitHub API — the guard
+#      is fast (no local docker builds, no rustup), blocks the push on a
+#      missing / pending / failed run, and prints the exact
+#      `gh workflow run` command an operator needs to repair the gap.
+#      Replaces an older slow local replay of the same Docker builds
+#      that duplicated CI's work and only failed at push time after the
+#      tag had already been created.
 #
-# Bypass (e.g. when you've just validated by hand):
+# Bypass (e.g. validated by hand, or GitHub is down):
 #   git push --no-verify
 #
 # Activation (once, per clone):
 #   git config core.hooksPath .githooks
-#
-# Cost when the Dockerfile gate triggers:
-#   First run from cold: ~10-15 minutes (clones + cargo pgrx init +
-#   three Rust builds). Subsequent runs reuse build cache, typically
-#   <2 minutes unless the extension versions advance.
 
 set -eu
 
 remote="$1"
-# url="$2"   # unused; pushing to any remote triggers the same check
+# url="$2"   # unused; pushing to any remote triggers the same checks
 
-# Both guards want to walk the list of refs/SHAs being pushed. stdin can
-# be read only once, so buffer it into a temp file and feed each loop
-# from the file.
+# Both guards walk the same list of refs/SHAs. stdin can be read only
+# once, so buffer it into a temp file and feed each loop from the file.
 hook_input=$(mktemp)
 trap 'rm -f "$hook_input"' EXIT
 cat > "$hook_input"
@@ -95,70 +93,63 @@ MSG
     esac
 done < "$hook_input"
 
-# --- Guard 2: Dockerfile pgrx-builder gate ---------------------------
-# Gather the list of local SHAs being pushed. stdin lines look like:
-#   <local-ref> <local-sha> <remote-ref> <remote-sha>
-# A zero sha means branch deletion or an empty remote.
-shas=''
+# --- Guard 2: CI Images gate -----------------------------------------
+# Any release tag push must point at a commit for which ci-images.yaml
+# has completed successfully on GitHub Actions. Replaces the older
+# slow local replay of the three pgrx-builder Docker stages, which
+# duplicated CI's work and hung for minutes on cold caches. The fast
+# guard here just asks GitHub what its own CI verdict is. If the tag's
+# commit hasn't been validated yet, the operator gets the exact
+# `gh workflow run` command to fix it.
+#
+# Backward compat: if `./sb release verify-ci` isn't present (sb
+# predates v3), skip with a warning. CI on master will still catch
+# artifacts regressions.
+sb_verify_ci_available=0
+if [ -x "$root/sb" ] && "$root/sb" release verify-ci --help >/dev/null 2>&1; then
+    sb_verify_ci_available=1
+fi
+
 while read -r local_ref local_sha remote_ref remote_sha; do
     [ -z "${local_ref:-}" ] && continue
     [ "$local_sha" = "$zero" ] && continue   # skip deletions
-    if [ "$remote_sha" = "$zero" ]; then
-        # New branch — diff against the merge-base with the default head
-        range="$local_sha"
-    else
-        range="$remote_sha..$local_sha"
-    fi
-    shas="$shas $range"
+    case "$remote_ref" in
+        refs/tags/v*)
+            tag_name="${remote_ref#refs/tags/}"
+            if [ "$sb_verify_ci_available" -eq 0 ]; then
+                cat >&2 <<MSG
+pre-push: ./sb release verify-ci not available in this binary.
+pre-push: Rebuild: (cd cli && go build -o ../sb .)
+pre-push: Skipping CI Images gate for $tag_name; CI on master will catch regressions.
+MSG
+                continue
+            fi
+            # Annotated tags: local_sha is the tag object; rev-list -1
+            # dereferences to the target commit. Guard 1 already
+            # rejected lightweight tags above, so we know we have an
+            # annotated one.
+            target_commit=$(git rev-list -1 "$local_sha" 2>/dev/null || echo '')
+            if [ -z "$target_commit" ]; then
+                cat >&2 <<MSG
+
+pre-push: could not resolve $tag_name to a target commit for CI Images check.
+pre-push: Bypass (discouraged): git push --no-verify
+
+MSG
+                exit 1
+            fi
+            if ! "$root/sb" release verify-ci "$target_commit" >&2; then
+                cat >&2 <<MSG
+
+pre-push: $tag_name failed the CI Images gate (see message above).
+pre-push: This guard is fast — no local docker builds, no rustup.
+pre-push: Follow the printed Fix / Trigger guidance and retry the push.
+
+MSG
+                exit 1
+            fi
+            ;;
+    esac
 done < "$hook_input"
 
-# Nothing being pushed (e.g. --delete of nonexistent) — pass.
-[ -z "$shas" ] && exit 0
-
-# Does any commit in any pushed range touch postgres/Dockerfile?
-touched=$(git log --name-only --pretty=format: $shas 2>/dev/null | \
-    grep -xF 'postgres/Dockerfile' | head -1 || true)
-
-if [ -z "$touched" ]; then
-    exit 0
-fi
-
-cat >&2 <<'MSG'
-
-pre-push: postgres/Dockerfile is modified in commits being pushed.
-pre-push: Validating all three pgrx-builder stages locally before allowing push.
-pre-push: (pass --no-verify to skip; CI will still catch failures on master.)
-
-MSG
-
-# Need a working docker daemon. If it's not available, warn and bail
-# (we don't want to block pushes on a dev laptop where docker is off).
-if ! docker info >/dev/null 2>&1; then
-    cat >&2 <<'MSG'
-pre-push: docker is not running on this machine. Skipping the build
-pre-push: check. CI on master WILL catch any Dockerfile regression.
-MSG
-    exit 0
-fi
-
-cd "$root/postgres"
-
-for stage in pg_graphql-builder jsonb_stats-builder sql_saga_native-builder; do
-    echo "pre-push: docker build --target=$stage ..." >&2
-    if ! docker build -f Dockerfile --target="$stage" -q . >/dev/null; then
-        cat >&2 <<MSG
-
-pre-push: FAILED — '$stage' did not build cleanly. Fix the Dockerfile
-pre-push: and try again. Run manually to iterate:
-pre-push:
-pre-push:   docker build -f postgres/Dockerfile --target=$stage ./postgres
-pre-push:
-pre-push: Bypass (only if you know what you're doing):
-pre-push:   git push --no-verify
-MSG
-        exit 1
-    fi
-done
-
-echo "pre-push: all three pgrx-builder stages built cleanly." >&2
 exit 0

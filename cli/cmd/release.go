@@ -307,6 +307,45 @@ func preflightChecks(projDir string) bool {
 	// 11. DB documentation covers latest migrations
 	checkMigrationStamp("db-docs-passed-sha", "DB documentation covers latest migrations", "./dev.sh generate-db-documentation")
 
+	// 12. CI Images green for HEAD — schema-derived stamps cover Go/TypeScript/SQL,
+	//     but the Docker artifacts that ship to ghcr.io can only be validated by
+	//     actually building them. ci-images.yaml on GitHub Actions IS that build.
+	//     We don't replay it locally (the old pre-push docker-build replay was
+	//     slow and duplicated CI's work). We query CI's verdict for HEAD instead.
+	ciHeadOut, _ := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD")
+	ciHeadFull := strings.TrimSpace(ciHeadOut)
+	ciHeadShort := ciHeadFull
+	if len(ciHeadShort) > 12 {
+		ciHeadShort = ciHeadShort[:12]
+	}
+	ciResult := release.CheckCIImagesAtCommit(ciHeadFull)
+	switch ciResult.Status {
+	case release.CIImagesGreen:
+		fmt.Printf("  ✓ CI Images green at %s\n", ciHeadShort)
+		fmt.Printf("    Run: %s\n", ciResult.RunURL)
+	case release.CIImagesPending:
+		fmt.Printf("  ✗ CI Images is still pending at %s\n", ciHeadShort)
+		fmt.Printf("    Watch: %s\n", ciResult.RunURL)
+		fmt.Println("    Fix: wait for CI to complete, then re-run prerelease")
+		allPassed = false
+	case release.CIImagesFailed:
+		fmt.Printf("  ✗ CI Images failed at %s (conclusion: %s)\n", ciHeadShort, ciResult.Detail)
+		fmt.Printf("    See: %s\n", ciResult.RunURL)
+		fmt.Println("    Fix: investigate the failure, push the fix to master, re-run prerelease")
+		allPassed = false
+	case release.CIImagesMissing:
+		fmt.Printf("  ✗ CI Images has not run for %s\n", ciHeadShort)
+		fmt.Printf("    Trigger: %s\n", release.CIImagesTriggerCommand(ciHeadFull))
+		fmt.Printf("    Watch:   %s\n", release.CIImagesWorkflowURL())
+		fmt.Println("    Fix: run the trigger command above, wait for green, re-run prerelease")
+		allPassed = false
+	case release.CIImagesUnknown:
+		fmt.Println("  ✗ CI Images status check failed (GitHub API error)")
+		fmt.Printf("    Detail: %s\n", ciResult.Detail)
+		fmt.Println("    Fix: check network connectivity / GITHUB_TOKEN; or re-run later")
+		allPassed = false
+	}
+
 	// Loud final-result banner. sb itself exits non-zero on failure (cobra's
 	// RunE error → main.go os.Exit(1)), but operators commonly pipe through
 	// `tee` without `set -o pipefail`, in which case the pipeline returns

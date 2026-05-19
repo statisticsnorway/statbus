@@ -355,6 +355,51 @@ Exit 0 on success, 1 with diagnostic on failure. No side effects.`,
 	},
 }
 
+// releaseVerifyCICmd queries GitHub Actions for the ci-images.yaml workflow
+// state at a commit. Replaces the slow local `docker build --target=…-builder`
+// replay that used to gate `git push` in .githooks/pre-push: CI is the source
+// of truth that the Docker artifacts can actually be built, and the local
+// replay duplicated that work.
+//
+// The guard remains in the hook — the hook just calls this subcommand
+// instead of running docker — so the operator sees an explicit "block + guide"
+// step rather than a silent fast-path.
+var releaseVerifyCICmd = &cobra.Command{
+	Use:   "verify-ci <commit-sha>",
+	Short: "Verify CI Images is green for the given commit",
+	Long: `Query GitHub Actions for the ci-images.yaml workflow at <commit-sha>.
+Exit 0 if the latest run is completed/success; non-zero with operator-actionable
+guidance otherwise. <commit-sha> must be the full 40-char SHA — the GitHub API
+silently returns zero matches for short SHAs.
+
+This is the fast tag-push gate in .githooks/pre-push. It does not build, fetch,
+or replay anything locally; it just asks GitHub what its own CI said.`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		sha := args[0]
+		if len(sha) != 40 {
+			return fmt.Errorf("commit-sha must be the full 40-char SHA (got %d chars: %q)\n  Fix: pass `git rev-list -1 <ref>` output, not a short SHA.", len(sha), sha)
+		}
+		shortSHA := sha[:12]
+		result := release.CheckCIImagesAtCommit(sha)
+		switch result.Status {
+		case release.CIImagesGreen:
+			fmt.Printf("OK: CI Images green at %s\n  Run: %s\n", shortSHA, result.RunURL)
+			return nil
+		case release.CIImagesPending:
+			return fmt.Errorf("CI Images is still pending at %s\n  Watch: %s\n  Fix: wait for the run to complete, then retry the push.", shortSHA, result.RunURL)
+		case release.CIImagesFailed:
+			return fmt.Errorf("CI Images failed at %s (conclusion: %s)\n  See: %s\n  Fix: investigate the failure, push the fix to master, re-trigger CI.", shortSHA, result.Detail, result.RunURL)
+		case release.CIImagesMissing:
+			return fmt.Errorf("CI Images has not run for %s\n  Trigger: %s\n  Watch:   %s\n  Fix: run the trigger command above, wait for green, then retry the push.", shortSHA, release.CIImagesTriggerCommand(sha), release.CIImagesWorkflowURL())
+		case release.CIImagesUnknown:
+			return fmt.Errorf("CI Images status check failed (GitHub API error)\n  Detail: %s\n  Fix: check network connectivity / GITHUB_TOKEN, or retry shortly.", result.Detail)
+		}
+		return fmt.Errorf("unexpected CI Images status: %q", result.Status)
+	},
+}
+
 func init() {
 	releaseCmd.AddCommand(releaseVerifyTagCmd)
+	releaseCmd.AddCommand(releaseVerifyCICmd)
 }
