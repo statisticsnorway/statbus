@@ -910,6 +910,37 @@ exit 1 with retry advice when any check fails.`,
 		printResults(manifestResults)
 		fmt.Println()
 
+		// Surface the release.yaml workflow state for the tag so the
+		// operator gets a runnable command to monitor or retry rather
+		// than navigating the Actions UI by hand.
+		fmt.Println("Release workflow:")
+		wf := release.CheckReleaseWorkflowAtTag(tag)
+		switch wf.Status {
+		case release.ReleaseWorkflowGreen:
+			fmt.Printf("  ✓ %s — completed/success\n", tag)
+			fmt.Printf("    URL: %s\n", wf.RunURL)
+		case release.ReleaseWorkflowPending:
+			fmt.Printf("  ⏳ %s — still running\n", tag)
+			fmt.Printf("    Watch: gh run watch %d\n", wf.RunID)
+			fmt.Printf("    URL:   %s\n", wf.RunURL)
+			allPassed = false
+		case release.ReleaseWorkflowFailed:
+			fmt.Printf("  ✗ %s — failed (conclusion: %s)\n", tag, wf.Detail)
+			fmt.Printf("    See: gh run view %d --log-failed\n", wf.RunID)
+			fmt.Printf("    URL: %s\n", wf.RunURL)
+			fmt.Printf("    Retry the failed jobs (if transient): gh run rerun --failed %d\n", wf.RunID)
+			allPassed = false
+		case release.ReleaseWorkflowMissing:
+			fmt.Printf("  ✗ %s — workflow has not yet started for this tag\n", tag)
+			fmt.Printf("    Workflow: %s\n", release.ReleaseWorkflowURL())
+			allPassed = false
+		case release.ReleaseWorkflowUnknown:
+			fmt.Printf("  ⚠ %s — workflow check failed (GitHub API error)\n", tag)
+			fmt.Printf("    Detail: %s\n", wf.Detail)
+			// Don't flip allPassed for unknown — could be transient.
+		}
+		fmt.Println()
+
 		if allPassed {
 			fmt.Printf("All artifacts ready for %s\n", tag)
 			return nil
