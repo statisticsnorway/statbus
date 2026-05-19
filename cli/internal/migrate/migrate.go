@@ -1062,13 +1062,52 @@ func eagerContentHashCheck(projDir string) error {
 				version, filepath.Base(filePath), releasedTag,
 				releasedTag, filepath.Base(filePath))
 		}
+		target, dbName := currentMigrationTarget(projDir)
+		var fixCmd string
+		switch target {
+		case "dev":
+			fixCmd = fmt.Sprintf("./sb migrate redo %d --target dev --confirm", version)
+		case "seed":
+			fixCmd = fmt.Sprintf("./sb migrate redo %d", version)
+		default:
+			fixCmd = fmt.Sprintf("./sb migrate redo %d --target {dev --confirm | seed}", version)
+		}
 		return fmt.Errorf(
-			"migration %d (%s) content has changed since apply (WIP edit).\n"+
-				"  Run: ./sb migrate redo %d\n"+
-				"  This re-runs the migration's down + up against the seed DB and re-stamps content_hash.",
-			version, filepath.Base(filePath), version)
+			"migration %d (%s) content has changed since apply to %s (WIP edit).\n"+
+				"  Fix: %s\n"+
+				"  This re-runs the migration's down + up against %s and re-stamps content_hash.",
+			version, filepath.Base(filePath), dbName, fixCmd, dbName)
 	}
 	return nil
+}
+
+// currentMigrationTarget infers the {dev,seed} target plus the actual
+// PostgreSQL database name from the current process environment. Used by
+// the eager content-hash check to emit a guide that names the affected DB
+// and the exact redo command for that target — operators never have to
+// guess which database is stale or which flags to pass.
+//
+// PGDATABASE is set by the caller (the cobra migrate up/redo command)
+// after ResolveTargetDB; reading it back identifies the live target.
+// Returns ("unknown", dbName) when PGDATABASE doesn't match either
+// POSTGRES_APP_DB or POSTGRES_SEED_DB — a defensive fallback that
+// shouldn't fire in normal use.
+func currentMigrationTarget(projDir string) (target, dbName string) {
+	dbName = os.Getenv("PGDATABASE")
+	if dbName == "" {
+		return "unknown", ""
+	}
+	f, err := dotenv.Load(filepath.Join(projDir, ".env"))
+	if err != nil {
+		return "unknown", dbName
+	}
+	if v, ok := f.Get("POSTGRES_SEED_DB"); ok && v == dbName {
+		return "seed", dbName
+	}
+	if v, ok := f.Get("POSTGRES_APP_DB"); ok && v == dbName {
+		return "dev", dbName
+	}
+	return "unknown", dbName
 }
 
 // Redo re-runs a migration's down + up cycle and re-stamps the tracking
