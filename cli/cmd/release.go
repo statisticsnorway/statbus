@@ -344,24 +344,17 @@ func preflightChecks(projDir string) bool {
 		allPassed = false
 	}
 
-	// Loud final-result banner. sb itself exits non-zero on failure (cobra's
-	// RunE error → main.go os.Exit(1)), but operators commonly pipe through
-	// `tee` without `set -o pipefail`, in which case the pipeline returns
-	// tee's exit code (0) instead of sb's (1). The banner makes the result
-	// visually unmissable on stdout, the stderr line bypasses any
-	// stdout-only pipe, and the marker file in tmp/ lets shell scripts
-	// inspect the actual outcome after the fact.
+	// Persist outcome for shell scripts that need to inspect the result
+	// after the fact (cobra's RunE error → non-zero exit is the human-
+	// facing signal; this file is the programmatic one). No echo banner —
+	// the per-gate ✗/Fix lines above plus cobra's `Error:` line on stderr
+	// already say "failed" once each. Stating it three times was noise.
 	resultPath := filepath.Join(projDir, "tmp", "last-preflight-result")
 	_ = os.MkdirAll(filepath.Dir(resultPath), 0755)
-	if !allPassed {
-		fmt.Println()
-		fmt.Println("══════════════════════════════════════════════════════════════")
-		fmt.Println("✗ PRE-FLIGHT FAILED — fix the ✗ items above and re-run")
-		fmt.Println("══════════════════════════════════════════════════════════════")
-		fmt.Fprintln(os.Stderr, "✗ pre-flight FAILED — exit code 1 (will be masked by tee unless 'set -o pipefail' or check ${PIPESTATUS[0]})")
-		_ = os.WriteFile(resultPath, []byte("FAIL\n"), 0644)
-	} else {
+	if allPassed {
 		_ = os.WriteFile(resultPath, []byte("PASS\n"), 0644)
+	} else {
+		_ = os.WriteFile(resultPath, []byte("FAIL\n"), 0644)
 	}
 
 	return allPassed
