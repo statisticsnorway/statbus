@@ -1,4 +1,5 @@
 \set ECHO none
+NOTICE:  function public.generate_typescript_types() does not exist, skipping
 SELECT 'TypeScript types generated in app/src/lib/database.types.ts' AS result;
                            result                            
 -------------------------------------------------------------
