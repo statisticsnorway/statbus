@@ -1094,3 +1094,9 @@ $generate_typescript_types$;
 \o app/src/lib/database.types.ts
 SELECT public.generate_typescript_types();
 \o
+
+-- This function is a build-time util — not part of the schema. Drop it after
+-- emitting the types so it doesn't persist in the DB and trigger spurious
+-- doc-snapshots on the next `./dev.sh generate-db-documentation` (see the
+-- yo-yo history at doc/db/function/public_generate_typescript_types().md).
+DROP FUNCTION public.generate_typescript_types();
