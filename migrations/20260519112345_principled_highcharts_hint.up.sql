@@ -1,4 +1,25 @@
-```sql
+-- Migration 20260519112345: principled_highcharts_hint
+--
+-- Replace data-derived HINT/completion enumeration in
+-- `public.statistical_history_highcharts` with a SCHEMA-derived catalog built
+-- at function entry from `public.stat_definition` × the canonical leaf shape
+-- of `jsonb_stats_agg` per stat type.
+--
+-- Three behavioural changes:
+--   §A  Normalise `stats_summary.` and `stats_summary..turnover` style inputs by
+--       collapsing trailing dots and repeated internal dot runs before path parse.
+--   §B  When a `stats_summary.<known_stat>[.bogus]` path resolves to nothing on
+--       real data, emit HINT listing the valid leaves of `<known_stat>` from the
+--       catalog. When `<stat>` itself is unknown, fall back to listing valid
+--       top-level stat paths from the catalog.
+--   §C  Unknown top-level series codes (typos like `jsonb_stats`) emit HINT
+--       listing the full union of static series_definition codes and
+--       `stats_summary.<stat_code>` paths from the catalog.
+--
+-- Data lookup (the numeric values returned in `series`) still uses real
+-- `public.statistical_history.stats_summary` — only HINT enumeration changes.
+BEGIN;
+
 CREATE OR REPLACE FUNCTION public.statistical_history_highcharts(p_resolution history_resolution, p_unit_type statistical_unit_type, p_year integer DEFAULT NULL::integer, p_series_codes text[] DEFAULT NULL::text[])
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -326,5 +347,6 @@ BEGIN
 
     RETURN result;
 END;
-$function$
-```
+$function$;
+
+END;

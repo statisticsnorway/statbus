@@ -1,4 +1,8 @@
-```sql
+-- Down Migration 20260519112345: principled_highcharts_hint
+-- Restores the function definition captured by `\sf public.statistical_history_highcharts`
+-- before the up migration. Body verbatim from tmp/highcharts_current.sql.
+BEGIN;
+
 CREATE OR REPLACE FUNCTION public.statistical_history_highcharts(p_resolution history_resolution, p_unit_type statistical_unit_type, p_year integer DEFAULT NULL::integer, p_series_codes text[] DEFAULT NULL::text[])
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -8,12 +12,6 @@ DECLARE
     v_filtered_codes  text[];
     v_static_codes    text[] := ARRAY[]::text[];
     v_merged_summary  jsonb;
-    -- Schema-derived completion catalog. Built once per call from
-    -- `public.stat_definition` × `jsonb_stats_to_agg(jsonb_stats_agg(code, stat(synthetic)))`.
-    -- Drives HINT enumeration in the partial-path / bogus-leaf / typo branches;
-    -- independent of whether any `statistical_history` rows exist.
-    v_catalog_summary jsonb  := '{}'::jsonb;
-    v_sd              record;
     v_req_code        text;
     v_path            text[];
     v_node            jsonb;
@@ -57,8 +55,8 @@ BEGIN
         jsonb_path text[]
     ) ON COMMIT DROP;
 
-    -- Compute the merged stats_summary once. Used for ACCEPTANCE (jsonb_typeof check) and
-    -- for the actual numeric data extraction in the `series` payload.
+    -- Compute the merged stats_summary once. It is the per-call catalog for stats paths
+    -- (interrogated directly by `#>`) and the source for partial-path HINT children.
     SELECT COALESCE(public.jsonb_stats_merge_agg(sh.stats_summary), '{}'::jsonb)
     INTO v_merged_summary
     FROM public.statistical_history sh
@@ -66,52 +64,9 @@ BEGIN
       AND sh.unit_type  = p_unit_type
       AND (p_year IS NULL OR sh.year = p_year);
 
-    -- Build v_catalog_summary from schema. One synthetic-value pass per enabled stat
-    -- yields the canonical leaf-bearing shape that `jsonb_stats_merge_agg` would
-    -- produce over real data. Per-call cost is negligible (stat_definition is tiny).
-    -- Polymorphism note: `stat()` is anyelement — a single CASE expression with
-    -- different-typed branches won't compile. PL/pgSQL IF/ELSIF per type sidesteps it.
-    FOR v_sd IN SELECT sd.code, sd.type::text AS type_text
-                FROM public.stat_definition AS sd
-                WHERE sd.enabled
-                ORDER BY sd.code
-    LOOP
-        IF v_sd.type_text = 'int' THEN
-            v_catalog_summary := v_catalog_summary || jsonb_build_object(
-                v_sd.code,
-                (public.jsonb_stats_to_agg(public.jsonb_stats_agg(v_sd.code, public.stat(0))) -> v_sd.code)
-            );
-        ELSIF v_sd.type_text = 'float' THEN
-            v_catalog_summary := v_catalog_summary || jsonb_build_object(
-                v_sd.code,
-                (public.jsonb_stats_to_agg(public.jsonb_stats_agg(v_sd.code, public.stat(0.0::float8))) -> v_sd.code)
-            );
-        ELSIF v_sd.type_text = 'string' THEN
-            v_catalog_summary := v_catalog_summary || jsonb_build_object(
-                v_sd.code,
-                (public.jsonb_stats_to_agg(public.jsonb_stats_agg(v_sd.code, public.stat(''::text))) -> v_sd.code)
-            );
-        ELSIF v_sd.type_text = 'bool' THEN
-            v_catalog_summary := v_catalog_summary || jsonb_build_object(
-                v_sd.code,
-                (public.jsonb_stats_to_agg(public.jsonb_stats_agg(v_sd.code, public.stat(false))) -> v_sd.code)
-            );
-        ELSE
-            -- New stat_type added to the enum without updating this function — fail loudly
-            -- (catalog would be silently incomplete; HINTs would drop the unknown type).
-            RAISE EXCEPTION 'statistical_history_highcharts: unhandled stat_type %', v_sd.type_text;
-        END IF;
-    END LOOP;
-
     -- Resolve each requested code in caller-supplied order.
     IF p_series_codes IS NOT NULL AND cardinality(p_series_codes) > 0 THEN
         FOREACH v_req_code IN ARRAY p_series_codes LOOP
-            -- §A: collapse trailing dots and repeated internal dot runs so
-            -- 'stats_summary.' → 'stats_summary' (top-level partial),
-            -- 'stats_summary..turnover' → 'stats_summary.turnover' (no empty segment in v_path).
-            v_req_code := regexp_replace(v_req_code, '\.+$', '');
-            v_req_code := regexp_replace(v_req_code, '\.{2,}', '.', 'g');
-
             IF EXISTS (SELECT 1 FROM series_definition sd WHERE sd.code = v_req_code AND sd.code <> 'stats_summary') THEN
                 -- Static code: extracted from a fixed column of public.statistical_history.
                 v_static_codes := v_static_codes || v_req_code;
@@ -129,65 +84,26 @@ BEGIN
                     CONTINUE;
                 END IF;
 
-                -- Resolve the path shape from real data first; fall back to the
-                -- schema-derived catalog when the filter slice is empty. This unifies
-                -- the user-visible vocabulary across empty- and present-data cases:
-                -- `stats_summary.employees` on year=9999 must say "Incomplete series
-                -- code" (not "Unknown") just as it does on a year with data, since
-                -- the path IS structurally valid. Data lookup in the `stats_pairs`
-                -- CTE below still reads `b.stats_summary` from real rows — only the
-                -- shape/acceptance check shifts to catalog when data is absent.
-                v_node := COALESCE(v_merged_summary #> v_path, v_catalog_summary #> v_path);
+                v_node := v_merged_summary #> v_path;
 
                 CASE jsonb_typeof(v_node)
                     WHEN 'number' THEN
                         INSERT INTO stats_path_buffer(code, jsonb_path) VALUES (v_req_code, v_path)
                         ON CONFLICT (code) DO NOTHING;  -- caller may pass a duplicate; first wins
                     WHEN 'object' THEN
-                        v_msgs := v_msgs || format('Incomplete series code "%s"', v_req_code);
-                        -- HINT enumerates valid sub-keys from the SCHEMA-DERIVED catalog
-                        -- (independent of whether real data is populated). COALESCE retained
-                        -- as defensive fallback for paths catalog can't enumerate.
+                        v_msgs := v_msgs || format('Series code "%s" is incomplete; pick a leaf', v_req_code);
                         v_hints := v_hints || COALESCE(
                             (SELECT 'Try one of: ' || string_agg(format('%s.%s', v_req_code, k), ', ' ORDER BY k)
-                               FROM jsonb_object_keys(v_catalog_summary #> v_path) AS k
+                               FROM jsonb_object_keys(v_node) AS k
                               WHERE k <> 'type'),
                             format('No completions available under "%s"', v_req_code)
                         );
                     ELSE
-                        -- §B: real data has nothing at this path. Try to give a useful HINT
-                        -- from the catalog: if v_path[1] is a known stat, list its leaves;
-                        -- otherwise list valid top-level stats. Plan calls this the
-                        -- "bogus leaf" enhancement; extended to cardinality >= 1 so the
-                        -- empty-data `stats_summary.<known_stat>` case also gets help.
                         v_msgs := v_msgs || format('Unknown series code "%s"', v_req_code);
-                        IF cardinality(v_path) >= 1 AND jsonb_typeof(v_catalog_summary -> v_path[1]) = 'object' THEN
-                            v_hints := v_hints || (
-                                SELECT 'Try one of: ' || string_agg(format('stats_summary.%s.%s', v_path[1], k), ', ' ORDER BY k)
-                                  FROM jsonb_object_keys(v_catalog_summary -> v_path[1]) AS k
-                                 WHERE k <> 'type'
-                            );
-                        ELSIF cardinality(v_path) >= 1 AND v_catalog_summary <> '{}'::jsonb THEN
-                            v_hints := v_hints || (
-                                SELECT 'Try one of: ' || string_agg('stats_summary.' || k, ', ' ORDER BY k)
-                                  FROM jsonb_object_keys(v_catalog_summary) AS k
-                            );
-                        END IF;
                 END CASE;
 
             ELSE
-                -- §C: caller passed a code that's neither a known static series nor a
-                -- `stats_summary[.…]` path — likely a typo (`jsonb_stats`, `tunover`, …).
-                -- Suggest the full set of valid top-level codes: static catalog (minus the
-                -- bootstrap 'stats_summary' partial) UNION `stats_summary.<stat>` from catalog.
                 v_msgs := v_msgs || format('Unknown series code "%s"', v_req_code);
-                v_hints := v_hints || (
-                    SELECT 'Try one of: ' || string_agg(code, ', ' ORDER BY code) FROM (
-                        SELECT code FROM series_definition WHERE code <> 'stats_summary'
-                        UNION ALL
-                        SELECT 'stats_summary.' || k FROM jsonb_object_keys(v_catalog_summary) AS k
-                    ) AS t
-                );
             END IF;
         END LOOP;
 
@@ -326,5 +242,6 @@ BEGIN
 
     RETURN result;
 END;
-$function$
-```
+$function$;
+
+END;

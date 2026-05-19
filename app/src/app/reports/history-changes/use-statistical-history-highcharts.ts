@@ -26,7 +26,14 @@ export const useStatisticalHistoryHighcharts = (
       p_year: year,
     });
 
-    if (error) throw new Error(error.message);
+    if (error) {
+      // PostgREST exposes RAISE HINT as `error.hint`. The Postgres function
+      // statistical_history_highcharts emits structured completion suggestions
+      // there (e.g. "Try one of: stats_summary.turnover.sum, ...") — surface
+      // them alongside the message so the user sees the actual guidance, not
+      // just the failure summary.
+      throw new Error([error.message, error.hint].filter(Boolean).join("\n"));
+    }
     return data;
   };
 

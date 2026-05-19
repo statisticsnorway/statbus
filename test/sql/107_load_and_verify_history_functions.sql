@@ -1013,6 +1013,50 @@ SELECT public.statistical_history_highcharts(
 \set ON_ERROR_STOP on
 ROLLBACK TO SAVEPOINT before_type_segment;
 
+-- Empty-slice case: filter to a year with no statistical_history rows so
+-- v_merged_summary is '{}'. The HINT must still enumerate the catalog
+-- (stats_summary.employees, stats_summary.turnover) rather than degrading
+-- to "No completions available" as the data-derived implementation did.
+\echo "Test public.statistical_history_highcharts - empty slice (year=9999): HINT survives no-data via schema-derived catalog"
+SAVEPOINT before_empty_slice;
+\set ON_ERROR_STOP off
+SELECT public.statistical_history_highcharts(
+    p_resolution => 'year',
+    p_unit_type => 'enterprise',
+    p_year => 9999,
+    p_series_codes => ARRAY['stats_summary']);
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT before_empty_slice;
+
+-- Trailing-dot normalize: 'stats_summary.' must round-trip as the top-level
+-- partial 'stats_summary', producing the same incomplete-path HINT.
+\echo "Test public.statistical_history_highcharts - trailing dot 'stats_summary.' normalizes to 'stats_summary' partial"
+SAVEPOINT before_trailing_dot;
+\set ON_ERROR_STOP off
+SELECT public.statistical_history_highcharts(
+    p_resolution => 'year',
+    p_unit_type => 'enterprise',
+    p_series_codes => ARRAY['stats_summary.']);
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT before_trailing_dot;
+
+-- Intermediate-partial on empty data: 'stats_summary.employees' at year=9999
+-- (no statistical_history rows) must still resolve via the schema-derived
+-- catalog. ERROR is the same "Incomplete series code" wording as on a
+-- data-rich slice, and HINT enumerates the 9 valid int leaves alphabetically.
+-- This proves the catalog drives both top-level AND intermediate partials,
+-- not just typo-suggestion.
+\echo "Test public.statistical_history_highcharts - intermediate partial 'stats_summary.employees' on empty slice resolves via catalog"
+SAVEPOINT before_employees_empty_partial;
+\set ON_ERROR_STOP off
+SELECT public.statistical_history_highcharts(
+    p_resolution => 'year',
+    p_unit_type => 'enterprise',
+    p_year => 9999,
+    p_series_codes => ARRAY['stats_summary.employees']);
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT before_employees_empty_partial;
+
 -- Note: the bootstrap 'stats_summary' entry in available_series is already exercised by
 -- the existing bare-call tests above (e.g. "year resolution, enterprise"), since
 -- available_series is now only emitted in discovery mode (no p_series_codes supplied).
