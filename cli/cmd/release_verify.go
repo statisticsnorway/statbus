@@ -389,7 +389,7 @@ or replay anything locally; it just asks GitHub what its own CI said.`,
 		case release.CIImagesPending:
 			return fmt.Errorf("CI Images is still pending at %s\n  Watch: %s\n  Fix: wait for the run to complete, then retry the push.", shortSHA, result.RunURL)
 		case release.CIImagesFailed:
-			return fmt.Errorf("CI Images failed at %s (conclusion: %s)\n  See: %s\n  Fix: investigate the failure, push the fix to master, re-trigger CI.", shortSHA, result.Detail, result.RunURL)
+			return fmt.Errorf("CI Images failed at %s (conclusion: %s)\n  See: %s\n  Fix:\n    Retry the failed jobs (if transient — network, ghcr.io timeout): gh run rerun --failed %d\n    Or push a fix to master (if real defect), then retry the push.", shortSHA, result.Detail, result.RunURL, result.RunID)
 		case release.CIImagesMissing:
 			return fmt.Errorf("CI Images has not run for %s\n  Trigger: %s\n  Watch:   %s\n  Fix: run the trigger command above, wait for green, then retry the push.", shortSHA, release.CIImagesTriggerCommand(sha), release.CIImagesWorkflowURL())
 		case release.CIImagesUnknown:

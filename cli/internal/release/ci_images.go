@@ -32,6 +32,11 @@ type CIImagesResult struct {
 	// RunURL is the html_url of the latest run for this commit (empty for
 	// missing or unknown).
 	RunURL string
+	// RunID is the numeric workflow_run.id of the latest run for this
+	// commit (zero for missing or unknown). Used to construct the exact
+	// `gh run rerun --failed <id>` command the operator can copy-paste
+	// for transient retries.
+	RunID int64
 	// Detail carries the conclusion string when Status=failed, and the error
 	// message when Status=unknown. Empty for green/pending/missing.
 	Detail string
@@ -90,12 +95,12 @@ func checkCIImagesAt(apiBase, commitSHA string) CIImagesResult {
 	// later re-tested and failed.
 	latest := body.WorkflowRuns[0]
 	if latest.Status != "completed" {
-		return CIImagesResult{Status: CIImagesPending, RunURL: latest.HTMLURL}
+		return CIImagesResult{Status: CIImagesPending, RunURL: latest.HTMLURL, RunID: latest.ID}
 	}
 	if latest.Conclusion == "success" {
-		return CIImagesResult{Status: CIImagesGreen, RunURL: latest.HTMLURL}
+		return CIImagesResult{Status: CIImagesGreen, RunURL: latest.HTMLURL, RunID: latest.ID}
 	}
-	return CIImagesResult{Status: CIImagesFailed, RunURL: latest.HTMLURL, Detail: latest.Conclusion}
+	return CIImagesResult{Status: CIImagesFailed, RunURL: latest.HTMLURL, RunID: latest.ID, Detail: latest.Conclusion}
 }
 
 // CIImagesTriggerCommand returns the gh CLI invocation an operator runs to

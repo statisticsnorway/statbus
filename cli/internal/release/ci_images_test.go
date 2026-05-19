@@ -14,6 +14,7 @@ func TestCheckCIImagesAtCommit(t *testing.T) {
 		runs       []map[string]any
 		wantStatus CIImagesStatus
 		wantURL    string
+		wantID     int64
 		wantDetail string
 	}{
 		{
@@ -27,6 +28,7 @@ func TestCheckCIImagesAtCommit(t *testing.T) {
 			}},
 			wantStatus: CIImagesGreen,
 			wantURL:    "https://github.com/o/r/actions/runs/1",
+			wantID:     1,
 		},
 		{
 			name: "pending in_progress",
@@ -63,6 +65,7 @@ func TestCheckCIImagesAtCommit(t *testing.T) {
 			}},
 			wantStatus: CIImagesFailed,
 			wantURL:    "https://github.com/o/r/actions/runs/4",
+			wantID:     4,
 			wantDetail: "failure",
 		},
 		{
@@ -131,6 +134,9 @@ func TestCheckCIImagesAtCommit(t *testing.T) {
 			}
 			if result.RunURL != tc.wantURL {
 				t.Errorf("RunURL: got %q, want %q", result.RunURL, tc.wantURL)
+			}
+			if tc.wantID != 0 && result.RunID != tc.wantID {
+				t.Errorf("RunID: got %d, want %d", result.RunID, tc.wantID)
 			}
 			if tc.wantDetail != "" && result.Detail != tc.wantDetail {
 				t.Errorf("Detail: got %q, want %q", result.Detail, tc.wantDetail)
