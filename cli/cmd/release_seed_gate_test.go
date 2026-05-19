@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,88 +9,29 @@ import (
 	"testing"
 )
 
-// TestCheckAndRefreshSeed_Regen_Stale verifies the core #47 contract:
-// when checkAndRefreshSeed runs against a stale .db-seed/seed.json,
-// it invokes seedCreator (the regen hook), and the post-regen seed.json
-// is fresh. This is a hermetic test — no docker, no pg_dump — thanks to the
-// seedCreator injection point.
-//
-// The test's "stale" scenario is commit_sha mismatch: seed.json pins
-// commit_sha=stale-sha but HEAD returns a different SHA. Mock regen writes
-// seed.json with commit_sha=HEAD. Assertion: mock was called exactly once
-// and the post-regen fresh-check passes.
-func TestCheckAndRefreshSeed_Regen_Stale(t *testing.T) {
+// TestCheckSeedGate_Stale_Refuses verifies the gate-only contract:
+// when checkSeedGate runs against a stale .db-seed/seed.json, it
+// returns false (refusing the release). The gate prints a Fix-line
+// pointing the operator at ./dev.sh update-seed; it does not
+// auto-run anything. That's the operator's job after seeing the
+// guide — same shape as every other preflight gate.
+func TestCheckSeedGate_Stale_Refuses(t *testing.T) {
 	projDir := setupProjDirWithGit(t)
 	writeStaleSeed(t, projDir, "stale-sha")
 
-	calls := injectMockSeedCreator(t, projDir)
-
-	if ok := checkAndRefreshSeed(projDir); !ok {
-		t.Fatalf("checkAndRefreshSeed returned false for a recoverable stale seed")
-	}
-	if *calls != 1 {
-		t.Fatalf("seedCreator invoked %d times, want 1", *calls)
-	}
-
-	// Post-regen seed.json should match HEAD
-	gotCommit := readSeedCommitSHA(t, projDir)
-	wantCommit := gitRevParseHEAD(t, projDir)
-	if gotCommit != wantCommit {
-		t.Fatalf("post-regen seed commit_sha = %s, want %s", gotCommit, wantCommit)
+	if ok := checkSeedGate(projDir); ok {
+		t.Fatalf("checkSeedGate returned true for a stale seed; expected refusal")
 	}
 }
 
-// TestCheckAndRefreshSeed_FreshNoop verifies the no-op path: when
-// seed.json already matches HEAD, checkAndRefreshSeed returns true
-// WITHOUT invoking seedCreator. The release fast-path stays fast.
-func TestCheckAndRefreshSeed_FreshNoop(t *testing.T) {
+// TestCheckSeedGate_FreshOK verifies the pass path: when seed.json
+// commit_sha already matches HEAD, checkSeedGate returns true.
+func TestCheckSeedGate_FreshOK(t *testing.T) {
 	projDir := setupProjDirWithGit(t)
 	writeFreshSeed(t, projDir, gitRevParseHEAD(t, projDir))
 
-	calls := injectMockSeedCreator(t, projDir)
-
-	if ok := checkAndRefreshSeed(projDir); !ok {
-		t.Fatalf("checkAndRefreshSeed returned false for a fresh seed")
-	}
-	if *calls != 0 {
-		t.Fatalf("seedCreator invoked %d times on fresh seed, want 0", *calls)
-	}
-}
-
-// TestCheckAndRefreshSeed_RegenFailsHardFails verifies the error path:
-// when seedCreator returns an error, checkAndRefreshSeed returns false
-// so the release preflight refuses to tag.
-func TestCheckAndRefreshSeed_RegenFailsHardFails(t *testing.T) {
-	projDir := setupProjDirWithGit(t)
-	writeStaleSeed(t, projDir, "stale-sha")
-
-	orig := seedCreator
-	seedCreator = func(string) error { return fmt.Errorf("simulated pg_dump failure") }
-	t.Cleanup(func() { seedCreator = orig })
-
-	if ok := checkAndRefreshSeed(projDir); ok {
-		t.Fatalf("checkAndRefreshSeed returned true despite regen failure")
-	}
-}
-
-// TestCheckAndRefreshSeed_RegenStillStaleHardFails verifies the double-
-// stale path: regen succeeds but the resulting seed.json STILL doesn't
-// match HEAD (corrupt/buggy regen). Preflight must refuse to tag rather
-// than loop forever.
-func TestCheckAndRefreshSeed_RegenStillStaleHardFails(t *testing.T) {
-	projDir := setupProjDirWithGit(t)
-	writeStaleSeed(t, projDir, "stale-sha")
-
-	// Mock regen that writes ANOTHER stale seed (e.g. tool bug).
-	orig := seedCreator
-	seedCreator = func(pd string) error {
-		writeStaleSeed(t, pd, "still-not-head")
-		return nil
-	}
-	t.Cleanup(func() { seedCreator = orig })
-
-	if ok := checkAndRefreshSeed(projDir); ok {
-		t.Fatalf("checkAndRefreshSeed returned true despite still-stale seed after regen")
+	if ok := checkSeedGate(projDir); !ok {
+		t.Fatalf("checkSeedGate returned false for a fresh seed; expected pass")
 	}
 }
 
@@ -160,23 +100,6 @@ func writeSeedJSON(t *testing.T, projDir, commitSHA string) {
 	}
 }
 
-// injectMockSeedCreator swaps seedCreator for a mock that writes
-// a fresh (HEAD-matching) seed.json. Returns a pointer to a call counter.
-// Cleanup restores the original creator.
-func injectMockSeedCreator(t *testing.T, projDir string) *int {
-	t.Helper()
-	var calls int
-	orig := seedCreator
-	seedCreator = func(pd string) error {
-		calls++
-		head := gitRevParseHEAD(t, pd)
-		writeFreshSeed(t, pd, head)
-		return nil
-	}
-	t.Cleanup(func() { seedCreator = orig })
-	return &calls
-}
-
 func gitRevParseHEAD(t *testing.T, projDir string) string {
 	t.Helper()
 	cmd := exec.Command("git", "rev-parse", "HEAD")
@@ -186,17 +109,4 @@ func gitRevParseHEAD(t *testing.T, projDir string) string {
 		t.Fatalf("git rev-parse HEAD: %v\n%s", err, out)
 	}
 	return strings.TrimSpace(string(out))
-}
-
-func readSeedCommitSHA(t *testing.T, projDir string) string {
-	t.Helper()
-	b, err := os.ReadFile(filepath.Join(projDir, ".db-seed", "seed.json"))
-	if err != nil {
-		t.Fatalf("read seed.json: %v", err)
-	}
-	var meta seedMeta
-	if err := json.Unmarshal(b, &meta); err != nil {
-		t.Fatalf("unmarshal seed.json: %v", err)
-	}
-	return meta.CommitSHA
 }

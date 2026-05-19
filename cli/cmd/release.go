@@ -291,16 +291,14 @@ func preflightChecks(projDir string) bool {
 	checkAppStamp("app-tsc-passed-sha", "tsc", "App tsc covers latest app changes")
 	checkAppStamp("app-build-passed-sha", "build", "App build covers latest app changes")
 
-	// 10. Seed freshness gate (auto-regen on stale).
-	// Previously this block just reported ✗ and pointed the operator at
-	// `./dev.sh update-seed`. That invited every release to be a
-	// two-command sequence (update-seed, then prerelease) with the
-	// lurking bug that operator skips the first step. Now the preflight
-	// DETECTS staleness and RUNS the regen, then re-verifies.
-	//
-	// Single command: `./sb release prerelease` is now the sole operator
-	// step for cutting a release from a clean tree.
-	if !checkAndRefreshSeed(projDir) {
+	// 10. Seed freshness gate (detect-only, gate-and-guide).
+	// Earlier behaviour auto-regenerated the seed when stale. That made
+	// the preflight RUN a command (write state) rather than gate, which
+	// violates the gate-only principle every other check follows.
+	// Operators now hit the same Fix-line pattern they hit for tests,
+	// types, app tsc/build, and DB docs: refuse with `Fix: ./dev.sh
+	// update-seed`, the operator runs it, re-invokes prerelease.
+	if !checkSeedGate(projDir) {
 		allPassed = false
 	}
 
@@ -913,12 +911,6 @@ exit 1 with retry advice when any check fails.`,
 	},
 }
 
-// seedCreator is the regenerator the preflight invokes when it detects
-// a stale seed. Package-level function variable for test injection:
-// tests override it with a mock that writes a canned seed.json without
-// hitting docker/pg_dump. Production default is CreateSeed.
-var seedCreator = CreateSeed
-
 // checkSeedFresh evaluates the current .db-seed/seed.json
 // against on-disk migrations and HEAD SHA.
 //
@@ -992,14 +984,11 @@ func checkSeedFresh(projDir string) (fresh bool, reason string) {
 	return true, ""
 }
 
-// checkAndRefreshSeed gates the release on seed freshness. If
-// the seed is stale, it invokes seedCreator to regenerate, then
-// re-checks once. Logs each decision + outcome so the operator's
-// preflight log reads as a coherent narrative.
-//
-// Returns true when the seed is fresh (on first try OR after regen);
-// false when regeneration failed or the re-check still shows staleness.
-func checkAndRefreshSeed(projDir string) bool {
+// checkSeedGate is a detect-only freshness gate. Returns true when the
+// pinned seed matches HEAD; false (with a Fix-line printed) when it
+// doesn't. No auto-regeneration: gates guide, they don't run commands.
+// The operator runs the printed Fix command and re-invokes prerelease.
+func checkSeedGate(projDir string) bool {
 	fresh, reason := checkSeedFresh(projDir)
 	if fresh {
 		headSHAOut, _ := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD")
@@ -1011,19 +1000,9 @@ func checkAndRefreshSeed(projDir string) bool {
 		return true
 	}
 
-	fmt.Printf("  → Seed stale: %s — regenerating...\n", reason)
-	if err := seedCreator(projDir); err != nil {
-		fmt.Printf("  ✗ Seed regeneration failed: %v\n", err)
-		return false
-	}
-
-	fresh2, reason2 := checkSeedFresh(projDir)
-	if !fresh2 {
-		fmt.Printf("  ✗ Seed still stale after regeneration: %s\n", reason2)
-		return false
-	}
-	fmt.Println("  ✓ Seed regenerated and verified fresh")
-	return true
+	fmt.Printf("  ✗ Seed stale: %s\n", reason)
+	fmt.Println("    Fix: ./dev.sh update-seed")
+	return false
 }
 
 // findReleaseTag returns the first release-shaped tag in a newline-separated
