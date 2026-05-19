@@ -1676,10 +1676,8 @@ EOS
         # Full 40-char SHA — see note at line ~51 for rationale.
         COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
         LDFLAGS="-s -w -X 'github.com/statisticsnorway/statbus/cli/cmd.version=${VERSION}' -X 'github.com/statisticsnorway/statbus/cli/cmd.commit=${COMMIT}'"
-        echo "Building sb ${VERSION} for ${OS}/${ARCH} → ${OUTPUT}..."
         (cd cli && CGO_ENABLED=0 GOOS=$OS GOARCH=$ARCH go build -trimpath -ldflags "$LDFLAGS" -o "../$OUTPUT" .)
-        echo "Built: $OUTPUT"
-        ls -lh "$OUTPUT"
+        echo "Built sb ${VERSION} for ${OS}/${ARCH} → ${OUTPUT}"
       ;;
     'cross-build-sb' )
         # Composed command — build all four target platforms and refresh
