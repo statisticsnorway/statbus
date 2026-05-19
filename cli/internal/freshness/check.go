@@ -102,8 +102,7 @@ func IsStale(projDir, commitSHA string) string {
 	if exitErr.ExitCode() == 1 {
 		return fmt.Sprintf(
 			"./sb is stale: built from %s, but cli/ has changed since.\n"+
-				"  Rebuild: (cd cli && go build -o ../sb .)\n"+
-				"  Or run via dev.sh (auto-rebuilds): ./dev.sh <command>",
+				"  Rebuild: ./dev.sh cross-build-sb",
 			short)
 	}
 
