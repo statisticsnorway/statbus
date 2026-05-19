@@ -25,7 +25,7 @@ source "$LIB_DIR/vm-bootstrap.sh"
 source "$LIB_DIR/wedge-helpers.sh"
 source "$LIB_DIR/assertions.sh"
 
-trap 'cleanup_vm "$VM_NAME"' EXIT
+trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
 echo "  Scenario 04: stage-b-pool-exhaustion"
@@ -51,7 +51,7 @@ simulate_pool_exhaustion "$VM_NAME" 28
 # 4. Verify host-side psql is now blocked.
 echo ""
 echo "── verify external psql blocked by saturated pool ──"
-HOST_PSQL_RESULT=$($VM_EXEC bash -c "cd ~/statbus && ./sb psql -c 'SELECT 1' 2>&1" || true)
+HOST_PSQL_RESULT=$(VM_EXEC bash -c "cd ~/statbus && ./sb psql -c 'SELECT 1' 2>&1" || true)
 if echo "$HOST_PSQL_RESULT" | grep -q "too many clients"; then
     echo "  ✓ external psql blocked: '$HOST_PSQL_RESULT'"
 else

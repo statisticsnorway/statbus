@@ -2,7 +2,7 @@
 # wedge-helpers.sh — primitives that simulate specific wedge states inside
 # a Multipass VM that already has statbus installed and running.
 #
-# Each helper takes $vm_name as its first argument. They use $VM_EXEC
+# Each helper takes $vm_name as its first argument. They use VM_EXEC
 # (set by vm-bootstrap.sh's bootstrap_install_test_vm) to operate inside
 # the VM as the statbus user.
 #
@@ -30,7 +30,7 @@ simulate_killed_migrate_subprocess() {
     # Find the running psql subprocess that's a child of migrate.
     # It's launched via: cli/internal/migrate/migrate.go's runPsqlFile.
     # The OS process is `psql` with file-input.
-    $VM_EXEC bash -c '
+    VM_EXEC bash -c '
         for i in $(seq 1 30); do
             PID=$(pgrep -f "psql.*-f.*\.up\.sql" 2>/dev/null | head -1)
             if [ -n "$PID" ]; then
@@ -58,7 +58,7 @@ simulate_pool_exhaustion() {
     local n="${2:-28}"  # max_connections=30 by default; leave 2 for the killer + docker exec
     echo "  [wedge] opening $n idle psql sessions on $vm_name to saturate pool"
 
-    $VM_EXEC bash -c "
+    VM_EXEC bash -c "
         cd ~/statbus
         for i in \$(seq 1 $n); do
             (./sb psql -c 'SELECT pg_sleep(3600);' >/dev/null 2>&1) &
@@ -82,7 +82,7 @@ simulate_systemd_failed() {
     local unit="${2:-statbus-upgrade@statbus.service}"
     echo "  [wedge] tripping StartLimitBurst on $unit (12 rapid kill cycles)"
 
-    $VM_EXEC bash -c "
+    VM_EXEC bash -c "
         for i in \$(seq 1 12); do
             systemctl --user start '$unit' 2>/dev/null || true
             sleep 1
@@ -111,7 +111,7 @@ simulate_advisory_zombie_empty_app() {
 
     # Use psql with -c that takes the lock and sleeps. The script's PID
     # is captured in the VM, then killed.
-    $VM_EXEC bash -c '
+    VM_EXEC bash -c '
         cd ~/statbus
         ./sb psql -c "SET application_name = '\'''\''; SELECT pg_advisory_lock(hashtext('\''migrate_up'\'')); SELECT pg_sleep(3600);" >/dev/null 2>&1 &
         SCRIPT_PID=$!
@@ -138,7 +138,7 @@ simulate_worker_busy() {
     local n="${2:-20}"
     echo "  [wedge] queuing $n heavy worker tasks on $vm_name"
 
-    $VM_EXEC bash -c "
+    VM_EXEC bash -c "
         cd ~/statbus
         for i in \$(seq 1 $n); do
             ./sb psql -c \"INSERT INTO worker.tasks (command, payload, queue, priority) VALUES ('statistical_history_reduce', '{}'::jsonb, 'analytics', 100);\" >/dev/null 2>&1
@@ -166,7 +166,7 @@ simulate_sigkill_upgrade_service() {
     local vm_name="$1"
     echo "  [wedge] SIGKILL'ing upgrade-service Go process on $vm_name"
 
-    $VM_EXEC bash -c '
+    VM_EXEC bash -c '
         # Find the upgrade-service Go process and kill -9 it.
         for i in $(seq 1 30); do
             PID=$(pgrep -f "sb upgrade service" 2>/dev/null | head -1)

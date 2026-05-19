@@ -29,7 +29,7 @@ source "$LIB_DIR/vm-bootstrap.sh"
 source "$LIB_DIR/wedge-helpers.sh"
 source "$LIB_DIR/assertions.sh"
 
-trap 'cleanup_vm "$VM_NAME"' EXIT
+trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
 echo "  Scenario 06: stage-d-empty-app-advisory"
@@ -52,7 +52,7 @@ simulate_advisory_zombie_empty_app "$VM_NAME"
 # 4. Verify the zombie is present.
 echo ""
 echo "── verify zombie present (empty app_name + advisory lock) ──"
-ZOMBIE_COUNT=$($VM_EXEC bash -c "cd ~/statbus && echo \"SELECT count(*) FROM pg_locks l JOIN pg_stat_activity a ON l.pid = a.pid WHERE l.locktype = 'advisory' AND l.granted AND COALESCE(a.application_name, '') = '' AND a.pid <> pg_backend_pid();\" | ./sb psql -t -A" 2>/dev/null | tr -d ' ' || echo "?")
+ZOMBIE_COUNT=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT count(*) FROM pg_locks l JOIN pg_stat_activity a ON l.pid = a.pid WHERE l.locktype = 'advisory' AND l.granted AND COALESCE(a.application_name, '') = '' AND a.pid <> pg_backend_pid();\" | ./sb psql -t -A" 2>/dev/null | tr -d ' ' || echo "?")
 echo "  zombie count: $ZOMBIE_COUNT"
 if [ "$ZOMBIE_COUNT" -lt 1 ]; then
     echo "  ⚠ no empty-app-name advisory zombie present — wedge didn't engage (TCP keepalives may have reaped it already)"
@@ -69,7 +69,7 @@ assert_step15_completed "$VM_NAME"
 assert_health_passes "$VM_NAME"
 
 # 7. Verify zombie is gone post-install.
-ZOMBIE_AFTER=$($VM_EXEC bash -c "cd ~/statbus && echo \"SELECT count(*) FROM pg_locks l JOIN pg_stat_activity a ON l.pid = a.pid WHERE l.locktype = 'advisory' AND l.granted AND COALESCE(a.application_name, '') = '' AND a.pid <> pg_backend_pid();\" | ./sb psql -t -A" 2>/dev/null | tr -d ' ' || echo "?")
+ZOMBIE_AFTER=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT count(*) FROM pg_locks l JOIN pg_stat_activity a ON l.pid = a.pid WHERE l.locktype = 'advisory' AND l.granted AND COALESCE(a.application_name, '') = '' AND a.pid <> pg_backend_pid();\" | ./sb psql -t -A" 2>/dev/null | tr -d ' ' || echo "?")
 if [ "$ZOMBIE_AFTER" = "0" ]; then
     echo "  ✓ no empty-app-name zombies remaining post-install"
 else

@@ -27,7 +27,7 @@ source "$LIB_DIR/vm-bootstrap.sh"
 source "$LIB_DIR/wedge-helpers.sh"
 source "$LIB_DIR/assertions.sh"
 
-trap 'cleanup_vm "$VM_NAME"' EXIT
+trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
 echo "  Scenario 03: stage-a-killed-migrate-subprocess"
@@ -51,7 +51,7 @@ assert_health_passes "$VM_NAME"
 # a long-running TRUNCATE-like statement, then SIGKILL the client.
 echo ""
 echo "── synthesizing migrate-zombie (long-running INSERT on statistical_*) ──"
-$VM_EXEC bash -c '
+VM_EXEC bash -c '
     cd ~/statbus
     # Fork a psql with a long-running INSERT (picks up statistical_* pattern).
     # The query takes ~10 minutes if left alone — long enough for the
@@ -79,7 +79,7 @@ assert_step15_completed "$VM_NAME"
 assert_health_passes "$VM_NAME"
 
 # 6. Verify the zombie is gone.
-ZOMBIE_COUNT=$($VM_EXEC bash -c "cd ~/statbus && echo \"SELECT count(*) FROM pg_stat_activity WHERE query ILIKE '%INSERT INTO public.statistical_history%' AND application_name = 'psql';\" | ./sb psql -t -A" 2>/dev/null | tr -d ' ' || echo "?")
+ZOMBIE_COUNT=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT count(*) FROM pg_stat_activity WHERE query ILIKE '%INSERT INTO public.statistical_history%' AND application_name = 'psql';\" | ./sb psql -t -A" 2>/dev/null | tr -d ' ' || echo "?")
 if [ "$ZOMBIE_COUNT" = "0" ]; then
     echo "  ✓ no psql zombies remaining post-cleanup"
 else

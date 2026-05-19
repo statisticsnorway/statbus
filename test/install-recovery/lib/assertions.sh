@@ -5,26 +5,36 @@
 # 0 on pass, 1 on fail. Scenario scripts chain assertions and `set -e`
 # bails on the first failure.
 #
-# Source AFTER vm-bootstrap.sh — relies on $VM_EXEC being set.
+# Source AFTER vm-bootstrap.sh — relies on VM_EXEC being set.
 
-# Test that the app's REST endpoint responds 2xx/3xx within ~50s.
-# Slot=test → port 3010 (from vm-bootstrap's env-config). Override
-# port via $HEALTH_PORT if needed.
+# Test that the app's REST endpoint responds 2xx/3xx. 5-minute budget —
+# cold start on a fresh Hetzner cx23 with cold container images can take
+# ~60-120s past `./sb install` completion (docker compose returns when
+# containers are "started", which is well before Caddy + app are actually
+# serving). Slot=test → port 3010 (from vm-bootstrap's env-config).
+# Override port via $HEALTH_PORT if needed. Diagnostic dump every 30s.
 assert_health_passes() {
     local vm_name="$1"
     local port="${HEALTH_PORT:-3010}"
     local i http_code
 
-    for i in $(seq 1 10); do
-        http_code=$($VM_EXEC bash -c "curl -s http://127.0.0.1:${port}/rest/ -o /dev/null -w '%{http_code}'" 2>/dev/null || echo "000")
+    for i in $(seq 1 60); do
+        http_code=$(VM_EXEC bash -c "curl -s -m 3 http://127.0.0.1:${port}/rest/ -o /dev/null -w '%{http_code}'" 2>/dev/null || echo "000")
         if echo "$http_code" | grep -q "^[23]"; then
-            echo "  ✓ health check passed (attempt $i, code=$http_code)"
+            echo "  ✓ health check passed (attempt $i, code=$http_code, ${i}×5s)"
             return 0
         fi
-        echo "  … waiting for app on $vm_name:$port (attempt $i/10, code=$http_code)"
+        echo "  … waiting for app on $vm_name:$port (attempt $i/60, code=$http_code)"
+        # Periodic diagnostic so we can see WHY connections are refused.
+        if [ $((i % 6)) -eq 0 ]; then
+            echo "  --- diagnostic at attempt $i ---"
+            VM_EXEC bash -c "docker compose -f ~/statbus/docker-compose.yml ps --format 'table {{.Name}}\t{{.Status}}\t{{.Ports}}' 2>/dev/null | head -8" 2>/dev/null \
+                || VM_EXEC bash -c "cd ~/statbus && docker compose ps --format 'table {{.Name}}\t{{.Status}}' 2>&1 | head -8"
+            echo "  ---"
+        fi
         sleep 5
     done
-    echo "  ✗ health check FAILED after 10 attempts"
+    echo "  ✗ health check FAILED after 60 attempts (5 min budget exhausted)"
     return 1
 }
 
@@ -35,7 +45,7 @@ assert_upgrade_row_state() {
     local expected_state="$2"
     local actual
 
-    actual=$($VM_EXEC bash -c "cd ~/statbus && echo 'SELECT state FROM public.upgrade ORDER BY id DESC LIMIT 1;' | ./sb psql -t -A" 2>/dev/null | tr -d ' ')
+    actual=$(VM_EXEC bash -c "cd ~/statbus && echo 'SELECT state FROM public.upgrade ORDER BY id DESC LIMIT 1;' | ./sb psql -t -A" 2>/dev/null | tr -d ' ')
     if [ "$actual" = "$expected_state" ]; then
         echo "  ✓ latest upgrade row state = '$expected_state'"
         return 0
@@ -52,7 +62,7 @@ assert_systemd_active() {
     local expected_state="${3:-active}"
     local actual
 
-    actual=$($VM_EXEC systemctl --user is-active "$unit" 2>/dev/null | head -1 || echo "unknown")
+    actual=$(VM_EXEC systemctl --user is-active "$unit" 2>/dev/null | head -1 || echo "unknown")
     if [ "$actual" = "$expected_state" ]; then
         echo "  ✓ unit $unit is $expected_state"
         return 0
@@ -69,12 +79,12 @@ assert_no_orphan_backup() {
     local vm_name="$1"
     local count
 
-    count=$($VM_EXEC bash -c 'ls -d ~/statbus-backups/pre-upgrade-* 2>/dev/null | wc -l' 2>/dev/null | tr -d ' ' || echo "0")
+    count=$(VM_EXEC bash -c 'ls -d ~/statbus-backups/pre-upgrade-* 2>/dev/null | wc -l' 2>/dev/null | tr -d ' ' || echo "0")
     if [ "$count" = "0" ]; then
         echo "  ✓ no orphan pre-upgrade-* backups in ~/statbus-backups/"
         return 0
     fi
-    echo "  ✗ orphan backup(s) found ($count): $($VM_EXEC bash -c 'ls -d ~/statbus-backups/pre-upgrade-*' 2>/dev/null | tr '\n' ' ')"
+    echo "  ✗ orphan backup(s) found ($count): $(VM_EXEC bash -c 'ls -d ~/statbus-backups/pre-upgrade-*' 2>/dev/null | tr '\n' ' ')"
     return 1
 }
 
@@ -84,7 +94,7 @@ assert_db_migration_recorded() {
     local version="$2"
     local count
 
-    count=$($VM_EXEC bash -c "cd ~/statbus && echo 'SELECT count(*) FROM db.migration WHERE version = $version;' | ./sb psql -t -A" 2>/dev/null | tr -d ' ' || echo "0")
+    count=$(VM_EXEC bash -c "cd ~/statbus && echo 'SELECT count(*) FROM db.migration WHERE version = $version;' | ./sb psql -t -A" 2>/dev/null | tr -d ' ' || echo "0")
     if [ "$count" = "1" ]; then
         echo "  ✓ migration $version recorded in db.migration"
         return 0

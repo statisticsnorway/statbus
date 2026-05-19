@@ -36,7 +36,7 @@ LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
 source "$LIB_DIR/vm-bootstrap.sh"
 source "$LIB_DIR/assertions.sh"
 
-trap 'cleanup_vm "$VM_NAME"' EXIT
+trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
 echo "  Scenario 09: bool-text-regression"
@@ -57,7 +57,7 @@ assert_health_passes "$VM_NAME"
 echo ""
 echo "── waiting for worker to be holding advisory locks legitimately ──"
 for i in $(seq 1 12); do
-    HOLDERS=$($VM_EXEC bash -c "cd ~/statbus && echo \"SELECT count(*) FROM pg_locks l JOIN pg_stat_activity a ON l.pid = a.pid WHERE l.locktype = 'advisory' AND l.granted AND a.application_name = 'worker';\" | ./sb psql -t -A" 2>/dev/null | tr -d ' ' || echo "0")
+    HOLDERS=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT count(*) FROM pg_locks l JOIN pg_stat_activity a ON l.pid = a.pid WHERE l.locktype = 'advisory' AND l.granted AND a.application_name = 'worker';\" | ./sb psql -t -A" 2>/dev/null | tr -d ' ' || echo "0")
     if [ "$HOLDERS" -ge 1 ]; then
         echo "  ✓ worker is holding $HOLDERS advisory lock(s) — ready"
         break

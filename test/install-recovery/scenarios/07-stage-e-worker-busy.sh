@@ -29,7 +29,7 @@ source "$LIB_DIR/vm-bootstrap.sh"
 source "$LIB_DIR/wedge-helpers.sh"
 source "$LIB_DIR/assertions.sh"
 
-trap 'cleanup_vm "$VM_NAME"' EXIT
+trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
 echo "  Scenario 07: stage-e-worker-busy"
@@ -47,7 +47,7 @@ assert_health_passes "$VM_NAME"
 
 # 3. Snapshot worker connection state BEFORE the wedge so we can verify
 # the worker survives the install (not terminated by a buggy Phase 1).
-WORKER_PIDS_BEFORE=$($VM_EXEC bash -c "cd ~/statbus && echo \"SELECT pid FROM pg_stat_activity WHERE application_name = 'worker' ORDER BY pid;\" | ./sb psql -t -A" 2>/dev/null | sort | tr '\n' ',' || echo "")
+WORKER_PIDS_BEFORE=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT pid FROM pg_stat_activity WHERE application_name = 'worker' ORDER BY pid;\" | ./sb psql -t -A" 2>/dev/null | sort | tr '\n' ',' || echo "")
 echo "  baseline worker PIDs: $WORKER_PIDS_BEFORE"
 
 # 4. Wedge: queue heavy worker tasks. Worker will pick them up and start
@@ -71,8 +71,8 @@ assert_health_passes "$VM_NAME"
 # At least the worker process should still be alive (it auto-reconnects
 # on connection drop, but if Phase 1 was broken and TERMINATEd workers,
 # there'd be a noticeable disruption).
-WORKER_PIDS_AFTER=$($VM_EXEC bash -c "cd ~/statbus && echo \"SELECT pid FROM pg_stat_activity WHERE application_name = 'worker' ORDER BY pid;\" | ./sb psql -t -A" 2>/dev/null | sort | tr '\n' ',' || echo "")
-WORKER_COUNT_AFTER=$($VM_EXEC bash -c "cd ~/statbus && echo \"SELECT count(*) FROM pg_stat_activity WHERE application_name = 'worker';\" | ./sb psql -t -A" 2>/dev/null | tr -d ' ' || echo "0")
+WORKER_PIDS_AFTER=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT pid FROM pg_stat_activity WHERE application_name = 'worker' ORDER BY pid;\" | ./sb psql -t -A" 2>/dev/null | sort | tr '\n' ',' || echo "")
+WORKER_COUNT_AFTER=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT count(*) FROM pg_stat_activity WHERE application_name = 'worker';\" | ./sb psql -t -A" 2>/dev/null | tr -d ' ' || echo "0")
 echo "  post-install worker PIDs: $WORKER_PIDS_AFTER (count=$WORKER_COUNT_AFTER)"
 if [ "$WORKER_COUNT_AFTER" -lt 1 ]; then
     echo "  ✗ no worker connections after install — Phase 1 may have terminated workers (Fix 10 regression?)"

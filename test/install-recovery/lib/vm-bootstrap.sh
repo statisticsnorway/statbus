@@ -1,91 +1,212 @@
 #!/bin/bash
-# vm-bootstrap.sh — Multipass VM bootstrap helper for install recovery tests.
+# vm-bootstrap.sh — Hetzner Cloud bootstrap helper for install recovery tests.
+#
+# Provisions ephemeral Hetzner Cloud VMs (CX23, IPv4, hel1) for the per-scenario
+# harness. Replaces the previous Multipass-on-macOS implementation, which kept
+# breaking on vmnet bridge state (no recovery without `sudo reboot`).
 #
 # Sourced by test/install-recovery/scenarios/*.sh. Provides:
 #
 #   bootstrap_install_test_vm <vm_name> [install_version]
-#       Launch a fresh Ubuntu 24.04 VM, harden it, create the statbus user,
-#       set up linger so systemctl --user works under sudo -i. When the
-#       function returns, the VM is ready for `./sb install` to run.
+#       Provision a fresh Hetzner CX23 VM, run the project hardening script,
+#       create the statbus user, set up linger so systemctl --user works.
+#       Sets globals VM_IP, VM_EXEC, STATBUS_UID.
 #
-#       install_version: empty (default) → uses locally-built `sb` binary
-#                        v2026.05.0-rc.X → downloads that release on the VM
+#       install_version: empty → uses locally-built `sb` binary
+#                        v2026.05.0-rc.X → downloaded inside the VM
 #
-#   $VM_EXEC                Bash command prefix to run as statbus user with
-#                           full login shell (sources .profile → XDG_RUNTIME_DIR
-#                           is set so systemctl --user works).
+#   install_statbus_in_vm <vm_name> [install_version]
+#       Run `./sb install` inside an already-bootstrapped VM. Returns the
+#       install command's exit status.
 #
-#   $STATBUS_UID            Numeric UID of the statbus user inside the VM.
+#   reset_vm_state <vm_name>
+#       Reimage the existing VM via `hcloud server rebuild` (~30s, same IP)
+#       and re-run hardening. Use between scenarios in approach-B to amortise
+#       a single 1-hour billing window across the whole harness run. State
+#       reset is at the OS-disk level — no leftover postgres/docker state.
 #
-# Mirrors the bootstrap logic in dev.sh's `test-install` command (which
-# stays untouched; this is intentionally duplicated to avoid risking a
-# regression in the established stable-release pre-flight gate). Once the
-# new harness is proven, the duplication can be eliminated by extracting
-# both call sites to share this file.
+#   cleanup_vm <vm_name>
+#       Delete the VM. KEEP_VM=1 leaves it running (€0.0072/hr) for debugging.
+#
+#   $VM_EXEC            ssh prefix to run as the statbus user inside the VM.
+#                       Sources .profile so XDG_RUNTIME_DIR is set for
+#                       systemctl --user.
+#   $VM_IP              VM's public IPv4 address.
+#   $STATBUS_UID        Numeric UID of the statbus user inside the VM.
+#
+# Cost model: one CX23 in hel1 = €0.0064/hr + €0.0008/hr for primary IPv4 =
+# €0.0072/hr. Hetzner bills hourly with 1-hour minimum (no per-minute), so
+# the cost-optimal pattern is one VM per harness run with reset_vm_state
+# between scenarios. KEEP_VM=1 charges €0.17/day if you forget to clean up.
+#
+# Safety: all VM operations refuse names not starting with $HCLOUD_NAME_PREFIX
+# (default "statbus-recovery-"). This protects the production niue VM, which
+# lives in the same Hetzner project as the test VMs.
 
 set -euo pipefail
 
-# Resolve workspace root (statbus/) regardless of where scripts are sourced from.
 HARNESS_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HARNESS_ROOT="$(cd "$HARNESS_LIB_DIR/../../.." && pwd)"
 
-bootstrap_install_test_vm() {
-    local vm_name="$1"
-    local install_version="${2:-}"
+# Load HCLOUD_TOKEN from .env.credentials if not in env.
+if [ -z "${HCLOUD_TOKEN:-}" ]; then
+    if [ -f "$HARNESS_ROOT/.env.credentials" ]; then
+        # shellcheck disable=SC2046
+        export $(grep '^HCLOUD_TOKEN=' "$HARNESS_ROOT/.env.credentials" | head -1)
+    fi
+fi
+if [ -z "${HCLOUD_TOKEN:-}" ]; then
+    echo "ERROR: HCLOUD_TOKEN not set; expected in env or .env.credentials" >&2
+    return 1 2>/dev/null || exit 1
+fi
 
-    if ! command -v multipass >/dev/null 2>&1; then
-        echo "ERROR: multipass is not installed. Install it: brew install multipass" >&2
-        return 1
+HCLOUD_SERVER_TYPE="${HCLOUD_SERVER_TYPE:-cx23}"
+HCLOUD_LOCATION="${HCLOUD_LOCATION:-hel1}"
+HCLOUD_IMAGE="${HCLOUD_IMAGE:-ubuntu-24.04}"
+HCLOUD_SSH_KEY="${HCLOUD_SSH_KEY:-jorgen@veridit.no}"
+HCLOUD_NAME_PREFIX="${HCLOUD_NAME_PREFIX:-statbus-recovery-}"
+
+mkdir -p "$HARNESS_ROOT/tmp"
+
+# Shared ssh options for ephemeral test VMs. Host-key verification is
+# explicitly OFF — these VMs live for minutes and Hetzner recycles IPv4s
+# across instances, so accept-new fails the first time an IP gets reused.
+# Threat model: MITM on first connect to a freshly-provisioned Hetzner VM
+# inside Hetzner's hel1 datacenter. Negligible for a test harness whose
+# secrets are confined to a throwaway VM that gets deleted on completion.
+#
+# Keepalives matter: `./sb install` can pull GB of docker images with no
+# stdout for minutes at a time. Without keepalives, intermediate NAT /
+# firewall middleboxes drop the TCP connection, sshd back-end keeps
+# running on the VM, and we get exit 255 with a partial transcript.
+SSH_OPTS=(
+    -o StrictHostKeyChecking=no
+    -o UserKnownHostsFile=/dev/null
+    -o ConnectTimeout=10
+    -o LogLevel=ERROR
+    -o ServerAliveInterval=30
+    -o ServerAliveCountMax=10
+)
+
+_check_name_safety() {
+    local name="$1"
+    case "$name" in
+        "$HCLOUD_NAME_PREFIX"*) return 0 ;;
+        *)
+            echo "REFUSE: VM name '$name' does not start with prefix '$HCLOUD_NAME_PREFIX'." >&2
+            echo "       Safety guard prevents accidental deletion of production VMs (niue etc) in the same Hetzner project." >&2
+            return 1
+            ;;
+    esac
+}
+
+_wait_for_ssh() {
+    local ip="$1" max="${2:-90}"
+    local i
+    for i in $(seq 1 "$max"); do
+        if ssh "${SSH_OPTS[@]}" -o BatchMode=yes -o ConnectTimeout=2 root@"$ip" echo ok 2>/dev/null | grep -q "^ok$"; then
+            echo "  SSH up after ${i}s"
+            return 0
+        fi
+        sleep 1
+    done
+    echo "  SSH did not come up within ${max}s" >&2
+    return 1
+}
+
+# Run a long shell command on the VM inside a detached tmux session, then
+# poll for completion via reconnecting ssh. Survives mobile/flaky links —
+# even if every individual ssh roundtrip fails, the next one resumes from
+# the logfile on the VM. The bash command itself runs as the statbus user.
+#
+# Usage:
+#   _run_long_via_tmux <ip> <session-name> <bash-command>
+# Side effects:
+#   /tmp/<session>.log   — full stdout+stderr
+#   /tmp/<session>.exit  — exit code of the bash command (written after)
+# Returns:
+#   the bash command's exit code (or 254 if we couldn't even poll)
+#
+# Tunable: LONG_CMD_MAX_MIN (default 45) — overall time budget in minutes.
+_run_long_via_tmux() {
+    local ip="$1" session="$2" cmd="$3"
+    local max_min="${LONG_CMD_MAX_MIN:-45}"
+    local poll_secs=15
+    local max_iter=$(( max_min * 60 / poll_secs ))
+
+    # Ensure tmux is installed (idempotent — installed by hardening normally).
+    ssh "${SSH_OPTS[@]}" root@"$ip" \
+        'command -v tmux >/dev/null 2>&1 || DEBIAN_FRONTEND=noninteractive apt-get install -y tmux >/dev/null 2>&1' \
+        || true
+
+    # Launch the command in a detached tmux session running as statbus.
+    # Wrap with exit-code capture: bash -c '<cmd>; echo $? > /tmp/<session>.exit'
+    # The outer redirection > /tmp/<session>.log captures everything.
+    ssh "${SSH_OPTS[@]}" root@"$ip" "
+        rm -f /tmp/${session}.exit /tmp/${session}.log
+        sudo -u statbus tmux new-session -d -s ${session} \\
+            'bash -lc \"( ${cmd} ) > /tmp/${session}.log 2>&1; echo \\\$? > /tmp/${session}.exit\"'
+    " || {
+        echo "  ERROR: could not start tmux session ${session} on $ip" >&2
+        return 254
+    }
+
+    # Poll for completion. Each poll is a fresh ssh, so transient drops don't
+    # block progress. Show recent log tail so it doesn't look like nothing's
+    # happening.
+    local i seen_lines=0
+    for ((i = 0; i < max_iter; i++)); do
+        # Test for completion sentinel.
+        if ssh "${SSH_OPTS[@]}" root@"$ip" "test -f /tmp/${session}.exit" 2>/dev/null; then
+            break
+        fi
+        # Show new log lines since last check (line-count tracking).
+        local cur_lines
+        cur_lines=$(ssh "${SSH_OPTS[@]}" root@"$ip" "wc -l < /tmp/${session}.log 2>/dev/null" 2>/dev/null | tr -d ' ')
+        if [ -n "$cur_lines" ] && [ "$cur_lines" -gt "$seen_lines" ] 2>/dev/null; then
+            ssh "${SSH_OPTS[@]}" root@"$ip" "tail -n $((cur_lines - seen_lines)) /tmp/${session}.log" 2>/dev/null
+            seen_lines="$cur_lines"
+        fi
+        sleep "$poll_secs"
+    done
+
+    # Fetch any remaining log tail.
+    local cur_lines
+    cur_lines=$(ssh "${SSH_OPTS[@]}" root@"$ip" "wc -l < /tmp/${session}.log 2>/dev/null" 2>/dev/null | tr -d ' ')
+    if [ -n "$cur_lines" ] && [ "$cur_lines" -gt "$seen_lines" ] 2>/dev/null; then
+        ssh "${SSH_OPTS[@]}" root@"$ip" "tail -n $((cur_lines - seen_lines)) /tmp/${session}.log" 2>/dev/null
     fi
 
-    # Cleanup any previous test VM with the same name (idempotent).
-    if multipass info "$vm_name" >/dev/null 2>&1; then
-        echo "Cleaning up previous test VM: $vm_name"
-        multipass delete "$vm_name" 2>/dev/null || true
-        multipass purge 2>/dev/null || true
+    # Did it actually finish?
+    if ! ssh "${SSH_OPTS[@]}" root@"$ip" "test -f /tmp/${session}.exit" 2>/dev/null; then
+        echo "  TIMEOUT after ${max_min}min — tmux session '${session}' still running." >&2
+        echo "    Attach for live view: ssh root@$ip 'sudo -u statbus tmux attach -t ${session}'" >&2
+        return 254
     fi
 
-    local sb_binary=""
-    if [ -z "$install_version" ]; then
-        # Build the sb binary for Linux (matching the VM architecture).
-        local host_arch
-        host_arch=$(uname -m)
-        local build_target
-        case "$host_arch" in
-            x86_64)        build_target="linux/amd64" ;;
-            arm64|aarch64) build_target="linux/arm64" ;;
-            *)             echo "Unsupported architecture: $host_arch" >&2; return 1 ;;
-        esac
-        echo "Building sb for $build_target..."
-        (cd "$HARNESS_ROOT" && ./dev.sh build-sb "$build_target")
-        sb_binary="${HARNESS_ROOT}/sb-${build_target//\//-}"  # e.g. sb-linux-arm64
-    fi
+    local exit_code
+    exit_code=$(ssh "${SSH_OPTS[@]}" root@"$ip" "cat /tmp/${session}.exit" 2>/dev/null | tr -d ' \n')
+    [ -z "$exit_code" ] && exit_code=255
+    return "$exit_code"
+}
 
-    echo "Launching Ubuntu 24.04 VM ($vm_name)..."
-    # MULTIPASS_BRIDGE workaround: when macOS vmnet-shared is broken (commonly
-    # after network swaps — VPN connect/disconnect, hotel/train wifi, etc.),
-    # the default NAT bridge has no host-side IP and VMs are unreachable
-    # via `multipass exec` ("No route to host"). Setting MULTIPASS_BRIDGE=en0
-    # (or any active interface from `multipass networks`) adds a second NIC
-    # in bridged mode that DOES work. No-op when unset (uses default vmnet-shared).
-    local network_args=()
-    if [ -n "${MULTIPASS_BRIDGE:-}" ]; then
-        echo "  using bridged network: --network $MULTIPASS_BRIDGE"
-        network_args=(--network "$MULTIPASS_BRIDGE")
-    fi
-    multipass launch 24.04 --name "$vm_name" --cpus 2 --memory 4G --disk 10G --timeout 600 "${network_args[@]}"
+# Run the project hardening + statbus user setup on a freshly-booted VM.
+# Idempotent — safe to call again after a rebuild.
+_apply_hardening() {
+    local ip="$1" sb_binary="${2:-}"
 
-    echo "Waiting for VM to be ready..."
-    multipass exec "$vm_name" -- cloud-init status --wait 2>/dev/null || true
+    echo "  waiting for cloud-init..."
+    ssh "${SSH_OPTS[@]}" root@"$ip" 'cloud-init status --wait' 2>/dev/null || true
 
-    echo "Transferring files..."
-    if [ -n "$sb_binary" ]; then
-        multipass transfer "$sb_binary" "$vm_name":/tmp/sb
-    fi
-    multipass transfer "$HARNESS_ROOT/ops/setup-ubuntu-lts-24.sh" "$vm_name":/tmp/setup.sh
+    echo "  transferring setup files..."
+    [ -n "$sb_binary" ] && {
+        scp "${SSH_OPTS[@]}" -q "$sb_binary" root@"$ip":/tmp/sb
+        ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0755 /tmp/sb'
+    }
+    scp "${SSH_OPTS[@]}" -q "$HARNESS_ROOT/ops/setup-ubuntu-lts-24.sh" root@"$ip":/tmp/setup.sh
+    ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0755 /tmp/setup.sh'
 
-    # Standard test config. Slot=test, mode=development.
-    local env_config_file
+    local env_config_file users_file
     env_config_file=$(mktemp)
     cat > "$env_config_file" << 'ENVCONFIG'
 DEPLOYMENT_SLOT_NAME=Install Test
@@ -100,10 +221,10 @@ DEBUG=false
 PUBLIC_DEBUG=false
 UPGRADE_CHANNEL=stable
 ENVCONFIG
-    multipass transfer "$env_config_file" "$vm_name":/tmp/env-config
+    scp "${SSH_OPTS[@]}" -q "$env_config_file" root@"$ip":/tmp/env-config
+    ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0644 /tmp/env-config'
     rm -f "$env_config_file"
 
-    local users_file
     users_file=$(mktemp)
     cat > "$users_file" << 'USERS'
 - email: test@statbus.org
@@ -111,72 +232,197 @@ ENVCONFIG
   role: admin_user
   display_name: Admin
 USERS
-    multipass transfer "$users_file" "$vm_name":/tmp/users.yml
+    scp "${SSH_OPTS[@]}" -q "$users_file" root@"$ip":/tmp/users.yml
+    ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0644 /tmp/users.yml'
     rm -f "$users_file"
 
-    # Hardening config for non-interactive setup-ubuntu-lts-24.sh.
-    multipass exec "$vm_name" -- sudo bash -c 'cat > /root/.setup-ubuntu.env << EOF
+    ssh "${SSH_OPTS[@]}" root@"$ip" 'cat > /root/.setup-ubuntu.env << EOF
 ADMIN_EMAIL="test@statbus.org"
 GITHUB_USERS="jhf"
 EXTRA_LOCALES=""
 CADDY_PLUGINS=""
 EOF'
 
-    echo "=== Stage: Hardening ==="
-    mkdir -p "${HARNESS_ROOT}/tmp"
-    multipass exec "$vm_name" -- sudo bash /tmp/setup.sh --non-interactive 2>&1 \
-        | tee "${HARNESS_ROOT}/tmp/install-recovery-${vm_name}-bootstrap.log"
+    echo "  === Stage: Hardening (detached tmux for survivability) ==="
+    local logfile="$HARNESS_ROOT/tmp/install-recovery-${VM_NAME:-unknown}-bootstrap.log"
+    # Hardening runs as root, not statbus. Override the helper's user briefly
+    # by running it directly (tmux must run AS root here since /tmp/setup.sh
+    # needs root, and the statbus user doesn't exist yet at this point).
+    ssh "${SSH_OPTS[@]}" root@"$ip" \
+        'command -v tmux >/dev/null 2>&1 || DEBIAN_FRONTEND=noninteractive apt-get install -y tmux >/dev/null 2>&1' \
+        || true
+    ssh "${SSH_OPTS[@]}" root@"$ip" "
+        rm -f /tmp/harden.exit /tmp/harden.log
+        tmux new-session -d -s harden 'bash /tmp/setup.sh --non-interactive > /tmp/harden.log 2>&1; echo \$? > /tmp/harden.exit'
+    "
+    local max_iter=$(( ${LONG_CMD_MAX_MIN:-45} * 60 / 15 )) i=0 seen=0
+    for ((i=0; i<max_iter; i++)); do
+        if ssh "${SSH_OPTS[@]}" root@"$ip" 'test -f /tmp/harden.exit' 2>/dev/null; then
+            break
+        fi
+        local cur
+        cur=$(ssh "${SSH_OPTS[@]}" root@"$ip" 'wc -l < /tmp/harden.log 2>/dev/null' 2>/dev/null | tr -d ' ')
+        if [ -n "$cur" ] && [ "$cur" -gt "$seen" ] 2>/dev/null; then
+            ssh "${SSH_OPTS[@]}" root@"$ip" "tail -n $((cur - seen)) /tmp/harden.log" 2>/dev/null | tee -a "$logfile"
+            seen="$cur"
+        fi
+        sleep 15
+    done
+    if ! ssh "${SSH_OPTS[@]}" root@"$ip" 'test -f /tmp/harden.exit' 2>/dev/null; then
+        echo "  HARDENING TIMEOUT after ${LONG_CMD_MAX_MIN:-45}min" >&2
+        return 1
+    fi
+    local harden_exit
+    harden_exit=$(ssh "${SSH_OPTS[@]}" root@"$ip" 'cat /tmp/harden.exit' 2>/dev/null | tr -d ' \n')
+    if [ "$harden_exit" != "0" ]; then
+        echo "  HARDENING FAILED with exit code: $harden_exit" >&2
+        return 1
+    fi
 
-    # Create dedicated statbus user (after hardening installs Docker so
-    # the docker group exists).
-    multipass exec "$vm_name" -- sudo useradd -m -s /bin/bash -G docker statbus
+    echo "  creating statbus user + linger..."
+    ssh "${SSH_OPTS[@]}" root@"$ip" '
+        useradd -m -s /bin/bash -G docker statbus 2>/dev/null || true
+        usermod -aG docker statbus 2>/dev/null || true
+        loginctl enable-linger statbus 2>/dev/null || true
+        grep -q XDG_RUNTIME_DIR /home/statbus/.profile 2>/dev/null \
+            || echo "export XDG_RUNTIME_DIR=/run/user/\$(id -u)" >> /home/statbus/.profile
+    '
 
-    # Linger so the user-level systemd manager runs without an active login.
-    multipass exec "$vm_name" -- sudo loginctl enable-linger statbus
-
-    # Set XDG_RUNTIME_DIR in the statbus user's .profile so `sudo -i -u statbus`
-    # gets a working systemd --user session (PAM doesn't set this for sudo).
-    multipass exec "$vm_name" -- sudo bash -c \
-        'echo "export XDG_RUNTIME_DIR=/run/user/\$(id -u)" >> /home/statbus/.profile'
-
-    # Wait for the user manager to be ready (~100ms typically).
-    STATBUS_UID=$(multipass exec "$vm_name" -- id -u statbus)
+    STATBUS_UID=$(ssh "${SSH_OPTS[@]}" root@"$ip" id -u statbus)
     local i
     for i in $(seq 1 20); do
-        multipass exec "$vm_name" -- sudo -u statbus \
-            XDG_RUNTIME_DIR=/run/user/"$STATBUS_UID" \
-            systemctl --user is-system-running 2>/dev/null | grep -qE "running|degraded" && break
-        sleep 0.1
+        if ssh "${SSH_OPTS[@]}" root@"$ip" "sudo -u statbus XDG_RUNTIME_DIR=/run/user/$STATBUS_UID systemctl --user is-system-running" 2>/dev/null | grep -qE "running|degraded"; then
+            break
+        fi
+        sleep 0.5
     done
 
-    # Globally accessible exec helper. Sources .profile via -i so XDG_RUNTIME_DIR
-    # is set before any systemctl --user invocation.
-    VM_EXEC="multipass exec $vm_name -- sudo -i -u statbus"
+    # Per-VM exec function. CALLERS MUST USE `VM_EXEC ...` (not `$VM_EXEC`).
+    # OpenSSH joins multi-arg commands with bare spaces and DOES NOT
+    # re-quote — so `$VM_EXEC bash -c "long string"` arrives on the VM
+    # as `bash -c long -s -m 3 ...` (mangled). The function path uses
+    # printf %q to escape each arg before assembling one quoted remote
+    # command string for ssh.
+    VM_IP="$ip"
+}
 
-    echo "Verifying systemctl --user via sudo -i -u statbus..."
-    $VM_EXEC systemctl --user is-system-running || true
+VM_EXEC() {
+    local quoted_args
+    quoted_args=$(printf '%q ' "$@")
+    ssh "${SSH_OPTS[@]}" root@"$VM_IP" "sudo -i -u statbus -- $quoted_args"
+}
+
+bootstrap_install_test_vm() {
+    local vm_name="$1"
+    local install_version="${2:-}"
+    _check_name_safety "$vm_name" || return 1
+    VM_NAME="$vm_name"
+
+    if ! command -v hcloud >/dev/null 2>&1; then
+        echo "ERROR: hcloud CLI not installed. brew install hcloud" >&2
+        return 1
+    fi
+
+    # Build sb binary locally if no release was specified.
+    local sb_binary=""
+    if [ -z "$install_version" ]; then
+        local build_target="linux/amd64"  # Hetzner CX23 is x86_64
+        echo "Building sb for $build_target..."
+        (cd "$HARNESS_ROOT" && ./dev.sh build-sb "$build_target")
+        sb_binary="${HARNESS_ROOT}/sb-${build_target//\//-}"
+    fi
+
+    # Idempotent cleanup of any prior VM with the same name.
+    if hcloud server describe "$vm_name" >/dev/null 2>&1; then
+        echo "Cleaning up previous VM: $vm_name"
+        hcloud server delete "$vm_name" > /dev/null
+    fi
+
+    echo "Provisioning Hetzner $HCLOUD_SERVER_TYPE in $HCLOUD_LOCATION: $vm_name"
+    hcloud server create \
+        --name "$vm_name" \
+        --type "$HCLOUD_SERVER_TYPE" \
+        --image "$HCLOUD_IMAGE" \
+        --location "$HCLOUD_LOCATION" \
+        --ssh-key "$HCLOUD_SSH_KEY" \
+        > /dev/null
+
+    VM_IP=$(hcloud server ip "$vm_name")
+    echo "  VM_IP=$VM_IP"
+
+    _wait_for_ssh "$VM_IP" 90
+    _apply_hardening "$VM_IP" "$sb_binary"
 
     echo "VM $vm_name bootstrap complete."
 }
 
-# Run install inside a bootstrapped VM. Two modes:
+# Reset VM to fresh OS state using hcloud server rebuild. Same server, same
+# IP, fresh disk image. ~30s + hardening. The cheap path for approach-B.
+reset_vm_state() {
+    local vm_name="$1"
+    _check_name_safety "$vm_name" || return 1
+    VM_NAME="$vm_name"
+
+    if ! hcloud server describe "$vm_name" >/dev/null 2>&1; then
+        echo "ERROR: $vm_name does not exist; cannot reset. Call bootstrap_install_test_vm first." >&2
+        return 1
+    fi
+
+    echo "Reimaging $vm_name to fresh $HCLOUD_IMAGE (server id and IP preserved)..."
+    hcloud server rebuild "$vm_name" --image "$HCLOUD_IMAGE" > /dev/null
+
+    VM_IP=$(hcloud server ip "$vm_name")
+    echo "  VM_IP=$VM_IP (unchanged)"
+
+    # Caller pre-built sb_binary is already cached in $HARNESS_ROOT —
+    # rebuild only wipes the VM disk, not the host workspace.
+    local sb_binary=""
+    local build_target="linux/amd64"
+    sb_binary="${HARNESS_ROOT}/sb-${build_target//\//-}"
+    [ -f "$sb_binary" ] || sb_binary=""
+
+    _wait_for_ssh "$VM_IP" 90
+    _apply_hardening "$VM_IP" "$sb_binary"
+
+    echo "VM $vm_name reset complete."
+}
+
+# Run install inside a bootstrapped VM.
 #   install_statbus_in_vm <vm_name>                  → use locally-built /tmp/sb
 #   install_statbus_in_vm <vm_name> v2026.05.0-rc.X  → download from release
-#
-# Caller may pre-set $SB_INSTALL_EXTRA_ARGS (e.g. "--recovery=auto") — these
-# are appended to ./sb install.
+# Caller may pre-set SB_INSTALL_EXTRA_ARGS (e.g. "--recovery=auto").
 install_statbus_in_vm() {
     local vm_name="$1"
     local install_version="${2:-}"
     local extra_args="${SB_INSTALL_EXTRA_ARGS:-}"
+    _check_name_safety "$vm_name" || return 1
+
+    local ip
+    ip=$(hcloud server ip "$vm_name")
 
     local install_script
     install_script=$(mktemp)
     if [ -z "$install_version" ]; then
+        # Use the local repo's HEAD. ./sb install verifies signatures against
+        # HEAD via `git verify-commit`, so the VM needs a real .git directory
+        # at the matching commit — not just the binary. GitHub allows fetch
+        # by SHA, so a shallow clone of master + targeted fetch is enough.
+        local local_commit
+        local_commit=$(cd "$HARNESS_ROOT" && git rev-parse HEAD)
         cat > "$install_script" << SCRIPT
 set -e
-mkdir -p ~/statbus
+if [ ! -d ~/statbus/.git ]; then
+    git clone --depth 50 https://github.com/statisticsnorway/statbus.git ~/statbus
+fi
 cd ~/statbus
+if ! git cat-file -e $local_commit 2>/dev/null; then
+    echo "Fetching local HEAD commit $local_commit from origin..."
+    git fetch --depth 1 origin $local_commit || {
+        echo "FATAL: commit $local_commit is not on origin. Push it before running the harness." >&2
+        exit 1
+    }
+fi
+git checkout $local_commit
 cp /tmp/sb ./sb
 chmod +x ./sb
 cp /tmp/env-config .env.config
@@ -206,25 +452,34 @@ STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf $ex
 SCRIPT
     fi
 
-    multipass transfer "$install_script" "$vm_name":/tmp/install.sh
+    scp "${SSH_OPTS[@]}" -q "$install_script" root@"$ip":/tmp/install.sh
+    ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0644 /tmp/install.sh'
     rm -f "$install_script"
 
-    multipass exec "$vm_name" -- sudo -i -u statbus bash /tmp/install.sh 2>&1 \
-        | tee -a "${HARNESS_ROOT}/tmp/install-recovery-${vm_name}-install.log"
+    # Run the install in a detached tmux session as statbus, poll for
+    # completion. Survives mobile-internet drops — even if every poll
+    # roundtrip fails, the install keeps running on the VM and we resume
+    # from the logfile on next poll success.
+    local install_log="${HARNESS_ROOT}/tmp/install-recovery-${vm_name}-install.log"
+    _run_long_via_tmux "$ip" "install" "bash /tmp/install.sh" \
+        | tee -a "$install_log"
     return ${PIPESTATUS[0]}
 }
 
-# Cleanup helper — safe to call multiple times. Honors $KEEP_VM=1 to leave
-# the VM running for debugging.
+# Cleanup helper. KEEP_VM=1 leaves the VM running for debugging — accrues
+# €0.0072/hr until you `hcloud server delete <name>`.
 cleanup_vm() {
     local vm_name="$1"
+    _check_name_safety "$vm_name" || return 1
     if [ "${KEEP_VM:-0}" = "1" ]; then
-        echo "KEEP_VM=1 — leaving $vm_name running for debugging."
-        echo "  Connect: multipass shell $vm_name"
-        echo "  Statbus user: multipass exec $vm_name -- sudo -i -u statbus"
+        local ip
+        ip=$(hcloud server ip "$vm_name" 2>/dev/null || echo "?")
+        echo "KEEP_VM=1 — leaving $vm_name running for debugging (€0.0072/hr)"
+        echo "  ssh root@$ip"
+        echo "  Statbus user: ssh root@$ip sudo -i -u statbus"
+        echo "  Delete when done: hcloud server delete $vm_name"
         return 0
     fi
-    echo "Cleaning up VM: $vm_name"
-    multipass delete "$vm_name" 2>/dev/null || true
-    multipass purge 2>/dev/null || true
+    echo "Deleting VM: $vm_name"
+    hcloud server delete "$vm_name" 2>/dev/null || true
 }

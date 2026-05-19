@@ -21,7 +21,7 @@ source "$LIB_DIR/vm-bootstrap.sh"
 source "$LIB_DIR/wedge-helpers.sh"
 source "$LIB_DIR/assertions.sh"
 
-trap 'cleanup_vm "$VM_NAME"' EXIT
+trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
 echo "  Scenario 05: stage-c-systemd-failed"
@@ -45,8 +45,8 @@ simulate_systemd_failed "$VM_NAME"
 # 4. Verify unit is in failed state.
 echo ""
 echo "── verify unit is in failed state ──"
-STATE=$($VM_EXEC systemctl --user is-active statbus-upgrade@statbus.service 2>&1 | head -1 || true)
-RESULT=$($VM_EXEC systemctl --user show statbus-upgrade@statbus.service --property=Result --value 2>/dev/null || true)
+STATE=$(VM_EXEC systemctl --user is-active statbus-upgrade@statbus.service 2>&1 | head -1 || true)
+RESULT=$(VM_EXEC systemctl --user show statbus-upgrade@statbus.service --property=Result --value 2>/dev/null || true)
 echo "  unit state=$STATE result=$RESULT"
 if [ "$STATE" != "failed" ] && [ "$STATE" != "activating" ]; then
     echo "  ⚠ expected failed/activating, got '$STATE' — wedge may not have engaged"
