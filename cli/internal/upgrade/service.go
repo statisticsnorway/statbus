@@ -819,17 +819,23 @@ func (d *Service) recoverFromFlag(ctx context.Context, mode RecoveryMode) (err e
 				// mode picks between forward-recovery (run migrate.Up on
 				// the partial state) and restore-from-snapshot (pg_restore
 				// the pre-upgrade backup, mark row rolled_back). RecoveryAuto
-				// is treated as forward at this commit; the autoChooseRecovery
-				// heuristic lands in a follow-up commit.
-				if mode == RecoveryRestore {
-					logRecover("Ground-truth: %s — operator chose --recovery=restore, invoking restore-from-snapshot", reason)
+				// is resolved here via autoChooseRecovery so the chosen
+				// mode + rationale land on the operator-visible log.
+				effectiveMode := mode
+				if effectiveMode == RecoveryAuto {
+					chosen, rationale := autoChooseRecovery(flag)
+					logRecover("Ground-truth: %s — --recovery=auto picked %s (%s)", reason, chosen, rationale)
+					effectiveMode = chosen
+				}
+				if effectiveMode == RecoveryRestore {
+					logRecover("Ground-truth: %s — invoking restore-from-snapshot (--recovery=%s)", reason, mode)
 					if appendLog != nil {
 						appendLog.Close()
 						appendLog = nil
 					}
 					d.recoveryRollback(ctx, int(flag.ID), flag.Label(), logRelPath, fmt.Sprintf(
-						"%s: operator-requested restore (--recovery=restore): %s",
-						ErrInstallPreconditionFailed, reason))
+						"%s: --recovery=%s → restore-from-snapshot: %s",
+						ErrInstallPreconditionFailed, mode, reason))
 					return nil
 				}
 				// Forward-recovery (Fix 5b): when the only failure is
@@ -1954,6 +1960,63 @@ func latestDiskMigrationVersion(projDir string) int64 {
 		}
 	}
 	return latest
+}
+
+// autoChooseRecovery resolves a RecoveryAuto request into a concrete
+// RecoveryForward or RecoveryRestore decision for recoverFromFlag's
+// "binary swapped, migrations missing" branch.
+//
+// Heuristic:
+//
+//	  flag.BackupPath set AND directory exists AND ReadDir returns ≥1 entry
+//	  → RecoveryRestore (safer for non-idempotent migrations)
+//	otherwise
+//	  → RecoveryForward (idempotent migrations recover cleanly; non-empty
+//	    backup is missing or empty so restore would fail anyway)
+//
+// Why this shape:
+//
+//   - flag.BackupPath is set by writeFlagPhase right after the database
+//     backup completes (executeUpgrade Phase=PostSwap stamp). When present,
+//     we have direct evidence that destructive DB work was at least
+//     possible. When absent, the upgrade hadn't reached the destructive
+//     phase yet, so a forward replay of pending migrations is
+//     by-construction safe (there's nothing to undo).
+//
+//   - The os.Stat + ReadDir check guards against three failure modes:
+//     directory was manually pruned, partial truncation left an empty
+//     husk, or a path-permissions change makes the backup unreadable. In
+//     any of these cases restoreDatabase would fail downstream and the
+//     CATASTROPHIC FAILURE banner would fire — better to fall back to
+//     forward-recovery here, which doesn't depend on a usable snapshot.
+//
+//   - Conservative by design for the common case: pre-swap crashes (the
+//     rune-style SIGKILL during executeUpgrade's early steps) leave
+//     BackupPath empty, so auto picks forward — preserving the existing
+//     rune-recovery behavior validated in production.
+//
+// Returns the resolved mode and a human-readable rationale string that
+// recoverFromFlag includes in its log line so operators can see WHY auto
+// picked what it picked.
+func autoChooseRecovery(flag UpgradeFlag) (RecoveryMode, string) {
+	if flag.BackupPath == "" {
+		return RecoveryForward, "flag.backup_path is empty (no usable snapshot recorded)"
+	}
+	info, err := os.Stat(flag.BackupPath)
+	if err != nil {
+		return RecoveryForward, fmt.Sprintf("backup_path %q stat failed: %v", flag.BackupPath, err)
+	}
+	if !info.IsDir() {
+		return RecoveryForward, fmt.Sprintf("backup_path %q exists but is not a directory", flag.BackupPath)
+	}
+	entries, err := os.ReadDir(flag.BackupPath)
+	if err != nil {
+		return RecoveryForward, fmt.Sprintf("backup_path %q ReadDir failed: %v", flag.BackupPath, err)
+	}
+	if len(entries) == 0 {
+		return RecoveryForward, fmt.Sprintf("backup_path %q is an empty directory", flag.BackupPath)
+	}
+	return RecoveryRestore, fmt.Sprintf("backup_path %q is readable with %d entries", flag.BackupPath, len(entries))
 }
 
 // recoveryRollback is the recovery-path wrapper around d.rollback() used by
