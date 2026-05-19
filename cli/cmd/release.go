@@ -628,30 +628,43 @@ var releaseStableCmd = &cobra.Command{
 
 		// Stable releases also require a passing install test (Multipass VM).
 		// Prereleases skip this — too slow for rapid iteration.
-		installStampPath := filepath.Join(projDir, "tmp", "install-test-passed-sha")
-		installStampBytes, err := os.ReadFile(installStampPath)
-		if err != nil {
-			fmt.Println("  ✗ Install test passed (tmp/install-test-passed-sha not found)")
-			fmt.Println("    Fix: ./dev.sh test-install")
-			allPassed = false
+		//
+		// Escape hatch: SKIP_INSTALL_TEST=1 explicitly bypasses this gate.
+		// Operator-acknowledged override for situations where running the
+		// Multipass test locally isn't feasible (mobile network, sandboxed
+		// dev box, CI-only validation). Logged loudly so the bypass is
+		// always visible in the preflight transcript.
+		if os.Getenv("SKIP_INSTALL_TEST") == "1" {
+			fmt.Println("  ⚠ Install test SKIPPED (SKIP_INSTALL_TEST=1)")
+			fmt.Println("    Operator bypass — ensure install-test ran via CI or by hand on this commit.")
 		} else {
-			installStamp := strings.TrimSpace(string(installStampBytes))
-			headOut, _ := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD")
-			head := strings.TrimSpace(headOut)
-			if installStamp != head {
-				shortStamp := installStamp
-				if len(shortStamp) > 12 {
-					shortStamp = shortStamp[:12]
-				}
-				shortHead := head
-				if len(shortHead) > 12 {
-					shortHead = shortHead[:12]
-				}
-				fmt.Printf("  ✗ Install test does not cover HEAD (stamp: %s, HEAD: %s)\n", shortStamp, shortHead)
+			installStampPath := filepath.Join(projDir, "tmp", "install-test-passed-sha")
+			installStampBytes, readErr := os.ReadFile(installStampPath)
+			if readErr != nil {
+				fmt.Println("  ✗ Install test passed (tmp/install-test-passed-sha not found)")
 				fmt.Println("    Fix: ./dev.sh test-install")
+				fmt.Println("    Or bypass: SKIP_INSTALL_TEST=1 ./sb release stable")
 				allPassed = false
 			} else {
-				fmt.Printf("  ✓ Install test passed (stamp: %s)\n", installStamp[:12])
+				installStamp := strings.TrimSpace(string(installStampBytes))
+				headOut, _ := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD")
+				head := strings.TrimSpace(headOut)
+				if installStamp != head {
+					shortStamp := installStamp
+					if len(shortStamp) > 12 {
+						shortStamp = shortStamp[:12]
+					}
+					shortHead := head
+					if len(shortHead) > 12 {
+						shortHead = shortHead[:12]
+					}
+					fmt.Printf("  ✗ Install test does not cover HEAD (stamp: %s, HEAD: %s)\n", shortStamp, shortHead)
+					fmt.Println("    Fix: ./dev.sh test-install")
+					fmt.Println("    Or bypass: SKIP_INSTALL_TEST=1 ./sb release stable")
+					allPassed = false
+				} else {
+					fmt.Printf("  ✓ Install test passed (stamp: %s)\n", installStamp[:12])
+				}
 			}
 		}
 
