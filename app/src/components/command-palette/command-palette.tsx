@@ -379,20 +379,6 @@ export function CommandPalette() {
                   <span>Find statistical units</span>
                 </CommandItem>
                 <CommandItem
-                  onSelect={() => navigate("/admin")}
-                  value="admin customize external ident variable size status source setting"
-                >
-                  <Settings className="mr-2 h-4 w-4" />
-                  <span>Admin Settings</span>
-                </CommandItem>
-                <CommandItem
-                  onSelect={() => navigate("/admin/upgrades")}
-                  value="upgrade software update version"
-                >
-                  <ArrowDownToLine className="mr-2 h-4 w-4" />
-                  <span>Software upgrades</span>
-                </CommandItem>
-                <CommandItem
                   onSelect={() => navigate("/reports")}
                   value="Reports"
                 >
@@ -400,13 +386,9 @@ export function CommandPalette() {
                   <span>Reports</span>
                 </CommandItem>
                 <CommandItem
-                  onSelect={() => navigate("/reports/history-changes")}
-                  value="History changes chart"
+                  onSelect={() => navigate("/profile")}
+                  value="Profile"
                 >
-                  <ChartColumn className="mr-2 h-4 w-4" />
-                  <span>History chart</span>
-                </CommandItem>
-                <CommandItem onSelect={() => navigate("/profile")} value="Profile">
                   <User className="mr-2 h-4 w-4" />
                   <span>Profile</span>
                 </CommandItem>
@@ -535,11 +517,18 @@ export function CommandPalette() {
                 <>
                   <CommandGroup heading="Admin tools">
                     <CommandItem
-                      onSelect={() => navigate("/admin/users")}
-                      value="manage create users"
+                      onSelect={() => navigate("/admin")}
+                      value="admin users customize external ident variable size status source setting"
                     >
-                      <Users className="mr-2 h-4 w-4" />
-                      <span>Manage users</span>
+                      <Settings className="mr-2 h-4 w-4" />
+                      <span>Admin Settings</span>
+                    </CommandItem>
+                    <CommandItem
+                      onSelect={() => navigate("/admin/upgrades")}
+                      value="upgrade software update version"
+                    >
+                      <ArrowDownToLine className="mr-2 h-4 w-4" />
+                      <span>Software upgrades</span>
                     </CommandItem>
                     <CommandItem
                       onSelect={() => navigate("/doc/er")}

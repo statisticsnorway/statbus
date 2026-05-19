@@ -42,9 +42,9 @@ export async function inspectFile(file: File): Promise<FilePreview> {
 
     const data = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1 });
     const columnNames = (data[0] || []).map(String);
-    const sampleRows = data.slice(1, 6).map(row =>
-      row.map(cell => (cell === null || cell === undefined) ? '' : String(cell))
-    );
+    const sampleRows = data
+      .slice(1, 6)
+      .map((row) => columnNames.map((_, i) => String(row[i] ?? "")));
 
     return { fileName, fileSize, rowCount, columnNames, sampleRows, isExcel, arrayBuffer };
   }

@@ -175,7 +175,8 @@ export async function GET(request: NextRequest) {
       }
 
       // Prepare reference data and validation info before streaming
-      const prefixColumnCount = errorColumn ? 2 : 1;
+      const prefixColumnCount =
+        filter === "error" ? 3 : filter === "warning" ? 2 : 1;
       const standardizedColumnNames = columnEntries.map(e => e.dataCol.replace(/_raw$/, ''));
 
       const settingsResult = await client.from("settings").select("region_version_id").single();

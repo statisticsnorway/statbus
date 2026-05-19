@@ -326,49 +326,13 @@ export function ImportJobUpload({
         )}
       </div>
 
-      {allowUpload && phase === 'idle' && (
+      {allowUpload && phase === "idle" && !job.time_context_ident && (
         <div className="border rounded-md p-4">
-          <h4 className="font-medium text-gray-800 mb-2">
-            Expected File Format
-          </h4>
           <div className="text-sm text-gray-700 space-y-2">
-            <p>
-              Your CSV or Excel file should include the following required columns:
+            <p className="font-medium">
+              This import requires valid_from and valid_to date columns in ISO
+              format (YYYY-MM-DD).
             </p>
-            <ul className="list-disc pl-5 space-y-1">
-              {definition?.mode === "legal_unit" && (
-                <>
-                  <li>id (unique identifier)</li>
-                  <li>name (legal unit name)</li>
-                  <li>tax_ident (tax identification number)</li>
-                  <li>region_code (region code)</li>
-                  <li>activity_category_code (primary activity code)</li>
-                </>
-              )}
-              {definition?.mode === "establishment_formal" && (
-                <>
-                  <li>id (unique identifier)</li>
-                  <li>name (establishment name)</li>
-                  <li>legal_unit_id (reference to legal unit)</li>
-                  <li>region_code (region code)</li>
-                  <li>activity_category_code (primary activity code)</li>
-                </>
-              )}
-              {definition?.mode === "establishment_informal" && (
-                <>
-                  <li>id (unique identifier)</li>
-                  <li>name (establishment name)</li>
-                  <li>region_code (region code)</li>
-                  <li>activity_category_code (primary activity code)</li>
-                </>
-              )}
-            </ul>
-            {!job.time_context_ident && (
-              <p className="font-medium">
-                This import requires valid_from and valid_to date columns in
-                ISO format (YYYY-MM-DD).
-              </p>
-            )}
           </div>
         </div>
       )}
