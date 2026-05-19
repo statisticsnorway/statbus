@@ -36,7 +36,7 @@ Every condition the staleness layer can encounter has a documented, actionable o
 
 | Condition | Outcome | Why |
 |---|---|---|
-| `commitSHA == ""` (tier-1/tier-2 ambiguous: built without ldflags AND not from a clean git tree) | exit 2 with `Rebuild from a clean tree: ./dev.sh build-sb` | Binary has no identity to rebuild against |
+| `commitSHA == ""` (tier-1/tier-2 ambiguous: built without ldflags AND not from a clean git tree) | exit 2 with `Rebuild from a clean tree: ./dev.sh cross-build-sb` | Binary has no identity to rebuild against |
 | Stale + selfheal command + first attempt | rebuild + re-exec | Recovery commands must work from wedged state |
 | Stale + selfheal command + `_SB_SELFHEAL_ATTEMPT=1` already set | exit 2 with manual-rebuild hint | Single-attempt contract; the loop won't help if rebuild didn't fix freshness |
 | Stale + non-selfheal mutating command | exit 2 with stale diagnostic | Destructive ops must not auto-modify state with old logic |

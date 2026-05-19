@@ -1657,18 +1657,45 @@ EOS
         echo "Remember to enable 'Require signed commits' on master in GitHub branch protection"
       ;;
     'build-sb' )
-        TARGET=${1:-linux/amd64}
+        # Lego primitive: build ONE sb binary.
+        #   No args     → host platform → write to ./sb (daily-driver path).
+        #   <os>/<arch> → cross-compile → write sb-<os>-<arch>; ./sb unchanged.
+        # cross-build-sb composes this primitive across all 4 platforms.
+        if [ -z "${1:-}" ]; then
+            TARGET="$(go env GOOS)/$(go env GOARCH)"
+            OUTPUT="sb"
+        else
+            TARGET="$1"
+            OS=${TARGET%/*}
+            ARCH=${TARGET#*/}
+            OUTPUT="sb-${OS}-${ARCH}"
+        fi
         OS=${TARGET%/*}
         ARCH=${TARGET#*/}
-        OUTPUT="sb-${OS}-${ARCH}"
         VERSION=$(git describe --tags --always --match 'v[0-9]*' 2>/dev/null | sed 's/^v//' || echo "dev")
         # Full 40-char SHA — see note at line ~51 for rationale.
         COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
         LDFLAGS="-s -w -X 'github.com/statisticsnorway/statbus/cli/cmd.version=${VERSION}' -X 'github.com/statisticsnorway/statbus/cli/cmd.commit=${COMMIT}'"
-        echo "Building sb ${VERSION} for ${OS}/${ARCH}..."
-        cd cli && CGO_ENABLED=0 GOOS=$OS GOARCH=$ARCH go build -trimpath -ldflags "$LDFLAGS" -o "../$OUTPUT" .
+        echo "Building sb ${VERSION} for ${OS}/${ARCH} → ${OUTPUT}..."
+        (cd cli && CGO_ENABLED=0 GOOS=$OS GOARCH=$ARCH go build -trimpath -ldflags "$LDFLAGS" -o "../$OUTPUT" .)
         echo "Built: $OUTPUT"
-        ls -lh "../$OUTPUT"
+        ls -lh "$OUTPUT"
+      ;;
+    'cross-build-sb' )
+        # Composed command — build all four target platforms and refresh
+        # ./sb to the host variant so the daily-driver remains usable
+        # after a release-packaging build. Pointed at by the identity-
+        # guard error message as the safe default; the operator never
+        # needs to know which platform they're on a priori.
+        for t in darwin/arm64 darwin/amd64 linux/arm64 linux/amd64; do
+            ./dev.sh build-sb "$t"
+        done
+        HOST_OS=$(go env GOOS)
+        HOST_ARCH=$(go env GOARCH)
+        if [ -f "sb-${HOST_OS}-${HOST_ARCH}" ]; then
+            cp "sb-${HOST_OS}-${HOST_ARCH}" sb
+            echo "Refreshed: ./sb → sb-${HOST_OS}-${HOST_ARCH}"
+        fi
       ;;
     'update-seed' )
         # Apply any pending migrations FIRST so the seed reflects the
@@ -1999,7 +2026,8 @@ SCRIPT
       echo ""
       echo "Build:"
       echo "  test-install                       End-to-end install test via Multipass VM"
-      echo "  build-sb [target]                  Cross-compile sb binary (default: linux/amd64)"
+      echo "  build-sb [target]                  Build sb. No args: host → ./sb. <os>/<arch>: cross → sb-<os>-<arch>."
+      echo "  cross-build-sb                     Build all 4 platforms + refresh ./sb to host variant."
       echo ""
       echo "Git:"
       echo "  setup-signing                      Configure SSH commit signing for this repo"

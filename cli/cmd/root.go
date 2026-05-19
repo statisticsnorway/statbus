@@ -86,7 +86,7 @@ func stalenessGuard(c *cobra.Command, _ []string) {
 		// Tier-1/tier-2 ambiguous identity. A binary with no identity can't
 		// reliably know what to rebuild against, so self-heal can't help here.
 		const msg = "./sb has no reliable commit identity (built without ldflags, or with uncommitted changes, or non-git build).\n" +
-			"  Rebuild from a clean tree: ./dev.sh build-sb"
+			"  Rebuild from a clean tree: ./dev.sh cross-build-sb"
 		if isMutatingCommand(c) {
 			fmt.Fprintln(os.Stderr, msg)
 			os.Exit(2)
