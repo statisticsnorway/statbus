@@ -323,12 +323,14 @@ func preflightChecks(projDir string) bool {
 		fmt.Printf("    Run: %s\n", ciResult.RunURL)
 	case release.CIImagesPending:
 		fmt.Printf("  ✗ CI Images is still pending at %s\n", ciHeadShort)
-		fmt.Printf("    Watch: %s\n", ciResult.RunURL)
+		fmt.Printf("    Watch: gh run watch %d\n", ciResult.RunID)
+		fmt.Printf("    URL:   %s\n", ciResult.RunURL)
 		fmt.Println("    Fix: wait for CI to complete, then re-run prerelease")
 		allPassed = false
 	case release.CIImagesFailed:
 		fmt.Printf("  ✗ CI Images failed at %s (conclusion: %s)\n", ciHeadShort, ciResult.Detail)
-		fmt.Printf("    See: %s\n", ciResult.RunURL)
+		fmt.Printf("    See: gh run view %d --log-failed\n", ciResult.RunID)
+		fmt.Printf("    URL: %s\n", ciResult.RunURL)
 		fmt.Println("    Fix:")
 		fmt.Printf("      Retry the failed jobs (if transient — network, ghcr.io timeout): gh run rerun --failed %d\n", ciResult.RunID)
 		fmt.Println("      Or push a fix to master, then re-run prerelease (if real defect)")
