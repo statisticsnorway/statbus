@@ -89,17 +89,30 @@ func checkCIImagesAt(apiBase, commitSHA string) CIImagesResult {
 		return CIImagesResult{Status: CIImagesMissing}
 	}
 
-	// GitHub returns workflow_runs ordered by created_at desc by default;
-	// the first element is the latest. Operators care about the latest
-	// state — an older successful run is meaningless if the commit was
-	// later re-tested and failed.
+	// Any-green semantics: a commit's Docker artifact is immutable once
+	// ci-images.yaml's master-push run has built and pushed it to ghcr.io.
+	// A later retry of the same workflow (e.g. tag-push duplicate, manual
+	// dispatch, transient infra flake retry) can fail without unbuilding
+	// the artifact. Treat any completed/success run for the commit as
+	// authoritative — older or newer, doesn't matter.
+	//
+	// Priority order:
+	//   1. Any completed/success → Green (use that run's URL/ID).
+	//   2. Else any not-completed → Pending (the in-flight run is the
+	//      operator's signal: wait for it).
+	//   3. Else all completed without success → Failed (use latest's
+	//      conclusion as the diagnostic).
+	for _, run := range body.WorkflowRuns {
+		if run.Status == "completed" && run.Conclusion == "success" {
+			return CIImagesResult{Status: CIImagesGreen, RunURL: run.HTMLURL, RunID: run.ID}
+		}
+	}
+	for _, run := range body.WorkflowRuns {
+		if run.Status != "completed" {
+			return CIImagesResult{Status: CIImagesPending, RunURL: run.HTMLURL, RunID: run.ID}
+		}
+	}
 	latest := body.WorkflowRuns[0]
-	if latest.Status != "completed" {
-		return CIImagesResult{Status: CIImagesPending, RunURL: latest.HTMLURL, RunID: latest.ID}
-	}
-	if latest.Conclusion == "success" {
-		return CIImagesResult{Status: CIImagesGreen, RunURL: latest.HTMLURL, RunID: latest.ID}
-	}
 	return CIImagesResult{Status: CIImagesFailed, RunURL: latest.HTMLURL, RunID: latest.ID, Detail: latest.Conclusion}
 }
 

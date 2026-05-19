@@ -87,10 +87,12 @@ func TestCheckCIImagesAtCommit(t *testing.T) {
 			wantStatus: CIImagesMissing,
 		},
 		{
-			name: "latest-only: pending shadows older success",
-			// GitHub returns runs created_at desc — the first element is
-			// the latest. We must NOT report green based on a stale earlier
-			// run if the commit was retried and is now pending.
+			name: "any-green-wins: an earlier success counts even if a later retry is pending",
+			// The Docker artifact is immutable per commit — once ANY run
+			// pushed the images to ghcr.io, they're there. A later retry
+			// hitting transient infra and queuing or failing doesn't
+			// unbuild it. Operators care whether the artifact exists,
+			// not which run was most recent.
 			runs: []map[string]any{
 				{
 					"id":         7,
@@ -107,8 +109,31 @@ func TestCheckCIImagesAtCommit(t *testing.T) {
 					"created_at": "2026-05-19T10:00:00Z",
 				},
 			},
-			wantStatus: CIImagesPending,
-			wantURL:    "https://github.com/o/r/actions/runs/7",
+			wantStatus: CIImagesGreen,
+			wantURL:    "https://github.com/o/r/actions/runs/6",
+			wantID:     6,
+		},
+		{
+			name: "any-green-wins: an earlier success counts even if a later retry failed",
+			runs: []map[string]any{
+				{
+					"id":         9,
+					"html_url":   "https://github.com/o/r/actions/runs/9",
+					"status":     "completed",
+					"conclusion": "failure",
+					"created_at": "2026-05-19T11:00:00Z",
+				},
+				{
+					"id":         8,
+					"html_url":   "https://github.com/o/r/actions/runs/8",
+					"status":     "completed",
+					"conclusion": "success",
+					"created_at": "2026-05-19T10:00:00Z",
+				},
+			},
+			wantStatus: CIImagesGreen,
+			wantURL:    "https://github.com/o/r/actions/runs/8",
+			wantID:     8,
 		},
 	}
 
