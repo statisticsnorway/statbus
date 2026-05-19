@@ -815,7 +815,30 @@ func (d *Service) recoverFromFlag(ctx context.Context, mode RecoveryMode) (err e
 			// route to recoveryRollback (their semantics genuinely
 			// require the rollback path).
 			if strings.HasPrefix(reason, "db.migration max version") {
-				logRecover("Ground-truth: %s — forward-recovering via migrate.Up", reason)
+				// Disposition for "binary swapped, migrations missing":
+				// mode picks between forward-recovery (run migrate.Up on
+				// the partial state) and restore-from-snapshot (pg_restore
+				// the pre-upgrade backup, mark row rolled_back). RecoveryAuto
+				// is treated as forward at this commit; the autoChooseRecovery
+				// heuristic lands in a follow-up commit.
+				if mode == RecoveryRestore {
+					logRecover("Ground-truth: %s — operator chose --recovery=restore, invoking restore-from-snapshot", reason)
+					if appendLog != nil {
+						appendLog.Close()
+						appendLog = nil
+					}
+					d.recoveryRollback(ctx, int(flag.ID), flag.Label(), logRelPath, fmt.Sprintf(
+						"%s: operator-requested restore (--recovery=restore): %s",
+						ErrInstallPreconditionFailed, reason))
+					return nil
+				}
+				// Forward-recovery (Fix 5b): when the only failure is
+				// "migrations missing" and operator did not request restore,
+				// re-run migrate.Up inline and re-verify. Safe when the
+				// killed migration is idempotent; non-idempotent migrations
+				// can silently corrupt data — use --recovery=restore for
+				// those.
+				logRecover("Ground-truth: %s — forward-recovering via migrate.Up (--recovery=%s)", reason, mode)
 				if mErr := migrate.Up(d.projDir, 0, true, true); mErr != nil {
 					logRecover("Forward-recovery migrate.Up failed: %v — falling through to rollback", mErr)
 					if appendLog != nil {
