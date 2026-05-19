@@ -82,6 +82,13 @@ var rootCmd = &cobra.Command{
 // against). See doc/upgrade-system.md for the full state matrix and the
 // fail-fast audit table.
 func stalenessGuard(c *cobra.Command, _ []string) {
+	// Echoed in every refuse-with-guidance path so the operator's next
+	// step is unambiguous: rebuild, then re-invoke the exact command they
+	// just typed. Cobra's CommandPath returns "sb release prerelease"
+	// without the leading "./"; we prepend it to match how the operator
+	// invoked it on the command line.
+	reRun := "./" + c.CommandPath()
+
 	if commitSHA == "" {
 		// Tier-1/tier-2 ambiguous identity. A binary with no identity can't
 		// reliably know what to rebuild against, so self-heal can't help here.
@@ -89,6 +96,7 @@ func stalenessGuard(c *cobra.Command, _ []string) {
 			"  Rebuild from a clean tree: ./dev.sh cross-build-sb"
 		if isMutatingCommand(c) {
 			fmt.Fprintln(os.Stderr, msg)
+			fmt.Fprintf(os.Stderr, "  After rebuild, re-run: %s\n", reRun)
 			os.Exit(2)
 		}
 		fmt.Fprintln(os.Stderr, "WARN: "+msg)
@@ -121,11 +129,13 @@ func stalenessGuard(c *cobra.Command, _ []string) {
 		// a binary whose ldflags don't match HEAD. Surface and stop.
 		if os.Getenv(freshness.SelfHealAttemptEnv) != "" {
 			fmt.Fprintln(os.Stderr, "Self-heal failed: rebuilt binary is still reported stale.")
-			fmt.Fprintln(os.Stderr, "  Race between rebuild and tree update? Manual rebuild: (cd cli && go build -o ../sb .)")
+			fmt.Fprintln(os.Stderr, "  Race between rebuild and tree update? Manual rebuild: ./dev.sh cross-build-sb")
+			fmt.Fprintf(os.Stderr, "  After rebuild, re-run: %s\n", reRun)
 			os.Exit(2)
 		}
 		// Non-self-healing mutating command on stale binary: hard-fail.
 		fmt.Fprintln(os.Stderr, msg)
+		fmt.Fprintf(os.Stderr, "  After rebuild, re-run: %s\n", reRun)
 		os.Exit(2)
 	}
 	fmt.Fprintln(os.Stderr, "WARN: "+msg)
