@@ -68,7 +68,7 @@ ORDER BY ei.ident;
 
 -- Verify the legal_relationship import definition exists and is valid
 \echo "Legal relationship import definitions:"
-SELECT slug, name, valid FROM public.import_definition WHERE slug LIKE 'legal_relationship%';
+SELECT slug, name, valid FROM public.import_definition WHERE slug LIKE 'legal_relationship%' ORDER BY slug;
 
 -- Create import job for legal relationships
 DO $$
