@@ -1158,14 +1158,106 @@ EOF
         echo "Seed database dropped: $SEED_NAME"
       ;;
     'recreate-seed' )
-        # Composition: delete-seed + create-seed + migrate up --target seed.
+        # Rebuild ${POSTGRES_SEED_DB} from the latest published seed artifact
+        # (origin/db-seed branch via ./sb db seed fetch), then apply only
+        # the migrations newer than the artifact's recorded migration_version.
+        #
+        # Why not always migrate-from-zero: applying ~348 migrations from an
+        # empty schema is ~1-3 minutes; pg_restore of the artifact is ~2s
+        # and incremental `./sb migrate up --target seed` is ~50ms per
+        # pending migration. Typical dev workflow (1-10 new migrations per
+        # pull): 5-20× faster than from-zero.
+        #
+        # The artifact-restore + incremental path is functionally equivalent
+        # to from-zero migrations — `./sb migrate up` reads `db.migration`
+        # to know what's applied and only runs pending. eagerContentHashCheck
+        # in migrate.runUp catches drift between already-applied migration
+        # rows and on-disk file bytes, so silent corruption of the chain
+        # surfaces loudly.
+        #
+        # Operator overrides:
+        #   FULL_REPLAY=1            — bypass the artifact entirely; rebuild
+        #                              from-zero. Use when debugging the
+        #                              "is this bug because of a partial
+        #                              migration?" class of question.
+        #   STATBUS_DB_SEED_NO_FETCH=1 — skip the `./sb db seed fetch` round
+        #                              trip. Use offline or in CI where the
+        #                              artifact is pre-staged.
+        #
+        # Automatic fallback to FULL_REPLAY fires when:
+        #   - fetch fails AND no cached artifact at .db-seed/seed.pg_dump
+        #   - artifact's migration_version > local on-disk max (means local
+        #     working tree is older than the artifact — confusing state,
+        #     safer to rebuild from on-disk migrations)
+        #   - pg_restore exits non-zero with a real failure (warnings — exit
+        #     code 1 from --clean drops — are handled by ./sb db seed restore)
+        #
         # Migration 20260427124351 self-drains has_pending residual via an
         # inline CALL worker.process_tasks() in its body — no separate drain
         # step needed here. The auto-rebuild in cli/internal/migrate/migrate.go
         # fires after Up() succeeds and clones the (now-clean) seed into the
         # test template.
+        eval $(./dev.sh postgres-variables)
+        SEED_NAME="${POSTGRES_SEED_DB:-statbus_seed}"
+
+        if [ "${FULL_REPLAY:-0}" = "1" ]; then
+            echo "recreate-seed: FULL_REPLAY=1 — rebuilding $SEED_NAME from zero via all migrations."
+            ./dev.sh delete-seed
+            ./dev.sh create-seed
+            ./sb migrate up --target seed --verbose
+            exit 0
+        fi
+
+        # Always auto-fetch unless operator opts out. Cheap (~100ms) and
+        # picks up seeds published by other operators / CI on origin.
+        if [ "${STATBUS_DB_SEED_NO_FETCH:-0}" != "1" ]; then
+            echo "recreate-seed: fetching latest seed artifact from origin/db-seed..."
+            if ! ./sb db seed fetch; then
+                if [ ! -f "$WORKSPACE/.db-seed/seed.pg_dump" ]; then
+                    echo "recreate-seed: fetch failed and no cached artifact — falling back to FULL_REPLAY."
+                    FULL_REPLAY=1 exec "$0" recreate-seed
+                fi
+                echo "recreate-seed: fetch failed; will use cached artifact at .db-seed/seed.pg_dump."
+            fi
+        fi
+
+        if [ ! -f "$WORKSPACE/.db-seed/seed.pg_dump" ]; then
+            echo "recreate-seed: no artifact available (STATBUS_DB_SEED_NO_FETCH=$STATBUS_DB_SEED_NO_FETCH, file absent) — falling back to FULL_REPLAY."
+            FULL_REPLAY=1 exec "$0" recreate-seed
+        fi
+
+        # Guard against artifact-ahead-of-working-tree: if the artifact's
+        # migration_version > the highest local on-disk migration, the
+        # operator's working tree is older than the published artifact
+        # (e.g. git-switched to a feature branch with the artifact still
+        # cached from master). pg_restore would land schema the local
+        # migrations don't acknowledge — confusing state. Drop to
+        # FULL_REPLAY which is grounded in local migrations only.
+        ARTIFACT_VERSION=$(awk -F'"' '/"migration_version"/ {print $4}' "$WORKSPACE/.db-seed/seed.json" 2>/dev/null || echo "")
+        LATEST_LOCAL_MIGRATION=$(for f in "$WORKSPACE/migrations/"*.up.sql "$WORKSPACE/migrations/"*.up.psql; do
+            [ -e "$f" ] || continue
+            basename "$f" | cut -d_ -f1
+        done | sort | tail -1)
+        if [ -n "$ARTIFACT_VERSION" ] && [ -n "$LATEST_LOCAL_MIGRATION" ] && [ "$ARTIFACT_VERSION" \> "$LATEST_LOCAL_MIGRATION" ]; then
+            echo "recreate-seed: artifact version $ARTIFACT_VERSION is ahead of local on-disk max $LATEST_LOCAL_MIGRATION — falling back to FULL_REPLAY."
+            FULL_REPLAY=1 exec "$0" recreate-seed
+        fi
+
+        # Diagnostic: show what we're starting from. Output goes to operator
+        # log so reviewers can see the artifact version baseline.
+        ./sb db seed status || true
+
         ./dev.sh delete-seed
         ./dev.sh create-seed
+
+        if ! ./sb db seed restore --database "$SEED_NAME"; then
+            echo "recreate-seed: restore failed — falling back to FULL_REPLAY."
+            FULL_REPLAY=1 exec "$0" recreate-seed
+        fi
+
+        # Incremental: migrate up consults db.migration to apply only
+        # migrations whose version isn't already recorded. Typical run
+        # applies just the few migrations newer than the artifact.
         ./sb migrate up --target seed --verbose
       ;;
     'seed-status' )
@@ -1832,7 +1924,9 @@ EOS
       echo "Seed lifecycle (build-time canonical schema):"
       echo "  create-seed                        Create empty \${POSTGRES_SEED_DB} from template_statbus"
       echo "  delete-seed                        Drop \${POSTGRES_SEED_DB}"
-      echo "  recreate-seed                      delete-seed + create-seed + ./sb migrate up --target seed"
+      echo "  recreate-seed                      Rebuild \${POSTGRES_SEED_DB} from origin/db-seed artifact + incremental"
+      echo "                                       migrations (~5-15s typical). FULL_REPLAY=1 forces from-zero replay"
+      echo "                                       (~1-3min). STATBUS_DB_SEED_NO_FETCH=1 uses cached artifact only."
       echo "  seed-status                        Compare seed DB to migrations/ at HEAD (set diff)"
       echo "  seed-clone <target>                Clone seed → <target> via pg CREATE DATABASE WITH TEMPLATE"
       echo ""
