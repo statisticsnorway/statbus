@@ -167,11 +167,30 @@ func checkTypesStampGuard(projDir string) stampGuardDecision {
 		fmt.Printf("Reason:  no stamp at tmp/%s — no prior successful run to skip.\n", stampBasename)
 		return stampGuardRun
 	}
-	stampSHA := strings.TrimSpace(string(data))
+	// H1 two-line stamp (task #123): line 1 = HEAD SHA, line 2 = source
+	// DB migration_version. Pre-task-#131 this used
+	// `strings.TrimSpace(string(data))` which left the inner newline
+	// intact — `stampSHA` became a two-line string that mangled git
+	// operations (`git merge-base --is-ancestor` always failed because
+	// the multi-line ref name is not a valid revision) and rendered as
+	// a bled diagnostic across two terminal lines. parseTwoLineStamp
+	// (release.go) extracts the two fields cleanly; legacy single-line
+	// stamps return stampVersion="" and continue to work via the SHA
+	// path below.
+	stampSHA, stampVersion := parseTwoLineStamp(data)
 	if stampSHA == "" {
 		fmt.Println("RUNNING:", label)
 		fmt.Printf("Reason:  stamp tmp/%s is empty.\n", stampBasename)
 		return stampGuardRun
+	}
+
+	// Diagnostic helper: format the stamp identity for printing. Shows
+	// just the SHA for legacy single-line stamps; SHA + labeled version
+	// for H1 two-line stamps. Keeps the operator-visible output honest
+	// about which stamp shape we're reading.
+	stampDisplay := stampSHA
+	if stampVersion != "" {
+		stampDisplay = fmt.Sprintf("%s (source migration_version: %s)", stampSHA, stampVersion)
 	}
 
 	if _, err := upgrade.RunCommandOutput(projDir, "git", "merge-base", "--is-ancestor", stampSHA, "HEAD"); err != nil {
@@ -189,8 +208,8 @@ func checkTypesStampGuard(projDir string) stampGuardDecision {
 		fmt.Println("SKIPPED:", label)
 		fmt.Printf("Reason:  stamp tmp/%s points to a commit whose migrations content matches HEAD — re-running would produce an identical result.\n", stampBasename)
 		fmt.Println("Evidence:")
-		fmt.Println("  stamp SHA:", stampSHA)
-		fmt.Println("  HEAD SHA: ", headSHA)
+		fmt.Println("  stamp:   ", stampDisplay)
+		fmt.Println("  HEAD SHA:", headSHA)
 		fmt.Println("  files changed in scope (migrations): 0")
 		fmt.Printf("Override: rm tmp/%s, or set FORCE=1.\n", stampBasename)
 		return stampGuardSkip
@@ -199,8 +218,8 @@ func checkTypesStampGuard(projDir string) stampGuardDecision {
 	fmt.Println("RUNNING:", label)
 	fmt.Println("Reason:  in-scope content has drifted since stamp.")
 	fmt.Println("Evidence:")
-	fmt.Println("  stamp SHA:", stampSHA)
-	fmt.Println("  HEAD SHA: ", headSHA)
+	fmt.Println("  stamp:   ", stampDisplay)
+	fmt.Println("  HEAD SHA:", headSHA)
 	fmt.Println("  files changed in scope (migrations):")
 	for _, line := range strings.Split(changed, "\n") {
 		fmt.Println("    " + line)
