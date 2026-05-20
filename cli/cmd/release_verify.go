@@ -355,7 +355,7 @@ Exit 0 on success, 1 with diagnostic on failure. No side effects.`,
 	},
 }
 
-// releaseVerifyCICmd queries GitHub Actions for the ci-images.yaml workflow
+// releaseVerifyImagesCmd queries GitHub Actions for the images.yaml workflow
 // state at a commit. Replaces the slow local `docker build --target=…-builder`
 // replay that used to gate `git push` in .githooks/pre-push: CI is the source
 // of truth that the Docker artifacts can actually be built, and the local
@@ -364,10 +364,10 @@ Exit 0 on success, 1 with diagnostic on failure. No side effects.`,
 // The guard remains in the hook — the hook just calls this subcommand
 // instead of running docker — so the operator sees an explicit "block + guide"
 // step rather than a silent fast-path.
-var releaseVerifyCICmd = &cobra.Command{
-	Use:   "verify-ci <commit-sha>",
-	Short: "Verify CI Images is green for the given commit",
-	Long: `Query GitHub Actions for the ci-images.yaml workflow at <commit-sha>.
+var releaseVerifyImagesCmd = &cobra.Command{
+	Use:   "verify-images <commit-sha>",
+	Short: "Verify the images workflow is green for the given commit",
+	Long: `Query GitHub Actions for the images.yaml workflow at <commit-sha>.
 Exit 0 if the latest run is completed/success; non-zero with operator-actionable
 guidance otherwise. <commit-sha> must be the full 40-char SHA — the GitHub API
 silently returns zero matches for short SHAs.
@@ -381,25 +381,25 @@ or replay anything locally; it just asks GitHub what its own CI said.`,
 			return fmt.Errorf("commit-sha must be the full 40-char SHA (got %d chars: %q)\n  Fix: pass `git rev-list -1 <ref>` output, not a short SHA.", len(sha), sha)
 		}
 		shortSHA := sha[:12]
-		result := release.CheckCIImagesAtCommit(sha)
+		result := release.CheckWorkflowAtCommit(release.WorkflowImages, sha)
 		switch result.Status {
-		case release.CIImagesGreen:
-			fmt.Printf("OK: CI Images green at %s\n  Run: %s\n", shortSHA, result.RunURL)
+		case release.WorkflowCheckGreen:
+			fmt.Printf("OK: images green at %s\n  Run: %s\n", shortSHA, result.RunURL)
 			return nil
-		case release.CIImagesPending:
-			return fmt.Errorf("CI Images is still pending at %s\n  Watch: gh run watch %d\n  URL:   %s\n  Fix: wait for the run to complete, then retry the push.", shortSHA, result.RunID, result.RunURL)
-		case release.CIImagesFailed:
-			return fmt.Errorf("CI Images failed at %s (conclusion: %s)\n  See: gh run view %d --log-failed\n  URL: %s\n  Fix:\n    Retry the failed jobs (if transient — network, ghcr.io timeout): gh run rerun --failed %d\n    Or push a fix to master (if real defect), then retry the push.", shortSHA, result.Detail, result.RunID, result.RunURL, result.RunID)
-		case release.CIImagesMissing:
-			return fmt.Errorf("CI Images has not run for %s\n  Trigger: %s\n  Watch:   %s\n  Fix: run the trigger command above, wait for green, then retry the push.", shortSHA, release.CIImagesTriggerCommand(sha), release.CIImagesWorkflowURL())
-		case release.CIImagesUnknown:
-			return fmt.Errorf("CI Images status check failed (GitHub API error)\n  Detail: %s\n  Fix: check network connectivity / GITHUB_TOKEN, or retry shortly.", result.Detail)
+		case release.WorkflowCheckPending:
+			return fmt.Errorf("images is still pending at %s\n  Watch: gh run watch %d\n  URL:   %s\n  Fix: wait for the run to complete, then retry the push.", shortSHA, result.RunID, result.RunURL)
+		case release.WorkflowCheckFailed:
+			return fmt.Errorf("images failed at %s (conclusion: %s)\n  See: gh run view %d --log-failed\n  URL: %s\n  Fix:\n    Retry the failed jobs (if transient — network, ghcr.io timeout): gh run rerun --failed %d\n    Or push a fix to master (if real defect), then retry the push.", shortSHA, result.Detail, result.RunID, result.RunURL, result.RunID)
+		case release.WorkflowCheckMissing:
+			return fmt.Errorf("images has not run for %s\n  Trigger: %s\n  Watch:   %s\n  Fix: run the trigger command above, wait for green, then retry the push.", shortSHA, release.WorkflowTriggerCommand(release.WorkflowImages, sha), release.WorkflowURL(release.WorkflowImages))
+		case release.WorkflowCheckUnknown:
+			return fmt.Errorf("images status check failed (GitHub API error)\n  Detail: %s\n  Fix: check network connectivity / GITHUB_TOKEN, or retry shortly.", result.Detail)
 		}
-		return fmt.Errorf("unexpected CI Images status: %q", result.Status)
+		return fmt.Errorf("unexpected images status: %q", result.Status)
 	},
 }
 
 func init() {
 	releaseCmd.AddCommand(releaseVerifyTagCmd)
-	releaseCmd.AddCommand(releaseVerifyCICmd)
+	releaseCmd.AddCommand(releaseVerifyImagesCmd)
 }

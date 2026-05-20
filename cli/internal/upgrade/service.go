@@ -932,7 +932,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 // (shortSHA helper deleted in rc.63; use commit.go's commitShort for
 // typed CommitSHA values and ShortForDisplay for untyped log strings.)
 
-// markCIImagesFailed transitions a discovery row to
+// markImagesFailed transitions a discovery row to
 // docker_images_status='failed' with an actionable error string. Called
 // from verifyArtifacts on two paths: (a) gh reported the CI workflow as
 // failed; (b) gh is unavailable AND the manifest-timeout grace window
@@ -943,7 +943,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 // No bundle is emitted — no upgrade is in progress; the service log
 // (journald) already has the narrative. See plan C-head "End-state
 // contract".
-func (d *Service) markCIImagesFailed(ctx context.Context, id int, sha, reason string) {
+func (d *Service) markImagesFailed(ctx context.Context, id int, sha, reason string) {
 	// Atomic WHERE-clause guard.
 	//
 	// Terminal lifecycle states (completed, failed, rolled_back, skipped,
@@ -994,7 +994,7 @@ func (d *Service) markCIImagesFailed(ctx context.Context, id int, sha, reason st
 			log.Printf("verifyArtifacts: skipping docker_images_status='failed' UPDATE for commit %s: row %d has corrupted state/timestamp combination (state=%s, docker_images_status=%s, sqlstate=23514, constraint=chk_upgrade_state_attributes; reason would have been %q). Migration 20260425163029_dismiss_corrupt_upgrade_lifecycle_rows repairs these rows.",
 				ShortForDisplay(sha), id, probeState, probeImgStatus, reason)
 			tracker := NewAttemptTracker(d.projDir, 3)
-			decision := fmt.Sprintf("markCIImagesFailed/%s", sha[:12])
+			decision := fmt.Sprintf("markImagesFailed/%s", sha[:12])
 			tracker.Clear(decision)
 			return
 		}
@@ -1002,7 +1002,7 @@ func (d *Service) markCIImagesFailed(ctx context.Context, id int, sha, reason st
 		// violation). Escalate — but first check if we're in a retry loop
 		// (item #5 rc.64: attempt tracker for SERVICE_STUCK_RETRY_LOOP).
 		tracker := NewAttemptTracker(d.projDir, 3)
-		decision := fmt.Sprintf("markCIImagesFailed/%s", sha[:12])
+		decision := fmt.Sprintf("markImagesFailed/%s", sha[:12])
 		var errCode string
 		if pgerr := ((*pgconn.PgError)(nil)); errors.As(err, &pgerr) {
 			errCode = pgerr.Code
@@ -1040,13 +1040,13 @@ func (d *Service) markCIImagesFailed(ctx context.Context, id int, sha, reason st
 			ShortForDisplay(sha), id, probeState, probeImgStatus, reason)
 		// Clear attempt counter on the silent-skip path (row already in terminal state)
 		tracker := NewAttemptTracker(d.projDir, 3)
-		decision := fmt.Sprintf("markCIImagesFailed/%s", sha[:12])
+		decision := fmt.Sprintf("markImagesFailed/%s", sha[:12])
 		tracker.Clear(decision)
 		return
 	}
 	// Clear attempt counter on success
 	tracker := NewAttemptTracker(d.projDir, 3)
-	decision := fmt.Sprintf("markCIImagesFailed/%s", sha[:12])
+	decision := fmt.Sprintf("markImagesFailed/%s", sha[:12])
 	tracker.Clear(decision)
 	log.Printf("CI images marked failed for commit %s: %s", ShortForDisplay(sha), reason)
 }
@@ -1139,7 +1139,7 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 
 				// Auto-supersede intermediate commit rows that are ancestors of
 				// this commit but will never have CI images of their own.
-				// ci-images.yaml triggers once per push and only tags images for
+				// images.yaml triggers once per push and only tags images for
 				// the push tip (github.sha). Intermediate commits from the same
 				// push have docker_images_status != 'ready' permanently, keeping
 				// a stale "Images building..." badge in the UI.
@@ -1173,7 +1173,7 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 				// bounded manifest check so CI_FAILURE_DETECTED_TRANSITIONS_ROW
 				// holds on hosts where `gh` is absent (production norm).
 				ciOutput, ciErr := runCommandOutput(d.projDir, "gh", "api",
-					fmt.Sprintf("repos/statisticsnorway/statbus/actions/workflows/ci-images.yaml/runs?head_sha=%s&status=completed&per_page=5", r.sha),
+					fmt.Sprintf("repos/statisticsnorway/statbus/actions/workflows/images.yaml/runs?head_sha=%s&status=completed&per_page=5", r.sha),
 					"--jq", ".workflow_runs[] | .conclusion")
 				if ciErr == nil && ciOutput != "" {
 					conclusions := strings.Fields(strings.TrimSpace(ciOutput))
@@ -1187,7 +1187,7 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 						}
 					}
 					if hasFailure && !hasSuccess {
-						d.markCIImagesFailed(ctx, r.id, r.sha, fmt.Sprintf(
+						d.markImagesFailed(ctx, r.id, r.sha, fmt.Sprintf(
 							"CI images workflow reported failure for commit %s", ShortForDisplay(r.sha)))
 					}
 				} else if ciErr != nil {
@@ -1200,7 +1200,7 @@ func (d *Service) verifyArtifacts(ctx context.Context) {
 						"verifyArtifacts: gh unavailable (%v); falling back to manifest-timeout check (sha=%s, age=%s, timeout=%s)",
 						ciErr, ShortForDisplay(r.sha), age.Truncate(time.Second), manifestTimeout)
 					if age > manifestTimeout {
-						d.markCIImagesFailed(ctx, r.id, r.sha, fmt.Sprintf(
+						d.markImagesFailed(ctx, r.id, r.sha, fmt.Sprintf(
 							"CI images absent after %s timeout; gh probe err=%v", manifestTimeout, ciErr))
 					}
 				}
@@ -3015,7 +3015,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	}
 	// Show short SHA + subject so the operator-visible log identifies the
 	// commit by its SHA (the durable handle), not just the message subject
-	// (which can be misleading — e.g., a "release stable: SKIP_INSTALL_TEST"
+	// (which can be misleading — e.g., a "release stable: SKIP_TEST_INSTALL"
 	// commit subject describes the release-flow bypass, not the upgrade
 	// target itself).
 	if out, err := runCommandOutput(projDir, "git", "log", "-1", "--pretty=%h %s", commitSHA); err == nil {
@@ -3405,16 +3405,16 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// extensions — pg_graphql, sql_saga_native, jsonb_stats — from Rust/cargo,
 	// a 10+ minute operation that blows past the 5m command timeout and gives
 	// no useful error). If the image isn't in the registry yet, CI hasn't
-	// built it. Tell the operator to wait for ci-images.yaml and retry.
+	// built it. Tell the operator to wait for images.yaml and retry.
 	progress.Write("Starting database...")
 	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", "docker", "compose", "up", "-d", "--no-build", "db"); err != nil {
 		reason := fmt.Sprintf(
 			"%s: docker compose up -d db: %v\n\n"+
 				"The db image for %s is not available locally or in the registry. "+
-				"CI builds images on every master push (ci-images.yaml); commit-tagged "+
+				"CI builds images on every master push (images.yaml); commit-tagged "+
 				"images take a few minutes to land. Wait for that workflow to finish, "+
 				"then retry the upgrade. Check status: "+
-				"gh run list --workflow=ci-images.yaml",
+				"gh run list --workflow=images.yaml",
 			ErrDockerUpFailed, err, displayName)
 		d.rollback(ctx, id, displayName, previousVersion, reason, progress)
 		return err
@@ -3508,9 +3508,9 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 		reason := fmt.Sprintf(
 			"%s: docker compose up -d app worker rest: %v\n\n"+
 				"One or more application images for %s are not available locally or in the registry. "+
-				"CI builds images on every master push (ci-images.yaml). "+
+				"CI builds images on every master push (images.yaml). "+
 				"Wait for that workflow to finish, then retry the upgrade. Check status: "+
-				"gh run list --workflow=ci-images.yaml",
+				"gh run list --workflow=images.yaml",
 			ErrDockerUpFailed, err, displayName)
 		d.rollback(ctx, id, displayName, previousVersion, reason, progress)
 		return err
@@ -4467,7 +4467,7 @@ func init() {
 	invariants.Register(invariants.Invariant{
 		Name:             "CI_FAILURE_DETECTED_TRANSITIONS_ROW",
 		Class:            invariants.FailFast,
-		SourceLocation:   "cli/internal/upgrade/service.go:markCIImagesFailed",
+		SourceLocation:   "cli/internal/upgrade/service.go:markImagesFailed",
 		ExpectedToHold:   "When CI image failure is detected (via gh-reported failure or manifest-timeout fallback on hosts without gh), the UPDATE transitioning docker_images_status to 'failed' succeeds.",
 		WhyExpected:      "The upgrade row exists (we just SELECT'd it); the WHERE clause matches by id and current state 'building'; the DB was reachable milliseconds earlier when the SELECT ran.",
 		ViolationShape:   "queryConn.Exec returns a non-nil error on the UPDATE despite an immediately-preceding successful SELECT — schema drift, DB crash mid-cycle, or transaction state issue.",

@@ -1,4 +1,4 @@
-name: CI Images
+name: Images
 
 # Build and push SHA-tagged images on master merge.
 # Cloud deployments pull these instead of building on each host.
@@ -18,7 +18,7 @@ on:
   # Intentionally NO `tags: ['v*']` trigger here: every release tag points
   # at a commit that's already been built by the master-push run above,
   # so a tag-push trigger would be duplicate work AND would stall
-  # release verify-ci on a fresh tag-push run after the master-push run
+  # release verify-images on a fresh tag-push run after the master-push run
   # already proved the artifact built. workflow_dispatch remains as a
   # manual safety valve for commits not reached via master push.
   workflow_dispatch:

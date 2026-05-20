@@ -1,0 +1,174 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Test Install
+
+# Test Install — RC-time end-to-end install gate via Hetzner Cloud VM.
+#
+# Triggers on prerelease tag push (`v*-rc.*`) and manual dispatch.
+# Provisions a fresh Hetzner CX23 in hel1, runs scenario 01 of the
+# install-recovery harness (bootstrap → ./sb install → assert health +
+# step 9 + step 15 + systemd active), then deletes the VM. The harness
+# scenario lives at test/install-recovery/scenarios/01-happy-install.sh.
+#
+# Why a real VM and not the GHA runner: the install path's failure modes
+# mostly live BEFORE the runner's preconfigured state would expose them —
+# Stage 7 service-account creation, fresh-machine sudoers, initial
+# systemd-user-linger. test-hardening.yaml covers `./sb install` itself on
+# the runner (no Stage 0-6); this workflow covers the
+# everything-before-./sb-install bootstrap on a clean Ubuntu 24.04 VM.
+#
+# Cost: one CX23 in hel1 + primary IPv4 = €0.0072/hr, billed at the
+# 1-hour Hetzner minimum, so ~€0.0072 per run. Typical wall-clock
+# 12-15 min; 35-min timeout budgets in provisioning latency and cleanup.
+#
+# Relationship to other CI workflows:
+#   - `images.yaml` — builds Docker images and the `sb` binary
+#     artifacts on master push.
+#   - `test-hardening.yaml` — cheap in-runner subset (setup.sh Stage 7,
+#     `./sb install` against the runner's docker, install.sh bootstrap).
+#   - `test-install.yaml` — THIS workflow, the outboard end-to-end gate
+#     fired by `./sb release stable` pre-flight via
+#     `release.CheckWorkflowAtCommit(WorkflowTestInstall, sha)`.
+#
+# See doc/release-workflow-gates.md for the full gate-pattern reference,
+# the any-green semantics, and the `SKIP_TEST_INSTALL=1` operator bypass.
+
+on:
+  push:
+    tags:
+      - 'v*-rc.*'
+  workflow_dispatch:
+
+# Don't cancel a run that's already provisioned a VM — cancellation skips
+# the scenario's cleanup trap and would orphan a Hetzner instance (and bill
+# the next hour). Queue subsequent triggers behind the live one instead.
+# The script-level `bootstrap_install_test_vm` refuse-on-existing check in
+# vm-bootstrap.sh is the second layer of defense against name collisions.
+concurrency:
+  group: test-install
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  hetzner-vm-install:
+    name: Provision Hetzner VM + run scenario 01
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout
+        # fetch-depth: 1 — scenario 01 references local HEAD only. The tag
+        # ref itself is at HEAD on a tag-trigger run, so `git describe
+        # --tags` in dev.sh build-sb's ldflag-stamping path still resolves
+        # to the exact tag without needing deeper history.
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Go
+        # go-version-file pins to cli/go.mod's `go` directive — single
+        # source of truth, mirrors the existing pattern in
+        # test-hardening.yaml and release.yaml's build-binaries job.
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: cli/go.mod
+
+      - name: Build sb binary (linux/amd64)
+        # `./dev.sh build-sb linux/amd64` writes `sb-linux-amd64` to the
+        # repo root and stamps the LDFLAGS version + 40-char commit so
+        # the binary's --version output matches the tag. We use the same
+        # primitive as the release workflow rather than a hand-rolled
+        # `go build`, so any future change to the build recipe propagates
+        # here automatically.
+        run: ./dev.sh build-sb linux/amd64
+
+      - name: Install hcloud CLI
+        # Pinned binary from GitHub releases. Hetzner does NOT operate a
+        # signed apt repo for the hcloud CLI itself (packages.hetzner.com/hcloud/deb
+        # serves hc-utils only — verified 2026-05-20), so the canonical
+        # install on Linux is the GitHub release tarball. Pin the version
+        # so a runner upgrade doesn't change observed behaviour.
+        env:
+          HCLOUD_CLI_VERSION: "1.64.1"
+        run: |
+          set -euo pipefail
+          curl -fsSL \
+            "https://github.com/hetznercloud/cli/releases/download/v${HCLOUD_CLI_VERSION}/hcloud-linux-amd64.tar.gz" \
+            -o /tmp/hcloud.tar.gz
+          sudo tar -C /usr/local/bin -xzf /tmp/hcloud.tar.gz hcloud
+          rm /tmp/hcloud.tar.gz
+          hcloud version
+
+      - name: Install CI SSH private key
+        # The matching public key is registered in the Hetzner project as
+        # SSH key "statbus-ci" — vm-bootstrap.sh references it by name via
+        # the HCLOUD_SSH_KEY env (set in the next step's env block). The
+        # private key here is what the runner uses to SSH into the
+        # provisioned VM after Hetzner injects the public key at boot.
+        env:
+          STATBUS_CI_SSH_PRIVATE_KEY: ${{ secrets.STATBUS_CI_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$STATBUS_CI_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          # Confirm the key parses without echoing any material to the log.
+          # ssh-keygen -lf prints `<bits> <fingerprint> <comment> (<type>)`.
+          ssh-keygen -lf ~/.ssh/id_ed25519 \
+            | awk '{ print "SSH key fingerprint:", $2 }'
+
+      - name: Run scenario 01 (happy-install) on Hetzner VM
+        # `./dev.sh test-install` delegates to scenario 01, which uses
+        # vm-bootstrap.sh's bootstrap_install_test_vm + install_statbus_in_vm
+        # primitives. STATBUS_SB_BINARY tells vm-bootstrap.sh to use the
+        # CI-built binary (above) instead of rebuilding `sb` inside the
+        # harness — saves ~30s and pins the test to exactly the artifact
+        # the tag commit produces.
+        #
+        # HCLOUD_SSH_KEY=statbus-ci selects the key the VM is provisioned
+        # with; pairs with the private key written above so the runner can
+        # immediately SSH in once cloud-init finishes.
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+          HCLOUD_SSH_KEY: statbus-ci
+          STATBUS_SB_BINARY: ${{ github.workspace }}/sb-linux-amd64
+        run: ./dev.sh test-install
+
+      - name: Reap orphan VMs (defense in depth)
+        # Scenario 01's `trap cleanup_vm "$VM_NAME" EXIT` normally deletes
+        # the VM on every exit path. This step is the safety net for the
+        # cases where the trap doesn't fire: GHA-side cancellation
+        # (manual cancel, timeout-minutes, runner-fault), SIGKILL of the
+        # harness process by the runner host, or a bug that exits before
+        # the trap is installed. Without this, a leftover statbus-recovery-*
+        # VM accrues €0.0072/hr until someone notices.
+        #
+        # Scope: only servers whose names start with the harness prefix
+        # `statbus-recovery-`. Other VMs in the same Hetzner project
+        # (production hosts, niue, etc.) are NOT prefixed that way, so
+        # this filter is safe by construction.
+        #
+        # Best-effort: any failure here doesn't fail the workflow (the
+        # main test step already determined pass/fail). Operators can
+        # inspect leftovers via `hcloud server list` from a workstation.
+        if: always()
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+        run: |
+          if ! command -v hcloud >/dev/null 2>&1; then
+            echo "hcloud CLI not installed (earlier step likely failed) — skipping reap"
+            exit 0
+          fi
+          orphans=$(hcloud server list --output noheader --output columns=name 2>/dev/null \
+            | grep '^statbus-recovery-' || true)
+          if [ -z "$orphans" ]; then
+            echo "No orphan VMs to reap."
+            exit 0
+          fi
+          echo "Orphan VMs found — reaping:"
+          echo "$orphans"
+          echo "$orphans" | xargs -r -n1 hcloud server delete || true
+          exit 0

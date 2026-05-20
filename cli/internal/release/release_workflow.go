@@ -11,7 +11,7 @@ import (
 // push. Its green/red state for a given tag IS the "are the release
 // artifacts published" signal that `./sb release check` reports against.
 //
-// Distinct from ci-images.yaml: that workflow's tag-push trigger was
+// Distinct from images.yaml: that workflow's tag-push trigger was
 // dropped (master-push runs are authoritative for Docker artifacts).
 // release.yaml's tag-push trigger MUST stay — it's the only way the
 // GitHub Release gets created.
@@ -41,7 +41,7 @@ type ReleaseWorkflowResult struct {
 
 // CheckReleaseWorkflowAtTag queries GitHub Actions for the release.yaml
 // runs triggered by the push of the given tag. Uses the same any-green
-// semantics as CheckCIImagesAtCommit: the GitHub Release for an immutable
+// semantics as CheckWorkflowAtCommit: the GitHub Release for an immutable
 // tag, once published by a successful run, stays published; a later retry
 // that hits transient infra doesn't unpublish it.
 func CheckReleaseWorkflowAtTag(tag string) ReleaseWorkflowResult {

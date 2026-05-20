@@ -8,11 +8,11 @@ import (
 	"testing"
 )
 
-func TestCheckCIImagesAtCommit(t *testing.T) {
+func TestCheckWorkflowAtCommit(t *testing.T) {
 	cases := []struct {
 		name       string
 		runs       []map[string]any
-		wantStatus CIImagesStatus
+		wantStatus WorkflowCheckStatus
 		wantURL    string
 		wantID     int64
 		wantDetail string
@@ -26,7 +26,7 @@ func TestCheckCIImagesAtCommit(t *testing.T) {
 				"conclusion": "success",
 				"created_at": "2026-05-19T10:00:00Z",
 			}},
-			wantStatus: CIImagesGreen,
+			wantStatus: WorkflowCheckGreen,
 			wantURL:    "https://github.com/o/r/actions/runs/1",
 			wantID:     1,
 		},
@@ -39,7 +39,7 @@ func TestCheckCIImagesAtCommit(t *testing.T) {
 				"conclusion": nil,
 				"created_at": "2026-05-19T10:00:00Z",
 			}},
-			wantStatus: CIImagesPending,
+			wantStatus: WorkflowCheckPending,
 			wantURL:    "https://github.com/o/r/actions/runs/2",
 		},
 		{
@@ -51,7 +51,7 @@ func TestCheckCIImagesAtCommit(t *testing.T) {
 				"conclusion": nil,
 				"created_at": "2026-05-19T10:00:00Z",
 			}},
-			wantStatus: CIImagesPending,
+			wantStatus: WorkflowCheckPending,
 			wantURL:    "https://github.com/o/r/actions/runs/3",
 		},
 		{
@@ -63,7 +63,7 @@ func TestCheckCIImagesAtCommit(t *testing.T) {
 				"conclusion": "failure",
 				"created_at": "2026-05-19T10:00:00Z",
 			}},
-			wantStatus: CIImagesFailed,
+			wantStatus: WorkflowCheckFailed,
 			wantURL:    "https://github.com/o/r/actions/runs/4",
 			wantID:     4,
 			wantDetail: "failure",
@@ -77,22 +77,21 @@ func TestCheckCIImagesAtCommit(t *testing.T) {
 				"conclusion": "cancelled",
 				"created_at": "2026-05-19T10:00:00Z",
 			}},
-			wantStatus: CIImagesFailed,
+			wantStatus: WorkflowCheckFailed,
 			wantURL:    "https://github.com/o/r/actions/runs/5",
 			wantDetail: "cancelled",
 		},
 		{
 			name:       "missing",
 			runs:       []map[string]any{},
-			wantStatus: CIImagesMissing,
+			wantStatus: WorkflowCheckMissing,
 		},
 		{
 			name: "any-green-wins: an earlier success counts even if a later retry is pending",
-			// The Docker artifact is immutable per commit — once ANY run
-			// pushed the images to ghcr.io, they're there. A later retry
-			// hitting transient infra and queuing or failing doesn't
-			// unbuild it. Operators care whether the artifact exists,
-			// not which run was most recent.
+			// A commit's verdict is immutable per workflow — once ANY run
+			// completed successfully, the artifact / test result stands.
+			// A later retry hitting transient infra and queuing or
+			// failing doesn't unbuild or unrun it.
 			runs: []map[string]any{
 				{
 					"id":         7,
@@ -109,7 +108,7 @@ func TestCheckCIImagesAtCommit(t *testing.T) {
 					"created_at": "2026-05-19T10:00:00Z",
 				},
 			},
-			wantStatus: CIImagesGreen,
+			wantStatus: WorkflowCheckGreen,
 			wantURL:    "https://github.com/o/r/actions/runs/6",
 			wantID:     6,
 		},
@@ -131,7 +130,7 @@ func TestCheckCIImagesAtCommit(t *testing.T) {
 					"created_at": "2026-05-19T10:00:00Z",
 				},
 			},
-			wantStatus: CIImagesGreen,
+			wantStatus: WorkflowCheckGreen,
 			wantURL:    "https://github.com/o/r/actions/runs/8",
 			wantID:     8,
 		},
@@ -140,7 +139,7 @@ func TestCheckCIImagesAtCommit(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				wantPath := "/repos/statisticsnorway/statbus/actions/workflows/ci-images.yaml/runs"
+				wantPath := "/repos/statisticsnorway/statbus/actions/workflows/images.yaml/runs"
 				if r.URL.Path != wantPath {
 					http.Error(w, "unexpected path "+r.URL.Path, http.StatusNotFound)
 					return
@@ -153,7 +152,7 @@ func TestCheckCIImagesAtCommit(t *testing.T) {
 			}))
 			defer server.Close()
 
-			result := checkCIImagesAt(server.URL, "abc123def4561234567890abcdef1234567890ab")
+			result := checkWorkflowAt(server.URL, WorkflowImages, "abc123def4561234567890abcdef1234567890ab")
 			if result.Status != tc.wantStatus {
 				t.Errorf("Status: got %q, want %q", result.Status, tc.wantStatus)
 			}
@@ -170,32 +169,58 @@ func TestCheckCIImagesAtCommit(t *testing.T) {
 	}
 }
 
-func TestCheckCIImagesAtCommit_APIError(t *testing.T) {
+func TestCheckWorkflowAtCommit_APIError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer server.Close()
 
-	result := checkCIImagesAt(server.URL, "abc123def4561234567890abcdef1234567890ab")
-	if result.Status != CIImagesUnknown {
-		t.Errorf("Status: got %q, want %q", result.Status, CIImagesUnknown)
+	result := checkWorkflowAt(server.URL, WorkflowImages, "abc123def4561234567890abcdef1234567890ab")
+	if result.Status != WorkflowCheckUnknown {
+		t.Errorf("Status: got %q, want %q", result.Status, WorkflowCheckUnknown)
 	}
 	if !strings.Contains(result.Detail, "HTTP 500") {
 		t.Errorf("Detail should mention HTTP 500, got %q", result.Detail)
 	}
 }
 
-func TestCIImagesTriggerCommand(t *testing.T) {
-	got := CIImagesTriggerCommand("c4e850933fd3406a8cdaaef505d7d3de43f2c692")
-	want := "gh workflow run ci-images.yaml --ref c4e850933fd3406a8cdaaef505d7d3de43f2c692"
+func TestCheckWorkflowAtCommit_WorkflowParameterized(t *testing.T) {
+	// Same helper, different workflow file → path reflects the param.
+	cases := []struct {
+		workflow string
+		wantPath string
+	}{
+		{WorkflowImages, "/repos/statisticsnorway/statbus/actions/workflows/images.yaml/runs"},
+		{WorkflowTestHardening, "/repos/statisticsnorway/statbus/actions/workflows/test-hardening.yaml/runs"},
+		{WorkflowTestInstall, "/repos/statisticsnorway/statbus/actions/workflows/test-install.yaml/runs"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.workflow, func(t *testing.T) {
+			var seenPath string
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				seenPath = r.URL.Path
+				_ = json.NewEncoder(w).Encode(map[string]any{"workflow_runs": []map[string]any{}})
+			}))
+			defer server.Close()
+			_ = checkWorkflowAt(server.URL, tc.workflow, "abc123def4561234567890abcdef1234567890ab")
+			if seenPath != tc.wantPath {
+				t.Errorf("path: got %q, want %q", seenPath, tc.wantPath)
+			}
+		})
+	}
+}
+
+func TestWorkflowTriggerCommand(t *testing.T) {
+	got := WorkflowTriggerCommand(WorkflowImages, "c4e850933fd3406a8cdaaef505d7d3de43f2c692")
+	want := "gh workflow run images.yaml --ref c4e850933fd3406a8cdaaef505d7d3de43f2c692"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }
 
-func TestCIImagesWorkflowURL(t *testing.T) {
-	got := CIImagesWorkflowURL()
-	want := "https://github.com/statisticsnorway/statbus/actions/workflows/ci-images.yaml"
+func TestWorkflowURL(t *testing.T) {
+	got := WorkflowURL(WorkflowImages)
+	want := "https://github.com/statisticsnorway/statbus/actions/workflows/images.yaml"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}

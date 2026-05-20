@@ -1,20 +1,18 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
-name: Install Test
+name: Test Hardening
 
-# End-to-end test of the installation path.
-# Verifies two things that are liable to break separately:
-#   1. ops/setup-ubuntu-lts-24.sh Stage 7 (stage_service_account) — creates
-#      the `statbus` service account with the right groups and linger state.
-#   2. `./sb install` + `docker compose --profile all up` — the application
-#      stack reaches a healthy state with the upgrade table present.
-# Runs on push to master AND on workflow_dispatch. Also runs on schedule
-# (daily) to catch drift in the install path that master-only triggers would miss.
+# Hardening checks at release-candidate time. Validates that Stage 7
+# (service account setup) and the install path (./sb install → stack up)
+# are solid before publishing a stable release.
+#
+# Runs at RC tag time (push: tags: ['v*-rc.*']) and on manual trigger.
+# Surfaces install-path drift before stable release ships.
+# The parallel test-install.yaml workflow (Hetzner VM end-to-end gate)
+# is the production release gate; this workflow checks the hardening step.
 on:
   push:
-    branches: [master]
+    tags: ['v*-rc.*']
   workflow_dispatch:
-  schedule:
-    - cron: '27 5 * * *'   # 05:27 UTC daily — cheap freshness check
 
 permissions:
   contents: read

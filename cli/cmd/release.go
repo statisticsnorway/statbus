@@ -305,45 +305,46 @@ func preflightChecks(projDir string) bool {
 	// 11. DB documentation covers latest migrations
 	checkMigrationStamp("db-docs-passed-sha", "DB documentation covers latest migrations", "./dev.sh generate-db-documentation")
 
-	// 12. CI Images green for HEAD — schema-derived stamps cover Go/TypeScript/SQL,
-	//     but the Docker artifacts that ship to ghcr.io can only be validated by
-	//     actually building them. ci-images.yaml on GitHub Actions IS that build.
-	//     We don't replay it locally (the old pre-push docker-build replay was
-	//     slow and duplicated CI's work). We query CI's verdict for HEAD instead.
-	ciHeadOut, _ := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD")
-	ciHeadFull := strings.TrimSpace(ciHeadOut)
-	ciHeadShort := ciHeadFull
-	if len(ciHeadShort) > 12 {
-		ciHeadShort = ciHeadShort[:12]
+	// 12. images workflow green for HEAD — schema-derived stamps cover
+	//     Go/TypeScript/SQL, but the Docker artifacts that ship to ghcr.io can
+	//     only be validated by actually building them. images.yaml on GitHub
+	//     Actions IS that build. We don't replay it locally (the old pre-push
+	//     docker-build replay was slow and duplicated CI's work). We query
+	//     the workflow's verdict for HEAD instead.
+	imagesHeadOut, _ := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD")
+	imagesHeadFull := strings.TrimSpace(imagesHeadOut)
+	imagesHeadShort := imagesHeadFull
+	if len(imagesHeadShort) > 12 {
+		imagesHeadShort = imagesHeadShort[:12]
 	}
-	ciResult := release.CheckCIImagesAtCommit(ciHeadFull)
-	switch ciResult.Status {
-	case release.CIImagesGreen:
-		fmt.Printf("  ✓ CI Images green at %s\n", ciHeadShort)
-		fmt.Printf("    Run: %s\n", ciResult.RunURL)
-	case release.CIImagesPending:
-		fmt.Printf("  ✗ CI Images is still pending at %s\n", ciHeadShort)
-		fmt.Printf("    Watch: gh run watch %d\n", ciResult.RunID)
-		fmt.Printf("    URL:   %s\n", ciResult.RunURL)
-		fmt.Println("    Fix: wait for CI to complete, then re-run prerelease")
+	imagesResult := release.CheckWorkflowAtCommit(release.WorkflowImages, imagesHeadFull)
+	switch imagesResult.Status {
+	case release.WorkflowCheckGreen:
+		fmt.Printf("  ✓ images green at %s\n", imagesHeadShort)
+		fmt.Printf("    Run: %s\n", imagesResult.RunURL)
+	case release.WorkflowCheckPending:
+		fmt.Printf("  ✗ images is still pending at %s\n", imagesHeadShort)
+		fmt.Printf("    Watch: gh run watch %d\n", imagesResult.RunID)
+		fmt.Printf("    URL:   %s\n", imagesResult.RunURL)
+		fmt.Println("    Fix: wait for the run to complete, then re-run prerelease")
 		allPassed = false
-	case release.CIImagesFailed:
-		fmt.Printf("  ✗ CI Images failed at %s (conclusion: %s)\n", ciHeadShort, ciResult.Detail)
-		fmt.Printf("    See: gh run view %d --log-failed\n", ciResult.RunID)
-		fmt.Printf("    URL: %s\n", ciResult.RunURL)
+	case release.WorkflowCheckFailed:
+		fmt.Printf("  ✗ images failed at %s (conclusion: %s)\n", imagesHeadShort, imagesResult.Detail)
+		fmt.Printf("    See: gh run view %d --log-failed\n", imagesResult.RunID)
+		fmt.Printf("    URL: %s\n", imagesResult.RunURL)
 		fmt.Println("    Fix:")
-		fmt.Printf("      Retry the failed jobs (if transient — network, ghcr.io timeout): gh run rerun --failed %d\n", ciResult.RunID)
+		fmt.Printf("      Retry the failed jobs (if transient — network, ghcr.io timeout): gh run rerun --failed %d\n", imagesResult.RunID)
 		fmt.Println("      Or push a fix to master, then re-run prerelease (if real defect)")
 		allPassed = false
-	case release.CIImagesMissing:
-		fmt.Printf("  ✗ CI Images has not run for %s\n", ciHeadShort)
-		fmt.Printf("    Trigger: %s\n", release.CIImagesTriggerCommand(ciHeadFull))
-		fmt.Printf("    Watch:   %s\n", release.CIImagesWorkflowURL())
+	case release.WorkflowCheckMissing:
+		fmt.Printf("  ✗ images has not run for %s\n", imagesHeadShort)
+		fmt.Printf("    Trigger: %s\n", release.WorkflowTriggerCommand(release.WorkflowImages, imagesHeadFull))
+		fmt.Printf("    Watch:   %s\n", release.WorkflowURL(release.WorkflowImages))
 		fmt.Println("    Fix: run the trigger command above, wait for green, re-run prerelease")
 		allPassed = false
-	case release.CIImagesUnknown:
-		fmt.Println("  ✗ CI Images status check failed (GitHub API error)")
-		fmt.Printf("    Detail: %s\n", ciResult.Detail)
+	case release.WorkflowCheckUnknown:
+		fmt.Println("  ✗ images status check failed (GitHub API error)")
+		fmt.Printf("    Detail: %s\n", imagesResult.Detail)
 		fmt.Println("    Fix: check network connectivity / GITHUB_TOKEN; or re-run later")
 		allPassed = false
 	}
@@ -626,45 +627,94 @@ var releaseStableCmd = &cobra.Command{
 		fmt.Println("Pre-flight checks:")
 		allPassed := preflightChecks(projDir)
 
-		// Stable releases also require a passing install test (Multipass VM).
-		// Prereleases skip this — too slow for rapid iteration.
+		// Stable releases require both workflow-gated tests to be green for HEAD.
+		// Each gate is independent: both always run, both must pass. Operators can
+		// bypass each individually when circumstances require it.
 		//
-		// Escape hatch: SKIP_INSTALL_TEST=1 explicitly bypasses this gate.
-		// Operator-acknowledged override for situations where running the
-		// Multipass test locally isn't feasible (mobile network, sandboxed
-		// dev box, CI-only validation). Logged loudly so the bypass is
-		// always visible in the preflight transcript.
-		if os.Getenv("SKIP_INSTALL_TEST") == "1" {
-			fmt.Println("  ⚠ Install test SKIPPED (SKIP_INSTALL_TEST=1)")
-			fmt.Println("    Operator bypass — ensure install-test ran via CI or by hand on this commit.")
+		// These workflows trigger on prerelease tag push (v*-rc.*). The pre-push
+		// hook cannot check them — they only start after the tag is on origin.
+		// The operator runs ./sb release stable after the RC workflows complete;
+		// if still pending, each gate prints "wait and retry."
+		headOut, _ := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD")
+		headFull := strings.TrimSpace(headOut)
+		headShort := headFull
+		if len(headShort) > 12 {
+			headShort = headShort[:12]
+		}
+
+		// Gate: test-hardening
+		if os.Getenv("SKIP_TEST_HARDENING") == "1" {
+			fmt.Println("  ⚠ test-hardening SKIPPED (SKIP_TEST_HARDENING=1)")
+			fmt.Println("    Operator bypass — ensure test-hardening ran via CI or by hand on this commit.")
 		} else {
-			installStampPath := filepath.Join(projDir, "tmp", "install-test-passed-sha")
-			installStampBytes, readErr := os.ReadFile(installStampPath)
-			if readErr != nil {
-				fmt.Println("  ✗ Install test passed (tmp/install-test-passed-sha not found)")
-				fmt.Println("    Fix: ./dev.sh test-install")
-				fmt.Println("    Or bypass: SKIP_INSTALL_TEST=1 ./sb release stable")
+			hardeningResult := release.CheckWorkflowAtCommit(release.WorkflowTestHardening, headFull)
+			switch hardeningResult.Status {
+			case release.WorkflowCheckGreen:
+				fmt.Printf("  ✓ test-hardening green at %s\n", headShort)
+				fmt.Printf("    Run: %s\n", hardeningResult.RunURL)
+			case release.WorkflowCheckPending:
+				fmt.Printf("  ✗ test-hardening is still pending at %s\n", headShort)
+				fmt.Printf("    Watch: gh run watch %d\n", hardeningResult.RunID)
+				fmt.Printf("    URL:   %s\n", hardeningResult.RunURL)
+				fmt.Println("    Fix: wait for the run to complete, then re-run stable")
 				allPassed = false
-			} else {
-				installStamp := strings.TrimSpace(string(installStampBytes))
-				headOut, _ := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD")
-				head := strings.TrimSpace(headOut)
-				if installStamp != head {
-					shortStamp := installStamp
-					if len(shortStamp) > 12 {
-						shortStamp = shortStamp[:12]
-					}
-					shortHead := head
-					if len(shortHead) > 12 {
-						shortHead = shortHead[:12]
-					}
-					fmt.Printf("  ✗ Install test does not cover HEAD (stamp: %s, HEAD: %s)\n", shortStamp, shortHead)
-					fmt.Println("    Fix: ./dev.sh test-install")
-					fmt.Println("    Or bypass: SKIP_INSTALL_TEST=1 ./sb release stable")
-					allPassed = false
-				} else {
-					fmt.Printf("  ✓ Install test passed (stamp: %s)\n", installStamp[:12])
-				}
+			case release.WorkflowCheckFailed:
+				fmt.Printf("  ✗ test-hardening failed at %s (conclusion: %s)\n", headShort, hardeningResult.Detail)
+				fmt.Printf("    See: gh run view %d --log-failed\n", hardeningResult.RunID)
+				fmt.Printf("    URL: %s\n", hardeningResult.RunURL)
+				fmt.Println("    Fix:")
+				fmt.Printf("      Retry the failed jobs (if transient): gh run rerun --failed %d\n", hardeningResult.RunID)
+				fmt.Println("      Or push a fix to master, then cut a new RC")
+				allPassed = false
+			case release.WorkflowCheckMissing:
+				fmt.Printf("  ✗ test-hardening has not run for %s\n", headShort)
+				fmt.Printf("    Trigger: %s\n", release.WorkflowTriggerCommand(release.WorkflowTestHardening, headFull))
+				fmt.Printf("    Watch:   %s\n", release.WorkflowURL(release.WorkflowTestHardening))
+				fmt.Println("    Fix: run the trigger command above, wait for green, re-run stable")
+				allPassed = false
+			case release.WorkflowCheckUnknown:
+				fmt.Println("  ✗ test-hardening status check failed (GitHub API error)")
+				fmt.Printf("    Detail: %s\n", hardeningResult.Detail)
+				fmt.Println("    Fix: check network connectivity / GITHUB_TOKEN; or re-run later")
+				allPassed = false
+			}
+		}
+
+		// Gate: test-install
+		if os.Getenv("SKIP_TEST_INSTALL") == "1" {
+			fmt.Println("  ⚠ test-install SKIPPED (SKIP_TEST_INSTALL=1)")
+			fmt.Println("    Operator bypass — ensure test-install ran via CI or by hand on this commit.")
+		} else {
+			installResult := release.CheckWorkflowAtCommit(release.WorkflowTestInstall, headFull)
+			switch installResult.Status {
+			case release.WorkflowCheckGreen:
+				fmt.Printf("  ✓ test-install green at %s\n", headShort)
+				fmt.Printf("    Run: %s\n", installResult.RunURL)
+			case release.WorkflowCheckPending:
+				fmt.Printf("  ✗ test-install is still pending at %s\n", headShort)
+				fmt.Printf("    Watch: gh run watch %d\n", installResult.RunID)
+				fmt.Printf("    URL:   %s\n", installResult.RunURL)
+				fmt.Println("    Fix: wait for the run to complete, then re-run stable")
+				allPassed = false
+			case release.WorkflowCheckFailed:
+				fmt.Printf("  ✗ test-install failed at %s (conclusion: %s)\n", headShort, installResult.Detail)
+				fmt.Printf("    See: gh run view %d --log-failed\n", installResult.RunID)
+				fmt.Printf("    URL: %s\n", installResult.RunURL)
+				fmt.Println("    Fix:")
+				fmt.Printf("      Retry the failed jobs (if transient — Hetzner capacity, network): gh run rerun --failed %d\n", installResult.RunID)
+				fmt.Println("      Or push a fix to master, then cut a new RC")
+				allPassed = false
+			case release.WorkflowCheckMissing:
+				fmt.Printf("  ✗ test-install has not run for %s\n", headShort)
+				fmt.Printf("    Trigger: %s\n", release.WorkflowTriggerCommand(release.WorkflowTestInstall, headFull))
+				fmt.Printf("    Watch:   %s\n", release.WorkflowURL(release.WorkflowTestInstall))
+				fmt.Println("    Fix: run the trigger command above, wait for green, re-run stable")
+				allPassed = false
+			case release.WorkflowCheckUnknown:
+				fmt.Println("  ✗ test-install status check failed (GitHub API error)")
+				fmt.Printf("    Detail: %s\n", installResult.Detail)
+				fmt.Println("    Fix: check network connectivity / GITHUB_TOKEN; or re-run later")
+				allPassed = false
 			}
 		}
 

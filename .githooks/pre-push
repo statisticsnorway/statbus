@@ -9,11 +9,11 @@
 #      Lightweight tags are rejected unconditionally (release tags must
 #      be annotated).
 #
-#   2. CI Images gate. Any release tag push must point at a commit for
-#      which ci-images.yaml on GitHub Actions has completed successfully.
-#      `./sb release verify-ci <commit>` asks the GitHub API — the guard
-#      is fast (no local docker builds, no rustup), blocks the push on a
-#      missing / pending / failed run, and prints the exact
+#   2. Images gate. Any release tag push must point at a commit for
+#      which images.yaml on GitHub Actions has completed successfully.
+#      `./sb release verify-images <commit>` asks the GitHub API — the
+#      guard is fast (no local docker builds, no rustup), blocks the push
+#      on a missing / pending / failed run, and prints the exact
 #      `gh workflow run` command an operator needs to repair the gap.
 #      Replaces an older slow local replay of the same Docker builds
 #      that duplicated CI's work and only failed at push time after the
@@ -93,8 +93,8 @@ MSG
     esac
 done < "$hook_input"
 
-# --- Guard 2: CI Images gate -----------------------------------------
-# Any release tag push must point at a commit for which ci-images.yaml
+# --- Guard 2: images gate --------------------------------------------
+# Any release tag push must point at a commit for which images.yaml
 # has completed successfully on GitHub Actions. Replaces the older
 # slow local replay of the three pgrx-builder Docker stages, which
 # duplicated CI's work and hung for minutes on cold caches. The fast
@@ -102,12 +102,12 @@ done < "$hook_input"
 # commit hasn't been validated yet, the operator gets the exact
 # `gh workflow run` command to fix it.
 #
-# Backward compat: if `./sb release verify-ci` isn't present (sb
-# predates v3), skip with a warning. CI on master will still catch
-# artifacts regressions.
-sb_verify_ci_available=0
-if [ -x "$root/sb" ] && "$root/sb" release verify-ci --help >/dev/null 2>&1; then
-    sb_verify_ci_available=1
+# Backward compat: if `./sb release verify-images` isn't present (sb
+# predates this rename), skip with a warning. CI on master will still
+# catch artifacts regressions.
+sb_verify_images_available=0
+if [ -x "$root/sb" ] && "$root/sb" release verify-images --help >/dev/null 2>&1; then
+    sb_verify_images_available=1
 fi
 
 while read -r local_ref local_sha remote_ref remote_sha; do
@@ -116,11 +116,11 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     case "$remote_ref" in
         refs/tags/v*)
             tag_name="${remote_ref#refs/tags/}"
-            if [ "$sb_verify_ci_available" -eq 0 ]; then
+            if [ "$sb_verify_images_available" -eq 0 ]; then
                 cat >&2 <<MSG
-pre-push: ./sb release verify-ci not available in this binary.
+pre-push: ./sb release verify-images not available in this binary.
 pre-push: Rebuild: (cd cli && go build -o ../sb .)
-pre-push: Skipping CI Images gate for $tag_name; CI on master will catch regressions.
+pre-push: Skipping images gate for $tag_name; CI on master will catch regressions.
 MSG
                 continue
             fi
@@ -132,16 +132,16 @@ MSG
             if [ -z "$target_commit" ]; then
                 cat >&2 <<MSG
 
-pre-push: could not resolve $tag_name to a target commit for CI Images check.
+pre-push: could not resolve $tag_name to a target commit for images check.
 pre-push: Bypass (discouraged): git push --no-verify
 
 MSG
                 exit 1
             fi
-            if ! "$root/sb" release verify-ci "$target_commit" >&2; then
+            if ! "$root/sb" release verify-images "$target_commit" >&2; then
                 cat >&2 <<MSG
 
-pre-push: $tag_name failed the CI Images gate (see message above).
+pre-push: $tag_name failed the images gate (see message above).
 pre-push: This guard is fast — no local docker builds, no rustup.
 pre-push: Follow the printed Fix / Trigger guidance and retry the push.
 

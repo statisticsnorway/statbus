@@ -288,6 +288,34 @@ EOF'
             || echo "export XDG_RUNTIME_DIR=/run/user/\$(id -u)" >> /home/statbus/.profile
     '
 
+    echo "  fetching personal SSH keys from GitHub (ed25519 only)..."
+    ssh "${SSH_OPTS[@]}" root@"$ip" '
+        # Root authorized_keys (already seeded by Hetzner for statbus-ci; append personal keys)
+        mkdir -p /root/.ssh && chmod 700 /root/.ssh
+        touch /root/.ssh/authorized_keys && chmod 600 /root/.ssh/authorized_keys
+
+        # Statbus user authorized_keys
+        mkdir -p /home/statbus/.ssh && chmod 700 /home/statbus/.ssh
+        touch /home/statbus/.ssh/authorized_keys && chmod 600 /home/statbus/.ssh/authorized_keys
+        chown statbus:statbus /home/statbus/.ssh /home/statbus/.ssh/authorized_keys
+
+        # jhf
+        if keys=$(curl -sf https://github.com/jhf.keys | grep '"'"'^ssh-ed25519'"'"'); then
+            echo "$keys" >> /root/.ssh/authorized_keys
+            echo "$keys" >> /home/statbus/.ssh/authorized_keys
+        else
+            echo "WARNING: could not fetch jhf GitHub keys (network blip); skipping" >&2
+        fi
+
+        # hhssb
+        if keys=$(curl -sf https://github.com/hhssb.keys | grep '"'"'^ssh-ed25519'"'"'); then
+            echo "$keys" >> /root/.ssh/authorized_keys
+            echo "$keys" >> /home/statbus/.ssh/authorized_keys
+        else
+            echo "WARNING: could not fetch hhssb GitHub keys (network blip); skipping" >&2
+        fi
+    '
+
     STATBUS_UID=$(ssh "${SSH_OPTS[@]}" root@"$ip" id -u statbus)
     local i
     for i in $(seq 1 20); do
@@ -324,18 +352,30 @@ bootstrap_install_test_vm() {
     fi
 
     # Build sb binary locally if no release was specified.
+    # CI sets STATBUS_SB_BINARY to a pre-extracted binary (avoids a fresh build).
     local sb_binary=""
     if [ -z "$install_version" ]; then
-        local build_target="linux/amd64"  # Hetzner CX23 is x86_64
-        echo "Building sb for $build_target..."
-        (cd "$HARNESS_ROOT" && ./dev.sh build-sb "$build_target")
-        sb_binary="${HARNESS_ROOT}/sb-${build_target//\//-}"
+        if [ -n "${STATBUS_SB_BINARY:-}" ]; then
+            if [ ! -f "$STATBUS_SB_BINARY" ]; then
+                echo "ERROR: STATBUS_SB_BINARY is set but file does not exist: $STATBUS_SB_BINARY" >&2
+                return 1
+            fi
+            sb_binary="$STATBUS_SB_BINARY"
+            echo "Using pre-built sb binary: $sb_binary"
+        else
+            local build_target="linux/amd64"  # Hetzner CX23 is x86_64
+            echo "Building sb for $build_target..."
+            (cd "$HARNESS_ROOT" && ./dev.sh build-sb "$build_target")
+            sb_binary="${HARNESS_ROOT}/sb-${build_target//\//-}"
+        fi
     fi
 
-    # Idempotent cleanup of any prior VM with the same name.
+    # Refuse if the VM already exists — another test-install run may be in progress.
     if hcloud server describe "$vm_name" >/dev/null 2>&1; then
-        echo "Cleaning up previous VM: $vm_name"
-        hcloud server delete "$vm_name" > /dev/null
+        echo "ERROR: VM '$vm_name' already exists. Another test-install run may be in progress (CI or local)." >&2
+        echo "  Inspect:  hcloud server describe $vm_name" >&2
+        echo "  If stale: hcloud server delete $vm_name" >&2
+        return 1
     fi
 
     echo "Provisioning Hetzner $HCLOUD_SERVER_TYPE in $HCLOUD_LOCATION: $vm_name"

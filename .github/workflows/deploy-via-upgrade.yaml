@@ -92,7 +92,7 @@ jobs:
             # Tag — resolve to the commit it points to.
             SHA=$(gh api "repos/${{ github.repository }}/git/refs/tags/$VERSION" --jq '.object.sha' 2>/dev/null || true)
             if [ -z "$SHA" ] || [ "$SHA" = "null" ]; then
-              echo "::warning::could not resolve $VERSION to a commit SHA — skipping ci-images gate"
+              echo "::warning::could not resolve $VERSION to a commit SHA — skipping images gate"
               echo "sha=" >> "$GITHUB_OUTPUT"
               exit 0
             fi
@@ -114,18 +114,18 @@ jobs:
           TIMEOUT=900
           ELAPSED=0
           while [ $ELAPSED -lt $TIMEOUT ]; do
-            STATUS=$(gh run list --repo "${{ github.repository }}" --workflow=ci-images.yaml --commit="$SHA" --json status,conclusion --jq '.[0]' 2>/dev/null)
+            STATUS=$(gh run list --repo "${{ github.repository }}" --workflow=images.yaml --commit="$SHA" --json status,conclusion --jq '.[0]' 2>/dev/null)
             if [ -z "$STATUS" ] || [ "$STATUS" = "null" ]; then
-              echo "No ci-images run found yet for $SHA. Waiting..."
+              echo "No images run found yet for $SHA. Waiting..."
             else
               CONCLUSION=$(echo "$STATUS" | jq -r '.conclusion // ""')
               if [ "$CONCLUSION" = "success" ]; then
-                echo "ci-images green for $SHA — proceeding"
+                echo "images green for $SHA — proceeding"
                 exit 0
               fi
               if [ "$CONCLUSION" = "failure" ] || [ "$CONCLUSION" = "cancelled" ]; then
-                echo "::error::ci-images is $CONCLUSION for $SHA. Refusing to deploy a broken build."
-                echo "::error::Fix master and re-run, or bypass by deploying a commit with green ci-images."
+                echo "::error::images is $CONCLUSION for $SHA. Refusing to deploy a broken build."
+                echo "::error::Fix master and re-run, or bypass by deploying a commit with green images."
                 exit 1
               fi
               # in_progress / queued — keep waiting
@@ -133,7 +133,7 @@ jobs:
             sleep 30
             ELAPSED=$((ELAPSED + 30))
           done
-          echo "::error::Timed out waiting for ci-images on $SHA after 15 minutes"
+          echo "::error::Timed out waiting for images on $SHA after 15 minutes"
           exit 1
 
       - name: Trigger upgrade service

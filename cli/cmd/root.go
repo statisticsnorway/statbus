@@ -230,7 +230,7 @@ var readOnlyCommandPaths = map[string]bool{
 	"sb release list":          true,
 	"sb release check":         true,
 	"sb release verify-tag":    true, // local repo + GitHub API only; no state mutation
-	"sb release verify-ci":     true, // GitHub API only; no state mutation
+	"sb release verify-images": true, // GitHub API only; no state mutation
 	"sb upgrade list":          true,
 	"sb upgrade check":         true,
 	"sb ps":                    true,
