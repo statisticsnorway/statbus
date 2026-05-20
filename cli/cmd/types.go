@@ -73,6 +73,20 @@ Requires the database to be running.`,
 			}
 		}
 
+		// Refuse if the seed DB's db.migration row set doesn't match the
+		// on-disk migrations/ file set. Without this gate a stale seed
+		// could yield database.types.ts reflecting an older schema —
+		// stamp would still pass preflight (line 1 = HEAD SHA) but the
+		// types would silently lag. assertDBAtHead returns the seed's
+		// max migration version on success — we record it as line 2 of
+		// the H1 two-line stamp so preflight catches the bypass case
+		// where a future generator writes a stamp from a stale source.
+		seedVersion, err := migrate.AssertDBAtHead(projDir, seedDB, "./sb types generate")
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+
 		c := exec.Command(psqlPath, prefix...)
 		c.Dir = projDir
 		c.Env = env
@@ -85,12 +99,19 @@ Requires the database to be running.`,
 
 		fmt.Println("TypeScript types generated in app/src/lib/database.types.ts")
 
-		// Write stamp for ./sb release preflight (check: types cover latest migrations)
+		// Write H1 two-line stamp for ./sb release preflight:
+		//   line 1: HEAD SHA at generation time
+		//   line 2: seed DB's migration_version at generation time
+		// Preflight verifies BOTH lines so a stamp written from a stale
+		// source DB (the bug class #123 hardens against) fails the gate
+		// even when the SHA happens to be HEAD.
 		if sha, err2 := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD"); err2 == nil {
 			stampPath := filepath.Join(projDir, "tmp", "types-passed-sha")
 			_ = os.MkdirAll(filepath.Dir(stampPath), 0755)
-			_ = os.WriteFile(stampPath, []byte(strings.TrimSpace(sha)+"\n"), 0644)
-			fmt.Println("TypeScript types stamp recorded:", strings.TrimSpace(sha))
+			headSHA := strings.TrimSpace(sha)
+			_ = os.WriteFile(stampPath, []byte(headSHA+"\n"+seedVersion+"\n"), 0644)
+			fmt.Printf("TypeScript types stamp recorded: %s (seed version: %s)\n",
+				headSHA, seedVersion)
 		}
 		return nil
 	},

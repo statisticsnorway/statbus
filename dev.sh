@@ -185,6 +185,70 @@ check_stamp_guard() {
     return 0
 }
 
+# assert_db_at_head <db_name> <calling_command>
+#
+# Refuse if <db_name>'s db.migration row set doesn't match HEAD's on-disk
+# migrations/*.up.{sql,psql} file set. Symmetric: catches BOTH "behind"
+# (template missing recent migrations) AND "ahead" (template has migrations
+# the current working tree doesn't ship — feature-branch contamination).
+#
+# On success: echoes the source-DB's max migration version on stdout
+# (callers capture it for H1 two-line stamp writes:
+#   line 1: git rev-parse HEAD       (the SHA the artifact was generated from)
+#   line 2: source DB migration max  (the schema state the artifact reflects)
+# Preflight verifies both lines; the line-2 check catches stamps written
+# from a stale source DB even when the SHA is current.)
+#
+# On failure: diagnostic to stderr naming the DB, the drift direction,
+# the missing versions, and the Fix-line. Returns 1.
+#
+# Mirrors the Go helper migrate.AssertDBAtHead in cli/internal/migrate/at_head.go.
+# Keep the two in sync — both must shape the same actionable diagnostic.
+assert_db_at_head() {
+    local db_name="$1" caller="$2"
+
+    if ! ./sb psql -d postgres -t -A -c \
+            "SELECT 1 FROM pg_database WHERE datname = '$db_name';" \
+            2>/dev/null | grep -q '^1$'; then
+        echo "REFUSED: $caller" >&2
+        echo "Reason:  source DB '$db_name' does not exist." >&2
+        echo "Fix:     ./dev.sh create-test-template   (or the upstream builder)" >&2
+        return 1
+    fi
+
+    local db_versions fs_versions behind ahead n
+    db_versions=$(./sb psql -d "$db_name" -t -A -c \
+        "SELECT version FROM db.migration ORDER BY version" 2>/dev/null | sort -u)
+    fs_versions=$(for f in "$WORKSPACE/migrations/"*.up.sql "$WORKSPACE/migrations/"*.up.psql; do
+        [ -e "$f" ] || continue
+        basename "$f" | cut -d_ -f1
+    done | sort -u)
+
+    behind=$(comm -13 <(echo "$db_versions") <(echo "$fs_versions"))
+    ahead=$(comm -23 <(echo "$db_versions") <(echo "$fs_versions"))
+
+    if [ -z "$behind" ] && [ -z "$ahead" ]; then
+        # Echo the source-DB's max version on stdout for stamp-writers.
+        echo "$db_versions" | tail -1
+        return 0
+    fi
+
+    echo "REFUSED: $caller" >&2
+    if [ -n "$behind" ]; then
+        n=$(echo "$behind" | grep -c . || true)
+        echo "Reason:  source DB '$db_name' is BEHIND HEAD by $n migration(s):" >&2
+        echo "$behind" | sed 's/^/  + /' >&2
+        echo "Fix:     ./dev.sh migrate-and-test fast    (rebuilds seed + template)" >&2
+    fi
+    if [ -n "$ahead" ]; then
+        n=$(echo "$ahead" | grep -c . || true)
+        echo "Reason:  source DB '$db_name' is AHEAD of HEAD by $n migration(s):" >&2
+        echo "$ahead" | sed 's/^/  - /' >&2
+        echo "Fix:     ./dev.sh recreate-database   (or check out the right branch first)" >&2
+    fi
+    return 1
+}
+
 action=${1:-}
 shift || true
 
@@ -473,47 +537,23 @@ EOS
           debug_arg="--debug"
         fi
 
-        # Precondition checks (plan section R commit 4: check, don't fix).
-        # `./dev.sh test ...` is human-facing — refuses to run with stale
-        # state and prints the exact remediation command. CI/automation
-        # that wants auto-rebuild should call `./dev.sh migrate-and-test ...`
-        # instead.
-        SEED_NAME="${POSTGRES_SEED_DB:-statbus_seed}"
+        # Precondition (plan section R commit 4: check, don't fix —
+        # consolidated by task #123 to use the unified assert_db_at_head
+        # primitive). `./dev.sh test ...` is human-facing — refuses to
+        # run with stale state and prints the exact remediation command.
+        # CI/automation that wants auto-rebuild should call
+        # `./dev.sh migrate-and-test ...` instead.
+        #
+        # The single check on the test template covers both prior
+        # concerns (seed at HEAD AND template stamp matches) since the
+        # template is by construction a clone of the seed — if the
+        # template's db.migration matches HEAD's on-disk migrations,
+        # the seed it was cloned from was also at HEAD at clone time.
+        #
+        # SOURCE_VERSION captured for the H1 two-line stamp write below.
         TEMPLATE_NAME_PRECHECK="${POSTGRES_TEST_DB:-statbus_test_template}"
-        LATEST_MIGRATION=$(for f in "$WORKSPACE/migrations/"*.up.sql "$WORKSPACE/migrations/"*.up.psql; do
-            [ -e "$f" ] || continue
-            basename "$f" | cut -d_ -f1
-        done | sort | tail -1)
-
-        # Check 1: seed exists.
-        SEED_EXISTS_PRECHECK=$(./sb psql -d postgres -t -A -c \
-            "SELECT 1 FROM pg_database WHERE datname = '$SEED_NAME';" 2>/dev/null || echo "0")
-        if [ "$SEED_EXISTS_PRECHECK" != "1" ]; then
-            echo "Test precondition failed: seed database '$SEED_NAME' does not exist."
-            echo "  Run:  ./dev.sh recreate-seed"
-            echo "  Or:   ./dev.sh migrate-and-test ${TEST_ARGS[*]}  (composition that auto-rebuilds)"
-            exit 1
-        fi
-
-        # Check 2: seed at HEAD.
-        SEED_MAX_VERSION=$(./sb psql -d "$SEED_NAME" -t -A -c \
-            "SELECT MAX(version) FROM db.migration" 2>/dev/null | tr -d ' ' || true)
-        if [ -n "$LATEST_MIGRATION" ] && [ "$SEED_MAX_VERSION" != "$LATEST_MIGRATION" ]; then
-            echo "Test precondition failed: seed at version '$SEED_MAX_VERSION', HEAD has '$LATEST_MIGRATION'."
-            echo "  Run:  ./sb migrate up --target seed"
-            echo "  Or:   ./dev.sh migrate-and-test ${TEST_ARGS[*]}  (composition that auto-rebuilds)"
-            exit 1
-        fi
-
-        # Check 3: test template cloned from current seed (stamp matches latest).
-        TEMPLATE_STAMP=""
-        if [ -f "$WORKSPACE/tmp/test-template-migrations-sha" ]; then
-            TEMPLATE_STAMP=$(cat "$WORKSPACE/tmp/test-template-migrations-sha")
-        fi
-        if [ -n "$LATEST_MIGRATION" ] && [ "$TEMPLATE_STAMP" != "$LATEST_MIGRATION" ]; then
-            echo "Test precondition failed: test template stamp '$TEMPLATE_STAMP' != latest migration '$LATEST_MIGRATION'."
-            echo "  Run:  ./dev.sh create-test-template"
-            echo "  Or:   ./dev.sh migrate-and-test ${TEST_ARGS[*]}  (composition that auto-rebuilds)"
+        if ! SOURCE_VERSION=$(assert_db_at_head "$TEMPLATE_NAME_PRECHECK" "./dev.sh test fast"); then
+            echo "  Or: ./dev.sh migrate-and-test ${TEST_ARGS[*]}  (composition that auto-rebuilds)"
             exit 1
         fi
 
@@ -599,12 +639,21 @@ EOF
 
         # Write the stamp unconditionally on success — the upfront REFUSE
         # guard already verified migrations/ and test/ (minus non-strict
-        # baselines) were clean at RUN time, so HEAD is an honest anchor.
-        # No silent skip: if we got here, we stamp.
+        # baselines) were clean at RUN time, AND assert_db_at_head above
+        # confirmed the test template matches HEAD's on-disk migrations,
+        # so HEAD + SOURCE_VERSION is an honest pair. No silent skip:
+        # if we got here, we stamp.
+        #
+        # H1 two-line stamp (task #123):
+        #   line 1: HEAD SHA at test-pass time
+        #   line 2: source DB (test template) migration_version at test-pass time
         if [ $OVERALL_EXIT_CODE -eq 0 ]; then
             mkdir -p "$WORKSPACE/tmp"
-            git rev-parse HEAD > "$WORKSPACE/tmp/fast-test-passed-sha"
-            echo "Fast test stamp recorded: $(cat "$WORKSPACE/tmp/fast-test-passed-sha")"
+            {
+                git rev-parse HEAD
+                echo "$SOURCE_VERSION"
+            } > "$WORKSPACE/tmp/fast-test-passed-sha"
+            echo "Fast test stamp recorded: $(head -1 "$WORKSPACE/tmp/fast-test-passed-sha") (source version: $SOURCE_VERSION)"
         fi
 
         exit $OVERALL_EXIT_CODE
@@ -1544,13 +1593,16 @@ EOF
         TEMPLATE_NAME="${POSTGRES_TEST_DB:-statbus_test_template}"
         DOC_DB="statbus_doc_gen_$$"
 
-        TEMPLATE_EXISTS=$(./sb psql -d postgres -t -A -c \
-            "SELECT 1 FROM pg_database WHERE datname = '$TEMPLATE_NAME';" 2>/dev/null || echo "0")
-        if [ "$TEMPLATE_EXISTS" != "1" ]; then
-            echo "Error: Template database '$TEMPLATE_NAME' not found."
-            echo "Create it with: ./dev.sh create-test-template"
-            exit 1
-        fi
+        # Refuse if the source template's db.migration doesn't match HEAD's
+        # on-disk migrations. Without this gate a stale template would
+        # produce doc/db/*.md reflecting an older schema; the stamp would
+        # still pass the basic SHA check (line 1) but the H1 two-line
+        # stamp's line 2 (source-DB migration_version) would catch the
+        # bypass at preflight time. Both layers defend the same property.
+        #
+        # On success, assert_db_at_head echoes the template's max version
+        # on stdout; capture it for the two-line stamp write below.
+        SOURCE_VERSION=$(assert_db_at_head "$TEMPLATE_NAME" "./dev.sh generate-db-documentation") || exit 1
 
         echo "Creating temporary documentation database: $DOC_DB from $TEMPLATE_NAME"
         ./sb psql -d postgres -v ON_ERROR_STOP=1 <<EOF
@@ -1688,8 +1740,15 @@ EOS
 
         echo "Database documentation generated in doc/db/{table,view,function}/"
         mkdir -p "$WORKSPACE/tmp"
-        git -C "$WORKSPACE" rev-parse HEAD > "$WORKSPACE/tmp/db-docs-passed-sha"
-        echo "DB documentation stamp recorded: $(cat "$WORKSPACE/tmp/db-docs-passed-sha")"
+        # H1 two-line stamp (task #123):
+        #   line 1: HEAD SHA at generation time
+        #   line 2: source DB (test template) migration_version at generation time
+        # SOURCE_VERSION captured above by assert_db_at_head.
+        {
+            git -C "$WORKSPACE" rev-parse HEAD
+            echo "$SOURCE_VERSION"
+        } > "$WORKSPACE/tmp/db-docs-passed-sha"
+        echo "DB documentation stamp recorded: $(head -1 "$WORKSPACE/tmp/db-docs-passed-sha") (source version: $SOURCE_VERSION)"
         ;;
     'compile-run-and-trace-dev-app-in-container' )
         echo "Stopping app container..."

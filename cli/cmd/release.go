@@ -12,9 +12,29 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/statisticsnorway/statbus/cli/internal/config"
+	"github.com/statisticsnorway/statbus/cli/internal/migrate"
 	"github.com/statisticsnorway/statbus/cli/internal/release"
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
+
+// parseTwoLineStamp splits an H1 two-line stamp (task #123) into its
+// SHA and migration-version components. Legacy single-line stamps
+// return ("<sha>", "") — caller decides how to handle (typically:
+// refuse with re-run guidance).
+//
+//	<head_sha>\n<source_db_migration_max_version>\n
+//
+// Trailing whitespace on each line is trimmed.
+func parseTwoLineStamp(data []byte) (sha, version string) {
+	lines := strings.Split(string(data), "\n")
+	if len(lines) >= 1 {
+		sha = strings.TrimSpace(lines[0])
+	}
+	if len(lines) >= 2 {
+		version = strings.TrimSpace(lines[1])
+	}
+	return sha, version
+}
 
 var releaseCmd = &cobra.Command{
 	Use:   "release",
@@ -123,6 +143,11 @@ func preflightChecks(projDir string) bool {
 	}
 
 	// 6. Fast tests cover latest migrations
+	//
+	// H1 two-line stamp format (task #123):
+	//   line 1: HEAD SHA at test-pass time
+	//   line 2: source DB (test template) migration_version at test-pass time
+	// Both checked below. Legacy single-line stamps FAIL with re-run guidance.
 	stampPath := filepath.Join(projDir, "tmp", "fast-test-passed-sha")
 	stampBytes, err := os.ReadFile(stampPath)
 	if err != nil {
@@ -130,10 +155,14 @@ func preflightChecks(projDir string) bool {
 		headOut, _ := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD")
 		headSHA := strings.TrimSpace(headOut)
 		if ciPassed := checkCITestPassed(headSHA); ciPassed {
-			fmt.Printf("  ✓ Fast tests passed in CI for %s (writing local stamp)\n", headSHA[:12])
+			// CI ran against a freshly-built environment, so source DB
+			// is by-construction at HEAD's max migration version.
+			latestMig, _ := migrate.LatestOnDiskMigrationVersion(projDir)
+			fmt.Printf("  ✓ Fast tests passed in CI for %s (writing local stamp, source version %s)\n", headSHA[:12], latestMig)
 			os.MkdirAll(filepath.Join(projDir, "tmp"), 0755)
-			os.WriteFile(stampPath, []byte(headSHA+"\n"), 0644)
-			stampBytes = []byte(headSHA)
+			stampContent := headSHA + "\n" + latestMig + "\n"
+			os.WriteFile(stampPath, []byte(stampContent), 0644)
+			stampBytes = []byte(stampContent)
 		} else {
 			fmt.Println("  ✗ Fast tests cover latest migrations (no local stamp, CI not green)")
 			fmt.Println("    Fix: ./dev.sh test fast")
@@ -142,7 +171,17 @@ func preflightChecks(projDir string) bool {
 		}
 	}
 	if stampBytes != nil {
-		stampSHA := strings.TrimSpace(string(stampBytes))
+		stampSHA, stampVersion := parseTwoLineStamp(stampBytes)
+		if stampVersion == "" {
+			fmt.Println("  ✗ Fast tests cover latest migrations (tmp/fast-test-passed-sha is legacy single-line; missing source-DB version)")
+			fmt.Println("    Fix: ./dev.sh test fast   (re-run to upgrade stamp to two-line format)")
+			allPassed = false
+			stampBytes = nil
+		}
+		_ = stampSHA
+	}
+	if stampBytes != nil {
+		stampSHA, stampVersion := parseTwoLineStamp(stampBytes)
 
 		// Find the last commit that touched actual migration files.
 		// Only match versioned files (YYYYMMDDHHMMSS_*.up.*), not helper
@@ -150,9 +189,20 @@ func preflightChecks(projDir string) bool {
 		lastMigrationOut, _ := upgrade.RunCommandOutput(projDir, "git", "log", "-1", "--format=%H", "--", "migrations/*.up.sql", "migrations/*.up.psql")
 		lastMigration := strings.TrimSpace(lastMigrationOut)
 
+		// H1: stamp's line-2 version must equal HEAD's current on-disk
+		// max. Catches the bypass case where the test ran against a stale
+		// template even though the SHA was current.
+		latestOnDisk, _ := migrate.LatestOnDiskMigrationVersion(projDir)
+
 		if lastMigration == "" {
 			// No migrations at all — tests are fine
 			fmt.Println("  ✓ Fast tests cover latest migrations (no migrations found)")
+		} else if stampVersion != latestOnDisk {
+			fmt.Println("  ✗ Fast tests do not cover latest migrations")
+			fmt.Printf("    Stamp's source-DB version %s != HEAD's on-disk max %s.\n", stampVersion, latestOnDisk)
+			fmt.Printf("    The tests ran against a stale template even though the SHA is current.\n")
+			fmt.Println("    Fix: ./dev.sh test fast")
+			allPassed = false
 		} else {
 			// Check if any new migration files exist between stamp and HEAD.
 			// Only match *.up.sql / *.up.psql — post_restore.sql and other
@@ -176,7 +226,7 @@ func preflightChecks(projDir string) bool {
 					if len(shortMig) > 12 {
 						shortMig = shortMig[:12]
 					}
-					fmt.Printf("  ✓ Fast tests cover latest migrations (stamp: %s, last migration: %s)\n", shortStamp, shortMig)
+					fmt.Printf("  ✓ Fast tests cover latest migrations (stamp: %s, source version: %s, last migration: %s)\n", shortStamp, stampVersion, shortMig)
 				} else {
 					// Test expected files have drifted (explain plans, performance baselines)
 					expectedFiles := strings.Split(testExpectedDrift, "\n")
@@ -211,6 +261,20 @@ func preflightChecks(projDir string) bool {
 	//    app/src/lib/database.types.ts while the real schema has changed.
 	//    Regenerating types first ensures tsc/build stamps reflect the
 	//    current schema.
+	//
+	// H1 two-line stamp format (task #123):
+	//   line 1: HEAD SHA at generation time
+	//   line 2: source DB's migration_version at generation time
+	// Preflight verifies BOTH:
+	//   (a) no new migration files have landed since line 1
+	//   (b) line 2 equals HEAD's max on-disk migration version
+	// (b) catches stamps written from a stale source DB even when the
+	// SHA happens to be HEAD — the bypass class the per-generator
+	// assert_db_at_head gate also closes at write time.
+	//
+	// Legacy single-line stamps (pre-#123) are treated as "missing
+	// version" and FAIL preflight with a re-run guidance — one-time
+	// operator disruption, no data loss.
 	checkMigrationStamp := func(stampFile, label, fixCmd string) {
 		failLabel := label
 		if strings.Contains(label, " covers ") {
@@ -226,17 +290,28 @@ func preflightChecks(projDir string) bool {
 			allPassed = false
 			return
 		}
-		stampSHA := strings.TrimSpace(string(sb))
+		stampSHA, stampVersion := parseTwoLineStamp(sb)
+		if stampVersion == "" {
+			fmt.Printf("  ✗ %s (tmp/%s is legacy single-line; missing source-DB version)\n", failLabel, stampFile)
+			fmt.Printf("    Fix: %s   (re-run to upgrade stamp to two-line format)\n", fixCmd)
+			allPassed = false
+			return
+		}
 		newMigrationsOut, _ := upgrade.RunCommandOutput(projDir, "git", "diff", "--name-only",
 			stampSHA+"..HEAD", "--", "migrations/*.up.sql", "migrations/*.up.psql")
 		newMigrations := strings.TrimSpace(newMigrationsOut)
-		if newMigrations == "" {
+		// H1 line-2 check: stamp's recorded migration_version must match
+		// HEAD's current on-disk max. Catches the bypass case where a
+		// generator skipped its at-head guard and wrote a stamp from a
+		// stale DB.
+		latestOnDisk, _ := migrate.LatestOnDiskMigrationVersion(projDir)
+		if newMigrations == "" && stampVersion == latestOnDisk {
 			short := stampSHA
 			if len(short) > 12 {
 				short = short[:12]
 			}
-			fmt.Printf("  ✓ %s (stamp: %s)\n", label, short)
-		} else {
+			fmt.Printf("  ✓ %s (stamp: %s, source-DB version: %s)\n", label, short, stampVersion)
+		} else if newMigrations != "" {
 			migrationFiles := strings.Split(newMigrations, "\n")
 			fmt.Printf("  ✗ %s\n", failLabel)
 			fmt.Printf("    %d new migration(s) since stamp:\n", len(migrationFiles))
@@ -245,6 +320,12 @@ func preflightChecks(projDir string) bool {
 					fmt.Printf("      %s\n", filepath.Base(f))
 				}
 			}
+			fmt.Printf("    Fix: %s\n", fixCmd)
+			allPassed = false
+		} else {
+			fmt.Printf("  ✗ %s\n", failLabel)
+			fmt.Printf("    Stamp's source-DB version %s != HEAD's on-disk max %s.\n", stampVersion, latestOnDisk)
+			fmt.Printf("    The artifact was generated from a stale DB even though the SHA is current.\n")
 			fmt.Printf("    Fix: %s\n", fixCmd)
 			allPassed = false
 		}
