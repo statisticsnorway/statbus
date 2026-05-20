@@ -2,15 +2,21 @@
 --
 -- Coupled changes (single commit):
 --   1. import.analyse_location procedure:
---      a) Country source NULL + address present → default to settings.country_id with a
---         soft warning (`{"<branch>_country_iso_2_raw": null}`). No longer fatal.
---      b) Country source supplied but invalid + address present → still fatal.
+--      a) Country source NULL + address present → default to settings.country_id (no longer
+--         fatal). Defaulting is ALWAYS SILENT in both branches. Principle: regions exist only
+--         in the domestic country, so a supplied region implies the country; when neither is
+--         supplied, the country defaults to domestic and the actually-missing data is the
+--         region. The warning lives on the field that is actually missing.
+--      b) Country source supplied but invalid + address present → still fatal (both branches).
 --      c) Foreign country resolved + region supplied → NEW fatal
 --         `{"<branch>_region_code_raw": "Region can only be supplied for the domestic country."}`.
---         Takes precedence over the invalid-region-code soft warning.
---      d) Postal branch only: REMOVE the domestic-NULL-region soft warning. Postal addresses
---         do not require a region; absence is a principled state, not missing data.
---      e) Physical branch: keep the domestic-NULL-region soft warning unchanged.
+--         Takes precedence over the invalid-region-code soft warning. Symmetric.
+--      d) Physical branch: keep `{"physical_region_code_raw": null}` soft warning when region
+--         is NULL and country is (resolved or defaulted to) domestic. This is the only signal
+--         the procedure emits about region/country missingness in this migration.
+--      e) Postal branch: NO domestic-NULL-region warning. Postal addresses do not require a
+--         region (the principle). With country defaulting also silent (per (a)), postal stays
+--         fully silent for region/country handling.
 --      f) Coordinate cast/range checks and `postal_location_has_coordinates_error` untouched.
 --      g) The `v_default_country_id` fail-fast guard (no `settings.country_id` configured)
 --         remains.
@@ -156,13 +162,15 @@ BEGIN
             -- Invalid region codes for any country (both domestic and foreign)
             (dt.physical_region_code_raw IS NOT NULL AND l.resolved_physical_region_id IS NULL) OR
             -- Missing region warnings for domestic countries: either resolved-as-domestic
-            -- or country-defaulted-to-domestic (source NULL + address present).
+            -- or country-defaulted-to-domestic (source NULL + address present). The warning
+            -- lives on the field that is actually missing — the region. Country defaulting
+            -- itself is silent (regions exist only in the domestic country, so when a region
+            -- is supplied the country is implied; when neither is supplied the country
+            -- defaults silently and the missing-region warning surfaces below).
             (dt.physical_region_code_raw IS NULL AND (
                 (l.resolved_physical_country_id IS NOT DISTINCT FROM %1$L AND l.resolved_physical_country_id IS NOT NULL)
                 OR (NULLIF(dt.physical_country_iso_2_raw, '') IS NULL AND %2$s)
             )) OR
-            -- Country defaulted to domestic — surface as warning so operator knows source was missing.
-            (NULLIF(dt.physical_country_iso_2_raw, '') IS NULL AND %2$s) OR
             -- Invalid country code without address (no-address case, otherwise fatal handles it).
             (dt.physical_country_iso_2_raw IS NOT NULL AND l.resolved_physical_country_id IS NULL AND NOT (%2$s)) OR
             (dt.physical_latitude_raw IS NOT NULL AND l.physical_latitude_error_msg IS NOT NULL) OR
@@ -179,8 +187,9 @@ BEGIN
                      ) THEN jsonb_build_object('physical_region_code_raw', NULL)  -- Missing region for domestic country (resolved or defaulted)
                 ELSE '{}'::jsonb
             END ||
-            -- Country defaulted to domestic — emit NULL-valued key so UI can surface "defaulted" vs "invalid".
-            CASE WHEN NULLIF(dt.physical_country_iso_2_raw, '') IS NULL AND %2$s THEN jsonb_build_object('physical_country_iso_2_raw', NULL) ELSE '{}'::jsonb END ||
+            -- NOTE: no country_defaulted warning. The warning about absence lives on the
+            -- region above — that's the actually-missing data. Country defaulting is silent
+            -- because the region (when supplied) implies the country.
             CASE WHEN dt.physical_country_iso_2_raw IS NOT NULL AND l.resolved_physical_country_id IS NULL THEN jsonb_build_object('physical_country_iso_2_raw', dt.physical_country_iso_2_raw) ELSE '{}'::jsonb END ||
             CASE WHEN dt.physical_latitude_raw IS NOT NULL AND l.physical_latitude_error_msg IS NOT NULL THEN jsonb_build_object('physical_latitude_raw', dt.physical_latitude_raw) ELSE '{}'::jsonb END ||
             CASE WHEN dt.physical_longitude_raw IS NOT NULL AND l.physical_longitude_error_msg IS NOT NULL THEN jsonb_build_object('physical_longitude_raw', dt.physical_longitude_raw) ELSE '{}'::jsonb END ||
@@ -251,8 +260,10 @@ BEGIN
             (dt.postal_region_code_raw IS NOT NULL AND l.resolved_postal_region_id IS NULL) OR
             -- NOTE: postal does NOT emit a domestic-NULL-region warning. Region is not required
             -- for postal addresses; absence is a principled state, not missing data.
-            -- Country defaulted to domestic — surface as warning so operator knows source was missing.
-            (NULLIF(dt.postal_country_iso_2_raw, '') IS NULL AND %2$s) OR
+            -- NOTE: postal does NOT emit a country-defaulted warning either. For a postal address,
+            -- "no country" naturally means "domestic" — the default IS the principled valid state,
+            -- not missingness. With country defaulting silent (per unified principle) and no
+            -- domestic-NULL-region warning, postal stays fully silent for region/country handling.
             -- Invalid country code without address (no-address case, otherwise fatal handles it).
             (dt.postal_country_iso_2_raw IS NOT NULL AND l.resolved_postal_country_id IS NULL AND NOT (%2$s)) OR
             (dt.postal_latitude_raw IS NOT NULL AND l.postal_latitude_error_msg IS NOT NULL) OR
@@ -266,8 +277,9 @@ BEGIN
                 -- NOTE: no domestic-NULL-region warning for postal; absence is principled.
                 ELSE '{}'::jsonb
             END ||
-            -- Country defaulted to domestic — emit NULL-valued key so UI can surface "defaulted" vs "invalid".
-            CASE WHEN NULLIF(dt.postal_country_iso_2_raw, '') IS NULL AND %2$s THEN jsonb_build_object('postal_country_iso_2_raw', NULL) ELSE '{}'::jsonb END ||
+            -- NOTE: no country-defaulted warning emission for postal either. The WRITE still
+            -- defaults to settings.country_id via v_postal_country_id_expr; the defaulting
+            -- is silent because absent-country-on-postal IS the principled valid state.
             CASE WHEN dt.postal_country_iso_2_raw IS NOT NULL AND l.resolved_postal_country_id IS NULL THEN jsonb_build_object('postal_country_iso_2_raw', dt.postal_country_iso_2_raw) ELSE '{}'::jsonb END ||
             CASE WHEN dt.postal_latitude_raw IS NOT NULL AND l.postal_latitude_error_msg IS NOT NULL THEN jsonb_build_object('postal_latitude_raw', dt.postal_latitude_raw) ELSE '{}'::jsonb END ||
             CASE WHEN dt.postal_longitude_raw IS NOT NULL AND l.postal_longitude_error_msg IS NOT NULL THEN jsonb_build_object('postal_longitude_raw', dt.postal_longitude_raw) ELSE '{}'::jsonb END ||
