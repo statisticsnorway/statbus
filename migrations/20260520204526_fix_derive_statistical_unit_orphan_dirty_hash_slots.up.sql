@@ -294,4 +294,81 @@ BEGIN
 END;
 $function$;
 
+-- ---------------------------------------------------------------------------
+-- One-time data backfill for pre-fix phantom residue
+-- ---------------------------------------------------------------------------
+-- The function fix above is correct from this point forward — future orphan
+-- events get their hash_slots dirty-marked before the timeline wipe. But
+-- existing phantom rows in statistical_unit_facet_staging (whose underlying
+-- units were orphaned under the pre-fix code and never dirty-marked) will not
+-- self-heal: their causing event is in the past, no future trigger event will
+-- mark their hash_slots dirty, the partition children will never re-derive
+-- their slots, and the reduce will mirror the stale rows into target every
+-- cycle.
+--
+-- Constraints:
+--   • Cannot run synchronous statistical_unit_facet_derive('-inf','inf') —
+--     at production scale (millions of units) this would stall the migration.
+--   • Cannot unconditionally enqueue work into worker.tasks — that would
+--     shift the test seed baseline (every test that snapshots worker.tasks
+--     would see an extra pending task).
+--
+-- Pattern follows migration 20260422080000_rc48_post_upgrade_rebuild (BLOCK F):
+-- guard with EXISTS on base tables so fresh installs (empty seed/template) are
+-- a no-op. On any database with existing base data, spawn one direct-mode
+-- collect_changes whose NULL-valued id-range keys synthesise the full id sets
+-- from base tables, driving a full rebuild through the existing worker
+-- pipeline (incremental, distributed across the worker pool — feasible at
+-- production scale).
+--
+-- Step (1) — phantom-specific dirty seed — addresses what the rc.48 pattern
+-- alone misses: lonely orphan slots whose underlying unit no longer exists in
+-- ANY base table. derive_statistical_unit (even after the L2 fix above) won't
+-- mark these slots dirty during the post-upgrade rebuild because the
+-- get_temporally_closed_change_sets INNER JOIN drops ids that have no base
+-- row. We seed them directly so derive_statistical_unit_facet's per-slot
+-- dispatch reaches them. On a fresh test database, statistical_unit_facet_staging
+-- is empty so the SELECT returns zero rows — no-op, no test baseline impact.
+--
+-- Step (2) — spawn full rebuild — wakes up the worker via the canonical
+-- direct-mode collect_changes path. The EXISTS guard makes this a no-op on
+-- fresh installs.
+
+-- Step (1): seed lonely orphan slots into dirty_hash_slots.
+INSERT INTO public.statistical_unit_facet_dirty_hash_slots (dirty_hash_slot)
+SELECT DISTINCT s.hash_slot
+FROM public.statistical_unit_facet_staging s
+WHERE NOT EXISTS (
+    SELECT 1 FROM public.statistical_unit u
+    WHERE u.hash_slot = s.hash_slot
+      AND u.unit_type = s.unit_type
+      AND u.used_for_counting
+)
+ON CONFLICT DO NOTHING;
+
+-- Step (2): canonical direct-mode rebuild trigger (rc.48 BLOCK F pattern).
+DO $facet_drift_backfill_rebuild$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM public.establishment
+        UNION ALL SELECT 1 FROM public.legal_unit
+        UNION ALL SELECT 1 FROM public.enterprise
+        UNION ALL SELECT 1 FROM public.power_group
+        LIMIT 1
+    ) THEN
+        PERFORM worker.spawn(
+            p_command => 'collect_changes',
+            p_payload => jsonb_build_object(
+                'establishment_id_ranges', NULL,
+                'legal_unit_id_ranges',    NULL,
+                'enterprise_id_ranges',    NULL,
+                'power_group_id_ranges',   NULL,
+                'valid_ranges',            NULL
+            )
+        );
+        PERFORM pg_notify('worker_tasks', 'analytics');
+    END IF;
+END
+$facet_drift_backfill_rebuild$;
+
 END;
