@@ -60,6 +60,7 @@ SELECT
 
 \echo "Run worker processing for import jobs - Phase 1"
 CALL worker.process_tasks(p_queue => 'import');
+CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Checking import job statuses for Phase 1"
@@ -70,6 +71,25 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
+
+\echo "Facet invariant after Phase 1 (current-year only)"
+WITH truth AS (
+  SELECT unit_type, COUNT(DISTINCT unit_id)::int AS n
+  FROM public.statistical_unit
+  WHERE valid_from <= CURRENT_DATE AND valid_until > CURRENT_DATE
+    AND used_for_counting
+  GROUP BY unit_type
+),
+facet AS (
+  SELECT unit_type, COALESCE(SUM(count), 0)::int AS n
+  FROM public.statistical_unit_facet
+  WHERE valid_from <= CURRENT_DATE AND valid_until > CURRENT_DATE
+  GROUP BY unit_type
+)
+SELECT t.unit_type, t.n AS truth_count, f.n AS facet_sum,
+       t.n = f.n AS matches
+FROM truth t LEFT JOIN facet f USING (unit_type)
+ORDER BY t.unit_type;
 
 \echo ""
 \echo "---"
@@ -90,6 +110,7 @@ SELECT
 
 \echo "Run worker processing for LU source dates job"
 CALL worker.process_tasks(p_queue => 'import');
+CALL worker.process_tasks(p_queue => 'analytics');
 \echo "Checking LU source dates job status"
 \x
 SELECT
@@ -124,6 +145,7 @@ SELECT
 
 \echo "Run worker processing for Formal ES source dates job"
 CALL worker.process_tasks(p_queue => 'import');
+CALL worker.process_tasks(p_queue => 'analytics');
 \echo "Checking Formal ES source dates job status"
 \x
 SELECT
@@ -157,6 +179,7 @@ SELECT
 
 \echo "Run worker processing for Informal ES source dates job"
 CALL worker.process_tasks(p_queue => 'import');
+CALL worker.process_tasks(p_queue => 'analytics');
 \echo "Checking Informal ES source dates job status"
 \x
 SELECT
@@ -181,6 +204,25 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
+
+\echo "Facet invariant after Phase 2 (current-year only)"
+WITH truth AS (
+  SELECT unit_type, COUNT(DISTINCT unit_id)::int AS n
+  FROM public.statistical_unit
+  WHERE valid_from <= CURRENT_DATE AND valid_until > CURRENT_DATE
+    AND used_for_counting
+  GROUP BY unit_type
+),
+facet AS (
+  SELECT unit_type, COALESCE(SUM(count), 0)::int AS n
+  FROM public.statistical_unit_facet
+  WHERE valid_from <= CURRENT_DATE AND valid_until > CURRENT_DATE
+  GROUP BY unit_type
+)
+SELECT t.unit_type, t.n AS truth_count, f.n AS facet_sum,
+       t.n = f.n AS matches
+FROM truth t LEFT JOIN facet f USING (unit_type)
+ORDER BY t.unit_type;
 
 \echo "Final check of worker queue to ensure no tasks are stuck"
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
