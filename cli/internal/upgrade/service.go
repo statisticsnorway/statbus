@@ -680,7 +680,11 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 		}
 	}
 
-	logRecover("Service restarted. Found interrupted %s flag for %s (id=%d, pid=%d, invoked_by=%s)",
+	// Neutral wording — "interrupted" was misleading for the planned
+	// post-swap continuation case (binary swap → exit 42 → fresh process
+	// finds its own flag). The downstream branch (install / post-swap /
+	// reconcile) emits the action-specific message.
+	logRecover("Service restarted. Found %s flag for %s (id=%d, pid=%d, invoked_by=%s)",
 		holder, flag.Label(), flag.ID, flag.PID, flag.InvokedBy)
 
 	// Guard removed: DetectState's flock-try is now authoritative for
@@ -3009,9 +3013,14 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 			progress.Write("  Target version: %s", desc)
 		}
 	}
-	if out, err := runCommandOutput(projDir, "git", "log", "-1", "--pretty=%s", commitSHA); err == nil {
-		if subj := strings.TrimSpace(out); subj != "" {
-			progress.Write("  Target commit: %s", subj)
+	// Show short SHA + subject so the operator-visible log identifies the
+	// commit by its SHA (the durable handle), not just the message subject
+	// (which can be misleading — e.g., a "release stable: SKIP_INSTALL_TEST"
+	// commit subject describes the release-flow bypass, not the upgrade
+	// target itself).
+	if out, err := runCommandOutput(projDir, "git", "log", "-1", "--pretty=%h %s", commitSHA); err == nil {
+		if line := strings.TrimSpace(out); line != "" {
+			progress.Write("  Target commit: %s", line)
 		}
 	}
 
@@ -3633,10 +3642,13 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// --inside-active-upgrade flag + STATBUS_INSIDE_ACTIVE_UPGRADE=1 env var
 	// for audit-trail + belt-and-suspenders in case a future install path
 	// adds additional mutex checks.
+	fixupStart := time.Now()
 	progress.Write("Running install fixups...")
 	if err := runInstallFixup(projDir); err != nil {
 		progress.Write("%s: post-upgrade install fixups failed: %v", ErrInstallFixupFailed, err)
 		// Non-fatal — the upgrade itself succeeded and the row reflects it.
+	} else {
+		progress.Write("Install fixups complete (elapsed %s).", time.Since(fixupStart).Truncate(time.Millisecond))
 	}
 
 	return nil
@@ -3678,7 +3690,9 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 	if progress == nil {
 		progress = NewUpgradeLog(d.projDir, int64(flag.ID), flag.Label(), time.Now().UTC())
 	}
-	progress.Write("Post-swap restart detected — resuming upgrade on new binary (pid=%d)", os.Getpid())
+	// Dedup: recoverFromFlag already emitted "Post-swap restart detected
+	// for upgrade %d (%s) — resuming pipeline on new binary (pid=%d)"
+	// before calling here. A second line in resumePostSwap was redundant.
 
 	// Ground-truth guard (task #49 Gap #6, rune-stuck fix). If the
 	// running binary's compile-time commit SHA doesn't match the flag's
@@ -3788,12 +3802,20 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 					"  ./sb install will resume after the divergence is resolved.",
 				flag.Label(), ShortForDisplay(d.binaryCommit), mismatched)
 		}
+		// "mismatched" is the expected post-swap state — the prior process
+		// stopped containers on purpose with old images so the new binary
+		// can restart them with target tags. The list reads as a fault
+		// only because of word choice and one-line formatting. Break into
+		// a header + per-container lines so the operator can scan it.
 		if binaryDescendsFlag {
-			progress.Write("Post-swap continuation: binary %s is descendant of flag target %s — operator-driven roll-forward, continuing via applyPostSwap (mismatched: %v).",
-				ShortForDisplay(d.binaryCommit), flag.Label(), mismatched)
+			progress.Write("Post-swap continuation: binary %s is descendant of flag target %s — operator-driven roll-forward, continuing via applyPostSwap.",
+				ShortForDisplay(d.binaryCommit), flag.Label())
 		} else {
-			progress.Write("Post-swap continuation: binary at target %s; containers stopped mid-pipeline (mismatched: %v). Resuming via applyPostSwap.",
-				flag.Label(), mismatched)
+			progress.Write("Post-swap continuation: binary at target %s; containers carry pre-upgrade tags (expected — restarting on target tag). Resuming via applyPostSwap.",
+				flag.Label())
+		}
+		for _, m := range mismatched {
+			progress.Write("  %s", m)
 		}
 	}
 

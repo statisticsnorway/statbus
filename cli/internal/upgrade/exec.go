@@ -219,24 +219,6 @@ func (d *Service) backupRoot() string {
 	return filepath.Join(os.Getenv("HOME"), "statbus-backups")
 }
 
-// dirSize returns the aggregate byte count of a directory tree. Walk
-// errors (e.g. a file removed mid-walk) are silently skipped — the
-// returned size is informational, not authoritative. Only used for
-// heartbeat log messages during rsync.
-func dirSize(root string) int64 {
-	var total int64
-	_ = filepath.Walk(root, func(_ string, info os.FileInfo, err error) error {
-		if err != nil || info == nil {
-			return nil
-		}
-		if !info.IsDir() {
-			total += info.Size()
-		}
-		return nil
-	})
-	return total
-}
-
 // humanBytes formats a byte count as a human-readable string.
 // Local duplicate of cmd/db.go humanSize — different package, and we
 // don't want to promote this to a shared util just for two callers.
@@ -296,23 +278,30 @@ func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (string, e
 
 	// Heartbeat wrapper. Raw rsync stdout is streamed via progress.File()
 	// (bypasses progress.Write, which is where the unified emitHeartbeat
-	// lives — task #42). A large DB can keep rsync running for minutes,
-	// which would silence the main goroutine for the duration and
-	// tickle WatchdogSec=120. Emit a progress.Write every 30s so each
-	// tick fires emitHeartbeat via the unified path.
+	// lives). A large DB can keep rsync running for minutes, which would
+	// silence the main goroutine for the duration and tickle
+	// WatchdogSec=120. Emit a progress.Write every 30s so each tick fires
+	// emitHeartbeat via the unified path.
 	//
-	// %s copied: walk the growing tmpDir and sum file sizes. Cheap on a
-	// backup-shaped directory (dozens to thousands of files, all small
-	// or PG data files); racy against concurrent rsync writes which is
-	// fine — the number in the log line is informational.
+	// "%s copied": delta in free-disk-space since backup start, computed
+	// via statfs. Prior implementation walked tmpDir with filepath.Walk
+	// and summed file sizes — but rsync runs as root inside the alpine
+	// container and preserves the source's postgres-UID ownership when
+	// writing through the bind mount. The host-side process is the
+	// statbus user, which can't traverse postgres-owned subdirs (e.g.
+	// /backup/base/). filepath.Walk silently swallows the EACCES errors
+	// → total stayed at 0, hence the famous "0 B copied" log lines for
+	// the entire 3-minute backup. statfs sees real on-disk bytes
+	// regardless of file ownership.
 	//
-	// Same blind-spot trade-off as pullImages (task #42): the ticker
-	// runs in a background goroutine, so a stuck main goroutine inside
-	// runCommandToLog would still emit heartbeats. Bounded by the
-	// 10-minute context timeout inside runCommandToLog.
+	// Caveat: other writers to the same filesystem would skew the
+	// reading. During an upgrade the database is stopped and the worker
+	// is idle, so rsync is effectively the only writer; the metric is
+	// accurate to within filesystem-overhead noise.
 	rsyncStart := time.Now()
 	rsyncDone := make(chan struct{})
 	rsyncTicker := time.NewTicker(30 * time.Second)
+	freeAtStart, _ := DiskFree(root)
 	go func() {
 		defer rsyncTicker.Stop()
 		for {
@@ -320,7 +309,11 @@ func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (string, e
 			case <-rsyncDone:
 				return
 			case <-rsyncTicker.C:
-				copied := dirSize(tmpDir)
+				freeNow, _ := DiskFree(root)
+				var copied int64
+				if freeAtStart > freeNow {
+					copied = int64(freeAtStart - freeNow)
+				}
 				progress.Write("Still backing up database (%s elapsed, %s copied)...",
 					time.Since(rsyncStart).Truncate(time.Second),
 					humanBytes(copied))
