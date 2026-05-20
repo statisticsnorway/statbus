@@ -592,21 +592,13 @@ var releasePrereleaseCmd = &cobra.Command{
 			return err
 		}
 
-		// Migration immutability: no modifications to migrations that existed
-		// in the previous RC. New migrations are fine.
+		// Compute the patch this RC targets BEFORE the immutability check —
+		// the helper picks a predecessor keyed to that specific patch, not
+		// to "latest RC in the current year-month" (the prior shape from
+		// findPreviousTag). The reorder closes the year-month-rollover gap
+		// that previously let migrations modified between April's last
+		// stable and May's first RC pass undetected (task #124 Part B).
 		now := time.Now()
-		immPattern := fmt.Sprintf("v%d.%02d.*-rc.*", now.Year(), now.Month())
-		prevRC := findPreviousTag(projDir, immPattern, true)
-		if prevRC != "" {
-			if err := checkMigrationImmutability(projDir, prevRC, "previous RC"); err != nil {
-				return err
-			}
-		} else {
-			fmt.Println("  ✓ No previous RC to check migrations against (first RC this month)")
-		}
-		fmt.Println()
-
-		// Get current date prefix
 		prefix := fmt.Sprintf("v%d.%02d", now.Year(), now.Month())
 
 		// Find the highest stable patch for this month.
@@ -641,30 +633,40 @@ var releasePrereleaseCmd = &cobra.Command{
 			nextPatch = 0 // no stable yet — RC for .0
 		}
 
-		// List existing RC tags for this patch version
-		rcPattern := fmt.Sprintf("%s.%d-rc.*", prefix, nextPatch)
-		tagsOut, err := upgrade.RunCommandOutput(projDir, "git", "tag", "-l", rcPattern, "--sort=-version:refname")
+		// List existing RC numbers for this patch — used both for the
+		// next-in-sequence computation below AND as input to
+		// pickPrereleasePredecessor (which uses the highest existing RC
+		// in the same patch as the immutability predecessor).
+		rcNums, err := listRCNumbersForPatch(projDir, prefix, nextPatch, "")
 		if err != nil {
-			return fmt.Errorf("listing tags: %w", err)
+			return fmt.Errorf("listing RC numbers: %w", err)
 		}
 
-		// Parse highest RC number for this patch
+		// Migration immutability against the unified-predecessor helper.
+		// Same logic shape as ValidatePrereleaseTag's post-creation
+		// re-validation (release_verify.go), so the two call sites stay
+		// in lock-step on the year-month-rollover edge case.
+		prevTag, err := pickPrereleasePredecessor(projDir, prefix, nextPatch, rcNums)
+		if err != nil {
+			return err
+		}
+		if prevTag != "" && tagExistsLocally(projDir, prevTag) {
+			label := "previous RC"
+			if !strings.Contains(prevTag, "-rc.") {
+				label = "previous stable"
+			}
+			if err := checkMigrationImmutability(projDir, prevTag, label); err != nil {
+				return err
+			}
+		} else {
+			fmt.Println("  ✓ No previous tag to check migrations against (very first release)")
+		}
+		fmt.Println()
+
 		highestRC := 0
-		rcRegex := regexp.MustCompile(`-rc\.(\d+)$`)
-		for _, line := range strings.Split(strings.TrimSpace(tagsOut), "\n") {
-			line = strings.TrimSpace(line)
-			if line == "" {
-				continue
-			}
-			matches := rcRegex.FindStringSubmatch(line)
-			if len(matches) == 2 {
-				n, _ := strconv.Atoi(matches[1])
-				if n > highestRC {
-					highestRC = n
-				}
-			}
+		if len(rcNums) > 0 {
+			highestRC = rcNums[len(rcNums)-1]
 		}
-
 		nextRC := highestRC + 1
 		tagName := fmt.Sprintf("%s.%d-rc.%02d", prefix, nextPatch, nextRC)
 

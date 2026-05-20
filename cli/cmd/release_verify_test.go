@@ -171,3 +171,133 @@ func TestValidateStableTag_NameRegex(t *testing.T) {
 		t.Fatalf("want 'does not match' for rc tag passed to ValidateStableTag, got %v", err)
 	}
 }
+
+// TestFindLatestStableTagBeforePrefix covers the helper that closes the
+// year-month-rollover gap in ValidatePrereleaseTag (task #124 Part B).
+// The helper finds the latest stable tag whose (year, month) is
+// strictly less than the given prefix's (year, month) — used as the
+// migration-immutability predecessor for rc.1 of patch == 0 in a
+// brand-new year-month series.
+func TestFindLatestStableTagBeforePrefix(t *testing.T) {
+	dir := makeRepo(t)
+
+	t.Run("empty repo returns empty string", func(t *testing.T) {
+		got, err := findLatestStableTagBeforePrefix(dir, "v2026.05")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != "" {
+			t.Errorf("empty repo: got %q, want \"\"", got)
+		}
+	})
+
+	// Build a tag layout exercising the comparison shapes.
+	for _, tag := range []string{
+		"v2025.12.4",      // prior year-month, mid-patch
+		"v2026.01.0",      // prior year-month, patch 0
+		"v2026.04.0",      // prior year-month (closer), patch 0
+		"v2026.04.5",      // prior year-month (closer), higher patch — should win for v2026.05
+		"v2026.05.0",      // same year-month — must be excluded by strict-less rule
+		"v2026.04.0-rc.1", // RC tag — must be excluded (only stable shapes count)
+	} {
+		tagAnnotated(t, dir, tag, "Release "+tag) // subject is irrelevant to the helper
+	}
+
+	t.Run("picks closest year-month, highest patch", func(t *testing.T) {
+		got, err := findLatestStableTagBeforePrefix(dir, "v2026.05")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != "v2026.04.5" {
+			t.Errorf("got %q, want v2026.04.5", got)
+		}
+	})
+
+	t.Run("excludes same year-month (strict less than)", func(t *testing.T) {
+		// For prefix v2026.04, v2026.04.5 is NOT strictly less; should
+		// return the next-closest prior month.
+		got, err := findLatestStableTagBeforePrefix(dir, "v2026.04")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != "v2026.01.0" {
+			t.Errorf("got %q, want v2026.01.0", got)
+		}
+	})
+
+	t.Run("returns empty when no qualifying prior stable", func(t *testing.T) {
+		got, err := findLatestStableTagBeforePrefix(dir, "v2025.01")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != "" {
+			t.Errorf("v2025.01 prefix: got %q, want \"\"", got)
+		}
+	})
+
+	t.Run("rejects malformed prefix", func(t *testing.T) {
+		_, err := findLatestStableTagBeforePrefix(dir, "v2026.5") // 1-digit month
+		if err == nil {
+			t.Errorf("want error for malformed prefix, got nil")
+		}
+	})
+}
+
+// TestPickPrereleasePredecessor covers the unified predecessor-finding
+// helper used by ValidatePrereleaseTag and releasePrereleaseCmd.RunE.
+// Three branches: prior-RC-in-patch, prior-stable-patch, and cross-
+// year-month (the case Part B fixes).
+func TestPickPrereleasePredecessor(t *testing.T) {
+	dir := makeRepo(t)
+	for _, tag := range []string{
+		"v2026.04.5",      // last April stable (cross-year-month predecessor target)
+		"v2026.05.0-rc.1", // first May RC
+		"v2026.05.0-rc.2", // second May RC
+		"v2026.05.0",      // May stable patch 0 (predecessor for patch 1)
+	} {
+		tagAnnotated(t, dir, tag, "Release "+tag)
+	}
+
+	t.Run("rc.N where N>1 picks previous RC in same patch", func(t *testing.T) {
+		got, err := pickPrereleasePredecessor(dir, "v2026.05", 0, []int{1, 2})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != "v2026.05.0-rc.2" {
+			t.Errorf("got %q, want v2026.05.0-rc.2", got)
+		}
+	})
+
+	t.Run("rc.1 where patch>0 picks previous stable patch", func(t *testing.T) {
+		got, err := pickPrereleasePredecessor(dir, "v2026.05", 1, nil)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != "v2026.05.0" {
+			t.Errorf("got %q, want v2026.05.0", got)
+		}
+	})
+
+	t.Run("rc.1 where patch==0 picks latest stable in prior year-month", func(t *testing.T) {
+		got, err := pickPrereleasePredecessor(dir, "v2026.06", 0, nil)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		// v2026.05.0 is the latest stable strictly less than v2026.06.
+		if got != "v2026.05.0" {
+			t.Errorf("got %q, want v2026.05.0", got)
+		}
+	})
+
+	t.Run("rc.1 where patch==0 with no prior stable returns empty", func(t *testing.T) {
+		// Empty repo: assert the base case (first-release-ever).
+		emptyDir := makeRepo(t)
+		got, err := pickPrereleasePredecessor(emptyDir, "v2026.01", 0, nil)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != "" {
+			t.Errorf("got %q, want \"\"", got)
+		}
+	})
+}
