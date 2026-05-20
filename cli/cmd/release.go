@@ -982,18 +982,21 @@ func checkRCArtifactGate(rcTag string) bool {
 		manifestResults := release.CheckManifests(rcTag)
 		assetsOK, manifestsOK := 0, 0
 		var failures []string
+		// CheckResult.Name is already namespaced ("asset: <name>" /
+		// "image: <name>"), so we use r.Name verbatim — prefixing
+		// again here would produce "asset asset: <name>: <err>".
 		for _, r := range assetResults {
 			if r.OK {
 				assetsOK++
 			} else {
-				failures = append(failures, fmt.Sprintf("    asset %s: %s", r.Name, r.Err))
+				failures = append(failures, fmt.Sprintf("    %s: %s", r.Name, r.Err))
 			}
 		}
 		for _, r := range manifestResults {
 			if r.OK {
 				manifestsOK++
 			} else {
-				failures = append(failures, fmt.Sprintf("    manifest %s: %s", r.Name, r.Err))
+				failures = append(failures, fmt.Sprintf("    %s: %s", r.Name, r.Err))
 			}
 		}
 		if len(failures) == 0 {
@@ -1004,9 +1007,17 @@ func checkRCArtifactGate(rcTag string) bool {
 		}
 		// Workflow green but probes still failing — rare, but worth a
 		// detailed per-asset breakdown so the operator can investigate.
+		// Surface the release.yaml run links too: even though the run
+		// itself reported success, the logs / job timeline are where
+		// the operator looks to understand why an asset upload silently
+		// dropped (most common cause: ghcr / GH Releases eventual-
+		// consistency window between the API marking success and the
+		// resource becoming visible on the public read paths).
 		fmt.Printf("  ✗ RC %s release.yaml is green but artifact probes fail (%d assets, %d manifests OK; %d missing)\n",
 			rcTag, assetsOK, manifestsOK, len(failures))
-		fmt.Printf("    release.yaml: %s\n", wf.RunURL)
+		fmt.Printf("    Watch: gh run watch %d\n", wf.RunID)
+		fmt.Printf("    View:  gh run view %d --log-failed\n", wf.RunID)
+		fmt.Printf("    URL:   %s\n", wf.RunURL)
 		for _, f := range failures {
 			fmt.Println(f)
 		}

@@ -22,9 +22,9 @@ const releaseWorkflow = "release.yaml"
 type ReleaseWorkflowStatus string
 
 const (
-	ReleaseWorkflowGreen   ReleaseWorkflowStatus = "green"   // any run completed/success
-	ReleaseWorkflowPending ReleaseWorkflowStatus = "pending" // any run queued/in_progress
-	ReleaseWorkflowFailed  ReleaseWorkflowStatus = "failed"  // all completed/<non-success>
+	ReleaseWorkflowGreen   ReleaseWorkflowStatus = "green"   // latest run completed/success
+	ReleaseWorkflowPending ReleaseWorkflowStatus = "pending" // latest run queued/in_progress
+	ReleaseWorkflowFailed  ReleaseWorkflowStatus = "failed"  // latest run completed/<non-success>
 	ReleaseWorkflowMissing ReleaseWorkflowStatus = "missing" // no runs for this tag
 	ReleaseWorkflowUnknown ReleaseWorkflowStatus = "unknown" // API unreachable / decode error
 )
@@ -40,17 +40,29 @@ type ReleaseWorkflowResult struct {
 }
 
 // CheckReleaseWorkflowAtTag queries GitHub Actions for the release.yaml
-// runs triggered by the push of the given tag. Uses the same any-green
-// semantics as CheckWorkflowAtCommit: the GitHub Release for an immutable
-// tag, once published by a successful run, stays published; a later retry
-// that hits transient infra doesn't unpublish it.
+// runs triggered by the push of the given tag and reports the status of
+// the most recent run. release.yaml is tag-keyed (each tag's push fires
+// its own independent run that publishes that tag's specific GitHub
+// Release), so "exact-most-recent" is the right semantics: a rerun of
+// this tag's run is the current truth; an OLDER tag's success says
+// nothing about THIS tag's readiness.
+//
+// This contrasts with CheckWorkflowAtCommit's any-green-wins semantics,
+// which is correct for commit-keyed workflows (images.yaml) where a
+// successful build for commit X is a permanent statement about commit X.
 func CheckReleaseWorkflowAtTag(tag string) ReleaseWorkflowResult {
 	return checkReleaseWorkflowAt("https://api.github.com", tag)
 }
 
 // checkReleaseWorkflowAt is the testable inner variant.
+//
+// Uses `branch=<tag>` as the filter. GitHub Actions' REST API has no
+// `head_branch` query parameter (that name is a response-only field on
+// each workflow run); a `head_branch=` query string is silently ignored
+// and the unfiltered first page of runs comes back. The correct filter
+// is `branch=`, which for a tag-trigger run matches the tag name.
 func checkReleaseWorkflowAt(apiBase, tag string) ReleaseWorkflowResult {
-	url := fmt.Sprintf("%s/repos/%s/%s/actions/workflows/%s/runs?head_branch=%s&event=push&per_page=10",
+	url := fmt.Sprintf("%s/repos/%s/%s/actions/workflows/%s/runs?branch=%s&event=push&per_page=10",
 		apiBase, githubOrg, githubRepo, releaseWorkflow, tag)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -87,18 +99,20 @@ func checkReleaseWorkflowAt(apiBase, tag string) ReleaseWorkflowResult {
 		return ReleaseWorkflowResult{Status: ReleaseWorkflowMissing}
 	}
 
-	for _, run := range body.WorkflowRuns {
-		if run.Status == "completed" && run.Conclusion == "success" {
-			return ReleaseWorkflowResult{Status: ReleaseWorkflowGreen, RunURL: run.HTMLURL, RunID: run.ID}
-		}
-	}
-	for _, run := range body.WorkflowRuns {
-		if run.Status != "completed" {
-			return ReleaseWorkflowResult{Status: ReleaseWorkflowPending, RunURL: run.HTMLURL, RunID: run.ID}
-		}
-	}
+	// Exact-most-recent. The GitHub API returns runs sorted by
+	// created_at DESC; with `branch=<tag>` filtering, every run is
+	// for THIS tag's release.yaml trigger. The first entry is the
+	// most recent (re)run and IS the tag's authoritative status —
+	// no scanning, no any-green fallback.
 	latest := body.WorkflowRuns[0]
-	return ReleaseWorkflowResult{Status: ReleaseWorkflowFailed, RunURL: latest.HTMLURL, RunID: latest.ID, Detail: latest.Conclusion}
+	switch {
+	case latest.Status != "completed":
+		return ReleaseWorkflowResult{Status: ReleaseWorkflowPending, RunURL: latest.HTMLURL, RunID: latest.ID}
+	case latest.Conclusion == "success":
+		return ReleaseWorkflowResult{Status: ReleaseWorkflowGreen, RunURL: latest.HTMLURL, RunID: latest.ID}
+	default:
+		return ReleaseWorkflowResult{Status: ReleaseWorkflowFailed, RunURL: latest.HTMLURL, RunID: latest.ID, Detail: latest.Conclusion}
+	}
 }
 
 // ReleaseWorkflowURL returns the GitHub UI URL where release.yaml runs
