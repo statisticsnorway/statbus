@@ -20,6 +20,12 @@ DECLARE
     v_fatal_error_json_expr_sql TEXT; -- For fatal error messages
     v_address_present_condition_sql TEXT; -- To check if any address part is present
     v_default_country_id INT; -- Default country from settings for region validation
+    -- Country defaulting expressions: when source is NULL/empty AND the OWN-branch address parts
+    -- are present, default to settings.country_id. Defined once (branch-agnostic) so each call
+    -- writes both physical_country_id and postal_country_id consistently — preventing the next
+    -- branch's run from clobbering the defaulted value.
+    v_physical_country_id_expr TEXT;
+    v_postal_country_id_expr TEXT;
 
     -- For coordinate validation
     v_coord_cast_error_json_expr_sql TEXT;
@@ -30,7 +36,8 @@ DECLARE
 BEGIN
     RAISE DEBUG '[Job %] analyse_location (Batch) for step_code %: Starting analysis for batch_seq %', p_job_id, p_step_code, p_batch_seq;
 
-    -- Load default country from settings for region validation - FAIL FAST if not configured
+    -- Load default country from settings for region validation - FAIL FAST if not configured.
+    -- This is the foundation for both region-context checks and country defaulting (below).
     SELECT country_id INTO v_default_country_id FROM public.settings LIMIT 1;
     IF v_default_country_id IS NULL THEN
         RAISE EXCEPTION '[Job %] analyse_location: No country_id configured in settings table. System must be configured with a default country before processing location data. Run getting-started setup first.', p_job_id;
@@ -52,6 +59,34 @@ BEGIN
 
     RAISE DEBUG '[Job %] analyse_location: Processing for target % (code: %, priority %)', p_job_id, v_step.name, v_step.code, v_step.priority;
 
+    -- Branch-agnostic defaulting expressions for the UPDATE clause. Both branches write
+    -- both physical_country_id and postal_country_id (legacy of the unified UPDATE), so
+    -- defaulting must reference each column's OWN address-present condition independently.
+    v_physical_country_id_expr := format($$
+        CASE WHEN NULLIF(dt.physical_country_iso_2_raw, '') IS NULL
+                  AND (NULLIF(dt.physical_address_part1_raw, '') IS NOT NULL
+                       OR NULLIF(dt.physical_address_part2_raw, '') IS NOT NULL
+                       OR NULLIF(dt.physical_address_part3_raw, '') IS NOT NULL
+                       OR NULLIF(dt.physical_postcode_raw, '') IS NOT NULL
+                       OR NULLIF(dt.physical_postplace_raw, '') IS NOT NULL
+                       OR NULLIF(dt.physical_region_code_raw, '') IS NOT NULL)
+             THEN %1$L::INTEGER
+             ELSE l.resolved_physical_country_id
+        END
+    $$, v_default_country_id);
+    v_postal_country_id_expr := format($$
+        CASE WHEN NULLIF(dt.postal_country_iso_2_raw, '') IS NULL
+                  AND (NULLIF(dt.postal_address_part1_raw, '') IS NOT NULL
+                       OR NULLIF(dt.postal_address_part2_raw, '') IS NOT NULL
+                       OR NULLIF(dt.postal_address_part3_raw, '') IS NOT NULL
+                       OR NULLIF(dt.postal_postcode_raw, '') IS NOT NULL
+                       OR NULLIF(dt.postal_postplace_raw, '') IS NOT NULL
+                       OR NULLIF(dt.postal_region_code_raw, '') IS NOT NULL)
+             THEN %1$L::INTEGER
+             ELSE l.resolved_postal_country_id
+        END
+    $$, v_default_country_id);
+
     IF p_step_code = 'physical_location' THEN
         v_error_keys_to_clear_arr := ARRAY[
             'physical_region_code_raw',
@@ -65,35 +100,63 @@ BEGIN
             (NULLIF(dt.physical_address_part1_raw, '') IS NOT NULL OR NULLIF(dt.physical_address_part2_raw, '') IS NOT NULL OR NULLIF(dt.physical_address_part3_raw, '') IS NOT NULL OR
              NULLIF(dt.physical_postcode_raw, '') IS NOT NULL OR NULLIF(dt.physical_postplace_raw, '') IS NOT NULL OR NULLIF(dt.physical_region_code_raw, '') IS NOT NULL)
         $$;
-        v_fatal_error_condition_sql := format($$
-            (%s AND (NULLIF(dt.physical_country_iso_2_raw, '') IS NULL OR l.resolved_physical_country_id IS NULL))
-        $$, v_address_present_condition_sql);
-        v_fatal_error_json_expr_sql := $$
-            jsonb_build_object('physical_country_iso_2_raw', 'Country is required and must be valid when other physical address details are provided.')
-        $$;
+        -- Fatal conditions (two, mutually exclusive on a single row):
+        --   (a) Country code supplied + invalid + address present → unprincipled, can't store.
+        --   (b) Region supplied + country resolved as foreign → unprincipled (region is domestic-only).
+        v_fatal_error_condition_sql := format($$(
+            (%2$s AND NULLIF(dt.physical_country_iso_2_raw, '') IS NOT NULL AND l.resolved_physical_country_id IS NULL)
+            OR
+            (dt.physical_region_code_raw IS NOT NULL AND l.resolved_physical_country_id IS NOT NULL AND l.resolved_physical_country_id IS DISTINCT FROM %1$L)
+        )$$, v_default_country_id, v_address_present_condition_sql);
+        v_fatal_error_json_expr_sql := format($$
+            jsonb_strip_nulls(jsonb_build_object(
+                'physical_country_iso_2_raw',
+                CASE WHEN (%2$s AND NULLIF(dt.physical_country_iso_2_raw, '') IS NOT NULL AND l.resolved_physical_country_id IS NULL)
+                     THEN 'Country is required and must be valid when other physical address details are provided.'
+                     ELSE NULL END,
+                'physical_region_code_raw',
+                CASE WHEN (dt.physical_region_code_raw IS NOT NULL AND l.resolved_physical_country_id IS NOT NULL AND l.resolved_physical_country_id IS DISTINCT FROM %1$L)
+                     THEN 'Region can only be supplied for the domestic country.'
+                     ELSE NULL END
+            ))
+        $$, v_default_country_id, v_address_present_condition_sql);
         v_error_condition_sql := format($$
             -- Invalid region codes for any country (both domestic and foreign)
             (dt.physical_region_code_raw IS NOT NULL AND l.resolved_physical_region_id IS NULL) OR
-            -- Missing region warnings for domestic countries (when country is present and domestic)
-            (dt.physical_region_code_raw IS NULL AND l.resolved_physical_country_id IS NOT DISTINCT FROM %1$L AND l.resolved_physical_country_id IS NOT NULL) OR
-            -- Country check is now fatal if address parts are present, otherwise non-fatal for warnings
+            -- Missing region warnings for domestic countries: either resolved-as-domestic
+            -- or country-defaulted-to-domestic (source NULL + address present). The warning
+            -- lives on the field that is actually missing — the region. Country defaulting
+            -- itself is silent (regions exist only in the domestic country, so when a region
+            -- is supplied the country is implied; when neither is supplied the country
+            -- defaults silently and the missing-region warning surfaces below).
+            (dt.physical_region_code_raw IS NULL AND (
+                (l.resolved_physical_country_id IS NOT DISTINCT FROM %1$L AND l.resolved_physical_country_id IS NOT NULL)
+                OR (NULLIF(dt.physical_country_iso_2_raw, '') IS NULL AND %2$s)
+            )) OR
+            -- Invalid country code without address (no-address case, otherwise fatal handles it).
             (dt.physical_country_iso_2_raw IS NOT NULL AND l.resolved_physical_country_id IS NULL AND NOT (%2$s)) OR
             (dt.physical_latitude_raw IS NOT NULL AND l.physical_latitude_error_msg IS NOT NULL) OR
             (dt.physical_longitude_raw IS NOT NULL AND l.physical_longitude_error_msg IS NOT NULL) OR
             (dt.physical_altitude_raw IS NOT NULL AND l.physical_altitude_error_msg IS NOT NULL)
-        $$, v_default_country_id, v_address_present_condition_sql); -- Format with default_country_id and address_present check
+        $$, v_default_country_id, v_address_present_condition_sql);
 
         v_warnings_json_expr_sql := format($$
             CASE
                 WHEN dt.physical_region_code_raw IS NOT NULL AND l.resolved_physical_region_id IS NULL THEN jsonb_build_object('physical_region_code_raw', dt.physical_region_code_raw)  -- Invalid region code
-                WHEN dt.physical_region_code_raw IS NULL AND dt.physical_country_iso_2_raw IS NOT NULL AND l.resolved_physical_country_id IS NOT DISTINCT FROM %1$L AND l.resolved_physical_country_id IS NOT NULL THEN jsonb_build_object('physical_region_code_raw', NULL)  -- Missing region for domestic country (include key with NULL)
+                WHEN dt.physical_region_code_raw IS NULL AND (
+                       (l.resolved_physical_country_id IS NOT DISTINCT FROM %1$L AND l.resolved_physical_country_id IS NOT NULL)
+                       OR (NULLIF(dt.physical_country_iso_2_raw, '') IS NULL AND %2$s)
+                     ) THEN jsonb_build_object('physical_region_code_raw', NULL)  -- Missing region for domestic country (resolved or defaulted)
                 ELSE '{}'::jsonb
             END ||
+            -- NOTE: no country_defaulted warning. The warning about absence lives on the
+            -- region above — that's the actually-missing data. Country defaulting is silent
+            -- because the region (when supplied) implies the country.
             CASE WHEN dt.physical_country_iso_2_raw IS NOT NULL AND l.resolved_physical_country_id IS NULL THEN jsonb_build_object('physical_country_iso_2_raw', dt.physical_country_iso_2_raw) ELSE '{}'::jsonb END ||
             CASE WHEN dt.physical_latitude_raw IS NOT NULL AND l.physical_latitude_error_msg IS NOT NULL THEN jsonb_build_object('physical_latitude_raw', dt.physical_latitude_raw) ELSE '{}'::jsonb END ||
             CASE WHEN dt.physical_longitude_raw IS NOT NULL AND l.physical_longitude_error_msg IS NOT NULL THEN jsonb_build_object('physical_longitude_raw', dt.physical_longitude_raw) ELSE '{}'::jsonb END ||
             CASE WHEN dt.physical_altitude_raw IS NOT NULL AND l.physical_altitude_error_msg IS NOT NULL THEN jsonb_build_object('physical_altitude_raw', dt.physical_altitude_raw) ELSE '{}'::jsonb END
-        $$, v_default_country_id);
+        $$, v_default_country_id, v_address_present_condition_sql);
 
         -- Coordinate error expressions for physical location
         v_coord_cast_error_json_expr_sql := $$
@@ -137,34 +200,53 @@ BEGIN
             (NULLIF(dt.postal_address_part1_raw, '') IS NOT NULL OR NULLIF(dt.postal_address_part2_raw, '') IS NOT NULL OR NULLIF(dt.postal_address_part3_raw, '') IS NOT NULL OR
              NULLIF(dt.postal_postcode_raw, '') IS NOT NULL OR NULLIF(dt.postal_postplace_raw, '') IS NOT NULL OR NULLIF(dt.postal_region_code_raw, '') IS NOT NULL)
         $$;
-        v_fatal_error_condition_sql := format($$
-            (%s AND (NULLIF(dt.postal_country_iso_2_raw, '') IS NULL OR l.resolved_postal_country_id IS NULL))
-        $$, v_address_present_condition_sql);
-        v_fatal_error_json_expr_sql := $$
-            jsonb_build_object('postal_country_iso_2_raw', 'Country is required and must be valid when other postal address details are provided.')
-        $$;
+        v_fatal_error_condition_sql := format($$(
+            (%2$s AND NULLIF(dt.postal_country_iso_2_raw, '') IS NOT NULL AND l.resolved_postal_country_id IS NULL)
+            OR
+            (dt.postal_region_code_raw IS NOT NULL AND l.resolved_postal_country_id IS NOT NULL AND l.resolved_postal_country_id IS DISTINCT FROM %1$L)
+        )$$, v_default_country_id, v_address_present_condition_sql);
+        v_fatal_error_json_expr_sql := format($$
+            jsonb_strip_nulls(jsonb_build_object(
+                'postal_country_iso_2_raw',
+                CASE WHEN (%2$s AND NULLIF(dt.postal_country_iso_2_raw, '') IS NOT NULL AND l.resolved_postal_country_id IS NULL)
+                     THEN 'Country is required and must be valid when other postal address details are provided.'
+                     ELSE NULL END,
+                'postal_region_code_raw',
+                CASE WHEN (dt.postal_region_code_raw IS NOT NULL AND l.resolved_postal_country_id IS NOT NULL AND l.resolved_postal_country_id IS DISTINCT FROM %1$L)
+                     THEN 'Region can only be supplied for the domestic country.'
+                     ELSE NULL END
+            ))
+        $$, v_default_country_id, v_address_present_condition_sql);
         v_error_condition_sql := format($$
             -- Invalid region codes for any country (both domestic and foreign)
             (dt.postal_region_code_raw IS NOT NULL AND l.resolved_postal_region_id IS NULL) OR
-            -- Missing region warnings only for domestic countries (whenever domestic country is present)
-            (dt.postal_region_code_raw IS NULL AND l.resolved_postal_country_id IS NOT DISTINCT FROM %1$L AND l.resolved_postal_country_id IS NOT NULL) OR
+            -- NOTE: postal does NOT emit a domestic-NULL-region warning. Region is not required
+            -- for postal addresses; absence is a principled state, not missing data.
+            -- NOTE: postal does NOT emit a country-defaulted warning either. For a postal address,
+            -- "no country" naturally means "domestic" — the default IS the principled valid state,
+            -- not missingness. With country defaulting silent (per unified principle) and no
+            -- domestic-NULL-region warning, postal stays fully silent for region/country handling.
+            -- Invalid country code without address (no-address case, otherwise fatal handles it).
             (dt.postal_country_iso_2_raw IS NOT NULL AND l.resolved_postal_country_id IS NULL AND NOT (%2$s)) OR
             (dt.postal_latitude_raw IS NOT NULL AND l.postal_latitude_error_msg IS NOT NULL) OR
             (dt.postal_longitude_raw IS NOT NULL AND l.postal_longitude_error_msg IS NOT NULL) OR
             (dt.postal_altitude_raw IS NOT NULL AND l.postal_altitude_error_msg IS NOT NULL)
-        $$, v_default_country_id, v_address_present_condition_sql); -- Format with default_country_id and address_present check
+        $$, v_default_country_id, v_address_present_condition_sql);
 
         v_warnings_json_expr_sql := format($$
             CASE
                 WHEN dt.postal_region_code_raw IS NOT NULL AND l.resolved_postal_region_id IS NULL THEN jsonb_build_object('postal_region_code_raw', dt.postal_region_code_raw)  -- Invalid region code
-                WHEN dt.postal_region_code_raw IS NULL AND dt.postal_country_iso_2_raw IS NOT NULL AND l.resolved_postal_country_id IS NOT DISTINCT FROM %1$L AND l.resolved_postal_country_id IS NOT NULL THEN jsonb_build_object('postal_region_code_raw', NULL)  -- Missing region for domestic country (include key with NULL)
+                -- NOTE: no domestic-NULL-region warning for postal; absence is principled.
                 ELSE '{}'::jsonb
             END ||
+            -- NOTE: no country-defaulted warning emission for postal either. The WRITE still
+            -- defaults to settings.country_id via v_postal_country_id_expr; the defaulting
+            -- is silent because absent-country-on-postal IS the principled valid state.
             CASE WHEN dt.postal_country_iso_2_raw IS NOT NULL AND l.resolved_postal_country_id IS NULL THEN jsonb_build_object('postal_country_iso_2_raw', dt.postal_country_iso_2_raw) ELSE '{}'::jsonb END ||
             CASE WHEN dt.postal_latitude_raw IS NOT NULL AND l.postal_latitude_error_msg IS NOT NULL THEN jsonb_build_object('postal_latitude_raw', dt.postal_latitude_raw) ELSE '{}'::jsonb END ||
             CASE WHEN dt.postal_longitude_raw IS NOT NULL AND l.postal_longitude_error_msg IS NOT NULL THEN jsonb_build_object('postal_longitude_raw', dt.postal_longitude_raw) ELSE '{}'::jsonb END ||
             CASE WHEN dt.postal_altitude_raw IS NOT NULL AND l.postal_altitude_error_msg IS NOT NULL THEN jsonb_build_object('postal_altitude_raw', dt.postal_altitude_raw) ELSE '{}'::jsonb END
-        $$, v_default_country_id);
+        $$, v_default_country_id, v_address_present_condition_sql);
 
         -- Coordinate error expressions for postal location
         v_coord_cast_error_json_expr_sql := $$
@@ -292,7 +374,7 @@ BEGIN
             physical_postcode = NULLIF(dt.physical_postcode_raw, ''),
             physical_postplace = NULLIF(dt.physical_postplace_raw, ''),
             physical_region_id = l.resolved_physical_region_id,
-            physical_country_id = l.resolved_physical_country_id,
+            physical_country_id = %15$s,
             physical_latitude = l.resolved_typed_physical_latitude,
             physical_longitude = l.resolved_typed_physical_longitude,
             physical_altitude = l.resolved_typed_physical_altitude,
@@ -302,7 +384,7 @@ BEGIN
             postal_postcode = NULLIF(dt.postal_postcode_raw, ''),
             postal_postplace = NULLIF(dt.postal_postplace_raw, ''),
             postal_region_id = l.resolved_postal_region_id,
-            postal_country_id = l.resolved_postal_country_id,
+            postal_country_id = %16$s,
             postal_latitude = l.resolved_typed_postal_latitude,
             postal_longitude = l.resolved_typed_postal_longitude,
             postal_altitude = l.resolved_typed_postal_altitude,
@@ -316,7 +398,7 @@ BEGIN
                     END,
             errors = jsonb_strip_nulls(
                         (dt.errors - %3$L::text[]) -- Start with existing errors, clearing old ones for this step
-                        || CASE WHEN (%6$s) THEN (%7$s) ELSE '{}'::jsonb END -- Add Fatal country error message
+                        || CASE WHEN (%6$s) THEN (%7$s) ELSE '{}'::jsonb END -- Add Fatal country/region error message
                         || (%11$s) -- Add Coordinate cast error messages
                         || (%12$s) -- Add Coordinate range error messages
                         || (%13$s) -- Add Postal coordinate present error message
@@ -335,15 +417,17 @@ BEGIN
         v_error_keys_to_clear_arr,                  /* %3$L (for clearing error keys) */
         v_error_condition_sql,                      /* %4$s (non-fatal region/country error condition) */
         v_warnings_json_expr_sql,                   /* %5$s (for adding non-fatal region/country warnings) */
-        v_fatal_error_condition_sql,                /* %6$s (fatal country error condition) */
-        v_fatal_error_json_expr_sql,                /* %7$s (for adding fatal country error message) */
+        v_fatal_error_condition_sql,                /* %6$s (fatal country/region error condition) */
+        v_fatal_error_json_expr_sql,                /* %7$s (for adding fatal country/region error message) */
         v_warning_keys_to_clear_arr,                /* %8$L (for clearing warnings keys) */
         v_step.priority,                            /* %9$L (for last_completed_priority) */
         v_any_coord_error_condition_sql,            /* %10$s (any coordinate error condition) */
         v_coord_cast_error_json_expr_sql,           /* %11$s (coordinate cast error JSON) */
         v_coord_range_error_json_expr_sql,          /* %12$s (coordinate range error JSON) */
         v_postal_coord_present_error_json_expr_sql, /* %13$s (postal has coords error JSON) */
-        v_coord_invalid_value_json_expr_sql        /* %14$s (original invalid coordinate values JSON) */
+        v_coord_invalid_value_json_expr_sql,        /* %14$s (original invalid coordinate values JSON) */
+        v_physical_country_id_expr,                 /* %15$s (physical_country_id with default fallback) */
+        v_postal_country_id_expr                    /* %16$s (postal_country_id with default fallback) */
     );
 
     RAISE DEBUG '[Job %] analyse_location: Single-pass batch update for non-skipped rows for step %: %', p_job_id, p_step_code, v_sql;

@@ -88,12 +88,12 @@ Policies:
       WITH CHECK ((edit_by_user_id = auth.uid()))
     POLICY "restricted_user_location_access"
       TO restricted_user
-      USING ((EXISTS ( SELECT 1
+      USING (((region_id IS NULL) OR (EXISTS ( SELECT 1
    FROM region_access ra
-  WHERE ((ra.user_id = auth.uid()) AND (ra.region_id = location.region_id)))))
-      WITH CHECK ((EXISTS ( SELECT 1
+  WHERE ((ra.user_id = auth.uid()) AND (ra.region_id = location.region_id))))))
+      WITH CHECK (((region_id IS NULL) OR (EXISTS ( SELECT 1
    FROM region_access ra
-  WHERE ((ra.user_id = auth.uid()) AND (ra.region_id = location.region_id)))))
+  WHERE ((ra.user_id = auth.uid()) AND (ra.region_id = location.region_id))))))
 Not-null constraints:
     "location_id_not_null" NOT NULL "id"
     "location_valid_range_not_null" NOT NULL "valid_range"
