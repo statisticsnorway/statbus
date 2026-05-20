@@ -1862,21 +1862,18 @@ EOS
         fi
       ;;
     'update-seed' )
-        # Apply any pending migrations FIRST so the seed reflects the
-        # latest schema. Without this, ./sb db seed create dumps the
-        # old in-DB schema and the prerelease preflight keeps rejecting
-        # the result as "Seed outdated" no matter how many times the
-        # user runs this command.
+        # Thin wrapper around the Go entrypoint that now owns the seed
+        # lifecycle. `./sb db seed sync` runs migrate up against the
+        # seed DB, then either republishes (fast path, when
+        # migration_version + post_restore.sql sha256 unchanged) or
+        # rebuilds (full pg_dump). Always force-with-lease-pushes
+        # seed/<commit_short> which release.yaml fetches at tag-push
+        # time.
         #
-        # ./sb migrate up is idempotent (no-op at HEAD) and serialised by
-        # pg_advisory_lock(migrate_up) since R1.1, so it's safe to call
-        # unconditionally here.
-        #
-        # If you want a seed of the CURRENT (pre-migration) state —
-        # e.g. to keep around for testing or rollback rehearsal — call
-        # the primitive directly: ./sb db seed create.
-        ./sb migrate up --verbose
-        ./sb db seed create
+        # Kept for operator muscle memory; new habits should call
+        # ./sb db seed sync directly. Eventual removal in a separate
+        # cleanup task.
+        exec ./sb db seed sync
       ;;
     'test-install' )
         # End-to-end install test using a Hetzner Cloud cx23 VM (~€0.0072/run,
@@ -2095,7 +2092,7 @@ EOS
       echo "  seed-clone <target>                Clone seed → <target> via pg CREATE DATABASE WITH TEMPLATE"
       echo ""
       echo "Seed publishing & documentation:"
-      echo "  update-seed                        Create seed.pg_dump and push to origin/db-seed"
+      echo "  update-seed                        Thin wrapper around ./sb db seed sync"
       echo "  dump-seed                          Save database seed for fast restore"
       echo "  list-seeds                         List available seeds"
       echo "  generate-db-documentation          Generate schema docs in doc/db/"

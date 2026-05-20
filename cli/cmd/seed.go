@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -25,8 +27,22 @@ const seedSHALen = 8
 // seedMeta is the JSON structure stored in .db-seed/seed.json.
 // It records which migration and commit the seed covers, so callers
 // can decide whether the seed is fresh enough to use.
+//
+// PostRestoreSHA captures the sha256 of migrations/post_restore.sql at
+// the time the seed was produced. Combined with MigrationVersion it
+// forms the "did the schema-after-restore actually change" fingerprint
+// that `./sb db seed sync` uses to decide between a full pg_dump
+// rebuild and the fast-path republish (reuse the existing seed.pg_dump
+// bytes, rewrite only seed.json with new commit_sha + created_at).
+//
+// The field is `omitempty` so existing seed.json files without it
+// (produced by pre-#133 builds) still parse cleanly. Absence is
+// treated as "fingerprint missing → full rebuild" — the only correct
+// migration shape because we can't otherwise tell whether the prior
+// dump captured the current post_restore.sql.
 type seedMeta struct {
 	MigrationVersion string `json:"migration_version"`
+	PostRestoreSHA   string `json:"post_restore_sha,omitempty"`
 	CommitSHA        string `json:"commit_sha"`
 	Tags             string `json:"tags"`
 	CreatedAt        string `json:"created_at"`
@@ -46,9 +62,12 @@ pg_restore a single dump file (~2 seconds). The seed branch
 is a CACHE — it's force-pushed on each update.
 
 Subcommands:
+  sync      Bring statbus_seed to HEAD, publish dump + per-commit pin (the
+            operator-facing entrypoint; smart-skips pg_dump when
+            (migration_version, sha256(post_restore.sql)) is unchanged)
   fetch     Download seed from origin/db-seed
   restore   Restore seed into a database
-  create    Dump current DB and push to db-seed branch
+  create    Dump current DB and push to db-seed branch (primitive — sync wraps this)
   status    Compare seed version to latest migration`,
 }
 
@@ -292,6 +311,16 @@ func CreateSeed(projDir string) error {
 	tagsOut, _ := upgrade.RunCommandOutput(projDir, "git", "tag", "--points-at", "HEAD")
 	tags := strings.TrimSpace(tagsOut)
 
+	// Compute post_restore.sql fingerprint so seed.json carries the
+	// "what fixups will the next restore apply" identity. `./sb db seed
+	// sync` uses this together with migration_version to decide whether
+	// the new schema state actually differs from what's already on
+	// db-seed (fast-path) or needs a full pg_dump rebuild.
+	postRestoreSHA, err := postRestoreFileSHA(projDir)
+	if err != nil {
+		return fmt.Errorf("hash post_restore.sql: %w", err)
+	}
+
 	seedDir := filepath.Join(projDir, ".db-seed")
 	if err := os.MkdirAll(seedDir, 0755); err != nil {
 		return fmt.Errorf("create .db-seed directory: %w", err)
@@ -334,6 +363,7 @@ func CreateSeed(projDir string) error {
 	// Write metadata JSON alongside the dump.
 	meta := seedMeta{
 		MigrationVersion: migrationVersion,
+		PostRestoreSHA:   postRestoreSHA,
 		CommitSHA:        commitSHA,
 		Tags:             tags,
 		CreatedAt:        time.Now().UTC().Format(time.RFC3339),
@@ -360,36 +390,9 @@ func CreateSeed(projDir string) error {
 	cleanupSeedBranches(projDir, commitSHA)
 
 	// Push to the db-seed branch using a git worktree.
-	// A worktree lets us commit to an orphan branch without touching the
-	// current working tree or index. The worktree lives outside the main
-	// repo to avoid confusion.
-	worktreePath := filepath.Join(filepath.Dir(projDir), "statbus-db-seed")
-
-	// Check if the worktree already exists.
-	if _, err := os.Stat(worktreePath); os.IsNotExist(err) {
-		// Try to add worktree for existing branch first.  DWIM: if there's
-		// no local `db-seed` but `origin/db-seed` exists, git auto-creates
-		// the local tracking branch.  Falls through to orphan when neither
-		// local nor remote `db-seed` exists (first-time bootstrap).
-		addOut, addErr := upgrade.RunCommandOutput(projDir, "git", "worktree", "add", worktreePath, "db-seed")
-		if addErr != nil {
-			// Branch doesn't exist locally and no remote-tracking ref to
-			// DWIM from — create an orphan worktree with a new branch.
-			// Git 2.x requires `-b <name>` for orphan; a trailing branch
-			// arg would be parsed as a (forbidden) commit-ish.
-			orphanOut, orphanErr := upgrade.RunCommandOutput(projDir, "git", "worktree", "add", "--orphan", "-b", "db-seed", worktreePath)
-			if orphanErr != nil {
-				return fmt.Errorf(
-					"git worktree add db-seed failed in both attempts:\n"+
-						"  attempt 1 (track existing branch / DWIM origin/db-seed): %v\n"+
-						"    output: %s\n"+
-						"  attempt 2 (orphan -b db-seed): %v\n"+
-						"    output: %s",
-					addErr, strings.TrimSpace(addOut),
-					orphanErr, strings.TrimSpace(orphanOut),
-				)
-			}
-		}
+	worktreePath, err := ensureSeedWorktree(projDir)
+	if err != nil {
+		return err
 	}
 
 	// Copy seed files to the worktree.
@@ -423,20 +426,83 @@ func CreateSeed(projDir string) error {
 
 	fmt.Printf("Seed created and pushed (migration %s, commit %s)\n", migrationVersion, commitSHA[:8])
 
-	// Publish the seed under a SHA-named branch
-	// `seed/<commitSHA12>` so downstream consumers — release
-	// workflow, operator fetches, historical lookups — have a
-	// deterministic, collision-safe reference keyed by the project
-	// commit the seed pins to. Every seed gets a branch;
-	// the tag-conditional gate from the prior release-only design
-	// is gone. This removes the chicken-and-egg where a seed
-	// could be created before its HEAD was tagged.
-	//
-	// The branch points at the new commit on the db-seed
-	// worktree (where seed.pg_dump + seed.json live);
-	// the branch NAME reflects the project commit; seed.json's
-	// commit_sha field records the full project SHA (preflight and
-	// workflow use the full value for verification).
+	// Publish the per-commit pin so release.yaml's "Fetch seed assets"
+	// step can read seed.pg_dump + seed.json from this exact project
+	// SHA's tree (.github/workflows/release.yaml does
+	// `git fetch origin seed/${GITHUB_SHA:0:8}` and `git checkout
+	// FETCH_HEAD -- seed.pg_dump seed.json`).
+	if err := publishSeedPinBranch(worktreePath, commitSHA); err != nil {
+		return err
+	}
+	return nil
+}
+
+// ensureSeedWorktree returns the path to the `db-seed` git worktree,
+// creating it if absent.
+//
+// DWIM order:
+//  1. If the worktree directory already exists, reuse it.
+//  2. Try `git worktree add <path> db-seed` — succeeds when local
+//     `db-seed` exists OR git can auto-track `origin/db-seed`.
+//  3. Fall back to `git worktree add --orphan -b db-seed <path>` for
+//     the first-time bootstrap where neither local nor remote ref
+//     exists yet.
+//
+// The worktree lives outside projDir so the parent repo's working tree
+// + index stay untouched. The orphan branch has no parents — db-seed
+// is a cache; history is meaningless.
+//
+// Extracted from CreateSeed in #133 so the seed-sync fast-path can
+// reuse the same DWIM tree without duplicating ~30 lines of glue.
+func ensureSeedWorktree(projDir string) (string, error) {
+	worktreePath := filepath.Join(filepath.Dir(projDir), "statbus-db-seed")
+
+	if _, err := os.Stat(worktreePath); err == nil {
+		return worktreePath, nil
+	}
+
+	addOut, addErr := upgrade.RunCommandOutput(projDir, "git", "worktree", "add", worktreePath, "db-seed")
+	if addErr == nil {
+		return worktreePath, nil
+	}
+	// Branch doesn't exist locally and no remote-tracking ref to DWIM
+	// from — create an orphan worktree with a new branch. Git 2.x
+	// requires `-b <name>` for orphan; a trailing branch arg would be
+	// parsed as a (forbidden) commit-ish.
+	orphanOut, orphanErr := upgrade.RunCommandOutput(projDir, "git", "worktree", "add", "--orphan", "-b", "db-seed", worktreePath)
+	if orphanErr != nil {
+		return "", fmt.Errorf(
+			"git worktree add db-seed failed in both attempts:\n"+
+				"  attempt 1 (track existing branch / DWIM origin/db-seed): %v\n"+
+				"    output: %s\n"+
+				"  attempt 2 (orphan -b db-seed): %v\n"+
+				"    output: %s",
+			addErr, strings.TrimSpace(addOut),
+			orphanErr, strings.TrimSpace(orphanOut),
+		)
+	}
+	return worktreePath, nil
+}
+
+// publishSeedPinBranch creates a `seed/<commitSHA[:seedSHALen]>` branch
+// at the worktree's current HEAD (i.e. the commit on db-seed that
+// carries the seed.pg_dump + seed.json bytes we just pushed) and
+// force-with-lease-pushes it to origin.
+//
+// The branch carries CONTENT (not a marker): release.yaml does
+// `git fetch origin seed/${SHORT_SHA}` + `git checkout FETCH_HEAD --
+// seed.pg_dump seed.json` (.github/workflows/release.yaml:235-236).
+// A content-less marker would break the workflow's checkout step.
+//
+// Idempotent at the project-SHA level: re-running for the same project
+// SHA replaces the local branch (`-f`) and force-with-lease-pushes the
+// updated ref (cleanupSeedBranches typically leaves the slot empty;
+// the lease is the safety net for the abort-and-retry case where
+// remote and local diverge mid-run).
+//
+// Extracted from CreateSeed in #133 so the seed-sync fast-path can
+// reuse the same publish step.
+func publishSeedPinBranch(worktreePath, commitSHA string) error {
 	seedCommit, err := upgrade.RunCommandOutput(worktreePath, "git", "rev-parse", "HEAD")
 	if err != nil {
 		return fmt.Errorf("git rev-parse HEAD in worktree: %w", err)
@@ -444,21 +510,30 @@ func CreateSeed(projDir string) error {
 	seedCommit = strings.TrimSpace(seedCommit)
 	branchName := "seed/" + commitSHA[:seedSHALen]
 
-	// Force-create the local branch — a stale local ref from an
-	// aborted prior attempt at this same project SHA should be
-	// replaced, not refused.
 	if branchOut, err := upgrade.RunCommandOutput(worktreePath, "git", "branch", "-f", branchName, seedCommit); err != nil {
 		return fmt.Errorf("git branch %s: %w\n  output: %s", branchName, err, strings.TrimSpace(branchOut))
 	}
-	// --force-with-lease: cleanupSeedBranches typically leaves
-	// this slot empty (or honors preserveSHA to keep us); the
-	// --force-with-lease is the safety net for the abort-and-retry
-	// case where remote and local diverge mid-run.
 	if pushOut, err := upgrade.RunCommandOutput(worktreePath, "git", "push", "origin", "--force-with-lease", branchName); err != nil {
 		return fmt.Errorf("git push origin %s: %w\n  output: %s", branchName, err, strings.TrimSpace(pushOut))
 	}
 	fmt.Printf("Seed pinned: %s → %s\n", branchName, seedCommit[:8])
 	return nil
+}
+
+// postRestoreFileSHA returns the lowercase-hex sha256 of
+// migrations/post_restore.sql. The seed lifecycle stores this in
+// seed.json so `./sb db seed sync` can detect when post_restore.sql
+// has been edited and force a fresh pg_dump — without this fingerprint
+// a post_restore edit that doesn't bump migration_version would
+// silently ship a stale dump.
+func postRestoreFileSHA(projDir string) (string, error) {
+	path := filepath.Join(projDir, "migrations", "post_restore.sql")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("read %s: %w", path, err)
+	}
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:]), nil
 }
 
 // ── seed status ─────────────────────────────────────────────────────────────

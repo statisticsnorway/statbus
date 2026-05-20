@@ -155,6 +155,26 @@ func preflightChecks(projDir string) bool {
 		allPassed = false
 	}
 
+	// 6b. Seed pin published on origin for HEAD.
+	//     release.yaml's "Fetch seed assets" step
+	//     (.github/workflows/release.yaml:219-245) does
+	//     `git fetch origin seed/${GITHUB_SHA:0:8}` and extracts
+	//     seed.pg_dump + seed.json from the branch's tree, then
+	//     verifies seed.json.commit_sha == GITHUB_SHA.
+	//
+	//     Before #133 the pin existed only as a side-effect of
+	//     `./sb db seed create` (which `./dev.sh update-seed` invoked,
+	//     which the seed-fresh gate's Fix line directed operators to).
+	//     After #130 made the freshness gate key off migration_version
+	//     only, non-migration commits stopped requiring update-seed —
+	//     but release.yaml still requires the pin. Hole. Plug: explicit
+	//     gate on the pin's presence so operators see the Fix BEFORE
+	//     tagging instead of a confused workflow-failed diagnostic
+	//     after.
+	if !checkSeedPinGate(projDir) {
+		allPassed = false
+	}
+
 	// 7. Fast tests cover latest migrations
 	//
 	// H1 two-line stamp format (task #123):
@@ -1324,7 +1344,7 @@ func checkSeedGate(projDir string) bool {
 		return true
 	case seedFreshnessBehind:
 		fmt.Printf("  ✗ Seed stale (behind): %s\n", reason)
-		fmt.Println("    Fix: ./dev.sh update-seed")
+		fmt.Println("    Fix: ./sb db seed sync")
 		return false
 	case seedFreshnessAhead:
 		fmt.Printf("  ✗ Seed ahead of working tree: %s\n", reason)
@@ -1334,9 +1354,58 @@ func checkSeedGate(projDir string) bool {
 		return false
 	default: // seedFreshnessMissing
 		fmt.Printf("  ✗ Seed missing or unreadable: %s\n", reason)
-		fmt.Println("    Fix: ./dev.sh update-seed")
+		fmt.Println("    Fix: ./sb db seed sync")
 		return false
 	}
+}
+
+// checkSeedPinGate probes origin for `refs/heads/seed/<commit_short>`
+// — the per-commit pin release.yaml fetches at tag-push time. Absent
+// → refuse with a `./sb db seed sync` Fix line. ~100-300ms (single
+// `git ls-remote` round-trip, no clone, no fetch).
+//
+// Gate placement: immediately after checkSeedGate. The two are
+// complementary — checkSeedGate verifies the local seed reflects HEAD's
+// migrations; this gate verifies that local seed has actually been
+// published to origin so release.yaml can fetch it. A green local seed
+// with no pin is the exact hole #133 closes (introduced when #130
+// stopped gating on commit_sha: pure-code commits passed checkSeedGate
+// without ever calling the publish path that creates the pin).
+//
+// Returns true when origin carries the pin; false (with a Fix-line
+// printed) otherwise.
+func checkSeedPinGate(projDir string) bool {
+	headOut, err := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD")
+	if err != nil {
+		fmt.Printf("  ✗ Seed pin check failed (git rev-parse HEAD): %v\n", err)
+		fmt.Println("    Fix: ensure you're inside the statbus repo with at least one commit")
+		return false
+	}
+	head := strings.TrimSpace(headOut)
+	if len(head) < seedSHALen {
+		fmt.Printf("  ✗ Seed pin check failed (HEAD SHA %q shorter than %d chars)\n", head, seedSHALen)
+		return false
+	}
+	short := head[:seedSHALen]
+	ref := "refs/heads/seed/" + short
+
+	out, err := upgrade.RunCommandOutput(projDir, "git", "ls-remote", "origin", ref)
+	if err != nil {
+		// Network / SSH error. Surface it verbatim and point at the
+		// publish command — the operator likely needs to run it AND
+		// fix transport, but the publish step requires transport
+		// anyway so the diagnostic is the same.
+		fmt.Printf("  ✗ Seed pin check failed (git ls-remote origin %s): %v\n", ref, err)
+		fmt.Println("    Fix: check network / SSH access to origin; then ./sb db seed sync")
+		return false
+	}
+	if strings.TrimSpace(out) == "" {
+		fmt.Printf("  ✗ Seed pin missing on origin: seed/%s (release.yaml will fail to fetch)\n", short)
+		fmt.Println("    Fix: ./sb db seed sync   (publishes seed.pg_dump + per-commit pin)")
+		return false
+	}
+	fmt.Printf("  ✓ Seed pin published on origin: seed/%s\n", short)
+	return true
 }
 
 // findReleaseTag returns the first release-shaped tag in a newline-separated
