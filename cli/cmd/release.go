@@ -161,25 +161,73 @@ func preflightChecks(projDir string) bool {
 	//   line 1: HEAD SHA at test-pass time
 	//   line 2: source DB (test template) migration_version at test-pass time
 	// Both checked below. Legacy single-line stamps FAIL with re-run guidance.
+	//
+	// CI fallback (task #129): when no local stamp exists, query GitHub
+	// Actions for the pg_regress workflow run at HEAD via the standard
+	// WorkflowCheck pattern (same shape as images / test-hardening /
+	// test-install gates — Green/Pending/Failed/Missing/Unknown each
+	// with URL + run-id + actionable next-step). On Green a fresh local
+	// stamp is written so subsequent invocations short-circuit through
+	// the local-stamp fast path.
+	//
+	// No SKIP_PG_REGRESS env var exists by design: the local-stamp
+	// fast-path IS the operator's escape valve (`./dev.sh test fast`
+	// or `./dev.sh migrate-and-test fast` writes the stamp and the
+	// CI-fallback branch is skipped entirely). Adding SKIP would allow
+	// release-stable with neither local stamp nor CI green — structurally
+	// more dangerous than the other SKIP_* env vars which lack a
+	// local-escape.
 	stampPath := filepath.Join(projDir, "tmp", "fast-test-passed-sha")
 	stampBytes, err := os.ReadFile(stampPath)
 	if err != nil {
-		// No local stamp — try CI as fallback.
 		headOut, _ := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD")
-		headSHA := strings.TrimSpace(headOut)
-		if ciPassed := checkCITestPassed(headSHA); ciPassed {
-			// CI ran against a freshly-built environment, so source DB
-			// is by-construction at HEAD's max migration version.
+		headFull := strings.TrimSpace(headOut)
+		headShort := headFull
+		if len(headShort) > 12 {
+			headShort = headShort[:12]
+		}
+		pgRegressResult := release.CheckWorkflowAtCommit(release.WorkflowPgRegress, headFull)
+		switch pgRegressResult.Status {
+		case release.WorkflowCheckGreen:
+			// CI ran against a freshly-built environment, so source DB is
+			// by-construction at HEAD's max migration version. Write a
+			// fresh H1 two-line stamp so subsequent invocations
+			// short-circuit through the local-stamp fast path.
 			latestMig, _ := migrate.LatestOnDiskMigrationVersion(projDir)
-			fmt.Printf("  ✓ Fast tests passed in CI for %s (writing local stamp, source version %s)\n", headSHA[:12], latestMig)
+			fmt.Printf("  ✓ Fast tests passed in CI for %s (writing local stamp, source version %s)\n", headShort, latestMig)
+			fmt.Printf("    Run: %s\n", pgRegressResult.RunURL)
 			os.MkdirAll(filepath.Join(projDir, "tmp"), 0755)
-			stampContent := headSHA + "\n" + latestMig + "\n"
+			stampContent := headFull + "\n" + latestMig + "\n"
 			os.WriteFile(stampPath, []byte(stampContent), 0644)
 			stampBytes = []byte(stampContent)
-		} else {
-			fmt.Println("  ✗ Fast tests cover latest migrations (no local stamp, CI not green)")
-			fmt.Println("    Fix: ./dev.sh migrate-and-test fast")
-			fmt.Println("    Or wait for pg_regress CI to pass on this commit")
+		case release.WorkflowCheckPending:
+			fmt.Printf("  ✗ pg_regress is still pending at %s (no local stamp)\n", headShort)
+			fmt.Printf("    Watch: gh run watch %d\n", pgRegressResult.RunID)
+			fmt.Printf("    URL:   %s\n", pgRegressResult.RunURL)
+			fmt.Println("    Fix: wait for the run to complete, then re-run prerelease")
+			fmt.Println("    Or:  ./dev.sh migrate-and-test fast   (write local stamp from your machine)")
+			allPassed = false
+		case release.WorkflowCheckFailed:
+			fmt.Printf("  ✗ pg_regress failed at %s (conclusion: %s; no local stamp)\n", headShort, pgRegressResult.Detail)
+			fmt.Printf("    See: gh run view %d --log-failed\n", pgRegressResult.RunID)
+			fmt.Printf("    URL: %s\n", pgRegressResult.RunURL)
+			fmt.Println("    Fix:")
+			fmt.Printf("      Retry the failed jobs (if transient): gh run rerun --failed %d\n", pgRegressResult.RunID)
+			fmt.Println("      Or push a fix to master, then re-run prerelease")
+			fmt.Println("      Or run locally: ./dev.sh migrate-and-test fast   (write local stamp)")
+			allPassed = false
+		case release.WorkflowCheckMissing:
+			fmt.Printf("  ✗ pg_regress has not run for %s (no local stamp)\n", headShort)
+			fmt.Printf("    Trigger: %s\n", release.WorkflowTriggerCommand(release.WorkflowPgRegress, headFull))
+			fmt.Printf("    Watch:   %s\n", release.WorkflowURL(release.WorkflowPgRegress))
+			fmt.Println("    Fix: run the trigger command above, wait for green, re-run prerelease")
+			fmt.Println("    Or:  ./dev.sh migrate-and-test fast   (write local stamp from your machine)")
+			allPassed = false
+		case release.WorkflowCheckUnknown:
+			fmt.Printf("  ✗ pg_regress status check failed (GitHub API error; no local stamp)\n")
+			fmt.Printf("    Detail: %s\n", pgRegressResult.Detail)
+			fmt.Println("    Fix: check network connectivity / GITHUB_TOKEN; or re-run later")
+			fmt.Println("    Or:  ./dev.sh migrate-and-test fast   (write local stamp from your machine)")
 			allPassed = false
 		}
 	}
@@ -1291,20 +1339,6 @@ func calVerRCKey(tag string) int64 {
 		return 0
 	}
 	return int64(year)*100_000_000 + int64(month)*1_000_000 + int64(patch)*10_000 + int64(rc)
-}
-
-// checkCITestPassed queries GitHub Actions to see if pg_regress passed for the given SHA.
-// Uses the `gh` CLI if available. Returns false if gh is not installed, the API fails,
-// or no successful run exists for this SHA.
-func checkCITestPassed(commitSHA string) bool {
-	// gh api returns workflow runs for a specific head_sha.
-	out, err := upgrade.RunCommandOutput(".", "gh", "api",
-		fmt.Sprintf("repos/statisticsnorway/statbus/actions/workflows/pg_regress-workflow.yaml/runs?head_sha=%s&status=completed&per_page=5", commitSHA),
-		"--jq", ".workflow_runs[] | select(.conclusion == \"success\") | .id")
-	if err != nil {
-		return false
-	}
-	return strings.TrimSpace(out) != ""
 }
 
 // resolveLatestRC takes newline-separated RC tags and returns the highest by CalVer sort.

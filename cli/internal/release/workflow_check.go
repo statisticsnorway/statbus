@@ -15,6 +15,7 @@ const (
 	WorkflowImages        = "images.yaml"
 	WorkflowTestHardening = "test-hardening.yaml"
 	WorkflowTestInstall   = "test-install.yaml"
+	WorkflowPgRegress     = "pg_regress.yaml"
 )
 
 // WorkflowCheckStatus describes the state of a workflow at a commit.
