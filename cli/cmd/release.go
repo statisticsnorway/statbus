@@ -142,7 +142,20 @@ func preflightChecks(projDir string) bool {
 		fmt.Println("  ✓ Go CLI builds")
 	}
 
-	// 6. Fast tests cover latest migrations
+	// 6. Seed fresh (pinned to HEAD) — foundational artifact for fast-tests,
+	//    types, db-docs, app-tsc, and app-build. Checked here so seed-stale
+	//    surfaces as the root cause before any downstream dependent check.
+	// Earlier behaviour auto-regenerated the seed when stale. That made
+	// the preflight RUN a command (write state) rather than gate, which
+	// violates the gate-only principle every other check follows.
+	// Operators now hit the same Fix-line pattern they hit for tests,
+	// types, app tsc/build, and DB docs: refuse with `Fix: ./dev.sh
+	// update-seed`, the operator runs it, re-invokes prerelease.
+	if !checkSeedGate(projDir) {
+		allPassed = false
+	}
+
+	// 7. Fast tests cover latest migrations
 	//
 	// H1 two-line stamp format (task #123):
 	//   line 1: HEAD SHA at test-pass time
@@ -165,7 +178,7 @@ func preflightChecks(projDir string) bool {
 			stampBytes = []byte(stampContent)
 		} else {
 			fmt.Println("  ✗ Fast tests cover latest migrations (no local stamp, CI not green)")
-			fmt.Println("    Fix: ./dev.sh test fast")
+			fmt.Println("    Fix: ./dev.sh migrate-and-test fast")
 			fmt.Println("    Or wait for pg_regress CI to pass on this commit")
 			allPassed = false
 		}
@@ -174,7 +187,7 @@ func preflightChecks(projDir string) bool {
 		stampSHA, stampVersion := parseTwoLineStamp(stampBytes)
 		if stampVersion == "" {
 			fmt.Println("  ✗ Fast tests cover latest migrations (tmp/fast-test-passed-sha is legacy single-line; missing source-DB version)")
-			fmt.Println("    Fix: ./dev.sh test fast   (re-run to upgrade stamp to two-line format)")
+			fmt.Println("    Fix: ./dev.sh migrate-and-test fast   (re-run to upgrade stamp to two-line format)")
 			allPassed = false
 			stampBytes = nil
 		}
@@ -201,7 +214,7 @@ func preflightChecks(projDir string) bool {
 			fmt.Println("  ✗ Fast tests do not cover latest migrations")
 			fmt.Printf("    Stamp's source-DB version %s != HEAD's on-disk max %s.\n", stampVersion, latestOnDisk)
 			fmt.Printf("    The tests ran against a stale template even though the SHA is current.\n")
-			fmt.Println("    Fix: ./dev.sh test fast")
+			fmt.Println("    Fix: ./dev.sh migrate-and-test fast")
 			allPassed = false
 		} else {
 			// Check if any new migration files exist between stamp and HEAD.
@@ -237,7 +250,7 @@ func preflightChecks(projDir string) bool {
 							fmt.Printf("      %s\n", f)
 						}
 					}
-					fmt.Println("    Fix: ./dev.sh test fast")
+					fmt.Println("    Fix: ./dev.sh migrate-and-test fast")
 					allPassed = false
 				}
 			} else {
@@ -250,13 +263,13 @@ func preflightChecks(projDir string) bool {
 						fmt.Printf("      %s\n", filepath.Base(f))
 					}
 				}
-				fmt.Println("    Fix: ./dev.sh test fast")
+				fmt.Println("    Fix: ./dev.sh migrate-and-test fast")
 				allPassed = false
 			}
 		}
 	}
 
-	// 7. TypeScript types cover latest migrations — checked BEFORE app tsc/build
+	// 8. TypeScript types cover latest migrations — checked BEFORE app tsc/build
 	//    because stale types hide drift: tsc can pass against a stale
 	//    app/src/lib/database.types.ts while the real schema has changed.
 	//    Regenerating types first ensures tsc/build stamps reflect the
@@ -332,7 +345,7 @@ func preflightChecks(projDir string) bool {
 	}
 	checkMigrationStamp("types-passed-sha", "TypeScript types cover latest migrations", "./sb types generate")
 
-	// 8. App tsc covers latest app changes  (check 9 is app build — same helper)
+	// 9. App tsc covers latest app changes  (check 10 is app build — same helper)
 	//    Stamp written by `cd app && pnpm run tsc` (or `pnpm run build`)
 	//    via app/scripts/stamp-if-clean.sh. Preflight refuses to tag if
 	//    any file in app/ changed since the stamped SHA — avoids tagging
@@ -371,17 +384,6 @@ func preflightChecks(projDir string) bool {
 	}
 	checkAppStamp("app-tsc-passed-sha", "tsc", "App tsc covers latest app changes")
 	checkAppStamp("app-build-passed-sha", "build", "App build covers latest app changes")
-
-	// 10. Seed freshness gate (detect-only, gate-and-guide).
-	// Earlier behaviour auto-regenerated the seed when stale. That made
-	// the preflight RUN a command (write state) rather than gate, which
-	// violates the gate-only principle every other check follows.
-	// Operators now hit the same Fix-line pattern they hit for tests,
-	// types, app tsc/build, and DB docs: refuse with `Fix: ./dev.sh
-	// update-seed`, the operator runs it, re-invokes prerelease.
-	if !checkSeedGate(projDir) {
-		allPassed = false
-	}
 
 	// 11. DB documentation covers latest migrations
 	checkMigrationStamp("db-docs-passed-sha", "DB documentation covers latest migrations", "./dev.sh generate-db-documentation")
