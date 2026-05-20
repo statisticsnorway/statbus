@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 )
 
 // Workflow filename constants. The filename in .github/workflows/ is the
@@ -40,6 +41,20 @@ type WorkflowCheckResult struct {
 	// Detail carries the conclusion string when Status=failed, and the
 	// error message when Status=unknown. Empty for green/pending/missing.
 	Detail string
+	// BypassReason is non-empty when Status=green was returned via an
+	// operator SKIP_* env-var bypass instead of a real GitHub Actions
+	// run. Consumers SHOULD surface this prominently — a bypass means
+	// the workflow's invariant has NOT been verified for the SHA, and
+	// downstream consumers (deployment, install) may fail on missing
+	// artifacts / regressed schema. Empty for normal (verified-green)
+	// results.
+	//
+	// Currently populated only by SKIP_IMAGES=1 (since the images
+	// workflow's bypass is the most dangerous — Docker artifacts may
+	// not exist for the SHA). SKIP_TEST_HARDENING and SKIP_TEST_INSTALL
+	// are still handled at the consumer call sites in release.go
+	// because each carries its own tailored guidance text.
+	BypassReason string
 }
 
 // CheckWorkflowAtCommit queries GitHub Actions for the latest run of
@@ -61,6 +76,20 @@ type WorkflowCheckResult struct {
 //  3. Else all completed without success → Failed (use latest's
 //     conclusion as the diagnostic).
 func CheckWorkflowAtCommit(workflow, commitSHA string) WorkflowCheckResult {
+	// SKIP_IMAGES=1 operator bypass. Effective at every consumer site —
+	// pre-push hook (`./sb release verify-images`), prerelease pre-flight
+	// (preflightChecks), stable pre-flight (releaseStableCmd). Use ONLY
+	// when GitHub Actions or ghcr.io is genuinely unavailable; the
+	// returned synthetic green result carries a BypassReason that
+	// consumers MUST surface as a prominent warning. Downstream
+	// deployments may fail if the SHA's Docker images don't actually
+	// exist in ghcr.io.
+	if workflow == WorkflowImages && os.Getenv("SKIP_IMAGES") == "1" {
+		return WorkflowCheckResult{
+			Status:       WorkflowCheckGreen,
+			BypassReason: "SKIP_IMAGES=1 operator bypass — Docker artifacts NOT verified for this SHA. Deployments may FAIL on stale ghcr.io manifest. Use only when GitHub Actions or ghcr.io is unavailable.",
+		}
+	}
 	return checkWorkflowAt("https://api.github.com", workflow, commitSHA)
 }
 

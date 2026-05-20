@@ -114,6 +114,51 @@ func tagLightweight(t *testing.T, dir, name string) {
 	}
 }
 
+// commitAt creates a new commit on top of HEAD with one trivial change so
+// each call produces a distinct commit SHA. Used by tests that need
+// multi-commit fixtures (e.g., stable-at-different-commit-than-RC).
+func commitAt(t *testing.T, dir, msg string) string {
+	t.Helper()
+	// Touch a file in migrations/ to give each commit a distinct tree.
+	path := filepath.Join(dir, "migrations", "_marker_"+msg+".up.sql")
+	if err := os.WriteFile(path, []byte("-- "+msg+"\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{
+		{"add", "migrations"},
+		{"commit", "-q", "-m", msg},
+	} {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		cmd.Env = append(os.Environ(),
+			"GIT_AUTHOR_NAME=Test",
+			"GIT_AUTHOR_EMAIL=test@example.invalid",
+			"GIT_COMMITTER_NAME=Test",
+			"GIT_COMMITTER_EMAIL=test@example.invalid",
+		)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	cmd := exec.Command("git", "rev-parse", "HEAD")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// tagAt creates an annotated tag pointing at a specific commit.
+func tagAt(t *testing.T, dir, name, msg, commit string) {
+	t.Helper()
+	cmd := exec.Command("git", "tag", "-a", name, "-m", msg, commit)
+	cmd.Dir = dir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("tag %s at %s: %v\n%s", name, commit, err, out)
+	}
+}
+
 // Each case exercises one specific invariant in ValidatePrereleaseTag.
 // The signature check always fails in these tests (commits are unsigned),
 // so the error string that bubbles up distinguishes each case by the
@@ -298,6 +343,140 @@ func TestPickPrereleasePredecessor(t *testing.T) {
 		}
 		if got != "" {
 			t.Errorf("got %q, want \"\"", got)
+		}
+	})
+}
+
+// TestAssertStableMatchesLatestRC covers the new commit-equality rule
+// added to ValidateStableTag (task #124 Part A). The rule enforces the
+// "stable IS a promotion" contract: stable's target commit MUST equal
+// the latest RC's target commit. Catches hand-rolled stable tags at
+// HEAD or any other commit that bypass `./sb release stable`.
+func TestAssertStableMatchesLatestRC(t *testing.T) {
+	t.Run("stable at RC's commit accepts", func(t *testing.T) {
+		dir := makeRepo(t)
+		// Initial commit (from makeRepo) is where we'll tag both RC and stable.
+		cmd := exec.Command("git", "rev-parse", "HEAD")
+		cmd.Dir = dir
+		out, err := cmd.Output()
+		if err != nil {
+			t.Fatal(err)
+		}
+		commit := strings.TrimSpace(string(out))
+		tagAt(t, dir, "v2026.05.0-rc.1", "Pre-release v2026.05.0-rc.1", commit)
+		tagAt(t, dir, "v2026.05.0", "Release v2026.05.0", commit)
+
+		gotRC, err := assertStableMatchesLatestRC(dir, "v2026.05.0")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if gotRC != "v2026.05.0-rc.1" {
+			t.Errorf("got latestRC %q, want v2026.05.0-rc.1", gotRC)
+		}
+	})
+
+	t.Run("stable at different commit than RC refuses", func(t *testing.T) {
+		dir := makeRepo(t)
+		// Initial commit is RC's; tag RC there.
+		cmd := exec.Command("git", "rev-parse", "HEAD")
+		cmd.Dir = dir
+		rcOut, err := cmd.Output()
+		if err != nil {
+			t.Fatal(err)
+		}
+		rcCommit := strings.TrimSpace(string(rcOut))
+		tagAt(t, dir, "v2026.05.0-rc.1", "Pre-release v2026.05.0-rc.1", rcCommit)
+
+		// Advance HEAD, tag stable at the new commit (the violating case).
+		newCommit := commitAt(t, dir, "drift")
+		tagAt(t, dir, "v2026.05.0", "Release v2026.05.0", newCommit)
+
+		_, err = assertStableMatchesLatestRC(dir, "v2026.05.0")
+		if err == nil {
+			t.Fatal("want error for stable tagged at different commit than RC, got nil")
+		}
+		if !strings.Contains(err.Error(), "does not match latest RC") {
+			t.Errorf("error message lacks expected text 'does not match latest RC': %v", err)
+		}
+	})
+
+	t.Run("no RC exists refuses with promotion error", func(t *testing.T) {
+		dir := makeRepo(t)
+		cmd := exec.Command("git", "rev-parse", "HEAD")
+		cmd.Dir = dir
+		out, _ := cmd.Output()
+		commit := strings.TrimSpace(string(out))
+		// Tag stable directly without ever creating an RC.
+		tagAt(t, dir, "v2026.05.0", "Release v2026.05.0", commit)
+
+		_, err := assertStableMatchesLatestRC(dir, "v2026.05.0")
+		if err == nil {
+			t.Fatal("want error for stable with no RC series, got nil")
+		}
+		if !strings.Contains(err.Error(), "must be promoted from an RC") {
+			t.Errorf("error message lacks expected text 'must be promoted from an RC': %v", err)
+		}
+	})
+
+	t.Run("malformed tag name refuses without git access", func(t *testing.T) {
+		// No repo needed — the regex check fires first.
+		_, err := assertStableMatchesLatestRC(t.TempDir(), "not-a-version")
+		if err == nil {
+			t.Fatal("want error for malformed tag name, got nil")
+		}
+		if !strings.Contains(err.Error(), "does not match vYYYY.MM.PATCH") {
+			t.Errorf("error message lacks expected text: %v", err)
+		}
+	})
+
+	t.Run("stable at latest RC commit (rc.2 not rc.1) accepts", func(t *testing.T) {
+		// When multiple RCs exist, the latest is what stable promotes.
+		// Verify that the equality check uses the LATEST RC, not the
+		// first one.
+		dir := makeRepo(t)
+		cmd := exec.Command("git", "rev-parse", "HEAD")
+		cmd.Dir = dir
+		rc1Out, _ := cmd.Output()
+		rc1Commit := strings.TrimSpace(string(rc1Out))
+		tagAt(t, dir, "v2026.05.0-rc.1", "Pre-release v2026.05.0-rc.1", rc1Commit)
+
+		// rc.2 is at a later commit.
+		rc2Commit := commitAt(t, dir, "rc2-fix")
+		tagAt(t, dir, "v2026.05.0-rc.2", "Pre-release v2026.05.0-rc.2", rc2Commit)
+
+		// Stable at rc.2's commit — should accept (matches latest RC).
+		tagAt(t, dir, "v2026.05.0", "Release v2026.05.0", rc2Commit)
+
+		gotRC, err := assertStableMatchesLatestRC(dir, "v2026.05.0")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if gotRC != "v2026.05.0-rc.2" {
+			t.Errorf("got latestRC %q, want v2026.05.0-rc.2", gotRC)
+		}
+	})
+
+	t.Run("stable at rc.1 commit when rc.2 exists refuses", func(t *testing.T) {
+		// Inverse of above: stable at an EARLIER RC's commit must
+		// refuse because rc.2 is the latest and supersedes rc.1.
+		dir := makeRepo(t)
+		cmd := exec.Command("git", "rev-parse", "HEAD")
+		cmd.Dir = dir
+		rc1Out, _ := cmd.Output()
+		rc1Commit := strings.TrimSpace(string(rc1Out))
+		tagAt(t, dir, "v2026.05.0-rc.1", "Pre-release v2026.05.0-rc.1", rc1Commit)
+		rc2Commit := commitAt(t, dir, "rc2-fix")
+		tagAt(t, dir, "v2026.05.0-rc.2", "Pre-release v2026.05.0-rc.2", rc2Commit)
+
+		// Stable at rc.1's commit — should refuse.
+		tagAt(t, dir, "v2026.05.0", "Release v2026.05.0", rc1Commit)
+
+		_, err := assertStableMatchesLatestRC(dir, "v2026.05.0")
+		if err == nil {
+			t.Fatal("want error for stable at non-latest RC's commit, got nil")
+		}
+		if !strings.Contains(err.Error(), "does not match latest RC") {
+			t.Errorf("error message lacks expected text 'does not match latest RC': %v", err)
 		}
 	})
 }

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"regexp"
 	"sort"
 	"strconv"
@@ -344,7 +345,16 @@ func ValidatePrereleaseTag(projDir, tagName string) error {
 //   - PATCH is the next-in-sequence stable patch for vYYYY.MM
 //   - at least one RC exists for this patch
 //   - the latest RC's CI artifacts (GitHub assets + ghcr manifests) are all present
-//   - migrations between the previous stable and this tag are additions only
+//   - stable's target commit equals the latest RC's target commit
+//     (enforces the "stable IS a promotion" contract; refuses
+//     hand-rolled stable tags at any other commit)
+//
+// Migration immutability vs the previous stable is NOT checked here as of
+// task #124: the property is guaranteed by induction through the RC
+// chain — each RC compares against its predecessor (rc.N vs rc.N-1, or
+// rc.1 vs latest prior stable across year-months courtesy of #124's
+// Part B fix). Stable at the RC's commit inherits the RC's verified
+// chain by construction.
 func ValidateStableTag(projDir, tagName string) error {
 	m := stableTagRE.FindStringSubmatch(tagName)
 	if m == nil {
@@ -373,18 +383,13 @@ func ValidateStableTag(projDir, tagName string) error {
 			tagName, patch, expected, prefix, patches)
 	}
 
-	// Every stable must be promoted from an RC series.
-	rcPattern := fmt.Sprintf("%s.%d-rc.*", prefix, patch)
-	rcOut, err := upgrade.RunCommandOutput(projDir, "git", "tag", "-l", rcPattern)
+	// Every stable must be promoted from an RC series — and not just
+	// "an RC exists" but the stable's target commit must EQUAL the
+	// latest RC's target commit. Catches hand-rolled stable tags at
+	// HEAD or any other commit (bypassing `./sb release stable`).
+	latestRC, err := assertStableMatchesLatestRC(projDir, tagName)
 	if err != nil {
-		return fmt.Errorf("listing %s: %w", rcPattern, err)
-	}
-	if strings.TrimSpace(rcOut) == "" {
-		return fmt.Errorf("stable %s has no RC series (%s) — every stable must be promoted from an RC", tagName, rcPattern)
-	}
-	latestRC := resolveLatestRC(rcOut)
-	if latestRC == "" {
-		return fmt.Errorf("stable %s has no parseable RC in %s", tagName, rcPattern)
+		return err
 	}
 
 	// CI artifacts for the latest RC must all be present.
@@ -403,16 +408,72 @@ func ValidateStableTag(projDir, tagName string) error {
 		return fmt.Errorf("latest RC %s is missing CI artifacts — cannot promote to stable:\n  %s\n  Fix: wait for CI to finish, or cut a new RC and retry",
 			latestRC, strings.Join(missing, "\n  "))
 	}
-
-	if len(patches) > 0 {
-		prevStable := fmt.Sprintf("%s.%d", prefix, patches[len(patches)-1])
-		if tagExistsLocally(projDir, prevStable) {
-			if err := compareMigrationsForTag(projDir, prevStable, tagName); err != nil {
-				return err
-			}
-		}
-	}
 	return nil
+}
+
+// assertStableMatchesLatestRC enforces the "stable IS a promotion" contract:
+// the stable tag's target commit MUST equal the latest RC's target commit
+// for the same year-month-patch. Catches hand-rolled stable tags at
+// HEAD or any other commit that bypass `./sb release stable`'s
+// promote-from-RC flow.
+//
+// Returns the latest-RC tag name on success (caller can use it for
+// downstream checks like CheckAssets / CheckManifests without re-listing).
+//
+// Tag-shape parsing is the caller's responsibility — this function
+// assumes tagName has already been matched against stableTagRE.
+//
+// Refactored from inline logic in ValidateStableTag (task #124) so the
+// commit-equality rule can be unit-tested without standing up a full
+// signed-tag fixture.
+func assertStableMatchesLatestRC(projDir, tagName string) (string, error) {
+	m := stableTagRE.FindStringSubmatch(tagName)
+	if m == nil {
+		return "", fmt.Errorf("tag %q does not match vYYYY.MM.PATCH (caller must validate before calling assertStableMatchesLatestRC)", tagName)
+	}
+	year, _ := strconv.Atoi(m[1])
+	monthStr := m[2]
+	patch, _ := strconv.Atoi(m[3])
+	prefix := fmt.Sprintf("v%d.%s", year, monthStr)
+
+	rcPattern := fmt.Sprintf("%s.%d-rc.*", prefix, patch)
+	rcOut, err := upgrade.RunCommandOutput(projDir, "git", "tag", "-l", rcPattern)
+	if err != nil {
+		return "", fmt.Errorf("listing %s: %w", rcPattern, err)
+	}
+	if strings.TrimSpace(rcOut) == "" {
+		return "", fmt.Errorf("stable %s has no RC series (%s) — every stable must be promoted from an RC", tagName, rcPattern)
+	}
+	latestRC := resolveLatestRC(rcOut)
+	if latestRC == "" {
+		return "", fmt.Errorf("stable %s has no parseable RC in %s", tagName, rcPattern)
+	}
+
+	rcCommit, err := tagTargetCommit(projDir, latestRC)
+	if err != nil {
+		return "", fmt.Errorf("resolving %s target commit: %w", latestRC, err)
+	}
+	stableCommit, err := tagTargetCommit(projDir, tagName)
+	if err != nil {
+		return "", fmt.Errorf("resolving %s target commit: %w", tagName, err)
+	}
+	if stableCommit != rcCommit {
+		stableShort := stableCommit
+		if len(stableShort) > 12 {
+			stableShort = stableShort[:12]
+		}
+		rcShort := rcCommit
+		if len(rcShort) > 12 {
+			rcShort = rcShort[:12]
+		}
+		return "", fmt.Errorf(
+			"stable %s target commit (%s) does not match latest RC %s target commit (%s).\n"+
+				"  A stable release must tag the same commit as the RC it promotes.\n"+
+				"  Re-tag at the RC's commit: git tag -d %s && git tag -s -m \"Release %s\" %s %s\n"+
+				"  (If the RC tag is missing locally: git fetch origin --tags)",
+			tagName, stableShort, latestRC, rcShort, tagName, tagName, tagName, rcCommit)
+	}
+	return latestRC, nil
 }
 
 // releaseVerifyTagCmd is the thin CLI wrapper around ValidatePrereleaseTag /
@@ -477,6 +538,17 @@ or replay anything locally; it just asks GitHub what its own CI said.`,
 		result := release.CheckWorkflowAtCommit(release.WorkflowImages, sha)
 		switch result.Status {
 		case release.WorkflowCheckGreen:
+			if result.BypassReason != "" {
+				// SKIP_IMAGES bypass — print a loud warning before
+				// returning success. The pre-push hook gates on exit
+				// code 0; the warning still lands on stderr so the
+				// operator can't miss the bypass in the transcript.
+				fmt.Fprintln(os.Stderr, "")
+				fmt.Fprintln(os.Stderr, "⚠⚠⚠  images check BYPASSED for "+shortSHA)
+				fmt.Fprintln(os.Stderr, "     "+result.BypassReason)
+				fmt.Fprintln(os.Stderr, "")
+				return nil
+			}
 			fmt.Printf("OK: images green at %s\n  Run: %s\n", shortSHA, result.RunURL)
 			return nil
 		case release.WorkflowCheckPending:

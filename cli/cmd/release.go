@@ -401,8 +401,17 @@ func preflightChecks(projDir string) bool {
 	imagesResult := release.CheckWorkflowAtCommit(release.WorkflowImages, imagesHeadFull)
 	switch imagesResult.Status {
 	case release.WorkflowCheckGreen:
-		fmt.Printf("  ✓ images green at %s\n", imagesHeadShort)
-		fmt.Printf("    Run: %s\n", imagesResult.RunURL)
+		if imagesResult.BypassReason != "" {
+			// SKIP_IMAGES=1 bypass — print a loud warning before
+			// accepting. The bypass is surgical (images-only) but
+			// downstream deployments may fail if the SHA's Docker
+			// artifacts don't actually exist in ghcr.io.
+			fmt.Printf("  ⚠⚠⚠ images BYPASSED at %s\n", imagesHeadShort)
+			fmt.Printf("    %s\n", imagesResult.BypassReason)
+		} else {
+			fmt.Printf("  ✓ images green at %s\n", imagesHeadShort)
+			fmt.Printf("    Run: %s\n", imagesResult.RunURL)
+		}
 	case release.WorkflowCheckPending:
 		fmt.Printf("  ✗ images is still pending at %s\n", imagesHeadShort)
 		fmt.Printf("    Watch: gh run watch %d\n", imagesResult.RunID)
@@ -547,28 +556,6 @@ func checkMigrationImmutability(projDir, prevTag, label string) error {
 		"    ./sb migrate new --description \"fix_<description>\"", prevTag, prevTag)
 }
 
-// findPreviousTag finds the most recent tag matching the pattern that is
-// an ancestor of HEAD. Returns "" if none found.
-func findPreviousTag(projDir, pattern string, isRC bool) string {
-	tagsOut, _ := upgrade.RunCommandOutput(projDir, "git", "tag", "-l", pattern, "--sort=-version:refname")
-	for _, tag := range strings.Split(strings.TrimSpace(tagsOut), "\n") {
-		tag = strings.TrimSpace(tag)
-		if tag == "" {
-			continue
-		}
-		// Skip non-RC tags when looking for RC, and vice versa
-		tagIsRC := strings.Contains(tag, "-rc.")
-		if isRC != tagIsRC {
-			continue
-		}
-		// Check if this tag is an ancestor of HEAD (i.e., already deployed)
-		if _, err := upgrade.RunCommandOutput(projDir, "git", "merge-base", "--is-ancestor", tag, "HEAD"); err == nil {
-			return tag
-		}
-	}
-	return ""
-}
-
 var releasePrereleaseCmd = &cobra.Command{
 	Use:   "prerelease",
 	Short: "Tag a new release candidate (vYYYY.MM.PATCH-rc.N)",
@@ -704,173 +691,54 @@ var releasePrereleaseCmd = &cobra.Command{
 var releaseStableCmd = &cobra.Command{
 	Use:   "stable",
 	Short: "Tag a new stable release (vYYYY.MM.PATCH)",
+	Long: `Tag a new stable release. Stable is a PURE PROMOTION of the latest RC
+for the next-in-sequence patch — it tags the RC's commit, not HEAD.
+
+The operator's local state is irrelevant: working tree, current branch,
+unstamped tests, missing seed/types/db-docs stamps, even being on a
+feature branch — none of it matters. The RC was validated; stable just
+promotes it.
+
+Pre-flight (~5 checks):
+  - Latest RC exists for v<YEAR>.<MONTH>.<NEXT_PATCH>
+  - That patch is next-in-sequence for vYYYY.MM
+  - images workflow green at the RC's commit
+  - test-hardening workflow green at the RC's commit
+  - test-install workflow green at the RC's commit
+
+Operator bypasses (use sparingly — each one is an admission that a
+gate's invariant has NOT been verified for the SHA):
+  SKIP_IMAGES=1            (Docker artifacts may not exist; deploys may FAIL)
+  SKIP_TEST_HARDENING=1
+  SKIP_TEST_INSTALL=1
+`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		projDir := config.ProjectDir()
 
-		fmt.Println("Pre-flight checks:")
-		allPassed := preflightChecks(projDir)
-
-		// Stable releases require both workflow-gated tests to be green for HEAD.
-		// Each gate is independent: both always run, both must pass. Operators can
-		// bypass each individually when circumstances require it.
-		//
-		// These workflows trigger on prerelease tag push (v*-rc.*). The pre-push
-		// hook cannot check them — they only start after the tag is on origin.
-		// The operator runs ./sb release stable after the RC workflows complete;
-		// if still pending, each gate prints "wait and retry."
-		headOut, _ := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD")
-		headFull := strings.TrimSpace(headOut)
-		headShort := headFull
-		if len(headShort) > 12 {
-			headShort = headShort[:12]
+		// Auto-fetch so multi-operator workflows are first-class: dev A
+		// cuts the RC on her box, pushes it; dev B promotes to stable on
+		// his box without ever needing local stamps or even a recent
+		// pull. Both fetches are quiet (~100ms total when nothing new).
+		// Failures are logged but do not block — the operator can still
+		// promote if local tags are already current.
+		if _, err := upgrade.RunCommandOutput(projDir, "git", "fetch", "origin", "--tags", "--quiet"); err != nil {
+			fmt.Fprintf(os.Stderr, "  warn: git fetch origin --tags failed: %v (proceeding with local tag state)\n", err)
+		}
+		if _, err := upgrade.RunCommandOutput(projDir, "git", "fetch", "origin", "master", "--quiet"); err != nil {
+			fmt.Fprintf(os.Stderr, "  warn: git fetch origin master failed: %v (proceeding with local master state)\n", err)
 		}
 
-		// Gate: test-hardening
-		if os.Getenv("SKIP_TEST_HARDENING") == "1" {
-			fmt.Println("  ⚠ test-hardening SKIPPED (SKIP_TEST_HARDENING=1)")
-			fmt.Println("    Operator bypass — ensure test-hardening ran via CI or by hand on this commit.")
-		} else {
-			hardeningResult := release.CheckWorkflowAtCommit(release.WorkflowTestHardening, headFull)
-			switch hardeningResult.Status {
-			case release.WorkflowCheckGreen:
-				fmt.Printf("  ✓ test-hardening green at %s\n", headShort)
-				fmt.Printf("    Run: %s\n", hardeningResult.RunURL)
-			case release.WorkflowCheckPending:
-				fmt.Printf("  ✗ test-hardening is still pending at %s\n", headShort)
-				fmt.Printf("    Watch: gh run watch %d\n", hardeningResult.RunID)
-				fmt.Printf("    URL:   %s\n", hardeningResult.RunURL)
-				fmt.Println("    Fix: wait for the run to complete, then re-run stable")
-				allPassed = false
-			case release.WorkflowCheckFailed:
-				fmt.Printf("  ✗ test-hardening failed at %s (conclusion: %s)\n", headShort, hardeningResult.Detail)
-				fmt.Printf("    See: gh run view %d --log-failed\n", hardeningResult.RunID)
-				fmt.Printf("    URL: %s\n", hardeningResult.RunURL)
-				fmt.Println("    Fix:")
-				fmt.Printf("      Retry the failed jobs (if transient): gh run rerun --failed %d\n", hardeningResult.RunID)
-				fmt.Println("      Or push a fix to master, then cut a new RC")
-				allPassed = false
-			case release.WorkflowCheckMissing:
-				fmt.Printf("  ✗ test-hardening has not run for %s\n", headShort)
-				fmt.Printf("    Trigger: %s\n", release.WorkflowTriggerCommand(release.WorkflowTestHardening, headFull))
-				fmt.Printf("    Watch:   %s\n", release.WorkflowURL(release.WorkflowTestHardening))
-				fmt.Println("    Fix: run the trigger command above, wait for green, re-run stable")
-				allPassed = false
-			case release.WorkflowCheckUnknown:
-				fmt.Println("  ✗ test-hardening status check failed (GitHub API error)")
-				fmt.Printf("    Detail: %s\n", hardeningResult.Detail)
-				fmt.Println("    Fix: check network connectivity / GITHUB_TOKEN; or re-run later")
-				allPassed = false
-			}
-		}
-
-		// Gate: test-install
-		if os.Getenv("SKIP_TEST_INSTALL") == "1" {
-			fmt.Println("  ⚠ test-install SKIPPED (SKIP_TEST_INSTALL=1)")
-			fmt.Println("    Operator bypass — ensure test-install ran via CI or by hand on this commit.")
-		} else {
-			installResult := release.CheckWorkflowAtCommit(release.WorkflowTestInstall, headFull)
-			switch installResult.Status {
-			case release.WorkflowCheckGreen:
-				fmt.Printf("  ✓ test-install green at %s\n", headShort)
-				fmt.Printf("    Run: %s\n", installResult.RunURL)
-			case release.WorkflowCheckPending:
-				fmt.Printf("  ✗ test-install is still pending at %s\n", headShort)
-				fmt.Printf("    Watch: gh run watch %d\n", installResult.RunID)
-				fmt.Printf("    URL:   %s\n", installResult.RunURL)
-				fmt.Println("    Fix: wait for the run to complete, then re-run stable")
-				allPassed = false
-			case release.WorkflowCheckFailed:
-				fmt.Printf("  ✗ test-install failed at %s (conclusion: %s)\n", headShort, installResult.Detail)
-				fmt.Printf("    See: gh run view %d --log-failed\n", installResult.RunID)
-				fmt.Printf("    URL: %s\n", installResult.RunURL)
-				fmt.Println("    Fix:")
-				fmt.Printf("      Retry the failed jobs (if transient — Hetzner capacity, network): gh run rerun --failed %d\n", installResult.RunID)
-				fmt.Println("      Or push a fix to master, then cut a new RC")
-				allPassed = false
-			case release.WorkflowCheckMissing:
-				fmt.Printf("  ✗ test-install has not run for %s\n", headShort)
-				fmt.Printf("    Trigger: %s\n", release.WorkflowTriggerCommand(release.WorkflowTestInstall, headFull))
-				fmt.Printf("    Watch:   %s\n", release.WorkflowURL(release.WorkflowTestInstall))
-				fmt.Println("    Fix: run the trigger command above, wait for green, re-run stable")
-				allPassed = false
-			case release.WorkflowCheckUnknown:
-				fmt.Println("  ✗ test-install status check failed (GitHub API error)")
-				fmt.Printf("    Detail: %s\n", installResult.Detail)
-				fmt.Println("    Fix: check network connectivity / GITHUB_TOKEN; or re-run later")
-				allPassed = false
-			}
-		}
-
-		if !allPassed {
-			return fmt.Errorf("pre-flight checks failed")
-		}
-		if err := noSameKindTagAtHEAD(projDir, false); err != nil {
-			return err
-		}
-
-		// Migration immutability: no modifications to migrations that existed
-		// in the previous stable release. New migrations are fine.
 		now := time.Now()
-		stableImmPattern := fmt.Sprintf("v%d.*", now.Year())
-		prevStable := findPreviousTag(projDir, stableImmPattern, false)
-		if prevStable != "" {
-			if err := checkMigrationImmutability(projDir, prevStable, "previous release"); err != nil {
-				return err
-			}
-		} else {
-			fmt.Println("  ✓ No previous release to check migrations against (first release)")
-		}
-		fmt.Println()
-
-		// Get current date prefix (already computed above for immutability check)
 		prefix := fmt.Sprintf("v%d.%02d", now.Year(), now.Month())
 
-		// Check that at least one RC exists for this month
-		rcPattern := fmt.Sprintf("%s.*-rc.*", prefix)
-		rcTagsOut, err := upgrade.RunCommandOutput(projDir, "git", "tag", "-l", rcPattern)
-		if err != nil {
-			return fmt.Errorf("listing RC tags: %w", err)
-		}
-		rcTags := strings.TrimSpace(rcTagsOut)
-		if rcTags == "" {
-			return fmt.Errorf("no pre-release candidates for %s. Tag a prerelease first", prefix)
-		}
+		fmt.Println("Pre-flight checks (promotion of latest RC):")
 
-		// Gate: verify the latest RC's CI artifacts are all published.
-		// A stable release that promotes a broken RC is worse than no release.
-		latestRC := resolveLatestRC(rcTags)
-		if latestRC != "" {
-			fmt.Printf("  Checking CI artifacts for %s...\n", latestRC)
-			assetResults := release.CheckAssets(latestRC)
-			manifestResults := release.CheckManifests(latestRC)
-			artifactsOK := true
-			for _, r := range assetResults {
-				if !r.OK {
-					fmt.Printf("  ✗ %s (%s)\n", r.Name, r.Err)
-					artifactsOK = false
-				}
-			}
-			for _, r := range manifestResults {
-				if !r.OK {
-					fmt.Printf("  ✗ %s (%s)\n", r.Name, r.Err)
-					artifactsOK = false
-				}
-			}
-			if !artifactsOK {
-				return fmt.Errorf("latest RC %s has missing CI artifacts.\n"+
-					"  Fix: wait for CI to finish, or cut a new RC and retry.\n"+
-					"  Check: ./sb release check --tag %s", latestRC, latestRC)
-			}
-			fmt.Printf("  ✓ All CI artifacts verified for %s\n", latestRC)
-		}
-
-		// Find the patch number from existing stable tags
+		// 1. Compute the next-in-sequence stable patch for this month.
 		stablePattern := fmt.Sprintf("%s.*", prefix)
 		stableTagsOut, err := upgrade.RunCommandOutput(projDir, "git", "tag", "-l", stablePattern)
 		if err != nil {
 			return fmt.Errorf("listing stable tags: %w", err)
 		}
-
 		highestPatch := -1
 		patchRegex := regexp.MustCompile(fmt.Sprintf(`^%s\.(\d+)$`, regexp.QuoteMeta(prefix)))
 		for _, line := range strings.Split(strings.TrimSpace(stableTagsOut), "\n") {
@@ -878,46 +746,143 @@ var releaseStableCmd = &cobra.Command{
 			if line == "" || strings.Contains(line, "-rc") {
 				continue
 			}
-			matches := patchRegex.FindStringSubmatch(line)
-			if len(matches) == 2 {
-				n, _ := strconv.Atoi(matches[1])
+			if m := patchRegex.FindStringSubmatch(line); len(m) == 2 {
+				n, _ := strconv.Atoi(m[1])
 				if n > highestPatch {
 					highestPatch = n
 				}
 			}
 		}
-
 		nextPatch := highestPatch + 1
 		tagName := fmt.Sprintf("%s.%d", prefix, nextPatch)
 
-		// Safety: verify tag doesn't already exist locally or on remote
+		// Safety: refuse to recreate an existing stable.
 		if _, err := upgrade.RunCommandOutput(projDir, "git", "rev-parse", tagName); err == nil {
 			return fmt.Errorf("tag %s already exists locally — tags are immutable, cannot recreate", tagName)
 		}
 
-		// Create tag with message (avoids $EDITOR prompt when tag.gpgsign=true)
-		tagOut, err := upgrade.RunCommandOutput(projDir, "git", "tag", "-m", "Release "+tagName, tagName)
+		// 2. Find the latest RC for this patch — the one we're promoting.
+		rcNums, err := listRCNumbersForPatch(projDir, prefix, nextPatch, "")
 		if err != nil {
-			return fmt.Errorf("creating tag %s: %w\n  output: %s", tagName, err, strings.TrimSpace(tagOut))
+			return fmt.Errorf("listing RC numbers for %s.%d: %w", prefix, nextPatch, err)
+		}
+		if len(rcNums) == 0 {
+			return fmt.Errorf("no pre-release candidates for %s.\n"+
+				"  Stable is a promotion of an RC. Tag a prerelease first:\n"+
+				"    ./sb release prerelease",
+				tagName)
+		}
+		latestRC := fmt.Sprintf("%s.%d-rc.%02d", prefix, nextPatch, rcNums[len(rcNums)-1])
+		rcCommit, err := tagTargetCommit(projDir, latestRC)
+		if err != nil {
+			return fmt.Errorf("resolving %s target commit: %w", latestRC, err)
+		}
+		rcShort := rcCommit
+		if len(rcShort) > 12 {
+			rcShort = rcShort[:12]
+		}
+		fmt.Printf("  ✓ Latest RC %s (target %s) exists\n", latestRC, rcShort)
+		fmt.Printf("  ✓ Stable patch %d is next-in-sequence for %s\n", nextPatch, prefix)
+
+		// 3. Three workflow gates AT THE RC's commit (not HEAD). Each is
+		//    independent — all three always run, all three must pass
+		//    (modulo SKIP_*=1 operator bypass). The gates check the
+		//    invariants that the RC tag's push triggered: image build,
+		//    setup hardening, end-to-end install.
+		allPassed := true
+		allPassed = checkStableWorkflowGate(release.WorkflowImages, "images", rcCommit, rcShort, "SKIP_IMAGES") && allPassed
+		allPassed = checkStableWorkflowGate(release.WorkflowTestHardening, "test-hardening", rcCommit, rcShort, "SKIP_TEST_HARDENING") && allPassed
+		allPassed = checkStableWorkflowGate(release.WorkflowTestInstall, "test-install", rcCommit, rcShort, "SKIP_TEST_INSTALL") && allPassed
+		if !allPassed {
+			return fmt.Errorf("pre-flight checks failed")
 		}
 
-		// Re-validate the just-created tag through the same gate the pre-push
-		// hook uses, so drift between the compute-tag logic and the validator
-		// fails locally instead of on push.
+		// 4. Tag at the RC's commit (NOT HEAD). The -s flag is explicit
+		//    (rather than relying on tag.gpgsign=true) so this works
+		//    regardless of operator git config.
+		fmt.Println()
+		fmt.Printf("Tagging %s at %s (promoted from %s)\n", tagName, rcShort,
+			fmt.Sprintf("rc.%02d", rcNums[len(rcNums)-1]))
+		tagOut, err := upgrade.RunCommandOutput(projDir, "git", "tag", "-s", "-m", "Release "+tagName, tagName, rcCommit)
+		if err != nil {
+			return fmt.Errorf("creating tag %s at %s: %w\n  output: %s",
+				tagName, rcShort, err, strings.TrimSpace(tagOut))
+		}
+
+		// 5. Re-validate via the same gate the pre-push hook uses. If
+		//    ValidateStableTag disagrees with the compute-tag logic
+		//    above, delete the tag locally and abort — better to fail
+		//    here than push a malformed tag.
 		if err := ValidateStableTag(projDir, tagName); err != nil {
 			_, _ = upgrade.RunCommandOutput(projDir, "git", "tag", "-d", tagName)
 			return fmt.Errorf("post-create validation of %s failed: %w", tagName, err)
 		}
 
-		// Push tag
 		pushOut, err := upgrade.RunCommandOutput(projDir, "git", "push", "origin", tagName)
 		if err != nil {
 			return fmt.Errorf("pushing tag %s: %w\n  output: %s", tagName, err, strings.TrimSpace(pushOut))
 		}
-
-		fmt.Printf("Tagged %s and pushed to origin\n", tagName)
+		fmt.Printf("Pushed %s to origin.\n", tagName)
 		return nil
 	},
+}
+
+// checkStableWorkflowGate runs one of the three RC-targeted workflow
+// gates for releaseStableCmd. Centralizes the switch over WorkflowCheck*
+// statuses + the SKIP_* env-var bypass printing.
+//
+// Returns true when the gate is satisfied (Green, or bypass set);
+// false otherwise (caller aggregates into allPassed).
+func checkStableWorkflowGate(workflow, label, rcCommit, rcShort, skipEnv string) bool {
+	if skipEnv != "SKIP_IMAGES" && os.Getenv(skipEnv) == "1" {
+		// SKIP_TEST_HARDENING / SKIP_TEST_INSTALL — print the existing
+		// tailored guidance text (matches the prerelease pattern).
+		fmt.Printf("  ⚠ %s SKIPPED (%s=1)\n", label, skipEnv)
+		fmt.Printf("    Operator bypass — ensure %s ran via CI or by hand on this commit.\n", label)
+		return true
+	}
+	result := release.CheckWorkflowAtCommit(workflow, rcCommit)
+	switch result.Status {
+	case release.WorkflowCheckGreen:
+		if result.BypassReason != "" {
+			// SKIP_IMAGES — handled inside CheckWorkflowAtCommit.
+			// Louder warning (the bypass is more dangerous than the
+			// test-* bypasses; missing Docker artifacts kill deploys).
+			fmt.Printf("  ⚠⚠⚠ %s BYPASSED at %s\n", label, rcShort)
+			fmt.Printf("    %s\n", result.BypassReason)
+			return true
+		}
+		fmt.Printf("  ✓ %s green at %s\n", label, rcShort)
+		fmt.Printf("    Run: %s\n", result.RunURL)
+		return true
+	case release.WorkflowCheckPending:
+		fmt.Printf("  ✗ %s is still pending at %s\n", label, rcShort)
+		fmt.Printf("    Watch: gh run watch %d\n", result.RunID)
+		fmt.Printf("    URL:   %s\n", result.RunURL)
+		fmt.Println("    Fix: wait for the run to complete, then re-run stable")
+		return false
+	case release.WorkflowCheckFailed:
+		fmt.Printf("  ✗ %s failed at %s (conclusion: %s)\n", label, rcShort, result.Detail)
+		fmt.Printf("    See: gh run view %d --log-failed\n", result.RunID)
+		fmt.Printf("    URL: %s\n", result.RunURL)
+		fmt.Println("    Fix:")
+		fmt.Printf("      Retry the failed jobs (if transient): gh run rerun --failed %d\n", result.RunID)
+		fmt.Println("      Or push a fix to master, cut a new RC, then re-run stable")
+		return false
+	case release.WorkflowCheckMissing:
+		fmt.Printf("  ✗ %s has not run for %s\n", label, rcShort)
+		fmt.Printf("    Trigger: %s\n", release.WorkflowTriggerCommand(workflow, rcCommit))
+		fmt.Printf("    Watch:   %s\n", release.WorkflowURL(workflow))
+		fmt.Println("    Fix: run the trigger command above, wait for green, re-run stable")
+		return false
+	case release.WorkflowCheckUnknown:
+		fmt.Printf("  ✗ %s status check failed (GitHub API error)\n", label)
+		fmt.Printf("    Detail: %s\n", result.Detail)
+		fmt.Println("    Fix: check network connectivity / GITHUB_TOKEN; or re-run later")
+		return false
+	}
+	fmt.Printf("  ✗ %s returned unexpected status %q\n", label, result.Status)
+	return false
 }
 
 // releaseListCmd lists existing release tags for quick reference.
