@@ -36,6 +36,30 @@ func AssertDBAtHead(projDir, dbName, caller string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", caller, err)
 	}
+
+	// Refuse PG template DBs (datistemplate=true, e.g. statbus_test_template
+	// after create-test-template sets IS_TEMPLATE=true + ALLOW_CONNECTIONS=false).
+	// Templates aren't directly queryable; a plain psql -d <template> returns
+	// empty stdout silently and we'd compute a false "BEHIND HEAD" diagnostic
+	// — the silent-failure bug class this defense closes. Callers should point at the SEED
+	// (canonical source-of-truth: POSTGRES_SEED_DB, queryable, has full
+	// db.migration set), NOT downstream template artifacts. Mirrors the
+	// same defense in dev.sh assert_db_at_head.
+	tmplArgs := append([]string(nil), prefix...)
+	tmplArgs = append(tmplArgs, "-d", "postgres", "-t", "-A", "-c",
+		fmt.Sprintf("SELECT datistemplate FROM pg_database WHERE datname = '%s'", dbName))
+	tmplCmd := exec.Command(psqlPath, tmplArgs...)
+	tmplCmd.Dir = projDir
+	tmplCmd.Env = env
+	tmplOut, tmplErr := tmplCmd.Output()
+	if tmplErr == nil && strings.TrimSpace(string(tmplOut)) == "t" {
+		return "", fmt.Errorf(
+			"REFUSED: %s\n"+
+				"Reason:  %q is a PG template (datistemplate=true, ALLOW_CONNECTIONS=false) — not directly queryable.\n"+
+				"Fix:     callers should assert against the SEED (canonical source-of-truth: ${POSTGRES_SEED_DB:-statbus_seed}), NOT downstream template artifacts.",
+			caller, dbName)
+	}
+
 	args := append([]string(nil), prefix...)
 	args = append(args, "-d", dbName, "-t", "-A", "-c",
 		"SELECT version FROM db.migration ORDER BY version")

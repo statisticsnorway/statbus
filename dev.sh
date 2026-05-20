@@ -236,6 +236,28 @@ assert_db_at_head() {
         return 1
     fi
 
+    # Refuse PG template DBs (datistemplate=true, set by
+    # create-test-template via ALTER DATABASE WITH IS_TEMPLATE=true +
+    # ALLOW_CONNECTIONS=false). Templates aren't directly queryable;
+    # asking psql for db.migration silently returns empty stdout and
+    # the helper would produce a false "BEHIND HEAD by N migrations"
+    # diagnostic.
+    #
+    # Callers should point at the canonical source-of-truth (the
+    # seed — statbus_seed / POSTGRES_SEED_DB), NOT downstream template
+    # artifacts. The template's freshness relative to the seed is
+    # enforced separately by migrate-and-test fast's stamp.
+    local is_template
+    is_template=$(./sb psql -d postgres -t -A -c \
+        "SELECT datistemplate FROM pg_database WHERE datname = '$db_name';" \
+        2>/dev/null | tr -d '[:space:]')
+    if [ "$is_template" = "t" ]; then
+        echo "REFUSED: $caller" >&2
+        echo "Reason:  '$db_name' is a PG template (datistemplate=true, ALLOW_CONNECTIONS=false) — not directly queryable." >&2
+        echo "Fix:     callers should assert against the SEED (canonical source-of-truth: \${POSTGRES_SEED_DB:-statbus_seed}), NOT downstream template artifacts. The template's freshness is enforced separately." >&2
+        return 1
+    fi
+
     local db_versions fs_versions behind ahead n
     db_versions=$(./sb psql -d "$db_name" -t -A -c \
         "SELECT version FROM db.migration ORDER BY version" 2>/dev/null | sort -u)
@@ -558,21 +580,28 @@ EOS
         fi
 
         # Precondition (plan section R commit 4: check, don't fix —
-        # consolidated by task #123 to use the unified assert_db_at_head
-        # primitive). `./dev.sh test ...` is human-facing — refuses to
+        # consolidated to use the unified assert_db_at_head primitive).
+        # `./dev.sh test ...` is human-facing — refuses to
         # run with stale state and prints the exact remediation command.
         # CI/automation that wants auto-rebuild should call
         # `./dev.sh migrate-and-test ...` instead.
         #
-        # The single check on the test template covers both prior
-        # concerns (seed at HEAD AND template stamp matches) since the
-        # template is by construction a clone of the seed — if the
-        # template's db.migration matches HEAD's on-disk migrations,
-        # the seed it was cloned from was also at HEAD at clone time.
+        # Assert against the SEED (canonical source-of-truth), not the
+        # test_template. The seed/template chain
+        # is: template_statbus → statbus_seed → statbus_test_template.
+        # The test_template is intentionally non-connectable
+        # (ALLOW_CONNECTIONS=false) so per-test clones go fast; querying
+        # it directly silently returned 0 rows and produced a false
+        # "BEHIND HEAD" diagnostic in #123's original wiring. The seed
+        # IS the source of truth — when it's at HEAD, every clone
+        # downstream (test_template, transient test DBs) is too by
+        # construction. The test_template's freshness relative to the
+        # seed is policed separately by the tmp/test-template-migrations-sha
+        # stamp check that migrate-and-test fast enforces.
         #
         # SOURCE_VERSION captured for the H1 two-line stamp write below.
-        TEMPLATE_NAME_PRECHECK="${POSTGRES_TEST_DB:-statbus_test_template}"
-        if ! SOURCE_VERSION=$(assert_db_at_head "$TEMPLATE_NAME_PRECHECK" "./dev.sh test fast"); then
+        SEED_NAME_PRECHECK="${POSTGRES_SEED_DB:-statbus_seed}"
+        if ! SOURCE_VERSION=$(assert_db_at_head "$SEED_NAME_PRECHECK" "./dev.sh test fast"); then
             echo "  Or: ./dev.sh migrate-and-test ${TEST_ARGS[*]}  (composition that auto-rebuilds)"
             exit 1
         fi
@@ -664,7 +693,7 @@ EOF
         # so HEAD + SOURCE_VERSION is an honest pair. No silent skip:
         # if we got here, we stamp.
         #
-        # H1 two-line stamp (task #123):
+        # H1 two-line stamp:
         #   line 1: HEAD SHA at test-pass time
         #   line 2: source DB (test template) migration_version at test-pass time
         if [ $OVERALL_EXIT_CODE -eq 0 ]; then
@@ -1613,16 +1642,27 @@ EOF
         TEMPLATE_NAME="${POSTGRES_TEST_DB:-statbus_test_template}"
         DOC_DB="statbus_doc_gen_$$"
 
-        # Refuse if the source template's db.migration doesn't match HEAD's
-        # on-disk migrations. Without this gate a stale template would
-        # produce doc/db/*.md reflecting an older schema; the stamp would
-        # still pass the basic SHA check (line 1) but the H1 two-line
-        # stamp's line 2 (source-DB migration_version) would catch the
-        # bypass at preflight time. Both layers defend the same property.
+        # Refuse if the SEED's db.migration doesn't match HEAD's on-disk
+        # migrations (the correction: assert against the seed, the
+        # canonical source-of-truth, NOT the test_template). The
+        # test_template is downstream of the seed (clone-via-CREATE WITH
+        # TEMPLATE) and is intentionally non-connectable so per-test
+        # clones go fast; querying it directly silently returned empty
+        # stdout in the original wiring, producing a false "BEHIND HEAD"
+        # diagnostic. The template's freshness relative to the seed is
+        # policed by migrate-and-test fast via the
+        # tmp/test-template-migrations-sha stamp check.
         #
-        # On success, assert_db_at_head echoes the template's max version
+        # Without this gate a stale seed would produce doc/db/*.md
+        # reflecting an older schema; the stamp would still pass the
+        # basic SHA check (line 1) but the H1 two-line stamp's line 2
+        # (source-DB migration_version) would catch the bypass at
+        # preflight time. Both layers defend the same property.
+        #
+        # On success, assert_db_at_head echoes the seed's max version
         # on stdout; capture it for the two-line stamp write below.
-        SOURCE_VERSION=$(assert_db_at_head "$TEMPLATE_NAME" "./dev.sh generate-db-documentation") || exit 1
+        SEED_NAME_DOC="${POSTGRES_SEED_DB:-statbus_seed}"
+        SOURCE_VERSION=$(assert_db_at_head "$SEED_NAME_DOC" "./dev.sh generate-db-documentation") || exit 1
 
         echo "Creating temporary documentation database: $DOC_DB from $TEMPLATE_NAME"
         ./sb psql -d postgres -v ON_ERROR_STOP=1 <<EOF
@@ -1760,7 +1800,7 @@ EOS
 
         echo "Database documentation generated in doc/db/{table,view,function}/"
         mkdir -p "$WORKSPACE/tmp"
-        # H1 two-line stamp (task #123):
+        # H1 two-line stamp:
         #   line 1: HEAD SHA at generation time
         #   line 2: source DB (test template) migration_version at generation time
         # SOURCE_VERSION captured above by assert_db_at_head.
@@ -1938,6 +1978,92 @@ EOS
         # See test/install-recovery/README.md for the catalogue.
         exec bash "$WORKSPACE/test/install-recovery/run.sh" "$@"
       ;;
+    'test-assert-db-at-head' )
+        # Smoke test for the assert_db_at_head helper.
+        # Verifies two invariants:
+        #   1. Helper passes when called against the seed (canonical
+        #      source-of-truth, queryable, has full db.migration set).
+        #   2. Helper REFUSES cleanly when called against a PG template
+        #      (datistemplate=true, ALLOW_CONNECTIONS=false) — the bug
+        #      class that bit us in #127.
+        #
+        # Default target for case 1: statbus_seed.
+        # Optional override: ./dev.sh test-assert-db-at-head <db_name>.
+        #
+        # Pre-conditions:
+        #   - statbus_seed must exist (./dev.sh recreate-seed).
+        #   - statbus_test_template SHOULD exist for case 2 (skipped if not).
+        #
+        # Exits 0 on PASS, 1 on FAIL.
+        eval $(./dev.sh postgres-variables)
+        SEED_NAME="${1:-${POSTGRES_SEED_DB:-statbus_seed}}"
+        TEMPLATE_NAME="${POSTGRES_TEST_DB:-statbus_test_template}"
+
+        if ! ./sb psql -d postgres -t -A -c \
+                "SELECT 1 FROM pg_database WHERE datname = '$SEED_NAME';" \
+                2>/dev/null | grep -q '^1$'; then
+            echo "SKIP: seed DB '$SEED_NAME' does not exist."
+            echo "  Bootstrap: ./dev.sh recreate-seed"
+            exit 0
+        fi
+
+        # Case 1: assert against the seed (canonical source-of-truth).
+        echo "=== Case 1: seed (datistemplate=false, expected to PASS) ==="
+        echo "Target: $SEED_NAME"
+        set +e
+        seed_output=$(assert_db_at_head "$SEED_NAME" "./dev.sh test-assert-db-at-head:seed")
+        seed_rc=$?
+        set -e
+        if [ $seed_rc -eq 0 ]; then
+            echo "PASS: returned 0 (seed at HEAD)"
+            echo "      Reported max migration version: $seed_output"
+            if ! [[ "$seed_output" =~ ^[0-9]{14}$ ]]; then
+                echo "WARN: returned version '$seed_output' is not a 14-digit timestamp." >&2
+            fi
+        else
+            echo "FAIL: returned $seed_rc against seed (expected 0)."
+            echo "      Captured output: '$seed_output'"
+            echo "      (helper's stderr above explains the refusal reason)"
+            exit 1
+        fi
+        echo ""
+
+        # Case 2: defensive refusal when pointed at a template.
+        if ! ./sb psql -d postgres -t -A -c \
+                "SELECT 1 FROM pg_database WHERE datname = '$TEMPLATE_NAME';" \
+                2>/dev/null | grep -q '^1$'; then
+            echo "=== Case 2: template (skipped — '$TEMPLATE_NAME' not present) ==="
+            echo "SKIP: bootstrap via ./dev.sh create-test-template to enable this case"
+            exit 0
+        fi
+        is_template=$(./sb psql -d postgres -t -A -c \
+            "SELECT datistemplate FROM pg_database WHERE datname = '$TEMPLATE_NAME';" \
+            2>/dev/null | tr -d '[:space:]')
+        echo "=== Case 2: template (datistemplate=$is_template, expected to REFUSE cleanly) ==="
+        echo "Target: $TEMPLATE_NAME"
+        set +e
+        tmpl_output=$(assert_db_at_head "$TEMPLATE_NAME" "./dev.sh test-assert-db-at-head:template" 2>&1 >/dev/null)
+        tmpl_rc=$?
+        set -e
+        if [ $tmpl_rc -eq 0 ]; then
+            echo "FAIL: helper returned 0 for template '$TEMPLATE_NAME' — expected REFUSE."
+            echo "      The defensive template-refusal added in #127 is not firing."
+            exit 1
+        fi
+        # Confirm the refusal reason names the template-not-queryable cause.
+        if echo "$tmpl_output" | grep -q "is a PG template"; then
+            echo "PASS: refused cleanly (exit $tmpl_rc), naming the template-not-queryable cause."
+            echo "      Sample of helper's stderr:"
+            echo "$tmpl_output" | sed 's/^/        /'
+        else
+            echo "FAIL: helper refused (exit $tmpl_rc) but error didn't mention 'is a PG template'."
+            echo "      Captured stderr:"
+            echo "$tmpl_output" | sed 's/^/        /'
+            exit 1
+        fi
+        echo ""
+        echo "All cases passed."
+      ;;
     'upgrade-sandbox' )
       # Isolated upgrade-service test harness on port offset 9 (3090-3094).
       # Collision-free with dev/ma/no slots (offsets 1/2/3 = 3010/3020/3030).
@@ -2024,6 +2150,7 @@ EOS
       echo ""
       echo "Build:"
       echo "  test-install                       End-to-end install test via Multipass VM"
+      echo "  test-assert-db-at-head [db]        Smoke-test the assert_db_at_head helper"
       echo "  build-sb [target]                  Build sb. No args: host → ./sb. <os>/<arch>: cross → sb-<os>-<arch>."
       echo "  cross-build-sb                     Build all 4 platforms + refresh ./sb to host variant."
       echo ""
