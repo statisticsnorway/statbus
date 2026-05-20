@@ -281,7 +281,7 @@ func CreateSeed(projDir string) error {
 	if strings.TrimSpace(seedExistsOut) != "1" {
 		return fmt.Errorf("seed database %q does not exist.\n"+
 			"  Build it first: ./dev.sh recreate-seed\n"+
-			"  Or run: ./dev.sh update-seed (recreate-seed + db seed create)",
+			"  Or run: ./sb db seed sync (recreate-seed + db seed create)",
 			dbName)
 	}
 

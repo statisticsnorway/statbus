@@ -239,7 +239,7 @@ jobs:
             echo "::error::Seed commit_sha does not match release commit"
             echo "  seed.json:   $SEED_SHA"
             echo "  release SHA: $GITHUB_SHA"
-            echo "  Regenerate with: ./dev.sh update-seed  (on the release commit), re-tag, re-push."
+            echo "  Regenerate with: ./sb db seed sync  (on the release commit), re-tag, re-push."
             exit 1
           fi
           mv seed.pg_dump seed.json dist/
