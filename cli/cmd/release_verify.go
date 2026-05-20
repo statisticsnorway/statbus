@@ -347,24 +347,40 @@ func ValidatePrereleaseTag(projDir, tagName string) error {
 }
 
 // ValidateStableTag checks that tagName, which must already exist locally,
-// matches every invariant ./sb release stable enforces at creation time:
+// matches every TAG-SHAPE invariant ./sb release stable enforces at
+// creation time:
 //
 //   - annotated tag whose subject is exactly "Release <tagName>"
 //   - target commit passes git verify-commit
 //   - name matches vYYYY.MM.PATCH
 //   - PATCH is the next-in-sequence stable patch for vYYYY.MM
 //   - at least one RC exists for this patch
-//   - the latest RC's CI artifacts (GitHub assets + ghcr manifests) are all present
 //   - stable's target commit equals the latest RC's target commit
 //     (enforces the "stable IS a promotion" contract; refuses
 //     hand-rolled stable tags at any other commit)
 //
-// Migration immutability vs the previous stable is NOT checked here as of
-// task #124: the property is guaranteed by induction through the RC
-// chain — each RC compares against its predecessor (rc.N vs rc.N-1, or
-// rc.1 vs latest prior stable across year-months courtesy of #124's
-// Part B fix). Stable at the RC's commit inherits the RC's verified
-// chain by construction.
+// Artifact readiness (the latest RC's GitHub Release assets + ghcr
+// manifests) is NOT checked here. That gate fires once in
+// releaseStableCmd's pre-flight BEFORE the tag is created
+// (checkRCArtifactGate). Folding it into ValidateStableTag is wrong
+// for two reasons:
+//
+//  1. Pre-push-hook usage: the hook validates the tag right before
+//     `git push origin <tag>`. By that point CI artifacts must
+//     already be there (the stable tag was created from the same RC
+//     that triggered them). A second probe here is redundant network
+//     I/O and turns transient GitHub API blips into push failures.
+//
+//  2. Operator flow: failing post-create leaves a dangling local tag
+//     that must be deleted before the operator can retry. The right
+//     place to refuse on missing artifacts is BEFORE creating the
+//     tag, which is exactly what checkRCArtifactGate does.
+//
+// Migration immutability vs the previous stable is also not checked
+// here: the property is guaranteed by induction through the RC chain
+// — each RC compares against its predecessor (rc.N vs rc.N-1, or
+// rc.1 vs latest prior stable across year-months). Stable at the
+// RC's commit inherits the RC's verified chain by construction.
 func ValidateStableTag(projDir, tagName string) error {
 	m := stableTagRE.FindStringSubmatch(tagName)
 	if m == nil {
@@ -397,26 +413,8 @@ func ValidateStableTag(projDir, tagName string) error {
 	// "an RC exists" but the stable's target commit must EQUAL the
 	// latest RC's target commit. Catches hand-rolled stable tags at
 	// HEAD or any other commit (bypassing `./sb release stable`).
-	latestRC, err := assertStableMatchesLatestRC(projDir, tagName)
-	if err != nil {
+	if _, err := assertStableMatchesLatestRC(projDir, tagName); err != nil {
 		return err
-	}
-
-	// CI artifacts for the latest RC must all be present.
-	var missing []string
-	for _, r := range release.CheckAssets(latestRC) {
-		if !r.OK {
-			missing = append(missing, "asset "+r.Name+": "+r.Err)
-		}
-	}
-	for _, r := range release.CheckManifests(latestRC) {
-		if !r.OK {
-			missing = append(missing, "manifest "+r.Name+": "+r.Err)
-		}
-	}
-	if len(missing) > 0 {
-		return fmt.Errorf("latest RC %s is missing CI artifacts — cannot promote to stable:\n  %s\n  Fix: wait for CI to finish, or cut a new RC and retry",
-			latestRC, strings.Join(missing, "\n  "))
 	}
 	return nil
 }
@@ -497,7 +495,11 @@ something ./sb release prerelease or ./sb release stable would have created.
 
 Catches hand-rolled tags that bypass pre-creation checks: unsigned commit,
 lightweight tag, wrong subject, wrong name format, skipped RC number,
-stable before RC, modified migrations, missing CI artifacts.
+stable not at the latest RC's commit, modified migrations.
+
+Pure tag-shape validation (no GitHub API calls beyond signature
+verification). Artifact readiness — GitHub Release assets, ghcr
+manifests — is verified separately by ./sb release check <tag>.
 
 Exit 0 on success, 1 with diagnostic on failure. No side effects.`,
 	Args: cobra.ExactArgs(1),

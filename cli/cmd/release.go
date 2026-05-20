@@ -749,12 +749,13 @@ unstamped tests, missing seed/types/db-docs stamps, even being on a
 feature branch — none of it matters. The RC was validated; stable just
 promotes it.
 
-Pre-flight (~5 checks):
+Pre-flight (~6 checks):
   - Latest RC exists for v<YEAR>.<MONTH>.<NEXT_PATCH>
   - That patch is next-in-sequence for vYYYY.MM
   - images workflow green at the RC's commit
   - test-hardening workflow green at the RC's commit
   - test-install workflow green at the RC's commit
+  - RC release artifacts (GitHub assets + ghcr manifests) all present
 
 Operator bypasses (use sparingly — each one is an admission that a
 gate's invariant has NOT been verified for the SHA):
@@ -843,11 +844,26 @@ gate's invariant has NOT been verified for the SHA):
 		allPassed = checkStableWorkflowGate(release.WorkflowImages, "images", rcCommit, rcShort, "SKIP_IMAGES") && allPassed
 		allPassed = checkStableWorkflowGate(release.WorkflowTestHardening, "test-hardening", rcCommit, rcShort, "SKIP_TEST_HARDENING") && allPassed
 		allPassed = checkStableWorkflowGate(release.WorkflowTestInstall, "test-install", rcCommit, rcShort, "SKIP_TEST_INSTALL") && allPassed
+
+		// 4. RC release artifacts MUST be present BEFORE the stable tag
+		//    is created. release.yaml (triggered by the RC's tag push)
+		//    builds the sb binaries + uploads GitHub Release assets +
+		//    publishes ghcr manifests. Until those land, promoting to
+		//    stable would tag a half-baked RC.
+		//
+		//    Historical: this check used to fire post-create inside
+		//    ValidateStableTag, which meant the operator hit "tag
+		//    created, validation failed, tag deleted" — an awkward
+		//    create-then-delete dance when release.yaml was still mid-
+		//    build. Moving the gate forward restores the invariant that
+		//    nothing is tagged before everything is checked.
+		allPassed = checkRCArtifactGate(latestRC) && allPassed
+
 		if !allPassed {
 			return fmt.Errorf("pre-flight checks failed")
 		}
 
-		// 4. Tag at the RC's commit (NOT HEAD). The -s flag is explicit
+		// 5. Tag at the RC's commit (NOT HEAD). The -s flag is explicit
 		//    (rather than relying on tag.gpgsign=true) so this works
 		//    regardless of operator git config.
 		fmt.Println()
@@ -859,10 +875,14 @@ gate's invariant has NOT been verified for the SHA):
 				tagName, rcShort, err, strings.TrimSpace(tagOut))
 		}
 
-		// 5. Re-validate via the same gate the pre-push hook uses. If
-		//    ValidateStableTag disagrees with the compute-tag logic
-		//    above, delete the tag locally and abort — better to fail
-		//    here than push a malformed tag.
+		// 6. Re-validate the freshly created tag via the same shape gate
+		//    the pre-push hook uses. ValidateStableTag is pure tag-shape
+		//    now (annotated/signed/named correctly, next-in-sequence,
+		//    target commit matches latest RC) — artifact readiness was
+		//    already gated at step 4 above. If ValidateStableTag fails
+		//    here it means the freshly created tag itself is malformed
+		//    (e.g. signing config drift); delete it locally and abort
+		//    rather than push a broken tag.
 		if err := ValidateStableTag(projDir, tagName); err != nil {
 			_, _ = upgrade.RunCommandOutput(projDir, "git", "tag", "-d", tagName)
 			return fmt.Errorf("post-create validation of %s failed: %w", tagName, err)
@@ -932,6 +952,94 @@ func checkStableWorkflowGate(workflow, label, rcCommit, rcShort, skipEnv string)
 		return false
 	}
 	fmt.Printf("  ✗ %s returned unexpected status %q\n", label, result.Status)
+	return false
+}
+
+// checkRCArtifactGate is the pre-flight asset/manifest gate for
+// releaseStableCmd. Verifies that the latest RC's release.yaml has
+// published every GitHub Release asset (binaries + checksums + manifest
+// + seed) and every ghcr.io Docker manifest (app, db, worker, proxy).
+//
+// Strategy: probe release.yaml FIRST (it's the workflow that produces
+// both asset sets). On Pending/Failed/Missing/Unknown the diagnostic is
+// the run URL + `gh run watch`/`rerun --failed` command — far more
+// actionable than the raw "asset not uploaded" list that derives from
+// the underlying workflow state. Only on Green do we also probe
+// CheckAssets+CheckManifests; if the workflow succeeded but a probe
+// still fails that's a true asset bug worth surfacing per-item.
+//
+// Returns true when ALL artifacts (and the workflow that produced them)
+// are present and green; false otherwise (caller aggregates into
+// allPassed).
+func checkRCArtifactGate(rcTag string) bool {
+	wf := release.CheckReleaseWorkflowAtTag(rcTag)
+	switch wf.Status {
+	case release.ReleaseWorkflowGreen:
+		// Workflow done — verify the assets it should have produced
+		// actually landed. Most of the time this is the happy path:
+		// one summary line.
+		assetResults := release.CheckAssets(rcTag)
+		manifestResults := release.CheckManifests(rcTag)
+		assetsOK, manifestsOK := 0, 0
+		var failures []string
+		for _, r := range assetResults {
+			if r.OK {
+				assetsOK++
+			} else {
+				failures = append(failures, fmt.Sprintf("    asset %s: %s", r.Name, r.Err))
+			}
+		}
+		for _, r := range manifestResults {
+			if r.OK {
+				manifestsOK++
+			} else {
+				failures = append(failures, fmt.Sprintf("    manifest %s: %s", r.Name, r.Err))
+			}
+		}
+		if len(failures) == 0 {
+			fmt.Printf("  ✓ RC %s artifacts present (%d release assets, %d ghcr manifests)\n",
+				rcTag, assetsOK, manifestsOK)
+			fmt.Printf("    release.yaml: %s\n", wf.RunURL)
+			return true
+		}
+		// Workflow green but probes still failing — rare, but worth a
+		// detailed per-asset breakdown so the operator can investigate.
+		fmt.Printf("  ✗ RC %s release.yaml is green but artifact probes fail (%d assets, %d manifests OK; %d missing)\n",
+			rcTag, assetsOK, manifestsOK, len(failures))
+		fmt.Printf("    release.yaml: %s\n", wf.RunURL)
+		for _, f := range failures {
+			fmt.Println(f)
+		}
+		fmt.Println("    Fix: retry in ~5 minutes (eventual-consistency on GHCR/Releases),")
+		fmt.Println("         then if still missing, inspect: ./sb release check --tag " + rcTag)
+		return false
+	case release.ReleaseWorkflowPending:
+		fmt.Printf("  ✗ RC %s release.yaml is still running\n", rcTag)
+		fmt.Printf("    Watch: gh run watch %d\n", wf.RunID)
+		fmt.Printf("    URL:   %s\n", wf.RunURL)
+		fmt.Println("    Fix: wait for the run to complete, then re-run stable")
+		return false
+	case release.ReleaseWorkflowFailed:
+		fmt.Printf("  ✗ RC %s release.yaml failed (conclusion: %s)\n", rcTag, wf.Detail)
+		fmt.Printf("    See: gh run view %d --log-failed\n", wf.RunID)
+		fmt.Printf("    URL: %s\n", wf.RunURL)
+		fmt.Println("    Fix:")
+		fmt.Printf("      Retry the failed jobs (if transient): gh run rerun --failed %d\n", wf.RunID)
+		fmt.Println("      Or push a fix to master, cut a new RC, then re-run stable")
+		return false
+	case release.ReleaseWorkflowMissing:
+		fmt.Printf("  ✗ RC %s release.yaml has not run yet\n", rcTag)
+		fmt.Printf("    Workflow: %s\n", release.ReleaseWorkflowURL())
+		fmt.Println("    Fix: release.yaml is triggered by the RC tag push — confirm the RC tag")
+		fmt.Println("         was pushed to origin (git push origin " + rcTag + "), then wait")
+		return false
+	case release.ReleaseWorkflowUnknown:
+		fmt.Printf("  ✗ RC %s release.yaml status check failed (GitHub API error)\n", rcTag)
+		fmt.Printf("    Detail: %s\n", wf.Detail)
+		fmt.Println("    Fix: check network connectivity / GITHUB_TOKEN; or re-run later")
+		return false
+	}
+	fmt.Printf("  ✗ RC %s release.yaml returned unexpected status %q\n", rcTag, wf.Status)
 	return false
 }
 
