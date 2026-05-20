@@ -94,3 +94,14 @@ Full reference: `doc/upgrade-system.md` and `doc/install-mutex.md`.
 ## macOS dev note: restarting Docker Desktop
 
 When Docker Desktop is unresponsive, try `open -a Docker` (macOS) and wait for health — don't stall waiting for the user. If `docker compose ps` fails with "Docker Desktop is unable to start", restart it programmatically.
+
+## Import validation discipline
+
+Code follows fail-fast (actionable error). Import follows **two-tier validation**:
+
+1. **Unprincipled → fail fast.** The system cannot store the row coherently (invalid FK, contradictory cross-table link, ambiguous target). Hard error, row skipped, actionable message.
+2. **Data missing but foundation sound → warning.** Row stored, soft error logged, operator improves source later.
+
+Silent acceptance is reserved for **valid stored data** — there is no missingness to surface because the absence is part of a correct, principled state. Silent acceptance is **not** a third tier; treating "expected absence" as a deliberate non-signal is a data-corruption pathway.
+
+When designing per-step import validation, classify every input scenario into one of these three categories. If unsure, default to warning over silence.

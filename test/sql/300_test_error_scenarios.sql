@@ -75,13 +75,29 @@ INSERT INTO public.import_70_01_01_lu_analysis_errors_upload(
 ('700100023','LU For Postal Location','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,NULL,NULL,'NO',NULL,'inactive_unknown',NULL,NULL,NULL,NULL,NULL),
 -- New soft error test cases
 ('700100026','LU Invalid Status (Default Active)','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'sleeping_unknown',NULL,NULL,NULL,NULL,NULL), -- warnings: {status_code}, uses default
-('700100028','LU Invalid PostalRegion','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'active',NULL,NULL,NULL,'POSTAL_XX',NULL), -- warnings: {postal_region_code}
-('700100029','LU Invalid PostalCountry NF','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'active',NULL,NULL,NULL,NULL,'P_ZZ'), -- warnings: {postal_country_iso_2}
+-- Postal with invalid region code and NO postal country: country defaults to domestic (warning),
+-- then 'POSTAL_XX' is invalid for the resolved domestic country (soft).
+('700100028','LU Invalid PostalRegion','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'active',NULL,NULL,NULL,'POSTAL_XX',NULL), -- warnings: {postal_country_iso_2_raw: null, postal_region_code_raw: 'POSTAL_XX'}, action: use
+-- Postal with invalid postal_country and no other postal address parts present:
+-- address-present check is FALSE, so country defaulting does not apply; just a soft invalid-code warning.
+('700100029','LU Invalid PostalCountry NF','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'active',NULL,NULL,NULL,NULL,'P_ZZ'), -- warnings: {postal_country_iso_2_raw: 'P_ZZ'}
 -- Country/region validation
-('700100030','LU domestic missing region warning','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,NULL,NULL,'NO',NULL,'active',NULL,NULL,NULL,NULL,NULL), -- warnings: {physical_region_code: NULL}
+('700100030','LU domestic missing region warning','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,NULL,NULL,'NO',NULL,'active',NULL,NULL,NULL,NULL,NULL), -- warnings: {physical_region_code_raw: null}
 ('700100031','LU foreign missing region ok','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,NULL,NULL,'UN',NULL,'active',NULL,NULL,NULL,NULL,NULL),
-('700100032','LU foreign domestic region err','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,'Street 1','01','UN',NULL,'active',NULL,NULL,NULL,NULL,NULL), -- warnings: {physical_region_code: 01}
-('700100033','LU foreign unknown domestic region error','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,'Street 1','ZZ','UN',NULL,'active',NULL,NULL,NULL,NULL,NULL); -- warnings: {physical_region_code: ZZ}
+-- Foreign country + region supplied: region is a domestic-only concept, so this is unprincipled → FATAL.
+('700100032','LU foreign domestic region err','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,'Street 1','01','UN',NULL,'active',NULL,NULL,NULL,NULL,NULL), -- error: {physical_region_code_raw: 'Region can only be supplied for the domestic country.'}, action: skip
+-- Foreign country + invalid region: region-with-foreign fatal takes precedence over invalid-region soft.
+('700100033','LU foreign unknown domestic region error','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,'Street 1','ZZ','UN',NULL,'active',NULL,NULL,NULL,NULL,NULL), -- error: {physical_region_code_raw: 'Region can only be supplied for the domestic country.'}, action: skip
+-- ─── New rows for postal/physical validation differentiation ──────────────────────
+-- Postal foreign+region (postal variant of 700100032) → FATAL region_with_foreign_country_error.
+('700100034','LU foreign postal region err','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'active',NULL,NULL,'P-Postal Street','01','UN'), -- error: {postal_region_code_raw: 'Region can only be supplied for the domestic country.'}, action: skip
+-- Physical with NULL country source + address present → country defaults to domestic with a warning.
+-- Region '15' (Møre og Romsdal) is a real Norway 2024 region so the defaulted-domestic resolution succeeds cleanly.
+('700100035','LU country defaulted phys','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,'Implicit Country St','15',NULL,NULL,'active',NULL,NULL,NULL,NULL,NULL), -- warnings: {physical_country_iso_2_raw: null}, action: use
+-- Postal with NULL country source + address present → country defaults to domestic with a warning.
+('700100036','LU country defaulted postal','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'active',NULL,NULL,'Implicit P','15',NULL), -- warnings: {postal_country_iso_2_raw: null}, action: use
+-- Postal domestic country with NULL region → silent (region is not required for postal addresses).
+('700100037','LU postal domestic null region','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'active',NULL,NULL,'Domestic Mail',NULL,'NO'); -- warnings: {} (silent — postal does not require region), action: use
 
 CALL worker.process_tasks(p_queue => 'import');
 \echo "Job status for import_70_01_01_lu_analysis_errors:"

@@ -16,6 +16,12 @@
 --      errors with "permission denied for table X" before RLS evaluation,
 --      because PostgreSQL ORs all permissive policies that match any
 --      inherited role membership and must read every referenced table.
+--   F. Policy-vs-GRANT matching — every CREATE POLICY ... FOR <cmd> TO <role>
+--      must be paired with a matching table-level GRANT for the implied
+--      privilege(s). FOR ALL expands to {SELECT, INSERT, UPDATE, DELETE}.
+--      Without the GRANT the role is rejected at the privilege layer with
+--      "permission denied for table X" before RLS ever runs — the policy
+--      clearance becomes a silent no-op (see RC: postal-region work).
 -- Turn off decorative output for clean markdown generation
 \t
 \a
@@ -595,6 +601,49 @@ each role can see and modify.
                     v_rec.ref_schema, v_rec.ref_table,
                     v_rec.ref_schema, v_rec.ref_table));
         END IF;
+    END LOOP;
+
+    -- Check 8 (F): Policy-vs-GRANT matching.
+    --
+    -- Every CREATE POLICY ... FOR <cmd> TO <role> implies the role needs the
+    -- matching table-level GRANT to actually exercise it. Without the GRANT,
+    -- the role is rejected at the privilege layer with `permission denied for
+    -- table <name>` BEFORE RLS ever evaluates — making the policy clearance a
+    -- silent no-op. Past instances of this gap caused real bugs (test 323
+    -- surfaced four of them at once: admin_user on region_access &
+    -- activity_category_access, restricted_user on location & activity).
+    --
+    -- The check expands `FOR ALL` into the four DML privileges (SELECT, INSERT,
+    -- UPDATE, DELETE) and asserts each role/privilege pair has the matching
+    -- GRANT. The implicit PUBLIC role is excluded.
+    FOR v_rec IN
+        WITH policy_requirements AS (
+            SELECT DISTINCT
+                schemaname, tablename,
+                unnest(roles) AS role_name,
+                unnest(CASE cmd
+                       WHEN 'ALL' THEN ARRAY['SELECT','INSERT','UPDATE','DELETE']
+                       ELSE ARRAY[cmd] END) AS req_priv
+            FROM pg_policies
+            WHERE schemaname = 'public'
+        )
+        SELECT pr.tablename AS table_name,
+               pr.role_name,
+               pr.req_priv AS missing_privilege
+        FROM policy_requirements pr
+        LEFT JOIN information_schema.role_table_grants rg
+            ON  rg.table_schema   = pr.schemaname
+            AND rg.table_name     = pr.tablename
+            AND rg.grantee        = pr.role_name
+            AND rg.privilege_type = pr.req_priv
+        WHERE rg.grantee IS NULL
+          AND pr.role_name NOT IN ('public')
+        ORDER BY pr.tablename, pr.role_name, pr.req_priv
+    LOOP
+        v_problems := array_append(v_problems,
+            format('MISSING POLICY GRANT: role %s has CREATE POLICY clearance on public.%s but no %s GRANT — fix with: GRANT %s ON public.%I TO %I;',
+                v_rec.role_name, v_rec.table_name, v_rec.missing_privilege,
+                v_rec.missing_privilege, v_rec.table_name, v_rec.role_name));
     END LOOP;
 
     -- Build verification output

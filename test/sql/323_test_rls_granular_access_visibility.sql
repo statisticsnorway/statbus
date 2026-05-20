@@ -1,0 +1,264 @@
+SET datestyle TO 'ISO, DMY';
+
+BEGIN;
+
+\i test/setup.sql
+
+\echo "Test 323: RLS granular access visibility (region_access, activity_category_access)"
+-- Canonical home for RLS visibility scenarios driven by per-row, per-grant access tables
+-- (region_access, activity_category_access). Role-based access (admin_user, external_user,
+-- role-tier reads on statistical_history / upgrade / system_info) lives elsewhere — that's
+-- a different domain.
+--
+-- The first inhabitant (below) is the postal-NULL-region visibility case from the postal
+-- validation work. Activity-side scenarios and other granular-access cases (zero accesses,
+-- multiple accesses, boundary-overlap) fold in here in follow-up RCs rather than spawn
+-- new files.
+\echo "Setup: load Norway base data, create restricted user with region_access to one region only."
+
+CALL test.set_user_from_email('test.admin@statbus.org');
+
+\i samples/norway/getting-started.sql
+
+-- Confirm baseline: settings.country_id is Norway; two regions of interest exist.
+SELECT (SELECT iso_2 FROM public.country c
+        JOIN public.settings s ON c.id = s.country_id) AS settings_country,
+       (SELECT count(*) FROM public.region WHERE code IN ('03','11')) AS regions_present;
+
+\echo "Create a restricted_user and grant region_access to region '03' (Oslo) only."
+SELECT public.user_create(
+    p_display_name => 'Test Restricted 323',
+    p_email        => 'test.restricted.323@statbus.org',
+    p_statbus_role => 'restricted_user'::public.statbus_role,
+    p_password     => 'Restricted#323!'
+);
+
+INSERT INTO public.region_access (user_id, region_id)
+SELECT u.id, r.id
+FROM auth.user u, public.region r
+WHERE u.email = 'test.restricted.323@statbus.org'
+  AND r.code = '03';
+
+\echo "Create three legal units owned by enterprises, each with one location:"
+\echo "  LU-A: physical location at region '03' (in restricted user's region_access)"
+\echo "  LU-B: physical location at region '11' (NOT in restricted user's region_access)"
+\echo "  LU-C: postal location with region_id IS NULL (the new permitted shape)"
+DO $$
+DECLARE
+    v_admin_id INT;
+    v_country_no_id INT;
+    v_region_03_id INT;
+    v_region_03_ver INT;
+    v_region_11_id INT;
+    v_region_11_ver INT;
+    v_status_active INT;
+    v_ent_a INT; v_ent_b INT; v_ent_c INT;
+    v_lu_a  INT; v_lu_b  INT; v_lu_c  INT;
+BEGIN
+    SELECT id INTO v_admin_id FROM auth.user WHERE email = 'test.admin@statbus.org';
+    SELECT id INTO v_country_no_id FROM public.country WHERE iso_2 = 'NO';
+    SELECT id, version_id INTO v_region_03_id, v_region_03_ver FROM public.region WHERE code = '03';
+    SELECT id, version_id INTO v_region_11_id, v_region_11_ver FROM public.region WHERE code = '11';
+    SELECT id INTO v_status_active FROM public.status WHERE code = 'active';
+
+    -- LU-A (location anchored in region 03)
+    INSERT INTO public.enterprise (short_name, edit_by_user_id, edit_at)
+    VALUES ('ENT 323-A', v_admin_id, now()) RETURNING id INTO v_ent_a;
+    INSERT INTO public.legal_unit (enterprise_id, name, status_id, primary_for_enterprise,
+                                   edit_by_user_id, edit_at, valid_from)
+    VALUES (v_ent_a, 'LU 323-A (region 03)', v_status_active, true,
+            v_admin_id, now(), '2023-01-01') RETURNING id INTO v_lu_a;
+    INSERT INTO public.location (valid_range, valid_from, valid_until, type,
+                                 address_part1, region_id, region_version_id, country_id,
+                                 legal_unit_id, edit_by_user_id, edit_at)
+    VALUES (daterange('2023-01-01','infinity','[)'), '2023-01-01', 'infinity', 'physical',
+            'Street A', v_region_03_id, v_region_03_ver, v_country_no_id,
+            v_lu_a, v_admin_id, now());
+
+    -- LU-B (location anchored in region 11)
+    INSERT INTO public.enterprise (short_name, edit_by_user_id, edit_at)
+    VALUES ('ENT 323-B', v_admin_id, now()) RETURNING id INTO v_ent_b;
+    INSERT INTO public.legal_unit (enterprise_id, name, status_id, primary_for_enterprise,
+                                   edit_by_user_id, edit_at, valid_from)
+    VALUES (v_ent_b, 'LU 323-B (region 11)', v_status_active, true,
+            v_admin_id, now(), '2023-01-01') RETURNING id INTO v_lu_b;
+    INSERT INTO public.location (valid_range, valid_from, valid_until, type,
+                                 address_part1, region_id, region_version_id, country_id,
+                                 legal_unit_id, edit_by_user_id, edit_at)
+    VALUES (daterange('2023-01-01','infinity','[)'), '2023-01-01', 'infinity', 'physical',
+            'Street B', v_region_11_id, v_region_11_ver, v_country_no_id,
+            v_lu_b, v_admin_id, now());
+
+    -- LU-C (postal location with NULL region — the case the new RLS policy must allow)
+    INSERT INTO public.enterprise (short_name, edit_by_user_id, edit_at)
+    VALUES ('ENT 323-C', v_admin_id, now()) RETURNING id INTO v_ent_c;
+    INSERT INTO public.legal_unit (enterprise_id, name, status_id, primary_for_enterprise,
+                                   edit_by_user_id, edit_at, valid_from)
+    VALUES (v_ent_c, 'LU 323-C (postal NULL region)', v_status_active, true,
+            v_admin_id, now(), '2023-01-01') RETURNING id INTO v_lu_c;
+    INSERT INTO public.location (valid_range, valid_from, valid_until, type,
+                                 address_part1, region_id, region_version_id, country_id,
+                                 legal_unit_id, edit_by_user_id, edit_at)
+    VALUES (daterange('2023-01-01','infinity','[)'), '2023-01-01', 'infinity', 'postal',
+            'Postbox C', NULL, NULL, v_country_no_id,
+            v_lu_c, v_admin_id, now());
+END $$;
+
+\echo "Admin sees all three locations:"
+SELECT type::text AS type, address_part1, region_id IS NULL AS region_is_null
+FROM public.location
+WHERE address_part1 IN ('Street A', 'Street B', 'Postbox C')
+ORDER BY address_part1;
+
+\echo "Switch to restricted user (has region_access to region '03' only)."
+CALL test.set_user_from_email('test.restricted.323@statbus.org');
+
+\echo "Restricted user SELECT shows all three rows. Mechanism: user_create() grants every"
+\echo "user-email role membership in BOTH the statbus role (restricted_user) AND authenticated,"
+\echo "as separate parallel grants — the statbus chain (admin→regular→restricted→external) does"
+\echo "NOT inherit from authenticated in pg_auth_members. The location_authenticated_read policy"
+\echo "(FOR SELECT TO authenticated USING true) therefore applies to this user's SELECT and"
+\echo "returns every row. The granular restricted_user_location_access policy filters writes"
+\echo "only — that's what the UPDATE-write probe below exercises."
+SELECT type::text AS type, address_part1, region_id IS NULL AS region_is_null
+FROM public.location
+WHERE address_part1 IN ('Street A', 'Street B', 'Postbox C')
+ORDER BY address_part1;
+
+\echo "Restricted user UPDATE attempts — restricted_user_location_access policy filters which rows are writable:"
+\echo "  • Street A (region 03)    — IN access set                    → UPDATE succeeds"
+\echo "  • Street B (region 11)    — NOT in access set                → row filtered out (0 affected)"
+\echo "  • Postbox C (region NULL) — visible-by-default (new policy)  → UPDATE succeeds"
+\echo "(edit_comment is in sql_saga ephemeral_columns, so the UPDATE does not split the temporal era.)"
+WITH attempted_update AS (
+    UPDATE public.location
+       SET edit_comment = 'restricted user 323 write probe'
+     WHERE address_part1 IN ('Street A', 'Street B', 'Postbox C')
+    RETURNING address_part1
+)
+SELECT address_part1 AS row_actually_updated FROM attempted_update ORDER BY address_part1;
+
+-- ─── Activity scenarios (canonical-home expansion) ──────────────────────────────
+-- restricted_user_activity_access (migration 20240606000000) filters writes by
+-- activity_category_access ONLY; it does NOT consult region_access. This block
+-- documents that boundary in plain SQL: scenarios 2-4 demonstrate which combinations
+-- of (region_access, activity_category_access) actually gate activity writes.
+
+\echo
+\echo "═══ Activity-side scenarios — restricted_user_activity_access gates by activity_category_access only ═══"
+\echo "Switch back to admin to attach four activities to the existing LUs."
+-- RESET ROLE first: SET LOCAL ROLE locked us into restricted_user above, and that role
+-- has neither membership in admin_user nor RLS visibility of the admin row in auth.user,
+-- so calling test.set_user_from_email('test.admin@statbus.org') directly would fail.
+-- RESET ROLE returns to the pg_regress session role (superuser).
+RESET ROLE;
+CALL test.set_user_from_email('test.admin@statbus.org');
+
+DO $$
+DECLARE
+    v_admin_id INT;
+    v_lu_a INT; v_lu_b INT;
+    v_cat_x INT; v_cat_y INT;
+BEGIN
+    SELECT id INTO v_admin_id FROM auth.user WHERE email = 'test.admin@statbus.org';
+    SELECT id INTO v_lu_a FROM public.legal_unit WHERE name = 'LU 323-A (region 03)';
+    SELECT id INTO v_lu_b FROM public.legal_unit WHERE name = 'LU 323-B (region 11)';
+    -- Pick two real categories from the active standard (nace_v2.1):
+    --   X = top-level 'A' (Agriculture) — the "granted" category in scenarios 3-4
+    --   Y = top-level 'G' (Wholesale)   — the "not granted" category
+    SELECT ac.id INTO v_cat_x
+      FROM public.activity_category ac
+      JOIN public.activity_category_standard s ON s.id = ac.standard_id
+     WHERE s.code = 'nace_v2.1' AND ac.path::text = 'A';
+    SELECT ac.id INTO v_cat_y
+      FROM public.activity_category ac
+      JOIN public.activity_category_standard s ON s.id = ac.standard_id
+     WHERE s.code = 'nace_v2.1' AND ac.path::text = 'G';
+
+    -- Four activities arranged as (LU, category) × (in-region, out-of-region) × (granted-cat, non-granted-cat):
+    --   LU-A (region 03, in-region)  + category A (granted)     + type=primary   → should pass scenario 3+4
+    --   LU-A (region 03, in-region)  + category G (not granted) + type=secondary → should fail scenario 3+4 (region_access does not compensate)
+    --   LU-B (region 11, out-of-region) + category A (granted)  + type=primary   → should pass scenario 3+4 (region does not gate)
+    --   LU-B (region 11, out-of-region) + category G (not granted) + type=secondary → should fail scenario 3+4
+    INSERT INTO public.activity (valid_range, valid_from, valid_until, type, category_id, legal_unit_id, edit_by_user_id, edit_at, edit_comment)
+    VALUES (daterange('2023-01-01','infinity','[)'), '2023-01-01', 'infinity', 'primary',   v_cat_x, v_lu_a, v_admin_id, now(), 'act-A-X'),
+           (daterange('2023-01-01','infinity','[)'), '2023-01-01', 'infinity', 'secondary', v_cat_y, v_lu_a, v_admin_id, now(), 'act-A-Y'),
+           (daterange('2023-01-01','infinity','[)'), '2023-01-01', 'infinity', 'primary',   v_cat_x, v_lu_b, v_admin_id, now(), 'act-B-X'),
+           (daterange('2023-01-01','infinity','[)'), '2023-01-01', 'infinity', 'secondary', v_cat_y, v_lu_b, v_admin_id, now(), 'act-B-Y');
+END $$;
+
+\echo "Admin sees all four activities:"
+SELECT a.edit_comment AS tag,
+       a.type::text AS activity_type,
+       lu.name AS attached_to
+  FROM public.activity AS a
+  JOIN public.legal_unit AS lu ON lu.id = a.legal_unit_id
+ WHERE a.edit_comment LIKE 'act-%'
+ ORDER BY a.edit_comment;
+
+\echo
+\echo "─── Scenario 2: region_access ALONE → activity ──────────────────────────────"
+\echo "restricted_user has region_access to '03' but NO activity_category_access."
+\echo "Expected: ZERO activity writes succeed — region_access does not gate activity writes."
+RESET ROLE;
+CALL test.set_user_from_email('test.restricted.323@statbus.org');
+WITH attempted_update AS (
+    UPDATE public.activity
+       SET edit_comment = edit_comment || ' [s2-probe]'
+     WHERE edit_comment LIKE 'act-%'
+    RETURNING id
+)
+SELECT count(*) AS rows_updated_with_region_access_only FROM attempted_update;
+
+\echo
+\echo "─── Scenario 3: activity_category_access alone → activity ─────────────────"
+\echo "Switch back to admin; grant aca for category 'A' (the existing region_access for '03' remains, but is irrelevant)."
+RESET ROLE;
+CALL test.set_user_from_email('test.admin@statbus.org');
+INSERT INTO public.activity_category_access (user_id, activity_category_id)
+SELECT u.id, ac.id
+  FROM auth.user u, public.activity_category ac
+  JOIN public.activity_category_standard s ON s.id = ac.standard_id
+ WHERE u.email = 'test.restricted.323@statbus.org'
+   AND s.code = 'nace_v2.1' AND ac.path::text = 'A';
+
+\echo "Re-enter restricted_user. UPDATE write probe: only activities with category 'A' (granted) should be writable."
+\echo "Expected outcome:"
+\echo "  • act-A-X (LU-A region 03, category A)    → UPDATE succeeds"
+\echo "  • act-A-Y (LU-A region 03, category G)    → 0 affected (category not granted)"
+\echo "  • act-B-X (LU-B region 11, category A)    → UPDATE succeeds (region does NOT gate)"
+\echo "  • act-B-Y (LU-B region 11, category G)    → 0 affected (category not granted)"
+RESET ROLE;
+CALL test.set_user_from_email('test.restricted.323@statbus.org');
+WITH attempted_update AS (
+    UPDATE public.activity
+       SET edit_comment = edit_comment || ' [s3-probe]'
+     WHERE edit_comment LIKE 'act-%'
+    RETURNING id, edit_comment
+)
+SELECT regexp_replace(edit_comment, ' \[s3-probe\]$', '') AS tag
+  FROM attempted_update
+ ORDER BY tag;
+
+\echo
+\echo "─── Scenario 4: Cross-mechanism (gap-surfacing) ────────────────────────────"
+\echo "Same setup as scenario 3 (region_access for '03' + activity_category_access for 'A')."
+\echo "This block makes the design seam explicit: the (in-region, granted-cat) and"
+\echo "(out-of-region, granted-cat) BOTH succeed because activity_category_access is the"
+\echo "sole gate — region_access does NOT carry through to activity writes."
+\echo "If a future RC wants 'both region AND category', the restricted_user_activity_access"
+\echo "policy must be amended to AND the two access tables."
+\echo
+\echo "Activities accepted by the policy (after scenario 3 probe; should still match):"
+\echo "Tag encoding: 'act-<LU>-<CAT>' where LU is A (region 03 = in-user-region) or B (region 11 = out-of-user-region),"
+\echo "and CAT is X (category 'A' = granted) or Y (category 'G' = not granted)."
+SELECT regexp_replace(a.edit_comment, ' \[s3-probe\]$', '') AS tag,
+       lu.name AS attached_to_lu,
+       substring(a.edit_comment FROM 5 FOR 1) AS lu_letter,
+       substring(a.edit_comment FROM 7 FOR 1) AS category_letter
+  FROM public.activity AS a
+  JOIN public.legal_unit AS lu ON lu.id = a.legal_unit_id
+ WHERE a.edit_comment LIKE 'act-%' AND a.edit_comment LIKE '%[s3-probe]'
+ ORDER BY tag;
+
+ROLLBACK;
