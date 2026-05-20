@@ -205,91 +205,17 @@ check_stamp_guard() {
     return 0
 }
 
-# assert_db_at_head <db_name> <calling_command>
-#
-# Refuse if <db_name>'s db.migration row set doesn't match HEAD's on-disk
-# migrations/*.up.{sql,psql} file set. Symmetric: catches BOTH "behind"
-# (template missing recent migrations) AND "ahead" (template has migrations
-# the current working tree doesn't ship — feature-branch contamination).
-#
-# On success: echoes the source-DB's max migration version on stdout
-# (callers capture it for H1 two-line stamp writes:
-#   line 1: git rev-parse HEAD       (the SHA the artifact was generated from)
-#   line 2: source DB migration max  (the schema state the artifact reflects)
-# Preflight verifies both lines; the line-2 check catches stamps written
-# from a stale source DB even when the SHA is current.)
-#
-# On failure: diagnostic to stderr naming the DB, the drift direction,
-# the missing versions, and the Fix-line. Returns 1.
-#
-# Mirrors the Go helper migrate.AssertDBAtHead in cli/internal/migrate/at_head.go.
-# Keep the two in sync — both must shape the same actionable diagnostic.
-assert_db_at_head() {
-    local db_name="$1" caller="$2"
-
-    if ! ./sb psql -d postgres -t -A -c \
-            "SELECT 1 FROM pg_database WHERE datname = '$db_name';" \
-            2>/dev/null | grep -q '^1$'; then
-        echo "REFUSED: $caller" >&2
-        echo "Reason:  source DB '$db_name' does not exist." >&2
-        echo "Fix:     ./dev.sh create-test-template   (or the upstream builder)" >&2
-        return 1
-    fi
-
-    # Refuse PG template DBs (datistemplate=true, set by
-    # create-test-template via ALTER DATABASE WITH IS_TEMPLATE=true +
-    # ALLOW_CONNECTIONS=false). Templates aren't directly queryable;
-    # asking psql for db.migration silently returns empty stdout and
-    # the helper would produce a false "BEHIND HEAD by N migrations"
-    # diagnostic.
-    #
-    # Callers should point at the canonical source-of-truth (the
-    # seed — statbus_seed / POSTGRES_SEED_DB), NOT downstream template
-    # artifacts. The template's freshness relative to the seed is
-    # enforced separately by migrate-and-test fast's stamp.
-    local is_template
-    is_template=$(./sb psql -d postgres -t -A -c \
-        "SELECT datistemplate FROM pg_database WHERE datname = '$db_name';" \
-        2>/dev/null | tr -d '[:space:]')
-    if [ "$is_template" = "t" ]; then
-        echo "REFUSED: $caller" >&2
-        echo "Reason:  '$db_name' is a PG template (datistemplate=true, ALLOW_CONNECTIONS=false) — not directly queryable." >&2
-        echo "Fix:     callers should assert against the SEED (canonical source-of-truth: \${POSTGRES_SEED_DB:-statbus_seed}), NOT downstream template artifacts. The template's freshness is enforced separately." >&2
-        return 1
-    fi
-
-    local db_versions fs_versions behind ahead n
-    db_versions=$(./sb psql -d "$db_name" -t -A -c \
-        "SELECT version FROM db.migration ORDER BY version" 2>/dev/null | sort -u)
-    fs_versions=$(for f in "$WORKSPACE/migrations/"*.up.sql "$WORKSPACE/migrations/"*.up.psql; do
-        [ -e "$f" ] || continue
-        basename "$f" | cut -d_ -f1
-    done | sort -u)
-
-    behind=$(comm -13 <(echo "$db_versions") <(echo "$fs_versions"))
-    ahead=$(comm -23 <(echo "$db_versions") <(echo "$fs_versions"))
-
-    if [ -z "$behind" ] && [ -z "$ahead" ]; then
-        # Echo the source-DB's max version on stdout for stamp-writers.
-        echo "$db_versions" | tail -1
-        return 0
-    fi
-
-    echo "REFUSED: $caller" >&2
-    if [ -n "$behind" ]; then
-        n=$(echo "$behind" | grep -c . || true)
-        echo "Reason:  source DB '$db_name' is BEHIND HEAD by $n migration(s):" >&2
-        echo "$behind" | sed 's/^/  + /' >&2
-        echo "Fix:     ./dev.sh migrate-and-test fast    (rebuilds seed + template)" >&2
-    fi
-    if [ -n "$ahead" ]; then
-        n=$(echo "$ahead" | grep -c . || true)
-        echo "Reason:  source DB '$db_name' is AHEAD of HEAD by $n migration(s):" >&2
-        echo "$ahead" | sed 's/^/  - /' >&2
-        echo "Fix:     ./dev.sh recreate-database   (or check out the right branch first)" >&2
-    fi
-    return 1
-}
+# the bash assert_db_at_head() helper has moved to Go.
+# Single source of truth lives in cli/internal/migrate/at_head.go and is
+# exposed at the CLI surface as `./sb assert-db-at-head <db_name> <caller>`.
+# Reasons for the move:
+#   - The Go path can hold a PG advisory lock during the query window
+#     (shared variant of hashtext('statbus_seed_mutate')), serialising
+#     against `./sb db with-seed-lock --exclusive` so a parallel
+#     recreate-seed doesn't drop statbus_seed mid-query.
+#   - Two implementations of the same diagnostic-shape contract is one
+#     too many. Drift between the bash and Go copies has bitten us
+#     (#127, #128); the bash copy is now retired.
 
 action=${1:-}
 shift || true
@@ -580,7 +506,7 @@ EOS
         fi
 
         # Precondition (plan section R commit 4: check, don't fix —
-        # consolidated to use the unified assert_db_at_head primitive).
+        # consolidated to use the unified ./sb assert-db-at-head primitive).
         # `./dev.sh test ...` is human-facing — refuses to
         # run with stale state and prints the exact remediation command.
         # CI/automation that wants auto-rebuild should call
@@ -601,7 +527,13 @@ EOS
         #
         # SOURCE_VERSION captured for the H1 two-line stamp write below.
         SEED_NAME_PRECHECK="${POSTGRES_SEED_DB:-statbus_seed}"
-        if ! SOURCE_VERSION=$(assert_db_at_head "$SEED_NAME_PRECHECK" "./dev.sh test fast"); then
+        # migrated from the bash assert_db_at_head
+        # function to the Go subcommand `./sb assert-db-at-head`, which
+        # internally acquires a SHARED advisory lock on the
+        # statbus_seed mutation key. That serialises against
+        # `./sb db with-seed-lock --exclusive` so a parallel
+        # recreate-seed doesn't drop statbus_seed mid-query.
+        if ! SOURCE_VERSION=$(./sb assert-db-at-head "$SEED_NAME_PRECHECK" "./dev.sh test fast"); then
             echo "  Or: ./dev.sh migrate-and-test ${TEST_ARGS[*]}  (composition that auto-rebuilds)"
             exit 1
         fi
@@ -688,8 +620,8 @@ EOF
 
         # Write the stamp unconditionally on success — the upfront REFUSE
         # guard already verified migrations/ and test/ (minus non-strict
-        # baselines) were clean at RUN time, AND assert_db_at_head above
-        # confirmed the test template matches HEAD's on-disk migrations,
+        # baselines) were clean at RUN time, AND ./sb assert-db-at-head
+        # above confirmed the seed matches HEAD's on-disk migrations,
         # so HEAD + SOURCE_VERSION is an honest pair. No silent skip:
         # if we got here, we stamp.
         #
@@ -1256,6 +1188,24 @@ EOF
         echo "Seed database dropped: $SEED_NAME"
       ;;
     'recreate-seed' )
+        # acquire EXCLUSIVE statbus_seed mutation
+        # lock so concurrent readers (./sb types generate via
+        # assert-db-at-head, ./dev.sh generate-db-documentation, etc.)
+        # block during this body's DROP/CREATE/migrate.Up sequence
+        # instead of hitting statbus_seed mid-rebuild with a confusing
+        # "database does not exist" error. The lock is held on a
+        # connection to the postgres system DB so it survives
+        # DROP DATABASE statbus_seed.
+        #
+        # Re-exec self under `./sb db with-seed-lock --exclusive` so
+        # the lock is held for the full duration of the body. The
+        # STATBUS_SEED_LOCK_HELD env var prevents recursive re-wrapping
+        # when the body internally re-execs (the FULL_REPLAY fallbacks
+        # below do exactly that).
+        if [ "${STATBUS_SEED_LOCK_HELD:-0}" != "1" ]; then
+            exec ./sb db with-seed-lock --exclusive -- env STATBUS_SEED_LOCK_HELD=1 "$0" recreate-seed
+        fi
+
         # Rebuild ${POSTGRES_SEED_DB} from the latest published seed artifact
         # (origin/db-seed branch via ./sb db seed fetch), then apply only
         # the migrations newer than the artifact's recorded migration_version.
@@ -1659,10 +1609,14 @@ EOF
         # (source-DB migration_version) would catch the bypass at
         # preflight time. Both layers defend the same property.
         #
-        # On success, assert_db_at_head echoes the seed's max version
-        # on stdout; capture it for the two-line stamp write below.
+        # migrated from the bash assert_db_at_head
+        # function to the Go subcommand `./sb assert-db-at-head`, which
+        # internally acquires a SHARED advisory lock on the
+        # statbus_seed mutation key. On success, the subcommand echoes
+        # the seed's max migration version on stdout; capture it for
+        # the H1 two-line stamp write below.
         SEED_NAME_DOC="${POSTGRES_SEED_DB:-statbus_seed}"
-        SOURCE_VERSION=$(assert_db_at_head "$SEED_NAME_DOC" "./dev.sh generate-db-documentation") || exit 1
+        SOURCE_VERSION=$(./sb assert-db-at-head "$SEED_NAME_DOC" "./dev.sh generate-db-documentation") || exit 1
 
         echo "Creating temporary documentation database: $DOC_DB from $TEMPLATE_NAME"
         ./sb psql -d postgres -v ON_ERROR_STOP=1 <<EOF
@@ -1803,7 +1757,7 @@ EOS
         # H1 two-line stamp:
         #   line 1: HEAD SHA at generation time
         #   line 2: source DB (test template) migration_version at generation time
-        # SOURCE_VERSION captured above by assert_db_at_head.
+        # SOURCE_VERSION captured above by ./sb assert-db-at-head.
         {
             git -C "$WORKSPACE" rev-parse HEAD
             echo "$SOURCE_VERSION"
@@ -1979,13 +1933,15 @@ EOS
         exec bash "$WORKSPACE/test/install-recovery/run.sh" "$@"
       ;;
     'test-assert-db-at-head' )
-        # Smoke test for the assert_db_at_head helper.
-        # Verifies two invariants:
-        #   1. Helper passes when called against the seed (canonical
+        # Smoke test for the `./sb assert-db-at-head` Cobra subcommand
+        # (Go implementation in cli/internal/migrate/at_head.go;
+        # CLI surface in cli/cmd/assert_db_at_head.go). Verifies two
+        # invariants:
+        #   1. Subcommand passes when called against the seed (canonical
         #      source-of-truth, queryable, has full db.migration set).
-        #   2. Helper REFUSES cleanly when called against a PG template
-        #      (datistemplate=true, ALLOW_CONNECTIONS=false) — the bug
-        #      class that bit us in #127.
+        #   2. Subcommand REFUSES cleanly when called against a PG
+        #      template (datistemplate=true, ALLOW_CONNECTIONS=false) —
+        #      the bug class that bit us in #127.
         #
         # Default target for case 1: statbus_seed.
         # Optional override: ./dev.sh test-assert-db-at-head <db_name>.
@@ -2011,7 +1967,7 @@ EOS
         echo "=== Case 1: seed (datistemplate=false, expected to PASS) ==="
         echo "Target: $SEED_NAME"
         set +e
-        seed_output=$(assert_db_at_head "$SEED_NAME" "./dev.sh test-assert-db-at-head:seed")
+        seed_output=$(./sb assert-db-at-head "$SEED_NAME" "./dev.sh test-assert-db-at-head:seed")
         seed_rc=$?
         set -e
         if [ $seed_rc -eq 0 ]; then
@@ -2023,7 +1979,7 @@ EOS
         else
             echo "FAIL: returned $seed_rc against seed (expected 0)."
             echo "      Captured output: '$seed_output'"
-            echo "      (helper's stderr above explains the refusal reason)"
+            echo "      (subcommand's stderr above explains the refusal reason)"
             exit 1
         fi
         echo ""
@@ -2042,21 +1998,21 @@ EOS
         echo "=== Case 2: template (datistemplate=$is_template, expected to REFUSE cleanly) ==="
         echo "Target: $TEMPLATE_NAME"
         set +e
-        tmpl_output=$(assert_db_at_head "$TEMPLATE_NAME" "./dev.sh test-assert-db-at-head:template" 2>&1 >/dev/null)
+        tmpl_output=$(./sb assert-db-at-head "$TEMPLATE_NAME" "./dev.sh test-assert-db-at-head:template" 2>&1 >/dev/null)
         tmpl_rc=$?
         set -e
         if [ $tmpl_rc -eq 0 ]; then
-            echo "FAIL: helper returned 0 for template '$TEMPLATE_NAME' — expected REFUSE."
+            echo "FAIL: subcommand returned 0 for template '$TEMPLATE_NAME' — expected REFUSE."
             echo "      The defensive template-refusal added in #127 is not firing."
             exit 1
         fi
         # Confirm the refusal reason names the template-not-queryable cause.
         if echo "$tmpl_output" | grep -q "is a PG template"; then
             echo "PASS: refused cleanly (exit $tmpl_rc), naming the template-not-queryable cause."
-            echo "      Sample of helper's stderr:"
+            echo "      Sample of subcommand's stderr:"
             echo "$tmpl_output" | sed 's/^/        /'
         else
-            echo "FAIL: helper refused (exit $tmpl_rc) but error didn't mention 'is a PG template'."
+            echo "FAIL: subcommand refused (exit $tmpl_rc) but error didn't mention 'is a PG template'."
             echo "      Captured stderr:"
             echo "$tmpl_output" | sed 's/^/        /'
             exit 1
@@ -2150,7 +2106,7 @@ EOS
       echo ""
       echo "Build:"
       echo "  test-install                       End-to-end install test via Multipass VM"
-      echo "  test-assert-db-at-head [db]        Smoke-test the assert_db_at_head helper"
+      echo "  test-assert-db-at-head [db]        Smoke-test the ./sb assert-db-at-head Cobra subcommand"
       echo "  build-sb [target]                  Build sb. No args: host → ./sb. <os>/<arch>: cross → sb-<os>-<arch>."
       echo "  cross-build-sb                     Build all 4 platforms + refresh ./sb to host variant."
       echo ""

@@ -1,11 +1,13 @@
 package migrate
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 )
 
 // AssertDBAtHead refuses if dbName's db.migration row set doesn't match the
@@ -36,6 +38,31 @@ func AssertDBAtHead(projDir, dbName, caller string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", caller, err)
 	}
+
+	// Acquire a SHARED advisory lock on hashtext(SeedMutationLockKey)
+	// on a connection to the postgres system DB. Blocks (with 60s
+	// timeout) while an EXCLUSIVE holder (recreate-seed via
+	// `./sb db with-seed-lock --exclusive`) is mid-mutation. Without
+	// this gate, a parallel `./sb types generate` or
+	// `./dev.sh generate-db-documentation` could hit statbus_seed
+	// during its DROP window and fail with a confusing "database does
+	// not exist" mid-rebuild.
+	//
+	// Defensive: lock failures (postgres unreachable, timeout) surface
+	// with the lock-acquisition error directly. That's MORE informative
+	// than the downstream "BEHIND by N" diagnostic that the empty
+	// query would otherwise produce. Lock is coordination, not the
+	// correctness gate.
+	//
+	// The conn is held for the duration of this function — released
+	// automatically by defer Close (PG advisory locks are
+	// session-scoped, so close = release).
+	ctx := context.Background()
+	lockConn, err := AcquireSeedLock(ctx, projDir, false /* shared */, 60*time.Second, caller)
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", caller, err)
+	}
+	defer lockConn.Close(ctx)
 
 	// Refuse PG template DBs (datistemplate=true, e.g. statbus_test_template
 	// after create-test-template sets IS_TEMPLATE=true + ALLOW_CONNECTIONS=false).
