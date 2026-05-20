@@ -145,11 +145,31 @@ check_stamp_guard() {
         return 0
     fi
 
+    # Two-line stamp format: line 1 = HEAD SHA, line 2 = source DB
+    # migration_version. Extract line 1 for the freshness check below.
+    # Pre-upgrade legacy stamps have only line 1; the count check after
+    # this one catches and force-RUNs them so the generator upgrades the
+    # stamp format on next run. Without that short-circuit, an operator
+    # with a legacy stamp + no migrations-changed gets stuck in a SKIP
+    # loop: preflight refuses the stamp ("legacy single-line"), generator
+    # SKIPs because the stamp's SHA still matches HEAD's migrations.
     local stamp_sha
-    stamp_sha=$(tr -d '[:space:]' < "$stamp_path" 2>/dev/null)
+    stamp_sha=$(head -n 1 "$stamp_path" 2>/dev/null | tr -d '[:space:]')
     if [ -z "$stamp_sha" ]; then
         echo "RUNNING: $label"
         echo "Reason:  stamp tmp/$stamp_basename is empty."
+        return 0
+    fi
+
+    # Legacy single-line stamp detection. Two-line stamps have ≥2
+    # non-blank lines (SHA + migration_version); legacy stamps have 1.
+    # Force RUN so the generator writes the upgraded format. awk 'NF>0'
+    # filters non-blank lines, wc -l counts them.
+    local non_blank_lines
+    non_blank_lines=$(awk 'NF>0' "$stamp_path" 2>/dev/null | wc -l | tr -d ' ')
+    if [ "${non_blank_lines:-0}" -lt 2 ]; then
+        echo "RUNNING: $label"
+        echo "Reason:  legacy single-line stamp at tmp/$stamp_basename — two-line format required by preflight."
         return 0
     fi
 
