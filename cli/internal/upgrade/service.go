@@ -153,28 +153,41 @@ const (
 	HolderInstall = "install"
 )
 
-// RecoveryMode chooses how recoverFromFlag handles the "binary swapped, but
-// migrations didn't fully apply" case (verifyUpgradeGroundTruth returns
-// reason starting with "db.migration max version"). Three modes:
+// RecoveryMode selects a runtime strategy for recovering a crashed upgrade.
+// Applied at two sites: recoverFromFlag's PreSwap-HEAD-matches branch
+// (when verifyUpgradeGroundTruth's reason starts with "db.migration max
+// version") and resumePostSwap (the Phase=PostSwap recovery entry point).
 //
-//   - RecoveryForward: re-run migrate.Up inline on top of the partial state,
-//     then re-verify. Safe when the killed migration is idempotent
-//     (e.g. TRUNCATE+INSERT, ON CONFLICT upserts). The operator promises
-//     this — failure modes for non-idempotent migrations are silent
-//     data corruption.
+//   - RecoveryAuto (default everywhere): try forward first; on forward
+//     failure, if flag.BackupPath is set, rsync-restore from the
+//     pre-upgrade snapshot and mark the row 'rolled_back'. Augmented
+//     error column reads "forward failed: <reason>; auto-restored from
+//     <backup>". When BackupPath is empty the forward attempt's error
+//     propagates as 'failed' (no usable snapshot to restore from).
 //
-//   - RecoveryRestore: pg_restore from flag.BackupPath, restore git state to
-//     from_commit_version, restore old `sb` binary, mark row 'rolled_back'.
-//     Operator must re-schedule the upgrade after. Safe regardless of
-//     migration shape — DB is brought back to the pre-upgrade snapshot.
+//     No retry loop: after restore, the DB is back at V_old and the same
+//     migration would fail identically on a second attempt. The operator
+//     fixes the migration code (or accepts staying on V_old) before
+//     rescheduling.
 //
-//   - RecoveryAuto (default): pick one of the two. Heuristic in
-//     autoChooseRecovery: if flag.BackupPath is non-empty AND the directory
-//     exists on disk AND is readable, prefer RecoveryRestore (safer for
-//     non-idempotent migrations). Otherwise fall back to RecoveryForward.
+//     This is the unattended-runtime strategy — statbus's upgrade-service
+//     has no operator-in-the-loop to receive "forward failed, please pick
+//     restore", so the failure → restore chain must run automatically.
 //
-// The long-running upgrade service path (Run) uses RecoveryAuto. Operator-
-// driven `./sb install` plumbs an explicit choice via --recovery.
+//   - RecoveryForward: try forward only. Disables the auto-restore
+//     fallback. On forward failure, the raw error propagates (no rollback
+//     fires). For operators debugging a wedged upgrade who want to inspect
+//     the partial state before any recovery action touches the DB.
+//
+//   - RecoveryRestore: skip the forward attempt entirely. Go straight to
+//     rsync-restore + mark 'rolled_back'. For operators who already know
+//     forward won't work (e.g., known-broken migration in the new release)
+//     and want to short-circuit.
+//
+// Both `./sb install` (operator-invoked) and the upgrade-service daemon
+// (unattended via Service.Run) default to RecoveryAuto. They make
+// identical decisions — no divergence between attended and unattended
+// paths. Operator overrides via `--recovery=forward` or `--recovery=restore`.
 type RecoveryMode string
 
 const (
@@ -691,12 +704,15 @@ func (d *Service) loadLogRelPath(ctx context.Context, id int64) string {
 // reconciliation see both the pre-crash story and the recovery summary
 // in one place — no need to SSH in for systemd logs.
 //
-// `mode` selects the disposition for the "binary swapped, migrations
-// missing" case (verifyUpgradeGroundTruth reason "db.migration max
-// version ..."). RecoveryAuto picks via autoChooseRecovery; RecoveryForward
-// always re-runs migrate.Up; RecoveryRestore always restores from the
-// pre-upgrade backup. The long-running service path passes RecoveryAuto;
-// `./sb install --recovery=<mode>` plumbs the operator's choice.
+// `mode` selects the runtime strategy for both the PreSwap-HEAD-matches
+// branch (this function) and the PostSwap branch (resumePostSwap):
+//   - RecoveryAuto (default): forward first; on forward failure, if a
+//     usable backup exists, rsync-restore + mark rolled_back.
+//   - RecoveryForward: forward only; raw error propagates on failure.
+//   - RecoveryRestore: skip forward; restore from snapshot + rolled_back.
+//
+// The long-running service path passes RecoveryAuto; `./sb install
+// --recovery=<mode>` plumbs the operator's choice.
 func (d *Service) recoverFromFlag(ctx context.Context, mode RecoveryMode) (err error) {
 	data, readErr := os.ReadFile(d.flagPath())
 	if readErr != nil {
@@ -769,7 +785,7 @@ func (d *Service) recoverFromFlag(ctx context.Context, mode RecoveryMode) (err e
 			appendLog.Close()
 			appendLog = nil
 		}
-		return d.resumePostSwap(ctx, flag)
+		return d.resumePostSwap(ctx, flag, mode)
 	}
 
 	// Service-held flag: reconcile against public.upgrade.
@@ -815,65 +831,82 @@ func (d *Service) recoverFromFlag(ctx context.Context, mode RecoveryMode) (err e
 			// route to recoveryRollback (their semantics genuinely
 			// require the rollback path).
 			if strings.HasPrefix(reason, "db.migration max version") {
-				// Disposition for "binary swapped, migrations missing":
-				// mode picks between forward-recovery (run migrate.Up on
-				// the partial state) and restore-from-snapshot (pg_restore
-				// the pre-upgrade backup, mark row rolled_back). RecoveryAuto
-				// is resolved here via autoChooseRecovery so the chosen
-				// mode + rationale land on the operator-visible log.
-				effectiveMode := mode
-				if effectiveMode == RecoveryAuto {
-					chosen, rationale := autoChooseRecovery(flag)
-					logRecover("Ground-truth: %s — --recovery=auto picked %s (%s)", reason, chosen, rationale)
-					effectiveMode = chosen
-				}
-				if effectiveMode == RecoveryRestore {
-					logRecover("Ground-truth: %s — invoking restore-from-snapshot (--recovery=%s)", reason, mode)
+				// Disposition for "binary swapped, migrations missing".
+				// Runtime strategy per RecoveryMode:
+				//   - restore: skip forward, go straight to rsync-restore
+				//     (operator explicitly asked for it).
+				//   - forward: forward only; on forward failure, propagate
+				//     the error without restoring (operator-debug mode).
+				//   - auto: forward first; on forward failure, auto-restore
+				//     when BackupPath is set, else propagate as failed.
+				//     (In practice BackupPath is empty in this branch — the
+				//     atomic write rule means BackupPath landing implies
+				//     Phase=PostSwap, which was routed to resumePostSwap
+				//     above. The fallback shape is preserved for symmetry
+				//     and to handle pre-Option-C legacy flags or races.)
+				if mode == RecoveryRestore {
+					logRecover("Ground-truth: %s — --recovery=restore, invoking restore-from-snapshot", reason)
 					if appendLog != nil {
 						appendLog.Close()
 						appendLog = nil
 					}
 					d.recoveryRollback(ctx, int(flag.ID), flag.Label(), logRelPath, fmt.Sprintf(
-						"%s: --recovery=%s → restore-from-snapshot: %s",
-						ErrInstallPreconditionFailed, mode, reason))
+						"%s: --recovery=restore: %s",
+						ErrInstallPreconditionFailed, reason))
 					return nil
 				}
-				// Forward-recovery (Fix 5b): when the only failure is
-				// "migrations missing" and operator did not request restore,
-				// re-run migrate.Up inline and re-verify. Safe when the
-				// killed migration is idempotent; non-idempotent migrations
-				// can silently corrupt data — use --recovery=restore for
-				// those.
+				// Forward-recovery (Fix 5b): re-run migrate.Up on top of
+				// the partial state.
 				logRecover("Ground-truth: %s — forward-recovering via migrate.Up (--recovery=%s)", reason, mode)
-				if mErr := migrate.Up(d.projDir, 0, true, true); mErr != nil {
-					logRecover("Forward-recovery migrate.Up failed: %v — falling through to rollback", mErr)
+				mErr := migrate.Up(d.projDir, 0, true, true)
+				if mErr == nil {
+					// Re-verify after migrations applied. A succeeded migrate
+					// run with a still-failing ground-truth would mean
+					// migrate.Up "succeeded" without bumping max version —
+					// shouldn't happen, but treat as forward-failure.
+					okRetry, reasonRetry := d.verifyUpgradeGroundTruth(ctx, flag.CommitSHA)
+					if okRetry {
+						logRecover("Forward-recovery complete: migrations applied, ground-truth verified. Marking row completed.")
+						// fall through to the mark-completed path below
+					} else {
+						mErr = fmt.Errorf("post-migrate-up ground-truth still failed: %s", reasonRetry)
+					}
+				}
+				if mErr != nil {
+					// Forward failed. Auto-restore fallback fires when
+					// mode != Forward AND a usable backup is available.
+					// Otherwise the error propagates as 'failed'.
+					if mode == RecoveryForward {
+						logRecover("Forward-recovery failed (--recovery=forward, no auto-restore): %v", mErr)
+						if appendLog != nil {
+							appendLog.Close()
+							appendLog = nil
+						}
+						return fmt.Errorf("%s: --recovery=forward: forward-recovery failed: %w",
+							ErrInstallPreconditionFailed, mErr)
+					}
+					if flag.BackupPath == "" {
+						logRecover("Forward-recovery failed and no backup available for auto-restore: %v — propagating as failure", mErr)
+						if appendLog != nil {
+							appendLog.Close()
+							appendLog = nil
+						}
+						d.recoveryRollback(ctx, int(flag.ID), flag.Label(), logRelPath, fmt.Sprintf(
+							"%s: forward failed without usable backup: %v",
+							ErrInstallPreconditionFailed, mErr))
+						return nil
+					}
+					logRecover("Forward-recovery failed: %v — auto-restoring from snapshot at %s (--recovery=%s)",
+						mErr, flag.BackupPath, mode)
 					if appendLog != nil {
 						appendLog.Close()
 						appendLog = nil
 					}
 					d.recoveryRollback(ctx, int(flag.ID), flag.Label(), logRelPath, fmt.Sprintf(
-						"%s: forward-recovery migrate.Up failed: %v",
-						ErrInstallPreconditionFailed, mErr))
+						"%s: forward failed: %v; auto-restored from %s",
+						ErrInstallPreconditionFailed, mErr, flag.BackupPath))
 					return nil
 				}
-				// Re-verify after migrations applied. If still failing,
-				// the failure mode is genuinely unrecoverable (e.g.
-				// migrate.Up "succeeded" but didn't bump max version —
-				// shouldn't happen, but rollback is correct then).
-				okRetry, reasonRetry := d.verifyUpgradeGroundTruth(ctx, flag.CommitSHA)
-				if !okRetry {
-					logRecover("Ground-truth still failed after migrate.Up: %s — falling through to rollback", reasonRetry)
-					if appendLog != nil {
-						appendLog.Close()
-						appendLog = nil
-					}
-					d.recoveryRollback(ctx, int(flag.ID), flag.Label(), logRelPath, fmt.Sprintf(
-						"%s: post-migrate-up ground-truth still failed: %s",
-						ErrInstallPreconditionFailed, reasonRetry))
-					return nil
-				}
-				logRecover("Forward-recovery complete: migrations applied, ground-truth verified. Marking row completed.")
-				// fall through to the mark-completed path below
 			} else {
 				// Not a migrations-pending case (binary mismatch, DB
 				// error, etc.) — rollback is the correct path.
@@ -1564,9 +1597,9 @@ func (d *Service) Run(ctx context.Context) error {
 	// the loop schedule new upgrades against a broken world.
 	//
 	// Service-driven recovery uses RecoveryAuto: no operator is in the loop
-	// to choose, so the heuristic in autoChooseRecovery makes the call.
-	// Operator-driven `./sb install` plumbs an explicit mode through the
-	// crashed-upgrade dispatch path instead.
+	// to choose, so the runtime forward-then-restore strategy fires
+	// automatically (matches the `./sb install` default — same decisions
+	// in attended and unattended paths, no divergence).
 	if err := d.recoverFromFlag(ctx, RecoveryAuto); err != nil {
 		return fmt.Errorf("recover from flag: %w", err)
 	}
@@ -1960,63 +1993,6 @@ func latestDiskMigrationVersion(projDir string) int64 {
 		}
 	}
 	return latest
-}
-
-// autoChooseRecovery resolves a RecoveryAuto request into a concrete
-// RecoveryForward or RecoveryRestore decision for recoverFromFlag's
-// "binary swapped, migrations missing" branch.
-//
-// Heuristic:
-//
-//	  flag.BackupPath set AND directory exists AND ReadDir returns ≥1 entry
-//	  → RecoveryRestore (safer for non-idempotent migrations)
-//	otherwise
-//	  → RecoveryForward (idempotent migrations recover cleanly; non-empty
-//	    backup is missing or empty so restore would fail anyway)
-//
-// Why this shape:
-//
-//   - flag.BackupPath is set by writeFlagPhase right after the database
-//     backup completes (executeUpgrade Phase=PostSwap stamp). When present,
-//     we have direct evidence that destructive DB work was at least
-//     possible. When absent, the upgrade hadn't reached the destructive
-//     phase yet, so a forward replay of pending migrations is
-//     by-construction safe (there's nothing to undo).
-//
-//   - The os.Stat + ReadDir check guards against three failure modes:
-//     directory was manually pruned, partial truncation left an empty
-//     husk, or a path-permissions change makes the backup unreadable. In
-//     any of these cases restoreDatabase would fail downstream and the
-//     CATASTROPHIC FAILURE banner would fire — better to fall back to
-//     forward-recovery here, which doesn't depend on a usable snapshot.
-//
-//   - Conservative by design for the common case: pre-swap crashes (the
-//     rune-style SIGKILL during executeUpgrade's early steps) leave
-//     BackupPath empty, so auto picks forward — preserving the existing
-//     rune-recovery behavior validated in production.
-//
-// Returns the resolved mode and a human-readable rationale string that
-// recoverFromFlag includes in its log line so operators can see WHY auto
-// picked what it picked.
-func autoChooseRecovery(flag UpgradeFlag) (RecoveryMode, string) {
-	if flag.BackupPath == "" {
-		return RecoveryForward, "flag.backup_path is empty (no usable snapshot recorded)"
-	}
-	info, err := os.Stat(flag.BackupPath)
-	if err != nil {
-		return RecoveryForward, fmt.Sprintf("backup_path %q stat failed: %v", flag.BackupPath, err)
-	}
-	if !info.IsDir() {
-		return RecoveryForward, fmt.Sprintf("backup_path %q exists but is not a directory", flag.BackupPath)
-	}
-	entries, err := os.ReadDir(flag.BackupPath)
-	if err != nil {
-		return RecoveryForward, fmt.Sprintf("backup_path %q ReadDir failed: %v", flag.BackupPath, err)
-	}
-	if len(entries) == 0 {
-		return RecoveryForward, fmt.Sprintf("backup_path %q is an empty directory", flag.BackupPath)
-	}
-	return RecoveryRestore, fmt.Sprintf("backup_path %q is readable with %d entries", flag.BackupPath, len(entries))
 }
 
 // recoveryRollback is the recovery-path wrapper around d.rollback() used by
@@ -3504,6 +3480,44 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	return nil
 }
 
+// postSwapFailure is applyPostSwap's per-step failure helper. Under
+// RecoveryAuto (the default for both attended `./sb install` and
+// unattended Service.Run() recovery), it invokes d.rollback() to restore
+// the pre-upgrade snapshot and transition the row to 'rolled_back' —
+// the unattended-runtime forward-then-restore strategy.
+//
+// Under RecoveryForward, the rollback is deliberately SKIPPED so the
+// partial post-swap state stays on disk for the operator to inspect.
+// The upgrade row stays in_progress and the caller propagates the
+// returned error (which the install path surfaces to the operator).
+//
+// RecoveryRestore never reaches here — resumePostSwap short-circuits to
+// recoveryRollback before invoking applyPostSwap at all.
+//
+// d.rollback() (post-rc.67) exits the process unconditionally on the
+// auto path, so the fmt.Errorf return is reached only in the degraded
+// "rollback already ran without exiting" case.
+func (d *Service) postSwapFailure(ctx context.Context, id int, displayName, previousVersion, reason string, progress *ProgressLog, mode RecoveryMode) error {
+	if mode == RecoveryForward {
+		progress.Write("Post-swap failure (--recovery=forward, auto-restore disabled): %s", reason)
+		progress.Write("  Partial state preserved on disk for operator inspection.")
+		progress.Write("  Re-run `./sb install` (default --recovery=auto) to invoke auto-restore,")
+		progress.Write("  or `./sb install --recovery=restore` to skip retry and restore directly.")
+		return fmt.Errorf("%s: --recovery=forward: post-swap step failed; partial state preserved: %s",
+			ErrInstallPreconditionFailed, reason)
+	}
+	// RecoveryAuto (also the default for all daemon-driven runs).
+	// Auto-restore: run the full rollback pipeline, which restores from
+	// the pre-upgrade snapshot, marks the row 'rolled_back', clears the
+	// flag, and exits the process. The return below is only reached on
+	// the rare degraded path where d.rollback() returns without exiting.
+	progress.Write("Post-swap failure (--recovery=%s): %s — auto-restoring from snapshot", mode, reason)
+	d.rollback(ctx, id, displayName, previousVersion,
+		fmt.Sprintf("forward failed: %s; auto-restored from snapshot", reason), progress)
+	return fmt.Errorf("%s: post-swap failure auto-restored: %s",
+		ErrInstallPreconditionFailed, reason)
+}
+
 // applyPostSwap runs the upgrade steps that require the target binary's
 // compiled code: config generate → docker pull → db up → waitForDBHealth →
 // reconnect → persist final backup_path → migrate → app/worker/rest up →
@@ -3516,11 +3530,19 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 // before reaching here, so applyPostSwap always runs against the NEW
 // compiled Go code.
 //
+// `mode` selects the fallback shape for failures inside the pipeline:
+// under RecoveryAuto (or the legacy default, the upgrade-service's own
+// runs), each failure calls d.rollback() to restore from `backupPath` and
+// mark the row 'rolled_back'. Under RecoveryForward, the rollback is
+// skipped and the raw failure error propagates so the operator can inspect
+// the partial state. RecoveryRestore never reaches here — it short-circuits
+// in resumePostSwap.
+//
 // Preconditions on entry: db container stopped; maintenance mode on; backup
 // on disk at backupPath; git HEAD at target commit; ./sb binary at target
 // version; d.queryConn is nil (reopened via reconnect() below). Flag file
 // and its flock are held by d.flagLock.
-func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayName, previousVersion, backupPath string, recreate bool, progress *ProgressLog) error {
+func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayName, previousVersion, backupPath string, recreate bool, progress *ProgressLog, mode RecoveryMode) error {
 	projDir := d.projDir
 
 	// Regenerate config via the NEW binary. VERSION comes from git describe
@@ -3528,15 +3550,13 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	progress.Write("Regenerating configuration...")
 	if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "config-generate", filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
 		// TODO: pick code — config generate failure; no Err* code defined yet
-		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("./sb config generate: %v", err), progress)
-		return err
+		return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("./sb config generate: %v", err), progress, mode)
 	}
 
 	// Step 8: Pull updated images
 	progress.Write("Pulling updated images...")
 	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", "docker", "compose", "pull"); err != nil {
-		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: docker compose pull: %v", ErrDockerUpFailed, err), progress)
-		return err
+		return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: docker compose pull: %v", ErrDockerUpFailed, err), progress, mode)
 	}
 
 	// Step 9: Start database. --no-build forces compose to USE THE PULLED IMAGE
@@ -3556,22 +3576,19 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 				"then retry the upgrade. Check status: "+
 				"gh run list --workflow=ci-images.yaml",
 			ErrDockerUpFailed, err, displayName)
-		d.rollback(ctx, id, displayName, previousVersion, reason, progress)
-		return err
+		return d.postSwapFailure(ctx, id, displayName, previousVersion, reason, progress, mode)
 	}
 
 	// Wait for DB health
 	progress.Write("Waiting for database to be healthy...")
 	if err := d.waitForDBHealth(30 * time.Second); err != nil {
-		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: DB health check: %v", ErrHealthcheckDBDown, err), progress)
-		return err
+		return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: DB health check: %v", ErrHealthcheckDBDown, err), progress, mode)
 	}
 
 	// Reconnect service DB connection
 	progress.Write("Reconnecting to database...")
 	if err := d.reconnect(ctx); err != nil {
-		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: reconnect to DB: %v", ErrHealthcheckDBDown, err), progress)
-		return err
+		return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: reconnect to DB: %v", ErrHealthcheckDBDown, err), progress, mode)
 	}
 
 	// Update backup_path to the final (renamed) path now that we have a connection.
@@ -3590,8 +3607,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 		d.pendingRecreate = false
 		progress.Write("Recreating database from scratch (--recreate)...")
 		if err := runCommandToLog(projDir, 30*time.Minute, progress.File(), "recreate-database", filepath.Join(projDir, "dev.sh"), "recreate-database"); err != nil {
-			d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: ./dev.sh recreate-database: %v", ErrMigrationFailed, err), progress)
-			return err
+			return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: ./dev.sh recreate-database: %v", ErrMigrationFailed, err), progress, mode)
 		}
 	} else {
 		progress.Write("Applying database migrations...")
@@ -3635,8 +3651,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 		<-extendDone
 
 		if err != nil {
-			d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: ./sb migrate up: %v", ErrMigrationFailed, err), progress)
-			return err
+			return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: ./sb migrate up: %v", ErrMigrationFailed, err), progress, mode)
 		}
 	}
 
@@ -3652,15 +3667,13 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 				"Wait for that workflow to finish, then retry the upgrade. Check status: "+
 				"gh run list --workflow=ci-images.yaml",
 			ErrDockerUpFailed, err, displayName)
-		d.rollback(ctx, id, displayName, previousVersion, reason, progress)
-		return err
+		return d.postSwapFailure(ctx, id, displayName, previousVersion, reason, progress, mode)
 	}
 
 	// Step 12: Verify health
 	progress.Write("Verifying health...")
 	if err := d.healthCheck(progress, 5, 5*time.Second); err != nil {
-		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: application health check: %v", ErrHealthcheckRESTDown, err), progress)
-		return err
+		return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: application health check: %v", ErrHealthcheckRESTDown, err), progress, mode)
 	}
 
 	// Notify frontend that the upgrade state changed. The DB trigger also fires
@@ -3795,6 +3808,17 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 // mid-flow exit-42 restart. Called from recoverFromFlag when the flag's
 // Phase is FlagPhasePostSwap.
 //
+// `mode` is the operator's RecoveryMode preference:
+//
+//   - RecoveryRestore: short-circuit the forward attempt entirely. Invoke
+//     recoveryRollback to rsync-restore from flag.BackupPath and mark the
+//     row 'rolled_back'. Operator must reschedule the upgrade after.
+//   - RecoveryForward or RecoveryAuto: try applyPostSwap to drive the
+//     upgrade to completion. The fallback semantics for applyPostSwap
+//     failures live inside postSwapFailure: RecoveryForward propagates the
+//     raw error (no rollback fires), RecoveryAuto invokes the existing
+//     d.rollback() pipeline to restore + mark rolled_back.
+//
 // Recovers state from: flag (CommitSHA, CommitTags, BackupPath, Recreate,
 // InvokedBy, Trigger, ID) and DB row (from_commit_version,
 // log_relative_file_path). Then re-acquires the flock (prior process died,
@@ -3807,8 +3831,9 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 // per-site compat shim is needed for renamed columns.
 //
 // Control returns to Run() after applyPostSwap completes. If applyPostSwap
-// fails, rollback() has already run inside it.
-func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
+// fails under RecoveryAuto, rollback() has already run inside it; the
+// returned error is informational.
+func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag, mode RecoveryMode) error {
 	var fromVersion sql.NullString
 	var logRelPath sql.NullString
 	err := d.queryConn.QueryRow(ctx,
@@ -3828,6 +3853,25 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 		progress = NewUpgradeLog(d.projDir, int64(flag.ID), flag.Label(), time.Now().UTC())
 	}
 	progress.Write("Post-swap restart detected — resuming upgrade on new binary (pid=%d)", os.Getpid())
+
+	// --recovery=restore short-circuit: skip the forward attempt and route
+	// straight to recoveryRollback for operators who already know forward
+	// won't work (e.g. known-broken migration in the new release).
+	// recoveryRollback runs the full d.rollback() pipeline which
+	// re-acquires its own state — flock, log handle, etc. — so we close
+	// the progress log here to release the fd we just opened.
+	//
+	// flag.BackupPath is by construction set on the PostSwap path
+	// (updateFlagPostSwap stamps Phase and BackupPath atomically), so the
+	// rsync-restore has a target.
+	if mode == RecoveryRestore {
+		progress.Write("--recovery=restore: skipping forward attempt, invoking restore-from-snapshot at %s", flag.BackupPath)
+		progress.Close()
+		d.recoveryRollback(ctx, int(flag.ID), flag.Label(), logRelPath.String, fmt.Sprintf(
+			"%s: --recovery=restore (operator-requested skip-forward): post-swap snapshot at %s",
+			ErrInstallPreconditionFailed, flag.BackupPath))
+		return nil
+	}
 
 	// Ground-truth guard (task #49 Gap #6, rune-stuck fix). If the
 	// running binary's compile-time commit SHA doesn't match the flag's
@@ -3972,10 +4016,15 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 	d.upgrading = true
 	defer func() { d.upgrading = false }()
 
-	if applyErr := d.applyPostSwap(ctx, flag.ID, flag.CommitSHA, flag.Label(), fromVersion.String, flag.BackupPath, flag.Recreate, progress); applyErr != nil {
-		// rollback() already ran inside applyPostSwap and (post-rc.67)
-		// exits the process unconditionally. If we somehow got here
-		// without exiting, propagate the error to the caller.
+	if applyErr := d.applyPostSwap(ctx, flag.ID, flag.CommitSHA, flag.Label(), fromVersion.String, flag.BackupPath, flag.Recreate, progress, mode); applyErr != nil {
+		// Under RecoveryAuto, rollback() already ran inside applyPostSwap
+		// and (post-rc.67) exits the process unconditionally — if we
+		// somehow got here without exiting, propagate the error.
+		//
+		// Under RecoveryForward the postSwapFailure helper deliberately
+		// SKIPS d.rollback() so the partial state stays on disk for the
+		// operator to inspect; applyErr propagates with the original
+		// failure reason for the upgrade row's error column.
 		return applyErr
 	}
 	return nil

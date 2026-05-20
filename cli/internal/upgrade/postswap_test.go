@@ -246,12 +246,15 @@ func TestRecoverFromFlag_PhaseDiscriminationPresent(t *testing.T) {
 	}
 
 	// And the branch must route to resumePostSwap, not to anything else.
+	// Layer 2 (task #113) added a mode parameter — accept any signature
+	// shape starting with `d.resumePostSwap(ctx, flag` so the structural
+	// guard stays robust to future parameter additions.
 	branchBody := fn[phaseIdx:]
 	if close := strings.Index(branchBody, "\n\t}\n"); close > 0 {
 		branchBody = branchBody[:close]
 	}
-	if !strings.Contains(branchBody, "d.resumePostSwap(ctx, flag)") {
-		t.Errorf("Phase discrimination branch must call d.resumePostSwap(ctx, flag). Body:\n%s", branchBody)
+	if !strings.Contains(branchBody, "d.resumePostSwap(ctx, flag") {
+		t.Errorf("Phase discrimination branch must call d.resumePostSwap(ctx, flag, ...). Body:\n%s", branchBody)
 	}
 }
 
@@ -311,19 +314,30 @@ func TestResumePostSwap_SelfHealContinueOrFailLoud(t *testing.T) {
 		}
 	}
 
-	// rc.67 trifecta: NO auto-rollback in resumePostSwap. Both the
-	// helper and the heavyweight rollback driver must be absent here.
+	// rc.67 trifecta: NO auto-rollback in resumePostSwap *after* the
+	// container-target probe — the category-3 mismatch branch must fail
+	// loud, not auto-roll-back. The rule is scoped to that branch because
+	// Layer 2 (task #113) added an *operator-explicit*
+	// `mode == RecoveryRestore` short-circuit BEFORE the probe; that path
+	// IS allowed to call recoveryRollback (the operator asked for it).
 	// Strip line comments first — the function body still mentions both
-	// names in a "removed in rc.67" comment for historical context, and
-	// that shouldn't fail the structural guard.
+	// names in a "removed in rc.67" comment for historical context.
 	codeOnly := stripLineComments(fn)
+	probeMarker := "d.containersAtFlagTarget"
+	probePos := strings.Index(codeOnly, probeMarker)
+	if probePos < 0 {
+		t.Fatalf("could not locate %q in resumePostSwap body to scope rc.67 ban", probeMarker)
+	}
+	postProbe := codeOnly[probePos:]
 	for _, banned := range []string{
 		"needsPostSwapRollback",
 		"recoveryRollback",
 	} {
-		if strings.Contains(codeOnly, banned) {
-			t.Errorf("resumePostSwap must not call %q (rc.67 trifecta: containers-not-at-flag-target is "+
-				"category-3, fail loudly with a returned error instead of auto-rolling-back)", banned)
+		if strings.Contains(postProbe, banned) {
+			t.Errorf("resumePostSwap must not call %q after the containersAtFlagTarget probe "+
+				"(rc.67 trifecta: containers-not-at-flag-target is category-3, fail loudly with "+
+				"a returned error instead of auto-rolling-back). The operator-explicit "+
+				"`mode == RecoveryRestore` short-circuit BEFORE the probe is exempt.", banned)
 		}
 	}
 
