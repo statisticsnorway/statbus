@@ -215,7 +215,8 @@ check_stamp_guard() {
 #     recreate-seed doesn't drop statbus_seed mid-query.
 #   - Two implementations of the same diagnostic-shape contract is one
 #     too many. Drift between the bash and Go copies has bitten us
-#     (#127, #128); the bash copy is now retired.
+#     before (template-vs-seed targeting, preflight ordering); the
+#     bash copy is now retired.
 
 action=${1:-}
 shift || true
@@ -518,7 +519,7 @@ EOS
         # The test_template is intentionally non-connectable
         # (ALLOW_CONNECTIONS=false) so per-test clones go fast; querying
         # it directly silently returned 0 rows and produced a false
-        # "BEHIND HEAD" diagnostic in #123's original wiring. The seed
+        # "BEHIND HEAD" diagnostic in the original wiring. The seed
         # IS the source of truth — when it's at HEAD, every clone
         # downstream (test_template, transient test DBs) is too by
         # construction. The test_template's freshness relative to the
@@ -1940,8 +1941,10 @@ EOS
         #   1. Subcommand passes when called against the seed (canonical
         #      source-of-truth, queryable, has full db.migration set).
         #   2. Subcommand REFUSES cleanly when called against a PG
-        #      template (datistemplate=true, ALLOW_CONNECTIONS=false) —
-        #      the bug class that bit us in #127.
+        #      template (datistemplate=true, ALLOW_CONNECTIONS=false).
+        #      Templates aren't directly queryable; without the defense
+        #      the subcommand silently returns empty and computes a
+        #      bogus "BEHIND HEAD by N migrations" diagnostic.
         #
         # Default target for case 1: statbus_seed.
         # Optional override: ./dev.sh test-assert-db-at-head <db_name>.
@@ -2003,7 +2006,7 @@ EOS
         set -e
         if [ $tmpl_rc -eq 0 ]; then
             echo "FAIL: subcommand returned 0 for template '$TEMPLATE_NAME' — expected REFUSE."
-            echo "      The defensive template-refusal added in #127 is not firing."
+            echo "      The defensive template-refusal in migrate.AssertDBAtHead is not firing."
             exit 1
         fi
         # Confirm the refusal reason names the template-not-queryable cause.
