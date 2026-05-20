@@ -295,21 +295,26 @@ func TestFindLatestStableTagBeforePrefix(t *testing.T) {
 func TestPickPrereleasePredecessor(t *testing.T) {
 	dir := makeRepo(t)
 	for _, tag := range []string{
-		"v2026.04.5",      // last April stable (cross-year-month predecessor target)
-		"v2026.05.0-rc.1", // first May RC
-		"v2026.05.0-rc.2", // second May RC
-		"v2026.05.0",      // May stable patch 0 (predecessor for patch 1)
+		"v2026.04.5",       // last April stable (cross-year-month predecessor target)
+		"v2026.05.0-rc.01", // first May RC — canonical zero-padded form (task #130 Part C)
+		"v2026.05.0-rc.02", // second May RC
+		"v2026.05.0",       // May stable patch 0 (predecessor for patch 1)
 	} {
 		tagAnnotated(t, dir, tag, "Release "+tag)
 	}
 
-	t.Run("rc.N where N>1 picks previous RC in same patch", func(t *testing.T) {
+	t.Run("rc.N where N>1 picks previous RC in same patch (zero-padded)", func(t *testing.T) {
 		got, err := pickPrereleasePredecessor(dir, "v2026.05", 0, []int{1, 2})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if got != "v2026.05.0-rc.2" {
-			t.Errorf("got %q, want v2026.05.0-rc.2", got)
+		// MUST return the zero-padded form to match the canonical tag
+		// naming used by releasePrereleaseCmd. Regression guard for
+		// the task #130 Part C bug: prior code returned "v2026.05.0-rc.2"
+		// (unpadded), tagExistsLocally returned false, and the
+		// immutability check was silently skipped.
+		if got != "v2026.05.0-rc.02" {
+			t.Errorf("got %q, want v2026.05.0-rc.02", got)
 		}
 	})
 

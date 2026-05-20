@@ -179,7 +179,17 @@ func findLatestStableTagBeforePrefix(projDir, prefix string) (string, error) {
 func pickPrereleasePredecessor(projDir, prefix string, patch int, rcNums []int) (string, error) {
 	switch {
 	case len(rcNums) > 0:
-		return fmt.Sprintf("%s.%d-rc.%d", prefix, patch, rcNums[len(rcNums)-1]), nil
+		// `%02d` matches the canonical zero-padded form used by
+		// releasePrereleaseCmd.RunE when creating tags (`-rc.%02d`).
+		// Pre-task-#130 this used `%d` and silently constructed
+		// non-existent unpadded names — tagExistsLocally returned
+		// false and BOTH the pre-creation diagnostic AND
+		// ValidatePrereleaseTag's post-creation immutability gate
+		// short-circuited their compareMigrationsForTag calls, so the
+		// rc.N-vs-rc.(N-1) check was effectively a no-op. The fix is
+		// a single-character format-string change, but the consequence
+		// was a real (if narrow) safety hole.
+		return fmt.Sprintf("%s.%d-rc.%02d", prefix, patch, rcNums[len(rcNums)-1]), nil
 	case patch > 0:
 		return fmt.Sprintf("%s.%d", prefix, patch-1), nil
 	default:
