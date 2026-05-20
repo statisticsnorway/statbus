@@ -1,0 +1,158 @@
+-- Test 324: Facet staging drift after orphan handling
+--
+-- Captures the orphan-cleanup-vs-dirty-tracking ordering bug in
+-- worker.derive_statistical_unit (incremental ELSE branch). Per the
+-- mechanism written up in plans/facet-staging-drift-tdd.md:
+--
+--   1. The ELSE branch runs orphan cleanup BEFORE building _change_sets
+--      via get_temporally_closed_change_sets. Orphan cleanup wipes
+--      orphan ids from timepoints, timesegments, timeline_*, and
+--      statistical_unit.
+--   2. get_temporally_closed_change_sets then INNER JOINs to
+--      public.enterprise / public.legal_unit / public.establishment.
+--      Just-cleaned orphans are absent from those tables, so they are
+--      filtered out.
+--   3. statistical_unit_facet_dirty_hash_slots is fed from _change_sets
+--      (post-filter). Orphan hash_slots never enter the dirty set.
+--   4. The facet partition child only re-derives staging for slots in
+--      the dirty set. Stale staging rows for orphan slots survive
+--      indefinitely; the reduce inherits the staleness and the target
+--      table over-counts.
+--
+-- Reproduction strategy (architect's primary recommendation):
+--   - Import a small dataset through the standard path; drain
+--     import + analytics; baseline invariant matches=t.
+--   - As postgres (bypass RLS + ordering pain): delete the FK-
+--     dependent rows for 3 legal_units, then the LUs themselves,
+--     then their orphaned enterprises. Direct DELETEs bypass the
+--     import path that would normally maintain derived-table
+--     consistency.
+--   - Drain analytics. The dirty_hash_slots from log_base_change
+--     keeps the ELSE (incremental) branch on the active path, where
+--     the bug lives.
+--   - Post-orphan invariant should FAIL: facet_sum > truth_count
+--     for legal_unit and enterprise because stale staging rows for
+--     the orphan slots survive the reduce.
+--
+-- This test is intentionally committed WITHOUT regenerating expected
+-- output. The failure IS the test of the bug. Landing 2 (the
+-- worker.derive_statistical_unit fix) will make this test pass; that
+-- landing also regenerates the expected output.
+
+BEGIN;
+
+\i test/setup.sql
+
+\echo "Setting up Statbus using the web provided examples"
+CALL test.set_user_from_email('test.admin@statbus.org');
+\i samples/demo/getting-started.sql
+
+\echo
+\echo "=== STEP 1: Load small dataset via the standard import path ==="
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
+    'import_324_lu',
+    'Test 324 LU load (orphan-drift bug-capture)',
+    'Loads legal_units_with_source_dates_demo.csv via the public import path.',
+    'test 324 bug capture',
+    false;
+\copy public.import_324_lu_upload(tax_ident,stat_ident,name,valid_from,physical_address_part1,valid_to,postal_address_part1,postal_address_part2,physical_address_part2,physical_postcode,postal_postcode,physical_address_part3,physical_postplace,postal_address_part3,postal_postplace,phone_number,landline,mobile_number,fax_number,web_address,email_address,secondary_activity_category_code,physical_latitude,physical_longitude,physical_altitude,birth_date,physical_region_code,postal_country_iso_2,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code,status_code,unit_size_code) FROM 'app/public/demo/legal_units_with_source_dates_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+
+CALL worker.process_tasks(p_queue => 'import');
+CALL worker.process_tasks(p_queue => 'analytics');
+
+\echo
+\echo "=== STEP 2: Baseline facet invariant (matches=t expected) ==="
+WITH truth AS (
+  SELECT unit_type, COUNT(DISTINCT unit_id)::int AS n
+  FROM public.statistical_unit
+  WHERE valid_from <= CURRENT_DATE AND valid_until > CURRENT_DATE
+    AND used_for_counting
+  GROUP BY unit_type
+),
+facet AS (
+  SELECT unit_type, COALESCE(SUM(count), 0)::int AS n
+  FROM public.statistical_unit_facet
+  WHERE valid_from <= CURRENT_DATE AND valid_until > CURRENT_DATE
+  GROUP BY unit_type
+)
+SELECT t.unit_type, t.n AS truth_count, f.n AS facet_sum,
+       t.n = f.n AS matches
+FROM truth t LEFT JOIN facet f USING (unit_type)
+ORDER BY t.unit_type;
+
+\echo
+\echo "=== STEP 3: Construct orphans deterministically ==="
+\echo "Pick the 3 lowest-id legal_units and DELETE them + their FK children + their enterprises."
+\echo "Bypasses the import path; produces orphan ids in timeline_legal_unit and timeline_enterprise."
+
+-- Capture victim ids once, before any DELETE shifts them. Temp table is
+-- owned by the test admin role and remains readable after SET LOCAL ROLE
+-- postgres (superuser sees everything).
+CREATE TEMP TABLE _victims (lu_id int, ent_id int) ON COMMIT DROP;
+INSERT INTO _victims (lu_id, ent_id)
+SELECT id, enterprise_id
+FROM public.legal_unit
+ORDER BY id
+LIMIT 3;
+
+\echo "Victim legal_unit ids and their enterprise ids:"
+SELECT * FROM _victims ORDER BY lu_id;
+
+-- Elevated role: bypass RLS on FK-child tables and enterprise.
+-- Deferred constraints: avoid PERIOD-FK ordering pain across the chain.
+SET LOCAL ROLE postgres;
+SET CONSTRAINTS ALL DEFERRED;
+
+DELETE FROM public.activity      WHERE legal_unit_id IN (SELECT lu_id FROM _victims);
+DELETE FROM public.location      WHERE legal_unit_id IN (SELECT lu_id FROM _victims);
+DELETE FROM public.contact       WHERE legal_unit_id IN (SELECT lu_id FROM _victims);
+DELETE FROM public.stat_for_unit WHERE legal_unit_id IN (SELECT lu_id FROM _victims);
+DELETE FROM public.legal_unit    WHERE id            IN (SELECT lu_id FROM _victims);
+-- Enterprises 1,2,3 were referenced by the now-deleted LUs (RESTRICT FK).
+-- After the LUs are gone, the enterprises are free to drop and become orphans
+-- relative to timeline_enterprise + statistical_unit (unit_type=enterprise).
+DELETE FROM public.enterprise    WHERE id            IN (SELECT ent_id FROM _victims);
+
+RESET ROLE;
+CALL test.set_user_from_email('test.admin@statbus.org');
+
+\echo
+\echo "Post-DELETE source-table row counts (should drop by 3 LUs and 3 enterprises):"
+SELECT
+  (SELECT COUNT(*) FROM public.legal_unit)  AS lu_rows,
+  (SELECT COUNT(*) FROM public.enterprise)  AS ent_rows;
+
+\echo
+\echo "=== STEP 4: Drain analytics — incremental ELSE branch with orphan handling ==="
+-- log_base_change fired by the DELETEs above enqueued a collect_changes
+-- task on the analytics queue. Draining it triggers the derive chain on
+-- the ELSE (incremental) branch — exactly the code path the bug lives in.
+CALL worker.process_tasks(p_queue => 'analytics');
+
+\echo
+\echo "=== STEP 5: Post-orphan facet invariant — should FAIL for legal_unit + enterprise ==="
+\echo "If the bug is captured: facet_sum > truth_count for the orphaned unit_types."
+\echo "truth_count drops because statistical_unit was wiped of orphans by orphan-cleanup."
+\echo "facet_sum holds because stale staging rows for orphan hash_slots survive the reduce."
+WITH truth AS (
+  SELECT unit_type, COUNT(DISTINCT unit_id)::int AS n
+  FROM public.statistical_unit
+  WHERE valid_from <= CURRENT_DATE AND valid_until > CURRENT_DATE
+    AND used_for_counting
+  GROUP BY unit_type
+),
+facet AS (
+  SELECT unit_type, COALESCE(SUM(count), 0)::int AS n
+  FROM public.statistical_unit_facet
+  WHERE valid_from <= CURRENT_DATE AND valid_until > CURRENT_DATE
+  GROUP BY unit_type
+)
+SELECT t.unit_type, t.n AS truth_count, f.n AS facet_sum,
+       t.n = f.n AS matches
+FROM truth t LEFT JOIN facet f USING (unit_type)
+ORDER BY t.unit_type;
+
+
+\i test/rollback_unless_persist_is_specified.sql
