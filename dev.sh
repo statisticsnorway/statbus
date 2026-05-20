@@ -1713,230 +1713,47 @@ EOS
         ./sb db seed create
       ;;
     'test-install' )
-        # End-to-end install test using Multipass (Ubuntu VM).
-        # Tests the full standalone install path: hardening → install → health check.
-        # Writes a stamp file used by ./sb release stable preflight.
+        # End-to-end install test using a Hetzner Cloud cx23 VM (~€0.0072/run,
+        # one billing hour minimum). Replaces the prior Multipass-on-macOS
+        # workflow, which kept breaking on macOS vmnet state after network
+        # swaps (VPN, hotspot, mobile-network) — recovery required `sudo
+        # reboot`, destroying every concurrent dev session.
+        #
+        # Delegates to scenario 01 of the install-recovery harness: same
+        # workflow (bootstrap clean VM → run `./sb install` → assert health,
+        # step 9, step 15, systemd active) but Hetzner-backed and reachable
+        # from any internet connection. After the scenario passes, this
+        # wrapper writes the stamp file that `./sb release stable` pre-flight
+        # consumes — the harness scenario itself doesn't write it (the
+        # harness is for regression tests, not for gate-keeping releases).
+        #
+        # Requires HCLOUD_TOKEN in .env.credentials (auto-sourced by
+        # test/install-recovery/lib/vm-bootstrap.sh).
         set -euo pipefail
 
         INSTALL_VERSION="${1:-}"  # optional: use published release instead of local build
-        VM_NAME="statbus-install-test"
         STAMP_FILE="$WORKSPACE/tmp/install-test-passed-sha"
-        DOMAIN="statbus-test.local"
 
-        echo "=== StatBus Install Test (Multipass) ==="
+        echo "=== StatBus Install Test (Hetzner Cloud) ==="
         echo ""
+        INSTALL_VERSION="$INSTALL_VERSION" \
+            "$WORKSPACE/test/install-recovery/scenarios/01-happy-install.sh"
 
-        # Check Multipass is available
-        if ! command -v multipass >/dev/null 2>&1; then
-            echo "ERROR: multipass is not installed. Install it: brew install multipass"
-            exit 1
-        fi
-
-        # Clean up any previous test VM
-        if multipass info "$VM_NAME" >/dev/null 2>&1; then
-            echo "Cleaning up previous test VM..."
-            multipass delete "$VM_NAME" 2>/dev/null || true
-            multipass purge 2>/dev/null || true
-        fi
-
-        if [ -z "$INSTALL_VERSION" ]; then
-            # Build the sb binary for Linux (matching the host architecture).
-            # On Apple Silicon, Multipass creates ARM64 VMs.
-            HOST_ARCH=$(uname -m)
-            case "$HOST_ARCH" in
-                x86_64)  BUILD_TARGET="linux/amd64" ;;
-                arm64|aarch64) BUILD_TARGET="linux/arm64" ;;
-                *) echo "Unsupported architecture: $HOST_ARCH"; exit 1 ;;
-            esac
-            echo "Building sb for $BUILD_TARGET..."
-            ./dev.sh build-sb "$BUILD_TARGET"
-        fi
-
-        # Launch fresh Ubuntu 24.04 VM
-        echo "Launching Ubuntu 24.04 VM ($VM_NAME)..."
-        multipass launch 24.04 --name "$VM_NAME" --cpus 2 --memory 4G --disk 10G --timeout 600
-
-        # Wait for VM to be ready
-        echo "Waiting for VM to be ready..."
-        multipass exec "$VM_NAME" -- cloud-init status --wait 2>/dev/null || true
-
-        # Transfer files into the VM
-        echo "Transferring files..."
-        if [ -z "$INSTALL_VERSION" ]; then
-            # Transfer the binary matching the local build target
-            SB_BINARY="sb-${BUILD_TARGET//\//-}"  # e.g. sb-linux-arm64
-            multipass transfer "$SB_BINARY" "$VM_NAME":/tmp/sb
-        fi
-        multipass transfer ops/setup-ubuntu-lts-24.sh "$VM_NAME":/tmp/setup.sh
-
-        # Create .env.config for standalone mode
-        echo "Creating test configuration..."
-        cat > /tmp/statbus-test-env-config << 'ENVCONFIG'
-DEPLOYMENT_SLOT_NAME=Install Test
-DEPLOYMENT_SLOT_CODE=test
-DEPLOYMENT_SLOT_PORT_OFFSET=1
-CADDY_DEPLOYMENT_MODE=development
-SITE_DOMAIN=statbus-test.local
-STATBUS_URL=https://statbus-test.local
-BROWSER_REST_URL=https://statbus-test.local
-SERVER_REST_URL=http://proxy:80
-DEBUG=false
-PUBLIC_DEBUG=false
-UPGRADE_CHANNEL=stable
-ENVCONFIG
-        multipass transfer /tmp/statbus-test-env-config "$VM_NAME":/tmp/env-config
-
-        # Create a .users.yml with a test admin user
-        cat > /tmp/statbus-test-users << 'USERS'
-- email: test@statbus.org
-  password: test-install-password-2026
-  role: admin_user
-  display_name: Admin
-USERS
-        multipass transfer /tmp/statbus-test-users "$VM_NAME":/tmp/users.yml
-
-        # Create hardening config for non-interactive mode
-        multipass exec "$VM_NAME" -- sudo bash -c 'cat > /root/.setup-ubuntu.env << EOF
-ADMIN_EMAIL="test@statbus.org"
-GITHUB_USERS="jhf"
-EXTRA_LOCALES=""
-CADDY_PLUGINS=""
-EOF'
-
-        # Run hardening (non-interactive, installs Docker + prerequisites)
-        echo ""
-        echo "=== Stage: Hardening ==="
-        multipass exec "$VM_NAME" -- sudo bash /tmp/setup.sh --non-interactive 2>&1 | tee tmp/test-install-setup.log
-        HARDEN_EXIT=$?
-        if [ $HARDEN_EXIT -ne 0 ]; then
-            echo "FAILED: Hardening failed (exit $HARDEN_EXIT)"
-            echo "VM '$VM_NAME' left running for debugging: multipass shell $VM_NAME"
-            exit 1
-        fi
-
-        # Create dedicated statbus user (after hardening installs Docker)
-        multipass exec "$VM_NAME" -- sudo useradd -m -s /bin/bash -G docker statbus
-
-        # Enable systemd linger so the user's systemd instance starts on first login
-        multipass exec "$VM_NAME" -- sudo loginctl enable-linger statbus
-
-        # Set XDG_RUNTIME_DIR in statbus's .profile so that `sudo -i -u statbus`
-        # gets a working systemd --user session (PAM doesn't set this for sudo).
-        multipass exec "$VM_NAME" -- sudo bash -c \
-            'echo "export XDG_RUNTIME_DIR=/run/user/\$(id -u)" >> /home/statbus/.profile'
-
-        # Wait for user manager to be ready after linger enable (~100ms)
-        STATBUS_UID=$(multipass exec "$VM_NAME" -- id -u statbus)
-        for i in $(seq 1 20); do
-            multipass exec "$VM_NAME" -- sudo -u statbus \
-                XDG_RUNTIME_DIR=/run/user/$STATBUS_UID \
-                systemctl --user is-system-running 2>/dev/null | grep -qE "running|degraded" && break
-            sleep 0.1
-        done
-
-        # Helper: run a command as the statbus user with a full login shell.
-        # sudo -i sources .profile, which sets XDG_RUNTIME_DIR.
-        VM_EXEC="multipass exec $VM_NAME -- sudo -i -u statbus"
-
-        # Verify systemctl --user works via sudo -i
-        echo "Verifying systemctl --user via sudo -i -u statbus..."
-        $VM_EXEC systemctl --user is-system-running || true
-
-        # Set up the install: write commands to a script file and transfer it.
-        # Using a script file avoids quoting issues with case statements and
-        # nested variables that break when passed via bash -c '...'.
-        echo ""
-        echo "=== Stage: Install ==="
-        if [ -z "$INSTALL_VERSION" ]; then
-            cat > /tmp/statbus-test-install.sh << 'SCRIPT'
-set -e
-mkdir -p ~/statbus
-cd ~/statbus
-cp /tmp/sb ./sb
-chmod +x ./sb
-cp /tmp/env-config .env.config
-cp /tmp/users.yml .users.yml
-STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf
-SCRIPT
-        else
-            cat > /tmp/statbus-test-install.sh << SCRIPT
-set -e
-VM_ARCH=\$(uname -m)
-case "\$VM_ARCH" in
-    x86_64)  GOARCH=amd64 ;;
-    arm64|aarch64) GOARCH=arm64 ;;
-    *) echo "Unsupported: \$VM_ARCH"; exit 1 ;;
-esac
-SB_URL="https://github.com/statisticsnorway/statbus/releases/download/${INSTALL_VERSION}/sb-linux-\${GOARCH}"
-curl -fsSL "\$SB_URL" -o ~/sb.tmp
-chmod +x ~/sb.tmp
-git clone --depth 1 --branch ${INSTALL_VERSION} https://github.com/statisticsnorway/statbus.git ~/statbus
-mv ~/sb.tmp ~/statbus/sb
-cd ~/statbus
-cp /tmp/env-config .env.config
-cp /tmp/users.yml .users.yml
-STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf
-SCRIPT
-        fi
-        multipass transfer /tmp/statbus-test-install.sh "$VM_NAME":/tmp/install.sh
-        multipass exec "$VM_NAME" -- sudo -i -u statbus bash /tmp/install.sh 2>&1 | tee tmp/test-install-install.log
-        INSTALL_EXIT=$?
-        if [ $INSTALL_EXIT -ne 0 ]; then
-            echo "FAILED: Install failed (exit $INSTALL_EXIT)"
-            echo "VM '$VM_NAME' left running for debugging: multipass shell $VM_NAME"
-            exit 1
-        fi
-
-        # Health check — runs from inside the VM.
-        # Development mode binds all ports to 127.0.0.1 inside the VM, so the
-        # host cannot reach them. HTTP port = 3000 + (DEPLOYMENT_SLOT_PORT_OFFSET * 10).
-        echo ""
-        echo "=== Stage: Health Check ==="
-        HEALTHY=false
-        for i in $(seq 1 10); do
-            HTTP_CODE=$($VM_EXEC bash -c 'curl -s http://127.0.0.1:3010/rest/ -o /dev/null -w "%{http_code}"' 2>/dev/null || echo "000")
-            if echo "$HTTP_CODE" | grep -q "^[23]"; then
-                HEALTHY=true
-                echo "Health check passed (attempt $i, code=$HTTP_CODE)"
-                break
-            fi
-            echo "Waiting for app... (attempt $i/10, code=$HTTP_CODE)"
-            sleep 5
-        done
-
-        if [ "$HEALTHY" != "true" ]; then
-            echo "FAILED: Health check failed after 10 attempts"
-            echo "VM '$VM_NAME' left running for debugging: multipass shell $VM_NAME"
-            exit 1
-        fi
-
-        # Verify version
-        echo ""
-        echo "=== Stage: Verify ==="
-        $VM_EXEC bash -c 'cd ~/statbus && ./sb --version'
-
-        # Write stamp
-        echo ""
-        echo "=== PASSED ==="
+        # Record the stamp for `./sb release stable` pre-flight.
         mkdir -p "$WORKSPACE/tmp"
         git rev-parse HEAD > "$STAMP_FILE"
+        echo ""
         echo "Install test stamp recorded: $(cat "$STAMP_FILE")"
-
-        # Clean up VM
-        echo "Cleaning up VM..."
-        multipass delete "$VM_NAME"
-        multipass purge
-
         echo "Install test complete."
       ;;
     'test-install-recovery' )
-        # End-to-end install RECOVERY tests (Multipass). Sister to test-install:
-        # validates wedge-recovery scenarios that the install ladder must
-        # survive (Stage A killed migrate, B pool exhaustion, C systemd
-        # failed, D advisory zombie, E worker busy, F SIGKILL mid-upgrade,
-        # plus happy paths and bool-text regression).
+        # End-to-end install RECOVERY tests (Hetzner Cloud). Sister to
+        # test-install: validates wedge-recovery scenarios that the install
+        # ladder must survive (Stage A killed migrate, B pool exhaustion,
+        # C systemd failed, D advisory zombie, E worker busy, F SIGKILL
+        # mid-upgrade, plus happy paths and bool-text regression).
         #
-        # Each scenario is a fresh Multipass VM. ~10 min per scenario.
+        # Each scenario is a fresh Hetzner cx23 VM. ~15-25 min per scenario.
         # See test/install-recovery/README.md for the catalogue.
         exec bash "$WORKSPACE/test/install-recovery/run.sh" "$@"
       ;;
