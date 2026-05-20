@@ -1734,12 +1734,38 @@ EOS
         INSTALL_VERSION="${1:-}"  # optional: use published release instead of local build
         STAMP_FILE="$WORKSPACE/tmp/install-test-passed-sha"
 
+        # SAFETY: clear any prior stamp BEFORE running the test. A failed
+        # test that exits before reaching the stamp-write would otherwise
+        # leave a stale stamp on disk, which `./sb release stable`'s
+        # pre-flight could compare against HEAD and (if SHAs happen to
+        # match) falsely conclude the install test has passed for this
+        # commit. The stamp must be written ONLY on green test runs —
+        # absence-of-stamp means "no green run for this commit".
+        rm -f "$STAMP_FILE"
+
         echo "=== StatBus Install Test (Hetzner Cloud) ==="
         echo ""
+
+        # Run scenario 01 with explicit exit-code capture rather than
+        # relying solely on set -e. Belt-and-suspenders: the false-positive
+        # release-gate class (test silently passes despite a real failure)
+        # is severe enough to warrant the explicit check, in addition to
+        # the implicit set -e abort path.
+        set +e
         INSTALL_VERSION="$INSTALL_VERSION" \
             "$WORKSPACE/test/install-recovery/scenarios/01-happy-install.sh"
+        scenario_exit=$?
+        set -e
 
-        # Record the stamp for `./sb release stable` pre-flight.
+        if [ "$scenario_exit" -ne 0 ]; then
+            echo "" >&2
+            echo "ERROR: scenario 01 exited $scenario_exit." >&2
+            echo "       Stamp NOT written (tmp/install-test-passed-sha remains absent)." >&2
+            echo "       ./sb release stable pre-flight will refuse this commit until a green test." >&2
+            exit "$scenario_exit"
+        fi
+
+        # Green run: record the stamp for `./sb release stable` pre-flight.
         mkdir -p "$WORKSPACE/tmp"
         git rev-parse HEAD > "$STAMP_FILE"
         echo ""
