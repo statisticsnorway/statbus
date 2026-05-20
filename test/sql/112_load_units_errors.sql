@@ -29,8 +29,8 @@ SELECT
     false;
 \echo "User uploads legal units (via import job: import_31_lu_era_b1)"
 INSERT INTO public.import_31_lu_era_b1_upload(valid_from, valid_to, tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) VALUES
-('2024-01-01','infinity','2212760144','1000','NILE PEARL WATER','01.10.2016','225613','UG','4752','4','6100',2,9000000,'nlr'),
-('2024-01-01','infinity','2812760140','1001','EQUATOR GLOBE SOLUTIONS','01.10.2016','225602','UG','5610','1','6100',2,2400000,'nlr');
+('2024-01-01','infinity','2212760144','1000','NILE PEARL WATER','01.10.2016','225613','UN','4752','4','6100',2,9000000,'nlr'),
+('2024-01-01','infinity','2812760140','1001','EQUATOR GLOBE SOLUTIONS','01.10.2016','225602','UN','5610','1','6100',2,2400000,'nlr');
 
 -- Create Import Job for Formal Establishments (Block 1 - Errors)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
@@ -43,8 +43,8 @@ SELECT
     false;
 \echo "User uploads formal establishments with same stat_ident as legal units (via import job: import_31_esflu_era_b1)"
 INSERT INTO public.import_31_esflu_era_b1_upload(valid_from, valid_to, tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code) VALUES
-('2024-01-01','infinity','92212760144','1000','NILE PEARL WATER','225613','UG','4752',0,0,'2212760144','nlr'),
-('2024-01-01','infinity','92812760140','1001','EQUATOR GLOBE SOLUTIONS','225602','UG','5610',0,0,'2812760140','nlr');
+('2024-01-01','infinity','92212760144','1000','NILE PEARL WATER','225613','UN','4752',0,0,'2212760144','nlr'),
+('2024-01-01','infinity','92812760140','1001','EQUATOR GLOBE SOLUTIONS','225602','UN','5610',0,0,'2812760140','nlr');
 
 \echo Run worker processing for import jobs - Block 1
 CALL worker.process_tasks(p_queue => 'import');
@@ -87,8 +87,8 @@ SELECT
     false;
 \echo "User uploads legal units (via import job: import_31_lu_era_b2)"
 INSERT INTO public.import_31_lu_era_b2_upload(valid_from, valid_to, tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) VALUES
-('2024-01-01','infinity','2212760144','1000','NILE PEARL WATER','01.10.2016','225613','UG','4752','4','6100',2,9000000,'nlr'),
-('2024-01-01','infinity','2812760140','1001','EQUATOR GLOBE SOLUTIONS','01.10.2016','225602','UG','5610','1','6100',2,2400000,'nlr');
+('2024-01-01','infinity','2212760144','1000','NILE PEARL WATER','01.10.2016','225613','UN','4752','4','6100',2,9000000,'nlr'),
+('2024-01-01','infinity','2812760140','1001','EQUATOR GLOBE SOLUTIONS','01.10.2016','225602','UN','5610','1','6100',2,2400000,'nlr');
 
 -- Create Import Job for Formal Establishments (Block 2)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
@@ -101,8 +101,8 @@ SELECT
     false;
 \echo "User uploads formal establishments (via import job: import_31_esflu_era_b2)"
 INSERT INTO public.import_31_esflu_era_b2_upload(valid_from, valid_to, tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code) VALUES
-('2024-01-01','infinity','92212760144','2000','NILE PEARL WATER','225613','UG','4752',0,0,'2212760144','nlr'),
-('2024-01-01','infinity','92812760140','2001','EQUATOR GLOBE SOLUTIONS','225602','UG','5610',0,0,'2812760140','nlr');
+('2024-01-01','infinity','92212760144','2000','NILE PEARL WATER','225613','UN','4752',0,0,'2212760144','nlr'),
+('2024-01-01','infinity','92812760140','2001','EQUATOR GLOBE SOLUTIONS','225602','UN','5610',0,0,'2812760140','nlr');
 
 -- Create Import Job for Informal Establishments (Block 2 - Errors)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
@@ -115,8 +115,8 @@ SELECT
     false;
 \echo "User uploads informal establishments with same stat_idents as formal establishments (via import job: import_31_eswlu_era_b2_errors)"
 INSERT INTO public.import_31_eswlu_era_b2_errors_upload(valid_from, valid_to, tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code) VALUES
-('2024-01-01','infinity','82212760144','2000','THE NILE PEARL WATER','225613','UG','4752',1,1200,'nlr'),
-('2024-01-01','infinity','82812760140','2001','THE  EQUATOR GLOBE SOLUTIONS','225602','UG','5610',2,4400,'nlr');
+('2024-01-01','infinity','82212760144','2000','THE NILE PEARL WATER','225613','UN','4752',1,1200,'nlr'),
+('2024-01-01','infinity','82812760140','2001','THE  EQUATOR GLOBE SOLUTIONS','225602','UN','5610',2,4400,'nlr');
 
 \echo Run worker processing for import jobs - Block 2
 CALL worker.process_tasks(p_queue => 'import');
@@ -165,19 +165,19 @@ SELECT
     false;
 INSERT INTO public.import_31_lu_era_b3_coord_errors_upload(valid_from, valid_to, tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code, physical_latitude, physical_longitude, physical_altitude, web_address, email_address, phone_number) VALUES
 -- Original: Latitude out of range (cast error)
-('2024-01-01','infinity','2212760144','1000','NILE PEARL WATER','01.10.2016','225613','UG','4752','4','6100',2,9000000,'nlr','3333333','32.2984354','1144','nilepearlwater.ug','contact@npw.ug','123456789'),
+('2024-01-01','infinity','2212760144','1000','NILE PEARL WATER','01.10.2016','225613','UN','4752','4','6100',2,9000000,'nlr','3333333','32.2984354','1144','nilepearlwater.ug','contact@npw.ug','123456789'),
 -- Original: Valid coordinates
-('2024-01-01','infinity','2812760140','1001','EQUATOR GLOBE SOLUTIONS','01.10.2016','225602','UG','5610','1','6100',2,2400000,'nlr','1.234567','32.442243','1172','egs.ug','contact@egs.ug','987654321'),
+('2024-01-01','infinity','2812760140','1001','EQUATOR GLOBE SOLUTIONS','01.10.2016','225602','UN','5610','1','6100',2,2400000,'nlr','1.234567','32.442243','1172','egs.ug','contact@egs.ug','987654321'),
 -- New: Longitude out of range
-('2024-01-01','infinity','3000000003','3003','Longitude Range Test LU','01.01.2024','225613','UG','0111','1','1100',1,100000,'test','10.0','190.123456','100',NULL,NULL,NULL),
+('2024-01-01','infinity','3000000003','3003','Longitude Range Test LU','01.01.2024','225613','UN','0111','1','1100',1,100000,'test','10.0','190.123456','100',NULL,NULL,NULL),
 -- New: Altitude negative
-('2024-01-01','infinity','3000000004','3004','Altitude Negative Test LU','01.01.2024','225613','UG','0111','1','1100',1,100000,'test','10.0','30.0','-50.5',NULL,NULL,NULL),
+('2024-01-01','infinity','3000000004','3004','Altitude Negative Test LU','01.01.2024','225613','UN','0111','1','1100',1,100000,'test','10.0','30.0','-50.5',NULL,NULL,NULL),
 -- New: Latitude invalid text
-('2024-01-01','infinity','3000000005','3005','Latitude Text Test LU','01.01.2024','225613','UG','0111','1','1100',1,100000,'test','abc','30.0','100',NULL,NULL,NULL),
+('2024-01-01','infinity','3000000005','3005','Latitude Text Test LU','01.01.2024','225613','UN','0111','1','1100',1,100000,'test','abc','30.0','100',NULL,NULL,NULL),
 -- New: Longitude invalid text
-('2024-01-01','infinity','3000000006','3006','Longitude Text Test LU','01.01.2024','225613','UG','0111','1','1100',1,100000,'test','10.0','def','100',NULL,NULL,NULL),
+('2024-01-01','infinity','3000000006','3006','Longitude Text Test LU','01.01.2024','225613','UN','0111','1','1100',1,100000,'test','10.0','def','100',NULL,NULL,NULL),
 -- New: Altitude invalid text
-('2024-01-01','infinity','3000000007','3007','Altitude Text Test LU','01.01.2024','225613','UG','0111','1','1100',1,100000,'test','10.0','30.0','ghi',NULL,NULL,NULL);
+('2024-01-01','infinity','3000000007','3007','Altitude Text Test LU','01.01.2024','225613','UN','0111','1','1100',1,100000,'test','10.0','30.0','ghi',NULL,NULL,NULL);
 
 \echo Run worker processing for import jobs - Block 3
 CALL worker.process_tasks(p_queue => 'import');

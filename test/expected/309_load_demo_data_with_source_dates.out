@@ -152,9 +152,9 @@ LIMIT 20;
      59 | 2212760166    | 99960          | ErrorLine2       | error | skip   | {"tax_ident_raw": "Duplicate identifier: tax_ident=2212760166 appears in 4 rows: 58, 59, 60, 61"}
      60 | 2212760166    | 99961          | ErrorLine3       | error | skip   | {"tax_ident_raw": "Duplicate identifier: tax_ident=2212760166 appears in 4 rows: 58, 59, 60, 61"}
      61 | 2212760166    | 99962          | ErrorLine4       | error | skip   | {"tax_ident_raw": "Duplicate identifier: tax_ident=2212760166 appears in 4 rows: 58, 59, 60, 61"}
-     74 | 3300598       | 22             | Amman RIAD 13-14 | error | skip   | {"physical_region_code_raw": "An error on a related new entity row caused this row to be skipped. Source error row(s): {75}"}
-     75 | 3300598       | 22             | Amman RIAD 13-14 | error | skip   | {"physical_country_iso_2_raw": "Country is required and must be valid when other physical address details are provided."}
-     76 | 3300598       | 22             | Amman RIAD 13-14 | error | skip   | {"physical_region_code_raw": "An error on a related new entity row caused this row to be skipped. Source error row(s): {75}"}
+     74 | 3300598       | 22             | Amman RIAD 13-14 | error | skip   | {"physical_region_code_raw": "Region can only be supplied for the domestic country."}
+     75 | 3300598       | 22             | Amman RIAD 13-14 | error | skip   | {"physical_region_code_raw": "An error on a related new entity row caused this row to be skipped. Source error row(s): {74}"}
+     76 | 3300598       | 22             | Amman RIAD 13-14 | error | skip   | {"physical_region_code_raw": "An error on a related new entity row caused this row to be skipped. Source error row(s): {74}"}
 (7 rows)
 
 \echo "Unit counts after initial load"

@@ -378,8 +378,8 @@ SELECT
     'r_year_curr';
 \copy public.import_44_lu_cycle_upload(tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM stdin WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true)
 tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code
-CYCLE_A,CA,Cycle Company A,01.01.2020,225613,UG,4752,1,6100,5,1000000,nlr
-CYCLE_B,CB,Cycle Company B,01.01.2020,225613,UG,4752,1,6100,5,1000000,nlr
+CYCLE_A,CA,Cycle Company A,01.01.2020,225613,UN,4752,1,6100,5,1000000,nlr
+CYCLE_B,CB,Cycle Company B,01.01.2020,225613,UN,4752,1,6100,5,1000000,nlr
 \.
 
 \echo "Step 2: Import mutual LRs to create cycle (A->B and B->A)"

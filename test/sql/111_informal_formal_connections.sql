@@ -25,8 +25,8 @@ SELECT
     'Test data load (33_informal_formal_connections.sql)';
 \echo "User uploads legal units (via import job: import_33_lu_era)"
 INSERT INTO public.import_33_lu_era_upload(valid_from, valid_to, tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) VALUES
-('2024-01-01','infinity','2212760144','1000','NILE PEARL WATER','01.10.2016','225613','UG','4752','4','6100',2,9000000,'nlr'),
-('2024-01-01','infinity','2812760140','1001','EQUATOR GLOBE SOLUTIONS','01.10.2016','225602','UG','5610','1','6100',2,2400000,'nlr');
+('2024-01-01','infinity','2212760144','1000','NILE PEARL WATER','01.10.2016','225613','UN','4752','4','6100',2,9000000,'nlr'),
+('2024-01-01','infinity','2812760140','1001','EQUATOR GLOBE SOLUTIONS','01.10.2016','225602','UN','5610','1','6100',2,2400000,'nlr');
 
 -- Create Import Job for Formal Establishments
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
@@ -38,8 +38,8 @@ SELECT
     'Test data load (33_informal_formal_connections.sql)';
 \echo "User uploads formal establishments (via import job: import_33_esflu_era)"
 INSERT INTO public.import_33_esflu_era_upload(valid_from, valid_to, tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code) VALUES
-('2024-01-01','infinity','92212760144','2000','NILE PEARL WATER','225613','UG','4752',0,0,'2212760144','nlr'),
-('2024-01-01','infinity','92812760140','2001','EQUATOR GLOBE SOLUTIONS','225602','UG','5610',0,0,'2812760140','nlr');
+('2024-01-01','infinity','92212760144','2000','NILE PEARL WATER','225613','UN','4752',0,0,'2212760144','nlr'),
+('2024-01-01','infinity','92812760140','2001','EQUATOR GLOBE SOLUTIONS','225602','UN','5610',0,0,'2812760140','nlr');
 
 -- Create Import Job for Informal Establishments
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
@@ -51,8 +51,8 @@ SELECT
     'Test data load (33_informal_formal_connections.sql)';
 \echo "User uploads informal establishments (via import job: import_33_eswlu_era)"
 INSERT INTO public.import_33_eswlu_era_upload(valid_from,valid_to,tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code) VALUES
-('2024-01-01','infinity','82212760144','3000','THE INFORMAL NILE PEARL WATER','225613','UG','4752',1,1200,'nlr'),
-('2024-01-01','infinity','82812760140','3001','THE EQUATOR GLOBE SOLUTIONS','225602','UG','5610',2,4400,'nlr');
+('2024-01-01','infinity','82212760144','3000','THE INFORMAL NILE PEARL WATER','225613','UN','4752',1,1200,'nlr'),
+('2024-01-01','infinity','82812760140','3001','THE EQUATOR GLOBE SOLUTIONS','225602','UN','5610',2,4400,'nlr');
 
 SAVEPOINT after_loading_units;
 

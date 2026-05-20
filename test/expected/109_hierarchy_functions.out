@@ -317,12 +317,12 @@ SELECT jsonb_pretty(
                              "center_longitude": null                                                                             +
                          },                                                                                                       +
                          "country": {                                                                                             +
-                             "name": "Uganda",                                                                                    +
-                             "iso_2": "UG",                                                                                       +
-                             "iso_3": "UGA",                                                                                      +
+                             "name": "United Nations",                                                                            +
+                             "iso_2": "UN",                                                                                       +
+                             "iso_3": "UNC",                                                                                      +
                              "custom": false,                                                                                     +
                              "enabled": true,                                                                                     +
-                             "iso_num": "800"                                                                                     +
+                             "iso_num": "000"                                                                                     +
                          },                                                                                                       +
                          "altitude": 1144.0,                                                                                      +
                          "latitude": 0.333333,                                                                                    +
@@ -438,12 +438,12 @@ SELECT jsonb_pretty(
                                      "center_longitude": null                                                                     +
                                  },                                                                                               +
                                  "country": {                                                                                     +
-                                     "name": "Uganda",                                                                            +
-                                     "iso_2": "UG",                                                                               +
-                                     "iso_3": "UGA",                                                                              +
+                                     "name": "United Nations",                                                                    +
+                                     "iso_2": "UN",                                                                               +
+                                     "iso_3": "UNC",                                                                              +
                                      "custom": false,                                                                             +
                                      "enabled": true,                                                                             +
-                                     "iso_num": "800"                                                                             +
+                                     "iso_num": "000"                                                                             +
                                  },                                                                                               +
                                  "altitude": 1144.0,                                                                              +
                                  "latitude": 0.333333,                                                                            +
@@ -609,12 +609,12 @@ SELECT jsonb_pretty(
                                      "center_longitude": null                                                                     +
                                  },                                                                                               +
                                  "country": {                                                                                     +
-                                     "name": "Uganda",                                                                            +
-                                     "iso_2": "UG",                                                                               +
-                                     "iso_3": "UGA",                                                                              +
+                                     "name": "United Nations",                                                                    +
+                                     "iso_2": "UN",                                                                               +
+                                     "iso_3": "UNC",                                                                              +
                                      "custom": false,                                                                             +
                                      "enabled": true,                                                                             +
-                                     "iso_num": "800"                                                                             +
+                                     "iso_num": "000"                                                                             +
                                  },                                                                                               +
                                  "altitude": null,                                                                                +
                                  "latitude": null,                                                                                +
@@ -896,12 +896,12 @@ SELECT jsonb_pretty(
                              "center_longitude": null                                                                     +
                          },                                                                                               +
                          "country": {                                                                                     +
-                             "name": "Uganda",                                                                            +
-                             "iso_2": "UG",                                                                               +
-                             "iso_3": "UGA",                                                                              +
+                             "name": "United Nations",                                                                    +
+                             "iso_2": "UN",                                                                               +
+                             "iso_3": "UNC",                                                                              +
                              "custom": false,                                                                             +
                              "enabled": true,                                                                             +
-                             "iso_num": "800"                                                                             +
+                             "iso_num": "000"                                                                             +
                          },                                                                                               +
                          "altitude": 1232.0,                                                                              +
                          "latitude": 0.338153,                                                                            +
@@ -1086,12 +1086,12 @@ SELECT jsonb_pretty(
                              "center_longitude": null                                                          +
                          },                                                                                    +
                          "country": {                                                                          +
-                             "name": "Uganda",                                                                 +
-                             "iso_2": "UG",                                                                    +
-                             "iso_3": "UGA",                                                                   +
+                             "name": "United Nations",                                                         +
+                             "iso_2": "UN",                                                                    +
+                             "iso_3": "UNC",                                                                   +
                              "custom": false,                                                                  +
                              "enabled": true,                                                                  +
-                             "iso_num": "800"                                                                  +
+                             "iso_num": "000"                                                                  +
                          },                                                                                    +
                          "altitude": 1144.0,                                                                   +
                          "latitude": 0.333333,                                                                 +
@@ -1173,12 +1173,12 @@ SELECT jsonb_pretty(
                                      "center_longitude": null                                                  +
                                  },                                                                            +
                                  "country": {                                                                  +
-                                     "name": "Uganda",                                                         +
-                                     "iso_2": "UG",                                                            +
-                                     "iso_3": "UGA",                                                           +
+                                     "name": "United Nations",                                                 +
+                                     "iso_2": "UN",                                                            +
+                                     "iso_3": "UNC",                                                           +
                                      "custom": false,                                                          +
                                      "enabled": true,                                                          +
-                                     "iso_num": "800"                                                          +
+                                     "iso_num": "000"                                                          +
                                  },                                                                            +
                                  "altitude": 1144.0,                                                           +
                                  "latitude": 0.333333,                                                         +
@@ -1267,12 +1267,12 @@ SELECT jsonb_pretty(
                                      "center_longitude": null                                                  +
                                  },                                                                            +
                                  "country": {                                                                  +
-                                     "name": "Uganda",                                                         +
-                                     "iso_2": "UG",                                                            +
-                                     "iso_3": "UGA",                                                           +
+                                     "name": "United Nations",                                                 +
+                                     "iso_2": "UN",                                                            +
+                                     "iso_3": "UNC",                                                           +
                                      "custom": false,                                                          +
                                      "enabled": true,                                                          +
-                                     "iso_num": "800"                                                          +
+                                     "iso_num": "000"                                                          +
                                  },                                                                            +
                                  "altitude": null,                                                             +
                                  "latitude": null,                                                             +
@@ -1428,12 +1428,12 @@ SELECT jsonb_pretty(
                          "center_longitude": null                                                                     +
                      },                                                                                               +
                      "country": {                                                                                     +
-                         "name": "Uganda",                                                                            +
-                         "iso_2": "UG",                                                                               +
-                         "iso_3": "UGA",                                                                              +
+                         "name": "United Nations",                                                                    +
+                         "iso_2": "UN",                                                                               +
+                         "iso_3": "UNC",                                                                              +
                          "custom": false,                                                                             +
                          "enabled": true,                                                                             +
-                         "iso_num": "800"                                                                             +
+                         "iso_num": "000"                                                                             +
                      },                                                                                               +
                      "altitude": 1144.0,                                                                              +
                      "latitude": 0.333333,                                                                            +

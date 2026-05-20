@@ -267,7 +267,7 @@ action        | skip
 operation     | update
 legal_unit_id | 14
 enterprise_id | 21
-errors        | {"physical_region_code_raw": "An error on a related new entity row caused this row to be skipped. Source error row(s): {75}"}
+errors        | {"physical_region_code_raw": "Region can only be supplied for the domestic country."}
 merge_status  | {}
 -[ RECORD 12 ]+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id        | 75
@@ -276,7 +276,7 @@ action        | skip
 operation     | update
 legal_unit_id | 14
 enterprise_id | 21
-errors        | {"physical_country_iso_2_raw": "Country is required and must be valid when other physical address details are provided."}
+errors        | {"physical_region_code_raw": "An error on a related new entity row caused this row to be skipped. Source error row(s): {74}"}
 merge_status  | {}
 -[ RECORD 13 ]+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id        | 76
@@ -285,7 +285,7 @@ action        | skip
 operation     | update
 legal_unit_id | 14
 enterprise_id | 21
-errors        | {"physical_region_code_raw": "An error on a related new entity row caused this row to be skipped. Source error row(s): {75}"}
+errors        | {"physical_region_code_raw": "An error on a related new entity row caused this row to be skipped. Source error row(s): {74}"}
 merge_status  | {}
 
 \x
