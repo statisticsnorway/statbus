@@ -1100,98 +1100,124 @@ exit 1 with retry advice when any check fails.`,
 	},
 }
 
-// checkSeedFresh evaluates the current .db-seed/seed.json
-// against on-disk migrations and HEAD SHA.
+// seedFreshness describes how the cached seed compares to on-disk migrations.
+// Task #130 Part A: the gate is keyed off migration_version, NOT commit_sha
+// (the prior shape invalidated the seed on every commit even when migrations
+// hadn't changed — a treadmill for pure-code commits). commit_sha stays in
+// seed.json as a tracking field for operator visibility but no longer
+// participates in the freshness comparison.
+type seedFreshness int
+
+const (
+	seedFreshnessFresh   seedFreshness = iota // migration_version == on-disk max → pass
+	seedFreshnessBehind                       // new migrations landed since seed was built → update-seed
+	seedFreshnessAhead                        // seed has migrations the working tree doesn't → operator is on stale branch
+	seedFreshnessMissing                      // seed.json absent or unreadable
+)
+
+// checkSeedFresh evaluates `.db-seed/seed.json`'s migration_version against
+// the max on-disk migrations/*.up.{sql,psql} timestamp. Symmetric — catches
+// both behind (seed older than HEAD's migrations) and ahead (seed has
+// migrations the operator's working tree doesn't ship, e.g. branch switch).
 //
-// Returns (fresh, reason). `reason` describes why staleness was detected
-// (operator-visible log message); empty when fresh == true.
-//
-// Failure modes:
-//   - seed.json missing → stale, reason "no seed.json found"
-//   - commit_sha missing from JSON → stale
-//   - migration_version < latest on-disk migration → stale, versions in reason
-//   - commit_sha != HEAD SHA → stale, both SHAs in reason
-//   - git rev-parse HEAD fails → (false, err text); caller decides treatment
-func checkSeedFresh(projDir string) (fresh bool, reason string) {
+// Returns (freshness, reason). `reason` is the operator-visible
+// description on non-fresh outcomes (empty for fresh).
+func checkSeedFresh(projDir string) (seedFreshness, string) {
 	seedJSON := filepath.Join(projDir, ".db-seed", "seed.json")
 	seedBytes, err := os.ReadFile(seedJSON)
 	if err != nil {
-		return false, "seed.json not found or unreadable"
+		return seedFreshnessMissing, "seed.json not found or unreadable"
 	}
-	seedContent := string(seedBytes)
 
-	// Parse migration_version and commit_sha via the same line-split
-	// pattern the prior preflight used — avoids pulling in a JSON dep
-	// just for two string fields.
+	// Parse migration_version via the same line-split pattern the
+	// prior preflight used — avoids pulling in encoding/json just for
+	// two string fields. commit_sha is intentionally NOT consulted by
+	// the gate anymore (task #130 Part A); it stays in seed.json for
+	// operator visibility.
 	seedVersion := ""
-	seedCommitSHA := ""
-	for _, line := range strings.Split(seedContent, "\n") {
+	for _, line := range strings.Split(string(seedBytes), "\n") {
 		if strings.Contains(line, "migration_version") {
 			parts := strings.Split(line, "\"")
 			if len(parts) >= 4 {
 				seedVersion = parts[3]
-			}
-		}
-		if strings.Contains(line, "commit_sha") {
-			parts := strings.Split(line, "\"")
-			if len(parts) >= 4 {
-				seedCommitSHA = parts[3]
+				break
 			}
 		}
 	}
+	if seedVersion == "" {
+		return seedFreshnessMissing, "migration_version missing from seed.json"
+	}
 
-	// migration_version vs latest on-disk migration
+	// On-disk max migration timestamp.
 	migrationsDir := filepath.Join(projDir, "migrations")
 	entries, _ := os.ReadDir(migrationsDir)
 	latestMigration := ""
 	for _, e := range entries {
 		name := e.Name()
-		if strings.HasSuffix(name, ".up.sql") {
-			version := strings.Split(name, "_")[0]
-			if version > latestMigration {
-				latestMigration = version
-			}
+		if !strings.HasSuffix(name, ".up.sql") && !strings.HasSuffix(name, ".up.psql") {
+			continue
+		}
+		version := strings.SplitN(name, "_", 2)[0]
+		if len(version) == 14 && version > latestMigration {
+			latestMigration = version
 		}
 	}
-	if latestMigration != "" && seedVersion < latestMigration {
-		return false, fmt.Sprintf("migration_version %s older than latest %s", seedVersion, latestMigration)
+	if latestMigration == "" {
+		// No on-disk migrations to compare against — treat any seed as fresh.
+		return seedFreshnessFresh, ""
 	}
 
-	// commit_sha vs HEAD
-	headSHAOut, err := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD")
-	if err != nil {
-		return false, fmt.Sprintf("git rev-parse HEAD failed: %v", err)
+	switch {
+	case seedVersion == latestMigration:
+		return seedFreshnessFresh, ""
+	case seedVersion < latestMigration:
+		return seedFreshnessBehind, fmt.Sprintf("seed migration_version %s < on-disk max %s", seedVersion, latestMigration)
+	default: // seedVersion > latestMigration
+		return seedFreshnessAhead, fmt.Sprintf("seed migration_version %s > on-disk max %s", seedVersion, latestMigration)
 	}
-	headSHA := strings.TrimSpace(headSHAOut)
-	if seedCommitSHA == "" {
-		return false, "commit_sha missing from seed.json"
-	}
-	if seedCommitSHA != headSHA {
-		return false, fmt.Sprintf("commit_sha %s != HEAD %s", seedCommitSHA, headSHA)
-	}
-
-	return true, ""
 }
 
 // checkSeedGate is a detect-only freshness gate. Returns true when the
-// pinned seed matches HEAD; false (with a Fix-line printed) when it
-// doesn't. No auto-regeneration: gates guide, they don't run commands.
-// The operator runs the printed Fix command and re-invokes prerelease.
+// seed's migration_version matches the working tree's on-disk max; false
+// (with a Fix-line printed) when behind, ahead, or missing.
+//
+// gates guide, they don't run commands — the operator runs the printed
+// Fix command and re-invokes prerelease.
 func checkSeedGate(projDir string) bool {
-	fresh, reason := checkSeedFresh(projDir)
-	if fresh {
-		headSHAOut, _ := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD")
-		headSHA := strings.TrimSpace(headSHAOut)
-		if len(headSHA) > 12 {
-			headSHA = headSHA[:12]
+	freshness, reason := checkSeedFresh(projDir)
+	switch freshness {
+	case seedFreshnessFresh:
+		// Show the migration_version on the success line so the
+		// operator sees what's pinned without having to cat seed.json.
+		seedJSON := filepath.Join(projDir, ".db-seed", "seed.json")
+		if seedBytes, err := os.ReadFile(seedJSON); err == nil {
+			for _, line := range strings.Split(string(seedBytes), "\n") {
+				if strings.Contains(line, "migration_version") {
+					parts := strings.Split(line, "\"")
+					if len(parts) >= 4 {
+						fmt.Printf("  ✓ Seed fresh (migration_version %s matches on-disk max)\n", parts[3])
+						return true
+					}
+				}
+			}
 		}
-		fmt.Printf("  ✓ Seed fresh (pinned to HEAD: %s)\n", headSHA)
+		fmt.Println("  ✓ Seed fresh")
 		return true
+	case seedFreshnessBehind:
+		fmt.Printf("  ✗ Seed stale (behind): %s\n", reason)
+		fmt.Println("    Fix: ./dev.sh update-seed")
+		return false
+	case seedFreshnessAhead:
+		fmt.Printf("  ✗ Seed ahead of working tree: %s\n", reason)
+		fmt.Println("    Operator is on an older branch/checkout, or seed.json reflects a future commit.")
+		fmt.Println("    Fix: git pull   (if the new migrations are upstream)")
+		fmt.Println("    Or:  FULL_REPLAY=1 ./dev.sh recreate-seed   (rebuild from this branch's migrations)")
+		return false
+	default: // seedFreshnessMissing
+		fmt.Printf("  ✗ Seed missing or unreadable: %s\n", reason)
+		fmt.Println("    Fix: ./dev.sh update-seed")
+		return false
 	}
-
-	fmt.Printf("  ✗ Seed stale: %s\n", reason)
-	fmt.Println("    Fix: ./dev.sh update-seed")
-	return false
 }
 
 // findReleaseTag returns the first release-shaped tag in a newline-separated

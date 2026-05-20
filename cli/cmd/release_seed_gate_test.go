@@ -9,29 +9,108 @@ import (
 	"testing"
 )
 
-// TestCheckSeedGate_Stale_Refuses verifies the gate-only contract:
-// when checkSeedGate runs against a stale .db-seed/seed.json, it
-// returns false (refusing the release). The gate prints a Fix-line
-// pointing the operator at ./dev.sh update-seed; it does not
-// auto-run anything. That's the operator's job after seeing the
-// guide — same shape as every other preflight gate.
-func TestCheckSeedGate_Stale_Refuses(t *testing.T) {
-	projDir := setupProjDirWithGit(t)
-	writeStaleSeed(t, projDir, "stale-sha")
+// Task #130 Part A rewrote checkSeedGate to compare migration_version
+// against the max on-disk migration timestamp instead of commit_sha
+// (the prior shape invalidated the seed on every commit, including
+// pure-code commits that didn't touch migrations). These tests cover
+// the four post-#130 outcomes: fresh, behind, ahead, missing.
+//
+// commit_sha is intentionally NOT tested as a freshness gate — it's
+// kept in seed.json as a tracking field for operator visibility but
+// no longer participates in the gate's pass/fail decision.
 
-	if ok := checkSeedGate(projDir); ok {
-		t.Fatalf("checkSeedGate returned true for a stale seed; expected refusal")
-	}
-}
-
-// TestCheckSeedGate_FreshOK verifies the pass path: when seed.json
-// commit_sha already matches HEAD, checkSeedGate returns true.
+// TestCheckSeedGate_FreshOK verifies the pass path: seed.json's
+// migration_version matches the max on-disk migration timestamp.
 func TestCheckSeedGate_FreshOK(t *testing.T) {
 	projDir := setupProjDirWithGit(t)
-	writeFreshSeed(t, projDir, gitRevParseHEAD(t, projDir))
+	writeMigration(t, projDir, "20260101000000_init.up.sql")
+	writeSeedJSON(t, projDir, seedMeta{
+		MigrationVersion: "20260101000000",
+		CommitSHA:        "anything-not-consulted",
+	})
 
 	if ok := checkSeedGate(projDir); !ok {
 		t.Fatalf("checkSeedGate returned false for a fresh seed; expected pass")
+	}
+}
+
+// TestCheckSeedGate_FreshOK_IgnoresCommitSHA verifies that the gate
+// passes even when commit_sha differs from HEAD — Part A explicitly
+// drops commit_sha from the gating logic. Regression guard against
+// any reintroduction of the prior commit_sha-coupling.
+func TestCheckSeedGate_FreshOK_IgnoresCommitSHA(t *testing.T) {
+	projDir := setupProjDirWithGit(t)
+	writeMigration(t, projDir, "20260101000000_init.up.sql")
+	writeSeedJSON(t, projDir, seedMeta{
+		MigrationVersion: "20260101000000",
+		CommitSHA:        "deadbeef-not-head",
+	})
+
+	if ok := checkSeedGate(projDir); !ok {
+		t.Fatalf("checkSeedGate refused a seed whose migration_version matches HEAD but commit_sha doesn't — Part A explicitly drops commit_sha from the gating logic")
+	}
+}
+
+// TestCheckSeedGate_Behind_Refuses verifies that a seed whose
+// migration_version is older than the latest on-disk migration is
+// refused with the "behind" diagnostic and a Fix-line pointing at
+// ./dev.sh update-seed.
+func TestCheckSeedGate_Behind_Refuses(t *testing.T) {
+	projDir := setupProjDirWithGit(t)
+	writeMigration(t, projDir, "20260101000000_init.up.sql")
+	writeMigration(t, projDir, "20260102000000_later.up.sql")
+	writeSeedJSON(t, projDir, seedMeta{
+		MigrationVersion: "20260101000000",
+		CommitSHA:        "anything",
+	})
+
+	if ok := checkSeedGate(projDir); ok {
+		t.Fatalf("checkSeedGate returned true for a behind-by-1 seed; expected refusal")
+	}
+}
+
+// TestCheckSeedGate_Ahead_Refuses verifies the symmetric "ahead" case
+// (Part A: seed migration_version > on-disk max). Operator is on a
+// stale branch checkout; gate refuses with the appropriate Fix.
+func TestCheckSeedGate_Ahead_Refuses(t *testing.T) {
+	projDir := setupProjDirWithGit(t)
+	writeMigration(t, projDir, "20260101000000_init.up.sql")
+	writeSeedJSON(t, projDir, seedMeta{
+		MigrationVersion: "20260201000000", // newer than on-disk max
+		CommitSHA:        "anything",
+	})
+
+	if ok := checkSeedGate(projDir); ok {
+		t.Fatalf("checkSeedGate returned true for a seed ahead of on-disk migrations; expected refusal")
+	}
+}
+
+// TestCheckSeedGate_MissingJSON_Refuses verifies the missing case:
+// no seed.json on disk → gate refuses with a missing-seed Fix.
+func TestCheckSeedGate_MissingJSON_Refuses(t *testing.T) {
+	projDir := setupProjDirWithGit(t)
+	writeMigration(t, projDir, "20260101000000_init.up.sql")
+	// No seed.json written.
+
+	if ok := checkSeedGate(projDir); ok {
+		t.Fatalf("checkSeedGate returned true when seed.json was absent; expected refusal")
+	}
+}
+
+// TestCheckSeedGate_NoMigrations_Passes covers the legitimate edge
+// case where on-disk migrations are empty (e.g., very first commit of
+// a fresh project). Any seed should be considered fresh — there's
+// nothing to be behind.
+func TestCheckSeedGate_NoMigrations_Passes(t *testing.T) {
+	projDir := setupProjDirWithGit(t)
+	writeSeedJSON(t, projDir, seedMeta{
+		MigrationVersion: "20260101000000",
+		CommitSHA:        "anything",
+	})
+	// No migrations written.
+
+	if ok := checkSeedGate(projDir); !ok {
+		t.Fatalf("checkSeedGate returned false when no migrations exist on disk; expected pass (nothing to be behind)")
 	}
 }
 
@@ -70,26 +149,12 @@ func setupProjDirWithGit(t *testing.T) string {
 	return dir
 }
 
-// writeStaleSeed writes a seed.json that pins to the given fake
-// commit_sha. Guaranteed stale as long as commit_sha != real HEAD.
-func writeStaleSeed(t *testing.T, projDir, fakeCommit string) {
+// writeSeedJSON writes a seed.json with the given metadata. Used by
+// all the gate tests to set up the seed state under test.
+func writeSeedJSON(t *testing.T, projDir string, meta seedMeta) {
 	t.Helper()
-	writeSeedJSON(t, projDir, fakeCommit)
-}
-
-// writeFreshSeed writes a seed.json with commit_sha == real HEAD.
-func writeFreshSeed(t *testing.T, projDir, realCommit string) {
-	t.Helper()
-	writeSeedJSON(t, projDir, realCommit)
-}
-
-func writeSeedJSON(t *testing.T, projDir, commitSHA string) {
-	t.Helper()
-	meta := seedMeta{
-		MigrationVersion: "00000000000000",
-		CommitSHA:        commitSHA,
-		Tags:             "",
-		CreatedAt:        "2026-04-24T00:00:00Z",
+	if meta.CreatedAt == "" {
+		meta.CreatedAt = "2026-04-24T00:00:00Z"
 	}
 	b, err := json.MarshalIndent(meta, "", "  ")
 	if err != nil {
@@ -100,13 +165,12 @@ func writeSeedJSON(t *testing.T, projDir, commitSHA string) {
 	}
 }
 
-func gitRevParseHEAD(t *testing.T, projDir string) string {
+// writeMigration creates an empty file with the given basename under
+// migrations/, used to populate the on-disk migration set the gate
+// compares against.
+func writeMigration(t *testing.T, projDir, filename string) {
 	t.Helper()
-	cmd := exec.Command("git", "rev-parse", "HEAD")
-	cmd.Dir = projDir
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("git rev-parse HEAD: %v\n%s", err, out)
+	if err := os.WriteFile(filepath.Join(projDir, "migrations", filename), []byte("-- "+filename+"\n"), 0644); err != nil {
+		t.Fatal(err)
 	}
-	return strings.TrimSpace(string(out))
 }
