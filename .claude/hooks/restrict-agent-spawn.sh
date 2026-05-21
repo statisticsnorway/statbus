@@ -27,6 +27,13 @@
 # 5. `./sb release prerelease` → only the foreman may run it. Release
 #    commands modify tags and branches — foreman's authority.
 #
+# 6. `git commit / revert / cherry-pick / rebase / am / push` → blocked for
+#    operator and tester. These Haiku-tier roles are scoped to read-only
+#    legwork (operator) and test execution (tester); committing or pushing
+#    bypasses pre-commit review and produces work nobody asked for. The
+#    smaller-model context window makes role-file paperwork unreliable
+#    here — structural enforcement is the principled fix.
+#
 # Caller identification:
 #   - session_id == leadSessionId (from team config) → "foreman"
 #   - else grep agentName from the session's transcript .jsonl
@@ -249,6 +256,29 @@ Caller: ${caller}
 
 Hook source: .claude/hooks/restrict-agent-spawn.sh"
     exit 0
+  fi
+
+  # Rule 6: commit-creating / push git ops → block operator + tester.
+  # These Haiku-tier roles must not modify history; smaller-model context
+  # windows make role-file rules unreliable, so enforce structurally.
+  if echo "$normalized" | grep -qE '\bgit\s+(commit|revert|cherry-pick|rebase|am|push)\b'; then
+    if [[ "$caller" == "operator" || "$caller" == "tester" ]]; then
+      emit_deny "BLOCKED (restrict-agent-spawn.sh): '${caller}' cannot create or push commits.
+
+WHY: operator and tester are read-only on git history. Operator does legwork (greps, log reads, summaries). Tester runs \`./dev.sh test\`. Neither commits, reverts, cherry-picks, rebases, applies mailboxes, or pushes — those bypass pre-commit review and produce work nobody asked for.
+
+WHAT TO DO:
+  - For a targeted fix: SendMessage({to: 'mechanic', message: '...'}).
+  - For a substantive change: SendMessage({to: 'engineer', message: '...'}).
+  - For a plan: SendMessage({to: 'architect', message: '...'}).
+  - If genuinely needed, surface to foreman: SendMessage({to: 'foreman', ...}).
+
+Command: ${normalized:0:200}
+Caller: ${caller}
+
+Hook source: .claude/hooks/restrict-agent-spawn.sh"
+      exit 0
+    fi
   fi
 
   # Rule 5: `./sb release prerelease` → only the foreman.
