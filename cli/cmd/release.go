@@ -1399,10 +1399,18 @@ exit 1 with retry advice when any check fails.`,
 type seedFreshness int
 
 const (
-	seedFreshnessFresh   seedFreshness = iota // migration_version == on-disk max → pass
-	seedFreshnessBehind                       // new migrations landed since seed was built → update-seed
-	seedFreshnessAhead                        // seed has migrations the working tree doesn't → operator is on stale branch
+	seedFreshnessFresh   seedFreshness = iota // all three (live, on-disk, seed.json) match → pass
+	seedFreshnessBehind                       // seed.json < on-disk (live probe unavailable)
+	seedFreshnessAhead                        // seed.json > on-disk (live probe unavailable)
 	seedFreshnessMissing                      // seed.json absent or unreadable
+
+	// Three-way states surfaced when the live statbus_seed.db.migration
+	// probe succeeds. These give more specific Fix recommendations than
+	// the legacy seed.json-vs-on-disk comparison (task #76).
+	seedFreshnessCacheStale      // live == on-disk, but seed.json != live → ./sb db seed sync
+	seedFreshnessDBBehindTree    // live < on-disk → ./sb migrate up --target seed
+	seedFreshnessDBAheadOfTree   // live > on-disk → git pull / remove WIP migrations
+	seedFreshnessDBMissing       // statbus_seed database doesn't exist → ./dev.sh recreate-seed
 )
 
 // checkSeedFresh evaluates `.db-seed/seed.json`'s migration_version against
@@ -1457,6 +1465,56 @@ func checkSeedFresh(projDir string) (seedFreshness, string) {
 		return seedFreshnessFresh, ""
 	}
 
+	// Task #76: probe LIVE statbus_seed.db.migration MAX(version) to give
+	// the operator a more specific Fix than seed.json-vs-on-disk alone.
+	// See decideSeedFreshness for the full decision tree.
+	liveState, liveVersion := probeLiveSeedVersion(projDir)
+	return decideSeedFreshness(seedVersion, latestMigration, liveState, liveVersion)
+}
+
+// decideSeedFreshness is the pure decision function for the seed gate —
+// no I/O, all inputs supplied by the caller. Extracted so the 8 branches
+// can be exercised by table-driven unit tests; the I/O wrapper
+// (checkSeedFresh) delegates here once seed.json, on-disk-max, and the
+// live-probe outcome are in hand.
+//
+// Decision tree:
+//
+//	live state     | live vs on-disk    | seed.json vs live | result
+//	---------------|--------------------|-------------------|----------------------
+//	Missing        | n/a                | n/a               | DBMissing
+//	At (no rows)   | n/a (live empty)   | n/a               | DBBehindTree
+//	At             | live  <  on-disk   | any               | DBBehindTree
+//	At             | live  >  on-disk   | any               | DBAheadOfTree
+//	At             | live  == on-disk   | seed.json != live | CacheStale
+//	At             | live  == on-disk   | seed.json == live | Fresh
+//	Unknown        | n/a                | seed.json <  on-disk | Behind (legacy)
+//	Unknown        | n/a                | seed.json >  on-disk | Ahead  (legacy)
+//	Unknown        | n/a                | seed.json == on-disk | Fresh  (legacy)
+//
+// Live=Unknown is the fallback when the probe can't run (POSTGRES_SEED_DB
+// unconfigured, no PG infra in test envs, transient connection error).
+// It keeps the legacy two-way comparison alive so the gate still guides
+// the operator with the best info available.
+func decideSeedFreshness(seedVersion, latestMigration string, liveState liveSeedProbe, liveVersion string) (seedFreshness, string) {
+	switch liveState {
+	case liveSeedMissing:
+		return seedFreshnessDBMissing, "statbus_seed database does not exist"
+	case liveSeedAt:
+		switch {
+		case liveVersion == "":
+			return seedFreshnessDBBehindTree, fmt.Sprintf("live statbus_seed has no applied migrations; on-disk max %s", latestMigration)
+		case liveVersion < latestMigration:
+			return seedFreshnessDBBehindTree, fmt.Sprintf("live statbus_seed %s < on-disk max %s", liveVersion, latestMigration)
+		case liveVersion > latestMigration:
+			return seedFreshnessDBAheadOfTree, fmt.Sprintf("live statbus_seed %s > on-disk max %s", liveVersion, latestMigration)
+		case seedVersion != liveVersion:
+			return seedFreshnessCacheStale, fmt.Sprintf("live statbus_seed %s == on-disk max but .db-seed/seed.json shows %s", liveVersion, seedVersion)
+		default:
+			return seedFreshnessFresh, ""
+		}
+	}
+	// liveSeedUnknown — fall back to legacy seed.json-vs-on-disk comparison.
 	switch {
 	case seedVersion == latestMigration:
 		return seedFreshnessFresh, ""
@@ -1465,6 +1523,61 @@ func checkSeedFresh(projDir string) (seedFreshness, string) {
 	default: // seedVersion > latestMigration
 		return seedFreshnessAhead, fmt.Sprintf("seed migration_version %s > on-disk max %s", seedVersion, latestMigration)
 	}
+}
+
+// liveSeedProbe captures the outcome of probing statbus_seed for its
+// max applied migration version. The three states distinguish actionable
+// scenarios from "can't probe at all" — the latter is the common test-env
+// case and shouldn't trigger the recreate-seed recommendation.
+type liveSeedProbe int
+
+const (
+	liveSeedUnknown liveSeedProbe = iota // can't probe (no .env, no PG infra, transient error) — fall back to legacy logic
+	liveSeedMissing                      // POSTGRES_SEED_DB resolved but database doesn't exist on the host
+	liveSeedAt                           // probe succeeded; version returned (may be empty if db.migration is empty)
+)
+
+// probeLiveSeedVersion queries statbus_seed.db.migration for the highest
+// applied migration version, returning the probe outcome and (when
+// available) the version string.
+//
+// Error classification:
+//   - ResolveTargetDB failure (POSTGRES_SEED_DB unconfigured) → Unknown.
+//     Common in test environments without a .env; gate falls back to
+//     legacy seed.json-vs-on-disk comparison.
+//   - psql output containing "does not exist" → Missing. Specifically
+//     "database \"statbus_seed\" does not exist" is the canonical
+//     fail message; the substring match catches related shapes.
+//   - Any other error → Unknown. Network blips, schema mid-migration,
+//     transient psql failures all degrade gracefully to legacy logic
+//     rather than nagging the operator with recreate-seed.
+//
+// Version normalisation: psql -t -A on `SELECT COALESCE(MAX(version)::text, '')`
+// emits the bare 14-digit string or empty (no header, no row counter).
+// QueryDB strips surrounding whitespace.
+func probeLiveSeedVersion(projDir string) (liveSeedProbe, string) {
+	seedDB, err := migrate.ResolveTargetDB(projDir, "seed")
+	if err != nil {
+		return liveSeedUnknown, ""
+	}
+	out, err := migrate.QueryDB(projDir, seedDB,
+		"SELECT COALESCE(MAX(version)::text, '') FROM db.migration", "-t", "-A")
+	if err != nil {
+		// psql includes the error message in the stdout/stderr buffer.
+		msg := strings.ToLower(out + " " + err.Error())
+		if strings.Contains(msg, "does not exist") || strings.Contains(msg, "could not translate host name") {
+			// "database \"x\" does not exist" → MISSING.
+			// (Hostname resolution failure also funnels here when
+			// PG is on a non-localhost host that's down — we
+			// treat as missing rather than unknown so the
+			// operator gets the recreate-seed hint.)
+			if strings.Contains(strings.ToLower(out+err.Error()), "database") {
+				return liveSeedMissing, ""
+			}
+		}
+		return liveSeedUnknown, ""
+	}
+	return liveSeedAt, strings.TrimSpace(out)
 }
 
 // checkSeedGate is a detect-only freshness gate. Returns true when the
@@ -1494,14 +1607,58 @@ func checkSeedGate(projDir string) bool {
 		fmt.Println("  ✓ Seed fresh")
 		return true
 	case seedFreshnessBehind:
+		// Legacy path (live probe unavailable). seed.json behind on-disk;
+		// without live info we can't distinguish "cache stale" from
+		// "DB behind tree", so `./sb db seed sync` is the safe answer
+		// (it rebuilds both seed DB and cache when needed).
 		fmt.Printf("  ✗ Seed stale (behind): %s\n", reason)
 		fmt.Println("    Fix: ./sb db seed sync")
 		return false
 	case seedFreshnessAhead:
+		// Legacy path. seed.json ahead of on-disk; operator on stale branch
+		// OR seed.json reflects a future commit.
 		fmt.Printf("  ✗ Seed ahead of working tree: %s\n", reason)
 		fmt.Println("    Operator is on an older branch/checkout, or seed.json reflects a future commit.")
 		fmt.Println("    Fix: git pull   (if the new migrations are upstream)")
 		fmt.Println("    Or:  FULL_REPLAY=1 ./dev.sh recreate-seed   (rebuild from this branch's migrations)")
+		return false
+	case seedFreshnessCacheStale:
+		// Live DB and on-disk migrations are in sync; only the cache
+		// (.db-seed/seed.json + dump + remote pin) is stale. `./sb db
+		// seed sync` republishes the cache + pin without rebuilding
+		// the DB — fast (~30s) vs FULL_REPLAY's 1-3 min.
+		fmt.Printf("  ✗ Seed cache stale: %s\n", reason)
+		fmt.Println("    The live statbus_seed database matches HEAD's migrations, but the")
+		fmt.Println("    .db-seed/seed.json cache + remote pin are out of sync.")
+		fmt.Println("    Fix: ./sb db seed sync   (republishes cache + remote pin only; ~30s)")
+		return false
+	case seedFreshnessDBBehindTree:
+		// Live DB lags the working tree (e.g., operator committed a new
+		// migration but hasn't applied it to the seed yet). The correct
+		// recovery is `./sb migrate up --target seed`, NOT recreate-seed
+		// (which is a heavy hammer) nor sync (which dumps the current
+		// DB state, propagating the lag).
+		fmt.Printf("  ✗ Seed DB behind working tree: %s\n", reason)
+		fmt.Println("    Fix: ./sb migrate up --target seed   (apply pending migrations to statbus_seed)")
+		fmt.Println("    Then: ./sb db seed sync               (republish cache + pin)")
+		return false
+	case seedFreshnessDBAheadOfTree:
+		// Live DB is ahead of the working tree — operator is on a stale
+		// branch checkout, or has WIP migrations sitting on the seed
+		// that aren't in this tree. Recovery is to fix the tree, not
+		// the DB.
+		fmt.Printf("  ✗ Seed DB ahead of working tree: %s\n", reason)
+		fmt.Println("    The live statbus_seed has applied migrations that aren't on disk in this checkout.")
+		fmt.Println("    Fix: git pull                              (if upstream has them)")
+		fmt.Println("    Or:  remove the WIP migrations from statbus_seed (./sb migrate down --to <prior-version>)")
+		fmt.Println("    Then re-run preflight.")
+		fmt.Println("    Last resort: FULL_REPLAY=1 ./dev.sh recreate-seed   (rebuild seed DB from this tree's migrations)")
+		return false
+	case seedFreshnessDBMissing:
+		// statbus_seed database literally doesn't exist on the host —
+		// initial setup or someone dropped it. Recreate from scratch.
+		fmt.Printf("  ✗ Seed DB missing: %s\n", reason)
+		fmt.Println("    Fix: ./dev.sh recreate-seed   (creates the seed DB + applies all migrations)")
 		return false
 	default: // seedFreshnessMissing
 		fmt.Printf("  ✗ Seed missing or unreadable: %s\n", reason)

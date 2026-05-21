@@ -178,6 +178,51 @@ func runPsql(projDir string, sql string, extraArgs ...string) (string, error) {
 	return string(out), err
 }
 
+// QueryDB runs a SQL query against the named PostgreSQL database (overriding
+// the default PGDATABASE), returning trimmed stdout. Used by release-side
+// preflight probes that need to check state on a SPECIFIC database (e.g.,
+// statbus_seed during the seed-stale gate) without requiring the caller to
+// juggle PGDATABASE or POSTGRES_APP_DB env vars by hand.
+//
+// Note on side effects: this function MUTATES the process env (PGDATABASE +
+// POSTGRES_APP_DB) for the duration of the call, then restores it via
+// defer. It is NOT safe to call concurrently with another psql invocation
+// in the same process — the runPsql infra reads psqlEnv at call time and
+// would observe whichever env happened to be set last. The preflight call
+// sites are strictly serial, so this is fine.
+//
+// extraArgs are appended to the psql invocation after -v ON_ERROR_STOP=on;
+// callers can pass -t / -A / etc. The SQL is sent via stdin per the
+// runPsql contract (avoids shell-quoting issues for embedded literals).
+func QueryDB(projDir, dbName, sql string, extraArgs ...string) (string, error) {
+	if dbName == "" {
+		return "", fmt.Errorf("QueryDB: dbName must not be empty")
+	}
+
+	prevApp, hadApp := os.LookupEnv("POSTGRES_APP_DB")
+	prevPG, hadPG := os.LookupEnv("PGDATABASE")
+	os.Setenv("POSTGRES_APP_DB", dbName)
+	os.Setenv("PGDATABASE", dbName)
+	defer func() {
+		if hadApp {
+			os.Setenv("POSTGRES_APP_DB", prevApp)
+		} else {
+			os.Unsetenv("POSTGRES_APP_DB")
+		}
+		if hadPG {
+			os.Setenv("PGDATABASE", prevPG)
+		} else {
+			os.Unsetenv("PGDATABASE")
+		}
+	}()
+
+	out, err := runPsql(projDir, sql, extraArgs...)
+	if err != nil {
+		return out, err
+	}
+	return strings.TrimSpace(out), nil
+}
+
 // runPsqlFile executes a SQL file via psql.
 func runPsqlFile(projDir string, filePath string) (string, error) {
 	psqlPath, prefix, env, err := PsqlCommand(projDir)
