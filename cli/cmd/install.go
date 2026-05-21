@@ -304,7 +304,7 @@ func runInstall() (installErr error) {
 			log.Printf("State detection failed (continuing with step-table fallback): %v", derr)
 		} else {
 			detectedState = state
-			logInstallState(state, detail)
+			logInstallState(installDir, state, detail)
 			if state == install.StateCrashedUpgrade {
 				if err := runCrashRecovery(installDir); err != nil {
 					return fmt.Errorf("crash recovery: %w", err)
@@ -1926,7 +1926,11 @@ func migrateConfigPaths(dir string) {
 
 // logInstallState prints the state classification produced by install.Detect.
 // Dispatch policy lives in runInstall; this function is print-only.
-func logInstallState(state install.State, detail *install.Detail) {
+//
+// projDir is passed in so the StateNothingScheduled branch can probe
+// for DB-vs-disk migration drift (best-effort; failure stays quiet so
+// a DB blip never breaks the install output).
+func logInstallState(projDir string, state install.State, detail *install.Detail) {
 	fmt.Printf("Detected install state: %s (current=%s, target=%s)\n",
 		state, detail.CurrentVersion, detail.TargetVersion)
 	switch state {
@@ -1953,6 +1957,26 @@ func logInstallState(state install.State, detail *install.Detail) {
 			detail.ScheduledRowID, detail.TargetVersion)
 	case install.StateNothingScheduled:
 		fmt.Println("  Existing install, no upgrade scheduled; running idempotent step-table to refresh.")
+		// Surface DB-vs-disk migration drift so the operator knows
+		// whether the step-table will actually apply migrations.
+		// Pre-fix the diagnostic said "no upgrade scheduled" while
+		// the step-table silently applied N pending migrations —
+		// functionally correct but misleading. Best-effort probe:
+		// both helpers return "" on error, so a DB blip just
+		// elides this line rather than failing the install.
+		live := install.LiveMaxMigrationVersion(projDir)
+		onDisk := install.OnDiskMaxMigrationVersion(projDir)
+		switch {
+		case live == "" || onDisk == "":
+			// Couldn't probe one side; stay quiet rather than
+			// surface a confusing partial diagnostic.
+		case live == onDisk:
+			fmt.Printf("  DB migration_version %s matches on-disk max — step-table is a no-op for migrations.\n", live)
+		case live < onDisk:
+			fmt.Printf("  DB migration_version %s < on-disk max %s — step-table will apply pending migrations.\n", live, onDisk)
+		default: // live > onDisk
+			fmt.Printf("  DB migration_version %s > on-disk max %s — DB is ahead of this checkout; step-table may down-then-up to converge.\n", live, onDisk)
+		}
 	}
 	fmt.Println()
 }

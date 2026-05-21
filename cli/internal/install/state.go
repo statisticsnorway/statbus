@@ -223,6 +223,56 @@ func (defaultProbe) QueryScheduledUpgrade(projDir string) (*ScheduledRow, error)
 	}, nil
 }
 
+// LiveMaxMigrationVersion queries db.migration for the highest applied
+// migration version, returning the bare 14-digit string (or "" when the
+// table is empty / query fails). Best-effort: errors are swallowed and
+// reported as "" so the diagnostic caller can degrade gracefully when
+// the DB is uncontactable or the schema is mid-migration.
+//
+// Used by logInstallState (cli/cmd/install.go) to enrich the
+// StateNothingScheduled diagnostic with DB-vs-disk migration drift.
+// Operators previously hit "Detected install state: nothing-scheduled"
+// + "Existing install, no upgrade scheduled; running idempotent
+// step-table to refresh" while the DB actually had pending migrations
+// — message implied "nothing to do" when 4+ migrations were about to
+// apply via the step-table.
+func LiveMaxMigrationVersion(projDir string) string {
+	out, err := runQuery(projDir, 10*time.Second,
+		"SELECT COALESCE(MAX(version)::text, '') FROM db.migration")
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(out)
+}
+
+// OnDiskMaxMigrationVersion scans migrations/*.up.{sql,psql} and returns
+// the highest 14-digit version timestamp found, or "" when the directory
+// is empty / unreadable. Best-effort: errors degrade to "".
+//
+// Mirrors checkSeedFresh's on-disk scan in cli/cmd/release.go — kept
+// separate (not extracted to a shared helper) because the install
+// package is a lower layer that the release package may eventually
+// import, but not vice-versa. Duplication is small and the two readers
+// are independent concerns.
+func OnDiskMaxMigrationVersion(projDir string) string {
+	entries, err := os.ReadDir(filepath.Join(projDir, "migrations"))
+	if err != nil {
+		return ""
+	}
+	latest := ""
+	for _, e := range entries {
+		name := e.Name()
+		if !strings.HasSuffix(name, ".up.sql") && !strings.HasSuffix(name, ".up.psql") {
+			continue
+		}
+		version := strings.SplitN(name, "_", 2)[0]
+		if len(version) == 14 && version > latest {
+			latest = version
+		}
+	}
+	return latest
+}
+
 // runQuery runs a single-value psql query with pipe separator and no header.
 // Returns the raw output (pipe-delimited, newline-terminated) or an error.
 func runQuery(projDir string, timeout time.Duration, sql string) (string, error) {
