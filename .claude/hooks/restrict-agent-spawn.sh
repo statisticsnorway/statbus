@@ -34,6 +34,18 @@
 #    smaller-model context window makes role-file paperwork unreliable
 #    here — structural enforcement is the principled fix.
 #
+# === TASKUPDATE tool rules ===
+#
+# 7. `TaskUpdate status=completed` → blocked for operator and tester.
+#    Marking a task completed is an authority decision that requires
+#    verifying the work landed correctly. Haiku-tier roles have surfaced
+#    shallow-read failures (e.g. falsely closing #65 xlsx-iso-date-
+#    conversion without verifying any code was actually changed). The
+#    same cognitive-limit reasoning as Rule 6 applies: structural
+#    constraint, not role-file paperwork. Operator/tester must report
+#    work back via SendMessage; the foreman or task owner closes the
+#    task after review.
+#
 # Caller identification:
 #   - session_id == leadSessionId (from team config) → "foreman"
 #   - else grep agentName from the session's transcript .jsonl
@@ -72,7 +84,7 @@ TEAM_CONFIG="${CLAUDE_CONFIG_DIR}/teams/$(resolve_team_name)/config.json"
 payload=$(cat)
 tool=$(jq -r '.tool_name // empty' <<<"$payload")
 
-if [[ "$tool" != "Agent" && "$tool" != "Bash" ]]; then
+if [[ "$tool" != "Agent" && "$tool" != "Bash" && "$tool" != "TaskUpdate" ]]; then
   echo "{}"
   exit 0
 fi
@@ -310,6 +322,35 @@ Caller: ${caller}
 
 Hook source: .claude/hooks/restrict-agent-spawn.sh"
     exit 0
+  fi
+
+# ── TaskUpdate tool ───────────────────────────────────────────────────
+
+elif [[ "$tool" == "TaskUpdate" ]]; then
+  status=$(jq -r '.tool_input.status // empty' <<<"$payload")
+  task_id=$(jq -r '.tool_input.taskId // empty' <<<"$payload")
+
+  # Rule 7: status=completed → only the foreman / engineer / mechanic /
+  # architect. Operator and tester are blocked — Haiku-tier cognitive
+  # limits have surfaced shallow-read false completions (e.g. closing
+  # an xlsx task without verifying any code changed).
+  if [[ "$status" == "completed" ]]; then
+    case "$caller" in
+      operator|tester)
+        emit_deny "BLOCKED (restrict-agent-spawn.sh): '${caller}' cannot mark tasks completed.
+
+WHY: marking a task completed is an authority decision that requires verifying the work landed correctly. Operator and tester are Haiku-tier roles with limited context; closing a task is delegated to the foreman, engineer, mechanic, or architect who can review depth (commit SHAs, file diffs, test results, plan adherence).
+
+WHAT TO DO: report the work back via SendMessage to the foreman, including evidence (file:line citations, command output, SHAs). The foreman or task owner will close the task after review.
+
+Task ID being changed: ${task_id}
+Status requested: ${status}
+Caller: ${caller}
+
+Hook source: .claude/hooks/restrict-agent-spawn.sh"
+        exit 0
+        ;;
+    esac
   fi
 fi
 

@@ -36,6 +36,7 @@
         "matcher": "TaskUpdate",
         "hooks": [
           { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/require-task-slug.sh", "timeout": 5 },
+          { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/restrict-agent-spawn.sh", "timeout": 5 },
           { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/remind-plan-update.sh", "timeout": 5 },
           { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/route-alias.sh", "timeout": 5 }
         ]
