@@ -22,6 +22,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/statisticsnorway/statbus/cli/internal/config"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
+	"github.com/statisticsnorway/statbus/cli/internal/inject"
 	"github.com/statisticsnorway/statbus/cli/internal/release"
 )
 
@@ -556,6 +557,15 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error)
 		return 0, err
 	}
 
+	// Harness-only stall site: representative phase point inside
+	// migrate.runUp where the upgrade is committed to running migrations
+	// (eager content-hash check passed, about to query applied versions).
+	// When activated via STATBUS_INJECT_AT, holds here until the harness
+	// removes STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE — long enough for a
+	// concurrent ./sb install attempt to observe the active holder PID
+	// and trip probe 2 (live-upgrade refusal). No-op in production.
+	inject.StallHere("concurrent-install-attempted-during-migrate-up")
+
 	applied, err := listAppliedVersions(projDir)
 	if err != nil {
 		return 0, err
@@ -630,6 +640,27 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error)
 			fmt.Printf("[migrate]   ✗ FAILED   %s after %s\n", filepath.Base(m.Path), elapsed)
 			return 0, fmt.Errorf("migration %d (%s) failed: %w\n%s", m.Version, filepath.Base(m.Path), err, out)
 		}
+
+		// Canonical Layer 2 injection site. The migration's outer
+		// transaction has just committed (runPsqlFile above returned
+		// nil) but the db.migration INSERT below has not yet run —
+		// the ~ms window where SIGKILL leaves a committed-but-unrecorded
+		// migration. Forward-recovery on this state fails deterministically
+		// ("relation already exists" on re-run); only rsync-restore
+		// can complete recovery coherently.
+		//
+		// Modeled as two stall classes — the harness picks the target
+		// PID (subprocess for Layer 0 in-process recovery, parent for
+		// Layer 2 next-install recovery) and sends real SIGKILL.
+		// Real signal semantics (WIFEXITED=0, WTERMSIG=SIGKILL,
+		// systemd-recorded terminal state) differ observably from
+		// in-process os.Exit(137), so the scenarios drive both code
+		// paths via genuine signals. Drives the scenario-08 SIGKILL
+		// harness validation pending in the install-recovery harness.
+		// Exactly one of these stalls is active per run
+		// (STATBUS_INJECT_AT picks); the other is a no-op.
+		inject.StallHere("migrate-subprocess-killed-after-commit-before-recorded")
+		inject.StallHere("upgrade-service-parent-killed-after-commit-before-recorded")
 
 		// Re-probe content_hash column existence AFTER apply only while
 		// we still think it's false — the just-applied migration may have
