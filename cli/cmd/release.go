@@ -991,28 +991,20 @@ gate's invariant has NOT been verified for the SHA):
 		fmt.Printf("  ✓ Latest RC %s (target %s) exists\n", latestRC, rcShort)
 		fmt.Printf("  ✓ Stable patch %d is next-in-sequence for %s\n", nextPatch, prefix)
 
-		// 3. Canary observational gates. Verifies that the RC's commit has
-		//    actually deployed AND reached `state='completed'` on every
-		//    canary slot before we tag stable. The check observes; it does
-		//    NOT trigger upgrades — operators choose how (web UI, CLI,
-		//    push-to-deploy branch, manual psql). Implicitly verifies
-		//    every esoteric interaction (systemd timeouts, OS compat,
-		//    OOM, worker drain, post-restore fixups) because all of them
-		//    are upstream of the 'completed' state.
-		//
-		//    Positioned BEFORE the GHA workflow gates because canary SSH
-		//    probes (10s connect timeout, fast query) typically finish
-		//    before the GHA polling does — fail fast on observational
-		//    signal before paying GHA latency. Bypass per slot via
-		//    STATBUS_SKIP_CANARY=<label>[,<label>...] (e.g. dev,no).
-		allPassed := checkCanaryGates(rcCommit)
-
-		// 4. Three workflow gates AT THE RC's commit (not HEAD). Each is
+		// 3. Three workflow gates AT THE RC's commit (not HEAD). Each is
 		//    independent — all three always run, all three must pass
 		//    (modulo SKIP_*=1 operator bypass). The gates check the
 		//    invariants that the RC tag's push triggered: image build,
 		//    setup hardening, end-to-end install.
-		allPassed = checkStableWorkflowGate(release.WorkflowImages, "images", rcCommit, rcShort, "SKIP_IMAGES") && allPassed
+		//
+		//    Workflows run FIRST in the chain because every downstream
+		//    check has a workflow precondition: canary upgrade-service
+		//    runs `images`-built binaries; RC artifacts come from the
+		//    same workflow batch. A red workflow guarantees a red
+		//    canary, so checking the workflow first surfaces the
+		//    actionable root cause before the operator stares at a
+		//    guaranteed-fail canary diagnostic.
+		allPassed := checkStableWorkflowGate(release.WorkflowImages, "images", rcCommit, rcShort, "SKIP_IMAGES")
 		allPassed = checkStableWorkflowGate(release.WorkflowTestHardening, "test-hardening", rcCommit, rcShort, "SKIP_TEST_HARDENING") && allPassed
 		allPassed = checkStableWorkflowGate(release.WorkflowTestInstall, "test-install", rcCommit, rcShort, "SKIP_TEST_INSTALL") && allPassed
 
@@ -1029,6 +1021,31 @@ gate's invariant has NOT been verified for the SHA):
 		//    build. Moving the gate forward restores the invariant that
 		//    nothing is tagged before everything is checked.
 		allPassed = checkRCArtifactGate(latestRC) && allPassed
+
+		// 5. Canary observational gates. Verifies that the RC's commit has
+		//    actually deployed AND reached `state='completed'` on every
+		//    canary slot before we tag stable. The check observes; it does
+		//    NOT trigger upgrades — operators choose how (web UI, CLI,
+		//    push-to-deploy branch, manual psql). Implicitly verifies
+		//    every esoteric interaction (systemd timeouts, OS compat,
+		//    OOM, worker drain, post-restore fixups) because all of them
+		//    are upstream of the 'completed' state.
+		//
+		//    Canary checks run AFTER the workflow + artifact gates
+		//    because canary 'completed' state is downstream of those:
+		//    the slot's upgrade-service consumes ghcr images that
+		//    `images` builds, and operators don't typically push-to-
+		//    deploy a slot until test-hardening + test-install go
+		//    green. Reordering surfaced this — pre-fix canary fired
+		//    first and gave the operator a guaranteed-fail diagnostic
+		//    before the actionable workflow result. Canary checks
+		//    still run unconditionally (not short-circuited on
+		//    workflow result) so the operator gets the FULL status
+		//    picture, but they now appear in the chain after the
+		//    upstream signals they depend on.
+		//
+		//    Bypass per slot: STATBUS_SKIP_CANARY=<label>[,<label>...].
+		allPassed = checkCanaryGates(rcCommit) && allPassed
 
 		if !allPassed {
 			return fmt.Errorf("pre-flight checks failed")
