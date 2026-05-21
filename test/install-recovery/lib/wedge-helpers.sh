@@ -160,7 +160,7 @@ simulate_worker_busy() {
 # service.go's Run loop): Layer 1 catches normal systemd-triggered
 # SIGTERM gracefully, but a direct kill -9 still bypasses it. Test that
 # `recoverFromFlag` at next install correctly handles the resulting
-# state (snapshot-restore via Layer 2's --recovery=auto).
+# state (snapshot-restore via the unified forward-then-restore path).
 # ─────────────────────────────────────────────────────────────────────────
 simulate_sigkill_upgrade_service() {
     local vm_name="$1"
@@ -180,4 +180,122 @@ simulate_sigkill_upgrade_service() {
         echo "[wedge] no upgrade-service process found within 30s" >&2
         exit 1
     '
+}
+
+# ─────────────────────────────────────────────────────────────────────────
+# wait_for_inject_stall_ready <vm_name> <release_file>
+#
+# Polls inside the VM for the inject.StallHere primitive to be active at
+# the canonical migrate-up site. "Active" means:
+#
+#   (a) the release file (passed to STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE)
+#       exists on disk — sanity check that we set it up correctly, and
+#   (b) at least one `./sb migrate up` subprocess is running, and
+#   (c) the process has been alive long enough to have plausibly reached
+#       runUp's per-migration loop.
+#
+# Returns 0 once (a)+(b)+(c) hold continuously for one poll interval;
+# returns 1 after MAX_WAIT_S without observing.
+#
+# Note: the canonical-case stalls fire AFTER a migration's outer
+# transaction commits — so once the migrate subprocess has been alive
+# in the stall state for >5 s, the partial-state RED has been achieved
+# (the first pending migration is committed; its db.migration row is
+# missing). Callers should then send SIGKILL to the chosen target PID.
+# ─────────────────────────────────────────────────────────────────────────
+wait_for_inject_stall_ready() {
+    local vm_name="$1"
+    local release_file="$2"
+    local max_wait_s="${3:-300}"
+    local poll_s=3
+    local stable_s=10
+    local stable_since=""
+    local elapsed=0
+
+    echo "  [wedge] waiting for inject.StallHere to be active on $vm_name"
+    echo "          release_file=$release_file, max_wait=${max_wait_s}s"
+
+    while [ "$elapsed" -lt "$max_wait_s" ]; do
+        # Bundle the three checks into one ssh round-trip so a flaky link
+        # doesn't make us miss the window.
+        local probe
+        probe=$(VM_EXEC bash -c "
+            REL='$release_file'
+            REL_PRESENT=0; [ -f \"\$REL\" ] && REL_PRESENT=1
+            MIGRATE_PID=\$(pgrep -f '/sb migrate up' 2>/dev/null | head -1 || echo '')
+            STARTED_AT=''
+            if [ -n \"\$MIGRATE_PID\" ]; then
+                STARTED_AT=\$(ps -o lstart= -p \"\$MIGRATE_PID\" 2>/dev/null || echo '')
+            fi
+            echo \"REL_PRESENT=\$REL_PRESENT MIGRATE_PID=\$MIGRATE_PID STARTED_AT=\$STARTED_AT\"
+        " 2>/dev/null || echo "REL_PRESENT=? MIGRATE_PID= STARTED_AT=")
+
+        local rel_present migrate_pid
+        rel_present=$(echo "$probe" | sed -n 's/.*REL_PRESENT=\([^ ]*\).*/\1/p')
+        migrate_pid=$(echo "$probe" | sed -n 's/.*MIGRATE_PID=\([^ ]*\).*/\1/p')
+
+        if [ "$rel_present" = "1" ] && [ -n "$migrate_pid" ]; then
+            if [ -z "$stable_since" ]; then
+                stable_since="$elapsed"
+                echo "  [wedge] migrate subprocess detected (PID=$migrate_pid) — confirming stall stability"
+            elif [ $((elapsed - stable_since)) -ge "$stable_s" ]; then
+                echo "  [wedge] stall confirmed: migrate PID=$migrate_pid alive for $((elapsed - stable_since))s with release file present"
+                # Echo the PID on stdout for the caller to capture.
+                echo "$migrate_pid"
+                return 0
+            fi
+        else
+            if [ -n "$stable_since" ]; then
+                echo "  [wedge] stall stability broken (rel=$rel_present pid=$migrate_pid) — resetting"
+            fi
+            stable_since=""
+        fi
+        sleep "$poll_s"
+        elapsed=$((elapsed + poll_s))
+    done
+
+    echo "  [wedge] timed out after ${max_wait_s}s waiting for stall" >&2
+    return 1
+}
+
+# ─────────────────────────────────────────────────────────────────────────
+# kill_pid_in_vm <vm_name> <pid> [signal]
+#
+# Send `signal` (default KILL) to `pid` inside the VM. Wraps the ssh
+# round-trip so scenario scripts read cleanly.
+# ─────────────────────────────────────────────────────────────────────────
+kill_pid_in_vm() {
+    local vm_name="$1"
+    local pid="$2"
+    local sig="${3:-KILL}"
+    echo "  [wedge] kill -$sig $pid on $vm_name"
+    VM_EXEC bash -c "kill -$sig $pid 2>&1 || true"
+}
+
+# ─────────────────────────────────────────────────────────────────────────
+# pgrep_upgrade_service_parent <vm_name>
+#
+# Returns the PID of the upgrade-service process (the Go binary's
+# `executeUpgrade` parent) running install-dispatched inside the VM. The
+# install-dispatched path lives in `./sb install`'s process, NOT in the
+# systemd `./sb upgrade service`. We look for the most recently started
+# `./sb install` process that is NOT a child of bash (i.e. the actual Go
+# binary, not the wrapper shell).
+# ─────────────────────────────────────────────────────────────────────────
+pgrep_upgrade_service_parent() {
+    local vm_name="$1"
+    VM_EXEC bash -c "pgrep -nf '/sb install' 2>/dev/null || true"
+}
+
+# ─────────────────────────────────────────────────────────────────────────
+# remove_release_file_in_vm <vm_name> <release_file>
+#
+# Cleanup helper. The harness writes the release file before triggering
+# the stalling install, and removes it once the relevant processes are
+# dead. Idempotent — safe to call when the file is already gone.
+# ─────────────────────────────────────────────────────────────────────────
+remove_release_file_in_vm() {
+    local vm_name="$1"
+    local release_file="$2"
+    VM_EXEC bash -c "rm -f '$release_file' 2>&1 || true"
 }

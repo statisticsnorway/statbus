@@ -127,6 +127,63 @@ assert_step9_completed() {
     return 1
 }
 
+# Verify the latest public.upgrade row's `error` column matches a regex.
+# Used to confirm the augmented narrative landed: "forward failed: <err>;
+# auto-restored from <path>". Empty actual is treated as failure.
+assert_upgrade_row_error_matches() {
+    local vm_name="$1"
+    local pattern="$2"
+    local actual
+
+    actual=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT error FROM public.upgrade ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null)
+    if [ -z "$actual" ]; then
+        echo "  ✗ upgrade row error column empty (expected match for $pattern)"
+        return 1
+    fi
+    if echo "$actual" | grep -E "$pattern" >/dev/null; then
+        echo "  ✓ upgrade row error matches /$pattern/ (got: ${actual:0:120}...)"
+        return 0
+    fi
+    echo "  ✗ upgrade row error does NOT match /$pattern/"
+    echo "    actual: $actual"
+    return 1
+}
+
+# Verify the upgrade flag file is absent in tmp/. After successful recovery
+# (either Layer 0 in-process or Layer 2 next-install), the flag MUST be
+# gone — its presence would mean the next install detects a stale flag
+# and re-enters recovery loop.
+assert_flag_file_absent() {
+    local vm_name="$1"
+    local present
+
+    present=$(VM_EXEC bash -c 'ls ~/statbus/tmp/upgrade-in-progress.json 2>/dev/null | wc -l' 2>/dev/null | tr -d ' ' || echo "0")
+    if [ "$present" = "0" ]; then
+        echo "  ✓ upgrade flag file absent"
+        return 0
+    fi
+    echo "  ✗ upgrade flag file STILL PRESENT — recovery did not clean up"
+    VM_EXEC bash -c 'cat ~/statbus/tmp/upgrade-in-progress.json 2>/dev/null' || true
+    return 1
+}
+
+# Verify the current db.migration max version. Used during stall-active
+# checks to confirm the partial-state shape (committed but unrecorded
+# migration).
+assert_db_migration_max_version_unchanged() {
+    local vm_name="$1"
+    local baseline="$2"
+    local actual
+
+    actual=$(VM_EXEC bash -c "cd ~/statbus && echo 'SELECT COALESCE(MAX(version), 0) FROM db.migration;' | ./sb psql -t -A" 2>/dev/null | tr -d ' ' || echo "0")
+    if [ "$actual" = "$baseline" ]; then
+        echo "  ✓ db.migration max_version = baseline ($baseline) — partial-state confirmed"
+        return 0
+    fi
+    echo "  ✗ db.migration max_version drifted: baseline=$baseline actual=$actual"
+    return 1
+}
+
 # Verify that all 15 install steps reached completion (i.e. step 15 ran).
 # Step 15 is where the systemd reset-failed lives.
 assert_step15_completed() {

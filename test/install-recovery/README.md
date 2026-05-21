@@ -48,11 +48,11 @@ Each scenario is **a fresh Multipass VM**, no state shared. Per-scenario isolati
 | 05 | `stage-c-systemd-failed` | Trip StartLimitBurst (>10 starts in 600s) | **Fix 4** systemctl reset-failed in step 15 |
 | 06 | `stage-d-empty-app-advisory` | Open `pg_advisory_lock(migrate_up)` + SIGKILL the script | **Fix 6** Phase 2 PID-liveness + empty-app-name catch-all |
 | 07 | `stage-e-worker-busy` | Queue heavy worker tasks; install while worker is processing | **Fix 8** worker excluded from advisory_holders count, **Fix 9** no false-fail on pool busy, **Fix 10** psql-only filter |
-| 08 | `stage-f-sigkill-mid-upgrade` *(TBD)* | `kill -9` upgrade-service Go process mid-migrate | Layer 1 (signal handler), Layer 2 (`--recovery=auto`), Layer 3 (orphan backup cleanup) |
+| 08 | `sigkill-canonical-layer2` | Real SIGKILL during the canonical ~ms window (committed migration, `db.migration` row missing). Two stages: (1) kill the migrate subprocess → Layer 0 in-process `postSwapFailure` recovery; (2) kill the upgrade-service parent → Layer 2 next-install `recoverFromFlag` recovery. | Principled forward-then-restore (commit `fc5ae7cf7`), `inject.StallHere` primitives (`cli/internal/inject`), Layer 3 backup cleanup |
 | 09 | `bool-text-regression` | Healthy install, re-run with worker active | **Fix 11** drop bool::text cast in checkSessionsClean |
-| 10 | `stage-g-non-idempotent-migration` *(TBD)* | Custom migration with side-effects, SIGKILL mid-flight | Layer 2's `--recovery=auto` heuristic |
+| 10 | `stage-g-non-idempotent-migration` *(TBD)* | Custom migration with side-effects, SIGKILL mid-flight | Layer 0 / Layer 2 forward-then-restore on non-idempotent migration shapes |
 
-`*(TBD)*` = scaffolded but scenario logic not yet implemented (depends on Layer 2 of the rollback-hole plug).
+`*(TBD)*` = scaffolded but scenario logic not yet implemented.
 
 ## Fix-to-scenario reverse mapping
 
