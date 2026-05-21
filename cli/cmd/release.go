@@ -991,12 +991,27 @@ gate's invariant has NOT been verified for the SHA):
 		fmt.Printf("  ✓ Latest RC %s (target %s) exists\n", latestRC, rcShort)
 		fmt.Printf("  ✓ Stable patch %d is next-in-sequence for %s\n", nextPatch, prefix)
 
-		// 3. Three workflow gates AT THE RC's commit (not HEAD). Each is
+		// 3. Canary observational gates. Verifies that the RC's commit has
+		//    actually deployed AND reached `state='completed'` on every
+		//    canary slot before we tag stable. The check observes; it does
+		//    NOT trigger upgrades — operators choose how (web UI, CLI,
+		//    push-to-deploy branch, manual psql). Implicitly verifies
+		//    every esoteric interaction (systemd timeouts, OS compat,
+		//    OOM, worker drain, post-restore fixups) because all of them
+		//    are upstream of the 'completed' state.
+		//
+		//    Positioned BEFORE the GHA workflow gates because canary SSH
+		//    probes (10s connect timeout, fast query) typically finish
+		//    before the GHA polling does — fail fast on observational
+		//    signal before paying GHA latency. Bypass per slot via
+		//    STATBUS_SKIP_CANARY=<label>[,<label>...] (e.g. dev,no).
+		allPassed := checkCanaryGates(rcCommit)
+
+		// 4. Three workflow gates AT THE RC's commit (not HEAD). Each is
 		//    independent — all three always run, all three must pass
 		//    (modulo SKIP_*=1 operator bypass). The gates check the
 		//    invariants that the RC tag's push triggered: image build,
 		//    setup hardening, end-to-end install.
-		allPassed := true
 		allPassed = checkStableWorkflowGate(release.WorkflowImages, "images", rcCommit, rcShort, "SKIP_IMAGES") && allPassed
 		allPassed = checkStableWorkflowGate(release.WorkflowTestHardening, "test-hardening", rcCommit, rcShort, "SKIP_TEST_HARDENING") && allPassed
 		allPassed = checkStableWorkflowGate(release.WorkflowTestInstall, "test-install", rcCommit, rcShort, "SKIP_TEST_INSTALL") && allPassed
