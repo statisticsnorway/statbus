@@ -1734,10 +1734,17 @@ func findReleaseTag(tags string) string {
 	return ""
 }
 
-// seedBranchPattern matches branches of the form `seed/<12-hex>`
+// seedBranchPattern matches branches of the form `seed/<short-sha>`
 // written by `./sb db seed create`. The SHA portion is the short
 // (seedSHALen-char) project commit the seed pins to.
-var seedBranchPattern = regexp.MustCompile(`^seed/[0-9a-f]{12}$`)
+//
+// Keyed off seedSHALen (cli/cmd/seed.go) so the regex stays in lockstep
+// with the writer's shape. Pre-fix this was a hard-coded `{12}` while
+// publishSeedPinBranch wrote `{8}` — the regex matched zero existing
+// branches, cleanupSeedBranches silently skipped every one, and origin
+// accumulated 45+ stale `seed/*` branches before the drift was caught.
+// Computing the regex from the constant prevents that class of bug.
+var seedBranchPattern = regexp.MustCompile(fmt.Sprintf(`^seed/[0-9a-f]{%d}$`, seedSHALen))
 
 // cleanupSeedBranches sweeps origin's `seed/<sha>` branches and
 // deletes those whose retention no longer serves any purpose:
