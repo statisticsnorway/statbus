@@ -52,6 +52,7 @@ BEGIN
 
     INSERT INTO worker.tasks (command, payload, parent_id, priority, depth)
     VALUES (p_command, p_payload, p_parent_id, v_priority, v_depth)
+    ON CONFLICT DO NOTHING
     RETURNING id INTO v_task_id;
 
     PERFORM pg_notify('worker_tasks', (
