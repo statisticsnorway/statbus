@@ -224,7 +224,7 @@ SELECT payload->>'resolution' AS resolution,
 FROM worker.tasks
 WHERE command = 'derive_statistical_history_period'
 GROUP BY 1,2,3
-ORDER BY resolution, lower(hash_partition) NULLS FIRST;
+ORDER BY resolution, lower(NULLIF(payload->>'hash_partition', '')::int4range) NULLS FIRST;
 ROLLBACK TO SAVEPOINT diag;
 
 \echo "--- year=2021 hash_partition spawns specifically [as postgres] ---"
@@ -243,7 +243,7 @@ ROLLBACK TO SAVEPOINT diag;
 SAVEPOINT diag;
 SELECT id, command, state, LEFT(COALESCE(error, ''), 200) AS error_short, payload
 FROM worker.tasks
-WHERE state IN ('failed', 'error')
+WHERE state = 'failed'
   AND (command LIKE 'derive_%' OR command LIKE 'statistical_%')
 ORDER BY id
 LIMIT 20;

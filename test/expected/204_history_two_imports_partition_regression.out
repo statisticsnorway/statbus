@@ -1638,10 +1638,21 @@ SELECT payload->>'resolution' AS resolution,
 FROM worker.tasks
 WHERE command = 'derive_statistical_history_period'
 GROUP BY 1,2,3
-ORDER BY resolution, lower(hash_partition) NULLS FIRST;
-ERROR:  column "hash_partition" does not exist
-LINE 9: ORDER BY resolution, lower(hash_partition) NULLS FIRST;
-                                   ^
+ORDER BY resolution, lower(NULLIF(payload->>'hash_partition', '')::int4range) NULLS FIRST;
+ resolution | hash_partition |   state   | task_count | total_rows_inserted 
+------------+----------------+-----------+------------+---------------------
+ year       | [0,4096)       | completed |          7 |                  14
+ year       | [4096,8192)    | completed |          7 |                   7
+ year       | [7113,7114)    | completed |          7 |                   7
+ year       | [12292,12293)  | completed |          7 |                   7
+ year       | [14449,14450)  | completed |          7 |                   7
+ year-month | [0,4096)       | completed |         77 |                 154
+ year-month | [4096,8192)    | completed |         77 |                  77
+ year-month | [7113,7114)    | completed |         77 |                  77
+ year-month | [12292,12293)  | completed |         77 |                  77
+ year-month | [14449,14450)  | completed |         77 |                  77
+(10 rows)
+
 ROLLBACK TO SAVEPOINT diag;
 \echo "--- year=2021 hash_partition spawns specifically [as postgres] ---"
 "--- year=2021 hash_partition spawns specifically [as postgres] ---"
@@ -1669,13 +1680,14 @@ ROLLBACK TO SAVEPOINT diag;
 SAVEPOINT diag;
 SELECT id, command, state, LEFT(COALESCE(error, ''), 200) AS error_short, payload
 FROM worker.tasks
-WHERE state IN ('failed', 'error')
+WHERE state = 'failed'
   AND (command LIKE 'derive_%' OR command LIKE 'statistical_%')
 ORDER BY id
 LIMIT 20;
-ERROR:  invalid input value for enum worker.task_state: "error"
-LINE 3: WHERE state IN ('failed', 'error')
-                                  ^
+ id | command | state | error_short | payload 
+----+---------+-------+-------------+---------
+(0 rows)
+
 ROLLBACK TO SAVEPOINT diag;
 \echo "--- statistical_unit snapshot at read time used by derive_statistical_history (proxy: full table as postgres) ---"
 "--- statistical_unit snapshot at read time used by derive_statistical_history (proxy: full table as postgres) ---"
