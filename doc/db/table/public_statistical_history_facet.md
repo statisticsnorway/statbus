@@ -50,8 +50,8 @@ Indexes:
     "idx_statistical_history_facet_stats_summary" gin (stats_summary jsonb_path_ops)
     "idx_statistical_history_facet_unit_type" btree (unit_type)
     "idx_statistical_history_facet_year" btree (year)
-    "statistical_history_facet_month_key" UNIQUE, btree (resolution, year, month, unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path, legal_form_id, physical_region_path, physical_country_id) WHERE resolution = 'year-month'::history_resolution
-    "statistical_history_facet_year_key" UNIQUE, btree (year, month, unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path, legal_form_id, physical_region_path, physical_country_id) WHERE resolution = 'year'::history_resolution
+    "statistical_history_facet_month_key" UNIQUE, btree (resolution, year, month, unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path, legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id) NULLS NOT DISTINCT WHERE resolution = 'year-month'::history_resolution
+    "statistical_history_facet_year_key" UNIQUE, btree (year, month, unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path, legal_form_id, physical_region_path, physical_country_id, unit_size_id, status_id) NULLS NOT DISTINCT WHERE resolution = 'year'::history_resolution
 Policies:
     POLICY "statistical_history_facet_admin_user_manage"
       TO admin_user
