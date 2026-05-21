@@ -150,8 +150,30 @@ var classes = map[string]Kind{
 	//     detects crashed-upgrade and runs Layer 2 recovery via
 	//     recoverFromFlag (forward fails on "relation already exists";
 	//     falls through to rsync-restore).
-	"migrate-subprocess-killed-after-commit-before-recorded":      KindStall,
-	"upgrade-service-parent-killed-after-commit-before-recorded":  KindStall,
+	"migrate-subprocess-killed-after-commit-before-recorded":     KindStall,
+	"upgrade-service-parent-killed-after-commit-before-recorded": KindStall,
+
+	// Layer 1 territory — systemd TimeoutStartSec drives SIGTERM at
+	// the configured timeout. The signal IS catchable (the upgrade-
+	// service's signal handler from #101 acts on it), but if the
+	// in-flight operation cannot wind down before systemd escalates
+	// to SIGKILL, the result is a restart loop. Registered now;
+	// scenarios that wire the call sites land later.
+	//
+	//   service-startup-slower-than-systemd-unit-timeout
+	//     The upgrade-service's startup phase (boot migrate up + main-
+	//     loop initialization, pre-READY=1) blows past TimeoutStartSec.
+	//     systemd SIGTERMs; the service has limited time to handle
+	//     gracefully before SIGKILL escalation.
+	//
+	//   migration-slower-than-systemd-unit-timeout
+	//     A single migration's SQL execution exceeds the unit's
+	//     remaining timeout budget (after sd_notify EXTEND_TIMEOUT_USEC
+	//     ticks, ~120 s each — Fix 1's heartbeat). The harness can
+	//     simulate this by stalling at the per-migration loop iteration
+	//     in migrate.runUp.
+	"service-startup-slower-than-systemd-unit-timeout": KindStall,
+	"migration-slower-than-systemd-unit-timeout":       KindStall,
 
 	// Concurrent-install detection (probe 2 — live-upgrade refusal).
 	"concurrent-install-attempted-during-migrate-up": KindStall,

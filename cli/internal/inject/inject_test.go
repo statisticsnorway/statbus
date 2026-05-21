@@ -261,6 +261,9 @@ func TestRegistry_AllClassesSeeded(t *testing.T) {
 		// Canonical Layer 2 case — harness sends real SIGKILL.
 		"migrate-subprocess-killed-after-commit-before-recorded":     KindStall,
 		"upgrade-service-parent-killed-after-commit-before-recorded": KindStall,
+		// Layer 1 systemd-timeout cases (call sites land with scenarios).
+		"service-startup-slower-than-systemd-unit-timeout": KindStall,
+		"migration-slower-than-systemd-unit-timeout":       KindStall,
 		// Concurrent-install detection.
 		"concurrent-install-attempted-during-migrate-up": KindStall,
 	}
