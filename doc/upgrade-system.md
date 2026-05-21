@@ -147,6 +147,78 @@ Called once at service startup, before the main loop begins. Also called by `./s
 
 This is the ground-truth for "service autocorrects on startup." It is not optional, not a sweep, not belt-and-suspenders — it runs every time the service process starts (including every systemd restart) and must leave the server consistent before the main loop ticks.
 
+## One principled recovery path
+
+There is exactly one recovery algorithm in production code: **try forward; on failure, rsync-restore from the pre-upgrade snapshot and mark `rolled_back`**. No mode parameter exists, no operator-facing `--recovery` flag selects between strategies. The unified path applies across both recovery arms inside `recoverFromFlag`:
+
+- **Arm A — PreSwap, HEAD matches target, "db.migration max version" reason.** The binary swap landed but the migration record didn't catch up. `migrate.Up` runs inline; on success the row marks `completed`; on failure `recoveryRollback` invokes the full restore pipeline with the unified narrative ("forward failed: `<err>`; auto-restored from `<path>`" when `BackupPath` is stamped, "forward failed without usable backup: `<err>`" otherwise).
+
+- **Arm B — PostSwap, mid-applyPostSwap step failure.** Each of the nine post-swap failure sites (config generate, docker pull, db up, db health, reconnect, recreate-database, migrate up, services up, healthcheck) routes through `postSwapFailure`, a single-source-of-truth helper that runs the rsync-restore pipeline via `d.rollback()` and returns a wrapped error carrying the same narrative prefix.
+
+The narrative ("forward failed: …; auto-restored from …") appears verbatim in the row's `error` column regardless of which arm or which step tripped. Operators read one consistent shape across all upgrade-recovery outcomes.
+
+**Why no operator override.** Forward-recovery is deterministically broken in the canonical Layer 2 case (SIGKILL between a migration's outer-transaction commit and the `db.migration` INSERT) — re-attempting forward fails on "relation already exists". Restore is the only path that produces a coherent terminal state. Adding a `forward`-only operator mode would let an operator wedge their own system; the unified path removes the gun.
+
+**Daemon and operator paths agree.** Both `./sb upgrade service` and `./sb install`'s crashed-upgrade dispatch run the same algorithm via the same code. Identical decisions; no surprise divergence.
+
+## Harness-only fault injection
+
+Recovery is validated via deterministic fault injection at named sites in the production code. Production code carries the injection call sites but they are no-ops costing one `os.Getenv` read each unless the harness activates them via environment variables. **Operators must not set these variables.**
+
+### The three primitives (`cli/internal/inject`)
+
+- **`inject.KillHere(name)`** — `os.Exit(137)` when `STATBUS_INJECT_AT` matches. Exit code 137 mirrors shell-visible SIGKILL status (128+9) so harness assertions can distinguish "killed at the intended site" from other process failures.
+- **`inject.ErrorHere(name) error`** — returns a named injected error when active; `nil` otherwise. Drives recovery through error branches the harness cannot reach via real-world flakiness.
+- **`inject.StallHere(name)`** — blocks while `STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE` exists; returns once the harness removes the file. Used for concurrent-detection scenarios (probe 2 live-upgrade refusal) and as a building block for externally-triggered SIGKILL at a precise pipeline point.
+
+### Activation envelope
+
+| Variable | Purpose |
+|---|---|
+| `STATBUS_INJECT_AT` | Selects the active injection class. Matched verbatim against call-site names registered in `cli/internal/inject/inject.go`. |
+| `STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE` | Only meaningful for stall classes. Names the release file whose deletion ends the stall. |
+
+`inject.Validate()` runs at the top of `cmd.Execute` before any subcommand dispatches. Inconsistent combinations exit 2 with a clear diagnostic; the harness cannot silently misconfigure into a vacuous "pass". Truth table:
+
+| `STATBUS_INJECT_AT` | `_STALL_UNTIL_REMOVED_FILE` | Verdict |
+|---|---|---|
+| unset | unset | Valid (production run) |
+| unset | set | REJECT — file without class |
+| set, unknown class | any | REJECT — unknown class name (typo protection) |
+| set, kill class | unset | Valid |
+| set, kill class | set | REJECT — file set for non-stall class |
+| set, error class | unset | Valid |
+| set, error class | set | REJECT — file set for non-stall class |
+| set, stall class | unset | REJECT — stall requires release file |
+| set, stall class | set | Valid |
+
+### Naming discipline
+
+Each class names the real-world failure being simulated, not the code site. Format: `<real-world-cause>-<phase>-<detail>`. A scenario author reads the name and instantly knows what is being simulated, without reading the code where the primitive fires.
+
+### Registered classes
+
+| Class | Kind | What it simulates |
+|---|---|---|
+| `killed-by-system-during-preswap-backup` | kill | OS / orchestrator kills the upgrade while taking the pre-upgrade DB snapshot |
+| `killed-by-system-during-preswap-checkout` | kill | killed during `git checkout` of the target commit |
+| `killed-by-system-during-binary-swap` | kill | killed during `replaceBinaryOnDisk` |
+| `killed-by-system-during-individual-migration-execution` | kill | killed inside a single migration's outer transaction (rollback by Postgres) |
+| `killed-by-system-between-migrations` | kill | killed in the loop body between two migrations (state is recorded, partial) |
+| `migrate-subprocess-killed-after-commit-before-recorded` | stall | **canonical Layer 2 case — Layer 0 in-process recovery.** Stalls the migrate subprocess in the ~ms window between a migration's outer-transaction commit and the `db.migration` INSERT. The harness sends real SIGKILL to the **migrate subprocess**; the parent `applyPostSwap` catches the subprocess death and runs the in-process forward-then-restore via `postSwapFailure`. Row ends `rolled_back` in-process. |
+| `upgrade-service-parent-killed-after-commit-before-recorded` | stall | **canonical Layer 2 case — Layer 2 next-install recovery.** Same stall point as the subprocess variant, but the harness sends real SIGKILL to the **upgrade-service parent PID** (and the now-orphan migrate subprocess). The flag file is left behind, the row stays `in_progress`, and the partial migration persists with the `db.migration` row missing. The next `./sb install` detects crashed-upgrade and runs `recoverFromFlag`; forward-recovery fails on "relation already exists" and falls through to rsync-restore. |
+| `killed-by-system-during-container-restart` | kill | killed mid-`docker compose up` during postswap restart |
+| `killed-by-system-during-builtin-rollback` | kill | killed while the built-in rollback pipeline is running |
+| `concurrent-install-attempted-during-migrate-up` | stall | first install holds inside `migrate.runUp`; a second install starts and must hit probe 2 (live-upgrade refusal) |
+
+The two canonical-case classes are stall variants rather than in-process `os.Exit`s on purpose: real signal-induced termination (`WIFEXITED=0`, `WTERMSIG=SIGKILL`, systemd's `Result=signal`) is observably different from a Go-runtime `os.Exit` and the production wedge we are validating is the real-signal case. The `KillHere` primitive remains in the package for future scenarios where in-process exit IS the simulated mechanism (e.g. panic-recovery branches).
+
+Active call sites today: both canonical-case stalls fire at the same line in `cli/internal/migrate/migrate.go`'s `runUp`; `concurrent-install-attempted-during-migrate-up` fires just before `listAppliedVersions`. The remaining seven kill classes are registered in the inventory but their call sites land as scenarios in the install-recovery harness surface them. The registry is the single source of truth: adding a class name is the only operation that makes a new injection point valid.
+
+### Operator warning
+
+These environment variables exist solely to drive the install-recovery harness. Production runs leave them unset. If you find them set on a real install, treat that the same way you would treat `--inside-active-upgrade` showing up in a manual invocation — something is wrong.
+
 ## Mutex acquire in `./sb install`
 
 See `cli/cmd/install.go:acquireOrBypass` and `cli/internal/upgrade/service.go:AcquireInstallFlag`. The acquire is gated on dispatch: only the step-table path acquires; the inline-upgrade path delegates mutex ownership to `executeUpgrade`.
