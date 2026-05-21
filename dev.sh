@@ -221,6 +221,132 @@ check_stamp_guard() {
 action=${1:-}
 shift || true
 
+# ── Expected-output guardrail ─────────────────────────────────────────
+#
+# Used by `./dev.sh test ... --update-expected` and `make-all-failed-test-
+# results-expected`. Detects NEW ERROR/FATAL/PANIC lines that the regen
+# would introduce into a test/expected/*.out file. If any new error
+# lacks a WANTED-context marker in the surrounding result (SAVEPOINT,
+# \set ON_ERROR_STOP off, DO $$ EXCEPTION block, or "-- expected to
+# fail" comment), BLOCK the regen with an educational message.
+#
+# Rationale: silently baselining a real error into expected hides bugs
+# from CI. Future runs match the bug; everyone forgets it's there; it
+# grows roots. This forces a deliberate decision at regen time.
+#
+# Cascade errors ("current transaction is aborted, commands ignored")
+# are skipped — consequences of an earlier ERROR, not new failures.
+#
+# Override (rare, deliberate): ACCEPT_NEW_ERRORS=true
+
+_unmarked_new_errors=""
+
+_has_wanted_marker() {
+  local file="$1" center_line="$2"
+  local start=$((center_line - 10))
+  [ $start -lt 1 ] && start=1
+  local end=$((center_line + 5))
+  sed -n "${start},${end}p" "$file" | grep -qE '\\set ON_ERROR_STOP off|^SAVEPOINT[[:space:]]+[a-zA-Z_][a-zA-Z0-9_]*|^DO[[:space:]]+\$\$|--[[:space:]]*(expected|will|should)[[:space:]]+(to[[:space:]]+)?(fail|error)'
+}
+
+_check_new_errors() {
+  local expected="$1" result="$2"
+  _unmarked_new_errors=""
+
+  local error_linenums
+  if [ ! -f "$expected" ]; then
+    error_linenums=$(grep -nE '^(ERROR|FATAL|PANIC):' "$result" 2>/dev/null | cut -d: -f1 || true)
+  else
+    error_linenums=$(diff -u "$expected" "$result" 2>/dev/null | awk '
+      /^@@/ {
+        for (i = 1; i <= NF; i++) {
+          if ($i ~ /^\+/) {
+            sub(/^\+/, "", $i)
+            split($i, a, ",")
+            new_line = a[1] - 1
+            break
+          }
+        }
+        next
+      }
+      /^---/ || /^\+\+\+/ { next }
+      /^\+/ {
+        new_line++
+        if (/^\+(ERROR|FATAL|PANIC):/) print new_line
+        next
+      }
+      /^-/ { next }
+      { new_line++ }
+    ' || true)
+  fi
+
+  [ -z "$error_linenums" ] && return 0
+
+  local lineno line_text
+  while IFS= read -r lineno; do
+    [ -z "$lineno" ] && continue
+    line_text=$(sed -n "${lineno}p" "$result")
+    if echo "$line_text" | grep -q "current transaction is aborted"; then
+      continue
+    fi
+    if ! _has_wanted_marker "$result" "$lineno"; then
+      _unmarked_new_errors="${_unmarked_new_errors}  ${expected#$WORKSPACE/}:${lineno}: ${line_text}"$'\n'
+    fi
+  done <<< "$error_linenums"
+
+  [ -z "$_unmarked_new_errors" ] && return 0
+  return 1
+}
+
+safe_update_expected() {
+  local result="$1" expected="$2"
+  if _check_new_errors "$expected" "$result"; then
+    cp "$result" "$expected"
+    return 0
+  fi
+
+  if [ "${ACCEPT_NEW_ERRORS:-false}" = "true" ]; then
+    echo "  WARNING (ACCEPT_NEW_ERRORS=true override): baselining unmarked error(s):" >&2
+    printf '%s' "$_unmarked_new_errors" >&2
+    cp "$result" "$expected"
+    return 0
+  fi
+
+  cat >&2 <<EOF
+
+═══════════════════════════════════════════════════════════════════════
+BLOCKED: ${expected#$WORKSPACE/} would gain ERROR/FATAL/PANIC line(s) without WANTED-context markers.
+
+Unmarked new error(s):
+${_unmarked_new_errors}
+WHY: silently baselining unexpected errors into expected files hides
+bugs from CI. Future runs match the bug; everyone forgets it's there;
+it grows roots.
+
+FIX OPTIONS:
+
+  1. INTENTIONAL (bug-capture for TDD, or testing a failure path)
+     — add an explicit marker to the test SQL:
+       - Wrap in SAVEPOINT sp_<name> / ROLLBACK TO SAVEPOINT sp_<name>, OR
+       - Bracket with \\set ON_ERROR_STOP off ... \\set ON_ERROR_STOP on, OR
+       - Use DO \$\$ ... EXCEPTION WHEN ... END \$\$ for assertions, OR
+       - Add a comment immediately before the failing line:
+           -- expected to fail with <error class>
+     Then re-run regen. The marker travels into the expected output
+     and the guardrail recognises the intent.
+
+  2. ACCIDENTAL (a real bug surfacing) — FIX THE TEST SQL.
+     Don't baseline the bug. Investigate the failure first.
+
+  3. Deliberate override (rare; cite reason in commit message):
+       ACCEPT_NEW_ERRORS=true ./dev.sh ${action} ...
+
+Hook source: dev.sh safe_update_expected
+═══════════════════════════════════════════════════════════════════════
+EOF
+  exit 1
+}
+
 case "$action" in
     'postgres-variables' )
         SITE_DOMAIN=$(./sb dotenv -f .env get SITE_DOMAIN || echo "local.statbus.org")
@@ -612,7 +738,7 @@ EOF
                 expected_file="$PG_REGRESS_DIR/expected/$test_basename.out"
                 if [ -f "$result_file" ]; then
                     echo "  -> Copying results for $test_basename"
-                    cp "$result_file" "$expected_file"
+                    safe_update_expected "$result_file" "$expected_file"
                 else
                     echo "Warning: Result file not found for test: '$test_basename'. Cannot update expected output."
                 fi
@@ -826,7 +952,7 @@ EOF
             test=$(echo "$test_line" | sed -E 's/not ok[[:space:]]+[0-9]+[[:space:]]+- ([^[:space:]]+).*/\1/')
             if [ -f "$WORKSPACE/test/results/$test.out" ]; then
                 echo "Copying results to expected for test: $test"
-                cp -f "$WORKSPACE/test/results/$test.out" "$WORKSPACE/test/expected/$test.out"
+                safe_update_expected "$WORKSPACE/test/results/$test.out" "$WORKSPACE/test/expected/$test.out"
             else
                 echo "Warning: No results file found for test: $test"
             fi

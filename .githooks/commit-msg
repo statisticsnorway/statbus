@@ -57,4 +57,102 @@ EOF
   exit 1
 fi
 
+# ── Check 2: justify new ERROR/FATAL/PANIC lines in staged expected files ──
+#
+# When a commit touches test/expected/*.out and the diff adds ERROR /
+# FATAL / PANIC lines, require the commit message body to contain a
+# justification line per new error:
+#
+#   expected-error: <file>:<lineno> [— <reason>]
+#
+# WHY: the COMMITTING AGENT owns the durable record of why each
+# expected error is acceptable. The test-SQL marker (SAVEPOINT,
+# ON_ERROR_STOP, EXCEPTION block, "-- expected to fail" comment)
+# proves intent at the test-author level. This commit-msg
+# justification proves intent at the COMMIT level — different actor,
+# different moment, different judgment. Both required = belt +
+# suspenders against silent baseline-of-bugs.
+#
+# Cascade errors ("current transaction is aborted") are skipped —
+# they're consequences of an earlier ERROR, not new failures.
+#
+# Override: git commit --no-verify
+
+STAGED_EXPECTED=$(git diff --cached --name-only --diff-filter=AM 2>/dev/null \
+  | grep -E '^test/expected/.*\.out$' || true)
+
+if [[ -n "$STAGED_EXPECTED" ]]; then
+  MISSING=""
+  while IFS= read -r file; do
+    [[ -z "$file" ]] && continue
+
+    # New ERROR/FATAL/PANIC line numbers in the staged version of $file.
+    NEW_LINENUMS=$(git diff --cached -U0 -- "$file" 2>/dev/null | awk '
+      /^@@/ {
+        for (i = 1; i <= NF; i++) {
+          if ($i ~ /^\+/) {
+            sub(/^\+/, "", $i)
+            split($i, a, ",")
+            new_line = a[1] - 1
+            break
+          }
+        }
+        next
+      }
+      /^---/ || /^\+\+\+/ { next }
+      /^\+/ {
+        new_line++
+        if (/^\+(ERROR|FATAL|PANIC):/) print new_line
+        next
+      }
+      /^-/ { next }
+      { new_line++ }
+    ' || true)
+
+    while IFS= read -r lineno; do
+      [[ -z "$lineno" ]] && continue
+      line_text=$(git show ":0:$file" 2>/dev/null | sed -n "${lineno}p")
+      if echo "$line_text" | grep -q "current transaction is aborted"; then
+        continue
+      fi
+      # Require: a commit-msg line of the form `expected-error: <file>:<lineno>`
+      if ! echo "$STRIPPED" | grep -qE "^[[:space:]]*expected-error:[[:space:]]+${file}:${lineno}([^0-9]|$)"; then
+        MISSING="${MISSING}  ${file}:${lineno}: ${line_text}"$'\n'
+      fi
+    done <<< "$NEW_LINENUMS"
+  done <<< "$STAGED_EXPECTED"
+
+  if [[ -n "$MISSING" ]]; then
+    cat >&2 <<EOF
+COMMIT-MSG BLOCKED: new ERROR/FATAL/PANIC lines in staged
+test/expected/*.out files require per-line justification.
+
+Unjustified new error(s):
+${MISSING}
+WHY: the committing agent must record WHY each expected error is
+acceptable at the moment of commit, in the durable record. Test-SQL
+markers (SAVEPOINT / ON_ERROR_STOP / EXCEPTION / "expected to fail"
+comments) prove the test author's intent; this commit-msg justification
+proves the committing agent's deliberate acceptance.
+
+HOW TO FIX:
+Add one or more lines to your commit message body, one per new error:
+
+  expected-error: <file>:<lineno> — <reason>
+
+Example:
+  expected-error: test/expected/318_facet_drift_self_healing.out:315 — dup-key bug-capture pre-#61 fix; test intentionally fails until the schema-extension migration lands.
+
+The hook matches lines starting with "expected-error:" followed by the
+exact file path + ":" + the new line number in the staged file.
+
+OVERRIDE (strongly discouraged):
+  git commit --no-verify
+
+Hook source: .githooks/commit-msg
+EOF
+    exit 1
+  fi
+fi
+
 exit 0
