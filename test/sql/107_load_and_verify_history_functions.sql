@@ -1069,4 +1069,52 @@ SELECT jsonb_pretty(public.statistical_history_highcharts(
     p_series_codes => ARRAY['countable_count', 'stats_summary.turnover.sum']
 ));
 
+-- Regression #67: catalog-null and data-null leaf acceptance.
+-- The schema-derived catalog (jsonb_stats_to_agg(jsonb_stats_agg(...))) emits
+-- JSON null for stats undefined on the sample: stddev / variance /
+-- coefficient_of_variation_pct when count<2 or variance=0. Pre-fix the
+-- acceptance CASE handled 'number' and 'object' but fell through 'null' to
+-- "Unknown series code"; the extraction CTE cast `(jsonb 'null')::text` to
+-- numeric and crashed. Post-fix: 'null' is accepted as a valid leaf and
+-- yields `[ts, null]` data points (Highcharts gap with connectNulls:false).
+\echo "Test public.statistical_history_highcharts - catalog-null leaf 'stats_summary.employees.stddev' on empty slice resolves via catalog (regression: was Unknown)"
+SELECT jsonb_pretty(public.statistical_history_highcharts(
+    p_resolution => 'year',
+    p_unit_type => 'enterprise',
+    p_year => 9999,
+    p_series_codes => ARRAY['stats_summary.employees.stddev']));
+
+\echo "Test public.statistical_history_highcharts - catalog-null leaf 'stats_summary.employees.variance' on empty slice (regression: was Unknown)"
+SELECT jsonb_pretty(public.statistical_history_highcharts(
+    p_resolution => 'year',
+    p_unit_type => 'enterprise',
+    p_year => 9999,
+    p_series_codes => ARRAY['stats_summary.employees.variance']));
+
+\echo "Test public.statistical_history_highcharts - catalog-null leaf 'stats_summary.employees.coefficient_of_variation_pct' on empty slice (regression: was Unknown)"
+SELECT jsonb_pretty(public.statistical_history_highcharts(
+    p_resolution => 'year',
+    p_unit_type => 'enterprise',
+    p_year => 9999,
+    p_series_codes => ARRAY['stats_summary.employees.coefficient_of_variation_pct']));
+
+\echo "Test public.statistical_history_highcharts - real-data null leaf 'stats_summary.employees.stddev' (regression: was 'invalid input syntax for type numeric')"
+SELECT jsonb_pretty(public.statistical_history_highcharts(
+    p_resolution => 'year-month',
+    p_unit_type => 'enterprise',
+    p_year => 2019,
+    p_series_codes => ARRAY['countable_count','stats_summary.employees.stddev']));
+
+-- Sentinel guard for the test immediately above. The Bug-B regression check
+-- only exercises the numeric-cast fix path if the slice contains at least
+-- one row whose stats_summary.employees.stddev is JSON null. If the
+-- expected value below ever drifts from `t` to `f`, the fixture has lost
+-- that property and the test above no longer guards Bug B — investigate
+-- the fixture rather than silently re-baselining.
+\echo "Test sentinel: confirm 2019 year-month slice contains at least one null-stddev row (otherwise Bug B test above is hollow)"
+SELECT count(*) > 0 AS slice_has_null_stddev_row
+  FROM public.statistical_history sh
+ WHERE sh.resolution='year-month' AND sh.unit_type='enterprise' AND sh.year=2019
+   AND jsonb_typeof(sh.stats_summary #> '{employees,stddev}') = 'null';
+
 \i test/rollback_unless_persist_is_specified.sql

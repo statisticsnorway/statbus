@@ -1,4 +1,20 @@
-```sql
+-- Down migration 20260521160000: highcharts_accept_null_leaves
+--
+-- Restore the pre-fix function body exactly as captured from
+-- `\sf public.statistical_history_highcharts` immediately before the up
+-- migration. Two surgical reversions:
+--
+--   1. Remove the `WHEN 'null' THEN` arm from the acceptance CASE.
+--      `jsonb 'null'` falls through to ELSE → "Unknown series code"
+--      (restores Bug A).
+--   2. Drop `nullif(..., 'null')` from the stats_pairs CTE cast.
+--      `((stats_summary #> path)::text)::numeric` raises on jsonb 'null'
+--      leaves (restores Bug B).
+--
+-- All other body text is unchanged from the captured `\sf` dump.
+
+BEGIN;
+
 CREATE OR REPLACE FUNCTION public.statistical_history_highcharts(p_resolution history_resolution, p_unit_type statistical_unit_type, p_year integer DEFAULT NULL::integer, p_series_codes text[] DEFAULT NULL::text[])
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -143,18 +159,6 @@ BEGIN
                     WHEN 'number' THEN
                         INSERT INTO stats_path_buffer(code, jsonb_path) VALUES (v_req_code, v_path)
                         ON CONFLICT (code) DO NOTHING;  -- caller may pass a duplicate; first wins
-                    WHEN 'null' THEN
-                        -- Catalog (and real data) emit JSON null for statistics
-                        -- undefined on the sample: stddev / variance /
-                        -- coefficient_of_variation_pct when count<2 or variance=0.
-                        -- The path is a STRUCTURALLY VALID leaf; the value is
-                        -- legitimately null. Accept the leaf; the extraction CTE
-                        -- below converts jsonb 'null' → SQL NULL so the data
-                        -- pair `[ts, null]` flows through to Highcharts as a gap.
-                        -- Single arm covers both catalog-null (empty slice) and
-                        -- data-null (populated slice with single-sample row).
-                        INSERT INTO stats_path_buffer(code, jsonb_path) VALUES (v_req_code, v_path)
-                        ON CONFLICT (code) DO NOTHING;
                     WHEN 'object' THEN
                         v_msgs := v_msgs || format('Incomplete series code "%s"', v_req_code);
                         -- HINT enumerates valid sub-keys from the SCHEMA-DERIVED catalog
@@ -267,18 +271,9 @@ BEGIN
         UNION ALL SELECT 'physical_address_change_count',                    jsonb_build_array(ts_epoch_ms, physical_address_change_count),                    ts_epoch_ms FROM base WHERE 'physical_address_change_count'            = ANY(v_static_codes)
     ),
     stats_pairs AS (
-        -- Extract requested stat-path leaves from real rows. The `nullif(..., 'null')`
-        -- guard converts jsonb 'null' (statistics undefined on the sample — stddev /
-        -- variance / coefficient_of_variation_pct when count<2 or variance=0) into
-        -- SQL NULL so the cast to numeric succeeds. SQL-NULL paths (missing key in
-        -- the row's jsonb) already give NULL through `(NULL::jsonb)::text`; nullif
-        -- is a no-op on those. The acceptance CASE above only routes 'number' and
-        -- 'null' leaves into stats_path_buffer, so the literal 4-char text 'null'
-        -- here can only come from jsonb 'null' — not from a JSON string "null"
-        -- whose ::text would render as '"null"' (with quotes).
         SELECT
             spb.code,
-            jsonb_build_array(b.ts_epoch_ms, nullif((b.stats_summary #> spb.jsonb_path)::text, 'null')::numeric) AS pair,
+            jsonb_build_array(b.ts_epoch_ms, ((b.stats_summary #> spb.jsonb_path)::text)::numeric) AS pair,
             b.ts_epoch_ms
         FROM base AS b CROSS JOIN stats_path_buffer AS spb
     ),
@@ -347,5 +342,6 @@ BEGIN
 
     RETURN result;
 END;
-$function$
-```
+$function$;
+
+COMMIT;

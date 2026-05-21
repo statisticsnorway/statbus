@@ -1,4 +1,49 @@
-```sql
+-- Migration 20260521160000: highcharts_accept_null_leaves
+--
+-- Fix two bugs in `public.statistical_history_highcharts` surfaced on
+-- demo.statbus.org (2026-05-21):
+--
+--   Bug A — empty-slice + catalog-null leaf → false rejection
+--     `stats_summary.employees.stddev` on an empty slice (year=1900) rejected
+--     as "Unknown series code" — even though the same call's HINT enumerates
+--     `.stddev` as a valid leaf. Self-contradictory.
+--
+--   Bug B — populated-slice + real null leaf → fatal numeric cast
+--     `stats_summary.employees.stddev` on a slice where any contributing
+--     `statistical_history.stats_summary` row has a JSON-null leaf raises
+--     "invalid input syntax for type numeric: \"null\"" mid-CTE.
+--
+-- Root cause: `jsonb_stats_to_agg(jsonb_stats_agg(code, stat(synthetic)))`
+-- (both the schema-derived catalog inside this function AND the real
+-- `statistical_history.stats_summary` column) emit JSON `null` for stats
+-- undefined on the sample (stddev/variance/coefficient_of_variation_pct
+-- when count<2 or variance=0). The function had two `jsonb_typeof = 'null'`
+-- blind spots:
+--
+--   1. Acceptance CASE in the `stats_summary[.…]` branch handled 'number'
+--      (accept) and 'object' (Incomplete partial) but fell through 'null'
+--      to ELSE → "Unknown series code".
+--   2. Extraction CTE `stats_pairs` cast `((stats_summary #> path)::text)`
+--      directly to numeric — fails on `jsonb 'null'` whose ::text is the
+--      literal four-char string 'null'.
+--
+-- Fix: surgical, two diffs against the current body (captured via
+-- `\sf public.statistical_history_highcharts`):
+--
+--   1. Add `WHEN 'null' THEN` arm to the acceptance CASE — same body as
+--      'number' (register leaf in stats_path_buffer). Distinguishes
+--      jsonb 'null' (valid leaf, undefined-on-sample) from SQL NULL
+--      (path doesn't resolve; still routed to ELSE/Unknown).
+--   2. `nullif((stats_summary #> path)::text, 'null')::numeric` —
+--      `'null'` → SQL NULL → numeric NULL → `[ts, null]` in jsonb,
+--      which Highcharts renders as a gap on `connectNulls:false` series.
+--
+-- Catalog null emission verified empirically against the local extension
+-- (output: `"stddev":null, "variance":null, "coefficient_of_variation_pct":null`
+-- on int_agg stat type). Extension is pgrx Rust, out-of-scope to change.
+
+BEGIN;
+
 CREATE OR REPLACE FUNCTION public.statistical_history_highcharts(p_resolution history_resolution, p_unit_type statistical_unit_type, p_year integer DEFAULT NULL::integer, p_series_codes text[] DEFAULT NULL::text[])
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -347,5 +392,6 @@ BEGIN
 
     RETURN result;
 END;
-$function$
-```
+$function$;
+
+COMMIT;
