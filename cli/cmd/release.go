@@ -72,7 +72,20 @@ func preflightChecks(projDir string) bool {
 		fmt.Println("  ✓ On master branch")
 	}
 
-	// 3. Up to date with origin — distinguish direction (ahead/behind/diverged)
+	// 3. Migration immutability — STRUCTURAL gate, surfaced BEFORE any
+	// slow checks (origin fetch, GHA images, fast tests, types regen,
+	// doc-db regen, seed pin). Operators previously burned 60-90s of
+	// preflight only to hit this violation at the very end; hoisting it
+	// to the top makes the failure mode actionable in seconds. Uses
+	// pickPrereleasePredecessor for the same year-month-rollover-safe
+	// predecessor that ValidatePrereleaseTag uses post-creation, so
+	// pre-creation diagnostic and post-creation re-validation stay in
+	// lock-step.
+	if !checkImmutabilityGate(projDir) {
+		allPassed = false
+	}
+
+	// 4. Up to date with origin — distinguish direction (ahead/behind/diverged)
 	// so the fix suggestion is actionable. The old one-line "Fix: git pull"
 	// was wrong half the time.
 	fetchOut, err := upgrade.RunCommandOutput(projDir, "git", "fetch", "origin", "master", "--quiet")
@@ -525,6 +538,77 @@ func preflightChecks(projDir string) bool {
 	return allPassed
 }
 
+// checkImmutabilityGate is the preflight wrapper around
+// checkMigrationImmutability. Computes the year-month-rollover-safe
+// predecessor via pickPrereleasePredecessor (single source of truth shared
+// with ValidatePrereleaseTag) and reports the result inline with the
+// other preflight checks. Returns true on PASS so the caller can OR
+// it into the allPassed accumulator.
+//
+// Both prerelease and stable paths benefit from the early failure mode:
+// stable cuts also require a clean predecessor diff. For stable, the
+// predecessor is the prior RC of the same patch — same helper handles it.
+func checkImmutabilityGate(projDir string) bool {
+	now := time.Now()
+	prefix := fmt.Sprintf("v%d.%02d", now.Year(), now.Month())
+
+	// Mirror the patch-resolution logic from releasePrereleaseCmd.RunE:
+	// the predecessor is keyed to the PATCH this RC targets, not just
+	// "the latest tag in current year-month". Same helper signature as
+	// the post-creation re-validation at ValidatePrereleaseTag.
+	stableTagsOut, err := upgrade.RunCommandOutput(projDir, "git", "tag", "-l", fmt.Sprintf("%s.*", prefix))
+	if err != nil {
+		fmt.Println("  ✗ Migration immutability (listing stable tags failed)")
+		fmt.Printf("    git output:\n      %s\n", strings.ReplaceAll(strings.TrimSpace(stableTagsOut), "\n", "\n      "))
+		return false
+	}
+	highestStablePatch := -1
+	patchRegex := regexp.MustCompile(fmt.Sprintf(`^%s\.(\d+)$`, regexp.QuoteMeta(prefix)))
+	for _, line := range strings.Split(strings.TrimSpace(stableTagsOut), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.Contains(line, "-rc") {
+			continue
+		}
+		if matches := patchRegex.FindStringSubmatch(line); len(matches) == 2 {
+			n, _ := strconv.Atoi(matches[1])
+			if n > highestStablePatch {
+				highestStablePatch = n
+			}
+		}
+	}
+	nextPatch := highestStablePatch + 1
+	if highestStablePatch < 0 {
+		nextPatch = 0
+	}
+
+	rcNums, err := listRCNumbersForPatch(projDir, prefix, nextPatch, "")
+	if err != nil {
+		fmt.Printf("  ✗ Migration immutability (listing RC numbers failed: %v)\n", err)
+		return false
+	}
+	prevTag, err := pickPrereleasePredecessor(projDir, prefix, nextPatch, rcNums)
+	if err != nil {
+		fmt.Printf("  ✗ Migration immutability (predecessor lookup failed: %v)\n", err)
+		return false
+	}
+	if prevTag == "" || !tagExistsLocally(projDir, prevTag) {
+		fmt.Println("  ✓ No previous tag to check migrations against (very first release)")
+		return true
+	}
+
+	label := "previous RC"
+	if !strings.Contains(prevTag, "-rc.") {
+		label = "previous stable"
+	}
+	if err := checkMigrationImmutability(projDir, prevTag, label); err != nil {
+		// checkMigrationImmutability already printed the per-file
+		// rejection list. Surface the actionable fix on its own line.
+		fmt.Printf("    Fix: see message above; or set %s=<version>[,...] to bypass for listed versions.\n", release.CircumventEnvVar)
+		return false
+	}
+	return true
+}
+
 // noSameKindTagAtHEAD refuses to tag a same-kind tag on a commit that
 // already carries one. Re-tagging the same commit (an RC twice, or a
 // stable twice) bumps the version number without any underlying
@@ -569,7 +653,22 @@ func noSameKindTagAtHEAD(projDir string, isPrerelease bool) error {
 //
 // The diff is tag-to-HEAD, NOT commit-by-commit. A modify+revert sequence
 // shows no diff in total — which is correct (the end result is clean).
+//
+// STATBUS_CIRCUMVENT_IMMUTABLE_MIGRATION (release.CircumventEnvVar) lets an
+// operator explicitly bypass the gate for listed versions when an
+// already-released migration MUST be rewritten in place. Listed versions
+// are skipped from the modified[] set with an explicit log line; non-listed
+// modifications still fail the gate normally. If prevTag is a STABLE tag
+// (no `-rc.` suffix), every circumvented version is by definition shipped
+// in stable — emit an extra warning so the operator knows what they're
+// agreeing to (the env var itself is the acknowledgment; the warning is
+// the receipt).
 func checkMigrationImmutability(projDir, prevTag, label string) error {
+	circumvent, err := release.ParseCircumventVersions(os.Getenv(release.CircumventEnvVar))
+	if err != nil {
+		return err
+	}
+
 	// List files in migrations/ that changed between prevTag and HEAD.
 	diffOut, err := upgrade.RunCommandOutput(projDir, "git", "diff",
 		"--name-status", prevTag+"..HEAD", "--", "migrations/")
@@ -582,9 +681,12 @@ func checkMigrationImmutability(projDir, prevTag, label string) error {
 		return nil
 	}
 
+	prevIsStable := !strings.Contains(prevTag, "-rc.")
+
 	// Parse the diff output. Format: "M\tmigrations/file" or "D\tmigrations/file"
 	// A (added) = new migration, fine. M (modified) or D (deleted) = immutability violation.
 	var modified []string
+	var circumvented []int64
 	for _, line := range strings.Split(diff, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
@@ -606,7 +708,31 @@ func checkMigrationImmutability(projDir, prevTag, label string) error {
 			!strings.HasSuffix(file, ".up.psql") && !strings.HasSuffix(file, ".down.psql") {
 			continue
 		}
+
+		// Honour STATBUS_CIRCUMVENT_IMMUTABLE_MIGRATION: extract the
+		// 14-digit version prefix from the filename and skip if listed.
+		if len(circumvent) > 0 {
+			base := filepath.Base(file)
+			if underscore := strings.Index(base, "_"); underscore > 0 {
+				if v, parseErr := strconv.ParseInt(base[:underscore], 10, 64); parseErr == nil && circumvent[v] {
+					circumvented = append(circumvented, v)
+					continue
+				}
+			}
+		}
+
 		modified = append(modified, fmt.Sprintf("  %s %s", status, file))
+	}
+
+	// Log circumvent activity before the gate decision so the operator
+	// sees what they bypassed even on a passing run.
+	for _, v := range dedupeInt64Sorted(circumvented) {
+		fmt.Printf("    ⟳ Circumventing immutability for migration %d (%s)\n", v, release.CircumventEnvVar)
+		if prevIsStable {
+			fmt.Printf("      ⚠ %s is a STABLE tag — this version shipped in production.\n", prevTag)
+			fmt.Println("        Operators bypassing stable-shipped migrations: confirm the change is")
+			fmt.Println("        coordinated with downstream rollouts (see doc/upgrade-system.md).")
+		}
 	}
 
 	if len(modified) == 0 {
@@ -623,7 +749,30 @@ func checkMigrationImmutability(projDir, prevTag, label string) error {
 		"  If the change was intentional, create a corrective migration\n"+
 		"  and revert the modification to the original file:\n"+
 		"    git checkout %s -- migrations/<file>\n"+
-		"    ./sb migrate new --description \"fix_<description>\"", prevTag, prevTag)
+		"    ./sb migrate new --description \"fix_<description>\"\n"+
+		"  Or, if the in-place edit is intentional (rare; coordinated with deployed slots):\n"+
+		"    %s=<version>[,<version>...] ./sb release prerelease",
+		prevTag, prevTag, release.CircumventEnvVar)
+}
+
+// dedupeInt64Sorted returns the input with duplicates removed and entries
+// sorted ascending. Used to produce a stable log order regardless of git
+// diff ordering or per-call iteration.
+func dedupeInt64Sorted(in []int64) []int64 {
+	if len(in) == 0 {
+		return nil
+	}
+	seen := make(map[int64]struct{}, len(in))
+	out := make([]int64, 0, len(in))
+	for _, v := range in {
+		if _, ok := seen[v]; ok {
+			continue
+		}
+		seen[v] = struct{}{}
+		out = append(out, v)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
+	return out
 }
 
 var releasePrereleaseCmd = &cobra.Command{
@@ -699,26 +848,9 @@ var releasePrereleaseCmd = &cobra.Command{
 			return fmt.Errorf("listing RC numbers: %w", err)
 		}
 
-		// Migration immutability against the unified-predecessor helper.
-		// Same logic shape as ValidatePrereleaseTag's post-creation
-		// re-validation (release_verify.go), so the two call sites stay
-		// in lock-step on the year-month-rollover edge case.
-		prevTag, err := pickPrereleasePredecessor(projDir, prefix, nextPatch, rcNums)
-		if err != nil {
-			return err
-		}
-		if prevTag != "" && tagExistsLocally(projDir, prevTag) {
-			label := "previous RC"
-			if !strings.Contains(prevTag, "-rc.") {
-				label = "previous stable"
-			}
-			if err := checkMigrationImmutability(projDir, prevTag, label); err != nil {
-				return err
-			}
-		} else {
-			fmt.Println("  ✓ No previous tag to check migrations against (very first release)")
-		}
-		fmt.Println()
+		// Migration immutability is now checked at preflight top via
+		// checkImmutabilityGate — keeps the structural gate ahead of all
+		// slow checks. See preflightChecks step 3.
 
 		highestRC := 0
 		if len(rcNums) > 0 {

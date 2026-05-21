@@ -5,8 +5,58 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 )
+
+// CircumventEnvVar names the environment variable that suspends the
+// migration-immutability gate for explicitly-listed versions. Operators set
+// this only when they MUST modify an already-released migration in place —
+// the normal flow is to create a NEW migration via `./sb migrate new`.
+//
+// Format: comma-separated 14-digit YYYYMMDDHHMMSS version timestamps.
+//
+//	STATBUS_CIRCUMVENT_IMMUTABLE_MIGRATION=20260521112759
+//	STATBUS_CIRCUMVENT_IMMUTABLE_MIGRATION=20260521112759,20260522080000
+//
+// The variable affects two layers, both of which call ParseCircumventVersions:
+//
+//   - Release preflight (cli/cmd/release.go's checkMigrationImmutability):
+//     skips listed versions when diffing against the previous tag. Other
+//     unrelated modifications still fail the gate.
+//   - Runtime (cli/internal/migrate/migrate.go's eagerContentHashCheck):
+//     re-stamps db.migration.content_hash to the current file's hash for
+//     listed versions whose stored hash mismatches. Other versions still
+//     fail with the standard immutability error.
+const CircumventEnvVar = "STATBUS_CIRCUMVENT_IMMUTABLE_MIGRATION"
+
+// ParseCircumventVersions parses the value of STATBUS_CIRCUMVENT_IMMUTABLE_MIGRATION.
+//
+// Empty/whitespace-only input returns an empty map and no error (no
+// circumvention requested — the standard case).
+//
+// Non-integer entries return a clear error rather than silently allowing
+// everything: a typo like "20260521-112759" must be loud, not a backdoor
+// that bypasses the entire gate.
+func ParseCircumventVersions(envValue string) (map[int64]bool, error) {
+	out := make(map[int64]bool)
+	s := strings.TrimSpace(envValue)
+	if s == "" {
+		return out, nil
+	}
+	for _, part := range strings.Split(s, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		v, err := strconv.ParseInt(part, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("%s: invalid migration version %q: must be a 14-digit YYYYMMDDHHMMSS integer", CircumventEnvVar, part)
+		}
+		out[v] = true
+	}
+	return out, nil
+}
 
 // ReleaseTagPattern matches the project's release tag shape:
 // `vYYYY.MM.PATCH` (stable) and `vYYYY.MM.PATCH-rc.N` (prerelease).

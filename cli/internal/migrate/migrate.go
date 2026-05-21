@@ -1003,6 +1003,16 @@ func eagerContentHashCheck(projDir string) error {
 		return nil
 	}
 
+	// STATBUS_CIRCUMVENT_IMMUTABLE_MIGRATION lets the operator re-stamp
+	// content_hash for an explicit set of versions whose file bytes were
+	// edited in place (the rare RC-fix case). Parse once before the loop
+	// so a malformed value fails the whole check rather than fires
+	// inconsistently per row.
+	circumvent, err := release.ParseCircumventVersions(os.Getenv(release.CircumventEnvVar))
+	if err != nil {
+		return err
+	}
+
 	rowsOut, err := runPsql(projDir,
 		"SELECT version || '|' || COALESCE(content_hash, '<NULL>') FROM db.migration ORDER BY version",
 		"-t", "-A")
@@ -1044,6 +1054,30 @@ func eagerContentHashCheck(projDir string) error {
 			return fmt.Errorf("hash %s: %w", filePath, hashErr)
 		}
 		if liveHash == storedHash {
+			continue
+		}
+
+		// MISMATCH — but the operator may have explicitly opted in to
+		// bypass via STATBUS_CIRCUMVENT_IMMUTABLE_MIGRATION. Re-stamp
+		// the stored hash to the current file bytes and continue.
+		// The bypass is per-version, not per-DB, so an operator must
+		// reapply it consciously for each affected migration.
+		if circumvent[version] {
+			if _, updateErr := runPsql(projDir, fmt.Sprintf(
+				"UPDATE db.migration SET content_hash = '%s' WHERE version = %d",
+				liveHash, version)); updateErr != nil {
+				return fmt.Errorf("circumvent UPDATE for migration %d: %w", version, updateErr)
+			}
+			oldShort := storedHash
+			if len(oldShort) > 8 {
+				oldShort = oldShort[:8]
+			}
+			newShort := liveHash
+			if len(newShort) > 8 {
+				newShort = newShort[:8]
+			}
+			fmt.Printf("[migrate]   ⟳ Circumventing immutability for migration %d.content_hash %s → %s (%s)\n",
+				version, oldShort, newShort, release.CircumventEnvVar)
 			continue
 		}
 
