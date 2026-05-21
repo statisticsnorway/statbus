@@ -1,19 +1,19 @@
 ```sql
-                          Table "public.statistical_unit_facet"
-             Column             |         Type          | Collation | Nullable | Default 
---------------------------------+-----------------------+-----------+----------+---------
- valid_from                     | date                  |           |          | 
- valid_to                       | date                  |           |          | 
- valid_until                    | date                  |           |          | 
- unit_type                      | statistical_unit_type |           |          | 
- physical_region_path           | ltree                 |           |          | 
- primary_activity_category_path | ltree                 |           |          | 
- sector_path                    | ltree                 |           |          | 
- legal_form_id                  | integer               |           |          | 
- physical_country_id            | integer               |           |          | 
- status_id                      | integer               |           |          | 
- count                          | bigint                |           |          | 
- stats_summary                  | jsonb                 |           |          | 
+                                                     Table "public.statistical_unit_facet"
+             Column             |         Type          | Collation | Nullable | Default | Storage  | Compression | Stats target | Description 
+--------------------------------+-----------------------+-----------+----------+---------+----------+-------------+--------------+-------------
+ valid_from                     | date                  |           |          |         | plain    |             |              | 
+ valid_to                       | date                  |           |          |         | plain    |             |              | 
+ valid_until                    | date                  |           |          |         | plain    |             |              | 
+ unit_type                      | statistical_unit_type |           |          |         | plain    |             |              | 
+ physical_region_path           | ltree                 |           |          |         | extended |             |              | 
+ primary_activity_category_path | ltree                 |           |          |         | extended |             |              | 
+ sector_path                    | ltree                 |           |          |         | extended |             |              | 
+ legal_form_id                  | integer               |           |          |         | plain    |             |              | 
+ physical_country_id            | integer               |           |          |         | plain    |             |              | 
+ status_id                      | integer               |           |          |         | plain    |             |              | 
+ count                          | bigint                |           |          |         | plain    |             |              | 
+ stats_summary                  | jsonb                 |           |          |         | extended |             |              | 
 Indexes:
     "statistical_unit_facet_key" UNIQUE, btree (valid_from, valid_to, valid_until, unit_type, physical_region_path, primary_activity_category_path, sector_path, legal_form_id, physical_country_id, status_id) NULLS NOT DISTINCT
     "statistical_unit_facet_legal_form_id_btree" btree (legal_form_id)
@@ -38,5 +38,6 @@ Policies:
     POLICY "statistical_unit_facet_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Access method: heap
 
 ```

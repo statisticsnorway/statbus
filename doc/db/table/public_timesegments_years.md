@@ -1,8 +1,8 @@
 ```sql
-         Table "public.timesegments_years"
- Column |  Type   | Collation | Nullable | Default 
---------+---------+-----------+----------+---------
- year   | integer |           | not null | 
+                                   Table "public.timesegments_years"
+ Column |  Type   | Collation | Nullable | Default | Storage | Compression | Stats target | Description 
+--------+---------+-----------+----------+---------+---------+-------------+--------------+-------------
+ year   | integer |           | not null |         | plain   |             |              | 
 Indexes:
     "timesegments_years_pkey" PRIMARY KEY, btree (year)
 Policies:
@@ -16,5 +16,8 @@ Policies:
     POLICY "timesegments_years_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "timesegments_years_year_not_null" NOT NULL "year"
+Access method: heap
 
 ```

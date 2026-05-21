@@ -1,17 +1,32 @@
 ```sql
-                      View "public.sector_ordered"
-   Column    |           Type           | Collation | Nullable | Default 
--------------+--------------------------+-----------+----------+---------
- id          | integer                  |           |          | 
- path        | ltree                    |           |          | 
- parent_id   | integer                  |           |          | 
- label       | character varying        |           |          | 
- code        | character varying        |           |          | 
- name        | text                     |           |          | 
- description | text                     |           |          | 
- enabled     | boolean                  |           |          | 
- custom      | boolean                  |           |          | 
- created_at  | timestamp with time zone |           |          | 
- updated_at  | timestamp with time zone |           |          | 
+                                   View "public.sector_ordered"
+   Column    |           Type           | Collation | Nullable | Default | Storage  | Description 
+-------------+--------------------------+-----------+----------+---------+----------+-------------
+ id          | integer                  |           |          |         | plain    | 
+ path        | ltree                    |           |          |         | extended | 
+ parent_id   | integer                  |           |          |         | plain    | 
+ label       | character varying        |           |          |         | extended | 
+ code        | character varying        |           |          |         | extended | 
+ name        | text                     |           |          |         | extended | 
+ description | text                     |           |          |         | extended | 
+ enabled     | boolean                  |           |          |         | plain    | 
+ custom      | boolean                  |           |          |         | plain    | 
+ created_at  | timestamp with time zone |           |          |         | plain    | 
+ updated_at  | timestamp with time zone |           |          |         | plain    | 
+View definition:
+ SELECT id,
+    path,
+    parent_id,
+    label,
+    code,
+    name,
+    description,
+    enabled,
+    custom,
+    created_at,
+    updated_at
+   FROM sector
+  ORDER BY path;
+Options: security_invoker=on
 
 ```

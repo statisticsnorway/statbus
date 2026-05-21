@@ -1,13 +1,13 @@
 ```sql
-                                    Table "public.enterprise"
-     Column      |           Type           | Collation | Nullable |           Default            
------------------+--------------------------+-----------+----------+------------------------------
- id              | integer                  |           | not null | generated always as identity
- enabled         | boolean                  |           | not null | true
- short_name      | character varying(16)    |           |          | 
- edit_comment    | character varying(512)   |           |          | 
- edit_by_user_id | integer                  |           | not null | auth.uid()
- edit_at         | timestamp with time zone |           | not null | statement_timestamp()
+                                                               Table "public.enterprise"
+     Column      |           Type           | Collation | Nullable |           Default            | Storage  | Compression | Stats target | Description 
+-----------------+--------------------------+-----------+----------+------------------------------+----------+-------------+--------------+-------------
+ id              | integer                  |           | not null | generated always as identity | plain    |             |              | 
+ enabled         | boolean                  |           | not null | true                         | plain    |             |              | 
+ short_name      | character varying(16)    |           |          |                              | extended |             |              | 
+ edit_comment    | character varying(512)   |           |          |                              | extended |             |              | 
+ edit_by_user_id | integer                  |           | not null | auth.uid()                   | plain    |             |              | 
+ edit_at         | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
 Indexes:
     "enterprise_pkey" PRIMARY KEY, btree (id)
     "ix_enterprise_edit_by_user_id" btree (edit_by_user_id)
@@ -32,10 +32,16 @@ Policies:
       TO regular_user
       USING (true)
       WITH CHECK ((edit_by_user_id = auth.uid()))
+Not-null constraints:
+    "enterprise_id_not_null" NOT NULL "id"
+    "enterprise_enabled_not_null" NOT NULL "enabled"
+    "enterprise_edit_by_user_id_not_null" NOT NULL "edit_by_user_id"
+    "enterprise_edit_at_not_null" NOT NULL "edit_at"
 Triggers:
     a_enterprise_log_delete AFTER DELETE ON enterprise REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_enterprise_log_insert AFTER INSERT ON enterprise REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_enterprise_log_update AFTER UPDATE ON enterprise REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     trigger_prevent_enterprise_id_update BEFORE UPDATE OF id ON enterprise FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
+Access method: heap
 
 ```

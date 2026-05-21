@@ -1,15 +1,28 @@
 ```sql
-                     View "public.country_ordered"
-   Column   |           Type           | Collation | Nullable | Default 
-------------+--------------------------+-----------+----------+---------
- id         | integer                  |           |          | 
- iso_2      | text                     |           |          | 
- iso_3      | text                     |           |          | 
- iso_num    | text                     |           |          | 
- name       | text                     |           |          | 
- enabled    | boolean                  |           |          | 
- custom     | boolean                  |           |          | 
- created_at | timestamp with time zone |           |          | 
- updated_at | timestamp with time zone |           |          | 
+                                  View "public.country_ordered"
+   Column   |           Type           | Collation | Nullable | Default | Storage  | Description 
+------------+--------------------------+-----------+----------+---------+----------+-------------
+ id         | integer                  |           |          |         | plain    | 
+ iso_2      | text                     |           |          |         | extended | 
+ iso_3      | text                     |           |          |         | extended | 
+ iso_num    | text                     |           |          |         | extended | 
+ name       | text                     |           |          |         | extended | 
+ enabled    | boolean                  |           |          |         | plain    | 
+ custom     | boolean                  |           |          |         | plain    | 
+ created_at | timestamp with time zone |           |          |         | plain    | 
+ updated_at | timestamp with time zone |           |          |         | plain    | 
+View definition:
+ SELECT id,
+    iso_2,
+    iso_3,
+    iso_num,
+    name,
+    enabled,
+    custom,
+    created_at,
+    updated_at
+   FROM country
+  ORDER BY iso_2;
+Options: security_invoker=on
 
 ```

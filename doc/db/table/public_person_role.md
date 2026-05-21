@@ -1,14 +1,14 @@
 ```sql
-                                 Table "public.person_role"
-   Column   |           Type           | Collation | Nullable |           Default            
-------------+--------------------------+-----------+----------+------------------------------
- id         | integer                  |           | not null | generated always as identity
- code       | text                     |           | not null | 
- name       | text                     |           | not null | 
- enabled    | boolean                  |           | not null | 
- custom     | boolean                  |           | not null | 
- created_at | timestamp with time zone |           | not null | statement_timestamp()
- updated_at | timestamp with time zone |           | not null | statement_timestamp()
+                                                            Table "public.person_role"
+   Column   |           Type           | Collation | Nullable |           Default            | Storage  | Compression | Stats target | Description 
+------------+--------------------------+-----------+----------+------------------------------+----------+-------------+--------------+-------------
+ id         | integer                  |           | not null | generated always as identity | plain    |             |              | 
+ code       | text                     |           | not null |                              | extended |             |              | 
+ name       | text                     |           | not null |                              | extended |             |              | 
+ enabled    | boolean                  |           | not null |                              | plain    |             |              | 
+ custom     | boolean                  |           | not null |                              | plain    |             |              | 
+ created_at | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
+ updated_at | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
 Indexes:
     "person_role_pkey" PRIMARY KEY, btree (id)
     "ix_person_role_enabled" btree (enabled)
@@ -28,7 +28,16 @@ Policies:
     POLICY "person_role_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "person_role_id_not_null" NOT NULL "id"
+    "person_role_code_not_null" NOT NULL "code"
+    "person_role_name_not_null" NOT NULL "name"
+    "person_role_enabled_not_null" NOT NULL "enabled"
+    "person_role_custom_not_null" NOT NULL "custom"
+    "person_role_created_at_not_null" NOT NULL "created_at"
+    "person_role_updated_at_not_null" NOT NULL "updated_at"
 Triggers:
     trigger_prevent_person_role_id_update BEFORE UPDATE OF id ON person_role FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
+Access method: heap
 
 ```

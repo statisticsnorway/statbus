@@ -1,10 +1,10 @@
 ```sql
-                     Table "public.timepoints"
-  Column   |         Type          | Collation | Nullable | Default 
------------+-----------------------+-----------+----------+---------
- unit_type | statistical_unit_type |           | not null | 
- unit_id   | integer               |           | not null | 
- timepoint | date                  |           | not null | 
+                                                Table "public.timepoints"
+  Column   |         Type          | Collation | Nullable | Default | Storage | Compression | Stats target | Description 
+-----------+-----------------------+-----------+----------+---------+---------+-------------+--------------+-------------
+ unit_type | statistical_unit_type |           | not null |         | plain   |             |              | 
+ unit_id   | integer               |           | not null |         | plain   |             |              | 
+ timepoint | date                  |           | not null |         | plain   |             |              | 
 Indexes:
     "timepoints_pkey" PRIMARY KEY, btree (unit_type, unit_id, timepoint)
     "ix_timepoints_unit" btree (unit_type, unit_id)
@@ -19,5 +19,10 @@ Policies:
     POLICY "timepoints_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "timepoints_unit_type_not_null" NOT NULL "unit_type"
+    "timepoints_unit_id_not_null" NOT NULL "unit_id"
+    "timepoints_timepoint_not_null" NOT NULL "timepoint"
+Access method: heap
 
 ```

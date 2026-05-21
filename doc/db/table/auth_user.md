@@ -1,19 +1,19 @@
 ```sql
-                                          Table "auth.user"
-       Column       |           Type           | Collation | Nullable |           Default            
---------------------+--------------------------+-----------+----------+------------------------------
- id                 | integer                  |           | not null | generated always as identity
- sub                | uuid                     |           | not null | uuidv7()
- display_name       | text                     |           | not null | 
- email              | citext                   |           | not null | 
- password           | text                     |           |          | 
- encrypted_password | text                     |           | not null | 
- statbus_role       | statbus_role             |           | not null | 'regular_user'::statbus_role
- created_at         | timestamp with time zone |           | not null | now()
- updated_at         | timestamp with time zone |           | not null | now()
- last_sign_in_at    | timestamp with time zone |           |          | 
- email_confirmed_at | timestamp with time zone |           |          | 
- deleted_at         | timestamp with time zone |           |          | 
+                                                                     Table "auth.user"
+       Column       |           Type           | Collation | Nullable |           Default            | Storage  | Compression | Stats target | Description 
+--------------------+--------------------------+-----------+----------+------------------------------+----------+-------------+--------------+-------------
+ id                 | integer                  |           | not null | generated always as identity | plain    |             |              | 
+ sub                | uuid                     |           | not null | uuidv7()                     | plain    |             |              | 
+ display_name       | text                     |           | not null |                              | extended |             |              | 
+ email              | citext                   |           | not null |                              | extended |             |              | 
+ password           | text                     |           |          |                              | extended |             |              | 
+ encrypted_password | text                     |           | not null |                              | extended |             |              | 
+ statbus_role       | statbus_role             |           | not null | 'regular_user'::statbus_role | plain    |             |              | 
+ created_at         | timestamp with time zone |           | not null | now()                        | plain    |             |              | 
+ updated_at         | timestamp with time zone |           | not null | now()                        | plain    |             |              | 
+ last_sign_in_at    | timestamp with time zone |           |          |                              | plain    |             |              | 
+ email_confirmed_at | timestamp with time zone |           |          |                              | plain    |             |              | 
+ deleted_at         | timestamp with time zone |           |          |                              | plain    |             |              | 
 Indexes:
     "user_pkey" PRIMARY KEY, btree (id)
     "user_display_name_key" UNIQUE CONSTRAINT, btree (display_name)
@@ -53,6 +53,15 @@ Policies:
     POLICY "update_own_user" FOR UPDATE
       USING (((email)::text = CURRENT_USER))
       WITH CHECK (((email)::text = CURRENT_USER))
+Not-null constraints:
+    "user_id_not_null" NOT NULL "id"
+    "user_sub_not_null" NOT NULL "sub"
+    "user_display_name_not_null" NOT NULL "display_name"
+    "user_email_not_null" NOT NULL "email"
+    "user_encrypted_password_not_null" NOT NULL "encrypted_password"
+    "user_statbus_role_not_null" NOT NULL "statbus_role"
+    "user_created_at_not_null" NOT NULL "created_at"
+    "user_updated_at_not_null" NOT NULL "updated_at"
 Triggers:
     "00_normalize_email_trigger" BEFORE INSERT OR UPDATE OF email ON auth."user" FOR EACH ROW EXECUTE FUNCTION auth.normalize_email()
     auto_create_api_token_on_confirmation_trigger AFTER INSERT OR UPDATE OF email_confirmed_at ON auth."user" FOR EACH ROW EXECUTE FUNCTION auth.auto_create_api_token_on_confirmation()
@@ -60,5 +69,6 @@ Triggers:
     drop_user_role_trigger AFTER DELETE ON auth."user" FOR EACH ROW EXECUTE FUNCTION auth.drop_user_role()
     prevent_removal_of_last_admin_trigger BEFORE DELETE OR UPDATE ON auth."user" FOR EACH ROW EXECUTE FUNCTION auth.prevent_removal_of_last_admin()
     sync_user_credentials_and_roles_trigger BEFORE INSERT OR UPDATE ON auth."user" FOR EACH ROW EXECUTE FUNCTION auth.sync_user_credentials_and_roles()
+Access method: heap
 
 ```

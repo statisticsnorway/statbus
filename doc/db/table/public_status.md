@@ -1,17 +1,17 @@
 ```sql
-                                        Table "public.status"
-       Column        |           Type           | Collation | Nullable |           Default            
----------------------+--------------------------+-----------+----------+------------------------------
- id                  | integer                  |           | not null | generated always as identity
- code                | character varying        |           | not null | 
- name                | text                     |           | not null | 
- assigned_by_default | boolean                  |           | not null | 
- used_for_counting   | boolean                  |           | not null | 
- priority            | integer                  |           | not null | 
- enabled             | boolean                  |           | not null | 
- custom              | boolean                  |           | not null | false
- created_at          | timestamp with time zone |           | not null | statement_timestamp()
- updated_at          | timestamp with time zone |           | not null | statement_timestamp()
+                                                                   Table "public.status"
+       Column        |           Type           | Collation | Nullable |           Default            | Storage  | Compression | Stats target | Description 
+---------------------+--------------------------+-----------+----------+------------------------------+----------+-------------+--------------+-------------
+ id                  | integer                  |           | not null | generated always as identity | plain    |             |              | 
+ code                | character varying        |           | not null |                              | extended |             |              | 
+ name                | text                     |           | not null |                              | extended |             |              | 
+ assigned_by_default | boolean                  |           | not null |                              | plain    |             |              | 
+ used_for_counting   | boolean                  |           | not null |                              | plain    |             |              | 
+ priority            | integer                  |           | not null |                              | plain    |             |              | 
+ enabled             | boolean                  |           | not null |                              | plain    |             |              | 
+ custom              | boolean                  |           | not null | false                        | plain    |             |              | 
+ created_at          | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
+ updated_at          | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
 Indexes:
     "status_pkey" PRIMARY KEY, btree (id)
     "ix_status_enabled" btree (enabled)
@@ -32,7 +32,19 @@ Policies:
     POLICY "status_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "status_id_not_null" NOT NULL "id"
+    "status_code_not_null" NOT NULL "code"
+    "status_name_not_null" NOT NULL "name"
+    "status_assigned_by_default_not_null" NOT NULL "assigned_by_default"
+    "status_used_for_counting_not_null" NOT NULL "used_for_counting"
+    "status_priority_not_null" NOT NULL "priority"
+    "status_enabled_not_null" NOT NULL "enabled"
+    "status_custom_not_null" NOT NULL "custom"
+    "status_created_at_not_null" NOT NULL "created_at"
+    "status_updated_at_not_null" NOT NULL "updated_at"
 Triggers:
     trigger_prevent_status_id_update BEFORE UPDATE OF id ON status FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
+Access method: heap
 
 ```

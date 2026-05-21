@@ -1,16 +1,16 @@
 ```sql
-                                Table "public.region_version"
-   Column    |           Type           | Collation | Nullable |           Default            
--------------+--------------------------+-----------+----------+------------------------------
- id          | integer                  |           | not null | generated always as identity
- code        | text                     |           | not null | 
- name        | text                     |           | not null | 
- description | text                     |           |          | 
- lasts_to    | date                     |           |          | 
- enabled     | boolean                  |           | not null | true
- custom      | boolean                  |           | not null | false
- created_at  | timestamp with time zone |           | not null | statement_timestamp()
- updated_at  | timestamp with time zone |           | not null | statement_timestamp()
+                                                           Table "public.region_version"
+   Column    |           Type           | Collation | Nullable |           Default            | Storage  | Compression | Stats target | Description 
+-------------+--------------------------+-----------+----------+------------------------------+----------+-------------+--------------+-------------
+ id          | integer                  |           | not null | generated always as identity | plain    |             |              | 
+ code        | text                     |           | not null |                              | extended |             |              | 
+ name        | text                     |           | not null |                              | extended |             |              | 
+ description | text                     |           |          |                              | extended |             |              | 
+ lasts_to    | date                     |           |          |                              | plain    |             |              | 
+ enabled     | boolean                  |           | not null | true                         | plain    |             |              | 
+ custom      | boolean                  |           | not null | false                        | plain    |             |              | 
+ created_at  | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
+ updated_at  | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
 Indexes:
     "region_version_pkey" PRIMARY KEY, btree (id)
     "ix_region_version_enabled_code" UNIQUE, btree (enabled, code)
@@ -33,5 +33,14 @@ Policies:
     POLICY "region_version_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "region_version_id_not_null" NOT NULL "id"
+    "region_version_code_not_null" NOT NULL "code"
+    "region_version_name_not_null" NOT NULL "name"
+    "region_version_enabled_not_null" NOT NULL "enabled"
+    "region_version_custom_not_null" NOT NULL "custom"
+    "region_version_created_at_not_null" NOT NULL "created_at"
+    "region_version_updated_at_not_null" NOT NULL "updated_at"
+Access method: heap
 
 ```

@@ -1,19 +1,19 @@
 ```sql
-                                        Table "public.power_group"
-          Column          |           Type           | Collation | Nullable |           Default            
---------------------------+--------------------------+-----------+----------+------------------------------
- id                       | integer                  |           | not null | generated always as identity
- ident                    | text                     |           | not null | generate_power_ident()
- short_name               | character varying(16)    |           |          | 
- name                     | character varying(256)   |           |          | 
- type_id                  | integer                  |           |          | 
- contact_person           | text                     |           |          | 
- unit_size_id             | integer                  |           |          | 
- data_source_id           | integer                  |           |          | 
- foreign_participation_id | integer                  |           |          | 
- edit_comment             | character varying(512)   |           |          | 
- edit_by_user_id          | integer                  |           | not null | auth.uid()
- edit_at                  | timestamp with time zone |           | not null | statement_timestamp()
+                                                                                                 Table "public.power_group"
+          Column          |           Type           | Collation | Nullable |           Default            | Storage  | Compression | Stats target |                               Description                               
+--------------------------+--------------------------+-----------+----------+------------------------------+----------+-------------+--------------+-------------------------------------------------------------------------
+ id                       | integer                  |           | not null | generated always as identity | plain    |             |              | 
+ ident                    | text                     |           | not null | generate_power_ident()       | extended |             |              | Stable identifier (e.g., PG0001) that persists across hierarchy changes
+ short_name               | character varying(16)    |           |          |                              | extended |             |              | 
+ name                     | character varying(256)   |           |          |                              | extended |             |              | 
+ type_id                  | integer                  |           |          |                              | plain    |             |              | 
+ contact_person           | text                     |           |          |                              | extended |             |              | 
+ unit_size_id             | integer                  |           |          |                              | plain    |             |              | 
+ data_source_id           | integer                  |           |          |                              | plain    |             |              | 
+ foreign_participation_id | integer                  |           |          |                              | plain    |             |              | 
+ edit_comment             | character varying(512)   |           |          |                              | extended |             |              | 
+ edit_by_user_id          | integer                  |           | not null | auth.uid()                   | plain    |             |              | 
+ edit_at                  | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
 Indexes:
     "power_group_pkey" PRIMARY KEY, btree (id)
     "ix_power_group_data_source_id" btree (data_source_id)
@@ -44,10 +44,16 @@ Policies:
       TO regular_user
       USING (true)
       WITH CHECK ((edit_by_user_id = auth.uid()))
+Not-null constraints:
+    "power_group_id_not_null" NOT NULL "id"
+    "power_group_ident_not_null" NOT NULL "ident"
+    "power_group_edit_by_user_id_not_null" NOT NULL "edit_by_user_id"
+    "power_group_edit_at_not_null" NOT NULL "edit_at"
 Triggers:
     a_power_group_log_delete AFTER DELETE ON power_group REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_power_group_log_insert AFTER INSERT ON power_group REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_power_group_log_update AFTER UPDATE ON power_group REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     trigger_prevent_power_group_id_update BEFORE UPDATE OF id ON power_group FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
+Access method: heap
 
 ```

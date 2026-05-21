@@ -1,14 +1,14 @@
 ```sql
-                               Table "public.activity_category_standard"
-    Column    |               Type               | Collation | Nullable |           Default            
---------------+----------------------------------+-----------+----------+------------------------------
- id           | integer                          |           | not null | generated always as identity
- code         | character varying(16)            |           | not null | 
- name         | character varying                |           | not null | 
- description  | character varying                |           | not null | 
- code_pattern | activity_category_code_behaviour |           | not null | 
- enabled      | boolean                          |           | not null | true
- lasts_to     | date                             |           |          | 
+                                                          Table "public.activity_category_standard"
+    Column    |               Type               | Collation | Nullable |           Default            | Storage  | Compression | Stats target | Description 
+--------------+----------------------------------+-----------+----------+------------------------------+----------+-------------+--------------+-------------
+ id           | integer                          |           | not null | generated always as identity | plain    |             |              | 
+ code         | character varying(16)            |           | not null |                              | extended |             |              | 
+ name         | character varying                |           | not null |                              | extended |             |              | 
+ description  | character varying                |           | not null |                              | extended |             |              | 
+ code_pattern | activity_category_code_behaviour |           | not null |                              | plain    |             |              | 
+ enabled      | boolean                          |           | not null | true                         | plain    |             |              | 
+ lasts_to     | date                             |           |          |                              | plain    |             |              | 
 Indexes:
     "activity_category_standard_pkey" PRIMARY KEY, btree (id)
     "activity_category_standard_code_key" UNIQUE CONSTRAINT, btree (code)
@@ -30,8 +30,16 @@ Policies:
     POLICY "activity_category_standard_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "activity_category_standard_id_not_null" NOT NULL "id"
+    "activity_category_standard_code_not_null" NOT NULL "code"
+    "activity_category_standard_name_not_null" NOT NULL "name"
+    "activity_category_standard_description_not_null" NOT NULL "description"
+    "activity_category_standard_code_pattern_not_null" NOT NULL "code_pattern"
+    "activity_category_standard_enabled_not_null" NOT NULL "enabled"
 Triggers:
     recalculate_activity_category_codes_after_update AFTER UPDATE OF code_pattern ON activity_category_standard FOR EACH ROW WHEN (old.code_pattern IS DISTINCT FROM new.code_pattern) EXECUTE FUNCTION recalculate_activity_category_codes()
     trigger_prevent_activity_category_standard_id_update BEFORE UPDATE OF id ON activity_category_standard FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
+Access method: heap
 
 ```

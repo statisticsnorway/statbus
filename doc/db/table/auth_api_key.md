@@ -1,15 +1,15 @@
 ```sql
-                                     Table "auth.api_key"
-   Column    |           Type           | Collation | Nullable |           Default            
--------------+--------------------------+-----------+----------+------------------------------
- id          | integer                  |           | not null | generated always as identity
- jti         | uuid                     |           | not null | uuidv7()
- user_id     | integer                  |           | not null | 
- description | text                     |           |          | 
- created_at  | timestamp with time zone |           | not null | now()
- expires_at  | timestamp with time zone |           | not null | 
- revoked_at  | timestamp with time zone |           |          | 
- token       | text                     |           |          | 
+                                                                Table "auth.api_key"
+   Column    |           Type           | Collation | Nullable |           Default            | Storage  | Compression | Stats target | Description 
+-------------+--------------------------+-----------+----------+------------------------------+----------+-------------+--------------+-------------
+ id          | integer                  |           | not null | generated always as identity | plain    |             |              | 
+ jti         | uuid                     |           | not null | uuidv7()                     | plain    |             |              | 
+ user_id     | integer                  |           | not null |                              | plain    |             |              | 
+ description | text                     |           |          |                              | extended |             |              | 
+ created_at  | timestamp with time zone |           | not null | now()                        | plain    |             |              | 
+ expires_at  | timestamp with time zone |           | not null |                              | plain    |             |              | 
+ revoked_at  | timestamp with time zone |           |          |                              | plain    |             |              | 
+ token       | text                     |           |          |                              | extended |             |              | 
 Indexes:
     "api_key_pkey" PRIMARY KEY, btree (id)
     "api_key_jti_key" UNIQUE CONSTRAINT, btree (jti)
@@ -26,7 +26,14 @@ Policies:
       WITH CHECK ((user_id = auth.uid()))
     POLICY "select_own_api_keys" FOR SELECT
       USING ((user_id = auth.uid()))
+Not-null constraints:
+    "api_key_id_not_null" NOT NULL "id"
+    "api_key_jti_not_null" NOT NULL "jti"
+    "api_key_user_id_not_null" NOT NULL "user_id"
+    "api_key_created_at_not_null" NOT NULL "created_at"
+    "api_key_expires_at_not_null" NOT NULL "expires_at"
 Triggers:
     generate_api_key_token_trigger BEFORE INSERT ON auth.api_key FOR EACH ROW EXECUTE FUNCTION auth.generate_api_key_token()
+Access method: heap
 
 ```

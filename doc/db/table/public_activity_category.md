@@ -1,20 +1,20 @@
 ```sql
-                                                   Table "public.activity_category"
-   Column    |           Type           | Collation | Nullable |                                Default                                
--------------+--------------------------+-----------+----------+-----------------------------------------------------------------------
- id          | integer                  |           | not null | generated always as identity
- standard_id | integer                  |           | not null | 
- path        | ltree                    |           | not null | 
- parent_id   | integer                  |           |          | 
- level       | integer                  |           |          | generated always as (nlevel(path)) stored
- label       | character varying        |           | not null | generated always as (replace(path::text, '.'::text, ''::text)) stored
- code        | character varying        |           | not null | 
- name        | character varying(256)   |           | not null | 
- description | text                     |           |          | 
- enabled     | boolean                  |           | not null | 
- custom      | boolean                  |           | not null | 
- created_at  | timestamp with time zone |           | not null | statement_timestamp()
- updated_at  | timestamp with time zone |           | not null | statement_timestamp()
+                                                                              Table "public.activity_category"
+   Column    |           Type           | Collation | Nullable |                                Default                                | Storage  | Compression | Stats target | Description 
+-------------+--------------------------+-----------+----------+-----------------------------------------------------------------------+----------+-------------+--------------+-------------
+ id          | integer                  |           | not null | generated always as identity                                          | plain    |             |              | 
+ standard_id | integer                  |           | not null |                                                                       | plain    |             |              | 
+ path        | ltree                    |           | not null |                                                                       | extended |             |              | 
+ parent_id   | integer                  |           |          |                                                                       | plain    |             |              | 
+ level       | integer                  |           |          | generated always as (nlevel(path)) stored                             | plain    |             |              | 
+ label       | character varying        |           | not null | generated always as (replace(path::text, '.'::text, ''::text)) stored | extended |             |              | 
+ code        | character varying        |           | not null |                                                                       | extended |             |              | 
+ name        | character varying(256)   |           | not null |                                                                       | extended |             |              | 
+ description | text                     |           |          |                                                                       | extended |             |              | 
+ enabled     | boolean                  |           | not null |                                                                       | plain    |             |              | 
+ custom      | boolean                  |           | not null |                                                                       | plain    |             |              | 
+ created_at  | timestamp with time zone |           | not null | statement_timestamp()                                                 | plain    |             |              | 
+ updated_at  | timestamp with time zone |           | not null | statement_timestamp()                                                 | plain    |             |              | 
 Indexes:
     "activity_category_pkey" PRIMARY KEY, btree (id)
     "activity_category_standard_id_path_enabled_key" UNIQUE CONSTRAINT, btree (standard_id, path, enabled)
@@ -40,8 +40,20 @@ Policies:
     POLICY "activity_category_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "activity_category_id_not_null" NOT NULL "id"
+    "activity_category_standard_id_not_null1" NOT NULL "standard_id"
+    "activity_category_path_not_null" NOT NULL "path"
+    "activity_category_label_not_null" NOT NULL "label"
+    "activity_category_code_not_null" NOT NULL "code"
+    "activity_category_name_not_null" NOT NULL "name"
+    "activity_category_enabled_not_null" NOT NULL "enabled"
+    "activity_category_custom_not_null" NOT NULL "custom"
+    "activity_category_created_at_not_null" NOT NULL "created_at"
+    "activity_category_updated_at_not_null" NOT NULL "updated_at"
 Triggers:
     lookup_parent_and_derive_code_before_insert_update BEFORE INSERT OR UPDATE ON activity_category FOR EACH ROW EXECUTE FUNCTION lookup_parent_and_derive_code()
     trigger_prevent_activity_category_id_update BEFORE UPDATE OF id ON activity_category FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
+Access method: heap
 
 ```

@@ -1,23 +1,23 @@
 ```sql
-                                                                                   Table "public.tag"
-       Column        |           Type           | Collation | Nullable |                                                    Default                                                     
----------------------+--------------------------+-----------+----------+----------------------------------------------------------------------------------------------------------------
- id                  | integer                  |           | not null | generated always as identity
- path                | ltree                    |           | not null | 
- parent_id           | integer                  |           |          | 
- level               | integer                  |           |          | generated always as (nlevel(path)) stored
- label               | character varying        |           | not null | generated always as (replace(path::text, '.'::text, ''::text)) stored
- code                | character varying        |           |          | generated always as (NULLIF(regexp_replace(path::text, '[^0-9]'::text, ''::text, 'g'::text), ''::text)) stored
- name                | character varying(256)   |           | not null | 
- description         | text                     |           |          | 
- enabled             | boolean                  |           | not null | true
- context_valid_from  | date                     |           |          | 
- context_valid_to    | date                     |           |          | 
- context_valid_until | date                     |           |          | generated always as ((context_valid_to + '1 day'::interval)) stored
- context_valid_on    | date                     |           |          | 
- created_at          | timestamp with time zone |           | not null | statement_timestamp()
- updated_at          | timestamp with time zone |           | not null | statement_timestamp()
- custom              | boolean                  |           | not null | false
+                                                                                                              Table "public.tag"
+       Column        |           Type           | Collation | Nullable |                                                    Default                                                     | Storage  | Compression | Stats target | Description 
+---------------------+--------------------------+-----------+----------+----------------------------------------------------------------------------------------------------------------+----------+-------------+--------------+-------------
+ id                  | integer                  |           | not null | generated always as identity                                                                                   | plain    |             |              | 
+ path                | ltree                    |           | not null |                                                                                                                | extended |             |              | 
+ parent_id           | integer                  |           |          |                                                                                                                | plain    |             |              | 
+ level               | integer                  |           |          | generated always as (nlevel(path)) stored                                                                      | plain    |             |              | 
+ label               | character varying        |           | not null | generated always as (replace(path::text, '.'::text, ''::text)) stored                                          | extended |             |              | 
+ code                | character varying        |           |          | generated always as (NULLIF(regexp_replace(path::text, '[^0-9]'::text, ''::text, 'g'::text), ''::text)) stored | extended |             |              | 
+ name                | character varying(256)   |           | not null |                                                                                                                | extended |             |              | 
+ description         | text                     |           |          |                                                                                                                | extended |             |              | 
+ enabled             | boolean                  |           | not null | true                                                                                                           | plain    |             |              | 
+ context_valid_from  | date                     |           |          |                                                                                                                | plain    |             |              | 
+ context_valid_to    | date                     |           |          |                                                                                                                | plain    |             |              | 
+ context_valid_until | date                     |           |          | generated always as ((context_valid_to + '1 day'::interval)) stored                                            | plain    |             |              | 
+ context_valid_on    | date                     |           |          |                                                                                                                | plain    |             |              | 
+ created_at          | timestamp with time zone |           | not null | statement_timestamp()                                                                                          | plain    |             |              | 
+ updated_at          | timestamp with time zone |           | not null | statement_timestamp()                                                                                          | plain    |             |              | 
+ custom              | boolean                  |           | not null | false                                                                                                          | plain    |             |              | 
 Indexes:
     "tag_pkey" PRIMARY KEY, btree (id)
     "ix_tag_custom" btree (custom)
@@ -44,7 +44,17 @@ Policies:
     POLICY "tag_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "tag_id_not_null" NOT NULL "id"
+    "tag_path_not_null" NOT NULL "path"
+    "tag_label_not_null" NOT NULL "label"
+    "tag_name_not_null" NOT NULL "name"
+    "tag_enabled_not_null" NOT NULL "enabled"
+    "tag_created_at_not_null" NOT NULL "created_at"
+    "tag_updated_at_not_null" NOT NULL "updated_at"
+    "tag_custom_not_null" NOT NULL "custom"
 Triggers:
     trigger_prevent_tag_id_update BEFORE UPDATE OF id ON tag FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
+Access method: heap
 
 ```

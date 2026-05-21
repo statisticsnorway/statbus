@@ -1,24 +1,24 @@
 ```sql
-                                      Table "public.person"
-     Column      |           Type           | Collation | Nullable |           Default            
------------------+--------------------------+-----------+----------+------------------------------
- id              | integer                  |           | not null | generated always as identity
- country_id      | integer                  |           |          | 
- created_at      | timestamp with time zone |           | not null | statement_timestamp()
- given_name      | character varying(150)   |           |          | 
- middle_name     | character varying(150)   |           |          | 
- family_name     | character varying(150)   |           |          | 
- birth_date      | date                     |           |          | 
- sex             | person_sex               |           |          | 
- phone_number    | text                     |           |          | 
- mobile_number   | text                     |           |          | 
- address_part1   | character varying(200)   |           |          | 
- address_part2   | character varying(200)   |           |          | 
- address_part3   | character varying(200)   |           |          | 
- death_date      | date                     |           |          | 
- edit_comment    | character varying(512)   |           |          | 
- edit_by_user_id | integer                  |           | not null | auth.uid()
- edit_at         | timestamp with time zone |           | not null | statement_timestamp()
+                                                                 Table "public.person"
+     Column      |           Type           | Collation | Nullable |           Default            | Storage  | Compression | Stats target | Description 
+-----------------+--------------------------+-----------+----------+------------------------------+----------+-------------+--------------+-------------
+ id              | integer                  |           | not null | generated always as identity | plain    |             |              | 
+ country_id      | integer                  |           |          |                              | plain    |             |              | 
+ created_at      | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
+ given_name      | character varying(150)   |           |          |                              | extended |             |              | 
+ middle_name     | character varying(150)   |           |          |                              | extended |             |              | 
+ family_name     | character varying(150)   |           |          |                              | extended |             |              | 
+ birth_date      | date                     |           |          |                              | plain    |             |              | 
+ sex             | person_sex               |           |          |                              | plain    |             |              | 
+ phone_number    | text                     |           |          |                              | extended |             |              | 
+ mobile_number   | text                     |           |          |                              | extended |             |              | 
+ address_part1   | character varying(200)   |           |          |                              | extended |             |              | 
+ address_part2   | character varying(200)   |           |          |                              | extended |             |              | 
+ address_part3   | character varying(200)   |           |          |                              | extended |             |              | 
+ death_date      | date                     |           |          |                              | plain    |             |              | 
+ edit_comment    | character varying(512)   |           |          |                              | extended |             |              | 
+ edit_by_user_id | integer                  |           | not null | auth.uid()                   | plain    |             |              | 
+ edit_at         | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
 Indexes:
     "person_pkey" PRIMARY KEY, btree (id)
     "ix_person_country_id" btree (country_id)
@@ -41,7 +41,13 @@ Policies:
       TO regular_user
       USING (true)
       WITH CHECK ((edit_by_user_id = auth.uid()))
+Not-null constraints:
+    "person_id_not_null" NOT NULL "id"
+    "person_created_at_not_null" NOT NULL "created_at"
+    "person_edit_by_user_id_not_null" NOT NULL "edit_by_user_id"
+    "person_edit_at_not_null" NOT NULL "edit_at"
 Triggers:
     trigger_prevent_person_id_update BEFORE UPDATE OF id ON person FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
+Access method: heap
 
 ```

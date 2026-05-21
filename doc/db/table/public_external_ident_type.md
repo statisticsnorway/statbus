@@ -1,15 +1,15 @@
 ```sql
-                              Table "public.external_ident_type"
-   Column    |          Type          | Collation | Nullable |             Default             
--------------+------------------------+-----------+----------+---------------------------------
- id          | integer                |           | not null | generated always as identity
- code        | character varying(128) |           | not null | 
- name        | character varying(50)  |           |          | 
- shape       | external_ident_shape   |           | not null | 'regular'::external_ident_shape
- labels      | ltree                  |           |          | 
- description | text                   |           |          | 
- priority    | integer                |           |          | 
- enabled     | boolean                |           | not null | true
+                                                         Table "public.external_ident_type"
+   Column    |          Type          | Collation | Nullable |             Default             | Storage  | Compression | Stats target | Description 
+-------------+------------------------+-----------+----------+---------------------------------+----------+-------------+--------------+-------------
+ id          | integer                |           | not null | generated always as identity    | plain    |             |              | 
+ code        | character varying(128) |           | not null |                                 | extended |             |              | 
+ name        | character varying(50)  |           |          |                                 | extended |             |              | 
+ shape       | external_ident_shape   |           | not null | 'regular'::external_ident_shape | plain    |             |              | 
+ labels      | ltree                  |           |          |                                 | extended |             |              | 
+ description | text                   |           |          |                                 | extended |             |              | 
+ priority    | integer                |           |          |                                 | plain    |             |              | 
+ enabled     | boolean                |           | not null | true                            | plain    |             |              | 
 Indexes:
     "external_ident_type_pkey" PRIMARY KEY, btree (id)
     "external_ident_type_code_key" UNIQUE CONSTRAINT, btree (code)
@@ -29,10 +29,16 @@ Policies:
     POLICY "external_ident_type_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "external_ident_type_id_not_null" NOT NULL "id"
+    "external_ident_type_code_not_null" NOT NULL "code"
+    "external_ident_type_shape_not_null" NOT NULL "shape"
+    "external_ident_type_enabled_not_null" NOT NULL "enabled"
 Triggers:
     external_ident_type_lifecycle_callbacks_after_delete AFTER DELETE ON external_ident_type FOR EACH STATEMENT EXECUTE FUNCTION lifecycle_callbacks.cleanup_and_generate()
     external_ident_type_lifecycle_callbacks_after_insert AFTER INSERT ON external_ident_type FOR EACH STATEMENT EXECUTE FUNCTION lifecycle_callbacks.cleanup_and_generate()
     external_ident_type_lifecycle_callbacks_after_update AFTER UPDATE ON external_ident_type FOR EACH STATEMENT EXECUTE FUNCTION lifecycle_callbacks.cleanup_and_generate()
     trigger_prevent_external_ident_type_id_update BEFORE UPDATE OF id ON external_ident_type FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
+Access method: heap
 
 ```

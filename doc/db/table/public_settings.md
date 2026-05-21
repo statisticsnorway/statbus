@@ -1,14 +1,14 @@
 ```sql
-                                           Table "public.settings"
-            Column             |  Type   | Collation | Nullable |                   Default                   
--------------------------------+---------+-----------+----------+---------------------------------------------
- id                            | integer |           | not null | generated always as identity
- activity_category_standard_id | integer |           | not null | 
- country_id                    | integer |           | not null | 
- only_one_setting              | boolean |           |          | generated always as (id IS NOT NULL) stored
- region_version_id             | integer |           | not null | 
- required_to_be_enabled        | boolean |           |          | generated always as (true) stored
- partition_count_target        | integer |           | not null | 256
+                                                                      Table "public.settings"
+            Column             |  Type   | Collation | Nullable |                   Default                   | Storage | Compression | Stats target | Description 
+-------------------------------+---------+-----------+----------+---------------------------------------------+---------+-------------+--------------+-------------
+ id                            | integer |           | not null | generated always as identity                | plain   |             |              | 
+ activity_category_standard_id | integer |           | not null |                                             | plain   |             |              | 
+ country_id                    | integer |           | not null |                                             | plain   |             |              | 
+ only_one_setting              | boolean |           |          | generated always as (id IS NOT NULL) stored | plain   |             |              | 
+ region_version_id             | integer |           | not null |                                             | plain   |             |              | 
+ required_to_be_enabled        | boolean |           |          | generated always as (true) stored           | plain   |             |              | 
+ partition_count_target        | integer |           | not null | 256                                         | plain   |             |              | 
 Indexes:
     "settings_pkey" PRIMARY KEY, btree (id)
     "settings_only_one_setting_key" UNIQUE CONSTRAINT, btree (only_one_setting)
@@ -29,7 +29,14 @@ Policies:
     POLICY "settings_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "settings_id_not_null" NOT NULL "id"
+    "settings_activity_category_standard_id_not_null" NOT NULL "activity_category_standard_id"
+    "settings_country_id_not_null" NOT NULL "country_id"
+    "settings_region_version_id_not_null" NOT NULL "region_version_id"
+    "settings_report_partition_modulus_not_null" NOT NULL "partition_count_target"
 Triggers:
     trigger_prevent_settings_id_update BEFORE UPDATE OF id ON settings FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
+Access method: heap
 
 ```

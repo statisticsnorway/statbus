@@ -1,15 +1,15 @@
 ```sql
-                  Table "public.activity_category_used"
-    Column     |          Type          | Collation | Nullable | Default 
----------------+------------------------+-----------+----------+---------
- standard_code | character varying(16)  |           |          | 
- id            | integer                |           |          | 
- path          | ltree                  |           |          | 
- parent_path   | ltree                  |           |          | 
- code          | character varying      |           |          | 
- label         | character varying      |           |          | 
- name          | character varying(256) |           |          | 
- description   | text                   |           |          | 
+                                             Table "public.activity_category_used"
+    Column     |          Type          | Collation | Nullable | Default | Storage  | Compression | Stats target | Description 
+---------------+------------------------+-----------+----------+---------+----------+-------------+--------------+-------------
+ standard_code | character varying(16)  |           |          |         | extended |             |              | 
+ id            | integer                |           |          |         | plain    |             |              | 
+ path          | ltree                  |           |          |         | extended |             |              | 
+ parent_path   | ltree                  |           |          |         | extended |             |              | 
+ code          | character varying      |           |          |         | extended |             |              | 
+ label         | character varying      |           |          |         | extended |             |              | 
+ name          | character varying(256) |           |          |         | extended |             |              | 
+ description   | text                   |           |          |         | extended |             |              | 
 Indexes:
     "activity_category_used_key" UNIQUE, btree (path)
 Policies:
@@ -23,5 +23,6 @@ Policies:
     POLICY "activity_category_used_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Access method: heap
 
 ```

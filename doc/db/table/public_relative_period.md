@@ -1,13 +1,13 @@
 ```sql
-                                 Table "public.relative_period"
-     Column      |          Type          | Collation | Nullable |           Default            
------------------+------------------------+-----------+----------+------------------------------
- id              | integer                |           | not null | generated always as identity
- code            | relative_period_code   |           | not null | 
- name_when_query | character varying(256) |           |          | 
- name_when_input | character varying(256) |           |          | 
- scope           | relative_period_scope  |           | not null | 
- enabled         | boolean                |           | not null | true
+                                                            Table "public.relative_period"
+     Column      |          Type          | Collation | Nullable |           Default            | Storage  | Compression | Stats target | Description 
+-----------------+------------------------+-----------+----------+------------------------------+----------+-------------+--------------+-------------
+ id              | integer                |           | not null | generated always as identity | plain    |             |              | 
+ code            | relative_period_code   |           | not null |                              | plain    |             |              | 
+ name_when_query | character varying(256) |           |          |                              | extended |             |              | 
+ name_when_input | character varying(256) |           |          |                              | extended |             |              | 
+ scope           | relative_period_scope  |           | not null |                              | plain    |             |              | 
+ enabled         | boolean                |           | not null | true                         | plain    |             |              | 
 Indexes:
     "relative_period_pkey" PRIMARY KEY, btree (id)
     "ix_relative_period_enabled" btree (enabled)
@@ -31,7 +31,13 @@ Policies:
     POLICY "relative_period_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "relative_period_id_not_null" NOT NULL "id"
+    "relative_period_code_not_null" NOT NULL "code"
+    "relative_period_scope_not_null" NOT NULL "scope"
+    "relative_period_enabled_not_null" NOT NULL "enabled"
 Triggers:
     trigger_prevent_relative_period_id_update BEFORE UPDATE OF id ON relative_period FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
+Access method: heap
 
 ```

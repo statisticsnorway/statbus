@@ -1,31 +1,31 @@
 ```sql
-                                Table "public.statistical_history"
-                  Column                  |         Type          | Collation | Nullable | Default 
-------------------------------------------+-----------------------+-----------+----------+---------
- resolution                               | history_resolution    |           |          | 
- year                                     | integer               |           |          | 
- month                                    | integer               |           |          | 
- unit_type                                | statistical_unit_type |           |          | 
- exists_count                             | integer               |           |          | 
- exists_change                            | integer               |           |          | 
- exists_added_count                       | integer               |           |          | 
- exists_removed_count                     | integer               |           |          | 
- countable_count                          | integer               |           |          | 
- countable_change                         | integer               |           |          | 
- countable_added_count                    | integer               |           |          | 
- countable_removed_count                  | integer               |           |          | 
- births                                   | integer               |           |          | 
- deaths                                   | integer               |           |          | 
- name_change_count                        | integer               |           |          | 
- primary_activity_category_change_count   | integer               |           |          | 
- secondary_activity_category_change_count | integer               |           |          | 
- sector_change_count                      | integer               |           |          | 
- legal_form_change_count                  | integer               |           |          | 
- physical_region_change_count             | integer               |           |          | 
- physical_country_change_count            | integer               |           |          | 
- physical_address_change_count            | integer               |           |          | 
- stats_summary                            | jsonb                 |           |          | 
- hash_partition                           | int4range             |           |          | 
+                                                           Table "public.statistical_history"
+                  Column                  |         Type          | Collation | Nullable | Default | Storage  | Compression | Stats target | Description 
+------------------------------------------+-----------------------+-----------+----------+---------+----------+-------------+--------------+-------------
+ resolution                               | history_resolution    |           |          |         | plain    |             |              | 
+ year                                     | integer               |           |          |         | plain    |             |              | 
+ month                                    | integer               |           |          |         | plain    |             |              | 
+ unit_type                                | statistical_unit_type |           |          |         | plain    |             |              | 
+ exists_count                             | integer               |           |          |         | plain    |             |              | 
+ exists_change                            | integer               |           |          |         | plain    |             |              | 
+ exists_added_count                       | integer               |           |          |         | plain    |             |              | 
+ exists_removed_count                     | integer               |           |          |         | plain    |             |              | 
+ countable_count                          | integer               |           |          |         | plain    |             |              | 
+ countable_change                         | integer               |           |          |         | plain    |             |              | 
+ countable_added_count                    | integer               |           |          |         | plain    |             |              | 
+ countable_removed_count                  | integer               |           |          |         | plain    |             |              | 
+ births                                   | integer               |           |          |         | plain    |             |              | 
+ deaths                                   | integer               |           |          |         | plain    |             |              | 
+ name_change_count                        | integer               |           |          |         | plain    |             |              | 
+ primary_activity_category_change_count   | integer               |           |          |         | plain    |             |              | 
+ secondary_activity_category_change_count | integer               |           |          |         | plain    |             |              | 
+ sector_change_count                      | integer               |           |          |         | plain    |             |              | 
+ legal_form_change_count                  | integer               |           |          |         | plain    |             |              | 
+ physical_region_change_count             | integer               |           |          |         | plain    |             |              | 
+ physical_country_change_count            | integer               |           |          |         | plain    |             |              | 
+ physical_address_change_count            | integer               |           |          |         | plain    |             |              | 
+ stats_summary                            | jsonb                 |           |          |         | extended |             |              | 
+ hash_partition                           | int4range             |           |          |         | extended |             |              | 
 Indexes:
     "idx_history_resolution" btree (resolution) WHERE hash_partition IS NULL
     "idx_statistical_history_hash_partition" btree (hash_partition) WHERE hash_partition IS NOT NULL
@@ -48,5 +48,6 @@ Policies:
       TO regular_user
       USING ((hash_partition IS NULL))
 Typed table of type: statistical_history_type
+Access method: heap
 
 ```

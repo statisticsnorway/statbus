@@ -1672,19 +1672,10 @@ EOS
           if [ ! -z "$table" ]; then
             echo "Documenting table $table..."
             base_file="doc/db/table/${table//\./_}.md"
-            details_file="doc/db/table/${table//\./_}_details.md"
 
             echo '```sql' > "$base_file"
-            doc_psql -c "\d $table" >> "$base_file"
+            doc_psql -c "\d+ $table" >> "$base_file"
             echo '```' >> "$base_file"
-
-            echo '```sql' > "$details_file"
-            doc_psql -c "\d+ $table" >> "$details_file"
-            echo '```' >> "$details_file"
-
-            if diff -q "$base_file" "$details_file" >/dev/null; then
-              rm "$details_file"
-            fi
           fi
         done
 
@@ -1692,19 +1683,10 @@ EOS
           if [ ! -z "$view" ]; then
             echo "Documenting view $view..."
             base_file="doc/db/view/${view//\./_}.md"
-            details_file="doc/db/view/${view//\./_}_details.md"
 
             echo '```sql' > "$base_file"
-            doc_psql -c "\d $view" >> "$base_file"
+            doc_psql -c "\d+ $view" >> "$base_file"
             echo '```' >> "$base_file"
-
-            echo '```sql' > "$details_file"
-            doc_psql -c "\d+ $view" >> "$details_file"
-            echo '```' >> "$details_file"
-
-            if diff -q "$base_file" "$details_file" >/dev/null; then
-              rm "$details_file"
-            fi
           fi
         done
 

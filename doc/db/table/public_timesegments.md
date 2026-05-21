@@ -1,11 +1,11 @@
 ```sql
-                     Table "public.timesegments"
-   Column    |         Type          | Collation | Nullable | Default 
--------------+-----------------------+-----------+----------+---------
- unit_type   | statistical_unit_type |           | not null | 
- unit_id     | integer               |           | not null | 
- valid_from  | date                  |           | not null | 
- valid_until | date                  |           | not null | 
+                                                Table "public.timesegments"
+   Column    |         Type          | Collation | Nullable | Default | Storage | Compression | Stats target | Description 
+-------------+-----------------------+-----------+----------+---------+---------+-------------+--------------+-------------
+ unit_type   | statistical_unit_type |           | not null |         | plain   |             |              | 
+ unit_id     | integer               |           | not null |         | plain   |             |              | 
+ valid_from  | date                  |           | not null |         | plain   |             |              | 
+ valid_until | date                  |           | not null |         | plain   |             |              | 
 Indexes:
     "timesegments_pkey" PRIMARY KEY, btree (unit_type, unit_id, valid_from)
     "idx_timesegments_unit_daterange" gist (daterange(valid_from, valid_until, '[)'::text), unit_type, unit_id)
@@ -24,5 +24,11 @@ Policies:
     POLICY "timesegments_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "timesegments_unit_type_not_null" NOT NULL "unit_type"
+    "timesegments_unit_id_not_null" NOT NULL "unit_id"
+    "timesegments_valid_from_not_null" NOT NULL "valid_from"
+    "timesegments_valid_until_not_null" NOT NULL "valid_until"
+Access method: heap
 
 ```

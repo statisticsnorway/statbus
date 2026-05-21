@@ -1,17 +1,17 @@
 ```sql
-                                    Table "public.tag_for_unit"
-      Column      |           Type           | Collation | Nullable |           Default            
-------------------+--------------------------+-----------+----------+------------------------------
- id               | integer                  |           | not null | generated always as identity
- tag_id           | integer                  |           | not null | 
- establishment_id | integer                  |           |          | 
- legal_unit_id    | integer                  |           |          | 
- enterprise_id    | integer                  |           |          | 
- power_group_id   | integer                  |           |          | 
- created_at       | timestamp with time zone |           | not null | statement_timestamp()
- edit_comment     | character varying(512)   |           |          | 
- edit_by_user_id  | integer                  |           | not null | auth.uid()
- edit_at          | timestamp with time zone |           | not null | statement_timestamp()
+                                                               Table "public.tag_for_unit"
+      Column      |           Type           | Collation | Nullable |           Default            | Storage  | Compression | Stats target | Description 
+------------------+--------------------------+-----------+----------+------------------------------+----------+-------------+--------------+-------------
+ id               | integer                  |           | not null | generated always as identity | plain    |             |              | 
+ tag_id           | integer                  |           | not null |                              | plain    |             |              | 
+ establishment_id | integer                  |           |          |                              | plain    |             |              | 
+ legal_unit_id    | integer                  |           |          |                              | plain    |             |              | 
+ enterprise_id    | integer                  |           |          |                              | plain    |             |              | 
+ power_group_id   | integer                  |           |          |                              | plain    |             |              | 
+ created_at       | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
+ edit_comment     | character varying(512)   |           |          |                              | extended |             |              | 
+ edit_by_user_id  | integer                  |           | not null | auth.uid()                   | plain    |             |              | 
+ edit_at          | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
 Indexes:
     "tag_for_unit_pkey" PRIMARY KEY, btree (id)
     "ix_tag_for_unit_edit_by_user_id" btree (edit_by_user_id)
@@ -42,10 +42,17 @@ Policies:
       TO regular_user
       USING (true)
       WITH CHECK ((edit_by_user_id = auth.uid()))
+Not-null constraints:
+    "tag_for_unit_id_not_null" NOT NULL "id"
+    "tag_for_unit_tag_id_not_null" NOT NULL "tag_id"
+    "tag_for_unit_created_at_not_null" NOT NULL "created_at"
+    "tag_for_unit_edit_by_user_id_not_null" NOT NULL "edit_by_user_id"
+    "tag_for_unit_edit_at_not_null" NOT NULL "edit_at"
 Triggers:
     a_tag_for_unit_log_delete AFTER DELETE ON tag_for_unit REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_tag_for_unit_log_insert AFTER INSERT ON tag_for_unit REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     a_tag_for_unit_log_update AFTER UPDATE ON tag_for_unit REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     trigger_prevent_tag_for_unit_id_update BEFORE UPDATE OF id ON tag_for_unit FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
+Access method: heap
 
 ```

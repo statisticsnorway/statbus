@@ -1,17 +1,17 @@
 ```sql
-                                     Table "public.unit_notes"
-      Column      |           Type           | Collation | Nullable |           Default            
-------------------+--------------------------+-----------+----------+------------------------------
- id               | integer                  |           | not null | generated always as identity
- notes            | text                     |           | not null | 
- establishment_id | integer                  |           |          | 
- legal_unit_id    | integer                  |           |          | 
- enterprise_id    | integer                  |           |          | 
- power_group_id   | integer                  |           |          | 
- created_at       | timestamp with time zone |           | not null | statement_timestamp()
- edit_comment     | character varying(512)   |           |          | 
- edit_by_user_id  | integer                  |           | not null | auth.uid()
- edit_at          | timestamp with time zone |           | not null | statement_timestamp()
+                                                                Table "public.unit_notes"
+      Column      |           Type           | Collation | Nullable |           Default            | Storage  | Compression | Stats target | Description 
+------------------+--------------------------+-----------+----------+------------------------------+----------+-------------+--------------+-------------
+ id               | integer                  |           | not null | generated always as identity | plain    |             |              | 
+ notes            | text                     |           | not null |                              | extended |             |              | 
+ establishment_id | integer                  |           |          |                              | plain    |             |              | 
+ legal_unit_id    | integer                  |           |          |                              | plain    |             |              | 
+ enterprise_id    | integer                  |           |          |                              | plain    |             |              | 
+ power_group_id   | integer                  |           |          |                              | plain    |             |              | 
+ created_at       | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
+ edit_comment     | character varying(512)   |           |          |                              | extended |             |              | 
+ edit_by_user_id  | integer                  |           | not null | auth.uid()                   | plain    |             |              | 
+ edit_at          | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
 Indexes:
     "unit_notes_pkey" PRIMARY KEY, btree (id)
     "ix_unit_notes_edit_by_user_id" btree (edit_by_user_id)
@@ -36,7 +36,14 @@ Policies:
       TO regular_user
       USING (true)
       WITH CHECK ((edit_by_user_id = auth.uid()))
+Not-null constraints:
+    "unit_notes_id_not_null" NOT NULL "id"
+    "unit_notes_notes_not_null" NOT NULL "notes"
+    "unit_notes_created_at_not_null" NOT NULL "created_at"
+    "unit_notes_edit_by_user_id_not_null" NOT NULL "edit_by_user_id"
+    "unit_notes_edit_at_not_null" NOT NULL "edit_at"
 Triggers:
     trigger_prevent_unit_notes_id_update BEFORE UPDATE OF id ON unit_notes FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
+Access method: heap
 
 ```

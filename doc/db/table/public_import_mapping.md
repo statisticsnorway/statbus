@@ -1,17 +1,17 @@
 ```sql
-                                         Table "public.import_mapping"
-           Column           |            Type            | Collation | Nullable |           Default            
-----------------------------+----------------------------+-----------+----------+------------------------------
- id                         | integer                    |           | not null | generated always as identity
- definition_id              | integer                    |           | not null | 
- source_column_id           | integer                    |           |          | 
- source_value               | text                       |           |          | 
- source_expression          | import_source_expression   |           |          | 
- target_data_column_id      | integer                    |           |          | 
- is_ignored                 | boolean                    |           | not null | false
- target_data_column_purpose | import_data_column_purpose |           |          | 
- created_at                 | timestamp with time zone   |           | not null | now()
- updated_at                 | timestamp with time zone   |           | not null | now()
+                                                                                                                                  Table "public.import_mapping"
+           Column           |            Type            | Collation | Nullable |           Default            | Storage  | Compression | Stats target |                                                               Description                                                                
+----------------------------+----------------------------+-----------+----------+------------------------------+----------+-------------+--------------+------------------------------------------------------------------------------------------------------------------------------------------
+ id                         | integer                    |           | not null | generated always as identity | plain    |             |              | 
+ definition_id              | integer                    |           | not null |                              | plain    |             |              | 
+ source_column_id           | integer                    |           |          |                              | plain    |             |              | 
+ source_value               | text                       |           |          |                              | extended |             |              | 
+ source_expression          | import_source_expression   |           |          |                              | plain    |             |              | 
+ target_data_column_id      | integer                    |           |          |                              | plain    |             |              | The target column in the _data table. NULL if is_ignored is true.
+ is_ignored                 | boolean                    |           | not null | false                        | plain    |             |              | If true, the source_column_id is explicitly marked as ignored for this import definition, and no target_data_column should be specified.
+ target_data_column_purpose | import_data_column_purpose |           |          |                              | plain    |             |              | The purpose of the target data column. Must be 'source_input' if not ignored, NULL if ignored.
+ created_at                 | timestamp with time zone   |           | not null | now()                        | plain    |             |              | 
+ updated_at                 | timestamp with time zone   |           | not null | now()                        | plain    |             |              | 
 Indexes:
     "import_mapping_pkey" PRIMARY KEY, btree (id)
     "idx_unique_target_mapping_when_not_ignored" UNIQUE, btree (definition_id, target_data_column_id) WHERE is_ignored = false
@@ -34,7 +34,14 @@ Policies:
     POLICY "import_mapping_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "import_mapping_id_not_null" NOT NULL "id"
+    "import_mapping_definition_id_not_null" NOT NULL "definition_id"
+    "import_mapping_is_ignored_not_null" NOT NULL "is_ignored"
+    "import_mapping_created_at_not_null" NOT NULL "created_at"
+    "import_mapping_updated_at_not_null" NOT NULL "updated_at"
 Triggers:
     trg_validate_import_mapping_after_change AFTER INSERT OR DELETE OR UPDATE ON import_mapping FOR EACH ROW EXECUTE FUNCTION admin.trigger_validate_import_definition()
+Access method: heap
 
 ```
