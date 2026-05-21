@@ -45,13 +45,16 @@ func TestIsStale_FreshTree(t *testing.T) {
 	}
 }
 
-// TestIsStale_DriftedCli covers the positive case: cli/ has been edited
-// since the build commit. git diff exits 1; IsStale returns the
-// diagnostic with the short build commit.
-func TestIsStale_DriftedCli(t *testing.T) {
+// TestIsStale_UncommittedDrift covers the case King hit while iterating:
+// the binary was built from the current HEAD (commit matches), but cli/
+// has uncommitted (staged or unstaged) changes. The diagnostic must
+// specifically name "uncommitted changes" — NOT the misleading
+// "built from X, but cli/ has changed since" wording that conflated
+// committed and uncommitted drift pre-fix.
+func TestIsStale_UncommittedDrift(t *testing.T) {
 	dir, head := setupGitRepoWithCli(t)
 
-	// Modify a file inside cli/ without committing.
+	// Modify a file inside cli/ without committing → uncommitted drift only.
 	cliFile := filepath.Join(dir, "cli", "main.go")
 	if err := os.WriteFile(cliFile, []byte("package main\n// drifted\n"), 0644); err != nil {
 		t.Fatal(err)
@@ -59,7 +62,7 @@ func TestIsStale_DriftedCli(t *testing.T) {
 
 	got := IsStale(dir, head)
 	if got == "" {
-		t.Fatal("drifted cli/: got empty, want diagnostic")
+		t.Fatal("uncommitted drift: got empty, want diagnostic")
 	}
 	short := head
 	if len(short) > 8 {
@@ -71,8 +74,96 @@ func TestIsStale_DriftedCli(t *testing.T) {
 	if !strings.Contains(got, short) {
 		t.Errorf("diagnostic missing short commit %q: %q", short, got)
 	}
-	if !strings.Contains(got, "Rebuild:") {
-		t.Errorf("diagnostic missing remediation: %q", got)
+	if !strings.Contains(got, "uncommitted changes") {
+		t.Errorf("diagnostic missing 'uncommitted changes' phrasing — operator can't distinguish from committed drift: %q", got)
+	}
+	if !strings.Contains(got, "matches HEAD") {
+		t.Errorf("diagnostic should explicitly say the binary matches HEAD (so operator doesn't blame an old build): %q", got)
+	}
+	if !strings.Contains(got, "./dev.sh build-sb") {
+		t.Errorf("diagnostic missing fast rebuild option for dev iteration: %q", got)
+	}
+	if !strings.Contains(got, "./dev.sh cross-build-sb") {
+		t.Errorf("diagnostic missing release-platform rebuild option: %q", got)
+	}
+}
+
+// TestIsStale_CommittedDrift covers the case where the binary was built
+// from a commit OLDER than HEAD, and cli/ has been changed by commits
+// landed since. The diagnostic must name the HEAD commit (so the
+// operator knows what they need to rebuild against) and not falsely
+// imply uncommitted work.
+func TestIsStale_CommittedDrift(t *testing.T) {
+	dir, oldHead := setupGitRepoWithCli(t)
+
+	// Add a SECOND commit that modifies cli/. The binary remains
+	// "built from oldHead" while HEAD advances.
+	cliFile := filepath.Join(dir, "cli", "main.go")
+	if err := os.WriteFile(cliFile, []byte("package main\n// later\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	runGitIn(t, dir, "add", "cli/main.go")
+	runGitIn(t, dir, "commit", "-q", "-m", "advance cli")
+
+	got := IsStale(dir, oldHead)
+	if got == "" {
+		t.Fatal("committed drift: got empty, want diagnostic")
+	}
+	short := oldHead
+	if len(short) > 8 {
+		short = short[:8]
+	}
+	if !strings.Contains(got, "./sb is stale") {
+		t.Errorf("diagnostic missing prefix: %q", got)
+	}
+	if !strings.Contains(got, short) {
+		t.Errorf("diagnostic missing short build commit %q: %q", short, got)
+	}
+	if !strings.Contains(got, "HEAD is now") {
+		t.Errorf("diagnostic should name HEAD (so operator knows the target): %q", got)
+	}
+	// Operator must not see "uncommitted" wording in the committed-only
+	// case — that would re-introduce the conflation we just fixed.
+	if strings.Contains(got, "uncommitted") {
+		t.Errorf("committed-only drift leaked 'uncommitted' wording: %q", got)
+	}
+	if !strings.Contains(got, "./dev.sh build-sb") {
+		t.Errorf("diagnostic missing fast rebuild option: %q", got)
+	}
+}
+
+// TestIsStale_BothDrifts covers the combined case: binary commit is
+// older than HEAD with cli/ changes between, AND there are also
+// uncommitted cli/ changes in the worktree. Diagnostic must name BOTH
+// drifts so the operator knows to commit/stash before rebuilding.
+func TestIsStale_BothDrifts(t *testing.T) {
+	dir, oldHead := setupGitRepoWithCli(t)
+
+	// Commit-advance cli/ (introduces committed drift vs oldHead).
+	cliFile := filepath.Join(dir, "cli", "main.go")
+	if err := os.WriteFile(cliFile, []byte("package main\n// later\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	runGitIn(t, dir, "add", "cli/main.go")
+	runGitIn(t, dir, "commit", "-q", "-m", "advance cli")
+
+	// AND leave a further uncommitted change on top.
+	if err := os.WriteFile(cliFile, []byte("package main\n// later\n// wip\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	got := IsStale(dir, oldHead)
+	if got == "" {
+		t.Fatal("combined drift: got empty, want diagnostic")
+	}
+	if !strings.Contains(got, "HEAD is now") {
+		t.Errorf("diagnostic missing committed-drift phrasing: %q", got)
+	}
+	if !strings.Contains(got, "uncommitted changes") {
+		t.Errorf("diagnostic missing uncommitted-drift phrasing: %q", got)
+	}
+	if !strings.Contains(got, "Commit (or stash)") {
+		t.Errorf("diagnostic missing combined-action guidance: %q", got)
 	}
 }
 
@@ -154,6 +245,28 @@ func TestIsStale_ExecFailure(t *testing.T) {
 	}
 }
 
+// runGitIn invokes git in dir with deterministic author/committer env
+// so commits are reproducible regardless of the operator's git config.
+// Returns trimmed stdout; fails the test on non-zero exit.
+//
+// Shared across freshness tests (committed-drift, both-drifts) that
+// need to make additional commits on top of setupGitRepoWithCli's
+// initial state.
+func runGitIn(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(),
+		"GIT_AUTHOR_NAME=test", "GIT_AUTHOR_EMAIL=test@example.com",
+		"GIT_COMMITTER_NAME=test", "GIT_COMMITTER_EMAIL=test@example.com",
+	)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %s failed: %v\n%s", strings.Join(args, " "), err, out)
+	}
+	return strings.TrimSpace(string(out))
+}
+
 // setupGitRepoWithCli creates a temp dir initialised as a git repo,
 // adds a cli/ subdirectory with a single file, commits it, and returns
 // the dir + the head SHA. Used by the positive-path tests.
@@ -161,22 +274,7 @@ func setupGitRepoWithCli(t *testing.T) (dir, head string) {
 	t.Helper()
 	dir = t.TempDir()
 
-	runGit := func(args ...string) string {
-		t.Helper()
-		cmd := exec.Command("git", args...)
-		cmd.Dir = dir
-		cmd.Env = append(os.Environ(),
-			"GIT_AUTHOR_NAME=test", "GIT_AUTHOR_EMAIL=test@example.com",
-			"GIT_COMMITTER_NAME=test", "GIT_COMMITTER_EMAIL=test@example.com",
-		)
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			t.Fatalf("git %s failed: %v\n%s", strings.Join(args, " "), err, out)
-		}
-		return strings.TrimSpace(string(out))
-	}
-
-	runGit("init", "-q")
+	runGitIn(t, dir, "init", "-q")
 
 	if err := os.MkdirAll(filepath.Join(dir, "cli"), 0755); err != nil {
 		t.Fatal(err)
@@ -185,8 +283,8 @@ func setupGitRepoWithCli(t *testing.T) (dir, head string) {
 		t.Fatal(err)
 	}
 
-	runGit("add", ".")
-	runGit("commit", "-q", "-m", "initial")
-	head = runGit("rev-parse", "HEAD")
+	runGitIn(t, dir, "add", ".")
+	runGitIn(t, dir, "commit", "-q", "-m", "initial")
+	head = runGitIn(t, dir, "rev-parse", "HEAD")
 	return dir, head
 }
