@@ -601,7 +601,20 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error)
 		fmt.Printf("[migrate]   ▶ applying %s\n", filepath.Base(m.Path))
 
 		if verbose {
-			fmt.Printf("Migration %d (%s) ", m.Version, m.Description)
+			// Newline-terminated. Pre-fix this printf was newline-less,
+			// intended as a prefix that an [applied]/[FAILED] suffix
+			// would complete on the same line. That works in isolation,
+			// but the subsequent `[migrate]   ✔ applied` printf (which
+			// fires for every migration, verbose or not, and has its
+			// own leading whitespace) crashes onto the same line:
+			//
+			//   Migration X (desc) [migrate]   ✔ applied  ... in 368ms
+			//   [applied] (368ms)
+			//
+			// Adding the \n keeps each piece on its own line; the
+			// existing [applied]/[FAILED]/[empty-skipped] suffix
+			// structures land as their own lines too.
+			fmt.Printf("Migration %d (%s)\n", m.Version, m.Description)
 		}
 
 		start := time.Now()
@@ -798,7 +811,10 @@ func Down(projDir string, migrateTo int64, all bool, verbose bool) error {
 		}
 
 		if verbose {
-			fmt.Printf("Migration %d (%s) ", version, mf.Description)
+			// Newline-terminated (see Up()'s identical printf for the
+			// rationale — pre-fix the missing newline jammed this
+			// prefix onto subsequent log lines).
+			fmt.Printf("Migration %d (%s)\n", version, mf.Description)
 		}
 
 		// Check if file is empty
