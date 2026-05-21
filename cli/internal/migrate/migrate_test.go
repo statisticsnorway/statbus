@@ -32,6 +32,7 @@ func TestPsqlEnv_UsesCaddyBind(t *testing.T) {
 	// Scrub process env so we're not testing the override path.
 	t.Setenv("PGHOST", "")
 	t.Setenv("PGPORT", "")
+	t.Setenv("PGDATABASE", "")
 	t.Setenv("SITE_DOMAIN", "")
 
 	env, err := psqlEnv(dir)
@@ -58,6 +59,76 @@ func TestPsqlEnv_UsesCaddyBind(t *testing.T) {
 		if got[k] != v {
 			t.Errorf("env[%s] = %q, want %q", k, got[k], v)
 		}
+	}
+}
+
+// TestPsqlEnv_PGDATABASE_OverrideWins verifies the operator-standard
+// resolution: PGDATABASE env wins over .env's POSTGRES_APP_DB. Pre-fix
+// the appended `PGDATABASE=<POSTGRES_APP_DB>` silently overrode any
+// pre-existing PGDATABASE because exec.Command resolves duplicate
+// env keys last-wins.
+func TestPsqlEnv_PGDATABASE_OverrideWins(t *testing.T) {
+	dir := writeEnv(t, strings.Join([]string{
+		"CADDY_DB_BIND_ADDRESS=127.0.0.1",
+		"CADDY_DB_PORT=3014",
+		"POSTGRES_APP_DB=statbus_default",
+		"POSTGRES_ADMIN_USER=postgres",
+		"POSTGRES_ADMIN_PASSWORD=secret",
+	}, "\n"))
+	t.Setenv("PGHOST", "")
+	t.Setenv("PGPORT", "")
+	t.Setenv("PGDATABASE", "statbus_seed_via_env")
+	t.Setenv("SITE_DOMAIN", "")
+
+	env, err := psqlEnv(dir)
+	if err != nil {
+		t.Fatalf("psqlEnv: %v", err)
+	}
+
+	// Walk env in order, last PGDATABASE= entry is what exec.Command will use.
+	var last string
+	for _, kv := range env {
+		if strings.HasPrefix(kv, "PGDATABASE=") {
+			last = strings.TrimPrefix(kv, "PGDATABASE=")
+		}
+	}
+	if last != "statbus_seed_via_env" {
+		t.Errorf("PGDATABASE override leaked: last PGDATABASE= entry was %q, want %q (POSTGRES_APP_DB shadowed the operator override)",
+			last, "statbus_seed_via_env")
+	}
+}
+
+// TestPsqlEnv_PGDATABASE_EmptyFallsBack regression guards the fallback:
+// when PGDATABASE is unset (or empty), the .env's POSTGRES_APP_DB is
+// the source of truth. Without this, scrubbing PGDATABASE in tests
+// could regress to surfacing test-runner-leaked PGDATABASE.
+func TestPsqlEnv_PGDATABASE_EmptyFallsBack(t *testing.T) {
+	dir := writeEnv(t, strings.Join([]string{
+		"CADDY_DB_BIND_ADDRESS=127.0.0.1",
+		"CADDY_DB_PORT=3014",
+		"POSTGRES_APP_DB=statbus_default",
+		"POSTGRES_ADMIN_USER=postgres",
+		"POSTGRES_ADMIN_PASSWORD=secret",
+	}, "\n"))
+	t.Setenv("PGHOST", "")
+	t.Setenv("PGPORT", "")
+	t.Setenv("PGDATABASE", "")
+	t.Setenv("SITE_DOMAIN", "")
+
+	env, err := psqlEnv(dir)
+	if err != nil {
+		t.Fatalf("psqlEnv: %v", err)
+	}
+
+	var last string
+	for _, kv := range env {
+		if strings.HasPrefix(kv, "PGDATABASE=") {
+			last = strings.TrimPrefix(kv, "PGDATABASE=")
+		}
+	}
+	if last != "statbus_default" {
+		t.Errorf("PGDATABASE fallback wrong: last PGDATABASE= entry was %q, want %q (POSTGRES_APP_DB from .env)",
+			last, "statbus_default")
 	}
 }
 

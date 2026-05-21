@@ -94,7 +94,14 @@ func PsqlCommand(projDir string) (psqlPath string, prefixArgs []string, env []st
 			return fallback
 		}
 		user := getOr("POSTGRES_ADMIN_USER", "postgres")
-		db := getOr("POSTGRES_APP_DB", "statbus_local")
+		// PGDATABASE env (operator-standard) wins over POSTGRES_APP_DB (.env default).
+		// Matches psql's own resolution: `-d <flag>` > PGDATABASE > defaults.
+		// User-supplied `-d` in args appears AFTER this prefix's `-d` so psql's
+		// last-wins behaviour preserves the explicit override.
+		db := os.Getenv("PGDATABASE")
+		if db == "" {
+			db = getOr("POSTGRES_APP_DB", "statbus_local")
+		}
 		return "docker", []string{"compose", "exec", "-T", "-w", "/statbus", "db", "psql", "-U", user, "-d", db}, nil, nil
 	}
 
@@ -148,11 +155,21 @@ func psqlEnv(projDir string) ([]string, error) {
 		return nil, err
 	}
 
+	// PGDATABASE env (operator-standard) wins over POSTGRES_APP_DB (.env default).
+	// Note: in the appended env below, the LAST `PGDATABASE=...` entry wins
+	// when exec.Command processes duplicates. Without this explicit override
+	// the appended `PGDATABASE=<POSTGRES_APP_DB>` shadows any pre-existing
+	// PGDATABASE in os.Environ(), silently ignoring the operator's intent.
+	dbName := os.Getenv("PGDATABASE")
+	if dbName == "" {
+		dbName = getOr("POSTGRES_APP_DB", "statbus_local")
+	}
+
 	env := os.Environ()
 	env = append(env,
 		"PGHOST="+dbHost,
 		"PGPORT="+dbPort,
-		"PGDATABASE="+getOr("POSTGRES_APP_DB", "statbus_local"),
+		"PGDATABASE="+dbName,
 		"PGUSER="+getOr("POSTGRES_ADMIN_USER", "postgres"),
 		"PGPASSWORD="+getOr("POSTGRES_ADMIN_PASSWORD", ""),
 		"PGSSLMODE=disable",
