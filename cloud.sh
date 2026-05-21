@@ -237,51 +237,15 @@ trust_flag() {
     fi
 }
 
-# check_migration_immutability detects if any deployed migration was modified
-# between the server's previous HEAD and the new HEAD. Edge-only — release
-# channels use tagged versions where the RC preflight already enforces this.
-# Returns 0 if clean, 1 if modified (with actionable instructions printed).
-check_migration_immutability() {
-    local server="$1"
-    # Get the previous HEAD (before our checkout) from git reflog.
-    local prev_head
-    prev_head=$(ssh_server "$server" "cd statbus && git rev-parse 'HEAD@{1}' 2>/dev/null" 2>/dev/null || true)
-    if [ -z "$prev_head" ]; then
-        return 0  # no reflog (fresh clone) — nothing to check
-    fi
-
-    # Diff migrations/ between previous HEAD and current HEAD.
-    # Only care about M (modified) and D (deleted), not A (added).
-    local modified
-    modified=$(ssh_server "$server" \
-        "cd statbus && git diff --name-status $prev_head..HEAD -- migrations/ 2>/dev/null | grep -E '^[MD]'" \
-        2>/dev/null || true)
-
-    if [ -z "$modified" ]; then
-        return 0  # no modifications to existing migrations
-    fi
-
-    echo ""
-    echo "*** MIGRATION IMMUTABILITY VIOLATION ***"
-    echo "The following deployed migration(s) were modified or deleted:"
-    echo "$modified" | while read -r line; do
-        echo "  $line"
-    done
-    echo ""
-    echo "The upgrade service only runs forward (up). To apply the modified"
-    echo "migration, you must manually roll back to before it, then re-apply."
-    echo ""
-
-    # Extract the earliest modified migration number for the suggested command.
-    local earliest
-    earliest=$(echo "$modified" | awk -F'[/_]' '{print $2}' | sort | head -1)
-    echo "Run:"
-    echo "  ./cloud.sh migrate-down $server $earliest"
-    echo "Then re-run:"
-    echo "  ./cloud.sh install $server"
-    echo ""
-    return 1
-}
+# Migration immutability is a RELEASE-CUT concern, enforced by `./sb release
+# prerelease` / `release stable` preflight (checkMigrationImmutability in
+# cli/cmd/release.go). The install-time check that used to live here was
+# wrong-layer: it diffed git history between two HEADs on the slot, which
+# bears no relationship to what's recorded in db.migration. A migrate-down
+# (which clears the db.migration row) couldn't satisfy a git-history-based
+# check, producing an infinite loop on operators recovering from a known-
+# corrected migration. Removed 2026-05-22 after the loop bit a dev recovery.
+# Release-cut gate remains authoritative; install just applies forward.
 
 # cmd_migrate_down rolls back a specific migration on an edge server.
 # Takes a migration number — rolls back until that migration is gone.
@@ -527,12 +491,6 @@ cmd_install_one() {
                          ensure_service_started "$server"; return 1; }
             fi
         fi
-        # Check for modified migrations before proceeding. Edge channel only.
-        if ! check_migration_immutability "$server"; then
-            ensure_service_started "$server"
-            return 1
-        fi
-
         # Stop user-level service before replacing binary — systemd --user
         # restarts it on exit (Restart=always), and the running process holds
         # the binary open → "text file busy" on mv.
