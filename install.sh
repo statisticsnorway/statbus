@@ -206,6 +206,17 @@ if [ -z "${SKIP_BINARY_DOWNLOAD:-}" ]; then
         echo "Binary: $(./sb --version)"
         echo ""
         echo "Checking out $VERSION..."
+        # Ensure db-seed is in origin's refspec so the subsequent
+        # `./sb db seed fetch` (during `./sb install`) can populate the
+        # origin/db-seed remote-tracking ref. Older rescue installs were
+        # cloned via `--depth 1 --branch <tag>` which implies
+        # --single-branch and restricts the refspec to JUST that branch —
+        # `git fetch origin db-seed` then updates FETCH_HEAD but NOT
+        # refs/remotes/origin/db-seed, and the later `git show
+        # origin/db-seed:seed.pg_dump` fails with "invalid object name."
+        # set-branches --add is idempotent; on hosts already broadened it
+        # no-ops.
+        git remote set-branches --add origin db-seed
         # No --force, no --quiet. install-verified moving tag was deleted
         # in rc.62; there is no moving tag to force past anymore. Silent
         # failures hid rune's rc.59 / rc.60 root causes — let fetch and
@@ -226,6 +237,12 @@ if [ -z "${SKIP_BINARY_DOWNLOAD:-}" ]; then
         echo "Cloning StatBus repository..."
         git clone --depth 1 --branch "$VERSION" \
             https://github.com/statisticsnorway/statbus.git "$STATBUS_DIR"
+        # Add db-seed to origin's refspec — see RESCUE-path comment above
+        # for the bug this prevents. `--depth 1 --branch <tag>` implies
+        # --single-branch which restricts the refspec; without this fix
+        # the seed-restore step silently falls back to full-replay of all
+        # migrations (1-3 min) instead of pg_restore (~2s).
+        git -C "$STATBUS_DIR" remote set-branches --add origin db-seed
         # `clone --branch <tag>` leaves HEAD detached on the tag commit;
         # promote to the same `current` branch the rescue path uses.
         git -C "$STATBUS_DIR" checkout -B current "$VERSION"
