@@ -767,14 +767,17 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 			if strings.HasPrefix(reason, "db.migration max version") {
 				logRecover("Ground-truth: %s — forward-recovering via migrate.Up", reason)
 				if mErr := migrate.Up(d.projDir, 0, true, true); mErr != nil {
-					logRecover("Forward-recovery migrate.Up failed: %v — falling through to rollback", mErr)
+					if flag.BackupPath != "" {
+						logRecover("Forward-recovery migrate.Up failed: %v — auto-restoring from snapshot at %s", mErr, flag.BackupPath)
+					} else {
+						logRecover("Forward-recovery migrate.Up failed and no backup available for auto-restore: %v — falling through to rollback", mErr)
+					}
 					if appendLog != nil {
 						appendLog.Close()
 						appendLog = nil
 					}
-					d.recoveryRollback(ctx, int(flag.ID), flag.Label(), logRelPath, fmt.Sprintf(
-						"%s: forward-recovery migrate.Up failed: %v",
-						ErrInstallPreconditionFailed, mErr))
+					d.recoveryRollback(ctx, int(flag.ID), flag.Label(), logRelPath,
+						formatForwardRecoveryFailure(mErr, flag.BackupPath))
 					return nil
 				}
 				// Re-verify after migrations applied. If still failing,
@@ -783,14 +786,17 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 				// shouldn't happen, but rollback is correct then).
 				okRetry, reasonRetry := d.verifyUpgradeGroundTruth(ctx, flag.CommitSHA)
 				if !okRetry {
-					logRecover("Ground-truth still failed after migrate.Up: %s — falling through to rollback", reasonRetry)
+					if flag.BackupPath != "" {
+						logRecover("Ground-truth still failed after migrate.Up: %s — auto-restoring from snapshot at %s", reasonRetry, flag.BackupPath)
+					} else {
+						logRecover("Ground-truth still failed after migrate.Up and no backup available for auto-restore: %s — falling through to rollback", reasonRetry)
+					}
 					if appendLog != nil {
 						appendLog.Close()
 						appendLog = nil
 					}
-					d.recoveryRollback(ctx, int(flag.ID), flag.Label(), logRelPath, fmt.Sprintf(
-						"%s: post-migrate-up ground-truth still failed: %s",
-						ErrInstallPreconditionFailed, reasonRetry))
+					d.recoveryRollback(ctx, int(flag.ID), flag.Label(), logRelPath,
+						formatForwardRecoveryFailure(fmt.Errorf("post-migrate-up ground-truth still failed: %s", reasonRetry), flag.BackupPath))
 					return nil
 				}
 				logRecover("Forward-recovery complete: migrations applied, ground-truth verified. Marking row completed.")
@@ -3364,6 +3370,40 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	return nil
 }
 
+// postSwapFailure is the single rollback path for failures inside
+// applyPostSwap. It exists so all nine post-swap step failures share one
+// narrative ("forward failed: <reason>; auto-restored from snapshot") and
+// one return shape — operators reading the row's `error` column see the
+// same prefix regardless of which post-swap step tripped. Internally it
+// runs the full rsync-restore pipeline via d.rollback(), which marks the
+// row 'rolled_back', clears the flag, restarts containers, and exits the
+// process. The error return is reached only on the rare degraded path
+// where d.rollback() returns without exiting.
+func (d *Service) postSwapFailure(ctx context.Context, id int, displayName, previousVersion, reason string, progress *ProgressLog) error {
+	progress.Write("Post-swap failure: %s — auto-restoring from snapshot", reason)
+	d.rollback(ctx, id, displayName, previousVersion,
+		fmt.Sprintf("forward failed: %s; auto-restored from snapshot", reason), progress)
+	return fmt.Errorf("%s: post-swap failure auto-restored: %s",
+		ErrInstallPreconditionFailed, reason)
+}
+
+// formatForwardRecoveryFailure renders the operator-visible error stored
+// in public.upgrade.error when forward-recovery (migrate.Up inside
+// recoverFromFlag's PreSwap-HEAD-matches branch) fails. The narrative
+// mirrors postSwapFailure so both arms of the unified forward-then-restore
+// path read the same in the row's `error` column. backupPath is the
+// rsync-restore source; empty means no usable backup was stamped and the
+// restore is best-effort (recoveryRollback's pipeline is still invoked
+// so the row, flag, and live system are reconciled).
+func formatForwardRecoveryFailure(forwardErr error, backupPath string) string {
+	if backupPath != "" {
+		return fmt.Sprintf("%s: forward failed: %v; auto-restored from %s",
+			ErrInstallPreconditionFailed, forwardErr, backupPath)
+	}
+	return fmt.Sprintf("%s: forward failed without usable backup: %v",
+		ErrInstallPreconditionFailed, forwardErr)
+}
+
 // applyPostSwap runs the upgrade steps that require the target binary's
 // compiled code: config generate → docker pull → db up → waitForDBHealth →
 // reconnect → persist final backup_path → migrate → app/worker/rest up →
@@ -3375,6 +3415,10 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 // upgrade — tagged or edge, service or inline — handsoff in executeUpgrade
 // before reaching here, so applyPostSwap always runs against the NEW
 // compiled Go code.
+//
+// Step failures route through postSwapFailure (single rollback path with
+// unified narrative). The legacy direct d.rollback() pattern was retired
+// so the row's `error` column reads consistently across all nine sites.
 //
 // Preconditions on entry: db container stopped; maintenance mode on; backup
 // on disk at backupPath; git HEAD at target commit; ./sb binary at target
@@ -3388,15 +3432,13 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	progress.Write("Regenerating configuration...")
 	if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "config-generate", filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
 		// TODO: pick code — config generate failure; no Err* code defined yet
-		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("./sb config generate: %v", err), progress)
-		return err
+		return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("./sb config generate: %v", err), progress)
 	}
 
 	// Step 8: Pull updated images
 	progress.Write("Pulling updated images...")
 	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", "docker", "compose", "pull"); err != nil {
-		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: docker compose pull: %v", ErrDockerUpFailed, err), progress)
-		return err
+		return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: docker compose pull: %v", ErrDockerUpFailed, err), progress)
 	}
 
 	// Step 9: Start database. --no-build forces compose to USE THE PULLED IMAGE
@@ -3416,22 +3458,19 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 				"then retry the upgrade. Check status: "+
 				"gh run list --workflow=images.yaml",
 			ErrDockerUpFailed, err, displayName)
-		d.rollback(ctx, id, displayName, previousVersion, reason, progress)
-		return err
+		return d.postSwapFailure(ctx, id, displayName, previousVersion, reason, progress)
 	}
 
 	// Wait for DB health
 	progress.Write("Waiting for database to be healthy...")
 	if err := d.waitForDBHealth(30 * time.Second); err != nil {
-		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: DB health check: %v", ErrHealthcheckDBDown, err), progress)
-		return err
+		return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: DB health check: %v", ErrHealthcheckDBDown, err), progress)
 	}
 
 	// Reconnect service DB connection
 	progress.Write("Reconnecting to database...")
 	if err := d.reconnect(ctx); err != nil {
-		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: reconnect to DB: %v", ErrHealthcheckDBDown, err), progress)
-		return err
+		return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: reconnect to DB: %v", ErrHealthcheckDBDown, err), progress)
 	}
 
 	// Update backup_path to the final (renamed) path now that we have a connection.
@@ -3450,8 +3489,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 		d.pendingRecreate = false
 		progress.Write("Recreating database from scratch (--recreate)...")
 		if err := runCommandToLog(projDir, 30*time.Minute, progress.File(), "recreate-database", filepath.Join(projDir, "dev.sh"), "recreate-database"); err != nil {
-			d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: ./dev.sh recreate-database: %v", ErrMigrationFailed, err), progress)
-			return err
+			return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: ./dev.sh recreate-database: %v", ErrMigrationFailed, err), progress)
 		}
 	} else {
 		progress.Write("Applying database migrations...")
@@ -3495,8 +3533,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 		<-extendDone
 
 		if err != nil {
-			d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: ./sb migrate up: %v", ErrMigrationFailed, err), progress)
-			return err
+			return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: ./sb migrate up: %v", ErrMigrationFailed, err), progress)
 		}
 	}
 
@@ -3512,15 +3549,13 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 				"Wait for that workflow to finish, then retry the upgrade. Check status: "+
 				"gh run list --workflow=images.yaml",
 			ErrDockerUpFailed, err, displayName)
-		d.rollback(ctx, id, displayName, previousVersion, reason, progress)
-		return err
+		return d.postSwapFailure(ctx, id, displayName, previousVersion, reason, progress)
 	}
 
 	// Step 12: Verify health
 	progress.Write("Verifying health...")
 	if err := d.healthCheck(progress, 5, 5*time.Second); err != nil {
-		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: application health check: %v", ErrHealthcheckRESTDown, err), progress)
-		return err
+		return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: application health check: %v", ErrHealthcheckRESTDown, err), progress)
 	}
 
 	// Notify frontend that the upgrade state changed. The DB trigger also fires
