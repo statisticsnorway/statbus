@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -60,13 +61,26 @@ func tagMessageSubject(projDir, tagName string) (string, error) {
 // compareMigrationsForTag diffs the migrations/ directory between prevTag
 // and tag. Additions are allowed; modifications or deletions of files that
 // existed in prevTag are immutability violations and surface as an error.
+//
+// STATBUS_CIRCUMVENT_IMMUTABLE_MIGRATION (release.CircumventEnvVar) skips
+// listed versions from the violation set so the operator can opt-in to the
+// rare in-place rewrite case. Same semantics + same env var as the
+// preflight-side checkMigrationImmutability — operators set the env var
+// once, both the pre-create gate AND the post-create / pre-push validation
+// (via ValidatePrereleaseTag) respect it.
 func compareMigrationsForTag(projDir, prevTag, tag string) error {
+	circumvent, err := release.ParseCircumventVersions(os.Getenv(release.CircumventEnvVar))
+	if err != nil {
+		return err
+	}
+
 	diffOut, err := upgrade.RunCommandOutput(projDir, "git", "diff",
 		"--name-status", prevTag+".."+tag, "--", "migrations/")
 	if err != nil {
 		return fmt.Errorf("git diff %s..%s: %w", prevTag, tag, err)
 	}
 	var modified []string
+	var circumvented []int64
 	for _, line := range strings.Split(strings.TrimSpace(diffOut), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
@@ -87,13 +101,35 @@ func compareMigrationsForTag(projDir, prevTag, tag string) error {
 			!strings.HasSuffix(file, ".up.psql") && !strings.HasSuffix(file, ".down.psql") {
 			continue
 		}
+
+		// Honour STATBUS_CIRCUMVENT_IMMUTABLE_MIGRATION (see header comment).
+		if len(circumvent) > 0 {
+			base := filepath.Base(file)
+			if underscore := strings.Index(base, "_"); underscore > 0 {
+				if v, parseErr := strconv.ParseInt(base[:underscore], 10, 64); parseErr == nil && circumvent[v] {
+					circumvented = append(circumvented, v)
+					continue
+				}
+			}
+		}
+
 		modified = append(modified, parts[0]+" "+file)
 	}
+
+	// Log circumvent activity (one line per unique version, sorted) so
+	// pre-push hook output and `release verify-tag` output surface the
+	// bypass explicitly. dedupeInt64Sorted lives in release.go (same
+	// package).
+	for _, v := range dedupeInt64Sorted(circumvented) {
+		fmt.Printf("⟳ Circumventing immutability for migration %d in %s..%s (%s)\n",
+			v, prevTag, tag, release.CircumventEnvVar)
+	}
+
 	if len(modified) == 0 {
 		return nil
 	}
-	return fmt.Errorf("tag %s modifies migrations present in %s:\n  %s\n  migrations are immutable after release — create a new migration instead",
-		tag, prevTag, strings.Join(modified, "\n  "))
+	return fmt.Errorf("tag %s modifies migrations present in %s:\n  %s\n  migrations are immutable after release — create a new migration instead\n  (or, if intentional and coordinated: %s=<version>[,...])",
+		tag, prevTag, strings.Join(modified, "\n  "), release.CircumventEnvVar)
 }
 
 // findLatestStableTagBeforePrefix returns the most recent stable tag whose

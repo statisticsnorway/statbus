@@ -870,14 +870,18 @@ var releasePrereleaseCmd = &cobra.Command{
 			return fmt.Errorf("creating tag %s: %w\n  output: %s", tagName, err, strings.TrimSpace(tagOut))
 		}
 
-		// Re-validate the just-created tag through the same gate the pre-push
-		// hook uses. If ValidatePrereleaseTag disagrees with the compute-tag
-		// logic above, delete the tag and abort — better to fail locally than
-		// to push a malformed tag.
-		if err := ValidatePrereleaseTag(projDir, tagName); err != nil {
-			_, _ = upgrade.RunCommandOutput(projDir, "git", "tag", "-d", tagName)
-			return fmt.Errorf("post-create validation of %s failed: %w", tagName, err)
-		}
+		// Post-create re-validation REMOVED: every invariant ValidatePrereleaseTag
+		// re-checked is already gated at the pre-create layer:
+		//   - tag-shape (vYYYY.MM.PATCH-rc.N regex + annotated/signed) — git tag -m + tag.gpgsign
+		//   - RC-number sequence (next-in-sequence) — local computation at lines above
+		//   - migration immutability — checkImmutabilityGate at preflightChecks step 3
+		// The pre-push hook still calls ValidatePrereleaseTag through
+		// release verify-tag, so the protection survives. The duplicate
+		// call was wasteful at best, and at worst (as King hit during
+		// v2026.05.4-rc.01) bypassed STATBUS_CIRCUMVENT_IMMUTABLE_MIGRATION
+		// because compareMigrationsForTag didn't read the env var. Both
+		// are now fixed: redundant call removed + compareMigrationsForTag
+		// honors the env var so pre-push hook respects the bypass too.
 
 		// Push tag
 		pushOut, err := upgrade.RunCommandOutput(projDir, "git", "push", "origin", tagName)
