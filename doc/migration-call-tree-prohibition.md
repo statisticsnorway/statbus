@@ -106,7 +106,7 @@ If the operator believes they truly need a direct call (extremely rare), the ove
 SELECT public.statistical_history_facet_derive(...);
 ```
 
-The lint (task #82) will log the bypass with the justification.
+A future structural lint (planned) will log the bypass with the justification.
 
 ## Maintaining this list
 
@@ -128,11 +128,10 @@ echo "SELECT command, handler_procedure FROM worker.command_registry WHERE comma
 echo "SELECT n.nspname||'.'||p.proname FROM pg_proc p JOIN pg_namespace n ON p.pronamespace=n.oid WHERE p.proname ~ '(_derive|_reduce|_flush_staging|^command_|_used_derive)$'" | ./sb psql
 ```
 
-The lint implementation in task #82 will automate this and cache the result keyed on the seed fingerprint.
+A future structural lint will automate this and cache the result keyed on the seed fingerprint.
 
-## Cross-link
+## Related precedents in-repo
 
-- Task #78 — lift the EXISTS-guarded backfill pattern to top-level doc (this file is part of that lift).
-- Task #82 — implement the structural lint that enforces this prohibition automatically.
-- Today's incident: `tmp/seed-race-audit.md` (different incident, same migration).
-- 2026-05-21 outage: dev's 76-iteration kill-restart loop on `20260521112759`.
+- `migrations/20260520204526_fix_derive_statistical_unit_orphan_dirty_hash_slots.up.sql:297-372` — inline documentation of the EXISTS-guarded `collect_changes` spawn pattern (the canonical solution shown above).
+- `migrations/20260422000000_rc42_post_upgrade_rebuild.up.sql` (BLOCK F) — first occurrence of the pattern.
+- `migrations/20260521112759_fix_statistical_history_facet_indexes_full_dims_nulls_distinct.up.sql` — the original (slow) version of this migration violated the prohibition; rewritten on 2026-05-21 to use the canonical pattern after a 76-iteration kill-restart loop on the development slot.
