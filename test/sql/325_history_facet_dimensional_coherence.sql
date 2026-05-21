@@ -1,0 +1,81 @@
+-- Test 325: Dimensional coherence for the statistical_unit → statistical_history[_facet] chain
+--
+-- Class-of-bugs home for invariants over the pipeline:
+--   public.legal_unit  →  worker.derive_statistical_unit (derive)
+--                      →  statistical_history_facet_partitions (per-LU contributions)
+--                      →  worker.statistical_history_facet_reduce (MERGE)
+--                      →  public.statistical_history_facet (final 10/9-col-unique target)
+--
+-- Current invariant: dimensional + NULL-semantics coherence between source
+-- GROUP BY and target partial unique indexes. Divergence trips MERGE INSERT
+-- with dup-key (source distinct on dim cols target index doesn't constrain)
+-- or admits silent data corruption (target NULLS DISTINCT vs source NULLS
+-- NOT DISTINCT). First captured: dup-key on statistical_history_facet_month_key.
+--
+-- Repro drives data through the live import → derive → reduce pipeline:
+-- two legal units sharing 10 dim cols + differing on unit_size_id / status_id.
+-- The reduce step tries to MERGE both rows into the target and trips the
+-- partial unique. Fixed by extending statistical_history_facet indexes to
+-- 12/11 cols with NULLS NOT DISTINCT (matching source GROUP BY + partitions UNIQUE).
+BEGIN;
+
+\i test/setup.sql
+
+\echo "Setting up minimal Statbus environment"
+CALL test.set_user_from_email('test.admin@statbus.org');
+\i samples/demo/getting-started.sql
+
+\echo
+\echo "=== STEP 1: Load collision test data ==="
+\echo "Two rows: same unit, same dims, different unit_size (tny vs sml)"
+\echo "When aggregated and reduced, will collide on 10-col index"
+
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, review)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
+    'import_360_dupkey',
+    'Test 360 dup-key collision via pipeline',
+    'Same unit with different unit_size codes in same period triggers reduce collision',
+    'test 360 - reproduce #53 dup-key bug',
+    false;
+
+\copy public.import_360_dupkey_upload(tax_ident,stat_ident,name,valid_from,physical_address_part1,valid_to,postal_address_part1,postal_address_part2,physical_address_part2,physical_postcode,postal_postcode,physical_address_part3,physical_postplace,postal_address_part3,postal_postplace,phone_number,landline,mobile_number,fax_number,web_address,email_address,secondary_activity_category_code,physical_latitude,physical_longitude,physical_altitude,birth_date,physical_region_code,postal_country_iso_2,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code,status_code,unit_size_code) FROM 'test/data/60_dupkey_collision_test.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+
+SELECT COUNT(*) as import_row_count FROM public.import_360_dupkey_upload;
+
+\echo
+\echo "=== STEP 2: Run import processing ==="
+CALL worker.process_tasks(p_queue => 'import');
+
+\echo "Checking import job status:"
+SELECT slug, state, total_rows, imported_rows, error IS NOT NULL as has_error
+  FROM public.import_job WHERE slug = 'import_360_dupkey';
+
+\echo "Units created:"
+SELECT lu.id as unit_id, 'legal_unit' as unit_type FROM legal_unit lu
+WHERE lu.name LIKE 'DUPKEY TEST%'
+ORDER BY lu.name;
+
+\echo
+\echo "=== STEP 3: Run analytics pipeline (derive + reduce) ==="
+\echo "Pre-fix: this should fail with duplicate-key violation on statistical_history_facet_month_key"
+CALL worker.process_tasks(p_queue => 'analytics');
+
+\echo
+\echo "=== STEP 4: Check results ==="
+SELECT c.queue, t.state, t.command, COUNT(*) as task_count
+  FROM worker.tasks t
+  JOIN worker.command_registry c ON t.command = c.command
+  WHERE t.command IN ('statistical_unit_facet_derive', 'statistical_history_facet_reduce')
+  GROUP BY c.queue, t.state, t.command
+  ORDER BY t.command, t.state;
+
+\echo "Task errors (if any):"
+SELECT command, error
+  FROM worker.tasks
+  WHERE error IS NOT NULL
+  AND command IN ('statistical_unit_facet_derive', 'statistical_history_facet_reduce')
+  ORDER BY created_at DESC
+  LIMIT 1;
+
+ROLLBACK;
