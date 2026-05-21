@@ -455,6 +455,13 @@ if [ ! -d ~/statbus/.git ]; then
     git clone --depth 50 https://github.com/statisticsnorway/statbus.git ~/statbus
 fi
 cd ~/statbus
+# Extend the tracked-branch list to include db-seed so the install's own
+# 'git fetch origin db-seed' creates refs/remotes/origin/db-seed (a single-
+# branch clone — see the tagged-version branch below — would otherwise
+# fetch the data but never create the remote-tracking ref, leaving the
+# seed shortcut silently disabled and forcing migrations-from-scratch).
+# Idempotent — safe to add repeatedly across scenarios that reuse the VM.
+git remote set-branches --add origin db-seed
 if ! git cat-file -e $local_commit 2>/dev/null; then
     echo "Fetching local HEAD commit $local_commit from origin..."
     git fetch --depth 1 origin $local_commit || {
@@ -486,6 +493,16 @@ if [ ! -d ~/statbus/.git ]; then
 fi
 mv ~/sb.tmp ~/statbus/sb
 cd ~/statbus
+# A '--depth 1 --branch <tag>' clone is implicitly single-branch — the
+# refspec is narrowed to just the tag's branch, so a subsequent
+# 'git fetch origin db-seed' downloads data but does NOT create
+# refs/remotes/origin/db-seed. ./sb install's seed-fetch step then sees
+# 'fatal: invalid object name origin/db-seed' on the git-show that
+# follows, falls back to migrations-from-scratch (~30 min on a fresh DB),
+# and any harness scenario spends its time replaying migrations instead
+# of exercising the recovery code path under test. Extending the
+# tracked-branch list before the install fixes the ref creation.
+git remote set-branches --add origin db-seed
 cp /tmp/env-config .env.config 2>/dev/null || true
 cp /tmp/users.yml .users.yml 2>/dev/null || true
 STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf $extra_args
