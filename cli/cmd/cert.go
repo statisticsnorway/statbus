@@ -26,6 +26,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"io/fs"
 	"net"
 	"os"
 	"path/filepath"
@@ -35,8 +36,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/statisticsnorway/statbus/cli/internal/config"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
-	"golang.org/x/crypto/pkcs12"
 	"golang.org/x/term"
+	pkcs12 "software.sslmate.com/src/go-pkcs12"
 )
 
 // ─── Constants ───────────────────────────────────────────────────────────
@@ -69,24 +70,71 @@ const devSelfSignedCAPath = "caddy/data/caddy/pki/authorities/local/root.crt"
 
 var certCmd = &cobra.Command{
 	Use:   "cert",
-	Short: "Manage TLS certificates",
-	Long: `Manage TLS certificates for StatBus.
+	Short: "Manage TLS certificates (custom PFX/PEM or automatic Let's Encrypt)",
+	Long: `Manage the TLS certificate StatBus uses to serve HTTPS.
 
-Commands:
-  show      Show currently-installed certificate (source, issuer, expiry, SANs)
-  install   Install a custom certificate (PFX or PEM pair) and reload
-  remove    Remove custom certificate (revert to automatic Let's Encrypt)`,
+There are two kinds of certificate StatBus can serve:
+
+  AUTOMATIC (default):
+      Caddy requests a certificate from Let's Encrypt the first time
+      a browser connects via HTTPS. Renewals happen automatically.
+      Free; requires the operator's domain to be reachable from the
+      public internet on port 443. No setup steps needed.
+
+  CUSTOM (this command):
+      An operator-supplied certificate, e.g. one issued by an
+      institutional CA, a commercial CA, or a national PKI.
+      Albania's StatBus install uses this — the country's PKI
+      issues a PFX certificate that gets installed via:
+          ./sb cert install /path/to/certificate.pfx
+
+Typical operator flow:
+
+  ./sb cert show                              # what cert is on this server right now?
+  ./sb cert install /downloads/site.pfx       # swap to a custom cert (PFX)
+  ./sb cert install fullchain.pem privkey.pem # swap to a custom cert (PEM pair)
+  ./sb cert remove                            # revert to automatic Let's Encrypt`,
+	Example: `  # See what certificate is currently serving HTTPS
+  ./sb cert show
+
+  # Install a PFX (most common — your CA exports as PFX)
+  ./sb cert install ~/Downloads/statbus-2026.pfx
+
+  # Install a PEM pair (already-extracted fullchain + private key)
+  ./sb cert install fullchain.pem privkey.pem
+
+  # Go back to automatic Let's Encrypt
+  ./sb cert remove`,
 }
 
 var certShowCmd = &cobra.Command{
 	Use:   "show",
-	Short: "Show currently-installed certificate",
-	Long: `Inspect the TLS certificate that StatBus is currently serving.
+	Short: "Show the TLS certificate currently being served",
+	Long: `Inspect the TLS certificate StatBus is currently serving on HTTPS.
 
-Detects whether the certificate is operator-installed (custom, via
-TLS_CERT_FILE) or auto-issued (ACME / Let's Encrypt), and prints
-uniform info: issuer, subject, SANs, validity dates, days until
-expiry, chain depth, SHA-256 fingerprint.`,
+Output fields:
+  Source        Where the cert came from. "Custom" means operator-
+                installed via ./sb cert install. "Automatic Let's
+                Encrypt" means Caddy auto-issued via ACME.
+  Path          Host filesystem path to the .crt file.
+  Issuer        Common Name of the CA that signed the certificate.
+                e.g. "Let's Encrypt R3" or "DigiCert Global Root CA".
+  Subject       Common Name in the certificate's Subject field.
+                Usually matches your site domain.
+  SANs          Subject Alternative Names — every hostname this
+                certificate is valid for. Browsers compare the URL's
+                hostname against this list.
+  NotBefore     When the certificate became valid.
+  NotAfter      Expiry date + how many days until expiry. Browsers
+                refuse expired certificates.
+  Chain depth   Number of certificates in the chain. 1 = just the
+                leaf (no intermediates — may break for browsers
+                without your CA's root trusted). >1 = leaf +
+                intermediate(s), which is the normal shape.
+  SHA-256       Fingerprint of the leaf certificate. Compare to
+                what the operator's CA sent you to confirm
+                identity.`,
+	Example: `  ./sb cert show`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runCertShow(config.ProjectDir())
 	},
@@ -94,25 +142,57 @@ expiry, chain depth, SHA-256 fingerprint.`,
 
 var certInstallCmd = &cobra.Command{
 	Use:   "install <cert-file> [<key-file>]",
-	Short: "Install a custom certificate (PFX or PEM pair) and reload",
+	Short: "Install a custom certificate (PFX or PEM pair) and reload Caddy",
 	Long: `Install a custom TLS certificate.
 
-Two input shapes:
-  PFX/PKCS#12:   ./sb cert install /path/to/certificate.pfx
-                 (prompts for password; extracts cert chain + key)
-  PEM pair:      ./sb cert install /path/to/fullchain.pem /path/to/key.pem
+There are two shapes of input:
 
-Detection is by file content (tries pkcs12 decode first, falls back
-to PEM parse), not by extension — operators sometimes hand-rename.
+  PFX (PKCS#12):
+      A single file (extension usually .pfx or .p12) that holds the
+      certificate chain AND the private key, encrypted with a
+      password. Most institutional CAs export in this shape.
+      Run:  ./sb cert install <your.pfx>
+      You'll be prompted for the PFX password.
 
-The install flow validates the cert/key match (modulus check),
-places files in caddy/data/custom-certs/, updates .env.config's
-TLS_CERT_FILE + TLS_KEY_FILE, regenerates Caddy config, restarts
-the proxy container, and verifies via TLS probe that the served
-cert matches what was just installed.
+  PEM pair:
+      Two separate files — fullchain.pem (one or more CERTIFICATE
+      PEM blocks, leaf first) and privkey.pem (one PRIVATE KEY
+      block). Common output of openssl extraction or ACME tools.
+      Run:  ./sb cert install fullchain.pem privkey.pem
 
-Scope: standalone deployment mode only. See ./sb cert show output
-for private and development mode guidance.`,
+The detection happens by file CONTENT, not extension — if you
+renamed a PFX to .crt, it'll still be recognised.
+
+The install flow:
+
+  1. Read + decode the certificate material.
+  2. Verify the certificate and private key are a matched pair
+     (their public keys must agree). Mismatch → loud refusal.
+  3. Warn if the chain has only the leaf (no intermediates):
+     browsers with system trust roots will still verify; non-
+     system roots will break.
+  4. Show you the cert details (issuer, subject, SANs, expiry)
+     BEFORE writing anything — confirm it's the right cert.
+  5. Place caddy/data/custom-certs/<sanitised-name>.{crt,key}.
+  6. Update .env.config TLS_CERT_FILE + TLS_KEY_FILE.
+  7. Regenerate Caddy configuration.
+  8. Restart the Caddy container (docker compose restart proxy).
+  9. Probe https://<SITE_DOMAIN> and confirm the served cert
+     SHA-256 matches the installed one. If not, fail loud — Caddy
+     did not pick up the new cert.
+
+Scope: standalone deployment mode only. In private mode the
+upstream proxy owns the certificate; in development mode Caddy
+serves its own internal CA. ./sb cert show explains both.`,
+	Example: `  # PFX with password (Albania's flow)
+  ./sb cert install ~/Downloads/statbus-2026.pfx
+  Enter PFX password: ********
+
+  # PEM pair (already extracted)
+  ./sb cert install fullchain.pem privkey.pem
+
+  # File renamed from PFX → still detected via content
+  ./sb cert install ~/cert-with-wrong-extension.crt`,
 	Args: cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runCertInstall(config.ProjectDir(), args)
@@ -121,15 +201,33 @@ for private and development mode guidance.`,
 
 var certRemoveCmd = &cobra.Command{
 	Use:   "remove",
-	Short: "Remove custom certificate (revert to automatic Let's Encrypt)",
-	Long: `Revert from a custom certificate to automatic Let's Encrypt issuance.
+	Short: "Remove custom certificate and revert to automatic Let's Encrypt",
+	Long: `Revert from a custom (operator-installed) certificate to automatic
+Let's Encrypt issuance.
 
-Unsets TLS_CERT_FILE + TLS_KEY_FILE in .env.config, archives the
-existing custom cert files (move, don't delete — operator may want
-to retrieve them), regenerates Caddy config, and restarts the proxy.
-Caddy will request a new ACME certificate on the next HTTPS request.
+What this does:
+
+  1. Archives your current custom cert files to
+     caddy/data/custom-certs/archive/<timestamp>/ (move, not
+     delete — you can retrieve them later if needed).
+  2. Clears TLS_CERT_FILE + TLS_KEY_FILE in .env.config.
+  3. Regenerates Caddy configuration.
+  4. Restarts the Caddy container.
+
+What happens next:
+
+  Caddy will request a fresh certificate from Let's Encrypt the
+  first time a browser connects via HTTPS. This requires:
+  - Your SITE_DOMAIN is reachable from the public internet.
+  - Port 80 + 443 on the host are open + forwarded to Caddy.
+  - DNS for SITE_DOMAIN points at this host's public IP.
+
+If any of those isn't true, you'll need to either install another
+custom certificate OR fix the network setup. Run ./sb cert show
+in a few minutes to confirm Caddy got the new cert.
 
 Scope: standalone deployment mode only.`,
+	Example: `  ./sb cert remove`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runCertRemove(config.ProjectDir())
 	},
@@ -365,119 +463,166 @@ func runCertInstall(projDir string, args []string) error {
 // loadCertMaterial dispatches on argv shape + file content. Returns
 // the cert chain (leaf first), the private key, and a sanitised
 // base name for output file naming.
+//
+// Errors are actionable rather than stack-tracey:
+//   - File not found → "File not found: <path>" + suggestion
+//   - PFX wrong password → "Invalid PFX password — re-run with the
+//     correct password (the one your CA emailed you with the cert)"
+//   - PFX corrupt / not actually PFX → fall through to PEM parse
+//   - Neither PFX nor PEM → "input is neither a valid PKCS#12 PFX
+//     nor a PEM bundle"
+//
+// All decode failures happen BEFORE any file is written to disk;
+// no partial state to clean up.
 func loadCertMaterial(args []string) ([]*x509.Certificate, interface{}, string, error) {
 	switch len(args) {
 	case 1:
-		// Single file → try PFX, fall back to PEM. PFX has a
-		// password; PEM doesn't (this code path assumes
-		// unencrypted PEM; if you have an encrypted PEM key,
-		// decrypt first via `openssl pkey -in encrypted.pem
-		// -out decrypted.pem`).
 		path := args[0]
-		data, err := os.ReadFile(path)
+		data, err := readCertFile(path)
 		if err != nil {
-			return nil, nil, "", fmt.Errorf("read %s: %w", path, err)
+			return nil, nil, "", err
 		}
-		// Try PFX first. Empty password is common for raw exports
-		// but the operator-facing flow prompts; only fall through
-		// to PEM if the PFX decode fails with a structural error.
-		if chain, key, ok := tryDecodePFX(data); ok {
+		// Single file → try PFX first (content-detect), fall back
+		// to PEM. tryDecodePFX prompts for password ONLY when the
+		// input looks like DER (0x30 0x82). For PEM-shaped input,
+		// it returns immediately with a sentinel so we fall
+		// through without bothering the operator for a password.
+		chain, key, decodeErr := decodePFXOrFallback(data)
+		if decodeErr != nil {
+			return nil, nil, "", decodeErr
+		}
+		if chain != nil {
 			return chain, key, sanitiseBaseName(path), nil
 		}
 		// PEM fallback (single-file with cert + key concatenated).
-		chain, key, err := parsePEMBundle(data)
+		chain, key, err = parsePEMBundle(data)
 		if err != nil {
-			return nil, nil, "", fmt.Errorf("input is neither a valid PKCS#12 PFX nor a PEM bundle: %w", err)
+			return nil, nil, "", fmt.Errorf("input %s is neither a valid PKCS#12 PFX nor a PEM bundle: %w\n"+
+				"  Expected: a .pfx file (single file containing cert + private key, password-protected),\n"+
+				"  or a single PEM file containing both CERTIFICATE and PRIVATE KEY blocks", path, err)
 		}
 		return chain, key, sanitiseBaseName(path), nil
 	case 2:
 		// Two files → PEM pair (fullchain + key).
-		certData, err := os.ReadFile(args[0])
+		certData, err := readCertFile(args[0])
 		if err != nil {
-			return nil, nil, "", fmt.Errorf("read cert %s: %w", args[0], err)
+			return nil, nil, "", err
 		}
-		keyData, err := os.ReadFile(args[1])
+		keyData, err := readCertFile(args[1])
 		if err != nil {
-			return nil, nil, "", fmt.Errorf("read key %s: %w", args[1], err)
+			return nil, nil, "", err
 		}
 		chain, err := parsePEMChain(certData)
 		if err != nil {
-			return nil, nil, "", fmt.Errorf("parse cert file %s: %w", args[0], err)
+			return nil, nil, "", fmt.Errorf("could not parse certificate file %s: %w\n"+
+				"  Expected: a PEM file containing one or more CERTIFICATE blocks (fullchain format)", args[0], err)
 		}
 		key, err := parsePEMKey(keyData)
 		if err != nil {
-			return nil, nil, "", fmt.Errorf("parse key file %s: %w", args[1], err)
+			return nil, nil, "", fmt.Errorf("could not parse private key file %s: %w\n"+
+				"  Expected: a PEM file containing one PRIVATE KEY / RSA PRIVATE KEY / EC PRIVATE KEY block", args[1], err)
 		}
 		return chain, key, sanitiseBaseName(args[0]), nil
 	default:
-		return nil, nil, "", fmt.Errorf("install takes 1 arg (PFX) or 2 args (cert + key)")
+		return nil, nil, "", fmt.Errorf("install takes 1 arg (PFX or single-file PEM bundle) or 2 args (fullchain.pem + key.pem); got %d", len(args))
 	}
 }
 
-// tryDecodePFX prompts for password and attempts pkcs12.ToPEM (the
-// upstream package is frozen; ToPEM gives us ALL blocks — cert chain
-// + key — vs Decode which only returns the leaf cert). Returns
-// (chain, key, ok). ok=false on any decode error — caller decides
-// whether to surface or fall through to PEM.
-func tryDecodePFX(data []byte) ([]*x509.Certificate, interface{}, bool) {
-	// Heuristic: PKCS#12 starts with a DER SEQUENCE tag (0x30, 0x82).
-	// PEM starts with "-----BEGIN". Distinguishing here avoids
-	// prompting for a PFX password when the input is clearly PEM.
+// readCertFile reads a cert/key/PFX file with an actionable error
+// when the path doesn't exist or isn't readable.
+func readCertFile(path string) ([]byte, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, fmt.Errorf("file not found: %s\n"+
+				"  Check the path spelling and that the file exists where you expect.\n"+
+				"  Hint: ls -la %s   (to confirm the file is there)", path, filepath.Dir(path))
+		}
+		if errors.Is(err, fs.ErrPermission) {
+			return nil, fmt.Errorf("permission denied reading %s\n"+
+				"  Check file ownership / permissions:\n"+
+				"    ls -la %s\n"+
+				"  The file must be readable by the user running ./sb cert.", path, path)
+		}
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	return data, nil
+}
+
+// decodePFXOrFallback inspects the file and either decodes as PFX
+// (prompting for password) or returns (nil, nil, nil) to signal
+// "not a PFX — try PEM next." Returns a non-nil error ONLY when the
+// input clearly IS a PFX but the password is wrong / file is
+// corrupt — in that case we surface a loud, actionable error rather
+// than silently falling through to PEM (which would then fail with
+// a misleading "no PEM blocks found").
+func decodePFXOrFallback(data []byte) ([]*x509.Certificate, interface{}, error) {
 	if !looksLikeDER(data) {
-		return nil, nil, false
+		// Clearly not a PFX (PEM or unknown) — fall through.
+		return nil, nil, nil
 	}
 	pw, err := readPassword("Enter PFX password (leave empty if none): ")
 	if err != nil {
-		return nil, nil, false
+		return nil, nil, fmt.Errorf("could not read password from terminal: %w", err)
 	}
-	blocks, err := pkcs12.ToPEM(data, pw)
+	chain, key, err := decodePFX(data, pw)
 	if err != nil {
-		// Surface the error before falling through — a wrong
-		// password is the most common cause; the operator
-		// should know.
-		fmt.Fprintf(os.Stderr, "PFX decode failed: %v\n", err)
-		return nil, nil, false
+		return nil, nil, err
 	}
-	var chain []*x509.Certificate
-	var key interface{}
-	for _, b := range blocks {
-		switch b.Type {
-		case "CERTIFICATE":
-			cert, parseErr := x509.ParseCertificate(b.Bytes)
-			if parseErr != nil {
-				fmt.Fprintf(os.Stderr, "PFX block parse failed (CERTIFICATE): %v\n", parseErr)
-				return nil, nil, false
-			}
-			chain = append(chain, cert)
-		case "RSA PRIVATE KEY", "EC PRIVATE KEY", "PRIVATE KEY":
-			// pkcs12.ToPEM may emit the key as "PRIVATE KEY"
-			// (PKCS#8) or a flavour-specific block; route through
-			// the same parser the PEM path uses.
-			k, parseErr := parsePrivateKeyBlock(b)
-			if parseErr != nil {
-				fmt.Fprintf(os.Stderr, "PFX block parse failed (%s): %v\n", b.Type, parseErr)
-				return nil, nil, false
-			}
-			key = k
-		}
-	}
-	if len(chain) == 0 {
-		fmt.Fprintln(os.Stderr, "PFX decoded but contained no CERTIFICATE blocks")
-		return nil, nil, false
-	}
-	if key == nil {
-		fmt.Fprintln(os.Stderr, "PFX decoded but contained no PRIVATE KEY block")
-		return nil, nil, false
-	}
-	// Sort chain so the leaf (the cert whose Subject is NOT another
-	// cert's Issuer in the chain) is at index 0. ToPEM doesn't
-	// guarantee ordering. Heuristic: leaf is the one nobody else
-	// signed within the chain.
-	chain = reorderChainLeafFirst(chain)
 	fmt.Println("✓ PFX validated")
 	fmt.Printf("✓ Certificate chain extracted (%d cert(s))\n", len(chain))
 	fmt.Println("✓ Private key extracted")
-	return chain, key, true
+	return chain, key, nil
+}
+
+// decodePFX is the pure decode primitive: takes bytes + password,
+// returns chain (leaf-first) + key. No I/O, no prompting, no
+// surface-level output — pure for unit testability against
+// password-protected and unencrypted PFX fixtures.
+//
+// Uses sslmate's pkcs12.DecodeChain — it handles both modern PFX
+// crypto (PBES2/AES, SHA-256 MAC, the OpenSSL 3.x default) and
+// legacy SHA-1-MAC/3DES PFX that older national PKIs may still
+// emit. The stdlib (golang.org/x/crypto/pkcs12) was frozen at
+// SHA-1 only and rejects any modern PFX with "unknown digest
+// algorithm: 2.16.840.1.101.3.4.2.1" — the SHA-256 OID — which
+// would be a hostile error message to surface to a training
+// operator the day before they need to install a real cert.
+//
+// DecodeChain returns the private key already parsed (no PEM round
+// trip / PKCS#1-vs-PKCS#8 ambiguity) and the cert chain pre-split
+// into (leaf, intermediates). We re-assemble [leaf, …intermediates]
+// for the rest of the install flow.
+func decodePFX(data []byte, password string) ([]*x509.Certificate, interface{}, error) {
+	key, leaf, caCerts, err := pkcs12.DecodeChain(data, password)
+	if err != nil {
+		// sslmate surfaces ErrDecryption when the password is
+		// wrong. Translate to an actionable operator-facing
+		// message; other errors get a generic "PFX decode
+		// failed" wrapper that preserves the upstream detail.
+		if errors.Is(err, pkcs12.ErrDecryption) || strings.Contains(strings.ToLower(err.Error()), "decryption") {
+			return nil, nil, fmt.Errorf("invalid PFX password — re-run and enter the password from your CA's email or PFX export\n"+
+				"  (pkcs12 decryption returned: %v)", err)
+		}
+		return nil, nil, fmt.Errorf("PFX decode failed: %w\n"+
+			"  The file may be corrupt or not a valid PKCS#12 PFX archive.\n"+
+			"  Try opening it with: openssl pkcs12 -info -in <your.pfx>", err)
+	}
+	if leaf == nil {
+		return nil, nil, errors.New("PFX decoded but contained no leaf certificate (file is structurally a PKCS#12 but has no end-entity cert)")
+	}
+	if key == nil {
+		return nil, nil, errors.New("PFX decoded but contained no private key (file has certificates but no private key)")
+	}
+	chain := append([]*x509.Certificate{leaf}, caCerts...)
+	// Chain order: DecodeChain returns leaf separately from caCerts,
+	// but caCerts ordering isn't guaranteed root-first vs leaf-first.
+	// reorderChainLeafFirst is idempotent — if leaf is already at
+	// index 0 (which it is post-prepend), it leaves the order alone;
+	// if the operator hand-crafted the PFX with a scrambled chain,
+	// we still arrive at leaf-first.
+	chain = reorderChainLeafFirst(chain)
+	return chain, key, nil
 }
 
 // reorderChainLeafFirst puts the leaf cert at index 0 by finding the
@@ -678,34 +823,82 @@ func bytesEqual(a, b []byte) bool {
 // intermediates) and the private key (PEM PKCS#8) to
 // caddy/data/custom-certs/<baseName>.{crt,key}. chmod 644 on cert,
 // 600 on key.
+//
+// Atomic-ish: marshals everything in memory FIRST (so marshal errors
+// don't leave half-written state on disk), writes via tempfile+rename,
+// and removes the cert if the key write fails. The operator never sees
+// "cert written, key missing" state on a failed run.
 func writeCertAndKey(projDir, baseName string, chain []*x509.Certificate, key interface{}) (string, string, error) {
 	dir := filepath.Join(projDir, customCertHostDir)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("create dir %s: %w", dir, err)
 	}
 	certPath := filepath.Join(dir, baseName+".crt")
 	keyPath := filepath.Join(dir, baseName+".key")
 
-	// Cert: concatenated PEM blocks, leaf first.
+	// PHASE 1 — marshal everything in memory FIRST. If either
+	// marshalling step fails, nothing has touched disk yet.
 	var certBuf strings.Builder
 	for _, c := range chain {
 		block := &pem.Block{Type: "CERTIFICATE", Bytes: c.Raw}
 		certBuf.Write(pem.EncodeToMemory(block))
 	}
-	if err := os.WriteFile(certPath, []byte(certBuf.String()), 0o644); err != nil {
-		return "", "", err
-	}
+	certBytes := []byte(certBuf.String())
 
-	// Key: PKCS#8 PEM (uniform format across RSA/EC/Ed25519).
 	keyBytes, err := x509.MarshalPKCS8PrivateKey(key)
 	if err != nil {
-		return "", "", fmt.Errorf("marshal private key: %w", err)
+		return "", "", fmt.Errorf("marshal private key: %w\n"+
+			"  The key type may be unsupported (RSA / ECDSA / Ed25519 are supported).", err)
 	}
 	keyPem := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyBytes})
-	if err := os.WriteFile(keyPath, keyPem, 0o600); err != nil {
-		return "", "", err
+
+	// PHASE 2 — write cert atomically via tempfile+rename.
+	if err := writeAtomic(certPath, certBytes, 0o644); err != nil {
+		return "", "", fmt.Errorf("write certificate %s: %w", certPath, err)
+	}
+
+	// PHASE 3 — write key atomically. If it fails, remove the cert
+	// we just wrote so the operator isn't left with an orphan .crt
+	// and a missing .key (which would produce confusing Caddy
+	// errors at restart time).
+	if err := writeAtomic(keyPath, keyPem, 0o600); err != nil {
+		_ = os.Remove(certPath)
+		return "", "", fmt.Errorf("write private key %s: %w\n"+
+			"  Cleaned up the partial certificate file; no orphan state left behind.", keyPath, err)
 	}
 	return certPath, keyPath, nil
+}
+
+// writeAtomic writes data to path via a sibling tempfile + rename
+// so a partial write never appears at the target path. Used for
+// cert + key placement to keep failures clean.
+func writeAtomic(path string, data []byte, mode os.FileMode) error {
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, filepath.Base(path)+".tmp.*")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	cleanup := func() { _ = os.Remove(tmpName) }
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		cleanup()
+		return err
+	}
+	if err := tmp.Chmod(mode); err != nil {
+		_ = tmp.Close()
+		cleanup()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		cleanup()
+		return err
+	}
+	if err := os.Rename(tmpName, path); err != nil {
+		cleanup()
+		return err
+	}
+	return nil
 }
 
 // updateEnvConfigCertPaths reads .env.config, sets/replaces

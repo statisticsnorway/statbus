@@ -5,6 +5,8 @@ go 1.25.5
 require (
 	github.com/jackc/pgx/v5 v5.9.0
 	github.com/spf13/cobra v1.10.2
+	golang.org/x/term v0.43.0
+	software.sslmate.com/src/go-pkcs12 v0.7.1
 )
 
 require (
@@ -14,6 +16,5 @@ require (
 	github.com/spf13/pflag v1.0.10 // indirect
 	golang.org/x/crypto v0.51.0 // indirect
 	golang.org/x/sys v0.44.0 // indirect
-	golang.org/x/term v0.43.0 // indirect
 	golang.org/x/text v0.37.0 // indirect
 )

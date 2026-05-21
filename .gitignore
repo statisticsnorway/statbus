@@ -260,6 +260,10 @@ ClientBin/
 *.dbproj.schemaview
 *.jfm
 *.pfx
+# Test fixtures (cli/cmd/testdata/*.pfx) are committed on purpose —
+# they exercise the ./sb cert install PFX decode path. See the
+# regeneration recipe at the top of cli/cmd/cert_test.go.
+!cli/cmd/testdata/*.pfx
 *.publishsettings
 node_modules/
 orleans.codegen.cs

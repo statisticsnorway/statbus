@@ -220,6 +220,7 @@ var readOnlyCommandPaths = map[string]bool{
 	"sb completion fish":       true,
 	"sb completion powershell": true,
 	"sb psql":                  true, // opens an interactive session; doesn't issue mutating SQL itself
+	"sb cert show":             true, // reads cert from disk + optional TLS probe; no state mutation
 	"sb db status":             true,
 	"sb db dumps list":         true,
 	"sb db seed status":        true,
