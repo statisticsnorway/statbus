@@ -56,7 +56,6 @@ export async function GET(request: NextRequest) {
         "postal_address_part3",
         "postal_postcode",
         "postal_postplace",
-        "postal_region_code",
         "postal_country_iso_2",
         "web_address",
         "email_address",
