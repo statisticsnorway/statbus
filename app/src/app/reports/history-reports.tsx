@@ -60,7 +60,7 @@ export function HistoryReports({
     });
   }, [], 'HistoryReports:importHighchartsModules');
 
-  const { history, isLoading } = useStatisticalHistoryHighcharts(
+  const { history, isLoading, error } = useStatisticalHistoryHighcharts(
     resolution,
     selectedUnitType,
     seriesCodes,
@@ -101,7 +101,7 @@ export function HistoryReports({
           
           </div>
         </div>
-        {!isLoading && history && highchartsModulesLoaded ? (
+        {!isLoading && !error && history && highchartsModulesLoaded ? (
           children({
             history,
             isYearlyView: selectedYear === "all",

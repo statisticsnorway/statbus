@@ -37,13 +37,16 @@ export const useStatisticalHistoryHighcharts = (
     return data;
   };
 
-  const { data: history, isLoading } =
-    useSWRWithAuthRefresh<StatisticalHistoryHighcharts>(
-      swrKey,
-      fetcher,
-      { keepPreviousData: true },
-      "useStatisticalHistoryHighcharts"
-    );
+  const {
+    data: history,
+    isLoading,
+    error,
+  } = useSWRWithAuthRefresh<StatisticalHistoryHighcharts>(
+    swrKey,
+    fetcher,
+    { keepPreviousData: true },
+    "useStatisticalHistoryHighcharts"
+  );
 
-  return { history, isLoading };
+  return { history, isLoading, error };
 };
