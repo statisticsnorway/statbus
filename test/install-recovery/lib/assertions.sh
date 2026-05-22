@@ -262,6 +262,45 @@ assert_demo_data_counts_match_snapshot() {
     return 1
 }
 
+# assert_systemd_restart_counter_bounded <vm_name> <unit_name> <max_restarts>
+#
+# Race B assertion — catches the restart-loop pathology empirically.
+# A unit that crashes and restarts a small number of times during
+# recovery is acceptable; a unit looping hundreds of times (e.g.
+# 289 — the rune wedge's observed shape) is not. After the recovery
+# window closes, NRestarts MUST be ≤ max_restarts.
+#
+# Reads `systemctl --user show <unit> --property=NRestarts --value`
+# inside the VM. Fails with a clear message naming the unit + the
+# observed counter + the bound, so a regression surfaces the exact
+# pathology rather than a generic "test failed".
+#
+# Suggested bounds:
+#   - 0  for a clean-recovery scenario (no restarts expected)
+#   - 5  for a single-failure scenario (a few restarts during recovery
+#        are acceptable, but not the 100s-of-restarts pathology)
+#   - tune higher if a scenario genuinely exercises legitimate
+#     restart-during-recovery cycles, but DOCUMENT the bound's
+#     rationale at the call site.
+assert_systemd_restart_counter_bounded() {
+    local vm_name="$1"
+    local unit="${2:-statbus-upgrade@statbus.service}"
+    local max_restarts="${3:-5}"
+    local actual
+
+    actual=$(VM_EXEC systemctl --user show "$unit" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
+    if ! [[ "$actual" =~ ^[0-9]+$ ]]; then
+        echo "  ✗ could not parse NRestarts for $unit (got: '$actual')"
+        return 1
+    fi
+    if [ "$actual" -le "$max_restarts" ]; then
+        echo "  ✓ $unit NRestarts=$actual ≤ bound=$max_restarts"
+        return 0
+    fi
+    echo "  ✗ $unit NRestarts=$actual EXCEEDS bound=$max_restarts — Race B restart-loop pathology"
+    return 1
+}
+
 # Verify that all 15 install steps reached completion (i.e. step 15 ran).
 # Step 15 is where the systemd reset-failed lives.
 assert_step15_completed() {
