@@ -1,20 +1,24 @@
 #!/bin/bash
-# commit-msg hook — reject ephemeral task numbers in commit messages.
+# commit-msg hook — reject ALL bare hash-digit ticket references in commit
+# messages.
 #
-# Task numbers (e.g. "Task #94", "task 42", "tasks #7") are session-scoped
-# and ephemeral: they come from the in-session TaskCreate list and have no
-# meaning outside the session that created them. Commits are permanent.
-# A task number in a commit message misleads future readers who cannot look
-# up what the task was.
+# Ticket numbers are ephemeral across time, regardless of their origin:
+#  - Session-scoped TaskCreate IDs get purged when the session ends.
+#  - GitHub issue/PR shorthand collides across forks and breaks on repo rename.
+#  - Internal tracker numbers depend on a system the future reader may not have.
 #
-# GitHub issue/PR refs like "#25135" are PASS — they have a permanent record
-# at github.com/anthropics/... and are NOT preceded by the word "task".
+# The PERMANENT reference is the full URL. If you want to point at an issue
+# or PR, paste the URL — that survives.
 #
-# Pattern (case-insensitive):
-#   \btask[s-]?\s*#?\s*[0-9]+\b
+# Detection:
+#   Step 1: strip URLs from the message (URLs may legitimately contain "#").
+#   Step 2: look for any remaining "#<digits>" pattern.
 #
-#   Matches: Task #94, task 94, tasks #7, task-42, TASK #100
-#   Does not match: #25135, fix #25135, see issue #100
+# Matches: closes 1234, fix 42, refs 7, see 100, Task 94, task-42
+#   (each in their bare hash-prefixed form — examples here use space to avoid
+#   self-tripping)
+# Non-matches (safe shell/code constructs):
+#   #define, #!/bin/bash, #hashtag, https://example.com/issues/100
 #
 # Override: git commit --no-verify
 
@@ -26,30 +30,44 @@ MSG="$(cat "$COMMIT_MSG_FILE")"
 # Strip comment lines (lines starting with #) — they're not part of the message.
 STRIPPED=$(echo "$MSG" | grep -v '^[[:space:]]*#' || true)
 
-# Search for the pattern (case-insensitive).
-MATCHES=$(echo "$STRIPPED" | grep -inE '\btask[s-]?[[:space:]]*#?[[:space:]]*[0-9]+\b' || true)
+# Strip URLs (may legitimately contain "#" for path/fragment). Match http(s)://
+# git:// or ssh:// up to whitespace, close-paren, or close-quote.
+NO_URL=$(echo "$STRIPPED" | sed -E 's@(https?|git|ssh)://[^[:space:])"'"'"']+@@g')
+
+# Search for any "#" immediately followed by digits in the URL-stripped text.
+# Match anywhere (including mid-word like "claude-code#25135") because such
+# shorthand is exactly the unreliable form we want to flag.
+# Safe: "#define" (no digit after "#"), "#!/bin/bash" (shebang), "#hashtag".
+MATCHES=$(echo "$NO_URL" | grep -inE '#[0-9]+' || true)
 
 if [[ -n "$MATCHES" ]]; then
   MATCHED_LINES=$(echo "$MATCHES" | sed 's/^/  /')
   cat >&2 <<EOF
-COMMIT-MSG BLOCKED: your commit message references an ephemeral task number.
+COMMIT-MSG BLOCKED: your commit message contains a bare ticket reference
+(hash followed by digits).
 
-WHY: Task IDs come from the session's shared task list (TaskCreate) — they're
-meaningful only within the session where they were assigned. Six months from
-now, "task #90" is a dead pointer. Commit messages are permanent; task IDs
-are ephemeral. Never mix them.
+WHY: Ticket numbers are ephemeral across time. Whether the source is
+session-scoped (TaskCreate IDs), GitHub issue, or PR shorthand, the BARE
+hash-prefixed number is unreliable: task lists get purged, fork repos
+collide on numbering, repos get renamed/transferred. Six months from now,
+a bare hash-number is a dead pointer.
+
+The PERMANENT reference is the full URL. If you want to point at an
+issue or PR, paste its URL.
 
 Matched lines:
 ${MATCHED_LINES}
 
 HOW TO FIX:
-- Rewrite the message so it stands alone. Describe what changed and why
-  without referring to the task number.
-- If you want to reference a permanent ID, use a GitHub issue or PR number —
-  those persist. Task IDs do not.
+- Describe the change so the message stands alone — what and why, no
+  ticket shorthand.
+- If you need to reference an issue or PR, include the full URL, e.g.:
+    https://github.com/statisticsnorway/statbus/issues/100
+  rather than:
+    closes #100
 
 OVERRIDE (strongly discouraged — this rule exists because we've already
-polluted history with dead task-IDs):
+polluted history with dead ticket references):
   git commit --no-verify
 
 Hook source: .githooks/commit-msg

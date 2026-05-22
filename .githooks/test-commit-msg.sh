@@ -50,52 +50,41 @@ assert_reject() {
   fi
 }
 
-echo "── REJECT: task number patterns ─────────────────────────────────────"
+echo "── REJECT: bare hash-digit references (task IDs, issue shorthand, etc) ──"
 
-assert_reject "Task #94 in message body" \
+assert_reject "task-style hash with digits" \
   "fix: health check URL
 
 Closes Task #94."
 
-assert_reject "task 42 (lowercase, no hash)" \
-  "fix: something
-
-Refs task 42."
-
-assert_reject "tasks #7 (plural)" \
-  "chore: cleanup tasks #7 and other things"
-
-assert_reject "task-42 (hyphen separator)" \
-  "fix task-42: wrong endpoint"
-
-assert_reject "TASK #100 (uppercase)" \
-  "resolve TASK #100"
-
-assert_reject "task  # 5 (extra spaces)" \
-  "complete task  # 5"
-
-assert_reject "task#99 (no space before hash)" \
-  "fix task#99"
-
-assert_reject "multiple task refs" \
-  "fix: resolved task #1 and task #2"
-
-echo "── PASS: GitHub issue refs (not preceded by 'task') ─────────────────"
-
-assert_pass "bare GitHub issue ref #25135" \
+assert_reject "github-style bare issue ref" \
   "fix: workaround for claude-code#25135 silent drop bug"
 
-assert_pass "fix #25135 (GitHub-style)" \
+assert_reject "fix prefix + hash-digit shorthand" \
   "fix #25135: SendMessage silent drop"
 
-assert_pass "see issue #100" \
+assert_reject "see issue + hash-digit" \
   "see issue #100 for context"
 
-assert_pass "closes #42 (no 'task' prefix)" \
+assert_reject "closes + hash-digit" \
   "closes #42"
 
-assert_pass "#99 at start of line (no 'task')" \
-  "#99 was the previous approach, this is better"
+assert_reject "two hash-digits in one line" \
+  "fix: resolved issue #1 and issue #2"
+
+assert_reject "hash-digit inside parentheses" \
+  "fix: tighten validation (refs #68 — observed on jo)"
+
+echo "── PASS: URL-embedded references (URLs may contain # legitimately) ──"
+
+assert_pass "github issue URL" \
+  "fix: workaround for https://github.com/statisticsnorway/statbus/issues/100"
+
+assert_pass "github PR URL with fragment" \
+  "see https://github.com/anthropics/claude-code/pull/200#issuecomment-456 for the upstream discussion"
+
+assert_pass "URL in parens" \
+  "fix the auth flow (https://github.com/foo/bar/issues/12)"
 
 echo "── PASS: clean commit messages ─────────────────────────────────────"
 
