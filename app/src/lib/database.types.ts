@@ -1324,6 +1324,7 @@ export type Database = {
           time_context_ident: string | null
           total_analysis_steps_weighted: number | null
           total_rows: number | null
+          truncate_overlong: boolean
           unique_units: boolean | null
           updated_at: string
           upload_table_name: string
@@ -1371,6 +1372,7 @@ export type Database = {
           time_context_ident?: string | null
           total_analysis_steps_weighted?: number | null
           total_rows?: number | null
+          truncate_overlong?: boolean
           unique_units?: boolean | null
           updated_at?: string
           upload_table_name: string
@@ -1418,6 +1420,7 @@ export type Database = {
           time_context_ident?: string | null
           total_analysis_steps_weighted?: number | null
           total_rows?: number | null
+          truncate_overlong?: boolean
           unique_units?: boolean | null
           updated_at?: string
           upload_table_name?: string
