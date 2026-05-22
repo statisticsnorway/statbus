@@ -103,11 +103,15 @@ assert_db_migration_recorded() {
     return 1
 }
 
-# Verify the install ran cleanly through step 9 (Database sessions).
-# Step 9 is where bool-text and worker-exclusion bugs caused failure.
-# Check by tailing the install log for the "[9/15] Database sessions DONE"
-# or "OK" line, NOT "FAILED".
-assert_step9_completed() {
+# Verify the "Database sessions" install step ran cleanly. That's the step
+# where bool-text and worker-exclusion bugs historically caused failure.
+# Match by step NAME with wildcard position/total so a future ladder
+# growth (or insertion of a new step at an earlier position) doesn't
+# silently break this assertion. Previously hardcoded "[9/15]" — the
+# 2026-05-22 #68 fix added "Backup ownership" at position 9, bumping
+# "Database sessions" to [10/16] and breaking this grep until the
+# wildcard fix below.
+assert_step_database_sessions_completed() {
     local vm_name="$1"
     local log_file="${HARNESS_ROOT}/tmp/install-recovery-${vm_name}-install.log"
 
@@ -115,21 +119,27 @@ assert_step9_completed() {
         echo "  ✗ install log not found: $log_file"
         return 1
     fi
-    if grep -E "^\[9/15\] Database sessions\s+(OK|DONE)" "$log_file" >/dev/null; then
-        echo "  ✓ step 9 (Database sessions) completed"
+    if grep -E "^\[[0-9]+/[0-9]+\] Database sessions\s+(OK|DONE)" "$log_file" >/dev/null; then
+        echo "  ✓ Database sessions step completed"
         return 0
     fi
-    if grep -E "^\[9/15\] Database sessions\s+FAILED" "$log_file" >/dev/null; then
-        echo "  ✗ step 9 FAILED — bool-text or worker-exclusion class regression"
+    if grep -E "^\[[0-9]+/[0-9]+\] Database sessions\s+FAILED" "$log_file" >/dev/null; then
+        echo "  ✗ Database sessions step FAILED — bool-text or worker-exclusion class regression"
         return 1
     fi
-    echo "  ✗ step 9 status unclear in log $log_file"
+    echo "  ✗ Database sessions step status unclear in log $log_file"
     return 1
 }
 
-# Verify that all 15 install steps reached completion (i.e. step 15 ran).
-# Step 15 is where the systemd reset-failed lives.
-assert_step15_completed() {
+# Backward-compat alias for existing call sites.
+assert_step9_completed() {
+    assert_step_database_sessions_completed "$@"
+}
+
+# Verify the install ladder ran through the final "Upgrade service" step.
+# That's where the systemd reset-failed lives. Match by step NAME with
+# wildcard position/total so future ladder changes don't break this.
+assert_step_upgrade_service_completed() {
     local vm_name="$1"
     local log_file="${HARNESS_ROOT}/tmp/install-recovery-${vm_name}-install.log"
 
@@ -137,10 +147,15 @@ assert_step15_completed() {
         echo "  ✗ install log not found: $log_file"
         return 1
     fi
-    if grep -E "^\[15/15\] Upgrade service\s+(OK|DONE)" "$log_file" >/dev/null; then
-        echo "  ✓ step 15 (Upgrade service) completed"
+    if grep -E "^\[[0-9]+/[0-9]+\] Upgrade service\s+(OK|DONE)" "$log_file" >/dev/null; then
+        echo "  ✓ Upgrade service step completed"
         return 0
     fi
-    echo "  ✗ step 15 did NOT complete — install bailed before reaching it"
+    echo "  ✗ Upgrade service step did NOT complete — install bailed before reaching it"
     return 1
+}
+
+# Backward-compat alias for existing call sites.
+assert_step15_completed() {
+    assert_step_upgrade_service_completed "$@"
 }

@@ -137,6 +137,35 @@ jobs:
           STATBUS_SB_BINARY: ${{ github.workspace }}/sb-linux-amd64
         run: ./dev.sh test-install
 
+      - name: Cat install log on failure
+        # When test-install fails (e.g. an assertion mismatch), the
+        # operator-visible workflow log says "step X status unclear" but
+        # the actual install log on the runner is buried. Echo it to
+        # workflow stdout so the failure cause is immediately visible
+        # without having to fetch the artifact. Belt-and-suspenders with
+        # the upload-artifact step below.
+        if: failure()
+        run: |
+          for log in tmp/install-recovery-*-install.log; do
+            [ -e "$log" ] || continue
+            echo "::group::$log"
+            cat "$log"
+            echo "::endgroup::"
+          done
+
+      - name: Upload install log on failure
+        # Preserves the install log past the workflow run so operators
+        # can download + analyze it days later. Default retention is
+        # 90 days, which is plenty for post-mortems on CI failures.
+        # Only runs on failure to avoid the storage cost on green runs.
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: install-recovery-log-${{ github.run_id }}
+          path: tmp/install-recovery-*-install.log
+          retention-days: 30
+          if-no-files-found: warn
+
       - name: Reap orphan VMs (defense in depth)
         # Scenario 01's `trap cleanup_vm "$VM_NAME" EXIT` normally deletes
         # the VM on every exit path. This step is the safety net for the

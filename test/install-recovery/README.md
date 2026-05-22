@@ -61,7 +61,7 @@ When you regress a fix, here's what fails:
 | Fix | Catches in scenario(s) |
 |---|---|
 | Fix 1 — sd_notify EXTEND_TIMEOUT | 03 (indirectly — without Fix 1 this scenario is more likely to recur) |
-| Fix 2 — per-migration logging | All scenarios use `assert_step9_completed` which scans for `[N/15]` lines |
+| Fix 2 — per-migration logging | All scenarios use `assert_step9_completed` (alias of `assert_step_database_sessions_completed`) which scans for `[N/M] Database sessions` lines by NAME (position/total wildcarded) |
 | Fix 3 — cleanOrphanSessions docker-exec | 03, 04, 06 |
 | Fix 4 — systemctl reset-failed | 05 |
 | Fix 5 — verifyUpgradeGroundTruth fail-loud + forward-recovery | 03 (forward-recovery completes the migration) |
