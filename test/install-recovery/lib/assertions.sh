@@ -184,6 +184,84 @@ assert_db_migration_max_version_unchanged() {
     return 1
 }
 
+# snapshot_demo_data_counts <vm_name>
+#
+# Echoes a CSV-shaped snapshot of row counts for the demo-data tables
+# populated by lib/data-helpers.sh's populate_with_demo_data. Caller
+# captures the output in a shell variable for later equality checks.
+# Format:
+#
+#   statistical_unit=N,legal_unit=N,establishment=N,statistical_history=N
+#
+# Stable across invocations on identical data so the
+# assert_demo_data_counts_match_snapshot comparison is a simple string
+# equality. Suitable for stricter scenarios that need to confirm no
+# data drift across the failure-injection window.
+snapshot_demo_data_counts() {
+    local vm_name="$1"
+    VM_EXEC bash -c "cd ~/statbus && echo \"
+        SELECT 'statistical_unit=' || (SELECT count(*) FROM public.statistical_unit) ||
+            ',legal_unit=' || (SELECT count(*) FROM public.legal_unit) ||
+            ',establishment=' || (SELECT count(*) FROM public.establishment) ||
+            ',statistical_history=' || (SELECT count(*) FROM public.statistical_history);
+    \" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n'
+}
+
+# assert_demo_data_present <vm_name>
+#
+# Catastrophic-loss detector for the R5 race. Confirms every demo-data
+# table has > 0 rows after the test reaches its post-recovery checkpoint.
+# If any table is empty, the assertion fails loudly with the empty
+# table named — a scenario that catastrophically lost data WILL fail
+# here rather than passing silently on an empty DB.
+#
+# Intentionally narrow: row counts > 0, not exact equality (use
+# assert_demo_data_counts_match_snapshot for that). This is the "did
+# we lose everything?" assertion. Acceptable post-recovery shapes
+# include partial loss (one table empty, others populated) — but that
+# would still fail here, surfacing what was lost.
+assert_demo_data_present() {
+    local vm_name="$1"
+    local tables=("statistical_unit" "legal_unit" "establishment" "statistical_history")
+    local failed=0
+    local table count
+
+    for table in "${tables[@]}"; do
+        count=$(VM_EXEC bash -c "cd ~/statbus && echo 'SELECT count(*) FROM public.${table};' | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?")
+        if [ "$count" = "0" ] || [ "$count" = "?" ]; then
+            echo "  ✗ public.${table} has $count rows — R5 catastrophic-loss indicator"
+            failed=1
+        fi
+    done
+    if [ "$failed" = "1" ]; then
+        return 1
+    fi
+    echo "  ✓ all demo-data tables populated (R5 catastrophic-loss NOT triggered)"
+    return 0
+}
+
+# assert_demo_data_counts_match_snapshot <vm_name> <snapshot>
+#
+# Stricter than assert_demo_data_present: requires exact equality
+# with a snapshot captured earlier. Use when the scenario expects
+# zero data drift across the recovery window (e.g., the failure
+# injection wedged the upgrade BEFORE any user-visible data could
+# change). Differing counts surface as a one-line diff.
+assert_demo_data_counts_match_snapshot() {
+    local vm_name="$1"
+    local expected="$2"
+    local actual
+    actual=$(snapshot_demo_data_counts "$vm_name")
+    if [ "$actual" = "$expected" ]; then
+        echo "  ✓ demo-data counts match snapshot ($actual)"
+        return 0
+    fi
+    echo "  ✗ demo-data counts drifted"
+    echo "    expected: $expected"
+    echo "    actual:   $actual"
+    return 1
+}
+
 # Verify that all 15 install steps reached completion (i.e. step 15 ran).
 # Step 15 is where the systemd reset-failed lives.
 assert_step15_completed() {
