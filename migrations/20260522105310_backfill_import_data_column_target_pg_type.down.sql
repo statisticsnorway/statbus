@@ -1,4 +1,33 @@
-```sql
+-- Down Migration: backfill_import_data_column_target_pg_type
+--
+-- Reverts the changes from the up migration:
+--   1. NULLs target_pg_type for all `internal`-purpose rows (the up
+--      migration only filled rows that were NULL; this restores them).
+--   2. Restores `import.generate_external_ident_data_columns` and
+--      `import.generate_stat_var_data_columns` to their pre-up
+--      definitions (verbatim — captured via \sf at migration-creation
+--      time, see tmp/sf-gen-*.sql).
+--   3. Drops `import.resolve_target_pg_type`.
+--
+-- Note: a true semantic revert isn't possible — the up migration
+-- DIDN'T touch rows that already had target_pg_type set (it only
+-- backfilled NULL ones). So this down nulls ALL internal rows, which
+-- includes the few that may have been set by future re-runs of the
+-- updated generators (which wouldn't exist anyway because the down
+-- restores the old generators). Acceptable: the next up migration
+-- run will re-populate them deterministically.
+
+BEGIN;
+
+-- ─── 1. NULL target_pg_type for internal rows ────────────────────────────
+
+UPDATE public.import_data_column
+SET target_pg_type = NULL
+WHERE purpose = 'internal';
+
+
+-- ─── 2. Restore generators to pre-up (verbatim from \sf at create time) ─
+
 CREATE OR REPLACE PROCEDURE import.generate_external_ident_data_columns()
  LANGUAGE plpgsql
 AS $procedure$
@@ -102,28 +131,114 @@ BEGIN
 
             -- Generate internal path column (computed during analysis)
             -- Note: is_uniquely_identifying must be FALSE for internal columns (constraint requirement)
-            -- target_pg_type: LTREE is the in-data-table type; no public.external_ident.path
-            -- exists, so resolve_target_pg_type returns NULL and we fall back to 'LTREE'.
             v_calculated_priority := v_slot_base + v_num_labels;
 
-            INSERT INTO public.import_data_column (step_id, column_name, column_type, purpose, is_nullable, is_uniquely_identifying, priority, target_pg_type)
-            VALUES (v_step_id, v_ident_type.code || '_path', 'LTREE', 'internal', true, false, v_calculated_priority,
-                    COALESCE(import.resolve_target_pg_type('external_idents', v_ident_type.code || '_path'), 'LTREE'))
+            INSERT INTO public.import_data_column (step_id, column_name, column_type, purpose, is_nullable, is_uniquely_identifying, priority)
+            VALUES (v_step_id, v_ident_type.code || '_path', 'LTREE', 'internal', true, false, v_calculated_priority)
             ON CONFLICT (step_id, column_name) DO UPDATE SET
                 priority = EXCLUDED.priority,
                 is_uniquely_identifying = EXCLUDED.is_uniquely_identifying,
                 column_type = EXCLUDED.column_type,
-                purpose = EXCLUDED.purpose,
-                target_pg_type = EXCLUDED.target_pg_type
+                purpose = EXCLUDED.purpose
             WHERE public.import_data_column.priority != EXCLUDED.priority
                OR public.import_data_column.column_type != EXCLUDED.column_type
-               OR public.import_data_column.purpose != EXCLUDED.purpose
-               OR public.import_data_column.target_pg_type IS DISTINCT FROM EXCLUDED.target_pg_type;
+               OR public.import_data_column.purpose != EXCLUDED.purpose;
 
             RAISE DEBUG '[import.generate_external_ident_data_columns] Hierarchical type "%": created/updated path column "%_path" with priority %',
                 v_ident_type.code, v_ident_type.code, v_calculated_priority;
         END IF;
     END LOOP;
 END;
-$procedure$
-```
+$procedure$;
+
+
+CREATE OR REPLACE PROCEDURE import.generate_stat_var_data_columns()
+ LANGUAGE plpgsql
+AS $procedure$
+DECLARE
+    v_step_id INT;
+    v_stat_def RECORD;
+    v_def RECORD;
+    v_pk_col_name TEXT;
+    v_stat_def_code TEXT;
+    v_calculated_priority INT;
+    v_active_codes TEXT[];
+BEGIN
+    SELECT id INTO v_step_id FROM public.import_step WHERE code = 'statistical_variables';
+    IF v_step_id IS NULL THEN
+        RAISE EXCEPTION 'statistical_variables step not found, cannot generate data columns.';
+        RETURN;
+    END IF;
+
+    SELECT array_agg(code ORDER BY priority) INTO v_active_codes FROM public.stat_definition_enabled;
+    RAISE DEBUG '[import.generate_stat_var_data_columns] For step_id % (statistical_variables), ensuring data columns for active codes: %', v_step_id, v_active_codes;
+
+    -- For statistical_variables step, we generate 3 columns per stat_definition in sequence:
+    -- Baseline expectations:
+    -- employees (priority=1): _raw=1, internal=2, pk_id=3
+    -- turnover (priority=2): _raw=4, internal=5, pk_id=6
+
+    -- Add source_input columns with target_pg_type derived from the stat definition type
+    FOR v_stat_def IN SELECT code, type, priority FROM public.stat_definition_enabled ORDER BY priority
+    LOOP
+        v_calculated_priority := (v_stat_def.priority - 1) * 3 + 1;
+
+        INSERT INTO public.import_data_column (step_id, column_name, column_type, purpose, is_nullable, is_uniquely_identifying, priority, target_pg_type)
+        VALUES (v_step_id, v_stat_def.code || '_raw', 'TEXT', 'source_input', true, false, v_calculated_priority,
+                CASE v_stat_def.type
+                    WHEN 'int' THEN 'INTEGER'
+                    WHEN 'float' THEN 'NUMERIC'
+                    WHEN 'bool' THEN 'BOOLEAN'
+                    ELSE 'TEXT'
+                END)
+        ON CONFLICT (step_id, column_name) DO UPDATE SET
+            priority = EXCLUDED.priority,
+            is_uniquely_identifying = EXCLUDED.is_uniquely_identifying,
+            target_pg_type = EXCLUDED.target_pg_type
+        WHERE public.import_data_column.priority != EXCLUDED.priority
+           OR public.import_data_column.target_pg_type IS DISTINCT FROM EXCLUDED.target_pg_type;
+    END LOOP;
+
+    -- Add internal typed columns for each active stat_definition
+    FOR v_stat_def IN SELECT code, type, priority FROM public.stat_definition_enabled ORDER BY priority
+    LOOP
+        v_calculated_priority := (v_stat_def.priority - 1) * 3 + 2;
+
+        INSERT INTO public.import_data_column (step_id, column_name, column_type, purpose, is_nullable, is_uniquely_identifying, priority)
+        VALUES (v_step_id, v_stat_def.code,
+                CASE v_stat_def.type
+                    WHEN 'int' THEN 'INTEGER'
+                    WHEN 'float' THEN 'NUMERIC'
+                    WHEN 'bool' THEN 'BOOLEAN'
+                    ELSE 'TEXT'
+                END,
+                'internal', true, false, v_calculated_priority)
+        ON CONFLICT (step_id, column_name) DO UPDATE SET
+            priority = EXCLUDED.priority,
+            column_type = EXCLUDED.column_type,
+            is_uniquely_identifying = EXCLUDED.is_uniquely_identifying
+        WHERE public.import_data_column.priority != EXCLUDED.priority;  -- Only update if priority changed
+    END LOOP;
+
+    -- Add pk_id columns for each active stat_definition
+    FOR v_stat_def IN SELECT code, priority FROM public.stat_definition_enabled ORDER BY priority
+    LOOP
+        v_calculated_priority := (v_stat_def.priority - 1) * 3 + 3;
+        v_pk_col_name := format('stat_for_unit_%s_id', v_stat_def.code);
+
+        INSERT INTO public.import_data_column (step_id, column_name, column_type, purpose, is_nullable, is_uniquely_identifying, priority)
+        VALUES (v_step_id, v_pk_col_name, 'INTEGER', 'pk_id', true, false, v_calculated_priority)
+        ON CONFLICT (step_id, column_name) DO UPDATE SET
+            priority = EXCLUDED.priority,
+            is_uniquely_identifying = EXCLUDED.is_uniquely_identifying
+        WHERE public.import_data_column.priority != EXCLUDED.priority;  -- Only update if priority changed
+    END LOOP;
+END;
+$procedure$;
+
+
+-- ─── 3. Drop the helper function ─────────────────────────────────────────
+
+DROP FUNCTION IF EXISTS import.resolve_target_pg_type(text, text);
+
+END;

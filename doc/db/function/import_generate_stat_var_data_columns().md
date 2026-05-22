@@ -10,6 +10,7 @@ DECLARE
     v_stat_def_code TEXT;
     v_calculated_priority INT;
     v_active_codes TEXT[];
+    v_internal_column_type TEXT;
 BEGIN
     SELECT id INTO v_step_id FROM public.import_step WHERE code = 'statistical_variables';
     IF v_step_id IS NULL THEN
@@ -46,25 +47,29 @@ BEGIN
            OR public.import_data_column.target_pg_type IS DISTINCT FROM EXCLUDED.target_pg_type;
     END LOOP;
 
-    -- Add internal typed columns for each active stat_definition
+    -- Add internal typed columns for each active stat_definition.
+    -- target_pg_type tracks column_type (no public.* counterpart for stat values).
     FOR v_stat_def IN SELECT code, type, priority FROM public.stat_definition_enabled ORDER BY priority
     LOOP
         v_calculated_priority := (v_stat_def.priority - 1) * 3 + 2;
+        v_internal_column_type := CASE v_stat_def.type
+            WHEN 'int' THEN 'INTEGER'
+            WHEN 'float' THEN 'NUMERIC'
+            WHEN 'bool' THEN 'BOOLEAN'
+            ELSE 'TEXT'
+        END;
 
-        INSERT INTO public.import_data_column (step_id, column_name, column_type, purpose, is_nullable, is_uniquely_identifying, priority)
-        VALUES (v_step_id, v_stat_def.code,
-                CASE v_stat_def.type
-                    WHEN 'int' THEN 'INTEGER'
-                    WHEN 'float' THEN 'NUMERIC'
-                    WHEN 'bool' THEN 'BOOLEAN'
-                    ELSE 'TEXT'
-                END,
-                'internal', true, false, v_calculated_priority)
+        INSERT INTO public.import_data_column (step_id, column_name, column_type, purpose, is_nullable, is_uniquely_identifying, priority, target_pg_type)
+        VALUES (v_step_id, v_stat_def.code, v_internal_column_type,
+                'internal', true, false, v_calculated_priority,
+                COALESCE(import.resolve_target_pg_type('statistical_variables', v_stat_def.code), v_internal_column_type))
         ON CONFLICT (step_id, column_name) DO UPDATE SET
             priority = EXCLUDED.priority,
             column_type = EXCLUDED.column_type,
-            is_uniquely_identifying = EXCLUDED.is_uniquely_identifying
-        WHERE public.import_data_column.priority != EXCLUDED.priority;  -- Only update if priority changed
+            is_uniquely_identifying = EXCLUDED.is_uniquely_identifying,
+            target_pg_type = EXCLUDED.target_pg_type
+        WHERE public.import_data_column.priority != EXCLUDED.priority
+           OR public.import_data_column.target_pg_type IS DISTINCT FROM EXCLUDED.target_pg_type;
     END LOOP;
 
     -- Add pk_id columns for each active stat_definition
