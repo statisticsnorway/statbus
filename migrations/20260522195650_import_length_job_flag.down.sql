@@ -1,4 +1,24 @@
-```sql
+-- Down Migration: import_length_job_flag
+--
+-- Reverts:
+--   1. Restores the pre-#88 truncate+warn-default procedure body
+--      verbatim (captured from \sf at #88 migration-creation time;
+--      this is the body that landed in commit 52a69c58b).
+--   2. Removes the analyse_length_limits ↔ definition links that
+--      this migration's up step inserted. (The step row in
+--      public.import_step stays, owned by the prior #84 migration.)
+--   3. Drops the truncate_overlong column from public.import_job.
+--
+-- Note on linkage rollback: this leaves the import_step row
+-- registered but unlinked from definitions, matching the pre-#88
+-- state where the procedure was effectively dead code. The prior
+-- #84 down migration (when invoked) will then delete the step row
+-- itself via CASCADE.
+
+BEGIN;
+
+-- ─── 1. Restore the pre-#88 procedure body (verbatim from commit 52a69c58b) ─
+
 CREATE OR REPLACE PROCEDURE import.analyse_length_limits(IN p_job_id integer, IN p_batch_seq integer, IN p_step_code text)
  LANGUAGE plpgsql
 AS $procedure$
@@ -9,9 +29,11 @@ DECLARE
     v_sql TEXT;
     v_update_count INT := 0;
     v_skipped_update_count INT := 0;
-    v_truncate_overlong BOOLEAN;
 
-    -- Dynamic UPDATE clause accumulators.
+    -- A single dynamic UPDATE combines all bounded-column checks.
+    -- The CASE-per-column lets us reference dt.<col> twice (the
+    -- length probe and the rewrite/error build) without splitting
+    -- into multiple UPDATE statements.
     v_set_clauses TEXT := '';
     v_warnings_clauses TEXT := '';
     v_errors_clauses TEXT := '';
@@ -20,16 +42,13 @@ DECLARE
     v_col RECORD;
     v_n INT;
     v_clause_count INT := 0;
-
-    -- Columns that emit `errors` entries (and contribute to the
-    -- state='error' decision). Encoded as 'colname:N' strings so we
-    -- can rebuild the length-probe later without re-iterating the
-    -- snapshot.
-    v_error_columns TEXT[] := ARRAY[]::TEXT[];
+    v_identifier_columns TEXT[] := ARRAY[]::TEXT[];
 
     -- Hardcoded identifier-fail list per V7 recon: source_input
     -- columns in these steps map to bounded identifier targets
-    -- (currently external_ident.ident varchar(50)).
+    -- (currently external_ident.ident varchar(50)).  Adding new
+    -- bounded identifier targets to the import write surface
+    -- requires extending this list.
     v_identifier_fail_steps TEXT[] := ARRAY['external_idents'];
     v_identifier_max_length INT := 50;  -- public.external_ident.ident
 BEGIN
@@ -37,7 +56,6 @@ BEGIN
 
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
     v_data_table_name := v_job.data_table_name;
-    v_truncate_overlong := COALESCE(v_job.truncate_overlong, false);
 
     SELECT * INTO v_step
     FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list')
@@ -46,13 +64,6 @@ BEGIN
         RAISE EXCEPTION '[Job %] analyse_length_limits step (code=%) not found in snapshot', p_job_id, p_step_code;
     END IF;
 
-    RAISE DEBUG '[Job %] analyse_length_limits: truncate_overlong=%, building per-column clauses', p_job_id, v_truncate_overlong;
-
-    -- Iterate bounded columns from the definition snapshot. Two buckets:
-    --   1. Descriptive — internal-purpose columns whose target_pg_type
-    --      matches `character varying(N)`.
-    --   2. Identifier — source_input columns in the identifier-fail
-    --      steps (currently external_idents; cap = 50).
     FOR v_col IN
         WITH idc AS (
             SELECT
@@ -94,46 +105,28 @@ BEGIN
     LOOP
         IF v_col.bucket = 'descriptive' THEN
             v_n := v_col.varchar_limit;
-            IF v_truncate_overlong THEN
-                -- TRUNCATE branch (opt-in): rewrite value + warning.
-                v_set_clauses := v_set_clauses || format(
-                    $clause$,
-                %1$I = CASE
-                    WHEN length(dt.%1$I) > %2$L THEN substring(dt.%1$I FROM 1 FOR %2$L)
-                    ELSE dt.%1$I
+            v_set_clauses := v_set_clauses || format(
+                $clause$,
+            %1$I = CASE
+                WHEN length(dt.%1$I) > %2$L THEN substring(dt.%1$I FROM 1 FOR %2$L)
+                ELSE dt.%1$I
+            END$clause$,
+                v_col.column_name /* %1$I */,
+                v_n               /* %2$L */
+            );
+            v_warnings_clauses := v_warnings_clauses || format(
+                $clause$ || CASE
+                    WHEN length(dt.%1$I) > %2$L THEN
+                        jsonb_build_object(%3$L, jsonb_build_object('truncated_from', length(dt.%1$I), 'to', %2$L))
+                    ELSE '{}'::jsonb
                 END$clause$,
-                    v_col.column_name /* %1$I */,
-                    v_n               /* %2$L */
-                );
-                v_warnings_clauses := v_warnings_clauses || format(
-                    $clause$ || CASE
-                        WHEN length(dt.%1$I) > %2$L THEN
-                            jsonb_build_object(%3$L, jsonb_build_object('truncated_from', length(dt.%1$I), 'to', %2$L))
-                        ELSE '{}'::jsonb
-                    END$clause$,
-                    v_col.column_name /* %1$I */,
-                    v_n               /* %2$L */,
-                    v_col.column_name /* %3$L */
-                );
-            ELSE
-                -- STRICT branch (default): hard-fail on overflow.
-                v_errors_clauses := v_errors_clauses || format(
-                    $clause$ || CASE
-                        WHEN length(dt.%1$I) > %2$L THEN
-                            jsonb_build_object(%3$L, jsonb_build_object('too_long', length(dt.%1$I), 'limit', %2$L))
-                        ELSE '{}'::jsonb
-                    END$clause$,
-                    v_col.column_name /* %1$I */,
-                    v_n               /* %2$L */,
-                    v_col.column_name /* %3$L */
-                );
-                v_error_columns := v_error_columns || ARRAY[v_col.column_name || ':' || v_n::TEXT];
-            END IF;
+                v_col.column_name /* %1$I */,
+                v_n               /* %2$L */,
+                v_col.column_name /* %3$L */
+            );
             v_clause_count := v_clause_count + 1;
         ELSIF v_col.bucket = 'identifier' THEN
             v_n := v_identifier_max_length;
-            -- Identifiers ALWAYS error regardless of flag — truncating
-            -- an identifier silently changes the operator's PK.
             v_errors_clauses := v_errors_clauses || format(
                 $clause$ || CASE
                     WHEN length(dt.%1$I) > %2$L THEN
@@ -144,28 +137,21 @@ BEGIN
                 v_n               /* %2$L */,
                 v_col.column_name /* %3$L */
             );
-            v_error_columns := v_error_columns || ARRAY[v_col.column_name || ':' || v_n::TEXT];
+            v_identifier_columns := v_identifier_columns || v_col.column_name;
             v_clause_count := v_clause_count + 1;
         END IF;
     END LOOP;
 
-    -- state clause: 'error' iff ANY error-emitting column overflowed.
-    -- In strict mode: descriptives + identifiers.
-    -- In truncate mode: identifiers only.
-    IF array_length(v_error_columns, 1) > 0 THEN
+    IF array_length(v_identifier_columns, 1) > 0 THEN
         SELECT string_agg(
-            format(
-                $cond$length(dt.%1$I) > %2$L$cond$,
-                split_part(entry, ':', 1),
-                split_part(entry, ':', 2)::INT
-            ),
+            format($cond$length(dt.%1$I) > %2$L$cond$, col, v_identifier_max_length),
             ' OR '
         ) INTO v_state_clause
-        FROM unnest(v_error_columns) AS entry;
+        FROM unnest(v_identifier_columns) AS col;
     END IF;
 
     IF v_clause_count = 0 THEN
-        RAISE DEBUG '[Job %] analyse_length_limits: no bounded columns in scope; advancing priority only', p_job_id;
+        RAISE DEBUG '[Job %] analyse_length_limits: no bounded columns in scope for this job; advancing priority only', p_job_id;
     ELSE
         v_sql := format($update$
             UPDATE public.%1$I dt
@@ -185,15 +171,12 @@ BEGIN
             v_set_clauses                                  /* %3$s — leading comma included */,
             v_warnings_clauses                             /* %4$s */,
             v_errors_clauses                               /* %5$s */,
-            COALESCE(NULLIF(v_state_clause, ''), 'FALSE')  /* %6$s — short-circuit if no error-emit cols */
+            COALESCE(NULLIF(v_state_clause, ''), 'FALSE')  /* %6$s — short-circuit if no identifier cols */
         );
-
-        RAISE DEBUG '[Job %] analyse_length_limits: batch UPDATE SQL: %', p_job_id, v_sql;
 
         BEGIN
             EXECUTE v_sql USING p_batch_seq;
             GET DIAGNOSTICS v_update_count = ROW_COUNT;
-            RAISE DEBUG '[Job %] analyse_length_limits: Updated % rows in batch_seq %', p_job_id, v_update_count, p_batch_seq;
         EXCEPTION WHEN OTHERS THEN
             RAISE WARNING '[Job %] analyse_length_limits: error during batch update: %', p_job_id, SQLERRM;
             UPDATE public.import_job
@@ -204,8 +187,6 @@ BEGIN
         END;
     END IF;
 
-    -- Unconditionally advance priority for all rows in batch (mirrors
-    -- analyse_status pattern; ensures skip-actioned rows progress too).
     v_sql := format($adv$
         UPDATE public.%1$I dt SET
             last_completed_priority = %2$L
@@ -213,10 +194,7 @@ BEGIN
     $adv$, v_data_table_name /* %1$I */, v_step.priority /* %2$L */);
     EXECUTE v_sql USING p_batch_seq;
     GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
-    RAISE DEBUG '[Job %] analyse_length_limits: Advanced last_completed_priority for % total rows in batch', p_job_id, v_skipped_update_count;
 
-    -- Propagate errors to other rows of the same entity (best-effort,
-    -- matches analyse_status pattern).
     BEGIN
         CALL import.propagate_fatal_error_to_entity_batch(
             p_job_id, v_data_table_name, p_batch_seq,
@@ -226,8 +204,19 @@ BEGIN
     EXCEPTION WHEN OTHERS THEN
         RAISE WARNING '[Job %] analyse_length_limits: Non-fatal error during error propagation: %', p_job_id, SQLERRM;
     END;
-
-    RAISE DEBUG '[Job %] analyse_length_limits (Batch): Finished for batch_seq %', p_job_id, p_batch_seq;
 END;
-$procedure$
-```
+$procedure$;
+
+
+-- ─── 2. Unlink the step from existing definitions ────────────────────────
+
+DELETE FROM public.import_definition_step
+WHERE step_id IN (SELECT id FROM public.import_step WHERE code = 'analyse_length_limits');
+
+
+-- ─── 3. Drop the truncate_overlong column ────────────────────────────────
+
+ALTER TABLE public.import_job
+    DROP COLUMN IF EXISTS truncate_overlong;
+
+END;

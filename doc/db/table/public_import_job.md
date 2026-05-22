@@ -53,6 +53,12 @@
  error_count                       | integer                  |           | not null | 0                                      | plain    |             |              | 
  warning_count                     | integer                  |           | not null | 0                                      | plain    |             |              | 
  unique_units                      | boolean                  |           |          |                                        | plain    |             |              | 
+ truncate_overlong                 | boolean                  |           | not null | false                                  | plain    |             |              | When true, descriptive columns exceeding their target varchar(N) length                                                                                                                                               +
+                                   |                          |           |          |                                        |          |             |              | are truncated to N and a warning is recorded in dt.warnings. When false                                                                                                                                               +
+                                   |                          |           |          |                                        |          |             |              | (default), any overlong descriptive value causes dt.state=error +                                                                                                                                                     +
+                                   |                          |           |          |                                        |          |             |              | dt.errors entry. Identifier columns (external_ident.ident) ALWAYS error                                                                                                                                               +
+                                   |                          |           |          |                                        |          |             |              | on overflow regardless of this flag — identifier truncation would                                                                                                                                                     +
+                                   |                          |           |          |                                        |          |             |              | silently change the operator's primary key.
 Indexes:
     "import_job_pkey" PRIMARY KEY, btree (id)
     "import_job_slug_key" UNIQUE CONSTRAINT, btree (slug)
@@ -112,6 +118,7 @@ Not-null constraints:
     "import_job_definition_id_not_null" NOT NULL "definition_id"
     "import_job_error_count_not_null" NOT NULL "error_count"
     "import_job_warning_count_not_null" NOT NULL "warning_count"
+    "import_job_truncate_overlong_not_null" NOT NULL "truncate_overlong"
 Triggers:
     import_job_cleanup BEFORE DELETE OR UPDATE OF upload_table_name, data_table_name ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_cleanup()
     import_job_derive_trigger BEFORE INSERT ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_derive()

@@ -2,21 +2,26 @@ BEGIN;
 
 \i test/setup.sql
 
-\echo "Test 347: Import field length limits (truncate+warn descriptive overflows, hard-fail identifier overflows)"
+\echo "Test 347: Import field length limits — strict-default + truncate-overlong opt-in"
 \echo
 \echo "Pre-fix (before import.analyse_length_limits): a legal_unit import row with"
-\echo "physical_address_part1 > 200 chars would abort the entire batch at process-step"
-\echo "MERGE time with '22001 string_data_right_truncation'. The import.process_location"
+\echo "physical_address_part1 > 200 chars aborted the entire batch at process-step MERGE"
+\echo "time with '22001 string_data_right_truncation'. The import.process_location"
 \echo "EXCEPTION WHEN OTHERS handler caught + re-threw, killing the whole job for one"
 \echo "overlong field in one row. Albania-shaped 500-char addresses were the canonical"
 \echo "failure case."
 \echo
 \echo "Post-fix (this test): analyse_length_limits runs at priority 105 (after all other"
-\echo "analyses, before any process step's MERGE). Descriptive columns (legal_unit.name,"
-\echo "location.address_*, contact.email_address, etc) get truncated with a warning"
-\echo "recorded in dt.warnings. Identifier columns (external_ident.ident, varchar(50))"
-\echo "hard-fail: state=error, errors populated, row NOT UPSERTed (identifier truncation"
-\echo "would silently change the operator's primary key — data-corruption pathway)."
+\echo "analyses, before any process step's MERGE). Two modes, controlled by per-job"
+\echo "public.import_job.truncate_overlong:"
+\echo "  - false (DEFAULT): ANY overflow → state=error, dt.errors populated, no UPSERT."
+\echo "  - true (OPT-IN):   descriptive overflows truncated + dt.warnings recorded;"
+\echo "                     identifier overflows still hard-fail (truncating an identifier"
+\echo "                     silently changes the operator's primary key)."
+\echo
+\echo "C1-C6 exercise truncate_overlong=true (descriptives truncate, identifiers error)."
+\echo "C7-C11 exercise truncate_overlong=false (the new strict default — ALL overflows"
+\echo "       error, descriptives included)."
 
 CALL test.set_user_from_email('test.admin@statbus.org');
 
@@ -28,12 +33,25 @@ CALL test.set_user_from_email('test.admin@statbus.org');
 SELECT code, priority, analyse_procedure::text, process_procedure::text, is_holistic
 FROM public.import_step WHERE code = 'analyse_length_limits';
 
+-- Confirm the step is linked to legal_unit_source_dates definition.
+\echo
+\echo "=== Step linked to legal_unit_source_dates definition? ==="
+SELECT count(*) AS link_count
+FROM public.import_definition_step ds
+JOIN public.import_step s ON s.id = ds.step_id
+JOIN public.import_definition d ON d.id = ds.definition_id
+WHERE s.code = 'analyse_length_limits' AND d.slug = 'legal_unit_source_dates';
 
--- ─── C1: At-limit value (no truncation) ──────────────────────────────────
+
+-- ═════════════════════════════════════════════════════════════════════════
+-- TRUNCATE-OVERLONG MODE (truncate_overlong=true) — C1 through C6
+-- ═════════════════════════════════════════════════════════════════════════
+
+-- ─── C1: Truncate mode, at-limit value (no truncation) ───────────────────
 
 SAVEPOINT scenario_c1;
 \echo
-\echo "=== C1: At-limit value (200 chars in physical_address_part1) ==="
+\echo "=== C1 [truncate=true]: At-limit value (200 chars in physical_address_part1) ==="
 \echo "Expectation: row stored with original 200-char value, zero warnings."
 
 DO $$
@@ -41,8 +59,8 @@ DECLARE
     v_definition_id INT;
 BEGIN
     SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
-    INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
-    VALUES (v_definition_id, 'imp_347_c1_atlimit', 'Test 347 C1 at-limit', '200-char address', 'Test 347');
+    INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, truncate_overlong)
+    VALUES (v_definition_id, 'imp_347_c1_atlimit', 'Test 347 C1 at-limit', '200-char address', 'Test 347', true);
 END $$;
 
 INSERT INTO public.imp_347_c1_atlimit_upload(
@@ -54,32 +72,27 @@ INSERT INTO public.imp_347_c1_atlimit_upload(
 
 CALL worker.process_tasks(p_queue => 'import');
 
-\echo "C1 job state:"
-SELECT slug, state, total_rows, imported_rows
-FROM public.import_job WHERE slug = 'imp_347_c1_atlimit';
-
-\echo "C1 _data row warnings/errors/state:"
+\echo "C1 _data row warnings/errors/state (all should be clean):"
 SELECT row_id, state,
        (warnings = '{}'::jsonb) AS warnings_empty,
        (errors   = '{}'::jsonb) AS errors_empty
 FROM public.imp_347_c1_atlimit_data ORDER BY row_id;
 
-\echo "C1 public.location address length:"
+\echo "C1 public.location address length (should be 200):"
 SELECT length(loc.address_part1) AS addr_len
 FROM public.location loc
 JOIN public.legal_unit lu ON lu.id = loc.legal_unit_id
 JOIN public.external_ident ei ON ei.legal_unit_id = lu.id
-JOIN public.external_ident_type eit ON eit.id = ei.type_id AND eit.code = 'tax_ident'
 WHERE ei.ident = '347000001' AND loc.type = 'physical';
 
 ROLLBACK TO SAVEPOINT scenario_c1;
 
 
--- ─── C2: Descriptive overflow (truncate + warn) ──────────────────────────
+-- ─── C2: Truncate mode, descriptive overflow (truncate + warn) ──────────
 
 SAVEPOINT scenario_c2;
 \echo
-\echo "=== C2: Descriptive overflow (250 chars in physical_address_part1) ==="
+\echo "=== C2 [truncate=true]: Descriptive overflow (250 chars in physical_address_part1) ==="
 \echo "Expectation: row stored, value truncated to 200, dt.warnings carries the"
 \echo "truncation record, public.location.address_part1 length = 200."
 
@@ -88,8 +101,8 @@ DECLARE
     v_definition_id INT;
 BEGIN
     SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
-    INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
-    VALUES (v_definition_id, 'imp_347_c2_overflow', 'Test 347 C2 descriptive overflow', '250-char address', 'Test 347');
+    INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, truncate_overlong)
+    VALUES (v_definition_id, 'imp_347_c2_overflow', 'Test 347 C2 descriptive overflow', '250-char address', 'Test 347', true);
 END $$;
 
 INSERT INTO public.imp_347_c2_overflow_upload(
@@ -100,10 +113,6 @@ INSERT INTO public.imp_347_c2_overflow_upload(
      repeat('b', 250), 'NO', '01.110', '2100', 'AS');
 
 CALL worker.process_tasks(p_queue => 'import');
-
-\echo "C2 job state:"
-SELECT slug, state, total_rows, imported_rows
-FROM public.import_job WHERE slug = 'imp_347_c2_overflow';
 
 \echo "C2 _data row warnings (should contain physical_address_part1 truncation):"
 SELECT row_id, state,
@@ -118,27 +127,25 @@ SELECT length(loc.address_part1) AS addr_len
 FROM public.location loc
 JOIN public.legal_unit lu ON lu.id = loc.legal_unit_id
 JOIN public.external_ident ei ON ei.legal_unit_id = lu.id
-JOIN public.external_ident_type eit ON eit.id = ei.type_id AND eit.code = 'tax_ident'
 WHERE ei.ident = '347000002' AND loc.type = 'physical';
 
 ROLLBACK TO SAVEPOINT scenario_c2;
 
 
--- ─── C3: Multiple descriptive overflows in one row ───────────────────────
+-- ─── C3: Truncate mode, multiple descriptive overflows in one row ───────
 
 SAVEPOINT scenario_c3;
 \echo
-\echo "=== C3: Multiple descriptive overflows in one row ==="
-\echo "Expectation: 250-char address + 60-char email — BOTH truncated, BOTH in warnings"
-\echo "(one JSONB object, two keys)."
+\echo "=== C3 [truncate=true]: Multiple descriptive overflows in one row ==="
+\echo "Expectation: 250-char address + 62-char email — BOTH truncated, BOTH in warnings."
 
 DO $$
 DECLARE
     v_definition_id INT;
 BEGIN
     SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
-    INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
-    VALUES (v_definition_id, 'imp_347_c3_multi', 'Test 347 C3 multiple overflows', '250-addr + 60-email', 'Test 347');
+    INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, truncate_overlong)
+    VALUES (v_definition_id, 'imp_347_c3_multi', 'Test 347 C3 multiple overflows', '250-addr + 62-email', 'Test 347', true);
 END $$;
 
 INSERT INTO public.imp_347_c3_multi_upload(
@@ -176,21 +183,22 @@ SELECT
 ROLLBACK TO SAVEPOINT scenario_c3;
 
 
--- ─── C4: Identifier overflow (hard fail) ─────────────────────────────────
+-- ─── C4: Truncate mode, identifier overflow (hard fail — even with truncate flag) ───
 
 SAVEPOINT scenario_c4;
 \echo
-\echo "=== C4: Identifier overflow (60-char tax_ident, limit 50) ==="
-\echo "Expectation: dt.state='error', dt.errors carries the too_long record,"
-\echo "NO row in public.external_ident, NO row in public.legal_unit."
+\echo "=== C4 [truncate=true]: Identifier overflow (60-char tax_ident, limit 50) ==="
+\echo "Expectation: identifiers ALWAYS hard-fail regardless of flag — truncating an"
+\echo "identifier silently changes the operator's primary key. dt.state='error',"
+\echo "no rows in public."
 
 DO $$
 DECLARE
     v_definition_id INT;
 BEGIN
     SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
-    INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
-    VALUES (v_definition_id, 'imp_347_c4_idfail', 'Test 347 C4 identifier overflow', '60-char tax_ident', 'Test 347');
+    INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, truncate_overlong)
+    VALUES (v_definition_id, 'imp_347_c4_idfail', 'Test 347 C4 identifier overflow', '60-char tax_ident, truncate=true', 'Test 347', true);
 END $$;
 
 INSERT INTO public.imp_347_c4_idfail_upload(
@@ -210,35 +218,27 @@ SELECT row_id, state,
 FROM public.imp_347_c4_idfail_data ORDER BY row_id;
 
 \echo "C4 external_ident count for the 60-char ident (should be 0):"
-SELECT count(*) AS ext_ident_count
-FROM public.external_ident
-WHERE ident = repeat('9', 60);
-
-\echo "C4 legal_unit count for 60-char ident (should be 0):"
-SELECT count(*) AS lu_count
-FROM public.legal_unit lu
-JOIN public.external_ident ei ON ei.legal_unit_id = lu.id
-WHERE ei.ident = repeat('9', 60);
+SELECT count(*) AS ext_ident_count FROM public.external_ident WHERE ident = repeat('9', 60);
 
 ROLLBACK TO SAVEPOINT scenario_c4;
 
 
--- ─── C5: Albania-shaped row (500-char address — the original bug) ────────
+-- ─── C5: Truncate mode, Albania-shaped 500-char row ─────────────────────
 
 SAVEPOINT scenario_c5;
 \echo
-\echo "=== C5: Albania-shaped row (500-char physical_address_part1) ==="
-\echo "Pre-fix: this aborted the whole job with batch_error_process_location 22001."
-\echo "Post-fix: row stores with address truncated to 200, warning emitted,"
-\echo "job state='finished' (or 'analysing_failed' if it failed pre-fix)."
+\echo "=== C5 [truncate=true]: Albania-shaped row (500-char physical_address_part1) ==="
+\echo "Pre-fix: this aborted the whole job with 22001 at process_location MERGE."
+\echo "Post-fix with truncate=true: row stored, address truncated 500→200, warning,"
+\echo "job state='finished'."
 
 DO $$
 DECLARE
     v_definition_id INT;
 BEGIN
     SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
-    INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
-    VALUES (v_definition_id, 'imp_347_c5_albania', 'Test 347 C5 Albania 500-char', 'pre-fix killed whole job', 'Test 347');
+    INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, truncate_overlong)
+    VALUES (v_definition_id, 'imp_347_c5_albania', 'Test 347 C5 Albania 500-char', 'pre-fix killed whole job', 'Test 347', true);
 END $$;
 
 INSERT INTO public.imp_347_c5_albania_upload(
@@ -249,10 +249,6 @@ INSERT INTO public.imp_347_c5_albania_upload(
      repeat('A', 500), 'NO', '01.110', '2100', 'AS');
 
 CALL worker.process_tasks(p_queue => 'import');
-
-\echo "C5 job state (post-fix: should be finished, not failed):"
-SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error
-FROM public.import_job WHERE slug = 'imp_347_c5_albania';
 
 \echo "C5 _data row (address truncated 500→200, warning recorded):"
 SELECT row_id, state,
@@ -271,11 +267,11 @@ WHERE ei.ident = '347000005' AND loc.type = 'physical';
 ROLLBACK TO SAVEPOINT scenario_c5;
 
 
--- ─── C6: Sanity — no false positives on normal rows ──────────────────────
+-- ─── C6: Truncate mode, sanity — no false positives ─────────────────────
 
 SAVEPOINT scenario_c6;
 \echo
-\echo "=== C6: Sanity check — 5 normal rows, all sub-limit ==="
+\echo "=== C6 [truncate=true]: Sanity — 5 normal sub-limit rows ==="
 \echo "Expectation: zero warnings, zero errors, all 5 rows in public.legal_unit."
 
 DO $$
@@ -283,8 +279,8 @@ DECLARE
     v_definition_id INT;
 BEGIN
     SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
-    INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
-    VALUES (v_definition_id, 'imp_347_c6_normal', 'Test 347 C6 normal rows', 'no false positives', 'Test 347');
+    INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, truncate_overlong)
+    VALUES (v_definition_id, 'imp_347_c6_normal', 'Test 347 C6 normal rows', 'truncate=true sanity', 'Test 347', true);
 END $$;
 
 INSERT INTO public.imp_347_c6_normal_upload(
@@ -306,13 +302,215 @@ SELECT count(*) AS total_rows,
        count(*) FILTER (WHERE state = 'error') AS error_count
 FROM public.imp_347_c6_normal_data;
 
-\echo "C6 public.legal_unit count (should be 5):"
-SELECT count(*) AS lu_count
-FROM public.legal_unit lu
-JOIN public.external_ident ei ON ei.legal_unit_id = lu.id
-WHERE ei.ident LIKE '34700060%';
-
 ROLLBACK TO SAVEPOINT scenario_c6;
+
+
+-- ═════════════════════════════════════════════════════════════════════════
+-- STRICT-DEFAULT MODE (truncate_overlong=false, the new default) — C7-C11
+-- ═════════════════════════════════════════════════════════════════════════
+
+-- ─── C7: Strict mode, at-limit value (no error) ──────────────────────────
+
+SAVEPOINT scenario_c7;
+\echo
+\echo "=== C7 [truncate=false, DEFAULT]: At-limit value (200-char address) ==="
+\echo "Expectation: row stored cleanly, zero warnings, zero errors. The error path"
+\echo "only fires on > N, not on == N."
+
+DO $$
+DECLARE
+    v_definition_id INT;
+BEGIN
+    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
+    INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+    VALUES (v_definition_id, 'imp_347_c7_strict_atlimit', 'Test 347 C7 strict at-limit', '200-char default', 'Test 347');
+END $$;
+
+INSERT INTO public.imp_347_c7_strict_atlimit_upload(
+    valid_from, valid_to, tax_ident, name, birth_date, physical_address_part1,
+    physical_country_iso_2, primary_activity_category_code, sector_code, legal_form_code
+) VALUES
+    ('2020-01-01', '2020-12-31', '347000007', 'C7 LU Strict At Limit', '2020-01-01',
+     repeat('g', 200), 'NO', '01.110', '2100', 'AS');
+
+CALL worker.process_tasks(p_queue => 'import');
+
+\echo "C7 _data row (clean state expected):"
+SELECT row_id, state,
+       (warnings = '{}'::jsonb) AS warnings_empty,
+       (errors   = '{}'::jsonb) AS errors_empty
+FROM public.imp_347_c7_strict_atlimit_data ORDER BY row_id;
+
+\echo "C7 public.location address (should be present, length=200):"
+SELECT length(loc.address_part1) AS addr_len
+FROM public.location loc
+JOIN public.legal_unit lu ON lu.id = loc.legal_unit_id
+JOIN public.external_ident ei ON ei.legal_unit_id = lu.id
+WHERE ei.ident = '347000007' AND loc.type = 'physical';
+
+ROLLBACK TO SAVEPOINT scenario_c7;
+
+
+-- ─── C8: Strict mode, descriptive overflow (hard-fail, no truncate) ─────
+
+SAVEPOINT scenario_c8;
+\echo
+\echo "=== C8 [truncate=false, DEFAULT]: Descriptive overflow (250-char address) ==="
+\echo "Expectation: dt.state='error', errors has physical_address_part1 entry,"
+\echo "NO row in public.location (process step skipped because state=error)."
+
+DO $$
+DECLARE
+    v_definition_id INT;
+BEGIN
+    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
+    INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+    VALUES (v_definition_id, 'imp_347_c8_strict_desc', 'Test 347 C8 strict descriptive overflow', '250-char default', 'Test 347');
+END $$;
+
+INSERT INTO public.imp_347_c8_strict_desc_upload(
+    valid_from, valid_to, tax_ident, name, birth_date, physical_address_part1,
+    physical_country_iso_2, primary_activity_category_code, sector_code, legal_form_code
+) VALUES
+    ('2020-01-01', '2020-12-31', '347000008', 'C8 LU Strict Desc Overflow', '2020-01-01',
+     repeat('h', 250), 'NO', '01.110', '2100', 'AS');
+
+CALL worker.process_tasks(p_queue => 'import');
+
+\echo "C8 _data row state + errors:"
+SELECT row_id, state,
+       errors ? 'physical_address_part1' AS has_addr_error,
+       errors #>> '{physical_address_part1,too_long}' AS too_long,
+       errors #>> '{physical_address_part1,limit}'    AS limit_val,
+       (warnings = '{}'::jsonb) AS warnings_empty
+FROM public.imp_347_c8_strict_desc_data ORDER BY row_id;
+
+\echo "C8 public.location count for ident 347000008 (should be 0):"
+SELECT count(*) AS loc_count
+FROM public.location loc
+JOIN public.legal_unit lu ON lu.id = loc.legal_unit_id
+JOIN public.external_ident ei ON ei.legal_unit_id = lu.id
+WHERE ei.ident = '347000008';
+
+ROLLBACK TO SAVEPOINT scenario_c8;
+
+
+-- ─── C9: Strict mode, multiple descriptive overflows (multiple errors) ──
+
+SAVEPOINT scenario_c9;
+\echo
+\echo "=== C9 [truncate=false, DEFAULT]: Multiple descriptive overflows (250-addr + 62-email) ==="
+\echo "Expectation: dt.state='error', errors carries BOTH columns, no rows in public."
+
+DO $$
+DECLARE
+    v_definition_id INT;
+BEGIN
+    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
+    INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+    VALUES (v_definition_id, 'imp_347_c9_strict_multi', 'Test 347 C9 strict multiple overflows', 'two cols default', 'Test 347');
+END $$;
+
+INSERT INTO public.imp_347_c9_strict_multi_upload(
+    valid_from, valid_to, tax_ident, name, birth_date, physical_address_part1, email_address,
+    physical_country_iso_2, primary_activity_category_code, sector_code, legal_form_code
+) VALUES
+    ('2020-01-01', '2020-12-31', '347000009', 'C9 LU Strict Multi', '2020-01-01',
+     repeat('i', 250), repeat('y', 50) || '@example.com',
+     'NO', '01.110', '2100', 'AS');
+
+CALL worker.process_tasks(p_queue => 'import');
+
+\echo "C9 _data row state + errors (both columns):"
+SELECT row_id, state,
+       errors ? 'physical_address_part1' AS has_addr_err,
+       errors ? 'email_address'          AS has_email_err,
+       errors #>> '{physical_address_part1,too_long}' AS addr_too_long,
+       errors #>> '{email_address,too_long}'          AS email_too_long
+FROM public.imp_347_c9_strict_multi_data ORDER BY row_id;
+
+ROLLBACK TO SAVEPOINT scenario_c9;
+
+
+-- ─── C10: Strict mode, identifier overflow (same behavior as truncate mode) ──
+
+SAVEPOINT scenario_c10;
+\echo
+\echo "=== C10 [truncate=false, DEFAULT]: Identifier overflow (60-char tax_ident) ==="
+\echo "Expectation: state=error, errors has tax_ident_raw. Identifiers always error,"
+\echo "so behavior matches C4."
+
+DO $$
+DECLARE
+    v_definition_id INT;
+BEGIN
+    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
+    INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+    VALUES (v_definition_id, 'imp_347_c10_strict_idfail', 'Test 347 C10 strict identifier overflow', '60-char tax_ident default', 'Test 347');
+END $$;
+
+INSERT INTO public.imp_347_c10_strict_idfail_upload(
+    valid_from, valid_to, tax_ident, name, birth_date,
+    physical_country_iso_2, primary_activity_category_code, sector_code, legal_form_code
+) VALUES
+    ('2020-01-01', '2020-12-31', repeat('8', 60), 'C10 LU Strict Id', '2020-01-01',
+     'NO', '01.110', '2100', 'AS');
+
+CALL worker.process_tasks(p_queue => 'import');
+
+\echo "C10 _data row state + errors:"
+SELECT row_id, state,
+       errors ? 'tax_ident_raw' AS has_ident_error,
+       errors #>> '{tax_ident_raw,too_long}' AS too_long,
+       errors #>> '{tax_ident_raw,limit}'    AS limit_val
+FROM public.imp_347_c10_strict_idfail_data ORDER BY row_id;
+
+ROLLBACK TO SAVEPOINT scenario_c10;
+
+
+-- ─── C11: Strict mode, Albania 500-char address (hard-fail, no truncate) ──
+
+SAVEPOINT scenario_c11;
+\echo
+\echo "=== C11 [truncate=false, DEFAULT]: Albania-shaped 500-char address ==="
+\echo "Pre-fix: aborted whole job with 22001."
+\echo "Post-fix with default strict mode: dt.state='error', errors carries"
+\echo "physical_address_part1 entry, NO row in public.location, job state='finished'"
+\echo "(other rows in the same job would import cleanly; this row alone is error-marked)."
+
+DO $$
+DECLARE
+    v_definition_id INT;
+BEGIN
+    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
+    INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+    VALUES (v_definition_id, 'imp_347_c11_strict_albania', 'Test 347 C11 strict Albania 500-char', 'default mode kills row not job', 'Test 347');
+END $$;
+
+INSERT INTO public.imp_347_c11_strict_albania_upload(
+    valid_from, valid_to, tax_ident, name, birth_date, physical_address_part1,
+    physical_country_iso_2, primary_activity_category_code, sector_code, legal_form_code
+) VALUES
+    ('2020-01-01', '2020-12-31', '347000011', 'C11 Albania Strict', '2020-01-01',
+     repeat('K', 500), 'NO', '01.110', '2100', 'AS');
+
+CALL worker.process_tasks(p_queue => 'import');
+
+\echo "C11 _data row state + errors:"
+SELECT row_id, state,
+       errors ? 'physical_address_part1' AS has_addr_err,
+       errors #>> '{physical_address_part1,too_long}' AS too_long,
+       errors #>> '{physical_address_part1,limit}'    AS limit_val
+FROM public.imp_347_c11_strict_albania_data ORDER BY row_id;
+
+\echo "C11 public.location count for ident 347000011 (should be 0):"
+SELECT count(*) AS loc_count
+FROM public.location loc
+JOIN public.legal_unit lu ON lu.id = loc.legal_unit_id
+JOIN public.external_ident ei ON ei.legal_unit_id = lu.id
+WHERE ei.ident = '347000011';
+
+ROLLBACK TO SAVEPOINT scenario_c11;
 
 
 ROLLBACK;

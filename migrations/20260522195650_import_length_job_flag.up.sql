@@ -1,6 +1,85 @@
-```sql
-CREATE OR REPLACE PROCEDURE import.analyse_length_limits(IN p_job_id integer, IN p_batch_seq integer, IN p_step_code text)
- LANGUAGE plpgsql
+-- Migration: import_length_job_flag
+--
+-- Adds the `truncate_overlong` boolean opt-in flag to public.import_job
+-- and rewrites import.analyse_length_limits to branch on it.
+--
+-- Background:
+--   Commit 52a69c58b landed import.analyse_length_limits with a
+--   policy of "descriptive columns truncate+warn; identifier
+--   columns error". Architect+King review reversed that default:
+--   the safer policy is "ANY overflow → error" (no silent
+--   truncation, no quiet data drift). Operators who genuinely
+--   want truncate behavior opt in per-job via the new flag.
+--
+--   This migration:
+--     1. Adds the column with DEFAULT FALSE (strict-mode default).
+--     2. Fixes a missed linkage from 52a69c58b: the
+--        analyse_length_limits step was registered in import_step
+--        but NOT linked to existing definitions via
+--        import_definition_step — so the procedure never ran in
+--        practice. Surface 347's C5 (Albania 500-char) caught
+--        this on first fast-suite run (state='failed' with the
+--        original 22001 overflow). Fixed here because the strict-
+--        mode rewrite needs the procedure to actually run for it
+--        to be observable.
+--     3. CREATE OR REPLACE PROCEDURE with IF/ELSE wrapping the
+--        existing landed truncate+warn logic in the truncate
+--        branch; new strict logic in the else branch.
+--
+-- Identifier columns (currently external_ident.ident varchar(50))
+-- always error on overflow regardless of flag — truncating an
+-- identifier would silently change the operator's primary key.
+
+BEGIN;
+
+-- ─── 1. Add the truncate_overlong column ─────────────────────────────────
+
+ALTER TABLE public.import_job
+    ADD COLUMN truncate_overlong boolean NOT NULL DEFAULT false;
+
+COMMENT ON COLUMN public.import_job.truncate_overlong IS
+'When true, descriptive columns exceeding their target varchar(N) length
+are truncated to N and a warning is recorded in dt.warnings. When false
+(default), any overlong descriptive value causes dt.state=error +
+dt.errors entry. Identifier columns (external_ident.ident) ALWAYS error
+on overflow regardless of this flag — identifier truncation would
+silently change the operator''s primary key.';
+
+
+-- ─── 2. Link the step to every existing definition ───────────────────────
+
+-- See migration header for context. ON CONFLICT DO NOTHING so a future
+-- redo of this migration on a partially-applied DB is idempotent.
+INSERT INTO public.import_definition_step (definition_id, step_id)
+SELECT d.id, s.id
+FROM public.import_definition d
+CROSS JOIN public.import_step s
+WHERE s.code = 'analyse_length_limits'
+ON CONFLICT (definition_id, step_id) DO NOTHING;
+
+
+-- ─── 3. Rewrite import.analyse_length_limits with IF/ELSE branching ──────
+
+-- Architecture: a single per-batch UPDATE assembled dynamically.
+-- The bounded-column iteration is shared; only the per-column
+-- clause-emit shape changes per branch.
+--
+--   IF v_truncate_overlong THEN
+--     descriptive cols → truncate+warn (existing landed logic)
+--     identifier cols  → error
+--   ELSE
+--     descriptive cols → error (strict default)
+--     identifier cols  → error (unchanged)
+--
+-- Identifiers always error regardless of flag. The strict branch's
+-- per-column shape converges with the identifier-always-error shape
+-- — both emit `errors = errors || jsonb_build_object(col, {too_long, limit})`.
+CREATE OR REPLACE PROCEDURE import.analyse_length_limits(
+    IN p_job_id integer,
+    IN p_batch_seq integer,
+    IN p_step_code text
+)
+LANGUAGE plpgsql
 AS $procedure$
 DECLARE
     v_job public.import_job;
@@ -229,5 +308,18 @@ BEGIN
 
     RAISE DEBUG '[Job %] analyse_length_limits (Batch): Finished for batch_seq %', p_job_id, p_batch_seq;
 END;
-$procedure$
-```
+$procedure$;
+
+
+COMMENT ON PROCEDURE import.analyse_length_limits(integer, integer, text) IS
+'Intercepts overlong text values before they reach process-step MERGEs.
+Branches on public.import_job.truncate_overlong:
+  - false (default): ANY overflow on a bounded column → dt.state=error,
+    dt.errors entry. No truncation.
+  - true (opt-in): descriptive overflows truncated to target length
+    with dt.warnings entry; identifier overflows still error.
+Identifier overflows (external_ident.ident varchar(50)) ALWAYS error
+regardless of flag — truncating an identifier would silently change
+the operator''s primary key.';
+
+END;
