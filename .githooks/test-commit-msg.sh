@@ -72,6 +72,15 @@ assert_reject "closes + hash-digit" \
 assert_reject "two hash-digits in one line" \
   "fix: resolved issue #1 and issue #2"
 
+assert_reject "hash-digit at line start (line boundary == space)" \
+  "fix: tighten validation
+
+#99 was the previous approach"
+
+assert_reject "hash-digit at line end (line boundary == space)" \
+  "fix: tighten validation
+context for the change #99"
+
 assert_reject "hash-digit inside parentheses" \
   "fix: tighten validation (refs #68 — observed on jo)"
 

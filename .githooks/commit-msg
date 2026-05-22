@@ -27,8 +27,12 @@ set -euo pipefail
 COMMIT_MSG_FILE="$1"
 MSG="$(cat "$COMMIT_MSG_FILE")"
 
-# Strip comment lines (lines starting with #) — they're not part of the message.
-STRIPPED=$(echo "$MSG" | grep -v '^[[:space:]]*#' || true)
+# Strip comment lines — lines starting with "#" followed by NON-digit
+# (real git comments like "# Please enter the commit message"). KEEP lines
+# starting with "#<digit>" because those are ticket references at line start
+# that the operator may have written via `git commit -m` (which doesn't
+# strip comments) and which we DO want to flag.
+STRIPPED=$(echo "$MSG" | grep -vE '^[[:space:]]*#([^0-9]|$)' || true)
 
 # Strip URLs (may legitimately contain "#" for path/fragment). Match http(s)://
 # git:// or ssh:// up to whitespace, close-paren, or close-quote.
