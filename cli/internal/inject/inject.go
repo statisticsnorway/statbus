@@ -89,6 +89,15 @@ const (
 	// concurrent-detection scenarios and as a building block for
 	// externally-triggered SIGKILL at a precise pipeline point.
 	KindStall
+	// KindExternal — registered for inventory completeness; no in-code
+	// inject.* call fires for this class. Scenarios that exercise the
+	// class do so via external harness orchestration (e.g. start an
+	// install, observe the resulting flag state; restart a container,
+	// time the next service start). The env var STATBUS_INJECT_AT may
+	// be set to a KindExternal name for journal-grep auditability but
+	// changes no production behavior. Validate treats it like Kill /
+	// Error w.r.t. the stall-release-file rule (set the file → REJECT).
+	KindExternal
 )
 
 // String yields the human-readable form used in Validate diagnostics.
@@ -100,6 +109,8 @@ func (k Kind) String() string {
 		return "error"
 	case KindStall:
 		return "stall"
+	case KindExternal:
+		return "external"
 	}
 	return fmt.Sprintf("Kind(%d)", int(k))
 }
@@ -177,6 +188,65 @@ var classes = map[string]Kind{
 
 	// Concurrent-install detection (probe 2 — live-upgrade refusal).
 	"concurrent-install-attempted-during-migrate-up": KindStall,
+
+	// Forensics-surfaced classes from the install state-machine
+	// investigation. Each names a real-world failure mode observed in
+	// production or surfaced by a near-miss; the scenarios that
+	// exercise them land in follow-up commits. Registry-only entry
+	// for now reserves the slot in the inventory and gates the
+	// scenarios on Validate-known names.
+	//
+	//   migration-deadlocks-with-running-worker-holding-table-lock (R1)
+	//     A worker session holds AccessShareLock on a table while a
+	//     migration's CREATE/DROP INDEX (or other DDL) tries to take
+	//     AccessExclusiveLock on the same table. Lock manager parks the
+	//     migration indefinitely; without a quiesce-services-before-DDL
+	//     fix, the upgrade hangs and an operator must intervene.
+	//     Harness setup uses start_continuous_worker_workload; the
+	//     stall site can be the existing migrate-up site OR a new one
+	//     inside the migration's DDL execution.
+	//
+	//   install-flag-released-without-clean-handoff-detected-as-stale (R3)
+	//     Install exits cleanly but leaves the flag file in place; the
+	//     upgrade-service on its next tick observes a flag with a dead
+	//     holder PID and interprets the state as a crashed install,
+	//     clearing the flag. The scenario is pure external orchestration:
+	//     run install to clean exit, then observe the service's
+	//     behavior. KindExternal — no in-code injection site.
+	//
+	//   service-watchdog-timeout-during-db-reconnect-after-container-restart (Race D)
+	//     The upgrade-service's reconnect loop runs without pinging
+	//     WATCHDOG=1 to systemd. If the DB container restart drags the
+	//     reconnect past WatchdogSec (~2 min default), systemd SIGABRTs
+	//     the service. The fix is to ping WATCHDOG=1 from inside the
+	//     loop; the scenario validates restart-counter-bounded recovery.
+	//
+	//   advisory-lock-attempted-before-db-ready-after-container-restart (Race E)
+	//     The DB container is just restarting when the upgrade-service
+	//     fires up; the service's first advisory-lock attempt fails on
+	//     a not-yet-ready DB and the process exits 42. systemd restarts
+	//     after backoff, the second attempt succeeds. KindExternal —
+	//     no in-code site; the scenario orchestrates the container
+	//     restart timing externally.
+	//
+	//   seed-restore-runs-on-populated-database-destroying-data (R5) — DATA LOSS
+	//     The install state machine routes to the seed-restore step
+	//     against a database that already has user data. pg_restore of
+	//     the seed dump silently destroys the existing rows. Per
+	//     forensics, the fix is to classify DB content before
+	//     dispatching the seed step (populated → migrate-forward;
+	//     empty → restore). The scenario asserts data survives the
+	//     install — the R5 catastrophic-loss detector
+	//     (assert_demo_data_present) is the load-bearing check.
+	//     KindStall because the harness needs a stall site inside the
+	//     seed step to intervene before destructive completion; the
+	//     scenario's "external precondition" half is having a populated
+	//     DB at install time.
+	"migration-deadlocks-with-running-worker-holding-table-lock":          KindStall,
+	"install-flag-released-without-clean-handoff-detected-as-stale":       KindExternal,
+	"service-watchdog-timeout-during-db-reconnect-after-container-restart": KindStall,
+	"advisory-lock-attempted-before-db-ready-after-container-restart":     KindExternal,
+	"seed-restore-runs-on-populated-database-destroying-data":             KindStall,
 }
 
 // KindOf returns the Kind for a registered class, or (0, false) if the
@@ -214,6 +284,8 @@ func classNames() []string {
 //   set, error    set          REJECT — release file set for non-stall class
 //   set, stall    unset        REJECT — stall requires release file
 //   set, stall    set          Valid
+//   set, external unset        Valid (no in-code site fires; orchestration external)
+//   set, external set          REJECT — release file set for non-stall class
 func Validate() error {
 	active := os.Getenv(EnvActiveAt)
 	stallFile := os.Getenv(EnvStallReleaseFile)
@@ -233,7 +305,7 @@ func Validate() error {
 	}
 
 	switch kind {
-	case KindKill, KindError:
+	case KindKill, KindError, KindExternal:
 		if stallFile != "" {
 			return fmt.Errorf("%s=%q is a %s class but %s=%q is set — release file is only meaningful for stall classes",
 				EnvActiveAt, active, kind, EnvStallReleaseFile, stallFile)

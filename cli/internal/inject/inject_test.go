@@ -46,6 +46,7 @@ func withEnv(t *testing.T, kv map[string]string) {
 func TestValidate_AllRows(t *testing.T) {
 	const killClass = "killed-by-system-during-preswap-backup"
 	const stallClass = "concurrent-install-attempted-during-migrate-up"
+	const externalClass = "install-flag-released-without-clean-handoff-detected-as-stale"
 
 	cases := []struct {
 		name      string
@@ -61,6 +62,8 @@ func TestValidate_AllRows(t *testing.T) {
 		{"kill-class-with-file", killClass, "/tmp/release", false, "release file is only meaningful for stall classes"},
 		{"stall-class-no-file", stallClass, "", false, "stall requires a release file"},
 		{"stall-class-with-file", stallClass, "/tmp/release", true, ""},
+		{"external-class-no-file", externalClass, "", true, ""},
+		{"external-class-with-file", externalClass, "/tmp/release", false, "release file is only meaningful for stall classes"},
 	}
 
 	for _, tc := range cases {
@@ -266,6 +269,12 @@ func TestRegistry_AllClassesSeeded(t *testing.T) {
 		"migration-slower-than-systemd-unit-timeout":       KindStall,
 		// Concurrent-install detection.
 		"concurrent-install-attempted-during-migrate-up": KindStall,
+		// Forensics-surfaced classes (call sites + scenarios land later).
+		"migration-deadlocks-with-running-worker-holding-table-lock":          KindStall,
+		"install-flag-released-without-clean-handoff-detected-as-stale":       KindExternal,
+		"service-watchdog-timeout-during-db-reconnect-after-container-restart": KindStall,
+		"advisory-lock-attempted-before-db-ready-after-container-restart":     KindExternal,
+		"seed-restore-runs-on-populated-database-destroying-data":             KindStall,
 	}
 	for name, want := range required {
 		got, ok := classes[name]
