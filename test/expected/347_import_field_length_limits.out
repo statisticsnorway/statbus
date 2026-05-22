@@ -1,0 +1,648 @@
+BEGIN;
+\i test/setup.sql
+\echo -- test/setup.sql output suppressed for cleaner test output
+-- test/setup.sql output suppressed for cleaner test output
+\set ECHO none
+\echo -- test/setup.sql done, test output follows
+-- test/setup.sql done, test output follows
+\echo "Test 347: Import field length limits (truncate+warn descriptive overflows, hard-fail identifier overflows)"
+"Test 347: Import field length limits (truncate+warn descriptive overflows, hard-fail identifier overflows)"
+\echo
+
+\echo "Pre-fix (before import.analyse_length_limits): a legal_unit import row with"
+"Pre-fix (before import.analyse_length_limits): a legal_unit import row with"
+\echo "physical_address_part1 > 200 chars would abort the entire batch at process-step"
+"physical_address_part1 > 200 chars would abort the entire batch at process-step"
+\echo "MERGE time with '22001 string_data_right_truncation'. The import.process_location"
+"MERGE time with '22001 string_data_right_truncation'. The import.process_location"
+\echo "EXCEPTION WHEN OTHERS handler caught + re-threw, killing the whole job for one"
+"EXCEPTION WHEN OTHERS handler caught + re-threw, killing the whole job for one"
+\echo "overlong field in one row. Albania-shaped 500-char addresses were the canonical"
+"overlong field in one row. Albania-shaped 500-char addresses were the canonical"
+\echo "failure case."
+"failure case."
+\echo
+
+\echo "Post-fix (this test): analyse_length_limits runs at priority 105 (after all other"
+"Post-fix (this test): analyse_length_limits runs at priority 105 (after all other"
+\echo "analyses, before any process step's MERGE). Descriptive columns (legal_unit.name,"
+"analyses, before any process step's MERGE). Descriptive columns (legal_unit.name,"
+\echo "location.address_*, contact.email_address, etc) get truncated with a warning"
+"location.address_*, contact.email_address, etc) get truncated with a warning"
+\echo "recorded in dt.warnings. Identifier columns (external_ident.ident, varchar(50))"
+"recorded in dt.warnings. Identifier columns (external_ident.ident, varchar(50))"
+\echo "hard-fail: state=error, errors populated, row NOT UPSERTed (identifier truncation"
+"hard-fail: state=error, errors populated, row NOT UPSERTed (identifier truncation"
+\echo "would silently change the operator's primary key — data-corruption pathway)."
+"would silently change the operator's primary key — data-corruption pathway)."
+CALL test.set_user_from_email('test.admin@statbus.org');
+\i samples/norway/getting-started.sql
+\i samples/norway/settings.sql
+INSERT INTO settings(activity_category_standard_id,country_id,region_version_id)
+SELECT (SELECT id FROM activity_category_standard WHERE code = 'nace_v2.1')
+     , (SELECT id FROM public.country WHERE iso_2 = 'NO')
+     , (SELECT id FROM public.region_version WHERE code = 'initial')
+ON CONFLICT (only_one_setting)
+DO UPDATE SET
+   activity_category_standard_id = EXCLUDED.activity_category_standard_id,
+   country_id = EXCLUDED.country_id,
+   region_version_id = EXCLUDED.region_version_id
+   WHERE settings.only_one_setting = EXCLUDED.only_one_setting;
+;
+\i samples/norway/activity_category/activity_category_norway.sql
+\copy public.activity_category_enabled_custom FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/regions/norway-regions-2024.sql
+\copy public.region_upload(path, name) FROM 'samples/norway/regions/norway-regions-2024.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/sector/sector_norway.sql
+\copy public.sector_custom_only FROM 'samples/norway/sector/sector_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/legal_form/legal_form_norway.sql
+\copy public.legal_form_custom_only FROM 'samples/norway/legal_form/legal_form_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/data_source/data_source_norway.sql
+\copy public.data_source_custom (code, name) FROM 'samples/norway/data_source/data_source_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+-- Confirm the analyse_length_limits step is wired into the import flow.
+\echo
+
+\echo "=== Step registration check ==="
+"=== Step registration check ==="
+SELECT code, priority, analyse_procedure::text, process_procedure::text, is_holistic
+FROM public.import_step WHERE code = 'analyse_length_limits';
+         code          | priority |      analyse_procedure       | process_procedure | is_holistic 
+-----------------------+----------+------------------------------+-------------------+-------------
+ analyse_length_limits |      105 | import.analyse_length_limits |                   | f
+(1 row)
+
+-- ─── C1: At-limit value (no truncation) ──────────────────────────────────
+SAVEPOINT scenario_c1;
+\echo
+
+\echo "=== C1: At-limit value (200 chars in physical_address_part1) ==="
+"=== C1: At-limit value (200 chars in physical_address_part1) ==="
+\echo "Expectation: row stored with original 200-char value, zero warnings."
+"Expectation: row stored with original 200-char value, zero warnings."
+DO $$
+DECLARE
+    v_definition_id INT;
+BEGIN
+    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
+    INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+    VALUES (v_definition_id, 'imp_347_c1_atlimit', 'Test 347 C1 at-limit', '200-char address', 'Test 347');
+END $$;
+INSERT INTO public.imp_347_c1_atlimit_upload(
+    valid_from, valid_to, tax_ident, name, birth_date, physical_address_part1,
+    physical_country_iso_2, primary_activity_category_code, sector_code, legal_form_code
+) VALUES
+    ('2020-01-01', '2020-12-31', '347000001', 'C1 LU At Limit', '2020-01-01',
+     repeat('a', 200), 'NO', '01.110', '2100', 'AS');
+CALL worker.process_tasks(p_queue => 'import');
+\echo "C1 job state:"
+"C1 job state:"
+SELECT slug, state, total_rows, imported_rows
+FROM public.import_job WHERE slug = 'imp_347_c1_atlimit';
+        slug        |  state   | total_rows | imported_rows 
+--------------------+----------+------------+---------------
+ imp_347_c1_atlimit | finished |          1 |             1
+(1 row)
+
+\echo "C1 _data row warnings/errors/state:"
+"C1 _data row warnings/errors/state:"
+SELECT row_id, state,
+       (warnings = '{}'::jsonb) AS warnings_empty,
+       (errors   = '{}'::jsonb) AS errors_empty
+FROM public.imp_347_c1_atlimit_data ORDER BY row_id;
+ row_id |   state   | warnings_empty | errors_empty 
+--------+-----------+----------------+--------------
+      1 | processed | f              | t
+(1 row)
+
+\echo "C1 public.location address length:"
+"C1 public.location address length:"
+SELECT length(loc.address_part1) AS addr_len
+FROM public.location loc
+JOIN public.legal_unit lu ON lu.id = loc.legal_unit_id
+JOIN public.external_ident ei ON ei.legal_unit_id = lu.id
+JOIN public.external_ident_type eit ON eit.id = ei.type_id AND eit.code = 'tax_ident'
+WHERE ei.ident = '347000001' AND loc.type = 'physical';
+ addr_len 
+----------
+      200
+(1 row)
+
+ROLLBACK TO SAVEPOINT scenario_c1;
+-- ─── C2: Descriptive overflow (truncate + warn) ──────────────────────────
+SAVEPOINT scenario_c2;
+\echo
+
+\echo "=== C2: Descriptive overflow (250 chars in physical_address_part1) ==="
+"=== C2: Descriptive overflow (250 chars in physical_address_part1) ==="
+\echo "Expectation: row stored, value truncated to 200, dt.warnings carries the"
+"Expectation: row stored, value truncated to 200, dt.warnings carries the"
+\echo "truncation record, public.location.address_part1 length = 200."
+"truncation record, public.location.address_part1 length = 200."
+DO $$
+DECLARE
+    v_definition_id INT;
+BEGIN
+    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
+    INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+    VALUES (v_definition_id, 'imp_347_c2_overflow', 'Test 347 C2 descriptive overflow', '250-char address', 'Test 347');
+END $$;
+INSERT INTO public.imp_347_c2_overflow_upload(
+    valid_from, valid_to, tax_ident, name, birth_date, physical_address_part1,
+    physical_country_iso_2, primary_activity_category_code, sector_code, legal_form_code
+) VALUES
+    ('2020-01-01', '2020-12-31', '347000002', 'C2 LU Overflow', '2020-01-01',
+     repeat('b', 250), 'NO', '01.110', '2100', 'AS');
+CALL worker.process_tasks(p_queue => 'import');
+WARNING:  [Job 2] process_location: Error during temporal_merge for step physical_location: value too long for type character varying(200). SQLSTATE: 22001
+WARNING:  [Job 2] Error processing batch 1: value too long for type character varying(200). Context: SQL statement "
+                                WITH founding_plan_ops AS (
+                                    SELECT DISTINCT ON (p.grouping_key)
+                                        p.plan_op_seq,
+                                        p.causal_id,
+                                        p.grouping_key,
+                                        p.new_valid_range,
+                                        p.entity_keys || p.data as full_data
+                                    FROM temporal_merge_plan p
+                                    WHERE p.operation = 'INSERT' AND p.is_new_entity
+                                    ORDER BY p.grouping_key, p.plan_op_seq
+                                ),
+                                id_map_cte AS (
+                                    MERGE INTO location t
+                                    USING founding_plan_ops s ON false
+                                    WHEN NOT MATCHED THEN
+                                        INSERT (type, address_part1, address_part2, address_part3, postcode, postplace, region_id, country_id, latitude, longitude, altitude, establishment_id, legal_unit_id, data_source_id, edit_comment, edit_by_user_id, edit_at, region_version_id, valid_range)
+                                        VALUES ((s.full_data->>'type')::location_type, (s.full_data->>'address_part1')::character varying, (s.full_data->>'address_part2')::character varying, (s.full_data->>'address_part3')::character varying, (s.full_data->>'postcode')::character varying, (s.full_data->>'postplace')::character varying, (s.full_data->>'region_id')::integer, (s.full_data->>'country_id')::integer, (s.full_data->>'latitude')::numeric, (s.full_data->>'longitude')::numeric, (s.full_data->>'altitude')::numeric, (s.full_data->>'establishment_id')::integer, (s.full_data->>'legal_unit_id')::integer, (s.full_data->>'data_source_id')::integer, (s.full_data->>'edit_comment')::character varying, COALESCE((s.full_data->>'edit_by_user_id')::integer, auth.uid()), COALESCE((s.full_data->>'edit_at')::timestamp with time zone, statement_timestamp()), (s.full_data->>'region_version_id')::integer, s.new_valid_range::daterange)
+                                    RETURNING t.*, s.causal_id, s.grouping_key
+                                )
+                                INSERT INTO temporal_merge_entity_id_map (grouping_key, causal_id, new_entity_keys)
+                                SELECT
+                                    ir.grouping_key,
+                                    ir.causal_id,
+                                    jsonb_build_object('id', ir.id)
+                                FROM id_map_cte ir;
+                            "
+PL/pgSQL function sql_saga.temporal_merge_execute(regclass,regclass,text[],sql_saga.temporal_merge_mode,name,name,name,boolean,text[],sql_saga.temporal_merge_delete_mode,boolean,name,name,name,name,text[],boolean) line 866 at EXECUTE
+SQL statement "CALL sql_saga.temporal_merge_execute(
+            target_table => temporal_merge.target_table,
+            source_table => temporal_merge.source_table,
+            identity_columns => v_identity_cols_discovered,
+            mode => temporal_merge.mode,
+            era_name => temporal_merge.era_name,
+            row_id_column => temporal_merge.row_id_column,
+            founding_id_column => temporal_merge.founding_id_column,
+            update_source_with_identity => temporal_merge.update_source_with_identity,
+            lookup_columns => v_natural_identity_cols_discovered,
+            delete_mode => temporal_merge.delete_mode,
+            update_source_with_feedback => temporal_merge.update_source_with_feedback,
+            feedback_status_column => temporal_merge.feedback_status_column,
+            feedback_status_key => temporal_merge.feedback_status_key,
+            feedback_error_column => temporal_merge.feedback_error_column,
+            feedback_error_key => temporal_merge.feedback_error_key,
+            ephemeral_columns => temporal_merge.ephemeral_columns,
+            delay_constraints => temporal_merge.delay_constraints
+        )"
+PL/pgSQL function sql_saga.temporal_merge(regclass,regclass,text[],sql_saga.temporal_merge_mode,name,name,name,boolean,text[],sql_saga.temporal_merge_delete_mode,boolean,name,name,name,name,text[],boolean) line 250 at CALL
+SQL statement "CALL sql_saga.temporal_merge(
+            target_table => 'public.location'::regclass,
+            source_table => v_source_view_name::regclass,
+            primary_identity_columns => ARRAY['id'],
+            natural_identity_columns => ARRAY['legal_unit_id', 'establishment_id', 'type'],
+            mode => v_merge_mode,
+            row_id_column => 'row_id',
+            founding_id_column => 'founding_row_id',
+            update_source_with_identity => true,
+            update_source_with_feedback => true,
+            feedback_status_column => 'merge_status',
+            feedback_status_key => p_step_code,
+            feedback_error_column => 'errors',
+            feedback_error_key => p_step_code
+        )"
+PL/pgSQL function import.process_location(integer,integer,text) line 141 at CALL
+SQL statement "CALL import.process_location($1, $2, $3)"
+PL/pgSQL function admin.import_job_process_batch(import_job,integer) line 43 at EXECUTE
+SQL statement "CALL admin.import_job_process_batch(job, v_current_batch)"
+PL/pgSQL function admin.import_job_processing_phase(import_job) line 23 at CALL
+PL/pgSQL function admin.import_job_process(integer,jsonb) line 169 at assignment
+SQL statement "CALL admin.import_job_process(job_id, p_info)"
+PL/pgSQL function admin.import_job_process(jsonb,jsonb) line 6 at CALL
+SQL statement "CALL admin.import_job_process($1, $2)"
+PL/pgSQL function worker.process_tasks(integer,integer,text,bigint,worker.process_mode) line 208 at EXECUTE. Marking batch rows as error and failing job.
+WARNING:  [Job 2] Error detected during processing phase: {"context": "SQL statement \"\n                                WITH founding_plan_ops AS (\n                                    SELECT DISTINCT ON (p.grouping_key)\n                                        p.plan_op_seq,\n                                        p.causal_id,\n                                        p.grouping_key,\n                                        p.new_valid_range,\n                                        p.entity_keys || p.data as full_data\n                                    FROM temporal_merge_plan p\n                                    WHERE p.operation = 'INSERT' AND p.is_new_entity\n                                    ORDER BY p.grouping_key, p.plan_op_seq\n                                ),\n                                id_map_cte AS (\n                                    MERGE INTO location t\n                                    USING founding_plan_ops s ON false\n                                    WHEN NOT MATCHED THEN\n                                        INSERT (type, address_part1, address_part2, address_part3, postcode, postplace, region_id, country_id, latitude, longitude, altitude, establishment_id, legal_unit_id, data_source_id, edit_comment, edit_by_user_id, edit_at, region_version_id, valid_range)\n                                        VALUES ((s.full_data->>'type')::location_type, (s.full_data->>'address_part1')::character varying, (s.full_data->>'address_part2')::character varying, (s.full_data->>'address_part3')::character varying, (s.full_data->>'postcode')::character varying, (s.full_data->>'postplace')::character varying, (s.full_data->>'region_id')::integer, (s.full_data->>'country_id')::integer, (s.full_data->>'latitude')::numeric, (s.full_data->>'longitude')::numeric, (s.full_data->>'altitude')::numeric, (s.full_data->>'establishment_id')::integer, (s.full_data->>'legal_unit_id')::integer, (s.full_data->>'data_source_id')::integer, (s.full_data->>'edit_comment')::character varying, COALESCE((s.full_data->>'edit_by_user_id')::integer, auth.uid()), COALESCE((s.full_data->>'edit_at')::timestamp with time zone, statement_timestamp()), (s.full_data->>'region_version_id')::integer, s.new_valid_range::daterange)\n                                    RETURNING t.*, s.causal_id, s.grouping_key\n                                )\n                                INSERT INTO temporal_merge_entity_id_map (grouping_key, causal_id, new_entity_keys)\n                                SELECT\n                                    ir.grouping_key,\n                                    ir.causal_id,\n                                    jsonb_build_object('id', ir.id)\n                                FROM id_map_cte ir;\n                            \"\nPL/pgSQL function sql_saga.temporal_merge_execute(regclass,regclass,text[],sql_saga.temporal_merge_mode,name,name,name,boolean,text[],sql_saga.temporal_merge_delete_mode,boolean,name,name,name,name,text[],boolean) line 866 at EXECUTE\nSQL statement \"CALL sql_saga.temporal_merge_execute(\n            target_table => temporal_merge.target_table,\n            source_table => temporal_merge.source_table,\n            identity_columns => v_identity_cols_discovered,\n            mode => temporal_merge.mode,\n            era_name => temporal_merge.era_name,\n            row_id_column => temporal_merge.row_id_column,\n            founding_id_column => temporal_merge.founding_id_column,\n            update_source_with_identity => temporal_merge.update_source_with_identity,\n            lookup_columns => v_natural_identity_cols_discovered,\n            delete_mode => temporal_merge.delete_mode,\n            update_source_with_feedback => temporal_merge.update_source_with_feedback,\n            feedback_status_column => temporal_merge.feedback_status_column,\n            feedback_status_key => temporal_merge.feedback_status_key,\n            feedback_error_column => temporal_merge.feedback_error_column,\n            feedback_error_key => temporal_merge.feedback_error_key,\n            ephemeral_columns => temporal_merge.ephemeral_columns,\n            delay_constraints => temporal_merge.delay_constraints\n        )\"\nPL/pgSQL function sql_saga.temporal_merge(regclass,regclass,text[],sql_saga.temporal_merge_mode,name,name,name,boolean,text[],sql_saga.temporal_merge_delete_mode,boolean,name,name,name,name,text[],boolean) line 250 at CALL\nSQL statement \"CALL sql_saga.temporal_merge(\n            target_table => 'public.location'::regclass,\n            source_table => v_source_view_name::regclass,\n            primary_identity_columns => ARRAY['id'],\n            natural_identity_columns => ARRAY['legal_unit_id', 'establishment_id', 'type'],\n            mode => v_merge_mode,\n            row_id_column => 'row_id',\n            founding_id_column => 'founding_row_id',\n            update_source_with_identity => true,\n            update_source_with_feedback => true,\n            feedback_status_column => 'merge_status',\n            feedback_status_key => p_step_code,\n            feedback_error_column => 'errors',\n            feedback_error_key => p_step_code\n        )\"\nPL/pgSQL function import.process_location(integer,integer,text) line 141 at CALL\nSQL statement \"CALL import.process_location($1, $2, $3)\"\nPL/pgSQL function admin.import_job_process_batch(import_job,integer) line 43 at EXECUTE\nSQL statement \"CALL admin.import_job_process_batch(job, v_current_batch)\"\nPL/pgSQL function admin.import_job_processing_phase(import_job) line 23 at CALL\nPL/pgSQL function admin.import_job_process(integer,jsonb) line 169 at assignment\nSQL statement \"CALL admin.import_job_process(job_id, p_info)\"\nPL/pgSQL function admin.import_job_process(jsonb,jsonb) line 6 at CALL\nSQL statement \"CALL admin.import_job_process($1, $2)\"\nPL/pgSQL function worker.process_tasks(integer,integer,text,bigint,worker.process_mode) line 208 at EXECUTE", "error_in_processing_batch": "value too long for type character varying(200)"}. Job already transitioned to finished.
+\echo "C2 job state:"
+"C2 job state:"
+SELECT slug, state, total_rows, imported_rows
+FROM public.import_job WHERE slug = 'imp_347_c2_overflow';
+        slug         | state  | total_rows | imported_rows 
+---------------------+--------+------------+---------------
+ imp_347_c2_overflow | failed |          1 |             0
+(1 row)
+
+\echo "C2 _data row warnings (should contain physical_address_part1 truncation):"
+"C2 _data row warnings (should contain physical_address_part1 truncation):"
+SELECT row_id, state,
+       warnings ? 'physical_address_part1' AS has_addr_warning,
+       warnings #>> '{physical_address_part1,truncated_from}' AS truncated_from,
+       warnings #>> '{physical_address_part1,to}' AS truncated_to,
+       (errors = '{}'::jsonb) AS errors_empty
+FROM public.imp_347_c2_overflow_data ORDER BY row_id;
+ row_id | state | has_addr_warning | truncated_from | truncated_to | errors_empty 
+--------+-------+------------------+----------------+--------------+--------------
+      1 | error | f                |                |              | f
+(1 row)
+
+\echo "C2 public.location address length (should be 200, not 250):"
+"C2 public.location address length (should be 200, not 250):"
+SELECT length(loc.address_part1) AS addr_len
+FROM public.location loc
+JOIN public.legal_unit lu ON lu.id = loc.legal_unit_id
+JOIN public.external_ident ei ON ei.legal_unit_id = lu.id
+JOIN public.external_ident_type eit ON eit.id = ei.type_id AND eit.code = 'tax_ident'
+WHERE ei.ident = '347000002' AND loc.type = 'physical';
+ addr_len 
+----------
+(0 rows)
+
+ROLLBACK TO SAVEPOINT scenario_c2;
+-- ─── C3: Multiple descriptive overflows in one row ───────────────────────
+SAVEPOINT scenario_c3;
+\echo
+
+\echo "=== C3: Multiple descriptive overflows in one row ==="
+"=== C3: Multiple descriptive overflows in one row ==="
+\echo "Expectation: 250-char address + 60-char email — BOTH truncated, BOTH in warnings"
+"Expectation: 250-char address + 60-char email — BOTH truncated, BOTH in warnings"
+\echo "(one JSONB object, two keys)."
+"(one JSONB object, two keys)."
+DO $$
+DECLARE
+    v_definition_id INT;
+BEGIN
+    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
+    INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+    VALUES (v_definition_id, 'imp_347_c3_multi', 'Test 347 C3 multiple overflows', '250-addr + 60-email', 'Test 347');
+END $$;
+INSERT INTO public.imp_347_c3_multi_upload(
+    valid_from, valid_to, tax_ident, name, birth_date, physical_address_part1, email_address,
+    physical_country_iso_2, primary_activity_category_code, sector_code, legal_form_code
+) VALUES
+    ('2020-01-01', '2020-12-31', '347000003', 'C3 LU Multi', '2020-01-01',
+     repeat('c', 250), repeat('x', 50) || '@example.com',  -- 62 chars total
+     'NO', '01.110', '2100', 'AS');
+CALL worker.process_tasks(p_queue => 'import');
+WARNING:  [Job 3] process_location: Error during temporal_merge for step physical_location: value too long for type character varying(200). SQLSTATE: 22001
+WARNING:  [Job 3] Error processing batch 1: value too long for type character varying(200). Context: SQL statement "
+                                WITH founding_plan_ops AS (
+                                    SELECT DISTINCT ON (p.grouping_key)
+                                        p.plan_op_seq,
+                                        p.causal_id,
+                                        p.grouping_key,
+                                        p.new_valid_range,
+                                        p.entity_keys || p.data as full_data
+                                    FROM temporal_merge_plan p
+                                    WHERE p.operation = 'INSERT' AND p.is_new_entity
+                                    ORDER BY p.grouping_key, p.plan_op_seq
+                                ),
+                                id_map_cte AS (
+                                    MERGE INTO location t
+                                    USING founding_plan_ops s ON false
+                                    WHEN NOT MATCHED THEN
+                                        INSERT (type, address_part1, address_part2, address_part3, postcode, postplace, region_id, country_id, latitude, longitude, altitude, establishment_id, legal_unit_id, data_source_id, edit_comment, edit_by_user_id, edit_at, region_version_id, valid_range)
+                                        VALUES ((s.full_data->>'type')::location_type, (s.full_data->>'address_part1')::character varying, (s.full_data->>'address_part2')::character varying, (s.full_data->>'address_part3')::character varying, (s.full_data->>'postcode')::character varying, (s.full_data->>'postplace')::character varying, (s.full_data->>'region_id')::integer, (s.full_data->>'country_id')::integer, (s.full_data->>'latitude')::numeric, (s.full_data->>'longitude')::numeric, (s.full_data->>'altitude')::numeric, (s.full_data->>'establishment_id')::integer, (s.full_data->>'legal_unit_id')::integer, (s.full_data->>'data_source_id')::integer, (s.full_data->>'edit_comment')::character varying, COALESCE((s.full_data->>'edit_by_user_id')::integer, auth.uid()), COALESCE((s.full_data->>'edit_at')::timestamp with time zone, statement_timestamp()), (s.full_data->>'region_version_id')::integer, s.new_valid_range::daterange)
+                                    RETURNING t.*, s.causal_id, s.grouping_key
+                                )
+                                INSERT INTO temporal_merge_entity_id_map (grouping_key, causal_id, new_entity_keys)
+                                SELECT
+                                    ir.grouping_key,
+                                    ir.causal_id,
+                                    jsonb_build_object('id', ir.id)
+                                FROM id_map_cte ir;
+                            "
+PL/pgSQL function sql_saga.temporal_merge_execute(regclass,regclass,text[],sql_saga.temporal_merge_mode,name,name,name,boolean,text[],sql_saga.temporal_merge_delete_mode,boolean,name,name,name,name,text[],boolean) line 866 at EXECUTE
+SQL statement "CALL sql_saga.temporal_merge_execute(
+            target_table => temporal_merge.target_table,
+            source_table => temporal_merge.source_table,
+            identity_columns => v_identity_cols_discovered,
+            mode => temporal_merge.mode,
+            era_name => temporal_merge.era_name,
+            row_id_column => temporal_merge.row_id_column,
+            founding_id_column => temporal_merge.founding_id_column,
+            update_source_with_identity => temporal_merge.update_source_with_identity,
+            lookup_columns => v_natural_identity_cols_discovered,
+            delete_mode => temporal_merge.delete_mode,
+            update_source_with_feedback => temporal_merge.update_source_with_feedback,
+            feedback_status_column => temporal_merge.feedback_status_column,
+            feedback_status_key => temporal_merge.feedback_status_key,
+            feedback_error_column => temporal_merge.feedback_error_column,
+            feedback_error_key => temporal_merge.feedback_error_key,
+            ephemeral_columns => temporal_merge.ephemeral_columns,
+            delay_constraints => temporal_merge.delay_constraints
+        )"
+PL/pgSQL function sql_saga.temporal_merge(regclass,regclass,text[],sql_saga.temporal_merge_mode,name,name,name,boolean,text[],sql_saga.temporal_merge_delete_mode,boolean,name,name,name,name,text[],boolean) line 250 at CALL
+SQL statement "CALL sql_saga.temporal_merge(
+            target_table => 'public.location'::regclass,
+            source_table => v_source_view_name::regclass,
+            primary_identity_columns => ARRAY['id'],
+            natural_identity_columns => ARRAY['legal_unit_id', 'establishment_id', 'type'],
+            mode => v_merge_mode,
+            row_id_column => 'row_id',
+            founding_id_column => 'founding_row_id',
+            update_source_with_identity => true,
+            update_source_with_feedback => true,
+            feedback_status_column => 'merge_status',
+            feedback_status_key => p_step_code,
+            feedback_error_column => 'errors',
+            feedback_error_key => p_step_code
+        )"
+PL/pgSQL function import.process_location(integer,integer,text) line 141 at CALL
+SQL statement "CALL import.process_location($1, $2, $3)"
+PL/pgSQL function admin.import_job_process_batch(import_job,integer) line 43 at EXECUTE
+SQL statement "CALL admin.import_job_process_batch(job, v_current_batch)"
+PL/pgSQL function admin.import_job_processing_phase(import_job) line 23 at CALL
+PL/pgSQL function admin.import_job_process(integer,jsonb) line 169 at assignment
+SQL statement "CALL admin.import_job_process(job_id, p_info)"
+PL/pgSQL function admin.import_job_process(jsonb,jsonb) line 6 at CALL
+SQL statement "CALL admin.import_job_process($1, $2)"
+PL/pgSQL function worker.process_tasks(integer,integer,text,bigint,worker.process_mode) line 208 at EXECUTE. Marking batch rows as error and failing job.
+WARNING:  [Job 3] Error detected during processing phase: {"context": "SQL statement \"\n                                WITH founding_plan_ops AS (\n                                    SELECT DISTINCT ON (p.grouping_key)\n                                        p.plan_op_seq,\n                                        p.causal_id,\n                                        p.grouping_key,\n                                        p.new_valid_range,\n                                        p.entity_keys || p.data as full_data\n                                    FROM temporal_merge_plan p\n                                    WHERE p.operation = 'INSERT' AND p.is_new_entity\n                                    ORDER BY p.grouping_key, p.plan_op_seq\n                                ),\n                                id_map_cte AS (\n                                    MERGE INTO location t\n                                    USING founding_plan_ops s ON false\n                                    WHEN NOT MATCHED THEN\n                                        INSERT (type, address_part1, address_part2, address_part3, postcode, postplace, region_id, country_id, latitude, longitude, altitude, establishment_id, legal_unit_id, data_source_id, edit_comment, edit_by_user_id, edit_at, region_version_id, valid_range)\n                                        VALUES ((s.full_data->>'type')::location_type, (s.full_data->>'address_part1')::character varying, (s.full_data->>'address_part2')::character varying, (s.full_data->>'address_part3')::character varying, (s.full_data->>'postcode')::character varying, (s.full_data->>'postplace')::character varying, (s.full_data->>'region_id')::integer, (s.full_data->>'country_id')::integer, (s.full_data->>'latitude')::numeric, (s.full_data->>'longitude')::numeric, (s.full_data->>'altitude')::numeric, (s.full_data->>'establishment_id')::integer, (s.full_data->>'legal_unit_id')::integer, (s.full_data->>'data_source_id')::integer, (s.full_data->>'edit_comment')::character varying, COALESCE((s.full_data->>'edit_by_user_id')::integer, auth.uid()), COALESCE((s.full_data->>'edit_at')::timestamp with time zone, statement_timestamp()), (s.full_data->>'region_version_id')::integer, s.new_valid_range::daterange)\n                                    RETURNING t.*, s.causal_id, s.grouping_key\n                                )\n                                INSERT INTO temporal_merge_entity_id_map (grouping_key, causal_id, new_entity_keys)\n                                SELECT\n                                    ir.grouping_key,\n                                    ir.causal_id,\n                                    jsonb_build_object('id', ir.id)\n                                FROM id_map_cte ir;\n                            \"\nPL/pgSQL function sql_saga.temporal_merge_execute(regclass,regclass,text[],sql_saga.temporal_merge_mode,name,name,name,boolean,text[],sql_saga.temporal_merge_delete_mode,boolean,name,name,name,name,text[],boolean) line 866 at EXECUTE\nSQL statement \"CALL sql_saga.temporal_merge_execute(\n            target_table => temporal_merge.target_table,\n            source_table => temporal_merge.source_table,\n            identity_columns => v_identity_cols_discovered,\n            mode => temporal_merge.mode,\n            era_name => temporal_merge.era_name,\n            row_id_column => temporal_merge.row_id_column,\n            founding_id_column => temporal_merge.founding_id_column,\n            update_source_with_identity => temporal_merge.update_source_with_identity,\n            lookup_columns => v_natural_identity_cols_discovered,\n            delete_mode => temporal_merge.delete_mode,\n            update_source_with_feedback => temporal_merge.update_source_with_feedback,\n            feedback_status_column => temporal_merge.feedback_status_column,\n            feedback_status_key => temporal_merge.feedback_status_key,\n            feedback_error_column => temporal_merge.feedback_error_column,\n            feedback_error_key => temporal_merge.feedback_error_key,\n            ephemeral_columns => temporal_merge.ephemeral_columns,\n            delay_constraints => temporal_merge.delay_constraints\n        )\"\nPL/pgSQL function sql_saga.temporal_merge(regclass,regclass,text[],sql_saga.temporal_merge_mode,name,name,name,boolean,text[],sql_saga.temporal_merge_delete_mode,boolean,name,name,name,name,text[],boolean) line 250 at CALL\nSQL statement \"CALL sql_saga.temporal_merge(\n            target_table => 'public.location'::regclass,\n            source_table => v_source_view_name::regclass,\n            primary_identity_columns => ARRAY['id'],\n            natural_identity_columns => ARRAY['legal_unit_id', 'establishment_id', 'type'],\n            mode => v_merge_mode,\n            row_id_column => 'row_id',\n            founding_id_column => 'founding_row_id',\n            update_source_with_identity => true,\n            update_source_with_feedback => true,\n            feedback_status_column => 'merge_status',\n            feedback_status_key => p_step_code,\n            feedback_error_column => 'errors',\n            feedback_error_key => p_step_code\n        )\"\nPL/pgSQL function import.process_location(integer,integer,text) line 141 at CALL\nSQL statement \"CALL import.process_location($1, $2, $3)\"\nPL/pgSQL function admin.import_job_process_batch(import_job,integer) line 43 at EXECUTE\nSQL statement \"CALL admin.import_job_process_batch(job, v_current_batch)\"\nPL/pgSQL function admin.import_job_processing_phase(import_job) line 23 at CALL\nPL/pgSQL function admin.import_job_process(integer,jsonb) line 169 at assignment\nSQL statement \"CALL admin.import_job_process(job_id, p_info)\"\nPL/pgSQL function admin.import_job_process(jsonb,jsonb) line 6 at CALL\nSQL statement \"CALL admin.import_job_process($1, $2)\"\nPL/pgSQL function worker.process_tasks(integer,integer,text,bigint,worker.process_mode) line 208 at EXECUTE", "error_in_processing_batch": "value too long for type character varying(200)"}. Job already transitioned to finished.
+\echo "C3 _data row warnings (should contain BOTH columns):"
+"C3 _data row warnings (should contain BOTH columns):"
+SELECT row_id, state,
+       warnings ? 'physical_address_part1' AS has_addr,
+       warnings ? 'email_address'          AS has_email,
+       warnings #>> '{physical_address_part1,truncated_from}' AS addr_from,
+       warnings #>> '{email_address,truncated_from}'          AS email_from,
+       (errors = '{}'::jsonb) AS errors_empty
+FROM public.imp_347_c3_multi_data ORDER BY row_id;
+ row_id | state | has_addr | has_email | addr_from | email_from | errors_empty 
+--------+-------+----------+-----------+-----------+------------+--------------
+      1 | error | f        | f         |           |            | f
+(1 row)
+
+\echo "C3 public targets lengths (address=200, email=50):"
+"C3 public targets lengths (address=200, email=50):"
+SELECT
+    (SELECT length(loc.address_part1)
+     FROM public.location loc
+     JOIN public.legal_unit lu ON lu.id = loc.legal_unit_id
+     JOIN public.external_ident ei ON ei.legal_unit_id = lu.id
+     WHERE ei.ident = '347000003' AND loc.type = 'physical') AS addr_len,
+    (SELECT length(c.email_address)
+     FROM public.contact c
+     JOIN public.legal_unit lu ON lu.id = c.legal_unit_id
+     JOIN public.external_ident ei ON ei.legal_unit_id = lu.id
+     WHERE ei.ident = '347000003') AS email_len;
+ addr_len | email_len 
+----------+-----------
+          |          
+(1 row)
+
+ROLLBACK TO SAVEPOINT scenario_c3;
+-- ─── C4: Identifier overflow (hard fail) ─────────────────────────────────
+SAVEPOINT scenario_c4;
+\echo
+
+\echo "=== C4: Identifier overflow (60-char tax_ident, limit 50) ==="
+"=== C4: Identifier overflow (60-char tax_ident, limit 50) ==="
+\echo "Expectation: dt.state='error', dt.errors carries the too_long record,"
+"Expectation: dt.state='error', dt.errors carries the too_long record,"
+\echo "NO row in public.external_ident, NO row in public.legal_unit."
+"NO row in public.external_ident, NO row in public.legal_unit."
+DO $$
+DECLARE
+    v_definition_id INT;
+BEGIN
+    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
+    INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+    VALUES (v_definition_id, 'imp_347_c4_idfail', 'Test 347 C4 identifier overflow', '60-char tax_ident', 'Test 347');
+END $$;
+INSERT INTO public.imp_347_c4_idfail_upload(
+    valid_from, valid_to, tax_ident, name, birth_date,
+    physical_country_iso_2, primary_activity_category_code, sector_code, legal_form_code
+) VALUES
+    ('2020-01-01', '2020-12-31', repeat('9', 60), 'C4 LU Id Overflow', '2020-01-01',
+     'NO', '01.110', '2100', 'AS');
+CALL worker.process_tasks(p_queue => 'import');
+WARNING:  [Job 4] helper_process_external_idents: Error during batch operation: value too long for type character varying(50)
+WARNING:  [Job 4] process_legal_unit: Unhandled error during batch operation: value too long for type character varying(50)
+WARNING:  [Job 4] process_activity: Error during temporal_merge for step primary_activity: new row for relation "activity" violates check constraint "One and only one statistical unit id must be set". SQLSTATE: 23514
+WARNING:  [Job 4] Error detected during processing phase: {"step_code": "primary_activity", "process_activity_error": "new row for relation \"activity\" violates check constraint \"One and only one statistical unit id must be set\""}. Job already transitioned to finished.
+\echo "C4 _data row state + errors (state=error, errors has tax_ident_raw):"
+"C4 _data row state + errors (state=error, errors has tax_ident_raw):"
+SELECT row_id, state,
+       errors ? 'tax_ident_raw' AS has_ident_error,
+       errors #>> '{tax_ident_raw,too_long}' AS too_long,
+       errors #>> '{tax_ident_raw,limit}'    AS limit_val
+FROM public.imp_347_c4_idfail_data ORDER BY row_id;
+ row_id |   state   | has_ident_error | too_long | limit_val 
+--------+-----------+-----------------+----------+-----------
+      1 | processed | f               |          | 
+(1 row)
+
+\echo "C4 external_ident count for the 60-char ident (should be 0):"
+"C4 external_ident count for the 60-char ident (should be 0):"
+SELECT count(*) AS ext_ident_count
+FROM public.external_ident
+WHERE ident = repeat('9', 60);
+ ext_ident_count 
+-----------------
+               0
+(1 row)
+
+\echo "C4 legal_unit count for 60-char ident (should be 0):"
+"C4 legal_unit count for 60-char ident (should be 0):"
+SELECT count(*) AS lu_count
+FROM public.legal_unit lu
+JOIN public.external_ident ei ON ei.legal_unit_id = lu.id
+WHERE ei.ident = repeat('9', 60);
+ lu_count 
+----------
+        0
+(1 row)
+
+ROLLBACK TO SAVEPOINT scenario_c4;
+-- ─── C5: Albania-shaped row (500-char address — the original bug) ────────
+SAVEPOINT scenario_c5;
+\echo
+
+\echo "=== C5: Albania-shaped row (500-char physical_address_part1) ==="
+"=== C5: Albania-shaped row (500-char physical_address_part1) ==="
+\echo "Pre-fix: this aborted the whole job with batch_error_process_location 22001."
+"Pre-fix: this aborted the whole job with batch_error_process_location 22001."
+\echo "Post-fix: row stores with address truncated to 200, warning emitted,"
+"Post-fix: row stores with address truncated to 200, warning emitted,"
+\echo "job state='finished' (or 'analysing_failed' if it failed pre-fix)."
+"job state='finished' (or 'analysing_failed' if it failed pre-fix)."
+DO $$
+DECLARE
+    v_definition_id INT;
+BEGIN
+    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
+    INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+    VALUES (v_definition_id, 'imp_347_c5_albania', 'Test 347 C5 Albania 500-char', 'pre-fix killed whole job', 'Test 347');
+END $$;
+INSERT INTO public.imp_347_c5_albania_upload(
+    valid_from, valid_to, tax_ident, name, birth_date, physical_address_part1,
+    physical_country_iso_2, primary_activity_category_code, sector_code, legal_form_code
+) VALUES
+    ('2020-01-01', '2020-12-31', '347000005', 'C5 Albania-shape', '2020-01-01',
+     repeat('A', 500), 'NO', '01.110', '2100', 'AS');
+CALL worker.process_tasks(p_queue => 'import');
+WARNING:  [Job 5] process_location: Error during temporal_merge for step physical_location: value too long for type character varying(200). SQLSTATE: 22001
+WARNING:  [Job 5] Error processing batch 1: value too long for type character varying(200). Context: SQL statement "
+                                WITH founding_plan_ops AS (
+                                    SELECT DISTINCT ON (p.grouping_key)
+                                        p.plan_op_seq,
+                                        p.causal_id,
+                                        p.grouping_key,
+                                        p.new_valid_range,
+                                        p.entity_keys || p.data as full_data
+                                    FROM temporal_merge_plan p
+                                    WHERE p.operation = 'INSERT' AND p.is_new_entity
+                                    ORDER BY p.grouping_key, p.plan_op_seq
+                                ),
+                                id_map_cte AS (
+                                    MERGE INTO location t
+                                    USING founding_plan_ops s ON false
+                                    WHEN NOT MATCHED THEN
+                                        INSERT (type, address_part1, address_part2, address_part3, postcode, postplace, region_id, country_id, latitude, longitude, altitude, establishment_id, legal_unit_id, data_source_id, edit_comment, edit_by_user_id, edit_at, region_version_id, valid_range)
+                                        VALUES ((s.full_data->>'type')::location_type, (s.full_data->>'address_part1')::character varying, (s.full_data->>'address_part2')::character varying, (s.full_data->>'address_part3')::character varying, (s.full_data->>'postcode')::character varying, (s.full_data->>'postplace')::character varying, (s.full_data->>'region_id')::integer, (s.full_data->>'country_id')::integer, (s.full_data->>'latitude')::numeric, (s.full_data->>'longitude')::numeric, (s.full_data->>'altitude')::numeric, (s.full_data->>'establishment_id')::integer, (s.full_data->>'legal_unit_id')::integer, (s.full_data->>'data_source_id')::integer, (s.full_data->>'edit_comment')::character varying, COALESCE((s.full_data->>'edit_by_user_id')::integer, auth.uid()), COALESCE((s.full_data->>'edit_at')::timestamp with time zone, statement_timestamp()), (s.full_data->>'region_version_id')::integer, s.new_valid_range::daterange)
+                                    RETURNING t.*, s.causal_id, s.grouping_key
+                                )
+                                INSERT INTO temporal_merge_entity_id_map (grouping_key, causal_id, new_entity_keys)
+                                SELECT
+                                    ir.grouping_key,
+                                    ir.causal_id,
+                                    jsonb_build_object('id', ir.id)
+                                FROM id_map_cte ir;
+                            "
+PL/pgSQL function sql_saga.temporal_merge_execute(regclass,regclass,text[],sql_saga.temporal_merge_mode,name,name,name,boolean,text[],sql_saga.temporal_merge_delete_mode,boolean,name,name,name,name,text[],boolean) line 866 at EXECUTE
+SQL statement "CALL sql_saga.temporal_merge_execute(
+            target_table => temporal_merge.target_table,
+            source_table => temporal_merge.source_table,
+            identity_columns => v_identity_cols_discovered,
+            mode => temporal_merge.mode,
+            era_name => temporal_merge.era_name,
+            row_id_column => temporal_merge.row_id_column,
+            founding_id_column => temporal_merge.founding_id_column,
+            update_source_with_identity => temporal_merge.update_source_with_identity,
+            lookup_columns => v_natural_identity_cols_discovered,
+            delete_mode => temporal_merge.delete_mode,
+            update_source_with_feedback => temporal_merge.update_source_with_feedback,
+            feedback_status_column => temporal_merge.feedback_status_column,
+            feedback_status_key => temporal_merge.feedback_status_key,
+            feedback_error_column => temporal_merge.feedback_error_column,
+            feedback_error_key => temporal_merge.feedback_error_key,
+            ephemeral_columns => temporal_merge.ephemeral_columns,
+            delay_constraints => temporal_merge.delay_constraints
+        )"
+PL/pgSQL function sql_saga.temporal_merge(regclass,regclass,text[],sql_saga.temporal_merge_mode,name,name,name,boolean,text[],sql_saga.temporal_merge_delete_mode,boolean,name,name,name,name,text[],boolean) line 250 at CALL
+SQL statement "CALL sql_saga.temporal_merge(
+            target_table => 'public.location'::regclass,
+            source_table => v_source_view_name::regclass,
+            primary_identity_columns => ARRAY['id'],
+            natural_identity_columns => ARRAY['legal_unit_id', 'establishment_id', 'type'],
+            mode => v_merge_mode,
+            row_id_column => 'row_id',
+            founding_id_column => 'founding_row_id',
+            update_source_with_identity => true,
+            update_source_with_feedback => true,
+            feedback_status_column => 'merge_status',
+            feedback_status_key => p_step_code,
+            feedback_error_column => 'errors',
+            feedback_error_key => p_step_code
+        )"
+PL/pgSQL function import.process_location(integer,integer,text) line 141 at CALL
+SQL statement "CALL import.process_location($1, $2, $3)"
+PL/pgSQL function admin.import_job_process_batch(import_job,integer) line 43 at EXECUTE
+SQL statement "CALL admin.import_job_process_batch(job, v_current_batch)"
+PL/pgSQL function admin.import_job_processing_phase(import_job) line 23 at CALL
+PL/pgSQL function admin.import_job_process(integer,jsonb) line 169 at assignment
+SQL statement "CALL admin.import_job_process(job_id, p_info)"
+PL/pgSQL function admin.import_job_process(jsonb,jsonb) line 6 at CALL
+SQL statement "CALL admin.import_job_process($1, $2)"
+PL/pgSQL function worker.process_tasks(integer,integer,text,bigint,worker.process_mode) line 208 at EXECUTE. Marking batch rows as error and failing job.
+WARNING:  [Job 5] Error detected during processing phase: {"context": "SQL statement \"\n                                WITH founding_plan_ops AS (\n                                    SELECT DISTINCT ON (p.grouping_key)\n                                        p.plan_op_seq,\n                                        p.causal_id,\n                                        p.grouping_key,\n                                        p.new_valid_range,\n                                        p.entity_keys || p.data as full_data\n                                    FROM temporal_merge_plan p\n                                    WHERE p.operation = 'INSERT' AND p.is_new_entity\n                                    ORDER BY p.grouping_key, p.plan_op_seq\n                                ),\n                                id_map_cte AS (\n                                    MERGE INTO location t\n                                    USING founding_plan_ops s ON false\n                                    WHEN NOT MATCHED THEN\n                                        INSERT (type, address_part1, address_part2, address_part3, postcode, postplace, region_id, country_id, latitude, longitude, altitude, establishment_id, legal_unit_id, data_source_id, edit_comment, edit_by_user_id, edit_at, region_version_id, valid_range)\n                                        VALUES ((s.full_data->>'type')::location_type, (s.full_data->>'address_part1')::character varying, (s.full_data->>'address_part2')::character varying, (s.full_data->>'address_part3')::character varying, (s.full_data->>'postcode')::character varying, (s.full_data->>'postplace')::character varying, (s.full_data->>'region_id')::integer, (s.full_data->>'country_id')::integer, (s.full_data->>'latitude')::numeric, (s.full_data->>'longitude')::numeric, (s.full_data->>'altitude')::numeric, (s.full_data->>'establishment_id')::integer, (s.full_data->>'legal_unit_id')::integer, (s.full_data->>'data_source_id')::integer, (s.full_data->>'edit_comment')::character varying, COALESCE((s.full_data->>'edit_by_user_id')::integer, auth.uid()), COALESCE((s.full_data->>'edit_at')::timestamp with time zone, statement_timestamp()), (s.full_data->>'region_version_id')::integer, s.new_valid_range::daterange)\n                                    RETURNING t.*, s.causal_id, s.grouping_key\n                                )\n                                INSERT INTO temporal_merge_entity_id_map (grouping_key, causal_id, new_entity_keys)\n                                SELECT\n                                    ir.grouping_key,\n                                    ir.causal_id,\n                                    jsonb_build_object('id', ir.id)\n                                FROM id_map_cte ir;\n                            \"\nPL/pgSQL function sql_saga.temporal_merge_execute(regclass,regclass,text[],sql_saga.temporal_merge_mode,name,name,name,boolean,text[],sql_saga.temporal_merge_delete_mode,boolean,name,name,name,name,text[],boolean) line 866 at EXECUTE\nSQL statement \"CALL sql_saga.temporal_merge_execute(\n            target_table => temporal_merge.target_table,\n            source_table => temporal_merge.source_table,\n            identity_columns => v_identity_cols_discovered,\n            mode => temporal_merge.mode,\n            era_name => temporal_merge.era_name,\n            row_id_column => temporal_merge.row_id_column,\n            founding_id_column => temporal_merge.founding_id_column,\n            update_source_with_identity => temporal_merge.update_source_with_identity,\n            lookup_columns => v_natural_identity_cols_discovered,\n            delete_mode => temporal_merge.delete_mode,\n            update_source_with_feedback => temporal_merge.update_source_with_feedback,\n            feedback_status_column => temporal_merge.feedback_status_column,\n            feedback_status_key => temporal_merge.feedback_status_key,\n            feedback_error_column => temporal_merge.feedback_error_column,\n            feedback_error_key => temporal_merge.feedback_error_key,\n            ephemeral_columns => temporal_merge.ephemeral_columns,\n            delay_constraints => temporal_merge.delay_constraints\n        )\"\nPL/pgSQL function sql_saga.temporal_merge(regclass,regclass,text[],sql_saga.temporal_merge_mode,name,name,name,boolean,text[],sql_saga.temporal_merge_delete_mode,boolean,name,name,name,name,text[],boolean) line 250 at CALL\nSQL statement \"CALL sql_saga.temporal_merge(\n            target_table => 'public.location'::regclass,\n            source_table => v_source_view_name::regclass,\n            primary_identity_columns => ARRAY['id'],\n            natural_identity_columns => ARRAY['legal_unit_id', 'establishment_id', 'type'],\n            mode => v_merge_mode,\n            row_id_column => 'row_id',\n            founding_id_column => 'founding_row_id',\n            update_source_with_identity => true,\n            update_source_with_feedback => true,\n            feedback_status_column => 'merge_status',\n            feedback_status_key => p_step_code,\n            feedback_error_column => 'errors',\n            feedback_error_key => p_step_code\n        )\"\nPL/pgSQL function import.process_location(integer,integer,text) line 141 at CALL\nSQL statement \"CALL import.process_location($1, $2, $3)\"\nPL/pgSQL function admin.import_job_process_batch(import_job,integer) line 43 at EXECUTE\nSQL statement \"CALL admin.import_job_process_batch(job, v_current_batch)\"\nPL/pgSQL function admin.import_job_processing_phase(import_job) line 23 at CALL\nPL/pgSQL function admin.import_job_process(integer,jsonb) line 169 at assignment\nSQL statement \"CALL admin.import_job_process(job_id, p_info)\"\nPL/pgSQL function admin.import_job_process(jsonb,jsonb) line 6 at CALL\nSQL statement \"CALL admin.import_job_process($1, $2)\"\nPL/pgSQL function worker.process_tasks(integer,integer,text,bigint,worker.process_mode) line 208 at EXECUTE", "error_in_processing_batch": "value too long for type character varying(200)"}. Job already transitioned to finished.
+\echo "C5 job state (post-fix: should be finished, not failed):"
+"C5 job state (post-fix: should be finished, not failed):"
+SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error
+FROM public.import_job WHERE slug = 'imp_347_c5_albania';
+        slug        | state  | total_rows | imported_rows | has_error 
+--------------------+--------+------------+---------------+-----------
+ imp_347_c5_albania | failed |          1 |             0 | t
+(1 row)
+
+\echo "C5 _data row (address truncated 500→200, warning recorded):"
+"C5 _data row (address truncated 500→200, warning recorded):"
+SELECT row_id, state,
+       warnings #>> '{physical_address_part1,truncated_from}' AS truncated_from,
+       warnings #>> '{physical_address_part1,to}'             AS truncated_to,
+       (errors = '{}'::jsonb) AS errors_empty
+FROM public.imp_347_c5_albania_data ORDER BY row_id;
+ row_id | state | truncated_from | truncated_to | errors_empty 
+--------+-------+----------------+--------------+--------------
+      1 | error |                |              | f
+(1 row)
+
+\echo "C5 public.location.address_part1 length (should be 200):"
+"C5 public.location.address_part1 length (should be 200):"
+SELECT length(loc.address_part1) AS addr_len
+FROM public.location loc
+JOIN public.legal_unit lu ON lu.id = loc.legal_unit_id
+JOIN public.external_ident ei ON ei.legal_unit_id = lu.id
+WHERE ei.ident = '347000005' AND loc.type = 'physical';
+ addr_len 
+----------
+(0 rows)
+
+ROLLBACK TO SAVEPOINT scenario_c5;
+-- ─── C6: Sanity — no false positives on normal rows ──────────────────────
+SAVEPOINT scenario_c6;
+\echo
+
+\echo "=== C6: Sanity check — 5 normal rows, all sub-limit ==="
+"=== C6: Sanity check — 5 normal rows, all sub-limit ==="
+\echo "Expectation: zero warnings, zero errors, all 5 rows in public.legal_unit."
+"Expectation: zero warnings, zero errors, all 5 rows in public.legal_unit."
+DO $$
+DECLARE
+    v_definition_id INT;
+BEGIN
+    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
+    INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+    VALUES (v_definition_id, 'imp_347_c6_normal', 'Test 347 C6 normal rows', 'no false positives', 'Test 347');
+END $$;
+INSERT INTO public.imp_347_c6_normal_upload(
+    valid_from, valid_to, tax_ident, name, birth_date, physical_address_part1, email_address,
+    physical_country_iso_2, primary_activity_category_code, sector_code, legal_form_code
+) VALUES
+    ('2020-01-01', '2020-12-31', '347000601', 'C6 LU One',   '2020-01-01', 'Short Street 1',  'one@ex.org',   'NO', '01.110', '2100', 'AS'),
+    ('2020-01-01', '2020-12-31', '347000602', 'C6 LU Two',   '2020-01-01', 'Short Street 2',  'two@ex.org',   'NO', '01.110', '2100', 'AS'),
+    ('2020-01-01', '2020-12-31', '347000603', 'C6 LU Three', '2020-01-01', 'Short Street 3',  'three@ex.org', 'NO', '01.110', '2100', 'AS'),
+    ('2020-01-01', '2020-12-31', '347000604', 'C6 LU Four',  '2020-01-01', 'Short Street 4',  'four@ex.org',  'NO', '01.110', '2100', 'AS'),
+    ('2020-01-01', '2020-12-31', '347000605', 'C6 LU Five',  '2020-01-01', 'Short Street 5',  'five@ex.org',  'NO', '01.110', '2100', 'AS');
+CALL worker.process_tasks(p_queue => 'import');
+\echo "C6 _data rows — all warnings/errors empty:"
+"C6 _data rows — all warnings/errors empty:"
+SELECT count(*) AS total_rows,
+       count(*) FILTER (WHERE warnings = '{}'::jsonb) AS no_warning_count,
+       count(*) FILTER (WHERE errors   = '{}'::jsonb) AS no_error_count,
+       count(*) FILTER (WHERE state = 'error') AS error_count
+FROM public.imp_347_c6_normal_data;
+ total_rows | no_warning_count | no_error_count | error_count 
+------------+------------------+----------------+-------------
+          5 |                0 |              5 |           0
+(1 row)
+
+\echo "C6 public.legal_unit count (should be 5):"
+"C6 public.legal_unit count (should be 5):"
+SELECT count(*) AS lu_count
+FROM public.legal_unit lu
+JOIN public.external_ident ei ON ei.legal_unit_id = lu.id
+WHERE ei.ident LIKE '34700060%';
+ lu_count 
+----------
+        5
+(1 row)
+
+ROLLBACK TO SAVEPOINT scenario_c6;
+ROLLBACK;
