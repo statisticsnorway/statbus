@@ -211,3 +211,75 @@ func relPath(abs string) string {
 	}
 	return rel
 }
+
+// ─── Backup-ownership heal step (task #68) ───────────────────────────────
+
+// TestCheckBackupOwnership_NoRoot: backup root missing → returns true
+// (nothing to heal). Pins the bare-host case where ~/statbus-backups/
+// doesn't exist yet (fresh deploy, no upgrade has run).
+func TestCheckBackupOwnership_NoRoot(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	if !checkBackupOwnershipDone("") {
+		t.Error("missing ~/statbus-backups/ should be 'done' (nothing to heal)")
+	}
+}
+
+// TestCheckBackupOwnership_EmptyRoot: backup root exists but has no
+// pre-upgrade-* dirs → returns true. Pins post-prune steady state.
+func TestCheckBackupOwnership_EmptyRoot(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	if err := os.MkdirAll(filepath.Join(tmp, "statbus-backups"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if !checkBackupOwnershipDone("") {
+		t.Error("empty ~/statbus-backups/ should be 'done'")
+	}
+}
+
+// TestCheckBackupOwnership_DeployUserOwnedDirs: all pre-upgrade-* dirs
+// owned by current user → returns true (no heal needed).
+func TestCheckBackupOwnership_DeployUserOwnedDirs(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	root := filepath.Join(tmp, "statbus-backups")
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{
+		"pre-upgrade-20260520T120000Z",
+		"pre-upgrade-20260521T235611Z",
+		"upgrade-logs-20260521T235611Z", // sibling, NOT a pre-upgrade-* — must be ignored
+	} {
+		if err := os.MkdirAll(filepath.Join(root, name), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if !checkBackupOwnershipDone("") {
+		t.Error("dirs owned by current user should be 'done' (no heal needed)")
+	}
+}
+
+// TestCheckBackupOwnership_IgnoresNonBackupEntries: files + sibling
+// dirs that aren't pre-upgrade-* don't trigger heal. Pins the loop's
+// HasPrefix gate.
+func TestCheckBackupOwnership_IgnoresNonBackupEntries(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	root := filepath.Join(tmp, "statbus-backups")
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Non-backup file at root level.
+	if err := os.WriteFile(filepath.Join(root, "v2026.03.0-rc.28-pre.tar.gz"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Sibling dir (upgrade-logs-*) that's also deploy-owned.
+	if err := os.MkdirAll(filepath.Join(root, "upgrade-logs-20260521T235611Z"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if !checkBackupOwnershipDone("") {
+		t.Error("non-pre-upgrade-* entries should not trigger heal")
+	}
+}

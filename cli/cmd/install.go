@@ -539,6 +539,16 @@ func runInstall() (installErr error) {
 		{"Generated env", checkEnvDone, runGenerateEnv},
 		{"Images", checkImagesDone, runPullImages},
 		{"Services", checkServicesDone, runStartServices},
+		// "Backup ownership" heals pre-upgrade-* dirs created by the
+		// rsync alpine container before the chown-after-rsync fix
+		// landed. Without this, ~/statbus-backups/ accumulates
+		// indefinitely (statbus_<slot> can't traverse the 0700
+		// messagebus-owned dirs → pruneBackups silently fails →
+		// support-bundle archive step fails with "Permission denied").
+		// Idempotent: no-op when all dirs are already deploy-user-owned.
+		// Discovered during jo's v2026.05.4 recovery: 9 backup dirs
+		// going back to March 2026 because none could be removed.
+		{"Backup ownership", checkBackupOwnershipDone, healBackupOwnership},
 		// "Database sessions" gates Seed + Migrations. Recovers from
 		// Stage B of the rune.statbus.org wedge: prior systemd-killed
 		// migrate-up loops leak postgres backends until max_connections
@@ -925,6 +935,97 @@ func runStartServices(dir string) error {
 // for statbus-migrate-<PID> markers regardless of this gate, so a dead-PID
 // statbus-migrate session is caught even though SQL alone can't probe its
 // owner.
+// checkBackupOwnershipDone returns true iff every pre-upgrade-* dir
+// in ~/statbus-backups/ is owned by the deploy user. False (need to
+// heal) iff at least one is owned by someone else — typically the
+// in-container postgres user (uid 70 on alpine-postgres, uid 101
+// on debian-postgres) leaking through the rsync container's bind
+// mount as messagebus / arbitrary system user on the host.
+//
+// No backups present → trivially "done" (nothing to heal).
+// HOME unreadable → trivially "done" (caller can't recover further).
+func checkBackupOwnershipDone(_ string) bool {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return true
+	}
+	root := filepath.Join(home, "statbus-backups")
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		// Backup root doesn't exist yet → nothing to heal.
+		return true
+	}
+	deployUID := uint32(os.Getuid())
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if !strings.HasPrefix(name, "pre-upgrade-") {
+			continue
+		}
+		info, err := os.Stat(filepath.Join(root, name))
+		if err != nil {
+			continue // skip unreadable entries; subsequent runs catch them
+		}
+		stat, ok := info.Sys().(*syscall.Stat_t)
+		if !ok {
+			continue // non-POSIX platform; can't probe ownership
+		}
+		if stat.Uid != deployUID {
+			return false // at least one dir needs healing
+		}
+	}
+	return true
+}
+
+// healBackupOwnership chowns every pre-upgrade-* dir under
+// ~/statbus-backups/ to the deploy user via a single alpine container.
+// The container runs as root and can change ownership; the host-side
+// process (statbus_<slot>) cannot, because the dirs are currently
+// owned by the in-container postgres user that leaked through the
+// rsync bind mount during backup creation.
+//
+// chmod -R u=rwX,go=rX yields 0755 on dirs / 0644 on files — making
+// them traversable (pruneBackups can remove them) and readable
+// (support-bundle archive step can tar them) while keeping write
+// restricted to the deploy user.
+//
+// Idempotent: re-running on already-deploy-user-owned dirs is a no-op
+// (chown to the same uid is a metadata-only operation; chmod to the
+// same mode is also a no-op).
+func healBackupOwnership(_ string) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("cannot determine home directory (HOME unset?): %w", err)
+	}
+	root := filepath.Join(home, "statbus-backups")
+	if _, err := os.Stat(root); err != nil {
+		// Nothing to heal — backup root missing or unreadable.
+		return nil
+	}
+	deployUID := os.Getuid()
+	deployGID := os.Getgid()
+	// One alpine container, one find invocation, all pre-upgrade-* dirs
+	// at once. The `-mindepth 1 -maxdepth 1` keeps the chown contained
+	// to top-level entries (we recurse via -R below, separately, to keep
+	// the find expression tractable).
+	shellCmd := fmt.Sprintf(
+		"find /backup -mindepth 1 -maxdepth 1 -name 'pre-upgrade-*' -type d "+
+			"-exec chown -R %d:%d {} + -exec chmod -R u=rwX,go=rX {} +",
+		deployUID, deployGID,
+	)
+	cmd := exec.Command("docker", "run", "--rm",
+		"-v", root+":/backup",
+		"alpine", "sh", "-c", shellCmd,
+	)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("docker chown of %s failed: %w\n%s", root, err, out)
+	}
+	return nil
+}
+
 func checkSessionsClean(dir string) bool {
 	psqlPath, prefix, env, err := migrate.PsqlCommand(dir)
 	if err != nil {

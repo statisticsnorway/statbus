@@ -320,11 +320,35 @@ func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (string, e
 			}
 		}
 	}()
+	// chown + chmod inside the container after rsync so the finalised
+	// dir is owned by the host's deploy user (not the in-container
+	// postgres user, which lands as messagebus/uid 101 on Debian/Ubuntu
+	// hosts via UID coincidence). Without this:
+	//   - statbus_<slot> can't traverse the 0700 messagebus-owned dir →
+	//     pruneBackups can't remove old backups → ~/statbus-backups/
+	//     accumulates indefinitely (observed on jo: 9 backup dirs going
+	//     back to March 2026).
+	//   - The post-install archive step (tar | gzip) fails with
+	//     "Permission denied" on EVERY file inside the backup, leaving
+	//     no shippable artifact for support-bundle attachment.
+	//
+	// The chown is harmless to restoreDatabase: that path also runs
+	// inside an alpine container as root and reads /source via rsync,
+	// which doesn't care about host-side ownership.
+	deployUID := os.Getuid()
+	deployGID := os.Getgid()
+	rsyncShell := fmt.Sprintf(
+		"apk add --no-cache rsync >/dev/null 2>&1 && "+
+			"rsync -a --delete /source/ /backup/ && "+
+			"chown -R %d:%d /backup && "+
+			"chmod -R u=rwX,go=rX /backup",
+		deployUID, deployGID,
+	)
 	rsyncErr := runCommandToLog(d.projDir, 10*time.Minute, progress.File(), "rsync",
 		"docker", "run", "--rm",
 		"-v", volumeName+":/source:ro",
 		"-v", tmpDir+":/backup",
-		"alpine", "sh", "-c", "apk add --no-cache rsync >/dev/null 2>&1 && rsync -a --delete /source/ /backup/",
+		"alpine", "sh", "-c", rsyncShell,
 	)
 	close(rsyncDone)
 	if rsyncErr != nil {
