@@ -212,16 +212,30 @@ var seedRestoreCmd = &cobra.Command{
 		restoreCmd.Stdout = os.Stdout
 		restoreCmd.Stderr = os.Stderr
 
-		err = restoreCmd.Run()
-		if err != nil {
-			// pg_restore exit code 1 means warnings (e.g., "role does not exist"
-			// for --clean drops). This is expected and harmless — the data is
-			// restored correctly. Only exit code 2+ indicates real failure.
-			if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
-				// Warnings only — not an error.
-			} else {
-				return fmt.Errorf("pg_restore failed: %w", err)
-			}
+		// Atomic-restore failure contract. With --single-transaction set
+		// above, pg_restore wraps every emitted command in BEGIN/COMMIT
+		// and (per pg_restore(1)) implies --exit-on-error: any error in
+		// any restore step aborts the whole transaction and exits non-
+		// zero. There is no "warnings, but data restored correctly"
+		// outcome with --single-transaction — either the COMMIT lands
+		// (exit 0) or the ROLLBACK fires (exit ≥ 1).
+		//
+		// Earlier versions of this wrapper carried an exit-code-1
+		// tolerance ("warnings only, not an error"). That comment was
+		// correct for pg_restore WITHOUT --single-transaction, where
+		// non-fatal warnings can co-exist with a successful restore.
+		// Once --single-transaction landed, the tolerance silently
+		// turned ROLLBACK ("data NOT restored") into a passing
+		// invocation. tcc's near-miss (forensics: install-state-machine-
+		// forensics.md) surfaced the danger: a destructive restore
+		// could fail half-way, leaving the DB in a wedged-or-empty
+		// state, while ./sb db seed restore reported success.
+		//
+		// Fail-loud: any non-zero exit propagates as an error. The
+		// streamed stderr (Stderr = os.Stderr above) gives the operator
+		// the specific failure detail.
+		if err := restoreCmd.Run(); err != nil {
+			return fmt.Errorf("pg_restore failed (transaction rolled back; database unchanged): %w", err)
 		}
 
 		fmt.Printf("Seed restored to %s (migration %s)\n", dbName, meta.MigrationVersion)
