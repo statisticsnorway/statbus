@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { useAtomValue } from "jotai";
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
 import { logger } from "@/lib/client-logger";
 import { describeError } from "@/lib/error-format";
 import { pendingUpgradeStatusAtom } from "@/atoms/upgrade-status";
@@ -61,7 +61,7 @@ interface Upgrade {
   commit_sha: string;
   committed_at: string;
   commit_tags: string[];
-  release_status: 'commit' | 'prerelease' | 'release';
+  release_status: "commit" | "prerelease" | "release";
   display_name: string;
   display_state: string;
   state: UpgradeState;
@@ -76,8 +76,8 @@ interface Upgrade {
   error: string | null;
   log_relative_file_path: string | null;
   rolled_back_at: string | null;
-  docker_images_status: 'building' | 'ready' | 'failed';
-  release_builds_status: 'building' | 'ready' | 'failed';
+  docker_images_status: "building" | "ready" | "failed";
+  release_builds_status: "building" | "ready" | "failed";
   skipped_at: string | null;
   dismissed_at: string | null;
   superseded_at: string | null;
@@ -95,15 +95,15 @@ function StateBadge({ state, label }: { state: UpgradeState; label: string }) {
   // doesn't duplicate the enum → human-readable mapping. The className
   // per state stays in the UI since it's styling, not presentation.
   const classes: Record<UpgradeState, string> = {
-    available:   "bg-blue-100 text-blue-800",
-    scheduled:   "bg-yellow-100 text-yellow-800",
+    available: "bg-blue-100 text-blue-800",
+    scheduled: "bg-yellow-100 text-yellow-800",
     in_progress: "bg-purple-100 text-purple-800",
-    completed:   "bg-green-100 text-green-800",
-    failed:      "bg-red-100 text-red-800",
+    completed: "bg-green-100 text-green-800",
+    failed: "bg-red-100 text-red-800",
     rolled_back: "bg-orange-100 text-orange-800",
-    dismissed:   "bg-gray-100 text-gray-700",
-    skipped:     "bg-gray-100 text-gray-600",
-    superseded:  "bg-gray-100 text-gray-500",
+    dismissed: "bg-gray-100 text-gray-700",
+    skipped: "bg-gray-100 text-gray-600",
+    superseded: "bg-gray-100 text-gray-500",
   };
   return <Badge className={classes[state]}>{label}</Badge>;
 }
@@ -119,7 +119,7 @@ const fetcher = async (url: string) => {
 
 async function patchUpgrade(
   id: number,
-  body: Record<string, unknown>,
+  body: Record<string, unknown>
 ): Promise<void> {
   const resp = await fetch(`/rest/upgrade?id=eq.${id}`, {
     method: "PATCH",
@@ -137,7 +137,8 @@ async function patchUpgrade(
 }
 
 export default function UpgradesPage() {
-  const [hasActiveUpgradeForPolling, setHasActiveUpgradeForPolling] = useState(false);
+  const [hasActiveUpgradeForPolling, setHasActiveUpgradeForPolling] =
+    useState(false);
   const {
     data: upgrades,
     error,
@@ -154,29 +155,43 @@ export default function UpgradesPage() {
       revalidateOnFocus: true,
       onSuccess: (data) => {
         setHasActiveUpgradeForPolling(
-          data?.some(u => u.started_at && !u.completed_at && !u.error && !u.rolled_back_at) ?? false
+          data?.some(
+            (u) =>
+              u.started_at && !u.completed_at && !u.error && !u.rolled_back_at
+          ) ?? false
         );
       },
-    },
+    }
   );
   const { data: systemInfo } = useSWR<SystemInfo[]>(
     "/rest/system_info",
-    fetcher,
+    fetcher
   );
   const [acting, setActing] = useState<number | null>(null);
   const [checking, setChecking] = useState(false);
+  // Global SWR mutate — used by the Schedule-check button to invalidate
+  // both `/rest/upgrade` AND `/rest/system_info` (the latter has no
+  // local mutate exposed; we need it because `upgrade_last_discover_at`
+  // lives in system_info and is the operator-visible "did it actually
+  // run?" signal).
+  const { mutate: mutateGlobal } = useSWRConfig();
 
   // Refresh the upgrade list when SSE delivers an upgrade_changed event.
   // The pendingUpgradeStatusAtom is already refreshed by SSEConnectionManager.
   const upgradeStatus = useAtomValue(pendingUpgradeStatusAtom);
-  useGuardedEffect(() => {
-    mutate();
-  }, [upgradeStatus, mutate], 'UpgradesPage:sse-refresh');
+  useGuardedEffect(
+    () => {
+      mutate();
+    },
+    [upgradeStatus, mutate],
+    "UpgradesPage:sse-refresh"
+  );
 
   const channel =
     systemInfo?.find((s) => s.key === "upgrade_channel")?.value ?? "stable";
-  const lastDiscoverAt =
-    systemInfo?.find((s) => s.key === "upgrade_last_discover_at")?.value;
+  const lastDiscoverAt = systemInfo?.find(
+    (s) => s.key === "upgrade_last_discover_at"
+  )?.value;
   const diskFreeGB = systemInfo?.find((s) => s.key === "disk_free_gb")?.value;
   const diskFree = diskFreeGB ? parseInt(diskFreeGB, 10) : null;
 
@@ -184,21 +199,21 @@ export default function UpgradesPage() {
   // `./sb support write-admin-ui-row` when ./sb install exits non-zero;
   // cleared by the next successful install (stampInstallInvocationTracking).
   const installLastError = systemInfo?.find(
-    (s) => s.key === "install_last_error",
+    (s) => s.key === "install_last_error"
   )?.value;
   const installLastErrorAt = systemInfo?.find(
-    (s) => s.key === "install_last_error_at",
+    (s) => s.key === "install_last_error_at"
   )?.value;
   const installLastBundlePath = systemInfo?.find(
-    (s) => s.key === "install_last_bundle_path",
+    (s) => s.key === "install_last_bundle_path"
   )?.value;
   // Last successful install-invocation tracking. Written by install.go's
   // post-completion defer via stampInstallInvocationTracking.
   const installLastAt = systemInfo?.find(
-    (s) => s.key === "install_last_at",
+    (s) => s.key === "install_last_at"
   )?.value;
   const installLastLogRelativeFilePath = systemInfo?.find(
-    (s) => s.key === "install_last_log_relative_file_path",
+    (s) => s.key === "install_last_log_relative_file_path"
   )?.value;
 
   const [actionError, setActionError] = useState<string | null>(null);
@@ -224,7 +239,7 @@ export default function UpgradesPage() {
         setActing(null);
       }
     },
-    [mutate],
+    [mutate]
   );
 
   // When the API goes down during an active upgrade, redirect to the
@@ -233,12 +248,17 @@ export default function UpgradesPage() {
   if (showMaintenanceView && typeof window !== "undefined") {
     const returnPath = encodeURIComponent(window.location.pathname);
     const activeUpgradeRow = upgrades?.find(
-      (u) => u.state === "in_progress" || u.state === "scheduled",
+      (u) => u.state === "in_progress" || u.state === "scheduled"
     );
     logger.info("UpgradesPage", "Redirecting to maintenance.html", {
-      reason: error ? `fetch failed: ${error.message}` : "active upgrade detected",
+      reason: error
+        ? `fetch failed: ${error.message}`
+        : "active upgrade detected",
       activeUpgrade: activeUpgradeRow
-        ? { commit_sha: activeUpgradeRow.commit_sha, state: activeUpgradeRow.state }
+        ? {
+            commit_sha: activeUpgradeRow.commit_sha,
+            state: activeUpgradeRow.state,
+          }
         : null,
     });
     window.location.href = `/maintenance.html?return=${returnPath}`;
@@ -267,32 +287,95 @@ export default function UpgradesPage() {
           </span>
         )}
         {diskFree !== null && diskFree > 10 && (
-          <span>Disk: <strong className="text-foreground">{diskFree}G free</strong></span>
+          <span>
+            Disk: <strong className="text-foreground">{diskFree}G free</strong>
+          </span>
         )}
         {diskFree !== null && diskFree <= 10 && diskFree > 5 && (
-          <Badge className="bg-yellow-100 text-yellow-800">Low disk: {diskFree}G free</Badge>
+          <Badge className="bg-yellow-100 text-yellow-800">
+            Low disk: {diskFree}G free
+          </Badge>
         )}
         {diskFree !== null && diskFree <= 5 && (
-          <Badge className="bg-red-100 text-red-800">Disk critical: {diskFree}G free — contact IT</Badge>
+          <Badge className="bg-red-100 text-red-800">
+            Disk critical: {diskFree}G free — contact IT
+          </Badge>
         )}
         <Button
           size="sm"
           variant="outline"
           disabled={checking}
           onClick={async () => {
+            // `upgrade_request_check` is fire-and-forget — it just emits
+            // `NOTIFY upgrade_check` for the Go upgrade-service to pick up
+            // (see doc/db/function/public_upgrade_request_check().md). The
+            // actual GitHub release-feed scan + image-readiness probe runs
+            // in the daemon and can take 5-30s. Mutating SWR immediately
+            // after the POST refetches stale data — the same data we
+            // already had — so the UI looks frozen even though the
+            // request was accepted.
+            //
+            // Fix: poll until `upgrade_last_discover_at` (from
+            // /rest/system_info) changes — that's the operator-visible
+            // signal that the daemon actually completed a discovery tick.
+            // Cap at 30s; if it hasn't fired by then, surface "still
+            // pending — daemon may be slow" via the actionError banner
+            // rather than leaving the spinner forever.
+            const initialDiscoverAt = lastDiscoverAt ?? null;
             setChecking(true);
+            setActionError(null);
             try {
-              await fetch('/rest/rpc/upgrade_request_check', {
-                method: 'POST',
-                credentials: 'include',
+              const resp = await fetch("/rest/rpc/upgrade_request_check", {
+                method: "POST",
+                credentials: "include",
               });
-              await mutate();
+              if (!resp.ok) {
+                throw new Error(
+                  `POST upgrade_request_check failed: ${resp.status} ${resp.statusText}`
+                );
+              }
+              const deadline = Date.now() + 30_000;
+              while (Date.now() < deadline) {
+                // Refetch both: `/rest/upgrade` (release_builds_status,
+                // docker_images_status) AND `/rest/system_info` (the
+                // upgrade_last_discover_at signal).
+                await Promise.all([
+                  mutate(),
+                  mutateGlobal("/rest/system_info"),
+                ]);
+                // Re-read system_info post-mutate to detect the change.
+                const sysResp = await fetch("/rest/system_info", {
+                  credentials: "include",
+                });
+                if (sysResp.ok) {
+                  const rows = (await sysResp.json()) as SystemInfo[];
+                  const newDiscoverAt = rows.find(
+                    (r) => r.key === "upgrade_last_discover_at"
+                  )?.value;
+                  if (newDiscoverAt && newDiscoverAt !== initialDiscoverAt) {
+                    break;
+                  }
+                }
+                await new Promise((r) => setTimeout(r, 2000));
+              }
+              if (Date.now() >= deadline) {
+                setActionError(
+                  "Check request was sent but the upgrade daemon did not respond within 30s. " +
+                    "It may still be processing — refresh the page in a minute, or check `./sb upgrade check` from the host."
+                );
+              }
+            } catch (e) {
+              setActionError(`Schedule check failed: ${describeError(e)}`);
             } finally {
               setChecking(false);
             }
           }}
         >
-          {checking ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="mr-1.5 h-3.5 w-3.5" />}
+          {checking ? (
+            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+          )}
           {checking ? "Checking..." : "Schedule check"}
         </Button>
       </div>
@@ -317,8 +400,8 @@ export default function UpgradesPage() {
             )}
             <p className="text-xs text-red-800">
               Re-run <span className="font-mono">./install.sh</span> after the
-              underlying issue is resolved. A successful install will clear
-              this banner.
+              underlying issue is resolved. A successful install will clear this
+              banner.
             </p>
           </CardContent>
         </Card>
@@ -353,9 +436,7 @@ export default function UpgradesPage() {
       {actionError && (
         <Card className="mb-4 border-red-200 bg-red-50">
           <CardContent className="pt-6">
-            <p className="text-red-800">
-              Action failed: {actionError}
-            </p>
+            <p className="text-red-800">Action failed: {actionError}</p>
           </CardContent>
         </Card>
       )}
@@ -375,215 +456,237 @@ export default function UpgradesPage() {
         </Card>
       )}
 
-      {upgrades && upgrades.length > 0 && (() => {
-        // Categorize upgrades
-        const actionable: Upgrade[] = []; // in_progress, scheduled, failed, rolled_back
-        let available: Upgrade[] = [];
-        const history: Upgrade[] = [];
+      {upgrades &&
+        upgrades.length > 0 &&
+        (() => {
+          // Categorize upgrades
+          const actionable: Upgrade[] = []; // in_progress, scheduled, failed, rolled_back
+          let available: Upgrade[] = [];
+          const history: Upgrade[] = [];
 
-        for (const u of upgrades) {
-          const s = u.state;
-          if (
-            s === "completed" ||
-            s === "skipped" ||
-            s === "dismissed" ||
-            s === "superseded"
-          ) {
-            history.push(u);
-          } else if (s === "available") {
-            available.push(u);
-          } else {
-            // in_progress, scheduled, failed, rolled_back — all stay actionable.
-            // Failed/rolled_back remain visible on the main page so operators
-            // see what went wrong without expanding history; clicking Dismiss
-            // sets state='dismissed' and moves them to history.
-            actionable.push(u);
+          for (const u of upgrades) {
+            const s = u.state;
+            if (
+              s === "completed" ||
+              s === "skipped" ||
+              s === "dismissed" ||
+              s === "superseded"
+            ) {
+              history.push(u);
+            } else if (s === "available") {
+              available.push(u);
+            } else {
+              // in_progress, scheduled, failed, rolled_back — all stay actionable.
+              // Failed/rolled_back remain visible on the main page so operators
+              // see what went wrong without expanding history; clicking Dismiss
+              // sets state='dismissed' and moves them to history.
+              actionable.push(u);
+            }
           }
-        }
 
-        // The currently-running version. Used to filter the available list
-        // (don't recommend a downgrade) and as the anchor for the history
-        // section below.
-        const latestCompleted = history.find(u => u.state === 'completed');
+          // The currently-running version. Used to filter the available list
+          // (don't recommend a downgrade) and as the anchor for the history
+          // section below.
+          const latestCompleted = history.find((u) => u.state === "completed");
 
-        // Drop available rows that aren't newer than what's running. Without
-        // this filter, an older prerelease (say rc.64) outranks newer edge
-        // commits via the tier-first sort below, surfacing a downgrade as
-        // "Recommended". Mirrors the backend's supersede semantics in
-        // migrations/20260418204304_supersede_respects_release_status_hierarchy.up.sql.
-        if (latestCompleted) {
-          available = available.filter(u =>
-            u.committed_at > latestCompleted.committed_at
+          // Drop available rows that aren't newer than what's running. Without
+          // this filter, an older prerelease (say rc.64) outranks newer edge
+          // commits via the tier-first sort below, surfacing a downgrade as
+          // "Recommended". Mirrors the backend's supersede semantics in
+          // migrations/20260418204304_supersede_respects_release_status_hierarchy.up.sql.
+          if (latestCompleted) {
+            available = available.filter(
+              (u) => u.committed_at > latestCompleted.committed_at
+            );
+          }
+
+          // Sort available: tagged releases first (release > prerelease > commit),
+          // then by id (monotonic with discovery, equivalent to commit-time order
+          // within a tier). This ensures the "Recommended" badge goes to the
+          // latest tagged release, not a newer plain commit.
+          const statusRank: Record<string, number> = {
+            release: 3,
+            prerelease: 2,
+            commit: 1,
+          };
+          available.sort((a, b) => {
+            const sa = statusRank[a.release_status] ?? 0;
+            const sb = statusRank[b.release_status] ?? 0;
+            if (sa !== sb) return sb - sa;
+            return b.id - a.id;
+          });
+
+          // When an upgrade is scheduled or in-progress, hide available entries entirely.
+          // The user only needs to see the active upgrade, not other options.
+          const hasActiveAction = actionable.some((u) => {
+            const s = u.state;
+            return s === "scheduled" || s === "in_progress";
+          });
+
+          // Only show the latest available prominently. Older ones go behind a collapsible.
+          const latestAvailable =
+            !hasActiveAction && available.length > 0 ? available[0] : null;
+          const olderAvailable = !hasActiveAction ? available.slice(1) : [];
+
+          // Migrations badge propagation: if ANY available release has migrations,
+          // the latest must show it (upgrading to latest runs all intermediate migrations).
+          const anyAvailableHasMigrations = available.some(
+            (u) => u.has_migrations
           );
-        }
+          const latestWithMigrations =
+            latestAvailable && anyAvailableHasMigrations
+              ? { ...latestAvailable, has_migrations: true }
+              : latestAvailable;
 
-        // Sort available: tagged releases first (release > prerelease > commit),
-        // then by id (monotonic with discovery, equivalent to commit-time order
-        // within a tier). This ensures the "Recommended" badge goes to the
-        // latest tagged release, not a newer plain commit.
-        const statusRank: Record<string, number> = { release: 3, prerelease: 2, commit: 1 };
-        available.sort((a, b) => {
-          const sa = statusRank[a.release_status] ?? 0;
-          const sb = statusRank[b.release_status] ?? 0;
-          if (sa !== sb) return sb - sa;
-          return b.id - a.id;
-        });
+          // The currently-running row stays visible at all times so operators
+          // always have an anchor for "what version am I on right now?". The rest
+          // of history (older completions, superseded, skipped, failed) stays in
+          // the collapsible.
+          const historyRest = latestCompleted
+            ? history.filter((u) => u.id !== latestCompleted.id)
+            : history;
 
-        // When an upgrade is scheduled or in-progress, hide available entries entirely.
-        // The user only needs to see the active upgrade, not other options.
-        const hasActiveAction = actionable.some((u) => {
-          const s = u.state;
-          return s === "scheduled" || s === "in_progress";
-        });
+          const filteredHistory = showSuperseded
+            ? historyRest
+            : historyRest.filter((u) => u.state !== "superseded");
 
-        // Only show the latest available prominently. Older ones go behind a collapsible.
-        const latestAvailable = !hasActiveAction && available.length > 0 ? available[0] : null;
-        const olderAvailable = !hasActiveAction ? available.slice(1) : [];
+          const renderCard = (
+            u: Upgrade,
+            variant?: "recommended" | "superseded"
+          ) => {
+            const status = u.state;
+            const canRestore = latestCompleted
+              ? u.committed_at > latestCompleted.committed_at
+              : true;
+            return (
+              <UpgradeCard
+                key={u.id}
+                upgrade={u}
+                status={status}
+                variant={variant}
+                acting={acting === u.id}
+                canRestore={canRestore}
+                onScheduleNow={async () => {
+                  await act(u.id, {
+                    state: "scheduled",
+                    scheduled_at: new Date().toISOString(),
+                  });
+                  window.location.href = `/maintenance.html?return=${encodeURIComponent(window.location.pathname)}`;
+                }}
+                onUnschedule={() =>
+                  act(u.id, { state: "available", scheduled_at: null })
+                }
+                onRefetch={() => {}}
+                onSkip={() =>
+                  // Skip is for available upgrades. State transitions
+                  // available → skipped.
+                  act(u.id, {
+                    state: "skipped",
+                    skipped_at: new Date().toISOString(),
+                  })
+                }
+                onDismiss={() =>
+                  // Dismiss is for failed / rolled_back. State transitions
+                  // failed|rolled_back → dismissed. The underlying error /
+                  // rollback evidence stays on the row.
+                  act(u.id, {
+                    state: "dismissed",
+                    dismissed_at: new Date().toISOString(),
+                  })
+                }
+                onRestore={() =>
+                  // Restore applies to user-skipped rows. Goes back to
+                  // available; the CHECK requires other lifecycle columns
+                  // to be NULL, so clearing skipped_at is enough.
+                  act(u.id, { state: "available", skipped_at: null })
+                }
+              />
+            );
+          };
 
-        // Migrations badge propagation: if ANY available release has migrations,
-        // the latest must show it (upgrading to latest runs all intermediate migrations).
-        const anyAvailableHasMigrations = available.some((u) => u.has_migrations);
-        const latestWithMigrations = latestAvailable && anyAvailableHasMigrations
-          ? { ...latestAvailable, has_migrations: true }
-          : latestAvailable;
+          // Merge actionable items + recommended upgrade into one list, sorted
+          // by topology (newest first). The recommended upgrade IS the fix for
+          // a failed upgrade — it belongs in the same visual priority as errors,
+          // not in a separate section below them.
+          const topSection: {
+            u: Upgrade;
+            variant?: "recommended" | "superseded";
+          }[] = [
+            ...actionable.map((u) => ({ u })),
+            ...(latestWithMigrations
+              ? [{ u: latestWithMigrations, variant: "recommended" as const }]
+              : []),
+          ].sort((a, b) => b.u.id - a.u.id);
 
-        // The currently-running row stays visible at all times so operators
-        // always have an anchor for "what version am I on right now?". The rest
-        // of history (older completions, superseded, skipped, failed) stays in
-        // the collapsible.
-        const historyRest = latestCompleted
-          ? history.filter(u => u.id !== latestCompleted.id)
-          : history;
-
-        const filteredHistory = showSuperseded
-          ? historyRest
-          : historyRest.filter(u => u.state !== 'superseded');
-
-        const renderCard = (u: Upgrade, variant?: "recommended" | "superseded") => {
-          const status = u.state;
-          const canRestore = latestCompleted
-            ? u.committed_at > latestCompleted.committed_at
-            : true;
           return (
-            <UpgradeCard
-              key={u.id}
-              upgrade={u}
-              status={status}
-              variant={variant}
-              acting={acting === u.id}
-              canRestore={canRestore}
-              onScheduleNow={async () => {
-                await act(u.id, {
-                  state: "scheduled",
-                  scheduled_at: new Date().toISOString(),
-                });
-                window.location.href = `/maintenance.html?return=${encodeURIComponent(window.location.pathname)}`;
-              }}
-              onUnschedule={() =>
-                act(u.id, { state: "available", scheduled_at: null })
-              }
-              onRefetch={() => {}}
-              onSkip={() =>
-                // Skip is for available upgrades. State transitions
-                // available → skipped.
-                act(u.id, {
-                  state: "skipped",
-                  skipped_at: new Date().toISOString(),
-                })
-              }
-              onDismiss={() =>
-                // Dismiss is for failed / rolled_back. State transitions
-                // failed|rolled_back → dismissed. The underlying error /
-                // rollback evidence stays on the row.
-                act(u.id, {
-                  state: "dismissed",
-                  dismissed_at: new Date().toISOString(),
-                })
-              }
-              onRestore={() =>
-                // Restore applies to user-skipped rows. Goes back to
-                // available; the CHECK requires other lifecycle columns
-                // to be NULL, so clearing skipped_at is enough.
-                act(u.id, { state: "available", skipped_at: null })
-              }
-            />
-          );
-        };
+            <div className="space-y-3">
+              {/* Actionable + recommended, sorted by topology (newest first) */}
+              {topSection.map(({ u, variant }) => renderCard(u, variant))}
 
-        // Merge actionable items + recommended upgrade into one list, sorted
-        // by topology (newest first). The recommended upgrade IS the fix for
-        // a failed upgrade — it belongs in the same visual priority as errors,
-        // not in a separate section below them.
-        const topSection: { u: Upgrade; variant?: "recommended" | "superseded" }[] = [
-          ...actionable.map(u => ({ u })),
-          ...(latestWithMigrations ? [{ u: latestWithMigrations, variant: "recommended" as const }] : []),
-        ].sort((a, b) => b.u.id - a.u.id);
-
-        return (
-          <div className="space-y-3">
-            {/* Actionable + recommended, sorted by topology (newest first) */}
-            {topSection.map(({ u, variant }) => renderCard(u, variant))}
-
-            {/* Older available releases behind collapsible — labelled "superseded"
+              {/* Older available releases behind collapsible — labelled "superseded"
                 with "Install anyway" on the button. This is intentional:
                 it tells the operator a newer version exists (the recommended one above)
                 but still lets them install this specific version if they need it. */}
-            {olderAvailable.length > 0 && (
-              <Collapsible>
-                <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md border border-dashed border-muted-foreground/25 px-4 py-2 text-sm text-muted-foreground hover:bg-muted/50 transition-colors">
-                  <ChevronDown className="h-4 w-4" />
-                  {olderAvailable.length} superseded upgrade{olderAvailable.length !== 1 ? "s" : ""}
-                </CollapsibleTrigger>
-                <CollapsibleContent className="space-y-3 mt-3">
-                  {olderAvailable.map((u) => renderCard(u, "superseded"))}
-                </CollapsibleContent>
-              </Collapsible>
-            )}
+              {olderAvailable.length > 0 && (
+                <Collapsible>
+                  <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md border border-dashed border-muted-foreground/25 px-4 py-2 text-sm text-muted-foreground hover:bg-muted/50 transition-colors">
+                    <ChevronDown className="h-4 w-4" />
+                    {olderAvailable.length} superseded upgrade
+                    {olderAvailable.length !== 1 ? "s" : ""}
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-3 mt-3">
+                    {olderAvailable.map((u) => renderCard(u, "superseded"))}
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
 
-            {/* Currently-running version — always visible so operators have an
+              {/* Currently-running version — always visible so operators have an
                 anchor for "what version am I on right now?". Labeled above the
                 card to distinguish it from actionable/available rows. */}
-            {latestCompleted && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 px-1 text-sm font-medium text-emerald-800">
-                  <CheckCircle2 className="h-4 w-4" />
-                  Currently running
-                </div>
-                {renderCard(latestCompleted)}
-              </div>
-            )}
-
-            {/* Rest of past upgrades (older completions, superseded, skipped, failed) */}
-            {historyRest.length > 0 && (
-              <Collapsible>
-                <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md border border-dashed border-muted-foreground/25 px-4 py-2 text-sm text-muted-foreground hover:bg-muted/50 transition-colors">
-                  <ChevronDown className="h-4 w-4" />
-                  {filteredHistory.length} past upgrade{filteredHistory.length !== 1 ? "s" : ""}
-                  <div
-                    className="ml-auto flex items-center gap-1"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <span className="rounded px-1.5 py-0.5 text-xs bg-green-100 text-green-800">
-                      History
-                    </span>
-                    <span
-                      onClick={() => setShowSuperseded((v) => !v)}
-                      className={`cursor-pointer rounded px-1.5 py-0.5 text-xs bg-gray-100 transition-opacity ${
-                        showSuperseded ? "text-gray-500" : "text-gray-400 opacity-40"
-                      }`}
-                    >
-                      Superseded
-                    </span>
+              {latestCompleted && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 px-1 text-sm font-medium text-emerald-800">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Currently running
                   </div>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="space-y-3 mt-3">
-                  {filteredHistory.map((u) => renderCard(u))}
-                </CollapsibleContent>
-              </Collapsible>
-            )}
-          </div>
-        );
-      })()}
+                  {renderCard(latestCompleted)}
+                </div>
+              )}
+
+              {/* Rest of past upgrades (older completions, superseded, skipped, failed) */}
+              {historyRest.length > 0 && (
+                <Collapsible>
+                  <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md border border-dashed border-muted-foreground/25 px-4 py-2 text-sm text-muted-foreground hover:bg-muted/50 transition-colors">
+                    <ChevronDown className="h-4 w-4" />
+                    {filteredHistory.length} past upgrade
+                    {filteredHistory.length !== 1 ? "s" : ""}
+                    <div
+                      className="ml-auto flex items-center gap-1"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <span className="rounded px-1.5 py-0.5 text-xs bg-green-100 text-green-800">
+                        History
+                      </span>
+                      <span
+                        onClick={() => setShowSuperseded((v) => !v)}
+                        className={`cursor-pointer rounded px-1.5 py-0.5 text-xs bg-gray-100 transition-opacity ${
+                          showSuperseded
+                            ? "text-gray-500"
+                            : "text-gray-400 opacity-40"
+                        }`}
+                      >
+                        Superseded
+                      </span>
+                    </div>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-3 mt-3">
+                    {filteredHistory.map((u) => renderCard(u))}
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
+            </div>
+          );
+        })()}
     </main>
   );
 }
@@ -608,7 +711,8 @@ function UpgradeLogViewer({
 
   useGuardedEffect(
     () => {
-      if (!open || !relPath || rawContent !== null || fetchError !== null) return;
+      if (!open || !relPath || rawContent !== null || fetchError !== null)
+        return;
       let cancelled = false;
       fetch(`/upgrade-logs/${relPath}`, { credentials: "include" })
         .then(async (resp) => {
@@ -628,7 +732,7 @@ function UpgradeLogViewer({
       };
     },
     [open, relPath, rawContent, fetchError],
-    `UpgradesPage:log-fetch-${id}`,
+    `UpgradesPage:log-fetch-${id}`
   );
 
   if (!relPath) {
@@ -648,7 +752,8 @@ function UpgradeLogViewer({
       .filter((l) => l.startsWith("M "))
       .map((l) => l.slice(2));
     // Fall back to raw tail if no M-lines found (old-format logs pre-#63).
-    if (filtered.length === 0) return rawContent.split("\n").slice(-50).join("\n");
+    if (filtered.length === 0)
+      return rawContent.split("\n").slice(-50).join("\n");
     return filtered.slice(-50).join("\n");
   })();
 
@@ -724,23 +829,32 @@ function UpgradeCard({
   onRestore: () => void;
 }) {
   return (
-    <Card className={
-      variant === "recommended" ? "ring-2 ring-blue-200 border-blue-200" :
-      variant === "superseded" ? "border-muted opacity-80" :
-      undefined
-    }>
+    <Card
+      className={
+        variant === "recommended"
+          ? "ring-2 ring-blue-200 border-blue-200"
+          : variant === "superseded"
+            ? "border-muted opacity-80"
+            : undefined
+      }
+    >
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div>
             <CardTitle className="text-base flex items-center gap-2">
               {u.release_url ? (
-                <a href={u.release_url} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                <a
+                  href={u.release_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:underline"
+                >
                   {u.display_name}
                 </a>
               ) : (
                 u.display_name
               )}
-              {u.release_status !== 'commit' && (
+              {u.release_status !== "commit" && (
                 <a
                   href={`https://github.com/statisticsnorway/statbus/commit/${u.commit_sha}`}
                   target="_blank"
@@ -751,27 +865,37 @@ function UpgradeCard({
                 </a>
               )}
               {variant === "recommended" && (
-                <Badge className="text-xs bg-blue-50 text-blue-700 border-blue-200" variant="outline">
+                <Badge
+                  className="text-xs bg-blue-50 text-blue-700 border-blue-200"
+                  variant="outline"
+                >
                   Recommended
                 </Badge>
               )}
               <a
                 href={
-                  u.release_status === 'commit'
+                  u.release_status === "commit"
                     ? `https://github.com/statisticsnorway/statbus/commit/${u.commit_sha}`
                     : `https://github.com/statisticsnorway/statbus/releases/tag/${u.commit_tags?.[0] ?? ""}`
                 }
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <Badge variant="outline" className={
-                  u.release_status === 'release'
-                    ? "text-xs border-green-300 text-green-600 hover:bg-green-50"
-                    : u.release_status === 'prerelease'
-                      ? "text-xs border-blue-300 text-blue-600 hover:bg-blue-50"
-                      : "text-xs border-gray-300 text-gray-500 hover:bg-gray-50"
-                }>
-                  {u.release_status === 'release' ? 'release' : u.release_status === 'prerelease' ? 'pre-release' : 'commit'}
+                <Badge
+                  variant="outline"
+                  className={
+                    u.release_status === "release"
+                      ? "text-xs border-green-300 text-green-600 hover:bg-green-50"
+                      : u.release_status === "prerelease"
+                        ? "text-xs border-blue-300 text-blue-600 hover:bg-blue-50"
+                        : "text-xs border-gray-300 text-gray-500 hover:bg-gray-50"
+                  }
+                >
+                  {u.release_status === "release"
+                    ? "release"
+                    : u.release_status === "prerelease"
+                      ? "pre-release"
+                      : "commit"}
                 </Badge>
               </a>
               {/* Two distinct readiness states, both verified against their
@@ -779,50 +903,72 @@ function UpgradeCard({
                   cycle. Shown separately so an operator can tell which CI
                   workflow is still running (ci-images.yaml vs release.yaml)
                   and set realistic expectations. */}
-              {u.state === 'available' && u.docker_images_status === 'building' && (
-                <a
-                  href={`https://github.com/statisticsnorway/statbus/commit/${u.commit_sha}/checks`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Badge variant="outline" className="text-xs border-amber-300 text-amber-600 hover:bg-amber-50">
+              {u.state === "available" &&
+                u.docker_images_status === "building" && (
+                  <a
+                    href={`https://github.com/statisticsnorway/statbus/commit/${u.commit_sha}/checks`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Badge
+                      variant="outline"
+                      className="text-xs border-amber-300 text-amber-600 hover:bg-amber-50"
+                    >
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                      images building...
+                    </Badge>
+                  </a>
+                )}
+              {u.state === "available" &&
+                u.docker_images_status === "failed" && (
+                  <a
+                    href={`https://github.com/statisticsnorway/statbus/commit/${u.commit_sha}/checks`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Badge
+                      variant="outline"
+                      className="text-xs border-red-300 text-red-600 hover:bg-red-50"
+                    >
+                      <XCircle className="mr-1 h-3 w-3" />
+                      images failed
+                    </Badge>
+                  </a>
+                )}
+              {u.state === "available" &&
+                u.release_status !== "commit" &&
+                u.docker_images_status === "ready" &&
+                u.release_builds_status === "building" && (
+                  <Badge
+                    variant="outline"
+                    className="text-xs border-amber-300 text-amber-600"
+                  >
                     <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                    images building...
+                    release artifacts building...
                   </Badge>
-                </a>
-              )}
-              {u.state === 'available' && u.docker_images_status === 'failed' && (
-                <a
-                  href={`https://github.com/statisticsnorway/statbus/commit/${u.commit_sha}/checks`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Badge variant="outline" className="text-xs border-red-300 text-red-600 hover:bg-red-50">
-                    <XCircle className="mr-1 h-3 w-3" />
-                    images failed
-                  </Badge>
-                </a>
-              )}
-              {u.state === 'available' && u.release_status !== 'commit' && u.docker_images_status === 'ready' && u.release_builds_status === 'building' && (
-                <Badge variant="outline" className="text-xs border-amber-300 text-amber-600">
-                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                  release artifacts building...
-                </Badge>
-              )}
-              {u.state === 'available' && u.release_status !== 'commit' && u.release_builds_status === 'failed' && (
-                <a
-                  href="https://github.com/statisticsnorway/statbus/actions/workflows/release.yaml"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Badge variant="outline" className="text-xs border-red-300 text-red-600 hover:bg-red-50">
-                    <XCircle className="mr-1 h-3 w-3" />
-                    release build failed
-                  </Badge>
-                </a>
-              )}
+                )}
+              {u.state === "available" &&
+                u.release_status !== "commit" &&
+                u.release_builds_status === "failed" && (
+                  <a
+                    href="https://github.com/statisticsnorway/statbus/actions/workflows/release.yaml"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Badge
+                      variant="outline"
+                      className="text-xs border-red-300 text-red-600 hover:bg-red-50"
+                    >
+                      <XCircle className="mr-1 h-3 w-3" />
+                      release build failed
+                    </Badge>
+                  </a>
+                )}
               {u.has_migrations && (
-                <Badge variant="outline" className="text-xs border-amber-300 text-amber-600">
+                <Badge
+                  variant="outline"
+                  className="text-xs border-amber-300 text-amber-600"
+                >
                   <Database className="mr-1 h-3 w-3" />
                   migrations
                 </Badge>
@@ -897,53 +1043,69 @@ function UpgradeCard({
         <div className="mt-3 flex gap-2">
           {status === "available" && (
             <>
-              {(u.docker_images_status !== 'ready' || (u.release_status !== 'commit' && u.release_builds_status !== 'ready')) ? (
-                <span className={`text-xs ${u.docker_images_status === 'failed' || u.release_builds_status === 'failed' ? 'text-red-600' : 'text-amber-600'}`}>
-                  {u.docker_images_status === 'failed'
+              {u.docker_images_status !== "ready" ||
+              (u.release_status !== "commit" &&
+                u.release_builds_status !== "ready") ? (
+                <span
+                  className={`text-xs ${u.docker_images_status === "failed" || u.release_builds_status === "failed" ? "text-red-600" : "text-amber-600"}`}
+                >
+                  {u.docker_images_status === "failed"
                     ? "CI image build failed. Check the ci-images.yaml workflow for details."
-                    : u.docker_images_status === 'building'
-                    ? "Images building... upgrade will be available when ci-images.yaml finishes."
-                    : u.release_builds_status === 'failed'
-                    ? "Release build failed. Check the release.yaml workflow for details."
-                    : "Release artifacts building... upgrade will be available when release.yaml finishes."}
+                    : u.docker_images_status === "building"
+                      ? "Images building... upgrade will be available when ci-images.yaml finishes."
+                      : u.release_builds_status === "failed"
+                        ? "Release build failed. Check the release.yaml workflow for details."
+                        : "Release artifacts building... upgrade will be available when release.yaml finishes."}
                 </span>
               ) : (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button size="sm" variant={variant === "superseded" ? "outline" : "default"} disabled={acting}>
-                    {acting ? (
-                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <ArrowDownToLine className="mr-1.5 h-3.5 w-3.5" />
-                    )}
-                    {variant === "superseded" ? "Install anyway" : "Upgrade Now"}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Confirm Upgrade</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      {variant === "superseded" && (
-                        <>A newer version is available and recommended. </>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant={variant === "superseded" ? "outline" : "default"}
+                      disabled={acting}
+                    >
+                      {acting ? (
+                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <ArrowDownToLine className="mr-1.5 h-3.5 w-3.5" />
                       )}
-                      This will schedule an immediate upgrade to {u.display_name}.
-                      {u.has_migrations &&
-                        " This version includes database migrations."}
-                      <br />
-                      The system will briefly go into maintenance mode during the
-                      upgrade.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={onScheduleNow}>
-                      Proceed
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+                      {variant === "superseded"
+                        ? "Install anyway"
+                        : "Upgrade Now"}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Confirm Upgrade</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        {variant === "superseded" && (
+                          <>A newer version is available and recommended. </>
+                        )}
+                        This will schedule an immediate upgrade to{" "}
+                        {u.display_name}.
+                        {u.has_migrations &&
+                          " This version includes database migrations."}
+                        <br />
+                        The system will briefly go into maintenance mode during
+                        the upgrade.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={onScheduleNow}>
+                        Proceed
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               )}
-              <Button size="sm" variant="ghost" disabled={acting} onClick={onSkip}>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={acting}
+                onClick={onSkip}
+              >
                 <SkipForward className="mr-1.5 h-3.5 w-3.5" />
                 Skip
               </Button>
@@ -951,7 +1113,12 @@ function UpgradeCard({
           )}
 
           {status === "scheduled" && (
-            <Button size="sm" variant="outline" disabled={acting} onClick={onUnschedule}>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={acting}
+              onClick={onUnschedule}
+            >
               {acting ? (
                 <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
               ) : (
@@ -970,7 +1137,12 @@ function UpgradeCard({
 
           {(status === "failed" || status === "rolled_back") && (
             <>
-              <Button size="sm" variant="outline" disabled={acting} onClick={onDismiss}>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={acting}
+                onClick={onDismiss}
+              >
                 {acting ? (
                   <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                 ) : (
@@ -994,7 +1166,12 @@ function UpgradeCard({
           )}
 
           {status === "skipped" && canRestore && (
-            <Button size="sm" variant="outline" disabled={acting} onClick={onRestore}>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={acting}
+              onClick={onRestore}
+            >
               {acting ? (
                 <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
               ) : (
