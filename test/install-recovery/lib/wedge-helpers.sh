@@ -149,6 +149,90 @@ simulate_worker_busy() {
 }
 
 # ─────────────────────────────────────────────────────────────────────────
+# start_continuous_worker_workload <vm_name> [duration_seconds]
+# stop_continuous_worker_workload <vm_name>
+#
+# Sustained worker contention. Where simulate_worker_busy queues a fixed
+# batch (drains in ~30 s), this primitive re-queues analytics tasks on a
+# loop for `duration_seconds` (default 300 s) so the worker stays busy
+# across the entire failure-injection window. Anchors the R1 race —
+# AccessShareLock contention between long-running analytics tasks and
+# upgrade-time DDL — by guaranteeing the worker is actually busy when
+# the injection fires.
+#
+# Mechanism: an in-VM background bash loop (kept in a detached tmux
+# session so transient ssh drops don't kill it) inserts a
+# statistical_history_reduce task into worker.tasks every 2 s. The
+# worker picks them up via its analytics queue and runs the reduce —
+# each takes seconds, so the queue depth stays positive. The
+# corresponding stop primitive removes the marker file the loop checks
+# for and waits for the loop to exit cleanly so the VM doesn't carry a
+# stale tmux session into cleanup.
+#
+# Tunables: WORKLOAD_INSERT_INTERVAL_S (default 2). Higher numbers
+# reduce queue depth; lower numbers stress the worker harder.
+# ─────────────────────────────────────────────────────────────────────────
+start_continuous_worker_workload() {
+    local vm_name="$1"
+    local duration_s="${2:-300}"
+    local insert_interval_s="${WORKLOAD_INSERT_INTERVAL_S:-2}"
+    echo "  [wedge] starting continuous worker workload on $vm_name (duration=${duration_s}s, interval=${insert_interval_s}s)"
+
+    VM_EXEC bash -c "
+        cd ~/statbus
+        # Marker file the loop polls for. The stop primitive removes it.
+        # Place under /tmp so a VM rebuild wipes it.
+        rm -f /tmp/continuous-workload.run
+        touch /tmp/continuous-workload.run
+
+        # Detached tmux session named 'continuous-workload' so we can poll
+        # for completion in the stop primitive without ssh-port-hopping.
+        command -v tmux >/dev/null 2>&1 || sudo apt-get install -y tmux >/dev/null 2>&1 || true
+        tmux kill-session -t continuous-workload 2>/dev/null || true
+        tmux new-session -d -s continuous-workload \"bash -lc '
+            cd ~/statbus
+            elapsed=0
+            while [ -f /tmp/continuous-workload.run ] && [ \$elapsed -lt $duration_s ]; do
+                ./sb psql -c \\\"INSERT INTO worker.tasks (command, payload, queue, priority) VALUES ('\''statistical_history_reduce'\'', '\''{}'\''::jsonb, '\''analytics'\'', 100);\\\" >/dev/null 2>&1 || true
+                sleep $insert_interval_s
+                elapsed=\$((elapsed + $insert_interval_s))
+            done
+            rm -f /tmp/continuous-workload.run
+            echo done > /tmp/continuous-workload.exit
+        '\"
+        # Give the loop one cycle to enqueue something measurable before
+        # the caller proceeds to whatever wedge it's setting up.
+        sleep $((insert_interval_s + 1))
+        ./sb psql -t -A -c \"SELECT count(*) FROM worker.tasks WHERE state IN ('pending','processing');\" 2>/dev/null | xargs -I{} echo '  [wedge] continuous workload running: queue depth {}'
+    "
+}
+
+stop_continuous_worker_workload() {
+    local vm_name="$1"
+    local max_wait_s="${1:-30}"
+    echo "  [wedge] stopping continuous worker workload on $vm_name"
+
+    VM_EXEC bash -c "
+        # Signal the loop to exit cleanly. The loop polls every <interval> s.
+        rm -f /tmp/continuous-workload.run
+
+        # Wait for the loop's exit sentinel (written when it returns).
+        # Caps at $max_wait_s so a wedged loop can't block scenario cleanup.
+        elapsed=0
+        while [ ! -f /tmp/continuous-workload.exit ] && [ \$elapsed -lt $max_wait_s ]; do
+            sleep 1
+            elapsed=\$((elapsed + 1))
+        done
+
+        # Tear down the tmux session regardless — if the loop didn't exit
+        # cleanly we still don't want a stale session hanging around.
+        tmux kill-session -t continuous-workload 2>/dev/null || true
+        rm -f /tmp/continuous-workload.exit
+        echo '  [wedge] continuous workload stopped (elapsed='\$elapsed's)'
+    "
+}
+
+# ─────────────────────────────────────────────────────────────────────────
 # simulate_sigkill_upgrade_service <vm_name>
 #
 # Stage F: Kill the upgrade-service Go process directly with SIGKILL.
