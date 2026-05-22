@@ -22,16 +22,8 @@ DECLARE
     v_clause_count INT := 0;
 
     -- Columns that emit `errors` entries (and contribute to the
-    -- state='error' decision). Encoded as 'colname:N' strings so we
-    -- can rebuild the length-probe later without re-iterating the
-    -- snapshot.
+    -- state='error' decision). Encoded as 'colname:N' strings.
     v_error_columns TEXT[] := ARRAY[]::TEXT[];
-
-    -- Hardcoded identifier-fail list per V7 recon: source_input
-    -- columns in these steps map to bounded identifier targets
-    -- (currently external_ident.ident varchar(50)).
-    v_identifier_fail_steps TEXT[] := ARRAY['external_idents'];
-    v_identifier_max_length INT := 50;  -- public.external_ident.ident
 BEGIN
     RAISE DEBUG '[Job %] analyse_length_limits (Batch): Starting length checks for batch_seq %', p_job_id, p_batch_seq;
 
@@ -48,52 +40,26 @@ BEGIN
 
     RAISE DEBUG '[Job %] analyse_length_limits: truncate_overlong=%, building per-column clauses', p_job_id, v_truncate_overlong;
 
-    -- Iterate bounded columns from the definition snapshot. Two buckets:
-    --   1. Descriptive — internal-purpose columns whose target_pg_type
-    --      matches `character varying(N)`.
-    --   2. Identifier — source_input columns in the identifier-fail
-    --      steps (currently external_idents; cap = 50).
+    -- Iterate bounded columns from the definition snapshot. Bucketing
+    -- is now driven entirely by (purpose, target_pg_type):
+    --   - purpose='internal' + target_pg_type matches varchar(N)
+    --     → descriptive (truncate or error per flag)
+    --   - purpose='source_input' + target_pg_type matches varchar(N)
+    --     → identifier (always error, regardless of flag)
+    --   - target_pg_type='ltree' or anything non-varchar → out of scope
     FOR v_col IN
-        WITH idc AS (
-            SELECT
-                (entry->>'step_id')::int    AS step_id,
-                entry->>'column_name'       AS column_name,
-                entry->>'purpose'           AS purpose,
-                entry->>'target_pg_type'    AS target_pg_type
-            FROM jsonb_array_elements(v_job.definition_snapshot->'import_data_column_list') AS entry
-        ),
-        steps AS (
-            SELECT
-                (entry->>'id')::int   AS id,
-                entry->>'code'        AS code
-            FROM jsonb_array_elements(v_job.definition_snapshot->'import_step_list') AS entry
-        )
         SELECT
-            idc.column_name,
-            idc.purpose,
-            idc.target_pg_type,
-            s.code AS step_code,
-            CASE
-                WHEN idc.purpose = 'internal'
-                     AND idc.target_pg_type ~ '^character varying\([0-9]+\)$' THEN 'descriptive'
-                WHEN idc.purpose = 'source_input'
-                     AND s.code = ANY(v_identifier_fail_steps) THEN 'identifier'
-                ELSE NULL
-            END AS bucket,
-            CASE
-                WHEN idc.target_pg_type ~ '^character varying\([0-9]+\)$' THEN
-                    (regexp_match(idc.target_pg_type, '^character varying\(([0-9]+)\)$'))[1]::INT
-                ELSE NULL
-            END AS varchar_limit
-        FROM idc
-        JOIN steps s ON s.id = idc.step_id
-        WHERE
-            (idc.purpose = 'internal' AND idc.target_pg_type ~ '^character varying\([0-9]+\)$')
-            OR (idc.purpose = 'source_input' AND s.code = ANY(v_identifier_fail_steps))
-        ORDER BY idc.column_name
+            entry->>'column_name'       AS column_name,
+            entry->>'purpose'           AS purpose,
+            entry->>'target_pg_type'    AS target_pg_type,
+            (regexp_match(entry->>'target_pg_type', '^character varying\(([0-9]+)\)$'))[1]::INT AS varchar_limit
+        FROM jsonb_array_elements(v_job.definition_snapshot->'import_data_column_list') AS entry
+        WHERE entry->>'target_pg_type' ~ '^character varying\([0-9]+\)$'
+          AND entry->>'purpose' IN ('internal', 'source_input')
+        ORDER BY entry->>'column_name'
     LOOP
-        IF v_col.bucket = 'descriptive' THEN
-            v_n := v_col.varchar_limit;
+        v_n := v_col.varchar_limit;
+        IF v_col.purpose = 'internal' THEN
             IF v_truncate_overlong THEN
                 -- TRUNCATE branch (opt-in): rewrite value + warning.
                 v_set_clauses := v_set_clauses || format(
@@ -129,11 +95,9 @@ BEGIN
                 );
                 v_error_columns := v_error_columns || ARRAY[v_col.column_name || ':' || v_n::TEXT];
             END IF;
-            v_clause_count := v_clause_count + 1;
-        ELSIF v_col.bucket = 'identifier' THEN
-            v_n := v_identifier_max_length;
-            -- Identifiers ALWAYS error regardless of flag — truncating
-            -- an identifier silently changes the operator's PK.
+        ELSE
+            -- purpose='source_input': identifier bucket — ALWAYS error.
+            -- Truncating an identifier silently changes the operator's PK.
             v_errors_clauses := v_errors_clauses || format(
                 $clause$ || CASE
                     WHEN length(dt.%1$I) > %2$L THEN
@@ -145,13 +109,11 @@ BEGIN
                 v_col.column_name /* %3$L */
             );
             v_error_columns := v_error_columns || ARRAY[v_col.column_name || ':' || v_n::TEXT];
-            v_clause_count := v_clause_count + 1;
         END IF;
+        v_clause_count := v_clause_count + 1;
     END LOOP;
 
     -- state clause: 'error' iff ANY error-emitting column overflowed.
-    -- In strict mode: descriptives + identifiers.
-    -- In truncate mode: identifiers only.
     IF array_length(v_error_columns, 1) > 0 THEN
         SELECT string_agg(
             format(

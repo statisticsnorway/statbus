@@ -888,7 +888,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
                  "column_type": "TEXT",                                           +
                  "is_nullable": true,                                             +
                  "default_value": null,                                           +
-                 "target_pg_type": "TEXT",                                        +
+                 "target_pg_type": "character varying(50)",                       +
                  "is_uniquely_identifying": true                                  +
              }                                                                    +
          },                                                                       +
@@ -1387,7 +1387,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "column_type": "TEXT",                                               +
              "is_nullable": true,                                                 +
              "default_value": null,                                               +
-             "target_pg_type": "TEXT",                                            +
+             "target_pg_type": "character varying(50)",                           +
              "is_uniquely_identifying": true                                      +
          },                                                                       +
          {                                                                        +
@@ -1397,7 +1397,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "column_type": "TEXT",                                               +
              "is_nullable": true,                                                 +
              "default_value": null,                                               +
-             "target_pg_type": "TEXT",                                            +
+             "target_pg_type": "character varying(50)",                           +
              "is_uniquely_identifying": true                                      +
          },                                                                       +
          {                                                                        +
@@ -1407,7 +1407,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "column_type": "TEXT",                                               +
              "is_nullable": true,                                                 +
              "default_value": null,                                               +
-             "target_pg_type": "TEXT",                                            +
+             "target_pg_type": "character varying(50)",                           +
              "is_uniquely_identifying": true                                      +
          },                                                                       +
          {                                                                        +
@@ -3022,7 +3022,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
                  "column_type": "TEXT",                                             +
                  "is_nullable": true,                                               +
                  "default_value": null,                                             +
-                 "target_pg_type": "TEXT",                                          +
+                 "target_pg_type": "character varying(50)",                         +
                  "is_uniquely_identifying": true                                    +
              }                                                                      +
          },                                                                         +
@@ -3521,7 +3521,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "column_type": "TEXT",                                                 +
              "is_nullable": true,                                                   +
              "default_value": null,                                                 +
-             "target_pg_type": "TEXT",                                              +
+             "target_pg_type": "character varying(50)",                             +
              "is_uniquely_identifying": true                                        +
          },                                                                         +
          {                                                                          +
@@ -3531,7 +3531,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "column_type": "TEXT",                                                 +
              "is_nullable": true,                                                   +
              "default_value": null,                                                 +
-             "target_pg_type": "TEXT",                                              +
+             "target_pg_type": "character varying(50)",                             +
              "is_uniquely_identifying": true                                        +
          },                                                                         +
          {                                                                          +
@@ -3541,7 +3541,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "column_type": "TEXT",                                                 +
              "is_nullable": true,                                                   +
              "default_value": null,                                                 +
-             "target_pg_type": "TEXT",                                              +
+             "target_pg_type": "character varying(50)",                             +
              "is_uniquely_identifying": true                                        +
          },                                                                         +
          {                                                                          +

@@ -24,27 +24,22 @@ BEGIN
     RAISE DEBUG '[import.generate_external_ident_data_columns] For step_id % (external_idents), ensuring data columns for active codes: %', v_step_id, v_active_codes;
 
     -- Get the highest priority among non-dynamic columns (those without purpose='source_input' and 'internal')
-    -- For external_idents step, this should be 4 (from establishment_id)
     SELECT COALESCE(MAX(idc.priority), 0) INTO v_base_priority
     FROM public.import_data_column idc
     WHERE idc.step_id = v_step_id
       AND idc.purpose NOT IN ('source_input', 'internal');
 
-    -- Generate data columns for each active external_ident_type
-    -- Regular types: single {code}_raw column
-    -- Hierarchical types: {code}_{label}_raw columns + {code}_path internal column
     FOR v_ident_type IN
         SELECT code, priority, shape, labels
         FROM public.external_ident_type_enabled
         ORDER BY priority
     LOOP
         IF v_ident_type.shape = 'regular' THEN
-            -- Regular identifier: single source_input column
-            -- Formula: base_priority + 2 + type.priority
+            -- Regular: source_input maps to external_ident.ident (varchar(50))
             v_calculated_priority := v_base_priority + 2 + v_ident_type.priority;
 
             INSERT INTO public.import_data_column (step_id, column_name, column_type, purpose, is_nullable, is_uniquely_identifying, priority, target_pg_type)
-            VALUES (v_step_id, v_ident_type.code || '_raw', 'TEXT', 'source_input', true, true, v_calculated_priority, 'TEXT')
+            VALUES (v_step_id, v_ident_type.code || '_raw', 'TEXT', 'source_input', true, true, v_calculated_priority, 'character varying(50)')
             ON CONFLICT (step_id, column_name) DO UPDATE SET
                 priority = EXCLUDED.priority,
                 is_uniquely_identifying = EXCLUDED.is_uniquely_identifying,
@@ -60,8 +55,11 @@ BEGIN
                 v_ident_type.code, v_ident_type.code, v_calculated_priority;
 
         ELSIF v_ident_type.shape = 'hierarchical' THEN
-            -- Hierarchical identifier: multiple component columns + path column
-            -- Parse labels into array: 'region.district.unit' -> ['region', 'district', 'unit']
+            -- Hierarchical: source_input maps to external_ident.idents (ltree)
+            -- Per V7 recon + architect review: LTREE has its own internal
+            -- limits (each label ≤ 256 bytes, full path many segments).
+            -- target_pg_type='ltree' signals the analyse_length_limits
+            -- procedure to skip the varchar bound check.
             v_labels_array := string_to_array(ltree2text(v_ident_type.labels), '.');
             v_num_labels := array_length(v_labels_array, 1);
 
@@ -70,19 +68,15 @@ BEGIN
                 CONTINUE;
             END IF;
 
-            -- Calculate slot base priority to avoid collisions
-            -- Formula: base_priority + 2 + type.priority * (max_labels + 1)
-            -- Using max_labels = 10 as reasonable upper bound for hierarchical depth
             v_slot_base := v_base_priority + 2 + v_ident_type.priority * 11;
 
-            -- Generate source_input column for each label component
             v_label_index := 0;
             FOREACH v_label IN ARRAY v_labels_array
             LOOP
                 v_calculated_priority := v_slot_base + v_label_index;
 
                 INSERT INTO public.import_data_column (step_id, column_name, column_type, purpose, is_nullable, is_uniquely_identifying, priority, target_pg_type)
-                VALUES (v_step_id, v_ident_type.code || '_' || v_label || '_raw', 'TEXT', 'source_input', true, true, v_calculated_priority, 'TEXT')
+                VALUES (v_step_id, v_ident_type.code || '_' || v_label || '_raw', 'TEXT', 'source_input', true, true, v_calculated_priority, 'ltree')
                 ON CONFLICT (step_id, column_name) DO UPDATE SET
                     priority = EXCLUDED.priority,
                     is_uniquely_identifying = EXCLUDED.is_uniquely_identifying,
@@ -94,16 +88,13 @@ BEGIN
                    OR public.import_data_column.purpose != EXCLUDED.purpose
                    OR public.import_data_column.target_pg_type IS DISTINCT FROM EXCLUDED.target_pg_type;
 
-                RAISE DEBUG '[import.generate_external_ident_data_columns] Hierarchical type "%": created/updated column "%_%_raw" with priority %',
+                RAISE DEBUG '[import.generate_external_ident_data_columns] Hierarchical type "%": created/updated column "%_%_raw" with priority % (target_pg_type=ltree)',
                     v_ident_type.code, v_ident_type.code, v_label, v_calculated_priority;
 
                 v_label_index := v_label_index + 1;
             END LOOP;
 
-            -- Generate internal path column (computed during analysis)
-            -- Note: is_uniquely_identifying must be FALSE for internal columns (constraint requirement)
-            -- target_pg_type: LTREE is the in-data-table type; no public.external_ident.path
-            -- exists, so resolve_target_pg_type returns NULL and we fall back to 'LTREE'.
+            -- Generate internal path column (computed during analysis).
             v_calculated_priority := v_slot_base + v_num_labels;
 
             INSERT INTO public.import_data_column (step_id, column_name, column_type, purpose, is_nullable, is_uniquely_identifying, priority, target_pg_type)

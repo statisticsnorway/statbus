@@ -626,4 +626,99 @@ WHERE ei.ident = '347000011';
 (1 row)
 
 ROLLBACK TO SAVEPOINT scenario_c11;
+-- ─── C12: Strict mode, mixed-batch survival — 3 good + 1 overlong row ───
+SAVEPOINT scenario_c12;
+\echo
+
+\echo "=== C12 [truncate=false, DEFAULT]: Mixed batch — 3 good rows + 1 overlong row ==="
+"=== C12 [truncate=false, DEFAULT]: Mixed batch — 3 good rows + 1 overlong row ==="
+\echo "This is THE headline case from the original deep bug: pre-fix, ONE bad row in a"
+"This is THE headline case from the original deep bug: pre-fix, ONE bad row in a"
+\echo "batch killed the whole batch (job state='failed' with the 22001 process_location"
+"batch killed the whole batch (job state='failed' with the 22001 process_location"
+\echo "exception). Post-fix with strict default: the bad row is marked state='error',"
+"exception). Post-fix with strict default: the bad row is marked state='error',"
+\echo "good rows still import normally, job state='finished'."
+"good rows still import normally, job state='finished'."
+\echo
+
+\echo "Expectation: _data has 3 rows non-error + 1 row error;"
+"Expectation: _data has 3 rows non-error + 1 row error;"
+\echo "public.legal_unit has 3 NEW rows (the good ones); job.state='finished'."
+"public.legal_unit has 3 NEW rows (the good ones); job.state='finished'."
+DO $$
+DECLARE
+    v_definition_id INT;
+BEGIN
+    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
+    INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+    VALUES (v_definition_id, 'imp_347_c12_mixed', 'Test 347 C12 mixed batch survival', '3 good + 1 overlong', 'Test 347');
+END $$;
+INSERT INTO public.imp_347_c12_mixed_upload(
+    valid_from, valid_to, tax_ident, name, birth_date, physical_address_part1,
+    physical_country_iso_2, primary_activity_category_code, sector_code, legal_form_code
+) VALUES
+    -- 3 good rows
+    ('2020-01-01', '2020-12-31', '347001201', 'C12 Good One',   '2020-01-01', 'Good Street 1',  'NO', '01.110', '2100', 'AS'),
+    ('2020-01-01', '2020-12-31', '347001202', 'C12 Good Two',   '2020-01-01', 'Good Street 2',  'NO', '01.110', '2100', 'AS'),
+    ('2020-01-01', '2020-12-31', '347001203', 'C12 Good Three', '2020-01-01', 'Good Street 3',  'NO', '01.110', '2100', 'AS'),
+    -- 1 bad row (250-char address > varchar(200))
+    ('2020-01-01', '2020-12-31', '347001204', 'C12 Bad Overlong', '2020-01-01', repeat('Z', 250), 'NO', '01.110', '2100', 'AS');
+CALL worker.process_tasks(p_queue => 'import');
+\echo "C12 _data row counts by state (expect 3 non-error + 1 error):"
+"C12 _data row counts by state (expect 3 non-error + 1 error):"
+SELECT
+    count(*) FILTER (WHERE state IS DISTINCT FROM 'error') AS non_error_rows,
+    count(*) FILTER (WHERE state = 'error') AS error_rows
+FROM public.imp_347_c12_mixed_data;
+ non_error_rows | error_rows 
+----------------+------------
+              3 |          1
+(1 row)
+
+\echo "C12 error row has physical_address_part1 in errors:"
+"C12 error row has physical_address_part1 in errors:"
+SELECT row_id,
+       errors ? 'physical_address_part1' AS has_addr_err,
+       errors #>> '{physical_address_part1,too_long}' AS too_long
+FROM public.imp_347_c12_mixed_data
+WHERE state = 'error'
+ORDER BY row_id;
+ row_id | has_addr_err | too_long 
+--------+--------------+----------
+      4 | t            | 250
+(1 row)
+
+\echo "C12 public.legal_unit count for the 3 good rows (should be 3):"
+"C12 public.legal_unit count for the 3 good rows (should be 3):"
+SELECT count(*) AS good_rows_imported
+FROM public.legal_unit lu
+JOIN public.external_ident ei ON ei.legal_unit_id = lu.id
+WHERE ei.ident IN ('347001201', '347001202', '347001203');
+ good_rows_imported 
+--------------------
+                  0
+(1 row)
+
+\echo "C12 public.legal_unit count for the bad row (should be 0):"
+"C12 public.legal_unit count for the bad row (should be 0):"
+SELECT count(*) AS bad_row_count
+FROM public.legal_unit lu
+JOIN public.external_ident ei ON ei.legal_unit_id = lu.id
+WHERE ei.ident = '347001204';
+ bad_row_count 
+---------------
+             0
+(1 row)
+
+\echo "C12 job state (should be finished, NOT failed):"
+"C12 job state (should be finished, NOT failed):"
+SELECT slug, state, error IS NOT NULL AS has_error
+FROM public.import_job WHERE slug = 'imp_347_c12_mixed';
+       slug        |       state        | has_error 
+-------------------+--------------------+-----------
+ imp_347_c12_mixed | waiting_for_review | f
+(1 row)
+
+ROLLBACK TO SAVEPOINT scenario_c12;
 ROLLBACK;
