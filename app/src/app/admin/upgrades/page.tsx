@@ -380,6 +380,32 @@ export default function UpgradesPage() {
         </Button>
       </div>
 
+      {/*
+        Prominent inline status for the Schedule-check action. The button
+        itself flips to "Checking..." but that's small and easy to miss
+        among per-upgrade-row "Release artifacts building..." messages.
+        This banner makes the global check action's progress visible
+        while we wait for niue → GitHub API → image registry round-trips
+        (typically 5-30s; can stretch on slow/rate-limited responses).
+      */}
+      {checking && (
+        <Card className="mb-4 border-blue-300 bg-blue-50">
+          <CardContent className="flex items-center gap-3 pt-6">
+            <Loader2 className="h-5 w-5 animate-spin text-blue-700" />
+            <div className="text-sm text-blue-900">
+              <p className="font-medium">
+                Checking GitHub for new releases and image readiness...
+              </p>
+              <p className="text-xs text-blue-800">
+                This can take 10-30 seconds. The upgrade daemon is contacting
+                the GitHub release feed and probing the GHCR image manifests.
+                The page will update automatically when the check completes.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {installLastError && (
         <Card className="mb-4 border-red-300 bg-red-50">
           <CardContent className="space-y-2 pt-6">
