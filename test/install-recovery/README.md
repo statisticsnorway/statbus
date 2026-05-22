@@ -50,9 +50,11 @@ Each scenario is **a fresh Multipass VM**, no state shared. Per-scenario isolati
 | 07 | `stage-e-worker-busy` | Queue heavy worker tasks; install while worker is processing | **Fix 8** worker excluded from advisory_holders count, **Fix 9** no false-fail on pool busy, **Fix 10** psql-only filter |
 | 08 | `sigkill-canonical-layer2` | Real SIGKILL during the canonical ~ms window (committed migration, `db.migration` row missing). Two stages: (1) kill the migrate subprocess → Layer 0 in-process `postSwapFailure` recovery; (2) kill the upgrade-service parent → Layer 2 next-install `recoverFromFlag` recovery. | Principled forward-then-restore (commit `fc5ae7cf7`), `inject.StallHere` primitives (`cli/internal/inject`), Layer 3 backup cleanup |
 | 09 | `bool-text-regression` | Healthy install, re-run with worker active | **Fix 11** drop bool::text cast in checkSessionsClean |
-| 10 | `stage-g-non-idempotent-migration` *(TBD)* | Custom migration with side-effects, SIGKILL mid-flight | Layer 0 / Layer 2 forward-then-restore on non-idempotent migration shapes |
+| 10 | `seed-on-populated` *(C17 / R5 — DATA LOSS GRADE)* | Install at older release → populate demo data → switch sb binary + git tree to local HEAD → run install again. Forces the state-machine into "nothing-scheduled + migration tail mismatch", which on buggy code dispatches the destructive seed-restore against the populated DB. | Architectural — the install state machine MUST classify DB content (populated vs empty) before triggering the seed step. Currently LIKELY RED on master; the architectural fix lands in a separate arc. Load-bearing assertion: `assert_demo_data_present`. |
 
 `*(TBD)*` = scaffolded but scenario logic not yet implemented.
+
+Additional scenarios for forensics-surfaced classes (C3-C9, C11-C16, C18+) land per the priority order in `~/.claude-veridit/plans/recovery-injection-scope-a-comprehensive.md`. Each scenario file's header documents its C-class, R-tag, expected behavior, and known status on current code.
 
 ## Fix-to-scenario reverse mapping
 
