@@ -235,8 +235,23 @@ elif [[ "$tool" == "Bash" ]]; then
   command=$(jq -r '.tool_input.command // empty' <<<"$payload")
   normalized=$(echo "$command" | tr '\n' ' ' | tr -s ' ')
 
+  # Strip commit message bodies before pattern-matching, so command strings
+  # documented inside commit messages don't false-match hook patterns.
+  # Handles: -m 'single'  -m "double"  -m $'ansi-c'  -F <path>
+  # After tr-normalization the input is already single-line, so multi-line
+  # HEREDOC bodies ($(cat <<'EOF'..EOF)) are covered by the double-quote case.
+  if printf '%s' "$normalized" | grep -qE '^[[:space:]]*git[[:space:]]+commit\b'; then
+    normalized_for_match=$(printf '%s' "$normalized" | sed -E \
+      -e "s/-m[[:space:]]+'[^']*'//g" \
+      -e 's/-m[[:space:]]+"[^"]*"//g' \
+      -e "s/-m[[:space:]]+\\\$'[^']*'//g" \
+      -e 's/-F[[:space:]]+[^[:space:]]+//g')
+  else
+    normalized_for_match="$normalized"
+  fi
+
   # Rule 4: `./dev.sh test …` → only the tester.
-  if echo "$normalized" | grep -qE '\./dev\.sh\s+test\b'; then
+  if echo "$normalized_for_match" | grep -qE '\./dev\.sh\s+test\b'; then
     if [[ "$caller" == "tester" ]]; then
       echo "{}"
       exit 0
@@ -273,7 +288,7 @@ Hook source: .claude/hooks/restrict-agent-spawn.sh"
   # Rule 6: commit-creating / push git ops → block operator + tester.
   # These Haiku-tier roles must not modify history; smaller-model context
   # windows make role-file rules unreliable, so enforce structurally.
-  if echo "$normalized" | grep -qE '\bgit\s+(commit|revert|cherry-pick|rebase|am|push)\b'; then
+  if echo "$normalized_for_match" | grep -qE '\bgit\s+(commit|revert|cherry-pick|rebase|am|push)\b'; then
     if [[ "$caller" == "operator" || "$caller" == "tester" ]]; then
       emit_deny "BLOCKED (restrict-agent-spawn.sh): '${caller}' cannot create or push commits.
 
@@ -294,7 +309,7 @@ Hook source: .claude/hooks/restrict-agent-spawn.sh"
   fi
 
   # Rule 5: `./sb release prerelease` → only the foreman.
-  if echo "$normalized" | grep -qE '\./sb\s+release\s+prerelease\b'; then
+  if echo "$normalized_for_match" | grep -qE '\./sb\s+release\s+prerelease\b'; then
     if [[ "$caller" == "foreman" ]]; then
       echo "{}"
       exit 0

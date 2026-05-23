@@ -171,6 +171,26 @@ assert_no_op "Read tool" \
 assert_no_op "Agent tool" \
   '{"tool_name":"Agent","tool_input":{"name":"x"}}'
 
+# ── Commit-body false-positive prevention ──
+# git commit -m "..." bodies are stripped before pattern-matching; a
+# command string documented inside a commit message must NOT block the commit.
+
+assert_no_op "git commit -m with ./dev.sh test in body → no-op (body stripped)" \
+  "$(payload_fg 'git commit -m "fix: example of running ./dev.sh test fast as documentation"')"
+
+# Heredoc form: $(cat <<'EOF'\n...\nEOF\n) — after tr normalization the body
+# is a single line; the "double-quote" sed strip removes the entire -m "...".
+assert_no_op "git commit with heredoc body containing ./sb install → no-op (body stripped)" \
+  "$(payload_fg $'git commit -m "$(cat <<\'EOF\'\nMulti-line commit body with embedded\n./sb install reference\nEOF\n)"')"
+
+# Bare long-running command (not inside a commit) — unchanged existing behaviour.
+assert_deny "bare ./dev.sh test fast (no commit wrapper) → still DENY" \
+  "$(payload_fg './dev.sh test fast')"
+
+# -F flag: the external file path is stripped, leaving only 'git commit'.
+assert_no_op "git commit -F file → no-op (-F path stripped)" \
+  "$(payload_fg 'git commit -F tmp/commit-msg.txt')"
+
 # ── Known false-positive (documented) ──
 # The regex matches the pattern text even when quoted inside `echo`.
 # We accept this — the deny message is clear and the caller can either

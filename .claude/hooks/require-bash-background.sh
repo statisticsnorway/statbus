@@ -51,6 +51,22 @@ normalized=$(echo "$command" | tr '\n' ' ' | tr -s ' ')
 
 is_long() {
   local cmd="$1"
+  local cmd_for_match
+
+  # Strip commit message bodies before pattern-matching, so command strings
+  # documented inside commit messages don't false-match hook patterns.
+  # Handles: -m 'single'  -m "double"  -m $'ansi-c'  -F <path>
+  # After tr-normalization the input is already single-line, so multi-line
+  # HEREDOC bodies ($(cat <<'EOF'..EOF)) are covered by the double-quote case.
+  if printf '%s' "$cmd" | grep -qE '^[[:space:]]*git[[:space:]]+commit\b'; then
+    cmd_for_match=$(printf '%s' "$cmd" | sed -E \
+      -e "s/-m[[:space:]]+'[^']*'//g" \
+      -e 's/-m[[:space:]]+"[^"]*"//g' \
+      -e "s/-m[[:space:]]+\\\$'[^']*'//g" \
+      -e 's/-F[[:space:]]+[^[:space:]]+//g')
+  else
+    cmd_for_match="$cmd"
+  fi
 
   # Explicit long timeout set by the caller — they know it's long.
   if (( timeout_ms > 30000 )); then
@@ -79,7 +95,7 @@ is_long() {
   for entry in "${patterns[@]}"; do
     local label="${entry%%|*}"
     local regex="${entry#*|}"
-    if echo "$cmd" | grep -qE "$regex"; then
+    if echo "$cmd_for_match" | grep -qE "$regex"; then
       echo "matches '${label}'"
       return 0
     fi
@@ -87,8 +103,8 @@ is_long() {
 
   # docker compose up without -d — foreground means it follows logs.
   # docker compose up -d is detached and returns immediately.
-  if echo "$cmd" | grep -qE '\bdocker\s+compose\s+up\b' && \
-     ! echo "$cmd" | grep -qE '(^|\s)-d(\s|$)'; then
+  if echo "$cmd_for_match" | grep -qE '\bdocker\s+compose\s+up\b' && \
+     ! echo "$cmd_for_match" | grep -qE '(^|\s)-d(\s|$)'; then
     echo "matches 'docker compose up (no -d)'"
     return 0
   fi

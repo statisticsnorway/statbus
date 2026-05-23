@@ -207,6 +207,27 @@ assert_allow_or_no_op "team-lead runs a regular Bash command → allow (not Tier
 assert_deny "unknown caller runs ./dev.sh test fast → DENY (Tier-1, can't confirm test-intern)" \
   '{"session_id":"ffff-unknown","transcript_path":"/tmp/definitely-not-a-file-12345.jsonl","tool_name":"Bash","tool_input":{"command":"./dev.sh test fast"}}'
 
+echo "── Commit-body false-positive prevention ───────────────────────────"
+# git commit -m "..." bodies are stripped before pattern-matching; a
+# command string documented inside a commit message must NOT block the commit.
+# Using "partner" caller: not blocked by Rule 6 (only operator/tester are),
+# and after body-strip Rule 4 (./dev.sh test) must not fire.
+
+assert_allow_or_no_op "partner git commit -m body with ./dev.sh test → allow (body stripped)" \
+  "{\"session_id\":\"synthetic-partner\",\"transcript_path\":\"$TMPDIR/partner.jsonl\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit -m \\\"fix: example of running ./dev.sh test fast as documentation\\\"\"}}"
+
+assert_allow_or_no_op "partner git commit heredoc body with ./sb install → allow (body stripped)" \
+  "$(jq -nc --arg cmd $'git commit -m "$(cat <<\'EOF\'\nMulti-line commit body with embedded\n./sb install reference\nEOF\n)"' \
+     "{\"session_id\":\"synthetic-partner\",\"transcript_path\":\"$TMPDIR/partner.jsonl\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\$cmd}}")"
+
+# Bare ./dev.sh test (not in a commit) from partner → still DENY (Rule 4 unchanged).
+assert_deny "partner bare ./dev.sh test fast (no commit wrapper) → still DENY" \
+  "{\"session_id\":\"synthetic-partner\",\"transcript_path\":\"$TMPDIR/partner.jsonl\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"./dev.sh test fast\"}}"
+
+# -F flag: path is stripped, leaving 'git commit'. Rule 6 doesn't block partner.
+assert_allow_or_no_op "partner git commit -F file → allow (-F path stripped)" \
+  "{\"session_id\":\"synthetic-partner\",\"transcript_path\":\"$TMPDIR/partner.jsonl\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"git commit -F tmp/commit-msg.txt\"}}"
+
 echo "── non-Agent, non-Bash tools: pass through ─────────────────────────"
 
 assert_allow_or_no_op "Read tool → no-op" \
