@@ -3524,30 +3524,71 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// reconnect after the DB container restart earlier in this method
 	// (docker compose up -d --no-build db). The reconnect step parks
 	// the upgrade-service's main goroutine; until it returns, NOTHING
-	// in this process pings WATCHDOG=1. Activated by
+	// in the main goroutine pings WATCHDOG=1. Activated by
 	// STATBUS_INJECT_AT=service-watchdog-timeout-during-db-reconnect-after-container-restart
 	// and held by STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE.
 	//
-	// On the systemd-supervised path, if the stall holds longer than
-	// the unit's WatchdogSec (120 s per ops/statbus-upgrade.service),
-	// systemd SIGABRTs the unit and restarts it. The migrate ticker
-	// in this same function (lines below) handles long migrations by
-	// firing WATCHDOG=1 every 30 s — but that ticker is set up AFTER
-	// this point. The reconnect site is therefore currently
-	// unprotected; scenario 19 is the diagnostic.
+	// The reconnect-watchdog ticker below is the structural fix —
+	// even when the main goroutine is parked (in the real-world Race D
+	// case: a slow DB-side handshake) or stalled (in the harness case:
+	// inject.StallHere blocks on a release file), the ticker
+	// goroutine keeps firing WATCHDOG=1 every 30 s so systemd's
+	// WatchdogSec=120s deadline cannot trip.
 	//
-	// Fix shape (will land as a follow-up commit once the scenario
-	// goes RED on Hetzner): start a WATCHDOG=1 ticker around the
-	// reconnect call, mirroring the migrate-ticker pattern from
-	// commit e6df084b7. Until that fix lands the scenario captures
-	// the current behavior (NRestarts increments at the 120 s mark).
 	// No-op in production.
 	inject.StallHere("service-watchdog-timeout-during-db-reconnect-after-container-restart")
 
-	// Reconnect service DB connection
+	// Reconnect service DB connection.
+	//
+	// Race D fix: this block runs in the unit's ACTIVE phase (READY=1
+	// fired at service.go:1520 in Service.Run's setup, BEFORE the main
+	// loop dispatches executeUpgrade), so systemd enforces WatchdogSec
+	// (=120s per ops/statbus-upgrade.service), NOT TimeoutStartSec.
+	// Per sd_notify(3) the watchdog deadline is reset ONLY by
+	// WATCHDOG=1 — EXTEND_TIMEOUT_USEC doesn't apply to it. The
+	// migrate-up step further down sets up its own WATCHDOG=1 ticker
+	// for the same reason (commit e6df084b7's Race B fix); this
+	// ticker is the upstream sibling that protects the reconnect
+	// site, which the original Race B fix did not cover.
+	//
+	// Failure mode without this ticker (observed in the Race D
+	// forensics under tmp/install-state-machine-forensics.md):
+	// during a real DB-side slow handshake (cluster restart, slow
+	// network path, contention against a long-running ANALYZE on a
+	// huge table), d.reconnect's pgx.Connect blocks for >120s; the
+	// main goroutine is parked inside it; WATCHDOG=1 is not sent;
+	// systemd SIGABRTs the unit. NRestarts climbs. Scenario 19's
+	// runtime path (with the C15 stall held for STALL_HOLD_S=180s)
+	// reproduces this exactly.
+	//
+	// 30-second tick cadence matches the e6df084b7 migrate ticker:
+	// 1/4 the watchdog deadline gives wide jitter tolerance while
+	// keeping the ticker's CPU footprint trivial. First WATCHDOG=1
+	// fires immediately so the deadline is reset before the
+	// reconnect can run long enough to approach the budget.
+	reconnExtendCtx, reconnExtendCancel := context.WithCancel(ctx)
+	reconnTickerDone := make(chan struct{})
+	go func() {
+		defer close(reconnTickerDone)
+		sdNotify("WATCHDOG=1")
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-reconnExtendCtx.Done():
+				return
+			case <-ticker.C:
+				sdNotify("WATCHDOG=1")
+			}
+		}
+	}()
+
 	progress.Write("Reconnecting to database...")
-	if err := d.reconnect(ctx); err != nil {
-		return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: reconnect to DB: %v", ErrHealthcheckDBDown, err), progress)
+	reconnErr := d.reconnect(ctx)
+	reconnExtendCancel()
+	<-reconnTickerDone
+	if reconnErr != nil {
+		return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: reconnect to DB: %v", ErrHealthcheckDBDown, reconnErr), progress)
 	}
 
 	// Update backup_path to the final (renamed) path now that we have a connection.

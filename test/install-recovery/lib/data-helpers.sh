@@ -193,3 +193,119 @@ wait_for_worker_quiesce() {
     VM_EXEC bash -c "cd ~/statbus && echo \"SELECT command, state, count(*) FROM worker.tasks WHERE ${active_filter} GROUP BY command, state ORDER BY count(*) DESC;\" | ./sb psql" >&2 || true
     return 1
 }
+
+# ─────────────────────────────────────────────────────────────────────────
+# fabricate_scheduled_upgrade_row <vm_name> <head_sha>
+#
+# Inserts a row in public.upgrade with state='scheduled' for the given
+# commit SHA, satisfying chk_upgrade_state_attributes' scheduled-arm
+# (scheduled_at NOT NULL; started_at + completed_at + rolled_back_at
+# NULL). Used by harness scenarios that need the supervised systemd
+# upgrade-service unit to dispatch an upgrade against HEAD's SHA —
+# the unit's `discover` machinery only populates rows for commits
+# matching git tags, so HEAD (typically untagged in harness flow)
+# never appears as state='available' via the natural path.
+#
+# Idempotent: if a row already exists for the SHA, transitions it to
+# 'scheduled' if it isn't already (and clears the lifecycle timestamps
+# that would conflict with the 'scheduled' arm). If a fabricated row
+# is already in state='scheduled', returns 0 unchanged.
+#
+# Field rationale (per discover's INSERT shape in service.go:2579 +
+# the create_upgrade_table.up.sql + commit_centric_upgrade_table.up.sql
+# schema lineage; verified against chk_upgrade_state_attributes in
+# migration 20260424160235_commit_canonical_naming.up.sql):
+#
+#   commit_sha     — required UNIQUE; the HEAD SHA passed in.
+#   committed_at   — required NOT NULL; we use now() (the harness
+#                    isn't asserting a specific commit timestamp).
+#   commit_tags    — TEXT[] default '{}'; we leave empty (HEAD is
+#                    untagged in this codepath by construction).
+#   release_status — public.release_status_type, default 'commit';
+#                    explicit 'commit' satisfies the discover-style
+#                    shape and prevents accidental misclassification.
+#   summary        — NOT NULL TEXT; static harness marker so an
+#                    operator browsing the table sees the row's
+#                    provenance.
+#   has_migrations — default FALSE; the upgrade-service's discover
+#                    leaves this false too — has_migrations is
+#                    determined by manifest at upgrade execution
+#                    time, not at discover/fabrication time.
+#   commit_version — synthetic harness sentinel. discover normally
+#                    sets this to a tag name; we use a placeholder
+#                    that doesn't collide with any real release tag
+#                    shape so a stray operator query that filters by
+#                    release tag won't match.
+#   state          — 'scheduled' (the row's purpose; satisfies
+#                    chk_upgrade_state_attributes' scheduled arm).
+#   scheduled_at   — now() (required by the scheduled arm).
+#
+# Usage:
+#   fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_SHA"
+#
+# Returns 0 on successful insert/update; non-zero on SQL error.
+# ─────────────────────────────────────────────────────────────────────────
+fabricate_scheduled_upgrade_row() {
+    local vm_name="$1"
+    local head_sha="$2"
+
+    if [ -z "$head_sha" ]; then
+        echo "  ✗ fabricate_scheduled_upgrade_row: head_sha is required" >&2
+        return 1
+    fi
+
+    echo "  [data] fabricating public.upgrade row for $head_sha (state=scheduled)"
+
+    # Pre-existing row? Transition to 'scheduled' if it isn't already,
+    # clearing lifecycle timestamps that would conflict with the
+    # scheduled arm. The WHERE clause is intentionally permissive — we
+    # accept rows in any state and force-reset them into scheduled,
+    # because the helper's contract is "make this row scheduled now";
+    # callers expect a deterministic post-condition regardless of
+    # whatever prior state the row was in.
+    local upsert_sql
+    upsert_sql=$(cat << SQL
+WITH input(commit_sha) AS (VALUES ('${head_sha}'))
+INSERT INTO public.upgrade
+  (commit_sha, committed_at, commit_tags, release_status, summary,
+   has_migrations, commit_version, state, scheduled_at,
+   started_at, completed_at, rolled_back_at, error,
+   log_relative_file_path, skipped_at, dismissed_at, superseded_at)
+SELECT
+  input.commit_sha,
+  now(),
+  '{}'::text[],
+  'commit'::public.release_status_type,
+  'harness fabricate_scheduled_upgrade_row',
+  false,
+  'harness-' || substring(input.commit_sha for 8),
+  'scheduled'::public.upgrade_state,
+  now(),
+  NULL, NULL, NULL, NULL,
+  NULL, NULL, NULL, NULL
+FROM input
+ON CONFLICT (commit_sha) DO UPDATE SET
+  state            = 'scheduled'::public.upgrade_state,
+  scheduled_at     = now(),
+  started_at       = NULL,
+  completed_at     = NULL,
+  rolled_back_at   = NULL,
+  error            = NULL,
+  skipped_at       = NULL,
+  dismissed_at     = NULL,
+  superseded_at    = NULL,
+  log_relative_file_path = NULL
+RETURNING id, commit_sha, state, scheduled_at;
+SQL
+)
+
+    local result
+    result=$(VM_EXEC bash -c "cd ~/statbus && echo \"$upsert_sql\" | ./sb psql -t -A 2>&1" || echo "FAILED")
+    if echo "$result" | grep -qi "error\|FAILED"; then
+        echo "  ✗ fabricate_scheduled_upgrade_row failed:" >&2
+        echo "$result" >&2
+        return 1
+    fi
+    echo "  ✓ row fabricated/transitioned: $result"
+    return 0
+}

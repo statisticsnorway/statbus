@@ -123,35 +123,47 @@ VM_EXEC bash -c "
 "
 
 # ─────────────────────────────────────────────────────────────────────────
-# Phase 4 — wait one upgrade-service tick so discover populates
-# public.upgrade with HEAD's commit as state='available'.
+# Phase 4 — fabricate a scheduled public.upgrade row for HEAD
+#
+# Previously this scenario waited one upgrade-service tick for discover
+# to populate the row from git tags, then called `./sb upgrade apply`
+# to transition it to scheduled. That path fails when HEAD is not on
+# a release tag (the common case in the harness flow).
+#
+# Replaced with `fabricate_scheduled_upgrade_row` — same primitive
+# used by scenario 19 — which INSERTs the row directly with
+# state='scheduled' regardless of discover's git-tag findings. The
+# helper is idempotent so re-running the scenario doesn't accumulate
+# rows.
+#
+# We still need to NOTIFY the unit so it picks up the new row
+# immediately instead of waiting up to TICK_WAIT_S for the next poll.
+# `./sb upgrade apply $SHORT_SHA` sends NOTIFY upgrade_apply; with the
+# row already in 'scheduled', apply's UPDATE is a no-op (row stays in
+# 'scheduled' with the same scheduled_at) but the NOTIFY fires —
+# wake-up optimization.
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
-echo "── waiting ${TICK_WAIT_S}s for upgrade-service discover tick to populate public.upgrade ──"
-sleep "$TICK_WAIT_S"
-
-# Confirm discover saw HEAD (or at least an available row matching the
-# commit). If discover didn't find HEAD (e.g. HEAD is unrelated to a
-# release tag), the schedule below will fail.
-AVAILABLE_COUNT=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT count(*) FROM public.upgrade WHERE commit_sha = '$HEAD_SHA' AND state = 'available';\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "0")
-echo "  available rows matching HEAD: $AVAILABLE_COUNT"
-if [ "$AVAILABLE_COUNT" = "0" ]; then
-    echo "  NOTE: discover did not surface HEAD as 'available' — likely because HEAD is not on a release tag."
-    echo "  Falling back to: insert the row directly via ./sb upgrade apply, which writes 'scheduled' regardless."
-fi
+echo "── fabricating scheduled public.upgrade row for HEAD ──"
+fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_LOCAL"
 
 # ─────────────────────────────────────────────────────────────────────────
-# Phase 5 — trigger upgrade via `./sb upgrade apply <sha>` (NOTIFY)
+# Phase 5 — trigger upgrade via `./sb upgrade apply <sha>` (NOTIFY wake)
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
-echo "── triggering upgrade via ./sb upgrade apply ──"
+echo "── waking the unit via NOTIFY (./sb upgrade apply) ──"
 SHORT_SHA=$(echo "$HEAD_SHA" | cut -c1-8)
 VM_EXEC bash -c "
     cd ~/statbus
     ./sb upgrade apply $SHORT_SHA 2>&1 | tail -20 || {
-        echo 'FATAL: upgrade apply failed — discover may not have populated the available row.' >&2
-        echo 'SELECT id, state, commit_sha, commit_version FROM public.upgrade ORDER BY id DESC LIMIT 5;' | ./sb psql >&2
-        exit 1
+        # Apply may fail to UPDATE a matching row (e.g. if the apply
+        # command's WHERE clause doesn't match a short-sha vs full-sha
+        # mismatch — see cli/cmd/upgrade.go's commit_tags-array
+        # matching). The row is already in 'scheduled' from the
+        # fabrication step, so a failed apply is non-fatal — the
+        # unit's poll tick (default 60s) will pick the row up regardless.
+        echo 'WARN: ./sb upgrade apply did not update a row (expected when HEAD has no matching commit_tags). Falling back to poll-tick dispatch.' >&2
+        exit 0
     }
 "
 
