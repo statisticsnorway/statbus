@@ -114,8 +114,7 @@ STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE=$RELEASE_FILE \
 STATBUS_MIN_DISK_GB=5 \
     ./sb install --non-interactive --trust-github-user jhf
 SCRIPT
-scp "${SSH_OPTS[@]}" -q "$INSTALL_SCRIPT" root@"$ip":/tmp/install-c10-first.sh
-rm -f "$INSTALL_SCRIPT"
+upload_install_script_to_vm "$VM_NAME" "$INSTALL_SCRIPT" /tmp/install-c10-first.sh
 upload_sb_to_vm "$VM_NAME"
 
 ssh "${SSH_OPTS[@]}" root@"$ip" "

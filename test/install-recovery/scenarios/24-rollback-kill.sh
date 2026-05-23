@@ -135,8 +135,7 @@ STATBUS_INJECT_AT=killed-by-system-during-binary-swap \
 STATBUS_MIN_DISK_GB=5 \
     ./sb install --non-interactive --trust-github-user jhf
 SCRIPT
-scp "${SSH_OPTS[@]}" -q "$INSTALL_SCRIPT" root@"$ip":/tmp/install-first.sh
-rm -f "$INSTALL_SCRIPT"
+upload_install_script_to_vm "$VM_NAME" "$INSTALL_SCRIPT" /tmp/install-first.sh
 upload_sb_to_vm "$VM_NAME"
 
 set +e
@@ -174,8 +173,7 @@ STATBUS_INJECT_AT=killed-by-system-during-builtin-rollback \
 STATBUS_MIN_DISK_GB=5 \
     ./sb install --non-interactive --trust-github-user jhf
 SCRIPT
-scp "${SSH_OPTS[@]}" -q "$INSTALL_SCRIPT" root@"$ip":/tmp/install-second.sh
-rm -f "$INSTALL_SCRIPT"
+upload_install_script_to_vm "$VM_NAME" "$INSTALL_SCRIPT" /tmp/install-second.sh
 upload_sb_to_vm "$VM_NAME"
 
 set +e

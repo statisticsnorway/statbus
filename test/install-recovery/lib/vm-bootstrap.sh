@@ -593,6 +593,33 @@ upload_sb_to_vm() {
     echo "  /tmp/sb uploaded to VM ($vm_name)"
 }
 
+# Upload a harness install-script to the VM and chmod 0755 so that
+# `sudo -u statbus bash /tmp/install-*.sh` can read it.
+#
+# Background: mktemp creates files with mode 0600; scp preserves that
+# mode; the remote file therefore lands as root:root 0600. The statbus
+# user cannot READ it, so `bash /tmp/install-*.sh` exits 126 (Permission
+# denied) even though the invocation uses the `bash` prefix.  Forcing
+# 0755 after scp makes the file world-readable and statbus-executable.
+#
+# Usage:
+#   upload_install_script_to_vm "$VM_NAME" "$INSTALL_SCRIPT" /tmp/install-cNN.sh
+#
+# The helper removes the local temp file after upload (replaces the
+# caller's `rm -f "$INSTALL_SCRIPT"` pattern).
+upload_install_script_to_vm() {
+    local vm_name="$1"
+    local src_path="$2"
+    local dest_path="$3"
+    _check_name_safety "$vm_name" || return 1
+    local ip
+    ip=$(hcloud server ip "$vm_name")
+    scp "${SSH_OPTS[@]}" -q "$src_path" root@"$ip":"$dest_path"
+    ssh "${SSH_OPTS[@]}" root@"$ip" "chmod 0755 $dest_path"
+    rm -f "$src_path"
+    echo "  $dest_path uploaded to VM ($vm_name)"
+}
+
 # Cleanup helper. KEEP_VM=1 leaves the VM running for debugging — accrues
 # €0.0072/hr until you `hcloud server delete <name>`.
 cleanup_vm() {

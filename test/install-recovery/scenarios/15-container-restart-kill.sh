@@ -100,8 +100,7 @@ STATBUS_INJECT_AT=killed-by-system-during-container-restart \
 STATBUS_MIN_DISK_GB=5 \
     ./sb install --non-interactive --trust-github-user jhf
 SCRIPT
-scp "${SSH_OPTS[@]}" -q "$INSTALL_SCRIPT" root@"$ip":/tmp/install-c8.sh
-rm -f "$INSTALL_SCRIPT"
+upload_install_script_to_vm "$VM_NAME" "$INSTALL_SCRIPT" /tmp/install-c8.sh
 upload_sb_to_vm "$VM_NAME"
 
 # Run synchronously — the kill exits the install process so it returns

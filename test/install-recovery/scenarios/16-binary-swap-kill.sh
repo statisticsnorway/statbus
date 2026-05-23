@@ -108,8 +108,7 @@ STATBUS_INJECT_AT=killed-by-system-during-binary-swap \
 STATBUS_MIN_DISK_GB=5 \
     ./sb install --non-interactive --trust-github-user jhf
 SCRIPT
-scp "${SSH_OPTS[@]}" -q "$INSTALL_SCRIPT" root@"$ip":/tmp/install-c5.sh
-rm -f "$INSTALL_SCRIPT"
+upload_install_script_to_vm "$VM_NAME" "$INSTALL_SCRIPT" /tmp/install-c5.sh
 upload_sb_to_vm "$VM_NAME"
 
 set +e
