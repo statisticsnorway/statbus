@@ -154,11 +154,18 @@ echo "  baseline NRestarts: $NRESTARTS_BASELINE"
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 3 — start install at HEAD with C12 stall env-vars
 #
-# The install_statbus_in_vm without an INSTALL_VERSION uses local HEAD,
-# which contains both the inject.StallHere site in runPsqlFile and the
-# fixed WATCHDOG=1 ticker in applyPostSwap. We script the env-vars
-# explicitly via a custom install script (the standard helper doesn't
-# expose an env-prefix hook).
+# We use a custom install script rather than install_statbus_in_vm because
+# the standard helper has no hook for prepending env-vars (STATBUS_INJECT_AT
+# / STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE) to the ./sb install invocation.
+# The custom path must therefore replicate the helper's setup steps:
+#   1. git checkout HEAD
+#   2. cp /tmp/sb ./sb  (requires explicit /tmp/sb upload — see below)
+#   3. run ./sb install with inject vars
+#
+# Note on /tmp/sb: bootstrap_install_test_vm is called WITH INSTALL_VERSION,
+# so the no-version bootstrap path that uploads /tmp/sb is skipped.  The
+# custom install script still expects /tmp/sb, so we scp it just before
+# starting the tmux session.
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── creating release file + starting install at HEAD with C12 injection ──"
@@ -190,6 +197,24 @@ SCRIPT
 scp "${SSH_OPTS[@]}" -q "$INSTALL_SCRIPT" root@"$ip":/tmp/install-c12.sh
 rm -f "$INSTALL_SCRIPT"
 
+# Upload HEAD binary to /tmp/sb on the VM — the install-c12.sh script does
+# `cp /tmp/sb ./sb`, mirroring what install_statbus_in_vm does for its
+# no-version (local-HEAD) path.  bootstrap_install_test_vm was called WITH
+# INSTALL_VERSION, so /tmp/sb was never uploaded during bootstrap (only the
+# no-version bootstrap path uploads it).  Without this upload the very first
+# command that can fail in install-c12.sh is `cp /tmp/sb ./sb`; set -e
+# exits the subshell before ./sb install ever runs, no migrate process
+# appears, and wait_for_inject_stall_ready times out after 300 s.
+sb_binary="${STATBUS_SB_BINARY:-${HARNESS_ROOT}/sb-linux-amd64}"
+if [ ! -f "$sb_binary" ]; then
+    echo "  Building sb-linux-amd64 for /tmp/sb upload..."
+    (cd "$HARNESS_ROOT" && ./dev.sh build-sb linux/amd64)
+    sb_binary="${HARNESS_ROOT}/sb-linux-amd64"
+fi
+scp "${SSH_OPTS[@]}" -q "$sb_binary" root@"$ip":/tmp/sb
+ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0755 /tmp/sb'
+echo "  /tmp/sb uploaded to VM"
+
 ssh "${SSH_OPTS[@]}" root@"$ip" "
     rm -f /tmp/install-c12.exit /tmp/install-c12.log
     sudo -u statbus tmux new-session -d -s install-c12 'bash -lc \"( bash /tmp/install-c12.sh ) > /tmp/install-c12.log 2>&1; echo \\\$? > /tmp/install-c12.exit\"'
@@ -203,6 +228,9 @@ echo "── waiting for migration stall to be active ──"
 MIGRATE_PID=$(wait_for_inject_stall_ready "$VM_NAME" "$RELEASE_FILE" 300 | tee /dev/stderr | tail -1)
 if [ -z "$MIGRATE_PID" ]; then
     echo "✗ stall never activated within 5 min" >&2
+    echo "  install-c12 exit code (if any): $(ssh "${SSH_OPTS[@]}" root@"$ip" "cat /tmp/install-c12.exit 2>/dev/null" || echo '(not exited yet)')"
+    echo "  last 20 lines of /tmp/install-c12.log:"
+    ssh "${SSH_OPTS[@]}" root@"$ip" "tail -20 /tmp/install-c12.log 2>/dev/null" || true
     exit 1
 fi
 echo "  migrate subprocess PID=$MIGRATE_PID — holding for ${STALL_HOLD_S}s (> WatchdogSec=120s)"
