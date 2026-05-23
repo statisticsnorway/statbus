@@ -185,6 +185,30 @@ check_stamp_guard() {
     local changed
     changed=$(git -C "$WORKSPACE" diff --name-only "$stamp_sha" HEAD -- "${scopes[@]}" 2>/dev/null)
     if [ -z "$changed" ]; then
+        # Version-coherence check: the SHA-diff axis says "no change" but the
+        # stamp's source-DB version (line 2) must ALSO match HEAD's on-disk max
+        # migration. If they diverge, release.go preflight would refuse this
+        # stamp — the "catch-22" scenario where a migration was applied to dev
+        # DB then later reverted (file deleted from tree). RUNNING so regen
+        # writes a fresh, coherent stamp and breaks the loop.
+        local stamp_version disk_max_version
+        stamp_version=$(sed -n '2p' "$stamp_path" 2>/dev/null | tr -d '[:space:]')
+        disk_max_version=$(find "$WORKSPACE/migrations" -maxdepth 1 \
+            \( -name '*.up.sql' -o -name '*.up.psql' \) 2>/dev/null \
+            | sed -E 's|.*/([0-9]{14})_.*|\1|' | sort -r | head -1)
+        if [ -n "$stamp_version" ] && [ -n "$disk_max_version" ] && \
+           [ "$stamp_version" != "$disk_max_version" ]; then
+            echo "RUNNING: $label"
+            echo "Reason:  SHA-diff is empty but stamp's source-DB version ($stamp_version)"
+            echo "         != HEAD's on-disk max migration ($disk_max_version)."
+            echo "         release.go preflight would refuse this stamp; regen must run."
+            echo "         (catch-22: migration applied to dev DB then reverted from tree)"
+            echo "Evidence:"
+            echo "  stamp SHA: $stamp_sha"
+            echo "  stamp source-DB version: $stamp_version"
+            echo "  HEAD on-disk max migration: $disk_max_version"
+            return 0
+        fi
         echo "SKIPPED: $label"
         echo "Reason:  stamp tmp/$stamp_basename points to a commit whose ${scopes[*]} content matches HEAD — re-running would produce an identical result."
         echo "Evidence:"
@@ -2127,6 +2151,103 @@ EOS
         fi
         echo ""
         echo "All cases passed."
+      ;;
+    'test-stamp-guard' )
+        # Self-contained unit test for check_stamp_guard's version-coherence
+        # check (db-docs-skip-catch22 fix). Verifies three scenarios without a
+        # live DB: the catch-22 bug is fixed, normal-SKIP still works, and the
+        # genuine-needs-regen path still works.
+        #
+        # Fixture: a temp stamp file in tmp/ (auto-deleted). No DB, no regen.
+        #
+        # Exit 0 on ALL-PASS, 1 on any failure.
+        _tsg_pass=0; _tsg_fail=0
+        _tsg_stamp_basename="test-stamp-guard-$$"
+        _tsg_stamp_path="$WORKSPACE/tmp/$_tsg_stamp_basename"
+        # shellcheck disable=SC2064
+        trap "rm -f '$_tsg_stamp_path'" EXIT
+
+        _tsg_head_sha=$(git -C "$WORKSPACE" rev-parse HEAD 2>/dev/null)
+        _tsg_disk_max=$(find "$WORKSPACE/migrations" -maxdepth 1 \
+            \( -name '*.up.sql' -o -name '*.up.psql' \) 2>/dev/null \
+            | sed -E 's|.*/([0-9]{14})_.*|\1|' | sort -r | head -1)
+
+        if [ -z "$_tsg_disk_max" ]; then
+            echo "SKIP: no on-disk migrations found — test requires at least one migration file."
+            exit 0
+        fi
+
+        _tsg_assert_rc() {
+            local _label="$1" _expected="$2" _actual="$3"
+            if [ "$_actual" -eq "$_expected" ]; then
+                echo "[PASS] $_label"
+                _tsg_pass=$((_tsg_pass+1))
+            else
+                echo "[FAIL] $_label — expected rc=$_expected, got rc=$_actual"
+                _tsg_fail=$((_tsg_fail+1))
+            fi
+        }
+
+        # ── Test 1: catch-22 — SHA=HEAD, version stale (higher than disk max) ──
+        # Before fix: SKIP (rc=1). After fix: RUNNING (rc=0).
+        printf '%s\n%s\n' "$_tsg_head_sha" "20991231235959" > "$_tsg_stamp_path"
+        set +e
+        check_stamp_guard "test:catch-22-stale-high" "$_tsg_stamp_basename" "migrations" >/dev/null 2>&1
+        _tsg_rc=$?
+        set -e
+        _tsg_assert_rc "catch-22: SHA=HEAD, version stale (20991231235959 > disk max) → RUNNING" 0 "$_tsg_rc"
+
+        # ── Test 2: catch-22 variant — SHA=HEAD, version stale (lower than disk max) ──
+        # Applied migration later deleted from tree; stamp records old version.
+        printf '%s\n%s\n' "$_tsg_head_sha" "19991231235959" > "$_tsg_stamp_path"
+        set +e
+        check_stamp_guard "test:catch-22-stale-low" "$_tsg_stamp_basename" "migrations" >/dev/null 2>&1
+        _tsg_rc=$?
+        set -e
+        _tsg_assert_rc "catch-22: SHA=HEAD, version stale (19991231235959 < disk max) → RUNNING" 0 "$_tsg_rc"
+
+        # ── Test 3: normal SKIP — SHA=HEAD, version matches disk max ──
+        # Both axes agree: no regen needed. Requires clean migrations/ (else REFUSE).
+        if git -C "$WORKSPACE" status --porcelain -- migrations 2>/dev/null | grep -q .; then
+            echo "[SKIP] normal-SKIP test: migrations/ has uncommitted changes (would REFUSE, not SKIP)"
+        else
+            printf '%s\n%s\n' "$_tsg_head_sha" "$_tsg_disk_max" > "$_tsg_stamp_path"
+            set +e
+            check_stamp_guard "test:normal-skip" "$_tsg_stamp_basename" "migrations" >/dev/null 2>&1
+            _tsg_rc=$?
+            set -e
+            _tsg_assert_rc "normal SKIP: SHA=HEAD, version matches disk max → SKIP (rc=1)" 1 "$_tsg_rc"
+        fi
+
+        # ── Test 4: genuine needs-regen — SHA is ancestor, migrations changed ──
+        # Pre-existing RUNNING behavior: stamp SHA is before the most recent
+        # migration-file commit. Find that ancestor.
+        # git log --format='%H' emits GPG signature lines interspersed with SHAs
+        # when log.showSignature is set; filter to 40-hex lines only.
+        _tsg_migration_commit=$(git -C "$WORKSPACE" log --format='%H' \
+            -- 'migrations/*.up.sql' 'migrations/*.up.psql' 2>/dev/null \
+            | grep -E '^[0-9a-f]{40}$' | head -1 || true)
+        _tsg_ancestor_sha=$(git -C "$WORKSPACE" rev-parse "${_tsg_migration_commit}^" 2>/dev/null || echo "")
+        _tsg_ancestor_changed=""
+        if [ -n "$_tsg_ancestor_sha" ] && \
+           git -C "$WORKSPACE" merge-base --is-ancestor "$_tsg_ancestor_sha" HEAD 2>/dev/null; then
+            _tsg_ancestor_changed=$(git -C "$WORKSPACE" diff --name-only \
+                "$_tsg_ancestor_sha" HEAD -- migrations 2>/dev/null)
+        fi
+        if [ -n "$_tsg_ancestor_changed" ]; then
+            printf '%s\n%s\n' "$_tsg_ancestor_sha" "$_tsg_disk_max" > "$_tsg_stamp_path"
+            set +e
+            check_stamp_guard "test:genuine-regen" "$_tsg_stamp_basename" "migrations" >/dev/null 2>&1
+            _tsg_rc=$?
+            set -e
+            _tsg_assert_rc "genuine regen: SHA=ancestor with migration changes → RUNNING (rc=0)" 0 "$_tsg_rc"
+        else
+            echo "[SKIP] genuine-regen test: could not find ancestor with migration changes"
+        fi
+
+        echo ""
+        echo "Results: $_tsg_pass passed, $_tsg_fail failed"
+        [ $_tsg_fail -eq 0 ] && exit 0 || exit 1
       ;;
     'upgrade-sandbox' )
       # Isolated upgrade-service test harness on port offset 9 (3090-3094).
