@@ -23,6 +23,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/statisticsnorway/statbus/cli/internal/compose"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
+	"github.com/statisticsnorway/statbus/cli/internal/inject"
 	"github.com/statisticsnorway/statbus/cli/internal/invariants"
 	"github.com/statisticsnorway/statbus/cli/internal/migrate"
 	"github.com/statisticsnorway/statbus/cli/internal/selfupdate"
@@ -3337,6 +3338,16 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 		return procureErr
 	}
 
+	// Canonical C5 injection site. The new sb binary has just been
+	// written to disk (replaceBinaryOnDisk completed) but the flag
+	// hasn't been stamped Phase=PostSwap yet — kill here leaves the
+	// system with: new binary on disk, PreSwap flag (or no flag
+	// state-stamp), migrations NOT yet applied. The next install's
+	// recoverFromFlag must classify the binary state (HEAD matches
+	// target? migrations missing?) and either roll forward via
+	// migrate.Up or roll back via restoreBinary. No-op in production.
+	inject.KillHere("killed-by-system-during-binary-swap")
+
 	// Stamp the flag as post-swap and store the finalised backup path so
 	// the next process (after exit-42 restart or syscall.Exec) can roll
 	// back without a live DB connection. queryConn was closed back at
@@ -3587,6 +3598,17 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 			ErrDockerUpFailed, err, displayName)
 		return d.postSwapFailure(ctx, id, displayName, previousVersion, reason, progress)
 	}
+
+	// C8 injection site. Containers have been started (docker compose
+	// up -d returned ok — meaning create+start was initiated, NOT that
+	// health checks have passed) but step 12's health check has not
+	// yet confirmed them serving. Kill here leaves the system with:
+	// new binary, migrations applied, containers in an indeterminate
+	// state (some up, some not, health checks not yet validated).
+	// The next install must complete the restart by re-running
+	// step 11 + step 12 — the recoverFromFlag PostSwap path resumes
+	// applyPostSwap from the top. No-op in production.
+	inject.KillHere("killed-by-system-during-container-restart")
 
 	// Step 12: Verify health
 	progress.Write("Verifying health...")
