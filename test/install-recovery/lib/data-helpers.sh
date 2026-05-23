@@ -158,9 +158,19 @@ wait_for_worker_quiesce() {
     local stable_count=0
     local non_terminal
 
-    echo "  [data] waiting for worker.tasks queue to drain (budget ${max_wait_s}s, requires ${stable_target} consecutive zero polls)"
+    # Filter: exclude future-scheduled tasks. worker.tasks has a scheduled_at
+    # column; rows with scheduled_at > NOW() are recurring maintenance tasks
+    # (import_job_cleanup, task_cleanup, etc.) that the worker is correctly
+    # waiting to run later. Including them in the quiesce check would hang
+    # forever — they're not "active work" we're waiting on, they're scheduled
+    # future work that's correct to have pending. Per worker.tasks schema in
+    # migrations/20250213100637_create_worker_infrastructure.up.sql:
+    #   scheduled_at TIMESTAMPTZ, -- When this task should be processed, if delayed.
+    local active_filter="state NOT IN ('completed','failed') AND (scheduled_at IS NULL OR scheduled_at <= NOW())"
+
+    echo "  [data] waiting for worker.tasks queue to drain (budget ${max_wait_s}s, requires ${stable_target} consecutive zero polls; future-scheduled tasks excluded)"
     while [ "$elapsed" -lt "$max_wait_s" ]; do
-        non_terminal=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT count(*) FROM worker.tasks WHERE state NOT IN ('completed','failed');\" | ./sb psql -t -A" 2>/dev/null | tr -d ' ' || echo "?")
+        non_terminal=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT count(*) FROM worker.tasks WHERE ${active_filter};\" | ./sb psql -t -A" 2>/dev/null | tr -d ' ' || echo "?")
         if [ "$non_terminal" = "0" ]; then
             stable_count=$((stable_count + 1))
             if [ "$stable_count" -ge "$stable_target" ]; then
@@ -171,7 +181,7 @@ wait_for_worker_quiesce() {
             stable_count=0
             if [ $((elapsed % 30)) -eq 0 ]; then
                 local active
-                active=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT string_agg(DISTINCT command || '(' || state || ')', ', ') FROM worker.tasks WHERE state NOT IN ('completed','failed');\" | ./sb psql -t -A" 2>/dev/null || echo "?")
+                active=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT string_agg(DISTINCT command || '(' || state || ')', ', ') FROM worker.tasks WHERE ${active_filter};\" | ./sb psql -t -A" 2>/dev/null || echo "?")
                 echo "    [data] worker active (elapsed ${elapsed}s, non_terminal=$non_terminal): $active"
             fi
         fi
@@ -180,6 +190,6 @@ wait_for_worker_quiesce() {
     done
 
     echo "  ✗ worker.tasks still non-empty after ${max_wait_s}s — last count=$non_terminal" >&2
-    VM_EXEC bash -c "cd ~/statbus && echo \"SELECT command, state, count(*) FROM worker.tasks WHERE state NOT IN ('completed','failed') GROUP BY command, state ORDER BY count(*) DESC;\" | ./sb psql" >&2 || true
+    VM_EXEC bash -c "cd ~/statbus && echo \"SELECT command, state, count(*) FROM worker.tasks WHERE ${active_filter} GROUP BY command, state ORDER BY count(*) DESC;\" | ./sb psql" >&2 || true
     return 1
 }
