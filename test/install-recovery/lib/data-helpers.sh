@@ -96,9 +96,90 @@ populate_with_demo_data() {
         return 1
     fi
 
+    # CRITICAL: wait for the worker queue to fully drain before returning.
+    #
+    # import_job terminal != worker quiesced. When an import_job
+    # finishes, the worker spawns derivation tasks (collect_changes,
+    # derive_units_phase, statistical_history_facet_derive, …) that
+    # update public.statistical_unit, public.statistical_history, and
+    # related derived tables. Those rows grow while the snapshot
+    # call happens. The first Hetzner run of scenario 10 caught this
+    # exact drift — legal_unit + establishment were stable
+    # (user-imported rows), but statistical_unit grew by 55 and
+    # statistical_history by 336 between snapshot and post-install
+    # check. No way to assert "data unchanged across the failure
+    # window" if the baseline is itself moving.
+    #
+    # Fix: chain through wait_for_worker_quiesce so populate_with_
+    # demo_data returns only when worker.tasks is fully drained
+    # (no non-terminal rows). Any subsequent snapshot_demo_data_
+    # counts call captures a steady-state baseline.
+    if ! wait_for_worker_quiesce "$vm_name" "${DEMO_WORKER_QUIESCE_MAX_WAIT_S:-300}"; then
+        echo "  ✗ worker queue did not drain after import_job terminal state" >&2
+        return 1
+    fi
+
     # Confirm populated and echo a one-line summary for the scenario log.
     local counts
     counts=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT 'statistical_unit=' || (SELECT count(*) FROM public.statistical_unit) || ' legal_unit=' || (SELECT count(*) FROM public.legal_unit) || ' establishment=' || (SELECT count(*) FROM public.establishment);\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r' || echo "?")
     echo "  ✓ demo data populated in ${elapsed}s — $counts"
     return 0
+}
+
+# ─────────────────────────────────────────────────────────────────────────
+# wait_for_worker_quiesce <vm_name> [max_wait_s]
+#
+# Polls worker.tasks until no row remains in a non-terminal state
+# (`completed`, `failed` are terminal; everything else — pending,
+# processing, interrupted, waiting — keeps the queue active).
+# Returns 0 once the queue is empty for two consecutive polls (so a
+# transient "between tasks" window doesn't cause a false-positive);
+# returns 1 after max_wait_s without the queue draining.
+#
+# Used by populate_with_demo_data to chain past the import_job-
+# terminal checkpoint to a worker-fully-drained checkpoint —
+# necessary because import_job completion spawns derivation tasks
+# (collect_changes → derive_units_phase → statistical_history_
+# facet_derive → …) that keep mutating derived tables for tens of
+# seconds after the import jobs themselves are 'finished'.
+#
+# Also callable directly from scenarios that need a stable count
+# baseline at a different point in the run (e.g. after a recovery
+# install that re-triggered derivation).
+#
+# Defaults: max_wait_s=300 (5 min), poll_s=5, stable_consecutive=2.
+# ─────────────────────────────────────────────────────────────────────────
+wait_for_worker_quiesce() {
+    local vm_name="$1"
+    local max_wait_s="${2:-300}"
+    local poll_s=5
+    local stable_target=2  # require two consecutive zero-count polls
+    local elapsed=0
+    local stable_count=0
+    local non_terminal
+
+    echo "  [data] waiting for worker.tasks queue to drain (budget ${max_wait_s}s, requires ${stable_target} consecutive zero polls)"
+    while [ "$elapsed" -lt "$max_wait_s" ]; do
+        non_terminal=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT count(*) FROM worker.tasks WHERE state NOT IN ('completed','failed');\" | ./sb psql -t -A" 2>/dev/null | tr -d ' ' || echo "?")
+        if [ "$non_terminal" = "0" ]; then
+            stable_count=$((stable_count + 1))
+            if [ "$stable_count" -ge "$stable_target" ]; then
+                echo "  ✓ worker.tasks drained (${stable_count} consecutive zero polls, ${elapsed}s elapsed)"
+                return 0
+            fi
+        else
+            stable_count=0
+            if [ $((elapsed % 30)) -eq 0 ]; then
+                local active
+                active=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT string_agg(DISTINCT command || '(' || state || ')', ', ') FROM worker.tasks WHERE state NOT IN ('completed','failed');\" | ./sb psql -t -A" 2>/dev/null || echo "?")
+                echo "    [data] worker active (elapsed ${elapsed}s, non_terminal=$non_terminal): $active"
+            fi
+        fi
+        sleep "$poll_s"
+        elapsed=$((elapsed + poll_s))
+    done
+
+    echo "  ✗ worker.tasks still non-empty after ${max_wait_s}s — last count=$non_terminal" >&2
+    VM_EXEC bash -c "cd ~/statbus && echo \"SELECT command, state, count(*) FROM worker.tasks WHERE state NOT IN ('completed','failed') GROUP BY command, state ORDER BY count(*) DESC;\" | ./sb psql" >&2 || true
+    return 1
 }

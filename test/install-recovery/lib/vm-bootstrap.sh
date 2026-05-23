@@ -449,6 +449,40 @@ install_statbus_in_vm() {
         # by SHA, so a shallow clone of master + targeted fetch is enough.
         local local_commit
         local_commit=$(cd "$HARNESS_ROOT" && git rev-parse HEAD)
+
+        # Ensure /tmp/sb exists on the VM before the install script's
+        # `cp /tmp/sb ./sb` step.
+        #
+        # The bug this fix closes: bootstrap_install_test_vm only
+        # uploads /tmp/sb when it's called WITHOUT install_version
+        # (the local-HEAD bootstrap path). Scenarios that bootstrap
+        # AT a released version (e.g. v2026.05.2) and then re-invoke
+        # install_statbus_in_vm WITHOUT a version for the second
+        # install (the operator-shape "pull tree, re-run install"
+        # pattern used by scenarios 10/12/13) reach this branch with
+        # no /tmp/sb on the VM — and the script's first action is
+        # `cp /tmp/sb ./sb`, which fails before the install can
+        # start.
+        #
+        # Fix: scp the local sb binary at the top of this branch,
+        # building it on the host if it doesn't yet exist locally.
+        # Idempotent — overwrites any prior /tmp/sb. The build step
+        # is a no-op when the cached artifact is current (./dev.sh
+        # build-sb's own staleness check).
+        local sb_binary="${STATBUS_SB_BINARY:-${HARNESS_ROOT}/sb-linux-amd64}"
+        if [ ! -f "$sb_binary" ]; then
+            echo "Building sb-linux-amd64 for /tmp/sb upload..."
+            (cd "$HARNESS_ROOT" && ./dev.sh build-sb linux/amd64)
+            sb_binary="${HARNESS_ROOT}/sb-linux-amd64"
+        fi
+        if [ ! -f "$sb_binary" ]; then
+            echo "FATAL: sb binary not found at $sb_binary after build attempt" >&2
+            rm -f "$install_script"
+            return 1
+        fi
+        scp "${SSH_OPTS[@]}" -q "$sb_binary" root@"$ip":/tmp/sb
+        ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0755 /tmp/sb'
+
         cat > "$install_script" << SCRIPT
 set -e
 if [ ! -d ~/statbus/.git ]; then
