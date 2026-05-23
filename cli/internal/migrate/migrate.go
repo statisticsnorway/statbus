@@ -258,6 +258,31 @@ func runPsqlFile(projDir string, filePath string) (string, error) {
 	// stuck waiting on a DDL lock.
 	inject.StallHere("migration-slower-than-systemd-unit-timeout")
 
+	// Harness-only kill site (C6): simulates the OS / orchestrator
+	// killing the process DURING a single migration's execution. Fires
+	// AFTER the C12 stall (so a scenario activating one does not
+	// shadow the other — STATBUS_INJECT_AT selects a single class,
+	// only the matching primitive fires) and BEFORE the psql
+	// subprocess is invoked. From the database's perspective the
+	// migration's outer transaction is never opened, so there is
+	// nothing to roll back; from the install state-machine's
+	// perspective the kill produced the same shape as "subprocess
+	// killed before completing": flag is whatever the prior step
+	// stamped (PostSwap inside applyPostSwap), binary is the NEW
+	// binary, db.migration max version UNCHANGED, no committed schema
+	// changes from this migration. Recovery via the next install's
+	// recoverFromFlag → resumePostSwap path re-enters applyPostSwap
+	// and the migration applies cleanly (no leftover state to
+	// conflict with). Drives scenario 17.
+	//
+	// Placement rationale (mirrors the team-lead's spec for #144):
+	// at the start of runPsqlFile is the cleanest single point that
+	// covers every migration in the loop without adding a kill site
+	// per call. runPsqlFile is also invoked from post_restore.sql and
+	// Redo, but those paths run only outside an upgrade scenario; a
+	// harness that activates this class is running an upgrade.
+	inject.KillHere("killed-by-system-during-individual-migration-execution")
+
 	psqlPath, prefix, env, err := PsqlCommand(projDir)
 	if err != nil {
 		return "", err

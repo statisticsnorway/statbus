@@ -1508,6 +1508,33 @@ func (d *Service) Run(ctx context.Context) error {
 	// Check for missed scheduled upgrades
 	d.checkMissedUpgrades(ctx)
 
+	// Harness-only stall site (C11): simulates a startup pipeline that
+	// runs longer than the unit's TimeoutStartSec budget. Activated by
+	// STATBUS_INJECT_AT=service-startup-slower-than-systemd-unit-timeout
+	// and held by STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE. Fires DURING
+	// the unit's `activating` phase — i.e. BEFORE the sdNotify("READY=1")
+	// call below. While the stall is held, systemd's TimeoutStartSec
+	// (declared as 120 s in ops/statbus-upgrade.service per commit
+	// f43b2bfd1) ticks down. Once it expires, systemd SIGTERMs the unit
+	// and increments NRestarts.
+	//
+	// No-op in production. Drives scenario 18.
+	//
+	// Design choice (a) over (b) — keep TimeoutStartSec static:
+	//   Earlier code shipped sdNotifyExtendTimeout(EXTEND_TIMEOUT_USEC)
+	//   to push TimeoutStartSec forward during the activating phase
+	//   (Fix 1 / commit d416a50a0). That helper has been DELETED in
+	//   commit e6df084b7 — see the historical note at the bottom of
+	//   watchdog.go for the full rationale. The C11 contract is now:
+	//   if startup is slower than the unit's static 120 s budget, the
+	//   unit IS killed, NRestarts is bounded by StartLimitBurst, and
+	//   the operator's recovery is `./sb install` (which dispatches the
+	//   same upgrade inline, bypassing the supervised unit's timeout).
+	//   This is the simpler, principled shape — re-introducing the
+	//   activating-phase extender would couple the watchdog and start
+	//   budgets in ways the Race B forensics showed to be subtly wrong.
+	inject.StallHere("service-startup-slower-than-systemd-unit-timeout")
+
 	// LISTEN on channels (must use listenConn — queryConn is for queries)
 	if _, err := d.listenConn.Exec(ctx, "LISTEN upgrade_check"); err != nil {
 		return fmt.Errorf("LISTEN upgrade_check: %w", err)
@@ -3478,6 +3505,30 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	if err := d.waitForDBHealth(30 * time.Second); err != nil {
 		return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: DB health check: %v", ErrHealthcheckDBDown, err), progress)
 	}
+
+	// Harness-only stall site (C15 / Race D): simulates a slow DB
+	// reconnect after the DB container restart earlier in this method
+	// (docker compose up -d --no-build db). The reconnect step parks
+	// the upgrade-service's main goroutine; until it returns, NOTHING
+	// in this process pings WATCHDOG=1. Activated by
+	// STATBUS_INJECT_AT=service-watchdog-timeout-during-db-reconnect-after-container-restart
+	// and held by STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE.
+	//
+	// On the systemd-supervised path, if the stall holds longer than
+	// the unit's WatchdogSec (120 s per ops/statbus-upgrade.service),
+	// systemd SIGABRTs the unit and restarts it. The migrate ticker
+	// in this same function (lines below) handles long migrations by
+	// firing WATCHDOG=1 every 30 s — but that ticker is set up AFTER
+	// this point. The reconnect site is therefore currently
+	// unprotected; scenario 19 is the diagnostic.
+	//
+	// Fix shape (will land as a follow-up commit once the scenario
+	// goes RED on Hetzner): start a WATCHDOG=1 ticker around the
+	// reconnect call, mirroring the migrate-ticker pattern from
+	// commit e6df084b7. Until that fix lands the scenario captures
+	// the current behavior (NRestarts increments at the 120 s mark).
+	// No-op in production.
+	inject.StallHere("service-watchdog-timeout-during-db-reconnect-after-container-restart")
 
 	// Reconnect service DB connection
 	progress.Write("Reconnecting to database...")
