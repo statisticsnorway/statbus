@@ -129,23 +129,20 @@ assert_demo_data_present "$VM_NAME"
 # With len(pending)==0, runPsqlFile is never called and the C12 stall site
 # in runPsqlFile is unreachable.
 #
-# Fix: write a harness-only no-op SQL file with timestamp 20991231235959
-# (far beyond any real migration) so ./sb migrate up sees exactly one
-# pending migration and the stall fires. Written only to the VM working
-# copy — never committed to the repo.
+# Fix: scp a checked-in fixture file (SELECT 1; no-op) with timestamp
+# 20991231235959 (far beyond any real migration) so ./sb migrate up sees
+# exactly one pending migration and the stall fires. The file is uploaded
+# only to the VM working copy — never applied to production.
+#
+# Note: no heredoc-over-ssh (CLAUDE.md rule) — content lives in a fixture
+# file and is delivered via scp so newlines survive the transport boundary.
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── planting synthetic stall-target migration on VM ──"
 SYNTHETIC_MIG="20991231235959_scenario_12_stall_target"
-VM_EXEC bash -c "cat > ~/statbus/migrations/${SYNTHETIC_MIG}.up.sql << 'SQL'
--- Harness-only: scenario 12 (C12 / Race B regression net).
--- Written to the VM working copy only — NOT committed.
--- Ensures ./sb migrate up has at least one pending migration so
--- inject.StallHere in runPsqlFile is reachable regardless of whether the
--- HEAD seed already captured all production migrations (db-seed always
--- tracks HEAD, so a version-delta install path can't rely on a gap).
-SELECT 1;
-SQL"
+scp "${SSH_OPTS[@]}" -q \
+    "$LIB_DIR/../fixtures/scenario_12_stall_target.up.sql" \
+    root@"$VM_IP":"/home/statbus/statbus/migrations/${SYNTHETIC_MIG}.up.sql"
 echo "  synthetic migration written: migrations/${SYNTHETIC_MIG}.up.sql"
 
 # Baseline NRestarts before triggering the upgrade. The systemd-restart-
