@@ -1345,12 +1345,21 @@ func cleanOrphanSessions(dir string) error {
 }
 
 // checkSeedRestored returns true if the database already has migrations
-// (re-install scenario — seed restore would be destructive).
+// OR holds user data (either way, seed restore would be destructive).
 // Returns false only for truly fresh installs where the DB is empty.
 //
 // Intent: the seed is a FAST PATH for fresh installs only. Restoring
 // over an existing database drops objects while migration records survive,
 // leaving the DB in an inconsistent state.
+//
+// R5 classifier (added 2026-05-23 from tcc-near-miss forensics): the
+// migration-tail check alone is insufficient. When an operator pulls a
+// newer tree against a populated DB, the on-disk migration set is
+// ahead of db.migration, so HasPending returns true → migrations-done
+// returns false → and the seed step ran destructively against user
+// data. The dbHasUserData probe below short-circuits BEFORE the
+// migration check: if any user-facing table holds rows, route to
+// migrate-forward regardless of the migration delta.
 func checkSeedRestored(dir string) bool {
 	// If services aren't running yet, we can't check the DB.
 	// Return true to skip — the Services step must run first.
@@ -1358,10 +1367,17 @@ func checkSeedRestored(dir string) bool {
 		return true
 	}
 
-	// Services are running. Wait for DB to be healthy, then check migrations.
-	// If we can't reach the DB after 30 seconds, FAIL HARD — don't silently
-	// fall through and restore a seed over an existing database.
+	// Services are running. Wait for DB to be healthy, then check
+	// content + migrations. If we can't reach the DB after 30 seconds,
+	// FAIL HARD — don't silently fall through and restore a seed over
+	// an existing database. The dbHasUserData check fires BEFORE the
+	// migration check so populated DBs short-circuit even when their
+	// migration tail is behind.
 	for attempt := 0; attempt < 15; attempt++ {
+		// R5 short-circuit: populated DBs NEVER run seed.
+		if dbHasUserData(dir) {
+			return true
+		}
 		if checkMigrationsDone(dir) {
 			return true // DB has migrations — do NOT restore seed
 		}
@@ -1370,9 +1386,56 @@ func checkSeedRestored(dir string) bool {
 		}
 	}
 
-	// DB is reachable (services running) but has no migrations.
-	// This is a genuinely fresh database — seed restore is appropriate.
+	// DB is reachable (services running), holds no user data, AND no
+	// migrations are applied. This is a genuinely fresh database — seed
+	// restore is appropriate.
 	return false
+}
+
+// dbHasUserData returns true if the application database holds rows in
+// any user-facing table (statistical_unit, legal_unit, establishment,
+// import_job). The probe is conservative: any failure (DB unreachable,
+// table missing on a brand-new DB, psql binary absent) is treated as
+// "no user data" so the fresh-install path still runs the seed step.
+// The R5 classifier in checkSeedRestored guards a destructive action,
+// so the principled posture on probe error is "don't ASSUME populated"
+// — we ASSUME empty when we can't tell, because that lets fresh
+// installs proceed. The downstream migrate-forward path catches the
+// false-negative case: if the DB is populated but the probe failed,
+// the seed restore would still need the tables to exist, and
+// pg_restore --single-transaction --clean --if-exists would either
+// succeed (genuinely empty) or roll back loudly (populated, the
+// runPgRestoreAtomic wrapper from 1f077e545 fails the install).
+//
+// Tables checked: the same four the harness's
+// assert_demo_data_present uses. Adding tables to the demo dataset
+// requires updating both — the cross-reference is documented in
+// data-helpers.sh's populate_with_demo_data and in this comment.
+func dbHasUserData(dir string) bool {
+	psqlPath, prefix, env, err := migrate.PsqlCommand(dir)
+	if err != nil {
+		return false
+	}
+	const probe = `
+SELECT EXISTS (
+  SELECT 1 FROM public.statistical_unit LIMIT 1
+  UNION ALL SELECT 1 FROM public.legal_unit LIMIT 1
+  UNION ALL SELECT 1 FROM public.establishment LIMIT 1
+  UNION ALL SELECT 1 FROM public.import_job LIMIT 1
+);`
+	args := append([]string{}, prefix...)
+	args = append(args, "-t", "-A", "-v", "ON_ERROR_STOP=on", "-c", probe)
+	cmd := exec.Command(psqlPath, args...)
+	cmd.Dir = dir
+	cmd.Env = env
+	out, err := cmd.Output()
+	if err != nil {
+		// Table missing (very early install before migrations ran),
+		// connection refused, etc. Treat as "no user data" so the
+		// fresh-install path still triggers the seed step.
+		return false
+	}
+	return strings.TrimSpace(string(out)) == "t"
 }
 
 // runSeedRestore fetches the seed from origin/db-seed and restores
