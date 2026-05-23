@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
+	"github.com/statisticsnorway/statbus/cli/internal/inject"
 	"github.com/statisticsnorway/statbus/cli/internal/migrate"
 )
 
@@ -356,6 +357,26 @@ func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (string, e
 		// clean it after 10 minutes if it's confirmed dead.
 		return "", fmt.Errorf("rsync backup: %w", rsyncErr)
 	}
+
+	// Harness-only kill site (C3): simulates the OS / orchestrator killing
+	// the process AFTER rsync finishes but BEFORE the atomic rename. The
+	// wedge state: the .tmp directory has a complete copy of the DB volume
+	// but its final-name rename never happened, so on-disk the backup
+	// looks "in flight" (rsync done; not finalized). The pre-upgrade git
+	// branch was already pinned upstream (executeUpgrade step before this
+	// call) so restoreGitState has its anchor. The next install's
+	// recoverFromFlag sees flag PreSwap (not PostSwap — kill fired
+	// upstream of updateFlagPostSwap) and routes through the PreSwap
+	// recovery branch, which discards the .tmp directory and restarts
+	// services at the OLD binary + OLD DB volume (the OLD DB is still
+	// intact — backup was a COPY, the source volume was unmodified).
+	//
+	// Placement rationale: in this exact spot the rsync has completed
+	// (so the test exercises real I/O), but the rename is the next thing
+	// the parent would do — close to the team-lead's "between starting
+	// the rsync/dump and writing the PostSwap flag stamp" window.
+	// No-op in production. Drives scenario 21.
+	inject.KillHere("killed-by-system-during-preswap-backup")
 
 	// Atomic completion marker: directory's final name appearing IS the
 	// completion signal. No sentinel files, no symlinks.

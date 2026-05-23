@@ -3316,6 +3316,20 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 		return err
 	}
 
+	// Harness-only kill site (C4): simulates the OS / orchestrator killing
+	// the process AFTER the git checkout to the target commit completes
+	// but BEFORE the binary swap. Wedge state: working tree at the NEW
+	// commit, backup .tmp dir on disk, no binary swap (./sb is still the
+	// OLD binary), flag PreSwap (PostSwap is stamped later, after
+	// replaceBinaryOnDisk). Recovery via the next install's
+	// recoverFromFlag PreSwap branch: restoreGitState reverts the working
+	// tree to previousVersion via the pre-upgrade branch pinned a few
+	// lines above (line 3286-3292 in this file's pre-modification
+	// snapshot), discards the .tmp backup, clears the flag. Binary on
+	// disk was never touched, so no restoreBinary needed.
+	// No-op in production. Drives scenario 22.
+	inject.KillHere("killed-by-system-during-preswap-checkout")
+
 	// Verify checked-out SHA matches manifest (detect tag spoofing).
 	// Only tagged releases carry a manifest; untagged commits skip.
 	if ValidateVersion(displayName) {
