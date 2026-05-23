@@ -557,6 +557,42 @@ SCRIPT
     return ${PIPESTATUS[0]}
 }
 
+# Upload the local HEAD sb binary to /tmp/sb on the VM.
+#
+# Needed by any scenario that bootstraps WITH an INSTALL_VERSION (the
+# version-branch bootstrap does NOT upload /tmp/sb — it fetches the
+# release binary directly into ~/statbus/sb) but then runs a custom
+# inline install script whose first action is `cp /tmp/sb ./sb`.  Without
+# this upload that cp fails, set -e exits the subshell before ./sb install
+# ever runs, and no migrate/upgrade process appears.
+#
+# install_statbus_in_vm's no-version branch already does this upload
+# internally (vm-bootstrap.sh lines 472-484).  Scenarios that bypass
+# install_statbus_in_vm with their own inline scripts call this helper
+# explicitly instead.
+#
+# Idempotent: safe to call multiple times in one scenario run.
+# STATBUS_SB_BINARY overrides the binary path (used by CI pre-extraction).
+upload_sb_to_vm() {
+    local vm_name="$1"
+    _check_name_safety "$vm_name" || return 1
+    local ip
+    ip=$(hcloud server ip "$vm_name")
+    local sb_binary="${STATBUS_SB_BINARY:-${HARNESS_ROOT}/sb-linux-amd64}"
+    if [ ! -f "$sb_binary" ]; then
+        echo "  Building sb-linux-amd64 for /tmp/sb upload..."
+        (cd "$HARNESS_ROOT" && ./dev.sh build-sb linux/amd64)
+        sb_binary="${HARNESS_ROOT}/sb-linux-amd64"
+    fi
+    if [ ! -f "$sb_binary" ]; then
+        echo "FATAL: sb binary not found at $sb_binary after build attempt" >&2
+        return 1
+    fi
+    scp "${SSH_OPTS[@]}" -q "$sb_binary" root@"$ip":/tmp/sb
+    ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0755 /tmp/sb'
+    echo "  /tmp/sb uploaded to VM ($vm_name)"
+}
+
 # Cleanup helper. KEEP_VM=1 leaves the VM running for debugging — accrues
 # €0.0072/hr until you `hcloud server delete <name>`.
 cleanup_vm() {

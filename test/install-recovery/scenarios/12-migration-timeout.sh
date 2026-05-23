@@ -197,23 +197,7 @@ SCRIPT
 scp "${SSH_OPTS[@]}" -q "$INSTALL_SCRIPT" root@"$ip":/tmp/install-c12.sh
 rm -f "$INSTALL_SCRIPT"
 
-# Upload HEAD binary to /tmp/sb on the VM — the install-c12.sh script does
-# `cp /tmp/sb ./sb`, mirroring what install_statbus_in_vm does for its
-# no-version (local-HEAD) path.  bootstrap_install_test_vm was called WITH
-# INSTALL_VERSION, so /tmp/sb was never uploaded during bootstrap (only the
-# no-version bootstrap path uploads it).  Without this upload the very first
-# command that can fail in install-c12.sh is `cp /tmp/sb ./sb`; set -e
-# exits the subshell before ./sb install ever runs, no migrate process
-# appears, and wait_for_inject_stall_ready times out after 300 s.
-sb_binary="${STATBUS_SB_BINARY:-${HARNESS_ROOT}/sb-linux-amd64}"
-if [ ! -f "$sb_binary" ]; then
-    echo "  Building sb-linux-amd64 for /tmp/sb upload..."
-    (cd "$HARNESS_ROOT" && ./dev.sh build-sb linux/amd64)
-    sb_binary="${HARNESS_ROOT}/sb-linux-amd64"
-fi
-scp "${SSH_OPTS[@]}" -q "$sb_binary" root@"$ip":/tmp/sb
-ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0755 /tmp/sb'
-echo "  /tmp/sb uploaded to VM"
+upload_sb_to_vm "$VM_NAME"
 
 ssh "${SSH_OPTS[@]}" root@"$ip" "
     rm -f /tmp/install-c12.exit /tmp/install-c12.log

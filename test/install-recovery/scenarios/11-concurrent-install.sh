@@ -116,6 +116,7 @@ STATBUS_MIN_DISK_GB=5 \
 SCRIPT
 scp "${SSH_OPTS[@]}" -q "$INSTALL_SCRIPT" root@"$ip":/tmp/install-c10-first.sh
 rm -f "$INSTALL_SCRIPT"
+upload_sb_to_vm "$VM_NAME"
 
 ssh "${SSH_OPTS[@]}" root@"$ip" "
     rm -f /tmp/install-c10-first.exit /tmp/install-c10-first.log

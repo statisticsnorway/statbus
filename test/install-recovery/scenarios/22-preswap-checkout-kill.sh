@@ -126,6 +126,7 @@ STATBUS_MIN_DISK_GB=5 \
 SCRIPT
 scp "${SSH_OPTS[@]}" -q "$INSTALL_SCRIPT" root@"$ip":/tmp/install-c4.sh
 rm -f "$INSTALL_SCRIPT"
+upload_sb_to_vm "$VM_NAME"
 
 # IMPORTANT for C4: the install script above does `git checkout $HEAD_LOCAL`
 # BEFORE invoking ./sb install. That's the harness's setup checkout (to

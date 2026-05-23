@@ -102,6 +102,7 @@ STATBUS_MIN_DISK_GB=5 \
 SCRIPT
 scp "${SSH_OPTS[@]}" -q "$INSTALL_SCRIPT" root@"$ip":/tmp/install-c8.sh
 rm -f "$INSTALL_SCRIPT"
+upload_sb_to_vm "$VM_NAME"
 
 # Run synchronously — the kill exits the install process so it returns
 # in finite time. We use a timeout as a safety net.

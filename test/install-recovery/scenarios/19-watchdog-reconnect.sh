@@ -132,6 +132,7 @@ echo ""
 echo "── staging HEAD on the VM ──"
 HEAD_LOCAL=$(git -C "$HARNESS_ROOT" rev-parse HEAD)
 ip=$(hcloud server ip "$VM_NAME")
+upload_sb_to_vm "$VM_NAME"
 
 VM_EXEC bash -c "
     cd ~/statbus

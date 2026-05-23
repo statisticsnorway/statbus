@@ -110,6 +110,7 @@ STATBUS_MIN_DISK_GB=5 \
 SCRIPT
 scp "${SSH_OPTS[@]}" -q "$INSTALL_SCRIPT" root@"$ip":/tmp/install-c5.sh
 rm -f "$INSTALL_SCRIPT"
+upload_sb_to_vm "$VM_NAME"
 
 set +e
 timeout "${INSTALL_BUDGET_S}s" ssh "${SSH_OPTS[@]}" root@"$ip" "sudo -u statbus bash /tmp/install-c5.sh"
