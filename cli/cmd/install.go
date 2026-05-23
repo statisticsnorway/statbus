@@ -17,6 +17,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/spf13/cobra"
+	"github.com/statisticsnorway/statbus/cli/internal/compose"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/install"
 	"github.com/statisticsnorway/statbus/cli/internal/invariants"
@@ -567,11 +568,71 @@ func runInstall() (installErr error) {
 	total := len(steps)
 	allDone := true
 
+	// R1 quiesce window: worker / app / rest must NOT be running across
+	// the DDL phases (Seed + Migrations). The worker holds AccessShareLock
+	// on statistical-history tables for the duration of each task; the
+	// seed's DROP POLICY and migrations' CREATE/DROP INDEX need
+	// AccessExclusiveLock on those same tables, and Postgres lock
+	// manager parks the DDL indefinitely behind the worker's lock —
+	// the wedge tcc had to manually break. compose.QuiesceClients stops
+	// the running clients before we enter the DDL window; compose.
+	// ResumeClients restarts exactly the ones we stopped after the
+	// window closes. db / proxy / caddy stay up throughout (db is the
+	// DDL target; proxy + caddy serve maintenance views).
+	//
+	// We track quiesced state across the loop via a slice + bool pair
+	// so the Resume call can fire exactly once even if Migrations was
+	// already done (check passed) on the second invocation of install.
+	var quiescedServices []string
+	var quiesced bool
+	resumeIfQuiesced := func() {
+		if !quiesced {
+			return
+		}
+		quiesced = false
+		if err := compose.ResumeClients(installDir, quiescedServices); err != nil {
+			// Don't fail the install — DB is correct, the DDL window has
+			// closed, and the operator can restart services manually if
+			// the Resume itself errored. Surface as a clear warning so
+			// it's not silent.
+			fmt.Printf("  ⚠ resume clients failed: %v — restart manually: ./sb start all_except_db\n", err)
+		}
+		quiescedServices = nil
+	}
+
 	for i, s := range steps {
 		prefix := fmt.Sprintf("[%d/%d] %-20s", i+1, total, s.name)
 
+		// Quiesce gate: enter the DDL window before Seed (only if we
+		// actually need to run Seed; if check passes, skip quiesce and
+		// stay outside the window). If a later step inside the window
+		// (Migrations) succeeds, we exit on the way out. Names are
+		// matched verbatim against the step slice above so renaming a
+		// step here forces a deliberate revisit of this hook.
+		if (s.name == "Seed" || s.name == "Migrations") && !quiesced && !s.check(installDir) {
+			fmt.Printf("  [DDL] quiescing worker / app / rest before %s ...\n", s.name)
+			stopped, err := compose.QuiesceClients(installDir)
+			if err != nil {
+				return fmt.Errorf("quiesce clients before %s: %w (must not proceed with DDL on live services)", s.name, err)
+			}
+			if len(stopped) == 0 {
+				fmt.Printf("  [DDL] no clients were running; entering DDL window without stopping anything\n")
+			} else {
+				fmt.Printf("  [DDL] stopped %v; resume after Migrations succeeds\n", stopped)
+			}
+			quiescedServices = stopped
+			quiesced = true
+		}
+
 		if s.check(installDir) {
 			fmt.Printf("%s OK\n", prefix)
+			// If we entered the quiesce window and Migrations was already
+			// done (check passed on re-run after a prior partial install),
+			// exit the window now — the DDL is fait accompli, services
+			// can resume.
+			if s.name == "Migrations" {
+				resumeIfQuiesced()
+			}
 			continue
 		}
 
@@ -584,11 +645,30 @@ func runInstall() (installErr error) {
 				fmt.Printf("\nFix the issue and re-run: ./sb install\n")
 				fmt.Printf("(Steps 1-%d will be skipped automatically)\n", i)
 			}
+			// DO NOT auto-resume on failure: clients restarted on top of
+			// a half-done DDL state could compound damage. The operator
+			// re-runs ./sb install, which re-evaluates the quiesce window
+			// from scratch (Migrations check fails → quiesce → run →
+			// resume on success).
 			return err
 		}
 
 		fmt.Printf("%s DONE\n", prefix)
+
+		// Resume gate: leave the DDL window after Migrations succeeds.
+		// We don't resume after Seed (Migrations comes next inside the
+		// window) but we ALSO don't resume early if Seed was the last
+		// thing we ran and Migrations was already done — the check-
+		// passes branch above handles that case.
+		if s.name == "Migrations" {
+			resumeIfQuiesced()
+		}
 	}
+
+	// Belt-and-suspenders: if the loop somehow exits with the quiesce
+	// flag still set (shouldn't happen — Migrations is always before
+	// the loop tail), resume so the system isn't left with clients down.
+	resumeIfQuiesced()
 
 	fmt.Println()
 	if allDone {

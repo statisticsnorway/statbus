@@ -21,6 +21,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/statisticsnorway/statbus/cli/internal/compose"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/invariants"
 	"github.com/statisticsnorway/statbus/cli/internal/migrate"
@@ -3479,6 +3480,24 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	if _, err := d.queryConn.Exec(ctx,
 		"UPDATE public.upgrade SET backup_path = $1 WHERE id = $2", backupPath, id); err != nil {
 		progress.Write("Warning: could not update backup_path to final path for upgrade id=%d: %v", id, err)
+	}
+
+	// R1 quiesce: stop worker / app / rest if any are still running
+	// before step 10's DDL phase. In the normal applyPostSwap flow the
+	// pre-swap teardown already stopped them, so this is usually a
+	// no-op; the defensive call covers recovery paths where
+	// resumePostSwap re-enters applyPostSwap and a prior partial run
+	// may have left clients up. Step 11 below starts worker/app/rest
+	// unconditionally as the natural resume point — no separate
+	// ResumeClients call needed here. db, proxy, caddy stay running
+	// throughout (db is the DDL target).
+	quiescedClients, quiesceErr := compose.QuiesceClients(projDir)
+	if quiesceErr != nil {
+		return d.postSwapFailure(ctx, id, displayName, previousVersion,
+			fmt.Sprintf("quiesce clients before migrations: %v (must not proceed with DDL on live services)", quiesceErr), progress)
+	}
+	if len(quiescedClients) > 0 {
+		progress.Write("R1 quiesce: stopped %v before DDL (step 11 will restart them)", quiescedClients)
 	}
 
 	// Step 10: Run migrations (or recreate database if requested).
