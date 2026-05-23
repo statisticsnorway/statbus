@@ -4299,6 +4299,35 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 	// Restore database backup. Now safe — git state matches the DB era.
 	d.restoreDatabase(progress)
 
+	// Harness-only kill site (C9): simulates the OS / orchestrator killing
+	// the process MID-ROLLBACK — specifically, after the destructive
+	// restore steps (restoreGitState, restoreBinary, restoreDatabase) have
+	// run but BEFORE the docker compose up + reconnect + setMaintenance
+	// + state='rolled_back' UPDATE land. At kill time the on-disk state
+	// is consistent (OLD git tree, OLD binary, OLD DB volume) but the
+	// services are still stopped, maintenance is still ON, and the
+	// upgrade row is still 'in_progress'.
+	//
+	// Recovery via the next install's recoverFromFlag: the flag's
+	// Phase is PostSwap (rollback was invoked by postSwapFailure or
+	// recoveryRollback). recoverFromFlag's ground-truth check sees
+	// the OLD binary on disk + OLD DB state — there are no pending
+	// migrations from its perspective (db.migration is back at the OLD
+	// max version). The clean-up path: bring services up, set
+	// maintenance OFF, mark the row 'rolled_back'.
+	//
+	// Reachability caveat (scope-a documented in scenario header): firing
+	// this site requires the recovery path to invoke d.rollback().
+	// The forward-then-restore design (Fix 5b, commit fc5ae7cf7) tries
+	// forward-recovery first; only falls through to d.rollback() when
+	// forward fails (migrate.Up returns error). Without a dedicated
+	// "force-forward-recovery-failure" injection class, the C9 site
+	// fires only when forward-recovery NATURALLY fails — which is
+	// non-deterministic across the harness's HEAD migration set.
+	// Scenario 24 documents this as a site-reachability diagnostic.
+	// No-op in production. Drives scenario 24.
+	inject.KillHere("killed-by-system-during-builtin-rollback")
+
 	// Start with old config — git is verified at previousVersion.
 	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "rollback-docker-up", "docker", "compose", "--profile", "all", "up", "-d", "--remove-orphans"); err != nil {
 		progress.Write("%s: docker compose up failed after rollback: %v", ErrRollbackServicesUp, err)

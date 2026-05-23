@@ -745,6 +745,30 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error)
 			return 0, fmt.Errorf("record migration %d: %w", m.Version, insertErr)
 		}
 
+		// Harness-only kill site (C7): simulates the OS / orchestrator
+		// killing the process BETWEEN migration N (just recorded — INSERT
+		// completed) and the start of migration N+1's iteration (next
+		// loop turn). At kill time: migration N is FULLY APPLIED and its
+		// db.migration row is committed; migration N+1 has NOT started.
+		// The harness ensures ≥ 2 pending migrations so the "between"
+		// point exists.
+		//
+		// Recovery via the next install's recoverFromFlag → resumePostSwap
+		// → applyPostSwap re-entry → migrate.Up: forward-recovery resumes
+		// from the unrecorded pending set (N+1 onwards) and applies them
+		// cleanly. No partial state to reconcile since N's transaction
+		// committed and N+1's never opened.
+		//
+		// Placement rationale (mirrors team-lead's #150 spec): inside
+		// runUp's `for _, m := range pending` loop, AFTER the
+		// db.migration INSERT for the CURRENT migration succeeds and
+		// BEFORE the loop's next iteration begins runPsqlFile for the
+		// NEXT migration. Co-located with the canonical C1/C2 stall
+		// sites at the same "between" boundary so the topology of
+		// per-migration injection sites stays readable in one place.
+		// No-op in production. Drives scenario 23.
+		inject.KillHere("killed-by-system-between-migrations")
+
 		fmt.Printf("[migrate]   ✔ applied  %s in %s\n", filepath.Base(m.Path), elapsed)
 
 		if verbose {
