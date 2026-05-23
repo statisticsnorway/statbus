@@ -3513,28 +3513,45 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	} else {
 		progress.Write("Applying database migrations...")
 
-		// Post-swap migrate-up runs while the unit is still "activating"
-		// (READY=1 has not been sent yet — see top of executeUpgrade
-		// where READY=1 fires AFTER applyPostSwap). systemd enforces
-		// TimeoutStartSec=90s during this window, not WatchdogSec. A
-		// genuine multi-minute migration (e.g. statistical_history
-		// re-derive on Norway-sized data) blows past 90s and systemd
-		// SIGTERMs the daemon, restart-loops, and eventually trips
-		// StartLimitBurst — leaving the host wedged.
+		// Post-swap migrate-up runs in the unit's ACTIVE phase. Earlier
+		// design (Fix 1) assumed activating phase and used
+		// sdNotifyExtendTimeout(EXTEND_TIMEOUT_USEC) to push
+		// TimeoutStartSec forward. That was wrong on two counts:
 		//
-		// Ticker calls sdNotifyExtendTimeout(120s) every 30s. systemd
-		// rolls the start deadline forward continuously while the
-		// migration is alive; if the migration actually hangs (no
-		// extend for >2 min) systemd kills it for real. Idiomatic
-		// sd_notify pattern for this phase. Existing WATCHDOG=1 path
-		// (post-READY=1) is untouched.
+		//   - service.go:1519 sends sdNotify("READY=1") inside
+		//     Service.Run setup, BEFORE the main loop starts. The main
+		//     loop dispatches executeUpgrade → applyPostSwap, so by
+		//     the time we reach this site the unit has long since
+		//     transitioned to active. Active-phase systemd enforces
+		//     WatchdogSec (=120s per ops/statbus-upgrade.service), not
+		//     TimeoutStartSec.
+		//
+		//   - Per sd_notify(3): EXTEND_TIMEOUT_USEC extends "the start,
+		//     runtime or stop service timeout" — explicitly NOT the
+		//     watchdog deadline. The watchdog is reset only by
+		//     WATCHDOG=1.
+		//
+		// Operator's dev journalctl confirmed the failure mode:
+		// UNIT_RESULT=watchdog with NRestarts=111 — the watchdog
+		// fired during long subprocess waits because the main goroutine
+		// blocked in runCommandToLog and the EXTEND_TIMEOUT_USEC
+		// ticker did nothing for the watchdog deadline.
+		//
+		// Fix: ticker sends WATCHDOG=1 every 30s. systemd resets the
+		// watchdog deadline; the 120s budget keeps refilling while the
+		// migration emits per-migration progress lines (each of which
+		// fires emitHeartbeat via progress.Write — so the migration
+		// itself also keeps the watchdog alive). The ticker is the
+		// safety net for the few seconds at the start of a migration
+		// before its first progress line lands.
 		extendCtx, extendCancel := context.WithCancel(ctx)
 		extendDone := make(chan struct{})
 		go func() {
 			defer close(extendDone)
-			// First extend fires immediately so the deadline pushes out
-			// before the original 90s window expires.
-			sdNotifyExtendTimeout(120 * time.Second)
+			// First ping fires immediately so the watchdog deadline
+			// resets before any migration can run long enough to
+			// approach the 120s budget.
+			sdNotify("WATCHDOG=1")
 			ticker := time.NewTicker(30 * time.Second)
 			defer ticker.Stop()
 			for {
@@ -3542,7 +3559,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 				case <-extendCtx.Done():
 					return
 				case <-ticker.C:
-					sdNotifyExtendTimeout(120 * time.Second)
+					sdNotify("WATCHDOG=1")
 				}
 			}
 		}()

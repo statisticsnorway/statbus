@@ -8,6 +8,20 @@ import (
 	"time"
 )
 
+// Historical note (2026-05-23): sdNotifyExtendTimeout was removed from
+// this file alongside the active-phase WATCHDOG=1 fix for Race B.
+// Original design assumed applyPostSwap ran in systemd's "activating"
+// phase (pre-READY=1), where EXTEND_TIMEOUT_USEC is the right primitive.
+// Evidence (service.go:1519 sends READY=1 before the main loop;
+// applyPostSwap is reached from inside the main loop via
+// executeUpgrade) showed applyPostSwap always runs in active phase,
+// where EXTEND_TIMEOUT_USEC is a no-op against WatchdogSec and only
+// WATCHDOG=1 resets the watchdog deadline. Confirmed by operator's
+// dev journalctl: UNIT_RESULT=watchdog, NRestarts=111 — Fix 1's
+// EXTEND_TIMEOUT_USEC ticker did not prevent the watchdog from firing.
+// The helper had no other call site, so it was deleted rather than
+// preserved as defensive cover (dead code paths must be removed).
+
 // Heartbeat design (task #42, unified from task #37's 4-commit chain):
 //
 // A single function, emitHeartbeat, is the SOURCE OF TRUTH for "this
@@ -57,10 +71,14 @@ import (
 // This is the low-level primitive used by READY=1 at startup and
 // WATCHDOG=1 from emitHeartbeat. Callers OTHER than emitHeartbeat
 // should be rare — almost all liveness signalling goes through
-// emitHeartbeat so the three signals stay unified. The one exception
-// is sdNotifyExtendTimeout (below), which is the correct sd_notify
-// API during systemd's "activating" phase (READY=1 not yet sent),
-// where WATCHDOG=1 is not yet honoured.
+// emitHeartbeat so the three signals stay unified.
+//
+// One legitimate ad-hoc callsite is the migrate ticker in
+// applyPostSwap (service.go), which sends WATCHDOG=1 directly without
+// the file+log side effects of emitHeartbeat. That's an active-phase
+// ticker — applyPostSwap runs after Service.Run has sent READY=1, so
+// WATCHDOG=1 (not EXTEND_TIMEOUT_USEC) is the primitive that resets
+// the watchdog deadline.
 func sdNotify(state string) {
 	socket := os.Getenv("NOTIFY_SOCKET")
 	if socket == "" {
@@ -72,31 +90,6 @@ func sdNotify(state string) {
 	}
 	defer conn.Close()
 	conn.Write([]byte(state))
-}
-
-// sdNotifyExtendTimeout asks systemd to roll the start-up deadline
-// forward by d (relative to "now"). Architecturally distinct from
-// WATCHDOG=1: during the unit's "activating" phase (before READY=1
-// is sent), systemd enforces TimeoutStartSec, not WatchdogSec, and
-// only EXTEND_TIMEOUT_USEC pushes that deadline out. Once READY=1
-// fires the unit is "active" and emitHeartbeat's WATCHDOG=1 takes
-// over.
-//
-// Used by applyPostSwap to wrap the post-swap migrate-up subprocess,
-// which can legitimately run multi-minute on at-scale databases —
-// longer than the unit's TimeoutStartSec=90s. A 30s ticker calling
-// sdNotifyExtendTimeout(120 * time.Second) keeps systemd's start
-// deadline rolling while the migration emits its own per-migration
-// heartbeats; if the migration genuinely hangs (no extend-timeout
-// for >2 min), systemd kills it for real.
-//
-// No-op if not running under systemd (NOTIFY_SOCKET unset).
-func sdNotifyExtendTimeout(d time.Duration) {
-	usec := d.Microseconds()
-	if usec < 0 {
-		return
-	}
-	sdNotify("EXTEND_TIMEOUT_USEC=" + strconv.FormatInt(usec, 10))
 }
 
 // heartbeatPath returns the path to the on-disk heartbeat marker.

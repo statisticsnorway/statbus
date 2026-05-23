@@ -607,7 +607,8 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error)
 		// needing --verbose. Each line also flows through progress.Write
 		// (PrefixWriter) which fires WATCHDOG=1, so per-migration output
 		// also serves as a heartbeat during multi-minute migrations
-		// (complements sdNotifyExtendTimeout in applyPostSwap).
+		// (complements the active-phase WATCHDOG=1 ticker in
+		// applyPostSwap that fires every 30 s independently).
 		fmt.Printf("[migrate]   ▶ applying %s\n", filepath.Base(m.Path))
 
 		if verbose {
