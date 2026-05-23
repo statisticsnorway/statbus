@@ -119,6 +119,35 @@ DATA_SNAPSHOT=$(snapshot_demo_data_counts "$VM_NAME")
 echo "  pre-trigger data snapshot: $DATA_SNAPSHOT"
 assert_demo_data_present "$VM_NAME"
 
+# ─────────────────────────────────────────────────────────────────────────
+# Phase 2b — plant synthetic stall-target migration on VM
+#
+# The db-seed branch always tracks HEAD's migration level. So even though
+# this scenario bootstraps at INSTALL_VERSION (an older release), the first
+# install's seed-restore brings the DB to HEAD's migration level — leaving
+# zero pending migrations when the second install runs ./sb migrate up.
+# With len(pending)==0, runPsqlFile is never called and the C12 stall site
+# in runPsqlFile is unreachable.
+#
+# Fix: write a harness-only no-op SQL file with timestamp 20991231235959
+# (far beyond any real migration) so ./sb migrate up sees exactly one
+# pending migration and the stall fires. Written only to the VM working
+# copy — never committed to the repo.
+# ─────────────────────────────────────────────────────────────────────────
+echo ""
+echo "── planting synthetic stall-target migration on VM ──"
+SYNTHETIC_MIG="20991231235959_scenario_12_stall_target"
+VM_EXEC bash -c "cat > ~/statbus/migrations/${SYNTHETIC_MIG}.up.sql << 'SQL'
+-- Harness-only: scenario 12 (C12 / Race B regression net).
+-- Written to the VM working copy only — NOT committed.
+-- Ensures ./sb migrate up has at least one pending migration so
+-- inject.StallHere in runPsqlFile is reachable regardless of whether the
+-- HEAD seed already captured all production migrations (db-seed always
+-- tracks HEAD, so a version-delta install path can't rely on a gap).
+SELECT 1;
+SQL"
+echo "  synthetic migration written: migrations/${SYNTHETIC_MIG}.up.sql"
+
 # Baseline NRestarts before triggering the upgrade. The systemd-restart-
 # counter assertion at the end compares against this — any restart that
 # happens during our stall window is the Race B regression.
