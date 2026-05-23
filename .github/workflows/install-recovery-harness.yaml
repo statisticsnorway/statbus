@@ -1,0 +1,228 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Install Recovery Harness
+
+# Install Recovery Harness — RC-time end-to-end RECOVERY gate via Hetzner
+# Cloud VMs. Sister to test-install.yaml (which runs only scenario 01 / the
+# happy-install baseline). Where test-install validates "fresh install works",
+# THIS workflow validates "install converges to a coherent terminal state
+# from every named failure-injection class."
+#
+# Triggers on prerelease tag push (`v*-rc.*`) and manual dispatch. The full
+# scenario catalogue lives in `test/install-recovery/scenarios/` — see
+# `test/install-recovery/README.md` for the per-class breakdown and the
+# pairing with `cli/internal/inject/` injection sites.
+#
+# Why a real VM per scenario and not parallel GHA runners: every scenario
+# either restarts systemd-user units, uses Docker named volumes, or
+# orchestrates failure-injection that requires a long-lived /etc + ~/statbus
+# state. A throwaway VM per scenario is the only shape that matches the
+# install ladder's assumptions about its host. Cost: cx23 in fsn1/hel1 is
+# €0.0072/hr, billed at the 1-hour Hetzner minimum, so each scenario is
+# ~€0.0072 regardless of wall-clock. 17 scenarios × €0.0072 ≈ €0.13/run.
+# Typical wall-clock 15-25 min per scenario × 17 = ~5-7 hours sequential,
+# or ~30-45 min if we parallelise (matrix per scenario, future work).
+#
+# Relationship to other CI workflows:
+#   - `images.yaml` — builds Docker images and the `sb` binary
+#     artifacts on master push.
+#   - `test-hardening.yaml` — cheap in-runner subset (setup.sh Stage 7,
+#     `./sb install` against the runner's docker, install.sh bootstrap).
+#   - `test-install.yaml` — single-scenario happy-install Hetzner gate.
+#   - `install-recovery-harness.yaml` — THIS workflow, full scenario
+#     catalogue: every C-class with a paired scenario gets exercised on
+#     its own VM. Fired by `./sb release stable` pre-flight via
+#     `release.CheckWorkflowAtCommit(WorkflowInstallRecoveryHarness, sha)`.
+#
+# See doc/release-workflow-gates.md for the full gate-pattern reference,
+# the any-green semantics, and the `SKIP_INSTALL_RECOVERY=1` operator
+# bypass.
+
+on:
+  push:
+    tags:
+      - 'v*-rc.*'
+  workflow_dispatch:
+    inputs:
+      scenarios:
+        description: 'Space-separated scenario selectors (e.g. "01 09 23") — leave blank to run all'
+        required: false
+        default: ''
+
+# Don't cancel a run that's already provisioned VMs — cancellation would
+# skip every scenario's cleanup trap and orphan ~17 Hetzner instances at
+# once (billing the next hour for each). Queue subsequent triggers behind
+# the live one. Scenario-level `bootstrap_install_test_vm` refuse-on-
+# existing check in vm-bootstrap.sh is the second line of defence against
+# name collisions.
+concurrency:
+  group: install-recovery-harness
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  full-recovery-suite:
+    name: Provision Hetzner VMs + run full install-recovery scenario suite
+    runs-on: ubuntu-24.04
+    # 6h ceiling for the full 17-scenario sequential run on cx23 with
+    # average ~20 min/scenario. Most scenarios complete in 12-18 min;
+    # the populated-DB + worker-contention scenarios (10, 13) and the
+    # systemd-unit-supervised scenarios (18, 02) can stretch closer to
+    # 30 min on slow hardware. The ceiling absorbs that without leaving
+    # an orphan-VM trail if a single scenario gets stuck.
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout
+        # fetch-depth: 0 — several scenarios `git checkout HEAD-LOCAL` on
+        # the VM after `git fetch --depth 1 origin <sha>`, but the
+        # harness's own host-side commit SHA computations (HARNESS_ROOT
+        # rev-parse, pending-migration counts in scenario 23) need the
+        # full history available locally. Cheap on the GHA runner.
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        # go-version-file pins to cli/go.mod's `go` directive — single
+        # source of truth, mirrors test-install.yaml + test-hardening.yaml.
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: cli/go.mod
+
+      - name: Build sb binary (linux/amd64)
+        # `./dev.sh build-sb linux/amd64` writes `sb-linux-amd64` to the
+        # repo root and stamps LDFLAGS version + 40-char commit so the
+        # binary's --version output matches the tag. Same primitive the
+        # release workflow uses; any change to the build recipe
+        # propagates here automatically. Every scenario uploads this
+        # binary as `/tmp/sb` on its VM via vm-bootstrap.sh's scp step.
+        run: ./dev.sh build-sb linux/amd64
+
+      - name: Install hcloud CLI
+        # Pinned binary from GitHub releases. Hetzner does NOT operate a
+        # signed apt repo for the hcloud CLI itself (verified 2026-05-20),
+        # so the canonical install on Linux is the GitHub release tarball.
+        # Pin the version so a runner upgrade doesn't change observed
+        # behaviour.
+        env:
+          HCLOUD_CLI_VERSION: "1.64.1"
+        run: |
+          set -euo pipefail
+          curl -fsSL \
+            "https://github.com/hetznercloud/cli/releases/download/v${HCLOUD_CLI_VERSION}/hcloud-linux-amd64.tar.gz" \
+            -o /tmp/hcloud.tar.gz
+          sudo tar -C /usr/local/bin -xzf /tmp/hcloud.tar.gz hcloud
+          rm /tmp/hcloud.tar.gz
+          hcloud version
+
+      - name: Install CI SSH private key
+        # The matching public key is registered in the Hetzner project as
+        # SSH key "statbus-ci" — vm-bootstrap.sh references it by name via
+        # the HCLOUD_SSH_KEY env (set in the run step's env block). The
+        # private key here is what the runner uses to SSH into provisioned
+        # VMs after Hetzner injects the public key at boot.
+        env:
+          STATBUS_CI_SSH_PRIVATE_KEY: ${{ secrets.STATBUS_CI_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$STATBUS_CI_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keygen -lf ~/.ssh/id_ed25519 \
+            | awk '{ print "SSH key fingerprint:", $2 }'
+
+      - name: Run full install-recovery scenario suite on Hetzner VMs
+        # `./dev.sh test-install-recovery [SELECTORS]` delegates to
+        # test/install-recovery/run.sh, which discovers every
+        # `scenarios/NN-*.sh`, runs each on a fresh Hetzner cx23
+        # (named statbus-recovery-NN), and writes per-scenario logs to
+        # tmp/install-recovery-NN.log. The dispatcher writes
+        # tmp/install-recovery-test-passed-sha when ALL scenarios pass
+        # in a run with no selector — proves coverage when the workflow
+        # itself goes green.
+        #
+        # STATBUS_SB_BINARY tells vm-bootstrap.sh to use the CI-built
+        # binary above instead of rebuilding `sb` inside each VM —
+        # saves ~30s per scenario (~9 min across the full suite) and
+        # pins every scenario to exactly the artifact this tag commit
+        # produces.
+        #
+        # HCLOUD_SSH_KEY=statbus-ci selects the key VMs are provisioned
+        # with; pairs with the private key written above so the runner
+        # can SSH in once cloud-init finishes.
+        #
+        # The `scenarios` workflow-dispatch input lets an operator
+        # narrow the suite when debugging a single failure (e.g.
+        # `gh workflow run install-recovery-harness.yaml -f scenarios="08 12"`);
+        # the tag-push trigger always runs the full suite.
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+          HCLOUD_SSH_KEY: statbus-ci
+          STATBUS_SB_BINARY: ${{ github.workspace }}/sb-linux-amd64
+        run: |
+          set -euo pipefail
+          if [ -n "${{ github.event.inputs.scenarios }}" ]; then
+            echo "Running selected scenarios: ${{ github.event.inputs.scenarios }}"
+            ./dev.sh test-install-recovery ${{ github.event.inputs.scenarios }}
+          else
+            echo "Running FULL install-recovery suite (every scenario)"
+            ./dev.sh test-install-recovery
+          fi
+
+      - name: Upload per-scenario logs
+        # Always runs (including on failure) so operators can grep the
+        # individual scenario logs without needing to scrape the
+        # consolidated workflow output. Each scenario's log is at
+        # tmp/install-recovery-<NN-name>.log per run.sh's log path
+        # convention; the artifact bundles them all.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: install-recovery-logs
+          path: tmp/install-recovery-*.log
+          # 14 days is sufficient for an operator debugging an RC's
+          # cycle; the artifact retention is short-cycle, not archival.
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Reap orphan VMs (defense in depth)
+        # Every scenario's `trap cleanup_vm "$VM_NAME" EXIT` normally
+        # deletes its VM on every exit path. This step is the safety
+        # net for the cases where the trap doesn't fire: GHA-side
+        # cancellation, runner-host SIGKILL, scenario script bug that
+        # exits before the trap is installed.
+        #
+        # Without this, leftover statbus-recovery-* VMs accrue
+        # €0.0072/hr each until someone notices. With 17 scenarios the
+        # exposure could be ~€0.12/hr × however-many-orphans.
+        #
+        # Scope: only servers whose names start with the harness prefix
+        # `statbus-recovery-`. Other VMs in the same Hetzner project
+        # (production hosts, niue, etc.) are NOT prefixed that way, so
+        # this filter is safe by construction.
+        #
+        # Best-effort: any failure here doesn't fail the workflow (the
+        # main test step already determined pass/fail). Operators can
+        # inspect leftovers via `hcloud server list` from a workstation.
+        if: always()
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+        run: |
+          if ! command -v hcloud >/dev/null 2>&1; then
+            echo "hcloud CLI not installed (earlier step likely failed) — skipping reap"
+            exit 0
+          fi
+          orphans=$(hcloud server list --output noheader --output columns=name 2>/dev/null \
+            | grep '^statbus-recovery-' || true)
+          if [ -z "$orphans" ]; then
+            echo "No orphan VMs to reap."
+            exit 0
+          fi
+          echo "Orphan VMs found — reaping:"
+          echo "$orphans"
+          echo "$orphans" | xargs -r -n1 hcloud server delete || true
+          exit 0
