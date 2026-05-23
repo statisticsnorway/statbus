@@ -240,6 +240,11 @@ elif [[ "$tool" == "Bash" ]]; then
   # Handles: -m 'single'  -m "double"  -m $'ansi-c'  -F <path>
   # After tr-normalization the input is already single-line, so multi-line
   # HEREDOC bodies ($(cat <<'EOF'..EOF)) are covered by the double-quote case.
+  # Caveat: if the message body itself contains double-quote characters the
+  # [^"]* pattern stops at the first embedded ", leaving the tail unstripped.
+  # Workaround: write the message to a file and use `git commit -F <file>`.
+  # The -F path strip above handles that form cleanly. A shell-aware parser
+  # is heavier than this problem is worth; -F is the documented escape hatch.
   if printf '%s' "$normalized" | grep -qE '^[[:space:]]*git[[:space:]]+commit\b'; then
     normalized_for_match=$(printf '%s' "$normalized" | sed -E \
       -e "s/-m[[:space:]]+'[^']*'//g" \
