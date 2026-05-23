@@ -243,6 +243,21 @@ func QueryDB(projDir, dbName, sql string, extraArgs ...string) (string, error) {
 
 // runPsqlFile executes a SQL file via psql.
 func runPsqlFile(projDir string, filePath string) (string, error) {
+	// Harness-only stall site: simulates a migration that runs longer
+	// than the upgrade-service's WatchdogSec budget. When activated via
+	// STATBUS_INJECT_AT=migration-slower-than-systemd-unit-timeout,
+	// holds here until the harness removes
+	// STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE. Validates the Race B fix
+	// in applyPostSwap's WATCHDOG=1 ticker (commit `e6df084b7`): with
+	// the migrate subprocess blocked here, the parent upgrade-service
+	// must keep the unit alive via its independent ticker, otherwise
+	// systemd's WatchdogSec=120s fires and triggers a restart loop.
+	// No-op in production. The hold runs BEFORE psql is invoked so
+	// the harness sees a subprocess that has started but not yet
+	// produced any output — same observable shape as a migration
+	// stuck waiting on a DDL lock.
+	inject.StallHere("migration-slower-than-systemd-unit-timeout")
+
 	psqlPath, prefix, env, err := PsqlCommand(projDir)
 	if err != nil {
 		return "", err
