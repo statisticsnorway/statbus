@@ -541,16 +541,23 @@ SCRIPT
 # install_statbus_in_vm with their own inline scripts call this helper
 # explicitly instead.
 #
-# Idempotent: safe to call multiple times in one scenario run.
+# Always rebuilds sb-linux-amd64 from the current HEAD unless STATBUS_SB_BINARY
+# is set (CI pre-extraction bypass).  The "build if absent" gate was dropped
+# because a stale binary (built from an older commit) embeds an older commitSHA
+# via ldflags; stalenessGuard in cli/cmd/root.go:85 detects the mismatch and
+# triggers self-heal rebuild+re-exec on the VM — but the VM has no Go, so
+# exit 127 aborts the scenario before the inject site is ever reached.
+# Rebuilding here adds ~10-15s (CGO_ENABLED=0 cross-compile) once per
+# upload_sb_to_vm call, which is negligible vs the ~10-15 min scenario wall-clock.
 # STATBUS_SB_BINARY overrides the binary path (used by CI pre-extraction).
 upload_sb_to_vm() {
     local vm_name="$1"
     _check_name_safety "$vm_name" || return 1
     local ip
     ip=$(hcloud server ip "$vm_name")
-    local sb_binary="${STATBUS_SB_BINARY:-${HARNESS_ROOT}/sb-linux-amd64}"
-    if [ ! -f "$sb_binary" ]; then
-        echo "  Building sb-linux-amd64 for /tmp/sb upload..."
+    local sb_binary="${STATBUS_SB_BINARY:-}"
+    if [ -z "$sb_binary" ]; then
+        echo "  Building sb-linux-amd64 from HEAD (always rebuild to prevent staleness)..."
         (cd "$HARNESS_ROOT" && ./dev.sh build-sb linux/amd64)
         sb_binary="${HARNESS_ROOT}/sb-linux-amd64"
     fi
