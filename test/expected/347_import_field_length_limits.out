@@ -23,10 +23,12 @@ BEGIN;
 "failure case."
 \echo
 
-\echo "Post-fix (this test): analyse_length_limits runs at priority 105 (after all other"
-"Post-fix (this test): analyse_length_limits runs at priority 105 (after all other"
-\echo "analyses, before any process step's MERGE). Two modes, controlled by per-job"
-"analyses, before any process step's MERGE). Two modes, controlled by per-job"
+\echo "Post-fix (this test): length_limits runs at priority 11 (clustered with the only"
+"Post-fix (this test): length_limits runs at priority 11 (clustered with the only"
+\echo "other syntactic-validation step, valid_time at priority 10; before any lookup"
+"other syntactic-validation step, valid_time at priority 10; before any lookup"
+\echo "wastes CPU on doomed rows). Two modes, controlled by per-job"
+"wastes CPU on doomed rows). Two modes, controlled by per-job"
 \echo "public.import_job.truncate_overlong:"
 "public.import_job.truncate_overlong:"
 \echo "  - false (DEFAULT): ANY overflow → state=error, dt.errors populated, no UPSERT."
@@ -69,16 +71,16 @@ DO UPDATE SET
 \copy public.legal_form_custom_only FROM 'samples/norway/legal_form/legal_form_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 \i samples/norway/data_source/data_source_norway.sql
 \copy public.data_source_custom (code, name) FROM 'samples/norway/data_source/data_source_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
--- Confirm the analyse_length_limits step is wired into the import flow.
+-- Confirm the length_limits step is wired into the import flow.
 \echo
 
 \echo "=== Step registration check ==="
 "=== Step registration check ==="
 SELECT code, priority, analyse_procedure::text, process_procedure::text, is_holistic
-FROM public.import_step WHERE code = 'analyse_length_limits';
-         code          | priority |      analyse_procedure       | process_procedure | is_holistic 
------------------------+----------+------------------------------+-------------------+-------------
- analyse_length_limits |      105 | import.analyse_length_limits |                   | f
+FROM public.import_step WHERE code = 'length_limits';
+     code      | priority |      analyse_procedure       | process_procedure | is_holistic 
+---------------+----------+------------------------------+-------------------+-------------
+ length_limits |       11 | import.analyse_length_limits |                   | f
 (1 row)
 
 -- Confirm the step is linked to legal_unit_source_dates definition.
@@ -90,7 +92,7 @@ SELECT count(*) AS link_count
 FROM public.import_definition_step ds
 JOIN public.import_step s ON s.id = ds.step_id
 JOIN public.import_definition d ON d.id = ds.definition_id
-WHERE s.code = 'analyse_length_limits' AND d.slug = 'legal_unit_source_dates';
+WHERE s.code = 'length_limits' AND d.slug = 'legal_unit_source_dates';
  link_count 
 ------------
           1
@@ -480,7 +482,7 @@ SELECT row_id, state,
 FROM public.imp_347_c8_strict_desc_data ORDER BY row_id;
  row_id | state | has_addr_error | too_long | limit_val | warnings_empty 
 --------+-------+----------------+----------+-----------+----------------
-      1 | error | t              | 250      | 200       | f
+      1 | error | t              | 250      | 200       | t
 (1 row)
 
 \echo "C8 public.location count for ident 347000008 (should be 0):"
