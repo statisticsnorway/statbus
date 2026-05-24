@@ -1,4 +1,30 @@
-```sql
+-- Down Migration: length_limits_priority_and_rename
+--
+-- Reverts the THREE coupled changes from the up migration:
+--   1. Step code 'length_limits' → 'analyse_length_limits'
+--   2. Step priority 11 → 105
+--   3. Procedure body: restore the priority-105-shaped body (reads
+--      the internal column directly, no action='skip' on error).
+--      That body was correct for priority 105 because by then the
+--      analyse_<step> procedures had populated the internal columns
+--      from `_raw`.
+--
+-- Roundtrip guarantee: up sets {code,priority,proc} to the priority-11
+-- shape; down restores all three to the priority-105 shape. No
+-- partial reverts. An operator that toggles up→down→up gets a
+-- consistent state at every step.
+
+BEGIN;
+
+UPDATE public.import_step
+SET code = 'analyse_length_limits',
+    priority = 105
+WHERE code = 'length_limits';
+
+-- Restore the pre-up procedure body (the version installed by
+-- import-length-review-fix — read/write internal columns, no
+-- action='skip' on error). Bundled here so the down is symmetric
+-- with the up's body rewrite.
 CREATE OR REPLACE PROCEDURE import.analyse_length_limits(IN p_job_id integer, IN p_batch_seq integer, IN p_step_code text)
  LANGUAGE plpgsql
 AS $procedure$
@@ -20,12 +46,9 @@ DECLARE
     v_col RECORD;
     v_n INT;
     v_clause_count INT := 0;
-    v_raw_col TEXT;       -- name of the `_raw` counterpart for internal cols
 
     -- Columns that emit `errors` entries (and contribute to the
-    -- state='error' decision). Encoded as 'colname:N' strings; colname
-    -- here is the column actually READ by the state-clause length()
-    -- probe (so for internal it must be the _raw counterpart).
+    -- state='error' decision). Encoded as 'colname:N' strings.
     v_error_columns TEXT[] := ARRAY[]::TEXT[];
 BEGIN
     RAISE DEBUG '[Job %] analyse_length_limits (Batch): Starting length checks for batch_seq %', p_job_id, p_batch_seq;
@@ -44,18 +67,11 @@ BEGIN
     RAISE DEBUG '[Job %] analyse_length_limits: truncate_overlong=%, building per-column clauses', p_job_id, v_truncate_overlong;
 
     -- Iterate bounded columns from the definition snapshot. Bucketing
-    -- is driven by (purpose, target_pg_type):
+    -- is now driven entirely by (purpose, target_pg_type):
     --   - purpose='internal' + target_pg_type matches varchar(N)
-    --     → descriptive (truncate or error per flag). At length_limits
-    --       priority (11) the internal column is still NULL — actual
-    --       data lives in the `<col>_raw` source_input counterpart, so
-    --       we read/write that. Downstream `analyse_<step>` (priority
-    --       30+) then copies the trimmed `_raw` into the internal.
-    --       Warnings/errors are keyed by the INTERNAL column name (the
-    --       operator-meaningful destination, what the bound describes).
+    --     → descriptive (truncate or error per flag)
     --   - purpose='source_input' + target_pg_type matches varchar(N)
-    --     → identifier bucket (e.g. tax_ident_raw): always error.
-    --       column_name is already the `_raw` name; error key matches.
+    --     → identifier (always error, regardless of flag)
     --   - target_pg_type='ltree' or anything non-varchar → out of scope
     FOR v_col IN
         SELECT
@@ -70,16 +86,15 @@ BEGIN
     LOOP
         v_n := v_col.varchar_limit;
         IF v_col.purpose = 'internal' THEN
-            v_raw_col := v_col.column_name || '_raw';
             IF v_truncate_overlong THEN
-                -- TRUNCATE branch (opt-in): rewrite _raw + warning.
+                -- TRUNCATE branch (opt-in): rewrite value + warning.
                 v_set_clauses := v_set_clauses || format(
                     $clause$,
                 %1$I = CASE
                     WHEN length(dt.%1$I) > %2$L THEN substring(dt.%1$I FROM 1 FOR %2$L)
                     ELSE dt.%1$I
                 END$clause$,
-                    v_raw_col         /* %1$I — read AND write the _raw column */,
+                    v_col.column_name /* %1$I */,
                     v_n               /* %2$L */
                 );
                 v_warnings_clauses := v_warnings_clauses || format(
@@ -88,9 +103,9 @@ BEGIN
                             jsonb_build_object(%3$L, jsonb_build_object('truncated_from', length(dt.%1$I), 'to', %2$L))
                         ELSE '{}'::jsonb
                     END$clause$,
-                    v_raw_col         /* %1$I — probe _raw */,
+                    v_col.column_name /* %1$I */,
                     v_n               /* %2$L */,
-                    v_col.column_name /* %3$L — warning keyed by internal col name */
+                    v_col.column_name /* %3$L */
                 );
             ELSE
                 -- STRICT branch (default): hard-fail on overflow.
@@ -100,16 +115,15 @@ BEGIN
                             jsonb_build_object(%3$L, jsonb_build_object('too_long', length(dt.%1$I), 'limit', %2$L))
                         ELSE '{}'::jsonb
                     END$clause$,
-                    v_raw_col         /* %1$I — probe _raw */,
+                    v_col.column_name /* %1$I */,
                     v_n               /* %2$L */,
-                    v_col.column_name /* %3$L — error keyed by internal col name */
+                    v_col.column_name /* %3$L */
                 );
-                v_error_columns := v_error_columns || ARRAY[v_raw_col || ':' || v_n::TEXT];
+                v_error_columns := v_error_columns || ARRAY[v_col.column_name || ':' || v_n::TEXT];
             END IF;
         ELSE
             -- purpose='source_input': identifier bucket — ALWAYS error.
             -- Truncating an identifier silently changes the operator's PK.
-            -- column_name IS the `_raw` name; error key matches read column.
             v_errors_clauses := v_errors_clauses || format(
                 $clause$ || CASE
                     WHEN length(dt.%1$I) > %2$L THEN
@@ -141,14 +155,6 @@ BEGIN
     IF v_clause_count = 0 THEN
         RAISE DEBUG '[Job %] analyse_length_limits: no bounded columns in scope; advancing priority only', p_job_id;
     ELSE
-        -- Note: action='skip' alongside state='error' is the convention
-        -- from propagate_fatal_error_to_entity_batch — it tells all
-        -- downstream analyse_* and process_* steps "this row is
-        -- hard-rejected; do not touch it." Without action='skip',
-        -- analyse_external_idents (priority 15) would clear our
-        -- identifier error keys, and every downstream analyse_<step>
-        -- would reset state='error' back to 'analysing' because it
-        -- doesn't see its own error.
         v_sql := format($update$
             UPDATE public.%1$I dt
             SET
@@ -158,10 +164,6 @@ BEGIN
                 state    = CASE
                                WHEN (%6$s) THEN 'error'::public.import_data_state
                                ELSE dt.state
-                           END,
-                action   = CASE
-                               WHEN (%6$s) THEN 'skip'::public.import_row_action_type
-                               ELSE dt.action
                            END
             WHERE dt.batch_seq = $1
               AND dt.action IS DISTINCT FROM 'skip'
@@ -215,5 +217,6 @@ BEGIN
 
     RAISE DEBUG '[Job %] analyse_length_limits (Batch): Finished for batch_seq %', p_job_id, p_batch_seq;
 END;
-$procedure$
-```
+$procedure$;
+
+END;

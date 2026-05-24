@@ -11,8 +11,9 @@ BEGIN;
 \echo "overlong field in one row. Albania-shaped 500-char addresses were the canonical"
 \echo "failure case."
 \echo
-\echo "Post-fix (this test): analyse_length_limits runs at priority 105 (after all other"
-\echo "analyses, before any process step's MERGE). Two modes, controlled by per-job"
+\echo "Post-fix (this test): length_limits runs at priority 11 (clustered with the only"
+\echo "other syntactic-validation step, valid_time at priority 10; before any lookup"
+\echo "wastes CPU on doomed rows). Two modes, controlled by per-job"
 \echo "public.import_job.truncate_overlong:"
 \echo "  - false (DEFAULT): ANY overflow → state=error, dt.errors populated, no UPSERT."
 \echo "  - true (OPT-IN):   descriptive overflows truncated + dt.warnings recorded;"
@@ -27,11 +28,11 @@ CALL test.set_user_from_email('test.admin@statbus.org');
 
 \i samples/norway/getting-started.sql
 
--- Confirm the analyse_length_limits step is wired into the import flow.
+-- Confirm the length_limits step is wired into the import flow.
 \echo
 \echo "=== Step registration check ==="
 SELECT code, priority, analyse_procedure::text, process_procedure::text, is_holistic
-FROM public.import_step WHERE code = 'analyse_length_limits';
+FROM public.import_step WHERE code = 'length_limits';
 
 -- Confirm the step is linked to legal_unit_source_dates definition.
 \echo
@@ -40,7 +41,7 @@ SELECT count(*) AS link_count
 FROM public.import_definition_step ds
 JOIN public.import_step s ON s.id = ds.step_id
 JOIN public.import_definition d ON d.id = ds.definition_id
-WHERE s.code = 'analyse_length_limits' AND d.slug = 'legal_unit_source_dates';
+WHERE s.code = 'length_limits' AND d.slug = 'legal_unit_source_dates';
 
 
 -- ═════════════════════════════════════════════════════════════════════════

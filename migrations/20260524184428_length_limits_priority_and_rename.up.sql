@@ -1,4 +1,116 @@
-```sql
+-- Migration: length_limits_priority_and_rename
+--
+-- King's code review feedback on import-length-analyse-step. THREE
+-- coupled corrections — all needed together, because moving the step
+-- to priority 11 invalidates the prior procedure body's assumptions:
+--
+-- 1. Priority 105 → 11. Length-limits is a SYNTACTIC validation —
+--    no FK lookups, no business resolution. At priority 105
+--    (second-to-last of 21 steps), every import row burned CPU
+--    through ~16 intermediate steps (external_idents at 15,
+--    data_source at 16, status at 17, enterprise links at 18-19,
+--    legal_relationship + legal_unit + establishment at 20-21,
+--    location at 30-40, etc.) before a rejection that could have
+--    been issued upfront.
+--
+--    Cluster with valid_time (the only other purely-syntactic
+--    step, priority 10): length_limits at 11. Lookups start at 15
+--    (external_idents) — every step at >=15 now runs ONLY on rows
+--    that already passed the cheap syntactic gates.
+--
+-- 2. Step code `analyse_length_limits` → `length_limits`. Every
+--    other step in public.import_step uses the bare-noun convention
+--    (`valid_time`, `data_source`, `edit_info`, `metadata`,
+--    `external_idents`, `legal_unit`, `physical_location`, etc.) —
+--    no `analyse_` or `process_` prefix on the step code. The
+--    redundant `analyse_` prefix was engineer's defensive naming.
+--
+--    The PROCEDURE name `import.analyse_length_limits` stays —
+--    already conforms to the `import.analyse_<step_code>`
+--    convention used by every other analyse procedure.
+--
+-- 3. Procedure body must be reworked for the new priority slot.
+--    The pre-existing body assumed priority 105 (after
+--    analyse_<step> populated internal columns from `_raw`). At
+--    priority 11 two assumptions break:
+--
+--    a. **Data location.** At priority 11 the internal columns
+--       (e.g. `physical_address_part1`) are still NULL —
+--       `analyse_location` (priority 30) populates them later from
+--       `_raw`. Reading the internal column at priority 11 yields
+--       NULL, the truncate/error CASE never fires, downstream
+--       `analyse_location` copies the full overlong `_raw` into
+--       the internal column, and `process_location` MERGE raises
+--       22001 (the canonical Albania bug).
+--
+--       Fix: read AND write the `<col>_raw` counterpart (the
+--       source-of-truth at priority 11). The bound (varchar(N))
+--       describes the eventual internal destination, so warnings
+--       and errors are still keyed by the BARE INTERNAL column
+--       name — that is the operator-meaningful destination.
+--       Downstream `analyse_location` then reads the trimmed
+--       `_raw` and copies it to the internal column; the MERGE
+--       fits cleanly.
+--
+--    b. **State stickiness across downstream steps.** Each
+--       `analyse_<step>` "owns" `state` for its scope:
+--           state = CASE WHEN <own_error> THEN 'error' ELSE 'analysing' END
+--       and `analyse_external_idents` additionally CLEARS the
+--       identifier error keys (`tax_ident_raw`, `stat_ident_raw`,
+--       `person_ident_raw`) before recomputing. Length_limits
+--       errors set at priority 11 were silently wiped by these
+--       downstream steps — by process phase the row looked clean.
+--
+--       Fix: when length_limits sets `state='error'`, ALSO set
+--       `action='skip'`. Every downstream analyse_* and process_*
+--       step already filters `WHERE action IS DISTINCT FROM 'skip'`.
+--       This is the same convention
+--       `propagate_fatal_error_to_entity_batch` uses for "this row
+--       is hard-rejected; do not touch it." The error key survives
+--       because downstream simply doesn't process the row.
+
+BEGIN;
+
+-- Step row update: single UPDATE so the row is never in a
+-- half-renamed half-repriotitized state visible to concurrent
+-- readers (worker queue, definition_snapshot builds).
+UPDATE public.import_step
+SET code = 'length_limits',
+    priority = 11
+WHERE code = 'analyse_length_limits';
+
+-- Sanity check: the renamed step must exist with the new code, the
+-- new priority, and no stale row at the old code.
+DO $assert$
+DECLARE
+    v_new_count INTEGER;
+    v_old_count INTEGER;
+    v_new_priority INTEGER;
+BEGIN
+    SELECT count(*) INTO v_new_count FROM public.import_step WHERE code = 'length_limits';
+    SELECT count(*) INTO v_old_count FROM public.import_step WHERE code = 'analyse_length_limits';
+    SELECT priority INTO v_new_priority FROM public.import_step WHERE code = 'length_limits';
+
+    IF v_new_count != 1 THEN
+        RAISE EXCEPTION 'length_limits_priority_and_rename: expected exactly 1 row with code=length_limits, got %', v_new_count;
+    END IF;
+    IF v_old_count != 0 THEN
+        RAISE EXCEPTION 'length_limits_priority_and_rename: % stale rows with old code=analyse_length_limits remain', v_old_count;
+    END IF;
+    IF v_new_priority != 11 THEN
+        RAISE EXCEPTION 'length_limits_priority_and_rename: expected priority=11, got %', v_new_priority;
+    END IF;
+END;
+$assert$;
+
+-- import_definition_step rows reference import_step.id (an integer
+-- PK), not the code. So the rename above propagates automatically
+-- via the FK — no explicit link-table UPDATE needed.
+
+-- Procedure body rewritten for priority 11 (see header comment §3).
+-- Atomic with the priority change: an operator that migrates up to
+-- this version gets a procedure that WORKS at priority 11, and a
+-- migrate-down restores the priority-105-shaped body.
 CREATE OR REPLACE PROCEDURE import.analyse_length_limits(IN p_job_id integer, IN p_batch_seq integer, IN p_step_code text)
  LANGUAGE plpgsql
 AS $procedure$
@@ -215,5 +327,6 @@ BEGIN
 
     RAISE DEBUG '[Job %] analyse_length_limits (Batch): Finished for batch_seq %', p_job_id, p_batch_seq;
 END;
-$procedure$
-```
+$procedure$;
+
+END;
