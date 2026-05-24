@@ -1628,8 +1628,22 @@ func runInstallService(dir string) error {
 	}
 
 	fmt.Println("  Running systemctl --user daemon-reload")
-	if err := runCmd("systemctl", "--user", "daemon-reload"); err != nil {
-		return fmt.Errorf("systemctl daemon-reload: %w", err)
+	if daemonReloadErr := runCmd("systemctl", "--user", "daemon-reload"); daemonReloadErr != nil {
+		// "No medium found" or "Failed to connect to bus" means the user
+		// session bus is not yet running.  On a fresh install the statbus
+		// user has no prior linger entry, so the persistent session bus has
+		// never been started.  loginctl enable-linger (two steps below)
+		// initialises it; subsequent systemctl --user calls then work.
+		// Silently skipping the reload here is safe — systemd picks up the
+		// unit file on the next bus observation, and enable --now succeeds
+		// once linger has initialised the session.
+		errMsg := daemonReloadErr.Error()
+		if strings.Contains(errMsg, "No medium found") || strings.Contains(errMsg, "Failed to connect to bus") {
+			fmt.Printf("  ⚠ Warning: systemctl --user daemon-reload: user session bus not yet running (%v)\n", daemonReloadErr)
+			fmt.Println("    Session bus will be initialised by loginctl enable-linger below.")
+		} else {
+			return fmt.Errorf("systemctl daemon-reload: %w", daemonReloadErr)
+		}
 	}
 
 	// Enable linger so the user service runs even when not logged in.
