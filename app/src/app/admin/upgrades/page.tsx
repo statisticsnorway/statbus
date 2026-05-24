@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useAtomValue } from "jotai";
 import useSWR, { useSWRConfig } from "swr";
 import { logger } from "@/lib/client-logger";
@@ -169,21 +169,38 @@ export default function UpgradesPage() {
   );
   const [acting, setActing] = useState<number | null>(null);
   const [checking, setChecking] = useState(false);
-  // Global SWR mutate — used by the Schedule-check button to invalidate
+  // Used by the Schedule-check effect to detect "discovery completed
+  // after our click" — captured at click time, compared against the
+  // post-SSE-refresh lastDiscoverAt to identify the round-trip's end.
+  const [checkInitialDiscoverAt, setCheckInitialDiscoverAt] = useState<
+    string | null
+  >(null);
+  // Safety-net timeout fires only when the daemon is truly wedged
+  // (5min — accommodates slow GitHub API + GHCR responses). Cleared
+  // by the completion-detection effect on the happy path.
+  const checkSafetyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+  // Global SWR mutate — used by the SSE-refresh effect to invalidate
   // both `/rest/upgrade` AND `/rest/system_info` (the latter has no
   // local mutate exposed; we need it because `upgrade_last_discover_at`
-  // lives in system_info and is the operator-visible "did it actually
-  // run?" signal).
+  // lives in system_info and is the operator-visible "did the daemon
+  // actually run?" signal that the completion-detection effect watches).
   const { mutate: mutateGlobal } = useSWRConfig();
 
-  // Refresh the upgrade list when SSE delivers an upgrade_changed event.
-  // The pendingUpgradeStatusAtom is already refreshed by SSEConnectionManager.
+  // Refresh the upgrade list AND system_info when SSE delivers an
+  // `upgrade_changed` event (forwarded by SSEConnectionManager via
+  // pendingUpgradeStatusAtom). Including system_info in the same
+  // refresh batch is what makes the Schedule-check completion-
+  // detection effect (next) work — it needs a fresh lastDiscoverAt
+  // value to compare against the click-time snapshot.
   const upgradeStatus = useAtomValue(pendingUpgradeStatusAtom);
   useGuardedEffect(
     () => {
       mutate();
+      mutateGlobal("/rest/system_info");
     },
-    [upgradeStatus, mutate],
+    [upgradeStatus, mutate, mutateGlobal],
     "UpgradesPage:sse-refresh"
   );
 
@@ -192,6 +209,30 @@ export default function UpgradesPage() {
   const lastDiscoverAt = systemInfo?.find(
     (s) => s.key === "upgrade_last_discover_at"
   )?.value;
+
+  // Schedule-check completion-detection effect (SSE-driven). When
+  // `lastDiscoverAt` updates past the value captured at click time, the
+  // daemon has completed its discovery tick — clear `checking` + the
+  // safety timeout. The SSE pipeline already drives the systemInfo
+  // refresh via the sse-refresh effect above (which now also mutates
+  // /rest/system_info). No polling, no manual fetches.
+  useGuardedEffect(
+    () => {
+      if (!checking || checkInitialDiscoverAt === null || !lastDiscoverAt) {
+        return;
+      }
+      if (lastDiscoverAt !== checkInitialDiscoverAt) {
+        setChecking(false);
+        setCheckInitialDiscoverAt(null);
+        if (checkSafetyTimeoutRef.current) {
+          clearTimeout(checkSafetyTimeoutRef.current);
+          checkSafetyTimeoutRef.current = null;
+        }
+      }
+    },
+    [checking, checkInitialDiscoverAt, lastDiscoverAt],
+    "UpgradesPage:check-completion"
+  );
   const diskFreeGB = systemInfo?.find((s) => s.key === "disk_free_gb")?.value;
   const diskFree = diskFreeGB ? parseInt(diskFreeGB, 10) : null;
 
@@ -310,20 +351,43 @@ export default function UpgradesPage() {
             // `NOTIFY upgrade_check` for the Go upgrade-service to pick up
             // (see doc/db/function/public_upgrade_request_check().md). The
             // actual GitHub release-feed scan + image-readiness probe runs
-            // in the daemon and can take 5-30s. Mutating SWR immediately
-            // after the POST refetches stale data — the same data we
-            // already had — so the UI looks frozen even though the
-            // request was accepted.
+            // in the daemon and can take 5-30s (and legitimately longer
+            // on GitHub API rate limits or slow GHCR manifest fetches).
             //
-            // Fix: poll until `upgrade_last_discover_at` (from
-            // /rest/system_info) changes — that's the operator-visible
-            // signal that the daemon actually completed a discovery tick.
-            // Cap at 30s; if it hasn't fired by then, surface "still
-            // pending — daemon may be slow" via the actionError banner
-            // rather than leaving the spinner forever.
-            const initialDiscoverAt = lastDiscoverAt ?? null;
-            setChecking(true);
+            // Completion is delivered via the existing SSE pipeline —
+            // the daemon's UPDATE on public.upgrade rows fires the
+            // `upgrade_changed` channel, which SSEConnectionManager
+            // forwards into pendingUpgradeStatusAtom, which the
+            // sse-refresh effect above translates into both `mutate()`
+            // on /rest/upgrade AND `mutateGlobal('/rest/system_info')`.
+            // The check-completion effect (defined near lastDiscoverAt)
+            // then detects the new `upgrade_last_discover_at` and
+            // clears `checking`.
+            //
+            // This onClick is correspondingly simple: snapshot
+            // lastDiscoverAt, POST, arm a 5min safety timeout for the
+            // truly-stuck case, and let the SSE pipeline do the rest.
             setActionError(null);
+            setCheckInitialDiscoverAt(lastDiscoverAt ?? null);
+            setChecking(true);
+
+            // 5 min safety net — daemon legitimately takes 5-30s but
+            // can stretch on GitHub API rate-limit responses. Cleared
+            // by the check-completion effect on the happy path.
+            if (checkSafetyTimeoutRef.current) {
+              clearTimeout(checkSafetyTimeoutRef.current);
+            }
+            checkSafetyTimeoutRef.current = setTimeout(() => {
+              setChecking(false);
+              setCheckInitialDiscoverAt(null);
+              checkSafetyTimeoutRef.current = null;
+              setActionError(
+                "Discovery did not complete within 5 minutes. " +
+                  "The upgrade daemon may be stuck or unreachable — " +
+                  "check the host with: `./sb upgrade check`."
+              );
+            }, 5 * 60_000);
+
             try {
               const resp = await fetch("/rest/rpc/upgrade_request_check", {
                 method: "POST",
@@ -334,40 +398,19 @@ export default function UpgradesPage() {
                   `POST upgrade_request_check failed: ${resp.status} ${resp.statusText}`
                 );
               }
-              const deadline = Date.now() + 30_000;
-              while (Date.now() < deadline) {
-                // Refetch both: `/rest/upgrade` (release_builds_status,
-                // docker_images_status) AND `/rest/system_info` (the
-                // upgrade_last_discover_at signal).
-                await Promise.all([
-                  mutate(),
-                  mutateGlobal("/rest/system_info"),
-                ]);
-                // Re-read system_info post-mutate to detect the change.
-                const sysResp = await fetch("/rest/system_info", {
-                  credentials: "include",
-                });
-                if (sysResp.ok) {
-                  const rows = (await sysResp.json()) as SystemInfo[];
-                  const newDiscoverAt = rows.find(
-                    (r) => r.key === "upgrade_last_discover_at"
-                  )?.value;
-                  if (newDiscoverAt && newDiscoverAt !== initialDiscoverAt) {
-                    break;
-                  }
-                }
-                await new Promise((r) => setTimeout(r, 2000));
-              }
-              if (Date.now() >= deadline) {
-                setActionError(
-                  "Check request was sent but the upgrade daemon did not respond within 30s. " +
-                    "It may still be processing — refresh the page in a minute, or check `./sb upgrade check` from the host."
-                );
-              }
+              // Happy-path: SSE delivers `upgrade_changed`, the
+              // check-completion effect clears `checking` + the
+              // safety timeout.
             } catch (e) {
-              setActionError(`Schedule check failed: ${describeError(e)}`);
-            } finally {
+              // POST itself failed (network, auth, RPC missing). Bail
+              // immediately — don't wait for SSE that will never come.
+              if (checkSafetyTimeoutRef.current) {
+                clearTimeout(checkSafetyTimeoutRef.current);
+                checkSafetyTimeoutRef.current = null;
+              }
               setChecking(false);
+              setCheckInitialDiscoverAt(null);
+              setActionError(`Schedule check failed: ${describeError(e)}`);
             }
           }}
         >
