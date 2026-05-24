@@ -139,9 +139,9 @@ LIMIT 3;
 SELECT * FROM _victims ORDER BY lu_id;
  lu_id | ent_id 
 -------+--------
-     1 |      1
-     2 |      4
-     3 |      5
+     1 |      2
+     2 |      5
+     3 |      6
 (3 rows)
 
 -- Elevated role: bypass RLS on FK-child tables and enterprise.

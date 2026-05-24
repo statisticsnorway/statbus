@@ -54,7 +54,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |    48
+ import    | completed |    51
 (2 rows)
 
 \echo "Checking import job status"
@@ -76,7 +76,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |   871
- import    | completed |    48
+ import    | completed |    51
 (2 rows)
 
 \echo "Analytics queue fully drained"
@@ -204,7 +204,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |  2172
- import    | completed |    48
+ import    | completed |    51
 (2 rows)
 
 \echo "Analytics queue fully drained after rebuild"

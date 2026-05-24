@@ -124,7 +124,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     1
- import    | completed |   164
+ import    | completed |   176
 (2 rows)
 
 \echo "Checking import job statuses for Initial Load"
@@ -175,7 +175,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |   382
- import    | completed |   164
+ import    | completed |   176
 (2 rows)
 
 \echo "Checking statistics after Initial Load"
@@ -330,7 +330,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 -----------+-----------+-------
  analytics | pending   |     1
  analytics | completed |   382
- import    | completed |   185
+ import    | completed |   200
 (3 rows)
 
 \echo "Checking import job statuses for Turnover Update"
@@ -372,7 +372,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |  3008
- import    | completed |   185
+ import    | completed |   200
 (2 rows)
 
 \echo "Calculating expected statistics from raw _upload tables for verification"

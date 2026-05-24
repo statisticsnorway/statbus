@@ -95,7 +95,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |    65
- import    | completed |   144
+ import    | completed |   153
 (2 rows)
 
 \echo "Checking import job statuses for Phase 1"
@@ -782,7 +782,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |  5811
- import    | completed |   286
+ import    | completed |   304
 (2 rows)
 
 \echo "Final check of import job progress and completion status"
@@ -806,8 +806,8 @@ ORDER BY slug;
 slug                              | import_314_esflu_curr_p1
 state                             | finished
 analysis_completed_pct            | 100.00
-completed_analysis_steps_weighted | 2500
-total_analysis_steps_weighted     | 2500
+completed_analysis_steps_weighted | 2625
+total_analysis_steps_weighted     | 2625
 import_completed_pct              | 100.00
 total_rows                        | 25
 imported_rows                     | 25
@@ -817,8 +817,8 @@ error                             |
 slug                              | import_314_esflu_wsd_p2
 state                             | finished
 analysis_completed_pct            | 100.00
-completed_analysis_steps_weighted | 2600
-total_analysis_steps_weighted     | 2600
+completed_analysis_steps_weighted | 2730
+total_analysis_steps_weighted     | 2730
 import_completed_pct              | 
 total_rows                        | 26
 imported_rows                     | 0
@@ -828,8 +828,8 @@ error                             |
 slug                              | import_314_eswlu_curr_p1
 state                             | finished
 analysis_completed_pct            | 100.00
-completed_analysis_steps_weighted | 2500
-total_analysis_steps_weighted     | 2500
+completed_analysis_steps_weighted | 2625
+total_analysis_steps_weighted     | 2625
 import_completed_pct              | 100.00
 total_rows                        | 25
 imported_rows                     | 25
@@ -839,8 +839,8 @@ error                             |
 slug                              | import_314_eswlu_wsd_p2
 state                             | finished
 analysis_completed_pct            | 100.00
-completed_analysis_steps_weighted | 1200
-total_analysis_steps_weighted     | 1200
+completed_analysis_steps_weighted | 1260
+total_analysis_steps_weighted     | 1260
 import_completed_pct              | 
 total_rows                        | 12
 imported_rows                     | 0
@@ -850,8 +850,8 @@ error                             |
 slug                              | import_314_lu_curr_p1
 state                             | finished
 analysis_completed_pct            | 100.00
-completed_analysis_steps_weighted | 2300
-total_analysis_steps_weighted     | 2300
+completed_analysis_steps_weighted | 2415
+total_analysis_steps_weighted     | 2415
 import_completed_pct              | 100.00
 total_rows                        | 23
 imported_rows                     | 23
@@ -861,8 +861,8 @@ error                             |
 slug                              | import_314_lu_wsd_p2
 state                             | finished
 analysis_completed_pct            | 100.00
-completed_analysis_steps_weighted | 7600
-total_analysis_steps_weighted     | 7600
+completed_analysis_steps_weighted | 7980
+total_analysis_steps_weighted     | 7980
 import_completed_pct              | 100.00
 total_rows                        | 76
 imported_rows                     | 63
