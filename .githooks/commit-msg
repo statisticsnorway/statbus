@@ -163,9 +163,107 @@ Add one or more lines to your commit message body, one per new error:
   expected-error: <file>:<lineno> — <reason>
 
 Example:
-  expected-error: test/expected/318_facet_drift_self_healing.out:315 — dup-key bug-capture pre-#61 fix; test intentionally fails until the schema-extension migration lands.
+  expected-error: test/expected/318_facet_drift_self_healing.out:315 — dup-key bug-capture pre-fix; test intentionally fails until the schema-extension migration lands.
 
 The hook matches lines starting with "expected-error:" followed by the
+exact file path + ":" + the new line number in the staged file.
+
+OVERRIDE (strongly discouraged):
+  git commit --no-verify
+
+Hook source: .githooks/commit-msg
+EOF
+    exit 1
+  fi
+fi
+
+# ── Check 3 (2026-05-24): justify new WARNING lines in staged expected files ──
+#
+# Mirrors Check 2 above, but for WARNING severity.  When a commit touches
+# test/expected/*.out and the diff adds WARNING lines, the commit message
+# must contain a per-line justification:
+#
+#   expected-warning: <file>:<lineno> [— <reason>]
+#
+# WHY: On 2026-05-24 King's code review caught a semantic regression in
+# commit 5bcb523ef (later 0fa05f406): 22001 WARNING stack traces were added
+# to test/expected/347_*.out and the engineer labelled them "mechanical
+# drift" — they were the Albania process_location value-too-long bug
+# returning (SQLSTATE 22001).  Had this check been in place the commit
+# would have been blocked, forcing deliberate acceptance or investigation
+# before the regression landed.
+#
+# Cascade WARNINGs ("current transaction is aborted") are skipped — same
+# cascade-suppression rule as Check 2's ERROR handling.
+#
+# Override: git commit --no-verify
+
+if [[ -n "$STAGED_EXPECTED" ]]; then
+  MISSING_WARNINGS=""
+  while IFS= read -r file; do
+    [[ -z "$file" ]] && continue
+
+    # New WARNING line numbers in the staged version of $file.
+    NEW_WARNING_LINENUMS=$(git diff --cached -U0 -- "$file" 2>/dev/null | awk '
+      /^@@/ {
+        for (i = 1; i <= NF; i++) {
+          if ($i ~ /^\+/) {
+            sub(/^\+/, "", $i)
+            split($i, a, ",")
+            new_line = a[1] - 1
+            break
+          }
+        }
+        next
+      }
+      /^---/ || /^\+\+\+/ { next }
+      /^\+/ {
+        new_line++
+        if (/^\+WARNING:/) print new_line
+        next
+      }
+      /^-/ { next }
+      { new_line++ }
+    ' || true)
+
+    while IFS= read -r lineno; do
+      [[ -z "$lineno" ]] && continue
+      line_text=$(git show ":0:$file" 2>/dev/null | sed -n "${lineno}p")
+      # Skip cascade WARNINGs that are consequences of an earlier ERROR.
+      if echo "$line_text" | grep -q "current transaction is aborted"; then
+        continue
+      fi
+      # Require: a commit-msg line of the form `expected-warning: <file>:<lineno>`
+      if ! echo "$STRIPPED" | grep -qE "^[[:space:]]*expected-warning:[[:space:]]+${file}:${lineno}([^0-9]|$)"; then
+        MISSING_WARNINGS="${MISSING_WARNINGS}  ${file}:${lineno}: ${line_text}"$'\n'
+      fi
+    done <<< "$NEW_WARNING_LINENUMS"
+  done <<< "$STAGED_EXPECTED"
+
+  if [[ -n "$MISSING_WARNINGS" ]]; then
+    cat >&2 <<EOF
+COMMIT-MSG BLOCKED: new WARNING lines in staged
+test/expected/*.out files require per-line justification.
+
+Unjustified new warning(s):
+${MISSING_WARNINGS}
+WHY: the committing agent must record WHY each expected warning is
+acceptable at the moment of commit, in the durable record.  On
+2026-05-24 King's code review caught a semantic regression where new
+WARNING lines in test/expected/347_*.out were baselined as "mechanical
+drift" — they were the Albania process_location value-too-long bug
+(SQLSTATE 22001) returning.  Explicit acceptance prevents silent
+regression of this class.
+
+HOW TO FIX:
+Add one or more lines to your commit message body, one per new warning:
+
+  expected-warning: <file>:<lineno> — <reason>
+
+Example:
+  expected-warning: test/expected/347_import_field_length_limits.out:42 — deliberate truncation warning from analyse_length_limits; test verifies truncate+warn path.
+
+The hook matches lines starting with "expected-warning:" followed by the
 exact file path + ":" + the new line number in the staged file.
 
 OVERRIDE (strongly discouraged):

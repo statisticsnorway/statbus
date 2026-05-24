@@ -132,6 +132,118 @@ assert_pass "empty message" ""
 
 assert_pass "whitespace only" "   "
 
+# ── Check 3: WARNING justification (staged expected file tests) ──────────
+#
+# These tests require a real git repo with staged changes, so they spin up
+# a temp repo per case rather than relying on the test's own working tree.
+#
+# _with_staged <initial_content> <staged_content> <commit_msg>
+#   Creates a temp git repo, makes an initial commit with <initial_content>
+#   as test/expected/check2.out, stages <staged_content>, then runs the hook
+#   with <commit_msg>.  Returns the hook exit code.
+#
+_with_staged() {
+  local initial="$1" staged="$2" msg="$3"
+  local _repo _msgfile _rc
+  _repo=$(mktemp -d)
+  _msgfile="$TMPDIR/staged-msg-$$.txt"
+  printf '%s' "$msg" > "$_msgfile"
+
+  git -C "$_repo" init -q 2>/dev/null
+  git -C "$_repo" config user.email "test@test.com"
+  git -C "$_repo" config user.name "Tester"
+  git -C "$_repo" config commit.gpgsign false
+
+  mkdir -p "$_repo/test/expected"
+  printf '%s' "$initial" > "$_repo/test/expected/check2.out"
+  git -C "$_repo" add test/expected/check2.out
+  git -C "$_repo" commit -q -m "initial" 2>/dev/null
+
+  printf '%s' "$staged" > "$_repo/test/expected/check2.out"
+  git -C "$_repo" add test/expected/check2.out
+
+  _rc=0
+  (cd "$_repo" && bash "$HOOK" "$_msgfile") 2>/tmp/commit-msg.err || _rc=$?
+
+  rm -rf "$_repo"
+  return "$_rc"
+}
+
+assert_pass_staged() {
+  local label="$1" initial="$2" staged="$3" msg="$4"
+  local exit_code=0
+  _with_staged "$initial" "$staged" "$msg" || exit_code=$?
+  if [[ $exit_code -eq 0 ]]; then
+    PASS=$((PASS+1)); printf '[pass  OK ] %s\n' "$label"
+  else
+    FAIL=$((FAIL+1)); printf '[FAIL     ] %s  (expected exit 0, got %d)\n' "$label" "$exit_code"
+    cat /tmp/commit-msg.err | head -6 | sed 's/^/    | /'
+  fi
+}
+
+assert_reject_staged() {
+  local label="$1" initial="$2" staged="$3" msg="$4"
+  local exit_code=0
+  _with_staged "$initial" "$staged" "$msg" || exit_code=$?
+  if [[ $exit_code -ne 0 ]]; then
+    PASS=$((PASS+1)); printf '[reject OK ] %s\n' "$label"
+  else
+    FAIL=$((FAIL+1)); printf '[FAIL     ] %s  (expected exit 1, got 0)\n' "$label"
+  fi
+}
+
+echo "── Check 3: WARNING justification in staged expected files ──────────"
+
+# New WARNING, no justification → REJECT
+assert_reject_staged "new WARNING, no justification → REJECT" \
+  $'existing content\n' \
+  $'existing content\nWARNING: value too long for type character varying(50)\n' \
+  "fix: update test baseline"
+
+# New WARNING + matching expected-warning: → PASS
+assert_pass_staged "new WARNING + expected-warning: justification → PASS" \
+  $'existing content\n' \
+  $'existing content\nWARNING: value too long for type character varying(50)\n' \
+  "fix: update test baseline
+
+expected-warning: test/expected/check2.out:2 — deliberate truncation warning; test verifies the truncate+warn path."
+
+# Pre-existing WARNING (not newly added in this commit) → PASS, no justification needed
+assert_pass_staged "pre-existing WARNING not newly added → PASS (no justification)" \
+  $'WARNING: pre-existing warning\nexisting content\n' \
+  $'WARNING: pre-existing warning\nexisting content\nnew unrelated line\n' \
+  "fix: add unrelated line"
+
+# WARNING removed in this commit (diff shows -WARNING:, not +WARNING:) → PASS
+assert_pass_staged "WARNING removed, not added → PASS (no justification)" \
+  $'existing content\nWARNING: old stale warning\n' \
+  $'existing content\n' \
+  "fix: remove obsolete warning"
+
+# Cascade WARNING ("current transaction is aborted") → PASS, suppressed
+assert_pass_staged "cascade WARNING (current transaction is aborted) → PASS (suppressed)" \
+  $'existing content\n' \
+  $'existing content\nWARNING: current transaction is aborted, commands ignored until end of transaction block\n' \
+  "fix: baseline cascade context"
+
+# Mixed: new ERROR (line 2) + new WARNING (line 3) — both justifications needed.
+# Sub-test a: both provided → PASS
+assert_pass_staged "mixed ERROR+WARNING, both justifications → PASS" \
+  $'existing content\n' \
+  $'existing content\nERROR: bad query\nWARNING: related warning\n' \
+  "fix: update mixed baseline
+
+expected-error: test/expected/check2.out:2 — intentional error for negative test.
+expected-warning: test/expected/check2.out:3 — related warning accepted alongside the error."
+
+# Sub-test b: only expected-error provided, warning still missing → REJECT (Check 3)
+assert_reject_staged "mixed ERROR+WARNING, only expected-error provided → REJECT" \
+  $'existing content\n' \
+  $'existing content\nERROR: bad query\nWARNING: related warning\n' \
+  "fix: update mixed baseline
+
+expected-error: test/expected/check2.out:2 — intentional error for negative test."
+
 # ── Report ──────────────────────────────────────────────────────────────
 
 TOTAL=$((PASS + FAIL))
