@@ -119,8 +119,6 @@ VM_EXEC bash -c "
         git fetch --depth 1 origin $HEAD_LOCAL || { echo 'FATAL' >&2; exit 1; }
     fi
     git checkout $HEAD_LOCAL
-    cp /tmp/sb ./sb
-    chmod +x ./sb
 "
 
 # ─────────────────────────────────────────────────────────────────────────

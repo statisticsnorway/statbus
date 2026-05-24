@@ -127,8 +127,6 @@ if ! git cat-file -e $HEAD_LOCAL 2>/dev/null; then
     git fetch --depth 1 origin $HEAD_LOCAL || { echo "FATAL" >&2; exit 1; }
 fi
 git checkout $HEAD_LOCAL
-cp /tmp/sb ./sb
-chmod +x ./sb
 cp /tmp/env-config .env.config
 cp /tmp/users.yml .users.yml
 STATBUS_INJECT_AT=killed-by-system-during-binary-swap \
@@ -167,8 +165,6 @@ cat > "$INSTALL_SCRIPT" << SCRIPT
 set -e
 cd ~/statbus
 git checkout $HEAD_LOCAL
-cp /tmp/sb ./sb
-chmod +x ./sb
 STATBUS_INJECT_AT=killed-by-system-during-builtin-rollback \
 STATBUS_MIN_DISK_GB=5 \
     ./sb install --non-interactive --trust-github-user jhf

@@ -105,8 +105,6 @@ if ! git cat-file -e $HEAD_LOCAL 2>/dev/null; then
     git fetch --depth 1 origin $HEAD_LOCAL || { echo "FATAL: HEAD not on origin" >&2; exit 1; }
 fi
 git checkout $HEAD_LOCAL
-cp /tmp/sb ./sb
-chmod +x ./sb
 cp /tmp/env-config .env.config
 cp /tmp/users.yml .users.yml
 STATBUS_INJECT_AT=concurrent-install-attempted-during-migrate-up \
