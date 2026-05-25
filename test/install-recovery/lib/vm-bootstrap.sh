@@ -314,6 +314,17 @@ EOF'
         else
             echo "WARNING: could not fetch hhssb GitHub keys (network blip); skipping" >&2
         fi
+
+        # Propagate CI key: Hetzner seeds the statbus-ci key to root only.
+        # After the curl loops above, root has: Hetzner CI key + personal keys.
+        # Copy everything to statbus and dedup so `ssh statbus@vm` works from
+        # CI and from any key that can reach root (canonical operator model:
+        # the same key that reaches root also reaches the statbus operator user).
+        sort -u /root/.ssh/authorized_keys > /tmp/.ak_merge
+        cat /tmp/.ak_merge > /home/statbus/.ssh/authorized_keys
+        rm -f /tmp/.ak_merge
+        chown statbus:statbus /home/statbus/.ssh/authorized_keys
+        chmod 600 /home/statbus/.ssh/authorized_keys
     '
 
     STATBUS_UID=$(ssh "${SSH_OPTS[@]}" root@"$ip" id -u statbus)
