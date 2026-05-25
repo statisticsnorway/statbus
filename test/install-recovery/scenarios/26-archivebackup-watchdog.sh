@@ -84,7 +84,7 @@ source "$LIB_DIR/wedge-helpers.sh"
 source "$LIB_DIR/assertions.sh"
 
 RELEASE_FILE="/tmp/stall-release-archivebackup"
-DROPIN_DIR="\$HOME/.config/systemd/user/statbus-upgrade@test.service.d"
+DROPIN_DIR="\$HOME/.config/systemd/user/statbus-upgrade@statbus.service.d"
 DROPIN_FILE="$DROPIN_DIR/archivebackup-inject.conf"
 
 trap '
@@ -93,7 +93,7 @@ trap '
         rm -f $RELEASE_FILE 2>/dev/null || true
         rm -f $DROPIN_FILE 2>/dev/null || true
         systemctl --user daemon-reload 2>/dev/null || true
-        systemctl --user restart statbus-upgrade@test.service 2>/dev/null || true
+        systemctl --user restart statbus-upgrade@statbus.service 2>/dev/null || true
     " 2>/dev/null || true
     cleanup_vm "$VM_NAME"
     exit $rc
@@ -157,7 +157,7 @@ echo "  ✓ public.upgrade row at HEAD is state='scheduled'"
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 5 — install drop-in + release file, restart unit
 # ─────────────────────────────────────────────────────────────────────────
-NRESTARTS_BASELINE=$(VM_EXEC systemctl --user show "statbus-upgrade@test.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "0")
+NRESTARTS_BASELINE=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "0")
 echo "  baseline NRestarts: $NRESTARTS_BASELINE"
 
 echo ""
@@ -170,9 +170,9 @@ _dropin_script=$(mktemp /tmp/harness-install-dropin-XXXXXX.sh)
 cat > "$_dropin_script" << SCRIPT_EOF
 #!/bin/bash
 set -euo pipefail
-DROPIN_DIR="\$HOME/.config/systemd/user/statbus-upgrade@test.service.d"
+DROPIN_DIR="\$HOME/.config/systemd/user/statbus-upgrade@statbus.service.d"
 DROPIN_FILE="\$DROPIN_DIR/archivebackup-inject.conf"
-systemctl --user stop statbus-upgrade@test.service 2>/dev/null || true
+systemctl --user stop statbus-upgrade@statbus.service 2>/dev/null || true
 mkdir -p "\$DROPIN_DIR"
 cat > "\$DROPIN_FILE" << 'DROPIN_EOF'
 [Service]
@@ -181,7 +181,7 @@ Environment=STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE=$RELEASE_FILE
 DROPIN_EOF
 touch $RELEASE_FILE
 systemctl --user daemon-reload
-systemctl --user start statbus-upgrade@test.service
+systemctl --user start statbus-upgrade@statbus.service
 SCRIPT_EOF
 chmod 644 "$_dropin_script"
 scp -O "${SSH_OPTS[@]}" "$_dropin_script" root@"$VM_IP":/tmp/harness-install-dropin.sh
@@ -190,10 +190,10 @@ VM_EXEC bash /tmp/harness-install-dropin.sh
 ssh "${SSH_OPTS[@]}" root@"$VM_IP" "rm -f /tmp/harness-install-dropin.sh" 2>/dev/null || true
 
 sleep 5
-UNIT_STATE=$(VM_EXEC systemctl --user is-active "statbus-upgrade@test.service" 2>/dev/null | tr -d ' \r\n' || echo "?")
+UNIT_STATE=$(VM_EXEC systemctl --user is-active "statbus-upgrade@statbus.service" 2>/dev/null | tr -d ' \r\n' || echo "?")
 if [ "$UNIT_STATE" != "active" ]; then
     echo "✗ unit did not reach active after restart with drop-in (state=$UNIT_STATE)" >&2
-    VM_EXEC bash -c "systemctl --user status statbus-upgrade@test.service --no-pager" >&2 || true
+    VM_EXEC bash -c "systemctl --user status statbus-upgrade@statbus.service --no-pager" >&2 || true
     exit 1
 fi
 echo "  ✓ unit active with inject env vars in place"
@@ -252,7 +252,7 @@ echo ""
 echo "── holding the archive-backup stall for ${STALL_HOLD_S}s (> WatchdogSec=120s) ──"
 sleep "$STALL_HOLD_S"
 
-NRESTARTS_DURING=$(VM_EXEC systemctl --user show "statbus-upgrade@test.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
+NRESTARTS_DURING=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
 echo "  NRestarts at stall-hold-end: $NRESTARTS_DURING (baseline=$NRESTARTS_BASELINE)"
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -293,7 +293,7 @@ done
 echo ""
 echo "── Bug 1 regression check (LOAD-BEARING) ──"
 
-NRESTARTS_FINAL=$(VM_EXEC systemctl --user show "statbus-upgrade@test.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
+NRESTARTS_FINAL=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
 RESTART_DELTA=$((NRESTARTS_FINAL - NRESTARTS_BASELINE))
 echo "  NRestarts: baseline=$NRESTARTS_BASELINE final=$NRESTARTS_FINAL delta=$RESTART_DELTA"
 
@@ -310,7 +310,7 @@ assert_demo_data_present "$VM_NAME"
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
 assert_flag_file_absent "$VM_NAME"
 assert_no_orphan_backup "$VM_NAME"
-assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@test.service" 2
+assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 2
 
 if [ "$FINAL_STATE" = "completed" ]; then
     assert_health_passes "$VM_NAME"
