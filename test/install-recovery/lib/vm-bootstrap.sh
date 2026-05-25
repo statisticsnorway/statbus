@@ -597,6 +597,13 @@ upload_sb_to_vm() {
     local scp_log="/tmp/upload-sb-scp-$$.log"
     local ssh_log="/tmp/upload-sb-ssh-$$.log"
     echo "  upload_sb_to_vm: stderr → $scp_log (scp) / $ssh_log (ssh)"
+
+    # Probe SSH before starting — post-install the VM may be briefly under
+    # load (Docker container restarts, service health checks) and sshd's
+    # accept queue can be saturated, causing SYN-drops on every new
+    # connection.  Waiting here prevents a cascade of chunk failures.
+    _wait_for_ssh "$ip" 30
+
     set -x
 
     local scp_rc=0
@@ -650,9 +657,24 @@ upload_sb_to_vm() {
     fi
     rm -rf "$chunk_dir"
     if [ "$scp_rc" -eq 0 ]; then
-        ssh "${SSH_OPTS[@]}" -o LogLevel=VERBOSE root@"$ip" \
-            'cat /tmp/sb-upload-chunk-* > /tmp/sb && rm -f /tmp/sb-upload-chunk-*' \
-            2>>"$scp_log" || scp_rc=$?
+        local assemble_rc=0
+        for attempt in 1 2 3; do
+            if ssh "${SSH_OPTS[@]}" -o LogLevel=VERBOSE root@"$ip" \
+                'cat /tmp/sb-upload-chunk-* > /tmp/sb && rm -f /tmp/sb-upload-chunk-*' \
+                2>>"$scp_log"; then
+                break
+            fi
+            assemble_rc=$?
+            if [ "$attempt" -eq 3 ]; then
+                scp_rc=$assemble_rc
+                break
+            fi
+            set +x
+            echo "  assembly attempt $attempt failed (rc=$assemble_rc), waiting 15s..." >&2
+            set -x
+            sleep 15
+            assemble_rc=0
+        done
     fi
     if [ "$scp_rc" -ne 0 ]; then
         set +x
