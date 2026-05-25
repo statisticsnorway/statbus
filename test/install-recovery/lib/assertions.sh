@@ -45,7 +45,9 @@ assert_upgrade_row_state() {
     local expected_state="$2"
     local actual
 
-    actual=$(VM_EXEC bash -c "cd ~/statbus && echo 'SELECT state FROM public.upgrade ORDER BY id DESC LIMIT 1;' | ./sb psql -t -A" 2>/dev/null | tr -d ' ')
+    actual=$(ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
+        "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A'" \
+        2>/dev/null <<< "SELECT state FROM public.upgrade ORDER BY id DESC LIMIT 1;" | tr -d ' ')
     if [ "$actual" = "$expected_state" ]; then
         echo "  ✓ latest upgrade row state = '$expected_state'"
         return 0
@@ -94,7 +96,9 @@ assert_db_migration_recorded() {
     local version="$2"
     local count
 
-    count=$(VM_EXEC bash -c "cd ~/statbus && echo 'SELECT count(*) FROM db.migration WHERE version = $version;' | ./sb psql -t -A" 2>/dev/null | tr -d ' ' || echo "0")
+    count=$(ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
+        "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A'" \
+        2>/dev/null <<< "SELECT count(*) FROM db.migration WHERE version = $version;" | tr -d ' ' || echo "0")
     if [ "$count" = "1" ]; then
         echo "  ✓ migration $version recorded in db.migration"
         return 0
@@ -135,7 +139,9 @@ assert_upgrade_row_error_matches() {
     local pattern="$2"
     local actual
 
-    actual=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT error FROM public.upgrade ORDER BY id DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null)
+    actual=$(ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
+        "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A'" \
+        2>/dev/null <<< "SELECT error FROM public.upgrade ORDER BY id DESC LIMIT 1;")
     if [ -z "$actual" ]; then
         echo "  ✗ upgrade row error column empty (expected match for $pattern)"
         return 1
@@ -175,7 +181,9 @@ assert_db_migration_max_version_unchanged() {
     local baseline="$2"
     local actual
 
-    actual=$(VM_EXEC bash -c "cd ~/statbus && echo 'SELECT COALESCE(MAX(version), 0) FROM db.migration;' | ./sb psql -t -A" 2>/dev/null | tr -d ' ' || echo "0")
+    actual=$(ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
+        "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A'" \
+        2>/dev/null <<< "SELECT COALESCE(MAX(version), 0) FROM db.migration;" | tr -d ' ' || echo "0")
     if [ "$actual" = "$baseline" ]; then
         echo "  ✓ db.migration max_version = baseline ($baseline) — partial-state confirmed"
         return 0
@@ -199,12 +207,15 @@ assert_db_migration_max_version_unchanged() {
 # data drift across the failure-injection window.
 snapshot_demo_data_counts() {
     local vm_name="$1"
-    VM_EXEC bash -c "cd ~/statbus && echo \"
-        SELECT 'statistical_unit=' || (SELECT count(*) FROM public.statistical_unit) ||
-            ',legal_unit=' || (SELECT count(*) FROM public.legal_unit) ||
-            ',establishment=' || (SELECT count(*) FROM public.establishment) ||
-            ',statistical_history=' || (SELECT count(*) FROM public.statistical_history);
-    \" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n'
+    ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
+        "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A'" \
+        2>/dev/null \
+        << 'SQL' | tr -d ' \r\n'
+SELECT 'statistical_unit=' || (SELECT count(*) FROM public.statistical_unit) ||
+    ',legal_unit=' || (SELECT count(*) FROM public.legal_unit) ||
+    ',establishment=' || (SELECT count(*) FROM public.establishment) ||
+    ',statistical_history=' || (SELECT count(*) FROM public.statistical_history);
+SQL
 }
 
 # assert_demo_data_present <vm_name>
@@ -227,7 +238,9 @@ assert_demo_data_present() {
     local table count
 
     for table in "${tables[@]}"; do
-        count=$(VM_EXEC bash -c "cd ~/statbus && echo 'SELECT count(*) FROM public.${table};' | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?")
+        count=$(ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
+            "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A'" \
+            2>/dev/null <<< "SELECT count(*) FROM public.${table};" | tr -d ' \r\n' || echo "?")
         if [ "$count" = "0" ] || [ "$count" = "?" ]; then
             echo "  ✗ public.${table} has $count rows — R5 catastrophic-loss indicator"
             failed=1
