@@ -265,7 +265,7 @@ EOF'
         local cur
         cur=$(ssh "${SSH_OPTS[@]}" root@"$ip" 'wc -l < /tmp/harden.log 2>/dev/null' 2>/dev/null | tr -d ' ') || true
         if [ -n "$cur" ] && [ "$cur" -gt "$seen" ] 2>/dev/null; then
-            ssh "${SSH_OPTS[@]}" root@"$ip" "tail -n $((cur - seen)) /tmp/harden.log" 2>/dev/null | tee -a "$logfile"
+            ssh "${SSH_OPTS[@]}" root@"$ip" "tail -n $((cur - seen)) /tmp/harden.log" 2>/dev/null | tee -a "$logfile" || true
             seen="$cur"
         fi
         sleep 15
@@ -329,7 +329,7 @@ EOF'
         chmod 600 /home/statbus/.ssh/authorized_keys
     '
 
-    STATBUS_UID=$(ssh "${SSH_OPTS[@]}" root@"$ip" id -u statbus)
+    STATBUS_UID=$(ssh "${SSH_OPTS[@]}" root@"$ip" id -u statbus 2>/dev/null) || true
     local i
     for i in $(seq 1 20); do
         if ssh "${SSH_OPTS[@]}" root@"$ip" "sudo -u statbus XDG_RUNTIME_DIR=/run/user/$STATBUS_UID systemctl --user is-system-running" 2>/dev/null | grep -qE "running|degraded"; then
