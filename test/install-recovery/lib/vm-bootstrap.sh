@@ -576,8 +576,43 @@ upload_sb_to_vm() {
         echo "FATAL: sb binary not found at $sb_binary after build attempt" >&2
         return 1
     fi
-    scp "${SSH_OPTS[@]}" "$sb_binary" root@"$ip":/tmp/sb
-    ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0755 /tmp/sb'
+
+    # Instrument every scp/ssh below so failures are unmissable.
+    # Two-layer capture:
+    #  (a) LogLevel=VERBOSE on each call — SSH_OPTS has LogLevel=ERROR which
+    #      suppresses transport-layer error messages (e.g. "Connection reset
+    #      by peer" at INFO/VERBOSE) before they reach stderr.  Override to
+    #      VERBOSE so the full SSH diagnostic appears.
+    #  (b) 2>>"$log" captures ALL remaining stderr, including scp-protocol
+    #      errors that bypass the SSH log level.
+    # set -x traces every command + its expansion; yes, noisy — that's the
+    # point right now.
+    local scp_log="/tmp/upload-sb-scp-$$.log"
+    local ssh_log="/tmp/upload-sb-ssh-$$.log"
+    echo "  upload_sb_to_vm: stderr → $scp_log (scp) / $ssh_log (ssh)"
+    set -x
+
+    local scp_rc=0
+    scp "${SSH_OPTS[@]}" -o LogLevel=VERBOSE "$sb_binary" root@"$ip":/tmp/sb \
+        2>"$scp_log" || scp_rc=$?
+    if [ "$scp_rc" -ne 0 ]; then
+        set +x
+        echo "SCP FAILED (exit $scp_rc) uploading $(basename "$sb_binary") → root@${ip}:/tmp/sb" >&2
+        echo "  Full stderr ($scp_log):" >&2
+        cat "$scp_log" >&2
+        return 1
+    fi
+
+    local chmod_rc=0
+    ssh "${SSH_OPTS[@]}" -o LogLevel=VERBOSE root@"$ip" 'chmod 0755 /tmp/sb' \
+        2>"$ssh_log" || chmod_rc=$?
+    if [ "$chmod_rc" -ne 0 ]; then
+        set +x
+        echo "SSH chmod FAILED (exit $chmod_rc)" >&2
+        cat "$ssh_log" >&2
+        return 1
+    fi
+
     # Atomically swap the binary into ~/statbus/sb using the production
     # mv-then-cp pattern (mirrors replaceBinaryOnDisk in service.go):
     #   mv changes the OLD inode's path — the running process keeps reading
@@ -586,7 +621,8 @@ upload_sb_to_vm() {
     # Without this, a naive `cp /tmp/sb ./sb` in the install script hits
     # ETXTBSY whenever the statbus-upgrade service is running (Phase 1
     # leaves the service up; Phase 3's script runs while it's still live).
-    ssh "${SSH_OPTS[@]}" root@"$ip" '
+    local swap_rc=0
+    ssh "${SSH_OPTS[@]}" -o LogLevel=VERBOSE root@"$ip" '
         dst=/home/statbus/statbus/sb
         if [ -f "$dst" ]; then
             mv "$dst" "${dst}.old" 2>/dev/null || true
@@ -595,7 +631,16 @@ upload_sb_to_vm() {
         chmod +x "$dst"
         chown statbus:statbus "$dst"
         rm -f "${dst}.old"
-    '
+    ' 2>>"$ssh_log" || swap_rc=$?
+    if [ "$swap_rc" -ne 0 ]; then
+        set +x
+        echo "SSH atomic-swap FAILED (exit $swap_rc)" >&2
+        echo "  Full stderr ($ssh_log):" >&2
+        cat "$ssh_log" >&2
+        return 1
+    fi
+
+    set +x
     echo "  /tmp/sb uploaded and atomically swapped into ~/statbus/sb ($vm_name)"
 }
 
@@ -628,15 +673,33 @@ upload_install_script_to_vm() {
 
 # Cleanup helper. KEEP_VM=1 leaves the VM running for debugging — accrues
 # €0.0072/hr until you `hcloud server delete <name>`.
+#
+# KEEP_VM_ON_FAILURE=1 is an alias intended for diagnostic runs where you
+# expect the scenario to fail and want the VM preserved for post-mortem.
+# Semantically equivalent to KEEP_VM=1 — both unconditionally skip deletion
+# when set.  Use KEEP_VM_ON_FAILURE=1 to make intent explicit in CI logs or
+# local one-off debug runs; cleanup_vm does not receive the exit code so it
+# cannot distinguish failure from success — that distinction is in the
+# operator's hands.
+#
+# Post-mortem helpers:
+#   ssh root@<ip>                         — root shell
+#   ssh statbus@<ip>                      — operator user (has systemd bus)
+#   ssh root@<ip> journalctl --user -u statbus-upgrade@test --no-pager
+#   hcloud server delete <name>           — delete when done
 cleanup_vm() {
     local vm_name="$1"
     _check_name_safety "$vm_name" || return 1
-    if [ "${KEEP_VM:-0}" = "1" ]; then
+    if [ "${KEEP_VM:-0}" = "1" ] || [ "${KEEP_VM_ON_FAILURE:-0}" = "1" ]; then
         local ip
         ip=$(hcloud server ip "$vm_name" 2>/dev/null || echo "?")
-        echo "KEEP_VM=1 — leaving $vm_name running for debugging (€0.0072/hr)"
+        local reason="KEEP_VM=1"
+        [ "${KEEP_VM_ON_FAILURE:-0}" = "1" ] && reason="KEEP_VM_ON_FAILURE=1"
+        echo "$reason — leaving $vm_name running for post-mortem (€0.0072/hr)"
         echo "  ssh root@$ip"
-        echo "  Statbus user: ssh root@$ip sudo -i -u statbus"
+        echo "  ssh statbus@$ip"
+        echo "  journalctl: ssh root@$ip journalctl --user -u statbus-upgrade@test --no-pager -n 200"
+        echo "  upload logs: /tmp/upload-sb-scp-*.log  /tmp/upload-sb-ssh-*.log"
         echo "  Delete when done: hcloud server delete $vm_name"
         return 0
     fi
