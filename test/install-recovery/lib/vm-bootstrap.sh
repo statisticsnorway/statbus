@@ -526,8 +526,13 @@ STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf $ex
 SCRIPT
     fi
 
-    scp -O "${SSH_OPTS[@]}" "$install_script" root@"$ip":/tmp/install.sh
-    ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0644 /tmp/install.sh'
+    # Wait for SSH to be responsive before uploading — bootstrap activity
+    # (Homebrew installs, service starts) can leave sshd's accept queue
+    # saturated for a few seconds, causing immediate "Operation timed out"
+    # on the very next connection.
+    _wait_for_ssh "$ip" 30
+    scp -O "${SSH_OPTS[@]}" -o LogLevel=VERBOSE "$install_script" root@"$ip":/tmp/install.sh
+    ssh "${SSH_OPTS[@]}" -o LogLevel=VERBOSE root@"$ip" 'chmod 0644 /tmp/install.sh'
     rm -f "$install_script"
 
     # Run the install in a detached tmux session as statbus, poll for
