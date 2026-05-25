@@ -186,6 +186,19 @@ var classes = map[string]Kind{
 	"service-startup-slower-than-systemd-unit-timeout": KindStall,
 	"migration-slower-than-systemd-unit-timeout":       KindStall,
 
+	// Bug 1 — `d416a50a0` introduced a ticker scoped only to the migrate-
+	// up subprocess. `extendCancel()` fires before archiveBackup's tar,
+	// which on real data (rune: 35 GB) takes minutes. The main goroutine
+	// is parked in `runCommand("tar", ...)` with no WATCHDOG=1 emitter;
+	// WatchdogSec=120 s expires; systemd SIGABRTs; restart loop forever.
+	//
+	// Scenario 26 stalls inside archiveBackup for STALL_HOLD_S=180 s
+	// (> WatchdogSec=120 s). Without the active-phase ticker covering
+	// archiveBackup, NRestarts climbs and the upgrade row never reaches
+	// 'completed'. With the fix (wider ticker scope), NRestarts stays
+	// at baseline.
+	"archive-backup-stall-active-phase-watchdog": KindStall,
+
 	// Concurrent-install detection (probe 2 — live-upgrade refusal).
 	"concurrent-install-attempted-during-migrate-up": KindStall,
 

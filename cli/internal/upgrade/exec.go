@@ -707,6 +707,18 @@ func (d *Service) archiveBackup(backupPath, version string) {
 	archiveDir := filepath.Join(os.Getenv("HOME"), "statbus-backups")
 	archivePath := filepath.Join(archiveDir, fmt.Sprintf("%s-pre.tar.gz", version))
 
+	// Harness-only stall site for Bug 1 — `d416a50a0` introduced a
+	// ticker scoped only to the migrate-up subprocess. `extendCancel()`
+	// fires before archiveBackup; the tar of a multi-GB backup (rune:
+	// 35 GB) keeps the main goroutine parked with no WATCHDOG=1
+	// emitter. Active-phase systemd's WatchdogSec=120 s fires; SIGABRT;
+	// restart loop. Activated by
+	// STATBUS_INJECT_AT=archive-backup-stall-active-phase-watchdog
+	// and held by STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE. No-op in
+	// production. The stall runs BEFORE tar so the harness sees the
+	// main goroutine parked at the canonical "tar in flight" point.
+	inject.StallHere("archive-backup-stall-active-phase-watchdog")
+
 	if err := runCommand(d.projDir, "tar", "-czf", archivePath, "-C", filepath.Dir(backupPath), filepath.Base(backupPath)); err != nil {
 		fmt.Printf("Warning: archive backup failed: %v\n", err)
 		return
