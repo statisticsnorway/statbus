@@ -206,6 +206,26 @@ if [ "$UNIT_STATE" != "active" ]; then
 fi
 echo "  ✓ unit active with inject env vars in place"
 
+# Wake the service via NOTIFY so it immediately calls executeScheduled.
+# upgrade_notify_daemon_trigger fires AFTER UPDATE only — not on INSERT.
+# fabricate_scheduled_upgrade_row inserts a fresh row → no trigger fires →
+# the service sits in its main select waiting for NOTIFY or the 6-hour
+# ticker; without an explicit signal the row would never be dispatched.
+#
+# ./sb upgrade apply sends NOTIFY upgrade_apply, '<sha>' regardless of
+# whether the UPDATE matched any row. The service receives the NOTIFY,
+# calls handleNotification → scheduleImmediate (no-op: row already
+# 'scheduled'), then calls executeScheduled → claims the row.
+#
+# Service must be LISTENING before we send. systemd marks the unit
+# 'active' only after READY=1, which is emitted AFTER the LISTEN
+# commands are in place — so the sleep-5 + UNIT_STATE=active check
+# above guarantees the service is already listening when we NOTIFY.
+SHORT_SHA=$(echo "$HEAD_LOCAL" | cut -c1-8)
+echo "── waking service via NOTIFY (./sb upgrade apply $SHORT_SHA) ──"
+VM_EXEC bash -c "cd ~/statbus && ./sb upgrade apply $SHORT_SHA 2>&1 | tail -5 || true"
+echo "  ✓ NOTIFY sent — service should call executeScheduled momentarily"
+
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 6 — wait for the unit to reach archiveBackup (i.e., pass health check)
 # ─────────────────────────────────────────────────────────────────────────
