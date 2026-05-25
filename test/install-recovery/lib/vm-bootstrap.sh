@@ -86,6 +86,8 @@ SSH_OPTS=(
     -o LogLevel=ERROR
     -o ServerAliveInterval=30
     -o ServerAliveCountMax=10
+    -o ControlMaster=no
+    -o ControlPath=none
 )
 
 _check_name_safety() {
