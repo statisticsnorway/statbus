@@ -304,6 +304,7 @@ SQL
     local sql_file
     sql_file=$(mktemp /tmp/harness-fabricate-XXXXXX.sql)
     printf '%s\n' "$upsert_sql" > "$sql_file"
+    chmod 644 "$sql_file"  # mktemp creates mode 600; statbus user needs read access
     scp -O "${SSH_OPTS[@]}" "$sql_file" root@"$VM_IP":/tmp/harness-fabricate.sql
     rm -f "$sql_file"
 
