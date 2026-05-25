@@ -299,8 +299,18 @@ RETURNING id, commit_sha, state, scheduled_at;
 SQL
 )
 
+    # CLAUDE.md: never echo SQL over SSH — quoting collapses multiline SQL.
+    # Write to a local tmp file, scp to VM, pipe via file redirect.
+    local sql_file
+    sql_file=$(mktemp /tmp/harness-fabricate-XXXXXX.sql)
+    printf '%s\n' "$upsert_sql" > "$sql_file"
+    scp -O "${SSH_OPTS[@]}" "$sql_file" root@"$VM_IP":/tmp/harness-fabricate.sql
+    rm -f "$sql_file"
+
     local result
-    result=$(VM_EXEC bash -c "cd ~/statbus && echo \"$upsert_sql\" | ./sb psql -t -A 2>&1" || echo "FAILED")
+    result=$(ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
+        "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A < /tmp/harness-fabricate.sql && rm -f /tmp/harness-fabricate.sql'" \
+        2>&1 || echo "FAILED")
     if echo "$result" | grep -qi "error\|FAILED"; then
         echo "  ✗ fabricate_scheduled_upgrade_row failed:" >&2
         echo "$result" >&2
