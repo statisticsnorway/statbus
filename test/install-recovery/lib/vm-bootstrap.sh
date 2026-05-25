@@ -202,10 +202,10 @@ _apply_hardening() {
 
     echo "  transferring setup files..."
     [ -n "$sb_binary" ] && {
-        scp "${SSH_OPTS[@]}" "$sb_binary" root@"$ip":/tmp/sb
+        scp -O "${SSH_OPTS[@]}" "$sb_binary" root@"$ip":/tmp/sb
         ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0755 /tmp/sb'
     }
-    scp "${SSH_OPTS[@]}" "$HARNESS_ROOT/ops/setup-ubuntu-lts-24.sh" root@"$ip":/tmp/setup.sh
+    scp -O "${SSH_OPTS[@]}" "$HARNESS_ROOT/ops/setup-ubuntu-lts-24.sh" root@"$ip":/tmp/setup.sh
     ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0755 /tmp/setup.sh'
 
     local env_config_file users_file
@@ -223,7 +223,7 @@ DEBUG=false
 PUBLIC_DEBUG=false
 UPGRADE_CHANNEL=stable
 ENVCONFIG
-    scp "${SSH_OPTS[@]}" "$env_config_file" root@"$ip":/tmp/env-config
+    scp -O "${SSH_OPTS[@]}" "$env_config_file" root@"$ip":/tmp/env-config
     ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0644 /tmp/env-config'
     rm -f "$env_config_file"
 
@@ -234,7 +234,7 @@ ENVCONFIG
   role: admin_user
   display_name: Admin
 USERS
-    scp "${SSH_OPTS[@]}" "$users_file" root@"$ip":/tmp/users.yml
+    scp -O "${SSH_OPTS[@]}" "$users_file" root@"$ip":/tmp/users.yml
     ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0644 /tmp/users.yml'
     rm -f "$users_file"
 
@@ -526,7 +526,7 @@ STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf $ex
 SCRIPT
     fi
 
-    scp "${SSH_OPTS[@]}" "$install_script" root@"$ip":/tmp/install.sh
+    scp -O "${SSH_OPTS[@]}" "$install_script" root@"$ip":/tmp/install.sh
     ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0644 /tmp/install.sh'
     rm -f "$install_script"
 
@@ -595,7 +595,13 @@ upload_sb_to_vm() {
     set -x
 
     local scp_rc=0
-    scp "${SSH_OPTS[@]}" -o LogLevel=VERBOSE "$sb_binary" root@"$ip":/tmp/sb \
+    # -O forces the legacy SCP wire protocol instead of the SFTP subsystem.
+    # macOS OpenSSH 10.0+ defaults to SFTP-based scp; its channel flow-control
+    # implementation deadlocks at ~4–5 MB on Mac→Linux transfers, silently
+    # leaving a partial file.  The legacy -O path uses a direct pipe and
+    # transfers reliably at any size.  Empirically verified: scp without -O
+    # stalls at ~5 MB; scp -O transfers the full 14 MB binary in one pass.
+    scp -O "${SSH_OPTS[@]}" -o LogLevel=VERBOSE "$sb_binary" root@"$ip":/tmp/sb \
         2>"$scp_log" || scp_rc=$?
     if [ "$scp_rc" -ne 0 ]; then
         set +x
@@ -667,7 +673,7 @@ upload_install_script_to_vm() {
     _check_name_safety "$vm_name" || return 1
     local ip
     ip=$(hcloud server ip "$vm_name")
-    scp "${SSH_OPTS[@]}" "$src_path" root@"$ip":"$dest_path"
+    scp -O "${SSH_OPTS[@]}" "$src_path" root@"$ip":"$dest_path"
     ssh "${SSH_OPTS[@]}" root@"$ip" "chmod 0755 $dest_path"
     rm -f "$src_path"
     echo "  $dest_path uploaded to VM ($vm_name)"

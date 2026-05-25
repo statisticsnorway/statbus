@@ -140,7 +140,7 @@ assert_demo_data_present "$VM_NAME"
 echo ""
 echo "── planting synthetic stall-target migration on VM ──"
 SYNTHETIC_MIG="20991231235959_scenario_12_stall_target"
-scp "${SSH_OPTS[@]}" -q \
+scp -O "${SSH_OPTS[@]}" \
     "$LIB_DIR/../fixtures/scenario_12_stall_target.up.sql" \
     root@"$VM_IP":"/home/statbus/statbus/migrations/${SYNTHETIC_MIG}.up.sql"
 echo "  synthetic migration written: migrations/${SYNTHETIC_MIG}.up.sql"
