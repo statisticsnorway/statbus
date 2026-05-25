@@ -255,7 +255,7 @@ EOF'
         || true
     ssh "${SSH_OPTS[@]}" root@"$ip" "
         rm -f /tmp/harden.exit /tmp/harden.log
-        tmux new-session -d -s harden 'bash /tmp/setup.sh --non-interactive > /tmp/harden.log 2>&1; echo \$? > /tmp/harden.exit'
+        tmux new-session -d -s harden 'bash /tmp/setup.sh --non-interactive --skip-stages=4 > /tmp/harden.log 2>&1; echo \$? > /tmp/harden.exit'
     "
     local max_iter=$(( ${LONG_CMD_MAX_MIN:-45} * 60 / 15 )) i=0 seen=0
     for ((i=0; i<max_iter; i++)); do
@@ -263,7 +263,7 @@ EOF'
             break
         fi
         local cur
-        cur=$(ssh "${SSH_OPTS[@]}" root@"$ip" 'wc -l < /tmp/harden.log 2>/dev/null' 2>/dev/null | tr -d ' ')
+        cur=$(ssh "${SSH_OPTS[@]}" root@"$ip" 'wc -l < /tmp/harden.log 2>/dev/null' 2>/dev/null | tr -d ' ') || true
         if [ -n "$cur" ] && [ "$cur" -gt "$seen" ] 2>/dev/null; then
             ssh "${SSH_OPTS[@]}" root@"$ip" "tail -n $((cur - seen)) /tmp/harden.log" 2>/dev/null | tee -a "$logfile"
             seen="$cur"
@@ -275,9 +275,9 @@ EOF'
         return 1
     fi
     local harden_exit
-    harden_exit=$(ssh "${SSH_OPTS[@]}" root@"$ip" 'cat /tmp/harden.exit' 2>/dev/null | tr -d ' \n')
+    harden_exit=$(ssh "${SSH_OPTS[@]}" root@"$ip" 'cat /tmp/harden.exit' 2>/dev/null | tr -d ' \n') || true
     if [ "$harden_exit" != "0" ]; then
-        echo "  HARDENING FAILED with exit code: $harden_exit" >&2
+        echo "  HARDENING FAILED with exit code: '$harden_exit' (empty = SSH read failure)" >&2
         return 1
     fi
 
