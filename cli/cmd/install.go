@@ -1627,30 +1627,9 @@ func runInstallService(dir string) error {
 		return fmt.Errorf("copy service file: %w", err)
 	}
 
-	// Probe the user session bus BEFORE calling daemon-reload.
-	// runCmd streams stderr directly to os.Stderr, so cmd.Run() only
-	// returns "exit status 1" — the "No medium found" / "Failed to
-	// connect to bus" text never reaches the Go error value.  Checking
-	// the bus socket directly tests the semantic precondition without
-	// depending on systemctl's error text (which varies across systemd
-	// versions).
-	//
-	// MUST stay before `loginctl enable-linger` below: linger is what
-	// starts the persistent session bus; until it runs the socket won't
-	// exist on a fresh install.
-	busSocketAvailable := false
-	if xdgRuntimeDir := os.Getenv("XDG_RUNTIME_DIR"); xdgRuntimeDir != "" {
-		if _, statErr := os.Stat(filepath.Join(xdgRuntimeDir, "bus")); statErr == nil {
-			busSocketAvailable = true
-		}
-	}
-	if busSocketAvailable {
-		fmt.Println("  Running systemctl --user daemon-reload")
-		if err := runCmd("systemctl", "--user", "daemon-reload"); err != nil {
-			return fmt.Errorf("systemctl --user daemon-reload: %w", err)
-		}
-	} else {
-		fmt.Println("  ↺ user session bus not yet started; skipping daemon-reload (loginctl enable-linger will start it)")
+	fmt.Println("  Running systemctl --user daemon-reload")
+	if err := runCmd("systemctl", "--user", "daemon-reload"); err != nil {
+		return fmt.Errorf("systemctl --user daemon-reload: %w", err)
 	}
 
 	// Enable linger so the user service runs even when not logged in.
