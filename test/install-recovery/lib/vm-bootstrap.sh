@@ -595,14 +595,41 @@ upload_sb_to_vm() {
     set -x
 
     local scp_rc=0
-    # -O forces the legacy SCP wire protocol instead of the SFTP subsystem.
-    # macOS OpenSSH 10.0+ defaults to SFTP-based scp; its channel flow-control
-    # implementation deadlocks at ~4–5 MB on Mac→Linux transfers, silently
-    # leaving a partial file.  The legacy -O path uses a direct pipe and
-    # transfers reliably at any size.  Empirically verified: scp without -O
-    # stalls at ~5 MB; scp -O transfers the full 14 MB binary in one pass.
-    scp -O "${SSH_OPTS[@]}" -o LogLevel=VERBOSE "$sb_binary" root@"$ip":/tmp/sb \
-        2>"$scp_log" || scp_rc=$?
+    # Upload via 2 MB chunks to work around the SSH channel-window deadlock on
+    # cx23-class targets (Ubuntu 24.04, OpenSSH 9.6p1, kernel 6.8.0-111).
+    #
+    # Root cause: cx23's sshd fills its 4 MB initial SSH channel window but
+    # never sends CHANNEL_WINDOW_ADJUST, permanently stalling every single-pass
+    # transfer > 4 MB regardless of protocol (SFTP or legacy scp -O).  The
+    # identical sshd on niue (kernel 6.8.0-79) does not exhibit this.
+    #
+    # Fix: split into 2 MB chunks; each chunk fits within the initial window so
+    # no WINDOW_ADJUST exchange is ever needed and the transfer completes.
+    # Reassemble with cat on the remote.  Keep -O (legacy wire protocol) to
+    # avoid the separate macOS OpenSSH 10.0+ SFTP pipelining deadlock.
+    local chunk_dir
+    chunk_dir=$(mktemp -d) || { echo "FATAL: mktemp failed" >&2; return 1; }
+    split -b 2m "$sb_binary" "$chunk_dir/sb-upload-chunk-" 2>>"$scp_log" || scp_rc=$?
+    if [ "$scp_rc" -eq 0 ]; then
+        local chunk_count=0
+        for chunk in "$chunk_dir/sb-upload-chunk-"*; do
+            chunk_count=$((chunk_count + 1))
+        done
+        set +x
+        echo "  uploading $(basename "$sb_binary") in ${chunk_count}×2MB chunks (SSH window-adjust workaround)..."
+        set -x
+        for chunk in "$chunk_dir/sb-upload-chunk-"*; do
+            scp -O "${SSH_OPTS[@]}" -o LogLevel=VERBOSE \
+                "$chunk" root@"$ip":/tmp/"$(basename "$chunk")" \
+                2>>"$scp_log" || { scp_rc=$?; break; }
+        done
+    fi
+    rm -rf "$chunk_dir"
+    if [ "$scp_rc" -eq 0 ]; then
+        ssh "${SSH_OPTS[@]}" -o LogLevel=VERBOSE root@"$ip" \
+            'cat /tmp/sb-upload-chunk-* > /tmp/sb && rm -f /tmp/sb-upload-chunk-*' \
+            2>>"$scp_log" || scp_rc=$?
+    fi
     if [ "$scp_rc" -ne 0 ]; then
         set +x
         echo "SCP FAILED (exit $scp_rc) uploading $(basename "$sb_binary") → root@${ip}:/tmp/sb" >&2
