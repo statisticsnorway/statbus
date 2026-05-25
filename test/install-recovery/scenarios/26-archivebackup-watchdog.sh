@@ -364,7 +364,14 @@ echo "  ✓ NRestarts within tolerance — Bug 1 fix holds"
 assert_demo_data_present "$VM_NAME"
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
 assert_flag_file_absent "$VM_NAME"
-assert_no_orphan_backup "$VM_NAME"
+# assert_no_orphan_backup: intentionally absent for this scenario.
+# A successful upgrade retains the pre-upgrade-* backup directory:
+# archiveBackup (exec.go) creates a .tar.gz but does not delete the source
+# directory; pruneBackups(ctx, 3) in service.go only prunes when >3 backups
+# exist — first upgrade = 1 backup = nothing pruned.  The retained directory
+# is referenced in backup_path and is NOT an orphan.  Orphan-backup assertions
+# belong in failure-injection scenarios where a backup should have been
+# rolled back or cleaned up, not in successful-upgrade scenarios.
 assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 2
 
 if [ "$FINAL_STATE" = "completed" ]; then
