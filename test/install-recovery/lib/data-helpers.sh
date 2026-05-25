@@ -310,7 +310,7 @@ SQL
 
     local result
     result=$(ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
-        "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A < /tmp/harness-fabricate.sql && rm -f /tmp/harness-fabricate.sql'" \
+        "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A < /tmp/harness-fabricate.sql' && rm -f /tmp/harness-fabricate.sql" \
         2>&1 || echo "FAILED")
     if echo "$result" | grep -qi "error\|FAILED"; then
         echo "  ✗ fabricate_scheduled_upgrade_row failed:" >&2
