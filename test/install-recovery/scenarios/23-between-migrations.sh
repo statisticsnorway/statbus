@@ -134,7 +134,7 @@ upload_install_script_to_vm "$VM_NAME" "$INSTALL_SCRIPT" /tmp/install-c7.sh
 upload_sb_to_vm "$VM_NAME"
 
 set +e
-timeout "${INSTALL_BUDGET_S}s" ssh "${SSH_OPTS[@]}" root@"$ip" "sudo -u statbus bash /tmp/install-c7.sh"
+timeout "${INSTALL_BUDGET_S}s" ssh "${SSH_OPTS[@]}" statbus@"$ip" "bash /tmp/install-c7.sh"
 FIRST_EXIT=$?
 set -e
 echo "  first install exited: $FIRST_EXIT (137 = injected SIGKILL semantics)"

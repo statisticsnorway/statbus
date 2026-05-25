@@ -195,9 +195,9 @@ SCRIPT
 upload_install_script_to_vm "$VM_NAME" "$INSTALL_SCRIPT" /tmp/install-c12.sh
 upload_sb_to_vm "$VM_NAME"
 
-ssh "${SSH_OPTS[@]}" root@"$ip" "
+ssh "${SSH_OPTS[@]}" statbus@"$ip" "
     rm -f /tmp/install-c12.exit /tmp/install-c12.log
-    sudo -u statbus tmux new-session -d -s install-c12 'bash -lc \"( bash /tmp/install-c12.sh ) > /tmp/install-c12.log 2>&1; echo \\\$? > /tmp/install-c12.exit\"'
+    tmux new-session -d -s install-c12 'bash -lc \"( bash /tmp/install-c12.sh ) > /tmp/install-c12.log 2>&1; echo \\\$? > /tmp/install-c12.exit\"'
 "
 
 # ─────────────────────────────────────────────────────────────────────────

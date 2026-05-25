@@ -137,7 +137,7 @@ upload_install_script_to_vm "$VM_NAME" "$INSTALL_SCRIPT" /tmp/install-first.sh
 upload_sb_to_vm "$VM_NAME"
 
 set +e
-timeout "${INSTALL_BUDGET_S}s" ssh "${SSH_OPTS[@]}" root@"$ip" "sudo -u statbus bash /tmp/install-first.sh"
+timeout "${INSTALL_BUDGET_S}s" ssh "${SSH_OPTS[@]}" statbus@"$ip" "bash /tmp/install-first.sh"
 FIRST_EXIT=$?
 set -e
 echo "  first install exited: $FIRST_EXIT (137 = C5 SIGKILL semantics, wedge established)"
@@ -173,7 +173,7 @@ upload_install_script_to_vm "$VM_NAME" "$INSTALL_SCRIPT" /tmp/install-second.sh
 upload_sb_to_vm "$VM_NAME"
 
 set +e
-timeout "${INSTALL_BUDGET_S}s" ssh "${SSH_OPTS[@]}" root@"$ip" "sudo -u statbus bash /tmp/install-second.sh"
+timeout "${INSTALL_BUDGET_S}s" ssh "${SSH_OPTS[@]}" statbus@"$ip" "bash /tmp/install-second.sh"
 SECOND_EXIT=$?
 set -e
 echo "  second install exited: $SECOND_EXIT"

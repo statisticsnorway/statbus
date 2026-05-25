@@ -104,7 +104,7 @@ upload_sb_to_vm "$VM_NAME"
 # Run synchronously — the kill exits the install process so it returns
 # in finite time. We use a timeout as a safety net.
 set +e
-timeout "${INSTALL_BUDGET_S}s" ssh "${SSH_OPTS[@]}" root@"$ip" "sudo -u statbus bash /tmp/install-c8.sh"
+timeout "${INSTALL_BUDGET_S}s" ssh "${SSH_OPTS[@]}" statbus@"$ip" "bash /tmp/install-c8.sh"
 FIRST_EXIT=$?
 set -e
 echo "  first install exited: $FIRST_EXIT (137 = injected SIGKILL semantics)"

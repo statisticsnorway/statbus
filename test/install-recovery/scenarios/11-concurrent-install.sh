@@ -115,9 +115,9 @@ SCRIPT
 upload_install_script_to_vm "$VM_NAME" "$INSTALL_SCRIPT" /tmp/install-c10-first.sh
 upload_sb_to_vm "$VM_NAME"
 
-ssh "${SSH_OPTS[@]}" root@"$ip" "
+ssh "${SSH_OPTS[@]}" statbus@"$ip" "
     rm -f /tmp/install-c10-first.exit /tmp/install-c10-first.log
-    sudo -u statbus tmux new-session -d -s install-c10-first 'bash -lc \"( bash /tmp/install-c10-first.sh ) > /tmp/install-c10-first.log 2>&1; echo \\\$? > /tmp/install-c10-first.exit\"'
+    tmux new-session -d -s install-c10-first 'bash -lc \"( bash /tmp/install-c10-first.sh ) > /tmp/install-c10-first.log 2>&1; echo \\\$? > /tmp/install-c10-first.exit\"'
 "
 
 # ─────────────────────────────────────────────────────────────────────────

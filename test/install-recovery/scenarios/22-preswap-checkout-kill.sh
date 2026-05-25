@@ -137,7 +137,7 @@ upload_sb_to_vm "$VM_NAME"
 # the same SHA, but they are conceptually distinct phases.
 
 set +e
-timeout "${INSTALL_BUDGET_S}s" ssh "${SSH_OPTS[@]}" root@"$ip" "sudo -u statbus bash /tmp/install-c4.sh"
+timeout "${INSTALL_BUDGET_S}s" ssh "${SSH_OPTS[@]}" statbus@"$ip" "bash /tmp/install-c4.sh"
 FIRST_EXIT=$?
 set -e
 echo "  first install exited: $FIRST_EXIT (137 = injected SIGKILL semantics)"
