@@ -3591,6 +3591,52 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 		return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: reconnect to DB: %v", ErrHealthcheckDBDown, reconnErr), progress)
 	}
 
+	// Active-phase WATCHDOG=1 ticker for the WHOLE remainder of
+	// applyPostSwap (step 10 migrations + step 11 docker compose up +
+	// step 12 health check + archiveBackup + terminal UPDATE). All of
+	// these can run for many minutes on real data (rune: 35 GB
+	// archiveBackup runs the tar for ~minutes); the main goroutine is
+	// parked in subprocess waits with no opportunity to ping
+	// WATCHDOG=1 from the main loop. Without this goroutine,
+	// WatchdogSec=120 s (per ops/statbus-upgrade.service) fires and
+	// systemd SIGABRTs the unit -> restart loop -> never reaches
+	// `state='completed'`.
+	//
+	// This subsumes the prior d416a50a0 migrate-only ticker (which was
+	// scoped via extendCtx/extendCancel around runCommandToLog("migrate"
+	// ,...) and cancelled BEFORE step 11 -- leaving archiveBackup
+	// uncovered). Reproduced empirically by scenario 26
+	// (archive-backup-stall-active-phase-watchdog).
+	//
+	// Started AFTER the reconnect-watchdog ticker (which has its own
+	// scope around d.reconnect) cleans up via reconnTickerDone above.
+	// Cancelled via defer so every error-return path in applyPostSwap
+	// reaps the goroutine cleanly. First ping fires immediately so the
+	// deadline resets before any subprocess can run long enough to
+	// approach the 120 s budget. 30 s cadence matches the
+	// e6df084b7 + Race D pattern: 1/4 the watchdog deadline gives wide
+	// jitter tolerance with trivial CPU cost.
+	applyExtendCtx, applyExtendCancel := context.WithCancel(ctx)
+	applyTickerDone := make(chan struct{})
+	go func() {
+		defer close(applyTickerDone)
+		sdNotify("WATCHDOG=1")
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-applyExtendCtx.Done():
+				return
+			case <-ticker.C:
+				sdNotify("WATCHDOG=1")
+			}
+		}
+	}()
+	defer func() {
+		applyExtendCancel()
+		<-applyTickerDone
+	}()
+
 	// Update backup_path to the final (renamed) path now that we have a connection.
 	// Log on failure: the DB still holds the .tmp path; reconcileBackupDir will
 	// emit BACKUP_MISSING on the next tick for the missing .tmp, surfacing the issue.
@@ -3630,60 +3676,27 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	} else {
 		progress.Write("Applying database migrations...")
 
-		// Post-swap migrate-up runs in the unit's ACTIVE phase. Earlier
-		// design (Fix 1) assumed activating phase and used
-		// sdNotifyExtendTimeout(EXTEND_TIMEOUT_USEC) to push
-		// TimeoutStartSec forward. That was wrong on two counts:
+		// Post-swap migrate-up runs in the unit's ACTIVE phase (READY=1
+		// fires at service.go:1547 in Service.Run setup, BEFORE the
+		// main loop dispatches executeUpgrade). Active-phase systemd
+		// enforces WatchdogSec (=120 s per ops/statbus-upgrade.service);
+		// only WATCHDOG=1 resets the deadline.
 		//
-		//   - service.go:1519 sends sdNotify("READY=1") inside
-		//     Service.Run setup, BEFORE the main loop starts. The main
-		//     loop dispatches executeUpgrade → applyPostSwap, so by
-		//     the time we reach this site the unit has long since
-		//     transitioned to active. Active-phase systemd enforces
-		//     WatchdogSec (=120s per ops/statbus-upgrade.service), not
-		//     TimeoutStartSec.
+		// The applyExtendCtx ticker started above (right after the
+		// reconnect block) handles the heartbeat for this entire
+		// remainder of applyPostSwap -- migrate-up + step 11 + step 12
+		// + archiveBackup + terminal UPDATE. The migration itself also
+		// emits per-line progress.Write calls that fire emitHeartbeat,
+		// so the ticker is the safety net for the few seconds at the
+		// start of a migration before its first progress line lands.
 		//
-		//   - Per sd_notify(3): EXTEND_TIMEOUT_USEC extends "the start,
-		//     runtime or stop service timeout" — explicitly NOT the
-		//     watchdog deadline. The watchdog is reset only by
-		//     WATCHDOG=1.
-		//
-		// Operator's dev journalctl confirmed the failure mode:
-		// UNIT_RESULT=watchdog with NRestarts=111 — the watchdog
-		// fired during long subprocess waits because the main goroutine
-		// blocked in runCommandToLog and the EXTEND_TIMEOUT_USEC
-		// ticker did nothing for the watchdog deadline.
-		//
-		// Fix: ticker sends WATCHDOG=1 every 30s. systemd resets the
-		// watchdog deadline; the 120s budget keeps refilling while the
-		// migration emits per-migration progress lines (each of which
-		// fires emitHeartbeat via progress.Write — so the migration
-		// itself also keeps the watchdog alive). The ticker is the
-		// safety net for the few seconds at the start of a migration
-		// before its first progress line lands.
-		extendCtx, extendCancel := context.WithCancel(ctx)
-		extendDone := make(chan struct{})
-		go func() {
-			defer close(extendDone)
-			// First ping fires immediately so the watchdog deadline
-			// resets before any migration can run long enough to
-			// approach the 120s budget.
-			sdNotify("WATCHDOG=1")
-			ticker := time.NewTicker(30 * time.Second)
-			defer ticker.Stop()
-			for {
-				select {
-				case <-extendCtx.Done():
-					return
-				case <-ticker.C:
-					sdNotify("WATCHDOG=1")
-				}
-			}
-		}()
-
+		// History: d416a50a0 introduced a narrower migrate-only ticker
+		// (extendCtx/extendCancel around just runCommandToLog) which
+		// cancelled BEFORE step 11 / archiveBackup -- leaving the
+		// remaining heavy steps uncovered. Scenario 26 reproduced the
+		// resulting watchdog kill during archiveBackup; the unified
+		// ticker above subsumes the migrate-only one and closes the gap.
 		err := runCommandToLog(projDir, 30*time.Minute, progress.File(), "migrate", filepath.Join(projDir, "sb"), "migrate", "up", "--verbose")
-		extendCancel()
-		<-extendDone
 
 		if err != nil {
 			return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: ./sb migrate up: %v", ErrMigrationFailed, err), progress)
