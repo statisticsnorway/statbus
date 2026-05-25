@@ -135,13 +135,10 @@ HEAD_LOCAL=$(git -C "$HARNESS_ROOT" rev-parse HEAD)
 ip=$(hcloud server ip "$VM_NAME")
 upload_sb_to_vm "$VM_NAME"
 
-VM_EXEC bash -c "
-    cd ~/statbus
-    if ! git cat-file -e $HEAD_LOCAL 2>/dev/null; then
-        git fetch --depth 1 origin $HEAD_LOCAL || { echo 'FATAL: HEAD not on origin' >&2; exit 1; }
-    fi
-    git checkout $HEAD_LOCAL
-"
+scp -O "${SSH_OPTS[@]}" \
+    "$LIB_DIR/../fixtures/scenario_26_stage_head.sh" \
+    root@"$VM_IP":/tmp/scenario_26_stage_head.sh
+VM_EXEC bash /tmp/scenario_26_stage_head.sh "$HEAD_LOCAL"
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 4 — fabricate scheduled upgrade row (HEAD untagged → no natural discover)
