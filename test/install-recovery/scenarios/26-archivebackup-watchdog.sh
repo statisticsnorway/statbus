@@ -141,7 +141,47 @@ scp -O "${SSH_OPTS[@]}" \
 VM_EXEC bash /tmp/scenario_26_stage_head.sh "$HEAD_LOCAL"
 
 # ─────────────────────────────────────────────────────────────────────────
-# Phase 4 — fabricate scheduled upgrade row (HEAD untagged → no natural discover)
+# Phase 5 — stop service, install drop-in + release file
+# MUST precede Phase 4 fabrication: the running @statbus.service picks up a
+# 'scheduled' row within ~2s on test VMs (tiny dataset → upgrade completes
+# before the inject drop-in is in place).  Stop first, then fabricate, then
+# start — no race possible.
+# ─────────────────────────────────────────────────────────────────────────
+NRESTARTS_BASELINE=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "0")
+echo "  baseline NRestarts: $NRESTARTS_BASELINE"
+
+echo ""
+echo "── stopping service and installing archivebackup-watchdog drop-in ──"
+VM_EXEC systemctl --user stop statbus-upgrade@statbus.service 2>/dev/null || true
+
+# Heredoc inside `VM_EXEC bash -c "..."` loses newlines: printf %q converts them
+# to \n inside $'...' ANSI-C quoting, so the remote bash sees everything on
+# line 1 and the <<EOF delimiter merges with the body.  Write a complete script
+# locally (heredoc works fine on the local machine), scp it, and run it as statbus.
+# The script only installs the drop-in; stop/start are handled by the caller.
+_dropin_script=$(mktemp /tmp/harness-install-dropin-XXXXXX.sh)
+cat > "$_dropin_script" << SCRIPT_EOF
+#!/bin/bash
+set -euo pipefail
+DROPIN_DIR="\$HOME/.config/systemd/user/statbus-upgrade@statbus.service.d"
+DROPIN_FILE="\$DROPIN_DIR/archivebackup-inject.conf"
+mkdir -p "\$DROPIN_DIR"
+cat > "\$DROPIN_FILE" << 'DROPIN_EOF'
+[Service]
+Environment=STATBUS_INJECT_AT=archive-backup-stall-active-phase-watchdog
+Environment=STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE=$RELEASE_FILE
+DROPIN_EOF
+touch $RELEASE_FILE
+systemctl --user daemon-reload
+SCRIPT_EOF
+chmod 644 "$_dropin_script"
+scp -O "${SSH_OPTS[@]}" "$_dropin_script" root@"$VM_IP":/tmp/harness-install-dropin.sh
+rm -f "$_dropin_script"
+VM_EXEC bash /tmp/harness-install-dropin.sh
+ssh "${SSH_OPTS[@]}" root@"$VM_IP" "rm -f /tmp/harness-install-dropin.sh" 2>/dev/null || true
+
+# ─────────────────────────────────────────────────────────────────────────
+# Phase 4 — fabricate scheduled upgrade row (service stopped → no race)
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── fabricating scheduled public.upgrade row for HEAD ──"
@@ -154,40 +194,8 @@ if [ "$ROW_STATE" != "scheduled" ]; then
 fi
 echo "  ✓ public.upgrade row at HEAD is state='scheduled'"
 
-# ─────────────────────────────────────────────────────────────────────────
-# Phase 5 — install drop-in + release file, restart unit
-# ─────────────────────────────────────────────────────────────────────────
-NRESTARTS_BASELINE=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "0")
-echo "  baseline NRestarts: $NRESTARTS_BASELINE"
-
-echo ""
-echo "── installing archivebackup-watchdog drop-in + release file ──"
-# Heredoc inside `VM_EXEC bash -c "..."` loses newlines: printf %q converts them
-# to \n inside $'...' ANSI-C quoting, so the remote bash sees everything on
-# line 1 and the <<EOF delimiter merges with the body.  Write a complete script
-# locally (heredoc works fine on the local machine), scp it, and run it as statbus.
-_dropin_script=$(mktemp /tmp/harness-install-dropin-XXXXXX.sh)
-cat > "$_dropin_script" << SCRIPT_EOF
-#!/bin/bash
-set -euo pipefail
-DROPIN_DIR="\$HOME/.config/systemd/user/statbus-upgrade@statbus.service.d"
-DROPIN_FILE="\$DROPIN_DIR/archivebackup-inject.conf"
-systemctl --user stop statbus-upgrade@statbus.service 2>/dev/null || true
-mkdir -p "\$DROPIN_DIR"
-cat > "\$DROPIN_FILE" << 'DROPIN_EOF'
-[Service]
-Environment=STATBUS_INJECT_AT=archive-backup-stall-active-phase-watchdog
-Environment=STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE=$RELEASE_FILE
-DROPIN_EOF
-touch $RELEASE_FILE
-systemctl --user daemon-reload
-systemctl --user start statbus-upgrade@statbus.service
-SCRIPT_EOF
-chmod 644 "$_dropin_script"
-scp -O "${SSH_OPTS[@]}" "$_dropin_script" root@"$VM_IP":/tmp/harness-install-dropin.sh
-rm -f "$_dropin_script"
-VM_EXEC bash /tmp/harness-install-dropin.sh
-ssh "${SSH_OPTS[@]}" root@"$VM_IP" "rm -f /tmp/harness-install-dropin.sh" 2>/dev/null || true
+# Start service now: inject drop-in is in place, row is waiting → no race
+VM_EXEC systemctl --user start statbus-upgrade@statbus.service
 
 sleep 5
 UNIT_STATE=$(VM_EXEC systemctl --user is-active "statbus-upgrade@statbus.service" 2>/dev/null | tr -d ' \r\n' || echo "?")
