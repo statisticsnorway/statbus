@@ -229,20 +229,47 @@ echo "  ✓ NOTIFY sent — service should call executeScheduled momentarily"
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 6 — wait for the unit to reach archiveBackup (i.e., pass health check)
 # ─────────────────────────────────────────────────────────────────────────
+# Budget rationale: the upgrade service's preSwap phase for an untagged
+# harness commit runs buildBinaryOnDisk (`make -C cli build`), which takes
+# 3-5 min on a cold Go build on a cx23.  During that window the database is
+# stopped (preSwap step 4 stops db before the build; applyPostSwap step 9
+# restarts it).  Psql polling returns "?" throughout that window.  The row
+# IS in_progress from the moment executeScheduled claims it (~1s after NOTIFY);
+# we just cannot observe it until the DB comes back up after the build.
+# 600s covers: NOTIFY → claim (~1s) + preSwap phases (~2 min) +
+# buildBinaryOnDisk (~5 min) + exit-42 restart (~10s) + applyPostSwap up to
+# docker pull + db start (~1 min) = ~9 min total.  Using 600s leaves ~1 min
+# headroom.
+IN_PROGRESS_BUDGET_S="${IN_PROGRESS_BUDGET_S:-600}"
+
 echo ""
-echo "── waiting for upgrade row to transition to 'in_progress' ──"
+echo "── waiting for upgrade row to transition to 'in_progress' (budget ${IN_PROGRESS_BUDGET_S}s) ──"
 START_TS=$(date +%s)
 while true; do
     elapsed=$(( $(date +%s) - START_TS ))
-    if [ "$elapsed" -ge 180 ]; then
-        echo "✗ unit did not transition row to in_progress within 180s" >&2
-        VM_EXEC bash -c "cd ~/statbus && echo \"SELECT id, state, started_at FROM public.upgrade WHERE commit_sha = '$HEAD_LOCAL';\" | ./sb psql" >&2 || true
+    if [ "$elapsed" -ge "$IN_PROGRESS_BUDGET_S" ]; then
+        echo "✗ unit did not transition row to in_progress within ${IN_PROGRESS_BUDGET_S}s" >&2
+        VM_EXEC bash -c "cd ~/statbus && echo \"SELECT id, state, started_at, error FROM public.upgrade WHERE commit_sha = '$HEAD_LOCAL';\" | ./sb psql" >&2 || true
         exit 1
     fi
     STATE=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '$HEAD_LOCAL';\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?")
     if [ "$STATE" = "in_progress" ]; then
         echo "  ✓ upgrade row in_progress (t+${elapsed}s) — unit is inside executeUpgrade"
         break
+    fi
+    # Terminal states reached before in_progress was observed → upgrade
+    # failed before reaching the archiveBackup step; report and abort.
+    case "$STATE" in
+        completed|failed|rolled_back)
+            echo "✗ upgrade reached terminal state='$STATE' before in_progress was observed" >&2
+            VM_EXEC bash -c "cd ~/statbus && echo \"SELECT id, state, error FROM public.upgrade WHERE commit_sha = '$HEAD_LOCAL';\" | ./sb psql" >&2 || true
+            exit 1
+            ;;
+    esac
+    # Log at low frequency so the output isn't flooded; but always log if
+    # the state changed from the last iteration (including ? → known state).
+    if [ $((elapsed % 30)) -eq 0 ] && [ "$elapsed" -gt 0 ]; then
+        echo "    [t+${elapsed}s] state=$STATE (DB may be stopped during buildBinaryOnDisk)"
     fi
     sleep 5
 done
