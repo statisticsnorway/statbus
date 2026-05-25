@@ -93,16 +93,27 @@ func retryBackoff(attempt int) time.Duration {
 // "db", these are EXACTLY the containers whose image tag the upgrade
 // pipeline advances to the post-upgrade target SHA.
 //
+// "proxy" is included here (Bug 2 fix, 2026-05-25). Pre-fix, proxy was
+// in containers.go's `versionTrackedServices` (canary required tag
+// match) but NOT restarted by step 11 — the canary returned `false`
+// forever in any deployment where proxy was on a pre-upgrade tag
+// (rune.statbus.org's 2026-05-25 hang). Re-aligned by adding proxy
+// here: every upgrade now swaps the proxy image alongside app/worker/
+// rest, so the new release's Caddyfile / cert / port config takes
+// effect (the architectural reason proxy SHOULD be version-tracked).
+// Brief interruption of the maintenance page during proxy restart is
+// acceptable — Caddy restarts in <2 s; step 11's typical wall-clock is
+// under a minute.
+//
 // containers.go's versionTrackedServices MUST equal `{"db"} ∪ (step11RestartServices \ {"rest"})`
 // — "rest" is in step 11 (state-only check) but excluded from
 // versionTrackedServices because postgrest's image tag is upstream-
 // pinned. Drift between the two lists either wedges the canary
 // (`containersAtFlagTarget` waits forever for a tag that never
-// advances — the Bug 2 symptom that bit rune.statbus.org) or skips
-// verification of a container that DID advance.
-// TestVersionTrackedAlignedWithUpgradePipeline asserts the invariant
-// statically.
-var step11RestartServices = []string{"app", "worker", "rest"}
+// advances — the Bug 2 symptom) or skips verification of a container
+// that DID advance. TestVersionTrackedAlignedWithUpgradePipeline
+// asserts the invariant statically.
+var step11RestartServices = []string{"app", "worker", "rest", "proxy"}
 
 // Service is the long-running upgrade service.
 type Service struct {
