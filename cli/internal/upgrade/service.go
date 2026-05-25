@@ -90,6 +90,22 @@ func retryBackoff(attempt int) time.Duration {
 	}
 }
 
+// step11RestartServices lists the services brought up by applyPostSwap's
+// step 11 (docker compose up -d --no-build ...). Together with step 9's
+// "db", these are EXACTLY the containers whose image tag the upgrade
+// pipeline advances to the post-upgrade target SHA.
+//
+// containers.go's versionTrackedServices MUST equal `{"db"} ∪ (step11RestartServices \ {"rest"})`
+// — "rest" is in step 11 (state-only check) but excluded from
+// versionTrackedServices because postgrest's image tag is upstream-
+// pinned. Drift between the two lists either wedges the canary
+// (`containersAtFlagTarget` waits forever for a tag that never
+// advances — the Bug 2 symptom that bit rune.statbus.org) or skips
+// verification of a container that DID advance.
+// TestVersionTrackedAlignedWithUpgradePipeline asserts the invariant
+// statically.
+var step11RestartServices = []string{"app", "worker", "rest"}
+
 // Service is the long-running upgrade service.
 type Service struct {
 	projDir      string
@@ -3706,15 +3722,23 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// Step 11: Start application services (proxy already running from step 2).
 	// --no-build for the same reason as step 9: the app/worker/rest images
 	// must come from the registry, not a local build that may time out.
+	//
+	// The service list lives at step11RestartServices (package var below)
+	// so the canary's `versionTrackedServices` (in containers.go) can
+	// reference the exact same list. Drift between these two lists would
+	// either wedge the canary (proxy-style "wait forever") or skip
+	// verification (silent drift) — TestVersionTrackedAlignedWithUpgradePipeline
+	// asserts the invariant.
 	progress.Write("Starting services...")
-	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", "docker", "compose", "up", "-d", "--no-build", "app", "worker", "rest"); err != nil {
+	composeArgs := append([]string{"compose", "up", "-d", "--no-build"}, step11RestartServices...)
+	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", "docker", composeArgs...); err != nil {
 		reason := fmt.Sprintf(
-			"%s: docker compose up -d app worker rest: %v\n\n"+
+			"%s: docker compose up -d %s: %v\n\n"+
 				"One or more application images for %s are not available locally or in the registry. "+
 				"CI builds images on every master push (images.yaml). "+
 				"Wait for that workflow to finish, then retry the upgrade. Check status: "+
 				"gh run list --workflow=images.yaml",
-			ErrDockerUpFailed, err, displayName)
+			ErrDockerUpFailed, strings.Join(step11RestartServices, " "), err, displayName)
 		return d.postSwapFailure(ctx, id, displayName, previousVersion, reason, progress)
 	}
 
