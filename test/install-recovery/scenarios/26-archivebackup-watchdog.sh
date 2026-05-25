@@ -162,18 +162,32 @@ echo "  baseline NRestarts: $NRESTARTS_BASELINE"
 
 echo ""
 echo "── installing archivebackup-watchdog drop-in + release file ──"
-VM_EXEC bash -c "
-    systemctl --user stop statbus-upgrade@test.service 2>/dev/null || true
-    mkdir -p $DROPIN_DIR
-    cat > $DROPIN_FILE << 'EOF'
+# Heredoc inside `VM_EXEC bash -c "..."` loses newlines: printf %q converts them
+# to \n inside $'...' ANSI-C quoting, so the remote bash sees everything on
+# line 1 and the <<EOF delimiter merges with the body.  Write a complete script
+# locally (heredoc works fine on the local machine), scp it, and run it as statbus.
+_dropin_script=$(mktemp /tmp/harness-install-dropin-XXXXXX.sh)
+cat > "$_dropin_script" << SCRIPT_EOF
+#!/bin/bash
+set -euo pipefail
+DROPIN_DIR="\$HOME/.config/systemd/user/statbus-upgrade@test.service.d"
+DROPIN_FILE="\$DROPIN_DIR/archivebackup-inject.conf"
+systemctl --user stop statbus-upgrade@test.service 2>/dev/null || true
+mkdir -p "\$DROPIN_DIR"
+cat > "\$DROPIN_FILE" << 'DROPIN_EOF'
 [Service]
 Environment=STATBUS_INJECT_AT=archive-backup-stall-active-phase-watchdog
 Environment=STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE=$RELEASE_FILE
-EOF
-    touch $RELEASE_FILE
-    systemctl --user daemon-reload
-    systemctl --user start statbus-upgrade@test.service
-"
+DROPIN_EOF
+touch $RELEASE_FILE
+systemctl --user daemon-reload
+systemctl --user start statbus-upgrade@test.service
+SCRIPT_EOF
+chmod 644 "$_dropin_script"
+scp -O "${SSH_OPTS[@]}" "$_dropin_script" root@"$VM_IP":/tmp/harness-install-dropin.sh
+rm -f "$_dropin_script"
+VM_EXEC bash /tmp/harness-install-dropin.sh
+ssh "${SSH_OPTS[@]}" root@"$VM_IP" "rm -f /tmp/harness-install-dropin.sh" 2>/dev/null || true
 
 sleep 5
 UNIT_STATE=$(VM_EXEC systemctl --user is-active "statbus-upgrade@test.service" 2>/dev/null | tr -d ' \r\n' || echo "?")
