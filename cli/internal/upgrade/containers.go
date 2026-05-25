@@ -82,6 +82,26 @@ type containerCheckResult struct {
 	Reason  string // populated only on mismatch; empty on match
 }
 
+// versionTrackedServices is the list of services whose container image
+// tag the upgrade canary (evaluateContainersAtFlagTarget) requires to
+// match the post-upgrade target SHA. Every service in this list MUST
+// also be restarted by the upgrade pipeline (step 9's docker compose up
+// -d --no-build db, OR step 11's analogous call) — otherwise the canary
+// waits forever for a container whose tag the upgrade never touches.
+// The TestVersionTrackedAlignedWithUpgradePipeline invariant in
+// containers_invariants_test.go asserts this alignment statically.
+//
+// Cross-reference: step11RestartServices in service.go (the step-11
+// docker compose up arg list) MUST contain every entry in this slice
+// except "db" (which is restarted at step 9).
+//
+// "rest" is intentionally absent — postgrest is upstream-pinned to a
+// fixed tag (postgrest:v12.2.8 in docker-compose.rest.yml), so its
+// image tag never matches CommitSHA[:8] / DisplayName. The expected
+// list below INCLUDES "rest" for the state=="running" check; only the
+// tag check is suppressed.
+var versionTrackedServices = []string{"db", "app", "worker", "proxy"}
+
 // evaluateContainersAtFlagTarget is the pure decision: given the set of
 // container statuses returned by docker compose ps and the flag's target
 // commit SHA + display name, determine whether the production set is fully
@@ -100,7 +120,10 @@ type containerCheckResult struct {
 // and (where applicable) at the right tag. On any deviation, returns
 // (false, mismatched) with a human-readable reason per service.
 func evaluateContainersAtFlagTarget(statuses []dockerPsEntry, commitSHA, displayName string) (ok bool, mismatched []string) {
-	versionTracked := map[string]bool{"db": true, "app": true, "worker": true, "proxy": true}
+	versionTracked := make(map[string]bool, len(versionTrackedServices))
+	for _, s := range versionTrackedServices {
+		versionTracked[s] = true
+	}
 	expected := []string{"db", "app", "worker", "proxy", "rest"}
 
 	seen := map[string]dockerPsEntry{}
