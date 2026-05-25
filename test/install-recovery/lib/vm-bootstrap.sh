@@ -619,9 +619,28 @@ upload_sb_to_vm() {
         echo "  uploading $(basename "$sb_binary") in ${chunk_count}×2MB chunks (SSH window-adjust workaround)..."
         set -x
         for chunk in "$chunk_dir/sb-upload-chunk-"*; do
-            scp -O "${SSH_OPTS[@]}" -o LogLevel=VERBOSE \
-                "$chunk" root@"$ip":/tmp/"$(basename "$chunk")" \
-                2>>"$scp_log" || { scp_rc=$?; break; }
+            local chunk_name
+            chunk_name="$(basename "$chunk")"
+            local attempt
+            for attempt in 1 2 3; do
+                if scp -O "${SSH_OPTS[@]}" -o LogLevel=VERBOSE \
+                    "$chunk" root@"$ip":/tmp/"$chunk_name" \
+                    2>>"$scp_log"; then
+                    break
+                fi
+                scp_rc=$?
+                if [ "$attempt" -eq 3 ]; then
+                    set +x
+                    echo "  chunk $chunk_name: failed after 3 attempts" >&2
+                    set -x
+                    break 2
+                fi
+                set +x
+                echo "  chunk $chunk_name: attempt $attempt failed (rc=$scp_rc), waiting 15s before retry..." >&2
+                set -x
+                sleep 15
+                scp_rc=0
+            done
         done
     fi
     rm -rf "$chunk_dir"
