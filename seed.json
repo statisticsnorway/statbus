@@ -1,7 +1,7 @@
 {
   "migration_version": "20260524184428",
   "post_restore_sha": "15820362c1e43b8c3f9f826cbf155d8673a5597f8376f15570fb9ea65a4ee6f7",
-  "commit_sha": "9226395ae8a642f6bdc2c2f5ad6b11d427d3d117",
+  "commit_sha": "c823a88f70e88c3b0b86b84b4595314226f2741c",
   "tags": "",
-  "created_at": "2026-05-26T13:20:07Z"
+  "created_at": "2026-05-26T20:07:22Z"
 }
