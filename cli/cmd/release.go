@@ -511,9 +511,14 @@ func preflightChecks(projDir string) bool {
 		allPassed = false
 	case release.WorkflowCheckMissing:
 		fmt.Printf("  ✗ images has not run for %s\n", imagesHeadShort)
-		fmt.Printf("    Trigger: %s\n", release.WorkflowTriggerCommand(release.WorkflowImages, imagesHeadFull))
-		fmt.Printf("    Watch:   %s\n", release.WorkflowURL(release.WorkflowImages))
-		fmt.Println("    Fix: run the trigger command above, wait for green, re-run prerelease")
+		if ref, ok := dispatchRefForMasterTip(projDir, imagesHeadFull); ok {
+			fmt.Printf("    Trigger: %s\n", release.WorkflowTriggerCommand(release.WorkflowImages, ref))
+			fmt.Printf("    Watch:   %s\n", release.WorkflowURL(release.WorkflowImages))
+			fmt.Println("    Fix: run the trigger command above, wait for green, re-run prerelease")
+		} else {
+			fmt.Printf("    %s is not origin/master's tip — workflow_dispatch builds a branch/tag tip, not a bare SHA.\n", imagesHeadShort)
+			fmt.Println("    Fix: push this commit to master (images builds on push), then re-run prerelease")
+		}
 		allPassed = false
 	case release.WorkflowCheckUnknown:
 		fmt.Println("  ✗ images status check failed (GitHub API error)")
@@ -1006,9 +1011,9 @@ gate's invariant has NOT been verified for the SHA):
 		//    canary, so checking the workflow first surfaces the
 		//    actionable root cause before the operator stares at a
 		//    guaranteed-fail canary diagnostic.
-		allPassed := checkStableWorkflowGate(release.WorkflowImages, "images", rcCommit, rcShort, "SKIP_IMAGES")
-		allPassed = checkStableWorkflowGate(release.WorkflowTestHardening, "test-hardening", rcCommit, rcShort, "SKIP_TEST_HARDENING") && allPassed
-		allPassed = checkStableWorkflowGate(release.WorkflowTestInstall, "test-install", rcCommit, rcShort, "SKIP_TEST_INSTALL") && allPassed
+		allPassed := checkStableWorkflowGate(release.WorkflowImages, "images", latestRC, rcCommit, rcShort, "SKIP_IMAGES")
+		allPassed = checkStableWorkflowGate(release.WorkflowTestHardening, "test-hardening", latestRC, rcCommit, rcShort, "SKIP_TEST_HARDENING") && allPassed
+		allPassed = checkStableWorkflowGate(release.WorkflowTestInstall, "test-install", latestRC, rcCommit, rcShort, "SKIP_TEST_INSTALL") && allPassed
 		// Install-recovery harness: every C-class with a paired scenario in
 		// test/install-recovery/scenarios/ gets exercised on a dedicated
 		// Hetzner cx23. The workflow at .github/workflows/install-recovery-
@@ -1016,7 +1021,7 @@ gate's invariant has NOT been verified for the SHA):
 		// half of the no-hotfix discipline — without this gate, the
 		// "release stable promotes a verified-recovery RC" invariant
 		// reduces to "release stable promotes a never-crashed-in-CI RC".
-		allPassed = checkStableWorkflowGate(release.WorkflowInstallRecoveryHarness, "install-recovery", rcCommit, rcShort, "SKIP_INSTALL_RECOVERY") && allPassed
+		allPassed = checkStableWorkflowGate(release.WorkflowInstallRecoveryHarness, "install-recovery", latestRC, rcCommit, rcShort, "SKIP_INSTALL_RECOVERY") && allPassed
 
 		// 4. RC release artifacts MUST be present BEFORE the stable tag
 		//    is created. release.yaml (triggered by the RC's tag push)
@@ -1101,7 +1106,7 @@ gate's invariant has NOT been verified for the SHA):
 //
 // Returns true when the gate is satisfied (Green, or bypass set);
 // false otherwise (caller aggregates into allPassed).
-func checkStableWorkflowGate(workflow, label, rcCommit, rcShort, skipEnv string) bool {
+func checkStableWorkflowGate(workflow, label, rcTag, rcCommit, rcShort, skipEnv string) bool {
 	if skipEnv != "SKIP_IMAGES" && os.Getenv(skipEnv) == "1" {
 		// SKIP_TEST_HARDENING / SKIP_TEST_INSTALL / SKIP_INSTALL_RECOVERY —
 		// print the existing tailored guidance text (matches the
@@ -1140,7 +1145,10 @@ func checkStableWorkflowGate(workflow, label, rcCommit, rcShort, skipEnv string)
 		return false
 	case release.WorkflowCheckMissing:
 		fmt.Printf("  ✗ %s has not run for %s\n", label, rcShort)
-		fmt.Printf("    Trigger: %s\n", release.WorkflowTriggerCommand(workflow, rcCommit))
+		// Dispatch against the RC tag, not rcCommit: workflow_dispatch
+		// rejects bare SHAs. The RC tag points exactly at rcCommit and is
+		// already on origin (it was pushed when the RC was cut).
+		fmt.Printf("    Trigger: %s\n", release.WorkflowTriggerCommand(workflow, rcTag))
 		fmt.Printf("    Watch:   %s\n", release.WorkflowURL(workflow))
 		fmt.Println("    Fix: run the trigger command above, wait for green, re-run stable")
 		return false

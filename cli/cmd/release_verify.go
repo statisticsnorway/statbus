@@ -48,6 +48,23 @@ func tagTargetCommit(projDir, tagName string) (string, error) {
 	return strings.TrimSpace(out), nil
 }
 
+// dispatchRefForMasterTip resolves the workflow_dispatch ref for building
+// targetSHA when the build branch is master. GitHub's workflow_dispatch
+// rejects raw commit SHAs (HTTP 422 "No ref found") — the ref must name a
+// branch or tag, and GitHub builds that ref's tip. Returns ("master", true)
+// only when origin/master's tip is exactly targetSHA (the normal release
+// case; prerelease has already fetched origin/master and gated "up to date
+// with origin"). Returns ("", false) when they diverge, so the caller can
+// print a tip-mismatch diagnostic instead of a command that would dispatch
+// a build of the wrong commit.
+func dispatchRefForMasterTip(projDir, targetSHA string) (string, bool) {
+	out, err := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "origin/master")
+	if err != nil || strings.TrimSpace(out) != targetSHA {
+		return "", false
+	}
+	return "master", true
+}
+
 // tagMessageSubject returns the first line (subject) of an annotated tag's
 // message. Returns "" for lightweight tags.
 func tagMessageSubject(projDir, tagName string) (string, error) {
@@ -604,7 +621,10 @@ or replay anything locally; it just asks GitHub what its own CI said.`,
 		case release.WorkflowCheckFailed:
 			return fmt.Errorf("images failed at %s (conclusion: %s)\n  See: gh run view %d --log-failed\n  URL: %s\n  Fix:\n    Retry the failed jobs (if transient — network, ghcr.io timeout): gh run rerun --failed %d\n    Or push a fix to master (if real defect), then retry the push.", shortSHA, result.Detail, result.RunID, result.RunURL, result.RunID)
 		case release.WorkflowCheckMissing:
-			return fmt.Errorf("images has not run for %s\n  Trigger: %s\n  Watch:   %s\n  Fix: run the trigger command above, wait for green, then retry the push.", shortSHA, release.WorkflowTriggerCommand(release.WorkflowImages, sha), release.WorkflowURL(release.WorkflowImages))
+			if ref, ok := dispatchRefForMasterTip(config.ProjectDir(), sha); ok {
+				return fmt.Errorf("images has not run for %s\n  Trigger: %s\n  Watch:   %s\n  Fix: run the trigger command above, wait for green, then retry the push.", shortSHA, release.WorkflowTriggerCommand(release.WorkflowImages, ref), release.WorkflowURL(release.WorkflowImages))
+			}
+			return fmt.Errorf("images has not run for %s\n  %s is not origin/master's tip — workflow_dispatch builds a branch/tag tip, not a bare SHA.\n  Fix: push this commit to master (images builds on push), then retry the push.", shortSHA, shortSHA)
 		case release.WorkflowCheckUnknown:
 			return fmt.Errorf("images status check failed (GitHub API error)\n  Detail: %s\n  Fix: check network connectivity / GITHUB_TOKEN, or retry shortly.", result.Detail)
 		}
