@@ -58,7 +58,7 @@ echo "── re-run install (Fix 4 reset-failed should fire) ──"
 install_statbus_in_vm "$VM_NAME" "$INSTALL_VERSION"
 
 # 6. Assertions
-assert_step15_completed "$VM_NAME"
+assert_step_upgrade_service_completed "$VM_NAME"
 assert_systemd_active "$VM_NAME"
 assert_health_passes "$VM_NAME"
 

@@ -341,8 +341,3 @@ assert_systemd_restart_counter_bounded() {
     echo "  ✗ $unit NRestarts=$actual EXCEEDS bound=$max_restarts — Race B restart-loop pathology"
     return 1
 }
-
-# Backward-compat alias for existing call sites.
-assert_step15_completed() {
-    assert_step_upgrade_service_completed "$@"
-}

@@ -64,7 +64,7 @@ install_statbus_in_vm "$VM_NAME" "$INSTALL_VERSION"
 
 # 6. Assertions
 assert_step9_completed "$VM_NAME"
-assert_step15_completed "$VM_NAME"
+assert_step_upgrade_service_completed "$VM_NAME"
 assert_health_passes "$VM_NAME"
 
 # 7. Verify: worker connections were NOT all terminated by the install.
