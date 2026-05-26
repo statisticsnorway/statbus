@@ -211,10 +211,17 @@ func TestCheckWorkflowAtCommit_WorkflowParameterized(t *testing.T) {
 }
 
 func TestWorkflowTriggerCommand(t *testing.T) {
-	got := WorkflowTriggerCommand(WorkflowImages, "c4e850933fd3406a8cdaaef505d7d3de43f2c692")
-	want := "gh workflow run images.yaml --ref c4e850933fd3406a8cdaaef505d7d3de43f2c692"
-	if got != want {
-		t.Errorf("got %q, want %q", got, want)
+	// ref is a branch or tag name (workflow_dispatch rejects bare SHAs).
+	for _, tc := range []struct {
+		ref  string
+		want string
+	}{
+		{"master", "gh workflow run images.yaml --ref master"},
+		{"v2026.05.6-rc.01", "gh workflow run images.yaml --ref v2026.05.6-rc.01"},
+	} {
+		if got := WorkflowTriggerCommand(WorkflowImages, tc.ref); got != tc.want {
+			t.Errorf("ref %q: got %q, want %q", tc.ref, got, tc.want)
+		}
 	}
 }
 

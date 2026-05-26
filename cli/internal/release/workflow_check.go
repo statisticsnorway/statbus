@@ -150,10 +150,17 @@ func checkWorkflowAt(apiBase, workflow, commitSHA string) WorkflowCheckResult {
 }
 
 // WorkflowTriggerCommand returns the gh CLI invocation an operator runs to
-// start `workflow` at the given commit. Used in operator-facing error
-// messages when CheckWorkflowAtCommit returns WorkflowCheckMissing.
-func WorkflowTriggerCommand(workflow, commitSHA string) string {
-	return fmt.Sprintf("gh workflow run %s --ref %s", workflow, commitSHA)
+// start `workflow`. Used in operator-facing error messages when
+// CheckWorkflowAtCommit returns WorkflowCheckMissing.
+//
+// `ref` MUST be a branch or tag name — NOT a commit SHA. GitHub's
+// workflow_dispatch API rejects raw SHAs with HTTP 422 "No ref found"; it
+// only resolves branch/tag refs and builds that ref's tip. Callers must
+// therefore translate the target commit into the branch/tag whose tip is
+// that commit (e.g. "master" for a master-tip commit, or the RC tag for an
+// RC commit) before calling this.
+func WorkflowTriggerCommand(workflow, ref string) string {
+	return fmt.Sprintf("gh workflow run %s --ref %s", workflow, ref)
 }
 
 // WorkflowURL returns the GitHub UI URL where `workflow`'s runs are
