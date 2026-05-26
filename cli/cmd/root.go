@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/statisticsnorway/statbus/cli/internal/config"
 	"github.com/statisticsnorway/statbus/cli/internal/freshness"
+	"github.com/statisticsnorway/statbus/cli/internal/inject"
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
 
@@ -284,5 +285,14 @@ func displayShort(c upgrade.CommitSHA) string {
 }
 
 func Execute() error {
+	// Validate harness-only fault-injection env vars before any subcommand
+	// dispatches. A misconfigured combination (typoed class, stall file
+	// without a stall class, etc.) must fail loudly so a recovery scenario
+	// cannot silently produce a vacuous "pass". Production runs leave the
+	// env vars unset and this returns nil immediately.
+	if err := inject.Validate(); err != nil {
+		fmt.Fprintf(os.Stderr, "FATAL: invalid STATBUS_INJECT_* configuration:\n  %v\n", err)
+		os.Exit(2)
+	}
 	return rootCmd.Execute()
 }

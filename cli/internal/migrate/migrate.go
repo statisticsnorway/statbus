@@ -22,6 +22,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/statisticsnorway/statbus/cli/internal/config"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
+	"github.com/statisticsnorway/statbus/cli/internal/inject"
 	"github.com/statisticsnorway/statbus/cli/internal/release"
 )
 
@@ -242,6 +243,46 @@ func QueryDB(projDir, dbName, sql string, extraArgs ...string) (string, error) {
 
 // runPsqlFile executes a SQL file via psql.
 func runPsqlFile(projDir string, filePath string) (string, error) {
+	// Harness-only stall site: simulates a migration that runs longer
+	// than the upgrade-service's WatchdogSec budget. When activated via
+	// STATBUS_INJECT_AT=migration-slower-than-systemd-unit-timeout,
+	// holds here until the harness removes
+	// STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE. Validates the Race B fix
+	// in applyPostSwap's WATCHDOG=1 ticker (commit `e6df084b7`): with
+	// the migrate subprocess blocked here, the parent upgrade-service
+	// must keep the unit alive via its independent ticker, otherwise
+	// systemd's WatchdogSec=120s fires and triggers a restart loop.
+	// No-op in production. The hold runs BEFORE psql is invoked so
+	// the harness sees a subprocess that has started but not yet
+	// produced any output — same observable shape as a migration
+	// stuck waiting on a DDL lock.
+	inject.StallHere("migration-slower-than-systemd-unit-timeout")
+
+	// Harness-only kill site (C6): simulates the OS / orchestrator
+	// killing the process DURING a single migration's execution. Fires
+	// AFTER the C12 stall (so a scenario activating one does not
+	// shadow the other — STATBUS_INJECT_AT selects a single class,
+	// only the matching primitive fires) and BEFORE the psql
+	// subprocess is invoked. From the database's perspective the
+	// migration's outer transaction is never opened, so there is
+	// nothing to roll back; from the install state-machine's
+	// perspective the kill produced the same shape as "subprocess
+	// killed before completing": flag is whatever the prior step
+	// stamped (PostSwap inside applyPostSwap), binary is the NEW
+	// binary, db.migration max version UNCHANGED, no committed schema
+	// changes from this migration. Recovery via the next install's
+	// recoverFromFlag → resumePostSwap path re-enters applyPostSwap
+	// and the migration applies cleanly (no leftover state to
+	// conflict with). Drives scenario 17.
+	//
+	// Placement rationale (mirrors the team-lead's spec for #144):
+	// at the start of runPsqlFile is the cleanest single point that
+	// covers every migration in the loop without adding a kill site
+	// per call. runPsqlFile is also invoked from post_restore.sql and
+	// Redo, but those paths run only outside an upgrade scenario; a
+	// harness that activates this class is running an upgrade.
+	inject.KillHere("killed-by-system-during-individual-migration-execution")
+
 	psqlPath, prefix, env, err := PsqlCommand(projDir)
 	if err != nil {
 		return "", err
@@ -556,6 +597,15 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error)
 		return 0, err
 	}
 
+	// Harness-only stall site: representative phase point inside
+	// migrate.runUp where the upgrade is committed to running migrations
+	// (eager content-hash check passed, about to query applied versions).
+	// When activated via STATBUS_INJECT_AT, holds here until the harness
+	// removes STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE — long enough for a
+	// concurrent ./sb install attempt to observe the active holder PID
+	// and trip probe 2 (live-upgrade refusal). No-op in production.
+	inject.StallHere("concurrent-install-attempted-during-migrate-up")
+
 	applied, err := listAppliedVersions(projDir)
 	if err != nil {
 		return 0, err
@@ -597,7 +647,8 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error)
 		// needing --verbose. Each line also flows through progress.Write
 		// (PrefixWriter) which fires WATCHDOG=1, so per-migration output
 		// also serves as a heartbeat during multi-minute migrations
-		// (complements sdNotifyExtendTimeout in applyPostSwap).
+		// (complements the active-phase WATCHDOG=1 ticker in
+		// applyPostSwap that fires every 30 s independently).
 		fmt.Printf("[migrate]   ▶ applying %s\n", filepath.Base(m.Path))
 
 		if verbose {
@@ -630,6 +681,27 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error)
 			fmt.Printf("[migrate]   ✗ FAILED   %s after %s\n", filepath.Base(m.Path), elapsed)
 			return 0, fmt.Errorf("migration %d (%s) failed: %w\n%s", m.Version, filepath.Base(m.Path), err, out)
 		}
+
+		// Canonical Layer 2 injection site. The migration's outer
+		// transaction has just committed (runPsqlFile above returned
+		// nil) but the db.migration INSERT below has not yet run —
+		// the ~ms window where SIGKILL leaves a committed-but-unrecorded
+		// migration. Forward-recovery on this state fails deterministically
+		// ("relation already exists" on re-run); only rsync-restore
+		// can complete recovery coherently.
+		//
+		// Modeled as two stall classes — the harness picks the target
+		// PID (subprocess for Layer 0 in-process recovery, parent for
+		// Layer 2 next-install recovery) and sends real SIGKILL.
+		// Real signal semantics (WIFEXITED=0, WTERMSIG=SIGKILL,
+		// systemd-recorded terminal state) differ observably from
+		// in-process os.Exit(137), so the scenarios drive both code
+		// paths via genuine signals. Drives the scenario-08 SIGKILL
+		// harness validation pending in the install-recovery harness.
+		// Exactly one of these stalls is active per run
+		// (STATBUS_INJECT_AT picks); the other is a no-op.
+		inject.StallHere("migrate-subprocess-killed-after-commit-before-recorded")
+		inject.StallHere("upgrade-service-parent-killed-after-commit-before-recorded")
 
 		// Re-probe content_hash column existence AFTER apply only while
 		// we still think it's false — the just-applied migration may have
@@ -672,6 +744,30 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error)
 		if insertErr != nil {
 			return 0, fmt.Errorf("record migration %d: %w", m.Version, insertErr)
 		}
+
+		// Harness-only kill site (C7): simulates the OS / orchestrator
+		// killing the process BETWEEN migration N (just recorded — INSERT
+		// completed) and the start of migration N+1's iteration (next
+		// loop turn). At kill time: migration N is FULLY APPLIED and its
+		// db.migration row is committed; migration N+1 has NOT started.
+		// The harness ensures ≥ 2 pending migrations so the "between"
+		// point exists.
+		//
+		// Recovery via the next install's recoverFromFlag → resumePostSwap
+		// → applyPostSwap re-entry → migrate.Up: forward-recovery resumes
+		// from the unrecorded pending set (N+1 onwards) and applies them
+		// cleanly. No partial state to reconcile since N's transaction
+		// committed and N+1's never opened.
+		//
+		// Placement rationale (mirrors team-lead's #150 spec): inside
+		// runUp's `for _, m := range pending` loop, AFTER the
+		// db.migration INSERT for the CURRENT migration succeeds and
+		// BEFORE the loop's next iteration begins runPsqlFile for the
+		// NEXT migration. Co-located with the canonical C1/C2 stall
+		// sites at the same "between" boundary so the topology of
+		// per-migration injection sites stays readable in one place.
+		// No-op in production. Drives scenario 23.
+		inject.KillHere("killed-by-system-between-migrations")
 
 		fmt.Printf("[migrate]   ✔ applied  %s in %s\n", filepath.Base(m.Path), elapsed)
 

@@ -30,6 +30,7 @@ Every gate uses the same chain of names — workflow filename, Go constant, env-
 | `images.yaml`            | `WorkflowImages`           | (no bypass — checked indirectly via `release.CheckAssets` / `release.CheckManifests` in `ValidateStableTag`) | `verify-images` |
 | `test-hardening.yaml`    | `WorkflowTestHardening`    | `SKIP_TEST_HARDENING=1` | (none — fires automatically in `release stable` pre-flight) |
 | `test-install.yaml`      | `WorkflowTestInstall`      | `SKIP_TEST_INSTALL=1`   | (none — fires automatically in `release stable` pre-flight) |
+| `install-recovery-harness.yaml` | `WorkflowInstallRecoveryHarness` | `SKIP_INSTALL_RECOVERY=1` | (none — fires automatically in `release stable` pre-flight) |
 
 The Go constant name is `Workflow` + CamelCase of the workflow filename. The env var is `SKIP_` + uppercase-with-underscores of the workflow filename. Both derive mechanically from the workflow's own name; neither encodes a separate concept.
 
@@ -38,8 +39,9 @@ The Go constant name is `Workflow` + CamelCase of the workflow filename. The env
 - **`images.yaml`** — pre-push hook (`./sb release verify-images <sha>`) gates the prerelease tag push. Also indirectly gates `./sb release stable` via `CheckAssets` / `CheckManifests` against ghcr.io.
 - **`test-hardening.yaml`** — gates `./sb release stable` (runs in pre-flight). Triggers on prerelease tag push (`v*-rc.*`) plus `workflow_dispatch`.
 - **`test-install.yaml`** — gates `./sb release stable` (runs in pre-flight). Triggers on prerelease tag push plus `workflow_dispatch`. Provisions a Hetzner cx23 VM and runs scenario 01 of the install-recovery harness on it.
+- **`install-recovery-harness.yaml`** — gates `./sb release stable` (runs in pre-flight). Triggers on prerelease tag push plus `workflow_dispatch`. Provisions a Hetzner cx23 VM per scenario and runs the FULL install-recovery suite (every C-class with a paired scenario). Sister to `test-install.yaml`: where `test-install` covers only the happy path (scenario 01), this workflow covers the recovery surface (every failure-injection class). Much slower (~5-7h sequential vs ~15 min) but ~€0.13/run total. Operator dispatch supports a `scenarios` input for narrowing the suite when debugging a single failure.
 
-The pre-flight in `cli/cmd/release.go` runs each gate independently — both can be SKIP-bypassed individually for surgical operator control.
+The pre-flight in `cli/cmd/release.go` runs each gate independently — each can be SKIP-bypassed individually for surgical operator control.
 
 ## Adding a new gate
 

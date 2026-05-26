@@ -21,7 +21,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/statisticsnorway/statbus/cli/internal/compose"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
+	"github.com/statisticsnorway/statbus/cli/internal/inject"
 	"github.com/statisticsnorway/statbus/cli/internal/invariants"
 	"github.com/statisticsnorway/statbus/cli/internal/migrate"
 	"github.com/statisticsnorway/statbus/cli/internal/selfupdate"
@@ -87,6 +89,33 @@ func retryBackoff(attempt int) time.Duration {
 		return 1 * time.Second
 	}
 }
+
+// step11RestartServices lists the services brought up by applyPostSwap's
+// step 11 (docker compose up -d --no-build ...). Together with step 9's
+// "db", these are EXACTLY the containers whose image tag the upgrade
+// pipeline advances to the post-upgrade target SHA.
+//
+// "proxy" is included here (Bug 2 fix, 2026-05-25). Pre-fix, proxy was
+// in containers.go's `versionTrackedServices` (canary required tag
+// match) but NOT restarted by step 11 — the canary returned `false`
+// forever in any deployment where proxy was on a pre-upgrade tag
+// (rune.statbus.org's 2026-05-25 hang). Re-aligned by adding proxy
+// here: every upgrade now swaps the proxy image alongside app/worker/
+// rest, so the new release's Caddyfile / cert / port config takes
+// effect (the architectural reason proxy SHOULD be version-tracked).
+// Brief interruption of the maintenance page during proxy restart is
+// acceptable — Caddy restarts in <2 s; step 11's typical wall-clock is
+// under a minute.
+//
+// containers.go's versionTrackedServices MUST equal `{"db"} ∪ (step11RestartServices \ {"rest"})`
+// — "rest" is in step 11 (state-only check) but excluded from
+// versionTrackedServices because postgrest's image tag is upstream-
+// pinned. Drift between the two lists either wedges the canary
+// (`containersAtFlagTarget` waits forever for a tag that never
+// advances — the Bug 2 symptom) or skips verification of a container
+// that DID advance. TestVersionTrackedAlignedWithUpgradePipeline
+// asserts the invariant statically.
+var step11RestartServices = []string{"app", "worker", "rest", "proxy"}
 
 // Service is the long-running upgrade service.
 type Service struct {
@@ -767,14 +796,17 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 			if strings.HasPrefix(reason, "db.migration max version") {
 				logRecover("Ground-truth: %s — forward-recovering via migrate.Up", reason)
 				if mErr := migrate.Up(d.projDir, 0, true, true); mErr != nil {
-					logRecover("Forward-recovery migrate.Up failed: %v — falling through to rollback", mErr)
+					if flag.BackupPath != "" {
+						logRecover("Forward-recovery migrate.Up failed: %v — auto-restoring from snapshot at %s", mErr, flag.BackupPath)
+					} else {
+						logRecover("Forward-recovery migrate.Up failed and no backup available for auto-restore: %v — falling through to rollback", mErr)
+					}
 					if appendLog != nil {
 						appendLog.Close()
 						appendLog = nil
 					}
-					d.recoveryRollback(ctx, int(flag.ID), flag.Label(), logRelPath, fmt.Sprintf(
-						"%s: forward-recovery migrate.Up failed: %v",
-						ErrInstallPreconditionFailed, mErr))
+					d.recoveryRollback(ctx, int(flag.ID), flag.Label(), logRelPath,
+						formatForwardRecoveryFailure(mErr, flag.BackupPath))
 					return nil
 				}
 				// Re-verify after migrations applied. If still failing,
@@ -783,14 +815,17 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 				// shouldn't happen, but rollback is correct then).
 				okRetry, reasonRetry := d.verifyUpgradeGroundTruth(ctx, flag.CommitSHA)
 				if !okRetry {
-					logRecover("Ground-truth still failed after migrate.Up: %s — falling through to rollback", reasonRetry)
+					if flag.BackupPath != "" {
+						logRecover("Ground-truth still failed after migrate.Up: %s — auto-restoring from snapshot at %s", reasonRetry, flag.BackupPath)
+					} else {
+						logRecover("Ground-truth still failed after migrate.Up and no backup available for auto-restore: %s — falling through to rollback", reasonRetry)
+					}
 					if appendLog != nil {
 						appendLog.Close()
 						appendLog = nil
 					}
-					d.recoveryRollback(ctx, int(flag.ID), flag.Label(), logRelPath, fmt.Sprintf(
-						"%s: post-migrate-up ground-truth still failed: %s",
-						ErrInstallPreconditionFailed, reasonRetry))
+					d.recoveryRollback(ctx, int(flag.ID), flag.Label(), logRelPath,
+						formatForwardRecoveryFailure(fmt.Errorf("post-migrate-up ground-truth still failed: %s", reasonRetry), flag.BackupPath))
 					return nil
 				}
 				logRecover("Forward-recovery complete: migrations applied, ground-truth verified. Marking row completed.")
@@ -1499,6 +1534,33 @@ func (d *Service) Run(ctx context.Context) error {
 
 	// Check for missed scheduled upgrades
 	d.checkMissedUpgrades(ctx)
+
+	// Harness-only stall site (C11): simulates a startup pipeline that
+	// runs longer than the unit's TimeoutStartSec budget. Activated by
+	// STATBUS_INJECT_AT=service-startup-slower-than-systemd-unit-timeout
+	// and held by STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE. Fires DURING
+	// the unit's `activating` phase — i.e. BEFORE the sdNotify("READY=1")
+	// call below. While the stall is held, systemd's TimeoutStartSec
+	// (declared as 120 s in ops/statbus-upgrade.service per commit
+	// f43b2bfd1) ticks down. Once it expires, systemd SIGTERMs the unit
+	// and increments NRestarts.
+	//
+	// No-op in production. Drives scenario 18.
+	//
+	// Design choice (a) over (b) — keep TimeoutStartSec static:
+	//   Earlier code shipped sdNotifyExtendTimeout(EXTEND_TIMEOUT_USEC)
+	//   to push TimeoutStartSec forward during the activating phase
+	//   (Fix 1 / commit d416a50a0). That helper has been DELETED in
+	//   commit e6df084b7 — see the historical note at the bottom of
+	//   watchdog.go for the full rationale. The C11 contract is now:
+	//   if startup is slower than the unit's static 120 s budget, the
+	//   unit IS killed, NRestarts is bounded by StartLimitBurst, and
+	//   the operator's recovery is `./sb install` (which dispatches the
+	//   same upgrade inline, bypassing the supervised unit's timeout).
+	//   This is the simpler, principled shape — re-introducing the
+	//   activating-phase extender would couple the watchdog and start
+	//   budgets in ways the Race B forensics showed to be subtly wrong.
+	inject.StallHere("service-startup-slower-than-systemd-unit-timeout")
 
 	// LISTEN on channels (must use listenConn — queryConn is for queries)
 	if _, err := d.listenConn.Exec(ctx, "LISTEN upgrade_check"); err != nil {
@@ -3281,6 +3343,20 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 		return err
 	}
 
+	// Harness-only kill site (C4): simulates the OS / orchestrator killing
+	// the process AFTER the git checkout to the target commit completes
+	// but BEFORE the binary swap. Wedge state: working tree at the NEW
+	// commit, backup .tmp dir on disk, no binary swap (./sb is still the
+	// OLD binary), flag PreSwap (PostSwap is stamped later, after
+	// replaceBinaryOnDisk). Recovery via the next install's
+	// recoverFromFlag PreSwap branch: restoreGitState reverts the working
+	// tree to previousVersion via the pre-upgrade branch pinned a few
+	// lines above (line 3286-3292 in this file's pre-modification
+	// snapshot), discards the .tmp backup, clears the flag. Binary on
+	// disk was never touched, so no restoreBinary needed.
+	// No-op in production. Drives scenario 22.
+	inject.KillHere("killed-by-system-during-preswap-checkout")
+
 	// Verify checked-out SHA matches manifest (detect tag spoofing).
 	// Only tagged releases carry a manifest; untagged commits skip.
 	if ValidateVersion(displayName) {
@@ -3330,6 +3406,16 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 		return procureErr
 	}
 
+	// Canonical C5 injection site. The new sb binary has just been
+	// written to disk (replaceBinaryOnDisk completed) but the flag
+	// hasn't been stamped Phase=PostSwap yet — kill here leaves the
+	// system with: new binary on disk, PreSwap flag (or no flag
+	// state-stamp), migrations NOT yet applied. The next install's
+	// recoverFromFlag must classify the binary state (HEAD matches
+	// target? migrations missing?) and either roll forward via
+	// migrate.Up or roll back via restoreBinary. No-op in production.
+	inject.KillHere("killed-by-system-during-binary-swap")
+
 	// Stamp the flag as post-swap and store the finalised backup path so
 	// the next process (after exit-42 restart or syscall.Exec) can roll
 	// back without a live DB connection. queryConn was closed back at
@@ -3364,6 +3450,40 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	return nil
 }
 
+// postSwapFailure is the single rollback path for failures inside
+// applyPostSwap. It exists so all nine post-swap step failures share one
+// narrative ("forward failed: <reason>; auto-restored from snapshot") and
+// one return shape — operators reading the row's `error` column see the
+// same prefix regardless of which post-swap step tripped. Internally it
+// runs the full rsync-restore pipeline via d.rollback(), which marks the
+// row 'rolled_back', clears the flag, restarts containers, and exits the
+// process. The error return is reached only on the rare degraded path
+// where d.rollback() returns without exiting.
+func (d *Service) postSwapFailure(ctx context.Context, id int, displayName, previousVersion, reason string, progress *ProgressLog) error {
+	progress.Write("Post-swap failure: %s — auto-restoring from snapshot", reason)
+	d.rollback(ctx, id, displayName, previousVersion,
+		fmt.Sprintf("forward failed: %s; auto-restored from snapshot", reason), progress)
+	return fmt.Errorf("%s: post-swap failure auto-restored: %s",
+		ErrInstallPreconditionFailed, reason)
+}
+
+// formatForwardRecoveryFailure renders the operator-visible error stored
+// in public.upgrade.error when forward-recovery (migrate.Up inside
+// recoverFromFlag's PreSwap-HEAD-matches branch) fails. The narrative
+// mirrors postSwapFailure so both arms of the unified forward-then-restore
+// path read the same in the row's `error` column. backupPath is the
+// rsync-restore source; empty means no usable backup was stamped and the
+// restore is best-effort (recoveryRollback's pipeline is still invoked
+// so the row, flag, and live system are reconciled).
+func formatForwardRecoveryFailure(forwardErr error, backupPath string) string {
+	if backupPath != "" {
+		return fmt.Sprintf("%s: forward failed: %v; auto-restored from %s",
+			ErrInstallPreconditionFailed, forwardErr, backupPath)
+	}
+	return fmt.Sprintf("%s: forward failed without usable backup: %v",
+		ErrInstallPreconditionFailed, forwardErr)
+}
+
 // applyPostSwap runs the upgrade steps that require the target binary's
 // compiled code: config generate → docker pull → db up → waitForDBHealth →
 // reconnect → persist final backup_path → migrate → app/worker/rest up →
@@ -3375,6 +3495,10 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 // upgrade — tagged or edge, service or inline — handsoff in executeUpgrade
 // before reaching here, so applyPostSwap always runs against the NEW
 // compiled Go code.
+//
+// Step failures route through postSwapFailure (single rollback path with
+// unified narrative). The legacy direct d.rollback() pattern was retired
+// so the row's `error` column reads consistently across all nine sites.
 //
 // Preconditions on entry: db container stopped; maintenance mode on; backup
 // on disk at backupPath; git HEAD at target commit; ./sb binary at target
@@ -3388,15 +3512,13 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	progress.Write("Regenerating configuration...")
 	if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "config-generate", filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
 		// TODO: pick code — config generate failure; no Err* code defined yet
-		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("./sb config generate: %v", err), progress)
-		return err
+		return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("./sb config generate: %v", err), progress)
 	}
 
 	// Step 8: Pull updated images
 	progress.Write("Pulling updated images...")
 	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", "docker", "compose", "pull"); err != nil {
-		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: docker compose pull: %v", ErrDockerUpFailed, err), progress)
-		return err
+		return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: docker compose pull: %v", ErrDockerUpFailed, err), progress)
 	}
 
 	// Step 9: Start database. --no-build forces compose to USE THE PULLED IMAGE
@@ -3416,23 +3538,131 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 				"then retry the upgrade. Check status: "+
 				"gh run list --workflow=images.yaml",
 			ErrDockerUpFailed, err, displayName)
-		d.rollback(ctx, id, displayName, previousVersion, reason, progress)
-		return err
+		return d.postSwapFailure(ctx, id, displayName, previousVersion, reason, progress)
 	}
 
 	// Wait for DB health
 	progress.Write("Waiting for database to be healthy...")
 	if err := d.waitForDBHealth(30 * time.Second); err != nil {
-		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: DB health check: %v", ErrHealthcheckDBDown, err), progress)
-		return err
+		return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: DB health check: %v", ErrHealthcheckDBDown, err), progress)
 	}
 
-	// Reconnect service DB connection
+	// Harness-only stall site (C15 / Race D): simulates a slow DB
+	// reconnect after the DB container restart earlier in this method
+	// (docker compose up -d --no-build db). The reconnect step parks
+	// the upgrade-service's main goroutine; until it returns, NOTHING
+	// in the main goroutine pings WATCHDOG=1. Activated by
+	// STATBUS_INJECT_AT=service-watchdog-timeout-during-db-reconnect-after-container-restart
+	// and held by STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE.
+	//
+	// The reconnect-watchdog ticker below is the structural fix —
+	// even when the main goroutine is parked (in the real-world Race D
+	// case: a slow DB-side handshake) or stalled (in the harness case:
+	// inject.StallHere blocks on a release file), the ticker
+	// goroutine keeps firing WATCHDOG=1 every 30 s so systemd's
+	// WatchdogSec=120s deadline cannot trip.
+	//
+	// No-op in production.
+	inject.StallHere("service-watchdog-timeout-during-db-reconnect-after-container-restart")
+
+	// Reconnect service DB connection.
+	//
+	// Race D fix: this block runs in the unit's ACTIVE phase (READY=1
+	// fired at service.go:1520 in Service.Run's setup, BEFORE the main
+	// loop dispatches executeUpgrade), so systemd enforces WatchdogSec
+	// (=120s per ops/statbus-upgrade.service), NOT TimeoutStartSec.
+	// Per sd_notify(3) the watchdog deadline is reset ONLY by
+	// WATCHDOG=1 — EXTEND_TIMEOUT_USEC doesn't apply to it. The
+	// migrate-up step further down sets up its own WATCHDOG=1 ticker
+	// for the same reason (commit e6df084b7's Race B fix); this
+	// ticker is the upstream sibling that protects the reconnect
+	// site, which the original Race B fix did not cover.
+	//
+	// Failure mode without this ticker (observed in the Race D
+	// forensics under tmp/install-state-machine-forensics.md):
+	// during a real DB-side slow handshake (cluster restart, slow
+	// network path, contention against a long-running ANALYZE on a
+	// huge table), d.reconnect's pgx.Connect blocks for >120s; the
+	// main goroutine is parked inside it; WATCHDOG=1 is not sent;
+	// systemd SIGABRTs the unit. NRestarts climbs. Scenario 19's
+	// runtime path (with the C15 stall held for STALL_HOLD_S=180s)
+	// reproduces this exactly.
+	//
+	// 30-second tick cadence matches the e6df084b7 migrate ticker:
+	// 1/4 the watchdog deadline gives wide jitter tolerance while
+	// keeping the ticker's CPU footprint trivial. First WATCHDOG=1
+	// fires immediately so the deadline is reset before the
+	// reconnect can run long enough to approach the budget.
+	reconnExtendCtx, reconnExtendCancel := context.WithCancel(ctx)
+	reconnTickerDone := make(chan struct{})
+	go func() {
+		defer close(reconnTickerDone)
+		sdNotify("WATCHDOG=1")
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-reconnExtendCtx.Done():
+				return
+			case <-ticker.C:
+				sdNotify("WATCHDOG=1")
+			}
+		}
+	}()
+
 	progress.Write("Reconnecting to database...")
-	if err := d.reconnect(ctx); err != nil {
-		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: reconnect to DB: %v", ErrHealthcheckDBDown, err), progress)
-		return err
+	reconnErr := d.reconnect(ctx)
+	reconnExtendCancel()
+	<-reconnTickerDone
+	if reconnErr != nil {
+		return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: reconnect to DB: %v", ErrHealthcheckDBDown, reconnErr), progress)
 	}
+
+	// Active-phase WATCHDOG=1 ticker for the WHOLE remainder of
+	// applyPostSwap (step 10 migrations + step 11 docker compose up +
+	// step 12 health check + archiveBackup + terminal UPDATE). All of
+	// these can run for many minutes on real data (rune: 35 GB
+	// archiveBackup runs the tar for ~minutes); the main goroutine is
+	// parked in subprocess waits with no opportunity to ping
+	// WATCHDOG=1 from the main loop. Without this goroutine,
+	// WatchdogSec=120 s (per ops/statbus-upgrade.service) fires and
+	// systemd SIGABRTs the unit -> restart loop -> never reaches
+	// `state='completed'`.
+	//
+	// This subsumes the prior d416a50a0 migrate-only ticker (which was
+	// scoped via extendCtx/extendCancel around runCommandToLog("migrate"
+	// ,...) and cancelled BEFORE step 11 -- leaving archiveBackup
+	// uncovered). Reproduced empirically by scenario 26
+	// (archive-backup-stall-active-phase-watchdog).
+	//
+	// Started AFTER the reconnect-watchdog ticker (which has its own
+	// scope around d.reconnect) cleans up via reconnTickerDone above.
+	// Cancelled via defer so every error-return path in applyPostSwap
+	// reaps the goroutine cleanly. First ping fires immediately so the
+	// deadline resets before any subprocess can run long enough to
+	// approach the 120 s budget. 30 s cadence matches the
+	// e6df084b7 + Race D pattern: 1/4 the watchdog deadline gives wide
+	// jitter tolerance with trivial CPU cost.
+	applyExtendCtx, applyExtendCancel := context.WithCancel(ctx)
+	applyTickerDone := make(chan struct{})
+	go func() {
+		defer close(applyTickerDone)
+		sdNotify("WATCHDOG=1")
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-applyExtendCtx.Done():
+				return
+			case <-ticker.C:
+				sdNotify("WATCHDOG=1")
+			}
+		}
+	}()
+	defer func() {
+		applyExtendCancel()
+		<-applyTickerDone
+	}()
 
 	// Update backup_path to the final (renamed) path now that we have a connection.
 	// Log on failure: the DB still holds the .tmp path; reconcileBackupDir will
@@ -3440,6 +3670,24 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	if _, err := d.queryConn.Exec(ctx,
 		"UPDATE public.upgrade SET backup_path = $1 WHERE id = $2", backupPath, id); err != nil {
 		progress.Write("Warning: could not update backup_path to final path for upgrade id=%d: %v", id, err)
+	}
+
+	// R1 quiesce: stop worker / app / rest if any are still running
+	// before step 10's DDL phase. In the normal applyPostSwap flow the
+	// pre-swap teardown already stopped them, so this is usually a
+	// no-op; the defensive call covers recovery paths where
+	// resumePostSwap re-enters applyPostSwap and a prior partial run
+	// may have left clients up. Step 11 below starts worker/app/rest
+	// unconditionally as the natural resume point — no separate
+	// ResumeClients call needed here. db, proxy, caddy stay running
+	// throughout (db is the DDL target).
+	quiescedClients, quiesceErr := compose.QuiesceClients(projDir)
+	if quiesceErr != nil {
+		return d.postSwapFailure(ctx, id, displayName, previousVersion,
+			fmt.Sprintf("quiesce clients before migrations: %v (must not proceed with DDL on live services)", quiesceErr), progress)
+	}
+	if len(quiescedClients) > 0 {
+		progress.Write("R1 quiesce: stopped %v before DDL (step 11 will restart them)", quiescedClients)
 	}
 
 	// Step 10: Run migrations (or recreate database if requested).
@@ -3450,77 +3698,76 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 		d.pendingRecreate = false
 		progress.Write("Recreating database from scratch (--recreate)...")
 		if err := runCommandToLog(projDir, 30*time.Minute, progress.File(), "recreate-database", filepath.Join(projDir, "dev.sh"), "recreate-database"); err != nil {
-			d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: ./dev.sh recreate-database: %v", ErrMigrationFailed, err), progress)
-			return err
+			return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: ./dev.sh recreate-database: %v", ErrMigrationFailed, err), progress)
 		}
 	} else {
 		progress.Write("Applying database migrations...")
 
-		// Post-swap migrate-up runs while the unit is still "activating"
-		// (READY=1 has not been sent yet — see top of executeUpgrade
-		// where READY=1 fires AFTER applyPostSwap). systemd enforces
-		// TimeoutStartSec=90s during this window, not WatchdogSec. A
-		// genuine multi-minute migration (e.g. statistical_history
-		// re-derive on Norway-sized data) blows past 90s and systemd
-		// SIGTERMs the daemon, restart-loops, and eventually trips
-		// StartLimitBurst — leaving the host wedged.
+		// Post-swap migrate-up runs in the unit's ACTIVE phase (READY=1
+		// fires at service.go:1547 in Service.Run setup, BEFORE the
+		// main loop dispatches executeUpgrade). Active-phase systemd
+		// enforces WatchdogSec (=120 s per ops/statbus-upgrade.service);
+		// only WATCHDOG=1 resets the deadline.
 		//
-		// Ticker calls sdNotifyExtendTimeout(120s) every 30s. systemd
-		// rolls the start deadline forward continuously while the
-		// migration is alive; if the migration actually hangs (no
-		// extend for >2 min) systemd kills it for real. Idiomatic
-		// sd_notify pattern for this phase. Existing WATCHDOG=1 path
-		// (post-READY=1) is untouched.
-		extendCtx, extendCancel := context.WithCancel(ctx)
-		extendDone := make(chan struct{})
-		go func() {
-			defer close(extendDone)
-			// First extend fires immediately so the deadline pushes out
-			// before the original 90s window expires.
-			sdNotifyExtendTimeout(120 * time.Second)
-			ticker := time.NewTicker(30 * time.Second)
-			defer ticker.Stop()
-			for {
-				select {
-				case <-extendCtx.Done():
-					return
-				case <-ticker.C:
-					sdNotifyExtendTimeout(120 * time.Second)
-				}
-			}
-		}()
-
+		// The applyExtendCtx ticker started above (right after the
+		// reconnect block) handles the heartbeat for this entire
+		// remainder of applyPostSwap -- migrate-up + step 11 + step 12
+		// + archiveBackup + terminal UPDATE. The migration itself also
+		// emits per-line progress.Write calls that fire emitHeartbeat,
+		// so the ticker is the safety net for the few seconds at the
+		// start of a migration before its first progress line lands.
+		//
+		// History: d416a50a0 introduced a narrower migrate-only ticker
+		// (extendCtx/extendCancel around just runCommandToLog) which
+		// cancelled BEFORE step 11 / archiveBackup -- leaving the
+		// remaining heavy steps uncovered. Scenario 26 reproduced the
+		// resulting watchdog kill during archiveBackup; the unified
+		// ticker above subsumes the migrate-only one and closes the gap.
 		err := runCommandToLog(projDir, 30*time.Minute, progress.File(), "migrate", filepath.Join(projDir, "sb"), "migrate", "up", "--verbose")
-		extendCancel()
-		<-extendDone
 
 		if err != nil {
-			d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: ./sb migrate up: %v", ErrMigrationFailed, err), progress)
-			return err
+			return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: ./sb migrate up: %v", ErrMigrationFailed, err), progress)
 		}
 	}
 
 	// Step 11: Start application services (proxy already running from step 2).
 	// --no-build for the same reason as step 9: the app/worker/rest images
 	// must come from the registry, not a local build that may time out.
+	//
+	// The service list lives at step11RestartServices (package var below)
+	// so the canary's `versionTrackedServices` (in containers.go) can
+	// reference the exact same list. Drift between these two lists would
+	// either wedge the canary (proxy-style "wait forever") or skip
+	// verification (silent drift) — TestVersionTrackedAlignedWithUpgradePipeline
+	// asserts the invariant.
 	progress.Write("Starting services...")
-	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", "docker", "compose", "up", "-d", "--no-build", "app", "worker", "rest"); err != nil {
+	composeArgs := append([]string{"compose", "up", "-d", "--no-build"}, step11RestartServices...)
+	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", "docker", composeArgs...); err != nil {
 		reason := fmt.Sprintf(
-			"%s: docker compose up -d app worker rest: %v\n\n"+
+			"%s: docker compose up -d %s: %v\n\n"+
 				"One or more application images for %s are not available locally or in the registry. "+
 				"CI builds images on every master push (images.yaml). "+
 				"Wait for that workflow to finish, then retry the upgrade. Check status: "+
 				"gh run list --workflow=images.yaml",
-			ErrDockerUpFailed, err, displayName)
-		d.rollback(ctx, id, displayName, previousVersion, reason, progress)
-		return err
+			ErrDockerUpFailed, strings.Join(step11RestartServices, " "), err, displayName)
+		return d.postSwapFailure(ctx, id, displayName, previousVersion, reason, progress)
 	}
+
+	// C8 injection site. Containers have been started (docker compose
+	// up -d returned ok — meaning create+start was initiated, NOT that
+	// health checks have passed) but step 12's health check has not
+	// yet confirmed them serving. Kill here leaves the system with:
+	// new binary, migrations applied, containers in an indeterminate
+	// state (some up, some not, health checks not yet validated).
+	// The next install must complete the restart by re-running
+	// step 11 + step 12 — the recoverFromFlag PostSwap path resumes
+	// applyPostSwap from the top. No-op in production.
+	inject.KillHere("killed-by-system-during-container-restart")
 
 	// Step 12: Verify health
 	progress.Write("Verifying health...")
 	if err := d.healthCheck(progress, 5, 5*time.Second); err != nil {
-		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: application health check: %v", ErrHealthcheckRESTDown, err), progress)
-		return err
+		return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: application health check: %v", ErrHealthcheckRESTDown, err), progress)
 	}
 
 	// Notify frontend that the upgrade state changed. The DB trigger also fires
@@ -4140,6 +4387,35 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 
 	// Restore database backup. Now safe — git state matches the DB era.
 	d.restoreDatabase(progress)
+
+	// Harness-only kill site (C9): simulates the OS / orchestrator killing
+	// the process MID-ROLLBACK — specifically, after the destructive
+	// restore steps (restoreGitState, restoreBinary, restoreDatabase) have
+	// run but BEFORE the docker compose up + reconnect + setMaintenance
+	// + state='rolled_back' UPDATE land. At kill time the on-disk state
+	// is consistent (OLD git tree, OLD binary, OLD DB volume) but the
+	// services are still stopped, maintenance is still ON, and the
+	// upgrade row is still 'in_progress'.
+	//
+	// Recovery via the next install's recoverFromFlag: the flag's
+	// Phase is PostSwap (rollback was invoked by postSwapFailure or
+	// recoveryRollback). recoverFromFlag's ground-truth check sees
+	// the OLD binary on disk + OLD DB state — there are no pending
+	// migrations from its perspective (db.migration is back at the OLD
+	// max version). The clean-up path: bring services up, set
+	// maintenance OFF, mark the row 'rolled_back'.
+	//
+	// Reachability caveat (scope-a documented in scenario header): firing
+	// this site requires the recovery path to invoke d.rollback().
+	// The forward-then-restore design (Fix 5b, commit fc5ae7cf7) tries
+	// forward-recovery first; only falls through to d.rollback() when
+	// forward fails (migrate.Up returns error). Without a dedicated
+	// "force-forward-recovery-failure" injection class, the C9 site
+	// fires only when forward-recovery NATURALLY fails — which is
+	// non-deterministic across the harness's HEAD migration set.
+	// Scenario 24 documents this as a site-reachability diagnostic.
+	// No-op in production. Drives scenario 24.
+	inject.KillHere("killed-by-system-during-builtin-rollback")
 
 	// Start with old config — git is verified at previousVersion.
 	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "rollback-docker-up", "docker", "compose", "--profile", "all", "up", "-d", "--remove-orphans"); err != nil {

@@ -209,19 +209,31 @@ var seedRestoreCmd = &cobra.Command{
 			"-d", dbName)
 		restoreCmd.Dir = projDir
 		restoreCmd.Stdin = dumpFile
-		restoreCmd.Stdout = os.Stdout
-		restoreCmd.Stderr = os.Stderr
 
-		err = restoreCmd.Run()
-		if err != nil {
-			// pg_restore exit code 1 means warnings (e.g., "role does not exist"
-			// for --clean drops). This is expected and harmless — the data is
-			// restored correctly. Only exit code 2+ indicates real failure.
-			if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
-				// Warnings only — not an error.
-			} else {
-				return fmt.Errorf("pg_restore failed: %w", err)
-			}
+		// Atomic-restore failure contract. With --single-transaction set
+		// above, pg_restore wraps every emitted command in BEGIN/COMMIT
+		// and (per pg_restore(1)) implies --exit-on-error: any error in
+		// any restore step aborts the whole transaction and exits non-
+		// zero. There is no "warnings, but data restored correctly"
+		// outcome with --single-transaction — either the COMMIT lands
+		// (exit 0) or the ROLLBACK fires (exit ≥ 1). runPgRestoreAtomic
+		// (cli/cmd/db.go) also scans the streamed stderr for the
+		// pg_restore: error: prefix as defense-in-depth, so a future
+		// regression that drops --single-transaction (and lets
+		// pg_restore exit 0 with errors in its TOC) still fails loudly
+		// here rather than silently returning "Seed restored".
+		//
+		// Earlier versions of this wrapper carried an exit-code-1
+		// tolerance ("warnings only, not an error"). That was correct
+		// for pg_restore WITHOUT --single-transaction; once the flag
+		// landed, the tolerance silently turned ROLLBACK ("data NOT
+		// restored") into a passing invocation. tcc's near-miss
+		// (forensics: tmp/install-state-machine-forensics.md) surfaced
+		// the danger: a destructive restore could fail half-way,
+		// leaving the DB in a wedged-or-empty state, while ./sb db
+		// seed restore reported success.
+		if err := runPgRestoreAtomic(restoreCmd, "seed restore"); err != nil {
+			return err
 		}
 
 		fmt.Printf("Seed restored to %s (migration %s)\n", dbName, meta.MigrationVersion)

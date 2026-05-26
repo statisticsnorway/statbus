@@ -86,6 +86,8 @@ SSH_OPTS=(
     -o LogLevel=ERROR
     -o ServerAliveInterval=30
     -o ServerAliveCountMax=10
+    -o ControlMaster=no
+    -o ControlPath=none
 )
 
 _check_name_safety() {
@@ -200,10 +202,10 @@ _apply_hardening() {
 
     echo "  transferring setup files..."
     [ -n "$sb_binary" ] && {
-        scp "${SSH_OPTS[@]}" -q "$sb_binary" root@"$ip":/tmp/sb
+        scp -O "${SSH_OPTS[@]}" "$sb_binary" root@"$ip":/tmp/sb
         ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0755 /tmp/sb'
     }
-    scp "${SSH_OPTS[@]}" -q "$HARNESS_ROOT/ops/setup-ubuntu-lts-24.sh" root@"$ip":/tmp/setup.sh
+    scp -O "${SSH_OPTS[@]}" "$HARNESS_ROOT/ops/setup-ubuntu-lts-24.sh" root@"$ip":/tmp/setup.sh
     ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0755 /tmp/setup.sh'
 
     local env_config_file users_file
@@ -221,7 +223,7 @@ DEBUG=false
 PUBLIC_DEBUG=false
 UPGRADE_CHANNEL=stable
 ENVCONFIG
-    scp "${SSH_OPTS[@]}" -q "$env_config_file" root@"$ip":/tmp/env-config
+    scp -O "${SSH_OPTS[@]}" "$env_config_file" root@"$ip":/tmp/env-config
     ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0644 /tmp/env-config'
     rm -f "$env_config_file"
 
@@ -232,7 +234,7 @@ ENVCONFIG
   role: admin_user
   display_name: Admin
 USERS
-    scp "${SSH_OPTS[@]}" -q "$users_file" root@"$ip":/tmp/users.yml
+    scp -O "${SSH_OPTS[@]}" "$users_file" root@"$ip":/tmp/users.yml
     ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0644 /tmp/users.yml'
     rm -f "$users_file"
 
@@ -253,7 +255,7 @@ EOF'
         || true
     ssh "${SSH_OPTS[@]}" root@"$ip" "
         rm -f /tmp/harden.exit /tmp/harden.log
-        tmux new-session -d -s harden 'bash /tmp/setup.sh --non-interactive > /tmp/harden.log 2>&1; echo \$? > /tmp/harden.exit'
+        tmux new-session -d -s harden 'bash /tmp/setup.sh --non-interactive --skip-stages=4 > /tmp/harden.log 2>&1; echo \$? > /tmp/harden.exit'
     "
     local max_iter=$(( ${LONG_CMD_MAX_MIN:-45} * 60 / 15 )) i=0 seen=0
     for ((i=0; i<max_iter; i++)); do
@@ -261,9 +263,9 @@ EOF'
             break
         fi
         local cur
-        cur=$(ssh "${SSH_OPTS[@]}" root@"$ip" 'wc -l < /tmp/harden.log 2>/dev/null' 2>/dev/null | tr -d ' ')
+        cur=$(ssh "${SSH_OPTS[@]}" root@"$ip" 'wc -l < /tmp/harden.log 2>/dev/null' 2>/dev/null | tr -d ' ') || true
         if [ -n "$cur" ] && [ "$cur" -gt "$seen" ] 2>/dev/null; then
-            ssh "${SSH_OPTS[@]}" root@"$ip" "tail -n $((cur - seen)) /tmp/harden.log" 2>/dev/null | tee -a "$logfile"
+            ssh "${SSH_OPTS[@]}" root@"$ip" "tail -n $((cur - seen)) /tmp/harden.log" 2>/dev/null | tee -a "$logfile" || true
             seen="$cur"
         fi
         sleep 15
@@ -273,9 +275,9 @@ EOF'
         return 1
     fi
     local harden_exit
-    harden_exit=$(ssh "${SSH_OPTS[@]}" root@"$ip" 'cat /tmp/harden.exit' 2>/dev/null | tr -d ' \n')
+    harden_exit=$(ssh "${SSH_OPTS[@]}" root@"$ip" 'cat /tmp/harden.exit' 2>/dev/null | tr -d ' \n') || true
     if [ "$harden_exit" != "0" ]; then
-        echo "  HARDENING FAILED with exit code: $harden_exit" >&2
+        echo "  HARDENING FAILED with exit code: '$harden_exit' (empty = SSH read failure)" >&2
         return 1
     fi
 
@@ -314,9 +316,20 @@ EOF'
         else
             echo "WARNING: could not fetch hhssb GitHub keys (network blip); skipping" >&2
         fi
+
+        # Propagate CI key: Hetzner seeds the statbus-ci key to root only.
+        # After the curl loops above, root has: Hetzner CI key + personal keys.
+        # Copy everything to statbus and dedup so `ssh statbus@vm` works from
+        # CI and from any key that can reach root (canonical operator model:
+        # the same key that reaches root also reaches the statbus operator user).
+        sort -u /root/.ssh/authorized_keys > /tmp/.ak_merge
+        cat /tmp/.ak_merge > /home/statbus/.ssh/authorized_keys
+        rm -f /tmp/.ak_merge
+        chown statbus:statbus /home/statbus/.ssh/authorized_keys
+        chmod 600 /home/statbus/.ssh/authorized_keys
     '
 
-    STATBUS_UID=$(ssh "${SSH_OPTS[@]}" root@"$ip" id -u statbus)
+    STATBUS_UID=$(ssh "${SSH_OPTS[@]}" root@"$ip" id -u statbus 2>/dev/null) || true
     local i
     for i in $(seq 1 20); do
         if ssh "${SSH_OPTS[@]}" root@"$ip" "sudo -u statbus XDG_RUNTIME_DIR=/run/user/$STATBUS_UID systemctl --user is-system-running" 2>/dev/null | grep -qE "running|degraded"; then
@@ -449,12 +462,25 @@ install_statbus_in_vm() {
         # by SHA, so a shallow clone of master + targeted fetch is enough.
         local local_commit
         local_commit=$(cd "$HARNESS_ROOT" && git rev-parse HEAD)
+
+        # upload_sb_to_vm: builds if absent, scps to /tmp/sb, chmods 0755,
+        # and atomically swaps into ~/statbus/sb via mv-then-cp (no ETXTBSY
+        # even when the upgrade service is running from Phase 1).
+        upload_sb_to_vm "$vm_name" || { rm -f "$install_script"; return 1; }
+
         cat > "$install_script" << SCRIPT
 set -e
 if [ ! -d ~/statbus/.git ]; then
     git clone --depth 50 https://github.com/statisticsnorway/statbus.git ~/statbus
 fi
 cd ~/statbus
+# Extend the tracked-branch list to include db-seed so the install's own
+# 'git fetch origin db-seed' creates refs/remotes/origin/db-seed (a single-
+# branch clone — see the tagged-version branch below — would otherwise
+# fetch the data but never create the remote-tracking ref, leaving the
+# seed shortcut silently disabled and forcing migrations-from-scratch).
+# Idempotent — safe to add repeatedly across scenarios that reuse the VM.
+git remote set-branches --add origin db-seed
 if ! git cat-file -e $local_commit 2>/dev/null; then
     echo "Fetching local HEAD commit $local_commit from origin..."
     git fetch --depth 1 origin $local_commit || {
@@ -463,8 +489,6 @@ if ! git cat-file -e $local_commit 2>/dev/null; then
     }
 fi
 git checkout $local_commit
-cp /tmp/sb ./sb
-chmod +x ./sb
 cp /tmp/env-config .env.config
 cp /tmp/users.yml .users.yml
 STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf $extra_args
@@ -486,14 +510,29 @@ if [ ! -d ~/statbus/.git ]; then
 fi
 mv ~/sb.tmp ~/statbus/sb
 cd ~/statbus
+# A '--depth 1 --branch <tag>' clone is implicitly single-branch — the
+# refspec is narrowed to just the tag's branch, so a subsequent
+# 'git fetch origin db-seed' downloads data but does NOT create
+# refs/remotes/origin/db-seed. ./sb install's seed-fetch step then sees
+# 'fatal: invalid object name origin/db-seed' on the git-show that
+# follows, falls back to migrations-from-scratch (~30 min on a fresh DB),
+# and any harness scenario spends its time replaying migrations instead
+# of exercising the recovery code path under test. Extending the
+# tracked-branch list before the install fixes the ref creation.
+git remote set-branches --add origin db-seed
 cp /tmp/env-config .env.config 2>/dev/null || true
 cp /tmp/users.yml .users.yml 2>/dev/null || true
 STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf $extra_args
 SCRIPT
     fi
 
-    scp "${SSH_OPTS[@]}" -q "$install_script" root@"$ip":/tmp/install.sh
-    ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0644 /tmp/install.sh'
+    # Wait for SSH to be responsive before uploading — bootstrap activity
+    # (Homebrew installs, service starts) can leave sshd's accept queue
+    # saturated for a few seconds, causing immediate "Operation timed out"
+    # on the very next connection.
+    _wait_for_ssh "$ip" 30
+    scp -O "${SSH_OPTS[@]}" -o LogLevel=VERBOSE "$install_script" root@"$ip":/tmp/install.sh
+    ssh "${SSH_OPTS[@]}" -o LogLevel=VERBOSE root@"$ip" 'chmod 0644 /tmp/install.sh'
     rm -f "$install_script"
 
     # Run the install in a detached tmux session as statbus, poll for
@@ -506,17 +545,242 @@ SCRIPT
     return ${PIPESTATUS[0]}
 }
 
+# Upload the local HEAD sb binary to /tmp/sb on the VM.
+#
+# Needed by any scenario that bootstraps WITH an INSTALL_VERSION (the
+# version-branch bootstrap does NOT upload /tmp/sb — it fetches the
+# release binary directly into ~/statbus/sb) but then runs a custom
+# inline install script whose first action is `cp /tmp/sb ./sb`.  Without
+# this upload that cp fails, set -e exits the subshell before ./sb install
+# ever runs, and no migrate/upgrade process appears.
+#
+# install_statbus_in_vm's no-version branch already does this upload
+# internally (vm-bootstrap.sh lines 472-484).  Scenarios that bypass
+# install_statbus_in_vm with their own inline scripts call this helper
+# explicitly instead.
+#
+# Always rebuilds sb-linux-amd64 from the current HEAD unless STATBUS_SB_BINARY
+# is set (CI pre-extraction bypass).  The "build if absent" gate was dropped
+# because a stale binary (built from an older commit) embeds an older commitSHA
+# via ldflags; stalenessGuard in cli/cmd/root.go:85 detects the mismatch and
+# triggers self-heal rebuild+re-exec on the VM — but the VM has no Go, so
+# exit 127 aborts the scenario before the inject site is ever reached.
+# Rebuilding here adds ~10-15s (CGO_ENABLED=0 cross-compile) once per
+# upload_sb_to_vm call, which is negligible vs the ~10-15 min scenario wall-clock.
+# STATBUS_SB_BINARY overrides the binary path (used by CI pre-extraction).
+upload_sb_to_vm() {
+    local vm_name="$1"
+    _check_name_safety "$vm_name" || return 1
+    local ip
+    ip=$(hcloud server ip "$vm_name")
+    local sb_binary="${STATBUS_SB_BINARY:-}"
+    if [ -z "$sb_binary" ]; then
+        echo "  Building sb-linux-amd64 from HEAD (always rebuild to prevent staleness)..."
+        (cd "$HARNESS_ROOT" && ./dev.sh build-sb linux/amd64)
+        sb_binary="${HARNESS_ROOT}/sb-linux-amd64"
+    fi
+    if [ ! -f "$sb_binary" ]; then
+        echo "FATAL: sb binary not found at $sb_binary after build attempt" >&2
+        return 1
+    fi
+
+    # Instrument every scp/ssh below so failures are unmissable.
+    # Two-layer capture:
+    #  (a) LogLevel=VERBOSE on each call — SSH_OPTS has LogLevel=ERROR which
+    #      suppresses transport-layer error messages (e.g. "Connection reset
+    #      by peer" at INFO/VERBOSE) before they reach stderr.  Override to
+    #      VERBOSE so the full SSH diagnostic appears.
+    #  (b) 2>>"$log" captures ALL remaining stderr, including scp-protocol
+    #      errors that bypass the SSH log level.
+    # set -x traces every command + its expansion; yes, noisy — that's the
+    # point right now.
+    local scp_log="/tmp/upload-sb-scp-$$.log"
+    local ssh_log="/tmp/upload-sb-ssh-$$.log"
+    echo "  upload_sb_to_vm: stderr → $scp_log (scp) / $ssh_log (ssh)"
+
+    # Probe SSH before starting — post-install the VM may be briefly under
+    # load (Docker container restarts, service health checks) and sshd's
+    # accept queue can be saturated, causing SYN-drops on every new
+    # connection.  Waiting here prevents a cascade of chunk failures.
+    _wait_for_ssh "$ip" 30
+
+    set -x
+
+    local scp_rc=0
+    # Upload via 2 MB chunks to work around the SSH channel-window deadlock on
+    # cx23-class targets (Ubuntu 24.04, OpenSSH 9.6p1, kernel 6.8.0-111).
+    #
+    # Root cause: cx23's sshd fills its 4 MB initial SSH channel window but
+    # never sends CHANNEL_WINDOW_ADJUST, permanently stalling every single-pass
+    # transfer > 4 MB regardless of protocol (SFTP or legacy scp -O).  The
+    # identical sshd on niue (kernel 6.8.0-79) does not exhibit this.
+    #
+    # Fix: split into 2 MB chunks; each chunk fits within the initial window so
+    # no WINDOW_ADJUST exchange is ever needed and the transfer completes.
+    # Reassemble with cat on the remote.  Keep -O (legacy wire protocol) to
+    # avoid the separate macOS OpenSSH 10.0+ SFTP pipelining deadlock.
+    local chunk_dir
+    chunk_dir=$(mktemp -d) || { echo "FATAL: mktemp failed" >&2; return 1; }
+    split -b 2m "$sb_binary" "$chunk_dir/sb-upload-chunk-" 2>>"$scp_log" || scp_rc=$?
+    if [ "$scp_rc" -eq 0 ]; then
+        local chunk_count=0
+        for chunk in "$chunk_dir/sb-upload-chunk-"*; do
+            chunk_count=$((chunk_count + 1))
+        done
+        set +x
+        echo "  uploading $(basename "$sb_binary") in ${chunk_count}×2MB chunks (SSH window-adjust workaround)..."
+        set -x
+        for chunk in "$chunk_dir/sb-upload-chunk-"*; do
+            local chunk_name
+            chunk_name="$(basename "$chunk")"
+            local attempt
+            for attempt in 1 2 3; do
+                if scp -O "${SSH_OPTS[@]}" -o LogLevel=VERBOSE \
+                    "$chunk" root@"$ip":/tmp/"$chunk_name" \
+                    2>>"$scp_log"; then
+                    break
+                fi
+                scp_rc=$?
+                if [ "$attempt" -eq 3 ]; then
+                    set +x
+                    echo "  chunk $chunk_name: failed after 3 attempts" >&2
+                    set -x
+                    break 2
+                fi
+                set +x
+                echo "  chunk $chunk_name: attempt $attempt failed (rc=$scp_rc), waiting 15s before retry..." >&2
+                set -x
+                sleep 15
+                scp_rc=0
+            done
+        done
+    fi
+    rm -rf "$chunk_dir"
+    if [ "$scp_rc" -eq 0 ]; then
+        local assemble_rc=0
+        for attempt in 1 2 3; do
+            if ssh "${SSH_OPTS[@]}" -o LogLevel=VERBOSE root@"$ip" \
+                'cat /tmp/sb-upload-chunk-* > /tmp/sb && rm -f /tmp/sb-upload-chunk-*' \
+                2>>"$scp_log"; then
+                break
+            fi
+            assemble_rc=$?
+            if [ "$attempt" -eq 3 ]; then
+                scp_rc=$assemble_rc
+                break
+            fi
+            set +x
+            echo "  assembly attempt $attempt failed (rc=$assemble_rc), waiting 15s..." >&2
+            set -x
+            sleep 15
+            assemble_rc=0
+        done
+    fi
+    if [ "$scp_rc" -ne 0 ]; then
+        set +x
+        echo "SCP FAILED (exit $scp_rc) uploading $(basename "$sb_binary") → root@${ip}:/tmp/sb" >&2
+        echo "  Full stderr ($scp_log):" >&2
+        cat "$scp_log" >&2
+        return 1
+    fi
+
+    local chmod_rc=0
+    ssh "${SSH_OPTS[@]}" -o LogLevel=VERBOSE root@"$ip" 'chmod 0755 /tmp/sb' \
+        2>"$ssh_log" || chmod_rc=$?
+    if [ "$chmod_rc" -ne 0 ]; then
+        set +x
+        echo "SSH chmod FAILED (exit $chmod_rc)" >&2
+        cat "$ssh_log" >&2
+        return 1
+    fi
+
+    # Atomically swap the binary into ~/statbus/sb using the production
+    # mv-then-cp pattern (mirrors replaceBinaryOnDisk in service.go):
+    #   mv changes the OLD inode's path — the running process keeps reading
+    #   its old inode and exits normally.
+    #   cp writes to a FRESH inode at the ./sb path — no ETXTBSY.
+    # Without this, a naive `cp /tmp/sb ./sb` in the install script hits
+    # ETXTBSY whenever the statbus-upgrade service is running (Phase 1
+    # leaves the service up; Phase 3's script runs while it's still live).
+    local swap_rc=0
+    ssh "${SSH_OPTS[@]}" -o LogLevel=VERBOSE root@"$ip" '
+        dst=/home/statbus/statbus/sb
+        if [ -f "$dst" ]; then
+            mv "$dst" "${dst}.old" 2>/dev/null || true
+        fi
+        cp /tmp/sb "$dst"
+        chmod +x "$dst"
+        chown statbus:statbus "$dst"
+        rm -f "${dst}.old"
+    ' 2>>"$ssh_log" || swap_rc=$?
+    if [ "$swap_rc" -ne 0 ]; then
+        set +x
+        echo "SSH atomic-swap FAILED (exit $swap_rc)" >&2
+        echo "  Full stderr ($ssh_log):" >&2
+        cat "$ssh_log" >&2
+        return 1
+    fi
+
+    set +x
+    echo "  /tmp/sb uploaded and atomically swapped into ~/statbus/sb ($vm_name)"
+}
+
+# Upload a harness install-script to the VM and chmod 0755 so that
+# `sudo -u statbus bash /tmp/install-*.sh` can read it.
+#
+# Background: mktemp creates files with mode 0600; scp preserves that
+# mode; the remote file therefore lands as root:root 0600. The statbus
+# user cannot READ it, so `bash /tmp/install-*.sh` exits 126 (Permission
+# denied) even though the invocation uses the `bash` prefix.  Forcing
+# 0755 after scp makes the file world-readable and statbus-executable.
+#
+# Usage:
+#   upload_install_script_to_vm "$VM_NAME" "$INSTALL_SCRIPT" /tmp/install-cNN.sh
+#
+# The helper removes the local temp file after upload (replaces the
+# caller's `rm -f "$INSTALL_SCRIPT"` pattern).
+upload_install_script_to_vm() {
+    local vm_name="$1"
+    local src_path="$2"
+    local dest_path="$3"
+    _check_name_safety "$vm_name" || return 1
+    local ip
+    ip=$(hcloud server ip "$vm_name")
+    scp -O "${SSH_OPTS[@]}" "$src_path" root@"$ip":"$dest_path"
+    ssh "${SSH_OPTS[@]}" root@"$ip" "chmod 0755 $dest_path"
+    rm -f "$src_path"
+    echo "  $dest_path uploaded to VM ($vm_name)"
+}
+
 # Cleanup helper. KEEP_VM=1 leaves the VM running for debugging — accrues
 # €0.0072/hr until you `hcloud server delete <name>`.
+#
+# KEEP_VM_ON_FAILURE=1 is an alias intended for diagnostic runs where you
+# expect the scenario to fail and want the VM preserved for post-mortem.
+# Semantically equivalent to KEEP_VM=1 — both unconditionally skip deletion
+# when set.  Use KEEP_VM_ON_FAILURE=1 to make intent explicit in CI logs or
+# local one-off debug runs; cleanup_vm does not receive the exit code so it
+# cannot distinguish failure from success — that distinction is in the
+# operator's hands.
+#
+# Post-mortem helpers:
+#   ssh root@<ip>                         — root shell
+#   ssh statbus@<ip>                      — operator user (has systemd bus)
+#   ssh root@<ip> journalctl --user -u statbus-upgrade@test --no-pager
+#   hcloud server delete <name>           — delete when done
 cleanup_vm() {
     local vm_name="$1"
     _check_name_safety "$vm_name" || return 1
-    if [ "${KEEP_VM:-0}" = "1" ]; then
+    if [ "${KEEP_VM:-0}" = "1" ] || [ "${KEEP_VM_ON_FAILURE:-0}" = "1" ]; then
         local ip
         ip=$(hcloud server ip "$vm_name" 2>/dev/null || echo "?")
-        echo "KEEP_VM=1 — leaving $vm_name running for debugging (€0.0072/hr)"
+        local reason="KEEP_VM=1"
+        [ "${KEEP_VM_ON_FAILURE:-0}" = "1" ] && reason="KEEP_VM_ON_FAILURE=1"
+        echo "$reason — leaving $vm_name running for post-mortem (€0.0072/hr)"
         echo "  ssh root@$ip"
-        echo "  Statbus user: ssh root@$ip sudo -i -u statbus"
+        echo "  ssh statbus@$ip"
+        echo "  journalctl: ssh root@$ip journalctl --user -u statbus-upgrade@test --no-pager -n 200"
+        echo "  upload logs: /tmp/upload-sb-scp-*.log  /tmp/upload-sb-ssh-*.log"
         echo "  Delete when done: hcloud server delete $vm_name"
         return 0
     fi

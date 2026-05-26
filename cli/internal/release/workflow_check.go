@@ -12,10 +12,11 @@ import (
 // exactly. See doc/release-workflow-gates.md for the chain (filename →
 // constant → SKIP_* env var) and rationale.
 const (
-	WorkflowImages        = "images.yaml"
-	WorkflowTestHardening = "test-hardening.yaml"
-	WorkflowTestInstall   = "test-install.yaml"
-	WorkflowPgRegress     = "pg_regress.yaml"
+	WorkflowImages                  = "images.yaml"
+	WorkflowTestHardening           = "test-hardening.yaml"
+	WorkflowTestInstall             = "test-install.yaml"
+	WorkflowInstallRecoveryHarness  = "install-recovery-harness.yaml"
+	WorkflowPgRegress               = "pg_regress.yaml"
 )
 
 // WorkflowCheckStatus describes the state of a workflow at a commit.

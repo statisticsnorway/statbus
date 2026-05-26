@@ -45,7 +45,9 @@ assert_upgrade_row_state() {
     local expected_state="$2"
     local actual
 
-    actual=$(VM_EXEC bash -c "cd ~/statbus && echo 'SELECT state FROM public.upgrade ORDER BY id DESC LIMIT 1;' | ./sb psql -t -A" 2>/dev/null | tr -d ' ')
+    actual=$(ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
+        "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A'" \
+        2>/dev/null <<< "SELECT state FROM public.upgrade ORDER BY id DESC LIMIT 1;" | tr -d ' ')
     if [ "$actual" = "$expected_state" ]; then
         echo "  ✓ latest upgrade row state = '$expected_state'"
         return 0
@@ -94,7 +96,9 @@ assert_db_migration_recorded() {
     local version="$2"
     local count
 
-    count=$(VM_EXEC bash -c "cd ~/statbus && echo 'SELECT count(*) FROM db.migration WHERE version = $version;' | ./sb psql -t -A" 2>/dev/null | tr -d ' ' || echo "0")
+    count=$(ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
+        "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A'" \
+        2>/dev/null <<< "SELECT count(*) FROM db.migration WHERE version = $version;" | tr -d ' ' || echo "0")
     if [ "$count" = "1" ]; then
         echo "  ✓ migration $version recorded in db.migration"
         return 0
@@ -152,6 +156,189 @@ assert_step_upgrade_service_completed() {
         return 0
     fi
     echo "  ✗ Upgrade service step did NOT complete — install bailed before reaching it"
+    return 1
+}
+
+# Verify the latest public.upgrade row's `error` column matches a regex.
+# Used to confirm the augmented narrative landed: "forward failed: <err>;
+# auto-restored from <path>". Empty actual is treated as failure.
+assert_upgrade_row_error_matches() {
+    local vm_name="$1"
+    local pattern="$2"
+    local actual
+
+    actual=$(ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
+        "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A'" \
+        2>/dev/null <<< "SELECT error FROM public.upgrade ORDER BY id DESC LIMIT 1;")
+    if [ -z "$actual" ]; then
+        echo "  ✗ upgrade row error column empty (expected match for $pattern)"
+        return 1
+    fi
+    if echo "$actual" | grep -E "$pattern" >/dev/null; then
+        echo "  ✓ upgrade row error matches /$pattern/ (got: ${actual:0:120}...)"
+        return 0
+    fi
+    echo "  ✗ upgrade row error does NOT match /$pattern/"
+    echo "    actual: $actual"
+    return 1
+}
+
+# Verify the upgrade flag file is absent in tmp/. After successful recovery
+# (either Layer 0 in-process or Layer 2 next-install), the flag MUST be
+# gone — its presence would mean the next install detects a stale flag
+# and re-enters recovery loop.
+assert_flag_file_absent() {
+    local vm_name="$1"
+    local present
+
+    present=$(VM_EXEC bash -c 'ls ~/statbus/tmp/upgrade-in-progress.json 2>/dev/null | wc -l' 2>/dev/null | tr -d ' ' || echo "0")
+    if [ "$present" = "0" ]; then
+        echo "  ✓ upgrade flag file absent"
+        return 0
+    fi
+    echo "  ✗ upgrade flag file STILL PRESENT — recovery did not clean up"
+    VM_EXEC bash -c 'cat ~/statbus/tmp/upgrade-in-progress.json 2>/dev/null' || true
+    return 1
+}
+
+# Verify the current db.migration max version. Used during stall-active
+# checks to confirm the partial-state shape (committed but unrecorded
+# migration).
+assert_db_migration_max_version_unchanged() {
+    local vm_name="$1"
+    local baseline="$2"
+    local actual
+
+    actual=$(ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
+        "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A'" \
+        2>/dev/null <<< "SELECT COALESCE(MAX(version), 0) FROM db.migration;" | tr -d ' ' || echo "0")
+    if [ "$actual" = "$baseline" ]; then
+        echo "  ✓ db.migration max_version = baseline ($baseline) — partial-state confirmed"
+        return 0
+    fi
+    echo "  ✗ db.migration max_version drifted: baseline=$baseline actual=$actual"
+    return 1
+}
+
+# snapshot_demo_data_counts <vm_name>
+#
+# Echoes a CSV-shaped snapshot of row counts for the demo-data tables
+# populated by lib/data-helpers.sh's populate_with_demo_data. Caller
+# captures the output in a shell variable for later equality checks.
+# Format:
+#
+#   statistical_unit=N,legal_unit=N,establishment=N,statistical_history=N
+#
+# Stable across invocations on identical data so the
+# assert_demo_data_counts_match_snapshot comparison is a simple string
+# equality. Suitable for stricter scenarios that need to confirm no
+# data drift across the failure-injection window.
+snapshot_demo_data_counts() {
+    local vm_name="$1"
+    ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
+        "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A'" \
+        2>/dev/null \
+        << 'SQL' | tr -d ' \r\n'
+SELECT 'statistical_unit=' || (SELECT count(*) FROM public.statistical_unit) ||
+    ',legal_unit=' || (SELECT count(*) FROM public.legal_unit) ||
+    ',establishment=' || (SELECT count(*) FROM public.establishment) ||
+    ',statistical_history=' || (SELECT count(*) FROM public.statistical_history);
+SQL
+}
+
+# assert_demo_data_present <vm_name>
+#
+# Catastrophic-loss detector for the R5 race. Confirms every demo-data
+# table has > 0 rows after the test reaches its post-recovery checkpoint.
+# If any table is empty, the assertion fails loudly with the empty
+# table named — a scenario that catastrophically lost data WILL fail
+# here rather than passing silently on an empty DB.
+#
+# Intentionally narrow: row counts > 0, not exact equality (use
+# assert_demo_data_counts_match_snapshot for that). This is the "did
+# we lose everything?" assertion. Acceptable post-recovery shapes
+# include partial loss (one table empty, others populated) — but that
+# would still fail here, surfacing what was lost.
+assert_demo_data_present() {
+    local vm_name="$1"
+    local tables=("statistical_unit" "legal_unit" "establishment" "statistical_history")
+    local failed=0
+    local table count
+
+    for table in "${tables[@]}"; do
+        count=$(ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
+            "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A'" \
+            2>/dev/null <<< "SELECT count(*) FROM public.${table};" | tr -d ' \r\n' || echo "?")
+        if [ "$count" = "0" ] || [ "$count" = "?" ]; then
+            echo "  ✗ public.${table} has $count rows — R5 catastrophic-loss indicator"
+            failed=1
+        fi
+    done
+    if [ "$failed" = "1" ]; then
+        return 1
+    fi
+    echo "  ✓ all demo-data tables populated (R5 catastrophic-loss NOT triggered)"
+    return 0
+}
+
+# assert_demo_data_counts_match_snapshot <vm_name> <snapshot>
+#
+# Stricter than assert_demo_data_present: requires exact equality
+# with a snapshot captured earlier. Use when the scenario expects
+# zero data drift across the recovery window (e.g., the failure
+# injection wedged the upgrade BEFORE any user-visible data could
+# change). Differing counts surface as a one-line diff.
+assert_demo_data_counts_match_snapshot() {
+    local vm_name="$1"
+    local expected="$2"
+    local actual
+    actual=$(snapshot_demo_data_counts "$vm_name")
+    if [ "$actual" = "$expected" ]; then
+        echo "  ✓ demo-data counts match snapshot ($actual)"
+        return 0
+    fi
+    echo "  ✗ demo-data counts drifted"
+    echo "    expected: $expected"
+    echo "    actual:   $actual"
+    return 1
+}
+
+# assert_systemd_restart_counter_bounded <vm_name> <unit_name> <max_restarts>
+#
+# Race B assertion — catches the restart-loop pathology empirically.
+# A unit that crashes and restarts a small number of times during
+# recovery is acceptable; a unit looping hundreds of times (e.g.
+# 289 — the rune wedge's observed shape) is not. After the recovery
+# window closes, NRestarts MUST be ≤ max_restarts.
+#
+# Reads `systemctl --user show <unit> --property=NRestarts --value`
+# inside the VM. Fails with a clear message naming the unit + the
+# observed counter + the bound, so a regression surfaces the exact
+# pathology rather than a generic "test failed".
+#
+# Suggested bounds:
+#   - 0  for a clean-recovery scenario (no restarts expected)
+#   - 5  for a single-failure scenario (a few restarts during recovery
+#        are acceptable, but not the 100s-of-restarts pathology)
+#   - tune higher if a scenario genuinely exercises legitimate
+#     restart-during-recovery cycles, but DOCUMENT the bound's
+#     rationale at the call site.
+assert_systemd_restart_counter_bounded() {
+    local vm_name="$1"
+    local unit="${2:-statbus-upgrade@statbus.service}"
+    local max_restarts="${3:-5}"
+    local actual
+
+    actual=$(VM_EXEC systemctl --user show "$unit" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
+    if ! [[ "$actual" =~ ^[0-9]+$ ]]; then
+        echo "  ✗ could not parse NRestarts for $unit (got: '$actual')"
+        return 1
+    fi
+    if [ "$actual" -le "$max_restarts" ]; then
+        echo "  ✓ $unit NRestarts=$actual ≤ bound=$max_restarts"
+        return 0
+    fi
+    echo "  ✗ $unit NRestarts=$actual EXCEEDS bound=$max_restarts — Race B restart-loop pathology"
     return 1
 }
 

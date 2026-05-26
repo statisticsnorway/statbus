@@ -149,6 +149,90 @@ simulate_worker_busy() {
 }
 
 # ─────────────────────────────────────────────────────────────────────────
+# start_continuous_worker_workload <vm_name> [duration_seconds]
+# stop_continuous_worker_workload <vm_name>
+#
+# Sustained worker contention. Where simulate_worker_busy queues a fixed
+# batch (drains in ~30 s), this primitive re-queues analytics tasks on a
+# loop for `duration_seconds` (default 300 s) so the worker stays busy
+# across the entire failure-injection window. Anchors the R1 race —
+# AccessShareLock contention between long-running analytics tasks and
+# upgrade-time DDL — by guaranteeing the worker is actually busy when
+# the injection fires.
+#
+# Mechanism: an in-VM background bash loop (kept in a detached tmux
+# session so transient ssh drops don't kill it) inserts a
+# statistical_history_reduce task into worker.tasks every 2 s. The
+# worker picks them up via its analytics queue and runs the reduce —
+# each takes seconds, so the queue depth stays positive. The
+# corresponding stop primitive removes the marker file the loop checks
+# for and waits for the loop to exit cleanly so the VM doesn't carry a
+# stale tmux session into cleanup.
+#
+# Tunables: WORKLOAD_INSERT_INTERVAL_S (default 2). Higher numbers
+# reduce queue depth; lower numbers stress the worker harder.
+# ─────────────────────────────────────────────────────────────────────────
+start_continuous_worker_workload() {
+    local vm_name="$1"
+    local duration_s="${2:-300}"
+    local insert_interval_s="${WORKLOAD_INSERT_INTERVAL_S:-2}"
+    echo "  [wedge] starting continuous worker workload on $vm_name (duration=${duration_s}s, interval=${insert_interval_s}s)"
+
+    VM_EXEC bash -c "
+        cd ~/statbus
+        # Marker file the loop polls for. The stop primitive removes it.
+        # Place under /tmp so a VM rebuild wipes it.
+        rm -f /tmp/continuous-workload.run
+        touch /tmp/continuous-workload.run
+
+        # Detached tmux session named 'continuous-workload' so we can poll
+        # for completion in the stop primitive without ssh-port-hopping.
+        command -v tmux >/dev/null 2>&1 || sudo apt-get install -y tmux >/dev/null 2>&1 || true
+        tmux kill-session -t continuous-workload 2>/dev/null || true
+        tmux new-session -d -s continuous-workload \"bash -lc '
+            cd ~/statbus
+            elapsed=0
+            while [ -f /tmp/continuous-workload.run ] && [ \$elapsed -lt $duration_s ]; do
+                ./sb psql -c \\\"INSERT INTO worker.tasks (command, payload, queue, priority) VALUES ('\''statistical_history_reduce'\'', '\''{}'\''::jsonb, '\''analytics'\'', 100);\\\" >/dev/null 2>&1 || true
+                sleep $insert_interval_s
+                elapsed=\$((elapsed + $insert_interval_s))
+            done
+            rm -f /tmp/continuous-workload.run
+            echo done > /tmp/continuous-workload.exit
+        '\"
+        # Give the loop one cycle to enqueue something measurable before
+        # the caller proceeds to whatever wedge it's setting up.
+        sleep $((insert_interval_s + 1))
+        ./sb psql -t -A -c \"SELECT count(*) FROM worker.tasks WHERE state IN ('pending','processing');\" 2>/dev/null | xargs -I{} echo '  [wedge] continuous workload running: queue depth {}'
+    "
+}
+
+stop_continuous_worker_workload() {
+    local vm_name="$1"
+    local max_wait_s="${1:-30}"
+    echo "  [wedge] stopping continuous worker workload on $vm_name"
+
+    VM_EXEC bash -c "
+        # Signal the loop to exit cleanly. The loop polls every <interval> s.
+        rm -f /tmp/continuous-workload.run
+
+        # Wait for the loop's exit sentinel (written when it returns).
+        # Caps at $max_wait_s so a wedged loop can't block scenario cleanup.
+        elapsed=0
+        while [ ! -f /tmp/continuous-workload.exit ] && [ \$elapsed -lt $max_wait_s ]; do
+            sleep 1
+            elapsed=\$((elapsed + 1))
+        done
+
+        # Tear down the tmux session regardless — if the loop didn't exit
+        # cleanly we still don't want a stale session hanging around.
+        tmux kill-session -t continuous-workload 2>/dev/null || true
+        rm -f /tmp/continuous-workload.exit
+        echo '  [wedge] continuous workload stopped (elapsed='\$elapsed's)'
+    "
+}
+
+# ─────────────────────────────────────────────────────────────────────────
 # simulate_sigkill_upgrade_service <vm_name>
 #
 # Stage F: Kill the upgrade-service Go process directly with SIGKILL.
@@ -160,7 +244,7 @@ simulate_worker_busy() {
 # service.go's Run loop): Layer 1 catches normal systemd-triggered
 # SIGTERM gracefully, but a direct kill -9 still bypasses it. Test that
 # `recoverFromFlag` at next install correctly handles the resulting
-# state (snapshot-restore via Layer 2's --recovery=auto).
+# state (snapshot-restore via the unified forward-then-restore path).
 # ─────────────────────────────────────────────────────────────────────────
 simulate_sigkill_upgrade_service() {
     local vm_name="$1"
@@ -180,4 +264,122 @@ simulate_sigkill_upgrade_service() {
         echo "[wedge] no upgrade-service process found within 30s" >&2
         exit 1
     '
+}
+
+# ─────────────────────────────────────────────────────────────────────────
+# wait_for_inject_stall_ready <vm_name> <release_file>
+#
+# Polls inside the VM for the inject.StallHere primitive to be active at
+# the canonical migrate-up site. "Active" means:
+#
+#   (a) the release file (passed to STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE)
+#       exists on disk — sanity check that we set it up correctly, and
+#   (b) at least one `./sb migrate up` subprocess is running, and
+#   (c) the process has been alive long enough to have plausibly reached
+#       runUp's per-migration loop.
+#
+# Returns 0 once (a)+(b)+(c) hold continuously for one poll interval;
+# returns 1 after MAX_WAIT_S without observing.
+#
+# Note: the canonical-case stalls fire AFTER a migration's outer
+# transaction commits — so once the migrate subprocess has been alive
+# in the stall state for >5 s, the partial-state RED has been achieved
+# (the first pending migration is committed; its db.migration row is
+# missing). Callers should then send SIGKILL to the chosen target PID.
+# ─────────────────────────────────────────────────────────────────────────
+wait_for_inject_stall_ready() {
+    local vm_name="$1"
+    local release_file="$2"
+    local max_wait_s="${3:-300}"
+    local poll_s=3
+    local stable_s=10
+    local stable_since=""
+    local elapsed=0
+
+    echo "  [wedge] waiting for inject.StallHere to be active on $vm_name"
+    echo "          release_file=$release_file, max_wait=${max_wait_s}s"
+
+    while [ "$elapsed" -lt "$max_wait_s" ]; do
+        # Bundle the three checks into one ssh round-trip so a flaky link
+        # doesn't make us miss the window.
+        local probe
+        probe=$(VM_EXEC bash -c "
+            REL='$release_file'
+            REL_PRESENT=0; [ -f \"\$REL\" ] && REL_PRESENT=1
+            MIGRATE_PID=\$(pgrep -f '/sb migrate up' 2>/dev/null | head -1 || echo '')
+            STARTED_AT=''
+            if [ -n \"\$MIGRATE_PID\" ]; then
+                STARTED_AT=\$(ps -o lstart= -p \"\$MIGRATE_PID\" 2>/dev/null || echo '')
+            fi
+            echo \"REL_PRESENT=\$REL_PRESENT MIGRATE_PID=\$MIGRATE_PID STARTED_AT=\$STARTED_AT\"
+        " 2>/dev/null || echo "REL_PRESENT=? MIGRATE_PID= STARTED_AT=")
+
+        local rel_present migrate_pid
+        rel_present=$(echo "$probe" | sed -n 's/.*REL_PRESENT=\([^ ]*\).*/\1/p')
+        migrate_pid=$(echo "$probe" | sed -n 's/.*MIGRATE_PID=\([^ ]*\).*/\1/p')
+
+        if [ "$rel_present" = "1" ] && [ -n "$migrate_pid" ]; then
+            if [ -z "$stable_since" ]; then
+                stable_since="$elapsed"
+                echo "  [wedge] migrate subprocess detected (PID=$migrate_pid) — confirming stall stability"
+            elif [ $((elapsed - stable_since)) -ge "$stable_s" ]; then
+                echo "  [wedge] stall confirmed: migrate PID=$migrate_pid alive for $((elapsed - stable_since))s with release file present"
+                # Echo the PID on stdout for the caller to capture.
+                echo "$migrate_pid"
+                return 0
+            fi
+        else
+            if [ -n "$stable_since" ]; then
+                echo "  [wedge] stall stability broken (rel=$rel_present pid=$migrate_pid) — resetting"
+            fi
+            stable_since=""
+        fi
+        sleep "$poll_s"
+        elapsed=$((elapsed + poll_s))
+    done
+
+    echo "  [wedge] timed out after ${max_wait_s}s waiting for stall" >&2
+    return 1
+}
+
+# ─────────────────────────────────────────────────────────────────────────
+# kill_pid_in_vm <vm_name> <pid> [signal]
+#
+# Send `signal` (default KILL) to `pid` inside the VM. Wraps the ssh
+# round-trip so scenario scripts read cleanly.
+# ─────────────────────────────────────────────────────────────────────────
+kill_pid_in_vm() {
+    local vm_name="$1"
+    local pid="$2"
+    local sig="${3:-KILL}"
+    echo "  [wedge] kill -$sig $pid on $vm_name"
+    VM_EXEC bash -c "kill -$sig $pid 2>&1 || true"
+}
+
+# ─────────────────────────────────────────────────────────────────────────
+# pgrep_upgrade_service_parent <vm_name>
+#
+# Returns the PID of the upgrade-service process (the Go binary's
+# `executeUpgrade` parent) running install-dispatched inside the VM. The
+# install-dispatched path lives in `./sb install`'s process, NOT in the
+# systemd `./sb upgrade service`. We look for the most recently started
+# `./sb install` process that is NOT a child of bash (i.e. the actual Go
+# binary, not the wrapper shell).
+# ─────────────────────────────────────────────────────────────────────────
+pgrep_upgrade_service_parent() {
+    local vm_name="$1"
+    VM_EXEC bash -c "pgrep -nf '/sb install' 2>/dev/null || true"
+}
+
+# ─────────────────────────────────────────────────────────────────────────
+# remove_release_file_in_vm <vm_name> <release_file>
+#
+# Cleanup helper. The harness writes the release file before triggering
+# the stalling install, and removes it once the relevant processes are
+# dead. Idempotent — safe to call when the file is already gone.
+# ─────────────────────────────────────────────────────────────────────────
+remove_release_file_in_vm() {
+    local vm_name="$1"
+    local release_file="$2"
+    VM_EXEC bash -c "rm -f '$release_file' 2>&1 || true"
 }

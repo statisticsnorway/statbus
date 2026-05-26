@@ -905,12 +905,13 @@ unstamped tests, missing seed/types/db-docs stamps, even being on a
 feature branch — none of it matters. The RC was validated; stable just
 promotes it.
 
-Pre-flight (~6 checks):
+Pre-flight (~7 checks):
   - Latest RC exists for v<YEAR>.<MONTH>.<NEXT_PATCH>
   - That patch is next-in-sequence for vYYYY.MM
   - images workflow green at the RC's commit
   - test-hardening workflow green at the RC's commit
   - test-install workflow green at the RC's commit
+  - install-recovery-harness workflow green at the RC's commit
   - RC release artifacts (GitHub assets + ghcr manifests) all present
 
 Operator bypasses (use sparingly — each one is an admission that a
@@ -918,6 +919,7 @@ gate's invariant has NOT been verified for the SHA):
   SKIP_IMAGES=1            (Docker artifacts may not exist; deploys may FAIL)
   SKIP_TEST_HARDENING=1
   SKIP_TEST_INSTALL=1
+  SKIP_INSTALL_RECOVERY=1  (no recovery regression net was exercised)
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		projDir := config.ProjectDir()
@@ -1007,6 +1009,14 @@ gate's invariant has NOT been verified for the SHA):
 		allPassed := checkStableWorkflowGate(release.WorkflowImages, "images", rcCommit, rcShort, "SKIP_IMAGES")
 		allPassed = checkStableWorkflowGate(release.WorkflowTestHardening, "test-hardening", rcCommit, rcShort, "SKIP_TEST_HARDENING") && allPassed
 		allPassed = checkStableWorkflowGate(release.WorkflowTestInstall, "test-install", rcCommit, rcShort, "SKIP_TEST_INSTALL") && allPassed
+		// Install-recovery harness: every C-class with a paired scenario in
+		// test/install-recovery/scenarios/ gets exercised on a dedicated
+		// Hetzner cx23. The workflow at .github/workflows/install-recovery-
+		// harness.yaml fires on the RC's tag push and is the empirical
+		// half of the no-hotfix discipline — without this gate, the
+		// "release stable promotes a verified-recovery RC" invariant
+		// reduces to "release stable promotes a never-crashed-in-CI RC".
+		allPassed = checkStableWorkflowGate(release.WorkflowInstallRecoveryHarness, "install-recovery", rcCommit, rcShort, "SKIP_INSTALL_RECOVERY") && allPassed
 
 		// 4. RC release artifacts MUST be present BEFORE the stable tag
 		//    is created. release.yaml (triggered by the RC's tag push)
@@ -1085,16 +1095,17 @@ gate's invariant has NOT been verified for the SHA):
 	},
 }
 
-// checkStableWorkflowGate runs one of the three RC-targeted workflow
-// gates for releaseStableCmd. Centralizes the switch over WorkflowCheck*
-// statuses + the SKIP_* env-var bypass printing.
+// checkStableWorkflowGate runs one of the RC-targeted workflow gates for
+// releaseStableCmd. Centralizes the switch over WorkflowCheck* statuses
+// + the SKIP_* env-var bypass printing.
 //
 // Returns true when the gate is satisfied (Green, or bypass set);
 // false otherwise (caller aggregates into allPassed).
 func checkStableWorkflowGate(workflow, label, rcCommit, rcShort, skipEnv string) bool {
 	if skipEnv != "SKIP_IMAGES" && os.Getenv(skipEnv) == "1" {
-		// SKIP_TEST_HARDENING / SKIP_TEST_INSTALL — print the existing
-		// tailored guidance text (matches the prerelease pattern).
+		// SKIP_TEST_HARDENING / SKIP_TEST_INSTALL / SKIP_INSTALL_RECOVERY —
+		// print the existing tailored guidance text (matches the
+		// prerelease pattern).
 		fmt.Printf("  ⚠ %s SKIPPED (%s=1)\n", label, skipEnv)
 		fmt.Printf("    Operator bypass — ensure %s ran via CI or by hand on this commit.\n", label)
 		return true

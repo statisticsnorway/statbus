@@ -59,6 +59,21 @@ Environment=PATH=/home/linuxbrew/.linuxbrew/bin:/usr/local/sbin:/usr/local/bin:/
 # timeout in pullImages itself (exec.go:160).
 WatchdogSec=120
 
+# TimeoutStartSec: hold-window from ExecStart until the service emits
+# READY=1 via sd_notify. systemd's default is 90s, but the service's
+# boot path runs `./sb migrate up` (potentially multi-minute on real
+# data) before READY=1 — the existing sdNotifyExtendTimeout(120s)
+# heartbeat (cli/internal/upgrade/service.go's applyPostSwap ticker)
+# rolls the deadline forward continuously while the migration is
+# alive. Declaring the base value explicitly here (= WatchdogSec, the
+# same 120s budget the tick refills) makes the mental model "one
+# limit to reason about" instead of "default 90s vs declared 120s
+# watchdog". An operator tuning either knob now sees both in the
+# same place; the existing heartbeat machinery
+# (EXTEND_TIMEOUT_USEC + WATCHDOG=1) already handles
+# legitimately-slow boots without tripping this.
+TimeoutStartSec=120
+
 # Stop-grace window (Layer 1 of rollback-on-SIGKILL hole plug). When systemd
 # stops the unit (operator-driven `systemctl stop`, or upstream cause like
 # TimeoutStartSec or WatchdogSec firing), it sends KillSignal (default

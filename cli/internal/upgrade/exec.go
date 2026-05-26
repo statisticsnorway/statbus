@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
+	"github.com/statisticsnorway/statbus/cli/internal/inject"
 	"github.com/statisticsnorway/statbus/cli/internal/migrate"
 )
 
@@ -357,6 +358,26 @@ func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (string, e
 		return "", fmt.Errorf("rsync backup: %w", rsyncErr)
 	}
 
+	// Harness-only kill site (C3): simulates the OS / orchestrator killing
+	// the process AFTER rsync finishes but BEFORE the atomic rename. The
+	// wedge state: the .tmp directory has a complete copy of the DB volume
+	// but its final-name rename never happened, so on-disk the backup
+	// looks "in flight" (rsync done; not finalized). The pre-upgrade git
+	// branch was already pinned upstream (executeUpgrade step before this
+	// call) so restoreGitState has its anchor. The next install's
+	// recoverFromFlag sees flag PreSwap (not PostSwap — kill fired
+	// upstream of updateFlagPostSwap) and routes through the PreSwap
+	// recovery branch, which discards the .tmp directory and restarts
+	// services at the OLD binary + OLD DB volume (the OLD DB is still
+	// intact — backup was a COPY, the source volume was unmodified).
+	//
+	// Placement rationale: in this exact spot the rsync has completed
+	// (so the test exercises real I/O), but the rename is the next thing
+	// the parent would do — close to the team-lead's "between starting
+	// the rsync/dump and writing the PostSwap flag stamp" window.
+	// No-op in production. Drives scenario 21.
+	inject.KillHere("killed-by-system-during-preswap-backup")
+
 	// Atomic completion marker: directory's final name appearing IS the
 	// completion signal. No sentinel files, no symlinks.
 	if err := os.Rename(tmpDir, finalDir); err != nil {
@@ -685,6 +706,18 @@ func (d *Service) pruneUpgradeLogs(keep int) {
 func (d *Service) archiveBackup(backupPath, version string) {
 	archiveDir := filepath.Join(os.Getenv("HOME"), "statbus-backups")
 	archivePath := filepath.Join(archiveDir, fmt.Sprintf("%s-pre.tar.gz", version))
+
+	// Harness-only stall site for Bug 1 — `d416a50a0` introduced a
+	// ticker scoped only to the migrate-up subprocess. `extendCancel()`
+	// fires before archiveBackup; the tar of a multi-GB backup (rune:
+	// 35 GB) keeps the main goroutine parked with no WATCHDOG=1
+	// emitter. Active-phase systemd's WatchdogSec=120 s fires; SIGABRT;
+	// restart loop. Activated by
+	// STATBUS_INJECT_AT=archive-backup-stall-active-phase-watchdog
+	// and held by STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE. No-op in
+	// production. The stall runs BEFORE tar so the harness sees the
+	// main goroutine parked at the canonical "tar in flight" point.
+	inject.StallHere("archive-backup-stall-active-phase-watchdog")
 
 	if err := runCommand(d.projDir, "tar", "-czf", archivePath, "-C", filepath.Dir(backupPath), filepath.Base(backupPath)); err != nil {
 		fmt.Printf("Warning: archive backup failed: %v\n", err)

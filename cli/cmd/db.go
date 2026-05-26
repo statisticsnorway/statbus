@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,6 +19,57 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/config"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 )
+
+// runPgRestoreAtomic executes a pg_restore command and fails loudly on
+// any error signal: non-zero exit code OR "pg_restore: error:" lines in
+// stderr.
+//
+// The stderr scan is defense-in-depth against a regression that reverts
+// --single-transaction. Without --single-transaction, pg_restore can
+// exit 0 after some restore steps errored — the kind of silent half-
+// success that tonight's tcc near-miss almost surfaced (forensics:
+// tmp/install-state-machine-forensics.md). With --single-transaction
+// in effect at every audited call site, any error already causes a
+// non-zero exit; the scan catches the regression where that flag is
+// removed or pg_restore changes its exit-code semantics in some edge
+// case.
+//
+// The wrapper still streams stderr to os.Stderr so the operator sees
+// the diagnostic in real time; the in-memory copy is used only for
+// the post-run scan.
+//
+// Caller configures: cmd.Dir, cmd.Stdin (if needed). cmd.Stdout is
+// set to os.Stdout if unset. cmd.Stderr MUST NOT be set by the
+// caller — this helper wraps it; the runtime check fails loud if it
+// is.
+//
+// label names the restore phase ("seed restore", "phase 1 pre-data",
+// etc.) so the returned error reads as the operator's phase rather
+// than a bare "pg_restore failed".
+func runPgRestoreAtomic(cmd *exec.Cmd, label string) error {
+	if cmd.Stderr != nil {
+		return fmt.Errorf("runPgRestoreAtomic(%s): caller must not set cmd.Stderr (this helper wraps it)", label)
+	}
+	if cmd.Stdout == nil {
+		cmd.Stdout = os.Stdout
+	}
+	var stderrBuf bytes.Buffer
+	cmd.Stderr = io.MultiWriter(os.Stderr, &stderrBuf)
+
+	runErr := cmd.Run()
+	captured := stderrBuf.String()
+
+	if strings.Contains(captured, "pg_restore: error:") {
+		if runErr != nil {
+			return fmt.Errorf("%s: pg_restore reported errors (transaction rolled back; database unchanged): %w", label, runErr)
+		}
+		return fmt.Errorf("%s: pg_restore reported errors in stderr despite exit 0 — regression signal (--single-transaction may have been reverted, or pg_restore changed its exit-code semantics)", label)
+	}
+	if runErr != nil {
+		return fmt.Errorf("%s: pg_restore failed: %w", label, runErr)
+	}
+	return nil
+}
 
 var (
 	restoreTo  string
@@ -686,10 +739,8 @@ cat /tmp/restore-data-other.list /tmp/restore-post.list /tmp/restore-acl.list > 
 		"--section=pre-data",
 		"/tmp/restore.pg_dump")
 	phase1.Dir = projDir
-	phase1.Stdout = os.Stdout
-	phase1.Stderr = os.Stderr
-	if err := phase1.Run(); err != nil {
-		return fmt.Errorf("phase 1 (pre-data) failed: %w", err)
+	if err := runPgRestoreAtomic(phase1, "phase 1 (pre-data)"); err != nil {
+		return err
 	}
 
 	// Phase 2: save and drop cross-schema CHECK constraints
@@ -713,10 +764,8 @@ cat /tmp/restore-data-other.list /tmp/restore-post.list /tmp/restore-acl.list > 
 		"-L", "/tmp/restore-auth-user.list",
 		"/tmp/restore.pg_dump")
 	phase25.Dir = projDir
-	phase25.Stdout = os.Stdout
-	phase25.Stderr = os.Stderr
-	if err := phase25.Run(); err != nil {
-		return fmt.Errorf("phase 2.5 (auth.user data) failed: %w", err)
+	if err := runPgRestoreAtomic(phase25, "phase 2.5 (auth.user data)"); err != nil {
+		return err
 	}
 
 	// Phase 2.6: Materialize PG roles from auth.user. Replicates the
@@ -745,10 +794,8 @@ cat /tmp/restore-data-other.list /tmp/restore-post.list /tmp/restore-acl.list > 
 		"-L", "/tmp/restore-phase3.list",
 		"/tmp/restore.pg_dump")
 	phase3.Dir = projDir
-	phase3.Stdout = os.Stdout
-	phase3.Stderr = os.Stderr
-	if err := phase3.Run(); err != nil {
-		return fmt.Errorf("phase 3 (data + post-data + ACLs) failed: %w", err)
+	if err := runPgRestoreAtomic(phase3, "phase 3 (data + post-data + ACLs)"); err != nil {
+		return err
 	}
 
 	// Phase 4: re-add CHECK constraints

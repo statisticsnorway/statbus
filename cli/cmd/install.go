@@ -17,6 +17,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/spf13/cobra"
+	"github.com/statisticsnorway/statbus/cli/internal/compose"
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/install"
 	"github.com/statisticsnorway/statbus/cli/internal/invariants"
@@ -567,11 +568,71 @@ func runInstall() (installErr error) {
 	total := len(steps)
 	allDone := true
 
+	// R1 quiesce window: worker / app / rest must NOT be running across
+	// the DDL phases (Seed + Migrations). The worker holds AccessShareLock
+	// on statistical-history tables for the duration of each task; the
+	// seed's DROP POLICY and migrations' CREATE/DROP INDEX need
+	// AccessExclusiveLock on those same tables, and Postgres lock
+	// manager parks the DDL indefinitely behind the worker's lock —
+	// the wedge tcc had to manually break. compose.QuiesceClients stops
+	// the running clients before we enter the DDL window; compose.
+	// ResumeClients restarts exactly the ones we stopped after the
+	// window closes. db / proxy / caddy stay up throughout (db is the
+	// DDL target; proxy + caddy serve maintenance views).
+	//
+	// We track quiesced state across the loop via a slice + bool pair
+	// so the Resume call can fire exactly once even if Migrations was
+	// already done (check passed) on the second invocation of install.
+	var quiescedServices []string
+	var quiesced bool
+	resumeIfQuiesced := func() {
+		if !quiesced {
+			return
+		}
+		quiesced = false
+		if err := compose.ResumeClients(installDir, quiescedServices); err != nil {
+			// Don't fail the install — DB is correct, the DDL window has
+			// closed, and the operator can restart services manually if
+			// the Resume itself errored. Surface as a clear warning so
+			// it's not silent.
+			fmt.Printf("  ⚠ resume clients failed: %v — restart manually: ./sb start all_except_db\n", err)
+		}
+		quiescedServices = nil
+	}
+
 	for i, s := range steps {
 		prefix := fmt.Sprintf("[%d/%d] %-20s", i+1, total, s.name)
 
+		// Quiesce gate: enter the DDL window before Seed (only if we
+		// actually need to run Seed; if check passes, skip quiesce and
+		// stay outside the window). If a later step inside the window
+		// (Migrations) succeeds, we exit on the way out. Names are
+		// matched verbatim against the step slice above so renaming a
+		// step here forces a deliberate revisit of this hook.
+		if (s.name == "Seed" || s.name == "Migrations") && !quiesced && !s.check(installDir) {
+			fmt.Printf("  [DDL] quiescing worker / app / rest before %s ...\n", s.name)
+			stopped, err := compose.QuiesceClients(installDir)
+			if err != nil {
+				return fmt.Errorf("quiesce clients before %s: %w (must not proceed with DDL on live services)", s.name, err)
+			}
+			if len(stopped) == 0 {
+				fmt.Printf("  [DDL] no clients were running; entering DDL window without stopping anything\n")
+			} else {
+				fmt.Printf("  [DDL] stopped %v; resume after Migrations succeeds\n", stopped)
+			}
+			quiescedServices = stopped
+			quiesced = true
+		}
+
 		if s.check(installDir) {
 			fmt.Printf("%s OK\n", prefix)
+			// If we entered the quiesce window and Migrations was already
+			// done (check passed on re-run after a prior partial install),
+			// exit the window now — the DDL is fait accompli, services
+			// can resume.
+			if s.name == "Migrations" {
+				resumeIfQuiesced()
+			}
 			continue
 		}
 
@@ -584,11 +645,30 @@ func runInstall() (installErr error) {
 				fmt.Printf("\nFix the issue and re-run: ./sb install\n")
 				fmt.Printf("(Steps 1-%d will be skipped automatically)\n", i)
 			}
+			// DO NOT auto-resume on failure: clients restarted on top of
+			// a half-done DDL state could compound damage. The operator
+			// re-runs ./sb install, which re-evaluates the quiesce window
+			// from scratch (Migrations check fails → quiesce → run →
+			// resume on success).
 			return err
 		}
 
 		fmt.Printf("%s DONE\n", prefix)
+
+		// Resume gate: leave the DDL window after Migrations succeeds.
+		// We don't resume after Seed (Migrations comes next inside the
+		// window) but we ALSO don't resume early if Seed was the last
+		// thing we ran and Migrations was already done — the check-
+		// passes branch above handles that case.
+		if s.name == "Migrations" {
+			resumeIfQuiesced()
+		}
 	}
+
+	// Belt-and-suspenders: if the loop somehow exits with the quiesce
+	// flag still set (shouldn't happen — Migrations is always before
+	// the loop tail), resume so the system isn't left with clients down.
+	resumeIfQuiesced()
 
 	fmt.Println()
 	if allDone {
@@ -1265,12 +1345,21 @@ func cleanOrphanSessions(dir string) error {
 }
 
 // checkSeedRestored returns true if the database already has migrations
-// (re-install scenario — seed restore would be destructive).
+// OR holds user data (either way, seed restore would be destructive).
 // Returns false only for truly fresh installs where the DB is empty.
 //
 // Intent: the seed is a FAST PATH for fresh installs only. Restoring
 // over an existing database drops objects while migration records survive,
 // leaving the DB in an inconsistent state.
+//
+// R5 classifier (added 2026-05-23 from tcc-near-miss forensics): the
+// migration-tail check alone is insufficient. When an operator pulls a
+// newer tree against a populated DB, the on-disk migration set is
+// ahead of db.migration, so HasPending returns true → migrations-done
+// returns false → and the seed step ran destructively against user
+// data. The dbHasUserData probe below short-circuits BEFORE the
+// migration check: if any user-facing table holds rows, route to
+// migrate-forward regardless of the migration delta.
 func checkSeedRestored(dir string) bool {
 	// If services aren't running yet, we can't check the DB.
 	// Return true to skip — the Services step must run first.
@@ -1278,10 +1367,17 @@ func checkSeedRestored(dir string) bool {
 		return true
 	}
 
-	// Services are running. Wait for DB to be healthy, then check migrations.
-	// If we can't reach the DB after 30 seconds, FAIL HARD — don't silently
-	// fall through and restore a seed over an existing database.
+	// Services are running. Wait for DB to be healthy, then check
+	// content + migrations. If we can't reach the DB after 30 seconds,
+	// FAIL HARD — don't silently fall through and restore a seed over
+	// an existing database. The dbHasUserData check fires BEFORE the
+	// migration check so populated DBs short-circuit even when their
+	// migration tail is behind.
 	for attempt := 0; attempt < 15; attempt++ {
+		// R5 short-circuit: populated DBs NEVER run seed.
+		if dbHasUserData(dir) {
+			return true
+		}
 		if checkMigrationsDone(dir) {
 			return true // DB has migrations — do NOT restore seed
 		}
@@ -1290,9 +1386,56 @@ func checkSeedRestored(dir string) bool {
 		}
 	}
 
-	// DB is reachable (services running) but has no migrations.
-	// This is a genuinely fresh database — seed restore is appropriate.
+	// DB is reachable (services running), holds no user data, AND no
+	// migrations are applied. This is a genuinely fresh database — seed
+	// restore is appropriate.
 	return false
+}
+
+// dbHasUserData returns true if the application database holds rows in
+// any user-facing table (statistical_unit, legal_unit, establishment,
+// import_job). The probe is conservative: any failure (DB unreachable,
+// table missing on a brand-new DB, psql binary absent) is treated as
+// "no user data" so the fresh-install path still runs the seed step.
+// The R5 classifier in checkSeedRestored guards a destructive action,
+// so the principled posture on probe error is "don't ASSUME populated"
+// — we ASSUME empty when we can't tell, because that lets fresh
+// installs proceed. The downstream migrate-forward path catches the
+// false-negative case: if the DB is populated but the probe failed,
+// the seed restore would still need the tables to exist, and
+// pg_restore --single-transaction --clean --if-exists would either
+// succeed (genuinely empty) or roll back loudly (populated, the
+// runPgRestoreAtomic wrapper from 1f077e545 fails the install).
+//
+// Tables checked: the same four the harness's
+// assert_demo_data_present uses. Adding tables to the demo dataset
+// requires updating both — the cross-reference is documented in
+// data-helpers.sh's populate_with_demo_data and in this comment.
+func dbHasUserData(dir string) bool {
+	psqlPath, prefix, env, err := migrate.PsqlCommand(dir)
+	if err != nil {
+		return false
+	}
+	const probe = `
+SELECT EXISTS (
+  SELECT 1 FROM public.statistical_unit LIMIT 1
+  UNION ALL SELECT 1 FROM public.legal_unit LIMIT 1
+  UNION ALL SELECT 1 FROM public.establishment LIMIT 1
+  UNION ALL SELECT 1 FROM public.import_job LIMIT 1
+);`
+	args := append([]string{}, prefix...)
+	args = append(args, "-t", "-A", "-v", "ON_ERROR_STOP=on", "-c", probe)
+	cmd := exec.Command(psqlPath, args...)
+	cmd.Dir = dir
+	cmd.Env = env
+	out, err := cmd.Output()
+	if err != nil {
+		// Table missing (very early install before migrations ran),
+		// connection refused, etc. Treat as "no user data" so the
+		// fresh-install path still triggers the seed step.
+		return false
+	}
+	return strings.TrimSpace(string(out)) == "t"
 }
 
 // runSeedRestore fetches the seed from origin/db-seed and restores
@@ -1486,7 +1629,7 @@ func runInstallService(dir string) error {
 
 	fmt.Println("  Running systemctl --user daemon-reload")
 	if err := runCmd("systemctl", "--user", "daemon-reload"); err != nil {
-		return fmt.Errorf("systemctl daemon-reload: %w", err)
+		return fmt.Errorf("systemctl --user daemon-reload: %w", err)
 	}
 
 	// Enable linger so the user service runs even when not logged in.

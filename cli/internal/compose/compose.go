@@ -93,6 +93,110 @@ func Build(profile string) error {
 	return RunWithProfile(profile, "build")
 }
 
+// clientServices is the set of containers that act as long-running clients
+// of the application database — they hold AccessShareLock on user-data
+// tables whenever a query runs. db / proxy / caddy are infrastructure
+// and stay up during DDL phases (db is the target; proxy + caddy can
+// keep serving maintenance views).
+var clientServices = []string{"worker", "app", "rest"}
+
+// QuiesceClients stops worker / app / rest containers in projDir if they
+// are currently running, and returns the list of services it actually
+// stopped. ResumeClients takes that list back to restart exactly those.
+//
+// Rationale: install.go's Seed + Migrations steps and applyPostSwap's
+// migrate-up step issue DDL that needs AccessExclusiveLock on tables a
+// running worker (or app / rest under load) reads with AccessShareLock.
+// Postgres lock manager parks the DDL indefinitely behind the client's
+// lock — the R1 deadlock that wedged tcc. Quiescing the clients across
+// the DDL window removes the contender; resuming after restores
+// service. db / proxy / caddy keep running throughout — db is the DDL
+// target, proxy + caddy don't touch the application schema.
+//
+// Idempotent: probes each client's running state via
+// `docker compose ps <svc> --format {{.State}}` and stops only those
+// reported running. The returned slice is the precise set Resume will
+// restart, so callers can chain Quiesce / DDL / Resume without leaking
+// state when the precondition (services were running) didn't hold.
+//
+// Failure mode: any docker error during a stop is propagated to the
+// caller. The caller decides whether to fail-loud (install must not
+// proceed with DDL on live services) or log-and-continue (the DDL
+// already ran — we're in a degraded resume path).
+func QuiesceClients(projDir string) ([]string, error) {
+	var stopped []string
+	for _, svc := range clientServices {
+		state, err := probeServiceState(projDir, svc)
+		if err != nil {
+			return stopped, fmt.Errorf("probe %s: %w", svc, err)
+		}
+		if !state.running {
+			continue
+		}
+		cmd := exec.Command("docker", "compose", "stop", svc)
+		cmd.Dir = projDir
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return stopped, fmt.Errorf("docker compose stop %s: %w", svc, err)
+		}
+		stopped = append(stopped, svc)
+	}
+	return stopped, nil
+}
+
+// ResumeClients starts the named services in projDir. Pairs with the
+// slice returned by QuiesceClients — pass it back verbatim so we
+// restart exactly the set we stopped (idempotent: passing an empty
+// slice is a no-op, useful when Quiesce had nothing to stop).
+//
+// Uses --no-build so we run the registry image (the local Dockerfile
+// is for development builds; production VMs pull the tagged image at
+// step 7 / Images). Containers that are NOT in the slice are left
+// alone, including ones already up — Resume is additive, not
+// authoritative.
+func ResumeClients(projDir string, services []string) error {
+	if len(services) == 0 {
+		return nil
+	}
+	args := append([]string{"compose", "up", "-d", "--no-build"}, services...)
+	cmd := exec.Command("docker", args...)
+	cmd.Dir = projDir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("docker compose up %v: %w", services, err)
+	}
+	return nil
+}
+
+// serviceStateView carries the docker-compose-reported view of one
+// service for QuiesceClients to decide whether to stop it.
+type serviceStateView struct {
+	running bool
+}
+
+// probeServiceState probes docker compose ps for <svc>'s state. Returns
+// running=false when the service isn't defined OR is not in a running
+// state. Errors propagate from docker itself (binary missing, daemon
+// down) — those are caller-decides territory.
+func probeServiceState(projDir, svc string) (serviceStateView, error) {
+	cmd := exec.Command("docker", "compose", "ps", svc, "--format", "{{.State}}")
+	cmd.Dir = projDir
+	out, err := cmd.Output()
+	if err != nil {
+		return serviceStateView{}, err
+	}
+	state := strings.TrimSpace(string(out))
+	// docker compose ps emits the service's State on its own line; an
+	// undefined service yields empty output. "running" is the value
+	// from docker's container state machine that means "alive and
+	// serving"; "restarting" or "paused" are not what we're protecting
+	// against, so treat anything other than "running" as not-quiesced-
+	// worthy.
+	return serviceStateView{running: state == "running"}, nil
+}
+
 // IsDevelopmentMode checks the CADDY_DEPLOYMENT_MODE from .env.
 func IsDevelopmentMode() bool {
 	// Quick check via environment first
