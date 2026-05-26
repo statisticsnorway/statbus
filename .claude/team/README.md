@@ -10,6 +10,7 @@ This folder is portable. To reuse in another project: copy `.claude/team/` and `
 |---|---|---|
 | `foreman` | Opus (1M ctx) | Team-lead. Coordinates the user conversation, decomposes work, delegates, reviews, signs off. The only agent the user talks to directly. |
 | `engineer` | Opus (1M ctx) | Designs and builds. Forges architectural changes. Commits its own work; passes to foreman for review. Destructive or cross-cutting commits need foreman approval first. |
+| `architect` | Opus (1M ctx) | Future planning: system shape, architectural decisions, problem framings. Produces plans (under `~/.claude-veridit/plans/`), not code; hands approved plans to engineer for execution. |
 | `mechanic` | Sonnet | Diagnoses and fixes. Targeted investigations, one-shot writes. No multi-step reasoning across turns — that goes back to foreman. |
 | `tester` | Haiku | Runs test commands. Single assignment, no concurrent-run collisions. |
 | `operator` | Haiku | Legwork: reads, greps, SSH diagnostics, log tails, small one-shot writes, deploy drive-throughs. Parses long output, summarizes, reports back with file paths and line numbers. |
@@ -29,9 +30,12 @@ Three forces drive the design:
 The delegation flow runs downhill by cost:
 
 - Foreman → engineer: design questions, architectural work.
+- Foreman → architect: future planning — what to build next and how to shape it before it lands on the team.
 - Engineer → mechanic: targeted diagnosis of a component.
 - Engineer or mechanic → operator: "read this file and summarize the part about X, with line numbers."
 - Foreman → tester: "run the tests."
+
+Architect and engineer sit on the same cost tier (both Opus) but split by horizon: architect plans what's *next*, engineer builds what's *now*. An architect plan, once ratified, becomes engineer's brief.
 
 The rule of thumb: if a read or command-run will produce a long output, the expensive model should delegate it to a cheaper model, who summarizes and reports back. The expensive model only sees the filtered result, protecting context for the work that actually needs judgment.
 
@@ -69,6 +73,7 @@ The foreman (you, the team-lead) orchestrates from there.
 
 - [foreman.md](foreman.md) — the coordinator role (this is you, the session itself)
 - [engineer.md](engineer.md) — design + build (Opus)
+- [architect.md](architect.md) — future planning + design (Opus)
 - [mechanic.md](mechanic.md) — diagnose + fix (Sonnet)
 - [tester.md](tester.md) — run tests (Haiku)
 - [operator.md](operator.md) — legwork + summarize (Haiku)
