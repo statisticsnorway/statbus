@@ -225,10 +225,46 @@ func (d *Service) dbVolumeName() string {
 	return "statbus-db-data" // fallback
 }
 
-// backupRoot is the directory holding all pre-upgrade-* backup
-// directories. Each backup is a separate timestamped directory inside.
+// backupRoot is the directory holding the backup state. Since CHANGE 2 (task
+// #12) the rsync snapshot is a SINGLE persistent dir committed by atomic rename
+// (backupActiveName ↔ backupSyncingName); legacy per-stamp pre-upgrade-<stamp>
+// dirs from before the migration may still be present and are reaped by the
+// reconcile orphan pass. The per-version archive tars (<version>-pre.tar.gz)
+// also live here and carry the per-upgrade history.
 func (d *Service) backupRoot() string {
 	return filepath.Join(os.Getenv("HOME"), "statbus-backups")
+}
+
+// Managed backup dir names (CHANGE 2 / task #12). The persistent rsync snapshot
+// is committed by atomic directory rename, where the dir NAME is the
+// clean/dirty state:
+//   - backupActiveName  — a COMPLETE, restorable snapshot (the incremental base
+//     for the next backup, and the rollback source). pickLatestBackup /
+//     restoreDatabase read ONLY this.
+//   - backupSyncingName — an IN-FLIGHT or killed-mid-rsync PARTIAL. Never
+//     restorable; a killed run RESUMES by rsyncing into it (never deleted), and
+//     only rename(syncing→active) publishes it. Structurally invisible to
+//     pickLatestBackup.
+//
+// active and syncing never coexist from our sequence (the aside-rename consumes
+// active before syncing exists; the commit-rename consumes syncing while active
+// is absent), so there is no cleanup branch — an unexpected coexistence makes a
+// rename fail loudly (fail-fast), never a silent rm.
+const (
+	backupActiveName  = "pre-upgrade-active"
+	backupSyncingName = "pre-upgrade-syncing"
+)
+
+// isManagedBackupDir reports whether name is one of the two CHANGE-2 managed
+// dirs (active/syncing). Both reconcileBackupDir's orphan pass and pruneBackups
+// EXCLUDE these: they are governed by the backup rename state machine, not
+// reference-counted against public.upgrade rows. Without the exclusion a
+// stale-mtime syncing (a killed run's incremental base, or a live partial)
+// would be misclassified as a 90-day orphan and PURGED, destroying the base.
+// Legacy per-stamp pre-upgrade-<stamp>(.tmp) dirs are NOT managed → they remain
+// subject to the orphan/prune logic for graceful post-migration cleanup.
+func isManagedBackupDir(name string) bool {
+	return name == backupActiveName || name == backupSyncingName
 }
 
 // humanBytes formats a byte count as a human-readable string.
@@ -252,37 +288,147 @@ func humanBytes(bytes int64) string {
 	}
 }
 
-// backupDatabase rsyncs the live Postgres data volume into a fresh
-// timestamped directory and atomically renames it on success.
+// dirExists reports whether path exists and is a directory.
+func dirExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
+}
+
+// syncTree fsyncs every regular file and directory under root so the data — not
+// just the directory entries — is durable on disk before a commit rename. Used
+// by backupDatabase before rename(syncing→active): rsync does not fsync, and an
+// os.Rename persists only the name, so without this a crash right after the
+// rename could publish an active snapshot whose file contents were still only in
+// the page cache. Best-effort per-node (a single fsync failure is collected and
+// returned, not aborted mid-walk) — the caller logs and proceeds, trading a
+// narrow durability window against refusing to commit a backup that is almost
+// certainly on disk. The whole walk also skips files it cannot open (the rsync
+// chown left them deploy-user-owned, so this is rare).
+func syncTree(root string) error {
+	var firstErr error
+	note := func(err error) {
+		if err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	walkErr := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			note(err)
+			return nil // keep walking other nodes
+		}
+		// fsync regular files and directories; skip symlinks/devices/etc.
+		if !info.Mode().IsRegular() && !info.IsDir() {
+			return nil
+		}
+		f, openErr := os.Open(path)
+		if openErr != nil {
+			note(openErr)
+			return nil
+		}
+		if syncErr := f.Sync(); syncErr != nil {
+			note(syncErr)
+		}
+		f.Close()
+		return nil
+	})
+	note(walkErr)
+	return firstErr
+}
+
+// prepareBackupSnapshotDir readies the syncing base for backupDatabase's rsync
+// (CHANGE 2 / task #12, step 1) and returns its path. DB-free + no docker, so
+// the rename state machine is unit-testable in isolation:
+//   - active exists, syncing absent → rename(active→syncing): the persistent
+//     base moves aside with content PRESERVED (the incremental base).
+//   - active absent, syncing present → a killed run's leftover IS the base:
+//     RESUME into it (no rename, no rm).
+//   - neither → first-ever backup: create an empty syncing.
+//   - BOTH → corrupt state that this sequence never produces: fail LOUD (no
+//     silent rm, no guess).
 //
-// Atomicity matters because rsync --delete is not crash-safe: it
-// removes destination files before copying replacements. A SIGKILL
-// mid-rsync into a fixed path leaves the directory half-deleted /
-// half-copied — silent corruption that the next rollback would happily
-// rsync straight back into the live volume.
+// The caller rsyncs into the returned dir, fsyncs it, then commits via
+// rename(syncing→active).
+func (d *Service) prepareBackupSnapshotDir(progress *ProgressLog) (string, error) {
+	root := d.backupRoot()
+	activeDir := filepath.Join(root, backupActiveName)
+	syncingDir := filepath.Join(root, backupSyncingName)
+
+	activeExists := dirExists(activeDir)
+	syncingExists := dirExists(syncingDir)
+	switch {
+	case activeExists && syncingExists:
+		return "", fmt.Errorf(
+			"backup state corrupt: both %s and %s exist (they must never coexist); "+
+				"inspect %s manually — refusing to guess or delete",
+			backupActiveName, backupSyncingName, root)
+	case activeExists:
+		if err := os.Rename(activeDir, syncingDir); err != nil {
+			return "", fmt.Errorf("move backup base aside (%s -> %s): %w", backupActiveName, backupSyncingName, err)
+		}
+	case syncingExists:
+		// Resume into the leftover syncing base — no rename, no rm.
+		progress.Write("Resuming into existing %s base from a prior interrupted backup...", backupSyncingName)
+	default:
+		// First-ever backup (or after a legacy migration): create an empty
+		// syncing for rsync to populate.
+		if err := os.MkdirAll(syncingDir, 0755); err != nil {
+			return "", fmt.Errorf("create backup syncing dir: %w", err)
+		}
+	}
+	return syncingDir, nil
+}
+
+// backupDatabase rsyncs the live Postgres data volume into a PERSISTENT
+// snapshot dir, committed by an atomic directory rename (CHANGE 2 / task #12,
+// replacing the prior per-stamp .tmp→final scheme). Returns the path of the
+// committed snapshot (…/pre-upgrade-active).
 //
-// Mechanism: write to pre-upgrade-<UTC>.tmp/. After rsync exits 0,
-// rename to pre-upgrade-<UTC>/. rename(2) is atomic on POSIX for dirs
-// on the same filesystem. Crash mid-rsync leaves only a .tmp
-// directory; restoreDatabase / pickLatestBackup ignore those.
+// Mechanism — the dir NAME is the clean/dirty state:
+//  1. If pre-upgrade-active/ exists → rename(active → syncing). Atomic; CONTENT
+//     PRESERVED, so syncing is the incremental base the rsync reconciles against
+//     (fast on the 2nd+ backup — only the delta transfers). If active is absent,
+//     a syncing left by a previously-killed run IS the base — go straight to
+//     rsync into it; NEVER delete it (rsync --delete reconciles the partial to
+//     the source incrementally — that partial is exactly what we resume from).
+//  2. rsync -a --delete /source(volume) → /backup(syncing).
+//  3. fsync the FILE DATA in syncing (not just the dir entries) so the snapshot
+//     is durable before it's published.
+//  4. rename(syncing → active). active is absent at this point (consumed in step
+//     1), so this is a clean atomic commit. The snapshot is COMPLETE iff named
+//     pre-upgrade-active.
 //
-// stamp is the UTC timestamp string already written to public.upgrade.backup_path
-// (as the .tmp path) by executeUpgrade before the DB connection was closed.
-// Passing it here ensures the on-disk directory name matches the DB record.
+// Why rename over a .complete marker: a single atomic rename mirrors the shipped
+// ATOMIC archive tar (one mental model), the state IS the name (no sentinel to
+// get out of sync), and it's fail-safe by construction — a crash anywhere leaves
+// either active (complete) or syncing (partial, ignored by pickLatestBackup).
+// active and syncing never coexist from this sequence, so there is NO cleanup
+// branch and NO rm; an unexpected coexistence makes a rename fail loudly.
+//
+// rsync --delete is not itself crash-safe (it removes before copying), but that
+// is fine here: it operates on syncing, never on active — a killed rsync leaves
+// a half-reconciled syncing (resumed next run), while active stays untouched and
+// restorable throughout.
+//
+// stamp (UTC timestamp) is no longer used for the rsync dir name; it is retained
+// for the per-upgrade archive tar + the upgrade-logs-<stamp> sibling correlation
+// (cascadeUpgradeLogsIntoBackup), which remain per-upgrade.
 func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (string, error) {
 	root := d.backupRoot()
 	if err := os.MkdirAll(root, 0755); err != nil {
 		return "", fmt.Errorf("create backup root: %w", err)
 	}
 
-	tmpDir := filepath.Join(root, "pre-upgrade-"+stamp+".tmp")
-	finalDir := filepath.Join(root, "pre-upgrade-"+stamp)
+	activeDir := filepath.Join(root, backupActiveName)
 
-	if err := os.MkdirAll(tmpDir, 0755); err != nil {
-		return "", fmt.Errorf("create backup tmpdir: %w", err)
+	// Step 1: get the syncing base ready (rename active aside / resume leftover /
+	// create fresh). Extracted + DB-free so the rename state machine is
+	// unit-testable without the docker rsync below.
+	syncingDir, err := d.prepareBackupSnapshotDir(progress)
+	if err != nil {
+		return "", err
 	}
 
-	// rsync from named Docker volume into the .tmp dir via a lightweight
+	// rsync from named Docker volume into the syncing dir via a lightweight
 	// container. DB must be stopped before this point for a consistent
 	// backup. No sudo needed — the container runs as root and can read
 	// postgres-owned files.
@@ -359,40 +505,57 @@ func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (string, e
 	rsyncErr := runCommandToLog(d.projDir, 10*time.Minute, progress.File(), "rsync", nil,
 		"docker", "run", "--rm",
 		"-v", volumeName+":/source:ro",
-		"-v", tmpDir+":/backup",
+		"-v", syncingDir+":/backup",
 		"alpine", "sh", "-c", rsyncShell,
 	)
-	close(rsyncDone)
 	if rsyncErr != nil {
-		// Leave the .tmp dir for inspection; pruneStaleTmpBackups will
-		// clean it after 10 minutes if it's confirmed dead.
+		close(rsyncDone) // stop the heartbeat ticker
+		// Leave the syncing dir in place — it is the incremental base the next
+		// run resumes into (NEVER deleted). It is structurally invisible to
+		// pickLatestBackup (not named active), so a partial cannot be restored.
 		return "", fmt.Errorf("rsync backup: %w", rsyncErr)
 	}
 
-	// Harness-only kill site (C3): simulates the OS / orchestrator killing
-	// the process AFTER rsync finishes but BEFORE the atomic rename. The
-	// wedge state: the .tmp directory has a complete copy of the DB volume
-	// but its final-name rename never happened, so on-disk the backup
-	// looks "in flight" (rsync done; not finalized). The pre-upgrade git
-	// branch was already pinned upstream (executeUpgrade step before this
-	// call) so restoreGitState has its anchor. The next install's
-	// recoverFromFlag sees flag PreSwap (not PostSwap — kill fired
-	// upstream of updateFlagPostSwap) and routes through the PreSwap
-	// recovery branch, which discards the .tmp directory and restarts
-	// services at the OLD binary + OLD DB volume (the OLD DB is still
-	// intact — backup was a COPY, the source volume was unmodified).
+	// fsync the syncing dir's FILE DATA before the commit rename. rsync does not
+	// fsync by default, and an os.Rename of the dir entry persists only the
+	// NAME, not the file contents — a crash after the rename but before the
+	// kernel flushed the data would publish an active dir whose files are
+	// partially in the page cache only. syncTree walks the subtree and fsyncs
+	// each regular file + the dirs (best-effort: a fsync failure is logged, not
+	// fatal — the data is very likely on disk and refusing to commit would be a
+	// worse outcome than a small durability-window risk).
 	//
-	// Placement rationale: in this exact spot the rsync has completed
-	// (so the test exercises real I/O), but the rename is the next thing
-	// the parent would do — close to the team-lead's "between starting
-	// the rsync/dump and writing the PostSwap flag stamp" window.
-	// No-op in production. Drives scenario 21.
+	// Runs BEFORE close(rsyncDone) so the 30 s heartbeat ticker keeps pinging
+	// WATCHDOG=1 through the fsync walk too — on a large DB (many files) the
+	// walk can take several seconds, and executeUpgrade runs active-phase under
+	// WatchdogSec (plan #2), so an unheartbeated gap here could trip it.
+	if err := syncTree(syncingDir); err != nil {
+		progress.Write("warning: fsync of backup contents in %s failed (proceeding): %v", backupSyncingName, err)
+	}
+	close(rsyncDone) // stop the heartbeat ticker (rsync + fsync both done)
+
+	// Harness-only kill site (C3): simulates the OS / orchestrator killing the
+	// process AFTER rsync finishes but BEFORE the atomic commit rename. The
+	// wedge state: the syncing dir has a complete copy of the DB volume but the
+	// syncing→active rename never happened, so on-disk the backup looks "in
+	// flight" (partial). The pre-upgrade git branch was already pinned upstream
+	// (executeUpgrade step before this call) so restoreGitState has its anchor.
+	// The next install's recoverFromFlag sees flag PreSwap (kill fired upstream
+	// of updateFlagPostSwap) and routes through the PreSwap recovery branch; the
+	// OLD DB volume is intact (backup was a COPY, source unmodified). A retry
+	// resumes by rsyncing into the leftover syncing, then commits. No active dir
+	// is produced by the killed run, so pickLatestBackup won't read the partial.
+	//
+	// Placement rationale: in this exact spot the rsync has completed (so the
+	// test exercises real I/O), but the rename is the next thing the parent
+	// would do. No-op in production. Drives scenario 21.
 	inject.KillHere("killed-by-system-during-preswap-backup")
 
-	// Atomic completion marker: directory's final name appearing IS the
-	// completion signal. No sentinel files, no symlinks.
-	if err := os.Rename(tmpDir, finalDir); err != nil {
-		return "", fmt.Errorf("finalise backup (rename %s -> %s): %w", tmpDir, finalDir, err)
+	// Atomic commit: rename syncing → active. active is absent here (consumed at
+	// the top), so this is a clean atomic publish. The snapshot is COMPLETE iff
+	// it is named active. No sentinel files, no symlinks.
+	if err := os.Rename(syncingDir, activeDir); err != nil {
+		return "", fmt.Errorf("commit backup (rename %s -> %s): %w", backupSyncingName, backupActiveName, err)
 	}
 
 	// Cascade tmp/upgrade-logs/ into <root>/upgrade-logs-<stamp>/ (sibling
@@ -408,7 +571,7 @@ func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (string, e
 	// where d.queryConn is live and can NULL backup_path before deletion.
 	// No pruning here — the DB connection is closed for the duration of executeUpgrade.
 
-	return finalDir, nil
+	return activeDir, nil
 }
 
 // cascadeUpgradeLogsIntoBackup mirrors the current tmp/upgrade-logs/
@@ -468,12 +631,28 @@ func copyRegularFile(src, dst string) error {
 	return out.Close()
 }
 
-// pickLatestBackup returns the path of the newest finalised
-// pre-upgrade-* directory (no .tmp suffix), or "" if none exists.
-// Timestamp prefix sorts lexicographically so sort.Strings + take-max
-// works.
+// pickLatestBackup returns the path of the COMPLETE restorable snapshot, or ""
+// if none exists. Since CHANGE 2 (task #12) that is the persistent
+// backupActiveName dir. For backward compatibility — an upgrade that backed up
+// under the OLD per-stamp scheme and then recovers under the new binary, with no
+// active dir yet — it falls back to the newest legacy finalised
+// pre-upgrade-<stamp> dir (timestamp prefix sorts lexicographically, so
+// sort.Strings + take-max gives the newest). A partial backupSyncingName and
+// any legacy .tmp are ALWAYS excluded: restore must never read an incomplete
+// snapshot. "" makes restoreDatabase abort rather than touch the live volume.
 func (d *Service) pickLatestBackup() string {
-	entries, err := os.ReadDir(d.backupRoot())
+	root := d.backupRoot()
+
+	// Primary: the persistent active snapshot.
+	active := filepath.Join(root, backupActiveName)
+	if info, err := os.Stat(active); err == nil && info.IsDir() {
+		return active
+	}
+
+	// Legacy fallback: newest finalised pre-upgrade-<stamp> (excluding the
+	// managed syncing dir and any .tmp). Covers the cross-deploy-boundary
+	// in-flight upgrade until the next backup produces an active dir.
+	entries, err := os.ReadDir(root)
 	if err != nil {
 		return ""
 	}
@@ -486,7 +665,7 @@ func (d *Service) pickLatestBackup() string {
 		if !strings.HasPrefix(name, "pre-upgrade-") {
 			continue
 		}
-		if strings.HasSuffix(name, ".tmp") {
+		if strings.HasSuffix(name, ".tmp") || isManagedBackupDir(name) {
 			continue
 		}
 		finalised = append(finalised, name)
@@ -495,7 +674,7 @@ func (d *Service) pickLatestBackup() string {
 		return ""
 	}
 	sort.Strings(finalised)
-	return filepath.Join(d.backupRoot(), finalised[len(finalised)-1])
+	return filepath.Join(root, finalised[len(finalised)-1])
 }
 
 func (d *Service) restoreDatabase(progress *ProgressLog) {
@@ -517,10 +696,15 @@ func (d *Service) restoreDatabase(progress *ProgressLog) {
 	}
 }
 
-// pruneBackups trims finalised pre-upgrade-* backups to the `keep` most recent.
-// Before removing each dir it NULLs backup_path on the matching upgrade row so
-// reconcileBackupDir does not emit BACKUP_MISSING noise for intentionally-pruned
-// dirs on subsequent ticks.  .tmp dirs are excluded — reconcileBackupDir owns them.
+// pruneBackups trims LEGACY finalised pre-upgrade-<stamp> backups to the `keep`
+// most recent. Before removing each dir it NULLs backup_path on the matching
+// upgrade row so reconcileBackupDir does not emit BACKUP_MISSING noise for
+// intentionally-pruned dirs on subsequent ticks. .tmp dirs are excluded
+// (reconcileBackupDir owns them), and since CHANGE 2 (task #12) the two MANAGED
+// dirs (active/syncing) are excluded too — there is only ever one persistent
+// active snapshot (no collection to trim), and it must never be pruned. This
+// function now only reaps leftover per-stamp dirs during the migration window;
+// per-upgrade history lives in the archive tars (pruneArchives keeps N).
 //
 // Must be called with an active d.queryConn (i.e. from the service tick, not from
 // within executeUpgrade where the DB is closed).
@@ -538,8 +722,8 @@ func (d *Service) pruneBackups(ctx context.Context, keep int) {
 		if !strings.HasPrefix(name, "pre-upgrade-") {
 			continue
 		}
-		if strings.HasSuffix(name, ".tmp") {
-			continue // reconcileBackupDir handles orphan .tmp dirs
+		if strings.HasSuffix(name, ".tmp") || isManagedBackupDir(name) {
+			continue // .tmp: reconcileBackupDir owns; active/syncing: managed, never pruned
 		}
 		finalised = append(finalised, filepath.Join(d.backupRoot(), name))
 	}
@@ -1123,8 +1307,6 @@ func (d *Service) reconcileBackupDir(ctx context.Context) {
 		return
 	}
 
-	root := d.backupRoot()
-
 	// --- 1. Load DB-referenced paths ---
 	rows, err := d.queryConn.Query(ctx,
 		"SELECT id, backup_path FROM public.upgrade WHERE backup_path IS NOT NULL")
@@ -1148,7 +1330,24 @@ func (d *Service) reconcileBackupDir(ctx context.Context) {
 		return
 	}
 
-	// --- 2. Build on-disk map (all pre-upgrade-* including .tmp) ---
+	// --- 2-4. Classify + purge orphans (DB-free core, unit-testable). ---
+	d.purgeOrphanBackups(referenced, time.Now())
+}
+
+// purgeOrphanBackups is the DB-free orphan pass of reconcileBackupDir, split out
+// so it is unit-testable without a live connection. It enumerates legacy
+// pre-upgrade-<stamp>(.tmp) dirs, consumes the DB-referenced ones, and for the
+// rest applies the differential-grace orphan policy. `referenced` maps abs
+// backup_path → upgrade id; `now` is injected for deterministic tests.
+//
+// The two CHANGE-2 MANAGED dirs (backupActiveName / backupSyncingName) are
+// EXCLUDED entirely — they are governed by the backup rename state machine, not
+// reference-counted, so they must never be classified as orphans or purged
+// (purging a stale-mtime syncing would destroy a killed run's incremental base
+// or a live partial). Only legacy per-stamp dirs flow through here, for graceful
+// post-migration cleanup.
+func (d *Service) purgeOrphanBackups(referenced map[string]int, now time.Time) {
+	root := d.backupRoot()
 	entries, err := os.ReadDir(root)
 	if err != nil {
 		if !os.IsNotExist(err) {
@@ -1163,6 +1362,9 @@ func (d *Service) reconcileBackupDir(ctx context.Context) {
 		if !e.IsDir() || !strings.HasPrefix(e.Name(), "pre-upgrade-") {
 			continue
 		}
+		if isManagedBackupDir(e.Name()) {
+			continue // managed by the rename state machine — never an orphan
+		}
 		info, infoErr := e.Info()
 		if infoErr != nil {
 			// Race: dir disappeared between ReadDir and Info().
@@ -1174,7 +1376,7 @@ func (d *Service) reconcileBackupDir(ctx context.Context) {
 		onDisk[filepath.Join(root, e.Name())] = diskInfo{mtime: info.ModTime()}
 	}
 
-	// --- 3. Check each referenced path; consume from onDisk map ---
+	// Check each referenced path; consume from onDisk map.
 	for path, id := range referenced {
 		if _, ok := onDisk[path]; ok {
 			delete(onDisk, path) // matched — not an orphan
@@ -1183,13 +1385,12 @@ func (d *Service) reconcileBackupDir(ctx context.Context) {
 		fmt.Printf("BACKUP_MISSING: upgrade id=%d backup_path=%s not found on disk\n", id, path)
 	}
 
-	// --- 4. Remaining entries are orphans (no DB row references them) ---
+	// Remaining entries are orphans (no DB row references them).
 	// Differential grace:
 	//   .tmp  — 10 minutes (crash artifact; rsync never completed, low recovery value)
 	//   final — 90 days   (may hold genuine recovery value; allow manual rescue)
-	const tmpGrace      = 10 * time.Minute
+	const tmpGrace = 10 * time.Minute
 	const finalisedGrace = 90 * 24 * time.Hour
-	now := time.Now()
 	for path, di := range onDisk {
 		isTmp := strings.HasSuffix(path, ".tmp")
 		grace := finalisedGrace

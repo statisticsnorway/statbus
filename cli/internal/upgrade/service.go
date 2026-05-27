@@ -3270,11 +3270,20 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	}
 	progress.Write("Images prepared (elapsed %s).", time.Since(pullStart).Truncate(time.Millisecond))
 
-	// Pre-compute backup stamp and record the .tmp path in the DB before the
-	// DB connection is closed.  The stamp ties the on-disk directory name to
-	// the DB row so reconcileBackupDir can detect crashed or missing backups.
+	// CHANGE 2 (task #12): the rsync snapshot is a single persistent dir
+	// committed by atomic rename to pre-upgrade-active. Record THAT path as
+	// backup_path before the DB connection is closed — it is deterministic (no
+	// stamp), and it is the path pickLatestBackup/restoreDatabase read. This is
+	// a MUTABLE pointer (the same dir is reused across upgrades); H2 — safe only
+	// because the upgrade-mutex serializes: the persistent flag file (written at
+	// writeUpgradeFlag above, before this point) forces any competing actor
+	// through RecoverFromFlag, which RESUMES rather than starting a fresh backup,
+	// so no overlapping upgrade overwrites active before recovery consumes it.
+	// backupStamp is retained ONLY for the per-upgrade archive tar +
+	// upgrade-logs-<stamp> correlation (still per-upgrade); it no longer names
+	// the rsync dir.
 	backupStamp := time.Now().UTC().Format("20060102T150405Z")
-	backupTmpPath := filepath.Join(d.backupRoot(), "pre-upgrade-"+backupStamp+".tmp")
+	backupActivePath := filepath.Join(d.backupRoot(), backupActiveName)
 
 	// L2 — stale-connection detection before the first DB write after the
 	// multi-second pullImages step. pullImages leaves queryConn idle for the
@@ -3298,11 +3307,12 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 		}
 	}
 
-	progress.Write("Recording backup path on upgrade row (id=%d, path=%s)...", id, backupTmpPath)
-	if _, err := d.queryConn.Exec(ctx, "UPDATE public.upgrade SET backup_path = $1 WHERE id = $2", backupTmpPath, id); err != nil {
-		// Not fatal: the recovery path can still locate the backup via the
-		// on-disk stamp if the DB write didn't land. Log and proceed.
-		progress.Write("Warning: backup_path UPDATE failed: %v (proceeding — reconcileBackupDir can still correlate via stamp)", err)
+	progress.Write("Recording backup path on upgrade row (id=%d, path=%s)...", id, backupActivePath)
+	if _, err := d.queryConn.Exec(ctx, "UPDATE public.upgrade SET backup_path = $1 WHERE id = $2", backupActivePath, id); err != nil {
+		// Not fatal: restoreDatabase locates the snapshot via pickLatestBackup
+		// (pre-upgrade-active) independently of this row, so a missed write only
+		// loses the reconcile cross-reference. Log and proceed.
+		progress.Write("Warning: backup_path UPDATE failed: %v (proceeding — restore uses pickLatestBackup, not this row)", err)
 	} else {
 		progress.Write("Backup path recorded.")
 	}
