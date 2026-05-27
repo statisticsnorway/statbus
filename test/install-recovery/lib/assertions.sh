@@ -73,20 +73,31 @@ assert_systemd_active() {
     return 1
 }
 
-# Verify there are NO orphan pre-upgrade-* backup directories left in
-# ~/statbus-backups/. After a successful recovery, the executeUpgrade-
-# layer cleanup (Layer 3 of the rollback hole plug) should have removed
-# the pre-upgrade backup that was taken before the upgrade.
+# Verify there are NO ORPHAN pre-upgrade-* backup directories left in
+# ~/statbus-backups/. An orphan is a LEGACY per-stamp dir (pre-upgrade-<stamp>
+# or pre-upgrade-<stamp>.tmp) the executeUpgrade-layer cleanup should have
+# reaped after recovery.
+#
+# CHANGE 2 (task #12): the rsync snapshot is now a SINGLE PERSISTENT dir
+# committed by atomic rename — pre-upgrade-active (a complete snapshot that
+# LEGITIMATELY persists after every upgrade, as the incremental base for the
+# next one) and pre-upgrade-syncing (an in-flight / killed-mid-rsync partial).
+# Neither is an orphan — they are the managed backup state (mirrors the Go
+# isManagedBackupDir). So this assertion EXCLUDES active/syncing and only flags
+# leftover legacy per-stamp dirs. (Pre-#12 there was no persistent dir, so the
+# old "zero pre-upgrade-* dirs" check was right then; post-#12 it would
+# false-fail on the persistent active dir.)
 assert_no_orphan_backup() {
     local vm_name="$1"
     local count
 
-    count=$(VM_EXEC bash -c 'ls -d ~/statbus-backups/pre-upgrade-* 2>/dev/null | wc -l' 2>/dev/null | tr -d ' ' || echo "0")
+    # Count pre-upgrade-* dirs EXCLUDING the two managed names (active/syncing).
+    count=$(VM_EXEC bash -c 'ls -d ~/statbus-backups/pre-upgrade-* 2>/dev/null | grep -vE "/pre-upgrade-(active|syncing)$" | grep -c . ' 2>/dev/null | tr -d ' ' || echo "0")
     if [ "$count" = "0" ]; then
-        echo "  ✓ no orphan pre-upgrade-* backups in ~/statbus-backups/"
+        echo "  ✓ no orphan (legacy per-stamp) pre-upgrade-* backups in ~/statbus-backups/ (managed active/syncing excluded)"
         return 0
     fi
-    echo "  ✗ orphan backup(s) found ($count): $(VM_EXEC bash -c 'ls -d ~/statbus-backups/pre-upgrade-*' 2>/dev/null | tr '\n' ' ')"
+    echo "  ✗ orphan backup(s) found ($count): $(VM_EXEC bash -c 'ls -d ~/statbus-backups/pre-upgrade-* 2>/dev/null | grep -vE "/pre-upgrade-(active|syncing)$"' 2>/dev/null | tr '\n' ' ')"
     return 1
 }
 

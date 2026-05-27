@@ -5,21 +5,23 @@
 # Class kind:            Kill
 # Source forensics:      tmp/install-state-machine-forensics.md
 #
-# Expected principled behavior:
-#   A process killed inside `backupDatabase` AFTER rsync finishes but
-#   BEFORE the atomic rename (`pre-upgrade-<stamp>.tmp` → `pre-upgrade-
-#   <stamp>`) leaves the system with: flag PreSwap (not PostSwap — the
-#   kill fired upstream of `updateFlagPostSwap`), backup .tmp directory
-#   on disk with rsync-complete contents but never finalized, OLD
-#   binary on disk (binary swap happens later in executeUpgrade), DB
-#   volume unmodified (rsync was COPY-only; source was read-only mount).
+# Expected principled behavior (CHANGE 2 / task #12 — also the
+# "kill-mid-rsync-resumable" coverage):
+#   A process killed inside `backupDatabase` AFTER rsync finishes but BEFORE the
+#   atomic commit rename (`pre-upgrade-syncing` → `pre-upgrade-active`) leaves:
+#   flag PreSwap (kill fired upstream of `updateFlagPostSwap`), a
+#   pre-upgrade-SYNCING directory with rsync-complete contents but NOT committed
+#   (no pre-upgrade-active), OLD binary on disk (binary swap is downstream), DB
+#   volume unmodified (rsync was COPY-only, source read-only mount).
 #
-#   Recovery via the next install's recoverFromFlag → PreSwap branch:
-#   discard the .tmp directory (pruneStaleTmpBackups handles it OR
-#   the PreSwap recovery cleans it explicitly), restart services at
-#   the OLD binary + OLD DB volume, clear the flag, mark the upgrade
-#   row state='failed'. Convergence: system healthy at OLD version,
-#   data intact (DB was never touched — rsync ran source-read-only).
+#   The partial syncing is structurally invisible to pickLatestBackup (which
+#   reads ONLY pre-upgrade-active), so it can never be restored as if complete —
+#   and it is NEVER deleted: a future upgrade's backupDatabase RESUMES into it
+#   (the incremental base). Recovery via the next install's recoverFromFlag →
+#   PreSwap branch: abort (restart services at OLD binary + OLD DB volume, clear
+#   the flag, mark the row state='failed'). Convergence: healthy at OLD version,
+#   data intact, and the partial NEVER promoted to a restorable snapshot
+#   (pre-upgrade-active absent post-abort).
 #
 # Trigger logic:
 #   1. Install at INSTALL_VERSION (default v2026.05.2 — provides a
@@ -29,23 +31,25 @@
 #      mutate the source volume).
 #   4. Run first install at HEAD with
 #      STATBUS_INJECT_AT=killed-by-system-during-preswap-backup.
-#      inject.KillHere fires inside backupDatabase after rsync but
-#      before the rename; install exits 137 with: flag present, .tmp
-#      dir on disk, OLD binary still in place.
+#      inject.KillHere fires inside backupDatabase after rsync-into-syncing
+#      but before rename(syncing→active); install exits 137 with: flag
+#      present, pre-upgrade-syncing dir on disk (no active), OLD binary
+#      still in place.
 #   5. Verify RED state: flag file present; upgrade row='in_progress';
-#      backup .tmp dir on disk (not yet renamed to final name); ./sb
-#      binary is the OLD version (no swap happened).
+#      pre-upgrade-syncing present + no pre-upgrade-active (caught
+#      pre-commit); ./sb binary is the OLD version (no swap happened).
 #   6. Run a SECOND install (no env vars) for recovery.
 #   7. Assert convergence: row state='failed' or 'rolled_back' (the
 #      PreSwap branch maps to "abort" rather than "complete" — the
 #      upgrade was never committed at the binary-swap boundary, so
 #      'completed' is NOT a valid terminal state for this RED). Data
-#      intact. Flag absent. .tmp dir cleaned up. ./sb binary still OLD
-#      (the recovery aborted, did not roll forward to HEAD).
+#      intact. Flag absent. NO pre-upgrade-active (the partial was never
+#      promoted to a restorable snapshot). ./sb binary still OLD (the
+#      recovery aborted, did not roll forward to HEAD).
 #
 # Hetzner-runnability:
-#   READY. Injection site lands with this commit. PreSwap branch of
-#   recoverFromFlag already exists on master + this branch — has
+#   READY. The injection site + the active/syncing scheme are on master
+#   (merge 86fb9a454). PreSwap branch of recoverFromFlag has
 #   handled the "clean abort, no commit" terminal state since the
 #   Fix 5b forward-then-restore design.
 #
@@ -143,17 +147,26 @@ VM_EXEC bash -c "ls -la ~/statbus/tmp/upgrade-in-progress.json" || {
 }
 assert_upgrade_row_state "$VM_NAME" "in_progress"
 
-# C3-specific: a `pre-upgrade-*.tmp` directory MUST exist under the
-# backup root. Filtering on the .tmp suffix to ensure we caught the
-# kill at the pre-rename moment (not post-rename, which would suggest
-# the kill site fired in the wrong place).
-TMP_BACKUP_COUNT=$(VM_EXEC bash -c "ls -d ~/statbus-backups/pre-upgrade-*.tmp 2>/dev/null | wc -l | tr -d ' '" || echo "0")
-if [ "$TMP_BACKUP_COUNT" = "0" ]; then
-    echo "✗ no pre-upgrade-*.tmp directory on disk — kill fired before rsync started?" >&2
+# C3-specific (CHANGE 2 / #12): the kill fires inside backupDatabase AFTER
+# rsync-into-syncing but BEFORE rename(syncing→active) (exec.go
+# killed-by-system-during-preswap-backup). So the RED state is a
+# pre-upgrade-SYNCING dir present and NO pre-upgrade-active — proving we caught
+# the kill at the pre-commit moment. (Pre-#12 this was a pre-upgrade-<stamp>.tmp
+# dir; the persistent active/syncing scheme replaced it.) A partial syncing is
+# structurally invisible to pickLatestBackup, so it can never be restored as if
+# complete; the next run RESUMES into it (never deletes it).
+SYNCING_PRESENT=$(VM_EXEC bash -c "test -d ~/statbus-backups/pre-upgrade-syncing && echo yes || echo no" 2>/dev/null | tr -d ' \r\n' || echo "no")
+ACTIVE_PRESENT=$(VM_EXEC bash -c "test -d ~/statbus-backups/pre-upgrade-active && echo yes || echo no" 2>/dev/null | tr -d ' \r\n' || echo "no")
+if [ "$SYNCING_PRESENT" != "yes" ]; then
+    echo "✗ no pre-upgrade-syncing directory on disk — kill fired before rsync started, or the active→syncing rename-aside did not happen?" >&2
     VM_EXEC bash -c "ls -la ~/statbus-backups/ 2>/dev/null" >&2 || true
     exit 1
 fi
-echo "  ✓ pre-upgrade-*.tmp directory(ies) present ($TMP_BACKUP_COUNT)"
+if [ "$ACTIVE_PRESENT" = "yes" ]; then
+    echo "✗ pre-upgrade-active present at the kill point — the syncing→active commit rename should NOT have run yet (kill fired in the wrong place?)" >&2
+    exit 1
+fi
+echo "  ✓ pre-upgrade-syncing present, no pre-upgrade-active (caught at the pre-commit moment; partial is restore-invisible)"
 
 # Sanity: ./sb binary still the OLD version (binary swap is downstream).
 SB_VERSION_DURING=$(VM_EXEC bash -c "cd ~/statbus && ./sb --version 2>/dev/null | head -1" | tr -d '\r' || echo "")
@@ -209,9 +222,26 @@ if [ "$SB_VERSION_AFTER" != "$SB_VERSION_BEFORE" ]; then
     exit 1
 fi
 echo "  ✓ ./sb binary still at $SB_VERSION_BEFORE post-recovery (abort, no roll-forward)"
+
+# CHANGE-2 (#12) backup-state coherence after the preswap-kill abort. The
+# killed run left pre-upgrade-syncing (no active). The PreSwap recovery aborts
+# (no new backup), so syncing legitimately persists as the resumable
+# incremental base (NEVER deleted — a future upgrade resumes into it). The
+# load-bearing invariant: a partial syncing must NEVER masquerade as a
+# restorable snapshot — i.e. it must NOT have been renamed to active by the
+# abort path (only a successful rsync→fsync→rename does that). So: active
+# absent is the correct post-abort state (no completed backup was produced);
+# syncing present-or-consumed are both fine. assert_no_orphan_backup (managed-
+# dir-aware) already confirms no LEGACY orphan accumulated.
+POST_ACTIVE=$(VM_EXEC bash -c "test -d ~/statbus-backups/pre-upgrade-active && echo yes || echo no" 2>/dev/null | tr -d ' \r\n' || echo "no")
+if [ "$POST_ACTIVE" = "yes" ]; then
+    echo "✗ pre-upgrade-active present after a preswap-kill ABORT — a partial backup was wrongly promoted to a restorable snapshot (syncing→active must only happen on a COMPLETE rsync, never on the abort path)" >&2
+    exit 1
+fi
+echo "  ✓ no pre-upgrade-active after abort (the partial was never promoted to a restorable snapshot)"
 assert_no_orphan_backup "$VM_NAME"
 assert_health_passes "$VM_NAME"
 assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@test.service" 2
 
 echo ""
-echo "PASS: preswap-backup-kill (preswap kill aborted cleanly; OLD version live, data intact, partial backup cleaned up)"
+echo "PASS: preswap-backup-kill (CHANGE-2: kill mid-rsync left pre-upgrade-syncing not active; abort kept OLD version, data intact; the partial was never promoted to a restorable snapshot)"
