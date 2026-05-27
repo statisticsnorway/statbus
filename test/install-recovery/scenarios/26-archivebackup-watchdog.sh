@@ -218,10 +218,9 @@ echo "  ✓ unit active with inject env vars in place"
 # 'scheduled'), then calls executeScheduled → claims the row.
 #
 # Service must be LISTENING before we send. systemd marks the unit
-# 'active' only after READY=1, and (since plan §4a FIX B1) the LISTEN
-# commands are registered just BEFORE READY=1 — so the sleep-5 +
-# UNIT_STATE=active check above guarantees the service is already
-# listening when we NOTIFY (listening-before-active holds either way).
+# 'active' only after READY=1, which is emitted AFTER the LISTEN
+# commands are in place — so the sleep-5 + UNIT_STATE=active check
+# above guarantees the service is already listening when we NOTIFY.
 SHORT_SHA=$(echo "$HEAD_LOCAL" | cut -c1-8)
 echo "── waking service via NOTIFY (./sb upgrade apply $SHORT_SHA) ──"
 VM_EXEC bash -c "cd ~/statbus && ./sb upgrade apply $SHORT_SHA 2>&1 | tail -5 || true"

@@ -16,6 +16,18 @@ Description=StatBus Upgrade Service
 # transient issues (a DB restart during a maintenance window: ~3
 # retries) and tight enough that a wedged state surfaces within ~10
 # minutes instead of 91 hours.
+#
+# KNOWN GAP (task #7 / f2-slow-loop-liveness, fast-follow): this cap catches
+# a FAST restart loop, but a SLOW timeout-loop (e.g. a ~2.5min cycle: a
+# start-phase kill + RestartSec=30) accumulates only ~4 restarts per 600s
+# window — UNDER burst=10 — so the cap never trips and the unit can report
+# `activating` indefinitely, missed by health-checks (the original NO/rune
+# 40h wedge before §4a FIX A). Tightening burst to catch a slow loop would
+# false-trip the legitimate ~3-retry transient above, so the principled fix
+# is a separate liveness mechanism ("cumulative activating/auto-restarting
+# > N min ⇒ failed"), tracked as task #7 — NOT a burst recalibration here.
+# §4a FIX A makes THIS bug's loop impossible (the resume converges in ~1
+# cycle); task #7 is future-defense against a slow loop of any other cause.
 StartLimitIntervalSec=600
 StartLimitBurst=10
 
@@ -64,22 +76,27 @@ WatchdogSec=120
 # (= WatchdogSec) so an operator tuning either knob sees both in one place
 # ("one limit to reason about").
 #
-# What runs in this start window (pre-READY=1), after plan
-# recovery-arc-flaw-timeoutstartsec.md §4a FIX B1: only the CHEAP init —
-# EnsureDBUp → `./sb migrate up` (boot-migrate-up, schema-skew guard) →
-# connect → advisory lock → LISTEN. The exit-42 RESUME (recoverFromFlag →
-# resumePostSwap → applyPostSwap, incl. the multi-minute archiveBackup) now
-# runs AFTER READY=1, i.e. in the ACTIVE phase under WatchdogSec, where the
-# applyPostSwap WATCHDOG=1 ticker keeps it alive. Before §4a the resume ran
-# here in the start phase and a large-DB archiveBackup blew this budget,
-# wedging the unit in a restart loop (NO/rune, ~40 h).
+# What runs in this start window (pre-READY=1): the cheap init (EnsureDBUp →
+# `./sb migrate up` boot-migrate-up schema-skew guard → connect → advisory
+# lock) AND the exit-42 RESUME (recoverFromFlag → resumePostSwap →
+# applyPostSwap), then the post-recovery steps + LISTEN, then READY=1. So a
+# resume runs in the START phase under this budget. The multi-minute
+# archiveBackup that wedged NO/rune (32 GB tar > budget → SIGTERM before the
+# terminal UPDATE persisted → row stuck in_progress → restart loop, ~40 h) is
+# fixed by plan recovery-arc-flaw-timeoutstartsec.md §4a FIX A: archiveBackup
+# is reordered to AFTER the terminal state='completed' UPDATE + flag removal,
+# so the row reaches `completed` (fast, well inside even a 90 s start budget)
+# before the kill-prone tar runs — a SIGTERM during the tar is then harmless
+# (next start finds no flag, no-ops). The start-phase budget thus remains a
+# HARD bound on a genuinely-hung resume, which is the desired safety property.
 #
-# Residual: boot-migrate-up is the one pre-READY step whose duration scales
-# with the DB — a genuinely multi-minute schema migration at boot can still
-# exceed this 120s budget. That is the deliberate C11 contract (scenario 18):
-# a startup slower than the static budget IS killed, NRestarts is bounded by
-# StartLimitBurst, and the operator's recovery lever is `./sb install` (which
-# dispatches the same work inline, bypassing the supervised unit's timeout).
+# Residual (tracked separately): boot-migrate-up is the one pre-READY step
+# whose duration scales with the DB — a genuinely multi-minute schema
+# migration at boot can still exceed this 120s budget. That is the deliberate
+# C11 contract (scenario 18): a startup slower than the static budget IS
+# killed, NRestarts is bounded by StartLimitBurst, and the operator's recovery
+# lever is `./sb install` (which dispatches the same work inline, bypassing
+# the supervised unit's timeout).
 # NOTE: there is no longer an activating-phase timeout extender — the earlier
 # sdNotifyExtendTimeout(EXTEND_TIMEOUT_USEC) helper was DELETED (commit
 # e6df084b7); see the historical note in cli/internal/upgrade/watchdog.go.

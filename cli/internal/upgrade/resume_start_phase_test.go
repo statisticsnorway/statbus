@@ -7,18 +7,23 @@ import (
 	"testing"
 )
 
-// Structural guards for the recovery-arc start-phase fix
-// (plan: recovery-arc-flaw-timeoutstartsec.md §4a). These pin the two
-// source-level orderings that keep an exit-42 RESUME from wedging a unit
-// in systemd's `activating` (start) phase under TimeoutStartSec.
+// Structural guard for the recovery-arc start-phase fix
+// (plan: recovery-arc-flaw-timeoutstartsec.md §4a, FIX A). Pins the
+// source-level ordering that keeps an exit-42 RESUME from wedging a unit:
+// the terminal state='completed' UPDATE + flag removal must run BEFORE the
+// slow, kill-prone archiveBackup. On the resume path archiveBackup runs in
+// systemd's `activating` (start) phase under TimeoutStartSec; reordering it
+// after the terminal UPDATE means a SIGTERM mid-tar leaves a COMPLETED
+// upgrade the next start no-ops past, instead of cancelling the DB context
+// before the UPDATE persists (the NO/rune wedge mechanism).
 //
-// Why source-order guards rather than a behavioral test: the failure only
+// Why a source-order guard rather than a behavioral test: the failure only
 // manifests against a live systemd unit + a large DB (the full reproduction
 // lives in the install-recovery harness, scenario 27, which runs on the
-// Hetzner CI box at RC-cut). These guards run locally in `go test` and
-// fail loudly the instant a future edit re-introduces the ordering bug —
-// the same discipline as TestRecoverFromFlag_PhaseDiscriminationPresent
-// and TestResumePostSwap_SelfHealContinueOrFailLoud in postswap_test.go.
+// Hetzner CI box at RC-cut). This guard runs locally in `go test` and fails
+// loudly the instant a future edit re-introduces the ordering bug — the same
+// discipline as TestRecoverFromFlag_PhaseDiscriminationPresent and
+// TestResumePostSwap_SelfHealContinueOrFailLoud in postswap_test.go.
 
 // extractFuncBody returns the source of the named top-level method body
 // (signature line through the matching column-0 closing brace), with line
@@ -37,52 +42,6 @@ func extractFuncBody(t *testing.T, src, signature string) string {
 		t.Fatalf("closing brace for %q not found", signature)
 	}
 	return stripLineComments(rest[:end[1]])
-}
-
-// TestReadyEmittedBeforeRecoverFromFlag is the structural guard for FIX B1.
-//
-// recoverFromFlag → resumePostSwap → applyPostSwap is the exit-42 resume
-// path. It runs inside Service.Run's startup, and BEFORE the fix it ran
-// entirely before sdNotify("READY=1") — i.e. in systemd's `activating`
-// phase under TimeoutStartSec=120 s. A large-DB resume step (archiveBackup
-// tars a 32 GB DB on NO/rune) cannot finish in that budget, so systemd
-// SIGTERMs the unit mid-step, the terminal UPDATE never persists, the row
-// stays in_progress, and Restart=always re-enters the identical doomed
-// resume — an infinite loop (NO wedged ~40 h, NRestarts 914).
-//
-// The fix emits READY=1 after the cheap genuine init (EnsureDBUp /
-// boot-migrate-up / connect / advisory lock) but BEFORE recoverFromFlag,
-// so the whole resume runs in the ACTIVE phase under WatchdogSec — where
-// the existing 30 s WATCHDOG=1 ticker (applyPostSwap) actually keeps the
-// unit alive. This guard pins READY=1 < recoverFromFlag in Service.Run.
-func TestReadyEmittedBeforeRecoverFromFlag(t *testing.T) {
-	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))
-	if err != nil {
-		t.Fatalf("read service.go: %v", err)
-	}
-	run := extractFuncBody(t, string(src), "func (d *Service) Run(")
-
-	readyIdx := strings.Index(run, `sdNotify("READY=1")`)
-	if readyIdx < 0 {
-		t.Fatal(`Service.Run missing sdNotify("READY=1") — test is stale`)
-	}
-	recoverIdx := strings.Index(run, "d.recoverFromFlag(ctx)")
-	if recoverIdx < 0 {
-		t.Fatal("Service.Run missing d.recoverFromFlag(ctx) call — test is stale")
-	}
-
-	if readyIdx > recoverIdx {
-		t.Errorf(`sdNotify("READY=1") must be emitted BEFORE d.recoverFromFlag(ctx) `+
-			"(readyIdx=%d, recoverIdx=%d).\n"+
-			"On the exit-42 resume path recoverFromFlag → resumePostSwap → applyPostSwap "+
-			"runs the whole heavy pipeline (incl. archiveBackup). If READY=1 has not yet "+
-			"fired, that pipeline runs in systemd's `activating` phase under TimeoutStartSec; "+
-			"a large-DB step blows the budget, the unit is SIGTERM'd before the terminal "+
-			"UPDATE persists, and the service restart-loops forever (the NO/rune wedge). "+
-			"Emit READY=1 after the cheap init (EnsureDBUp/boot-migrate/connect/advisory-lock) "+
-			"but before recoverFromFlag so the resume runs ACTIVE-phase under WatchdogSec. "+
-			"See plan recovery-arc-flaw-timeoutstartsec.md §4a FIX B1.", readyIdx, recoverIdx)
-	}
 }
 
 // TestArchiveBackupAfterTerminalUpdate is the structural guard for FIX A.

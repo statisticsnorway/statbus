@@ -1506,66 +1506,6 @@ func (d *Service) Run(ctx context.Context) error {
 		return err
 	}
 
-	// Harness-only stall site (C11): simulates a startup pipeline that
-	// runs longer than the unit's TimeoutStartSec budget. Activated by
-	// STATBUS_INJECT_AT=service-startup-slower-than-systemd-unit-timeout
-	// and held by STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE. Fires DURING
-	// the unit's `activating` phase — i.e. BEFORE the sdNotify("READY=1")
-	// call below. While the stall is held, systemd's TimeoutStartSec
-	// (declared as 120 s in ops/statbus-upgrade.service per commit
-	// f43b2bfd1) ticks down. Once it expires, systemd SIGTERMs the unit
-	// and increments NRestarts.
-	//
-	// Relocated above READY=1 by plan recovery-arc-flaw-timeoutstartsec.md
-	// §4a FIX B1: READY=1 now fires before recoverFromFlag, so the only
-	// startup work that still runs under TimeoutStartSec is this genuine
-	// cheap init (EnsureDBUp → boot-migrate-up → connect → advisory lock).
-	// The C11 contract is unchanged — a startup slower than the static
-	// 120 s budget IS killed, NRestarts is bounded by StartLimitBurst, and
-	// the operator's recovery is `./sb install` (which dispatches the same
-	// upgrade inline, bypassing the supervised unit's timeout). The earlier
-	// sdNotifyExtendTimeout(EXTEND_TIMEOUT_USEC) activating-phase extender
-	// (commit d416a50a0) remains deleted (commit e6df084b7) — re-introducing
-	// it would couple the watchdog and start budgets in ways the Race B
-	// forensics showed to be subtly wrong. No-op in production. Drives
-	// scenario 18.
-	inject.StallHere("service-startup-slower-than-systemd-unit-timeout")
-
-	// LISTEN on channels (must use listenConn — queryConn is for queries).
-	// Registered BEFORE READY=1 so the service is already listening the
-	// instant systemd marks the unit active — a NOTIFY (e.g. ./sb upgrade
-	// apply) sent right after activation is buffered on the session rather
-	// than lost. Notifications are not *processed* until startListenLoop
-	// runs in the main loop below, so registering early is safe: it only
-	// prevents missed wakeups, it does not let a NOTIFY interleave with
-	// recovery.
-	if _, err := d.listenConn.Exec(ctx, "LISTEN upgrade_check"); err != nil {
-		return fmt.Errorf("LISTEN upgrade_check: %w", err)
-	}
-	if _, err := d.listenConn.Exec(ctx, "LISTEN upgrade_apply"); err != nil {
-		return fmt.Errorf("LISTEN upgrade_apply: %w", err)
-	}
-
-	// Signal readiness BEFORE recoverFromFlag (plan
-	// recovery-arc-flaw-timeoutstartsec.md §4a FIX B1). The cheap, genuine
-	// init that SHOULD gate readiness has run (EnsureDBUp → boot-migrate-up
-	// → connect → advisory lock + LISTEN). recoverFromFlag → resumePostSwap
-	// → applyPostSwap, by contrast, can run for many minutes on real data
-	// (rune: a 32 GB archiveBackup tar). Emitting READY=1 here moves that
-	// whole resume into systemd's ACTIVE phase, governed by WatchdogSec
-	// (which the existing 30 s WATCHDOG=1 ticker in applyPostSwap keeps
-	// alive) instead of the start phase governed by TimeoutStartSec=120 s.
-	// Before this change the resume ran pre-READY=1: a large-DB step blew
-	// the start budget, systemd SIGTERM'd the unit before the terminal
-	// UPDATE persisted, the row stayed in_progress, and Restart=always
-	// re-entered the identical doomed resume — the NO/rune wedge (~40 h,
-	// NRestarts 914). Nothing forces READY=1 to follow recovery: Type=notify
-	// + Restart=always + the advisory lock + the flag still serialise a
-	// genuine crash; "active but recovering" is more honest than a unit
-	// stuck `activating` until a start-timeout kill.
-	fmt.Printf("Upgrade service started (channel=%s, interval=%s)\n", d.channel, d.interval)
-	sdNotify("READY=1") // Tell systemd we're initialized
-
 	// Recover from interrupted upgrades. The flag file survives DB rollbacks
 	// (it's on the filesystem, not in the DB volume). Must run BEFORE
 	// completeInProgressUpgrade so the flag-based recovery takes priority.
@@ -1595,11 +1535,43 @@ func (d *Service) Run(ctx context.Context) error {
 	// Check for missed scheduled upgrades
 	d.checkMissedUpgrades(ctx)
 
-	// LISTEN + READY=1 were emitted earlier (right after the advisory lock,
-	// before recoverFromFlag) so the exit-42 resume runs in the ACTIVE phase
-	// under WatchdogSec rather than the start phase under TimeoutStartSec.
-	// See the "Signal readiness" block above and plan
-	// recovery-arc-flaw-timeoutstartsec.md §4a FIX B1.
+	// Harness-only stall site (C11): simulates a startup pipeline that
+	// runs longer than the unit's TimeoutStartSec budget. Activated by
+	// STATBUS_INJECT_AT=service-startup-slower-than-systemd-unit-timeout
+	// and held by STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE. Fires DURING
+	// the unit's `activating` phase — i.e. BEFORE the sdNotify("READY=1")
+	// call below. While the stall is held, systemd's TimeoutStartSec
+	// (declared as 120 s in ops/statbus-upgrade.service per commit
+	// f43b2bfd1) ticks down. Once it expires, systemd SIGTERMs the unit
+	// and increments NRestarts.
+	//
+	// No-op in production. Drives scenario 18.
+	//
+	// Design choice (a) over (b) — keep TimeoutStartSec static:
+	//   Earlier code shipped sdNotifyExtendTimeout(EXTEND_TIMEOUT_USEC)
+	//   to push TimeoutStartSec forward during the activating phase
+	//   (Fix 1 / commit d416a50a0). That helper has been DELETED in
+	//   commit e6df084b7 — see the historical note at the bottom of
+	//   watchdog.go for the full rationale. The C11 contract is now:
+	//   if startup is slower than the unit's static 120 s budget, the
+	//   unit IS killed, NRestarts is bounded by StartLimitBurst, and
+	//   the operator's recovery is `./sb install` (which dispatches the
+	//   same upgrade inline, bypassing the supervised unit's timeout).
+	//   This is the simpler, principled shape — re-introducing the
+	//   activating-phase extender would couple the watchdog and start
+	//   budgets in ways the Race B forensics showed to be subtly wrong.
+	inject.StallHere("service-startup-slower-than-systemd-unit-timeout")
+
+	// LISTEN on channels (must use listenConn — queryConn is for queries)
+	if _, err := d.listenConn.Exec(ctx, "LISTEN upgrade_check"); err != nil {
+		return fmt.Errorf("LISTEN upgrade_check: %w", err)
+	}
+	if _, err := d.listenConn.Exec(ctx, "LISTEN upgrade_apply"); err != nil {
+		return fmt.Errorf("LISTEN upgrade_apply: %w", err)
+	}
+
+	fmt.Printf("Upgrade service started (channel=%s, interval=%s)\n", d.channel, d.interval)
+	sdNotify("READY=1") // Tell systemd we're initialized
 
 	// Main loop: use a goroutine for LISTEN/NOTIFY, select on channels
 	notifyCh := make(chan *pgconn.Notification, 1)
@@ -3731,21 +3703,26 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	} else {
 		progress.Write("Applying database migrations...")
 
-		// Post-swap migrate-up runs in the unit's ACTIVE phase. READY=1
-		// fires in Service.Run setup before this code is reached on BOTH
-		// entries into applyPostSwap: the scheduled path (main loop
-		// dispatches executeUpgrade after READY=1) and, since plan
-		// recovery-arc-flaw-timeoutstartsec.md §4a FIX B1, the exit-42
-		// resume path (READY=1 now fires before recoverFromFlag). Active-
-		// phase systemd enforces WatchdogSec (=120 s per
-		// ops/statbus-upgrade.service); only WATCHDOG=1 resets the deadline.
+		// Phase note: applyPostSwap has TWO entries with different systemd
+		// phases. On the SCHEDULED path (main loop dispatches executeUpgrade
+		// after Service.Run sent READY=1) it runs in the ACTIVE phase under
+		// WatchdogSec (=120 s per ops/statbus-upgrade.service); only WATCHDOG=1
+		// resets that deadline. On the exit-42 RESUME path (recoverFromFlag →
+		// resumePostSwap → applyPostSwap, reached BEFORE READY=1) it runs in
+		// the START phase under TimeoutStartSec. The §4a FIX A reorder
+		// (archiveBackup moved after the terminal UPDATE) is what makes the
+		// resume safe regardless of phase: the fast UPDATE persists before the
+		// slow tar, so a start-phase SIGTERM during the tar is harmless.
 		//
 		// The applyExtendCtx ticker started above (right after the
-		// reconnect block) handles the heartbeat for this entire
-		// remainder of applyPostSwap -- migrate-up + step 11 + step 12
+		// reconnect block) handles the active-phase WATCHDOG=1 heartbeat for
+		// the remainder of applyPostSwap -- migrate-up + step 11 + step 12
 		// + terminal UPDATE + archiveBackup (archiveBackup was reordered
 		// after the terminal UPDATE by §4a FIX A; the ticker's defer scope
-		// covers it either way). The migration itself also emits per-line
+		// covers it either way). On the scheduled path that keeps the unit
+		// alive across long steps; on the resume path WATCHDOG=1 is a no-op
+		// (WatchdogSec isn't armed pre-READY), and TimeoutStartSec is the
+		// governing bound. The migration itself also emits per-line
 		// progress.Write calls that fire emitHeartbeat, so the ticker is
 		// the safety net for the few seconds at the start of a migration
 		// before its first progress line lands.

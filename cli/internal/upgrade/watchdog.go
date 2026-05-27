@@ -23,17 +23,22 @@ import (
 // code paths must be removed).
 //
 // Addendum (2026-05-27, plan recovery-arc-flaw-timeoutstartsec.md §4a):
-// the original note's "applyPostSwap always runs active-phase" was true
-// for the SCHEDULED path but FALSE for the exit-42 RESUME path, which
-// reached applyPostSwap from recoverFromFlag DURING Service.Run startup —
-// before READY=1 — so on that path applyPostSwap ran in the START phase
-// under TimeoutStartSec, where neither WATCHDOG=1 nor the deleted extender
-// helped. A 32 GB archiveBackup blew the start budget and wedged NO/rune in
-// a restart loop (~40 h). The fix moves READY=1 to BEFORE recoverFromFlag
-// (Service.Run), so the resume now ALSO runs active-phase — making the
-// "always active-phase" assumption universally true at last, and keeping
-// the EXTEND_TIMEOUT_USEC deletion correct (the active phase needs only
-// WATCHDOG=1). No code here changed; this records why the deletion holds.
+// the original note's "applyPostSwap always runs active-phase" is true for
+// the SCHEDULED path but FALSE for the exit-42 RESUME path, which reaches
+// applyPostSwap from recoverFromFlag DURING Service.Run startup — before
+// READY=1 — so on that path applyPostSwap runs in the START phase under
+// TimeoutStartSec, where neither WATCHDOG=1 nor the deleted extender helps.
+// A 32 GB archiveBackup blew the start budget and wedged NO/rune in a
+// restart loop (~40 h). The §4a FIX (A) does NOT change that phase split:
+// it reorders archiveBackup to AFTER the terminal state='completed' UPDATE +
+// removeUpgradeFlag, so the slow, kill-prone tar runs only once the row is
+// already completed — a start-phase SIGTERM during the tar is then harmless
+// (the next start finds no flag and no-ops). The EXTEND_TIMEOUT_USEC deletion
+// remains correct: the start-phase resume is bounded by TimeoutStartSec as
+// intended (a HARD bound on a genuine hang), and the scheduled path's
+// active-phase steps are covered by WATCHDOG=1. No code here changed; this
+// records why the deletion holds and why the start-phase resume is no longer
+// a wedge.
 
 // Heartbeat design (task #42, unified from task #37's 4-commit chain):
 //
@@ -87,13 +92,15 @@ import (
 // emitHeartbeat so the three signals stay unified.
 //
 // One legitimate ad-hoc callsite is the applyPostSwap WATCHDOG=1 ticker
-// (service.go), which sends WATCHDOG=1 directly without the file+log side
-// effects of emitHeartbeat. That's an active-phase ticker — applyPostSwap
-// runs after Service.Run has sent READY=1 on BOTH the scheduled path (main
-// loop dispatches after READY=1) AND, since plan §4a FIX B1, the exit-42
-// resume path (READY=1 now fires before recoverFromFlag). So WATCHDOG=1
-// (not the deleted EXTEND_TIMEOUT_USEC) is the primitive that resets the
-// watchdog deadline in either case.
+// (service.go). On the SCHEDULED path applyPostSwap runs after Service.Run
+// has sent READY=1 (the main loop dispatches executeUpgrade post-READY), so
+// the ticker is active-phase and WATCHDOG=1 (not the deleted
+// EXTEND_TIMEOUT_USEC) is what resets the watchdog deadline. On the exit-42
+// RESUME path applyPostSwap runs pre-READY (reached from recoverFromFlag in
+// Service.Run startup), so those WATCHDOG=1 pings are no-ops — WatchdogSec
+// isn't armed in the activating phase, and TimeoutStartSec is the governing
+// bound there. That start-phase resume is safe via §4a FIX A (archiveBackup
+// reordered after the terminal UPDATE), not via this ticker.
 func sdNotify(state string) {
 	socket := os.Getenv("NOTIFY_SOCKET")
 	if socket == "" {
