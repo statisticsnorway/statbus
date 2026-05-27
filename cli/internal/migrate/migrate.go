@@ -295,12 +295,28 @@ func runPsqlFile(projDir string, filePath string) (string, error) {
 	defer file.Close()
 
 	args := append(prefix, "-v", "ON_ERROR_STOP=on")
-	cmd := exec.Command(psqlPath, args...)
+	// Hardening belt for the DIRECT `./sb migrate up` CLI path (operator /
+	// install) — that path runs runPsqlFile with NO outer timeout wrapper, so a
+	// single hung statement (a CREATE INDEX wedged on a lock, a runaway query)
+	// would run forever. Bound it with a generous 60-min ceiling. NOTE: on the
+	// UPGRADE-SERVICE path this is belt-and-suspenders — there the migrate step
+	// is already hard-bounded by the OUTER runCommandToLog (CommandContext 5min
+	// boot / 30min resume + prepareCmd's process-group SIGKILL, which reaps this
+	// psql child since it shares ./sb's process group). The #3 progress-gated
+	// watchdog DEFERS during that outer call and relies on the outer bound, NOT
+	// on this inner one. This 60-min ceiling is the ultimate backstop for the
+	// unwrapped CLI invocation. (plan upgrade-resume-structural-whole.md)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Minute)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, psqlPath, args...)
 	cmd.Dir = projDir
 	cmd.Env = env
 	cmd.Stdin = file
 
 	out, err := cmd.CombinedOutput()
+	if ctx.Err() == context.DeadlineExceeded {
+		return string(out), fmt.Errorf("migration %s exceeded the 60-minute hard timeout (statement hung?): %w", filepath.Base(filePath), err)
+	}
 	return string(out), err
 }
 
