@@ -1,6 +1,7 @@
 package upgrade
 
 import (
+	"context"
 	"net"
 	"os"
 	"path/filepath"
@@ -116,6 +117,67 @@ func sdNotify(state string) {
 	}
 	defer conn.Close()
 	conn.Write([]byte(state))
+}
+
+// applyPostSwapStallThreshold is how long applyPostSwap's gated watchdog
+// ticker tolerates output-silence before it STOPS pinging WATCHDOG=1 — at
+// which point systemd's WatchdogSec (=120 s per ops/statbus-upgrade.service)
+// trips and SIGABRTs the hung unit. 3 min > the 120 s deadline so the gate's
+// decision (stop pinging) is what lets the watchdog fire, not a race between
+// the two timers: a step that goes silent stops bumping lastAdvanceAt, the
+// next tick (≤30 s later) sees sinceLastAdvance ≥ 3 min and skips, and after
+// 120 s of skipped pings systemd acts. A live step bumps via per-line output
+// (PrefixWriter onLine → progress.bump) or step-boundary progress.Write well
+// inside 3 min, so it never trips. The migrate/recreate step — silent for
+// minutes on a single big DDL — is exempted via deferGating (it is bounded by
+// its OWN runCommandToLog timeout + task #7's cumulative-activating cap).
+const applyPostSwapStallThreshold = 3 * time.Minute
+
+// applyPostSwapWatchdogCadence is the gated ticker's tick interval: 1/4 of the
+// 120 s WatchdogSec budget gives wide jitter tolerance with trivial CPU cost.
+const applyPostSwapWatchdogCadence = 30 * time.Second
+
+// runGatedWatchdogTicker is applyPostSwap's SINGLE watchdog goroutine (plan
+// upgrade-resume-structural-whole.md piece #3). It fires ping() every cadence
+// IFF progress.shouldPingWatchdog(stall) is true, and stops when ctx is done,
+// closing doneCh so the caller can join.
+//
+// This collapses the prior TWO unconditional tickers (the reconnect-scoped one
+// and the applyPostSwap-remainder one, both blind 30 s timers) into one
+// progress-gated loop covering reconnect → migrate → step 11 → step 12 →
+// archiveBackup. The collapse is also a fix: an unconditional ticker is itself
+// a blind-watchdog hole — a step hung INSIDE the ticker's scope (e.g. a wedged
+// d.reconnect) would ping forever and never let WatchdogSec fire. Gating closes
+// that hole: a hung step stops advancing lastAdvanceAt, the gate goes false,
+// pings stop, and systemd reaps the unit.
+//
+// The FIRST tick is gated too (no unconditional initial ping): on entry the
+// pipeline has just advanced (waitForDBHealth returned + its progress.Write
+// bumped lastAdvanceAt, and the log is seeded to "now" at construction), so the
+// gate is open and the deadline is reset before any step can run long. A nil
+// progress pings unconditionally (shouldPingWatchdog(nil)==true) — the prior
+// behaviour for any untracked caller.
+//
+// ping is injected so unit tests can drive the loop with a counter instead of a
+// real sd_notify socket; production passes a closure that calls
+// sdNotify("WATCHDOG=1").
+func runGatedWatchdogTicker(ctx context.Context, progress *ProgressLog, stall, cadence time.Duration, ping func(), doneCh chan struct{}) {
+	defer close(doneCh)
+	if progress.shouldPingWatchdog(stall) {
+		ping()
+	}
+	ticker := time.NewTicker(cadence)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if progress.shouldPingWatchdog(stall) {
+				ping()
+			}
+		}
+	}
 }
 
 // heartbeatPath returns the path to the on-disk heartbeat marker.

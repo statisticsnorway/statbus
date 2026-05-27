@@ -69,6 +69,17 @@ Environment=PATH=/home/linuxbrew/.linuxbrew/bin:/usr/local/sbin:/usr/local/bin:/
 # preparing images..." ticker in service.go so it too emits heartbeats
 # during legitimately slow docker pulls — matches the 10-min internal
 # timeout in pullImages itself (exec.go:160).
+#
+# applyPostSwap (the multi-minute active-phase tail: reconnect → migrate →
+# docker up → health → archiveBackup) is covered by a SINGLE progress-gated
+# WATCHDOG=1 ticker (plan upgrade-resume-structural-whole.md piece #3,
+# runGatedWatchdogTicker in watchdog.go). It pings ONLY while the pipeline
+# advances (per-line subprocess output or step-boundary progress.Write within
+# applyPostSwapStallThreshold=3m); a genuinely HUNG step stops advancing → the
+# ticker stops pinging → this WatchdogSec=120 fires and the unit is reaped.
+# The migrate/recreate step (legitimately silent for minutes on one big DDL) is
+# exempted (always-ping), bounded instead by its own 30-min runCommandToLog
+# timeout + the cumulative-activating liveness cap (task #7).
 WatchdogSec=120
 
 # TimeoutStartSec: hold-window from ExecStart until the service emits
@@ -88,10 +99,10 @@ WatchdogSec=120
 # This is the root fix for the NO/rune wedge: a fixed TimeoutStartSec can never
 # bound DB-size-scaled work, so running it here killed the unit every cycle
 # (32 GB DB, ~40 h loop). Moving it active-phase means WatchdogSec governs, and
-# the applyPostSwap WATCHDOG=1 ticker keeps a long step alive. (FIX A also
-# reorders archiveBackup after the terminal UPDATE so a kill mid-tar is
-# harmless; piece #3 progress-gates the ticker so a genuinely HUNG active-phase
-# step is caught — landing separately.)
+# the applyPostSwap progress-gated WATCHDOG=1 ticker keeps a long step alive
+# while it advances. (FIX A also reorders archiveBackup after the terminal
+# UPDATE so a kill mid-tar is harmless; piece #3 progress-gates the ticker — see
+# the WatchdogSec note above — so a genuinely HUNG active-phase step is caught.)
 #
 # So this start budget now bounds ONLY the cheap init. The earlier "slow
 # boot-migrate is a residual that can still blow TimeoutStartSec" no longer

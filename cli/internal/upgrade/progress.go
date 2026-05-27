@@ -45,6 +45,22 @@ type ProgressLog struct {
 	// *ProgressLog's zero value is avoided by always constructing via the
 	// helpers below, which seed it to "now".
 	lastAdvanceAt atomic.Int64
+
+	// deferGating, when true, makes shouldPingWatchdog return true regardless of
+	// sinceLastAdvance — used ONLY around the migrate / recreate-database
+	// runCommandToLog calls (plan upgrade-resume-structural-whole.md piece #3,
+	// "defer gating during the migrate step"). A single legitimate SQL statement
+	// (CREATE INDEX on a large table) emits NO output for minutes, so output-
+	// gating can't tell it from a hang. But that step is ALREADY hard-bounded by
+	// its OWN runCommandToLog timeout (boot 5 min / resume 30 min), and #7
+	// (cumulative-activating > 30 min) catches a restart LOOP. So during that
+	// step we keep pinging the watchdog (no systemd kill at WatchdogSec=120 s
+	// mid-legit-long-migration) — an EXPLICIT BOUNDED defer, NOT the task-#37
+	// blind-UNbounded ping. (The host-side SIGKILL does NOT cleanly roll back the
+	// in-container psql backend — docker-exec doesn't forward the signal; that
+	// orphan is bounded here by the LOOP cap and cleaned by task #14.) atomic:
+	// set/cleared on the main goroutine, read by the ticker goroutine.
+	deferGating atomic.Bool
 }
 
 func upgradeLogsDir(projDir string) string {
@@ -267,6 +283,32 @@ func (p *ProgressLog) sinceLastAdvance() time.Duration {
 // seam to exercise the stalled path without real sleeps.
 func (p *ProgressLog) setLastAdvanceForTest(t time.Time) {
 	p.lastAdvanceAt.Store(t.UnixNano())
+}
+
+// setDeferGating toggles the "defer watchdog gating" mode (see the deferGating
+// field doc). Set true around the migrate / recreate-database runCommandToLog
+// calls, cleared after. Nil-safe.
+func (p *ProgressLog) setDeferGating(v bool) {
+	if p == nil {
+		return
+	}
+	p.deferGating.Store(v)
+}
+
+// shouldPingWatchdog is the #3 progress-gated decision the applyPostSwap
+// WATCHDOG=1 ticker consults each tick: ping IFF the pipeline advanced within
+// stallThreshold, OR gating is deferred (the migrate/recreate step, bounded by
+// its own timeout). A stalled, non-deferred step → no ping → WatchdogSec fires
+// (the hung step is caught, bounded). Nil-safe (nil log ⇒ no pipeline to
+// watch ⇒ ping, the prior unconditional behaviour for non-tracked callers).
+func (p *ProgressLog) shouldPingWatchdog(stallThreshold time.Duration) bool {
+	if p == nil {
+		return true
+	}
+	if p.deferGating.Load() {
+		return true
+	}
+	return p.sinceLastAdvance() < stallThreshold
 }
 
 // Close closes the log file.

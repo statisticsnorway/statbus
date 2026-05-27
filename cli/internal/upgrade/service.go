@@ -3529,14 +3529,14 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// Regenerate config via the NEW binary. VERSION comes from git describe
 	// --tags --always against the just-checked-out HEAD.
 	progress.Write("Regenerating configuration...")
-	if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "config-generate", nil, filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
+	if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "config-generate", progress.bump, filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
 		// TODO: pick code — config generate failure; no Err* code defined yet
 		return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("./sb config generate: %v", err), progress)
 	}
 
 	// Step 8: Pull updated images
 	progress.Write("Pulling updated images...")
-	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", nil, "docker", "compose", "pull"); err != nil {
+	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", progress.bump, "docker", "compose", "pull"); err != nil {
 		return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: docker compose pull: %v", ErrDockerUpFailed, err), progress)
 	}
 
@@ -3548,7 +3548,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// no useful error). If the image isn't in the registry yet, CI hasn't
 	// built it. Tell the operator to wait for images.yaml and retry.
 	progress.Write("Starting database...")
-	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", nil, "docker", "compose", "up", "-d", "--no-build", "db"); err != nil {
+	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", progress.bump, "docker", "compose", "up", "-d", "--no-build", "db"); err != nil {
 		reason := fmt.Sprintf(
 			"%s: docker compose up -d db: %v\n\n"+
 				"The db image for %s is not available locally or in the registry. "+
@@ -3566,6 +3566,55 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 		return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: DB health check: %v", ErrHealthcheckDBDown, err), progress)
 	}
 
+	// SINGLE progress-gated WATCHDOG=1 ticker for the WHOLE remainder of
+	// applyPostSwap (reconnect + step 10 migrations + step 11 docker compose
+	// up + step 12 health check + archiveBackup + terminal UPDATE). All of
+	// these can run for many minutes on real data (rune: 35 GB archiveBackup
+	// runs the tar for ~minutes); the main goroutine is parked in subprocess
+	// or pgx waits with no opportunity to ping WATCHDOG=1 from the main loop.
+	// Without this goroutine, WatchdogSec=120 s (per ops/statbus-upgrade.service)
+	// fires and systemd SIGABRTs the unit → restart loop → never reaches
+	// `state='completed'`.
+	//
+	// applyPostSwap runs in the unit's ACTIVE phase on BOTH entries (READY=1
+	// fired in Service.Run before the main loop / before recoverFromFlag since
+	// plan piece #2), so systemd enforces WatchdogSec, and per sd_notify(3)
+	// only WATCHDOG=1 — not the deleted EXTEND_TIMEOUT_USEC — resets that
+	// deadline.
+	//
+	// PROGRESS-GATED (plan upgrade-resume-structural-whole.md piece #3): the
+	// ticker pings only while the pipeline is advancing (shouldPingWatchdog).
+	// A HUNG step stops bumping lastAdvanceAt → the gate closes → pings stop →
+	// WatchdogSec fires and the unit is reaped (instead of a blind ticker
+	// pinging forever past a wedged step). Live steps bump via per-line output
+	// (progress.bump threaded as runCommandToLog's onAdvance) or step-boundary
+	// progress.Write; the migrate/recreate step — silent for minutes on one big
+	// DDL — is exempted via deferGating around its runCommandToLog call.
+	//
+	// COLLAPSE: this one ticker replaces the prior TWO unconditional tickers —
+	// the reconnect-scoped one (which protected only d.reconnect) and the
+	// applyPostSwap-remainder one (d416a50a0's migrate-only ticker, later
+	// widened). Both were blind 30 s timers; an unconditional ticker is itself
+	// a blind-watchdog hole (a wedged reconnect would have pinged forever). One
+	// gated ticker from here closes that hole and covers reconnect through
+	// archiveBackup. Reproduced empirically by scenarios 19 (reconnect stall)
+	// and 26 (archiveBackup stall).
+	//
+	// Cancelled via defer so every error-return path in applyPostSwap reaps the
+	// goroutine cleanly. First ping is gated too (no unconditional initial
+	// ping): waitForDBHealth just returned + its progress.Write bumped
+	// lastAdvanceAt, so the gate is open and the deadline resets before any
+	// step runs long.
+	applyExtendCtx, applyExtendCancel := context.WithCancel(ctx)
+	applyTickerDone := make(chan struct{})
+	go runGatedWatchdogTicker(applyExtendCtx, progress,
+		applyPostSwapStallThreshold, applyPostSwapWatchdogCadence,
+		func() { sdNotify("WATCHDOG=1") }, applyTickerDone)
+	defer func() {
+		applyExtendCancel()
+		<-applyTickerDone
+	}()
+
 	// Harness-only stall site (C15 / Race D): simulates a slow DB
 	// reconnect after the DB container restart earlier in this method
 	// (docker compose up -d --no-build db). The reconnect step parks
@@ -3574,114 +3623,33 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// STATBUS_INJECT_AT=service-watchdog-timeout-during-db-reconnect-after-container-restart
 	// and held by STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE.
 	//
-	// The reconnect-watchdog ticker below is the structural fix —
-	// even when the main goroutine is parked (in the real-world Race D
-	// case: a slow DB-side handshake) or stalled (in the harness case:
-	// inject.StallHere blocks on a release file), the ticker
-	// goroutine keeps firing WATCHDOG=1 every 30 s so systemd's
-	// WatchdogSec=120s deadline cannot trip.
+	// The gated ticker started above is the structural fix — even when the
+	// main goroutine is parked (real-world Race D: a slow DB-side handshake)
+	// the ticker goroutine keeps firing WATCHDOG=1 so systemd's WatchdogSec
+	// deadline cannot trip — UNTIL the gate's 3-min stall threshold lapses,
+	// at which point a genuinely wedged reconnect (no advance) correctly stops
+	// the pings and lets WatchdogSec reap the unit. The progress.Write calls
+	// bracketing d.reconnect below bump lastAdvanceAt at entry and on success,
+	// so a normal sub-second reconnect keeps the gate open; only a hang trips.
 	//
 	// No-op in production.
 	inject.StallHere("service-watchdog-timeout-during-db-reconnect-after-container-restart")
 
-	// Reconnect service DB connection.
-	//
-	// Race D fix: this block runs in the unit's ACTIVE phase (READY=1
-	// fired at service.go:1520 in Service.Run's setup, BEFORE the main
-	// loop dispatches executeUpgrade), so systemd enforces WatchdogSec
-	// (=120s per ops/statbus-upgrade.service), NOT TimeoutStartSec.
-	// Per sd_notify(3) the watchdog deadline is reset ONLY by
-	// WATCHDOG=1 — EXTEND_TIMEOUT_USEC doesn't apply to it. The
-	// migrate-up step further down sets up its own WATCHDOG=1 ticker
-	// for the same reason (commit e6df084b7's Race B fix); this
-	// ticker is the upstream sibling that protects the reconnect
-	// site, which the original Race B fix did not cover.
-	//
-	// Failure mode without this ticker (observed in the Race D
-	// forensics under tmp/install-state-machine-forensics.md):
-	// during a real DB-side slow handshake (cluster restart, slow
-	// network path, contention against a long-running ANALYZE on a
-	// huge table), d.reconnect's pgx.Connect blocks for >120s; the
-	// main goroutine is parked inside it; WATCHDOG=1 is not sent;
-	// systemd SIGABRTs the unit. NRestarts climbs. Scenario 19's
-	// runtime path (with the C15 stall held for STALL_HOLD_S=180s)
-	// reproduces this exactly.
-	//
-	// 30-second tick cadence matches the e6df084b7 migrate ticker:
-	// 1/4 the watchdog deadline gives wide jitter tolerance while
-	// keeping the ticker's CPU footprint trivial. First WATCHDOG=1
-	// fires immediately so the deadline is reset before the
-	// reconnect can run long enough to approach the budget.
-	reconnExtendCtx, reconnExtendCancel := context.WithCancel(ctx)
-	reconnTickerDone := make(chan struct{})
-	go func() {
-		defer close(reconnTickerDone)
-		sdNotify("WATCHDOG=1")
-		ticker := time.NewTicker(30 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-reconnExtendCtx.Done():
-				return
-			case <-ticker.C:
-				sdNotify("WATCHDOG=1")
-			}
-		}
-	}()
-
+	// Reconnect service DB connection. Bracketed by progress.Write boundaries
+	// (entry + success) so the gated ticker sees an advance: a normal reconnect
+	// bumps lastAdvanceAt at "Reconnecting..." and again at "Database
+	// reconnected.", keeping the watchdog fed; a reconnect wedged past the 3-min
+	// stall threshold emits neither further bump → gate closes → WatchdogSec
+	// fires (the hung reconnect is caught, not pinged forever — the hole the
+	// old unconditional reconnect ticker left open). d.queryConn was nil on
+	// entry (the pre-swap teardown closed it); reconnect reopens both conns and
+	// re-acquires the advisory lock.
 	progress.Write("Reconnecting to database...")
 	reconnErr := d.reconnect(ctx)
-	reconnExtendCancel()
-	<-reconnTickerDone
 	if reconnErr != nil {
 		return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: reconnect to DB: %v", ErrHealthcheckDBDown, reconnErr), progress)
 	}
-
-	// Active-phase WATCHDOG=1 ticker for the WHOLE remainder of
-	// applyPostSwap (step 10 migrations + step 11 docker compose up +
-	// step 12 health check + archiveBackup + terminal UPDATE). All of
-	// these can run for many minutes on real data (rune: 35 GB
-	// archiveBackup runs the tar for ~minutes); the main goroutine is
-	// parked in subprocess waits with no opportunity to ping
-	// WATCHDOG=1 from the main loop. Without this goroutine,
-	// WatchdogSec=120 s (per ops/statbus-upgrade.service) fires and
-	// systemd SIGABRTs the unit -> restart loop -> never reaches
-	// `state='completed'`.
-	//
-	// This subsumes the prior d416a50a0 migrate-only ticker (which was
-	// scoped via extendCtx/extendCancel around runCommandToLog("migrate"
-	// , nil,...) and cancelled BEFORE step 11 -- leaving archiveBackup
-	// uncovered). Reproduced empirically by scenario 26
-	// (archive-backup-stall-active-phase-watchdog).
-	//
-	// Started AFTER the reconnect-watchdog ticker (which has its own
-	// scope around d.reconnect) cleans up via reconnTickerDone above.
-	// Cancelled via defer so every error-return path in applyPostSwap
-	// reaps the goroutine cleanly. First ping fires immediately so the
-	// deadline resets before any subprocess can run long enough to
-	// approach the 120 s budget. 30 s cadence matches the
-	// e6df084b7 + Race D pattern: 1/4 the watchdog deadline gives wide
-	// jitter tolerance with trivial CPU cost.
-	applyExtendCtx, applyExtendCancel := context.WithCancel(ctx)
-	applyTickerDone := make(chan struct{})
-	go func() {
-		defer close(applyTickerDone)
-		sdNotify("WATCHDOG=1")
-		ticker := time.NewTicker(30 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-applyExtendCtx.Done():
-				return
-			case <-ticker.C:
-				sdNotify("WATCHDOG=1")
-			}
-		}
-	}()
-	defer func() {
-		applyExtendCancel()
-		<-applyTickerDone
-	}()
+	progress.Write("Database reconnected.")
 
 	// Update backup_path to the final (renamed) path now that we have a connection.
 	// Log on failure: the DB still holds the .tmp path; reconcileBackupDir will
@@ -3716,7 +3684,21 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	if recreate {
 		d.pendingRecreate = false
 		progress.Write("Recreating database from scratch (--recreate)...")
-		if err := runCommandToLog(projDir, 30*time.Minute, progress.File(), "recreate-database", nil, filepath.Join(projDir, "dev.sh"), "recreate-database"); err != nil {
+		// deferGating: recreate-database runs the full migration set + seed; it
+		// can be silent for minutes on a single big DDL, so output-gating would
+		// false-trip it. Exempt it (always-ping) for the duration of THIS call,
+		// bounded by the 30-min runCommandToLog timeout + task #7's cumulative-
+		// activating cap on a restart loop (same docker-exec orphan caveat as
+		// the migrate arm below — the clean in-container kill is task #14). The
+		// defer-reset is scoped to this arm via the closure, so a panic /
+		// early-return inside runCommandToLog can never leave gating disabled
+		// for a later step.
+		err := func() error {
+			progress.setDeferGating(true)
+			defer progress.setDeferGating(false)
+			return runCommandToLog(projDir, 30*time.Minute, progress.File(), "recreate-database", progress.bump, filepath.Join(projDir, "dev.sh"), "recreate-database")
+		}()
+		if err != nil {
 			return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: ./dev.sh recreate-database: %v", ErrMigrationFailed, err), progress)
 		}
 	} else {
@@ -3731,25 +3713,45 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 		// phase systemd enforces WatchdogSec (=120 s per
 		// ops/statbus-upgrade.service); only WATCHDOG=1 resets that deadline.
 		//
-		// The applyExtendCtx ticker started above (right after the
-		// reconnect block) handles the active-phase WATCHDOG=1 heartbeat for
-		// the remainder of applyPostSwap -- migrate-up + step 11 + step 12
-		// + terminal UPDATE + archiveBackup (archiveBackup was reordered
-		// after the terminal UPDATE by §4a FIX A). On BOTH paths it keeps the
-		// unit alive across long steps. (The ticker is currently a blind 30 s
-		// timer; plan piece #3 progress-gates it so a HUNG step stops the
-		// pings and WatchdogSec fires — separate commit.) The migration itself
-		// also emits per-line progress.Write calls that fire emitHeartbeat, so
-		// the ticker is the safety net for the few seconds at the start of a
-		// migration before its first progress line lands.
+		// The single gated ticker started above (right after waitForDBHealth)
+		// handles the active-phase WATCHDOG=1 heartbeat for the remainder of
+		// applyPostSwap -- migrate-up + step 11 + step 12 + terminal UPDATE +
+		// archiveBackup (archiveBackup was reordered after the terminal UPDATE
+		// by §4a FIX A). On BOTH paths it keeps the unit alive across long
+		// steps WHILE THEY ADVANCE (plan piece #3 progress-gating).
+		//
+		// migrate is the one step that can be legitimately SILENT for minutes
+		// (a single CREATE INDEX on a huge table emits no output), so output-
+		// gating can't distinguish it from a hang. We exempt it via deferGating
+		// (always-ping) for the duration of the runCommandToLog call, bounded by
+		// the step's own 30-min timeout — an EXPLICIT BOUNDED defer, not a
+		// blind-forever ping. A hung migrate is therefore caught at 30 min (the
+		// runCommandToLog CommandContext deadline) and its restart LOOP is
+		// further capped by task #7 (cumulative-activating > 30 min → unit
+		// failed). NB: the 30-min host-side SIGKILL does NOT cleanly roll back
+		// the in-container backend — migrate runs psql IN the db container via
+		// `docker compose exec -T` (migrate.go), and docker-exec does not forward
+		// SIGKILL, so the in-container psql is ORPHANED (txn open, locks held).
+		// deferGating + #7 bound the LOOP; the CLEAN kill (server-side
+		// pg_terminate_backend by app_name on migrate-timeout) is task #14, a
+		// pre-existing hole closed separately. The defer-reset is scoped to this
+		// arm via the closure so a panic / early-return inside runCommandToLog
+		// can never leave gating disabled for step 11 / archiveBackup.
+		// progress.bump is threaded as onAdvance so a migration that DOES emit
+		// per-line output also bumps lastAdvanceAt (belt-and-suspenders;
+		// deferGating already keeps the gate open here).
 		//
 		// History: d416a50a0 introduced a narrower migrate-only ticker
 		// (extendCtx/extendCancel around just runCommandToLog) which
 		// cancelled BEFORE step 11 / archiveBackup -- leaving the
 		// remaining heavy steps uncovered. Scenario 26 reproduced the
 		// resulting watchdog kill during archiveBackup; the unified
-		// ticker above subsumes the migrate-only one and closes the gap.
-		err := runCommandToLog(projDir, 30*time.Minute, progress.File(), "migrate", nil, filepath.Join(projDir, "sb"), "migrate", "up", "--verbose")
+		// gated ticker above subsumes the migrate-only one and closes the gap.
+		err := func() error {
+			progress.setDeferGating(true)
+			defer progress.setDeferGating(false)
+			return runCommandToLog(projDir, 30*time.Minute, progress.File(), "migrate", progress.bump, filepath.Join(projDir, "sb"), "migrate", "up", "--verbose")
+		}()
 
 		if err != nil {
 			return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: ./sb migrate up: %v", ErrMigrationFailed, err), progress)
@@ -3768,7 +3770,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// asserts the invariant.
 	progress.Write("Starting services...")
 	composeArgs := append([]string{"compose", "up", "-d", "--no-build"}, step11RestartServices...)
-	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", nil, "docker", composeArgs...); err != nil {
+	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", progress.bump, "docker", composeArgs...); err != nil {
 		reason := fmt.Sprintf(
 			"%s: docker compose up -d %s: %v\n\n"+
 				"One or more application images for %s are not available locally or in the registry. "+
@@ -3900,6 +3902,18 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// already terminal and the flag removed, so a SIGTERM during this
 	// multi-minute tar (rune: 32 GB) is harmless. Runs BEFORE pruneBackups
 	// so the backupPath it tars is still present.
+	//
+	// Watchdog note (plan piece #3 / #11): this tar is currently SILENT —
+	// it does not yet bump lastAdvanceAt, so the gated ticker stops pinging
+	// once sinceLastAdvance crosses applyPostSwapStallThreshold (3 m). On a
+	// genuinely huge archive (> stallThreshold + WatchdogSec ≈ 5 m of silence)
+	// systemd would SIGABRT the unit mid-tar — HARMLESS here (row already
+	// completed, flag gone, ATOMIC .tmp+rename leaves no partial; the next
+	// start no-ops). CHANGE 1 (task #11, tar --checkpoint → onLine bump)
+	// makes the tar advance the watchdog so a LIVE long archive is not killed
+	// while a write-hung one still trips. All current scenarios (19/26/27,
+	// holds ≤ 180 s) pass under #3 alone because their stalls are under the
+	// 5 m effective trip; #11 closes the real-rune > 5 m case.
 	d.archiveBackup(backupPath, displayName)
 
 	// Layer 3 of the rollback-on-SIGKILL hole plug: now that the upgrade
