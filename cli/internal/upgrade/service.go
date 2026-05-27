@@ -3526,6 +3526,68 @@ func formatForwardRecoveryFailure(forwardErr error, backupPath string) string {
 func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayName, previousVersion, backupPath string, recreate bool, progress *ProgressLog) error {
 	projDir := d.projDir
 
+	// SINGLE progress-gated WATCHDOG=1 ticker for the ENTIRE applyPostSwap body
+	// (config-generate → docker pull → docker up db → waitForDBHealth →
+	// reconnect → migrations → step-11 docker up → health → archiveBackup +
+	// terminal UPDATE). All of these can run for many minutes on real data
+	// (cold image pull on a slow box; rune: 35 GB archiveBackup tar runs for
+	// ~minutes); the main goroutine is parked in subprocess or pgx waits with
+	// no opportunity to ping WATCHDOG=1 from the main loop. Without this
+	// goroutine, WatchdogSec=120 s (per ops/statbus-upgrade.service) fires and
+	// systemd SIGABRTs the unit → restart loop → never reaches
+	// `state='completed'`.
+	//
+	// applyPostSwap runs in the unit's ACTIVE phase on BOTH entries (READY=1
+	// fired in Service.Run before the main loop / before recoverFromFlag since
+	// plan piece #2), so systemd enforces WatchdogSec, and per sd_notify(3)
+	// only WATCHDOG=1 — not the deleted EXTEND_TIMEOUT_USEC — resets that
+	// deadline.
+	//
+	// PROGRESS-GATED (plan upgrade-resume-structural-whole.md piece #3): the
+	// ticker pings only while the pipeline is advancing (shouldPingWatchdog).
+	// A HUNG step stops bumping lastAdvanceAt → the gate closes → pings stop →
+	// WatchdogSec fires and the unit is reaped (instead of a blind ticker
+	// pinging forever past a wedged step). Live steps bump via per-line output
+	// (progress.bump threaded as runCommandToLog's onAdvance — covers
+	// config-generate, docker pull, docker up, step-11 up, migrate, recreate)
+	// or step-boundary progress.Write; the migrate/recreate step — silent for
+	// minutes on one big DDL — is exempted via deferGating around its
+	// runCommandToLog call.
+	//
+	// STARTED AT THE TOP (engineer #2-trace coverage finding): the pre-reconnect
+	// steps (config-generate, docker pull, docker up db, waitForDBHealth) each
+	// run a SILENT subprocess after a single progress.Write; a cold large-image
+	// pull >120 s would otherwise blow WatchdogSec mid-pull (the ticker must
+	// already be running AND fed by their per-line bumps, not started after
+	// them). So the ticker starts here, before config-generate, and the per-line
+	// progress.bump on those steps keeps a live-but-slow pull alive while a hung
+	// one (no output > 3 min) trips.
+	//
+	// COLLAPSE: this one ticker replaces the prior TWO unconditional tickers —
+	// the reconnect-scoped one (which protected only d.reconnect) and the
+	// applyPostSwap-remainder one (d416a50a0's migrate-only ticker, later
+	// widened). Both were blind 30 s timers; an unconditional ticker is itself
+	// a blind-watchdog hole (a wedged reconnect would have pinged forever). One
+	// gated ticker covering the whole body closes that hole. Reproduced
+	// empirically by scenarios 19 (reconnect stall) and 26 (archiveBackup stall).
+	//
+	// Cancelled via defer so every error-return path in applyPostSwap reaps the
+	// goroutine cleanly. The first tick is gated like every other (no special
+	// unconditional initial ping); reaching applyPostSwap IS an advance, so we
+	// bump lastAdvanceAt right here — making the gate-open-on-entry guarantee
+	// structural (independent of whether an upstream progress.Write happened to
+	// fire recently) so the deadline resets before config-generate can run long.
+	progress.bump()
+	applyExtendCtx, applyExtendCancel := context.WithCancel(ctx)
+	applyTickerDone := make(chan struct{})
+	go runGatedWatchdogTicker(applyExtendCtx, progress,
+		applyPostSwapStallThreshold, applyPostSwapWatchdogCadence,
+		func() { sdNotify("WATCHDOG=1") }, applyTickerDone)
+	defer func() {
+		applyExtendCancel()
+		<-applyTickerDone
+	}()
+
 	// Regenerate config via the NEW binary. VERSION comes from git describe
 	// --tags --always against the just-checked-out HEAD.
 	progress.Write("Regenerating configuration...")
@@ -3565,55 +3627,6 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	if err := d.waitForDBHealth(30 * time.Second); err != nil {
 		return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: DB health check: %v", ErrHealthcheckDBDown, err), progress)
 	}
-
-	// SINGLE progress-gated WATCHDOG=1 ticker for the WHOLE remainder of
-	// applyPostSwap (reconnect + step 10 migrations + step 11 docker compose
-	// up + step 12 health check + archiveBackup + terminal UPDATE). All of
-	// these can run for many minutes on real data (rune: 35 GB archiveBackup
-	// runs the tar for ~minutes); the main goroutine is parked in subprocess
-	// or pgx waits with no opportunity to ping WATCHDOG=1 from the main loop.
-	// Without this goroutine, WatchdogSec=120 s (per ops/statbus-upgrade.service)
-	// fires and systemd SIGABRTs the unit → restart loop → never reaches
-	// `state='completed'`.
-	//
-	// applyPostSwap runs in the unit's ACTIVE phase on BOTH entries (READY=1
-	// fired in Service.Run before the main loop / before recoverFromFlag since
-	// plan piece #2), so systemd enforces WatchdogSec, and per sd_notify(3)
-	// only WATCHDOG=1 — not the deleted EXTEND_TIMEOUT_USEC — resets that
-	// deadline.
-	//
-	// PROGRESS-GATED (plan upgrade-resume-structural-whole.md piece #3): the
-	// ticker pings only while the pipeline is advancing (shouldPingWatchdog).
-	// A HUNG step stops bumping lastAdvanceAt → the gate closes → pings stop →
-	// WatchdogSec fires and the unit is reaped (instead of a blind ticker
-	// pinging forever past a wedged step). Live steps bump via per-line output
-	// (progress.bump threaded as runCommandToLog's onAdvance) or step-boundary
-	// progress.Write; the migrate/recreate step — silent for minutes on one big
-	// DDL — is exempted via deferGating around its runCommandToLog call.
-	//
-	// COLLAPSE: this one ticker replaces the prior TWO unconditional tickers —
-	// the reconnect-scoped one (which protected only d.reconnect) and the
-	// applyPostSwap-remainder one (d416a50a0's migrate-only ticker, later
-	// widened). Both were blind 30 s timers; an unconditional ticker is itself
-	// a blind-watchdog hole (a wedged reconnect would have pinged forever). One
-	// gated ticker from here closes that hole and covers reconnect through
-	// archiveBackup. Reproduced empirically by scenarios 19 (reconnect stall)
-	// and 26 (archiveBackup stall).
-	//
-	// Cancelled via defer so every error-return path in applyPostSwap reaps the
-	// goroutine cleanly. First ping is gated too (no unconditional initial
-	// ping): waitForDBHealth just returned + its progress.Write bumped
-	// lastAdvanceAt, so the gate is open and the deadline resets before any
-	// step runs long.
-	applyExtendCtx, applyExtendCancel := context.WithCancel(ctx)
-	applyTickerDone := make(chan struct{})
-	go runGatedWatchdogTicker(applyExtendCtx, progress,
-		applyPostSwapStallThreshold, applyPostSwapWatchdogCadence,
-		func() { sdNotify("WATCHDOG=1") }, applyTickerDone)
-	defer func() {
-		applyExtendCancel()
-		<-applyTickerDone
-	}()
 
 	// Harness-only stall site (C15 / Race D): simulates a slow DB
 	// reconnect after the DB container restart earlier in this method
@@ -3713,7 +3726,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 		// phase systemd enforces WatchdogSec (=120 s per
 		// ops/statbus-upgrade.service); only WATCHDOG=1 resets that deadline.
 		//
-		// The single gated ticker started above (right after waitForDBHealth)
+		// The single gated ticker started at the top of applyPostSwap
 		// handles the active-phase WATCHDOG=1 heartbeat for the remainder of
 		// applyPostSwap -- migrate-up + step 11 + step 12 + terminal UPDATE +
 		// archiveBackup (archiveBackup was reordered after the terminal UPDATE
