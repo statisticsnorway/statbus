@@ -1,6 +1,6 @@
 #!/bin/bash
-# Scenario 27: archivebackup-resume-start-phase
-#   (recovery-arc flaw — archiveBackup blows TimeoutStartSec on the exit-42 resume)
+# Scenario 27: archivebackup-resume-active-phase
+#   (recovery-arc flaw — archiveBackup on the exit-42 resume; fixed by active-phase + FIX A)
 #
 # Class:                 archive-backup-exceeds-systemd-budget-on-resume
 # Class kind:            Stall (on the resume path)
@@ -24,15 +24,21 @@
 #     identical doomed resume → infinite loop, NRestarts climbing at a
 #     cadence too slow to trip StartLimitBurst.
 #
-# EXPECTED PRINCIPLED BEHAVIOR (post-fix, plan §4a FIX A):
+# EXPECTED PRINCIPLED BEHAVIOR (post-fix, plan piece #2 + FIX A):
+#   Plan piece #2 — READY=1 + LISTEN are moved BEFORE recoverFromFlag, so
+#     the exit-42 resume now runs in the ACTIVE phase (post-READY=1), governed
+#     by WatchdogSec (not TimeoutStartSec). The applyPostSwap WATCHDOG=1
+#     ticker (a BLIND 30 s timer — it keeps the unit alive regardless of
+#     whether progress is being made) covers the stalled tar; there are 0
+#     kills expected. TimeoutStartSec is inert for the resume path (the resume
+#     runs active-phase; TimeoutStartSec only governs the pre-READY=1 window).
 #   FIX A — archiveBackup is reordered AFTER the terminal `state='completed'`
-#     UPDATE + removeUpgradeFlag. The resume still runs in the START phase
-#     (pre-READY=1), so the stalled tar is still SIGTERM'd by TimeoutStartSec —
-#     but the row is ALREADY completed and the flag removed by the time the
-#     tar runs, so the kill is harmless: the next start finds no flag and
-#     no-ops, and the unit converges. The fast terminal UPDATE persists well
-#     inside even the deployed 90 s start budget; the multi-minute tar that
-#     follows is non-critical-path (pruning already runs post-completion).
+#     UPDATE + removeUpgradeFlag. The row is ALREADY completed and the flag
+#     removed by the time the tar runs, so even if a kill occurred (systemd
+#     jitter) it would be harmless: the next start finds no flag and no-ops.
+#     The fast terminal UPDATE persists well inside the WatchdogSec budget;
+#     the multi-minute tar that follows is non-critical-path (pruning already
+#     runs post-completion).
 #
 # Trigger logic (two single-injection process runs — the inject framework
 # gates on ONE STATBUS_INJECT_AT at a time, so we kill in run 1 and stall on
@@ -49,18 +55,21 @@
 #   4. Verify the resume precondition: flag present + row in_progress.
 #   5. RUN 2 — install a systemd drop-in pinning the resume's archiveBackup
 #      stall (STATBUS_INJECT_AT=archive-backup-stall-active-phase-watchdog,
-#      held by the release file) AND a SHORT TimeoutStartSec so each doomed
-#      cycle is fast. Restart the unit. Service.Run boots → recoverFromFlag →
+#      held by the release file) AND a SHORT TimeoutStartSec (inert post-fix
+#      since the resume is active-phase; keeps pre-fix RED cycles fast).
+#      Restart the unit. Service.Run boots → READY=1 fires → recoverFromFlag →
 #      resumePostSwap → applyPostSwap → reaches archiveBackup → stalls.
-#   6. Hold the stall past several TimeoutStartSec windows and observe:
+#   6. Hold the stall past the WatchdogSec window and observe:
 #        RED (pre-fix): the row STAYS in_progress and NRestarts CLIMBS as
 #          systemd SIGTERMs each start-phase tar before the terminal UPDATE,
 #          WITHOUT tripping StartLimitBurst (the load-bearing slow-loop
 #          signature — see the RED_EXPECT block below).
-#        GREEN (post-fix FIX A): the row reaches 'completed' (the terminal
-#          UPDATE ran BEFORE the tar) and the flag is removed WHILE the tar is
-#          still stalled; the subsequent start-phase kill is harmless and the
-#          unit converges; NRestarts stays bounded (≈1 harmless kill).
+#        GREEN (post-fix, plan piece #2 + FIX A): the resume runs ACTIVE-phase
+#          (READY=1 fired before recoverFromFlag); the WATCHDOG=1 ticker keeps
+#          the unit alive across the stalled tar — 0 kills expected. The row
+#          reaches 'completed' while the tar is still stalled (FIX A: the
+#          terminal UPDATE ran BEFORE the tar). NRestarts stays bounded (0
+#          expected; 1 = systemd jitter headroom).
 #   7. Release the stall + remove the drop-in, assert convergence:
 #      row='completed', flag absent, data intact, services healthy,
 #      NRestarts bounded. PLUS ATOMIC (task #8): no orphan *-pre.tar.gz.tmp
@@ -87,7 +96,7 @@
 #
 # Usage:
 #   INSTALL_VERSION=v2026.05.2 HCLOUD_LOCATION=fsn1 \
-#     ./test/install-recovery/scenarios/27-archivebackup-resume-start-phase.sh \
+#     ./test/install-recovery/scenarios/27-archivebackup-resume-active-phase.sh \
 #     statbus-recovery-27
 
 set -euo pipefail
@@ -141,8 +150,8 @@ trap '
 ' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario 27: archivebackup-resume-start-phase"
-echo "  (archiveBackup blows TimeoutStartSec on the exit-42 RESUME — the NO wedge)"
+echo "  Scenario 27: archivebackup-resume-active-phase"
+echo "  (exit-42 RESUME runs active-phase; WATCHDOG=1 ticker keeps unit alive across archiveBackup)"
 echo "  Initial release: $INSTALL_VERSION → upgrade target: HEAD"
 echo "  Inject TimeoutStartSec=${INJECT_TIMEOUT_START_S}s, hold=${STALL_HOLD_S}s"
 echo "════════════════════════════════════════════════════════════════"
@@ -239,8 +248,9 @@ cat > "\$DROPIN_FILE" << 'DROPIN_EOF'
 [Service]
 Environment=STATBUS_INJECT_AT=archive-backup-stall-active-phase-watchdog
 Environment=STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE=$RELEASE_FILE
-# Short start budget so each pre-fix doomed cycle is fast (the resume's
-# archiveBackup runs pre-READY=1 on a pre-fix binary). Short stop grace so
+# Short start budget: post-fix this is inert for the resume (the resume
+# runs active-phase; TimeoutStartSec doesn't govern it). Pre-fix (EXPECT_RED)
+# it makes each doomed start-phase cycle fast. Short stop grace so
 # SIGTERM→SIGKILL stays inside the test budget.
 TimeoutStartSec=${INJECT_TIMEOUT_START_S}s
 TimeoutStopSec=5s
@@ -267,24 +277,24 @@ VM_EXEC bash -c "systemctl --user --no-block start $UNIT"
 # Phase 6 — hold the stall WHILE the archiveBackup is blocked, and watch the
 # row. This is the heart of the FIX A test:
 #
-#   FIX A moved the terminal state='completed' UPDATE + removeUpgradeFlag to
-#   BEFORE archiveBackup. The stall is INSIDE archiveBackup. So with the fix,
+#   Plan piece #2 + FIX A: the resume runs ACTIVE-phase (READY=1 fired before
+#   recoverFromFlag); the WATCHDOG=1 ticker (a blind 30 s timer) keeps the unit
+#   alive across the stalled tar — 0 kills expected. FIX A moved the terminal
+#   state='completed' UPDATE + removeUpgradeFlag to BEFORE archiveBackup, so
 #   the row reaches 'completed' and the flag is removed BEFORE the stall is
-#   even hit — i.e. DURING this hold, while the (kill-prone) tar is blocked.
-#   That is the load-bearing proof: the slow tar can no longer prevent the
-#   row from completing. The blocked tar runs pre-READY (start phase) and may
-#   be SIGTERM'd at TimeoutStartSec — harmlessly, because the row is already
-#   completed; NRestarts ticks up by ~1 (the one harmless kill), then the
-#   next start finds no flag and no-ops → the unit converges.
+#   even hit — i.e. DURING this hold, while the tar is blocked. That is the
+#   load-bearing proof: the slow tar can no longer prevent the row from
+#   completing. If a kill did occur (systemd jitter), it would be harmless:
+#   the next start finds no flag and no-ops → the unit converges.
 #
-#   Pre-fix (no FIX A): the UPDATE runs AFTER the tar, so while the tar is
-#   stalled the row stays in_progress; the start-phase kill then cancels the
-#   ctx before the UPDATE → loop. The row NEVER reaches completed during the
-#   hold. (EXPECT_RED mode asserts exactly that.)
+#   Pre-fix (no #2 / no FIX A): the UPDATE runs AFTER the tar and the resume
+#   runs start-phase; each cycle is SIGTERM'd at TimeoutStartSec before the
+#   UPDATE, so the row stays in_progress → loop. The row NEVER reaches
+#   completed during the hold. (EXPECT_RED mode asserts exactly that.)
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── holding the resume archiveBackup stall (up to ${STALL_HOLD_S}s); watching the row ──"
-echo "    (FIX A: row reaches 'completed' BEFORE the stalled tar — during this hold;"
+echo "    (plan piece #2 + FIX A: row reaches 'completed' BEFORE the stalled tar — during this hold;"
 echo "     pre-fix: row stays in_progress and the unit loop-restarts)"
 START_TS=$(date +%s)
 ROW_COMPLETED_DURING_HOLD=0
@@ -302,7 +312,7 @@ while true; do
     if [ "$ROW_DURING" = "completed" ]; then
         ROW_COMPLETED_DURING_HOLD=1
         echo "  ✓ row reached 'completed' at t+${elapsed}s — WHILE archiveBackup is still stalled"
-        echo "    (the terminal UPDATE persisted before the kill-prone tar — FIX A holds)"
+        echo "    (plan piece #2 + FIX A: terminal UPDATE persisted before the tar; active-phase ticker kept the unit alive)"
         break
     fi
     sleep 5
@@ -361,28 +371,28 @@ if [ -n "$EXPECT_RED" ]; then
 fi
 
 # ─────────────────────────────────────────────────────────────────────────
-# GREEN load-bearing assertion (post-fix FIX A): the row MUST have reached
-# 'completed' DURING the hold — i.e. before the stalled, kill-prone
-# archiveBackup. This is the single decisive proof that FIX A converges the
-# NO wedge: the terminal UPDATE persisted ahead of the tar, so the slow
-# start-phase tar (still SIGTERM'd by TimeoutStartSec on the resume) can no
-# longer keep the row in_progress. If this fails, FIX A is not in effect —
-# the row was still in_progress while the tar was blocked.
+# GREEN load-bearing assertion (post-fix, plan piece #2 + FIX A): the row
+# MUST have reached 'completed' DURING the hold — i.e. before the stalled
+# archiveBackup. This is the single decisive proof: the terminal UPDATE
+# persisted ahead of the tar, so the tar can no longer keep the row
+# in_progress regardless of kills. The resume runs active-phase (plan #2:
+# READY=1 before recoverFromFlag) so the watchdog ticker keeps it alive;
+# FIX A ensures the UPDATE already ran. If this fails, plan piece #2 + FIX A
+# are not in effect — the row was still in_progress while the tar was blocked.
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
-echo "── GREEN load-bearing check: row completed before the stalled tar (FIX A) ──"
+echo "── GREEN load-bearing check: row completed before the stalled tar (plan #2 + FIX A) ──"
 if [ "$ROW_COMPLETED_DURING_HOLD" != "1" ]; then
     echo "✗ row did NOT reach 'completed' during the hold (last seen: '$ROW_DURING')." >&2
-    echo "  FIX A (archiveBackup AFTER the terminal state='completed' UPDATE +" >&2
-    echo "  removeUpgradeFlag) is not in effect: the kill-prone tar still runs before" >&2
-    echo "  the UPDATE, so a start-phase SIGTERM cancels the DB context and the row" >&2
-    echo "  stays in_progress — the NO/rune wedge. See plan" >&2
-    echo "  recovery-arc-flaw-timeoutstartsec.md §4a FIX A." >&2
+    echo "  Plan piece #2 + FIX A not in effect: the tar still runs before the UPDATE" >&2
+    echo "  and/or the resume is not active-phase, so a kill (or ctx cancel) keeps" >&2
+    echo "  the row in_progress — the NO/rune wedge. See plan" >&2
+    echo "  recovery-arc-flaw-timeoutstartsec.md §4a FIX A + plan piece #2." >&2
     VM_EXEC bash -c "cd ~/statbus && echo 'SELECT id, state, error FROM public.upgrade ORDER BY id DESC LIMIT 1;' | ./sb psql" >&2 || true
     VM_EXEC bash -c "systemctl --user status $UNIT --no-pager" >&2 || true
     exit 1
 fi
-echo "  ✓ FIX A holds: the row was 'completed' while archiveBackup was still stalled"
+echo "  ✓ plan piece #2 + FIX A hold: the row was 'completed' while archiveBackup was still stalled"
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 7 — release the stall + drop-in so the tar finishes and the unit
@@ -447,24 +457,24 @@ assert_flag_file_absent "$VM_NAME"
 assert_demo_data_present "$VM_NAME"
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
 
-# Slow-loop bound: the unit must CONVERGE, not loop. FIX A breaks the loop:
-# the resume runs pre-READY (start phase), so archiveBackup IS SIGTERM'd by
-# TimeoutStartSec — but the terminal UPDATE already ran BEFORE the tar, so the
-# row is 'completed' and the flag is gone. The next start finds no flag →
-# no-ops → active. Converges in ~1 harmless kill cycle (NRestarts +1).
-# Bound ≤ 3 (1 kill + headroom for systemd transient quirks; matches the
-# ≤1/≤2 style of scenarios 26/18). Anything higher means the row did NOT
-# reach 'completed' before the tar and the unit is still loop-restarting —
-# FIX A is not in effect. The decisive proof is the ROW_COMPLETED_DURING_HOLD
-# check above; this bound catches a residual loop.
+# Convergence bound: the resume runs ACTIVE-phase (plan piece #2: READY=1 +
+# LISTEN before recoverFromFlag); the applyExtendCtx ticker is already pinging
+# WATCHDOG=1 every 30 s before the stalled tar begins, so the unit stays alive
+# — 0 kills, period. FIX A ensures the row is 'completed' and the flag is gone
+# before the tar runs, so even a stray kill would no-ops on the next start. Any
+# NRestarts increment means the resume is not active-phase or the ticker is not
+# covering the stall — plan piece #2 + FIX A not in effect. The decisive proof
+# is the ROW_COMPLETED_DURING_HOLD check above; this bound catches any residual
+# kill.
 NRESTARTS_FINAL=$(VM_EXEC systemctl --user show "$UNIT" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
 FINAL_DELTA=$((NRESTARTS_FINAL - NRESTARTS_BASELINE))
 echo "  NRestarts: baseline=$NRESTARTS_BASELINE final=$NRESTARTS_FINAL delta=$FINAL_DELTA"
-if [ "$FINAL_DELTA" -gt 3 ]; then
-    echo "✗ NRestarts grew by $FINAL_DELTA (>3) — the resume is still loop-restarting" >&2
-    echo "  rather than converging. FIX A (archiveBackup after the terminal UPDATE)" >&2
-    echo "  is the load-bearing fix: it must let the row reach 'completed' so a" >&2
-    echo "  subsequent start no-ops instead of re-entering the doomed resume." >&2
+if [ "$FINAL_DELTA" -gt 0 ]; then
+    echo "✗ NRestarts grew by $FINAL_DELTA — the resume was killed (expected 0 kills)." >&2
+    echo "  The resume must run active-phase with the applyExtendCtx ticker already" >&2
+    echo "  pinging WATCHDOG=1 every 30 s before the stalled tar. A kill means plan" >&2
+    echo "  piece #2 (READY=1 before recoverFromFlag) or the ticker coverage is not" >&2
+    echo "  in effect." >&2
     exit 1
 fi
 
@@ -508,8 +518,8 @@ echo "  ✓ all final *-pre.tar.gz archives are complete (gzip -t clean)"
 assert_health_passes "$VM_NAME"
 
 echo ""
-echo "PASS: archivebackup-resume-start-phase"
-echo "  (the exit-42 resume's archiveBackup no longer wedges the unit in the start"
-echo "   phase; the row converges to 'completed', NRestarts stays bounded, and the"
-echo "   archive is written atomically — no partial at the final name. The NO/rune"
-echo "   wedge is fixed.)"
+echo "PASS: archivebackup-resume-active-phase"
+echo "  (exit-42 resume runs active-phase; applyExtendCtx ticker pings WATCHDOG=1 every"
+echo "   30 s before the stalled tar — 0 kills, period; FIX A ensures the row reaches"
+echo "   'completed' before the tar runs; archive written atomically — no partial at the"
+echo "   final name. The NO/rune 40 h wedge is fixed.)"
