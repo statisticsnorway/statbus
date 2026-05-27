@@ -1506,6 +1506,66 @@ func (d *Service) Run(ctx context.Context) error {
 		return err
 	}
 
+	// Harness-only stall site (C11): simulates a startup pipeline that
+	// runs longer than the unit's TimeoutStartSec budget. Activated by
+	// STATBUS_INJECT_AT=service-startup-slower-than-systemd-unit-timeout
+	// and held by STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE. Fires DURING
+	// the unit's `activating` phase — i.e. BEFORE the sdNotify("READY=1")
+	// call below. While the stall is held, systemd's TimeoutStartSec
+	// (declared as 120 s in ops/statbus-upgrade.service per commit
+	// f43b2bfd1) ticks down. Once it expires, systemd SIGTERMs the unit
+	// and increments NRestarts.
+	//
+	// Relocated above READY=1 by plan recovery-arc-flaw-timeoutstartsec.md
+	// §4a FIX B1: READY=1 now fires before recoverFromFlag, so the only
+	// startup work that still runs under TimeoutStartSec is this genuine
+	// cheap init (EnsureDBUp → boot-migrate-up → connect → advisory lock).
+	// The C11 contract is unchanged — a startup slower than the static
+	// 120 s budget IS killed, NRestarts is bounded by StartLimitBurst, and
+	// the operator's recovery is `./sb install` (which dispatches the same
+	// upgrade inline, bypassing the supervised unit's timeout). The earlier
+	// sdNotifyExtendTimeout(EXTEND_TIMEOUT_USEC) activating-phase extender
+	// (commit d416a50a0) remains deleted (commit e6df084b7) — re-introducing
+	// it would couple the watchdog and start budgets in ways the Race B
+	// forensics showed to be subtly wrong. No-op in production. Drives
+	// scenario 18.
+	inject.StallHere("service-startup-slower-than-systemd-unit-timeout")
+
+	// LISTEN on channels (must use listenConn — queryConn is for queries).
+	// Registered BEFORE READY=1 so the service is already listening the
+	// instant systemd marks the unit active — a NOTIFY (e.g. ./sb upgrade
+	// apply) sent right after activation is buffered on the session rather
+	// than lost. Notifications are not *processed* until startListenLoop
+	// runs in the main loop below, so registering early is safe: it only
+	// prevents missed wakeups, it does not let a NOTIFY interleave with
+	// recovery.
+	if _, err := d.listenConn.Exec(ctx, "LISTEN upgrade_check"); err != nil {
+		return fmt.Errorf("LISTEN upgrade_check: %w", err)
+	}
+	if _, err := d.listenConn.Exec(ctx, "LISTEN upgrade_apply"); err != nil {
+		return fmt.Errorf("LISTEN upgrade_apply: %w", err)
+	}
+
+	// Signal readiness BEFORE recoverFromFlag (plan
+	// recovery-arc-flaw-timeoutstartsec.md §4a FIX B1). The cheap, genuine
+	// init that SHOULD gate readiness has run (EnsureDBUp → boot-migrate-up
+	// → connect → advisory lock + LISTEN). recoverFromFlag → resumePostSwap
+	// → applyPostSwap, by contrast, can run for many minutes on real data
+	// (rune: a 32 GB archiveBackup tar). Emitting READY=1 here moves that
+	// whole resume into systemd's ACTIVE phase, governed by WatchdogSec
+	// (which the existing 30 s WATCHDOG=1 ticker in applyPostSwap keeps
+	// alive) instead of the start phase governed by TimeoutStartSec=120 s.
+	// Before this change the resume ran pre-READY=1: a large-DB step blew
+	// the start budget, systemd SIGTERM'd the unit before the terminal
+	// UPDATE persisted, the row stayed in_progress, and Restart=always
+	// re-entered the identical doomed resume — the NO/rune wedge (~40 h,
+	// NRestarts 914). Nothing forces READY=1 to follow recovery: Type=notify
+	// + Restart=always + the advisory lock + the flag still serialise a
+	// genuine crash; "active but recovering" is more honest than a unit
+	// stuck `activating` until a start-timeout kill.
+	fmt.Printf("Upgrade service started (channel=%s, interval=%s)\n", d.channel, d.interval)
+	sdNotify("READY=1") // Tell systemd we're initialized
+
 	// Recover from interrupted upgrades. The flag file survives DB rollbacks
 	// (it's on the filesystem, not in the DB volume). Must run BEFORE
 	// completeInProgressUpgrade so the flag-based recovery takes priority.
@@ -1535,43 +1595,11 @@ func (d *Service) Run(ctx context.Context) error {
 	// Check for missed scheduled upgrades
 	d.checkMissedUpgrades(ctx)
 
-	// Harness-only stall site (C11): simulates a startup pipeline that
-	// runs longer than the unit's TimeoutStartSec budget. Activated by
-	// STATBUS_INJECT_AT=service-startup-slower-than-systemd-unit-timeout
-	// and held by STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE. Fires DURING
-	// the unit's `activating` phase — i.e. BEFORE the sdNotify("READY=1")
-	// call below. While the stall is held, systemd's TimeoutStartSec
-	// (declared as 120 s in ops/statbus-upgrade.service per commit
-	// f43b2bfd1) ticks down. Once it expires, systemd SIGTERMs the unit
-	// and increments NRestarts.
-	//
-	// No-op in production. Drives scenario 18.
-	//
-	// Design choice (a) over (b) — keep TimeoutStartSec static:
-	//   Earlier code shipped sdNotifyExtendTimeout(EXTEND_TIMEOUT_USEC)
-	//   to push TimeoutStartSec forward during the activating phase
-	//   (Fix 1 / commit d416a50a0). That helper has been DELETED in
-	//   commit e6df084b7 — see the historical note at the bottom of
-	//   watchdog.go for the full rationale. The C11 contract is now:
-	//   if startup is slower than the unit's static 120 s budget, the
-	//   unit IS killed, NRestarts is bounded by StartLimitBurst, and
-	//   the operator's recovery is `./sb install` (which dispatches the
-	//   same upgrade inline, bypassing the supervised unit's timeout).
-	//   This is the simpler, principled shape — re-introducing the
-	//   activating-phase extender would couple the watchdog and start
-	//   budgets in ways the Race B forensics showed to be subtly wrong.
-	inject.StallHere("service-startup-slower-than-systemd-unit-timeout")
-
-	// LISTEN on channels (must use listenConn — queryConn is for queries)
-	if _, err := d.listenConn.Exec(ctx, "LISTEN upgrade_check"); err != nil {
-		return fmt.Errorf("LISTEN upgrade_check: %w", err)
-	}
-	if _, err := d.listenConn.Exec(ctx, "LISTEN upgrade_apply"); err != nil {
-		return fmt.Errorf("LISTEN upgrade_apply: %w", err)
-	}
-
-	fmt.Printf("Upgrade service started (channel=%s, interval=%s)\n", d.channel, d.interval)
-	sdNotify("READY=1") // Tell systemd we're initialized
+	// LISTEN + READY=1 were emitted earlier (right after the advisory lock,
+	// before recoverFromFlag) so the exit-42 resume runs in the ACTIVE phase
+	// under WatchdogSec rather than the start phase under TimeoutStartSec.
+	// See the "Signal readiness" block above and plan
+	// recovery-arc-flaw-timeoutstartsec.md §4a FIX B1.
 
 	// Main loop: use a goroutine for LISTEN/NOTIFY, select on channels
 	notifyCh := make(chan *pgconn.Notification, 1)
@@ -3776,12 +3804,19 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// check guarantees the app is listening.
 	d.queryConn.Exec(ctx, `NOTIFY worker_status, '{"type":"upgrade_changed"}'`)
 
-	// Done — deactivate maintenance, archive, finalize
+	// Done — deactivate maintenance. archiveBackup is deliberately NOT
+	// called here: it is reordered to AFTER the terminal state='completed'
+	// UPDATE + removeUpgradeFlag below (plan recovery-arc-flaw-timeoutstartsec.md
+	// §4a FIX A). archiveBackup tars the multi-GB pre-upgrade backup and can
+	// run for minutes (rune: 32 GB). On the exit-42 resume path that tar runs
+	// in systemd's `activating` phase under TimeoutStartSec; a SIGTERM there
+	// cancels the DB context, so a terminal UPDATE issued AFTER the tar can't
+	// persist ("context already done") and the row stays in_progress → restart
+	// loop (the NO/rune wedge). By marking the row completed and removing the
+	// flag FIRST — both fast, well inside any start budget — a later kill during
+	// the tar is harmless: the next start finds no flag and no-ops.
 	fmt.Println("Deactivating maintenance (app healthcheck passed)")
 	d.setMaintenance(false)
-	d.archiveBackup(backupPath, displayName)
-
-	fmt.Printf("Upgrade to %s completed successfully\n", displayName)
 
 	// selfUpdate is intentionally NOT invoked here: Option C moved the
 	// binary-swap handoff earlier (right after replaceBinaryOnDisk in
@@ -3848,6 +3883,24 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	log.Println("state=completed")
 	logUpgradeRow(LabelCompletedNormal, normalJSON)
 	d.removeUpgradeFlag()
+
+	// The row is now truly `completed` and the flag is gone (both fast,
+	// inside any systemd budget). Only now is the "completed successfully"
+	// line honest — emitting it before the terminal UPDATE persisted (its
+	// prior position, before archiveBackup) was a lie on the NO/rune resume,
+	// where the UPDATE never landed. Everything from here on (archiveBackup,
+	// pruning, retention, fixup) is post-completion cleanup: a kill in this
+	// window leaves a COMPLETED upgrade that the next start no-ops past.
+	fmt.Printf("Upgrade to %s completed successfully\n", displayName)
+
+	// archiveBackup reordered here from before the terminal UPDATE
+	// (plan recovery-arc-flaw-timeoutstartsec.md §4a FIX A). It tars the
+	// pre-upgrade backup for forensics — non-critical-path; the row is
+	// already terminal and the flag removed, so a SIGTERM during this
+	// multi-minute tar (rune: 32 GB) is harmless. Runs BEFORE pruneBackups
+	// so the backupPath it tars is still present.
+	d.archiveBackup(backupPath, displayName)
+
 	// Layer 3 of the rollback-on-SIGKILL hole plug: now that the upgrade
 	// has reached terminal state='completed', the pre-upgrade backup is no
 	// longer needed for rollback. pruneBackups (defined in exec.go) trims
