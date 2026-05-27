@@ -706,6 +706,19 @@ func (d *Service) pruneUpgradeLogs(keep int) {
 func (d *Service) archiveBackup(backupPath, version string) {
 	archiveDir := filepath.Join(os.Getenv("HOME"), "statbus-backups")
 	archivePath := filepath.Join(archiveDir, fmt.Sprintf("%s-pre.tar.gz", version))
+	// ATOMIC (task #8): tar to a `.tmp` and atomically rename to the final
+	// name only on tar success. A tar that is interrupted (the systemd
+	// start-phase SIGTERM that wedged NO/rune, a SIGKILL, disk-full mid-tar)
+	// or that exits non-zero must NEVER leave a partial at the final
+	// `<version>-pre.tar.gz` — a partial there is indistinguishable from a
+	// complete archive to pruneArchives (which keeps the 3 newest `.gz` by
+	// name) and to an operator inspecting the backups dir. Writing to `.tmp`
+	// first confines any partial to the `.tmp` name (ignored by pruneArchives,
+	// ext != .gz) and the rename publishes the final name only when the tar
+	// completed cleanly. Idempotent: backupPath persists, so a later run
+	// re-tars and overwrites the `.tmp`. Best-effort throughout (warn + return
+	// on any failure) — the archive is forensics, not the rollback artifact.
+	tmpPath := archivePath + ".tmp"
 
 	// Harness-only stall site for Bug 1 — `d416a50a0` introduced a
 	// ticker scoped only to the migrate-up subprocess. `extendCancel()`
@@ -719,12 +732,45 @@ func (d *Service) archiveBackup(backupPath, version string) {
 	// main goroutine parked at the canonical "tar in flight" point.
 	inject.StallHere("archive-backup-stall-active-phase-watchdog")
 
-	if err := runCommand(d.projDir, "tar", "-czf", archivePath, "-C", filepath.Dir(backupPath), filepath.Base(backupPath)); err != nil {
+	if err := runCommand(d.projDir, "tar", "-czf", tmpPath, "-C", filepath.Dir(backupPath), filepath.Base(backupPath)); err != nil {
 		fmt.Printf("Warning: archive backup failed: %v\n", err)
+		// Drop the partial `.tmp` so it can't accumulate across failed runs
+		// (a later run overwrites it anyway; this keeps the dir tidy now).
+		os.Remove(tmpPath)
 		return
 	}
 
-	// Prune old archives (keep last 3)
+	// fsync the completed tar before the rename so the data is durable on
+	// disk before the final name becomes visible. tar wrote via a subprocess,
+	// so open the finished file read-only purely to flush it. Best-effort: a
+	// fsync failure is logged but does not abort the rename (the tar succeeded;
+	// the rename is still atomic on the same filesystem).
+	if f, err := os.Open(tmpPath); err == nil {
+		if syncErr := f.Sync(); syncErr != nil {
+			fmt.Printf("Warning: fsync of archive %s failed (proceeding): %v\n", tmpPath, syncErr)
+		}
+		f.Close()
+	}
+
+	// Atomic publish: rename .tmp → final. Same-directory rename is atomic on
+	// a single filesystem, so a reader sees either the old final (if any) or
+	// the complete new one — never a partial.
+	if err := os.Rename(tmpPath, archivePath); err != nil {
+		fmt.Printf("Warning: could not finalize archive %s → %s: %v\n", tmpPath, archivePath, err)
+		os.Remove(tmpPath)
+		return
+	}
+
+	// fsync the directory so the rename itself is durable (cheap — one dir
+	// entry). Best-effort; a crash before this only risks the rename being
+	// lost, leaving the prior state — still consistent, never a partial.
+	if dir, err := os.Open(archiveDir); err == nil {
+		dir.Sync() //nolint:errcheck
+		dir.Close()
+	}
+
+	// Prune old archives (keep last 3). pruneArchives filters ext == .gz, so
+	// any leftover `.tmp` from a concurrent/failed run is ignored here.
 	d.pruneArchives(archiveDir, 3)
 }
 
@@ -736,8 +782,24 @@ func (d *Service) pruneArchives(dir string, keep int) {
 
 	var archives []string
 	for _, e := range entries {
-		if !e.IsDir() && filepath.Ext(e.Name()) == ".gz" {
-			archives = append(archives, filepath.Join(dir, e.Name()))
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		// Sweep stale ATOMIC `.tmp` archives: a tar that was KILLED mid-write
+		// (SIGTERM/SIGKILL) couldn't run archiveBackup's own os.Remove(tmpPath)
+		// cleanup, so a `<version>-pre.tar.gz.tmp` can survive. A same-version
+		// retry overwrites it, but a different-version killed run leaves a
+		// distinct orphan that pruneArchives would otherwise never touch (it
+		// filters ext == .gz). Reap them here so they can't accumulate across
+		// killed upgrades. Match our exact suffix to avoid touching anything
+		// else a user might have parked in the dir.
+		if strings.HasSuffix(name, "-pre.tar.gz.tmp") {
+			os.Remove(filepath.Join(dir, name))
+			continue
+		}
+		if filepath.Ext(name) == ".gz" {
+			archives = append(archives, filepath.Join(dir, name))
 		}
 	}
 

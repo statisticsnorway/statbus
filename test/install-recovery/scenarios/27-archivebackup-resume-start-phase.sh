@@ -63,7 +63,9 @@
 #          unit converges; NRestarts stays bounded (≈1 harmless kill).
 #   7. Release the stall + remove the drop-in, assert convergence:
 #      row='completed', flag absent, data intact, services healthy,
-#      NRestarts bounded.
+#      NRestarts bounded. PLUS ATOMIC (task #8): no orphan *-pre.tar.gz.tmp
+#      and every final *-pre.tar.gz passes `gzip -t` (no partial at the final
+#      name).
 #
 # RED vs GREEN — how the tester reads the result:
 #   Default (post-fix): GREEN-asserting — the row converges to 'completed',
@@ -466,10 +468,48 @@ if [ "$FINAL_DELTA" -gt 3 ]; then
     exit 1
 fi
 
+# ATOMIC (task #8) archive integrity: after convergence, the backups dir must
+# contain NO partial/orphan archive. Two checks:
+#   (1) no `*-pre.tar.gz.tmp` orphan — pruneArchives reaps stale .tmp from any
+#       killed tar, so a leftover here means the sweep regressed.
+#   (2) every final `*-pre.tar.gz` passes `gzip -t` — a complete archive. A
+#       partial at the final name (the PRE-ATOMIC bug: tar -czf wrote directly
+#       to the final name and was killed/failed mid-write) would FAIL gzip -t.
+# This proves the atomic rename publishes only complete archives. (The
+# mid-tar-WRITE kill itself is exercised by the Go guard
+# TestArchiveBackup_FailedTarLeavesNoFinal; this scenario check confirms the
+# end-state on a real box across the resume.)
+echo ""
+echo "── ATOMIC archive integrity (task #8) ──"
+TMP_ORPHANS=$(VM_EXEC bash -c 'ls ~/statbus-backups/*-pre.tar.gz.tmp 2>/dev/null | wc -l' 2>/dev/null | tr -d ' \r\n' || echo "0")
+if [ "$TMP_ORPHANS" != "0" ]; then
+    echo "✗ found $TMP_ORPHANS orphan *-pre.tar.gz.tmp archive(s) — pruneArchives must reap stale .tmp:" >&2
+    VM_EXEC bash -c 'ls -la ~/statbus-backups/*-pre.tar.gz.tmp' >&2 || true
+    exit 1
+fi
+echo "  ✓ no orphan .tmp archives"
+# gzip -t every final archive; any failure = a partial published at the final
+# name = ATOMIC not in effect.
+BAD_ARCHIVE=$(VM_EXEC bash -c '
+    rc=0
+    for f in ~/statbus-backups/*-pre.tar.gz; do
+        [ -e "$f" ] || continue
+        if ! gzip -t "$f" 2>/dev/null; then echo "$f"; rc=1; fi
+    done
+    exit $rc
+' 2>/dev/null || echo "FAILED")
+if [ -n "$BAD_ARCHIVE" ]; then
+    echo "✗ a final *-pre.tar.gz failed gzip -t — a PARTIAL was published at the final name" >&2
+    echo "  (the pre-ATOMIC bug). ATOMIC requires tar→.tmp then rename-on-success. Bad: $BAD_ARCHIVE" >&2
+    exit 1
+fi
+echo "  ✓ all final *-pre.tar.gz archives are complete (gzip -t clean)"
+
 assert_health_passes "$VM_NAME"
 
 echo ""
 echo "PASS: archivebackup-resume-start-phase"
 echo "  (the exit-42 resume's archiveBackup no longer wedges the unit in the start"
-echo "   phase; the row converges to 'completed' and NRestarts stays bounded —"
-echo "   the NO/rune wedge is fixed)"
+echo "   phase; the row converges to 'completed', NRestarts stays bounded, and the"
+echo "   archive is written atomically — no partial at the final name. The NO/rune"
+echo "   wedge is fixed.)"
