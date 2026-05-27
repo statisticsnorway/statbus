@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"log"
@@ -794,12 +795,49 @@ func checkUsersDone(dir string) bool {
 	return count != "0" && count != ""
 }
 
+// userUnitPath returns the install destination for the user-level upgrade
+// unit. The unit is copied here VERBATIM by runInstallService (copyFile is a
+// byte copy; the %h/%i/%u specifiers resolve at systemd runtime, not at copy
+// time), so the on-disk file should be byte-identical to the repo template.
+func userUnitPath() string {
+	return filepath.Join(os.Getenv("HOME"), ".config", "systemd", "user", "statbus-upgrade@.service")
+}
+
+// unitFileMatchesRepo reports whether the on-disk user unit is byte-identical
+// to the repo template (<dir>/ops/statbus-upgrade.service). Because the unit
+// is installed verbatim, a byte-compare is the exact drift check: a drifted
+// unit (e.g. rune's stale WatchdogUSec=infinity / TimeoutStartSec=90 vs the
+// repo's 120/120) mismatches and must be reconciled. A missing on-disk unit
+// (fresh box) also reports false so install writes it. No systemd needed —
+// this is the pure, unit-testable half of checkServiceDone.
+func unitFileMatchesRepo(dir string) bool {
+	repo, err := os.ReadFile(filepath.Join(dir, "ops", "statbus-upgrade.service"))
+	if err != nil {
+		// No repo template to compare against — can't assert drift; treat as
+		// "matches" so a missing source doesn't wedge the install ladder.
+		return true
+	}
+	onDisk, err := os.ReadFile(userUnitPath())
+	if err != nil {
+		return false // missing / unreadable on-disk unit ⇒ reconcile (write it)
+	}
+	return bytes.Equal(repo, onDisk)
+}
+
 func checkServiceDone(dir string) bool {
 	if runtime.GOOS != "linux" {
 		return true // Skip on non-Linux
 	}
 	instance := serviceInstance(dir)
 	if instance == "" {
+		return false
+	}
+	// #4 unit-reconcile: a healthy (active) unit is NOT "done" if its on-disk
+	// file has drifted from the repo template — otherwise a box that booted an
+	// old unit keeps stale WatchdogSec/TimeoutStartSec forever (the rune
+	// 90/infinity drift). Drift ⇒ not-done ⇒ runInstallService rewrites +
+	// daemon-reload + restarts so the new timers actually arm.
+	if !unitFileMatchesRepo(dir) {
 		return false
 	}
 	// User-level systemd service — no root needed to manage.
@@ -1622,6 +1660,18 @@ func runInstallService(dir string) error {
 	serviceFile := filepath.Join(dir, "ops", "statbus-upgrade.service")
 	destFile := filepath.Join(userServiceDir, "statbus-upgrade@.service")
 
+	// #4 unit-reconcile re-arm (plan de-risk #2): capture whether the on-disk
+	// unit is about to CHANGE while the unit is already running. A rewritten
+	// unit file is INERT — systemd keeps running with the old WatchdogSec/
+	// TimeoutStartSec until daemon-reload + a RESTART. `enable --now` below
+	// does NOT restart an already-active unit, so without an explicit restart
+	// a drifted-but-running box (rune's 90/infinity) would keep its stale
+	// timers even after we rewrite the file to 120/120. Detect drift-on-active
+	// here so we can restart only when needed (never churn a healthy,
+	// already-matching unit).
+	unitWasDrifted := !unitFileMatchesRepo(dir)
+	unitWasActive := exec.Command("systemctl", "--user", "is-active", instance).Run() == nil
+
 	fmt.Printf("  Copying %s → %s\n", filepath.Base(serviceFile), destFile)
 	if err := copyFile(serviceFile, destFile); err != nil {
 		return fmt.Errorf("copy service file: %w", err)
@@ -1630,6 +1680,21 @@ func runInstallService(dir string) error {
 	fmt.Println("  Running systemctl --user daemon-reload")
 	if err := runCmd("systemctl", "--user", "daemon-reload"); err != nil {
 		return fmt.Errorf("systemctl --user daemon-reload: %w", err)
+	}
+
+	// Re-arm the timers: if we just rewrote a DRIFTED unit that was actively
+	// running, restart it so the new WatchdogSec/TimeoutStartSec take effect
+	// (daemon-reload alone only reloads systemd's view, not the running unit's
+	// armed deadlines). Skip when insideActiveUpgrade — that path is the
+	// active upgrade's own main PID and relies on the exit-42 → systemd
+	// auto-restart handoff (Item H below); restarting it here would kill the
+	// in-flight upgrade. The enable --now path below covers the not-running
+	// and fresh-install cases.
+	if unitWasDrifted && unitWasActive && !insideActiveUpgrade {
+		fmt.Printf("  Unit %s drifted from the repo template and was running — restarting to arm the reconciled timers\n", instance)
+		if err := runCmd("systemctl", "--user", "restart", instance); err != nil {
+			return fmt.Errorf("restart %s after unit reconcile: %w", instance, err)
+		}
 	}
 
 	// Enable linger so the user service runs even when not logged in.
