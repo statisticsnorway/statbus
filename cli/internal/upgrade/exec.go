@@ -2,6 +2,7 @@ package upgrade
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -113,7 +114,7 @@ func runCommandWithTimeout(dir string, timeout time.Duration, name string, args 
 	prepareCmd(cmd)
 	err := cmd.Run()
 	if ctx.Err() == context.DeadlineExceeded {
-		return fmt.Errorf("command timed out after %s: %s %v", timeout, name, args)
+		return fmt.Errorf("%s %v after %s: %w", name, args, timeout, ErrCommandTimeout)
 	}
 	return err
 }
@@ -131,6 +132,14 @@ func runCommandWithTimeout(dir string, timeout time.Duration, name string, args 
 // (git, rollback). NOTE: a SILENT step (a single CREATE INDEX migration) emits
 // no lines, so onAdvance alone can't keep it alive — the migrate step uses a
 // server-side progress poll instead (plan §3 migrate-path resolution); this
+// ErrCommandTimeout wraps a runCommandToLog timeout (ctx DeadlineExceeded) so
+// callers can errors.Is() it. The migrate site uses this to fire the #14
+// orphan-terminate ONLY on a genuine timeout (a host-side process-group SIGKILL
+// of the docker-exec client leaves an orphaned in-container psql backend) —
+// NOT on a clean non-timeout migrate failure, where psql exited and there is no
+// orphan to reap.
+var ErrCommandTimeout = errors.New("command timed out")
+
 // callback covers the output-emitting steps.
 func runCommandToLog(dir string, timeout time.Duration, logWriter io.Writer, source string, onAdvance func(), name string, args ...string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -146,7 +155,7 @@ func runCommandToLog(dir string, timeout time.Duration, logWriter io.Writer, sou
 	outW.Flush()
 	errW.Flush()
 	if ctx.Err() == context.DeadlineExceeded {
-		return fmt.Errorf("command timed out after %s: %s %v", timeout, name, args)
+		return fmt.Errorf("%s %v after %s: %w", name, args, timeout, ErrCommandTimeout)
 	}
 	return err
 }

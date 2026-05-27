@@ -1165,10 +1165,11 @@ func checkSessionsClean(dir string) bool {
 				    -- task processing — those reduces can take minutes on Norway-sized
 				    -- data and matched our 'CALL %statistical_%' pattern, causing
 				    -- false-positive cleanup-failures during healthy worker operation.
-				    -- Migrate.Up's psql subprocesses default to application_name='psql'
-				    -- (psql's libpq default); when SIGKILL'd they leave wedged backends
-				    -- with that marker. That's the actual zombie class we care about.
-				    AND application_name = 'psql'
+				    -- Migrate.Up's psql subprocesses are tagged statbus-migrate-sql-<pid>
+				    -- (task #14, via PGAPPNAME); pre-#14 binaries left the libpq default
+				    -- 'psql'. Match BOTH so this cleaner still catches a SIGKILL'd
+				    -- migrate zombie regardless of which binary started it.
+				    AND (application_name = 'psql' OR application_name LIKE 'statbus-migrate-sql%')
 				    AND (query ILIKE '%TRUNCATE %statistical_%'
 				         OR query ILIKE '%INSERT INTO %statistical_%'
 				         OR query ILIKE '%CALL %statistical_%')
@@ -1258,6 +1259,14 @@ func checkSessionsClean(dir string) bool {
 // rows, Phase 2's advisory-lock query matches zero, and the recheck
 // passes cleanly. Self-targeting is excluded via
 // `pid <> pg_backend_pid()`.
+//
+// Orphan-class split (task #14): this is the RECOVERY-TIME half. It cleans a
+// migrate psql backend orphaned because the OWNING Go process itself died
+// mid-migrate (service OOM / host SIGKILL / reboot) — no runCommandToLog timeout
+// fired, so the in-line terminate-on-timeout (upgrade.terminateMigrateOrphan)
+// never ran. The two are complementary; Phase 1 now matches BOTH the libpq
+// default 'psql' and the #14 tag 'statbus-migrate-sql%' so it catches the
+// orphan whichever binary started the migrate.
 func cleanOrphanSessions(dir string) error {
 	envFile, err := dotenv.Load(filepath.Join(dir, ".env"))
 	if err != nil {
@@ -1273,21 +1282,22 @@ func cleanOrphanSessions(dir string) error {
 	}
 
 	// Phase 1: heuristic kill of obvious zombies.
-	// CRITICAL: filter by application_name = 'psql' to avoid terminating
-	// legitimate worker connections. The worker (application_name='worker')
-	// runs CALL worker.statistical_*_reduce as part of normal task
-	// processing — those reduces match the statistical_history pattern AND
-	// can run for >2 minutes on Norway-sized data, so without this filter
-	// Phase 1 would aggressively terminate healthy worker connections.
-	// Migrate.Up's psql subprocesses default to application_name='psql'
-	// (libpq default) — that's the actual zombie class we want to clean.
+	// CRITICAL: filter by application_name to avoid terminating legitimate
+	// worker connections. The worker (application_name='worker') runs CALL
+	// worker.statistical_*_reduce as part of normal task processing — those
+	// reduces match the statistical_history pattern AND can run for >2 minutes
+	// on Norway-sized data, so without this filter Phase 1 would aggressively
+	// terminate healthy worker connections. Migrate.Up's psql subprocesses are
+	// tagged statbus-migrate-sql-<pid> (task #14, via PGAPPNAME); pre-#14
+	// binaries left the libpq default 'psql'. Match BOTH so we still clean a
+	// SIGKILL'd migrate zombie regardless of which binary started it.
 	phase1 := exec.Command("docker", "compose", "exec", "-T", "db",
 		"psql", "-U", adminUser, "-d", dbName, "-c", `
 		SELECT pg_terminate_backend(pid), pid, query_start, left(query, 80) AS query
 		  FROM pg_stat_activity
 		 WHERE datname = current_database()
 		   AND pid <> pg_backend_pid()
-		   AND application_name = 'psql'
+		   AND (application_name = 'psql' OR application_name LIKE 'statbus-migrate-sql%')
 		   AND (
 			   (state IN ('active', 'idle in transaction')
 			    AND query_start < now() - interval '2 minutes')

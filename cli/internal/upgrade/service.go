@@ -1552,6 +1552,16 @@ func (d *Service) Run(ctx context.Context) error {
 	// first public.upgrade query.
 	if err := runCommandToLog(d.projDir, 5*time.Minute, io.Discard, "boot-migrate-up", nil,
 		filepath.Join(d.projDir, "sb"), "migrate", "up", "--verbose"); err != nil {
+		// #14: a boot-migrate TIMEOUT (5m) leaves the same orphaned in-container
+		// psql backend as the resume-migrate path (docker-exec doesn't forward
+		// the process-group SIGKILL). Terminate it on the live conn before
+		// refusing — so it isn't left holding locks against the next start's
+		// migrate. queryConn is live here (connect ran earlier in Run setup);
+		// nil progress (boot has no progress log) — terminateMigrateOrphan is
+		// nil-safe. Timeout-only: a clean boot-migrate failure means psql exited.
+		if errors.Is(err, ErrCommandTimeout) {
+			d.terminateMigrateOrphan(ctx, nil)
+		}
 		d.markTerminal("BOOT_MIGRATE_UP_FAILED",
 			fmt.Sprintf("./sb migrate up at boot failed: %v; service refuses to enter the loop on a stale schema", err))
 		return fmt.Errorf("boot migrate up: %w", err)
@@ -3771,6 +3781,12 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 			return runCommandToLog(projDir, 30*time.Minute, progress.File(), "recreate-database", progress.bump, filepath.Join(projDir, "dev.sh"), "recreate-database")
 		}()
 		if err != nil {
+			if errors.Is(err, ErrCommandTimeout) {
+				// #14: recreate-database also runs psql in the db container, so a
+				// timeout leaves the same orphaned backend — terminate it before
+				// rollback (timeout-only; see the migrate arm below).
+				d.terminateMigrateOrphan(ctx, progress)
+			}
 			return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: ./dev.sh recreate-database: %v", ErrMigrationFailed, err), progress)
 		}
 	} else {
@@ -3826,6 +3842,15 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 		}()
 
 		if err != nil {
+			// #14: a migrate TIMEOUT means the host-side process-group SIGKILL
+			// reaped the docker-exec client but left the in-container psql
+			// backend orphaned (docker-exec doesn't forward SIGKILL) — txn open,
+			// locks held, commit-after-rollback hazard. Terminate it on the live
+			// conn BEFORE the rollback so its txn is deterministically aborted.
+			// Only on timeout: a clean migrate failure means psql exited.
+			if errors.Is(err, ErrCommandTimeout) {
+				d.terminateMigrateOrphan(ctx, progress)
+			}
 			return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: ./sb migrate up: %v", ErrMigrationFailed, err), progress)
 		}
 	}
