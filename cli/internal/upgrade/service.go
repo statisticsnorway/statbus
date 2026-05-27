@@ -2417,6 +2417,17 @@ func (d *Service) verifyCommitSignature(sha string) error {
 	return nil
 }
 
+// connectTimeout bounds the pgx dial+handshake in connect(). connStr sets no
+// connect_timeout and callers pass the service-lifetime ctx (no deadline), so
+// without this a hung connect would block forever — the latent gap that made
+// the applyPostSwap reconnect unbounded (plan upgrade-resume-structural-whole.md
+// piece #3: deferring watchdog gating during reconnect is only safe if reconnect
+// is itself bounded). 5 min comfortably exceeds a legitimately slow reconnect
+// (scenario 19's 180 s synthetic stall) with margin. Package var, not const, so
+// tests can shrink it to drive a deterministic hung-connect → DeadlineExceeded
+// assertion without a 5-min wait.
+var connectTimeout = 5 * time.Minute
+
 func (d *Service) connect(ctx context.Context) error {
 	envPath := filepath.Join(d.projDir, ".env")
 	f, err := dotenv.Load(envPath)
@@ -2480,11 +2491,32 @@ func (d *Service) connect(ctx context.Context) error {
 	}
 	config.DialFunc = keepaliveDialer
 
-	d.listenConn, err = pgx.ConnectConfig(ctx, config)
+	// Bound the dial+handshake. connStr sets no connect_timeout and the ctx
+	// handed in by callers (e.g. applyPostSwap's reconnect) is the
+	// service-lifetime ctx with NO deadline — so a hung pgx.ConnectConfig
+	// (DB-side slow handshake, half-open socket the keepalive dialer can't
+	// catch because the conn isn't established yet, a wedged userland-proxy)
+	// would block INDEFINITELY. That is the latent gap that made the
+	// applyPostSwap reconnect unbounded; the #3 watchdog defers gating during
+	// reconnect (it's a legitimately silent step), which is only SAFE if
+	// reconnect is itself bounded — mirroring how the migrate step is bounded
+	// by its runCommandToLog timeout. pgx honours a ctx deadline across the
+	// WHOLE connect, not just the TCP dial: pgconn's contextWatcher
+	// (pgconn.go connectOne → contextWatcher.Watch(ctx)) closes the conn if the
+	// deadline fires mid-startup/auth, so a handshake hang is bounded too — not
+	// only TCP connect. 5 min comfortably exceeds a legitimately slow
+	// reconnect (scenario 19 holds 180 s) with margin; a genuine hang is killed
+	// at 5 min → connect() returns context.DeadlineExceeded → the caller fails
+	// out (applyPostSwap → postSwapFailure → rollback; task #7 backstops a
+	// loop) instead of pinging the watchdog forever.
+	connectCtx, cancel := context.WithTimeout(ctx, connectTimeout)
+	defer cancel()
+
+	d.listenConn, err = pgx.ConnectConfig(connectCtx, config)
 	if err != nil {
 		return fmt.Errorf("listen connection: %w", err)
 	}
-	d.queryConn, err = pgx.ConnectConfig(ctx, config)
+	d.queryConn, err = pgx.ConnectConfig(connectCtx, config)
 	if err != nil {
 		d.listenConn.Close(context.Background())
 		return fmt.Errorf("query connection: %w", err)
@@ -3547,12 +3579,18 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// ticker pings only while the pipeline is advancing (shouldPingWatchdog).
 	// A HUNG step stops bumping lastAdvanceAt → the gate closes → pings stop →
 	// WatchdogSec fires and the unit is reaped (instead of a blind ticker
-	// pinging forever past a wedged step). Live steps bump via per-line output
-	// (progress.bump threaded as runCommandToLog's onAdvance — covers
-	// config-generate, docker pull, docker up, step-11 up, migrate, recreate)
-	// or step-boundary progress.Write; the migrate/recreate step — silent for
-	// minutes on one big DDL — is exempted via deferGating around its
-	// runCommandToLog call.
+	// pinging forever past a wedged step). The uniform principle: GATE every
+	// output-emitting step (output distinguishes slow-from-hung) and DEFER only
+	// the genuinely-SILENT-but-BOUNDED blocking steps. Output steps bump via
+	// per-line output (progress.bump threaded as runCommandToLog's onAdvance —
+	// covers config-generate, docker pull, docker up, step-11 up) or
+	// step-boundary progress.Write. The two silent steps are exempted
+	// (deferGating, always-ping) because output-gating can't tell them from a
+	// hang, each bounded by its OWN timeout instead of by the watchdog:
+	//   - migrate / recreate-database — silent for minutes on one big DDL;
+	//     bounded by its runCommandToLog timeout (30 m) + task #7.
+	//   - reconnect — pgx dial+handshake emits nothing; bounded by connect()'s
+	//     5-min ctx deadline (added with this piece) + task #7.
 	//
 	// STARTED AT THE TOP (engineer #2-trace coverage finding): the pre-reconnect
 	// steps (config-generate, docker pull, docker up db, waitForDBHealth) each
@@ -3567,9 +3605,13 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// the reconnect-scoped one (which protected only d.reconnect) and the
 	// applyPostSwap-remainder one (d416a50a0's migrate-only ticker, later
 	// widened). Both were blind 30 s timers; an unconditional ticker is itself
-	// a blind-watchdog hole (a wedged reconnect would have pinged forever). One
-	// gated ticker covering the whole body closes that hole. Reproduced
-	// empirically by scenarios 19 (reconnect stall) and 26 (archiveBackup stall).
+	// a blind-watchdog hole — the old reconnect ticker would have pinged forever
+	// past a wedged pgx.Connect (which was unbounded). The fix is twofold: the
+	// gate stops pinging a hung OUTPUT step, and the two silent steps are bounded
+	// by their own timeouts (migrate→runCommandToLog, reconnect→connect()'s new
+	// 5-min ctx) so deferring gating during them is safe, not blind-forever.
+	// Reproduced empirically by scenarios 19 (reconnect stall) and 26
+	// (archiveBackup stall).
 	//
 	// Cancelled via defer so every error-return path in applyPostSwap reaps the
 	// goroutine cleanly. The first tick is gated like every other (no special
@@ -3628,37 +3670,44 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 		return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: DB health check: %v", ErrHealthcheckDBDown, err), progress)
 	}
 
-	// Harness-only stall site (C15 / Race D): simulates a slow DB
-	// reconnect after the DB container restart earlier in this method
-	// (docker compose up -d --no-build db). The reconnect step parks
-	// the upgrade-service's main goroutine; until it returns, NOTHING
-	// in the main goroutine pings WATCHDOG=1. Activated by
-	// STATBUS_INJECT_AT=service-watchdog-timeout-during-db-reconnect-after-container-restart
-	// and held by STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE.
+	// Reconnect service DB connection — a legitimately SILENT blocking step
+	// (pgx dial+handshake emits no per-line output), so output-gating can't
+	// distinguish a slow-but-live reconnect from a hang. Like the migrate step,
+	// it is therefore deferGating-EXEMPT (the gated ticker always pings during
+	// it) — SAFE only because reconnect is now itself BOUNDED: connect() wraps
+	// the dial+handshake in a 5-min ctx deadline (see connect()), mirroring how
+	// migrate is bounded by its runCommandToLog timeout. A genuine hang is
+	// killed at 5 min → reconnect returns DeadlineExceeded → postSwapFailure →
+	// rollback (task #7 backstops a loop), NOT pinged forever (the
+	// blind-unbounded hole the old unconditional reconnect ticker left open).
 	//
-	// The gated ticker started above is the structural fix — even when the
-	// main goroutine is parked (real-world Race D: a slow DB-side handshake)
-	// the ticker goroutine keeps firing WATCHDOG=1 so systemd's WatchdogSec
-	// deadline cannot trip — UNTIL the gate's 3-min stall threshold lapses,
-	// at which point a genuinely wedged reconnect (no advance) correctly stops
-	// the pings and lets WatchdogSec reap the unit. The progress.Write calls
-	// bracketing d.reconnect below bump lastAdvanceAt at entry and on success,
-	// so a normal sub-second reconnect keeps the gate open; only a hang trips.
-	//
-	// No-op in production.
-	inject.StallHere("service-watchdog-timeout-during-db-reconnect-after-container-restart")
+	// The deferGating span covers the harness stall point (C15 / Race D) through
+	// reconnect completion: set true here, reset via defer after the reconnect
+	// returns (scoped to this block via the closure so an error-return mid-block
+	// can't leave gating disabled for migrate / step 11 / archiveBackup). A
+	// genuinely slow reconnect under the 5-min bound survives (the exempt ticker
+	// keeps the unit alive); a > 5-min hang is reaped by reconnect's own bound.
+	reconnErr := func() error {
+		progress.setDeferGating(true)
+		defer progress.setDeferGating(false)
 
-	// Reconnect service DB connection. Bracketed by progress.Write boundaries
-	// (entry + success) so the gated ticker sees an advance: a normal reconnect
-	// bumps lastAdvanceAt at "Reconnecting..." and again at "Database
-	// reconnected.", keeping the watchdog fed; a reconnect wedged past the 3-min
-	// stall threshold emits neither further bump → gate closes → WatchdogSec
-	// fires (the hung reconnect is caught, not pinged forever — the hole the
-	// old unconditional reconnect ticker left open). d.queryConn was nil on
-	// entry (the pre-swap teardown closed it); reconnect reopens both conns and
-	// re-acquires the advisory lock.
-	progress.Write("Reconnecting to database...")
-	reconnErr := d.reconnect(ctx)
+		// Harness-only stall site (C15 / Race D): simulates a slow DB reconnect
+		// after the DB container restart earlier in this method (docker compose
+		// up -d --no-build db). It parks the main goroutine; the deferGating
+		// ticker keeps WATCHDOG=1 firing so systemd's WatchdogSec can't trip
+		// during a legitimately slow reconnect. Activated by
+		// STATBUS_INJECT_AT=service-watchdog-timeout-during-db-reconnect-after-container-restart
+		// and held by STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE. No-op in
+		// production. (A REAL > 5-min hang here is bounded by connect()'s 5-min
+		// ctx, not by the watchdog — see the block comment above.)
+		inject.StallHere("service-watchdog-timeout-during-db-reconnect-after-container-restart")
+
+		// d.queryConn was nil on entry (the pre-swap teardown closed it);
+		// reconnect reopens both conns (bounded by connect()'s 5-min ctx) and
+		// re-acquires the advisory lock.
+		progress.Write("Reconnecting to database...")
+		return d.reconnect(ctx)
+	}()
 	if reconnErr != nil {
 		return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: reconnect to DB: %v", ErrHealthcheckDBDown, reconnErr), progress)
 	}
