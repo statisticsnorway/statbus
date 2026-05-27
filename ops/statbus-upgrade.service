@@ -17,17 +17,20 @@ Description=StatBus Upgrade Service
 # retries) and tight enough that a wedged state surfaces within ~10
 # minutes instead of 91 hours.
 #
-# KNOWN GAP (task #7 / f2-slow-loop-liveness, fast-follow): this cap catches
+# SLOW-LOOP GAP — closed by task #7 (f2-slow-loop-liveness): this cap catches
 # a FAST restart loop, but a SLOW timeout-loop (e.g. a ~2.5min cycle: a
 # start-phase kill + RestartSec=30) accumulates only ~4 restarts per 600s
 # window — UNDER burst=10 — so the cap never trips and the unit can report
 # `activating` indefinitely, missed by health-checks (the original NO/rune
 # 40h wedge before §4a FIX A). Tightening burst to catch a slow loop would
-# false-trip the legitimate ~3-retry transient above, so the principled fix
-# is a separate liveness mechanism ("cumulative activating/auto-restarting
-# > N min ⇒ failed"), tracked as task #7 — NOT a burst recalibration here.
-# §4a FIX A makes THIS bug's loop impossible (the resume converges in ~1
-# cycle); task #7 is future-defense against a slow loop of any other cause.
+# false-trip the legitimate ~3-retry transient above, so the fix is a SEPARATE
+# liveness observer ("cumulative NOT-healthy-stable > N=30min ⇒ stop + mark
+# failed + Slack"), NOT a burst recalibration here. SHIPPED as the paired
+# statbus-upgrade-liveness@.timer + .service (an external sidecar that runs
+# `./sb upgrade liveness-check` every 5min; see ops/statbus-upgrade-liveness@.*
+# and cli/internal/upgrade/liveness.go). §4a FIX A makes THIS bug's loop
+# impossible (the resume converges in ~1 cycle); the liveness observer is the
+# universal backstop for a slow loop of any other cause.
 StartLimitIntervalSec=600
 StartLimitBurst=10
 
