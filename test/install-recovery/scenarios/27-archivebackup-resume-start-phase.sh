@@ -262,32 +262,56 @@ echo "── starting unit; resume will reach archiveBackup and stall ──"
 VM_EXEC bash -c "systemctl --user --no-block start $UNIT"
 
 # ─────────────────────────────────────────────────────────────────────────
-# Phase 6 — hold the stall; sample NRestarts + row state across the window.
+# Phase 6 — hold the stall WHILE the archiveBackup is blocked, and watch the
+# row. This is the heart of the FIX A test and is B1-AGNOSTIC:
+#
+#   FIX A moved the terminal state='completed' UPDATE + removeUpgradeFlag to
+#   BEFORE archiveBackup. The stall is INSIDE archiveBackup. So with the fix,
+#   the row reaches 'completed' and the flag is removed BEFORE the stall is
+#   even hit — i.e. DURING this hold, while the (kill-prone) tar is blocked.
+#   That is the load-bearing proof: the slow tar can no longer prevent the
+#   row from completing.
+#     - FIX A only (B1 dropped): the blocked tar runs pre-READY (start phase)
+#       and may be SIGTERM'd at TimeoutStartSec — harmlessly, because the row
+#       is already completed; NRestarts may tick up a little.
+#     - FIX A + B1: the tar runs active-phase under the ticker, not killed.
+#   Either way the row reaches 'completed' during the hold.
+#
+#   Pre-fix (no FIX A): the UPDATE runs AFTER the tar, so while the tar is
+#   stalled the row stays in_progress; the start-phase kill then cancels the
+#   ctx before the UPDATE → loop. The row NEVER reaches completed during the
+#   hold. (EXPECT_RED mode asserts exactly that.)
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
-echo "── holding the resume archiveBackup stall for ${STALL_HOLD_S}s ──"
-echo "    (pre-fix: NRestarts climbs as each start-phase tar is SIGTERM'd;"
-echo "     post-fix: tar is active-phase under the ticker — no kill)"
+echo "── holding the resume archiveBackup stall (up to ${STALL_HOLD_S}s); watching the row ──"
+echo "    (FIX A: row reaches 'completed' BEFORE the stalled tar — during this hold;"
+echo "     pre-fix: row stays in_progress and the unit loop-restarts)"
 START_TS=$(date +%s)
-LAST_STATE=""
+ROW_COMPLETED_DURING_HOLD=0
+ROW_DURING=""
 while true; do
     elapsed=$(( $(date +%s) - START_TS ))
     if [ "$elapsed" -ge "$STALL_HOLD_S" ]; then break; fi
+    NR=$(VM_EXEC systemctl --user show "$UNIT" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
+    SUB=$(VM_EXEC systemctl --user show "$UNIT" --property=SubState --value 2>/dev/null | tr -d ' \r\n' || echo "?")
+    ROW_DURING=$(VM_EXEC bash -c "cd ~/statbus && echo 'SELECT state FROM public.upgrade ORDER BY id DESC LIMIT 1;' | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?")
     if [ $((elapsed % 30)) -eq 0 ]; then
-        NR=$(VM_EXEC systemctl --user show "$UNIT" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
-        SUB=$(VM_EXEC systemctl --user show "$UNIT" --property=SubState --value 2>/dev/null | tr -d ' \r\n' || echo "?")
-        ST=$(VM_EXEC bash -c "cd ~/statbus && echo 'SELECT state FROM public.upgrade ORDER BY id DESC LIMIT 1;' | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?")
-        echo "    [t+${elapsed}s] NRestarts=$NR substate=$SUB row=$ST (baseline NRestarts=$NRESTARTS_BASELINE)"
-        LAST_STATE="$ST"
+        echo "    [t+${elapsed}s] NRestarts=$NR substate=$SUB row=$ROW_DURING (baseline NRestarts=$NRESTARTS_BASELINE)"
+    fi
+    # FIX A signature: row completes while the tar is still stalled.
+    if [ "$ROW_DURING" = "completed" ]; then
+        ROW_COMPLETED_DURING_HOLD=1
+        echo "  ✓ row reached 'completed' at t+${elapsed}s — WHILE archiveBackup is still stalled"
+        echo "    (the terminal UPDATE persisted before the kill-prone tar — FIX A holds)"
+        break
     fi
     sleep 5
 done
 
 NRESTARTS_DURING=$(VM_EXEC systemctl --user show "$UNIT" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
-ROW_DURING=$(VM_EXEC bash -c "cd ~/statbus && echo 'SELECT state FROM public.upgrade ORDER BY id DESC LIMIT 1;' | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?")
 RESTART_DELTA_DURING=$((NRESTARTS_DURING - NRESTARTS_BASELINE))
 echo ""
-echo "  during-hold: NRestarts=$NRESTARTS_DURING (delta=$RESTART_DELTA_DURING) row=$ROW_DURING"
+echo "  during-hold: NRestarts=$NRESTARTS_DURING (delta=$RESTART_DELTA_DURING) row=$ROW_DURING completed_during_hold=$ROW_COMPLETED_DURING_HOLD"
 
 # ─────────────────────────────────────────────────────────────────────────
 # RED-mode assertion (EXPECT_RED=1 — running against a PRE-fix binary).
@@ -337,10 +361,37 @@ if [ -n "$EXPECT_RED" ]; then
 fi
 
 # ─────────────────────────────────────────────────────────────────────────
-# Phase 7 — release the stall + drop-in; assert convergence (POST-fix).
+# GREEN load-bearing assertion (post-fix, B1-AGNOSTIC): the row MUST have
+# reached 'completed' DURING the hold — i.e. before the stalled, kill-prone
+# archiveBackup. This is the single decisive proof that FIX A converges the
+# NO wedge: the terminal UPDATE persisted ahead of the tar, so the slow tar
+# (whether active-phase under B1, or start-phase-and-SIGTERM'd without B1)
+# can no longer keep the row in_progress. If this fails, FIX A is not in
+# effect — the row was still in_progress while the tar was blocked.
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
-echo "── releasing stall + removing drop-in; expecting convergence ──"
+echo "── GREEN load-bearing check: row completed before the stalled tar (FIX A) ──"
+if [ "$ROW_COMPLETED_DURING_HOLD" != "1" ]; then
+    echo "✗ row did NOT reach 'completed' during the hold (last seen: '$ROW_DURING')." >&2
+    echo "  FIX A (archiveBackup AFTER the terminal state='completed' UPDATE +" >&2
+    echo "  removeUpgradeFlag) is not in effect: the kill-prone tar still runs before" >&2
+    echo "  the UPDATE, so a start-phase SIGTERM cancels the DB context and the row" >&2
+    echo "  stays in_progress — the NO/rune wedge. See plan" >&2
+    echo "  recovery-arc-flaw-timeoutstartsec.md §4a FIX A." >&2
+    VM_EXEC bash -c "cd ~/statbus && echo 'SELECT id, state, error FROM public.upgrade ORDER BY id DESC LIMIT 1;' | ./sb psql" >&2 || true
+    VM_EXEC bash -c "systemctl --user status $UNIT --no-pager" >&2 || true
+    exit 1
+fi
+echo "  ✓ FIX A holds: the row was 'completed' while archiveBackup was still stalled"
+
+# ─────────────────────────────────────────────────────────────────────────
+# Phase 7 — release the stall + drop-in so the tar finishes and the unit
+# settles; then confirm convergence + cleanup. The row is ALREADY 'completed'
+# (asserted above); this phase just lets archiveBackup finish and the unit
+# reach a steady active state, then runs the final cleanup assertions.
+# ─────────────────────────────────────────────────────────────────────────
+echo ""
+echo "── releasing stall + removing drop-in; letting the tar finish + unit settle ──"
 VM_EXEC bash -c "
     rm -f $RELEASE_FILE
     rm -f $DROPIN_FILE
@@ -348,17 +399,16 @@ VM_EXEC bash -c "
     systemctl --user --no-block restart $UNIT 2>/dev/null || true
 "
 
+# The row is already 'completed' (asserted during the hold); this just
+# confirms it stays terminal once the tar finishes and the unit settles.
 START_TS=$(date +%s)
 FINAL_STATE=""
 while true; do
     elapsed=$(( $(date +%s) - START_TS ))
     if [ "$elapsed" -ge "$CONVERGE_BUDGET_S" ]; then
-        echo "✗ upgrade did not converge to a terminal state within ${CONVERGE_BUDGET_S}s after release" >&2
-        echo "  This is the NO-wedge reproduction on a pre-fix binary: the resume's" >&2
-        echo "  archiveBackup ran pre-READY=1 (start phase), was SIGTERM'd before the" >&2
-        echo "  terminal UPDATE persisted, and the row stayed in_progress. Apply plan" >&2
-        echo "  recovery-arc-flaw-timeoutstartsec.md §4a (READY=1 before recoverFromFlag" >&2
-        echo "  + archiveBackup after the terminal UPDATE)." >&2
+        echo "✗ row not in a terminal state ${CONVERGE_BUDGET_S}s after release (unexpected —" >&2
+        echo "  it was 'completed' during the hold; a regression to in_progress would mean" >&2
+        echo "  something re-opened the row). Investigate." >&2
         VM_EXEC bash -c "cd ~/statbus && echo 'SELECT id, state, error FROM public.upgrade ORDER BY id DESC LIMIT 1;' | ./sb psql" >&2 || true
         VM_EXEC bash -c "systemctl --user status $UNIT --no-pager" >&2 || true
         exit 1
@@ -367,7 +417,7 @@ while true; do
     case "$STATE" in
         completed|failed|rolled_back)
             FINAL_STATE="$STATE"
-            echo "  ✓ upgrade reached state='$STATE' (t+${elapsed}s after release)"
+            echo "  ✓ upgrade settled at state='$STATE' (t+${elapsed}s after release)"
             break
             ;;
     esac
@@ -397,17 +447,29 @@ assert_flag_file_absent "$VM_NAME"
 assert_demo_data_present "$VM_NAME"
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
 
-# Slow-loop bound: even across the doomed RED cycles + recovery, NRestarts
-# stays well under StartLimitBurst. Post-fix this is small (FIX B1 means no
-# start-phase kill at all). We allow generous headroom for the RED→release
-# transition since the scenario deliberately induced a short-budget loop.
+# Slow-loop bound: the unit must CONVERGE, not loop. This is B1-AGNOSTIC —
+# it holds whether or not FIX B1 is present, because FIX A alone breaks the
+# loop:
+#   - FIX A only (B1 dropped): the resume still runs pre-READY (start phase),
+#     so archiveBackup IS SIGTERM'd by TimeoutStartSec — but the terminal
+#     UPDATE already ran BEFORE the tar, so the row is 'completed' and the
+#     flag is gone. The next start finds no flag → no-ops → active. Converges
+#     in ~1 kill cycle (NRestarts +1, maybe +2 for systemd jitter).
+#   - FIX A + B1: READY=1 fires before recoverFromFlag → the tar runs
+#     active-phase under the WATCHDOG=1 ticker → never killed. Converges with
+#     0 kills.
+# Either way NRestarts stays FAR under StartLimitBurst=10 and the unit ends
+# active. The bound below (≤ 8) is loose enough to cover the short-budget
+# loop this scenario deliberately induces during the hold, in both worlds;
+# the decisive proof is FINAL_STATE='completed' + unit active above.
 NRESTARTS_FINAL=$(VM_EXEC systemctl --user show "$UNIT" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
 FINAL_DELTA=$((NRESTARTS_FINAL - NRESTARTS_BASELINE))
 echo "  NRestarts: baseline=$NRESTARTS_BASELINE final=$NRESTARTS_FINAL delta=$FINAL_DELTA"
 if [ "$FINAL_DELTA" -gt 8 ]; then
-    echo "✗ NRestarts grew by $FINAL_DELTA (>8) — the resume is still loop-restarting." >&2
-    echo "  FIX B1 (READY=1 before recoverFromFlag) is not in effect: the resume is" >&2
-    echo "  still running in the start phase under TimeoutStartSec." >&2
+    echo "✗ NRestarts grew by $FINAL_DELTA (>8) — the resume is still loop-restarting" >&2
+    echo "  rather than converging. FIX A (archiveBackup after the terminal UPDATE)" >&2
+    echo "  is the load-bearing fix: it must let the row reach 'completed' so a" >&2
+    echo "  subsequent start no-ops instead of re-entering the doomed resume." >&2
     exit 1
 fi
 
