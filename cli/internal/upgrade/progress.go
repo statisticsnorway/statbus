@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -31,6 +32,19 @@ type ProgressLog struct {
 	relPath string
 	absPath string
 	file    *os.File
+
+	// lastAdvanceAt is the UnixNano of the most recent pipeline ADVANCE,
+	// for the #3 progress-gated watchdog (plan upgrade-resume-structural-whole.md).
+	// Bumped by (a) Write (every step boundary) and (b) the PrefixWriter onLine
+	// callback (every subprocess output line) threaded through runCommandToLog.
+	// The applyPostSwap WATCHDOG=1 ticker reads sinceLastAdvance() and pings
+	// systemd ONLY IF the pipeline advanced within stallThreshold — so a HUNG
+	// step (no advance) stops the pings and WatchdogSec fires (bounded), while
+	// an advancing step survives. atomic: the ticker goroutine reads while
+	// Write / PrefixWriter goroutines bump. Concurrency-safe even on a nil
+	// *ProgressLog's zero value is avoided by always constructing via the
+	// helpers below, which seed it to "now".
+	lastAdvanceAt atomic.Int64
 }
 
 func upgradeLogsDir(projDir string) string {
@@ -219,7 +233,40 @@ func (p *ProgressLog) Write(format string, args ...interface{}) {
 	// its own emitHeartbeat calls.
 	if p != nil {
 		emitHeartbeat(p.projDir)
+		// (a) step-boundary advance for the #3 progress-gated watchdog.
+		p.bump()
 	}
+}
+
+// bump records "the pipeline just advanced" — sets lastAdvanceAt to now.
+// Nil-safe. Called from Write (step boundaries) and from the PrefixWriter
+// onLine callback (subprocess output lines) threaded through runCommandToLog.
+func (p *ProgressLog) bump() {
+	if p == nil {
+		return
+	}
+	p.lastAdvanceAt.Store(time.Now().UnixNano())
+}
+
+// sinceLastAdvance returns how long since the last bump. A never-bumped log
+// (zero value) reports a large duration so a caller that forgot to seed it
+// reads as "stalled" rather than "just advanced" (fail-safe: the #3 ticker
+// would stop pinging rather than blind-ping). Nil-safe.
+func (p *ProgressLog) sinceLastAdvance() time.Duration {
+	if p == nil {
+		return 0 // nil log ⇒ no pipeline to watch; treat as "fresh" (ticker no-op path)
+	}
+	last := p.lastAdvanceAt.Load()
+	if last == 0 {
+		return time.Duration(1<<62 - 1) // effectively "forever stale"
+	}
+	return time.Since(time.Unix(0, last))
+}
+
+// setLastAdvanceForTest forces lastAdvanceAt to a specific time. Test-only
+// seam to exercise the stalled path without real sleeps.
+func (p *ProgressLog) setLastAdvanceForTest(t time.Time) {
+	p.lastAdvanceAt.Store(t.UnixNano())
 }
 
 // Close closes the log file.

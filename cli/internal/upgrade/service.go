@@ -1550,7 +1550,7 @@ func (d *Service) Run(ctx context.Context) error {
 	// clean resumable state (transactional migrations + db.migration version
 	// table). Stays BEFORE recoverFromFlag so the schema is at HEAD before the
 	// first public.upgrade query.
-	if err := runCommandToLog(d.projDir, 5*time.Minute, io.Discard, "boot-migrate-up",
+	if err := runCommandToLog(d.projDir, 5*time.Minute, io.Discard, "boot-migrate-up", nil,
 		filepath.Join(d.projDir, "sb"), "migrate", "up", "--verbose"); err != nil {
 		d.markTerminal("BOOT_MIGRATE_UP_FAILED",
 			fmt.Sprintf("./sb migrate up at boot failed: %v; service refuses to enter the loop on a stale schema", err))
@@ -3351,12 +3351,12 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// No --depth 1: the discovery phase already fetched origin/master, so objects are local.
 	// Keeping full history ensures git-describe can find tags for config generate (VERSION).
 	progress.Write("Installing %s...", displayName)
-	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "git", "git", "fetch", "origin", commitSHA); err != nil {
+	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "git", nil, "git", "fetch", "origin", commitSHA); err != nil {
 		// TODO: pick code — forward git fetch failure; no Err* code covers install-time git errors yet
 		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("git fetch %s: %v", ShortForDisplay(commitSHA), err), progress)
 		return err
 	}
-	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "git", "git", "-c", "advice.detachedHead=false", "checkout", commitSHA); err != nil {
+	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "git", nil, "git", "-c", "advice.detachedHead=false", "checkout", commitSHA); err != nil {
 		// TODO: pick code — forward git checkout failure; no Err* code covers install-time git errors yet
 		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("git checkout %s: %v", ShortForDisplay(commitSHA), err), progress)
 		return err
@@ -3529,14 +3529,14 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// Regenerate config via the NEW binary. VERSION comes from git describe
 	// --tags --always against the just-checked-out HEAD.
 	progress.Write("Regenerating configuration...")
-	if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "config-generate", filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
+	if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "config-generate", nil, filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
 		// TODO: pick code — config generate failure; no Err* code defined yet
 		return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("./sb config generate: %v", err), progress)
 	}
 
 	// Step 8: Pull updated images
 	progress.Write("Pulling updated images...")
-	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", "docker", "compose", "pull"); err != nil {
+	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", nil, "docker", "compose", "pull"); err != nil {
 		return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: docker compose pull: %v", ErrDockerUpFailed, err), progress)
 	}
 
@@ -3548,7 +3548,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// no useful error). If the image isn't in the registry yet, CI hasn't
 	// built it. Tell the operator to wait for images.yaml and retry.
 	progress.Write("Starting database...")
-	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", "docker", "compose", "up", "-d", "--no-build", "db"); err != nil {
+	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", nil, "docker", "compose", "up", "-d", "--no-build", "db"); err != nil {
 		reason := fmt.Sprintf(
 			"%s: docker compose up -d db: %v\n\n"+
 				"The db image for %s is not available locally or in the registry. "+
@@ -3650,7 +3650,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	//
 	// This subsumes the prior d416a50a0 migrate-only ticker (which was
 	// scoped via extendCtx/extendCancel around runCommandToLog("migrate"
-	// ,...) and cancelled BEFORE step 11 -- leaving archiveBackup
+	// , nil,...) and cancelled BEFORE step 11 -- leaving archiveBackup
 	// uncovered). Reproduced empirically by scenario 26
 	// (archive-backup-stall-active-phase-watchdog).
 	//
@@ -3716,7 +3716,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	if recreate {
 		d.pendingRecreate = false
 		progress.Write("Recreating database from scratch (--recreate)...")
-		if err := runCommandToLog(projDir, 30*time.Minute, progress.File(), "recreate-database", filepath.Join(projDir, "dev.sh"), "recreate-database"); err != nil {
+		if err := runCommandToLog(projDir, 30*time.Minute, progress.File(), "recreate-database", nil, filepath.Join(projDir, "dev.sh"), "recreate-database"); err != nil {
 			return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: ./dev.sh recreate-database: %v", ErrMigrationFailed, err), progress)
 		}
 	} else {
@@ -3749,7 +3749,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 		// remaining heavy steps uncovered. Scenario 26 reproduced the
 		// resulting watchdog kill during archiveBackup; the unified
 		// ticker above subsumes the migrate-only one and closes the gap.
-		err := runCommandToLog(projDir, 30*time.Minute, progress.File(), "migrate", filepath.Join(projDir, "sb"), "migrate", "up", "--verbose")
+		err := runCommandToLog(projDir, 30*time.Minute, progress.File(), "migrate", nil, filepath.Join(projDir, "sb"), "migrate", "up", "--verbose")
 
 		if err != nil {
 			return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: ./sb migrate up: %v", ErrMigrationFailed, err), progress)
@@ -3768,7 +3768,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// asserts the invariant.
 	progress.Write("Starting services...")
 	composeArgs := append([]string{"compose", "up", "-d", "--no-build"}, step11RestartServices...)
-	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", "docker", composeArgs...); err != nil {
+	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", nil, "docker", composeArgs...); err != nil {
 		reason := fmt.Sprintf(
 			"%s: docker compose up -d %s: %v\n\n"+
 				"One or more application images for %s are not available locally or in the registry. "+
@@ -4434,7 +4434,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 		// is logged (non-fatal) if the rename fails.
 		d.restoreBinary(progress)
 
-		if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "rollback-config-generate", filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
+		if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "rollback-config-generate", nil, filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
 			progress.Write("Warning: config generate during rollback failed: %v", err)
 		}
 	}
@@ -4472,7 +4472,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 	inject.KillHere("killed-by-system-during-builtin-rollback")
 
 	// Start with old config — git is verified at previousVersion.
-	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "rollback-docker-up", "docker", "compose", "--profile", "all", "up", "-d", "--remove-orphans"); err != nil {
+	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "rollback-docker-up", nil, "docker", "compose", "--profile", "all", "up", "-d", "--remove-orphans"); err != nil {
 		progress.Write("%s: docker compose up failed after rollback: %v", ErrRollbackServicesUp, err)
 	}
 
@@ -4584,7 +4584,7 @@ func restoreGitStateFn(projDir, previousVersion string, log func(format string, 
 	// Force checkout — discards any local changes. We're rolling back from
 	// a partial upgrade, so any working-tree mutations are by definition
 	// part of the failure we're undoing.
-	if err := runCommandToLog(projDir, 5*time.Minute, logWriter, "rollback-git-checkout", "git", "-c", "advice.detachedHead=false", "checkout", "-f", previousVersion); err != nil {
+	if err := runCommandToLog(projDir, 5*time.Minute, logWriter, "rollback-git-checkout", nil, "git", "-c", "advice.detachedHead=false", "checkout", "-f", previousVersion); err != nil {
 		return fmt.Errorf("git checkout -f %s: %w", previousVersion, err)
 	}
 
@@ -4683,7 +4683,7 @@ func (d *Service) buildBinaryOnDisk(displayName string, progress *ProgressLog) e
 	}
 	progress.Write("Building ./sb from source for edge commit %s...", displayName)
 	if err := runCommandToLog(d.projDir, 5*time.Minute, progress.File(),
-		"make-build-sb", "make", "-C", "cli", "build"); err != nil {
+		"make-build-sb", nil, "make", "-C", "cli", "build"); err != nil {
 		// Restore .old so the host still has a working ./sb after rollback.
 		if rerr := os.Rename(sbOldPath, sbPath); rerr != nil {
 			return fmt.Errorf("make -C cli build failed AND ./sb.old restore failed: build=%v restore=%v", err, rerr)

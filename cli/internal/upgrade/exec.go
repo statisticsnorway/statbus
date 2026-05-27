@@ -121,13 +121,23 @@ func runCommandWithTimeout(dir string, timeout time.Duration, name string, args 
 // tees child stdout/stderr into logWriter using PrefixWriter so the
 // per-upgrade log captures subprocess output alongside service narration.
 // Raw output still flows to os.Stdout/Stderr for daemon journal capture.
-func runCommandToLog(dir string, timeout time.Duration, logWriter io.Writer, source string, name string, args ...string) error {
+// runCommandToLog runs a child process, tee-ing its stdout/stderr to logWriter
+// (prefixed) and os.Stdout. onAdvance (nil-able) is the #3 progress-gated
+// watchdog hook: it fires once per subprocess output line (via the PrefixWriter
+// onLine callback) so a live, emitting step (docker pull, rsync, tar
+// --checkpoint) advances ProgressLog.lastAdvanceAt and survives the watchdog.
+// Pass progress.bump for tracked active-phase steps; nil for untracked ones
+// (git, rollback). NOTE: a SILENT step (a single CREATE INDEX migration) emits
+// no lines, so onAdvance alone can't keep it alive — the migrate step uses a
+// server-side progress poll instead (plan §3 migrate-path resolution); this
+// callback covers the output-emitting steps.
+func runCommandToLog(dir string, timeout time.Duration, logWriter io.Writer, source string, onAdvance func(), name string, args ...string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, name, gitArgs(name, args)...)
 	cmd.Dir = dir
-	outW := NewPrefixWriter("O", source, logWriter)
-	errW := NewPrefixWriter("E", source, logWriter)
+	outW := NewPrefixWriter("O", source, logWriter, onAdvance)
+	errW := NewPrefixWriter("E", source, logWriter, onAdvance)
 	cmd.Stdout = io.MultiWriter(os.Stdout, outW)
 	cmd.Stderr = io.MultiWriter(os.Stderr, errW)
 	prepareCmd(cmd)
@@ -345,7 +355,7 @@ func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (string, e
 			"chmod -R u=rwX,go=rX /backup",
 		deployUID, deployGID,
 	)
-	rsyncErr := runCommandToLog(d.projDir, 10*time.Minute, progress.File(), "rsync",
+	rsyncErr := runCommandToLog(d.projDir, 10*time.Minute, progress.File(), "rsync", nil,
 		"docker", "run", "--rm",
 		"-v", volumeName+":/source:ro",
 		"-v", tmpDir+":/backup",
@@ -496,7 +506,7 @@ func (d *Service) restoreDatabase(progress *ProgressLog) {
 	volumeName := d.dbVolumeName()
 
 	progress.Write("Restoring database from backup at %s...", backupDir)
-	if err := runCommandToLog(d.projDir, 10*time.Minute, progress.File(), "rsync",
+	if err := runCommandToLog(d.projDir, 10*time.Minute, progress.File(), "rsync", nil,
 		"docker", "run", "--rm",
 		"-v", backupDir+":/source:ro",
 		"-v", volumeName+":/dest",
