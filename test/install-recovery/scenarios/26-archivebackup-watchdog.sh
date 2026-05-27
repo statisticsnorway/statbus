@@ -6,10 +6,10 @@
 # Source forensics:      tmp/no-deploy-hang-summary-2026-05-25.md
 #
 # Expected principled behavior:
-#   applyPostSwap runs in the unit's ACTIVE phase (READY=1 was sent at
-#   service.go:1547 inside Service.Run setup, before the main loop
-#   dispatches executeUpgrade). systemd enforces WatchdogSec=120 s in
-#   that phase; only WATCHDOG=1 resets the deadline.
+#   applyPostSwap runs in the unit's ACTIVE phase (READY=1 is sent in
+#   Service.Run setup, before the main loop dispatches executeUpgrade on
+#   the scheduled path this scenario drives). systemd enforces
+#   WatchdogSec=120 s in that phase; only WATCHDOG=1 resets the deadline.
 #
 #   Commit d416a50a0 introduced a WATCHDOG=1 ticker scoped only to the
 #   migrate-up subprocess (service.go:3664-3686): extendCtx, extendCancel,
@@ -218,9 +218,10 @@ echo "  ✓ unit active with inject env vars in place"
 # 'scheduled'), then calls executeScheduled → claims the row.
 #
 # Service must be LISTENING before we send. systemd marks the unit
-# 'active' only after READY=1, which is emitted AFTER the LISTEN
-# commands are in place — so the sleep-5 + UNIT_STATE=active check
-# above guarantees the service is already listening when we NOTIFY.
+# 'active' only after READY=1, and (since plan §4a FIX B1) the LISTEN
+# commands are registered just BEFORE READY=1 — so the sleep-5 +
+# UNIT_STATE=active check above guarantees the service is already
+# listening when we NOTIFY (listening-before-active holds either way).
 SHORT_SHA=$(echo "$HEAD_LOCAL" | cut -c1-8)
 echo "── waking service via NOTIFY (./sb upgrade apply $SHORT_SHA) ──"
 VM_EXEC bash -c "cd ~/statbus && ./sb upgrade apply $SHORT_SHA 2>&1 | tail -5 || true"

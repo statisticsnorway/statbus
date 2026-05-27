@@ -12,15 +12,28 @@ import (
 // this file alongside the active-phase WATCHDOG=1 fix for Race B.
 // Original design assumed applyPostSwap ran in systemd's "activating"
 // phase (pre-READY=1), where EXTEND_TIMEOUT_USEC is the right primitive.
-// Evidence (service.go:1519 sends READY=1 before the main loop;
-// applyPostSwap is reached from inside the main loop via
-// executeUpgrade) showed applyPostSwap always runs in active phase,
-// where EXTEND_TIMEOUT_USEC is a no-op against WatchdogSec and only
-// WATCHDOG=1 resets the watchdog deadline. Confirmed by operator's
-// dev journalctl: UNIT_RESULT=watchdog, NRestarts=111 — Fix 1's
-// EXTEND_TIMEOUT_USEC ticker did not prevent the watchdog from firing.
-// The helper had no other call site, so it was deleted rather than
-// preserved as defensive cover (dead code paths must be removed).
+// Evidence (Service.Run sends READY=1 before the main loop; applyPostSwap
+// is reached from inside the main loop via executeUpgrade) showed the
+// SCHEDULED path's applyPostSwap runs in the active phase, where
+// EXTEND_TIMEOUT_USEC is a no-op against WatchdogSec and only WATCHDOG=1
+// resets the watchdog deadline. Confirmed by operator's dev journalctl:
+// UNIT_RESULT=watchdog, NRestarts=111 — Fix 1's EXTEND_TIMEOUT_USEC ticker
+// did not prevent the watchdog from firing. The helper had no other call
+// site, so it was deleted rather than preserved as defensive cover (dead
+// code paths must be removed).
+//
+// Addendum (2026-05-27, plan recovery-arc-flaw-timeoutstartsec.md §4a):
+// the original note's "applyPostSwap always runs active-phase" was true
+// for the SCHEDULED path but FALSE for the exit-42 RESUME path, which
+// reached applyPostSwap from recoverFromFlag DURING Service.Run startup —
+// before READY=1 — so on that path applyPostSwap ran in the START phase
+// under TimeoutStartSec, where neither WATCHDOG=1 nor the deleted extender
+// helped. A 32 GB archiveBackup blew the start budget and wedged NO/rune in
+// a restart loop (~40 h). The fix moves READY=1 to BEFORE recoverFromFlag
+// (Service.Run), so the resume now ALSO runs active-phase — making the
+// "always active-phase" assumption universally true at last, and keeping
+// the EXTEND_TIMEOUT_USEC deletion correct (the active phase needs only
+// WATCHDOG=1). No code here changed; this records why the deletion holds.
 
 // Heartbeat design (task #42, unified from task #37's 4-commit chain):
 //
@@ -73,12 +86,14 @@ import (
 // should be rare — almost all liveness signalling goes through
 // emitHeartbeat so the three signals stay unified.
 //
-// One legitimate ad-hoc callsite is the migrate ticker in
-// applyPostSwap (service.go), which sends WATCHDOG=1 directly without
-// the file+log side effects of emitHeartbeat. That's an active-phase
-// ticker — applyPostSwap runs after Service.Run has sent READY=1, so
-// WATCHDOG=1 (not EXTEND_TIMEOUT_USEC) is the primitive that resets
-// the watchdog deadline.
+// One legitimate ad-hoc callsite is the applyPostSwap WATCHDOG=1 ticker
+// (service.go), which sends WATCHDOG=1 directly without the file+log side
+// effects of emitHeartbeat. That's an active-phase ticker — applyPostSwap
+// runs after Service.Run has sent READY=1 on BOTH the scheduled path (main
+// loop dispatches after READY=1) AND, since plan §4a FIX B1, the exit-42
+// resume path (READY=1 now fires before recoverFromFlag). So WATCHDOG=1
+// (not the deleted EXTEND_TIMEOUT_USEC) is the primitive that resets the
+// watchdog deadline in either case.
 func sdNotify(state string) {
 	socket := os.Getenv("NOTIFY_SOCKET")
 	if socket == "" {

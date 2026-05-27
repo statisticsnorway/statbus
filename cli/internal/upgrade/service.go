@@ -3731,19 +3731,24 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	} else {
 		progress.Write("Applying database migrations...")
 
-		// Post-swap migrate-up runs in the unit's ACTIVE phase (READY=1
-		// fires at service.go:1547 in Service.Run setup, BEFORE the
-		// main loop dispatches executeUpgrade). Active-phase systemd
-		// enforces WatchdogSec (=120 s per ops/statbus-upgrade.service);
-		// only WATCHDOG=1 resets the deadline.
+		// Post-swap migrate-up runs in the unit's ACTIVE phase. READY=1
+		// fires in Service.Run setup before this code is reached on BOTH
+		// entries into applyPostSwap: the scheduled path (main loop
+		// dispatches executeUpgrade after READY=1) and, since plan
+		// recovery-arc-flaw-timeoutstartsec.md §4a FIX B1, the exit-42
+		// resume path (READY=1 now fires before recoverFromFlag). Active-
+		// phase systemd enforces WatchdogSec (=120 s per
+		// ops/statbus-upgrade.service); only WATCHDOG=1 resets the deadline.
 		//
 		// The applyExtendCtx ticker started above (right after the
 		// reconnect block) handles the heartbeat for this entire
 		// remainder of applyPostSwap -- migrate-up + step 11 + step 12
-		// + archiveBackup + terminal UPDATE. The migration itself also
-		// emits per-line progress.Write calls that fire emitHeartbeat,
-		// so the ticker is the safety net for the few seconds at the
-		// start of a migration before its first progress line lands.
+		// + terminal UPDATE + archiveBackup (archiveBackup was reordered
+		// after the terminal UPDATE by §4a FIX A; the ticker's defer scope
+		// covers it either way). The migration itself also emits per-line
+		// progress.Write calls that fire emitHeartbeat, so the ticker is
+		// the safety net for the few seconds at the start of a migration
+		// before its first progress line lands.
 		//
 		// History: d416a50a0 introduced a narrower migrate-only ticker
 		// (extendCtx/extendCancel around just runCommandToLog) which

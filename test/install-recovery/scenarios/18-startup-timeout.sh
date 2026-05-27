@@ -6,15 +6,23 @@
 # Source forensics:      tmp/install-state-machine-forensics.md
 #
 # Expected principled behavior:
-#   The upgrade-service's startup pipeline (syncConfigToSystemInfo →
-#   cleanStaleMaintenance → checkMissedUpgrades → LISTEN setup) runs
-#   BEFORE sdNotify("READY=1"). systemd holds the unit in the
-#   `activating` phase during this window, enforcing TimeoutStartSec
-#   (declared as 120 s in ops/statbus-upgrade.service per commit
-#   f43b2bfd1). If the pipeline blows past that budget, systemd
-#   SIGTERMs the unit; NRestarts increments; after StartLimitBurst
-#   (=10) cycles within 600 s, the unit goes to permanent failure
-#   and `./sb install` is the operator's recovery lever.
+#   The upgrade-service's CHEAP init (EnsureDBUp → boot-migrate-up →
+#   connect → advisory lock → LISTEN) runs BEFORE sdNotify("READY=1").
+#   systemd holds the unit in the `activating` phase during this window,
+#   enforcing TimeoutStartSec (declared as 120 s in
+#   ops/statbus-upgrade.service per commit f43b2bfd1). If that init blows
+#   past the budget, systemd SIGTERMs the unit; NRestarts increments;
+#   after StartLimitBurst (=10) cycles within 600 s, the unit goes to
+#   permanent failure and `./sb install` is the operator's recovery lever.
+#
+#   NOTE (plan recovery-arc-flaw-timeoutstartsec.md §4a FIX B1): READY=1
+#   now fires right after the advisory lock + LISTEN, BEFORE recoverFromFlag
+#   and before the post-recovery steps (completeInProgressUpgrade,
+#   markCurrentVersionCompleted, syncConfigToSystemInfo, cleanStaleMaintenance,
+#   checkMissedUpgrades) — those now run POST-READY (active phase) so they can
+#   no longer blow TimeoutStartSec. The C11 stall site moved with READY=1 to
+#   sit just after the advisory lock, so this scenario still exercises the
+#   genuine pre-READY start-phase window — just a smaller one (cheap init only).
 #
 #   Design choice (a) — keep TimeoutStartSec static, no activating-
 #   phase extender. The earlier sdNotifyExtendTimeout helper that
@@ -37,9 +45,9 @@
 #      stays inside the test budget (the default 15 min would push
 #      each restart cycle to ~16 min).
 #   3. Create the release file in the VM, so the stall is held.
-#   4. Restart the unit. Service.Run enters the startup pipeline,
-#      hits inject.StallHere AFTER checkMissedUpgrades, BEFORE
-#      READY=1.
+#   4. Restart the unit. Service.Run enters the cheap init,
+#      hits inject.StallHere AFTER the advisory lock, BEFORE
+#      READY=1 (the §4a FIX B1 position — see the NOTE above).
 #   5. systemd's TimeoutStartSec=120 s expires; SIGTERM fires.
 #      With TimeoutStopSec=5 s the process is SIGKILLed at ~125 s.
 #      systemd marks the unit failed; Restart=always + RestartSec=30
