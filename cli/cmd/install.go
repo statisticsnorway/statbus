@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"log"
@@ -563,6 +564,10 @@ func runInstall() (installErr error) {
 		{"Users", checkUsersDone, runCreateUsers},
 		{"Trusted signers", checkSignersDone, runTrustSigners},
 		{"Upgrade service", checkServiceDone, runInstallService},
+		// Slow-loop liveness backstop (plan piece #7): a paired timer+oneshot
+		// observer that trips a wedged slow upgrade loop. Installed AFTER the
+		// upgrade service so its target unit exists first.
+		{"Upgrade liveness timer", checkLivenessUnitsDone, runInstallLivenessUnits},
 	}
 
 	total := len(steps)
@@ -794,12 +799,49 @@ func checkUsersDone(dir string) bool {
 	return count != "0" && count != ""
 }
 
+// userUnitPath returns the install destination for the user-level upgrade
+// unit. The unit is copied here VERBATIM by runInstallService (copyFile is a
+// byte copy; the %h/%i/%u specifiers resolve at systemd runtime, not at copy
+// time), so the on-disk file should be byte-identical to the repo template.
+func userUnitPath() string {
+	return filepath.Join(os.Getenv("HOME"), ".config", "systemd", "user", "statbus-upgrade@.service")
+}
+
+// unitFileMatchesRepo reports whether the on-disk user unit is byte-identical
+// to the repo template (<dir>/ops/statbus-upgrade.service). Because the unit
+// is installed verbatim, a byte-compare is the exact drift check: a drifted
+// unit (e.g. rune's stale WatchdogUSec=infinity / TimeoutStartSec=90 vs the
+// repo's 120/120) mismatches and must be reconciled. A missing on-disk unit
+// (fresh box) also reports false so install writes it. No systemd needed —
+// this is the pure, unit-testable half of checkServiceDone.
+func unitFileMatchesRepo(dir string) bool {
+	repo, err := os.ReadFile(filepath.Join(dir, "ops", "statbus-upgrade.service"))
+	if err != nil {
+		// No repo template to compare against — can't assert drift; treat as
+		// "matches" so a missing source doesn't wedge the install ladder.
+		return true
+	}
+	onDisk, err := os.ReadFile(userUnitPath())
+	if err != nil {
+		return false // missing / unreadable on-disk unit ⇒ reconcile (write it)
+	}
+	return bytes.Equal(repo, onDisk)
+}
+
 func checkServiceDone(dir string) bool {
 	if runtime.GOOS != "linux" {
 		return true // Skip on non-Linux
 	}
 	instance := serviceInstance(dir)
 	if instance == "" {
+		return false
+	}
+	// #4 unit-reconcile: a healthy (active) unit is NOT "done" if its on-disk
+	// file has drifted from the repo template — otherwise a box that booted an
+	// old unit keeps stale WatchdogSec/TimeoutStartSec forever (the rune
+	// 90/infinity drift). Drift ⇒ not-done ⇒ runInstallService rewrites +
+	// daemon-reload + restarts so the new timers actually arm.
+	if !unitFileMatchesRepo(dir) {
 		return false
 	}
 	// User-level systemd service — no root needed to manage.
@@ -1123,10 +1165,11 @@ func checkSessionsClean(dir string) bool {
 				    -- task processing — those reduces can take minutes on Norway-sized
 				    -- data and matched our 'CALL %statistical_%' pattern, causing
 				    -- false-positive cleanup-failures during healthy worker operation.
-				    -- Migrate.Up's psql subprocesses default to application_name='psql'
-				    -- (psql's libpq default); when SIGKILL'd they leave wedged backends
-				    -- with that marker. That's the actual zombie class we care about.
-				    AND application_name = 'psql'
+				    -- Migrate.Up's psql subprocesses are tagged statbus-migrate-sql-<pid>
+				    -- (task #14, via PGAPPNAME); pre-#14 binaries left the libpq default
+				    -- 'psql'. Match BOTH so this cleaner still catches a SIGKILL'd
+				    -- migrate zombie regardless of which binary started it.
+				    AND (application_name = 'psql' OR application_name LIKE 'statbus-migrate-sql%')
 				    AND (query ILIKE '%TRUNCATE %statistical_%'
 				         OR query ILIKE '%INSERT INTO %statistical_%'
 				         OR query ILIKE '%CALL %statistical_%')
@@ -1216,6 +1259,14 @@ func checkSessionsClean(dir string) bool {
 // rows, Phase 2's advisory-lock query matches zero, and the recheck
 // passes cleanly. Self-targeting is excluded via
 // `pid <> pg_backend_pid()`.
+//
+// Orphan-class split (task #14): this is the RECOVERY-TIME half. It cleans a
+// migrate psql backend orphaned because the OWNING Go process itself died
+// mid-migrate (service OOM / host SIGKILL / reboot) — no runCommandToLog timeout
+// fired, so the in-line terminate-on-timeout (upgrade.terminateMigrateOrphan)
+// never ran. The two are complementary; Phase 1 now matches BOTH the libpq
+// default 'psql' and the #14 tag 'statbus-migrate-sql%' so it catches the
+// orphan whichever binary started the migrate.
 func cleanOrphanSessions(dir string) error {
 	envFile, err := dotenv.Load(filepath.Join(dir, ".env"))
 	if err != nil {
@@ -1231,21 +1282,22 @@ func cleanOrphanSessions(dir string) error {
 	}
 
 	// Phase 1: heuristic kill of obvious zombies.
-	// CRITICAL: filter by application_name = 'psql' to avoid terminating
-	// legitimate worker connections. The worker (application_name='worker')
-	// runs CALL worker.statistical_*_reduce as part of normal task
-	// processing — those reduces match the statistical_history pattern AND
-	// can run for >2 minutes on Norway-sized data, so without this filter
-	// Phase 1 would aggressively terminate healthy worker connections.
-	// Migrate.Up's psql subprocesses default to application_name='psql'
-	// (libpq default) — that's the actual zombie class we want to clean.
+	// CRITICAL: filter by application_name to avoid terminating legitimate
+	// worker connections. The worker (application_name='worker') runs CALL
+	// worker.statistical_*_reduce as part of normal task processing — those
+	// reduces match the statistical_history pattern AND can run for >2 minutes
+	// on Norway-sized data, so without this filter Phase 1 would aggressively
+	// terminate healthy worker connections. Migrate.Up's psql subprocesses are
+	// tagged statbus-migrate-sql-<pid> (task #14, via PGAPPNAME); pre-#14
+	// binaries left the libpq default 'psql'. Match BOTH so we still clean a
+	// SIGKILL'd migrate zombie regardless of which binary started it.
 	phase1 := exec.Command("docker", "compose", "exec", "-T", "db",
 		"psql", "-U", adminUser, "-d", dbName, "-c", `
 		SELECT pg_terminate_backend(pid), pid, query_start, left(query, 80) AS query
 		  FROM pg_stat_activity
 		 WHERE datname = current_database()
 		   AND pid <> pg_backend_pid()
-		   AND application_name = 'psql'
+		   AND (application_name = 'psql' OR application_name LIKE 'statbus-migrate-sql%')
 		   AND (
 			   (state IN ('active', 'idle in transaction')
 			    AND query_start < now() - interval '2 minutes')
@@ -1622,6 +1674,18 @@ func runInstallService(dir string) error {
 	serviceFile := filepath.Join(dir, "ops", "statbus-upgrade.service")
 	destFile := filepath.Join(userServiceDir, "statbus-upgrade@.service")
 
+	// #4 unit-reconcile re-arm (plan de-risk #2): capture whether the on-disk
+	// unit is about to CHANGE while the unit is already running. A rewritten
+	// unit file is INERT — systemd keeps running with the old WatchdogSec/
+	// TimeoutStartSec until daemon-reload + a RESTART. `enable --now` below
+	// does NOT restart an already-active unit, so without an explicit restart
+	// a drifted-but-running box (rune's 90/infinity) would keep its stale
+	// timers even after we rewrite the file to 120/120. Detect drift-on-active
+	// here so we can restart only when needed (never churn a healthy,
+	// already-matching unit).
+	unitWasDrifted := !unitFileMatchesRepo(dir)
+	unitWasActive := exec.Command("systemctl", "--user", "is-active", instance).Run() == nil
+
 	fmt.Printf("  Copying %s → %s\n", filepath.Base(serviceFile), destFile)
 	if err := copyFile(serviceFile, destFile); err != nil {
 		return fmt.Errorf("copy service file: %w", err)
@@ -1630,6 +1694,21 @@ func runInstallService(dir string) error {
 	fmt.Println("  Running systemctl --user daemon-reload")
 	if err := runCmd("systemctl", "--user", "daemon-reload"); err != nil {
 		return fmt.Errorf("systemctl --user daemon-reload: %w", err)
+	}
+
+	// Re-arm the timers: if we just rewrote a DRIFTED unit that was actively
+	// running, restart it so the new WatchdogSec/TimeoutStartSec take effect
+	// (daemon-reload alone only reloads systemd's view, not the running unit's
+	// armed deadlines). Skip when insideActiveUpgrade — that path is the
+	// active upgrade's own main PID and relies on the exit-42 → systemd
+	// auto-restart handoff (Item H below); restarting it here would kill the
+	// in-flight upgrade. The enable --now path below covers the not-running
+	// and fresh-install cases.
+	if unitWasDrifted && unitWasActive && !insideActiveUpgrade {
+		fmt.Printf("  Unit %s drifted from the repo template and was running — restarting to arm the reconciled timers\n", instance)
+		if err := runCmd("systemctl", "--user", "restart", instance); err != nil {
+			return fmt.Errorf("restart %s after unit reconcile: %w", instance, err)
+		}
 	}
 
 	// Enable linger so the user service runs even when not logged in.
@@ -1692,6 +1771,137 @@ func runInstallService(dir string) error {
 	}
 
 	fmt.Printf("  Upgrade service installed and started: %s (is-enabled=%s)\n", instance, state)
+	return nil
+}
+
+// livenessUnitFiles is the (repo source, on-disk dest basename) pair for the two
+// liveness observer units (plan piece #7). Both are installed VERBATIM into the
+// user systemd dir (the %i/%u/%h specifiers resolve at runtime, not copy time),
+// so a byte-compare is the exact drift check — same contract as the upgrade unit.
+var livenessUnitFiles = []struct{ src, dest string }{
+	{"statbus-upgrade-liveness@.service", "statbus-upgrade-liveness@.service"},
+	{"statbus-upgrade-liveness@.timer", "statbus-upgrade-liveness@.timer"},
+}
+
+// livenessTimerInstance returns the timer instance name, e.g.
+// "statbus-upgrade-liveness@statbus_dev.timer" (@%i==%u == the deployment user),
+// mirroring serviceInstance.
+func livenessTimerInstance() string {
+	u := os.Getenv("USER")
+	if u == "" {
+		return ""
+	}
+	return fmt.Sprintf("statbus-upgrade-liveness@%s.timer", u)
+}
+
+// livenessUnitsMatchRepo reports whether BOTH on-disk liveness unit files are
+// byte-identical to their repo templates. A missing/drifted file reports false
+// so install (re)writes it. Pure, unit-testable half of checkLivenessUnitsDone.
+func livenessUnitsMatchRepo(dir string) bool {
+	userServiceDir := filepath.Join(os.Getenv("HOME"), ".config", "systemd", "user")
+	for _, u := range livenessUnitFiles {
+		repo, err := os.ReadFile(filepath.Join(dir, "ops", u.src))
+		if err != nil {
+			return true // no source to compare — don't wedge the ladder
+		}
+		onDisk, err := os.ReadFile(filepath.Join(userServiceDir, u.dest))
+		if err != nil || !bytes.Equal(repo, onDisk) {
+			return false
+		}
+	}
+	return true
+}
+
+// checkLivenessUnitsDone: the liveness step is done iff both unit files match the
+// repo (no drift) AND the timer is active. Mirrors checkServiceDone.
+func checkLivenessUnitsDone(dir string) bool {
+	if runtime.GOOS != "linux" {
+		return true
+	}
+	timer := livenessTimerInstance()
+	if timer == "" {
+		return false
+	}
+	if !livenessUnitsMatchRepo(dir) {
+		return false
+	}
+	return exec.Command("systemctl", "--user", "is-active", timer).Run() == nil
+}
+
+// runInstallLivenessUnits installs the paired liveness observer units (plan
+// piece #7): copy both unit files into ~/.config/systemd/user/, daemon-reload,
+// then enable --now ONLY the .timer (the .service is oneshot, triggered BY the
+// timer — it must exist + be reloaded but is never enabled standalone). Mirrors
+// runInstallService's copy + reconcile pattern. Safe to run insideActiveUpgrade:
+// the timer is independent of the upgrade unit's main PID, and a liveness-check
+// that fires during an active upgrade simply observes it in_progress (within N →
+// no trip).
+func runInstallLivenessUnits(dir string) error {
+	if runtime.GOOS != "linux" {
+		fmt.Println("  Skipping systemd liveness units on non-Linux")
+		return nil
+	}
+	timer := livenessTimerInstance()
+	if timer == "" {
+		return fmt.Errorf("could not determine liveness timer instance (USER unset)")
+	}
+
+	userServiceDir := filepath.Join(os.Getenv("HOME"), ".config", "systemd", "user")
+	if err := os.MkdirAll(userServiceDir, 0755); err != nil {
+		return fmt.Errorf("create systemd user dir: %w", err)
+	}
+
+	// Detect drift-on-active so we restart the timer only when the file changed
+	// (never churn a healthy, already-matching unit) — same re-arm logic as the
+	// upgrade unit.
+	unitsWereDrifted := !livenessUnitsMatchRepo(dir)
+	timerWasActive := exec.Command("systemctl", "--user", "is-active", timer).Run() == nil
+
+	for _, u := range livenessUnitFiles {
+		srcFile := filepath.Join(dir, "ops", u.src)
+		destFile := filepath.Join(userServiceDir, u.dest)
+		fmt.Printf("  Copying %s → %s\n", u.src, destFile)
+		if err := copyFile(srcFile, destFile); err != nil {
+			return fmt.Errorf("copy liveness unit %s: %w", u.src, err)
+		}
+	}
+
+	fmt.Println("  Running systemctl --user daemon-reload")
+	if err := runCmd("systemctl", "--user", "daemon-reload"); err != nil {
+		return fmt.Errorf("systemctl --user daemon-reload: %w", err)
+	}
+
+	// Re-arm a drifted-but-running timer so the new cadence takes effect
+	// (daemon-reload alone doesn't restart it). A non-running timer is handled
+	// by enable --now below. The timer is NOT the active upgrade's main PID, so
+	// restarting it is safe even insideActiveUpgrade (unlike the upgrade unit).
+	if unitsWereDrifted && timerWasActive {
+		fmt.Printf("  Liveness units drifted and the timer was running — restarting %s to arm the reconciled cadence\n", timer)
+		if err := runCmd("systemctl", "--user", "restart", timer); err != nil {
+			return fmt.Errorf("restart %s after liveness reconcile: %w", timer, err)
+		}
+	}
+
+	// reset-failed if the timer wedged previously (parallels the upgrade unit).
+	if probeOut, probeErr := exec.Command("systemctl", "--user", "show",
+		"--property=ActiveState", "--property=Result", timer).Output(); probeErr == nil {
+		if probe := string(probeOut); strings.Contains(probe, "ActiveState=failed") {
+			fmt.Printf("  Timer %s is in failed state — running reset-failed\n", timer)
+			runCmd("systemctl", "--user", "reset-failed", timer)
+		}
+	}
+
+	fmt.Printf("  Enabling and starting %s\n", timer)
+	if err := runCmd("systemctl", "--user", "enable", "--now", timer); err != nil {
+		return fmt.Errorf("enable liveness timer: %w", err)
+	}
+
+	out, isEnabledErr := exec.Command("systemctl", "--user", "is-enabled", timer).Output()
+	if state := strings.TrimSpace(string(out)); state != "enabled" {
+		return fmt.Errorf("liveness timer enable reported success but is-enabled=%q (err=%v); it will not start on boot", state, isEnabledErr)
+	}
+
+	fmt.Printf("  Upgrade liveness timer installed and started: %s\n", timer)
 	return nil
 }
 

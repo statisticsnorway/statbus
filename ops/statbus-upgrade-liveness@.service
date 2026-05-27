@@ -1,0 +1,35 @@
+[Unit]
+Description=StatBus Upgrade Liveness Observer (slow-loop backstop)
+# External sidecar observer (plan upgrade-resume-structural-whole.md piece #7,
+# LOAD-BEARING). Triggered by statbus-upgrade-liveness@%i.timer every 5 min; runs
+# `./sb upgrade liveness-check`, which watches statbus-upgrade@%i.service and, if
+# it has been NOT healthy-stable for a cumulative N=30 min (a SLOW upgrade LOOP —
+# each cycle under the #3 per-cycle bounds, so StartLimitBurst never trips),
+# halts the unit + marks the wedged row failed + fires the Slack callback + writes
+# a dedup sentinel. Operator recovery: ./sb install.
+#
+# Why a separate observer (not in the upgrade unit): a slow loop rewrites a fresh
+# heartbeat each cycle (looks alive), exit-42 restarts aren't counted by
+# NRestarts, and the in-loop markTerminal is post-READY so a pre-READY loop never
+# reaches it. The observer persists last_healthy_at in its OWN state file
+# (tmp/upgrade-liveness-state) that survives the upgrade unit's restarts — the
+# cumulative-activating measure nothing else can provide.
+#
+# User-level systemd unit — no root. Install: ./sb install (copies to
+# ~/.config/systemd/user/). The %i==%u invariant matches statbus-upgrade@.service.
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/statbus
+
+# Invariant: instance label (%i) MUST equal the user running this manager (%u),
+# so the observer watches statbus-upgrade@%u — same assertion as
+# statbus-upgrade@.service (see its comment for the drift history).
+ExecStartPre=/usr/bin/test "%i" = "%u"
+
+ExecStart=%h/statbus/sb upgrade liveness-check
+
+# Never fail the timer chain: liveness-check is best-effort observability. A
+# non-zero exit (e.g. transient systemctl/DB error) must not mark the .service
+# failed and stop the .timer; the next 5-min tick retries.
+SuccessExitStatus=0 1

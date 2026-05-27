@@ -38,7 +38,7 @@
 #      each restart cycle to ~16 min).
 #   3. Create the release file in the VM, so the stall is held.
 #   4. Restart the unit. Service.Run enters the startup pipeline,
-#      hits inject.StallHere AFTER checkMissedUpgrades, BEFORE
+#      hits inject.StallHere AFTER the advisory lock, BEFORE
 #      READY=1.
 #   5. systemd's TimeoutStartSec=120 s expires; SIGTERM fires.
 #      With TimeoutStopSec=5 s the process is SIGKILLed at ~125 s.

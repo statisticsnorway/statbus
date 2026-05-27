@@ -242,6 +242,69 @@ func QueryDB(projDir, dbName, sql string, extraArgs ...string) (string, error) {
 }
 
 // runPsqlFile executes a SQL file via psql.
+// migrateSubprocessAppNamePrefix tags the migration psql SUBPROCESS's backend
+// application_name (task #14). The upgrade service, on a migrate TIMEOUT,
+// pg_terminate_backend's the orphaned in-container backend by matching this
+// prefix (LIKE 'statbus-migrate-sql%') — docker compose exec does NOT forward
+// SIGKILL, so a host-side process-group kill of `./sb migrate` leaves the
+// in-container psql alive with its transaction open and locks held (a
+// commit-after-rollback consistency race). The terminate side matches by PREFIX
+// (not exact pid): the terminate runs in the SERVICE process, which cannot know
+// the migrate child's pid, and the upgrade-mutex serializes so only one such
+// backend can exist. The pid suffix (below) is forensic/uniqueness only.
+//
+// Distinct from the Go advisory-lock conn's application_name
+// ('statbus-migrate-<pid>', set in acquireAdvisoryLock) — that is a SEPARATE
+// connection from the psql backend actually running the migration SQL.
+// SubprocessAppNamePrefix is exported so the upgrade package's
+// terminate-on-timeout (task #14) matches the SAME prefix this package tags
+// with — single source of truth for `application_name LIKE 'statbus-migrate-sql%'`.
+const SubprocessAppNamePrefix = "statbus-migrate-sql"
+
+// migrateSubprocessAppNamePrefix is the internal alias used within this package.
+const migrateSubprocessAppNamePrefix = SubprocessAppNamePrefix
+
+// migrateSubprocessAppName returns the application_name for the migration psql
+// subprocess: the match prefix + this process's pid (stable across all files in
+// one `migrate up`; forensic only — the terminate side matches by prefix).
+func migrateSubprocessAppName() string {
+	return fmt.Sprintf("%s-%d", migrateSubprocessAppNamePrefix, os.Getpid())
+}
+
+// injectPsqlAppName tags the psql subprocess's backend application_name with
+// appName, in whichever PsqlCommand mode is in use:
+//   - host (psqlPath != "docker"): append PGAPPNAME=<appName> to env — psql
+//     reads PGAPPNAME and sets the backend application_name. args untouched.
+//   - docker (psqlPath == "docker"): the host process's env does NOT reach the
+//     in-container psql, so pass it via `docker compose exec -e PGAPPNAME=<appName>`
+//     — an exec OPTION, inserted right after the "exec" token so it precedes the
+//     service name + command. env untouched (it's nil in docker mode).
+//
+// Pure (no I/O) so both modes are unit-testable.
+func injectPsqlAppName(psqlPath string, args, env []string, appName string) ([]string, []string) {
+	pgappEnv := "PGAPPNAME=" + appName
+	if psqlPath != "docker" {
+		return args, append(append([]string{}, env...), pgappEnv)
+	}
+	// docker compose exec: insert `-e PGAPPNAME=<appName>` immediately after the
+	// "exec" token (an option position, before SERVICE + COMMAND).
+	out := make([]string, 0, len(args)+2)
+	inserted := false
+	for i, a := range args {
+		out = append(out, a)
+		if !inserted && a == "exec" && i+1 < len(args) {
+			out = append(out, "-e", pgappEnv)
+			inserted = true
+		}
+	}
+	if !inserted {
+		// No "exec" token (unexpected shape) — prepend defensively so the flag
+		// is still present rather than silently dropped.
+		out = append([]string{"-e", pgappEnv}, args...)
+	}
+	return out, env
+}
+
 func runPsqlFile(projDir string, filePath string) (string, error) {
 	// Harness-only stall site: simulates a migration that runs longer
 	// than the upgrade-service's WatchdogSec budget. When activated via
@@ -295,12 +358,35 @@ func runPsqlFile(projDir string, filePath string) (string, error) {
 	defer file.Close()
 
 	args := append(prefix, "-v", "ON_ERROR_STOP=on")
-	cmd := exec.Command(psqlPath, args...)
+
+	// #14: tag the psql backend's application_name so a migrate-timeout can
+	// terminate the orphaned in-container backend (see migrateSubprocessAppName).
+	// Host mode adds PGAPPNAME to env; docker mode adds `-e PGAPPNAME=` to the
+	// exec args (the host env doesn't reach the in-container psql).
+	args, env = injectPsqlAppName(psqlPath, args, env, migrateSubprocessAppName())
+
+	// Hardening belt for the DIRECT `./sb migrate up` CLI path (operator /
+	// install) — that path runs runPsqlFile with NO outer timeout wrapper, so a
+	// single hung statement (a CREATE INDEX wedged on a lock, a runaway query)
+	// would run forever. Bound it with a generous 60-min ceiling. NOTE: on the
+	// UPGRADE-SERVICE path this is belt-and-suspenders — there the migrate step
+	// is already hard-bounded by the OUTER runCommandToLog (CommandContext 5min
+	// boot / 30min resume + prepareCmd's process-group SIGKILL, which reaps this
+	// psql child since it shares ./sb's process group). The #3 progress-gated
+	// watchdog DEFERS during that outer call and relies on the outer bound, NOT
+	// on this inner one. This 60-min ceiling is the ultimate backstop for the
+	// unwrapped CLI invocation. (plan upgrade-resume-structural-whole.md)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Minute)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, psqlPath, args...)
 	cmd.Dir = projDir
 	cmd.Env = env
 	cmd.Stdin = file
 
 	out, err := cmd.CombinedOutput()
+	if ctx.Err() == context.DeadlineExceeded {
+		return string(out), fmt.Errorf("migration %s exceeded the 60-minute hard timeout (statement hung?): %w", filepath.Base(filePath), err)
+	}
 	return string(out), err
 }
 

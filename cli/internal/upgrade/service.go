@@ -1476,25 +1476,6 @@ func (d *Service) Run(ctx context.Context) error {
 		return fmt.Errorf("ensure DB up: %w", err)
 	}
 
-	// Schema-skew guard (rc.65 structural fix). The binary's column-name
-	// expectations must match the running schema before any service-level
-	// query touches public.upgrade. Run `./sb migrate up` to bring the
-	// schema to HEAD; idempotent — a no-op when already current.
-	//
-	// Background: rc.63 renamed three columns (version → commit_version,
-	// from_version → from_commit_version, tags → commit_tags). When a new
-	// binary boots against an unmigrated schema, ~23 SELECT/INSERT/UPDATE
-	// sites in this file fail with SQLSTATE 42703. Rather than scatter
-	// per-site compat shims, we migrate forward at boot. If migrate up
-	// itself fails, refuse to enter the loop — operator must fix the
-	// migration or restore the DB from backup.
-	if err := runCommandToLog(d.projDir, 5*time.Minute, io.Discard, "boot-migrate-up",
-		filepath.Join(d.projDir, "sb"), "migrate", "up", "--verbose"); err != nil {
-		d.markTerminal("BOOT_MIGRATE_UP_FAILED",
-			fmt.Sprintf("./sb migrate up at boot failed: %v; service refuses to enter the loop on a stale schema", err))
-		return fmt.Errorf("boot migrate up: %w", err)
-	}
-
 	if err := d.connect(ctx); err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}
@@ -1504,6 +1485,86 @@ func (d *Service) Run(ctx context.Context) error {
 	// Acquire advisory lock to prevent multiple instances
 	if err := d.acquireAdvisoryLock(ctx); err != nil {
 		return err
+	}
+
+	// Harness-only stall site (C11): simulates a startup pipeline that runs
+	// longer than the unit's TimeoutStartSec budget. Activated by
+	// STATBUS_INJECT_AT=service-startup-slower-than-systemd-unit-timeout and
+	// held by STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE. Fires in the unit's
+	// `activating` phase — BEFORE the sdNotify("READY=1") below. After plan
+	// piece #2 (upgrade-resume-structural-whole.md) the only work that runs
+	// pre-READY=1 is the cheap init (EnsureDBUp → connect → advisory lock), so
+	// this is the genuine remaining start-phase window; if it exceeds the
+	// static TimeoutStartSec the unit is killed (bounded by StartLimitBurst),
+	// recovery is `./sb install`. No-op in production. Drives scenario 18.
+	inject.StallHere("service-startup-slower-than-systemd-unit-timeout")
+
+	// LISTEN on channels (must use listenConn — queryConn is for queries).
+	// Registered BEFORE READY=1 (and before recoverFromFlag/boot-migrate below)
+	// so the service is already listening the instant systemd marks the unit
+	// active — a NOTIFY (e.g. ./sb upgrade apply) sent right after activation,
+	// or during the resume, BUFFERS on the session rather than being lost.
+	// Notifications are not *processed* until startListenLoop runs in the main
+	// loop below, so registering early only prevents missed wakeups; it does
+	// not let a NOTIFY interleave with recovery.
+	if _, err := d.listenConn.Exec(ctx, "LISTEN upgrade_check"); err != nil {
+		return fmt.Errorf("LISTEN upgrade_check: %w", err)
+	}
+	if _, err := d.listenConn.Exec(ctx, "LISTEN upgrade_apply"); err != nil {
+		return fmt.Errorf("LISTEN upgrade_apply: %w", err)
+	}
+
+	// Signal readiness BEFORE boot-migrate + recoverFromFlag (plan piece #2,
+	// B1 + boot-migrate-move). The cheap, genuine init that SHOULD gate
+	// readiness has run (EnsureDBUp → connect → advisory lock + LISTEN). The
+	// heavy, DB-size-scaled work below — boot-migrate-up and recoverFromFlag →
+	// resumePostSwap → applyPostSwap (rune: a 32 GB archiveBackup tar, a
+	// large-DB migration) — must NOT run under the fixed start-phase
+	// TimeoutStartSec, which can never bound DB-size-scaled work (the NO/rune
+	// 40 h wedge). Emitting READY=1 here moves all of it into systemd's ACTIVE
+	// phase, governed by WatchdogSec. Nothing forces READY=1 to follow
+	// recovery: Type=notify + Restart=always + advisory lock + flag still
+	// serialise a genuine crash; "active while it works" is more honest than a
+	// unit stuck `activating` until a start-timeout kill.
+	fmt.Printf("Upgrade service started (channel=%s, interval=%s)\n", d.channel, d.interval)
+	sdNotify("READY=1") // Tell systemd we're initialized
+
+	// Schema-skew guard (rc.65 structural fix). The binary's column-name
+	// expectations must match the running schema before any service-level
+	// query touches public.upgrade (recoverFromFlag below is the first such
+	// query). Run `./sb migrate up` to bring the schema to HEAD; idempotent —
+	// a no-op when already current.
+	//
+	// Background: rc.63 renamed three columns (version → commit_version,
+	// from_version → from_commit_version, tags → commit_tags). When a new
+	// binary boots against an unmigrated schema, ~23 SELECT/INSERT/UPDATE
+	// sites in this file fail with SQLSTATE 42703. Rather than scatter
+	// per-site compat shims, we migrate forward at boot. If migrate up
+	// itself fails, refuse to enter the loop — operator must fix the
+	// migration or restore the DB from backup.
+	//
+	// Runs AFTER READY=1 (plan piece #2 boot-migrate-move): a large-DB boot
+	// migration is DB-size-scaled and would blow the fixed start-phase
+	// TimeoutStartSec; active-phase under WatchdogSec, a long-but-advancing
+	// migration survives (it emits per-migration progress) and a kill leaves a
+	// clean resumable state (transactional migrations + db.migration version
+	// table). Stays BEFORE recoverFromFlag so the schema is at HEAD before the
+	// first public.upgrade query.
+	if err := runCommandToLog(d.projDir, 5*time.Minute, io.Discard, "boot-migrate-up", nil,
+		filepath.Join(d.projDir, "sb"), "migrate", "up", "--verbose"); err != nil {
+		// #14: a boot-migrate TIMEOUT (5m) leaves the same orphaned in-container
+		// psql backend as the resume-migrate path (docker-exec doesn't forward
+		// the process-group SIGKILL). Terminate it on the live conn before
+		// refusing — so it isn't left holding locks against the next start's
+		// migrate. queryConn is live here (connect ran earlier in Run setup);
+		// nil progress (boot has no progress log) — terminateMigrateOrphan is
+		// nil-safe. Timeout-only: a clean boot-migrate failure means psql exited.
+		if errors.Is(err, ErrCommandTimeout) {
+			d.terminateMigrateOrphan(ctx, nil)
+		}
+		d.markTerminal("BOOT_MIGRATE_UP_FAILED",
+			fmt.Sprintf("./sb migrate up at boot failed: %v; service refuses to enter the loop on a stale schema", err))
+		return fmt.Errorf("boot migrate up: %w", err)
 	}
 
 	// Recover from interrupted upgrades. The flag file survives DB rollbacks
@@ -1535,43 +1596,11 @@ func (d *Service) Run(ctx context.Context) error {
 	// Check for missed scheduled upgrades
 	d.checkMissedUpgrades(ctx)
 
-	// Harness-only stall site (C11): simulates a startup pipeline that
-	// runs longer than the unit's TimeoutStartSec budget. Activated by
-	// STATBUS_INJECT_AT=service-startup-slower-than-systemd-unit-timeout
-	// and held by STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE. Fires DURING
-	// the unit's `activating` phase — i.e. BEFORE the sdNotify("READY=1")
-	// call below. While the stall is held, systemd's TimeoutStartSec
-	// (declared as 120 s in ops/statbus-upgrade.service per commit
-	// f43b2bfd1) ticks down. Once it expires, systemd SIGTERMs the unit
-	// and increments NRestarts.
-	//
-	// No-op in production. Drives scenario 18.
-	//
-	// Design choice (a) over (b) — keep TimeoutStartSec static:
-	//   Earlier code shipped sdNotifyExtendTimeout(EXTEND_TIMEOUT_USEC)
-	//   to push TimeoutStartSec forward during the activating phase
-	//   (Fix 1 / commit d416a50a0). That helper has been DELETED in
-	//   commit e6df084b7 — see the historical note at the bottom of
-	//   watchdog.go for the full rationale. The C11 contract is now:
-	//   if startup is slower than the unit's static 120 s budget, the
-	//   unit IS killed, NRestarts is bounded by StartLimitBurst, and
-	//   the operator's recovery is `./sb install` (which dispatches the
-	//   same upgrade inline, bypassing the supervised unit's timeout).
-	//   This is the simpler, principled shape — re-introducing the
-	//   activating-phase extender would couple the watchdog and start
-	//   budgets in ways the Race B forensics showed to be subtly wrong.
-	inject.StallHere("service-startup-slower-than-systemd-unit-timeout")
-
-	// LISTEN on channels (must use listenConn — queryConn is for queries)
-	if _, err := d.listenConn.Exec(ctx, "LISTEN upgrade_check"); err != nil {
-		return fmt.Errorf("LISTEN upgrade_check: %w", err)
-	}
-	if _, err := d.listenConn.Exec(ctx, "LISTEN upgrade_apply"); err != nil {
-		return fmt.Errorf("LISTEN upgrade_apply: %w", err)
-	}
-
-	fmt.Printf("Upgrade service started (channel=%s, interval=%s)\n", d.channel, d.interval)
-	sdNotify("READY=1") // Tell systemd we're initialized
+	// LISTEN + READY=1 + boot-migrate-up were emitted earlier (right after the
+	// advisory lock, before boot-migrate/recoverFromFlag) so the heavy
+	// DB-size-scaled startup work runs in the ACTIVE phase under WatchdogSec
+	// rather than the start phase under TimeoutStartSec. See the "Signal
+	// readiness" block above and plan upgrade-resume-structural-whole.md #2.
 
 	// Main loop: use a goroutine for LISTEN/NOTIFY, select on channels
 	notifyCh := make(chan *pgconn.Notification, 1)
@@ -2398,6 +2427,17 @@ func (d *Service) verifyCommitSignature(sha string) error {
 	return nil
 }
 
+// connectTimeout bounds the pgx dial+handshake in connect(). connStr sets no
+// connect_timeout and callers pass the service-lifetime ctx (no deadline), so
+// without this a hung connect would block forever — the latent gap that made
+// the applyPostSwap reconnect unbounded (plan upgrade-resume-structural-whole.md
+// piece #3: deferring watchdog gating during reconnect is only safe if reconnect
+// is itself bounded). 5 min comfortably exceeds a legitimately slow reconnect
+// (scenario 19's 180 s synthetic stall) with margin. Package var, not const, so
+// tests can shrink it to drive a deterministic hung-connect → DeadlineExceeded
+// assertion without a 5-min wait.
+var connectTimeout = 5 * time.Minute
+
 func (d *Service) connect(ctx context.Context) error {
 	envPath := filepath.Join(d.projDir, ".env")
 	f, err := dotenv.Load(envPath)
@@ -2461,11 +2501,32 @@ func (d *Service) connect(ctx context.Context) error {
 	}
 	config.DialFunc = keepaliveDialer
 
-	d.listenConn, err = pgx.ConnectConfig(ctx, config)
+	// Bound the dial+handshake. connStr sets no connect_timeout and the ctx
+	// handed in by callers (e.g. applyPostSwap's reconnect) is the
+	// service-lifetime ctx with NO deadline — so a hung pgx.ConnectConfig
+	// (DB-side slow handshake, half-open socket the keepalive dialer can't
+	// catch because the conn isn't established yet, a wedged userland-proxy)
+	// would block INDEFINITELY. That is the latent gap that made the
+	// applyPostSwap reconnect unbounded; the #3 watchdog defers gating during
+	// reconnect (it's a legitimately silent step), which is only SAFE if
+	// reconnect is itself bounded — mirroring how the migrate step is bounded
+	// by its runCommandToLog timeout. pgx honours a ctx deadline across the
+	// WHOLE connect, not just the TCP dial: pgconn's contextWatcher
+	// (pgconn.go connectOne → contextWatcher.Watch(ctx)) closes the conn if the
+	// deadline fires mid-startup/auth, so a handshake hang is bounded too — not
+	// only TCP connect. 5 min comfortably exceeds a legitimately slow
+	// reconnect (scenario 19 holds 180 s) with margin; a genuine hang is killed
+	// at 5 min → connect() returns context.DeadlineExceeded → the caller fails
+	// out (applyPostSwap → postSwapFailure → rollback; task #7 backstops a
+	// loop) instead of pinging the watchdog forever.
+	connectCtx, cancel := context.WithTimeout(ctx, connectTimeout)
+	defer cancel()
+
+	d.listenConn, err = pgx.ConnectConfig(connectCtx, config)
 	if err != nil {
 		return fmt.Errorf("listen connection: %w", err)
 	}
-	d.queryConn, err = pgx.ConnectConfig(ctx, config)
+	d.queryConn, err = pgx.ConnectConfig(connectCtx, config)
 	if err != nil {
 		d.listenConn.Close(context.Background())
 		return fmt.Errorf("query connection: %w", err)
@@ -3219,11 +3280,20 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	}
 	progress.Write("Images prepared (elapsed %s).", time.Since(pullStart).Truncate(time.Millisecond))
 
-	// Pre-compute backup stamp and record the .tmp path in the DB before the
-	// DB connection is closed.  The stamp ties the on-disk directory name to
-	// the DB row so reconcileBackupDir can detect crashed or missing backups.
+	// CHANGE 2 (task #12): the rsync snapshot is a single persistent dir
+	// committed by atomic rename to pre-upgrade-active. Record THAT path as
+	// backup_path before the DB connection is closed — it is deterministic (no
+	// stamp), and it is the path pickLatestBackup/restoreDatabase read. This is
+	// a MUTABLE pointer (the same dir is reused across upgrades); H2 — safe only
+	// because the upgrade-mutex serializes: the persistent flag file (written at
+	// writeUpgradeFlag above, before this point) forces any competing actor
+	// through RecoverFromFlag, which RESUMES rather than starting a fresh backup,
+	// so no overlapping upgrade overwrites active before recovery consumes it.
+	// backupStamp is retained ONLY for the per-upgrade archive tar +
+	// upgrade-logs-<stamp> correlation (still per-upgrade); it no longer names
+	// the rsync dir.
 	backupStamp := time.Now().UTC().Format("20060102T150405Z")
-	backupTmpPath := filepath.Join(d.backupRoot(), "pre-upgrade-"+backupStamp+".tmp")
+	backupActivePath := filepath.Join(d.backupRoot(), backupActiveName)
 
 	// L2 — stale-connection detection before the first DB write after the
 	// multi-second pullImages step. pullImages leaves queryConn idle for the
@@ -3247,11 +3317,12 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 		}
 	}
 
-	progress.Write("Recording backup path on upgrade row (id=%d, path=%s)...", id, backupTmpPath)
-	if _, err := d.queryConn.Exec(ctx, "UPDATE public.upgrade SET backup_path = $1 WHERE id = $2", backupTmpPath, id); err != nil {
-		// Not fatal: the recovery path can still locate the backup via the
-		// on-disk stamp if the DB write didn't land. Log and proceed.
-		progress.Write("Warning: backup_path UPDATE failed: %v (proceeding — reconcileBackupDir can still correlate via stamp)", err)
+	progress.Write("Recording backup path on upgrade row (id=%d, path=%s)...", id, backupActivePath)
+	if _, err := d.queryConn.Exec(ctx, "UPDATE public.upgrade SET backup_path = $1 WHERE id = $2", backupActivePath, id); err != nil {
+		// Not fatal: restoreDatabase locates the snapshot via pickLatestBackup
+		// (pre-upgrade-active) independently of this row, so a missed write only
+		// loses the reconcile cross-reference. Log and proceed.
+		progress.Write("Warning: backup_path UPDATE failed: %v (proceeding — restore uses pickLatestBackup, not this row)", err)
 	} else {
 		progress.Write("Backup path recorded.")
 	}
@@ -3332,12 +3403,12 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// No --depth 1: the discovery phase already fetched origin/master, so objects are local.
 	// Keeping full history ensures git-describe can find tags for config generate (VERSION).
 	progress.Write("Installing %s...", displayName)
-	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "git", "git", "fetch", "origin", commitSHA); err != nil {
+	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "git", nil, "git", "fetch", "origin", commitSHA); err != nil {
 		// TODO: pick code — forward git fetch failure; no Err* code covers install-time git errors yet
 		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("git fetch %s: %v", ShortForDisplay(commitSHA), err), progress)
 		return err
 	}
-	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "git", "git", "-c", "advice.detachedHead=false", "checkout", commitSHA); err != nil {
+	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "git", nil, "git", "-c", "advice.detachedHead=false", "checkout", commitSHA); err != nil {
 		// TODO: pick code — forward git checkout failure; no Err* code covers install-time git errors yet
 		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("git checkout %s: %v", ShortForDisplay(commitSHA), err), progress)
 		return err
@@ -3507,17 +3578,89 @@ func formatForwardRecoveryFailure(forwardErr error, backupPath string) string {
 func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayName, previousVersion, backupPath string, recreate bool, progress *ProgressLog) error {
 	projDir := d.projDir
 
+	// SINGLE progress-gated WATCHDOG=1 ticker for the ENTIRE applyPostSwap body
+	// (config-generate → docker pull → docker up db → waitForDBHealth →
+	// reconnect → migrations → step-11 docker up → health → archiveBackup +
+	// terminal UPDATE). All of these can run for many minutes on real data
+	// (cold image pull on a slow box; rune: 35 GB archiveBackup tar runs for
+	// ~minutes); the main goroutine is parked in subprocess or pgx waits with
+	// no opportunity to ping WATCHDOG=1 from the main loop. Without this
+	// goroutine, WatchdogSec=120 s (per ops/statbus-upgrade.service) fires and
+	// systemd SIGABRTs the unit → restart loop → never reaches
+	// `state='completed'`.
+	//
+	// applyPostSwap runs in the unit's ACTIVE phase on BOTH entries (READY=1
+	// fired in Service.Run before the main loop / before recoverFromFlag since
+	// plan piece #2), so systemd enforces WatchdogSec, and per sd_notify(3)
+	// only WATCHDOG=1 — not the deleted EXTEND_TIMEOUT_USEC — resets that
+	// deadline.
+	//
+	// PROGRESS-GATED (plan upgrade-resume-structural-whole.md piece #3): the
+	// ticker pings only while the pipeline is advancing (shouldPingWatchdog).
+	// A HUNG step stops bumping lastAdvanceAt → the gate closes → pings stop →
+	// WatchdogSec fires and the unit is reaped (instead of a blind ticker
+	// pinging forever past a wedged step). The uniform principle: GATE every
+	// output-emitting step (output distinguishes slow-from-hung) and DEFER only
+	// the genuinely-SILENT-but-BOUNDED blocking steps. Output steps bump via
+	// per-line output (progress.bump threaded as runCommandToLog's onAdvance —
+	// covers config-generate, docker pull, docker up, step-11 up) or
+	// step-boundary progress.Write. The two silent steps are exempted
+	// (deferGating, always-ping) because output-gating can't tell them from a
+	// hang, each bounded by its OWN timeout instead of by the watchdog:
+	//   - migrate / recreate-database — silent for minutes on one big DDL;
+	//     bounded by its runCommandToLog timeout (30 m) + task #7.
+	//   - reconnect — pgx dial+handshake emits nothing; bounded by connect()'s
+	//     5-min ctx deadline (added with this piece) + task #7.
+	//
+	// STARTED AT THE TOP (engineer #2-trace coverage finding): the pre-reconnect
+	// steps (config-generate, docker pull, docker up db, waitForDBHealth) each
+	// run a SILENT subprocess after a single progress.Write; a cold large-image
+	// pull >120 s would otherwise blow WatchdogSec mid-pull (the ticker must
+	// already be running AND fed by their per-line bumps, not started after
+	// them). So the ticker starts here, before config-generate, and the per-line
+	// progress.bump on those steps keeps a live-but-slow pull alive while a hung
+	// one (no output > 3 min) trips.
+	//
+	// COLLAPSE: this one ticker replaces the prior TWO unconditional tickers —
+	// the reconnect-scoped one (which protected only d.reconnect) and the
+	// applyPostSwap-remainder one (d416a50a0's migrate-only ticker, later
+	// widened). Both were blind 30 s timers; an unconditional ticker is itself
+	// a blind-watchdog hole — the old reconnect ticker would have pinged forever
+	// past a wedged pgx.Connect (which was unbounded). The fix is twofold: the
+	// gate stops pinging a hung OUTPUT step, and the two silent steps are bounded
+	// by their own timeouts (migrate→runCommandToLog, reconnect→connect()'s new
+	// 5-min ctx) so deferring gating during them is safe, not blind-forever.
+	// Reproduced empirically by scenarios 19 (reconnect stall) and 26
+	// (archiveBackup stall).
+	//
+	// Cancelled via defer so every error-return path in applyPostSwap reaps the
+	// goroutine cleanly. The first tick is gated like every other (no special
+	// unconditional initial ping); reaching applyPostSwap IS an advance, so we
+	// bump lastAdvanceAt right here — making the gate-open-on-entry guarantee
+	// structural (independent of whether an upstream progress.Write happened to
+	// fire recently) so the deadline resets before config-generate can run long.
+	progress.bump()
+	applyExtendCtx, applyExtendCancel := context.WithCancel(ctx)
+	applyTickerDone := make(chan struct{})
+	go runGatedWatchdogTicker(applyExtendCtx, progress,
+		applyPostSwapStallThreshold, applyPostSwapWatchdogCadence,
+		func() { sdNotify("WATCHDOG=1") }, applyTickerDone)
+	defer func() {
+		applyExtendCancel()
+		<-applyTickerDone
+	}()
+
 	// Regenerate config via the NEW binary. VERSION comes from git describe
 	// --tags --always against the just-checked-out HEAD.
 	progress.Write("Regenerating configuration...")
-	if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "config-generate", filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
+	if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "config-generate", progress.bump, filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
 		// TODO: pick code — config generate failure; no Err* code defined yet
 		return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("./sb config generate: %v", err), progress)
 	}
 
 	// Step 8: Pull updated images
 	progress.Write("Pulling updated images...")
-	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", "docker", "compose", "pull"); err != nil {
+	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", progress.bump, "docker", "compose", "pull"); err != nil {
 		return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: docker compose pull: %v", ErrDockerUpFailed, err), progress)
 	}
 
@@ -3529,7 +3672,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// no useful error). If the image isn't in the registry yet, CI hasn't
 	// built it. Tell the operator to wait for images.yaml and retry.
 	progress.Write("Starting database...")
-	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", "docker", "compose", "up", "-d", "--no-build", "db"); err != nil {
+	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", progress.bump, "docker", "compose", "up", "-d", "--no-build", "db"); err != nil {
 		reason := fmt.Sprintf(
 			"%s: docker compose up -d db: %v\n\n"+
 				"The db image for %s is not available locally or in the registry. "+
@@ -3547,122 +3690,48 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 		return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: DB health check: %v", ErrHealthcheckDBDown, err), progress)
 	}
 
-	// Harness-only stall site (C15 / Race D): simulates a slow DB
-	// reconnect after the DB container restart earlier in this method
-	// (docker compose up -d --no-build db). The reconnect step parks
-	// the upgrade-service's main goroutine; until it returns, NOTHING
-	// in the main goroutine pings WATCHDOG=1. Activated by
-	// STATBUS_INJECT_AT=service-watchdog-timeout-during-db-reconnect-after-container-restart
-	// and held by STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE.
+	// Reconnect service DB connection — a legitimately SILENT blocking step
+	// (pgx dial+handshake emits no per-line output), so output-gating can't
+	// distinguish a slow-but-live reconnect from a hang. Like the migrate step,
+	// it is therefore deferGating-EXEMPT (the gated ticker always pings during
+	// it) — SAFE only because reconnect is now itself BOUNDED: connect() wraps
+	// the dial+handshake in a 5-min ctx deadline (see connect()), mirroring how
+	// migrate is bounded by its runCommandToLog timeout. A genuine hang is
+	// killed at 5 min → reconnect returns DeadlineExceeded → postSwapFailure →
+	// rollback (task #7 backstops a loop), NOT pinged forever (the
+	// blind-unbounded hole the old unconditional reconnect ticker left open).
 	//
-	// The reconnect-watchdog ticker below is the structural fix —
-	// even when the main goroutine is parked (in the real-world Race D
-	// case: a slow DB-side handshake) or stalled (in the harness case:
-	// inject.StallHere blocks on a release file), the ticker
-	// goroutine keeps firing WATCHDOG=1 every 30 s so systemd's
-	// WatchdogSec=120s deadline cannot trip.
-	//
-	// No-op in production.
-	inject.StallHere("service-watchdog-timeout-during-db-reconnect-after-container-restart")
+	// The deferGating span covers the harness stall point (C15 / Race D) through
+	// reconnect completion: set true here, reset via defer after the reconnect
+	// returns (scoped to this block via the closure so an error-return mid-block
+	// can't leave gating disabled for migrate / step 11 / archiveBackup). A
+	// genuinely slow reconnect under the 5-min bound survives (the exempt ticker
+	// keeps the unit alive); a > 5-min hang is reaped by reconnect's own bound.
+	reconnErr := func() error {
+		progress.setDeferGating(true)
+		defer progress.setDeferGating(false)
 
-	// Reconnect service DB connection.
-	//
-	// Race D fix: this block runs in the unit's ACTIVE phase (READY=1
-	// fired at service.go:1520 in Service.Run's setup, BEFORE the main
-	// loop dispatches executeUpgrade), so systemd enforces WatchdogSec
-	// (=120s per ops/statbus-upgrade.service), NOT TimeoutStartSec.
-	// Per sd_notify(3) the watchdog deadline is reset ONLY by
-	// WATCHDOG=1 — EXTEND_TIMEOUT_USEC doesn't apply to it. The
-	// migrate-up step further down sets up its own WATCHDOG=1 ticker
-	// for the same reason (commit e6df084b7's Race B fix); this
-	// ticker is the upstream sibling that protects the reconnect
-	// site, which the original Race B fix did not cover.
-	//
-	// Failure mode without this ticker (observed in the Race D
-	// forensics under tmp/install-state-machine-forensics.md):
-	// during a real DB-side slow handshake (cluster restart, slow
-	// network path, contention against a long-running ANALYZE on a
-	// huge table), d.reconnect's pgx.Connect blocks for >120s; the
-	// main goroutine is parked inside it; WATCHDOG=1 is not sent;
-	// systemd SIGABRTs the unit. NRestarts climbs. Scenario 19's
-	// runtime path (with the C15 stall held for STALL_HOLD_S=180s)
-	// reproduces this exactly.
-	//
-	// 30-second tick cadence matches the e6df084b7 migrate ticker:
-	// 1/4 the watchdog deadline gives wide jitter tolerance while
-	// keeping the ticker's CPU footprint trivial. First WATCHDOG=1
-	// fires immediately so the deadline is reset before the
-	// reconnect can run long enough to approach the budget.
-	reconnExtendCtx, reconnExtendCancel := context.WithCancel(ctx)
-	reconnTickerDone := make(chan struct{})
-	go func() {
-		defer close(reconnTickerDone)
-		sdNotify("WATCHDOG=1")
-		ticker := time.NewTicker(30 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-reconnExtendCtx.Done():
-				return
-			case <-ticker.C:
-				sdNotify("WATCHDOG=1")
-			}
-		}
+		// Harness-only stall site (C15 / Race D): simulates a slow DB reconnect
+		// after the DB container restart earlier in this method (docker compose
+		// up -d --no-build db). It parks the main goroutine; the deferGating
+		// ticker keeps WATCHDOG=1 firing so systemd's WatchdogSec can't trip
+		// during a legitimately slow reconnect. Activated by
+		// STATBUS_INJECT_AT=service-watchdog-timeout-during-db-reconnect-after-container-restart
+		// and held by STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE. No-op in
+		// production. (A REAL > 5-min hang here is bounded by connect()'s 5-min
+		// ctx, not by the watchdog — see the block comment above.)
+		inject.StallHere("service-watchdog-timeout-during-db-reconnect-after-container-restart")
+
+		// d.queryConn was nil on entry (the pre-swap teardown closed it);
+		// reconnect reopens both conns (bounded by connect()'s 5-min ctx) and
+		// re-acquires the advisory lock.
+		progress.Write("Reconnecting to database...")
+		return d.reconnect(ctx)
 	}()
-
-	progress.Write("Reconnecting to database...")
-	reconnErr := d.reconnect(ctx)
-	reconnExtendCancel()
-	<-reconnTickerDone
 	if reconnErr != nil {
 		return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: reconnect to DB: %v", ErrHealthcheckDBDown, reconnErr), progress)
 	}
-
-	// Active-phase WATCHDOG=1 ticker for the WHOLE remainder of
-	// applyPostSwap (step 10 migrations + step 11 docker compose up +
-	// step 12 health check + archiveBackup + terminal UPDATE). All of
-	// these can run for many minutes on real data (rune: 35 GB
-	// archiveBackup runs the tar for ~minutes); the main goroutine is
-	// parked in subprocess waits with no opportunity to ping
-	// WATCHDOG=1 from the main loop. Without this goroutine,
-	// WatchdogSec=120 s (per ops/statbus-upgrade.service) fires and
-	// systemd SIGABRTs the unit -> restart loop -> never reaches
-	// `state='completed'`.
-	//
-	// This subsumes the prior d416a50a0 migrate-only ticker (which was
-	// scoped via extendCtx/extendCancel around runCommandToLog("migrate"
-	// ,...) and cancelled BEFORE step 11 -- leaving archiveBackup
-	// uncovered). Reproduced empirically by scenario 26
-	// (archive-backup-stall-active-phase-watchdog).
-	//
-	// Started AFTER the reconnect-watchdog ticker (which has its own
-	// scope around d.reconnect) cleans up via reconnTickerDone above.
-	// Cancelled via defer so every error-return path in applyPostSwap
-	// reaps the goroutine cleanly. First ping fires immediately so the
-	// deadline resets before any subprocess can run long enough to
-	// approach the 120 s budget. 30 s cadence matches the
-	// e6df084b7 + Race D pattern: 1/4 the watchdog deadline gives wide
-	// jitter tolerance with trivial CPU cost.
-	applyExtendCtx, applyExtendCancel := context.WithCancel(ctx)
-	applyTickerDone := make(chan struct{})
-	go func() {
-		defer close(applyTickerDone)
-		sdNotify("WATCHDOG=1")
-		ticker := time.NewTicker(30 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-applyExtendCtx.Done():
-				return
-			case <-ticker.C:
-				sdNotify("WATCHDOG=1")
-			}
-		}
-	}()
-	defer func() {
-		applyExtendCancel()
-		<-applyTickerDone
-	}()
+	progress.Write("Database reconnected.")
 
 	// Update backup_path to the final (renamed) path now that we have a connection.
 	// Log on failure: the DB still holds the .tmp path; reconcileBackupDir will
@@ -3697,35 +3766,91 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	if recreate {
 		d.pendingRecreate = false
 		progress.Write("Recreating database from scratch (--recreate)...")
-		if err := runCommandToLog(projDir, 30*time.Minute, progress.File(), "recreate-database", filepath.Join(projDir, "dev.sh"), "recreate-database"); err != nil {
+		// deferGating: recreate-database runs the full migration set + seed; it
+		// can be silent for minutes on a single big DDL, so output-gating would
+		// false-trip it. Exempt it (always-ping) for the duration of THIS call,
+		// bounded by the 30-min runCommandToLog timeout + task #7's cumulative-
+		// activating cap on a restart loop (same docker-exec orphan caveat as
+		// the migrate arm below — the clean in-container kill is task #14). The
+		// defer-reset is scoped to this arm via the closure, so a panic /
+		// early-return inside runCommandToLog can never leave gating disabled
+		// for a later step.
+		err := func() error {
+			progress.setDeferGating(true)
+			defer progress.setDeferGating(false)
+			return runCommandToLog(projDir, 30*time.Minute, progress.File(), "recreate-database", progress.bump, filepath.Join(projDir, "dev.sh"), "recreate-database")
+		}()
+		if err != nil {
+			if errors.Is(err, ErrCommandTimeout) {
+				// #14: recreate-database also runs psql in the db container, so a
+				// timeout leaves the same orphaned backend — terminate it before
+				// rollback (timeout-only; see the migrate arm below).
+				d.terminateMigrateOrphan(ctx, progress)
+			}
 			return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: ./dev.sh recreate-database: %v", ErrMigrationFailed, err), progress)
 		}
 	} else {
 		progress.Write("Applying database migrations...")
 
-		// Post-swap migrate-up runs in the unit's ACTIVE phase (READY=1
-		// fires at service.go:1547 in Service.Run setup, BEFORE the
-		// main loop dispatches executeUpgrade). Active-phase systemd
-		// enforces WatchdogSec (=120 s per ops/statbus-upgrade.service);
-		// only WATCHDOG=1 resets the deadline.
+		// Phase note: applyPostSwap runs in the unit's ACTIVE phase on BOTH
+		// entries. SCHEDULED path: the main loop dispatches executeUpgrade
+		// after Service.Run sent READY=1. RESUME path (recoverFromFlag →
+		// resumePostSwap → applyPostSwap): since plan
+		// upgrade-resume-structural-whole.md piece #2, READY=1 is emitted
+		// BEFORE recoverFromFlag, so the resume is active-phase too. Active-
+		// phase systemd enforces WatchdogSec (=120 s per
+		// ops/statbus-upgrade.service); only WATCHDOG=1 resets that deadline.
 		//
-		// The applyExtendCtx ticker started above (right after the
-		// reconnect block) handles the heartbeat for this entire
-		// remainder of applyPostSwap -- migrate-up + step 11 + step 12
-		// + archiveBackup + terminal UPDATE. The migration itself also
-		// emits per-line progress.Write calls that fire emitHeartbeat,
-		// so the ticker is the safety net for the few seconds at the
-		// start of a migration before its first progress line lands.
+		// The single gated ticker started at the top of applyPostSwap
+		// handles the active-phase WATCHDOG=1 heartbeat for the remainder of
+		// applyPostSwap -- migrate-up + step 11 + step 12 + terminal UPDATE +
+		// archiveBackup (archiveBackup was reordered after the terminal UPDATE
+		// by §4a FIX A). On BOTH paths it keeps the unit alive across long
+		// steps WHILE THEY ADVANCE (plan piece #3 progress-gating).
+		//
+		// migrate is the one step that can be legitimately SILENT for minutes
+		// (a single CREATE INDEX on a huge table emits no output), so output-
+		// gating can't distinguish it from a hang. We exempt it via deferGating
+		// (always-ping) for the duration of the runCommandToLog call, bounded by
+		// the step's own 30-min timeout — an EXPLICIT BOUNDED defer, not a
+		// blind-forever ping. A hung migrate is therefore caught at 30 min (the
+		// runCommandToLog CommandContext deadline) and its restart LOOP is
+		// further capped by task #7 (cumulative-activating > 30 min → unit
+		// failed). NB: the 30-min host-side SIGKILL does NOT cleanly roll back
+		// the in-container backend — migrate runs psql IN the db container via
+		// `docker compose exec -T` (migrate.go), and docker-exec does not forward
+		// SIGKILL, so the in-container psql is ORPHANED (txn open, locks held).
+		// deferGating + #7 bound the LOOP; the CLEAN kill (server-side
+		// pg_terminate_backend by app_name on migrate-timeout) is task #14, a
+		// pre-existing hole closed separately. The defer-reset is scoped to this
+		// arm via the closure so a panic / early-return inside runCommandToLog
+		// can never leave gating disabled for step 11 / archiveBackup.
+		// progress.bump is threaded as onAdvance so a migration that DOES emit
+		// per-line output also bumps lastAdvanceAt (belt-and-suspenders;
+		// deferGating already keeps the gate open here).
 		//
 		// History: d416a50a0 introduced a narrower migrate-only ticker
 		// (extendCtx/extendCancel around just runCommandToLog) which
 		// cancelled BEFORE step 11 / archiveBackup -- leaving the
 		// remaining heavy steps uncovered. Scenario 26 reproduced the
 		// resulting watchdog kill during archiveBackup; the unified
-		// ticker above subsumes the migrate-only one and closes the gap.
-		err := runCommandToLog(projDir, 30*time.Minute, progress.File(), "migrate", filepath.Join(projDir, "sb"), "migrate", "up", "--verbose")
+		// gated ticker above subsumes the migrate-only one and closes the gap.
+		err := func() error {
+			progress.setDeferGating(true)
+			defer progress.setDeferGating(false)
+			return runCommandToLog(projDir, 30*time.Minute, progress.File(), "migrate", progress.bump, filepath.Join(projDir, "sb"), "migrate", "up", "--verbose")
+		}()
 
 		if err != nil {
+			// #14: a migrate TIMEOUT means the host-side process-group SIGKILL
+			// reaped the docker-exec client but left the in-container psql
+			// backend orphaned (docker-exec doesn't forward SIGKILL) — txn open,
+			// locks held, commit-after-rollback hazard. Terminate it on the live
+			// conn BEFORE the rollback so its txn is deterministically aborted.
+			// Only on timeout: a clean migrate failure means psql exited.
+			if errors.Is(err, ErrCommandTimeout) {
+				d.terminateMigrateOrphan(ctx, progress)
+			}
 			return d.postSwapFailure(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: ./sb migrate up: %v", ErrMigrationFailed, err), progress)
 		}
 	}
@@ -3742,7 +3867,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// asserts the invariant.
 	progress.Write("Starting services...")
 	composeArgs := append([]string{"compose", "up", "-d", "--no-build"}, step11RestartServices...)
-	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", "docker", composeArgs...); err != nil {
+	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", progress.bump, "docker", composeArgs...); err != nil {
 		reason := fmt.Sprintf(
 			"%s: docker compose up -d %s: %v\n\n"+
 				"One or more application images for %s are not available locally or in the registry. "+
@@ -3776,12 +3901,22 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// check guarantees the app is listening.
 	d.queryConn.Exec(ctx, `NOTIFY worker_status, '{"type":"upgrade_changed"}'`)
 
-	// Done — deactivate maintenance, archive, finalize
+	// Done — deactivate maintenance. archiveBackup is deliberately NOT
+	// called here: it is reordered to AFTER the terminal state='completed'
+	// UPDATE + removeUpgradeFlag below (plan recovery-arc-flaw-timeoutstartsec.md
+	// §4a FIX A). archiveBackup tars the multi-GB pre-upgrade backup and can
+	// run for minutes (rune: 32 GB). ANY kill during that tar — a WatchdogSec
+	// SIGABRT, OOM, SIGKILL, reboot — would, if the terminal UPDATE ran AFTER
+	// the tar, cancel the DB context so the UPDATE can't persist ("context
+	// already done"), leaving the row in_progress → restart loop (the NO/rune
+	// wedge, originally a start-phase TimeoutStartSec kill; post plan piece #2
+	// the resume is active-phase, but the invariant must hold against ANY
+	// interruption). By marking the row completed and removing the flag FIRST —
+	// both fast — a later kill during the tar is harmless: the next start finds
+	// no flag and no-ops. (ATOMIC, the .tmp+rename in archiveBackup, ensures the
+	// killed tar also leaves no partial at the final archive name.)
 	fmt.Println("Deactivating maintenance (app healthcheck passed)")
 	d.setMaintenance(false)
-	d.archiveBackup(backupPath, displayName)
-
-	fmt.Printf("Upgrade to %s completed successfully\n", displayName)
 
 	// selfUpdate is intentionally NOT invoked here: Option C moved the
 	// binary-swap handoff earlier (right after replaceBinaryOnDisk in
@@ -3848,6 +3983,33 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	log.Println("state=completed")
 	logUpgradeRow(LabelCompletedNormal, normalJSON)
 	d.removeUpgradeFlag()
+
+	// The row is now truly `completed` and the flag is gone (both fast,
+	// inside any systemd budget). Only now is the "completed successfully"
+	// line honest — emitting it before the terminal UPDATE persisted (its
+	// prior position, before archiveBackup) was a lie on the NO/rune resume,
+	// where the UPDATE never landed. Everything from here on (archiveBackup,
+	// pruning, retention, fixup) is post-completion cleanup: a kill in this
+	// window leaves a COMPLETED upgrade that the next start no-ops past.
+	fmt.Printf("Upgrade to %s completed successfully\n", displayName)
+
+	// archiveBackup reordered here from before the terminal UPDATE
+	// (plan recovery-arc-flaw-timeoutstartsec.md §4a FIX A). It tars the
+	// pre-upgrade backup for forensics — non-critical-path; the row is
+	// already terminal and the flag removed, so a SIGTERM during this
+	// multi-minute tar (rune: 32 GB) is harmless. Runs BEFORE pruneBackups
+	// so the backupPath it tars is still present.
+	//
+	// Watchdog (plan piece #3 + CHANGE 1, task #11): the tar feeds the gated
+	// watchdog via GNU tar --checkpoint output (flowing through runCommandToLog's
+	// PrefixWriter onLine → progress.bump), so a LIVE long archive keeps the gate
+	// open and a write-HUNG tar stops the checkpoints → the gate closes →
+	// WatchdogSec fires. progress is passed through so archiveBackup can wire
+	// that bump. (On a bsd/libarchive host the checkpoint flags are omitted — see
+	// hostTarSupportsCheckpoint — and the tar is gate-silent, harmless there: no
+	// systemd to feed.)
+	d.archiveBackup(backupPath, displayName, progress)
+
 	// Layer 3 of the rollback-on-SIGKILL hole plug: now that the upgrade
 	// has reached terminal state='completed', the pre-upgrade backup is no
 	// longer needed for rollback. pruneBackups (defined in exec.go) trims
@@ -4380,7 +4542,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 		// is logged (non-fatal) if the rename fails.
 		d.restoreBinary(progress)
 
-		if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "rollback-config-generate", filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
+		if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "rollback-config-generate", nil, filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
 			progress.Write("Warning: config generate during rollback failed: %v", err)
 		}
 	}
@@ -4418,7 +4580,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 	inject.KillHere("killed-by-system-during-builtin-rollback")
 
 	// Start with old config — git is verified at previousVersion.
-	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "rollback-docker-up", "docker", "compose", "--profile", "all", "up", "-d", "--remove-orphans"); err != nil {
+	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "rollback-docker-up", nil, "docker", "compose", "--profile", "all", "up", "-d", "--remove-orphans"); err != nil {
 		progress.Write("%s: docker compose up failed after rollback: %v", ErrRollbackServicesUp, err)
 	}
 
@@ -4530,7 +4692,7 @@ func restoreGitStateFn(projDir, previousVersion string, log func(format string, 
 	// Force checkout — discards any local changes. We're rolling back from
 	// a partial upgrade, so any working-tree mutations are by definition
 	// part of the failure we're undoing.
-	if err := runCommandToLog(projDir, 5*time.Minute, logWriter, "rollback-git-checkout", "git", "-c", "advice.detachedHead=false", "checkout", "-f", previousVersion); err != nil {
+	if err := runCommandToLog(projDir, 5*time.Minute, logWriter, "rollback-git-checkout", nil, "git", "-c", "advice.detachedHead=false", "checkout", "-f", previousVersion); err != nil {
 		return fmt.Errorf("git checkout -f %s: %w", previousVersion, err)
 	}
 
@@ -4629,7 +4791,7 @@ func (d *Service) buildBinaryOnDisk(displayName string, progress *ProgressLog) e
 	}
 	progress.Write("Building ./sb from source for edge commit %s...", displayName)
 	if err := runCommandToLog(d.projDir, 5*time.Minute, progress.File(),
-		"make-build-sb", "make", "-C", "cli", "build"); err != nil {
+		"make-build-sb", nil, "make", "-C", "cli", "build"); err != nil {
 		// Restore .old so the host still has a working ./sb after rollback.
 		if rerr := os.Rename(sbOldPath, sbPath); rerr != nil {
 			return fmt.Errorf("make -C cli build failed AND ./sb.old restore failed: build=%v restore=%v", err, rerr)

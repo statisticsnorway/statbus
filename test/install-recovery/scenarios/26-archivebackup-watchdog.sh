@@ -6,10 +6,10 @@
 # Source forensics:      tmp/no-deploy-hang-summary-2026-05-25.md
 #
 # Expected principled behavior:
-#   applyPostSwap runs in the unit's ACTIVE phase (READY=1 was sent at
-#   service.go:1547 inside Service.Run setup, before the main loop
-#   dispatches executeUpgrade). systemd enforces WatchdogSec=120 s in
-#   that phase; only WATCHDOG=1 resets the deadline.
+#   applyPostSwap runs in the unit's ACTIVE phase (READY=1 is sent in
+#   Service.Run setup, before the main loop dispatches executeUpgrade on
+#   the scheduled path this scenario drives). systemd enforces
+#   WatchdogSec=120 s in that phase; only WATCHDOG=1 resets the deadline.
 #
 #   Commit d416a50a0 introduced a WATCHDOG=1 ticker scoped only to the
 #   migrate-up subprocess (service.go:3664-3686): extendCtx, extendCancel,

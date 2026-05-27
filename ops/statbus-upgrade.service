@@ -16,6 +16,21 @@ Description=StatBus Upgrade Service
 # transient issues (a DB restart during a maintenance window: ~3
 # retries) and tight enough that a wedged state surfaces within ~10
 # minutes instead of 91 hours.
+#
+# SLOW-LOOP GAP — closed by task #7 (f2-slow-loop-liveness): this cap catches
+# a FAST restart loop, but a SLOW timeout-loop (e.g. a ~2.5min cycle: a
+# start-phase kill + RestartSec=30) accumulates only ~4 restarts per 600s
+# window — UNDER burst=10 — so the cap never trips and the unit can report
+# `activating` indefinitely, missed by health-checks (the original NO/rune
+# 40h wedge before §4a FIX A). Tightening burst to catch a slow loop would
+# false-trip the legitimate ~3-retry transient above, so the fix is a SEPARATE
+# liveness observer ("cumulative NOT-healthy-stable > N=30min ⇒ stop + mark
+# failed + Slack"), NOT a burst recalibration here. SHIPPED as the paired
+# statbus-upgrade-liveness@.timer + .service (an external sidecar that runs
+# `./sb upgrade liveness-check` every 5min; see ops/statbus-upgrade-liveness@.*
+# and cli/internal/upgrade/liveness.go). §4a FIX A makes THIS bug's loop
+# impossible (the resume converges in ~1 cycle); the liveness observer is the
+# universal backstop for a slow loop of any other cause.
 StartLimitIntervalSec=600
 StartLimitBurst=10
 
@@ -57,21 +72,50 @@ Environment=PATH=/home/linuxbrew/.linuxbrew/bin:/usr/local/sbin:/usr/local/bin:/
 # preparing images..." ticker in service.go so it too emits heartbeats
 # during legitimately slow docker pulls — matches the 10-min internal
 # timeout in pullImages itself (exec.go:160).
+#
+# applyPostSwap (the multi-minute active-phase tail: reconnect → migrate →
+# docker up → health → archiveBackup) is covered by a SINGLE progress-gated
+# WATCHDOG=1 ticker (plan upgrade-resume-structural-whole.md piece #3,
+# runGatedWatchdogTicker in watchdog.go). It pings ONLY while the pipeline
+# advances (per-line subprocess output or step-boundary progress.Write within
+# applyPostSwapStallThreshold=3m); a genuinely HUNG step stops advancing → the
+# ticker stops pinging → this WatchdogSec=120 fires and the unit is reaped.
+# The migrate/recreate step (legitimately silent for minutes on one big DDL) is
+# exempted (always-ping), bounded instead by its own 30-min runCommandToLog
+# timeout + the cumulative-activating liveness cap (task #7).
 WatchdogSec=120
 
 # TimeoutStartSec: hold-window from ExecStart until the service emits
-# READY=1 via sd_notify. systemd's default is 90s, but the service's
-# boot path runs `./sb migrate up` (potentially multi-minute on real
-# data) before READY=1 — the existing sdNotifyExtendTimeout(120s)
-# heartbeat (cli/internal/upgrade/service.go's applyPostSwap ticker)
-# rolls the deadline forward continuously while the migration is
-# alive. Declaring the base value explicitly here (= WatchdogSec, the
-# same 120s budget the tick refills) makes the mental model "one
-# limit to reason about" instead of "default 90s vs declared 120s
-# watchdog". An operator tuning either knob now sees both in the
-# same place; the existing heartbeat machinery
-# (EXTEND_TIMEOUT_USEC + WATCHDOG=1) already handles
-# legitimately-slow boots without tripping this.
+# READY=1 via sd_notify. systemd's default is 90s; declared here at 120s
+# (= WatchdogSec) so an operator tuning either knob sees both in one place
+# ("one limit to reason about").
+#
+# What runs in this start window (pre-READY=1), after plan
+# upgrade-resume-structural-whole.md piece #2: ONLY the cheap, bounded init —
+# EnsureDBUp → connect → advisory lock → LISTEN. READY=1 is emitted there, and
+# the heavy DB-size-scaled work that follows runs in the ACTIVE phase under
+# WatchdogSec instead:
+#   - boot-migrate-up (`./sb migrate up` schema-skew guard) — DB-size-scaled,
+#     moved AFTER READY=1.
+#   - the exit-42 RESUME (recoverFromFlag → resumePostSwap → applyPostSwap,
+#     incl. the multi-minute archiveBackup) — moved AFTER READY=1.
+# This is the root fix for the NO/rune wedge: a fixed TimeoutStartSec can never
+# bound DB-size-scaled work, so running it here killed the unit every cycle
+# (32 GB DB, ~40 h loop). Moving it active-phase means WatchdogSec governs, and
+# the applyPostSwap progress-gated WATCHDOG=1 ticker keeps a long step alive
+# while it advances. (FIX A also reorders archiveBackup after the terminal
+# UPDATE so a kill mid-tar is harmless; piece #3 progress-gates the ticker — see
+# the WatchdogSec note above — so a genuinely HUNG active-phase step is caught.)
+#
+# So this start budget now bounds ONLY the cheap init. The earlier "slow
+# boot-migrate is a residual that can still blow TimeoutStartSec" no longer
+# applies — boot-migrate runs active-phase. The C11/scenario-18 contract is
+# now narrowly "if the CHEAP init is slower than the static budget the unit is
+# killed (bounded by StartLimitBurst; recover via ./sb install)" — which for
+# genuine cheap init should never fire.
+# NOTE: there is no activating-phase timeout extender — the earlier
+# sdNotifyExtendTimeout(EXTEND_TIMEOUT_USEC) helper was DELETED (commit
+# e6df084b7); see the historical note in cli/internal/upgrade/watchdog.go.
 TimeoutStartSec=120
 
 # Stop-grace window (Layer 1 of rollback-on-SIGKILL hole plug). When systemd

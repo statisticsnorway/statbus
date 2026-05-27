@@ -1,6 +1,7 @@
 package upgrade
 
 import (
+	"context"
 	"net"
 	"os"
 	"path/filepath"
@@ -12,15 +13,38 @@ import (
 // this file alongside the active-phase WATCHDOG=1 fix for Race B.
 // Original design assumed applyPostSwap ran in systemd's "activating"
 // phase (pre-READY=1), where EXTEND_TIMEOUT_USEC is the right primitive.
-// Evidence (service.go:1519 sends READY=1 before the main loop;
-// applyPostSwap is reached from inside the main loop via
-// executeUpgrade) showed applyPostSwap always runs in active phase,
-// where EXTEND_TIMEOUT_USEC is a no-op against WatchdogSec and only
-// WATCHDOG=1 resets the watchdog deadline. Confirmed by operator's
-// dev journalctl: UNIT_RESULT=watchdog, NRestarts=111 — Fix 1's
-// EXTEND_TIMEOUT_USEC ticker did not prevent the watchdog from firing.
-// The helper had no other call site, so it was deleted rather than
-// preserved as defensive cover (dead code paths must be removed).
+// Evidence (Service.Run sends READY=1 before the main loop; applyPostSwap
+// is reached from inside the main loop via executeUpgrade) showed the
+// SCHEDULED path's applyPostSwap runs in the active phase, where
+// EXTEND_TIMEOUT_USEC is a no-op against WatchdogSec and only WATCHDOG=1
+// resets the watchdog deadline. Confirmed by operator's dev journalctl:
+// UNIT_RESULT=watchdog, NRestarts=111 — Fix 1's EXTEND_TIMEOUT_USEC ticker
+// did not prevent the watchdog from firing. The helper had no other call
+// site, so it was deleted rather than preserved as defensive cover (dead
+// code paths must be removed).
+//
+// Addendum (2026-05-27, plan upgrade-resume-structural-whole.md):
+// the original note's "applyPostSwap always runs active-phase" WAS true only
+// for the SCHEDULED path. The exit-42 RESUME path reached applyPostSwap from
+// recoverFromFlag DURING Service.Run startup — before READY=1 — so it ran in
+// the START phase under TimeoutStartSec, a fixed budget that can't bound
+// DB-size-scaled work; a 32 GB archiveBackup blew it and wedged NO/rune in a
+// restart loop (~40 h). The fix (plan piece #2, B1) moves READY=1 + LISTEN to
+// BEFORE recoverFromFlag, so the resume now ALSO runs in the ACTIVE phase —
+// making "applyPostSwap always runs active-phase" universally true. (Plan
+// piece #4 reorders archiveBackup after the terminal UPDATE, and FIX A landed
+// that already; #2 makes the WHOLE resume active-phase, not just the
+// post-completion tail.) The EXTEND_TIMEOUT_USEC deletion stays correct: the
+// active phase needs only WATCHDOG=1, never the start-phase extender.
+//
+// What active-phase BUYS today vs. what's still coming: post-#2, WatchdogSec
+// (not TimeoutStartSec) governs the resume, and the existing applyPostSwap
+// WATCHDOG=1 ticker keeps it alive across long steps. The ticker is still a
+// BLIND 30 s timer here — it pings regardless of whether the pipeline is
+// advancing. Plan piece #3 (progress-gated watchdog, separate commit) makes
+// the ping conditional on real progress so a genuinely HUNG active-phase step
+// is caught. Until #3 lands, the guarantee #2 provides is precisely "the
+// resume runs active-phase under WatchdogSec" — no longer start-phase-wedged.
 
 // Heartbeat design (task #42, unified from task #37's 4-commit chain):
 //
@@ -73,12 +97,15 @@ import (
 // should be rare — almost all liveness signalling goes through
 // emitHeartbeat so the three signals stay unified.
 //
-// One legitimate ad-hoc callsite is the migrate ticker in
-// applyPostSwap (service.go), which sends WATCHDOG=1 directly without
-// the file+log side effects of emitHeartbeat. That's an active-phase
-// ticker — applyPostSwap runs after Service.Run has sent READY=1, so
-// WATCHDOG=1 (not EXTEND_TIMEOUT_USEC) is the primitive that resets
-// the watchdog deadline.
+// One legitimate ad-hoc callsite is the applyPostSwap WATCHDOG=1 ticker
+// (service.go). applyPostSwap runs after Service.Run has sent READY=1 on BOTH
+// paths: the SCHEDULED path (the main loop dispatches executeUpgrade
+// post-READY) and, since plan piece #2 (READY=1 moved before recoverFromFlag),
+// the exit-42 RESUME path. So the ticker is active-phase in both cases and
+// WATCHDOG=1 (not the deleted EXTEND_TIMEOUT_USEC) is what resets the watchdog
+// deadline. (NOTE: the ticker is still a blind 30 s timer — plan piece #3
+// progress-gates it so a hung step stops the pings; until then it keeps the
+// unit alive across any long step, advancing or not.)
 func sdNotify(state string) {
 	socket := os.Getenv("NOTIFY_SOCKET")
 	if socket == "" {
@@ -90,6 +117,67 @@ func sdNotify(state string) {
 	}
 	defer conn.Close()
 	conn.Write([]byte(state))
+}
+
+// applyPostSwapStallThreshold is how long applyPostSwap's gated watchdog
+// ticker tolerates output-silence before it STOPS pinging WATCHDOG=1 — at
+// which point systemd's WatchdogSec (=120 s per ops/statbus-upgrade.service)
+// trips and SIGABRTs the hung unit. 3 min > the 120 s deadline so the gate's
+// decision (stop pinging) is what lets the watchdog fire, not a race between
+// the two timers: a step that goes silent stops bumping lastAdvanceAt, the
+// next tick (≤30 s later) sees sinceLastAdvance ≥ 3 min and skips, and after
+// 120 s of skipped pings systemd acts. A live step bumps via per-line output
+// (PrefixWriter onLine → progress.bump) or step-boundary progress.Write well
+// inside 3 min, so it never trips. The migrate/recreate step — silent for
+// minutes on a single big DDL — is exempted via deferGating (it is bounded by
+// its OWN runCommandToLog timeout + task #7's cumulative-activating cap).
+const applyPostSwapStallThreshold = 3 * time.Minute
+
+// applyPostSwapWatchdogCadence is the gated ticker's tick interval: 1/4 of the
+// 120 s WatchdogSec budget gives wide jitter tolerance with trivial CPU cost.
+const applyPostSwapWatchdogCadence = 30 * time.Second
+
+// runGatedWatchdogTicker is applyPostSwap's SINGLE watchdog goroutine (plan
+// upgrade-resume-structural-whole.md piece #3). It fires ping() every cadence
+// IFF progress.shouldPingWatchdog(stall) is true, and stops when ctx is done,
+// closing doneCh so the caller can join.
+//
+// This collapses the prior TWO unconditional tickers (the reconnect-scoped one
+// and the applyPostSwap-remainder one, both blind 30 s timers) into one
+// progress-gated loop covering reconnect → migrate → step 11 → step 12 →
+// archiveBackup. The collapse is also a fix: an unconditional ticker is itself
+// a blind-watchdog hole — a step hung INSIDE the ticker's scope (e.g. a wedged
+// d.reconnect) would ping forever and never let WatchdogSec fire. Gating closes
+// that hole: a hung step stops advancing lastAdvanceAt, the gate goes false,
+// pings stop, and systemd reaps the unit.
+//
+// The FIRST tick is gated too (no unconditional initial ping): on entry the
+// pipeline has just advanced (waitForDBHealth returned + its progress.Write
+// bumped lastAdvanceAt, and the log is seeded to "now" at construction), so the
+// gate is open and the deadline is reset before any step can run long. A nil
+// progress pings unconditionally (shouldPingWatchdog(nil)==true) — the prior
+// behaviour for any untracked caller.
+//
+// ping is injected so unit tests can drive the loop with a counter instead of a
+// real sd_notify socket; production passes a closure that calls
+// sdNotify("WATCHDOG=1").
+func runGatedWatchdogTicker(ctx context.Context, progress *ProgressLog, stall, cadence time.Duration, ping func(), doneCh chan struct{}) {
+	defer close(doneCh)
+	if progress.shouldPingWatchdog(stall) {
+		ping()
+	}
+	ticker := time.NewTicker(cadence)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if progress.shouldPingWatchdog(stall) {
+				ping()
+			}
+		}
+	}
 }
 
 // heartbeatPath returns the path to the on-disk heartbeat marker.
