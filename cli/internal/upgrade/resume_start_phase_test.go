@@ -44,6 +44,79 @@ func extractFuncBody(t *testing.T, src, signature string) string {
 	return stripLineComments(rest[:end[1]])
 }
 
+// TestRunStartupOrder_B1AndBootMigrateActivePhase is the structural guard for
+// plan piece #2 (B1) + boot-migrate-move. The exit-42 RESUME
+// (recoverFromFlag → resumePostSwap → applyPostSwap) and boot-migrate-up both
+// run heavy, DB-size-scaled work; they MUST run in systemd's ACTIVE phase
+// (post-READY=1, governed by WatchdogSec) rather than the START phase (under
+// the fixed TimeoutStartSec that can't bound DB-size-scaled work — the NO/rune
+// 40 h wedge). So in Service.Run, the required order is:
+//
+//	EnsureDBUp → connect → advisory lock
+//	  → sdNotify("READY=1") + LISTEN          (B1 / Option Y)
+//	  → boot-migrate-up                        (boot-migrate-move: active-phase)
+//	  → recoverFromFlag → post-recovery → main loop
+//
+// This guard pins four orderings:
+//  1. READY=1 BEFORE recoverFromFlag                (B1)
+//  2. both LISTEN calls BEFORE recoverFromFlag      (B1, Option Y — a NOTIFY
+//     arriving during recovery buffers on the session rather than being lost)
+//  3. boot-migrate-up AFTER READY=1                 (boot-migrate runs active-phase)
+//  4. boot-migrate-up BEFORE recoverFromFlag        (schema-skew guard: the
+//     binary's column expectations must match the schema before recoverFromFlag's
+//     first public.upgrade query)
+//
+// NOTE: #2 alone gives "resume runs active-phase under WatchdogSec". The
+// progress-gated watchdog that makes a *hung* active-phase step get caught is
+// plan piece #3 (separate commit) — this guard does not assert progress-gating.
+func TestRunStartupOrder_B1AndBootMigrateActivePhase(t *testing.T) {
+	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))
+	if err != nil {
+		t.Fatalf("read service.go: %v", err)
+	}
+	run := extractFuncBody(t, string(src), "func (d *Service) Run(")
+
+	readyIdx := strings.Index(run, `sdNotify("READY=1")`)
+	recoverIdx := strings.Index(run, "d.recoverFromFlag(ctx)")
+	listenCheckIdx := strings.Index(run, `"LISTEN upgrade_check"`)
+	listenApplyIdx := strings.Index(run, `"LISTEN upgrade_apply"`)
+	bootMigrateIdx := strings.Index(run, `"boot-migrate-up"`)
+
+	for name, idx := range map[string]int{
+		`sdNotify("READY=1")`:    readyIdx,
+		"d.recoverFromFlag(ctx)": recoverIdx,
+		`"LISTEN upgrade_check"`: listenCheckIdx,
+		`"LISTEN upgrade_apply"`: listenApplyIdx,
+		`"boot-migrate-up"`:      bootMigrateIdx,
+	} {
+		if idx < 0 {
+			t.Fatalf("Service.Run missing %s — test is stale", name)
+		}
+	}
+
+	if readyIdx > recoverIdx {
+		t.Errorf(`sdNotify("READY=1") must be BEFORE d.recoverFromFlag(ctx) (B1): readyIdx=%d recoverIdx=%d.`+
+			" The exit-42 resume must run active-phase under WatchdogSec, not start-phase under TimeoutStartSec "+
+			"(the NO/rune wedge). See plan upgrade-resume-structural-whole.md piece #2.", readyIdx, recoverIdx)
+	}
+	if listenCheckIdx > recoverIdx || listenApplyIdx > recoverIdx {
+		t.Errorf("both LISTEN calls must be BEFORE d.recoverFromFlag(ctx) (B1 Option Y): "+
+			"check=%d apply=%d recover=%d. Registering LISTEN before recovery means a NOTIFY arriving "+
+			"mid-recovery buffers on the session (drained by the main loop) rather than being lost.",
+			listenCheckIdx, listenApplyIdx, recoverIdx)
+	}
+	if bootMigrateIdx < readyIdx {
+		t.Errorf(`boot-migrate-up must be AFTER sdNotify("READY=1") (boot-migrate-move): bootMigrateIdx=%d readyIdx=%d.`+
+			" A slow large-DB boot migration must run active-phase under WatchdogSec, not under the fixed "+
+			"start-phase TimeoutStartSec. See plan piece #2 boot-migrate fold-in.", bootMigrateIdx, readyIdx)
+	}
+	if bootMigrateIdx > recoverIdx {
+		t.Errorf("boot-migrate-up must be BEFORE d.recoverFromFlag(ctx) (schema-skew guard): bootMigrate=%d recover=%d. "+
+			"recoverFromFlag's first public.upgrade query needs the schema migrated to HEAD, or it fails SQLSTATE 42703.",
+			bootMigrateIdx, recoverIdx)
+	}
+}
+
 // TestArchiveBackupAfterTerminalUpdate is the structural guard for FIX A.
 //
 // On NO the SIGTERM that killed the start-phase archiveBackup also cancelled

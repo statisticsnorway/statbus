@@ -22,23 +22,28 @@ import (
 // site, so it was deleted rather than preserved as defensive cover (dead
 // code paths must be removed).
 //
-// Addendum (2026-05-27, plan recovery-arc-flaw-timeoutstartsec.md §4a):
-// the original note's "applyPostSwap always runs active-phase" is true for
-// the SCHEDULED path but FALSE for the exit-42 RESUME path, which reaches
-// applyPostSwap from recoverFromFlag DURING Service.Run startup — before
-// READY=1 — so on that path applyPostSwap runs in the START phase under
-// TimeoutStartSec, where neither WATCHDOG=1 nor the deleted extender helps.
-// A 32 GB archiveBackup blew the start budget and wedged NO/rune in a
-// restart loop (~40 h). The §4a FIX (A) does NOT change that phase split:
-// it reorders archiveBackup to AFTER the terminal state='completed' UPDATE +
-// removeUpgradeFlag, so the slow, kill-prone tar runs only once the row is
-// already completed — a start-phase SIGTERM during the tar is then harmless
-// (the next start finds no flag and no-ops). The EXTEND_TIMEOUT_USEC deletion
-// remains correct: the start-phase resume is bounded by TimeoutStartSec as
-// intended (a HARD bound on a genuine hang), and the scheduled path's
-// active-phase steps are covered by WATCHDOG=1. No code here changed; this
-// records why the deletion holds and why the start-phase resume is no longer
-// a wedge.
+// Addendum (2026-05-27, plan upgrade-resume-structural-whole.md):
+// the original note's "applyPostSwap always runs active-phase" WAS true only
+// for the SCHEDULED path. The exit-42 RESUME path reached applyPostSwap from
+// recoverFromFlag DURING Service.Run startup — before READY=1 — so it ran in
+// the START phase under TimeoutStartSec, a fixed budget that can't bound
+// DB-size-scaled work; a 32 GB archiveBackup blew it and wedged NO/rune in a
+// restart loop (~40 h). The fix (plan piece #2, B1) moves READY=1 + LISTEN to
+// BEFORE recoverFromFlag, so the resume now ALSO runs in the ACTIVE phase —
+// making "applyPostSwap always runs active-phase" universally true. (Plan
+// piece #4 reorders archiveBackup after the terminal UPDATE, and FIX A landed
+// that already; #2 makes the WHOLE resume active-phase, not just the
+// post-completion tail.) The EXTEND_TIMEOUT_USEC deletion stays correct: the
+// active phase needs only WATCHDOG=1, never the start-phase extender.
+//
+// What active-phase BUYS today vs. what's still coming: post-#2, WatchdogSec
+// (not TimeoutStartSec) governs the resume, and the existing applyPostSwap
+// WATCHDOG=1 ticker keeps it alive across long steps. The ticker is still a
+// BLIND 30 s timer here — it pings regardless of whether the pipeline is
+// advancing. Plan piece #3 (progress-gated watchdog, separate commit) makes
+// the ping conditional on real progress so a genuinely HUNG active-phase step
+// is caught. Until #3 lands, the guarantee #2 provides is precisely "the
+// resume runs active-phase under WatchdogSec" — no longer start-phase-wedged.
 
 // Heartbeat design (task #42, unified from task #37's 4-commit chain):
 //
@@ -92,15 +97,14 @@ import (
 // emitHeartbeat so the three signals stay unified.
 //
 // One legitimate ad-hoc callsite is the applyPostSwap WATCHDOG=1 ticker
-// (service.go). On the SCHEDULED path applyPostSwap runs after Service.Run
-// has sent READY=1 (the main loop dispatches executeUpgrade post-READY), so
-// the ticker is active-phase and WATCHDOG=1 (not the deleted
-// EXTEND_TIMEOUT_USEC) is what resets the watchdog deadline. On the exit-42
-// RESUME path applyPostSwap runs pre-READY (reached from recoverFromFlag in
-// Service.Run startup), so those WATCHDOG=1 pings are no-ops — WatchdogSec
-// isn't armed in the activating phase, and TimeoutStartSec is the governing
-// bound there. That start-phase resume is safe via §4a FIX A (archiveBackup
-// reordered after the terminal UPDATE), not via this ticker.
+// (service.go). applyPostSwap runs after Service.Run has sent READY=1 on BOTH
+// paths: the SCHEDULED path (the main loop dispatches executeUpgrade
+// post-READY) and, since plan piece #2 (READY=1 moved before recoverFromFlag),
+// the exit-42 RESUME path. So the ticker is active-phase in both cases and
+// WATCHDOG=1 (not the deleted EXTEND_TIMEOUT_USEC) is what resets the watchdog
+// deadline. (NOTE: the ticker is still a blind 30 s timer — plan piece #3
+// progress-gates it so a hung step stops the pings; until then it keeps the
+// unit alive across any long step, advancing or not.)
 func sdNotify(state string) {
 	socket := os.Getenv("NOTIFY_SOCKET")
 	if socket == "" {
