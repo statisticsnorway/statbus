@@ -3965,18 +3965,15 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// multi-minute tar (rune: 32 GB) is harmless. Runs BEFORE pruneBackups
 	// so the backupPath it tars is still present.
 	//
-	// Watchdog note (plan piece #3 / #11): this tar is currently SILENT —
-	// it does not yet bump lastAdvanceAt, so the gated ticker stops pinging
-	// once sinceLastAdvance crosses applyPostSwapStallThreshold (3 m). On a
-	// genuinely huge archive (> stallThreshold + WatchdogSec ≈ 5 m of silence)
-	// systemd would SIGABRT the unit mid-tar — HARMLESS here (row already
-	// completed, flag gone, ATOMIC .tmp+rename leaves no partial; the next
-	// start no-ops). CHANGE 1 (task #11, tar --checkpoint → onLine bump)
-	// makes the tar advance the watchdog so a LIVE long archive is not killed
-	// while a write-hung one still trips. All current scenarios (19/26/27,
-	// holds ≤ 180 s) pass under #3 alone because their stalls are under the
-	// 5 m effective trip; #11 closes the real-rune > 5 m case.
-	d.archiveBackup(backupPath, displayName)
+	// Watchdog (plan piece #3 + CHANGE 1, task #11): the tar feeds the gated
+	// watchdog via GNU tar --checkpoint output (flowing through runCommandToLog's
+	// PrefixWriter onLine → progress.bump), so a LIVE long archive keeps the gate
+	// open and a write-HUNG tar stops the checkpoints → the gate closes →
+	// WatchdogSec fires. progress is passed through so archiveBackup can wire
+	// that bump. (On a bsd/libarchive host the checkpoint flags are omitted — see
+	// hostTarSupportsCheckpoint — and the tar is gate-silent, harmless there: no
+	// systemd to feed.)
+	d.archiveBackup(backupPath, displayName, progress)
 
 	// Layer 3 of the rollback-on-SIGKILL hole plug: now that the upgrade
 	// has reached terminal state='completed', the pre-upgrade backup is no

@@ -50,7 +50,7 @@ func TestArchiveBackup_SuccessLeavesFinalNoTmp(t *testing.T) {
 	}
 
 	d := &Service{projDir: proj}
-	d.archiveBackup(backupPath, "v2026.05.9")
+	d.archiveBackup(backupPath, "v2026.05.9", nil) // nil progress — File()→io.Discard, bump nil-safe
 
 	final := archiveFinalName("v2026.05.9")
 	names := listArchiveDir(t, root)
@@ -85,7 +85,7 @@ func TestArchiveBackup_FailedTarLeavesNoFinal(t *testing.T) {
 	// filesystem invariant.
 	missing := filepath.Join(root, "pre-upgrade-DOES-NOT-EXIST")
 	d := &Service{projDir: proj}
-	d.archiveBackup(missing, "v2026.05.9")
+	d.archiveBackup(missing, "v2026.05.9", nil) // nil progress — File()→io.Discard, bump nil-safe
 
 	final := archiveFinalName("v2026.05.9")
 	finalPath := filepath.Join(root, final)

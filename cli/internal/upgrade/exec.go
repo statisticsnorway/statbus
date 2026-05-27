@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -713,7 +714,53 @@ func (d *Service) pruneUpgradeLogs(keep int) {
 	}
 }
 
-func (d *Service) archiveBackup(backupPath, version string) {
+// tarSupportsCheckpoint reports whether the given `tar --version` output is GNU
+// tar, which supports --checkpoint / --checkpoint-action (used by archiveBackup
+// to feed the #3 progress-gated watchdog). BSD/libarchive tar (the macOS dev
+// default) does NOT — passing --checkpoint to it errors on an unknown flag. We
+// capability-gate on this rather than on GOOS or NOTIFY_SOCKET: the same tar
+// command shape runs everywhere; only the checkpoint flags are appended when
+// the host tar is GNU. On a bsdtar host the tar runs without checkpoints, which
+// is harmless (those hosts — macOS dev — have no systemd WatchdogSec to feed).
+func tarSupportsCheckpoint(versionOutput string) bool {
+	// GNU tar's first line is `tar (GNU tar) <version>`; bsdtar prints
+	// `bsdtar <v> - libarchive <v>`. Match the unambiguous GNU marker.
+	return strings.Contains(versionOutput, "GNU tar")
+}
+
+// hostTarCheckpointOnce caches the one-time `tar --version` probe so archiveBackup
+// (called once per upgrade, but the probe shouldn't re-run on retries) pays the
+// fork cost at most once per process.
+var (
+	hostTarCheckpointOnce sync.Once
+	hostTarCheckpointOK   bool
+)
+
+// hostTarSupportsCheckpoint probes the host tar ONCE and reports whether it is
+// GNU tar (supports --checkpoint). A probe failure (tar missing, error) is
+// treated as "no checkpoint support" — fail safe: archiveBackup then runs a
+// plain tar (the pre-#11 behaviour), never passing a flag that would error.
+func hostTarSupportsCheckpoint(dir string) bool {
+	hostTarCheckpointOnce.Do(func() {
+		out, err := runCommandOutput(dir, "tar", "--version")
+		if err != nil {
+			hostTarCheckpointOK = false
+			return
+		}
+		hostTarCheckpointOK = tarSupportsCheckpoint(out)
+	})
+	return hostTarCheckpointOK
+}
+
+// archiveBackupTimeout is the generous outer ceiling on the archive tar (task
+// #11). The real liveness bound on a HUNG tar is the #3 progress-gated watchdog
+// (fed by --checkpoint output); this timeout only guarantees the call can't hang
+// a goroutine forever. The archive is post-FIX-A forensics (row already
+// completed, flag removed), so a timeout-kill is harmless — sized to fit a real
+// 35 GB tar, unlike the 5-min runCommand default it replaced.
+const archiveBackupTimeout = 60 * time.Minute
+
+func (d *Service) archiveBackup(backupPath, version string, progress *ProgressLog) {
 	archiveDir := filepath.Join(os.Getenv("HOME"), "statbus-backups")
 	archivePath := filepath.Join(archiveDir, fmt.Sprintf("%s-pre.tar.gz", version))
 	// ATOMIC (task #8): tar to a `.tmp` and atomically rename to the final
@@ -742,7 +789,36 @@ func (d *Service) archiveBackup(backupPath, version string) {
 	// main goroutine parked at the canonical "tar in flight" point.
 	inject.StallHere("archive-backup-stall-active-phase-watchdog")
 
-	if err := runCommand(d.projDir, "tar", "-czf", tmpPath, "-C", filepath.Dir(backupPath), filepath.Base(backupPath)); err != nil {
+	// CHANGE 1 (task #11): feed the #3 progress-gated watchdog from the tar's
+	// own progress so a LIVE long archive (rune: 35 GB, minutes) keeps the gate
+	// open and a write-HUNG tar trips it. GNU tar's --checkpoint=N fires every N
+	// records PROCESSED (record = 512 B × blocking-factor 20 = 10 KiB; N=1000 ⇒
+	// ~every 10 MiB), and --checkpoint-action=echo writes a line to stderr.
+	// runCommandToLog tees that through the PrefixWriter whose onLine callback is
+	// progress.bump → lastAdvanceAt advances per checkpoint. A write-hang stops
+	// the records → stops the checkpoints → stops the bumps → the gate closes →
+	// WatchdogSec fires. Checkpoint-REAL (records processed), NOT a blind
+	// wall-clock ticker — it cannot recreate the task-#37 blind-watchdog hang.
+	//
+	// Capability-gated: --checkpoint is GNU-only. On a bsd/libarchive host
+	// (macOS dev) we omit it and run a plain tar — harmless there (no systemd
+	// WatchdogSec to feed). Same tar command shape everywhere; only the flags
+	// differ, gated on tar capability (NOT on GOOS or NOTIFY_SOCKET). See
+	// hostTarSupportsCheckpoint / tarSupportsCheckpoint.
+	//
+	// Timeout: archiveBackup's prior runCommand used the 5-min runCommand
+	// default — too tight for a 35 GB tar (it would time out → no archive). The
+	// archive is post-FIX-A forensics (row already completed, flag removed), so a
+	// timeout-kill is harmless; archiveBackupTimeout=60 min is a generous outer
+	// ceiling so a goroutine can't live forever, while the gated watchdog
+	// (checkpoint-fed) is the real bound on a HUNG tar.
+	tarArgs := []string{"-czf", tmpPath, "-C", filepath.Dir(backupPath), filepath.Base(backupPath)}
+	if hostTarSupportsCheckpoint(d.projDir) {
+		tarArgs = append(tarArgs,
+			"--checkpoint=1000",
+			"--checkpoint-action=echo=archive: %u records")
+	}
+	if err := runCommandToLog(d.projDir, archiveBackupTimeout, progress.File(), "archive-tar", progress.bump, "tar", tarArgs...); err != nil {
 		fmt.Printf("Warning: archive backup failed: %v\n", err)
 		// Drop the partial `.tmp` so it can't accumulate across failed runs
 		// (a later run overwrites it anyway; this keeps the dir tidy now).
