@@ -153,7 +153,20 @@ VM_EXEC bash -c "ls -la ~/statbus/tmp/upgrade-in-progress.json" || {
     echo "✗ expected flag file present after kill" >&2
     exit 1
 }
-assert_upgrade_row_state "$VM_NAME" "in_progress"
+# NOTE: do NOT assert public.upgrade.state='in_progress' here — at this point
+# the DB container has been stopped (executeUpgrade stops it before
+# backupDatabase, log line "Stopping database..." just upstream of the kill),
+# so `./sb psql` would fail with "connection refused" and assert_upgrade_row_state
+# would `return 1` under `set -e` → silent script exit before any post-kill
+# assertion. The flag-file `ls` above already proves "upgrade was in-flight when
+# killed" (and the flag carries Phase=PreSwap, holder, PID etc. as the canonical
+# crash-survivable state per CLAUDE.md's flag-file-ownership-contract). The
+# row-state convergence check belongs in Phase 6 below, where the recovery
+# install has restarted the DB. (Pre-CHANGE-2 this assertion happened to
+# coincide with a still-running DB; under the post-#12 + STATBUS_*_INJECT_AT=...
+# kill flow the DB is stopped before backupDatabase, so the assertion now
+# false-fails silently. Fix: drop the redundant RED-phase row-state check; the
+# flag file IS the correct source of truth at the kill point.)
 
 # C3-specific (CHANGE 2 / #12): the kill fires inside backupDatabase AFTER
 # rsync-into-syncing but BEFORE rename(syncing→active) (exec.go
