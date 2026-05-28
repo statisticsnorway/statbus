@@ -751,6 +751,57 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 		return d.resumePostSwap(ctx, flag)
 	}
 
+	// PreSwap-phase flag → roll back, NEVER self-heal (engineer audit task
+	// #3 Q3 + scenario 21 RED proof from run 26607271739).
+	//
+	// A PreSwap-phase flag means the upgrade was killed BEFORE the binary
+	// swap commit boundary (replaceBinaryOnDisk had not yet run when the
+	// process died, or it was about to but never wrote Phase=post_swap).
+	// Filesystem state at this point is:
+	//   - pre-upgrade-syncing/ exists, mid-rsync, INCOMPLETE.
+	//   - No pre-upgrade-active/ from this upgrade attempt.
+	//   - ./sb still at the OLD binary; no ./sb.old.
+	//   - DB volume UNCHANGED (preswap-backup is rsync OUT, not IN).
+	//   - public.upgrade row still in_progress.
+	// The right move is to roll back: mark the row rolled_back, remove the
+	// flag, restart services at the CURRENT (unchanged) binary, leave the
+	// DB alone. recoveryRollback → rollback → restoreDatabase is data-safe
+	// here BECAUSE pickLatestBackup (exec.go:652) EXPLICITLY excludes the
+	// pre-upgrade-syncing directory via isManagedBackupDir (exec.go:679).
+	// pickLatestBackup returns "" → restoreDatabase prints the ABORT line
+	// and returns WITHOUT rsyncing onto the volume. DB stays intact.
+	// restoreBinary is also a no-op because ./sb.old does not exist
+	// (replaceBinaryOnDisk never created it) — see exec.go:4820-4838's
+	// ENOENT branch.
+	//
+	// Why this guard exists: the success branch below (line 765+) uses
+	// `headSHA == flag.CommitSHA` as the discriminator for self-heal. That
+	// invariant is sound for POST-swap recovery (where the binary swap +
+	// migrations + healthcheck genuinely landed before the crash), but for
+	// a PreSwap-phase flag, headSHA-matches-target says NOTHING about
+	// whether the upgrade reached the commit boundary — the harness has
+	// HEAD == target by construction (fabricate_scheduled_upgrade_row
+	// schedules HEAD against a binary that is also HEAD via
+	// upload_sb_to_vm), and real customers can also have HEAD == target
+	// after `git checkout` step 6 but before replaceBinaryOnDisk step 6b
+	// (the comment at line 773-778 already documents this window for
+	// PostSwap; it applies symmetrically here for PreSwap). Without this
+	// guard, scenario 21's RED-confirmed PreSwap kill would route into the
+	// self-heal UPDATE and mark `state='completed'` for an upgrade that
+	// was killed before any commit happened.
+	if flag.Phase == FlagPhasePreSwap {
+		logRecover("PreSwap-phase flag detected for upgrade %d (%s): upgrade killed before binary-swap commit boundary — rolling back (NOT self-healing). DB unchanged; restoreDatabase will no-op on the syncing dir per pickLatestBackup's managed-dir exclusion.",
+			flag.ID, flag.Label())
+		if appendLog != nil {
+			appendLog.Close()
+			appendLog = nil
+		}
+		d.recoveryRollback(ctx, int(flag.ID), flag.Label(), logRelPath, fmt.Sprintf(
+			"%s: upgrade killed in PreSwap phase before binary-swap commit boundary",
+			ErrInstallPreconditionFailed))
+		return nil
+	}
+
 	// Service-held flag: reconcile against public.upgrade.
 	// Check if the upgrade actually succeeded (self-update restart via exit code 42).
 	// If git HEAD matches the upgrade target, the code is at the right version.
