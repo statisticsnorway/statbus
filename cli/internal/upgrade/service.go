@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -3520,7 +3521,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 		procureErr = d.replaceBinaryOnDisk(displayName, progress)
 		procureCode = ErrBinaryReplaceFailed
 	} else {
-		procureErr = d.buildBinaryOnDisk(displayName, progress)
+		procureErr = d.buildBinaryOnDisk(commitSHA, displayName, progress)
 		procureCode = ErrBinaryBuildFailed
 	}
 	if procureErr != nil {
@@ -4833,9 +4834,54 @@ func (d *Service) replaceBinaryOnDisk(version string, progress *ProgressLog) err
 // On failure: rename .old back to ./sb so the deploy host isn't left
 // without a usable binary. The caller (executeUpgrade) then invokes
 // rollback() with ErrBinaryBuildFailed.
-func (d *Service) buildBinaryOnDisk(displayName string, progress *ProgressLog) error {
+//
+// Pre-staged-binary skip (task #8, scenarios 26 + 27): if ./sb on disk
+// ALREADY reports the target commit (verified by parsing `./sb --version`
+// and matching its 8-char hex `commit XXXXXXXX` field against
+// targetCommitSHA), skip `make` entirely. This is the legitimate idem-
+// potency case for two real workflows:
+//
+//   1. Operator manually pre-stages ./sb (e.g. scp'd a tested binary)
+//      and then schedules an upgrade for that commit. Today's rebuild
+//      would needlessly recompile a binary that's already at the target.
+//   2. The install-recovery harness's upload_sb_to_vm pre-stages ./sb
+//      from HEAD to the VM (vm-bootstrap.sh:577) and then schedules an
+//      upgrade for HEAD via fabricate_scheduled_upgrade_row. Scenarios
+//      26 + 27 (and any future post-swap scenario) reach buildBinary-
+//      OnDisk; without this skip, they fail with `make: go: not found`
+//      because the harness VM has no Go toolchain — every run in
+//      `gh run list --workflow=install-recovery-harness.yaml` is
+//      failure pre-fix.
+//
+// CORRECTNESS — the skip is exact/conservative (fail-safe = BUILD, not
+// skip):
+//   - Skip only when ./sb --version EXACTLY contains the literal
+//     `commit <targetCommitSHA[:8]>`. Any mismatch — different commit,
+//     unparseable output, "dev (UNSTAMPED)", `./sb` exec failure,
+//     non-zero exit — falls through to the rebuild. A false-positive
+//     skip would silently run a STALE binary as if it were the target;
+//     fail-safe = build, never skip on ambiguity.
+//   - The shortName fallback (when displayName is the 8-char shortSHA
+//     and targetCommitSHA is unavailable) compares against displayName
+//     directly — same 8-char invariant.
+//
+// A real edge upgrade has ./sb LAGGING the just-checked-out source (the
+// daemon image and the disk binary are still at the PREVIOUS commit when
+// executeUpgrade enters), so ./sb --version reports the OLD commit and
+// we proceed with make. The skip ONLY kicks in for pre-staged or
+// manual-swap workflows, exactly as intended.
+//
+// commitSHA may be empty in legacy call paths or test stubs — in that
+// case we cannot verify the target identity, so we proceed with the
+// build (fail-safe).
+func (d *Service) buildBinaryOnDisk(commitSHA, displayName string, progress *ProgressLog) error {
 	sbPath := filepath.Join(d.projDir, "sb")
 	sbOldPath := sbPath + ".old"
+
+	if shortAt, ok := sbAlreadyAtCommit(d.projDir, sbPath, commitSHA, displayName); ok {
+		progress.Write("./sb already at commit %s — skipping rebuild (pre-staged binary; see buildBinaryOnDisk's pre-staged-binary skip).", shortAt)
+		return nil
+	}
 
 	if err := os.Rename(sbPath, sbOldPath); err != nil {
 		return fmt.Errorf("preserve ./sb.old: %w", err)
@@ -4851,6 +4897,74 @@ func (d *Service) buildBinaryOnDisk(displayName string, progress *ProgressLog) e
 	}
 	progress.Write("./sb rebuilt; ./sb.old kept as rollback.")
 	return nil
+}
+
+// sbAlreadyAtCommit reports whether the on-disk ./sb binary already
+// carries the target commit SHA, as established by parsing its
+// `--version` output. Returns (8-char-short-display, true) on a verified
+// match; ("", false) on any ambiguity (parse failure, non-zero exit,
+// "UNSTAMPED", mismatched commit, empty target). Fail-safe: ambiguity
+// returns false so the caller proceeds with the rebuild.
+//
+// Strategy: invoke `./sb --version`, regex out `commit ([0-9a-fA-F]{8})`,
+// compare to the lower-cased 8-char prefix of commitSHA (when non-empty)
+// OR to displayName (when displayName is the 8-char short SHA used for
+// UntaggedTarget — service.go:2940). Both targets are checked so the
+// skip kicks in whichever the caller supplies cleanly.
+//
+// Why parse --version instead of adding a new `./sb commit` flag: the
+// --version output is already the stable API (cli/cmd/root.go:266-274).
+// Adding API surface for one internal call would expand the contract
+// for a single use; parsing the existing stable shape keeps the change
+// local to upgrade.
+var sbVersionCommitRE = regexp.MustCompile(`commit ([0-9a-fA-F]{8})`)
+
+func sbAlreadyAtCommit(projDir, sbPath, commitSHA, displayName string) (string, bool) {
+	// Both targets unusable → cannot verify identity, fail-safe to build.
+	if commitSHA == "" && displayName == "" {
+		return "", false
+	}
+	out, err := runCommandOutput(projDir, sbPath, "--version")
+	if err != nil {
+		return "", false
+	}
+	return matchSbVersionCommit(out, commitSHA, displayName)
+}
+
+// matchSbVersionCommit is the pure parsing+comparison core extracted
+// from sbAlreadyAtCommit so it can be unit-tested without a real ./sb
+// subprocess. Returns (8-char-short-display, true) on a verified match
+// of the version-output's `commit XXXXXXXX` field against commitSHA[:8]
+// (preferred — strongest identity) or against an exactly-8-char
+// displayName (fallback when only the short name is supplied). Returns
+// ("", false) on every ambiguity: unparseable output, mismatched
+// commit, empty targets, "UNSTAMPED". Fail-safe = false (caller builds).
+//
+// Invariant: a true return means the version-output literally contained
+// `commit X` where X exactly equals (case-insensitive) the requested
+// target prefix. Anything fuzzier returns false.
+func matchSbVersionCommit(versionOut, commitSHA, displayName string) (string, bool) {
+	m := sbVersionCommitRE.FindStringSubmatch(versionOut)
+	if len(m) < 2 {
+		return "", false
+	}
+	onDisk := strings.ToLower(m[1])
+	// Try commitSHA[:8] first (the strongest identity; full 40-char SHA
+	// is the authoritative target identity from public.upgrade).
+	if commitSHA != "" && len(commitSHA) >= 8 {
+		if onDisk == strings.ToLower(commitSHA[:8]) {
+			return onDisk, true
+		}
+	}
+	// displayName for UntaggedTarget is commitShort(commitSHA) = 8-char
+	// short (service.go:2940). If commitSHA was empty we still match on
+	// the 8-char shape exactly.
+	if displayName != "" && len(displayName) == 8 {
+		if onDisk == strings.ToLower(displayName) {
+			return onDisk, true
+		}
+	}
+	return "", false
 }
 
 // restoreBinary reverts ./sb from ./sb.old. Best-effort, non-fatal.
