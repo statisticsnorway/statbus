@@ -375,9 +375,17 @@ RUN mkdir -p /tmp/sql_saga_native-dist/usr/lib/postgresql/${postgresql_major}/li
        -exec cp {} /tmp/sql_saga_native-dist/usr/share/postgresql/${postgresql_major}/extension/ \;
 
 ####################
-# Final image
+# pg-runtime-base — assembled pg + extensions + entrypoint.
+#
+# Renamed from `final` (was the historical last stage) to make room for
+# additional ship targets: the seed-builder + seed stages append below,
+# and the trailing `pg-runtime` alias re-exports this base as the
+# default `docker build` (no --target) result.
+#
+# This is the production pg image consumed by every running StatBus
+# deployment. The seed stage downstream uses this as its base.
 ####################
-FROM base as final
+FROM base as pg-runtime-base
 ARG postgresql_major
 
 # Copy built extensions from builder stages
@@ -427,3 +435,15 @@ ENV POSTGRES_PASSWORD=${POSTGRES_ADMIN_PASSWORD}
 ENTRYPOINT ["docker-entrypoint.sh"]
 EXPOSE 5432
 CMD ["postgres"]
+
+####################
+# pg-runtime — DEFAULT build target. Zero-cost alias of pg-runtime-base,
+# placed LAST so `docker build` (no --target) produces this stage.
+#
+# Step 1 of the image-distribution rollout. Future commits will add
+# `seed-builder` and `seed` stages BETWEEN pg-runtime-base and this
+# alias (which must remain last to preserve default-target behavior).
+#
+# Plan reference: install-any-commit-via-images.md §Dockerfile structure.
+####################
+FROM pg-runtime-base as pg-runtime
