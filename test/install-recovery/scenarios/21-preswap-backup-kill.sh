@@ -94,12 +94,6 @@ DATA_SNAPSHOT=$(snapshot_demo_data_counts "$VM_NAME")
 echo "  pre-trigger data snapshot: $DATA_SNAPSHOT"
 assert_demo_data_present "$VM_NAME"
 
-# Baseline ./sb version on disk BEFORE the trigger. The C3 wedge leaves
-# the binary UNCHANGED (binary swap happens later in executeUpgrade),
-# so this version must match post-recovery too.
-SB_VERSION_BEFORE=$(VM_EXEC bash -c "cd ~/statbus && ./sb --version 2>/dev/null | head -1" | tr -d '\r' || echo "")
-echo "  pre-trigger ./sb version: $SB_VERSION_BEFORE"
-
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 3 — first install at HEAD with C3 kill injection
 # ─────────────────────────────────────────────────────────────────────────
@@ -123,6 +117,20 @@ STATBUS_MIN_DISK_GB=5 \
 SCRIPT
 upload_install_script_to_vm "$VM_NAME" "$INSTALL_SCRIPT" /tmp/install-c3.sh
 upload_sb_to_vm "$VM_NAME"
+
+# Baseline ./sb version AFTER upload_sb_to_vm (which is itself a binary swap —
+# the harness replaces the v2026.05.2 binary with HEAD's so the test exercises
+# HEAD's code). The "binary unchanged" assertions below verify that the UPGRADE's
+# OWN executeUpgrade-internal binary-swap step (replaceBinaryOnDisk) has NOT yet
+# run at the C3 kill point — which fires inside backupDatabase, UPSTREAM of the
+# upgrade's binary swap. So the right baseline is the HEAD binary the harness
+# just installed; the assertion catches a regression where the upgrade's
+# internal swap accidentally runs pre-backup. (Pre-fix this snapshot was taken
+# BEFORE upload_sb_to_vm and false-failed: SB_VERSION_BEFORE=v2026.05.2 vs
+# SB_VERSION_DURING=HEAD — comparing the harness's setup swap, not the upgrade's
+# internal swap. Verification run 26581049544 surfaced it; fix re-baselines.)
+SB_VERSION_BEFORE=$(VM_EXEC bash -c "cd ~/statbus && ./sb --version 2>/dev/null | head -1" | tr -d '\r' || echo "")
+echo "  pre-trigger ./sb version (post-upload baseline): $SB_VERSION_BEFORE"
 
 # Seed a scheduled public.upgrade row at HEAD so the install state detector
 # classifies as StateScheduledUpgrade (and dispatches executeUpgrade → backupDatabase
