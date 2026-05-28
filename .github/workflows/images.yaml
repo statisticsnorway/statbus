@@ -60,6 +60,11 @@ jobs:
           - {name: worker, context: ./cli, file: ./cli/Dockerfile}
           - {name: db, context: ./postgres, file: ./postgres/Dockerfile}
           - {name: proxy, context: ./caddy, file: ./caddy/Dockerfile}
+          # statbus-sb: minimal distroless image carrying only the sb binary.
+          # Makes sb commit-addressable alongside the service images so that
+          # "a commit is installable iff its images built" includes sb.
+          # Build context is the repo root (needs both cli/ source and go.mod).
+          - {name: sb, context: ., file: ./cli/Dockerfile.sb}
         platform:
           - {runner: ubuntu-24.04, arch: amd64}
           - {runner: ubuntu-24.04-arm, arch: arm64}
@@ -89,6 +94,11 @@ jobs:
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service.name }}:${{ needs.describe.outputs.commit_short }}-${{ matrix.platform.arch }}
+          # Pass VERSION + COMMIT build-args for services that use them
+          # (currently sb only; the four service images don't use ARGs).
+          build-args: |
+            VERSION=${{ needs.describe.outputs.commit_short }}
+            COMMIT=${{ github.sha }}
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service.name }}:buildcache-${{ matrix.platform.arch }}
           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.ORG }}/statbus-${{ matrix.service.name }}:buildcache-${{ matrix.platform.arch }},mode=max
 
@@ -97,7 +107,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        service: [app, worker, db, proxy]
+        service: [app, worker, db, proxy, sb]
     steps:
       - uses: docker/login-action@v3
         with:

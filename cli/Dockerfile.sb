@@ -1,0 +1,55 @@
+# Multi-stage Dockerfile for the statbus-sb binary.
+#
+# Build flags mirror dev.sh cross-build-sb / cli/Makefile exactly:
+#   CGO_ENABLED=0  -trimpath  -ldflags "-s -w -X cmd.version=... -X cmd.commit=..."
+#
+# The running layer uses gcr.io/distroless/static-debian12 (not scratch)
+# because sb makes outbound HTTPS calls to api.github.com and ghcr.io and
+# therefore needs the ca-certificates bundle that distroless/static ships.
+#
+# Build-arg contract (mirrors the describe→build tag-parity pattern in
+# images.yaml; both must be supplied at build time):
+#   --build-arg VERSION=<git-describe-output>   e.g. v2026.05.6-rc.01
+#   --build-arg COMMIT=<40-char-sha>            e.g. 51670d9e1c61...
+#
+# Local test build:
+#   docker build \
+#     --build-arg VERSION=$(git describe --tags --always) \
+#     --build-arg COMMIT=$(git rev-parse HEAD) \
+#     -f cli/Dockerfile.sb -t statbus-sb:test .
+#   docker run --rm statbus-sb:test version
+
+FROM golang:1.25.5 AS build
+
+ARG VERSION=dev
+ARG COMMIT=unknown
+
+WORKDIR /src
+
+# Copy only the Go module files first so the dependency layer is cached
+# independently of source changes (same pattern the app/Dockerfile uses).
+COPY cli/go.mod cli/go.sum ./
+RUN go mod download
+
+# Copy the full CLI source.
+COPY cli/ ./
+
+# Build with the same flags as dev.sh cross-build-sb / cli/Makefile:
+#   -trimpath    — reproducible paths (no host filesystem in the binary)
+#   -s -w        — strip debug symbols + DWARF (smaller binary)
+#   cmd.version  — runtime version string (sb version / sb upgrade service)
+#   cmd.commit   — staleness guard (service.go binaryCommit, freshness check)
+RUN CGO_ENABLED=0 \
+    go build \
+      -trimpath \
+      -ldflags "-s -w \
+        -X 'github.com/statisticsnorway/statbus/cli/cmd.version=${VERSION}' \
+        -X 'github.com/statisticsnorway/statbus/cli/cmd.commit=${COMMIT}'" \
+      -o /sb \
+      .
+
+FROM gcr.io/distroless/static-debian12
+
+COPY --from=build /sb /sb
+
+ENTRYPOINT ["/sb"]
