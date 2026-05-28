@@ -124,6 +124,14 @@ SCRIPT
 upload_install_script_to_vm "$VM_NAME" "$INSTALL_SCRIPT" /tmp/install-c3.sh
 upload_sb_to_vm "$VM_NAME"
 
+# Seed a scheduled public.upgrade row at HEAD so the install state detector
+# classifies as StateScheduledUpgrade (and dispatches executeUpgrade → backupDatabase
+# → the C3 kill site). Without this, RUN 1 sees nothing-scheduled (current==target:
+# both derive from the running binary's ldflags version, which is HEAD after
+# upload_sb_to_vm overwrote the v2026.05.2 binary) → idempotent step-table refresh
+# → exits 0 → KillHere never fires. Pattern-A fix (harness regression run 26539222000).
+fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_LOCAL"
+
 set +e
 timeout "${INSTALL_BUDGET_S}s" ssh "${SSH_OPTS[@]}" statbus@"$ip" "bash /tmp/install-c3.sh"
 FIRST_EXIT=$?
