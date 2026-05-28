@@ -185,6 +185,12 @@ if ! git cat-file -e $HEAD_LOCAL 2>/dev/null; then
     git fetch --depth 1 origin $HEAD_LOCAL || { echo "FATAL: HEAD not on origin" >&2; exit 1; }
 fi
 git checkout $HEAD_LOCAL
+# Re-place sb after git checkout — clone/checkout into an existing dir
+# can leave sb missing or stale; /tmp/sb is the host-built binary still
+# present from upload_sb_to_vm (the host swap is wiped by the clone but
+# /tmp/sb is not rm'd; the install needs ./sb to exist at this point).
+cp /tmp/sb ./sb
+chmod +x ./sb
 cp /tmp/env-config .env.config
 cp /tmp/users.yml .users.yml
 STATBUS_INJECT_AT=migration-slower-than-systemd-unit-timeout \
