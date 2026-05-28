@@ -78,7 +78,7 @@ source "$LIB_DIR/wedge-helpers.sh"
 source "$LIB_DIR/assertions.sh"
 
 RELEASE_FILE="/tmp/stall-release-c15"
-DROPIN_DIR="\$HOME/.config/systemd/user/statbus-upgrade@test.service.d"
+DROPIN_DIR="\$HOME/.config/systemd/user/statbus-upgrade@statbus.service.d"
 DROPIN_FILE="$DROPIN_DIR/c15-inject.conf"
 
 trap '
@@ -91,7 +91,7 @@ trap '
         rm -f $RELEASE_FILE 2>/dev/null || true
         rm -f $DROPIN_FILE 2>/dev/null || true
         systemctl --user daemon-reload 2>/dev/null || true
-        systemctl --user restart statbus-upgrade@test.service 2>/dev/null || true
+        systemctl --user restart statbus-upgrade@statbus.service 2>/dev/null || true
     " 2>/dev/null || true
     cleanup_vm "$VM_NAME"
     exit $rc
@@ -134,13 +134,24 @@ HEAD_LOCAL=$(git -C "$HARNESS_ROOT" rev-parse HEAD)
 ip=$(hcloud server ip "$VM_NAME")
 upload_sb_to_vm "$VM_NAME"
 
-VM_EXEC bash -c "
-    cd ~/statbus
-    if ! git cat-file -e $HEAD_LOCAL 2>/dev/null; then
-        git fetch --depth 1 origin $HEAD_LOCAL || { echo 'FATAL: HEAD not on origin' >&2; exit 1; }
-    fi
-    git checkout $HEAD_LOCAL
-"
+# Write the git-checkout script locally (heredoc works on the local machine;
+# VM_EXEC bash -c "..." collapses newlines over SSH, breaking if/then/fi).
+# Pattern matches scenario 26 (line 162-181).
+_stage_head_script=$(mktemp /tmp/harness-stage-head-XXXXXX.sh)
+cat > "$_stage_head_script" << SCRIPT_EOF
+#!/bin/bash
+set -euo pipefail
+cd ~/statbus
+if ! git cat-file -e ${HEAD_LOCAL} 2>/dev/null; then
+    git fetch --depth 1 origin ${HEAD_LOCAL} || { echo 'FATAL: HEAD not on origin' >&2; exit 1; }
+fi
+git checkout ${HEAD_LOCAL}
+SCRIPT_EOF
+chmod 644 "$_stage_head_script"
+scp -O "${SSH_OPTS[@]}" "$_stage_head_script" root@"$VM_IP":/tmp/harness-stage-head.sh
+rm -f "$_stage_head_script"
+VM_EXEC bash /tmp/harness-stage-head.sh
+ssh "${SSH_OPTS[@]}" root@"$VM_IP" "rm -f /tmp/harness-stage-head.sh" 2>/dev/null || true
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 4 — fabricate scheduled upgrade row (HEAD untagged → no natural discover)
@@ -160,13 +171,13 @@ echo "  ✓ public.upgrade row at HEAD is state='scheduled'"
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 5 — install drop-in + release file, restart unit
 # ─────────────────────────────────────────────────────────────────────────
-NRESTARTS_BASELINE=$(VM_EXEC systemctl --user show "statbus-upgrade@test.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "0")
+NRESTARTS_BASELINE=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "0")
 echo "  baseline NRestarts: $NRESTARTS_BASELINE"
 
 echo ""
 echo "── installing C15 drop-in override + release file ──"
 VM_EXEC bash -c "
-    systemctl --user stop statbus-upgrade@test.service 2>/dev/null || true
+    systemctl --user stop statbus-upgrade@statbus.service 2>/dev/null || true
     mkdir -p $DROPIN_DIR
     cat > $DROPIN_FILE << 'EOF'
 [Service]
@@ -175,14 +186,14 @@ Environment=STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE=$RELEASE_FILE
 EOF
     touch $RELEASE_FILE
     systemctl --user daemon-reload
-    systemctl --user start statbus-upgrade@test.service
+    systemctl --user start statbus-upgrade@statbus.service
 "
 
 sleep 5
-UNIT_STATE=$(VM_EXEC systemctl --user is-active "statbus-upgrade@test.service" 2>/dev/null | tr -d ' \r\n' || echo "?")
+UNIT_STATE=$(VM_EXEC systemctl --user is-active "statbus-upgrade@statbus.service" 2>/dev/null | tr -d ' \r\n' || echo "?")
 if [ "$UNIT_STATE" != "active" ]; then
     echo "✗ unit did not reach active after restart with C15 drop-in (state=$UNIT_STATE)" >&2
-    VM_EXEC bash -c "systemctl --user status statbus-upgrade@test.service --no-pager" >&2 || true
+    VM_EXEC bash -c "systemctl --user status statbus-upgrade@statbus.service --no-pager" >&2 || true
     exit 1
 fi
 echo "  ✓ unit active with C15 env vars in place"
@@ -199,7 +210,7 @@ while true; do
     if [ "$elapsed" -ge 180 ]; then
         echo "✗ unit did not transition row to in_progress within 180s — unit may not be polling" >&2
         VM_EXEC bash -c "cd ~/statbus && echo \"SELECT id, state, started_at FROM public.upgrade WHERE commit_sha = '$HEAD_LOCAL';\" | ./sb psql" >&2 || true
-        VM_EXEC bash -c "systemctl --user status statbus-upgrade@test.service --no-pager -l 2>&1 | head -30" >&2 || true
+        VM_EXEC bash -c "systemctl --user status statbus-upgrade@statbus.service --no-pager -l 2>&1 | head -30" >&2 || true
         exit 1
     fi
     STATE=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '$HEAD_LOCAL';\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?")
@@ -224,7 +235,7 @@ echo "── holding the C15 stall for ${STALL_HOLD_S}s (> WatchdogSec=120s) ─
 # would climb. With the ticker, NRestarts stays at baseline.
 sleep "$STALL_HOLD_S"
 
-NRESTARTS_DURING=$(VM_EXEC systemctl --user show "statbus-upgrade@test.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
+NRESTARTS_DURING=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
 echo "  NRestarts at stall-hold-end: $NRESTARTS_DURING (baseline=$NRESTARTS_BASELINE)"
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -266,7 +277,7 @@ done
 echo ""
 echo "── Race D regression check (LOAD-BEARING) ──"
 
-NRESTARTS_FINAL=$(VM_EXEC systemctl --user show "statbus-upgrade@test.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
+NRESTARTS_FINAL=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
 RESTART_DELTA=$((NRESTARTS_FINAL - NRESTARTS_BASELINE))
 echo "  NRestarts: baseline=$NRESTARTS_BASELINE final=$NRESTARTS_FINAL delta=$RESTART_DELTA"
 
@@ -286,7 +297,7 @@ assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
 # Coherence checks.
 assert_flag_file_absent "$VM_NAME"
 assert_no_orphan_backup "$VM_NAME"
-assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@test.service" 2
+assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 2
 
 if [ "$FINAL_STATE" = "completed" ]; then
     assert_health_passes "$VM_NAME"

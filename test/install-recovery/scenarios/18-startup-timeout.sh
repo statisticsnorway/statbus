@@ -75,7 +75,7 @@ source "$LIB_DIR/wedge-helpers.sh"
 source "$LIB_DIR/assertions.sh"
 
 RELEASE_FILE="/tmp/stall-release-c11"
-DROPIN_DIR="\$HOME/.config/systemd/user/statbus-upgrade@test.service.d"
+DROPIN_DIR="\$HOME/.config/systemd/user/statbus-upgrade@statbus.service.d"
 DROPIN_FILE="$DROPIN_DIR/c11-inject.conf"
 
 trap '
@@ -84,11 +84,11 @@ trap '
     # systemd state on the VM (cleanup_vm destroys the VM anyway, but
     # belt + braces in case KEEP_VM=1 is set for debugging).
     VM_EXEC bash -c "
-        systemctl --user stop statbus-upgrade@test.service 2>/dev/null || true
+        systemctl --user stop statbus-upgrade@statbus.service 2>/dev/null || true
         rm -f $DROPIN_FILE 2>/dev/null || true
         systemctl --user daemon-reload 2>/dev/null || true
         rm -f $RELEASE_FILE 2>/dev/null || true
-        systemctl --user start statbus-upgrade@test.service 2>/dev/null || true
+        systemctl --user start statbus-upgrade@statbus.service 2>/dev/null || true
     " 2>/dev/null || true
     cleanup_vm "$VM_NAME"
     exit $rc
@@ -108,12 +108,12 @@ install_statbus_in_vm "$VM_NAME" "$INSTALL_VERSION"
 assert_health_passes "$VM_NAME"
 
 # Baseline NRestarts before triggering the timeout.
-NRESTARTS_BASELINE=$(VM_EXEC systemctl --user show "statbus-upgrade@test.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "0")
+NRESTARTS_BASELINE=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "0")
 echo "  baseline NRestarts: $NRESTARTS_BASELINE"
 
 # Verify the unit is in active state before we wedge it. Any prior
 # failure or transient state would skew the NRestarts delta.
-UNIT_STATE=$(VM_EXEC systemctl --user is-active "statbus-upgrade@test.service" 2>/dev/null | tr -d ' \r\n' || echo "?")
+UNIT_STATE=$(VM_EXEC systemctl --user is-active "statbus-upgrade@statbus.service" 2>/dev/null | tr -d ' \r\n' || echo "?")
 if [ "$UNIT_STATE" != "active" ]; then
     echo "✗ upgrade-service unit not active before trigger (state=$UNIT_STATE)" >&2
     exit 1
@@ -149,7 +149,7 @@ echo "── restarting upgrade-service with C11 stall active ──"
 # don't want either (the start is going to TIME OUT, which would
 # normally return non-zero from `restart`). Use --no-block to fire-
 # and-forget, then poll.
-VM_EXEC bash -c "systemctl --user --no-block restart statbus-upgrade@test.service"
+VM_EXEC bash -c "systemctl --user --no-block restart statbus-upgrade@statbus.service"
 
 echo "  unit restart requested; waiting ${TIMEOUT_OBSERVE_S}s for TimeoutStartSec=120s to fire"
 START_TS=$(date +%s)
@@ -160,16 +160,16 @@ while true; do
     fi
     # Surface intermediate state every 30s.
     if [ $((elapsed % 30)) -eq 0 ]; then
-        STATE=$(VM_EXEC systemctl --user is-active "statbus-upgrade@test.service" 2>/dev/null | tr -d ' \r\n' || echo "?")
-        SUBSTATE=$(VM_EXEC systemctl --user show "statbus-upgrade@test.service" --property=SubState --value 2>/dev/null | tr -d ' \r\n' || echo "?")
+        STATE=$(VM_EXEC systemctl --user is-active "statbus-upgrade@statbus.service" 2>/dev/null | tr -d ' \r\n' || echo "?")
+        SUBSTATE=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=SubState --value 2>/dev/null | tr -d ' \r\n' || echo "?")
         echo "    [t+${elapsed}s] state=$STATE substate=$SUBSTATE"
     fi
     sleep 5
 done
 
 # Read post-timeout state.
-NRESTARTS_AFTER_TIMEOUT=$(VM_EXEC systemctl --user show "statbus-upgrade@test.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
-RESULT=$(VM_EXEC systemctl --user show "statbus-upgrade@test.service" --property=Result --value 2>/dev/null | tr -d ' \r\n' || echo "?")
+NRESTARTS_AFTER_TIMEOUT=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
+RESULT=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=Result --value 2>/dev/null | tr -d ' \r\n' || echo "?")
 echo "  post-timeout: NRestarts=$NRESTARTS_AFTER_TIMEOUT Result=$RESULT"
 
 # Load-bearing: NRestarts MUST have grown. If it didn't, either
@@ -180,7 +180,7 @@ RESTART_DELTA=$((NRESTARTS_AFTER_TIMEOUT - NRESTARTS_BASELINE))
 if [ "$RESTART_DELTA" -lt 1 ]; then
     echo "✗ NRestarts did not grow during the timeout window (delta=$RESTART_DELTA)" >&2
     echo "  Possible causes: TimeoutStartSec not 120; inject site not fired; release file missing." >&2
-    VM_EXEC bash -c "systemctl --user status statbus-upgrade@test.service --no-pager" >&2 || true
+    VM_EXEC bash -c "systemctl --user status statbus-upgrade@statbus.service --no-pager" >&2 || true
     exit 1
 fi
 echo "  ✓ NRestarts incremented by $RESTART_DELTA — TimeoutStartSec fired as expected"
@@ -191,20 +191,20 @@ echo "  ✓ NRestarts incremented by $RESTART_DELTA — TimeoutStartSec fired as
 echo ""
 echo "── recovery: removing C11 drop-in + release file ──"
 VM_EXEC bash -c "
-    systemctl --user stop statbus-upgrade@test.service 2>/dev/null || true
+    systemctl --user stop statbus-upgrade@statbus.service 2>/dev/null || true
     rm -f $DROPIN_FILE
     systemctl --user daemon-reload
     rm -f $RELEASE_FILE
 "
 
 echo "── restarting upgrade-service without injection ──"
-VM_EXEC bash -c "systemctl --user start statbus-upgrade@test.service"
+VM_EXEC bash -c "systemctl --user start statbus-upgrade@statbus.service"
 sleep 5
 
-UNIT_STATE_AFTER=$(VM_EXEC systemctl --user is-active "statbus-upgrade@test.service" 2>/dev/null | tr -d ' \r\n' || echo "?")
+UNIT_STATE_AFTER=$(VM_EXEC systemctl --user is-active "statbus-upgrade@statbus.service" 2>/dev/null | tr -d ' \r\n' || echo "?")
 if [ "$UNIT_STATE_AFTER" != "active" ]; then
     echo "✗ unit did not reach active after recovery (state=$UNIT_STATE_AFTER)" >&2
-    VM_EXEC bash -c "systemctl --user status statbus-upgrade@test.service --no-pager" >&2 || true
+    VM_EXEC bash -c "systemctl --user status statbus-upgrade@statbus.service --no-pager" >&2 || true
     exit 1
 fi
 echo "  ✓ unit active after recovery"
@@ -220,7 +220,7 @@ echo "  ✓ unit active after recovery"
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── bounded-restart check ──"
-NRESTARTS_FINAL=$(VM_EXEC systemctl --user show "statbus-upgrade@test.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
+NRESTARTS_FINAL=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
 FINAL_DELTA=$((NRESTARTS_FINAL - NRESTARTS_BASELINE))
 echo "  NRestarts: baseline=$NRESTARTS_BASELINE final=$NRESTARTS_FINAL delta=$FINAL_DELTA"
 

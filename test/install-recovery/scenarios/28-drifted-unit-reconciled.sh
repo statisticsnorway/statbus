@@ -58,7 +58,7 @@ source "$LIB_DIR/data-helpers.sh"
 source "$LIB_DIR/wedge-helpers.sh"
 source "$LIB_DIR/assertions.sh"
 
-UNIT="statbus-upgrade@test.service"
+UNIT="statbus-upgrade@statbus.service"
 UNIT_TEMPLATE_FILE="\$HOME/.config/systemd/user/statbus-upgrade@.service"
 
 trap '
