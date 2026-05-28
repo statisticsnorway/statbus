@@ -249,7 +249,7 @@ fi
 echo "  ✓ no pre-upgrade-active after abort (the partial was never promoted to a restorable snapshot)"
 assert_no_orphan_backup "$VM_NAME"
 assert_health_passes "$VM_NAME"
-assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@test.service" 2
+assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 2
 
 echo ""
 echo "PASS: preswap-backup-kill (CHANGE-2: kill mid-rsync left pre-upgrade-syncing not active; abort kept OLD version, data intact; the partial was never promoted to a restorable snapshot)"

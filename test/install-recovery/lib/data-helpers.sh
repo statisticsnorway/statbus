@@ -308,12 +308,19 @@ SQL
     scp -O "${SSH_OPTS[@]}" "$sql_file" root@"$VM_IP":/tmp/harness-fabricate.sql
     rm -f "$sql_file"
 
-    local result
+    # Capture output + exit code separately.
+    # The `|| echo "FAILED"` pattern would conflate a successful psql run
+    # that emits a WARN (e.g. sb's freshness check on a depth-1 clone) with
+    # an actual SSH/psql failure — any WARN containing "failed" would trigger
+    # the grep below even though the INSERT succeeded. Instead: check the
+    # exit code directly; treat non-zero SSH exit as the failure signal.
+    local result ssh_rc
     result=$(ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
         "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A < /tmp/harness-fabricate.sql' && rm -f /tmp/harness-fabricate.sql" \
-        2>&1 || echo "FAILED")
-    if echo "$result" | grep -qi "error\|FAILED"; then
-        echo "  ✗ fabricate_scheduled_upgrade_row failed:" >&2
+        2>&1)
+    ssh_rc=$?
+    if [ $ssh_rc -ne 0 ]; then
+        echo "  ✗ fabricate_scheduled_upgrade_row failed (ssh/psql exit $ssh_rc):" >&2
         echo "$result" >&2
         return 1
     fi
