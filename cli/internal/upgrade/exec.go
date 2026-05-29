@@ -1137,6 +1137,41 @@ func (d *Service) EnsureDBUp(ctx context.Context) error {
 	return nil
 }
 
+// StartDBForRecovery tries to start the EXISTING db container (without
+// recreating it) and waits for it to become healthy. Used by
+// install.runCrashRecovery before falling back to EnsureDBReachable's
+// refusal — when the prior in-flight upgrade legitimately stopped the DB
+// container (preswap backup window: rsync from the named volume requires
+// pg to be stopped; post-swap intermediate state before the new binary
+// brings it back), the crash leaves a stopped-but-present container that
+// recovery must restart to continue.
+//
+// `docker compose start db` ONLY starts an existing stopped container; it
+// NEVER recreates the container with the current binary's compose-template
+// image tag. That's the critical asymmetry with `docker compose up -d db`
+// (which IS forbidden here per the rc.66 → rc.67 lesson): up -d would
+// silently recreate the container against the operator's binary's image,
+// destroying resumePostSwap's containersAtFlagTarget self-heal precondition.
+// `start` preserves the in-flight upgrade's container exactly as it was —
+// we're just resuming a paused execution, not redeploying.
+//
+// If the container has been REMOVED (not just stopped), `docker compose
+// start db` errors with "no such service" — fall through to the caller's
+// refusal-with-diagnostic path. That's a category-3 divergence the
+// operator must investigate manually.
+//
+// Returns nil on success (container started + DB healthy) or a wrapped
+// error describing the failure mode (gone, start failed, health timeout).
+func (d *Service) StartDBForRecovery(ctx context.Context) error {
+	if out, err := runCommandOutput(d.projDir, "docker", "compose", "start", "db"); err != nil {
+		return fmt.Errorf("docker compose start db: %w (%s)", err, strings.TrimSpace(out))
+	}
+	if err := d.waitForDBHealth(60 * time.Second); err != nil {
+		return fmt.Errorf("db did not become healthy after compose start: %w", err)
+	}
+	return nil
+}
+
 // EnsureDBReachable verifies the DB is reachable via the .env-configured
 // connection. Connect-only — no docker compose up, no image pull. Used by
 // operator-driven crash recovery where touching the container set with the

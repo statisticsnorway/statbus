@@ -109,10 +109,49 @@ func restartUpgradeService(projDir string) {
 // After recovery the caller MUST re-run install.Detect before dispatching:
 // recovery may have surfaced a freshly-scheduled row, restored the
 // previous version on disk, or left the install otherwise consistent.
+//
+// PART 1 (engineer audit task #3 Q3): the looping upgrade unit must be
+// stopped before recovery. NO/rune wedged because the systemd unit's
+// auto-restart kept re-running the SAME flag-resume loop every ~2 min;
+// even with the dead PID's flock released, the next restart re-acquired
+// it and re-tripped the same WatchdogSec on archiveBackup. Recovery
+// invoked by `./sb install` must STOP that loop so we can take the flock
+// uncontested, do the work outside WatchdogSec, and then hand the unit
+// back ONLY if it was enabled to begin with.
+//
+// PART 2 (engineer audit Q3 / scenarios 21+27): the prior in-flight
+// upgrade can legitimately leave the db container stopped (preswap
+// backup's volume rsync needs pg quiesced; post-swap intermediate state
+// before applyPostSwap brings it back). On that legitimate state,
+// EnsureDBReachable refuses with a category-3 diagnostic — but the right
+// move is to `docker compose start db` the EXISTING container (not
+// recreate it via `up -d`, which is still forbidden per rc.66 → rc.67)
+// and retry. Refusal stays reserved for the "container is gone or stays
+// unreachable after start" case, which IS the operator-investigate path.
 func runCrashRecovery(projDir string) error {
 	ctx := context.Background()
 	svc := upgrade.NewService(projDir, true /* verbose */, version, commit)
 	defer svc.Close()
+
+	// PART 1: stop the looping upgrade unit before any recovery work.
+	// stopRestartUpgradeUnit captures is-enabled, runs `systemctl --user
+	// stop` + `reset-failed`, and returns a closure that restarts the
+	// unit iff it was enabled when we entered. The closure is deferred
+	// to fire only on successful recovery (no-op on early return errors)
+	// so a failed recovery does not resurrect the unit into another loop.
+	var restartIfEnabled func()
+	recovered := false
+	if runtime.GOOS == "linux" {
+		instance := serviceInstance(projDir)
+		if instance != "" {
+			restartIfEnabled = stopRestartUpgradeUnit(instance)
+			defer func() {
+				if recovered && restartIfEnabled != nil {
+					restartIfEnabled()
+				}
+			}()
+		}
+	}
 
 	// Regenerate .env from .env.config so current-binary-expected keys
 	// (e.g. COMMIT_SHORT added in rc.62) are present before EnsureDBReachable,
@@ -122,20 +161,33 @@ func runCrashRecovery(projDir string) error {
 		return fmt.Errorf("crash recovery: regenerate config: %w", err)
 	}
 
-	// Connect-only check (rc.67 trifecta fix). Operator-driven recovery
-	// MUST NOT touch the container set: the operator's binary's compose
-	// template may reference a different image-tag scheme than what's
-	// actually running, so `docker compose up -d db` would silently swap
-	// the DB container to the operator's binary's image, destroying
-	// resumePostSwap's containersAtFlagTarget self-heal precondition.
-	// (Pre-rc.67 used EnsureDBUp here; that's the bug class jo's
-	// 2026-04-28 deploy exposed.)
+	// PART 2: connect-first, start-existing-on-fail, retry.
 	//
-	// If the DB isn't reachable, fail loudly per category 3 of the
-	// recovery trifecta — the prior in-flight upgrade's containers must
-	// still be running for recovery to proceed safely.
+	// Connect-only check (rc.67 trifecta fix). Operator-driven recovery
+	// MUST NOT touch the container set with `docker compose up -d` — the
+	// operator's binary's compose template may reference a different
+	// image-tag scheme than what's actually running, so `up -d` would
+	// silently swap the DB container to the operator's binary's image,
+	// destroying resumePostSwap's containersAtFlagTarget self-heal
+	// precondition. (Pre-rc.67 used EnsureDBUp here; that's the bug class
+	// jo's 2026-04-28 deploy exposed.)
+	//
+	// But `docker compose start db` is the asymmetric-safe action: it
+	// ONLY starts an existing stopped container — it never creates or
+	// recreates. So on the legitimate "in-flight upgrade stopped db"
+	// state (scenarios 21, 27), we can resume the container as-it-was
+	// without touching its image tag. If the container is GONE (operator
+	// `docker rm`-d it, or scenario diverged further), start errors
+	// "no such service" and we fall through to EnsureDBReachable's
+	// category-3 refusal — the real operator-investigate path.
 	if err := svc.EnsureDBReachable(ctx); err != nil {
-		return fmt.Errorf("crash recovery: %w", err)
+		fmt.Printf("crash recovery: DB not reachable, attempting `docker compose start db` (existing container, no recreate)…\n")
+		if startErr := svc.StartDBForRecovery(ctx); startErr != nil {
+			return fmt.Errorf("crash recovery: %w (start fallback: %v)", err, startErr)
+		}
+		if err := svc.EnsureDBReachable(ctx); err != nil {
+			return fmt.Errorf("crash recovery: %w", err)
+		}
 	}
 
 	// Schema-skew guard (rc.65 structural fix). Mirrors Service.Run() —
@@ -153,5 +205,43 @@ func runCrashRecovery(projDir string) error {
 	if err := svc.RecoverFromFlag(ctx); err != nil {
 		return fmt.Errorf("crash recovery: %w", err)
 	}
+	recovered = true
 	return nil
+}
+
+// stopRestartUpgradeUnit is Part 1's primitive. It STOPS the (looping)
+// upgrade unit and returns a closure that restarts it iff it was enabled
+// at entry. Callers defer the closure to fire only on successful
+// recovery — see runCrashRecovery.
+//
+// Why this exists separately from restartUpgradeService: restart() is
+// is-active-gated (line 92) and would no-op after our stop. We need an
+// unconditional explicit start, conditional only on the captured
+// is-enabled state. Operators who deliberately disabled the unit see no
+// surprise resurrection; operators who simply had it running get their
+// loop replaced by a single clean start at the end.
+//
+// All errors are logged + swallowed — recovery itself is the load-bearing
+// path; systemd plumbing is best-effort observability around it.
+func stopRestartUpgradeUnit(instance string) func() {
+	wasEnabled := exec.Command("systemctl", "--user", "is-enabled", "--quiet", instance).Run() == nil
+	fmt.Printf("Crash recovery: stopping upgrade unit %s (was-enabled=%v) before reconciliation.\n", instance, wasEnabled)
+	if err := exec.Command("systemctl", "--user", "stop", instance).Run(); err != nil {
+		fmt.Printf("Warning: systemctl --user stop %s failed: %v (recovery proceeding)\n", instance, err)
+	}
+	if err := exec.Command("systemctl", "--user", "reset-failed", instance).Run(); err != nil {
+		// reset-failed is a hygiene call; failure is harmless.
+		fmt.Printf("Note: systemctl --user reset-failed %s: %v\n", instance, err)
+	}
+	if !wasEnabled {
+		return func() {
+			fmt.Printf("Crash recovery: upgrade unit %s was not enabled at entry — leaving it stopped.\n", instance)
+		}
+	}
+	return func() {
+		fmt.Printf("Crash recovery: restarting upgrade unit %s (explicit start; restartUpgradeService is is-active-gated and would no-op here).\n", instance)
+		if err := exec.Command("systemctl", "--user", "start", instance).Run(); err != nil {
+			fmt.Printf("Warning: systemctl --user start %s failed: %v (recovery succeeded; restart the service manually)\n", instance, err)
+		}
+	}
 }

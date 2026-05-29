@@ -275,29 +275,47 @@ while true; do
 done
 
 # At this point we wait until the executeUpgrade flow PROGRESSES to the
-# archiveBackup step. There's no precise database signal — archiveBackup
-# happens AFTER setMaintenance(false) but BEFORE the terminal UPDATE. We
-# poll for the maintenance flag to disappear (proxy resumes serving) +
-# state still 'in_progress' (row not yet terminal). That window IS the
-# archiveBackup-then-stall.
+# archiveBackup step. Direct process-presence detection (option B from the
+# engineer's recovery-proof diagnosis): pgrep -f 'archive-tar' on the VM
+# observes the tar subprocess directly, instead of inferring the window
+# from the (post-FIX-A racy) maint-off + state=in_progress combination.
+#
+# Pre-fix (maint + state heuristic): the row flips from in_progress to
+# completed BEFORE archiveBackup runs (FIX A reordered archiveBackup AFTER
+# the terminal UPDATE; cli/internal/upgrade/service.go:3971 setMaintenance
+# false → :3993 completed UPDATE → :4037 removeUpgradeFlag → :4063
+# archiveBackup). The pre-fix poll observed "maint=0 + state=in_progress"
+# for only the milliseconds between :3971 and :3993, so a 3 s poll either
+# raced past it or caught it by chance. Process-presence is deterministic:
+# the tar runs synchronously for the entire archiveBackup window, so
+# pgrep observes it for as long as it runs.
+#
+# The PrefixWriter source label for the tar is "archive-tar" (see
+# cli/internal/upgrade/exec.go:1011 runCommandToLog source arg). pgrep
+# matches the tar binary's own command line — independent of the
+# Prefix-Writer wrapper — so we match on the tar command's flags.
 echo ""
-echo "── waiting for archiveBackup to be reached (maintenance off + still in_progress) ──"
+echo "── waiting for archiveBackup tar to start (process-presence check) ──"
 START_TS=$(date +%s)
 ARCHIVE_REACHED=0
 while true; do
     elapsed=$(( $(date +%s) - START_TS ))
     if [ "$elapsed" -ge 300 ]; then
-        echo "✗ archiveBackup window not reached within 300s" >&2
+        echo "✗ archiveBackup tar not observed within 300s" >&2
         exit 1
     fi
-    MAINT_PRESENT=$(VM_EXEC bash -c "[ -f ~/maintenance ] && echo 1 || echo 0" 2>/dev/null | tr -d ' \r\n' || echo "?")
-    STATE=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '$HEAD_LOCAL';\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?")
-    if [ "$MAINT_PRESENT" = "0" ] && [ "$STATE" = "in_progress" ]; then
+    # Match the tar subprocess directly. archiveBackup's tar runs with
+    # -czf <archive>.tmp -C <backup-root> <backup-base>, so any tar
+    # process owned by the statbus user with '-czf' in its argv is a
+    # solid match. pgrep -u filters to the statbus user; -f matches
+    # the full command line; -c gives a count.
+    TAR_COUNT=$(VM_EXEC bash -c "pgrep -u statbus -c -f 'tar .*-czf .*pre-upgrade'" 2>/dev/null | tr -d ' \r\n' || echo "0")
+    if [ "$TAR_COUNT" != "" ] && [ "$TAR_COUNT" != "0" ]; then
         ARCHIVE_REACHED=1
-        echo "  ✓ archiveBackup window reached (t+${elapsed}s): maintenance off + state=in_progress"
+        echo "  ✓ archiveBackup tar observed (t+${elapsed}s): $TAR_COUNT tar process(es) running"
         break
     fi
-    sleep 3
+    sleep 1
 done
 
 # ─────────────────────────────────────────────────────────────────────────
