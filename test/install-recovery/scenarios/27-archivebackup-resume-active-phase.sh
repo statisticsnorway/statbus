@@ -131,7 +131,12 @@ source "$LIB_DIR/wedge-helpers.sh"
 source "$LIB_DIR/assertions.sh"
 
 # The standalone/cloud upgrade unit instance used by the harness VMs.
-UNIT="statbus-upgrade@test.service"
+# Must be @statbus (matches the VM user, vm-bootstrap.sh:286) so the unit's
+# ExecStartPre invariant `/usr/bin/test "%i" = "%u"` (ops/statbus-upgrade.
+# service:55, drift-guard commit dc6802df0) passes. Pre-fix: @test caused
+# every systemctl start to fail status=1 → Restart=always loop →
+# StartLimitBurst exhausted → the archiveBackup stall was never reached.
+UNIT="statbus-upgrade@statbus.service"
 RELEASE_FILE="/tmp/stall-release-archivebackup-resume"
 DROPIN_DIR="\$HOME/.config/systemd/user/${UNIT}.d"
 DROPIN_FILE="$DROPIN_DIR/archivebackup-resume-inject.conf"

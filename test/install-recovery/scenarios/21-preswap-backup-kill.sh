@@ -211,7 +211,16 @@ echo "  ✓ RED confirmed: flag PreSwap, .tmp backup on disk, binary unswapped"
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── second install for recovery ──"
-install_statbus_in_vm "$VM_NAME"
+# The recovery's rollback() exits 75 by contract (cli/internal/upgrade/
+# service.go:4691) — the documented "UPGRADE FAILED, ROLLED BACK" code
+# (cli/internal/upgrade/service.go:4674-4691 + install.sh's banner branch).
+# For a PreSwap-killed flag, recoverFromFlag's PreSwap guard routes to
+# recoveryRollback → rollback() → os.Exit(75), so the install's wrapper
+# script propagates exit 75. That is the SCENARIO-EXPECTED outcome here
+# (the upgrade IS supposed to roll back); the assertions in Phase 6
+# below verify the post-rollback state. Tolerate exit 75 specifically;
+# any other non-zero exit is still a real recovery failure and aborts.
+install_statbus_in_vm "$VM_NAME" || { rc=$?; [ "$rc" -eq 75 ] || exit "$rc"; }
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 6 — assertions
