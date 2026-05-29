@@ -14,6 +14,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/statisticsnorway/statbus/cli/internal/config"
+	"github.com/statisticsnorway/statbus/cli/internal/migrate"
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
 
@@ -272,10 +273,12 @@ var seedCreateCmd = &cobra.Command{
 // or composite:
 //   ./dev.sh update-seed
 func CreateSeed(projDir string) error {
-	// Verify the database is running — we need it for pg_dump and the
-	// migration version query.
-	if !dbIsRunning(projDir) {
-		return fmt.Errorf("database is not running — start it with 'sb start all'")
+	// Verify the database is reachable — we need it for pg_dump and the
+	// migration version query. Connection-agnostic (QueryDB → PsqlCommand)
+	// so this works under DOCKER_PSQL=0 in the hermetic seed-builder, where
+	// the docker-compose-based dbIsRunning would false-negative.
+	if _, err := migrate.QueryDB(projDir, "postgres", "SELECT 1", "-t", "-A"); err != nil {
+		return fmt.Errorf("database is not reachable — start it with 'sb start all': %w", err)
 	}
 
 	dbName, err := loadSeedDbName(projDir)
@@ -285,12 +288,10 @@ func CreateSeed(projDir string) error {
 
 	// Verify the seed DB exists. If not, point the operator at the
 	// recovery primitive — don't silently dump from somewhere else.
-	seedExistsOut, _ := upgrade.RunCommandOutput(projDir,
-		"docker", "compose", "exec", "-T", "db",
-		"psql", "-U", "postgres", "-d", "postgres",
-		"-t", "-A", "-c",
-		fmt.Sprintf("SELECT 1 FROM pg_database WHERE datname = '%s'", dbName))
-	if strings.TrimSpace(seedExistsOut) != "1" {
+	seedExistsOut, _ := migrate.QueryDB(projDir, "postgres",
+		fmt.Sprintf("SELECT 1 FROM pg_database WHERE datname = '%s'", dbName),
+		"-t", "-A")
+	if seedExistsOut != "1" {
 		return fmt.Errorf("seed database %q does not exist.\n"+
 			"  Build it first: ./dev.sh recreate-seed\n"+
 			"  Or run: ./sb db seed sync (recreate-seed + db seed create)",
@@ -299,15 +300,12 @@ func CreateSeed(projDir string) error {
 
 	// Get the latest migration version from the database.
 	// This tells us exactly what schema state the seed captures.
-	migrationOut, err := upgrade.RunCommandOutput(projDir,
-		"docker", "compose", "exec", "-T", "db",
-		"psql", "-U", "postgres", "-d", dbName,
-		"-t", "-A", "-c",
-		"SELECT version FROM db.migration ORDER BY version DESC LIMIT 1")
+	migrationVersion, err := migrate.QueryDB(projDir, dbName,
+		"SELECT version FROM db.migration ORDER BY version DESC LIMIT 1",
+		"-t", "-A")
 	if err != nil {
-		return fmt.Errorf("query migration version: %w\n%s", err, migrationOut)
+		return fmt.Errorf("query migration version: %w\n%s", err, migrationVersion)
 	}
-	migrationVersion := strings.TrimSpace(migrationOut)
 	if migrationVersion == "" {
 		return fmt.Errorf("no migrations found in db.migration table")
 	}
@@ -348,11 +346,19 @@ func CreateSeed(projDir string) error {
 		return fmt.Errorf("create dump file: %w", err)
 	}
 
-	dumpCmd := exec.Command("docker", "compose", "exec", "-T", "db",
-		"pg_dump", "-U", "postgres", "-Fc", "--no-owner",
+	pgDumpPath, pgDumpPrefix, pgDumpEnv, err := migrate.PgDumpCommand(projDir)
+	if err != nil {
+		dumpFile.Close()
+		os.Remove(dumpPath)
+		return fmt.Errorf("resolve pg_dump command: %w", err)
+	}
+	dumpArgs := append(append([]string{}, pgDumpPrefix...),
+		"-U", "postgres", "-Fc", "--no-owner",
 		"--exclude-table-data=auth.secrets",
 		dbName)
+	dumpCmd := exec.Command(pgDumpPath, dumpArgs...)
 	dumpCmd.Dir = projDir
+	dumpCmd.Env = pgDumpEnv
 	dumpCmd.Stdout = dumpFile
 	dumpCmd.Stderr = os.Stderr
 

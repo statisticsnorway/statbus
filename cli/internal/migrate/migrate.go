@@ -117,6 +117,32 @@ func PsqlCommand(projDir string) (psqlPath string, prefixArgs []string, env []st
 	return hostPath, nil, hostEnv, nil
 }
 
+// PgDumpCommand returns the command path, arg prefix, and environment for
+// running pg_dump — the pg_dump analogue of PsqlCommand. It exists so seed
+// creation can run inside the hermetic seed-builder image (DOCKER_PSQL=0,
+// no docker-compose) against a local pg_dump, while the dev/compose path is
+// unchanged. DOCKER_PSQL governs host-vs-docker identically to PsqlCommand:
+//   - docker mode: `docker compose exec -T db pg_dump ...` (runs inside the
+//     db container; connects over the local socket — env is nil).
+//   - host mode: pg_dump on PATH with PG* env from .env (PGHOST/PGPORT/
+//     PGUSER/PGPASSWORD/PGSSLMODE via psqlEnv).
+// Callers append their own flags + target dbname after the prefix and set
+// cmd.Stdout (the custom-format dump is binary) + cmd.Dir = projDir + cmd.Env.
+func PgDumpCommand(projDir string) (cmdPath string, prefixArgs []string, env []string, err error) {
+	if useDockerPsql() {
+		return "docker", []string{"compose", "exec", "-T", "db", "pg_dump"}, nil, nil
+	}
+	hostPath, err := exec.LookPath("pg_dump")
+	if err != nil {
+		return "", nil, nil, fmt.Errorf("pg_dump not found on host and docker fallback disabled: %w", err)
+	}
+	hostEnv, err := psqlEnv(projDir)
+	if err != nil {
+		return "", nil, nil, err
+	}
+	return hostPath, nil, hostEnv, nil
+}
+
 // psqlEnv builds the environment for psql from .env file.
 //
 // Host/port come from CADDY_DB_BIND_ADDRESS + CADDY_DB_PORT (server-internal
