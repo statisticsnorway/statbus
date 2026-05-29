@@ -44,6 +44,13 @@
 # lives in the same Hetzner project as the test VMs.
 
 set -euo pipefail
+# Propagate ERR trap into functions and subshells sourced from this lib.
+set -E
+# Emit a one-line diagnostic whenever set -e fires so failure logs are
+# self-explaining.  $LINENO and $BASH_COMMAND are correct in ERR context;
+# they would be wrong inside the EXIT trap (which would report the trap's
+# own line, not the failing command's line).
+trap 'rc=$?; echo "✗ harness failure: rc=$rc at ${BASH_SOURCE[0]##*/}:${LINENO}: ${BASH_COMMAND}" >&2' ERR
 
 HARNESS_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HARNESS_ROOT="$(cd "$HARNESS_LIB_DIR/../../.." && pwd)"
