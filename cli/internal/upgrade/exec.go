@@ -953,6 +953,52 @@ func hostTarSupportsCheckpoint(dir string) bool {
 // 35 GB tar, unlike the 5-min runCommand default it replaced.
 const archiveBackupTimeout = 60 * time.Minute
 
+// statBrief renders a compact exists/size/mtime descriptor for one path, for
+// the archiveBackup diagnostic (task #10). Never errors out — a missing file is
+// reported as "absent", any other stat failure inline.
+func statBrief(path string) string {
+	fi, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "absent"
+		}
+		return fmt.Sprintf("stat-err:%v", err)
+	}
+	return fmt.Sprintf("size=%d mtime=%s", fi.Size(), fi.ModTime().UTC().Format(time.RFC3339Nano))
+}
+
+// archiveDiag emits a structured, greppable snapshot of the pre-upgrade backups
+// dir for root-causing a PARTIAL archive published at the FINAL
+// `<version>-pre.tar.gz` name (task #10, scenario 27). It records the event tag,
+// the OS pid (so a file published by a DIFFERENT process across a resume shows a
+// foreign pid — the signature of a cross-process tmpPath collision), the per-run
+// tmp/final state, and a full directory listing with sizes + mtimes (so a
+// pre-existing/stale corrupt archive present at `entry` is distinguishable from
+// one this invocation freshly published). Best-effort, stdout-only (captured by
+// the systemd journal exactly like the sibling "Warning:" lines), nil-safe, and
+// NEVER affects control flow. Permanent diagnostic infrastructure: archiveBackup
+// runs once per upgrade, so the handful of lines is negligible and lets the NEXT
+// occurrence — in CI or production — be self-explaining.
+func archiveDiag(event, archiveDir, version, tmpPath, archivePath string) {
+	pid := os.Getpid()
+	fmt.Printf("ARCHIVE_DIAG event=%s pid=%d version=%s tmp=[%s] final=[%s]\n",
+		event, pid, version, statBrief(tmpPath), statBrief(archivePath))
+	entries, err := os.ReadDir(archiveDir)
+	if err != nil {
+		fmt.Printf("ARCHIVE_DIAG event=%s pid=%d dir=%s readdir-err=%v\n", event, pid, archiveDir, err)
+		return
+	}
+	for _, e := range entries {
+		fi, ferr := e.Info()
+		if ferr != nil {
+			fmt.Printf("ARCHIVE_DIAG   entry=%q stat-err=%v\n", e.Name(), ferr)
+			continue
+		}
+		fmt.Printf("ARCHIVE_DIAG   entry=%q size=%d mode=%s mtime=%s\n",
+			e.Name(), fi.Size(), fi.Mode(), fi.ModTime().UTC().Format(time.RFC3339Nano))
+	}
+}
+
 func (d *Service) archiveBackup(backupPath, version string, progress *ProgressLog) {
 	archiveDir := filepath.Join(os.Getenv("HOME"), "statbus-backups")
 	archivePath := filepath.Join(archiveDir, fmt.Sprintf("%s-pre.tar.gz", version))
@@ -969,6 +1015,10 @@ func (d *Service) archiveBackup(backupPath, version string, progress *ProgressLo
 	// re-tars and overwrites the `.tmp`. Best-effort throughout (warn + return
 	// on any failure) — the archive is forensics, not the rollback artifact.
 	tmpPath := archivePath + ".tmp"
+	// Diagnostic (task #10): snapshot the backups dir at entry — reveals a
+	// pre-existing/stale partial archive (foreign pid / older mtime) vs. one
+	// this invocation freshly publishes.
+	archiveDiag("entry", archiveDir, version, tmpPath, archivePath)
 
 	// Harness-only stall site for Bug 1 — `d416a50a0` introduced a
 	// ticker scoped only to the migrate-up subprocess. `extendCancel()`
@@ -1013,6 +1063,9 @@ func (d *Service) archiveBackup(backupPath, version string, progress *ProgressLo
 	}
 	if err := runCommandToLog(d.projDir, archiveBackupTimeout, progress.File(), "archive-tar", progress.bump, "tar", tarArgs...); err != nil {
 		fmt.Printf("Warning: archive backup failed: %v\n", err)
+		// Diagnostic (task #10): capture the dir BEFORE removing the partial
+		// `.tmp`, so a failed tar's residue (and any final-name file) is visible.
+		archiveDiag("tar-failed", archiveDir, version, tmpPath, archivePath)
 		// Drop the partial `.tmp` so it can't accumulate across failed runs
 		// (a later run overwrites it anyway; this keeps the dir tidy now).
 		os.Remove(tmpPath)
@@ -1034,8 +1087,14 @@ func (d *Service) archiveBackup(backupPath, version string, progress *ProgressLo
 	// Atomic publish: rename .tmp → final. Same-directory rename is atomic on
 	// a single filesystem, so a reader sees either the old final (if any) or
 	// the complete new one — never a partial.
+	// Diagnostic (task #10): snapshot immediately before the publish rename —
+	// the tmp we are about to promote to the final name, and whatever final
+	// already exists. A partial-at-final mechanism is pinned between this line
+	// and the "published" snapshot.
+	archiveDiag("pre-rename", archiveDir, version, tmpPath, archivePath)
 	if err := os.Rename(tmpPath, archivePath); err != nil {
 		fmt.Printf("Warning: could not finalize archive %s → %s: %v\n", tmpPath, archivePath, err)
+		archiveDiag("rename-failed", archiveDir, version, tmpPath, archivePath)
 		os.Remove(tmpPath)
 		return
 	}
@@ -1047,6 +1106,11 @@ func (d *Service) archiveBackup(backupPath, version string, progress *ProgressLo
 		dir.Sync() //nolint:errcheck
 		dir.Close()
 	}
+
+	// Diagnostic (task #10): snapshot after the atomic publish — this pid's
+	// freshly-renamed final must be present and gzip-complete; the tmp must be
+	// gone. Compare against the next run's "entry" to spot a corrupt survivor.
+	archiveDiag("published", archiveDir, version, tmpPath, archivePath)
 
 	// Prune old archives (keep last 3). pruneArchives filters ext == .gz, so
 	// any leftover `.tmp` from a concurrent/failed run is ignored here.
