@@ -504,29 +504,58 @@ fi
 # end-state on a real box across the resume.)
 echo ""
 echo "── ATOMIC archive integrity (task #8) ──"
-TMP_ORPHANS=$(VM_EXEC bash -c 'ls ~/statbus-backups/*-pre.tar.gz.tmp 2>/dev/null | wc -l' 2>/dev/null | tr -d ' \r\n' || echo "0")
-if [ "$TMP_ORPHANS" != "0" ]; then
-    echo "✗ found $TMP_ORPHANS orphan *-pre.tar.gz.tmp archive(s) — pruneArchives must reap stale .tmp:" >&2
-    VM_EXEC bash -c 'ls -la ~/statbus-backups/*-pre.tar.gz.tmp' >&2 || true
-    exit 1
-fi
-echo "  ✓ no orphan .tmp archives"
-# gzip -t every final archive; any failure = a partial published at the final
-# name = ATOMIC not in effect.
-BAD_ARCHIVE=$(VM_EXEC bash -c '
-    rc=0
-    for f in ~/statbus-backups/*-pre.tar.gz; do
-        [ -e "$f" ] || continue
-        if ! gzip -t "$f" 2>/dev/null; then echo "$f"; rc=1; fi
-    done
-    exit $rc
-' 2>/dev/null || echo "FAILED")
-if [ -n "$BAD_ARCHIVE" ]; then
-    echo "✗ a final *-pre.tar.gz failed gzip -t — a PARTIAL was published at the final name" >&2
-    echo "  (the pre-ATOMIC bug). ATOMIC requires tar→.tmp then rename-on-success. Bad: $BAD_ARCHIVE" >&2
-    exit 1
-fi
-echo "  ✓ all final *-pre.tar.gz archives are complete (gzip -t clean)"
+# The resume's archiveBackup runs its tar AFTER the stall release (above); give
+# it a bounded window to finalize (tar → .tmp → atomic rename → final) before we
+# assert. Without this the check could race a still-running tar and read a
+# transient .tmp or a not-yet-present final. Tiny on demo data; generous ceiling.
+echo "  waiting (≤${ARCHIVE_SETTLE_S:-90}s) for archiveBackup tar to finalize..."
+_settle_deadline=$(( $(date +%s) + ${ARCHIVE_SETTLE_S:-90} ))
+while :; do
+    _state=$(VM_EXEC bash -c 'echo "$(ls ~/statbus-backups/*-pre.tar.gz 2>/dev/null | wc -l) $(ls ~/statbus-backups/*-pre.tar.gz.tmp 2>/dev/null | wc -l)"' 2>/dev/null | tr -d '\r' || echo "0 0")
+    _nfin=${_state%% *}; _ntmp=${_state##* }
+    if [ "${_nfin:-0}" -ge 1 ] && [ "${_ntmp:-0}" -eq 0 ]; then
+        echo "  ✓ tar finalized ($_nfin archive(s), no .tmp in flight)"; break
+    fi
+    if [ "$(date +%s)" -ge "$_settle_deadline" ]; then
+        echo "  ⚠ settle window elapsed (final=$_nfin tmp=$_ntmp); asserting on current state" >&2; break
+    fi
+    sleep 3
+done
+# Integrity verdict. CRITICAL: ship the check as a script FILE (VM_EXEC_SCRIPT),
+# NEVER inline `VM_EXEC bash -c '<multiline>'` — the inline form is silently
+# corrupted by the sudo -i arg-join and exits non-zero WITHOUT running, which the
+# old `|| echo "FAILED"` swallow then mislabeled as "a PARTIAL was published."
+# Honest, distinct exit codes: 0 clean / 1 partial-at-final (paths on stdout) /
+# 3 no archive produced / 4 orphan .tmp / other (e.g. 255) the check COULD NOT
+# RUN on the VM (infra/SSH) — which must NEVER read as a production violation.
+ARCHIVE_CHECK_OUT=$(VM_EXEC_SCRIPT <<'ARCHIVE_CHECK_EOF'
+shopt -s nullglob
+tmps=(~/statbus-backups/*-pre.tar.gz.tmp)
+if [ "${#tmps[@]}" -ne 0 ]; then printf 'ORPHAN %s\n' "${tmps[@]}"; exit 4; fi
+archives=(~/statbus-backups/*-pre.tar.gz)
+if [ "${#archives[@]}" -eq 0 ]; then echo "NO_ARCHIVE"; exit 3; fi
+rc=0
+for f in "${archives[@]}"; do
+    if ! gzip -t "$f" 2>/dev/null; then printf 'BAD %s\n' "$f"; rc=1; fi
+done
+exit $rc
+ARCHIVE_CHECK_EOF
+)
+ARCHIVE_CHECK_RC=$?
+case "$ARCHIVE_CHECK_RC" in
+    0) echo "  ✓ archive(s) present, no .tmp orphan, all gzip -t clean" ;;
+    1) echo "✗ a final *-pre.tar.gz failed gzip -t — a PARTIAL was published at the final name" >&2
+       echo "    (the pre-ATOMIC bug: tar must write .tmp then rename-on-success):" >&2
+       printf '    %s\n' "$ARCHIVE_CHECK_OUT" >&2; exit 1 ;;
+    3) echo "✗ the resume's archiveBackup produced NO *-pre.tar.gz (tar never finalized)" >&2
+       VM_EXEC bash -c 'ls -la ~/statbus-backups/ 2>/dev/null' >&2 || true; exit 1 ;;
+    4) echo "✗ orphan *-pre.tar.gz.tmp present — pruneArchives must reap stale .tmp:" >&2
+       printf '    %s\n' "$ARCHIVE_CHECK_OUT" >&2; exit 1 ;;
+    *) echo "✗ harness: archive-integrity check could not run on the VM (rc=$ARCHIVE_CHECK_RC)" >&2
+       echo "    INFRASTRUCTURE/exec failure (SSH/delivery) — NOT a production atomicity violation." >&2
+       [ -n "$ARCHIVE_CHECK_OUT" ] && printf '    output: %s\n' "$ARCHIVE_CHECK_OUT" >&2
+       exit 1 ;;
+esac
 
 assert_health_passes "$VM_NAME"
 
