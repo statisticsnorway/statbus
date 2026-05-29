@@ -6,14 +6,16 @@ This folder is portable. To reuse in another project: copy `.claude/team/` and `
 
 ## Roster
 
-| Role | Model | Purpose |
-|---|---|---|
-| `foreman` | Opus (1M ctx) | Team-lead. Coordinates the user conversation, decomposes work, delegates, reviews, signs off. The only agent the user talks to directly. |
-| `engineer` | Opus (1M ctx) | Designs and builds. Forges architectural changes. Commits its own work; passes to foreman for review. Destructive or cross-cutting commits need foreman approval first. |
-| `architect` | Opus (1M ctx) | Future planning: system shape, architectural decisions, problem framings. Produces plans (under `~/.claude-veridit/plans/`), not code; hands approved plans to engineer for execution. |
-| `mechanic` | Sonnet | Diagnoses and fixes. Targeted investigations, one-shot writes. No multi-step reasoning across turns — that goes back to foreman. |
-| `tester` | Haiku | Runs test commands. Single assignment, no concurrent-run collisions. |
-| `operator` | Haiku | Legwork: reads, greps, SSH diagnostics, log tails, small one-shot writes, deploy drive-throughs. Parses long output, summarizes, reports back with file paths and line numbers. |
+| Role | Model | Effort | Purpose |
+|---|---|---|---|
+| `foreman` | Opus (1M ctx) | high | Team-lead. Coordinates the user conversation, decomposes work, delegates, reviews, signs off. The only agent the user talks to directly. |
+| `engineer` | Opus (1M ctx) | extra-high | Designs and builds. Forges architectural changes. Commits its own work; passes to foreman for review. Destructive or cross-cutting commits need foreman approval first. |
+| `architect` | Opus (1M ctx) | max | Future planning: system shape, architectural decisions, problem framings. Produces plans (under `~/.claude-veridit/plans/`), not code; hands approved plans to engineer for execution. |
+| `mechanic` | Sonnet | default | Diagnoses and fixes. Targeted investigations, one-shot writes. No multi-step reasoning across turns — that goes back to foreman. |
+| `tester` | Haiku | default | Runs test commands. Single assignment, no concurrent-run collisions. |
+| `operator` | Haiku | default | Legwork: reads, greps, SSH diagnostics, log tails, small one-shot writes, deploy drive-throughs. Parses long output, summarizes, reports back with file paths and line numbers. |
+
+The **Effort** column is the second axis (alongside Model): the Opus agents run at distinct effort tiers — foreman `high` (coordination), engineer `extra-high` (build precision), architect `max` (deepest design judgment). Effort, like model, costs money + time.
 
 ## Why this shape
 
@@ -38,6 +40,12 @@ The delegation flow runs downhill by cost:
 Architect and engineer sit on the same cost tier (both Opus) but split by horizon: architect plans what's *next*, engineer builds what's *now*. An architect plan, once ratified, becomes engineer's brief.
 
 The rule of thumb: if a read or command-run will produce a long output, the expensive model should delegate it to a cheaper model, who summarizes and reports back. The expensive model only sees the filtered result, protecting context for the work that actually needs judgment.
+
+### Effort escalation — lowest tier first, bump only on failure
+
+The model+effort ladder, low → high: **operator / tester (Haiku) → mechanic (Sonnet) → engineer (Opus, extra-high) → architect (Opus, max)** (foreman runs Opus at `high` and coordinates).
+
+Route each task to the **lowest tier that can plausibly do it**, and escalate to a higher-effort agent **only when the lower one demonstrably fails** — wrong result, can't complete, or the task needs judgment above its rung. Don't pre-escalate on a guess; try low first, and when you bump a task up a rung, record why. The principle: **effort is money + time — we don't spend it unless the task needs it.** A grep doesn't go to the architect; a one-shot fix goes to the mechanic before the engineer; only genuine architecture reaches the engineer, only system-shaping design reaches the architect.
 
 ## Command ownership
 
