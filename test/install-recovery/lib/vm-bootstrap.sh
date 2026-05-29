@@ -360,6 +360,71 @@ VM_EXEC() {
     ssh "${SSH_OPTS[@]}" root@"$VM_IP" "sudo -i -u statbus -- $quoted_args"
 }
 
+# VM_EXEC_SCRIPT runs a (possibly MULTI-LINE) script on the VM as the statbus
+# user, robustly, and returns the script's own exit status.
+#
+# WHY THIS EXISTS — DO NOT use `VM_EXEC bash -c '<multi-line script>'`:
+# VM_EXEC assembles the remote command with `printf %q` and runs it via
+# `sudo -i -u statbus -- <args>`. `sudo -i` re-joins its post-`--` args with
+# bare spaces through the target user's LOGIN shell. For a single-line command
+# that round-trips fine, but a MULTI-LINE `bash -c` body does not: printf %q
+# renders the embedded newlines as ANSI-C `$'\n'` tokens, and the sudo -i
+# space-join collapses `bash -c` against the body's leading newline — the inner
+# `bash -c` ends up with no/[]-wrong operand and the rest of the body runs in
+# the wrong shell (or trips a syntax error on `for/if/then/fi`). The command
+# then exits non-zero WITHOUT having done its work. This silently broke the
+# scenario-27 archive-integrity check, whose `|| echo "FAILED"` fallback then
+# manufactured a false "a PARTIAL was published" verdict. (Confirmed: a
+# single-line VM_EXEC survives; a multi-line one does not.)
+#
+# THE FIX: ship the script body as a FILE and run `bash <file>`, so the body is
+# read from disk and never passes through argv / the sudo -i join. Mirrors the
+# proven `upload_install_script_to_vm` delivery (mktemp 0600 → scp lands
+# root:root 0600 → chmod 0755 so statbus can read+exec).
+#
+# Usage (heredoc — preferred for multi-line):
+#   out=$(VM_EXEC_SCRIPT <<'EOF'
+#   ...script...
+#   EOF
+#   ); rc=$?
+# Or with the script as the first argument:
+#   out=$(VM_EXEC_SCRIPT "$script"); rc=$?
+#
+# stdout = the script's stdout (delivery noise is sent to stderr/null so command
+# substitution captures only the script output). A delivery/SSH failure returns
+# 255 so callers can distinguish "could not run" from a real script exit code.
+VM_EXEC_SCRIPT() {
+    if [ -z "${VM_IP:-}" ]; then
+        echo "VM_EXEC_SCRIPT: VM_IP is unset (VM not bootstrapped?)" >&2
+        return 255
+    fi
+    local script local_tmp remote_tmp rc
+    if [ "$#" -gt 0 ]; then
+        script="$1"
+    else
+        script="$(cat)"   # read the script body from stdin (heredoc)
+    fi
+    local_tmp=$(mktemp "${TMPDIR:-/tmp}/harness-vmscript-XXXXXX.sh") || return 255
+    printf '%s\n' "$script" > "$local_tmp"
+    remote_tmp="/tmp/$(basename "$local_tmp")"
+    # Deliver: scp (lands root:root 0600) then chmod 0755 so statbus can read it.
+    # Both to stderr so a caller's $(...) captures ONLY the script's own stdout.
+    if ! scp -O "${SSH_OPTS[@]}" "$local_tmp" root@"$VM_IP":"$remote_tmp" >&2; then
+        rm -f "$local_tmp"
+        echo "VM_EXEC_SCRIPT: scp delivery to $VM_IP failed" >&2
+        return 255
+    fi
+    rm -f "$local_tmp"
+    ssh "${SSH_OPTS[@]}" root@"$VM_IP" "chmod 0755 $remote_tmp" >&2 2>&1 || true
+    # Run as statbus. args after `--` are [bash, <path>] — single tokens, no
+    # newlines — so the sudo -i join is safe; the body is read from the file.
+    # ssh propagates the script's exit status as its own.
+    ssh "${SSH_OPTS[@]}" root@"$VM_IP" "sudo -i -u statbus -- bash $remote_tmp"
+    rc=$?
+    ssh "${SSH_OPTS[@]}" root@"$VM_IP" "rm -f $remote_tmp" >/dev/null 2>&1 || true
+    return "$rc"
+}
+
 bootstrap_install_test_vm() {
     local vm_name="$1"
     local install_version="${2:-}"
