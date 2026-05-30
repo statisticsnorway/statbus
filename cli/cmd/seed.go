@@ -256,34 +256,47 @@ var seedCreateCmd = &cobra.Command{
 	},
 }
 
-// CreateSeed is the reusable body of `./sb db seed create`. Exposed
-// so the release-prerelease preflight (cli/cmd/release.go) can invoke the
-// same regen path in-process when it detects a stale seed — no
-// subprocess, no separate operator step. Behaviour-identical to invoking
-// the cobra subcommand.
+// seedDumpCmd is the dump-only half of `db seed create`: it writes
+// .db-seed/seed.pg_dump + seed.json WITHOUT publishing to the db-seed git
+// branch. The hermetic seed-builder image stage calls this — the build tree has
+// no .git, so pass --commit so seed.json carries the right commit.
+var seedDumpCommit string
+
+var seedDumpCmd = &cobra.Command{
+	Use:   "dump",
+	Short: "Dump the seed DB to .db-seed/ (no git publish)",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		_, err := DumpSeed(config.ProjectDir(), seedDumpCommit)
+		return err
+	},
+}
+
+// DumpSeed is the dump-only core: it dumps ${POSTGRES_SEED_DB} to
+// .db-seed/seed.pg_dump + writes .db-seed/seed.json, and does NOT touch git.
+// It backs `./sb db seed dump` and is the reusable body CreateSeed builds on.
+// The hermetic seed-builder image stage calls it (DOCKER_PSQL=0 host-psql; the
+// build tree is COPYed in without a .git, so it passes --commit).
 //
-// Per plan section R commit 4: dumps from `${POSTGRES_SEED_DB}` (the
-// canonical fresh-from-migrations baseline), NOT from `${POSTGRES_APP_DB}`
-// (the runtime dev DB which is contaminable by definition). The
-// architectural rationale that motivated the whole seed feature.
+// commitOverride supplies seed.json's CommitSHA when projDir has no .git: a real
+// .git (dev/release) wins via `git rev-parse`/`git tag`; otherwise commitOverride
+// is used and Tags are empty. Returns the metadata it wrote so CreateSeed's
+// publish tail reuses it without re-reading seed.json.
 //
-// Operator workflow:
-//   1. ./dev.sh recreate-seed          # rebuild the seed from migrations
-//   2. ./sb db seed create             # dump it; push to origin/db-seed
-// or composite:
-//   ./dev.sh update-seed
-func CreateSeed(projDir string) error {
+// Per plan section R commit 4: dumps from `${POSTGRES_SEED_DB}` (the canonical
+// fresh-from-migrations baseline), NOT from `${POSTGRES_APP_DB}` (the runtime
+// dev DB which is contaminable by definition).
+func DumpSeed(projDir, commitOverride string) (seedMeta, error) {
 	// Verify the database is reachable — we need it for pg_dump and the
 	// migration version query. Connection-agnostic (QueryDB → PsqlCommand)
 	// so this works under DOCKER_PSQL=0 in the hermetic seed-builder, where
 	// the docker-compose-based dbIsRunning would false-negative.
 	if _, err := migrate.QueryDB(projDir, "postgres", "SELECT 1", "-t", "-A"); err != nil {
-		return fmt.Errorf("database is not reachable — start it with 'sb start all': %w", err)
+		return seedMeta{}, fmt.Errorf("database is not reachable — start it with 'sb start all': %w", err)
 	}
 
 	dbName, err := loadSeedDbName(projDir)
 	if err != nil {
-		return fmt.Errorf("load seed DB name: %w", err)
+		return seedMeta{}, fmt.Errorf("load seed DB name: %w", err)
 	}
 
 	// Verify the seed DB exists. If not, point the operator at the
@@ -292,7 +305,7 @@ func CreateSeed(projDir string) error {
 		fmt.Sprintf("SELECT 1 FROM pg_database WHERE datname = '%s'", dbName),
 		"-t", "-A")
 	if seedExistsOut != "1" {
-		return fmt.Errorf("seed database %q does not exist.\n"+
+		return seedMeta{}, fmt.Errorf("seed database %q does not exist.\n"+
 			"  Build it first: ./dev.sh recreate-seed\n"+
 			"  Or run: ./sb db seed sync (recreate-seed + db seed create)",
 			dbName)
@@ -304,22 +317,27 @@ func CreateSeed(projDir string) error {
 		"SELECT version FROM db.migration ORDER BY version DESC LIMIT 1",
 		"-t", "-A")
 	if err != nil {
-		return fmt.Errorf("query migration version: %w\n%s", err, migrationVersion)
+		return seedMeta{}, fmt.Errorf("query migration version: %w\n%s", err, migrationVersion)
 	}
 	if migrationVersion == "" {
-		return fmt.Errorf("no migrations found in db.migration table")
+		return seedMeta{}, fmt.Errorf("no migrations found in db.migration table")
 	}
 
-	// Get the current git commit SHA for traceability.
-	commitSHA, err := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD")
-	if err != nil {
-		return fmt.Errorf("git rev-parse HEAD: %w", err)
+	// Commit + tags for seed.json. Prefer git (dev/release contexts where a
+	// .git is present); fall back to --commit when there is no .git — the
+	// hermetic seed-builder image build COPYs the project tree in WITHOUT a
+	// .git directory, so `git rev-parse` would fail there. Never hard-fail on
+	// a missing .git: the image build is a supported caller.
+	commitSHA := strings.TrimSpace(commitOverride)
+	var tags string
+	if gitOut, gitErr := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD"); gitErr == nil {
+		commitSHA = strings.TrimSpace(gitOut)
+		tagsOut, _ := upgrade.RunCommandOutput(projDir, "git", "tag", "--points-at", "HEAD")
+		tags = strings.TrimSpace(tagsOut)
 	}
-	commitSHA = strings.TrimSpace(commitSHA)
-
-	// Get tags pointing at HEAD (if any) for display purposes.
-	tagsOut, _ := upgrade.RunCommandOutput(projDir, "git", "tag", "--points-at", "HEAD")
-	tags := strings.TrimSpace(tagsOut)
+	if commitSHA == "" {
+		return seedMeta{}, fmt.Errorf("no commit for seed.json: %s is not a git repo and --commit was not provided", projDir)
+	}
 
 	// Compute post_restore.sql fingerprint so seed.json carries the
 	// "what fixups will the next restore apply" identity. `./sb db seed
@@ -328,12 +346,12 @@ func CreateSeed(projDir string) error {
 	// db-seed (fast-path) or needs a full pg_dump rebuild.
 	postRestoreSHA, err := postRestoreFileSHA(projDir)
 	if err != nil {
-		return fmt.Errorf("hash post_restore.sql: %w", err)
+		return seedMeta{}, fmt.Errorf("hash post_restore.sql: %w", err)
 	}
 
 	seedDir := filepath.Join(projDir, ".db-seed")
 	if err := os.MkdirAll(seedDir, 0755); err != nil {
-		return fmt.Errorf("create .db-seed directory: %w", err)
+		return seedMeta{}, fmt.Errorf("create .db-seed directory: %w", err)
 	}
 
 	// Dump the database in custom format (compact, supports parallel restore).
@@ -343,14 +361,14 @@ func CreateSeed(projDir string) error {
 	dumpPath := filepath.Join(seedDir, "seed.pg_dump")
 	dumpFile, err := os.Create(dumpPath)
 	if err != nil {
-		return fmt.Errorf("create dump file: %w", err)
+		return seedMeta{}, fmt.Errorf("create dump file: %w", err)
 	}
 
 	pgDumpPath, pgDumpPrefix, pgDumpEnv, err := migrate.PgDumpCommand(projDir)
 	if err != nil {
 		dumpFile.Close()
 		os.Remove(dumpPath)
-		return fmt.Errorf("resolve pg_dump command: %w", err)
+		return seedMeta{}, fmt.Errorf("resolve pg_dump command: %w", err)
 	}
 	dumpArgs := append(append([]string{}, pgDumpPrefix...),
 		"-U", "postgres", "-Fc", "--no-owner",
@@ -365,17 +383,17 @@ func CreateSeed(projDir string) error {
 	if err := dumpCmd.Run(); err != nil {
 		dumpFile.Close()
 		os.Remove(dumpPath)
-		return fmt.Errorf("pg_dump failed: %w", err)
+		return seedMeta{}, fmt.Errorf("pg_dump failed: %w", err)
 	}
 	dumpFile.Close()
 
 	info, err := os.Stat(dumpPath)
 	if err != nil {
-		return err
+		return seedMeta{}, err
 	}
 	if info.Size() == 0 {
 		os.Remove(dumpPath)
-		return fmt.Errorf("pg_dump produced an empty file — check database connectivity")
+		return seedMeta{}, fmt.Errorf("pg_dump produced an empty file — check database connectivity")
 	}
 
 	// Write metadata JSON alongside the dump.
@@ -388,15 +406,42 @@ func CreateSeed(projDir string) error {
 	}
 	metaJSON, err := json.MarshalIndent(meta, "", "  ")
 	if err != nil {
-		return fmt.Errorf("marshal seed.json: %w", err)
+		return seedMeta{}, fmt.Errorf("marshal seed.json: %w", err)
 	}
 	jsonPath := filepath.Join(seedDir, "seed.json")
 	if err := os.WriteFile(jsonPath, metaJSON, 0644); err != nil {
-		return fmt.Errorf("write seed.json: %w", err)
+		return seedMeta{}, fmt.Errorf("write seed.json: %w", err)
 	}
 
-	fmt.Printf("Seed created: migration %s, commit %s (%s)\n",
-		migrationVersion, commitSHA[:8], humanSize(info.Size()))
+	fmt.Printf("Seed dumped: migration %s, commit %s (%s)\n",
+		migrationVersion, shortCommit(commitSHA), humanSize(info.Size()))
+	return meta, nil
+}
+
+// CreateSeed dumps the seed (DumpSeed) and then PUBLISHES it to the db-seed git
+// branch (+ the per-commit pin). Exposed so the release-prerelease preflight
+// (cli/cmd/release.go) can invoke the same regen+publish path in-process.
+//
+// The publish tail is on death row: once install + dev read the seed from the
+// commit-tagged image (the seed-consume phase), the git-publish path is deleted
+// wholesale and `create` collapses to `dump`. Until then `./sb db seed create`
+// keeps the legacy db-seed-branch behavior.
+//
+// Operator workflow:
+//   1. ./dev.sh recreate-seed          # rebuild the seed from migrations
+//   2. ./sb db seed create             # dump it; push to origin/db-seed
+// or composite:
+//   ./dev.sh update-seed
+func CreateSeed(projDir string) error {
+	// .git is present in the dev/release contexts that publish, so DumpSeed's
+	// git rev-parse wins and the "" override is unused here.
+	meta, err := DumpSeed(projDir, "")
+	if err != nil {
+		return err
+	}
+	migrationVersion := meta.MigrationVersion
+	commitSHA := meta.CommitSHA
+	seedDir := filepath.Join(projDir, ".db-seed")
 
 	// Sweep stale peer `seed/<sha>` branches BEFORE publishing the
 	// new one. Unified gate in cleanupSeedBranches (defined in
@@ -433,7 +478,7 @@ func CreateSeed(projDir string) error {
 		return fmt.Errorf("git add in worktree: %w\n  output: %s", err, strings.TrimSpace(addOut))
 	}
 
-	commitMsg := fmt.Sprintf("seed: migration %s (commit %s)", migrationVersion, commitSHA[:8])
+	commitMsg := fmt.Sprintf("seed: migration %s (commit %s)", migrationVersion, shortCommit(commitSHA))
 	if commitOut, err := upgrade.RunCommandOutput(worktreePath, "git", "commit", "--allow-empty", "-m", commitMsg); err != nil {
 		return fmt.Errorf("git commit in worktree: %w\n  output: %s", err, strings.TrimSpace(commitOut))
 	}
@@ -442,7 +487,7 @@ func CreateSeed(projDir string) error {
 		return fmt.Errorf("git push --force db-seed: %w\n  output: %s", err, strings.TrimSpace(pushOut))
 	}
 
-	fmt.Printf("Seed created and pushed (migration %s, commit %s)\n", migrationVersion, commitSHA[:8])
+	fmt.Printf("Seed created and pushed (migration %s, commit %s)\n", migrationVersion, shortCommit(commitSHA))
 
 	// Publish the per-commit pin so release.yaml's "Fetch seed assets"
 	// step can read seed.pg_dump + seed.json from this exact project
@@ -453,6 +498,16 @@ func CreateSeed(projDir string) error {
 		return err
 	}
 	return nil
+}
+
+// shortCommit truncates a commit SHA to the canonical short length (seedSHALen)
+// for display + branch naming, tolerating an already-short value such as a
+// --commit commit_short passed by the hermetic image build.
+func shortCommit(s string) string {
+	if len(s) > seedSHALen {
+		return s[:seedSHALen]
+	}
+	return s
 }
 
 // ensureSeedWorktree returns the path to the `db-seed` git worktree,
@@ -672,9 +727,13 @@ func init() {
 	seedRestoreCmd.Flags().StringVar(&seedDatabase, "database", "",
 		"target database name (default: POSTGRES_APP_DB from .env)")
 
+	seedDumpCmd.Flags().StringVar(&seedDumpCommit, "commit", "",
+		"commit SHA to stamp into seed.json when projDir has no .git (e.g. the hermetic image build)")
+
 	seedCmd.AddCommand(seedFetchCmd)
 	seedCmd.AddCommand(seedRestoreCmd)
 	seedCmd.AddCommand(seedCreateCmd)
+	seedCmd.AddCommand(seedDumpCmd)
 	seedCmd.AddCommand(seedStatusCmd)
 
 	dbCmd.AddCommand(seedCmd)
