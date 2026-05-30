@@ -271,6 +271,78 @@ var seedDumpCmd = &cobra.Command{
 	},
 }
 
+// seedCreateDbCmd creates an empty seed database from template_statbus + the
+// per-DB auth grants — the Go lift of dev.sh's create-seed, so the hermetic
+// seed-builder image and dev share ONE definition. Routes through PsqlCommand
+// (DOCKER_PSQL-aware), so it runs host-locally inside the seed-builder image
+// without docker-in-docker.
+var seedCreateDbCmd = &cobra.Command{
+	Use:   "create-db",
+	Short: "Create an empty seed DB from template_statbus (+ auth grants)",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return CreateSeedDb(config.ProjectDir())
+	},
+}
+
+// CreateSeedDb creates ${POSTGRES_SEED_DB} as a fresh copy of template_statbus
+// (the extensions + non-role objects) plus the per-database auth schema + grants
+// that init-db.sh adds to the main DB but template_statbus lacks. It is the Go
+// single source of truth for dev.sh's create-seed (dev.sh delegates here).
+// Connection-agnostic (QueryDB / ExecOnDB → PsqlCommand), so it works under
+// DOCKER_PSQL=0 in the hermetic seed-builder.
+func CreateSeedDb(projDir string) error {
+	dbName, err := loadSeedDbName(projDir)
+	if err != nil {
+		return fmt.Errorf("load seed DB name: %w", err)
+	}
+
+	// Don't clobber an existing seed — point at the recovery primitive.
+	if exists, _ := migrate.QueryDB(projDir, "postgres",
+		fmt.Sprintf("SELECT 1 FROM pg_database WHERE datname = '%s'", dbName),
+		"-t", "-A"); exists == "1" {
+		return fmt.Errorf("seed database %q already exists.\n"+
+			"  Drop it first: ./dev.sh delete-seed\n"+
+			"  Or rebuild end-to-end: ./dev.sh recreate-seed", dbName)
+	}
+
+	// Pre-flight: template_statbus must exist — provisioned by init-db.sh on
+	// first boot of an empty PGDATA, or `./dev.sh create-db` locally. Naming it
+	// makes the failure actionable instead of a generic "template not found".
+	tmpl, err := migrate.QueryDB(projDir, "postgres",
+		"SELECT 1 FROM pg_database WHERE datname = 'template_statbus'", "-t", "-A")
+	if err != nil {
+		return fmt.Errorf("cannot reach Postgres to check for template_statbus: %w", err)
+	}
+	if tmpl != "1" {
+		return fmt.Errorf("template_statbus does not exist.\n" +
+			"  Provisioned by init-db.sh (first boot of an empty PGDATA) or ./dev.sh create-db")
+	}
+
+	// Create the seed DB from template_statbus. CREATE DATABASE is autocommit
+	// (runPsql does not wrap statements in a transaction).
+	fmt.Printf("Creating empty seed database from template_statbus: %s\n", dbName)
+	if err := migrate.ExecOnDB(projDir, "postgres",
+		fmt.Sprintf("CREATE DATABASE %s WITH TEMPLATE template_statbus OWNER postgres;", dbName)); err != nil {
+		return fmt.Errorf("create seed database from template_statbus: %w", err)
+	}
+
+	// Per-database auth schema + grants. Cluster roles already exist (init-db.sh);
+	// the auth schema + USAGE grants are per-DB and absent from template_statbus.
+	// Mirrors create-test-template / dev.sh:create-seed.
+	fmt.Println("Setting up schemas and grants for seed...")
+	if err := migrate.ExecOnDB(projDir, dbName,
+		"CREATE SCHEMA IF NOT EXISTS auth;\n"+
+			"GRANT USAGE ON SCHEMA auth TO authenticated;\n"+
+			"GRANT USAGE ON SCHEMA auth TO anon;\n"+
+			"GRANT USAGE ON SCHEMA public TO notify_reader;\n"); err != nil {
+		return fmt.Errorf("set up seed auth schema + grants: %w", err)
+	}
+
+	fmt.Printf("Seed database created (empty): %s\n", dbName)
+	fmt.Println("  Apply migrations next: ./sb migrate up --target seed")
+	return nil
+}
+
 // DumpSeed is the dump-only core: it dumps ${POSTGRES_SEED_DB} to
 // .db-seed/seed.pg_dump + writes .db-seed/seed.json, and does NOT touch git.
 // It backs `./sb db seed dump` and is the reusable body CreateSeed builds on.
@@ -734,6 +806,7 @@ func init() {
 	seedCmd.AddCommand(seedRestoreCmd)
 	seedCmd.AddCommand(seedCreateCmd)
 	seedCmd.AddCommand(seedDumpCmd)
+	seedCmd.AddCommand(seedCreateDbCmd)
 	seedCmd.AddCommand(seedStatusCmd)
 
 	dbCmd.AddCommand(seedCmd)

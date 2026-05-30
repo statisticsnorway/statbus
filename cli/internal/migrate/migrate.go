@@ -267,6 +267,20 @@ func QueryDB(projDir, dbName, sql string, extraArgs ...string) (string, error) {
 	return strings.TrimSpace(out), nil
 }
 
+// ExecOnDB runs exec/DDL SQL against the named database — the exec analogue of
+// QueryDB. Same PGDATABASE override + ON_ERROR_STOP=on + stdin delivery, but it
+// discards stdout and returns only an error (folding psql's output into the
+// error on failure). Use for CREATE/GRANT/ALTER where no result row is expected
+// — e.g. the seed-DB creation lifted from dev.sh. Like QueryDB it MUTATES the
+// process env for the duration of the call and is NOT concurrency-safe.
+func ExecOnDB(projDir, dbName, sql string, extraArgs ...string) error {
+	out, err := QueryDB(projDir, dbName, sql, extraArgs...)
+	if err != nil {
+		return fmt.Errorf("%w\n%s", err, out)
+	}
+	return nil
+}
+
 // runPsqlFile executes a SQL file via psql.
 // migrateSubprocessAppNamePrefix tags the migration psql SUBPROCESS's backend
 // application_name (task #14). The upgrade service, on a migrate TIMEOUT,
