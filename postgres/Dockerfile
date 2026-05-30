@@ -437,12 +437,103 @@ EXPOSE 5432
 CMD ["postgres"]
 
 ####################
-# pg-runtime — DEFAULT build target. Zero-cost alias of pg-runtime-base,
-# placed LAST so `docker build` (no --target) produces this stage.
+# seed-builder — hermetic seed build. FROM pg-runtime-base so it has the exact
+# extensions + init-db.sh the real cluster has. Boots postgres in-build (the
+# official entrypoint inits the empty PGDATA → init-db.sh creates template_statbus
+# + the cluster roles), then runs the REAL sb seed code (ZERO hand-mirrored SQL),
+# dumps, stops. Throwaway: never published. Built with `--target seed` (the seed
+# stage below COPYs the dump out).
 #
-# Step 1 of the image-distribution rollout. Future commits will add
-# `seed-builder` and `seed` stages BETWEEN pg-runtime-base and this
-# alias (which must remain last to preserve default-target behavior).
+# Multi-context build (same command locally and in CI):
+#   --build-context migrations=./migrations
+#   --build-context statbus-sb=docker-image://ghcr.io/.../statbus-sb:<commit_short>
+# Plan: install-any-commit-via-images.md §canonical-seed-sequence.
+####################
+FROM pg-runtime-base AS seed-builder
+ARG postgresql_major
+# Full 40-char commit SHA (images.yaml passes ${{ github.sha }}). Feeds
+# seed.json's CommitSHA via `sb db seed dump --commit` — the hermetic /build has
+# no .git, so DumpSeed's git rev-parse falls back to this flag. (The sb binary's
+# OWN identity for the staleness guard comes from the statbus-sb image's ldflags,
+# which CI builds with the same full COMMIT; freshness.IsStale silently skips a
+# no-.git projDir, so a valid identity is all the guard needs here.)
+ARG COMMIT=unknown
+USER root
+
+# sb binary from the published statbus-sb image (distroless: /sb at root).
+COPY --from=statbus-sb /sb /usr/local/bin/sb
+# Migrations via a named build-context (keeps the main context small).
+COPY --from=migrations . /build/migrations/
+# Reference-data CSVs the migrations \copy from (dbseed/, repo root, ~2.5MB).
+# Migrations resolve these relative to projDir, so they must land at /build/dbseed/.
+COPY --from=dbseed . /build/dbseed/
+
+# Faux project dir: config.ProjectDir() walks up for `.statbus`; PsqlCommand /
+# PgDumpCommand read connection keys from .env ONLY. DOCKER_PSQL=0 forces
+# host-psql against the in-build postgres; CADDY_DEPLOYMENT_MODE=standalone dodges
+# the dev-only rebuild branch (maybeRebuildTestTemplate no-ops).
+WORKDIR /build
+RUN touch .statbus && printf '%s\n' \
+      'SITE_DOMAIN=127.0.0.1' \
+      'CADDY_DEPLOYMENT_MODE=standalone' \
+      'CADDY_DB_BIND_ADDRESS=127.0.0.1' \
+      'CADDY_DB_PORT=5432' \
+      'DOCKER_PSQL=0' \
+      'POSTGRES_ADMIN_DB=postgres' \
+      'POSTGRES_ADMIN_USER=postgres' \
+      'POSTGRES_ADMIN_PASSWORD=build' \
+      'POSTGRES_APP_DB=statbus_app' \
+      'POSTGRES_APP_USER=statbus_app' \
+      'POSTGRES_APP_PASSWORD=build' \
+      'POSTGRES_AUTHENTICATOR_PASSWORD=build' \
+      'POSTGRES_NOTIFY_USER=notify_reader_user' \
+      'POSTGRES_NOTIFY_PASSWORD=build' \
+      'POSTGRES_SEED_DB=statbus_seed' \
+      > .env
+
+# Boot pg (entrypoint inits the empty PGDATA → init-db.sh → template_statbus +
+# cluster roles), then build the seed via the REAL sb subcommands (no
+# hand-mirrored SQL): create-db → migrate up --target seed → dump (--commit, no
+# .git here). `set -e` → any failure aborts the build LOUDLY (no silently-bad
+# seed). pg_isready -h 127.0.0.1 only returns 0 AFTER the post-init exec of
+# postgres binds TCP, so the wait also guarantees init-db.sh has run.
+RUN set -eu; \
+    export PGDATA="${PGDATA:-/var/lib/postgresql/data}" \
+           POSTGRES_PASSWORD=build POSTGRES_USER=postgres POSTGRES_DB=postgres \
+           POSTGRES_ADMIN_USER=postgres POSTGRES_ADMIN_PASSWORD=build \
+           POSTGRES_APP_DB=statbus_app POSTGRES_APP_USER=statbus_app POSTGRES_APP_PASSWORD=build \
+           POSTGRES_AUTHENTICATOR_PASSWORD=build \
+           POSTGRES_NOTIFY_USER=notify_reader_user POSTGRES_NOTIFY_PASSWORD=build; \
+    docker-entrypoint.sh postgres & \
+    entrypoint_pid="$!"; \
+    echo "seed-builder: waiting for postgres (TCP 127.0.0.1:5432)..."; \
+    for _ in $(seq 1 120); do pg_isready -h 127.0.0.1 -U postgres -q && break; sleep 1; done; \
+    pg_isready -h 127.0.0.1 -U postgres; \
+    echo "seed-builder: postgres up — create-db + migrate + dump"; \
+    sb db seed create-db; \
+    sb migrate up --target seed --verbose; \
+    sb db seed dump --commit "$COMMIT"; \
+    test -s /build/.db-seed/seed.pg_dump; \
+    test -s /build/.db-seed/seed.json; \
+    echo "seed-builder: stopping postgres"; \
+    su postgres -c "pg_ctl -D \"$PGDATA\" stop -m fast" || kill "$entrypoint_pid" || true
+
+####################
+# seed — FROM scratch shipping image (~2.3MB). Built with `--target seed`,
+# published as statbus-seed:<commit_short>. Ships BOTH seed.pg_dump AND seed.json
+# — the restore path REQUIRES seed.json (without it install degrades to the
+# full-migration fallback).
+####################
+FROM scratch AS seed
+COPY --from=seed-builder /build/.db-seed/seed.pg_dump /seed.pg_dump
+COPY --from=seed-builder /build/.db-seed/seed.json    /seed.json
+
+####################
+# pg-runtime — DEFAULT build target. Zero-cost alias of pg-runtime-base,
+# placed LAST so `docker build` (no --target) produces this stage (NOT the seed).
+#
+# The `seed-builder` + `seed` stages above sit BETWEEN pg-runtime-base and this
+# alias; this alias must remain LAST to preserve default-target behavior.
 #
 # Plan reference: install-any-commit-via-images.md §Dockerfile structure.
 ####################
