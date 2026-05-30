@@ -117,6 +117,32 @@ func PsqlCommand(projDir string) (psqlPath string, prefixArgs []string, env []st
 	return hostPath, nil, hostEnv, nil
 }
 
+// PgDumpCommand returns the command path, arg prefix, and environment for
+// running pg_dump — the pg_dump analogue of PsqlCommand. It exists so seed
+// creation can run inside the hermetic seed-builder image (DOCKER_PSQL=0,
+// no docker-compose) against a local pg_dump, while the dev/compose path is
+// unchanged. DOCKER_PSQL governs host-vs-docker identically to PsqlCommand:
+//   - docker mode: `docker compose exec -T db pg_dump ...` (runs inside the
+//     db container; connects over the local socket — env is nil).
+//   - host mode: pg_dump on PATH with PG* env from .env (PGHOST/PGPORT/
+//     PGUSER/PGPASSWORD/PGSSLMODE via psqlEnv).
+// Callers append their own flags + target dbname after the prefix and set
+// cmd.Stdout (the custom-format dump is binary) + cmd.Dir = projDir + cmd.Env.
+func PgDumpCommand(projDir string) (cmdPath string, prefixArgs []string, env []string, err error) {
+	if useDockerPsql() {
+		return "docker", []string{"compose", "exec", "-T", "db", "pg_dump"}, nil, nil
+	}
+	hostPath, err := exec.LookPath("pg_dump")
+	if err != nil {
+		return "", nil, nil, fmt.Errorf("pg_dump not found on host and docker fallback disabled: %w", err)
+	}
+	hostEnv, err := psqlEnv(projDir)
+	if err != nil {
+		return "", nil, nil, err
+	}
+	return hostPath, nil, hostEnv, nil
+}
+
 // psqlEnv builds the environment for psql from .env file.
 //
 // Host/port come from CADDY_DB_BIND_ADDRESS + CADDY_DB_PORT (server-internal
@@ -239,6 +265,20 @@ func QueryDB(projDir, dbName, sql string, extraArgs ...string) (string, error) {
 		return out, err
 	}
 	return strings.TrimSpace(out), nil
+}
+
+// ExecOnDB runs exec/DDL SQL against the named database — the exec analogue of
+// QueryDB. Same PGDATABASE override + ON_ERROR_STOP=on + stdin delivery, but it
+// discards stdout and returns only an error (folding psql's output into the
+// error on failure). Use for CREATE/GRANT/ALTER where no result row is expected
+// — e.g. the seed-DB creation lifted from dev.sh. Like QueryDB it MUTATES the
+// process env for the duration of the call and is NOT concurrency-safe.
+func ExecOnDB(projDir, dbName, sql string, extraArgs ...string) error {
+	out, err := QueryDB(projDir, dbName, sql, extraArgs...)
+	if err != nil {
+		return fmt.Errorf("%w\n%s", err, out)
+	}
+	return nil
 }
 
 // runPsqlFile executes a SQL file via psql.

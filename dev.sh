@@ -1260,60 +1260,11 @@ EOF
     # `migrate up --target seed` and these primitives. Source of the
     # `./sb db seed create` artifact published to origin/db-seed.
     'create-seed' )
-        eval $(./dev.sh postgres-variables)
-        SEED_NAME="${POSTGRES_SEED_DB:-statbus_seed}"
-
-        echo "Creating empty seed database from template_statbus: $SEED_NAME"
-
-        SEED_EXISTS=$(./sb psql -d postgres -t -A -c \
-            "SELECT 1 FROM pg_database WHERE datname = '$SEED_NAME';" 2>/dev/null || echo "0")
-        if [ "$SEED_EXISTS" = "1" ]; then
-            echo "Error: seed database '$SEED_NAME' already exists."
-            echo "  Drop it first: ./dev.sh delete-seed"
-            echo "  Or rebuild end-to-end: ./dev.sh recreate-seed"
-            exit 1
-        fi
-
-        # Pre-flight: confirm template_statbus exists (provisioned by
-        # ./dev.sh create-db). Without this check the CREATE below
-        # fails with a generic "template not found" that doesn't name
-        # the recovery command.
-        if ! TEMPLATE_STATBUS_EXISTS=$(./sb psql -d postgres -t -A -c \
-                "SELECT 1 FROM pg_database WHERE datname = 'template_statbus';" 2>&1); then
-            echo "Error: cannot reach Postgres to check for template_statbus."
-            echo "  Underlying psql error: $TEMPLATE_STATBUS_EXISTS"
-            exit 1
-        fi
-        if [ "$TEMPLATE_STATBUS_EXISTS" != "1" ]; then
-            echo "Error: template_statbus does not exist."
-            echo "  Provisioned by: ./dev.sh create-db"
-            exit 1
-        fi
-
-        if ! ./sb psql -d postgres -c "
-            CREATE DATABASE $SEED_NAME
-            WITH TEMPLATE template_statbus
-            OWNER postgres;
-        "; then
-            echo "Error: Failed to create seed database from template_statbus."
-            exit 1
-        fi
-
-        # Set up roles and schemas that init-db.sh creates for the main
-        # DB but are not in template_statbus. Roles are cluster-wide
-        # (already exist), but the auth schema and grants must be
-        # per-database. Mirrors create-test-template.
-        echo "Setting up schemas and grants for seed..."
-        ./sb psql -d $SEED_NAME -v ON_ERROR_STOP=1 <<'EOF'
-            CREATE SCHEMA IF NOT EXISTS auth;
-            GRANT USAGE ON SCHEMA auth TO authenticated;
-            GRANT USAGE ON SCHEMA auth TO anon;
-            GRANT USAGE ON SCHEMA public TO notify_reader;
-EOF
-
-        echo "Seed database created (empty): $SEED_NAME"
-        echo "  Apply migrations next: ./sb migrate up --target seed"
-        echo "  Or rebuild end-to-end:  ./dev.sh recreate-seed"
+        # Delegates to the Go single source of truth (cli/cmd/seed.go
+        # CreateSeedDb) — lifted there so the hermetic seed-builder image and
+        # dev share ONE definition of "create the seed DB from template_statbus
+        # + auth grants" (was ~50 lines of psql here; zero drift now).
+        ./sb db seed create-db || exit $?
       ;;
     'delete-seed' )
         eval $(./dev.sh postgres-variables)
