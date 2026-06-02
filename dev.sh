@@ -1236,17 +1236,37 @@ EOF
 
         echo "Template created: $TEMPLATE_NAME (cloned from $SEED_NAME)"
 
-        # Record the latest migration timestamp so `./dev.sh test fast`
-        # precondition check can detect when the template is stale.
-        # Includes both .up.sql and .up.psql migrations.
+        # Stamp the template with the CLONE's ACTUAL migration version — the
+        # seed's db.migration max — NOT the on-disk latest. The template is a
+        # clone of the seed, so they share a schema version. Stamping the
+        # on-disk latest LIES whenever the seed is behind HEAD: e.g. plain
+        # `./sb migrate up` migrates only the dev DB, then rebuilds this
+        # template from the STILL-stale seed (#24). An honest stamp (the seed's
+        # real version) means a stale clone gets a stale stamp, so the test
+        # template stamp check (dev.sh:826) REFUSES instead of silently testing
+        # a stale schema. Both sides of that check are bare 14-digit versions,
+        # so db.migration.max(version) and the on-disk timestamp compare equal
+        # on the happy path.
+        SEED_VERSION=$(./sb psql -d "$SEED_NAME" -t -A -c \
+            "SELECT max(version) FROM db.migration;" 2>/dev/null | tr -d '[:space:]')
+        # On-disk HEAD — used ONLY for the stale-seed diagnostic below, never
+        # as the stamp value (matches the .up.sql + .up.psql set, bare timestamp).
         LATEST_MIGRATION=$(for f in "$WORKSPACE/migrations/"*.up.sql "$WORKSPACE/migrations/"*.up.psql; do
             [ -e "$f" ] || continue
             basename "$f" | cut -d_ -f1
         done | sort | tail -1)
-        if [ -n "$LATEST_MIGRATION" ]; then
+        if [ -n "$SEED_VERSION" ]; then
             mkdir -p "$WORKSPACE/tmp"
-            echo "$LATEST_MIGRATION" > "$WORKSPACE/tmp/test-template-migrations-sha"
-            echo "Test template migration stamp recorded: $LATEST_MIGRATION"
+            echo "$SEED_VERSION" > "$WORKSPACE/tmp/test-template-migrations-sha"
+            echo "Test template migration stamp recorded: $SEED_VERSION (cloned seed version)"
+            if [ -n "$LATEST_MIGRATION" ] && [ "$SEED_VERSION" -lt "$LATEST_MIGRATION" ]; then
+                echo "WARNING: cloned a STALE seed ($SEED_VERSION) — on-disk HEAD is $LATEST_MIGRATION."
+                echo "         The test template is BEHIND HEAD. Bring the seed to HEAD first:"
+                echo "           ./dev.sh recreate-seed      (or: ./sb migrate up --target seed)"
+                echo "         then re-run: ./dev.sh create-test-template"
+            fi
+        else
+            echo "Warning: could not read migration version from seed '$SEED_NAME'; template stamp not written."
         fi
       ;;
     # ── Seed lifecycle primitives (plan section R, commit 3/4) ─────
