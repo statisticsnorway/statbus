@@ -3,7 +3,7 @@
 #
 # Class:                 systemd-unit-drift-not-reconciled-on-healthy-box
 # Class kind:            Reconcile (idempotent install heals drifted config)
-# Source forensics:      /Users/jhf/.claude-veridit/plans/upgrade-resume-structural-whole.md (piece #4)
+# Source forensics:      doc/recovery/upgrade-resume-structural-whole.md (piece #4)
 #
 # THE GAP THIS CLOSES:
 #   The upgrade systemd unit is copied VERBATIM to

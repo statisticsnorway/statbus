@@ -119,7 +119,7 @@ curl -fsSL https://statbus.org/install.sh | bash -s -- --channel prerelease
 `install.sh` lives at the root of **this** repository:
 
 ```
-/Users/jhf/ssb/statbus_speed/install.sh
+install.sh
 ```
 
 (The script was moved here from the sibling `statbus-web` repo at commit

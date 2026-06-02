@@ -70,7 +70,7 @@ Each scenario is **a fresh Multipass VM**, no state shared. Per-scenario isolati
 
 `*(TBD)*` = scaffolded but scenario logic not yet implemented.
 
-Additional scenarios for forensics-surfaced classes (C3-C9, C11-C16, C18+) land per the priority order in `~/.claude-veridit/plans/recovery-injection-scope-a-comprehensive.md`. Each scenario file's header documents its C-class, R-tag, expected behavior, and known status on current code.
+Additional scenarios for forensics-surfaced classes (C3-C9, C11-C16, C18+) land per the priority order in `doc/recovery/recovery-injection-scope-a-comprehensive.md`. Each scenario file's header documents its C-class, R-tag, expected behavior, and known status on current code.
 
 ## Fix-to-scenario reverse mapping
 

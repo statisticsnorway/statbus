@@ -4,7 +4,7 @@
 #
 # Class:                 archive-backup-exceeds-systemd-budget-on-resume
 # Class kind:            Stall (on the resume path)
-# Source forensics:      /Users/jhf/.claude-veridit/plans/recovery-arc-flaw-timeoutstartsec.md
+# Source forensics:      doc/recovery/recovery-arc-flaw-timeoutstartsec.md
 #                        (the NO/rune 40 h wedge; upgrade id=187)
 #
 # WHAT THIS CATCHES (the gap between scenarios 18 and 26):

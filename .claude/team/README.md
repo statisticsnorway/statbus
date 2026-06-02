@@ -10,7 +10,7 @@ This folder is portable. To reuse in another project: copy `.claude/team/` and `
 |---|---|---|---|
 | `foreman` | Opus (1M ctx) | high | Team-lead. Coordinates the user conversation, decomposes work, delegates, reviews, signs off. The only agent the user talks to directly. |
 | `engineer` | Opus (1M ctx) | extra-high | Designs and builds. Forges architectural changes. Commits its own work; passes to foreman for review. Destructive or cross-cutting commits need foreman approval first. |
-| `architect` | Opus (1M ctx) | max | Future planning: system shape, architectural decisions, problem framings. Produces plans (under `~/.claude-veridit/plans/`), not code; hands approved plans to engineer for execution. |
+| `architect` | Opus (1M ctx) | max | Future planning: system shape, architectural decisions, problem framings. Produces plans (under `tmp/plans/`, gitignored), not code; hands approved plans to engineer for execution. |
 | `mechanic` | Sonnet | default | Diagnoses and fixes. Targeted investigations, one-shot writes. No multi-step reasoning across turns — that goes back to foreman. |
 | `tester` | Haiku | default | Runs test commands. Single assignment, no concurrent-run collisions. |
 | `operator` | Haiku | default | Legwork: reads, greps, SSH diagnostics, log tails, small one-shot writes, deploy drive-throughs. Parses long output, summarizes, reports back with file paths and line numbers. |
