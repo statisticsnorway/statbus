@@ -19,12 +19,12 @@ func dockerAvailable() bool {
 	return exec.Command("docker", "info").Run() == nil
 }
 
-// TestExtractSeedFromImage builds a trivial `FROM scratch` image carrying
+// TestExtractSeedFromImage builds a trivial busybox:musl image carrying
 // exactly /seed.pg_dump + /seed.json — the two files the real seed stage
-// ships (postgres/Dockerfile:521-529) — and asserts extractSeedFromImage
-// docker-cp's both out byte-for-byte and that loadSeedMeta parses the
-// result. This exercises the scratch-image extraction path (docker create
-// + docker cp + docker rm) that replaced the git-branch fetch in #15.
+// ships (postgres/Dockerfile) — and asserts extractSeedFromImage docker-cp's
+// both out byte-for-byte and that loadSeedMeta parses the result. busybox
+// (vs FROM scratch) carries a default command, so `docker create` works
+// without a placeholder arg — mirroring the real self-documenting image.
 func TestExtractSeedFromImage(t *testing.T) {
 	if !dockerAvailable() {
 		t.Skip("docker daemon not available")
@@ -47,7 +47,7 @@ func TestExtractSeedFromImage(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(ctx, "seed.json"), metaJSON, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	dockerfile := "FROM scratch\nCOPY seed.pg_dump /seed.pg_dump\nCOPY seed.json /seed.json\n"
+	dockerfile := "FROM busybox:musl\nCOPY seed.pg_dump /seed.pg_dump\nCOPY seed.json /seed.json\n"
 	if err := os.WriteFile(filepath.Join(ctx, "Dockerfile"), []byte(dockerfile), 0o644); err != nil {
 		t.Fatal(err)
 	}

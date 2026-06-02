@@ -74,8 +74,9 @@ Subcommands:
 // pg_restore (~2 seconds). Auto-called by dev.sh and `./sb install` on
 // first run.
 //
-// The image is `FROM scratch` (no shell), so it cannot be `docker run`;
-// the only way to read its files is `docker create` + `docker cp` (see
+// The image is busybox:musl and self-documenting: `docker run` on it
+// prints the extraction usage. We read its files WITHOUT starting it —
+// `docker create` (records the CMD, runs nothing) + `docker cp` (see
 // extractSeedFromImage). On any failure — commit_short unresolved, no
 // image published for this commit, or a daemon error — fetch returns an
 // error so the caller (install's runSeedRestore, dev.sh) falls back to
@@ -106,7 +107,7 @@ var seedFetchCmd = &cobra.Command{
 			return fmt.Errorf("pull seed image %s: %w\n  %s", imageRef, err, strings.TrimSpace(out))
 		}
 
-		// Copy /seed.pg_dump + /seed.json out of the scratch image.
+		// Copy /seed.pg_dump + /seed.json out of the seed image.
 		if err := extractSeedFromImage(projDir, imageRef, seedDir); err != nil {
 			return err
 		}
@@ -146,18 +147,17 @@ func resolveSeedCommitShort(projDir string) string {
 	return ""
 }
 
-// extractSeedFromImage copies /seed.pg_dump and /seed.json out of the
-// `FROM scratch` seed image into seedDir. A scratch image has no shell,
-// so `docker run cat` is impossible — `docker create` (no start) +
-// `docker cp` is the only extraction path. The container is removed via
+// extractSeedFromImage copies /seed.pg_dump and /seed.json out of the seed
+// image into seedDir. The image is not a runnable service — extraction is
+// `docker create` (no start) + `docker cp`, with the container removed via
 // defer so a failed cp still cleans it up.
 //
-// The trailing "noop" arg is required: `docker create` refuses an image
-// with no command, and the seed image is FROM scratch with no
-// CMD/ENTRYPOINT (postgres/Dockerfile:525-529). The container is never
-// started, so the placeholder command is never executed.
+// No placeholder command is needed: the seed image (postgres/Dockerfile,
+// `FROM busybox:musl`) carries a self-documenting CMD, so `docker create`
+// accepts it directly — and `docker run` on the image prints extraction
+// usage instead of erroring. The container is never started here.
 func extractSeedFromImage(projDir, imageRef, seedDir string) error {
-	out, err := upgrade.RunCommandOutput(projDir, "docker", "create", imageRef, "noop")
+	out, err := upgrade.RunCommandOutput(projDir, "docker", "create", imageRef)
 	if err != nil {
 		return fmt.Errorf("docker create %s: %w\n  %s", imageRef, err, strings.TrimSpace(out))
 	}
