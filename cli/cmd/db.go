@@ -125,8 +125,7 @@ func loadDbName(projDir string) (string, error) {
 
 // loadSeedDbName reads POSTGRES_SEED_DB from .env. The seed DB is the
 // canonical fresh-from-migrations baseline (build-time only; never
-// worker-active). Source of `./sb db seed create`'s pg_dump artifact.
-// Plan section R commit 4.
+// worker-active), dumped by `./sb db seed dump` into the statbus-seed image.
 func loadSeedDbName(projDir string) (string, error) {
 	f, err := dotenv.Load(filepath.Join(projDir, ".env"))
 	if err != nil {

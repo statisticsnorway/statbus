@@ -33,8 +33,8 @@ The --target flag selects which database to migrate:
   --target dev   (default) — POSTGRES_APP_DB (the working dev/runtime DB)
   --target seed             — POSTGRES_SEED_DB (the canonical fresh-from-
                               migrations DB; build-time only, never
-                              worker-active). The seed sources the
-                              published artifact via ./sb db seed create.
+                              worker-active); CI dumps it into the
+                              published statbus-seed image.
 
 The --target flag overrides POSTGRES_APP_DB + PGDATABASE in the process
 env for this invocation; existing in-process callers (install, upgrade)

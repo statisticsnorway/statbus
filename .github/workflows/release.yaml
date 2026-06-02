@@ -216,34 +216,6 @@ jobs:
           }
           MANIFEST
 
-      - name: Fetch seed assets
-        # Fetch from the SHA-named seed/<short-sha> branch written by
-        # `./sb db seed create`. SHA-based naming (rather than tag-based)
-        # removes the chicken-and-egg between tag-at-HEAD and seed-create:
-        # every seed is keyed by the project commit it pins to, known at
-        # create time, independent of whether that commit has been tagged yet.
-        #
-        # Short-SHA length (8) matches the canonical commit_short and
-        # seedSHALen in cli/cmd/seed.go.
-        #
-        # The commit_sha check below is the workflow-side guard complementing
-        # the release preflight's same check: even if the operator forgot to
-        # regenerate before tagging, the release workflow refuses to publish
-        # a seed that doesn't pin to this commit.
-        run: |
-          SHORT_SHA="${GITHUB_SHA:0:8}"
-          git fetch --depth=1 origin "seed/${SHORT_SHA}"
-          git checkout FETCH_HEAD -- seed.pg_dump seed.json
-          SEED_SHA=$(jq -r '.commit_sha' seed.json)
-          if [ "$SEED_SHA" != "$GITHUB_SHA" ]; then
-            echo "::error::Seed commit_sha does not match release commit"
-            echo "  seed.json:   $SEED_SHA"
-            echo "  release SHA: $GITHUB_SHA"
-            echo "  Regenerate with: ./sb db seed sync  (on the release commit), re-tag, re-push."
-            exit 1
-          fi
-          mv seed.pg_dump seed.json dist/
-
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -257,8 +229,6 @@ jobs:
             dist/sb-darwin-arm64
             dist/checksums.txt
             dist/release-manifest.json
-            dist/seed.pg_dump
-            dist/seed.json
           )
           if [ "${{ needs.metadata.outputs.prerelease }}" = "true" ]; then
             ARGS+=(--prerelease)

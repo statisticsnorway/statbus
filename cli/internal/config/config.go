@@ -73,10 +73,9 @@ type ConfigEnv struct {
 	PostgresAdminUser        string
 	PostgresAppDB            string
 	// PostgresSeedDB is the canonical fresh-from-migrations DB.
-	// Build-time only; never worker-active. Source of `./sb db seed
-	// create` artifact pushed to origin/db-seed. Slot-independent
-	// (one seed per workspace, not per deployment slot). See plan
-	// section R.
+	// Build-time only; never worker-active. Dumped by `./sb db seed
+	// dump` into the published statbus-seed image. Slot-independent
+	// (one seed per workspace, not per deployment slot).
 	PostgresSeedDB     string
 	PostgresAppUser    string
 	PostgresNotifyUser string

@@ -248,12 +248,6 @@ func LiveMaxMigrationVersion(projDir string) string {
 // OnDiskMaxMigrationVersion scans migrations/*.up.{sql,psql} and returns
 // the highest 14-digit version timestamp found, or "" when the directory
 // is empty / unreadable. Best-effort: errors degrade to "".
-//
-// Mirrors checkSeedFresh's on-disk scan in cli/cmd/release.go — kept
-// separate (not extracted to a shared helper) because the install
-// package is a lower layer that the release package may eventually
-// import, but not vice-versa. Duplication is small and the two readers
-// are independent concerns.
 func OnDiskMaxMigrationVersion(projDir string) string {
 	entries, err := os.ReadDir(filepath.Join(projDir, "migrations"))
 	if err != nil {

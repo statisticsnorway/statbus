@@ -1258,7 +1258,7 @@ EOF
     # The seed DB is build-time-only: never worker-active, never
     # contains app data, never written to by ./sb commands other than
     # `migrate up --target seed` and these primitives. Source of the
-    # `./sb db seed create` artifact published to origin/db-seed.
+    # `./sb db seed dump` that CI bakes into the statbus-seed image.
     'create-seed' )
         # Delegates to the Go single source of truth (cli/cmd/seed.go
         # CreateSeedDb) — lifted there so the hermetic seed-builder image and
@@ -1944,20 +1944,6 @@ EOS
             echo "Refreshed: ./sb → sb-${HOST_OS}-${HOST_ARCH}"
         fi
       ;;
-    'update-seed' )
-        # Thin wrapper around the Go entrypoint that now owns the seed
-        # lifecycle. `./sb db seed sync` runs migrate up against the
-        # seed DB, then either republishes (fast path, when
-        # migration_version + post_restore.sql sha256 unchanged) or
-        # rebuilds (full pg_dump). Always force-with-lease-pushes
-        # seed/<commit_short> which release.yaml fetches at tag-push
-        # time.
-        #
-        # Kept for operator muscle memory; new habits should call
-        # ./sb db seed sync directly. Eventual removal in a separate
-        # cleanup task.
-        exec ./sb db seed sync
-      ;;
     'test-install' )
         # End-to-end install test using a Hetzner Cloud cx23 VM (~€0.0072/run,
         # one billing hour minimum). Replaces the prior Multipass-on-macOS
@@ -2272,7 +2258,6 @@ EOS
       echo "  seed-clone <target>                Clone seed → <target> via pg CREATE DATABASE WITH TEMPLATE"
       echo ""
       echo "Seed publishing & documentation:"
-      echo "  update-seed                        Thin wrapper around ./sb db seed sync"
       echo "  dump-seed                          Save database seed for fast restore"
       echo "  list-seeds                         List available seeds"
       echo "  generate-db-documentation          Generate schema docs in doc/db/"
