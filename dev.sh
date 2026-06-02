@@ -1309,8 +1309,8 @@ EOF
         fi
 
         # Rebuild ${POSTGRES_SEED_DB} from the latest published seed artifact
-        # (origin/db-seed branch via ./sb db seed fetch), then apply only
-        # the migrations newer than the artifact's recorded migration_version.
+        # (the statbus-seed:<commit_short> image via ./sb db seed fetch), then
+        # apply only the migrations newer than the artifact's recorded migration_version.
         #
         # Why not always migrate-from-zero: applying ~348 migrations from an
         # empty schema is ~1-3 minutes; pg_restore of the artifact is ~2s
@@ -1361,7 +1361,7 @@ EOF
         # Always auto-fetch unless operator opts out. Cheap (~100ms) and
         # picks up seeds published by other operators / CI on origin.
         if [ "${STATBUS_DB_SEED_NO_FETCH:-0}" != "1" ]; then
-            echo "recreate-seed: fetching latest seed artifact from origin/db-seed..."
+            echo "recreate-seed: fetching seed from the statbus-seed image..."
             if ! ./sb db seed fetch; then
                 if [ ! -f "$WORKSPACE/.db-seed/seed.pg_dump" ]; then
                     echo "recreate-seed: fetch failed and no cached artifact — falling back to FULL_REPLAY."
@@ -2265,7 +2265,7 @@ EOS
       echo "Seed lifecycle (build-time canonical schema):"
       echo "  create-seed                        Create empty \${POSTGRES_SEED_DB} from template_statbus"
       echo "  delete-seed                        Drop \${POSTGRES_SEED_DB}"
-      echo "  recreate-seed                      Rebuild \${POSTGRES_SEED_DB} from origin/db-seed artifact + incremental"
+      echo "  recreate-seed                      Rebuild \${POSTGRES_SEED_DB} from the statbus-seed image + incremental"
       echo "                                       migrations (~5-15s typical). FULL_REPLAY=1 forces from-zero replay"
       echo "                                       (~1-3min). STATBUS_DB_SEED_NO_FETCH=1 uses cached artifact only."
       echo "  seed-status                        Compare seed DB to migrations/ at HEAD (set diff)"

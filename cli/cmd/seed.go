@@ -14,6 +14,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/statisticsnorway/statbus/cli/internal/config"
+	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/migrate"
 	"github.com/statisticsnorway/statbus/cli/internal/upgrade"
 )
@@ -66,7 +67,7 @@ Subcommands:
   sync      Bring statbus_seed to HEAD, publish dump + per-commit pin (the
             operator-facing entrypoint; smart-skips pg_dump when
             (migration_version, sha256(post_restore.sql)) is unchanged)
-  fetch     Download seed from origin/db-seed
+  fetch     Download seed from the published statbus-seed:<commit_short> image
   restore   Restore seed into a database
   create    Dump current DB and push to db-seed branch (primitive — sync wraps this)
   status    Compare seed version to latest migration`,
@@ -74,69 +75,49 @@ Subcommands:
 
 // ── seed fetch ──────────────────────────────────────────────────────────────
 
-// seedFetchCmd downloads the cached DB seed from the db-seed git
-// branch. The seed is a pg_dump that speeds up DB creation from ~294
-// migrations to one pg_restore (~2 seconds). Auto-called by dev.sh on first run.
+// seedFetchCmd downloads the DB seed from the published seed image
+// `ghcr.io/statisticsnorway/statbus-seed:<commit_short>` — the same
+// commit-tagged image, built and pushed by CI (images.yaml) on every
+// master push, that the five service images are pulled from. The seed
+// is a pg_dump that speeds up DB creation from ~294 migrations to one
+// pg_restore (~2 seconds). Auto-called by dev.sh and `./sb install` on
+// first run.
 //
-// Legacy-name fallback (R, rc.66 → rc.67 transition): if the modern
-// branch `origin/db-seed` doesn't exist, fall back to the legacy
-// `origin/db-snapshot` and emit a clear remediation. Once the
-// origin-branch rename has been performed (operator runbook step,
-// pre-merge of the seed feature), the legacy branch is gone and the
-// fallback simply never fires. Slated for removal in the next RC
-// after the seed feature merges.
+// The image is `FROM scratch` (no shell), so it cannot be `docker run`;
+// the only way to read its files is `docker create` + `docker cp` (see
+// extractSeedFromImage). On any failure — commit_short unresolved, no
+// image published for this commit, or a daemon error — fetch returns an
+// error so the caller (install's runSeedRestore, dev.sh) falls back to
+// running all migrations.
 var seedFetchCmd = &cobra.Command{
 	Use:   "fetch",
-	Short: "Fetch seed from origin/db-seed branch",
+	Short: "Fetch seed from the published statbus-seed image",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		projDir := config.ProjectDir()
 		seedDir := filepath.Join(projDir, ".db-seed")
 
-		// Fetch the db-seed branch (shallow — we only need the tip).
-		// Tolerate failure: the branch may not exist yet on the remote.
-		usedLegacy := false
-		_, err := upgrade.RunCommandOutput(projDir, "git", "fetch", "origin", "db-seed", "--depth=1", "--quiet")
-		if err != nil {
-			// Try the legacy name.
-			_, legacyErr := upgrade.RunCommandOutput(projDir, "git", "fetch", "origin", "db-snapshot", "--depth=1", "--quiet")
-			if legacyErr != nil {
-				fmt.Println("No seed branch found on remote. Create one with: ./sb db seed create")
-				return nil
-			}
-			usedLegacy = true
-			fmt.Fprintln(os.Stderr, "WARN: fetched legacy db-snapshot branch; operator should run "+
-				"`git push origin origin/db-snapshot:db-seed && git push origin :db-snapshot` "+
-				"to complete the rename.")
+		commitShort := resolveSeedCommitShort(projDir)
+		if commitShort == "" {
+			return fmt.Errorf("cannot resolve commit_short for the seed image " +
+				"(COMMIT_SHORT unset or 'local', and git rev-parse unavailable); " +
+				"no published seed image to fetch")
 		}
+		imageRef := "ghcr.io/statisticsnorway/statbus-seed:" + commitShort
 
-		// Ensure the local directory exists for the seed files.
 		if err := os.MkdirAll(seedDir, 0755); err != nil {
 			return fmt.Errorf("create .db-seed directory: %w", err)
 		}
 
-		// Choose the ref the fetch landed on.
-		branchRef := "origin/db-seed"
-		dumpName := "seed.pg_dump"
-		jsonName := "seed.json"
-		if usedLegacy {
-			branchRef = "origin/db-snapshot"
-			dumpName = "snapshot.pg_dump"
-			jsonName = "snapshot.json"
+		// Pull the seed image. Uses the same docker daemon auth context as
+		// `docker compose pull` for the service images — no new auth surface.
+		fmt.Printf("Pulling seed image %s...\n", imageRef)
+		if out, err := upgrade.RunCommandOutput(projDir, "docker", "pull", imageRef); err != nil {
+			return fmt.Errorf("pull seed image %s: %w\n  %s", imageRef, err, strings.TrimSpace(out))
 		}
 
-		// Extract dump from the fetched branch.
-		// We pipe git show output directly to a file instead of going through
-		// a string, because pg_dump custom format is binary and string
-		// conversion would corrupt it.
-		dumpPath := filepath.Join(seedDir, "seed.pg_dump")
-		if err := gitShowToFile(projDir, branchRef+":"+dumpName, dumpPath); err != nil {
-			return fmt.Errorf("extract %s from branch: %w", dumpName, err)
-		}
-
-		// Extract metadata JSON from the fetched branch.
-		jsonPath := filepath.Join(seedDir, "seed.json")
-		if err := gitShowToFile(projDir, branchRef+":"+jsonName, jsonPath); err != nil {
-			return fmt.Errorf("extract %s from branch: %w", jsonName, err)
+		// Copy /seed.pg_dump + /seed.json out of the scratch image.
+		if err := extractSeedFromImage(projDir, imageRef, seedDir); err != nil {
+			return err
 		}
 
 		// Read migration version from the metadata to confirm success.
@@ -145,9 +126,69 @@ var seedFetchCmd = &cobra.Command{
 			return fmt.Errorf("parse seed.json: %w", err)
 		}
 
-		fmt.Printf("Seed fetched: migration %s\n", meta.MigrationVersion)
+		fmt.Printf("Seed fetched from image: migration %s\n", meta.MigrationVersion)
 		return nil
 	},
+}
+
+// resolveSeedCommitShort returns the 8-char commit_short used to tag the
+// seed image. It prefers COMMIT_SHORT from the generated .env (the exact
+// value `docker compose pull` uses for the service images), and falls
+// back to `git rev-parse --short=8 HEAD` for clean checkouts that have
+// not run `./sb config generate` yet. Returns "" when it cannot resolve
+// to a real published tag — empty, or the `local` dev sentinel (compose's
+// `${COMMIT_SHORT:-local}`), neither of which has a published image.
+func resolveSeedCommitShort(projDir string) string {
+	if f, err := dotenv.Load(filepath.Join(projDir, ".env")); err == nil {
+		if v, ok := f.Get("COMMIT_SHORT"); ok {
+			v = strings.TrimSpace(v)
+			if v != "" && v != "local" {
+				return v
+			}
+		}
+	}
+	if out, err := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "--short=8", "HEAD"); err == nil {
+		if v := strings.TrimSpace(out); v != "" && v != "local" {
+			return v
+		}
+	}
+	return ""
+}
+
+// extractSeedFromImage copies /seed.pg_dump and /seed.json out of the
+// `FROM scratch` seed image into seedDir. A scratch image has no shell,
+// so `docker run cat` is impossible — `docker create` (no start) +
+// `docker cp` is the only extraction path. The container is removed via
+// defer so a failed cp still cleans it up.
+//
+// The trailing "noop" arg is required: `docker create` refuses an image
+// with no command, and the seed image is FROM scratch with no
+// CMD/ENTRYPOINT (postgres/Dockerfile:525-529). The container is never
+// started, so the placeholder command is never executed.
+func extractSeedFromImage(projDir, imageRef, seedDir string) error {
+	out, err := upgrade.RunCommandOutput(projDir, "docker", "create", imageRef, "noop")
+	if err != nil {
+		return fmt.Errorf("docker create %s: %w\n  %s", imageRef, err, strings.TrimSpace(out))
+	}
+	cid := strings.TrimSpace(out)
+	if cid == "" {
+		return fmt.Errorf("docker create %s returned an empty container id", imageRef)
+	}
+	defer func() {
+		if _, rmErr := upgrade.RunCommandOutput(projDir, "docker", "rm", cid); rmErr != nil {
+			fmt.Fprintf(os.Stderr, "WARN: docker rm %s (seed extraction container) failed: %v\n", cid, rmErr)
+		}
+	}()
+
+	for _, f := range []struct{ src, dst string }{
+		{"/seed.pg_dump", filepath.Join(seedDir, "seed.pg_dump")},
+		{"/seed.json", filepath.Join(seedDir, "seed.json")},
+	} {
+		if out, err := upgrade.RunCommandOutput(projDir, "docker", "cp", cid+":"+f.src, f.dst); err != nil {
+			return fmt.Errorf("docker cp %s:%s -> %s: %w\n  %s", cid, f.src, f.dst, err, strings.TrimSpace(out))
+		}
+	}
+	return nil
 }
 
 // ── seed restore ────────────────────────────────────────────────────────────
@@ -500,10 +541,12 @@ func DumpSeed(projDir, commitOverride string) (seedMeta, error) {
 // keeps the legacy db-seed-branch behavior.
 //
 // Operator workflow:
-//   1. ./dev.sh recreate-seed          # rebuild the seed from migrations
-//   2. ./sb db seed create             # dump it; push to origin/db-seed
+//  1. ./dev.sh recreate-seed          # rebuild the seed from migrations
+//  2. ./sb db seed create             # dump it; push to origin/db-seed
+//
 // or composite:
-//   ./dev.sh update-seed
+//
+//	./dev.sh update-seed
 func CreateSeed(projDir string) error {
 	// .git is present in the dev/release contexts that publish, so DumpSeed's
 	// git rev-parse wins and the "" override is unused here.
@@ -727,28 +770,6 @@ var seedStatusCmd = &cobra.Command{
 }
 
 // ── helpers ─────────────────────────────────────────────────────────────────
-
-// gitShowToFile writes the output of `git show <ref>` directly to a file.
-// This avoids string conversion that would corrupt binary content like
-// pg_dump custom format files.
-func gitShowToFile(projDir, ref, destPath string) error {
-	outFile, err := os.Create(destPath)
-	if err != nil {
-		return fmt.Errorf("create %s: %w", destPath, err)
-	}
-	defer outFile.Close()
-
-	cmd := exec.Command("git", "show", ref)
-	cmd.Dir = projDir
-	cmd.Stdout = outFile
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		os.Remove(destPath)
-		return fmt.Errorf("git show %s: %w", ref, err)
-	}
-	return nil
-}
 
 // loadSeedMeta reads and parses .db-seed/seed.json.
 // Returns an error if the file doesn't exist or can't be parsed.

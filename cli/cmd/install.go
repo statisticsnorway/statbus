@@ -1490,14 +1490,16 @@ SELECT EXISTS (
 	return strings.TrimSpace(string(out)) == "t"
 }
 
-// runSeedRestore fetches the seed from origin/db-seed and restores
-// it into the database. This makes `migrate up` fast — only migrations newer
-// than the seed need to run.
+// runSeedRestore fetches the seed from the published statbus-seed image
+// and restores it into the database. This makes `migrate up` fast — only
+// migrations newer than the seed need to run. Non-fatal throughout: any
+// failure (no image for this commit, daemon down) falls through to
+// runMigrations, which replays all migrations from scratch.
 func runSeedRestore(dir string) error {
 	sb := filepath.Join(dir, "sb")
 
-	// Fetch seed from remote.
-	fmt.Println("  Fetching seed from origin/db-seed...")
+	// Fetch seed from the published image.
+	fmt.Println("  Fetching seed from the seed image (statbus-seed:<commit_short>)...")
 	if err := runCmdDir(dir, sb, "db", "seed", "fetch"); err != nil {
 		// Not fatal — fresh repos or private forks may not have the branch.
 		fmt.Println("  No seed available — will run all migrations")
