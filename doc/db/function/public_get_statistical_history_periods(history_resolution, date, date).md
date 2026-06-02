@@ -11,8 +11,8 @@ DECLARE
 BEGIN
   -- Define default values once
   DECLARE
-    v_default_start date := date_trunc('year', current_date - interval '10 years')::date;
-    v_default_end date := current_date;
+    v_default_start date := date_trunc('year', (coalesce(nullif(current_setting('app.current_date', true),'')::date, current_date)) - interval '10 years')::date;
+    v_default_end date := (coalesce(nullif(current_setting('app.current_date', true),'')::date, current_date));
     v_p_valid_to date := p_valid_until - interval '1 day';
   BEGIN
     -- Initialize with parameters or defaults

@@ -15,7 +15,7 @@ View definition:
     pg.type_id
    FROM power_group pg
      JOIN legal_relationship lr ON lr.derived_power_group_id = pg.id
-  WHERE lr.valid_range @> CURRENT_DATE;
+  WHERE lr.valid_range @> COALESCE(NULLIF(current_setting('app.current_date'::text, true), ''::text)::date, CURRENT_DATE);
 Options: security_invoker=on
 
 ```

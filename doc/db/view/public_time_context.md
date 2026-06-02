@@ -17,15 +17,15 @@ View definition:
          SELECT 'relative_period'::time_context_type AS type,
             'r_'::text || relative_period_with_time.code::character varying::text AS ident,
                 CASE
-                    WHEN relative_period_with_time.code = ANY (ARRAY['year_curr'::relative_period_code, 'year_curr_only'::relative_period_code]) THEN format('%s (%s)'::text, relative_period_with_time.name_when_query, EXTRACT(year FROM CURRENT_DATE))::character varying
-                    WHEN relative_period_with_time.code = 'year_prev'::relative_period_code THEN format('%s (%s)'::text, relative_period_with_time.name_when_query, EXTRACT(year FROM CURRENT_DATE) - 1::numeric)::character varying
+                    WHEN relative_period_with_time.code = ANY (ARRAY['year_curr'::relative_period_code, 'year_curr_only'::relative_period_code]) THEN format('%s (%s)'::text, relative_period_with_time.name_when_query, EXTRACT(year FROM COALESCE(NULLIF(current_setting('app.current_date'::text, true), ''::text)::date, CURRENT_DATE)))::character varying
+                    WHEN relative_period_with_time.code = 'year_prev'::relative_period_code THEN format('%s (%s)'::text, relative_period_with_time.name_when_query, EXTRACT(year FROM COALESCE(NULLIF(current_setting('app.current_date'::text, true), ''::text)::date, CURRENT_DATE)) - 1::numeric)::character varying
                     ELSE relative_period_with_time.name_when_query
                 END AS name_when_query,
                 CASE
-                    WHEN relative_period_with_time.code = 'year_curr'::relative_period_code THEN format('%s (%s->)'::text, relative_period_with_time.name_when_input, EXTRACT(year FROM CURRENT_DATE))::character varying
-                    WHEN relative_period_with_time.code = 'year_prev'::relative_period_code THEN format('%s (%s->)'::text, relative_period_with_time.name_when_input, EXTRACT(year FROM CURRENT_DATE) - 1::numeric)::character varying
-                    WHEN relative_period_with_time.code = 'year_curr_only'::relative_period_code THEN format('%s (%s)'::text, relative_period_with_time.name_when_input, EXTRACT(year FROM CURRENT_DATE))::character varying
-                    WHEN relative_period_with_time.code = 'year_prev_only'::relative_period_code THEN format('%s (%s)'::text, relative_period_with_time.name_when_input, EXTRACT(year FROM CURRENT_DATE) - 1::numeric)::character varying
+                    WHEN relative_period_with_time.code = 'year_curr'::relative_period_code THEN format('%s (%s->)'::text, relative_period_with_time.name_when_input, EXTRACT(year FROM COALESCE(NULLIF(current_setting('app.current_date'::text, true), ''::text)::date, CURRENT_DATE)))::character varying
+                    WHEN relative_period_with_time.code = 'year_prev'::relative_period_code THEN format('%s (%s->)'::text, relative_period_with_time.name_when_input, EXTRACT(year FROM COALESCE(NULLIF(current_setting('app.current_date'::text, true), ''::text)::date, CURRENT_DATE)) - 1::numeric)::character varying
+                    WHEN relative_period_with_time.code = 'year_curr_only'::relative_period_code THEN format('%s (%s)'::text, relative_period_with_time.name_when_input, EXTRACT(year FROM COALESCE(NULLIF(current_setting('app.current_date'::text, true), ''::text)::date, CURRENT_DATE)))::character varying
+                    WHEN relative_period_with_time.code = 'year_prev_only'::relative_period_code THEN format('%s (%s)'::text, relative_period_with_time.name_when_input, EXTRACT(year FROM COALESCE(NULLIF(current_setting('app.current_date'::text, true), ''::text)::date, CURRENT_DATE)) - 1::numeric)::character varying
                     ELSE relative_period_with_time.name_when_input
                 END AS name_when_input,
             relative_period_with_time.scope,
@@ -61,7 +61,7 @@ View definition:
             NULL::relative_period_code AS code,
             NULL::ltree AS path
            FROM timesegments_years ty
-          WHERE ty.year <> ALL (ARRAY[EXTRACT(year FROM CURRENT_DATE)::integer, (EXTRACT(year FROM CURRENT_DATE) - 1::numeric)::integer])
+          WHERE ty.year <> ALL (ARRAY[EXTRACT(year FROM COALESCE(NULLIF(current_setting('app.current_date'::text, true), ''::text)::date, CURRENT_DATE))::integer, (EXTRACT(year FROM COALESCE(NULLIF(current_setting('app.current_date'::text, true), ''::text)::date, CURRENT_DATE)) - 1::numeric)::integer])
         )
  SELECT type,
     ident,

@@ -5,6 +5,16 @@
 -- to ensure consistent date formatting, so we must manually override this
 SET datestyle TO 'ISO, DMY';
 
+-- Pin the derivation/query wall-clock to a fixed date so date-sensitive output is
+-- deterministic across calendar time (otherwise statistical_history year-month buckets
+-- cross a new month and current-year labels cross Jan 1, re-drifting baselines). Read via
+-- the app.current_date GUC by get_statistical_history_periods, timesegments_years(_def/refresh),
+-- relative_period_with_time, time_context, power_group_active (migration 20260602070530).
+-- Unset in production -> those fall back to current_date (no behavior change). is_local=false
+-- so it survives any internal commit in worker.process_tasks. 2026-05-24 = the vintage these
+-- baselines were generated at (commit 1939ef11a).
+SELECT set_config('app.current_date', '2026-05-24', false);
+
 -- Enable person_ident for tests — production default is disabled (no workflow yet),
 -- but existing tests expect person_ident columns to exist in import definitions.
 -- Suppress NOTICE messages from index rebuild + definition sync to avoid polluting test output.

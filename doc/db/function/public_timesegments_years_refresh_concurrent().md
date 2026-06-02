@@ -9,7 +9,7 @@ DECLARE
 BEGIN
     -- Fast MIN/MAX from timesegments (uses index scan on primary key)
     SELECT MIN(EXTRACT(year FROM t.valid_from))::int,
-           MAX(EXTRACT(year FROM LEAST(t.valid_until - interval '1 day', now()::date)))::int
+           MAX(EXTRACT(year FROM LEAST(t.valid_until - interval '1 day', (coalesce(nullif(current_setting('app.current_date', true),'')::date, current_date))::date)))::int
     INTO v_min_year, v_max_year
     FROM public.timesegments AS t
     WHERE t.valid_from IS NOT NULL
@@ -17,7 +17,7 @@ BEGIN
 
     -- If no timesegments exist, ensure the current year is present
     IF v_min_year IS NULL THEN
-        v_min_year := EXTRACT(year FROM now())::int;
+        v_min_year := EXTRACT(year FROM (coalesce(nullif(current_setting('app.current_date', true),'')::date, current_date)))::int;
         v_max_year := v_min_year;
     END IF;
 
