@@ -136,11 +136,30 @@ caller=""
 if [[ -n "$session_id" && -n "$lead_session_id" && "$session_id" == "$lead_session_id" ]]; then
   caller="foreman"
 elif [[ -n "$transcript_path" && -f "$transcript_path" ]]; then
-  # `|| true` so a no-match grep (normal case when the session isn't a team
-  # member) doesn't trip `pipefail` + `set -e` and exit the hook silently.
-  caller=$({ grep -m1 -oE '"agentName":"[^"]*"' "$transcript_path" 2>/dev/null || true; } \
-    | sed 's/.*:"//;s/"$//' \
-    | head -1)
+  # Resolve identity by the team ROSTER name, robust against newer Claude Code
+  # CLIs that can record a session's auto-generated ai-title in `agentName`
+  # (e.g. a reused pane keeps an old throwaway title) instead of the routing
+  # name — which broke the naive first-`agentName` match. Pick the roster
+  # member whose agentName appears MOST in this transcript: the session's own
+  # identity dominates; any relayed/quoted name is rare. Can never mis-GRANT
+  # identity — it only matches exact current roster names.
+  if [[ -f "$TEAM_CONFIG" ]]; then
+    caller=$(
+      while IFS= read -r _member; do
+        [[ -z "$_member" ]] && continue
+        _count=$(grep -cF "\"agentName\":\"${_member}\"" "$transcript_path" 2>/dev/null || true)
+        [[ "${_count:-0}" -gt 0 ]] && printf '%s %s\n' "$_count" "$_member"
+      done < <(jq -r '.members[].name' "$TEAM_CONFIG" 2>/dev/null || true) \
+        | sort -rn | head -1 | awk '{print $2}'
+    )
+  fi
+  # Legacy fallback (also covers non-team sessions): first agentName seen.
+  # `|| true` so a no-match grep doesn't trip `pipefail` + `set -e`.
+  if [[ -z "$caller" ]]; then
+    caller=$({ grep -m1 -oE '"agentName":"[^"]*"' "$transcript_path" 2>/dev/null || true; } \
+      | sed 's/.*:"//;s/"$//' \
+      | head -1)
+  fi
 fi
 
 # ── Agent tool ────────────────────────────────────────────────────────
