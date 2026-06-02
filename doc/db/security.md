@@ -312,6 +312,7 @@ DDL (CREATE/DROP TABLE), session context manipulation.
 
 Write to RLS-protected tables, DDL, worker orchestration.
 
+- `admin.adjust_partition_count_target`
 - `admin.disable_temporal_triggers`
 - `admin.enable_temporal_triggers`
 - `worker.derive_reports`

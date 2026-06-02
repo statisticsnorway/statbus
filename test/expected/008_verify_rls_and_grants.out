@@ -22,6 +22,11 @@
 --      Without the GRANT the role is rejected at the privilege layer with
 --      "permission denied for table X" before RLS ever runs — the policy
 --      clearance becomes a silent no-op (see RC: postal-region work).
+--   G. FORCE-RLS lockdown registry — tables registered as FORCE-RLS
+--      lockdowns (auth.secrets) must keep relforcerowsecurity; any
+--      unregistered table that has FORCE fails. Catches a silent
+--      NO FORCE regression that Check 1 (ENABLE-only, public-only) and
+--      doc/db cannot see.
 -- Turn off decorative output for clean markdown generation
 \t
 \a
@@ -100,6 +105,11 @@ DECLARE
 
     -- Worker/Derive Pipeline: Write to RLS-protected tables, DDL, worker orchestration
     v_worker_funcs TEXT[] := ARRAY[
+        -- Autoscaler: reads the TRUE total public.statistical_unit count
+        -- (must bypass caller RLS — a restricted_user sees only a subset) and
+        -- writes the global public.settings.partition_count_target. Needs the
+        -- full count + the global write regardless of caller restrictions.
+        'admin.adjust_partition_count_target',
         'admin.disable_temporal_triggers',
         'admin.enable_temporal_triggers',
         'worker.derive_reports',
@@ -166,6 +176,16 @@ DECLARE
         'pg_stat_statements',
         'pg_stat_statements_info',
         'user'
+    ];
+
+    -- Tables that MUST keep FORCE ROW LEVEL SECURITY — the owner (and
+    -- SECURITY DEFINER functions, which run as the owner) are subject to RLS,
+    -- not exempt from it. Format: 'schema.table'. Justify every entry:
+    --   auth.secrets — FORCE + zero policies locks the JWT signing secret to
+    --     a BYPASSRLS/superuser path; without FORCE, any SECURITY DEFINER
+    --     function (running as the table owner) could read it.
+    v_force_rls_lockdown TEXT[] := ARRAY[
+        'auth.secrets'
     ];
 BEGIN
     -- Build combined registry
@@ -646,6 +666,59 @@ each role can see and modify.
                 v_rec.missing_privilege, v_rec.table_name, v_rec.role_name));
     END LOOP;
 
+    -- Check 9 (G): FORCE ROW LEVEL SECURITY lockdown registry.
+    --
+    -- A table can ENABLE RLS yet still be fully readable by its owner — and
+    -- SECURITY DEFINER functions run AS the owner. FORCE RLS removes that
+    -- exemption: the owner is subject to RLS too. The canonical case is
+    -- auth.secrets: FORCE + zero policies = default-deny for everyone,
+    -- including the owner, so the JWT signing secret is reachable only via a
+    -- BYPASSRLS/superuser path. Dropping FORCE (ALTER TABLE ... NO FORCE ROW
+    -- LEVEL SECURITY — a one-line migration) would silently expose the secret
+    -- to every definer function. Check 1 inspects relrowsecurity (ENABLE) on
+    -- public tables only, so this regression is invisible to it and to
+    -- doc/db. Guard it two-way, mirroring the SECURITY DEFINER registry (A):
+    --   (1) every registered lockdown table MUST have relforcerowsecurity;
+    --   (2) every table that HAS relforcerowsecurity MUST be registered,
+    --       so adding FORCE anywhere forces a blessed registry entry.
+    -- Bless = add to v_force_rls_lockdown with a reason; the audit trail is
+    -- `git log -p test/sql/008_verify_rls_and_grants.sql`.
+
+    -- (1) registered lockdown table missing FORCE (or absent)
+    FOR v_rec IN
+        SELECT reg.tbl
+        FROM unnest(v_force_rls_lockdown) AS reg(tbl)
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE c.relkind = 'r'
+              AND c.relforcerowsecurity
+              AND format('%s.%s', n.nspname, c.relname) = reg.tbl
+        )
+        ORDER BY reg.tbl
+    LOOP
+        v_problems := array_append(v_problems,
+            format('MISSING FORCE RLS: %s — lockdown table must FORCE RLS so the owner (and SECURITY DEFINER functions) are subject to its policies; fix with: ALTER TABLE %s FORCE ROW LEVEL SECURITY;',
+                v_rec.tbl, v_rec.tbl));
+    END LOOP;
+
+    -- (2) unregistered table that HAS FORCE
+    FOR v_rec IN
+        SELECT format('%s.%s', n.nspname, c.relname) AS qname
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE c.relkind = 'r'
+          AND c.relforcerowsecurity
+          AND n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+          AND format('%s.%s', n.nspname, c.relname) <> ALL(v_force_rls_lockdown)
+        ORDER BY 1
+    LOOP
+        v_problems := array_append(v_problems,
+            format('UNREGISTERED FORCE RLS: %s — has FORCE ROW LEVEL SECURITY but is not in the v_force_rls_lockdown registry; add it (with justification) in test/sql/008_verify_rls_and_grants.sql, or remove FORCE if unintended',
+                v_rec.qname));
+    END LOOP;
+
     -- Build verification output
     IF array_length(v_problems, 1) > 0 THEN
         verification := array_to_string(v_problems, E'\n');
@@ -676,8 +749,8 @@ SELECT 'Security documentation generated in doc/db/security.md' AS result;
 
 -- Output the verification result (this is what the test compares)
 SELECT :'verification';
-                                                          ?column?                                                          
-----------------------------------------------------------------------------------------------------------------------------
- UNLISTED SECURITY DEFINER: admin.adjust_partition_count_target — add to registry in test/sql/008_verify_rls_and_grants.sql
+                     ?column?                      
+---------------------------------------------------
+ OK: All tables have RLS and all views have grants
 (1 row)
 
