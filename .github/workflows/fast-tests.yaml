@@ -1,60 +1,52 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: Fast Tests
 
-# Fast Tests — pg_regress fast suite on every master push and every PR.
+# Fast Tests — pg_regress fast suite, gated to run AFTER the Images build.
 #
-# Closes the gap where baseline/derivation drift can land on master silently:
-# images.yaml runs on master push but does NOT run pg_regress, and the
-# existing pg_regress.yaml (which SSHes into niue.statbus.org) had a broken
-# workflow_run trigger ("CI Images" vs the actual name "Images") so it never
-# fired on master push at all (fixed alongside this workflow).
+# Trigger model (mirrors pg_regress.yaml):
+#   - workflow_run on "Images" completion (fires for master pushes once Images
+#     finishes): reuse the commit_short-tagged images Images just published —
+#     PULL them, no local rebuild — and fetch the published seed image (which
+#     also exercises the image-based seed-consume path end-to-end). Gated on
+#     Images concluding 'success'.
+#   - pull_request: Images doesn't run for PRs, so build images locally and seed
+#     via FULL_REPLAY (STATBUS_DB_SEED_NO_FETCH=1).
+#   - workflow_dispatch: manual; same build-local path as PRs.
 #
-# This workflow is self-contained — it runs entirely on the GHA runner:
-# checkout → build sb → docker compose up → migrate-and-test fast.
-# No external servers, no SSH keys, no Hetzner.
+# Why after Images (not parallel): the previous `push: master` trigger ran
+# concurrently with images.yaml, so `docker compose pull` raced the not-yet-
+# published images (and, lacking a GHCR login, failed auth) and fell back to a
+# ~5-min local `up -d --build`. Sequencing behind Images + authenticating lets
+# the pull hit, removing the rebuild.
 #
-# Seed strategy: STATBUS_DB_SEED_NO_FETCH=1 skips ./sb db seed fetch (the
-# seed image is published by images.yaml which runs in parallel — no guarantee
-# it's ready yet). With no artifact, recreate-seed falls through to FULL_REPLAY:
-# build from all on-disk migrations. ~3 min slower than a restore, but always
-# correct and independent of the parallel images.yaml run.
-#
-# Bypass convention (per doc/release-workflow-gates.md): the workflow itself
-# always runs on trigger — no in-YAML bypass. The release pre-flight check
-# (`./sb release stable`) honours SKIP_FAST_TESTS=1 as a surgical operator
-# escape. See "Release gate wiring" below.
-#
-# Runtime budget: ~15-20 min (docker startup ~3 min + FULL_REPLAY seed ~3 min
-# + test-template clone ~30s + pg_regress fast suite ~8-12 min). 30-min
-# timeout has ~10 min headroom.
+# Self-contained on the GHA runner: checkout → build sb → docker compose up →
+# migrate-and-test fast. No external servers / SSH.
 #
 # Release gate wiring (see doc/release-workflow-gates.md): the stable-release
 # pre-flight (`./sb release stable`) gates on this workflow being green at the
 # RC's commit, via release.WorkflowFastTests in cli/internal/release/
-# workflow_check.go. SKIP_FAST_TESTS=1 is the surgical operator bypass.
-# Because this runs on every master push, a run always exists at the RC's
-# commit (the RC tags a master commit).
+# workflow_check.go. SKIP_FAST_TESTS=1 is the surgical operator bypass. A run
+# still exists per master commit — workflow_run fires once Images completes for
+# that commit (the RC tags a master commit).
 #
-# Relationship to pg_regress.yaml:
-#   - pg_regress.yaml SSHes to niue.statbus.org and runs the FULL suite
-#     (including 4xx/5xx import tests) on a pre-provisioned server. It is
-#     complementary — deeper coverage, but external-server-dependent.
-#   - This workflow is the lightweight always-available gate: fast suite only
-#     (no 4xx/5xx imports), in-runner, no external dependencies.
+# Relationship to pg_regress.yaml: pg_regress SSHes to niue.statbus.org and runs
+# the FULL suite (incl 4xx/5xx imports) on a provisioned server — complementary,
+# deeper, external-server-dependent. This is the lightweight always-available
+# gate: fast suite only, in-runner, no external dependencies.
 
 on:
-  push:
-    branches: [master]
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Images"]
+    types: [completed]
   pull_request:
     branches-ignore:
       - 'ops/**'
-  workflow_dispatch:
 
-# On master: run every push without cancellation (each push is a real commit
-# and its result is the stamped verdict for that SHA).
-# On PRs: cancel superseded runs of the same PR when new commits arrive.
+# Per-commit (workflow_run) / per-ref (PR) groups. Never cancel a master result
+# (each commit's run is the stamped verdict); cancel superseded PR runs.
 concurrency:
-  group: fast-tests-${{ github.ref }}
+  group: fast-tests-${{ github.event.workflow_run.head_sha || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -66,11 +58,27 @@ jobs:
     name: pg_regress fast suite
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    # Skip if Images failed (only applies to the workflow_run trigger).
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
 
     steps:
+      - name: Determine sha
+        id: ref
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            echo "sha=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          # On the workflow_run path github.sha is the workflow file's commit, not
+          # the tested one — check out the build's head_sha explicitly.
+          ref: ${{ steps.ref.outputs.sha }}
           # fetch-depth: 0 so `git describe --tags` in ldflags stamping resolves
           # to a meaningful version string (not just the short SHA fallback).
           fetch-depth: 0
@@ -93,7 +101,9 @@ jobs:
       - name: Generate config
         # Matches the slot-1 development slot used by test-hardening.yaml's
         # install-stack job — same env shape, no port conflicts if both happen
-        # to share a runner (different jobs; they don't).
+        # to share a runner (different jobs; they don't). config generate writes
+        # .env including COMMIT_SHORT (= git rev-parse --short=8 HEAD), which is
+        # the image tag the compose files reference.
         env:
           DEPLOYMENT_SLOT_NAME: CI
           DEPLOYMENT_SLOT_CODE: ci
@@ -111,18 +121,30 @@ jobs:
           CFG
           ./sb config generate
 
+      - name: Log in to GHCR
+        # Only the workflow_run path pulls published images + the seed image;
+        # PR/dispatch build locally and seed via FULL_REPLAY.
+        if: github.event_name == 'workflow_run'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Start services
         run: |
           set -euxo pipefail
-          # Try to pull pre-built images (images.yaml publishes sha-tagged images
-          # on each master push). On a pull_request run or a first-push where
-          # images.yaml hasn't finished yet, this will fail — docker compose then
-          # builds locally. Either way services come up; the build path is slower
-          # (~5 min extra) but reliable.
-          COMMIT_SHORT=$(git rev-parse --short=8 HEAD)
-          VERSION="sha-${COMMIT_SHORT}" docker compose pull --quiet 2>/dev/null \
-            || echo "Pre-built images not available at sha-${COMMIT_SHORT} — will build locally."
-          docker compose --profile all up -d --build
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            # Images concluded success (job-level if gates on it). Reuse the
+            # commit_short-tagged images it published — pull (authed above), no
+            # local build. Strict: a pull failure fails the job rather than
+            # silently rebuilding.
+            docker compose pull --quiet
+            docker compose --profile all up -d
+          else
+            # PR / manual dispatch: Images doesn't run — build locally.
+            docker compose --profile all up -d --build
+          fi
 
       - name: Wait for DB
         run: |
@@ -139,19 +161,16 @@ jobs:
           exit 1
 
       - name: Run fast test suite
-        # STATBUS_DB_SEED_NO_FETCH=1: skip ./sb db seed fetch entirely.
-        # Rationale: images.yaml (which publishes statbus-seed:<commit_short>)
-        # runs concurrently with this job on master push — the image is not
-        # guaranteed to exist yet. With no artifact, recreate-seed falls through
-        # to FULL_REPLAY (build from all on-disk migrations). Self-contained,
-        # always correct, ~3 min vs ~30s for a restore.
+        # workflow_run: fetch the published seed image (statbus-seed:<commit_short>)
+        # — ~30s restore, and exercises the image-based seed-consume path end-to-end.
+        # PR / dispatch: no published seed for this commit, so FULL_REPLAY from
+        # on-disk migrations (STATBUS_DB_SEED_NO_FETCH=1, ~3 min).
         #
-        # migrate-and-test fast: CI-friendly composition that bootstraps
-        # statbus_seed (FULL_REPLAY), creates statbus_test_template (fast clone),
-        # then runs pg_regress on all tests except 4xx/5xx (large imports).
-        # Exits non-zero on any test failure — no `|| true`, no continue-on-error.
+        # migrate-and-test fast: bootstraps statbus_seed, creates
+        # statbus_test_template (fast clone), runs pg_regress on all tests except
+        # 4xx/5xx (large imports). Exits non-zero on any failure — no `|| true`.
         env:
-          STATBUS_DB_SEED_NO_FETCH: "1"
+          STATBUS_DB_SEED_NO_FETCH: ${{ github.event_name == 'workflow_run' && '0' || '1' }}
         run: |
           set -euxo pipefail
           ./dev.sh migrate-and-test fast
