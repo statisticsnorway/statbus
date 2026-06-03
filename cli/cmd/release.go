@@ -434,7 +434,7 @@ func preflightChecks(projDir string) bool {
 	checkAppStamp("app-build-passed-sha", "build", "App build covers latest app changes")
 
 	// 11. DB documentation covers latest migrations
-	checkMigrationStamp("db-docs-passed-sha", "DB documentation covers latest migrations", "./dev.sh generate-db-documentation")
+	checkMigrationStamp("db-docs-passed-sha", "DB documentation covers latest migrations", "./dev.sh generate-doc-db")
 
 	// 12. images workflow green for HEAD — schema-derived stamps cover
 	//     Go/TypeScript/SQL, but the Docker artifacts that ship to ghcr.io can

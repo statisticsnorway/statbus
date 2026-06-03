@@ -12,7 +12,7 @@ import (
 // `./sb assert-db-at-head <db_name> <caller>`
 //
 // Cobra subcommand exposing migrate.AssertDBAtHead at the CLI surface.
-// Lets dev.sh callsites (test fast, generate-db-documentation) drop
+// Lets dev.sh callsites (test fast, generate-doc-db) drop
 // the bash `assert_db_at_head` function and call into the Go
 // implementation instead. Single source of truth for the
 // "is this DB's db.migration set equal to HEAD's on-disk migrations"

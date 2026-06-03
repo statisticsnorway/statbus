@@ -189,11 +189,11 @@ assert_deny "team-lead runs ./sb types generate → DENY" \
 assert_allow_or_no_op "test-intern runs ./sb types generate → allow" \
   "{\"session_id\":\"synthetic-test-intern\",\"transcript_path\":\"$TMPDIR/test-intern.jsonl\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"./sb types generate\"}}"
 
-assert_deny "team-lead runs ./dev.sh generate-db-documentation → DENY" \
-  "{\"session_id\":\"$LEAD_SID\",\"transcript_path\":\"/tmp/not-needed.jsonl\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"./dev.sh generate-db-documentation\"}}"
+assert_deny "team-lead runs ./dev.sh generate-doc-db → DENY" \
+  "{\"session_id\":\"$LEAD_SID\",\"transcript_path\":\"/tmp/not-needed.jsonl\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"./dev.sh generate-doc-db\"}}"
 
-assert_allow_or_no_op "test-intern runs ./dev.sh generate-db-documentation → allow" \
-  "{\"session_id\":\"synthetic-test-intern\",\"transcript_path\":\"$TMPDIR/test-intern.jsonl\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"./dev.sh generate-db-documentation\"}}"
+assert_allow_or_no_op "test-intern runs ./dev.sh generate-doc-db → allow" \
+  "{\"session_id\":\"synthetic-test-intern\",\"transcript_path\":\"$TMPDIR/test-intern.jsonl\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"./dev.sh generate-doc-db\"}}"
 
 assert_deny "team-lead runs ./sb release prerelease → DENY" \
   "{\"session_id\":\"$LEAD_SID\",\"transcript_path\":\"/tmp/not-needed.jsonl\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"./sb release prerelease\"}}"

@@ -90,7 +90,7 @@ fi
 
 # ---- Tier-1 stamp guard ----
 #
-# Used by `./dev.sh test fast`, `./dev.sh generate-db-documentation`, and
+# Used by `./dev.sh test fast`, `./dev.sh generate-doc-db`, and
 # (via a parallel Go implementation in cli/cmd/types.go) `./sb types generate`.
 # Three outcomes, each printed verbatim to stdout with reason + evidence +
 # override hint:
@@ -1334,7 +1334,7 @@ EOF
     'recreate-seed' )
         # acquire EXCLUSIVE statbus_seed mutation
         # lock so concurrent readers (./sb types generate via
-        # assert-db-at-head, ./dev.sh generate-db-documentation, etc.)
+        # assert-db-at-head, ./dev.sh generate-doc-db, etc.)
         # block during this body's DROP/CREATE/migrate.Up sequence
         # instead of hitting statbus_seed mid-rebuild with a confusing
         # "database does not exist" error. The lock is held on a
@@ -1722,9 +1722,9 @@ EOF
 
         POSTGRES_APP_DB="$TYPES_DB" ./sb types generate
       ;;
-    'generate-db-documentation' )
+    'generate-doc-db' )
         set +e
-        check_stamp_guard "./dev.sh generate-db-documentation" "db-docs-passed-sha" "migrations"
+        check_stamp_guard "./dev.sh generate-doc-db" "db-docs-passed-sha" "migrations"
         guard_rc=$?
         set -e
         case $guard_rc in
@@ -1760,7 +1760,7 @@ EOF
         # the seed's max migration version on stdout; capture it for
         # the H1 two-line stamp write below.
         SEED_NAME_DOC="${POSTGRES_SEED_DB:-statbus_seed}"
-        SOURCE_VERSION=$(./sb assert-db-at-head "$SEED_NAME_DOC" "./dev.sh generate-db-documentation") || exit 1
+        SOURCE_VERSION=$(./sb assert-db-at-head "$SEED_NAME_DOC" "./dev.sh generate-doc-db") || exit 1
 
         echo "Creating temporary documentation database: $DOC_DB from $TEMPLATE_NAME"
         ./sb psql -d postgres -v ON_ERROR_STOP=1 <<EOF
@@ -2303,7 +2303,7 @@ EOS
       echo "Seed publishing & documentation:"
       echo "  dump-seed                          Save database seed for fast restore"
       echo "  list-seeds                         List available seeds"
-      echo "  generate-db-documentation          Generate schema docs in doc/db/"
+      echo "  generate-doc-db                    Generate schema docs in doc/db/"
       echo "  generate-types                     Generate TypeScript types from schema"
       echo ""
       echo "Upgrade sandbox (port offset 9 — 3090-3094, isolated from dev slots):"

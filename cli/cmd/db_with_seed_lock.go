@@ -20,7 +20,7 @@ import (
 //
 // Used by `./dev.sh recreate-seed` to serialise mutations of the seed
 // against concurrent readers (`./sb types generate`,
-// `./dev.sh generate-db-documentation` via assert_db_at_head, which
+// `./dev.sh generate-doc-db` via assert_db_at_head, which
 // internally acquires the SHARED variant of the same lock).
 //
 // Lock is released automatically when the holding connection closes

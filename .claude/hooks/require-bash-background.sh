@@ -85,7 +85,7 @@ is_long() {
     './dev.sh test|\./dev\.sh\s+test\b'
     './dev.sh create-db/recreate/delete-db|\./dev\.sh\s+(create-db|recreate-database|delete-db)\b'
     './dev.sh update-snapshot|\./dev\.sh\s+update-snapshot\b'
-    './dev.sh generate-db-documentation|\./dev\.sh\s+generate-db-documentation\b'
+    './dev.sh generate-doc-db|\./dev\.sh\s+generate-doc-db\b'
     './sb install|\./sb\s+install\b'
     './sb upgrade apply|\./sb\s+upgrade\s+apply\b'
     './sb release prerelease|\./sb\s+release\s+prerelease\b'

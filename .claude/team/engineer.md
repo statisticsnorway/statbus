@@ -21,7 +21,7 @@ When you don't know the current state of something — a file, a DB column, a ru
 Commands you may run when appropriate, but delegate when output is long or the job is mechanical:
 - `./sb migrate …`
 - `./sb types generate`
-- `./dev.sh generate-db-documentation`
+- `./dev.sh generate-doc-db`
 - `./dev.sh build-sb`
 
 When you finish, report to foreman via SendMessage: what changed, what you tested, any adjacent issue you noticed. Not just "done."

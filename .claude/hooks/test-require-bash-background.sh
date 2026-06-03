@@ -65,8 +65,8 @@ assert_deny "./dev.sh delete-db foreground" \
 assert_deny "./dev.sh update-snapshot foreground" \
   "$(payload_fg './dev.sh update-snapshot')"
 
-assert_deny "./dev.sh generate-db-documentation foreground" \
-  "$(payload_fg './dev.sh generate-db-documentation')"
+assert_deny "./dev.sh generate-doc-db foreground" \
+  "$(payload_fg './dev.sh generate-doc-db')"
 
 assert_deny "./sb install foreground" \
   "$(payload_fg './sb install')"

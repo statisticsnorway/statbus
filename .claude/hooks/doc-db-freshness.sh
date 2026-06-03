@@ -15,7 +15,7 @@
 #      work I need to check?"
 #   3. DEFINITELY STALE — committed migrations are newer than committed
 #      doc/db AND no uncommitted doc/db updates to explain the gap →
-#      hard deny. Run `./dev.sh generate-db-documentation` first.
+#      hard deny. Run `./dev.sh generate-doc-db` first.
 #
 # Detected access patterns: grep/rg/ag/ack/find/cat/head/ls against
 # doc/db/ paths.
@@ -88,7 +88,7 @@ WHY: committed migrations are newer than committed doc/db, and there are no unco
   - last doc/db/ commit:     ${doc_commit}
 
 FIX (in this order):
-  ./dev.sh generate-db-documentation        # regenerates doc/db/ from current DB
+  ./dev.sh generate-doc-db        # regenerates doc/db/ from current DB
   git add doc/db/                           # stage the refresh
   git commit -m 'doc: refresh db docs'      # land it
 

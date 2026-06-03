@@ -66,7 +66,7 @@ fi
 # Migrations that change function / view / procedure / table definitions are
 # illegible at the SQL-text level (you see a CREATE OR REPLACE FUNCTION blob,
 # not the actual logic delta). doc/db/ is the canonical "current schema state"
-# reference — regenerated via `./dev.sh generate-db-documentation`. Pairing
+# reference — regenerated via `./dev.sh generate-doc-db`. Pairing
 # migrations with their doc/db/ regen in the same commit gives reviewers a
 # clean per-object diff alongside the migration text.
 #
@@ -98,7 +98,7 @@ if [ -n "$STAGED_MIGRATIONS" ]; then
         echo
         echo "HOW TO FIX:"
         echo "  1. Regenerate doc/db/ from the current schema:"
-        echo "       ./dev.sh generate-db-documentation"
+        echo "       ./dev.sh generate-doc-db"
         echo "  2. Stage the regen alongside your migration:"
         echo "       git add doc/db/"
         echo "  3. Commit again — the migration + regen go together."

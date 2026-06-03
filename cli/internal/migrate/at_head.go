@@ -29,7 +29,7 @@ import (
 // terminal by the calling cobra command.
 //
 // caller is the human-readable command name printed in the diagnostic
-// (e.g. "./sb types generate", "./dev.sh generate-db-documentation").
+// (e.g. "./sb types generate", "./dev.sh generate-doc-db").
 //
 // Mirrors the bash assert_db_at_head() helper in dev.sh. Keep the two
 // in sync — both shapes the same actionable diagnostic.
@@ -44,7 +44,7 @@ func AssertDBAtHead(projDir, dbName, caller string) (string, error) {
 	// timeout) while an EXCLUSIVE holder (recreate-seed via
 	// `./sb db with-seed-lock --exclusive`) is mid-mutation. Without
 	// this gate, a parallel `./sb types generate` or
-	// `./dev.sh generate-db-documentation` could hit statbus_seed
+	// `./dev.sh generate-doc-db` could hit statbus_seed
 	// during its DROP window and fail with a confusing "database does
 	// not exist" mid-rebuild.
 	//
