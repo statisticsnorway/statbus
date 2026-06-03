@@ -1,0 +1,167 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Fast Tests
+
+# Fast Tests — pg_regress fast suite on every master push and every PR.
+#
+# Closes the gap where baseline/derivation drift can land on master silently:
+# images.yaml runs on master push but does NOT run pg_regress, and the
+# existing pg_regress.yaml (which SSHes into niue.statbus.org) had a broken
+# workflow_run trigger ("CI Images" vs the actual name "Images") so it never
+# fired on master push at all (fixed alongside this workflow).
+#
+# This workflow is self-contained — it runs entirely on the GHA runner:
+# checkout → build sb → docker compose up → migrate-and-test fast.
+# No external servers, no SSH keys, no Hetzner.
+#
+# Seed strategy: STATBUS_DB_SEED_NO_FETCH=1 skips ./sb db seed fetch (the
+# seed image is published by images.yaml which runs in parallel — no guarantee
+# it's ready yet). With no artifact, recreate-seed falls through to FULL_REPLAY:
+# build from all on-disk migrations. ~3 min slower than a restore, but always
+# correct and independent of the parallel images.yaml run.
+#
+# Bypass convention (per doc/release-workflow-gates.md): the workflow itself
+# always runs on trigger — no in-YAML bypass. The release pre-flight check
+# (`./sb release stable`) honours SKIP_FAST_TESTS=1 as a surgical operator
+# escape. See "Release gate wiring" below.
+#
+# Runtime budget: ~15-20 min (docker startup ~3 min + FULL_REPLAY seed ~3 min
+# + test-template clone ~30s + pg_regress fast suite ~8-12 min). 30-min
+# timeout has ~10 min headroom.
+#
+# Release gate wiring (see doc/release-workflow-gates.md): the stable-release
+# pre-flight (`./sb release stable`) gates on this workflow being green at the
+# RC's commit, via release.WorkflowFastTests in cli/internal/release/
+# workflow_check.go. SKIP_FAST_TESTS=1 is the surgical operator bypass.
+# Because this runs on every master push, a run always exists at the RC's
+# commit (the RC tags a master commit).
+#
+# Relationship to pg_regress.yaml:
+#   - pg_regress.yaml SSHes to niue.statbus.org and runs the FULL suite
+#     (including 4xx/5xx import tests) on a pre-provisioned server. It is
+#     complementary — deeper coverage, but external-server-dependent.
+#   - This workflow is the lightweight always-available gate: fast suite only
+#     (no 4xx/5xx imports), in-runner, no external dependencies.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches-ignore:
+      - 'ops/**'
+  workflow_dispatch:
+
+# On master: run every push without cancellation (each push is a real commit
+# and its result is the stamped verdict for that SHA).
+# On PRs: cancel superseded runs of the same PR when new commits arrive.
+concurrency:
+  group: fast-tests-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  fast-tests:
+    name: pg_regress fast suite
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # fetch-depth: 0 so `git describe --tags` in ldflags stamping resolves
+          # to a meaningful version string (not just the short SHA fallback).
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: cli/go.mod
+
+      - name: Build sb binary
+        working-directory: cli
+        run: |
+          set -euxo pipefail
+          _VERSION=$(git -C .. describe --tags --always --match 'v[0-9]*' 2>/dev/null | sed 's/^v//' || echo "dev")
+          _COMMIT=$(git -C .. rev-parse HEAD)
+          CGO_ENABLED=0 go build \
+            -ldflags "-X 'github.com/statisticsnorway/statbus/cli/cmd.version=${_VERSION}' -X 'github.com/statisticsnorway/statbus/cli/cmd.commit=${_COMMIT}'" \
+            -trimpath -o ../sb .
+
+      - name: Generate config
+        # Matches the slot-1 development slot used by test-hardening.yaml's
+        # install-stack job — same env shape, no port conflicts if both happen
+        # to share a runner (different jobs; they don't).
+        env:
+          DEPLOYMENT_SLOT_NAME: CI
+          DEPLOYMENT_SLOT_CODE: ci
+          DEPLOYMENT_SLOT_PORT_OFFSET: "1"
+          CADDY_DEPLOYMENT_MODE: development
+          SITE_DOMAIN: localhost
+        run: |
+          set -euxo pipefail
+          cat > .env.config <<CFG
+          DEPLOYMENT_SLOT_NAME=$DEPLOYMENT_SLOT_NAME
+          DEPLOYMENT_SLOT_CODE=$DEPLOYMENT_SLOT_CODE
+          DEPLOYMENT_SLOT_PORT_OFFSET=$DEPLOYMENT_SLOT_PORT_OFFSET
+          CADDY_DEPLOYMENT_MODE=$CADDY_DEPLOYMENT_MODE
+          SITE_DOMAIN=$SITE_DOMAIN
+          CFG
+          ./sb config generate
+
+      - name: Start services
+        run: |
+          set -euxo pipefail
+          # Try to pull pre-built images (images.yaml publishes sha-tagged images
+          # on each master push). On a pull_request run or a first-push where
+          # images.yaml hasn't finished yet, this will fail — docker compose then
+          # builds locally. Either way services come up; the build path is slower
+          # (~5 min extra) but reliable.
+          COMMIT_SHORT=$(git rev-parse --short=8 HEAD)
+          VERSION="sha-${COMMIT_SHORT}" docker compose pull --quiet 2>/dev/null \
+            || echo "Pre-built images not available at sha-${COMMIT_SHORT} — will build locally."
+          docker compose --profile all up -d --build
+
+      - name: Wait for DB
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 60); do
+            if docker compose exec db pg_isready -U postgres 2>/dev/null; then
+              echo "DB ready after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "ERROR: DB not ready after 60s"
+          docker compose logs db | tail -30
+          exit 1
+
+      - name: Run fast test suite
+        # STATBUS_DB_SEED_NO_FETCH=1: skip ./sb db seed fetch entirely.
+        # Rationale: images.yaml (which publishes statbus-seed:<commit_short>)
+        # runs concurrently with this job on master push — the image is not
+        # guaranteed to exist yet. With no artifact, recreate-seed falls through
+        # to FULL_REPLAY (build from all on-disk migrations). Self-contained,
+        # always correct, ~3 min vs ~30s for a restore.
+        #
+        # migrate-and-test fast: CI-friendly composition that bootstraps
+        # statbus_seed (FULL_REPLAY), creates statbus_test_template (fast clone),
+        # then runs pg_regress on all tests except 4xx/5xx (large imports).
+        # Exits non-zero on any test failure — no `|| true`, no continue-on-error.
+        env:
+          STATBUS_DB_SEED_NO_FETCH: "1"
+        run: |
+          set -euxo pipefail
+          ./dev.sh migrate-and-test fast
+
+      - name: Show regression diffs on failure
+        if: failure()
+        run: |
+          docker compose exec --workdir /statbus db \
+            cat /statbus/test/regression.diffs 2>/dev/null || true
+
+      - name: Cleanup
+        if: always()
+        run: docker compose --profile all down -v || true

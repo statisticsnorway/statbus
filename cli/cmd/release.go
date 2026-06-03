@@ -868,10 +868,11 @@ unstamped tests, missing seed/types/db-docs stamps, even being on a
 feature branch — none of it matters. The RC was validated; stable just
 promotes it.
 
-Pre-flight (~7 checks):
+Pre-flight (~8 checks):
   - Latest RC exists for v<YEAR>.<MONTH>.<NEXT_PATCH>
   - That patch is next-in-sequence for vYYYY.MM
   - images workflow green at the RC's commit
+  - fast-tests workflow green at the RC's commit
   - test-hardening workflow green at the RC's commit
   - test-install workflow green at the RC's commit
   - install-recovery-harness workflow green at the RC's commit
@@ -880,6 +881,7 @@ Pre-flight (~7 checks):
 Operator bypasses (use sparingly — each one is an admission that a
 gate's invariant has NOT been verified for the SHA):
   SKIP_IMAGES=1            (Docker artifacts may not exist; deploys may FAIL)
+  SKIP_FAST_TESTS=1        (fast pg_regress suite was not exercised)
   SKIP_TEST_HARDENING=1
   SKIP_TEST_INSTALL=1
   SKIP_INSTALL_RECOVERY=1  (no recovery regression net was exercised)
@@ -970,6 +972,11 @@ gate's invariant has NOT been verified for the SHA):
 		//    actionable root cause before the operator stares at a
 		//    guaranteed-fail canary diagnostic.
 		allPassed := checkStableWorkflowGate(release.WorkflowImages, "images", latestRC, rcCommit, rcShort, "SKIP_IMAGES")
+		// fast-tests runs the pg_regress fast suite on every master push, so a
+		// run exists at the RC's commit (the RC tags a master commit). Gates
+		// stable against derivation/baseline drift that lands silently red —
+		// images builds artifacts but does NOT run pg_regress.
+		allPassed = checkStableWorkflowGate(release.WorkflowFastTests, "fast-tests", latestRC, rcCommit, rcShort, "SKIP_FAST_TESTS") && allPassed
 		allPassed = checkStableWorkflowGate(release.WorkflowTestHardening, "test-hardening", latestRC, rcCommit, rcShort, "SKIP_TEST_HARDENING") && allPassed
 		allPassed = checkStableWorkflowGate(release.WorkflowTestInstall, "test-install", latestRC, rcCommit, rcShort, "SKIP_TEST_INSTALL") && allPassed
 		// Install-recovery harness: every C-class with a paired scenario in

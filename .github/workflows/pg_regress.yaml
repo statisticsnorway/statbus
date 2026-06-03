@@ -2,7 +2,7 @@ name: pg_regress
 on:
   workflow_dispatch:
   workflow_run:
-    workflows: ["CI Images"]
+    workflows: ["Images"]
     types: [completed]
   pull_request:
     branches-ignore:
@@ -10,7 +10,7 @@ on:
 
 jobs:
   pg_regress:
-    # Skip if CI Images failed (only applies to workflow_run trigger)
+    # Skip if Images failed (only applies to workflow_run trigger)
     if: >-
       github.event_name != 'workflow_run' ||
       github.event.workflow_run.conclusion == 'success'
