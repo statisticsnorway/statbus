@@ -14,8 +14,8 @@ import (
 
 // Set at build time via -ldflags. RAW build-interface inputs:
 //
-//   -X 'github.com/statisticsnorway/statbus/cli/cmd.version=...'
-//   -X 'github.com/statisticsnorway/statbus/cli/cmd.commit=...'
+//	-X 'github.com/statisticsnorway/statbus/cli/cmd.version=...'
+//	-X 'github.com/statisticsnorway/statbus/cli/cmd.commit=...'
 //
 // Don't reference these from business logic — use the typed runtime
 // values (commitSHA / commitVersion) below, populated at init from
@@ -83,6 +83,22 @@ var rootCmd = &cobra.Command{
 // against). See doc/upgrade-system.md for the full state matrix and the
 // fail-fast audit table.
 func stalenessGuard(c *cobra.Command, _ []string) {
+	// The freshness probe (`sb committed-drift`) IS the staleness check that
+	// dev.sh's rebuild decision calls; running the guard on it would be circular
+	// and would leak a WARN into the output dev.sh parses. Always exempt.
+	if c.Annotations["freshness_probe"] == "true" {
+		return
+	}
+	// A2: during dev.sh test / migrate-and-test orchestration the top-of-script
+	// rebuild has already guaranteed ./sb matches the cli/ source, so the
+	// per-invocation read-only WARN is redundant (committed → fresh) or a false
+	// positive (WIP → the binary matches the source under test). Suppress it for
+	// read-only commands only — mutating commands still hard-fail on a stale
+	// binary, even mid-orchestration.
+	if !isMutatingCommand(c) && os.Getenv(freshness.FreshnessQuietEnv) == "1" {
+		return
+	}
+
 	// Echoed in every refuse-with-guidance path so the operator's next
 	// step is unambiguous: rebuild, then re-invoke the exact command they
 	// just typed. Cobra's CommandPath returns "sb release prerelease"
@@ -147,10 +163,10 @@ func stalenessGuard(c *cobra.Command, _ []string) {
 // CommitSHA when no source qualifies — callers MUST treat empty as
 // "ambiguous identity, refuse mutating".
 //
-//   Tier 1 (definitive): explicit -ldflags 'cmd.commit=<40-char hex>'.
-//   Tier 2 (reliable):   debug.ReadBuildInfo()'s vcs.revision IFF
-//                        vcs.modified=false (clean tree at build time).
-//   Tier 3 (ambiguous):  empty result, fail-fast on mutating commands.
+//	Tier 1 (definitive): explicit -ldflags 'cmd.commit=<40-char hex>'.
+//	Tier 2 (reliable):   debug.ReadBuildInfo()'s vcs.revision IFF
+//	                     vcs.modified=false (clean tree at build time).
+//	Tier 3 (ambiguous):  empty result, fail-fast on mutating commands.
 //
 // No fallback: if neither tier yields a validly-shaped CommitSHA, the
 // binary is rejected for mutating use. This matches the upgrade-table's
@@ -215,6 +231,7 @@ func resolveCommitVersion() upgrade.CommitVersion {
 var readOnlyCommandPaths = map[string]bool{
 	"sb":                       true, // bare invocation prints help
 	"sb help":                  true,
+	"sb committed-drift":       true, // hidden freshness probe; guard-exempt via annotation, and read-only regardless
 	"sb completion":            true,
 	"sb completion bash":       true,
 	"sb completion zsh":        true,

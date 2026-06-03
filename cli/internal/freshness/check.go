@@ -26,6 +26,55 @@ import (
 	"strings"
 )
 
+// FreshnessQuietEnv, when set to "1", tells stalenessGuard to suppress the
+// per-invocation read-only staleness WARN. dev.sh sets it for its test /
+// migrate-and-test orchestration, where the top-of-script rebuild has already
+// guaranteed ./sb matches the cli/ source — so the WARN would be redundant
+// (committed → fresh) or a false positive (WIP → the binary matches the source
+// under test). Mutating commands ignore it: a stale binary applying migrations
+// must still hard-fail.
+const FreshnessQuietEnv = "STATBUS_FRESHNESS_QUIET"
+
+// CommittedDrift reports whether the binary built from commitSHA differs from
+// the worktree's HEAD with cli/ changes between them — the committed-drift axis
+// ONLY (not uncommitted/WIP drift, which a rebuild can't clear and which only a
+// file-mtime check can detect). This is the signal a rebuild decision needs
+// that file mtimes miss: `git commit`/`checkout`/`pull` move HEAD without
+// touching working-tree mtimes. A binary built from an older commit answers
+// reliably — its build commit is baked in at link time; HEAD is read live.
+//
+//	(true,  nil) committed drift — rebuild to HEAD.
+//	(false, nil) no committed drift (binary at HEAD, or no cli/ delta between).
+//	(false, err) probe could not run (no identity / not a git tree / git error);
+//	             the caller (dev.sh) treats this as "rebuild" to stay safe.
+//
+// Deliberately NOT a wrapper that also reports uncommitted drift: triggering a
+// rebuild on a dirty tree would loop (the tree stays dirty after the rebuild).
+func CommittedDrift(projDir, commitSHA string) (bool, error) {
+	if commitSHA == "" || commitSHA == "unknown" {
+		return false, fmt.Errorf("binary has no reliable commit identity (built without ldflags)")
+	}
+	if _, err := os.Stat(filepath.Join(projDir, ".git")); err != nil {
+		return false, fmt.Errorf("%s is not a git checkout (no .git): %w", projDir, err)
+	}
+	headCmd := exec.Command("git", "rev-parse", "HEAD")
+	headCmd.Dir = projDir
+	out, err := headCmd.Output()
+	if err != nil {
+		return false, fmt.Errorf("git rev-parse HEAD failed: %w", err)
+	}
+	headFull := strings.TrimSpace(string(out))
+	short := commitSHA
+	if len(short) > 8 {
+		short = short[:8]
+	}
+	drift, errMsg := probeCommittedDrift(projDir, commitSHA, headFull, short)
+	if errMsg != "" {
+		return false, fmt.Errorf("%s", errMsg)
+	}
+	return drift, nil
+}
+
 // IsStale returns "" when the binary's build commit matches the
 // worktree's cli/ tree (no drift), and a human-readable diagnostic
 // otherwise — covering committed-drift, uncommitted-drift, the

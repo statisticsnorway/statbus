@@ -30,15 +30,25 @@ if [ "$(git config core.hooksPath 2>/dev/null || true)" != ".githooks" ]; then
     git config core.hooksPath .githooks
 fi
 
-# Rebuild ./sb when:
+# Rebuild ./sb when EITHER drift axis fires — they need different evidence,
+# and neither tool can see the other's axis:
 #   - the binary doesn't exist, OR
-#   - any cli/**/*.go source is newer than the binary (developer pulled
-#     new code, or hot-edited locally — without this check, dev.sh would
-#     keep using the stale binary and developers would chase ghost bugs).
+#   - HOT-EDIT axis: any cli/**/*.go is newer than the binary (local WIP edit).
+#     Only a file mtime catches this — git can't tell whether the binary was
+#     built from the current *uncommitted* bytes. Self-clears on rebuild.
+#   - COMMITTED axis: the binary's build commit differs from HEAD with cli/
+#     changes between. `git commit`/`checkout`/`pull` move HEAD WITHOUT touching
+#     working-tree mtimes, so the mtime check above is blind to it. `./sb
+#     committed-drift` answers from the binary's baked-in build commit vs live
+#     HEAD (reliable even when the binary is stale) and exits non-zero on drift
+#     (or if it cannot confirm freshness). It is guard-exempt, so it never warns
+#     into this check.
 sb_needs_rebuild=false
 if ! test -x ./sb; then
     sb_needs_rebuild=true
 elif [ -n "$(find cli -name '*.go' -newer ./sb -print -quit 2>/dev/null)" ]; then
+    sb_needs_rebuild=true
+elif ! ./sb committed-drift; then
     sb_needs_rebuild=true
 fi
 if [ "$sb_needs_rebuild" = true ]; then
@@ -477,6 +487,13 @@ EOS
         fi
       ;;
     'test' )
+        # A2: ./sb is freshly rebuilt by the top-of-script block before we reach
+        # here, so its per-invocation read-only staleness WARN is redundant
+        # (committed → fresh) or a false positive (WIP → the binary matches the
+        # source under test). Quiet it for this orchestration; mutating ./sb
+        # commands still hard-fail on a stale binary. Exported so the recursive
+        # ./dev.sh / ./sb calls below inherit it.
+        export STATBUS_FRESHNESS_QUIET=1
         eval $(./dev.sh postgres-variables)
 
         POSTGRESQL_MAJOR=$(grep -E "^ARG postgresql_major=" "$WORKSPACE/postgres/Dockerfile" | cut -d= -f2)
@@ -799,6 +816,7 @@ EOF
         # Use case: CI workflow on a fresh runner with no DB state, OR
         # a local cold workspace post-`git pull` with new migrations.
         # Bootstraps from cold to running tests in one command.
+        export STATBUS_FRESHNESS_QUIET=1  # A2 — see the 'test' case above
         eval $(./dev.sh postgres-variables)
         SEED_NAME="${POSTGRES_SEED_DB:-statbus_seed}"
         LATEST_MIGRATION=$(for f in "$WORKSPACE/migrations/"*.up.sql "$WORKSPACE/migrations/"*.up.psql; do
