@@ -26,15 +26,6 @@ import (
 	"strings"
 )
 
-// FreshnessQuietEnv, when set to "1", tells stalenessGuard to suppress the
-// per-invocation read-only staleness WARN. dev.sh sets it for its test /
-// migrate-and-test orchestration, where the top-of-script rebuild has already
-// guaranteed ./sb matches the cli/ source — so the WARN would be redundant
-// (committed → fresh) or a false positive (WIP → the binary matches the source
-// under test). Mutating commands ignore it: a stale binary applying migrations
-// must still hard-fail.
-const FreshnessQuietEnv = "STATBUS_FRESHNESS_QUIET"
-
 // CommittedDrift reports whether the binary built from commitSHA differs from
 // the worktree's HEAD with cli/ changes between them — the committed-drift axis
 // ONLY (not uncommitted/WIP drift, which a rebuild can't clear and which only a
@@ -75,11 +66,12 @@ func CommittedDrift(projDir, commitSHA string) (bool, error) {
 	return drift, nil
 }
 
-// IsStale returns "" when the binary's build commit matches the
-// worktree's cli/ tree (no drift), and a human-readable diagnostic
-// otherwise — covering committed-drift, uncommitted-drift, the
-// combined case, AND broken-freshness-check states the operator
-// should know about.
+// IsStale returns "" when the binary's build commit matches HEAD's
+// cli/ tree (no committed drift), and a human-readable diagnostic
+// otherwise — committed drift, plus broken-freshness-check states the
+// operator should know about. Uncommitted (WIP) cli/ edits are NOT
+// flagged: the guard can't tell whether they're in the binary, so it
+// reports only what it can verify (the build commit vs HEAD).
 //
 // Parameter naming: `commitSHA` mirrors the upgrade table's commit_sha
 // column and the `upgrade.CommitSHA` typed value the caller now
@@ -98,7 +90,7 @@ func CommittedDrift(projDir, commitSHA string) (bool, error) {
 //     we can't make the comparison (and git would walk upward to a
 //     parent repo, producing false positives).
 //
-// Drift classification (two independent probes):
+// Committed-drift classification:
 //
 //   - **committedDrift**: `git diff --quiet <commitSHA> HEAD -- cli/`
 //     exit 1. The binary was built from a commit older (or different)
@@ -106,19 +98,11 @@ func CommittedDrift(projDir, commitSHA string) (bool, error) {
 //     when commitSHA == HEAD (no possible drift between identical
 //     commits). Operator action: rebuild the binary from HEAD.
 //
-//   - **uncommittedDrift**: `git diff --quiet HEAD -- cli/` exit 1.
-//     The worktree has uncommitted cli/ changes (staged or unstaged)
-//     vs HEAD. Operator action: commit those changes, then rebuild;
-//     or rebuild from the WIP tree if iterating.
-//
-// The four classification outcomes:
-//   - neither → "" (fresh)
-//   - committed only → "built from X, HEAD is now Y" message
-//   - uncommitted only → "built from X (matches HEAD), but cli/ has
-//     uncommitted changes" — the case King hit while iterating, where
-//     the prior monolithic message misled by suggesting a rebuild
-//     without naming the actual root cause (staged changes).
-//   - both → message names both drifts.
+// Outcomes:
+//   - no committed drift → "" (fresh) — including a dirty worktree on a
+//     HEAD-matching binary: WIP edits are intentionally not flagged
+//     (see CommittedDrift's rationale).
+//   - committed drift → "built from X, HEAD is now Y" message.
 //
 // Rebuild remediation always lists BOTH build paths:
 //   - `./dev.sh build-sb` — host-platform only, fast (~3s).
@@ -194,37 +178,23 @@ func IsStale(projDir, commitSHA string) string {
 		return msg
 	}
 
-	uncommittedDrift, msg := probeUncommittedDrift(projDir)
-	if msg != "" {
-		return msg
-	}
-
-	rebuildHint := "  Rebuild:\n" +
-		"    ./dev.sh build-sb       (host-only, fast — for dev iteration)\n" +
-		"    ./dev.sh cross-build-sb (all platforms — for release artifacts)"
-
-	switch {
-	case !committedDrift && !uncommittedDrift:
+	// Committed drift is the only staleness the guard can reliably assert: the
+	// binary's build commit differs from HEAD with cli/ changes between. We do
+	// NOT flag uncommitted (WIP) cli/ edits — the binary's identity is
+	// commit-based, blind to whether it was built from the current uncommitted
+	// bytes, so a "dirty tree" verdict would be a guess (and a false positive
+	// whenever the binary was just rebuilt from that WIP tree). Treating WIP as
+	// fresh lets you run ./sb while editing cli/; the real upgrade-safety hazard
+	// — pulled new code, didn't rebuild — is committed drift, which stays.
+	if !committedDrift {
 		return ""
-	case committedDrift && !uncommittedDrift:
-		return fmt.Sprintf(
-			"./sb is stale: built from %s, HEAD is now %s with cli/ changes.\n%s",
-			short, headShort, rebuildHint)
-	case !committedDrift && uncommittedDrift:
-		return fmt.Sprintf(
-			"./sb is stale: built from %s (matches HEAD), but cli/ has uncommitted changes.\n"+
-				"  Commit them and rebuild, OR rebuild to include the WIP state:\n"+
-				"    ./dev.sh build-sb       (host-only, fast — for dev iteration)\n"+
-				"    ./dev.sh cross-build-sb (all platforms — for release artifacts)",
-			short)
-	default: // both
-		return fmt.Sprintf(
-			"./sb is stale: built from %s, HEAD is now %s with cli/ changes, AND cli/ has uncommitted changes.\n"+
-				"  Commit (or stash) uncommitted changes, then rebuild:\n"+
-				"    ./dev.sh build-sb       (host-only, fast — for dev iteration)\n"+
-				"    ./dev.sh cross-build-sb (all platforms — for release artifacts)",
-			short, headShort)
 	}
+	return fmt.Sprintf(
+		"./sb is stale: built from %s, HEAD is now %s with cli/ changes.\n"+
+			"  Rebuild:\n"+
+			"    ./dev.sh build-sb       (host-only, fast — for dev iteration)\n"+
+			"    ./dev.sh cross-build-sb (all platforms — for release artifacts)",
+		short, headShort)
 }
 
 // probeCommittedDrift runs `git diff --quiet <commitSHA> HEAD -- cli/`
@@ -270,40 +240,4 @@ func probeCommittedDrift(projDir, commitSHA, headFull, short string) (bool, stri
 			"  This usually means the build commit (%s) isn't in the local repo —\n"+
 			"  rebuild from a tree that resolves it, or `git fetch` to retrieve it.",
 		exitErr.ExitCode(), stderrMsg, short)
-}
-
-// probeUncommittedDrift runs `git diff --quiet HEAD -- cli/` to
-// detect uncommitted (staged or unstaged) cli/ changes vs HEAD.
-// `git diff HEAD` covers BOTH staged and unstaged uncommitted changes
-// because the working tree is the union of both relative to HEAD.
-//
-// Returns (drift, errorMsg) — errorMsg non-empty means the probe
-// itself failed.
-func probeUncommittedDrift(projDir string) (bool, string) {
-	cmd := exec.Command("git", "diff", "--quiet", "HEAD", "--", "cli/")
-	cmd.Dir = projDir
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	err := cmd.Run()
-	if err == nil {
-		return false, ""
-	}
-	exitErr, ok := err.(*exec.ExitError)
-	if !ok {
-		return false, fmt.Sprintf(
-			"freshness check could not run git: %v.\n"+
-				"  Investigate the git environment (PATH, install, permissions), then retry.",
-			err)
-	}
-	if exitErr.ExitCode() == 1 {
-		return true, ""
-	}
-	stderrMsg := strings.TrimSpace(stderr.String())
-	if len(stderrMsg) > 200 {
-		stderrMsg = stderrMsg[:200] + "..."
-	}
-	return false, fmt.Sprintf(
-		"freshness check failed: `git diff HEAD -- cli/` exited %d.\n"+
-			"  stderr: %s",
-		exitErr.ExitCode(), stderrMsg)
 }

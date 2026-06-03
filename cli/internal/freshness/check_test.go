@@ -45,46 +45,22 @@ func TestIsStale_FreshTree(t *testing.T) {
 	}
 }
 
-// TestIsStale_UncommittedDrift covers the case King hit while iterating:
-// the binary was built from the current HEAD (commit matches), but cli/
-// has uncommitted (staged or unstaged) changes. The diagnostic must
-// specifically name "uncommitted changes" — NOT the misleading
-// "built from X, but cli/ has changed since" wording that conflated
-// committed and uncommitted drift pre-fix.
-func TestIsStale_UncommittedDrift(t *testing.T) {
+// TestIsStale_UncommittedIgnored is the canonical-guard behavior: the binary was
+// built from the current HEAD (commit matches), and cli/ has uncommitted (WIP)
+// changes. The guard can't tell whether those bytes are in the binary — its
+// identity is commit-based — so it must NOT flag staleness. Running ./sb while
+// editing cli/ is allowed; only committed drift is flagged.
+func TestIsStale_UncommittedIgnored(t *testing.T) {
 	dir, head := setupGitRepoWithCli(t)
 
-	// Modify a file inside cli/ without committing → uncommitted drift only.
+	// Modify a file inside cli/ without committing → uncommitted (WIP) only.
 	cliFile := filepath.Join(dir, "cli", "main.go")
 	if err := os.WriteFile(cliFile, []byte("package main\n// drifted\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	got := IsStale(dir, head)
-	if got == "" {
-		t.Fatal("uncommitted drift: got empty, want diagnostic")
-	}
-	short := head
-	if len(short) > 8 {
-		short = short[:8]
-	}
-	if !strings.Contains(got, "./sb is stale") {
-		t.Errorf("diagnostic missing prefix: %q", got)
-	}
-	if !strings.Contains(got, short) {
-		t.Errorf("diagnostic missing short commit %q: %q", short, got)
-	}
-	if !strings.Contains(got, "uncommitted changes") {
-		t.Errorf("diagnostic missing 'uncommitted changes' phrasing — operator can't distinguish from committed drift: %q", got)
-	}
-	if !strings.Contains(got, "matches HEAD") {
-		t.Errorf("diagnostic should explicitly say the binary matches HEAD (so operator doesn't blame an old build): %q", got)
-	}
-	if !strings.Contains(got, "./dev.sh build-sb") {
-		t.Errorf("diagnostic missing fast rebuild option for dev iteration: %q", got)
-	}
-	if !strings.Contains(got, "./dev.sh cross-build-sb") {
-		t.Errorf("diagnostic missing release-platform rebuild option: %q", got)
+	if got := IsStale(dir, head); got != "" {
+		t.Errorf("uncommitted (WIP) cli/ edits on a HEAD-matching binary must be fresh; got %q", got)
 	}
 }
 
@@ -132,14 +108,14 @@ func TestIsStale_CommittedDrift(t *testing.T) {
 	}
 }
 
-// TestIsStale_BothDrifts covers the combined case: binary commit is
-// older than HEAD with cli/ changes between, AND there are also
-// uncommitted cli/ changes in the worktree. Diagnostic must name BOTH
-// drifts so the operator knows to commit/stash before rebuilding.
-func TestIsStale_BothDrifts(t *testing.T) {
+// TestIsStale_CommittedDriftWithWip: committed drift WITH an uncommitted change
+// on top. Committed drift dominates — the binary is genuinely from an older
+// commit — so the guard flags it as stale. The uncommitted change is not
+// separately mentioned; the guard's only concern is the build commit vs HEAD.
+func TestIsStale_CommittedDriftWithWip(t *testing.T) {
 	dir, oldHead := setupGitRepoWithCli(t)
 
-	// Commit-advance cli/ (introduces committed drift vs oldHead).
+	// Commit-advance cli/ (committed drift vs oldHead).
 	cliFile := filepath.Join(dir, "cli", "main.go")
 	if err := os.WriteFile(cliFile, []byte("package main\n// later\n"), 0644); err != nil {
 		t.Fatal(err)
@@ -147,23 +123,20 @@ func TestIsStale_BothDrifts(t *testing.T) {
 	runGitIn(t, dir, "add", "cli/main.go")
 	runGitIn(t, dir, "commit", "-q", "-m", "advance cli")
 
-	// AND leave a further uncommitted change on top.
+	// AND a further uncommitted change on top.
 	if err := os.WriteFile(cliFile, []byte("package main\n// later\n// wip\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 
 	got := IsStale(dir, oldHead)
 	if got == "" {
-		t.Fatal("combined drift: got empty, want diagnostic")
+		t.Fatal("committed drift (with WIP on top): got empty, want stale diagnostic")
 	}
 	if !strings.Contains(got, "HEAD is now") {
 		t.Errorf("diagnostic missing committed-drift phrasing: %q", got)
 	}
-	if !strings.Contains(got, "uncommitted changes") {
-		t.Errorf("diagnostic missing uncommitted-drift phrasing: %q", got)
-	}
-	if !strings.Contains(got, "Commit (or stash)") {
-		t.Errorf("diagnostic missing combined-action guidance: %q", got)
+	if strings.Contains(got, "uncommitted") {
+		t.Errorf("committed-drift verdict should not mention uncommitted: %q", got)
 	}
 }
 

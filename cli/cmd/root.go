@@ -89,16 +89,6 @@ func stalenessGuard(c *cobra.Command, _ []string) {
 	if c.Annotations["freshness_probe"] == "true" {
 		return
 	}
-	// A2: during dev.sh test / migrate-and-test orchestration the top-of-script
-	// rebuild has already guaranteed ./sb matches the cli/ source, so the
-	// per-invocation read-only WARN is redundant (committed → fresh) or a false
-	// positive (WIP → the binary matches the source under test). Suppress it for
-	// read-only commands only — mutating commands still hard-fail on a stale
-	// binary, even mid-orchestration.
-	if !isMutatingCommand(c) && os.Getenv(freshness.FreshnessQuietEnv) == "1" {
-		return
-	}
-
 	// Echoed in every refuse-with-guidance path so the operator's next
 	// step is unambiguous: rebuild, then re-invoke the exact command they
 	// just typed. Cobra's CommandPath returns "sb release prerelease"

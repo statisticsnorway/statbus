@@ -487,13 +487,6 @@ EOS
         fi
       ;;
     'test' )
-        # A2: ./sb is freshly rebuilt by the top-of-script block before we reach
-        # here, so its per-invocation read-only staleness WARN is redundant
-        # (committed → fresh) or a false positive (WIP → the binary matches the
-        # source under test). Quiet it for this orchestration; mutating ./sb
-        # commands still hard-fail on a stale binary. Exported so the recursive
-        # ./dev.sh / ./sb calls below inherit it.
-        export STATBUS_FRESHNESS_QUIET=1
         eval $(./dev.sh postgres-variables)
 
         POSTGRESQL_MAJOR=$(grep -E "^ARG postgresql_major=" "$WORKSPACE/postgres/Dockerfile" | cut -d= -f2)
@@ -820,7 +813,6 @@ EOF
         # Use case: CI workflow on a fresh runner with no DB state, OR
         # a local cold workspace post-`git pull` with new migrations.
         # Bootstraps from cold to running tests in one command.
-        export STATBUS_FRESHNESS_QUIET=1  # A2 — see the 'test' case above
         eval $(./dev.sh postgres-variables)
         SEED_NAME="${POSTGRES_SEED_DB:-statbus_seed}"
         LATEST_MIGRATION=$(for f in "$WORKSPACE/migrations/"*.up.sql "$WORKSPACE/migrations/"*.up.psql; do
