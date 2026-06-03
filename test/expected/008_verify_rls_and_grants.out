@@ -32,11 +32,11 @@
 \a
 -- Create the docs directory if it doesn't exist
 \! mkdir -p doc/db
-CREATE OR REPLACE FUNCTION public.generate_security_doc(
+CREATE OR REPLACE FUNCTION public.generate_doc_db_security_report(
     OUT doc TEXT,
     OUT verification TEXT
 )
-LANGUAGE plpgsql AS $generate_security_doc$
+LANGUAGE plpgsql AS $generate_doc_db_security_report$
 DECLARE
     v_doc TEXT := '';
     v_problems TEXT[] := ARRAY[]::text[];
@@ -49,18 +49,11 @@ DECLARE
     v_required_privileges TEXT[];  -- Set per-view based on insertability
     -- Tables that are intentionally exempt from RLS because they are internal
     -- staging/working tables not exposed via PostgREST.
-    -- Also includes dynamically-created import_*_upload and import_*_data tables
-    -- (created by admin.import_job_generate(), RLS TODO tracked separately).
     v_exempt_tables TEXT[] := ARRAY[
         'statistical_history_facet_partitions',
         'statistical_unit_facet_dirty_hash_slots',
         'statistical_unit_facet_staging',
         'statistical_unit_staging'
-    ];
-    -- Pattern-based exemptions (matched with LIKE)
-    v_exempt_table_patterns TEXT[] := ARRAY[
-        'import_%_upload',
-        'import_%_data'
     ];
     -- Views with intentionally non-standard grant patterns.
     -- public.user: security_barrier view, user creation via user_create() function,
@@ -266,8 +259,7 @@ each role can see and modify.
                 v_doc := v_doc || format(E'  - Policies: %s\n', v_policy_str);
             END IF;
         ELSE
-            IF v_rec.table_name = ANY(v_exempt_tables)
-               OR EXISTS (SELECT 1 FROM unnest(v_exempt_table_patterns) AS p WHERE v_rec.table_name LIKE p) THEN
+            IF v_rec.table_name = ANY(v_exempt_tables) THEN
                 v_doc := v_doc || format(E'- **`%s`** — RLS OFF (exempt: internal staging table)\n', v_rec.table_name);
             ELSE
                 v_doc := v_doc || format(E'- **`%s`** — **RLS OFF** ⚠️\n', v_rec.table_name);
@@ -443,7 +435,6 @@ each role can see and modify.
           AND c.relkind = 'r'
           AND NOT c.relrowsecurity
           AND c.relname <> ALL(v_exempt_tables)
-          AND NOT EXISTS (SELECT 1 FROM unnest(v_exempt_table_patterns) AS p WHERE c.relname LIKE p)
         ORDER BY c.relname
     LOOP
         -- Suggest edit if table looks like a core business table, read otherwise
@@ -723,15 +714,15 @@ each role can see and modify.
 
     doc := v_doc;
 END;
-$generate_security_doc$;
+$generate_doc_db_security_report$;
 -- Generate the documentation and capture the output
-SELECT * FROM public.generate_security_doc() \gset
+SELECT * FROM public.generate_doc_db_security_report() \gset
 -- Write the doc file
 \o doc/db-security-report.md
 SELECT :'doc';
 \o
 -- Clean up the function
-DROP FUNCTION public.generate_security_doc();
+DROP FUNCTION public.generate_doc_db_security_report();
 -- Turn decorative output back on for the test result
 \t
 \a
