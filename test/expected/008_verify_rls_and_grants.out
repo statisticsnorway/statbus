@@ -105,11 +105,6 @@ DECLARE
 
     -- Worker/Derive Pipeline: Write to RLS-protected tables, DDL, worker orchestration
     v_worker_funcs TEXT[] := ARRAY[
-        -- Autoscaler: reads the TRUE total public.statistical_unit count
-        -- (must bypass caller RLS — a restricted_user sees only a subset) and
-        -- writes the global public.settings.partition_count_target. Needs the
-        -- full count + the global write regardless of caller restrictions.
-        'admin.adjust_partition_count_target',
         'admin.disable_temporal_triggers',
         'admin.enable_temporal_triggers',
         'worker.derive_reports',

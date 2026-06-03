@@ -1,6 +1,10 @@
-```sql
+-- Down Migration 20260603093525: scope admin.adjust_partition_count_target to security invoker
+BEGIN;
+
+-- Restore SECURITY DEFINER (exact pre-migration definition).
 CREATE OR REPLACE PROCEDURE admin.adjust_partition_count_target()
  LANGUAGE plpgsql
+ SECURITY DEFINER
  SET search_path TO 'admin', 'public', 'pg_temp'
 AS $procedure$
 DECLARE
@@ -22,5 +26,6 @@ BEGIN
        SET partition_count_target = v_desired
      WHERE partition_count_target IS DISTINCT FROM v_desired;
 END;
-$procedure$
-```
+$procedure$;
+
+END;
