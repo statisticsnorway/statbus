@@ -701,8 +701,12 @@ EOS
         # statbus_seed mutation key. That serialises against
         # `./sb db with-seed-lock --exclusive` so a parallel
         # recreate-seed doesn't drop statbus_seed mid-query.
+        # A3: assert-db-at-head already prints a complete REFUSED / Reason / Fix
+        # block whose Fix line is the seed/template rebuild command — don't echo
+        # a second, near-identical remediation. With the binary-staleness noise
+        # gone (A1/A2), this legitimate seed-drift refuse stands alone as one
+        # actionable block.
         if ! SOURCE_VERSION=$(./sb assert-db-at-head "$SEED_NAME_PRECHECK" "./dev.sh test fast"); then
-            echo "  Or: ./dev.sh migrate-and-test ${TEST_ARGS[*]}  (composition that auto-rebuilds)"
             exit 1
         fi
 
