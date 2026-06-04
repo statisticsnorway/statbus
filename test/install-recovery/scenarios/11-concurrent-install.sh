@@ -14,7 +14,7 @@
 #   public.upgrade; the second install does not produce a row.
 #
 # Validates fixes already on master:
-#   - tmp/upgrade-in-progress.json mutex with O_EXCL + PID + flock
+#   - tmp/upgrade-in-progress.json mutex with flock (LOCK_EX) + PID
 #   - probe 2 (live-upgrade) state in install.Detect
 #   - the install state ladder's refuse-with-diagnostic path
 #
