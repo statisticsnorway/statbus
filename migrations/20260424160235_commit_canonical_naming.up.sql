@@ -1,6 +1,6 @@
 -- Rc.63 commit-canonical-naming: align the upgrade-table schema with
 -- the four canonical names used in the Go codebase. One name, one
--- semantic; no `sha-` prefix anywhere. See doc/upgrade-timeline.md +
+-- semantic; no `sha-` prefix anywhere. See doc/upgrade-system.md +
 -- cli/internal/upgrade/commit.go for the naming rules.
 --
 -- Changes:
