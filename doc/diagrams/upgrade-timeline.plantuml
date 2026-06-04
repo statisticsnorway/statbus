@@ -20,6 +20,15 @@ participant "systemd (user)" as systemd
 participant "Upgrade Service\nstatbus-upgrade@$USER" as service
 participant "PostgreSQL\npublic.upgrade + snapshot" as db
 
+== Fresh install — seed restore (first boot, before any upgrade) ==
+cici -> db : ./sb install (StateFresh) — Seed step:\n./sb db seed fetch (pull statbus-seed:<commit_short>) + pg_restore --single-transaction
+cici -> db : ./sb migrate up — apply only the migrations newer than the seed
+note over cici, db
+  Fresh DB only: checkSeedRestored gates the Seed step OFF when the DB holds
+  user data or applied migrations — a seed restore never overwrites a populated DB.
+  Seed CREATION is a CI/dev activity — see DEVELOPMENT.md § Database seed.
+end note
+
 == Service boot ==
 systemd -> service : start statbus-upgrade@$USER.service
 service -> service : recoverFromFlag — reconcile any leftover flag

@@ -182,6 +182,48 @@ wins first leaves the loser with `RowsAffected = 0`, which bails cleanly. After 
 successful inline upgrade, if the systemd upgrade unit is active, install restarts it so
 the long-running service picks up the new binary and migrations.
 
+## Fresh-install seed restore
+
+A genuinely fresh box does not replay every migration from zero. It restores a
+pre-migrated `pg_dump` **seed**, then applies only the migrations newer than the seed.
+The seed is created as a developer/CI activity and shipped as the commit-tagged image
+`ghcr.io/statisticsnorway/statbus-seed:<commit_short>`; the full creation lifecycle and
+the `seed.json` field schema live in
+[`doc/DEVELOPMENT.md` § Database seed](DEVELOPMENT.md#database-seed).
+
+The restore is the **Seed step** of the `./sb install` step-table
+(`cli/cmd/install.go:562`) — the same step-table every install path runs (fresh → state 1,
+idempotent refresh → state 8, and the post-swap install fixup the upgrade service runs
+**under systemd**, step 13 of [Execute upgrade](#binary-swap-restart--resume)). Runtime
+order on a fresh box:
+
+1. **Gate** — `checkSeedRestored` (`cli/cmd/install.go:1412`) runs the Seed step **only**
+   against a genuinely fresh DB: no user data **and** no applied migrations. A populated DB
+   short-circuits via `dbHasUserData` (`cli/cmd/install.go:1427`), so a seed restore can
+   never overwrite real data. This same gate is what makes the step a safe no-op when the
+   systemd upgrade service runs the install fixup against an already-populated DB.
+2. **Fetch** — `./sb db seed fetch` resolves `commit_short` (from `.env`'s `COMMIT_SHORT`,
+   else `git rev-parse --short=8`) and pulls `statbus-seed:<commit_short>`, extracting
+   `/seed.pg_dump` + `/seed.json` with `docker create` + `docker cp` — the image is never
+   run (`cli/cmd/seed.go:159`).
+3. **Restore** — `./sb db seed restore` runs `pg_restore --clean --if-exists --no-owner
+   --disable-triggers --single-transaction` (`cli/cmd/seed.go:237`). `--single-transaction`
+   makes it all-or-nothing — there is no "warnings but data restored" outcome — and
+   `runPgRestoreAtomic` fails the install loudly if a future change ever drops the flag
+   (`cli/cmd/seed.go:246`). The restore brings in the `db.migration` rows recorded at
+   seed-creation time (the `migration_version` in `seed.json`).
+4. **Migrate the delta** — the **Migrations step** (`cli/cmd/install.go:563`) runs
+   `migrate up`, which reads the just-restored `db.migration` via `listAppliedVersions`
+   (`cli/internal/migrate/migrate.go:487`) and applies only versions newer than the seed
+   (`cli/internal/migrate/migrate.go:740`), then re-runs `post_restore.sql`
+   (`cli/internal/migrate/migrate.go:912`).
+5. **Normal service** — the remaining install steps (JWT, users, signers, upgrade service)
+   run, and the box enters its normal lifecycle at [Service boot](#service-boot).
+
+The Seed step is non-fatal: if no image is published for the commit, or the daemon is down,
+`runSeedRestore` falls through (`cli/cmd/install.go:1495`) and the Migrations step replays
+every migration from zero — slower, identical end state.
+
 ## Flag-file mutex (install ↔ service)
 
 ### What the mutex protects against

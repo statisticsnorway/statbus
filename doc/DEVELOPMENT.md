@@ -285,6 +285,80 @@ This creates two files in `migrations/`:
 - Test migrations on sample data before committing
 - See [CONVENTIONS.md](CONVENTIONS.md) for SQL style guide
 
+### Database seed
+
+A **seed** is a `pg_dump` of a fully-migrated, empty database. A fresh install or
+dev box restores it in ~2 seconds instead of replaying every migration from zero,
+then runs only the migrations newer than the seed. **Creating** the seed is a
+developer/CI activity (documented here); **restoring** it is part of install — see
+[Upgrade Timeline § Fresh-install seed restore](upgrade-timeline.md#fresh-install-seed-restore)
+for where the restore enters the runtime.
+
+#### Creating the seed
+
+`./sb db seed dump` (`cli/cmd/seed.go:285`, core in `DumpSeed`, `cli/cmd/seed.go:379`)
+writes two files into `.db-seed/` from the `statbus_seed` database:
+
+- `.db-seed/seed.pg_dump` — `pg_dump -Fc --no-owner --exclude-table-data=auth.secrets <seed-db>`
+  (`cli/cmd/seed.go:463`). Custom format (`-Fc`) so the consume side can `pg_restore`.
+  `auth.secrets` data is excluded because it holds per-deployment JWT secrets that must
+  never ship in a shared artifact (`cli/cmd/seed.go:447`).
+- `.db-seed/seed.json` — the metadata sidecar (`cli/cmd/seed.go:490`).
+
+`DumpSeed` dumps from `${POSTGRES_SEED_DB}` (the canonical fresh-from-migrations DB),
+never from the runtime app DB, which is contaminable by definition (`cli/cmd/seed.go:376`).
+It refuses to run if the DB is unreachable (`cli/cmd/seed.go:384`) or the seed DB does
+not exist (`cli/cmd/seed.go:398`), pointing you at `./dev.sh recreate-seed`.
+
+Build the seed DB itself with `./dev.sh recreate-seed` (`dev.sh:1326`): it fetches the
+latest published seed, restores it, then applies only the newer migrations — the same
+fast path the install uses. Under the hood that is the three primitives
+`./sb db seed create-db` (a fresh copy of `template_statbus` plus the per-DB `auth`
+schema and grants — `CreateSeedDb`, `cli/cmd/seed.go:313`) → `./sb migrate up --target seed`
+→ `./sb db seed dump`. `FULL_REPLAY=1 ./dev.sh recreate-seed` forces a from-zero rebuild.
+
+#### seed.json fields
+
+`seedMeta` (`cli/cmd/seed.go:37`) — written at creation, read on the consume side:
+
+| Field | Source | Read at restore for |
+|---|---|---|
+| `migration_version` | `MAX(version)` from `db.migration` (`cli/cmd/seed.go:406`) | the schema state the dump captures; `migrate up` applies only newer versions |
+| `post_restore_sha` | sha256 of `migrations/post_restore.sql` (`postRestoreFileSHA`, `cli/cmd/seed.go:526`) | the freshness fingerprint (below) |
+| `commit_sha` | `git rev-parse HEAD`, or `--commit` when there is no `.git` (`cli/cmd/seed.go:421`) | which commit the seed belongs to |
+| `tags` | `git tag --points-at HEAD` (`cli/cmd/seed.go:425`) | release tags at that commit (empty in the image build) |
+| `created_at` | UTC RFC3339 timestamp (`cli/cmd/seed.go:495`) | human freshness display |
+
+These fields are consumed on the restore side — see
+[Upgrade Timeline § Fresh-install seed restore](upgrade-timeline.md#fresh-install-seed-restore).
+
+#### The post_restore.sql fingerprint
+
+`migrations/post_restore.sql` is re-run on **every** `migrate up`, even when no new
+migrations are pending (`cli/internal/migrate/migrate.go:756`, applied at `:912`). So an
+edit to `post_restore.sql` changes the post-restore schema state **without** bumping any
+migration version — and without a fingerprint that change would silently ship a stale
+dump. Recording the file's sha256 in `seed.json` (`cli/cmd/seed.go:437`) makes the change
+detectable even when `migration_version` is unchanged; an absent field is treated as
+"fingerprint missing → full rebuild" (`cli/cmd/seed.go:28`).
+
+#### CI packs the seed into a commit-tagged image
+
+The seed ships as the OCI image `ghcr.io/statisticsnorway/statbus-seed:<commit_short>` —
+the same commit-addressable transport as the five service images, replacing the former
+`db-seed` git branch. The `seed` job in `.github/workflows/images.yaml:129` builds it
+`--target seed` from `postgres/Dockerfile` **after** the `statbus-sb` manifest exists (it
+is pulled in as a build-context), passing the full `COMMIT` SHA so `seed.json` carries the
+right commit when the build tree has no `.git`. It is amd64-only because the `-Fc` logical
+dump restores onto either architecture.
+
+Inside the image build, the hermetic `seed-builder` stage (`postgres/Dockerfile:452`) runs
+the real `sb` subcommands — `sb db seed create-db` → `sb migrate up --target seed` →
+`sb db seed dump --commit $COMMIT` (`postgres/Dockerfile:513`) — so there is zero
+hand-mirrored SQL. The final `seed` stage is `busybox:musl` and ships both `/seed.pg_dump`
+and `/seed.json` with a self-documenting `CMD` (`postgres/Dockerfile:534`); `docker run` on
+it prints extraction usage rather than starting a service.
+
 ### Database Schema
 
 StatBus uses several PostgreSQL schemas:
