@@ -18,6 +18,10 @@
 #   STATBUS_ROLLBACK_ERROR   — short reason string from the failed git restore
 #   STATBUS_RECOVERY_CMD     — exact command the operator should run
 #
+# Rolled-back environment (set when the upgrade failed but the snapshot restore
+# SUCCEEDED — the system is healthy on the OLD version):
+#   STATBUS_ROLLED_BACK      — "1" when present; regular-support tier (no siren)
+#
 # Liveness-trip environment (set by `sb upgrade liveness-check` when it halts a
 # wedged slow upgrade loop — plan piece #7):
 #   STATBUS_LIVENESS_TRIPPED — "1" when present
@@ -60,6 +64,19 @@ elif [ "${STATBUS_ROLLBACK_FAILED:-}" = "1" ]; then
     if [ -n "${STATBUS_RECOVERY_CMD:-}" ]; then
         BODY="${BODY}\n\`\`\`${STATBUS_RECOVERY_CMD}\`\`\`"
     fi
+    if [ -n "${STATBUS_URL:-}" ]; then
+        BODY="${BODY}\nInstance: <${STATBUS_URL}>"
+    fi
+    TEXT="${HEADER}\n${BODY}"
+elif [ "${STATBUS_ROLLED_BACK:-}" = "1" ]; then
+    # Upgrade failed but the snapshot restore SUCCEEDED — the system is healthy
+    # on the OLD version. Regular-support tier (warning, no siren): the operator
+    # needs to know the upgrade didn't land and to report it, but NO manual
+    # recovery is required. Unattended deployments are monitored HERE (Slack), so
+    # the fail-fast rollback surfaces even on this healthy outcome.
+    HEADER=":warning: Upgrade rolled back on *${STATBUS_SERVER:-unknown}* — running normally on the previous version"
+    BODY="Attempted: \`${STATBUS_VERSION:-unknown}\` (from \`${STATBUS_FROM_VERSION:-unknown}\`)"
+    BODY="${BODY}\nThe upgrade failed and was rolled back; the system is running normally on the previous version. The failure is recorded — please report it to support. No manual intervention needed."
     if [ -n "${STATBUS_URL:-}" ]; then
         BODY="${BODY}\nInstance: <${STATBUS_URL}>"
     fi

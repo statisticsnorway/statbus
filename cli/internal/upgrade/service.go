@@ -196,6 +196,12 @@ const (
 const (
 	FlagPhasePreSwap  = ""          // default: written before replaceBinaryOnDisk, or legacy
 	FlagPhasePostSwap = "post_swap" // stamped after binary swap, before exit-42 handoff
+	// FlagPhaseResuming is stamped the instant resumePostSwap commits to running
+	// applyPostSwap on the new binary. A recovery that finds it means the planned
+	// post-swap resume began and the process died before completing. One-shot:
+	// recoverFromFlag rolls back to the snapshot instead of re-resuming — see
+	// upgrade-timeline.md § Binary-swap restart + resume.
+	FlagPhaseResuming = "resuming"
 )
 
 // UpgradeFlag is written to tmp/upgrade-in-progress.json before destructive
@@ -733,6 +739,29 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 	if holder == HolderInstall {
 		logRecover("Clearing stale install flag (PID %d crashed or exited without releasing)", flag.PID)
 		os.Remove(d.flagPath())
+		return nil
+	}
+
+	// Resuming-phase flag → the planned post-swap resume began (resumePostSwap
+	// re-acquired the flock and stamped Resuming) and THIS process died before
+	// completing applyPostSwap (watchdog SIGABRT on a hung step, OOM, reboot,
+	// kill). One-shot fail-fast: do NOT re-resume — re-resuming is exactly the
+	// retry loop the single-unit collapse removes (upgrade-timeline.md
+	// § Binary-swap restart + resume). The binary was already swapped and
+	// applyPostSwap may have mutated the DB, so this is a POST-swap rollback:
+	// recoveryRollback → rollback → restoreDatabase restores the finalized
+	// snapshot (pickLatestBackup returns the active dir) and marks the row
+	// terminal (§ Complete / rollback).
+	if flag.Phase == FlagPhaseResuming {
+		logRecover("Resuming-phase flag detected for upgrade %d (%s): post-swap resume began but the process died before completing — rolling back to snapshot, NO retry (one-shot).",
+			flag.ID, flag.Label())
+		if appendLog != nil {
+			appendLog.Close()
+			appendLog = nil
+		}
+		d.recoveryRollback(ctx, int(flag.ID), flag.Label(), logRelPath, fmt.Sprintf(
+			"%s: process died during post-swap resume (no clean step-failure reached — watchdog SIGABRT, OOM, reboot, or kill); rolled back to the snapshot. NO retry — re-run via ./sb install.",
+			ErrResumeDied))
 		return nil
 	}
 
@@ -1447,6 +1476,7 @@ func logUpgradeRow(label string, row string) {
 //	ErrBinaryReplaceFailed   — mid-flow binary replacement (download/verify/swap) failed before migrations
 //	ErrBinaryBuildFailed     — mid-flow `make -C cli build` from source failed (edge channel; no release artifact)
 //	ErrInstallFixupFailed    — post-upgrade ./sb install fixup step failed (non-fatal)
+//	ErrResumeDied            — post-swap resume began (flag Phase=resuming) then the process died → roll back, no retry
 const (
 	ErrMigrationFailed       = "MIGRATION_FAILED"
 	ErrBackupFailed          = "BACKUP_FAILED"
@@ -1466,6 +1496,12 @@ const (
 	// Used by completeInProgressUpgrade's ground-truth check (task #49)
 	// to mark rows FAILED rather than silently completing them.
 	ErrInstallPreconditionFailed = "INSTALL_PRECONDITION_FAILED"
+	// ErrResumeDied — the planned post-swap resume began (flag Phase=resuming)
+	// and the process died before completing (watchdog SIGABRT on a hung step,
+	// OOM, reboot, kill). recoverFromFlag rolls back to the snapshot and marks
+	// the row terminal; one-shot, never re-resumed. See upgrade-timeline.md
+	// § Binary-swap restart + resume.
+	ErrResumeDied = "UPGRADE_DIED_DURING_RESUME"
 )
 
 // Run starts the upgrade service main loop.
@@ -4280,9 +4316,14 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 		}
 	}
 
-	// Re-acquire the flock on the flag file. The prior holder's fd was
-	// released by the kernel at exit; the file on disk still has our
-	// Phase=post_swap stamp.
+	// Re-acquire the flock on the flag file AND advance the on-disk phase to
+	// Resuming: from here this process commits to running applyPostSwap on the
+	// new binary. If it dies before completing (watchdog SIGABRT on a hung step,
+	// OOM, reboot, kill), the next recoverFromFlag sees Phase=Resuming and rolls
+	// back to the snapshot — one-shot, never re-resumed (upgrade-timeline.md
+	// § Binary-swap restart + resume). We only reach here past the
+	// self-heal-converged early return above, so a legitimately-converged upgrade
+	// still self-heals to completed before the phase advances.
 	reacquired := UpgradeFlag{
 		ID:         flag.ID,
 		CommitSHA:  flag.CommitSHA,
@@ -4292,7 +4333,7 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 		InvokedBy:  flag.InvokedBy,
 		Trigger:    flag.Trigger,
 		Holder:     HolderService,
-		Phase:      FlagPhasePostSwap,
+		Phase:      FlagPhaseResuming,
 		Recreate:   flag.Recreate,
 		BackupPath: flag.BackupPath,
 	}
@@ -4652,6 +4693,13 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 	if reason == "" {
 		errMsg = "Rollback completed (no reason captured — caller did not pass one)"
 	}
+	// Two-tier terminal tail (upgrade-timeline.md § Complete / rollback): this is
+	// the snapshot-restore-SUCCEEDED tier → state=rolled_back, healthy at the old
+	// version. The `error` column is the unattended operator's whole diagnostic
+	// surface, so it carries the next action. (The degraded tier — restore itself
+	// failed — is the git-restore ABORT path above, which fires
+	// STATBUS_ROLLBACK_FAILED=1.)
+	errMsg = errMsg + " — rolled back to the previous version; the system is running normally on the old version. The failure is recorded; report it to support. No manual intervention needed."
 	// Bundle BEFORE the terminal UPDATE so a support ticket on any
 	// `rolled_back` row has the sibling .bundle.txt available.
 	d.writeDiagnosticBundle(ctx, id, progress)
@@ -4668,6 +4716,13 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 	// so the mutex that blocks `./sb install` must be released. Without this,
 	// the flag lingers until the next service restart, wedging all future installs.
 	d.removeUpgradeFlag()
+
+	// Notify (Slack) on the rolled_back terminal — the fail-fast rollback's
+	// single notification, absorbing what the deleted liveness sidecar used to
+	// fire. No STATBUS_ROLLBACK_FAILED: the snapshot restore SUCCEEDED, so this
+	// is the regular-support tier (notify-slack.sh renders STATBUS_ROLLED_BACK),
+	// not the degraded/all-hands tier. See upgrade-timeline.md § Complete / rollback.
+	d.runCallback(version, map[string]string{"STATBUS_ROLLED_BACK": "1"})
 
 	progress.Write("Rollback complete. The previous version has been restored.")
 
