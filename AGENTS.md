@@ -73,6 +73,8 @@ echo "SELECT ..." | ./sb psql             # Single queries
 # Test results are in test/results/*.out and can be compared to test/expected/*.out
 ```
 
+**Install-recovery harness** (`./dev.sh test-install-recovery [selector]`): end-to-end upgrade/recovery tests on **paid** ephemeral Hetzner Cloud VMs (CX23, hel1, ~€0.0072/hr, 1-hour minimum; `HCLOUD_TOKEN` in `.env.credentials` required). See `test/install-recovery/README.md`.
+
 **⚠️ DESTRUCTIVE Operations (LOCAL DEVELOPMENT ONLY - NEVER IN PRODUCTION):**
 ```bash
 ./dev.sh create-db           # Create database with migrations

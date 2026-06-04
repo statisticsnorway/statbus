@@ -107,22 +107,23 @@ FAILED_NAMES=()
 
 for s in "${SELECTED[@]}"; do
     base=$(basename "$s" .sh)
+    slug="${base#*-}"  # strip NN- prefix: "29-resume-died-rollback" → "resume-died-rollback"
     vm_name="statbus-recovery-${base%%-*}"  # e.g. "01-happy-install" → vm "statbus-recovery-01"
     log_file="$HARNESS_ROOT/tmp/install-recovery-${base}.log"
 
     echo ""
     echo "═══════════════════════════════════════════════════════════════"
-    echo "▶ Running scenario: $base (VM=$vm_name)"
+    echo "▶ Running scenario: $slug (VM=$vm_name)"
     echo "  Log: $log_file"
     echo "═══════════════════════════════════════════════════════════════"
 
     if bash "$s" "$vm_name" 2>&1 | tee "$log_file"; then
         PASS_COUNT=$((PASS_COUNT + 1))
-        echo "✓ PASS: $base"
+        printf 'PASS  %s\n' "$slug"
     else
         FAIL_COUNT=$((FAIL_COUNT + 1))
-        FAILED_NAMES+=("$base")
-        echo "✗ FAIL: $base — see $log_file"
+        FAILED_NAMES+=("$slug")
+        printf 'FAIL  %s\n' "$slug"
     fi
 done
 
