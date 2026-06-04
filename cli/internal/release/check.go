@@ -24,7 +24,9 @@ type CheckResult struct {
 }
 
 // requiredAssets is the full list of assets uploaded by the create-release job
-// in .github/workflows/release.yaml.
+// in .github/workflows/release.yaml. The seed is NOT a GitHub Release asset —
+// it ships as the statbus-seed:<commit_short> image on ghcr.io, verified by
+// CheckManifests below.
 var requiredAssets = []string{
 	"sb-linux-amd64",
 	"sb-linux-arm64",
@@ -32,12 +34,16 @@ var requiredAssets = []string{
 	"sb-darwin-arm64",
 	"checksums.txt",
 	"release-manifest.json",
-	"seed.pg_dump",
-	"seed.json",
 }
 
-// dockerServices are the four images built by release.yaml's build-images job.
-var dockerServices = []string{"app", "db", "worker", "proxy"}
+// dockerServices are the images verified by CheckManifests: the four runtime
+// service images (built by release.yaml's build-images job) plus the seed image
+// (built by images.yaml's seed job on every master push; present at every release
+// commit by construction — images.yaml has no tags trigger, so every release tag
+// resolves to a master commit whose seed image was already built and pushed).
+// Pre-cutover release tags have no statbus-seed image and fail this check by design —
+// their seed shipped via the retired git-branch, so they are not forward-deployable.
+var dockerServices = []string{"app", "db", "worker", "proxy", "seed"}
 
 // CheckAssets verifies that all expected GitHub Release assets for the given
 // tag are present. tag must be a full version string (e.g. "v2026.04.0-rc.9").
@@ -45,8 +51,9 @@ func CheckAssets(tag string) []CheckResult {
 	return checkAssetsAt("https://api.github.com", tag)
 }
 
-// CheckManifests verifies that all four Docker images for the given tag exist
-// on ghcr.io. Checks run in parallel.
+// CheckManifests verifies that all five Docker images for the given tag exist
+// on ghcr.io: the four runtime service images plus the statbus-seed image.
+// Checks run in parallel.
 //
 // Image lookup strategy (rc.63+):
 //

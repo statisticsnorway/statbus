@@ -261,6 +261,18 @@ func TestCheckManifests_NewStyleCommitShort(t *testing.T) {
 			t.Errorf("expected display to include both CalVer and commit_short; got %q", r.Name)
 		}
 	}
+	// Seed image must be among the checked images — if "seed" is ever dropped
+	// from dockerServices a future broken seed will false-pass the gate.
+	foundSeed := false
+	for _, r := range results {
+		if strings.Contains(r.Name, "statbus-seed") {
+			foundSeed = true
+			break
+		}
+	}
+	if !foundSeed {
+		t.Error("expected a result containing statbus-seed; add \"seed\" to dockerServices if missing")
+	}
 }
 
 // TestCheckManifests_OldStyleCalverFallback covers backward compat for
