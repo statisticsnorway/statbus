@@ -4550,103 +4550,112 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 	// Stop everything before we touch the git tree or restore the DB.
 	runCommand(projDir, "docker", "compose", "stop", "app", "worker", "rest", "db")
 
-	// Restore git state. If this FAILS we MUST NOT bring the application
-	// services back up — they would run NEW code against the just-restored
-	// OLD database, the exact silent-data-corruption scenario rollback
-	// exists to prevent. Restore the database first so the on-disk state
-	// is consistent (old DB + old code is recoverable; new code + old DB
-	// is not), then ABORT before docker compose up.
-	if previousVersion != "" {
-		if err := d.restoreGitState(previousVersion, progress); err != nil {
-			progress.Write("ABORT: rollback could not restore git state to %s: %v", previousVersion, err)
-			progress.Write("Restoring database to keep on-disk state consistent...")
-			d.restoreDatabase(progress)
-			// Restore ./sb to match the attempted-but-failed git era so the
-			// operator's `./sb` at least stops being the NEW (mismatched)
-			// binary. Best-effort: if it fails, we log ErrRollbackBinaryCorrupt
-			// and move on — the ABORT headline below already escalates.
-			d.restoreBinary(progress)
-			progress.Write("Services will NOT be started — manual intervention required.")
-			progress.Write("    1. Manually checkout the intended previous version: git checkout %s", previousVersion)
-			progress.Write("    2. Regenerate config: ./sb config generate")
-			progress.Write("    3. Bring services up: docker compose --profile all up -d")
-			progress.Write("    4. Re-run ./sb install — it detects the stale flag and reconciles the upgrade row automatically.")
-			// Headline for the operator reading maintenance.html — the four
-			// lines above are the technical recovery trail for an admin
-			// reviewing service logs; this one sentence is what a
-			// non-technical operator sees as the last (and biggest) line on
-			// the maintenance screen. Keep the error code + contact so the
-			// operator can escalate with a concrete identifier.
-			progress.Write("CATASTROPHIC FAILURE [%s]. Services stopped. Contact your administrator%s.",
-				ErrRollbackGitCorrupt, contactSuffix(readAdministratorContact(d.projDir)))
-			fmt.Fprintf(os.Stderr, "ABORT: rollback git restore to %s failed: %v\n", previousVersion, err)
-
-			// state=failed, NOT rolled_back: the git restore itself failed, so
-			// services are stopped and maintenance is ON — the box is DOWN, not
-			// "healthy at the old version". rolled_back's contract (no manual
-			// intervention needed) would be a silent operator lie to monitoring/UI.
-			// failed is valid here (started_at is set, no rolled_back_at). See
-			// upgrade-timeline.md § Complete / rollback.
-			rollbackFailedMsg := fmt.Sprintf("%s: %v (originally: %s) — ROLLBACK FAILED; the system is in a degraded state. Manual CLI recovery is required (./sb install); contact SSB support and involve your IT staff.", ErrRollbackGitCorrupt, err, reason)
-			// Bundle BEFORE the ABORT UPDATE so a forensic inspection of
-			// a wedged `failed` row has the sibling .bundle.txt.
-			d.writeDiagnosticBundle(ctx, id, progress)
-			if d.queryConn != nil {
-				var abortJSON string
-				if scanErr := d.queryConn.QueryRow(ctx,
-					"UPDATE public.upgrade SET state = 'failed', error = $1 WHERE id = $2"+upgradeRowReturning,
-					rollbackFailedMsg, id).Scan(&abortJSON); scanErr == nil {
-					logUpgradeRow(LabelFailedAbort, abortJSON)
-				}
-			}
-			// Page on-call via the configured callback (Slack, etc.).
-			// extraEnv tells the script to render a distinctive
-			// rollback-failure alert with the recovery command body.
-			hostname, _ := os.Hostname()
-			d.runCallback(version, map[string]string{
-				"STATBUS_ROLLBACK_FAILED": "1",
-				"STATBUS_ROLLBACK_ERROR":  err.Error(),
-				"STATBUS_RECOVERY_CMD":    fmt.Sprintf(`ssh %s "cd statbus && ./sb install"`, hostname),
-			})
-			// Maintenance stays ON — operator must complete the manual rollback steps above.
-			// Release the flock so the operator's prescribed step 4
-			// (`./sb install`) can proceed: leaving the flock held would
-			// wedge install with StateLiveUpgrade.
-			// The on-disk JSON persists as the audit cue; the next install's
-			// RecoverFromFlag pass is a no-op against the rolled_back row
-			// (guarded by `state = 'in_progress'` since 2026-04-22) and
-			// just removes the file.
-			d.removeUpgradeFlag()
-
-			// Exit unconditionally (rc.67 trifecta). Same reasoning as the
-			// normal-rollback exit below: rollback is a process-state break,
-			// the binary on disk is now different from the one in memory,
-			// continuing execution would query the rolled-back schema with
-			// the new binary's column expectations. Under systemd this is a
-			// clean restart (Restart=always brings the restored ./sb back as
-			// a fresh process); under one-shot ./sb install the operator's
-			// shell exits and the next install invocation comes back fresh
-			// against the restored binary. The CATASTROPHIC FAILURE banner
-			// stays visible because maintenance.html's terminal marker
-			// persists across restarts.
-			progress.Close()
-			os.Exit(1)
-		}
-		// Restore ./sb to match the restored git era BEFORE running config
-		// generate (rc.67 trifecta). The current ./sb is the NEW binary; its
-		// PersistentPreRun staleness guard (rc.65 freshness check) compares
-		// the binary's compile-time COMMIT against git HEAD, which is now at
-		// previousVersion. The guard fires exit-2 → "Warning: config generate
-		// during rollback failed" (jo's 2026-04-28 deploy log line 105).
-		// Restoring the binary first puts ./sb back at the same era as the
-		// rolled-back git tree, so the staleness guard sees a match and
-		// config generate runs cleanly. Best-effort; ErrRollbackBinaryCorrupt
-		// is logged (non-fatal) if the rename fails.
+	// Restore git state — ALWAYS, with no `previousVersion != ""` guard: an
+	// empty or unresolvable previousVersion falls back to the pinned `pre-upgrade`
+	// branch inside restoreGitStateFn (executeUpgrade pins `pre-upgrade` at HEAD
+	// before every destructive step), so the normal case still restores the old
+	// code. Only when NEITHER resolves does restoreGitState error → abort below.
+	// If this FAILS we MUST NOT bring the application services back up — they
+	// would run NEW code against the just-restored OLD database, the exact
+	// silent-data-corruption scenario rollback exists to prevent. Restore the
+	// database first so the on-disk state is consistent (old DB + old code is
+	// recoverable; new code + old DB is not), then ABORT before docker compose up.
+	if err := d.restoreGitState(previousVersion, progress); err != nil {
+		progress.Write("ABORT: rollback could not restore git state to %s: %v", previousVersion, err)
+		progress.Write("Restoring database to keep on-disk state consistent...")
+		d.restoreDatabase(progress)
+		// Restore ./sb to match the attempted-but-failed git era so the
+		// operator's `./sb` at least stops being the NEW (mismatched)
+		// binary. Best-effort: if it fails, we log ErrRollbackBinaryCorrupt
+		// and move on — the ABORT headline below already escalates.
 		d.restoreBinary(progress)
-
-		if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "rollback-config-generate", nil, filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
-			progress.Write("Warning: config generate during rollback failed: %v", err)
+		// previousVersion may be empty here (the abort means neither it nor the
+		// pinned `pre-upgrade` branch resolved); point the operator at the
+		// recorded version if set, else the `pre-upgrade` fallback ref.
+		restoreTarget := previousVersion
+		if restoreTarget == "" {
+			restoreTarget = "pre-upgrade"
 		}
+		progress.Write("Services will NOT be started — manual intervention required.")
+		progress.Write("    1. Manually checkout the previous version: git checkout %s", restoreTarget)
+		progress.Write("    2. Regenerate config: ./sb config generate")
+		progress.Write("    3. Bring services up: docker compose --profile all up -d")
+		progress.Write("    4. Re-run ./sb install — it detects the stale flag and reconciles the upgrade row automatically.")
+		// Headline for the operator reading maintenance.html — the four
+		// lines above are the technical recovery trail for an admin
+		// reviewing service logs; this one sentence is what a
+		// non-technical operator sees as the last (and biggest) line on
+		// the maintenance screen. Keep the error code + contact so the
+		// operator can escalate with a concrete identifier.
+		progress.Write("CATASTROPHIC FAILURE [%s]. Services stopped. Contact your administrator%s.",
+			ErrRollbackGitCorrupt, contactSuffix(readAdministratorContact(d.projDir)))
+		fmt.Fprintf(os.Stderr, "ABORT: rollback git restore to %s failed: %v\n", previousVersion, err)
+
+		// state=failed, NOT rolled_back: the git restore itself failed, so
+		// services are stopped and maintenance is ON — the box is DOWN, not
+		// "healthy at the old version". rolled_back's contract (no manual
+		// intervention needed) would be a silent operator lie to monitoring/UI.
+		// failed is valid here (started_at is set, no rolled_back_at). See
+		// upgrade-timeline.md § Complete / rollback.
+		rollbackFailedMsg := fmt.Sprintf("%s: %v (originally: %s) — ROLLBACK FAILED; the system is in a degraded state. Manual CLI recovery is required (./sb install); contact SSB support and involve your IT staff.", ErrRollbackGitCorrupt, err, reason)
+		// Bundle BEFORE the ABORT UPDATE so a forensic inspection of
+		// a wedged `failed` row has the sibling .bundle.txt.
+		d.writeDiagnosticBundle(ctx, id, progress)
+		if d.queryConn != nil {
+			var abortJSON string
+			if scanErr := d.queryConn.QueryRow(ctx,
+				"UPDATE public.upgrade SET state = 'failed', error = $1 WHERE id = $2"+upgradeRowReturning,
+				rollbackFailedMsg, id).Scan(&abortJSON); scanErr == nil {
+				logUpgradeRow(LabelFailedAbort, abortJSON)
+			}
+		}
+		// Page on-call via the configured callback (Slack, etc.).
+		// extraEnv tells the script to render a distinctive
+		// rollback-failure alert with the recovery command body.
+		hostname, _ := os.Hostname()
+		d.runCallback(version, map[string]string{
+			"STATBUS_ROLLBACK_FAILED": "1",
+			"STATBUS_ROLLBACK_ERROR":  err.Error(),
+			"STATBUS_RECOVERY_CMD":    fmt.Sprintf(`ssh %s "cd statbus && ./sb install"`, hostname),
+		})
+		// Maintenance stays ON — operator must complete the manual rollback steps above.
+		// Release the flock so the operator's prescribed step 4
+		// (`./sb install`) can proceed: leaving the flock held would
+		// wedge install with StateLiveUpgrade.
+		// The on-disk JSON persists as the audit cue; the next install's
+		// RecoverFromFlag pass is a no-op against the rolled_back row
+		// (guarded by `state = 'in_progress'` since 2026-04-22) and
+		// just removes the file.
+		d.removeUpgradeFlag()
+
+		// Exit unconditionally (rc.67 trifecta). Same reasoning as the
+		// normal-rollback exit below: rollback is a process-state break,
+		// the binary on disk is now different from the one in memory,
+		// continuing execution would query the rolled-back schema with
+		// the new binary's column expectations. Under systemd this is a
+		// clean restart (Restart=always brings the restored ./sb back as
+		// a fresh process); under one-shot ./sb install the operator's
+		// shell exits and the next install invocation comes back fresh
+		// against the restored binary. The CATASTROPHIC FAILURE banner
+		// stays visible because maintenance.html's terminal marker
+		// persists across restarts.
+		progress.Close()
+		os.Exit(1)
+	}
+	// Restore ./sb to match the restored git era BEFORE running config
+	// generate (rc.67 trifecta). The current ./sb is the NEW binary; its
+	// PersistentPreRun staleness guard (rc.65 freshness check) compares
+	// the binary's compile-time COMMIT against git HEAD, which is now at
+	// previousVersion. The guard fires exit-2 → "Warning: config generate
+	// during rollback failed" (jo's 2026-04-28 deploy log line 105).
+	// Restoring the binary first puts ./sb back at the same era as the
+	// rolled-back git tree, so the staleness guard sees a match and
+	// config generate runs cleanly. Best-effort; ErrRollbackBinaryCorrupt
+	// is logged (non-fatal) if the rename fails.
+	d.restoreBinary(progress)
+
+	if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "rollback-config-generate", nil, filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
+		progress.Write("Warning: config generate during rollback failed: %v", err)
 	}
 
 	// Restore database backup. Now safe — git state matches the DB era. A

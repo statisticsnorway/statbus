@@ -148,3 +148,38 @@ func TestRestoreGitState_DetachedHeadOK(t *testing.T) {
 		t.Errorf("expected detached HEAD, got symbolic-ref output: %q", out)
 	}
 }
+
+// TestRestoreGitState_EmptyPreviousVersionUsesPreUpgrade covers the rolled_back
+// half of dropping the `if previousVersion != ""` rollback guard: rollback()
+// now calls restoreGitState even when previousVersion is empty, and an empty ref
+// must fall back to the pinned `pre-upgrade` branch so the OLD code is restored
+// (services then come up safely → genuine rolled_back), instead of the old guard
+// skipping git restore and bringing NEW code up on the OLD DB.
+func TestRestoreGitState_EmptyPreviousVersionUsesPreUpgrade(t *testing.T) {
+	fix := newGitRepoFixture(t)
+	if err := restoreGitStateFn(fix.dir, "", discardLog, io.Discard); err != nil {
+		t.Fatalf("restoreGitStateFn(\"\"): %v", err)
+	}
+	out, _ := exec.Command("git", "-C", fix.dir, "rev-parse", "HEAD").Output()
+	if got := strings.TrimSpace(string(out)); got != fix.oldSHA {
+		t.Errorf("HEAD = %s, want %s (oldSHA via pre-upgrade fallback for empty previousVersion)", got, fix.oldSHA)
+	}
+}
+
+// TestRestoreGitState_EmptyPreviousVersionNoFallbackErrors covers the
+// failed-abort half: empty previousVersion AND no pre-upgrade branch → neither
+// resolves → error, which rollback() routes into the failed-abort path
+// (services NOT started, row state='failed'). HEAD must stay put on a failure.
+func TestRestoreGitState_EmptyPreviousVersionNoFallbackErrors(t *testing.T) {
+	fix := newGitRepoFixture(t)
+	exec.Command("git", "-C", fix.dir, "branch", "-D", fix.branchOnOld).Run()
+
+	err := restoreGitStateFn(fix.dir, "", discardLog, io.Discard)
+	if err == nil {
+		t.Fatal("restoreGitStateFn(\"\") with no pre-upgrade returned nil, want error")
+	}
+	out, _ := exec.Command("git", "-C", fix.dir, "rev-parse", "HEAD").Output()
+	if got := strings.TrimSpace(string(out)); got != fix.newSHA {
+		t.Errorf("HEAD changed to %s after failed restore (want unchanged %s)", got, fix.newSHA)
+	}
+}
