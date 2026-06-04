@@ -565,12 +565,6 @@ func runInstall() (installErr error) {
 		{"Users", checkUsersDone, runCreateUsers},
 		{"Trusted signers", checkSignersDone, runTrustSigners},
 		{"Upgrade service", checkServiceDone, runInstallService},
-		// Retire the collapsed liveness sidecar. Permanent idempotent
-		// reconciliation: the desired unit set is exactly {statbus-upgrade@};
-		// a box installed before the collapse still has the observer units
-		// enabled, firing the now-deleted `./sb upgrade liveness-check` every
-		// 5 min. No-op once gone, robust to a box that skipped a release.
-		{"Retire liveness sidecar (collapsed)", checkLivenessRetired, runRetireLivenessSidecar},
 	}
 
 	total := len(steps)
@@ -1776,74 +1770,6 @@ func runInstallService(dir string) error {
 	}
 
 	fmt.Printf("  Upgrade service installed and started: %s (is-enabled=%s)\n", instance, state)
-	return nil
-}
-
-// livenessSidecarUnitNames are the retired observer template-unit files (the
-// pre-collapse sidecar). install reconciles toward "these are absent" — see
-// runRetireLivenessSidecar.
-var livenessSidecarUnitNames = []string{
-	"statbus-upgrade-liveness@.service",
-	"statbus-upgrade-liveness@.timer",
-}
-
-// checkLivenessRetired reports whether the collapsed liveness sidecar is already
-// retired: both template-unit files absent from the user systemd dir. Idempotent
-// — once gone it stays done (a fresh install never had them, so this no-ops).
-func checkLivenessRetired(dir string) bool {
-	if runtime.GOOS != "linux" {
-		return true
-	}
-	userServiceDir := filepath.Join(os.Getenv("HOME"), ".config", "systemd", "user")
-	return !livenessSidecarPresent(userServiceDir)
-}
-
-// livenessSidecarPresent reports whether either retired sidecar template-unit
-// file exists in the given systemd user dir. Pure (takes the dir) so it is
-// unit-testable without a real $HOME or systemd.
-func livenessSidecarPresent(userServiceDir string) bool {
-	for _, name := range livenessSidecarUnitNames {
-		if _, err := os.Stat(filepath.Join(userServiceDir, name)); err == nil {
-			return true
-		}
-	}
-	return false
-}
-
-// runRetireLivenessSidecar tears down the deployed liveness-observer sidecar on a
-// box installed before the single-unit collapse. The repo deletion removed the
-// SOURCE; this removes the deployed ARTIFACT so the timer stops firing the
-// now-deleted `./sb upgrade liveness-check` every 5 min. Every step is tolerant
-// (best-effort): the units may already be gone, inactive, or never have existed,
-// and a partially-present sidecar must not wedge install. Always returns nil.
-func runRetireLivenessSidecar(dir string) error {
-	if runtime.GOOS != "linux" {
-		fmt.Println("  Skipping liveness-sidecar retirement on non-Linux")
-		return nil
-	}
-	u := os.Getenv("USER")
-	if u == "" {
-		fmt.Println("  Skipping liveness-sidecar retirement (USER unset)")
-		return nil
-	}
-	timer := fmt.Sprintf("statbus-upgrade-liveness@%s.timer", u)
-	service := fmt.Sprintf("statbus-upgrade-liveness@%s.service", u)
-
-	// stop → disable → reset-failed the running INSTANCE; all best-effort.
-	exec.Command("systemctl", "--user", "stop", timer, service).Run()
-	exec.Command("systemctl", "--user", "disable", timer).Run()
-	exec.Command("systemctl", "--user", "reset-failed", timer, service).Run()
-
-	// Remove the TEMPLATE unit files so they can never be (re)instantiated.
-	userServiceDir := filepath.Join(os.Getenv("HOME"), ".config", "systemd", "user")
-	for _, name := range livenessSidecarUnitNames {
-		if err := os.Remove(filepath.Join(userServiceDir, name)); err == nil {
-			fmt.Printf("  Removed retired sidecar unit %s\n", name)
-		}
-	}
-
-	exec.Command("systemctl", "--user", "daemon-reload").Run()
-	fmt.Println("  Liveness sidecar retired (collapsed to one unit)")
 	return nil
 }
 
