@@ -1,0 +1,56 @@
+@startuml upgrade-timeline
+' PROTOTYPE — PlantUML equivalent of upgrade-timeline.d2, for side-by-side comparison.
+' Mirrors doc/upgrade-system.md "executeUpgrade pipeline" + "Recovery contract (recoverFromFlag)".
+skinparam backgroundColor #FEFEFE
+skinparam sequence {
+    ArrowColor #1565C0
+    LifeLineBorderColor #90A4AE
+    ParticipantBorderColor #1565C0
+    ParticipantBackgroundColor #E3F2FD
+    GroupBackgroundColor #ECEFF1
+    GroupBorderColor #90A4AE
+}
+
+title StatBus Upgrade Timeline (service-driven, binary-swap restart, rollback)
+
+participant "Operator / CI" as cici
+participant "systemd" as systemd
+participant "Upgrade Service\n(./sb upgrade service)" as service
+participant "Database\n(public.upgrade + backup)" as db
+
+== Service boot ==
+systemd -> service : start statbus-upgrade@<slot>.service
+service -> systemd : sd_notify READY=1
+service -> db : LISTEN upgrade channel + advisory lock
+
+== Schedule + dispatch ==
+cici -> db : apply-latest -> UPDATE upgrade=scheduled + NOTIFY
+db -> service : NOTIFY wakes the listener
+service -> db : claim row WHERE state=scheduled -> in_progress
+
+group executeUpgrade
+    service -> service : writeUpgradeFlag (mutex held)
+    service -> db : maintenance mode on
+    service -> db : take DB backup
+    service -> service : git checkout target
+    service -> service : docker compose pull
+    service -> db : start DB + wait health
+    service -> db : migrate up
+    service -> service : start app services + health check
+end
+
+== Binary-swap restart + resume ==
+service -> systemd : exit 42 (self-update -> request respawn)
+systemd -> service : restart unit on new binary
+service -> db : recoverFromFlag HEAD==target -> mark completed_at
+service -> service : removeUpgradeFlag (mutex released)
+service -> db : supersede older rows + notify UI
+
+group failure (any step from DB backup onward)
+    service -> db : rollback() restore git + DB backup + services
+    service -> db : mark error + rolled_back_at
+    service -> service : removeUpgradeFlag (mutex released)
+    service -> cici : Slack callback FAILED
+end
+
+@enduml

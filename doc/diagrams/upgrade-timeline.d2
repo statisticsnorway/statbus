@@ -1,0 +1,46 @@
+# Upgrade timeline (PROTOTYPE — D2). Mirrors doc/upgrade-system.md
+# "executeUpgrade pipeline" + "Recovery contract (recoverFromFlag)".
+# Render: d2 doc/diagrams/upgrade-timeline.d2 doc/diagrams/upgrade-timeline.svg
+shape: sequence_diagram
+
+cici: Operator / CI
+systemd: systemd
+service: Upgrade Service (./sb upgrade service)
+db: Database (public.upgrade + backup)
+
+# --- Service boot ---
+systemd -> service: start statbus-upgrade@<slot>.service
+service -> systemd: sd_notify READY=1
+service -> db: LISTEN upgrade channel + advisory lock
+
+# --- Schedule + dispatch ---
+cici -> db: apply-latest -> UPDATE upgrade=scheduled + NOTIFY
+db -> service: NOTIFY wakes the listener
+service -> db: claim row WHERE state=scheduled -> in_progress
+
+# --- executeUpgrade pipeline ---
+executeUpgrade: {
+  service -> service: writeUpgradeFlag (mutex held)
+  service -> db: maintenance mode on
+  service -> db: take DB backup
+  service -> service: git checkout target
+  service -> service: docker compose pull
+  service -> db: start DB + wait health
+  service -> db: migrate up
+  service -> service: start app services + health check
+}
+
+# --- Binary-swap restart + resume ---
+service -> systemd: exit 42 (self-update -> request respawn)
+systemd -> service: restart unit on new binary
+service -> db: recoverFromFlag HEAD==target -> mark completed_at
+service -> service: removeUpgradeFlag (mutex released)
+service -> db: supersede older rows + notify UI
+
+# --- Failure path ---
+failure (any step from DB backup onward): {
+  service -> db: rollback() restore git + DB backup + services
+  service -> db: mark error + rolled_back_at
+  service -> service: removeUpgradeFlag (mutex released)
+  service -> cici: Slack callback FAILED
+}
