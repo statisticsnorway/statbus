@@ -156,9 +156,10 @@ type step struct {
 
 // acquireOrBypass enforces the install ↔ upgrade-service mutual exclusion.
 //
-// Both the upgrade service and `./sb install` write the same marker file
-// (tmp/upgrade-in-progress.json) via O_CREATE|O_EXCL — the kernel
-// guarantees exactly one writer wins. The Holder field distinguishes
+// Both the upgrade service and `./sb install` acquire the same marker file
+// (tmp/upgrade-in-progress.json) via acquireFlock — O_CREATE|O_RDWR +
+// flock(LOCK_EX|LOCK_NB); the kernel advisory lock guarantees one holder and
+// auto-releases on fd close, so a crash never leaves a stale lock. The Holder field distinguishes
 // service-vs-install ownership; recoverFromFlag uses Holder to decide
 // what cleanup is needed when a writer crashed (DB reconciliation for
 // service, file-removal-only for install).

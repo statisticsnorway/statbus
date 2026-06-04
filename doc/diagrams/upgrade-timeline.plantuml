@@ -33,7 +33,7 @@ service -> db : claim row WHERE state='scheduled' → in_progress
 
 == Execute upgrade ==
 group execute upgrade — mutex held (Holder="service")
-    service -> service : writeUpgradeFlag (O_CREATE|O_EXCL)
+    service -> service : writeUpgradeFlag (flock LOCK_EX on the fd)
     service -> db : pre-flight — downgrade guard, assets, disk, signature
     service -> db : maintenance mode on
     service -> db : take DB snapshot → backup_path

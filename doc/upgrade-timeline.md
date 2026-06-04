@@ -66,24 +66,35 @@ with a clear diagnostic.
 The destructive pipeline, run with the mutex held (the service writes its own
 `Holder="service"` flag first — see [Flag-file mutex](#flag-file-mutex-install--service)):
 
+The binary swap + `exit 42` is the **pivot** (step 6, not the last step): the pre-swap
+steps run on the old binary; everything after the swap runs on the **new** binary inside
+`resumePostSwap` → `applyPostSwap` (see [Binary-swap restart + resume](#binary-swap-restart--resume)).
+
+*Pre-swap (old binary, `executeUpgrade`):*
+
 1. Pre-flight checks: downgrade guard, release-assets manifest, disk space, commit signature.
-2. **writeUpgradeFlag** — flag goes on disk via `O_CREATE|O_EXCL`; the mutex is now held.
+2. **writeUpgradeFlag** — `acquireFlock` opens the marker `O_CREATE|O_RDWR` and takes a
+   non-blocking `flock(LOCK_EX|LOCK_NB)`; the mutex (the kernel lock on the held fd) is now held.
 3. Maintenance mode on (the web UI shows "upgrading").
 4. Stop application services; **take the DB snapshot** (recorded as `backup_path`).
 5. `git checkout` the target commit.
-6. `docker compose pull` the new images.
-7. Start the database; wait for health.
-8. `./sb migrate up --verbose` — apply pending migrations.
-9. Start application services; wait for health.
-10. Post-upgrade install fixup: `runInstallFixup` runs `./sb install --non-interactive
+6. **Binary swap (the pivot)** — `replaceBinaryOnDisk` swaps `./sb`, the flag advances to
+   `Phase=PostSwap`, and the service `exit 42`s → systemd respawns it on the **new binary**.
+
+*Post-swap (new binary, `applyPostSwap`):*
+
+7. `./sb config generate`.
+8. `docker compose pull` the new images.
+9. Start the database; wait for health.
+10. Reconnect to the database.
+11. `./sb migrate up --verbose` — apply pending migrations.
+12. Start application services; wait for health.
+13. Post-upgrade install fixup: `runInstallFixup` runs `./sb install --non-interactive
     --inside-active-upgrade` with `STATBUS_INSIDE_ACTIVE_UPGRADE=1`. The bypass signals
     are necessary because our flag is still on disk; without them the child install
     would abort with "upgrade in progress".
-11. Self-update the binary if newer (`exit 42` → systemd respawn — see next phase).
-12. Mark `completed_at` on the row (or inherit the mark from `recoverFromFlag` on the
-    exit-42 path).
-13. **removeUpgradeFlag** — mutex released.
-14. Supersede older `available` rows; notify the UI.
+14. Mark `completed_at`; **removeUpgradeFlag** (mutex released); supersede older `available`
+    rows; notify the UI; archive the snapshot.
 
 **Fail-fast.** Any step from the snapshot (4) onward that errors *or hangs* aborts the
 single attempt and routes to [Complete / rollback](#complete--rollback). The attempt is
@@ -94,9 +105,9 @@ never retried.
 If the target ships a newer `./sb` binary, the service self-updates and exits `42`.
 The unit declares `SuccessExitStatus=42` + `RestartForceExitStatus=42`, so systemd
 respawns the service **on the new binary** — this is the **one planned restart** of an
-upgrade. The fresh process runs `recoverFromFlag` → `resumePostSwap`, sees `HEAD ==
-flag.CommitSHA`, and continues the *same* attempt from where it left off (reconnect →
-migrate → docker up → health → archive backup).
+upgrade. The fresh process runs `recoverFromFlag` → `resumePostSwap` via the `Phase=PostSwap`
+flag (the planned handoff), and continues the *same* attempt from where it left off
+(config generate → pull → db up → health → reconnect → migrate → app up → health → archive).
 
 The restart is expected exactly once. Any **other** restart while a row is `in_progress`
 (watchdog kill, OOM, operator `systemctl restart`) is treated by `recoverFromFlag` as a
@@ -147,8 +158,8 @@ rolled_back | failed}`; the other states are discovery/housekeeping (`available`
 
 | Path | Entry point | Owns | Respects | When to use |
 |---|---|---|---|---|
-| **Service** (automatic) | `./sb upgrade service` running as systemd user unit `statbus-upgrade@$USER.service` | End-to-end upgrade lifecycle: discover → schedule → execute → recover | Its own advisory lock, the shared `O_EXCL` mutex flag | Production norm. Discovers and applies releases on a poll cycle or on `NOTIFY`. |
-| **Unified install** | `./sb install` | Single operator entrypoint — probes state and dispatches: fresh → step-table; scheduled row pending → `executeUpgrade` inline; crashed flag → recover + re-detect; live upgrade → refuse; pre-1.0 → refuse. | The shared `O_EXCL` mutex flag — step-table path acquires as `Holder="install"`, inline-upgrade path lets `executeUpgrade` write its own `Holder="service"` flag. | First-time install, repair, or dispatching a pending upgrade without waiting for the service tick. |
+| **Service** (automatic) | `./sb upgrade service` running as systemd user unit `statbus-upgrade@$USER.service` | End-to-end upgrade lifecycle: discover → schedule → execute → recover | Its own advisory lock, the shared **flock** mutex flag | Production norm. Discovers and applies releases on a poll cycle or on `NOTIFY`. |
+| **Unified install** | `./sb install` | Single operator entrypoint — probes state and dispatches: fresh → step-table; scheduled row pending → `executeUpgrade` inline; crashed flag → recover + re-detect; live upgrade → refuse; pre-1.0 → refuse. | The shared **flock** mutex flag — step-table path acquires as `Holder="install"`, inline-upgrade path lets `executeUpgrade` write its own `Holder="service"` flag. | First-time install, repair, or dispatching a pending upgrade without waiting for the service tick. |
 | **Cloud tool** | `./cloud.sh install <server>` | Fleet-level remote install: SSH + stop_and_unwedge + run `./sb install` + ensure_service_started | Its own fleet semantics; defers to the shared mutex for per-host safety | Operator updating a remote host from their own machine. |
 
 GitHub Actions workflows (`deploy-to-<slot>.yaml`) trigger the **service** path — they run
@@ -186,17 +197,27 @@ file, the git working tree in `~/statbus/`, the `public.upgrade` table, and the 
 via migrations. Running both concurrently would interleave these mutations unpredictably.
 The mutex ensures at most one orchestrated actor mutates state at a time.
 
-### The primitive: `~/statbus/tmp/upgrade-in-progress.json`
+### The primitive: `~/statbus/tmp/upgrade-in-progress.json` + a kernel flock
 
-Both the service and `./sb install` write this file via `O_CREATE|O_EXCL` — the kernel
-guarantees exactly one writer wins when two race. The file's presence means "an
-orchestrated mutator is either running or crashed pending recovery". It is the single
-source of truth for that condition. The `Holder` field records which actor owns it.
+Both the service (`writeUpgradeFlag`) and `./sb install` (`AcquireInstallFlag`) acquire the
+marker through the same `acquireFlock` (`cli/internal/upgrade/service.go`): open
+`O_CREATE|O_RDWR`, take a non-blocking **`flock(LOCK_EX|LOCK_NB)`** on the open fd, then
+truncate and write the holder's metadata. The mutex is the **kernel advisory lock on the
+fd**, not the file's existence.
 
-Inside the present-state, the flag's `PID` and `pidAlive(PID)` act as a **diagnostic
-subquery** that selects between messages — "wait for the running {upgrade|install}" (PID
-alive) vs the crash-recovery path (PID dead). This is not a third state; it is the
-explanation for why the same present-state blocks a new caller.
+This makes stale locks impossible: the holder keeps the fd open for the full duration, and
+on any exit — graceful, crash, or `SIGKILL` — the kernel closes the fd and **auto-releases
+the lock**. The file *content* persists on disk (it lives outside the DB volume, so a
+rollback doesn't erase it) only so the next acquirer can read the prior holder's metadata,
+reconcile, then truncate and write its own. File presence therefore means "a holder is live
+(flock held) **or** a holder crashed leaving content to reconcile (flock free)"; liveness is
+decided by **trying the flock**, never by the file existing. The `Holder` field records
+which actor owns it.
+
+On contention the second `flock(LOCK_EX|LOCK_NB)` returns **`EWOULDBLOCK`** immediately — it
+does not block and does not deadlock. The caller reads the on-disk metadata to name the live
+holder in a diagnostic. `PID`/`pidAlive(PID)` are **diagnostic only** (which message to
+print), not the liveness source of truth.
 
 ### Flag schema (`UpgradeFlag` in `cli/internal/upgrade/service.go`)
 
@@ -210,8 +231,14 @@ type UpgradeFlag struct {
     InvokedBy   string    `json:"invoked_by"`   // e.g. "scheduled", "operator:jhf"
     Trigger     string    `json:"trigger"`      // coarse bucket for logs
     Holder      string    `json:"holder"`       // "service" or "install"
+    Phase       string    `json:"phase,omitempty"`       // "" PreSwap | "post_swap" | "resuming" — the recovery discriminator
+    Recreate    bool      `json:"recreate,omitempty"`    // replay --recreate on resume
+    BackupPath  string    `json:"backup_path,omitempty"` // finalized snapshot dir; restored by the Resuming rollback
 }
 ```
+
+The `Phase` field is the monotonic recovery ladder (PreSwap → PostSwap → Resuming), each
+rung consumed exactly once — see [Recovery contract](#recovery-contract--fail-fast-one-shot).
 
 ### Holders and ownership handoff
 
@@ -227,9 +254,12 @@ When `./sb install` routes to the **scheduled-upgrade** dispatch (state 7), it d
 acquire the install-held flag. `executeUpgrade` writes its own service-held flag internally
 before any destructive step. Ownership of the mutex transfers cleanly across the boundary
 via this filesystem-level handshake. **Do not** wrap `svc.ExecuteUpgradeInline` with an
-install-flag acquire — the second `O_EXCL` writer would self-deadlock on `EEXIST`. The
-step-table path and the inline-dispatch path are mutually exclusive within a single
-`./sb install` run: either `acquireOrBypass` runs (step-table) or it does not (inline).
+install-flag acquire — the install already holds the flock, so `executeUpgrade`'s own
+`acquireFlock` would fail with `EWOULDBLOCK` (a second exclusive flock via a new fd on a
+file the process already locks is denied). Let `executeUpgrade` write its own
+`Holder="service"` flag instead. The step-table path and the inline-dispatch path are
+mutually exclusive within a single `./sb install` run: either `acquireOrBypass` runs
+(step-table) or it does not (inline).
 
 ### Decision tree at `./sb install` entry
 
@@ -253,12 +283,12 @@ Bypass signal set (--inside-active-upgrade or env var)?
 │         the parent already holds the flag. Log "bypass honored, PID X,
 │         holder=Y, invoked_by=Z" and proceed without acquiring.
 │
-└── No → AcquireInstallFlag (writeFlagAtomic via O_CREATE|O_EXCL).
+└── No → AcquireInstallFlag (via acquireFlock — O_CREATE|O_RDWR + flock(LOCK_EX|LOCK_NB)).
         │
         ├── Success → Proceed; defer ReleaseInstallFlag (removes the file
         │             iff our PID still owns it as Holder="install").
         │
-        └── EEXIST → Read the existing flag for diagnostics:
+        └── EWOULDBLOCK (flock held by a live holder) → Read the existing flag for diagnostics:
             │
             ├── Live PID, Holder=="service" → "Upgrade in progress: PID X
             │       is running. Wait for it to complete:
@@ -324,17 +354,34 @@ crashed-upgrade dispatch (state 3). It reconciles any flag on disk:
 3. **Flag present, PID dead, `Holder="install"`** → install crashed; there is no
    `public.upgrade` row to reconcile. Remove the flag.
 4. **Flag present, PID dead, `Holder="service"`** (or empty legacy) → the service died
-   mid-upgrade. Compare git `HEAD` to `flag.CommitSHA`:
-   - **Match** → the attempt's binary swap landed; complete it (`migrate up` inline if the
-     migration record lagged) and mark `completed_at`. The recovery keys on `HEAD ==
-     flag.CommitSHA` and is agnostic about *how* HEAD got there (normal completion, exit-42
-     resume, any path). The comparison uses an at-or-descendant predicate
-     (`verifyBinaryAtOrDescendantOf` / `binaryDescendsFlag`) so a binary that advanced past
-     a leftover row's target counts as success, not crash-mid-flight. `git merge-base`
-     errors are conservative-false: if ancestry can't be determined, fail loud rather than
-     guess.
-   - **Mismatch** → a real **died** attempt. Restore the snapshot and mark the terminal
-     state (`rolled_back`, or `failed` if the restore also fails).
+   mid-upgrade. The discriminator is the flag's **`Phase`** field — a monotonic ladder, each
+   rung consumed exactly once — **not** a git-HEAD comparison:
+   - **`Phase=PreSwap`** (`""` — the default, written before `replaceBinaryOnDisk`) → the
+     attempt died **before** the binary-swap commit boundary. The DB volume is unchanged (the
+     pre-upgrade backup is an rsync *out*; `pickLatestBackup` excludes the in-progress
+     `pre-upgrade-syncing/` dir, so restore no-ops). **Roll back** — mark the row terminal,
+     restart services on the unchanged binary. Never self-heal: a `PreSwap` flag says nothing
+     about whether the commit boundary was reached, so a HEAD-matches-target here would
+     falsely mark `completed`.
+   - **`Phase=PostSwap`** (stamped after `replaceBinaryOnDisk`, before the exit-42 handoff)
+     arriving for the **first** time → the planned restart landed on the new binary. **Stamp
+     `Phase=Resuming`, then resume** the single remaining attempt (`resumePostSwap` →
+     `applyPostSwap`: config gen → pull → db up → health → reconnect → migrate → app up →
+     health → archive). This is the one legitimate continue.
+   - **`Phase=Resuming`** → the resume was already entered and the process died **again**
+     (watchdog SIGABRT on a hung step, OOM, reboot, kill). **Roll back, never re-resume** —
+     restore the snapshot from `flag.BackupPath`, mark the row terminal (`rolled_back`, or
+     `failed` if the restore also fails). This rung is the one-shot latch: it turns a
+     death-during-resume from a retry loop into a single rollback, which is what makes "any
+     non-planned restart while `in_progress` ⇒ died ⇒ rollback" true.
+
+   `HEAD == flag.CommitSHA` is **not** the recovery discriminator; it is a narrow **self-heal
+   inside the completion path**. When a service-held flag's work genuinely landed — the
+   running binary is at or a descendant of the target (`verifyUpgradeGroundTruth` /
+   `binaryDescendsFlag`, with `git merge-base` errors conservative-false) — but the terminal
+   row UPDATE never persisted (a ghost flag), recovery marks the row `completed` rather than
+   re-running. If ground-truth fails (binary behind target, or migrations lag unrecoverably),
+   it falls through to rollback.
 
 This runs every time the process starts (including every systemd restart) and must leave
 the server consistent before the main loop ticks.

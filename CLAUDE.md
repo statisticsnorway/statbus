@@ -87,7 +87,7 @@ Agents that debug issues should BUILD DIAGNOSTIC TOOLS, not just debug. Add trac
 - `Holder="install"` — written by `acquireOrBypass` when install runs the step-table. Released by `defer ReleaseInstallFlag` on any exit.
 - `Holder="service"` — written by `writeUpgradeFlag` inside `executeUpgrade`, regardless of who invoked it.
 
-When `./sb install` routes to the scheduled-upgrade dispatch, it does **not** acquire the install-held flag. `executeUpgrade` writes its own service-held flag internally before any destructive step. Ownership of the mutex transfers cleanly across the boundary via this filesystem-level handshake. Don't wrap `svc.ExecuteUpgradeInline` with an install-flag acquire — you'll self-deadlock on the second writer's `O_EXCL`.
+When `./sb install` routes to the scheduled-upgrade dispatch, it does **not** acquire the install-held flag. `executeUpgrade` writes its own service-held flag internally before any destructive step. Ownership of the mutex transfers cleanly across the boundary via this filesystem-level handshake. Don't wrap `svc.ExecuteUpgradeInline` with an install-flag acquire — the second `acquireFlock` would fail with `EWOULDBLOCK` (the process already holds the flock); let `executeUpgrade` write its own service-held flag.
 
 Full reference: `doc/upgrade-timeline.md`.
 
