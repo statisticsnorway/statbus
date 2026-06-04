@@ -41,8 +41,6 @@ var requiredAssets = []string{
 // (built by images.yaml's seed job on every master push; present at every release
 // commit by construction — images.yaml has no tags trigger, so every release tag
 // resolves to a master commit whose seed image was already built and pushed).
-// Pre-cutover release tags have no statbus-seed image and fail this check by design —
-// their seed shipped via the retired git-branch, so they are not forward-deployable.
 var dockerServices = []string{"app", "db", "worker", "proxy", "seed"}
 
 // CheckAssets verifies that all expected GitHub Release assets for the given
