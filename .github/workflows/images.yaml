@@ -63,8 +63,8 @@ jobs:
           # statbus-sb: minimal distroless image carrying only the sb binary.
           # Makes sb commit-addressable alongside the service images so that
           # "a commit is installable iff its images built" includes sb.
-          # Build context is the repo root (needs both cli/ source and go.mod).
-          - {name: sb, context: ., file: ./cli/Dockerfile.sb}
+          # Build context is ./cli — sb needs only cli/ source + go.mod (both under cli/).
+          - {name: sb, context: ./cli, file: ./cli/Dockerfile.sb}
         platform:
           - {runner: ubuntu-24.04, arch: amd64}
           - {runner: ubuntu-24.04-arm, arch: arm64}

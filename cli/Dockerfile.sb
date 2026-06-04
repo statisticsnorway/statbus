@@ -16,7 +16,7 @@
 #   docker build \
 #     --build-arg VERSION=$(git describe --tags --always) \
 #     --build-arg COMMIT=$(git rev-parse HEAD) \
-#     -f cli/Dockerfile.sb -t statbus-sb:test .
+#     -f cli/Dockerfile.sb -t statbus-sb:test ./cli
 #   docker run --rm statbus-sb:test version
 
 FROM golang:1.25.5 AS build
@@ -28,11 +28,11 @@ WORKDIR /src
 
 # Copy only the Go module files first so the dependency layer is cached
 # independently of source changes (same pattern the app/Dockerfile uses).
-COPY cli/go.mod cli/go.sum ./
+COPY go.mod go.sum ./
 RUN go mod download
 
 # Copy the full CLI source.
-COPY cli/ ./
+COPY . ./
 
 # Build with the same flags as dev.sh cross-build-sb / cli/Makefile:
 #   -trimpath    — reproducible paths (no host filesystem in the binary)
