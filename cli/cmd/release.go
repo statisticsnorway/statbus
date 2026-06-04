@@ -703,7 +703,7 @@ func checkMigrationImmutability(projDir, prevTag, label string) error {
 		if prevIsStable {
 			fmt.Printf("      ⚠ %s is a STABLE tag — this version shipped in production.\n", prevTag)
 			fmt.Println("        Operators bypassing stable-shipped migrations: confirm the change is")
-			fmt.Println("        coordinated with downstream rollouts (see doc/upgrade-system.md).")
+			fmt.Println("        coordinated with downstream rollouts (see doc/upgrade-timeline.md).")
 		}
 	}
 

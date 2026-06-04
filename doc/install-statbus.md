@@ -49,7 +49,7 @@ cd ~/statbus
 
 For operator-triggered upgrades on an existing install, the canonical workflow is: `./sb upgrade schedule <version>` to queue, then either wait for the systemd service's next tick, or run `./sb install` to dispatch immediately.
 
-See `doc/upgrade-system.md` for the full dispatch reference and `doc/install-mutex.md` for the concurrency contract.
+See `doc/upgrade-timeline.md` for the full dispatch reference and concurrency contract.
 
 ## After Installation
 
@@ -187,7 +187,7 @@ to those scripts continue working without change.
 
 ### Concurrency safety
 
-`install.sh` eventually runs `./sb install`, which performs the upgrade-mutex check (see `install-mutex.md`). If an orchestrated upgrade is in flight, the install aborts with a diagnostic message.
+`install.sh` eventually runs `./sb install`, which performs the upgrade-mutex check (see `doc/upgrade-timeline.md#flag-file-mutex-install--service`). If an orchestrated upgrade is in flight, the install aborts with a diagnostic message.
 
 To update a live server without tripping the mutex, stop the upgrade service first:
 
@@ -198,4 +198,4 @@ curl -fsSL https://statbus.org/install.sh | bash -s -- --channel prerelease
 
 `./cloud.sh install <server>` does this automatically for both edge and release channels. Fresh installs on a brand-new server have no running service to conflict with.
 
-See `doc/upgrade-system.md` for the full upgrade-system architecture.
+See `doc/upgrade-timeline.md` for the full upgrade architecture.

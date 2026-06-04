@@ -1957,7 +1957,7 @@ func (d *Service) verifyUpgradeGroundTruth(ctx context.Context, rowCommitSHA str
 	queryErr := d.queryConn.QueryRow(ctx,
 		`SELECT COALESCE(MAX(version), 0) FROM db.migration`).Scan(&dbMaxVersion)
 	if queryErr != nil {
-		// Fail-loud per upgrade-system.md ("silent soft-warnings are
+		// Fail-loud per upgrade-timeline.md ("silent soft-warnings are
 		// forbidden"). Previously this returned (true, "") on query
 		// failure, masking exactly the conditions ground-truth is
 		// supposed to catch — e.g. on rune (Stage B wedge), this

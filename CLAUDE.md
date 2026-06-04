@@ -89,7 +89,7 @@ Agents that debug issues should BUILD DIAGNOSTIC TOOLS, not just debug. Add trac
 
 When `./sb install` routes to the scheduled-upgrade dispatch, it does **not** acquire the install-held flag. `executeUpgrade` writes its own service-held flag internally before any destructive step. Ownership of the mutex transfers cleanly across the boundary via this filesystem-level handshake. Don't wrap `svc.ExecuteUpgradeInline` with an install-flag acquire — you'll self-deadlock on the second writer's `O_EXCL`.
 
-Full reference: `doc/upgrade-system.md` and `doc/install-mutex.md`.
+Full reference: `doc/upgrade-timeline.md`.
 
 ## macOS dev note: restarting Docker Desktop
 

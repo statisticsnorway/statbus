@@ -187,7 +187,7 @@ The installer:
 
 After installation, follow the on-screen instructions to configure and start STATBUS.
 
-> **If the server already has an upgrade service running**, stop it before re-invoking the installer, or use `./cloud.sh install <server>` which handles this automatically. `./sb install` refuses to proceed if an orchestrated upgrade is in flight (see [install-mutex.md](install-mutex.md)).
+> **If the server already has an upgrade service running**, stop it before re-invoking the installer, or use `./cloud.sh install <server>` which handles this automatically. `./sb install` refuses to proceed if an orchestrated upgrade is in flight (see [upgrade-timeline.md](upgrade-timeline.md#flag-file-mutex-install--service)).
 > ```bash
 > systemctl --user stop 'statbus-upgrade@*.service'
 > curl -fsSL https://statbus.org/install.sh | bash -s -- --channel prerelease
@@ -340,7 +340,7 @@ Updates are handled automatically by the upgrade service. To manually trigger:
                                     # without waiting for the service tick
 ```
 
-`./sb install` is the unified entrypoint — safe to run on a healthy install (acts as an idempotent config refresh), and it routes to inline upgrade when a scheduled row is pending. See `doc/upgrade-system.md` for the full dispatch ladder.
+`./sb install` is the unified entrypoint — safe to run on a healthy install (acts as an idempotent config refresh), and it routes to inline upgrade when a scheduled row is pending. See `doc/upgrade-timeline.md` for the full dispatch ladder.
 
 ---
 

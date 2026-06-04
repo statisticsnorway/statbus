@@ -80,7 +80,7 @@ var rootCmd = &cobra.Command{
 // installation must not require the very wedged binary to be hand-rebuilt
 // first. Single-attempt: SelfHealAttemptEnv prevents recursion. Tier-1
 // ambiguous identity (case 1) cannot self-heal (no identity to rebuild
-// against). See doc/upgrade-system.md for the full state matrix and the
+// against). See doc/upgrade-timeline.md for the full state matrix and the
 // fail-fast audit table.
 func stalenessGuard(c *cobra.Command, _ []string) {
 	// The freshness probe (`sb committed-drift`) IS the staleness check that

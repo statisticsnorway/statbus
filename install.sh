@@ -224,7 +224,7 @@ if [ -z "${SKIP_BINARY_DOWNLOAD:-}" ]; then
         git fetch origin --tags
         # Use a named local branch (`current`) so HEAD is never
         # detached on a tag. Parallels `pre-upgrade` — see
-        # doc/install-mutex.md. -B resets the branch on each install,
+        # doc/upgrade-timeline.md#flag-file-mutex-install--service. -B resets the branch on each install,
         # so this is idempotent across re-runs.
         git checkout -B current "$VERSION"
         # Item M (plan-rc.66): drop the legacy statbus/ namespace from

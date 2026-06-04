@@ -110,7 +110,7 @@ echo "SELECT ..." | ./sb psql             # Single queries
 | live-upgrade (service running)     | Refuse with diagnostic; do not touch state                                              |
 | legacy pre-1.0 (no `public.upgrade` table) | Refuse with pointer to manual upgrade path (`doc/CLOUD.md`)                     |
 
-Canonical operator upgrade workflow: `./sb upgrade schedule <version>` to queue, then either wait for the service's next tick (production norm) or run `./sb install` to dispatch immediately. After a successful inline upgrade the systemd upgrade unit (if active) is restarted so it picks up the new binary + migrations. Full contract in `doc/upgrade-system.md` and `doc/install-mutex.md`.
+Canonical operator upgrade workflow: `./sb upgrade schedule <version>` to queue, then either wait for the service's next tick (production norm) or run `./sb install` to dispatch immediately. After a successful inline upgrade the systemd upgrade unit (if active) is restarted so it picks up the new binary + migrations. Full contract in `doc/upgrade-timeline.md`.
 
 **Migration Best Practice for Modifying Existing Functions/Procedures:**
 

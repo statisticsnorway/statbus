@@ -2,8 +2,7 @@
 
 The single authoritative reference for how StatBus upgrades itself: the end-to-end
 timeline, the `public.upgrade` row lifecycle, the install ↔ service mutex, and the
-fail-fast recovery contract. This doc folds in the former `upgrade-system.md` and
-`install-mutex.md` (both now one-line redirects here).
+fail-fast recovery contract.
 
 Three orchestration paths exist and must never fight each other. The mutex contract
 described here is enforced in code so that running a manual install while the service
