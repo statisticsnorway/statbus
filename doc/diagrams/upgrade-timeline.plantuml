@@ -1,6 +1,8 @@
 @startuml upgrade-timeline
-' PROTOTYPE — PlantUML equivalent of upgrade-timeline.d2, for side-by-side comparison.
-' Mirrors doc/upgrade-system.md "executeUpgrade pipeline" + "Recovery contract (recoverFromFlag)".
+' Authoritative sequence diagram for doc/upgrade-timeline.md.
+' The `==` bands are the citable named phases — keep them in sync with the
+' `##` section headers in upgrade-timeline.md so code comments can cite
+' "see upgrade-timeline.md § <band>".
 skinparam backgroundColor #FEFEFE
 skinparam sequence {
     ArrowColor #1565C0
@@ -11,46 +13,65 @@ skinparam sequence {
     GroupBorderColor #90A4AE
 }
 
-title StatBus Upgrade Timeline (service-driven, binary-swap restart, rollback)
+title StatBus Upgrade Timeline (single service, fail-fast one-shot, rollback to snapshot)
 
 participant "Operator / CI" as cici
-participant "systemd" as systemd
-participant "Upgrade Service\n(./sb upgrade service)" as service
-participant "Database\n(public.upgrade + backup)" as db
+participant "systemd (user)" as systemd
+participant "Upgrade Service\nstatbus-upgrade@$USER" as service
+participant "PostgreSQL\npublic.upgrade + snapshot" as db
 
 == Service boot ==
-systemd -> service : start statbus-upgrade@<slot>.service
-service -> systemd : sd_notify READY=1
+systemd -> service : start statbus-upgrade@$USER.service
+service -> service : recoverFromFlag — reconcile any leftover flag
+service -> systemd : sd_notify READY=1 (after cheap init only)
 service -> db : LISTEN upgrade channel + advisory lock
 
 == Schedule + dispatch ==
-cici -> db : apply-latest -> UPDATE upgrade=scheduled + NOTIFY
+cici -> db : ./sb upgrade apply-latest →\nUPDATE state='scheduled' + NOTIFY
 db -> service : NOTIFY wakes the listener
-service -> db : claim row WHERE state=scheduled -> in_progress
+service -> db : claim row WHERE state='scheduled' → in_progress
 
-group executeUpgrade
-    service -> service : writeUpgradeFlag (mutex held)
+== Execute upgrade ==
+group execute upgrade — mutex held (Holder="service")
+    service -> service : writeUpgradeFlag (O_CREATE|O_EXCL)
+    service -> db : pre-flight — downgrade guard, assets, disk, signature
     service -> db : maintenance mode on
-    service -> db : take DB backup
-    service -> service : git checkout target
+    service -> db : take DB snapshot → backup_path
+    service -> service : git checkout target commit
     service -> service : docker compose pull
     service -> db : start DB + wait health
-    service -> db : migrate up
+    service -> db : ./sb migrate up
     service -> service : start app services + health check
 end
+note over service, db
+  Fail-fast: any step that errors OR hangs aborts the single
+  attempt and routes to rollback (§ Complete / rollback). No retry.
+end note
 
 == Binary-swap restart + resume ==
-service -> systemd : exit 42 (self-update -> request respawn)
-systemd -> service : restart unit on new binary
-service -> db : recoverFromFlag HEAD==target -> mark completed_at
-service -> service : removeUpgradeFlag (mutex released)
-service -> db : supersede older rows + notify UI
+service -> systemd : exit 42 — self-update, request the ONE planned respawn
+systemd -> service : restart unit on the new binary
+service -> service : resumePostSwap — continue from flag (HEAD == target)
+note over systemd, service
+  This restart is expected exactly once. Any OTHER mid-upgrade
+  restart → recoverFromFlag treats the attempt as died → roll back.
+end note
 
-group failure (any step from DB backup onward)
-    service -> db : rollback() restore git + DB backup + services
-    service -> db : mark error + rolled_back_at
+== Complete / rollback ==
+alt all steps succeeded
+    service -> db : mark completed_at (state=completed)
     service -> service : removeUpgradeFlag (mutex released)
-    service -> cici : Slack callback FAILED
+    service -> db : supersede older rows + notify UI
+    service -> cici : Slack callback — OK
+else any step failed or hung (one attempt, NO retry)
+    service -> db : rollback() — restore git + DB snapshot + services
+    alt snapshot restore succeeded
+        service -> db : state=rolled_back (+ error) — healthy at old version
+    else restore also failed
+        service -> db : state=failed (+ error) — needs hands-on
+    end
+    service -> service : removeUpgradeFlag (mutex released)
+    service -> cici : Slack callback — FAILED (exact step + reason)
 end
 
 @enduml

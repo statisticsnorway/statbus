@@ -1,0 +1,54 @@
+@startuml upgrade-lifecycle
+' Authoritative state diagram for doc/upgrade-timeline.md § Upgrade-row lifecycle.
+' States are the public.upgrade.state enum (upgrade_state); the timestamp
+' invariants per state are enforced by chk_upgrade_state_attributes — see
+' doc/db/table/public_upgrade.md. Keep the terminal-state naming in sync with
+' the recovery contract: rolled_back = restored / healthy at old version,
+' failed = restore also failed / needs hands-on.
+skinparam backgroundColor #FEFEFE
+skinparam state {
+    BorderColor #1565C0
+    BackgroundColor #E3F2FD
+    ArrowColor #1565C0
+    FontColor #102027
+}
+
+title public.upgrade row lifecycle — discovery, execution, fail-fast terminals
+
+[*] --> available : service poll discovers a release
+
+available --> scheduled : operator/CI schedules\n(scheduled_at set)
+available --> skipped : operator skips
+available --> superseded : newer release discovered
+
+scheduled --> in_progress : service claims\n(started_at set)
+scheduled --> superseded : newer release supersedes
+
+in_progress --> completed : all steps OK\n(completed_at set, error NULL)
+in_progress --> rolled_back : step fail/hang →\nsnapshot restored\n(rolled_back_at + error)
+in_progress --> failed : step fail/hang AND\nrestore also failed\n(error, no rolled_back_at)
+
+note right of in_progress
+  Fail-fast: one attempt, NO retry.
+  The one planned binary-swap restart resumes the
+  same attempt; any other mid-upgrade restart is
+  treated as died → roll back to the snapshot.
+end note
+
+rolled_back --> dismissed : operator acknowledges
+failed --> dismissed : operator acknowledges
+
+completed --> [*]
+skipped --> [*]
+superseded --> [*]
+dismissed --> [*]
+
+note bottom
+  chk_upgrade_state_attributes enforces the timestamp columns per state
+  (e.g. completed ⇒ completed_at NOT NULL, error NULL; rolled_back ⇒
+  rolled_back_at + error NOT NULL; failed ⇒ error NOT NULL, no rolled_back_at).
+  rolled_back = snapshot restored, healthy at the old version.
+  failed = restore also failed, needs hands-on recovery.
+end note
+
+@enduml
