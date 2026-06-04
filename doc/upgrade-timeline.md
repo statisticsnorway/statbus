@@ -61,16 +61,12 @@ wakes and **claims** the row atomically:
 service or concurrent install wins first, the loser sees `RowsAffected = 0` and bails
 with a clear diagnostic.
 
-### Execute upgrade
+### Execute upgrade (pre-swap)
 
-The destructive pipeline, run with the mutex held (the service writes its own
-`Holder="service"` flag first — see [Flag-file mutex](#flag-file-mutex-install--service)):
-
-The binary swap + `exit 42` is the **pivot** (step 6, not the last step): the pre-swap
-steps run on the old binary; everything after the swap runs on the **new** binary inside
-`resumePostSwap` → `applyPostSwap` (see [Binary-swap restart + resume](#binary-swap-restart--resume)).
-
-*Pre-swap (old binary, `executeUpgrade`):*
+The pre-swap half of the pipeline, run on the old binary with the mutex held (the service
+writes its own `Holder="service"` flag first — see [Flag-file mutex](#flag-file-mutex-install--service)).
+The binary swap + `exit 42` is the **pivot** (step 6): everything after it runs on the
+**new** binary (see [Binary-swap restart + resume](#binary-swap-restart--resume)).
 
 1. Pre-flight checks: downgrade guard, release-assets manifest, disk space, commit signature.
 2. **writeUpgradeFlag** — `acquireFlock` opens the marker `O_CREATE|O_RDWR` and takes a
@@ -81,7 +77,18 @@ steps run on the old binary; everything after the swap runs on the **new** binar
 6. **Binary swap (the pivot)** — `replaceBinaryOnDisk` swaps `./sb`, the flag advances to
    `Phase=PostSwap`, and the service `exit 42`s → systemd respawns it on the **new binary**.
 
-*Post-swap (new binary, `applyPostSwap`):*
+**Fail-fast.** Any step (pre- or post-swap) from the snapshot (4) onward that errors *or
+hangs* aborts the single attempt and routes to [Complete / rollback](#complete--rollback).
+The attempt is never retried.
+
+### Binary-swap restart + resume
+
+The pivot above (`exit 42`) makes systemd respawn the service **on the new binary** — the
+unit declares `SuccessExitStatus=42` + `RestartForceExitStatus=42` — this is the **one
+planned restart** of an upgrade. The fresh process runs `recoverFromFlag`, sees the
+`Phase=PostSwap` flag (the planned handoff), stamps `Phase=Resuming`, and continues the
+*same* attempt via `resumePostSwap` → `applyPostSwap`. The remaining steps all run on the
+new binary:
 
 7. `./sb config generate`.
 8. `docker compose pull` the new images.
@@ -96,23 +103,10 @@ steps run on the old binary; everything after the swap runs on the **new** binar
 14. Mark `completed_at`; **removeUpgradeFlag** (mutex released); supersede older `available`
     rows; notify the UI; archive the snapshot.
 
-**Fail-fast.** Any step from the snapshot (4) onward that errors *or hangs* aborts the
-single attempt and routes to [Complete / rollback](#complete--rollback). The attempt is
-never retried.
-
-### Binary-swap restart + resume
-
-If the target ships a newer `./sb` binary, the service self-updates and exits `42`.
-The unit declares `SuccessExitStatus=42` + `RestartForceExitStatus=42`, so systemd
-respawns the service **on the new binary** — this is the **one planned restart** of an
-upgrade. The fresh process runs `recoverFromFlag` → `resumePostSwap` via the `Phase=PostSwap`
-flag (the planned handoff), and continues the *same* attempt from where it left off
-(config generate → pull → db up → health → reconnect → migrate → app up → health → archive).
-
 The restart is expected exactly once. Any **other** restart while a row is `in_progress`
-(watchdog kill, OOM, operator `systemctl restart`) is treated by `recoverFromFlag` as a
-**died** attempt → roll back to the snapshot. There is no "resume forward from an
-arbitrary crash point" mode.
+(watchdog kill, OOM, operator `systemctl restart`) leaves `Phase=Resuming`, so
+`recoverFromFlag` treats the attempt as **died** → roll back to the snapshot. There is no
+"resume forward from an arbitrary crash point" mode.
 
 ### Complete / rollback
 

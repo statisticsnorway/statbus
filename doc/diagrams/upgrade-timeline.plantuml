@@ -31,30 +31,34 @@ cici -> db : ./sb upgrade apply-latest →\nUPDATE state='scheduled' + NOTIFY
 db -> service : NOTIFY wakes the listener
 service -> db : claim row WHERE state='scheduled' → in_progress
 
-== Execute upgrade ==
-group execute upgrade — mutex held (Holder="service")
-    service -> service : writeUpgradeFlag (flock LOCK_EX on the fd)
+== Execute upgrade (pre-swap — mutex held, Holder="service") ==
+group pre-swap
+    service -> service : writeUpgradeFlag — acquireFlock (flock LOCK_EX on the fd)
     service -> db : pre-flight — downgrade guard, assets, disk, signature
     service -> db : maintenance mode on
-    service -> db : take DB snapshot → backup_path
+    service -> db : take DB snapshot -> backup_path
     service -> service : git checkout target commit
-    service -> service : docker compose pull
-    service -> db : start DB + wait health
-    service -> db : ./sb migrate up
-    service -> service : start app services + health check
+    service -> service : replaceBinaryOnDisk -> stamp Phase=PostSwap
 end
 note over service, db
-  Fail-fast: any step that errors OR hangs aborts the single
-  attempt and routes to rollback (§ Complete / rollback). No retry.
+  Fail-fast: any step (pre- or post-swap) that errors OR hangs aborts the
+  single attempt and routes to rollback (§ Complete / rollback). No retry.
 end note
 
-== Binary-swap restart + resume ==
+== Binary-swap restart + resume (post-swap, on the NEW binary) ==
 service -> systemd : exit 42 — self-update, request the ONE planned respawn
 systemd -> service : restart unit on the new binary
-service -> service : resumePostSwap — continue from flag (HEAD == target)
+service -> service : recoverFromFlag sees Phase=PostSwap -> stamp Phase=Resuming
+group applyPostSwap — remaining steps run on the new binary
+    service -> service : config generate + docker compose pull
+    service -> db : start DB + wait health + reconnect
+    service -> db : ./sb migrate up
+    service -> service : start app services + health check
+    service -> db : maintenance off + archive backup
+end
 note over systemd, service
-  This restart is expected exactly once. Any OTHER mid-upgrade
-  restart → recoverFromFlag treats the attempt as died → roll back.
+  The exit-42 restart is the ONE planned restart. A death DURING the resume
+  leaves Phase=Resuming -> recoverFromFlag rolls back (never re-resumes).
 end note
 
 == Complete / rollback ==
