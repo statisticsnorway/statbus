@@ -560,6 +560,7 @@ being simulated without reading the code where the primitive fires.
 | `migration-deadlocks-with-running-worker-holding-table-lock` | stall | a worker session holds AccessShareLock; the migration's CREATE/DROP INDEX needs AccessExclusiveLock; the lock manager parks the migration. Asserts the upgrade does NOT hang |
 | `install-flag-released-without-clean-handoff-detected-as-stale` | external | install exits cleanly but doesn't release the flag; the service's next tick observes a dead-holder flag and treats it as a crashed install |
 | `service-watchdog-timeout-during-db-reconnect-after-container-restart` | stall | the reconnect loop runs without `WATCHDOG=1` pings; a long reconnect gets SIGABRTed. The fix pings the watchdog from inside the loop |
+| `archive-backup-stall-active-phase-watchdog` | stall | the post-swap `archiveBackup` tar stalls in the active phase, beyond the heartbeat ticker's scope; asserts the progress-gated watchdog still covers the multi-minute tar so a genuinely-advancing backup is not reaped (and a true hang still is) |
 | `advisory-lock-attempted-before-db-ready-after-container-restart` | external | the DB container is still restarting when the service tries its first advisory lock; the attempt fails and exits 42; systemd restarts after backoff |
 | `seed-restore-runs-on-populated-database-destroying-data` | stall | **DATA-LOSS GRADE.** the install routes to seed-restore against a populated DB; `pg_restore` of the seed silently destroys rows. The scenario asserts data survives |
 

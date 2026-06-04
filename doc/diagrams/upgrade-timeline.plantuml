@@ -30,20 +30,36 @@ note over cici, db
 end note
 
 == Service boot ==
-systemd -> service : start statbus-upgrade@$USER.service
-service -> service : recoverFromFlag — reconcile any leftover flag
-service -> systemd : sd_notify READY=1 (after cheap init only)
-service -> db : LISTEN upgrade channel + advisory lock
+systemd -> service : start statbus-upgrade@$USER.service (Type=notify, Restart=always)
+service -> db : advisory lock + LISTEN upgrade channel\n(cheap, bounded init)
+service -> systemd : sd_notify READY=1\n(emitted here — heavy recovery below runs in the ACTIVE phase under WatchdogSec)
+service -> db : boot migrate up — bring schema to HEAD (schema-skew guard)
+service -> service : recoverFromFlag — reconcile a flag left on disk (flag-DRIVEN)
+service -> db : completeInProgressUpgrade — reconcile an in_progress row with NO flag\n(flag-INDEPENDENT belt; the SOLE recovery for a pre-flight kill)
+note over service, db
+  Two-layer boot recovery. recoverFromFlag handles a kill AFTER the flag exists (Phase
+  ladder: PreSwap / PostSwap / Resuming). completeInProgressUpgrade handles a kill BEFORE
+  the flag exists — the claim -> writeUpgradeFlag window (see § Execute upgrade (pre-swap)).
+  It rolls such an orphan to a named terminal state via verifyUpgradeGroundTruth.
+end note
 
 == Schedule + dispatch ==
 cici -> db : ./sb upgrade apply-latest →\nUPDATE state='scheduled' + NOTIFY
 db -> service : NOTIFY wakes the listener
-service -> db : claim row WHERE state='scheduled' → in_progress
+service -> db : claim row WHERE state='scheduled' → in_progress\n(started_at set, error=NULL — NO flag on disk yet)
 
-== Execute upgrade (pre-swap — mutex held, Holder="service") ==
-group pre-swap
-    service -> service : writeUpgradeFlag — acquireFlock (flock LOCK_EX on the fd)
-    service -> db : pre-flight — downgrade guard, assets, disk, signature
+== Execute upgrade (pre-swap) ==
+group pre-flight — NO flag on disk yet (row is in_progress, error=NULL)
+    service -> db : pre-flight checks — downgrade guard, release assets, disk, signature
+end
+note over service, db
+  Flag-absent window — spans the claim above through pre-flight, until writeUpgradeFlag.
+  A kill HERE leaves the row in_progress | error=NULL with NO flag: recoverFromFlag finds
+  nothing to reconcile, so completeInProgressUpgrade (§ Service boot) is the ONLY recovery
+  — it rolls the row back with a named reason at the next boot.
+end note
+group mutex held — Holder="service", flock LOCK_EX on the marker fd
+    service -> service : writeUpgradeFlag — acquireFlock opens the marker (Phase=PreSwap)
     service -> db : maintenance mode on
     service -> db : take DB snapshot -> backup_path
     service -> service : git checkout target commit
