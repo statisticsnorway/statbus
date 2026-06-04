@@ -6,21 +6,23 @@ import (
 	"testing"
 )
 
-// TestStatbusUpgradeServiceUnit_StartLimitDirectives is the Item L
-// guard (plan-rc.66): ops/statbus-upgrade.service MUST declare
-// StartLimitIntervalSec + StartLimitBurst so a wedged service surfaces
-// as `failed` within minutes instead of `activating` forever.
+// TestStatbusUpgradeServiceUnit_StartLimitDirectives pins the start-limit
+// cap: ops/statbus-upgrade.service MUST declare StartLimitIntervalSec +
+// StartLimitBurst so a daemon that cannot reach READY=1 (e.g. DB down at boot)
+// surfaces as `failed` within minutes instead of `activating` forever.
 //
-// Background: jo logged 11000+ restarts over 91h before this cap was
-// added; `systemctl is-active` returned `activating`, masking the
-// problem from every standard health-check. With the cap, the
-// expected operator-recovery path is `./sb install` (which routes
-// through StateDBUnreachable → step-table), not manual reset-failed.
+// The cap guards ONLY repeated daemon-START failures — it is NOT an
+// upgrade-retry budget: the upgrade is one-shot (a death during the post-swap
+// resume rolls back via the FlagPhaseResuming latch rather than re-running).
+// burst=5 rides out a legitimate ~3-start transient (a DB restart in a
+// maintenance window) while tripping a persistent start failure in ~150s; the
+// recovery path is `./sb install` (routes through StateDBUnreachable →
+// step-table), not manual reset-failed.
 func TestStatbusUpgradeServiceUnit_StartLimitDirectives(t *testing.T) {
 	body := readUnitFile(t)
 
 	expectKV(t, body, "StartLimitIntervalSec", "600")
-	expectKV(t, body, "StartLimitBurst", "10")
+	expectKV(t, body, "StartLimitBurst", "5")
 }
 
 // TestStatbusUpgradeServiceUnit_RestartBehaviorPreserved pins the

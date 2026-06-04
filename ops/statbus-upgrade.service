@@ -4,35 +4,23 @@ Description=StatBus Upgrade Service
 # Install: ./sb install (copies to ~/.config/systemd/user/)
 # Manage: systemctl --user {start,stop,status} statbus-upgrade@$USER.service
 
-# Start-limit cap (Item L, plan-rc.66). Without this, Restart=always +
-# RestartSec=30 retries forever — observed on statbus_jo (11000+ restarts
-# over 91h, the unit reporting `activating` instead of `failed`, missed
-# by every standard health-check). After 10 failed starts within 600s,
-# systemd transitions the unit to `failed` and stops retrying. Recovery
-# requires `systemctl --user reset-failed` + restart, OR `./sb install`
-# (the install ladder detects DB-down and runs the step-table).
+# Start-limit cap. This guards ONLY repeated daemon-START failures: the unit
+# starting, failing to reach READY=1 (e.g. the DB is down at boot), exiting, and
+# being restarted by Restart=always + RestartSec=30. It is NOT an upgrade-retry
+# budget — an upgrade runs once, and a death during the post-swap resume rolls
+# back to the snapshot via the one-shot FlagPhaseResuming latch instead of
+# re-running (upgrade-timeline.md § Binary-swap restart + resume). So a hung or
+# killed upgrade resolves in a single watchdog-restart-then-rollback cycle; there
+# is no slow restart-loop for this cap to chase.
 #
-# Threshold rationale: 10-in-10min is forgiving enough for legitimate
-# transient issues (a DB restart during a maintenance window: ~3
-# retries) and tight enough that a wedged state surfaces within ~10
-# minutes instead of 91 hours.
-#
-# SLOW-LOOP GAP — closed by task #7 (f2-slow-loop-liveness): this cap catches
-# a FAST restart loop, but a SLOW timeout-loop (e.g. a ~2.5min cycle: a
-# start-phase kill + RestartSec=30) accumulates only ~4 restarts per 600s
-# window — UNDER burst=10 — so the cap never trips and the unit can report
-# `activating` indefinitely, missed by health-checks (the original NO/rune
-# 40h wedge before §4a FIX A). Tightening burst to catch a slow loop would
-# false-trip the legitimate ~3-retry transient above, so the fix is a SEPARATE
-# liveness observer ("cumulative NOT-healthy-stable > N=30min ⇒ stop + mark
-# failed + Slack"), NOT a burst recalibration here. SHIPPED as the paired
-# statbus-upgrade-liveness@.timer + .service (an external sidecar that runs
-# `./sb upgrade liveness-check` every 5min; see ops/statbus-upgrade-liveness@.*
-# and cli/internal/upgrade/liveness.go). §4a FIX A makes THIS bug's loop
-# impossible (the resume converges in ~1 cycle); the liveness observer is the
-# universal backstop for a slow loop of any other cause.
+# 5-in-10min: a legitimate transient (a DB restart during a maintenance window)
+# costs ~3 starts, so 5 leaves a 2-start margin without false-tripping, while a
+# persistent start failure (broken config, DB gone, corrupt binary) trips the
+# unit to `failed` in ~5×RestartSec ≈ 150s. Recovery is `systemctl --user
+# reset-failed` + restart, OR `./sb install` (the install ladder detects DB-down
+# and runs the step-table).
 StartLimitIntervalSec=600
-StartLimitBurst=10
+StartLimitBurst=5
 
 [Service]
 Type=notify
@@ -82,7 +70,8 @@ Environment=PATH=/home/linuxbrew/.linuxbrew/bin:/usr/local/sbin:/usr/local/bin:/
 # ticker stops pinging → this WatchdogSec=120 fires and the unit is reaped.
 # The migrate/recreate step (legitimately silent for minutes on one big DDL) is
 # exempted (always-ping), bounded instead by its own 30-min runCommandToLog
-# timeout + the cumulative-activating liveness cap (task #7).
+# timeout; a death during that step rolls back via the one-shot FlagPhaseResuming
+# latch (upgrade-timeline.md § Binary-swap restart + resume), never re-runs.
 WatchdogSec=120
 
 # TimeoutStartSec: hold-window from ExecStart until the service emits

@@ -22,11 +22,6 @@
 # SUCCEEDED — the system is healthy on the OLD version):
 #   STATBUS_ROLLED_BACK      — "1" when present; regular-support tier (no siren)
 #
-# Liveness-trip environment (set by `sb upgrade liveness-check` when it halts a
-# wedged slow upgrade loop — plan piece #7):
-#   STATBUS_LIVENESS_TRIPPED — "1" when present
-#   STATBUS_LIVENESS_REASON  — short reason (cumulative not-healthy-stable > N)
-#
 # Required in .env (or process environment):
 #   SLACK_TOKEN          — Slack Bot User OAuth Token (xoxb-...)
 set -euo pipefail
@@ -38,21 +33,7 @@ if [ -z "${SLACK_TOKEN:-}" ]; then
     exit 0
 fi
 
-if [ "${STATBUS_LIVENESS_TRIPPED:-}" = "1" ]; then
-    # Slow-loop liveness alarm: the upgrade unit was NOT healthy-stable for a
-    # cumulative N min — a wedged upgrade loop the StartLimitBurst cap couldn't
-    # catch. The observer has STOPPED the unit and marked the row failed.
-    # Unattended deployments are monitored HERE (Slack), not by watching the
-    # unit, so this must be loud + actionable.
-    HEADER=":rotating_light: UPGRADE WEDGED on *${STATBUS_SERVER:-unknown}* — liveness observer halted it"
-    BODY="Reason: ${STATBUS_LIVENESS_REASON:-cumulative not-healthy-stable exceeded threshold}"
-    BODY="${BODY}\nThe upgrade unit was stopped and any in-progress row marked failed. Recovery:"
-    BODY="${BODY}\n\`\`\`./sb install\`\`\`"
-    if [ -n "${STATBUS_URL:-}" ]; then
-        BODY="${BODY}\nInstance: <${STATBUS_URL}>"
-    fi
-    TEXT="${HEADER}\n${BODY}"
-elif [ "${STATBUS_ROLLBACK_FAILED:-}" = "1" ]; then
+if [ "${STATBUS_ROLLBACK_FAILED:-}" = "1" ]; then
     # Rollback-failure alert: distinctive (siren prefix), names the
     # exact recovery command so the on-call operator can act without
     # opening any docs. The recovery command goes in a code block so

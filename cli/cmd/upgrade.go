@@ -486,32 +486,6 @@ Typically run via systemd (ops/statbus-upgrade.service).`,
 	RunE:        upgradeServiceRunE,
 }
 
-// upgradeLivenessCheckCmd is the slow-loop backstop observer (plan piece #7,
-// LOAD-BEARING). Run by statbus-upgrade-liveness@.timer every 5 min — NOT by
-// hand. It watches statbus-upgrade@$USER.service and trips (stop + mark-row-
-// failed + Slack + sentinel) when the unit has been NOT healthy-stable for a
-// cumulative N=30 min (a slow upgrade loop that StartLimitBurst never catches).
-// See cli/internal/upgrade/liveness.go.
-var upgradeLivenessCheckCmd = &cobra.Command{
-	Use:    "liveness-check",
-	Short:  "Slow-loop liveness backstop (run by the liveness timer, not by hand)",
-	Hidden: true,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		projDir := config.ProjectDir()
-		d := upgrade.NewService(projDir, verbose, version, commit)
-		// Connect best-effort: a DB-down box is a VALID liveness input
-		// (queryConn nil → dbReachable=false → not-healthy-stable, but
-		// DB-down alone never trips — the staleness timer is the arbiter).
-		// So we do NOT fail the check if connect fails.
-		ctx := context.Background()
-		if err := d.LoadConfigAndConnect(ctx); err != nil {
-			fmt.Printf("liveness-check: DB connect failed (treating as unreachable): %v\n", err)
-		}
-		defer d.Close()
-		return d.RunLivenessCheck(ctx)
-	},
-}
-
 var upgradeSelfVerifyCmd = &cobra.Command{
 	Use:    "self-verify",
 	Short:  "Verify the binary can boot and connect (used during self-update)",
@@ -940,7 +914,6 @@ func init() {
 	upgradeCmd.AddCommand(upgradeApplyLatestCmd)
 	upgradeCmd.AddCommand(upgradeChannelCmd)
 	upgradeCmd.AddCommand(upgradeServiceCmd)
-	upgradeCmd.AddCommand(upgradeLivenessCheckCmd)
 	upgradeCmd.AddCommand(upgradeSelfVerifyCmd)
 	upgradeCmd.AddCommand(upgradeSelfRollbackCmd)
 	upgradeCmd.AddCommand(trustKeyCmd)

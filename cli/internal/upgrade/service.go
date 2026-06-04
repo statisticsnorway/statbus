@@ -4718,10 +4718,10 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 	d.removeUpgradeFlag()
 
 	// Notify (Slack) on the rolled_back terminal — the fail-fast rollback's
-	// single notification, absorbing what the deleted liveness sidecar used to
-	// fire. No STATBUS_ROLLBACK_FAILED: the snapshot restore SUCCEEDED, so this
-	// is the regular-support tier (notify-slack.sh renders STATBUS_ROLLED_BACK),
-	// not the degraded/all-hands tier. See upgrade-timeline.md § Complete / rollback.
+	// single operator notification. No STATBUS_ROLLBACK_FAILED: the snapshot
+	// restore SUCCEEDED, so this is the regular-support tier (notify-slack.sh
+	// renders STATBUS_ROLLED_BACK), not the degraded/all-hands tier. See
+	// upgrade-timeline.md § Complete / rollback.
 	d.runCallback(version, map[string]string{"STATBUS_ROLLED_BACK": "1"})
 
 	progress.Write("Rollback complete. The previous version has been restored.")
