@@ -1429,20 +1429,23 @@ func (d *Service) ExecuteUpgradeInline(ctx context.Context, id int, commitSHA, d
 //	                               completion health check passed, row finalised to completed
 //	LabelRolledBackNormal        — rollback normal path: upgrade failed, git restore succeeded,
 //	                               prior version restarted cleanly
-//	LabelRolledBackAbort         — rollback ABORT: git restore itself failed; row is rolled_back
-//	                               but the on-disk binary may be in an inconsistent state
+//	LabelFailedAbort             — rollback ABORT: git restore itself failed; row is failed
+//	                               (degraded — services down, maintenance on, manual recovery)
+//	LabelFailedRollbackIncomplete — rollback normal path BUT a restore step failed (DB snapshot
+//	                               restore or services-up): row is failed (degraded), not rolled_back
 //	LabelRolledBackCrashRecovery — recoverFromFlag: prior binary crashed mid-upgrade; new binary
 //	                               could not self-heal and triggered a rollback to recover
 //	LabelFailed                  — two sites: (1) completeInProgressUpgrade health check failed,
 //	                               (2) failUpgrade explicit failure during executeUpgrade
 const (
-	LabelCompletedNormal         = "completed-normal"
-	LabelCompletedSelfHeal       = "completed-self-heal"
-	LabelCompletedFromInProgress = "completed-from-in-progress"
-	LabelRolledBackNormal        = "rolled-back-normal"
-	LabelRolledBackAbort         = "rolled-back-abort"
-	LabelRolledBackCrashRecovery = "rolled-back-crash-recovery"
-	LabelFailed                  = "failed"
+	LabelCompletedNormal          = "completed-normal"
+	LabelCompletedSelfHeal        = "completed-self-heal"
+	LabelCompletedFromInProgress  = "completed-from-in-progress"
+	LabelRolledBackNormal         = "rolled-back-normal"
+	LabelFailedAbort              = "failed-abort"
+	LabelFailedRollbackIncomplete = "failed-rollback-incomplete"
+	LabelRolledBackCrashRecovery  = "rolled-back-crash-recovery"
+	LabelFailed                   = "failed"
 )
 
 // upgradeRowReturning is the RETURNING clause appended to every terminal-state
@@ -4578,16 +4581,22 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 				ErrRollbackGitCorrupt, contactSuffix(readAdministratorContact(d.projDir)))
 			fmt.Fprintf(os.Stderr, "ABORT: rollback git restore to %s failed: %v\n", previousVersion, err)
 
-			rollbackFailedMsg := fmt.Sprintf("%s: %v (originally: %s)", ErrRollbackGitCorrupt, err, reason)
+			// state=failed, NOT rolled_back: the git restore itself failed, so
+			// services are stopped and maintenance is ON — the box is DOWN, not
+			// "healthy at the old version". rolled_back's contract (no manual
+			// intervention needed) would be a silent operator lie to monitoring/UI.
+			// failed is valid here (started_at is set, no rolled_back_at). See
+			// upgrade-timeline.md § Complete / rollback.
+			rollbackFailedMsg := fmt.Sprintf("%s: %v (originally: %s) — ROLLBACK FAILED; the system is in a degraded state. Manual CLI recovery is required (./sb install); contact SSB support and involve your IT staff.", ErrRollbackGitCorrupt, err, reason)
 			// Bundle BEFORE the ABORT UPDATE so a forensic inspection of
-			// a wedged `rolled_back` row has the sibling .bundle.txt.
+			// a wedged `failed` row has the sibling .bundle.txt.
 			d.writeDiagnosticBundle(ctx, id, progress)
 			if d.queryConn != nil {
 				var abortJSON string
 				if scanErr := d.queryConn.QueryRow(ctx,
-					"UPDATE public.upgrade SET state = 'rolled_back', error = $1, rolled_back_at = now() WHERE id = $2"+upgradeRowReturning,
+					"UPDATE public.upgrade SET state = 'failed', error = $1 WHERE id = $2"+upgradeRowReturning,
 					rollbackFailedMsg, id).Scan(&abortJSON); scanErr == nil {
-					logUpgradeRow(LabelRolledBackAbort, abortJSON)
+					logUpgradeRow(LabelFailedAbort, abortJSON)
 				}
 			}
 			// Page on-call via the configured callback (Slack, etc.).
@@ -4640,8 +4649,11 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 		}
 	}
 
-	// Restore database backup. Now safe — git state matches the DB era.
-	d.restoreDatabase(progress)
+	// Restore database backup. Now safe — git state matches the DB era. A
+	// non-nil error means the rsync restore was attempted and FAILED, leaving
+	// the volume inconsistent → the terminal row must record `failed` (degraded),
+	// not `rolled_back`.
+	dbRestoreErr := d.restoreDatabase(progress)
 
 	// Harness-only kill site (C9): simulates the OS / orchestrator killing
 	// the process MID-ROLLBACK — specifically, after the destructive
@@ -4672,9 +4684,12 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 	// No-op in production. Drives scenario 24.
 	inject.KillHere("killed-by-system-during-builtin-rollback")
 
-	// Start with old config — git is verified at previousVersion.
-	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "rollback-docker-up", nil, "docker", "compose", "--profile", "all", "up", "-d", "--remove-orphans"); err != nil {
-		progress.Write("%s: docker compose up failed after rollback: %v", ErrRollbackServicesUp, err)
+	// Start with old config — git is verified at previousVersion. A failure
+	// here means the old-version services would not come back up → degraded,
+	// recorded as `failed` below.
+	servicesUpErr := runCommandToLog(projDir, 5*time.Minute, progress.File(), "rollback-docker-up", nil, "docker", "compose", "--profile", "all", "up", "-d", "--remove-orphans")
+	if servicesUpErr != nil {
+		progress.Write("%s: docker compose up failed after rollback: %v", ErrRollbackServicesUp, servicesUpErr)
 	}
 
 	// Reconnect (may fail if DB didn't come back)
@@ -4693,38 +4708,70 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 	if reason == "" {
 		errMsg = "Rollback completed (no reason captured — caller did not pass one)"
 	}
-	// Two-tier terminal tail (upgrade-timeline.md § Complete / rollback): this is
-	// the snapshot-restore-SUCCEEDED tier → state=rolled_back, healthy at the old
-	// version. The `error` column is the unattended operator's whole diagnostic
-	// surface, so it carries the next action. (The degraded tier — restore itself
-	// failed — is the git-restore ABORT path above, which fires
-	// STATBUS_ROLLBACK_FAILED=1.)
-	errMsg = errMsg + " — rolled back to the previous version; the system is running normally on the old version. The failure is recorded; report it to support. No manual intervention needed."
-	// Bundle BEFORE the terminal UPDATE so a support ticket on any
-	// `rolled_back` row has the sibling .bundle.txt available.
+	// Two-tier terminal (upgrade-timeline.md § Complete / rollback). The restore
+	// steps above are best-effort and log-not-raise, so a degraded outcome must be
+	// detected HERE: if the DB snapshot restore failed OR the old-version services
+	// would not come back up, the box is NOT "healthy at the old version" — record
+	// `failed` (degraded; manual recovery), never `rolled_back`. Recording
+	// rolled_back on a degraded box is the silent-operator-lie the codebase forbids
+	// (rolled_back's contract is "running normally on old version, no manual
+	// intervention"). (restoreBinary failure is excluded: ./sb being stale is
+	// self-healed by the staleness guard on the next invocation; the site's
+	// containers serve old code from the restored git tree, so it stays healthy.)
+	degraded := dbRestoreErr != nil || servicesUpErr != nil
+	// Bundle BEFORE the terminal UPDATE so a support ticket on the row has the
+	// sibling .bundle.txt available.
 	d.writeDiagnosticBundle(ctx, id, progress)
-	if d.queryConn != nil {
-		var rollbackJSON string
-		if scanErr := d.queryConn.QueryRow(ctx,
-			"UPDATE public.upgrade SET state = 'rolled_back', error = $1, rolled_back_at = now() WHERE id = $2"+upgradeRowReturning,
-			errMsg, id).Scan(&rollbackJSON); scanErr == nil {
-			logUpgradeRow(LabelRolledBackNormal, rollbackJSON)
+
+	if degraded {
+		detail := ""
+		if dbRestoreErr != nil {
+			detail += "; DB snapshot restore failed"
 		}
+		if servicesUpErr != nil {
+			detail += "; services did not come back up"
+		}
+		errMsg = errMsg + " — ROLLBACK INCOMPLETE" + detail + ". The system is in a degraded state; manual CLI recovery is required (./sb install); contact SSB support and involve your IT staff."
+		if d.queryConn != nil {
+			var failedJSON string
+			if scanErr := d.queryConn.QueryRow(ctx,
+				"UPDATE public.upgrade SET state = 'failed', error = $1 WHERE id = $2"+upgradeRowReturning,
+				errMsg, id).Scan(&failedJSON); scanErr == nil {
+				logUpgradeRow(LabelFailedRollbackIncomplete, failedJSON)
+			}
+		}
+		d.removeUpgradeFlag()
+		// Page on-call: the degraded/all-hands tier (siren), same signal as the
+		// git-restore ABORT path.
+		hostname, _ := os.Hostname()
+		d.runCallback(version, map[string]string{
+			"STATBUS_ROLLBACK_FAILED": "1",
+			"STATBUS_ROLLBACK_ERROR":  errMsg,
+			"STATBUS_RECOVERY_CMD":    fmt.Sprintf(`ssh %s "cd statbus && ./sb install"`, hostname),
+		})
+		progress.Write("Rollback INCOMPLETE — the system is degraded; manual recovery required.")
+	} else {
+		// Snapshot restore succeeded and services came back → healthy at the old
+		// version. Regular-support tier; the `error` column carries the next action.
+		errMsg = errMsg + " — rolled back to the previous version; the system is running normally on the old version. The failure is recorded; report it to support. No manual intervention needed."
+		if d.queryConn != nil {
+			var rollbackJSON string
+			if scanErr := d.queryConn.QueryRow(ctx,
+				"UPDATE public.upgrade SET state = 'rolled_back', error = $1, rolled_back_at = now() WHERE id = $2"+upgradeRowReturning,
+				errMsg, id).Scan(&rollbackJSON); scanErr == nil {
+				logUpgradeRow(LabelRolledBackNormal, rollbackJSON)
+			}
+		}
+		// Clear the in-progress flag: the rollback has restored a consistent state,
+		// so the mutex that blocks `./sb install` must be released. Without this,
+		// the flag lingers until the next service restart, wedging all future installs.
+		d.removeUpgradeFlag()
+		// Notify (Slack) on the rolled_back terminal — the fail-fast rollback's
+		// single operator notification, regular-support tier (notify-slack.sh
+		// renders STATBUS_ROLLED_BACK).
+		d.runCallback(version, map[string]string{"STATBUS_ROLLED_BACK": "1"})
+		progress.Write("Rollback complete. The previous version has been restored.")
 	}
-
-	// Clear the in-progress flag: the rollback has restored a consistent state,
-	// so the mutex that blocks `./sb install` must be released. Without this,
-	// the flag lingers until the next service restart, wedging all future installs.
-	d.removeUpgradeFlag()
-
-	// Notify (Slack) on the rolled_back terminal — the fail-fast rollback's
-	// single operator notification. No STATBUS_ROLLBACK_FAILED: the snapshot
-	// restore SUCCEEDED, so this is the regular-support tier (notify-slack.sh
-	// renders STATBUS_ROLLED_BACK), not the degraded/all-hands tier. See
-	// upgrade-timeline.md § Complete / rollback.
-	d.runCallback(version, map[string]string{"STATBUS_ROLLED_BACK": "1"})
-
-	progress.Write("Rollback complete. The previous version has been restored.")
 
 	// Exit 75 (sysexits EX_TEMPFAIL: "temporary failure, retry later")
 	// per the rc.67 trifecta. Distinct from:

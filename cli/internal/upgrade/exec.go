@@ -686,11 +686,17 @@ func (d *Service) pickLatestBackup() string {
 	return filepath.Join(root, finalised[len(finalised)-1])
 }
 
-func (d *Service) restoreDatabase(progress *ProgressLog) {
+// restoreDatabase rsync-restores the DB volume from the finalised snapshot.
+// Returns nil on success OR on the no-backup no-op (the PreSwap case, where the
+// DB volume was never mutated so there is nothing to restore — the box stays
+// healthy). Returns a non-nil error ONLY when an rsync restore was attempted and
+// FAILED: the volume is then left inconsistent, so the caller must record the
+// row terminal as `failed` (degraded), not `rolled_back`.
+func (d *Service) restoreDatabase(progress *ProgressLog) error {
 	backupDir := d.pickLatestBackup()
 	if backupDir == "" {
 		progress.Write("ABORT: no finalised backup directory found in %s; refusing to touch the live volume", d.backupRoot())
-		return
+		return nil
 	}
 	volumeName := d.dbVolumeName()
 
@@ -702,7 +708,9 @@ func (d *Service) restoreDatabase(progress *ProgressLog) {
 		"alpine", "sh", "-c", "apk add --no-cache rsync >/dev/null 2>&1 && rsync -a --delete /source/ /dest/",
 	); err != nil {
 		progress.Write("%s: database restore failed: %v", ErrRollbackDBRestore, err)
+		return fmt.Errorf("%s: %w", ErrRollbackDBRestore, err)
 	}
+	return nil
 }
 
 // pruneBackups trims LEGACY finalised pre-upgrade-<stamp> backups to the `keep`
