@@ -33,6 +33,17 @@ staged — there is no manual freshness stamp.
 
 Source: [`diagrams/upgrade-lifecycle.plantuml`](diagrams/upgrade-lifecycle.plantuml).
 
+### Activity — the `./sb install` state ladder + recovery map
+
+Where the sequence diagram above owns the upgrade *timeline*, this activity diagram owns the
+`./sb install` path — the 8-state probe ladder, the dispatch, and the point at which each
+install-internal failure is detected and recovered. Detailed in
+[Install state ladder](#install-state-ladder).
+
+<img src="diagrams/install-recovery.svg" alt="./sb install state ladder + recovery map (activity)" style="max-width:100%;">
+
+Source: [`diagrams/install-recovery.plantuml`](diagrams/install-recovery.plantuml).
+
 ## The five phases
 
 These match the `== … ==` bands in the sequence diagram one-to-one. The names are
@@ -165,16 +176,45 @@ never call `./sb install` directly.
 `./sb install` runs `install.Detect` (`cli/internal/install/state.go`) once and dispatches
 on the result. The 8 states are an ordered top-down ladder.
 
-| # | State | Probe signal | Dispatch |
-|---|---|---|---|
-| 1 | `StateFresh` | no `.env.config` | step-table (set up a clean install) |
-| 2 | `StateLiveUpgrade` | flag present, holder PID alive | refuse with diagnostic — point at `journalctl` |
-| 3 | `StateCrashedUpgrade` | flag present, holder PID dead | `RecoverFromFlag` → re-`Detect` → re-dispatch |
-| 4 | `StateHalfConfigured` | `.env.config` present, `.env.credentials` missing | step-table |
-| 5 | `StateDBUnreachable` | creds present, DB not reachable | step-table (brings services up) |
-| 6 | `StateLegacyNoUpgradeTable` | DB up, no `public.upgrade` table | refuse — pre-1.0 install, manual path in `doc/CLOUD.md` |
-| 7 | `StateScheduledUpgrade` | pending row (`state='scheduled'`, `started_at IS NULL`) | `executeUpgrade` inline via `upgrade.Service.ExecuteUpgradeInline` |
-| 8 | `StateNothingScheduled` | no pending row; everything else healthy | step-table (idempotent config-refresh checkpoint) |
+Unlike the upgrade *timeline* (a sequence), the install path is a **state classifier + an
+idempotent step sequence** — its honest shape is an activity diagram. The diagram below shows
+the probe ladder, the dispatch, and **where each install-internal failure is detected and
+recovered** (the `partition` blocks are its citable phases, the analogue of the sequence
+diagram's `==` bands):
+
+<img src="diagrams/install-recovery.svg" alt="./sb install — state ladder + step-table (failure-handling map)" style="max-width:100%;">
+
+Source: [`diagrams/install-recovery.plantuml`](diagrams/install-recovery.plantuml). Regenerated
+by the same `.githooks/pre-commit` hook as the other diagrams.
+
+The **Proven by** column closes the ladder↔scenario loop — `test/install-recovery/scenarios/`.
+A `—` marks a real, reachable state with **no dedicated scenario** (a coverage gap):
+
+| # | State | Probe signal | Dispatch | Proven by |
+|---|---|---|---|---|
+| 1 | `StateFresh` | no `.env.config` | step-table (set up a clean install) | `01-happy-install` |
+| 2 | `StateLiveUpgrade` | flag present, holder PID alive | refuse with diagnostic — point at `journalctl` | `11-concurrent-install` |
+| 3 | `StateCrashedUpgrade` | flag present, holder PID dead | `RecoverFromFlag` → re-`Detect` → re-dispatch | `20-flag-stale-handoff`, `08` (next-install recovery) |
+| 4 | `StateHalfConfigured` | `.env.config` present, `.env.credentials` missing | step-table | — (gap) |
+| 5 | `StateDBUnreachable` | creds present, DB not reachable | step-table (brings services up) | — (gap) |
+| 6 | `StateLegacyNoUpgradeTable` | DB up, no `public.upgrade` table | refuse — pre-1.0 install, manual path in `doc/CLOUD.md` | — (gap) |
+| 7 | `StateScheduledUpgrade` | pending row (`state='scheduled'`, `started_at IS NULL`) | `executeUpgrade` inline via `upgrade.Service.ExecuteUpgradeInline` | — (inline path; service path: `02-happy-upgrade`) |
+| 8 | `StateNothingScheduled` | no pending row; everything else healthy | step-table (idempotent config-refresh checkpoint) | `28-drifted-unit-reconciled` |
+
+The install-internal failures are recovered inside the **step-table** (and the pre-detect cleanup),
+not at a ladder state. Their scenario coverage (closing the rest of the loop):
+
+| Recovery point (`cli/cmd/install.go`) | Failure handled | Proven by |
+|---|---|---|
+| pre-detect `cleanOrphanSessions` (:293) | pool exhausted; docker-exec peer-auth bypass | `04-stage-b-pool-exhaustion` |
+| `Database sessions` step (:561) | orphan psql backend from a killed migrate subprocess | `03-stage-a-killed-migrate` |
+| `Database sessions` step (:561) | dead-PID zombie holding the migrate_up advisory lock, empty `application_name` (rune PID 9962) | `06-stage-d-empty-app-advisory` |
+| `Database sessions` step (:561) | live worker legitimately holding advisory locks — no false-fail | `07-stage-e-worker-busy` |
+| `Database sessions` step (:561) | `checkSessionsClean` bool::text parse (`'t'` vs `'true'`) | `09-bool-text-regression` |
+| `[DDL] QuiesceClients` (:614) | worker `AccessShareLock` vs migration `AccessExclusiveLock` — bounded, no hang | `13-worker-ddl-deadlock` |
+| `Seed` gate (:562) | populated DB must route to migrate-forward, never destructive seed-restore | `10-seed-on-populated` (data-loss grade) |
+| `Upgrade service` step (:567) | unit in `failed` state (StartLimit trip) → `reset-failed` + enable + start | `05-stage-c-systemd-failed` |
+| `Upgrade service` step (:567) | drifted on-disk unit on a healthy box → rewrite from template | `28-drifted-unit-reconciled` |
 
 The inline dispatch for state 7 claims the scheduled row atomically (`UPDATE … WHERE
 state='scheduled' AND started_at IS NULL`) — a racing service or concurrent install that
