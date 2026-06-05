@@ -4533,6 +4533,68 @@ func contactSuffix(contact string) string {
 	return ": " + contact
 }
 
+// writeRollbackTerminal records rollback()'s terminal state (the `failed` or
+// `rolled_back` UPDATE) durably, and reports whether the write landed.
+//
+// rollback() restarts the database (docker compose up) and then races its own
+// reconnect — the post-rollback reconnect can transiently fail ("connection
+// reset by peer", DB still starting). A single-shot UPDATE on a dead conn used
+// to be silently swallowed, leaving the row stuck in_progress while the caller
+// removed the flag and exited claiming success — the silent strand the collapse
+// exists to kill. This mirrors the bounded-retry + markTerminal contract of the
+// other terminal-write sites (completeInProgressUpgrade, recoverFromFlag).
+//
+// Each attempt ensures a live query connection via reconnect() — which also
+// re-acquires the upgrade_daemon advisory lock. If that lock is held, reconnect
+// fails: a live service legitimately owns the upgrade authority, so we exhaust
+// and YIELD (the caller keeps the flag; the service's completeInProgressUpgrade
+// / recoverFromFlag reconciles the row). We never bypass the lock.
+//
+// Returns true iff the UPDATE committed (RETURNING row scanned). On persistent
+// failure it emits the INVARIANT transcript + markTerminal (the on-disk audit
+// channel; the support bundle is already written once by rollback() before the
+// terminal write) and returns false — never swallows. The caller then KEEPS the
+// flag so the next boot reconciles.
+func (d *Service) writeRollbackTerminal(ctx context.Context, id int, updateSQL, errMsg, label string) bool {
+	var rowJSON string
+	var lastErr error
+	for attempt := 0; attempt < 4; attempt++ {
+		// Ensure a live query connection: the post-rollback reconnect at the call
+		// site may have failed, leaving queryConn nil or dead. reconnect() failures
+		// are connectivity/lock and always worth retrying within the bounded budget
+		// (a held lock simply keeps failing → we exhaust and yield).
+		if d.queryConn == nil || d.queryConn.Ping(ctx) != nil {
+			if err := d.reconnect(ctx); err != nil {
+				lastErr = err
+				if attempt < 3 {
+					time.Sleep(retryBackoff(attempt + 1))
+					continue
+				}
+				break
+			}
+		}
+		lastErr = d.queryConn.QueryRow(ctx, updateSQL, errMsg, id).Scan(&rowJSON)
+		if lastErr == nil {
+			logUpgradeRow(label, rowJSON)
+			return true
+		}
+		// A non-connection UPDATE error (e.g. a CHECK violation) will not
+		// self-heal — fail fast to the loud terminal below, mirroring the
+		// isConnError gate in completeInProgressUpgrade / recoverFromFlag.
+		if attempt < 3 && isConnError(lastErr) {
+			time.Sleep(retryBackoff(attempt + 1))
+			continue
+		}
+		break
+	}
+	fmt.Fprintf(os.Stderr,
+		"INVARIANT ROLLBACK_TERMINAL_WRITE_FAILED violated: rollback terminal write (%s) matched 0 rows or errored after retries (id=%d, err=%v) — KEEPING flag so the next recoverFromFlag/completeInProgressUpgrade reconciles (service.go:%d, pid=%d)\n",
+		label, id, lastErr, thisLine(), os.Getpid())
+	d.markTerminal("ROLLBACK_TERMINAL_WRITE_FAILED",
+		fmt.Sprintf("id=%d; label=%s; final err=%v", id, label, lastErr))
+	return false
+}
+
 func (d *Service) rollback(ctx context.Context, id int, version, previousVersion, reason string, progress *ProgressLog) {
 	progress.Write("Upgrade failed — rolling back to previous version...")
 	progress.Write("Reason: %s", reason)
@@ -4601,17 +4663,10 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 		// Bundle BEFORE the ABORT UPDATE so a forensic inspection of
 		// a wedged `failed` row has the sibling .bundle.txt.
 		d.writeDiagnosticBundle(ctx, id, progress)
-		if d.queryConn != nil {
-			var abortJSON string
-			if scanErr := d.queryConn.QueryRow(ctx,
-				"UPDATE public.upgrade SET state = 'failed', error = $1 WHERE id = $2"+upgradeRowReturning,
-				rollbackFailedMsg, id).Scan(&abortJSON); scanErr == nil {
-				logUpgradeRow(LabelFailedAbort, abortJSON)
-			}
-		}
-		// Page on-call via the configured callback (Slack, etc.).
-		// extraEnv tells the script to render a distinctive
-		// rollback-failure alert with the recovery command body.
+		// Page on-call via the configured callback (Slack, etc.) — the box is
+		// DOWN, so the siren fires regardless of whether the terminal write lands.
+		// extraEnv tells the script to render a distinctive rollback-failure alert
+		// with the recovery command body.
 		hostname, _ := os.Hostname()
 		d.runCallback(version, map[string]string{
 			"STATBUS_ROLLBACK_FAILED": "1",
@@ -4619,14 +4674,20 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 			"STATBUS_RECOVERY_CMD":    fmt.Sprintf(`ssh %s "cd statbus && ./sb install"`, hostname),
 		})
 		// Maintenance stays ON — operator must complete the manual rollback steps above.
-		// Release the flock so the operator's prescribed step 4
-		// (`./sb install`) can proceed: leaving the flock held would
-		// wedge install with StateLiveUpgrade.
-		// The on-disk JSON persists as the audit cue; the next install's
-		// RecoverFromFlag pass is a no-op against the rolled_back row
-		// (guarded by `state = 'in_progress'` since 2026-04-22) and
-		// just removes the file.
-		d.removeUpgradeFlag()
+		// Durable terminal write with bounded retry (same contract as the two tiers
+		// below). On SUCCESS, release the flock + remove the file so the operator's
+		// prescribed `./sb install` recovery proceeds (a held flock would wedge
+		// install with StateLiveUpgrade). On a FAILED write, KEEP the flag: this
+		// process exits below (the fd close releases the flock at the kernel level),
+		// leaving a dead-PID breadcrumb so the operator's `./sb install` hits
+		// StateCrashedUpgrade → RecoverFromFlag and reconciles the still in_progress
+		// row instead of leaving it stuck. writeRollbackTerminal already failed loud
+		// (INVARIANT ROLLBACK_TERMINAL_WRITE_FAILED + markTerminal).
+		if d.writeRollbackTerminal(ctx, id,
+			"UPDATE public.upgrade SET state = 'failed', error = $1 WHERE id = $2"+upgradeRowReturning,
+			rollbackFailedMsg, LabelFailedAbort) {
+			d.removeUpgradeFlag()
+		}
 
 		// Exit unconditionally (rc.67 trifecta). Same reasoning as the
 		// normal-rollback exit below: rollback is a process-state break,
@@ -4741,15 +4802,16 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 			detail += "; services did not come back up"
 		}
 		errMsg = errMsg + " — ROLLBACK INCOMPLETE" + detail + ". The system is in a degraded state; manual CLI recovery is required (./sb install); contact SSB support and involve your IT staff."
-		if d.queryConn != nil {
-			var failedJSON string
-			if scanErr := d.queryConn.QueryRow(ctx,
-				"UPDATE public.upgrade SET state = 'failed', error = $1 WHERE id = $2"+upgradeRowReturning,
-				errMsg, id).Scan(&failedJSON); scanErr == nil {
-				logUpgradeRow(LabelFailedRollbackIncomplete, failedJSON)
-			}
+		// Durable terminal write with bounded retry + reconnect. removeUpgradeFlag
+		// ONLY on success: if the write never landed, KEEP the flag so the next
+		// boot's recoverFromFlag / completeInProgressUpgrade reconciles the row
+		// (writeRollbackTerminal has already failed loud). The degraded siren below
+		// fires regardless — the box IS degraded whether or not the row write landed.
+		if d.writeRollbackTerminal(ctx, id,
+			"UPDATE public.upgrade SET state = 'failed', error = $1 WHERE id = $2"+upgradeRowReturning,
+			errMsg, LabelFailedRollbackIncomplete) {
+			d.removeUpgradeFlag()
 		}
-		d.removeUpgradeFlag()
 		// Page on-call: the degraded/all-hands tier (siren), same signal as the
 		// git-restore ABORT path.
 		hostname, _ := os.Hostname()
@@ -4763,23 +4825,28 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 		// Snapshot restore succeeded and services came back → healthy at the old
 		// version. Regular-support tier; the `error` column carries the next action.
 		errMsg = errMsg + " — rolled back to the previous version; the system is running normally on the old version. The failure is recorded; report it to support. No manual intervention needed."
-		if d.queryConn != nil {
-			var rollbackJSON string
-			if scanErr := d.queryConn.QueryRow(ctx,
-				"UPDATE public.upgrade SET state = 'rolled_back', error = $1, rolled_back_at = now() WHERE id = $2"+upgradeRowReturning,
-				errMsg, id).Scan(&rollbackJSON); scanErr == nil {
-				logUpgradeRow(LabelRolledBackNormal, rollbackJSON)
-			}
+		if d.writeRollbackTerminal(ctx, id,
+			"UPDATE public.upgrade SET state = 'rolled_back', error = $1, rolled_back_at = now() WHERE id = $2"+upgradeRowReturning,
+			errMsg, LabelRolledBackNormal) {
+			// Terminal write landed → the row is rolled_back. Clear the in-progress
+			// flag so the mutex that blocks `./sb install` is released; without this
+			// the flag lingers until the next service restart, wedging future installs.
+			d.removeUpgradeFlag()
+			// Notify (Slack) on the rolled_back terminal — the fail-fast rollback's
+			// single operator notification, regular-support tier (notify-slack.sh
+			// renders STATBUS_ROLLED_BACK).
+			d.runCallback(version, map[string]string{"STATBUS_ROLLED_BACK": "1"})
+			progress.Write("Rollback complete. The previous version has been restored.")
+		} else {
+			// Terminal write never landed (DB unreachable, or the advisory lock is
+			// held by a live service we must yield to). KEEP the flag — the next
+			// recoverFromFlag / completeInProgressUpgrade reconciles the row. Do NOT
+			// claim success or page STATBUS_ROLLED_BACK: with the row still
+			// in_progress that would be the operator-lie this fix removes.
+			// writeRollbackTerminal already failed loud (INVARIANT
+			// ROLLBACK_TERMINAL_WRITE_FAILED + markTerminal).
+			progress.Write("Rollback restored the previous version, but its terminal state could NOT be recorded in public.upgrade (DB unreachable). The in-progress flag is kept; the upgrade service reconciles the row on its next start. See INVARIANT ROLLBACK_TERMINAL_WRITE_FAILED.")
 		}
-		// Clear the in-progress flag: the rollback has restored a consistent state,
-		// so the mutex that blocks `./sb install` must be released. Without this,
-		// the flag lingers until the next service restart, wedging all future installs.
-		d.removeUpgradeFlag()
-		// Notify (Slack) on the rolled_back terminal — the fail-fast rollback's
-		// single operator notification, regular-support tier (notify-slack.sh
-		// renders STATBUS_ROLLED_BACK).
-		d.runCallback(version, map[string]string{"STATBUS_ROLLED_BACK": "1"})
-		progress.Write("Rollback complete. The previous version has been restored.")
 	}
 
 	// Exit 75 (sysexits EX_TEMPFAIL: "temporary failure, retry later")
