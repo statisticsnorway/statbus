@@ -4762,6 +4762,19 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 		progress.Write("%s: docker compose up failed after rollback: %v", ErrRollbackServicesUp, servicesUpErr)
 	}
 
+	// Wait for the restored DB to accept connections BEFORE reconnecting: the
+	// restart above brings Postgres back and an immediate reconnect would race
+	// it coming ready (the scenario-21 "connection reset by peer"). Mirrors
+	// applyPostSwap's post-restart waitForDBHealth on the normal path. This is
+	// the PRIMARY wait — writeRollbackTerminal's bounded retry below is the
+	// durable fallback. Log-not-raise: if the DB genuinely never returns, the
+	// wait elapses, the reconnect + terminal write fail, and the flag is KEPT
+	// for next-boot reconciliation (a degraded outcome already recorded failed).
+	progress.Write("Waiting for database to be healthy after rollback...")
+	if err := d.waitForDBHealth(30 * time.Second); err != nil {
+		progress.Write("Warning: database not healthy after rollback within 30s: %v", err)
+	}
+
 	// Reconnect (may fail if DB didn't come back)
 	if err := d.reconnect(ctx); err != nil {
 		progress.Write("Warning: could not reconnect after rollback: %v", err)
