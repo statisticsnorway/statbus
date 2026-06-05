@@ -15,6 +15,12 @@ systemd unit owns the whole lifecycle.
 
 ## Diagrams
 
+**Test-coverage convention.** Both diagrams double as a visual test-coverage map: every
+failure-injection point carries a pale-yellow note `TEST <scenario-slug> (<NN>): <the forward
+invariant the scenario must prove>` — framed as the guarantee that must hold, not the failure.
+A point with no scenario is marked `NO TEST (gap): <unproven invariant>`, so coverage holes are
+visible at a glance. Slugs are `test/install-recovery/scenarios/` names.
+
 ### Sequence — the upgrade timeline
 
 The `== … ==` bands are the **citable named phases**. Code comments cite them as

@@ -15,6 +15,12 @@
 '   pre-detect cleanup ...... cli/cmd/install.go:293
 '   step-table .............. cli/cmd/install.go:536
 '   inject classes .......... cli/internal/inject/inject.go
+'
+' TEST-NOTE CONVENTION (shared with upgrade-timeline.plantuml — this diagram doubles
+' as a visual test-coverage map): every failure-handling point carries a note
+'     TEST <scenario-slug> (<NN>): <forward invariant the scenario must prove>
+' framed as the GUARANTEE that must hold, NOT the failure. A point with no scenario is
+' marked  NO TEST (gap): <unproven invariant>  so coverage holes are visible.
 skinparam backgroundColor #FEFEFE
 skinparam activity {
     BackgroundColor #E3F2FD
@@ -35,10 +41,9 @@ start
 if (services up AND connection pool not clean?) then (yes)
   :cleanOrphanSessions — pre-detect, best-effort\n(docker-exec peer-auth bypass) — install.go:293;
   note right
-    **scenario 04 — orphan-cleanup-survives-pool-exhaustion**
-    max_connections saturated: host-side psql fails with "too many clients";
-    the docker-exec superuser path still terminates the orphan backends so
-    Detect can run. (cleanOrphanSessions, install.go:293-301)
+    TEST orphan-cleanup-survives-pool-exhaustion (04): with max_connections saturated
+    (host-side psql fails "too many clients"), the docker-exec superuser path still
+    terminates the orphan backends so Detect can run. (install.go:293-301)
   end note
 else (clean / fresh)
 endif
@@ -49,26 +54,35 @@ partition "Detect — 8-state probe ladder (state.go:104, short-circuit: first m
   elseif (flag present AND flock HELD?) then (yes)
     :**StateLiveUpgrade** -> REFUSE\n(install_upgrade.go:27);
     note right
-      **scenario 11 — concurrent-install-refused-during-migrate**
-      a live upgrade/install holds the flock; the second install hits probe 2
-      and refuses without touching state.
+      TEST concurrent-install-refused-during-migrate (11): when a live upgrade/install
+      holds the flock, the second install hits probe 2 and refuses without touching state.
     end note
     stop
   elseif (flag present AND flock FREE?) then (yes)
     :**StateCrashedUpgrade**;
     :runCrashRecovery -> RecoverFromFlag\n(install_upgrade.go:131 / 205);
     note right
-      **scenario 20 — stale-install-flag-detected**
-      an install exited without releasing the flag (dead holder); the flag is
-      reconciled, then a single re-Detect resolves to a step-table state.
+      TEST stale-install-flag-detected (20): an install that exited without releasing the
+      flag (dead holder) is reconciled, then a single re-Detect resolves to a step-table state.
     end note
     :re-Detect -> resolves to a step-table state;
   elseif (.env.credentials missing?) then (yes)
     :**StateHalfConfigured**\nstep-table generates creds;
+    note right #FFF9C4
+      NO TEST (gap): StateHalfConfigured (.env.credentials missing -> step-table
+      regenerates creds) has no dedicated scenario.
+    end note
   elseif (DB unreachable?) then (yes)
     :**StateDBUnreachable**\nstep-table starts services;
+    note right #FFF9C4
+      NO TEST (gap): StateDBUnreachable (DB down at install -> step-table starts
+      services) has no dedicated scenario.
+    end note
   elseif (no public.upgrade table?) then (yes)
     :**StateLegacyNoUpgradeTable** -> REFUSE\n(pre-1.0, tracked #65.6);
+    note right #FFF9C4
+      NO TEST (gap): the pre-1.0 legacy-refuse path has no dedicated scenario.
+    end note
     stop
   elseif (scheduled row present?) then (yes)
     :**StateScheduledUpgrade** -> ExecuteUpgradeInline\n(install_upgrade.go:34);
@@ -76,6 +90,8 @@ partition "Detect — 8-state probe ladder (state.go:104, short-circuit: first m
       Hands off to the UPGRADE pipeline — see the **upgrade-timeline** diagram,
       § Execute upgrade (pre-swap). Install does NOT run the step-table here;
       executeUpgrade writes its own service-held flag.
+      NO TEST (gap): the inline-dispatch path (./sb install on a queued row) has no
+      scenario; only the service/NOTIFY path is covered (02-happy-upgrade).
     end note
     stop
   else (nothing scheduled)
@@ -90,32 +106,31 @@ partition "step-table — install.go:536 (each step: check ? OK : run; idempoten
   :Backup ownership (heal pre-upgrade-* dir ownership);
 
   :**Database sessions**\ncheckSessionsClean ? : cleanOrphanSessions — install.go:561;
-  note right
-    The install-recovery LOCUS. Real, production-sourced failures handled here:
-    • **scenario 03 — orphan-migrate-subprocess-cleaned-on-install**: a killed migrate
-      subprocess orphans a psql backend -> Phase 1 terminates it.
-    • **scenario 06 — advisory-lock-zombie-terminated-on-install**: a dead-PID zombie holds
-      the migrate_up advisory lock with application_name='' (rune PID 9962) -> Phase 2
-      PID-liveness probe + empty-app catch-all.
-    • **scenario 07 — install-tolerates-busy-worker-sessions**: a live worker legitimately
-      holds advisory locks -> excluded from the holder count, no false-fail.
-    • **scenario 09 — install-fixup-session-check-parses-correctly**: checkSessionsClean's
-      bool::text parse ('t' vs 'true') -> the install-fixup session step passes.
+  note right #FFF9C4
+    TEST COVERAGE — the install-recovery LOCUS (real, production-sourced failures):
+    TEST orphan-migrate-subprocess-cleaned-on-install (03): a killed migrate subprocess's
+      orphaned psql backend is terminated (Phase 1).
+    TEST advisory-lock-zombie-terminated-on-install (06): a dead-PID zombie holding the
+      migrate_up advisory lock with application_name='' (rune PID 9962) is terminated
+      (Phase 2 PID-liveness + empty-app catch-all).
+    TEST install-tolerates-busy-worker-sessions (07): a live worker legitimately holding
+      advisory locks is excluded from the holder count — no false-fail.
+    TEST install-fixup-session-check-parses-correctly (09): checkSessionsClean's bool::text
+      parse ('t' vs 'true') is correct, so the install-fixup session step passes.
   end note
 
   if (need Seed or Migrations? (check fails)) then (yes)
     :**[DDL] QuiesceClients** — stop worker / app / rest\n(install.go:614);
-    note right
-      **scenario 13 — migration-vs-worker-lock-bounded**: a worker holding
-      AccessShareLock on a stats-history table would park the migration's
-      AccessExclusiveLock indefinitely; quiescing the clients before the DDL
-      window keeps the upgrade bounded (no hang).
+    note right #FFF9C4
+      TEST migration-vs-worker-lock-bounded (13): a worker holding AccessShareLock on a
+      stats-history table would park the migration's AccessExclusiveLock indefinitely;
+      quiescing the clients before the DDL window keeps the upgrade BOUNDED (no hang).
     end note
     :**Seed**\ncheckSeedRestored ? : runSeedRestore — install.go:562\nGATE: populated DB => SKIP (never overwrite real data);
-    note right
-      **scenario 10 — seed-restore-gated-off-populated-db** (DATA-LOSS GRADE):
-      the gate MUST classify DB content and route a populated DB to migrate-forward,
-      never to the destructive seed restore.
+    note right #FFF9C4
+      TEST seed-restore-gated-off-populated-db (10) — DATA-LOSS GRADE: the gate MUST
+      classify DB content and route a populated DB to migrate-forward, never to the
+      destructive seed restore.
     end note
     :**Migrations** — runMigrations (install.go:563);
     :**[DDL] ResumeClients** — restart exactly what we stopped\n(install.go:595);
@@ -125,12 +140,12 @@ partition "step-table — install.go:536 (each step: check ? OK : run; idempoten
   :JWT secret -> Users -> Trusted signers;
 
   :**Upgrade service**\ncheckServiceDone ? : runInstallService — install.go:567;
-  note right
-    • **scenario 05 — systemd-failed-unit-reset-on-install**: the unit is in `failed`
-      state (StartLimit trip) -> `systemctl --user reset-failed` + enable + start.
-    • **scenario 28 — drifted-unit-reconciled-on-healthy-box**: the on-disk unit drifted
-      from the repo template on a healthy (active) box -> rewrite from template
-      (idempotent reconcile; gate no longer keys only on is-active).
+  note right #FFF9C4
+    TEST systemd-failed-unit-reset-on-install (05): a unit in `failed` state (StartLimit
+      trip) is recovered via `systemctl --user reset-failed` + enable + start.
+    TEST drifted-unit-reconciled-on-healthy-box (28): an on-disk unit drifted from the repo
+      template on a healthy (active) box is rewritten from template (idempotent reconcile;
+      the gate no longer keys only on is-active).
   end note
 }
 
