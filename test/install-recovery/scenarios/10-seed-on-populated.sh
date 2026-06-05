@@ -173,7 +173,7 @@ assert_no_orphan_backup "$VM_NAME"
 # systemd restart counter bounded — the upgrade-service unit must not be
 # in a restart-loop pathology after this install (Race B sister of the
 # data-loss bug, both surface as "things going wrong silently").
-assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@test.service" 2
+assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 2
 
 echo ""
 echo "PASS: seed-on-populated (data survived install against populated DB)"

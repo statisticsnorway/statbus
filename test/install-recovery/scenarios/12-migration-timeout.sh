@@ -148,7 +148,7 @@ echo "  synthetic migration written: migrations/${SYNTHETIC_MIG}.up.sql"
 # Baseline NRestarts before triggering the upgrade. The systemd-restart-
 # counter assertion at the end compares against this — any restart that
 # happens during our stall window is the Race B regression.
-NRESTARTS_BASELINE=$(VM_EXEC systemctl --user show "statbus-upgrade@test.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "0")
+NRESTARTS_BASELINE=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "0")
 echo "  baseline NRestarts: $NRESTARTS_BASELINE"
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -269,7 +269,7 @@ echo "  install exited: $INSTALL_EXIT"
 echo ""
 echo "── Race B regression check (load-bearing) ──"
 
-NRESTARTS_AFTER=$(VM_EXEC systemctl --user show "statbus-upgrade@test.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
+NRESTARTS_AFTER=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
 RESTART_DELTA=$((NRESTARTS_AFTER - NRESTARTS_BASELINE))
 echo "  NRestarts: baseline=$NRESTARTS_BASELINE after=$NRESTARTS_AFTER delta=$RESTART_DELTA"
 
@@ -291,7 +291,7 @@ assert_health_passes "$VM_NAME"
 # Coherence checks.
 assert_flag_file_absent "$VM_NAME"
 assert_no_orphan_backup "$VM_NAME"
-assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@test.service" 2
+assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 2
 
 echo ""
 echo "PASS: migration-timeout (WATCHDOG=1 ticker kept the unit alive across ${STALL_HOLD_S}s stall)"

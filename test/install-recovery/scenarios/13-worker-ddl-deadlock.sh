@@ -224,7 +224,7 @@ assert_no_orphan_backup "$VM_NAME"
 # restart-loop pathology after this install (the wedge could
 # plausibly trip systemd's StartLimitBurst if the migration is killed
 # + retried repeatedly).
-assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@test.service" 2
+assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 2
 
 echo ""
 echo "PASS: worker-ddl-deadlock (install survived worker contention, data intact)"

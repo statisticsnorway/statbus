@@ -233,7 +233,7 @@ echo "  ✓ ./sb binary still at $SB_VERSION_BEFORE (abort, no roll-forward)"
 
 assert_no_orphan_backup "$VM_NAME"
 assert_health_passes "$VM_NAME"
-assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@test.service" 2
+assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 2
 
 echo ""
 echo "PASS: preswap-checkout-kill (C4 abort path; working tree restored, OLD version live, data intact)"

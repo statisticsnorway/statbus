@@ -186,7 +186,7 @@ echo "── convergence checks ──"
 if [ "$POST_TICK_FLAG" != "CLEARED" ]; then
     echo "✗ flag still present after ${SERVICE_TICK_WAIT_S}s — neither install nor service cleared it" >&2
     VM_EXEC bash -c "cd ~/statbus && cat tmp/upgrade-in-progress.json" >&2 || true
-    VM_EXEC bash -c "systemctl --user status statbus-upgrade@test.service --no-pager" >&2 || true
+    VM_EXEC bash -c "systemctl --user status statbus-upgrade@statbus.service --no-pager" >&2 || true
     exit 1
 fi
 echo "  ✓ flag cleared post-tick"

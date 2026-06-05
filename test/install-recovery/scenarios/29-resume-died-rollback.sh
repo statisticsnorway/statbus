@@ -291,11 +291,7 @@ assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── removing inject drop-in; confirming the unit settles (no loop) ──"
-VM_EXEC bash -c "
-    rm -f $DROPIN_FILE
-    systemctl --user daemon-reload
-    systemctl --user --no-block restart $UNIT 2>/dev/null || true
-"
+VM_EXEC bash -c "rm -f $DROPIN_FILE; systemctl --user daemon-reload; systemctl --user --no-block restart $UNIT 2>/dev/null || true"
 # Bound: a death-during-resume costs the kill restart + the rollback restart;
 # anything beyond a small handful past baseline means the unit is still looping
 # (latch broken). The helper compares ABSOLUTE NRestarts, so bound = baseline + 5.

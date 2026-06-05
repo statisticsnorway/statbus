@@ -779,7 +779,7 @@ upload_install_script_to_vm() {
 # Post-mortem helpers:
 #   ssh root@<ip>                         — root shell
 #   ssh statbus@<ip>                      — operator user (has systemd bus)
-#   ssh root@<ip> journalctl --user -u statbus-upgrade@test --no-pager
+#   ssh root@<ip> journalctl --user -u statbus-upgrade@statbus --no-pager
 #   hcloud server delete <name>           — delete when done
 cleanup_vm() {
     local vm_name="$1"
@@ -792,7 +792,7 @@ cleanup_vm() {
         echo "$reason — leaving $vm_name running for post-mortem (€0.0072/hr)"
         echo "  ssh root@$ip"
         echo "  ssh statbus@$ip"
-        echo "  journalctl: ssh root@$ip journalctl --user -u statbus-upgrade@test --no-pager -n 200"
+        echo "  journalctl: ssh root@$ip journalctl --user -u statbus-upgrade@statbus --no-pager -n 200"
         echo "  upload logs: /tmp/upload-sb-scp-*.log  /tmp/upload-sb-ssh-*.log"
         echo "  Delete when done: hcloud server delete $vm_name"
         return 0

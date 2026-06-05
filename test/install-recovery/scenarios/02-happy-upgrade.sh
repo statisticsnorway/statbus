@@ -94,14 +94,14 @@ echo "  pre-upgrade data snapshot: $DATA_SNAPSHOT"
 assert_demo_data_present "$VM_NAME"
 
 # Verify upgrade-service unit is active before we start.
-UNIT_STATE_BEFORE=$(VM_EXEC systemctl --user is-active "statbus-upgrade@test.service" 2>/dev/null | tr -d ' \r\n' || echo "?")
+UNIT_STATE_BEFORE=$(VM_EXEC systemctl --user is-active "statbus-upgrade@statbus.service" 2>/dev/null | tr -d ' \r\n' || echo "?")
 if [ "$UNIT_STATE_BEFORE" != "active" ]; then
     echo "✗ upgrade-service unit not active before upgrade trigger (state=$UNIT_STATE_BEFORE)" >&2
     exit 1
 fi
 echo "  ✓ upgrade-service active before trigger"
 
-NRESTARTS_BASELINE=$(VM_EXEC systemctl --user show "statbus-upgrade@test.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "0")
+NRESTARTS_BASELINE=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "0")
 echo "  baseline NRestarts: $NRESTARTS_BASELINE"
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -223,7 +223,7 @@ assert_health_passes "$VM_NAME"
 
 # Bounded restarts. The normal upgrade should NOT have triggered any
 # watchdog or start-timeout — NRestarts ought to stay at baseline.
-NRESTARTS_FINAL=$(VM_EXEC systemctl --user show "statbus-upgrade@test.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
+NRESTARTS_FINAL=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
 RESTART_DELTA=$((NRESTARTS_FINAL - NRESTARTS_BASELINE))
 echo "  NRestarts: baseline=$NRESTARTS_BASELINE final=$NRESTARTS_FINAL delta=$RESTART_DELTA"
 if [ "$RESTART_DELTA" -gt 2 ]; then

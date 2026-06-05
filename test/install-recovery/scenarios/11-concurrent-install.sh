@@ -222,7 +222,7 @@ echo "  ✓ exactly one upgrade row exists (second install correctly refused wit
 assert_upgrade_row_state "$VM_NAME" "completed"
 assert_flag_file_absent "$VM_NAME"
 assert_health_passes "$VM_NAME"
-assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@test.service" 2
+assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 2
 
 echo ""
 echo "PASS: concurrent-install (probe 2 refused second install; first install completed cleanly)"

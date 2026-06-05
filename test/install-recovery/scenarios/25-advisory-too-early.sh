@@ -42,7 +42,7 @@
 #      unit is `active`.
 #   2. Stop the unit cleanly.
 #   3. `docker compose restart db` — restart the DB container.
-#   4. Immediately `systemctl --user start statbus-upgrade@test.service`.
+#   4. Immediately `systemctl --user start statbus-upgrade@statbus.service`.
 #      (The "immediately" timing is what produces the Race E window.
 #      If we sleep longer, the DB is fully ready and the race
 #      disappears — the test becomes a no-op.)
@@ -91,14 +91,14 @@ echo "── initial install at $INSTALL_VERSION ──"
 install_statbus_in_vm "$VM_NAME" "$INSTALL_VERSION"
 assert_health_passes "$VM_NAME"
 
-UNIT_STATE_BEFORE=$(VM_EXEC systemctl --user is-active "statbus-upgrade@test.service" 2>/dev/null | tr -d ' \r\n' || echo "?")
+UNIT_STATE_BEFORE=$(VM_EXEC systemctl --user is-active "statbus-upgrade@statbus.service" 2>/dev/null | tr -d ' \r\n' || echo "?")
 if [ "$UNIT_STATE_BEFORE" != "active" ]; then
     echo "✗ upgrade-service unit not active before race trigger (state=$UNIT_STATE_BEFORE)" >&2
     exit 1
 fi
 echo "  ✓ upgrade-service active before race trigger"
 
-NRESTARTS_BASELINE=$(VM_EXEC systemctl --user show "statbus-upgrade@test.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "0")
+NRESTARTS_BASELINE=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "0")
 echo "  baseline NRestarts: $NRESTARTS_BASELINE"
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -108,7 +108,7 @@ echo ""
 echo "── orchestrating Race E: stop unit, restart DB container, immediately start unit ──"
 
 # Step 1: Stop the unit cleanly so its current process exits.
-VM_EXEC bash -c "systemctl --user stop statbus-upgrade@test.service"
+VM_EXEC bash -c "systemctl --user stop statbus-upgrade@statbus.service"
 sleep 2
 
 # Step 2: Restart the DB container. This produces the "DB not yet
@@ -125,7 +125,7 @@ fi
 # Step 4: Start the unit. With ZERO grace, this should hit the
 # Race E window — DB container is up but not accepting connections yet.
 echo "  starting upgrade-service unit (this is the race trigger)"
-VM_EXEC bash -c "systemctl --user --no-block start statbus-upgrade@test.service"
+VM_EXEC bash -c "systemctl --user --no-block start statbus-upgrade@statbus.service"
 
 # Step 5: Sleep to let systemd's automatic restart kick in.
 echo "  waiting ${WAIT_S}s for unit's failure → automatic restart → active state"
@@ -137,9 +137,9 @@ sleep "$WAIT_S"
 echo ""
 echo "── observing post-race state ──"
 
-UNIT_STATE_AFTER=$(VM_EXEC systemctl --user is-active "statbus-upgrade@test.service" 2>/dev/null | tr -d ' \r\n' || echo "?")
-NRESTARTS_AFTER=$(VM_EXEC systemctl --user show "statbus-upgrade@test.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
-RESULT=$(VM_EXEC systemctl --user show "statbus-upgrade@test.service" --property=Result --value 2>/dev/null | tr -d ' \r\n' || echo "?")
+UNIT_STATE_AFTER=$(VM_EXEC systemctl --user is-active "statbus-upgrade@statbus.service" 2>/dev/null | tr -d ' \r\n' || echo "?")
+NRESTARTS_AFTER=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
+RESULT=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=Result --value 2>/dev/null | tr -d ' \r\n' || echo "?")
 echo "  unit state: $UNIT_STATE_AFTER  Result: $RESULT  NRestarts: $NRESTARTS_AFTER"
 
 RESTART_DELTA=$((NRESTARTS_AFTER - NRESTARTS_BASELINE))
@@ -161,7 +161,7 @@ echo "── convergence checks ──"
 
 if [ "$UNIT_STATE_AFTER" != "active" ]; then
     echo "✗ unit did not reach active state after race trigger (state=$UNIT_STATE_AFTER)" >&2
-    VM_EXEC bash -c "systemctl --user status statbus-upgrade@test.service --no-pager" >&2 || true
+    VM_EXEC bash -c "systemctl --user status statbus-upgrade@statbus.service --no-pager" >&2 || true
     exit 1
 fi
 echo "  ✓ unit reached active state (self-healed)"
