@@ -1,5 +1,5 @@
 #!/bin/bash
-# Scenario 29: resume-died-rollback
+# Scenario: 3-postswap-resume-died-rollback
 #   (one-shot FlagPhaseResuming latch — a death DURING the post-swap resume
 #    becomes ONE rollback, never a retry loop)
 #
@@ -7,14 +7,14 @@
 # Class kind: Kill (on the resume path, AFTER the Resuming stamp)
 # Contract:   doc/upgrade-timeline.md § Binary-swap restart + resume / § Complete / rollback
 #
-# WHAT THIS PROVES (the inverse of scenario 27's RED signature):
+# WHAT THIS PROVES (the inverse of scenario 3-postswap-archivebackup-resume's RED signature):
 #   #29 converts the post-swap resume from a retry into a single attempt. The
 #   instant resumePostSwap commits to applyPostSwap on the new binary it stamps
 #   the flag Phase=Resuming (service.go, FlagPhaseResuming). If THAT process then
 #   dies (watchdog SIGABRT on a hung step, OOM, reboot, kill), the next
 #   recoverFromFlag sees Phase=Resuming and ROLLS BACK to the snapshot instead of
 #   re-resuming. So a death during resume resolves in ONE rollback cycle, not the
-#   StartLimitBurst-evading loop that wedged NO/rune for 40 h (scenario 27 RED).
+#   StartLimitBurst-evading loop that wedged NO/rune for 40 h (scenario 3-postswap-archivebackup-resume RED).
 #
 #   This is the precise gap that made the external liveness sidecar necessary;
 #   the latch closes it, so #29 deletes the sidecar (one unit, no observer).
@@ -32,7 +32,7 @@
 #   3. RUN 1 — drive an exit-42 resume state: install at HEAD with
 #      STATBUS_INJECT_AT=killed-by-system-during-container-restart. The kill fires
 #      inside applyPostSwap; the process exits 137 with the flag pinned PostSwap
-#      and the row in_progress (the resume precondition — same as scenario 27).
+#      and the row in_progress (the resume precondition — same as scenario 3-postswap-archivebackup-resume).
 #   4. Verify the resume precondition: flag present + row in_progress.
 #   5. RUN 2 — install a drop-in pinning the SAME kill into the unit env, then
 #      start the unit. On boot: recoverFromFlag sees PostSwap → resumePostSwap →
@@ -54,19 +54,19 @@
 #        - after removing the inject drop-in, the unit settles healthy + listening.
 #
 # Hetzner-runnability:
-#   READY for the tester to run. Reuses scenario-27's kill primitive +
+#   READY for the tester to run. Reuses scenario 3-postswap-archivebackup-resume's kill primitive +
 #   HEAD-staging fixture + fabricate_scheduled_upgrade_row; no new inject site.
 #   NOTE FOR TESTER: this scenario has not yet been run on real systemd — verify
-#   on a Hetzner VM and tune the hold/budget knobs as scenario 27 required.
+#   on a Hetzner VM and tune the hold/budget knobs as scenario 3-postswap-archivebackup-resume required.
 #
 # Usage:
 #   INSTALL_VERSION=v2026.05.2 HCLOUD_LOCATION=fsn1 \
-#     ./test/install-recovery/scenarios/29-resume-died-rollback.sh \
-#     statbus-recovery-29
+#     ./test/install-recovery/scenarios/3-postswap-resume-died-rollback.sh \
+#     statbus-recovery-3-postswap-resume-died-rollback
 
 set -euo pipefail
 
-VM_NAME="${1:-statbus-recovery-29}"
+VM_NAME="${1:-statbus-recovery-3-postswap-resume-died-rollback}"
 INSTALL_VERSION="${INSTALL_VERSION:-v2026.05.2}"
 INSTALL_BUDGET_S="${INSTALL_BUDGET_S:-900}"
 # Short stop grace so the kill→SIGTERM→SIGKILL stays inside the test budget; a
@@ -84,7 +84,7 @@ source "$LIB_DIR/assertions.sh"
 
 # The standalone/cloud upgrade unit instance used by the harness VMs. Must be
 # @statbus (matches the VM user) so the unit's ExecStartPre invariant
-# `/usr/bin/test "%i" = "%u"` passes (see scenario 27's note).
+# `/usr/bin/test "%i" = "%u"` passes (see scenario 3-postswap-archivebackup-resume's note).
 UNIT="statbus-upgrade@statbus.service"
 DROPIN_DIR="\$HOME/.config/systemd/user/${UNIT}.d"
 DROPIN_FILE="$DROPIN_DIR/resume-died-inject.conf"
@@ -102,7 +102,7 @@ trap '
 ' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario 29: resume-died-rollback"
+echo "  Scenario: 3-postswap-resume-died-rollback"
 echo "  (death during the post-swap resume → ONE rollback via the Resuming latch, no loop)"
 echo "  Initial release: $INSTALL_VERSION → upgrade target: HEAD"
 echo "════════════════════════════════════════════════════════════════"
@@ -136,13 +136,13 @@ HEAD_LOCAL=$(git -C "$HARNESS_ROOT" rev-parse HEAD)
 ip=$(hcloud server ip "$VM_NAME")
 upload_sb_to_vm "$VM_NAME"
 scp -O "${SSH_OPTS[@]}" \
-    "$LIB_DIR/../fixtures/scenario_26_stage_head.sh" \
-    root@"$VM_IP":/tmp/scenario_29_stage_head.sh
-VM_EXEC bash /tmp/scenario_29_stage_head.sh "$HEAD_LOCAL"
+    "$LIB_DIR/../fixtures/stage-head.sh" \
+    root@"$VM_IP":/tmp/stage-head.sh
+VM_EXEC bash /tmp/stage-head.sh "$HEAD_LOCAL"
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 3 — RUN 1: drive an exit-42 resume state via a mid-applyPostSwap kill.
-# (Same primitive as scenario 27: the install process exits 137, leaving the
+# (Same primitive as scenario 3-postswap-archivebackup-resume: the install process exits 137, leaving the
 #  flag pinned PostSwap and the row in_progress — the resume precondition.)
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
@@ -286,7 +286,7 @@ assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 8 — the NO-LOOP proof: remove the inject drop-in and confirm NRestarts
 # SETTLES (bounded; the kill restart + the rollback restart, then stable) rather
-# than climbing. This is the inverse of scenario 27's RED signature — the latch
+# than climbing. This is the inverse of scenario 3-postswap-archivebackup-resume's RED signature — the latch
 # converts the climb into a single rollback.
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
@@ -300,7 +300,7 @@ assert_systemd_restart_counter_bounded "$VM_NAME" "$UNIT" "$((NRESTARTS_BASELINE
 assert_health_passes "$VM_NAME"
 
 echo ""
-echo "PASS: resume-died-rollback"
+echo "PASS: 3-postswap-resume-died-rollback"
 echo "  (a death during the post-swap resume became ONE rollback via the Resuming latch:"
 echo "   row rolled_back with UPGRADE_DIED_DURING_RESUME, snapshot restored, flag cleared,"
 echo "   NRestarts bounded — no retry loop. The gap that needed the liveness sidecar is closed.)"

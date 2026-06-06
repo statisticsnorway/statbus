@@ -1,5 +1,5 @@
 #!/bin/bash
-# Scenario 18: startup-timeout  (C11 / Layer 1 — TimeoutStartSec fires)
+# Scenario: 1-boot-startup-timeout  (C11 / Layer 1 — TimeoutStartSec fires)
 #
 # Class:                 service-startup-slower-than-systemd-unit-timeout
 # Class kind:            Stall
@@ -59,12 +59,12 @@
 #
 # Usage:
 #   INSTALL_VERSION=v2026.05.4 HCLOUD_LOCATION=fsn1 \
-#     ./test/install-recovery/scenarios/18-startup-timeout.sh \
-#     statbus-recovery-18
+#     ./test/install-recovery/scenarios/1-boot-startup-timeout.sh \
+#     statbus-recovery-1-boot-startup-timeout
 
 set -euo pipefail
 
-VM_NAME="${1:-statbus-recovery-18}"
+VM_NAME="${1:-statbus-recovery-1-boot-startup-timeout}"
 INSTALL_VERSION="${INSTALL_VERSION:-v2026.05.4}"
 TIMEOUT_OBSERVE_S="${TIMEOUT_OBSERVE_S:-150}"   # TimeoutStartSec=120 + TimeoutStopSec=5 + slack
 
@@ -74,9 +74,9 @@ source "$LIB_DIR/data-helpers.sh"
 source "$LIB_DIR/wedge-helpers.sh"
 source "$LIB_DIR/assertions.sh"
 
-RELEASE_FILE="/tmp/stall-release-c11"
+RELEASE_FILE="/tmp/stall-release"
 DROPIN_DIR="\$HOME/.config/systemd/user/statbus-upgrade@statbus.service.d"
-DROPIN_FILE="$DROPIN_DIR/c11-inject.conf"
+DROPIN_FILE="$DROPIN_DIR/inject.conf"
 
 trap '
     rc=$?
@@ -95,7 +95,7 @@ trap '
 ' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario 18: startup-timeout  (C11 / Layer 1 — TimeoutStartSec)"
+echo "  Scenario: 1-boot-startup-timeout  (C11 / Layer 1 — TimeoutStartSec)"
 echo "  Install version: $INSTALL_VERSION (no upgrade needed)"
 echo "  Stall budget: ${TIMEOUT_OBSERVE_S}s (TimeoutStartSec=120 + TimeoutStopSec=5 + slack)"
 echo "════════════════════════════════════════════════════════════════"
@@ -234,4 +234,4 @@ echo "  ✓ restart counter bounded"
 assert_health_passes "$VM_NAME"
 
 echo ""
-echo "PASS: startup-timeout (TimeoutStartSec=120s fired as expected; recovery cleared the wedge with bounded restarts)"
+echo "PASS: 1-boot-startup-timeout (TimeoutStartSec=120s fired as expected; recovery cleared the wedge with bounded restarts)"

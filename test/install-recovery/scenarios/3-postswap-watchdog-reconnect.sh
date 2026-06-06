@@ -1,5 +1,5 @@
 #!/bin/bash
-# Scenario 19: watchdog-reconnect  (C15 / Race D — full systemd watchdog firing test)
+# Scenario: 3-postswap-watchdog-reconnect  (C15 / Race D — full systemd watchdog firing test)
 #
 # Class:                 service-watchdog-timeout-during-db-reconnect-after-container-restart
 # Class kind:            Stall
@@ -57,16 +57,16 @@
 #   READY. The injection site + the WATCHDOG=1 ticker fix land
 #   together in the same commit. The harness helper for the
 #   fabricated row + the systemd-unit drop-in machinery follow the
-#   pattern from scenario 18 (startup-timeout).
+#   pattern from scenario 1-boot-startup-timeout (startup-timeout).
 #
 # Usage:
 #   INSTALL_VERSION=v2026.05.2 HCLOUD_LOCATION=fsn1 \
-#     ./test/install-recovery/scenarios/19-watchdog-reconnect.sh \
-#     statbus-recovery-19
+#     ./test/install-recovery/scenarios/3-postswap-watchdog-reconnect.sh \
+#     statbus-recovery-3-postswap-watchdog-reconnect
 
 set -euo pipefail
 
-VM_NAME="${1:-statbus-recovery-19}"
+VM_NAME="${1:-statbus-recovery-3-postswap-watchdog-reconnect}"
 INSTALL_VERSION="${INSTALL_VERSION:-v2026.05.2}"
 STALL_HOLD_S="${STALL_HOLD_S:-180}"            # > WatchdogSec=120; load-bearing
 UPGRADE_BUDGET_S="${UPGRADE_BUDGET_S:-900}"    # 15 min total — covers stall + recovery + completion
@@ -77,9 +77,9 @@ source "$LIB_DIR/data-helpers.sh"
 source "$LIB_DIR/wedge-helpers.sh"
 source "$LIB_DIR/assertions.sh"
 
-RELEASE_FILE="/tmp/stall-release-c15"
+RELEASE_FILE="/tmp/stall-release"
 DROPIN_DIR="\$HOME/.config/systemd/user/statbus-upgrade@statbus.service.d"
-DROPIN_FILE="$DROPIN_DIR/c15-inject.conf"
+DROPIN_FILE="$DROPIN_DIR/inject.conf"
 
 trap '
     rc=$?
@@ -98,7 +98,7 @@ trap '
 ' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario 19: watchdog-reconnect  (C15 / Race D — full systemd test)"
+echo "  Scenario: 3-postswap-watchdog-reconnect  (C15 / Race D — full systemd test)"
 echo "  Initial release: $INSTALL_VERSION → upgrade target: HEAD"
 echo "  Stall hold: ${STALL_HOLD_S}s (> WatchdogSec=120s)"
 echo ""
@@ -136,7 +136,7 @@ upload_sb_to_vm "$VM_NAME"
 
 # Write the git-checkout script locally (heredoc works on the local machine;
 # VM_EXEC bash -c "..." collapses newlines over SSH, breaking if/then/fi).
-# Pattern matches scenario 26 (line 162-181).
+# Pattern matches scenario 3-postswap-archivebackup-watchdog (line 162-181).
 _stage_head_script=$(mktemp /tmp/harness-stage-head-XXXXXX.sh)
 cat > "$_stage_head_script" << SCRIPT_EOF
 #!/bin/bash
@@ -304,4 +304,4 @@ if [ "$FINAL_STATE" = "completed" ]; then
 fi
 
 echo ""
-echo "PASS: watchdog-reconnect (WATCHDOG=1 ticker around reconnect kept the unit alive across ${STALL_HOLD_S}s stall)"
+echo "PASS: 3-postswap-watchdog-reconnect (WATCHDOG=1 ticker around reconnect kept the unit alive across ${STALL_HOLD_S}s stall)"

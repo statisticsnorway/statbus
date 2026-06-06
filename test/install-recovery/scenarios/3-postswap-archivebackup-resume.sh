@@ -1,5 +1,5 @@
 #!/bin/bash
-# Scenario 27: archivebackup-resume-active-phase
+# Scenario: 3-postswap-archivebackup-resume
 #   (recovery-arc flaw — archiveBackup on the exit-42 resume; fixed by active-phase + FIX A)
 #
 # Class:                 archive-backup-exceeds-systemd-budget-on-resume
@@ -8,11 +8,11 @@
 #                        (the NO/rune 40 h wedge; upgrade id=187)
 #
 # WHAT THIS CATCHES (the gap between scenarios 18 and 26):
-#   - Scenario 26 stalls archiveBackup in the ACTIVE phase (post-READY=1),
+#   - `3-postswap-archivebackup-watchdog` stalls archiveBackup in the ACTIVE phase (post-READY=1),
 #     reached via the SCHEDULED dispatch from the main loop. The WATCHDOG=1
 #     ticker keeps the unit alive there — so 26 passed while the production
 #     RESUME path was unprotected.
-#   - Scenario 18 stalls a GENERIC startup step pre-READY=1 under
+#   - `1-boot-startup-timeout` stalls a GENERIC startup step pre-READY=1 under
 #     TimeoutStartSec — right phase, but a trivial injected site, never
 #     archiveBackup and never a resume.
 #   - Neither drove a real exit-42 RESUME whose archiveBackup exceeds the
@@ -51,7 +51,7 @@
 #      fires inside applyPostSwap (between step 11 and step 12); the process
 #      exits 137 with the flag pinned PostSwap and the row in_progress. This
 #      is the canonical "interrupted post-swap, will resume" state (same as
-#      scenario 15 phase 3).
+#      scenario 3-postswap-container-restart-kill phase 3).
 #   4. Verify the resume precondition: flag present + row in_progress.
 #   5. RUN 2 — install a systemd drop-in pinning the resume's archiveBackup
 #      stall (STATBUS_INJECT_AT=archive-backup-stall-active-phase-watchdog,
@@ -91,17 +91,17 @@
 #     reproduction, just without the explicit RED assertion.
 #
 # Hetzner-runnability:
-#   READY. Reuses the scenario-15 kill primitive + the scenario-26 stall
-#   primitive + the scenario-26 HEAD-staging fixture; no new inject sites.
+#   READY. Reuses the scenario 3-postswap-container-restart-kill kill primitive + the scenario 3-postswap-archivebackup-watchdog stall
+#   primitive + the scenario 3-postswap-archivebackup-watchdog HEAD-staging fixture; no new inject sites.
 #
 # Usage:
 #   INSTALL_VERSION=v2026.05.2 HCLOUD_LOCATION=fsn1 \
-#     ./test/install-recovery/scenarios/27-archivebackup-resume-active-phase.sh \
-#     statbus-recovery-27
+#     ./test/install-recovery/scenarios/3-postswap-archivebackup-resume.sh \
+#     statbus-recovery-3-postswap-archivebackup-resume
 
 set -euo pipefail
 
-VM_NAME="${1:-statbus-recovery-27}"
+VM_NAME="${1:-statbus-recovery-3-postswap-archivebackup-resume}"
 INSTALL_VERSION="${INSTALL_VERSION:-v2026.05.2}"
 INSTALL_BUDGET_S="${INSTALL_BUDGET_S:-900}"
 # Short start budget so each doomed RED cycle is fast. The resume's
@@ -155,7 +155,7 @@ trap '
 ' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario 27: archivebackup-resume-active-phase"
+echo "  Scenario: 3-postswap-archivebackup-resume"
 echo "  (exit-42 RESUME runs active-phase; WATCHDOG=1 ticker keeps unit alive across archiveBackup)"
 echo "  Initial release: $INSTALL_VERSION → upgrade target: HEAD"
 echo "  Inject TimeoutStartSec=${INJECT_TIMEOUT_START_S}s, hold=${STALL_HOLD_S}s"
@@ -190,13 +190,13 @@ HEAD_LOCAL=$(git -C "$HARNESS_ROOT" rev-parse HEAD)
 ip=$(hcloud server ip "$VM_NAME")
 upload_sb_to_vm "$VM_NAME"
 scp -O "${SSH_OPTS[@]}" \
-    "$LIB_DIR/../fixtures/scenario_26_stage_head.sh" \
-    root@"$VM_IP":/tmp/scenario_27_stage_head.sh
-VM_EXEC bash /tmp/scenario_27_stage_head.sh "$HEAD_LOCAL"
+    "$LIB_DIR/../fixtures/stage-head.sh" \
+    root@"$VM_IP":/tmp/stage-head.sh
+VM_EXEC bash /tmp/stage-head.sh "$HEAD_LOCAL"
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 3 — RUN 1: drive an exit-42 resume state via a mid-applyPostSwap kill
-# (same primitive as scenario 15; the install process exits 137, leaving the
+# (same primitive as scenario 3-postswap-container-restart-kill; the install process exits 137, leaving the
 #  flag pinned PostSwap and the row in_progress — the resume precondition).
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
@@ -531,7 +531,7 @@ echo "  ✓ all final *-pre.tar.gz archives are complete (gzip -t clean)"
 assert_health_passes "$VM_NAME"
 
 echo ""
-echo "PASS: archivebackup-resume-active-phase"
+echo "PASS: 3-postswap-archivebackup-resume"
 echo "  (exit-42 resume runs active-phase; applyExtendCtx ticker pings WATCHDOG=1 every"
 echo "   30 s before the stalled tar — 0 kills, period; FIX A ensures the row reaches"
 echo "   'completed' before the tar runs; archive written atomically — no partial at the"
