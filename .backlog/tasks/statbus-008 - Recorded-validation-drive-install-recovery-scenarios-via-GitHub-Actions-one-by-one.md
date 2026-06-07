@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - operator
 created_date: '2026-06-07 15:41'
-updated_date: '2026-06-07 15:52'
+updated_date: '2026-06-07 16:00'
 labels:
   - install-recovery
   - validation
@@ -40,4 +40,6 @@ TALLY (--ref master @ 4e07dc4d):
 
 <!-- SECTION:NOTES:BEGIN -->
 watchdog-reconnect (run 27097092218): FAILED — HARNESS BUG, not a real recovery failure. The scenario's systemd drop-in install used a here-document that collapsed newlines (log: `EOF[Service]Environment=...Environment=...EOF` on one line), so systemd couldn't parse the override and the unit stayed inactive — the scenario can't even stage its test (product code never exercised). Mechanic dispatched to fix the heredoc + assess scope (shared drop-in helper?). DRIVE-THROUGH PAUSED until the harness fix is committed + pushed; subsequent runs will be on the fixed SHA.
+
+Harness fix pushed: 4e07dc4d5..2bc671ecf. Root cause was VM_EXEC's printf '%q' ANSI-C quoting collapsing the heredoc-over-bash-c; fixed to mktemp + local heredoc + scp + remote bash (the pattern the archivebackup scenarios already use). Fixed watchdog-reconnect AND the same LATENT bug in 1-boot-startup-timeout. Scope: 2 scenarios, NOT a shared helper. Pending: Images must build the seed image for 2bc671ecf, then re-run watchdog-reconnect, then continue (migrate-killed-after-commit, archivebackup-resume) on this SHA.
 <!-- SECTION:NOTES:END -->
