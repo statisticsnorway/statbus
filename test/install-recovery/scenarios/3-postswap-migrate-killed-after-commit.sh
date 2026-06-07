@@ -56,7 +56,7 @@
 set -euo pipefail
 
 VM_NAME="${1:-statbus-recovery-3-postswap-migrate-killed-after-commit}"
-INSTALL_VERSION="${INSTALL_VERSION:-}"
+INSTALL_VERSION="${INSTALL_VERSION:-v2026.05.2}"  # must be older than HEAD; provides migration delta
 STALL_MAX_WAIT_S="${STALL_MAX_WAIT_S:-300}"
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
@@ -65,17 +65,6 @@ source "$LIB_DIR/wedge-helpers.sh"
 source "$LIB_DIR/assertions.sh"
 
 trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
-
-# Initial install MUST be at a release older than HEAD. We trigger the
-# upgrade-to-HEAD via ./sb upgrade schedule, which exercises the install-
-# dispatched executeUpgrade path. Without a delta there are no migrations
-# to apply, no stall to hit.
-if [ -z "$INSTALL_VERSION" ]; then
-    echo "ERROR: INSTALL_VERSION required (e.g. v2026.05.2)." >&2
-    echo "  Scenario installs that older release, schedules upgrade to HEAD," >&2
-    echo "  then drives the canonical-window injection via real SIGKILL." >&2
-    exit 2
-fi
 
 echo "════════════════════════════════════════════════════════════════"
 echo "  Scenario: 3-postswap-migrate-killed-after-commit"
