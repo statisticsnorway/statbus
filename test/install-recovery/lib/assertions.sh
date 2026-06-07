@@ -92,7 +92,13 @@ assert_no_orphan_backup() {
     local count
 
     # Count pre-upgrade-* dirs EXCLUDING the two managed names (active/syncing).
-    count=$(VM_EXEC bash -c 'ls -d ~/statbus-backups/pre-upgrade-* 2>/dev/null | grep -vE "/pre-upgrade-(active|syncing)$" | grep -c . ' 2>/dev/null | tr -d ' ' || echo "0")
+    # `grep -c .` (and the `grep -vE` above it) EXIT 1 on zero matches while still
+    # printing "0". Callers run under `set -o pipefail`, so without the `|| true`
+    # the local pipeline would exit non-zero, fire the trailing `|| echo "0"`, and
+    # APPEND a second "0" → count="0\n0" != "0" → false-fail on the (correct) zero-
+    # orphan result. `|| true` makes the expected no-match a clean exit; `tr -d ' \n'`
+    # strips the trailing newline so count is exactly "0" / "N".
+    count=$(VM_EXEC bash -c 'ls -d ~/statbus-backups/pre-upgrade-* 2>/dev/null | grep -vE "/pre-upgrade-(active|syncing)$" | grep -c . || true' 2>/dev/null | tr -d ' \n' || echo "0")
     if [ "$count" = "0" ]; then
         echo "  ✓ no orphan (legacy per-stamp) pre-upgrade-* backups in ~/statbus-backups/ (managed active/syncing excluded)"
         return 0
