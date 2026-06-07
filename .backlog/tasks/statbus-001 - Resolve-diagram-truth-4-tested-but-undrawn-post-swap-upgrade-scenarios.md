@@ -1,11 +1,13 @@
 ---
 id: STATBUS-001
-title: 'Resolve diagram-truth: 4 tested-but-undrawn post-swap upgrade scenarios'
+title: >-
+  Refine grouped post-swap TEST-notes in upgrade-timeline.plantuml (sharpen
+  invariants; fix watchdog-reconnect note)
 status: In Progress
 assignee:
-  - architect
+  - engineer
 created_date: '2026-06-07 11:24'
-updated_date: '2026-06-07 14:10'
+updated_date: '2026-06-07 14:20'
 labels:
   - install-recovery
   - diagrams
@@ -26,26 +28,24 @@ ordinal: 1000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-The upgrade/install diagrams are the single source of truth for which upgrade interactions we test: every tested failure-injection scenario must correspond to an interaction drawn in the diagram. Four post-swap scenarios currently have a test but NO diagram TEST note, so the diagram and the test suite disagree. Resolve EACH against this dichotomy:
-- If the scenario is a logically-possible interaction → the diagram is incomplete → add its TEST note at the correct interaction point.
-- If the scenario is logically impossible or redundant (already covered by a drawn interaction, or a duplicate kill-point) → the test is wrong → argue why and recommend retiring/merging it.
+Architect analysis (tmp/architect-001-diagram-truth.md) corrected the premise: all four post-swap scenarios are DISTINCT and already drawn — grouped into shared TEST-notes in upgrade-timeline.plantuml (~lines 139-147), correctly absent from install-recovery.plantuml. NONE redundant; none retire/merge. The migrate-loop trio (mid-migration-kill / between-migrations-kill / migrate-killed-after-commit) are the 3 cells of the commit-vs-record atomicity boundary — distinct recoveries (migrate-killed-after-commit is the real rune wedge: forward fails 'relation already exists' -> restore -> rolled_back).
 
-The four scenarios: 3-postswap-archivebackup-resume, 3-postswap-between-migrations-kill, 3-postswap-migrate-killed-after-commit, 3-postswap-watchdog-reconnect. Also check 0-happy-install (it currently appears in no diagram).
-
-Crux to verify adversarially — the migrate-loop kill-points: the diagram already draws 3-postswap-mid-migration-kill (kill at top of runPsqlFile, before psql). Are between-migrations-kill (after migration N's db.migration INSERT, before N+1's runPsqlFile) and migrate-killed-after-commit (committed migration, db.migration row missing — the ~ms window) genuinely DISTINCT interaction points, or do they collapse into mid-migration-kill / each other? watchdog-reconnect targets the waitForDBHealth+reconnect step (already in the timeline — likely just needs a note); archivebackup-resume targets archiveBackup on the exit-42 RESUME path.
+So this is NOT coverage-addition — it's note CLARITY + CORRECTNESS. Keep scenarios grouped by shared code anchor; sharpen per-scenario invariant lines rather than splitting into more notes. Proposed replacement text in tmp/architect-001-diagram-truth.md §1-4.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Each of the 4 scenarios has a written verdict: POSSIBLE→ADD (with exact diagram file + anchor line + proposed TEST-note text + the invariant it proves) or IMPOSSIBLE/REDUNDANT→RETIRE (with the argument)
-- [ ] #2 The two migrate-loop kill-points (between-migrations-kill, migrate-killed-after-commit) are explicitly determined to be distinct interaction points OR collapsing into mid-migration-kill/each other, with reasoning
-- [ ] #3 For every POSSIBLE verdict: the diagram TEST note is added at the correct interaction point in the right phase, consistent with surrounding flow, as a follow-up commit landing AFTER the rename sweep is committed
-- [ ] #4 For every RETIRE verdict: the scenario test and its README catalogue entry are removed or merged, with rationale recorded
-- [ ] #5 Both diagrams re-rendered to SVG after any edit, and the diagram once again matches the tested scenario set exactly
+- [ ] #1 watchdog-reconnect note corrected to match landed code (service.go:3801-3821): the WATCHDOG ticker keeps the unit alive; a true >5min hang is reaped by connect()'s ctx, NOT the watchdog. The misleading 'watchdog fires on a hung reconnect' framing is removed
+- [ ] #2 archivebackup-resume note states the invariant it actually proves (exit-42 RESUME path + READY=1-before-recoverFromFlag + UPDATE-before-tar), no longer assuming the resume is active-phase
+- [ ] #3 migrate-loop trio shared note makes each of the 3 commit-vs-record cells' distinct invariant legible
+- [ ] #4 happy spine stamped with a baseline coverage note: 0-happy-install (install-recovery.plantuml spine) and 0-happy-upgrade (upgrade-timeline spine)
+- [ ] #5 upgrade-timeline.plantuml re-rendered to SVG; architect reviews the final notes for correctness before commit
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 Premise corrected (2026-06-07): the 4 are NOT undrawn. In upgrade-timeline.plantuml they appear GROUPED into shared TEST notes with siblings (~lines 139/144/146); they are correctly absent from install-recovery.plantuml (upgrade-sequence events, not install-state events). Real question per scenario: DISTINCT interaction point (deserves its own note) vs REDUNDANT (merges into a drawn sibling → retire/merge the test). Architect investigating; will report findings + a recommended re-scope of this task.
+
+Architect verdict (2026-06-07, tmp/architect-001-diagram-truth.md): all 4 DISTINCT, none retire. Found a diagram-truth BUG in the watchdog-reconnect note (states a failure the landed code doesn't have). Re-scoped from 'add undrawn/retire' to 'refine grouped notes'. Engineer to apply the proposed note text (working tree, no commit); architect to review; King sees the diff before commit.
 <!-- SECTION:NOTES:END -->
