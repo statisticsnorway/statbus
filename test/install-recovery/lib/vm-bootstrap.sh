@@ -781,9 +781,54 @@ upload_install_script_to_vm() {
 #   ssh statbus@<ip>                      — operator user (has systemd bus)
 #   ssh root@<ip> journalctl --user -u statbus-upgrade@statbus --no-pager
 #   hcloud server delete <name>           — delete when done
+
+# dump_stage_tmux_logs — surface detached-tmux per-stage install logs to stdout
+# (→ the scenario's CI log) before the VM is reaped or left up.
+#
+# Inline-dispatch scenarios run `./sb install` in a DETACHED tmux session that
+# writes the install's stdout/stderr to /tmp/<session>.log ON THE VM (see the
+# _start_install_with_env-style runners in the scenarios). That file is NOT in
+# the CI artifacts, so when an inline install misbehaves (e.g. detects the wrong
+# install state and never dispatches the scheduled upgrade, so the inject stall
+# never fires) the failure is otherwise undiagnosable from the CI log alone.
+#
+# Called from cleanup_vm so EVERY scenario benefits automatically, on BOTH
+# success and failure, before the VM is deleted (or left running under KEEP_VM).
+# Best-effort: a no-op when no stage logs exist or the VM is unreachable; it must
+# never fail or slow cleanup beyond one SSH round-trip.
+dump_stage_tmux_logs() {
+    local vm_name="$1"
+    local ip
+    ip=$(hcloud server ip "$vm_name" 2>/dev/null) || return 0
+    [ -n "$ip" ] && [ "$ip" != "?" ] || return 0
+    echo "──────── detached-tmux stage logs (/tmp/stage*.log on $vm_name) ────────"
+    ssh "${SSH_OPTS[@]}" root@"$ip" bash -s <<'REMOTE' 2>/dev/null || echo "  (could not retrieve stage logs — VM unreachable?)"
+shopt -s nullglob
+logs=(/tmp/stage*.log)
+if [ ${#logs[@]} -eq 0 ]; then
+    echo "  (no /tmp/stage*.log on VM — scenario did not use a detached-tmux install)"
+    exit 0
+fi
+for f in "${logs[@]}"; do
+    ex="${f%.log}.exit"
+    code="(no .exit file — still running or killed before exit)"
+    [ -f "$ex" ] && code="$(cat "$ex" 2>/dev/null)"
+    echo ""
+    echo "════ $f  [exit: $code] ════"
+    cat "$f" 2>/dev/null || echo "  (cat failed)"
+done
+REMOTE
+    echo "──────── end stage logs ────────"
+}
+
 cleanup_vm() {
     local vm_name="$1"
     _check_name_safety "$vm_name" || return 1
+
+    # Surface detached-tmux stage logs (success OR failure) BEFORE reaping/leaving
+    # the VM. Best-effort; a no-op for scenarios that never used a tmux install.
+    dump_stage_tmux_logs "$vm_name"
+
     if [ "${KEEP_VM:-0}" = "1" ] || [ "${KEEP_VM_ON_FAILURE:-0}" = "1" ]; then
         local ip
         ip=$(hcloud server ip "$vm_name" 2>/dev/null || echo "?")
