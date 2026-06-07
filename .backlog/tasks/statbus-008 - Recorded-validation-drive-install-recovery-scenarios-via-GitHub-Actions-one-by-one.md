@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - operator
 created_date: '2026-06-07 15:41'
-updated_date: '2026-06-07 21:15'
+updated_date: '2026-06-07 21:36'
 labels:
   - install-recovery
   - validation
@@ -31,7 +31,7 @@ TALLY (--ref master @ 4e07dc4d):
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Baseline 0-happy-install driven + recorded (PASS)
+- [x] #1 Baseline 0-happy-install driven + recorded (PASS)
 - [ ] #2 The three sharpened-claim scenarios driven + recorded: watchdog-reconnect, migrate-killed-after-commit, archivebackup-resume
 - [ ] #3 Each driven scenario's GitHub run URL + verdict captured in the notes tally
 <!-- AC:END -->
@@ -52,4 +52,6 @@ watchdog NOTIFY fix (engineer, commit 3bb6d703d — verified correct/scoped: def
 watchdog-reconnect re-run (run 27104216670 @ 3bb6d703d): NOTIFY FIX WORKED ✓ — NOTIFY → executeScheduled in 58s, stall held 180s > WatchdogSec=120s, NRestarts within tolerance (Race D fix holds), upgrade completed, flag absent, demo data intact. The CORE watchdog/reconnect recovery behavior is VALIDATED. Remaining failure: 'orphan backup(s) found' at test/install-recovery/lib/assertions.sh:100 — leftover backup files the assertion expects cleaned up. Engineer diagnosing: real product cleanup gap (pruneArchives / archiveBackup) vs over-strict assertion. Progress: harness heredoc + NOTIFY both fixed; one cleanup assertion left on this scenario.
 
 ORPHAN-BACKUP VERDICT (engineer, run 27104216670): HARNESS/ASSERTION BUG — ZERO real orphans; the product cleaned up correctly. Root cause lib/assertions.sh:95: `grep -c .` exits 1 on zero matches; under the scenario's `set -euo pipefail` the count pipeline exits non-zero → the trailing `|| echo "0"` appends a 2nd 0 → count="0\n0" → fails the `= "0"` check. Reproduced locally. Introduced in commit 97fe00480 (the #12 active/syncing backup-scheme reconcile). SYSTEMATIC — latent in 7 scenarios that call this shared assertion (2-preswap-binary-swap-kill, 3-postswap-watchdog-reconnect, mid-migration-kill, migrate-killed-after-commit, 0-happy-upgrade, 5-install-seed-on-populated, container-restart-kill); watchdog is just the first to reach it post-NOTIFY-fix. Fix = ONE shared assertion (clears all 7): `|| true` after grep -c . + `tr -d ' \n'`. Classified TEST/harness (not recovery code) → applied autonomously (no King gate). watchdog-reconnect's actual recovery is FULLY VALIDATED (zero real failures); expect GREEN after the assertion fix + re-run.
+
+✅ 3-postswap-watchdog-reconnect: PASS — run 27105191049 @ 8366440d9, 13m6s. FIRST failure-scenario green. Recovery validated end-to-end: NOTIFY → executeScheduled → upgrade → watchdog timeout correct (stall held > WatchdogSec, NRestarts ok) → reconnect clean → upgrade completes → orphan-backup cleanup verified. All 3 harness fixes held (heredoc 2bc671ecf, NOTIFY 3bb6d703d, assertion 8366440d9). The assertion fix also unblocks 6 sibling scenarios. RUNNING TALLY: 0-happy-install PASS; watchdog-reconnect PASS. NEXT: 3-postswap-migrate-killed-after-commit (inline; has INSTALL_VERSION fix 4568554b7 + the assertion fix; tests the rune-wedge: kill in the ~ms commit↔record window → forward fails 'relation already exists' → RESTORE → rolled_back).
 <!-- SECTION:NOTES:END -->
