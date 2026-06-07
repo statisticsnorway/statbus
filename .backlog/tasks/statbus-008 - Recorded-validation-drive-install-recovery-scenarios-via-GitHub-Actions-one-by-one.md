@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - operator
 created_date: '2026-06-07 15:41'
-updated_date: '2026-06-07 21:47'
+updated_date: '2026-06-07 21:54'
 labels:
   - install-recovery
   - validation
@@ -56,4 +56,6 @@ ORPHAN-BACKUP VERDICT (engineer, run 27104216670): HARNESS/ASSERTION BUG — ZER
 ✅ 3-postswap-watchdog-reconnect: PASS — run 27105191049 @ 8366440d9, 13m6s. FIRST failure-scenario green. Recovery validated end-to-end: NOTIFY → executeScheduled → upgrade → watchdog timeout correct (stall held > WatchdogSec, NRestarts ok) → reconnect clean → upgrade completes → orphan-backup cleanup verified. All 3 harness fixes held (heredoc 2bc671ecf, NOTIFY 3bb6d703d, assertion 8366440d9). The assertion fix also unblocks 6 sibling scenarios. RUNNING TALLY: 0-happy-install PASS; watchdog-reconnect PASS. NEXT: 3-postswap-migrate-killed-after-commit (inline; has INSTALL_VERSION fix 4568554b7 + the assertion fix; tests the rune-wedge: kill in the ~ms commit↔record window → forward fails 'relation already exists' → RESTORE → rolled_back).
 
 3-postswap-migrate-killed-after-commit (run 27105528694 @ 8366440d9): FAILED — HARNESS bug (not product). The scenario passes the FULL 40-char SHA to `./sb upgrade schedule`; the version validator rejects it (vm-bootstrap.sh:360: 'invalid version ... expected vYYYY.MM.PATCH or sha-HEXHEX'). Needs the sha-<short-hex> form. Error is in a shared helper → likely affects other schedule-using scenarios. Mechanic dispatched to diagnose scope (shared vm-bootstrap helper vs scenario) + fix the version format + reconcile why `./sb upgrade apply 8366440d` worked but schedule<full> didn't. Harness fix (commit local). RUNNING TALLY: 0-happy-install PASS, watchdog-reconnect PASS, migrate-killed-after-commit = version-format harness bug (fixing).
+
+migrate-killed-after-commit version-format VERDICT (mechanic, commit f018a75d8): CORRECT fix, verified. The minimal 'sha-<short>' fix wouldn't work — `./sb upgrade schedule` only accepts CalVer tags AND only UPDATEs existing 'available' rows, so it can't schedule untagged HEAD at all. Fix: use fabricate_scheduled_upgrade_row (direct INSERT), the SAME pattern the 3 sibling supervised scenarios already use for untagged HEAD; coverage preserved (still drives ./sb install -> executeUpgrade -> migrate-kill recovery). Isolated to this scenario (no other uses ./sb upgrade schedule). Mechanic also flagged a real PRODUCT issue -> filed STATBUS-010 (stale 'sha-HEXHEX' in upgrade.go:135 validator error message, retired rc.63). NEXT: push f018a75d8 -> Images -> re-run migrate-killed-after-commit. Harness-bug tally now 9, product bugs 0 (the stale message is a doc/message nit, not a recovery failure).
 <!-- SECTION:NOTES:END -->
