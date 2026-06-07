@@ -214,6 +214,31 @@ if [ "$UNIT_STATE" != "active" ]; then
 fi
 echo "  ✓ unit active with C15 env vars in place"
 
+# Wake the service via NOTIFY so it immediately calls executeScheduled.
+# upgrade_notify_daemon_trigger fires AFTER UPDATE only — not on INSERT.
+# fabricate_scheduled_upgrade_row inserts a fresh row → no trigger fires →
+# the service sits in its main select waiting for NOTIFY or the 6-hour
+# ticker (UPGRADE_CHECK_INTERVAL default 6h); without an explicit signal
+# the row would never be dispatched within this scenario's 180s budget.
+#
+# ./sb upgrade apply sends NOTIFY upgrade_apply, '<sha>' regardless of
+# whether the UPDATE matched any row. The service receives the NOTIFY,
+# calls handleNotification → scheduleImmediate (no-op: row already
+# 'scheduled'), then calls executeScheduled → claims the row.
+#
+# Service must be LISTENING before we send. systemd marks the unit
+# 'active' only after READY=1, which is emitted AFTER the LISTEN
+# commands are in place — so the sleep-5 + UNIT_STATE=active check
+# above guarantees the service is already listening when we NOTIFY.
+#
+# The C15 stall is already armed (the release file was touched inside the
+# drop-in script before the unit start), so the wake drives the upgrade
+# straight into applyPostSwap → reconnect → the C15 stall point.
+SHORT_SHA=$(echo "$HEAD_LOCAL" | cut -c1-8)
+echo "── waking service via NOTIFY (./sb upgrade apply $SHORT_SHA) ──"
+VM_EXEC bash -c "cd ~/statbus && ./sb upgrade apply $SHORT_SHA 2>&1 | tail -5 || true"
+echo "  ✓ NOTIFY sent — service should call executeScheduled momentarily"
+
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 6 — wait for the unit to pick up the scheduled row + reach the stall
 # ─────────────────────────────────────────────────────────────────────────
@@ -224,7 +249,7 @@ SAW_IN_PROGRESS=0
 while true; do
     elapsed=$(( $(date +%s) - START_TS ))
     if [ "$elapsed" -ge 180 ]; then
-        echo "✗ unit did not transition row to in_progress within 180s — unit may not be polling" >&2
+        echo "✗ unit did not transition row to in_progress within 180s after NOTIFY — executeScheduled did not claim the fabricated 'scheduled' row" >&2
         VM_EXEC bash -c "cd ~/statbus && echo \"SELECT id, state, started_at FROM public.upgrade WHERE commit_sha = '$HEAD_LOCAL';\" | ./sb psql" >&2 || true
         VM_EXEC bash -c "systemctl --user status statbus-upgrade@statbus.service --no-pager -l 2>&1 | head -30" >&2 || true
         exit 1
