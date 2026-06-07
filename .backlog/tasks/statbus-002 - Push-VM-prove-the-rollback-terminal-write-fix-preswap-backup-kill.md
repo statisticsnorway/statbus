@@ -4,6 +4,7 @@ title: Push + VM-prove the rollback terminal-write fix (preswap-backup-kill)
 status: In Progress
 assignee: []
 created_date: '2026-06-07 11:25'
+updated_date: '2026-06-07 13:52'
 labels:
   - upgrade
   - rollback
@@ -11,7 +12,6 @@ dependencies: []
 references:
   - test/install-recovery/scenarios/2-preswap-backup-kill.sh
   - cli/internal/upgrade/exec.go
-  - tmp/RECOVERY-HANDOFF-2026-06-06.md
 priority: high
 ordinal: 2000
 ---
@@ -23,7 +23,7 @@ The rollback terminal-state-write hardening is code-complete, committed, and loc
 
 Remaining work: get the go-ahead to push, let CI rebuild, then re-run the preswap-backup-kill install-recovery scenario on a Hetzner VM and confirm green (flag removed only on a landed write; health-wait covers the real DB restart).
 
-Note: pushing is gated on an explicit go-ahead. Recovered from harness task #39.
+Note: pushing is gated on an explicit go-ahead.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
