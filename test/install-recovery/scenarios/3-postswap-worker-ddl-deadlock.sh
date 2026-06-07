@@ -1,5 +1,5 @@
 #!/bin/bash
-# Scenario 13: worker-ddl-deadlock  (C13 / R1 — most-damaging architectural)
+# Scenario: 3-postswap-worker-ddl-deadlock  (C13 / R1 — most-damaging architectural)
 #
 # Class:                 migration-deadlocks-with-running-worker-holding-table-lock
 # Forensics tag:         R1 (architectural)
@@ -38,7 +38,7 @@
 #
 # Trigger logic:
 #   1. Install at INSTALL_VERSION (default v2026.05.2 — same baseline
-#      as scenario 10; provides a migration delta to apply).
+#      as scenario 5-install-seed-on-populated; provides a migration delta to apply).
 #   2. Populate via populate_with_demo_data.
 #   3. Start continuous worker workload via
 #      start_continuous_worker_workload — the helper enqueues
@@ -68,12 +68,12 @@
 #
 # Usage (deferred until the architectural fix lands):
 #   INSTALL_VERSION=v2026.05.2 HCLOUD_LOCATION=fsn1 \
-#     ./test/install-recovery/scenarios/13-worker-ddl-deadlock.sh \
-#     statbus-recovery-13
+#     ./test/install-recovery/scenarios/3-postswap-worker-ddl-deadlock.sh \
+#     statbus-recovery-3-postswap-worker-ddl-deadlock
 
 set -euo pipefail
 
-VM_NAME="${1:-statbus-recovery-13}"
+VM_NAME="${1:-statbus-recovery-3-postswap-worker-ddl-deadlock}"
 INSTALL_VERSION="${INSTALL_VERSION:-v2026.05.2}"
 INSTALL_BUDGET_S="${INSTALL_BUDGET_S:-900}"           # 15 min hard cap
 WORKLOAD_DURATION_S="${WORKLOAD_DURATION_S:-900}"     # match install budget
@@ -95,7 +95,7 @@ trap '
 ' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario 13: worker-ddl-deadlock  (C13 / R1 — most-damaging)"
+echo "  Scenario: 3-postswap-worker-ddl-deadlock  (C13 / R1 — most-damaging)"
 echo "  Initial release: $INSTALL_VERSION → upgrade target: HEAD"
 echo "  Install budget: ${INSTALL_BUDGET_S}s; workload duration: ${WORKLOAD_DURATION_S}s"
 echo "════════════════════════════════════════════════════════════════"
@@ -227,4 +227,4 @@ assert_no_orphan_backup "$VM_NAME"
 assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 2
 
 echo ""
-echo "PASS: worker-ddl-deadlock (install survived worker contention, data intact)"
+echo "PASS: 3-postswap-worker-ddl-deadlock (install survived worker contention, data intact)"

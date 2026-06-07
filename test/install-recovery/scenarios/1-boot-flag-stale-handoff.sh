@@ -1,5 +1,5 @@
 #!/bin/bash
-# Scenario 20: flag-stale-handoff  (C14 / R3 — install/upgrade-service mutex handoff)
+# Scenario: 1-boot-flag-stale-handoff  (C14 / R3 — install/upgrade-service mutex handoff)
 #
 # Class:                 install-flag-released-without-clean-handoff-detected-as-stale
 # Class kind:            External (no in-code inject site fires)
@@ -65,12 +65,12 @@
 #
 # Usage:
 #   INSTALL_VERSION=v2026.05.4 HCLOUD_LOCATION=fsn1 \
-#     ./test/install-recovery/scenarios/20-flag-stale-handoff.sh \
-#     statbus-recovery-20
+#     ./test/install-recovery/scenarios/1-boot-flag-stale-handoff.sh \
+#     statbus-recovery-1-boot-flag-stale-handoff
 
 set -euo pipefail
 
-VM_NAME="${1:-statbus-recovery-20}"
+VM_NAME="${1:-statbus-recovery-1-boot-flag-stale-handoff}"
 INSTALL_VERSION="${INSTALL_VERSION:-v2026.05.4}"
 SERVICE_TICK_WAIT_S="${SERVICE_TICK_WAIT_S:-120}"   # > default tick interval (60s) + slack
 
@@ -83,7 +83,7 @@ source "$LIB_DIR/assertions.sh"
 trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario 20: flag-stale-handoff  (C14 / R3 — clean-exit flag leak)"
+echo "  Scenario: 1-boot-flag-stale-handoff  (C14 / R3 — clean-exit flag leak)"
 echo "  Install version: $INSTALL_VERSION"
 echo ""
 echo "  Expected on current branch (no fix yet): the flag file is left"
@@ -197,11 +197,11 @@ assert_no_orphan_backup "$VM_NAME"
 # Diagnostic summary at end.
 echo ""
 if [ "$FLAG_LEAKED" = "1" ]; then
-    echo "DIAGNOSTIC PASS: flag-stale-handoff (C14/R3) — install LEAKS the flag on clean exit;"
+    echo "DIAGNOSTIC PASS: 1-boot-flag-stale-handoff (C14/R3) — install LEAKS the flag on clean exit;"
     echo "  upgrade-service's stale-clear path converges. Fix shape: install must release the"
     echo "  flag on clean exit (the install-owned acquire path's defer in install.go's"
     echo "  acquireOrBypass already calls ReleaseInstallFlag — verify it runs on every exit"
     echo "  path; a leaked exit code or early return bypassing the defer is the suspect)."
 else
-    echo "PASS: flag-stale-handoff (C14/R3) — install releases the flag cleanly on exit (fix landed)."
+    echo "PASS: 1-boot-flag-stale-handoff (C14/R3) — install releases the flag cleanly on exit (fix landed)."
 fi

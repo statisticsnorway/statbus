@@ -103,7 +103,7 @@ populate_with_demo_data() {
     # derive_units_phase, statistical_history_facet_derive, …) that
     # update public.statistical_unit, public.statistical_history, and
     # related derived tables. Those rows grow while the snapshot
-    # call happens. The first Hetzner run of scenario 10 caught this
+    # call happens. The first Hetzner run of scenario 5-install-seed-on-populated caught this
     # exact drift — legal_unit + establishment were stable
     # (user-imported rows), but statistical_unit grew by 55 and
     # statistical_history by 336 between snapshot and post-install

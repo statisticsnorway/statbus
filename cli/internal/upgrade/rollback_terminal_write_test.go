@@ -10,8 +10,8 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/invariants"
 )
 
-// Guards for #39 — rollback()'s terminal-state write. The bug the overnight
-// campaign found (scenario 21, preswap-backup-kill on real systemd): rollback()
+// Guards rollback()'s terminal-state write. The bug the overnight
+// campaign found (scenario 2-preswap-backup-kill, preswap-backup-kill on real systemd): rollback()
 // restarts the DB and races its own reconnect; the two terminal UPDATEs were
 // single-shot and silently swallowed failure, then removeUpgradeFlag() ran
 // UNCONDITIONALLY and the process exited claiming success — row stuck
@@ -32,7 +32,7 @@ import (
 // (install-terminal.txt) rather than swallow it.
 //
 // The happy path (write lands → caller removes the flag) requires a live DB and
-// is covered by the install-recovery harness (scenario 21) on the Hetzner box —
+// is covered by the install-recovery harness (scenario 2-preswap-backup-kill) on the Hetzner box —
 // the same split as the other terminal-write sites, which are not unit-tested
 // against a live queryConn (see ground_truth_test.go's t.Skip).
 func TestWriteRollbackTerminal_ExhaustionMarksTerminalAndKeepsFlag(t *testing.T) {

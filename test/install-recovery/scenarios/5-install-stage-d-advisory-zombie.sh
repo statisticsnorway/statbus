@@ -1,5 +1,5 @@
 #!/bin/bash
-# Scenario 06: stage-d-empty-app-advisory
+# Scenario: 5-install-stage-d-advisory-zombie
 #
 # Validates: Fix 6 Phase 2 PID-liveness probe (terminates dead-PID
 # zombies holding the migrate_up advisory lock with
@@ -17,11 +17,11 @@
 # zombie, and terminate it.
 #
 # Usage:
-#   ./test/install-recovery/scenarios/06-stage-d-empty-app-advisory.sh <vm_name>
+#   ./test/install-recovery/scenarios/5-install-stage-d-advisory-zombie.sh <vm_name>
 
 set -euo pipefail
 
-VM_NAME="${1:-statbus-recovery-06}"
+VM_NAME="${1:-statbus-recovery-5-install-stage-d-advisory-zombie}"
 INSTALL_VERSION="${INSTALL_VERSION:-}"
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
@@ -32,7 +32,7 @@ source "$LIB_DIR/assertions.sh"
 trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario 06: stage-d-empty-app-advisory"
+echo "  Scenario: 5-install-stage-d-advisory-zombie"
 echo "  Validates: Fix 6 Phase 2 PID-liveness + empty-app-name catch-all"
 echo "════════════════════════════════════════════════════════════════"
 
@@ -78,4 +78,4 @@ else
 fi
 
 echo ""
-echo "PASS: 06-stage-d-empty-app-advisory"
+echo "PASS: 5-install-stage-d-advisory-zombie"

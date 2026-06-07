@@ -1,5 +1,5 @@
 #!/bin/bash
-# Scenario 21: preswap-backup-kill  (C3 / Layer 2 kill — preswap backup phase)
+# Scenario: 2-preswap-backup-kill  (C3 / Layer 2 kill — preswap backup phase)
 #
 # Class:                 killed-by-system-during-preswap-backup
 # Class kind:            Kill
@@ -55,12 +55,12 @@
 #
 # Usage:
 #   INSTALL_VERSION=v2026.05.2 HCLOUD_LOCATION=fsn1 \
-#     ./test/install-recovery/scenarios/21-preswap-backup-kill.sh \
-#     statbus-recovery-21
+#     ./test/install-recovery/scenarios/2-preswap-backup-kill.sh \
+#     statbus-recovery-2-preswap-backup-kill
 
 set -euo pipefail
 
-VM_NAME="${1:-statbus-recovery-21}"
+VM_NAME="${1:-statbus-recovery-2-preswap-backup-kill}"
 INSTALL_VERSION="${INSTALL_VERSION:-v2026.05.2}"
 INSTALL_BUDGET_S="${INSTALL_BUDGET_S:-900}"
 
@@ -73,7 +73,7 @@ source "$LIB_DIR/assertions.sh"
 trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario 21: preswap-backup-kill  (C3 / Layer 2 kill — backup phase)"
+echo "  Scenario: 2-preswap-backup-kill  (C3 / Layer 2 kill — backup phase)"
 echo "  Initial release: $INSTALL_VERSION → upgrade target: HEAD"
 echo "════════════════════════════════════════════════════════════════"
 
@@ -282,4 +282,4 @@ assert_health_passes "$VM_NAME"
 assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 2
 
 echo ""
-echo "PASS: preswap-backup-kill (CHANGE-2: kill mid-rsync left pre-upgrade-syncing not active; abort kept OLD version, data intact; the partial was never promoted to a restorable snapshot)"
+echo "PASS: 2-preswap-backup-kill (CHANGE-2: kill mid-rsync left pre-upgrade-syncing not active; abort kept OLD version, data intact; the partial was never promoted to a restorable snapshot)"

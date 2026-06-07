@@ -1,5 +1,5 @@
 #!/bin/bash
-# Scenario 23: between-migrations  (C7 / Layer 2 kill — between migration N and N+1)
+# Scenario: 3-postswap-between-migrations-kill  (C7 / Layer 2 kill — between migration N and N+1)
 #
 # Class:                 killed-by-system-between-migrations
 # Class kind:            Kill
@@ -47,12 +47,12 @@
 #
 # Usage:
 #   INSTALL_VERSION=v2026.05.2 HCLOUD_LOCATION=fsn1 \
-#     ./test/install-recovery/scenarios/23-between-migrations.sh \
-#     statbus-recovery-23
+#     ./test/install-recovery/scenarios/3-postswap-between-migrations-kill.sh \
+#     statbus-recovery-3-postswap-between-migrations-kill
 
 set -euo pipefail
 
-VM_NAME="${1:-statbus-recovery-23}"
+VM_NAME="${1:-statbus-recovery-3-postswap-between-migrations-kill}"
 INSTALL_VERSION="${INSTALL_VERSION:-v2026.05.2}"
 INSTALL_BUDGET_S="${INSTALL_BUDGET_S:-900}"
 
@@ -65,7 +65,7 @@ source "$LIB_DIR/assertions.sh"
 trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario 23: between-migrations  (C7 / Layer 2 kill — between N and N+1)"
+echo "  Scenario: 3-postswap-between-migrations-kill  (C7 / Layer 2 kill — between N and N+1)"
 echo "  Initial release: $INSTALL_VERSION → upgrade target: HEAD"
 echo "════════════════════════════════════════════════════════════════"
 
@@ -213,4 +213,4 @@ assert_health_passes "$VM_NAME"
 assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 2
 
 echo ""
-echo "PASS: between-migrations (forward-recovery completed the remaining migrations from a clean mid-loop wedge)"
+echo "PASS: 3-postswap-between-migrations-kill (forward-recovery completed the remaining migrations from a clean mid-loop wedge)"

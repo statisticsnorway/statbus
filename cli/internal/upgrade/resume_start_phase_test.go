@@ -19,7 +19,7 @@ import (
 //
 // Why a source-order guard rather than a behavioral test: the failure only
 // manifests against a live systemd unit + a large DB (the full reproduction
-// lives in the install-recovery harness, scenario 27, which runs on the
+// lives in the install-recovery harness, scenario 3-postswap-archivebackup-resume, which runs on the
 // Hetzner CI box at RC-cut). This guard runs locally in `go test` and fails
 // loudly the instant a future edit re-introduces the ordering bug — the same
 // discipline as TestRecoverFromFlag_PhaseDiscriminationPresent and

@@ -1,12 +1,12 @@
 #!/bin/bash
-# Scenario 01: happy-install
+# Scenario: 0-happy-install
 #
 # Baseline. Fresh VM → install statbus → assert health passes + step 9
 # completed + step 15 completed. Validates the harness skeleton itself
 # without involving any wedge.
 #
 # Usage:
-#   ./test/install-recovery/scenarios/01-happy-install.sh <vm_name>
+#   ./test/install-recovery/scenarios/0-happy-install.sh <vm_name>
 #
 # Optional env:
 #   KEEP_VM=1            Leave VM running on failure for debugging
@@ -14,7 +14,7 @@
 
 set -euo pipefail
 
-VM_NAME="${1:-statbus-recovery-01}"
+VM_NAME="${1:-statbus-recovery-0-happy-install}"
 INSTALL_VERSION="${INSTALL_VERSION:-}"
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
@@ -24,7 +24,7 @@ source "$LIB_DIR/assertions.sh"
 trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario 01: happy-install"
+echo "  Scenario: 0-happy-install"
 echo "════════════════════════════════════════════════════════════════"
 
 # 1. Bootstrap VM
@@ -40,4 +40,4 @@ assert_step_upgrade_service_completed "$VM_NAME"
 assert_systemd_active "$VM_NAME"
 
 echo ""
-echo "PASS: 01-happy-install"
+echo "PASS: 0-happy-install"

@@ -18,7 +18,7 @@
 '
 ' TEST-NOTE CONVENTION (shared with upgrade-timeline.plantuml — this diagram doubles
 ' as a visual test-coverage map): every failure-handling point carries a note
-'     TEST <scenario-slug> (<NN>): <forward invariant the scenario must prove>
+'     TEST <scenario-slug>: <forward invariant the scenario must prove>
 ' framed as the GUARANTEE that must hold, NOT the failure. A point with no scenario is
 ' marked  NO TEST (gap): <unproven invariant>  so coverage holes are visible.
 skinparam backgroundColor #FEFEFE
@@ -41,7 +41,7 @@ start
 if (services up AND connection pool not clean?) then (yes)
   :cleanOrphanSessions — pre-detect, best-effort\n(docker-exec peer-auth bypass) — install.go:293;
   note right
-    TEST orphan-cleanup-survives-pool-exhaustion (04): with max_connections saturated
+    TEST 5-install-stage-b-pool-exhaustion: with max_connections saturated
     (host-side psql fails "too many clients"), the docker-exec superuser path still
     terminates the orphan backends so Detect can run. (install.go:293-301)
   end note
@@ -54,7 +54,7 @@ partition "Detect — 8-state probe ladder (state.go:104, short-circuit: first m
   elseif (flag present AND flock HELD?) then (yes)
     :**StateLiveUpgrade** -> REFUSE\n(install_upgrade.go:27);
     note right
-      TEST concurrent-install-refused-during-migrate (11): when a live upgrade/install
+      TEST 1-boot-concurrent-install: when a live upgrade/install
       holds the flock, the second install hits probe 2 and refuses without touching state.
     end note
     stop
@@ -62,7 +62,7 @@ partition "Detect — 8-state probe ladder (state.go:104, short-circuit: first m
     :**StateCrashedUpgrade**;
     :runCrashRecovery -> RecoverFromFlag\n(install_upgrade.go:131 / 205);
     note right
-      TEST stale-install-flag-detected (20): an install that exited without releasing the
+      TEST 1-boot-flag-stale-handoff: an install that exited without releasing the
       flag (dead holder) is reconciled, then a single re-Detect resolves to a step-table state.
     end note
     :re-Detect -> resolves to a step-table state;
@@ -79,7 +79,7 @@ partition "Detect — 8-state probe ladder (state.go:104, short-circuit: first m
       services) has no dedicated scenario.
     end note
   elseif (no public.upgrade table?) then (yes)
-    :**StateLegacyNoUpgradeTable** -> REFUSE\n(pre-1.0, tracked #65.6);
+    :**StateLegacyNoUpgradeTable** -> REFUSE\n;
     note right #FFF9C4
       NO TEST (gap): the pre-1.0 legacy-refuse path has no dedicated scenario.
     end note
@@ -91,7 +91,7 @@ partition "Detect — 8-state probe ladder (state.go:104, short-circuit: first m
       § Execute upgrade (pre-swap). Install does NOT run the step-table here;
       executeUpgrade writes its own service-held flag.
       NO TEST (gap): the inline-dispatch path (./sb install on a queued row) has no
-      scenario; only the service/NOTIFY path is covered (02-happy-upgrade).
+      scenario; only the service/NOTIFY path is covered (0-happy-upgrade).
     end note
     stop
   else (nothing scheduled)
@@ -108,27 +108,27 @@ partition "step-table — install.go:536 (each step: check ? OK : run; idempoten
   :**Database sessions**\ncheckSessionsClean ? : cleanOrphanSessions — install.go:561;
   note right #FFF9C4
     TEST COVERAGE — the install-recovery LOCUS (real, production-sourced failures):
-    TEST orphan-migrate-subprocess-cleaned-on-install (03): a killed migrate subprocess's
+    TEST 5-install-stage-a-killed-migrate: a killed migrate subprocess's
       orphaned psql backend is terminated (Phase 1).
-    TEST advisory-lock-zombie-terminated-on-install (06): a dead-PID zombie holding the
+    TEST 5-install-stage-d-advisory-zombie: a dead-PID zombie holding the
       migrate_up advisory lock with application_name='' (rune PID 9962) is terminated
       (Phase 2 PID-liveness + empty-app catch-all).
-    TEST install-tolerates-busy-worker-sessions (07): a live worker legitimately holding
+    TEST 5-install-stage-e-worker-busy: a live worker legitimately holding
       advisory locks is excluded from the holder count — no false-fail.
-    TEST install-fixup-session-check-parses-correctly (09): checkSessionsClean's bool::text
+    TEST 5-install-bool-text-regression: checkSessionsClean's bool::text
       parse ('t' vs 'true') is correct, so the install-fixup session step passes.
   end note
 
   if (need Seed or Migrations? (check fails)) then (yes)
     :**[DDL] QuiesceClients** — stop worker / app / rest\n(install.go:614);
     note right #FFF9C4
-      TEST migration-vs-worker-lock-bounded (13): a worker holding AccessShareLock on a
+      TEST 3-postswap-worker-ddl-deadlock: a worker holding AccessShareLock on a
       stats-history table would park the migration's AccessExclusiveLock indefinitely;
       quiescing the clients before the DDL window keeps the upgrade BOUNDED (no hang).
     end note
     :**Seed**\ncheckSeedRestored ? : runSeedRestore — install.go:562\nGATE: populated DB => SKIP (never overwrite real data);
     note right #FFF9C4
-      TEST seed-restore-gated-off-populated-db (10) — DATA-LOSS GRADE: the gate MUST
+      TEST 5-install-seed-on-populated — DATA-LOSS GRADE: the gate MUST
       classify DB content and route a populated DB to migrate-forward, never to the
       destructive seed restore.
     end note
@@ -141,9 +141,9 @@ partition "step-table — install.go:536 (each step: check ? OK : run; idempoten
 
   :**Upgrade service**\ncheckServiceDone ? : runInstallService — install.go:567;
   note right #FFF9C4
-    TEST systemd-failed-unit-reset-on-install (05): a unit in `failed` state (StartLimit
+    TEST 5-install-stage-c-systemd-failed: a unit in `failed` state (StartLimit
       trip) is recovered via `systemctl --user reset-failed` + enable + start.
-    TEST drifted-unit-reconciled-on-healthy-box (28): an on-disk unit drifted from the repo
+    TEST 5-install-drifted-unit-reconciled: an on-disk unit drifted from the repo
       template on a healthy (active) box is rewritten from template (idempotent reconcile;
       the gate no longer keys only on is-active).
   end note

@@ -1986,7 +1986,7 @@ EOS
         # swaps (VPN, hotspot, mobile-network) — recovery required `sudo
         # reboot`, destroying every concurrent dev session.
         #
-        # Delegates to scenario 01 of the install-recovery harness: same
+        # Delegates to the 0-happy-install scenario of the install-recovery harness: same
         # workflow (bootstrap clean VM → run `./sb install` → assert health,
         # step 9, step 15, systemd active) but Hetzner-backed and reachable
         # from any internet connection.
@@ -2003,20 +2003,20 @@ EOS
         echo "=== StatBus Install Test (Hetzner Cloud) ==="
         echo ""
 
-        # Run scenario 01 with explicit exit-code capture rather than
+        # Run the 0-happy-install scenario with explicit exit-code capture rather than
         # relying solely on set -e. Belt-and-suspenders: the false-positive
         # release-gate class (test silently passes despite a real failure)
         # is severe enough to warrant the explicit check, in addition to
         # the implicit set -e abort path.
         set +e
         INSTALL_VERSION="$INSTALL_VERSION" \
-            "$WORKSPACE/test/install-recovery/scenarios/01-happy-install.sh"
+            "$WORKSPACE/test/install-recovery/scenarios/0-happy-install.sh"
         scenario_exit=$?
         set -e
 
         if [ "$scenario_exit" -ne 0 ]; then
             echo "" >&2
-            echo "ERROR: scenario 01 exited $scenario_exit." >&2
+            echo "ERROR: 0-happy-install scenario exited $scenario_exit." >&2
             exit "$scenario_exit"
         fi
 

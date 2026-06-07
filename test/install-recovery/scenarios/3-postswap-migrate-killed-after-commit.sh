@@ -1,5 +1,5 @@
 #!/bin/bash
-# Scenario 08: SIGKILL during canonical Layer 2 window
+# Scenario: 3-postswap-migrate-killed-after-commit
 #
 # Validates the principled forward-then-restore recovery path against
 # the canonical case: a process killed in the ~ms window between a
@@ -47,7 +47,7 @@
 #
 # Usage:
 #   INSTALL_VERSION=v2026.05.2 \
-#     ./test/install-recovery/scenarios/08-sigkill-canonical-layer2.sh
+#     ./test/install-recovery/scenarios/3-postswap-migrate-killed-after-commit.sh
 #
 # Optional env:
 #   KEEP_VM=1            Leave VM running on failure for debugging
@@ -55,7 +55,7 @@
 
 set -euo pipefail
 
-VM_NAME="${1:-statbus-recovery-08}"
+VM_NAME="${1:-statbus-recovery-3-postswap-migrate-killed-after-commit}"
 INSTALL_VERSION="${INSTALL_VERSION:-}"
 STALL_MAX_WAIT_S="${STALL_MAX_WAIT_S:-300}"
 
@@ -78,7 +78,7 @@ if [ -z "$INSTALL_VERSION" ]; then
 fi
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario 08: SIGKILL during canonical Layer 2 window"
+echo "  Scenario: 3-postswap-migrate-killed-after-commit"
 echo "  Initial release: $INSTALL_VERSION → Upgrade target: HEAD"
 echo "════════════════════════════════════════════════════════════════"
 
@@ -289,4 +289,4 @@ echo ""
 echo "✓ Stage 2 passed (Layer 2 next-install recovery via recoverFromFlag)"
 
 echo ""
-echo "PASS: 08-sigkill-canonical-layer2"
+echo "PASS: 3-postswap-migrate-killed-after-commit"

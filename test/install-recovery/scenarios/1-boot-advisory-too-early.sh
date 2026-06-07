@@ -1,5 +1,5 @@
 #!/bin/bash
-# Scenario 25: advisory-too-early  (C16 / Race E — advisory lock before DB ready)
+# Scenario: 1-boot-advisory-too-early  (C16 / Race E — advisory lock before DB ready)
 #
 # Class:                 advisory-lock-attempted-before-db-ready-after-container-restart
 # Class kind:            External (KindExternal — no in-code inject site fires)
@@ -60,12 +60,12 @@
 #
 # Usage:
 #   INSTALL_VERSION=v2026.05.4 HCLOUD_LOCATION=fsn1 \
-#     ./test/install-recovery/scenarios/25-advisory-too-early.sh \
-#     statbus-recovery-25
+#     ./test/install-recovery/scenarios/1-boot-advisory-too-early.sh \
+#     statbus-recovery-1-boot-advisory-too-early
 
 set -euo pipefail
 
-VM_NAME="${1:-statbus-recovery-25}"
+VM_NAME="${1:-statbus-recovery-1-boot-advisory-too-early}"
 INSTALL_VERSION="${INSTALL_VERSION:-v2026.05.4}"
 WAIT_S="${WAIT_S:-90}"                              # RestartSec=30 + slack
 RACE_WINDOW_DELAY_S="${RACE_WINDOW_DELAY_S:-0}"     # bump if Hetzner is too slow to hit the race
@@ -79,7 +79,7 @@ source "$LIB_DIR/assertions.sh"
 trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario 25: advisory-too-early  (C16 / Race E — external orchestration)"
+echo "  Scenario: 1-boot-advisory-too-early  (C16 / Race E — external orchestration)"
 echo "  Install version: $INSTALL_VERSION"
 echo "  Wait budget: ${WAIT_S}s  (RestartSec=30 + slack)"
 echo "════════════════════════════════════════════════════════════════"
@@ -185,4 +185,4 @@ fi
 assert_health_passes "$VM_NAME"
 
 echo ""
-echo "PASS: advisory-too-early (Race E self-heal converged; NRestarts bounded; unit active)"
+echo "PASS: 1-boot-advisory-too-early (Race E self-heal converged; NRestarts bounded; unit active)"

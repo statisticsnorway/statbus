@@ -1,5 +1,5 @@
 #!/bin/bash
-# Scenario 22: preswap-checkout-kill  (C4 / Layer 2 kill — preswap git checkout)
+# Scenario: 2-preswap-checkout-kill  (C4 / Layer 2 kill — preswap git checkout)
 #
 # Class:                 killed-by-system-during-preswap-checkout
 # Class kind:            Kill
@@ -49,12 +49,12 @@
 #
 # Usage:
 #   INSTALL_VERSION=v2026.05.2 HCLOUD_LOCATION=fsn1 \
-#     ./test/install-recovery/scenarios/22-preswap-checkout-kill.sh \
-#     statbus-recovery-22
+#     ./test/install-recovery/scenarios/2-preswap-checkout-kill.sh \
+#     statbus-recovery-2-preswap-checkout-kill
 
 set -euo pipefail
 
-VM_NAME="${1:-statbus-recovery-22}"
+VM_NAME="${1:-statbus-recovery-2-preswap-checkout-kill}"
 INSTALL_VERSION="${INSTALL_VERSION:-v2026.05.2}"
 INSTALL_BUDGET_S="${INSTALL_BUDGET_S:-900}"
 
@@ -67,7 +67,7 @@ source "$LIB_DIR/assertions.sh"
 trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario 22: preswap-checkout-kill  (C4 / Layer 2 kill — git-checkout phase)"
+echo "  Scenario: 2-preswap-checkout-kill  (C4 / Layer 2 kill — git-checkout phase)"
 echo "  Initial release: $INSTALL_VERSION → upgrade target: HEAD"
 echo "════════════════════════════════════════════════════════════════"
 
@@ -236,4 +236,4 @@ assert_health_passes "$VM_NAME"
 assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 2
 
 echo ""
-echo "PASS: preswap-checkout-kill (C4 abort path; working tree restored, OLD version live, data intact)"
+echo "PASS: 2-preswap-checkout-kill (C4 abort path; working tree restored, OLD version live, data intact)"

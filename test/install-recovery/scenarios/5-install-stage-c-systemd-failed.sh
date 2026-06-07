@@ -1,5 +1,5 @@
 #!/bin/bash
-# Scenario 05: stage-c-systemd-failed
+# Scenario: 5-install-stage-c-systemd-failed
 #
 # Validates: Fix 4 (`systemctl --user reset-failed + enable+start` in
 # install ladder step 15). Force the upgrade-service unit into `failed`
@@ -9,11 +9,11 @@
 # stays failed forever and auto-discovery is blocked.
 #
 # Usage:
-#   ./test/install-recovery/scenarios/05-stage-c-systemd-failed.sh <vm_name>
+#   ./test/install-recovery/scenarios/5-install-stage-c-systemd-failed.sh <vm_name>
 
 set -euo pipefail
 
-VM_NAME="${1:-statbus-recovery-05}"
+VM_NAME="${1:-statbus-recovery-5-install-stage-c-systemd-failed}"
 INSTALL_VERSION="${INSTALL_VERSION:-}"
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
@@ -24,7 +24,7 @@ source "$LIB_DIR/assertions.sh"
 trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario 05: stage-c-systemd-failed"
+echo "  Scenario: 5-install-stage-c-systemd-failed"
 echo "  Validates: Fix 4 systemctl reset-failed in install ladder step 15"
 echo "════════════════════════════════════════════════════════════════"
 
@@ -63,4 +63,4 @@ assert_systemd_active "$VM_NAME"
 assert_health_passes "$VM_NAME"
 
 echo ""
-echo "PASS: 05-stage-c-systemd-failed"
+echo "PASS: 5-install-stage-c-systemd-failed"

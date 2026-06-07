@@ -1,5 +1,5 @@
 #!/bin/bash
-# Scenario 04: stage-b-pool-exhaustion
+# Scenario: 5-install-stage-b-pool-exhaustion
 #
 # Validates: Fix 3's docker-exec bypass in cleanOrphanSessions when
 # max_connections is saturated. The host-side psql (migrate.PsqlCommand)
@@ -13,11 +13,11 @@
 # should still terminate appropriate backends.
 #
 # Usage:
-#   ./test/install-recovery/scenarios/04-stage-b-pool-exhaustion.sh <vm_name>
+#   ./test/install-recovery/scenarios/5-install-stage-b-pool-exhaustion.sh <vm_name>
 
 set -euo pipefail
 
-VM_NAME="${1:-statbus-recovery-04}"
+VM_NAME="${1:-statbus-recovery-5-install-stage-b-pool-exhaustion}"
 INSTALL_VERSION="${INSTALL_VERSION:-}"
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
@@ -28,7 +28,7 @@ source "$LIB_DIR/assertions.sh"
 trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario 04: stage-b-pool-exhaustion"
+echo "  Scenario: 5-install-stage-b-pool-exhaustion"
 echo "  Validates: Fix 3 docker-exec bypass when max_clients saturated"
 echo "════════════════════════════════════════════════════════════════"
 
@@ -69,4 +69,4 @@ assert_step_upgrade_service_completed "$VM_NAME"
 assert_health_passes "$VM_NAME"
 
 echo ""
-echo "PASS: 04-stage-b-pool-exhaustion"
+echo "PASS: 5-install-stage-b-pool-exhaustion"

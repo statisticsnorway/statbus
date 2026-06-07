@@ -6,7 +6,7 @@
 '
 ' TEST-NOTE CONVENTION (this diagram doubles as a visual test-coverage map):
 ' every failure-injection point carries a pale-yellow note
-'     TEST <scenario-slug> (<NN>): <forward invariant the scenario must prove>
+'     TEST <scenario-slug>: <forward invariant the scenario must prove>
 ' framed as the GUARANTEE that must hold, NOT the failure. A point with no
 ' scenario is marked  NO TEST (gap): <unproven invariant>  so coverage holes
 ' are visible. Slugs are test/install-recovery/scenarios/ names. The
@@ -52,9 +52,9 @@ note over service, db
 end note
 note over systemd, db #FFF9C4
   TEST COVERAGE — boot
-  TEST startup-exceeds-timeoutstartsec (18): startup past TimeoutStartSec stays bounded —
+  TEST 1-boot-startup-timeout: startup past TimeoutStartSec stays bounded —
     heavy work runs post-READY=1 under WatchdogSec, never the static start budget.
-  TEST advisory-lock-before-db-ready (25): an advisory-lock attempt before the DB is ready
+  TEST 1-boot-advisory-too-early: an advisory-lock attempt before the DB is ready
     exits 42 and systemd restarts cleanly — no start-loop wedge.
   NO TEST (gap): the belt rolling a flagless in_progress row to terminal is unproven —
     see the preflight-kill gap under § Execute upgrade (pre-swap).
@@ -93,11 +93,11 @@ note over service, db
 end note
 note over service, db #FFF9C4
   TEST COVERAGE — pre-swap (mutex held)
-  TEST preswap-backup-kill (21): a kill during the DB snapshot converges the row to a named
+  TEST 2-preswap-backup-kill: a kill during the DB snapshot converges the row to a named
     terminal — rolled_back, or failed if the restore also fails — never stranded in_progress.
-  TEST preswap-checkout-kill (22): a kill during git checkout converges to terminal; the
+  TEST 2-preswap-checkout-kill: a kill during git checkout converges to terminal; the
     unswapped binary keeps serving the old version.
-  TEST binary-swap-kill (16): a kill at the replaceBinaryOnDisk pivot is recovered (PostSwap
+  TEST 2-preswap-binary-swap-kill: a kill at the replaceBinaryOnDisk pivot is recovered (PostSwap
     resume or rollback) — never a half-swapped row that lies about the running version.
 end note
 
@@ -133,17 +133,17 @@ note over systemd, service
 end note
 note over service, db #FFF9C4
   TEST COVERAGE — phase dispatch + post-swap resume
-  TEST resume-died-rolled-back-no-retry (29): a death during Phase=Resuming rolls back to the
+  TEST 3-postswap-resume-died-rollback: a death during Phase=Resuming rolls back to the
     snapshot (UPGRADE_DIED_DURING_RESUME) and NEVER re-resumes — the one-shot latch (the
     Resuming branch above).
-  TEST mid-migration-kill (17) / between-migrations (23) / migrate-killed-after-commit-before-recorded (08):
+  TEST 3-postswap-mid-migration-kill / 3-postswap-between-migrations-kill / 3-postswap-migrate-killed-after-commit:
     a kill anywhere in migrate converges to a coherent terminal; the canonical commit<->record
     window RESTORES, never re-applies ("relation already exists" is the deterministic break).
-  TEST migration-exceeds-unit-timeout (12) / migration-vs-worker-lock-bounded (13): a slow or
+  TEST 3-postswap-migration-timeout / 3-postswap-worker-ddl-deadlock: a slow or
     worker-locked migration stays BOUNDED (heartbeat / pre-DDL quiesce) — never an infinite wedge.
-  TEST killed-during-container-restart (15) / watchdog-fires-during-reconnect (19): a kill or
+  TEST 3-postswap-container-restart-kill / 3-postswap-watchdog-reconnect: a kill or
     stall in the restart + reconnect tail is recovered; the watchdog fires on a hung reconnect.
-  TEST archivebackup-watchdog (26) / archivebackup-resume-active-phase (27): the active-phase
+  TEST 3-postswap-archivebackup-watchdog / 3-postswap-archivebackup-resume: the active-phase
     archive-backup tar is watchdog-covered — a long-but-advancing backup is not falsely reaped.
 end note
 
@@ -168,9 +168,9 @@ else any step failed or hung (one attempt, NO retry)
 end
 note over service, db #FFF9C4
   TEST COVERAGE — complete / rollback
-  TEST killed-during-rollback (24): a kill mid-rollback() still converges to a terminal state
+  TEST 4-rollback-kill: a kill mid-rollback() still converges to a terminal state
     on the next recovery pass.
-  GAP -> FIX (scenario 21 RED; guard = preswap-backup-kill (21)):
+  GAP -> FIX (surfaced RED by 2-preswap-backup-kill):
   ROOT: rollback() restarted the DB then reconnected with NO DB-health-wait — asymmetric with
     applyPostSwap's waitForDBHealth(30s) (service.go:3780) — so the reconnect raced the DB
     restart and transiently failed. The terminal UPDATE was then single-shot, silently swallowed,

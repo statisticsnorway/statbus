@@ -1,5 +1,5 @@
 #!/bin/bash
-# Scenario 15: container-restart-kill  (C8 / state-bearing Layer 2 kill)
+# Scenario: 3-postswap-container-restart-kill  (C8 / state-bearing Layer 2 kill)
 #
 # Class:                 killed-by-system-during-container-restart
 # Class kind:            Kill
@@ -38,12 +38,12 @@
 #
 # Usage:
 #   INSTALL_VERSION=v2026.05.2 HCLOUD_LOCATION=fsn1 \
-#     ./test/install-recovery/scenarios/15-container-restart-kill.sh \
-#     statbus-recovery-15
+#     ./test/install-recovery/scenarios/3-postswap-container-restart-kill.sh \
+#     statbus-recovery-3-postswap-container-restart-kill
 
 set -euo pipefail
 
-VM_NAME="${1:-statbus-recovery-15}"
+VM_NAME="${1:-statbus-recovery-3-postswap-container-restart-kill}"
 INSTALL_VERSION="${INSTALL_VERSION:-v2026.05.2}"
 INSTALL_BUDGET_S="${INSTALL_BUDGET_S:-900}"
 
@@ -56,7 +56,7 @@ source "$LIB_DIR/assertions.sh"
 trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario 15: container-restart-kill  (C8 / state-bearing Layer 2)"
+echo "  Scenario: 3-postswap-container-restart-kill  (C8 / state-bearing Layer 2)"
 echo "  Initial release: $INSTALL_VERSION → upgrade target: HEAD"
 echo "════════════════════════════════════════════════════════════════"
 
@@ -148,4 +148,4 @@ assert_health_passes "$VM_NAME"
 assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 2
 
 echo ""
-echo "PASS: container-restart-kill (recovery completed step 11+12 and reached state='completed')"
+echo "PASS: 3-postswap-container-restart-kill (recovery completed step 11+12 and reached state='completed')"

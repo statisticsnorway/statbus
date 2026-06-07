@@ -1,5 +1,5 @@
 #!/bin/bash
-# Scenario 26: archivebackup-watchdog  (Bug 1 — active-phase watchdog beyond ticker scope)
+# Scenario: 3-postswap-archivebackup-watchdog  (Bug 1 — active-phase watchdog beyond ticker scope)
 #
 # Class:                 archive-backup-stall-active-phase-watchdog
 # Class kind:            Stall
@@ -34,7 +34,7 @@
 #   independent of the main loop. The unit stays active across the
 #   stall; NRestarts stays at baseline.
 #
-# Trigger logic (full systemd-unit dispatch — same shape as scenario 19):
+# Trigger logic (full systemd-unit dispatch — same shape as scenario 3-postswap-watchdog-reconnect):
 #   1. Install at INSTALL_VERSION (default v2026.05.2 — provides a
 #      migration delta so applyPostSwap reaches archiveBackup).
 #   2. Populate via populate_with_demo_data (gives data-intact
@@ -67,12 +67,12 @@
 #
 # Usage:
 #   INSTALL_VERSION=v2026.05.2 HCLOUD_LOCATION=fsn1 \
-#     ./test/install-recovery/scenarios/26-archivebackup-watchdog.sh \
-#     statbus-recovery-26
+#     ./test/install-recovery/scenarios/3-postswap-archivebackup-watchdog.sh \
+#     statbus-recovery-3-postswap-archivebackup-watchdog
 
 set -euo pipefail
 
-VM_NAME="${1:-statbus-recovery-26}"
+VM_NAME="${1:-statbus-recovery-3-postswap-archivebackup-watchdog}"
 INSTALL_VERSION="${INSTALL_VERSION:-v2026.05.2}"
 STALL_HOLD_S="${STALL_HOLD_S:-180}"            # > WatchdogSec=120; load-bearing
 UPGRADE_BUDGET_S="${UPGRADE_BUDGET_S:-900}"    # 15 min — covers stall + archive + completion
@@ -100,7 +100,7 @@ trap '
 ' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario 26: archivebackup-watchdog  (Bug 1 — active-phase ticker scope)"
+echo "  Scenario: 3-postswap-archivebackup-watchdog  (Bug 1 — active-phase ticker scope)"
 echo "  Initial release: $INSTALL_VERSION → upgrade target: HEAD"
 echo "  Stall hold: ${STALL_HOLD_S}s (> WatchdogSec=120s)"
 echo ""
@@ -136,9 +136,9 @@ ip=$(hcloud server ip "$VM_NAME")
 upload_sb_to_vm "$VM_NAME"
 
 scp -O "${SSH_OPTS[@]}" \
-    "$LIB_DIR/../fixtures/scenario_26_stage_head.sh" \
-    root@"$VM_IP":/tmp/scenario_26_stage_head.sh
-VM_EXEC bash /tmp/scenario_26_stage_head.sh "$HEAD_LOCAL"
+    "$LIB_DIR/../fixtures/stage-head.sh" \
+    root@"$VM_IP":/tmp/stage-head.sh
+VM_EXEC bash /tmp/stage-head.sh "$HEAD_LOCAL"
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 5 — stop service, install drop-in + release file
@@ -397,4 +397,4 @@ if [ "$FINAL_STATE" = "completed" ]; then
 fi
 
 echo ""
-echo "PASS: archivebackup-watchdog (WATCHDOG=1 ticker covered the ${STALL_HOLD_S}s stall across archiveBackup)"
+echo "PASS: 3-postswap-archivebackup-watchdog (WATCHDOG=1 ticker covered the ${STALL_HOLD_S}s stall across archiveBackup)"

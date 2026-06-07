@@ -1,5 +1,5 @@
 #!/bin/bash
-# Scenario 11: concurrent-install  (C10 / probe 2 live-upgrade refusal)
+# Scenario: 1-boot-concurrent-install  (C10 / probe 2 live-upgrade refusal)
 #
 # Class:                 concurrent-install-attempted-during-migrate-up
 # Class kind:            Stall
@@ -40,12 +40,12 @@
 #
 # Usage:
 #   INSTALL_VERSION=v2026.05.2 HCLOUD_LOCATION=fsn1 \
-#     ./test/install-recovery/scenarios/11-concurrent-install.sh \
-#     statbus-recovery-11
+#     ./test/install-recovery/scenarios/1-boot-concurrent-install.sh \
+#     statbus-recovery-1-boot-concurrent-install
 
 set -euo pipefail
 
-VM_NAME="${1:-statbus-recovery-11}"
+VM_NAME="${1:-statbus-recovery-1-boot-concurrent-install}"
 INSTALL_VERSION="${INSTALL_VERSION:-v2026.05.2}"
 STALL_MAX_WAIT_S="${STALL_MAX_WAIT_S:-300}"
 INSTALL_BUDGET_S="${INSTALL_BUDGET_S:-900}"
@@ -64,7 +64,7 @@ trap '
 ' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario 11: concurrent-install  (C10 / probe 2 live-upgrade)"
+echo "  Scenario: 1-boot-concurrent-install  (C10 / probe 2 live-upgrade)"
 echo "  Initial release: $INSTALL_VERSION → upgrade target: HEAD"
 echo "════════════════════════════════════════════════════════════════"
 
@@ -225,4 +225,4 @@ assert_health_passes "$VM_NAME"
 assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 2
 
 echo ""
-echo "PASS: concurrent-install (probe 2 refused second install; first install completed cleanly)"
+echo "PASS: 1-boot-concurrent-install (probe 2 refused second install; first install completed cleanly)"

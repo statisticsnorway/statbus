@@ -1,5 +1,5 @@
 #!/bin/bash
-# Scenario 02: happy-upgrade  (baseline — no failure injection)
+# Scenario: 0-happy-upgrade  (baseline — no failure injection)
 #
 # Class:                 N/A (baseline regression net for the happy path)
 # Class kind:            N/A — no inject site fires
@@ -53,12 +53,12 @@
 #
 # Usage:
 #   INSTALL_VERSION=v2026.05.2 HCLOUD_LOCATION=fsn1 \
-#     ./test/install-recovery/scenarios/02-happy-upgrade.sh \
-#     statbus-recovery-02
+#     ./test/install-recovery/scenarios/0-happy-upgrade.sh \
+#     statbus-recovery-0-happy-upgrade
 
 set -euo pipefail
 
-VM_NAME="${1:-statbus-recovery-02}"
+VM_NAME="${1:-statbus-recovery-0-happy-upgrade}"
 INSTALL_VERSION="${INSTALL_VERSION:-v2026.05.2}"
 UPGRADE_BUDGET_S="${UPGRADE_BUDGET_S:-900}"
 TICK_WAIT_S="${TICK_WAIT_S:-90}"   # > default tick interval (60s) + slack
@@ -72,7 +72,7 @@ source "$LIB_DIR/assertions.sh"
 trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario 02: happy-upgrade  (baseline — supervised unattended path)"
+echo "  Scenario: 0-happy-upgrade  (baseline — supervised unattended path)"
 echo "  Initial release: $INSTALL_VERSION → upgrade target: HEAD"
 echo "════════════════════════════════════════════════════════════════"
 
@@ -130,7 +130,7 @@ VM_EXEC bash -c "
 # a release tag (the common case in the harness flow).
 #
 # Replaced with `fabricate_scheduled_upgrade_row` — same primitive
-# used by scenario 19 — which INSERTs the row directly with
+# used by scenario 3-postswap-watchdog-reconnect — which INSERTs the row directly with
 # state='scheduled' regardless of discover's git-tag findings. The
 # helper is idempotent so re-running the scenario doesn't accumulate
 # rows.
@@ -233,4 +233,4 @@ fi
 echo "  ✓ restart counter bounded"
 
 echo ""
-echo "PASS: happy-upgrade (supervised unattended path completed cleanly; data intact; unit stable)"
+echo "PASS: 0-happy-upgrade (supervised unattended path completed cleanly; data intact; unit stable)"

@@ -4,10 +4,10 @@
 # Sourced by `./dev.sh test-install-recovery [args]`. Implements:
 #   ./dev.sh test-install-recovery                 # all scenarios
 #   ./dev.sh test-install-recovery --list          # list available
-#   ./dev.sh test-install-recovery 09              # run by number
-#   ./dev.sh test-install-recovery 09 07           # run several by number
+#   ./dev.sh test-install-recovery 2-preswap-backup-kill   # one scenario by slug
+#   ./dev.sh test-install-recovery 2-preswap 4-rollback    # several by phase prefix
 #   ./dev.sh test-install-recovery bool-text       # run by name fragment
-#   ./dev.sh test-install-recovery --keep-vm 09    # leave VM running on fail
+#   ./dev.sh test-install-recovery --keep-vm 4-rollback-kill   # leave VM running on fail
 #
 # After all selected scenarios pass, writes the stamp
 # tmp/install-recovery-test-passed-sha so a future ./sb release stable
@@ -35,7 +35,7 @@ Usage: ./dev.sh test-install-recovery [flags] [selector]...
 
 Selectors:
   (none)         Run all scenarios
-  09             Run scenario by number prefix
+  2-preswap      Run a phase (prefix match) or a full slug; or any name fragment
   bool-text      Run scenarios whose name contains the substring
 
 Flags:
@@ -46,7 +46,7 @@ Flags:
 Examples:
   ./dev.sh test-install-recovery                  # all scenarios
   ./dev.sh test-install-recovery --list           # see what's available
-  ./dev.sh test-install-recovery 01 09            # baseline + bool-text
+  ./dev.sh test-install-recovery 0-happy 3-postswap            # the happy baselines + every post-swap scenario
   ./dev.sh test-install-recovery worker-busy      # by name substring
 EOF
             exit 0
@@ -75,7 +75,7 @@ if [ "$LIST_ONLY" = "1" ]; then
     exit 0
 fi
 
-# Filter by selectors (numbers or substring matches).
+# Filter by selectors (phase prefix or substring matches).
 SELECTED=()
 if [ ${#SELECTORS[@]} -eq 0 ]; then
     SELECTED=("${ALL_SCENARIOS[@]}")
@@ -83,7 +83,7 @@ else
     for sel in "${SELECTORS[@]}"; do
         for s in "${ALL_SCENARIOS[@]}"; do
             base=$(basename "$s" .sh)
-            # Match by numeric prefix (e.g. "09" matches "09-bool-text-regression")
+            # Match by phase prefix (e.g. "2-preswap" matches "2-preswap-backup-kill")
             # or by substring of the name.
             if [[ "$base" =~ ^${sel}- ]] || [[ "$base" == *"$sel"* ]]; then
                 SELECTED+=("$s")
@@ -107,8 +107,8 @@ FAILED_NAMES=()
 
 for s in "${SELECTED[@]}"; do
     base=$(basename "$s" .sh)
-    slug="${base#*-}"  # strip NN- prefix: "29-resume-died-rollback" → "resume-died-rollback"
-    vm_name="statbus-recovery-${base%%-*}"  # e.g. "01-happy-install" → vm "statbus-recovery-01"
+    slug="$base"  # the canonical slug IS the filename, e.g. "3-postswap-resume-died-rollback"
+    vm_name="statbus-recovery-${base}"  # unique per scenario (one VM per scenario name)
     log_file="$HARNESS_ROOT/tmp/install-recovery-${base}.log"
 
     echo ""

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Scenario 16: binary-swap-kill  (C5 / state-bearing Layer 2 kill)
+# Scenario: 2-preswap-binary-swap-kill  (C5 / state-bearing Layer 2 kill)
 #
 # Class:                 killed-by-system-during-binary-swap
 # Class kind:            Kill
@@ -42,12 +42,12 @@
 #
 # Usage:
 #   INSTALL_VERSION=v2026.05.2 HCLOUD_LOCATION=fsn1 \
-#     ./test/install-recovery/scenarios/16-binary-swap-kill.sh \
-#     statbus-recovery-16
+#     ./test/install-recovery/scenarios/2-preswap-binary-swap-kill.sh \
+#     statbus-recovery-2-preswap-binary-swap-kill
 
 set -euo pipefail
 
-VM_NAME="${1:-statbus-recovery-16}"
+VM_NAME="${1:-statbus-recovery-2-preswap-binary-swap-kill}"
 INSTALL_VERSION="${INSTALL_VERSION:-v2026.05.2}"
 INSTALL_BUDGET_S="${INSTALL_BUDGET_S:-900}"
 
@@ -60,7 +60,7 @@ source "$LIB_DIR/assertions.sh"
 trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario 16: binary-swap-kill  (C5 / state-bearing Layer 2)"
+echo "  Scenario: 2-preswap-binary-swap-kill  (C5 / state-bearing Layer 2)"
 echo "  Initial release: $INSTALL_VERSION → upgrade target: HEAD"
 echo "════════════════════════════════════════════════════════════════"
 
@@ -175,4 +175,4 @@ assert_health_passes "$VM_NAME"
 assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 2
 
 echo ""
-echo "PASS: binary-swap-kill (recovery reached coherent terminal state, data intact)"
+echo "PASS: 2-preswap-binary-swap-kill (recovery reached coherent terminal state, data intact)"

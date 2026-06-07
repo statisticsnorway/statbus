@@ -1,5 +1,5 @@
 #!/bin/bash
-# Scenario 17: mid-migration-kill  (C6 / Layer 2 kill — atomic-tx retry)
+# Scenario: 3-postswap-mid-migration-kill  (C6 / Layer 2 kill — atomic-tx retry)
 #
 # Class:                 killed-by-system-during-individual-migration-execution
 # Class kind:            Kill
@@ -17,9 +17,9 @@
 #   reconcile. End state: row='completed', db.migration max version
 #   BUMPED to the killed migration (and any subsequent pending ones).
 #
-#   Differs from C5 (binary-swap-kill, scenario 16) because here we
+#   Differs from C5 (binary-swap-kill, scenario 2-preswap-binary-swap-kill) because here we
 #   are past the binary swap AND inside step 10's migration phase.
-#   Differs from the canonical C1/C2 (scenario 08) because here the
+#   Differs from the canonical C1/C2 (scenario 3-postswap-migrate-killed-after-commit) because here the
 #   kill is BEFORE the migration's commit (not the canonical
 #   ~ms-window AFTER commit + BEFORE db.migration INSERT).
 #
@@ -50,12 +50,12 @@
 #
 # Usage:
 #   INSTALL_VERSION=v2026.05.2 HCLOUD_LOCATION=fsn1 \
-#     ./test/install-recovery/scenarios/17-mid-migration-kill.sh \
-#     statbus-recovery-17
+#     ./test/install-recovery/scenarios/3-postswap-mid-migration-kill.sh \
+#     statbus-recovery-3-postswap-mid-migration-kill
 
 set -euo pipefail
 
-VM_NAME="${1:-statbus-recovery-17}"
+VM_NAME="${1:-statbus-recovery-3-postswap-mid-migration-kill}"
 INSTALL_VERSION="${INSTALL_VERSION:-v2026.05.2}"
 INSTALL_BUDGET_S="${INSTALL_BUDGET_S:-900}"
 
@@ -68,7 +68,7 @@ source "$LIB_DIR/assertions.sh"
 trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario 17: mid-migration-kill  (C6 / Layer 2 atomic-tx retry)"
+echo "  Scenario: 3-postswap-mid-migration-kill  (C6 / Layer 2 atomic-tx retry)"
 echo "  Initial release: $INSTALL_VERSION → upgrade target: HEAD"
 echo "════════════════════════════════════════════════════════════════"
 
@@ -189,4 +189,4 @@ assert_health_passes "$VM_NAME"
 assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 2
 
 echo ""
-echo "PASS: mid-migration-kill (forward-recovery applied the killed migration cleanly, data intact)"
+echo "PASS: 3-postswap-mid-migration-kill (forward-recovery applied the killed migration cleanly, data intact)"

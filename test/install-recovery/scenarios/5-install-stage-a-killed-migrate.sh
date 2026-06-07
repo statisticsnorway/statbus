@@ -1,5 +1,5 @@
 #!/bin/bash
-# Scenario 03: stage-a-killed-migrate-subprocess
+# Scenario: 5-install-stage-a-killed-migrate
 #
 # Validates: Fix 3 Phase 1 cleanup (orphan psql backends from killed
 # migrate-up subprocesses). Fix 1 (sd_notify EXTEND_TIMEOUT_USEC) makes
@@ -15,11 +15,11 @@
 # forward-recovery.
 #
 # Usage:
-#   ./test/install-recovery/scenarios/03-stage-a-killed-migrate.sh <vm_name>
+#   ./test/install-recovery/scenarios/5-install-stage-a-killed-migrate.sh <vm_name>
 
 set -euo pipefail
 
-VM_NAME="${1:-statbus-recovery-03}"
+VM_NAME="${1:-statbus-recovery-5-install-stage-a-killed-migrate}"
 INSTALL_VERSION="${INSTALL_VERSION:-}"
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
@@ -30,7 +30,7 @@ source "$LIB_DIR/assertions.sh"
 trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario 03: stage-a-killed-migrate-subprocess"
+echo "  Scenario: 5-install-stage-a-killed-migrate"
 echo "  Validates: Fix 3 Phase 1 cleanup of psql migrate-zombies"
 echo "════════════════════════════════════════════════════════════════"
 
@@ -88,4 +88,4 @@ else
 fi
 
 echo ""
-echo "PASS: 03-stage-a-killed-migrate-subprocess"
+echo "PASS: 5-install-stage-a-killed-migrate"

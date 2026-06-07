@@ -1,4 +1,4 @@
--- Harness-only: scenario 12 (C12 / Race B regression net).
+-- Harness-only: a deliberately slow migration target (used by the migration-timeout scenario).
 -- Written to the VM working copy only — NOT committed to production migrations.
 -- Ensures ./sb migrate up has at least one pending migration so
 -- inject.StallHere in runPsqlFile is reachable regardless of whether the

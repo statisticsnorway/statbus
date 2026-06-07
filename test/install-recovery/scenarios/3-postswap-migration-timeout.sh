@@ -1,5 +1,5 @@
 #!/bin/bash
-# Scenario 12: migration-timeout  (C12 / Race B regression net)
+# Scenario: 3-postswap-migration-timeout  (C12 / Race B regression net)
 #
 # Class:                 migration-slower-than-systemd-unit-timeout
 # Forensics tag:         Race B (Layer 1)
@@ -62,12 +62,12 @@
 #
 # Usage:
 #   INSTALL_VERSION=v2026.05.2 HCLOUD_LOCATION=fsn1 \
-#     ./test/install-recovery/scenarios/12-migration-timeout.sh \
-#     statbus-recovery-12
+#     ./test/install-recovery/scenarios/3-postswap-migration-timeout.sh \
+#     statbus-recovery-3-postswap-migration-timeout
 
 set -euo pipefail
 
-VM_NAME="${1:-statbus-recovery-12}"
+VM_NAME="${1:-statbus-recovery-3-postswap-migration-timeout}"
 INSTALL_VERSION="${INSTALL_VERSION:-v2026.05.2}"
 STALL_HOLD_S="${STALL_HOLD_S:-180}"      # > WatchdogSec=120; proves the watchdog ping fires
 INSTALL_BUDGET_S="${INSTALL_BUDGET_S:-900}"  # 15 min total — stall + migration + post-stall
@@ -90,7 +90,7 @@ trap '
 ' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario 12: migration-timeout  (C12 / Race B regression net)"
+echo "  Scenario: 3-postswap-migration-timeout  (C12 / Race B regression net)"
 echo "  Initial release: $INSTALL_VERSION → upgrade target: HEAD"
 echo "  Stall hold: ${STALL_HOLD_S}s (> WatchdogSec=120s)"
 echo "════════════════════════════════════════════════════════════════"
@@ -139,9 +139,9 @@ assert_demo_data_present "$VM_NAME"
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── planting synthetic stall-target migration on VM ──"
-SYNTHETIC_MIG="20991231235959_scenario_12_stall_target"
+SYNTHETIC_MIG="20991231235959_migration-stall-target"
 scp -O "${SSH_OPTS[@]}" \
-    "$LIB_DIR/../fixtures/scenario_12_stall_target.up.sql" \
+    "$LIB_DIR/../fixtures/migration-stall-target.up.sql" \
     root@"$VM_IP":"/home/statbus/statbus/migrations/${SYNTHETIC_MIG}.up.sql"
 echo "  synthetic migration written: migrations/${SYNTHETIC_MIG}.up.sql"
 
@@ -294,4 +294,4 @@ assert_no_orphan_backup "$VM_NAME"
 assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 2
 
 echo ""
-echo "PASS: migration-timeout (WATCHDOG=1 ticker kept the unit alive across ${STALL_HOLD_S}s stall)"
+echo "PASS: 3-postswap-migration-timeout (WATCHDOG=1 ticker kept the unit alive across ${STALL_HOLD_S}s stall)"

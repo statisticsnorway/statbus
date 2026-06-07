@@ -1,5 +1,5 @@
 #!/bin/bash
-# Scenario 24: rollback-kill  (C9 / Layer 2 kill — mid d.rollback() pipeline)
+# Scenario: 4-rollback-kill  (C9 / Layer 2 kill — mid d.rollback() pipeline)
 #
 # Class:                 killed-by-system-during-builtin-rollback
 # Class kind:            Kill
@@ -64,12 +64,12 @@
 #
 # Usage:
 #   INSTALL_VERSION=v2026.05.2 HCLOUD_LOCATION=fsn1 \
-#     ./test/install-recovery/scenarios/24-rollback-kill.sh \
-#     statbus-recovery-24
+#     ./test/install-recovery/scenarios/4-rollback-kill.sh \
+#     statbus-recovery-4-rollback-kill
 
 set -euo pipefail
 
-VM_NAME="${1:-statbus-recovery-24}"
+VM_NAME="${1:-statbus-recovery-4-rollback-kill}"
 INSTALL_VERSION="${INSTALL_VERSION:-v2026.05.2}"
 INSTALL_BUDGET_S="${INSTALL_BUDGET_S:-900}"
 
@@ -82,7 +82,7 @@ source "$LIB_DIR/assertions.sh"
 trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario 24: rollback-kill  (C9 / Layer 2 — diagnostic for rollback path)"
+echo "  Scenario: 4-rollback-kill  (C9 / Layer 2 — diagnostic for rollback path)"
 echo "  Initial release: $INSTALL_VERSION → upgrade target: HEAD"
 echo ""
 echo "  NOTE: this scenario lands the C9 KillHere site at its principled"
@@ -193,7 +193,7 @@ case "$SECOND_EXIT" in
         assert_flag_file_absent "$VM_NAME"
         assert_health_passes "$VM_NAME"
         echo ""
-        echo "DIAGNOSTIC PASS: rollback-kill outcome A (forward-recovery succeeded; C9 site is documented but was not exercised at runtime this run)"
+        echo "DIAGNOSTIC PASS: 4-rollback-kill outcome A (forward-recovery succeeded; C9 site is documented but was not exercised at runtime this run)"
         ;;
     137)
         # C9 KillHere fired — recovery's forward-recovery failed and fell
@@ -235,7 +235,7 @@ case "$SECOND_EXIT" in
         assert_flag_file_absent "$VM_NAME"
         assert_health_passes "$VM_NAME"
         echo ""
-        echo "DIAGNOSTIC PASS: rollback-kill outcome B (C9 fired during rollback; third install completed the partial-rollback recovery)"
+        echo "DIAGNOSTIC PASS: 4-rollback-kill outcome B (C9 fired during rollback; third install completed the partial-rollback recovery)"
         ;;
     124)
         echo "✗ second install timed out — neither completion nor C9 fired" >&2
@@ -248,4 +248,4 @@ case "$SECOND_EXIT" in
 esac
 
 echo ""
-echo "PASS: rollback-kill (C9 site lands; both outcome branches converge to a coherent terminal state with data intact)"
+echo "PASS: 4-rollback-kill (C9 site lands; both outcome branches converge to a coherent terminal state with data intact)"

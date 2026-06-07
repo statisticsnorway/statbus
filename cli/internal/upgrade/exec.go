@@ -557,7 +557,7 @@ func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (string, e
 	//
 	// Placement rationale: in this exact spot the rsync has completed (so the
 	// test exercises real I/O), but the rename is the next thing the parent
-	// would do. No-op in production. Drives scenario 21.
+	// would do. No-op in production. Drives scenario 2-preswap-backup-kill.
 	inject.KillHere("killed-by-system-during-preswap-backup")
 
 	// Atomic commit: rename syncing → active. active is absent here (consumed at

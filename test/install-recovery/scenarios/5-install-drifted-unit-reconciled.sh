@@ -1,5 +1,5 @@
 #!/bin/bash
-# Scenario 28: drifted-unit-reconciled-on-healthy-box  (#4 unit-reconcile)
+# Scenario: 5-install-drifted-unit-reconciled  (unit-reconcile)
 #
 # Class:                 systemd-unit-drift-not-reconciled-on-healthy-box
 # Class kind:            Reconcile (idempotent install heals drifted config)
@@ -44,12 +44,12 @@
 #
 # Usage:
 #   INSTALL_VERSION=v2026.05.4 HCLOUD_LOCATION=fsn1 \
-#     ./test/install-recovery/scenarios/28-drifted-unit-reconciled.sh \
-#     statbus-recovery-28
+#     ./test/install-recovery/scenarios/5-install-drifted-unit-reconciled.sh \
+#     statbus-recovery-5-install-drifted-unit-reconciled
 
 set -euo pipefail
 
-VM_NAME="${1:-statbus-recovery-28}"
+VM_NAME="${1:-statbus-recovery-5-install-drifted-unit-reconciled}"
 INSTALL_VERSION="${INSTALL_VERSION:-v2026.05.4}"
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
@@ -68,7 +68,7 @@ trap '
 ' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario 28: drifted-unit-reconciled-on-healthy-box  (#4 unit-reconcile)"
+echo "  Scenario: 5-install-drifted-unit-reconciled  (unit-reconcile)"
 echo "  Install version: $INSTALL_VERSION"
 echo "════════════════════════════════════════════════════════════════"
 
@@ -159,7 +159,7 @@ echo "  ✓ running unit re-armed to repo timers (Watchdog≠infinity, TimeoutSt
 assert_health_passes "$VM_NAME"
 
 echo ""
-echo "PASS: drifted-unit-reconciled-on-healthy-box"
+echo "PASS: 5-install-drifted-unit-reconciled"
 echo "  (a healthy box's drifted unit was detected by the byte-compare, rewritten to"
 echo "   the repo template, and RESTARTED so the reconciled WatchdogSec/TimeoutStartSec"
 echo "   actually armed — no more stale-timeout drift surviving on a running host)"

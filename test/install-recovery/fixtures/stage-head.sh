@@ -1,11 +1,11 @@
 #!/bin/bash
-# Harness fixture for scenario 26 (archivebackup-watchdog).
+# Harness fixture: stage HEAD on the VM (shared by the postswap archivebackup + resume-died scenarios).
 # Stages HEAD on the VM: ensures the commit SHA is present in the git repo,
 # checks it out, then pre-tags Docker images so that docker compose pull
 # can fall back to local images when the harness commit has no registry entry.
 #
 # Usage (on the VM, as statbus):
-#   bash /tmp/scenario_26_stage_head.sh <HEAD_SHA>
+#   bash /tmp/stage-head.sh <HEAD_SHA>
 #
 # Delivered via scp — not via heredoc-over-ssh — so newlines survive the
 # transport boundary.  Follows the CLAUDE.md no-heredoc-over-ssh rule.

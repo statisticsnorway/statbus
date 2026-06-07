@@ -782,7 +782,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 	}
 
 	// PreSwap-phase flag → roll back, NEVER self-heal (engineer audit task
-	// #3 Q3 + scenario 21 RED proof from run 26607271739).
+	// #3 Q3 + scenario 2-preswap-backup-kill RED proof from run 26607271739).
 	//
 	// A PreSwap-phase flag means the upgrade was killed BEFORE the binary
 	// swap commit boundary (replaceBinaryOnDisk had not yet run when the
@@ -816,7 +816,7 @@ func (d *Service) recoverFromFlag(ctx context.Context) (err error) {
 	// after `git checkout` step 6 but before replaceBinaryOnDisk step 6b
 	// (the comment at line 773-778 already documents this window for
 	// PostSwap; it applies symmetrically here for PreSwap). Without this
-	// guard, scenario 21's RED-confirmed PreSwap kill would route into the
+	// guard, scenario 2-preswap-backup-kill's RED-confirmed PreSwap kill would route into the
 	// self-heal UPDATE and mark `state='completed'` for an upgrade that
 	// was killed before any commit happened.
 	if flag.Phase == FlagPhasePreSwap {
@@ -1587,7 +1587,7 @@ func (d *Service) Run(ctx context.Context) error {
 	// pre-READY=1 is the cheap init (EnsureDBUp → connect → advisory lock), so
 	// this is the genuine remaining start-phase window; if it exceeds the
 	// static TimeoutStartSec the unit is killed (bounded by StartLimitBurst),
-	// recovery is `./sb install`. No-op in production. Drives scenario 18.
+	// recovery is `./sb install`. No-op in production. Drives scenario 1-boot-startup-timeout.
 	inject.StallHere("service-startup-slower-than-systemd-unit-timeout")
 
 	// LISTEN on channels (must use listenConn — queryConn is for queries).
@@ -2524,7 +2524,7 @@ func (d *Service) verifyCommitSignature(sha string) error {
 // the applyPostSwap reconnect unbounded (plan upgrade-resume-structural-whole.md
 // piece #3: deferring watchdog gating during reconnect is only safe if reconnect
 // is itself bounded). 5 min comfortably exceeds a legitimately slow reconnect
-// (scenario 19's 180 s synthetic stall) with margin. Package var, not const, so
+// (scenario 3-postswap-watchdog-reconnect's 180 s synthetic stall) with margin. Package var, not const, so
 // tests can shrink it to drive a deterministic hung-connect → DeadlineExceeded
 // assertion without a 5-min wait.
 var connectTimeout = 5 * time.Minute
@@ -2606,7 +2606,7 @@ func (d *Service) connect(ctx context.Context) error {
 	// (pgconn.go connectOne → contextWatcher.Watch(ctx)) closes the conn if the
 	// deadline fires mid-startup/auth, so a handshake hang is bounded too — not
 	// only TCP connect. 5 min comfortably exceeds a legitimately slow
-	// reconnect (scenario 19 holds 180 s) with margin; a genuine hang is killed
+	// reconnect (scenario 3-postswap-watchdog-reconnect holds 180 s) with margin; a genuine hang is killed
 	// at 5 min → connect() returns context.DeadlineExceeded → the caller fails
 	// out (applyPostSwap → postSwapFailure → rollback; task #7 backstops a
 	// loop) instead of pinging the watchdog forever.
@@ -3516,7 +3516,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// lines above (line 3286-3292 in this file's pre-modification
 	// snapshot), discards the .tmp backup, clears the flag. Binary on
 	// disk was never touched, so no restoreBinary needed.
-	// No-op in production. Drives scenario 22.
+	// No-op in production. Drives scenario 2-preswap-checkout-kill.
 	inject.KillHere("killed-by-system-during-preswap-checkout")
 
 	// Verify checked-out SHA matches manifest (detect tag spoofing).
@@ -3923,7 +3923,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 		// History: d416a50a0 introduced a narrower migrate-only ticker
 		// (extendCtx/extendCancel around just runCommandToLog) which
 		// cancelled BEFORE step 11 / archiveBackup -- leaving the
-		// remaining heavy steps uncovered. Scenario 26 reproduced the
+		// remaining heavy steps uncovered. Scenario 3-postswap-archivebackup-watchdog reproduced the
 		// resulting watchdog kill during archiveBackup; the unified
 		// gated ticker above subsumes the migrate-only one and closes the gap.
 		err := func() error {
@@ -4750,8 +4750,8 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 	// "force-forward-recovery-failure" injection class, the C9 site
 	// fires only when forward-recovery NATURALLY fails — which is
 	// non-deterministic across the harness's HEAD migration set.
-	// Scenario 24 documents this as a site-reachability diagnostic.
-	// No-op in production. Drives scenario 24.
+	// Scenario 4-rollback-kill documents this as a site-reachability diagnostic.
+	// No-op in production. Drives scenario 4-rollback-kill.
 	inject.KillHere("killed-by-system-during-builtin-rollback")
 
 	// Start with old config — git is verified at previousVersion. A failure
@@ -4764,7 +4764,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 
 	// Wait for the restored DB to accept connections BEFORE reconnecting: the
 	// restart above brings Postgres back and an immediate reconnect would race
-	// it coming ready (the scenario-21 "connection reset by peer"). Mirrors
+	// it coming ready (the scenario 2-preswap-backup-kill "connection reset by peer"). Mirrors
 	// applyPostSwap's post-restart waitForDBHealth on the normal path. This is
 	// the PRIMARY wait — writeRollbackTerminal's bounded retry below is the
 	// durable fallback. Log-not-raise: if the DB genuinely never returns, the

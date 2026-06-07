@@ -1,5 +1,5 @@
 #!/bin/bash
-# Scenario 10: seed-on-populated  (C17 / R5 — DATA LOSS GRADE)
+# Scenario: 5-install-seed-on-populated  (C17 / R5 — DATA LOSS GRADE)
 #
 # Class:                 seed-restore-runs-on-populated-database-destroying-data
 # Forensics tag:         R5 (architectural)
@@ -58,12 +58,12 @@
 #
 # Usage (deferred until the architectural fix lands):
 #   INSTALL_VERSION=v2026.05.2 HCLOUD_LOCATION=fsn1 \
-#     ./test/install-recovery/scenarios/10-seed-on-populated.sh \
-#     statbus-recovery-10
+#     ./test/install-recovery/scenarios/5-install-seed-on-populated.sh \
+#     statbus-recovery-5-install-seed-on-populated
 
 set -euo pipefail
 
-VM_NAME="${1:-statbus-recovery-10}"
+VM_NAME="${1:-statbus-recovery-5-install-seed-on-populated}"
 INSTALL_VERSION="${INSTALL_VERSION:-v2026.05.2}"
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
@@ -75,7 +75,7 @@ source "$LIB_DIR/assertions.sh"
 trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario 10: seed-on-populated  (C17 / R5 — DATA LOSS GRADE)"
+echo "  Scenario: 5-install-seed-on-populated  (C17 / R5 — DATA LOSS GRADE)"
 echo "  Initial release: $INSTALL_VERSION → second install: local HEAD"
 echo "════════════════════════════════════════════════════════════════"
 
@@ -176,4 +176,4 @@ assert_no_orphan_backup "$VM_NAME"
 assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 2
 
 echo ""
-echo "PASS: seed-on-populated (data survived install against populated DB)"
+echo "PASS: 5-install-seed-on-populated (data survived install against populated DB)"

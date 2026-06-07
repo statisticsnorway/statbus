@@ -376,7 +376,7 @@ func runPsqlFile(projDir string, filePath string) (string, error) {
 	// changes from this migration. Recovery via the next install's
 	// recoverFromFlag → resumePostSwap path re-enters applyPostSwap
 	// and the migration applies cleanly (no leftover state to
-	// conflict with). Drives scenario 17.
+	// conflict with). Drives scenario 3-postswap-mid-migration-kill.
 	//
 	// Placement rationale (mirrors the team-lead's spec for #144):
 	// at the start of runPsqlFile is the cleanest single point that
@@ -822,7 +822,7 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error)
 		// Real signal semantics (WIFEXITED=0, WTERMSIG=SIGKILL,
 		// systemd-recorded terminal state) differ observably from
 		// in-process os.Exit(137), so the scenarios drive both code
-		// paths via genuine signals. Drives the scenario-08 SIGKILL
+		// paths via genuine signals. Drives the scenario 3-postswap-migrate-killed-after-commit SIGKILL
 		// harness validation pending in the install-recovery harness.
 		// Exactly one of these stalls is active per run
 		// (STATBUS_INJECT_AT picks); the other is a no-op.
@@ -892,7 +892,7 @@ func runUp(projDir string, migrateTo int64, all bool, verbose bool) (int, error)
 		// NEXT migration. Co-located with the canonical C1/C2 stall
 		// sites at the same "between" boundary so the topology of
 		// per-migration injection sites stays readable in one place.
-		// No-op in production. Drives scenario 23.
+		// No-op in production. Drives scenario 3-postswap-between-migrations-kill.
 		inject.KillHere("killed-by-system-between-migrations")
 
 		fmt.Printf("[migrate]   ✔ applied  %s in %s\n", filepath.Base(m.Path), elapsed)

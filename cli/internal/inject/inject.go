@@ -192,7 +192,7 @@ var classes = map[string]Kind{
 	// is parked in `runCommand("tar", ...)` with no WATCHDOG=1 emitter;
 	// WatchdogSec=120 s expires; systemd SIGABRTs; restart loop forever.
 	//
-	// Scenario 26 stalls inside archiveBackup for STALL_HOLD_S=180 s
+	// Scenario 3-postswap-archivebackup-watchdog stalls inside archiveBackup for STALL_HOLD_S=180 s
 	// (> WatchdogSec=120 s). Without the active-phase ticker covering
 	// archiveBackup, NRestarts climbs and the upgrade row never reaches
 	// 'completed'. With the fix (wider ticker scope), NRestarts stays

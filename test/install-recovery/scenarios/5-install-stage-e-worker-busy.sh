@@ -1,5 +1,5 @@
 #!/bin/bash
-# Scenario 07: stage-e-worker-busy
+# Scenario: 5-install-stage-e-worker-busy
 #
 # Validates: Fix 8 (worker excluded from advisory_holders count),
 #            Fix 9 (no false-fail on pool busy),
@@ -17,11 +17,11 @@
 # through step 15 untouched.
 #
 # Usage:
-#   ./test/install-recovery/scenarios/07-stage-e-worker-busy.sh <vm_name>
+#   ./test/install-recovery/scenarios/5-install-stage-e-worker-busy.sh <vm_name>
 
 set -euo pipefail
 
-VM_NAME="${1:-statbus-recovery-07}"
+VM_NAME="${1:-statbus-recovery-5-install-stage-e-worker-busy}"
 INSTALL_VERSION="${INSTALL_VERSION:-}"
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
@@ -32,7 +32,7 @@ source "$LIB_DIR/assertions.sh"
 trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario 07: stage-e-worker-busy"
+echo "  Scenario: 5-install-stage-e-worker-busy"
 echo "  Validates: Fix 8 + Fix 9 + Fix 10 (worker-running install)"
 echo "════════════════════════════════════════════════════════════════"
 
@@ -81,4 +81,4 @@ fi
 echo "  ✓ worker still has $WORKER_COUNT_AFTER active connection(s) post-install"
 
 echo ""
-echo "PASS: 07-stage-e-worker-busy"
+echo "PASS: 5-install-stage-e-worker-busy"

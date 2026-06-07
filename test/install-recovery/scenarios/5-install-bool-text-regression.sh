@@ -1,5 +1,5 @@
 #!/bin/bash
-# Scenario 09: bool-text-regression
+# Scenario: 5-install-bool-text-regression
 #
 # Catches Fix 11-class parsing bugs. The setup: install on a fresh VM,
 # wait for the worker to come up and start processing tasks (so it's
@@ -21,7 +21,7 @@
 # fails.
 #
 # Usage:
-#   ./test/install-recovery/scenarios/09-bool-text-regression.sh <vm_name>
+#   ./test/install-recovery/scenarios/5-install-bool-text-regression.sh <vm_name>
 #
 # Optional env:
 #   KEEP_VM=1            Leave VM running on failure for debugging
@@ -29,7 +29,7 @@
 
 set -euo pipefail
 
-VM_NAME="${1:-statbus-recovery-09}"
+VM_NAME="${1:-statbus-recovery-5-install-bool-text-regression}"
 INSTALL_VERSION="${INSTALL_VERSION:-}"
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
@@ -39,7 +39,7 @@ source "$LIB_DIR/assertions.sh"
 trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario 09: bool-text-regression"
+echo "  Scenario: 5-install-bool-text-regression"
 echo "  Validates: Fix 11 (bool::text parsing) + worker-running install"
 echo "════════════════════════════════════════════════════════════════"
 
@@ -81,4 +81,4 @@ assert_health_passes "$VM_NAME"
 assert_systemd_active "$VM_NAME"
 
 echo ""
-echo "PASS: 09-bool-text-regression"
+echo "PASS: 5-install-bool-text-regression"
