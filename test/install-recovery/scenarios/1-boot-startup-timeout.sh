@@ -125,9 +125,19 @@ echo "  ✓ upgrade-service active"
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── installing C11 drop-in override + release file ──"
-VM_EXEC bash -c "
-    mkdir -p $DROPIN_DIR
-    cat > $DROPIN_FILE << 'EOF'
+# Heredoc inside `VM_EXEC bash -c "..."` loses newlines: printf %q converts
+# them to \n inside $'...' ANSI-C quoting, so the remote bash sees everything
+# on one line and the <<EOF delimiter merges with the body.  Write a complete
+# script locally (heredoc works fine on the local machine), scp it, and run it.
+# Pattern matches 3-postswap-archivebackup-watchdog (line ~162).
+_dropin_script=$(mktemp /tmp/harness-install-dropin-XXXXXX.sh)
+cat > "$_dropin_script" << SCRIPT_EOF
+#!/bin/bash
+set -euo pipefail
+DROPIN_DIR="\$HOME/.config/systemd/user/statbus-upgrade@statbus.service.d"
+DROPIN_FILE="\$DROPIN_DIR/inject.conf"
+mkdir -p "\$DROPIN_DIR"
+cat > "\$DROPIN_FILE" << 'DROPIN_EOF'
 [Service]
 Environment=STATBUS_INJECT_AT=service-startup-slower-than-systemd-unit-timeout
 Environment=STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE=$RELEASE_FILE
@@ -135,10 +145,15 @@ Environment=STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE=$RELEASE_FILE
 # test budget. Production TimeoutStopSec=15min lets the rollback() defer
 # chain finish a slow pg_restore; this drop-in is harness-only.
 TimeoutStopSec=5s
-EOF
-    touch $RELEASE_FILE
-    systemctl --user daemon-reload
-"
+DROPIN_EOF
+touch $RELEASE_FILE
+systemctl --user daemon-reload
+SCRIPT_EOF
+chmod 644 "$_dropin_script"
+scp -O "${SSH_OPTS[@]}" "$_dropin_script" root@"$VM_IP":/tmp/harness-install-dropin.sh
+rm -f "$_dropin_script"
+VM_EXEC bash /tmp/harness-install-dropin.sh
+ssh "${SSH_OPTS[@]}" root@"$VM_IP" "rm -f /tmp/harness-install-dropin.sh" 2>/dev/null || true
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 4 — restart the unit with the stall active; observe timeout
