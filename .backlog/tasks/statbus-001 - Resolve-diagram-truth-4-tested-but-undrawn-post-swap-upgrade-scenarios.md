@@ -1,10 +1,11 @@
 ---
 id: STATBUS-001
 title: 'Resolve diagram-truth: 4 tested-but-undrawn post-swap upgrade scenarios'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - architect
 created_date: '2026-06-07 11:24'
-updated_date: '2026-06-07 13:51'
+updated_date: '2026-06-07 14:10'
 labels:
   - install-recovery
   - diagrams
@@ -42,3 +43,9 @@ Crux to verify adversarially — the migrate-loop kill-points: the diagram alrea
 - [ ] #4 For every RETIRE verdict: the scenario test and its README catalogue entry are removed or merged, with rationale recorded
 - [ ] #5 Both diagrams re-rendered to SVG after any edit, and the diagram once again matches the tested scenario set exactly
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Premise corrected (2026-06-07): the 4 are NOT undrawn. In upgrade-timeline.plantuml they appear GROUPED into shared TEST notes with siblings (~lines 139/144/146); they are correctly absent from install-recovery.plantuml (upgrade-sequence events, not install-state events). Real question per scenario: DISTINCT interaction point (deserves its own note) vs REDUNDANT (merges into a drawn sibling → retire/merge the test). Architect investigating; will report findings + a recommended re-scope of this task.
+<!-- SECTION:NOTES:END -->
