@@ -7,6 +7,7 @@ status: In Progress
 assignee:
   - operator
 created_date: '2026-06-07 15:41'
+updated_date: '2026-06-07 15:52'
 labels:
   - install-recovery
   - validation
@@ -34,3 +35,9 @@ TALLY (--ref master @ 4e07dc4d):
 - [ ] #2 The three sharpened-claim scenarios driven + recorded: watchdog-reconnect, migrate-killed-after-commit, archivebackup-resume
 - [ ] #3 Each driven scenario's GitHub run URL + verdict captured in the notes tally
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+watchdog-reconnect (run 27097092218): FAILED — HARNESS BUG, not a real recovery failure. The scenario's systemd drop-in install used a here-document that collapsed newlines (log: `EOF[Service]Environment=...Environment=...EOF` on one line), so systemd couldn't parse the override and the unit stayed inactive — the scenario can't even stage its test (product code never exercised). Mechanic dispatched to fix the heredoc + assess scope (shared drop-in helper?). DRIVE-THROUGH PAUSED until the harness fix is committed + pushed; subsequent runs will be on the fixed SHA.
+<!-- SECTION:NOTES:END -->
