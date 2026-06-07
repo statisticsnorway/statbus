@@ -2,7 +2,7 @@
 name: Install Recovery Harness
 
 # Install Recovery Harness — RC-time end-to-end RECOVERY gate via Hetzner
-# Cloud VMs. Sister to test-install.yaml (which runs only scenario 01 / the
+# Cloud VMs. Sister to test-install.yaml (which runs only scenario 0-happy-install / the
 # happy-install baseline). Where test-install validates "fresh install works",
 # THIS workflow validates "install converges to a coherent terminal state
 # from every named failure-injection class."
@@ -44,7 +44,7 @@ on:
   workflow_dispatch:
     inputs:
       scenarios:
-        description: 'Space-separated scenario selectors (e.g. "01 09 23") — leave blank to run all'
+        description: 'Space-separated scenario selectors (e.g. "3-postswap-watchdog-reconnect 3-postswap-migrate-killed-after-commit") — leave blank to run all'
         required: false
         default: ''
 
@@ -79,7 +79,7 @@ jobs:
         # fetch-depth: 0 — several scenarios `git checkout HEAD-LOCAL` on
         # the VM after `git fetch --depth 1 origin <sha>`, but the
         # harness's own host-side commit SHA computations (HARNESS_ROOT
-        # rev-parse, pending-migration counts in scenario 23) need the
+        # rev-parse, pending-migration counts in 3-postswap-between-migrations-kill) need the
         # full history available locally. Cheap on the GHA runner.
         uses: actions/checkout@v4
         with:
@@ -138,9 +138,9 @@ jobs:
       - name: Run full install-recovery scenario suite on Hetzner VMs
         # `./dev.sh test-install-recovery [SELECTORS]` delegates to
         # test/install-recovery/run.sh, which discovers every
-        # `scenarios/NN-*.sh`, runs each on a fresh Hetzner cx23
-        # (named statbus-recovery-NN), and writes per-scenario logs to
-        # tmp/install-recovery-NN.log. The dispatcher writes
+        # `scenarios/<phase>-<slug>.sh`, runs each on a fresh Hetzner cx23
+        # (named statbus-recovery-<phase>-<slug>), and writes per-scenario logs to
+        # tmp/install-recovery-<phase>-<slug>.log. The dispatcher writes
         # tmp/install-recovery-test-passed-sha when ALL scenarios pass
         # in a run with no selector — proves coverage when the workflow
         # itself goes green.
@@ -157,7 +157,7 @@ jobs:
         #
         # The `scenarios` workflow-dispatch input lets an operator
         # narrow the suite when debugging a single failure (e.g.
-        # `gh workflow run install-recovery-harness.yaml -f scenarios="08 12"`);
+        # `gh workflow run install-recovery-harness.yaml -f scenarios="3-postswap-watchdog-reconnect 3-postswap-migrate-killed-after-commit"`);
         # the tag-push trigger always runs the full suite.
         env:
           HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}

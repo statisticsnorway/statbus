@@ -4,10 +4,10 @@ name: Test Install
 # Test Install — RC-time end-to-end install gate via Hetzner Cloud VM.
 #
 # Triggers on prerelease tag push (`v*-rc.*`) and manual dispatch.
-# Provisions a fresh Hetzner CX23 in hel1, runs scenario 01 of the
+# Provisions a fresh Hetzner CX23 in hel1, runs scenario 0-happy-install of the
 # install-recovery harness (bootstrap → ./sb install → assert health +
 # step 9 + step 15 + systemd active), then deletes the VM. The harness
-# scenario lives at test/install-recovery/scenarios/01-happy-install.sh.
+# scenario lives at test/install-recovery/scenarios/0-happy-install.sh.
 #
 # Why a real VM and not the GHA runner: the install path's failure modes
 # mostly live BEFORE the runner's preconfigured state would expose them —
@@ -53,13 +53,13 @@ permissions:
 
 jobs:
   hetzner-vm-install:
-    name: Provision Hetzner VM + run scenario 01
+    name: Provision Hetzner VM + run scenario 0-happy-install
     runs-on: ubuntu-24.04
     timeout-minutes: 35
 
     steps:
       - name: Checkout
-        # fetch-depth: 1 — scenario 01 references local HEAD only. The tag
+        # fetch-depth: 1 — scenario 0-happy-install references local HEAD only. The tag
         # ref itself is at HEAD on a tag-trigger run, so `git describe
         # --tags` in dev.sh build-sb's ldflag-stamping path still resolves
         # to the exact tag without needing deeper history.
@@ -120,8 +120,8 @@ jobs:
           ssh-keygen -lf ~/.ssh/id_ed25519 \
             | awk '{ print "SSH key fingerprint:", $2 }'
 
-      - name: Run scenario 01 (happy-install) on Hetzner VM
-        # `./dev.sh test-install` delegates to scenario 01, which uses
+      - name: Run scenario 0-happy-install on Hetzner VM
+        # `./dev.sh test-install` delegates to scenario 0-happy-install, which uses
         # vm-bootstrap.sh's bootstrap_install_test_vm + install_statbus_in_vm
         # primitives. STATBUS_SB_BINARY tells vm-bootstrap.sh to use the
         # CI-built binary (above) instead of rebuilding `sb` inside the
