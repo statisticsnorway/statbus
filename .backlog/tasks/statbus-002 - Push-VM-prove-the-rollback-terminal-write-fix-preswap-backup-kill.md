@@ -4,7 +4,7 @@ title: Push + VM-prove the rollback terminal-write fix (preswap-backup-kill)
 status: In Progress
 assignee: []
 created_date: '2026-06-07 11:25'
-updated_date: '2026-06-07 13:52'
+updated_date: '2026-06-07 14:17'
 labels:
   - upgrade
   - rollback
@@ -31,3 +31,9 @@ Note: pushing is gated on an explicit go-ahead.
 - [ ] #1 The two fix commits (e32782a33, 0575405f4) are pushed and CI has rebuilt
 - [ ] #2 The preswap-backup-kill install-recovery scenario passes green on a Hetzner VM
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Push-go approved by King (2026-06-07). Pushed master->origin (3b0adbbb3..6158fc4c9) — AC#1 push done; CI rebuild triggered, operator monitoring fast-tests. VM-prove of 2-preswap-backup-kill launched on a Hetzner VM (foreman background, guarded against a dirty tree); verdict pending for AC#2.
+<!-- SECTION:NOTES:END -->
