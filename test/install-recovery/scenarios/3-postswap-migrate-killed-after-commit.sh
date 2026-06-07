@@ -61,6 +61,7 @@ STALL_MAX_WAIT_S="${STALL_MAX_WAIT_S:-300}"
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
 source "$LIB_DIR/vm-bootstrap.sh"
+source "$LIB_DIR/data-helpers.sh"
 source "$LIB_DIR/wedge-helpers.sh"
 source "$LIB_DIR/assertions.sh"
 
@@ -157,8 +158,12 @@ echo "════════════════════════�
 RELEASE_FILE_1="/tmp/stall-release-stage1"
 VM_EXEC bash -c "touch '$RELEASE_FILE_1'"
 
-echo "── scheduling upgrade to $HEAD_SHORT ──"
-VM_EXEC bash -c "cd ~/statbus && ./sb upgrade schedule $HEAD_SHA"
+echo "── fabricating scheduled public.upgrade row for HEAD ($HEAD_SHA) ──"
+# HEAD is untagged — ./sb upgrade schedule only accepts CalVer release tags and
+# UPDATEs existing 'available' rows; it cannot schedule an untagged commit.
+# fabricate_scheduled_upgrade_row inserts a 'scheduled' row directly so
+# ./sb install detects it and dispatches executeUpgrade.
+fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_SHA"
 
 echo "── triggering install with subprocess-stall injection ──"
 ENV1="STATBUS_INJECT_AT=migrate-subprocess-killed-after-commit-before-recorded STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE=$RELEASE_FILE_1"
@@ -218,8 +223,8 @@ echo "  re-baselined db.migration max_version = $BASELINE_MAX_VERSION"
 RELEASE_FILE_2="/tmp/stall-release-stage2"
 VM_EXEC bash -c "touch '$RELEASE_FILE_2'"
 
-echo "── scheduling fresh upgrade to $HEAD_SHORT ──"
-VM_EXEC bash -c "cd ~/statbus && ./sb upgrade schedule $HEAD_SHA"
+echo "── fabricating fresh scheduled public.upgrade row for HEAD ($HEAD_SHA) ──"
+fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_SHA"
 
 echo "── triggering install with parent-stall injection ──"
 ENV2="STATBUS_INJECT_AT=upgrade-service-parent-killed-after-commit-before-recorded STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE=$RELEASE_FILE_2"
