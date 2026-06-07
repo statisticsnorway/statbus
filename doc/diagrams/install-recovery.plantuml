@@ -51,6 +51,11 @@ endif
 partition "Detect — 8-state probe ladder (state.go:104, short-circuit: first match wins)" {
   if (.env.config missing?) then (yes)
     :**StateFresh**\n-> step-table;
+    note right
+      TEST 0-happy-install: a fresh install (no .env.config) runs the step-table end-to-end and
+      reaches health-pass + step 9 + upgrade-service step + systemd active, with NO injection —
+      the baseline the failure scenarios perturb.
+    end note
   elseif (flag present AND flock HELD?) then (yes)
     :**StateLiveUpgrade** -> REFUSE\n(install_upgrade.go:27);
     note right

@@ -136,15 +136,29 @@ note over service, db #FFF9C4
   TEST 3-postswap-resume-died-rollback: a death during Phase=Resuming rolls back to the
     snapshot (UPGRADE_DIED_DURING_RESUME) and NEVER re-resumes — the one-shot latch (the
     Resuming branch above).
-  TEST 3-postswap-mid-migration-kill / 3-postswap-between-migrations-kill / 3-postswap-migrate-killed-after-commit:
-    a kill anywhere in migrate converges to a coherent terminal; the canonical commit<->record
-    window RESTORES, never re-applies ("relation already exists" is the deterministic break).
+  TEST 3-postswap-mid-migration-kill / 3-postswap-migrate-killed-after-commit / 3-postswap-between-migrations-kill:
+    a kill anywhere in the migrate loop converges to a coherent terminal — the three cells of the
+    commit<->record boundary, in execution order:
+    (1) mid-migration-kill: BEFORE the migration's tx opens (db.migration max unchanged, no schema
+      change) — forward re-applies cleanly -> completed.
+    (2) migrate-killed-after-commit: in the ~ms window AFTER commit, BEFORE the db.migration INSERT
+      (db.migration max unchanged, but the schema is already on disk) — forward FAILS ("relation
+      already exists"), so recovery RESTORES, never re-applies -> rolled_back (the rune shape).
+    (3) between-migrations-kill: AFTER N is recorded, BEFORE N+1 opens (db.migration max +1) —
+      resumes the unrecorded pending set N+1..HEAD cleanly -> completed.
   TEST 3-postswap-migration-timeout / 3-postswap-worker-ddl-deadlock: a slow or
     worker-locked migration stays BOUNDED (heartbeat / pre-DDL quiesce) — never an infinite wedge.
-  TEST 3-postswap-container-restart-kill / 3-postswap-watchdog-reconnect: a kill or
-    stall in the restart + reconnect tail is recovered; the watchdog fires on a hung reconnect.
-  TEST 3-postswap-archivebackup-watchdog / 3-postswap-archivebackup-resume: the active-phase
-    archive-backup tar is watchdog-covered — a long-but-advancing backup is not falsely reaped.
+  TEST 3-postswap-container-restart-kill: a kill between step 11 (start app services) and step 12
+    (health) is recovered by the next install re-running 11+12 idempotently -> completed.
+  TEST 3-postswap-watchdog-reconnect: a slow-but-advancing DB reconnect is kept alive by the
+    deferGating WATCHDOG=1 ticker — systemd does NOT falsely reap it; a true >5-min hang is reaped
+    by connect()'s own 5-min ctx (via d.reconnect()), not the watchdog.
+  TEST 3-postswap-archivebackup-watchdog: on the SCHEDULED path (already active-phase) the ticker
+    SCOPE covers archiveBackup — a multi-minute tar is not falsely reaped.
+  TEST 3-postswap-archivebackup-resume: on the exit-42 RESUME path, READY=1-before-recoverFromFlag
+    (plan piece #2) puts the resume in the ACTIVE phase, and the terminal state='completed' UPDATE
+    persists BEFORE the non-critical tar (FIX A) — a slow tar can never strand the row in_progress
+    (the NO/rune 40 h wedge).
 end note
 
 == Complete / rollback ==
@@ -153,6 +167,11 @@ alt all steps succeeded
     service -> service : removeUpgradeFlag (mutex released)
     service -> db : supersede older rows + notify UI
     service -> cici : Slack callback — OK
+    note over service, db #FFF9C4
+      TEST 0-happy-upgrade: an injection-free scheduled upgrade runs claim -> pre-swap -> exit-42 ->
+        applyPostSwap -> this success branch (state=completed, flag removed) — the baseline the
+        post-swap failure scenarios perturb.
+    end note
 else any step failed or hung (one attempt, NO retry)
     service -> service : rollback() — restore git + restore DB snapshot
     service -> db : restart services (docker compose up)
