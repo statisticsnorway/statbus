@@ -51,13 +51,17 @@
 #
 # Optional env:
 #   KEEP_VM=1            Leave VM running on failure for debugging
-#   STALL_MAX_WAIT_S=N   Override the per-stall wait budget (default 300s)
+#   STALL_MAX_WAIT_S=N   Override the per-stall wait budget (default 900s)
 
 set -euo pipefail
 
 VM_NAME="${1:-statbus-recovery-3-postswap-migrate-killed-after-commit}"
 INSTALL_VERSION="${INSTALL_VERSION:-v2026.05.2}"  # must be older than HEAD; provides migration delta
-STALL_MAX_WAIT_S="${STALL_MAX_WAIT_S:-300}"
+# 900s: covers preSwap (backup + git checkout) + applyPostSwap up to the migrate
+# stall. Mirrors the sibling 3-postswap-mid-migration-kill (INSTALL_BUDGET_S=900).
+# Pre-staging the HEAD binary (below) skips buildBinaryOnDisk's ~3-5 min build, but
+# this keeps headroom for the remaining preSwap/applyPostSwap steps before migrate.
+STALL_MAX_WAIT_S="${STALL_MAX_WAIT_S:-900}"
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
 source "$LIB_DIR/vm-bootstrap.sh"
@@ -91,6 +95,16 @@ assert_health_passes "$VM_NAME"
 # already pushed to origin.
 echo "── fetching HEAD into VM ──"
 VM_EXEC bash -c "cd ~/statbus && git fetch origin $HEAD_SHA"
+
+# Pre-stage HEAD's sb binary into ~/statbus/sb so the trigger install runs HEAD's
+# installer and the upgrade's preSwap procurement SKIPS buildBinaryOnDisk's
+# ~3-5 min `make -C cli build` (the binary is already at the target commit — see
+# buildBinaryOnDisk's pre-staged-binary skip in cli/internal/upgrade/service.go).
+# Without this, the cold untagged-HEAD Go build alone can exceed STALL_MAX_WAIT_S
+# before applyPostSwap reaches the migrate stall, so wait_for_inject_stall_ready
+# times out. Mirrors the sibling 3-postswap-mid-migration-kill (upload_sb_to_vm).
+echo "── pre-staging HEAD sb binary (skips the preSwap rebuild) ──"
+upload_sb_to_vm "$VM_NAME"
 
 # Snapshot baseline db.migration max version. Both stages' partial-state
 # checks confirm this number does NOT bump during the stall window.
