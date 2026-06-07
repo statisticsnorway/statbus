@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - operator
 created_date: '2026-06-07 15:41'
-updated_date: '2026-06-07 22:24'
+updated_date: '2026-06-07 22:25'
 labels:
   - install-recovery
   - validation
@@ -60,4 +60,6 @@ ORPHAN-BACKUP VERDICT (engineer, run 27104216670): HARNESS/ASSERTION BUG — ZER
 migrate-killed-after-commit version-format VERDICT (mechanic, commit f018a75d8): CORRECT fix, verified. The minimal 'sha-<short>' fix wouldn't work — `./sb upgrade schedule` only accepts CalVer tags AND only UPDATEs existing 'available' rows, so it can't schedule untagged HEAD at all. Fix: use fabricate_scheduled_upgrade_row (direct INSERT), the SAME pattern the 3 sibling supervised scenarios already use for untagged HEAD; coverage preserved (still drives ./sb install -> executeUpgrade -> migrate-kill recovery). Isolated to this scenario (no other uses ./sb upgrade schedule). Mechanic also flagged a real PRODUCT issue -> filed STATBUS-010 (stale 'sha-HEXHEX' in upgrade.go:135 validator error message, retired rc.63). NEXT: push f018a75d8 -> Images -> re-run migrate-killed-after-commit. Harness-bug tally now 9, product bugs 0 (the stale message is a doc/message nit, not a recovery failure).
 
 migrate-killed-after-commit re-run (run 27106097096 @ 14c3db9b8): FAILED — stall injection never fired (300s timeout). Stage-1 fabricate created the row (id=5, sha=14c3db9b8, state=scheduled), but the second `./sb install` (STATBUS_INJECT_AT=migrate-subprocess-killed-after-commit-before-recorded) didn't reach the migrate inject point. Open question: does `./sb install`'s inline StateScheduledUpgrade probe detect a fabricate_scheduled_upgrade_row row (that helper was built for the supervised NOTIFY path)? Engineer diagnosing (harness vs product; + scope: does fabricate+install break other inline scenarios?). Migrate is multi-layered: version-format fixed (f018a75d8), now stall-never-fires. If this becomes a deep harness rework, I'll document + move to an easier scenario (archivebackup-resume) for morning progress, then return.
+
+migrate stall-never-fires ROOT CAUSE (engineer): HARNESS timing/staging, not product. Untagged HEAD makes the inline `./sb install` upgrade run buildBinaryOnDisk (make -C cli build, ~3-5 min) BEFORE applyPostSwap's migrate-up (skipped only if the binary is pre-staged at the target commit); migrate-killed-after-commit does NOT pre-stage, and STALL_MAX_WAIT_S=300 is too short for build+backup+pull+DB-start+migrate. The working sibling mid-migration-kill pre-stages (upload_sb_to_vm) AND budgets 900s; migrate got the worst combo. NOTE: f018a75d8 (fabricate) is the FIRST run to actually dispatch the inline upgrade (the old ./sb upgrade schedule errored before dispatch), which exposed this. Fix = Option A (chosen, harness-only): add upload_sb_to_vm after initial install (skip the build) + bump STALL_MAX_WAIT_S 300→900, matching the sibling. Engineer applying on top of f018a75d8. Tally: 10 harness/CI issues, 0 product.
 <!-- SECTION:NOTES:END -->
