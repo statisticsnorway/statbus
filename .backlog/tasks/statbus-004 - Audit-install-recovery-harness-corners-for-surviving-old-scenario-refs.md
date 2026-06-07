@@ -4,7 +4,7 @@ title: Audit install-recovery harness corners for surviving old scenario refs
 status: In Progress
 assignee: []
 created_date: '2026-06-07 11:25'
-updated_date: '2026-06-07 11:48'
+updated_date: '2026-06-07 11:50'
 labels:
   - install-recovery
   - rename
@@ -30,3 +30,9 @@ Read-only + --list only; do NOT run any paid VM scenario. Dispatched last sessio
 - [ ] #1 lib/, fixtures/, and other harness files audited; defects reported as file:line or confirmed clean
 - [ ] #2 `./dev.sh test-install-recovery --list` shows exactly the 28 canonical names with no number-prefixed survivors
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Content audit CLEAN (2026-06-07): no surviving old numeric refs in test/install-recovery/lib/ or fixtures/ (filenames or contents). Corroborated by the broad 003 sweep over test/, which found ZERO old refs inside test/install-recovery/. The rename's real misses were OUTSIDE this task's scope — dev.sh (repo root) + doc/release-workflow-gates.md (active doc) — both caught by STATBUS-003 and fixed. AC#2 (--list = 28 canonical) running in background.
+<!-- SECTION:NOTES:END -->
