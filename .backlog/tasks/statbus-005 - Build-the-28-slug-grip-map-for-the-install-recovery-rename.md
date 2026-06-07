@@ -1,9 +1,10 @@
 ---
 id: STATBUS-005
 title: Build the 28-slug grip-map for the install-recovery rename
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-07 11:25'
+updated_date: '2026-06-07 11:50'
 labels:
   - install-recovery
   - rename
@@ -29,3 +30,9 @@ Partial artifacts from the prior session may exist (tmp/operator-slug-grip-map.m
 - [ ] #1 Grip-map written with a section per slug listing every file:line it appears at
 - [ ] #2 Any orphan slug (appears only in its own file) or zero-diagram slug is explicitly flagged
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Verdict (2026-06-07): PASS. The operator's grip-map (tmp/operator-slug-grip-map.md) survived the crash and covers all 28 slugs (8–19 files each). Orphans: NONE — every slug grips across its scenario file + run.sh + README + harness code + ≥1 diagram. Zero-diagram slugs: only `0-happy-install` (in no doc/diagrams/* file) — likely the happy-path baseline; whether it warrants a diagram TEST note is a diagram-truth question → routed to STATBUS-001. My dev.sh + release-gates fixes only ADD refs (no slug became more orphaned), so the pre-crash findings still hold.
+<!-- SECTION:NOTES:END -->
