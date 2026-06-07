@@ -1,9 +1,10 @@
 ---
 id: STATBUS-003
 title: Review the install-recovery scenario-slug rename for consistency + correctness
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-06-07 11:25'
+updated_date: '2026-06-07 11:41'
 labels:
   - install-recovery
   - rename
