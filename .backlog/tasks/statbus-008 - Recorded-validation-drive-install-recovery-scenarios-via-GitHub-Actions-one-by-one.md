@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - operator
 created_date: '2026-06-07 15:41'
-updated_date: '2026-06-07 21:54'
+updated_date: '2026-06-07 22:24'
 labels:
   - install-recovery
   - validation
@@ -58,4 +58,6 @@ ORPHAN-BACKUP VERDICT (engineer, run 27104216670): HARNESS/ASSERTION BUG — ZER
 3-postswap-migrate-killed-after-commit (run 27105528694 @ 8366440d9): FAILED — HARNESS bug (not product). The scenario passes the FULL 40-char SHA to `./sb upgrade schedule`; the version validator rejects it (vm-bootstrap.sh:360: 'invalid version ... expected vYYYY.MM.PATCH or sha-HEXHEX'). Needs the sha-<short-hex> form. Error is in a shared helper → likely affects other schedule-using scenarios. Mechanic dispatched to diagnose scope (shared vm-bootstrap helper vs scenario) + fix the version format + reconcile why `./sb upgrade apply 8366440d` worked but schedule<full> didn't. Harness fix (commit local). RUNNING TALLY: 0-happy-install PASS, watchdog-reconnect PASS, migrate-killed-after-commit = version-format harness bug (fixing).
 
 migrate-killed-after-commit version-format VERDICT (mechanic, commit f018a75d8): CORRECT fix, verified. The minimal 'sha-<short>' fix wouldn't work — `./sb upgrade schedule` only accepts CalVer tags AND only UPDATEs existing 'available' rows, so it can't schedule untagged HEAD at all. Fix: use fabricate_scheduled_upgrade_row (direct INSERT), the SAME pattern the 3 sibling supervised scenarios already use for untagged HEAD; coverage preserved (still drives ./sb install -> executeUpgrade -> migrate-kill recovery). Isolated to this scenario (no other uses ./sb upgrade schedule). Mechanic also flagged a real PRODUCT issue -> filed STATBUS-010 (stale 'sha-HEXHEX' in upgrade.go:135 validator error message, retired rc.63). NEXT: push f018a75d8 -> Images -> re-run migrate-killed-after-commit. Harness-bug tally now 9, product bugs 0 (the stale message is a doc/message nit, not a recovery failure).
+
+migrate-killed-after-commit re-run (run 27106097096 @ 14c3db9b8): FAILED — stall injection never fired (300s timeout). Stage-1 fabricate created the row (id=5, sha=14c3db9b8, state=scheduled), but the second `./sb install` (STATBUS_INJECT_AT=migrate-subprocess-killed-after-commit-before-recorded) didn't reach the migrate inject point. Open question: does `./sb install`'s inline StateScheduledUpgrade probe detect a fabricate_scheduled_upgrade_row row (that helper was built for the supervised NOTIFY path)? Engineer diagnosing (harness vs product; + scope: does fabricate+install break other inline scenarios?). Migrate is multi-layered: version-format fixed (f018a75d8), now stall-never-fires. If this becomes a deep harness rework, I'll document + move to an easier scenario (archivebackup-resume) for morning progress, then return.
 <!-- SECTION:NOTES:END -->
