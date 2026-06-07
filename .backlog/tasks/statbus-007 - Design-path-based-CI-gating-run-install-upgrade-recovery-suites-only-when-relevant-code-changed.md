@@ -3,10 +3,11 @@ id: STATBUS-007
 title: >-
   Design path-based CI gating: run install/upgrade/recovery suites only when
   relevant code changed
-status: In Progress
+status: Done
 assignee:
   - architect
 created_date: '2026-06-07 15:15'
+updated_date: '2026-06-07 15:27'
 labels:
   - ci
   - gating
@@ -35,8 +36,14 @@ This is analysis/design (a plan), NOT implementation. Hand the plan to foreman f
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Documented {gate -> required code paths} mapping for each install/upgrade/recovery gate, with rationale per gate
-- [ ] #2 Explicit treatment of the migrations->upgrade dependency and the cli-only-gated recovery case
-- [ ] #3 Recommended conditional-gating implementation approach, preserving a loud/recorded bypass (no silent skips)
-- [ ] #4 Plan written to tmp/ (or a doc/ proposal) and handed to foreman for review before any implementation
+- [x] #1 Documented {gate -> required code paths} mapping for each install/upgrade/recovery gate, with rationale per gate
+- [x] #2 Explicit treatment of the migrations->upgrade dependency and the cli-only-gated recovery case
+- [x] #3 Recommended conditional-gating implementation approach, preserving a loud/recorded bypass (no silent skips)
+- [x] #4 Plan written to tmp/ (or a doc/ proposal) and handed to foreman for review before any implementation
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Design delivered (2026-06-07): tmp/architect-gate-paths.md. Core: one shared primitive cli/internal/release/gate_paths.go + `./sb release gate-relevant <workflow>` (base = previous STABLE ancestor, git diff base..HEAD vs per-gate glob classes), consulted in BOTH a cheap workflow `relevance` job (gates the expensive job via if:) AND the release pre-flight checkStableWorkflowGate. Two distinct states: NOT-REQUIRED (auto-skip irrelevant, recorded, optimization) vs SKIP_*=1 (manual bypass of a relevant gate, unchanged) — never conflated, nothing silent. Key findings: (a) GitHub paths: filters are ignored on tag pushes — can't be used; (b) recovery's CLI trigger = all cli/internal EXCEPT release-tooling (not just upgrade/install/migrate/inject), because shared runtime deps like compose can break a recovery scenario; (c) base must be prev-STABLE (cumulative shipping diff), not prev-RC. Open for King: Q1 full-harness-on-migration-change vs subset (rec full); Q2 gate fast-tests at all (rec no). Implementation is a follow-up task pending King's decisions.
+<!-- SECTION:NOTES:END -->
