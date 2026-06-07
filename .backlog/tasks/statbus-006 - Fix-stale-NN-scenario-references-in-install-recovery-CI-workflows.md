@@ -1,10 +1,11 @@
 ---
 id: STATBUS-006
 title: Fix stale NN scenario references in install-recovery CI workflows
-status: In Progress
+status: Done
 assignee:
   - mechanic
 created_date: '2026-06-07 15:15'
+updated_date: '2026-06-07 15:22'
 labels:
   - install-recovery
   - rename
@@ -27,7 +28,13 @@ Sweep ALL .github/workflows/*.yaml for surviving old NN scenario refs and update
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 All .github/workflows/*.yaml swept; no surviving old NN scenario refs (NN-prefix scenario names, scenarios/NN-*.sh, statbus-recovery-NN, install-recovery-NN.log) — verified by grep
-- [ ] #2 install-recovery-harness.yaml `scenarios` workflow_dispatch input example + inline comments use canonical slugs
-- [ ] #3 No behavioral change to any workflow — comment/example/string updates only
+- [x] #1 All .github/workflows/*.yaml swept; no surviving old NN scenario refs (NN-prefix scenario names, scenarios/NN-*.sh, statbus-recovery-NN, install-recovery-NN.log) — verified by grep
+- [x] #2 install-recovery-harness.yaml `scenarios` workflow_dispatch input example + inline comments use canonical slugs
+- [x] #3 No behavioral change to any workflow — comment/example/string updates only
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Done (2026-06-07): mechanic committed 347e4fd3f (local, unpushed) — comments/examples/display-names only, no behavioral change. Fixed BOTH install-recovery-harness.yaml (4 hunks: header, scenarios input example, fetch-depth comment, run-step comment block) AND test-install.yaml (6 hunks: scenario 01 -> 0-happy-install, the 01-happy-install.sh path, job name + comments) — test-install.yaml was a second missed corner. Post-edit grep clean. Foreman spot-checking the diff for behavioral changes.
+<!-- SECTION:NOTES:END -->
