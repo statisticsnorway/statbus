@@ -4,7 +4,7 @@ title: Push + VM-prove the rollback terminal-write fix (preswap-backup-kill)
 status: In Progress
 assignee: []
 created_date: '2026-06-07 11:25'
-updated_date: '2026-06-07 14:17'
+updated_date: '2026-06-07 16:08'
 labels:
   - upgrade
   - rollback
@@ -36,4 +36,6 @@ Note: pushing is gated on an explicit go-ahead.
 
 <!-- SECTION:NOTES:BEGIN -->
 Push-go approved by King (2026-06-07). Pushed master->origin (3b0adbbb3..6158fc4c9) — AC#1 push done; CI rebuild triggered, operator monitoring fast-tests. VM-prove of 2-preswap-backup-kill launched on a Hetzner VM (foreman background, guarded against a dirty tree); verdict pending for AC#2.
+
+Local VM-prove (tester) DIED AT INIT (2026-06-07): exited after the scenario header, before VM provisioning — no meaningful logs, no orphaned Hetzner VM (clean). Likely a local-env/background-handling quirk, not a harness bug (the GitHub 0-happy-install run proved the harness runs fine on GHA). Dropping the local run. AC#2 (preswap-backup-kill green on a real VM) will be satisfied by the RECORDED GitHub drive-through run instead (tracked in STATBUS-008) — preswap-backup-kill added to that queue.
 <!-- SECTION:NOTES:END -->
