@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - operator
 created_date: '2026-06-07 15:41'
-updated_date: '2026-06-07 21:01'
+updated_date: '2026-06-07 21:15'
 labels:
   - install-recovery
   - validation
@@ -50,4 +50,6 @@ TALLY update: 0-happy-install PASS; watchdog-reconnect = harness-fix-confirmed b
 watchdog NOTIFY fix (engineer, commit 3bb6d703d — verified correct/scoped: defines SHORT_SHA from HEAD_LOCAL, sends ./sb upgrade apply NOTIFY mirroring archivebackup-watchdog, fixes the stale 180s diagnostic) pushed 2bc671ecf..3bb6d703d. Operator driving: Images-green-for-3bb6d703d → re-run watchdog-reconnect (~12-15 min). The migrate INSTALL_VERSION fix (4568554b7) is now pushed too; migrate-killed-after-commit runs AFTER watchdog is green (one scenario at a time).
 
 watchdog-reconnect re-run (run 27104216670 @ 3bb6d703d): NOTIFY FIX WORKED ✓ — NOTIFY → executeScheduled in 58s, stall held 180s > WatchdogSec=120s, NRestarts within tolerance (Race D fix holds), upgrade completed, flag absent, demo data intact. The CORE watchdog/reconnect recovery behavior is VALIDATED. Remaining failure: 'orphan backup(s) found' at test/install-recovery/lib/assertions.sh:100 — leftover backup files the assertion expects cleaned up. Engineer diagnosing: real product cleanup gap (pruneArchives / archiveBackup) vs over-strict assertion. Progress: harness heredoc + NOTIFY both fixed; one cleanup assertion left on this scenario.
+
+ORPHAN-BACKUP VERDICT (engineer, run 27104216670): HARNESS/ASSERTION BUG — ZERO real orphans; the product cleaned up correctly. Root cause lib/assertions.sh:95: `grep -c .` exits 1 on zero matches; under the scenario's `set -euo pipefail` the count pipeline exits non-zero → the trailing `|| echo "0"` appends a 2nd 0 → count="0\n0" → fails the `= "0"` check. Reproduced locally. Introduced in commit 97fe00480 (the #12 active/syncing backup-scheme reconcile). SYSTEMATIC — latent in 7 scenarios that call this shared assertion (2-preswap-binary-swap-kill, 3-postswap-watchdog-reconnect, mid-migration-kill, migrate-killed-after-commit, 0-happy-upgrade, 5-install-seed-on-populated, container-restart-kill); watchdog is just the first to reach it post-NOTIFY-fix. Fix = ONE shared assertion (clears all 7): `|| true` after grep -c . + `tr -d ' \n'`. Classified TEST/harness (not recovery code) → applied autonomously (no King gate). watchdog-reconnect's actual recovery is FULLY VALIDATED (zero real failures); expect GREEN after the assertion fix + re-run.
 <!-- SECTION:NOTES:END -->
