@@ -1,10 +1,10 @@
 ---
 id: STATBUS-003
 title: Review the install-recovery scenario-slug rename for consistency + correctness
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-06-07 11:25'
-updated_date: '2026-06-07 11:46'
+updated_date: '2026-06-07 13:39'
 labels:
   - install-recovery
   - rename
@@ -28,9 +28,9 @@ Recovered from harness task #42.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 No surviving old scenario identifier (NN-prefix, old slug, statbus-recovery-NN) anywhere it matters, verified by grep
-- [ ] #2 5 representative slugs each resolve across filename, runner, README, diagram, and in-file header
-- [ ] #3 Verdict reported: APPROVE, or a defect list with file:line
+- [x] #1 No surviving old scenario identifier (NN-prefix, old slug, statbus-recovery-NN) anywhere it matters, verified by grep
+- [x] #2 5 representative slugs each resolve across filename, runner, README, diagram, and in-file header
+- [x] #3 Verdict reported: APPROVE, or a defect list with file:line
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -43,4 +43,6 @@ Review verdict (2026-06-07): NOT clean — defects found.
 (2) DOC REFS (scope decision pending): doc/release-workflow-gates.md:43-44 say 'scenario 01' (active operational doc). doc/recovery/*.md carry many 'scenario NN' numeric refs (18/19/21/22/26/27…) in historical design/forensic narratives. Decide: update active docs to slugs vs keep historical record as-is.
 
 AC#2: 5 representative slugs resolve across file + README + diagram. run.sh names only special-cased scenarios and auto-discovers the rest — not a defect.
+
+Committed as d7378abde (2026-06-07): 42 files — scenario-slug canonicalization (cli comments, diagrams + regenerated SVGs, scenarios, README, run.sh, fixtures, doc/upgrade-timeline) + the two missed-corner fixes (dev.sh broken test-install path; doc/release-workflow-gates.md). Per the King's decision, historical doc/recovery/* was NOT canonicalized — those sweep edits were reverted (removed, never committed); the docs keep their period scenario numbers as historical record. Working tree clean. Unblocks STATBUS-001 (diagram edits).
 <!-- SECTION:NOTES:END -->
