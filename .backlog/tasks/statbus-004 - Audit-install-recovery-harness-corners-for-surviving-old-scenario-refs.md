@@ -1,9 +1,10 @@
 ---
 id: STATBUS-004
 title: Audit install-recovery harness corners for surviving old scenario refs
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-06-07 11:25'
+updated_date: '2026-06-07 11:48'
 labels:
   - install-recovery
   - rename
