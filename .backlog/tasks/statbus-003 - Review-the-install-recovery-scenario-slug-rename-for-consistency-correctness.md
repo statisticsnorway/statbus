@@ -4,7 +4,7 @@ title: Review the install-recovery scenario-slug rename for consistency + correc
 status: In Progress
 assignee: []
 created_date: '2026-06-07 11:25'
-updated_date: '2026-06-07 11:41'
+updated_date: '2026-06-07 11:46'
 labels:
   - install-recovery
   - rename
@@ -32,3 +32,15 @@ Recovered from harness task #42.
 - [ ] #2 5 representative slugs each resolve across filename, runner, README, diagram, and in-file header
 - [ ] #3 Verdict reported: APPROVE, or a defect list with file:line
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Review verdict (2026-06-07): NOT clean — defects found.
+
+(1) FUNCTIONAL BUG (fixed this session): dev.sh referenced scenarios/01-happy-install.sh (renamed to 0-happy-install.sh) — `./dev.sh test-install` was broken. Also stale 'scenario 01' text at dev.sh:1989, 2006, 2019. dev.sh was a MISSED CORNER: untouched by the rename sweep, and outside STATBUS-004's test/install-recovery/ scope. Fix lives in the working tree, to commit with the held sweep.
+
+(2) DOC REFS (scope decision pending): doc/release-workflow-gates.md:43-44 say 'scenario 01' (active operational doc). doc/recovery/*.md carry many 'scenario NN' numeric refs (18/19/21/22/26/27…) in historical design/forensic narratives. Decide: update active docs to slugs vs keep historical record as-is.
+
+AC#2: 5 representative slugs resolve across file + README + diagram. run.sh names only special-cased scenarios and auto-discovers the rest — not a defect.
+<!-- SECTION:NOTES:END -->
