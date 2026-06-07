@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - operator
 created_date: '2026-06-07 15:41'
-updated_date: '2026-06-07 16:00'
+updated_date: '2026-06-07 16:25'
 labels:
   - install-recovery
   - validation
@@ -42,4 +42,8 @@ TALLY (--ref master @ 4e07dc4d):
 watchdog-reconnect (run 27097092218): FAILED — HARNESS BUG, not a real recovery failure. The scenario's systemd drop-in install used a here-document that collapsed newlines (log: `EOF[Service]Environment=...Environment=...EOF` on one line), so systemd couldn't parse the override and the unit stayed inactive — the scenario can't even stage its test (product code never exercised). Mechanic dispatched to fix the heredoc + assess scope (shared drop-in helper?). DRIVE-THROUGH PAUSED until the harness fix is committed + pushed; subsequent runs will be on the fixed SHA.
 
 Harness fix pushed: 4e07dc4d5..2bc671ecf. Root cause was VM_EXEC's printf '%q' ANSI-C quoting collapsing the heredoc-over-bash-c; fixed to mktemp + local heredoc + scp + remote bash (the pattern the archivebackup scenarios already use). Fixed watchdog-reconnect AND the same LATENT bug in 1-boot-startup-timeout. Scope: 2 scenarios, NOT a shared helper. Pending: Images must build the seed image for 2bc671ecf, then re-run watchdog-reconnect, then continue (migrate-killed-after-commit, archivebackup-resume) on this SHA.
+
+watchdog-reconnect re-run (run 27097723557 @ 2bc671ecf): harness heredoc fix WORKED ✓ (C15 drop-in installed cleanly, 'unit active with C15 env vars'). But FAILED on a NEW, deeper issue: the supervised upgrade unit did NOT transition the scheduled row to in_progress within 180s — row stayed 'scheduled', upgrade never started, so the C15 reconnect injection was never reached. Service was up + healthy (discovered 176 tags, verified images) but didn't pick up the scheduled upgrade. Either a REAL upgrade-service polling/NOTIFY bug or a scenario/supervised-path issue — engineer dispatched to diagnose (read-only). NOT a regression from our changes (none touched polling). Continuing drive-through with migrate-killed-after-commit (inline ./sb install path, independent of the supervised path) in parallel.
+
+TALLY update: 0-happy-install PASS; watchdog-reconnect = harness-fix-confirmed but blocked on upgrade-pickup (under diagnosis); migrate-killed-after-commit dispatched.
 <!-- SECTION:NOTES:END -->
