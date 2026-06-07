@@ -5,9 +5,9 @@ title: >-
   invariants; fix watchdog-reconnect note)
 status: In Progress
 assignee:
-  - engineer
+  - architect
 created_date: '2026-06-07 11:24'
-updated_date: '2026-06-07 14:20'
+updated_date: '2026-06-07 14:29'
 labels:
   - install-recovery
   - diagrams
@@ -48,4 +48,6 @@ So this is NOT coverage-addition — it's note CLARITY + CORRECTNESS. Keep scena
 Premise corrected (2026-06-07): the 4 are NOT undrawn. In upgrade-timeline.plantuml they appear GROUPED into shared TEST notes with siblings (~lines 139/144/146); they are correctly absent from install-recovery.plantuml (upgrade-sequence events, not install-state events). Real question per scenario: DISTINCT interaction point (deserves its own note) vs REDUNDANT (merges into a drawn sibling → retire/merge the test). Architect investigating; will report findings + a recommended re-scope of this task.
 
 Architect verdict (2026-06-07, tmp/architect-001-diagram-truth.md): all 4 DISTINCT, none retire. Found a diagram-truth BUG in the watchdog-reconnect note (states a failure the landed code doesn't have). Re-scoped from 'add undrawn/retire' to 'refine grouped notes'. Engineer to apply the proposed note text (working tree, no commit); architect to review; King sees the diff before commit.
+
+Execution churn (2026-06-07): engineer applied + code-verified the notes well, but a crossed foreman stand-down reverted them (tree clean again). Re-dispatched to ARCHITECT to apply its own findings directly (per King's no-relay principle), folding in the engineer's 2 verified sharpenings. No commit; King reviews diff before commit.
 <!-- SECTION:NOTES:END -->
