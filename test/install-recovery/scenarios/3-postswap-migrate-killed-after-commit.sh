@@ -96,6 +96,22 @@ assert_health_passes "$VM_NAME"
 echo "── fetching HEAD into VM ──"
 VM_EXEC bash -c "cd ~/statbus && git fetch origin $HEAD_SHA"
 
+# Check out HEAD on the VM worktree so it is COHERENT with the pre-staged HEAD
+# binary below. ./sb runs a freshness guard (cli/internal/freshness): it compares
+# its built-from commit against the worktree HEAD, and a run-SHA ./sb on the
+# v2026.05.2 worktree trips "./sb is stale" -> self-heal `make -C cli build` ->
+# `go: not found` (no Go toolchain on the VM) -> exit 2, BEFORE install-state
+# detection even runs (observed run 27108164190). The initial install set the DB
+# to the v2026.05.2 schema and left the worktree at v2026.05.2; advancing only the
+# source tree to HEAD is where the upgrade is headed anyway. This MUST run before
+# upload_sb_to_vm so no ./sb invocation (e.g. the baseline psql below, or the
+# Stage-1 trigger install) ever sees a run-SHA binary on the v2026.05.2 tree.
+# Mirrors the sibling scenarios 3-postswap-mid-migration-kill (git checkout
+# $HEAD_LOCAL) and 3-postswap-watchdog-reconnect — both checkout HEAD alongside
+# their pre-stage; this scenario's earlier pre-stage omitted the checkout.
+echo "── checking out HEAD on the VM (coherence with the pre-staged binary) ──"
+VM_EXEC bash -c "cd ~/statbus && git checkout $HEAD_SHA"
+
 # Pre-stage HEAD's sb binary into ~/statbus/sb so the trigger install runs HEAD's
 # installer and the upgrade's preSwap procurement SKIPS buildBinaryOnDisk's
 # ~3-5 min `make -C cli build` (the binary is already at the target commit — see
