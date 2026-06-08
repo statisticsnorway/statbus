@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-08 01:53'
+updated_date: '2026-06-08 02:45'
 labels:
   - install-recovery
   - upgrade
@@ -50,5 +51,11 @@ NOT an autonomous overnight fix — it reverses scenario design / touches recove
 - [ ] #1 King/architect decides A vs B vs C (path-alignment vs inline-coverage vs env-fix)
 - [ ] #2 If B/C chosen: determine whether the inline syscall.Exec env-loss affects any PRODUCTION env vars (real product bug) vs test-only
 - [ ] #3 migrate-killed-after-commit driven to GREEN on the chosen approach
-- [ ] #4 mid-migration-kill cross-check result folded in (shared gap vs localized)
+- [x] #4 mid-migration-kill cross-check result folded in (shared gap vs localized)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+CROSS-CHECK RESULT: 3-postswap-mid-migration-kill PASSED (runs 27111249171 + 27111797569). mid-migration-kill is ALSO inline (checkout HEAD + pre-stage) and its KILL inject (migrate.go:387, before a migration) FIRED in the inline boot-migrate — so the inline inject-env DOES reach the boot-migrate. Therefore the env-propagation is NOT universally broken; migrate-killed-after-commit's STALL-not-firing is LOCALIZED. This sharpens the candidates: the issue is specific to the STALL inject (which needs STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE — the release-file var may not propagate while STATBUS_INJECT_AT does), OR the boot-migrate flies through all migrations because the STALL (after-commit, migrate.go:829) release-file isn't present/effective there. Net for the A/B/C decision: option B (env-propagation) narrows to the STALL release-file var specifically; the boot-migrate-consumes-delta structural point still stands. (Engineer can pin the exact release-file-propagation detail when the King picks a direction.)
+<!-- SECTION:NOTES:END -->
