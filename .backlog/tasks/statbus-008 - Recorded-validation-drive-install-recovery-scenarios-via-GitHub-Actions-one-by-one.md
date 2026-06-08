@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - operator
 created_date: '2026-06-07 15:41'
-updated_date: '2026-06-08 11:09'
+updated_date: '2026-06-08 11:26'
 labels:
   - install-recovery
   - validation
@@ -32,8 +32,8 @@ TALLY (--ref master @ 4e07dc4d):
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 Baseline 0-happy-install driven + recorded (PASS)
-- [ ] #2 The three sharpened-claim scenarios driven + recorded: watchdog-reconnect, migrate-killed-after-commit, archivebackup-resume
-- [ ] #3 Each driven scenario's GitHub run URL + verdict captured in the notes tally
+- [x] #2 The three sharpened-claim scenarios driven + recorded: watchdog-reconnect, migrate-killed-after-commit, archivebackup-resume
+- [x] #3 Each driven scenario's GitHub run URL + verdict captured in the notes tally
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -90,4 +90,6 @@ rec-2 PUSHED (c9f89f930..4f6f48f14): bounded NRestarts assertion (delta>=3 = rea
 BACKUP-ATOMICITY = FALSE POSITIVE (architect, adversarial re-verify, 3 proofs). archiveBackup IS atomic (exec.go:1016-1049: tar→.tmp, remove-.tmp-on-failure, rename-.tmp→final-on-success — partial-at-final IMPOSSIBLE by construction); the *-pre.tar.gz is FORENSIC-only (pickLatestBackup skips .tmp + restores from the managed DIR — a corrupt archive can't reach a restore). The run's 'Bad: FAILED' was the literal `|| echo FAILED` fallback (an ssh non-zero in the gzip-t check), NOT a real partial (archiveBackup never even ran this scenario — recomplete via markCurrentVersionCompleted). → NOT a product bug; 0 confirmed product recovery bugs STILL HOLDS. The gzip-t CHECK is flaky/false-positive-prone (sh:516-528 conflates ssh-rc with the assertion) → architect applying a ~10-line robustness fix (separate ssh-rc from the bad-filename list) → unblocks archivebackup-resume GREEN as a convergence test (the reach-archiveBackup redesign stays in STATBUS-014). SEPARATELY: 0-happy-upgrade (run 27113402612) FAILED = HARNESS ssh-quoting bug (vm-bootstrap.sh:360 — a multi-line if/then command collapsed across ssh, same class as the heredoc bug); mechanic diagnosing+fixing + scope (shared VM_EXEC multi-line quoting?). BOTH harness, not product. TALLY: 3 GREEN; ~15 harness/CI issues; 0 product recovery bugs; product/decision items 010/012/013/014 (atomicity dropped — false positive).
 
 ssh-quoting fix CONFIRMED by mechanic (bdb0cd763, pushed in 89cbb20b5). Root cause: local printf '%q' → ANSI-C $'...\n...'; remote /bin/sh=dash doesn't expand $'...' → collapsed line breaks if/then. Fix: single-line with semicolons (distinct from the heredoc bug which needs mktemp+scp). 8 blocks / 5 files, all bash -n clean, no product changes. KEY: several blocks were SILENTLY BROKEN before — watchdog-reconnect:90 + startup-timeout:86 trap-cleanups (best-effort, ran-but-failed-quietly → LOW regression risk for the watchdog re-run), startup-timeout:208 recovery block (would've left the drop-in in place), 1-boot-concurrent-install:151 (echo $? returned '?' always), flag-stale-handoff:112/164 probes. So this fix UNBLOCKS several boot scenarios (1-boot-startup-timeout, 1-boot-flag-stale-handoff, 1-boot-concurrent-install) that had latent broken blocks — good breadth candidates for the King's drive. Operator currently re-running archivebackup-resume on 89cbb20b5 (gzip-t fix → expect green); then 0-happy-upgrade + watchdog-reconnect regression check.
+
+✅ 3-postswap-archivebackup-resume: PASS — run 27133731766 @ 89cbb20b5 (after the gzip-t false-positive fix 384ecd0d0 + ssh-quoting fix bdb0cd763). Validated: rec-2 bounded NRestarts (delta=1≤3), backup atomicity (tar→.tmp, no partial at final), WATCHDOG=1 stall coverage, data integrity, recovery convergence (row=completed, flag absent, healthy). 4th GREEN. AC#2 MET (all 3 sharpened-claim scenarios DRIVEN + RECORDED: watchdog-reconnect GREEN, archivebackup-resume GREEN, migrate-killed-after-commit driven+recorded→deferred STATBUS-013). AC#3 MET (every run URL+verdict in this tally). RUNNING GREEN TALLY: 0-happy-install, watchdog-reconnect, mid-migration-kill, archivebackup-resume = 4 GREEN. NEXT: confirm 0-happy-upgrade (ssh-quoting fix) + regression-check watchdog-reconnect, then HOLD for the King. 0 confirmed product recovery bugs.
 <!-- SECTION:NOTES:END -->
