@@ -65,7 +65,18 @@ populate_with_demo_data() {
     local poll_s=5
     local non_terminal
     while [ "$elapsed" -lt "$max_wait_s" ]; do
-        non_terminal=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT count(*) FROM public.import_job WHERE state NOT IN ('finished','failed');\" | ./sb psql -t -A" 2>/dev/null | tr -d ' ' || echo "?")
+        # Separate transport RC (gzip-t pattern).  `|| echo "?"` fed "?" on SSH
+        # blips; "?" != "0" so the loop never broke and the post-loop check
+        # reported a false "timeout".  Capture the pipeline RC instead; skip
+        # this iteration on transport failure rather than treating it as data.
+        local _poll_rc=0
+        non_terminal=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT count(*) FROM public.import_job WHERE state NOT IN ('finished','failed');\" | ./sb psql -t -A" 2>/dev/null | tr -d ' ') || _poll_rc=$?
+        if [ "$_poll_rc" -ne 0 ]; then
+            echo "  ⚠ import_job poll SSH failed (VM_EXEC rc=$_poll_rc) — skipping iteration" >&2
+            sleep "$poll_s"
+            elapsed=$((elapsed + poll_s))
+            continue
+        fi
         if [ "$non_terminal" = "0" ]; then
             break
         fi
@@ -88,9 +99,16 @@ populate_with_demo_data() {
     # Surface any 'failed' import_jobs as a real error — the demo dataset
     # is supposed to be a known-good corpus, so 'failed' means something
     # broke and we shouldn't pretend the scenario has clean baseline data.
+    # Separate transport RC (gzip-t pattern).  `|| echo "?"` fed failed="?" on
+    # SSH blips, causing `[ "?" != "0" ]` to fire a false "? import_job row(s)
+    # failed" defect claim.  Use elif so the defect assertion only fires when
+    # the SSH transport succeeded AND the data shows a real failure.
+    local _failed_rc=0
     local failed
-    failed=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT count(*) FROM public.import_job WHERE state = 'failed';\" | ./sb psql -t -A" 2>/dev/null | tr -d ' ' || echo "?")
-    if [ "$failed" != "0" ]; then
+    failed=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT count(*) FROM public.import_job WHERE state = 'failed';\" | ./sb psql -t -A" 2>/dev/null | tr -d ' ') || _failed_rc=$?
+    if [ "$_failed_rc" -ne 0 ]; then
+        echo "  ⚠ could not query failed import_job count (VM_EXEC rc=$_failed_rc) — INFRA error; skipping failed-row check" >&2
+    elif [ "$failed" != "0" ]; then
         echo "  ✗ $failed import_job row(s) ended in 'failed' state" >&2
         VM_EXEC bash -c "cd ~/statbus && echo \"SELECT slug, state, error FROM public.import_job WHERE state = 'failed';\" | ./sb psql" >&2 || true
         return 1
