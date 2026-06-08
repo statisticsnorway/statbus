@@ -161,6 +161,16 @@ sleep 10
 # assertions below interpret the install's exit code.
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
+echo "── fabricating scheduled public.upgrade row for HEAD ──"
+# Seed a scheduled upgrade row so ./sb install routes through
+# executeUpgradeInline -> applyPostSwap (where the DDL migration contends
+# with the worker's AccessShareLock), rather than detecting nothing-scheduled
+# and running the no-op step-table path.  This scenario is still KNOWN RED
+# until the R1 architectural fix (service quiescence before DDL) lands.
+# Uses HEAD_SHA (the variable this file defines at line ~103).
+fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_SHA"
+
+echo ""
 echo "── triggering install at HEAD with worker still holding locks ──"
 
 # Suppress set -e around the install: the install MAY exit non-zero
