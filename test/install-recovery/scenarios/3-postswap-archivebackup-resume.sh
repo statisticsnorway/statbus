@@ -154,6 +154,28 @@ trap '
     exit $rc
 ' EXIT
 
+# Diagnostic dump (rec 1, architect 2026-06-08): on any UNEXPECTED NRestarts
+# increment the active-phase unit was killed+restarted by systemd — capture WHY.
+# run 27107825797 saw a silent 0→1 with NO kill reason logged (the failure path
+# dumped nothing, the VM is ephemeral, the t+30 sample was skipped). The decisive
+# field is the journal kill record (Watchdog timeout vs "start operation timed
+# out" vs OOM vs SIGABRT) + Result/ExecMainStatus. Dumps to stdout so it lands in
+# the CI stage-log. Read-only.
+dump_unit_diagnostics() {
+    local _ctx="${1:-diagnostics}"
+    echo ""
+    echo "──────── UNIT DIAGNOSTICS (${_ctx}) ────────"
+    echo "  [systemctl --user show — kill-reason fields]"
+    VM_EXEC systemctl --user show "$UNIT" \
+        --property=NRestarts,Result,ActiveState,SubState,ExecMainStatus,ExecMainCode,StatusErrno,ActiveEnterTimestamp,InactiveEnterTimestamp 2>/dev/null || true
+    echo "  [systemctl --user status]"
+    VM_EXEC systemctl --user status "$UNIT" --no-pager -n 40 2>/dev/null || true
+    echo "  [journalctl --user -u $UNIT — last 200 lines: kill records + service stdout]"
+    VM_EXEC journalctl --user -u "$UNIT" --no-pager -n 200 2>/dev/null || true
+    echo "──────── END UNIT DIAGNOSTICS (${_ctx}) ────────"
+    echo ""
+}
+
 echo "════════════════════════════════════════════════════════════════"
 echo "  Scenario: 3-postswap-archivebackup-resume"
 echo "  (exit-42 RESUME runs active-phase; WATCHDOG=1 ticker keeps unit alive across archiveBackup)"
@@ -318,9 +340,11 @@ while true; do
     NR=$(VM_EXEC systemctl --user show "$UNIT" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
     SUB=$(VM_EXEC systemctl --user show "$UNIT" --property=SubState --value 2>/dev/null | tr -d ' \r\n' || echo "?")
     ROW_DURING=$(VM_EXEC bash -c "cd ~/statbus && echo 'SELECT state FROM public.upgrade ORDER BY id DESC LIMIT 1;' | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?")
-    if [ $((elapsed % 30)) -eq 0 ]; then
-        echo "    [t+${elapsed}s] NRestarts=$NR substate=$SUB row=$ROW_DURING (baseline NRestarts=$NRESTARTS_BASELINE)"
-    fi
+    # Echo EVERY 5 s sample (rec 1, architect): the prior `elapsed % 30 == 0`
+    # gate silently SKIPPED when elapsed jumped 0→6→…→43 (ssh latency + sleep 5
+    # never landing on an exact multiple of 30), so run 27107825797 logged ONLY
+    # t+0 — no substate/NRestarts progression to localize the 0→1 transition.
+    echo "    [t+${elapsed}s] NRestarts=$NR substate=$SUB row=$ROW_DURING (baseline NRestarts=$NRESTARTS_BASELINE)"
     # FIX A signature: row completes while the tar is still stalled.
     if [ "$ROW_DURING" = "completed" ]; then
         ROW_COMPLETED_DURING_HOLD=1
@@ -335,6 +359,14 @@ NRESTARTS_DURING=$(VM_EXEC systemctl --user show "$UNIT" --property=NRestarts --
 RESTART_DELTA_DURING=$((NRESTARTS_DURING - NRESTARTS_BASELINE))
 echo ""
 echo "  during-hold: NRestarts=$NRESTARTS_DURING (delta=$RESTART_DELTA_DURING) row=$ROW_DURING completed_during_hold=$ROW_COMPLETED_DURING_HOLD"
+
+# rec 1 (architect): if the unit restarted during the hold, dump the kill reason
+# IMMEDIATELY (freshest capture, ~t+45 s) — this is the active-phase kill whose
+# cause run 27107825797 never recorded. Diagnostic only; does NOT change control
+# flow (the strict 0-kills assertion is still evaluated at the final check below).
+if [ "$RESTART_DELTA_DURING" -gt 0 ]; then
+    dump_unit_diagnostics "during-hold NRestarts delta=$RESTART_DELTA_DURING (active-phase kill — pin the cause)"
+fi
 
 # ─────────────────────────────────────────────────────────────────────────
 # RED-mode assertion (EXPECT_RED=1 — running against a PRE-fix binary).
@@ -488,6 +520,12 @@ if [ "$FINAL_DELTA" -gt 0 ]; then
     echo "  pinging WATCHDOG=1 every 30 s before the stalled tar. A kill means plan" >&2
     echo "  piece #2 (READY=1 before recoverFromFlag) or the ticker coverage is not" >&2
     echo "  in effect." >&2
+    # rec 1 (architect): backstop diagnostic — dump the journal kill record so CI
+    # pins the cause (watchdog / "start operation timed out" / OOM / SIGABRT).
+    # journalctl --user retains the whole boot, so even a kill that fired earlier
+    # (during the hold or convergence) is captured here. This is the diagnostic
+    # gap that left run 27107825797's single kill unclassifiable.
+    dump_unit_diagnostics "final NRestarts grew by $FINAL_DELTA"
     exit 1
 fi
 
