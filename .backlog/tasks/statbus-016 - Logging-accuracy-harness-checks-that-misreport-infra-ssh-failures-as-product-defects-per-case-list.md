@@ -7,6 +7,7 @@ status: In Progress
 assignee:
   - operator
 created_date: '2026-06-08 16:15'
+updated_date: '2026-06-08 17:24'
 labels:
   - install-recovery
   - ci
@@ -40,3 +41,9 @@ OPERATOR SCANNING test/install-recovery/ for more over-claim instances (`||echo`
 - [ ] #2 Each MISREADABLE case fixed at its specific line (separate infra-failure from defect-finding; defect-claim only on real evidence)
 - [ ] #3 Accurate-but-under-context outcomes (latch rollback, rolled-back-then-recomplete) get a by-design annotation so they don't read as failures
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+MECHANIC PRE-FIXED 5 over-claim sites (uncoordinated, PARKED, NOT pushed — in git so they survive a context clear): commit d7c877348 (lib/assertions.sh — assert_systemd_active, assert_db_migration_recorded, assert_db_migration_max_version_unchanged) + 1fd7fffd6 (lib/data-helpers.sh — import_job poll loop, failed-import-job count). Each separates the ssh-rc from the finding (`|| _rc=$?` + INFRA-skip), claims a defect only on real evidence; mirrors the gzip-t fix (384ecd0d0). Mechanic's sanity-grep says remaining `||echo` are benign (health-check 000 sentinel; orphan-count already fixed; diagnostic prints). PENDING: operator's INDEPENDENT scan (in flight → tmp/operator-logging-pattern-scan.md) to confirm completeness (all misreadable sites found + none missed), THEN push + credit. Operator was re-seeded for this scan.
+<!-- SECTION:NOTES:END -->
