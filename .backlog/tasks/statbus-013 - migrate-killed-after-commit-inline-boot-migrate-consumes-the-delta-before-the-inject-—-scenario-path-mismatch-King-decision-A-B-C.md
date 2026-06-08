@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-08 01:53'
-updated_date: '2026-06-08 02:45'
+updated_date: '2026-06-08 17:23'
 labels:
   - install-recovery
   - upgrade
@@ -48,7 +48,7 @@ NOT an autonomous overnight fix — it reverses scenario design / touches recove
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 King/architect decides A vs B vs C (path-alignment vs inline-coverage vs env-fix)
+- [x] #1 King/architect decides A vs B vs C (path-alignment vs inline-coverage vs env-fix)
 - [ ] #2 If B/C chosen: determine whether the inline syscall.Exec env-loss affects any PRODUCTION env vars (real product bug) vs test-only
 - [ ] #3 migrate-killed-after-commit driven to GREEN on the chosen approach
 - [x] #4 mid-migration-kill cross-check result folded in (shared gap vs localized)
@@ -58,4 +58,32 @@ NOT an autonomous overnight fix — it reverses scenario design / touches recove
 
 <!-- SECTION:NOTES:BEGIN -->
 CROSS-CHECK RESULT: 3-postswap-mid-migration-kill PASSED (runs 27111249171 + 27111797569). mid-migration-kill is ALSO inline (checkout HEAD + pre-stage) and its KILL inject (migrate.go:387, before a migration) FIRED in the inline boot-migrate — so the inline inject-env DOES reach the boot-migrate. Therefore the env-propagation is NOT universally broken; migrate-killed-after-commit's STALL-not-firing is LOCALIZED. This sharpens the candidates: the issue is specific to the STALL inject (which needs STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE — the release-file var may not propagate while STATBUS_INJECT_AT does), OR the boot-migrate flies through all migrations because the STALL (after-commit, migrate.go:829) release-file isn't present/effective there. Net for the A/B/C decision: option B (env-propagation) narrows to the STALL release-file var specifically; the boot-migrate-consumes-delta structural point still stands. (Engineer can pin the exact release-file-propagation detail when the King picks a direction.)
+
+=== THE FAILURE MODE = THE SPEC (how it SHOULD work) — confirmed verbatim with the King 2026-06-08 ===
+
+WHAT PHYSICALLY FAILS (the 'rune wedge', physically hit on the rune/Norway box):
+1. A migration runs and COMMITS its change to the DB — e.g. it creates a table; that table now exists and is permanent.
+2. The migrator's very next step is to write a bookkeeping row into db.migration recording 'this migration is done.'
+3. The crash is injected IN THE GAP between (1) and (2): the schema change is live, but the db.migration row was NEVER written (the process is gone before it gets there — it doesn't 'fail', it never happens). Inject point: migrate-subprocess-killed-after-commit-before-recorded.
+
+WHAT THE PRODUCT SHOULD DO ON RESTART (the correct recovery):
+4. It detects the upgrade was interrupted and resumes.
+5. It re-runs migrations and checks db.migration for what's left. The killed migration ISN'T recorded → looks un-applied → it tries to run it again.
+6. The re-run hits the already-existing object → Postgres 'relation already exists' → the migration can't apply.
+7. The product has NO safe way to reconcile a half-applied-but-unrecorded migration, so it RESTORES the DB from the pre-upgrade backup and marks the upgrade rolled_back.
+8. End state: cleanly back on the OLD version, consistent, operator can simply retry.
+
+THE SPEC IN ONE LINE: the crash leaves schema and bookkeeping out of sync; the CORRECT product response is 'don't try to be clever about a half-applied state — restore to the known-good snapshot' → rolled_back.
+
+=== DECISION (North Star evaluation, King 2026-06-08): OPTION A — SERVICE DISPATCH (AC#1 done) ===
+North Star = a working UNATTENDED install; the diagram shows what can fail; we TEST the things that can PHYSICALLY fail.
+- The wedge is at the MIGRATE STEP and is DISPATCH-AGNOSTIC (same step whether the systemd service or ./sb install started the upgrade).
+- A (service dispatch): tests the wedge on the REAL production upgrade path (systemd service → applyPostSwap → migrate → kill-in-window → resume → wedge → restore), exactly where the diagram marks it, no test scaffolding bent. = THE NORTH STAR. CHOSEN.
+- B (fix inline env-propagation): REJECTED — fixes TEST PLUMBING (STATBUS_INJECT_AT surviving syscall.Exec; production has no inject env) to reach a second-order context (the inline recovery-install's boot-migrate). Tests the rig, not a physical failure.
+- C (boot-migrate target + env + DB-fragility): REJECTED — B + more scaffolding.
+- 'A drops inline coverage' objection does NOT hold: the inline boot-migrate is the SAME failure mode on a messier path; mid-migration-kill (GREEN) already exercises the inline migrate-kill; the inline path's distinct risk (the binary-swap handoff) is its own scenario. No distinct physical failure lost.
+- SEPARATE latent question (own task, NOT this): does the inline syscall.Exec lose any PRODUCTION env vars (not the test one)? If yes = a real product bug — quick check.
+
+=== NEXT STEP (King 2026-06-08): VERIFY THE DIAGRAM matches this spec ===
+The spec above is HOW IT SHOULD BE. Next we must verify the DIAGRAM actually shows it: check doc/diagrams/upgrade-timeline.plantuml + the TEST note for migrate-killed-after-commit — does it show migrate step → kill in the commit↔record window → re-run → 'relation already exists' → restore-from-backup → rolled_back, on the SERVICE-dispatch path (Option A)? Fix the diagram if wrong/missing. This closes the loop: the diagram shows what can fail → we test what physically fails. THEN implement A (rewrite migrate-killed-after-commit to service dispatch like watchdog-reconnect).
 <!-- SECTION:NOTES:END -->
