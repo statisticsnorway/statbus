@@ -201,6 +201,15 @@ SCRIPT
 upload_install_script_to_vm "$VM_NAME" "$INSTALL_SCRIPT" /tmp/install-c12.sh
 upload_sb_to_vm "$VM_NAME"
 
+# Seed a scheduled upgrade row so ./sb install detects StateScheduledUpgrade
+# and routes to executeUpgradeInline → applyPostSwap (where the C12 stall site
+# fires inside migrate.runPsqlFile), rather than detecting nothing-scheduled
+# and running the no-op step-table path.  Same pattern as container-restart-kill
+# and migrate-killed-after-commit.  INLINE dispatch — no NOTIFY wake needed.
+echo ""
+echo "── fabricating scheduled public.upgrade row for HEAD ──"
+fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_LOCAL"
+
 ssh "${SSH_OPTS[@]}" statbus@"$ip" "
     rm -f /tmp/install-c12.exit /tmp/install-c12.log
     tmux new-session -d -s install-c12 'bash -lc \"( bash /tmp/install-c12.sh ) > /tmp/install-c12.log 2>&1; echo \\\$? > /tmp/install-c12.exit\"'
