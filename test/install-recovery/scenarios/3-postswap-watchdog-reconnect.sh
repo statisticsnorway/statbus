@@ -87,12 +87,7 @@ trap '
     # systemd drop-in or release file in place on the VM (matters if
     # KEEP_VM=1 is set for debugging — cleanup_vm destroys the VM
     # otherwise).
-    VM_EXEC bash -c "
-        rm -f $RELEASE_FILE 2>/dev/null || true
-        rm -f $DROPIN_FILE 2>/dev/null || true
-        systemctl --user daemon-reload 2>/dev/null || true
-        systemctl --user restart statbus-upgrade@statbus.service 2>/dev/null || true
-    " 2>/dev/null || true
+    VM_EXEC bash -c "rm -f $RELEASE_FILE 2>/dev/null || true; rm -f $DROPIN_FILE 2>/dev/null || true; systemctl --user daemon-reload 2>/dev/null || true; systemctl --user restart statbus-upgrade@statbus.service 2>/dev/null || true" 2>/dev/null || true
     cleanup_vm "$VM_NAME"
     exit $rc
 ' EXIT

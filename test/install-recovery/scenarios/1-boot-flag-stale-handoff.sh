@@ -109,15 +109,7 @@ install_statbus_in_vm "$VM_NAME" "$INSTALL_VERSION"
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── snapshotting flag state immediately after install ──"
-POST_INSTALL_PROBE=$(VM_EXEC bash -c "
-    cd ~/statbus
-    if [ -f tmp/upgrade-in-progress.json ]; then
-        echo 'FLAG_PRESENT'
-        cat tmp/upgrade-in-progress.json
-    else
-        echo 'FLAG_ABSENT'
-    fi
-")
+POST_INSTALL_PROBE=$(VM_EXEC bash -c "cd ~/statbus && if [ -f tmp/upgrade-in-progress.json ]; then echo FLAG_PRESENT; cat tmp/upgrade-in-progress.json; else echo FLAG_ABSENT; fi")
 echo "$POST_INSTALL_PROBE"
 
 if echo "$POST_INSTALL_PROBE" | grep -q "FLAG_ABSENT"; then
@@ -161,14 +153,7 @@ echo ""
 echo "── waiting ${SERVICE_TICK_WAIT_S}s for upgrade-service tick to run stale-flag clear path ──"
 sleep "$SERVICE_TICK_WAIT_S"
 
-POST_TICK_FLAG=$(VM_EXEC bash -c "
-    cd ~/statbus
-    if [ -f tmp/upgrade-in-progress.json ]; then
-        echo 'STILL_PRESENT'
-    else
-        echo 'CLEARED'
-    fi
-")
+POST_TICK_FLAG=$(VM_EXEC bash -c "cd ~/statbus && if [ -f tmp/upgrade-in-progress.json ]; then echo STILL_PRESENT; else echo CLEARED; fi")
 echo "  post-tick flag state: $POST_TICK_FLAG"
 
 # ─────────────────────────────────────────────────────────────────────────

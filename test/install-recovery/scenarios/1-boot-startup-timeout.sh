@@ -83,13 +83,7 @@ trap '
     # Best-effort cleanup so a failed scenario does not leave a wedged
     # systemd state on the VM (cleanup_vm destroys the VM anyway, but
     # belt + braces in case KEEP_VM=1 is set for debugging).
-    VM_EXEC bash -c "
-        systemctl --user stop statbus-upgrade@statbus.service 2>/dev/null || true
-        rm -f $DROPIN_FILE 2>/dev/null || true
-        systemctl --user daemon-reload 2>/dev/null || true
-        rm -f $RELEASE_FILE 2>/dev/null || true
-        systemctl --user start statbus-upgrade@statbus.service 2>/dev/null || true
-    " 2>/dev/null || true
+    VM_EXEC bash -c "systemctl --user stop statbus-upgrade@statbus.service 2>/dev/null || true; rm -f $DROPIN_FILE 2>/dev/null || true; systemctl --user daemon-reload 2>/dev/null || true; rm -f $RELEASE_FILE 2>/dev/null || true; systemctl --user start statbus-upgrade@statbus.service 2>/dev/null || true" 2>/dev/null || true
     cleanup_vm "$VM_NAME"
     exit $rc
 ' EXIT
@@ -205,12 +199,7 @@ echo "  ✓ NRestarts incremented by $RESTART_DELTA — TimeoutStartSec fired as
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── recovery: removing C11 drop-in + release file ──"
-VM_EXEC bash -c "
-    systemctl --user stop statbus-upgrade@statbus.service 2>/dev/null || true
-    rm -f $DROPIN_FILE
-    systemctl --user daemon-reload
-    rm -f $RELEASE_FILE
-"
+VM_EXEC bash -c "systemctl --user stop statbus-upgrade@statbus.service 2>/dev/null || true; rm -f $DROPIN_FILE; systemctl --user daemon-reload; rm -f $RELEASE_FILE"
 
 echo "── restarting upgrade-service without injection ──"
 VM_EXEC bash -c "systemctl --user start statbus-upgrade@statbus.service"

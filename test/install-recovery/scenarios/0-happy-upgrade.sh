@@ -113,13 +113,11 @@ HEAD_LOCAL=$(git -C "$HARNESS_ROOT" rev-parse HEAD)
 ip=$(hcloud server ip "$VM_NAME")
 upload_sb_to_vm "$VM_NAME"
 
-VM_EXEC bash -c "
-    cd ~/statbus
-    if ! git cat-file -e $HEAD_LOCAL 2>/dev/null; then
-        git fetch --depth 1 origin $HEAD_LOCAL || { echo 'FATAL' >&2; exit 1; }
-    fi
-    git checkout $HEAD_LOCAL
-"
+# Single-line: printf '%q' converts multi-line strings to ANSI-C $'...\n...' quoting,
+# but the remote /bin/sh (dash on Ubuntu) does not expand $'...' — newlines collapse,
+# breaking if/then/fi syntax.  Semicolons replace newlines; if COND; then CMD; fi
+# is valid single-line bash.
+VM_EXEC bash -c "cd ~/statbus && if ! git cat-file -e $HEAD_LOCAL 2>/dev/null; then git fetch --depth 1 origin $HEAD_LOCAL || { echo 'FATAL: cannot fetch HEAD' >&2; exit 1; }; fi && git checkout $HEAD_LOCAL"
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 4 — fabricate a scheduled public.upgrade row for HEAD
@@ -152,19 +150,11 @@ fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_LOCAL"
 echo ""
 echo "── waking the unit via NOTIFY (./sb upgrade apply) ──"
 SHORT_SHA=$(echo "$HEAD_SHA" | cut -c1-8)
-VM_EXEC bash -c "
-    cd ~/statbus
-    ./sb upgrade apply $SHORT_SHA 2>&1 | tail -20 || {
-        # Apply may fail to UPDATE a matching row (e.g. if the apply
-        # command's WHERE clause doesn't match a short-sha vs full-sha
-        # mismatch — see cli/cmd/upgrade.go's commit_tags-array
-        # matching). The row is already in 'scheduled' from the
-        # fabrication step, so a failed apply is non-fatal — the
-        # unit's poll tick (default 60s) will pick the row up regardless.
-        echo 'WARN: ./sb upgrade apply did not update a row (expected when HEAD has no matching commit_tags). Falling back to poll-tick dispatch.' >&2
-        exit 0
-    }
-"
+# Apply may exit non-zero when HEAD has no matching commit_tags entry (non-fatal):
+# the row is already 'scheduled' from fabrication; the unit's poll tick picks it
+# up regardless.  Single-line avoids the dash SSH $'...\n...' quoting collapse;
+# || true makes the non-zero apply non-fatal.
+VM_EXEC bash -c "cd ~/statbus && ./sb upgrade apply $SHORT_SHA 2>&1 | tail -20 || true"
 
 # Wait for the row to transition to in_progress, then to a terminal state.
 echo ""

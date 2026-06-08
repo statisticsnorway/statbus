@@ -148,11 +148,7 @@ echo ""
 echo "── running SECOND install (no env vars) — expecting probe 2 refusal ──"
 
 SECOND_LOG="/tmp/install-c10-second.log"
-SECOND_EXIT=$(VM_EXEC bash -c "
-    cd ~/statbus
-    ./sb install --non-interactive --trust-github-user jhf > $SECOND_LOG 2>&1
-    echo \$?
-" 2>/dev/null | tr -d ' \r\n' || echo "?")
+SECOND_EXIT=$(VM_EXEC bash -c "cd ~/statbus && ./sb install --non-interactive --trust-github-user jhf > $SECOND_LOG 2>&1; echo \$?" 2>/dev/null | tr -d ' \r\n' || echo "?")
 
 echo "  second install exited: $SECOND_EXIT"
 SECOND_OUTPUT=$(VM_EXEC bash -c "cat $SECOND_LOG 2>/dev/null" || echo "")
