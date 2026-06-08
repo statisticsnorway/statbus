@@ -124,6 +124,12 @@ if ! git cat-file -e $HEAD_LOCAL 2>/dev/null; then
     git fetch --depth 1 origin $HEAD_LOCAL || { echo "FATAL" >&2; exit 1; }
 fi
 git checkout $HEAD_LOCAL
+# Re-place sb after git checkout — git checkout into an existing working dir
+# leaves ~/statbus/sb as the INSTALL_VERSION binary (gitignored; not touched
+# by checkout).  /tmp/sb is the host-built HEAD binary from upload_sb_to_vm.
+# Pattern D fix: matches 3-postswap-migration-timeout.
+cp /tmp/sb ./sb
+chmod +x ./sb
 cp /tmp/env-config .env.config
 cp /tmp/users.yml .users.yml
 STATBUS_INJECT_AT=killed-by-system-between-migrations \
@@ -132,6 +138,13 @@ STATBUS_MIN_DISK_GB=5 \
 SCRIPT
 upload_install_script_to_vm "$VM_NAME" "$INSTALL_SCRIPT" /tmp/install-c7.sh
 upload_sb_to_vm "$VM_NAME"
+
+# Seed a scheduled upgrade row so ./sb install detects StateScheduledUpgrade
+# and routes to executeUpgradeInline (where the C7 kill site fires), rather
+# than detecting nothing-scheduled and running the no-op step-table path.
+echo ""
+echo "── fabricating scheduled public.upgrade row for HEAD ──"
+fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_LOCAL"
 
 set +e
 timeout "${INSTALL_BUDGET_S}s" ssh "${SSH_OPTS[@]}" statbus@"$ip" "bash /tmp/install-c7.sh"
