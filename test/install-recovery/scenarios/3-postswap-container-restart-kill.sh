@@ -101,6 +101,14 @@ SCRIPT
 upload_install_script_to_vm "$VM_NAME" "$INSTALL_SCRIPT" /tmp/install-c8.sh
 upload_sb_to_vm "$VM_NAME"
 
+# Seed a scheduled upgrade row so ./sb install detects StateScheduledUpgrade
+# and routes to executeUpgradeInline (where the C8 kill site fires), rather
+# than detecting nothing-scheduled and running the no-op step-table path.
+# Same pattern as 3-postswap-migrate-killed-after-commit and 3-postswap-mid-migration-kill.
+echo ""
+echo "── fabricating scheduled public.upgrade row for HEAD ──"
+fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_LOCAL"
+
 # Run synchronously — the kill exits the install process so it returns
 # in finite time. We use a timeout as a safety net.
 set +e
