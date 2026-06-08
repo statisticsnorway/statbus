@@ -119,6 +119,26 @@ upload_sb_to_vm "$VM_NAME"
 # is valid single-line bash.
 VM_EXEC bash -c "cd ~/statbus && if ! git cat-file -e $HEAD_LOCAL 2>/dev/null; then git fetch --depth 1 origin $HEAD_LOCAL || { echo 'FATAL: cannot fetch HEAD' >&2; exit 1; }; fi && git checkout $HEAD_LOCAL"
 
+# Restart the upgrade-service unit so it re-execs the freshly pre-staged HEAD
+# binary. upload_sb_to_vm (above) atomically swaps ~/statbus/sb via mv-then-cp,
+# so the STILL-RUNNING service keeps its OLD INSTALL_VERSION inode until restarted.
+# That matters: the install-version binary PREDATES buildBinaryOnDisk's pre-staged-
+# binary skip (sbAlreadyAtCommit landed 2026-05-29; v2026.05.2 is 2026-05-21), so it
+# would unconditionally run `make -C cli build` — which fails on the VM (no Go
+# toolchain) → BINARY_BUILD_FAILED → rollback. Restarting puts the HEAD binary in
+# control, which skips the build (./sb already at target commit). Mirrors the
+# stop/start the supervised-unit scenarios already do (3-postswap-watchdog-reconnect).
+echo "── restarting upgrade-service unit onto the pre-staged HEAD binary ──"
+VM_EXEC systemctl --user restart statbus-upgrade@statbus.service
+sleep 5
+UNIT_STATE=$(VM_EXEC systemctl --user is-active "statbus-upgrade@statbus.service" 2>/dev/null | tr -d ' \r\n' || echo "?")
+if [ "$UNIT_STATE" != "active" ]; then
+    echo "✗ unit did not reach active after restart onto the HEAD binary (state=$UNIT_STATE)" >&2
+    VM_EXEC bash -c "systemctl --user status statbus-upgrade@statbus.service --no-pager" >&2 || true
+    exit 1
+fi
+echo "  ✓ unit active on the HEAD binary"
+
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 4 — fabricate a scheduled public.upgrade row for HEAD
 #
