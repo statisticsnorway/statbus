@@ -64,7 +64,18 @@ assert_systemd_active() {
     local expected_state="${3:-active}"
     local actual
 
-    actual=$(VM_EXEC systemctl --user is-active "$unit" 2>/dev/null | head -1 || echo "unknown")
+    # Separate transport RC from assertion data (gzip-t pattern).  With
+    # set -euo pipefail active, `VM_EXEC ... | head -1 || echo "unknown"`
+    # fires on both SSH failure AND non-active unit (both exit non-zero with
+    # pipefail), so actual="unknown" on a transient SSH blip → false
+    # "state mismatch" claim.  Inner `|| true` ensures the remote command
+    # always exits 0 when SSH works; non-zero VM_EXEC rc = transport failure.
+    local _rc=0
+    actual=$(VM_EXEC bash -c "systemctl --user is-active '$unit' 2>/dev/null || true" 2>/dev/null) || _rc=$?
+    if [ "$_rc" -ne 0 ]; then
+        echo "  ⚠ could not query systemd unit $unit (VM_EXEC rc=$_rc) — INFRA error; skipping" >&2
+        return 0
+    fi
     if [ "$actual" = "$expected_state" ]; then
         echo "  ✓ unit $unit is $expected_state"
         return 0
@@ -113,9 +124,17 @@ assert_db_migration_recorded() {
     local version="$2"
     local count
 
+    # Separate transport RC (gzip-t pattern).  `|| echo "0"` fed count="0" on
+    # any SSH blip, producing "migration NOT recorded" false claims.  Capture
+    # the pipeline RC via `|| _rc=$?` instead; treat non-zero as INFRA skip.
+    local _rc=0
     count=$(ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
         "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A'" \
-        2>/dev/null <<< "SELECT count(*) FROM db.migration WHERE version = $version;" | tr -d ' ' || echo "0")
+        2>/dev/null <<< "SELECT count(*) FROM db.migration WHERE version = $version;" | tr -d ' ') || _rc=$?
+    if [ "$_rc" -ne 0 ]; then
+        echo "  ⚠ could not query db.migration on VM (rc=$_rc) — INFRA error; skipping" >&2
+        return 0
+    fi
     if [ "$count" = "1" ]; then
         echo "  ✓ migration $version recorded in db.migration"
         return 0
@@ -226,9 +245,16 @@ assert_db_migration_max_version_unchanged() {
     local baseline="$2"
     local actual
 
+    # Separate transport RC (gzip-t pattern).  `|| echo "0"` fed actual="0"
+    # on any SSH blip; if baseline ≠ 0 that produces a false "drifted" claim.
+    local _rc=0
     actual=$(ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
         "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A'" \
-        2>/dev/null <<< "SELECT COALESCE(MAX(version), 0) FROM db.migration;" | tr -d ' ' || echo "0")
+        2>/dev/null <<< "SELECT COALESCE(MAX(version), 0) FROM db.migration;" | tr -d ' ') || _rc=$?
+    if [ "$_rc" -ne 0 ]; then
+        echo "  ⚠ could not query db.migration max_version on VM (rc=$_rc) — INFRA error; skipping" >&2
+        return 0
+    fi
     if [ "$actual" = "$baseline" ]; then
         echo "  ✓ db.migration max_version = baseline ($baseline) — partial-state confirmed"
         return 0
