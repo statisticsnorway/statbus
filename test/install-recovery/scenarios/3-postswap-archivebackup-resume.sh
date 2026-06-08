@@ -554,19 +554,35 @@ if [ "$TMP_ORPHANS" != "0" ]; then
     exit 1
 fi
 echo "  ✓ no orphan .tmp archives"
-# gzip -t every final archive; any failure = a partial published at the final
-# name = ATOMIC not in effect.
-BAD_ARCHIVE=$(VM_EXEC bash -c '
-    rc=0
+# gzip -t every final archive; a real failure = a partial published at the final
+# name = ATOMIC not in effect. ROBUSTNESS (architect): the remote script prints
+# ONLY bad filenames to stdout; the VM_EXEC transport status is captured SEPARATELY
+# in GZIP_CHECK_RC. The prior `$(VM_EXEC ... || echo "FAILED")` conflated an ssh
+# non-zero (transport failure) with "found a partial": any ssh blip set
+# BAD_ARCHIVE="FAILED" and the `[ -n ]` reported a PHANTOM partial (run 27113083471
+# was exactly this false positive — diagnosed in
+# tmp/architect-archivebackup-resume-diagnosis.md UPDATE 5/6; on this kill path
+# archiveBackup isn't even reached, so there is no archive to test). Now: fail ONLY
+# on a real bad-filename list; an ssh failure is an INFRA warning, not a
+# corrupt-archive assertion. (The `|| GZIP_CHECK_RC=$?` also keeps `set -e` from
+# aborting on a transport non-zero — which is why the original used `|| echo`.)
+# The inner loop body is `gzip -t || echo "$f"`, so it always exits 0 when it runs
+# to completion; thus a non-zero VM_EXEC rc means the ssh/transport itself failed.
+GZIP_CHECK_RC=0
+BAD_ARCHIVES=$(VM_EXEC bash -c '
     for f in ~/statbus-backups/*-pre.tar.gz; do
         [ -e "$f" ] || continue
-        if ! gzip -t "$f" 2>/dev/null; then echo "$f"; rc=1; fi
+        gzip -t "$f" 2>/dev/null || echo "$f"
     done
-    exit $rc
-' 2>/dev/null || echo "FAILED")
-if [ -n "$BAD_ARCHIVE" ]; then
+') || GZIP_CHECK_RC=$?
+if [ "$GZIP_CHECK_RC" -ne 0 ]; then
+    echo "  ⚠ could not run the *-pre.tar.gz gzip -t check on the VM (VM_EXEC rc=$GZIP_CHECK_RC) —" >&2
+    echo "    INFRA error (ssh/transport), NOT an archive failure; skipping this check." >&2
+fi
+if [ -n "$BAD_ARCHIVES" ]; then
     echo "✗ a final *-pre.tar.gz failed gzip -t — a PARTIAL was published at the final name" >&2
-    echo "  (the pre-ATOMIC bug). ATOMIC requires tar→.tmp then rename-on-success. Bad: $BAD_ARCHIVE" >&2
+    echo "  (the pre-ATOMIC bug). ATOMIC requires tar→.tmp then rename-on-success. Bad archive(s):" >&2
+    echo "$BAD_ARCHIVES" | sed 's/^/    /' >&2
     exit 1
 fi
 echo "  ✓ all final *-pre.tar.gz archives are complete (gzip -t clean)"
