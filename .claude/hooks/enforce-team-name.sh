@@ -8,26 +8,25 @@
 # 2026-06-09: a statbus TeamCreate overwrote the frogs roster).
 #
 # TWO RULES:
-#   - NAME MATCH (always, when a name is declared): TeamCreate/Agent team_name
-#     MUST equal the declared name; mismatch -> DENY.
-#   - TEAM REQUIRED (opt-in): in strict mode, a MISSING team_name on
-#     TeamCreate/Agent -> DENY (no un-teamed background agents). Default OFF:
-#     an Agent with no team_name passes as a plain subagent — this hook is a
-#     collision guard, not a "must be teamed" guarantee.
-#
-# SCOPE NOTE: statbus runs PERMISSIVE — its "only the foreman may spawn agents"
-# guarantee lives in restrict-agent-spawn.sh, so this hook need only stop name
-# collisions. frogs does NOT copy restrict-agent-spawn.sh and requires every
-# agent to be teamed, so frogs runs STRICT. One identical file serves both via
-# the flag below — copyable verbatim; only the per-project config differs.
+#   - TEAM REQUIRED (default): a MISSING team_name on TeamCreate/Agent -> DENY.
+#     Every agent is a team member; no loose un-teamed background agents. Strict
+#     is the DEFAULT so the safe behaviour can never be silently lost — forget
+#     the config and you fail safe (strict), not loose. A project with a genuine
+#     un-teamed spawn path OPTS OUT with a deliberate, committed marker.
+#   - NAME MATCH (always, when a name is declared): team_name MUST equal the
+#     declared name; mismatch -> DENY.
 #
 # CONFIG (paths resolve against $CLAUDE_PROJECT_DIR, set by Claude Code for
 # hooks; falls back to CWD so the test harness can point it at a fixture):
 #   declared name:  CLAUDE_TEAM_NAME env  ->  $proj/.claude/team.name file
 #                   (neither -> name unknown -> ALLOW; never hard-break a project
-#                   that has not declared a team)
-#   strict mode:    CLAUDE_TEAM_REQUIRED env (1/true/yes)  ->  $proj/.claude/team.required file
-#                   (neither -> permissive)
+#                   that has not declared a team at all)
+#   opt OUT of required: CLAUDE_TEAM_OPTIONAL env (1/true/yes)
+#                        ->  $proj/.claude/team.optional file
+#                   (neither -> required, the default)
+#
+# Copyable verbatim across projects: only the per-project .claude/team.name (and,
+# for a project that opts out, .claude/team.optional) differ.
 
 set -euo pipefail
 
@@ -50,21 +49,20 @@ elif [[ -f "$proj/.claude/team.name" ]]; then
   expected=$(head -1 "$proj/.claude/team.name" | tr -d '[:space:]' || true)
 fi
 
-# No declared name -> cannot enforce -> allow (permissive fallback). This also
-# means strict mode is a no-op without a declared name (can't require a team
-# that has no name) — the coherent behaviour.
+# No declared name -> cannot enforce -> allow (never hard-break a project that
+# has not declared a team at all). Also makes "required" a no-op without a name.
 if [[ -z "$expected" ]]; then
   echo "{}"
   exit 0
 fi
 
-# Resolve strict mode (env > marker file). Default: permissive.
-require_team="false"
-case "${CLAUDE_TEAM_REQUIRED:-}" in
-  1|true|TRUE|yes|YES) require_team="true" ;;
+# Teaming is REQUIRED by default. Opt OUT via env or a committed marker file.
+require_team="true"
+case "${CLAUDE_TEAM_OPTIONAL:-}" in
+  1|true|TRUE|yes|YES) require_team="false" ;;
 esac
-if [[ "$require_team" != "true" && -f "$proj/.claude/team.required" ]]; then
-  require_team="true"
+if [[ "$require_team" == "true" && -f "$proj/.claude/team.optional" ]]; then
+  require_team="false"
 fi
 
 team_name=$(jq -r '.tool_input.team_name // empty' <<<"$payload")
@@ -83,12 +81,12 @@ emit_deny() {
 EOF
 }
 
-# Rule 1 (strict mode only): team_name required — no un-teamed agents.
+# Rule 1 (default): team_name required — no un-teamed agents.
 if [[ -z "$team_name" ]]; then
   if [[ "$require_team" == "true" ]]; then
-    emit_deny "BLOCKED (enforce-team-name.sh): ${tool} with no team_name. This repo requires every agent to join the \"${expected}\" team — no un-teamed background agents.
+    emit_deny "BLOCKED (enforce-team-name.sh): ${tool} with no team_name. Every agent must join the \"${expected}\" team — no un-teamed background agents.
 
-WHY: agents are team members here, not loose subagents — keeping the roster, inboxes, and delegation on one visible registry, and sidestepping the generic-team collision entirely.
+WHY: agents are team members here, not loose subagents — keeping the roster, inboxes, and delegation on one visible registry, and sidestepping the generic-team collision entirely. (A project with a genuine un-teamed spawn path opts out with .claude/team.optional.)
 
 WHAT TO DO: pass team_name: \"${expected}\".
   TeamCreate({team_name: \"${expected}\", ...})
@@ -100,7 +98,7 @@ Tool: ${tool}
 Hook source: .claude/hooks/enforce-team-name.sh"
     exit 0
   fi
-  # Permissive: a plain subagent with no team is fine.
+  # Opted out: a plain subagent with no team is allowed.
   echo "{}"
   exit 0
 fi
