@@ -196,7 +196,19 @@ func runCrashRecovery(projDir string) error {
 	// renamed column (rc.63 commit_canonical_naming migration) fires
 	// SQLSTATE 42703 against an unmigrated schema. Idempotent.
 	if err := runCmdDir(projDir, sb, "migrate", "up", "--verbose"); err != nil {
-		return fmt.Errorf("crash recovery: boot migrate up: %w", err)
+		// STATBUS-017: symmetric to service.go's boot-migrate-up handler. A
+		// service-held in-progress flag means the guard can't re-apply the
+		// half-applied migration; defer to RecoverFromFlag (snapshot restore) below
+		// instead of aborting crash recovery — aborting here boot-loops the
+		// operator's `./sb install`. Keep the refuse for the no-flag / install-held
+		// case (no recovery owner / no snapshot to restore).
+		if flag, _, ferr := upgrade.ReadFlagFile(projDir); ferr == nil && flag != nil && flag.Holder == upgrade.HolderService {
+			fmt.Printf("crash recovery: boot migrate up failed but a service-held flag is present "+
+				"(id=%d, phase=%q) — deferring to RecoverFromFlag (STATBUS-017): %v\n", flag.ID, flag.Phase, err)
+			// fall through to svc.RecoverFromFlag below
+		} else {
+			return fmt.Errorf("crash recovery: boot migrate up: %w", err)
+		}
 	}
 
 	if err := svc.LoadConfigAndConnect(ctx); err != nil {

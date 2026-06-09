@@ -1653,9 +1653,29 @@ func (d *Service) Run(ctx context.Context) error {
 		if errors.Is(err, ErrCommandTimeout) {
 			d.terminateMigrateOrphan(ctx, nil)
 		}
-		d.markTerminal("BOOT_MIGRATE_UP_FAILED",
-			fmt.Sprintf("./sb migrate up at boot failed: %v; service refuses to enter the loop on a stale schema", err))
-		return fmt.Errorf("boot migrate up: %w", err)
+		// STATBUS-017: a service-held in-progress flag means an interrupted upgrade
+		// left a half-applied migration the schema-skew guard CANNOT re-apply
+		// ("relation already exists" for an after-commit-but-unrecorded migration,
+		// or a deterministic migration error). recoverFromFlag (next, :1689) owns the
+		// snapshot-restore path: its Resuming/PostSwap one-shot latch rolls the DB
+		// back to the pre-upgrade snapshot. Defer to it instead of refusing —
+		// markTerminal+return here IS the rune wedge (a half-applied migration
+		// boot-loops forever instead of restoring). Keep refuse for the no-flag /
+		// install-held case: a genuine stale-schema refusal with no recovery owner
+		// (recoverFromFlag only clears install-held flags — no snapshot to restore).
+		// Inert in every green scenario: the branch is reached only when
+		// boot-migrate-up FAILS, which it never does when the migration re-applies
+		// cleanly.
+		if flag, _, ferr := ReadFlagFile(d.projDir); ferr == nil && flag != nil && flag.Holder == HolderService {
+			fmt.Printf("boot-migrate-up failed but a service-held in-progress upgrade flag is present "+
+				"(id=%d, %s, phase=%q) — deferring to recoverFromFlag for snapshot restore (STATBUS-017): %v\n",
+				flag.ID, flag.Label(), flag.Phase, err)
+			// fall through — do NOT markTerminal/return; recoverFromFlag below handles it
+		} else {
+			d.markTerminal("BOOT_MIGRATE_UP_FAILED",
+				fmt.Sprintf("./sb migrate up at boot failed: %v; service refuses to enter the loop on a stale schema", err))
+			return fmt.Errorf("boot migrate up: %w", err)
+		}
 	}
 
 	// Recover from interrupted upgrades. The flag file survives DB rollbacks
