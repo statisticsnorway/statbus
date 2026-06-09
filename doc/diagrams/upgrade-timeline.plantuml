@@ -136,12 +136,16 @@ note over service, db #FFF9C4
   TEST 3-postswap-resume-died-rollback: a death during Phase=Resuming rolls back to the
     snapshot (UPGRADE_DIED_DURING_RESUME) and NEVER re-resumes — the one-shot latch (the
     Resuming branch above).
-  GREEN: 3-postswap-mid-migration-kill / 3-postswap-between-migrations-kill.
+  GREEN: 3-postswap-mid-migration-kill / 3-postswap-mid-tx-kill / 3-postswap-between-migrations-kill.
   KNOWN-RED (PRODUCT BUG — STATBUS-017): 3-postswap-migrate-killed-after-commit /
     3-postswap-migration-deterministic-error — deterministic reproducers of the rune wedge, NOT in
     the green suite. The cells of the commit<->record boundary, in execution order:
     (1) mid-migration-kill: BEFORE the migration's tx opens (db.migration max unchanged, no schema
       change) — forward re-applies cleanly -> completed. GREEN.
+    (b) mid-tx-kill: kill INSIDE the migration's tx (after BEGIN, before COMMIT) -> Postgres aborts
+      the uncommitted tx (no committed-but-unrecorded state) -> forward re-applies cleanly ->
+      completed. GREEN. (3-postswap-mid-tx-kill — the green control proving the boundary's SAFE
+      side, vs the after-commit wedge (2)/(e).)
     (2) migrate-killed-after-commit: in the ~ms window AFTER commit, BEFORE the db.migration INSERT
       (db.migration max unchanged, but the schema object is already committed).
       INTENDED: forward FAILS ("relation already exists") so recovery RESTORES the snapshot, never
