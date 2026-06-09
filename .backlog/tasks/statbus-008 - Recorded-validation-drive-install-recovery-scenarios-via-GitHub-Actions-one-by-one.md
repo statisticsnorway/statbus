@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - operator
 created_date: '2026-06-07 15:41'
-updated_date: '2026-06-09 21:34'
+updated_date: '2026-06-09 22:05'
 labels:
   - install-recovery
   - validation
@@ -152,4 +152,6 @@ CANDIDATE-FINDING TRIAGE (architect, read-only, verdicts in tmp/plans/architect-
 (1) 1-boot-concurrent-install: serialization WORKED (2nd install refused 'live-upgrade' at install.go:322 BEFORE acquireOrBypass:375 → 0 rows from the refused install). The 5 rows are legit (baseline-completed + HEAD-completed distinct commit_sha + GitHub-state-dependent 'available' discovery rows, service.go:2759/2963). Failure is the naive count(*)=1 assert (sh:243). FIX: assert latest-row state (ORDER BY id DESC LIMIT 1, sh:249), not count.
 (2) 2-preswap-checkout-kill + (3) 2-preswap-binary-swap-kill: both saw 'nothing-scheduled' (current==target) → step-table refresh → executeUpgrade never ran → C4/C5 kill inject never fired → flag legitimately absent. Missing the fabricate_scheduled_upgrade_row call that the sibling 2-preswap-backup-kill.sh:135-141 already has (with a comment diagnosing this exact trap). FIX: add it. C4/C5 fire pre-migrate → no STATBUS-013 boot-migrate complication. NOT covered by STATBUS-002 (that's backup-kill's rollback terminal-write product fix, different scenario).
 All 3 routed to mechanic (Batch 2). Tally holds: 0 confirmed product recovery bugs except STATBUS-017.
+
+BREADTH HARNESS FIXES committed + foreman-verified tonight (2026-06-09→10, all on master, all scenario-local, 0 product): bdc83a466 wedge-fabrication (2 reproducers, stop the live upgrade unit before fabricating — the NOTIFY-race db-stop). f8bb4f79d batch-1: between-migrations-kill (count locally from $HARNESS_ROOT — the VM-side count read the shallow v2026.05.2 clone; verified baseline IS v2026.05.2 with 11 real pending), 4-rollback-kill (drop the unqueryable assert_upgrade_row_state at C5 — DB is stopped for archiveBackup; flag+exit137 suffice), 5-install-drifted-unit (single-line ssh-quoting). 0f5f05dde preswap: checkout-kill(C4)+binary-swap-kill(C5) add fabricate_scheduled_upgrade_row after upload_sb_to_vm (mirror backup-kill:135-141) — they saw nothing-scheduled (current==target) so the inject never fired. a8191c43f concurrent-install: replaced the fragile count(*)=1 / latest-row-by-id assert with a robust pair (architect-designed) — (a) commit_sha-anchored HEAD row='completed', (b) no in_progress/failed debris; the serialization-refusal contract was already asserted + passing. ALL 3 BUCKET-B candidate 'product' findings closed as HARNESS. These get validated in the comprehensive run after the 017 GREEN run.
 <!-- SECTION:NOTES:END -->
