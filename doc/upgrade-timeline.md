@@ -65,7 +65,12 @@ It then emits `sd_notify READY=1` — but only **after the cheap, bounded init**
 (boot `migrate up` schema-skew guard, and any exit-42 resume) runs in the **active
 phase** under `WatchdogSec`, never in the `TimeoutStartSec` window, so a large database
 can never blow the static start budget. The advisory lock guarantees a single live
-service per slot.
+service per slot. On **failure** of the boot `migrate up` guard *with a service-held
+in-progress flag present*, the guard **defers** to `recoverFromFlag` (the snapshot-restore
+owner) rather than refusing — so a half-applied migration that can't be re-applied
+(after-commit "relation already exists", or a deterministic migration error) restores to
+`rolled_back` instead of boot-looping (STATBUS-017). It still refuses for the no-flag /
+install-held case, a genuine stale-schema refusal with no recovery owner.
 
 ### Schedule + dispatch
 
@@ -470,9 +475,12 @@ the server consistent before the main loop ticks.
 
 ### One principled path, two terminal tiers
 
-On any forward failure the restore pipeline runs and the row ends in one of two tiers, with
-one consistent operator-facing narrative (`"forward failed: <err>; auto-restored from
-<path>"`, or `"forward failed without usable backup: <err>"` when no snapshot is stamped):
+On any forward failure the restore pipeline runs and the row ends in one of two tiers. The
+operator-facing `error` narrative names the recovery path that actually ran: the after-commit
+wedge (Phase=resuming → the one-shot latch, `service.go:755`) reads `"UPGRADE_DIED_DURING_RESUME:
+… rolled back to the snapshot. NO retry — re-run via ./sb install."`; the forward-recovery-then-
+restore path reads `"forward failed: <err>; auto-restored from <path>"` (or `"forward failed
+without usable backup: <err>"` when no snapshot is stamped). Either way the row ends in one of:
 
 - `rolled_back` — snapshot restored cleanly; **healthy at the old version**.
 - `failed` — the restore **also failed**; **needs hands-on recovery**.

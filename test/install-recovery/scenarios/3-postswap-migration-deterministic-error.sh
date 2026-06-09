@@ -1,12 +1,16 @@
 #!/bin/bash
-# HARNESS_SKIP_DEFAULT: known-RED reproducer (STATBUS-017) — excluded from the
-#   default/full run.sh suite + broad phase runs; runs only when named specifically.
-# Scenario: 3-postswap-migration-deterministic-error   ── KNOWN-RED (STATBUS-017) ──
+# HARNESS_SKIP_DEFAULT: STATBUS-017 regression reproducer — excluded from the
+#   default/full run.sh suite + broad phase runs (it provisions a real VM and
+#   seeds a DB snapshot); runs only when named specifically.
+# Scenario: 3-postswap-migration-deterministic-error   ── EXPECTED-GREEN (STATBUS-017 FIXED) ──
 #
 # ╔══════════════════════════════════════════════════════════════════════════╗
-# ║  DELIBERATE, DETERMINISTIC REPRODUCER OF A CONFIRMED PRODUCT BUG          ║
-# ║  (STATBUS-017 — the rune wedge). EXPECTED TO FAIL (RED) UNTIL THE         ║
-# ║  RECOVERY-CODE FIX LANDS. *NOT* PART OF THE GREEN SUITE.                  ║
+# ║  DETERMINISTIC REGRESSION REPRODUCER OF THE rune wedge (STATBUS-017),     ║
+# ║  cell (e): a migration that errors on EVERY apply. The recovery-code fix  ║
+# ║  HAS LANDED (direction (a): the schema-skew guard defers to the           ║
+# ║  snapshot-restore path), so this is now EXPECTED GREEN — it proves an     ║
+# ║  unapplyable migration restores to state=rolled_back instead of           ║
+# ║  boot-looping. A RED here means the STATBUS-017 fix has regressed.        ║
 # ╚══════════════════════════════════════════════════════════════════════════╝
 #
 # WHAT IT PROVES (cell (e) of the migrate commit<->record boundary)
@@ -18,18 +22,19 @@
 # missing object). For such a migration, forward progress is IMPOSSIBLE, so the
 # ONLY coherent recovery is RESTORE -> state=rolled_back.
 #
-# THE ACTUAL BUG (STATBUS-017): the schema-skew-guard `./sb migrate up` runs
-# BEFORE recoverFromFlag on BOTH recovery entrypoints —
+# THE BUG THIS GUARDS AGAINST (STATBUS-017 — NOW FIXED): the schema-skew-guard
+# `./sb migrate up` runs BEFORE recoverFromFlag on BOTH recovery entrypoints —
 #   - service boot:  cli/internal/upgrade/service.go:1644  (then recoverFromFlag :1669)
 #   - ./sb install:  cli/cmd/install_upgrade.go:198         (then RecoverFromFlag :205)
-# It re-runs the pending erroring migration -> the migration errors again ->
-# markTerminal("BOOT_MIGRATE_UP_FAILED") + return (service.go:1656). The restore
-# is GATED BEHIND this failing migrate-up and is NEVER reached:
-#   - service boots-loop (Restart=always -> StartLimit -> unit failed);
-#   - ./sb install exits non-zero with the row still state=in_progress.
-# Because the migration can NEVER apply, forward-recovery is hopeless and restore
-# is the only escape — yet the wedge gates it. cell (e) is the sharpest case for
-# "forward-then-restore must RESTORE on migrate-up failure."
+# It re-runs the pending erroring migration -> the migration errors again. BEFORE
+# the fix it then markTerminal("BOOT_MIGRATE_UP_FAILED")+return (boot-loop /
+# non-zero exit; the restore was gated behind the failing migrate-up and never
+# reached). Because the migration can NEVER apply, forward-recovery is hopeless
+# and restore is the ONLY escape — cell (e) is the sharpest case for the fix.
+# THE FIX (direction (a)): when boot-migrate-up FAILS AND a service-held
+# in-progress flag is present, the guard FALLS THROUGH to recoverFromFlag ->
+# Resuming one-shot latch (service.go:755) -> recoveryRollback -> snapshot
+# restore -> state=rolled_back. Refuse is kept for the no-flag / install-held case.
 #
 # DETERMINISTIC FABRICATION (no kill-timing, no migration delta)
 # ──────────────────────────────────────────────────────────────
@@ -49,10 +54,19 @@
 #   KEEP_VM=1 / KEEP_VM_ON_FAILURE=1   Leave VM up for post-mortem
 #   BOOTLOOP_WAIT_S=N                  Seconds to let the service boot-loop (default 90)
 #
-# TO GO GREEN (after the STATBUS-017 fix): the fix must route the schema-skew
-# migrate-up FAILURE to the restore path (or run recoverFromFlag first). A real
-# pre-upgrade-active snapshot must then be present for the restore to land
-# state=rolled_back rather than state=failed — see "FUTURE: seed snapshot".
+# HOW IT LANDS GREEN (post-fix): Stage 1 fabricates the erroring-migration RED
+# state AND the restore prerequisites the rolled_back terminal needs —
+#   R1: pin the `pre-upgrade` git branch (restoreGitState's fallback restore
+#       target; without it the rollback ABORTS to state=failed, service.go:4645);
+#   R2: seed a real ~/statbus-backups/pre-upgrade-active DB snapshot (else
+#       restoreDatabase no-ops, exec.go:698, and the rolled_back is hollow);
+#   R3: the erroring migration is a TRACKED commit on top of pre-upgrade so
+#       `git checkout -f pre-upgrade` removes it — CRITICAL for cell (e): an
+#       untracked erroring file would survive the restore and re-wedge the next
+#       boot (re-run -> error -> no flag -> markTerminal -> boot-loop).
+# Then both triggers converge: boot-migrate-up errors -> falls through ->
+# Resuming latch -> restore snapshot -> state=rolled_back, flag cleared, erroring
+# migration gone. Stage 2's ./sb install exits 75 (EX_TEMPFAIL — rolled back).
 
 set -euo pipefail
 
@@ -99,9 +113,30 @@ _run_sql_file_in_vm() {
         "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A'" < "$local_sql"
 }
 
-# Place a synthetic migration whose up.sql ALWAYS errors (RAISE EXCEPTION).
+# Pin the `pre-upgrade` git branch at the current (old) HEAD. R1 (STATBUS-017):
+# restoreGitState resolves its target by `git rev-parse <previousVersion>` (a
+# git-describe string that does NOT resolve) and falls back to the `pre-upgrade`
+# branch (service.go:4943). Real executeUpgrade pins it at service.go:3500; the
+# fabricated crash never ran executeUpgrade, so the harness must pin it — else
+# restoreGitState's fallback also misses and the rollback ABORTS to state=failed
+# (service.go:4645). MUST run BEFORE _push_erroring_migration commits on top.
+_pin_pre_upgrade_branch() {
+    echo "── pinning pre-upgrade git branch at current HEAD (R1: restoreGitState fallback target) ──"
+    VM_EXEC bash -c 'cd ~/statbus && git branch -f pre-upgrade HEAD && echo "  pre-upgrade -> $(git rev-parse --short pre-upgrade)"' || {
+        echo "✗ failed to pin pre-upgrade branch" >&2; exit 1; }
+}
+
+# Commit a synthetic migration whose up.sql ALWAYS errors (RAISE EXCEPTION) as a
+# TRACKED git commit on top of the pinned pre-upgrade commit.
+#
+# R3 (STATBUS-017) — CRITICAL for cell (e): the erroring migration MUST be
+# git-TRACKED. restoreGitState does `git checkout -f pre-upgrade`, which discards
+# tracked changes but does NOT remove untracked files. An untracked erroring
+# migration would survive the restore and re-wedge the next boot (re-run ->
+# errors -> no flag -> markTerminal -> boot-loop). A migrations-ONLY commit keeps
+# the rc.65 freshness guard silent (it diffs only cli/, freshness/check.go:213).
 _push_erroring_migration() {
-    echo "── pushing synthetic erroring migration ($ERRMIG_UP) ──"
+    echo "── committing synthetic erroring migration ($ERRMIG_UP) as a TRACKED commit (R3) ──"
     local up down
     up=$(mktemp); down=$(mktemp)
     cat > "$up" <<SQL
@@ -122,12 +157,22 @@ SQL
     scp -O "${SSH_OPTS[@]}" "$up"   root@"$VM_IP":/tmp/errmig.up.sql  >/dev/null
     scp -O "${SSH_OPTS[@]}" "$down" root@"$VM_IP":/tmp/errmig.down.sql >/dev/null
     rm -f "$up" "$down"
-    ssh "${SSH_OPTS[@]}" root@"$VM_IP" "
-        install -o statbus -g statbus -m 0644 /tmp/errmig.up.sql   /home/statbus/statbus/migrations/${ERRMIG_UP}
-        install -o statbus -g statbus -m 0644 /tmp/errmig.down.sql /home/statbus/statbus/migrations/${ERRMIG_DOWN}
+    # Copy into migrations/ as statbus (repo owner), then git add + commit. The
+    # commit message has no single quotes, so a single-quoted bash -c body is
+    # safe; ERRMIG_* are spliced locally via '"…"' (no special chars).
+    # gpgsign=false + inline identity so no VM-side git config is required.
+    VM_EXEC bash -c '
+        set -e
+        cd ~/statbus
+        cp /tmp/errmig.up.sql   migrations/'"$ERRMIG_UP"'
+        cp /tmp/errmig.down.sql migrations/'"$ERRMIG_DOWN"'
         rm -f /tmp/errmig.up.sql /tmp/errmig.down.sql
-    "
-    echo "  ✓ erroring migration placed (version $ERRMIG_VERSION)"
+        git add migrations/'"$ERRMIG_UP"' migrations/'"$ERRMIG_DOWN"'
+        git -c user.email=harness@statbus.test -c user.name=harness -c commit.gpgsign=false \
+            commit -q -m "harness: synthetic deterministic-error migration (STATBUS-017 reproducer)"
+        echo "  committed; HEAD -> $(git rev-parse --short HEAD), pre-upgrade -> $(git rev-parse --short pre-upgrade)"
+    ' || { echo "✗ failed to commit erroring migration" >&2; exit 1; }
+    echo "  ✓ erroring migration committed (version $ERRMIG_VERSION, tracked on top of pre-upgrade)"
 }
 
 # Fabricate the in_progress upgrade row (chk in_progress arm: scheduled_at NOT
@@ -179,12 +224,12 @@ JSON
     echo "  ✓ crash flag written (id=$row_id)"
 }
 
-# Loud, human-readable dump of the OBSERVED wedge.
+# Loud, human-readable dump of the recovery state after each trigger.
 _dump_wedge_evidence() {
     local label="$1"
     echo ""
     echo "═══════════════════════════════════════════════════════════════════"
-    echo "  WEDGE OBSERVED (STATBUS-017 cell e) — $label"
+    echo "  RECOVERY EVIDENCE (STATBUS-017 cell e) — $label"
     echo "═══════════════════════════════════════════════════════════════════"
     echo "  latest public.upgrade row:"
     local sql; sql=$(mktemp)
@@ -199,10 +244,30 @@ SQL
     rm -f "$sql"
     echo "  flag file:"
     VM_EXEC bash -c 'ls -la ~/statbus/tmp/upgrade-in-progress.json 2>/dev/null && echo PRESENT || echo ABSENT' 2>/dev/null | sed 's/^/    /' || true
-    echo "  upgrade-unit journal (BOOT_MIGRATE_UP_FAILED / the RAISE marker):"
-    VM_EXEC bash -c "journalctl --user -u $UPGRADE_UNIT --no-pager -n 40 2>/dev/null | grep -iE 'BOOT_MIGRATE_UP_FAILED|deterministic migration error|migrate up|refuses to enter' | tail -12" 2>/dev/null | sed 's/^/    /' || true
+    echo "  upgrade-unit journal (guard-fail -> defer -> restore narrative):"
+    VM_EXEC bash -c "journalctl --user -u $UPGRADE_UNIT --no-pager -n 60 2>/dev/null | grep -iE 'BOOT_MIGRATE_UP_FAILED|deterministic migration error|deferring to recoverFromFlag|UPGRADE_DIED_DURING_RESUME|rolled back to the snapshot|Rollback complete|migrate up' | tail -14" 2>/dev/null | sed 's/^/    /' || true
     echo "═══════════════════════════════════════════════════════════════════"
     echo ""
+}
+
+# Faithfulness assert (2c): after recovery, the erroring migration must be
+# unrecorded in db.migration (it never applied) AND its file removed (the restore
+# rolled the git tree back to pre-upgrade, dropping the tracked commit). Guards
+# against a hollow rolled_back if the snapshot/git restore silently broke. (No
+# orphan object in cell (e) — the migration errors on its own.)
+_assert_faithful_restore() {
+    echo "── asserting faithful restore (erroring migration unrecorded + file gone) ──"
+    local sql; sql=$(mktemp)
+    cat > "$sql" <<SQL
+SELECT 'errmig_recorded=' || EXISTS(SELECT 1 FROM db.migration WHERE version = ${ERRMIG_VERSION})::text;
+SQL
+    local out; out=$(_run_sql_file_in_vm "$sql"); rm -f "$sql"
+    echo "$out" | sed 's/^/    /'
+    if echo "$out" | grep -q 'errmig_recorded=true'; then
+        echo "✗ faithfulness: erroring migration recorded in db.migration (it should NEVER apply)" >&2; exit 1; fi
+    if VM_EXEC bash -c "test -f ~/statbus/migrations/${ERRMIG_UP}"; then
+        echo "✗ faithfulness: erroring migration file still on disk (git restore did not drop the tracked commit — re-wedge risk)" >&2; exit 1; fi
+    echo "  ✓ faithful restore: erroring migration unrecorded + file removed"
 }
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -247,9 +312,15 @@ VM_EXEC systemctl --user stop "$UPGRADE_UNIT" 2>/dev/null || true
 UNIT_STATE_AFTER_STOP=$(VM_EXEC systemctl --user is-active "$UPGRADE_UNIT" 2>/dev/null || true)
 echo "  upgrade unit is-active after stop: ${UNIT_STATE_AFTER_STOP:-unknown} (expect 'inactive' — NOT 'active')"
 
+# Ordering is LOAD-BEARING (architect plan §2): pin pre-upgrade (R1) -> commit the
+# erroring migration on top (R3) -> fabricate the in_progress row -> seed the
+# snapshot (R2) so it captures the row -> fabricate the resuming flag. No orphan
+# object in cell (e) — the migration errors on its own apply.
+_pin_pre_upgrade_branch
 _push_erroring_migration
 ROW_ID=$(_fabricate_in_progress_row)
 echo "  fabricated in_progress upgrade row id=$ROW_ID"
+seed_pre_upgrade_snapshot "$VM_NAME"
 _fabricate_crash_flag "$ROW_ID"
 
 echo "── verifying fabricated RED shape ──"
@@ -261,56 +332,69 @@ echo "  ✓ RED confirmed: row in_progress, flag present, a pending migration th
 
 # ─────────────────────────────────────────────────────────────────────────
 # Stage 2 — TRIGGER A: ./sb install crashed-upgrade recovery (operator path)
-#
-# FUTURE: seed snapshot — when the STATBUS-017 fix lands, restore needs a real
-# ~/statbus-backups/pre-upgrade-active snapshot present here to land
-# state=rolled_back (else state=failed). Today the wedge fires at `./sb migrate
-# up` BEFORE any restore, so no snapshot is needed to prove RED.
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "════════════════════════════════════════════════════════════════"
-echo "  Stage 2 — TRIGGER A: ./sb install (crashed-upgrade -> migrate up wedge)"
+echo "  Stage 2 — TRIGGER A: ./sb install (crashed-upgrade -> migrate up -> defer -> restore)"
 echo "════════════════════════════════════════════════════════════════"
 
+# `./sb install` detects crashed-upgrade -> runCrashRecovery -> `./sb migrate up`
+# (install_upgrade.go:198) -> the erroring migration RAISEs -> migrate up FAILS,
+# but with a service-held in-progress flag present the STATBUS-017 fix FALLS
+# THROUGH to RecoverFromFlag (:205) -> Resuming latch -> recoveryRollback ->
+# restore snapshot -> rolled_back -> os.Exit(75) (service.go:4902). So `./sb
+# install` EXITS 75 here. Capture rather than let `set -e` abort.
 RECOVER_RC=0
 install_statbus_in_vm "$VM_NAME" || RECOVER_RC=$?
-echo "  ./sb install (recovery) exit code: $RECOVER_RC  (EXPECTED non-zero — the wedge aborts crash recovery)"
+echo "  ./sb install (recovery) exit code: $RECOVER_RC  (EXPECTED 75 — rolled back via the restore path)"
 
 _dump_wedge_evidence "after ./sb install crashed-upgrade"
 
 # ─────────────────────────────────────────────────────────────────────────
-# Stage 3 — TRIGGER B: service restart -> boot-migrate-up boot-loop
+# Stage 3 — TRIGGER B: service restart -> confirm a CLEAN boot (no re-wedge)
+#
+# Stage 2's ./sb install already rolled back: the flag is cleared, the erroring
+# migration file is gone (git restored to pre-upgrade), and the row is
+# rolled_back. So the restarted unit boots clean — boot-migrate-up has nothing
+# pending (erroring file removed) -> succeeds -> recoverFromFlag (no flag) ->
+# healthy. NRestarts must stay bounded; a boot-loop here would mean the restore
+# left the erroring migration in place (R3 regression — the cell-(e) re-wedge).
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "════════════════════════════════════════════════════════════════"
-echo "  Stage 3 — TRIGGER B: service restart (boot-migrate-up boot-loop)"
+echo "  Stage 3 — TRIGGER B: service restart (confirm clean boot after recovery)"
 echo "════════════════════════════════════════════════════════════════"
-echo "── restarting $UPGRADE_UNIT and letting it boot-loop for ${BOOTLOOP_WAIT_S}s ──"
+echo "── restarting $UPGRADE_UNIT and letting it settle for ${BOOTLOOP_WAIT_S}s ──"
 VM_EXEC bash -c "systemctl --user reset-failed $UPGRADE_UNIT 2>/dev/null; systemctl --user restart $UPGRADE_UNIT 2>/dev/null || true"
 VM_EXEC bash -c "sleep $BOOTLOOP_WAIT_S"
 NRESTARTS=$(VM_EXEC bash -c "systemctl --user show $UPGRADE_UNIT --property=NRestarts --value 2>/dev/null" | tr -d ' \r\n' || echo "?")
-echo "  observed NRestarts=$NRESTARTS"
-_dump_wedge_evidence "after service restart (boot-loop)"
+echo "  observed NRestarts=$NRESTARTS  (EXPECTED low — no boot-loop after the fix)"
+_dump_wedge_evidence "after service restart (clean boot expected)"
 
 # ─────────────────────────────────────────────────────────────────────────
-# Stage 4 — INTENDED-GREEN assertions (these FAIL today — the RED IS the proof)
+# Stage 4 — post-recovery assertions (EXPECTED GREEN — the STATBUS-017 fix)
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "════════════════════════════════════════════════════════════════"
-echo "  Stage 4 — intended-green assertions (EXPECTED RED until STATBUS-017 fixed)"
+echo "  Stage 4 — post-recovery assertions (EXPECTED GREEN — STATBUS-017 fixed)"
 echo "════════════════════════════════════════════════════════════════"
-echo "  (If these PASS, the rune wedge is FIXED — update STATBUS-017 + this header.)"
+echo "  (A RED here means the STATBUS-017 fix regressed — do NOT relax; investigate.)"
 
-# INTENDED: an unapplyable migration in a crashed upgrade -> restore -> rolled_back.
+# CONTRACT: an unapplyable migration in a crashed upgrade -> restore -> rolled_back.
 assert_upgrade_row_state "$VM_NAME" "rolled_back"
-# INTENDED: the restore narrative landed (forward failed -> auto-restored).
-assert_upgrade_row_error_matches "$VM_NAME" "forward failed: .*; auto-restored from"
-# INTENDED: the mutex was released on a landed terminal write.
+# CONTRACT: the Resuming one-shot latch's restore narrative landed (Phase=resuming
+# routes to recoveryRollback via ErrResumeDied, service.go:755), NOT the dead
+# forward-recovery branch.
+assert_upgrade_row_error_matches "$VM_NAME" "UPGRADE_DIED_DURING_RESUME.*rolled back to the snapshot"
+# CONTRACT: the mutex was released on a landed terminal write.
 assert_flag_file_absent "$VM_NAME"
-# INTENDED: no boot-loop — the rune NRestarts pathology must not appear.
+# CONTRACT: no boot-loop — the rune NRestarts pathology must not appear.
 assert_systemd_restart_counter_bounded "$VM_NAME" "$UPGRADE_UNIT" 2
-# INTENDED: app healthy at the old version after rollback.
+# CONTRACT: app healthy at the old version after rollback.
 assert_health_passes "$VM_NAME"
+# CONTRACT (faithfulness): the erroring migration rolled back, not forward-
+# completed — unrecorded in db.migration + file removed (no cell-(e) re-wedge).
+_assert_faithful_restore
 
 echo ""
-echo "PASS: 3-postswap-migration-deterministic-error (rune wedge FIXED)"
+echo "PASS: 3-postswap-migration-deterministic-error (rune wedge FIXED — restores to rolled_back)"

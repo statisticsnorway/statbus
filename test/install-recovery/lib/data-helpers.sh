@@ -345,3 +345,60 @@ SQL
     echo "  ✓ row fabricated/transitioned: $result"
     return 0
 }
+
+# ─────────────────────────────────────────────────────────────────────────
+# seed_pre_upgrade_snapshot <vm_name>
+#
+# Seeds a REAL, restorable pre-upgrade-active DB snapshot so a recovery's
+# snapshot-restore performs an ACTUAL rollback of the DB volume rather than the
+# no-backup no-op (restoreDatabase returns nil when the dir is absent —
+# exec.go:698 — which would land a HOLLOW rolled_back on an un-restored DB).
+#
+# Mirrors the product's backupDatabase (cli/internal/upgrade/exec.go:424):
+#   1. stop the db container (quiesce PGDATA for a consistent file-level copy);
+#   2. rsync the named PGDATA volume into ~/statbus-backups/pre-upgrade-active
+#      (= backupRoot()/backupActiveName, exec.go:244/263 — the exact dir
+#      pickLatestBackup returns and restoreDatabase rsyncs back into the volume);
+#   3. start the db again and wait for it to accept connections.
+#
+# Used by the STATBUS-017 reproducers (3-postswap-migrate-killed-after-commit,
+# 3-postswap-migration-deterministic-error). CALLER ORDERING IS LOAD-BEARING:
+# invoke AFTER the in_progress upgrade row is fabricated (so the snapshot
+# captures the row — the rollback's terminal `UPDATE ... WHERE id=<row>` must
+# find it) but BEFORE the wedge object is created (the orphan table for cell c;
+# nothing for cell e) so the restore REMOVES the wedge object. A snapshot taken
+# after the orphan would restore the wedge state and re-trip the next boot.
+#
+# Returns 0 on success; non-zero on failure.
+# ─────────────────────────────────────────────────────────────────────────
+seed_pre_upgrade_snapshot() {
+    local vm_name="$1"
+    echo "  [data] seeding pre-upgrade-active DB snapshot (R2: a real restore source for recoveryRollback)"
+    # Whole body runs on the VM as the statbus user (docker group member); the
+    # variables/$(...) are expanded ON the VM (single-quoted body → printf %q in
+    # VM_EXEC ships it verbatim). docker compose resolves the project from
+    # ~/statbus/.env (same as the green 1-boot-advisory-too-early `docker compose
+    # restart db`). The volume is discovered by suffix (dbVolumeName() ==
+    # COMPOSE_INSTANCE_NAME-db-data, exec.go:227-231) to avoid re-deriving it.
+    VM_EXEC bash -c '
+        set -euo pipefail
+        cd ~/statbus
+        vol=$(docker volume ls --format "{{.Name}}" | grep -- "-db-data$" | head -1)
+        if [ -z "$vol" ]; then echo "  ✗ seed_pre_upgrade_snapshot: no *-db-data docker volume found" >&2; exit 1; fi
+        dest="$HOME/statbus-backups/pre-upgrade-active"
+        mkdir -p "$dest"
+        echo "    volume=$vol dest=$dest"
+        docker compose stop db >/dev/null 2>&1 || true
+        docker run --rm -v "$vol":/source:ro -v "$dest":/dest alpine \
+            sh -c "apk add --no-cache rsync >/dev/null 2>&1 && rsync -a --delete /source/ /dest/"
+        docker compose start db >/dev/null 2>&1
+        ok=0
+        for _ in $(seq 1 30); do
+            if ./sb psql -t -A -c "SELECT 1" >/dev/null 2>&1; then ok=1; break; fi
+            sleep 1
+        done
+        if [ "$ok" != "1" ]; then echo "  ✗ seed_pre_upgrade_snapshot: db did not accept connections after restart" >&2; exit 1; fi
+    ' || { echo "  ✗ seed_pre_upgrade_snapshot failed" >&2; return 1; }
+    echo "  ✓ pre-upgrade-active snapshot seeded"
+    return 0
+}

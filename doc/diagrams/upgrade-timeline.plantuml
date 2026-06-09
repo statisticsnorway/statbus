@@ -136,37 +136,40 @@ note over service, db #FFF9C4
   TEST 3-postswap-resume-died-rollback: a death during Phase=Resuming rolls back to the
     snapshot (UPGRADE_DIED_DURING_RESUME) and NEVER re-resumes — the one-shot latch (the
     Resuming branch above).
-  GREEN: 3-postswap-mid-migration-kill / 3-postswap-mid-tx-kill / 3-postswap-between-migrations-kill.
-  KNOWN-RED (PRODUCT BUG — STATBUS-017): 3-postswap-migrate-killed-after-commit /
-    3-postswap-migration-deterministic-error — deterministic reproducers of the rune wedge, NOT in
-    the green suite. The cells of the commit<->record boundary, in execution order:
+  GREEN: 3-postswap-mid-migration-kill / 3-postswap-mid-tx-kill / 3-postswap-between-migrations-kill /
+    3-postswap-migrate-killed-after-commit / 3-postswap-migration-deterministic-error (the last two
+    GREEN since the STATBUS-017 fix landed — see cells (2)/(e)).
+  The cells of the commit<->record boundary, in execution order:
     (1) mid-migration-kill: BEFORE the migration's tx opens (db.migration max unchanged, no schema
       change) — forward re-applies cleanly -> completed. GREEN.
     (b) mid-tx-kill: kill INSIDE the migration's tx (after BEGIN, before COMMIT) -> Postgres aborts
       the uncommitted tx (no committed-but-unrecorded state) -> forward re-applies cleanly ->
       completed. GREEN. (3-postswap-mid-tx-kill — the green control proving the boundary's SAFE
-      side, vs the after-commit wedge (2)/(e).)
+      side, vs the after-commit cells (2)/(e).)
     (2) migrate-killed-after-commit: in the ~ms window AFTER commit, BEFORE the db.migration INSERT
-      (db.migration max unchanged, but the schema object is already committed).
-      INTENDED: forward FAILS ("relation already exists") so recovery RESTORES the snapshot, never
-        re-applies -> rolled_back (the rune shape).
-      ACTUAL (BUG — STATBUS-017, currently RED): a schema-skew-guard `./sb migrate up` runs BEFORE
+      (db.migration max unchanged, but the schema object is already committed). Forward re-apply
+      FAILS ("relation already exists"), so the ONLY coherent recovery is RESTORE -> rolled_back
+      (the rune shape).
+      BEHAVIOR (STATBUS-017 FIXED): the schema-skew-guard `./sb migrate up` runs BEFORE
         recoverFromFlag on BOTH recovery entrypoints (service boot service.go:1644; ./sb install
-        install_upgrade.go:198). It re-lists the committed-unrecorded migration as pending and
-        re-runs its CREATE -> "relation already exists" -> markTerminal("BOOT_MIGRATE_UP_FAILED")
-        + return (service.go:1656). The restore is GATED BEHIND this failing migrate-up and is
-        NEVER reached: service boot-loops (Restart=always -> StartLimit -> unit failed); ./sb
-        install exits non-zero. The forward-recovery+restore branch (service.go:838-927, the
-        migrate.Up -> auto-restore at :879) is ALSO dead code for service-held flags — the
-        PreSwap=="" guard at :822 intercepts every empty-phase flag first.
-      3-postswap-migrate-killed-after-commit is the KNOWN-RED reproducer: it FABRICATES this RED
-        state deterministically (a committed-but-unrecorded migration object) and asserts the
-        INTENDED rolled_back — RED until STATBUS-017 is fixed.
+        install_upgrade.go:198) and re-runs the committed-unrecorded migration -> "relation already
+        exists" -> migrate up FAILS. With a service-held in-progress flag present the guard now
+        FALLS THROUGH to recoverFromFlag (service.go:1644 -> :1669; install_upgrade.go:198 -> :205)
+        instead of markTerminal+return -> the Resuming one-shot latch (service.go:755) ->
+        recoveryRollback -> snapshot restore -> rolled_back. (Direction (a). The refuse path is kept
+        for the no-flag / install-held case. The forward-recovery+restore branch service.go:838-927
+        stays dead code for service-held flags — a documented follow-up cleanup, not the path this
+        fix uses.)
+      3-postswap-migrate-killed-after-commit is the GREEN regression reproducer: it FABRICATES this
+        state deterministically (committed-but-unrecorded migration object + R1 pinned pre-upgrade
+        branch + R2 seeded snapshot + R3 tracked migration commit) and asserts rolled_back.
     (3) between-migrations-kill: AFTER N is recorded, BEFORE N+1 opens (db.migration max +1) —
       resumes the unrecorded pending set N+1..HEAD cleanly -> completed. GREEN.
     (e) migration-deterministic-error (3-postswap-migration-deterministic-error): a migration whose
-      apply errors EVERY time -> the same migrate-up pre-emption wedge as (2) (re-apply errors ->
-      BOOT_MIGRATE_UP_FAILED, restore never reached). INTENDED: restore -> rolled_back. KNOWN-RED.
+      apply errors EVERY time -> migrate up fails the same way as (2); with a service-held flag the
+      guard FALLS THROUGH to recoverFromFlag -> Resuming latch -> restore -> rolled_back. Forward is
+      impossible (errors every apply), so restore is the only escape — the sharpest case for the
+      fix. GREEN since STATBUS-017.
   TEST 3-postswap-migration-timeout / 3-postswap-worker-ddl-deadlock: a slow or
     worker-locked migration stays BOUNDED (heartbeat / pre-DDL quiesce) — never an infinite wedge.
   TEST 3-postswap-container-restart-kill: a kill between step 11 (start app services) and step 12
