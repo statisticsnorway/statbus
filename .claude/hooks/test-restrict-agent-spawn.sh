@@ -23,7 +23,15 @@ bash -n "$HOOK" || { echo "SYNTAX ERROR in $HOOK"; exit 1; }
 TMPDIR=$(mktemp -d)
 trap "rm -rf $TMPDIR" EXIT
 
-cat >"$TMPDIR/config.json" <<'JSON'
+# The hook resolves its team config from
+#   $CLAUDE_CONFIG_DIR/teams/<resolve_team_name>/config.json
+# (NOT from a CLAUDE_TEAM_CONFIG env var). Pin both so it reads this fixture
+# regardless of the developer's ambient config or the repo's .claude/team.name.
+export CLAUDE_CONFIG_DIR="$TMPDIR"
+export CLAUDE_TEAM_NAME="fixteam"
+TEAM_CONFIG="$TMPDIR/teams/fixteam/config.json"
+mkdir -p "$(dirname "$TEAM_CONFIG")"
+cat >"$TEAM_CONFIG" <<'JSON'
 {
   "name": "test-fixture",
   "leadSessionId": "fixture-lead-session",
@@ -37,8 +45,6 @@ cat >"$TMPDIR/config.json" <<'JSON'
   ]
 }
 JSON
-export CLAUDE_TEAM_CONFIG="$TMPDIR/config.json"
-TEAM_CONFIG="$CLAUDE_TEAM_CONFIG"
 LEAD_SID="fixture-lead-session"
 
 # Synthesize a transcript with a given agentName (same format as upstream).
