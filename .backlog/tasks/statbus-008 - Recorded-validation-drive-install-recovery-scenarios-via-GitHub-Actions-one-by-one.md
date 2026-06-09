@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - operator
 created_date: '2026-06-07 15:41'
-updated_date: '2026-06-09 09:00'
+updated_date: '2026-06-09 21:20'
 labels:
   - install-recovery
   - validation
@@ -138,4 +138,13 @@ BUCKET B — reached the test, failed (MIXED):
 
 KEY: 'db not running' is ISOLATED to the wedge reproducers' extra SQL (watchdog-reconnect fabricates fine + is green) — NOT a shared cause.
 NEXT: (1) fix reproducer fabrication db-drop → re-run the 2 reproducers = capture wedge proof (017 AC#2); (2) adversarially triage the 3 BUCKET-B candidate product findings before calling any 'product'; (3) batch remaining harness fixes (no-delta, drift, mid-tx stall, rollback-kill); (4) one comprehensive pass last.
+
+═══ SESSION RESUME 2026-06-09 ~21:15Z (foreman, fresh context after /clear) ═══
+HEAD = origin/master = 329bdac07 (clean tree). Overnight harness fixes intact (b64866af6 stage-b/c/e ssh-stdin, eff26f815 VM_EXEC revert in ancestry); the 12 commits since are all team/hook/backlog infra — NO install-recovery changes. Images is building the seed for 329bdac07 now (run 27236178814, in_progress).
+
+VERIFIED: the 2 wedge reproducers (3-postswap-migrate-killed-after-commit, -migration-deterministic-error) are BYTE-IDENTICAL between eff26f815 and HEAD (b64866af6 only touched lib/wedge-helpers.sh) → the Stage-1 'db not running' fabrication bug from run 27184220745 is STILL LIVE at HEAD. So capturing the wedge proof (017 AC#2) needs a real harness fix, not just a re-run.
+
+Team stood up (statbus): architect, engineer, mechanic, operator, tester. THREE FRONTS dispatched: operator → pull exact Stage-1 'db not running' evidence from run 27184220745; engineer → diagnose+fix the reproducer fabrication so they reach the wedge (harness-only, headline = 017 AC#2 proof); architect → adversarial triage of the 3 candidate product findings (1-boot-concurrent-install 5-rows; 2-preswap-binary-swap-kill / -checkout-kill flag-absent — cross-check STATBUS-002). Mechanic (harness batch: no-delta/drift/mid-tx/rollback-kill) HELD until engineer reports scenario-local-vs-shared-lib (file-ownership boundary).
+
+PLAN: wedge-proof fix → commit → Images → CANARY (stage-b/c/e + watchdog-reconnect + the 2 reproducers) on the fix SHA BEFORE any comprehensive → then one clean comprehensive. STATBUS-017 fix direction (a) AWAITS King ratification — no recovery-code edits until then.
 <!-- SECTION:NOTES:END -->
