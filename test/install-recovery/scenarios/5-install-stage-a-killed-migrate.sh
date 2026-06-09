@@ -83,7 +83,17 @@ ZOMBIE_COUNT=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT count(*) FROM pg_s
 if [ "$ZOMBIE_COUNT" = "0" ]; then
     echo "  ✓ no psql zombies remaining post-cleanup"
 else
-    echo "  ✗ psql zombie still present (count=$ZOMBIE_COUNT)"
+    echo "  ✗ psql zombie still present (count=$ZOMBIE_COUNT)" >&2
+    # CLASSIFY (run 27168472969): the install's cleanOrphanSessions Phase-1 terminate
+    # returned (0 rows) although its filter (install.go cleanOrphanSessions: app='psql'
+    # OR 'statbus-migrate-sql%' AND query ILIKE '%statistical_history%') SHOULD match
+    # this zombie's shape — so this is NOT a wrong-shape scenario bug. Dump the
+    # surviving session(s) so the next run pins WHY Phase-1 missed it: a datname/DB
+    # mismatch (Phase-1 docker-exec's current_database ≠ the zombie's DB), a different
+    # application_name, or a NEW post-install session vs the original orphan
+    # (compare backend_start/query_start to the install time) — product-vs-environment.
+    echo "  --- surviving session(s) [classify against cleanOrphanSessions Phase-1's filter] ---" >&2
+    VM_EXEC bash -c "cd ~/statbus && echo \"SELECT pid, datname, application_name, state, backend_start, query_start, left(query,100) AS query FROM pg_stat_activity WHERE query ILIKE '%INSERT INTO public.statistical_history%' AND application_name = 'psql';\" | ./sb psql" >&2 || true
     exit 1
 fi
 

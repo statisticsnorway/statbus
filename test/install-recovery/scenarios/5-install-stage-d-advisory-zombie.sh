@@ -58,6 +58,15 @@ if [ "$ZOMBIE_COUNT" -lt 1 ]; then
     echo "  ⚠ no empty-app-name advisory zombie present — wedge didn't engage (TCP keepalives may have reaped it already)"
 fi
 
+# Capture the SPECIFIC synthetic zombie's backend PID now (before the re-install),
+# while it is the only empty-app advisory holder. The post-install check asserts
+# THIS pid is gone — NOT "any empty-app advisory holder": the install's own
+# boot-migrate legitimately holds the migrate_up advisory lock with an empty
+# application_name during step 12, so a broad count trips on it even though Fix 6
+# Phase 2 DID kill the zombie (run 27168472969: count=1 with the zombie already killed).
+ZOMBIE_PID=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT a.pid FROM pg_locks l JOIN pg_stat_activity a ON l.pid = a.pid WHERE l.locktype = 'advisory' AND l.granted AND COALESCE(a.application_name, '') = '' AND a.pid <> pg_backend_pid() ORDER BY a.backend_start DESC LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "")
+echo "  captured synthetic zombie backend PID: ${ZOMBIE_PID:-<none>}"
+
 # 5. Run install — Phase 2 should terminate it.
 echo ""
 echo "── re-run install (Fix 6 Phase 2 should kill the zombie) ──"
@@ -68,13 +77,19 @@ assert_step9_completed "$VM_NAME"
 assert_step_upgrade_service_completed "$VM_NAME"
 assert_health_passes "$VM_NAME"
 
-# 7. Verify zombie is gone post-install.
-ZOMBIE_AFTER=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT count(*) FROM pg_locks l JOIN pg_stat_activity a ON l.pid = a.pid WHERE l.locktype = 'advisory' AND l.granted AND COALESCE(a.application_name, '') = '' AND a.pid <> pg_backend_pid();\" | ./sb psql -t -A" 2>/dev/null | tr -d ' ' || echo "?")
-if [ "$ZOMBIE_AFTER" = "0" ]; then
-    echo "  ✓ no empty-app-name zombies remaining post-install"
+# 7. Verify the SPECIFIC synthetic zombie backend is gone post-install — by its
+# captured PID, NOT "any empty-app advisory holder" (the install's boot-migrate
+# holds the migrate_up advisory with an empty app_name legitimately).
+if [ -z "$ZOMBIE_PID" ]; then
+    echo "  ⚠ no zombie PID was captured (wedge didn't engage) — cannot assert Fix 6 Phase 2; skipping the specific-pid check"
 else
-    echo "  ✗ empty-app-name zombie still present (count=$ZOMBIE_AFTER)"
-    exit 1
+    ZOMBIE_AFTER=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT count(*) FROM pg_stat_activity WHERE pid = $ZOMBIE_PID;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?")
+    if [ "$ZOMBIE_AFTER" = "0" ]; then
+        echo "  ✓ synthetic zombie PID $ZOMBIE_PID terminated post-install (Fix 6 Phase 2)"
+    else
+        echo "  ✗ synthetic zombie PID $ZOMBIE_PID still present post-install (count=$ZOMBIE_AFTER) — Fix 6 Phase 2 did not reap it" >&2
+        exit 1
+    fi
 fi
 
 echo ""
