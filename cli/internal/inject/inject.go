@@ -165,14 +165,15 @@ var classes = map[string]Kind{
 	"upgrade-service-parent-killed-after-commit-before-recorded": KindStall,
 
 	// Mid-transaction kill — the GREEN control for the commit↔record boundary
-	// (cell b vs the after-commit cells c/e). A migration is parked INSIDE its
-	// own transaction (after BEGIN, before COMMIT); the harness SIGKILLs the
-	// psql child so Postgres aborts the uncommitted tx — leaving NO committed-
-	// but-unrecorded state. Recovery re-applies the now-cleanly-pending
-	// migration and the upgrade COMPLETES (no wedge). A Go-side StallHere cannot
-	// reach mid-tx (the whole tx runs inside the psql subprocess that the Go
-	// parent is blocked reading), so this class drives a SQL pause spliced into
-	// the migration's stdin by migrate.runPsqlFile via MidTxPauseSQL — see that
+	// (cell b vs the after-commit cells c/e). A migration is parked INSIDE the
+	// outer transaction enveloping its statements (after BEGIN, before COMMIT);
+	// the harness SIGKILLs the psql child so Postgres aborts the uncommitted tx
+	// — leaving NO committed-but-unrecorded state. Recovery re-applies the
+	// now-cleanly-pending migration and the upgrade COMPLETES (no wedge). A
+	// Go-side StallHere cannot reach mid-tx (the whole tx runs inside the psql
+	// subprocess that the Go parent is blocked reading), so this class drives a
+	// SQL pause spliced into the migration's stdin by migrate.runPsqlFile via
+	// MidTxPauseSQL — see that
 	// helper. KindStall: the harness sets a release file (Validate + the
 	// wait_for_inject_stall_ready "armed" sentinel); the actual interruption is
 	// the SIGKILL, exactly as the after-commit stalls above. Drives scenario
@@ -414,8 +415,9 @@ func StallHere(name string) {
 	}
 }
 
-// MidTxPauseSQL returns a SQL snippet to splice INSIDE a migration's transaction
-// when the named class is active, "" otherwise. It exists because the three
+// MidTxPauseSQL returns a SQL snippet to splice into the OUTER transaction that
+// envelops a migration's statements (after BEGIN, before COMMIT) when the named
+// class is active, "" otherwise. It exists because the three
 // primitives above are Go-side and cannot reach mid-transaction: a migration's
 // whole BEGIN…END runs inside the psql subprocess that migrate.runPsqlFile feeds
 // via stdin and then blocks reading. The ONLY way to park a migration after its
