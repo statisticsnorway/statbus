@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - operator
 created_date: '2026-06-07 15:41'
-updated_date: '2026-06-09 07:13'
+updated_date: '2026-06-09 09:00'
 labels:
   - install-recovery
   - validation
@@ -118,4 +118,24 @@ NEXT STEPS (resume here):
 KING DECISIONS PENDING: STATBUS-017 (rune-wedge fix direction — GATES rollout), STATBUS-013 (migrate-killed-after-commit A/B/C), STATBUS-015 (C8 latch).
 
 TEAM: foreman (main) + architect + engineer. architect-2 was a duplicate/orphan (wedged on a tool prompt) — killed by King ~05:00Z. On team restart, point the fresh team at: this task (008), doc-002, STATBUS-017.
+
+RUN 27184220745 @ eff26f815 — 15-scenario re-validation batch (overall conclusion=failure, expected). Per-scenario tally (operator parse; raw logs remain in tmp/run-27184220745-* as working logs, durable summary here):
+
+GREEN 5/15: 1-boot-startup-timeout, 3-postswap-container-restart-kill, 3-postswap-migration-timeout, 3-postswap-watchdog-reconnect, 5-install-stage-d-advisory-zombie.
+
+RED 10/15, bucketed:
+BUCKET A — setup failed, test never ran (HARNESS):
+  - 3-postswap-migrate-killed-after-commit: db 'not running' during the EXTRA wedge Stage-1 SQL (sentinel table) — fabrication bug, NOT the wedge. ⇒ WEDGE PROOF NOT CAPTURED; blocks STATBUS-017 AC#2 until reproducer fabrication is fixed.
+  - 3-postswap-migration-deterministic-error: same db-drop during erroring-migration Stage-1 SQL.
+  - 3-postswap-between-migrations-kill: 0 pending migrations at HEAD (no-delta problem; scenario not getting a real v2026.05.2→HEAD delta).
+  - 5-install-drifted-unit-reconciled: drift setup wrong (WatchdogUSec 2min, expected 4min).
+BUCKET B — reached the test, failed (MIXED):
+  - 1-boot-concurrent-install: converged to 5 upgrade rows vs expected 1 (CANDIDATE product finding — serialization).
+  - 2-preswap-binary-swap-kill / 2-preswap-checkout-kill: flag file absent after SIGKILL (CANDIDATE product finding — is the flag written before this point?).
+  - 3-postswap-mid-tx-kill: inject stall timed out 900s, never fired (same class as the deferred reproducer).
+  - 4-rollback-kill: recovery assertion's psql query errored.
+  - 5-install-stage-a-killed-migrate: psql zombie count=1 = a FRESH psql session (new-session signature ⇒ HARNESS, not DB-context-mismatch). CLASSIFICATION CLOSED = harness.
+
+KEY: 'db not running' is ISOLATED to the wedge reproducers' extra SQL (watchdog-reconnect fabricates fine + is green) — NOT a shared cause.
+NEXT: (1) fix reproducer fabrication db-drop → re-run the 2 reproducers = capture wedge proof (017 AC#2); (2) adversarially triage the 3 BUCKET-B candidate product findings before calling any 'product'; (3) batch remaining harness fixes (no-delta, drift, mid-tx stall, rollback-kill); (4) one comprehensive pass last.
 <!-- SECTION:NOTES:END -->
