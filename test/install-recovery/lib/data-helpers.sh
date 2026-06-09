@@ -374,31 +374,65 @@ SQL
 seed_pre_upgrade_snapshot() {
     local vm_name="$1"
     echo "  [data] seeding pre-upgrade-active DB snapshot (R2: a real restore source for recoveryRollback)"
-    # Whole body runs on the VM as the statbus user (docker group member); the
-    # variables/$(...) are expanded ON the VM (single-quoted body → printf %q in
-    # VM_EXEC ships it verbatim). docker compose resolves the project from
-    # ~/statbus/.env (same as the green 1-boot-advisory-too-early `docker compose
-    # restart db`). The volume is discovered by suffix (dbVolumeName() ==
-    # COMPOSE_INSTANCE_NAME-db-data, exec.go:227-231) to avoid re-deriving it.
-    VM_EXEC bash -c '
-        set -euo pipefail
-        cd ~/statbus
-        vol=$(docker volume ls --format "{{.Name}}" | grep -- "-db-data$" | head -1)
-        if [ -z "$vol" ]; then echo "  ✗ seed_pre_upgrade_snapshot: no *-db-data docker volume found" >&2; exit 1; fi
-        dest="$HOME/statbus-backups/pre-upgrade-active"
-        mkdir -p "$dest"
-        echo "    volume=$vol dest=$dest"
-        docker compose stop db >/dev/null 2>&1 || true
-        docker run --rm -v "$vol":/source:ro -v "$dest":/dest alpine \
-            sh -c "apk add --no-cache rsync >/dev/null 2>&1 && rsync -a --delete /source/ /dest/"
-        docker compose start db >/dev/null 2>&1
-        ok=0
-        for _ in $(seq 1 30); do
-            if ./sb psql -t -A -c "SELECT 1" >/dev/null 2>&1; then ok=1; break; fi
-            sleep 1
-        done
-        if [ "$ok" != "1" ]; then echo "  ✗ seed_pre_upgrade_snapshot: db did not accept connections after restart" >&2; exit 1; fi
-    ' || { echo "  ✗ seed_pre_upgrade_snapshot failed" >&2; return 1; }
+
+    # TRANSPORT: write the body to a local temp file, scp it to /tmp on the VM,
+    # `chmod 0644` it (scp -O lands root-owned mode 600 — statbus can't read it
+    # otherwise), then run it via `sudo -i -u statbus bash /tmp/seed-snapshot.sh`.
+    # This is the gold-standard install-script transport (vm-bootstrap.sh:565-574):
+    # bash reads the script from a FILE, so its contents are parsed ON THE VM and
+    # NEVER pass through a shell `-c` arg-quoting layer.
+    #
+    # Do NOT use `VM_EXEC bash -c '<multi-line body>'` here: the printf %q +
+    # `sudo -i -u statbus -- bash -c` transport mangled a body that ASSIGNS a var
+    # and references it later — run 27239835249 saw $vol/$dest come out EMPTY
+    # (`docker run -v "":/source ...`), so the seed failed before recovery ever
+    # ran. The heredoc delimiter is QUOTED ('SEEDSCRIPT') so $vol/$dest/$HOME/$(…)
+    # are written literally and expand on the VM, not locally.
+    local script_file
+    script_file=$(mktemp)
+    cat > "$script_file" <<'SEEDSCRIPT'
+set -euo pipefail
+cd ~/statbus
+# Discover the PGDATA volume by suffix (dbVolumeName() == COMPOSE_INSTANCE_NAME
+# + "-db-data", exec.go:227-231) rather than re-deriving COMPOSE_INSTANCE_NAME.
+vol=$(docker volume ls --format '{{.Name}}' | grep -- '-db-data$' | head -1)
+if [ -z "$vol" ]; then
+    echo "  ✗ seed_pre_upgrade_snapshot: no *-db-data docker volume found" >&2
+    exit 1
+fi
+dest="$HOME/statbus-backups/pre-upgrade-active"
+mkdir -p "$dest"
+echo "    volume=$vol dest=$dest"
+# Quiesce the DB for a consistent file-level copy (mirrors backupDatabase,
+# exec.go:424). docker compose resolves the project from ~/statbus/.env (same as
+# the green 1-boot-advisory-too-early `docker compose restart db`).
+docker compose stop db >/dev/null 2>&1 || true
+docker run --rm -v "$vol":/source:ro -v "$dest":/dest alpine \
+    sh -c 'apk add --no-cache rsync >/dev/null 2>&1 && rsync -a --delete /source/ /dest/'
+docker compose start db >/dev/null 2>&1
+# Wait for the DB to accept connections again before the caller resumes SQL.
+ok=0
+for _ in $(seq 1 30); do
+    if ./sb psql -t -A -c 'SELECT 1' >/dev/null 2>&1; then ok=1; break; fi
+    sleep 1
+done
+if [ "$ok" != "1" ]; then
+    echo "  ✗ seed_pre_upgrade_snapshot: db did not accept connections after restart" >&2
+    exit 1
+fi
+echo "    snapshot rsync complete; db back up"
+SEEDSCRIPT
+
+    scp -O "${SSH_OPTS[@]}" "$script_file" root@"$VM_IP":/tmp/seed-snapshot.sh >/dev/null
+    rm -f "$script_file"
+    ssh "${SSH_OPTS[@]}" root@"$VM_IP" 'chmod 0644 /tmp/seed-snapshot.sh'
+    local rc=0
+    ssh "${SSH_OPTS[@]}" root@"$VM_IP" 'sudo -i -u statbus bash /tmp/seed-snapshot.sh' || rc=$?
+    ssh "${SSH_OPTS[@]}" root@"$VM_IP" 'rm -f /tmp/seed-snapshot.sh' >/dev/null 2>&1 || true
+    if [ "$rc" -ne 0 ]; then
+        echo "  ✗ seed_pre_upgrade_snapshot failed (exit $rc)" >&2
+        return 1
+    fi
     echo "  ✓ pre-upgrade-active snapshot seeded"
     return 0
 }
