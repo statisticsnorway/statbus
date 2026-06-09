@@ -93,11 +93,16 @@ echo "  ✓ unit active, healthy"
 # timeout knobs change), then daemon-reload + restart.
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
-echo "── simulating unit drift (WatchdogSec→infinity, TimeoutStartSec→90) ──"
+echo "── simulating unit drift (WatchdogSec→240, TimeoutStartSec→90) ──"
+# Use a DISTINCT VALID timeout (240s = "4min", clearly ≠ the repo's 120s = "2min"),
+# NOT "infinity": WatchdogSec=infinity is not a value systemd applies — on run
+# 27168472969 it was silently ignored and the running unit kept WatchdogUSec=2min,
+# so the RED precondition never held (while TimeoutStartSec=90 DID apply, proving
+# the edit+reload+restart mechanism is fine — only the WatchdogSec VALUE was wrong).
 VM_EXEC bash -c "
     set -e
     U=$UNIT_TEMPLATE_FILE
-    sed -i -E 's/^WatchdogSec=.*/WatchdogSec=infinity/; s/^TimeoutStartSec=.*/TimeoutStartSec=90/' \"\$U\"
+    sed -i -E 's/^WatchdogSec=.*/WatchdogSec=240/; s/^TimeoutStartSec=.*/TimeoutStartSec=90/' \"\$U\"
     systemctl --user daemon-reload
     systemctl --user restart $UNIT
 "
@@ -107,12 +112,12 @@ sleep 3
 WD_DRIFT=$(VM_EXEC systemctl --user show "$UNIT" --property=WatchdogUSec --value 2>/dev/null | tr -d ' \r\n' || echo "?")
 TS_DRIFT=$(VM_EXEC systemctl --user show "$UNIT" --property=TimeoutStartUSec --value 2>/dev/null | tr -d ' \r\n' || echo "?")
 echo "  drifted running unit: WatchdogUSec=$WD_DRIFT TimeoutStartUSec=$TS_DRIFT"
-# WatchdogUSec=infinity → systemd reports "infinity"; TimeoutStartUSec=90s → "1min 30s".
-if [ "$WD_DRIFT" != "infinity" ]; then
-    echo "✗ drift setup did not take effect (WatchdogUSec=$WD_DRIFT, expected infinity)" >&2
+# WatchdogSec=240 → systemd reports "4min" (≠ repo 2min); TimeoutStartUSec=90s → "1min 30s".
+if [ "$WD_DRIFT" != "4min" ]; then
+    echo "✗ drift setup did not take effect (WatchdogUSec=$WD_DRIFT, expected 4min)" >&2
     exit 1
 fi
-echo "  ✓ RED precondition: running unit is on the drifted (90/infinity) config"
+echo "  ✓ RED precondition: running unit is on the drifted (90s/4min) config"
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 3 — idempotent ./sb install: #4 detects drift → rewrite → reload → restart
@@ -142,8 +147,8 @@ WD_FIXED=$(VM_EXEC systemctl --user show "$UNIT" --property=WatchdogUSec --value
 TS_FIXED=$(VM_EXEC systemctl --user show "$UNIT" --property=TimeoutStartUSec --value 2>/dev/null | tr -d ' \r\n' || echo "?")
 echo "  reconciled running unit: WatchdogUSec=$WD_FIXED TimeoutStartUSec=$TS_FIXED"
 # Repo is WatchdogSec=120 / TimeoutStartSec=120 → systemd reports "2min".
-if [ "$WD_FIXED" = "infinity" ]; then
-    echo "✗ running unit STILL has WatchdogUSec=infinity — the rewrite was not re-armed (no restart)." >&2
+if [ "$WD_FIXED" != "2min" ]; then
+    echo "✗ running unit WatchdogUSec=$WD_FIXED, expected 2min — the rewrite was not re-armed to the repo value (no restart)." >&2
     echo "  A rewritten unit file is inert until daemon-reload + restart; #4 must restart a drifted+active unit." >&2
     exit 1
 fi
@@ -154,7 +159,7 @@ case "$TS_FIXED" in
         exit 1
         ;;
 esac
-echo "  ✓ running unit re-armed to repo timers (Watchdog≠infinity, TimeoutStart≈2min)"
+echo "  ✓ running unit re-armed to repo timers (Watchdog=2min, TimeoutStart≈2min)"
 
 assert_health_passes "$VM_NAME"
 
