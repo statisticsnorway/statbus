@@ -21,7 +21,14 @@ bash -n "$HOOK" || { echo "SYNTAX ERROR in $HOOK"; exit 1; }
 FIXTURE_DIR=$(mktemp -d)
 trap "rm -rf $FIXTURE_DIR" EXIT
 
-cat >"$FIXTURE_DIR/config.json" <<'JSON'
+# The hook resolves its roster from
+#   $CLAUDE_CONFIG_DIR/teams/<resolve_team_name>/config.json
+# (NOT from a CLAUDE_TEAM_CONFIG env var). Pin both so it reads this fixture,
+# independent of the developer's ambient config or the repo's .claude/team.name.
+export CLAUDE_CONFIG_DIR="$FIXTURE_DIR"
+export CLAUDE_TEAM_NAME="fixteam"
+mkdir -p "$FIXTURE_DIR/teams/fixteam"
+cat >"$FIXTURE_DIR/teams/fixteam/config.json" <<'JSON'
 {
   "name": "test-fixture",
   "leadSessionId": "fixture-lead-session",
@@ -35,7 +42,6 @@ cat >"$FIXTURE_DIR/config.json" <<'JSON'
   ]
 }
 JSON
-export CLAUDE_TEAM_CONFIG="$FIXTURE_DIR/config.json"
 
 PASS=0
 FAIL=0
