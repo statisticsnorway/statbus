@@ -226,6 +226,27 @@ echo "════════════════════════�
 echo "  Stage 1 — fabricate the always-erroring pending migration state"
 echo "════════════════════════════════════════════════════════════════"
 
+# ── Stop the LIVE upgrade unit BEFORE fabricating ──────────────────────────
+# Stage 0's install started statbus-upgrade@statbus.service, which holds an open
+# `LISTEN upgrade_apply` (cli/internal/upgrade/service.go:1604). The fabrication
+# below sets scheduled_at on the upgrade row (fabricate_scheduled_upgrade_row),
+# firing the upgrade_notify_daemon trigger -> pg_notify('upgrade_apply','sha-…')
+# (migration 20260414193000). A live service wakes on that NOTIFY, runs a REAL
+# executeUpgrade, and `docker compose stop db` for its backup (service.go:3462),
+# yanking the DB out from under the remaining fabrication SQL — observed as
+# `service "db" is not running` in run 27184220745, where BOTH reproducers died
+# here before ever reaching the wedge. Stopping the unit first (Restart=always
+# does NOT revive an explicit `systemctl stop`) lets the fabrication build the
+# crash state in peace. The unit is idle at this point (no scheduled row exists
+# yet), so SIGTERM exits it cleanly without touching the DB. Stage 3 restarts
+# the unit explicitly to drive the boot-migrate-up wedge. This mirrors the green
+# sibling 3-postswap-watchdog-reconnect, which stops the unit before it
+# manipulates upgrade state.
+echo "── stopping the live upgrade unit so the scheduled-row NOTIFY can't hijack fabrication ──"
+VM_EXEC systemctl --user stop "$UPGRADE_UNIT" 2>/dev/null || true
+UNIT_STATE_AFTER_STOP=$(VM_EXEC systemctl --user is-active "$UPGRADE_UNIT" 2>/dev/null || true)
+echo "  upgrade unit is-active after stop: ${UNIT_STATE_AFTER_STOP:-unknown} (expect 'inactive' — NOT 'active')"
+
 _push_erroring_migration
 ROW_ID=$(_fabricate_in_progress_row)
 echo "  fabricated in_progress upgrade row id=$ROW_ID"
