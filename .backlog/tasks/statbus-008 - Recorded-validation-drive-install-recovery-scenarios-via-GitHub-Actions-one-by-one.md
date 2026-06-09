@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - operator
 created_date: '2026-06-07 15:41'
-updated_date: '2026-06-08 12:10'
+updated_date: '2026-06-09 07:13'
 labels:
   - install-recovery
   - validation
@@ -94,4 +94,28 @@ ssh-quoting fix CONFIRMED by mechanic (bdb0cd763, pushed in 89cbb20b5). Root cau
 ✅ 3-postswap-archivebackup-resume: PASS — run 27133731766 @ 89cbb20b5 (after the gzip-t false-positive fix 384ecd0d0 + ssh-quoting fix bdb0cd763). Validated: rec-2 bounded NRestarts (delta=1≤3), backup atomicity (tar→.tmp, no partial at final), WATCHDOG=1 stall coverage, data integrity, recovery convergence (row=completed, flag absent, healthy). 4th GREEN. AC#2 MET (all 3 sharpened-claim scenarios DRIVEN + RECORDED: watchdog-reconnect GREEN, archivebackup-resume GREEN, migrate-killed-after-commit driven+recorded→deferred STATBUS-013). AC#3 MET (every run URL+verdict in this tally). RUNNING GREEN TALLY: 0-happy-install, watchdog-reconnect, mid-migration-kill, archivebackup-resume = 4 GREEN. NEXT: confirm 0-happy-upgrade (ssh-quoting fix) + regression-check watchdog-reconnect, then HOLD for the King. 0 confirmed product recovery bugs.
 
 ✅ 0-happy-upgrade: PASS — run 27135782091 @ d8369641d (5th GREEN). The earlier BINARY_BUILD_FAILED was HARNESS, not product: test VMs have no Go BY DESIGN; the old v2026.05.2 running binary predates the build-skip (sbAlreadyAtCommit) → tried make-build → failed. Fix d8369641d restarts the unit onto the pre-staged HEAD binary so the build skips. The upgrade correctly ROLLED BACK on that build failure = recovery sound. Also: watchdog-reconnect REGRESSION-RECONFIRMED green (27134957667) after the ssh-quoting fix touched its trap-cleanup — no regression. FINAL GREEN TALLY (5): 0-happy-install, watchdog-reconnect, mid-migration-kill, archivebackup-resume, 0-happy-upgrade. migrate-killed-after-commit = decisively diagnosed + deferred (STATBUS-013). 0 confirmed product recovery bugs; the recovery/rollback code held under every fault. Clean summary: backlog doc-001. HOLDING for the King to review + steer (4 decision items: 010/012/013/014; ~13 breadth scenarios remain, several boot ones now unblocked by the ssh-quoting fix). Will resume breadth autonomously if the King stays asleep.
+
+═══ OVERNIGHT 2026-06-08→09 (foreman autonomous run) — RESUME POINT ═══
+State ~05:00Z. Full narrative: doc-002. origin/master = b64866af6 (clean tree). Everything below is committed/pushed or on GitHub Actions — survives a team teardown.
+
+HEADLINE → STATBUS-017 (HIGH/CRITICAL): the rune wedge is NOT fixed. A half-applied migration (committed, unrecorded) meets a schema-skew boot `migrate up` that runs BEFORE recovery (service.go:1644 before :1669) → 'relation already exists' → no restore → boot-loop. Code-confirmed. **GATES the NO rollout — do not roll out until fixed.** The recovery/rollback code held under every OTHER fault.
+
+OTHER FINDINGS: 018 (seed pg_restore --clean on populated DB, MEDIUM), 019 (diagnostic-bundle to_jsonb 42P01, LOW). ZERO data-loss (5-install-seed-on-populated PASSED). ZERO new product recovery bugs beyond 017.
+
+BREADTH: 13/28 green confirmed (5 pre-overnight + Batch 1: 5 + Batch 2: 3). Remaining scenarios fix-committed + re-validating.
+
+SETBACK (recovered): a VM_EXEC base64 shared-helper fix (to clear stage-b/c/e ssh-quoting) had a sudo-i double-eval bug → empty argv → broke comprehensive retest 27178521014 = 0/18. REVERTED VM_EXEC to printf %q (eff26f815). stage-b/c/e re-fixed per-scenario via ssh-stdin (committed b64866af6), pending canary. LESSON: never put an unvalidated shared-helper change into a comprehensive run.
+
+IN-FLIGHT (on GitHub Actions, survives teardown):
+- Re-run 27184220745 (15 scenarios on eff26f815, lands ~07:20Z): validates the fixes + captures the wedge proof (reproducers 3-postswap-migrate-killed-after-commit / -migration-deterministic-error are RED-by-design) + classifies stage-a.
+
+NEXT STEPS (resume here):
+1. Parse re-run 27184220745 → green tally + wedge proof.
+2. Canary the stage-b/c/e fix (3-postswap-watchdog-reconnect green-check + stage-b/c/e) on b64866af6 BEFORE any comprehensive run.
+3. Classify stage-a from its diagnostic dump (DB-context-mismatch=product vs new-session=harness).
+4. Clean comprehensive pass.
+
+KING DECISIONS PENDING: STATBUS-017 (rune-wedge fix direction — GATES rollout), STATBUS-013 (migrate-killed-after-commit A/B/C), STATBUS-015 (C8 latch).
+
+TEAM: foreman (main) + architect + engineer. architect-2 was a duplicate/orphan (wedged on a tool prompt) — killed by King ~05:00Z. On team restart, point the fresh team at: this task (008), doc-002, STATBUS-017.
 <!-- SECTION:NOTES:END -->
