@@ -424,9 +424,10 @@ func runPsqlFile(projDir string, filePath string) (string, error) {
 	cmd.Env = env
 
 	// Mid-transaction inject (cell b — the GREEN control for the commit↔record
-	// boundary). When the mid-tx class is active, splice a SQL pause INSIDE the
-	// migration's transaction: prepend an outer BEGIN + the pause so the harness
-	// can SIGKILL the psql child AFTER BEGIN, BEFORE COMMIT. The migration file's
+	// boundary). When the mid-tx class is active, splice a SQL pause into the
+	// OUTER transaction that envelops the migration's statements: prepend an
+	// outer BEGIN + the pause so the harness can SIGKILL the psql child AFTER
+	// BEGIN, BEFORE COMMIT. The migration file's
 	// own leading BEGIN becomes a warned no-op (a WARNING, not an error — so
 	// ON_ERROR_STOP does not trip), and its END commits the single outer tx.
 	// Env unset → MidTxPauseSQL returns "" → stdin is the unmodified file
