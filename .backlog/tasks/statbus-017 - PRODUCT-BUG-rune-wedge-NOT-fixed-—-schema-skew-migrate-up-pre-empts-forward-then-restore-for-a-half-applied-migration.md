@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-08 21:46'
-updated_date: '2026-06-09 22:02'
+updated_date: '2026-06-09 22:22'
 labels:
   - install-recovery
   - recovery
@@ -66,9 +66,9 @@ Architect building a deterministic reproducer (fabricate the after-commit RED st
 <!-- AC:BEGIN -->
 - [ ] #1 King decides the fix direction (a/b/c below or other)
 - [x] #2 Empirical reproducer captured (real-VM run URL) demonstrating the current wedge (BOOT_MIGRATE_UP_FAILED / boot-loop / non-zero, NOT rolled_back)
-- [ ] #3 Fix implemented in recovery code (King-gated — not done autonomously)
+- [x] #3 Fix implemented in recovery code (King-gated — not done autonomously)
 - [ ] #4 3-postswap-migrate-killed-after-commit + the migration-error scenario go GREEN (state=rolled_back) on real VMs
-- [ ] #5 doc/diagrams/upgrade-timeline.plantuml + doc/upgrade-timeline.md updated to match the fixed behavior
+- [x] #5 doc/diagrams/upgrade-timeline.plantuml + doc/upgrade-timeline.md updated to match the fixed behavior
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -125,4 +125,7 @@ VERIFY: engineer compiles (./dev.sh build-sb) + bash -n; then GREEN run of the 2
 - cell e (deterministic-error): ERROR 'harness deterministic migration error (STATBUS-017 cell e)' → same boot-loop → state=in_progress.
 Stage-4 intended-green RED by design: 'upgrade row state mismatch: expected=rolled_back actual=in_progress'. Evidence: tmp/operator-wedge-PROOF-27237385049.md.
 This is the empirical 'before' — the recovery fix (engineer implementing now) must flip both to state=rolled_back (AC#4). AC#1 = King authorized solving on master + proceeding direction (a)/roll-back (formal morning confirmation pending; no objection raised).
+
+FIX COMMITTED + REVIEWED (2026-06-10 ~22:20Z). Three commits on master: 584919285 (PRODUCT recovery fix — service.go + install_upgrade.go, the fall-through-to-recoverFromFlag on a service-held flag), 93074ba71 (reproducers R1/R2/R3 + seed_pre_upgrade_snapshot helper + doc/diagrams/upgrade-timeline.plantuml + doc/upgrade-timeline.md), 686ba94e1 (cosmetic banner KNOWN-RED→EXPECTED-GREEN). Engineer-implemented per the architect plan; build exit 0 + go vet clean + bash -n clean. ARCHITECT ADVERSARIAL REVIEW = PASS-with-fixes (independently verified the predicate, true fall-through, recovery trace landing rolled_back via degraded=false, R1/R2/R3 + Stage-1 ordering, R2 path-match to backupRoot()/dbVolumeName, R3 staleness-safety, assertions); the one required fix (doc/upgrade-timeline.md operator-narrative now names the UPGRADE_DIED_DURING_RESUME path) was applied. Foreman independently reviewed the product diff (clean, minimal, inert-in-green) + the seed helper (mirrors backupDatabase, fails loud, append-only zero-blast-radius).
+AC#3 (fix implemented) + AC#5 (docs) DONE. AC#1 = King authorized direction (a)/roll-back on master; formal morning confirmation of the diff pending (King-gated review). AC#4 = GREEN run dispatching once Images builds the 686ba94e1 seed (expect both reproducers state=rolled_back, error~UPGRADE_DIED_DURING_RESUME, NRestarts≤2, orphan gone). Then comprehensive run for breadth + product-fix regression check.
 <!-- SECTION:NOTES:END -->
