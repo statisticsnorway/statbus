@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-08 21:46'
-updated_date: '2026-06-09 22:45'
+updated_date: '2026-06-09 23:28'
 labels:
   - install-recovery
   - recovery
@@ -67,7 +67,7 @@ Architect building a deterministic reproducer (fabricate the after-commit RED st
 - [ ] #1 King decides the fix direction (a/b/c below or other)
 - [x] #2 Empirical reproducer captured (real-VM run URL) demonstrating the current wedge (BOOT_MIGRATE_UP_FAILED / boot-loop / non-zero, NOT rolled_back)
 - [x] #3 Fix implemented in recovery code (King-gated — not done autonomously)
-- [ ] #4 3-postswap-migrate-killed-after-commit + the migration-error scenario go GREEN (state=rolled_back) on real VMs
+- [x] #4 3-postswap-migrate-killed-after-commit + the migration-error scenario go GREEN (state=rolled_back) on real VMs
 - [x] #5 doc/diagrams/upgrade-timeline.plantuml + doc/upgrade-timeline.md updated to match the fixed behavior
 <!-- AC:END -->
 
@@ -130,4 +130,11 @@ FIX COMMITTED + REVIEWED (2026-06-10 ~22:20Z). Three commits on master: 58491928
 AC#3 (fix implemented) + AC#5 (docs) DONE. AC#1 = King authorized direction (a)/roll-back on master; formal morning confirmation of the diff pending (King-gated review). AC#4 = GREEN run dispatching once Images builds the 686ba94e1 seed (expect both reproducers state=rolled_back, error~UPGRADE_DIED_DURING_RESUME, NRestarts≤2, orphan gone). Then comprehensive run for breadth + product-fix regression check.
 
 GREEN run 27239835249 @ 686ba94e1 = FAILURE — but NOT the product fix. Both reproducers died at Stage-1 in the NEW seed_pre_upgrade_snapshot helper, BEFORE recovery ran (product recovery code never exercised — 017 fix NOT refuted). ROOT CAUSE: harness transport bug — the helper's `VM_EXEC bash -c '<multi-line body>'` got mangled (printf %q collapse): the VM bash shows the body on one line with $vol/$dest EMPTY (`if [ -z "" ]`, `mkdir -p ""`, `-v "":/source`). Same class as the recurring VM_EXEC multi-line failures. The R1 pin + R3 tracked-migration commit + the scheduled-row fabricate all SUCCEEDED (log: 'pre-upgrade -> 686ba94', 'synthetic migration committed ... tracked on top of pre-upgrade') — only the snapshot-seed transport broke. This is the GREEN run doing its job (caught a real harness bug the static review couldn't see — test-to-know). Engineer rewriting the helper transport to the proven mktemp+scp+ssh pattern (lib/data-helpers.sh, still 2-reproducer-only); architect re-reviews; then re-commit → Images → re-run. Comprehensive run HELD until the GREEN re-run clears (harness concurrency serializes; 017 GREEN is priority).
+
+✅✅ AC#4 PROVEN — 017 SOLVED + PROVEN RED→GREEN ON REAL VMs. GREEN re-run 27241262390 @ f31ce6f86 = conclusion=SUCCESS, 'Summary: 2 passed, 0 failed' (https://github.com/statisticsnorway/statbus/actions/runs/27241262390). Both reproducers — the SAME ones that boot-looped in the RED proof (27237385049) — now restore cleanly:
+- 3-postswap-migrate-killed-after-commit (cell c): ✓ faithful restore (orphan gone, synthetic migration unrecorded + file removed = a REAL restore, not hollow) → NRestarts=0 → PASS 'rune wedge FIXED — restores to rolled_back'.
+- 3-postswap-migration-deterministic-error (cell e): row state=rolled_back, error='UPGRADE_DIED_DURING_RESUME ... rolled back to the snapshot', NRestarts=0 (no boot-loop) → PASS.
+The before/after pair (RED 27237385049 → GREEN 27241262390) is the empirical proof: same fabrication, the only change is the recovery-code fix (584919285) + the snapshot-restore preconditions.
+
+017 STATE: AC#2 (RED proof) + AC#3 (implemented) + AC#4 (GREEN proof) + AC#5 (docs) ALL DONE. The fix is SOLVED + PROVEN end-to-end. AC#1 (King's formal direction confirmation) + the final close await the King's MORNING review of the product diff (584919285) — leaving the task In Progress + this AC for the King to ratify (recovery code is King-gated; the King reviews the diff, confirms direction (a)/roll-back, closes). If the King wants push-forward instead of roll-back, that's a redirect; the work + proof are done for (a).
 <!-- SECTION:NOTES:END -->
