@@ -90,15 +90,25 @@ trap '
 
 echo "════════════════════════════════════════════════════════════════"
 echo "  Scenario: 1-boot-startup-timeout  (C11 / Layer 1 — TimeoutStartSec)"
-echo "  Install version: $INSTALL_VERSION (no upgrade needed)"
+echo "  Install: HEAD (the C11 inject site is HEAD-only; a release binary no-ops the stall)"
 echo "  Stall budget: ${TIMEOUT_OBSERVE_S}s (TimeoutStartSec=120 + TimeoutStopSec=5 + slack)"
 echo "════════════════════════════════════════════════════════════════"
 
 bootstrap_install_test_vm "$VM_NAME" "$INSTALL_VERSION"
 
 echo ""
-echo "── initial install at $INSTALL_VERSION ──"
-install_statbus_in_vm "$VM_NAME" "$INSTALL_VERSION"
+echo "── initial install at HEAD (C11 inject is HEAD-only) ──"
+# Install HEAD, NOT a release tag. The C11 StallHere (service.go:1591,
+# service-startup-slower-than-systemd-unit-timeout) lands with this commit and is
+# ABSENT from older release binaries: installing v2026.05.x runs the upgrade service
+# from a binary WITHOUT the inject → the stall is a no-op, the service boots clean,
+# and NRestarts never grows (the run-27167617557 failure). A bare `cp /tmp/sb` swap
+# is NOT sufficient either — `./sb upgrade service` carries the `selfheal` staleness
+# annotation (cli/cmd/root.go), so a HEAD binary on a release git tree would trigger
+# RebuildAndReexec → fail on the Go-less VM. install_statbus_in_vm with NO version
+# installs HEAD coherently (HEAD binary + HEAD git tree) so the service runs HEAD
+# with the inject present. (INSTALL_VERSION above is now only the bootstrap clone base.)
+install_statbus_in_vm "$VM_NAME"
 assert_health_passes "$VM_NAME"
 
 # Baseline NRestarts before triggering the timeout.

@@ -127,6 +127,10 @@ if ! git cat-file -e $HEAD_LOCAL 2>/dev/null; then
     git fetch --depth 1 origin $HEAD_LOCAL || { echo "FATAL" >&2; exit 1; }
 fi
 git checkout $HEAD_LOCAL
+# Re-place sb after checkout (gitignored; checkout leaves it alone, but match the
+# proven container-restart-kill pattern so ./sb is unambiguously the HEAD binary).
+cp /tmp/sb ./sb
+chmod +x ./sb
 cp /tmp/env-config .env.config
 cp /tmp/users.yml .users.yml
 STATBUS_INJECT_AT=killed-by-system-during-binary-swap \
@@ -136,6 +140,15 @@ SCRIPT
 upload_install_script_to_vm "$VM_NAME" "$INSTALL_SCRIPT" /tmp/install-first.sh
 upload_sb_to_vm "$VM_NAME"
 
+# Seed a scheduled public.upgrade row so ./sb install detects StateScheduledUpgrade
+# and routes to executeUpgradeInline (where the C5 binary-swap kill fires), rather
+# than detecting nothing-scheduled and running the no-op step-table path — which
+# completes (exit 0) with NO upgrade, so the C5 kill has nothing to fire in and no
+# wedge is established. Same pattern as 3-postswap-container-restart-kill / -binary-swap-kill.
+echo ""
+echo "── fabricating scheduled public.upgrade row for HEAD ──"
+fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_LOCAL"
+
 set +e
 timeout "${INSTALL_BUDGET_S}s" ssh "${SSH_OPTS[@]}" statbus@"$ip" "bash /tmp/install-first.sh"
 FIRST_EXIT=$?
@@ -144,6 +157,17 @@ echo "  first install exited: $FIRST_EXIT (137 = C5 SIGKILL semantics, wedge est
 
 if [ "$FIRST_EXIT" = "124" ]; then
     echo "✗ first install timed out — C5 kill did not fire" >&2
+    exit 1
+fi
+# The C5 binary-swap kill SIGKILLs the install → exit 137. ANY other exit means
+# the kill did NOT fire — most commonly a clean exit 0 because the install ran the
+# nothing-scheduled step-table to completion (the fabricated scheduled row above is
+# what routes it into executeUpgradeInline where C5 lands). Fail loudly so a clean
+# exit-0 can never silently pass the wedge assertions below.
+if [ "$FIRST_EXIT" != "137" ]; then
+    echo "✗ first install exited $FIRST_EXIT (expected 137) — the C5 binary-swap kill did not fire." >&2
+    echo "  The install likely ran the nothing-scheduled step-table instead of executeUpgradeInline." >&2
+    echo "  (Is the scheduled public.upgrade row fabricated before the install?)" >&2
     exit 1
 fi
 
