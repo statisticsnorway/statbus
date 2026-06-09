@@ -355,21 +355,9 @@ EOF'
 }
 
 VM_EXEC() {
-    # Robust argv transport over ssh + sudo. The old `printf '%q'` emitted bash
-    # ANSI-C `$'...'` quoting for multi-line / special-char args, which the remote
-    # shell + sudo re-parse mangled — newlines collapsed to spaces, producing
-    # "bash: -c: syntax error near unexpected token `do'" (bdb0cd763 class) for any
-    # caller passing a multi-line `bash -c "$script"`. base64 has a shell-safe
-    # alphabet ([A-Za-z0-9+/=]), so it survives every quoting layer untouched: we
-    # encode each arg, reconstruct the exact argv array on the remote, and exec it.
-    # Encoded tokens go on the command line (NOT stdin), leaving stdin free for
-    # callers that pipe data into the remote command.
-    local _a _enc=""
-    for _a in "$@"; do
-        _enc+=" $(printf '%s' "$_a" | base64 | tr -d '\n')"
-    done
-    ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
-        "sudo -i -u statbus -- bash -c 'argv=(); for e in$_enc; do argv+=(\"\$(printf %s \"\$e\" | base64 --decode)\"); done; exec \"\${argv[@]}\"'"
+    local quoted_args
+    quoted_args=$(printf '%q ' "$@")
+    ssh "${SSH_OPTS[@]}" root@"$VM_IP" "sudo -i -u statbus -- $quoted_args"
 }
 
 bootstrap_install_test_vm() {
