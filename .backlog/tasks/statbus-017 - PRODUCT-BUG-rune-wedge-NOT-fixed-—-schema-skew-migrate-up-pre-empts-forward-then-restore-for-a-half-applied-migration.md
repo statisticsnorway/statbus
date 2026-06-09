@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-08 21:46'
-updated_date: '2026-06-09 22:22'
+updated_date: '2026-06-09 22:45'
 labels:
   - install-recovery
   - recovery
@@ -128,4 +128,6 @@ This is the empirical 'before' — the recovery fix (engineer implementing now) 
 
 FIX COMMITTED + REVIEWED (2026-06-10 ~22:20Z). Three commits on master: 584919285 (PRODUCT recovery fix — service.go + install_upgrade.go, the fall-through-to-recoverFromFlag on a service-held flag), 93074ba71 (reproducers R1/R2/R3 + seed_pre_upgrade_snapshot helper + doc/diagrams/upgrade-timeline.plantuml + doc/upgrade-timeline.md), 686ba94e1 (cosmetic banner KNOWN-RED→EXPECTED-GREEN). Engineer-implemented per the architect plan; build exit 0 + go vet clean + bash -n clean. ARCHITECT ADVERSARIAL REVIEW = PASS-with-fixes (independently verified the predicate, true fall-through, recovery trace landing rolled_back via degraded=false, R1/R2/R3 + Stage-1 ordering, R2 path-match to backupRoot()/dbVolumeName, R3 staleness-safety, assertions); the one required fix (doc/upgrade-timeline.md operator-narrative now names the UPGRADE_DIED_DURING_RESUME path) was applied. Foreman independently reviewed the product diff (clean, minimal, inert-in-green) + the seed helper (mirrors backupDatabase, fails loud, append-only zero-blast-radius).
 AC#3 (fix implemented) + AC#5 (docs) DONE. AC#1 = King authorized direction (a)/roll-back on master; formal morning confirmation of the diff pending (King-gated review). AC#4 = GREEN run dispatching once Images builds the 686ba94e1 seed (expect both reproducers state=rolled_back, error~UPGRADE_DIED_DURING_RESUME, NRestarts≤2, orphan gone). Then comprehensive run for breadth + product-fix regression check.
+
+GREEN run 27239835249 @ 686ba94e1 = FAILURE — but NOT the product fix. Both reproducers died at Stage-1 in the NEW seed_pre_upgrade_snapshot helper, BEFORE recovery ran (product recovery code never exercised — 017 fix NOT refuted). ROOT CAUSE: harness transport bug — the helper's `VM_EXEC bash -c '<multi-line body>'` got mangled (printf %q collapse): the VM bash shows the body on one line with $vol/$dest EMPTY (`if [ -z "" ]`, `mkdir -p ""`, `-v "":/source`). Same class as the recurring VM_EXEC multi-line failures. The R1 pin + R3 tracked-migration commit + the scheduled-row fabricate all SUCCEEDED (log: 'pre-upgrade -> 686ba94', 'synthetic migration committed ... tracked on top of pre-upgrade') — only the snapshot-seed transport broke. This is the GREEN run doing its job (caught a real harness bug the static review couldn't see — test-to-know). Engineer rewriting the helper transport to the proven mktemp+scp+ssh pattern (lib/data-helpers.sh, still 2-reproducer-only); architect re-reviews; then re-commit → Images → re-run. Comprehensive run HELD until the GREEN re-run clears (harness concurrency serializes; 017 GREEN is priority).
 <!-- SECTION:NOTES:END -->
