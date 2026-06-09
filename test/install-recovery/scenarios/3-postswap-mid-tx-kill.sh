@@ -101,10 +101,12 @@ SELECT pg_terminate_backend(pid), application_name, state
  WHERE application_name LIKE 'statbus-migrate-sql%'
    AND pid <> pg_backend_pid();
 SQL
-    scp -O "${SSH_OPTS[@]}" "$sql" root@"$VM_IP":/tmp/midtx-terminate.sql >/dev/null
-    rm -f "$sql"
+    # Pipe the SQL as ssh stdin straight into `./sb psql` as statbus (CLAUDE.md's
+    # `ssh host "…psql" < file` pattern; mirrors the assertions). Avoids the
+    # scp -O mode-600 root-owned /tmp file the statbus user cannot read.
     ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
-        "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A < /tmp/midtx-terminate.sql' && rm -f /tmp/midtx-terminate.sql" 2>/dev/null || true
+        "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A'" < "$sql" 2>/dev/null || true
+    rm -f "$sql"
 }
 
 # ─────────────────────────────────────────────────────────────────────────

@@ -104,9 +104,13 @@ echo "  HEAD: $HEAD_SHA ($HEAD_SHORT)"
 # SQL over SSH — write local, scp, pipe via redirect).
 _run_sql_file_in_vm() {
     local local_sql="$1"
-    scp -O "${SSH_OPTS[@]}" "$local_sql" root@"$VM_IP":/tmp/harness-sql.sql >/dev/null
+    # Pipe the SQL as ssh stdin straight into `./sb psql` as the statbus user
+    # (CLAUDE.md's blessed `ssh host "…psql" < file` pattern; mirrors the
+    # assertions' `<<<` usage). Do NOT scp to a /tmp file first: scp -O lands it
+    # at mode 600 owned by root, which the statbus user cannot read — the
+    # "/tmp/harness-sql.sql: Permission denied" fabrication bug (run 27177205304).
     ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
-        "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A < /tmp/harness-sql.sql' && rm -f /tmp/harness-sql.sql"
+        "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A'" < "$local_sql"
 }
 
 # Place the synthetic migration pair into ~/statbus/migrations/ on the VM.
@@ -146,7 +150,7 @@ _precreate_committed_unrecorded_object() {
     local sql; sql=$(mktemp)
     cat > "$sql" <<SQL
 CREATE TABLE ${SENTINEL_TABLE} (id integer PRIMARY KEY);
-SELECT 'sentinel-created=' || to_regclass('${SENTINEL_TABLE}') IS NOT NULL;
+SELECT 'sentinel-created=' || (to_regclass('${SENTINEL_TABLE}') IS NOT NULL)::text;
 SQL
     _run_sql_file_in_vm "$sql"
     rm -f "$sql"
