@@ -3,10 +3,10 @@ id: STATBUS-017
 title: >-
   PRODUCT BUG: rune wedge NOT fixed — schema-skew migrate-up pre-empts
   forward-then-restore for a half-applied migration
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-06-08 21:46'
-updated_date: '2026-06-09 09:00'
+updated_date: '2026-06-09 21:27'
 labels:
   - install-recovery
   - recovery
@@ -88,4 +88,17 @@ REJECTED (b) recover-before-guard: resumePostSwap:4180 hard-fails 42703 on from_
 REJECTED (c)-alone (fold record into migration tx): cannot fix cell (e) (deterministic error → only restore works) AND makes the after-commit cell forward-COMPLETE, subverting AC#4's rolled_back target. (c) = good follow-up hardening ticket, not the gate.
 KEY RISK: residual rc.63-transition sub-case — in-flight upgrade straddling the column-rename migration, killed BEFORE it, would 42703 in recovery's own queries. Historical (rename long-applied on rune + all live deployments), not the steady-state rune risk; AC#4 only needs the 2 named scenarios green.
 OPEN QUESTION (King, AC#1): when a half-applied migration can't be re-run during recovery — ROLL BACK to the pre-upgrade snapshot (recommended, matches AC) or PUSH FORWARD to complete? Default unless told otherwise: ship (a)→rolled_back, file (c) as follow-up.
+
+═══ KING AUTHORIZED — DRIVE TO SOLVED OVERNIGHT (2026-06-09 ~21:25Z) ═══
+King clarified the workflow: WE WORK ON MASTER. Push to master → Images builds the seed → harness tests it. No release/RC is cut, so nothing deploys to NO/cloud. The 'King-gated, do not touch recovery code' caution was about ROLLOUT, not about committing to master — so I am CLEARED to implement + push + VM-prove the fix tonight. King wants 017 solved by morning.
+
+DIRECTION: proceeding on the architect's adversarially-verified recommendation = direction (a), roll-back: when boot-migrate-up (the schema-skew guard) FAILS and a service-held flag is present, fall through to recoverFromFlag (the already-correct restore path → state=rolled_back) instead of markTerminal+return/boot-loop. Symmetric change at service.go (~1644/1656) and install_upgrade.go (~198). Keep markTerminal+return for the no-flag / install-held case. File (c) (fold db.migration record into each migration tx) as a follow-up hardening ticket, NOT the gate.
+
+OVERNIGHT SEQUENCE:
+1. Engineer fixes the reproducer fabrication (NOTIFY-race: live upgrade unit picks up the fabricated 'scheduled' row → stops db) — harness-only. Commit A → push → Images.
+2. Run the 2 reproducers on Commit A → they hit the wedge → RED with BOOT_MIGRATE_UP_FAILED = AC#2 PROOF captured (the 'before').
+3. Architect finalizes the execution-ready fix plan (direction a) incl. seeding a real pre-upgrade-active snapshot so the restore lands rolled_back not failed. Engineer implements. Architect adversarially reviews the diff. I review.
+4. Commit B: recovery fix + doc/diagrams/upgrade-timeline.plantuml + doc/upgrade-timeline.md (AC#5) + flip the reproducer KNOWN-RED headers. Push → Images.
+5. Run the 2 reproducers on Commit B → GREEN (state=rolled_back) = AC#3 + AC#4 proven on real VMs.
+Morning deliverable to King: the diff, the RED-proof run URL, the GREEN run URL, plain-language writeup.
 <!-- SECTION:NOTES:END -->
