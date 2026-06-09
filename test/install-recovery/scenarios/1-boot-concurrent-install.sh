@@ -236,17 +236,30 @@ echo "  first install exited: $FIRST_EXIT"
 echo ""
 echo "── convergence checks ──"
 
-# Only ONE upgrade row created (second install's refusal must not have
-# inserted anything into public.upgrade).
-UPGRADE_ROW_COUNT=$(VM_EXEC bash -c "cd ~/statbus && echo 'SELECT count(*) FROM public.upgrade;' | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?")
-echo "  public.upgrade row count: $UPGRADE_ROW_COUNT"
-if [ "$UPGRADE_ROW_COUNT" != "1" ]; then
-    echo "✗ expected exactly 1 upgrade row; got $UPGRADE_ROW_COUNT"
-    exit 1
+# Convergence — do NOT assert latest-row-by-id. public.upgrade legitimately holds
+# the baseline-completed row, the HEAD-completed row (distinct commit_sha → no ON
+# CONFLICT collapse), AND environment-dependent discovery 'available' rows (daemon
+# upgrade_check NOTIFY handler) whose SERIAL ids can EXCEED the HEAD row's, so
+# `ORDER BY id DESC LIMIT 1` is fragile. The real contract — the second concurrent
+# install REFUSED via probe-2 live-upgrade — is already asserted above (sh:189-205,
+# passed). Convergence here = (a) the first install RECORDED its HEAD completion,
+# anchored by commit_sha (the HEAD row is unique by commit_sha; install upserts it
+# to 'completed'), and (b) no debris (no row stuck in_progress/failed).
+HEAD_ROW_STATE=$(ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
+    "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A'" \
+    2>/dev/null <<< "SELECT state FROM public.upgrade WHERE commit_sha = '$HEAD_SHA';" | tr -d ' \r\n')
+if [ "$HEAD_ROW_STATE" != "completed" ]; then
+    echo "✗ HEAD upgrade row (commit_sha=$HEAD_SHA) state='$HEAD_ROW_STATE', expected 'completed'"; exit 1
 fi
-echo "  ✓ exactly one upgrade row exists (second install correctly refused without inserting)"
+echo "  ✓ HEAD upgrade row is 'completed' (first install converged)"
 
-assert_upgrade_row_state "$VM_NAME" "completed"
+STUCK=$(ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
+    "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A'" \
+    2>/dev/null <<< "SELECT count(*) FROM public.upgrade WHERE state IN ('in_progress','failed');" | tr -d ' \r\n')
+if [ "$STUCK" != "0" ]; then
+    echo "✗ expected 0 in_progress/failed rows; got $STUCK"; exit 1
+fi
+echo "  ✓ no upgrade row stuck in_progress/failed"
 assert_flag_file_absent "$VM_NAME"
 assert_health_passes "$VM_NAME"
 assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 2
