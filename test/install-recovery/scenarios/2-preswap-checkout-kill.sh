@@ -125,6 +125,15 @@ SCRIPT
 upload_install_script_to_vm "$VM_NAME" "$INSTALL_SCRIPT" /tmp/install-c4.sh
 upload_sb_to_vm "$VM_NAME"
 
+# Seed a scheduled public.upgrade row at HEAD so the install state detector
+# classifies as StateScheduledUpgrade (and dispatches executeUpgrade → the
+# C4 kill site inside the preswap-checkout phase). Without this, RUN 1 sees
+# nothing-scheduled (current==target: both derive from the running binary's
+# ldflags version, which is HEAD after upload_sb_to_vm overwrote the
+# v2026.05.2 binary) → idempotent step-table refresh → exits 0 → KillHere
+# never fires. Mirror of 2-preswap-backup-kill:135–141.
+fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_LOCAL"
+
 # IMPORTANT for C4: the install script above does `git checkout $HEAD_LOCAL`
 # BEFORE invoking ./sb install. That's the harness's setup checkout (to
 # get HEAD's code + inject site on disk), NOT the executeUpgrade git
