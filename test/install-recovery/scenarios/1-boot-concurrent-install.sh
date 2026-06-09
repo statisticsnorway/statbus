@@ -52,6 +52,7 @@ INSTALL_BUDGET_S="${INSTALL_BUDGET_S:-900}"
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
 source "$LIB_DIR/vm-bootstrap.sh"
+source "$LIB_DIR/data-helpers.sh"   # populate_with_demo_data (used to non-fresh the DB so the HEAD install skips its seed)
 source "$LIB_DIR/wedge-helpers.sh"
 source "$LIB_DIR/assertions.sh"
 
@@ -77,9 +78,28 @@ echo "  HEAD: $HEAD_SHA ($(echo "$HEAD_SHA" | cut -c1-8))"
 bootstrap_install_test_vm "$VM_NAME" "$INSTALL_VERSION"
 
 echo ""
-echo "── initial install at $INSTALL_VERSION ──"
-install_statbus_in_vm "$VM_NAME" "$INSTALL_VERSION"
+echo "── initial install at $INSTALL_VERSION (NO seed — establish a real migration delta) ──"
+# NO-SEED baseline: the published seed is dumped at HEAD's migration level, so a
+# seeded baseline leaves db.migration already at HEAD → the HEAD "first install"
+# below has 0 pending migrations → the Migrations step is skipped (HasPending=false,
+# install.go) → migrate.Up never runs → the C10 StallHere never fires → the stall-wait
+# times out. SB_INSTALL_SKIP_SEED withholds the release binary's origin/db-seed so this
+# baseline lands at INSTALL_VERSION's level (max 20260520141309) instead. (Pure
+# harness-side; see install_statbus_in_vm.)
+SB_INSTALL_SKIP_SEED=1 install_statbus_in_vm "$VM_NAME" "$INSTALL_VERSION"
 assert_health_passes "$VM_NAME"
+
+# Populate demo data so the DB is non-fresh BEFORE the HEAD "first install" below.
+# That install is a fresh ./sb install (the step-table path, which DOES run the seed
+# step — unlike the upgrade pipeline). On a populated DB, checkSeedRestored's
+# dbHasUserData R5 short-circuit (install.go) SKIPS the Docker-image seed, so the HEAD
+# install keeps the v<tag>-level baseline and applies the real pending set → migrate.Up
+# runs → C10 fires. Without this, the HEAD install would re-seed to HEAD level and
+# collapse the delta again.
+echo ""
+echo "── populating demo data (makes the DB non-fresh so the HEAD install skips its seed) ──"
+populate_with_demo_data "$VM_NAME"
+assert_demo_data_present "$VM_NAME"
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 2 — start first install at HEAD with C10 stall env vars
@@ -125,9 +145,20 @@ ssh "${SSH_OPTS[@]}" statbus@"$ip" "
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── waiting for first install's stall to engage ──"
+# UNMASK: wait_for_inject_stall_ready returns 1 on timeout. Under `set -euo
+# pipefail` the `| tee | tail` pipeline propagates that non-zero to the
+# assignment → the ERR trap fires "harness failure: rc=1 at tail -1" BEFORE the
+# `if [ -z "$MIGRATE_PID" ]` diagnostic can run, hiding WHY the stall never
+# engaged. The set +e/set -e fence lets the timeout fall through to the
+# diagnostic (install exit code + log tail) below.
+set +e
 MIGRATE_PID=$(wait_for_inject_stall_ready "$VM_NAME" "$RELEASE_FILE" "$STALL_MAX_WAIT_S" | tee /dev/stderr | tail -1)
+set -e
 if [ -z "$MIGRATE_PID" ]; then
     echo "✗ stall never activated within ${STALL_MAX_WAIT_S}s" >&2
+    echo "  first install exit (if any): $(ssh "${SSH_OPTS[@]}" root@"$ip" "cat /tmp/install-c10-first.exit 2>/dev/null" || echo '(not exited yet)')" >&2
+    echo "  last 30 lines of /tmp/install-c10-first.log:" >&2
+    ssh "${SSH_OPTS[@]}" root@"$ip" "tail -30 /tmp/install-c10-first.log 2>/dev/null" >&2 || true
     exit 1
 fi
 

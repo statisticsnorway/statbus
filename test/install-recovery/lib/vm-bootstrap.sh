@@ -455,6 +455,24 @@ install_statbus_in_vm() {
     local vm_name="$1"
     local install_version="${2:-}"
     local extra_args="${SB_INSTALL_EXTRA_ARGS:-}"
+    # No-seed mode (opt-in via SB_INSTALL_SKIP_SEED): force a full-migrations-from-tag
+    # baseline so a real v<tag>→HEAD migration delta exists for the stall/kill injects
+    # (the published seed is dumped at HEAD's migration level and would otherwise
+    # collapse the delta). Pure harness-side, NO product change: withhold the
+    # origin/db-seed tracked-branch so a RELEASE binary's git-branch seed
+    # (db seed fetch → origin/db-seed) finds no ref and falls through to full
+    # migrations. Default (unset) preserves the seed shortcut → passing scenarios
+    # are unaffected.
+    # NOTE: this reaches the RELEASE-binary (versioned) baseline only, whose seed is
+    # git-branch-based. A HEAD-binary (no-version) install uses a Docker-image seed
+    # (statbus-seed:<short>) that this does NOT disable — such a baseline instead
+    # relies on a populated DB (checkSeedRestored's dbHasUserData R5 short-circuit,
+    # install.go) so the seed step is skipped. No current no-seed scenario needs a
+    # HEAD-binary no-seed baseline.
+    local seed_branch_cmd="git remote set-branches --add origin db-seed"
+    if [ -n "${SB_INSTALL_SKIP_SEED:-}" ]; then
+        seed_branch_cmd="true  # SB_INSTALL_SKIP_SEED: origin/db-seed withheld (release-binary git-branch seed disabled → full migrations)"
+    fi
     _check_name_safety "$vm_name" || return 1
 
     local ip
@@ -487,7 +505,7 @@ cd ~/statbus
 # fetch the data but never create the remote-tracking ref, leaving the
 # seed shortcut silently disabled and forcing migrations-from-scratch).
 # Idempotent — safe to add repeatedly across scenarios that reuse the VM.
-git remote set-branches --add origin db-seed
+$seed_branch_cmd
 if ! git cat-file -e $local_commit 2>/dev/null; then
     echo "Fetching local HEAD commit $local_commit from origin..."
     git fetch --depth 1 origin $local_commit || {
@@ -532,7 +550,7 @@ cd ~/statbus
 # and any harness scenario spends its time replaying migrations instead
 # of exercising the recovery code path under test. Extending the
 # tracked-branch list before the install fixes the ref creation.
-git remote set-branches --add origin db-seed
+$seed_branch_cmd
 cp /tmp/env-config .env.config 2>/dev/null || true
 cp /tmp/users.yml .users.yml 2>/dev/null || true
 STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf $extra_args

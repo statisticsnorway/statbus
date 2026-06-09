@@ -75,8 +75,14 @@ echo "  HEAD: $HEAD_SHA ($(echo "$HEAD_SHA" | cut -c1-8))"
 bootstrap_install_test_vm "$VM_NAME" "$INSTALL_VERSION"
 
 echo ""
-echo "── initial install at $INSTALL_VERSION ──"
-install_statbus_in_vm "$VM_NAME" "$INSTALL_VERSION"
+echo "── initial install at $INSTALL_VERSION (NO seed — establish a real ≥2 migration delta) ──"
+# NO-SEED baseline: the published seed is dumped at HEAD's migration level, so a
+# seeded baseline leaves BASELINE_MAX_VERSION at HEAD → PENDING_COUNT=0 → the
+# "<2 pending" precondition below bails. Withholding the seed leaves the baseline at
+# v2026.05.2's level (max 20260520141309), so HEAD's tree has the real pending set
+# (11 migrations) → ≥2 → the "between N and N+1" kill has somewhere to land.
+# (See install_statbus_in_vm.)
+SB_INSTALL_SKIP_SEED=1 install_statbus_in_vm "$VM_NAME" "$INSTALL_VERSION"
 assert_health_passes "$VM_NAME"
 
 echo ""
@@ -93,14 +99,24 @@ BASELINE_MAX_VERSION=$(VM_EXEC bash -c "cd ~/statbus && echo 'SELECT COALESCE(MA
 echo "  baseline db.migration max_version: $BASELINE_MAX_VERSION"
 
 # Pre-trigger precondition: count pending migrations on HEAD's tree.
-# Need ≥ 2 for the "between N and N+1" point to exist. The harness's
-# HEAD must be far enough beyond v2026.05.2 that the migration delta
-# is non-trivial — verify here and bail with a clear message if not.
+# Need ≥ 2 for the "between N and N+1" point to exist.
+#
+# ROOT CAUSE of run-27167617557's "<2 pending" (PENDING_COUNT=0): BASELINE_MAX_VERSION
+# above is read AFTER the initial install, whose Seed step (runSeedRestore) restores
+# the published statbus-seed image — which is dumped at HEAD's migration level. So
+# db.migration jumps straight to HEAD (~20260603093525) and there is NO v2026.05.2→HEAD
+# delta left for migrate.Up to apply. The "between N and N+1" kill needs a REAL pending
+# set, which requires a NO-SEED baseline (full migrations from the INSTALL_VERSION tag).
+# FIX PENDING a shared no-seed lever (STATBUS_SKIP_SEED honored by runSeedRestore, set on
+# the baseline install) — coordinated under STATBUS-018; the same collapse affects the
+# architect's migrate-killed-after-commit baseline, so the lever must be one pattern.
 PENDING_COUNT=$(VM_EXEC bash -c "cd ~/statbus && git -C ~/statbus checkout $HEAD_SHA 2>/dev/null; ls migrations/*.up.sql migrations/*.up.psql 2>/dev/null | awk -F'/' '{print \$NF}' | awk -F'_' '{print \$1}' | awk -v b='$BASELINE_MAX_VERSION' '\$1 > b' | wc -l | tr -d ' '" 2>/dev/null || echo "0")
-echo "  pending migration count at HEAD vs baseline: $PENDING_COUNT"
+echo "  pending migration count at HEAD vs baseline: $PENDING_COUNT (baseline=$BASELINE_MAX_VERSION)"
 if [ "$PENDING_COUNT" -lt 2 ]; then
-    echo "✗ HEAD has < 2 pending migrations past baseline — cannot test 'between N and N+1' point" >&2
-    echo "  Either bump INSTALL_VERSION back further, or wait until HEAD's migration delta grows." >&2
+    echo "✗ HEAD has < 2 pending migrations past baseline ($BASELINE_MAX_VERSION) — cannot test 'between N and N+1'." >&2
+    echo "  Almost always the seed collapsing the delta: the baseline install restored the HEAD-level" >&2
+    echo "  statbus-seed image, so db.migration is already at HEAD. Needs a NO-SEED baseline install" >&2
+    echo "  (STATBUS_SKIP_SEED — pending under STATBUS-018), or an INSTALL_VERSION ≥2 migrations behind HEAD." >&2
     exit 1
 fi
 

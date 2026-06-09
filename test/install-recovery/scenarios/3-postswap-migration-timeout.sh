@@ -104,8 +104,14 @@ echo "  HEAD: $HEAD_SHA ($(echo "$HEAD_SHA" | cut -c1-8))"
 bootstrap_install_test_vm "$VM_NAME" "$INSTALL_VERSION"
 
 echo ""
-echo "── initial install at $INSTALL_VERSION ──"
-install_statbus_in_vm "$VM_NAME" "$INSTALL_VERSION"
+echo "── initial install at $INSTALL_VERSION (NO seed — establish a real migration delta) ──"
+# NO-SEED baseline: the published seed is dumped at HEAD's migration level, so a
+# seeded baseline collapses the v2026.05.2→HEAD delta to 0 pending → the upgrade's
+# applyPostSwap migrate has no pending file → runPsqlFile (the C12 stall site) is
+# never called → the stall-wait times out. Withholding the seed leaves the baseline
+# at v2026.05.2's level (max 20260520141309) so the HEAD upgrade applies the real
+# pending set (11 migrations) and C12 fires. (See install_statbus_in_vm.)
+SB_INSTALL_SKIP_SEED=1 install_statbus_in_vm "$VM_NAME" "$INSTALL_VERSION"
 assert_health_passes "$VM_NAME"
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -220,7 +226,13 @@ ssh "${SSH_OPTS[@]}" statbus@"$ip" "
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── waiting for migration stall to be active ──"
+# UNMASK (set +e fence): without it, wait_for_inject_stall_ready's timeout (rc=1)
+# propagates through the `| tee | tail` pipeline under `set -euo pipefail` and the
+# ERR trap fires "harness failure: rc=1 at tail -1" BEFORE the diagnostic block
+# below — hiding the install-c12 exit code + log tail that explain the real cause.
+set +e
 MIGRATE_PID=$(wait_for_inject_stall_ready "$VM_NAME" "$RELEASE_FILE" 300 | tee /dev/stderr | tail -1)
+set -e
 if [ -z "$MIGRATE_PID" ]; then
     echo "✗ stall never activated within 5 min" >&2
     echo "  install-c12 exit code (if any): $(ssh "${SSH_OPTS[@]}" root@"$ip" "cat /tmp/install-c12.exit 2>/dev/null" || echo '(not exited yet)')"
