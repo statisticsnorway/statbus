@@ -102,7 +102,7 @@ SENTINEL_UP="${SENTINEL_VERSION}_${SENTINEL_DESC}.up.sql"
 SENTINEL_DOWN="${SENTINEL_VERSION}_${SENTINEL_DESC}.down.sql"
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario: 3-postswap-migrate-killed-after-commit  (KNOWN-RED — STATBUS-017)"
+echo "  Scenario: 3-postswap-migrate-killed-after-commit  (EXPECTED-GREEN — STATBUS-017 FIXED)"
 echo "  Deterministic after-commit wedge reproducer (no kill-timing, no delta)"
 echo "════════════════════════════════════════════════════════════════"
 

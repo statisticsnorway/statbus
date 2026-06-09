@@ -89,7 +89,7 @@ ERRMIG_UP="${ERRMIG_VERSION}_${ERRMIG_DESC}.up.sql"
 ERRMIG_DOWN="${ERRMIG_VERSION}_${ERRMIG_DESC}.down.sql"
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario: 3-postswap-migration-deterministic-error  (KNOWN-RED — STATBUS-017)"
+echo "  Scenario: 3-postswap-migration-deterministic-error  (EXPECTED-GREEN — STATBUS-017 FIXED)"
 echo "  Deterministic erroring-migration wedge reproducer (no kill-timing, no delta)"
 echo "════════════════════════════════════════════════════════════════"
 
