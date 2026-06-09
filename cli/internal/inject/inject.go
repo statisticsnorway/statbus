@@ -164,6 +164,21 @@ var classes = map[string]Kind{
 	"migrate-subprocess-killed-after-commit-before-recorded":     KindStall,
 	"upgrade-service-parent-killed-after-commit-before-recorded": KindStall,
 
+	// Mid-transaction kill — the GREEN control for the commit↔record boundary
+	// (cell b vs the after-commit cells c/e). A migration is parked INSIDE its
+	// own transaction (after BEGIN, before COMMIT); the harness SIGKILLs the
+	// psql child so Postgres aborts the uncommitted tx — leaving NO committed-
+	// but-unrecorded state. Recovery re-applies the now-cleanly-pending
+	// migration and the upgrade COMPLETES (no wedge). A Go-side StallHere cannot
+	// reach mid-tx (the whole tx runs inside the psql subprocess that the Go
+	// parent is blocked reading), so this class drives a SQL pause spliced into
+	// the migration's stdin by migrate.runPsqlFile via MidTxPauseSQL — see that
+	// helper. KindStall: the harness sets a release file (Validate + the
+	// wait_for_inject_stall_ready "armed" sentinel); the actual interruption is
+	// the SIGKILL, exactly as the after-commit stalls above. Drives scenario
+	// 3-postswap-mid-tx-kill.
+	"killed-by-system-during-migration-tx-before-commit": KindStall,
+
 	// Layer 1 territory — systemd TimeoutStartSec drives SIGTERM at
 	// the configured timeout. The signal IS catchable (the upgrade-
 	// service's signal handler from #101 acts on it), but if the
@@ -397,4 +412,48 @@ func StallHere(name string) {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
+}
+
+// MidTxPauseSQL returns a SQL snippet to splice INSIDE a migration's transaction
+// when the named class is active, "" otherwise. It exists because the three
+// primitives above are Go-side and cannot reach mid-transaction: a migration's
+// whole BEGIN…END runs inside the psql subprocess that migrate.runPsqlFile feeds
+// via stdin and then blocks reading. The ONLY way to park a migration after its
+// BEGIN but before its COMMIT is to make the SQL itself pause.
+//
+// runPsqlFile, when this returns non-empty, prepends "BEGIN;\n"+snippet+"\n" to
+// the migration's stdin. The migration file's own leading BEGIN then becomes a
+// warned no-op ("there is already a transaction in progress" — a WARNING, not an
+// error, so ON_ERROR_STOP does not trip), and the file's END commits the single
+// outer transaction. Net: the snippet runs after BEGIN, before COMMIT.
+//
+// The snippet is a long pg_sleep — the park. The harness detects the parked
+// subprocess (wait_for_inject_stall_ready) and SIGKILLs the psql CHILD; Postgres
+// aborts the uncommitted tx, so NO committed-but-unrecorded state is left behind.
+// The recovery re-run has the env unset → "" → unmodified stdin → the migration
+// applies cleanly → the upgrade completes. THAT clean re-apply is the GREEN
+// property cell b proves (contrast cells c/e, where a committed-but-unrecorded
+// migration wedges recovery — STATBUS-017).
+//
+// The release file (required by Validate for this KindStall class) is the
+// harness's "armed" sentinel + wait_for_inject_stall_ready handle, NOT the
+// release mechanism — SQL cannot poll a file, so the interruption is the SIGKILL.
+// Guarded on the release file being set too, mirroring StallHere's defensive
+// check: active class + no release file → no park (Validate already rejects this
+// combination at startup; this is belt against a Validate skip).
+//
+// Production no-op: env unset → "" → runPsqlFile's stdin is byte-identical to
+// today. Only a harness run that sets STATBUS_INJECT_AT to this exact class
+// changes the stream.
+func MidTxPauseSQL(name string) string {
+	if os.Getenv(EnvActiveAt) != name {
+		return ""
+	}
+	if os.Getenv(EnvStallReleaseFile) == "" {
+		return ""
+	}
+	// 3600 s upper bound on the park: the harness SIGKILLs the psql child well
+	// before this. The bound is a backstop so a harness that forgets to kill
+	// cannot hang the migration past runPsqlFile's own 60-min ceiling.
+	return "SELECT pg_sleep(3600);"
 }

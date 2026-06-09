@@ -10,6 +10,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -421,7 +422,20 @@ func runPsqlFile(projDir string, filePath string) (string, error) {
 	cmd := exec.CommandContext(ctx, psqlPath, args...)
 	cmd.Dir = projDir
 	cmd.Env = env
-	cmd.Stdin = file
+
+	// Mid-transaction inject (cell b — the GREEN control for the commit↔record
+	// boundary). When the mid-tx class is active, splice a SQL pause INSIDE the
+	// migration's transaction: prepend an outer BEGIN + the pause so the harness
+	// can SIGKILL the psql child AFTER BEGIN, BEFORE COMMIT. The migration file's
+	// own leading BEGIN becomes a warned no-op (a WARNING, not an error — so
+	// ON_ERROR_STOP does not trip), and its END commits the single outer tx.
+	// Env unset → MidTxPauseSQL returns "" → stdin is the unmodified file
+	// (production no-op, byte-identical). See inject.MidTxPauseSQL.
+	var stdin io.Reader = file
+	if pause := inject.MidTxPauseSQL("killed-by-system-during-migration-tx-before-commit"); pause != "" {
+		stdin = io.MultiReader(strings.NewReader("BEGIN;\n"+pause+"\n"), file)
+	}
+	cmd.Stdin = stdin
 
 	out, err := cmd.CombinedOutput()
 	if ctx.Err() == context.DeadlineExceeded {
