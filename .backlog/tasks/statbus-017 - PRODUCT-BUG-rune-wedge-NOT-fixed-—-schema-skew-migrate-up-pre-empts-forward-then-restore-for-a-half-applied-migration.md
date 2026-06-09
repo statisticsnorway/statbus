@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-08 21:46'
+updated_date: '2026-06-09 09:00'
 labels:
   - install-recovery
   - recovery
@@ -69,3 +70,22 @@ Architect building a deterministic reproducer (fabricate the after-commit RED st
 - [ ] #4 3-postswap-migrate-killed-after-commit + the migration-error scenario go GREEN (state=rolled_back) on real VMs
 - [ ] #5 doc/diagrams/upgrade-timeline.plantuml + doc/upgrade-timeline.md updated to match the fixed behavior
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+ARCHITECT RECOMMENDATION (2026-06-09, independent code-trace; King decision pending on AC#1). Captured in backlog per project discipline (durable record, not tmp).
+
+VERIFIED (all 3 ticket claims confirmed, one sharpened):
+(i) schema-skew `migrate up` runs BEFORE recoverFromFlag on BOTH entrypoints — service.go:1644 then :1669; install_upgrade.go:198 then :205. The :1561-1565 Holder==Service&&Phase==PostSwap block is only a fmt.Printf, NOT a skip.
+(ii) on failure → markTerminal+return (service) / inline return (install), NO restore. markTerminal (service.go:37) writes an audit file only.
+(iii) the :838-927 forward-then-restore branch (incl migrate.Up :879) is DEAD for EVERY service-flag value: FlagPhasePreSwap=='' caught at :822; only {'',post_swap,resuming} are ever written → all return before :838. (Corrects the earlier ':877-913 handles it' claim.)
+SHARPENED: downstream restore machinery is correct+complete, merely pre-empted. post_swap→resumePostSwap→applyPostSwap step-10 migrate fails→postSwapFailure→rollback→restore→rolled_back already works. Fix = stop the guard pre-empting it, NOT build a new restore path.
+
+RECOMMENDED FIX = Direction (a), fall-through-to-recovery on guard failure: when boot-migrate-up fails AND a service-held flag is present (flag.Holder==HolderService), log + fall through to recoverFromFlag instead of markTerminal/return. Keep markTerminal+return for the no-flag / install-held case (legitimate stale-schema refusal). Symmetric change at install_upgrade.go:198.
+RATIONALE: preserves schema-to-HEAD for every case migrate CAN succeed; defers to the already-correct snapshot-restore path only in the exact case the guard can't succeed — precisely where restore is the right outcome.
+REJECTED (b) recover-before-guard: resumePostSwap:4180 hard-fails 42703 on from_commit_version → reintroduces the bug the guard closes.
+REJECTED (c)-alone (fold record into migration tx): cannot fix cell (e) (deterministic error → only restore works) AND makes the after-commit cell forward-COMPLETE, subverting AC#4's rolled_back target. (c) = good follow-up hardening ticket, not the gate.
+KEY RISK: residual rc.63-transition sub-case — in-flight upgrade straddling the column-rename migration, killed BEFORE it, would 42703 in recovery's own queries. Historical (rename long-applied on rune + all live deployments), not the steady-state rune risk; AC#4 only needs the 2 named scenarios green.
+OPEN QUESTION (King, AC#1): when a half-applied migration can't be re-run during recovery — ROLL BACK to the pre-upgrade snapshot (recommended, matches AC) or PUSH FORWARD to complete? Default unless told otherwise: ship (a)→rolled_back, file (c) as follow-up.
+<!-- SECTION:NOTES:END -->
