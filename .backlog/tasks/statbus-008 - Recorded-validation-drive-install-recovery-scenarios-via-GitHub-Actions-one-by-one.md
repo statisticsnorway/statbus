@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - operator
 created_date: '2026-06-07 15:41'
-updated_date: '2026-06-09 21:20'
+updated_date: '2026-06-09 21:34'
 labels:
   - install-recovery
   - validation
@@ -147,4 +147,9 @@ VERIFIED: the 2 wedge reproducers (3-postswap-migrate-killed-after-commit, -migr
 Team stood up (statbus): architect, engineer, mechanic, operator, tester. THREE FRONTS dispatched: operator → pull exact Stage-1 'db not running' evidence from run 27184220745; engineer → diagnose+fix the reproducer fabrication so they reach the wedge (harness-only, headline = 017 AC#2 proof); architect → adversarial triage of the 3 candidate product findings (1-boot-concurrent-install 5-rows; 2-preswap-binary-swap-kill / -checkout-kill flag-absent — cross-check STATBUS-002). Mechanic (harness batch: no-delta/drift/mid-tx/rollback-kill) HELD until engineer reports scenario-local-vs-shared-lib (file-ownership boundary).
 
 PLAN: wedge-proof fix → commit → Images → CANARY (stage-b/c/e + watchdog-reconnect + the 2 reproducers) on the fix SHA BEFORE any comprehensive → then one clean comprehensive. STATBUS-017 fix direction (a) AWAITS King ratification — no recovery-code edits until then.
+
+CANDIDATE-FINDING TRIAGE (architect, read-only, verdicts in tmp/plans/architect-candidate-triage-20260609.md) — ALL 3 = HARNESS, 0 PRODUCT. STATBUS-017 remains the SOLE product bug.
+(1) 1-boot-concurrent-install: serialization WORKED (2nd install refused 'live-upgrade' at install.go:322 BEFORE acquireOrBypass:375 → 0 rows from the refused install). The 5 rows are legit (baseline-completed + HEAD-completed distinct commit_sha + GitHub-state-dependent 'available' discovery rows, service.go:2759/2963). Failure is the naive count(*)=1 assert (sh:243). FIX: assert latest-row state (ORDER BY id DESC LIMIT 1, sh:249), not count.
+(2) 2-preswap-checkout-kill + (3) 2-preswap-binary-swap-kill: both saw 'nothing-scheduled' (current==target) → step-table refresh → executeUpgrade never ran → C4/C5 kill inject never fired → flag legitimately absent. Missing the fabricate_scheduled_upgrade_row call that the sibling 2-preswap-backup-kill.sh:135-141 already has (with a comment diagnosing this exact trap). FIX: add it. C4/C5 fire pre-migrate → no STATBUS-013 boot-migrate complication. NOT covered by STATBUS-002 (that's backup-kill's rollback terminal-write product fix, different scenario).
+All 3 routed to mechanic (Batch 2). Tally holds: 0 confirmed product recovery bugs except STATBUS-017.
 <!-- SECTION:NOTES:END -->
