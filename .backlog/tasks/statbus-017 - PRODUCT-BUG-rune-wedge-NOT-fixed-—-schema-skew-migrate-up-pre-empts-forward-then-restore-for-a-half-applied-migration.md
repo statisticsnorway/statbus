@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-08 21:46'
-updated_date: '2026-06-09 21:45'
+updated_date: '2026-06-09 21:48'
 labels:
   - install-recovery
   - recovery
@@ -114,4 +114,9 @@ TWO NON-OBVIOUS FINDINGS the engineer MUST handle (beyond the King brief):
 
 ALSO: the reproducers' error-match assertion `"forward failed: .*; auto-restored from"` (migrate sh:354, det-error sh:307) is WRONG for the Resuming-latch path — change to `"UPGRADE_DIED_DURING_RESUME.*rolled back to the snapshot"`.
 Doc edits (AC#5): plantuml move both reproducers KNOWN-RED→GREEN + rewrite cell(2)/(e) INTENDED-vs-ACTUAL to the fall-through behavior; upgrade-timeline.md add the defer-to-recoverFromFlag sentence at the boot-guard (~:65). rc.63 residual = out-of-scope historical. Verify: run the 2 reproducers on Hetzner → rolled_back + regression-check the green postswap suite.
+
+EXECUTION-READY FIX PLAN written (architect): tmp/plans/architect-017-fix-plan.md. Engineer now implementing; architect on review-standby; foreman commits.
+PRODUCT EDITS (minimal, inert except on the wedge): (1a) service.go boot-migrate-up failure handler — if ReadFlagFile gives flag!=nil && flag.Holder==HolderService, log + FALL THROUGH to recoverFromFlag(:1669) instead of markTerminal+return; keep refuse for no-flag/install-held. (1b) symmetric at install_upgrade.go ~198→205. Predicate: a service-held flag exists only for an in-progress upgrade (phase ∈ {PreSwap'',PostSwap,Resuming}, all restore-routed); PreSwap kill never reaches this branch (dies before migrations → guard succeeds).
+KEY ADVERSARIAL DISCOVERIES (would have mystery-failed a naive GREEN run): R1 the reproducers MUST pin the `pre-upgrade` git branch (git branch -f pre-upgrade HEAD) — the ACTUAL failed-vs-rolledback determinant (restoreGitState ABORT → state=failed otherwise), NOT the DB snapshot. R2 seed a real pre-upgrade-active DB snapshot (else restore no-ops → hollow rolled_back). R3 the synthetic migration must be a TRACKED commit (migrations-only, so rc.65 freshness guard stays silent) or `git checkout -f pre-upgrade` won't remove it → cell (e) RE-WEDGES + boot-loops. Stage-1 ordering: pin → push tracked migration → fabricate in_progress row → seed snapshot → precreate orphan → fabricate resuming flag. 2b: error-match assert must change to UPGRADE_DIED_DURING_RESUME.*rolled back to the snapshot (the real Resuming-latch message; the old 'forward failed...auto-restored' was the DEAD :877 branch). 2c: flip KNOWN-RED headers → expected-green + faithfulness assert (orphan gone / synthetic migration absent). rc.63-transition residual = OUT OF SCOPE (historical, no guard).
+VERIFY: engineer compiles (./dev.sh build-sb) + bash -n; then GREEN run of the 2 reproducers (expect state=rolled_back, error~UPGRADE_DIED_DURING_RESUME, NRestarts≤2, orphan gone) + regression-check the green postswap suite (fix is inert there but path is shared).
 <!-- SECTION:NOTES:END -->
