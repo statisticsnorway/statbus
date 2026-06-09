@@ -18,7 +18,14 @@
       {
         "matcher": "Agent",
         "hooks": [
-          { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/restrict-agent-spawn.sh", "timeout": 5 }
+          { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/restrict-agent-spawn.sh", "timeout": 5 },
+          { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/enforce-team-name.sh", "timeout": 5 }
+        ]
+      },
+      {
+        "matcher": "TeamCreate",
+        "hooks": [
+          { "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/enforce-team-name.sh", "timeout": 5 }
         ]
       },
       {

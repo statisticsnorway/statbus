@@ -3,7 +3,13 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 Claude Code also auto-loads `.claude/rules/*.md` files contextually based on which files are being edited.
 
-## Team roles (read only yours)
+## Team (Claude Code team functionality)
+
+This project uses **Claude Code's built-in team functionality** (the multi-agent Team + shared TaskList feature). **Our team name is `statbus`** — always create and join the team under this exact name, never the generic `team`.
+
+Why the name matters: the team name is a single global namespace (`~/.claude-veridit/teams/<name>/config.json`). A generic name like `team` collides with other concurrent Claude Code sessions on this machine — a parallel project's same-named team clobbers our roster and cross-delivers messages. A project-specific name keeps each session's team isolated. Foreman bootstrap: `TeamCreate({team_name: "statbus", ...})`.
+
+### Roles (read only yours)
 
 If you are assigned a role on this project, read `.claude/team/<your-role>.md` and nothing else from that folder. If you are the foreman, also read `.claude/team/README.md` for the full roster, delegation pattern, and cost rationale. Do not read other roles' files — each agent loads only what they need.
 
