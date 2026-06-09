@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-08 21:46'
-updated_date: '2026-06-09 21:27'
+updated_date: '2026-06-09 21:45'
 labels:
   - install-recovery
   - recovery
@@ -101,4 +101,17 @@ OVERNIGHT SEQUENCE:
 4. Commit B: recovery fix + doc/diagrams/upgrade-timeline.plantuml + doc/upgrade-timeline.md (AC#5) + flip the reproducer KNOWN-RED headers. Push → Images.
 5. Run the 2 reproducers on Commit B → GREEN (state=rolled_back) = AC#3 + AC#4 proven on real VMs.
 Morning deliverable to King: the diff, the RED-proof run URL, the GREEN run URL, plain-language writeup.
+
+EXECUTION-READY FIX PLAN (architect, 2026-06-09): tmp/plans/architect-017-fix-plan.md. King authorized direction (a) ON MASTER. Two product edits + reproducer/doc changes. Line numbers re-read against current master.
+
+PRODUCT EDIT 1 — service.go boot-migrate-up failure handler (1644-1659): between the ErrCommandTimeout orphan-cleanup and markTerminal, branch on the flag: `if flag,_,ferr := ReadFlagFile(d.projDir); ferr==nil && flag!=nil && flag.Holder==HolderService { log; fall through to recoverFromFlag (:1669) } else { markTerminal(BOOT_MIGRATE_UP_FAILED)+return }`. ReadFlagFile exported at :562 (*UpgradeFlag,bool,error); HolderService="service" :182.
+PRODUCT EDIT 2 — install_upgrade.go inline (198-199): symmetric, upgrade.ReadFlagFile/upgrade.HolderService (pkg imported :12, svc :133, sb :159). Predicate: service-held flag present → fall through; no-flag/install-held → refuse. Blast radius zero in green scenarios (only fires when boot-migrate-up FAILS).
+The wedge flag is Phase=resuming → recoverFromFlag :755 Resuming one-shot latch → recoveryRollback → rollback → restore → rolled_back + os.Exit(75). Restore machinery correct+complete, merely pre-empted.
+
+TWO NON-OBVIOUS FINDINGS the engineer MUST handle (beyond the King brief):
+(1) The rolled_back-vs-failed determinant is the GIT-restore, NOT the snapshot. recoveryRollback's prev=d.version (NULL from_commit_version) is a non-ref describe string → restoreGitState falls back to the `pre-upgrade` branch; the fabricated reproducers never pin it → ABORT (service.go:4625-4704) → state=failed+exit1. Green sibling container-restart-kill only works because REAL executeUpgrade pins pre-upgrade (service.go:3480). FIX: reproducer must `git branch -f pre-upgrade HEAD` before fabricating. (Absent snapshot alone → restoreDatabase no-ops to nil (exec.go:698) → still rolled_back, just un-restored DB — so the FUTURE note's 'else failed' was imprecise.) The snapshot (R2) is for a FAITHFUL restore (orphan removed); seed it as an rsync of PGDATA taken AFTER the in_progress row but BEFORE the orphan.
+(2) Cell (e) LATENT RE-WEDGE: both reproducers `install` the synthetic migration UNTRACKED (migrate sh:138, det-error sh:126); `git checkout -f pre-upgrade` does NOT remove untracked files → after recovery clears the flag, the erroring migration re-runs on the next boot with no recovery owner → boot-loop → NRestarts unbounded → assertion fails. FIX: commit the synthetic migration as a TRACKED migrations-only commit on top of pinned pre-upgrade so restoreGitState drops it. SAFE re: rc.65 staleness — freshness.IsStale diffs only `cli/` (check.go:95), migrations-only shows no cli/ drift → no self-heal rebuild.
+
+ALSO: the reproducers' error-match assertion `"forward failed: .*; auto-restored from"` (migrate sh:354, det-error sh:307) is WRONG for the Resuming-latch path — change to `"UPGRADE_DIED_DURING_RESUME.*rolled back to the snapshot"`.
+Doc edits (AC#5): plantuml move both reproducers KNOWN-RED→GREEN + rewrite cell(2)/(e) INTENDED-vs-ACTUAL to the fall-through behavior; upgrade-timeline.md add the defer-to-recoverFromFlag sentence at the boot-guard (~:65). rc.63 residual = out-of-scope historical. Verify: run the 2 reproducers on Hetzner → rolled_back + regression-check the green postswap suite.
 <!-- SECTION:NOTES:END -->
