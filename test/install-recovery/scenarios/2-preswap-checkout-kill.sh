@@ -157,7 +157,17 @@ VM_EXEC bash -c "ls -la ~/statbus/tmp/upgrade-in-progress.json" || {
     echo "✗ expected flag file present after kill" >&2
     exit 1
 }
-assert_upgrade_row_state "$VM_NAME" "in_progress"
+# NOTE: do NOT assert public.upgrade.state='in_progress' here — executeUpgrade
+# stopped the DB container for the consistent backup (service.go:3462 "Stop
+# database for consistent backup") UPSTREAM of the C4 checkout kill, and it is
+# NOT restarted until applyPostSwap (post-swap). So `./sb psql` would fail with
+# "connection refused" and assert_upgrade_row_state would `return 1` under
+# `set -e` → silent script exit before any post-kill assertion. The flag-file
+# `ls` above already proves the upgrade was in-flight when killed (the flag
+# carries Phase=PreSwap); the working-tree + binary checks below are the
+# C4-specific RED proof and need NO DB. The row-state convergence check belongs
+# in Phase 6, after the recovery install restarts the DB. (Mirror of
+# 2-preswap-backup-kill's DB-down deferral.)
 
 # Working tree at HEAD-local (C4 fires right after the executeUpgrade
 # checkout).
@@ -183,7 +193,12 @@ echo "  ✓ RED confirmed: flag PreSwap, working tree advanced, binary unswapped
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── second install for recovery ──"
-install_statbus_in_vm "$VM_NAME"
+# The recovery reads the PreSwap flag → recoverFromFlag PreSwap branch
+# (service.go:822) → recoveryRollback → rollback() → os.Exit(75), the documented
+# "UPGRADE FAILED, ROLLED BACK" handoff. install_statbus_in_vm propagates that
+# exit code, so tolerate 75 specifically; any other non-zero is a real recovery
+# failure and aborts. (Mirror of 2-preswap-backup-kill:223.)
+install_statbus_in_vm "$VM_NAME" || { rc=$?; [ "$rc" -eq 75 ] || exit "$rc"; }
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 6 — assertions
@@ -211,6 +226,12 @@ case "$FINAL_STATE" in
         exit 1
         ;;
 esac
+
+# The error column must name the PreSwap-guard rollback reason — proves this was
+# the recoverFromFlag :822 PreSwap rollback (ErrInstallPreconditionFailed =
+# "INSTALL_PRECONDITION_FAILED", service.go:1501), carried in the error prefix on
+# both the rolled_back and failed tiers above.
+assert_upgrade_row_error_matches "$VM_NAME" "INSTALL_PRECONDITION_FAILED"
 
 # Load-bearing: restoreGitState returned us to OLD_COMMIT.
 WT_COMMIT_AFTER=$(VM_EXEC bash -c "cd ~/statbus && git rev-parse HEAD" 2>/dev/null | tr -d '\r' || echo "")
