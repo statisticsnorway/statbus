@@ -58,15 +58,28 @@ simulate_pool_exhaustion() {
     local n="${2:-28}"  # max_connections=30 by default; leave 2 for the killer + docker exec
     echo "  [wedge] opening $n idle psql sessions on $vm_name to saturate pool"
 
-    VM_EXEC bash -c "
-        cd ~/statbus
-        for i in \$(seq 1 $n); do
-            (./sb psql -c 'SELECT pg_sleep(3600);' >/dev/null 2>&1) &
-        done
-        sleep 2  # let connections establish
-        ACTIVE=\$(./sb psql -t -A -c 'SELECT count(*) FROM pg_stat_activity WHERE datname = current_database();' 2>/dev/null || echo 0)
-        echo '[wedge] pool saturated: '\$ACTIVE' connections on test DB'
-    "
+    # ssh-STDIN transport, NOT VM_EXEC's printf %q: the multi-line script rides
+    # stdin so its newlines/quotes/$() survive every quoting layer untouched; only
+    # the fixed `bash -c 'cd ~/statbus && bash'` (the proven assertions.sh pattern)
+    # hits the command line. printf %q collapsed the for-loop newlines →
+    # "syntax error near unexpected token `do'" (run 27168472969); the shared
+    # VM_EXEC base64 rewrite broke 0/18 and was reverted, so this stays per-scenario
+    # (this function is used only by 5-install-stage-b-pool-exhaustion).
+    local _wedge
+    _wedge=$(mktemp)
+    {
+        echo "N=$n"
+        cat <<'WEDGE'
+for i in $(seq 1 $N); do
+    (./sb psql -c 'SELECT pg_sleep(3600);' >/dev/null 2>&1) &
+done
+sleep 2  # let connections establish
+ACTIVE=$(./sb psql -t -A -c 'SELECT count(*) FROM pg_stat_activity WHERE datname = current_database();' 2>/dev/null || echo 0)
+echo "[wedge] pool saturated: $ACTIVE connections on test DB"
+WEDGE
+    } > "$_wedge"
+    ssh "${SSH_OPTS[@]}" root@"$VM_IP" "sudo -i -u statbus bash -c 'cd ~/statbus && bash'" < "$_wedge"
+    rm -f "$_wedge"
 }
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -82,17 +95,26 @@ simulate_systemd_failed() {
     local unit="${2:-statbus-upgrade@statbus.service}"
     echo "  [wedge] tripping StartLimitBurst on $unit (12 rapid kill cycles)"
 
-    VM_EXEC bash -c "
-        for i in \$(seq 1 12); do
-            systemctl --user start '$unit' 2>/dev/null || true
-            sleep 1
-            systemctl --user kill '$unit' 2>/dev/null || true
-        done
-        sleep 2
-        STATE=\$(systemctl --user is-active '$unit' 2>&1 || true)
-        RESULT=\$(systemctl --user show '$unit' --property=Result --value 2>/dev/null || true)
-        echo '[wedge] unit state='\$STATE' result='\$RESULT
-    "
+    # ssh-STDIN transport (see simulate_pool_exhaustion) — multi-line script via
+    # stdin; used only by 5-install-stage-c-systemd-failed.
+    local _wedge
+    _wedge=$(mktemp)
+    {
+        echo "U='$unit'"
+        cat <<'WEDGE'
+for i in $(seq 1 12); do
+    systemctl --user start "$U" 2>/dev/null || true
+    sleep 1
+    systemctl --user kill "$U" 2>/dev/null || true
+done
+sleep 2
+STATE=$(systemctl --user is-active "$U" 2>&1 || true)
+RESULT=$(systemctl --user show "$U" --property=Result --value 2>/dev/null || true)
+echo "[wedge] unit state=$STATE result=$RESULT"
+WEDGE
+    } > "$_wedge"
+    ssh "${SSH_OPTS[@]}" root@"$VM_IP" "sudo -i -u statbus bash -c 'cd ~/statbus && bash'" < "$_wedge"
+    rm -f "$_wedge"
 }
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -138,14 +160,22 @@ simulate_worker_busy() {
     local n="${2:-20}"
     echo "  [wedge] queuing $n heavy worker tasks on $vm_name"
 
-    VM_EXEC bash -c "
-        cd ~/statbus
-        for i in \$(seq 1 $n); do
-            ./sb psql -c \"INSERT INTO worker.tasks (command, payload, queue, priority) VALUES ('statistical_history_reduce', '{}'::jsonb, 'analytics', 100);\" >/dev/null 2>&1
-        done
-        echo '[wedge] queued '$n' tasks; worker should pick up'
-        sleep 3
-    "
+    # ssh-STDIN transport (see simulate_pool_exhaustion) — multi-line script via
+    # stdin; used only by 5-install-stage-e-worker-busy.
+    local _wedge
+    _wedge=$(mktemp)
+    {
+        echo "N=$n"
+        cat <<'WEDGE'
+for i in $(seq 1 $N); do
+    ./sb psql -c "INSERT INTO worker.tasks (command, payload, queue, priority) VALUES ('statistical_history_reduce', '{}'::jsonb, 'analytics', 100);" >/dev/null 2>&1
+done
+echo "[wedge] queued $N tasks; worker should pick up"
+sleep 3
+WEDGE
+    } > "$_wedge"
+    ssh "${SSH_OPTS[@]}" root@"$VM_IP" "sudo -i -u statbus bash -c 'cd ~/statbus && bash'" < "$_wedge"
+    rm -f "$_wedge"
 }
 
 # ─────────────────────────────────────────────────────────────────────────
