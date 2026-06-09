@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-08 21:46'
-updated_date: '2026-06-09 21:48'
+updated_date: '2026-06-09 22:02'
 labels:
   - install-recovery
   - recovery
@@ -65,7 +65,7 @@ Architect building a deterministic reproducer (fabricate the after-commit RED st
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 King decides the fix direction (a/b/c below or other)
-- [ ] #2 Empirical reproducer captured (real-VM run URL) demonstrating the current wedge (BOOT_MIGRATE_UP_FAILED / boot-loop / non-zero, NOT rolled_back)
+- [x] #2 Empirical reproducer captured (real-VM run URL) demonstrating the current wedge (BOOT_MIGRATE_UP_FAILED / boot-loop / non-zero, NOT rolled_back)
 - [ ] #3 Fix implemented in recovery code (King-gated — not done autonomously)
 - [ ] #4 3-postswap-migrate-killed-after-commit + the migration-error scenario go GREEN (state=rolled_back) on real VMs
 - [ ] #5 doc/diagrams/upgrade-timeline.plantuml + doc/upgrade-timeline.md updated to match the fixed behavior
@@ -119,4 +119,10 @@ EXECUTION-READY FIX PLAN written (architect): tmp/plans/architect-017-fix-plan.m
 PRODUCT EDITS (minimal, inert except on the wedge): (1a) service.go boot-migrate-up failure handler — if ReadFlagFile gives flag!=nil && flag.Holder==HolderService, log + FALL THROUGH to recoverFromFlag(:1669) instead of markTerminal+return; keep refuse for no-flag/install-held. (1b) symmetric at install_upgrade.go ~198→205. Predicate: a service-held flag exists only for an in-progress upgrade (phase ∈ {PreSwap'',PostSwap,Resuming}, all restore-routed); PreSwap kill never reaches this branch (dies before migrations → guard succeeds).
 KEY ADVERSARIAL DISCOVERIES (would have mystery-failed a naive GREEN run): R1 the reproducers MUST pin the `pre-upgrade` git branch (git branch -f pre-upgrade HEAD) — the ACTUAL failed-vs-rolledback determinant (restoreGitState ABORT → state=failed otherwise), NOT the DB snapshot. R2 seed a real pre-upgrade-active DB snapshot (else restore no-ops → hollow rolled_back). R3 the synthetic migration must be a TRACKED commit (migrations-only, so rc.65 freshness guard stays silent) or `git checkout -f pre-upgrade` won't remove it → cell (e) RE-WEDGES + boot-loops. Stage-1 ordering: pin → push tracked migration → fabricate in_progress row → seed snapshot → precreate orphan → fabricate resuming flag. 2b: error-match assert must change to UPGRADE_DIED_DURING_RESUME.*rolled back to the snapshot (the real Resuming-latch message; the old 'forward failed...auto-restored' was the DEAD :877 branch). 2c: flip KNOWN-RED headers → expected-green + faithfulness assert (orphan gone / synthetic migration absent). rc.63-transition residual = OUT OF SCOPE (historical, no guard).
 VERIFY: engineer compiles (./dev.sh build-sb) + bash -n; then GREEN run of the 2 reproducers (expect state=rolled_back, error~UPGRADE_DIED_DURING_RESUME, NRestarts≤2, orphan gone) + regression-check the green postswap suite (fix is inert there but path is shared).
+
+✅ AC#2 CAPTURED — wedge proven on real Hetzner VMs. Run 27237385049 @ bdc83a466 (https://github.com/statisticsnorway/statbus/actions/runs/27237385049), conclusion=failure (RED-by-design = the proof). Both reproducers got PAST Stage-1 (fabrication fix bdc83a466 held — db stayed up) and REACHED the wedge:
+- cell 2 (migrate-killed-after-commit): ERROR relation "harness_after_commit_sentinel" already exists → 3× 'Error: boot migrate up: exit status 1' → boot-loop NRestarts=2 → row state=in_progress rolled_back_at=∅.
+- cell e (deterministic-error): ERROR 'harness deterministic migration error (STATBUS-017 cell e)' → same boot-loop → state=in_progress.
+Stage-4 intended-green RED by design: 'upgrade row state mismatch: expected=rolled_back actual=in_progress'. Evidence: tmp/operator-wedge-PROOF-27237385049.md.
+This is the empirical 'before' — the recovery fix (engineer implementing now) must flip both to state=rolled_back (AC#4). AC#1 = King authorized solving on master + proceeding direction (a)/roll-back (formal morning confirmation pending; no objection raised).
 <!-- SECTION:NOTES:END -->
