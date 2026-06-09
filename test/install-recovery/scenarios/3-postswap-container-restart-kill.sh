@@ -5,36 +5,63 @@
 # Class kind:            Kill
 # Source forensics:      tmp/install-state-machine-forensics.md
 #
-# Expected principled behavior:
-#   A process killed in the window after step 11 (Start application
-#   services: `docker compose up -d --no-build app worker rest`) but
-#   before step 12 (Verify health) leaves the system with: new
-#   binary, migrations applied, flag = PostSwap, containers in
-#   indeterminate state. The next `./sb install` must detect
-#   crashed-upgrade, route to recoverFromFlag → resumePostSwap →
-#   re-enter applyPostSwap, which re-runs step 11 (idempotent) and
-#   step 12 to completion.
+# Expected principled behavior (one-shot Resuming latch — ROLLBACK, not completion):
+#   The C8 kill site (cli/internal/upgrade/service.go:3981) sits between step 11
+#   (Start application services: `docker compose up -d --no-build app worker rest`)
+#   and step 12 (Verify health) INSIDE applyPostSwap. applyPostSwap's ONLY caller
+#   is resumePostSwap (service.go:4353), which stamps the flag Phase=Resuming
+#   (service.go:4339) BEFORE invoking it. So every line of applyPostSwap — this
+#   kill site included — runs under Phase=Resuming.
+#
+#   A SINGLE inline `./sb install` reaches Resuming in ONE invocation:
+#   executeUpgrade swaps the binary and stamps the flag Phase=PostSwap
+#   (service.go:3586), then syscall.Exec's the new binary in-place
+#   (service.go:3604). Go opens fds O_CLOEXEC, so the flock is RELEASED across
+#   the exec; the re-exec'd `./sb install` finds the flag flock-free
+#   (IsFlockHeld=false → install/state.go:172) → StateCrashedUpgrade →
+#   RecoverFromFlag → PostSwap branch (service.go:774) → resumePostSwap →
+#   Phase=Resuming → applyPostSwap → step 11 → C8 kill. The process exits 137
+#   with the flag pinned at Phase=Resuming, the row in_progress, migrations
+#   applied.
+#
+#   The next `./sb install` reads the Resuming flag and hits the one-shot
+#   anti-loop LATCH (service.go:755): a death DURING the post-swap resume is
+#   NEVER re-resumed — by design it becomes ONE rollback, never a retry. The
+#   recovery routes recoverFromFlag → recoveryRollback (service.go:762) →
+#   rollback(): restore the snapshot + previous binary + git, bring the OLD
+#   (pre-upgrade) version back up, mark the row state='rolled_back' with
+#   error containing "UPGRADE_DIED_DURING_RESUME" (ErrResumeDied, const at
+#   service.go:1507; set at :762-764; persisted at :4842), clear the flag,
+#   and exit 75 (the documented "UPGRADE FAILED, ROLLED BACK" handoff).
+#
+#   There is NO post-swap window in which a non-planned death re-resumes to
+#   step 11+12, so this scenario asserts the LATCH outcome (rolled_back), NOT
+#   completion. (Inverse/companion proof: scenario 3-postswap-resume-died-rollback.)
 #
 # Trigger logic:
 #   1. Install at INSTALL_VERSION (default v2026.05.2). Populate.
-#   2. Snapshot data counts (R5 cross-check — DDL must not lose
-#      user data even when interrupted mid-restart).
+#   2. Snapshot data counts (R5 cross-check — the rollback's snapshot
+#      restore must return EXACTLY the pre-trigger data; the resume's
+#      migrate is undone).
 #   3. Run first install at HEAD with
 #      STATBUS_INJECT_AT=killed-by-system-during-container-restart.
-#      inject.KillHere fires inside applyPostSwap between step 11
-#      and step 12; the install process exits 137 with the flag
-#      file pinned at PostSwap.
+#      inject.KillHere fires inside applyPostSwap between step 11 and
+#      step 12 — already under resumePostSwap's Phase=Resuming stamp;
+#      the install process exits 137 with the flag pinned at Phase=Resuming.
 #   4. Verify RED state: flag file present, public.upgrade row in
 #      state='in_progress', migrations applied (db.migration max
 #      version bumped).
-#   5. Run a SECOND install (no env vars) for recovery.
-#   6. Assert convergence: state='completed', data intact, services
-#      healthy.
+#   5. Run a SECOND install (no env vars) for recovery. It reads the
+#      Resuming flag → latch → rollback → exits 75 (tolerated).
+#   6. Assert the latch outcome: state='rolled_back', error matches
+#      UPGRADE_DIED_DURING_RESUME, flag absent, no orphan backup, data
+#      restored intact from the snapshot, services healthy at the
+#      rolled-back (pre-upgrade) version.
 #
 # Hetzner-runnability:
-#   READY. The injection site lands with this commit; the recovery
-#   path it exercises (recoverFromFlag → resumePostSwap) already
-#   exists on master + this branch.
+#   READY. The injection site and the latch path it exercises
+#   (recoverFromFlag Resuming branch → recoveryRollback → rollback) both
+#   exist on master + this branch. Validated on CI.
 #
 # Usage:
 #   INSTALL_VERSION=v2026.05.2 HCLOUD_LOCATION=fsn1 \
@@ -138,28 +165,72 @@ VM_EXEC bash -c "ls -la ~/statbus/tmp/upgrade-in-progress.json" || {
     exit 1
 }
 assert_upgrade_row_state "$VM_NAME" "in_progress"
-echo "  ✓ RED confirmed: flag + row in_progress (migrations applied; containers indeterminate)"
+echo "  ✓ RED confirmed: flag (pinned Phase=Resuming) + row in_progress (migrations applied; containers indeterminate)"
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 5 — second install for recovery
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── second install for recovery ──"
-install_statbus_in_vm "$VM_NAME"
+# The recovery reads the Resuming flag → the one-shot latch (service.go:755) →
+# recoveryRollback → rollback() → os.Exit(75) (service.go:4882), the documented
+# "UPGRADE FAILED, ROLLED BACK" handoff. install_statbus_in_vm returns that exit
+# code, so the wrapper propagates 75. That IS the scenario-expected outcome here
+# (the death-during-resume MUST roll back, never re-resume to completion); the
+# Phase 6 assertions verify the post-rollback state. Tolerate exit 75 specifically;
+# any other non-zero is a real recovery failure and aborts. Exit 0 would mean the
+# recovery wrongly reached 'completed' (the OLD, pre-latch contract) — that is NOT
+# tolerated here and is caught loudly by the row-state assertion below.
+install_statbus_in_vm "$VM_NAME" || { rc=$?; [ "$rc" -eq 75 ] || exit "$rc"; }
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 6 — assertions
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
-echo "── convergence checks ──"
+echo "── latch-outcome convergence checks (ROLLBACK, not completion) ──"
 
-assert_upgrade_row_state "$VM_NAME" "completed"
+# Fail loudly and specifically if the recovery wrongly reached 'completed' — that
+# is the OLD pre-latch contract (re-run step 11+12 to completion), which the
+# Resuming one-shot latch (service.go:755) deliberately does NOT produce. A
+# death during the post-swap resume becomes ONE rollback, never a re-resume.
+FINAL_STATE=$(VM_EXEC bash -c "cd ~/statbus && echo 'SELECT state FROM public.upgrade ORDER BY id DESC LIMIT 1;' | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?")
+echo "  final upgrade row state: $FINAL_STATE"
+if [ "$FINAL_STATE" = "completed" ]; then
+    echo "✗ row state='completed' — the death-during-resume was NOT supposed to re-resume to step 11+12." >&2
+    echo "  The Resuming one-shot latch (service.go:755) must roll back, not complete. Either the latch" >&2
+    echo "  regressed, or the kill did not fire under Phase=Resuming." >&2
+    exit 1
+fi
+
+# The expected terminal: rolled_back. The snapshot restore succeeds → healthy at
+# the old version. (A degraded 'failed' would mean the rollback's OWN restore
+# also failed — a separate, real failure; assert the principled rolled_back here.)
+assert_upgrade_row_state "$VM_NAME" "rolled_back"
+
+# The error column is the unattended operator's diagnostic surface — it must name
+# the latch code so support knows this was a death-during-resume, not a clean
+# step failure (ErrResumeDied, service.go:1507).
+assert_upgrade_row_error_matches "$VM_NAME" "UPGRADE_DIED_DURING_RESUME"
+
+# Data restored intact from the snapshot — the resume's migrate was undone by
+# rollback()'s restoreDatabase.
 assert_demo_data_present "$VM_NAME"
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
+
+# The flag is gone — the mutex is released so a subsequent ./sb install is not
+# wedged at StateLiveUpgrade / does not re-enter recovery.
 assert_flag_file_absent "$VM_NAME"
+
+# No LEGACY orphan backups accumulated (managed pre-upgrade-active/syncing are
+# excluded; the rollback restores FROM the finalized active snapshot, which may
+# legitimately persist — it is not an orphan).
 assert_no_orphan_backup "$VM_NAME"
+
+# Services healthy at the rolled-back (pre-upgrade) version.
 assert_health_passes "$VM_NAME"
+
+# One rollback, not a restart loop: the systemd upgrade unit must not be churning.
 assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 2
 
 echo ""
-echo "PASS: 3-postswap-container-restart-kill (recovery completed step 11+12 and reached state='completed')"
+echo "PASS: 3-postswap-container-restart-kill (death during the post-swap resume became ONE rollback via the Resuming latch: row rolled_back with UPGRADE_DIED_DURING_RESUME, snapshot restored, flag cleared, services healthy at the pre-upgrade version)"
