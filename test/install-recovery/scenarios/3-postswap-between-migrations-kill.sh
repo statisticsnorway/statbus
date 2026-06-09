@@ -98,32 +98,22 @@ assert_demo_data_present "$VM_NAME"
 BASELINE_MAX_VERSION=$(VM_EXEC bash -c "cd ~/statbus && echo 'SELECT COALESCE(MAX(version), 0) FROM db.migration;' | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "0")
 echo "  baseline db.migration max_version: $BASELINE_MAX_VERSION"
 
-# Pre-trigger precondition: count pending migrations on HEAD's tree.
+# Pre-trigger precondition: count pending migrations at HEAD vs baseline.
 # Need ≥ 2 for the "between N and N+1" point to exist.
 #
-# ROOT CAUSE of run-27167617557's "<2 pending" (PENDING_COUNT=0): BASELINE_MAX_VERSION
-# above is read AFTER the initial install, whose Seed step (runSeedRestore) restores
-# the published statbus-seed image — which is dumped at HEAD's migration level. So
-# db.migration jumps straight to HEAD (~20260603093525) and there is NO v2026.05.2→HEAD
-# delta left for migrate.Up to apply. The "between N and N+1" kill needs a REAL pending
-# set, which requires a NO-SEED baseline (full migrations from the INSTALL_VERSION tag).
-# FIX PENDING a shared no-seed lever (STATBUS_SKIP_SEED honored by runSeedRestore, set on
-# the baseline install) — coordinated under STATBUS-018; the same collapse affects the
-# architect's migrate-killed-after-commit baseline, so the lever must be one pattern.
-PENDING_COUNT=$(VM_EXEC bash -c "cd ~/statbus && git -C ~/statbus checkout $HEAD_SHA 2>/dev/null; ls migrations/*.up.sql migrations/*.up.psql 2>/dev/null | awk -F'/' '{print \$NF}' | awk -F'_' '{print \$1}' | awk -v b='$BASELINE_MAX_VERSION' '\$1 > b' | wc -l | tr -d ' '" 2>/dev/null || echo "0")
+# Count LOCALLY on the harness machine — HEAD's full tree is checked out here.
+# The VM holds only a shallow clone of $INSTALL_VERSION; git checkout $HEAD_SHA
+# silently fails (HEAD_SHA not in the clone) and ls lists the INSTALL_VERSION
+# tree, so all migrations are ≤ BASELINE_MAX_VERSION → PENDING_COUNT=0 on the VM.
+PENDING_COUNT=$(ls "$HARNESS_ROOT/migrations/"*.up.sql "$HARNESS_ROOT/migrations/"*.up.psql 2>/dev/null \
+    | awk -F'/' '{print $NF}' | awk -F'_' '{print $1}' \
+    | awk -v b="$BASELINE_MAX_VERSION" '$1 > b' | wc -l | tr -d ' ')
 echo "  pending migration count at HEAD vs baseline: $PENDING_COUNT (baseline=$BASELINE_MAX_VERSION)"
 if [ "$PENDING_COUNT" -lt 2 ]; then
     echo "✗ HEAD has < 2 pending migrations past baseline ($BASELINE_MAX_VERSION) — cannot test 'between N and N+1'." >&2
-    echo "  Almost always the seed collapsing the delta: the baseline install restored the HEAD-level" >&2
-    echo "  statbus-seed image, so db.migration is already at HEAD. Needs a NO-SEED baseline install" >&2
-    echo "  (STATBUS_SKIP_SEED — pending under STATBUS-018), or an INSTALL_VERSION ≥2 migrations behind HEAD." >&2
+    echo "  Check that INSTALL_VERSION ($INSTALL_VERSION) is ≥2 migrations behind HEAD." >&2
     exit 1
 fi
-
-# Restore VM working tree to INSTALL_VERSION so the install script's
-# checkout works cleanly. (We checked out HEAD above only to count
-# migrations, not to run anything.)
-VM_EXEC bash -c "cd ~/statbus && git checkout $INSTALL_VERSION 2>/dev/null || true"
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 3 — first install at HEAD with C7 kill injection

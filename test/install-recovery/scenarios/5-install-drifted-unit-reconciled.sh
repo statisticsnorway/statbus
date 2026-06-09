@@ -99,13 +99,7 @@ echo "── simulating unit drift (WatchdogSec→240, TimeoutStartSec→90) ─
 # 27168472969 it was silently ignored and the running unit kept WatchdogUSec=2min,
 # so the RED precondition never held (while TimeoutStartSec=90 DID apply, proving
 # the edit+reload+restart mechanism is fine — only the WatchdogSec VALUE was wrong).
-VM_EXEC bash -c "
-    set -e
-    U=$UNIT_TEMPLATE_FILE
-    sed -i -E 's/^WatchdogSec=.*/WatchdogSec=240/; s/^TimeoutStartSec=.*/TimeoutStartSec=90/' \"\$U\"
-    systemctl --user daemon-reload
-    systemctl --user restart $UNIT
-"
+VM_EXEC bash -c "set -e; U=$UNIT_TEMPLATE_FILE; sed -i -E 's/^WatchdogSec=.*/WatchdogSec=240/; s/^TimeoutStartSec=.*/TimeoutStartSec=90/' \"\$U\"; systemctl --user daemon-reload; systemctl --user restart $UNIT"
 sleep 3
 
 # RED precondition: the running unit now reports the drifted timers.
