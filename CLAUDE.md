@@ -5,9 +5,13 @@ Claude Code also auto-loads `.claude/rules/*.md` files contextually based on whi
 
 ## Team (Claude Code team functionality)
 
-This project uses **Claude Code's built-in team functionality** (the multi-agent Team + shared TaskList feature). **Our team name is `statbus`** — always create and join the team under this exact name, never the generic `team`.
+This project uses **Claude Code's built-in team functionality** (the multi-agent Team feature). **Our team name is `statbus`** — always create and join the team under this exact name, never the generic `team`.
 
 Why the name matters: the team name is a single global namespace (`~/.claude-veridit/teams/<name>/config.json`). A generic name like `team` collides with other concurrent Claude Code sessions on this machine — a parallel project's same-named team clobbers our roster and cross-delivers messages. A project-specific name keeps each session's team isolated. Foreman bootstrap: `TeamCreate({team_name: "statbus", ...})`.
+
+### Task board — Backlog.md, NOT the harness Task* list
+
+The team's task board is **Backlog.md** (the `mcp__backlog__task_*` tools). The harness `TaskCreate` is **blocked** by `.claude/hooks/require-backlog-tasks.sh` — the harness `Task*` list is volatile (it does not survive `/clear` or compaction and is not the shared source of truth). Coordinate via Backlog.md tasks (create / assign / note / close with the backlog MCP) plus `SendMessage`. Full workflow: the BACKLOG WORKFLOW section below.
 
 ### Roles (read only yours)
 
