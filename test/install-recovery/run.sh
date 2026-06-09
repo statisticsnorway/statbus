@@ -21,6 +21,16 @@ HARNESS_ROOT="$(cd "$HARNESS_DIR/../.." && pwd)"
 SCENARIOS_DIR="$HARNESS_DIR/scenarios"
 STAMP_FILE="$HARNESS_ROOT/tmp/install-recovery-test-passed-sha"
 
+# Marker for known-RED reproducers (deliberate failing scenarios that prove an
+# open product bug — e.g. STATBUS-017). A scenario file containing this marker is
+# EXCLUDED from the default/full run and from broad phase-prefix runs, so the
+# strict-green gating suite (the stamp below is written ONLY on a full run) never
+# goes red on an expected failure. Such a scenario still runs when a selector
+# names it specifically (a non-phase-prefix substring — its slug or a unique
+# fragment), which is how an operator captures the bug on demand.
+SKIP_DEFAULT_MARKER="HARNESS_SKIP_DEFAULT"
+_is_skip_default() { grep -q "$SKIP_DEFAULT_MARKER" "$1" 2>/dev/null; }
+
 # Parse flags (anything starting with --) and positional args.
 KEEP_VM=0
 LIST_ONLY=0
@@ -70,7 +80,11 @@ done < <(find "$SCENARIOS_DIR" -maxdepth 1 -type f -name '*.sh' | sort)
 if [ "$LIST_ONLY" = "1" ]; then
     echo "Available scenarios:"
     for s in "${ALL_SCENARIOS[@]}"; do
-        echo "  $(basename "$s" .sh)"
+        if _is_skip_default "$s"; then
+            echo "  $(basename "$s" .sh)   [known-RED — on-demand only, excluded from default run]"
+        else
+            echo "  $(basename "$s" .sh)"
+        fi
     done
     exit 0
 fi
@@ -78,17 +92,36 @@ fi
 # Filter by selectors (phase prefix or substring matches).
 SELECTED=()
 if [ ${#SELECTORS[@]} -eq 0 ]; then
-    SELECTED=("${ALL_SCENARIOS[@]}")
+    # Default/full run: every scenario EXCEPT the known-RED reproducers, so the
+    # strict-green gating suite stays green (the stamp is gated on this branch).
+    for s in "${ALL_SCENARIOS[@]}"; do
+        if _is_skip_default "$s"; then
+            echo "  (excluding known-RED reproducer from default run: $(basename "$s" .sh))"
+            continue
+        fi
+        SELECTED+=("$s")
+    done
 else
     for sel in "${SELECTORS[@]}"; do
         for s in "${ALL_SCENARIOS[@]}"; do
             base=$(basename "$s" .sh)
             # Match by phase prefix (e.g. "2-preswap" matches "2-preswap-backup-kill")
             # or by substring of the name.
-            if [[ "$base" =~ ^${sel}- ]] || [[ "$base" == *"$sel"* ]]; then
-                SELECTED+=("$s")
-                break
+            phase_match=0; substr_match=0
+            [[ "$base" =~ ^${sel}- ]] && phase_match=1
+            [[ "$base" == *"$sel"* ]] && substr_match=1
+            if [ "$phase_match" = 0 ] && [ "$substr_match" = 0 ]; then
+                continue
             fi
+            # A known-RED reproducer is pulled in ONLY by a selector that names it
+            # specifically (a non-phase-prefix substring — its slug or a unique
+            # fragment). A bare phase prefix (e.g. "3-postswap") must NOT drag it
+            # into a group run, or the group goes red on an expected failure.
+            if _is_skip_default "$s" && [ "$phase_match" = 1 ]; then
+                continue
+            fi
+            SELECTED+=("$s")
+            break
         done
     done
     if [ ${#SELECTED[@]} -eq 0 ]; then

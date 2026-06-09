@@ -1,73 +1,62 @@
 #!/bin/bash
 # HARNESS_SKIP_DEFAULT: known-RED reproducer (STATBUS-017) — excluded from the
 #   default/full run.sh suite + broad phase runs; runs only when named specifically.
-# Scenario: 3-postswap-migrate-killed-after-commit   ── KNOWN-RED (STATBUS-017) ──
+# Scenario: 3-postswap-migration-deterministic-error   ── KNOWN-RED (STATBUS-017) ──
 #
 # ╔══════════════════════════════════════════════════════════════════════════╗
-# ║  THIS SCENARIO IS A DELIBERATE, DETERMINISTIC REPRODUCER OF A CONFIRMED   ║
-# ║  PRODUCT BUG (STATBUS-017 — the rune wedge). IT IS EXPECTED TO FAIL (RED) ║
-# ║  UNTIL THE RECOVERY-CODE FIX LANDS. IT IS *NOT* PART OF THE GREEN SUITE.  ║
+# ║  DELIBERATE, DETERMINISTIC REPRODUCER OF A CONFIRMED PRODUCT BUG          ║
+# ║  (STATBUS-017 — the rune wedge). EXPECTED TO FAIL (RED) UNTIL THE         ║
+# ║  RECOVERY-CODE FIX LANDS. *NOT* PART OF THE GREEN SUITE.                  ║
 # ╚══════════════════════════════════════════════════════════════════════════╝
 #
-# WHAT IT PROVES
-# ──────────────
-# The "after-commit" cell of the migrate commit<->record boundary: a migration
-# whose outer transaction has COMMITTED but whose db.migration ledger row was
-# never written (the ~ms window a SIGKILL can land in during an upgrade's
-# resume-migrate). The INTENDED recovery for this state is forward-fails-then-
-# RESTORE: `./sb migrate up` re-lists the migration as pending, re-runs its
-# CREATE, hits "relation already exists", and recovery RESTORES the snapshot ->
-# state=rolled_back (the rune shape).
+# WHAT IT PROVES (cell (e) of the migrate commit<->record boundary)
+# ─────────────────────────────────────────────────────────────────
+# The sibling 3-postswap-migrate-killed-after-commit covers cell (c): a VALID
+# migration that re-runs into "relation already exists". THIS scenario covers
+# cell (e): a migration in a crashed upgrade's delta that ERRORS on EVERY apply
+# (a genuinely unapplyable migration — e.g. a bad DDL, a RAISE, a reference to a
+# missing object). For such a migration, forward progress is IMPOSSIBLE, so the
+# ONLY coherent recovery is RESTORE -> state=rolled_back.
 #
-# THE ACTUAL BUG (STATBUS-017): a schema-skew-guard `./sb migrate up` runs
+# THE ACTUAL BUG (STATBUS-017): the schema-skew-guard `./sb migrate up` runs
 # BEFORE recoverFromFlag on BOTH recovery entrypoints —
-#   - service boot:  cli/internal/upgrade/service.go:1644 (then recoverFromFlag :1669)
-#   - ./sb install:  cli/cmd/install_upgrade.go:198        (then RecoverFromFlag :205)
-# That guard re-runs the committed-unrecorded migration -> "relation already
-# exists" -> markTerminal("BOOT_MIGRATE_UP_FAILED") + return (service.go:1656).
-# The restore is GATED BEHIND this failing migrate-up and is NEVER reached:
+#   - service boot:  cli/internal/upgrade/service.go:1644  (then recoverFromFlag :1669)
+#   - ./sb install:  cli/cmd/install_upgrade.go:198         (then RecoverFromFlag :205)
+# It re-runs the pending erroring migration -> the migration errors again ->
+# markTerminal("BOOT_MIGRATE_UP_FAILED") + return (service.go:1656). The restore
+# is GATED BEHIND this failing migrate-up and is NEVER reached:
 #   - service boots-loop (Restart=always -> StartLimit -> unit failed);
 #   - ./sb install exits non-zero with the row still state=in_progress.
-# (The forward-recovery+restore branch at service.go:838-927 is itself dead code
-#  for service-held flags — the PreSwap=="" guard at :822 intercepts first.)
+# Because the migration can NEVER apply, forward-recovery is hopeless and restore
+# is the only escape — yet the wedge gates it. cell (e) is the sharpest case for
+# "forward-then-restore must RESTORE on migrate-up failure."
 #
-# WHY THIS REWRITE EXISTS (vs the prior kill-timing version)
-# ──────────────────────────────────────────────────────────
-# The prior version reproduced the after-commit state by SIGKILL-timing a real
-# resume-migrate (STATBUS_INJECT_AT=...after-commit-before-recorded) against a
-# real v2026.05.2->HEAD migration delta. Both legs are fragile:
-#   - the kill must land in a ~ms window (flaky); and
-#   - it needs a real pending-migration delta, but the HEAD db-seed collapses
-#     v2026.05.2->HEAD to zero pending migrations, so the stall site is often
-#     never reached.
-# This rewrite FABRICATES the exact after-commit RED state deterministically —
-# no kill-timing, no migration delta — so the wedge reproduces every run:
-#   1. a SYNTHETIC pending migration file (far-future version, sole pending);
-#   2. its object pre-created out-of-band (committed) but its db.migration row
-#      OMITTED  -> committed-but-unrecorded, exactly the after-commit shape;
-#   3. a fabricated in_progress public.upgrade row + a service-held crash flag
+# DETERMINISTIC FABRICATION (no kill-timing, no migration delta)
+# ──────────────────────────────────────────────────────────────
+#   1. a SYNTHETIC pending migration whose up.sql ALWAYS errors (RAISE EXCEPTION) —
+#      far-future version so it is the SOLE pending migration;
+#   2. a fabricated in_progress public.upgrade row + a service-held crash flag
 #      (dead holder PID, Phase=resuming) so the INTENDED terminal is rolled_back.
-# The ONLY reason this scenario goes RED is the wedge — there is no other
-# moving part to blame.
+# No object pre-creation is needed (unlike cell (c)) — the migration errors on
+# its own. The ONLY reason this scenario goes RED is the wedge.
 #
 # RUN
 # ───
-#   ./test/install-recovery/scenarios/3-postswap-migrate-killed-after-commit.sh
-#   (or via the harness: ./dev.sh test-install-recovery 3-postswap-migrate-killed-after-commit)
+#   ./test/install-recovery/scenarios/3-postswap-migration-deterministic-error.sh
+#   (or: ./dev.sh test-install-recovery 3-postswap-migration-deterministic-error)
 #
 # Optional env:
 #   KEEP_VM=1 / KEEP_VM_ON_FAILURE=1   Leave VM up for post-mortem
 #   BOOTLOOP_WAIT_S=N                  Seconds to let the service boot-loop (default 90)
 #
-# TO GO GREEN (after the STATBUS-017 fix lands): the fix must route the
-# schema-skew migrate-up FAILURE to the restore path (or run recoverFromFlag
-# first). At that point this scenario also needs a real pre-upgrade-active
-# snapshot present for the restore to land state=rolled_back rather than
-# state=failed — see "FUTURE: seed snapshot" near the trigger below.
+# TO GO GREEN (after the STATBUS-017 fix): the fix must route the schema-skew
+# migrate-up FAILURE to the restore path (or run recoverFromFlag first). A real
+# pre-upgrade-active snapshot must then be present for the restore to land
+# state=rolled_back rather than state=failed — see "FUTURE: seed snapshot".
 
 set -euo pipefail
 
-VM_NAME="${1:-statbus-recovery-3-postswap-migrate-killed-after-commit}"
+VM_NAME="${1:-statbus-recovery-3-postswap-migration-deterministic-error}"
 BOOTLOOP_WAIT_S="${BOOTLOOP_WAIT_S:-90}"
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
@@ -79,15 +68,15 @@ source "$LIB_DIR/assertions.sh"
 trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 
 UPGRADE_UNIT="statbus-upgrade@statbus.service"
-SENTINEL_VERSION="20991231235959"   # far future -> guaranteed the sole pending migration
-SENTINEL_DESC="harness_after_commit_sentinel"
-SENTINEL_TABLE="public.harness_after_commit_sentinel"
-SENTINEL_UP="${SENTINEL_VERSION}_${SENTINEL_DESC}.up.sql"
-SENTINEL_DOWN="${SENTINEL_VERSION}_${SENTINEL_DESC}.down.sql"
+ERRMIG_VERSION="20991231235958"   # far future -> guaranteed the sole pending migration
+ERRMIG_DESC="harness_deterministic_error"
+ERRMIG_MARKER="harness deterministic migration error (STATBUS-017 cell e)"
+ERRMIG_UP="${ERRMIG_VERSION}_${ERRMIG_DESC}.up.sql"
+ERRMIG_DOWN="${ERRMIG_VERSION}_${ERRMIG_DESC}.down.sql"
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario: 3-postswap-migrate-killed-after-commit  (KNOWN-RED — STATBUS-017)"
-echo "  Deterministic after-commit wedge reproducer (no kill-timing, no delta)"
+echo "  Scenario: 3-postswap-migration-deterministic-error  (KNOWN-RED — STATBUS-017)"
+echo "  Deterministic erroring-migration wedge reproducer (no kill-timing, no delta)"
 echo "════════════════════════════════════════════════════════════════"
 
 HEAD_SHA=$(git -C "$HARNESS_ROOT" rev-parse HEAD)
@@ -95,13 +84,10 @@ HEAD_SHORT="${HEAD_SHA:0:8}"
 echo "  HEAD: $HEAD_SHA ($HEAD_SHORT)"
 
 # ─────────────────────────────────────────────────────────────────────────
-# Inline fabrication helpers (this scenario OWNS them — data-helpers.sh is a
-# shared file owned by other agents; keeping the fabrication local avoids a
-# cross-file collision and keeps the RED state's construction in one place).
+# Inline fabrication helpers (scenario-local — data-helpers.sh is a shared
+# file owned by other agents).
 # ─────────────────────────────────────────────────────────────────────────
 
-# Run a SQL file against the VM's DB as the statbus user (CLAUDE.md: never echo
-# SQL over SSH — write local, scp, pipe via redirect).
 _run_sql_file_in_vm() {
     local local_sql="$1"
     scp -O "${SSH_OPTS[@]}" "$local_sql" root@"$VM_IP":/tmp/harness-sql.sql >/dev/null
@@ -109,54 +95,39 @@ _run_sql_file_in_vm() {
         "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A < /tmp/harness-sql.sql' && rm -f /tmp/harness-sql.sql"
 }
 
-# Place the synthetic migration pair into ~/statbus/migrations/ on the VM.
-# The up.sql does a hard CREATE TABLE (no IF NOT EXISTS) so a re-run against an
-# already-present object errors deterministically with "relation already exists".
-_push_synthetic_migration() {
-    echo "── pushing synthetic pending migration ($SENTINEL_UP) ──"
+# Place a synthetic migration whose up.sql ALWAYS errors (RAISE EXCEPTION).
+_push_erroring_migration() {
+    echo "── pushing synthetic erroring migration ($ERRMIG_UP) ──"
     local up down
     up=$(mktemp); down=$(mktemp)
     cat > "$up" <<SQL
 -- HARNESS-ONLY synthetic migration — NOT a real schema change.
--- Fabricates the after-commit RED state for STATBUS-017: the object below is
--- pre-created out-of-band and this migration's db.migration row is OMITTED, so
--- \`./sb migrate up\` re-lists this version as pending and re-runs the CREATE ->
--- "relation already exists" -> the schema-skew-guard migrate-up wedge.
-CREATE TABLE ${SENTINEL_TABLE} (id integer PRIMARY KEY);
+-- Errors deterministically on EVERY apply to fabricate cell (e) of STATBUS-017:
+-- the schema-skew-guard \`./sb migrate up\` re-runs this pending migration during
+-- recovery, it errors again, and the restore is gated behind the failure.
+DO \$harness\$
+BEGIN
+  RAISE EXCEPTION '${ERRMIG_MARKER}';
+END
+\$harness\$;
 SQL
     cat > "$down" <<SQL
-DROP TABLE IF EXISTS ${SENTINEL_TABLE};
+-- up.sql never succeeds, so there is nothing to undo.
+SELECT 1;
 SQL
-    scp -O "${SSH_OPTS[@]}" "$up"   root@"$VM_IP":/tmp/sentinel.up.sql  >/dev/null
-    scp -O "${SSH_OPTS[@]}" "$down" root@"$VM_IP":/tmp/sentinel.down.sql >/dev/null
+    scp -O "${SSH_OPTS[@]}" "$up"   root@"$VM_IP":/tmp/errmig.up.sql  >/dev/null
+    scp -O "${SSH_OPTS[@]}" "$down" root@"$VM_IP":/tmp/errmig.down.sql >/dev/null
     rm -f "$up" "$down"
     ssh "${SSH_OPTS[@]}" root@"$VM_IP" "
-        install -o statbus -g statbus -m 0644 /tmp/sentinel.up.sql   /home/statbus/statbus/migrations/${SENTINEL_UP}
-        install -o statbus -g statbus -m 0644 /tmp/sentinel.down.sql /home/statbus/statbus/migrations/${SENTINEL_DOWN}
-        rm -f /tmp/sentinel.up.sql /tmp/sentinel.down.sql
+        install -o statbus -g statbus -m 0644 /tmp/errmig.up.sql   /home/statbus/statbus/migrations/${ERRMIG_UP}
+        install -o statbus -g statbus -m 0644 /tmp/errmig.down.sql /home/statbus/statbus/migrations/${ERRMIG_DOWN}
+        rm -f /tmp/errmig.up.sql /tmp/errmig.down.sql
     "
-    echo "  ✓ synthetic migration placed (version $SENTINEL_VERSION)"
+    echo "  ✓ erroring migration placed (version $ERRMIG_VERSION)"
 }
 
-# Create the sentinel object out-of-band (committed) WITHOUT recording it in
-# db.migration — the committed-but-unrecorded shape. This is the deterministic
-# stand-in for "migration N committed, db.migration INSERT never ran".
-_precreate_committed_unrecorded_object() {
-    echo "── pre-creating committed-but-unrecorded object ($SENTINEL_TABLE) ──"
-    local sql; sql=$(mktemp)
-    cat > "$sql" <<SQL
-CREATE TABLE ${SENTINEL_TABLE} (id integer PRIMARY KEY);
-SELECT 'sentinel-created=' || to_regclass('${SENTINEL_TABLE}') IS NOT NULL;
-SQL
-    _run_sql_file_in_vm "$sql"
-    rm -f "$sql"
-    echo "  ✓ object committed; db.migration row deliberately omitted"
-}
-
-# Fabricate the in_progress upgrade row (chk_upgrade_state_attributes in_progress
-# arm: scheduled_at NOT NULL, started_at NOT NULL, completed_at NULL,
-# rolled_back_at NULL). Reuses fabricate_scheduled_upgrade_row for the row's
-# existence + column shape, then transitions it to in_progress. Echoes the row id.
+# Fabricate the in_progress upgrade row (chk in_progress arm: scheduled_at NOT
+# NULL, started_at NOT NULL, completed_at NULL, rolled_back_at NULL). Echoes the id.
 _fabricate_in_progress_row() {
     fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_SHA" >&2
     local sql; sql=$(mktemp)
@@ -170,17 +141,12 @@ UPDATE public.upgrade
 SELECT id FROM public.upgrade WHERE commit_sha = '${HEAD_SHA}';
 SQL
     local out; out=$(_run_sql_file_in_vm "$sql"); rm -f "$sql"
-    # The trailing SELECT prints the bare integer id; ignore any psql command
-    # tags ("UPDATE 1") by matching the last pure-integer line.
     echo "$out" | grep -E '^[0-9]+$' | tail -1
 }
 
-# Fabricate the service-held crash flag (tmp/upgrade-in-progress.json). Dead
-# holder PID + no live flock => state-ladder probe 3 (crashed-upgrade) fires;
-# Phase=resuming mirrors the real after-commit kill (the kill lands inside
-# applyPostSwap's migrate, after resumePostSwap stamped Resuming). backup_path
-# points at the canonical persistent snapshot dir so a future fix's restore
-# finds it if a snapshot is seeded (see FUTURE note at the trigger).
+# Fabricate the service-held crash flag. Dead holder PID + no live flock =>
+# state-ladder probe 3 (crashed-upgrade); Phase=resuming mirrors the real
+# in-resume kill. backup_path points at the canonical persistent snapshot dir.
 _fabricate_crash_flag() {
     local row_id="$1"
     echo "── fabricating service-held crash flag (Phase=resuming, dead PID) ──"
@@ -192,7 +158,7 @@ _fabricate_crash_flag() {
   "commit_tags": [],
   "pid": 999999,
   "started_at": "2026-01-01T00:00:00Z",
-  "invoked_by": "harness:after-commit-fabrication",
+  "invoked_by": "harness:deterministic-error-fabrication",
   "trigger": "scheduled",
   "holder": "service",
   "phase": "resuming",
@@ -209,14 +175,12 @@ JSON
     echo "  ✓ crash flag written (id=$row_id)"
 }
 
-# Loud, human-readable dump of the OBSERVED wedge — printed even though the
-# intended-green assertions below will then fail (RED). This is the proof block
-# the King reads.
+# Loud, human-readable dump of the OBSERVED wedge.
 _dump_wedge_evidence() {
     local label="$1"
     echo ""
     echo "═══════════════════════════════════════════════════════════════════"
-    echo "  WEDGE OBSERVED (STATBUS-017) — $label"
+    echo "  WEDGE OBSERVED (STATBUS-017 cell e) — $label"
     echo "═══════════════════════════════════════════════════════════════════"
     echo "  latest public.upgrade row:"
     local sql; sql=$(mktemp)
@@ -226,14 +190,13 @@ SELECT 'state=' || state || ' started_at=' || COALESCE(started_at::text,'∅') |
        ' error=' || COALESCE(left(error,160),'∅')
   FROM public.upgrade ORDER BY id DESC LIMIT 1;
 SELECT 'db.migration max_version=' || COALESCE(MAX(version),0) FROM db.migration;
-SELECT 'sentinel_object_present=' || (to_regclass('${SENTINEL_TABLE}') IS NOT NULL);
 SQL
     _run_sql_file_in_vm "$sql" 2>/dev/null | sed 's/^/    /' || true
     rm -f "$sql"
     echo "  flag file:"
     VM_EXEC bash -c 'ls -la ~/statbus/tmp/upgrade-in-progress.json 2>/dev/null && echo PRESENT || echo ABSENT' 2>/dev/null | sed 's/^/    /' || true
-    echo "  upgrade-unit journal (BOOT_MIGRATE_UP_FAILED / relation already exists):"
-    VM_EXEC bash -c "journalctl --user -u $UPGRADE_UNIT --no-pager -n 40 2>/dev/null | grep -iE 'BOOT_MIGRATE_UP_FAILED|relation already exists|migrate up|refuses to enter' | tail -12" 2>/dev/null | sed 's/^/    /' || true
+    echo "  upgrade-unit journal (BOOT_MIGRATE_UP_FAILED / the RAISE marker):"
+    VM_EXEC bash -c "journalctl --user -u $UPGRADE_UNIT --no-pager -n 40 2>/dev/null | grep -iE 'BOOT_MIGRATE_UP_FAILED|deterministic migration error|migrate up|refuses to enter' | tail -12" 2>/dev/null | sed 's/^/    /' || true
     echo "═══════════════════════════════════════════════════════════════════"
     echo ""
 }
@@ -252,44 +215,38 @@ BASELINE_MAX_VERSION=$(VM_EXEC bash -c "cd ~/statbus && echo 'SELECT COALESCE(MA
 echo "  baseline db.migration max_version = $BASELINE_MAX_VERSION"
 
 # ─────────────────────────────────────────────────────────────────────────
-# Stage 1 — fabricate the after-commit RED state (deterministic)
+# Stage 1 — fabricate the erroring-migration RED state (deterministic)
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "════════════════════════════════════════════════════════════════"
-echo "  Stage 1 — fabricate the committed-but-unrecorded migration state"
+echo "  Stage 1 — fabricate the always-erroring pending migration state"
 echo "════════════════════════════════════════════════════════════════"
 
-_push_synthetic_migration
-_precreate_committed_unrecorded_object
+_push_erroring_migration
 ROW_ID=$(_fabricate_in_progress_row)
 echo "  fabricated in_progress upgrade row id=$ROW_ID"
 _fabricate_crash_flag "$ROW_ID"
 
-# Verify the RED shape before triggering recovery.
 echo "── verifying fabricated RED shape ──"
 assert_upgrade_row_state "$VM_NAME" "in_progress"
 assert_db_migration_max_version_unchanged "$VM_NAME" "$BASELINE_MAX_VERSION"
 VM_EXEC bash -c "ls -la ~/statbus/tmp/upgrade-in-progress.json" >/dev/null || {
     echo "✗ fabricated flag file missing" >&2; exit 1; }
-echo "  ✓ RED confirmed: row in_progress, flag present, migration committed-but-unrecorded"
+echo "  ✓ RED confirmed: row in_progress, flag present, a pending migration that always errors"
 
 # ─────────────────────────────────────────────────────────────────────────
 # Stage 2 — TRIGGER A: ./sb install crashed-upgrade recovery (operator path)
 #
 # FUTURE: seed snapshot — when the STATBUS-017 fix lands, restore needs a real
-# ~/statbus-backups/pre-upgrade-active snapshot present here for the recovery to
-# land state=rolled_back (else it lands state=failed). Today the wedge fires at
-# `./sb migrate up` BEFORE any restore, so no snapshot is needed to prove RED.
+# ~/statbus-backups/pre-upgrade-active snapshot present here to land
+# state=rolled_back (else state=failed). Today the wedge fires at `./sb migrate
+# up` BEFORE any restore, so no snapshot is needed to prove RED.
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "════════════════════════════════════════════════════════════════"
 echo "  Stage 2 — TRIGGER A: ./sb install (crashed-upgrade -> migrate up wedge)"
 echo "════════════════════════════════════════════════════════════════"
 
-# `./sb install` with the flag present detects state-ladder probe 3
-# (crashed-upgrade) -> runCrashRecovery -> `./sb migrate up` (install_upgrade.go:198)
-# -> "relation already exists" -> return err (RecoverFromFlag at :205 NEVER reached).
-# EXPECTED non-zero exit; capture rather than let `set -e` abort.
 RECOVER_RC=0
 install_statbus_in_vm "$VM_NAME" || RECOVER_RC=$?
 echo "  ./sb install (recovery) exit code: $RECOVER_RC  (EXPECTED non-zero — the wedge aborts crash recovery)"
@@ -305,7 +262,6 @@ echo "  Stage 3 — TRIGGER B: service restart (boot-migrate-up boot-loop)"
 echo "════════════════════════════════════════════════════════════════"
 echo "── restarting $UPGRADE_UNIT and letting it boot-loop for ${BOOTLOOP_WAIT_S}s ──"
 VM_EXEC bash -c "systemctl --user reset-failed $UPGRADE_UNIT 2>/dev/null; systemctl --user restart $UPGRADE_UNIT 2>/dev/null || true"
-# Let systemd cycle boot-migrate-up -> fail -> Restart=always until StartLimit.
 VM_EXEC bash -c "sleep $BOOTLOOP_WAIT_S"
 NRESTARTS=$(VM_EXEC bash -c "systemctl --user show $UPGRADE_UNIT --property=NRestarts --value 2>/dev/null" | tr -d ' \r\n' || echo "?")
 echo "  observed NRestarts=$NRESTARTS"
@@ -313,9 +269,6 @@ _dump_wedge_evidence "after service restart (boot-loop)"
 
 # ─────────────────────────────────────────────────────────────────────────
 # Stage 4 — INTENDED-GREEN assertions (these FAIL today — the RED IS the proof)
-#
-# Each assertion below states the post-fix contract. They run LAST so the wedge
-# evidence above is already printed; the first failure exits non-zero (RED).
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "════════════════════════════════════════════════════════════════"
@@ -323,7 +276,7 @@ echo "  Stage 4 — intended-green assertions (EXPECTED RED until STATBUS-017 fi
 echo "════════════════════════════════════════════════════════════════"
 echo "  (If these PASS, the rune wedge is FIXED — update STATBUS-017 + this header.)"
 
-# INTENDED: recovery restored the snapshot and rolled the row back.
+# INTENDED: an unapplyable migration in a crashed upgrade -> restore -> rolled_back.
 assert_upgrade_row_state "$VM_NAME" "rolled_back"
 # INTENDED: the restore narrative landed (forward failed -> auto-restored).
 assert_upgrade_row_error_matches "$VM_NAME" "forward failed: .*; auto-restored from"
@@ -335,4 +288,4 @@ assert_systemd_restart_counter_bounded "$VM_NAME" "$UPGRADE_UNIT" 2
 assert_health_passes "$VM_NAME"
 
 echo ""
-echo "PASS: 3-postswap-migrate-killed-after-commit (rune wedge FIXED)"
+echo "PASS: 3-postswap-migration-deterministic-error (rune wedge FIXED)"
