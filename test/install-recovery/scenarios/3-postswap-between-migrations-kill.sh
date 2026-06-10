@@ -6,17 +6,20 @@
 # Source forensics:      tmp/install-state-machine-forensics.md
 #
 # Expected principled behavior:
-#   A process killed AFTER migration N is fully applied + its
+#   A process killed ONCE AFTER migration N is fully applied + its
 #   db.migration INSERT committed, but BEFORE migration N+1's
-#   runPsqlFile begins, leaves the system with: NEW binary, flag
-#   PostSwap, `db.migration` includes EVERY migration up to N but
-#   NONE of N+1 onwards. The wedge is the cleanest possible mid-
-#   migrate state — N's transaction is fully committed (effects +
-#   tracking row both on disk), N+1's transaction never opened.
+#   runPsqlFile begins, leaves the cleanest possible mid-migrate
+#   state — N's transaction fully committed (effects + tracking row
+#   both on disk), N+1's transaction never opened.
 #
-#   Recovery via the next install's recoverFromFlag → resumePostSwap
-#   → applyPostSwap re-entry → migrate.Up: the unrecorded pending
-#   set (N+1, N+2, ...) is applied cleanly. End state: `db.migration`
+#   With the 017 inline crash-recovery this SAME install self-heals:
+#   post the executeUpgrade syscall.Exec re-exec (env preserved) the
+#   install detects StateCrashedUpgrade → runCrashRecovery →
+#   RecoverFromFlag → forward-recovery migrate.Up. Because the kill is
+#   armed ONE-SHOT (STATBUS_INJECT_KILL_AND_REMOVE_FILE, STATBUS-022),
+#   the recovery migrate re-enters the kill site with the marker
+#   consumed → no-op → the unrecorded pending set (N+1, N+2, ...) is
+#   applied cleanly. End state IN THIS SINGLE INSTALL: `db.migration`
 #   includes ALL pending migrations through HEAD, row state='completed'.
 #
 # Trigger logic:
@@ -26,18 +29,18 @@
 #      precondition before triggering the kill.)
 #   2. Populate via populate_with_demo_data.
 #   3. Snapshot data + baseline db.migration max_version.
-#   4. Run first install at HEAD with
-#      STATBUS_INJECT_AT=killed-by-system-between-migrations.
-#      inject.KillHere fires inside migrate.runUp's loop, AFTER the
-#      db.migration INSERT for the first pending migration but
-#      BEFORE the loop's next iteration begins. Install exits 137.
-#   5. Verify RED state: flag file present; row='in_progress';
-#      db.migration max_version BUMPED past baseline by exactly 1
-#      (the first pending migration was recorded, no others were).
-#   6. Run a SECOND install (no env vars) for recovery.
-#   7. Assert convergence: state='completed', db.migration max_version
-#      BUMPED to HEAD's expected max (every pending migration applied),
-#      data intact.
+#   4. ARM the one-shot kill (create the marker file), then run a SINGLE
+#      install at HEAD with BOTH
+#      STATBUS_INJECT_AT=killed-by-system-between-migrations and
+#      STATBUS_INJECT_KILL_AND_REMOVE_FILE=<marker>. inject.KillHere
+#      fires ONCE inside migrate.runUp's loop (consuming the marker),
+#      AFTER the first pending migration's INSERT; the inline recovery's
+#      migrate then re-enters the site as a no-op and self-heals.
+#   5. Assert the kill fired exactly once: the marker file is consumed
+#      (absent) after the install.
+#   6. Assert convergence: state='completed', db.migration max_version
+#      BUMPED past baseline to HEAD's expected max (every pending
+#      migration applied by the inline recovery), data intact.
 #
 # Hetzner-runnability:
 #   READY. The injection site lands with this commit; the recovery
@@ -116,12 +119,27 @@ if [ "$PENDING_COUNT" -lt 2 ]; then
 fi
 
 # ─────────────────────────────────────────────────────────────────────────
-# Phase 3 — first install at HEAD with C7 kill injection
+# Phase 3 — single self-healing install at HEAD with a ONE-SHOT C7 kill
+#
+# Armed via STATBUS_INJECT_KILL_AND_REMOVE_FILE (STATBUS-022): KillHere fires
+# EXACTLY ONCE (removes the marker, then os.Exit(137)) AFTER migration N's
+# db.migration INSERT but BEFORE N+1. The 017 inline crash-recovery then
+# re-enters the kill site in THIS SAME install process (the env survives the
+# executeUpgrade syscall.Exec re-exec); the marker is already consumed → no-op
+# → the remaining migrations apply and the upgrade self-heals to 'completed'.
+# A persistent inject would re-kill the inline recovery migrate → rolled_back.
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
-echo "── first install at HEAD with C7 kill injection ──"
+echo "── single self-healing install at HEAD with one-shot C7 kill ──"
 ip=$(hcloud server ip "$VM_NAME")
 HEAD_LOCAL=$(git -C "$HARNESS_ROOT" rev-parse HEAD)
+
+# Absolute path of the one-shot arming marker on the VM (statbus $HOME, OUTSIDE
+# ~/statbus so `git checkout` never touches it). KillHere removes it on the
+# single fire; we assert its absence afterwards as proof the kill engaged once.
+ARM_FILE=$(VM_EXEC bash -c 'echo "$HOME/inject-kill-arm-c7"' 2>/dev/null | tr -d ' \r\n')
+echo "  one-shot arm marker: $ARM_FILE"
+
 INSTALL_SCRIPT=$(mktemp)
 cat > "$INSTALL_SCRIPT" << SCRIPT
 set -e
@@ -139,6 +157,7 @@ chmod +x ./sb
 cp /tmp/env-config .env.config
 cp /tmp/users.yml .users.yml
 STATBUS_INJECT_AT=killed-by-system-between-migrations \
+STATBUS_INJECT_KILL_AND_REMOVE_FILE=$ARM_FILE \
 STATBUS_MIN_DISK_GB=5 \
     ./sb install --non-interactive --trust-github-user jhf
 SCRIPT
@@ -152,60 +171,52 @@ echo ""
 echo "── fabricating scheduled public.upgrade row for HEAD ──"
 fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_LOCAL"
 
+# Arm the one-shot kill: create the marker the install env points at.
+VM_EXEC bash -c "touch '$ARM_FILE'"
+
 set +e
 timeout "${INSTALL_BUDGET_S}s" ssh "${SSH_OPTS[@]}" statbus@"$ip" "bash /tmp/install-c7.sh"
 FIRST_EXIT=$?
 set -e
-echo "  first install exited: $FIRST_EXIT (137 = injected SIGKILL semantics)"
+echo "  install exited: $FIRST_EXIT (0 = self-healed past the one-time kill)"
 
 if [ "$FIRST_EXIT" = "124" ]; then
-    echo "✗ first install timed out — kill site did not fire" >&2
+    echo "✗ install timed out — kill site did not fire or recovery hung" >&2
+    exit 1
+fi
+# The single install must exit 0 — that IS this scenario's claim (self-healed past
+# the one-time kill to completed). A non-zero exit (notably 75 = rolled_back) is the
+# regression the one-shot inject prevents; localize it here at the install boundary.
+if [ "$FIRST_EXIT" != "0" ]; then
+    echo "✗ single install exited $FIRST_EXIT (want 0; non-zero such as 75 = a rolled_back regression)" >&2
     exit 1
 fi
 
 # ─────────────────────────────────────────────────────────────────────────
-# Phase 4 — verify RED state
-# ─────────────────────────────────────────────────────────────────────────
-echo ""
-echo "── verifying canonical C7 RED state ──"
-
-VM_EXEC bash -c "ls -la ~/statbus/tmp/upgrade-in-progress.json" || {
-    echo "✗ expected flag file present after kill" >&2
-    exit 1
-}
-assert_upgrade_row_state "$VM_NAME" "in_progress"
-
-# Load-bearing: db.migration max_version bumped by exactly 1 from
-# baseline. If it didn't bump at all, the kill fired BEFORE the first
-# migration's INSERT (which would put us at C6, not C7). If it bumped
-# by more than 1, the kill fired AFTER multiple migrations completed
-# — possible but unusual; the "between N and N+1" wedge is most
-# informative at delta=1.
-POST_KILL_MAX=$(VM_EXEC bash -c "cd ~/statbus && echo 'SELECT COALESCE(MAX(version), 0) FROM db.migration;' | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "0")
-KILL_DELTA=$((POST_KILL_MAX - BASELINE_MAX_VERSION))
-echo "  db.migration max_version post-kill: $POST_KILL_MAX (delta=$KILL_DELTA)"
-
-if [ "$KILL_DELTA" -lt 1 ]; then
-    echo "✗ db.migration max_version did not advance — kill fired BEFORE the first migration's INSERT (C6 territory, not C7)" >&2
-    exit 1
-fi
-echo "  ✓ at least one migration recorded before kill (delta=$KILL_DELTA, expected ≥ 1)"
-echo "  ✓ RED confirmed: flag PostSwap, row in_progress, partial migrate state"
-
-# ─────────────────────────────────────────────────────────────────────────
-# Phase 5 — second install for recovery
-# ─────────────────────────────────────────────────────────────────────────
-echo ""
-echo "── second install for recovery ──"
-install_statbus_in_vm "$VM_NAME"
-
-# ─────────────────────────────────────────────────────────────────────────
-# Phase 6 — assertions
+# Phase 4 — assert the one-shot kill fired EXACTLY ONCE
 #
-# C7 recovery is the clean forward-recovery case: remaining migrations
-# apply on top of the partial-but-coherent state. Load-bearing:
-# state='completed', db.migration max_version bumped to HEAD's full
-# expected max (no migrations skipped).
+# KillHere os.Remove()s the marker before os.Exit(137). The marker's absence
+# proves the injected kill engaged (the migrate subprocess reached the C7
+# between-migrations site, AFTER migration N's INSERT); its consumption is
+# what let the inline recovery migrate re-enter the site as a no-op and apply
+# the remaining migrations.
+# ─────────────────────────────────────────────────────────────────────────
+echo ""
+echo "── verifying the one-shot kill fired exactly once ──"
+if VM_EXEC bash -c "test -e '$ARM_FILE'" 2>/dev/null; then
+    echo "✗ one-shot arm marker still present ($ARM_FILE) — the injected C7 kill never fired" >&2
+    exit 1
+fi
+echo "  ✓ arm marker consumed — the C7 kill fired exactly once; inline recovery then re-entered the site as a no-op"
+
+# ─────────────────────────────────────────────────────────────────────────
+# Phase 5 — convergence assertions
+#
+# The single install self-healed: the 017 inline recovery applied the
+# remaining (unrecorded) migrations on top of the partial-but-coherent
+# state left by the one-time kill. Load-bearing: state='completed',
+# db.migration max_version bumped to HEAD's full expected max past
+# baseline (no migrations skipped).
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── convergence checks ──"
@@ -215,14 +226,14 @@ assert_upgrade_row_state "$VM_NAME" "completed"
 POST_RECOVERY_MAX=$(VM_EXEC bash -c "cd ~/statbus && echo 'SELECT COALESCE(MAX(version), 0) FROM db.migration;' | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "0")
 echo "  post-recovery db.migration max_version: $POST_RECOVERY_MAX"
 
-# Strict: post-recovery max MUST exceed post-kill max (proves the
-# unrecorded pending set was applied).
-if [ "$POST_RECOVERY_MAX" -le "$POST_KILL_MAX" ]; then
-    echo "✗ db.migration max_version did NOT advance during recovery (post-kill=$POST_KILL_MAX post-recovery=$POST_RECOVERY_MAX)" >&2
-    echo "  Recovery did not apply the remaining migrations." >&2
+# Strict: post-recovery max MUST exceed baseline (proves the killed +
+# subsequent pending migrations were all applied by the inline recovery).
+if [ "$POST_RECOVERY_MAX" -le "$BASELINE_MAX_VERSION" ]; then
+    echo "✗ db.migration max_version did NOT advance (baseline=$BASELINE_MAX_VERSION post=$POST_RECOVERY_MAX)" >&2
+    echo "  The inline recovery did not apply the pending migrations." >&2
     exit 1
 fi
-echo "  ✓ db.migration max_version advanced through recovery ($POST_KILL_MAX → $POST_RECOVERY_MAX)"
+echo "  ✓ db.migration max_version advanced through recovery ($BASELINE_MAX_VERSION → $POST_RECOVERY_MAX)"
 
 assert_demo_data_present "$VM_NAME"
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
@@ -232,4 +243,4 @@ assert_health_passes "$VM_NAME"
 assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 2
 
 echo ""
-echo "PASS: 3-postswap-between-migrations-kill (forward-recovery completed the remaining migrations from a clean mid-loop wedge)"
+echo "PASS: 3-postswap-between-migrations-kill (single install self-healed past a one-time mid-loop kill; remaining migrations applied, data intact)"

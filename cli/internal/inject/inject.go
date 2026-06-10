@@ -73,6 +73,27 @@ const EnvActiveAt = "STATBUS_INJECT_AT"
 // classes. The stall ends when the file is removed by the harness.
 const EnvStallReleaseFile = "STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE"
 
+// EnvKillAndRemoveFile names the one-shot ARMING file for KILL classes.
+// When set, KillHere fires at the named site IFF the file exists, and
+// removes it (os.Remove) BEFORE os.Exit — so the kill fires EXACTLY ONCE
+// per arming; an absent file is a no-op. Symmetric with
+// EnvStallReleaseFile (both bind a class to a filesystem handle the
+// harness controls): the harness ARMS by creating the file; the inject
+// CONSUMES it on the single fire.
+//
+// A filesystem marker is REQUIRED (not a sync.Once / in-memory flag)
+// because the upgrade pipeline re-execs the process mid-flight —
+// syscall.Exec(sbPath, os.Args, os.Environ()) in postSwapFailure's
+// inline-mode hand-off (service.go) — which preserves the env but wipes
+// all in-memory state. The now-inline crash recovery (STATBUS-017) then
+// re-enters the same kill site with the env still set; only a consumed-
+// on-disk marker stops it re-killing the recovery migrate. The file
+// survives the exec; an in-memory one-shot would not.
+//
+// Naming: intent-first + honest. "AND_REMOVE" is true regardless of order
+// (remove precedes exit); "THEN_REMOVE" would be mechanically false.
+const EnvKillAndRemoveFile = "STATBUS_INJECT_KILL_AND_REMOVE_FILE"
+
 // Kind discriminates the three primitive shapes. Each registered class
 // is bound to exactly one Kind; mixing (e.g. activating a Kill class with
 // a stall release file) fails Validate.
@@ -300,29 +321,42 @@ func classNames() []string {
 // from cmd.Execute (./sb root) once, before any subcommand dispatch.
 // Returns nil on the production-run path (env vars unset).
 //
-// Truth table (per the locked design package):
+// Truth table (per the locked design package). STALL_FILE is meaningful
+// ONLY for stall classes; KILL_FILE (the one-shot arming file) ONLY for
+// kill classes. Every cross-combination is rejected so a misconfigured
+// scenario fails loudly instead of producing a vacuous "pass".
 //
-//   ACTIVE_AT     STALL_FILE   Verdict
-//   ------------- ------------ ---------------------------------------------
-//   unset         unset        Valid (production run)
-//   unset         set          REJECT — file without class
-//   set, unknown  any          REJECT — unknown class name (typo protection)
-//   set, kill     unset        Valid
-//   set, kill     set          REJECT — release file set for non-stall class
-//   set, error    unset        Valid
-//   set, error    set          REJECT — release file set for non-stall class
-//   set, stall    unset        REJECT — stall requires release file
-//   set, stall    set          Valid
-//   set, external unset        Valid (no in-code site fires; orchestration external)
-//   set, external set          REJECT — release file set for non-stall class
+//   ACTIVE_AT     STALL_FILE  KILL_FILE  Verdict
+//   ------------- ----------- ---------- -------------------------------------
+//   unset         unset       unset      Valid (production run)
+//   unset         set         any        REJECT — stall file without class
+//   unset         unset       set        REJECT — kill arming file without class
+//   set, unknown  any         any        REJECT — unknown class name (typo guard)
+//   set, kill     unset       unset      Valid (persistent kill)
+//   set, kill     unset       set        Valid (one-shot file-armed kill)
+//   set, kill     set         any        REJECT — release file is stall-only
+//   set, error    unset       unset      Valid
+//   set, error    set         any        REJECT — release file is stall-only
+//   set, error    unset       set        REJECT — arming file is kill-only
+//   set, stall    set         unset      Valid
+//   set, stall    unset       any        REJECT — stall requires release file
+//   set, stall    set         set        REJECT — arming file is kill-only
+//   set, external unset       unset      Valid (no in-code site; orchestration external)
+//   set, external set         any        REJECT — release file is stall-only
+//   set, external unset       set        REJECT — arming file is kill-only
 func Validate() error {
 	active := os.Getenv(EnvActiveAt)
 	stallFile := os.Getenv(EnvStallReleaseFile)
+	killFile := os.Getenv(EnvKillAndRemoveFile)
 
 	if active == "" {
 		if stallFile != "" {
 			return fmt.Errorf("%s is set (%q) but %s is unset — release file requires an active stall class",
 				EnvStallReleaseFile, stallFile, EnvActiveAt)
+		}
+		if killFile != "" {
+			return fmt.Errorf("%s is set (%q) but %s is unset — arming file requires an active kill class",
+				EnvKillAndRemoveFile, killFile, EnvActiveAt)
 		}
 		return nil
 	}
@@ -334,15 +368,31 @@ func Validate() error {
 	}
 
 	switch kind {
-	case KindKill, KindError, KindExternal:
+	case KindKill:
+		// The release file is stall-only; reject it for a kill class. The
+		// kill arming file is OPTIONAL here: unset → persistent kill, set →
+		// one-shot file-armed kill (both valid).
 		if stallFile != "" {
 			return fmt.Errorf("%s=%q is a %s class but %s=%q is set — release file is only meaningful for stall classes",
 				EnvActiveAt, active, kind, EnvStallReleaseFile, stallFile)
+		}
+	case KindError, KindExternal:
+		if stallFile != "" {
+			return fmt.Errorf("%s=%q is a %s class but %s=%q is set — release file is only meaningful for stall classes",
+				EnvActiveAt, active, kind, EnvStallReleaseFile, stallFile)
+		}
+		if killFile != "" {
+			return fmt.Errorf("%s=%q is a %s class but %s=%q is set — arming file is only meaningful for kill classes",
+				EnvActiveAt, active, kind, EnvKillAndRemoveFile, killFile)
 		}
 	case KindStall:
 		if stallFile == "" {
 			return fmt.Errorf("%s=%q is a stall class but %s is unset — stall requires a release file path",
 				EnvActiveAt, active, EnvStallReleaseFile)
+		}
+		if killFile != "" {
+			return fmt.Errorf("%s=%q is a %s class but %s=%q is set — arming file is only meaningful for kill classes",
+				EnvActiveAt, active, kind, EnvKillAndRemoveFile, killFile)
 		}
 	default:
 		return fmt.Errorf("internal: class %q registered with unhandled Kind %v", active, kind)
@@ -362,9 +412,35 @@ func Validate() error {
 // shape as the production no-op path. Validate (run at process startup)
 // is the single point that rejects unknown active classes.
 func KillHere(name string) {
-	if os.Getenv(EnvActiveAt) == name {
-		os.Exit(137)
+	if os.Getenv(EnvActiveAt) != name {
+		return
 	}
+	// One-shot, file-armed variant. When EnvKillAndRemoveFile is set, the
+	// kill is gated on ATOMICALLY consuming the marker: os.Remove returns nil
+	// IFF the file existed and was removed, so the kill fires exactly once per
+	// arming and a second pass through this site no-ops. This is the load-
+	// bearing path for the now-inline crash recovery (STATBUS-017): the
+	// upgrade pipeline's syscall.Exec re-exec preserves the env, so the
+	// recovery migrate re-enters this exact site; with the marker already
+	// consumed it runs clean, modelling a real ONE-TIME OS kill (the migrate
+	// re-applies → upgrade completes).
+	//
+	// Consume-gates-kill is deliberate (NO separate os.Stat). A present-but-
+	// unremovable marker (permissions, mid-path race) yields a non-nil error
+	// → we DO NOT exit. A stat-then-remove form would be TOCTOU and, worse, a
+	// stat-says-present + remove-fails path would re-kill on EVERY pass — the
+	// exact wedge this primitive exists to prevent. os.Remove is the single
+	// atomic decision point; no defers run after os.Exit, which is fine
+	// because the consume already happened.
+	if armFile := os.Getenv(EnvKillAndRemoveFile); armFile != "" {
+		if err := os.Remove(armFile); err == nil {
+			os.Exit(137)
+		}
+		return
+	}
+	// Persistent variant — fires every time the class is active. Retained
+	// for scenarios that genuinely model a site that re-kills on every pass.
+	os.Exit(137)
 }
 
 // ErrorHere — returns an injected error when activated at the named site,

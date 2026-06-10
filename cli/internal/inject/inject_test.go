@@ -3,6 +3,7 @@ package inject
 import (
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -52,25 +53,32 @@ func TestValidate_AllRows(t *testing.T) {
 		name      string
 		active    string
 		stallFile string
+		killFile  string
 		wantOK    bool
 		wantPart  string // substring required in the error if !wantOK
 	}{
-		{"production-unset-unset", "", "", true, ""},
-		{"file-without-class", "", "/tmp/release", false, "release file requires an active stall class"},
-		{"unknown-class", "ate-my-homework", "", false, "not a known injection class"},
-		{"kill-class-no-file", killClass, "", true, ""},
-		{"kill-class-with-file", killClass, "/tmp/release", false, "release file is only meaningful for stall classes"},
-		{"stall-class-no-file", stallClass, "", false, "stall requires a release file"},
-		{"stall-class-with-file", stallClass, "/tmp/release", true, ""},
-		{"external-class-no-file", externalClass, "", true, ""},
-		{"external-class-with-file", externalClass, "/tmp/release", false, "release file is only meaningful for stall classes"},
+		{"production-unset-unset", "", "", "", true, ""},
+		{"stall-file-without-class", "", "/tmp/release", "", false, "release file requires an active stall class"},
+		{"kill-file-without-class", "", "", "/tmp/arm", false, "arming file requires an active kill class"},
+		{"unknown-class", "ate-my-homework", "", "", false, "not a known injection class"},
+		{"kill-class-no-file", killClass, "", "", true, ""},
+		{"kill-class-with-arm-file", killClass, "", "/tmp/arm", true, ""},
+		{"kill-class-with-stall-file", killClass, "/tmp/release", "", false, "release file is only meaningful for stall classes"},
+		{"kill-class-with-both-files", killClass, "/tmp/release", "/tmp/arm", false, "release file is only meaningful for stall classes"},
+		{"stall-class-no-file", stallClass, "", "", false, "stall requires a release file"},
+		{"stall-class-with-file", stallClass, "/tmp/release", "", true, ""},
+		{"stall-class-with-arm-file", stallClass, "/tmp/release", "/tmp/arm", false, "arming file is only meaningful for kill classes"},
+		{"external-class-no-file", externalClass, "", "", true, ""},
+		{"external-class-with-stall-file", externalClass, "/tmp/release", "", false, "release file is only meaningful for stall classes"},
+		{"external-class-with-arm-file", externalClass, "", "/tmp/arm", false, "arming file is only meaningful for kill classes"},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			withEnv(t, map[string]string{
-				EnvActiveAt:         tc.active,
-				EnvStallReleaseFile: tc.stallFile,
+				EnvActiveAt:          tc.active,
+				EnvStallReleaseFile:  tc.stallFile,
+				EnvKillAndRemoveFile: tc.killFile,
 			})
 			err := Validate()
 			if tc.wantOK {
@@ -122,6 +130,71 @@ func TestKillHere_NoOpUnmatchedName(t *testing.T) {
 		EnvActiveAt: "killed-by-system-during-preswap-backup",
 	})
 	KillHere("killed-by-system-during-binary-swap")
+}
+
+// TestKillHere_OneShotArmedFile drives the one-shot, file-armed kill
+// through a re-exec subprocess — the only way to observe os.Exit without
+// killing the test process. It asserts the canonical one-shot contract:
+//
+//	1. ARMED (marker file exists)  → child exits 137 AND consumes the marker.
+//	2. DISARMED (marker gone)      → child exits 0 (no-op), marker stays absent.
+//
+// This is the load-bearing property for the now-inline crash recovery
+// (STATBUS-017): the upgrade pipeline's syscall.Exec re-exec preserves the
+// env, so the recovery migrate re-enters this exact site — and because the
+// marker was consumed on the first fire, it no-ops, modelling a real
+// ONE-TIME OS kill rather than a persistent re-kill.
+func TestKillHere_OneShotArmedFile(t *testing.T) {
+	const killClass = "killed-by-system-during-preswap-backup"
+
+	// Child mode: a single KillHere call, env supplied by the parent below.
+	// When the marker exists KillHere exits 137 (after removing it); when it
+	// is gone KillHere returns and we exit 0.
+	if os.Getenv("INJECT_ONESHOT_CHILD") == "1" {
+		KillHere(killClass)
+		os.Exit(0)
+	}
+
+	dir := t.TempDir()
+	armFile := filepath.Join(dir, "arm")
+	if err := os.WriteFile(armFile, []byte("kill-once"), 0o644); err != nil {
+		t.Fatalf("create arm file: %v", err)
+	}
+
+	// runChild re-execs THIS test binary, restricted to this one test, in
+	// child mode with the inject env set. Returns the child's exit code.
+	runChild := func() int {
+		cmd := exec.Command(os.Args[0], "-test.run", "^TestKillHere_OneShotArmedFile$")
+		cmd.Env = append(os.Environ(),
+			"INJECT_ONESHOT_CHILD=1",
+			EnvActiveAt+"="+killClass,
+			EnvKillAndRemoveFile+"="+armFile,
+		)
+		err := cmd.Run()
+		if err == nil {
+			return 0
+		}
+		var ee *exec.ExitError
+		if errors.As(err, &ee) {
+			return ee.ExitCode()
+		}
+		t.Fatalf("child run failed to start/execute: %v", err)
+		return -1
+	}
+
+	// First hit: armed → exits 137 and consumes the marker.
+	if code := runChild(); code != 137 {
+		t.Fatalf("first hit: child exit = %d; want 137 (armed one-shot kill)", code)
+	}
+	if _, err := os.Stat(armFile); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("first hit: arm file still present (stat err=%v); want consumed by os.Remove", err)
+	}
+
+	// Second hit: marker gone → no-op, exits 0. This is the property that
+	// lets the inline recovery migrate survive after the one-time kill.
+	if code := runChild(); code != 0 {
+		t.Fatalf("second hit: child exit = %d; want 0 (disarmed no-op)", code)
+	}
 }
 
 // TestErrorHere_NilWhenUnset confirms ErrorHere returns nil on the
