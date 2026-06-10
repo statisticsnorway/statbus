@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-08 21:46'
-updated_date: '2026-06-10 05:19'
+updated_date: '2026-06-10 05:21'
 labels:
   - install-recovery
   - recovery
@@ -137,4 +137,9 @@ GREEN run 27239835249 @ 686ba94e1 = FAILURE — but NOT the product fix. Both re
 The before/after pair (RED 27237385049 → GREEN 27241262390) is the empirical proof: same fabrication, the only change is the recovery-code fix (584919285) + the snapshot-restore preconditions.
 
 017 STATE: AC#2 (RED proof) + AC#3 (implemented) + AC#4 (GREEN proof) + AC#5 (docs) ALL DONE. The fix is SOLVED + PROVEN end-to-end. AC#1 (King's formal direction confirmation) + the final close await the King's MORNING review of the product diff (584919285) — leaving the task In Progress + this AC for the King to ratify (recovery code is King-gated; the King reviews the diff, confirms direction (a)/roll-back, closes). If the King wants push-forward instead of roll-back, that's a redirect; the work + proof are done for (a).
+
+REGRESSION VERDICT (architect, code-traced run 27242482272 mid-migration-kill): NOT A PRODUCT REGRESSION — THE 017 FIX IS CORRECT, RATIFIABLE. The mid-migration-kill failure is a HARNESS inject-scope artifact, NOT product, NOT King-gated.
+MECHANISM (airtight how-can-both-be-true): the 017 branch DID fire (log 4327: 'deferring to RecoverFromFlag (STATBUS-017): exit status 137') — but triggered by the C6 SIGKILL (137), not 'relation already exists'. The C6 inject env (STATBUS_INJECT_AT=killed-by-system-during-individual-migration-execution) persists in the first install's whole process tree; post-fix the 017 fall-through runs recovery INLINE in that same inject-carrying process, so the resume migrate is re-killed (137) → safe rollback (state=rolled_back, exit 75). Pre-fix that failure return'd (exit 1) and a SEPARATE second install (no inject) recovered → completed.
+WHY NOT A PROD REGRESSION: a real mid-migration kill (cell-a, killed before tx commit) is ONE-TIME → recovery boot-migrate re-applies the Postgres-rolled-back migration CLEANLY → SUCCEEDS → 017 branch never taken → completed. The cell-a contract is unchanged in production. The harness only fails because its inject RE-FIRES on the recovery migrate (impossible in prod). Recovery machinery behaved CORRECTLY (safe rollback under repeated forced failure). The 'inert in green scenarios' prediction holds for PRODUCTION; it missed that the harness artificially re-kills boot-migrate-up.
+HARNESS FIX (engineer/mechanic, not product): make the kill-injects ONE-SHOT (fire once, sentinel disables) so the inline recovery migrate isn't re-killed — faithfully models a one-time kill → completed; + adapt the scenario to the new inline-recovery flow (the 017 fix collapses recovery into the first install, so the separate-second-install phase is moot for inline-dispatch kills). Likely affects other inline-dispatch + persistent-inject failures (architect classifying the 9). => 017 AC#1 ready for King ratification; no product blocker.
 <!-- SECTION:NOTES:END -->
