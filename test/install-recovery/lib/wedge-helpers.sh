@@ -65,17 +65,32 @@ simulate_pool_exhaustion() {
     # "syntax error near unexpected token `do'" (run 27168472969); the shared
     # VM_EXEC base64 rewrite broke 0/18 and was reverted, so this stays per-scenario
     # (this function is used only by 5-install-stage-b-pool-exhaustion).
+    #
+    # CRITICAL: connect as the NON-SUPERUSER app role (POSTGRES_APP_USER), NOT via
+    # `./sb psql` (which uses POSTGRES_ADMIN_USER=postgres = superuser).
+    # Superuser connections count against superuser_reserved_connections (default 3),
+    # which are the exact reserved slots that cleanOrphanSessions' docker-exec peer-
+    # auth bypass relies on being free (install.go). Filling them with superuser idle
+    # sessions blocks the bypass itself — the wedge proves the wrong failure.
+    # A real Stage-B exhaustion is non-superuser (app/worker/rest) connections, which
+    # cap at max_connections - superuser_reserved, leaving those reserved slots FREE.
     local _wedge
     _wedge=$(mktemp)
     {
         echo "N=$n"
         cat <<'WEDGE'
+# Source env to get app-user credentials.  The heredoc delimiter is quoted so
+# no local expansion occurs; $POSTGRES_APP_* etc. expand on the remote after source.
+set -a
+[ -f .env ] && source .env 2>/dev/null || true
+[ -f .env.credentials ] && source .env.credentials 2>/dev/null || true
+set +a
 for i in $(seq 1 $N); do
-    (./sb psql -c 'SELECT pg_sleep(3600);' >/dev/null 2>&1) &
+    (docker compose exec -T -e "PGPASSWORD=$POSTGRES_APP_PASSWORD" db psql -U "$POSTGRES_APP_USER" -d "$POSTGRES_APP_DB" -c 'SELECT pg_sleep(3600);' >/dev/null 2>&1) &
 done
 sleep 2  # let connections establish
 ACTIVE=$(./sb psql -t -A -c 'SELECT count(*) FROM pg_stat_activity WHERE datname = current_database();' 2>/dev/null || echo 0)
-echo "[wedge] pool saturated: $ACTIVE connections on test DB"
+echo "[wedge] pool saturated (app-user, non-superuser): $ACTIVE connections on test DB"
 WEDGE
     } > "$_wedge"
     ssh "${SSH_OPTS[@]}" root@"$VM_IP" "sudo -i -u statbus bash -c 'cd ~/statbus && bash'" < "$_wedge"
@@ -168,7 +183,9 @@ simulate_worker_busy() {
         echo "N=$n"
         cat <<'WEDGE'
 for i in $(seq 1 $N); do
-    ./sb psql -c "INSERT INTO worker.tasks (command, payload, queue, priority) VALUES ('statistical_history_reduce', '{}'::jsonb, 'analytics', 100);" >/dev/null 2>&1
+    # column list: (command, payload) only — no 'queue' column exists in worker.tasks.
+    # payload MUST include {"command":"..."} to satisfy the consistent_command_in_payload CHECK.
+    ./sb psql -c "INSERT INTO worker.tasks (command, payload) VALUES ('statistical_history_reduce', '{\"command\":\"statistical_history_reduce\"}'::jsonb);" >/dev/null 2>&1
 done
 echo "[wedge] queued $N tasks; worker should pick up"
 sleep 3
@@ -223,7 +240,7 @@ start_continuous_worker_workload() {
             cd ~/statbus
             elapsed=0
             while [ -f /tmp/continuous-workload.run ] && [ \$elapsed -lt $duration_s ]; do
-                ./sb psql -c \\\"INSERT INTO worker.tasks (command, payload, queue, priority) VALUES ('\''statistical_history_reduce'\'', '\''{}'\''::jsonb, '\''analytics'\'', 100);\\\" >/dev/null 2>&1 || true
+                ./sb psql -c \\\"INSERT INTO worker.tasks (command, payload) VALUES ('\''statistical_history_reduce'\'', jsonb_build_object('\''command'\'', '\''statistical_history_reduce'\'')); \\\" >/dev/null 2>&1 || true
                 sleep $insert_interval_s
                 elapsed=\$((elapsed + $insert_interval_s))
             done
@@ -369,6 +386,74 @@ wait_for_inject_stall_ready() {
     done
 
     echo "  [wedge] timed out after ${max_wait_s}s waiting for stall" >&2
+    return 1
+}
+
+# ─────────────────────────────────────────────────────────────────────────
+# wait_for_midtx_stall_ready <vm_name> [max_wait_s]
+#
+# Variant of wait_for_inject_stall_ready for the mid-tx-kill scenario
+# (3-postswap-mid-tx-kill). On the INLINE dispatch path (./sb install →
+# executeUpgrade), migrations run within the parent Go binary — there is NO
+# separate `./sb migrate up` subprocess for pgrep to find. Instead,
+# inject.MidTxPauseSQL splices a SELECT pg_sleep(3600) into the migration's
+# transaction; the parked psql backend is detectable via pg_stat_activity
+# (application_name LIKE 'statbus-migrate-sql%', query ILIKE '%pg_sleep%').
+#
+# Returns 0 once such a backend is stable for stable_s seconds; echoes its
+# OS PID (from pg_stat_activity.pid, or the host-side docker-exec PID when
+# in docker mode) for the caller to SIGKILL.
+# Returns 1 after max_wait_s without observing.
+# ─────────────────────────────────────────────────────────────────────────
+wait_for_midtx_stall_ready() {
+    local vm_name="$1"
+    local max_wait_s="${2:-300}"
+    local poll_s=3
+    local stable_s=5
+    local stable_since=""
+    local elapsed=0
+
+    echo "  [wedge] waiting for mid-tx psql backend to park on $vm_name"
+    echo "          max_wait=${max_wait_s}s"
+
+    while [ "$elapsed" -lt "$max_wait_s" ]; do
+        # Query pg_stat_activity for the parked migration backend: the injected
+        # pg_sleep is running inside the migration's outer BEGIN...END transaction.
+        # application_name is 'statbus-migrate-sql-<pid>' (migrateSubprocessAppName).
+        local db_pid
+        db_pid=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT pid FROM pg_stat_activity WHERE application_name LIKE 'statbus-migrate-sql%' AND query ILIKE '%pg_sleep%' AND state = 'active' LIMIT 1;\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "")
+
+        if [ -n "$db_pid" ]; then
+            if [ -z "$stable_since" ]; then
+                stable_since="$elapsed"
+                echo "  [wedge] mid-tx backend detected (db-pid=$db_pid) — confirming stability"
+            elif [ $((elapsed - stable_since)) -ge "$stable_s" ]; then
+                echo "  [wedge] mid-tx stall confirmed (idle for $((elapsed - stable_since))s)"
+                # Find the host-side process PID to SIGKILL.  In docker exec mode the
+                # psql runs inside the container; the host-side wrapper is `docker compose
+                # exec -T ... db psql`.  pgrep for that; fall back to db_pid (host-psql mode
+                # where pg_stat_activity.pid IS the host OS PID).
+                local host_pid
+                host_pid=$(VM_EXEC bash -c "pgrep -f 'docker.*exec.*-T.*db.*psql' 2>/dev/null | head -1 || echo ''" 2>/dev/null | tr -d ' \r\n' || echo "")
+                if [ -z "$host_pid" ]; then
+                    host_pid="$db_pid"
+                    echo "  [wedge] (host-psql mode: using db-pid as migrate subprocess PID)"
+                fi
+                echo "  [wedge] stall confirmed: migrate host-PID=$host_pid db-pid=$db_pid"
+                echo "$host_pid"
+                return 0
+            fi
+        else
+            if [ -n "$stable_since" ]; then
+                echo "  [wedge] stability broken — resetting"
+            fi
+            stable_since=""
+        fi
+        sleep "$poll_s"
+        elapsed=$((elapsed + poll_s))
+    done
+
+    echo "  [wedge] timed out after ${max_wait_s}s waiting for mid-tx backend" >&2
     return 1
 }
 

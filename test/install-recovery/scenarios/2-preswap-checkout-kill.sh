@@ -98,10 +98,6 @@ DATA_SNAPSHOT=$(snapshot_demo_data_counts "$VM_NAME")
 echo "  pre-trigger data snapshot: $DATA_SNAPSHOT"
 assert_demo_data_present "$VM_NAME"
 
-# Baseline ./sb version on disk BEFORE the trigger.
-SB_VERSION_BEFORE=$(VM_EXEC bash -c "cd ~/statbus && ./sb --version 2>/dev/null | head -1" | tr -d '\r' || echo "")
-echo "  pre-trigger ./sb version: $SB_VERSION_BEFORE"
-
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 3 — first install at HEAD with C4 kill injection
 # ─────────────────────────────────────────────────────────────────────────
@@ -124,6 +120,15 @@ STATBUS_MIN_DISK_GB=5 \
 SCRIPT
 upload_install_script_to_vm "$VM_NAME" "$INSTALL_SCRIPT" /tmp/install-c4.sh
 upload_sb_to_vm "$VM_NAME"
+
+# Baseline ./sb version AFTER harness upload — upload_sb_to_vm replaces the
+# INSTALL_VERSION binary with the HEAD-SHA binary.  The C4 kill fires inside
+# executeUpgrade's preswap-checkout phase, BEFORE the upgrade's own binary-
+# swap step, so the on-disk binary should be unchanged across RED and GREEN.
+# Capturing BEFORE upload_sb_to_vm gave the INSTALL_VERSION string while the
+# binary on disk was already the HEAD-SHA binary → assertion mismatch.
+SB_VERSION_BEFORE=$(VM_EXEC bash -c "cd ~/statbus && ./sb --version 2>/dev/null | head -1" | tr -d '\r' || echo "")
+echo "  staged ./sb version (HEAD-SHA binary, pre-trigger): $SB_VERSION_BEFORE"
 
 # Seed a scheduled public.upgrade row at HEAD so the install state detector
 # classifies as StateScheduledUpgrade (and dispatches executeUpgrade → the

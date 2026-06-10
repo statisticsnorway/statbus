@@ -99,7 +99,20 @@ echo "── simulating unit drift (WatchdogSec→240, TimeoutStartSec→90) ─
 # 27168472969 it was silently ignored and the running unit kept WatchdogUSec=2min,
 # so the RED precondition never held (while TimeoutStartSec=90 DID apply, proving
 # the edit+reload+restart mechanism is fine — only the WatchdogSec VALUE was wrong).
-VM_EXEC bash -c "set -e; U=$UNIT_TEMPLATE_FILE; sed -i -E 's/^WatchdogSec=.*/WatchdogSec=240/; s/^TimeoutStartSec=.*/TimeoutStartSec=90/' \"\$U\"; systemctl --user daemon-reload; systemctl --user restart $UNIT"
+# Use ssh-stdin so $HOME expands on the remote VM, not locally.
+# VM_EXEC's printf %q would escape the dollar-sign in UNIT_TEMPLATE_FILE's value
+# ($HOME/.config/...) causing sed to target the Mac path (/Users/jhf/...) which
+# does not exist on the VM → sed rc=2. The ssh-stdin heredoc avoids this entirely.
+{
+    echo "UNIT='$UNIT'"
+    cat <<'DRIFT_SETUP'
+set -e
+U="$HOME/.config/systemd/user/statbus-upgrade@.service"
+sed -i -E 's/^WatchdogSec=.*/WatchdogSec=240/; s/^TimeoutStartSec=.*/TimeoutStartSec=90/' "$U"
+systemctl --user daemon-reload
+systemctl --user restart "$UNIT"
+DRIFT_SETUP
+} | ssh "${SSH_OPTS[@]}" root@"$VM_IP" "sudo -i -u statbus bash -c 'cd ~/statbus && bash'"
 sleep 3
 
 # RED precondition: the running unit now reports the drifted timers.
@@ -127,10 +140,13 @@ echo ""
 echo "── unit-reconcile checks (LOAD-BEARING) ──"
 
 # (1) on-disk unit byte-identical to the repo template again.
-DIFF_OUT=$(VM_EXEC bash -c "diff -q $UNIT_TEMPLATE_FILE ~/statbus/ops/statbus-upgrade.service >/dev/null 2>&1 && echo SAME || echo DIFF" 2>/dev/null | tr -d ' \r\n' || echo "?")
+# Use ssh-stdin to avoid local $HOME expansion (same issue as the drift-setup above).
+DIFF_OUT=$(echo 'diff -q "$HOME/.config/systemd/user/statbus-upgrade@.service" ~/statbus/ops/statbus-upgrade.service >/dev/null 2>&1 && echo SAME || echo DIFF' |
+    ssh "${SSH_OPTS[@]}" root@"$VM_IP" "sudo -i -u statbus bash -c 'cd ~/statbus && bash'" 2>/dev/null | tr -d ' \r\n') || DIFF_OUT="?"
 if [ "$DIFF_OUT" != "SAME" ]; then
     echo "✗ on-disk unit still differs from the repo template after install — #4 did not rewrite it" >&2
-    VM_EXEC bash -c "diff $UNIT_TEMPLATE_FILE ~/statbus/ops/statbus-upgrade.service" >&2 || true
+    echo 'diff "$HOME/.config/systemd/user/statbus-upgrade@.service" ~/statbus/ops/statbus-upgrade.service' |
+        ssh "${SSH_OPTS[@]}" root@"$VM_IP" "sudo -i -u statbus bash -c 'cd ~/statbus && bash'" >&2 || true
     exit 1
 fi
 echo "  ✓ on-disk unit byte-identical to repo template (rewritten)"

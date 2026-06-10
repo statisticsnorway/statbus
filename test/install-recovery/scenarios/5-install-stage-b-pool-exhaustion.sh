@@ -48,14 +48,28 @@ assert_health_passes "$VM_NAME"
 echo ""
 simulate_pool_exhaustion "$VM_NAME" 28
 
-# 4. Verify host-side psql is now blocked.
+# 4. Verify app-user psql is now blocked (non-superuser pool saturated).
+# Note: superuser (./sb psql) retains access via reserved slots — that is correct
+# and expected.  The docker-exec bypass in cleanOrphanSessions also uses the
+# reserved superuser slots, so it should still work when app-user slots are full.
 echo ""
-echo "── verify external psql blocked by saturated pool ──"
-HOST_PSQL_RESULT=$(VM_EXEC bash -c "cd ~/statbus && ./sb psql -c 'SELECT 1' 2>&1" || true)
-if echo "$HOST_PSQL_RESULT" | grep -q "too many clients"; then
-    echo "  ✓ external psql blocked: '$HOST_PSQL_RESULT'"
+echo "── verify app-user psql blocked by saturated non-superuser pool ──"
+_verify=$(mktemp)
+{
+    cat <<'VERIFY'
+set -a
+[ -f .env ] && source .env 2>/dev/null || true
+[ -f .env.credentials ] && source .env.credentials 2>/dev/null || true
+set +a
+docker compose exec -T -e "PGPASSWORD=$POSTGRES_APP_PASSWORD" db psql -U "$POSTGRES_APP_USER" -d "$POSTGRES_APP_DB" -c "SELECT 1" 2>&1 | head -5 || true
+VERIFY
+} > "$_verify"
+APP_PSQL_RESULT=$(ssh "${SSH_OPTS[@]}" root@"$VM_IP" "sudo -i -u statbus bash -c 'cd ~/statbus && bash'" < "$_verify" 2>/dev/null || true)
+rm -f "$_verify"
+if echo "$APP_PSQL_RESULT" | grep -q "too many clients"; then
+    echo "  ✓ app-user psql blocked (non-superuser pool saturated, reserved slots free for docker-exec bypass)"
 else
-    echo "  ⚠ external psql still works — pool exhaustion may not have engaged"
+    echo "  ⚠ app-user psql not blocked — pool exhaustion may not have engaged"
 fi
 
 # 5. Run install — should succeed via docker-exec bypass.

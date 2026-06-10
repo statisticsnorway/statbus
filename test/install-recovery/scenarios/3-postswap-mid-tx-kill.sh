@@ -163,7 +163,14 @@ ENV_PREFIX="STATBUS_INJECT_AT=$MIDTX_CLASS STATBUS_INJECT_STALL_UNTIL_REMOVED_FI
 _start_install_bg "midtx" "$ENV_PREFIX"
 
 echo "── waiting for the migration to park mid-tx ──"
-MIGRATE_PID=$(wait_for_inject_stall_ready "$VM_NAME" "$RELEASE_FILE" "$STALL_MAX_WAIT_S" | tee /dev/stderr | tail -1)
+# On the inline dispatch path (./sb install → executeUpgrade inline), there is NO
+# separate `./sb migrate up` subprocess.  wait_for_inject_stall_ready (which polls
+# pgrep /sb migrate up) would time out immediately.  Use wait_for_midtx_stall_ready
+# instead — it polls pg_stat_activity for the parked psql backend.
+# Fence with || true: under set -euo pipefail, a pipeline where the first command
+# exits non-zero (timeout) would propagate rc=1 through tail -1 and abort the
+# script before the emptiness check below gets a chance to report the real error.
+MIGRATE_PID=$(wait_for_midtx_stall_ready "$VM_NAME" "$STALL_MAX_WAIT_S" | tee /dev/stderr | tail -1) || true
 if [ -z "$MIGRATE_PID" ]; then
     echo "✗ mid-tx park never activated" >&2
     exit 1
