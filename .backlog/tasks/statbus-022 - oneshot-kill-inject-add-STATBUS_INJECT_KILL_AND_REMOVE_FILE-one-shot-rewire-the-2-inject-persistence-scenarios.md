@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-10 20:13'
+updated_date: '2026-06-10 20:47'
 labels:
   - install-recovery
   - harness
@@ -30,3 +31,11 @@ WORK: (1) add the env var + the file-armed one-shot branch in KillHere; (2) exte
 
 inject.go is in the product binary but INERT in production (only fires when STATBUS_INJECT_AT is set, which only the harness does). Not blocking 017 ratification.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+IMPLEMENTED (engineer, 2026-06-10, working tree — foreman sole committer). Parts 1-3 (inject primitive) DONE+tested; part 4 (scenario rewire) DONE, bash -n clean. Files: cli/internal/inject/inject.go (EnvKillAndRemoveFile const + one-shot file-armed KillHere + Validate truth-table extension), cli/internal/inject/inject_test.go (TestKillHere_OneShotArmedFile via subprocess re-exec; TestValidate_AllRows +6 kill-file rows), test/install-recovery/scenarios/3-postswap-mid-migration-kill.sh + 3-postswap-between-migrations-kill.sh. make -C cli build clean; go test ./internal/inject/ PASS.
+
+STRUCTURAL NOTE part 4: code-trace showed the 017 inline recovery + syscall.Exec(os.Args, os.Environ()) re-exec (service.go:3624) means the FIRST install does the WHOLE recovery inline. With the one-shot the first install KILLS ONCE then SELF-HEALS to completed inline — it does NOT leave the pre-017 RED in_progress state. Both scenarios collapsed to a SINGLE self-healing install asserting: arm-file consumed (proves the one kill fired) + row=completed + db.migration max_version advanced past baseline + data intact. The RED-assert + recovery second-install were removed (pre-017 assumption). Headers updated to match.
+<!-- SECTION:NOTES:END -->
