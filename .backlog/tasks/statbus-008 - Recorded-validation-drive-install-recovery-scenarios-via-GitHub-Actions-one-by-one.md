@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - operator
 created_date: '2026-06-07 15:41'
-updated_date: '2026-06-09 22:05'
+updated_date: '2026-06-10 05:14'
 labels:
   - install-recovery
   - validation
@@ -154,4 +154,17 @@ CANDIDATE-FINDING TRIAGE (architect, read-only, verdicts in tmp/plans/architect-
 All 3 routed to mechanic (Batch 2). Tally holds: 0 confirmed product recovery bugs except STATBUS-017.
 
 BREADTH HARNESS FIXES committed + foreman-verified tonight (2026-06-09→10, all on master, all scenario-local, 0 product): bdc83a466 wedge-fabrication (2 reproducers, stop the live upgrade unit before fabricating — the NOTIFY-race db-stop). f8bb4f79d batch-1: between-migrations-kill (count locally from $HARNESS_ROOT — the VM-side count read the shallow v2026.05.2 clone; verified baseline IS v2026.05.2 with 11 real pending), 4-rollback-kill (drop the unqueryable assert_upgrade_row_state at C5 — DB is stopped for archiveBackup; flag+exit137 suffice), 5-install-drifted-unit (single-line ssh-quoting). 0f5f05dde preswap: checkout-kill(C4)+binary-swap-kill(C5) add fabricate_scheduled_upgrade_row after upload_sb_to_vm (mirror backup-kill:135-141) — they saw nothing-scheduled (current==target) so the inject never fired. a8191c43f concurrent-install: replaced the fragile count(*)=1 / latest-row-by-id assert with a robust pair (architect-designed) — (a) commit_sha-anchored HEAD row='completed', (b) no in_progress/failed debris; the serialization-refusal contract was already asserted + passing. ALL 3 BUCKET-B candidate 'product' findings closed as HARNESS. These get validated in the comprehensive run after the 017 GREEN run.
+
+COMPREHENSIVE RUN 27242482272 @ f31ce6f86 (all default scenarios, ran 23:29Z→05:11Z ~5.7h) = 19 PASSED, 9 FAILED (https://github.com/statisticsnorway/statbus/actions/runs/27242482272). The 2 wedge reproducers are skip-default (proven separately GREEN in 27241262390). 19 GREEN of 28 default scenarios.
+9 FAILED (triage in progress — operator full parse + architect on the mid-migration-kill regression):
+- 2-preswap-checkout-kill (my fix 0f5f05dde — did it not take / new layer?)
+- 3-postswap-between-migrations-kill (my fix f8bb4f79d)
+- 3-postswap-mid-migration-kill — WAS GREEN PRIOR (27111249171) → POSSIBLE REGRESSION; architect verifying whether the 017 product fix (584919285) caused it.
+- 3-postswap-mid-tx-kill (known-RED, stall-never-fires — expected; not yet fixed)
+- 4-rollback-kill (my fix f8bb4f79d)
+- 5-install-drifted-unit-reconciled (my fix f8bb4f79d)
+- 5-install-stage-a-killed-migrate (known harness, new-session zombie — not yet fixed)
+- 5-install-stage-b-pool-exhaustion (stage-b ssh-stdin fix b64866af6 — first canary)
+- 5-install-stage-e-worker-busy (stage-e ssh-stdin fix — first canary)
+KEY: 4 of my committed breadth fixes (checkout-kill, between-migrations-kill, rollback-kill, drifted-unit) + the 2 stage-b/e canaries are RED — need triage (fix-incomplete vs next-layer). mid-migration-kill regression is the critical one (could implicate 017). 017 itself stays SOLVED+PROVEN (separate GREEN run 27241262390).
 <!-- SECTION:NOTES:END -->
