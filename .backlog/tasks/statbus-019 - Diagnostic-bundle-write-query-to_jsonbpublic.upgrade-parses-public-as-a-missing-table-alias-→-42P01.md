@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-09 01:36'
-updated_date: '2026-06-10 05:25'
+updated_date: '2026-06-10 20:47'
 labels:
   - install-recovery
   - product
@@ -40,4 +40,6 @@ UPGRADED from LOW → MEDIUM + LOCATED (2026-06-10, comprehensive run 2724248227
 
 CORRECTION (architect deep-trace, 2026-06-10) — my prior 'FAILS ≥3 scenarios' note was WRONG (I propagated an operator misattribution). The 42P01 is NON-FATAL and fails ZERO scenarios: bundle.go:101-103 catches it → narrate('Warning: bundle write skipped …') + return void (writeDiagnosticBundle is best-effort). Proof: the identical warning appears in PASSING scenarios (3-postswap-archivebackup-resume line 41866) and in the 2 GREEN wedge reproducers — a passing scenario emitting it = definitionally non-fatal. So it's a co-occurring red herring in the comprehensive-run failures, not their cause.
 BUT it is NOT cosmetic: the forensic *.bundle.txt is SILENTLY SKIPPED on EVERY rollback (production + test) → we lose support diagnostics exactly when a rollback happens and they're most needed. That's the real (diagnostic-quality) reason it's worth MEDIUM. One-line fix stands: `SELECT to_jsonb(u)::text FROM public.upgrade u WHERE u.id=$1` (bundle.go:100). Does NOT gate STATBUS-017. NOT touched by the 017 fix (zero SQL there).
+
+FIX APPLIED (engineer, 2026-06-10, working tree — foreman sole committer). cli/internal/upgrade/bundle.go:100 → SELECT to_jsonb(u)::text FROM public.upgrade u WHERE u.id = $1. make -C cli build clean. No Go test pins the SQL string. The forensic *.bundle.txt now writes on the rollback path instead of being silently skipped (42P01). Awaiting foreman review+commit.
 <!-- SECTION:NOTES:END -->
