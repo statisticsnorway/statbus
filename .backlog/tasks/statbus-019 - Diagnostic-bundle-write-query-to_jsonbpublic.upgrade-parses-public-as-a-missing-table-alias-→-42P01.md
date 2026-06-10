@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-09 01:36'
+updated_date: '2026-06-10 05:18'
 labels:
   - install-recovery
   - product
@@ -14,7 +15,7 @@ labels:
 dependencies: []
 references:
   - cli/internal/upgrade/bundle.go
-priority: low
+priority: medium
 ordinal: 19000
 ---
 
@@ -31,3 +32,9 @@ FIX: `to_jsonb(upgrade)` — reference the table by its FROM alias (the unqualif
 
 IMPACT: the upgrade-service diagnostic bundle (support artifact) is silently skipped on write. Recovery is unaffected (it's a diagnostic). Low-priority King item; the fix is a one-line product change (King-gated, not done autonomously).
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+UPGRADED from LOW → MEDIUM + LOCATED (2026-06-10, comprehensive run 27242482272). This is NOT diagnostic-only/cosmetic as first thought — it FAILS ≥3 install-recovery scenarios outright (3-postswap-between-migrations-kill, 3-postswap-mid-migration-kill [a REGRESSION — was GREEN], 4-rollback-kill) with `ERROR: missing FROM-clause entry for table "public"` (42P01). LOCATION: cli/internal/upgrade/bundle.go:100 — `SELECT to_jsonb(public.upgrade)::text FROM public.upgrade WHERE id = $1`. The FROM clause aliases the table as `upgrade` (implicit alias = table name), so `to_jsonb(public.upgrade)` references a non-existent table `public` → 42P01. FIX (clean, ~1 line): alias the table — `SELECT to_jsonb(u)::text FROM public.upgrade u WHERE id = $1` (or `to_jsonb(upgrade)`). NOT the 017 fix (017 = service.go+install_upgrade.go, zero SQL; this is the diagnostic-bundle write on the upgrade-completion path — the GREEN reproducers passed through the rollback path which doesn't call it). Architect confirming the exact reach-mechanism + that 017 is clean; then engineer applies the 1-line fix → re-run the 3 scenarios.
+<!-- SECTION:NOTES:END -->
