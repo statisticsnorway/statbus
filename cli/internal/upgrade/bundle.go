@@ -97,7 +97,7 @@ func (d *Service) writeDiagnosticBundle(parent context.Context, id int, progress
 
 	var rowJSON string
 	if err := d.queryConn.QueryRow(ctx,
-		"SELECT to_jsonb(public.upgrade)::text FROM public.upgrade WHERE id = $1", id).
+		"SELECT to_jsonb(u)::text FROM public.upgrade u WHERE u.id = $1", id).
 		Scan(&rowJSON); err != nil {
 		narrate("Warning: bundle write skipped — could not read upgrade row id=%d: %v", id, err)
 		return
