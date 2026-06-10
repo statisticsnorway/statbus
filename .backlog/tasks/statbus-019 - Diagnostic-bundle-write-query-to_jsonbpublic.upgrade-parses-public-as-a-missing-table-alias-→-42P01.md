@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-09 01:36'
-updated_date: '2026-06-10 05:18'
+updated_date: '2026-06-10 05:25'
 labels:
   - install-recovery
   - product
@@ -37,4 +37,7 @@ IMPACT: the upgrade-service diagnostic bundle (support artifact) is silently ski
 
 <!-- SECTION:NOTES:BEGIN -->
 UPGRADED from LOW → MEDIUM + LOCATED (2026-06-10, comprehensive run 27242482272). This is NOT diagnostic-only/cosmetic as first thought — it FAILS ≥3 install-recovery scenarios outright (3-postswap-between-migrations-kill, 3-postswap-mid-migration-kill [a REGRESSION — was GREEN], 4-rollback-kill) with `ERROR: missing FROM-clause entry for table "public"` (42P01). LOCATION: cli/internal/upgrade/bundle.go:100 — `SELECT to_jsonb(public.upgrade)::text FROM public.upgrade WHERE id = $1`. The FROM clause aliases the table as `upgrade` (implicit alias = table name), so `to_jsonb(public.upgrade)` references a non-existent table `public` → 42P01. FIX (clean, ~1 line): alias the table — `SELECT to_jsonb(u)::text FROM public.upgrade u WHERE id = $1` (or `to_jsonb(upgrade)`). NOT the 017 fix (017 = service.go+install_upgrade.go, zero SQL; this is the diagnostic-bundle write on the upgrade-completion path — the GREEN reproducers passed through the rollback path which doesn't call it). Architect confirming the exact reach-mechanism + that 017 is clean; then engineer applies the 1-line fix → re-run the 3 scenarios.
+
+CORRECTION (architect deep-trace, 2026-06-10) — my prior 'FAILS ≥3 scenarios' note was WRONG (I propagated an operator misattribution). The 42P01 is NON-FATAL and fails ZERO scenarios: bundle.go:101-103 catches it → narrate('Warning: bundle write skipped …') + return void (writeDiagnosticBundle is best-effort). Proof: the identical warning appears in PASSING scenarios (3-postswap-archivebackup-resume line 41866) and in the 2 GREEN wedge reproducers — a passing scenario emitting it = definitionally non-fatal. So it's a co-occurring red herring in the comprehensive-run failures, not their cause.
+BUT it is NOT cosmetic: the forensic *.bundle.txt is SILENTLY SKIPPED on EVERY rollback (production + test) → we lose support diagnostics exactly when a rollback happens and they're most needed. That's the real (diagnostic-quality) reason it's worth MEDIUM. One-line fix stands: `SELECT to_jsonb(u)::text FROM public.upgrade u WHERE u.id=$1` (bundle.go:100). Does NOT gate STATBUS-017. NOT touched by the 017 fix (zero SQL there).
 <!-- SECTION:NOTES:END -->
