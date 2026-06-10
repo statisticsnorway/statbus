@@ -1,12 +1,12 @@
 ---
 id: STATBUS-017
 title: >-
-  PRODUCT BUG: rune wedge NOT fixed — schema-skew migrate-up pre-empts
-  forward-then-restore for a half-applied migration
+  rune-wedge-fix: SOLVED + PROVEN on real VMs (fall-through to recovery) —
+  awaiting King ratification of the diff (direction a, roll-back)
 status: In Progress
 assignee: []
 created_date: '2026-06-08 21:46'
-updated_date: '2026-06-09 23:28'
+updated_date: '2026-06-10 05:19'
 labels:
   - install-recovery
   - recovery
