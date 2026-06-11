@@ -3,11 +3,11 @@ id: STATBUS-012
 title: >-
   Latent product gap: boot-migrate-up emits no WATCHDOG=1 (large-DB boot-migrate
   >120s → watchdog-killed)
-status: In Progress
+status: Done
 assignee:
   - '@architect'
 created_date: '2026-06-07 23:57'
-updated_date: '2026-06-11 13:39'
+updated_date: '2026-06-11 15:37'
 labels:
   - upgrade
   - recovery
@@ -74,4 +74,6 @@ THE FIX (commit 7c2511087, engineer adversarial review PASS pre-landing): always
 HARNESS LEDGER (runs 1-6 were detection layers, each converted to a permanent guard): procurement short-circuit (cp + sbAlreadyAtCommit), binary↔row pairing assertion (board-in-git mid-run commits), dispatch-on-HEAD-binary restart (old binary lacks the skip), [/] pgrep bracket trick, scp'd quoting-proof stall probe + 600s budget. Scenario commits: 908191f0c, f1056ade4, 0904b4db4, 538b2edf4, 78ab02598.
 
 FOLLOW-UPS: STATBUS-031 (recoveryRollback startup heartbeat audit — AC#6 ✓ filed). Proposed to the King, awaiting his word: a tag→tag upgrade-recovery scenario covering the manifest-download procurement path (replaceBinaryOnDisk) that this scenario's pre-stage skip bypasses. Foreman's C15-hardening task should absorb the wait_for_inject_stall_ready quoting fix (the scp'd-probe pattern).
+
+CLOSED 2026-06-11 — fixed + proven + shipped. The King cut RC v2026.06.0-rc.01 carrying the fix (7c2511087). RED→GREEN differential pair, one commit apart: run-7 RED (78ab02598 — delta=1, Result=watchdog) → green1 GREEN (7c2511087 — delta=0, '✓ no watchdog kill across 180s stall', upgrade completed t+31s). Foreman master-health review PASS (always-ping ticker child-ctx cancel+join inline; shared MigrateUpTimeout=30m at both migrate sites; inline twin bounded; structural guard test; doc-006 diagram repairs folded in). Sibling gap STATBUS-031 (recoveryRollback restore) filed + CONFIRMED — gates the stable/Norway promotion. The boot-migrate watchdog wedge (rune wedge's WatchdogSec edition) is fixed and shipped.
 <!-- SECTION:NOTES:END -->
