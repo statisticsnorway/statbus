@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-06-07 23:57'
-updated_date: '2026-06-11 08:53'
+updated_date: '2026-06-11 08:59'
 labels:
   - upgrade
   - recovery
@@ -51,4 +51,12 @@ SEVERITY KEY: executeUpgrade Step 6b (service.go:3560-3574) ALWAYS hands off (ch
 SUITE BLIND SPOT: 3-postswap-migration-timeout (the only Race-B watchdog net) is VACUOUS — inline dispatch (no systemd → no watchdog anywhere), stall fires at the unbounded inline boot-migrate, NRestarts assertion reads an idle unit. One of the 24 greens masks this exact gap.
 
 PLAN: tmp/plans/architect-012-boot-migrate-watchdog.md — RED repro = rewrite C12 scenario to SERVICE dispatch (unit-env drop-in, baseline NRestarts after stall, assert delta==0 + Result≠watchdog); FIX = runGatedWatchdogTicker(nil=always-ping) wrap at :1644 + shared 30-min const with :3952 + bound install_upgrade.go:198 + comment repairs (service.go:1637-1641, unit file :83-104). Follow-up audit flagged: recoveryRollback's pg_restore during Run() startup may share the gap (not traced to ground). Awaiting King ratification of the design; RED scenario is harness-only and can proceed without the gate.
+
+SEVERITY ESCALATED + CONFIRMED by architect (Fable), foreman-verified at byte level 2026-06-11. Plan: tmp/plans/architect-012-boot-migrate-watchdog.md.
+- NOT an edge case — EVERY upgrade hits it. executeUpgrade Step 6b (service.go:3560-3574) ALWAYS hands off: binary-swap -> PostSwap flag -> os.Exit(42) (:3618 service path) / syscall.Exec (:3624 inline). The fresh process runs boot-migrate (:1644) consuming the ENTIRE migration delta BEFORE recoverFromFlag (:1689). So the heavy migration ALWAYS runs at the UNPROTECTED :1644 site; the protected applyPostSwap migrate (:3949) is a structural no-op for migrations in the normal flow. Independently corroborated by STATBUS-013's empirical run (boot-migrate observed consuming ~10 delta migrations).
+- Effective production migration budget is ~120s (WatchdogSec), NOT the 30-min applyPostSwap timeout. A single >120s migration on Norway's 32GB = indefinite kill loop (~160s cycle -> 3.75 starts/600s < StartLimitBurst=5 -> start-limit never trips). The rune wedge's WatchdogSec edition. => CONFIRMED hard NO-go-live blocker, not the 'latent gap' it was filed as.
+- SUITE BLIND SPOT: 3-postswap-migration-timeout (the only watchdog/Race-B scenario) is VACUOUS — it dispatches INLINE (no NOTIFY_SOCKET -> no watchdog in its flow), so its NRestarts assertion reads a systemd unit that isn't driving the install. That false-green is why '24/28, 0 product bugs' felt true.
+- Refutation closed all 4 avenues (no ambient pinger; PrefixWriter onLine=nil; migrate child has no sdNotify + NotifyAccess=main drops child datagrams; idle heartbeatTicker born service.go:1736 AFTER boot-migrate :1644 and select-starved while the main goroutine is parked in cmd.Run()). Watchdog armed at READY=1 :1621.
+- FIX (King-gated, design only): wrap :1644 with the existing runGatedWatchdogTicker(nil-progress=always-ping, watchdog.go:158) + raise 5m->30m as a shared const with :3952 + bound the inline twin install_upgrade.go:198 (currently NO timeout via runCmdDir) + repair the 2 drifted comments. Reuses existing primitives, no new machinery. AC#3 RED reproducer = rewrite the vacuous migration-timeout scenario to SERVICE dispatch (harness-only, can start pre-ratification; doubles as repairing the suite's vacuous watchdog net).
+- SIBLING GAP flagged (own audit task): recoveryRollback's pg_restore during Run() startup also passes onAdvance=nil (progress.File() bypasses the heartbeat) — may share the gap.
 <!-- SECTION:NOTES:END -->
