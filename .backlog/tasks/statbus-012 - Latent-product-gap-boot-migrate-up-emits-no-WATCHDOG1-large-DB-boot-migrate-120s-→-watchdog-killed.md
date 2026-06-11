@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-06-07 23:57'
-updated_date: '2026-06-11 08:59'
+updated_date: '2026-06-11 10:41'
 labels:
   - upgrade
   - recovery
@@ -59,4 +59,6 @@ SEVERITY ESCALATED + CONFIRMED by architect (Fable), foreman-verified at byte le
 - Refutation closed all 4 avenues (no ambient pinger; PrefixWriter onLine=nil; migrate child has no sdNotify + NotifyAccess=main drops child datagrams; idle heartbeatTicker born service.go:1736 AFTER boot-migrate :1644 and select-starved while the main goroutine is parked in cmd.Run()). Watchdog armed at READY=1 :1621.
 - FIX (King-gated, design only): wrap :1644 with the existing runGatedWatchdogTicker(nil-progress=always-ping, watchdog.go:158) + raise 5m->30m as a shared const with :3952 + bound the inline twin install_upgrade.go:198 (currently NO timeout via runCmdDir) + repair the 2 drifted comments. Reuses existing primitives, no new machinery. AC#3 RED reproducer = rewrite the vacuous migration-timeout scenario to SERVICE dispatch (harness-only, can start pre-ratification; doubles as repairing the suite's vacuous watchdog net).
 - SIBLING GAP flagged (own audit task): recoveryRollback's pg_restore during Run() startup also passes onAdvance=nil (progress.File() bypasses the heartbeat) — may share the gap.
+
+KING DECISION 2026-06-11: STATBUS-012 GATES THE RC CUT. No release candidate is cut before 012 is fixed AND VM-proven (RED->GREEN, same protocol as 017). This supersedes the earlier 'cut now, fold 012 into the next RC' option — the King wants the RC to be NO-deployable, not carry a known hard wedge. Sequence: RED reproducer (harness, rewrite the vacuous migration-timeout scenario to service dispatch) -> King ratifies the fix design -> engineer implements -> VM-prove GREEN -> THEN cut. Design doc being re-homed from tmp/plans into a backlog document (King directive: plans live in the backlog, not tmp/).
 <!-- SECTION:NOTES:END -->
