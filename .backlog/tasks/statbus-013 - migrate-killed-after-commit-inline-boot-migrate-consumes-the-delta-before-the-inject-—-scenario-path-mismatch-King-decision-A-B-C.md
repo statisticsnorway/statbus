@@ -6,12 +6,11 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-08 01:53'
-updated_date: '2026-06-08 17:23'
+updated_date: '2026-06-11 08:59'
 labels:
   - install-recovery
   - upgrade
   - recovery
-  - needs-king-decision
 dependencies: []
 references:
   - test/install-recovery/scenarios/3-postswap-migrate-killed-after-commit.sh
@@ -86,4 +85,6 @@ North Star = a working UNATTENDED install; the diagram shows what can fail; we T
 
 === NEXT STEP (King 2026-06-08): VERIFY THE DIAGRAM matches this spec ===
 The spec above is HOW IT SHOULD BE. Next we must verify the DIAGRAM actually shows it: check doc/diagrams/upgrade-timeline.plantuml + the TEST note for migrate-killed-after-commit — does it show migrate step → kill in the commit↔record window → re-run → 'relation already exists' → restore-from-backup → rolled_back, on the SERVICE-dispatch path (Option A)? Fix the diagram if wrong/missing. This closes the loop: the diagram shows what can fail → we test what physically fails. THEN implement A (rewrite migrate-killed-after-commit to service dispatch like watchdog-reconnect).
+
+RECLASSIFIED 2026-06-11 (architect Fable + foreman-verified): NOT King-blocked. The King DECIDED Option A (service dispatch) on 2026-06-08 (AC#1 checked; see the DECISION block above). The 'separate latent question' (does the inline syscall.Exec lose any PRODUCTION env vars?) is now ANSWERED: NO — service.go:3624 passes os.Args + os.Environ() VERBATIM (foreman-verified). Only the test-only STALL release-file var was scenario plumbing. So 013 = TEST-ONLY artifact; remaining work is HARNESS: rewrite migrate-killed-after-commit to service dispatch (AC#3) + verify/close the diagram per the King's 6/8 next-step. Removed the needs-king-decision label. NOTE: 013's structural finding (boot-migrate consumes the whole delta) is the empirical corroboration of STATBUS-012's severity.
 <!-- SECTION:NOTES:END -->
