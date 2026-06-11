@@ -168,6 +168,36 @@ upload_sb_to_vm "$VM_NAME"
 scp -O "${SSH_OPTS[@]}" "$LIB_DIR/../fixtures/stage-head.sh" root@"$VM_IP":/tmp/stage-head.sh
 VM_EXEC bash /tmp/stage-head.sh "$HEAD_LOCAL"
 
+# Pre-stage the HEAD binary as ./sb so executeUpgrade's procurement
+# (Step 6b) takes the pre-staged-binary skip (sbAlreadyAtCommit,
+# service.go buildBinaryOnDisk) instead of `make -C cli build` — the VM
+# has NO Go toolchain, so without this the upgrade rolls back at
+# procurement and the post-swap boot (the STATBUS-012 site) is never
+# reached. Run-1 of this scenario failed exactly there (row=rolled_back,
+# stall never fired). This is the suite's established pattern: the
+# pre-rewrite version of this scenario carried the same load-bearing
+# `cp /tmp/sb ./sb` in its install script. (`sb` is gitignored, so the
+# upgrade's own `git checkout` does not touch it.)
+echo "── pre-staging HEAD binary as ./sb (procurement short-circuit) ──"
+VM_EXEC bash -c "cp /tmp/sb ~/statbus/sb && chmod +x ~/statbus/sb"
+# PAIRING ASSERTION (fail loud, fail early). upload_sb_to_vm rebuilds the
+# binary from CURRENT local HEAD at upload time, while HEAD_LOCAL (the
+# row target) was captured at scenario start. The backlog board lives in
+# THIS git repo, so any board edit landing mid-run moves HEAD and poisons
+# the pairing: sbAlreadyAtCommit misses, procurement attempts `make -C
+# cli build` on the Go-less VM, and the upgrade rolls back pre-swap —
+# run-3 failed exactly this way (binary 4f28c46d vs target 908191f0).
+DEPLOYED_COMMIT=$(VM_EXEC bash -c "cd ~/statbus && ./sb --version 2>/dev/null" | grep -oE 'commit [0-9a-f]{8}' | head -1 | awk '{print $2}' || echo "")
+HEAD_PREFIX=$(echo "$HEAD_LOCAL" | cut -c1-8)
+echo "  deployed ./sb commit: ${DEPLOYED_COMMIT:-?} (row target: $HEAD_PREFIX)"
+if [ "$DEPLOYED_COMMIT" != "$HEAD_PREFIX" ]; then
+    echo "✗ pre-staged binary commit (${DEPLOYED_COMMIT:-?}) != row target ($HEAD_PREFIX)" >&2
+    echo "  A commit landed between scenario start and the binary upload (board edits" >&2
+    echo "  live in this repo and move HEAD). Hold commits while the scenario runs," >&2
+    echo "  then relaunch." >&2
+    exit 1
+fi
+
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 4 — plant the synthetic stall-target migration
 #
@@ -291,14 +321,32 @@ done
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── waiting for the boot-migrate stall (post-swap boot) ──"
+STALL_WAIT_LOG=$(mktemp /tmp/stall-wait-XXXXXX.log)
 set +e
-MIGRATE_PID=$(wait_for_inject_stall_ready "$VM_NAME" "$RELEASE_FILE" 300 | tee /dev/stderr | tail -1)
+wait_for_inject_stall_ready "$VM_NAME" "$RELEASE_FILE" 300 > "$STALL_WAIT_LOG" 2>&1
+STALL_RC=$?
 set -e
-if [ -z "$MIGRATE_PID" ]; then
-    echo "✗ stall never activated within 5 min" >&2
-    echo "  upgrade row state: $(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '$HEAD_LOCAL';\" | ./sb psql -t -A" 2>/dev/null || echo '?')" >&2
-    VM_EXEC bash -c "systemctl --user status $UNIT --no-pager -l 2>&1 | head -30" >&2 || true
-    VM_EXEC bash -c "journalctl --user -u $UNIT --no-pager -n 40" >&2 || true
+cat "$STALL_WAIT_LOG"
+# The helper interleaves narration with the PID on stdout; the PID is the
+# only purely-numeric line. (A naive `tail -1` capture grabs a narration
+# line on timeout — non-empty — and silently bypasses the diagnostics
+# branch below; that masked the first RED-run failure.)
+MIGRATE_PID=$(grep -E '^[0-9]+$' "$STALL_WAIT_LOG" | tail -1 || true)
+rm -f "$STALL_WAIT_LOG"
+if [ "$STALL_RC" -ne 0 ] || [ -z "$MIGRATE_PID" ]; then
+    echo "✗ stall never activated within 5 min — discriminating diagnostics:" >&2
+    echo "── upgrade row (terminal state here = upgrade ran WITHOUT stalling):" >&2
+    VM_EXEC bash -c "cd ~/statbus && echo \"SELECT id, state, error FROM public.upgrade WHERE commit_sha = '$HEAD_LOCAL';\" | ./sb psql" >&2 || true
+    echo "── flag file (absent = upgrade reached terminal + removed it):" >&2
+    VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-in-progress.json 2>/dev/null || echo '(no flag file)'" >&2 || true
+    echo "── release file (must still exist for a stall to hold):" >&2
+    VM_EXEC bash -c "ls -la $RELEASE_FILE 2>/dev/null || echo '(release file MISSING)'" >&2 || true
+    echo "── merged unit definition (the drop-in must appear at the bottom):" >&2
+    VM_EXEC bash -c "systemctl --user cat $UNIT 2>/dev/null | tail -15" >&2 || true
+    echo "── unit state as systemd sees it (Environment must carry the inject vars):" >&2
+    VM_EXEC bash -c "systemctl --user show $UNIT -p Environment -p Result -p NRestarts -p ExecMainStartTimestamp 2>/dev/null" >&2 || true
+    echo "── journal (post-swap boot? boot-migrate? watchdog?):" >&2
+    VM_EXEC bash -c "journalctl --user -u $UNIT --no-pager -n 200 2>/dev/null | grep -iE 'boot-migrate|migrate|Started|Stopping|Stopped|watchdog|Handing off|Detected|Resuming|rolled' | tail -40" >&2 || true
     exit 1
 fi
 echo "  migrate subprocess PID=$MIGRATE_PID parked in StallHere"
