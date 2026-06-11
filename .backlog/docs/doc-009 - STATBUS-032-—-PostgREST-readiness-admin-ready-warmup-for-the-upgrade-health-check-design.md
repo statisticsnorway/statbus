@@ -5,6 +5,7 @@ title: >-
   health-check (design)
 type: specification
 created_date: '2026-06-11 15:59'
+updated_date: '2026-06-11 21:40'
 tags:
   - install-recovery
   - upgrade
@@ -35,6 +36,15 @@ The admin server is unauthenticated and (in v12) also serves `/config` and `/sch
 - **config.go:** new derived pair `RestAdminPort = portOffset + 6` / `RestAdminBindAddress = "127.0.0.1:<port>"` (beside :441/:499); new `.env` template line `REST_ADMIN_BIND_ADDRESS=…` (beside :572's `REST_BIND_ADDRESS`); threaded through the Derived struct (:123-124, :167 region) and the template args (:610, :762). `rg -n "PostgrestBind" cli/` enumerates every touchpoint to mirror.
 - **docker-compose.rest.yml:** `PGRST_ADMIN_SERVER_PORT: "3001"` in `environment:`; `"${REST_ADMIN_BIND_ADDRESS:?…}:3001"` added under `ports:` (same `:?` fail-fast idiom as :35).
 
+**Port choice, challenged and verified (King question at review): is +6 right, or is there something tighter?** The genuinely tighter alternatives — *zero new host ports* — were each examined and fail structurally:
+- (a) `docker exec` an in-container probe: the official PostgREST image is distroless — no shell, no curl. Impossible.
+- (b) Host → container-IP directly (no mapping): works on Linux, does **not** work on macOS Docker Desktop (dev parity breaks), and trades the static `.env`-driven pattern `healthURL()` uses for runtime `docker inspect` discovery. Worse.
+- (c) Admin on a unix socket: PostgREST's admin server is port-only (`PGRST_ADMIN_SERVER_PORT`); only the *main* server supports `PGRST_SERVER_UNIX_SOCKET`. Dead end.
+- (d) Reusing the existing rest mapping: the admin server is necessarily a *different container port* than 3000, and a different container port needs its own host mapping to be host-reachable. Impossible by construction.
+- (e) Routing `/ready` through Caddy: puts unauthenticated admin endpoints on the public surface. Categorically worse.
+
+So one new loopback host mapping is the minimum. As for *which index*: verified repo-wide that **+6..+9 are completely unclaimed** (no code, compose, template, doc, or test references; config.go is the sole port authority and assigns only +0..+5). The slot scheme's one real convention is *sequential chronological assignment, with exposure decided by mode, not by index* (private mode binds ALL slot ports loopback; standalone moves the public ones off the scheme entirely to 80/443/5432). +6 is exactly that convention. An "admin ports from the top" (+9) family would invent a public-vs-internal axis the scheme doesn't encode, and adjacency to rest (+3) is impossible (+2 app and +4 db are taken). **+6 stands.** Implementation must add the `+6 = rest-admin` row to AGENTS.md's port table so the scheme stays legible.
+
 **Security posture, stated plainly:** the admin endpoints become reachable from (a) the host's loopback — the same trust level as the main REST port today (and as `docker inspect`, which already reveals the container's env including `PGRST_JWT_SECRET`), and (b) the compose-internal network — where app/worker already hold same-or-higher-trust credentials. Nothing public: no Caddy route, no non-loopback host bind. This is strictly the existing REST-port posture applied to one more port.
 
 ### 2. Rewire the health check: readiness warmup *inside* `healthCheck`
@@ -57,7 +67,7 @@ The functional probe (`POST /rpc/auth_status`, 5×5 s) **stays unchanged after t
 
 ### Out of scope (named, not forgotten)
 
-- **Container-level compose `healthcheck:` stanza** — orthogonal to the upgrade's signal (the Go-side poll narrates to the journal and feeds the watchdog; a compose healthcheck does neither) and depends on an in-image probe the distroless PostgREST image may not carry. Separate task if ever wanted.
+- **Container-level compose `healthcheck:` stanza** — orthogonal to the upgrade's signal (the Go-side poll narrates to the journal and feeds the watchdog; a compose healthcheck does neither) and depends on an in-image probe the distroless PostgREST image does not carry (the same fact that rules out the docker-exec alternative above). Separate task if ever wanted.
 - **Rollback's post-restore verification** (waitForDBHealth-only today) — 031's domain; rollback comes up at the OLD version where readiness semantics are the prior binary's business.
 - **`/live`, `/config`, `/schema_cache`** — enabled as a side effect; nothing consumes them in this design.
 
@@ -78,6 +88,7 @@ A deterministic VM RED for a schema-cache *race* is not honestly producible — 
 - `cli/internal/upgrade/exec.go` (:1258-1282 `healthURL` — the resolution+fail-fast pattern to mirror; :1292-1330 `healthCheck` — warmup goes at the top)
 - `cli/internal/upgrade/service.go` (:4010-4038 step 11→12 — call site unchanged; :3785-3792 the gated ticker the warmup must feed)
 - `cli/internal/upgrade/watchdog.go` (:134 the 3-min gate threshold that makes the 15 s progress cadence necessary)
+- `AGENTS.md` (port table — add the `+6 = rest-admin` row)
 
 ## Sequencing
 
