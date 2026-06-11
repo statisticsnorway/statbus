@@ -195,7 +195,18 @@ func runCrashRecovery(projDir string) error {
 	// public.upgrade. Without this, recoveryRollback's SELECT on a
 	// renamed column (rc.63 commit_canonical_naming migration) fires
 	// SQLSTATE 42703 against an unmigrated schema. Idempotent.
-	if err := runCmdDir(projDir, sb, "migrate", "up", "--verbose"); err != nil {
+	//
+	// Bounded by the shared migrate timeout (STATBUS-012). The inline path
+	// has no systemd watchdog (no NOTIFY_SOCKET → sdNotify no-ops), so the
+	// gap here was UNBOUNDEDNESS: runCmdDir had no timeout at all, and this
+	// boot-migrate carries the same full migration delta as the service
+	// path's (post-swap exec hands off to a fresh `./sb install` whose
+	// crash-recovery lands here). On timeout the operator gets an
+	// actionable error; no live conn exists yet to #14-terminate an
+	// orphaned in-container psql (LoadConfigAndConnect runs below) — the
+	// orphan self-resolves on client-gone, or the next service start's
+	// boot-migrate timeout handler reaps it.
+	if err := runCmdDirTimeout(projDir, upgrade.MigrateUpTimeout, sb, "migrate", "up", "--verbose"); err != nil {
 		// STATBUS-017: symmetric to service.go's boot-migrate-up handler. A
 		// service-held in-progress flag means the guard can't re-apply the
 		// half-applied migration; defer to RecoverFromFlag (snapshot restore) below

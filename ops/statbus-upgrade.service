@@ -69,9 +69,18 @@ Environment=PATH=/home/linuxbrew/.linuxbrew/bin:/usr/local/sbin:/usr/local/bin:/
 # applyPostSwapStallThreshold=3m); a genuinely HUNG step stops advancing → the
 # ticker stops pinging → this WatchdogSec=120 fires and the unit is reaped.
 # The migrate/recreate step (legitimately silent for minutes on one big DDL) is
-# exempted (always-ping), bounded instead by its own 30-min runCommandToLog
-# timeout; a death during that step rolls back via the one-shot FlagPhaseResuming
+# exempted (always-ping), bounded instead by the shared 30-min MigrateUpTimeout;
+# a death during that step rolls back via the one-shot FlagPhaseResuming
 # latch (upgrade-timeline.md § Binary-swap restart + resume), never re-runs.
+#
+# boot-migrate-up (Service.Run, pre-recoverFromFlag) gets the SAME always-ping
+# cover, bounded by the same MigrateUpTimeout (STATBUS-012): it runs after
+# READY=1 (watchdog armed) but BEFORE the main-loop idle tick exists, with the
+# main goroutine parked in the subprocess wait — and, because executeUpgrade
+# ALWAYS hands off post-swap, it is boot-migrate that consumes every upgrade's
+# migration delta. Without its own ticker a single >120s migration SIGABRT-loops
+# the unit forever (~160s/cycle stays under StartLimitBurst — the rune-wedge
+# shape, WatchdogSec edition).
 WatchdogSec=120
 
 # TimeoutStartSec: hold-window from ExecStart until the service emits
@@ -85,7 +94,9 @@ WatchdogSec=120
 # the heavy DB-size-scaled work that follows runs in the ACTIVE phase under
 # WatchdogSec instead:
 #   - boot-migrate-up (`./sb migrate up` schema-skew guard) — DB-size-scaled,
-#     moved AFTER READY=1.
+#     moved AFTER READY=1; covered by its own always-ping WATCHDOG=1 ticker
+#     for the subprocess duration, bounded by MigrateUpTimeout=30m
+#     (STATBUS-012 — see the WatchdogSec note above).
 #   - the exit-42 RESUME (recoverFromFlag → resumePostSwap → applyPostSwap,
 #     incl. the multi-minute archiveBackup) — moved AFTER READY=1.
 # This is the root fix for the NO/rune wedge: a fixed TimeoutStartSec can never

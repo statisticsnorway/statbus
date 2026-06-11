@@ -58,13 +58,19 @@ stable so other code and docs can cite a precise section.
 ### Service boot
 
 systemd starts the single user unit `statbus-upgrade@$USER.service` (`Type=notify`).
-Before the main loop ticks, the service runs `recoverFromFlag` once to reconcile any
-flag left behind by a crashed prior attempt (see [Recovery contract](#recovery-contract--fail-fast-one-shot)).
-It then emits `sd_notify READY=1` — but only **after the cheap, bounded init**
-(`EnsureDBUp` → connect → advisory lock → `LISTEN`). The DB-size-scaled work
-(boot `migrate up` schema-skew guard, and any exit-42 resume) runs in the **active
-phase** under `WatchdogSec`, never in the `TimeoutStartSec` window, so a large database
-can never blow the static start budget. The advisory lock guarantees a single live
+The boot order is: **cheap, bounded init** (`EnsureDBUp` → connect → advisory lock →
+`LISTEN`) → `sd_notify READY=1` → **boot `migrate up`** (the schema-skew guard,
+service.go:1644) → `recoverFromFlag` (reconciling any flag left behind by a crashed
+prior attempt — see [Recovery contract](#recovery-contract--fail-fast-one-shot)) →
+the main loop. The DB-size-scaled work (boot `migrate up`, and any exit-42 resume)
+therefore runs in the **active phase** under `WatchdogSec`, never in the
+`TimeoutStartSec` window, so a large database can never blow the static start budget.
+Because the watchdog is armed from `READY=1` and the main-loop idle heartbeat does not
+exist yet, boot `migrate up` carries its **own always-ping `WATCHDOG=1` ticker** for
+the subprocess duration, bounded by the shared 30-min `MigrateUpTimeout`
+(STATBUS-012) — and note that after the unconditional post-swap handoff (below) this
+boot migrate is the step that applies **every upgrade's migration delta**, not a rare
+guard. The advisory lock guarantees a single live
 service per slot. On **failure** of the boot `migrate up` guard *with a service-held
 in-progress flag present*, the guard **defers** to `recoverFromFlag` (the snapshot-restore
 owner) rather than refusing — so a half-applied migration that can't be re-applied
@@ -107,7 +113,11 @@ The attempt is never retried.
 
 The pivot above (`exit 42`) makes systemd respawn the service **on the new binary** — the
 unit declares `SuccessExitStatus=42` + `RestartForceExitStatus=42` — this is the **one
-planned restart** of an upgrade. The fresh process runs `recoverFromFlag`, sees the
+planned restart** of an upgrade. The fresh process **boots fresh through the full
+[Service boot](#service-boot) sequence**: cheap init → `READY=1` → **boot `migrate up`,
+which applies the entire pending migration delta right here** (repo is already at the
+new version from the pre-swap checkout; the always-ping watchdog ticker +
+`MigrateUpTimeout` cover it — STATBUS-012) → `recoverFromFlag`, which sees the
 `Phase=PostSwap` flag (the planned handoff), stamps `Phase=Resuming`, and continues the
 *same* attempt via `resumePostSwap` → `applyPostSwap`. The remaining steps all run on the
 new binary:
@@ -116,7 +126,9 @@ new binary:
 8. `docker compose pull` the new images.
 9. Start the database; wait for health.
 10. Reconnect to the database.
-11. `./sb migrate up --verbose` — apply pending migrations.
+11. `./sb migrate up --verbose` — **normally a no-op** (the boot migrate above already
+    brought the schema to HEAD); this is the bounded retry executor for the case where
+    the boot migrate failed and fell through to the resume (STATBUS-017 path).
 12. Start application services; wait for health.
 13. Post-upgrade install fixup: `runInstallFixup` runs `./sb install --non-interactive
     --inside-active-upgrade` with `STATBUS_INSIDE_ACTIVE_UPGRADE=1`. The bypass signals

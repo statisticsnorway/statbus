@@ -2213,6 +2213,24 @@ func runCmdDir(dir, name string, args ...string) error {
 	return cmd.Run()
 }
 
+// runCmdDirTimeout is runCmdDir with a hard deadline. For steps that are
+// DB-size-scaled and must not hang an unattended recovery forever — e.g.
+// the crash-recovery boot-migrate (STATBUS-012), bounded by the shared
+// upgrade.MigrateUpTimeout so it cannot drift from the service-path sites.
+func runCmdDirTimeout(dir string, timeout time.Duration, name string, args ...string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Dir = dir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	if ctx.Err() == context.DeadlineExceeded {
+		return fmt.Errorf("%s %s timed out after %s", name, strings.Join(args, " "), timeout)
+	}
+	return err
+}
+
 func copyFile(src, dst string) error {
 	data, err := os.ReadFile(src)
 	if err != nil {

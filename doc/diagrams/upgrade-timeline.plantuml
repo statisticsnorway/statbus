@@ -104,19 +104,27 @@ end note
 == Binary-swap restart + resume (post-swap, on the NEW binary) ==
 service -> systemd : exit 42 — self-update, request the ONE planned respawn
 systemd -> service : restart unit on the new binary
+service -> systemd : fresh boot: cheap init -> READY=1 (watchdog arms)
+service -> db : **boot-migrate-up (:1644) — applies the ENTIRE pending migration delta**
 note over service, db
-  The new binary BOOTS FRESH — nothing continues in memory. recoverFromFlag (service.go:682)
-  READS the flag's persisted Phase to learn where the prior process died. Phase progresses
-  PreSwap "" (:197) -> PostSwap "post_swap" (stamped :403, before exit 42) -> Resuming (stamped
-  :4339, as resume commits). The SAME dispatch runs on EVERY boot — the planned exit-42 here,
-  or any unplanned-death restart.
+  The new binary BOOTS FRESH — nothing continues in memory; it re-runs the full Service-boot
+  sequence: cheap init -> READY=1 -> boot-migrate-up (:1644) -> recoverFromFlag (:1689).
+  Because the pre-swap checkout already put the repo at the NEW version, boot-migrate-up is
+  the step that ACTUALLY APPLIES every upgrade's migrations — the applyPostSwap migrate below
+  is a no-op in the normal flow. boot-migrate runs post-READY with the watchdog armed and no
+  other WATCHDOG=1 source alive, so it carries its OWN always-ping ticker, bounded by the
+  shared 30-min MigrateUpTimeout (STATBUS-012; same exemption as the applyPostSwap migrate).
+  recoverFromFlag (service.go:682) then READS the flag's persisted Phase to learn where the
+  prior process died. Phase progresses PreSwap "" (:197) -> PostSwap "post_swap" (stamped
+  :403, before exit 42) -> Resuming (stamped :4339, as resume commits). The SAME dispatch
+  runs on EVERY boot — the planned exit-42 here, or any unplanned-death restart.
 end note
 alt flag.Phase = PostSwap — the PLANNED exit-42 handoff (the ONE legitimate continue)
     service -> service : resumePostSwap (:774) -> stamp Phase=Resuming (:4339)
     group applyPostSwap — remaining steps run on the new binary
         service -> service : config generate + docker compose pull
         service -> db : start DB + wait health + reconnect
-        service -> db : ./sb migrate up
+        service -> db : ./sb migrate up (no-op normally — boot-migrate above did the work;\nbounded retry executor on the STATBUS-017 fall-through)
         service -> service : start app services + health check
         service -> db : maintenance off + archive backup
     end
@@ -170,8 +178,15 @@ note over service, db #FFF9C4
       guard FALLS THROUGH to recoverFromFlag -> Resuming latch -> restore -> rolled_back. Forward is
       impossible (errors every apply), so restore is the only escape — the sharpest case for the
       fix. GREEN since STATBUS-017.
-  TEST 3-postswap-migration-timeout / 3-postswap-worker-ddl-deadlock: a slow or
-    worker-locked migration stays BOUNDED (heartbeat / pre-DDL quiesce) — never an infinite wedge.
+  The commit<->record cells above all fire at the BOOT-MIGRATE step (the pre-recoverFromFlag
+    schema-skew guard, :1644 / install_upgrade.go:198) — that is where the migrations run on
+    recovery boots, not at the applyPostSwap migrate.
+  TEST 3-postswap-migration-timeout (service-dispatch rewrite, 908191f0c): a >WatchdogSec
+    migration at the post-swap boot-migrate must NOT be watchdog-killed — RED until the
+    STATBUS-012 always-ping ticker lands, GREEN after (the suite's watchdog/Race-B net; the
+    pre-rewrite inline version was vacuous — no systemd in its flow).
+  DEFERRED (not in CI): 3-postswap-worker-ddl-deadlock — a worker-locked migration stays
+    bounded via pre-DDL quiesce; listed here as intent, not as proven coverage.
   TEST 3-postswap-container-restart-kill: a kill between step 11 (start app services) and step 12
     (health) is recovered by the next install re-running 11+12 idempotently -> completed.
   TEST 3-postswap-watchdog-reconnect: a slow-but-advancing DB reconnect is kept alive by the

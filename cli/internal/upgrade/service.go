@@ -1636,14 +1636,45 @@ func (d *Service) Run(ctx context.Context) error {
 	//
 	// Runs AFTER READY=1 (plan piece #2 boot-migrate-move): a large-DB boot
 	// migration is DB-size-scaled and would blow the fixed start-phase
-	// TimeoutStartSec; active-phase under WatchdogSec, a long-but-advancing
-	// migration survives (it emits per-migration progress) and a kill leaves a
-	// clean resumable state (transactional migrations + db.migration version
-	// table). Stays BEFORE recoverFromFlag so the schema is at HEAD before the
-	// first public.upgrade query.
-	if err := runCommandToLog(d.projDir, 5*time.Minute, io.Discard, "boot-migrate-up", nil,
-		filepath.Join(d.projDir, "sb"), "migrate", "up", "--verbose"); err != nil {
-		// #14: a boot-migrate TIMEOUT (5m) leaves the same orphaned in-container
+	// TimeoutStartSec; active-phase it runs under WatchdogSec instead. Stays
+	// BEFORE recoverFromFlag so the schema is at HEAD before the first
+	// public.upgrade query. A kill leaves a clean resumable state
+	// (transactional migrations + db.migration version table).
+	//
+	// STATBUS-012: active-phase alone is NOT survival. The watchdog armed at
+	// READY=1 above; the main-loop idle heartbeat ticker does not exist yet
+	// (created below, after recovery); the applyPostSwap gated ticker is not
+	// armed; and the main goroutine parks inside runCommandToLog's cmd.Run()
+	// — so without its own cover boot-migrate has ZERO WATCHDOG=1 sources,
+	// and a single >120 s migration is SIGABRT'd by WatchdogSec into an
+	// unbounded restart loop (~160 s/cycle stays under StartLimitBurst=5 per
+	// 600 s — the rune wedge, WatchdogSec edition). And because executeUpgrade
+	// Step 6b ALWAYS hands off post-swap (exit-42 / exec), THIS site — not
+	// the protected applyPostSwap migrate — consumes every upgrade's
+	// migration delta. Cover: the same always-ping bounded ticker the
+	// applyPostSwap migrate gets via deferGating (nil progress = ping
+	// unconditionally, see runGatedWatchdogTicker; the stall-threshold arg
+	// is INERT under nil progress — passed for signature parity only),
+	// bounded by the shared MigrateUpTimeout so the two migrate sites
+	// cannot drift. Stated tradeoff: a genuinely HUNG boot-migrate is now
+	// caught at MigrateUpTimeout + the #14 orphan-terminate below, not at
+	// WatchdogSec — identical to the protected applyPostSwap site, and the
+	// point: the 120 s "detection" was a FALSE kill of legitimate slow
+	// migrations. Cancel+join is EXPLICIT and inline (before the error
+	// handling), not deferred: Run() IS the main loop, so a defer would
+	// leak the ticker for the whole service lifetime — pinging past a
+	// markTerminal refuse and masking a genuinely dead unit from systemd.
+	bootMigrateTickerCtx, bootMigrateTickerCancel := context.WithCancel(ctx)
+	bootMigrateTickerDone := make(chan struct{})
+	go runGatedWatchdogTicker(bootMigrateTickerCtx, nil,
+		applyPostSwapStallThreshold, applyPostSwapWatchdogCadence,
+		func() { sdNotify("WATCHDOG=1") }, bootMigrateTickerDone)
+	bootMigrateErr := runCommandToLog(d.projDir, MigrateUpTimeout, io.Discard, "boot-migrate-up", nil,
+		filepath.Join(d.projDir, "sb"), "migrate", "up", "--verbose")
+	bootMigrateTickerCancel()
+	<-bootMigrateTickerDone
+	if err := bootMigrateErr; err != nil {
+		// #14: a boot-migrate TIMEOUT (MigrateUpTimeout) leaves the same orphaned in-container
 		// psql backend as the resume-migrate path (docker-exec doesn't forward
 		// the process-group SIGKILL). Terminate it on the live conn before
 		// refusing — so it isn't left holding locks against the next start's
@@ -3949,7 +3980,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 		err := func() error {
 			progress.setDeferGating(true)
 			defer progress.setDeferGating(false)
-			return runCommandToLog(projDir, 30*time.Minute, progress.File(), "migrate", progress.bump, filepath.Join(projDir, "sb"), "migrate", "up", "--verbose")
+			return runCommandToLog(projDir, MigrateUpTimeout, progress.File(), "migrate", progress.bump, filepath.Join(projDir, "sb"), "migrate", "up", "--verbose")
 		}()
 
 		if err != nil {

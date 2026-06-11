@@ -137,6 +137,22 @@ const applyPostSwapStallThreshold = 3 * time.Minute
 // 120 s WatchdogSec budget gives wide jitter tolerance with trivial CPU cost.
 const applyPostSwapWatchdogCadence = 30 * time.Second
 
+// MigrateUpTimeout bounds every `sb migrate up` subprocess the upgrade system
+// runs: the boot-migrate schema-skew guard in Service.Run, the applyPostSwap
+// migrate step, and (via cli/cmd — hence exported) the inline `./sb install`
+// crash-recovery boot-migrate. 30 minutes: a single big DDL on a large DB
+// (CREATE INDEX on a Norway-sized table) is legitimately SILENT for many
+// minutes — see the applyPostSwapStallThreshold note above — so the migrate
+// sites are exempted from output-gating (always-ping WATCHDOG=1 for the
+// duration) and bounded by THIS timeout instead of the watchdog.
+//
+// One shared const so the sites cannot drift (STATBUS-012): boot-migrate sat
+// at 5 m while the applyPostSwap site had 30 m — yet after executeUpgrade
+// Step 6b's unconditional post-swap handoff it is BOOT-migrate that consumes
+// every upgrade's migration delta, making the generous budget on the
+// applyPostSwap site protection for a step that normally no-ops.
+const MigrateUpTimeout = 30 * time.Minute
+
 // runGatedWatchdogTicker is applyPostSwap's SINGLE watchdog goroutine (plan
 // upgrade-resume-structural-whole.md piece #3). It fires ping() every cadence
 // IFF progress.shouldPingWatchdog(stall) is true, and stops when ctx is done,

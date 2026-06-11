@@ -328,11 +328,17 @@ simulate_sigkill_upgrade_service() {
 # Returns 0 once (a)+(b)+(c) hold continuously for one poll interval;
 # returns 1 after MAX_WAIT_S without observing.
 #
-# Note: the canonical-case stalls fire AFTER a migration's outer
-# transaction commits — so once the migrate subprocess has been alive
-# in the stall state for >5 s, the partial-state RED has been achieved
-# (the first pending migration is committed; its db.migration row is
-# missing). Callers should then send SIGKILL to the chosen target PID.
+# Note: what "stall confirmed" MEANS depends on the armed inject class —
+# this helper only detects "a migrate subprocess is parked with the
+# release file present":
+#   - kill-window classes (e.g. migrate-subprocess-killed-after-commit-
+#     before-recorded) stall AFTER a migration's outer transaction
+#     commits — the partial-state RED is achieved (migration committed,
+#     db.migration row missing) and the caller then SIGKILLs the PID.
+#   - migration-slower-than-systemd-unit-timeout (C12 / STATBUS-012)
+#     stalls in runPsqlFile BEFORE psql is invoked — nothing has
+#     committed; the caller HOLDS the stall past WatchdogSec and then
+#     removes the release file (no kill).
 # ─────────────────────────────────────────────────────────────────────────
 wait_for_inject_stall_ready() {
     local vm_name="$1"
