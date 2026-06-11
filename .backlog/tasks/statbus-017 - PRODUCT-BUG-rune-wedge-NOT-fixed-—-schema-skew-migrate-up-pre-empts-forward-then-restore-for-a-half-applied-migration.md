@@ -3,10 +3,10 @@ id: STATBUS-017
 title: >-
   rune-wedge-fix: SOLVED + PROVEN on real VMs (fall-through to recovery) —
   awaiting King ratification of the diff (direction a, roll-back)
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-06-08 21:46'
-updated_date: '2026-06-11 08:23'
+updated_date: '2026-06-11 15:37'
 labels:
   - install-recovery
   - recovery
@@ -64,7 +64,7 @@ Architect building a deterministic reproducer (fabricate the after-commit RED st
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 King decides the fix direction (a/b/c below or other)
+- [x] #1 King decides the fix direction (a/b/c below or other)
 - [x] #2 Empirical reproducer captured (real-VM run URL) demonstrating the current wedge (BOOT_MIGRATE_UP_FAILED / boot-loop / non-zero, NOT rolled_back)
 - [x] #3 Fix implemented in recovery code (King-gated — not done autonomously)
 - [x] #4 3-postswap-migrate-killed-after-commit + the migration-error scenario go GREEN (state=rolled_back) on real VMs
@@ -144,4 +144,6 @@ WHY NOT A PROD REGRESSION: a real mid-migration kill (cell-a, killed before tx c
 HARNESS FIX (engineer/mechanic, not product): make the kill-injects ONE-SHOT (fire once, sentinel disables) so the inline recovery migrate isn't re-killed — faithfully models a one-time kill → completed; + adapt the scenario to the new inline-recovery flow (the 017 fix collapses recovery into the first install, so the separate-second-install phase is moot for inline-dispatch kills). Likely affects other inline-dispatch + persistent-inject failures (architect classifying the 9). => 017 AC#1 ready for King ratification; no product blocker.
 
 Ratification basis (foreman-verified 2026-06-11): fix = commit 584919285 (cli/cmd/install_upgrade.go +14, cli/internal/upgrade/service.go +26; 36 lines total). `git diff f31ce6f86..HEAD` over BOTH files = EMPTY -> byte-identical from the GREEN-proof SHA (run 27241262390) through current HEAD. The RED->GREEN proof covers exactly the shipping bytes. Inert in green paths (branch reached only on boot-migrate-up FAIL + flag.Holder==HolderService; falls through to the existing snapshot-restore path instead of markTerminal+return). Awaiting King ratification -> then RC cut. NOTE: STATBUS-012 is the sibling gap that can INDUCE this same wedge on a large DB via watchdog kill.
+
+CLOSED 2026-06-11 — ratified-by-cut. The King cut RC v2026.06.0-rc.01 (c616b85d0) carrying this fix (584919285), satisfying AC#1 (King's direction confirmation). All ACs met: RED proof (run 27237385049) → fix 584919285 → GREEN proof (run 27241262390, state=rolled_back) → docs (93074ba71). Foreman-verified the fix is byte-identical from the GREEN-proof SHA through the cut HEAD. The rune wedge — the campaign's central product recovery bug, the exact 40h NO/rune failure — is fixed and shipped in the first RC.
 <!-- SECTION:NOTES:END -->
