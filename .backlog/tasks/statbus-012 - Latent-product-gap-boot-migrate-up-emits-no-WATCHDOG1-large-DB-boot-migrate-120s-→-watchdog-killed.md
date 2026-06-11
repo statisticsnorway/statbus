@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-06-07 23:57'
-updated_date: '2026-06-11 10:41'
+updated_date: '2026-06-11 10:42'
 labels:
   - upgrade
   - recovery
@@ -16,6 +16,10 @@ dependencies: []
 references:
   - cli/internal/upgrade/service.go
   - ops/statbus-upgrade.service
+documentation:
+  - >-
+    doc-005 -
+    STATBUS-012-—-boot-migrate-watchdog-gap-verdict-severity-RED-reproducer-fix-design.md
 priority: high
 ordinal: 12000
 ---
@@ -61,4 +65,6 @@ SEVERITY ESCALATED + CONFIRMED by architect (Fable), foreman-verified at byte le
 - SIBLING GAP flagged (own audit task): recoveryRollback's pg_restore during Run() startup also passes onAdvance=nil (progress.File() bypasses the heartbeat) — may share the gap.
 
 KING DECISION 2026-06-11: STATBUS-012 GATES THE RC CUT. No release candidate is cut before 012 is fixed AND VM-proven (RED->GREEN, same protocol as 017). This supersedes the earlier 'cut now, fold 012 into the next RC' option — the King wants the RC to be NO-deployable, not carry a known hard wedge. Sequence: RED reproducer (harness, rewrite the vacuous migration-timeout scenario to service dispatch) -> King ratifies the fix design -> engineer implements -> VM-prove GREEN -> THEN cut. Design doc being re-homed from tmp/plans into a backlog document (King directive: plans live in the backlog, not tmp/).
+
+PLAN RE-HOMED (King convention 2026-06-11: architect plans live in the backlog as documents, not tmp/plans/): the full design is now doc-005 (specification). tmp/plans/architect-012-boot-migrate-watchdog.md deleted. KING DECISION same day: 012 now GATES the RC cut — no RC until 012 is fixed + VM-proven RED→GREEN.
 <!-- SECTION:NOTES:END -->
