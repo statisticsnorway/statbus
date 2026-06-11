@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-08 21:46'
-updated_date: '2026-06-10 05:21'
+updated_date: '2026-06-11 08:23'
 labels:
   - install-recovery
   - recovery
@@ -142,4 +142,6 @@ REGRESSION VERDICT (architect, code-traced run 27242482272 mid-migration-kill): 
 MECHANISM (airtight how-can-both-be-true): the 017 branch DID fire (log 4327: 'deferring to RecoverFromFlag (STATBUS-017): exit status 137') — but triggered by the C6 SIGKILL (137), not 'relation already exists'. The C6 inject env (STATBUS_INJECT_AT=killed-by-system-during-individual-migration-execution) persists in the first install's whole process tree; post-fix the 017 fall-through runs recovery INLINE in that same inject-carrying process, so the resume migrate is re-killed (137) → safe rollback (state=rolled_back, exit 75). Pre-fix that failure return'd (exit 1) and a SEPARATE second install (no inject) recovered → completed.
 WHY NOT A PROD REGRESSION: a real mid-migration kill (cell-a, killed before tx commit) is ONE-TIME → recovery boot-migrate re-applies the Postgres-rolled-back migration CLEANLY → SUCCEEDS → 017 branch never taken → completed. The cell-a contract is unchanged in production. The harness only fails because its inject RE-FIRES on the recovery migrate (impossible in prod). Recovery machinery behaved CORRECTLY (safe rollback under repeated forced failure). The 'inert in green scenarios' prediction holds for PRODUCTION; it missed that the harness artificially re-kills boot-migrate-up.
 HARNESS FIX (engineer/mechanic, not product): make the kill-injects ONE-SHOT (fire once, sentinel disables) so the inline recovery migrate isn't re-killed — faithfully models a one-time kill → completed; + adapt the scenario to the new inline-recovery flow (the 017 fix collapses recovery into the first install, so the separate-second-install phase is moot for inline-dispatch kills). Likely affects other inline-dispatch + persistent-inject failures (architect classifying the 9). => 017 AC#1 ready for King ratification; no product blocker.
+
+Ratification basis (foreman-verified 2026-06-11): fix = commit 584919285 (cli/cmd/install_upgrade.go +14, cli/internal/upgrade/service.go +26; 36 lines total). `git diff f31ce6f86..HEAD` over BOTH files = EMPTY -> byte-identical from the GREEN-proof SHA (run 27241262390) through current HEAD. The RED->GREEN proof covers exactly the shipping bytes. Inert in green paths (branch reached only on boot-migrate-up FAIL + flag.Holder==HolderService; falls through to the existing snapshot-restore path instead of markTerminal+return). Awaiting King ratification -> then RC cut. NOTE: STATBUS-012 is the sibling gap that can INDUCE this same wedge on a large DB via watchdog kill.
 <!-- SECTION:NOTES:END -->
