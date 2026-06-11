@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-06-11 15:45'
-updated_date: '2026-06-11 15:50'
+updated_date: '2026-06-11 15:54'
 labels:
   - upgrade
   - health-check
@@ -44,4 +44,6 @@ NORWAY-SCALE RISK = REAL (AC#2 confirmed): PostgREST cache load scales with SCHE
 FIX (proposed, AC#3): treat PGRST002 as a startup-warmup signal -> don't count it against the 5-retry budget. Mechanic rec = Option A: a separate warmup pre-loop (cap ~24x5s=120s, retries only on PGRST002, breaks out on anything else), so the 5-attempt budget only fires against genuine health failures. exec.go:healthCheck only; no docker-compose change needed.
 
 REMAINING: King ratify the warmup-exempt approach -> implement (small) -> ship before the rune-no canary. Fold into the 031 review pass.
+
+FIX DIRECTION UPGRADED (King steer + foreman web-research, 2026-06-11): use PostgREST's PROPER readiness signal instead of retry-and-ignore. PostgREST's admin server exposes `/ready` → 200 only when the schema cache is loaded AND the DB pool is up, 503 otherwise (docs.postgrest.org/en/stable/references/admin_server.html). We do NOT enable the admin server today (no PGRST_ADMIN_SERVER_PORT in docker-compose.rest.yml). PROPER FIX: (1) enable the admin server on an INTERNAL-ONLY/loopback port (it also exposes config + schema_cache endpoints → never public); (2) the upgrade health-check polls /ready until 200 (clean 'waiting for schema cache' message + ~2-3min cap) BEFORE the RPC check. Kills the scary PGRST002 entirely AND makes the wait scale with actual schema-load time (removes the fixed-25s-budget Norway risk, robustly). Architect dispatched to design (admin-server enablement + security + health-check rewiring), folding into the 031 review pass; King ratifies before implementation. Supersedes the mechanic's simpler PGRST002-exempt approach (kept as a possible fallback).
 <!-- SECTION:NOTES:END -->
