@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-06-07 23:57'
-updated_date: '2026-06-11 11:50'
+updated_date: '2026-06-11 11:56'
 labels:
   - upgrade
   - recovery
@@ -63,11 +63,13 @@ KING DECISIONS: this task GATES the RC cut (no RC until fixed + VM-proven). Arch
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-CONSOLIDATED 2026-06-11 (architect/Fable; prior forensic notes recoverable via git log on this file — they duplicated doc-005).
+CONSOLIDATED STATE (architect/Fable, 2026-06-11 ~12:00Z; prior notes in git log of this file; deep refs: doc-005 design, doc-006 diagram audit).
 
-VERDICT: gap CONFIRMED + severity escalated, foreman-verified at byte level. Boot-migrate is the de-facto migration executor for EVERY upgrade (executeUpgrade Step 6b ALWAYS hands off: checkout → swap → exit-42/Exec → fresh boot runs :1644 before recoverFromFlag :1689). All four refutation avenues closed — no ambient pinger, PrefixWriter inert with onLine=nil, migrate child has no sdNotify + NotifyAccess=main drops child datagrams, idle ticker born :1736 after boot-migrate. Suite blind spot: 3-postswap-migration-timeout is vacuous (inline dispatch → no watchdog in flow) — why 24/28 green never caught this.
+VERDICT (AC#1 ✓): gap confirmed + severity escalated — boot-migrate (service.go:1644) is the de-facto migration executor for EVERY upgrade (Step 6b always hands off), with zero WATCHDOG=1 sources and a ~120s effective budget. Full refutation table in doc-005.
 
-Full design + evidence: doc-005. Engram obs 157 (verdict) + 168 (King decisions). Execution per the plan above; architect executing.
+RED CAMPAIGN (AC#2, in flight): scenario rewritten to service dispatch (commit 908191f0c) — drop-in env armed WITHOUT unit restart so it lands exactly on the exit-42 post-swap boot. Run-1+2 failed UPSTREAM of the product site: pre-swap rollback at binary procurement — empirically confirmed run-2: `rolled_back | BINARY_BUILD_FAILED: make -C cli build: exit status 2` (VM has no Go; my rewrite had dropped the old scenario's load-bearing `cp /tmp/sb ./sb` procurement short-circuit; sbAlreadyAtCommit skip at service.go:5123). Run-2 also proved the drop-in env mechanics work (inject vars present in the loaded unit Environment). Scenario patched (binary pre-stage); run-3 in flight — the live RED attempt.
 
-DIAGRAM/DOC SYNC folds into the 012 fix commit (engineer's King-directed diagram<->reality audit, doc-006, 2026-06-11). upgrade-timeline.plantuml + .md are out of sync with 012 reality: the post-swap band omits the fresh process re-running boot-migrate (the 012 site where every upgrade's migrations ACTUALLY run) before recoverFromFlag; draws the applyPostSwap migrate as the executor when it's a structural no-op; asserts watchdog coverage that doesn't exist (migration-timeout); lists a deferred scenario (worker-ddl-deadlock) as coverage. Per the engineer's recommendation, fix the diagram/doc in the SAME commit as the 012 product fix so code + diagram move together (matches the project's code<->doc pairing discipline). Full gap table: doc-006.
+FIX (AC#3 ready, held): full unit pre-staged in the working tree, engineer re-review PASS ("byte-for-byte the prescribed design"): always-ping ticker wrap at :1644 (child ctx, inline cancel+join before error handling), shared MigrateUpTimeout=30m at both migrate sites + the inline twin (runCmdDirTimeout), comment repairs (service.go + ops unit), structural guard TestBootMigrateWatchdogCover_SourceOrder (green), wedge-helpers comment fix, AND the doc-006 diagram/doc sync fixes (plantuml post-swap band now shows boot-migrate as the real executor; timeline.md boot-order inversion fixed; false coverage claim replaced; worker-ddl-deadlock relabeled DEFERRED). Diff de-churned to surgical (+228/−35 across 9 files; gofmt noise removed per engineer flag). Lands after: run-3 RED observed → King ratifies → push → GREEN rerun (AC#5).
+
+DISCOVERED EN ROUTE: C15/watchdog-reconnect weak net + likely rolling back at procurement in all "green" runs (foreman filing as own task); engineer extending doc-006 with which scenarios pre-stage ./sb vs silently roll back at procurement.
 <!-- SECTION:NOTES:END -->
