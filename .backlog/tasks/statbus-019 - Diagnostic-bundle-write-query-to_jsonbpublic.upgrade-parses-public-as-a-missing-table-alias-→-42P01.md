@@ -3,10 +3,10 @@ id: STATBUS-019
 title: >-
   Diagnostic-bundle write query: to_jsonb(public.upgrade) parses 'public' as a
   missing table alias → 42P01
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-09 01:36'
-updated_date: '2026-06-10 20:47'
+updated_date: '2026-06-11 07:49'
 labels:
   - install-recovery
   - product
@@ -43,3 +43,9 @@ BUT it is NOT cosmetic: the forensic *.bundle.txt is SILENTLY SKIPPED on EVERY r
 
 FIX APPLIED (engineer, 2026-06-10, working tree — foreman sole committer). cli/internal/upgrade/bundle.go:100 → SELECT to_jsonb(u)::text FROM public.upgrade u WHERE u.id = $1. make -C cli build clean. No Go test pins the SQL string. The forensic *.bundle.txt now writes on the rollback path instead of being silently skipped (42P01). Awaiting foreman review+commit.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Committed 751bae42c on master. bundle.go:100 query aliased: `SELECT to_jsonb(u)::text FROM public.upgrade u WHERE u.id=$1` (was to_jsonb(public.upgrade), which 42P01'd). Architect-reviewed PASS — confirmed the only to_jsonb table-ref site in cli/ (no sibling). Validated by comprehensive run 27306718138 (no 019-related failure). Restores the forensic diagnostic bundle on every rollback.
+<!-- SECTION:FINAL_SUMMARY:END -->
