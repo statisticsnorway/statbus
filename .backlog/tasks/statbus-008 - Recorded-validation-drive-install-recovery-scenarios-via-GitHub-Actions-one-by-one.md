@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - operator
 created_date: '2026-06-07 15:41'
-updated_date: '2026-06-10 05:27'
+updated_date: '2026-06-11 08:23'
 labels:
   - install-recovery
   - validation
@@ -169,4 +169,6 @@ COMPREHENSIVE RUN 27242482272 @ f31ce6f86 (all default scenarios, ran 23:29Z→0
 KEY: 4 of my committed breadth fixes (checkout-kill, between-migrations-kill, rollback-kill, drifted-unit) + the 2 stage-b/e canaries are RED — need triage (fix-incomplete vs next-layer). mid-migration-kill regression is the critical one (could implicate 017). 017 itself stays SOLVED+PROVEN (separate GREEN run 27241262390).
 
 TRIAGE RESOLVED (architect deep-trace) — CORRECTS the prior note: the 9 failures are NOT caused by STATBUS-019 (that 42P01 is a non-fatal swallowed warning, bundle.go:101-103; it appears in PASSING scenarios too — a red herring). ZERO new product recovery bugs; 017 CONFIRMED CLEAN + ratifiable. Real causes of the 9: (A) HARNESS inject-persistence artifact — mid-migration-kill + between-migrations-kill: the 017 fix made recovery run INLINE, so the scenario's PERSISTENT kill-inject re-kills the inline recovery migrate (exit 137) → rolled_back; a one-time production kill is unaffected (recovery migrate succeeds → completed). Harness fix = make injects ONE-SHOT. NOT a production regression. (B) 4-rollback-kill = pre-existing C9 multi-kill scenario issue (017 branch never fired). (C) rest (checkout-kill, mid-tx-kill known-RED, drifted-unit ssh, stage-a zombie, stage-b 'too many clients' resource, stage-e ssh-heredoc) = ordinary harness. Full classification: tmp/plans/architect-comprehensive-classification-27242482272.md (+ the mid-migration-kill trace). NET: 19/28 green, 0 new product bugs, 017 solved+proven+clean; breadth reds = harness/test-modeling + the non-fatal STATBUS-019 diagnostic bug. Awaiting King steer on the one-shot-inject harness rework + the STATBUS-019 1-liner.
+
+Freshness (foreman, 2026-06-11): latest comprehensive run is 27306718138 = 24/28 PASS (supersedes the earlier-cited 27242482272 = 19/28). The 4 current reds are split into their own tasks: STATBUS-026 (checkout-kill restoreGitState), 027 (mid-tx-kill assertion), 028 (rollback-kill multi-kill), 029 (stage-a seed restore). All 4 are harness, 0 product. The 2 SKIP_DEFAULT 017 reproducers were not in the default suite (no coverage lost).
 <!-- SECTION:NOTES:END -->
