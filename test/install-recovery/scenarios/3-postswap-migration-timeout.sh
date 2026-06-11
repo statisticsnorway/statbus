@@ -377,20 +377,66 @@ done
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── waiting for the boot-migrate stall (post-swap boot) ──"
-STALL_WAIT_LOG=$(mktemp /tmp/stall-wait-XXXXXX.log)
-set +e
-wait_for_inject_stall_ready "$VM_NAME" "$RELEASE_FILE" 300 > "$STALL_WAIT_LOG" 2>&1
-STALL_RC=$?
-set -e
-cat "$STALL_WAIT_LOG"
-# The helper interleaves narration with the PID on stdout; the PID is the
-# only purely-numeric line. (A naive `tail -1` capture grabs a narration
-# line on timeout — non-empty — and silently bypasses the diagnostics
-# branch below; that masked the first RED-run failure.)
-MIGRATE_PID=$(grep -E '^[0-9]+$' "$STALL_WAIT_LOG" | tail -1 || true)
-rm -f "$STALL_WAIT_LOG"
-if [ "$STALL_RC" -ne 0 ] || [ -z "$MIGRATE_PID" ]; then
-    echo "✗ stall never activated within 5 min — discriminating diagnostics:" >&2
+# Quoting-proof probe: a script file scp'd to the VM (no ssh+sudo+bash
+# nested quoting — run-6 proved the shared helper's inline pgrep never
+# saw a child that demonstrably existed: the journal recorded TWO
+# watchdog kills of the stalled boot-migrate while the helper reported
+# nothing for 300s). The probe prints one machine-parsable line. The
+# stall site-proof (flag phase) is folded in. Budget 600s: the stretch
+# from in_progress to the stall includes the multi-minute preswap
+# backup rsync + exit-42 + fresh-boot init (run-6: ~5.5 min — the 300s
+# budget expired ~40s before the post-swap boot began, and the exit
+# trap then removed the release file, defusing the stall).
+_probe_script=$(mktemp /tmp/harness-probe-stall-XXXXXX.sh)
+cat > "$_probe_script" << 'PROBE_EOF'
+#!/bin/bash
+# Stall probe for 3-postswap-migration-timeout. Single line out:
+#   PID=<migrate-child-pid-or-empty> REL=<0|1> PHASE=<flag-phase-or-none>
+# [/] bracket trick: the pattern does not contain the substring it
+# matches, so ssh/sudo/bash wrappers carrying this script's text in
+# their cmdline are invisible; the real child
+# (/home/statbus/statbus/sb migrate up --verbose) still matches.
+REL=0; [ -f /tmp/stall-release-c12 ] && REL=1
+PID=$(pgrep -f '[/]sb migrate up' 2>/dev/null | head -1 || true)
+PHASE=$(grep -o '"phase": *"[a-z_]*"' "$HOME/statbus/tmp/upgrade-in-progress.json" 2>/dev/null | grep -o '[a-z_]*"$' | tr -d '"' || true)
+echo "PID=${PID} REL=${REL} PHASE=${PHASE:-none}"
+PROBE_EOF
+chmod 644 "$_probe_script"
+scp -O "${SSH_OPTS[@]}" "$_probe_script" root@"$VM_IP":/tmp/probe-stall.sh
+rm -f "$_probe_script"
+
+MIGRATE_PID=""
+STALL_PHASE=""
+PROBE_START=$(date +%s)
+PROBE_STABLE=""
+while true; do
+    now=$(date +%s)
+    if [ $((now - PROBE_START)) -ge 600 ]; then
+        break
+    fi
+    PROBE_OUT=$(VM_EXEC bash /tmp/probe-stall.sh 2>/dev/null | tail -1 || echo "")
+    P_PID=$(echo "$PROBE_OUT" | sed -n 's/.*PID=\([0-9]*\) .*/\1/p')
+    P_REL=$(echo "$PROBE_OUT" | sed -n 's/.*REL=\([01]\).*/\1/p')
+    P_PHASE=$(echo "$PROBE_OUT" | sed -n 's/.*PHASE=\([a-z_]*\).*/\1/p')
+    if [ -n "$P_PID" ] && [ "$P_REL" = "1" ]; then
+        if [ -z "$PROBE_STABLE" ]; then
+            PROBE_STABLE=$now
+            echo "  [probe] migrate child detected (PID=$P_PID, phase=$P_PHASE) — confirming stability"
+        elif [ $((now - PROBE_STABLE)) -ge 10 ]; then
+            MIGRATE_PID="$P_PID"
+            STALL_PHASE="$P_PHASE"
+            break
+        fi
+    else
+        if [ -n "$PROBE_STABLE" ]; then
+            echo "  [probe] stability broken ($PROBE_OUT) — resetting"
+        fi
+        PROBE_STABLE=""
+    fi
+    sleep 3
+done
+if [ -z "$MIGRATE_PID" ]; then
+    echo "✗ stall never activated within 10 min — discriminating diagnostics:" >&2
     echo "── upgrade row (terminal state here = upgrade ran WITHOUT stalling):" >&2
     VM_EXEC bash -c "cd ~/statbus && echo \"SELECT id, state, error FROM public.upgrade WHERE commit_sha = '$HEAD_LOCAL';\" | ./sb psql" >&2 || true
     echo "── flag file (absent = upgrade reached terminal + removed it):" >&2
@@ -410,12 +456,11 @@ echo "  migrate subprocess PID=$MIGRATE_PID parked in StallHere"
 # LOAD-BEARING site check: the flag must be Phase=post_swap while the
 # stall holds — proving the stalled migrate is the POST-SWAP BOOT's
 # boot-migrate (pre-recoverFromFlag), i.e. the STATBUS-012 site, not
-# some other migrate invocation. If this fails the scenario is not
-# testing what it claims — fail loud, do not proceed.
-FLAG_CONTENT=$(VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-in-progress.json 2>/dev/null" 2>/dev/null || echo "")
-if ! echo "$FLAG_CONTENT" | grep -qi "post_swap"; then
-    echo "✗ stall is active but the upgrade flag is not Phase=post_swap — wrong site" >&2
-    echo "  flag content: $FLAG_CONTENT" >&2
+# some other migrate invocation. The probe carried the phase out with
+# the PID, sampled in the SAME probe round — no separate read needed.
+if [ "$STALL_PHASE" != "post_swap" ]; then
+    echo "✗ stall is active but the upgrade flag phase is '$STALL_PHASE', not post_swap — wrong site" >&2
+    VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-in-progress.json 2>/dev/null || echo '(no flag file)'" >&2 || true
     exit 1
 fi
 echo "  ✓ flag is post_swap during the stall — this IS the post-swap boot's boot-migrate"
