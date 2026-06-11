@@ -88,3 +88,40 @@ The suite's **kill** nets are rigorous (site-proofs everywhere). Vacuity lives i
 - `doc/upgrade-timeline.md` (Service boot 58-73; Binary-swap restart+resume 106-131)
 - `cli/internal/upgrade/service.go` :1621 (READY=1) / :1644 (boot-migrate) / :1689 (recoverFromFlag) / :3616-3618 (exit-42) / :3953 (applyPostSwap migrate)
 - `test/install-recovery/scenarios/3-postswap-watchdog-reconnect.sh` (C15, weak), `3-postswap-migration-timeout.sh` (C12 rewrite), `3-postswap-worker-ddl-deadlock.sh` (C13 deferred), `3-postswap-archivebackup-watchdog.sh` (the strong pattern)
+
+---
+
+## Part D — procurement-staging vacuity (added 2026-06-11, after STATBUS-012 run-1)
+
+**A second, deeper vacuity vector than Part C's "weak assertion": a service-dispatch post-swap scenario that does not stage `./sb` at HEAD rolls back AT PROCUREMENT and never reaches its post-swap injection site at all.** Surfaced empirically: STATBUS-012 run-1 produced "stall never fired, flag gone, terminal <300s" — H-A confirmed (architect, static + run-2).
+
+**Confirmed mechanism (code + harness):**
+1. `upload_sb_to_vm` (vm-bootstrap.sh) reassembles the HEAD binary at **`/tmp/sb`** on the VM (`cat /tmp/sb-upload-chunk-* > /tmp/sb`) — **NOT** at `~/statbus/sb`. The initial install left `~/statbus/sb` at INSTALL_VERSION (v2026.05.2).
+2. On dispatch, Step 6b procurement runs `buildBinaryOnDisk` → `sbAlreadyAtCommit` parses `~/statbus/sb --version` (service.go:5123-5126). v2026.05.2 ≠ HEAD → no skip → `os.Rename sb→sb.old` → **`make -C cli build`**.
+3. The harness VM has **no Go toolchain** (zero `golang` refs in bootstrap/hardening libs) → build fails in seconds → `sb.old` restored → `d.rollback` **pre-swap** → row=`rolled_back`, flag removed, **no exit-42, no post-swap boot, no injection**.
+
+So any service-dispatch post-swap scenario that schedules an upgrade to HEAD **without first** `cp /tmp/sb ~/statbus/sb` silently rolls back at procurement. (`H-2` — synthetic migration not seen — is dead: no `git clean` in the flow; migrate enumerates `migrations/*.up.sql` via `filepath.Glob`, migrate.go:452, so untracked files count.)
+
+**Why some scenarios are immune and others silently green — the payoff of the Part C strong/weak split:** the procurement bug bites strong and weak nets **equally**, but **strong nets fail loud, weak nets pass silently**:
+- `3-postswap-archivebackup-watchdog` **pgreps the tar** (lines 304-312) — a procurement rollback means the tar never runs → "✗ archiveBackup tar not observed" → **scenario FAILS**. The bug cannot hide.
+- `3-postswap-watchdog-reconnect (C15)` **blind-sleeps** then asserts `NRestarts delta==0` (line 321) **and accepts `rolled_back` as terminal** — a procurement rollback satisfies both → **passes vacuously**. Its stall site has **plausibly never fired on a VM**.
+
+This makes C15 **doubly vacuous** (procurement rollback + blind-sleep that accepts it) and **escalates it from "weak verification" (Part C) to "the injected failure has likely never occurred in any green run."** Same root the architect flagged.
+
+**Binary-staging status (static; service-dispatch post-swap scenarios):**
+
+| Scenario | Stages `~/statbus/sb`=HEAD before dispatch? | Verification strength | Net status |
+|----------|---------------------------------------------|-----------------------|------------|
+| 3-postswap-migration-timeout (C12) | YES — `cp /tmp/sb ~/statbus/sb` (line 182, **architect patch post-run-1**) | strong (wait_for_inject_stall_ready + flag site-proof) | fixed, RED pending |
+| 3-postswap-container-restart-kill | YES — `cp /tmp/sb ./sb` (line 126) | strong (RED-confirmed) | sound |
+| 3-postswap-between-migrations-kill | YES — `cp /tmp/sb ./sb` (line 155) | strong (marker-absence) | sound |
+| **3-postswap-watchdog-reconnect (C15)** | **NO** | **weak (blind sleep, accepts rolled_back)** | **CONFIRMED vacuous — procurement rollback passes** |
+| 3-postswap-archivebackup-watchdog | NO explicit `cp` | strong (pgrep tar) | **needs check** — if it has been green, it is NOT rolling back (the pgrep would fail); confirm it stages the binary another way or the green is stale |
+| 3-postswap-archivebackup-resume | NO explicit `cp` | medium (RED/GREEN both depend on the stall) | **needs check** — header claims "VERIFIED runs 27107825797/27109134019"; reconcile against the rollback mechanism |
+| 3-postswap-resume-died-rollback | NO explicit `cp` | strong (RED-confirmed + no-loop proof) | **needs check** — its kill needs the post-swap site; a strong check would catch a rollback |
+
+Inline-dispatch scenarios (mid-migration-kill, mid-tx-kill, migrate-killed-after-commit, migration-deterministic-error) reach Step 6b through `./sb install`, whose install script does its own `cp /tmp/sb ./sb` (referenced at migration-timeout.sh:179) — they get HEAD staging for free, and their strong marker-absence checks would catch a rollback regardless.
+
+**Severity: HIGH for C15 (confirmed silently-vacuous on a latent harness bug); the three "needs check" rows are MEDIUM pending the architect's run-artifact reconciliation — flagged, not asserted, to avoid over-claiming without a VM (the same discipline run-1 taught).**
+
+**Added recommendation (5):** standardize HEAD binary-staging for service-dispatch post-swap scenarios — a single `stage_head_binary` helper (`cp /tmp/sb ~/statbus/sb && chmod +x`) called right after `upload_sb_to_vm`, so no scenario can silently roll back at procurement. Then the only way to be green is to actually reach the post-swap site. Pairs naturally with recommendation 3 (C15 stall-fired confirmation) — both are needed: staging gets you to the site, the confirmation proves you stayed there.
