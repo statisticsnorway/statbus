@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-06-07 23:57'
-updated_date: '2026-06-11 10:42'
+updated_date: '2026-06-11 10:49'
 labels:
   - upgrade
   - recovery
@@ -16,6 +16,9 @@ dependencies: []
 references:
   - cli/internal/upgrade/service.go
   - ops/statbus-upgrade.service
+  - >-
+    .backlog/docs/doc-005 -
+    STATBUS-012-—-boot-migrate-watchdog-gap-verdict-severity-RED-reproducer-fix-design.md
 documentation:
   - >-
     doc-005 -
@@ -27,11 +30,15 @@ ordinal: 12000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
+**DESIGN DOC: doc-005 — "STATBUS-012 — boot-migrate watchdog gap: verdict, severity, RED reproducer, fix design"** (backlog Documents section; on disk: `.backlog/docs/doc-005 - STATBUS-012-—-boot-migrate-watchdog-gap-verdict-severity-RED-reproducer-fix-design.md`). The architect's confirmed verdict, severity model, RED reproducer and fix design live there. KING DECISION 2026-06-11: this task GATES the RC cut.
+
+---
+
 Architect surfaced this during the archivebackup-resume diagnosis (it is NOT the cause of that failure — a separate latent product gap, found en route).
 
 cli/internal/upgrade/service.go:1644 boot-migrate-up runs `./sb migrate up` with writer=io.Discard + onAdvance=nil, in the ACTIVE phase, BEFORE the applyPostSwap gated ticker arms (service.go:3734) — so it emits NO WATCHDOG=1 heartbeat. A large-DB boot-migrate exceeding WatchdogSec=120s would be watchdog-killed with no heartbeat. Invisible in tests (test boot-migrate is a fast no-op). The unit comment ops/statbus-upgrade.service:87 assumes boot-migrate is safely active-phase — only true if it finishes <120s.
 
-Relevant for large external/standalone DBs (the upgrade-hardening-for-external-customers arc; rune/Norway). PRODUCT fix: emit WATCHDOG=1 during boot-migrate (an onAdvance heartbeat, or arm a heartbeat ticker before boot-migrate). Flagged for the King's review — recovery code, no autonomous change overnight. Full diagnosis: tmp/architect-archivebackup-resume-diagnosis.md.
+Relevant for large external/standalone DBs (the upgrade-hardening-for-external-customers arc; rune/Norway). PRODUCT fix: emit WATCHDOG=1 during boot-migrate (an onAdvance heartbeat, or arm a heartbeat ticker before boot-migrate). Flagged for the King's review — recovery code, no autonomous change overnight. (Original diagnosis pointer tmp/architect-archivebackup-resume-diagnosis.md is superseded by doc-005.)
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
