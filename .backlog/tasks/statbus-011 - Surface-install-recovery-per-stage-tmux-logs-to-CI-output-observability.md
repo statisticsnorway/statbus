@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-07 23:18'
-updated_date: '2026-06-11 08:23'
+updated_date: '2026-06-11 08:24'
 labels:
   - install-recovery
   - ci
@@ -27,10 +27,12 @@ Being addressed now in the overnight grind (engineer adding stage-log surfacing 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 /tmp/stage*.log surfaced to CI stdout/artifact before VM reap, on success AND failure
-- [ ] #2 Implemented in the shared helper so all inline-tmux scenarios benefit
-- [ ] #3 Verified: a failing inline scenario's CI log now shows the per-stage install output (incl. 'Detected install state')
+- [x] #1 /tmp/stage*.log surfaced to CI stdout/artifact before VM reap, on success AND failure
+- [x] #2 Implemented in the shared helper so all inline-tmux scenarios benefit
+- [x] #3 Verified: a failing inline scenario's CI log now shows the per-stage install output (incl. 'Detected install state')
 <!-- AC:END -->
+
+
 
 ## Implementation Notes
 
