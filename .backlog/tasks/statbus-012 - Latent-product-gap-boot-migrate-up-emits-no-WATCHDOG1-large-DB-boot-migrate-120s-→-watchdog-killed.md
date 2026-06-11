@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@architect'
 created_date: '2026-06-07 23:57'
-updated_date: '2026-06-11 11:09'
+updated_date: '2026-06-11 11:50'
 labels:
   - upgrade
   - recovery
@@ -68,4 +68,6 @@ CONSOLIDATED 2026-06-11 (architect/Fable; prior forensic notes recoverable via g
 VERDICT: gap CONFIRMED + severity escalated, foreman-verified at byte level. Boot-migrate is the de-facto migration executor for EVERY upgrade (executeUpgrade Step 6b ALWAYS hands off: checkout → swap → exit-42/Exec → fresh boot runs :1644 before recoverFromFlag :1689). All four refutation avenues closed — no ambient pinger, PrefixWriter inert with onLine=nil, migrate child has no sdNotify + NotifyAccess=main drops child datagrams, idle ticker born :1736 after boot-migrate. Suite blind spot: 3-postswap-migration-timeout is vacuous (inline dispatch → no watchdog in flow) — why 24/28 green never caught this.
 
 Full design + evidence: doc-005. Engram obs 157 (verdict) + 168 (King decisions). Execution per the plan above; architect executing.
+
+DIAGRAM/DOC SYNC folds into the 012 fix commit (engineer's King-directed diagram<->reality audit, doc-006, 2026-06-11). upgrade-timeline.plantuml + .md are out of sync with 012 reality: the post-swap band omits the fresh process re-running boot-migrate (the 012 site where every upgrade's migrations ACTUALLY run) before recoverFromFlag; draws the applyPostSwap migrate as the executor when it's a structural no-op; asserts watchdog coverage that doesn't exist (migration-timeout); lists a deferred scenario (worker-ddl-deadlock) as coverage. Per the engineer's recommendation, fix the diagram/doc in the SAME commit as the 012 product fix so code + diagram move together (matches the project's code<->doc pairing discipline). Full gap table: doc-006.
 <!-- SECTION:NOTES:END -->
