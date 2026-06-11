@@ -199,6 +199,55 @@ if [ "$DEPLOYED_COMMIT" != "$HEAD_PREFIX" ]; then
 fi
 
 # ─────────────────────────────────────────────────────────────────────────
+# Phase 3c — restart the unit onto the HEAD binary BEFORE dispatch
+#
+# The DISPATCHING process must run HEAD's code, not INSTALL_VERSION's:
+# run-4 proved the v2026.05.2 binary has NO sbAlreadyAtCommit
+# pre-staged-binary skip (git show v2026.05.2 → zero matches), so the
+# old dispatcher always attempts `make -C cli build` on the Go-less VM
+# → BINARY_BUILD_FAILED → pre-swap rollback, regardless of the cp above.
+# Restarting here puts the HEAD binary (with the skip) in charge of
+# executeUpgrade. Ordering is load-bearing:
+#   - AFTER the cp (the restarted unit must BE the HEAD binary);
+#   - BEFORE the synthetic migration is planted (this restart's
+#     boot-migrate consumes any real delta cleanly — the synthetic must
+#     survive until the post-swap boot);
+#   - BEFORE the drop-in is armed (this restart must be inject-free;
+#     the env lands only on the exit-42 restart).
+# ─────────────────────────────────────────────────────────────────────────
+echo ""
+echo "── restarting unit onto the HEAD binary (clean, pre-arm) ──"
+VM_EXEC systemctl --user restart statbus-upgrade@statbus.service
+sleep 5
+UNIT_STATE=$(VM_EXEC systemctl --user is-active "$UNIT" 2>/dev/null | tr -d ' \r\n' || echo "?")
+if [ "$UNIT_STATE" != "active" ]; then
+    echo "✗ unit not active after restart onto HEAD binary (state=$UNIT_STATE)" >&2
+    VM_EXEC bash -c "systemctl --user status $UNIT --no-pager -l 2>&1 | head -20" >&2 || true
+    exit 1
+fi
+# Let this boot's migrate settle before planting the synthetic: poll for
+# "no sb-migrate child" stable for 10s (the real delta is small/zero —
+# the seed tracks HEAD's migration level — so this is seconds).
+SETTLE_START=$(date +%s)
+STABLE_SINCE=""
+while true; do
+    now=$(date +%s)
+    if [ $((now - SETTLE_START)) -ge 120 ]; then
+        echo "✗ boot-migrate of the HEAD-binary restart did not settle within 120s" >&2
+        exit 1
+    fi
+    MIG=$(VM_EXEC bash -c "pgrep -f '/sb migrate up' 2>/dev/null | head -1" 2>/dev/null | tr -d ' \r\n' || echo "")
+    if [ -z "$MIG" ]; then
+        if [ -z "$STABLE_SINCE" ]; then STABLE_SINCE=$now; fi
+        if [ $((now - STABLE_SINCE)) -ge 10 ]; then break; fi
+    else
+        STABLE_SINCE=""
+    fi
+    sleep 2
+done
+echo "  ✓ unit active on HEAD binary; boot-migrate settled"
+
+# ─────────────────────────────────────────────────────────────────────────
 # Phase 4 — plant the synthetic stall-target migration
 #
 # Untracked file with timestamp 20991231235959 (beyond any real
