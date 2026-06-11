@@ -5,6 +5,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-07 23:18'
+updated_date: '2026-06-11 08:23'
 labels:
   - install-recovery
   - ci
@@ -30,3 +31,9 @@ Being addressed now in the overnight grind (engineer adding stage-log surfacing 
 - [ ] #2 Implemented in the shared helper so all inline-tmux scenarios benefit
 - [ ] #3 Verified: a failing inline scenario's CI log now shows the per-stage install output (incl. 'Detected install state')
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+CLOSED (foreman, 2026-06-11): stage-log surfacing landed via b80d725a7 ('test(install-recovery): surface detached-tmux stage logs to CI before VM reap', test/install-recovery/lib/vm-bootstrap.sh +45). Task was never closed after the fix landed; verified by git show.
+<!-- SECTION:NOTES:END -->
