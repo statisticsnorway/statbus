@@ -1,64 +1,94 @@
 #!/bin/bash
-# Scenario: 3-postswap-migration-timeout  (C12 / Race B regression net)
+# Scenario: 3-postswap-migration-timeout  (C12 — boot-migrate vs systemd watchdog, STATBUS-012 net)
 #
 # Class:                 migration-slower-than-systemd-unit-timeout
-# Forensics tag:         Race B (Layer 1)
-# Source forensics:      tmp/install-state-machine-forensics.md
-#                        + operator's dev journalctl (UNIT_RESULT=watchdog,
-#                          NRestarts=111 — before the fix)
+# Class kind:            Stall
+# Forensics tag:         Race B (Layer 1) → STATBUS-012 (boot-migrate edition)
+# Source forensics:      doc-005 (backlog) — boot-migrate watchdog gap: verdict,
+#                        severity, RED reproducer, fix design
 #
-# Expected principled behavior:
-#   A migration that takes longer than `WatchdogSec` (120 s in
-#   ops/statbus-upgrade.service) MUST NOT trigger the systemd
-#   watchdog. The upgrade-service's applyPostSwap migrate ticker
-#   sends `sdNotify("WATCHDOG=1")` every 30 s from a goroutine
-#   independent of the migrate subprocess; the watchdog deadline
-#   resets continuously, the migration completes, the upgrade
-#   reaches a terminal state, and `NRestarts` for the upgrade
-#   unit stays at zero.
+# WHAT THIS TESTS (the product contract):
+#   A migration that runs longer than WatchdogSec (120s in
+#   ops/statbus-upgrade.service) MUST NOT get the upgrade service
+#   watchdog-killed. Since executeUpgrade ALWAYS hands off after the
+#   binary swap (Step 6b, service.go: checkout → procure → PostSwap
+#   flag → exit-42), the migration delta of EVERY service-path upgrade
+#   is consumed by boot-migrate-up (service.go:1644) on the post-swap
+#   boot — BEFORE recoverFromFlag / applyPostSwap. So the watchdog
+#   cover must exist AT THE BOOT-MIGRATE SITE: an always-ping
+#   WATCHDOG=1 ticker for the duration of the migrate subprocess,
+#   bounded by the shared 30-min migrate timeout (STATBUS-012 fix).
 #
-# Validates fix at commit `e6df084b7`:
-#   - Pre-e6df084b7: ticker called `sdNotifyExtendTimeout(120s)` which
-#     sends EXTEND_TIMEOUT_USEC. Per sd_notify(3), that extends start
-#     / runtime / stop timeouts but NOT WatchdogSec. The watchdog
-#     deadline ticked down past 120 s and systemd SIGKILLed the
-#     upgrade-service — operator's dev: NRestarts=111. RED.
-#   - Post-e6df084b7: ticker calls `sdNotify("WATCHDOG=1")`. The
-#     watchdog deadline resets every 30 s. GREEN.
+#   Without that cover (the STATBUS-012 gap): zero WATCHDOG=1 sources
+#   exist during boot-migrate — the idle heartbeat ticker is created
+#   AFTER boot-migrate in Run(), the applyPostSwap gated ticker is not
+#   armed yet, and the migrate child neither pings nor could be heard
+#   (NotifyAccess defaults to main). systemd SIGABRTs the unit at
+#   ~READY+120s, Restart=always re-runs it, the stall re-arms, and the
+#   unit kill-loops (~160s/cycle → StartLimitBurst=5/600s never trips
+#   → loops indefinitely). That is the rune-wedge shape, WatchdogSec
+#   edition.
 #
-# Trigger logic:
-#   1. Install at INSTALL_VERSION (default v2026.05.2 — provides a
-#      migration delta so the upgrade actually runs migrate.up).
-#   2. Populate via populate_with_demo_data (matches the operator-
-#      shape of dev's wedge).
-#   3. Set env: STATBUS_INJECT_AT=migration-slower-than-systemd-
-#      unit-timeout, STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE=<file>.
-#      Create the release file.
-#   4. Run install_statbus_in_vm with no version — uses local HEAD,
-#      which contains the C12 injection site in
-#      cli/internal/migrate/migrate.go's runPsqlFile and the fixed
-#      WATCHDOG=1 ticker in service.go's applyPostSwap.
-#   5. The migrate subprocess (./sb migrate up under applyPostSwap)
-#      hits the StallHere inside runPsqlFile and blocks. Parent's
-#      WATCHDOG=1 ticker keeps the unit alive.
-#   6. Harness waits STALL_HOLD_S (default 180 s — well past
-#      WatchdogSec=120 s, guarantees the watchdog WOULD have fired
-#      on pre-fix code). The Race B regression would manifest as
-#      systemd killing the upgrade-service and incrementing NRestarts
-#      during this window.
-#   7. Harness removes the release file. The stall returns; the
-#      migration proceeds and the install completes.
-#   8. Assert: install reached a terminal state, data intact,
-#      NRestarts ≤ 2 (load-bearing — the Race B regression net).
+# HISTORY — why this scenario was rewritten (2026-06-11):
+#   The previous version dispatched the upgrade INLINE (./sb install in
+#   tmux). Inline there is NO systemd unit in the flow at all (no
+#   NOTIFY_SOCKET → sdNotify no-ops → no watchdog anywhere), and its
+#   stall fired at the inline crash-recovery boot-migrate; the
+#   NRestarts assertion read a unit that was not driving the install —
+#   vacuously green. It validated nothing about the watchdog. This
+#   rewrite dispatches through the REAL systemd service (the King's
+#   Option-A doctrine: test the production path), where the watchdog
+#   actually arms — and the stall lands exactly at the unprotected
+#   boot-migrate of the post-swap boot.
+#
+# Trigger logic (full systemd-unit dispatch; drop-in env lands on the
+# exit-42 restart — the post-swap boot — NOT on the dispatching unit):
+#   1. Install at INSTALL_VERSION (default v2026.05.2), populate demo
+#      data, snapshot counts.
+#   2. Stage HEAD on the VM (fixtures/stage-head.sh: checkout +
+#      pre-tag COMMIT_SHORT images for the compose-pull fallback).
+#   3. Plant the synthetic stall-target migration (untracked,
+#      timestamp 20991231235959) so the post-swap boot-migrate has a
+#      guaranteed ≥1 pending migration regardless of seed level.
+#   4. Write the systemd user drop-in with the C12 env vars + touch
+#      the release file + daemon-reload — WITHOUT restarting the
+#      unit. A running process's env is untouched by daemon-reload;
+#      the env applies at the NEXT unit start, which is exactly the
+#      exit-42 post-swap restart. The dispatching run stays
+#      inject-free; the stall deterministically lands on the
+#      post-swap boot's `sb migrate up` child.
+#   5. Fabricate a public.upgrade row (state=scheduled) for HEAD and
+#      wake the service via NOTIFY (./sb upgrade apply).
+#   6. The unit runs executeUpgrade → preSwap backup → checkout →
+#      procure → PostSwap flag → exit-42. systemd restarts it WITH
+#      the inject env; the fresh boot's boot-migrate spawns
+#      `sb migrate up`, which parks in inject.StallHere (runPsqlFile,
+#      BEFORE psql is invoked — so watchdog kills during the hold
+#      leave no in-container orphans).
+#   7. Confirm the stall (migrate child stable) AND that the flag is
+#      Phase=post_swap (proves we are at the post-swap boot's
+#      boot-migrate, pre-recoverFromFlag — the STATBUS-012 site).
+#   8. Snapshot NRestarts as the POST-STALL baseline (the exit-42
+#      handoff itself legitimately incremented NRestarts once;
+#      baselining after the stall excludes it).
+#   9. Hold STALL_HOLD_S=180s (> WatchdogSec=120s).
+#  10. LOAD-BEARING: NRestarts delta from the post-stall baseline
+#      MUST be 0 and the unit Result MUST NOT be 'watchdog'. With the
+#      STATBUS-012 fix, the boot-migrate always-ping ticker keeps the
+#      unit alive across the hold. Without it, systemd SIGABRTs at
+#      ~120s and the delta climbs — the RED that reproduces the gap.
+#  11. Remove the release file → the migration proceeds → boot-migrate
+#      completes the delta → recoverFromFlag → resumePostSwap →
+#      applyPostSwap (its migrate is a no-op) → upgrade completes.
+#  12. Assert terminal state, data intact, flag absent, bounded
+#      restart counter, health.
 #
 # Hetzner-runnability:
-#   COMMITTED and ready to run. Unlike scenarios 10 (R5) and 13
-#   (R1) which depend on architectural fixes pending a separate
-#   arc, this scenario tests a fix that has already landed on the
-#   branch (commit e6df084b7 deleted sdNotifyExtendTimeout and
-#   wired WATCHDOG=1). Running this scenario today is the empirical
-#   half of validating that fix; it should go GREEN on the current
-#   branch tip.
+#   READY. Reuses suite-proven machinery only: stage-head fixture
+#   (archivebackup scenarios), drop-in pattern (watchdog-reconnect),
+#   fabricate_scheduled_upgrade_row + NOTIFY wake (watchdog-reconnect),
+#   wait_for_inject_stall_ready (kill scenarios), synthetic stall
+#   migration (this scenario's previous version).
 #
 # Usage:
 #   INSTALL_VERSION=v2026.05.2 HCLOUD_LOCATION=fsn1 \
@@ -69,8 +99,8 @@ set -euo pipefail
 
 VM_NAME="${1:-statbus-recovery-3-postswap-migration-timeout}"
 INSTALL_VERSION="${INSTALL_VERSION:-v2026.05.2}"
-STALL_HOLD_S="${STALL_HOLD_S:-180}"      # > WatchdogSec=120; proves the watchdog ping fires
-INSTALL_BUDGET_S="${INSTALL_BUDGET_S:-900}"  # 15 min total — stall + migration + post-stall
+STALL_HOLD_S="${STALL_HOLD_S:-180}"            # > WatchdogSec=120; load-bearing
+UPGRADE_BUDGET_S="${UPGRADE_BUDGET_S:-900}"    # post-release budget: migrate + resume + completion
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
 source "$LIB_DIR/vm-bootstrap.sh"
@@ -78,25 +108,36 @@ source "$LIB_DIR/data-helpers.sh"
 source "$LIB_DIR/wedge-helpers.sh"
 source "$LIB_DIR/assertions.sh"
 
-# Cleanup trap: remove the release file even on failure so a stalled
-# install doesn't keep the VM alive for the full INSTALL_BUDGET_S
-# before cleanup_vm runs.
 RELEASE_FILE="/tmp/stall-release-c12"
+UNIT="statbus-upgrade@statbus.service"
+SYNTHETIC_MIG="20991231235959_migration-stall-target"
+
 trap '
     rc=$?
-    remove_release_file_in_vm "$VM_NAME" "$RELEASE_FILE" 2>/dev/null || true
+    # Best-effort cleanup so a failed scenario does not leave the stall
+    # armed (matters if KEEP_VM=1 is set for debugging — cleanup_vm
+    # destroys the VM otherwise). Removing the release file FIRST
+    # unblocks any parked migrate child; then drop the drop-in so a
+    # later unit start is inject-free.
+    VM_EXEC bash -c "rm -f $RELEASE_FILE 2>/dev/null || true; rm -f \$HOME/.config/systemd/user/statbus-upgrade@statbus.service.d/inject.conf 2>/dev/null || true; systemctl --user daemon-reload 2>/dev/null || true" 2>/dev/null || true
     cleanup_vm "$VM_NAME"
     exit $rc
 ' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario: 3-postswap-migration-timeout  (C12 / Race B regression net)"
-echo "  Initial release: $INSTALL_VERSION → upgrade target: HEAD"
+echo "  Scenario: 3-postswap-migration-timeout  (C12 / STATBUS-012 — boot-migrate vs watchdog)"
+echo "  Initial release: $INSTALL_VERSION → upgrade target: HEAD (service dispatch)"
 echo "  Stall hold: ${STALL_HOLD_S}s (> WatchdogSec=120s)"
+echo ""
+echo "  Tests the boot-migrate watchdog cover: the post-swap boot's"
+echo "  migration run must survive >WatchdogSec without the unit being"
+echo "  SIGABRT'd. RED on the STATBUS-012 gap (kill loop at ~120s);"
+echo "  GREEN with the always-ping ticker fix."
 echo "════════════════════════════════════════════════════════════════"
 
-HEAD_SHA=$(git -C "$HARNESS_ROOT" rev-parse HEAD)
-echo "  HEAD: $HEAD_SHA ($(echo "$HEAD_SHA" | cut -c1-8))"
+HEAD_LOCAL=$(git -C "$HARNESS_ROOT" rev-parse HEAD)
+SHORT_SHA=$(echo "$HEAD_LOCAL" | cut -c1-8)
+echo "  HEAD: $HEAD_LOCAL ($SHORT_SHA)"
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 1 — bootstrap + initial install at older release
@@ -104,14 +145,8 @@ echo "  HEAD: $HEAD_SHA ($(echo "$HEAD_SHA" | cut -c1-8))"
 bootstrap_install_test_vm "$VM_NAME" "$INSTALL_VERSION"
 
 echo ""
-echo "── initial install at $INSTALL_VERSION (NO seed — establish a real migration delta) ──"
-# NO-SEED baseline: the published seed is dumped at HEAD's migration level, so a
-# seeded baseline collapses the v2026.05.2→HEAD delta to 0 pending → the upgrade's
-# applyPostSwap migrate has no pending file → runPsqlFile (the C12 stall site) is
-# never called → the stall-wait times out. Withholding the seed leaves the baseline
-# at v2026.05.2's level (max 20260520141309) so the HEAD upgrade applies the real
-# pending set (11 migrations) and C12 fires. (See install_statbus_in_vm.)
-SB_INSTALL_SKIP_SEED=1 install_statbus_in_vm "$VM_NAME" "$INSTALL_VERSION"
+echo "── initial install at $INSTALL_VERSION ──"
+install_statbus_in_vm "$VM_NAME" "$INSTALL_VERSION"
 assert_health_passes "$VM_NAME"
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -120,199 +155,264 @@ assert_health_passes "$VM_NAME"
 echo ""
 echo "── populating demo data ──"
 populate_with_demo_data "$VM_NAME"
-
 DATA_SNAPSHOT=$(snapshot_demo_data_counts "$VM_NAME")
 echo "  pre-trigger data snapshot: $DATA_SNAPSHOT"
 assert_demo_data_present "$VM_NAME"
 
 # ─────────────────────────────────────────────────────────────────────────
-# Phase 2b — plant synthetic stall-target migration on VM
-#
-# The db-seed branch always tracks HEAD's migration level. So even though
-# this scenario bootstraps at INSTALL_VERSION (an older release), the first
-# install's seed-restore brings the DB to HEAD's migration level — leaving
-# zero pending migrations when the second install runs ./sb migrate up.
-# With len(pending)==0, runPsqlFile is never called and the C12 stall site
-# in runPsqlFile is unreachable.
-#
-# Fix: scp a checked-in fixture file (SELECT 1; no-op) with timestamp
-# 20991231235959 (far beyond any real migration) so ./sb migrate up sees
-# exactly one pending migration and the stall fires. The file is uploaded
-# only to the VM working copy — never applied to production.
-#
-# Note: no heredoc-over-ssh (CLAUDE.md rule) — content lives in a fixture
-# file and is delivered via scp so newlines survive the transport boundary.
+# Phase 3 — stage HEAD on the VM (checkout + image pre-tag fallback)
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
-echo "── planting synthetic stall-target migration on VM ──"
-SYNTHETIC_MIG="20991231235959_migration-stall-target"
+echo "── staging HEAD on the VM (fixtures/stage-head.sh) ──"
+upload_sb_to_vm "$VM_NAME"
+scp -O "${SSH_OPTS[@]}" "$LIB_DIR/../fixtures/stage-head.sh" root@"$VM_IP":/tmp/stage-head.sh
+VM_EXEC bash /tmp/stage-head.sh "$HEAD_LOCAL"
+
+# ─────────────────────────────────────────────────────────────────────────
+# Phase 4 — plant the synthetic stall-target migration
+#
+# Untracked file with timestamp 20991231235959 (beyond any real
+# migration): guarantees the post-swap boot-migrate sees ≥1 pending
+# migration even when the seed already tracks HEAD's migration level
+# (db-seed always tracks HEAD, so the real version-delta may be 0).
+# It survives executeUpgrade's `git checkout` (untracked files are
+# kept). Delivered via scp — no heredoc-over-ssh (CLAUDE.md rule).
+# ─────────────────────────────────────────────────────────────────────────
+echo ""
+echo "── planting synthetic stall-target migration ──"
 scp -O "${SSH_OPTS[@]}" \
     "$LIB_DIR/../fixtures/migration-stall-target.up.sql" \
     root@"$VM_IP":"/home/statbus/statbus/migrations/${SYNTHETIC_MIG}.up.sql"
 echo "  synthetic migration written: migrations/${SYNTHETIC_MIG}.up.sql"
 
-# Baseline NRestarts before triggering the upgrade. The systemd-restart-
-# counter assertion at the end compares against this — any restart that
-# happens during our stall window is the Race B regression.
-NRESTARTS_BASELINE=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "0")
-echo "  baseline NRestarts: $NRESTARTS_BASELINE"
-
 # ─────────────────────────────────────────────────────────────────────────
-# Phase 3 — start install at HEAD with C12 stall env-vars
+# Phase 5 — arm the C12 drop-in WITHOUT restarting the unit
 #
-# We use a custom install script rather than install_statbus_in_vm because
-# the standard helper has no hook for prepending env-vars (STATBUS_INJECT_AT
-# / STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE) to the ./sb install invocation.
-# The custom path must therefore replicate the helper's setup steps:
-#   1. git checkout HEAD
-#   2. cp /tmp/sb ./sb  (requires explicit /tmp/sb upload — see below)
-#   3. run ./sb install with inject vars
-#
-# Note on /tmp/sb: bootstrap_install_test_vm is called WITH INSTALL_VERSION,
-# so the no-version bootstrap path that uploads /tmp/sb is skipped.  The
-# custom install script still expects /tmp/sb, so we scp it just before
-# starting the tmux session.
+# daemon-reload does NOT change a running process's environment — the
+# drop-in env applies at the NEXT unit start. The next start is the
+# exit-42 post-swap restart inside the upgrade flow. So the
+# dispatching run (executeUpgrade: backup → checkout → procure → swap)
+# is inject-free, and the stall deterministically fires in the
+# post-swap boot's boot-migrate child — the STATBUS-012 site.
+# (Contrast 3-postswap-watchdog-reconnect, which restarts the unit to
+# load its drop-in early: its stall class only fires deep inside
+# applyPostSwap, so an early-armed env is safe there. The C12 class
+# fires in ANY `sb migrate up` with a pending migration — arming it
+# on a running unit that still has to boot-migrate would stall the
+# wrong boot.)
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
-echo "── creating release file + starting install at HEAD with C12 injection ──"
+echo "── arming C12 drop-in (env lands on the exit-42 post-swap boot) ──"
+_dropin_script=$(mktemp /tmp/harness-install-dropin-XXXXXX.sh)
+cat > "$_dropin_script" << SCRIPT_EOF
+#!/bin/bash
+set -euo pipefail
+DROPIN_DIR="\$HOME/.config/systemd/user/statbus-upgrade@statbus.service.d"
+DROPIN_FILE="\$DROPIN_DIR/inject.conf"
+mkdir -p "\$DROPIN_DIR"
+cat > "\$DROPIN_FILE" << 'DROPIN_EOF'
+[Service]
+Environment=STATBUS_INJECT_AT=migration-slower-than-systemd-unit-timeout
+Environment=STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE=$RELEASE_FILE
+DROPIN_EOF
+touch $RELEASE_FILE
+systemctl --user daemon-reload
+SCRIPT_EOF
+chmod 644 "$_dropin_script"
+scp -O "${SSH_OPTS[@]}" "$_dropin_script" root@"$VM_IP":/tmp/harness-install-dropin.sh
+rm -f "$_dropin_script"
+VM_EXEC bash /tmp/harness-install-dropin.sh
+ssh "${SSH_OPTS[@]}" root@"$VM_IP" "rm -f /tmp/harness-install-dropin.sh" 2>/dev/null || true
 
-VM_EXEC bash -c "touch '$RELEASE_FILE'"
-
-# Start the install in a detached tmux session. We'll poll for the
-# stall via wait_for_inject_stall_ready, then wait STALL_HOLD_S, then
-# remove the release file.
-ip=$(hcloud server ip "$VM_NAME")
-HEAD_LOCAL=$(git -C "$HARNESS_ROOT" rev-parse HEAD)
-INSTALL_SCRIPT=$(mktemp)
-cat > "$INSTALL_SCRIPT" << SCRIPT
-set -e
-cd ~/statbus
-if ! git cat-file -e $HEAD_LOCAL 2>/dev/null; then
-    git fetch --depth 1 origin $HEAD_LOCAL || { echo "FATAL: HEAD not on origin" >&2; exit 1; }
+UNIT_STATE=$(VM_EXEC systemctl --user is-active "$UNIT" 2>/dev/null | tr -d ' \r\n' || echo "?")
+if [ "$UNIT_STATE" != "active" ]; then
+    echo "✗ unit not active after arming the drop-in (state=$UNIT_STATE) — the dispatching unit must keep running" >&2
+    VM_EXEC bash -c "systemctl --user status $UNIT --no-pager" >&2 || true
+    exit 1
 fi
-git checkout $HEAD_LOCAL
-# Re-place sb after git checkout — clone/checkout into an existing dir
-# can leave sb missing or stale; /tmp/sb is the host-built binary still
-# present from upload_sb_to_vm (the host swap is wiped by the clone but
-# /tmp/sb is not rm'd; the install needs ./sb to exist at this point).
-cp /tmp/sb ./sb
-chmod +x ./sb
-cp /tmp/env-config .env.config
-cp /tmp/users.yml .users.yml
-STATBUS_INJECT_AT=migration-slower-than-systemd-unit-timeout \
-STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE=$RELEASE_FILE \
-STATBUS_MIN_DISK_GB=5 \
-    ./sb install --non-interactive --trust-github-user jhf
-SCRIPT
-upload_install_script_to_vm "$VM_NAME" "$INSTALL_SCRIPT" /tmp/install-c12.sh
-upload_sb_to_vm "$VM_NAME"
+echo "  ✓ drop-in + release file in place; unit still active (env applies on next start)"
 
-# Seed a scheduled upgrade row so ./sb install detects StateScheduledUpgrade
-# and routes to executeUpgradeInline → applyPostSwap (where the C12 stall site
-# fires inside migrate.runPsqlFile), rather than detecting nothing-scheduled
-# and running the no-op step-table path.  Same pattern as container-restart-kill
-# and migrate-killed-after-commit.  INLINE dispatch — no NOTIFY wake needed.
+# ─────────────────────────────────────────────────────────────────────────
+# Phase 6 — fabricate scheduled upgrade row for HEAD
+# ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── fabricating scheduled public.upgrade row for HEAD ──"
 fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_LOCAL"
 
-ssh "${SSH_OPTS[@]}" statbus@"$ip" "
-    rm -f /tmp/install-c12.exit /tmp/install-c12.log
-    tmux new-session -d -s install-c12 'bash -lc \"( bash /tmp/install-c12.sh ) > /tmp/install-c12.log 2>&1; echo \\\$? > /tmp/install-c12.exit\"'
-"
+ROW_STATE=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '$HEAD_LOCAL';\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?")
+if [ "$ROW_STATE" != "scheduled" ]; then
+    echo "✗ row for HEAD did not reach 'scheduled' state (got '$ROW_STATE')" >&2
+    exit 1
+fi
+echo "  ✓ public.upgrade row at HEAD is state='scheduled'"
+
+NRESTARTS_PRE_DISPATCH=$(VM_EXEC systemctl --user show "$UNIT" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "0")
+echo "  pre-dispatch NRestarts: $NRESTARTS_PRE_DISPATCH (diagnostic only — the exit-42 handoff legitimately adds 1)"
 
 # ─────────────────────────────────────────────────────────────────────────
-# Phase 4 — wait for the stall + hold for STALL_HOLD_S
+# Phase 7 — wake the service via NOTIFY; wait for the row to be claimed
+#
+# upgrade_notify_daemon_trigger fires AFTER UPDATE only — a fresh
+# INSERT does not NOTIFY, and the poll ticker defaults to 6h. ./sb
+# upgrade apply sends NOTIFY upgrade_apply regardless; the service's
+# handleNotification → executeScheduled claims the row.
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
-echo "── waiting for migration stall to be active ──"
-# UNMASK (set +e fence): without it, wait_for_inject_stall_ready's timeout (rc=1)
-# propagates through the `| tee | tail` pipeline under `set -euo pipefail` and the
-# ERR trap fires "harness failure: rc=1 at tail -1" BEFORE the diagnostic block
-# below — hiding the install-c12 exit code + log tail that explain the real cause.
+echo "── waking service via NOTIFY (./sb upgrade apply $SHORT_SHA) ──"
+VM_EXEC bash -c "cd ~/statbus && ./sb upgrade apply $SHORT_SHA 2>&1 | tail -5 || true"
+echo "  ✓ NOTIFY sent"
+
+echo ""
+echo "── waiting for upgrade row to transition to 'in_progress' ──"
+START_TS=$(date +%s)
+while true; do
+    elapsed=$(( $(date +%s) - START_TS ))
+    if [ "$elapsed" -ge 180 ]; then
+        echo "✗ unit did not transition row to in_progress within 180s after NOTIFY" >&2
+        VM_EXEC bash -c "cd ~/statbus && echo \"SELECT id, state, started_at FROM public.upgrade WHERE commit_sha = '$HEAD_LOCAL';\" | ./sb psql" >&2 || true
+        VM_EXEC bash -c "systemctl --user status $UNIT --no-pager -l 2>&1 | head -30" >&2 || true
+        exit 1
+    fi
+    STATE=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '$HEAD_LOCAL';\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?")
+    if [ "$STATE" = "in_progress" ]; then
+        echo "  ✓ upgrade row in_progress (t+${elapsed}s) — unit is inside executeUpgrade"
+        break
+    fi
+    sleep 5
+done
+
+# ─────────────────────────────────────────────────────────────────────────
+# Phase 8 — wait for the stall at the post-swap boot's boot-migrate
+#
+# Between in_progress and the stall: preswap backup → checkout →
+# binary procurement → exit-42 → fresh boot (EnsureDBUp → connect →
+# READY=1) → boot-migrate spawns `sb migrate up` → StallHere parks it
+# (pre-psql — kills during the hold leave no in-container orphans).
+# ─────────────────────────────────────────────────────────────────────────
+echo ""
+echo "── waiting for the boot-migrate stall (post-swap boot) ──"
 set +e
 MIGRATE_PID=$(wait_for_inject_stall_ready "$VM_NAME" "$RELEASE_FILE" 300 | tee /dev/stderr | tail -1)
 set -e
 if [ -z "$MIGRATE_PID" ]; then
     echo "✗ stall never activated within 5 min" >&2
-    echo "  install-c12 exit code (if any): $(ssh "${SSH_OPTS[@]}" root@"$ip" "cat /tmp/install-c12.exit 2>/dev/null" || echo '(not exited yet)')"
-    echo "  last 20 lines of /tmp/install-c12.log:"
-    ssh "${SSH_OPTS[@]}" root@"$ip" "tail -20 /tmp/install-c12.log 2>/dev/null" || true
+    echo "  upgrade row state: $(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '$HEAD_LOCAL';\" | ./sb psql -t -A" 2>/dev/null || echo '?')" >&2
+    VM_EXEC bash -c "systemctl --user status $UNIT --no-pager -l 2>&1 | head -30" >&2 || true
+    VM_EXEC bash -c "journalctl --user -u $UNIT --no-pager -n 40" >&2 || true
     exit 1
 fi
-echo "  migrate subprocess PID=$MIGRATE_PID — holding for ${STALL_HOLD_S}s (> WatchdogSec=120s)"
+echo "  migrate subprocess PID=$MIGRATE_PID parked in StallHere"
 
-# This is the load-bearing wait. While we hold, the parent upgrade-
-# service's migrate ticker is firing WATCHDOG=1 every 30s. If the fix
-# is regressed (e.g. someone reverts e6df084b7), the watchdog deadline
-# expires at the 120s mark and systemd kills + restarts the unit.
-# After STALL_HOLD_S we check NRestarts: if it grew, Race B regressed.
+# LOAD-BEARING site check: the flag must be Phase=post_swap while the
+# stall holds — proving the stalled migrate is the POST-SWAP BOOT's
+# boot-migrate (pre-recoverFromFlag), i.e. the STATBUS-012 site, not
+# some other migrate invocation. If this fails the scenario is not
+# testing what it claims — fail loud, do not proceed.
+FLAG_CONTENT=$(VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-in-progress.json 2>/dev/null" 2>/dev/null || echo "")
+if ! echo "$FLAG_CONTENT" | grep -qi "post_swap"; then
+    echo "✗ stall is active but the upgrade flag is not Phase=post_swap — wrong site" >&2
+    echo "  flag content: $FLAG_CONTENT" >&2
+    exit 1
+fi
+echo "  ✓ flag is post_swap during the stall — this IS the post-swap boot's boot-migrate"
+
+# ─────────────────────────────────────────────────────────────────────────
+# Phase 9 — post-stall baseline, then hold past WatchdogSec
+# ─────────────────────────────────────────────────────────────────────────
+NRESTARTS_STALL=$(VM_EXEC systemctl --user show "$UNIT" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "0")
+echo ""
+echo "── post-stall NRestarts baseline: $NRESTARTS_STALL — holding ${STALL_HOLD_S}s (> WatchdogSec=120s) ──"
+# During this hold the service main goroutine is parked in
+# runCommandToLog waiting on the stalled migrate child. The
+# STATBUS-012 fix's always-ping ticker must emit WATCHDOG=1 every 30s
+# for the unit to survive. Without it: SIGABRT at ~READY+120s,
+# Restart=always re-boots, the stall re-arms, NRestarts climbs.
 sleep "$STALL_HOLD_S"
 
 # ─────────────────────────────────────────────────────────────────────────
-# Phase 5 — release the stall + wait for install to complete
+# Phase 10 — LOAD-BEARING: no watchdog kill during the stall
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
-echo "── removing release file; migration should proceed ──"
+echo "── STATBUS-012 regression check (LOAD-BEARING) ──"
+NRESTARTS_AFTER_HOLD=$(VM_EXEC systemctl --user show "$UNIT" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
+UNIT_RESULT=$(VM_EXEC systemctl --user show "$UNIT" --property=Result --value 2>/dev/null | tr -d ' \r\n' || echo "?")
+RESTART_DELTA=$((NRESTARTS_AFTER_HOLD - NRESTARTS_STALL))
+echo "  NRestarts: post-stall=$NRESTARTS_STALL after-hold=$NRESTARTS_AFTER_HOLD delta=$RESTART_DELTA"
+echo "  unit Result: $UNIT_RESULT"
+
+if [ "$RESTART_DELTA" -gt 0 ] || [ "$UNIT_RESULT" = "watchdog" ]; then
+    echo "✗ watchdog killed the unit during the boot-migrate stall — STATBUS-012 gap is live" >&2
+    echo "  boot-migrate ran >WatchdogSec(120s) with no WATCHDOG=1 source: the idle heartbeat" >&2
+    echo "  ticker does not exist yet at service.go:1644 and no always-ping ticker covers the" >&2
+    echo "  migrate subprocess. Expected fix: runGatedWatchdogTicker(nil progress) around" >&2
+    echo "  boot-migrate-up + shared 30-min migrate timeout (doc-005)." >&2
+    echo "" >&2
+    echo "  watchdog evidence from the journal:" >&2
+    VM_EXEC bash -c "journalctl --user -u $UNIT --no-pager -n 200 2>/dev/null | grep -iE 'watchdog|SIGABRT|Failed with result' | tail -10" >&2 || true
+    echo "  flag state:" >&2
+    VM_EXEC bash -c "cat ~/statbus/tmp/upgrade-in-progress.json 2>/dev/null" >&2 || true
+    echo "  upgrade row:" >&2
+    VM_EXEC bash -c "cd ~/statbus && echo \"SELECT id, state, error FROM public.upgrade WHERE commit_sha = '$HEAD_LOCAL';\" | ./sb psql" >&2 || true
+    exit 1
+fi
+echo "  ✓ no watchdog kill across ${STALL_HOLD_S}s stall — boot-migrate watchdog cover holds"
+
+# ─────────────────────────────────────────────────────────────────────────
+# Phase 11 — release the stall; upgrade must run to completion
+#
+# boot-migrate finishes the delta (incl. the synthetic migration) →
+# recoverFromFlag → resumePostSwap → applyPostSwap (its migrate is a
+# no-op — boot-migrate already brought the schema to HEAD) → completed.
+# ─────────────────────────────────────────────────────────────────────────
+echo ""
+echo "── removing release file; migration should proceed to completion ──"
 remove_release_file_in_vm "$VM_NAME" "$RELEASE_FILE"
 
-# Poll for the install tmux session to exit.
-echo "  waiting for install to complete (budget remaining ~${INSTALL_BUDGET_S}s) ..."
-elapsed=0
-poll_s=10
-max_iter=$(( (INSTALL_BUDGET_S - STALL_HOLD_S) / poll_s ))
-INSTALL_EXIT=""
-for ((i=0; i<max_iter; i++)); do
-    if ssh "${SSH_OPTS[@]}" root@"$ip" "test -f /tmp/install-c12.exit" 2>/dev/null; then
-        INSTALL_EXIT=$(ssh "${SSH_OPTS[@]}" root@"$ip" "cat /tmp/install-c12.exit" 2>/dev/null | tr -d ' \n')
-        break
+START_TS=$(date +%s)
+FINAL_STATE=""
+while true; do
+    elapsed=$(( $(date +%s) - START_TS ))
+    if [ "$elapsed" -ge "$UPGRADE_BUDGET_S" ]; then
+        echo "✗ upgrade did not reach terminal state within ${UPGRADE_BUDGET_S}s after release" >&2
+        VM_EXEC bash -c "cd ~/statbus && echo \"SELECT id, state, error FROM public.upgrade WHERE commit_sha = '$HEAD_LOCAL';\" | ./sb psql" >&2 || true
+        VM_EXEC bash -c "journalctl --user -u $UNIT --no-pager -n 40" >&2 || true
+        exit 1
     fi
-    sleep "$poll_s"
-    elapsed=$((elapsed + poll_s))
+    STATE=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '$HEAD_LOCAL';\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?")
+    case "$STATE" in
+        completed|failed|rolled_back)
+            FINAL_STATE="$STATE"
+            echo "  ✓ upgrade reached state='$STATE' (t+${elapsed}s after release)"
+            break
+            ;;
+    esac
+    sleep 5
 done
 
-if [ -z "$INSTALL_EXIT" ]; then
-    echo "  ✗ install did not complete within budget; tail of log:"
-    ssh "${SSH_OPTS[@]}" root@"$ip" "tail -30 /tmp/install-c12.log" 2>/dev/null || true
+if [ "$FINAL_STATE" != "completed" ]; then
+    echo "✗ expected state='completed' after releasing the stall, got '$FINAL_STATE'" >&2
+    VM_EXEC bash -c "cd ~/statbus && echo \"SELECT id, state, error FROM public.upgrade WHERE commit_sha = '$HEAD_LOCAL';\" | ./sb psql" >&2 || true
     exit 1
 fi
-echo "  install exited: $INSTALL_EXIT"
 
 # ─────────────────────────────────────────────────────────────────────────
-# Phase 6 — assertions
-#
-# Load-bearing: NRestarts MUST NOT have grown by more than 2 during
-# the stall window. The "≤ 2" headroom tolerates legitimate restarts
-# that aren't the regression we're testing (e.g. systemd unit being
-# enabled mid-install). The regression we're catching is the
-# "hundreds of restarts" pathology operator observed on dev (111).
+# Phase 12 — assertions
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
-echo "── Race B regression check (load-bearing) ──"
+echo "── final assertions ──"
 
-NRESTARTS_AFTER=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
-RESTART_DELTA=$((NRESTARTS_AFTER - NRESTARTS_BASELINE))
-echo "  NRestarts: baseline=$NRESTARTS_BASELINE after=$NRESTARTS_AFTER delta=$RESTART_DELTA"
-
-if [ "$RESTART_DELTA" -gt 2 ]; then
-    echo "  ✗ NRestarts grew by $RESTART_DELTA during stall — Race B REGRESSED"
-    echo "    The applyPostSwap migrate ticker is not keeping the watchdog alive."
-    echo "    Check whether the ticker still sends sdNotify(\"WATCHDOG=1\") (commit e6df084b7)."
-    exit 1
-fi
-echo "  ✓ NRestarts within tolerance — Race B fix holds"
-
-# Data integrity — the stall shouldn't have touched user data.
+# Data integrity — the stall + completion must not touch user data.
 assert_demo_data_present "$VM_NAME"
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
 
-# Install reached a terminal state — health check passes.
-assert_health_passes "$VM_NAME"
-
-# Coherence checks.
+# Coherence.
 assert_flag_file_absent "$VM_NAME"
 assert_no_orphan_backup "$VM_NAME"
-assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 2
+# Whole-scenario restart bound: exactly 1 legitimate restart (the
+# exit-42 handoff); tolerance 2 leaves headroom for a transient.
+assert_systemd_restart_counter_bounded "$VM_NAME" "$UNIT" 2
+
+assert_health_passes "$VM_NAME"
 
 echo ""
-echo "PASS: 3-postswap-migration-timeout (WATCHDOG=1 ticker kept the unit alive across ${STALL_HOLD_S}s stall)"
+echo "PASS: 3-postswap-migration-timeout (boot-migrate survived a ${STALL_HOLD_S}s stalled migration under WatchdogSec=120s — STATBUS-012 cover holds)"
