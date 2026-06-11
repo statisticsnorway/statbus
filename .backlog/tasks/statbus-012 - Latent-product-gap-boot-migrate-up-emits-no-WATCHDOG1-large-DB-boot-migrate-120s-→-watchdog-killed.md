@@ -3,10 +3,11 @@ id: STATBUS-012
 title: >-
   Latent product gap: boot-migrate-up emits no WATCHDOG=1 (large-DB boot-migrate
   >120s → watchdog-killed)
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@architect'
 created_date: '2026-06-07 23:57'
-updated_date: '2026-06-11 08:23'
+updated_date: '2026-06-11 08:35'
 labels:
   - upgrade
   - recovery
@@ -40,4 +41,6 @@ Relevant for large external/standalone DBs (the upgrade-hardening-for-external-c
 
 <!-- SECTION:NOTES:BEGIN -->
 CONFIRMED PRODUCT GAP — foreman trace 2026-06-11 — promoted MEDIUM->HIGH. boot-migrate-up at cli/internal/upgrade/service.go:1644 runs './sb migrate up --verbose' with onAdvance=nil + io.Discard, in the active phase but BEFORE recoverFromFlag(:1689)/applyPostSwap. WATCHDOG=1 coverage lives ONLY in the applyPostSwap progress-gated ticker (:3692-3758), which is not running at :1644. While the main goroutine is parked in the migrate subprocess, nothing pings the watchdog (see :3698 'no opportunity to ping WATCHDOG=1 from the main loop'; exec.go:127-141: onAdvance fires per output line, and a SILENT CREATE INDEX emits no lines). ops/statbus-upgrade.service: Type=notify, WatchdogSec=120, Restart=always. => a boot-migrate >120s on a large DB (Norway=32GB) -> systemd kills the unit -> post-017 falls through to rollback -> upgrade never completes. Rune-wedge SIBLING: 017 killed the TimeoutStartSec version of this; :1644 is the WatchdogSec version. Symmetric gap at cli/cmd/install_upgrade.go:199-210. Invisible to the suite: NO scenario tests a slow boot-migrate (why 'zero product bugs' felt true). Comment drift: :1640 claims it 'survives (emits per-migration progress)' but wires no heartbeat hook. OPEN for architect: SEVERITY — do the heavy upgrade migrations run at :1644 or at the protected applyPostSwap site? RIGOR: produce a RED reproducing scenario (slow boot-migrate -> watchdog kill) BEFORE any fix (test-first as discovery). Likely fix: give boot-migrate the same always-ping / server-side-progress coverage applyPostSwap's migrate already has, at BOTH sites. Full trace in engram obs 153.
+
+Dispatched to architect (running as Fable) 2026-06-11 for adversarial verification (refute-first) + severity call + fix-plan design. Recovery code is King-gated: DESIGN ONLY, no product edits. Plan to land under tmp/plans/architect-012-*.md.
 <!-- SECTION:NOTES:END -->
