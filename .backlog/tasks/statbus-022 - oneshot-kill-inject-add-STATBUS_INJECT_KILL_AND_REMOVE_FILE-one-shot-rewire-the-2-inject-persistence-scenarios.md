@@ -3,10 +3,10 @@ id: STATBUS-022
 title: >-
   oneshot-kill-inject: add STATBUS_INJECT_KILL_AND_REMOVE_FILE (one-shot) +
   rewire the 2 inject-persistence scenarios
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-06-10 20:13'
-updated_date: '2026-06-10 20:47'
+updated_date: '2026-06-11 07:49'
 labels:
   - install-recovery
   - harness
@@ -39,3 +39,9 @@ IMPLEMENTED (engineer, 2026-06-10, working tree — foreman sole committer). Par
 
 STRUCTURAL NOTE part 4: code-trace showed the 017 inline recovery + syscall.Exec(os.Args, os.Environ()) re-exec (service.go:3624) means the FIRST install does the WHOLE recovery inline. With the one-shot the first install KILLS ONCE then SELF-HEALS to completed inline — it does NOT leave the pre-017 RED in_progress state. Both scenarios collapsed to a SINGLE self-healing install asserting: arm-file consumed (proves the one kill fired) + row=completed + db.migration max_version advanced past baseline + data intact. The RED-assert + recovery second-install were removed (pre-017 assumption). Headers updated to match.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Committed f27d5fef9 on master. Added one-shot file-armed kill STATBUS_INJECT_KILL_AND_REMOVE_FILE (atomic os.Remove-gates-os.Exit, no stat, no re-kill on a failed remove) to cli/internal/inject/inject.go + inject_test.go subprocess one-shot test; rewired 3-postswap-mid-migration-kill + 3-postswap-between-migrations-kill to a SINGLE self-healing install (arm consumed = exactly one kill; 017 inline recovery re-runs the migrate un-killed → completed) with arm-consumed + FIRST_EXIT==0 + completed + migration-advanced asserts; removed the pre-017 RED-then-second-install. Architect-reviewed PASS (atomic fix + faithfulness code-trace). PROVEN GREEN on real VMs: run 27306718138 — BOTH mid-migration-kill and between-migrations-kill PASS.
+<!-- SECTION:FINAL_SUMMARY:END -->
