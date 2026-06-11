@@ -1,10 +1,10 @@
 ---
 id: STATBUS-002
 title: Push + VM-prove the rollback terminal-write fix (preswap-backup-kill)
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-06-07 11:25'
-updated_date: '2026-06-11 08:24'
+updated_date: '2026-06-11 08:34'
 labels:
   - upgrade
   - rollback
