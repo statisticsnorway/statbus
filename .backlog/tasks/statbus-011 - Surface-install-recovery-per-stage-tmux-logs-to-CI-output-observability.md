@@ -1,11 +1,11 @@
 ---
 id: STATBUS-011
 title: Surface install-recovery per-stage tmux logs to CI output (observability)
-status: In Progress
+status: Done
 assignee:
   - engineer
 created_date: '2026-06-07 23:18'
-updated_date: '2026-06-11 08:24'
+updated_date: '2026-06-11 08:34'
 labels:
   - install-recovery
   - ci
