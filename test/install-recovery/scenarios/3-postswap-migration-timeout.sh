@@ -225,18 +225,25 @@ if [ "$UNIT_STATE" != "active" ]; then
     VM_EXEC bash -c "systemctl --user status $UNIT --no-pager -l 2>&1 | head -20" >&2 || true
     exit 1
 fi
-# Let this boot's migrate settle before planting the synthetic: poll for
-# "no sb-migrate child" stable for 10s (the real delta is small/zero —
-# the seed tracks HEAD's migration level — so this is seconds).
+# Let this boot's migrate settle before planting the synthetic. The real
+# v2026.05.2→HEAD delta IS applied here (the installed seed sits at the
+# INSTALL_VERSION's migration level, run-5 journal evidence) — budget
+# 300s. The pgrep pattern uses the [/] bracket trick: run-5's poll
+# matched its OWN ssh/sudo wrapper (whose cmdline contains the literal
+# pattern) and never settled; '[/]sb migrate up' does not contain the
+# substring it matches, so the wrapper is invisible while the real
+# child (/home/statbus/statbus/sb migrate up) still matches.
 SETTLE_START=$(date +%s)
 STABLE_SINCE=""
 while true; do
     now=$(date +%s)
-    if [ $((now - SETTLE_START)) -ge 120 ]; then
-        echo "✗ boot-migrate of the HEAD-binary restart did not settle within 120s" >&2
+    if [ $((now - SETTLE_START)) -ge 300 ]; then
+        echo "✗ boot-migrate of the HEAD-binary restart did not settle within 300s" >&2
+        VM_EXEC bash -c "pgrep -af '[/]sb migrate up' | head -3" >&2 || true
+        VM_EXEC bash -c "journalctl --user -u $UNIT --no-pager -n 20 2>/dev/null | grep -E 'applying|migrations' | tail -5" >&2 || true
         exit 1
     fi
-    MIG=$(VM_EXEC bash -c "pgrep -f '/sb migrate up' 2>/dev/null | head -1" 2>/dev/null | tr -d ' \r\n' || echo "")
+    MIG=$(VM_EXEC bash -c "pgrep -f '[/]sb migrate up' 2>/dev/null | head -1" 2>/dev/null | tr -d ' \r\n' || echo "")
     if [ -z "$MIG" ]; then
         if [ -z "$STABLE_SINCE" ]; then STABLE_SINCE=$now; fi
         if [ $((now - STABLE_SINCE)) -ge 10 ]; then break; fi
