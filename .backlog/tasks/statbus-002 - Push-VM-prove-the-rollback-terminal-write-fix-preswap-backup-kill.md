@@ -4,7 +4,7 @@ title: Push + VM-prove the rollback terminal-write fix (preswap-backup-kill)
 status: In Progress
 assignee: []
 created_date: '2026-06-07 11:25'
-updated_date: '2026-06-11 08:23'
+updated_date: '2026-06-11 08:24'
 labels:
   - upgrade
   - rollback
@@ -28,9 +28,11 @@ Note: pushing is gated on an explicit go-ahead.
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The two fix commits (e32782a33, 0575405f4) are pushed and CI has rebuilt
-- [ ] #2 The preswap-backup-kill install-recovery scenario passes green on a Hetzner VM
+- [x] #1 The two fix commits (e32782a33, 0575405f4) are pushed and CI has rebuilt
+- [x] #2 The preswap-backup-kill install-recovery scenario passes green on a Hetzner VM
 <!-- AC:END -->
+
+
 
 ## Implementation Notes
 
