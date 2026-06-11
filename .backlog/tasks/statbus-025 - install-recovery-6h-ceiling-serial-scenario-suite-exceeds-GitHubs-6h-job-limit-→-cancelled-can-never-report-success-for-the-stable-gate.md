@@ -6,12 +6,17 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-11 03:17'
+updated_date: '2026-06-11 15:43'
 labels:
   - install-recovery
   - ci
   - harness
   - blocker-stable
 dependencies: []
+documentation:
+  - >-
+    doc-007 -
+    Roadmap-completing-install-upgrade-robustness-—-Norway-rollout-then-external-standalone.md
 priority: high
 ordinal: 25000
 ---
@@ -29,3 +34,9 @@ FIX OPTIONS (architect/engineer to design): (a) MATRIX — fan the scenarios acr
 
 NOTE: tonight's run still validated most fixes before the cancel — see tmp/operator-comprehensive-27306718138.md. This ticket is about the GATE MECHANISM, separate from any individual scenario red.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+ROADMAP DESIGN (architect, 2026-06-11, doc-007 Track B1 — first in line on the stable critical path): MATRIX (option a), grounded in the current yaml (which anticipates it at :23). Shape: discover job enumerates scenarios/*.sh → JSON + builds sb ONCE (artifact, keep the one-build property); matrix job per scenario (download artifact, one VM, one scenario, per-scenario log artifact), max-parallel ~8 (checklist: confirm Hetzner project server quota ≥ max-parallel + any production VMs), per-job timeout-minutes ~45. THE ONE TRAP: the current always() reap deletes EVERY statbus-recovery-* VM (yaml:219-227) — inside a parallel matrix that kills sibling jobs' live VMs; per-job reap must scope to the job's own VM name, the global sweep moves to a final needs:[matrix] if:always() cleanup job. Stamps: run.sh's all-scenarios stamp (:174-178) never fires under per-scenario selectors — CI needs no stamp (gate reads the workflow conclusion: CheckWorkflowAtCommit/workflow_check.go:81 = AND of matrix jobs, zero release.go edits); keep the local full-run stamp + fold in the agreed per-scenario stamp design so the local pre-push observe-evidence hook stays meaningful. Wall-clock ≈ ceil(30/8)×~15min ≈ ~60min (vs 6h+); cost unchanged ~€0.22/run (1-hour VM minimum per scenario already). Note: rc.01's tag-push run hitting the 6h cancel is the live exhibit of this problem — expected, not a regression.
+<!-- SECTION:NOTES:END -->
