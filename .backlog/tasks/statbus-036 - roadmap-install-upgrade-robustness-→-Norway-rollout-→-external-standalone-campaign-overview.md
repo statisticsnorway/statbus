@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-12 07:59'
-updated_date: '2026-06-12 08:07'
+updated_date: '2026-06-12 09:05'
 labels:
   - roadmap
   - install-recovery
@@ -78,9 +78,11 @@ DONE = `./sb release stable` exits green with zero SKIP_* bypasses; the stable t
 <!-- SECTION:NOTES:BEGIN -->
 DECISIONS/CLARIFICATIONS LOG
 
-B5 vs 034 — procurement-path distinction (foreman-verified 2026-06-12, service.go:3610). The architect FYI'd that B5 (tag→tag procurement scenario) is "superseded by 034"; verified false. The procurement dispatch branches on the target shape: `if ValidateVersion(displayName)` → replaceBinaryOnDisk (TAG path — FetchManifest downloads the pre-built release-manifest binary + SHA256 verify, service.go:5040); `else` → buildBinaryOnDisk (COMMIT path — build-on-box or pre-staged skip, service.go:5119; 034 adds commit-addressed download-before-build here). 034's fail-channel targets are branch COMMITS (doc-010 killed the tag model), so 034 only ever exercises the COMMIT branch — the tag-manifest path (replaceBinaryOnDisk + FetchManifest) stays at ZERO scenario coverage after 034. So B5 is COMPLEMENTARY to 034, not superseded; it remains a live, distinct call in Track B.
+B5 vs 034 — procurement-path distinction (foreman-verified 2026-06-12, service.go:3605-3616). The architect FYI'd that B5 (tag→tag procurement scenario) is "superseded by 034"; verified false. The procurement dispatch branches on target shape: `if ValidateVersion(displayName)` → replaceBinaryOnDisk (TAG path — FetchManifest downloads the pre-built release-manifest binary + SHA256 verify, service.go:5040); `else` → buildBinaryOnDisk (COMMIT path — build-on-box or pre-staged skip, service.go:5119; 034 adds commit-addressed download-before-build here). 034's fail-channel targets are branch COMMITS (doc-010 killed the tag model), so 034 only ever exercises the COMMIT branch — the tag-manifest path stays at ZERO scenario coverage after 034. So B5 is COMPLEMENTARY to 034, not superseded; it stays a live, distinct call in Track B.
 
-OPEN (architect to pin down): whether Norway's unattended production upgrade targets a stable-channel TAG (→ replaceBinaryOnDisk, B5's path) or a deploy-branch COMMIT (→ buildBinaryOnDisk, 034's path). Track C says "on the stable channel" (tags); the master-to-X deploy mechanism force-pushes commits. If tags → B5 covers the single most important untested procurement path; if commits → 034 covers it and B5 is lower-priority completeness.
+RESOLVED (architect-pinned 2026-06-12; double-confirmed by rune's live config): Norway's unattended production upgrade rides the TAG path. apply-latest resolves the target from the box's UPGRADE_CHANNEL (cli/cmd/upgrade.go:250-339), ignoring the pushed branch: stable/prerelease → latest matching TAG → ValidateVersion TRUE → replaceBinaryOnDisk (B5's path); edge → master commit → buildBinaryOnDisk (034's path). rune is UPGRADE_CHANNEL=prerelease (confirmed via SSH 2026-06-12) → tag path. So B5 covers the single most important untested procurement path for Norway; right slot = green before the Norway-stable cut. 034's commit-addressed download serves the OTHER (edge/commit) branch — complementary.
 
-doc-007 open-questions reconciliation (per architect, 2026-06-12): Q1 (031 gates the stable/Norway promotion) SETTLED — reflected above. Q4 (B5 file-now) — NOT superseded (see above); stays live. Live King calls remaining: 015 (confirm-the-Resuming-latch-contract) + 014 (redesign-to-reach-archiveBackup) + B5 (file-now).
+GATE-BATCH COUPLING — 031 + stale-backup guard ship TOGETHER (architect, 2026-06-12, from the rune wedge / STATBUS-039). 031 (rollback watchdog cover) is in the gate-maker batch but MUST NOT land alone: its ticker lets a slow restore COMPLETE, which for a STALE backup (older than live data) converts HEAD's detectable mid-rsync crash into a SILENT complete data loss (green rolled_back row). The stale-backup guard at rollback() (part of STATBUS-039's design surface) is a PRECONDITION of 031, not an extension. The gate batch carries 031 + the guard as a unit. Recorded on STATBUS-031.
+
+doc-007 open-questions reconciliation: Q1 (031 gates stable/Norway) SETTLED. Q4 (B5 file-now) NOT superseded — stays live. Live King calls: 015 (confirm-the-Resuming-latch-contract) + 014 (redesign-to-reach-archiveBackup) + B5 (file-now).
 <!-- SECTION:NOTES:END -->
