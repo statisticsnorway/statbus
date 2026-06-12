@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-11 13:39'
-updated_date: '2026-06-12 09:04'
+updated_date: '2026-06-12 13:15'
 labels:
   - upgrade
   - recovery
@@ -51,7 +51,7 @@ ALSO CLEARED BY THE SWEEP (no work, recorded for honesty): every other step from
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Design + sweep ledger deep-reference: STATBUS-036 (the campaign roadmap, Track A1/A2 — doc-007 was folded into it); this ticket is self-sufficient. Status: awaiting King ratification of the fix design, then RED→fix→GREEN per the 012 protocol.
+Design + sweep ledger deep-reference: STATBUS-036 (campaign roadmap, Track A1/A2). Self-sufficient. Status: 031's remaining work = the always-ping watchdog ticker wrapping rollback() (the 012 pattern); awaiting King ratification, then RED→fix→GREEN.
 
-⚠️ CRITICAL COUPLING — 031 MUST NOT LAND WITHOUT THE STALE-BACKUP GUARD (architect, 2026-06-12, from the rune wedge → STATBUS-039). 031's always-ping ticker lets a slow restore COMPLETE instead of dying mid-rsync. For a CURRENT backup that is exactly the goal. But if the backup is STALE (older than live data — e.g. rune's May-25 backup vs ~2.5 weeks of live data): HEAD-as-is kills the uncovered restore mid-rsync = a DETECTABLE corrupted volume; 031's ticker ALONE would let the stale restore COMPLETE = a CONFIDENT, silent ~2.5-week data loss with a green rolled_back row. So the stale-backup guard at rollback() (refuse to restore a backup older than live data) is a PRECONDITION of 031's cover, not an extension. SEQUENCING: 031 ships TOGETHER with the stale-backup guard (designed under STATBUS-039); it must not be merged/deployed alone. The gate-batch (STATBUS-036) reflects this coupling.
+COUPLING — REFRAMED + GUARD SHIPPED (King correction 2026-06-12, post-039-commit). The original note framed this as "without 031's guard, rune suffers a silent ~2.5-week data loss." The King refuted that premise: a wedged box locks browser users out via the app's upgrade guard, so rune accumulated ZERO domain writes in 18 days — an unusable installation, not data loss. The REAL justification for the identity guard (verified in-repo): the restore path's pickLatestBackup restored the LATEST backup, not the recovered upgrade's OWN snapshot, during the aside-rename window — a genuine silent-wrong-restore for any box that DOES have data, completing silently under install today. STATBUS-039 (commit 5eacd6305) SHIPPED the fix: identity-keyed restore (consume only flag.BackupPath / row.backup_path; empty→refuse, missing→fail-loud; pickLatestBackup deleted). The guard precondition is now MET. 031's watchdog ticker can land safely on top — with identity-keying in, every restore is the upgrade's own snapshot, so a watchdog-covered (completing) restore is correct, never a silent-loss amplifier. 031 is no longer blocked by the guard.
 <!-- SECTION:NOTES:END -->
