@@ -7,6 +7,7 @@ status: To Do
 assignee:
   - architect
 created_date: '2026-06-12 22:15'
+updated_date: '2026-06-12 22:21'
 labels:
   - install-recovery
   - upgrade
@@ -75,3 +76,17 @@ RELATION: resolves the loudness fork that STATBUS-044 is holding on; builds on S
 - [ ] #3 Both diagrams updated in the SAME commit as the shipped handling — every failure case visible with its decided handling
 - [ ] #4 STATBUS-044's held scenario rewritten against the decided behavior and green
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+REFINEMENT (King review, 2026-06-13 — supersedes the description's class mechanics; .C and .D's budget-counting accepted as described):
+
+.A — READINESS IS TIME-BOUNDED IN PLACE, NOT ATTEMPT-COUNTED. A retry budget was the wrong unit for waiting: each crash-retry re-pays the whole pipeline to reach the same wait. Class A gets a generous, NAMED, per-step time allowance sized to the worst legitimate case, size-scaled where the wait scales with data (DB crash-recovery WAL replay on a Norway-sized volume = many minutes; precedent: the size-scaled MigrateUpTimeout, STATBUS-012). The wait happens IN PLACE within the attempt.
+
+.B — UNIFICATION: ALLOWANCE-PER-CASE, ZERO MEANS DETERMINISTIC. Classification is never by error text alone — it is (step, error, context) → a named allowance. The registry-404 example proves it: during publication (CI still uploading) it is a publication wait (allowance ≈ the upload process's honest worst case, minutes; precedent: markImagesFailed's manifest-timeout grace window in discovery); on an at-target RESUME the image demonstrably existed (containers run it) → no wait helps, external re-publish required → allowance ZERO. General form: "never gets ready" ≡ allowance = 0 (template/SQL/constraint errors are zero-allowance). ONE uniform mechanism everywhere: every failure mode carries a named allowance derived from its cause; ALLOWANCE EXPIRY → PARK, reason naming what was waited for and how long. The four classes become the derivation table for one number per case, not four mechanisms.
+
+.D — THE NEXT ACTION AFTER A CRASH, in order: (1) systemd restarts the service (it has normal duties). (2) Boot recovery: row + flag → ground truth at-target → consult the attempt counter (incremented at attempt START — the crash self-counted). (3) Budget remaining → exactly ONE more forward attempt. Budget proposal: 3, sharpened: the flag records WHICH STEP the attempt died at; two consecutive deaths at the SAME step → park immediately (same-step-twice = deterministic-hang evidence = zero allowance per .B); different steps / reboot = environmental → remaining budget applies. (4) Budget exhausted → PARK: row in_progress + marker + attempt history + dying step; siren fires ONCE with that named story; service returns to its normal loop alive-idle. (5) After park the next action is a HUMAN's, via the product's two actions only — re-trigger or ./sb install — each deliberate trigger buys exactly ONE fresh attempt; the machine never resumes hammering on its own.
+
+RATIFICATION REMAINING: the per-step allowance TABLE (each pipeline step × its failure modes × the derived allowance — the diagram rows), the D budget number (3) + same-step-twice rule, and the park marker columns. Implementation note: the flag already carries per-attempt state across restarts (Phase, BackupPath) — the dying-step record and attempt counter extend the same persisted-flag pattern; the row mirror (recovery_attempts, recovery_parked_at) serves install/UI/queries.
+<!-- SECTION:NOTES:END -->
