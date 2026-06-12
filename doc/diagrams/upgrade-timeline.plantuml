@@ -158,12 +158,17 @@ note over systemd, service
 end note
 note over service, db #FFF9C4
   TEST COVERAGE — phase dispatch + post-swap resume
-  TEST 3-postswap-resume-died-rollback — EXPECTATION NEEDS UPDATING (STATBUS-039): the
-    pre-039 assertion (death during Resuming => always rolled_back) no longer holds. Post-039
-    the Resuming branch is ground-truth-gated: an AT-TARGET fabrication resumes FORWARD
-    (row converges to completed); only a POSITIVELY-BEHIND fabrication rolls back
-    (UPGRADE_DIED_DURING_RESUME, own snapshot). Update the scenario to fabricate + assert
-    per verdict BEFORE the next battery run.
+  TEST 3-postswap-resume-died-rollback — ON HOLD, EXPECTATION OBSOLETE (STATBUS-039/-044):
+    the pre-039 assertion (death during Resuming => always rolled_back, bounded NRestarts)
+    no longer holds. Post-039 behavior is a four-case verdict matrix: (0) at-target +
+    containers already at flag target => immediate canary self-heal => completed (the rune
+    shape — covered by the rune-wedge scenario); (1) at-target + TRANSIENT failure =>
+    forward retry succeeds => completed; (2) at-target + PERSISTENT failure (this
+    scenario's pinned-kill shape) => loops forward BY DESIGN, row stays in_progress +
+    loud, NO rollback — what to assert awaits the King's loudness decision (observability
+    escalation after N forward failures vs loop-loud-forever; direction never changes);
+    (3) positively-behind => one-shot rollback to the upgrade's OWN snapshot
+    (UPGRADE_DIED_DURING_RESUME). Rewrite per STATBUS-044 AFTER loudness is settled.
   GREEN: 3-postswap-mid-migration-kill / 3-postswap-mid-tx-kill / 3-postswap-between-migrations-kill /
     3-postswap-migrate-killed-after-commit / 3-postswap-migration-deterministic-error (the last two
     GREEN since the STATBUS-017 fix landed — see cells (2)/(e)).
