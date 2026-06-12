@@ -25,14 +25,20 @@ scheduled --> in_progress : service claims\n(started_at set)
 scheduled --> superseded : newer release supersedes
 
 in_progress --> completed : all steps OK\n(completed_at set, error NULL)
-in_progress --> rolled_back : step fail/hang →\nsnapshot restored\n(rolled_back_at + error)
-in_progress --> failed : step fail/hang AND\nrestore also failed\n(error, no rolled_back_at)
+in_progress --> in_progress : fail/death, ground truth\nAT-TARGET or UNVERIFIABLE →\nFORWARD retry next pass\n(error stamped non-terminally)
+in_progress --> rolled_back : fail/death, ground truth\nPOSITIVELY BEHIND →\nown snapshot restored\n(rolled_back_at + error)
+in_progress --> failed : behind AND restore failed\n(or recorded snapshot missing —\nnever substitute another backup)\n(error, no rolled_back_at)
 
 note right of in_progress
-  Fail-fast: one attempt, NO retry.
-  The one planned binary-swap restart resumes the
-  same attempt; any other mid-upgrade restart is
-  treated as died → roll back to the snapshot.
+  Ground truth decides direction (STATBUS-039):
+  binary at-or-descendant of target + migrations
+  at-or-past on-disk max ⇒ FORWARD, always — a died
+  attempt is not impossibility; never restore an
+  at-target box (post-commit-point writes may exist).
+  Only a POSITIVELY-BEHIND verdict restores, and the
+  restore is identity-keyed: ONLY this upgrade's own
+  recorded snapshot (flag.BackupPath / backup_path),
+  serialized on the upgrade flock.
 end note
 
 rolled_back --> dismissed : operator acknowledges

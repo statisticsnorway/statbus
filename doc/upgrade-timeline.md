@@ -216,7 +216,7 @@ A `—` marks a real, reachable state with **no dedicated scenario** (a coverage
 | # | State | Probe signal | Dispatch | Proven by |
 |---|---|---|---|---|
 | 1 | `StateFresh` | no `.env.config` | step-table (set up a clean install) | `0-happy-install` |
-| 2 | `StateLiveUpgrade` | flag present, holder PID alive | refuse with diagnostic — point at `journalctl` | `1-boot-concurrent-install` |
+| 2 | `StateLiveUpgrade` | flag present, flock held | crash-looping unit (`NRestarts ≥ 3`) → SIGKILL-class takeover, treat as state 3 (STATBUS-039); genuinely progressing → refuse with diagnostic — point at `journalctl` | `1-boot-concurrent-install` |
 | 3 | `StateCrashedUpgrade` | flag present, holder PID dead | `RecoverFromFlag` → re-`Detect` → re-dispatch | `1-boot-flag-stale-handoff`, `08` (next-install recovery) |
 | 4 | `StateHalfConfigured` | `.env.config` present, `.env.credentials` missing | step-table | — (gap) |
 | 5 | `StateDBUnreachable` | creds present, DB not reachable | step-table (brings services up) | — (gap) |
@@ -364,7 +364,13 @@ mutually exclusive within a single `./sb install` run: either `acquireOrBypass` 
 
 `./sb install` first runs `install.Detect` (the ladder above). Dispatch then branches:
 
-- **StateLiveUpgrade** (flag present, PID alive) → refuse without touching state; point at
+- **StateLiveUpgrade** (flag present, flock held) → two arms (STATBUS-039):
+  a **crash-looping** unit (`NRestarts ≥ 3` — a healthy upgrade restarts once by design,
+  the exit-42 handoff) is **taken over**: reclassified as crashed-upgrade and quiesced
+  SIGKILL-class (`mask --runtime` → `kill -s SIGKILL` → verify dead → `stop` → `unmask`;
+  never SIGTERM — an in-flight upgrade answers TERM with a rollback). A
+  **genuinely-progressing** upgrade (low restart count, or any probe failure —
+  conservative) keeps the refusal: wait, or watch
   `journalctl --user -u 'statbus-upgrade@*' -f`.
 - **StateCrashedUpgrade** (flag present, PID dead) → call `RecoverFromFlag` directly (no
   install-flag acquire), then re-`Detect` and re-dispatch. Recovery reads `Holder`:
@@ -453,57 +459,87 @@ crashed-upgrade dispatch (state 3). It reconciles any flag on disk:
 3. **Flag present, PID dead, `Holder="install"`** → install crashed; there is no
    `public.upgrade` row to reconcile. Remove the flag.
 4. **Flag present, PID dead, `Holder="service"`** (or empty legacy) → the service died
-   mid-upgrade. The discriminator is the flag's **`Phase`** field — a monotonic ladder, each
-   rung consumed exactly once — **not** a git-HEAD comparison:
+   mid-upgrade. The discriminator is the flag's **`Phase`** field — a monotonic ladder —
+   **with ground truth deciding direction before anything destructive** (STATBUS-039, the
+   transactional model: *forward when logically possible; a died attempt is not
+   impossibility*):
    - **`Phase=PreSwap`** (`""` — the default, written before `replaceBinaryOnDisk`) → the
      attempt died **before** the binary-swap commit boundary. The DB volume is unchanged (the
-     pre-upgrade backup is an rsync *out*; `pickLatestBackup` excludes the in-progress
-     `pre-upgrade-syncing/` dir, so restore no-ops). **Roll back** — mark the row terminal,
-     restart services on the unchanged binary. Never self-heal: a `PreSwap` flag says nothing
-     about whether the commit boundary was reached, so a HEAD-matches-target here would
-     falsely mark `completed`.
+     pre-upgrade backup is an rsync *out*), and the restore is a no-op **by identity**: a
+     PreSwap flag carries an empty `BackupPath` (it is stamped only at the PostSwap
+     transition, after the snapshot's atomic commit-rename), and the identity-keyed
+     `restoreDatabase` refuses to touch the volume when no snapshot was recorded. **Roll
+     back** — mark the row terminal, restart services on the unchanged binary. Never
+     self-heal: a `PreSwap` flag says nothing about whether the commit boundary was reached.
    - **`Phase=PostSwap`** (stamped after `replaceBinaryOnDisk`, before the exit-42 handoff)
-     arriving for the **first** time → the planned restart landed on the new binary. **Stamp
-     `Phase=Resuming`, then resume** the single remaining attempt (`resumePostSwap` →
-     `applyPostSwap`: config gen → pull → db up → health → reconnect → migrate → app up →
-     health → archive). This is the one legitimate continue.
+     → the planned restart landed on the new binary. **Stamp `Phase=Resuming`, then resume**
+     (`resumePostSwap` → `applyPostSwap`: config gen → pull → db up → health → reconnect →
+     migrate → app up → health → archive). This is the legitimate continue.
    - **`Phase=Resuming`** → the resume was already entered and the process died **again**
-     (watchdog SIGABRT on a hung step, OOM, reboot, kill). **Roll back, never re-resume** —
-     restore the snapshot from `flag.BackupPath`, mark the row terminal (`rolled_back`, or
-     `failed` if the restore also fails). This rung is the one-shot latch: it turns a
-     death-during-resume from a retry loop into a single rollback, which is what makes "any
-     non-planned restart while `in_progress` ⇒ died ⇒ rollback" true.
+     (watchdog SIGABRT on a hung step, OOM, reboot, kill). **Ground truth decides** via the
+     tri-state `verifyUpgradeGroundTruthEx` (binary at-or-descendant of the target +
+     migrations at-or-past the on-disk max):
+       - **AtTarget** → resume **forward** again. Rolling back an at-target box is forbidden
+         — past (or at) the maintenance-off commit point, API integrators may have written
+         data the snapshot predates (the app's upgrade guard only gates browsers). Each
+         retry is loud (progress log + journal, the failure stamped non-terminally on the
+         row's `error` column) and heartbeated; an at-target box that keeps failing forward
+         stays `in_progress` and loud — it never destroys state to escape.
+       - **Unknown** (DB unreachable mid-check) → never destroy state under uncertainty:
+         resume forward; the next pass re-checks.
+       - **Behind** (positively verified: binary mismatch, or migrations missing with a
+         reachable DB) → **one-shot rollback** to *this upgrade's own* snapshot
+         (`flag.BackupPath`, identity-keyed), mark the row terminal (`rolled_back`, or
+         `failed` if the restore also fails). Backward exists to regain a runnable state to
+         go forward from when the fix ships.
+   - **Any other `Phase` value** → state-machine drift; fail loud (`FLAG_PHASE_UNKNOWN`),
+     touch nothing.
 
-   `HEAD == flag.CommitSHA` is **not** the recovery discriminator; it is a narrow **self-heal
-   inside the completion path**. When a service-held flag's work genuinely landed — the
-   running binary is at or a descendant of the target (`verifyUpgradeGroundTruth` /
-   `binaryDescendsFlag`, with `git merge-base` errors conservative-false) — but the terminal
-   row UPDATE never persisted (a ghost flag), recovery marks the row `completed` rather than
-   re-running. If ground-truth fails (binary behind target, or migrations lag unrecoverably),
-   it falls through to rollback.
+   `HEAD == flag.CommitSHA` is **not** a recovery discriminator anywhere — the old
+   headSHA-reconcile/self-heal segment inside `recoverFromFlag` was unreachable for every
+   producible flag phase and was **deleted** (STATBUS-039). The legitimate self-heals live
+   where the work can be verified: `resumePostSwap`'s container canary (every
+   version-tracked service already at the flag's target → mark `completed`) and the
+   flagless `completeInProgressUpgrade` (ground-truth-verified → mark `completed`). The
+   binary check is the tri-state `verifyBinaryGroundTruth`: `git merge-base --is-ancestor`
+   exit 0 → at/descendant; exit 1 (both commits resolved, ancestry definitively absent) →
+   **Behind** — the only verdict that licenses a restore; **any other git error** (exit 128
+   on a shallow/pruned clone, spawn failure, timeout) → **Unknown** → forward, never a
+   restore on clone-state evidence. Restores are additionally serialized on the upgrade
+   flock at `recoveryRollback` (a concurrent recovery actor yields instead of racing the
+   rsync), and every flag-file unlink happens while holding the flock it removes.
 
 This runs every time the process starts (including every systemd restart) and must leave
 the server consistent before the main loop ticks.
 
 ### One principled path, two terminal tiers
 
-On any forward failure the restore pipeline runs and the row ends in one of two tiers. The
-operator-facing `error` narrative names the recovery path that actually ran: the after-commit
-wedge (Phase=resuming → the one-shot latch, `service.go:755`) reads `"UPGRADE_DIED_DURING_RESUME:
-… rolled back to the snapshot. NO retry — re-run via ./sb install."`; the forward-recovery-then-
-restore path reads `"forward failed: <err>; auto-restored from <path>"` (or `"forward failed
-without usable backup: <err>"` when no snapshot is stamped). Either way the row ends in one of:
+On a forward failure, **ground truth decides what runs** (STATBUS-039). At-or-past-target
+(and unverifiable) failures never restore: the row stays `in_progress` with the failure
+stamped non-terminally on `error` (`"forward step failed: <err>; ground truth <verdict> —
+no rollback, will resume forward on the next recovery pass"`), and the next pass — systemd
+restart or `./sb install` — retries forward. Only a **positively-behind** verdict runs the
+restore pipeline, and then the row ends in one of two tiers. The operator-facing `error`
+narrative names the path that ran: a death during resume with a behind verdict reads
+`"UPGRADE_DIED_DURING_RESUME: … ground truth is behind target (<reason>); rolled back to
+this upgrade's own snapshot. Re-run via ./sb install once the cause is addressed."`; a
+step failure with a behind verdict reads `"forward failed: <err>; auto-restored from
+snapshot"`. Either way the terminal is one of:
 
 - `rolled_back` — snapshot restored cleanly; **healthy at the old version**.
-- `failed` — the restore **also failed**; **needs hands-on recovery**.
+- `failed` — the restore **also failed** (or this upgrade's recorded snapshot is missing —
+  the identity-keyed restore never substitutes another backup); **needs hands-on recovery**.
 
-**Why no operator override.** Forward-recovery is deterministically broken in the canonical
-case (SIGKILL between a migration's outer-transaction commit and the `db.migration` INSERT)
-— re-attempting forward fails on "relation already exists". Restore is the only path that
-produces a coherent terminal state. A `forward`-only operator mode would let an operator
-wedge their own system, so the unified path removes the gun. Both `./sb upgrade service`
-and `./sb install`'s crashed-upgrade dispatch run the same algorithm via the same code —
-identical decisions, no surprise divergence.
+**Why no operator override.** The canonical hard wedge (SIGKILL between a migration's
+outer-transaction commit and the `db.migration` INSERT) verdicts **Behind** — the
+migration's row never landed, so `db.migration` max < on-disk max — and re-attempting
+forward fails on "relation already exists"; restore is the only path to a coherent
+terminal state there, and ground truth selects it. Conversely an at-target box (the rune
+shape: everything landed except bookkeeping) verdicts **AtTarget** and is forbidden from
+restoring. The decision is ground truth's, not a mode — a `forward`-only or `restore`-only
+operator switch would let an operator wedge (or wipe) their own system. Both `./sb upgrade
+service` and `./sb install`'s crashed-upgrade dispatch run the same algorithm via the same
+code — identical decisions, no surprise divergence.
 
 ### systemd guardrails (single unit)
 
@@ -517,7 +553,10 @@ knobs:
   runs in the active phase under `WatchdogSec`.
 - `TimeoutStopSec=15min` — a `systemctl stop` sends SIGTERM; the service's handler cancels
   the upgrade context, firing the deferred `rollback()` (a Norway-sized `pg_restore` can
-  take 5–10 min). A long-but-clean stop beats a fast-but-corrupted one.
+  take 5–10 min). A long-but-clean stop beats a fast-but-corrupted one. **This is exactly
+  why nothing may pre-stop the service around an install**: the deploy scripts never issue
+  `systemctl stop` (STATBUS-040 standalone.sh, STATBUS-041 cloud.sh), and install's own
+  takeover of a crash-looping unit is SIGKILL-class — no handler runs, no rollback fires.
 - `StartLimitIntervalSec` / `StartLimitBurst` — this cap guards **repeated daemon-start
   failures only** (e.g. the DB is down at boot, so the service can't reach `READY=1`). It is
   **not** an upgrade-retry budget: under the one-shot model an upgrade runs once and is never
@@ -688,8 +727,12 @@ why continuation is safe, not a silent swallow.
 
 What the mutex does **not** cover: operator crash mid-install (SSH drop) leaves a dead-PID
 flag — re-running `./sb install` (or the idempotent `./cloud.sh install <server>`) reconciles
-it; and `text-file-busy` on the `./sb` binary if the service is still running, avoided by
-`./cloud.sh install` issuing `systemctl stop` before binary replacement.
+it. (`text-file-busy` on the `./sb` binary is a non-issue by construction: every replacement
+path is an atomic rename — `install.sh` curls to `sb.tmp` and `mv`s, the build-from-source
+path `mv`s `sb-linux-amd64` over — so the running process keeps its old inode. The deploy
+scripts deliberately never stop the service around an install; `systemctl stop` is SIGTERM,
+which an in-flight upgrade answers with a rollback — the deploy-stop footgun removed in
+STATBUS-040/-041.)
 
 ## Related
 

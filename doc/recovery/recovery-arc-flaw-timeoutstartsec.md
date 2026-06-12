@@ -103,6 +103,15 @@ The NO per-cycle journal (914 cycles, pid 711407) sharpens exactly *what* fails:
 
 ### 4b. NO-first forward-recovery (sanctioned entrypoints, NO manual DB writes)
 
+> **[SUPERSEDED 2026-06-12 — STATBUS-039/-040/-041. Historical record; do NOT follow the
+> stop-first sequence.]** The `stop_upgrade_service → install` path described below was the
+> deploy-stop footgun: `systemctl stop` is SIGTERM, which an in-flight upgrade answers with
+> a rollback (snapshot restore over the live DB). Both deploy scripts had the pre-stop
+> REMOVED (standalone.sh in STATBUS-040/f5b697928, cloud.sh in STATBUS-041/e99c283a6).
+> Post-039 (5eacd6305) the current recovery is simply `./standalone.sh install <name>` —
+> `./sb install` itself takes over a crash-looping unit SIGKILL-class and refuses a
+> genuinely-progressing one. See `doc/upgrade-timeline.md`.
+
 NO is wedged on a pre-fix binary; it must land a *fixed* binary, have its loop stopped, and be re-dispatched. Sanctioned path (operator-confirmed `tmp/operator-no-recovery-sequence.md`; matches `cloud.sh`'s `stop_upgrade_service → install → ensure_service_started`, lines 365–375; NO is user-level systemd, box `statbus@rune.statbus.org`):
 
 > **The normal CI deploy will NOT unwedge the currently-wedged NO (confirmed).** `master-to-rune-no.yaml` force-pushes master → `ops/standalone/deploy/rune-no` → `deploy-to-rune-no.yaml` runs `./sb upgrade apply-latest`, which sends a `NOTIFY upgrade_apply` to the *service*. But NO right now runs the **pre-fix** binary and loops pre-`READY=1`, where it **never establishes the listening PG connection** (that happens in the main loop, post-`READY=1`), so it **cannot receive the NOTIFY**. An operator MUST run the manual install path below. (Pushing the fixed commit to the deploy branch is still the prerequisite — it's where `install.sh` fetches from — but the NOTIFY half is inert against the wedged pre-fix service.) *Note: Option Y (§4a) fixes this going forward — it moves `LISTEN`+`READY=1` ahead of recovery, so a post-fix service buffers NOTIFYs that arrive during recovery instead of losing them. The inertness is a property of the pre-fix code NO is stuck on.*

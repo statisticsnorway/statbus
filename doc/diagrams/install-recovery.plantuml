@@ -57,18 +57,36 @@ partition "Detect — 8-state probe ladder (state.go:104, short-circuit: first m
       the baseline the failure scenarios perturb.
     end note
   elseif (flag present AND flock HELD?) then (yes)
-    :**StateLiveUpgrade** -> REFUSE\n(install_upgrade.go:27);
-    note right
-      TEST 1-boot-concurrent-install: when a live upgrade/install
-      holds the flock, the second install hits probe 2 and refuses without touching state.
-    end note
-    stop
+    if (unit crash-looping? NRestarts >= 3\n(a healthy upgrade restarts once — the exit-42 handoff)) then (yes)
+      :**StateLiveUpgrade -> TAKEOVER** (STATBUS-039)\nreclassify as crashed-upgrade;
+      note right
+        The quiesce inside runCrashRecovery is SIGKILL-class:
+        mask --runtime -> kill -s SIGKILL -> verify MainPID==0
+        -> stop -> reset-failed -> unmask. NEVER SIGTERM — an
+        in-flight upgrade answers TERM with a rollback (snapshot
+        restore). Deploy scripts never pre-stop either
+        (STATBUS-040 standalone.sh, STATBUS-041 cloud.sh).
+        NO TEST (gap): the takeover arm awaits the rune-shape
+        wedge scenario (deferred battery).
+      end note
+      :runCrashRecovery -> RecoverFromFlag\n(install_upgrade.go);
+      :re-Detect -> resolves to a step-table state;
+    else (progressing / probe failure — conservative)
+      :**StateLiveUpgrade** -> REFUSE\n(install_upgrade.go:27);
+      note right
+        TEST 1-boot-concurrent-install: when a live upgrade/install
+        holds the flock, the second install hits probe 2 and refuses without touching state.
+      end note
+      stop
+    endif
   elseif (flag present AND flock FREE?) then (yes)
     :**StateCrashedUpgrade**;
     :runCrashRecovery -> RecoverFromFlag\n(install_upgrade.go:131 / 205);
     note right
       TEST 1-boot-flag-stale-handoff: an install that exited without releasing the
       flag (dead holder) is reconciled, then a single re-Detect resolves to a step-table state.
+      Recovery routes by GROUND TRUTH (STATBUS-039) and restores are identity-keyed —
+      see the upgrade-timeline diagram § recovery for the tri-state routing.
     end note
     :re-Detect -> resolves to a step-table state;
   elseif (.env.credentials missing?) then (yes)
