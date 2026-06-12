@@ -36,7 +36,7 @@ THE ONE ENGINEERING REQUIREMENT (verified): commit-target procurement today is b
 
 SCOPE: channel→branch mapping in config + DiscoverCommitsViaGit generalization (hardcoded origin/master, github.go:480-485) + channel-exclusive discovery; commit-addressed artifact store + verified download; CI triggers for fixture branches; prepared signed fixture commits + authoring runbook; 2 harness arc scenarios; supersede/retention hygiene; opt-in guard for non-test boxes; AGENTS.md + operator docs.
 
-SEQUENCING: post-gate (does not displace the stable-gate batch). STATBUS-033 (channel exclusivity) is related-but-independent and rides the gate batch. King ratifies the full design (AC#1) before implementation.
+SEQUENCING: post-gate (does not displace the stable-gate batch). STATBUS-033 (channel exclusivity) is related-but-independent and rides the gate batch. King ratifies the full design (AC#7) before implementation; the open design points are listed in Implementation Notes.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
@@ -49,8 +49,6 @@ SEQUENCING: post-gate (does not displace the stable-gate batch). STATBUS-033 (ch
 - [ ] #6 Channel + fixture workflow documented (AGENTS.md table, operator docs with do-not-use-in-production warning)
 - [ ] #7 Full design ratified by the King: channel→branch mapping shape, commit-addressed artifact store + retention, fixture-branch baseline choice, guard shape (the open points listed in Implementation Notes)
 <!-- AC:END -->
-
-
 
 ## Implementation Notes
 
@@ -65,5 +63,5 @@ PROCUREMENT — rejected alternatives for the no-Go-on-box problem: Go on the te
 
 LAYERING: complements the inject scenarios, does not replace them — real migrations cannot hit micro-windows (the ~ms commit↔record kill, mid-tar kills). Inject = surgical windows; fail channel = end-to-end arcs (fail→rollback→fix→complete; stall→bounded→fix→complete; future family: committed-but-wrong→append-fix — a migration that SUCCEEDS but leaves bad state, repaired by a later migration; no current scenario covers repair-by-follow-up).
 
-OPEN POINTS for the full design (resolve under AC#1): (1) commit-addressed artifact store (ghcr OCI artifact vs commit-named asset vs other) + retention policy; (2) channel→branch mapping shape in .env.config (explicit ref vs channel/<family> naming convention); (3) fixture-branch baseline identity (track an rc commit vs pinned older baseline); (4) guard shape for non-test boxes (config ack vs validator refusal vs both); (5) committed-but-wrong family in v1 or first follow-up.
+OPEN POINTS to resolve at ratification (AC#7): (1) commit-addressed artifact store (ghcr OCI artifact vs commit-named asset vs other) + retention policy; (2) channel→branch mapping shape in .env.config (explicit ref vs channel/<family> naming convention); (3) fixture-branch baseline identity (track an rc commit vs pinned older baseline); (4) guard shape for non-test boxes (config ack vs validator refusal vs both); (5) committed-but-wrong family in v1 or first follow-up.
 <!-- SECTION:NOTES:END -->
