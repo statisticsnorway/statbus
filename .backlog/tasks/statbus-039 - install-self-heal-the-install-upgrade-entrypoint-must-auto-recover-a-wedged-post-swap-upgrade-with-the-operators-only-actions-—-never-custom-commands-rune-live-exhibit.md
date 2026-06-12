@@ -7,6 +7,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-12 08:54'
+updated_date: '2026-06-12 08:57'
 labels:
   - install-recovery
   - upgrade
@@ -53,3 +54,25 @@ RELATED: 015 (Resuming latch / applyPostSwap watchdog — confirm they prevent t
 - [ ] #3 Proven on wedged-rune: running the newest `./sb install` self-heals id=187 to completed — no SIGTERM/stop, no rollback, no data loss, no manual commands — preserving the ~2.5 weeks of live data
 - [ ] #4 After self-heal, rune upgrades to the campaign RC via the normal path and can serve as the stable-gate canary
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+ROOT CAUSE — CONFIRMED (engineer, 2026-06-12; full working notes tmp/engineer-rune-wedge-recovery.md, load-bearing facts here).
+
+Watchdog kill-loop confirmed: systemd NRestarts=10229, Result='timeout', 150s cadence (WatchdogSec=120 + RestartSec=30). The id=187 log has ONE "Health check attempt" line and ZERO "rolling back" lines across ~18 days → health PASSES silently; the >120s silent hang is the post-health COMPLETION path (a DB write on a stale connection; fmt.Println, no heartbeat), NOT the probe. 10229 SIGABRT kills with the DB still healthy + current = the SIGABRT path never rolls back (data-safe). [The SIGTERM/`systemctl stop` path is the one that DOES pg_restore the May-25 backup → data loss. Never send it.]
+
+THE ROOT CAUSE — id=187 is a PARTIAL upgrade the resume can never finish:
+- docker ps: db/app/worker = :51670d9e (target OK), rest = postgrest:v12.2.8 (fine), PROXY = statbus-proxy:673b650f (May 7, STALE; target = 51670d9e).
+- The self-heal branch (containersAtFlagTarget) requires ALL of db/app/worker/proxy at target. proxy=673b650f → the check NEVER matches → every resume falls through to applyPostSwap → completion hang → watchdog kill → ×10229.
+- WHY the proxy is stuck: the RESUME path's applyPostSwap recreates only app/worker/rest (Step 11) and ASSUMES "proxy already running from Step 2" — but Step 2 (start proxy) runs ONLY in the fresh executeUpgrade path, never in a resume. So Step 8's `docker compose pull` pulls proxy:51670d9e every cycle but Step 11 never recreates it → proxy frozen at the prior tag forever.
+- The box already has everything to heal: proxy:51670d9e EXISTS in the registry and the generated compose already references it (COMMIT_SHORT=51670d9e). The entrypoint simply never recreated the proxy container.
+
+THE PRINCIPLED FIX (design target for the architect): the resume/self-heal entrypoint must bring the FULL service set to target — a `docker compose up -d` over ALL services INCLUDING the proxy, not a subset — so a partial/crashed upgrade self-completes when the operator runs `./sb install` (or the upgrade trigger), with NO manual `docker compose up proxy` and NO rollback. Once all services match target, resumePostSwap takes the self-heal branch (a plain state=completed UPDATE + flag removal; no applyPostSwap, no rollback path), and "completed" is honest (proxy actually at target).
+
+ALREADY IN HEAD (039 builds on, doesn't redo): the 015 FlagPhaseResuming latch (2nd resume rolls back instead of re-running) + the applyPostSwap WATCHDOG=1 ticker (keeps the completion path from going silent >120s). These prevent the LOOP on HEAD; the remaining gap is the FULL-service recreate-on-resume so the self-heal can reach the matched state on an already-wedged box.
+
+OPEN SCOPING QUESTION (architect to resolve; engineer available to verify read-only): does HEAD's resume path already recreate the full service set (incl proxy), or is that still the gap 039 must close? The answer scopes 039 between "just make install converge an already-wedged old-binary box" and "also fix resume to recreate the full set (prevent recurrence)".
+
+STALE-BACKUP GUARD (hard constraint, restated): no path may restore a backup older than live data (the May-25 backup vs ~2.5 weeks of live Norway data).
+<!-- SECTION:NOTES:END -->
