@@ -6,13 +6,15 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-11 13:39'
-updated_date: '2026-06-12 07:51'
+updated_date: '2026-06-12 09:04'
 labels:
   - upgrade
   - recovery
   - product
   - audit
 dependencies: []
+references:
+  - STATBUS-039
 documentation:
   - >-
     doc-007 -
@@ -49,5 +51,7 @@ ALSO CLEARED BY THE SWEEP (no work, recorded for honesty): every other step from
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Design + sweep ledger deep-reference: doc-007 Track A1/A2 (the roadmap) — but this ticket is self-sufficient; the doc adds only the full step-by-step clearance table. Status: awaiting King ratification of the fix design, then RED→fix→GREEN per the 012 protocol.
+Design + sweep ledger deep-reference: STATBUS-036 (the campaign roadmap, Track A1/A2 — doc-007 was folded into it); this ticket is self-sufficient. Status: awaiting King ratification of the fix design, then RED→fix→GREEN per the 012 protocol.
+
+⚠️ CRITICAL COUPLING — 031 MUST NOT LAND WITHOUT THE STALE-BACKUP GUARD (architect, 2026-06-12, from the rune wedge → STATBUS-039). 031's always-ping ticker lets a slow restore COMPLETE instead of dying mid-rsync. For a CURRENT backup that is exactly the goal. But if the backup is STALE (older than live data — e.g. rune's May-25 backup vs ~2.5 weeks of live data): HEAD-as-is kills the uncovered restore mid-rsync = a DETECTABLE corrupted volume; 031's ticker ALONE would let the stale restore COMPLETE = a CONFIDENT, silent ~2.5-week data loss with a green rolled_back row. So the stale-backup guard at rollback() (refuse to restore a backup older than live data) is a PRECONDITION of 031's cover, not an extension. SEQUENCING: 031 ships TOGETHER with the stale-backup guard (designed under STATBUS-039); it must not be merged/deployed alone. The gate-batch (STATBUS-036) reflects this coupling.
 <!-- SECTION:NOTES:END -->
