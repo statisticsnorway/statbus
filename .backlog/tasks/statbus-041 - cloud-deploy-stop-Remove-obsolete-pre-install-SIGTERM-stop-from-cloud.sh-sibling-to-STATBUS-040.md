@@ -3,15 +3,18 @@ id: STATBUS-041
 title: >-
   cloud-deploy-stop: Remove obsolete pre-install SIGTERM stop from cloud.sh
   (sibling to STATBUS-040)
-status: In Progress
+status: Done
 assignee:
   - architect
 created_date: '2026-06-12 21:34'
+updated_date: '2026-06-12 21:36'
 labels:
   - deploy
   - upgrade
   - footgun
 dependencies: []
+modified_files:
+  - cloud.sh
 priority: high
 ordinal: 41000
 ---
@@ -44,8 +47,14 @@ STATBUS-040 (f5b697928): the standalone.sh version. install.sh:24-34 already doc
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 stop_upgrade_service def + all 3 call sites (cloud.sh:90/497/514/534) removed; tombstone NOTE added mirroring standalone.sh:140
-- [ ] #2 Stale rationale comments at cloud.sh:86 and :365 rewritten to the post-039 contract (no false 'text file busy' / no pre-stop)
-- [ ] #3 Healthy-in-flight-upgrade edge confirmed in code: install REFUSES (not killed); takeover only on crash-loop NRestarts>=3
-- [ ] #4 bash -n cloud.sh passes; committed + pushed (freeze-safe), reported to foreman
+- [x] #1 stop_upgrade_service def + all 3 call sites (cloud.sh:90/497/514/534) removed; tombstone NOTE added mirroring standalone.sh:140
+- [x] #2 Stale rationale comments at cloud.sh:86 and :365 rewritten to the post-039 contract (no false 'text file busy' / no pre-stop)
+- [x] #3 Healthy-in-flight-upgrade edge confirmed in code: install REFUSES (not killed); takeover only on crash-loop NRestarts>=3
+- [x] #4 bash -n cloud.sh passes; committed + pushed (freeze-safe), reported to foreman
 <!-- AC:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Committed e99c283a6 (pushed). stop_upgrade_service deleted from cloud.sh — definition (:90) and all three call sites (:497 build-from-source, :514 pinned-version, :534 channel) — replaced by a tombstone NOTE mirroring standalone.sh's, naming both false rationales: (1) mutex — post-039 `./sb install` refuses a genuinely-progressing upgrade (deploy reports failure, operator retries) and takes over a crash-looping unit (NRestarts ≥ 3) with a SIGKILL-class quiesce; (2) "text file busy" — every binary-replacement path is an atomic rename (curl→sb.tmp + mv on the install.sh path; `mv sb-linux-amd64 sb` on the build-from-source path — a nuance beyond the plan: that site's own comment claimed ETXTBSY "on mv", which is false; rename(2) swaps the directory entry while the running process keeps its old inode; ETXTBSY is write-in-place only). Flow comment (:365) and all three per-site rationale comments rewritten to the post-039 contract; the artifact-gate comments' "before stopping" wording fixed to "before touching the server". Healthy-in-flight edge confirmed in code (same dispatcher as STATBUS-040's verification): dispatchInstallState's LiveUpgrade arm refuses with wait-and-retry; upgradeUnitCrashLooping is conservative-false on NRestarts < 3 and on any probe failure, so takeover fires only on a genuine crash loop. bash -n green. Freeze-safe (local deploy tooling; rune pins to the rc.02 tag). The deploy-stop footgun class is now closed across BOTH deploy scripts (standalone.sh in STATBUS-040/f5b697928, cloud.sh here).
+<!-- SECTION:FINAL_SUMMARY:END -->
