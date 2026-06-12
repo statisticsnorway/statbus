@@ -1,0 +1,34 @@
+---
+id: STATBUS-045
+title: 'doc-db-refresh: regenerate stale doc/db/ from the current schema and commit'
+status: To Do
+assignee:
+  - architect
+created_date: '2026-06-12 21:51'
+labels:
+  - docs
+  - hygiene
+  - db
+dependencies: []
+references:
+  - .claude/hooks/doc-db-freshness.sh
+  - doc/db/
+priority: medium
+ordinal: 45000
+---
+
+## Description
+
+<!-- SECTION:DESCRIPTION:BEGIN -->
+The doc/db freshness hook (.claude/hooks/doc-db-freshness.sh) BLOCKS searches of doc/db/ because committed migrations are newer than the committed doc/db dump: last migrations/ commit 785f7df57 (2026-06-04) vs last doc/db/ commit a78da3ca1 (2026-06-03). Hit during the STATBUS-039 session (had to query the live DB for chk_upgrade_state_attributes instead).
+
+FIX (the hook's own prescription): ./dev.sh generate-doc-db (requires a running dev database) → git add doc/db/ → commit "doc: refresh db docs". Per the doc-db commit-gate convention, review the diff for security weakening/omission before blessing.
+
+Standing hygiene — cheap, unblocks offline schema searches for every agent.
+<!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 doc/db/ regenerated from the current schema and committed; the freshness hook passes
+- [ ] #2 The doc/db diff reviewed against the security-gate convention before commit
+<!-- AC:END -->
