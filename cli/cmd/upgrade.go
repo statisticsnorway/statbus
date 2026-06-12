@@ -466,6 +466,10 @@ var upgradeServiceRunE = func(cmd *cobra.Command, args []string) error {
 		}
 	}
 	d := upgrade.NewService(projDir, verbose, serviceVersion, commit)
+	// Unit name for the per-dispatch NRestarts reset (STATBUS-039 review
+	// finding 2) — derivable only here in cmd; internal/upgrade must not
+	// guess it.
+	d.SetUnitInstance(serviceInstance(projDir))
 	return d.Run(context.Background())
 }
 

@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/statisticsnorway/statbus/cli/internal/install"
@@ -56,6 +58,12 @@ func runInlineUpgradeScheduled(projDir string, detail *install.Detail) error {
 	ctx := context.Background()
 	svc := upgrade.NewService(projDir, true /* verbose */, version, commit)
 	defer svc.Close()
+	if runtime.GOOS == "linux" {
+		// Unit name for the per-dispatch NRestarts reset (STATBUS-039
+		// review finding 2) — the inline path resets too, so the takeover
+		// gate counts only the current upgrade on every dispatch route.
+		svc.SetUnitInstance(serviceInstance(projDir))
+	}
 
 	if err := svc.LoadConfigAndConnect(ctx); err != nil {
 		return fmt.Errorf("load upgrade config: %w", err)
@@ -232,13 +240,52 @@ func runCrashRecovery(projDir string) error {
 	return nil
 }
 
-// stopRestartUpgradeUnit is Part 1's primitive. It STOPS the (looping)
-// upgrade unit and returns a closure that restarts it iff it was enabled
-// at entry. Callers defer the closure to fire only on successful
-// recovery — see runCrashRecovery.
+// stopRestartUpgradeUnit is Part 1's primitive. It QUIESCES the (possibly
+// looping) upgrade unit SIGKILL-class and returns a closure that restarts
+// it iff it was enabled at entry. Callers defer the closure to fire only
+// on successful recovery — see runCrashRecovery.
+//
+// SIGKILL-class, never SIGTERM (STATBUS-039 safe takeover). `systemctl
+// stop` sends SIGTERM, and an in-flight upgrade process — old binary or
+// new — catches TERM, cancels the upgrade context, and ROLLS BACK
+// (postSwapFailure → rollback → restore). The unit's TimeoutStopSec=15min
+// exists precisely because stop→rollback→pg_restore is real (a prior rune
+// incident). The window is live even on the crashed-upgrade path: between
+// install.Detect (flock free, dead RestartSec window) and this call, the
+// unit can respawn and be seconds into a resume. SIGKILL runs no handlers
+// — the crash-only architecture (flag + kernel flock release, aside-rename
+// backups, atomic tars, transactional row writes) makes it safe by design;
+// rune absorbed ~10k watchdog SIGABRTs over 18 days with zero data loss
+// precisely because nothing rolled back.
+//
+// Sequence (race-free under mask; TIMING-BOUNDED if mask fails — see the
+// invariant below):
+//  1. capture is-enabled (BEFORE mask — a masked unit reports "masked").
+//  2. mask --runtime: a masked unit cannot start, so Restart=always cannot
+//     respawn between our kill and stop. Runtime-scoped: self-clears on
+//     reboot, so a crashed takeover can never leave the box permanently
+//     unable to run its upgrade service.
+//  3. kill --signal=SIGKILL: whole-cgroup kill (KillMode default), no
+//     handlers run, kernel releases the flock on fd teardown.
+//  4. poll MainPID==0 (≤10s): verify actually dead before touching state.
+//  5. stop: nothing is alive to signal — this only cancels any pending
+//     auto-restart job and lands the unit administratively inactive.
+//  6. reset-failed: clears the failure state + NRestarts counter.
+//  7. unmask: the unit is startable again — but nothing starts it until
+//     the returned closure (or the operator) does.
+//
+// TIMING-BOUNDED invariant for the mask-FAILED fallback (not structural —
+// STATBUS-039 review): without the mask, a respawn fires RestartSec after
+// the kill, and the trailing stop would SIGTERM it. Safety then rests on
+// RestartSec (30s, ops/statbus-upgrade.service) exceeding the kill→poll→
+// stop window (≤10s) — the pending respawn never fires before stop cancels
+// it. Anyone shortening RestartSec below ~10s voids this bound. Defense in
+// depth only: the correctness serializer against a concurrent destructive
+// restore is the recoveryRollback flock gate (finding 3), which holds
+// regardless of mask/stop/timing.
 //
 // Why this exists separately from restartUpgradeService: restart() is
-// is-active-gated (line 92) and would no-op after our stop. We need an
+// is-active-gated and would no-op after our quiesce. We need an
 // unconditional explicit start, conditional only on the captured
 // is-enabled state. Operators who deliberately disabled the unit see no
 // surprise resurrection; operators who simply had it running get their
@@ -248,13 +295,33 @@ func runCrashRecovery(projDir string) error {
 // path; systemd plumbing is best-effort observability around it.
 func stopRestartUpgradeUnit(instance string) func() {
 	wasEnabled := exec.Command("systemctl", "--user", "is-enabled", "--quiet", instance).Run() == nil
-	fmt.Printf("Crash recovery: stopping upgrade unit %s (was-enabled=%v) before reconciliation.\n", instance, wasEnabled)
+	fmt.Printf("Crash recovery: quiescing upgrade unit %s SIGKILL-class (was-enabled=%v) before reconciliation — never SIGTERM (TERM triggers the in-flight upgrade's rollback handler).\n", instance, wasEnabled)
+	if err := exec.Command("systemctl", "--user", "mask", "--runtime", instance).Run(); err != nil {
+		fmt.Printf("Warning: systemctl --user mask --runtime %s failed: %v (proceeding — quiesce is then TIMING-BOUNDED: safe while RestartSec(30s) > kill→stop window(≤10s); the recoveryRollback flock gate covers correctness regardless)\n", instance, err)
+	}
+	if err := exec.Command("systemctl", "--user", "kill", "--signal=SIGKILL", instance).Run(); err != nil {
+		// Unit may already be dead (RestartSec window) — harmless.
+		fmt.Printf("Note: systemctl --user kill -s SIGKILL %s: %v (unit likely already dead)\n", instance, err)
+	}
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		out, _ := exec.Command("systemctl", "--user", "show", instance, "-p", "MainPID", "--value").Output()
+		if pid := string(out); pid == "0\n" || pid == "0" || pid == "" {
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
 	if err := exec.Command("systemctl", "--user", "stop", instance).Run(); err != nil {
+		// Nothing alive to signal — stop here only cancels a pending
+		// auto-restart job and lands the unit inactive.
 		fmt.Printf("Warning: systemctl --user stop %s failed: %v (recovery proceeding)\n", instance, err)
 	}
 	if err := exec.Command("systemctl", "--user", "reset-failed", instance).Run(); err != nil {
 		// reset-failed is a hygiene call; failure is harmless.
 		fmt.Printf("Note: systemctl --user reset-failed %s: %v\n", instance, err)
+	}
+	if err := exec.Command("systemctl", "--user", "unmask", "--runtime", instance).Run(); err != nil {
+		fmt.Printf("Warning: systemctl --user unmask --runtime %s failed: %v (a reboot clears the runtime mask)\n", instance, err)
 	}
 	if !wasEnabled {
 		return func() {
@@ -267,4 +334,39 @@ func stopRestartUpgradeUnit(instance string) func() {
 			fmt.Printf("Warning: systemctl --user start %s failed: %v (recovery succeeded; restart the service manually)\n", instance, err)
 		}
 	}
+}
+
+// upgradeUnitCrashLooping reports whether the upgrade unit is in a crash
+// loop: NRestarts at or beyond the threshold. A healthy upgrade restarts
+// the unit ONCE by design (the exit-42 binary-swap handoff; Restart=always
+// catches it) and perhaps once more on a planned resume — three or more
+// restarts means the unit is cycling, not progressing (rune sat at
+// NRestarts=10229). Used by the StateLiveUpgrade takeover arm: a genuinely
+// progressing upgrade (low restart count, flock held) keeps today's
+// refusal; a crash-looping one is taken over.
+//
+// Conservative on any probe failure: returns false → the refusal path.
+func upgradeUnitCrashLooping(projDir string) (string, bool) {
+	if runtime.GOOS != "linux" {
+		return "", false
+	}
+	instance := serviceInstance(projDir)
+	if instance == "" {
+		return "", false
+	}
+	out, err := exec.Command("systemctl", "--user", "show", instance, "-p", "NRestarts", "--value").Output()
+	if err != nil {
+		return instance, false
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(string(out)))
+	if err != nil {
+		return instance, false
+	}
+	const crashLoopThreshold = 3
+	if n >= crashLoopThreshold {
+		fmt.Printf("Upgrade unit %s is crash-looping (NRestarts=%d ≥ %d) — taking over recovery instead of refusing.\n",
+			instance, n, crashLoopThreshold)
+		return instance, true
+	}
+	return instance, false
 }

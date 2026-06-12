@@ -201,13 +201,24 @@ func TestUpdateFlagPostSwap_RejectsNoFd(t *testing.T) {
 	}
 }
 
-// TestRecoverFromFlag_PhaseDiscriminationPresent is a structural guard:
-// the HEAD=target self-heal logic MUST be gated behind a Phase check,
-// otherwise a post-swap restart (exit-42 handoff, HEAD already at target)
-// would mark the row completed while migrate + health-check haven't run
-// yet. This test pins the source-level ordering so a future edit that
-// removes the branch breaks the test loudly.
-func TestRecoverFromFlag_PhaseDiscriminationPresent(t *testing.T) {
+// TestRecoverFromFlag_PhaseRoutingAndGroundTruthFirst is the structural
+// guard for recoverFromFlag's routing after STATBUS-039:
+//
+//  1. Every produced phase has an explicit branch (PreSwap "", PostSwap,
+//     Resuming) and PostSwap routes to resumePostSwap — a post-swap restart
+//     (exit-42 handoff) must resume the pipeline, never be misclassified.
+//  2. The pre-039 HEAD=target self-heal segment is GONE from recoverFromFlag
+//     (it was unreachable for every producible phase, and its headSHA
+//     discriminator misclassified harness/checkout states). The function
+//     must NOT regrow a `git rev-parse HEAD` discriminator — ground truth
+//     (verifyUpgradeGroundTruthEx) is the only direction oracle.
+//  3. In the Resuming branch, ground truth is consulted BEFORE
+//     recoveryRollback can run (rule 1: forward when logically possible —
+//     a died attempt is not impossibility). The pre-039 one-shot latch
+//     rolled back unconditionally: one transient failure, no second chance,
+//     a restore behind it (the rune id=187 shape).
+//  4. An unknown phase fails LOUD (FLAG_PHASE_UNKNOWN) instead of guessing.
+func TestRecoverFromFlag_PhaseRoutingAndGroundTruthFirst(t *testing.T) {
 	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))
 	if err != nil {
 		t.Fatalf("read service.go: %v", err)
@@ -227,31 +238,54 @@ func TestRecoverFromFlag_PhaseDiscriminationPresent(t *testing.T) {
 	}
 	fn := rest[:end[1]]
 
+	// (1) Phase discrimination present; PostSwap routes to resumePostSwap.
 	phaseIdx := strings.Index(fn, "flag.Phase == FlagPhasePostSwap")
 	if phaseIdx < 0 {
-		t.Fatal("recoverFromFlag missing Phase discrimination — the HEAD=target branch " +
-			"would misclassify post-swap restarts as completed upgrades. Add: " +
-			"`if flag.Phase == FlagPhasePostSwap { d.resumePostSwap(ctx, flag); return }` " +
-			"BEFORE the git rev-parse HEAD check.")
+		t.Fatal("recoverFromFlag missing the PostSwap phase branch — a post-swap restart would be misrouted")
 	}
-	headIdx := strings.Index(fn, `"git", "rev-parse", "HEAD"`)
-	if headIdx < 0 {
-		t.Fatal("recoverFromFlag missing `git rev-parse HEAD` call — test is stale")
+	postSwapBranch := fn[phaseIdx:]
+	if close := strings.Index(postSwapBranch, "\n\t}\n"); close > 0 {
+		postSwapBranch = postSwapBranch[:close]
 	}
-	if phaseIdx > headIdx {
-		t.Errorf("Phase discrimination must come BEFORE the HEAD=target self-heal branch "+
-			"(phaseIdx=%d, headIdx=%d). A post-swap restart has HEAD == target by design, "+
-			"so the self-heal branch would fire first and mark the row completed — "+
-			"lying about whether migrate/health-check actually ran.", phaseIdx, headIdx)
+	if !strings.Contains(postSwapBranch, "d.resumePostSwap(ctx, flag)") {
+		t.Errorf("PostSwap branch must call d.resumePostSwap(ctx, flag). Body:\n%s", postSwapBranch)
 	}
 
-	// And the branch must route to resumePostSwap, not to anything else.
-	branchBody := fn[phaseIdx:]
-	if close := strings.Index(branchBody, "\n\t}\n"); close > 0 {
-		branchBody = branchBody[:close]
+	// (2) The HEAD=target self-heal segment must stay deleted.
+	if strings.Contains(fn, `"git", "rev-parse", "HEAD"`) {
+		t.Error("recoverFromFlag must NOT contain a git rev-parse HEAD discriminator — " +
+			"the dead HEAD=target self-heal segment was removed (STATBUS-039); " +
+			"direction is decided by verifyUpgradeGroundTruthEx in the phase branches, not by HEAD comparison")
 	}
-	if !strings.Contains(branchBody, "d.resumePostSwap(ctx, flag)") {
-		t.Errorf("Phase discrimination branch must call d.resumePostSwap(ctx, flag). Body:\n%s", branchBody)
+
+	// (3) Resuming branch: ground truth BEFORE rollback.
+	resumingIdx := strings.Index(fn, "flag.Phase == FlagPhaseResuming")
+	if resumingIdx < 0 {
+		t.Fatal("recoverFromFlag missing the Resuming phase branch")
+	}
+	resumingBranch := fn[resumingIdx:]
+	if nextBranch := strings.Index(resumingBranch, "flag.Phase == FlagPhasePostSwap"); nextBranch > 0 {
+		resumingBranch = resumingBranch[:nextBranch]
+	}
+	gtIdx := strings.Index(resumingBranch, "verifyUpgradeGroundTruthEx")
+	rbIdx := strings.Index(resumingBranch, "recoveryRollback")
+	if gtIdx < 0 {
+		t.Fatal("Resuming branch must consult verifyUpgradeGroundTruthEx (STATBUS-039 rule 1: ground truth decides direction before any rollback)")
+	}
+	if rbIdx < 0 {
+		t.Fatal("Resuming branch must retain the positively-behind rollback path (recoveryRollback)")
+	}
+	if gtIdx > rbIdx {
+		t.Errorf("ground truth must be consulted BEFORE recoveryRollback in the Resuming branch (gtIdx=%d, rbIdx=%d) — "+
+			"otherwise one died resume latches the next recovery into a restore over a possibly at-target box", gtIdx, rbIdx)
+	}
+	if !strings.Contains(resumingBranch, "d.resumePostSwap(ctx, flag)") {
+		t.Error("Resuming branch must route the at-target/unverifiable verdicts FORWARD via d.resumePostSwap")
+	}
+
+	// (4) Unknown phase fails loud.
+	if !strings.Contains(fn, "FLAG_PHASE_UNKNOWN") {
+		t.Error("recoverFromFlag must fail loud (FLAG_PHASE_UNKNOWN) on a phase outside the produced set")
 	}
 }
 
@@ -365,4 +399,189 @@ func stripLineComments(src string) string {
 		b.WriteByte('\n')
 	}
 	return b.String()
+}
+
+// TestPostSwapFailure_GroundTruthBeforeRollback is the structural guard for
+// STATBUS-039 rule 1 at the applyPostSwap failure chokepoint: every step
+// failure routes through postSwapFailure, and postSwapFailure must consult
+// ground truth (verifyUpgradeGroundTruthEx) BEFORE d.rollback can run.
+// Only a POSITIVELY-behind verdict may restore; at-target and unverifiable
+// verdicts record the failure non-terminally and retry forward on the next
+// recovery pass. Without this ordering, one transient health blip on an
+// at-target box (rune id=187: everything at target except a lagging proxy)
+// routes into a snapshot restore — destroying anything written past the
+// maintenance-off commit point.
+func TestPostSwapFailure_GroundTruthBeforeRollback(t *testing.T) {
+	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))
+	if err != nil {
+		t.Fatalf("read service.go: %v", err)
+	}
+	body := extractFuncBody(t, string(src), "func (d *Service) postSwapFailure(")
+
+	gtIdx := strings.Index(body, "verifyUpgradeGroundTruthEx")
+	rbIdx := strings.Index(body, "d.rollback(")
+	if gtIdx < 0 {
+		t.Fatal("postSwapFailure must consult verifyUpgradeGroundTruthEx (STATBUS-039 rule 1)")
+	}
+	if rbIdx < 0 {
+		t.Fatal("postSwapFailure must retain the positively-behind rollback path (d.rollback)")
+	}
+	if gtIdx > rbIdx {
+		t.Errorf("ground truth must be consulted BEFORE d.rollback in postSwapFailure (gtIdx=%d, rbIdx=%d)", gtIdx, rbIdx)
+	}
+	// The non-Behind verdicts must return WITHOUT rollback: the early
+	// return goes through recordInProgressFailure (non-terminal, row stays
+	// in_progress for the forward retry).
+	if !strings.Contains(body, "recordInProgressFailure") {
+		t.Error("postSwapFailure's at-target/unverifiable branch must record the failure non-terminally (recordInProgressFailure) and keep the row in_progress for the forward retry")
+	}
+	if !strings.Contains(body, "GroundTruthBehind") {
+		t.Error("postSwapFailure must discriminate on GroundTruthBehind — restore only on a POSITIVE behind verdict, never under uncertainty")
+	}
+}
+
+// TestRestoreDatabase_IdentityKeyed_NoRecencyScan pins the identity contract
+// at the restore source itself: restoreDatabase takes the recorded snapshot
+// path as a parameter and contains NO directory scan (the former
+// pickLatestBackup recency selector is gone). A recency scan here is the
+// one place another upgrade's backup could be restored (STATBUS-039/-031).
+func TestRestoreDatabase_IdentityKeyed_NoRecencyScan(t *testing.T) {
+	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/exec.go"))
+	if err != nil {
+		t.Fatalf("read exec.go: %v", err)
+	}
+	s := string(src)
+	// The function and its call sites must stay deleted (historical mentions
+	// in comments are fine — they explain WHY the contract exists).
+	for _, forbidden := range []string{"func (d *Service) pickLatestBackup", "d.pickLatestBackup("} {
+		if strings.Contains(s, forbidden) {
+			t.Errorf("%q must stay deleted — restore selection by recency is forbidden (identity-keyed restore, STATBUS-039/-031)", forbidden)
+		}
+	}
+	body := extractFuncBody(t, s, "func (d *Service) restoreDatabase(")
+	for _, scan := range []string{"os.ReadDir", "filepath.Glob", "sort.Strings"} {
+		if strings.Contains(body, scan) {
+			t.Errorf("restoreDatabase must not scan the backup root (%s found) — it consumes ONLY the recorded path parameter", scan)
+		}
+	}
+	if !strings.Contains(body, "backupPath string") && !strings.Contains(s, "func (d *Service) restoreDatabase(progress *ProgressLog, backupPath string)") {
+		t.Error("restoreDatabase must take the recorded snapshot path as a parameter (identity-keyed)")
+	}
+}
+
+// TestRecoveryRollback_FlockGateBeforeDestructiveWork is the structural
+// guard for STATBUS-039 review finding 3 (fleet-wide corruption fix):
+// recoveryRollback must acquire the upgrade flock BEFORE any destructive
+// work — install's inline recovery holds neither the install flag nor the
+// daemon advisory lock when it reaches here, and a concurrently respawned
+// service's recovery is equally lock-free, so without the gate two
+// rsync --delete restores can hit the same DB volume at once. rollback()
+// itself must stay acquire-free: its in-process callers (resumePostSwap →
+// applyPostSwap → postSwapFailure) already hold the flock, and a second
+// flock on the same file fails even within one process.
+func TestRecoveryRollback_FlockGateBeforeDestructiveWork(t *testing.T) {
+	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))
+	if err != nil {
+		t.Fatalf("read service.go: %v", err)
+	}
+	s := string(src)
+
+	rr := extractFuncBody(t, s, "func (d *Service) recoveryRollback(")
+	gateIdx := strings.Index(rr, "acquireFlock")
+	workIdx := strings.Index(rr, "d.rollback(")
+	if gateIdx < 0 {
+		t.Fatal("recoveryRollback must acquire the upgrade flock (the destructive-work mutex) — finding 3")
+	}
+	if workIdx < 0 {
+		t.Fatal("recoveryRollback must invoke d.rollback")
+	}
+	if gateIdx > workIdx {
+		t.Errorf("the flock gate must come BEFORE d.rollback in recoveryRollback (gate=%d, rollback=%d)", gateIdx, workIdx)
+	}
+	// The loser must yield: a return on acquire failure, before rollback.
+	if !strings.Contains(rr, "yield") && !strings.Contains(rr, "Yield") {
+		t.Error("recoveryRollback's acquire-failure branch must YIELD (return without destructive work)")
+	}
+	// The in-process path's guard: already-held flock fails fast.
+	if !strings.Contains(rr, "d.flagLock != nil") {
+		t.Error("recoveryRollback must fail fast when the flock is already held in-process (mis-wiring guard)")
+	}
+
+	// rollback() itself stays acquire-free.
+	rb := extractFuncBody(t, s, "func (d *Service) rollback(")
+	if strings.Contains(rb, "acquireFlock") {
+		t.Error("rollback() must NOT acquire the flock — its in-process callers already hold it; the gate lives in recoveryRollback only")
+	}
+}
+
+// TestRemoveUpgradeFlag_AtomicDispositions pins the F4 TOCTOU hardening
+// (STATBUS-039): every branch of removeUpgradeFlag unlinks the flag file
+// only WHILE HOLDING its flock, so a concurrent acquirer's fresh mutex
+// file can never be the one removed (no check-then-remove µs windows).
+func TestRemoveUpgradeFlag_AtomicDispositions(t *testing.T) {
+	t.Run("owned-lock: removed and released", func(t *testing.T) {
+		projDir := t.TempDir()
+		if err := os.MkdirAll(filepath.Join(projDir, "tmp"), 0755); err != nil {
+			t.Fatal(err)
+		}
+		d := &Service{projDir: projDir}
+		if err := d.writeUpgradeFlag(7, "sha7", []string{"v0.0.0-t"}, "test", string(TriggerService), false); err != nil {
+			t.Fatalf("writeUpgradeFlag: %v", err)
+		}
+		d.removeUpgradeFlag()
+		if _, err := os.Stat(d.flagPath()); !os.IsNotExist(err) {
+			t.Errorf("flag file must be removed; stat err=%v", err)
+		}
+		// Lock must be released: a fresh acquire succeeds.
+		lock, err := acquireFlock(projDir, UpgradeFlag{ID: 8, CommitSHA: "x", PID: os.Getpid(), Holder: HolderService, Trigger: "notify"})
+		if err != nil {
+			t.Fatalf("acquire after removeUpgradeFlag must succeed: %v", err)
+		}
+		lock.Close()
+	})
+
+	t.Run("ghost: flock-free file removed", func(t *testing.T) {
+		projDir := t.TempDir()
+		if err := os.MkdirAll(filepath.Join(projDir, "tmp"), 0755); err != nil {
+			t.Fatal(err)
+		}
+		d := &Service{projDir: projDir}
+		if err := os.WriteFile(d.flagPath(), []byte(`{"id":9,"holder":"service"}`), 0644); err != nil {
+			t.Fatal(err)
+		}
+		d.removeUpgradeFlag()
+		if _, err := os.Stat(d.flagPath()); !os.IsNotExist(err) {
+			t.Errorf("ghost flag (flock free) must be removed; stat err=%v", err)
+		}
+	})
+
+	t.Run("held-by-another: left in place", func(t *testing.T) {
+		projDir := t.TempDir()
+		if err := os.MkdirAll(filepath.Join(projDir, "tmp"), 0755); err != nil {
+			t.Fatal(err)
+		}
+		holder, err := acquireFlock(projDir, UpgradeFlag{ID: 10, CommitSHA: "h", PID: os.Getpid(), Holder: HolderService, Trigger: "notify"})
+		if err != nil {
+			t.Fatalf("holder acquire: %v", err)
+		}
+		defer holder.Close()
+
+		d := &Service{projDir: projDir} // no lock of its own
+		d.removeUpgradeFlag()
+		if _, err := os.Stat(d.flagPath()); err != nil {
+			t.Errorf("flag held by a live actor must be LEFT in place; stat err=%v", err)
+		}
+	})
+
+	t.Run("absent: no file manufactured", func(t *testing.T) {
+		projDir := t.TempDir()
+		if err := os.MkdirAll(filepath.Join(projDir, "tmp"), 0755); err != nil {
+			t.Fatal(err)
+		}
+		d := &Service{projDir: projDir}
+		d.removeUpgradeFlag()
+		if _, err := os.Stat(d.flagPath()); !os.IsNotExist(err) {
+			t.Errorf("removeUpgradeFlag on an absent flag must not create one; stat err=%v", err)
+		}
+	})
 }

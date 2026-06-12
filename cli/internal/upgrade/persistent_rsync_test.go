@@ -14,15 +14,17 @@ import (
 //   pre-upgrade-active   — a complete, restorable snapshot (the incremental base)
 //   pre-upgrade-syncing  — an in-flight / killed-mid-rsync partial (NOT restorable)
 // A killed run resumes by rsyncing into the leftover `syncing` (never deleted);
-// only `rename(syncing→active)` publishes it. pickLatestBackup / restoreDatabase
-// read ONLY `active`, so a partial `syncing` is structurally invisible.
+// only `rename(syncing→active)` publishes it. The restore is identity-keyed
+// (STATBUS-039/-031): restoreDatabase consumes ONLY the path the recovered
+// upgrade recorded (flag.BackupPath / row.backup_path) — a partial `syncing`
+// is never recorded, so it can never be a restore source.
 //
 // These guards pin the parts that are unit-testable without a real rsync/docker:
-// the name constants, pickLatestBackup's active-first-then-legacy-fallback, and
+// the name constants, the identity-keyed restore dispositions, and
 // reconcileBackupDir skipping the two managed dirs.
 
 // TestBackupDirNames pins the well-known managed dir names so the rename state
-// machine, pickLatestBackup, and reconcileBackupDir all agree.
+// machine, the recorded backup paths, and reconcileBackupDir all agree.
 func TestBackupDirNames(t *testing.T) {
 	if backupActiveName != "pre-upgrade-active" {
 		t.Errorf("backupActiveName = %q, want pre-upgrade-active", backupActiveName)
@@ -32,44 +34,49 @@ func TestBackupDirNames(t *testing.T) {
 	}
 }
 
-// TestPickLatestBackup_PrefersActive: when pre-upgrade-active exists, it is the
-// snapshot — returned regardless of any legacy pre-upgrade-<stamp> dirs.
-func TestPickLatestBackup_PrefersActive(t *testing.T) {
+// TestRestoreDatabase_AsideRenameWindow_NeverSelectsByRecency reconstructs
+// the EXACT hazard the identity key closes (STATBUS-039): a kill during the
+// aside-rename window of a backup on a migrated box. On-disk shape: legacy
+// per-stamp dirs present (pruneBackups keeps the last 3 forever), syncing
+// present (the partial), active ABSENT (consumed by the aside-rename). The
+// killed upgrade recorded NO snapshot (updateFlagPostSwap never ran →
+// identity empty). The pre-039 recency scan returned the newest LEGACY dir
+// here — another upgrade's months-old backup, rsync --delete'd over the
+// UNTOUCHED live volume, silently, with a green rolled_back row. The
+// identity-keyed restore must no-op (nil) and leave everything alone.
+func TestRestoreDatabase_AsideRenameWindow_NeverSelectsByRecency(t *testing.T) {
 	root := scopedBackupRoot(t)
-	// A legacy stamped dir with a LATER timestamp than any plausible "now".
-	makeBackupDir(t, root, "pre-upgrade-20991231T235959Z")
-	want := makeBackupDir(t, root, backupActiveName)
+	legacyOld := makeBackupDir(t, root, "pre-upgrade-20260101T120000Z")
+	legacyNew := makeBackupDir(t, root, "pre-upgrade-20260615T060000Z") // the recency trap
+	syncing := makeBackupDir(t, root, backupSyncingName)               // the partial
+	// NO active dir — consumed by the aside-rename.
+
 	d := &Service{}
-	if got := d.pickLatestBackup(); got != want {
-		t.Errorf("pickLatestBackup must prefer pre-upgrade-active over a legacy stamped dir; got %q want %q", got, want)
+	p := &ProgressLog{projDir: t.TempDir()}
+	if err := d.restoreDatabase(p, ""); err != nil {
+		t.Errorf("identity-empty restore in the aside-rename window must no-op (nil); got %v", err)
+	}
+	for _, dir := range []string{legacyOld, legacyNew, syncing} {
+		if _, err := os.Stat(dir); err != nil {
+			t.Errorf("restore must leave %s alone: %v", dir, err)
+		}
 	}
 }
 
-// TestPickLatestBackup_IgnoresSyncing: a partial pre-upgrade-syncing is NEVER
-// returned (it is not a complete snapshot) — restore must refuse a partial.
-func TestPickLatestBackup_IgnoresSyncing(t *testing.T) {
+// TestRestoreDatabase_RecordedActiveMissing_NoLegacyFallback: the upgrade
+// recorded the active path (post_swap flag) and the dir is gone. The pre-039
+// scan would silently fall back to the newest legacy dir; the identity key
+// must FAIL LOUD instead — restoring another upgrade's backup is the one
+// thing this contract forbids.
+func TestRestoreDatabase_RecordedActiveMissing_NoLegacyFallback(t *testing.T) {
 	root := scopedBackupRoot(t)
-	makeBackupDir(t, root, backupSyncingName)
-	d := &Service{}
-	if got := d.pickLatestBackup(); got != "" {
-		t.Errorf("pickLatestBackup must IGNORE a partial pre-upgrade-syncing (no complete snapshot); got %q want \"\"", got)
-	}
-}
+	makeBackupDir(t, root, "pre-upgrade-20260615T060000Z") // tempting fallback
 
-// TestPickLatestBackup_LegacyFallbackWhenNoActive: with no pre-upgrade-active
-// (e.g. an upgrade backed up under the OLD per-stamp scheme, then recovers under
-// the new binary), pickLatestBackup falls back to the legacy lex-max stamped dir
-// so a cross-deploy-boundary in-flight upgrade can still roll back. syncing is
-// still excluded.
-func TestPickLatestBackup_LegacyFallbackWhenNoActive(t *testing.T) {
-	root := scopedBackupRoot(t)
-	makeBackupDir(t, root, "pre-upgrade-20260101T120000Z")
-	want := makeBackupDir(t, root, "pre-upgrade-20260615T060000Z")
-	makeBackupDir(t, root, backupSyncingName)                  // partial — excluded
-	makeBackupDir(t, root, "pre-upgrade-20271231T235959Z.tmp") // legacy tmp — excluded
 	d := &Service{}
-	if got := d.pickLatestBackup(); got != want {
-		t.Errorf("with no active dir, pickLatestBackup must fall back to the legacy lex-max stamped dir; got %q want %q", got, want)
+	p := &ProgressLog{projDir: t.TempDir()}
+	recorded := filepath.Join(root, backupActiveName)
+	if err := d.restoreDatabase(p, recorded); err == nil {
+		t.Fatal("restore of a missing recorded snapshot must FAIL loud, never fall back to a legacy dir")
 	}
 }
 

@@ -13,32 +13,39 @@ import (
 )
 
 // TestVerifyUpgradeGroundTruth_BinarySHAmismatch is the core #49 contract:
-// when the running binary's compile-time commit (Service.binaryCommit)
-// doesn't match the in_progress row's target commit_sha,
-// verifyUpgradeGroundTruth returns (false, reason) so the caller transitions
-// the row to `failed` with the reason in its error column instead of silently
-// marking it `completed`.
+// when the running binary's compile-time commit (Service.binaryCommit) is
+// POSITIVELY behind the in_progress row's target commit_sha (both commits
+// resolved, ancestry definitively absent), verifyUpgradeGroundTruth returns
+// (false, reason) so the caller transitions the row to `failed` with the
+// reason in its error column instead of silently marking it `completed`.
 //
-// Hermetic: no DB reached because Check 1 (binary SHA) fails before Check 2
-// (db.migration query). That's the whole point of ordering the checks this
-// way — the cheap deterministic check runs first.
+// Post-039: uses the git fixture so the mismatch is RESOLVED — two
+// synthetic unresolvable SHAs (the pre-039 fixture) now correctly classify
+// Unknown (clone-state, not ancestry; see
+// TestVerifyBinaryGroundTruth_UnresolvableBinaryIsUnknown), which still
+// maps to ok=false in this two-state wrapper but with a different reason.
+//
+// Hermetic w.r.t. the DB: Check 1 (binary) verdicts non-AtTarget before
+// Check 2 (db.migration query) runs. That's the point of ordering the
+// checks this way — the cheap deterministic check runs first.
 func TestVerifyUpgradeGroundTruth_BinarySHAmismatch(t *testing.T) {
+	fix := newGitRepoFixture(t)
 	svc := &Service{
-		binaryCommit: "aaaaaaaaaaaa111111111111111111111111aaaa",
+		binaryCommit: fix.oldSHA, // positively behind the target
+		projDir:      fix.dir,
 	}
-	rowSHA := "bbbbbbbbbbbb222222222222222222222222bbbb"
 
-	ok, reason := svc.verifyUpgradeGroundTruth(context.Background(), rowSHA)
+	ok, reason := svc.verifyUpgradeGroundTruth(context.Background(), fix.newSHA)
 	if ok {
-		t.Fatalf("ground-truth check returned ok=true despite SHA mismatch (binary=%q row=%q)", svc.binaryCommit, rowSHA)
+		t.Fatalf("ground-truth check returned ok=true despite SHA mismatch (binary=%q row=%q)", svc.binaryCommit, fix.newSHA)
 	}
 	if !strings.Contains(reason, "binary commit") {
 		t.Errorf("reason should mention 'binary commit', got: %q", reason)
 	}
-	if !strings.Contains(reason, "aaaaaaaa") {
+	if !strings.Contains(reason, fix.oldSHA[:8]) {
 		t.Errorf("reason should contain the binary commit_short prefix, got: %q", reason)
 	}
-	if !strings.Contains(reason, "bbbbbbbb") {
+	if !strings.Contains(reason, fix.newSHA[:8]) {
 		t.Errorf("reason should contain the row commit_short prefix, got: %q", reason)
 	}
 }
@@ -58,62 +65,102 @@ func TestVerifyUpgradeGroundTruth_BinarySHAmismatch(t *testing.T) {
 //
 // Hermetic — no DB needed; the helper is pure (extracted from
 // verifyUpgradeGroundTruth specifically to be testable).
-func TestVerifyBinaryAtOrDescendantOf_DescendantAccepted(t *testing.T) {
+func TestVerifyBinaryGroundTruth_DescendantAccepted(t *testing.T) {
 	fix := newGitRepoFixture(t)
 	svc := &Service{
 		binaryCommit: fix.newSHA, // running binary at child commit
 		projDir:      fix.dir,
 	}
-	ok, reason := svc.verifyBinaryAtOrDescendantOf(fix.oldSHA)
-	if !ok {
-		t.Fatalf("expected ok=true (binary %s descends from target %s); got reason=%q",
-			fix.newSHA[:8], fix.oldSHA[:8], reason)
+	gt, reason := svc.verifyBinaryGroundTruth(fix.oldSHA)
+	if gt != GroundTruthAtTarget {
+		t.Fatalf("expected AtTarget (binary %s descends from target %s); got %v reason=%q",
+			fix.newSHA[:8], fix.oldSHA[:8], gt, reason)
 	}
 	if reason != "" {
 		t.Errorf("expected empty reason on success; got %q", reason)
 	}
 }
 
-// TestVerifyBinaryAtOrDescendantOf_NonAncestorRejected is the symmetric
-// negative: a binary at a SHA that is NOT in the target's ancestry must
-// still fail loudly. The fix relaxed strict-equality to allow descendants,
-// but conservative-false on `git merge-base --is-ancestor` errors must
-// continue to reject non-ancestors so we don't accept arbitrary mismatches.
-//
-// Uses an out-of-band synthetic SHA that is definitely not in the test
-// repo's history. `git merge-base --is-ancestor <unknown> <known>` exits
-// non-zero (or 128 with "unknown revision"), runCommandOutput returns
-// err != nil, and the function returns ok=false.
-func TestVerifyBinaryAtOrDescendantOf_NonAncestorRejected(t *testing.T) {
+// TestVerifyBinaryGroundTruth_BehindIsDefinitive: binary at the OLD commit,
+// target the NEW one — both fully resolvable in history, so `git merge-base
+// --is-ancestor` exits 1: the definitive "not an ancestor". This is the ONLY
+// shape that may classify Behind (STATBUS-039 review finding 1): a Behind
+// verdict licenses a destructive restore, so it must rest on a
+// resolved-ancestry negative, never on a git error.
+func TestVerifyBinaryGroundTruth_BehindIsDefinitive(t *testing.T) {
+	fix := newGitRepoFixture(t)
+	svc := &Service{
+		binaryCommit: fix.oldSHA, // binary genuinely behind
+		projDir:      fix.dir,
+	}
+	gt, reason := svc.verifyBinaryGroundTruth(fix.newSHA)
+	if gt != GroundTruthBehind {
+		t.Fatalf("expected Behind (binary %s positively behind target %s); got %v reason=%q",
+			fix.oldSHA[:8], fix.newSHA[:8], gt, reason)
+	}
+	if !strings.Contains(reason, "is not its descendant") {
+		t.Errorf("expected reason to mention 'is not its descendant'; got %q", reason)
+	}
+}
+
+// TestVerifyBinaryGroundTruth_UnresolvableBinaryIsUnknown rewrites the
+// pre-039 NonAncestorRejected expectation, which PINNED the conflation the
+// review flagged: a binary SHA absent from the local clone makes merge-base
+// exit 128 ("unknown revision") — clone-state evidence, not ancestry
+// evidence. The pre-039 code classified it Behind, and the destructive
+// callers RESTORED on it. It must be Unknown: destroy nothing, retry
+// forward, let the next pass re-check (STATBUS-039 rule 1).
+func TestVerifyBinaryGroundTruth_UnresolvableBinaryIsUnknown(t *testing.T) {
 	fix := newGitRepoFixture(t)
 	const unknownSHA = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
 	svc := &Service{
 		binaryCommit: unknownSHA, // not in fix's git history at all
 		projDir:      fix.dir,
 	}
-	ok, reason := svc.verifyBinaryAtOrDescendantOf(fix.oldSHA)
-	if ok {
-		t.Fatalf("expected ok=false (binary %s is unknown to repo); got ok=true", unknownSHA[:8])
+	gt, reason := svc.verifyBinaryGroundTruth(fix.oldSHA)
+	if gt != GroundTruthUnknown {
+		t.Fatalf("expected Unknown (binary %s unresolvable = clone-state, not ancestry); got %v reason=%q",
+			unknownSHA[:8], gt, reason)
 	}
-	if !strings.Contains(reason, "is not its descendant") {
-		t.Errorf("expected reason to mention 'is not its descendant'; got %q", reason)
-	}
-	if !strings.Contains(reason, unknownSHA[:8]) {
-		t.Errorf("expected reason to contain the binary commit short prefix; got %q", reason)
+	if !strings.Contains(reason, "cannot verify binary ancestry") {
+		t.Errorf("expected reason to say ancestry cannot be verified; got %q", reason)
 	}
 }
 
-// TestVerifyBinaryAtOrDescendantOf_EqualSHAtrivially returns ok=true
+// TestVerifyBinaryGroundTruth_TargetMissingFromCloneIsUnknown is the
+// shallow-clone case from the review finding: the row's TARGET commit is
+// absent locally (shallow or pruned clone). merge-base exits 128; the
+// cat-file probe identifies the missing object so the operator-facing
+// reason is actionable. Must be Unknown — restoring because the clone is
+// shallow would destroy an at-target box over fetch-depth configuration.
+func TestVerifyBinaryGroundTruth_TargetMissingFromCloneIsUnknown(t *testing.T) {
+	fix := newGitRepoFixture(t)
+	const missingTarget = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+	svc := &Service{
+		binaryCommit: fix.newSHA,
+		projDir:      fix.dir,
+	}
+	gt, reason := svc.verifyBinaryGroundTruth(missingTarget)
+	if gt != GroundTruthUnknown {
+		t.Fatalf("expected Unknown (target %s absent from clone); got %v reason=%q",
+			missingTarget[:8], gt, reason)
+	}
+	if !strings.Contains(reason, "not present in the local git clone") {
+		t.Errorf("expected the cat-file probe's actionable reason; got %q", reason)
+	}
+}
+
+// TestVerifyBinaryGroundTruth_EqualSHAtrivially returns AtTarget
 // without invoking git. The legacy strict-equality contract preserved.
-func TestVerifyBinaryAtOrDescendantOf_EqualSHAtrivially(t *testing.T) {
+func TestVerifyBinaryGroundTruth_EqualSHAtrivially(t *testing.T) {
 	fix := newGitRepoFixture(t)
 	svc := &Service{
 		binaryCommit: fix.newSHA,
 		projDir:      fix.dir,
 	}
-	ok, reason := svc.verifyBinaryAtOrDescendantOf(fix.newSHA)
-	if !ok {
-		t.Fatalf("expected ok=true on equal SHAs; got reason=%q", reason)
+	gt, reason := svc.verifyBinaryGroundTruth(fix.newSHA)
+	if gt != GroundTruthAtTarget {
+		t.Fatalf("expected AtTarget on equal SHAs; got %v reason=%q", gt, reason)
 	}
 	if reason != "" {
 		t.Errorf("expected empty reason; got %q", reason)

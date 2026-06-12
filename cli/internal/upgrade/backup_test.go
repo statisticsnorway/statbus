@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -33,50 +34,64 @@ func makeBackupDir(t *testing.T, root, name string) string {
 	return full
 }
 
-func TestPickLatestBackup_EmptyDir(t *testing.T) {
-	scopedBackupRoot(t)
+// restoreDatabase is identity-keyed (STATBUS-039/-031): it consumes ONLY the
+// snapshot path the recovered upgrade recorded for itself (flag.BackupPath /
+// row.backup_path). Selection by recency (the former pickLatestBackup) is
+// gone — these guards pin the three dispositions deterministically (the
+// restore-succeeds arm needs real docker rsync and lives in the
+// install-recovery harness).
+
+// TestRestoreDatabase_EmptyIdentity_RefusesToTouchVolume: an upgrade that
+// never finalised a snapshot (PreSwap kill — flag.BackupPath empty) must be
+// a clean no-op (nil), regardless of how tempting the on-disk dirs are. The
+// pre-039 recency scan would have restored the newest legacy dir here.
+func TestRestoreDatabase_EmptyIdentity_RefusesToTouchVolume(t *testing.T) {
+	root := scopedBackupRoot(t)
+	// Tempting recency candidates — must never be considered.
+	makeBackupDir(t, root, "pre-upgrade-20261231T235959Z")
+	makeBackupDir(t, root, backupActiveName)
+
 	d := &Service{}
-	if got := d.pickLatestBackup(); got != "" {
-		t.Errorf("pickLatestBackup on empty dir = %q, want \"\"", got)
+	p := &ProgressLog{projDir: t.TempDir()}
+	if err := d.restoreDatabase(p, ""); err != nil {
+		t.Errorf("restoreDatabase with empty identity must no-op (nil); got %v", err)
 	}
 }
 
-func TestPickLatestBackup_OnlyTmps(t *testing.T) {
+// TestRestoreDatabase_MissingIdentity_FailsLoud_NoFallback: the upgrade DID
+// record a snapshot and it is gone (pruned mid-flight, manual deletion).
+// Restoring any OTHER backup would be another upgrade's state — the call
+// must fail with a non-nil error naming the recorded path, even when a
+// newer-looking legacy dir sits right there (the recency choice).
+func TestRestoreDatabase_MissingIdentity_FailsLoud_NoFallback(t *testing.T) {
 	root := scopedBackupRoot(t)
-	makeBackupDir(t, root, "pre-upgrade-20260101T000000Z.tmp")
-	makeBackupDir(t, root, "pre-upgrade-20260102T000000Z.tmp")
+	// The would-have-been recency choice — must NOT be silently restored.
+	makeBackupDir(t, root, "pre-upgrade-20261231T235959Z")
+
+	recorded := filepath.Join(root, backupActiveName) // recorded but absent
 	d := &Service{}
-	if got := d.pickLatestBackup(); got != "" {
-		t.Errorf("pickLatestBackup with only .tmp = %q, want \"\"", got)
+	p := &ProgressLog{projDir: t.TempDir()}
+	err := d.restoreDatabase(p, recorded)
+	if err == nil {
+		t.Fatal("restoreDatabase with a missing recorded snapshot must FAIL loud, never fall back to recency")
+	}
+	if !strings.Contains(err.Error(), recorded) {
+		t.Errorf("error must name the recorded path %q; got: %v", recorded, err)
 	}
 }
 
-func TestPickLatestBackup_PicksNewestNonTmp(t *testing.T) {
+// TestRestoreDatabase_IdentityNotADir_FailsLoud: a recorded path that exists
+// but is not a directory is corrupt state — fail loud, touch nothing.
+func TestRestoreDatabase_IdentityNotADir_FailsLoud(t *testing.T) {
 	root := scopedBackupRoot(t)
-	makeBackupDir(t, root, "pre-upgrade-20260101T120000Z")
-	wantPath := makeBackupDir(t, root, "pre-upgrade-20261231T235959Z")
-	makeBackupDir(t, root, "pre-upgrade-20260615T060000Z")
-	// .tmp newer than the latest finalised — must be ignored.
-	makeBackupDir(t, root, "pre-upgrade-20271231T235959Z.tmp")
-	// Unrelated dir — must be ignored.
-	makeBackupDir(t, root, "some-other-thing")
-
-	d := &Service{}
-	got := d.pickLatestBackup()
-	if got != wantPath {
-		t.Errorf("pickLatestBackup = %q, want %q", got, wantPath)
+	file := filepath.Join(root, "pre-upgrade-active")
+	if err := os.WriteFile(file, []byte("not a dir"), 0644); err != nil {
+		t.Fatal(err)
 	}
-}
-
-func TestPickLatestBackup_LexSortHandlesYearBoundary(t *testing.T) {
-	root := scopedBackupRoot(t)
-	// Timestamp format YYYYMMDDTHHMMSSZ sorts lexicographically the same
-	// as chronologically, including across year boundaries.
-	makeBackupDir(t, root, "pre-upgrade-20251231T235959Z")
-	want := makeBackupDir(t, root, "pre-upgrade-20260101T000001Z")
 	d := &Service{}
-	if got := d.pickLatestBackup(); got != want {
-		t.Errorf("pickLatestBackup = %q, want %q", got, want)
+	p := &ProgressLog{projDir: t.TempDir()}
+	if err := d.restoreDatabase(p, file); err == nil {
+		t.Fatal("restoreDatabase on a non-directory recorded path must FAIL loud")
 	}
 }
 

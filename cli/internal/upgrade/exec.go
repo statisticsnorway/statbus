@@ -248,12 +248,14 @@ func (d *Service) backupRoot() string {
 // is committed by atomic directory rename, where the dir NAME is the
 // clean/dirty state:
 //   - backupActiveName  — a COMPLETE, restorable snapshot (the incremental base
-//     for the next backup, and the rollback source). pickLatestBackup /
-//     restoreDatabase read ONLY this.
+//     for the next backup, and the rollback source). Only a COMMITTED path is
+//     ever recorded on the flag/row (updateFlagPostSwap runs after the
+//     commit-rename), and restoreDatabase consumes ONLY that recorded path
+//     (identity-keyed, STATBUS-039/-031).
 //   - backupSyncingName — an IN-FLIGHT or killed-mid-rsync PARTIAL. Never
 //     restorable; a killed run RESUMES by rsyncing into it (never deleted), and
-//     only rename(syncing→active) publishes it. Structurally invisible to
-//     pickLatestBackup.
+//     only rename(syncing→active) publishes it. Never recorded as a backup
+//     path, so it can never be a restore source.
 //
 // active and syncing never coexist from our sequence (the aside-rename consumes
 // active before syncing exists; the commit-rename consumes syncing while active
@@ -409,7 +411,7 @@ func (d *Service) prepareBackupSnapshotDir(progress *ProgressLog) (string, error
 // Why rename over a .complete marker: a single atomic rename mirrors the shipped
 // ATOMIC archive tar (one mental model), the state IS the name (no sentinel to
 // get out of sync), and it's fail-safe by construction — a crash anywhere leaves
-// either active (complete) or syncing (partial, ignored by pickLatestBackup).
+// either active (complete) or syncing (partial, never recorded → never restorable).
 // active and syncing never coexist from this sequence, so there is NO cleanup
 // branch and NO rm; an unexpected coexistence makes a rename fail loudly.
 //
@@ -520,8 +522,9 @@ func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (string, e
 	if rsyncErr != nil {
 		close(rsyncDone) // stop the heartbeat ticker
 		// Leave the syncing dir in place — it is the incremental base the next
-		// run resumes into (NEVER deleted). It is structurally invisible to
-		// pickLatestBackup (not named active), so a partial cannot be restored.
+		// run resumes into (NEVER deleted). Its path is never recorded on the
+		// flag/row (only the post-commit active path is), so a partial cannot
+		// be restored.
 		return "", fmt.Errorf("rsync backup: %w", rsyncErr)
 	}
 
@@ -552,8 +555,10 @@ func (d *Service) backupDatabase(progress *ProgressLog, stamp string) (string, e
 	// The next install's recoverFromFlag sees flag PreSwap (kill fired upstream
 	// of updateFlagPostSwap) and routes through the PreSwap recovery branch; the
 	// OLD DB volume is intact (backup was a COPY, source unmodified). A retry
-	// resumes by rsyncing into the leftover syncing, then commits. No active dir
-	// is produced by the killed run, so pickLatestBackup won't read the partial.
+	// resumes by rsyncing into the leftover syncing, then commits. No backup
+	// path was recorded by the killed run (updateFlagPostSwap never ran), so
+	// the identity-keyed restore refuses to touch the volume — the partial
+	// can never be a restore source.
 	//
 	// Placement rationale: in this exact spot the rsync has completed (so the
 	// test exercises real I/O), but the rename is the next thing the parent
@@ -640,64 +645,45 @@ func copyRegularFile(src, dst string) error {
 	return out.Close()
 }
 
-// pickLatestBackup returns the path of the COMPLETE restorable snapshot, or ""
-// if none exists. Since CHANGE 2 (task #12) that is the persistent
-// backupActiveName dir. For backward compatibility — an upgrade that backed up
-// under the OLD per-stamp scheme and then recovers under the new binary, with no
-// active dir yet — it falls back to the newest legacy finalised
-// pre-upgrade-<stamp> dir (timestamp prefix sorts lexicographically, so
-// sort.Strings + take-max gives the newest). A partial backupSyncingName and
-// any legacy .tmp are ALWAYS excluded: restore must never read an incomplete
-// snapshot. "" makes restoreDatabase abort rather than touch the live volume.
-func (d *Service) pickLatestBackup() string {
-	root := d.backupRoot()
-
-	// Primary: the persistent active snapshot.
-	active := filepath.Join(root, backupActiveName)
-	if info, err := os.Stat(active); err == nil && info.IsDir() {
-		return active
-	}
-
-	// Legacy fallback: newest finalised pre-upgrade-<stamp> (excluding the
-	// managed syncing dir and any .tmp). Covers the cross-deploy-boundary
-	// in-flight upgrade until the next backup produces an active dir.
-	entries, err := os.ReadDir(root)
-	if err != nil {
-		return ""
-	}
-	var finalised []string
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
-		}
-		name := e.Name()
-		if !strings.HasPrefix(name, "pre-upgrade-") {
-			continue
-		}
-		if strings.HasSuffix(name, ".tmp") || isManagedBackupDir(name) {
-			continue
-		}
-		finalised = append(finalised, name)
-	}
-	if len(finalised) == 0 {
-		return ""
-	}
-	sort.Strings(finalised)
-	return filepath.Join(root, finalised[len(finalised)-1])
-}
-
-// restoreDatabase rsync-restores the DB volume from the finalised snapshot.
-// Returns nil on success OR on the no-backup no-op (the PreSwap case, where the
-// DB volume was never mutated so there is nothing to restore — the box stays
-// healthy). Returns a non-nil error ONLY when an rsync restore was attempted and
-// FAILED: the volume is then left inconsistent, so the caller must record the
-// row terminal as `failed` (degraded), not `rolled_back`.
-func (d *Service) restoreDatabase(progress *ProgressLog) error {
-	backupDir := d.pickLatestBackup()
-	if backupDir == "" {
-		progress.Write("ABORT: no finalised backup directory found in %s; refusing to touch the live volume", d.backupRoot())
+// restoreDatabase rsync-restores the DB volume from THIS upgrade's own
+// snapshot — identity-keyed, never selected by recency (STATBUS-039 / -031,
+// the transactional model: "a stale backup is another upgrade's backup —
+// identity, not age").
+//
+// backupPath is the snapshot path the upgrade being recovered RECORDED for
+// itself: flag.BackupPath (stamped by updateFlagPostSwap after the snapshot
+// commit-rename) or the row's backup_path column. Selection by recency
+// (the former pickLatestBackup) is forbidden here: during the aside-rename
+// window of every backup the active dir is absent, and a recency scan would
+// fall back to a LEGACY pre-upgrade-<stamp> dir from an OLDER upgrade —
+// rsync --delete'ing a months-old state over the live volume. That path
+// completed silently under ./sb install (no watchdog) before this change.
+//
+// Dispositions:
+//   - backupPath == "": this upgrade never finalised a snapshot (PreSwap
+//     kill — the volume was never mutated, the partial lives in the syncing
+//     dir). NOTHING to restore; refuse to touch the volume; return nil so
+//     the caller records `rolled_back` (box healthy, DB untouched).
+//   - backupPath missing on disk: the upgrade DID record a snapshot and it
+//     is gone (pruned mid-flight, manual deletion). Restoring any OTHER
+//     backup would be another upgrade's state — fail LOUD with a non-nil
+//     error so the caller records `failed` (degraded), never a silent
+//     wrong-restore.
+//   - backupPath present: rsync-restore it. A non-nil error means the rsync
+//     was attempted and FAILED: the volume is left inconsistent, so the
+//     caller must record `failed` (degraded), not `rolled_back`.
+func (d *Service) restoreDatabase(progress *ProgressLog, backupPath string) error {
+	if backupPath == "" {
+		progress.Write("No snapshot was recorded by this upgrade — refusing to touch the live volume (nothing to restore; the DB was never mutated).")
 		return nil
 	}
+	if info, statErr := os.Stat(backupPath); statErr != nil || !info.IsDir() {
+		progress.Write("%s: this upgrade's recorded snapshot %s is missing on disk (stat: %v) — REFUSING to restore any other backup (identity-keyed restore).",
+			ErrRollbackDBRestore, backupPath, statErr)
+		return fmt.Errorf("%s: recorded snapshot %s missing on disk: %v",
+			ErrRollbackDBRestore, backupPath, statErr)
+	}
+	backupDir := backupPath
 	volumeName := d.dbVolumeName()
 
 	progress.Write("Restoring database from backup at %s...", backupDir)

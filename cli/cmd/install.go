@@ -308,6 +308,23 @@ func runInstall() (installErr error) {
 		} else {
 			detectedState = state
 			logInstallState(installDir, state, detail)
+			// Safe takeover (STATBUS-039): a live flock + a crash-looping
+			// unit is not a progressing upgrade — it is a wedge cycling
+			// through watchdog kills (rune: NRestarts=10229 over 18 days),
+			// and the operator's `./sb install` must FIX it, not lose a
+			// timing lottery against the ~30s RestartSec dead windows.
+			// Reclassify to crashed-upgrade and proceed: runCrashRecovery's
+			// SIGKILL-class quiesce (stopRestartUpgradeUnit) kills the loop
+			// holder — never SIGTERM, which would fire the in-flight
+			// upgrade's rollback handler — and recovery then owns the flag.
+			// A genuinely progressing upgrade (low restart count) keeps the
+			// refusal below; any probe failure also falls through to it.
+			if state == install.StateLiveUpgrade {
+				if _, looping := upgradeUnitCrashLooping(installDir); looping {
+					state = install.StateCrashedUpgrade
+					detectedState = state
+				}
+			}
 			if state == install.StateCrashedUpgrade {
 				if err := runCrashRecovery(installDir); err != nil {
 					return fmt.Errorf("crash recovery: %w", err)
