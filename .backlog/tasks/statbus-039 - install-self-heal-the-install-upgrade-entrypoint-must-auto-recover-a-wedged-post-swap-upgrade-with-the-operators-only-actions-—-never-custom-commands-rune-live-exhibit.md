@@ -7,7 +7,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-12 08:54'
-updated_date: '2026-06-12 08:57'
+updated_date: '2026-06-12 09:00'
 labels:
   - install-recovery
   - upgrade
@@ -75,4 +75,10 @@ ALREADY IN HEAD (039 builds on, doesn't redo): the 015 FlagPhaseResuming latch (
 OPEN SCOPING QUESTION (architect to resolve; engineer available to verify read-only): does HEAD's resume path already recreate the full service set (incl proxy), or is that still the gap 039 must close? The answer scopes 039 between "just make install converge an already-wedged old-binary box" and "also fix resume to recreate the full set (prevent recurrence)".
 
 STALE-BACKUP GUARD (hard constraint, restated): no path may restore a backup older than live data (the May-25 backup vs ~2.5 weeks of live Norway data).
+
+SCOPING QUESTION CLOSED (architect, 2026-06-12, verified in-repo — engineer standby not needed): HEAD's resume ALREADY recreates the full service set including proxy. step11RestartServices = {app, worker, rest, proxy} (service.go:119); TestVersionTrackedAlignedWithUpgradePipeline (containers_invariants_test.go) exists specifically because of this rune bug — its comment names 'the Bug 2 symptom that bit rune.statbus.org: proxy was in versionTrackedServices but missing from step 11' — and guards both drift directions. (rest is step11-but-not-versionTracked by design: upstream-pinned image, running-state-only check.) The step-11 comment at service.go:4000 ('proxy already running from step 2') is DRIFTED PROSE predating the Bug-2 fix — repair it in whatever commit lands here. rune's id=187 wedge is therefore specific to its OLD binary (51670d9e, pre-Bug-2-fix).
+
+WHAT THIS LEAVES AS 039's ACTUAL DESIGN SURFACE (the principled layer — none of it shipped): (1) GROUND-TRUTH-FIRST ordering: at-or-past-target (binary==row.commit_sha + migrations≥target, verifyUpgradeGroundTruth already computes it) must decide direction BEFORE the Resuming latch can route to rollback — on HEAD today, a single failed resume attempt stamps Resuming and the NEXT recovery latches into rollback → restore of the May-25 backup: one failure, no second chance, data-loss behind it. (2) STALE-BACKUP GUARD at the rollback() chokepoint — and it is a PRECONDITION of the 031 watchdog cover, not an extension: on this exhibit, HEAD-as-is kills the uncovered restore mid-rsync (corrupted volume), while 031's ticker ALONE would let the May-25 restore COMPLETE (confident 2.5-week data loss with a green rolled_back row). 031 must not land without the guard. (3) SAFE TAKEOVER in the install ladder: today flag+flock-held → StateLiveUpgrade refuse (state.go:7/:123), and during the ~30s RestartSec windows install races into StateCrashedUpgrade instead; the takeover must quiesce the looping OLD service SIGKILL-class — NEVER SIGTERM (the old binary's handler cancels ctx → rollback → the trap; the unit's TimeoutStopSec=15min comment cites a prior rune stop→rollback→pg_restore incident) — then the new binary owns recovery. (4) PROOF on wedged-rune per AC#3/#4.
+
+Walk-through of HEAD's install on wedged-rune AS-IS (why the principled layer is still required even with Bug-2 fixed): install wins the flock race → crashed-upgrade → resumePostSwap → canary fails on stale proxy → stamps Resuming → applyPostSwap re-run WOULD converge (step 11 now recreates proxy) IF every step succeeds first try — but any single failure (health blip, conn error) routes postSwapFailure → rollback → May-25 restore. The system converges only if nothing goes wrong once, with a data-loss gun behind every failure path. Forward-only-for-at-target removes the gun.
 <!-- SECTION:NOTES:END -->
