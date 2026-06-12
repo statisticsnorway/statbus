@@ -82,15 +82,23 @@ ssh_server() {
     ssh -o ConnectTimeout=10 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 "${server}@${HOST}" "$@"
 }
 
-# Stop the user-level upgrade service so the `./sb` binary can be
-# replaced without "text file busy". Idempotent — `systemctl stop` on a
-# stopped unit is a safe no-op. Any stale upgrade-in-progress flag left
-# on disk is reconciled by `./sb install` itself (StateCrashedUpgrade
-# dispatch), so cloud.sh doesn't need to do that here.
-stop_upgrade_service() {
-    local server="$1"
-    ssh_server "$server" "systemctl --user stop statbus-upgrade@${server}.service 2>/dev/null || true" 2>&1
-}
+# NOTE: there is deliberately NO stop_upgrade_service here (STATBUS-041,
+# sibling of STATBUS-040 / the deploy-stop footgun). `systemctl --user
+# stop` sends SIGTERM, and an in-flight upgrade process catches TERM,
+# cancels its context, and ROLLS BACK — on a wedged slot that restores a
+# stale snapshot over the live DB. Both of the old rationales for a
+# pre-install stop are false:
+#   - mutex: `./sb install` (post-STATBUS-039) REFUSES a genuinely-
+#     progressing upgrade (deploy reports failure, operator retries) and
+#     TAKES OVER a crash-looping unit (NRestarts >= 3) with a SIGKILL-class
+#     quiesce — no handler runs, no rollback fires.
+#   - "text file busy": every binary-replacement path is an atomic rename —
+#     install.sh places ./sb via curl-to-sb.tmp + mv, and the build-from-
+#     source path does `mv sb-linux-amd64 sb`. rename(2) swaps the directory
+#     entry while the running process keeps its old inode; ETXTBSY only
+#     fires on write-in-place, which no path does.
+# The per-slot unit instance is statbus-upgrade@<server>.service (the
+# suffix is the deployment user; see cli/cmd/install.go:serviceInstance).
 
 # Ensure the user-level upgrade service is running on exit. Idempotent —
 # `systemctl start` on a running unit is a no-op. Used at the end of
@@ -362,13 +370,19 @@ cmd_tail() {
 
 cmd_install_one() {
     # Idempotent install flow:
-    #   stop_upgrade_service → install → ensure_service_started
+    #   install → ensure_service_started
     #
     # Re-running `./cloud.sh install <server>` after any partial failure
     # (SSH drop, Ctrl-C, transient error) is safe — every step is rerun-safe.
-    # The `./sb install` dispatcher handles stale upgrade flags itself
-    # (StateCrashedUpgrade reconciles and re-dispatches), so cloud.sh only
-    # needs to stop the service so the binary can be replaced.
+    # The `./sb install` dispatcher handles the running service itself
+    # (STATBUS-039): a stale flag reconciles via StateCrashedUpgrade; a
+    # crash-looping unit is taken over with a SIGKILL-class quiesce; a
+    # genuinely-progressing upgrade makes install REFUSE — cloud.sh then
+    # reports the failure and the operator retries later. Do NOT stop the
+    # service first: systemctl stop is SIGTERM, which an in-flight upgrade
+    # catches and answers with a rollback (snapshot restore) — the deploy-
+    # stop footgun (STATBUS-040/-041). No binary-replacement path needs a
+    # stop either (all are atomic renames).
     #
     # ensure_service_started runs at the end (and on the failure-return path)
     # so a cloud.sh exit always leaves the server with the upgrade service
@@ -491,10 +505,11 @@ cmd_install_one() {
                          ensure_service_started "$server"; return 1; }
             fi
         fi
-        # Stop user-level service before replacing binary — systemd --user
-        # restarts it on exit (Restart=always), and the running process holds
-        # the binary open → "text file busy" on mv.
-        stop_upgrade_service "$server"
+        # No service stop before the swap: `mv sb-linux-amd64 sb` is an
+        # atomic rename — the running process keeps its old inode, so
+        # "text file busy" cannot occur (ETXTBSY is write-in-place only).
+        # Stopping would be the deploy-stop footgun (STATBUS-041): SIGTERM
+        # makes an in-flight upgrade roll back.
         ssh_server "$server" "cd statbus && mv sb-linux-amd64 sb" 2>&1 \
             || { echo "--- $server FAILED: replace binary (exit $?) ---"; \
                  ensure_service_started "$server"; return 1; }
@@ -504,20 +519,19 @@ cmd_install_one() {
             || exit_code=$?
     else
         if [ -n "$version" ]; then
-            # Pinned: verify artifacts for the specific version before stopping.
+            # Pinned: verify artifacts for the specific version before touching the server.
             echo "Checking release artifacts for $version are ready..."
             if ! "$SCRIPT_DIR/sb" release check --tag "$version"; then
                 echo "--- Release artifacts for $version not ready. Retry later. ---"
                 return 1
             fi
             echo "Installing $server at $version via $INSTALL_URL ..."
-            stop_upgrade_service "$server"
             ssh_server "$server" \
                 "curl -fsSL ${INSTALL_URL} | bash -s -- --version $version $(trust_flag "$resolved_trust_user")" 2>&1 \
                 || exit_code=$?
         else
-            # Gate: verify release artifacts are fully published before stopping
-            # the running service. If CI is still uploading assets or pushing
+            # Gate: verify release artifacts are fully published before touching
+            # the server. If CI is still uploading assets or pushing
             # images, abort early — the server stays up and the operator retries.
             # Rc.63: use --channel so the check resolves to the
             # current latest RC instead of treating "prerelease" as a
@@ -528,11 +542,10 @@ cmd_install_one() {
                 return 1
             fi
             echo "Installing $server via $INSTALL_URL ..."
-            # Stop the user-level upgrade service so install.sh can replace the
-            # `./sb` binary without hitting "text file busy". install.sh's
-            # install step re-enables and starts the service on completion.
-            stop_upgrade_service "$server"
-            # Step 1: Run install.sh as the app user.
+            # Step 1: Run install.sh as the app user. No pre-stop: install.sh
+            # swaps ./sb via atomic rename (sb.tmp + mv, never ETXTBSY), and
+            # `./sb install` refuses-or-takes-over a running upgrade itself
+            # (STATBUS-039/-041).
             # Exit code 42 = service needs root (not a failure).
             ssh_server "$server" \
                 "curl -fsSL ${INSTALL_URL} | bash -s -- --channel prerelease $(trust_flag "$resolved_trust_user")" 2>&1 \
