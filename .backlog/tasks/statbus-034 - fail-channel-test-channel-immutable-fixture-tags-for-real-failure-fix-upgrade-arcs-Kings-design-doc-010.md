@@ -2,7 +2,7 @@
 id: STATBUS-034
 title: >-
   fail-channel: branches-as-channels for real failure/fix upgrade arcs (King's
-  design, doc-010)
+  design)
 status: To Do
 assignee: []
 created_date: '2026-06-12 05:44'
@@ -41,14 +41,16 @@ SEQUENCING: post-gate (does not displace the stable-gate batch). STATBUS-033 (ch
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Full design ratified by the King: channel→branch mapping shape, commit-addressed artifact store + retention, fixture-branch baseline choice, guard shape (doc-010 open points resolved)
-- [ ] #2 Commit-addressed binary procurement: CI publishes the sb binary per commit; commit-target procurement downloads (SHA256-verified) before falling back to build
-- [ ] #3 Fixture branches exist with prepared signed commits (base / fail / fix per family) and built images; authoring runbook documented
-- [ ] #4 Harness scenario, fail arc: install base → pointer to fail-commit → real discovery+procurement+upgrade → clean rollback/terminal + data intact → pointer to fix-commit → upgrade COMPLETES
-- [ ] #5 Harness scenario, stall arc: same flow, stuck migration bounded by the watchdog/timeout covers, fix completes
-- [ ] #6 Channel exclusivity: a box on a test-family branch discovers ONLY that branch; stable/prerelease boxes never see branch-commit candidates (unit + discover-level checks)
-- [ ] #7 Channel + fixture workflow documented (AGENTS.md table, operator docs with do-not-use-in-production warning)
+- [ ] #1 Commit-addressed binary procurement: CI publishes the sb binary per commit; commit-target procurement downloads (SHA256-verified) before falling back to build
+- [ ] #2 Fixture branches exist with prepared signed commits (base / fail / fix per family) and built images; authoring runbook documented
+- [ ] #3 Harness scenario, fail arc: install base → pointer to fail-commit → real discovery+procurement+upgrade → clean rollback/terminal + data intact → pointer to fix-commit → upgrade COMPLETES
+- [ ] #4 Harness scenario, stall arc: same flow, stuck migration bounded by the watchdog/timeout covers, fix completes
+- [ ] #5 Channel exclusivity: a box on a test-family branch discovers ONLY that branch; stable/prerelease boxes never see branch-commit candidates (unit + discover-level checks)
+- [ ] #6 Channel + fixture workflow documented (AGENTS.md table, operator docs with do-not-use-in-production warning)
+- [ ] #7 Full design ratified by the King: channel→branch mapping shape, commit-addressed artifact store + retention, fixture-branch baseline choice, guard shape (the open points listed in Implementation Notes)
 <!-- AC:END -->
+
+
 
 ## Implementation Notes
 
