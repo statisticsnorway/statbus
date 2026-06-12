@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-11 03:17'
-updated_date: '2026-06-11 15:43'
+updated_date: '2026-06-12 07:52'
 labels:
   - install-recovery
   - ci
@@ -24,19 +24,28 @@ ordinal: 25000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-STRUCTURAL BLOCKER discovered 2026-06-11. The install-recovery-harness.yaml runs all ~28 scenarios SERIALLY in a SINGLE job ("Provision Hetzner VMs + run full install-recovery scenario suite"), each on its own ephemeral Hetzner VM (~12-13 min/scenario). Total ≈ 6h, right at GitHub Actions' hard 360-min job ceiling.
+STRUCTURAL BLOCKER for the stable gate. The harness workflow runs all ~28 scenarios SERIALLY in ONE job (~13 min each ≈ 6h) and GitHub kills jobs at 360 min → run 27306718138 was CANCELLED at exactly 6h00. The stable gate (release.go:989 → CheckWorkflowAtCommit, workflow_check.go:81) needs the WORKFLOW conclusion == success at the RC commit; `cancelled` is never `success` — so even an ALL-GREEN suite can never satisfy the gate. Worse, more green = slower = more cancelled (passing scenarios run their full convergence tails). Gates STABLE (the Norway deploy), not the prerelease. The rc.01 tag-push run repeating this cancel is EXPECTED — it is the live exhibit of this ticket, not a regression.
 
-Run 27306718138 @ cd2f5d51f (the validation of tonight's fixes) was CANCELLED at exactly 6h00m (21:13Z→03:13Z) — NOT a concurrency cancel (only run at that SHA), the 6h timeout. The previous run 27242482272 finished just under 6h with conclusion=failure. The IRONY + root cause: a FAILING scenario often exits fast, but a PASSING scenario runs its full convergence tail (health checks, data-intact asserts, restart-counter, teardown) — so as tonight's fixes turned reds GREEN, the suite got SLOWER and tipped over 6h. More green = slower = more likely to time out.
-
-IMPACT: the `release stable` gate checks the install-recovery-harness WORKFLOW conclusion == success (release.go:989). A run that times out is `cancelled`, never `success` — so even if every scenario passes, the stable gate can NEVER be satisfied by the current single-serial-job shape. This gates STABLE (the actual NO deploy), NOT the RC cut (harness reds/cancel don't block prerelease).
-
-FIX OPTIONS (architect/engineer to design): (a) MATRIX — fan the scenarios across parallel jobs (GitHub matrix), each job a subset or a single scenario, so wall-clock per job is ~12 min and the 6h ceiling is per-job not per-suite; needs HCLOUD quota headroom for concurrent VMs + the reap step per job. (b) BATCH — split into 2-3 sequential jobs (e.g. by prefix 2-/3-/4-5-), each <6h, gate on all green. (c) Reduce per-scenario time. Matrix (a) is the clean answer (also gives per-scenario logs + faster feedback). Cost note: more concurrent CX23 VMs, but each lives ~12 min not ~6h.
-
-NOTE: tonight's run still validated most fixes before the cancel — see tmp/operator-comprehensive-27306718138.md. This ticket is about the GATE MECHANISM, separate from any individual scenario red.
+THE FIX (decided — MATRIX, design ready to implement):
+1. Discover job: enumerate scenarios/*.sh → JSON matrix; build the sb binary ONCE and upload as an artifact (keep today's one-build-for-all property).
+2. One matrix job per scenario: download the binary artifact, provision its own Hetzner VM, run the ONE scenario, upload its log artifact. max-parallel ~8 (checklist: confirm the Hetzner project server quota covers max-parallel + any other VMs in the project). Per-job timeout-minutes ~45.
+3. THE ONE TRAP — reap scoping: the current always() reap step deletes EVERY statbus-recovery-* VM (install-recovery-harness.yaml:219-227). Inside a parallel matrix that murders sibling jobs' live VMs. Per-job reap must target only the job's own VM name; the global sweep moves to a final cleanup job (needs: [matrix], if: always()).
+4. Stamps: run.sh's all-scenarios stamp (run.sh:174-178) never fires under per-scenario selectors — fine: the CI gate reads the workflow conclusion (= AND of all matrix jobs), so ZERO release.go changes; keep the stamp for local full runs.
+5. Result: wall-clock ≈ ceil(30/8)×~15min ≈ ~60 min (vs 6h+); cost unchanged ~€0.22/run (each scenario already bills a 1-hour VM minimum); bonus per-scenario logs + re-runs via the existing `scenarios` input.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 Workflow restructured: discover job (scenario enumeration + one binary build/artifact) + matrix job per scenario + final global-reap cleanup job
+- [ ] #2 Per-job reap touches ONLY its own VM; the global statbus-recovery-* sweep runs only in the final cleanup job (no sibling-job VM kills)
+- [ ] #3 max-parallel set with verified Hetzner quota headroom; per-job timeout ~45 min
+- [ ] #4 A full matrix run completes well under the 6h ceiling and reports a real workflow conclusion (success when all scenarios pass)
+- [ ] #5 Stable gate satisfied unchanged: CheckWorkflowAtCommit returns green at an RC commit from a passing matrix run (zero release.go edits)
+- [ ] #6 Per-scenario log artifacts uploaded; single-scenario re-run still works via the scenarios input
+<!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-ROADMAP DESIGN (architect, 2026-06-11, doc-007 Track B1 — first in line on the stable critical path): MATRIX (option a), grounded in the current yaml (which anticipates it at :23). Shape: discover job enumerates scenarios/*.sh → JSON + builds sb ONCE (artifact, keep the one-build property); matrix job per scenario (download artifact, one VM, one scenario, per-scenario log artifact), max-parallel ~8 (checklist: confirm Hetzner project server quota ≥ max-parallel + any production VMs), per-job timeout-minutes ~45. THE ONE TRAP: the current always() reap deletes EVERY statbus-recovery-* VM (yaml:219-227) — inside a parallel matrix that kills sibling jobs' live VMs; per-job reap must scope to the job's own VM name, the global sweep moves to a final needs:[matrix] if:always() cleanup job. Stamps: run.sh's all-scenarios stamp (:174-178) never fires under per-scenario selectors — CI needs no stamp (gate reads the workflow conclusion: CheckWorkflowAtCommit/workflow_check.go:81 = AND of matrix jobs, zero release.go edits); keep the local full-run stamp + fold in the agreed per-scenario stamp design so the local pre-push observe-evidence hook stays meaningful. Wall-clock ≈ ceil(30/8)×~15min ≈ ~60min (vs 6h+); cost unchanged ~€0.22/run (1-hour VM minimum per scenario already). Note: rc.01's tag-push run hitting the 6h cancel is the live exhibit of this problem — expected, not a regression.
+Decision history: options (a) matrix / (b) batch / (c) faster-scenarios were weighed; MATRIX chosen (clean gate semantics, per-scenario logs, ~60min). Deep-reference: doc-007 Track B1. The rc.01 tag-push harness run will show the 6h cancel — expected, the live exhibit. First in line in the gate-maker batch (engineer-sized, ~1 day).
 <!-- SECTION:NOTES:END -->
