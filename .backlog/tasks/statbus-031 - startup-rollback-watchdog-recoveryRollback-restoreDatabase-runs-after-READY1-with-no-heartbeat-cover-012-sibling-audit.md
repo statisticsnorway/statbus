@@ -1,12 +1,12 @@
 ---
 id: STATBUS-031
 title: >-
-  startup-rollback-watchdog: recoveryRollback/restoreDatabase runs after READY=1
-  with no heartbeat cover (012 sibling audit)
+  rollback-watchdog-cover: restoreDatabase/rollback() has no effective
+  WATCHDOG=1 source on any path — wrap the rollback chokepoint (012 pattern)
 status: To Do
 assignee: []
 created_date: '2026-06-11 13:39'
-updated_date: '2026-06-11 15:43'
+updated_date: '2026-06-12 07:51'
 labels:
   - upgrade
   - recovery
@@ -17,20 +17,37 @@ documentation:
   - >-
     doc-007 -
     Roadmap-completing-install-upgrade-robustness-—-Norway-rollout-then-external-standalone.md
-priority: medium
+priority: high
 ordinal: 31000
 ---
 
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Follow-up from STATBUS-012 (AC#6; flagged in doc-005, not yet traced to ground). The 012 fix established the invariant "every DB-size-scaled subprocess the service runs in the active phase executes under an explicit, bounded, always-ping watchdog cover" — boot-migrate is now covered. The suspected remaining violation: `recoverFromFlag` → `recoveryRollback` → restoreDatabase. A Norway-size pg_restore during Run() startup executes after READY=1 (watchdog armed) with, as far as inspected, no ticker armed: rollback call sites pass onAdvance=nil (service.go:4738/:4780/:4958-region) and `progress.File()` writes bypass ProgressLog.Write's heartbeat. If confirmed, a multi-minute silent restore during startup recovery is watchdog-killed mid-rollback — 012's sibling. Same fix primitive applies (runGatedWatchdogTicker, nil progress, bounded).
+CONFIRMED (architect sweep, 2026-06-11 — supersedes the original "suspected" framing). The LAST uncovered DB-size-scaled step in service startup; wedge list is bounded: 017 done, 012 done, 031 last. KING DECISION at the rc.01 cut: this gates the STABLE/Norway promotion, not the prerelease.
 
-Scope: (1) trace every Run()-startup-reachable DB-size-scaled step before any ticker arms; (2) confirm or refute the recoveryRollback gap with line evidence; (3) if confirmed: RED scenario design (stall/large-restore inject during startup recovery) + fix per the 012 pattern. Product/recovery code — King-gated for the fix; the audit itself is read-only.
+THE GAP: restoreDatabase (exec.go:695-714) restores the DB volume via a docker-run rsync of the WHOLE volume — onAdvance=nil, output to progress.File() which bypasses the heartbeat; the last WATCHDOG=1 ping is one progress.Write BEFORE the rsync (exec.go:703). Startup path (recoverFromFlag service.go:1720 → recoveryRollback :2135 → rollback :4649 → restoreDatabase :4777) has ZERO ticker → watchdog kills ~120s into the restore. Execute path (postSwapFailure :3675 → rollback, gated ticker still armed) closes its gate after 3 min of rsync silence (watchdog.go:134) → killed too. The flag is removed only AFTER the restore completes, so a mid-restore kill → next boot → restore FROM SCRATCH → killed again = indefinite restore loop (the rune-wedge shape) on the recovery path itself. Norway 32 GB: a >120s restore is essentially guaranteed.
+
+FOUR startup entries funnel into the same chokepoint: the Resuming/PreSwap latch (:762/:829), recoverFromFlag ground-truth failures (:889/:908/:922/:1042), completeInProgressUpgrade ground-truth failure (:2271), resumePostSwap stale-flag binary-skew. One fix covers all.
+
+THE FIX: an always-ping watchdog ticker (runGatedWatchdogTicker, nil progress — the exact 012 primitive) wrapping the BODY of rollback() — covers the restore AND the equally-silent rollback-docker-up (5m, onAdvance=nil); raise the 10-min rsync timeout (exec.go:704) to a shared generous constant (the MigrateUpTimeout=30m philosophy); repair the comments in the same commit; add a source-order guard test (TestBootMigrateWatchdogCover_SourceOrder style).
+
+THE PROOF: the 012 protocol — RED scenario (stall/slow the restore during startup recovery) on unfixed code → King ratifies → fix → GREEN. ~2 VM-hours, ~€0.015.
+
+ALSO CLEARED BY THE SWEEP (no work, recorded for honesty): every other step from process start to the first main-loop heartbeat is covered or bounded. Three LOW non-wedge liveness nits (initial-discover network blackhole ≤5m cap; wedged-dockerd resume probes ≤2m caps; pruneBackups RemoveAll on a rare path) — environmental, self-healing, no destructive rework; fix only if the King asks.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Acceptance Criteria
+<!-- AC:BEGIN -->
+- [ ] #1 King ratifies the fix design in this description (ticker wrap at rollback(), shared restore timeout, comments, guard test)
+- [ ] #2 RED observed on a real VM: restore stalled during startup recovery → watchdog kill on unfixed code (NRestarts delta ≥1 from post-stall baseline / Result=watchdog)
+- [ ] #3 Fix landed: always-ping ticker wraps rollback(); restore timeout raised to the shared constant; comments repaired; source-order guard test added
+- [ ] #4 GREEN on a real VM: same stall, NRestarts delta=0, rollback completes, data intact, flag absent
+- [ ] #5 RED→GREEN pair recorded here with run IDs/VM names
+<!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-ROADMAP + SWEEP RESULT (architect, 2026-06-11, doc-007 Track A1): the Run()-startup sweep is COMPLETE — this task is the LAST uncovered DB-size-scaled step (017 ✓, 012 ✓, 031 last); King settled at the rc.01 cut that it gates the STABLE/Norway promotion. Sharpened scope: (1) FOUR startup entries funnel into the uncovered rollback chain — Resuming/PreSwap latch (service.go:762/:829), recoverFromFlag ground-truth-failure branches (:889/:908/:922/:1042), completeInProgressUpgrade ground-truth failure (:2271), resumePostSwap stale-flag binary-skew branch — all via recoveryRollback (:2135) → rollback (:4649); ONE chokepoint ticker wrapping rollback() covers everything. (2) The cover must wrap ALL of rollback(), not just restoreDatabase (exec.go:695-714, rsync, 10m cap, onAdvance=nil): the tail's rollback-docker-up (5m, onAdvance=nil) is image-scaled and equally silent. (3) Execute path is ALSO exposed: the applyPostSwap gated ticker closes at the 3-min stall threshold (watchdog.go:134) during a silent restore. (4) Secondary: raise the 10-min rsync cap to a shared generous constant (MigrateUpTimeout philosophy). Startup-tail clearance (scope item 1) is DONE — all other steps cleared with line evidence; three LOW non-wedge liveness nits folded here: N1 initial-discover network blackhole (git fetch 5m cap, kill-retry converges when network returns), N2 wedged-dockerd resume probes (2m caps), N3 pruneBackups RemoveAll on the rare belt path (filesystem-scaled). Fix+proof per doc-007: 012 pattern at the chokepoint, RED stall-restore scenario → King ratifies → fix → GREEN, ~2 VM-hours.
+Design + sweep ledger deep-reference: doc-007 Track A1/A2 (the roadmap) — but this ticket is self-sufficient; the doc adds only the full step-by-step clearance table. Status: awaiting King ratification of the fix design, then RED→fix→GREEN per the 012 protocol.
 <!-- SECTION:NOTES:END -->
