@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-12 07:59'
-updated_date: '2026-06-12 09:05'
+updated_date: '2026-06-12 13:16'
 labels:
   - roadmap
   - install-recovery
@@ -82,7 +82,7 @@ B5 vs 034 — procurement-path distinction (foreman-verified 2026-06-12, service
 
 RESOLVED (architect-pinned 2026-06-12; double-confirmed by rune's live config): Norway's unattended production upgrade rides the TAG path. apply-latest resolves the target from the box's UPGRADE_CHANNEL (cli/cmd/upgrade.go:250-339), ignoring the pushed branch: stable/prerelease → latest matching TAG → ValidateVersion TRUE → replaceBinaryOnDisk (B5's path); edge → master commit → buildBinaryOnDisk (034's path). rune is UPGRADE_CHANNEL=prerelease (confirmed via SSH 2026-06-12) → tag path. So B5 covers the single most important untested procurement path for Norway; right slot = green before the Norway-stable cut. 034's commit-addressed download serves the OTHER (edge/commit) branch — complementary.
 
-GATE-BATCH COUPLING — 031 + stale-backup guard ship TOGETHER (architect, 2026-06-12, from the rune wedge / STATBUS-039). 031 (rollback watchdog cover) is in the gate-maker batch but MUST NOT land alone: its ticker lets a slow restore COMPLETE, which for a STALE backup (older than live data) converts HEAD's detectable mid-rsync crash into a SILENT complete data loss (green rolled_back row). The stale-backup guard at rollback() (part of STATBUS-039's design surface) is a PRECONDITION of 031, not an extension. The gate batch carries 031 + the guard as a unit. Recorded on STATBUS-031.
+GATE-BATCH COUPLING — REFRAMED + GUARD SHIPPED (King correction 2026-06-12). The original "silent data loss" framing of the 031↔guard coupling was refuted by the King: a wedged box locks users out (rune accumulated zero domain writes in 18 days) — unusable installation, not data loss. The real justification was a verified code bug (pickLatestBackup restoring the LATEST, not the upgrade's OWN, backup during the aside-rename window — silent wrong-restore for any box with data). STATBUS-039 (commit 5eacd6305) SHIPPED the fix: identity-keyed restore. So the guard precondition for 031 is now MET; 031 (the rollback watchdog ticker) is no longer blocked by it and can land safely on top. The gate batch still carries 031, now decoupled from the guard (already in).
 
 doc-007 open-questions reconciliation: Q1 (031 gates stable/Norway) SETTLED. Q4 (B5 file-now) NOT superseded — stays live. Live King calls: 015 (confirm-the-Resuming-latch-contract) + 014 (redesign-to-reach-archiveBackup) + B5 (file-now).
 <!-- SECTION:NOTES:END -->
