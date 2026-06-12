@@ -7,6 +7,7 @@ status: To Do
 assignee:
   - architect
 created_date: '2026-06-12 21:51'
+updated_date: '2026-06-12 21:54'
 labels:
   - install-recovery
   - testing
@@ -36,8 +37,22 @@ Three items that gate the deferred install-recovery VM battery (post-rune-instal
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 3-postswap-resume-died-rollback split per verdict: Behind-fabrication asserts rolled_back via the upgrade's own snapshot; AtTarget-fabrication asserts forward convergence to completed
-- [ ] #2 rune-wedge scenario lands in test/install-recovery/scenarios/ and proves takeover→forward→completed with zero restores on a fabricated rune shape
-- [ ] #3 NRestarts-across-exit-42 + reset-failed-on-active-unit confirmed on a VM (or the documented conservative degradation confirmed for older systemd)
-- [ ] #4 All scenario commits land outside battery runs (freeze-window discipline)
+- [ ] #1 rune-wedge scenario lands in test/install-recovery/scenarios/ and proves takeover→forward→completed with zero restores on a fabricated rune shape
+- [ ] #2 NRestarts-across-exit-42 + reset-failed-on-active-unit confirmed on a VM (or the documented conservative degradation confirmed for older systemd)
+- [ ] #3 All scenario commits land outside battery runs (freeze-window discipline)
+- [ ] #4 3-postswap-resume-died-rollback rewritten to the four-case verdict matrix (canary-self-heal / transient-forward-succeeds / persistent-forward-loops / behind-rolls-back) ONLY AFTER the King settles the loudness question for the persistent case — on hold until then
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+CORRECTION + HOLD (foreman code-trace, 2026-06-12, architect concurs — supersedes the description's item 1 and the original AC#1): the architect's "at-target fabrication converges to completed" model was WRONG for this scenario's shape. Actual post-039 behavior at Phase=Resuming, verdict AtTarget/Unknown: recoverFromFlag → resumePostSwap (forward again) — it does NOT mark completed. resumePostSwap's container canary marks completed ONLY when every version-tracked container is already at the flag target; otherwise applyPostSwap re-runs, and the scenario's kill is PINNED in the unit env through the whole watch window → the kill fires again → die → restart → LOOP: row stays in_progress, NRestarts climbs, the scenario's Phase 6 times out (its own "OLD retry-loop wedge" message). That is the 039 tradeoff BY DESIGN — at-target never rolls back (data loss past maintenance-off); it retries forward, loud (the posture that kept rune at zero data loss for 18 days).
+
+CORRECT VERDICT-AWARE MATRIX (four cases, matched to real behavior):
+0. at-target + containers ALREADY at flag target → immediate canary self-heal → completed, applyPostSwap never runs (the rune shape — covered by the rune-wedge scenario, item 2).
+1. at-target + TRANSIENT failure (one-shot inject) → forward retry succeeds → completed.
+2. at-target + PERSISTENT failure (pinned inject — the current scenario's shape) → loops forward, stays in_progress + loud, NO rollback. WHAT TO ASSERT HERE DEPENDS ON THE KING'S OPEN LOUDNESS DECISION (degraded-state/alert after N clearly-non-transient forward failures vs loop-loud-forever). Architect's input for that decision: any escalation must be OBSERVABILITY-only (named degraded signal / callback after N retries) — never a direction change; rollback stays forbidden at-target regardless of N.
+3. behind → one-shot rollback to the upgrade's OWN snapshot (identity-keyed).
+
+STATUS: scenario rewrite ON HOLD until the King settles loudness (foreman carrying the fork to him). Item 2 (rune-wedge scenario) PROCEEDS — it is case 0, independent of the loudness question. Item 3 (systemd empirics) unaffected.
+<!-- SECTION:NOTES:END -->
