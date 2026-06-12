@@ -8,7 +8,7 @@ status: In Progress
 assignee:
   - architect
 created_date: '2026-06-12 08:54'
-updated_date: '2026-06-12 12:02'
+updated_date: '2026-06-12 21:52'
 labels:
   - install-recovery
   - upgrade
@@ -96,4 +96,24 @@ FINAL DESIGN (architect, 2026-06-12; the transactional model applied — superse
 IMPLEMENTED AND COMMITTED as 5eacd6305 (2026-06-12, architect-coded on the King's direct order; engineer + foreman review — inverted from the usual direction). Final shape: 9 files, +1092/−581: cli/internal/upgrade/{service.go, exec.go, backup_test.go, persistent_rsync_test.go, postswap_test.go, ground_truth_test.go}, cli/cmd/{install.go, install_upgrade.go, upgrade.go}. Build + vet + FULL go test suite GREEN; byte-anchored (shasums) between final review and commit. Beyond the (a)-(d) design, the review cycle hardened four more things into the same commit: F1 — verifyBinaryGroundTruth made tri-state (git merge-base exit-1 is the ONLY Behind verdict; unresolvable commits / shallow clones are Unknown → never restore on clone-state evidence; an old test had PINNED the conflation and was rewritten); F2 — the unit's restart counter resets at every upgrade dispatch so the install takeover's crash-loop gate (NRestarts≥3) counts only the current upgrade; F3 (engineer-confirmed corruption) — the destructive restore is serialized on the upgrade flock at the top of recoveryRollback (loser yields touching nothing; in-process mis-wiring fails fast; rollback() stays acquire-free), closing the concurrent rsync-restore race between install-driven recovery and a respawned service; F4 — the whole mutex lifecycle made atomic (every flag-file unlink happens WHILE HOLDING its flock — removeUpgradeFlag both branches + ReleaseInstallFlag — eliminating µs split-brain windows). Tests: the seven recency-selection tests rewritten as identity-contract tests — including a reconstruction of the exact aside-rename-window hazard (legacy dirs + syncing partial + absent active → empty identity must no-op and touch nothing) — plus structural guards pinning every load-bearing ordering (ground-truth-before-rollback in the Resuming branch and postSwapFailure; flock-gate-before-destructive-work; no-recency-scan-may-regrow; mutex unlink dispositions).
 
 VERIFICATION PLAN: (1) engineer review of the diff (hard look at: postSwapFailure's at-target exit semantics — error return, flag stays Resuming, crash-only forward retry across process restarts; the error=NULL additions on all three completion UPDATEs; quiesce race-freedom; dead-segment deletion completeness). (2) VM scenario for the fabricated rune-shape wedge (in_progress post_swap row + stale proxy + crash-looping unit) — may run AFTER the rune recovery per the King's explicit call (Norway outage outweighs battery-first; rune taking an RC early is its prerelease-canary role; battery still gates the stable release). (3) The rune proof itself = AC#3/#4: newest ./sb install on wedged-rune converges id=187 to completed — no commands, no rollback, no data loss — then rune takes the campaign RC. Expected operator-visible trace on rune: install detects live-upgrade + NRestarts≥10k → takeover (mask/SIGKILL/verify/unmask) → crashed-upgrade recovery → resume → step 11 recreates ALL services incl. proxy at 51670d9e → health → completion write on a fresh connection → row completed, flag removed → the app's upgrade guard releases → https://no.statbus.org serves again.
+
+NO-DEPLOYMENT RUNBOOK (AC#3/#4 execution — the King runs this; expected trace + verification, so every observation has a named expectation):
+
+COMMAND (from a local checkout at HEAD ≥ f5b697928 so standalone.sh has no pre-stop): `./standalone.sh install no` (channel prerelease resolves to the rc.02 tag) — ONE command, nothing else.
+
+EXPECTED TRACE, in order:
+1. Local: release-artifact check passes; install.sh curls to rune; new sb binary lands via sb.tmp+mv (atomic; the kill-loop self-migrates to the rc.02 binary within one ~150s cycle regardless).
+2. rune ./sb install: Detect → live-upgrade (flock held by the loop) → crash-loop probe NRestarts≈10000 ≥ 3 → TAKEOVER: mask --runtime → kill -s SIGKILL → MainPID==0 → stop → reset-failed → unmask. NO SIGTERM anywhere. (If install lands in a dead window instead: straight to crashed-upgrade — same destination.)
+3. runCrashRecovery: config generate → DB reachable → boot-migrate (applies rc.02's pending delta — the checkout is already at rc.02) → RecoverFromFlag: flag id=187 Phase=post_swap → resumePostSwap → container canary fails on the stale proxy (673b650f) → rc.02 binary descends 51670d9e → continue → Phase=Resuming → applyPostSwap → step 11 recreates app/worker/rest/PROXY → health → completion write on a fresh conn → row 187 state=completed, error=NULL, flag removed. NO restore ran (verify: no 'Restoring database' line; the May-25 backup dir untouched mtime).
+4. If any step hiccups: ground truth says at-target → forward retry next pass (row stays in_progress with the reason in error) — re-run the same command. The May-25 restore is unreachable (rule 1); if a restore were ever legitimately reached it consumes flag.BackupPath = 187's OWN backup (verified present on rune).
+5. re-Detect → step-table as the rc.02 install (idempotent) → unit reinstalled + restarted on the rc.02 binary.
+
+POST-INSTALL VERIFICATION (all read-only):
+- https://no.statbus.org/ serves the app (the upgrade-maintenance guard released — row no longer in_progress). THE 18-day user-facing outage ends here.
+- psql: SELECT id,state,completed_at,error FROM public.upgrade WHERE id=187 → completed, error NULL.
+- docker ps: db/app/worker/proxy all at the rc.02 tag (proxy no longer 673b650f); rest running.
+- systemctl --user status statbus-upgrade@statbus → active, NRestarts low/zero; journal shows the takeover narrative.
+- flag file absent: tmp/upgrade-in-progress.json gone.
+- Backups dir: pre-upgrade-20260525T061058Z untouched; later upgrades create the CHANGE-2 active snapshot.
+THEN AC#4: rune resumes prerelease-canary duty (subsequent upgrades via the normal scheduled path); the deferred battery (STATBUS-044) runs before the stable gate.
 <!-- SECTION:NOTES:END -->
