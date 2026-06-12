@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-12 07:59'
+updated_date: '2026-06-12 08:07'
 labels:
   - roadmap
   - install-recovery
@@ -71,3 +72,15 @@ DONE = `./sb release stable` exits green with zero SKIP_* bypasses; the stable t
 - [ ] #4 `./sb release stable` exits green with zero SKIP_* bypasses → Norway live on stable
 - [ ] #5 External-standalone gate (C5) scoped + tasked after one full RC→stable→deploy cycle proven
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+DECISIONS/CLARIFICATIONS LOG
+
+B5 vs 034 — procurement-path distinction (foreman-verified 2026-06-12, service.go:3610). The architect FYI'd that B5 (tag→tag procurement scenario) is "superseded by 034"; verified false. The procurement dispatch branches on the target shape: `if ValidateVersion(displayName)` → replaceBinaryOnDisk (TAG path — FetchManifest downloads the pre-built release-manifest binary + SHA256 verify, service.go:5040); `else` → buildBinaryOnDisk (COMMIT path — build-on-box or pre-staged skip, service.go:5119; 034 adds commit-addressed download-before-build here). 034's fail-channel targets are branch COMMITS (doc-010 killed the tag model), so 034 only ever exercises the COMMIT branch — the tag-manifest path (replaceBinaryOnDisk + FetchManifest) stays at ZERO scenario coverage after 034. So B5 is COMPLEMENTARY to 034, not superseded; it remains a live, distinct call in Track B.
+
+OPEN (architect to pin down): whether Norway's unattended production upgrade targets a stable-channel TAG (→ replaceBinaryOnDisk, B5's path) or a deploy-branch COMMIT (→ buildBinaryOnDisk, 034's path). Track C says "on the stable channel" (tags); the master-to-X deploy mechanism force-pushes commits. If tags → B5 covers the single most important untested procurement path; if commits → 034 covers it and B5 is lower-priority completeness.
+
+doc-007 open-questions reconciliation (per architect, 2026-06-12): Q1 (031 gates the stable/Norway promotion) SETTLED — reflected above. Q4 (B5 file-now) — NOT superseded (see above); stays live. Live King calls remaining: 015 (confirm-the-Resuming-latch-contract) + 014 (redesign-to-reach-archiveBackup) + B5 (file-now).
+<!-- SECTION:NOTES:END -->
