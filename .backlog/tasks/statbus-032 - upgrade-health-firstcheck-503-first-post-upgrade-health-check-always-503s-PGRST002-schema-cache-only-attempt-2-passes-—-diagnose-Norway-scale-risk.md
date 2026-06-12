@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-06-11 15:45'
-updated_date: '2026-06-12 07:52'
+updated_date: '2026-06-12 07:58'
 labels:
   - upgrade
   - health-check
@@ -51,5 +51,19 @@ Also: add the offset+6 = rest-admin row to AGENTS.md's port table. Ships with th
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-CONSOLIDATED STATE: mechanic diagnosed the root cause (no pre-wait after compose up; fixed 25s budget) and proposed a PGRST002-exempt retry loop; the King upgraded the direction to PostgREST's real /ready signal; architect designed it (description above = the work order; deep-reference doc-009 carries the alternatives analysis incl. why no-fallback and why port offset+6 — King-affirmed). Awaiting King ratification (AC#4), then implement in one commit with unit tests; ships in the gate-maker batch alongside 031.
+CONSOLIDATED STATE: mechanic diagnosed the root cause (no pre-wait after compose up; fixed 25s budget) and proposed a PGRST002-exempt retry loop; the King upgraded the direction to PostgREST's real /ready signal; architect designed it (description above = the work order). Awaiting King ratification (AC#4), then implement in one commit with unit tests; ships in the gate-maker batch alongside 031.
+
+== DEEP REFERENCE (folded from doc-009 — the alternatives analysis behind the work order) ==
+
+PORT CHOICE — why offset +6, challenged + verified: one new loopback host mapping is the structural minimum. The zero-new-port alternatives all fail: (a) docker-exec an in-container probe — the official PostgREST image is distroless, no shell/curl; (b) host→container-IP directly — works on Linux, breaks on macOS Docker Desktop (dev parity) and trades the static .env pattern for runtime docker inspect; (c) admin on a unix socket — PostgREST's admin server is port-only (only the MAIN server supports PGRST_SERVER_UNIX_SOCKET); (d) reuse the existing rest mapping — the admin server is a different container port, needs its own host mapping; (e) route /ready through Caddy — puts unauthenticated admin endpoints on the public surface. Verified +6..+9 unclaimed repo-wide (config.go is the sole port authority, assigns only +0..+5; standalone overrides only http/https/db, so +6 is uniform across modes). The scheme's convention is sequential assignment with exposure decided by MODE not index — +6 is exactly that. Add the +6=rest-admin row to AGENTS.md's port table.
+
+SECURITY POSTURE: the admin endpoints (/ready,/live,/config,/schema_cache — unauthenticated in v12) become reachable only from (a) host loopback — same trust level as the main REST port today (and as docker inspect, which already exposes PGRST_JWT_SECRET) and (b) the compose network — where app/worker already hold same-or-higher-trust credentials. Nothing public: no Caddy route, no non-loopback bind.
+
+WHY NO FALLBACK (the mechanic's interim PGRST002-detect-and-wait is dropped entirely): after /ready=200 the cold-cache race cannot occur, so it is dead defensive code future readers would mistake for a needed path; and a silent fallback when /ready is unreachable would MASK exactly the regression class doc-006 taught us to fear (a future compose refactor drops the admin mapping → fallback engages → nobody notices the readiness signal is gone → vacuous green). Unreachable-after-config-generate is config corruption → fail fast with the actionable message. Safe because the polling binary ships in the SAME commit as the compose+config change, and applyPostSwap regenerates config (step 7) + recreates the rest container (step 11) before step 12 runs.
+
+WATCHDOG INTERACTION (the 031-class subtlety): step 12 runs under applyPostSwap's progress-GATED ticker (armed service.go:3785-3792; gate closes after applyPostSwapStallThreshold=3min of silence, watchdog.go:134). A silent 4-min warmup would close the gate → SIGABRT. The loop therefore emits progress.Write every ~15s — each Write pings the watchdog (emitHeartbeat) and bumps the gate. Doctrine-consistent: the loop genuinely advances (polling), output is its liveness signal, bounded by its own 5-min timeout.
+
+OUT OF SCOPE (named, not forgotten): container-level compose healthcheck: stanza (orthogonal — the Go poll narrates the journal + feeds the watchdog; a compose healthcheck does neither; + needs an in-image probe the distroless image lacks); rollback's post-restore verification (031's domain — rollback comes up at the OLD version); /live,/config,/schema_cache (enabled as a side effect, nothing consumes them).
+
+VERIFICATION (honest — no deterministic VM RED for a cache-load race): unit tests are the real teeth (httptest /ready: 503×N→200, refused→503→200, never-200 expiry with the refused-vs-503 message distinction, + structural warmup-precedes-probe guard); config tests (+6 port + .env line); every post-swap harness scenario exercises the warmup as a free regression net; observed GREEN = next dev-slot upgrade journal shows the readiness wait + zero PGRST002; scale-proof = the rune-no canary journal (real Norway schema cache-load duration).
 <!-- SECTION:NOTES:END -->
