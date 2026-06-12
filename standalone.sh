@@ -137,16 +137,20 @@ ssh_host() {
     ssh -o ConnectTimeout=10 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 "statbus@${fqdn}" "$@"
 }
 
-# Stop the user-level upgrade service on the target host so ./sb can be
-# replaced without "text file busy". The unit instance suffix after `@` is
-# the deployment user (see cli/cmd/install.go:serviceInstance). On standalone
-# hosts the user is always `statbus` (single-tenant convention), so the
-# instance is `statbus-upgrade@statbus.service` regardless of slot code.
-stop_upgrade_service() {
-    local name="$1"
-    ssh_host "$name" "systemctl --user stop statbus-upgrade@statbus.service 2>/dev/null || true" 2>&1
-}
-
+# NOTE: there is deliberately NO stop_upgrade_service here (STATBUS-039 /
+# the deploy-stop footgun). `systemctl --user stop` sends SIGTERM, and an
+# in-flight upgrade process catches TERM, cancels its context, and ROLLS
+# BACK — on a wedged box that restores a stale snapshot (the rune trap).
+# Both of the old rationales for a pre-install stop are gone:
+#   - mutex: ./sb install (post-039) REFUSES a genuinely-progressing
+#     upgrade (deploy waits/retries) and TAKES OVER a crash-looping one
+#     with a SIGKILL-class quiesce — no handler runs, no rollback fires.
+#   - "text file busy": install.sh places the binary via curl-to-sb.tmp +
+#     mv (atomic rename); the running process keeps its old inode, so
+#     ETXTBSY is impossible regardless of the service's state.
+# The unit instance suffix after `@` is the deployment user (see
+# cli/cmd/install.go:serviceInstance); on standalone hosts the user is
+# always `statbus` (single-tenant convention).
 ensure_service_started() {
     local name="$1"
     ssh_host "$name" "systemctl --user start statbus-upgrade@statbus.service" 2>&1 || true
@@ -190,13 +194,19 @@ cmd_upgrade() {
 
 cmd_install_one() {
     # Idempotent install flow:
-    #   stop_upgrade_service → install.sh | bash → ensure_service_started
+    #   install.sh | bash → ensure_service_started
     #
     # Re-running ./standalone.sh install <name> after any partial failure
     # (SSH drop, Ctrl-C, transient error) is safe — every step is rerun-safe.
-    # ./sb install's dispatcher handles stale upgrade flags itself
-    # (StateCrashedUpgrade reconciles and re-dispatches), so this script
-    # only needs to stop the service so the binary can be replaced.
+    # ./sb install's dispatcher handles the running service itself
+    # (STATBUS-039): a stale flag reconciles via StateCrashedUpgrade; a
+    # crash-looping unit is taken over with a SIGKILL-class quiesce; a
+    # genuinely-progressing upgrade makes install REFUSE — this script then
+    # reports the failure and the operator retries later. Do NOT stop the
+    # service here: systemctl stop is SIGTERM, which an in-flight upgrade
+    # catches and answers with a rollback (snapshot restore) — the exact
+    # footgun that wedged rune. The binary swap needs no stop either
+    # (install.sh mv's over ./sb atomically).
     local name="$1"
     local version="${2:-}"
     local exit_code=0
@@ -217,7 +227,6 @@ cmd_install_one() {
             return 1
         fi
         echo "Installing $name at $version via $INSTALL_URL ..."
-        stop_upgrade_service "$name"
         ssh_host "$name" \
             "curl -fsSL ${INSTALL_URL} | bash -s -- --version $version $(trust_flag "$resolved_trust_user")" 2>&1 \
             || exit_code=$?
@@ -232,7 +241,6 @@ cmd_install_one() {
             return 1
         fi
         echo "Installing $name via $INSTALL_URL (--channel prerelease) ..."
-        stop_upgrade_service "$name"
         ssh_host "$name" \
             "curl -fsSL ${INSTALL_URL} | bash -s -- --channel prerelease $(trust_flag "$resolved_trust_user")" 2>&1 \
             || exit_code=$?

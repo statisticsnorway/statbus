@@ -21,12 +21,17 @@
 # The directory ~/statbus/ is ALWAYS created by git clone — never mkdir.
 # The binary /sb is in .gitignore — placing it doesn't dirty the working tree.
 #
-# Concurrency safety: ./sb install's mutex check rejects the run if the upgrade
-# service has written tmp/upgrade-in-progress.json. Callers who want to update
-# a server that has a running service must stop it first (./cloud.sh install
-# does this automatically; manual invocations should: systemctl --user stop
-# statbus-upgrade@<slot>.service). Fresh installs have no service to conflict
-# with.
+# Concurrency safety (STATBUS-039): ./sb install's dispatcher handles a
+# running upgrade service ITSELF — a genuinely-progressing upgrade (flag
+# held, unit healthy) makes install REFUSE with a wait-and-retry message; a
+# crash-looping unit (NRestarts >= 3) is taken over with a SIGKILL-class
+# quiesce and the wedged upgrade is recovered. Callers must NOT stop the
+# service first: `systemctl --user stop` sends SIGTERM, which an in-flight
+# upgrade catches and answers with a rollback (snapshot restore over the
+# live DB) — the deploy-stop footgun that wedged rune. The binary swap
+# needs no stop either: this script places ./sb via curl-to-sb.tmp + mv
+# (atomic rename), so a running service never causes "text file busy".
+# Fresh installs have no service to conflict with.
 #
 set -euo pipefail
 
