@@ -1,8 +1,8 @@
 ---
 id: doc-010
 title: >-
-  Fail channel — real-tag failure/fix upgrade arcs (King's design, architect
-  feedback + direction)
+  Fail channel — branch-as-channel failure/fix upgrade arcs (King's design;
+  corrected direction)
 type: specification
 created_date: '2026-06-12 05:43'
 updated_date: '2026-06-12 05:54'
