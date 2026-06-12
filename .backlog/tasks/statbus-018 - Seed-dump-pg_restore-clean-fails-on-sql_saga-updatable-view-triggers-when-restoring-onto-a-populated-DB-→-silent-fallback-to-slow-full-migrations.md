@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-08 23:35'
+updated_date: '2026-06-12 07:52'
 labels:
   - install-recovery
   - seed
@@ -57,3 +58,9 @@ Distinct from STATBUS-017 (the rune wedge). Related to the R5 seed-on-populated 
 - [ ] #3 No silent fallback to full-migrations on a populated DB (or the fallback is intentional + quiet + documented)
 - [ ] #4 Verify checkSeedRestored / R5 gate behavior on a populated DB; confirm whether 50fd4325f seed-sync-and-pin-gate regressed it
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+ARCHITECT RECOMMENDATION (2026-06-12, for the King's AC#1 call): direction (c) — fix the checkSeedRestored/R5 gate so the Seed step is correctly SKIPPED, quietly, on a populated DB. Why (c) over (a)/(b)/(d): the operator's sole action is the installer, and re-running it must always be safe and calm — a scary pg_restore ERROR on every routine refresh is an operator-UX defect, not cosmetics; (c) removes both the error AND the silent slow full-migrations fallback in one move, with no pg_restore/sql_saga surgery. AC#4 (did 50fd4325f regress the gate?) gets answered en route. Bonus: likely clears STATBUS-029 (stage-a red) with it. Not gate-blocking but cheap; can ride the gate-maker batch if capacity allows.
+<!-- SECTION:NOTES:END -->
