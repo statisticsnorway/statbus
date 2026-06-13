@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-13 08:41'
-updated_date: '2026-06-13 10:50'
+updated_date: '2026-06-13 12:33'
 labels:
   - review
   - upgrade
@@ -70,4 +70,17 @@ NEXT: walk A→H one-by-one with the King; spin a detailed execution task per ag
 **Move 1 — IMPLEMENTED (King go), committed 447c9e96d on master.** Added `--profile all` to both bare-pull sites. Pre-pull is now real (images local before the destructive step); a pull failure aborts before destruction via the existing fail-loud. Also makes the daemon's docker_images_downloaded flag truthful. build+vet green.
 
 **Move 2 — DESIGN ONLY, awaiting King decision (couples A3 + B1).** Background pre-download (`preDownloadImages` service.go:3073) is keep-vs-rip-out. Defect: `ORDER BY discovered_at LIMIT 3` = 3 OLDEST + no re-filter vs installed version → grinds ancient v2026.05.1/.2/.3; and it runs synchronously in the discovery cycle → blocks upgrade_check (the B1 'Checking… hangs'). The existence probe (verifyArtifacts service.go:1095, `docker manifest inspect`, newest-first, sets docker_images_status='ready') is already correct — reuse it. Recommended targeted shape (logic only, NO migration): select the single newest 'ready' candidate (committed_at DESC LIMIT 1), Go-guard newer-than-installed (mirrors discover() L2827), run off the check path. Rip-out alternative needs a migration (DROP docker_images_downloaded). Recommendation: targeted/keep — pre-staging the newest candidate shortens+de-risks the destructive window, more so after move 1. Full design: tmp/architect-047A-background-download-design.md.
+
+**Item A move 2 (aimed background pre-download) — IMPLEMENTED + pushed (commit 581043668 on master). Closes A3 + B1.**
+
+Mid-implementation discovery (verified, surfaced + King-released): the pre-download was broken at the mechanism level, not just mis-targeted. Compose image tags are ${COMMIT_SHORT} (not ${VERSION}); `pullImages` set only VERSION, so it re-pulled the CURRENTLY-INSTALLED images under a candidate's name and stamped that candidate docker_images_downloaded=true (a false record). It never staged any non-current version's images. (Plus: the in-loop UPDATE on a single *pgx.Conn with rows open was conn-busy-prone → flag often never persisted → re-pull every cycle.)
+
+Fix (logic-only, NO migration — King's envelope held):
+- Pure `selectNewestDownloadCandidate(installed, candidates)` (service.go) — single newest CalVer release strictly newer than installed, else none; ignores non-CalVer; non-CalVer installed → none. Unit-tested directly: cli/internal/upgrade/predownload_target_test.go, 11 cases (newest-newer-than-installed; refuse <=installed; none-at-latest; stable>prereleases; ignore non-CalVer; empty; order-independence) — all PASS.
+- New `pullImagesForCommitShort(commitShort)` (exec.go) sets COMMIT_SHORT (= ShortForDisplay(commit_sha), the real image tag verifyArtifacts probes) so the pull fetches the CANDIDATE's images. Replaces VERSION-only pullImages.
+- preDownloadImages: newest available/scheduled + docker_images_status='ready' + not-downloaded + newer-than-installed → pull by COMMIT_SHORT → mark downloaded (now truthful). Drains rows before pull/UPDATE.
+- Decouple: discover() writes 'last checked' BEFORE the pre-download (UI check resolves immediately); redundant discoverEdge pre-download call removed.
+- Warm-up fix (item 5): executeUpgrade pre-swap pull now targets the upgrade's commit via pullImagesForCommitShort(ShortForDisplay(commitSHA)) — pre-stages the exact images applyPostSwap Step 8 needs + surfaces missing-image failure before any destructive step.
+
+Verify: `go -C cli vet ./...` + `build ./...` + `test ./...` all green (exit 0), incl. the new unit test. Pushed; the per-change go-test CI gate runs on push. Minor residue: watchdog.go:89 prose still says 'pullImages' (couldn't stage under the 3-file git scope; its behavioral claim — 10-min ctx bound — remains true of the renamed fn). Design doc: tmp/architect-047A-background-download-design.md (incl. MECHANISM FINDING). ITEM A COMPLETE (move 1 = 447c9e96d, move 2 = 581043668).
 <!-- SECTION:NOTES:END -->
