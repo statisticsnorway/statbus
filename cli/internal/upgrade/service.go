@@ -2950,17 +2950,23 @@ func (d *Service) discover(ctx context.Context) {
 	// demote release_status back to 'commit'.
 	d.pruneDeletedTags(ctx, filtered)
 
-	if d.autoDL {
-		d.preDownloadImages(ctx)
-	}
-
 	// Record last-discover timestamp for the admin UI "Last checked" display.
 	// Best-effort — ignore error so observability noise never blocks the main path.
+	// WRITTEN BEFORE the background pre-download: the admin-UI check resolves on
+	// this timestamp, so the pre-download must not delay it. Previously the
+	// (synchronous, oldest-first, 3-at-a-time) pre-download ran first and pushed
+	// this write minutes later — the "Checking…" spin (STATBUS-047 B1).
 	_, _ = d.queryConn.Exec(ctx,
 		`INSERT INTO public.system_info (key, value, updated_at)
 		 VALUES ('upgrade_last_discover_at', now()::text, now())
 		 ON CONFLICT (key) DO UPDATE
 		   SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at`)
+
+	// Background pre-download runs LAST, after the check has answered. It pulls
+	// only the single newest candidate newer than installed (preDownloadImages).
+	if d.autoDL {
+		d.preDownloadImages(ctx)
+	}
 }
 
 // pruneDeletedTags removes tags from the upgrade table that no longer exist in git.
@@ -3065,41 +3071,103 @@ func (d *Service) discoverEdge(ctx context.Context) {
 		}
 	}
 
-	if d.autoDL {
-		d.preDownloadImages(ctx)
-	}
+	// No pre-download here. discoverEdge is only ever called from discover(),
+	// which runs the single, newest-candidate pre-download once — after it has
+	// recorded the "last checked" timestamp. A second call here was redundant.
 }
 
+// downloadCandidate is one image set the background pre-download could fetch.
+// Version is the CalVer release tag (e.g. "v2026.06.0-rc.02"); CommitSHA is the
+// row's commit — its 8-char short form (ShortForDisplay) is the actual Docker
+// image tag (${COMMIT_SHORT}).
+type downloadCandidate struct {
+	Version   string
+	CommitSHA string
+}
+
+// selectNewestDownloadCandidate is the version-targeting decision for the
+// background pre-download, factored out as a PURE function so it is unit-tested
+// directly (no Docker, no DB). It returns the single candidate that is the
+// newest release STRICTLY NEWER than installed, or ok=false when none qualifies
+// (the box is already at or ahead of every candidate).
+//
+// installed and each candidate Version must be a CalVer tag: a non-CalVer
+// candidate is ignored, and a non-CalVer installed version (e.g. "dev") yields
+// no candidate — we never guess an ordering, we just skip pre-download. This is
+// the defect the function exists to prevent: the daemon used to select via
+// `ORDER BY discovered_at LIMIT 3` (the OLDEST rows, never re-checked against
+// the installed version), so after an upgrade it ground through ancient
+// releases the box would never install (STATBUS-047 A3).
+func selectNewestDownloadCandidate(installed string, candidates []downloadCandidate) (downloadCandidate, bool) {
+	if !ValidateVersion(installed) {
+		return downloadCandidate{}, false
+	}
+	var best downloadCandidate
+	found := false
+	for _, c := range candidates {
+		if !ValidateVersion(c.Version) {
+			continue // not a CalVer tag — no defined ordering
+		}
+		if CompareVersions(c.Version, installed) <= 0 {
+			continue // older than or equal to installed — never go backward
+		}
+		if !found || CompareVersions(c.Version, best.Version) > 0 {
+			best = c
+			found = true
+		}
+	}
+	return best, found
+}
+
+// preDownloadImages pre-stages, in the background, the images for the single
+// newest release strictly newer than the installed version — and only once its
+// images are confirmed present in the registry (docker_images_status='ready',
+// set by verifyArtifacts) and not already fetched. The version-targeting
+// decision lives in the pure selectNewestDownloadCandidate; the pull is keyed by
+// the candidate's COMMIT_SHORT (its real image tag) via pullImagesForCommitShort
+// so it fetches the CANDIDATE's images rather than re-pulling current
+// (STATBUS-047 A3). Called by discover() AFTER the "last checked" timestamp is
+// recorded, so it never delays the admin-UI check (B1).
 func (d *Service) preDownloadImages(ctx context.Context) {
+	// Eligibility filter is SQL; the version DECISION is the pure function.
+	// Close rows before the pull + UPDATE: queryConn is a single *pgx.Conn, so
+	// the result set must be drained/closed before the next query on it.
 	rows, err := d.queryConn.Query(ctx,
-		`SELECT commit_sha,
-		        COALESCE(commit_tags[array_upper(commit_tags, 1)], left(commit_sha, 8)) as display_name
+		`SELECT commit_sha, commit_version
 		 FROM public.upgrade
-		 WHERE docker_images_downloaded = false AND state IN ('available', 'scheduled')
-		 ORDER BY discovered_at LIMIT 3`)
+		 WHERE docker_images_downloaded = false
+		   AND docker_images_status = 'ready'
+		   AND state IN ('available', 'scheduled')
+		   AND commit_version IS NOT NULL
+		 ORDER BY committed_at DESC
+		 LIMIT 50`)
 	if err != nil {
 		return
 	}
-	defer rows.Close()
-
+	var candidates []downloadCandidate
 	for rows.Next() {
-		var commitSHA, displayName string
-		if err := rows.Scan(&commitSHA, &displayName); err != nil {
+		var commitSHA, version string
+		if err := rows.Scan(&commitSHA, &version); err != nil {
 			continue
 		}
-
-		fmt.Printf("Pre-downloading images for %s...\n", displayName)
-
-		// pullImages needs a version for the VERSION env var — use display name (tag or sha-prefix)
-		if err := d.pullImages(displayName); err != nil {
-			fmt.Printf("Pre-download failed for %s: %v\n", displayName, err)
-			continue
-		}
-
-		d.queryConn.Exec(ctx,
-			"UPDATE public.upgrade SET docker_images_downloaded = true WHERE commit_sha = $1",
-			commitSHA)
+		candidates = append(candidates, downloadCandidate{Version: version, CommitSHA: commitSHA})
 	}
+	rows.Close()
+
+	chosen, ok := selectNewestDownloadCandidate(d.version, candidates)
+	if !ok {
+		return // already at/ahead of every candidate — nothing to pre-stage
+	}
+
+	fmt.Printf("Pre-downloading images for %s (newest candidate newer than installed %s)...\n", chosen.Version, d.version)
+	if err := d.pullImagesForCommitShort(ShortForDisplay(chosen.CommitSHA)); err != nil {
+		fmt.Printf("Pre-download failed for %s: %v\n", chosen.Version, err)
+		return
+	}
+
+	d.queryConn.Exec(ctx,
+		"UPDATE public.upgrade SET docker_images_downloaded = true WHERE commit_sha = $1",
+		chosen.CommitSHA)
 }
 
 // scheduleImmediate routes an operator-supplied upgrade target through
@@ -3447,19 +3515,19 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	progress.Write("Preparing images...")
 	pullStart := time.Now()
 
-	// pullImages is the one step in executeUpgrade that can legitimately
-	// exceed the 120s watchdog window (large registry pulls over slow
-	// links). Emit a periodic "still pulling" progress line so each tick
+	// pullImagesForCommitShort is the one step in executeUpgrade that can
+	// legitimately exceed the 120s watchdog window (large registry pulls over
+	// slow links). Emit a periodic "still pulling" progress line so each tick
 	// fires emitHeartbeat and systemd sees liveness. 30s cadence matches
 	// the main-loop heartbeatTicker's; net effect is at most ~30s of
 	// silence between watchdog pings regardless of where the main
 	// goroutine is executing.
 	//
 	// Known blind spot: this ticker fires from a background goroutine.
-	// If pullImages hangs and the main goroutine is stuck inside
+	// If the pull hangs and the main goroutine is stuck inside
 	// cmd.Run, the ticker keeps pinging and systemd doesn't restart.
-	// Bounded by pullImages' own 10-minute ctx timeout (see exec.go:160)
-	// — cmd.Run returns at the 10-min mark even on subprocess hang, so
+	// Bounded by pullImagesForCommitShort's own 10-minute ctx timeout (see
+	// exec.go) — cmd.Run returns at the 10-min mark even on subprocess hang, so
 	// the main goroutine resumes within that budget.
 	pullDone := make(chan struct{})
 	pullTicker := time.NewTicker(30 * time.Second)
@@ -3475,7 +3543,13 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 			}
 		}
 	}()
-	pullErr := d.pullImages(displayName)
+	// Pre-stage the TARGET's images (by its COMMIT_SHORT = ShortForDisplay of the
+	// target commit), not whatever COMMIT_SHORT is currently in .env. This is a
+	// genuine warm-up: the same images applyPostSwap Step 8 needs post-swap are
+	// fetched now, before the swap, and a missing-image failure surfaces here —
+	// before any destructive step — rather than after. (The old form passed the
+	// display name to a VERSION-only override, which fetched current images.)
+	pullErr := d.pullImagesForCommitShort(ShortForDisplay(commitSHA))
 	close(pullDone)
 	if pullErr != nil {
 		d.failUpgrade(ctx, id, fmt.Sprintf("%s: Failed to pull images for %s: %v", ErrDockerUpFailed, displayName, pullErr), progress)
@@ -3501,7 +3575,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	backupActivePath := filepath.Join(d.backupRoot(), backupActiveName)
 
 	// L2 — stale-connection detection before the first DB write after the
-	// multi-second pullImages step. pullImages leaves queryConn idle for the
+	// multi-second pullImagesForCommitShort step. The pull leaves queryConn idle for the
 	// duration of the docker pull; in networking environments that absorb
 	// TCP keepalive probes (Docker userland-proxy is a documented example —
 	// see tmp/engineer-dev-hang-meticulous.md §3), an otherwise-dead socket
@@ -4615,7 +4689,7 @@ func (d *Service) runCallback(displayName string, extraEnv map[string]string) {
 //   - disk-space precondition (no destructive work)
 //   - signature verification (no destructive work)
 //   - flag-file write (no destructive work)
-//   - pullImages (downloads images but doesn't touch live DB or services)
+//   - pullImagesForCommitShort (downloads images but doesn't touch live DB or services)
 //
 // AUDIT (task #49 / Gap #4): if a future executeUpgrade step adds
 // destructive side effects (stops services, modifies the DB schema,
@@ -4644,7 +4718,7 @@ func (d *Service) failUpgrade(ctx context.Context, id int, errMsg string, progre
 		}
 	}
 	// Always release the mutex on failure paths, even those that don't run
-	// rollback (e.g., pullImages failure returns directly after failUpgrade).
+	// rollback (e.g., pullImagesForCommitShort failure returns directly after failUpgrade).
 	// removeUpgradeFlag is idempotent — safe when no flag was acquired (some
 	// failUpgrade callers run before writeUpgradeFlag during pre-flight).
 	d.removeUpgradeFlag()

@@ -174,21 +174,29 @@ func runCommandOutput(dir string, name string, args ...string) (string, error) {
 	return string(out), err
 }
 
-func (d *Service) pullImages(version string) error {
-	// docker compose reads VERSION from .env, not from process environment.
-	// For pre-downloads before config regeneration, we pass it as an override.
-	// 10-minute timeout: image pulls can be slow on shared servers.
-	// --quiet suppresses progress bars that cause excessive pipe output under systemd.
-	// --profile all is MANDATORY: every service here is profile-gated and
-	// COMPOSE_PROFILES is never set, so a bare `docker compose pull` selects zero
-	// services and pulls nothing (STATBUS-047 item A). `all` is the full set.
+// pullImagesForCommitShort pre-pulls the full image set for a SPECIFIC version,
+// selected by its commit-short Docker tag. The compose image tag is
+// ${COMMIT_SHORT} (config.go) — NOT ${VERSION} — so the version to fetch is
+// chosen by overriding COMMIT_SHORT (the same 8-char tag verifyArtifacts probes,
+// = ShortForDisplay(commit_sha)). The previous form set only VERSION, which
+// feeds build-args / display env and never the image tag, so it silently
+// re-pulled whatever COMMIT_SHORT was already in .env — the currently-installed
+// images — regardless of the intended target (STATBUS-047 item A / A3).
+//
+// --profile all is MANDATORY: every service here is profile-gated and
+// COMPOSE_PROFILES is never set, so a bare `docker compose pull` selects zero
+// services and pulls nothing. --quiet suppresses progress bars that cause
+// excessive pipe output under systemd. 10-minute timeout: registry pulls can be
+// slow on shared servers. VERSION is left to .env (display/build-arg only; it
+// does not affect which image tag is pulled).
+func (d *Service) pullImagesForCommitShort(commitShort string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "docker", "compose", "--profile", "all", "pull", "--quiet")
 	cmd.Dir = d.projDir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	cmd.Env = append(os.Environ(), "VERSION="+version)
+	cmd.Env = append(os.Environ(), "COMMIT_SHORT="+commitShort)
 	prepareCmd(cmd)
 	err := cmd.Run()
 	if ctx.Err() == context.DeadlineExceeded {
