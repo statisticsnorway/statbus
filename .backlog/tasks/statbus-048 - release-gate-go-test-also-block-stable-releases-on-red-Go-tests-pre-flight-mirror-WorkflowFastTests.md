@@ -3,11 +3,11 @@ id: STATBUS-048
 title: >-
   release-gate-go-test: also block stable releases on red Go tests (pre-flight,
   mirror WorkflowFastTests)
-status: In Progress
+status: Done
 assignee:
   - engineer
 created_date: '2026-06-13 11:48'
-updated_date: '2026-06-13 12:00'
+updated_date: '2026-06-13 12:05'
 labels:
   - ci
   - test
@@ -44,3 +44,9 @@ VERIFIED (cwd cli/): `go vet ./...`=0, `go build ./...`=0, `go test ./...`=0 (al
 
 Disjoint from architect's cli/internal/upgrade work — no collision.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Resolved 2026-06-13 (commit 80f76934f, pushed). A red "Go Test" workflow now also refuses to cut a stable release, mirroring the fast-tests gate exactly: WorkflowGoTest constant + checkStableWorkflowGate call placed right after fast-tests (folds into allPassed with &&, so failed/pending/missing/unreachable refuses the cut), SKIP_GO_TEST=1 loud per-gate bypass, --help pre-flight+bypass lists updated, doc table+bullet, and a URL-path test case. Foreman review caught + fixed a doc regression the engineer's report missed: the doc Edit had overwritten the test-hardening "where it fires" bullet (replaced instead of inserted) — restored in the same commit. Verified independently green: go vet/build/test exit 0 across 11 packages (incl. release + upgrade/recovery).
+<!-- SECTION:FINAL_SUMMARY:END -->
