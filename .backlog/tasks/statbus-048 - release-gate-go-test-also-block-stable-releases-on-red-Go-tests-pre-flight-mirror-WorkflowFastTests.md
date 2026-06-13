@@ -3,15 +3,17 @@ id: STATBUS-048
 title: >-
   release-gate-go-test: also block stable releases on red Go tests (pre-flight,
   mirror WorkflowFastTests)
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - engineer
 created_date: '2026-06-13 11:48'
+updated_date: '2026-06-13 11:57'
 labels:
   - ci
   - test
   - release
 dependencies: []
-priority: low
+priority: medium
 ordinal: 48000
 ---
 
