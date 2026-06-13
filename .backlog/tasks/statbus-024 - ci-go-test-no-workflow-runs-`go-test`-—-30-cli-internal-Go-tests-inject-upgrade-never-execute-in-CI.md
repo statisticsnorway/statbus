@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-10 20:40'
-updated_date: '2026-06-13 11:38'
+updated_date: '2026-06-13 11:42'
 labels:
   - ci
   - test
@@ -31,4 +31,14 @@ WORK: add `cd cli && go test ./...` (or at least `./internal/...`) to the fast C
 
 <!-- SECTION:NOTES:BEGIN -->
 Bumped to high (2026-06-13): now guards live tests — the aimed-background-download selection test (047 item A) and 039's self-heal tests (ground_truth/postswap/backup) all run only on demand until a workflow runs `go test`. Dispatch after 047 item A wraps.
+
+ENGINEER (2026-06-13): Triage + CI gate done, awaiting foreman review before commit.
+
+TRIAGE: ran `go test -count=1 ./...` (cache-bypassed) + `go vet ./...` against the current tree — BOTH GREEN (exit 0). All 44 cli/**/*_test.go files compile and pass; ZERO rotted, ZERO quarantined. The orphaned tests were kept alive by devs running them locally even though no CI lane ever ran them. (Ticket said ~30; actual count is 44 across cli/cmd + cli/internal.)
+
+CI CHANGE: new dedicated workflow .github/workflows/go-test.yaml (pure Go — no Docker/DB, <1min). Triggers: push:[master] + pull_request (branches-ignore ops/**) + workflow_dispatch. Steps: checkout (fetch-depth:0, for cmd/release_verify_test.go's bare `git rev-parse HEAD`) -> setup-go (go-version-file: cli/go.mod) -> `go vet ./...` -> `go test ./...`. STRICT gate: both run with no continue-on-error / no `|| true`; non-zero fails the job and blocks the merge.
+
+WHY A DEDICATED LANE (not fast-tests/test-hardening): fast-tests is gated behind Images on master (workflow_run) and skipped if Images fails; test-hardening only runs at RC-tag time. Both would couple the Go gate to Docker and/or run too rarely. The new lane runs in parallel with Images on master and on every non-ops PR.
+
+FOLLOW-UP (optional, not done): could wire go-test green into the stable-release pre-flight gate (mirror release.WorkflowFastTests in cli/internal/release/workflow_check.go) so a red Go test also blocks a stable release. Left out to keep scope tight + avoid touching the release-gate code.
 <!-- SECTION:NOTES:END -->
