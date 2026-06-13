@@ -86,7 +86,7 @@ import (
 // the wrapped step, a simultaneous main-goroutine hang would not be
 // caught by systemd. In exchange, legitimate multi-minute subprocess
 // work doesn't trigger false restarts. The trade-off is acceptable:
-// pullImages has its own 10-min ctx timeout, so a stuck subprocess
+// pullImagesForCommitShort has its own 10-min ctx timeout, so a stuck subprocess
 // is bounded.
 
 // sdNotify sends a message to the systemd NOTIFY_SOCKET.
