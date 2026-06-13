@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-13 08:41'
+updated_date: '2026-06-13 10:50'
 labels:
   - review
   - upgrade
@@ -58,3 +59,15 @@ H1 (foreman) — DB connection dropped during the completion UPDATE of 187 (L388
 
 NEXT: walk A→H one-by-one with the King; spin a detailed execution task per agreed item (root cause + fix design). Architect (Opus 4.8) does deep root-cause per item.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+**Item A (image handling) — walked with the King 2026-06-13; resolution split into two moves.**
+
+**Root cause (A2→A1, one defect):** every service in the compose project is profile-gated (app/worker/db/rest/proxy: all / all_except_app / app — none profile-less) and COMPOSE_PROFILES is set nowhere, so a bare `docker compose pull` selects zero services and pulls nothing. The two upgrade-pipeline pre-pull sites (applyPostSwap Step 8 `service.go:3914`; `pullImages` `exec.go:184`, used by executeUpgrade pre-swap AND the daemon) were both profile-less no-ops → images fell through to the later named `up -d --no-build`, with app/worker/rest/proxy pulling only at Step 11 'Starting services' AFTER the destructive migration (no-install.log L106→L109-112). Fresh-install already did it right (`--profile all pull`, install.go:1034). Full root-cause: tmp/architect-047A-image-handling.md.
+
+**Move 1 — IMPLEMENTED (King go), committed 447c9e96d on master.** Added `--profile all` to both bare-pull sites. Pre-pull is now real (images local before the destructive step); a pull failure aborts before destruction via the existing fail-loud. Also makes the daemon's docker_images_downloaded flag truthful. build+vet green.
+
+**Move 2 — DESIGN ONLY, awaiting King decision (couples A3 + B1).** Background pre-download (`preDownloadImages` service.go:3073) is keep-vs-rip-out. Defect: `ORDER BY discovered_at LIMIT 3` = 3 OLDEST + no re-filter vs installed version → grinds ancient v2026.05.1/.2/.3; and it runs synchronously in the discovery cycle → blocks upgrade_check (the B1 'Checking… hangs'). The existence probe (verifyArtifacts service.go:1095, `docker manifest inspect`, newest-first, sets docker_images_status='ready') is already correct — reuse it. Recommended targeted shape (logic only, NO migration): select the single newest 'ready' candidate (committed_at DESC LIMIT 1), Go-guard newer-than-installed (mirrors discover() L2827), run off the check path. Rip-out alternative needs a migration (DROP docker_images_downloaded). Recommendation: targeted/keep — pre-staging the newest candidate shortens+de-risks the destructive window, more so after move 1. Full design: tmp/architect-047A-background-download-design.md.
+<!-- SECTION:NOTES:END -->
