@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-13 11:58'
-updated_date: '2026-06-13 12:13'
+updated_date: '2026-06-13 12:16'
 labels:
   - security
   - dependencies
@@ -51,4 +51,10 @@ NPM (23 alerts, 2 files changed, awaiting foreman review+commit — do-not-self-
 - GATES GREEN: pnpm run tsc clean, pnpm run test 12/12, pnpm run build clean (incl ESLint).
 
 GO (1 alert, HELD): #583 github.com/jackc/pgx/v5 v5.9.0 -> v5.9.2 (low, CVSS 0.0). Vuln needs non-default simple protocol; `grep QueryExecModeSimpleProtocol cli/` = 0 matches -> real exposure nil. Trivial patch bump recommended but NOT applied — cli/go.mod could collide with architect's in-flight cli/internal/upgrade. Awaiting foreman OK.
+
+ENGINEER (2026-06-13): GO alert #583 (pgx) NOW DONE — foreman gave go-ahead (architect idle, item-A is logic in service.go, doesn't touch go.mod/go.sum). Applied as a SEPARATE change from the npm batch (for independent review/commit).
+
+`go get github.com/jackc/pgx/v5@v5.9.2 && go mod tidy`. Diff is 2 files, minimal: cli/go.mod (v5.9.0->v5.9.2) + cli/go.sum (the 2 pgx hash lines). Notably pgx's own `go.mod h1:` hash is UNCHANGED across 5.9.0->5.9.2 (no transitive dep ripple; puddle/pgservicefile/pgpassfile untouched) — confirms pure patch.
+
+No-ripple proof (cwd cli/): go vet=0, go build=0, go test ./...=0 — incl. cli/internal/upgrade (the pgx consumer) green. All 24 dependabot alerts now remediated (23 npm + 1 Go). Awaiting foreman commit of the Go change (do-not-self-commit).
 <!-- SECTION:NOTES:END -->
