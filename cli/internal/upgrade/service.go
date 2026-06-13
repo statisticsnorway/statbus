@@ -3909,9 +3909,16 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 		return d.postSwapFailure(ctx, id, displayName, previousVersion, commitSHA, backupPath, fmt.Sprintf("./sb config generate: %v", err), progress)
 	}
 
-	// Step 8: Pull updated images
+	// Step 8: Pull updated images. --profile all is MANDATORY, not cosmetic:
+	// every service in this compose project is profile-gated (app/worker/db/
+	// rest/proxy all carry profiles: all / all_except_app / app — none is
+	// profile-less) and COMPOSE_PROFILES is never set. A bare `docker compose
+	// pull` therefore selects ZERO services and silently pulls nothing, leaving
+	// the real fetch to fall through to step 11's named `up -d` — AFTER the
+	// destructive migration (the STATBUS-047 item-A hazard). `all` is the
+	// superset fresh-install (cli/cmd/install.go:1034) and rollback (below) use.
 	progress.Write("Pulling updated images...")
-	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", progress.bump, "docker", "compose", "pull"); err != nil {
+	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", progress.bump, "docker", "compose", "--profile", "all", "pull"); err != nil {
 		return d.postSwapFailure(ctx, id, displayName, previousVersion, commitSHA, backupPath, fmt.Sprintf("%s: docker compose pull: %v", ErrDockerUpFailed, err), progress)
 	}
 

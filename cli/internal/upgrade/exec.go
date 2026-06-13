@@ -179,9 +179,12 @@ func (d *Service) pullImages(version string) error {
 	// For pre-downloads before config regeneration, we pass it as an override.
 	// 10-minute timeout: image pulls can be slow on shared servers.
 	// --quiet suppresses progress bars that cause excessive pipe output under systemd.
+	// --profile all is MANDATORY: every service here is profile-gated and
+	// COMPOSE_PROFILES is never set, so a bare `docker compose pull` selects zero
+	// services and pulls nothing (STATBUS-047 item A). `all` is the full set.
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "docker", "compose", "pull", "--quiet")
+	cmd := exec.CommandContext(ctx, "docker", "compose", "--profile", "all", "pull", "--quiet")
 	cmd.Dir = d.projDir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
