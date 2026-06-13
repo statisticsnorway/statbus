@@ -3,10 +3,11 @@ id: STATBUS-024
 title: >-
   ci-go-test: no workflow runs `go test` — 30+ cli/internal Go tests (inject,
   upgrade) never execute in CI
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - engineer
 created_date: '2026-06-10 20:40'
-updated_date: '2026-06-13 11:05'
+updated_date: '2026-06-13 11:38'
 labels:
   - ci
   - test
