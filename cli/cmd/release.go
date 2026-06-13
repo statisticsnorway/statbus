@@ -873,6 +873,7 @@ Pre-flight (~8 checks):
   - That patch is next-in-sequence for vYYYY.MM
   - images workflow green at the RC's commit
   - fast-tests workflow green at the RC's commit
+  - go-test workflow green at the RC's commit
   - test-hardening workflow green at the RC's commit
   - test-install workflow green at the RC's commit
   - install-recovery-harness workflow green at the RC's commit
@@ -882,6 +883,7 @@ Operator bypasses (use sparingly — each one is an admission that a
 gate's invariant has NOT been verified for the SHA):
   SKIP_IMAGES=1            (Docker artifacts may not exist; deploys may FAIL)
   SKIP_FAST_TESTS=1        (fast pg_regress suite was not exercised)
+  SKIP_GO_TEST=1           (Go unit tests were not exercised)
   SKIP_TEST_HARDENING=1
   SKIP_TEST_INSTALL=1
   SKIP_INSTALL_RECOVERY=1  (no recovery regression net was exercised)
@@ -977,6 +979,12 @@ gate's invariant has NOT been verified for the SHA):
 		// stable against derivation/baseline drift that lands silently red —
 		// images builds artifacts but does NOT run pg_regress.
 		allPassed = checkStableWorkflowGate(release.WorkflowFastTests, "fast-tests", latestRC, rcCommit, rcShort, "SKIP_FAST_TESTS") && allPassed
+		// go-test runs `go vet` + `go test ./...` on every master push, so a
+		// run exists at the RC's commit (the RC tags a master commit). Gates
+		// stable against a Go-layer regression — the CLI's upgrade/recovery,
+		// install, and release unit tests — landing silently red; neither
+		// images nor fast-tests runs go test (fast-tests is pg_regress only).
+		allPassed = checkStableWorkflowGate(release.WorkflowGoTest, "go-test", latestRC, rcCommit, rcShort, "SKIP_GO_TEST") && allPassed
 		allPassed = checkStableWorkflowGate(release.WorkflowTestHardening, "test-hardening", latestRC, rcCommit, rcShort, "SKIP_TEST_HARDENING") && allPassed
 		allPassed = checkStableWorkflowGate(release.WorkflowTestInstall, "test-install", latestRC, rcCommit, rcShort, "SKIP_TEST_INSTALL") && allPassed
 		// Install-recovery harness: every C-class with a paired scenario in

@@ -191,6 +191,7 @@ func TestCheckWorkflowAtCommit_WorkflowParameterized(t *testing.T) {
 		wantPath string
 	}{
 		{WorkflowImages, "/repos/statisticsnorway/statbus/actions/workflows/images.yaml/runs"},
+		{WorkflowGoTest, "/repos/statisticsnorway/statbus/actions/workflows/go-test.yaml/runs"},
 		{WorkflowTestHardening, "/repos/statisticsnorway/statbus/actions/workflows/test-hardening.yaml/runs"},
 		{WorkflowTestInstall, "/repos/statisticsnorway/statbus/actions/workflows/test-install.yaml/runs"},
 	}

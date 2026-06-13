@@ -14,6 +14,7 @@ import (
 const (
 	WorkflowImages                 = "images.yaml"
 	WorkflowFastTests              = "fast-tests.yaml"
+	WorkflowGoTest                 = "go-test.yaml"
 	WorkflowTestHardening          = "test-hardening.yaml"
 	WorkflowTestInstall            = "test-install.yaml"
 	WorkflowInstallRecoveryHarness = "install-recovery-harness.yaml"
