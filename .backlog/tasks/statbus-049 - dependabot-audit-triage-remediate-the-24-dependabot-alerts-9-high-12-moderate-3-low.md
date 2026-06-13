@@ -3,11 +3,11 @@ id: STATBUS-049
 title: >-
   dependabot-audit: triage + remediate the 24 dependabot alerts (9 high / 12
   moderate / 3 low)
-status: In Progress
+status: Done
 assignee:
   - engineer
 created_date: '2026-06-13 11:58'
-updated_date: '2026-06-13 12:16'
+updated_date: '2026-06-13 12:22'
 labels:
   - security
   - dependencies
@@ -58,3 +58,12 @@ ENGINEER (2026-06-13): GO alert #583 (pgx) NOW DONE — foreman gave go-ahead (a
 
 No-ripple proof (cwd cli/): go vet=0, go build=0, go test ./...=0 — incl. cli/internal/upgrade (the pgx consumer) green. All 24 dependabot alerts now remediated (23 npm + 1 Go). Awaiting foreman commit of the Go change (do-not-self-commit).
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Resolved 2026-06-13. All 24 dependabot alerts remediated across two foreman-reviewed commits:
+- fca1afe32 (23 npm) — one next→16.2.9 bump cleared 13 (proxy-bypass/SSRF/DoS/XSS/cache-poison, all genuinely reachable), mermaid→11.15.0 cleared 4, +6 transitive vulns via pnpm.overrides (existing pattern). The uuid v8→v11 major bump (only available fix) hand-verified safe (consumer uses the surviving named export). App tsc/test/build independently re-verified green by foreman.
+- 44e8844c9 (1 Go) — pgx v5.9.0→v5.9.2 (advisory GHSA-j88v-2chj-qfwx, low/CVSS-0). Real exposure nil (QueryExecModeSimpleProtocol never used); applied for defense-in-depth. Patch bump, no transitive ripple (pgx go.mod hash unchanged); go vet/build/test green incl. cli/internal/upgrade.
+Full per-alert triage in tmp/dependabot-triage-049.md — every alert fixed or documented, none silently dismissed. Foreman reviewed both diffs + independently re-verified all gates before each commit.
+<!-- SECTION:FINAL_SUMMARY:END -->
