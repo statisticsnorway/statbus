@@ -3,11 +3,11 @@ id: STATBUS-024
 title: >-
   ci-go-test: no workflow runs `go test` — 30+ cli/internal Go tests (inject,
   upgrade) never execute in CI
-status: In Progress
+status: Done
 assignee:
   - engineer
 created_date: '2026-06-10 20:40'
-updated_date: '2026-06-13 11:42'
+updated_date: '2026-06-13 11:48'
 labels:
   - ci
   - test
@@ -42,3 +42,9 @@ WHY A DEDICATED LANE (not fast-tests/test-hardening): fast-tests is gated behind
 
 FOLLOW-UP (optional, not done): could wire go-test green into the stable-release pre-flight gate (mirror release.WorkflowFastTests in cli/internal/release/workflow_check.go) so a red Go test also blocks a stable release. Left out to keep scope tight + avoid touching the release-gate code.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Resolved 2026-06-13 (commit 5b4e518bc, pushed). Added .github/workflows/go-test.yaml — a dedicated pure-Go lane (go vet + go test ./...) on every master push + non-ops PR, strict-gating (no continue-on-error, no || true; a red test blocks the merge). Chose a dedicated lane over bolting onto fast-tests (Images-gated, skipped entirely if Images fails) or test-hardening (RC-tag only). Triaged all 44 cli test files (ticket estimated ~30): zero rotted, zero quarantined — all compile + pass (devs ran them locally; CI just never did). Foreman-verified independently before commit: go vet clean, go test -count=1 ./... exit 0 across 11 packages incl. the upgrade/recovery suite. Optional follow-up (block stable releases on red Go tests) filed separately.
+<!-- SECTION:FINAL_SUMMARY:END -->
