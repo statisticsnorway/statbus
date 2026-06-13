@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Go Test
+
+# Go Test — the CLI's Go unit-test gate (cli/cmd/**, cli/internal/**).
+#
+# Why this workflow exists (STATBUS-024): before it, NO workflow, dev.sh path,
+# or git hook ran `go test`. The ~44 cli/**/*_test.go files — inject, the
+# upgrade/recovery self-heal suite (039: ground_truth/postswap/backup), install
+# state, release, migrate, … — compiled and passed only when a developer ran
+# them locally. CI never executed them, so a Go test could rot silently while
+# still "present". These guard LIVE upgrade/recovery code, so they must run on
+# every change.
+#
+# Why a dedicated lane (not bolted onto an existing one): `go test ./...` is
+# pure Go — no Docker, no DB, no external server — and finishes in well under a
+# minute. fast-tests.yaml is gated behind Images on master (workflow_run) and
+# skipped entirely if Images fails; test-hardening.yaml only runs at RC-tag
+# time. Both would make the Go gate depend on Docker and/or run too rarely.
+# This lane runs in parallel with Images on master and on every non-ops PR.
+#
+# Strict gate (the King is firm on strict-gating, no hedges): `go vet` then
+# `go test ./...`. Both exit non-zero on any failure and fail the job — no
+# continue-on-error, no `|| true`. A red Go test blocks the merge.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches-ignore:
+      - 'ops/**'
+  workflow_dispatch:
+
+# Per-commit groups on master (each commit's run is its own verdict, never
+# cancelled); per-ref groups on PRs (cancel superseded runs).
+concurrency:
+  group: go-test-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  go-test:
+    name: cli go test ./...
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Most git-touching tests build throwaway fixture repos in temp dirs
+          # (git init / -C <dir>) and are checkout-depth-independent, but a few
+          # (cmd/release_verify_test.go) run `git rev-parse HEAD` against the
+          # checkout — fetch full history so commit/tag lookups resolve.
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: cli/go.mod
+
+      - name: go vet
+        working-directory: cli
+        run: go vet ./...
+
+      - name: go test
+        working-directory: cli
+        run: go test ./...
