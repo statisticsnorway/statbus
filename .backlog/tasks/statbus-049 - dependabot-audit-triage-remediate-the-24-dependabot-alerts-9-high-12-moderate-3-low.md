@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-13 11:58'
-updated_date: '2026-06-13 12:11'
+updated_date: '2026-06-13 12:13'
 labels:
   - security
   - dependencies
@@ -36,3 +36,19 @@ The King wants a DETAILED pass — understand each alert, not a blind auto-bump.
 ## Coordination
 Go-module bumps (cli/go.mod) can ripple into the architect's in-flight cli/internal/upgrade work — coordinate with the foreman before bumping Go deps if the architect is still mid-flight there. pnpm bumps (app/) are disjoint.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+ENGINEER (2026-06-13): 23/24 alerts FIXED (npm, app/) + verified; 1 (Go pgx) HELD for foreman coordination. Full per-alert triage: tmp/dependabot-triage-049.md.
+
+NPM (23 alerts, 2 files changed, awaiting foreman review+commit — do-not-self-commit):
+- app/package.json: direct bumps next ^16.2.6, mermaid ^11.15.0, postcss ^8.5.10; pnpm.overrides added for transitive vulns @rvf/set-get ^7.0.2, brace-expansion ^5.0.6, postcss ^8.5.10, tmp ^0.2.6, uuid ^11.1.1, ws ^8.20.1.
+- app/pnpm-lock.yaml: regenerated (pnpm install, net -88 lines).
+- ONE bump cleared 13 next alerts (#592-604) and one cleared 4 mermaid (#588-591); the rest one each (postcss #585, @rvf/set-get #587, tmp #608, brace-expansion #605, uuid #607, ws #606).
+- Resolved (all >= patched, single instance): next@16.2.9, mermaid@11.15.0, postcss@8.5.15, @rvf/set-get@7.0.2, tmp@0.2.7, brace-expansion@5.0.6, uuid@11.1.1, ws@8.21.0.
+- uuid note: override force-bumped exceljs's transitive uuid v8.3.2->v11.1.1 (only fix is in 11.1.1); VERIFIED safe — exceljs uses `const {v4}=require('uuid')`, the named export v11 retains; build passes.
+- GATES GREEN: pnpm run tsc clean, pnpm run test 12/12, pnpm run build clean (incl ESLint).
+
+GO (1 alert, HELD): #583 github.com/jackc/pgx/v5 v5.9.0 -> v5.9.2 (low, CVSS 0.0). Vuln needs non-default simple protocol; `grep QueryExecModeSimpleProtocol cli/` = 0 matches -> real exposure nil. Trivial patch bump recommended but NOT applied — cli/go.mod could collide with architect's in-flight cli/internal/upgrade. Awaiting foreman OK.
+<!-- SECTION:NOTES:END -->
