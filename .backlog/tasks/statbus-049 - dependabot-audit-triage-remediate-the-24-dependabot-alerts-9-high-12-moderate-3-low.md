@@ -3,10 +3,11 @@ id: STATBUS-049
 title: >-
   dependabot-audit: triage + remediate the 24 dependabot alerts (9 high / 12
   moderate / 3 low)
-status: To Do
+status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-13 11:58'
+updated_date: '2026-06-13 12:11'
 labels:
   - security
   - dependencies
