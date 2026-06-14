@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-13 08:41'
-updated_date: '2026-06-13 12:33'
+updated_date: '2026-06-14 07:19'
 labels:
   - review
   - upgrade
@@ -83,4 +83,10 @@ Fix (logic-only, NO migration — King's envelope held):
 - Warm-up fix (item 5): executeUpgrade pre-swap pull now targets the upgrade's commit via pullImagesForCommitShort(ShortForDisplay(commitSHA)) — pre-stages the exact images applyPostSwap Step 8 needs + surfaces missing-image failure before any destructive step.
 
 Verify: `go -C cli vet ./...` + `build ./...` + `test ./...` all green (exit 0), incl. the new unit test. Pushed; the per-change go-test CI gate runs on push. Minor residue: watchdog.go:89 prose still says 'pullImages' (couldn't stage under the 3-file git scope; its behavioral claim — 10-min ctx bound — remains true of the renamed fn). Design doc: tmp/architect-047A-background-download-design.md (incl. MECHANISM FINDING). ITEM A COMPLETE (move 1 = 447c9e96d, move 2 = 581043668).
+
+TRIAGE PROGRESS (2026-06-14):
+- Item A DONE — move 1 (447c9e96d, --profile all on both pre-pull sites) + move 2 (581043668, COMMIT_SHORT-aimed background pre-download + pure selectNewestDownloadCandidate with 11-case unit test + check/download decouple + warm-up now targets the upgrade's commit) + watchdog comment cleanup (ae7f8f437). All King-confirmed trade-offs are IN (single-newest pre-stage; warm-up targets target not current; decoupled background download). Closes A1 + A2 + A3 + B1. Foreman-reviewed byte-level + go test green + runs in CI now.
+- Item B1 DONE (fell out of A — the 'Checking…' spin was the synchronous-download-in-check; decouple fixed it).
+- Item B2 → STATBUS-050 (King 2026-06-14: FIX NOW). Latent stale-available-rows + supersede hierarchy-guard + prerelease-mislabel bug; root-cause verified live.
+- REMAINING for one-by-one triage: C (two-pass install: A17 invariant + confusing dual-row logging), D (quiesce infers PID liveness instead of checking), E (PGRST002 first-fail / admin-/ready-on-+6 — ties to STATBUS-032), F (retention tar blocks the install command), G (db-seed branch vestigial), H (DB connection races the completion write).
 <!-- SECTION:NOTES:END -->
