@@ -3,10 +3,11 @@ id: STATBUS-050
 title: >-
   supersede-stale-available: retire ledger rows older than installed
   (tier-independent) + reconcile prerelease labeling
-status: To Do
+status: In Progress
 assignee:
   - architect
 created_date: '2026-06-14 07:19'
+updated_date: '2026-06-14 07:29'
 labels:
   - upgrade
   - ledger
