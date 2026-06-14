@@ -2950,6 +2950,16 @@ func (d *Service) discover(ctx context.Context) {
 	// demote release_status back to 'commit'.
 	d.pruneDeletedTags(ctx, filtered)
 
+	// Self-heal the ledger: retire any available/scheduled row that is not newer
+	// than the installed version (tier-independent, version-based). The SQL
+	// supersede proc's peer hierarchy guard cannot retire a genuine older release
+	// when the installed version is a prerelease, which left phantom "available"
+	// upgrades older than what is running (STATBUS-050 / STATBUS-047 B2). A cheap
+	// single UPDATE — grouped with the verifyArtifacts/pruneDeletedTags
+	// reconciliation passes above, before the "last checked" timestamp, so the
+	// ledger is honest when the admin-UI check resolves.
+	d.supersedeBelowInstalled(ctx)
+
 	// Record last-discover timestamp for the admin UI "Last checked" display.
 	// Best-effort — ignore error so observability noise never blocks the main path.
 	// WRITTEN BEFORE the background pre-download: the admin-UI check resolves on
@@ -3119,6 +3129,67 @@ func selectNewestDownloadCandidate(installed string, candidates []downloadCandid
 	return best, found
 }
 
+// staleCandidate is one available/scheduled ledger row evaluated for retirement
+// against the installed version. Tags is the row's commit_tags — a single commit
+// can carry several (e.g. a final rc and its release tag on the same commit, as
+// in {v2026.05.1-rc.01, v2026.05.1}).
+type staleCandidate struct {
+	ID   int
+	Tags []string
+}
+
+// selectNewestTag returns the newest CalVer tag in tags (CompareVersions order),
+// or "" if none is a valid CalVer tag. A row is judged by its NEWEST tag so a
+// commit double-tagged with a final rc and its release is compared on the
+// release, never wrongly on the rc.
+func selectNewestTag(tags []string) string {
+	newest := ""
+	for _, tag := range tags {
+		if !ValidateVersion(tag) {
+			continue // not a CalVer tag — no defined ordering
+		}
+		if newest == "" || CompareVersions(tag, newest) > 0 {
+			newest = tag
+		}
+	}
+	return newest
+}
+
+// selectStaleBelowInstalled returns the IDs of available/scheduled ledger rows
+// that no longer represent an upgrade — i.e. whose newest CalVer tag is NOT NEWER
+// than the installed version — so discover() can retire them (state='superseded').
+// The decision is TIER-INDEPENDENT: it compares CalVer versions only
+// (CompareVersions), never release_status.
+//
+// This is the vs-installed counterpart to the SQL upgrade_supersede_older proc's
+// PEER hierarchy guard (release_status <= installed's status). That guard is
+// correct for peer supersede — a prerelease must not hide an older tagged release
+// as a peer — but WRONG against the installed version: a genuine release (e.g.
+// v2026.05.3) that is older than an installed prerelease (v2026.06.0-rc.02) is
+// still not an upgrade, because 05.3 < 06.0 by version. The proc therefore left
+// such rows lingering as phantom "available" upgrades (STATBUS-050 /
+// STATBUS-047 B2); this rule retires them regardless of tier or install path.
+//
+// Guards mirror selectNewestDownloadCandidate (STATBUS-047 item A): a non-CalVer
+// installed version (e.g. "dev") retires nothing — we never guess an ordering —
+// and a row with no CalVer tag (e.g. an edge commit) is left alone.
+func selectStaleBelowInstalled(installed string, candidates []staleCandidate) []int {
+	if !ValidateVersion(installed) {
+		return nil
+	}
+	var retire []int
+	for _, c := range candidates {
+		newest := selectNewestTag(c.Tags)
+		if newest == "" {
+			continue // no CalVer tag on this row — no defined ordering
+		}
+		if CompareVersions(newest, installed) <= 0 {
+			retire = append(retire, c.ID)
+		}
+	}
+	return retire
+}
+
 // preDownloadImages pre-stages, in the background, the images for the single
 // newest release strictly newer than the installed version — and only once its
 // images are confirmed present in the registry (docker_images_status='ready',
@@ -3168,6 +3239,67 @@ func (d *Service) preDownloadImages(ctx context.Context) {
 	d.queryConn.Exec(ctx,
 		"UPDATE public.upgrade SET docker_images_downloaded = true WHERE commit_sha = $1",
 		chosen.CommitSHA)
+}
+
+// supersedeBelowInstalled retires (state='superseded') every available/scheduled
+// ledger row whose newest tag is not newer than the installed version. Runs on
+// every discover() cycle so the ledger self-heals regardless of which path
+// recorded the rows. The version DECISION is the pure selectStaleBelowInstalled;
+// this method is the SQL eligibility query + UPDATE, mirroring preDownloadImages.
+//
+// Why it exists alongside upgrade_supersede_older: that proc's release_status
+// hierarchy guard is correct for PEER supersede but cannot retire a genuine older
+// RELEASE when the installed version is a PRERELEASE (release > prerelease in the
+// tier order), so older releases lingered as phantom "available" upgrades
+// (STATBUS-050 / STATBUS-047 B2). This is the tier-independent, version-based
+// vs-installed retire. No migration: CalVer ordering (CompareVersions) lives in
+// Go; the proc is left untouched for its peer-supersede job.
+func (d *Service) supersedeBelowInstalled(ctx context.Context) {
+	// queryConn is a single *pgx.Conn — drain/close the SELECT before the UPDATE.
+	// Only tagged rows are eligible: edge commits (no tags) have no CalVer
+	// ordering and are not an upgrade target on the tagged channels.
+	rows, err := d.queryConn.Query(ctx,
+		`SELECT id, commit_tags
+		 FROM public.upgrade
+		 WHERE state IN ('available', 'scheduled')
+		   AND array_length(commit_tags, 1) > 0`)
+	if err != nil {
+		return
+	}
+	var candidates []staleCandidate
+	for rows.Next() {
+		var id int
+		var tags []string
+		if err := rows.Scan(&id, &tags); err != nil {
+			continue
+		}
+		candidates = append(candidates, staleCandidate{ID: id, Tags: tags})
+	}
+	rows.Close()
+
+	retire := selectStaleBelowInstalled(d.version, candidates)
+	if len(retire) == 0 {
+		return
+	}
+
+	// state='superseded' is NOT in ('available','scheduled'), so the
+	// upgrade_block_obsolete_pending BEFORE trigger no-ops on this transition.
+	// Re-assert the source state in the WHERE so a concurrent change can't be
+	// clobbered. superseded_at via COALESCE matches upgrade_supersede_older.
+	ct, err := d.queryConn.Exec(ctx,
+		`UPDATE public.upgrade
+		    SET state = 'superseded',
+		        superseded_at = COALESCE(superseded_at, now())
+		  WHERE id = ANY($1::int[])
+		    AND state IN ('available', 'scheduled')`,
+		retire)
+	if err != nil {
+		fmt.Printf("Failed to supersede releases not newer than installed: %v\n", err)
+		return
+	}
+	if n := ct.RowsAffected(); n > 0 {
+		fmt.Printf("Superseded %d release(s) not newer than installed %s\n", n, d.version)
+	}
 }
 
 // scheduleImmediate routes an operator-supplied upgrade target through
