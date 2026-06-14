@@ -212,3 +212,134 @@ func TestReleaseSummary(t *testing.T) {
 		t.Errorf("got %q", got)
 	}
 }
+
+// TestClassifyReleaseShape pins the single shared shape classifier. The
+// critical guard: a non-rc hyphenated CalVer tag (-beta/-alpha/-foo) is
+// ShapeUnknown, NOT a prerelease — "hyphen != prerelease".
+func TestClassifyReleaseShape(t *testing.T) {
+	cases := []struct {
+		in   string
+		want ReleaseShape
+	}{
+		// Clean release tags (with and without the "v" prefix).
+		{"v2026.05.1", ShapeRelease},
+		{"2026.05.1", ShapeRelease},
+		{"v2026.12.99", ShapeRelease},
+		// Release-candidate tags → prerelease.
+		{"v2026.05.1-rc.1", ShapePrerelease},
+		{"v2026.05.1-rc.17", ShapePrerelease},
+		{"2026.05.1-rc.5", ShapePrerelease},
+		// Non-rc hyphenated CalVer tags → unknown (the footgun shape). These
+		// are valid tag SYNTAX (ValidateVersion accepts them) but match no
+		// channel and never claim release/prerelease status.
+		{"v2026.05.1-beta.1", ShapeUnknown},
+		{"v2026.05.1-alpha.1", ShapeUnknown},
+		{"v2026.05.1-foo", ShapeUnknown},
+		{"v2026.05.1-rcx", ShapeUnknown}, // "rc" without the dot is not an RC
+		// Commit references → commit.
+		{"dev", ShapeCommit},
+		{"", ShapeCommit},
+		{"v2026.04.0-7-gf483d1d2e", ShapeCommit},      // git-describe off a release
+		{"v2026.04.0-rc.15-1-gf483d1d2e", ShapeCommit}, // git-describe off an rc
+		// Garbage / invalid CalVer → unknown.
+		{"latest", ShapeUnknown},
+		{"v2026.5.0", ShapeUnknown}, // single-digit month is not valid CalVer
+	}
+	for _, c := range cases {
+		if got := ClassifyReleaseShape(c.in); got != c.want {
+			t.Errorf("ClassifyReleaseShape(%q) = %d, want %d", c.in, got, c.want)
+		}
+	}
+}
+
+// TestReleaseShapeReleaseStatus pins the shape→release_status_type mapping.
+// ShapeUnknown maps to the neutral "commit" rung — never "release".
+func TestReleaseShapeReleaseStatus(t *testing.T) {
+	cases := []struct {
+		shape ReleaseShape
+		want  string
+	}{
+		{ShapeRelease, "release"},
+		{ShapePrerelease, "prerelease"},
+		{ShapeCommit, "commit"},
+		{ShapeUnknown, "commit"},
+	}
+	for _, c := range cases {
+		if got := c.shape.ReleaseStatus(); got != c.want {
+			t.Errorf("ReleaseShape(%d).ReleaseStatus() = %q, want %q", c.shape, got, c.want)
+		}
+	}
+}
+
+// TestFilterTagsByChannel pins the EXCLUSIVE per-channel allowlist in BOTH
+// directions (accept-list + reject-list). The headline guard (AC#2): an
+// arbitrary non-rc hyphenated tag is rejected by stable AND prerelease AND
+// edge — it must never be discovered as an installable upgrade anywhere.
+func TestFilterTagsByChannel(t *testing.T) {
+	const betaTag = "v2026.05.1-beta.1" // the footgun shape
+
+	tags := []GitTag{
+		{TagName: "v2026.03.0"},     // release
+		{TagName: "v2026.04.0"},     // release
+		{TagName: "v2026.04.1-rc.1"}, // rc / prerelease
+		{TagName: "v2026.04.2-rc.5"}, // rc / prerelease
+		{TagName: betaTag},          // non-rc hyphenated — matches NO channel
+	}
+
+	cases := []struct {
+		channel string
+		want    []string
+	}{
+		// stable accepts only no-hyphen release tags; rejects rc + beta.
+		{"stable", []string{"v2026.03.0", "v2026.04.0"}},
+		// prerelease accepts only -rc. tags; rejects release + beta.
+		{"prerelease", []string{"v2026.04.1-rc.1", "v2026.04.2-rc.5"}},
+		// edge accepts release + rc (binary self-update tracks both); rejects beta.
+		{"edge", []string{"v2026.03.0", "v2026.04.0", "v2026.04.1-rc.1", "v2026.04.2-rc.5"}},
+		// an unrecognized channel name admits nothing.
+		{"nightly", nil},
+	}
+
+	for _, c := range cases {
+		t.Run(c.channel, func(t *testing.T) {
+			got := tagNamesOf(FilterTagsByChannel(tags, c.channel))
+			if !sameStringSet(got, c.want) {
+				t.Errorf("FilterTagsByChannel(_, %q) = %v, want %v", c.channel, got, c.want)
+			}
+			// Reject-list invariant: the non-rc hyphenated tag is never admitted.
+			for _, n := range got {
+				if n == betaTag {
+					t.Errorf("channel %q admitted the non-rc hyphenated tag %q — footgun not closed", c.channel, betaTag)
+				}
+			}
+		})
+	}
+}
+
+func tagNamesOf(tags []GitTag) []string {
+	var names []string
+	for _, t := range tags {
+		names = append(names, t.TagName)
+	}
+	return names
+}
+
+// sameStringSet reports whether a and b contain the same elements (order-
+// independent). FilterTagsByChannel preserves input order, but the tests
+// assert on membership, not ordering.
+func sameStringSet(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	seen := make(map[string]int, len(a))
+	for _, s := range a {
+		seen[s]++
+	}
+	for _, s := range b {
+		seen[s]--
+		if seen[s] < 0 {
+			return false
+		}
+	}
+	return true
+}

@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -1808,30 +1807,6 @@ func gitHeadInfo(dir string) (sha, commitDate string) {
 	return sha, strings.TrimSpace(out)
 }
 
-var gitDescribeRe = regexp.MustCompile(`-g[0-9a-f]+$`)
-
-func classifyReleaseStatus(ver string) string {
-	v := strings.TrimPrefix(ver, "v")
-	if v == "" || v == "dev" {
-		return "commit"
-	}
-	// Git-describe with distance: "2026.04.0-rc.15-1-gf483d1d2e" has "-g<hex>"
-	// suffix indicating commits past the tag. These are "commit" not "prerelease".
-	if gitDescribeRe.MatchString(v) {
-		return "commit"
-	}
-	// Clean tag with -rc.N → prerelease
-	if strings.Contains(v, "-rc.") {
-		return "prerelease"
-	}
-	// Clean tag without -rc → release (e.g., "2026.04.0")
-	parts := strings.SplitN(v, ".", 3)
-	if len(parts) >= 3 {
-		return "release"
-	}
-	return "commit"
-}
-
 // sqlLiteral escapes a string for use as a SQL single-quoted literal.
 func sqlLiteral(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", "''") + "'"
@@ -1958,7 +1933,7 @@ func completeInstallUpgradeRow(installDir string, conn *pgx.Conn, logRelPath str
 		commitDate,
 		fmt.Sprintf("Installed via ./sb install (%s)", version),
 		version,
-		classifyReleaseStatus(version),
+		upgrade.ClassifyReleaseShape(version).ReleaseStatus(),
 		logRelPath)
 	if err != nil {
 		// A9: POST_COMPLETION_UPGRADE_ROW_INSERT_SUCCEEDS

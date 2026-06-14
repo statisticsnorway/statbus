@@ -69,6 +69,83 @@ func ValidateVersion(v string) bool {
 	return versionRegex.MatchString(v)
 }
 
+// ReleaseShape is the structural classification of a version/tag string.
+// It is the single source of truth for "what kind of reference is this" —
+// the one shape→channel/status mapping used by BOTH discovery (service.go)
+// and the installer (install.go), so no site invents its own heuristic.
+//
+// Critically it does NOT treat every hyphen as a prerelease: ONLY the -rc.N
+// shape is a prerelease. Any other hyphenated CalVer suffix (-beta.1, -foo,
+// a typo) is ShapeUnknown — a recognizable-but-unsupported shape that matches
+// NO release channel and is never offered as an installable upgrade.
+type ReleaseShape int
+
+const (
+	// ShapeUnknown: not a supported release-family reference — an empty
+	// string, a CalVer tag with a non-rc hyphenated suffix (v2026.05.1-beta.1),
+	// or any string that is neither a clean release tag, a clean RC tag, nor a
+	// commit reference. Matches no channel.
+	ShapeUnknown ReleaseShape = iota
+	// ShapeCommit: an untagged commit reference — the literal "dev" or a
+	// git-describe string with distance past a tag ("...-N-g<hex>", including
+	// "...-rc.K-N-g<hex>"). Tracked by the edge channel's commit discovery,
+	// not by release-tag filtering.
+	ShapeCommit
+	// ShapeRelease: a clean CalVer release tag with no suffix, e.g. v2026.05.1.
+	ShapeRelease
+	// ShapePrerelease: a clean CalVer release-candidate tag, e.g. v2026.05.1-rc.5.
+	ShapePrerelease
+)
+
+// gitDescribeDistanceRe matches the "-g<hex>" tail `git describe` appends to
+// an untagged commit past a tag (e.g. "v2026.04.0-7-gf483d1d2e").
+var gitDescribeDistanceRe = regexp.MustCompile(`-g[0-9a-f]+$`)
+
+// ClassifyReleaseShape classifies a version/tag string by structural shape.
+// Accepts inputs with or without the leading "v". This is the single shared
+// classifier — see ReleaseShape for why hyphen != prerelease.
+func ClassifyReleaseShape(ver string) ReleaseShape {
+	bare := strings.TrimPrefix(ver, "v")
+	if bare == "" || bare == "dev" {
+		return ShapeCommit
+	}
+	// git-describe with distance past a tag → an untagged commit, not the tag
+	// it descends from. Checked before the CalVer test because the describe
+	// tail can dangle off an -rc. tag ("...-rc.15-1-gf483d1d2e").
+	if gitDescribeDistanceRe.MatchString(bare) {
+		return ShapeCommit
+	}
+	// Must be a syntactically valid CalVer tag to be a release or an RC.
+	if !ValidateVersion("v" + bare) {
+		return ShapeUnknown
+	}
+	if strings.Contains(bare, "-rc.") {
+		return ShapePrerelease
+	}
+	if strings.Contains(bare, "-") {
+		// Valid CalVer but a non-rc suffix (e.g. -beta.1): recognizable but
+		// unsupported. Not a release, not an RC — matches no channel.
+		return ShapeUnknown
+	}
+	return ShapeRelease
+}
+
+// ReleaseStatus maps a shape to the public.release_status_type value
+// (commit | prerelease | release) recorded in the upgrade table. ShapeUnknown
+// maps to the neutral lowest rung "commit": an unrecognized shape never claims
+// release or prerelease status, so it cannot wrongly supersede a real release
+// in the GREATEST() promotion logic.
+func (s ReleaseShape) ReleaseStatus() string {
+	switch s {
+	case ShapeRelease:
+		return "release"
+	case ShapePrerelease:
+		return "prerelease"
+	default: // ShapeCommit, ShapeUnknown
+		return "commit"
+	}
+}
+
 // githubRequest creates an HTTP request with optional auth from GITHUB_TOKEN env var.
 // Authenticated requests get 5000 req/hr instead of 60 req/hr.
 func githubRequest(method, url string) (*http.Request, error) {
@@ -384,11 +461,16 @@ func HasMigrationsFromChanges(body string) bool {
 }
 
 // GitTag represents a version tag discovered via git fetch.
+//
+// There is deliberately no Prerelease bool here: a tag's release/prerelease
+// nature is NOT a stored property derived from "does the name contain a
+// hyphen" (the old footgun). It is computed on demand from the tag's shape
+// via ClassifyReleaseShape, the single shared classifier — so discovery, the
+// channel filter, and the installer never disagree.
 type GitTag struct {
 	TagName     string
 	CommitSHA   string
 	PublishedAt time.Time
-	Prerelease  bool
 }
 
 // DiscoverTagsViaGit fetches tags from the remote and returns parsed version tags.
@@ -440,30 +522,47 @@ func DiscoverTagsViaGit(projDir string) ([]GitTag, error) {
 			continue
 		}
 
-		prerelease := strings.Contains(tagName, "-")
-
 		tags = append(tags, GitTag{
 			TagName:     tagName,
 			CommitSHA:   commitSHA,
 			PublishedAt: publishedAt,
-			Prerelease:  prerelease,
 		})
 	}
 	return tags, nil
 }
 
-// FilterTagsByChannel returns tags matching the given channel.
+// FilterTagsByChannel returns the tags whose SHAPE the given channel admits.
+//
+// Channels are EXCLUSIVE allowlists of tag shapes — a tag belongs to a channel
+// only if its shape is explicitly admitted, never by default:
+//   - stable     → clean CalVer release tags only (no suffix)
+//   - prerelease → release-candidate tags only (-rc.N)
+//   - edge       → release + RC tags (the edge binary self-update tracks both)
+//
+// Any other shape — a non-rc hyphenated tag (-beta/-foo/typo), a commit ref,
+// or anything under an unrecognized channel name — matches NO channel and is
+// never discovered as an installable upgrade. This is the guard against a
+// stray hyphenated tag appearing one click from install on every prerelease
+// box: pre-fix the prerelease branch returned ALL tags, so any future
+// non-rc tag shape would have been offered there (dev included).
 func FilterTagsByChannel(tags []GitTag, channel string) []GitTag {
-	if channel == "stable" {
-		var stable []GitTag
-		for _, t := range tags {
-			if !t.Prerelease {
-				stable = append(stable, t)
-			}
+	var out []GitTag
+	for _, t := range tags {
+		shape := ClassifyReleaseShape(t.TagName)
+		var admit bool
+		switch channel {
+		case "stable":
+			admit = shape == ShapeRelease
+		case "prerelease":
+			admit = shape == ShapePrerelease
+		case "edge":
+			admit = shape == ShapeRelease || shape == ShapePrerelease
 		}
-		return stable
+		if admit {
+			out = append(out, t)
+		}
 	}
-	return tags // prerelease: all tags
+	return out
 }
 
 // GitCommit represents a commit discovered via git fetch for the edge channel.

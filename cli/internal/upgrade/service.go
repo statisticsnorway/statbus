@@ -2831,13 +2831,12 @@ func (d *Service) discover(ctx context.Context) {
 			continue
 		}
 
-		// Determine release_status based on tag format.
-		// Tags with "-" are prereleases, without "-" are full releases.
-		// Manifest availability is checked at upgrade execution time, not discovery.
-		targetStatus := "prerelease"
-		if !t.Prerelease {
-			targetStatus = "release"
-		}
+		// Determine release_status from the tag's shape via the single shared
+		// classifier (NOT "any hyphen = prerelease"). After FilterTagsByChannel
+		// this set holds only release / -rc. shapes, so this resolves to
+		// "release" or "prerelease". Manifest availability is checked at upgrade
+		// execution time, not discovery.
+		targetStatus := ClassifyReleaseShape(t.TagName).ReleaseStatus()
 
 		// Verify commit signature before recording
 		if err := d.verifyCommitSignature(t.CommitSHA); err != nil {
@@ -2882,10 +2881,7 @@ func (d *Service) discover(ctx context.Context) {
 	// associates tags with commits already in the DB (e.g., from edge discovery),
 	// regardless of whether the tag is newer, equal, or older than the service.
 	for _, t := range filtered {
-		targetStatus := "prerelease"
-		if !t.Prerelease {
-			targetStatus = "release"
-		}
+		targetStatus := ClassifyReleaseShape(t.TagName).ReleaseStatus()
 		d.queryConn.Exec(ctx,
 			`UPDATE public.upgrade SET
 			   commit_tags = CASE WHEN $2 = ANY(upgrade.commit_tags) THEN upgrade.commit_tags
