@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-13 08:41'
-updated_date: '2026-06-14 07:19'
+updated_date: '2026-06-14 20:47'
 labels:
   - review
   - upgrade
@@ -89,4 +89,12 @@ TRIAGE PROGRESS (2026-06-14):
 - Item B1 DONE (fell out of A — the 'Checking…' spin was the synchronous-download-in-check; decouple fixed it).
 - Item B2 → STATBUS-050 (King 2026-06-14: FIX NOW). Latent stale-available-rows + supersede hierarchy-guard + prerelease-mislabel bug; root-cause verified live.
 - REMAINING for one-by-one triage: C (two-pass install: A17 invariant + confusing dual-row logging), D (quiesce infers PID liveness instead of checking), E (PGRST002 first-fail / admin-/ready-on-+6 — ties to STATBUS-032), F (retention tar blocks the install command), G (db-seed branch vestigial), H (DB connection races the completion write).
+
+Item B2 DONE → STATBUS-050 SHIPPED (commit 03ee879be, master, pushed). Tier-independent retire-vs-installed in discover() Go logic (selectStaleBelowInstalled + supersedeBelowInstalled), NO migration. The 3 stale rune rows self-heal on next discover() (newest tag 05.x < installed 06.0-rc.02).
+
+The 'prerelease mislabeling' half (original cause #2) was REVERSED with evidence — NOT a bug: the 3 rune rows are genuine dual-tagged releases (rc + clean release on the SAME commit — foreman-verified via git rev-list), so 'release' is truthful; discovery already classifies -rc correctly (github.go:443 dash-parse via git, NOT the GitHub API flag — the 'two paths disagree' diagnosis was itself wrong). Relabelling would have corrupted correct data. Single real defect = the supersede peer-guard. Foreman byte-level reviewed; reversal independently verified; go test green.
+
+The over-permissive prerelease channel (accepts ANY hyphenated CalVer tag) + two divergent classifiers (discovery any-dash vs installer -rc.-only) are a SEPARATE latent footgun → STATBUS-033, PULLED FORWARD as the next task (King 2026-06-14, 'deferral bites'); dispatched to engineer.
+
+REMAINING one-by-one triage with the King: C (two-pass install: A17 invariant + dual-row logging), D (quiesce infers PID liveness vs checks it), E (PGRST002 first-fail / admin-/ready-on-+6 — ties to STATBUS-032), F (retention tar blocks the install command), G (db-seed branch vestigial), H (DB connection races the completion write).
 <!-- SECTION:NOTES:END -->
