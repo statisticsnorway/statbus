@@ -3,9 +3,11 @@ id: STATBUS-027
 title: >-
   midtx-kill-assertion: 3-postswap-mid-tx-kill still RED — advanced past
   stall-detection to an upgrade-row-state assertion failure
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - mechanic
 created_date: '2026-06-11 07:48'
+updated_date: '2026-06-15 13:21'
 labels:
   - install-recovery
   - harness
