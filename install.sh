@@ -153,17 +153,16 @@ elif [ "$CHANNEL" = "prerelease" ]; then
     fi
     echo "Latest pre-release: $VERSION"
 elif [ "$CHANNEL" = "edge" ]; then
-    # Edge channel: clone master (no release tag to pin), version string
-    # becomes "sha-<short>". No release binary exists for arbitrary
-    # master commits — `go` must be installed locally so ./dev.sh
-    # build-sb can compile from source. Edge is the dev-oriented path;
-    # production operators use stable or prerelease.
-    if ! command -v go >/dev/null 2>&1; then
-        echo "Error: --channel edge requires 'go' to build from source." >&2
-        echo "  Install Go (https://go.dev/dl/), OR" >&2
-        echo "  Use --channel prerelease for a pre-built binary." >&2
-        exit 1
-    fi
+    # Edge channel: clone master (no release tag to pin); VERSION becomes the
+    # bare commit_short. STATBUS-061: the sb binary is PROCURED FROM THE
+    # commit-tagged statbus-sb image (ghcr.io/statisticsnorway/statbus-sb:<short>,
+    # built by images.yaml on every master push) via docker create + docker cp —
+    # NO host Go/make toolchain (mirrors `./sb db seed fetch` and the in-binary
+    # procureSbFromImage). If the commit has no published image (an UNPUSHED
+    # local edge commit), build it locally via cli/Dockerfile.sb — golang runs
+    # INSIDE the container, so still no host Go. This makes edge recovery
+    # toolchain-free, closing the last gap in the legacy-recovery lever. Edge is
+    # the dev-oriented path; production operators use stable or prerelease.
     if [ -d "$STATBUS_DIR/.git" ]; then
         echo "Updating existing installation (edge: master HEAD)..."
         cd "$STATBUS_DIR"
@@ -186,8 +185,19 @@ elif [ "$CHANNEL" = "edge" ]; then
     # VERSION is set here and .env.config is generated later.
     VERSION="$(git rev-parse --short=8 HEAD)"
     echo "Edge version: $VERSION"
-    echo "Building sb from source..."
-    ./dev.sh build-sb >/dev/null
+    SB_IMAGE="ghcr.io/statisticsnorway/statbus-sb:${VERSION}"
+    echo "Procuring sb from image ${SB_IMAGE} (no toolchain)..."
+    if ! docker pull "$SB_IMAGE" >/dev/null 2>&1; then
+        echo "  no published image for ${VERSION} — building locally via cli/Dockerfile.sb (golang runs in-container; no host Go)..."
+        docker build -f cli/Dockerfile.sb \
+            --build-arg VERSION="$VERSION" \
+            --build-arg COMMIT="$(git rev-parse HEAD)" \
+            -t "$SB_IMAGE" ./cli
+    fi
+    sb_cid=$(docker create "$SB_IMAGE")
+    docker cp "${sb_cid}:/sb" "${STATBUS_DIR}/sb"
+    docker rm "$sb_cid" >/dev/null 2>&1 || true
+    chmod +x "${STATBUS_DIR}/sb"
     echo "Binary: $(./sb --version)"
     echo ""
     # Edge path is fully resolved — skip the download-and-checkout
