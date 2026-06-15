@@ -4700,10 +4700,10 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 		// only because of word choice and one-line formatting. Break into
 		// a header + per-container lines so the operator can scan it.
 		if binaryDescendsFlag {
-			progress.Write("Post-swap continuation: binary %s is descendant of flag target %s — operator-driven roll-forward, continuing via applyPostSwap.",
+			progress.Write("Post-swap continuation: binary %s is descendant of flag target %s — operator-driven roll-forward. The services listed below are not on the target version yet (normal mid-upgrade state); applyPostSwap will bring each to the target. Continuing.",
 				ShortForDisplay(d.binaryCommit), flag.Label())
 		} else {
-			progress.Write("Post-swap continuation: binary at target %s; containers carry pre-upgrade tags (expected — restarting on target tag). Resuming via applyPostSwap.",
+			progress.Write("Post-swap continuation: binary at target %s. The services listed below are not on the target version yet — this is the normal mid-upgrade state; the resume is about to bring each to the target (starting the stopped ones, updating the rest). Resuming via applyPostSwap.",
 				flag.Label())
 		}
 		for _, m := range mismatched {

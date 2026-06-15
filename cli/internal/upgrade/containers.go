@@ -139,11 +139,11 @@ func evaluateContainersAtFlagTarget(statuses []dockerPsEntry, commitSHA, display
 	for _, svc := range expected {
 		s, found := seen[svc]
 		if !found {
-			mismatched = append(mismatched, fmt.Sprintf("%s: missing", svc))
+			mismatched = append(mismatched, fmt.Sprintf("%s: not running (no container)", svc))
 			continue
 		}
 		if s.State != "running" {
-			mismatched = append(mismatched, fmt.Sprintf("%s: state=%q (want running)", svc, s.State))
+			mismatched = append(mismatched, fmt.Sprintf("%s: not running (state=%q)", svc, s.State))
 			continue
 		}
 		if !versionTracked[svc] {
@@ -152,7 +152,7 @@ func evaluateContainersAtFlagTarget(statuses []dockerPsEntry, commitSHA, display
 		tag := extractImageTag(s.Image)
 		if tag != sha8 && tag != displayName {
 			mismatched = append(mismatched, fmt.Sprintf(
-				"%s: tag=%q (want %q or %q) image=%q",
+				"%s: running on tag %q (target %q or %q) image=%q",
 				svc, tag, sha8, displayName, s.Image))
 		}
 	}
