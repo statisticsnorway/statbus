@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-13 08:41'
-updated_date: '2026-06-15 10:27'
+updated_date: '2026-06-15 10:42'
 labels:
   - review
   - upgrade
@@ -109,4 +109,12 @@ REMAINING one-by-one triage: D (quiesce infers PID liveness vs checks it), E (PG
 Item C SHIPPED → STATBUS-051 (commit 4546cfbc4, master, pushed, full suite green). All four parts landed, no migration: (1) the structural A17 false-alarm is silenced honestly (3-way acquireOrBypass — env-signature fixup → EXPECTED, hand-passed bare flag → A17 kept/narrowed); (2) clean-break rename of the lying internal flag --inside-active-upgrade → --post-upgrade-fixup (+ env var + var) across all call sites/tests/docs/scenario, ZERO residual tokens; (3) self-identifying 'StatBus Post-Upgrade Install Fixup' banner; (4) symmetric completion logging (new 'completed-install' label) + two-row-model doc + a BONUS fix of the same stale step-ordering bug in doc/upgrade-timeline.md. Foreman byte-level reviewed (3-way logic, env-handshake setter==reader, ErrNoRows discrimination) + re-ran full suite (10 packages, 0 fail) + committed.
 
 REMAINING one-by-one triage: D (quiesce infers PID liveness vs checks it), E (PGRST002 first-fail / admin-/ready-on-+6 — ties to STATBUS-032), F (retention tar blocks the install command), G (db-seed branch vestigial), H (DB connection races the completion write).
+
+Item D DIAGNOSED (architect, foreman-verified end-to-end against live code) + HANDLED → STATBUS-052. Writeup: tmp/architect-047D-pid-liveness.md.
+
+Finding: the takeover quiesce stopRestartUpgradeUnit (install_upgrade.go:296-323) INFERS liveness — '(unit likely already dead)' guess from the SIGKILL exit status (L304) + a SILENT break-on-10s-timeout MainPID poll (L306-313); never the authoritative flock. KEY: the codebase ALREADY rejected the PID approach the original brief suggested — pidAlive was REMOVED as a liveness guard (service.go:784-789, 'service survives SHA upgrades → PID stays alive → ghost flag'); the authoritative signal is the kernel flock (IsFlockHeld service.go:699), which Detect (state.go:172) + recoveryRollback (service.go:2107-2143) already use. So the brief was corrected: fix uses the flock, NOT PID/proc. Severity = log-honesty/robustness/consistency (NOT corruption — recoveryRollback's flock gate already serializes), same family as item C/051.
+
+STATBUS-052 (all Go, NO migration): thread projDir into the quiesce; confirm death via IsFlockHeld(projDir)==false with explicit outcomes (released → 'confirmed dead, proceeding'; still-held@timeout → loud actionable log); flag PID/Holder kept as diagnostic WHO. OBSERVER on still-held (foreman decision, North-Star: narrate+proceed, single downstream flock gate decides; no second hard-abort gate). Assigned architect, In Progress.
+
+REMAINING one-by-one triage: E (PGRST002 first-fail / admin-/ready-on-+6 — ties to STATBUS-032, in progress), F (retention tar blocks the install command), G (db-seed branch vestigial), H (DB connection races the completion write).
 <!-- SECTION:NOTES:END -->
