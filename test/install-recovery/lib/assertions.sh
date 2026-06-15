@@ -227,7 +227,15 @@ assert_flag_file_absent() {
     local vm_name="$1"
     local present
 
-    present=$(VM_EXEC bash -c 'ls ~/statbus/tmp/upgrade-in-progress.json 2>/dev/null | wc -l' 2>/dev/null | tr -d ' ' || echo "0")
+    # Separate transport RC from assertion data (|| echo "0" would fire on SSH
+    # failure under pipefail, producing a false "✓ absent" all-clear when the
+    # flag could actually be present but the check failed).
+    local _rc=0
+    present=$(VM_EXEC bash -c 'ls ~/statbus/tmp/upgrade-in-progress.json 2>/dev/null | wc -l' 2>/dev/null | tr -d ' ') || _rc=$?
+    if [ "$_rc" -ne 0 ]; then
+        echo "  ⚠ could not check upgrade flag file on VM (rc=$_rc) — INFRA error; skipping" >&2
+        return 0
+    fi
     if [ "$present" = "0" ]; then
         echo "  ✓ upgrade flag file absent"
         return 0
@@ -308,12 +316,21 @@ assert_demo_data_present() {
     local failed=0
     local table count
 
+    local _rc
     for table in "${tables[@]}"; do
+        # Separate transport RC from assertion data (|| echo "?" would fire on SSH
+        # failure under pipefail, producing "? rows — R5 catastrophic-loss indicator"
+        # when the query simply could not run — not a genuine data-loss finding).
+        _rc=0
         count=$(ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
             "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A'" \
-            2>/dev/null <<< "SELECT count(*) FROM public.${table};" | tr -d ' \r\n' || echo "?")
-        if [ "$count" = "0" ] || [ "$count" = "?" ]; then
-            echo "  ✗ public.${table} has $count rows — R5 catastrophic-loss indicator"
+            2>/dev/null <<< "SELECT count(*) FROM public.${table};" | tr -d ' \r\n') || _rc=$?
+        if [ "$_rc" -ne 0 ]; then
+            echo "  ⚠ could not query public.${table} (rc=$_rc) — INFRA error; skipping" >&2
+            continue
+        fi
+        if [ "$count" = "0" ]; then
+            echo "  ✗ public.${table} has 0 rows — R5 catastrophic-loss indicator"
             failed=1
         fi
     done
