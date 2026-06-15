@@ -7,7 +7,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-15 22:10'
-updated_date: '2026-06-15 22:52'
+updated_date: '2026-06-15 23:03'
 labels:
   - install-recovery
   - upgrade
@@ -76,17 +76,25 @@ Each commit: go build + vet + `go test ./internal/upgrade/ ./internal/install/ .
 <!-- AC:BEGIN -->
 - [ ] #1 A toolchain-free host (no Go/make) completes both an edge-commit and a tagged-release upgrade end-to-end (sb procured by image-extract)
 - [ ] #2 No git checkout of the target leaves the working tree at the target's compose while a pre-target binary remains systemd's restart target (verified by harness)
-- [ ] #3 The post-swap config-regen fix (STATBUS-058) is preserved and shown complementary to the deferred checkout
+- [x] #3 The post-swap config-regen fix (STATBUS-058) is preserved and shown complementary to the deferred checkout
 - [x] #4 King ruling D1 (procurement scope: unify vs narrower) recorded before implementation
 - [x] #5 King ruling D2 (legacy v2026.05.2 wedge: accept vs mitigate via the legacy lever) recorded
 - [x] #6 King ruling D3 (026 genuine-pre-fix recovery variant: yes/no) recorded
 - [ ] #7 If D2=mitigate: operator `./sb install` on a crashed preswap-checkout flag recovers with no custom commands, by re-staging the target binary from the image
 <!-- AC:END -->
 
-
-
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 D1 RULING (King, 2026-06-15): YES — unify ALL binary procurement to image-extract. Mechanism = mirror the SEED (verified seed.go:160 uses plain `docker create` + `docker cp`, env-free, NO compose file): tagged → docker create statbus-sb:<commit> + docker cp /sb; edge/no-image → docker build -f cli/Dockerfile.sb (builds in a Go container, no host toolchain) then cp /sb. Env-free + toolchain-free. King's bootstrap ordering: env-free binary acquisition → binary runs `config generate` → regular env-requiring compose. NOTE: foreman recommended raw-docker (seed precedent) over a new compose file; flagged to King, awaiting only an objection (default = seed way). This also closes the edge-on-bare-box gap (the install.sh legacy-lever residual).
+
+IMPLEMENTED (all parts, local; build + full-module `go vet` + `go test ./internal/upgrade/ ./internal/install/ ./internal/config/` green). Commits — 09ac1f7e4 + 7cc6c1b48 already pushed by foreman; 2f52f3b7f + f29e03a60 PENDING foreman review+push:
+- Part 1 (image-extract procurement): 09ac1f7e4 — buildBinaryOnDisk `make` → procureSbFromImage (docker create statbus-sb:<short> + docker cp /sb; commit_short from `git rev-parse --short=8 commitSHA`, not the tree → checkout-independent; pre-staged skip + ./sb.old preserved).
+- Part 3 (unconditional config-regen, every boot): 7cc6c1b48 — Service.Run regenerates config before EnsureDBUp UNconditionally (was flag-gated; 0-happy run 27578673237 restarts onto the new binary with no flag → regen skipped → death). Flag read kept only for the diagnostic log.
+- Part 2 (defer the checkout — CORRECTED flag-gated-boot placement, NOT applyPostSwap): 2f52f3b7f — executeUpgrade drops `git checkout` (keeps fetch); Service.Run + runCrashRecovery `git checkout flag.CommitSHA` BEFORE config-generate AND before boot-migrate-up. Order now: [flag→checkout target] → config-gen → EnsureDBUp → boot-migrate (target tree → no skew) → recoverFromFlag.
+- Part 4 (install.sh edge image-extract): f29e03a60 — edge channel procures sb via docker pull statbus-sb:<short> + create + cp /sb (fallback docker build -f cli/Dockerfile.sb, golang in-container); removed the `requires go` gate + `./dev.sh build-sb`. bash -n clean.
+
+ENTANGLEMENT handled (flag for foreman review, security-adjacent): removing executeUpgrade's checkout broke the manifest tag-tampering verify, which relied on `git rev-parse HEAD` == target post-checkout. Changed it to compare commitSHA (the upgrade target) directly to manifest.CommitSHA — same anti-tampering property; the deferred `git checkout` errors on a bad ref.
+
+AC status: #3 (F1/STATBUS-058 preserved + complementary) ✓ — the unconditional regen and the flag-gated checkout compose cleanly (checkout BEFORE regen on a recovery boot; regen unconditional on every boot). #1/#2/#7 are harness-gated (foreman validates: toolchain-free edge+tagged upgrade; window-3 closed; genuine-binary recovery via ./sb install) — leaving unchecked until 0-happy + the STATBUS-026 genuine-binary variant pass. STATBUS-026 NOTE: the 2-preswap-checkout-kill inject site's RED assertion ('working tree at target') is now stale (the tree stays at the source = the fix); inline comment updated; scenario assertion change is the 026 mechanic work.
 <!-- SECTION:NOTES:END -->
