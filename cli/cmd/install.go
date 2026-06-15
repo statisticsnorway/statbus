@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -85,12 +86,12 @@ var nonInteractive bool
 // the step table, so cloud.sh can pass it through for fleet-wide key repair.
 var trustGitHubUser string
 
-// insideActiveUpgrade signals that this install invocation is a post-upgrade
+// postUpgradeFixup signals that this install invocation is a post-upgrade
 // fixup spawned by the upgrade service itself. It is NOT a user-facing flag —
 // operators must never pass it. The service at service.go:executeUpgrade sets
-// both this CLI flag and STATBUS_INSIDE_ACTIVE_UPGRADE=1 env var on its child
+// both this CLI flag and STATBUS_POST_UPGRADE_FIXUP=1 env var on its child
 // exec; either triggers the mutex bypass in runInstall.
-var insideActiveUpgrade bool
+var postUpgradeFixup bool
 
 var installCmd = &cobra.Command{
 	Use:   "install",
@@ -139,10 +140,10 @@ func init() {
 		"Run without prompts (requires .env.config to exist)")
 	installCmd.Flags().StringVar(&trustGitHubUser, "trust-github-user", "",
 		"Auto-trust this GitHub user's signing key (non-interactive, for scripted installs)")
-	installCmd.Flags().BoolVar(&insideActiveUpgrade, "inside-active-upgrade", false,
+	installCmd.Flags().BoolVar(&postUpgradeFixup, "post-upgrade-fixup", false,
 		"Internal: set by the upgrade service when spawning install as a post-upgrade fixup. Operators must not pass this.")
 	// Hide the internal flag from --help; it's a contract between service and child install, not a user-facing knob.
-	_ = installCmd.Flags().MarkHidden("inside-active-upgrade")
+	_ = installCmd.Flags().MarkHidden("post-upgrade-fixup")
 	rootCmd.AddCommand(installCmd)
 }
 
@@ -177,15 +178,32 @@ type step struct {
 // Returns (releaseFunc, nil) on success; (nil-no-op, err) on contention.
 func acquireOrBypass(installDir string, bypass bool) (release func(), err error) {
 	if bypass {
-		// Verify-only diagnostic. The parent's flag is on disk; we don't
-		// touch it. Print holder info for the audit log.
+		// Verify-only diagnostic — the bypass child neither acquires nor
+		// releases the mutex. Three cases:
+		//   1. Flag present → an upgrade is mid-flight and holds it; print the
+		//      holder for the audit log (e.g. a fixup racing an unrelated install).
+		//   2. Flag absent + STATBUS_POST_UPGRADE_FIXUP=1 → the EXPECTED steady
+		//      state: the upgrade service spawned us as its post-completion fixup,
+		//      and applyPostSwap removes the upgrade flag BEFORE running this fixup
+		//      (rune-stuck-fix A, service.go). The absent flag is by design — not
+		//      an anomaly — so proceed quietly, no invariant.
+		//   3. Flag absent + no env signature → GENUINE misuse: the bare internal
+		//      flag was hand-passed. Audit it (A17) and proceed (harmless; the
+		//      step-table is idempotent).
 		if flag, _, rerr := upgrade.ReadFlagFile(installDir); rerr == nil && flag != nil {
-			fmt.Printf("Upgrade mutex bypass honored (--inside-active-upgrade). Flag owned by PID %d (holder=%s), invoked_by=%s.\n",
+			fmt.Printf("Upgrade mutex bypass honored (--post-upgrade-fixup). Flag owned by PID %d (holder=%s), invoked_by=%s.\n",
 				flag.PID, flag.Holder, flag.InvokedBy)
+		} else if os.Getenv("STATBUS_POST_UPGRADE_FIXUP") == "1" {
+			fmt.Println("Post-upgrade fixup: upgrade already completed and cleared its flag — proceeding (expected).")
 		} else {
-			// A17: OPPORTUNISTIC_CLEANUP_BEST_EFFORT_LOGGED (unexpected-bypass)
+			// A17: OPPORTUNISTIC_CLEANUP_BEST_EFFORT_LOGGED (unexpected-bypass).
+			// Genuine misuse ONLY — the legitimate post-completion fixup carries
+			// the STATBUS_POST_UPGRADE_FIXUP env signature handled just above. Here
+			// the bare --post-upgrade-fixup flag was passed by hand with no upgrade
+			// in flight; this flag is the upgrade service's contract with its own
+			// child and operators must never pass it.
 			log.Printf(
-				"INVARIANT OPPORTUNISTIC_CLEANUP_BEST_EFFORT_LOGGED violated (A17 — unexpected-bypass): --inside-active-upgrade set but no upgrade flag found; proceeding (install.go:%d, pid=%d)",
+				"INVARIANT OPPORTUNISTIC_CLEANUP_BEST_EFFORT_LOGGED violated (A17 — unexpected-bypass): --post-upgrade-fixup passed by hand (no STATBUS_POST_UPGRADE_FIXUP env signature) and no upgrade flag found; this flag is internal — do not pass it. Proceeding (install.go:%d, pid=%d)",
 				thisLine(), os.Getpid())
 		}
 		return func() {}, nil
@@ -211,9 +229,18 @@ func acquireOrBypass(installDir string, bypass bool) (release func(), err error)
 // below: if the upgrade service has written tmp/upgrade-in-progress.json
 // (which it does before any destructive step in executeUpgrade), this function
 // refuses to proceed. The only exception is the service's own post-upgrade
-// fixup, which passes --inside-active-upgrade / STATBUS_INSIDE_ACTIVE_UPGRADE=1
-// to signal "I am the active upgrade, not a conflicting actor."
+// fixup, which passes --post-upgrade-fixup / STATBUS_POST_UPGRADE_FIXUP=1
+// to signal "I am the upgrade service's own post-completion fixup, not a
+// conflicting actor."
 func runInstall() (installErr error) {
+	// The upgrade service spawns `./sb install` as its post-completion fixup
+	// with --post-upgrade-fixup + STATBUS_POST_UPGRADE_FIXUP=1. Either signal
+	// marks this a fixup child: it bypasses the install↔upgrade mutex (the
+	// service owns it / has already cleared it) and skips state detection,
+	// row-authoring, and log creation below. Computed once here so the banner
+	// and the mutex section agree.
+	bypass := postUpgradeFixup || os.Getenv("STATBUS_POST_UPGRADE_FIXUP") == "1"
+
 	// Warn if running as root — the upgrade service is a user-level systemd unit now,
 	// running as root would create files owned by root in the project dir.
 	if os.Geteuid() == 0 {
@@ -222,8 +249,16 @@ func runInstall() (installErr error) {
 		fmt.Println()
 	}
 
-	fmt.Println("StatBus Installation")
-	fmt.Println("====================")
+	// Self-identifying banner: the post-completion fixup is a legitimately
+	// separate `./sb install` process (distinct pid) nested at the tail of an
+	// upgrade — label it so the log does not read as a second independent install.
+	if bypass {
+		fmt.Println("StatBus Post-Upgrade Install Fixup")
+		fmt.Println("==================================")
+	} else {
+		fmt.Println("StatBus Installation")
+		fmt.Println("====================")
+	}
 	fmt.Println()
 
 	// Detect non-interactive from stdin if not explicitly set
@@ -250,14 +285,15 @@ func runInstall() (installErr error) {
 	defer capturePanicInvariant(installDir)
 
 	// === Upgrade mutex acquire ===
-	// Atomically claim tmp/upgrade-in-progress.json (Holder="install") so
-	// any other actor — running upgrade service, another install — sees us
-	// and aborts. ReleaseInstallFlag in defer cleans up on every exit path.
-	// The ONLY caller allowed to bypass is the upgrade service itself
-	// (service.go:executeUpgrade spawns install as a post-upgrade fixup
-	// with --inside-active-upgrade + env var set; the service already holds
-	// the flag for that exec, so the child must not try to acquire it).
-	bypass := insideActiveUpgrade || os.Getenv("STATBUS_INSIDE_ACTIVE_UPGRADE") == "1"
+	// Atomically claim tmp/upgrade-in-progress.json (Holder="install") via
+	// acquireOrBypass below so any other actor — running upgrade service,
+	// another install — sees us and aborts. ReleaseInstallFlag in defer cleans
+	// up on every exit path. The ONLY caller allowed to bypass is the upgrade
+	// service's own post-completion fixup (service.go:applyPostSwap →
+	// runInstallFixup, with --post-upgrade-fixup + STATBUS_POST_UPGRADE_FIXUP=1);
+	// `bypass` was computed at the top of runInstall. By the time that fixup
+	// runs, applyPostSwap has already removed the flag — acquireOrBypass treats
+	// that (absent flag + env signature) as the expected steady state.
 
 	// === State detection + dispatch ===
 	// Detect reads the install directory + DB to classify the install state.
@@ -1714,12 +1750,12 @@ func runInstallService(dir string) error {
 	// Re-arm the timers: if we just rewrote a DRIFTED unit that was actively
 	// running, restart it so the new WatchdogSec/TimeoutStartSec take effect
 	// (daemon-reload alone only reloads systemd's view, not the running unit's
-	// armed deadlines). Skip when insideActiveUpgrade — that path is the
+	// armed deadlines). Skip when postUpgradeFixup — that path is the
 	// active upgrade's own main PID and relies on the exit-42 → systemd
 	// auto-restart handoff (Item H below); restarting it here would kill the
 	// in-flight upgrade. The enable --now path below covers the not-running
 	// and fresh-install cases.
-	if unitWasDrifted && unitWasActive && !insideActiveUpgrade {
+	if unitWasDrifted && unitWasActive && !postUpgradeFixup {
 		fmt.Printf("  Unit %s drifted from the repo template and was running — restarting to arm the reconciled timers\n", instance)
 		if err := runCmd("systemctl", "--user", "restart", instance); err != nil {
 			return fmt.Errorf("restart %s after unit reconcile: %w", instance, err)
@@ -1760,7 +1796,7 @@ func runInstallService(dir string) error {
 	// SuccessExitStatus=42/RestartForceExitStatus=42/Restart=always so
 	// the parent's exit-42 → systemd auto-restart picks up the new
 	// binary. The is-enabled verification below still fires.
-	if insideActiveUpgrade {
+	if postUpgradeFixup {
 		fmt.Printf("  Enabling %s (start deferred — service is the active main PID, will exit-42 → systemd auto-restart)\n", instance)
 		if err := runCmd("systemctl", "--user", "enable", instance); err != nil {
 			return fmt.Errorf("enable service: %w", err)
@@ -1889,7 +1925,8 @@ func completeInstallUpgradeRow(installDir string, conn *pgx.Conn, logRelPath str
 		return fmt.Errorf("GIT_HEAD_RESOLVABLE: gitHeadInfo returned empty (sha=%q commitDate=%q)", sha, commitDate)
 	}
 
-	_, err := conn.Exec(ctx,
+	var rowJSON string
+	err := conn.QueryRow(ctx,
 		`INSERT INTO public.upgrade (
 		   commit_sha, committed_at, summary, state, completed_at,
 		   commit_version, release_status, scheduled_at, started_at, from_commit_version,
@@ -1928,13 +1965,21 @@ func completeInstallUpgradeRow(installDir string, conn *pgx.Conn, logRelPath str
 		   release_builds_status = 'ready',
 		   commit_version = COALESCE(EXCLUDED.commit_version, upgrade.commit_version),
 		   log_relative_file_path = COALESCE(EXCLUDED.log_relative_file_path, upgrade.log_relative_file_path)
-		 WHERE upgrade.state != 'completed'`,
+		 WHERE upgrade.state != 'completed'
+		 RETURNING to_jsonb(upgrade.*)`,
 		sha,
 		commitDate,
 		fmt.Sprintf("Installed via ./sb install (%s)", version),
 		version,
 		upgrade.ClassifyReleaseShape(version).ReleaseStatus(),
-		logRelPath)
+		logRelPath).Scan(&rowJSON)
+	if errors.Is(err, pgx.ErrNoRows) {
+		// ON CONFLICT no-op: a completed row for this SHA already exists
+		// (idempotent re-install). The upsert's WHERE (state != 'completed') was
+		// false, so RETURNING yielded no row — not an error, nothing changed.
+		fmt.Printf("  Installed version %s already recorded in upgrade table (no change)\n", version)
+		return nil
+	}
 	if err != nil {
 		// A9: POST_COMPLETION_UPGRADE_ROW_INSERT_SUCCEEDS
 		fmt.Fprintf(os.Stderr,
@@ -1944,6 +1989,12 @@ func completeInstallUpgradeRow(installDir string, conn *pgx.Conn, logRelPath str
 			fmt.Sprintf("sha=%s; INSERT err=%v", sha, err))
 		return fmt.Errorf("POST_COMPLETION_UPGRADE_ROW_INSERT_SUCCEEDS: %w", err)
 	}
+	// Symmetric with the recovery / executeUpgrade completion paths: emit the
+	// full row snapshot under a greppable label (the recovery path logs
+	// logUpgradeRow[completed-normal]; this is its install-side sibling). Same
+	// "upgrade row [<label>] <json>" format as upgrade.logUpgradeRow so the
+	// journald grep contract (grep 'upgrade row \[<label>\]') holds.
+	fmt.Printf("upgrade row [%s] %s\n", upgrade.LabelCompletedInstall, rowJSON)
 	fmt.Printf("  Recorded installed version %s in upgrade table\n", version)
 	return nil
 }
@@ -2361,7 +2412,7 @@ func init() {
 		SourceLocation:   "cli/cmd/install.go:runInstallRetention/runInstallSupersede/acquireOrBypass",
 		ExpectedToHold:   "Post-success cleanup calls (retention purge, supersede older rows, prerelease supersede, unexpected-bypass audit) succeed, but their failure never aborts the install.",
 		WhyExpected:      "These are housekeeping operations whose failure is tolerable — the primary install already succeeded; stale rows accumulate but do not break future installs. A4's A1 auto-heal is the backstop.",
-		ViolationShape:   "conn==nil, or CALL upgrade_retention_apply / upgrade_supersede_older / upgrade_supersede_completed_prereleases returns err, or --inside-active-upgrade observed without an on-disk flag. Each sub-site prints a named log line with sub-index (A12/A13/A14/A16/A17).",
+		ViolationShape:   "conn==nil, or CALL upgrade_retention_apply / upgrade_supersede_older / upgrade_supersede_completed_prereleases returns err, or --post-upgrade-fixup hand-passed with no STATBUS_POST_UPGRADE_FIXUP env signature and no on-disk flag (A17 — genuine misuse only; the legitimate post-completion fixup carries the env signature and is expected, not audited). Each sub-site prints a named log line with sub-index (A12/A13/A14/A16/A17).",
 		TranscriptFormat: "INVARIANT OPPORTUNISTIC_CLEANUP_BEST_EFFORT_LOGGED violated (A<sub> — <subsite>): <observed>; proceeding",
 	})
 	invariants.Register(invariants.Invariant{

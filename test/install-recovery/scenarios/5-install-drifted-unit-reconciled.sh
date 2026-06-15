@@ -21,7 +21,7 @@
 #   rewrites the unit, runs daemon-reload, AND — because a rewritten unit is
 #   inert until restarted (`enable --now` does not restart an already-running
 #   unit) — RESTARTS the unit so the new WatchdogSec/TimeoutStartSec actually
-#   arm. The restart is gated on drifted-AND-active-AND-not-insideActiveUpgrade
+#   arm. The restart is gated on drifted-AND-active-AND-not-postUpgradeFixup
 #   so healthy matching units are never churned.
 #
 # Trigger logic:

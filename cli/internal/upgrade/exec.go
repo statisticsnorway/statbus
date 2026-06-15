@@ -74,26 +74,30 @@ func runCommand(dir string, name string, args ...string) error {
 
 // runInstallFixup runs `./sb install` as a post-upgrade idempotency step.
 //
-// Concurrency safety: this function is the ONE legitimate caller that runs
-// `./sb install` while the upgrade mutex (tmp/upgrade-in-progress.json) is
-// held. It sets --inside-active-upgrade and STATBUS_INSIDE_ACTIVE_UPGRADE=1
-// so the child install recognizes itself as part of the active upgrade and
-// bypasses the mutex check. Without these signals, the child would abort
-// with "upgrade in progress" because our own flag is still on disk at this
-// point (it's removed later when executeUpgrade completes successfully).
+// Called at the TAIL of applyPostSwap — AFTER the terminal state='completed'
+// UPDATE and removeUpgradeFlag (rune-stuck-fix A; service.go). By the time this
+// child runs, the upgrade flag is already GONE and the upgrade is COMPLETE, not
+// active. It sets --post-upgrade-fixup and STATBUS_POST_UPGRADE_FIXUP=1 to tell
+// the child install: (1) bypass the install↔upgrade mutex — do not acquire it,
+// and do not expect a flag on disk; (2) skip state detection, row-authoring, and
+// install-log creation (this is a nested fixup, not a fresh install). The env
+// var is also the signature acquireOrBypass uses to recognize the expected
+// flag-absent state and stay quiet — see install.go:acquireOrBypass. (A bare
+// hand-passed --post-upgrade-fixup, lacking this env var, is audited as A17.)
 //
-// No other caller in the codebase should ever set these signals.
+// This function is the ONE legitimate caller that sets these signals; no other
+// caller in the codebase should ever set them.
 func runInstallFixup(projDir string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	cmd := exec.CommandContext(ctx,
 		filepath.Join(projDir, "sb"),
-		"install", "--non-interactive", "--inside-active-upgrade",
+		"install", "--non-interactive", "--post-upgrade-fixup",
 	)
 	cmd.Dir = projDir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	cmd.Env = append(os.Environ(), "STATBUS_INSIDE_ACTIVE_UPGRADE=1")
+	cmd.Env = append(os.Environ(), "STATBUS_POST_UPGRADE_FIXUP=1")
 	prepareCmd(cmd)
 	err := cmd.Run()
 	if ctx.Err() == context.DeadlineExceeded {

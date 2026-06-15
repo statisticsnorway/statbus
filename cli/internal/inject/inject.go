@@ -52,7 +52,7 @@
 //   silently produce a vacuous "pass".
 //
 //   Operators must NOT set these env vars in production. Treat them with
-//   the same care as --inside-active-upgrade: if you see them in a
+//   the same care as --post-upgrade-fixup: if you see them in a
 //   production environment, something has gone wrong.
 package inject
 

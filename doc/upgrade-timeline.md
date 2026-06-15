@@ -130,12 +130,17 @@ new binary:
     brought the schema to HEAD); this is the bounded retry executor for the case where
     the boot migrate failed and fell through to the resume (STATBUS-017 path).
 12. Start application services; wait for health.
-13. Post-upgrade install fixup: `runInstallFixup` runs `./sb install --non-interactive
-    --inside-active-upgrade` with `STATBUS_INSIDE_ACTIVE_UPGRADE=1`. The bypass signals
-    are necessary because our flag is still on disk; without them the child install
-    would abort with "upgrade in progress".
-14. Mark `completed_at`; **removeUpgradeFlag** (mutex released); supersede older `available`
-    rows; notify the UI; archive the snapshot.
+13. Mark `completed_at` (`state=completed`); **removeUpgradeFlag** (mutex released);
+    supersede older `available` rows; notify the UI; archive the snapshot. This runs
+    **before** the fixup (rune-stuck-fix A): the terminal UPDATE must land on a live
+    connection, and the fixup can restart docker/db and RST our pgx socket.
+14. Post-upgrade install fixup (**last**): `runInstallFixup` runs `./sb install
+    --non-interactive --post-upgrade-fixup` with `STATBUS_POST_UPGRADE_FIXUP=1`. By now
+    the flag is **already gone** (step 13) and the upgrade is *complete*, not active. The
+    signals make the child bypass the mutex (don't acquire, don't expect a flag) and skip
+    state detection / row-authoring / log creation. `acquireOrBypass` recognizes the env
+    signature and treats the absent flag as the **expected** steady state — no A17. (A
+    bare hand-passed `--post-upgrade-fixup`, lacking the env signature, is audited as A17.)
 
 The restart is expected exactly once. Any **other** restart while a row is `in_progress`
 (watchdog kill, OOM, operator `systemctl restart`) leaves `Phase=Resuming`, so
@@ -181,6 +186,26 @@ at most one row in each of those states. Authoritative column reference:
 The spine the upgrade pipeline drives is `scheduled → in_progress → {completed |
 rolled_back | failed}`; the other states are discovery/housekeeping (`available`,
 `skipped`, `superseded`) and post-terminal operator acknowledgement (`dismissed`).
+
+### Two completed rows after a recovery (the two-row model)
+
+Two *different* completion paths write `completed` rows, and a single `./sb install`
+that heals a wedged box produces both — correctly:
+
+- The **upgrade / recovery** path (`executeUpgrade` / `recoverFromFlag` →
+  `applyPostSwap`) completes the *in-flight* upgrade row it was driving — logged
+  `upgrade row [completed-normal]` (or `[completed-self-heal]` /
+  `[completed-from-in-progress]`).
+- A **top-level `./sb install`** then records the *running* version as its own
+  `completed` row via `completeInstallUpgradeRow` — logged `upgrade row
+  [completed-install]`. On a recovery run this is the operator install's
+  continuation after the heal finishes; on a plain install it is the normal
+  nothing-scheduled path.
+
+So a recovery that heals an older stuck upgrade and lands on a newer running version
+legitimately leaves **two** completed rows (the healed one + the running one); the
+labels distinguish them. The **post-upgrade fixup child** (`--post-upgrade-fixup`)
+authors *no* row — it is a bypass-mode idempotent infra pass, not a row writer.
 
 ## Three orchestration paths
 
@@ -382,11 +407,14 @@ mutually exclusive within a single `./sb install` run: either `acquireOrBypass` 
   `acquireOrBypass`, then the step-table:
 
 ```
-Bypass signal set (--inside-active-upgrade or env var)?
+Bypass signal set (--post-upgrade-fixup or STATBUS_POST_UPGRADE_FIXUP=1)?
 │
-├── Yes → Verify-only. The upgrade service spawned us as runInstallFixup;
-│         the parent already holds the flag. Log "bypass honored, PID X,
-│         holder=Y, invoked_by=Z" and proceed without acquiring.
+├── Yes → Verify-only; proceed without acquiring (the post-completion fixup):
+│         • flag present → "bypass honored, PID X, holder=Y, invoked_by=Z"
+│         • flag absent + env signature → EXPECTED: the upgrade already completed
+│           and removed its flag (rune-stuck-fix A). Proceed quietly, no invariant.
+│         • flag absent + no env signature → A17 (genuine misuse: a bare
+│           --post-upgrade-fixup hand-passed with no upgrade in flight).
 │
 └── No → AcquireInstallFlag (via acquireFlock — O_CREATE|O_RDWR + flock(LOCK_EX|LOCK_NB)).
         │
@@ -425,13 +453,18 @@ If any new code path writes the flag, it MUST also remove it on all exit paths.
 
 ### Bypass signals — use with care
 
-Two signals exist; either triggers the bypass: the CLI flag `--inside-active-upgrade`
-(hidden from `--help`) and the env var `STATBUS_INSIDE_ACTIVE_UPGRADE=1`. **Only one
-caller sets these: `runInstallFixup` in `cli/internal/upgrade/exec.go`**, called from
-`executeUpgrade` during the post-migration install step. It sets both redundantly — the
-flag for audit visibility in `ps`/logs, the env var for robustness through exec chains.
-Operators must never set them; an operator who thinks they need to bypass the mutex is
-almost certainly facing a stale flag from a crash and should follow the abort message.
+Two signals exist; either triggers the bypass: the CLI flag `--post-upgrade-fixup`
+(hidden from `--help`) and the env var `STATBUS_POST_UPGRADE_FIXUP=1`. **Only one caller
+sets these: `runInstallFixup` in `cli/internal/upgrade/exec.go`**, called at the **tail**
+of `applyPostSwap` — *after* the terminal `completed` UPDATE and `removeUpgradeFlag`
+(rune-stuck-fix A). So by the time the fixup runs the flag is already gone; the signals
+are **load-bearing**, not just audit: they make the child bypass the mutex (don't acquire,
+don't expect a flag) **and** skip state detection, row-authoring, and install-log creation
+(without which it would author a second `completed` row for the running version). The env
+var is also the signature `acquireOrBypass` uses to tell the EXPECTED flag-absent fixup
+from a genuine hand-passed-flag misuse (the latter audited as A17). Operators must never
+set either; an operator who thinks they need to bypass the mutex is almost certainly
+facing a stale flag from a crash and should follow the abort message.
 
 ### Legacy flag files
 

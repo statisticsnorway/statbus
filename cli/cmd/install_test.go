@@ -93,7 +93,7 @@ func TestEveryInvariantHasTriadDocumented(t *testing.T) {
 	}
 }
 
-// TestRunInstallService_GatesNowOnInsideActiveUpgrade is the structural
+// TestRunInstallService_GatesNowOnPostUpgradeFixup is the structural
 // guard for Item H (plan-rc.66): runInstallService must conditionally
 // drop --now when invoked from inside an active upgrade. The Type=notify
 // statbus-upgrade unit goes into a SDNOTIFY collision when systemctl
@@ -105,7 +105,7 @@ func TestEveryInvariantHasTriadDocumented(t *testing.T) {
 // Source-level assertion (rather than a mocked runCmd) keeps the test
 // honest about WHERE in the function the gate sits and matches the
 // pattern other install-path guards use.
-func TestRunInstallService_GatesNowOnInsideActiveUpgrade(t *testing.T) {
+func TestRunInstallService_GatesNowOnPostUpgradeFixup(t *testing.T) {
 	src, err := os.ReadFile(thisRepoFile(t, "cli/cmd/install.go"))
 	if err != nil {
 		t.Fatalf("read install.go: %v", err)
@@ -122,9 +122,9 @@ func TestRunInstallService_GatesNowOnInsideActiveUpgrade(t *testing.T) {
 	}
 	fn := rest[:end[1]]
 
-	gateIdx := strings.Index(fn, "if insideActiveUpgrade {")
+	gateIdx := strings.Index(fn, "if postUpgradeFixup {")
 	if gateIdx < 0 {
-		t.Fatal("runInstallService missing `if insideActiveUpgrade {` gate. " +
+		t.Fatal("runInstallService missing `if postUpgradeFixup {` gate. " +
 			"Without it, step 14/14's `systemctl --user enable --now` " +
 			"collides with the active service's SDNOTIFY contract — see Item H.")
 	}
@@ -138,7 +138,7 @@ func TestRunInstallService_GatesNowOnInsideActiveUpgrade(t *testing.T) {
 		t.Fatal("runInstallService missing is-enabled verification call — test is stale")
 	}
 	if gateIdx > verifyIdx {
-		t.Errorf("insideActiveUpgrade gate (idx=%d) must come BEFORE is-enabled verification (idx=%d)",
+		t.Errorf("postUpgradeFixup gate (idx=%d) must come BEFORE is-enabled verification (idx=%d)",
 			gateIdx, verifyIdx)
 	}
 

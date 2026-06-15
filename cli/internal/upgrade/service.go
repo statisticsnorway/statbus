@@ -591,7 +591,7 @@ func formatContentionError(flag *UpgradeFlag, alive bool) error {
 				"an orchestrated upgrade is in progress: PID %d (%s, invoked_by=%s).\n\n"+
 					"  Wait for it to complete:\n"+
 					"    journalctl --user -u 'statbus-upgrade@*' -f\n\n"+
-					"  Do NOT pass --inside-active-upgrade — that flag is the upgrade service's\n"+
+					"  Do NOT pass --post-upgrade-fixup — that flag is the upgrade service's\n"+
 					"  internal contract with its own post-upgrade install step. Using it from the\n"+
 					"  command line would corrupt an upgrade that is currently running.",
 				flag.PID, flag.Label(), flag.InvokedBy)
@@ -1332,6 +1332,10 @@ func (d *Service) ExecuteUpgradeInline(ctx context.Context, id int, commitSHA, d
 //	                               healthy and self-healed the stuck in_progress row to completed
 //	LabelCompletedFromInProgress — completeInProgressUpgrade: upgrade left in_progress by a prior run;
 //	                               completion health check passed, row finalised to completed
+//	LabelCompletedInstall        — completeInstallUpgradeRow: `./sb install` recorded the running
+//	                               version as a completed row (the install-side sibling of the
+//	                               recovery / executeUpgrade completion paths; see the two-row model
+//	                               in doc/upgrade-timeline.md)
 //	LabelRolledBackNormal        — rollback normal path: upgrade failed, git restore succeeded,
 //	                               prior version restarted cleanly
 //	LabelFailedAbort             — rollback ABORT: git restore itself failed; row is failed
@@ -1346,6 +1350,7 @@ const (
 	LabelCompletedNormal          = "completed-normal"
 	LabelCompletedSelfHeal        = "completed-self-heal"
 	LabelCompletedFromInProgress  = "completed-from-in-progress"
+	LabelCompletedInstall         = "completed-install"
 	LabelRolledBackNormal         = "rolled-back-normal"
 	LabelFailedAbort              = "failed-abort"
 	LabelFailedRollbackIncomplete = "failed-rollback-incomplete"
@@ -3466,7 +3471,7 @@ func (d *Service) executeScheduled(ctx context.Context) {
 // from racing this function — those callers read the flag, check the PID is
 // alive, and abort. The only install invocation allowed through during this
 // function is the post-upgrade fixup at runInstallFixup, which sets the
-// --inside-active-upgrade flag and STATBUS_INSIDE_ACTIVE_UPGRADE=1 env var.
+// --post-upgrade-fixup flag and STATBUS_POST_UPGRADE_FIXUP=1 env var.
 func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, displayName string, commitTags []string, invokedBy, trigger string) error {
 	d.upgrading = true
 	defer func() { d.upgrading = false }()
@@ -4391,7 +4396,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 
 	// Mark complete. Task rune-stuck fix A (Apr 24): the terminal UPDATE
 	// MUST happen BEFORE runInstallFixup, not after. Install-fixup runs
-	// `./sb install --inside-active-upgrade` which triggers docker
+	// `./sb install --post-upgrade-fixup` which triggers docker
 	// compose up and can restart the DB container mid-run, RST'ing the
 	// pgx TCP socket. Running fixup first would leave the parent's
 	// queryConn dead when it tries to issue the state='completed'
@@ -4514,11 +4519,16 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// directories, config fixes). Install steps skip what's already done.
 	// This exercises the install path on every upgrade, catching install bugs early.
 	//
-	// The flag file has already been removed above. Install's upgrade-mutex
-	// check sees no flag and proceeds normally, but we keep the
-	// --inside-active-upgrade flag + STATBUS_INSIDE_ACTIVE_UPGRADE=1 env var
-	// for audit-trail + belt-and-suspenders in case a future install path
-	// adds additional mutex checks.
+	// The flag file has already been removed above (the completed UPDATE +
+	// removeUpgradeFlag ran first, by rune-stuck-fix A). The fixup child's
+	// --post-upgrade-fixup + STATBUS_POST_UPGRADE_FIXUP=1 signals are
+	// LOAD-BEARING, not just audit: besides bypassing the mutex (don't
+	// re-acquire, don't expect a flag) they make the child skip state detection,
+	// install-log creation, and row-authoring — without which it would probe the
+	// DB mid-fixup and author a SECOND completed row for the running version
+	// (pass-1's post-recovery continuation already records it). acquireOrBypass
+	// recognizes the env signature and stays quiet: the absent flag is the
+	// expected steady state here, not an A17 violation.
 	fixupStart := time.Now()
 	progress.Write("Running install fixups...")
 	if err := runInstallFixup(projDir); err != nil {

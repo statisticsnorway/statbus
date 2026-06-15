@@ -90,9 +90,9 @@ func TestUnitFileMatchesRepo_MissingDestIsMismatch(t *testing.T) {
 // running box would keep stale timers. This pins, at the source level (the
 // systemctl calls shell out, so a behavioral test would need real systemd —
 // covered by the Hetzner scenario), that runInstallService restarts the unit
-// when it was drifted AND active, gated off insideActiveUpgrade, AFTER
+// when it was drifted AND active, gated off postUpgradeFixup, AFTER
 // daemon-reload. Matches the source-order-guard pattern of the other install
-// guards (e.g. TestRunInstallService_GatesNowOnInsideActiveUpgrade).
+// guards (e.g. TestRunInstallService_GatesNowOnPostUpgradeFixup).
 func TestRunInstallService_RestartsOnDriftToArmTimers(t *testing.T) {
 	src, err := os.ReadFile(thisRepoFile(t, "cli/cmd/install.go"))
 	if err != nil {
@@ -121,12 +121,12 @@ func TestRunInstallService_RestartsOnDriftToArmTimers(t *testing.T) {
 	}
 	// The re-arm restart must be gated on drifted AND active AND not-inside-
 	// active-upgrade, and must issue `systemctl --user restart`.
-	guardIdx := strings.Index(fn, "unitWasDrifted && unitWasActive && !insideActiveUpgrade")
+	guardIdx := strings.Index(fn, "unitWasDrifted && unitWasActive && !postUpgradeFixup")
 	if guardIdx < 0 {
-		t.Fatal("runInstallService missing the re-arm gate `unitWasDrifted && unitWasActive && !insideActiveUpgrade`. " +
+		t.Fatal("runInstallService missing the re-arm gate `unitWasDrifted && unitWasActive && !postUpgradeFixup`. " +
 			"Without restarting a drifted-but-running unit, the rewritten WatchdogSec/TimeoutStartSec stay inert " +
 			"(rune would keep 90/infinity). Restarting unconditionally would churn healthy units / kill an in-flight " +
-			"upgrade (insideActiveUpgrade), so the gate is load-bearing.")
+			"upgrade (postUpgradeFixup), so the gate is load-bearing.")
 	}
 	restartIdx := strings.Index(fn[guardIdx:], `"restart", instance`)
 	if restartIdx < 0 {
