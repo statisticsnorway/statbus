@@ -203,6 +203,30 @@ echo "  ✓ ./sb binary still at $SB_VERSION_BEFORE (no swap yet)"
 echo "  ✓ RED confirmed: flag PreSwap, working tree advanced, binary unswapped"
 
 # ─────────────────────────────────────────────────────────────────────────
+# Harness invariant: re-pin pre-upgrade to OLD_COMMIT before recovery.
+#
+# The install script above does `git checkout $HEAD_LOCAL` BEFORE ./sb install
+# so that the C4 inject site (killed-by-system-during-preswap-checkout) fires
+# after the executeUpgrade checkout step. That setup checkout causes
+# service.go:3806's `git branch -f pre-upgrade HEAD` to pin pre-upgrade at
+# HEAD_LOCAL (the upgrade target) rather than OLD_COMMIT (the pre-upgrade
+# state). restoreGitStateFn (service.go:5341) resolves its `previousVersion`
+# argument (the OLD version) first; that is a v-stripped git-describe string
+# (e.g. "2026.06.0-rc.01-5-gSHAxxxx") that does NOT resolve as a git ref, so
+# it falls back to pre-upgrade. Without this re-pin, pre-upgrade = HEAD_LOCAL
+# and recovery "restores" the tree to HEAD_LOCAL instead of OLD_COMMIT.
+#
+# In production executeUpgrade runs from a CLEAN working tree (no prior setup
+# checkout), so `git branch -f pre-upgrade HEAD` correctly captures OLD_COMMIT
+# before the destructive steps start. The harness setup checkout is the source
+# of the corruption; this re-pin restores the production invariant.
+# ─────────────────────────────────────────────────────────────────────────
+echo ""
+echo "── re-pinning pre-upgrade to OLD_COMMIT (harness invariant: setup checkout corrupted the pin) ──"
+VM_EXEC bash -c "cd ~/statbus && git branch -f pre-upgrade $OLD_COMMIT"
+echo "  ✓ pre-upgrade re-pinned at $(echo "$OLD_COMMIT" | cut -c1-8) (restoreGitState fallback target)"
+
+# ─────────────────────────────────────────────────────────────────────────
 # Phase 5 — second install for recovery
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
