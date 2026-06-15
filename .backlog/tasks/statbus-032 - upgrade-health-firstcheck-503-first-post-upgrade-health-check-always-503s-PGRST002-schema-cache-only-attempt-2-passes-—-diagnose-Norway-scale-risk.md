@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-06-11 15:45'
-updated_date: '2026-06-15 11:17'
+updated_date: '2026-06-15 11:18'
 labels:
   - upgrade
   - health-check
@@ -80,4 +80,24 @@ VERIFIED FACTS (web + codebase):
 (1) HOW to implement on the distroless image — the constraint is the story:
 - pg_isready (db) checks Postgres, NOT PostgREST schema-cache readiness — can’t stand in for a rest /ready probe.
 - On v12.2.8 there is NO in-image probe. Real options: (a) CUSTOM rest image — `FROM postgrest/postgrest:v12.2.8` + COPY a tiny static HTTP-probe binary, then `healthcheck: ["CMD","/probe","http://127.0.0.1:<admin>/ready"]`. Cost: a new Dockerfile + build step + a vetted probe binary (supply chain) + divergence from the clean upstream pin the repo deliberately keeps. (b) Sidecar — a compose healthcheck is per-container and can’t set ANOTHER container’s health; a sidecar only self-gates, awkward, rejected. (c) FORWARD PATH — bump PostgREST to a release carrying #4269, then the healthcheck is a clean 3-line exec-form stanza `["CMD","postgrest","--ready"]` (no shell, no extra binary, no custom image). Recommended over (a).
+
+(2) LIVENESS behavior — the King’s direct question, answered: a `/ready` compose healthcheck reports the container UNHEALTHY whenever the schema cache isn’t loaded OR Postgres is down. So YES — with /ready, the container “fails health” unless Postgres is up + cache loaded. What compose DOES with that:
+- Plain `docker compose` does NOT restart an unhealthy container. `restart: unless-stopped` (which rest has) fires on container EXIT, not on health status. Only Swarm reschedules on unhealthy. So an unhealthy rest just shows `(unhealthy)` in `docker ps` — it is NOT killed/restarted today.
+- `depends_on: condition: service_healthy` gates DEPENDENTS from STARTING until the target is healthy. Today app/worker/rest gate on `db` only. Adding a rest healthcheck + making app/worker depend on `rest: service_healthy` would delay their start until rest is /ready (full cache load) — on Norway-scale that is the very slowness 032 manages; weigh before adopting.
+- `docker compose up -d --wait` blocks until healthchecked services are healthy. NOT used anywhere. If the upgrade’s `up` added --wait against /ready, the `up` itself would block through the cache load (could stall/slow it) and lacks the actionable refused-vs-503 messaging the Go-poll gives.
+LIVENESS vs READINESS — the crux: Docker’s single `healthcheck:` CONFLATES them (unlike k8s’ separate probes). `/ready` is a READINESS signal (can it serve?), NOT liveness (should it be killed?). Using /ready as health is right for READINESS GATING but WRONG as a restart trigger — you must not kill/restart rest just because Postgres blips (a restart won’t fix the DB and the cache reload would re-fail → loop). The hazard is LATENT today (plain compose doesn’t act on unhealthy) but becomes real if Swarm / an autoheal watcher / `--wait` is ever added. So a rest healthcheck should be understood as READINESS; for any LIVENESS purpose the correct probe is `/live` (process-up, DB-independent). The db `pg_isready` healthcheck (already present) is the foundational ordering gate and is correct as-is (checks Postgres-accepting-connections, not PostgREST cache).
+
+(3) RELATION to 032’s Go-poll /ready warmup — reconciled honestly: GENUINELY COMPLEMENTARY, different layers, NOT substitutes.
+- Go-poll = UPGRADE-FLOW readiness: runs only in the post-swap healthCheck; value = narrating the upgrade journal (~15s lines), FEEDING the upgrade’s progress-gated watchdog, the actionable refused(config-drift)-vs-503(cache-stuck) failure messages, and gating the functional RPC probe. A compose healthcheck does NONE of these → 032’s original out-of-scope reasoning HOLDS on this axis.
+- Compose healthcheck = STEADY-STATE orchestration readiness: all the time (not just upgrades); value = `docker ps` health visibility + depends_on gating for normal boot/restart. The Go-poll does NONE of this (upgrade-flow only).
+The King’s instinct does NOT overturn the out-of-scope call — it ADDS an orthogonal value the Go-poll never claimed. Neither replaces the other.
+OUT-OF-SCOPE NOTE UPDATED (supersedes the description’s line): not “orthogonal, skip” but “COMPLEMENTARY at a different layer; defer on cost” — a compose /ready healthcheck adds steady-state orchestration readiness the Go-poll doesn’t provide, but is BLOCKED today by the distroless-no-probe constraint on v12.2.8 (custom image required) and cannot replace the Go-poll. Revisit when PostgREST gains `--ready` (#4269, post-v12.2.8) — then ~free.
+
+(4) RECOMMENDATION — DO IT AS A COMPLEMENT, but DEFER the rest healthcheck to the postgrest bump; do NOT build a custom image now:
+- KEEP the db `pg_isready` healthcheck + depends_on (already shipped — highest-value foundational piece; rest/app/worker already wait for Postgres).
+- SHIP 032’s Go-poll as designed (ratify AC#4) — the upgrade-flow readiness, independent of any compose healthcheck.
+- REST compose healthcheck: DEFER to the next PostgREST bump carrying #4269 → then a clean exec-form `healthcheck: ["CMD","postgrest","--ready"]` (no custom image). When added: treat as READINESS; use `/live` for any liveness need; do NOT wire as a restart trigger; only add app/worker `depends_on: rest: service_healthy` if steady-state ordering is worth delaying their boot through cache load.
+- Do NOT add `--wait` to the upgrade’s `up` as a readiness mechanism — the Go-poll covers upgrade-flow readiness better (journal+watchdog+diagnostics).
+TRADEOFFS: custom image NOW → +steady-state `docker ps` readiness today; −new Dockerfile/build/maintenance + upstream-pin divergence + a probe binary to vet. Defer to the bump → +zero cost, clean upstream `--ready`; −no steady-state rest readiness until then. The two highest-value cases (startup ordering + upgrade-flow readiness) are ALREADY covered (existing db healthcheck + 032 Go-poll); the rest compose healthcheck is lowest marginal value AND most expensive today — hence defer.
+DIRECT ANSWER to the King: yes, a /ready healthcheck reports unhealthy unless Postgres is up — CORRECT for readiness (gate traffic/dependents), INCORRECT for liveness (don’t kill rest over a DB blip); compose collapses both into one status, so if a restart-on-unhealthy mechanism is ever added a /ready healthcheck would cause harmful restart loops (use /live for liveness). Given the foundational gate already exists and the clean `--ready` path is one postgrest bump away, the principled move is defer-not-custom-image.
 <!-- SECTION:NOTES:END -->
