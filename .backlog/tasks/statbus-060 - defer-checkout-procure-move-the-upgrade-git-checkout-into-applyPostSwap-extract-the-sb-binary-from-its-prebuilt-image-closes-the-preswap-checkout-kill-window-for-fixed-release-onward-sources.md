@@ -4,10 +4,11 @@ title: >-
   defer-checkout-procure: move the upgrade git-checkout into applyPostSwap +
   extract the sb binary from its prebuilt image (closes the
   preswap-checkout-kill window for fixed-release-onward sources)
-status: To Do
+status: In Progress
 assignee:
   - architect
 created_date: '2026-06-15 22:25'
+updated_date: '2026-06-15 22:39'
 labels:
   - upgrade
   - recovery
@@ -49,10 +50,22 @@ Move `git checkout <target>` out of executeUpgrade's pre-swap section (service.g
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 buildBinaryOnDisk procures ./sb via docker create+cp from statbus-sb:<target> (no make-build); ./sb.old preserved; replaceBinaryOnDisk unification decision made + justified
+- [x] #1 buildBinaryOnDisk procures ./sb via docker create+cp from statbus-sb:<target> (no make-build); ./sb.old preserved; replaceBinaryOnDisk unification decision made + justified
 - [ ] #2 git checkout <target> deferred into applyPostSwap (pre-config-generate); executeUpgrade pre-swap no longer leaves the working tree at target-compose
 - [ ] #3 pre-upgrade branch pin + backup + F1 regen ordering preserved (no regression)
 - [ ] #4 go build/vet/test green; reported to foreman before push
 - [ ] #5 harness: 0-happy green AND a genuine-source-binary preswap-checkout-kill variant recovers (window 3 closed)
 - [ ] #6 doc-011 updated with the final file:line + the replaceBinaryOnDisk decision
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Part A (image procurement) DONE — commit 09ac1f7e4 (local, awaiting foreman review+push). buildBinaryOnDisk's `make -C cli build` → procureSbFromImage: docker create ghcr.io/statisticsnorway/statbus-sb:<short> + docker cp /sb (mirrors seedFetch); commit_short from `git rev-parse --short=8 commitSHA` (NOT working tree) → checkout-independent; pre-staged skip preserved; ./sb.old preserved. go build/vet + upgrade/install/config tests green.
+
+replaceBinaryOnDisk DECISION: LEAVE it (do NOT unify onto image-extract). Justification: it already downloads a manifest artifact and needs no checkout, so it does not block the defer; unifying changes the release-artifact trust model (SHA256-manifest verification → ghcr digest) — a deliberate separate change, not to be bundled into a recovery fix.
+
+Part B (defer-checkout) BLOCKED on a correctness bug in the spec's placement. The spec/doc-011 say 'move git checkout into applyPostSwap (just before config-generate)'. That is SCHEMA-SKEW-BROKEN: Service.Run runs boot-migrate-up (service.go:1612) BEFORE recoverFromFlag (1660); boot-migrate-up = `./sb migrate up` reads working-tree migrations (internal/migrate/at_head.go:192) to satisfy the rc.63/rc.65 schema-skew guard before recoverFromFlag's renamed-column queries. applyPostSwap runs AFTER recoverFromFlag → a checkout there leaves the schema OLD at boot-migrate time → recoverFromFlag hits SQLSTATE 42703 on a column-renaming target → boot-loop. (Harness won't catch it unless v2026.05.2→HEAD renames a public.upgrade column — latent.)
+
+CORRECTED placement (awaiting foreman go-ahead — changes blessed doc-011 Layer 2): checkout in the NEW binary's flag-gated recovery boot, BEFORE boot-migrate-up — inside the F1 block (Service.Run ~1474) AND runCrashRecovery (cli/cmd/install_upgrade.go ~164, + a flag read): `git checkout flag.CommitSHA` → config-generate → (EnsureDBUp/boot-migrate follow). Remove the checkout from executeUpgrade. Same end-state, correct ordering: target keys emitted with target tree (EnsureDBUp safe), boot-migrate has target tree (no skew), OLD binary never checks out (window 3 closed).
+<!-- SECTION:NOTES:END -->
