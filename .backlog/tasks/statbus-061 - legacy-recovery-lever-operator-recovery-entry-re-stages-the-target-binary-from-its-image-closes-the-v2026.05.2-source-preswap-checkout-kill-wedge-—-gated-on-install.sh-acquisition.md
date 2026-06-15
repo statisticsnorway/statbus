@@ -8,13 +8,12 @@ status: To Do
 assignee:
   - architect
 created_date: '2026-06-15 22:26'
-updated_date: '2026-06-15 22:39'
+updated_date: '2026-06-15 22:48'
 labels:
   - upgrade
   - recovery
   - robustness
-dependencies:
-  - STATBUS-060
+dependencies: []
 references:
   - doc-011
   - install.sh
