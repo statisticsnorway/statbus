@@ -3,11 +3,11 @@ id: STATBUS-056
 title: >-
   harness-wait-for-images: discover-job preflight that waits for the per-commit
   service images before fan-out (STATBUS-025 follow-on)
-status: In Progress
+status: To Do
 assignee:
   - engineer
 created_date: '2026-06-15 15:01'
-updated_date: '2026-06-15 15:02'
+updated_date: '2026-06-15 15:07'
 labels:
   - install-recovery
   - ci
@@ -32,3 +32,9 @@ THE FIX: add a wait-for-per-commit-images preflight to the harness DISCOVER job 
 
 OWNER: engineer (owns .github/workflows/install-recovery-harness.yaml). Engineer to prepare the diff; foreman commits it BEFORE the comprehensive run (after the in-flight 0-happy re-run confirms, so the preflight commit doesn't move the operator's current wait target mid-flight). For tonight's individual runs the operator's manual wait + dispatch-Images-on-red-ref covers it.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PAUSED (foreman + engineer, 2026-06-15) — do NOT build speculatively. The actual STATBUS-025 build-sb failure was NOT the service images: it was dev.sh's preamble `./sb db seed fetch` being FATAL under set -e (dev.sh:77, the optional seed fetch called OUTSIDE install.go's graceful runSeedRestore wrapper). Fixed in commit 9f9a2b4e0 (make it non-fatal). The run died at the SEED before any scenario, so the service-image dependency this preflight guards has NOT actually been hit yet. Per 'test to know, don't gold-plate': build 056 ONLY IF a real run (with the seed-fix in) surfaces a service-image-pull 'manifest unknown' on the HEAD upgrade. For tonight, the operator's manual wait-for-Images (master) + dispatch-Images-on-red-ref (031 RED branch) cover the need. Engineer prepared but did NOT build it; assignee retained for if/when it's needed.
+<!-- SECTION:NOTES:END -->
