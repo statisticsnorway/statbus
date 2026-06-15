@@ -3,11 +3,11 @@ id: STATBUS-016
 title: >-
   Logging-accuracy: harness checks that misreport infra/ssh failures as product
   defects (per-case list)
-status: In Progress
+status: Done
 assignee:
   - operator
 created_date: '2026-06-08 16:15'
-updated_date: '2026-06-15 12:11'
+updated_date: '2026-06-15 12:20'
 labels:
   - install-recovery
   - ci
@@ -37,8 +37,8 @@ OPERATOR SCANNING test/install-recovery/ for more over-claim instances (`||echo`
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Operator scan complete: every `||echo`-sentinel / pipefail-mangled assertion site in test/install-recovery/ listed + classified (misreadable-as-defect vs benign)
-- [ ] #2 Each MISREADABLE case fixed at its specific line (separate infra-failure from defect-finding; defect-claim only on real evidence)
+- [x] #1 Operator scan complete: every `||echo`-sentinel / pipefail-mangled assertion site in test/install-recovery/ listed + classified (misreadable-as-defect vs benign)
+- [x] #2 Each MISREADABLE case fixed at its specific line (separate infra-failure from defect-finding; defect-claim only on real evidence)
 - [ ] #3 Accurate-but-under-context outcomes (latch rollback, rolled-back-then-recomplete) get a by-design annotation so they don't read as failures
 <!-- AC:END -->
 
@@ -51,3 +51,15 @@ STATUS CORRECTED 2026-06-15 (King caught the stale In-Progress): → To Do, assi
 
 KING 2026-06-15: 'Go' — RESOLVING (not parking). Operator scanning test/install-recovery/ fresh against current master for all over-claim sites (the dangling d7c877348/1fd7fffd6 are treated as stale/un-landed — re-deriving fresh, not cherry-picking). Two stages: operator surfaces + classifies every site (incl. re-checking the 5 sites the dangling commits had touched) → mechanic applies fixes at the misreadable ones + by-design annotations (AC#3) → foreman reviews + commits + pushes. In Progress, assigned operator.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+SHIPPED (the over-claim cleanup) — commit 431d200b2 (master, pushed). The logging-accuracy / misreport-infra-as-product-defect scope is complete.
+
+AC#1 ✓ — operator scanned test/install-recovery/ for the ||echo-sentinel→assertion over-claim pattern (full results tmp/operator-logging-pattern-scan.md). The 6 prior-fix sites verified FIXED in CURRENT master (lib/assertions.sh:74/112/133/253, lib/data-helpers.sh:73/108). NB the d7c877348/1fd7fffd6 commit SHAs are orphaned/dangling, but the SAME fixes landed under other commits — verified at the FILE level (the operator checked the code, not the hashes — correcting an earlier foreman SHA-only check). 2 NEW misreadable sites found.
+
+AC#2 ✓ — both new sites fixed (commit 431d200b2, mechanic): (1) assert_flag_file_absent (lib/assertions.sh:230) — SSH-fail → present="0" → false "✓ upgrade flag file absent" all-clear; (2) assert_demo_data_present (lib/assertions.sh:314) — SSH-fail → count="?" → false "✗ has ? rows — R5 catastrophic-loss indicator" (reads as data loss). Both now separate the transport rc from the finding (`|| _rc=$?` + INFRA-skip), mirroring the established sites; a genuine 0-rows still fails legitimately. Foreman byte-level reviewed + bash -n clean + committed STAGING ONLY assertions.sh (the engineer's STATBUS-032 work shares the working tree — left untouched).
+
+AC#3 → MOVED to STATBUS-015. The by-design annotation for the C8 latch-rollback log ("UPGRADE_DIED_DURING_RESUME … rolled back" should read as correct-by-design via the Resuming latch, not a defect) is a DIFFERENT shape — the task's own KNOWN CASE #3 flags it "NOT logging inaccuracy" — it touches PRODUCT code (service.go), and the "by design" claim depends on the latch contract being CONFIRMED, which IS STATBUS-015. Re-homed there; 016's over-claim scope is independently complete. Closed.
+<!-- SECTION:FINAL_SUMMARY:END -->
