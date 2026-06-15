@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - architect
 created_date: '2026-06-11 13:39'
-updated_date: '2026-06-15 13:02'
+updated_date: '2026-06-15 13:13'
 labels:
   - upgrade
   - recovery
@@ -44,7 +44,7 @@ ALSO CLEARED BY THE SWEEP (no work, recorded for honesty): every other step from
 <!-- AC:BEGIN -->
 - [x] #1 King ratifies the fix design in this description (ticker wrap at rollback(), shared restore timeout, comments, guard test)
 - [ ] #2 RED observed on a real VM: restore stalled during startup recovery → watchdog kill on unfixed code (NRestarts delta ≥1 from post-stall baseline / Result=watchdog)
-- [ ] #3 Fix landed: always-ping ticker wraps rollback(); restore timeout raised to the shared constant; comments repaired; source-order guard test added
+- [x] #3 Fix landed: always-ping ticker wraps rollback(); restore timeout raised to the shared constant; comments repaired; source-order guard test added
 - [ ] #4 GREEN on a real VM: same stall, NRestarts delta=0, rollback completes, data intact, flag absent
 - [ ] #5 RED→GREEN pair recorded here with run IDs/VM names
 <!-- AC:END -->
@@ -76,4 +76,6 @@ ENVELOPE (systemd drop-in env on the upgrade unit): STATBUS_INJECT_AT=restore-db
 RED build = the staged fix WITH the rollback() ticker block reverted (delete only the 4 lines: rollbackTickerCtx/Done decls + `go runGatedWatchdogTicker(...)` + the `defer func(){cancel(); <-done}()`), KEEPING the StallHere + registry + RestoreDBTimeout. → restoreDatabase parks SILENT 180s on the startup path with no ticker → WatchdogSec fires → SIGABRT → NRestarts delta ≥1 / Result=watchdog → next boot re-restores from scratch → loop. Assert: NRestarts delta ≥1, rollback NOT completed, flag still present.
 GREEN build = the full staged fix. → the always-ping ticker fires WATCHDOG=1 every cadence through the 180s stall → unit stays active → remove release file → restore completes → assert NRestarts delta=0, rollback row terminal (rolled_back/failed per outcome), flag ABSENT, data counts intact.
 Record the RED+GREEN run IDs/VM names in AC#2/#4/#5. (I can write the full scenario .sh if you'd rather I do it than the operator — say the word; I scoped it as operator/harness work to avoid burning paid-VM cycles debugging a blind 400-line clone.)
+
+AC#3 LANDED — commit a8279ed83 (pushed to master). Foreman byte-level review + independent re-verify all green: (1) shouldPingWatchdog(nil)==true confirmed at progress.go:305 — nil progress pings unconditionally; (2) the rollback ticker call is byte-identical to the proven boot-migrate site (same constants, nil progress, same ping closure) — the deferred-vs-inline cancel difference is CORRECT (rollback always os.Exits, so a defer can't leak the ticker the way it would in Run()'s main loop); (3) fail-loud preserved — dbRestoreErr -> degraded -> state='failed' at service.go:5231/5238, so a 30m-timed-out restore surfaces degraded, never a silent rolled_back; (4) inject imported + precedented (exec.go:20/1013); (5) go build + vet + full targeted cli suite (upgrade, inject, cmd, config) green, re-run independently. 5 files / +145 -6. REMAINING: AC#2/#4/#5 = the VM RED->GREEN proof. Architect writing the new scenario 4-rollback-restore-watchdog.sh (it owns the spec + minimizes paid-VM waste); then foreman creates the RED branch (master minus the ticker block) + operator drives RED (red branch) -> GREEN (master).
 <!-- SECTION:NOTES:END -->
