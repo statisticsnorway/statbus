@@ -232,9 +232,13 @@ case "$SECOND_EXIT" in
         }
 
         # Third install — no env vars — completes the rollback.
+        # Tolerate rc=75: rollback() exits 75 ("UPGRADE FAILED, ROLLED BACK")
+        # after completing the git/binary/db restore and bringing services up.
+        # Without this tolerance set -e aborts the scenario on a successful
+        # rollback-completion. (Same pattern as 2-preswap-checkout-kill:215.)
         echo ""
         echo "── third install for recovery completion ──"
-        install_statbus_in_vm "$VM_NAME"
+        install_statbus_in_vm "$VM_NAME" || { rc=$?; [ "$rc" -eq 75 ] || exit "$rc"; }
 
         FINAL_STATE=$(VM_EXEC bash -c "cd ~/statbus && echo 'SELECT state FROM public.upgrade ORDER BY id DESC LIMIT 1;' | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?")
         echo "  final state: $FINAL_STATE"
