@@ -3,11 +3,11 @@ id: STATBUS-016
 title: >-
   Logging-accuracy: harness checks that misreport infra/ssh failures as product
   defects (per-case list)
-status: In Progress
+status: To Do
 assignee:
   - operator
 created_date: '2026-06-08 16:15'
-updated_date: '2026-06-08 17:24'
+updated_date: '2026-06-15 12:07'
 labels:
   - install-recovery
   - ci
@@ -46,4 +46,6 @@ OPERATOR SCANNING test/install-recovery/ for more over-claim instances (`||echo`
 
 <!-- SECTION:NOTES:BEGIN -->
 MECHANIC PRE-FIXED 5 over-claim sites (uncoordinated, PARKED, NOT pushed — in git so they survive a context clear): commit d7c877348 (lib/assertions.sh — assert_systemd_active, assert_db_migration_recorded, assert_db_migration_max_version_unchanged) + 1fd7fffd6 (lib/data-helpers.sh — import_job poll loop, failed-import-job count). Each separates the ssh-rc from the finding (`|| _rc=$?` + INFRA-skip), claims a defect only on real evidence; mirrors the gzip-t fix (384ecd0d0). Mechanic's sanity-grep says remaining `||echo` are benign (health-check 000 sentinel; orphan-count already fixed; diagnostic prints). PENDING: operator's INDEPENDENT scan (in flight → tmp/operator-logging-pattern-scan.md) to confirm completeness (all misreadable sites found + none missed), THEN push + credit. Operator was re-seeded for this scan.
+
+STATUS CORRECTED 2026-06-15 (King caught the stale In-Progress): → To Do, assignee cleared. NOT actively worked. State: PARKED mid-work. The mechanic pre-fixed 5 over-claim sites in commits d7c877348 + 1fd7fffd6 — BUT a push-status check on 2026-06-15 found BOTH commits are DANGLING: they exist in the local object store but are NOT in origin/master and NOT in HEAD's ancestry. So that work NEVER LANDED (orphaned since ~2026-06-08; master has moved far since). The operator's independent completeness scan (AC#1) was in flight when the operator's context was cleared. DECISION DEFERRED (King: stabilize current install-log surface first): when resumed, treat the dangling commits as STALE — re-derive the over-claim-site fixes fresh against current master + finish the operator scan, rather than cherry-picking week-old orphans without revalidation. Not urgent; install-recovery-harness logging accuracy, tangential to the current install-log-honesty thrust.
 <!-- SECTION:NOTES:END -->
