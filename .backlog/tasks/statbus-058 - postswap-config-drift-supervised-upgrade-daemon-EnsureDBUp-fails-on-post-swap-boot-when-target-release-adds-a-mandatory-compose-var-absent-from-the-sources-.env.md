@@ -4,9 +4,10 @@ title: >-
   postswap-config-drift: supervised upgrade daemon EnsureDBUp fails on post-swap
   boot when target release adds a mandatory compose var absent from the source's
   .env
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-06-15 21:25'
+updated_date: '2026-06-15 21:48'
 labels:
   - upgrade
   - robustness
@@ -59,3 +60,19 @@ On the post-swap recovery boot in `Service.Run()`, regenerate config with THIS (
 - Verdict: (B) real product robustness gap — NOT a scenario gap. The 0-happy scenario faithfully reproduces it; do NOT add config-generate to the scenario (would mask the bug). Mechanic stood down off the (A) scenario fix.
 - Fix design: with architect for refinement; King reviews before implementation.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+FIX IMPLEMENTED + pushed to master as 87c38c4fb (supersedes first cut 133f239c3).
+
+cli/internal/upgrade/service.go, Service.Run() — inside the in-flight-upgrade pre-flight block, BEFORE EnsureDBUp: regenerate config with the on-disk (target) binary so .env ⊇ the target compose template's required keys. Mirrors runCrashRecovery (cli/cmd/install_upgrade.go:164-170), the operator path that already handles this class (prior instance: COMMIT_SHORT / rc.62). Fatal on failure; config generate is DB-independent, idempotent, seconds (safe pre-READY=1).
+
+GATE WIDENED (87c38c4fb vs 133f239c3): trigger is now ANY service-held flag (flag.Holder==HolderService), NOT just Phase==FlagPhasePostSwap. Reason: the binary-swap-kill sub-window leaves the TARGET binary on disk with a still-preswap flag (updateFlagPostSwap stamps post_swap only AFTER replaceBinaryOnDisk), so a post_swap-only gate would skip the regen and die identically, then boot-loop instead of reaching recoverFromFlag's rollback. The widened gate catches that sub-window (NEW binary is in control there, so the regen helps).
+
+VERIFIED locally on 87c38c4fb: go build ./... clean, go vet ./... clean, go test ./internal/upgrade/ ./internal/install/ ./internal/config/ all pass.
+
+VALIDATION IN FLIGHT: Images run 27578448988 building 87c38c4fb per-commit images; then install-recovery-harness 0-happy-upgrade dispatched against master. Pass criterion: the `ensure DB up: ... REST_ADMIN_BIND_ADDRESS is missing` death is GONE and upgrade reaches state='completed'. Operator driving.
+
+SEPARATE/RESIDUAL (NOT covered by this fix): the preswap-checkout-kill window — crash AFTER `git checkout HEAD` but BEFORE the binary swap. There the OLD released binary restarts (lacks this code entirely) → its EnsureDBUp parses the HEAD working-tree compose → dies → recoverFromFlag (rollback) never reached. Verified against v2026.05.2 source (Run() order: EnsureDBUp strictly before recoverFromFlag; bare `docker compose up -d db`; PreSwap flag written before swap). Cannot be fixed in already-released binaries. This is the already-RED preswap-checkout-kill scenario (STATBUS-026); architect designing the fix (forward-fix executeUpgrade ordering vs make rollback reachable before any compose-parse). My earlier belief that the operator `./sb install` path recovers this window is UNVERIFIED and likely false (026: restoreGitState doesn't restore the working tree to OLD).
+<!-- SECTION:NOTES:END -->
