@@ -307,8 +307,8 @@ func TestRecoverFromFlag_PhaseRoutingAndGroundTruthFirst(t *testing.T) {
 //
 // rc.67's first cut conflated cases (2) and (3) into a single fail-loud
 // path, which wedged dev's normal forward upgrade post-swap with
-// "containers do not match flag target [app: not running (no container) worker: not running (no container)
-// rest: not running (no container)]". The fix discriminates on d.binaryCommit vs
+// "containers do not match flag target [app: old version not running, new version not started yet worker: old version not running, new version not started yet
+// rest: old version not running, new version not started yet]". The fix discriminates on d.binaryCommit vs
 // flag.CommitSHA.
 func TestResumePostSwap_SelfHealContinueOrFailLoud(t *testing.T) {
 	src, err := os.ReadFile(thisRepoFile(t, "cli/internal/upgrade/service.go"))
