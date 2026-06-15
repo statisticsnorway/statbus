@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-13 08:41'
-updated_date: '2026-06-15 10:04'
+updated_date: '2026-06-15 10:27'
 labels:
   - review
   - upgrade
@@ -103,6 +103,10 @@ Item C DIAGNOSED (architect, foreman-verified end-to-end incl. the C2 alarm-reve
 Findings: C2 = the 'INVARIANT A17 violated' line is a STRUCTURALLY-GUARANTEED FALSE POSITIVE on every upgrade (fix-A moved removeUpgradeFlag service.go:4453 BEFORE the only runInstallFixup call site 4524; the bypass signal is set ONLY by the fixup child exec.go:91/96; acquireOrBypass install.go:182-190 = flag-absent→A17). C1 = two ROWS correct-by-design (187 healed + 196 recorded); the confusion is the nested fixup child printing the SAME bare 'StatBus Installation' banner — relabel, do NOT unify. C3 = logging asymmetry only (187 rich dump vs 196 terse). Precision correction: #196 is authored by pass-1's post-recovery continuation (install.go:1947), NOT the fixup child (bypass=true authors nothing).
 
 STATBUS-051 scope (all Go + doc, NO migration): (1) silence A17 honestly via the env-var signature, KEEP the hand-passed-flag misuse warning + fix the stale exec.go:82-83 comment; (2) RENAME the lying internal flag --inside-active-upgrade / STATBUS_INSIDE_ACTIVE_UPGRADE to a post-completion-fixup semantic (clean break, hidden/internal, no external contract); (3) self-identifying fixup banner; (4) symmetric completion logging (new 'completed-install' label) + two-row-model doc note. Assigned architect, In Progress.
+
+REMAINING one-by-one triage: D (quiesce infers PID liveness vs checks it), E (PGRST002 first-fail / admin-/ready-on-+6 — ties to STATBUS-032), F (retention tar blocks the install command), G (db-seed branch vestigial), H (DB connection races the completion write).
+
+Item C SHIPPED → STATBUS-051 (commit 4546cfbc4, master, pushed, full suite green). All four parts landed, no migration: (1) the structural A17 false-alarm is silenced honestly (3-way acquireOrBypass — env-signature fixup → EXPECTED, hand-passed bare flag → A17 kept/narrowed); (2) clean-break rename of the lying internal flag --inside-active-upgrade → --post-upgrade-fixup (+ env var + var) across all call sites/tests/docs/scenario, ZERO residual tokens; (3) self-identifying 'StatBus Post-Upgrade Install Fixup' banner; (4) symmetric completion logging (new 'completed-install' label) + two-row-model doc + a BONUS fix of the same stale step-ordering bug in doc/upgrade-timeline.md. Foreman byte-level reviewed (3-way logic, env-handshake setter==reader, ErrNoRows discrimination) + re-ran full suite (10 packages, 0 fail) + committed.
 
 REMAINING one-by-one triage: D (quiesce infers PID liveness vs checks it), E (PGRST002 first-fail / admin-/ready-on-+6 — ties to STATBUS-032), F (retention tar blocks the install command), G (db-seed branch vestigial), H (DB connection races the completion write).
 <!-- SECTION:NOTES:END -->
