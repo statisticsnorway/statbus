@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - architect
 created_date: '2026-06-11 07:48'
-updated_date: '2026-06-15 14:21'
+updated_date: '2026-06-15 14:32'
 labels:
   - install-recovery
   - harness
@@ -43,4 +43,6 @@ MINIMAL CORRECT FIX (for 029): RE-DESIGN to the REALISTIC orphan — synthesize 
 VERIFIED DEEPER FINDING (flag, do NOT blind-fix in the RC): for a CURRENT-binary killed migrate, the tagged `statbus-migrate-<deadpid>` advisory holder is counted by NEITHER gate subquery (advisory_holders is empty-app-only; the idle holder runs no statistical_* query so leaked misses it). It is only caught once its statistical_* SUBPROCESS ages past 5min (then leaked triggers → Phase 2 probes the holder). If the subprocess already exited, the holder is missed until TCP-keepalive/MigrateUpTimeout. → a fresh current killed-migrate orphan can DELAY recovery (bounded by min(keepalive, 30m migrate timeout)). The PRINCIPLED fix (if the re-designed 029 confirms it) is PID-liveness-aware gate detection (count tagged advisory holders to TRIGGER Phase 2's authoritative probe), NOT age-relaxation. Recommend a SEPARATE follow-up task with its own RED→GREEN; do not bundle a gate redesign into this RC.
 
 DO: re-design 029 (realistic orphan). DO NOT: un-age the gate; relax 029 to diagnostic. The mechanic's held fix should be dropped in favor of the re-design.
+
+ARCHITECT VERDICT (2026-06-15, foreman accepted + verified). The scenario is MIS-MODELED — it builds a bare `./sb psql -c INSERT statistical_history...pg_sleep` (app='psql', NO advisory lock), which is SQL-indistinguishable from a live external client; the gate CORRECTLY declines to force-kill it (un-aging would over-kill live clients = regression). A REAL killed-migrate orphan = a dead-PID `statbus-migrate-<pid>` advisory holder (acquireAdvisoryLock, migrate.go:297-298 — foreman verified) + a `statbus-migrate-sql` statistical_* subprocess (migrate.go:303). So the mechanic's relax-to-diagnostic is VACUOUS (watches a non-event) AND un-aging the gate is a regression — BOTH dropped. Foreman reverted the held relax-diff to original. FIX (assigned architect): re-design to the realistic orphan — dead-PID statbus-migrate-<deadpid> advisory holder + statbus-migrate-sql subprocess; assert recovery cleans BOTH (Phase 2 PID-probe kills the holder → Phase 1 sweeps the subprocess); keep install-completes + health. Complements stage-d (empty-app holder). The REAL bounded gap the architect found (a tagged dead-PID holder is counted by neither checkSessionsClean branch → bounded recovery delay) is FILED SEPARATELY as STATBUS-055 (post-RC, PID-liveness-aware gate detection, NOT age-relaxation). NB: the task's seed-restore/pg_restore-vs-STATBUS-018 line is a SEPARATE cross-linked issue, not part of this verdict.
 <!-- SECTION:NOTES:END -->
