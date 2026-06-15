@@ -1,12 +1,13 @@
 ---
 id: STATBUS-059
 title: >-
-  preswap-checkout-forward-fix: image-extract sb procurement + defer the
-  working-tree checkout to close the preswap-checkout-kill window at the source
-status: To Do
+  preswap-checkout-forward-fix: APPROVED — image-extract the sb binary + switch
+  code files only after the new program is in control (closes the upgrade
+  crash-window wedge)
+status: In Progress
 assignee: []
 created_date: '2026-06-15 22:10'
-updated_date: '2026-06-15 22:42'
+updated_date: '2026-06-15 22:52'
 labels:
   - install-recovery
   - upgrade
@@ -30,32 +31,45 @@ ordinal: 59000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-DESIGN-OF-RECORD — pending KING REVIEW (foreman brings it after the post-swap-config-drift 0-happy run lands). No code yet. Splits into impl tasks after the King rules the decisions below.
+**APPROVED by the King 2026-06-15. Implement now (by morning). No open questions — decisions ruled below.**
 
-## North Star
-The supervised upgrade must converge to healthy (or clean rollback) with the operator's ONLY action being `./sb install` — never custom commands (per STATBUS-039). Today a crash in the upgrade's checkout-then-binary-swap window breaks that.
+## North Star (what / why)
+If an upgrade crashes halfway, the operator fixes it with ONE command (`./sb install` / `curl install.sh`) — no expert surgery (STATBUS-039).
 
-## Root cause
-`executeUpgrade` does `git checkout <target>` (service.go:3831) BEFORE the binary handoff. The only reason the checkout must precede the swap is that edge procurement (`buildBinaryOnDisk`, `make -C cli build`, service.go:5507) builds from the checked-out source. Once the working tree holds the target's compose, ANY `docker compose` call config-load-parses the whole merged project (docker-compose.yml `include:`s docker-compose.rest.yml) and dies on a newly-mandatory `${VAR:?}` (REST_ADMIN_BIND_ADDRESS, added by STATBUS-032) that the still-in-control pre-target binary's .env lacks.
+## What breaks today
+Mid-upgrade the code runs `git checkout <new version>` BEFORE swapping the program. For a moment the new code's docker-compose files are on disk while the OLD program + OLD config (.env) are still in charge. Any `docker compose` call then config-parses the whole project and dies on a new required setting (REST_ADMIN_BIND_ADDRESS) the old .env lacks. A crash in that moment strands the box.
 
-## Core forward-fix (closes the window for fixed-release sources)
-Two coupled changes, both in the new binary's code:
-1. Procurement → image-extract. Replace `buildBinaryOnDisk`'s `make` with `docker create ghcr.io/statisticsnorway/statbus-sb:<commit_short>` + `docker cp /sb ./sb` — config-free (no compose/.env), no host Go/make. Mirrors the existing `./sb db seed fetch` (cli/cmd/seed.go:160-179). The `statbus-sb` image already ships on every master push (images.yaml matrix; distroless, commit-addressable; cli/Dockerfile.sb). `replaceBinaryOnDisk` (tagged, service.go:5428) already needs no checkout.
-2. Defer the checkout. Since (1) makes procurement checkout-independent, move `git checkout <target>` out of executeUpgrade's pre-swap section into the new binary's `applyPostSwap`, just before config-generate (service.go:4115). The old binary then never leaves the tree at target-compose.
+## The approved fix — 3 parts
+1. **Get the new program from a ready-made image, not by compiling it.**
+   - Tagged: `docker create statbus-sb:<commit>` + `docker cp /sb` (env-free; mirrors the seed, seed.go:160).
+   - Edge/dev (no prebuilt image): `docker build -f cli/Dockerfile.sb` (builds in a container, no host Go/make), then copy /sb out.
+   - DONE: commit 09ac1f7e4 (buildBinaryOnDisk → procureSbFromImage; commit_short from commitSHA, not the tree → checkout-independent). Pending foreman review + push.
+2. **Switch the code files only after the new program is in control** — move the `git checkout` OUT of executeUpgrade (pre-swap) into the NEW binary's recovery boot, BEFORE boot-migrate, then config-generate. Mirror in runCrashRecovery.
+3. **Refresh config on EVERY startup before the database** (not only when a flag is set). Fixes 0-happy (run 27578673237 FAILED: F1's regen was flag-gated; the scenario restarts onto the new binary with no flag → regen skipped → EnsureDBUp died). Parts 2+3 merge into ONE Service.Run change.
+4. **install.sh edge image-extract** so recovery is toolchain-free on all channels. (Tagged ALREADY recovers via install.sh's existing re-stage — verified install.sh:203/209/269; only edge-on-a-bare-box was open. This closes it.)
 
-Interplay with the post-swap config-regen fix (STATBUS-058, committed 87c38c4fb): keep it. It regenerates config before EnsureDBUp and covers the new-binary instant between applyPostSwap's checkout and its config-generate. Complementary; together airtight for fixed-release sources.
+## Correctness fix the team caught (incorporated — NOT a question)
+First draft put the deferred checkout in applyPostSwap (after recoverFromFlag). BROKEN: boot-migrate-up (service.go:1612) runs BEFORE recoverFromFlag (1660) and needs the new code's migrations (schema-skew guard); a later checkout leaves schema old → recoverFromFlag hits SQLSTATE 42703 (renamed column) → boot-loop. CORRECT: checkout in the recovery boot BEFORE boot-migrate, then config-generate. Same end-state, correct order.
 
-## Corrected residual — genuine pre-fix source is a real wedge (verified)
-A genuine v2026.05.2 binary driving the upgrade is NOT `./sb install`-recoverable in this window. Proof (git show v2026.05.2:cli/cmd/install_upgrade.go): runCrashRecovery = config generate (L121) → EnsureDBReachable connect-only (L137) → RETURNS on failure (L138); it has NO StartDBForRecovery fallback (post-v2026.05.2). The DB is STOPPED in the window (backup stop, upstream of the checkout), so EnsureDBReachable fails and the git rollback (RecoverFromFlag, L153) is NEVER reached — it wedges at the connect-only check, before any compose call. This violates STATBUS-039.
-Mitigation option (legacy lever): the operator entry, on a crashed-upgrade flag, re-stages the TARGET sb binary from the image BEFORE recovery, then runs the target binary's runCrashRecovery — which DOES recover (config-generate emits the keys at install_upgrade.go:168 before StartDBForRecovery's compose-start at :193). install.sh today curls a fixed-VERSION release asset (install.sh:198-203); the change = fetch the flag's target via the image.
+## Implementation (file:line)
+Service.Run startup — recovery boot = service-held flag present:
+1. if flag present: `git checkout flag.CommitSHA` (restore target tree)
+2. config generate — UNCONDITIONAL (every boot)
+3. EnsureDBUp
+4. boot-migrate-up (target tree on recovery boot → no skew)
+5. recoverFromFlag
+runCrashRecovery (~install_upgrade.go:164): same checkout(flag.CommitSHA)+config-generate before DB bring-up.
+executeUpgrade: REMOVE the pre-swap `git checkout`.
+buildBinaryOnDisk: image-extract (DONE 09ac1f7e4). replaceBinaryOnDisk: LEAVE — downloads a verified manifest, needs no checkout; unifying would change the release trust model (separate concern).
+install.sh: image-extract for edge binary acquisition.
 
-## Test fidelity
-2-preswap-checkout-kill PRE-STAGES HEAD's sb (upload_sb_to_vm, scenario:122) and recovers with it → it validates HEAD-recovery, NOT the genuine pre-fix wedge. (restoreGitState itself WORKS — `git checkout -f previousVersion`, service.go ~5392; the prior RED was a harness pre-upgrade mis-pin, fixed ba02e1ed0.)
+## Decisions — RULED (no questions)
+- D1 procurement scope: image-extract everywhere (edge build + recovery); leave replaceBinaryOnDisk. — KING: YES.
+- D2 legacy wedge: SOLVED by D1 + install.sh's existing re-stage (tagged recovers today; edge closed by install.sh image-extract). Only residual = running the on-disk OLD `./sb install` directly (non-canonical); canonical action is `curl install.sh|bash`, which recovers. — ruled (per King approval).
+- D3 test fidelity: YES — add a genuine-pre-fix-binary recovery variant (STATBUS-026) so the harness stops masking the real path. — ruled.
 
-## KING DECISIONS (gate the split)
-- D1 Procurement scope: unify ALL procurement to image-extract (retire `make`-build AND the release-manifest path `replaceBinaryOnDisk`) — simplest/uniform/no-toolchain — vs NARROWER: image-extract for edge only + defer-checkout for the tagged path, leaving the manifest path.
-- D2 Legacy wedge: accept (document a one-time manual recovery) vs mitigate (legacy lever).
-- D3 Harness fidelity: add a genuine-pre-fix-binary recovery variant so 026 stops masking production reality?
+## Verification
+Each commit: go build + vet + `go test ./internal/upgrade/ ./internal/install/ ./internal/config/`. Harness: 0-happy green + genuine-binary preswap-checkout-kill variant recovers. Foreman reviews every diff + pushes; cut rc.03 + run the comprehensive suite on it. Validation results by morning.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
@@ -64,10 +78,12 @@ Mitigation option (legacy lever): the operator entry, on a crashed-upgrade flag,
 - [ ] #2 No git checkout of the target leaves the working tree at the target's compose while a pre-target binary remains systemd's restart target (verified by harness)
 - [ ] #3 The post-swap config-regen fix (STATBUS-058) is preserved and shown complementary to the deferred checkout
 - [x] #4 King ruling D1 (procurement scope: unify vs narrower) recorded before implementation
-- [ ] #5 King ruling D2 (legacy v2026.05.2 wedge: accept vs mitigate via the legacy lever) recorded
-- [ ] #6 King ruling D3 (026 genuine-pre-fix recovery variant: yes/no) recorded
+- [x] #5 King ruling D2 (legacy v2026.05.2 wedge: accept vs mitigate via the legacy lever) recorded
+- [x] #6 King ruling D3 (026 genuine-pre-fix recovery variant: yes/no) recorded
 - [ ] #7 If D2=mitigate: operator `./sb install` on a crashed preswap-checkout flag recovers with no custom commands, by re-staging the target binary from the image
 <!-- AC:END -->
+
+
 
 ## Implementation Notes
 
