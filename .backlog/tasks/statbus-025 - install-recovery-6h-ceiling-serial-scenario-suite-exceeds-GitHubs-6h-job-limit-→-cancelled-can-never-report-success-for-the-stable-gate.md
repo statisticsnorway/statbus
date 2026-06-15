@@ -3,10 +3,11 @@ id: STATBUS-025
 title: >-
   install-recovery-6h-ceiling: serial scenario suite exceeds GitHub's 6h job
   limit → cancelled, can never report success for the stable gate
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - engineer
 created_date: '2026-06-11 03:17'
-updated_date: '2026-06-12 07:52'
+updated_date: '2026-06-15 12:50'
 labels:
   - install-recovery
   - ci
@@ -48,4 +49,6 @@ THE FIX (decided — MATRIX, design ready to implement):
 
 <!-- SECTION:NOTES:BEGIN -->
 Decision history: options (a) matrix / (b) batch / (c) faster-scenarios were weighed; MATRIX chosen (clean gate semantics, per-scenario logs, ~60min). Deep-reference: doc-007 Track B1. The rc.01 tag-push harness run will show the 6h cancel — expected, the live exhibit. First in line in the gate-maker batch (engineer-sized, ~1 day).
+
+DISPATCHED 2026-06-15 (King: 'get things going... ready by tonight'). Engineer implementing the matrix split per the design. THE #1 unblock — without it no comprehensive harness run can report success (6h ceiling). Engineer owns .github/workflows/install-recovery-harness.yaml. Operator verifying Hetzner quota headroom for max-parallel. do-not-self-commit → foreman reviews+commits.
 <!-- SECTION:NOTES:END -->
