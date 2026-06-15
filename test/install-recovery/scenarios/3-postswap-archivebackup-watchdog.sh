@@ -195,15 +195,7 @@ fi
 echo "  ✓ public.upgrade row at HEAD is state='scheduled'"
 
 # Start service now: inject drop-in is in place, row is waiting → no race
-VM_EXEC systemctl --user start statbus-upgrade@statbus.service
-
-sleep 5
-UNIT_STATE=$(VM_EXEC systemctl --user is-active "statbus-upgrade@statbus.service" 2>/dev/null | tr -d ' \r\n' || echo "?")
-if [ "$UNIT_STATE" != "active" ]; then
-    echo "✗ unit did not reach active after restart with drop-in (state=$UNIT_STATE)" >&2
-    VM_EXEC bash -c "systemctl --user status statbus-upgrade@statbus.service --no-pager" >&2 || true
-    exit 1
-fi
+vm_start_unit "statbus-upgrade@statbus.service"
 echo "  ✓ unit active with inject env vars in place"
 
 # Wake the service via NOTIFY so it immediately calls executeScheduled.

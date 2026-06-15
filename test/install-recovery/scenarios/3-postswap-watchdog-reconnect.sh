@@ -198,15 +198,7 @@ scp -O "${SSH_OPTS[@]}" "$_dropin_script" root@"$VM_IP":/tmp/harness-install-dro
 rm -f "$_dropin_script"
 VM_EXEC bash /tmp/harness-install-dropin.sh
 ssh "${SSH_OPTS[@]}" root@"$VM_IP" "rm -f /tmp/harness-install-dropin.sh" 2>/dev/null || true
-VM_EXEC systemctl --user start statbus-upgrade@statbus.service
-
-sleep 5
-UNIT_STATE=$(VM_EXEC systemctl --user is-active "statbus-upgrade@statbus.service" 2>/dev/null | tr -d ' \r\n' || echo "?")
-if [ "$UNIT_STATE" != "active" ]; then
-    echo "✗ unit did not reach active after restart with C15 drop-in (state=$UNIT_STATE)" >&2
-    VM_EXEC bash -c "systemctl --user status statbus-upgrade@statbus.service --no-pager" >&2 || true
-    exit 1
-fi
+vm_start_unit "statbus-upgrade@statbus.service"
 echo "  ✓ unit active with C15 env vars in place"
 
 # Wake the service via NOTIFY so it immediately calls executeScheduled.

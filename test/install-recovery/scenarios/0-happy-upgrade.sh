@@ -129,14 +129,9 @@ VM_EXEC bash -c "cd ~/statbus && if ! git cat-file -e $HEAD_LOCAL 2>/dev/null; t
 # control, which skips the build (./sb already at target commit). Mirrors the
 # stop/start the supervised-unit scenarios already do (3-postswap-watchdog-reconnect).
 echo "── restarting upgrade-service unit onto the pre-staged HEAD binary ──"
-VM_EXEC systemctl --user restart statbus-upgrade@statbus.service
-sleep 5
-UNIT_STATE=$(VM_EXEC systemctl --user is-active "statbus-upgrade@statbus.service" 2>/dev/null | tr -d ' \r\n' || echo "?")
-if [ "$UNIT_STATE" != "active" ]; then
-    echo "✗ unit did not reach active after restart onto the HEAD binary (state=$UNIT_STATE)" >&2
-    VM_EXEC bash -c "systemctl --user status statbus-upgrade@statbus.service --no-pager" >&2 || true
-    exit 1
-fi
+# vm_restart_unit: dumps journal + status + sb-version before returning non-zero
+# so the diagnostics land in the scenario log BEFORE the EXIT trap reaps the VM.
+vm_restart_unit "statbus-upgrade@statbus.service"
 echo "  ✓ unit active on the HEAD binary"
 
 # ─────────────────────────────────────────────────────────────────────────

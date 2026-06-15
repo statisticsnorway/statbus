@@ -217,14 +217,7 @@ fi
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── restarting unit onto the HEAD binary (clean, pre-arm) ──"
-VM_EXEC systemctl --user restart statbus-upgrade@statbus.service
-sleep 5
-UNIT_STATE=$(VM_EXEC systemctl --user is-active "$UNIT" 2>/dev/null | tr -d ' \r\n' || echo "?")
-if [ "$UNIT_STATE" != "active" ]; then
-    echo "✗ unit not active after restart onto HEAD binary (state=$UNIT_STATE)" >&2
-    VM_EXEC bash -c "systemctl --user status $UNIT --no-pager -l 2>&1 | head -20" >&2 || true
-    exit 1
-fi
+vm_restart_unit "$UNIT"
 # Let this boot's migrate settle before planting the synthetic. The real
 # v2026.05.2→HEAD delta IS applied here (the installed seed sits at the
 # INSTALL_VERSION's migration level, run-5 journal evidence) — budget

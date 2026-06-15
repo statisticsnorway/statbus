@@ -839,6 +839,59 @@ REMOTE
     echo "──────── end stage logs ────────"
 }
 
+# _dump_unit_diagnostics UNIT
+# Capture journal + status + sb-version for UNIT to stderr while the VM is
+# still alive. Called by vm_restart_unit on failure so diagnostics land in the
+# scenario log BEFORE set -e fires the EXIT trap and cleanup_vm reaps the VM.
+# Each sub-command is best-effort (|| true); never aborts the caller.
+_dump_unit_diagnostics() {
+    local unit="${1:-statbus-upgrade@statbus.service}"
+    echo "  ── unit diagnostics: $unit ──" >&2
+    ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
+        "sudo -u statbus XDG_RUNTIME_DIR=/run/user/$STATBUS_UID journalctl --user -xeu '$unit' --no-pager | tail -120" >&2 || true
+    ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
+        "sudo -u statbus XDG_RUNTIME_DIR=/run/user/$STATBUS_UID systemctl --user status '$unit' --no-pager" >&2 || true
+    ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
+        "sudo -i -u statbus -- bash -c 'cd ~/statbus && ./sb --version 2>/dev/null || true; git rev-parse HEAD 2>/dev/null || true'" >&2 || true
+    echo "  ── end unit diagnostics ──" >&2
+}
+
+# _vm_unit_op OP UNIT [WAIT_S]
+# Internal: issue `systemctl --user OP UNIT` on the VM, wait WAIT_S seconds,
+# then check is-active. On any failure (command non-zero OR unit not active)
+# dumps diagnostics via _dump_unit_diagnostics before returning non-zero.
+# Does NOT call exit — let the caller / set -e decide.
+_vm_unit_op() {
+    local op="$1"
+    local unit="${2:-statbus-upgrade@statbus.service}"
+    local wait_s="${3:-5}"
+
+    if ! VM_EXEC systemctl --user "$op" "$unit"; then
+        echo "  ✗ systemctl --user $op $unit returned non-zero — capturing diagnostics:" >&2
+        _dump_unit_diagnostics "$unit"
+        return 1
+    fi
+    sleep "$wait_s"
+    local state
+    state=$(VM_EXEC systemctl --user is-active "$unit" 2>/dev/null | tr -d ' \r\n' || echo "?")
+    if [ "$state" != "active" ]; then
+        echo "  ✗ unit $unit not active after $op (state=$state) — capturing diagnostics:" >&2
+        _dump_unit_diagnostics "$unit"
+        return 1
+    fi
+    return 0
+}
+
+# vm_restart_unit UNIT [WAIT_S]
+# Restart a stopped-or-running unit. Dumps diagnostics on failure before
+# returning non-zero so logs survive before cleanup_vm reaps the VM.
+vm_restart_unit() { _vm_unit_op restart "$@"; }
+
+# vm_start_unit UNIT [WAIT_S]
+# Start a stopped unit. Use instead of vm_restart_unit when the unit is
+# already stopped (avoids a redundant stop step). Same diagnostic behaviour.
+vm_start_unit() { _vm_unit_op start "$@"; }
+
 cleanup_vm() {
     local vm_name="$1"
     _check_name_safety "$vm_name" || return 1

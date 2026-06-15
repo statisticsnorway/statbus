@@ -212,15 +212,7 @@ echo "── recovery: removing C11 drop-in + release file ──"
 VM_EXEC bash -c "systemctl --user stop statbus-upgrade@statbus.service 2>/dev/null || true; rm -f $DROPIN_FILE; systemctl --user daemon-reload; rm -f $RELEASE_FILE"
 
 echo "── restarting upgrade-service without injection ──"
-VM_EXEC bash -c "systemctl --user start statbus-upgrade@statbus.service"
-sleep 5
-
-UNIT_STATE_AFTER=$(VM_EXEC systemctl --user is-active "statbus-upgrade@statbus.service" 2>/dev/null | tr -d ' \r\n' || echo "?")
-if [ "$UNIT_STATE_AFTER" != "active" ]; then
-    echo "✗ unit did not reach active after recovery (state=$UNIT_STATE_AFTER)" >&2
-    VM_EXEC bash -c "systemctl --user status statbus-upgrade@statbus.service --no-pager" >&2 || true
-    exit 1
-fi
+vm_start_unit "statbus-upgrade@statbus.service"
 echo "  ✓ unit active after recovery"
 
 # ─────────────────────────────────────────────────────────────────────────
