@@ -3,10 +3,11 @@ id: STATBUS-031
 title: >-
   rollback-watchdog-cover: restoreDatabase/rollback() has no effective
   WATCHDOG=1 source on any path — wrap the rollback chokepoint (012 pattern)
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - architect
 created_date: '2026-06-11 13:39'
-updated_date: '2026-06-12 13:15'
+updated_date: '2026-06-15 12:51'
 labels:
   - upgrade
   - recovery
@@ -41,7 +42,7 @@ ALSO CLEARED BY THE SWEEP (no work, recorded for honesty): every other step from
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 King ratifies the fix design in this description (ticker wrap at rollback(), shared restore timeout, comments, guard test)
+- [x] #1 King ratifies the fix design in this description (ticker wrap at rollback(), shared restore timeout, comments, guard test)
 - [ ] #2 RED observed on a real VM: restore stalled during startup recovery → watchdog kill on unfixed code (NRestarts delta ≥1 from post-stall baseline / Result=watchdog)
 - [ ] #3 Fix landed: always-ping ticker wraps rollback(); restore timeout raised to the shared constant; comments repaired; source-order guard test added
 - [ ] #4 GREEN on a real VM: same stall, NRestarts delta=0, rollback completes, data intact, flag absent
@@ -54,4 +55,6 @@ ALSO CLEARED BY THE SWEEP (no work, recorded for honesty): every other step from
 Design + sweep ledger deep-reference: STATBUS-036 (campaign roadmap, Track A1/A2). Self-sufficient. Status: 031's remaining work = the always-ping watchdog ticker wrapping rollback() (the 012 pattern); awaiting King ratification, then RED→fix→GREEN.
 
 COUPLING — REFRAMED + GUARD SHIPPED (King correction 2026-06-12, post-039-commit). The original note framed this as "without 031's guard, rune suffers a silent ~2.5-week data loss." The King refuted that premise: a wedged box locks browser users out via the app's upgrade guard, so rune accumulated ZERO domain writes in 18 days — an unusable installation, not data loss. The REAL justification for the identity guard (verified in-repo): the restore path's pickLatestBackup restored the LATEST backup, not the recovered upgrade's OWN snapshot, during the aside-rename window — a genuine silent-wrong-restore for any box that DOES have data, completing silently under install today. STATBUS-039 (commit 5eacd6305) SHIPPED the fix: identity-keyed restore (consume only flag.BackupPath / row.backup_path; empty→refuse, missing→fail-loud; pickLatestBackup deleted). The guard precondition is now MET. 031's watchdog ticker can land safely on top — with identity-keying in, every restore is the upgrade's own snapshot, so a watchdog-covered (completing) restore is correct, never a silent-loss amplifier. 031 is no longer blocked by the guard.
+
+KING RATIFIED + DISPATCHED 2026-06-15 ('that needs fixing' = AC#1). Foreman re-VERIFIED the gap is STILL OPEN against current master: runGatedWatchdogTicker is called ONLY at boot-migrate (service.go:1582) + applyPostSwap (service.go:4104); rollback() (service.go:4997) → restoreDatabase has NO ticker. So a large-DB rollback restore on the startup recovery path has zero heartbeat → killed mid-restore → loop. (039's identity-keyed restore is in — the guard precondition is MET, so the ticker can land safely.) Architect implementing the always-ping ticker wrap of rollback() + the shared restore timeout + the source-order guard test, then RED→fix→GREEN on a VM (operator drives). do-not-self-commit → foreman reviews+commits.
 <!-- SECTION:NOTES:END -->
