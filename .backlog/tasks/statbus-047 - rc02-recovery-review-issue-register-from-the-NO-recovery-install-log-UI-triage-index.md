@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-13 08:41'
-updated_date: '2026-06-15 10:42'
+updated_date: '2026-06-15 10:53'
 labels:
   - review
   - upgrade
@@ -117,4 +117,8 @@ Finding: the takeover quiesce stopRestartUpgradeUnit (install_upgrade.go:296-323
 STATBUS-052 (all Go, NO migration): thread projDir into the quiesce; confirm death via IsFlockHeld(projDir)==false with explicit outcomes (released → 'confirmed dead, proceeding'; still-held@timeout → loud actionable log); flag PID/Holder kept as diagnostic WHO. OBSERVER on still-held (foreman decision, North-Star: narrate+proceed, single downstream flock gate decides; no second hard-abort gate). Assigned architect, In Progress.
 
 REMAINING one-by-one triage: E (PGRST002 first-fail / admin-/ready-on-+6 — ties to STATBUS-032, in progress), F (retention tar blocks the install command), G (db-seed branch vestigial), H (DB connection races the completion write).
+
+Item D SHIPPED → STATBUS-052 (commit 3ea22ae27, master, pushed, full suite green). The takeover quiesce now CONFIRMS the SIGKILL'd upgrade is gone via the authoritative kernel flock (confirmUpgradeDeathViaFlock → IsFlockHeld==false) instead of inferring from the kill exit status + a silent MainPID-poll timeout. Explicit outcomes (released → 'confirmed dead, proceeding'; still-held@10s → loud WARNING naming the holder); OBSERVER (proceeds; recoveryRollback's flock gate is the serializer). Pure helper + unit test with a real Flock fixture. NO migration. The original brief's PID/proc suggestion was CORRECTED to the flock (codebase already removed pidAlive as a ghost-flag guard) — foreman-verified before affirming. Foreman byte-level reviewed + re-ran full suite + committed.
+
+REMAINING one-by-one triage: E (PGRST002 first-fail / admin-/ready-on-+6 — this IS STATBUS-032, already In Progress; handling = finish/confirm 032's +6 admin-port readiness probe, not a fresh diagnosis), F (retention tar blocks the install command), G (db-seed branch vestigial), H (DB connection races the completion write).
 <!-- SECTION:NOTES:END -->
