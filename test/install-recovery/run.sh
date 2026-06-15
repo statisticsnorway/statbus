@@ -34,11 +34,13 @@ _is_skip_default() { grep -q "$SKIP_DEFAULT_MARKER" "$1" 2>/dev/null; }
 # Parse flags (anything starting with --) and positional args.
 KEEP_VM=0
 LIST_ONLY=0
+PRINT_SELECTED=0
 SELECTORS=()
 while [ $# -gt 0 ]; do
     case "$1" in
         --keep-vm) KEEP_VM=1 ;;
         --list)    LIST_ONLY=1 ;;
+        --print-selected) PRINT_SELECTED=1 ;;
         --help|-h)
             cat <<EOF
 Usage: ./dev.sh test-install-recovery [flags] [selector]...
@@ -49,9 +51,13 @@ Selectors:
   bool-text      Run scenarios whose name contains the substring
 
 Flags:
-  --list         List available scenarios and exit
-  --keep-vm      Leave VMs running on failure (debug)
-  --help, -h     This message
+  --list             List available scenarios and exit
+  --print-selected   Print the base names the SAME selection would run (one per
+                     line) and exit WITHOUT running anything. Honours selectors
+                     and the known-RED exclusion — the CI matrix consumes this so
+                     scenario selection lives in exactly one place (here).
+  --keep-vm          Leave VMs running on failure (debug)
+  --help, -h         This message
 
 Examples:
   ./dev.sh test-install-recovery                  # all scenarios
@@ -96,7 +102,11 @@ if [ ${#SELECTORS[@]} -eq 0 ]; then
     # strict-green gating suite stays green (the stamp is gated on this branch).
     for s in "${ALL_SCENARIOS[@]}"; do
         if _is_skip_default "$s"; then
-            echo "  (excluding known-RED reproducer from default run: $(basename "$s" .sh))"
+            # Progress notice → stderr, NOT stdout. --print-selected emits the
+            # chosen names on stdout as DATA (the CI matrix captures it); a
+            # notice on stdout here would become bogus matrix entries → 2
+            # always-failing jobs → the gate could never go green.
+            echo "  (excluding known-RED reproducer from default run: $(basename "$s" .sh))" >&2
             continue
         fi
         SELECTED+=("$s")
@@ -129,6 +139,17 @@ else
         echo "Run --list to see available." >&2
         exit 2
     fi
+fi
+
+# --print-selected: emit the chosen base names (one per line) and stop BEFORE
+# provisioning anything. This is the CI matrix's source of truth — the discover
+# job JSON-encodes this list, so the same default-exclusion + selector matching
+# applies identically to a local run and to the parallel matrix.
+if [ "$PRINT_SELECTED" = "1" ]; then
+    for s in "${SELECTED[@]}"; do
+        basename "$s" .sh
+    done
+    exit 0
 fi
 
 mkdir -p "$HARNESS_ROOT/tmp"

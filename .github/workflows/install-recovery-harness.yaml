@@ -18,9 +18,24 @@ name: Install Recovery Harness
 # state. A throwaway VM per scenario is the only shape that matches the
 # install ladder's assumptions about its host. Cost: cx23 in fsn1/hel1 is
 # €0.0072/hr, billed at the 1-hour Hetzner minimum, so each scenario is
-# ~€0.0072 regardless of wall-clock. 17 scenarios × €0.0072 ≈ €0.13/run.
-# Typical wall-clock 15-25 min per scenario × 17 = ~5-7 hours sequential,
-# or ~30-45 min if we parallelise (matrix per scenario, future work).
+# ~€0.0072 regardless of wall-clock. ~28 scenarios × €0.0072 ≈ €0.20/run.
+#
+# ARCHITECTURE — matrix, one VM per scenario, parallel (STATBUS-025):
+# The suite USED to run every scenario serially in ONE job. At ~28 scenarios ×
+# ~13-20 min that exceeds GitHub's hard 360-min job ceiling → the job is
+# CANCELLED, and `cancelled` is never `success`, so the stable gate
+# (release.CheckWorkflowAtCommit) could NEVER go green even on an all-pass
+# suite. Now restructured into three job stages:
+#   1. discover — enumerate scenarios → JSON matrix + build the `sb` binary
+#      ONCE and upload it as an artifact (preserves the one-build-for-all
+#      property; every scenario pins to the exact tag-commit binary).
+#   2. run-scenario — a matrix job per scenario: download the binary, provision
+#      its OWN Hetzner VM, run the ONE scenario, upload its log. max-parallel
+#      bounds concurrency to the Hetzner quota; per-job timeout ~45 min.
+#   3. cleanup — a FINAL global statbus-recovery-* sweep (needs all matrix
+#      jobs, if: always()).
+# Wall-clock ≈ ceil(28 / max-parallel) × ~15-20 min ≈ ~60-80 min, comfortably
+# under the 6h ceiling, so the workflow can report a real success conclusion.
 #
 # Relationship to other CI workflows:
 #   - `images.yaml` — builds Docker images and the `sb` binary
@@ -63,24 +78,19 @@ permissions:
   packages: read
 
 jobs:
-  full-recovery-suite:
-    name: Provision Hetzner VMs + run full install-recovery scenario suite
+  discover:
+    name: Discover scenarios + build sb binary
     runs-on: ubuntu-24.04
-    # 6h ceiling for the full 17-scenario sequential run on cx23 with
-    # average ~20 min/scenario. Most scenarios complete in 12-18 min;
-    # the populated-DB + worker-contention scenarios (10, 13) and the
-    # systemd-unit-supervised scenarios (18, 02) can stretch closer to
-    # 30 min on slow hardware. The ceiling absorbs that without leaving
-    # an orphan-VM trail if a single scenario gets stuck.
-    timeout-minutes: 360
-
+    timeout-minutes: 20
+    outputs:
+      # JSON array of scenario base names (the matrix domain) and its length.
+      matrix: ${{ steps.scenarios.outputs.matrix }}
+      count: ${{ steps.scenarios.outputs.count }}
     steps:
       - name: Checkout
-        # fetch-depth: 0 — several scenarios `git checkout HEAD-LOCAL` on
-        # the VM after `git fetch --depth 1 origin <sha>`, but the
-        # harness's own host-side commit SHA computations (HARNESS_ROOT
-        # rev-parse, pending-migration counts in 3-postswap-between-migrations-kill) need the
-        # full history available locally. Cheap on the GHA runner.
+        # fetch-depth: 0 — build-sb stamps the LDFLAGS version from
+        # `git describe --tags` + the 40-char HEAD commit, so it needs tags
+        # and history. Cheap on the GHA runner.
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -92,21 +102,94 @@ jobs:
         with:
           go-version-file: cli/go.mod
 
-      - name: Build sb binary (linux/amd64)
-        # `./dev.sh build-sb linux/amd64` writes `sb-linux-amd64` to the
-        # repo root and stamps LDFLAGS version + 40-char commit so the
-        # binary's --version output matches the tag. Same primitive the
-        # release workflow uses; any change to the build recipe
-        # propagates here automatically. Every scenario uploads this
-        # binary as `/tmp/sb` on its VM via vm-bootstrap.sh's scp step.
+      - name: Build sb binary (linux/amd64) — ONCE for every scenario
+        # `./dev.sh build-sb linux/amd64` writes `sb-linux-amd64` to the repo
+        # root and stamps LDFLAGS version + 40-char commit so the binary's
+        # --version matches the tag. Built once here and shared with every
+        # matrix job via the artifact below — preserves the one-build-for-all
+        # property the serial job had, and pins all scenarios to this exact
+        # tag-commit binary.
         run: ./dev.sh build-sb linux/amd64
 
+      - name: Upload sb binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sb-linux-amd64
+          path: sb-linux-amd64
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Enumerate scenarios into the matrix
+        id: scenarios
+        # run.sh --print-selected is the SINGLE source of truth for scenario
+        # selection: it applies the same known-RED (HARNESS_SKIP_DEFAULT)
+        # exclusion and the same selector matching a local run uses, then
+        # prints the chosen base names without provisioning anything. We just
+        # JSON-encode that list. The `scenarios` dispatch input narrows the set
+        # (single-scenario re-runs); empty input (the tag-push gate) ⇒ the full
+        # default suite. A bad selector makes run.sh exit non-zero ⇒ this step
+        # fails loudly rather than silently producing an empty matrix.
+        env:
+          SCENARIOS_INPUT: ${{ github.event.inputs.scenarios }}
+        run: |
+          set -euo pipefail
+          selected="$(./dev.sh test-install-recovery --print-selected ${SCENARIOS_INPUT})"
+          matrix="$(printf '%s\n' "$selected" | jq -R . | jq -s -c 'map(select(length > 0))')"
+          count="$(printf '%s\n' "$selected" | grep -c . || true)"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "Discovered $count scenario(s) for the matrix:"
+          printf '%s\n' "$selected"
+
+  run-scenario:
+    name: ${{ matrix.scenario }}
+    needs: discover
+    if: ${{ needs.discover.outputs.count != '0' }}
+    runs-on: ubuntu-24.04
+    # Per-scenario ceiling. Most scenarios finish in 12-20 min; the
+    # populated-DB / worker-contention / systemd-supervised ones can stretch
+    # toward 30 min on slow hardware. 45 min absorbs that while still reaping a
+    # genuinely-stuck VM long before the 6h workflow ceiling.
+    timeout-minutes: 45
+    strategy:
+      # fail-fast: false is LOAD-BEARING — a sibling scenario failing must NOT
+      # cancel the others. Cancellation would (a) lose the other scenarios'
+      # verdicts and (b) skip their cleanup traps, orphaning live VMs.
+      fail-fast: false
+      # max-parallel bounds concurrent VMs to the Hetzner project quota.
+      # Quota headroom confirmed (STATBUS-025 AC#3): Hetzner Cloud has no hard
+      # per-project server limit and only the unrelated niue prod host is up, so
+      # 8 concurrent cx23 is safe (~€0.29/run). Each scenario bills the 1-hour
+      # Hetzner minimum regardless of wall-clock, so parallelism is ~free.
+      max-parallel: 8
+      matrix:
+        scenario: ${{ fromJson(needs.discover.outputs.matrix) }}
+    steps:
+      - name: Checkout
+        # fetch-depth: 0 — the scenario's host-side commit computations
+        # (HARNESS_ROOT rev-parse, pending-migration counts) need full history.
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download sb binary artifact
+        # The single binary built by `discover`. No Go toolchain here:
+        # vm-bootstrap.sh only rebuilds when STATBUS_SB_BINARY is unset/missing,
+        # so a present artifact means zero host-side `go` in matrix jobs.
+        uses: actions/download-artifact@v4
+        with:
+          name: sb-linux-amd64
+          path: .
+
+      - name: Restore execute bit on sb binary
+        # actions/upload-artifact does not preserve the POSIX execute bit.
+        run: chmod +x sb-linux-amd64
+
       - name: Install hcloud CLI
-        # Pinned binary from GitHub releases. Hetzner does NOT operate a
-        # signed apt repo for the hcloud CLI itself (verified 2026-05-20),
-        # so the canonical install on Linux is the GitHub release tarball.
-        # Pin the version so a runner upgrade doesn't change observed
-        # behaviour.
+        # Pinned binary from GitHub releases. Hetzner does NOT operate a signed
+        # apt repo for the hcloud CLI itself (verified 2026-05-20), so the
+        # canonical install on Linux is the GitHub release tarball. Pin the
+        # version so a runner upgrade doesn't change observed behaviour.
         env:
           HCLOUD_CLI_VERSION: "1.64.1"
         run: |
@@ -119,11 +202,11 @@ jobs:
           hcloud version
 
       - name: Install CI SSH private key
-        # The matching public key is registered in the Hetzner project as
-        # SSH key "statbus-ci" — vm-bootstrap.sh references it by name via
-        # the HCLOUD_SSH_KEY env (set in the run step's env block). The
-        # private key here is what the runner uses to SSH into provisioned
-        # VMs after Hetzner injects the public key at boot.
+        # The matching public key is registered in the Hetzner project as SSH
+        # key "statbus-ci" — vm-bootstrap.sh references it by name via the
+        # HCLOUD_SSH_KEY env (set in the run step). The private key here is what
+        # the runner uses to SSH into the provisioned VM after Hetzner injects
+        # the public key at boot.
         env:
           STATBUS_CI_SSH_PRIVATE_KEY: ${{ secrets.STATBUS_CI_SSH_PRIVATE_KEY }}
         run: |
@@ -135,85 +218,97 @@ jobs:
           ssh-keygen -lf ~/.ssh/id_ed25519 \
             | awk '{ print "SSH key fingerprint:", $2 }'
 
-      - name: Run full install-recovery scenario suite on Hetzner VMs
-        # `./dev.sh test-install-recovery [SELECTORS]` delegates to
-        # test/install-recovery/run.sh, which discovers every
-        # `scenarios/<phase>-<slug>.sh`, runs each on a fresh Hetzner cx23
-        # (named statbus-recovery-<phase>-<slug>), and writes per-scenario logs to
-        # tmp/install-recovery-<phase>-<slug>.log. The dispatcher writes
-        # tmp/install-recovery-test-passed-sha when ALL scenarios pass
-        # in a run with no selector — proves coverage when the workflow
-        # itself goes green.
-        #
-        # STATBUS_SB_BINARY tells vm-bootstrap.sh to use the CI-built
-        # binary above instead of rebuilding `sb` inside each VM —
-        # saves ~30s per scenario (~9 min across the full suite) and
-        # pins every scenario to exactly the artifact this tag commit
-        # produces.
-        #
-        # HCLOUD_SSH_KEY=statbus-ci selects the key VMs are provisioned
-        # with; pairs with the private key written above so the runner
-        # can SSH in once cloud-init finishes.
-        #
-        # The `scenarios` workflow-dispatch input lets an operator
-        # narrow the suite when debugging a single failure (e.g.
-        # `gh workflow run install-recovery-harness.yaml -f scenarios="3-postswap-watchdog-reconnect 3-postswap-migrate-killed-after-commit"`);
-        # the tag-push trigger always runs the full suite.
+      - name: Run scenario on its own Hetzner VM
+        # Runs exactly ONE scenario by its base-name selector. run.sh provisions
+        # a fresh cx23 named statbus-recovery-<scenario>, runs it, and writes
+        # tmp/install-recovery-<scenario>.log. STATBUS_SB_BINARY pins the VM to
+        # the artifact binary (no in-VM rebuild). HCLOUD_SSH_KEY=statbus-ci
+        # pairs with the private key written above.
         env:
           HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
           HCLOUD_SSH_KEY: statbus-ci
           STATBUS_SB_BINARY: ${{ github.workspace }}/sb-linux-amd64
+          # Passed via env (not interpolated into the shell) — the
+          # GitHub-recommended pattern; SCENARIO is a controlled in-repo
+          # filename, but this keeps the run block injection-free by construction.
+          SCENARIO: ${{ matrix.scenario }}
         run: |
           set -euo pipefail
-          if [ -n "${{ github.event.inputs.scenarios }}" ]; then
-            echo "Running selected scenarios: ${{ github.event.inputs.scenarios }}"
-            ./dev.sh test-install-recovery ${{ github.event.inputs.scenarios }}
-          else
-            echo "Running FULL install-recovery suite (every scenario)"
-            ./dev.sh test-install-recovery
-          fi
+          echo "Running scenario: $SCENARIO"
+          ./dev.sh test-install-recovery "$SCENARIO"
 
-      - name: Upload per-scenario logs
-        # Always runs (including on failure) so operators can grep the
-        # individual scenario logs without needing to scrape the
-        # consolidated workflow output. Each scenario's log is at
-        # tmp/install-recovery-<NN-name>.log per run.sh's log path
-        # convention; the artifact bundles them all.
+      - name: Upload scenario log
+        # Per-job artifact (unique name — upload-artifact@v4 forbids duplicate
+        # names across concurrent jobs). Globs both the scenario log and its
+        # vm-bootstrap log for this scenario.
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: install-recovery-logs
-          path: tmp/install-recovery-*.log
-          # 14 days is sufficient for an operator debugging an RC's
-          # cycle; the artifact retention is short-cycle, not archival.
+          name: install-recovery-log-${{ matrix.scenario }}
+          path: tmp/install-recovery-${{ matrix.scenario }}*.log
           retention-days: 14
           if-no-files-found: ignore
 
-      - name: Reap orphan VMs (defense in depth)
-        # Every scenario's `trap cleanup_vm "$VM_NAME" EXIT` normally
-        # deletes its VM on every exit path. This step is the safety
-        # net for the cases where the trap doesn't fire: GHA-side
-        # cancellation, runner-host SIGKILL, scenario script bug that
-        # exits before the trap is installed.
-        #
-        # Without this, leftover statbus-recovery-* VMs accrue
-        # €0.0072/hr each until someone notices. With 17 scenarios the
-        # exposure could be ~€0.12/hr × however-many-orphans.
-        #
-        # Scope: only servers whose names start with the harness prefix
-        # `statbus-recovery-`. Other VMs in the same Hetzner project
-        # (production hosts, niue, etc.) are NOT prefixed that way, so
-        # this filter is safe by construction.
-        #
-        # Best-effort: any failure here doesn't fail the workflow (the
-        # main test step already determined pass/fail). Operators can
-        # inspect leftovers via `hcloud server list` from a workstation.
+      - name: Reap THIS scenario's VM (defense in depth)
+        # THE STATBUS-025 TRAP: the per-job reap must delete ONLY this job's own
+        # VM. A global `statbus-recovery-*` sweep here would murder sibling
+        # matrix jobs' LIVE VMs mid-run. The scenario's own `trap cleanup_vm`
+        # already deletes on normal exit; this is the net for when the trap
+        # can't fire (GHA cancellation, runner SIGKILL, early script bug). The
+        # cross-job global sweep lives only in the final `cleanup` job.
+        # Best-effort: never fails the job (pass/fail was decided by the run).
         if: always()
         env:
           HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+          SCENARIO: ${{ matrix.scenario }}
         run: |
+          vm="statbus-recovery-${SCENARIO}"
           if ! command -v hcloud >/dev/null 2>&1; then
-            echo "hcloud CLI not installed (earlier step likely failed) — skipping reap"
+            echo "hcloud CLI not installed — skipping reap of $vm"
+            exit 0
+          fi
+          if hcloud server describe "$vm" >/dev/null 2>&1; then
+            echo "Reaping own VM: $vm"
+            hcloud server delete "$vm" || true
+          else
+            echo "Own VM $vm already gone (scenario trap cleaned up) — nothing to reap."
+          fi
+          exit 0
+
+  cleanup:
+    name: Reap orphan VMs (final global sweep)
+    needs: [discover, run-scenario]
+    # Runs after every matrix job regardless of their outcome (or if the matrix
+    # was skipped). This is the ONLY place the cross-job global
+    # statbus-recovery-* sweep is safe — no sibling VM is live once all matrix
+    # jobs have finished. Catches orphans from any job that died before its
+    # own per-job reap.
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Install hcloud + reap any leftover statbus-recovery-* VMs
+        # ONE fully best-effort step that ALWAYS exits 0 — this housekeeping job
+        # must never fail the workflow conclusion (the gate reads that
+        # conclusion; a flaky hcloud download here must not red an all-green
+        # scenario matrix). It also can't MASK a real failure: a failed scenario
+        # reds its OWN run-scenario job, which the workflow conclusion ANDs in.
+        #
+        # Scope: only servers whose names start with the harness prefix
+        # `statbus-recovery-`. Other VMs in the same Hetzner project (production
+        # hosts, niue, etc.) are NOT prefixed that way, so this filter is safe
+        # by construction.
+        env:
+          HCLOUD_CLI_VERSION: "1.64.1"
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+        run: |
+          set +e
+          curl -fsSL \
+            "https://github.com/hetznercloud/cli/releases/download/v${HCLOUD_CLI_VERSION}/hcloud-linux-amd64.tar.gz" \
+            -o /tmp/hcloud.tar.gz \
+            && sudo tar -C /usr/local/bin -xzf /tmp/hcloud.tar.gz hcloud
+          if ! command -v hcloud >/dev/null 2>&1; then
+            echo "hcloud CLI unavailable — skipping global reap (best-effort)."
             exit 0
           fi
           orphans=$(hcloud server list --output noheader --output columns=name 2>/dev/null \
@@ -224,5 +319,5 @@ jobs:
           fi
           echo "Orphan VMs found — reaping:"
           echo "$orphans"
-          echo "$orphans" | xargs -r -n1 hcloud server delete || true
+          echo "$orphans" | xargs -r -n1 hcloud server delete
           exit 0
