@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-13 08:41'
-updated_date: '2026-06-14 20:47'
+updated_date: '2026-06-15 10:04'
 labels:
   - review
   - upgrade
@@ -97,4 +97,12 @@ The 'prerelease mislabeling' half (original cause #2) was REVERSED with evidence
 The over-permissive prerelease channel (accepts ANY hyphenated CalVer tag) + two divergent classifiers (discovery any-dash vs installer -rc.-only) are a SEPARATE latent footgun → STATBUS-033, PULLED FORWARD as the next task (King 2026-06-14, 'deferral bites'); dispatched to engineer.
 
 REMAINING one-by-one triage with the King: C (two-pass install: A17 invariant + dual-row logging), D (quiesce infers PID liveness vs checks it), E (PGRST002 first-fail / admin-/ready-on-+6 — ties to STATBUS-032), F (retention tar blocks the install command), G (db-seed branch vestigial), H (DB connection races the completion write).
+
+Item C DIAGNOSED (architect, foreman-verified end-to-end incl. the C2 alarm-reversal) + HANDLED → STATBUS-051 (fix-all-principled). King decision 2026-06-15: FIX ALL, no half-measures, no forks routed back. Diagnosis writeup: tmp/architect-047C-two-pass-flag-lifecycle.md.
+
+Findings: C2 = the 'INVARIANT A17 violated' line is a STRUCTURALLY-GUARANTEED FALSE POSITIVE on every upgrade (fix-A moved removeUpgradeFlag service.go:4453 BEFORE the only runInstallFixup call site 4524; the bypass signal is set ONLY by the fixup child exec.go:91/96; acquireOrBypass install.go:182-190 = flag-absent→A17). C1 = two ROWS correct-by-design (187 healed + 196 recorded); the confusion is the nested fixup child printing the SAME bare 'StatBus Installation' banner — relabel, do NOT unify. C3 = logging asymmetry only (187 rich dump vs 196 terse). Precision correction: #196 is authored by pass-1's post-recovery continuation (install.go:1947), NOT the fixup child (bypass=true authors nothing).
+
+STATBUS-051 scope (all Go + doc, NO migration): (1) silence A17 honestly via the env-var signature, KEEP the hand-passed-flag misuse warning + fix the stale exec.go:82-83 comment; (2) RENAME the lying internal flag --inside-active-upgrade / STATBUS_INSIDE_ACTIVE_UPGRADE to a post-completion-fixup semantic (clean break, hidden/internal, no external contract); (3) self-identifying fixup banner; (4) symmetric completion logging (new 'completed-install' label) + two-row-model doc note. Assigned architect, In Progress.
+
+REMAINING one-by-one triage: D (quiesce infers PID liveness vs checks it), E (PGRST002 first-fail / admin-/ready-on-+6 — ties to STATBUS-032), F (retention tar blocks the install command), G (db-seed branch vestigial), H (DB connection races the completion write).
 <!-- SECTION:NOTES:END -->
