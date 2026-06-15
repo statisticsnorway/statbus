@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - architect
 created_date: '2026-06-11 13:39'
-updated_date: '2026-06-15 13:13'
+updated_date: '2026-06-15 13:31'
 labels:
   - upgrade
   - recovery
@@ -78,4 +78,6 @@ GREEN build = the full staged fix. → the always-ping ticker fires WATCHDOG=1 e
 Record the RED+GREEN run IDs/VM names in AC#2/#4/#5. (I can write the full scenario .sh if you'd rather I do it than the operator — say the word; I scoped it as operator/harness work to avoid burning paid-VM cycles debugging a blind 400-line clone.)
 
 AC#3 LANDED — commit a8279ed83 (pushed to master). Foreman byte-level review + independent re-verify all green: (1) shouldPingWatchdog(nil)==true confirmed at progress.go:305 — nil progress pings unconditionally; (2) the rollback ticker call is byte-identical to the proven boot-migrate site (same constants, nil progress, same ping closure) — the deferred-vs-inline cancel difference is CORRECT (rollback always os.Exits, so a defer can't leak the ticker the way it would in Run()'s main loop); (3) fail-loud preserved — dbRestoreErr -> degraded -> state='failed' at service.go:5231/5238, so a 30m-timed-out restore surfaces degraded, never a silent rolled_back; (4) inject imported + precedented (exec.go:20/1013); (5) go build + vet + full targeted cli suite (upgrade, inject, cmd, config) green, re-run independently. 5 files / +145 -6. REMAINING: AC#2/#4/#5 = the VM RED->GREEN proof. Architect writing the new scenario 4-rollback-restore-watchdog.sh (it owns the spec + minimizes paid-VM waste); then foreman creates the RED branch (master minus the ticker block) + operator drives RED (red branch) -> GREEN (master).
+
+PROOF PAIR PREPPED (foreman, 2026-06-15). Scenario 4-rollback-restore-watchdog.sh reviewed + COMMITTED to master d6cafcdf7 (GREEN SHA). RED branch cut: red/031-rollback-watchdog @ 79375b9f9 = GREEN minus exactly the rollback() ticker block (architect's specified delta), replaced with a DO-NOT-MERGE marker; compiles (go build OK); retains StallHere + RestoreDBTimeout + the scenario. Cut in an isolated git worktree (the backlog-MCP auto-commit was confirmed as the index-reset culprit the architect hit 3x — it git-add+commits .backlog and unstages agents' files; pathspec commits + worktree isolation are the defense). Scenario design verified sound: deterministic Resuming-latch trigger (resumePostSwap stamps Phase=Resuming -> death -> recoverFromFlag rolls back, vs the non-deterministic forward-fail path); fail-fast preconditions (backup_path present, Phase=Resuming observed); NRestarts-watch discriminator; baseline-pollution preempted by the 3600s RUN2 RestartSec. Architect flagged it needs VM knob-tuning (STALL_HOLD_S / RestartSec windows / INSTALL_VERSION delta). NEXT (AC#2/#4/#5): operator runs RED (--ref red/031-rollback-watchdog) -> expect NRestarts climb/fail; then GREEN (--ref master) -> expect survive/pass; both -f scenarios=4-rollback-restore-watchdog, SERIALIZED after the 025 smoke (cross-run cleanup-sweep collision). Tune + re-run if a knob trips instead of the watchdog signal.
 <!-- SECTION:NOTES:END -->
