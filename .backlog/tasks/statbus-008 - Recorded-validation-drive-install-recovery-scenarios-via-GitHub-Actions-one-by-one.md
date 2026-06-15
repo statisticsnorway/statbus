@@ -3,11 +3,11 @@ id: STATBUS-008
 title: >-
   Recorded validation: drive install-recovery scenarios via GitHub Actions (one
   by one)
-status: In Progress
+status: Done
 assignee:
   - operator
 created_date: '2026-06-07 15:41'
-updated_date: '2026-06-11 08:23'
+updated_date: '2026-06-15 12:07'
 labels:
   - install-recovery
   - validation
@@ -172,3 +172,9 @@ TRIAGE RESOLVED (architect deep-trace) — CORRECTS the prior note: the 9 failur
 
 Freshness (foreman, 2026-06-11): latest comprehensive run is 27306718138 = 24/28 PASS (supersedes the earlier-cited 27242482272 = 19/28). The 4 current reds are split into their own tasks: STATBUS-026 (checkout-kill restoreGitState), 027 (mid-tx-kill assertion), 028 (rollback-kill multi-kill), 029 (stage-a seed restore). All 4 are harness, 0 product. The 2 SKIP_DEFAULT 017 reproducers were not in the default suite (no coverage lost).
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+STATUS CORRECTED 2026-06-15 (King caught the stale In-Progress): → Done. All three ACs are met and were checked: #1 baseline 0-happy-install driven+recorded (PASS); #2 the three sharpened-claim scenarios driven+recorded (watchdog-reconnect GREEN, archivebackup-resume GREEN, migrate-killed-after-commit driven+recorded→deferred as STATBUS-013); #3 every run URL+verdict captured in the tally. The recorded-validation drive this task defined is COMPLETE. It then ran a broad overnight campaign (concluded "HOLDING for the King"); the remaining/comprehensive validation lives in OTHER tasks — STATBUS-025 (matrix split), 026/027/028/029 (the 4 comprehensive-run reds), 044 (battery), per the 036 roadmap — not here. NET from the campaign: 0 confirmed product recovery bugs; the sole product bug surfaced was STATBUS-017 (since addressed by the 039 arc). 'In Progress' was inaccurate (ACs met, nobody driving it). Closed.
+<!-- SECTION:FINAL_SUMMARY:END -->
