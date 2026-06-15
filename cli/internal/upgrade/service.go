@@ -4995,34 +4995,10 @@ func (d *Service) writeRollbackTerminal(ctx context.Context, id int, updateSQL, 
 // never finalised a snapshot (PreSwap): restoreDatabase then refuses to touch
 // the volume, which is exactly right — it was never mutated.
 func (d *Service) rollback(ctx context.Context, id int, version, previousVersion, reason string, backupPath string, progress *ProgressLog) {
-	// WATCHDOG COVER (STATBUS-031). rollback()'s body runs the two DB-size-scaled,
-	// heartbeat-SILENT steps an upgrade has: restoreDatabase's whole-volume rsync
-	// (exec.go, onAdvance=nil → output bypasses the heartbeat) and the rollback
-	// docker-up (5m, onAdvance=nil). On the STARTUP recovery path (recoverFromFlag →
-	// recoveryRollback → here) NO watchdog ticker is armed; on the execute path the
-	// applyPostSwap gated ticker closes its gate after applyPostSwapStallThreshold of
-	// rsync silence — so either way a >120s restore (Norway 32 GB ⇒ guaranteed) gets
-	// the unit SIGABRT'd mid-restore. Because the flag is removed only AFTER the
-	// restore completes, the next boot restores from scratch and is killed again — an
-	// indefinite restore loop on the recovery path itself. Wrap the whole body in the
-	// same always-ping bounded ticker the two migrate sites use (nil progress = ping
-	// unconditionally; the stall arg is inert under nil, passed for signature parity).
-	// The hang-bound is each inner command's own timeout (RestoreDBTimeout on the
-	// rsync, 5m on docker-up), NOT WatchdogSec — identical tradeoff to the boot-migrate
-	// cover: the 120s WatchdogSec was a FALSE kill of a slow-but-progressing restore.
-	// Safe to land now: STATBUS-039's identity-keyed restore means a completing
-	// (covered) restore is always THIS upgrade's own snapshot, never a silent-loss
-	// amplifier. rollback() always terminates via os.Exit (ABORT=1, terminal=75),
-	// which reaps this goroutine by process death — so the watchdog is fed right up to
-	// exit; the deferred cancel+join is insurance for any future early-return path
-	// (os.Exit bypasses defers; a `return` would not).
-	rollbackTickerCtx, rollbackTickerCancel := context.WithCancel(ctx)
-	rollbackTickerDone := make(chan struct{})
-	go runGatedWatchdogTicker(rollbackTickerCtx, nil,
-		applyPostSwapStallThreshold, applyPostSwapWatchdogCadence,
-		func() { sdNotify("WATCHDOG=1") }, rollbackTickerDone)
-	defer func() { rollbackTickerCancel(); <-rollbackTickerDone }()
-
+	// RED BUILD (STATBUS-031 proof): the always-ping watchdog ticker that wraps
+	// rollback()'s body on master is DELETED here on purpose. With no heartbeat
+	// source, the silent restoreDatabase rsync trips WatchdogSec mid-restore — the
+	// RED observation that scenario 4-rollback-restore-watchdog detects. DO NOT MERGE.
 	progress.Write("Upgrade failed — rolling back to previous version...")
 	progress.Write("Reason: %s", reason)
 
