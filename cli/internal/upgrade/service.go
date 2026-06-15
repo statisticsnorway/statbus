@@ -1464,45 +1464,41 @@ func (d *Service) Run(ctx context.Context) error {
 		return err
 	}
 
-	// Pre-flight: ensure DB is up. Idempotent (no-op when already up).
-	// Always run — covers both the normal-boot path and the post-swap
-	// recovery path where the prior process image exited 42 after stamping
-	// Phase=post_swap and intentionally stopped the DB (applyPostSwap step 2
-	// for the consistent backup). Without this pre-start, connect() would
-	// fail against the stopped DB and systemd would loop-restart us before
-	// recoverFromFlag → resumePostSwap → applyPostSwap ever runs.
+	// Pre-flight A — regenerate config UNCONDITIONALLY, before any docker
+	// compose call. The daemon's .env must match THIS binary's compose template
+	// before EnsureDBUp's `docker compose up -d db`, which config-load-parses the
+	// WHOLE project (docker-compose.yml `include:`s docker-compose.rest.yml) and
+	// dies on any unsatisfied `${VAR:?}` (e.g. REST_ADMIN_BIND_ADDRESS). The
+	// running binary can be AHEAD of the on-disk .env with NO flag present:
+	//   - post-swap exit-42 handoff (flag is post_swap — covered, but not only),
+	//   - a staged-binary unit restart BEFORE any upgrade flag exists (0-happy
+	//     Phase 3 restarts onto the pre-staged HEAD binary before fabricating the
+	//     flag in Phase 4 — STATBUS-058 first cut gated on the flag and so
+	//     SKIPPED the regen here, leaving the stale .env → EnsureDBUp died),
+	//   - a manual `systemctl restart` onto a newer pre-staged binary.
+	// So this is NOT gated on a flag — the binary-ahead-of-.env state exists
+	// without one. config generate is idempotent (a healthy boot rewrites
+	// identical files), DB-independent, and seconds (pre-READY, within
+	// TimeoutStartSec). Mirrors runCrashRecovery (cli/cmd/install_upgrade.go:164-170),
+	// which already regenerates unconditionally before its DB probe. Fatal on
+	// failure: EnsureDBUp would fail anyway, and a clear "regenerate config"
+	// error is the actionable signal.
 	if flag, _, ferr := ReadFlagFile(d.projDir); ferr == nil && flag != nil &&
 		flag.Holder == HolderService {
-		// A service-held upgrade flag at startup means we are booting INTO an
-		// in-flight (possibly crashed) upgrade. Once executeUpgrade passes its git
-		// checkout of the target, the working tree's compose template is the
-		// TARGET's, and EnsureDBUp's `docker compose up -d db` config-load-parses the
-		// WHOLE project (docker-compose.yml `include:`s docker-compose.rest.yml),
-		// failing fast on any unsatisfied `${VAR:?}`. So a target that adds a
-		// mandatory compose var (e.g. REST_ADMIN_BIND_ADDRESS) dies here against the
-		// pre-swap binary's stale .env, BEFORE recoverFromFlag → resumePostSwap /
-		// rollback ever runs. Regenerate now so .env ⊇ the target template's required
-		// keys. Mirrors runCrashRecovery (cli/cmd/install_upgrade.go:164-170), the
-		// operator path that already handles this class.
-		//
-		// Gated on ANY service-held flag, NOT just Phase==post_swap: the
-		// binary-swap-kill window leaves the TARGET binary on disk with a still-
-		// preswap flag (updateFlagPostSwap stamps post_swap only AFTER
-		// replaceBinaryOnDisk), so a post_swap-only gate would skip the regen and die
-		// the same way — then boot-loop instead of reaching recoverFromFlag's
-		// rollback. (A crash BEFORE the binary swap restarts the OLD binary, which
-		// lacks this code entirely; that narrow window is recovered by the operator's
-		// `./sb install` → runCrashRecovery.) A normal boot has no flag and skips.
-		// Fatal on failure: EnsureDBUp would fail anyway, and a clear "regenerate
-		// config" error is the actionable signal. config generate is seconds — safe
-		// pre-READY=1.
-		fmt.Printf("In-flight upgrade flag at startup (phase=%q) — regenerating config, then ensuring DB is up before connecting (upgrade id=%d, target=%s)\n",
+		fmt.Printf("Recovery boot (service-held flag phase=%q, upgrade id=%d, target=%s) — regenerating config before db up\n",
 			flag.Phase, flag.ID, flag.Label())
-		sb := filepath.Join(d.projDir, "sb")
-		if _, err := runCommandOutput(d.projDir, sb, "config", "generate"); err != nil {
-			return fmt.Errorf("in-flight-upgrade boot: regenerate config before db up: %w", err)
-		}
 	}
+	sbBin := filepath.Join(d.projDir, "sb")
+	if _, err := runCommandOutput(d.projDir, sbBin, "config", "generate"); err != nil {
+		return fmt.Errorf("pre-flight: regenerate config before db up: %w", err)
+	}
+
+	// Pre-flight B — ensure DB is up. Idempotent (no-op when already up).
+	// Covers the post-swap recovery path where the prior process image exited
+	// 42 after stamping Phase=post_swap and intentionally stopped the DB
+	// (applyPostSwap step 2 for the consistent backup). Without this pre-start,
+	// connect() would fail against the stopped DB and systemd would loop-restart
+	// us before recoverFromFlag → resumePostSwap → applyPostSwap ever runs.
 	if err := d.EnsureDBUp(ctx); err != nil {
 		return fmt.Errorf("ensure DB up: %w", err)
 	}
