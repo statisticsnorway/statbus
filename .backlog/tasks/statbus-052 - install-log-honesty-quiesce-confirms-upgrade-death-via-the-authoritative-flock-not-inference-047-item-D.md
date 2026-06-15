@@ -3,9 +3,11 @@ id: STATBUS-052
 title: >-
   install-log-honesty: quiesce confirms upgrade death via the authoritative
   flock, not inference [047 item D]
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - architect
 created_date: '2026-06-15 10:42'
+updated_date: '2026-06-15 10:42'
 labels:
   - upgrade
   - install
