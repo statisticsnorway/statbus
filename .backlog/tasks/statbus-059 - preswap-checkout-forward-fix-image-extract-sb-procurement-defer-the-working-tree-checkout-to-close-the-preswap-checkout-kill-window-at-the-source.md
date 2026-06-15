@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-15 22:10'
+updated_date: '2026-06-15 22:42'
 labels:
   - install-recovery
   - upgrade
@@ -62,8 +63,14 @@ Mitigation option (legacy lever): the operator entry, on a crashed-upgrade flag,
 - [ ] #1 A toolchain-free host (no Go/make) completes both an edge-commit and a tagged-release upgrade end-to-end (sb procured by image-extract)
 - [ ] #2 No git checkout of the target leaves the working tree at the target's compose while a pre-target binary remains systemd's restart target (verified by harness)
 - [ ] #3 The post-swap config-regen fix (STATBUS-058) is preserved and shown complementary to the deferred checkout
-- [ ] #4 King ruling D1 (procurement scope: unify vs narrower) recorded before implementation
+- [x] #4 King ruling D1 (procurement scope: unify vs narrower) recorded before implementation
 - [ ] #5 King ruling D2 (legacy v2026.05.2 wedge: accept vs mitigate via the legacy lever) recorded
 - [ ] #6 King ruling D3 (026 genuine-pre-fix recovery variant: yes/no) recorded
 - [ ] #7 If D2=mitigate: operator `./sb install` on a crashed preswap-checkout flag recovers with no custom commands, by re-staging the target binary from the image
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+D1 RULING (King, 2026-06-15): YES — unify ALL binary procurement to image-extract. Mechanism = mirror the SEED (verified seed.go:160 uses plain `docker create` + `docker cp`, env-free, NO compose file): tagged → docker create statbus-sb:<commit> + docker cp /sb; edge/no-image → docker build -f cli/Dockerfile.sb (builds in a Go container, no host toolchain) then cp /sb. Env-free + toolchain-free. King's bootstrap ordering: env-free binary acquisition → binary runs `config generate` → regular env-requiring compose. NOTE: foreman recommended raw-docker (seed precedent) over a new compose file; flagged to King, awaiting only an objection (default = seed way). This also closes the edge-on-bare-box gap (the install.sh legacy-lever residual).
+<!-- SECTION:NOTES:END -->
