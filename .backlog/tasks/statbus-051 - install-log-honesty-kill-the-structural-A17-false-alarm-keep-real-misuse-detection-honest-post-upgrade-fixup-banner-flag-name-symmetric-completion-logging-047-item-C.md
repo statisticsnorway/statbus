@@ -8,6 +8,7 @@ status: In Progress
 assignee:
   - architect
 created_date: '2026-06-15 10:04'
+updated_date: '2026-06-15 10:22'
 labels:
   - upgrade
   - install
@@ -52,9 +53,27 @@ That reintroduces rune-stuck-fix-A's bug (the fixup restarts docker/db, RST-ing 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A17 false-alarm no longer fires for the post-upgrade fixup: env-var-recognized fixup child logs a calm EXPECTED line (no 'INVARIANT … violated'); a hand-passed bare internal flag still emits the actionable misuse warning; stale exec.go:82-83 comment corrected
-- [ ] #2 The internal --inside-active-upgrade flag + STATBUS_INSIDE_ACTIVE_UPGRADE env var renamed to an honest post-completion-fixup semantic across ALL call sites + guard tests (clean break, no shim; no external contract since the flag is hidden/internal)
-- [ ] #3 The fixup child's install banner is self-identifying (distinct from the bare 'StatBus Installation'); the two passes are NOT unified
-- [ ] #4 Install-recorded completion row emits a structured logUpgradeRow dump under a new 'completed-install' label, symmetric with the recovery-completed row; the two-row model is documented in doc/upgrade-timeline.md
+- [x] #1 A17 false-alarm no longer fires for the post-upgrade fixup: env-var-recognized fixup child logs a calm EXPECTED line (no 'INVARIANT … violated'); a hand-passed bare internal flag still emits the actionable misuse warning; stale exec.go:82-83 comment corrected
+- [x] #2 The internal --inside-active-upgrade flag + STATBUS_INSIDE_ACTIVE_UPGRADE env var renamed to an honest post-completion-fixup semantic across ALL call sites + guard tests (clean break, no shim; no external contract since the flag is hidden/internal)
+- [x] #3 The fixup child's install banner is self-identifying (distinct from the bare 'StatBus Installation'); the two passes are NOT unified
+- [x] #4 Install-recorded completion row emits a structured logUpgradeRow dump under a new 'completed-install' label, symmetric with the recovery-completed row; the two-row model is documented in doc/upgrade-timeline.md
 - [ ] #5 NO migration; go vet/build/test green (incl. updated guard tests); foreman byte-level reviewed + committed (do-not-self-commit)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+ARCHITECT IMPLEMENTATION COMPLETE (2026-06-15, Opus 4.8) — staged, NOT committed (foreman byte-level review + commit; do-not-self-commit). 9 files staged, go build/vet/test ALL GREEN (full cli suite: 0 FAIL across 10 packages; cmd + internal/upgrade re-run clean).
+
+NAMES CHOSEN (honest post-completion semantic): --inside-active-upgrade → --post-upgrade-fixup ; STATBUS_INSIDE_ACTIVE_UPGRADE → STATBUS_POST_UPGRADE_FIXUP ; insideActiveUpgrade → postUpgradeFixup. Clean break, no shim. ZERO residual old tokens anywhere in the repo (whole-repo rg sweep).
+
+PART 1 (A17): acquireOrBypass (install.go) now three-way — flag present → bypass honored; flag absent + STATBUS_POST_UPGRADE_FIXUP=1 → calm EXPECTED line (no INVARIANT); flag absent + NO env signature → A17 kept, reworded as genuine hand-passed-flag misuse. Registry ViolationShape (install.go) narrowed to match. Stale exec.go runInstallFixup comment rewritten to post-fix-A truth. applyPostSwap comment (service.go) corrected to name the bypass LOAD-BEARING (suppresses dup row + DB probe + log), not just audit. DECISION (no fork): kept A17 as the named invariant narrowed to misuse-only (no test pinned A17; preserves the named-audit discipline while killing the structural false positive).
+
+PART 2 (rename): all call sites + guard tests + comments across install.go, install_test.go, unit_reconcile_test.go, inject.go, exec.go, service.go + 2 docs + 1 install-recovery scenario. Test func TestRunInstallService_GatesNowOnInsideActiveUpgrade → ...OnPostUpgradeFixup (+ its cross-ref). Guard tests assert the renamed gate strings and pass.
+
+PART 3 (banner): runInstall prints 'StatBus Post-Upgrade Install Fixup' when bypass, else 'StatBus Installation'. bypass hoisted to top of runInstall (computed once; banner + mutex section agree). Passes NOT unified.
+
+PART 4 (symmetric logging): completeInstallUpgradeRow (install.go) Exec→QueryRow with RETURNING to_jsonb(upgrade.*); logs `upgrade row [completed-install] <json>` (same format as logUpgradeRow → journald grep contract holds). New label LabelCompletedInstall='completed-install' (service.go). ErrNoRows (ON CONFLICT no-op when already completed) handled as benign idempotent re-run (added "errors" import). doc/upgrade-timeline.md: FIXED a stale step-13/14 ORDERING (it had fixup BEFORE mark-completed/removeUpgradeFlag — same pre-fix-A falsehood as the code comments) + added the two-row-model subsection + updated the bypass decision-tree and signals section.
+
+NO migration. claude-team.zip (untracked) is NOT mine — left alone. Diff: git -C /Users/jhf/ssb/statbus diff --staged
+<!-- SECTION:NOTES:END -->
