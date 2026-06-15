@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-15 23:44'
+updated_date: '2026-06-15 23:45'
 labels:
   - install-recovery
   - harness
@@ -28,3 +29,9 @@ Scope: add a harness path that, for at least the legacy-recovery proof (2-preswa
 
 NOT blocking rc.03. f29e03a60 (install.sh edge image-extract) is reviewed code; this is end-to-end proof of it.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+ID DISAMBIGUATION: this STATBUS-060 is a LATER REUSE of a freed id. Commits and STATBUS-059 dated 2026-06-15 that reference "STATBUS-060" mean the FORWARD-FIX (image-extract procurement + defer-checkout) — that work is DONE and its design/impl live in STATBUS-059 (commits 09ac1f7e4 / 2f52f3b7f / bb4848dd4). This 060 is the unrelated install.sh-end-to-end harness-fidelity follow-on described above.
+<!-- SECTION:NOTES:END -->
