@@ -1472,9 +1472,36 @@ func (d *Service) Run(ctx context.Context) error {
 	// fail against the stopped DB and systemd would loop-restart us before
 	// recoverFromFlag → resumePostSwap → applyPostSwap ever runs.
 	if flag, _, ferr := ReadFlagFile(d.projDir); ferr == nil && flag != nil &&
-		flag.Holder == HolderService && flag.Phase == FlagPhasePostSwap {
-		fmt.Printf("Post-swap flag detected at startup — ensuring DB is up before connecting (upgrade id=%d, target=%s)\n",
-			flag.ID, flag.Label())
+		flag.Holder == HolderService {
+		// A service-held upgrade flag at startup means we are booting INTO an
+		// in-flight (possibly crashed) upgrade. Once executeUpgrade passes its git
+		// checkout of the target, the working tree's compose template is the
+		// TARGET's, and EnsureDBUp's `docker compose up -d db` config-load-parses the
+		// WHOLE project (docker-compose.yml `include:`s docker-compose.rest.yml),
+		// failing fast on any unsatisfied `${VAR:?}`. So a target that adds a
+		// mandatory compose var (e.g. REST_ADMIN_BIND_ADDRESS) dies here against the
+		// pre-swap binary's stale .env, BEFORE recoverFromFlag → resumePostSwap /
+		// rollback ever runs. Regenerate now so .env ⊇ the target template's required
+		// keys. Mirrors runCrashRecovery (cli/cmd/install_upgrade.go:164-170), the
+		// operator path that already handles this class.
+		//
+		// Gated on ANY service-held flag, NOT just Phase==post_swap: the
+		// binary-swap-kill window leaves the TARGET binary on disk with a still-
+		// preswap flag (updateFlagPostSwap stamps post_swap only AFTER
+		// replaceBinaryOnDisk), so a post_swap-only gate would skip the regen and die
+		// the same way — then boot-loop instead of reaching recoverFromFlag's
+		// rollback. (A crash BEFORE the binary swap restarts the OLD binary, which
+		// lacks this code entirely; that narrow window is recovered by the operator's
+		// `./sb install` → runCrashRecovery.) A normal boot has no flag and skips.
+		// Fatal on failure: EnsureDBUp would fail anyway, and a clear "regenerate
+		// config" error is the actionable signal. config generate is seconds — safe
+		// pre-READY=1.
+		fmt.Printf("In-flight upgrade flag at startup (phase=%q) — regenerating config, then ensuring DB is up before connecting (upgrade id=%d, target=%s)\n",
+			flag.Phase, flag.ID, flag.Label())
+		sb := filepath.Join(d.projDir, "sb")
+		if _, err := runCommandOutput(d.projDir, sb, "config", "generate"); err != nil {
+			return fmt.Errorf("in-flight-upgrade boot: regenerate config before db up: %w", err)
+		}
 	}
 	if err := d.EnsureDBUp(ctx); err != nil {
 		return fmt.Errorf("ensure DB up: %w", err)
