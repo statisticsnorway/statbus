@@ -153,10 +153,12 @@ const applyPostSwapWatchdogCadence = 30 * time.Second
 // applyPostSwap site protection for a step that normally no-ops.
 const MigrateUpTimeout = 30 * time.Minute
 
-// runGatedWatchdogTicker is applyPostSwap's SINGLE watchdog goroutine (plan
-// upgrade-resume-structural-whole.md piece #3). It fires ping() every cadence
-// IFF progress.shouldPingWatchdog(stall) is true, and stops when ctx is done,
-// closing doneCh so the caller can join.
+// runGatedWatchdogTicker is the shared bounded watchdog goroutine (plan
+// upgrade-resume-structural-whole.md piece #3). Three callers: applyPostSwap
+// (GATED — real progress, gate closes on stall), and as an ALWAYS-PING cover
+// (nil progress) the boot-migrate site in Run() and rollback() (STATBUS-031). It
+// fires ping() every cadence IFF progress.shouldPingWatchdog(stall) is true, and
+// stops when ctx is done, closing doneCh so the caller can join.
 //
 // This collapses the prior TWO unconditional tickers (the reconnect-scoped one
 // and the applyPostSwap-remainder one, both blind 30 s timers) into one

@@ -660,10 +660,21 @@ func copyRegularFile(src, dst string) error {
 	return out.Close()
 }
 
+// RestoreDBTimeout bounds the rollback DB-volume rsync restore. Raised from a
+// site-local 10m to a shared 30m generous constant (the MigrateUpTimeout=30m
+// philosophy): a Norway-scale (32 GB) restore can legitimately exceed 10m, and a
+// false timeout would abort a HEALTHY rollback. rollback()'s always-ping watchdog
+// cover (STATBUS-031) deliberately suppresses the 120s WatchdogSec false-kill of a
+// slow-but-progressing restore, so THIS ceiling is the real bound on a HUNG rsync.
+const RestoreDBTimeout = 30 * time.Minute
+
 // restoreDatabase rsync-restores the DB volume from THIS upgrade's own
 // snapshot — identity-keyed, never selected by recency (STATBUS-039 / -031,
 // the transactional model: "a stale backup is another upgrade's backup —
-// identity, not age").
+// identity, not age"). Runs inside rollback()'s always-ping watchdog cover
+// (STATBUS-031): the whole-volume rsync below is heartbeat-SILENT (onAdvance=nil,
+// output to progress.File()), so without that cover a >120s restore trips
+// WatchdogSec mid-restore.
 //
 // backupPath is the snapshot path the upgrade being recovered RECORDED for
 // itself: flag.BackupPath (stamped by updateFlagPostSwap after the snapshot
@@ -702,7 +713,17 @@ func (d *Service) restoreDatabase(progress *ProgressLog, backupPath string) erro
 	volumeName := d.dbVolumeName()
 
 	progress.Write("Restoring database from backup at %s...", backupDir)
-	if err := runCommandToLog(d.projDir, 10*time.Minute, progress.File(), "rsync", nil,
+
+	// Harness-only stall site (STATBUS-031 RED proof): parks the restore here,
+	// SILENT (no progress.Write, no WATCHDOG=1 from this goroutine), simulating a
+	// slow Norway-scale rsync. On UNFIXED code (no ticker wrapping rollback()) the
+	// silence exceeds WatchdogSec → SIGABRT mid-restore (the RED). With the
+	// STATBUS-031 always-ping ticker, the cover keeps WATCHDOG=1 firing through the
+	// stall (the GREEN). Released by removing STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE.
+	// No-op in production. Drives scenario 4-rollback-restore-watchdog.
+	inject.StallHere("restore-db-stall-watchdog")
+
+	if err := runCommandToLog(d.projDir, RestoreDBTimeout, progress.File(), "rsync", nil,
 		"docker", "run", "--rm",
 		"-v", backupDir+":/source:ro",
 		"-v", volumeName+":/dest",

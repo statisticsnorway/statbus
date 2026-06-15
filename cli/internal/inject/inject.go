@@ -236,6 +236,18 @@ var classes = map[string]Kind{
 	// at baseline.
 	"archive-backup-stall-active-phase-watchdog": KindStall,
 
+	// STATBUS-031 — rollback()'s restoreDatabase rsync is heartbeat-SILENT
+	// (onAdvance=nil, output to progress.File()). On the STARTUP recovery path
+	// (recoverFromFlag → recoveryRollback → rollback → restoreDatabase) NO watchdog
+	// ticker is armed, so a >WatchdogSec restore SIGABRTs mid-restore → the flag
+	// survives → next boot restores from scratch → indefinite loop. Scenario
+	// 4-rollback-restore-watchdog stalls inside restoreDatabase for
+	// STALL_HOLD_S > WatchdogSec=120s on a startup-recovery rollback. UNFIXED:
+	// NRestarts climbs, the rollback never completes (RED). With the always-ping
+	// ticker wrapping rollback() (STATBUS-031): NRestarts stays at baseline, the
+	// rollback completes, the flag is removed (GREEN).
+	"restore-db-stall-watchdog": KindStall,
+
 	// Concurrent-install detection (probe 2 — live-upgrade refusal).
 	"concurrent-install-attempted-during-migrate-up": KindStall,
 
