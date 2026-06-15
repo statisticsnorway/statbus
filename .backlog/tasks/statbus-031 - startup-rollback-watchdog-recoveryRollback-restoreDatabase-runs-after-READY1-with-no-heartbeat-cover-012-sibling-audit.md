@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - architect
 created_date: '2026-06-11 13:39'
-updated_date: '2026-06-15 12:51'
+updated_date: '2026-06-15 13:02'
 labels:
   - upgrade
   - recovery
@@ -57,4 +57,23 @@ Design + sweep ledger deep-reference: STATBUS-036 (campaign roadmap, Track A1/A2
 COUPLING — REFRAMED + GUARD SHIPPED (King correction 2026-06-12, post-039-commit). The original note framed this as "without 031's guard, rune suffers a silent ~2.5-week data loss." The King refuted that premise: a wedged box locks browser users out via the app's upgrade guard, so rune accumulated ZERO domain writes in 18 days — an unusable installation, not data loss. The REAL justification for the identity guard (verified in-repo): the restore path's pickLatestBackup restored the LATEST backup, not the recovered upgrade's OWN snapshot, during the aside-rename window — a genuine silent-wrong-restore for any box that DOES have data, completing silently under install today. STATBUS-039 (commit 5eacd6305) SHIPPED the fix: identity-keyed restore (consume only flag.BackupPath / row.backup_path; empty→refuse, missing→fail-loud; pickLatestBackup deleted). The guard precondition is now MET. 031's watchdog ticker can land safely on top — with identity-keying in, every restore is the upgrade's own snapshot, so a watchdog-covered (completing) restore is correct, never a silent-loss amplifier. 031 is no longer blocked by the guard.
 
 KING RATIFIED + DISPATCHED 2026-06-15 ('that needs fixing' = AC#1). Foreman re-VERIFIED the gap is STILL OPEN against current master: runGatedWatchdogTicker is called ONLY at boot-migrate (service.go:1582) + applyPostSwap (service.go:4104); rollback() (service.go:4997) → restoreDatabase has NO ticker. So a large-DB rollback restore on the startup recovery path has zero heartbeat → killed mid-restore → loop. (039's identity-keyed restore is in — the guard precondition is MET, so the ticker can land safely.) Architect implementing the always-ping ticker wrap of rollback() + the shared restore timeout + the source-order guard test, then RED→fix→GREEN on a VM (operator drives). do-not-self-commit → foreman reviews+commits.
+
+ARCHITECT IMPLEMENTATION (2026-06-15, Opus 4.8) — staged, NOT committed (foreman byte-level review+commit). go build/vet green; affected pkgs (internal/upgrade + internal/inject) test green incl. the new guard; full cli suite running. 5 files staged: service.go, exec.go, watchdog.go, inject.go, + new rollback_watchdog_cover_test.go. (NB two OTHER files show modified-but-unstaged — .github/workflows/install-recovery-harness.yaml + test/install-recovery/run.sh — NOT mine; left untouched.)
+
+CODE (AC#3):
+1. rollback() (service.go) body wrapped in the always-ping watchdog ticker — `go runGatedWatchdogTicker(rollbackTickerCtx, nil, applyPostSwapStallThreshold, applyPostSwapWatchdogCadence, sdNotify-WATCHDOG, done)` armed at the TOP, deferred cancel+join. nil progress = ping unconditionally (the proven 012 primitive); covers restoreDatabase's silent rsync AND the silent rollback-docker-up, for ALL FOUR startup entries that funnel through rollback(). Note: rollback() always exits via os.Exit (ABORT=1 / terminal=75) so the goroutine is reaped by process death (watchdog fed right to exit); the defer is insurance for any future early-return path.
+2. restoreDatabase rsync timeout 10m → shared `RestoreDBTimeout = 30m` (exec.go), MigrateUpTimeout philosophy. The always-ping cover suppresses the 120s WatchdogSec false-kill, so this ceiling is the real hang-bound.
+3. Comments repaired: restoreDatabase doc (now notes the rollback() cover); runGatedWatchdogTicker doc (was 'applyPostSwap's SINGLE' → now names all 3 callers: boot-migrate, applyPostSwap, rollback).
+4. Source-order guard test: TestRollbackWatchdogCover_SourceOrder (rollback_watchdog_cover_test.go) — asserts the nil-progress ticker arms BEFORE restoreDatabase + the docker-up, cancel+join present, and restoreDatabase uses the shared RestoreDBTimeout (no 10m literal).
+5. RED injection point: `inject.StallHere("restore-db-stall-watchdog")` added inside restoreDatabase (before the rsync); registered KindStall in inject.go (Validate-known). No-op in production.
+
+NO migration.
+
+RED→GREEN VM SCENARIO SPEC (012 protocol) — for the operator to implement/run, foreman to sequence (~2 VM-hrs):
+
+NEW scenario `test/install-recovery/scenarios/4-rollback-restore-watchdog.sh`. Clone the SHAPE of 3-postswap-archivebackup-watchdog.sh (the silent-step → WatchdogSec → NRestarts assertion harness) but with the rollback-path TRIGGER of 3-postswap-resume-died-rollback.sh (drive a STARTUP-recovery rollback: a flag whose ground-truth verdict is POSITIVELY-behind → recoverFromFlag → recoveryRollback → rollback → restoreDatabase — STATBUS-039 at-target/unverifiable verdicts retry FORWARD and never reach rollback, so the resume-died-rollback driver is the one that lands on restoreDatabase).
+ENVELOPE (systemd drop-in env on the upgrade unit): STATBUS_INJECT_AT=restore-db-stall-watchdog ; STATBUS_INJECT_STALL_UNTIL_REMOVED_FILE=<vm path> ; STALL_HOLD_S=180 (> WatchdogSec=120). Populate demo data first so the data-intact assertion has counts. Hold the stall, observe, then remove the release file → restore proceeds → rollback completes.
+RED build = the staged fix WITH the rollback() ticker block reverted (delete only the 4 lines: rollbackTickerCtx/Done decls + `go runGatedWatchdogTicker(...)` + the `defer func(){cancel(); <-done}()`), KEEPING the StallHere + registry + RestoreDBTimeout. → restoreDatabase parks SILENT 180s on the startup path with no ticker → WatchdogSec fires → SIGABRT → NRestarts delta ≥1 / Result=watchdog → next boot re-restores from scratch → loop. Assert: NRestarts delta ≥1, rollback NOT completed, flag still present.
+GREEN build = the full staged fix. → the always-ping ticker fires WATCHDOG=1 every cadence through the 180s stall → unit stays active → remove release file → restore completes → assert NRestarts delta=0, rollback row terminal (rolled_back/failed per outcome), flag ABSENT, data counts intact.
+Record the RED+GREEN run IDs/VM names in AC#2/#4/#5. (I can write the full scenario .sh if you'd rather I do it than the operator — say the word; I scoped it as operator/harness work to avoid burning paid-VM cycles debugging a blind 400-line clone.)
 <!-- SECTION:NOTES:END -->
