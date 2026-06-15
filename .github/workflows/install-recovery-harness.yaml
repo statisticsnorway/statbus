@@ -178,11 +178,15 @@ jobs:
       # verdicts and (b) skip their cleanup traps, orphaning live VMs.
       fail-fast: false
       # max-parallel bounds concurrent VMs to the Hetzner project quota.
-      # Quota headroom confirmed (STATBUS-025 AC#3): Hetzner Cloud has no hard
-      # per-project server limit and only the unrelated niue prod host is up, so
-      # 8 concurrent cx23 is safe (~€0.29/run). Each scenario bills the 1-hour
-      # Hetzner minimum regardless of wall-clock, so parallelism is ~free.
-      max-parallel: 8
+      # CORRECTION (2026-06-15, run 27583439253): the prior "no hard per-project
+      # server limit" claim (STATBUS-025 AC#3) was FALSE. 8 concurrent cx23 + the
+      # niue prod host hit BOTH "server limit reached" AND "Primary IP limit
+      # exceeded" (resource_limit_exceeded) — all 28 scenarios failed at VM
+      # creation (vm-bootstrap.sh:402), not in the test. Each VM consumes a server
+      # slot + a primary IPv4/IPv6. Lowered to 3 as a stopgap; the REAL fix is
+      # raising the Hetzner project's server + primary-IP quota (account action),
+      # then this can go back up. STATBUS-025 AC#3 reopened.
+      max-parallel: 3
       matrix:
         scenario: ${{ fromJson(needs.discover.outputs.matrix) }}
     steps:
