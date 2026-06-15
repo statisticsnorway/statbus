@@ -504,3 +504,161 @@ remove_release_file_in_vm() {
     local release_file="$2"
     VM_EXEC bash -c "rm -f '$release_file' 2>&1 || true"
 }
+
+# ─────────────────────────────────────────────────────────────────────────
+# write_preswap_wedge <vm_name> <commit_sha>
+#
+# Synthesises the crash state that v2026.05.2's executeUpgrade left behind
+# when the process was killed AFTER `git checkout <commitSHA>` but BEFORE
+# the binary swap. This is the pre-STATBUS-060 preswap-checkout window:
+#
+#   1. public.upgrade row in state='in_progress' (executeUpgrade started).
+#   2. All services stopped (docker compose stop was called for backup).
+#   3. ~/statbus-backups/pre-upgrade-active/ dir created (managed backup dir;
+#      backup_path="" in the PreSwap flag so restoreDatabase is a no-op —
+#      the minimal empty dir satisfies assert_no_orphan_backup's exclusion of
+#      managed dirs, mirrors the product's backupActiveName naming).
+#   4. `git branch -f pre-upgrade HEAD` pointing at OLD_COMMIT (mirrors
+#      executeUpgrade:3256 "Pin the pre-upgrade commit … BEFORE destructive steps").
+#   5. `git fetch` + `git checkout <commitSHA>` done (old v2026.05.2 behavior,
+#      removed by STATBUS-060 — working tree IS at the target commit, not source).
+#   6. Flag file at ~/statbus/tmp/upgrade-in-progress.json with
+#      holder="service", phase="" (PreSwap / omitempty), backup_path absent.
+#   7. ./sb binary UNCHANGED (still the INSTALL_VERSION binary — the binary
+#      swap never happened).
+#
+# CALLER ORDERING IS LOAD-BEARING:
+#   Call fabricate_scheduled_upgrade_row BEFORE this helper (DB must be up
+#   to transition the row to in_progress). The helper stops the DB as
+#   step 2, so no SQL is possible after it returns.
+#
+# Returns 0 on success; non-zero on failure.
+# ─────────────────────────────────────────────────────────────────────────
+write_preswap_wedge() {
+    local vm_name="$1"
+    local commit_sha="$2"   # target commit SHA (HEAD_LOCAL)
+
+    echo "  [wedge] writing v2026.05.2-style preswap crash state on $vm_name"
+    echo "          target commit: $(echo "$commit_sha" | cut -c1-8) (working tree WILL be at target — old checkout behavior)"
+
+    # ── step 1: transition upgrade row to in_progress and capture id ──
+    # DB is still up at this point (fabricate_scheduled_upgrade_row was called
+    # by the caller before invoking this helper). UPDATE → RETURNING id.
+    # CLAUDE.md: never echo SQL over SSH — write to a local tmp file, scp to VM.
+    local sql_file row_id sql_result
+    sql_file=$(mktemp /tmp/harness-wedge-inprogress-XXXXXX.sql)
+    # Single-line SQL avoids newline/quoting collapse in printf; psql -t -A gives tuples-only.
+    printf "UPDATE public.upgrade SET state = 'in_progress'::public.upgrade_state, started_at = now() WHERE commit_sha = '%s' AND state = 'scheduled'::public.upgrade_state RETURNING id;\n" \
+        "$commit_sha" > "$sql_file"
+    chmod 644 "$sql_file"
+    scp -O "${SSH_OPTS[@]}" "$sql_file" root@"$VM_IP":/tmp/harness-wedge-inprogress.sql >/dev/null
+    rm -f "$sql_file"
+    local sql_rc=0
+    sql_result=$(ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
+        "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A < /tmp/harness-wedge-inprogress.sql' && rm -f /tmp/harness-wedge-inprogress.sql" \
+        2>&1) || sql_rc=$?
+    if [ "$sql_rc" -ne 0 ]; then
+        echo "  ✗ write_preswap_wedge: UPDATE to in_progress failed (rc=$sql_rc):" >&2
+        echo "$sql_result" >&2
+        return 1
+    fi
+    row_id=$(echo "$sql_result" | grep -E '^[0-9]+$' | tr -d ' \r\n' || echo "")
+    if [ -z "$row_id" ]; then
+        echo "  ✗ write_preswap_wedge: could not parse row id from psql output: $sql_result" >&2
+        return 1
+    fi
+    echo "  [wedge] upgrade row id=$row_id transitioned to in_progress"
+
+    # ── steps 2–7: stop services, create backup dir, git ops, write flag ──
+    # Transport: write the script body to a local temp file and scp it to the
+    # VM (same gold-standard pattern as seed_pre_upgrade_snapshot). The outer
+    # heredoc is UNQUOTED so ${commit_sha} and ${row_id} expand locally and
+    # land in the remote script as literal values. Remote-side subshells
+    # (\$(…)) are protected by backslash from local expansion.
+    local wedge_script
+    wedge_script=$(mktemp /tmp/harness-wedge-preswap-XXXXXX.sh)
+    cat > "$wedge_script" << WEDGE_SCRIPT
+set -euo pipefail
+cd ~/statbus
+COMMIT_SHA="${commit_sha}"
+ROW_ID="${row_id}"
+
+# Step 2: stop all services — mirrors v2026.05.2's executeUpgrade stopping
+# the DB for a consistent volume snapshot (service.go:3080 docker compose stop).
+echo "    [wedge] stopping docker services..."
+docker compose stop >/dev/null 2>&1 || true
+
+# Step 3: create the managed backup dir. v2026.05.2 completed its rsync into
+# a per-stamp dir before renaming to pre-upgrade-active; we create a minimal
+# empty managed dir because (a) backup_path="" in the PreSwap flag so
+# restoreDatabase is a no-op and needs no volume data, and (b) the managed
+# name pre-upgrade-active is excluded by assert_no_orphan_backup (mirrors
+# Go's isManagedBackupDir / backupActiveName = "pre-upgrade-active").
+echo "    [wedge] creating ~/statbus-backups/pre-upgrade-active/ (managed backup dir, minimal)..."
+mkdir -p ~/statbus-backups/pre-upgrade-active
+
+# Step 4: pin the pre-upgrade branch to OLD_COMMIT (current HEAD, the source
+# commit). Mirrors executeUpgrade:3256 "git branch -f pre-upgrade HEAD".
+# restoreGitStateFn falls back to this branch when previousVersion does not
+# resolve, so it MUST point at OLD_COMMIT before the working tree advances.
+echo "    [wedge] pinning pre-upgrade branch to \$(git rev-parse --short HEAD) (OLD_COMMIT)..."
+git branch -f pre-upgrade HEAD
+
+# Step 5: fetch target commit objects — mirrors executeUpgrade:3273.
+echo "    [wedge] fetching target commit objects \${COMMIT_SHA:0:8}..."
+if ! git cat-file -e "\$COMMIT_SHA" 2>/dev/null; then
+    git fetch --depth 1 origin "\$COMMIT_SHA"
+fi
+
+# Step 6: checkout target commit — this IS the pre-STATBUS-060 behavior.
+# v2026.05.2's executeUpgrade:3278 did "git checkout commitSHA" here.
+# STATBUS-060 removed this step; on HEAD the working tree stays at OLD_COMMIT.
+# This is the load-bearing difference: the old binary materialised target-compose
+# before the kill, which prevented recovery (EnsureDBUp parsed the target's
+# docker-compose files, hit REST_ADMIN_BIND_ADDRESS missing from .env, failed).
+echo "    [wedge] checking out target commit (pre-STATBUS-060 old behavior)..."
+git -c advice.detachedHead=false checkout "\$COMMIT_SHA"
+echo "    [wedge] working tree now at: \$(git rev-parse --short HEAD)"
+
+# Step 7: write the flag JSON. Mirrors the on-disk file that v2026.05.2's
+# writeUpgradeFlag (service.go:381) would have written. Fields:
+#   id          — upgrade row id (required; recoveryRollback queries by id)
+#   commit_sha  — target SHA (required; flag.Label() display)
+#   pid         — any value; the process is "dead" (recovery checks liveness,
+#                 treats dead PID as StateCrashedUpgrade)
+#   started_at  — RFC3339 timestamp
+#   invoked_by  — informational; "harness:legacy-wedge" for traceability
+#   trigger     — "scheduled" (mirrors fabricate_scheduled_upgrade_row context)
+#   holder      — "service" (HolderService; executeUpgrade always writes this)
+# Absent fields (omitempty): phase (= "" = PreSwap), backup_path, recreate.
+echo "    [wedge] writing flag JSON (id=\$ROW_ID, holder=service, phase=PreSwap)..."
+mkdir -p tmp
+NOW_ISO=\$(date -u +%Y-%m-%dT%H:%M:%SZ)
+printf '{
+  "id": %s,
+  "commit_sha": "%s",
+  "pid": 12345,
+  "started_at": "%s",
+  "invoked_by": "harness:legacy-wedge",
+  "trigger": "scheduled",
+  "holder": "service"
+}
+' "\$ROW_ID" "\$COMMIT_SHA" "\$NOW_ISO" > tmp/upgrade-in-progress.json
+echo "    [wedge] flag written:"
+cat tmp/upgrade-in-progress.json
+WEDGE_SCRIPT
+
+    chmod 644 "$wedge_script"
+    scp -O "${SSH_OPTS[@]}" "$wedge_script" root@"$VM_IP":/tmp/harness-wedge-preswap.sh >/dev/null
+    rm -f "$wedge_script"
+    ssh "${SSH_OPTS[@]}" root@"$VM_IP" 'chmod 0644 /tmp/harness-wedge-preswap.sh'
+    local rc=0
+    ssh "${SSH_OPTS[@]}" root@"$VM_IP" 'sudo -i -u statbus bash /tmp/harness-wedge-preswap.sh' || rc=$?
+    ssh "${SSH_OPTS[@]}" root@"$VM_IP" 'rm -f /tmp/harness-wedge-preswap.sh' >/dev/null 2>&1 || true
+    if [ "$rc" -ne 0 ]; then
+        echo "  ✗ write_preswap_wedge: remote script failed (exit $rc)" >&2
+        return 1
+    fi
+    echo "  ✓ preswap wedge written (row=$row_id, WT=target-commit, binary=INSTALL_VERSION, flag=PreSwap)"
+    return 0
+}
