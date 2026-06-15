@@ -4,11 +4,11 @@ title: >-
   install-log-honesty: kill the structural A17 false-alarm (keep real-misuse
   detection) + honest post-upgrade-fixup banner & flag-name + symmetric
   completion logging [047 item C]
-status: In Progress
+status: Done
 assignee:
   - architect
 created_date: '2026-06-15 10:04'
-updated_date: '2026-06-15 10:22'
+updated_date: '2026-06-15 10:27'
 labels:
   - upgrade
   - install
@@ -57,7 +57,7 @@ That reintroduces rune-stuck-fix-A's bug (the fixup restarts docker/db, RST-ing 
 - [x] #2 The internal --inside-active-upgrade flag + STATBUS_INSIDE_ACTIVE_UPGRADE env var renamed to an honest post-completion-fixup semantic across ALL call sites + guard tests (clean break, no shim; no external contract since the flag is hidden/internal)
 - [x] #3 The fixup child's install banner is self-identifying (distinct from the bare 'StatBus Installation'); the two passes are NOT unified
 - [x] #4 Install-recorded completion row emits a structured logUpgradeRow dump under a new 'completed-install' label, symmetric with the recovery-completed row; the two-row model is documented in doc/upgrade-timeline.md
-- [ ] #5 NO migration; go vet/build/test green (incl. updated guard tests); foreman byte-level reviewed + committed (do-not-self-commit)
+- [x] #5 NO migration; go vet/build/test green (incl. updated guard tests); foreman byte-level reviewed + committed (do-not-self-commit)
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -77,3 +77,23 @@ PART 4 (symmetric logging): completeInstallUpgradeRow (install.go) Exec→QueryR
 
 NO migration. claude-team.zip (untracked) is NOT mine — left alone. Diff: git -C /Users/jhf/ssb/statbus diff --staged
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+SHIPPED — commit 4546cfbc4 (master, pushed; per-change go-test gate runs on push). Architect implemented (do-not-self-commit); foreman byte-level reviewed + independently re-ran vet/build/FULL suite (10 packages, 0 fail) + committed. 9 files, +175/-77.
+
+PROBLEM (047 item C): the "INVARIANT A17 violated" line is a STRUCTURALLY-GUARANTEED FALSE POSITIVE firing on EVERY upgrade (root cause foreman-verified end-to-end); plus two-banner confusion + dual-row logging asymmetry.
+
+FIX (all Go logging/control-flow/naming + doc note; NO migration):
+1. acquireOrBypass now THREE-WAY: flag present → bypass honored; flag absent + STATBUS_POST_UPGRADE_FIXUP=1 env signature (set only by the fixup child) → EXPECTED, calm line, no invariant; flag absent + no env → A17 KEPT, narrowed + reworded to the one genuine case (a bare --post-upgrade-fixup hand-passed by an operator). Registry ViolationShape narrowed. Stale exec.go comment rewritten to post-fix-A truth; applyPostSwap comment corrected to name the bypass LOAD-BEARING (suppresses a duplicate row + DB probe + log).
+2. RENAME (clean break, no shim — flag is hidden/internal, no external contract): --inside-active-upgrade / STATBUS_INSIDE_ACTIVE_UPGRADE / insideActiveUpgrade → --post-upgrade-fixup / STATBUS_POST_UPGRADE_FIXUP / postUpgradeFixup across every call site + guard tests + 2 docs + 1 install-recovery scenario. Whole-repo sweep = ZERO residual old tokens (foreman-verified). The critical env-var handshake is consistent: setter exec.go:100 == readers install.go:196/242.
+3. Self-identifying banner: "StatBus Post-Upgrade Install Fixup" when bypass (else the bare "StatBus Installation"); bypass hoisted to the top of runInstall (computed once; banner + mutex agree); passes NOT unified.
+4. Symmetric completion logging: completeInstallUpgradeRow Exec→QueryRow + RETURNING to_jsonb(upgrade.*) → "upgrade row [completed-install] <json>" (new LabelCompletedInstall), same greppable format as the recovery path's logUpgradeRow[completed-normal]. pgx.ErrNoRows (idempotent re-install of an already-completed version → ON CONFLICT no-op → no row returned) handled as benign WITHOUT masking real errors (those still hit the A9 path). doc/upgrade-timeline.md gains a two-row-model section + corrected step ordering (complete+flag-removal BEFORE the fixup).
+
+BONUS (architect catch): doc/upgrade-timeline.md had the SAME stale ordering bug as the old code comments (listed fixup before mark-completed) — fixed to match the code.
+
+DESIGN CALL (foreman-affirmed, principled — NOT routed to the King as it aligns with his keep-detection decision): A17 kept as a NARROWED named invariant (genuine misuse only) rather than retired to a plain warning — preserves the A-series named-audit discipline + real detection while killing the structural false positive.
+
+VERIFY: foreman byte-level review (3-way branch logic; env-var handshake setter==reader; ErrNoRows discrimination; banner; doc ordering vs code); go vet + build + full cli test suite green (10 packages, 0 fail; the structural guard tests assert the renamed gate strings + pass). NO migration.
+<!-- SECTION:FINAL_SUMMARY:END -->
