@@ -7,7 +7,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-15 21:25'
-updated_date: '2026-06-15 21:48'
+updated_date: '2026-06-15 22:45'
 labels:
   - upgrade
   - robustness
@@ -75,4 +75,6 @@ VERIFIED locally on 87c38c4fb: go build ./... clean, go vet ./... clean, go test
 VALIDATION IN FLIGHT: Images run 27578448988 building 87c38c4fb per-commit images; then install-recovery-harness 0-happy-upgrade dispatched against master. Pass criterion: the `ensure DB up: ... REST_ADMIN_BIND_ADDRESS is missing` death is GONE and upgrade reaches state='completed'. Operator driving.
 
 SEPARATE/RESIDUAL (NOT covered by this fix): the preswap-checkout-kill window — crash AFTER `git checkout HEAD` but BEFORE the binary swap. There the OLD released binary restarts (lacks this code entirely) → its EnsureDBUp parses the HEAD working-tree compose → dies → recoverFromFlag (rollback) never reached. Verified against v2026.05.2 source (Run() order: EnsureDBUp strictly before recoverFromFlag; bare `docker compose up -d db`; PreSwap flag written before swap). Cannot be fixed in already-released binaries. This is the already-RED preswap-checkout-kill scenario (STATBUS-026); architect designing the fix (forward-fix executeUpgrade ordering vs make rollback reachable before any compose-parse). My earlier belief that the operator `./sb install` path recovers this window is UNVERIFIED and likely false (026: restoreGitState doesn't restore the working tree to OLD).
+
+F1 evolution (the gate was too narrow, twice): 87c38c4fb gated the pre-EnsureDBUp config-regen first on Phase==post_swap, then broadened to any service-held flag (mechanic caught the binary-swap-kill window). BOTH still required a flag to EXIST. 0-happy (run 27578673237) FAILED: its Phase 3 restarts the unit onto the pre-staged HEAD binary BEFORE the upgrade flag is fabricated (Phase 4) → no flag → regen SKIPPED → EnsureDBUp parsed HEAD's compose against the stale v2026.05.2 .env → died on missing REST_ADMIN_BIND_ADDRESS (proof: the regen log line absent; the old 'ensure DB up ... REST_ADMIN_BIND_ADDRESS is missing' recurred at the Phase-3 restart). FIX: commit 7cc6c1b48 makes the regen UNCONDITIONAL before EnsureDBUp on every Service.Run startup (the binary can be ahead of .env with no flag — staged-binary restart, manual restart); flag read kept only for the diagnostic log. Matches runCrashRecovery's already-unconditional regen; idempotent/DB-independent/seconds/pre-READY. build+vet+upgrade/install/config tests green. Awaiting foreman byte-level review + push + 0-happy re-run. Does NOT touch runCrashRecovery (operator path).
 <!-- SECTION:NOTES:END -->
