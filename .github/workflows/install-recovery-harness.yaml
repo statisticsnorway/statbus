@@ -91,8 +91,23 @@ jobs:
         # fetch-depth: 0 — build-sb stamps the LDFLAGS version from
         # `git describe --tags` + the 40-char HEAD commit, so it needs tags
         # and history. Cheap on the GHA runner.
+        #
+        # ref: github.sha PINS this checkout to the run's triggering commit.
+        # CRITICAL: the binary built here stamps cmd.commit=<this HEAD>, and the
+        # run-scenario job (separate checkout) stages it then `git checkout`s its
+        # OWN HEAD as the upgrade target. If the two checkouts resolved to
+        # different commits (workflow_dispatch defaults to the branch TIP at
+        # checkout time, which drifts when a backlog auto-commit lands on master
+        # between the two jobs), the staged binary's commit ≠ the VM's git HEAD →
+        # the staleness guard on `./sb upgrade service` (selfheal=true) fires →
+        # RebuildAndReexec runs `make -C cli build` → fails on the toolchain-less
+        # VM → exit 2 → the unit dies ~3s after restart. github.sha is constant
+        # across all jobs in a run, so pinning both checkouts to it makes the
+        # binary and the scenario-under-test the SAME commit by construction
+        # (restores the single-checkout invariant the old serial job had).
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.sha }}
           fetch-depth: 0
 
       - name: Set up Go
@@ -168,8 +183,13 @@ jobs:
       - name: Checkout
         # fetch-depth: 0 — the scenario's host-side commit computations
         # (HARNESS_ROOT rev-parse, pending-migration counts) need full history.
+        # ref: github.sha — MUST match the discover job's checkout so the staged
+        # sb binary's stamped commit == this checkout's HEAD (the scenario's
+        # upgrade target). See the discover job's checkout for the full rationale
+        # (staleness-guard self-heal on a commit mismatch kills the unit).
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.sha }}
           fetch-depth: 0
 
       - name: Download sb binary artifact
