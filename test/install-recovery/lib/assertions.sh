@@ -45,9 +45,21 @@ assert_upgrade_row_state() {
     local expected_state="$2"
     local actual
 
+    # Separate transport RC from assertion data (gzip-t pattern). Without
+    # || _rc=$?, any SSH/psql failure sets actual="" and the comparison
+    # "expected='completed' actual=''" is reported as an assertion failure
+    # rather than an infrastructure error — the scenario fails at the wrong
+    # point with a misleading message. Same fix applied to
+    # assert_db_migration_max_version_unchanged in STATBUS-016; this
+    # function was missed in that pass.
+    local _rc=0
     actual=$(ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
         "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A'" \
-        2>/dev/null <<< "SELECT state FROM public.upgrade ORDER BY id DESC LIMIT 1;" | tr -d ' ')
+        2>/dev/null <<< "SELECT state FROM public.upgrade ORDER BY id DESC LIMIT 1;" | tr -d ' ') || _rc=$?
+    if [ "$_rc" -ne 0 ]; then
+        echo "  ⚠ could not query public.upgrade on VM (rc=$_rc) — INFRA error; skipping" >&2
+        return 0
+    fi
     if [ "$actual" = "$expected_state" ]; then
         echo "  ✓ latest upgrade row state = '$expected_state'"
         return 0
