@@ -1,0 +1,35 @@
+---
+id: STATBUS-055
+title: >-
+  migrate-orphan-gate: PID-liveness-aware detection — tagged dead-PID advisory
+  holder caught by neither checkSessionsClean branch (bounded recovery delay,
+  post-RC)
+status: To Do
+assignee: []
+created_date: '2026-06-15 14:31'
+labels:
+  - upgrade
+  - recovery
+  - product
+  - follow-up
+dependencies: []
+priority: medium
+ordinal: 55000
+---
+
+## Description
+
+<!-- SECTION:DESCRIPTION:BEGIN -->
+FOLLOW-UP (architect finding during STATBUS-029 adjudication, 2026-06-15) — a REAL but BOUNDED recovery weakness; deliberately NOT bundled into this RC.
+
+THE GAP: checkSessionsClean (cli/cmd/install.go:1200-1242) decides whether to TRIGGER cleanOrphanSessions via two counts:
+- `leaked`: app IN ('psql','statbus-migrate-sql%') AND a statistical_* query AND query_start < now()-interval '5 minutes' (the 5-min age gate).
+- `advisory_holders`: advisory-lock holders with COALESCE(application_name,'')='' (EMPTY app only).
+A real killed-migrate orphan = the Go advisory-lock conn tagged `statbus-migrate-<pid>` (acquireAdvisoryLock, migrate.go:297-298) holding migrate_up, PLUS its `statbus-migrate-sql-<pid>` subprocess (migrate.go:303 SubprocessAppNamePrefix) running the statistical_* SQL. A CURRENT-binary tagged advisory holder (`statbus-migrate-<deadpid>`, idle, non-empty app) is counted by NEITHER branch: not `advisory_holders` (non-empty app), not `leaked` (no statistical_* query of its own; the subprocess is a separate session). So a freshly-crashed migration's lock-holder is invisible to the gate until its statistical_* subprocess ages 5min (or forever, if that subprocess already exited) → the next recovery's migrate blocks on the held advisory lock. BOUNDED, not infinite: TCP-keepalive eventually reaps the dead conn, and the 30m migrate timeout bounds the wait — but it is a real multi-minute recovery stall.
+
+THE PRINCIPLED FIX (NOT age-relaxation — that would over-kill live external clients, a regression): make the gate PID-liveness-aware. Count tagged `statbus-migrate-<pid>` advisory holders whose owner PID is dead (the authoritative signal cleanOrphanSessions Phase 2 already uses, install.go:1363+) to TRIGGER the cleanup. The kill stays in Phase 2's PID-probe (already correct); only the GATE's detection needs to learn the tagged-holder shape.
+
+PROOF: its own RED→GREEN — RED: a dead-PID `statbus-migrate-<deadpid>` advisory holder (no aged subprocess) does NOT trigger cleanup → next migrate stalls. GREEN: the gate detects it → Phase 2 probes the dead PID → terminates → migrate proceeds. The re-designed STATBUS-029 (realistic-orphan scenario) may CONFIRM this gap empirically; if so, cross-link.
+
+Scope: cli/cmd/install.go checkSessionsClean. Owner: architect (recovery/session design). Post-RC — bounded weakness, not a wedge; do not rush a gate redesign into the release.
+<!-- SECTION:DESCRIPTION:END -->
