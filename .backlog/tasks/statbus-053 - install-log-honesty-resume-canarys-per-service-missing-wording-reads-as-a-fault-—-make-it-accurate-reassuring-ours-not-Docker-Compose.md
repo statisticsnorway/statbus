@@ -3,9 +3,11 @@ id: STATBUS-053
 title: >-
   install-log-honesty: resume canary's per-service 'missing' wording reads as a
   fault — make it accurate + reassuring (ours, not Docker Compose)
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - mechanic
 created_date: '2026-06-15 11:08'
+updated_date: '2026-06-15 11:11'
 labels:
   - upgrade
   - install-log-honesty
@@ -57,3 +59,15 @@ service.go:4697-4701 already carries the comment: "'mismatched' is the expected 
 - [ ] #4 Cosmetic only: the canary decision (len(mismatched)==0) is unchanged; postswap_test.go comment + any string-asserting test updated; go vet/build/test green
 - [ ] #5 do-not-self-commit: foreman byte-level reviewed + committed
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+King 2026-06-15: 'File and have someone fix it right away' — wording DELEGATED to us (AC#3 bless-gate is satisfied by that delegation; ship accurate non-alarming text, foreman reviews at commit). Assigned mechanic, In Progress.
+
+CHOSEN WORDING (neutral-factual — accurate in BOTH the expected-forward-roll AND genuine-failure contexts; NOT forward-looking-only):
+- containers.go L142 '%s: missing' → '%s: not running (no container)'
+- containers.go L146 '%s: state=%q (want running)' → '%s: not running (state=%q)'
+- containers.go L155 '%s: tag=%q (want %q or %q) image=%q' → '%s: running on tag %q (target %q or %q) image=%q'
+The reassurance is carried by the existing expected-case header (service.go:4706 'containers carry pre-upgrade tags (expected — restarting on target tag)'); an optional one-line lead before the per-service loop (~service.go:4709) is allowed if it reads better. Logic (len(mismatched)==0) unchanged; tests/comments updated; do-not-self-commit.
+<!-- SECTION:NOTES:END -->
