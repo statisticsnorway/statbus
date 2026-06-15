@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-08 15:33'
+updated_date: '2026-06-15 12:20'
 labels:
   - install-recovery
   - recovery
@@ -46,3 +47,9 @@ NOTES:
 - [ ] #3 If Option 2: latch refinement (product) — distinguish idempotent-window deaths from mid-critical-resume deaths
 - [ ] #4 Decide separately whether the mechanic's e1245d697 (install_statbus_in_vm set-e/pipefail) is a real latent bug worth keeping
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+INHERITED from STATBUS-016 AC#3 (2026-06-15): when the C8 / Resuming-latch contract is confirmed or refined here, add a BY-DESIGN annotation to the product log 'UPGRADE_DIED_DURING_RESUME … rolled back' (service.go) so it reads as correct-by-design (the Resuming one-shot latch), NOT a defect. Why it lives here: a reviewer (and the mechanic, historically) misreads that TRUE rollback as a verify-health product bug because the log never says it is by design. It is the 'accurate-but-under-context' case — a DIFFERENT shape from 016's ||echo over-claim cleanup (which shipped 431d200b2). Two gates: (a) the annotation asserts the by-design contract, so it must follow this task's confirm/refine decision; (b) it touches service.go — sequence it clear of STATBUS-032's in-flight service.go work.
+<!-- SECTION:NOTES:END -->
