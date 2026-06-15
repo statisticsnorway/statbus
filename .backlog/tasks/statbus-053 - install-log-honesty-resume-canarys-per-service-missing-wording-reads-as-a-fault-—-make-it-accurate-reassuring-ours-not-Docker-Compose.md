@@ -7,7 +7,7 @@ status: Done
 assignee:
   - mechanic
 created_date: '2026-06-15 11:08'
-updated_date: '2026-06-15 11:27'
+updated_date: '2026-06-15 11:58'
 labels:
   - upgrade
   - install-log-honesty
@@ -70,6 +70,15 @@ CHOSEN WORDING (neutral-factual — accurate in BOTH the expected-forward-roll A
 - containers.go L146 '%s: state=%q (want running)' → '%s: not running (state=%q)'
 - containers.go L155 '%s: tag=%q (want %q or %q) image=%q' → '%s: running on tag %q (target %q or %q) image=%q'
 The reassurance is carried by the existing expected-case header (service.go:4706 'containers carry pre-upgrade tags (expected — restarting on target tag)'); an optional one-line lead before the per-service loop (~service.go:4709) is allowed if it reads better. Logic (len(mismatched)==0) unchanged; tests/comments updated; do-not-self-commit.
+
+WORDING REFINED to FINAL (commit e516ebb92, on top of c16bdab4b) — King settled the operator voice 2026-06-15: EXPLICIT old/new. Each line states where a service sits in the old→new transition, plain language, NO jargon (dropped 'post-swap continuation', 'applyPostSwap', 'binary at target', 'descendant of flag target'), NO 'this is normal' crutch (King: needing that label means the words failed), and NO prediction (state only what is true now — so a line never lies if the upgrade is actually stuck).
+
+Final rendering:
+  Resuming the upgrade to v2026.06.0-rc.02:
+    app: old version not running, new version not started yet
+    db: old version running, new version not started yet
+
+Per-service (containers.go): missing + stopped → 'old version not running, new version not started yet'; wrong-tag → 'old version running, new version not started yet' (the tag comparison DECISION untouched; raw SHAs/tags dropped from the message — a docker compose ps away if debugging). Headers (service.go): at-target → 'Resuming the upgrade to <version>:'; roll-forward → 'Resuming the upgrade — the running version <X> is newer than the interrupted target <Y>; rolling forward:'. Failure-case header left serious/untouched (the pure-current-state lines read truthfully under it too). King's reasoning: old/new tells you where you are AND where you're headed AND why; 'still on the previous version' was rejected as ambiguous (reads like 'is something wrong?'). Foreman byte-level reviewed (comparison logic intact, arg counts, scope) + full suite green + committed.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
