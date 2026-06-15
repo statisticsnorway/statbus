@@ -163,9 +163,15 @@ jobs:
     runs-on: ubuntu-24.04
     # Per-scenario ceiling. Most scenarios finish in 12-20 min; the
     # populated-DB / worker-contention / systemd-supervised ones can stretch
-    # toward 30 min on slow hardware. 45 min absorbs that while still reaping a
-    # genuinely-stuck VM long before the 6h workflow ceiling.
-    timeout-minutes: 45
+    # toward 30 min on slow hardware. Raised 45→120 (STATBUS-025 follow-on):
+    # when a per-commit image isn't published (e.g. statbus-proxy missing for
+    # the install version), `./sb install` / the HEAD upgrade fall back to a
+    # LOCAL image build (~35 min each for the Next.js/caddy proxy), which blew
+    # the old 45-min budget before the scenario even reached its assertion.
+    # 120 absorbs an install-side build + the scenario + a possible HEAD-side
+    # build. The durable fix (pull, never build → STATBUS-056 + proxy publish)
+    # brings this back down; until then the headroom prevents false timeouts.
+    timeout-minutes: 120
     strategy:
       # fail-fast: false is LOAD-BEARING — a sibling scenario failing must NOT
       # cancel the others. Cancellation would (a) lose the other scenarios'
