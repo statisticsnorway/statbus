@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-11 03:17'
-updated_date: '2026-06-15 13:06'
+updated_date: '2026-06-15 13:20'
 labels:
   - install-recovery
   - ci
@@ -37,9 +37,9 @@ THE FIX (decided — MATRIX, design ready to implement):
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Workflow restructured: discover job (scenario enumeration + one binary build/artifact) + matrix job per scenario + final global-reap cleanup job
-- [ ] #2 Per-job reap touches ONLY its own VM; the global statbus-recovery-* sweep runs only in the final cleanup job (no sibling-job VM kills)
-- [ ] #3 max-parallel set with verified Hetzner quota headroom; per-job timeout ~45 min
+- [x] #1 Workflow restructured: discover job (scenario enumeration + one binary build/artifact) + matrix job per scenario + final global-reap cleanup job
+- [x] #2 Per-job reap touches ONLY its own VM; the global statbus-recovery-* sweep runs only in the final cleanup job (no sibling-job VM kills)
+- [x] #3 max-parallel set with verified Hetzner quota headroom; per-job timeout ~45 min
 - [ ] #4 A full matrix run completes well under the 6h ceiling and reports a real workflow conclusion (success when all scenarios pass)
 - [ ] #5 Stable gate satisfied unchanged: CheckWorkflowAtCommit returns green at an RC commit from a passing matrix run (zero release.go edits)
 - [ ] #6 Per-scenario log artifacts uploaded; single-scenario re-run still works via the scenarios input
@@ -53,4 +53,6 @@ Decision history: options (a) matrix / (b) batch / (c) faster-scenarios were wei
 DISPATCHED 2026-06-15 (King: 'get things going... ready by tonight'). Engineer implementing the matrix split per the design. THE #1 unblock — without it no comprehensive harness run can report success (6h ceiling). Engineer owns .github/workflows/install-recovery-harness.yaml. Operator verifying Hetzner quota headroom for max-parallel. do-not-self-commit → foreman reviews+commits.
 
 REVIEW BOUNCE (foreman, 2026-06-15) — commit HELD. Structure/reap-scoping/AC#5 all correct (gate reads run-level conclusion by filename, job rename invisible). BUT a gate-breaking stdout-contamination bug: the discover step captures `--print-selected` via $(), and run.sh:105 echoes the known-RED exclusion notice to STDOUT in the default path. Empirically reproduced: count=30 (not 28), matrix JSON ingests 2 bogus '(excluding known-RED reproducer...)' entries → 2 always-failing matrix jobs → workflow conclusion=failure → gate never green (the exact bug 025 fixes, reintroduced). FIX: run.sh:105 append `>&2` (progress→stderr, data→stdout). Bounced to engineer with the empirical repro + the required re-verify (--print-selected | wc -l == 28; 0 'excluding' lines in matrix). Foreman re-reviews + commits once clean.
+
+COMMITTED bd92d2ada (pushed). Foreman re-reviewed + re-verified after the bounce: discover pipeline now emits 28 names, matrix length 28, 0 'excluding' contamination (the stderr fix at run.sh:105 + a comment so it can't regress). AC#1 (3-stage restructure), AC#2 (per-job reap own-VM-only, matches run.sh's statbus-recovery-<base>; global sweep isolated to cleanup), AC#3 (max-parallel 8 quota-confirmed, 45m per-job) = code-done + verified. AC#5's 'zero release.go edits' half independently verified (CheckWorkflowAtCommit reads the run-level conclusion by workflow filename). REMAINING (LIVE — confirm on the next harness dispatch): AC#4 (full matrix run under 6h + real conclusion), AC#5 live (gate green at an RC commit from a passing run), AC#6 (per-scenario logs + single-scenario re-run). These fall out of the comprehensive harness GREEN the operator drives once 027/029 + the 031 scenario are also in.
 <!-- SECTION:NOTES:END -->
