@@ -3,11 +3,11 @@ id: STATBUS-032
 title: >-
   upgrade-health-readiness: poll PostgREST admin /ready before the RPC health
   check — kills the PGRST002 first-fail + the fixed-25s Norway budget
-status: To Do
+status: In Progress
 assignee:
-  - '@mechanic'
+  - engineer
 created_date: '2026-06-11 15:45'
-updated_date: '2026-06-15 12:07'
+updated_date: '2026-06-15 12:11'
 labels:
   - upgrade
   - health-check
@@ -41,7 +41,7 @@ Also: add the offset+6 = rest-admin row to AGENTS.md's port table. Ships with th
 - [x] #1 Root cause of the attempt-1 503 identified — the race between the health-check firing and PostgREST's schema-cache load (file:line)
 - [x] #2 Norway-schema-scale risk assessed: can the cache load exceed the 5-attempt retry budget on a large schema and fail the upgrade's health verification?
 - [x] #3 A proposed fix so attempt-1 passes cleanly (or PGRST002 is handled as not-ready without burning a retry), for foreman/King review before implementation
-- [ ] #4 King ratifies the fix design in this description (admin server internal-only at offset+6, /ready warmup in healthCheck, 5m cap, no fallback)
+- [x] #4 King ratifies the fix design in this description (admin server internal-only at offset+6, /ready warmup in healthCheck, 5m cap, no fallback)
 - [ ] #5 Admin server enabled internal-only: compose env + loopback port mapping + config-gen derived REST_ADMIN_BIND_ADDRESS; nothing publicly reachable
 - [ ] #6 healthCheck polls /ready to 200 before the RPC probe; ~15s progress lines feed the watchdog gate; cap-expiry messages distinguish config-drift (refused) from cache-stuck (503)
 - [ ] #7 Unit tests: 503→200 waits+proceeds, refused→200 tolerated, never-ready expiry with both messages, structural warmup-precedes-probe guard
@@ -102,4 +102,6 @@ TRADEOFFS: custom image NOW → +steady-state `docker ps` readiness today; −ne
 DIRECT ANSWER to the King: yes, a /ready healthcheck reports unhealthy unless Postgres is up — CORRECT for readiness (gate traffic/dependents), INCORRECT for liveness (don’t kill rest over a DB blip); compose collapses both into one status, so if a restart-on-unhealthy mechanism is ever added a /ready healthcheck would cause harmful restart loops (use /live for liveness). Given the foundational gate already exists and the clean `--ready` path is one postgrest bump away, the principled move is defer-not-custom-image.
 
 STATUS CORRECTED 2026-06-15 (King caught it): In Progress → To Do, assignee cleared. NOBODY is actively working this — it has been BLOCKED on King ratification (AC#4) since 2026-06-12. Design is COMPLETE (AC#1-3 done + the compose-healthcheck analysis added 06-15). Implementation (AC#5-8) cannot start until the King ratifies the design (admin server internal-only at offset+6; /ready warmup in healthCheck; 5m cap; no PGRST002 fallback). 'In Progress' was inaccurate — it implied active work when the task is parked awaiting a decision. When the King ratifies, assign + move to In Progress for the implementation commit.
+
+KING RATIFIED 2026-06-15: 'Approved, do it.' AC#4 met. Now ACTIVELY IMPLEMENTING (AC#5-8) — assigned engineer, In Progress. The design in the description IS the King-ratified work order. Engineer owns docker-compose.rest.yml, config.go (+ config-gen/.env), exec.go (healthCheck warmup), AGENTS.md (port table), + new unit tests. do-not-self-commit → foreman reviews + commits.
 <!-- SECTION:NOTES:END -->
