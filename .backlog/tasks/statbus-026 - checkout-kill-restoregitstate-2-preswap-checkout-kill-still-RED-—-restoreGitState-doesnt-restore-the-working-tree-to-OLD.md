@@ -3,8 +3,9 @@ id: STATBUS-026
 title: >-
   checkout-kill-restoregitstate: 2-preswap-checkout-kill still RED —
   restoreGitState doesn't restore the working tree to OLD
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - mechanic
 created_date: '2026-06-11 07:48'
 updated_date: '2026-06-15 13:20'
 labels:
