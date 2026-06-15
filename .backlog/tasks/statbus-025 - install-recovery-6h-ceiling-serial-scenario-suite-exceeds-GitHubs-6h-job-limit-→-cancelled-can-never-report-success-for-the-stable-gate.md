@@ -39,11 +39,13 @@ THE FIX (decided — MATRIX, design ready to implement):
 <!-- AC:BEGIN -->
 - [x] #1 Workflow restructured: discover job (scenario enumeration + one binary build/artifact) + matrix job per scenario + final global-reap cleanup job
 - [x] #2 Per-job reap touches ONLY its own VM; the global statbus-recovery-* sweep runs only in the final cleanup job (no sibling-job VM kills)
-- [x] #3 max-parallel set with verified Hetzner quota headroom; per-job timeout ~45 min
+- [ ] #3 max-parallel set with verified Hetzner quota headroom; per-job timeout ~45 min
 - [ ] #4 A full matrix run completes well under the 6h ceiling and reports a real workflow conclusion (success when all scenarios pass)
 - [ ] #5 Stable gate satisfied unchanged: CheckWorkflowAtCommit returns green at an RC commit from a passing matrix run (zero release.go edits)
 - [x] #6 Per-scenario log artifacts uploaded; single-scenario re-run still works via the scenarios input
 <!-- AC:END -->
+
+
 
 ## Implementation Notes
 
