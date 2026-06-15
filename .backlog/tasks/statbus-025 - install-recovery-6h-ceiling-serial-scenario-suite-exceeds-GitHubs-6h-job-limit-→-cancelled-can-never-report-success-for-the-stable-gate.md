@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-11 03:17'
-updated_date: '2026-06-15 13:20'
+updated_date: '2026-06-15 14:27'
 labels:
   - install-recovery
   - ci
@@ -42,7 +42,7 @@ THE FIX (decided — MATRIX, design ready to implement):
 - [x] #3 max-parallel set with verified Hetzner quota headroom; per-job timeout ~45 min
 - [ ] #4 A full matrix run completes well under the 6h ceiling and reports a real workflow conclusion (success when all scenarios pass)
 - [ ] #5 Stable gate satisfied unchanged: CheckWorkflowAtCommit returns green at an RC commit from a passing matrix run (zero release.go edits)
-- [ ] #6 Per-scenario log artifacts uploaded; single-scenario re-run still works via the scenarios input
+- [x] #6 Per-scenario log artifacts uploaded; single-scenario re-run still works via the scenarios input
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -55,4 +55,6 @@ DISPATCHED 2026-06-15 (King: 'get things going... ready by tonight'). Engineer i
 REVIEW BOUNCE (foreman, 2026-06-15) — commit HELD. Structure/reap-scoping/AC#5 all correct (gate reads run-level conclusion by filename, job rename invisible). BUT a gate-breaking stdout-contamination bug: the discover step captures `--print-selected` via $(), and run.sh:105 echoes the known-RED exclusion notice to STDOUT in the default path. Empirically reproduced: count=30 (not 28), matrix JSON ingests 2 bogus '(excluding known-RED reproducer...)' entries → 2 always-failing matrix jobs → workflow conclusion=failure → gate never green (the exact bug 025 fixes, reintroduced). FIX: run.sh:105 append `>&2` (progress→stderr, data→stdout). Bounced to engineer with the empirical repro + the required re-verify (--print-selected | wc -l == 28; 0 'excluding' lines in matrix). Foreman re-reviews + commits once clean.
 
 COMMITTED bd92d2ada (pushed). Foreman re-reviewed + re-verified after the bounce: discover pipeline now emits 28 names, matrix length 28, 0 'excluding' contamination (the stderr fix at run.sh:105 + a comment so it can't regress). AC#1 (3-stage restructure), AC#2 (per-job reap own-VM-only, matches run.sh's statbus-recovery-<base>; global sweep isolated to cleanup), AC#3 (max-parallel 8 quota-confirmed, 45m per-job) = code-done + verified. AC#5's 'zero release.go edits' half independently verified (CheckWorkflowAtCommit reads the run-level conclusion by workflow filename). REMAINING (LIVE — confirm on the next harness dispatch): AC#4 (full matrix run under 6h + real conclusion), AC#5 live (gate green at an RC commit from a passing run), AC#6 (per-scenario logs + single-scenario re-run). These fall out of the comprehensive harness GREEN the operator drives once 027/029 + the 031 scenario are also in.
+
+MACHINERY VALIDATED ON A LIVE RUN (foreman, smoke run 27549262413, single-scenario 0-happy-upgrade): discover built the sb binary once + enumerated the matrix to EXACTLY ["0-happy-upgrade"] (AC#6 single-scenario re-run ✓), one run-scenario matrix job ran on its own VM, the per-job reap + the final cleanup job were both green, and the run reported a REAL conclusion (failure — correctly, because the scenario job failed) in ~45min (well under the 6h ceiling). So the 025 restructure works end-to-end: AC#6 DONE (per-scenario log artifact uploaded + downloaded; single-scenario narrowing works); AC#4's under-6h + real-conclusion mechanics PROVEN (the all-pass success-conclusion still needs a green scenario set); AC#5 pending an all-pass run. NOTE: the run's failure was NOT a 025 defect — it surfaced a SEPARATE daemon-startup blocker (0-happy-upgrade fails restarting statbus-upgrade onto the staged HEAD binary; `./sb upgrade service` exits ~3s in; journal not captured). That's exactly 025 doing its job — the old cancelled-suite could NEVER have reported this. The daemon-startup blocker is being root-caused separately (harness journal-capture fix + engineer staleness-guard/SHA-chain investigation).
 <!-- SECTION:NOTES:END -->
