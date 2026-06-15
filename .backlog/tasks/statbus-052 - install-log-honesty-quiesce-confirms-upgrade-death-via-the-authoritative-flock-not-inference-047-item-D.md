@@ -3,11 +3,11 @@ id: STATBUS-052
 title: >-
   install-log-honesty: quiesce confirms upgrade death via the authoritative
   flock, not inference [047 item D]
-status: In Progress
+status: Done
 assignee:
   - architect
 created_date: '2026-06-15 10:42'
-updated_date: '2026-06-15 10:49'
+updated_date: '2026-06-15 10:53'
 labels:
   - upgrade
   - install
@@ -66,7 +66,7 @@ recoveryRollback's flock gate already prevents two concurrent destructive restor
 - [x] #2 The L304 '(unit likely already dead)' inference and the silent break-on-timeout are gone: the SIGKILL is logged as sent (liveness NOT claimed from its exit status); outcomes are explicit — flock released → 'confirmed dead (flock released) — proceeding'; still-held@timeout → loud actionable log
 - [x] #3 Still-held-at-timeout is OBSERVER, not gate: the quiesce narrates loudly and proceeds; recoveryRollback's flock gate remains the single authoritative serializer (no second hard-abort gate added). NO pidAlive/proc/signal-0 check introduced
 - [x] #4 Unit test with a real Flock fixture (held → 'still held'; released → 'confirmed dead'); go vet/build/test green
-- [ ] #5 NO migration; foreman byte-level reviewed + committed (do-not-self-commit)
+- [x] #5 NO migration; foreman byte-level reviewed + committed (do-not-self-commit)
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -85,3 +85,22 @@ TEST: confirmUpgradeDeathViaFlock extracted as a PURE helper (no systemd) → un
 
 NO migration. Diff: git -C /Users/jhf/ssb/statbus diff --staged -- cli/cmd/install_upgrade.go cli/cmd/install_upgrade_flock_test.go
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+SHIPPED — commit 3ea22ae27 (master, pushed; per-change go-test gate runs on push). Architect implemented (do-not-self-commit); foreman byte-level reviewed + independently re-ran vet/build/FULL suite (green) + committed. 2 files, +120/-12.
+
+PROBLEM (047 item D): the crash-recovery takeover quiesce (stopRestartUpgradeUnit) INFERRED whether the SIGKILL'd upgrade holder was gone — "(unit likely already dead)" guess from the kill exit status (L304) + a SILENT MainPID-poll-break-on-timeout (L306-313); never the authoritative flock. A kill that did NOT take read identical to a clean one in the operator log.
+
+FIX (Go control-flow/logging, NO migration): confirm death via the kernel flock (IsFlockHeld) — the race-free, PID-reuse-immune signal Detect (state.go:172) + recoveryRollback (service.go:2107-2143) already key on. pidAlive was already removed as a liveness guard (service.go:784-789: service survives SHA upgrades → ghost flag), so PID/proc was the WRONG approach (corrected from the original item-D brief).
+- stopRestartUpgradeUnit(instance) → (projDir, instance); its one caller runCrashRecovery:155 threads projDir. ReadFlagFile(projDir) read once for a diagnostic holder/PID/started "WHO" in the quiescing line — PID stays diagnostic-only (service.go:241-244).
+- The L304 "(unit likely already dead)" guess → factual line (the kill returned <err>; liveness confirmed below via the flock, not the exit status).
+- confirmUpgradeDeathViaFlock(projDir, 10s): a PURE helper (no systemd, unit-testable) polling IsFlockHeld==false on the prior 10s/500ms budget. Explicit outcomes: released → "confirmed dead — upgrade flock released; proceeding"; still-held@10s → loud WARNING naming the holder. OBSERVER, not gate: PROCEEDS either way — recoveryRollback's flock gate is the single authoritative serializer and yields rather than risk a concurrent destructive restore (correctness holds; halting would only strand the box waiting for an operator, against the unattended self-heal goal). No pidAlive/proc/signal-0.
+
+DESIGN CALL (architect flagged, foreman AFFIRMED — principled, not routed to King): REPLACED the MainPID poll rather than keeping it as "optional corroboration" (the task allowed either). Keeping a second, potentially-disagreeing signal would undercut the single-authoritative-signal principle the whole fix is built on; the flock is the signal recovery actually acquires, and it's kernel-released on death (faster + PID-reuse-immune).
+
+Severity = honesty/robustness/consistency, NOT corruption — recoveryRollback's flock gate already prevented two concurrent destructive restores regardless of this narration.
+
+TEST: TestConfirmUpgradeDeathViaFlock holds a real syscall.Flock(LOCK_EX) on a temp flag file and asserts all three states — absent flag → dead; held → still-held (false); released → dead — relying on flock's independent-open-fd semantics (deterministic on macOS + Linux/CI). go vet + build + full cli test suite green.
+<!-- SECTION:FINAL_SUMMARY:END -->
