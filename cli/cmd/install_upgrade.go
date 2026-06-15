@@ -152,7 +152,7 @@ func runCrashRecovery(projDir string) error {
 	if runtime.GOOS == "linux" {
 		instance := serviceInstance(projDir)
 		if instance != "" {
-			restartIfEnabled = stopRestartUpgradeUnit(instance)
+			restartIfEnabled = stopRestartUpgradeUnit(projDir, instance)
 			defer func() {
 				if recovered && restartIfEnabled != nil {
 					restartIfEnabled()
@@ -293,23 +293,42 @@ func runCrashRecovery(projDir string) error {
 //
 // All errors are logged + swallowed — recovery itself is the load-bearing
 // path; systemd plumbing is best-effort observability around it.
-func stopRestartUpgradeUnit(instance string) func() {
+func stopRestartUpgradeUnit(projDir, instance string) func() {
 	wasEnabled := exec.Command("systemctl", "--user", "is-enabled", "--quiet", instance).Run() == nil
-	fmt.Printf("Crash recovery: quiescing upgrade unit %s SIGKILL-class (was-enabled=%v) before reconciliation — never SIGTERM (TERM triggers the in-flight upgrade's rollback handler).\n", instance, wasEnabled)
+
+	// Diagnostic WHO for the audit log. PID/Holder is DIAGNOSTIC ONLY — liveness
+	// is decided by the flock below, never by the PID (service.go:241-244).
+	who := instance
+	if flag, _, ferr := upgrade.ReadFlagFile(projDir); ferr == nil && flag != nil {
+		who = fmt.Sprintf("%s (holder=%s, pid=%d, started=%s)", instance, flag.Holder, flag.PID, flag.StartedAt.Format(time.RFC3339))
+	}
+	fmt.Printf("Crash recovery: quiescing upgrade unit %s SIGKILL-class (was-enabled=%v) before reconciliation — never SIGTERM (TERM triggers the in-flight upgrade's rollback handler).\n", who, wasEnabled)
 	if err := exec.Command("systemctl", "--user", "mask", "--runtime", instance).Run(); err != nil {
 		fmt.Printf("Warning: systemctl --user mask --runtime %s failed: %v (proceeding — quiesce is then TIMING-BOUNDED: safe while RestartSec(30s) > kill→stop window(≤10s); the recoveryRollback flock gate covers correctness regardless)\n", instance, err)
 	}
 	if err := exec.Command("systemctl", "--user", "kill", "--signal=SIGKILL", instance).Run(); err != nil {
-		// Unit may already be dead (RestartSec window) — harmless.
-		fmt.Printf("Note: systemctl --user kill -s SIGKILL %s: %v (unit likely already dead)\n", instance, err)
+		// Factual: the kill command returned non-zero. This does NOT establish
+		// liveness — kill can fail on a unit-name miss / dbus error, or because
+		// the unit was already inactive. Death is confirmed via the flock below,
+		// not from this exit status.
+		fmt.Printf("Note: systemctl --user kill -s SIGKILL %s returned: %v (liveness confirmed below via the flock, not this exit status)\n", instance, err)
 	}
-	deadline := time.Now().Add(10 * time.Second)
-	for time.Now().Before(deadline) {
-		out, _ := exec.Command("systemctl", "--user", "show", instance, "-p", "MainPID", "--value").Output()
-		if pid := string(out); pid == "0\n" || pid == "0" || pid == "" {
-			break
-		}
-		time.Sleep(500 * time.Millisecond)
+	// Confirm the holder is actually gone via the AUTHORITATIVE signal: the
+	// kernel flock on the upgrade flag file (IsFlockHeld). The kernel releases it
+	// the instant the killed holder's fd is torn down, so a free flock means no
+	// live upgrade — the same signal Detect (state.go) and recoveryRollback
+	// (service.go) key on. Race-free and PID-reuse-immune, unlike a pidAlive/proc
+	// check (which the service's post-swap PID survival makes unreliable —
+	// service.go:784-789). OBSERVER, not gate: if the flock is still held at the
+	// deadline we narrate loudly and PROCEED — recoveryRollback's flock gate is
+	// the single authoritative serializer and yields rather than risk a
+	// concurrent destructive restore, so correctness holds either way (and
+	// halting here would force operator investigation, against the
+	// unattended-self-heal goal).
+	if confirmUpgradeDeathViaFlock(projDir, flockConfirmTimeout) {
+		fmt.Printf("Crash recovery: confirmed dead — upgrade flock on %s released; proceeding with takeover.\n", instance)
+	} else {
+		fmt.Printf("WARNING: upgrade flock STILL HELD %s after SIGKILL of %s — the upgrade holder may still be alive (%s). Proceeding anyway: recoveryRollback's flock gate is the authoritative serializer and will yield rather than risk a concurrent destructive restore; if recovery then yields, investigate the surviving process.\n", flockConfirmTimeout, instance, who)
 	}
 	if err := exec.Command("systemctl", "--user", "stop", instance).Run(); err != nil {
 		// Nothing alive to signal — stop here only cancels a pending
@@ -333,6 +352,36 @@ func stopRestartUpgradeUnit(instance string) func() {
 		if err := exec.Command("systemctl", "--user", "start", instance).Run(); err != nil {
 			fmt.Printf("Warning: systemctl --user start %s failed: %v (recovery succeeded; restart the service manually)\n", instance, err)
 		}
+	}
+}
+
+// flockConfirmTimeout bounds how long the quiesce waits for the SIGKILL'd
+// upgrade holder's kernel flock to be released (matches the prior MainPID-poll
+// budget). flockConfirmPollInterval is the poll cadence.
+const (
+	flockConfirmTimeout      = 10 * time.Second
+	flockConfirmPollInterval = 500 * time.Millisecond
+)
+
+// confirmUpgradeDeathViaFlock polls the AUTHORITATIVE upgrade flock until it is
+// released or `timeout` elapses. Returns true iff the flock was observed FREE
+// within the window — the killed holder's fd torn down by the kernel ⇒ no live
+// upgrade. This is the same signal Detect (upgrade.IsFlockHeld) and
+// recoveryRollback (acquireFlock) key on: race-free and PID-reuse-immune (a
+// recycled PID cannot inherit a dead holder's flock), unlike a pidAlive/proc
+// check — which the service's post-swap PID survival makes unreliable
+// (service.go:784-789). Extracted as a pure helper (no systemd) so it is
+// unit-testable with a real Flock fixture.
+func confirmUpgradeDeathViaFlock(projDir string, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for {
+		if !upgrade.IsFlockHeld(projDir) {
+			return true // flock free → holder gone → confirmed dead
+		}
+		if !time.Now().Before(deadline) {
+			return false // still held at deadline → caller narrates (observer)
+		}
+		time.Sleep(flockConfirmPollInterval)
 	}
 }
 
