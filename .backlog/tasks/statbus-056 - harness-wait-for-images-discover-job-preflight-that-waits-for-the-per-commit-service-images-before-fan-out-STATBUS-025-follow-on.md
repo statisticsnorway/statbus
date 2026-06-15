@@ -3,9 +3,11 @@ id: STATBUS-056
 title: >-
   harness-wait-for-images: discover-job preflight that waits for the per-commit
   service images before fan-out (STATBUS-025 follow-on)
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - engineer
 created_date: '2026-06-15 15:01'
+updated_date: '2026-06-15 15:02'
 labels:
   - install-recovery
   - ci
