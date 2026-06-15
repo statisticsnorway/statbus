@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - architect
 created_date: '2026-06-11 07:48'
-updated_date: '2026-06-15 14:11'
+updated_date: '2026-06-15 14:21'
 labels:
   - install-recovery
   - harness
@@ -26,4 +26,21 @@ Run 27306718138 @ cd2f5d51f: 5-install-stage-a-killed-migrate FAIL (pre-existing
 
 <!-- SECTION:NOTES:BEGIN -->
 ESCALATED to architect (foreman, 2026-06-15) — mechanic's relax-to-diagnostic fix HELD uncommitted. The mechanic's mechanism is right (checkSessionsClean's 5-min gate, install.go:1211, means a FRESH psql INSERT-statistical zombie is never detected → cleanOrphanSessions never triggered → zombie survives). BUT foreman found a GATE/ACTION ASYMMETRY: cleanOrphanSessions Phase 1 (install.go:1345-1355) kills `query ILIKE '%statistical_history%'` UN-AGED — the action WOULD kill the fresh zombie, but the gate (5-min) never triggers it. So either (A) the gate is intentionally conservative (multi-context healthy-migrate protection) → the scenario tests an impossible-by-design case AND the relax-to-diagnostic guts its stated purpose ('Validates Phase 1 cleanup of psql migrate-zombies') → re-design to test a realistic orphan (aged >5min / advisory-lock holder via un-aged Phase 2 / statbus-migrate-sql app); or (B) a real recovery GAP — at install/recovery time there's no concurrent healthy migrate, so the gate should detect the obvious fresh migrate-zombie the action already kills (a lock-holding orphan survives recovery) → fix checkSessionsClean. Architect to adjudicate + propose the minimal correct fix. On the critical path for the comprehensive-green; get it right over fast.
+
+== ARCHITECT ADJUDICATION (2026-06-15, King-routed via foreman) — design-only, no code ==
+
+VERDICT: NEITHER the mechanic's 'relax-to-diagnostic' NOR a blind 'un-age the gate' is correct. Closest to the foreman's (A), with a verified caveat that vindicates part of (B). The 029 scenario is MIS-MODELED; re-design it. Do NOT change checkSessionsClean's aging for the RC.
+
+EVIDENCE (verified file:line):
+- acquireAdvisoryLock (cli/internal/migrate/migrate.go:~566) holds the migrate_up advisory lock on a pgx.Conn tagged `statbus-migrate-<pid>`; subprocess psqls are tagged `statbus-migrate-sql-<pid>` (SubprocessAppNamePrefix). So a REAL killed-migrate orphan = a (possibly-lingering, idle) `statbus-migrate-<deadpid>` advisory holder + `statbus-migrate-sql-<deadpid>` statistical_* subprocess(es).
+- The GATE checkSessionsClean: `advisory_holders` counts ONLY empty-app holders (COALESCE(app,'')=''); `leaked` counts psql/migrate-sql running statistical_* aged >5min. The ACTION cleanOrphanSessions: Phase 1 kills psql/migrate-sql un-aged on statistical_history; Phase 2 PID-probes advisory holders. Phase 2 runs ONLY when the gate triggers.
+- 5-install-stage-d-advisory-zombie already tests the EMPTY-app advisory holder (rune PID-9962, old binary) → Phase 2 un-aged.
+
+WHY 029 IS MIS-MODELED: it synthesizes a bare `./sb psql -c "INSERT statistical_history ... pg_sleep(600)"` (app='psql', NO advisory lock), kills it. That shape is NOT a realistic killed-migrate orphan (a real one holds the migrate_up advisory lock + uses statbus-migrate-sql subprocesses). A bare-psql, no-advisory, fresh statistical_* backend is SQL-indistinguishable from a live manual/external client → the gate CORRECTLY declines to force-kill it fresh (un-aging would over-kill live clients = a regression). So 029's assertion tests over-aggressive cleanup the product intentionally avoids. The mechanic's relax-to-diagnostic merely turns that into a vacuous observation of a non-event.
+
+MINIMAL CORRECT FIX (for 029): RE-DESIGN to the REALISTIC orphan — synthesize a killed-migrate that leaves a `statbus-migrate-<deadpid>` advisory holder (dead/non-existent PID) + a `statbus-migrate-sql-<deadpid>` statistical_* subprocess; assert recovery cleans BOTH. This replaces the mis-modeled test AND exercises the recovery path that matters (Phase 2 PID-probe + Phase 1 sweep). Complements stage-d (empty-app holder) by covering the TAGGED holder + its subprocess.
+
+VERIFIED DEEPER FINDING (flag, do NOT blind-fix in the RC): for a CURRENT-binary killed migrate, the tagged `statbus-migrate-<deadpid>` advisory holder is counted by NEITHER gate subquery (advisory_holders is empty-app-only; the idle holder runs no statistical_* query so leaked misses it). It is only caught once its statistical_* SUBPROCESS ages past 5min (then leaked triggers → Phase 2 probes the holder). If the subprocess already exited, the holder is missed until TCP-keepalive/MigrateUpTimeout. → a fresh current killed-migrate orphan can DELAY recovery (bounded by min(keepalive, 30m migrate timeout)). The PRINCIPLED fix (if the re-designed 029 confirms it) is PID-liveness-aware gate detection (count tagged advisory holders to TRIGGER Phase 2's authoritative probe), NOT age-relaxation. Recommend a SEPARATE follow-up task with its own RED→GREEN; do not bundle a gate redesign into this RC.
+
+DO: re-design 029 (realistic orphan). DO NOT: un-age the gate; relax 029 to diagnostic. The mechanic's held fix should be dropped in favor of the re-design.
 <!-- SECTION:NOTES:END -->
