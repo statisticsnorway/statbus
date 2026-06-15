@@ -194,7 +194,10 @@ elif [ "$CHANNEL" = "edge" ]; then
             --build-arg COMMIT="$(git rev-parse HEAD)" \
             -t "$SB_IMAGE" ./cli
     fi
-    sb_cid=$(docker create "$SB_IMAGE")
+    if ! sb_cid=$(docker create "$SB_IMAGE"); then
+        echo "Error: docker create $SB_IMAGE failed — no sb binary to extract." >&2
+        exit 1
+    fi
     docker cp "${sb_cid}:/sb" "${STATBUS_DIR}/sb"
     docker rm "$sb_cid" >/dev/null 2>&1 || true
     chmod +x "${STATBUS_DIR}/sb"

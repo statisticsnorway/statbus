@@ -1484,7 +1484,7 @@ func (d *Service) Run(ctx context.Context) error {
 	// failure: EnsureDBUp would fail anyway, and a clear "regenerate config"
 	// error is the actionable signal.
 	if flag, _, ferr := ReadFlagFile(d.projDir); ferr == nil && flag != nil &&
-		flag.Holder == HolderService {
+		flag.Holder == HolderService && flag.CommitSHA != "" {
 		// Recovery boot. executeUpgrade defers the target checkout to here
 		// (STATBUS-060) so the OLD binary never materializes target-compose. THIS
 		// (the in-flight target) binary restores the target tree now — BEFORE the
