@@ -77,8 +77,18 @@ fi
 # Intent: speeds up create-db from ~294 migrations to one pg_restore (~2 seconds).
 # Uses ./sb db seed fetch — one implementation in Go, shared by dev.sh and ./sb install.
 # Placed AFTER the rebuild block so the current binary is always used.
+#
+# NON-FATAL: the seed is a pure speed optimization. `./sb db seed fetch` exits 1
+# ("manifest unknown") when the published statbus-seed:<commit_short> image does
+# not exist for this commit — a freshly-pushed commit whose Images run hasn't
+# built the seed yet, or any non-master ref Images never builds at all. Under
+# `set -e` an unguarded failure here aborts the WHOLE ./dev.sh invocation; that
+# killed the install-recovery harness's `build-sb` discover step on a fresh
+# commit (STATBUS-025 — the build phase died before any scenario ran). Mirror
+# install.go's runSeedRestore: warn and proceed; create-db just replays all
+# migrations instead of restoring the seed.
 if [ ! -f "$WORKSPACE/.db-seed/seed.pg_dump" ] && [ -x ./sb ]; then
-    ./sb db seed fetch
+    ./sb db seed fetch || echo "Note: no seed image for this commit — proceeding without the seed cache (create-db will replay all migrations)."
 fi
 
 # Set TTY_INPUT to /dev/tty if available (interactive), otherwise /dev/null
