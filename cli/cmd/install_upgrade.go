@@ -161,6 +161,21 @@ func runCrashRecovery(projDir string) error {
 		}
 	}
 
+	// Restore the target working tree before config-generate + boot-migrate
+	// (STATBUS-060). executeUpgrade defers the target checkout to the recovery
+	// boot so the OLD binary never materializes target-compose; on the inline
+	// syscall.Exec resume the tree may still be the source's. Mirror Service.Run's
+	// recovery-boot checkout: target tree BEFORE config-generate (emits target
+	// keys) and BEFORE boot-migrate-up below (schema-skew guard). Idempotent if
+	// already at target; git checkout errors on a bad ref. flag.CommitSHA is the
+	// upgrade target.
+	if flag, _, ferr := upgrade.ReadFlagFile(projDir); ferr == nil && flag != nil &&
+		flag.Holder == upgrade.HolderService && flag.CommitSHA != "" {
+		if err := runCmdDir(projDir, "git", "-c", "advice.detachedHead=false", "checkout", flag.CommitSHA); err != nil {
+			return fmt.Errorf("crash recovery: git checkout target %s: %w", upgrade.ShortForDisplay(flag.CommitSHA), err)
+		}
+	}
+
 	// Regenerate .env from .env.config so current-binary-expected keys
 	// (e.g. COMMIT_SHORT added in rc.62) are present before EnsureDBReachable,
 	// which uses .env's connection settings to verify the DB is reachable.

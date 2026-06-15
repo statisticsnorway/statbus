@@ -1485,8 +1485,20 @@ func (d *Service) Run(ctx context.Context) error {
 	// error is the actionable signal.
 	if flag, _, ferr := ReadFlagFile(d.projDir); ferr == nil && flag != nil &&
 		flag.Holder == HolderService {
-		fmt.Printf("Recovery boot (service-held flag phase=%q, upgrade id=%d, target=%s) — regenerating config before db up\n",
+		// Recovery boot. executeUpgrade defers the target checkout to here
+		// (STATBUS-060) so the OLD binary never materializes target-compose. THIS
+		// (the in-flight target) binary restores the target tree now — BEFORE the
+		// config-generate below (so it emits the target's keys + VERSION) AND
+		// before boot-migrate-up later in Run (which reads the working tree's
+		// migrations to satisfy the schema-skew guard before recoverFromFlag's
+		// renamed-column queries). flag.CommitSHA is the upgrade target; git
+		// checkout errors on a bad ref. The objects are local (executeUpgrade
+		// fetched them pre-swap).
+		fmt.Printf("Recovery boot (service-held flag phase=%q, upgrade id=%d, target=%s) — restoring target tree + regenerating config before db up\n",
 			flag.Phase, flag.ID, flag.Label())
+		if out, err := runCommandOutput(d.projDir, "git", "-c", "advice.detachedHead=false", "checkout", flag.CommitSHA); err != nil {
+			return fmt.Errorf("recovery boot: git checkout target %s: %w (%s)", ShortForDisplay(flag.CommitSHA), err, strings.TrimSpace(out))
+		}
 	}
 	sbBin := filepath.Join(d.projDir, "sb")
 	if _, err := runCommandOutput(d.projDir, sbBin, "config", "generate"); err != nil {
@@ -3842,49 +3854,54 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 		return err
 	}
 
-	// Step 6: Install new version — always fetch/checkout by commit SHA directly.
-	// No --depth 1: the discovery phase already fetched origin/master, so objects are local.
-	// Keeping full history ensures git-describe can find tags for config generate (VERSION).
+	// Step 6: Fetch the target's git objects — but do NOT check out the working
+	// tree here (STATBUS-060). A pre-swap checkout materializes the target's
+	// compose template while the OLD binary + key-deficient .env are still in
+	// control; a crash there restarts the OLD binary, whose every `docker
+	// compose` call dies on the target's new mandatory var (window 3). The
+	// checkout is deferred to the NEW binary's recovery boot (Service.Run /
+	// runCrashRecovery, before boot-migrate-up). The fetch MUST still run here
+	// so the objects are local for that later checkout. No --depth 1: discovery
+	// already fetched origin/master, so objects are local; full history lets
+	// git-describe find tags for config generate (VERSION).
 	progress.Write("Installing %s...", displayName)
 	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "git", nil, "git", "fetch", "origin", commitSHA); err != nil {
 		// TODO: pick code — forward git fetch failure; no Err* code covers install-time git errors yet
 		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("git fetch %s: %v", ShortForDisplay(commitSHA), err), backupPath, progress)
 		return err
 	}
-	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "git", nil, "git", "-c", "advice.detachedHead=false", "checkout", commitSHA); err != nil {
-		// TODO: pick code — forward git checkout failure; no Err* code covers install-time git errors yet
-		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("git checkout %s: %v", ShortForDisplay(commitSHA), err), backupPath, progress)
-		return err
-	}
 
-	// Harness-only kill site (C4): simulates the OS / orchestrator killing
-	// the process AFTER the git checkout to the target commit completes
-	// but BEFORE the binary swap. Wedge state: working tree at the NEW
-	// commit, backup .tmp dir on disk, no binary swap (./sb is still the
-	// OLD binary), flag PreSwap (PostSwap is stamped later, after
-	// replaceBinaryOnDisk). Recovery via the next install's
-	// recoverFromFlag PreSwap branch: restoreGitState reverts the working
-	// tree to previousVersion via the pre-upgrade branch pinned a few
-	// lines above (line 3286-3292 in this file's pre-modification
-	// snapshot), discards the .tmp backup, clears the flag. Binary on
-	// disk was never touched, so no restoreBinary needed.
-	// No-op in production. Drives scenario 2-preswap-checkout-kill.
+	// Harness-only kill site (C4): the OS / orchestrator kills the process here
+	// — after the target's objects are fetched but BEFORE the binary swap.
+	// STATBUS-060 NOTE: the pre-swap `git checkout` was removed, so the working
+	// tree is STILL the SOURCE's here (not the target's) — the OLD binary never
+	// sees target-compose, which is the whole point of the deferral. The kill
+	// leaves: objects fetched, NO checkout, no binary swap (./sb still OLD),
+	// flag PreSwap. Recovery via the next install's recoverFromFlag PreSwap
+	// branch → restoreGitState reverts to previousVersion, discards the .tmp
+	// backup, clears the flag; binary on disk was never touched. No-op in
+	// production. The 2-preswap-checkout-kill scenario's RED assertion ("working
+	// tree at target") is now stale — updated under STATBUS-026 (genuine-binary
+	// variant).
 	inject.KillHere("killed-by-system-during-preswap-checkout")
 
-	// Verify checked-out SHA matches manifest (detect tag spoofing).
-	// Only tagged releases carry a manifest; untagged commits skip.
+	// Verify the commit being installed matches the manifest (detect tag
+	// spoofing). STATBUS-060: compares commitSHA (the upgrade target) directly
+	// to the manifest's commit — NOT `git rev-parse HEAD`, because the working-
+	// tree checkout is deferred to the recovery boot, so HEAD is still the
+	// source's here. Same anti-tampering property: the commit handed off to the
+	// new binary (and checked out by it) must be the one the manifest claims for
+	// this version; the deferred `git checkout commitSHA` errors if that ref is
+	// absent. Only tagged releases carry a manifest; untagged commits skip.
 	if ValidateVersion(displayName) {
 		if manifest, mErr := FetchManifest(displayName); mErr == nil && manifest.CommitSHA != "" {
-			if checkedOut, gErr := runCommandOutput(projDir, "git", "rev-parse", "HEAD"); gErr == nil {
-				checkedOut = strings.TrimSpace(checkedOut)
-				if !strings.HasPrefix(checkedOut, manifest.CommitSHA) && !strings.HasPrefix(manifest.CommitSHA, checkedOut) {
-					// TODO: pick code — tag-tampering detection; consider adding ErrInstallPreconditionFailed
-					errMsg := fmt.Sprintf("Version verification failed: expected commit %s but got %s. Possible tag tampering.",
-						ShortForDisplay(manifest.CommitSHA), ShortForDisplay(checkedOut))
-					progress.Write("%s", errMsg)
-					d.rollback(ctx, id, displayName, previousVersion, errMsg, backupPath, progress)
-					return fmt.Errorf("%s", errMsg)
-				}
+			if !strings.HasPrefix(commitSHA, manifest.CommitSHA) && !strings.HasPrefix(manifest.CommitSHA, commitSHA) {
+				// TODO: pick code — tag-tampering detection; consider adding ErrInstallPreconditionFailed
+				errMsg := fmt.Sprintf("Version verification failed: target commit %s does not match manifest commit %s. Possible tag tampering.",
+					ShortForDisplay(commitSHA), ShortForDisplay(manifest.CommitSHA))
+				progress.Write("%s", errMsg)
+				d.rollback(ctx, id, displayName, previousVersion, errMsg, backupPath, progress)
+				return fmt.Errorf("%s", errMsg)
 			}
 		}
 	}
