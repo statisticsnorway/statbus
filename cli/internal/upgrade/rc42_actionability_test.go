@@ -71,6 +71,14 @@ func TestHealthCheck_PerAttemptLogging(t *testing.T) {
 	}))
 	defer srv.Close()
 
+	// The /ready warmup runs first inside healthCheck; give it a server that
+	// returns 200 immediately so this test exercises the RPC-probe retry path
+	// (the warmup completes on its first poll, no sleep).
+	readySrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer readySrv.Close()
+
 	projDir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(projDir, "tmp", "upgrade-logs"), 0755); err != nil {
 		t.Fatal(err)
@@ -80,7 +88,7 @@ func TestHealthCheck_PerAttemptLogging(t *testing.T) {
 		t.Fatal("NewUpgradeLog returned nil")
 	}
 
-	d := &Service{cachedURL: srv.URL}
+	d := &Service{cachedURL: srv.URL, cachedReadyURL: readySrv.URL}
 	err := d.healthCheck(progress, 3, 1*time.Millisecond)
 	if err == nil {
 		t.Fatal("expected healthCheck to return error after retries; got nil")

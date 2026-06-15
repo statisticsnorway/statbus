@@ -1282,6 +1282,43 @@ func (d *Service) healthURL() (string, error) {
 	return d.cachedURL, nil
 }
 
+// readyURL resolves the PostgREST admin server's /ready endpoint from
+// REST_ADMIN_BIND_ADDRESS in .env. The admin server binds loopback-only
+// (127.0.0.1:<slot offset+6>) and is never publicly routed; /ready returns
+// 200 only once BOTH the connection pool AND the schema cache are loaded —
+// the exact signal the post-swap warmup waits for before the functional RPC
+// probe runs.
+//
+// Fails fast with an actionable error if REST_ADMIN_BIND_ADDRESS is missing
+// or empty. There is deliberately no fallback to a guessed address or to
+// skipping the warmup: a silent fallback would re-hide the config-drift class
+// (a dropped admin mapping) that the readiness signal exists to surface.
+func (d *Service) readyURL() (string, error) {
+	if d.cachedReadyURL != "" {
+		return d.cachedReadyURL, nil
+	}
+	envPath := filepath.Join(d.projDir, ".env")
+	f, err := dotenv.Load(envPath)
+	if err != nil {
+		return "", fmt.Errorf(
+			"readiness check: cannot read %s to resolve REST_ADMIN_BIND_ADDRESS: %w\n"+
+				"Fix: run `./sb config generate` to regenerate .env from .env.config, "+
+				"or verify the file exists and is readable.",
+			envPath, err)
+	}
+	bind, ok := f.Get("REST_ADMIN_BIND_ADDRESS")
+	bind = strings.TrimSpace(bind)
+	if !ok || bind == "" {
+		return "", fmt.Errorf(
+			"readiness check: REST_ADMIN_BIND_ADDRESS is not set in %s.\n"+
+				"Fix: run `./sb config generate` to regenerate .env from .env.config so the "+
+				"PostgREST admin server bind address (127.0.0.1:<port>) is populated.",
+			envPath)
+	}
+	d.cachedReadyURL = fmt.Sprintf("http://%s/ready", bind)
+	return d.cachedReadyURL, nil
+}
+
 // healthCheck POSTs {} to the auth_status RPC and retries on 5xx /
 // transport errors. Each failed attempt is logged via progress with
 // the actionable detail (status + body excerpt for 5xx, transport
@@ -1291,6 +1328,18 @@ func (d *Service) healthURL() (string, error) {
 // progress may be nil — falls back to stderr so the older verbose
 // path keeps working for ad-hoc invocations.
 func (d *Service) healthCheck(progress *ProgressLog, retries int, interval time.Duration) error {
+	// WARMUP: wait for PostgREST's admin /ready=200 BEFORE the functional RPC
+	// probe. The probe fires immediately after the post-swap container restart,
+	// while PostgREST is still loading its schema cache → attempt 1 would always
+	// fail 503 PGRST002, and on a large schema (Norway-scale) the cold-cache
+	// window can outlast the whole fixed RPC retry budget → a false health-fail
+	// → rollback. Gating on the real readiness signal removes that race entirely;
+	// see waitForRestReady. No PGRST002 fallback follows: after /ready=200 the
+	// cold-cache race cannot occur.
+	if err := d.waitForRestReady(progress, RestReadyPollInterval, restReadyProgressInterval, RestReadyTimeout); err != nil {
+		return err
+	}
+
 	healthURL, err := d.healthURL()
 	if err != nil {
 		return err
@@ -1328,6 +1377,117 @@ func (d *Service) healthCheck(progress *ProgressLog, retries int, interval time.
 		time.Sleep(interval)
 	}
 	return fmt.Errorf("health check failed after %d attempts; last: %s", retries, lastDetail)
+}
+
+// RestReadyTimeout caps how long the post-swap warmup waits for PostgREST to
+// report /ready=200 (connection pool + schema cache loaded). Generous-budget
+// doctrine: schema-cache load scales with schema size, so a fixed retry budget
+// would false-fail on a large schema (Norway). The wait can't itself trip the
+// unit's watchdog because the loop narrates progress on restReadyProgressInterval
+// (well under applyPostSwapStallThreshold = 3m), and every progress line pings
+// sd_notify WATCHDOG=1 + bumps the progress gate (progress.Write).
+const RestReadyTimeout = 5 * time.Minute
+
+// RestReadyPollInterval is how often the warmup polls the admin /ready endpoint.
+const RestReadyPollInterval = 2 * time.Second
+
+// restReadyProgressInterval is how often the warmup emits a progress line while
+// still waiting. MUST stay comfortably below applyPostSwapStallThreshold (3m)
+// so a long-but-live cache load keeps feeding the progress-gated watchdog.
+const restReadyProgressInterval = 15 * time.Second
+
+// waitForRestReady polls the PostgREST admin /ready endpoint until it returns
+// 200 — the signal that BOTH the connection pool and the schema cache are
+// loaded. It is the first thing healthCheck does after a post-swap restart.
+//
+// Both 503 (process up, cache not loaded yet) and connection-refused / transport
+// errors (process not accepting yet) take the SAME path: keep waiting until 200
+// or until timeout. The loop emits a progress line every progressInterval — this
+// is load-bearing, not cosmetic: each progress.Write pings sd_notify WATCHDOG=1
+// and bumps applyPostSwap's progress gate, so a multi-minute cache load cannot
+// close the gate and get the unit SIGABRTed.
+//
+// On timeout the returned error distinguishes the two failure modes by whether
+// the admin server was ever reachable:
+//   - never connected (always refused) → config drift: the admin mapping is
+//     missing — run ./sb config generate.
+//   - connected but always 503 → the schema cache never finished loading —
+//     inspect docker compose logs rest.
+//
+// There is deliberately NO fallback that proceeds anyway on timeout: after
+// /ready=200 the cold-cache race cannot occur, and a silent fallback would mask
+// a future loss of the readiness signal (e.g. a compose refactor that drops the
+// admin mapping) — exactly the vacuous-green class we must fail loudly on.
+func (d *Service) waitForRestReady(progress *ProgressLog, pollInterval, progressInterval, timeout time.Duration) error {
+	readyURL, err := d.readyURL()
+	if err != nil {
+		return err
+	}
+
+	logf := func(format string, args ...interface{}) {
+		if progress != nil {
+			progress.Write(format, args...)
+		} else {
+			fmt.Printf(format+"\n", args...)
+		}
+	}
+
+	// Per-poll client timeout is independent of pollInterval: a single GET
+	// against a loopback admin server returns in milliseconds when up, and a
+	// hung GET must not consume the whole budget in one attempt.
+	client := &http.Client{Timeout: 10 * time.Second}
+
+	start := time.Now()
+	deadline := start.Add(timeout)
+	lastProgressAt := start
+
+	var (
+		sawConnection bool
+		lastDetail    string
+		polls         int
+	)
+
+	logf("Waiting for PostgREST schema cache to load (admin /ready, up to %s)...", timeout)
+
+	for {
+		polls++
+		resp, getErr := client.Get(readyURL)
+		switch {
+		case getErr == nil && resp.StatusCode == http.StatusOK:
+			resp.Body.Close()
+			logf("PostgREST is ready (admin /ready=200 after %s, %d poll(s))",
+				time.Since(start).Round(time.Millisecond), polls)
+			return nil
+		case getErr != nil:
+			lastDetail = fmt.Sprintf("connection error: %v", getErr)
+		default:
+			io.Copy(io.Discard, io.LimitReader(resp.Body, 1024))
+			resp.Body.Close()
+			sawConnection = true
+			lastDetail = fmt.Sprintf("status=%d (schema cache still loading)", resp.StatusCode)
+		}
+
+		if now := time.Now(); now.After(deadline) {
+			if sawConnection {
+				return fmt.Errorf(
+					"PostgREST schema cache never loaded — admin /ready did not return 200 within %s "+
+						"(last: %s). Check `docker compose logs rest`; the cache load may be failing, or the "+
+						"schema may be too large for the %s budget.",
+					timeout, lastDetail, timeout)
+			}
+			return fmt.Errorf(
+				"PostgREST admin server unreachable — /ready at %s never accepted a connection within %s "+
+					"(last: %s). The admin mapping is likely missing from your config — run "+
+					"`./sb config generate` to regenerate .env and recreate the rest container.",
+				readyURL, timeout, lastDetail)
+		} else if now.Sub(lastProgressAt) >= progressInterval {
+			logf("Still waiting for PostgREST /ready (elapsed %s, last: %s)",
+				time.Since(start).Round(time.Second), lastDetail)
+			lastProgressAt = now
+		}
+
+		time.Sleep(pollInterval)
+	}
 }
 
 // reconcileBackupDir audits the backup directory against public.upgrade rows.

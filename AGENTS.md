@@ -189,9 +189,10 @@ Controlled by `DEPLOYMENT_SLOT_CODE` and `DEPLOYMENT_SLOT_PORT_OFFSET` - enables
 
 - Each slot = separate instance (country/environment)
 - Port calculation: `3000 + (slot_offset × 10)`
-  - Offset 1 (local): 3010 (HTTP), 3011 (HTTPS), 3012 (app), 3013 (rest), 3014 (db), 3015 (db-tls)
-  - Offset 2 (ma): 3020 (HTTP), 3021 (HTTPS), 3022 (app), 3023 (rest), 3024 (db), 3025 (db-tls)
-  - Offset 3 (no): 3030 (HTTP), 3031 (HTTPS), 3032 (app), 3033 (rest), 3034 (db), 3035 (db-tls)
+  - Offset 1 (local): 3010 (HTTP), 3011 (HTTPS), 3012 (app), 3013 (rest), 3014 (db), 3015 (db-tls), 3016 (rest-admin)
+  - Offset 2 (ma): 3020 (HTTP), 3021 (HTTPS), 3022 (app), 3023 (rest), 3024 (db), 3025 (db-tls), 3026 (rest-admin)
+  - Offset 3 (no): 3030 (HTTP), 3031 (HTTPS), 3032 (app), 3033 (rest), 3034 (db), 3035 (db-tls), 3036 (rest-admin)
+  - `rest-admin` (offset+6) is PostgREST's admin server, bound **loopback-only** (`127.0.0.1`, `REST_ADMIN_BIND_ADDRESS`). Serves the internal `/ready` signal the post-upgrade health check polls; never public, no Caddy route.
 
 - Slot code used in:
   - Container names: `statbus-{code}-app`, `statbus-{code}-db`

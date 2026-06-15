@@ -131,6 +131,7 @@ type Service struct {
 	upgrading      bool             // true during executeUpgrade; prevents ticker/notify from using nil conn
 	pendingRecreate bool           // if true, next upgrade deletes+recreates the database instead of migrating
 	cachedURL      string           // cached health check URL (derived from .env at startup)
+	cachedReadyURL string           // cached PostgREST admin /ready URL (derived from .env; warmup gate before the RPC probe)
 	listenCancel context.CancelFunc // cancels the listenLoop goroutine
 	listenDone   chan struct{}      // closed when the active listenLoop goroutine exits
 	// listenWg retired in favour of listenDone: we need to tolerate a leaked

@@ -1,6 +1,9 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -148,6 +151,13 @@ func TestComputeDerivedDevelopment(t *testing.T) {
 	if d.CaddyDbTlsPort != 3015 {
 		t.Errorf("CaddyDbTlsPort = %d, want 3015", d.CaddyDbTlsPort)
 	}
+	// PostgREST admin server: slot offset+6 = 3016, loopback-only.
+	if d.RestAdminPort != 3016 {
+		t.Errorf("RestAdminPort = %d, want 3016", d.RestAdminPort)
+	}
+	if d.RestAdminBindAddress != "127.0.0.1:3016" {
+		t.Errorf("RestAdminBindAddress = %q, want 127.0.0.1:3016", d.RestAdminBindAddress)
+	}
 	if d.CaddyHttpBindAddress != "127.0.0.1:3010" {
 		t.Errorf("CaddyHttpBindAddress = %q, want 127.0.0.1:3010", d.CaddyHttpBindAddress)
 	}
@@ -179,6 +189,15 @@ func TestComputeDerivedStandalone(t *testing.T) {
 	if d.CaddyDbTlsPort != 5432 {
 		t.Errorf("CaddyDbTlsPort = %d, want 5432", d.CaddyDbTlsPort)
 	}
+	// The admin port is offset-derived and NOT mode-overridden: standalone
+	// remaps only http/https/db, so +6 stays uniform (offset 1 → 3016) across
+	// modes — the property the design relies on for "free in every mode".
+	if d.RestAdminPort != 3016 {
+		t.Errorf("RestAdminPort = %d, want 3016 (offset+6, uniform across modes)", d.RestAdminPort)
+	}
+	if d.RestAdminBindAddress != "127.0.0.1:3016" {
+		t.Errorf("RestAdminBindAddress = %q, want 127.0.0.1:3016", d.RestAdminBindAddress)
+	}
 	if d.CaddyHttpBindAddress != "0.0.0.0:80" {
 		t.Errorf("CaddyHttpBindAddress = %q, want 0.0.0.0:80", d.CaddyHttpBindAddress)
 	}
@@ -195,6 +214,46 @@ func TestProjectDir(t *testing.T) {
 	dir := ProjectDir()
 	if dir == "" {
 		t.Error("ProjectDir returned empty string")
+	}
+}
+
+// TestGenerateEnvContent_RestAdminBindAddress verifies the generated .env
+// carries REST_ADMIN_BIND_ADDRESS with the offset+6 loopback value. This
+// guards the fragile positional-index wiring in the head template (%[26]s):
+// an off-by-one there would either omit the line or leave a Go fmt error
+// marker (%!), both caught here.
+func TestGenerateEnvContent_RestAdminBindAddress(t *testing.T) {
+	projDir := t.TempDir()
+	// generateEnvContent requires a readable .env.example; .env.config is
+	// optional. A minimal example suffices — the keys it lacks are added via
+	// example.Set() during generation.
+	if err := os.WriteFile(filepath.Join(projDir, ".env.example"), []byte("# minimal example\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &ConfigEnv{
+		DeploymentSlotCode:       "local",
+		DeploymentSlotName:       "local",
+		DeploymentSlotPortOffset: "1",
+		CaddyDeploymentMode:      "development",
+		SiteDomain:               "local.statbus.org",
+		StatbusURL:               "http://localhost:3010",
+		BrowserAPIURL:            "http://local.statbus.org:3010",
+	}
+	derived := computeDerived(cfg)
+
+	out, err := generateEnvContent(&Credentials{}, cfg, derived, &DbMemory{}, projDir)
+	if err != nil {
+		t.Fatalf("generateEnvContent: %v", err)
+	}
+
+	if !strings.Contains(out, "REST_ADMIN_BIND_ADDRESS=127.0.0.1:3016") {
+		t.Errorf("generated .env missing REST_ADMIN_BIND_ADDRESS=127.0.0.1:3016; got:\n%s", out)
+	}
+	// No Go fmt error markers — proves every positional index (incl. %[26]s)
+	// resolved to a real argument.
+	if strings.Contains(out, "%!") {
+		t.Errorf("generated .env contains a Go fmt error marker (positional-index wiring bug):\n%s", out)
 	}
 }
 

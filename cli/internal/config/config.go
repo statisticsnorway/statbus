@@ -122,6 +122,13 @@ type Derived struct {
 	AppBindAddress          string
 	PostgrestPort           int
 	PostgrestBindAddress    string
+	// RestAdminBindAddress is the loopback host mapping for PostgREST's admin
+	// server (slot offset+6), the source of the /ready signal the post-swap
+	// upgrade warmup polls. Bound 127.0.0.1-only and never routed through
+	// Caddy: the admin endpoints (/ready,/live,/config,/schema_cache) are
+	// unauthenticated in v12, same trust level as the main REST loopback port.
+	RestAdminPort           int
+	RestAdminBindAddress    string
 	Version                 string
 	// CommitShort is the 8-char display form of the git commit (produced by
 	// `git rev-parse --short=8 HEAD`). Length fixed at 8; not encoded in
@@ -441,6 +448,10 @@ func computeDerived(cfg *ConfigEnv) *Derived {
 	postgrestPort := portOffset + 3
 	caddyDbPort := portOffset + 4
 	caddyDbTlsPort := portOffset + 5
+	// +6: PostgREST admin server (loopback-only /ready warmup signal). Verified
+	// free in every mode — config.go assigns only +0..+5, and standalone
+	// overrides only http/https/db, so +6 is uniform across all deployment modes.
+	restAdminPort := portOffset + 6
 
 	var (
 		caddyHttpBind    string
@@ -497,6 +508,8 @@ func computeDerived(cfg *ConfigEnv) *Derived {
 		AppBindAddress:         fmt.Sprintf("127.0.0.1:%d", appPort),
 		PostgrestPort:          postgrestPort,
 		PostgrestBindAddress:   fmt.Sprintf("127.0.0.1:%d", postgrestPort),
+		RestAdminPort:          restAdminPort,
+		RestAdminBindAddress:   fmt.Sprintf("127.0.0.1:%d", restAdminPort),
 		Version:                version,
 		CommitShort:            commitShort,
 		SiteURL:                cfg.StatbusURL,
@@ -570,6 +583,9 @@ CADDY_HTTPS_BIND_ADDRESS=%[15]s
 APP_BIND_ADDRESS=%[16]s
 # The host address connected to Supabase
 REST_BIND_ADDRESS=%[17]s
+# PostgREST admin server — loopback-only (slot offset+6). Source of the /ready
+# signal the post-swap upgrade health check polls. NEVER public, no Caddy route.
+REST_ADMIN_BIND_ADDRESS=%[26]s
 # The publicly exposed address of PostgreSQL inside Supabase
 CADDY_DB_PORT=%[18]d
 CADDY_DB_TLS_PORT=%[19]d
@@ -616,6 +632,7 @@ PUBLIC_STATBUS_COMMIT_SHORT=%[23]s
 		derived.CommitShort,              // 23
 		debugBlock("DEBUG", cfg.Debug),   // 24
 		cfg.SiteDomain,                  // 25
+		derived.RestAdminBindAddress,     // 26
 	)
 
 	// Load .env.example and apply overrides
