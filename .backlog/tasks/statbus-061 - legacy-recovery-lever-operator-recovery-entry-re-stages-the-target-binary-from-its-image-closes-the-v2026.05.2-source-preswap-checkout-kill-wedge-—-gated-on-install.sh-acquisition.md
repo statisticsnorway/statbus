@@ -8,6 +8,7 @@ status: To Do
 assignee:
   - architect
 created_date: '2026-06-15 22:26'
+updated_date: '2026-06-15 22:39'
 labels:
   - upgrade
   - recovery
@@ -44,9 +45,17 @@ On a crashed-upgrade flag, the operator entry reads `flag.target` → `docker cr
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 install.sh-acquisition verdict resolved with file:line (fresh-curl vs pinned)
+- [x] #1 install.sh-acquisition verdict resolved with file:line (fresh-curl vs pinned)
 - [ ] #2 If fresh-curl: lever implemented (operator entry re-stages target binary via docker create+cp, then runs target recovery); legacy genuine-binary variant recovers via ./sb install alone
 - [ ] #3 If pinned: residual + exact manual recovery documented in doc-011; no fake solve
 - [ ] #4 go build/vet/test green; reported to foreman before push
 - [ ] #5 doc-011 Layer 3 updated with the verdict + outcome
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+CRUX RESOLVED — install.sh acquisition is FRESH-CURL, not pinned (file:line): canonical operator/deploy action is `curl -fsSL https://statbus.org/install.sh | bash` (install.sh:4-8); both deploy drivers fetch it fresh every run — standalone.sh:66/231/245 and cloud.sh:46/530/551 (INSTALL_URL=https://statbus.org/install.sh). So a lever-carrying install.sh reaches a stranded box the moment the operator runs the canonical command. ⇒ the lever is FEASIBLE; do NOT take the documented-residual branch.
+
+Bigger finding: install.sh ALREADY re-stages the binary in RESCUE mode — downloads the resolved-VERSION binary (install.sh:203) and `mv`s it over ./sb (209) BEFORE running ./sb install (269). So for a TAGGED target, a stranded v2026.05.2 box ALREADY recovers today via fresh `curl install.sh|bash` (it runs the target binary's recovery, which emits the keys + has StartDBForRecovery). The ONLY real gap: an EDGE/untagged target on a toolchain-free box — install.sh's edge path builds from source and needs `go` (install.sh:161-166, ./dev.sh build-sb at 190). Close it by giving install.sh the same image-extract as STATBUS-060 (docker create statbus-sb:<short> + docker cp /sb) → toolchain-free on all channels. So the 061 lever ≈ 'apply image-extract to install.sh's binary acquisition + (optionally) read flag.target for the exact target.'
+<!-- SECTION:NOTES:END -->
