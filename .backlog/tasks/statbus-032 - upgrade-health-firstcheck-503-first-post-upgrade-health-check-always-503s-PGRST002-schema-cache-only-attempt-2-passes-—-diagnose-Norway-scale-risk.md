@@ -3,11 +3,11 @@ id: STATBUS-032
 title: >-
   upgrade-health-readiness: poll PostgREST admin /ready before the RPC health
   check — kills the PGRST002 first-fail + the fixed-25s Norway budget
-status: In Progress
+status: To Do
 assignee:
   - '@mechanic'
 created_date: '2026-06-11 15:45'
-updated_date: '2026-06-15 11:18'
+updated_date: '2026-06-15 12:07'
 labels:
   - upgrade
   - health-check
@@ -100,4 +100,6 @@ OUT-OF-SCOPE NOTE UPDATED (supersedes the description’s line): not “orthogon
 - Do NOT add `--wait` to the upgrade’s `up` as a readiness mechanism — the Go-poll covers upgrade-flow readiness better (journal+watchdog+diagnostics).
 TRADEOFFS: custom image NOW → +steady-state `docker ps` readiness today; −new Dockerfile/build/maintenance + upstream-pin divergence + a probe binary to vet. Defer to the bump → +zero cost, clean upstream `--ready`; −no steady-state rest readiness until then. The two highest-value cases (startup ordering + upgrade-flow readiness) are ALREADY covered (existing db healthcheck + 032 Go-poll); the rest compose healthcheck is lowest marginal value AND most expensive today — hence defer.
 DIRECT ANSWER to the King: yes, a /ready healthcheck reports unhealthy unless Postgres is up — CORRECT for readiness (gate traffic/dependents), INCORRECT for liveness (don’t kill rest over a DB blip); compose collapses both into one status, so if a restart-on-unhealthy mechanism is ever added a /ready healthcheck would cause harmful restart loops (use /live for liveness). Given the foundational gate already exists and the clean `--ready` path is one postgrest bump away, the principled move is defer-not-custom-image.
+
+STATUS CORRECTED 2026-06-15 (King caught it): In Progress → To Do, assignee cleared. NOBODY is actively working this — it has been BLOCKED on King ratification (AC#4) since 2026-06-12. Design is COMPLETE (AC#1-3 done + the compose-healthcheck analysis added 06-15). Implementation (AC#5-8) cannot start until the King ratifies the design (admin server internal-only at offset+6; /ready warmup in healthCheck; 5m cap; no PGRST002 fallback). 'In Progress' was inaccurate — it implied active work when the task is parked awaiting a decision. When the King ratifies, assign + move to In Progress for the implementation commit.
 <!-- SECTION:NOTES:END -->
