@@ -4,11 +4,11 @@ title: >-
   install-self-heal: the install/upgrade entrypoint must auto-recover a wedged
   post-swap upgrade with the operator's only actions — never custom commands
   (rune live exhibit)
-status: In Progress
+status: Done
 assignee:
   - architect
 created_date: '2026-06-12 08:54'
-updated_date: '2026-06-12 21:52'
+updated_date: '2026-06-15 10:34'
 labels:
   - install-recovery
   - upgrade
@@ -52,8 +52,8 @@ RELATED: 015 (Resuming latch / applyPostSwap watchdog — confirm they prevent t
 <!-- AC:BEGIN -->
 - [x] #1 Architect designs the principled self-heal: the newest `./sb install` (or upgrade trigger) detects a wedged at-or-past-target in_progress post-swap upgrade and converges the row to completed automatically — no operator commands
 - [x] #2 The design guarantees no rollback ever restores a backup older than the live data (stale-backup guard); a lagging sub-artifact is reconciled forward to target, never via rollback
-- [ ] #3 Proven on wedged-rune: running the newest `./sb install` self-heals id=187 to completed — no SIGTERM/stop, no rollback, no data loss, no manual commands — preserving the ~2.5 weeks of live data
-- [ ] #4 After self-heal, rune upgrades to the campaign RC via the normal path and can serve as the stable-gate canary
+- [x] #3 Proven on wedged-rune: running the newest `./sb install` self-heals id=187 to completed — no SIGTERM/stop, no rollback, no data loss, no manual commands — preserving the ~2.5 weeks of live data
+- [x] #4 After self-heal, rune upgrades to the campaign RC via the normal path and can serve as the stable-gate canary
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -117,3 +117,17 @@ POST-INSTALL VERIFICATION (all read-only):
 - Backups dir: pre-upgrade-20260525T061058Z untouched; later upgrades create the CHANGE-2 active snapshot.
 THEN AC#4: rune resumes prerelease-canary duty (subsequent upgrades via the normal scheduled path); the deferred battery (STATBUS-044) runs before the stable gate.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+DONE — code shipped 5eacd6305 (2026-06-12), validated LIVE on rune 2026-06-13, foreman re-confirmed read-only 2026-06-15. Status had been stale at In Progress (last touched 06-12, before the 06-13 recovery proved AC#3/#4).
+
+AC#1/#2 (design) — committed 5eacd6305 (9 files, +1092/-581; build/vet/full go test green): ground-truth-first FORWARD routing (at-target never rolls back; tri-state verdict wired into the Resuming branch, postSwapFailure, completeInProgressUpgrade), identity-keyed restore (consumes ONLY flag.BackupPath/row.backup_path; pickLatestBackup recency selector DELETED as a silent-loss path), SIGKILL-class safe takeover (mask --runtime → kill SIGKILL → verify MainPID==0 → stop → unmask; NEVER SIGTERM), + truth-repairs. Plus review-hardenings F1-F4.
+
+AC#3 (self-heal on wedged-rune) — PROVEN: rune's crash-loop (NRestarts≈10784) was taken over SIGKILL-class (no SIGTERM), rolled FORWARD (no rollback), id=187 self-healed to completed. Live re-verify 2026-06-15 (read-only ./sb psql): row 187 state=completed, error NULL; in_progress_count=0; May-25 backup untouched. Zero operator commands beyond ./sb install; zero data loss; the 18-day user-facing outage ended.
+
+AC#4 (rune on the campaign RC, canary duty) — PROVEN: row 196 = 2026.06.0-rc.02, completed 2026-06-13 08:27; live re-verify confirms it is the newest completed (running) version. rune resumed prerelease-canary duty.
+
+The remaining "fabricated rune-shape wedge VM scenario" battery is tracked separately as STATBUS-044 (not a 039 AC). Closed on live evidence 2026-06-15.
+<!-- SECTION:FINAL_SUMMARY:END -->
