@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-11 03:17'
-updated_date: '2026-06-15 12:50'
+updated_date: '2026-06-15 13:06'
 labels:
   - install-recovery
   - ci
@@ -51,4 +51,6 @@ THE FIX (decided — MATRIX, design ready to implement):
 Decision history: options (a) matrix / (b) batch / (c) faster-scenarios were weighed; MATRIX chosen (clean gate semantics, per-scenario logs, ~60min). Deep-reference: doc-007 Track B1. The rc.01 tag-push harness run will show the 6h cancel — expected, the live exhibit. First in line in the gate-maker batch (engineer-sized, ~1 day).
 
 DISPATCHED 2026-06-15 (King: 'get things going... ready by tonight'). Engineer implementing the matrix split per the design. THE #1 unblock — without it no comprehensive harness run can report success (6h ceiling). Engineer owns .github/workflows/install-recovery-harness.yaml. Operator verifying Hetzner quota headroom for max-parallel. do-not-self-commit → foreman reviews+commits.
+
+REVIEW BOUNCE (foreman, 2026-06-15) — commit HELD. Structure/reap-scoping/AC#5 all correct (gate reads run-level conclusion by filename, job rename invisible). BUT a gate-breaking stdout-contamination bug: the discover step captures `--print-selected` via $(), and run.sh:105 echoes the known-RED exclusion notice to STDOUT in the default path. Empirically reproduced: count=30 (not 28), matrix JSON ingests 2 bogus '(excluding known-RED reproducer...)' entries → 2 always-failing matrix jobs → workflow conclusion=failure → gate never green (the exact bug 025 fixes, reintroduced). FIX: run.sh:105 append `>&2` (progress→stderr, data→stdout). Bounced to engineer with the empirical repro + the required re-verify (--print-selected | wc -l == 28; 0 'excluding' lines in matrix). Foreman re-reviews + commits once clean.
 <!-- SECTION:NOTES:END -->
