@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@mechanic'
 created_date: '2026-06-11 15:45'
-updated_date: '2026-06-12 07:58'
+updated_date: '2026-06-15 11:17'
 labels:
   - upgrade
   - health-check
@@ -66,4 +66,18 @@ WATCHDOG INTERACTION (the 031-class subtlety): step 12 runs under applyPostSwap'
 OUT OF SCOPE (named, not forgotten): container-level compose healthcheck: stanza (orthogonal — the Go poll narrates the journal + feeds the watchdog; a compose healthcheck does neither; + needs an in-image probe the distroless image lacks); rollback's post-restore verification (031's domain — rollback comes up at the OLD version); /live,/config,/schema_cache (enabled as a side effect, nothing consumes them).
 
 VERIFICATION (honest — no deterministic VM RED for a cache-load race): unit tests are the real teeth (httptest /ready: 503×N→200, refused→503→200, never-200 expiry with the refused-vs-503 message distinction, + structural warmup-precedes-probe guard); config tests (+6 port + .env line); every post-swap harness scenario exercises the warmup as a free regression net; observed GREEN = next dev-slot upgrade journal shows the readiness wait + zero PGRST002; scale-proof = the rune-no canary journal (real Norway schema cache-load duration).
+
+== ARCHITECT DESIGN: container-level compose healthcheck (King-requested, 2026-06-15) — design-only, no code ==
+
+The King asked us to seriously design the compose `healthcheck:` approach (currently OUT OF SCOPE) and answer: “would a container-level healthcheck mean the container FAILS LIVENESS unless Postgres is up? maybe that is correct.” Answered below against verified facts.
+
+VERIFIED FACTS (web + codebase):
+- PostgREST admin endpoints (docs, v12): `/live` = 200 if the PROCESS is running (500 otherwise) — does NOT need the DB. `/ready` = 200 only if BOTH the connection pool AND schema cache are good, else 503 — NEEDS Postgres up + cache loaded. (This is the live/ready split the King’s question turns on.)
+- The pinned image is `postgrest/postgrest:v12.2.8`, UPSTREAM, distroless (docker-compose.rest.yml:5). No shell → no CMD-SHELL; no curl/wget → no HTTP client for a CMD exec-form probe. No rest Dockerfile in the repo (can’t bake a probe without introducing one).
+- A `postgrest --ready` self-probe flag exists ONLY in `devel` (PR #4269, Sep 2025) — NOT in stable v12.2.x. So `["CMD","postgrest","--ready"]` is unavailable on our pinned version.
+- ALREADY PRESENT: `db` has a `pg_isready` healthcheck (postgres/docker-compose.yml:13-17) and rest/app/worker `depends_on: db: condition: service_healthy` (docker-compose.rest.yml:8). So the foundational “don’t start until Postgres accepts connections” ordering is DONE. `--wait` is used nowhere; no /ready//live/admin references exist yet (the 032 Go-poll is novel).
+
+(1) HOW to implement on the distroless image — the constraint is the story:
+- pg_isready (db) checks Postgres, NOT PostgREST schema-cache readiness — can’t stand in for a rest /ready probe.
+- On v12.2.8 there is NO in-image probe. Real options: (a) CUSTOM rest image — `FROM postgrest/postgrest:v12.2.8` + COPY a tiny static HTTP-probe binary, then `healthcheck: ["CMD","/probe","http://127.0.0.1:<admin>/ready"]`. Cost: a new Dockerfile + build step + a vetted probe binary (supply chain) + divergence from the clean upstream pin the repo deliberately keeps. (b) Sidecar — a compose healthcheck is per-container and can’t set ANOTHER container’s health; a sidecar only self-gates, awkward, rejected. (c) FORWARD PATH — bump PostgREST to a release carrying #4269, then the healthcheck is a clean 3-line exec-form stanza `["CMD","postgrest","--ready"]` (no shell, no extra binary, no custom image). Recommended over (a).
 <!-- SECTION:NOTES:END -->
