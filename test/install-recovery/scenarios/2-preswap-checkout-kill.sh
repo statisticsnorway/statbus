@@ -6,19 +6,19 @@
 # Source forensics:      tmp/install-state-machine-forensics.md
 #
 # Expected principled behavior:
-#   A process killed in executeUpgrade AFTER the git checkout to the
-#   target commit completes but BEFORE the binary swap leaves the
-#   system with: working tree at the NEW commit, backup .tmp dir
-#   already finalized (rename happened upstream of the kill), OLD
-#   binary on disk, flag PreSwap, no PostSwap stamp. Recovery via
-#   the next install's recoverFromFlag → PreSwap branch:
-#   restoreGitState reverts the working tree to the previous
-#   version via the `pre-upgrade` branch pinned upstream
-#   (executeUpgrade pins it BEFORE the destructive phases — see
-#   service.go around the `git branch -f pre-upgrade HEAD` line),
+#   A process killed in executeUpgrade AFTER the target's objects are
+#   fetched but BEFORE the binary swap leaves the system with: working
+#   tree STILL at the SOURCE commit (STATBUS-060: the pre-swap
+#   `git checkout` was removed — checkout is deferred to the recovery
+#   boot so the OLD binary never materializes target-compose), backup
+#   .tmp dir already finalized, OLD binary on disk, flag PreSwap.
+#   Recovery via the next install's recoverFromFlag → PreSwap branch:
+#   the recovery boot does the deferred `git checkout flag.CommitSHA`,
+#   then restoreGitState reverts the working tree back to source via
+#   the `pre-upgrade` branch pinned at the start of executeUpgrade,
 #   discards the backup, clears the flag, marks the upgrade row
-#   'failed' or 'rolled_back'. Convergence: working tree back at
-#   the OLD commit, OLD binary live, data intact.
+#   'failed' or 'rolled_back'. Convergence: working tree at SOURCE
+#   commit, OLD binary live, data intact.
 #
 # Trigger logic:
 #   1. Install at INSTALL_VERSION (default v2026.05.2).
@@ -28,14 +28,15 @@
 #      OLD commit that restoreGitState must return us to).
 #   5. Run first install at HEAD-local with
 #      STATBUS_INJECT_AT=killed-by-system-during-preswap-checkout.
-#      inject.KillHere fires in executeUpgrade right after git
-#      checkout commitSHA succeeds; install exits 137 with: flag
-#      present, backup dir finalized (the rename happened in the
-#      backup phase which ran upstream), working tree at HEAD-local,
-#      ./sb binary still OLD.
-#   6. Verify RED: flag file present; upgrade row='in_progress';
-#      working tree at HEAD-local commit (git rev-parse HEAD);
-#      ./sb binary still the OLD version.
+#      inject.KillHere fires in executeUpgrade AFTER git fetch
+#      completes but NO checkout happens (STATBUS-060: deferred to
+#      recovery boot). Install exits 137 with: flag present (PreSwap),
+#      backup dir finalized, working tree STILL at OLD_COMMIT (source),
+#      ./sb binary still OLD (no swap yet).
+#   6. Verify RED: flag file present; working tree STILL at OLD_COMMIT
+#      (source — no executeUpgrade checkout happened); ./sb binary
+#      still the OLD version. (DB is down; row state verified in
+#      Phase 6 after recovery brings the DB back up.)
 #   7. Run a SECOND install (no env vars) for recovery.
 #   8. Assert convergence: row state='failed' or 'rolled_back';
 #      working tree BACK at the OLD commit (the pre-upgrade branch
@@ -44,8 +45,8 @@
 #
 # Hetzner-runnability:
 #   READY. Injection site lands with this commit. PreSwap branch's
-#   restoreGitState already exists and is the canonical recovery
-#   path for "checkout advanced, no binary swap yet".
+#   restoreGitState is the canonical recovery path; the working tree
+#   stays at source (no pre-swap checkout — STATBUS-060).
 #
 # Usage:
 #   INSTALL_VERSION=v2026.05.2 HCLOUD_LOCATION=fsn1 \
@@ -67,7 +68,7 @@ source "$LIB_DIR/assertions.sh"
 trap 'rc=$?; cleanup_vm "$VM_NAME"; exit $rc' EXIT
 
 echo "════════════════════════════════════════════════════════════════"
-echo "  Scenario: 2-preswap-checkout-kill  (C4 / Layer 2 kill — git-checkout phase)"
+echo "  Scenario: 2-preswap-checkout-kill  (C4 / Layer 2 kill — preswap fetch, deferred checkout)"
 echo "  Initial release: $INSTALL_VERSION → upgrade target: HEAD"
 echo "════════════════════════════════════════════════════════════════"
 
@@ -111,7 +112,10 @@ cd ~/statbus
 if ! git cat-file -e $HEAD_LOCAL 2>/dev/null; then
     git fetch --depth 1 origin $HEAD_LOCAL || { echo "FATAL" >&2; exit 1; }
 fi
-git checkout $HEAD_LOCAL
+# STATBUS-060: do NOT checkout here. executeUpgrade also defers the
+# working-tree checkout to the recovery boot — the OLD binary must never
+# see target-compose. Pre-fetching objects is still needed so that
+# executeUpgrade's `git fetch origin commitSHA` is a fast no-op.
 cp /tmp/env-config .env.config
 cp /tmp/users.yml .users.yml
 STATBUS_INJECT_AT=killed-by-system-during-preswap-checkout \
@@ -139,16 +143,12 @@ echo "  staged ./sb version (HEAD-SHA binary, pre-trigger): $SB_VERSION_BEFORE"
 # never fires. Mirror of 2-preswap-backup-kill:135–141.
 fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_LOCAL"
 
-# IMPORTANT for C4: the install script above does `git checkout $HEAD_LOCAL`
-# BEFORE invoking ./sb install. That's the harness's setup checkout (to
-# get HEAD's code + inject site on disk), NOT the executeUpgrade git
-# checkout that C4 targets. Inside ./sb install → executeUpgrade, the
-# `git fetch + git checkout` step targets `commitSHA` (= HEAD's full SHA
-# in this scenario, same as $HEAD_LOCAL), and the C4 KillHere fires
-# right after that internal checkout — so when the kill fires, the
-# working tree is at HEAD-local, just as the wedge spec describes.
-# The setup checkout above and the executeUpgrade checkout converge on
-# the same SHA, but they are conceptually distinct phases.
+# STATBUS-060 NOTE: the setup script above pre-fetches HEAD's objects
+# (git cat-file + git fetch if needed) but does NOT do a working-tree
+# checkout. executeUpgrade also does NOT checkout the working tree before
+# the binary swap (deferred to the recovery boot). So when the C4 kill
+# fires, the working tree is STILL at OLD_COMMIT — accurately modelling
+# the production state where the OLD binary never sees target-compose.
 
 set +e
 timeout "${INSTALL_BUDGET_S}s" ssh "${SSH_OPTS[@]}" statbus@"$ip" "bash /tmp/install-c4.sh"
@@ -183,15 +183,17 @@ VM_EXEC bash -c "ls -la ~/statbus/tmp/upgrade-in-progress.json" || {
 # in Phase 6, after the recovery install restarts the DB. (Mirror of
 # 2-preswap-backup-kill's DB-down deferral.)
 
-# Working tree at HEAD-local (C4 fires right after the executeUpgrade
-# checkout).
+# Working tree STILL at OLD_COMMIT (STATBUS-060: executeUpgrade no longer
+# does a pre-swap checkout; checkout is deferred to the recovery boot).
+# This is the load-bearing property of the defer-checkout fix: the OLD
+# binary never materializes target-compose on disk.
 WT_COMMIT_DURING=$(VM_EXEC bash -c "cd ~/statbus && git rev-parse HEAD" 2>/dev/null | tr -d '\r' || echo "")
-if [ "$WT_COMMIT_DURING" != "$HEAD_LOCAL" ]; then
-    echo "✗ working tree not at HEAD-local during RED ($WT_COMMIT_DURING vs $HEAD_LOCAL)" >&2
-    echo "  Kill may have fired before the executeUpgrade checkout — investigate site placement." >&2
+if [ "$WT_COMMIT_DURING" != "$OLD_COMMIT" ]; then
+    echo "✗ working tree advanced during preswap-checkout kill ($WT_COMMIT_DURING vs expected OLD_COMMIT=$OLD_COMMIT)" >&2
+    echo "  executeUpgrade must NOT checkout the working tree before binary swap (STATBUS-060)." >&2
     exit 1
 fi
-echo "  ✓ working tree at HEAD-local ($(echo "$HEAD_LOCAL" | cut -c1-8))"
+echo "  ✓ working tree still at OLD_COMMIT ($(echo "$OLD_COMMIT" | cut -c1-8)) — no pre-swap checkout"
 
 # ./sb binary still OLD (binary swap is downstream of C4).
 SB_VERSION_DURING=$(VM_EXEC bash -c "cd ~/statbus && ./sb --version 2>/dev/null | head -1" | tr -d '\r' || echo "")
@@ -200,31 +202,7 @@ if [ "$SB_VERSION_DURING" != "$SB_VERSION_BEFORE" ]; then
     exit 1
 fi
 echo "  ✓ ./sb binary still at $SB_VERSION_BEFORE (no swap yet)"
-echo "  ✓ RED confirmed: flag PreSwap, working tree advanced, binary unswapped"
-
-# ─────────────────────────────────────────────────────────────────────────
-# Harness invariant: re-pin pre-upgrade to OLD_COMMIT before recovery.
-#
-# The install script above does `git checkout $HEAD_LOCAL` BEFORE ./sb install
-# so that the C4 inject site (killed-by-system-during-preswap-checkout) fires
-# after the executeUpgrade checkout step. That setup checkout causes
-# service.go:3806's `git branch -f pre-upgrade HEAD` to pin pre-upgrade at
-# HEAD_LOCAL (the upgrade target) rather than OLD_COMMIT (the pre-upgrade
-# state). restoreGitStateFn (service.go:5341) resolves its `previousVersion`
-# argument (the OLD version) first; that is a v-stripped git-describe string
-# (e.g. "2026.06.0-rc.01-5-gSHAxxxx") that does NOT resolve as a git ref, so
-# it falls back to pre-upgrade. Without this re-pin, pre-upgrade = HEAD_LOCAL
-# and recovery "restores" the tree to HEAD_LOCAL instead of OLD_COMMIT.
-#
-# In production executeUpgrade runs from a CLEAN working tree (no prior setup
-# checkout), so `git branch -f pre-upgrade HEAD` correctly captures OLD_COMMIT
-# before the destructive steps start. The harness setup checkout is the source
-# of the corruption; this re-pin restores the production invariant.
-# ─────────────────────────────────────────────────────────────────────────
-echo ""
-echo "── re-pinning pre-upgrade to OLD_COMMIT (harness invariant: setup checkout corrupted the pin) ──"
-VM_EXEC bash -c "cd ~/statbus && git branch -f pre-upgrade $OLD_COMMIT"
-echo "  ✓ pre-upgrade re-pinned at $(echo "$OLD_COMMIT" | cut -c1-8) (restoreGitState fallback target)"
+echo "  ✓ RED confirmed: flag PreSwap, working tree at source (not target), binary unswapped"
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 5 — second install for recovery
