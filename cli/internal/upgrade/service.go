@@ -5444,22 +5444,27 @@ func (d *Service) replaceBinaryOnDisk(version string, progress *ProgressLog) err
 	return nil
 }
 
-// buildBinaryOnDisk compiles ./sb from the just-checked-out cli/ tree and
-// swaps it in, mirroring replaceBinaryOnDisk for tagged releases. Called
-// mid-flow in executeUpgrade for edge commits, where no release artifact
-// exists in any GitHub manifest.
+// buildBinaryOnDisk FETCHES ./sb from the commit-tagged statbus-sb image
+// (ghcr.io/statisticsnorway/statbus-sb:<commit_short>, built and pushed by CI
+// in images.yaml on every master push) and swaps it in, mirroring
+// replaceBinaryOnDisk for tagged releases. Called mid-flow in executeUpgrade
+// for edge commits, where no GitHub release artifact exists — but the
+// commit-tagged image always does (a release tag merely points at a master
+// commit whose image already built).
 //
-// Build inputs come from cli/Makefile: VERSION=$(git describe --tags),
-// COMMIT=$(git rev-parse HEAD). Since git checkout already moved HEAD to
-// the target, the resulting binary's compile-time commit matches HEAD
-// and the freshness check in subsequent ./sb subprocesses passes.
+// Image extraction (procureSbFromImage), NOT `make`: this removes the host
+// Go/make toolchain requirement entirely — the point of the change. It
+// mirrors `./sb db seed fetch` (cli/cmd/seed.go extractSeedFromImage):
+// docker create (records the distroless ENTRYPOINT, runs nothing) + docker
+// cp /sb. The commit_short is derived from commitSHA via `git rev-parse
+// --short=8`, NOT from the working tree, so it is correct regardless of what
+// HEAD is currently checked out.
 //
-// Atomicity: rename ./sb → ./sb.old, then `make -C cli build` writes
-// directly to ../sb (i.e. ./sb) using Go's tempfile-then-rename. There
-// is a brief window between the .old rename and Go's rename where ./sb
-// does not exist — safe inside the upgrade pipeline because maintenance
-// mode is on, all services are stopped, and the only ./sb consumer is
-// this very process which is busy running `make`.
+// Atomicity: rename ./sb → ./sb.old, then procureSbFromImage writes the new
+// ./sb. There is a brief window between the .old rename and the docker cp
+// where ./sb does not exist — safe inside the upgrade pipeline because
+// maintenance mode is on, all services are stopped, and the only ./sb
+// consumer is this very process which is busy doing the fetch.
 //
 // On failure: rename .old back to ./sb so the deploy host isn't left
 // without a usable binary. The caller (executeUpgrade) then invokes
@@ -5468,20 +5473,20 @@ func (d *Service) replaceBinaryOnDisk(version string, progress *ProgressLog) err
 // Pre-staged-binary skip (task #8, scenarios 26 + 27): if ./sb on disk
 // ALREADY reports the target commit (verified by parsing `./sb --version`
 // and matching its 8-char hex `commit XXXXXXXX` field against
-// targetCommitSHA), skip `make` entirely. This is the legitimate idem-
-// potency case for two real workflows:
+// targetCommitSHA), skip the image fetch entirely. This is the legitimate
+// idempotency case for two real workflows:
 //
 //   1. Operator manually pre-stages ./sb (e.g. scp'd a tested binary)
-//      and then schedules an upgrade for that commit. Today's rebuild
-//      would needlessly recompile a binary that's already at the target.
+//      and then schedules an upgrade for that commit. Today's fetch
+//      would needlessly re-pull a binary that's already at the target.
 //   2. The install-recovery harness's upload_sb_to_vm pre-stages ./sb
 //      from HEAD to the VM (vm-bootstrap.sh:577) and then schedules an
 //      upgrade for HEAD via fabricate_scheduled_upgrade_row. Scenarios
 //      26 + 27 (and any future post-swap scenario) reach buildBinary-
-//      OnDisk; without this skip, they fail with `make: go: not found`
-//      because the harness VM has no Go toolchain — every run in
-//      `gh run list --workflow=install-recovery-harness.yaml` is
-//      failure pre-fix.
+//      OnDisk; the skip lets them proceed without a published image —
+//      an UNPUSHED harness HEAD has no statbus-sb:<short> image in the
+//      registry, so the fetch would otherwise fail with "manifest unknown"
+//      (the toolchain-free analog of the old `make: go: not found`).
 //
 // CORRECTNESS — the skip is exact/conservative (fail-safe = BUILD, not
 // skip):
@@ -5495,37 +5500,95 @@ func (d *Service) replaceBinaryOnDisk(version string, progress *ProgressLog) err
 //     and targetCommitSHA is unavailable) compares against displayName
 //     directly — same 8-char invariant.
 //
-// A real edge upgrade has ./sb LAGGING the just-checked-out source (the
-// daemon image and the disk binary are still at the PREVIOUS commit when
-// executeUpgrade enters), so ./sb --version reports the OLD commit and
-// we proceed with make. The skip ONLY kicks in for pre-staged or
-// manual-swap workflows, exactly as intended.
+// A real edge upgrade has ./sb LAGGING the target (the daemon image and
+// the disk binary are still at the PREVIOUS commit when executeUpgrade
+// enters), so ./sb --version reports the OLD commit and we proceed with
+// the image fetch. The skip ONLY kicks in for pre-staged or manual-swap
+// workflows, exactly as intended.
 //
 // commitSHA may be empty in legacy call paths or test stubs — in that
 // case we cannot verify the target identity, so we proceed with the
-// build (fail-safe).
+// image fetch (fail-safe).
 func (d *Service) buildBinaryOnDisk(commitSHA, displayName string, progress *ProgressLog) error {
 	sbPath := filepath.Join(d.projDir, "sb")
 	sbOldPath := sbPath + ".old"
 
 	if shortAt, ok := sbAlreadyAtCommit(d.projDir, sbPath, commitSHA, displayName); ok {
-		progress.Write("./sb already at commit %s — skipping rebuild (pre-staged binary; see buildBinaryOnDisk's pre-staged-binary skip).", shortAt)
+		progress.Write("./sb already at commit %s — skipping image fetch (pre-staged binary; see buildBinaryOnDisk's pre-staged-binary skip).", shortAt)
 		return nil
 	}
 
 	if err := os.Rename(sbPath, sbOldPath); err != nil {
 		return fmt.Errorf("preserve ./sb.old: %w", err)
 	}
-	progress.Write("Building ./sb from source for edge commit %s...", displayName)
-	if err := runCommandToLog(d.projDir, 5*time.Minute, progress.File(),
-		"make-build-sb", nil, "make", "-C", "cli", "build"); err != nil {
+	progress.Write("Fetching ./sb from the statbus-sb image for commit %s...", displayName)
+	if err := d.procureSbFromImage(commitSHA, displayName, sbPath, progress); err != nil {
 		// Restore .old so the host still has a working ./sb after rollback.
 		if rerr := os.Rename(sbOldPath, sbPath); rerr != nil {
-			return fmt.Errorf("make -C cli build failed AND ./sb.old restore failed: build=%v restore=%v", err, rerr)
+			return fmt.Errorf("sb image fetch failed AND ./sb.old restore failed: fetch=%v restore=%v", err, rerr)
 		}
-		return fmt.Errorf("make -C cli build: %w", err)
+		return fmt.Errorf("procure sb from image: %w", err)
 	}
-	progress.Write("./sb rebuilt; ./sb.old kept as rollback.")
+	progress.Write("./sb fetched from the statbus-sb image; ./sb.old kept as rollback.")
+	return nil
+}
+
+// procureSbFromImage replaces ./sb (at sbPath) with the statbus-sb binary for
+// the target commit, extracted from the commit-tagged image
+// ghcr.io/statisticsnorway/statbus-sb:<commit_short> that CI (images.yaml)
+// builds and pushes on every master push. Mirrors `./sb db seed fetch`
+// (cli/cmd/seed.go extractSeedFromImage): `docker create` records the image's
+// distroless ENTRYPOINT and runs nothing; `docker cp /sb` copies the binary
+// out; the container is removed via defer so a failed cp still cleans up.
+// Config-free — no compose, no .env, no host Go/make toolchain.
+//
+// commit_short is derived from commitSHA via `git rev-parse --short=8` — the
+// same value CI tags with — NOT from the working tree, so it is correct
+// regardless of what HEAD is checked out (a prerequisite for procuring the
+// binary before the working-tree checkout). Falls back to an exactly-8-char
+// displayName (the UntaggedTarget short-SHA shape) when commitSHA cannot be
+// resolved.
+func (d *Service) procureSbFromImage(commitSHA, displayName, sbPath string, progress *ProgressLog) error {
+	short := ""
+	if commitSHA != "" {
+		if out, err := runCommandOutput(d.projDir, "git", "rev-parse", "--short=8", commitSHA); err == nil {
+			short = strings.TrimSpace(out)
+		}
+	}
+	if short == "" && len(displayName) == 8 {
+		short = strings.ToLower(displayName)
+	}
+	if short == "" {
+		return fmt.Errorf("cannot resolve commit_short for the statbus-sb image (commitSHA=%q, displayName=%q)",
+			ShortForDisplay(commitSHA), displayName)
+	}
+	imageRef := "ghcr.io/statisticsnorway/statbus-sb:" + short
+
+	progress.Write("Pulling sb image %s...", imageRef)
+	if out, err := runCommandOutput(d.projDir, "docker", "pull", imageRef); err != nil {
+		return fmt.Errorf("pull sb image %s: %w (%s)", imageRef, err, strings.TrimSpace(out))
+	}
+
+	out, err := runCommandOutput(d.projDir, "docker", "create", imageRef)
+	if err != nil {
+		return fmt.Errorf("docker create %s: %w (%s)", imageRef, err, strings.TrimSpace(out))
+	}
+	cid := strings.TrimSpace(out)
+	if cid == "" {
+		return fmt.Errorf("docker create %s returned an empty container id", imageRef)
+	}
+	defer func() {
+		if _, rmErr := runCommandOutput(d.projDir, "docker", "rm", cid); rmErr != nil {
+			fmt.Fprintf(os.Stderr, "WARN: docker rm %s (sb extraction container) failed: %v\n", cid, rmErr)
+		}
+	}()
+
+	if out, err := runCommandOutput(d.projDir, "docker", "cp", cid+":/sb", sbPath); err != nil {
+		return fmt.Errorf("docker cp %s:/sb -> %s: %w (%s)", cid, sbPath, err, strings.TrimSpace(out))
+	}
+	if err := os.Chmod(sbPath, 0o755); err != nil {
+		return fmt.Errorf("chmod +x %s after image extraction: %w", sbPath, err)
+	}
 	return nil
 }
 
