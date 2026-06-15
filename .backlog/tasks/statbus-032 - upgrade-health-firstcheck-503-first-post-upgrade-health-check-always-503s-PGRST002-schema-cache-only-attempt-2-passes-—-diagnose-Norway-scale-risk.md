@@ -3,11 +3,11 @@ id: STATBUS-032
 title: >-
   upgrade-health-readiness: poll PostgREST admin /ready before the RPC health
   check — kills the PGRST002 first-fail + the fixed-25s Norway budget
-status: In Progress
+status: Done
 assignee:
   - engineer
 created_date: '2026-06-11 15:45'
-updated_date: '2026-06-15 12:11'
+updated_date: '2026-06-15 12:30'
 labels:
   - upgrade
   - health-check
@@ -42,9 +42,9 @@ Also: add the offset+6 = rest-admin row to AGENTS.md's port table. Ships with th
 - [x] #2 Norway-schema-scale risk assessed: can the cache load exceed the 5-attempt retry budget on a large schema and fail the upgrade's health verification?
 - [x] #3 A proposed fix so attempt-1 passes cleanly (or PGRST002 is handled as not-ready without burning a retry), for foreman/King review before implementation
 - [x] #4 King ratifies the fix design in this description (admin server internal-only at offset+6, /ready warmup in healthCheck, 5m cap, no fallback)
-- [ ] #5 Admin server enabled internal-only: compose env + loopback port mapping + config-gen derived REST_ADMIN_BIND_ADDRESS; nothing publicly reachable
-- [ ] #6 healthCheck polls /ready to 200 before the RPC probe; ~15s progress lines feed the watchdog gate; cap-expiry messages distinguish config-drift (refused) from cache-stuck (503)
-- [ ] #7 Unit tests: 503→200 waits+proceeds, refused→200 tolerated, never-ready expiry with both messages, structural warmup-precedes-probe guard
+- [x] #5 Admin server enabled internal-only: compose env + loopback port mapping + config-gen derived REST_ADMIN_BIND_ADDRESS; nothing publicly reachable
+- [x] #6 healthCheck polls /ready to 200 before the RPC probe; ~15s progress lines feed the watchdog gate; cap-expiry messages distinguish config-drift (refused) from cache-stuck (503)
+- [x] #7 Unit tests: 503→200 waits+proceeds, refused→200 tolerated, never-ready expiry with both messages, structural warmup-precedes-probe guard
 - [ ] #8 Observed GREEN: next dev-slot upgrade journal shows the readiness wait and zero PGRST002; AGENTS.md port table carries the offset+6 row
 <!-- AC:END -->
 
@@ -105,3 +105,21 @@ STATUS CORRECTED 2026-06-15 (King caught it): In Progress → To Do, assignee cl
 
 KING RATIFIED 2026-06-15: 'Approved, do it.' AC#4 met. Now ACTIVELY IMPLEMENTING (AC#5-8) — assigned engineer, In Progress. The design in the description IS the King-ratified work order. Engineer owns docker-compose.rest.yml, config.go (+ config-gen/.env), exec.go (healthCheck warmup), AGENTS.md (port table), + new unit tests. do-not-self-commit → foreman reviews + commits.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+SHIPPED — commit 9257eadc7 (master, pushed; per-change go-test gate runs on push). King-ratified (AC#4) → engineer-implemented (do-not-self-commit) → foreman byte-level reviewed + full suite green + committed. 8 files, +478/-4, NO migration.
+
+PROBLEM: the post-upgrade health check fired its functional RPC probe immediately after the post-swap `docker compose up -d`, while PostgREST was still loading its schema cache → attempt 1 always 503 PGRST002; on a Norway-scale schema the cold-cache window can outlast the fixed RPC retry budget → false health-fail → rollback.
+
+FIX (Go + compose + config-gen + doc):
+- AC#5 ✓ Admin server LOOPBACK-ONLY: docker-compose.rest.yml PGRST_ADMIN_SERVER_PORT=3001 + a second host mapping ${REST_ADMIN_BIND_ADDRESS}:3001 (= 127.0.0.1:<slot offset+6>); config.go derives REST_ADMIN_BIND_ADDRESS exactly like the main REST bind + renders it via the .env head template (%[26]s positional arg). +6 verified free in every mode (config assigns only +0..+5; standalone overrides only http/https/db). Never public, no Caddy route. Foreman-verified loopback-only.
+- AC#6 ✓ healthCheck calls waitForRestReady at the TOP, before the RPC probe: GET admin /ready every 2s until 200; 503 + connection-refused take ONE wait path; 5m cap; a progress line every ~15s is LOAD-BEARING (pings WATCHDOG=1 + bumps applyPostSwap's progress gate so a multi-minute cache load can't SIGABRT the unit); cap-expiry error distinguishes never-connected (config drift → run ./sb config generate) from connected-but-503 (cache stuck → docker compose logs rest). NO PGRST002 fallback (readyURL fails fast if the var is missing).
+- AC#7 ✓ Tests: ready_warmup_test.go (503→200; refused→503→200; timeout-503→schema-cache msg; timeout-refused→config-drift msg; missing-env fail-fast; + STRUCTURAL warmup-precedes-probe guard recording request order) + config_test.go (RestAdminPort=3016 in dev AND standalone — uniform offset+6; generate-.env test guarding the %[26]s wiring via no-%!-marker). AGENTS.md port table: offset+6 = rest-admin (loopback-only) row added.
+- AC#8 (observed GREEN): PENDING — the live confirmation (next dev-slot upgrade journal shows the readiness wait + ZERO PGRST002) is a DEPLOY-TIME runtime check, not producible locally. The AGENTS.md half is done. Confirm on the next dev upgrade.
+
+VERIFY: foreman byte-level (loopback security; %[26]s positional wiring; waitForRestReady loop incl. the sawConnection failure-mode split + the no-fallback discipline; warmup-precedes-probe) + go vet/build/full cli suite green. Implementation complete; observed-green confirms on deploy.
+
+DEPLOY NOTE: adds a REQUIRED env var (REST_ADMIN_BIND_ADDRESS) with a `:?` fail-loud guard. The install/upgrade paths regenerate config (applyPostSwap step 7) BEFORE recreating rest (step 11) + the health check (step 12), so the var is populated automatically there. An EXISTING local dev env needs one `./sb config generate` (clean tree) after pulling this, else the rest container's :? guard fails loud.
+<!-- SECTION:FINAL_SUMMARY:END -->
