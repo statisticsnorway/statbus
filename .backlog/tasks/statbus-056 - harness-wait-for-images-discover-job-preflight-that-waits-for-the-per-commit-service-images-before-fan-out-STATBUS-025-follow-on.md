@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - engineer
 created_date: '2026-06-15 15:01'
-updated_date: '2026-06-15 15:07'
+updated_date: '2026-06-15 15:13'
 labels:
   - install-recovery
   - ci
@@ -37,4 +37,6 @@ OWNER: engineer (owns .github/workflows/install-recovery-harness.yaml). Engineer
 
 <!-- SECTION:NOTES:BEGIN -->
 PAUSED (foreman + engineer, 2026-06-15) — do NOT build speculatively. The actual STATBUS-025 build-sb failure was NOT the service images: it was dev.sh's preamble `./sb db seed fetch` being FATAL under set -e (dev.sh:77, the optional seed fetch called OUTSIDE install.go's graceful runSeedRestore wrapper). Fixed in commit 9f9a2b4e0 (make it non-fatal). The run died at the SEED before any scenario, so the service-image dependency this preflight guards has NOT actually been hit yet. Per 'test to know, don't gold-plate': build 056 ONLY IF a real run (with the seed-fix in) surfaces a service-image-pull 'manifest unknown' on the HEAD upgrade. For tonight, the operator's manual wait-for-Images (master) + dispatch-Images-on-red-ref (031 RED branch) cover the need. Engineer prepared but did NOT build it; assignee retained for if/when it's needed.
+
+IMPLEMENTATION DETAIL captured (engineer built it, but the uncommitted diff was LOST to a backlog-MCP `reset: moving to HEAD` before it could be committed — 056 was being HELD per sequencing; lesson: commit agent diffs immediately, don't hold across task-edits). The design to REBUILD when needed: new final step in the discover job, 'Wait for the per-commit service images' — docker login ghcr (GITHUB_TOKEN, packages:read), poll `docker manifest inspect ghcr.io/statisticsnorway/statbus-{app,worker,db,PROXY}:<commit_short>` every 30s, budget 40m; commit_short=`git rev-parse --short=8 HEAD` (matches images.yaml's describe job; discover is github.sha-pinned so the tag is exact); all present->fan out, absent past budget->::error + actionable stderr + exit 1 (run-scenario skipped). Raise discover timeout-minutes 20->50. ENGINEER'S KEY CATCH (keep it): poll FOUR images incl. PROXY — caddy/docker-compose.yml interpolates statbus-proxy:${COMMIT_SHORT}, so the HEAD upgrade's `docker compose pull --profile all` resolves it too; gating only {app,worker,db} would let a scenario die at the proxy pull. (rest=postgrest is pinned, NOT per-commit; statbus-sb isn't harness-pulled — exclude both.) Do NOT gate on statbus-seed (optional; dev.sh fetch now non-fatal). REBUILD + commit-atomically before the comprehensive run (after 0-happy confirms).
 <!-- SECTION:NOTES:END -->
