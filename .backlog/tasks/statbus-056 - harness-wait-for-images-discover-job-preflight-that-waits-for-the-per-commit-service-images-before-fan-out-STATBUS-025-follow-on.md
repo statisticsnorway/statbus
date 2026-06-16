@@ -3,11 +3,11 @@ id: STATBUS-056
 title: >-
   harness-wait-for-images: discover-job preflight that waits for the per-commit
   service images before fan-out (STATBUS-025 follow-on)
-status: In Progress
+status: Done
 assignee:
   - engineer
 created_date: '2026-06-15 15:01'
-updated_date: '2026-06-16 11:57'
+updated_date: '2026-06-16 12:07'
 labels:
   - install-recovery
   - ci
@@ -42,3 +42,9 @@ IMPLEMENTATION DETAIL captured (engineer built it, but the uncommitted diff was 
 
 CORRECTION + clean handling (2026-06-15): the preflight diff was NOT lost to a backlog reset (my misread of the reflog timing) — the engineer had FINISHED it before the pause landed and DELIBERATELY saved it to tmp/statbus-056-preflight.patch (88 lines, `git apply --check` passes) then reverted the working tree clean, to avoid a dangling uncommitted change in the shared harness workflow while the operator re-runs 0-happy + foreman cuts 031 RED off master. RE-APPLY IS ONE COMMAND when needed: `git apply tmp/statbus-056-preflight.patch` -> review -> commit (atomically). (Note on the backlog MCP `reset: moving to HEAD`: it is --mixed — unstages only, working-tree content survives, per the architect's repeated 'work intact, re-staged' experience — so it does NOT destroy uncommitted work; pathspec commits handle the unstaging fine.) Patch polls statbus-{app,worker,db,proxy}:<commit_short>, 40m budget, loud fail, discover timeout 20->50.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+DONE — committed fc04931c8. Two discover-job preflight steps in install-recovery-harness.yaml (+ timeout 20→50m), foreman-reviewed byte-level: (1) WAIT for the per-commit service images statbus-{app,worker,db,proxy}:<commit_short> (docker manifest inspect poll, 30s interval, 40m budget) before fan-out — absent past budget → ::error + actionable message + exit 1; replaces the manual image-wait done before every dispatch, self-gating, no race; excludes seed (optional). (2) VERIFY baseline release images (INSTALL_VERSION) are published — check once, fail loud with a republish hint (annotated tags dereffed via ^{}), since a GC'd old-release image won't return by waiting and would otherwise drop ~22 scenarios into a ~35-min local build each (the STATBUS-057 symptom). actionlint clean on the new steps; shellcheck + bash -n clean (a pre-existing info-level SC2086 at the existing Enumerate step is unchanged). Makes the comprehensive run self-gating on images.
+<!-- SECTION:FINAL_SUMMARY:END -->
