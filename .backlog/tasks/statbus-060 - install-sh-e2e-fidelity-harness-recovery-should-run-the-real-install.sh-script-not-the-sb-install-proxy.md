@@ -3,10 +3,10 @@ id: STATBUS-060
 title: >-
   install-sh-e2e-fidelity: harness recovery should run the real install.sh
   script, not the sb-install proxy
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-06-15 23:44'
-updated_date: '2026-06-15 23:45'
+updated_date: '2026-06-16 11:57'
 labels:
   - install-recovery
   - harness
