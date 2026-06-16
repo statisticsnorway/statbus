@@ -7,7 +7,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-16 00:35'
-updated_date: '2026-06-16 09:40'
+updated_date: '2026-06-16 09:55'
 labels:
   - upgrade
   - recovery
@@ -69,4 +69,15 @@ CONCRETE ARTIFACTS (King's grounding directive, verified this session 2026-06-16
 - Legacy-scenario baseline = release tag v2026.05.2 -> commit 50fd4325f9e2e4d8a91a4d02570a43c0bfbe103f. That binary's executeUpgrade writes from_commit_version = d.version (a VERSION STRING) at service.go:1286 (@ tag); reads it in recoveryRollback at service.go:1905 (@ tag). HEAD equivalents: write at service.go:1308 (ExecuteUpgradeInline) + 3478 (executeScheduled); read at 2190; pre-upgrade-branch fallback in restoreGitStateFn ~5388.
 - Part (iv) fidelity (verified): a genuine v2026.05.2 crash row has from_commit_version SET to v2026.05.2's d.version (version string) -- NOT null, NOT a commit SHA. Harness must inject SB_VERSION_BEFORE (genuine version string), not OLD_COMMIT. Files: test/install-recovery/lib/wedge-helpers.sh write_preswap_wedge (~549/566); test/install-recovery/scenarios/2-preswap-checkout-kill-legacy.sh:133. Mechanic bounced to correct the value 2026-06-16.
 - Comprehensive at max-parallel:8 (commit d0992498a) = CI run 27583439253: all 29 scenario jobs failed at VM creation (vm-bootstrap.sh:402) on Hetzner 'server limit reached' + 'Primary IP limit exceeded'. Stopgap max-parallel:3 = commit 9b7588596.
+
+rc.04 PROGRESS (2026-06-16) — architect implemented (ii)+(iii), build/vet/test GREEN, do-not-committed. Diff: cli/internal/upgrade/service.go + cli/cmd/install_upgrade.go (49+/22-). Foreman reviewed byte-level + verified firsthand:
+- (ii) recovery-boot checkout GATED to Phase==PostSwap/Resuming at BOTH sites (service.go Run ~1487 + install_upgrade.go runCrashRecovery ~172). PreSwap no longer checks out target → tree stays at source → no schema/git skew (finding 2 closed).
+- (iii) recoveryRollback `prev := d.version` → `prev := ""`; empty routes restoreGitStateFn to the pinned `pre-upgrade` branch (= OLD COMMIT); from_commit_version override kept. VERIFIED safe: `git rev-parse --verify '^{commit}'` → fatal 'Needed a single revision' exit 128 → fallback at service.go:5409. (iii) is commit-grounded → compatible with STATBUS-062 either outcome.
+- New structural guard tests pass: TestRecoverFromFlag_PhaseRoutingAndGroundTruthFirst + TestRecoveryRollback_FlockGateBeforeDestructiveWork.
+
+REVERSAL of finding (v)(a) [architect, foreman-verified]: part (i) CANNOT be a principled ground-truth split between the two 2-preswap scenarios. Both recover with the HEAD/target binary, and boot-migrate runs BEFORE recoverFromFlag, so both read GT=AtTarget; they differ ONLY in working-tree position (OLD vs target) — an old-vs-new-checkout artifact, NOT real upgrade progress. A PreSwap kill = killed before the binary-swap commit boundary = deterministically ROLLS BACK to OLD. The overnight '(a)=forward-complete-to-target' was the db-unreachable-FALLBACK accident (flag absent), not principled. Deliberate-forward's full form == UN-RATIFIED STATBUS-046.
+
+NEW part (v) direction: BOTH 2-preswap scenarios assert ROLLBACK-TO-OLD (do NOT reclassify (a) to forward-complete). Part (iv) from_commit_version STAYS (validates (iii)'s override path). AC#5 reworded accordingly.
+
+KING DECISION (rc.04 scope) — A) ship (ii)+(iii): both PreSwap roll back to OLD [architect rec + foreman concur]; defer deliberate-forward to a ratified STATBUS-046 with a reproduction. B) pull deliberate-forward-(a)-completes in now (needs STATBUS-046 ratified + Run reorder + reopens schema-skew). AWAITING King ruling (= AC#6, now rc.04-scope not rc.03-disposition).
 <!-- SECTION:NOTES:END -->
