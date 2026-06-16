@@ -31,6 +31,22 @@ STAMP_FILE="$HARNESS_ROOT/tmp/install-recovery-test-passed-sha"
 SKIP_DEFAULT_MARKER="HARNESS_SKIP_DEFAULT"
 _is_skip_default() { grep -q "$SKIP_DEFAULT_MARKER" "$1" 2>/dev/null; }
 
+# Append a scenario path to SELECTED unless it is already there. Selection MUST be
+# duplicate-free: a repeated scenario becomes two matrix jobs with the same name →
+# two Hetzner VMs both named "statbus-recovery-<scenario>" → an `hcloud server
+# create` name collision that fails BOTH jobs (and the scenario the operator
+# actually wanted may never run). This dedup is the single source of truth the CI
+# matrix consumes via --print-selected, so it protects the matrix too.
+_add_selected() {
+    local cand="$1" existing
+    if [ ${#SELECTED[@]} -gt 0 ]; then
+        for existing in "${SELECTED[@]}"; do
+            [ "$existing" = "$cand" ] && return 0
+        done
+    fi
+    SELECTED+=("$cand")
+}
+
 # Parse flags (anything starting with --) and positional args.
 KEEP_VM=0
 LIST_ONLY=0
@@ -113,10 +129,26 @@ if [ ${#SELECTORS[@]} -eq 0 ]; then
     done
 else
     for sel in "${SELECTORS[@]}"; do
+        # EXACT basename match wins outright: a selector that names a specific
+        # scenario selects ONLY that scenario, never a phase-prefix sibling.
+        # Without this, "2-preswap-checkout-kill" matched the `^<sel>-` prefix of
+        # "2-preswap-checkout-kill-legacy" (which sorts FIRST, since '-' < '.')
+        # and — with the old first-match-then-`break` — resolved to the WRONG
+        # scenario while the intended exact file never ran. An exact name also
+        # legitimately selects a known-RED reproducer (it is named specifically).
+        exact=""
+        for s in "${ALL_SCENARIOS[@]}"; do
+            [ "$(basename "$s" .sh)" = "$sel" ] && { exact="$s"; break; }
+        done
+        if [ -n "$exact" ]; then
+            _add_selected "$exact"
+            continue
+        fi
+        # No exact match: treat the selector as a phase prefix ("2-preswap" →
+        # EVERY "2-preswap-*") or a name substring, and select ALL matches — not
+        # just the first (the old `break` silently ran only one of a phase group).
         for s in "${ALL_SCENARIOS[@]}"; do
             base=$(basename "$s" .sh)
-            # Match by phase prefix (e.g. "2-preswap" matches "2-preswap-backup-kill")
-            # or by substring of the name.
             phase_match=0; substr_match=0
             [[ "$base" =~ ^${sel}- ]] && phase_match=1
             [[ "$base" == *"$sel"* ]] && substr_match=1
@@ -124,14 +156,13 @@ else
                 continue
             fi
             # A known-RED reproducer is pulled in ONLY by a selector that names it
-            # specifically (a non-phase-prefix substring — its slug or a unique
-            # fragment). A bare phase prefix (e.g. "3-postswap") must NOT drag it
-            # into a group run, or the group goes red on an expected failure.
+            # specifically (the exact name above, or a non-phase-prefix substring).
+            # A bare phase prefix (e.g. "3-postswap") must NOT drag it into a group
+            # run, or the group goes red on an expected failure.
             if _is_skip_default "$s" && [ "$phase_match" = 1 ]; then
                 continue
             fi
-            SELECTED+=("$s")
-            break
+            _add_selected "$s"
         done
     done
     if [ ${#SELECTED[@]} -eq 0 ]; then
