@@ -166,7 +166,15 @@ elif [ "$CHANNEL" = "edge" ]; then
     if [ -d "$STATBUS_DIR/.git" ]; then
         echo "Updating existing installation (edge: master HEAD)..."
         cd "$STATBUS_DIR"
-        git fetch origin master
+        # Fetch master into a real remote-tracking ref. A prior install via
+        # stable/prerelease/--version cloned `--depth 1 --branch <tag>`
+        # (single-branch, install.sh:256), so refs/remotes/origin/master does
+        # NOT exist; a bare `git fetch origin master` updates only FETCH_HEAD and
+        # the checkout below then dies "fatal: 'origin/master' is not a commit".
+        # The explicit +src:dst refspec creates/updates the tracking ref directly,
+        # mirroring git's default +refs/heads/*:refs/remotes/origin/* clone refspec.
+        # Same single-branch-clone class as the db-seed fix at :237/:263.
+        git fetch origin +master:refs/remotes/origin/master
         git checkout -B current origin/master
         # Item M (plan-rc.66): drop the legacy statbus/ namespace from
         # local-only state branches. Idempotent — swallows the "branch
