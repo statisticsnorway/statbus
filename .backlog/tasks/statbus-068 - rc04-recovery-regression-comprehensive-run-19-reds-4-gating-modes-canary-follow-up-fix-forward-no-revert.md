@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-16 22:03'
-updated_date: '2026-06-16 22:24'
+updated_date: '2026-06-16 22:36'
 labels:
   - install-recovery
   - rc.04
@@ -47,4 +47,10 @@ OVERNIGHT 2026-06-17 (foreman) — gating set now nearly complete:
 - #2 staleness carve-out: RECONSTRUCTED + pre-staged at tmp/carve-out-candidate.md (exact root.go Edit + tmp/commit-carveout.txt). Tree stays CLEAN; under independent architect verify; HELD for King nod. Mechanism confirmed in-tree at 1-boot-startup-timeout.sh:101-110; safety-checked every 'stale'/'self-heal' scenario (others are stale-FLAG / stale-UNIT, not the binary guard). Production-inert (STATBUS_INJECT_AT harness-only, inject.go:69-70).
 
 MORNING = ONE BUTTON: King nods carve-out → apply tmp/carve-out-candidate.md Edit → build → commit (tmp/commit-carveout.txt) → push → trigger ONE comprehensive re-run. Re-run reveals the genuine residual (STATBUS-027/028/029 pre-existing reds + #5's real psql error + the non-gating canary 067). #2+#3 both landing is required (carve-out can shift checkout-kill into the now-quiesced race).
+
+UPDATE (foreman, overnight 2026-06-17 cont.):
+- CARVE-OUT (#2): architect independently VERIFIED — APPROVE as-is. Production-inert (byte-identical on real hosts; every STATBUS_INJECT_AT setter is a harness scenario, zero in cli/ops/service/timer, no os.Setenv), placement-clean (doesn't bypass the no-identity hard-fail or the STATBUS-065 forward-flag defer), and the BROAD scope is correct: under injection, binary staleness is ALWAYS deliberate harness orchestration (never the 'forgot to rebuild' hazard the guard exists for), and executeUpgrade re-invokes non-selfheal ./sb children that inherit the env — a narrower scope would spuriously abort them. Still pre-staged (tmp/carve-out-candidate.md), tree-clean, HELD for King nod.
+- #3 INVARIANT COMPLETED + committed fc742bd4f (follow-up to ab4a4dcad). Architect post-commit cross-check found the '13 inject-dispatch' framing left 6 of 19 fabricate callers un-quiesced (only 2 documented). Now uniform: quiesce ADDED to worker-ddl-deadlock (genuine gap — now fails at the R1 DDL point, not the dispatch race; prerequisite for R1 to ever validate), checkout-kill-legacy, and both skip-default canary repros (inside _fabricate_in_progress_row, `>&2`). DOCUMENTED the 2 service-dispatch exclusions (0-happy-upgrade, migration-timeout). Rule recorded on quiesce_upgrade_service (wedge-helpers.sh). 17/19 quiesced, 2 doc'd exclusions, 0 gaps, bash -n clean.
+
+GATING SET NOW COMPLETE EXCEPT THE CARVE-OUT (King nod): cd00d4a6d (origin/master) + 9d01ab61b (1-boot) + ab4a4dcad + fc742bd4f (#3) + 11122f86f (#5 capture). Go test green on current HEAD. Morning = King nods carve-out → apply tmp/carve-out-candidate.md → build → commit → push → `gh workflow run install-recovery-harness.yaml --ref master`.
 <!-- SECTION:NOTES:END -->
