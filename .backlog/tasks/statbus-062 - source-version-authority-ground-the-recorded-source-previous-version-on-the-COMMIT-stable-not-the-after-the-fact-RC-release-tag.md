@@ -3,9 +3,10 @@ id: STATBUS-062
 title: >-
   source-version-authority: ground the recorded source/previous version on the
   COMMIT (stable), not the after-the-fact RC/release tag
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-06-16 09:49'
+updated_date: '2026-06-16 10:01'
 labels:
   - upgrade
   - recovery
