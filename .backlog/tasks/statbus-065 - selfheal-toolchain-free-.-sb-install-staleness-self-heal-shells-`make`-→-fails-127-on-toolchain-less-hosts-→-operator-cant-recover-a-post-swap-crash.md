@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-16 12:02'
-updated_date: '2026-06-16 12:17'
+updated_date: '2026-06-16 12:55'
 labels:
   - upgrade
   - recovery
@@ -51,4 +51,6 @@ FIX B (architect, recommended; presented to King for approval): make stalenessGu
 FIX A (image-extract self-heal instead of make): REJECTED — rebuild-to-match-tree would discard the NEW binary; addresses the toolchain symptom not the wrong-to-rebuild-during-recovery cause.
 
 LINCHPIN: unblocks the (a) 2-preswap-checkout-kill scenario (trips the same guard) + STATBUS-060's real-install.sh recovery on toolchain-less hosts. (a) REVISED: keep it (065 unblocks it → validates the from_commit_sha PRIMARY path e2e) + add a structural guard; no retire. OWNER: architect (root.go + freshness helper). Aligns with the external-standalone arc + STATBUS-039.
+
+REACHABILITY VERIFIED (foreman firsthand, 2026-06-16, all 4 facts file:line-checked): (1) stalenessGuard=PersistentPreRun root.go:62 → precedes RunE; (2) IsStale drift probe check.go:213 `git diff --quiet <binary> <HEAD> -- cli/` is DIRECTION-AGNOSTIC → binary-NEW/tree-OLD trips for any cli/-touching upgrade; (3) post-swap shape: service.go:4007 swap → 4033 post_swap stamp → 4045 exit-42, NO checkout between (STATBUS-060 deferred to recovery boot service.go:1518); (4) tagged-release procures PREBUILT (replaceBinaryOnDisk 4007, no toolchain) vs edge=make 4010 → guard's make root.go:127 is the SOLE spurious toolchain demand. VERDICT: REACHABLE on daemon `./sb upgrade service` post-swap, tagged-release channel, toolchain-less host (the external-standalone target). Bare `./sb install` NOT production-reachable (operators go via install.sh which pre-aligns tree+binary, install.sh:170,186). 0-happy's green is a VACUOUS-cli-diff pass, not daemon-exemption. GREENLIT Fix B (scoped). Clean-break impl: extract predicate (already dup'd at service.go:1495-1497 + install_upgrade.go:178-180) into one `(*FlagFile).IsServiceForwardRecovery()` method, 3 callers; guard defers inside the selfheal branch before RebuildAndReexec; unit-test the predicate. Architect implementing; foreman reviews diff before commit.
 <!-- SECTION:NOTES:END -->
