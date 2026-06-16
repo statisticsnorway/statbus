@@ -208,13 +208,16 @@ echo "  ✓ RED confirmed: flag PreSwap, working tree at source (not target), bi
 # Phase 5 — second install for recovery
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
-echo "── second install for recovery ──"
-# The recovery reads the PreSwap flag → recoverFromFlag PreSwap branch →
+echo "── second install for recovery (real install.sh --channel edge) ──"
+# STATBUS-060: recovery runs the real install.sh --channel edge (operator path).
+# install.sh procures HEAD's sb binary via docker image (or build fallback), then
+# calls ./sb install which detects the PreSwap flag → recoverFromFlag PreSwap branch →
 # recoveryRollback reads from_commit_sha (set at claim while HEAD was still at
 # source CommitSHA — STATBUS-060 deferred checkout; architect's STATBUS-062) →
-# restoreGitState(source CommitSHA) → rollback() → os.Exit(75). Tolerate 75;
-# any other non-zero is a real recovery failure. (Mirror of 2-preswap-backup-kill.)
-install_statbus_in_vm "$VM_NAME" || { rc=$?; [ "$rc" -eq 75 ] || exit "$rc"; }
+# restoreGitState(source CommitSHA) → rollback().
+# install.sh exits 0 for both success and rollback (rc=75 → install.sh banner + exit 0).
+# Catastrophic failures are non-zero and abort via set -e. Outcome: row state.
+install_statbus_in_vm "$VM_NAME"
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 6 — assertions

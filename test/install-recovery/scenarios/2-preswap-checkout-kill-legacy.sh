@@ -26,8 +26,8 @@
 #     advanced the working tree into the target-compose era before dying".
 #
 # Expected principled behavior:
-#   HEAD's recovery (install_statbus_in_vm without version = HEAD binary +
-#   install.sh) handles the pre-fix wedge:
+#   HEAD's recovery (real install.sh --channel edge, STATBUS-060 operator path)
+#   handles the pre-fix wedge:
 #     runCrashRecovery: git checkout flag.CommitSHA (no-op — already there),
 #       config generate, StartDBForRecovery, migrate up, RecoverFromFlag.
 #     recoverFromFlag PreSwap branch → recoveryRollback → rollback():
@@ -49,7 +49,7 @@
 #      `git fetch + git checkout HEAD_LOCAL` (old behavior), writes flag JSON.
 #   7. Verify RED: flag present; working tree IS at HEAD_LOCAL (v2026.05.2
 #      DID the checkout — the pre-fix bug); binary still v2026.05.2.
-#   8. Recovery via install_statbus_in_vm (HEAD binary + install.sh).
+#   8. Recovery via real install.sh --channel edge (STATBUS-060 operator path).
 #   9. Assert convergence: row='failed'/'rolled_back'; working tree BACK at
 #      OLD_COMMIT; data intact; flag absent; no orphan backups; health passes.
 #
@@ -180,19 +180,21 @@ echo "  ✓ RED confirmed: flag PreSwap, working tree at target (old checkout), 
 # Phase 5 — recovery via HEAD binary (install_statbus_in_vm without version)
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
-echo "── recovery via HEAD binary (install_statbus_in_vm) ──"
-# install_statbus_in_vm without a version uploads HEAD's sb binary and runs
-# install.sh. HEAD's runCrashRecovery handles the PreSwap flag:
+echo "── recovery via real install.sh --channel edge (STATBUS-060 operator path) ──"
+# STATBUS-060: install_statbus_in_vm (no version) now runs the real install.sh
+# --channel edge (operator recovery entrypoint). install.sh procures HEAD's sb
+# binary via docker image (or build fallback), then calls ./sb install which
+# detects the PreSwap flag and handles the pre-fix crash state:
 #   git checkout flag.CommitSHA (no-op — WT already at HEAD_LOCAL),
 #   config generate, StartDBForRecovery, migrate up,
 #   RecoverFromFlag → PreSwap branch → recoveryRollback → rollback() →
 #     restoreGitState: from_commit_sha = NULL (legacy row — v2026.05.2 predates STATBUS-062) →
 #                      falls back to pre-upgrade branch (pinned to source CommitSHA),
 #     restoreDatabase (no-op, flag.BackupPath=""),
-#     docker compose up → os.Exit(75).
-# Tolerate exit 75 — it is the documented "UPGRADE FAILED, ROLLED BACK"
-# handoff. Any other non-zero exit is a real recovery failure.
-install_statbus_in_vm "$VM_NAME" || { rc=$?; [ "$rc" -eq 75 ] || exit "$rc"; }
+#     docker compose up.
+# install.sh exits 0 for both success and rollback (rc=75 → install.sh banner + exit 0).
+# Catastrophic failures are non-zero and abort via set -e. Outcome: upgrade row state.
+install_statbus_in_vm "$VM_NAME"
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 6 — convergence assertions

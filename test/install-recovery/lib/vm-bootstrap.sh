@@ -448,9 +448,15 @@ reset_vm_state() {
 }
 
 # Run install inside a bootstrapped VM.
-#   install_statbus_in_vm <vm_name>                  → use locally-built /tmp/sb
+#   install_statbus_in_vm <vm_name>                  → run the REAL install.sh --channel edge
 #   install_statbus_in_vm <vm_name> v2026.05.0-rc.X  → download from release
 # Caller may pre-set SB_INSTALL_EXTRA_ARGS (e.g. "--recovery=auto").
+#
+# No-version EXIT CONTRACT (STATBUS-060):
+#   install.sh exits 0 for BOTH success and rollback (./sb install rc=75 → install.sh
+#   prints a rollback banner and exits 0). Catastrophic failures are non-zero.
+#   Callers must use the upgrade row state (FINAL_STATE=failed|rolled_back) to
+#   distinguish success from rollback — exit code alone is insufficient.
 install_statbus_in_vm() {
     local vm_name="$1"
     local install_version="${2:-}"
@@ -481,48 +487,51 @@ install_statbus_in_vm() {
     local install_script
     install_script=$(mktemp)
     if [ -z "$install_version" ]; then
-        # Use the local repo's HEAD. ./sb install verifies signatures against
-        # HEAD via `git verify-commit`, so the VM needs a real .git directory
-        # at the matching commit — not just the binary. GitHub allows fetch
-        # by SHA, so a shallow clone of master + targeted fetch is enough.
-        local local_commit
-        local_commit=$(cd "$HARNESS_ROOT" && git rev-parse HEAD)
+        # STATBUS-060: run the REAL install.sh (operator path) with --channel edge.
+        # This is the genuine operator recovery entrypoint (STATBUS-039: the operator's
+        # only action is install.sh). install.sh --channel edge:
+        #   RESCUE mode (~/statbus/.git exists): git fetch origin master → checkout
+        #     current → procure binary via docker pull/build → ./sb install.
+        #   Binary procurement: docker pull ghcr.io/statisticsnorway/statbus-sb:<short>
+        #     (fast when image published); falls back to docker build -f cli/Dockerfile.sb
+        #     (~3-5 min, no host Go needed).
+        # install.sh exits 0 for both success and rollback; see EXIT CONTRACT above.
+        #
+        # Fork 1A: upload in-repo install.sh (matches HEAD, no curl network hop).
+        # Fork 2D: --channel edge provides real binary procurement fidelity.
+        # Fork 3: no 75-tolerance at call sites; outcome from upgrade row state only.
 
-        # upload_sb_to_vm: builds if absent, scps to /tmp/sb, chmods 0755,
-        # and atomically swaps into ~/statbus/sb via mv-then-cp (no ETXTBSY
-        # even when the upgrade service is running from Phase 1).
-        upload_sb_to_vm "$vm_name" || { rm -f "$install_script"; return 1; }
+        # Upload the in-repo install.sh as /tmp/statbus-install.sh (NOT /tmp/install.sh —
+        # the shared section below uploads the wrapper script to /tmp/install.sh and runs
+        # `bash /tmp/install.sh`; using the same name would cause the wrapper to call itself).
+        _wait_for_ssh "$ip" 30
+        scp -O "${SSH_OPTS[@]}" "$HARNESS_ROOT/install.sh" root@"$ip":/tmp/statbus-install.sh
+        ssh "${SSH_OPTS[@]}" root@"$ip" 'chmod 0755 /tmp/statbus-install.sh'
 
         cat > "$install_script" << SCRIPT
 set -e
+# If ~/statbus/.git does not exist (no prior install), do a minimal clone first
+# so install.sh always enters RESCUE mode (git update + binary procure + ./sb install).
+# install.sh --channel edge FRESH would clone ~/statbus itself but would then call
+# ./sb install WITHOUT .env.config in place — we must pre-place config files before
+# install.sh's ./sb install step. The pre-clone ensures RESCUE mode so we control
+# timing: config files land before ./sb install runs. Idempotent for RESCUE callers.
 if [ ! -d ~/statbus/.git ]; then
     git clone --depth 50 https://github.com/statisticsnorway/statbus.git ~/statbus
+    # Add db-seed refspec so install's own 'git fetch origin db-seed' creates the
+    # remote-tracking ref (a single-branch shallow clone restricts the refspec).
+    git -C ~/statbus remote set-branches --add origin db-seed
 fi
-cd ~/statbus
-# Extend the tracked-branch list to include db-seed so the install's own
-# 'git fetch origin db-seed' creates refs/remotes/origin/db-seed (a single-
-# branch clone — see the tagged-version branch below — would otherwise
-# fetch the data but never create the remote-tracking ref, leaving the
-# seed shortcut silently disabled and forcing migrations-from-scratch).
-# Idempotent — safe to add repeatedly across scenarios that reuse the VM.
-$seed_branch_cmd
-if ! git cat-file -e $local_commit 2>/dev/null; then
-    echo "Fetching local HEAD commit $local_commit from origin..."
-    git fetch --depth 1 origin $local_commit || {
-        echo "FATAL: commit $local_commit is not on origin. Push it before running the harness." >&2
-        exit 1
-    }
-fi
-git checkout $local_commit
-# Re-place sb after git checkout — clone/checkout into an existing dir
-# can leave sb missing or stale; /tmp/sb is the host-built binary still
-# present from upload_sb_to_vm (the host swap is wiped by the clone but
-# /tmp/sb is not rm'd; the install needs ./sb to exist at this point).
-cp /tmp/sb ./sb
-chmod +x ./sb
-cp /tmp/env-config .env.config
-cp /tmp/users.yml .users.yml
-STATBUS_MIN_DISK_GB=5 ./sb install --non-interactive --trust-github-user jhf $extra_args
+# Pre-place config files: ./sb install (called by install.sh) needs .env.config.
+# For RESCUE mode these survive install.sh's 'git checkout -B current origin/master'.
+cp /tmp/env-config ~/statbus/.env.config
+cp /tmp/users.yml ~/statbus/.users.yml
+# Run the real install.sh (uploaded as /tmp/statbus-install.sh to avoid a naming
+# conflict with the harness wrapper at /tmp/install.sh). Always in RESCUE mode
+# (~/statbus/.git guaranteed above). --channel edge: fetches origin/master, procures
+# HEAD binary via docker image (or build fallback), then calls ./sb install.
+# Exits 0 for both success and rollback; catastrophic failures are non-zero.
+STATBUS_MIN_DISK_GB=5 bash /tmp/statbus-install.sh --channel edge --trust-github-user jhf
 SCRIPT
     else
         cat > "$install_script" << SCRIPT
