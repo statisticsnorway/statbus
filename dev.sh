@@ -54,12 +54,13 @@ fi
 if [ "$sb_needs_rebuild" = true ]; then
     if command -v go >/dev/null 2>&1; then
         echo "Building sb from source..."
-        # Inject version from git describe. Strip "v" prefix to match release.yaml
-        # convention — service.go adds "v" back, avoiding double-v.
+        # Inject version from git describe verbatim — it carries the leading "v"
+        # (the canonical CommitVersion form stored in public.upgrade.commit_version
+        # and printed by ./sb --version). No strip/re-prepend dance (STATBUS-064).
         # --match 'v[0-9]*' restricts git describe to release tags. The moving
         # install-verified tag was deleted in rc.62; this filter remains as
         # defense against any stray non-release tags landing in the refs/tags/ space.
-        _SB_VERSION=$(git describe --tags --always --match 'v[0-9]*' 2>/dev/null | sed 's/^v//' || echo "dev")
+        _SB_VERSION=$(git describe --tags --always --match 'v[0-9]*' 2>/dev/null || echo "dev")
         # Full 40-char commit_sha for cmd.commit ldflag — equality-compared
         # against public.upgrade.commit_sha in the upgrade service's
         # ground-truth check. Display-only trimming happens via
@@ -450,7 +451,7 @@ EOS
         # The test server may not have a pre-built binary.
         if [ ! -x ./sb ] || ! ./sb --version >/dev/null 2>&1; then
             echo "Building sb from source..."
-            _SB_VERSION=$(git describe --tags --always --match 'v[0-9]*' 2>/dev/null | sed 's/^v//' || echo "dev")
+            _SB_VERSION=$(git describe --tags --always --match 'v[0-9]*' 2>/dev/null || echo "dev")
             # Full 40-char SHA — see note at line ~51 for rationale.
             _SB_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
             _SB_LDFLAGS="-X 'github.com/statisticsnorway/statbus/cli/cmd.version=${_SB_VERSION}' -X 'github.com/statisticsnorway/statbus/cli/cmd.commit=${_SB_COMMIT}'"
@@ -1966,7 +1967,7 @@ EOS
         fi
         OS=${TARGET%/*}
         ARCH=${TARGET#*/}
-        VERSION=$(git describe --tags --always --match 'v[0-9]*' 2>/dev/null | sed 's/^v//' || echo "dev")
+        VERSION=$(git describe --tags --always --match 'v[0-9]*' 2>/dev/null || echo "dev")
         # Full 40-char SHA — see note at line ~51 for rationale.
         COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
         LDFLAGS="-s -w -X 'github.com/statisticsnorway/statbus/cli/cmd.version=${VERSION}' -X 'github.com/statisticsnorway/statbus/cli/cmd.commit=${COMMIT}'"

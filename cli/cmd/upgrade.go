@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -428,22 +427,19 @@ RETURNING commit_sha, commit_tags[1]`
 	},
 }
 
-// calVerRe matches a CalVer version string with or without a leading "v"
-// (e.g. "2026.04.0-rc.56" or "v2026.04.0-rc.56"). Anything that doesn't
-// match (stray non-CalVer git tags, "dev", "sha-<short>", etc.) is rejected
-// and handled by the default branch below.
-var calVerRe = regexp.MustCompile(`^\d{4}\.\d{2}`)
-
 var upgradeServiceRunE = func(cmd *cobra.Command, args []string) error {
 	projDir := config.ProjectDir()
 	// Derive serviceVersion — a valid git ref the service can git-checkout.
-	// Rules (in priority order):
-	//   1. "dev" ldflag  → 8-char commit_short or "dev" (skips downgrade guard)
-	//   2. Already has "v" prefix → use as-is (CalVer from release.yaml)
-	//   3. Matches CalVer digits (YYYY.MM…) → prepend "v"
-	//   4. Anything else → 8-char commit_short or "dev". Downgrade guard
-	//      treats it as an unversioned local build.
+	// version is cmd.version: git-describe output verbatim, which carries the
+	// leading "v" (the canonical CommitVersion form). Rules (priority order):
+	//   1. "dev" ldflag   → 8-char commit_short or "dev" (skips downgrade guard)
+	//   2. Has "v" prefix → use as-is (v-bearing CalVer from git describe / release.yaml)
+	//   3. Anything else  → 8-char commit_short or "dev". Covers the bare
+	//      abbreviated SHA `git describe --always` emits when no tag is
+	//      reachable; downgrade guard treats it as an unversioned local build.
 	//
+	// No v-strip/re-prepend dance (STATBUS-064): the value already carries the
+	// "v" everywhere, so there is no v-less CalVer form to re-prepend onto.
 	// No "sha-" prefix anywhere (rc.63 canonical naming).
 	var serviceVersion string
 	switch {
@@ -455,10 +451,8 @@ var upgradeServiceRunE = func(cmd *cobra.Command, args []string) error {
 		}
 	case strings.HasPrefix(version, "v"):
 		serviceVersion = version
-	case calVerRe.MatchString(version):
-		serviceVersion = "v" + version
 	default:
-		// Non-CalVer ldflag (stray tag, hand-built binary, etc.) — treat as local build.
+		// Non-v ldflag (bare --always SHA, stray tag, hand-built binary) — treat as local build.
 		if commit != "unknown" {
 			serviceVersion = upgrade.ShortForDisplay(commit)
 		} else {

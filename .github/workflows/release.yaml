@@ -36,7 +36,11 @@ jobs:
           #                                                   only).
           COMMIT_SHA=$(git rev-parse HEAD)
           COMMIT_SHORT=$(git rev-parse --short=8 HEAD)
-          VERSION=${GITHUB_REF_NAME#v}
+          # version carries the leading "v" verbatim — the canonical CommitVersion
+          # form (same string git describe and public.upgrade.commit_version hold).
+          # No strip; the binary's cmd.version ldflag and the manifest both show
+          # the v, deterministically (STATBUS-064).
+          VERSION=$GITHUB_REF_NAME
           echo "commit_sha=$COMMIT_SHA" >> "$GITHUB_OUTPUT"
           echo "commit_short=$COMMIT_SHORT" >> "$GITHUB_OUTPUT"
           echo "version_tag=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
