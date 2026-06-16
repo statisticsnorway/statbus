@@ -4,10 +4,10 @@ title: >-
   postswap-config-drift: supervised upgrade daemon EnsureDBUp fails on post-swap
   boot when target release adds a mandatory compose var absent from the source's
   .env
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-06-15 21:25'
-updated_date: '2026-06-15 22:45'
+updated_date: '2026-06-16 08:04'
 labels:
   - upgrade
   - robustness
@@ -78,3 +78,9 @@ SEPARATE/RESIDUAL (NOT covered by this fix): the preswap-checkout-kill window �
 
 F1 evolution (the gate was too narrow, twice): 87c38c4fb gated the pre-EnsureDBUp config-regen first on Phase==post_swap, then broadened to any service-held flag (mechanic caught the binary-swap-kill window). BOTH still required a flag to EXIST. 0-happy (run 27578673237) FAILED: its Phase 3 restarts the unit onto the pre-staged HEAD binary BEFORE the upgrade flag is fabricated (Phase 4) → no flag → regen SKIPPED → EnsureDBUp parsed HEAD's compose against the stale v2026.05.2 .env → died on missing REST_ADMIN_BIND_ADDRESS (proof: the regen log line absent; the old 'ensure DB up ... REST_ADMIN_BIND_ADDRESS is missing' recurred at the Phase-3 restart). FIX: commit 7cc6c1b48 makes the regen UNCONDITIONAL before EnsureDBUp on every Service.Run startup (the binary can be ahead of .env with no flag — staged-binary restart, manual restart); flag read kept only for the diagnostic log. Matches runCrashRecovery's already-unconditional regen; idempotent/DB-independent/seconds/pre-READY. build+vet+upgrade/install/config tests green. Awaiting foreman byte-level review + push + 0-happy re-run. Does NOT touch runCrashRecovery (operator path).
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+FIXED + validated green on real VMs. Root cause: supervised daemon dies at EnsureDBUp `docker compose up -d db` on a stale .env missing a target-added mandatory compose var (REST_ADMIN_BIND_ADDRESS / STATBUS-032), because docker compose interpolates the whole merged project even for `up -d db`. FIX (kept, validated, ships in the clean RC): regenerate config UNCONDITIONALLY before EnsureDBUp on every Service.Run startup — commit 7cc6c1b48 (supersedes the flag-gated first cut 87c38c4fb). Validated: 0-happy run 27582053054 (config-drift-only commit 658c34ebd) GREEN — state='completed', data intact. (The image-extract 09ac1f7e4 also kept; the defer-checkout 2f52f3b7f arc is being reverted per rc03-finalize / STATBUS-059 — that's separate from this config-regen fix.)
+<!-- SECTION:FINAL_SUMMARY:END -->
