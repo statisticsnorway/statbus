@@ -7,7 +7,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-15 16:38'
-updated_date: '2026-06-16 09:26'
+updated_date: '2026-06-16 09:49'
 labels:
   - ci
   - images
@@ -38,3 +38,14 @@ INTERIM (harness): 056-style baseline-image presence check (fail loud if a basel
 
 OWNER: engineer (has the Images/CI context). Priority: HIGH (blocks the harness comprehensive run from being fast/reliable + is a latent production reliability bug).
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+FOLLOW-UP FLAGS surfaced during the 057 fix (engineer, 2026-06-16) — recorded durably so they survive context-continue; DISCUSS the proper fix with King before acting:
+1. FORWARD-LOOKING ONLY: the digest-aware cleanup PREVENTS future breakage but does NOT repair already-broken old tags. Concrete broken examples (children already deleted, 404 on pull): statbus-proxy:sha-744f8cce, statbus-proxy:sha-30865d75, statbus-proxy:sha-58f8fa87. Remediation = republish via `gh workflow run images.yaml --ref <tag-or-commit>`. DECISION NEEDED: which broken commits to republish (the harness baseline tag v2026.05.2 @ commit 50fd4325 at minimum?).
+2. BEHAVIOR CHANGE (conscious ACK needed): replacing keep-20 with digest-aware retention means the cleanup now deletes ALL unreferenced untagged orphans older than the 7-day guard (more than before) — but NEVER a referenced one. Intended Option-1 behavior; confirm acceptable.
+3. DELETE RESTRICTIONS: `gh api DELETE` can fail on GitHub's last-version / >5000-downloads restrictions; currently caught with `|| WARN` (logged, job continues). Confirm WARN-and-continue is the right policy vs hard-fail.
+
+NOTE: the 057 fix itself was BOUNCED (foreman, 2026-06-16) for a fail-OPEN safety bug in fetch_children (a failed manifest fetch was swallowed by `|| true` → unprotected children → deletable on the cron). Bounced to fail-CLOSED (abort the run, delete nothing, on any unresolved tagged manifest) + real dry-run verification on live GHCR before commit.
+<!-- SECTION:NOTES:END -->
