@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-16 09:49'
-updated_date: '2026-06-16 10:01'
+updated_date: '2026-06-16 10:09'
 labels:
   - upgrade
   - recovery
@@ -14,6 +14,12 @@ labels:
   - king-decision
   - architect-plan
 dependencies: []
+references:
+  - >-
+    doc-012 -
+    STATBUS-062-design-ground-the-rollback-restore-target-on-the-CommitSHA.md
+  - cli/internal/upgrade/commit.go
+  - cli/internal/upgrade/service.go
 priority: high
 ordinal: 62000
 ---
@@ -47,4 +53,6 @@ DESIGN — awaiting King's direction. Then architect designs the precise change 
 
 <!-- SECTION:NOTES:BEGIN -->
 KING RATIFIED + ASSIGNED to architect 2026-06-16: ground the rollback restore target on the CommitSHA (authoritative identity), not the CommitVersion (display-only). HARD REQUIREMENT — use the canonical typed vocabulary, no loose terms (King: unclear terms are the bane of confusion): cli/internal/upgrade/commit.go (SOLE source of truth) + doc/canonical-commit-naming.md, enforced by TestGuards_UseTypedFields. Types: CommitSHA (40-char, AUTHORITATIVE identity, =commit_sha), CommitShort (8-char display + CI image tag), CommitVersion (git-describe output; 'human-facing labels; NEVER for equality or lookup'), ReleaseTag (CalVer v-tag). THE BUG in these terms: from_commit_version stores d.version = a CommitVersion (never-for-lookup) but recoveryRollback uses it for a git-checkout lookup → violates the discipline. FIX direction: executeUpgrade records the SOURCE CommitSHA for rollback; consider renaming from_commit_version→from_commit_sha (clean break; the name lies today) or add from_commit_sha; keep CommitVersion for display only; recoveryRollback resolves restore from the CommitSHA (pre-upgrade branch = pure defense-in-depth); back-compat/migration for existing rows; route via commit.go smart constructors (no new shape predicates). Architect delivers (1) glossary note + (2) design → foreman→King review BEFORE code. Composes with STATBUS-061 rc.04 (iii) (prev="" → pre-upgrade).
+
+2026-06-16 architect — DESIGN READY: doc-012. Approach = SOURCE pair mirroring the existing TARGET pair: ADD from_commit_sha (CommitSHA, authoritative restore anchor, CHECK 40-hex) + KEEP from_commit_version (CommitVersion, display). Capture from_commit_sha=NewCommitSHA(git rev-parse HEAD) at the claim (service.go:1308/3498; tree is at SOURCE — checkout deferred per STATBUS-060). Restore target reads from_commit_sha (recoveryRollback:2200, resumePostSwap:4616, in-process previousVersion:3857), never the CommitVersion; restoreGitStateFn unchanged → pre-upgrade demotes to defense-in-depth. Dissolves the 061 (a)-checkout-kill hazard (from_commit_sha=git HEAD=OLD, binary-version-independent) and SUBSUMES the held rc.04 (iii). Legacy rows: from_commit_sha NULL → pre-upgrade fallback, no backfill. TWO KING DECISIONS: (1) ADD column (rec) vs RENAME; (2) fold into current RC (rec) vs ship 062 as next RC. Reported to foreman; awaiting King ruling before code.
 <!-- SECTION:NOTES:END -->
