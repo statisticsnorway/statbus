@@ -277,6 +277,29 @@ func (f *UpgradeFlag) Label() string {
 	return renderDisplayName(CommitSHA(f.CommitSHA), f.CommitTags)
 }
 
+// IsServiceForwardRecovery reports whether this flag represents an in-flight,
+// service-held upgrade that crashed in a FORWARD phase (post_swap or resuming):
+// the binary was already swapped on disk and the recovery boot must roll the
+// upgrade FORWARD, reconciling the working tree to the target via the deferred
+// target checkout (STATBUS-060). It is the single predicate shared by every
+// site that must distinguish "let the recovery boot own tree→binary" from
+// "treat as a fresh / genuinely-stale state":
+//   - Service.Run's recovery-boot checkout gate,
+//   - runCrashRecovery's checkout gate,
+//   - stalenessGuard's self-heal carve-out (STATBUS-065) — such a flag means the
+//     recovery boot, NOT a `make` rebuild, reconciles the tree, so the guard
+//     must defer instead of rebuilding (tagged-release hosts have no toolchain).
+//
+// PreSwap (empty Phase) is deliberately EXCLUDED: that case rolls back, and the
+// rollback's restoreGitState owns the tree (→ source commit). Nil-safe — a nil
+// receiver (no flag file) is not a recovery.
+func (f *UpgradeFlag) IsServiceForwardRecovery() bool {
+	return f != nil &&
+		f.Holder == HolderService &&
+		f.CommitSHA != "" &&
+		(f.Phase == FlagPhasePostSwap || f.Phase == FlagPhaseResuming)
+}
+
 // flagFilePath returns the canonical flag file location under projDir.
 // Package-level (vs. method on Service) so the install path — which has
 // no Service instance — uses the same path computation.
@@ -2155,7 +2178,7 @@ func nullableCommitSHA(c CommitSHA) interface{} {
 // completeInProgressUpgrade and recoverFromFlag (task #49). It bridges the
 // recovery context — where we have an upgrade row id + log relative path
 // but the in-process rollback() machinery expects a live ProgressLog and
-// previousVersion string — to a real rollback invocation.
+// restoreTargetSHA string — to a real rollback invocation.
 //
 // User principle (task #49): every code path that today marks
 // `failed`/`rolled_back` WITHOUT calling rollback() must now call it.
@@ -3903,7 +3926,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 
 	// Pin the pre-upgrade commit as a persistent branch BEFORE we touch
 	// anything destructive. The branch survives process crashes and tag
-	// pruning — restoreGitState falls back to it if `previousVersion`
+	// pruning — restoreGitState falls back to it if `restoreTargetSHA`
 	// (a tag or describe-string) won't resolve later. Best-effort: log
 	// failure, don't abort the upgrade.
 	if out, err := runCommandOutput(projDir, "git", "branch", "-f", "pre-upgrade", "HEAD"); err != nil {
@@ -3922,13 +3945,13 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	if srcErr != nil {
 		fmt.Fprintf(os.Stderr, "executeUpgrade: could not resolve source commit for id=%d (in-process rollback will use the pre-upgrade branch): %v\n", id, srcErr)
 	}
-	previousVersion := string(sourceCommitSHA)
+	restoreTargetSHA := string(sourceCommitSHA)
 	backupPath, err := d.backupDatabase(progress, backupStamp)
 	if err != nil {
 		// No snapshot was finalised (the partial lives in the syncing dir,
 		// never recorded) — pass "" so the identity-keyed restore refuses to
 		// touch the volume; it was never mutated.
-		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: %v", ErrBackupFailed, err), "", progress)
+		d.rollback(ctx, id, displayName, restoreTargetSHA, fmt.Sprintf("%s: %v", ErrBackupFailed, err), "", progress)
 		return err
 	}
 
@@ -3945,7 +3968,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	progress.Write("Installing %s...", displayName)
 	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "git", nil, "git", "fetch", "origin", commitSHA); err != nil {
 		// TODO: pick code — forward git fetch failure; no Err* code covers install-time git errors yet
-		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("git fetch %s: %v", ShortForDisplay(commitSHA), err), backupPath, progress)
+		d.rollback(ctx, id, displayName, restoreTargetSHA, fmt.Sprintf("git fetch %s: %v", ShortForDisplay(commitSHA), err), backupPath, progress)
 		return err
 	}
 
@@ -3956,7 +3979,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// sees target-compose, which is the whole point of the deferral. The kill
 	// leaves: objects fetched, NO checkout, no binary swap (./sb still OLD),
 	// flag PreSwap. Recovery via the next install's recoverFromFlag PreSwap
-	// branch → restoreGitState reverts to previousVersion, discards the .tmp
+	// branch → restoreGitState reverts to restoreTargetSHA, discards the .tmp
 	// backup, clears the flag; binary on disk was never touched. No-op in
 	// production. The 2-preswap-checkout-kill scenario's RED assertion ("working
 	// tree at target") is now stale — updated under STATBUS-026 (genuine-binary
@@ -3978,7 +4001,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 				errMsg := fmt.Sprintf("Version verification failed: target commit %s does not match manifest commit %s. Possible tag tampering.",
 					ShortForDisplay(commitSHA), ShortForDisplay(manifest.CommitSHA))
 				progress.Write("%s", errMsg)
-				d.rollback(ctx, id, displayName, previousVersion, errMsg, backupPath, progress)
+				d.rollback(ctx, id, displayName, restoreTargetSHA, errMsg, backupPath, progress)
 				return fmt.Errorf("%s", errMsg)
 			}
 		}
@@ -4011,7 +4034,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 		procureCode = ErrBinaryBuildFailed
 	}
 	if procureErr != nil {
-		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("%s: %v", procureCode, procureErr), backupPath, progress)
+		d.rollback(ctx, id, displayName, restoreTargetSHA, fmt.Sprintf("%s: %v", procureCode, procureErr), backupPath, progress)
 		return procureErr
 	}
 
@@ -4031,7 +4054,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 	// Step 2 for the consistent-backup stop, so we can't persist to
 	// public.upgrade here — the flag file is the handoff channel.
 	if err := d.updateFlagPostSwap(backupPath); err != nil {
-		d.rollback(ctx, id, displayName, previousVersion, fmt.Sprintf("stamp post_swap flag: %v", err), backupPath, progress)
+		d.rollback(ctx, id, displayName, restoreTargetSHA, fmt.Sprintf("stamp post_swap flag: %v", err), backupPath, progress)
 		return err
 	}
 	progress.Write("Binary swapped on disk. Handing off to fresh process on the new code...")
@@ -4094,7 +4117,7 @@ func (d *Service) executeUpgrade(ctx context.Context, id int, commitSHA, display
 //
 // The error return is reached on the at-target/unknown branches, and on the
 // rare degraded path where d.rollback() returns without exiting.
-func (d *Service) postSwapFailure(ctx context.Context, id int, displayName, previousVersion, commitSHA, backupPath, reason string, progress *ProgressLog) error {
+func (d *Service) postSwapFailure(ctx context.Context, id int, displayName, restoreTargetSHA, commitSHA, backupPath, reason string, progress *ProgressLog) error {
 	gt, gtReason := d.verifyUpgradeGroundTruthEx(ctx, commitSHA)
 	if gt != GroundTruthBehind {
 		verdict := "at-or-past target"
@@ -4108,7 +4131,7 @@ func (d *Service) postSwapFailure(ctx context.Context, id int, displayName, prev
 			ErrInstallPreconditionFailed, verdict, reason)
 	}
 	progress.Write("Post-swap failure: %s — ground truth positively behind (%s); auto-restoring from this upgrade's snapshot", reason, gtReason)
-	d.rollback(ctx, id, displayName, previousVersion,
+	d.rollback(ctx, id, displayName, restoreTargetSHA,
 		fmt.Sprintf("forward failed: %s; auto-restored from snapshot", reason), backupPath, progress)
 	return fmt.Errorf("%s: post-swap failure auto-restored: %s",
 		ErrInstallPreconditionFailed, reason)
@@ -4152,7 +4175,7 @@ func (d *Service) recordInProgressFailure(ctx context.Context, id int, errMsg st
 // on disk at backupPath; git HEAD at target commit; ./sb binary at target
 // version; d.queryConn is nil (reopened via reconnect() below). Flag file
 // and its flock are held by d.flagLock.
-func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayName, previousVersion, backupPath string, recreate bool, progress *ProgressLog) error {
+func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayName, restoreTargetSHA, backupPath string, recreate bool, progress *ProgressLog) error {
 	projDir := d.projDir
 
 	// SINGLE progress-gated WATCHDOG=1 ticker for the ENTIRE applyPostSwap body
@@ -4232,7 +4255,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	progress.Write("Regenerating configuration...")
 	if err := runCommandToLog(projDir, 2*time.Minute, progress.File(), "config-generate", progress.bump, filepath.Join(projDir, "sb"), "config", "generate"); err != nil {
 		// TODO: pick code — config generate failure; no Err* code defined yet
-		return d.postSwapFailure(ctx, id, displayName, previousVersion, commitSHA, backupPath, fmt.Sprintf("./sb config generate: %v", err), progress)
+		return d.postSwapFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("./sb config generate: %v", err), progress)
 	}
 
 	// Step 8: Pull updated images. --profile all is MANDATORY, not cosmetic:
@@ -4245,7 +4268,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// superset fresh-install (cli/cmd/install.go:1034) and rollback (below) use.
 	progress.Write("Pulling updated images...")
 	if err := runCommandToLog(projDir, 5*time.Minute, progress.File(), "docker-compose", progress.bump, "docker", "compose", "--profile", "all", "pull"); err != nil {
-		return d.postSwapFailure(ctx, id, displayName, previousVersion, commitSHA, backupPath, fmt.Sprintf("%s: docker compose pull: %v", ErrDockerUpFailed, err), progress)
+		return d.postSwapFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: docker compose pull: %v", ErrDockerUpFailed, err), progress)
 	}
 
 	// Step 9: Start database. --no-build forces compose to USE THE PULLED IMAGE
@@ -4265,13 +4288,13 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 				"then retry the upgrade. Check status: "+
 				"gh run list --workflow=images.yaml",
 			ErrDockerUpFailed, err, displayName)
-		return d.postSwapFailure(ctx, id, displayName, previousVersion, commitSHA, backupPath, reason, progress)
+		return d.postSwapFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, reason, progress)
 	}
 
 	// Wait for DB health
 	progress.Write("Waiting for database to be healthy...")
 	if err := d.waitForDBHealth(30 * time.Second); err != nil {
-		return d.postSwapFailure(ctx, id, displayName, previousVersion, commitSHA, backupPath, fmt.Sprintf("%s: DB health check: %v", ErrHealthcheckDBDown, err), progress)
+		return d.postSwapFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: DB health check: %v", ErrHealthcheckDBDown, err), progress)
 	}
 
 	// Reconnect service DB connection — a legitimately SILENT blocking step
@@ -4313,7 +4336,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 		return d.reconnect(ctx)
 	}()
 	if reconnErr != nil {
-		return d.postSwapFailure(ctx, id, displayName, previousVersion, commitSHA, backupPath, fmt.Sprintf("%s: reconnect to DB: %v", ErrHealthcheckDBDown, reconnErr), progress)
+		return d.postSwapFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: reconnect to DB: %v", ErrHealthcheckDBDown, reconnErr), progress)
 	}
 	progress.Write("Database reconnected.")
 
@@ -4336,7 +4359,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// throughout (db is the DDL target).
 	quiescedClients, quiesceErr := compose.QuiesceClients(projDir)
 	if quiesceErr != nil {
-		return d.postSwapFailure(ctx, id, displayName, previousVersion, commitSHA, backupPath,
+		return d.postSwapFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath,
 			fmt.Sprintf("quiesce clients before migrations: %v (must not proceed with DDL on live services)", quiesceErr), progress)
 	}
 	if len(quiescedClients) > 0 {
@@ -4371,7 +4394,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 				// rollback (timeout-only; see the migrate arm below).
 				d.terminateMigrateOrphan(ctx, progress)
 			}
-			return d.postSwapFailure(ctx, id, displayName, previousVersion, commitSHA, backupPath, fmt.Sprintf("%s: ./dev.sh recreate-database: %v", ErrMigrationFailed, err), progress)
+			return d.postSwapFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: ./dev.sh recreate-database: %v", ErrMigrationFailed, err), progress)
 		}
 	} else {
 		progress.Write("Applying database migrations...")
@@ -4435,7 +4458,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 			if errors.Is(err, ErrCommandTimeout) {
 				d.terminateMigrateOrphan(ctx, progress)
 			}
-			return d.postSwapFailure(ctx, id, displayName, previousVersion, commitSHA, backupPath, fmt.Sprintf("%s: ./sb migrate up: %v", ErrMigrationFailed, err), progress)
+			return d.postSwapFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: ./sb migrate up: %v", ErrMigrationFailed, err), progress)
 		}
 	}
 
@@ -4464,7 +4487,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 				"Wait for that workflow to finish, then retry the upgrade. Check status: "+
 				"gh run list --workflow=images.yaml",
 			ErrDockerUpFailed, strings.Join(step11RestartServices, " "), err, displayName)
-		return d.postSwapFailure(ctx, id, displayName, previousVersion, commitSHA, backupPath, reason, progress)
+		return d.postSwapFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, reason, progress)
 	}
 
 	// C8 injection site. Containers have been started (docker compose
@@ -4481,7 +4504,7 @@ func (d *Service) applyPostSwap(ctx context.Context, id int, commitSHA, displayN
 	// Step 12: Verify health
 	progress.Write("Verifying health...")
 	if err := d.healthCheck(progress, 5, 5*time.Second); err != nil {
-		return d.postSwapFailure(ctx, id, displayName, previousVersion, commitSHA, backupPath, fmt.Sprintf("%s: application health check: %v", ErrHealthcheckRESTDown, err), progress)
+		return d.postSwapFailure(ctx, id, displayName, restoreTargetSHA, commitSHA, backupPath, fmt.Sprintf("%s: application health check: %v", ErrHealthcheckRESTDown, err), progress)
 	}
 
 	// Notify frontend that the upgrade state changed. The DB trigger also fires
@@ -4695,6 +4718,8 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 	if fromCommitSHA.Valid {
 		if sha, shaErr := NewCommitSHA(fromCommitSHA.String); shaErr == nil {
 			restoreTargetSHA = string(sha)
+		} else {
+			fmt.Fprintf(os.Stderr, "resumePostSwap: from_commit_sha for upgrade %d is not a CommitSHA (%q) — falling back to pre-upgrade: %v\n", flag.ID, fromCommitSHA.String, shaErr)
 		}
 	}
 
@@ -5121,7 +5146,7 @@ func (d *Service) writeRollbackTerminal(ctx context.Context, id int, updateSQL, 
 // restore source (identity-keyed, STATBUS-039/-031). Empty means the upgrade
 // never finalised a snapshot (PreSwap): restoreDatabase then refuses to touch
 // the volume, which is exactly right — it was never mutated.
-func (d *Service) rollback(ctx context.Context, id int, version, previousVersion, reason string, backupPath string, progress *ProgressLog) {
+func (d *Service) rollback(ctx context.Context, id int, version, restoreTargetSHA, reason string, backupPath string, progress *ProgressLog) {
 	// WATCHDOG COVER (STATBUS-031). rollback()'s body runs the two DB-size-scaled,
 	// heartbeat-SILENT steps an upgrade has: restoreDatabase's whole-volume rsync
 	// (exec.go, onAdvance=nil → output bypasses the heartbeat) and the rollback
@@ -5166,8 +5191,8 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 	// Stop everything before we touch the git tree or restore the DB.
 	runCommand(projDir, "docker", "compose", "stop", "app", "worker", "rest", "db")
 
-	// Restore git state — ALWAYS, with no `previousVersion != ""` guard: an
-	// empty or unresolvable previousVersion falls back to the pinned `pre-upgrade`
+	// Restore git state — ALWAYS, with no `restoreTargetSHA != ""` guard: an
+	// empty or unresolvable restoreTargetSHA falls back to the pinned `pre-upgrade`
 	// branch inside restoreGitStateFn (executeUpgrade pins `pre-upgrade` at HEAD
 	// before every destructive step), so the normal case still restores the old
 	// code. Only when NEITHER resolves does restoreGitState error → abort below.
@@ -5176,8 +5201,8 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 	// silent-data-corruption scenario rollback exists to prevent. Restore the
 	// database first so the on-disk state is consistent (old DB + old code is
 	// recoverable; new code + old DB is not), then ABORT before docker compose up.
-	if err := d.restoreGitState(previousVersion, progress); err != nil {
-		progress.Write("ABORT: rollback could not restore git state to %s: %v", previousVersion, err)
+	if err := d.restoreGitState(restoreTargetSHA, progress); err != nil {
+		progress.Write("ABORT: rollback could not restore git state to %s: %v", restoreTargetSHA, err)
 		progress.Write("Restoring database to keep on-disk state consistent...")
 		d.restoreDatabase(progress, backupPath)
 		// Restore ./sb to match the attempted-but-failed git era so the
@@ -5185,10 +5210,10 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 		// binary. Best-effort: if it fails, we log ErrRollbackBinaryCorrupt
 		// and move on — the ABORT headline below already escalates.
 		d.restoreBinary(progress)
-		// previousVersion may be empty here (the abort means neither it nor the
+		// restoreTargetSHA may be empty here (the abort means neither it nor the
 		// pinned `pre-upgrade` branch resolved); point the operator at the
 		// recorded version if set, else the `pre-upgrade` fallback ref.
-		restoreTarget := previousVersion
+		restoreTarget := restoreTargetSHA
 		if restoreTarget == "" {
 			restoreTarget = "pre-upgrade"
 		}
@@ -5205,7 +5230,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 		// operator can escalate with a concrete identifier.
 		progress.Write("CATASTROPHIC FAILURE [%s]. Services stopped. Contact your administrator%s.",
 			ErrRollbackGitCorrupt, contactSuffix(readAdministratorContact(d.projDir)))
-		fmt.Fprintf(os.Stderr, "ABORT: rollback git restore to %s failed: %v\n", previousVersion, err)
+		fmt.Fprintf(os.Stderr, "ABORT: rollback git restore to %s failed: %v\n", restoreTargetSHA, err)
 
 		// state=failed, NOT rolled_back: the git restore itself failed, so
 		// services are stopped and maintenance is ON — the box is DOWN, not
@@ -5261,7 +5286,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 	// generate (rc.67 trifecta). The current ./sb is the NEW binary; its
 	// PersistentPreRun staleness guard (rc.65 freshness check) compares
 	// the binary's compile-time COMMIT against git HEAD, which is now at
-	// previousVersion. The guard fires exit-2 → "Warning: config generate
+	// restoreTargetSHA. The guard fires exit-2 → "Warning: config generate
 	// during rollback failed" (jo's 2026-04-28 deploy log line 105).
 	// Restoring the binary first puts ./sb back at the same era as the
 	// rolled-back git tree, so the staleness guard sees a match and
@@ -5308,7 +5333,7 @@ func (d *Service) rollback(ctx context.Context, id int, version, previousVersion
 	// No-op in production. Drives scenario 4-rollback-kill.
 	inject.KillHere("killed-by-system-during-builtin-rollback")
 
-	// Start with old config — git is verified at previousVersion. A failure
+	// Start with old config — git is verified at restoreTargetSHA. A failure
 	// here means the old-version services would not come back up → degraded,
 	// recorded as `failed` below.
 	servicesUpErr := runCommandToLog(projDir, 5*time.Minute, progress.File(), "rollback-docker-up", nil, "docker", "compose", "--profile", "all", "up", "-d", "--remove-orphans")
@@ -5453,9 +5478,11 @@ func (d *Service) restoreGitState(previousVersion string, progress *ProgressLog)
 // return as "DO NOT start services on this code" — the working tree is
 // in an undefined state somewhere between the new and old versions.
 //
-// The previousVersion may be a tag, branch, or full SHA. Whatever
-// `git rev-parse --verify <ref>^{commit}` resolves to is the expected
-// HEAD after checkout.
+// previousVersion is a general git ref — a tag, branch, or full SHA (the
+// pipeline passes a CommitSHA restore target, but the fallback below
+// reassigns it to the `pre-upgrade` BRANCH, so it is not strictly a SHA).
+// Whatever `git rev-parse --verify <ref>^{commit}` resolves to is the
+// expected HEAD after checkout.
 //
 // If `previousVersion` doesn't resolve (e.g., the tag was pruned
 // upstream and the local mirror dropped it), falls back to the
