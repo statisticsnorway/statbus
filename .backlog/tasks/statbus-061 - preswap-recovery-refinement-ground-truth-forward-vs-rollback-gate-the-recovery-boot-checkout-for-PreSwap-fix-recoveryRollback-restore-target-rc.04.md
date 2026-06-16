@@ -7,7 +7,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-16 00:35'
-updated_date: '2026-06-16 11:29'
+updated_date: '2026-06-16 11:32'
 labels:
   - upgrade
   - recovery
@@ -86,4 +86,6 @@ KING DECISION (rc.04 scope) — A) ship (ii)+(iii): both PreSwap roll back to OL
 rc.04 SET COMMITTED + PUSHED 2026-06-16: master @ 23c5c33f1 (8fe67b2dd..23c5c33f1). 10 files: service.go + install_upgrade.go (062 capture/restore + rc.04 ii gate), migration 20260616104500 up/down (from_commit_sha + CHECK), doc/db public_upgrade.md + database.types.ts (regen for the new column), mechanic's wedge-helpers.sh + both 2-preswap scenarios (rollback-to-OLD assertions + nomenclature + post-062 legacy narrative), doc-012 deleted (folded into ticket). Foreman reviewed every diff byte-level. FORCE=1 was used only to PRODUCE the doc/db+types review-regen (architect disclosed; verified no false stamp written); doc/db is now co-committed with the migration at 23c5c33f1 → freshness satisfied. VALIDATION dispatched (engineer): install-recovery 0-happy-upgrade + 2-preswap-checkout-kill + 2-preswap-checkout-kill-legacy at max-parallel:3 on 23c5c33f1 (after images.yaml builds its per-commit images). On all-3-green → cut rc.04 tag (auto-runs full comprehensive). NON-blocking naming leftovers → STATBUS-064.
 
 rc.04 GATE RED (run 27613174320, on 23c5c33f1) — HARNESS BUG, NOT the recovery logic. 0-happy-upgrade GREEN (real VM). The discover selector enumerated 2-preswap-checkout-kill-LEGACY TWICE (jobs 81642642731+777) and DROPPED non-legacy 2-preswap-checkout-kill; the two dup-legacy jobs raced the SAME VM name → both failed at hcloud server create (vm-bootstrap.sh:402). Root: selector resolves '2-preswap-checkout-kill' to the legacy file (prefix match). So the preswap RECOVERY scenarios did NOT actually run → rc.04 recovery is committed + reviewed + 0-happy-green but NOT yet VM-validated. FIX dispatched to engineer: exact-match selector + dedup + reap orphans + re-run at max-parallel:3 (separate quota item if 3 DISTINCT VMs then hit a real Hetzner limit). rc.04 NOT cut until both 2-preswap scenarios go green. New harness-selector-exact-match bug = a STATBUS-025-class follow-on (engineer).
+
+SELECTOR FIX committed 7c7314184 (test/install-recovery/run.sh: exact-basename-match wins + _add_selected dedup + drop the first-match break; known-RED preserved). Foreman reviewed byte-level; engineer verified via --print-selected (gate case → 3 distinct; default → 30/32). Root cause was a sort-order + prefix-match + no-dedup bug, NOT the recovery code. rc.04 gate RE-RUN dispatched on master @ 7c7314184 (3 distinct scenarios, max-parallel:3, after 7c7314184 images build + orphan reap). On all-3-green (0-happy + both 2-preswap showing rollback-to-source-CommitSHA) → cut rc.04. If 3 distinct VMs then hit a real Hetzner limit → separate quota item (run 2-at-a-time or raise quota).
 <!-- SECTION:NOTES:END -->
