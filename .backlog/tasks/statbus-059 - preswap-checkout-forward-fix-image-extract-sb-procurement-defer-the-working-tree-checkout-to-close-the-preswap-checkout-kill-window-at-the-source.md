@@ -4,10 +4,10 @@ title: >-
   preswap-checkout-forward-fix: APPROVED — image-extract the sb binary + switch
   code files only after the new program is in control (closes the upgrade
   crash-window wedge)
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-06-15 22:10'
-updated_date: '2026-06-16 08:04'
+updated_date: '2026-06-16 09:24'
 labels:
   - install-recovery
   - upgrade
@@ -100,3 +100,9 @@ AC status: #3 (F1/STATBUS-058 preserved + complementary) ✓ — the uncondition
 
 REVERT RECOMMENDATION (foreman + architect, source-verified 2026-06-16): split the outcome. KEEP (the charge, validated green on commit 658c34ebd via 0-happy 27582053054): config-regen 7cc6c1b48 (STATBUS-058) + image-extract procurement 09ac1f7e4. REVERT from the shippable RC: defer-checkout 2f52f3b7f + guard bb4848dd4 — testing (2-preswap-checkout-kill (a)/(b)) showed they ship a real PreSwap schema/git-mismatch bug (recovery-boot checkout before boot-migrate) + the pre-existing recoveryRollback prev:=d.version tree-restore. The defer-checkout / preswap-window closure is REDONE PROPERLY in STATBUS-061 (rc.04). Execution tracked in the rc03-finalize task. So 059's image-extract leg = DONE/kept; the defer-checkout leg = superseded by 061.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+King chose fix-forward (Option B), NOT revert (2026-06-16). So all of 059's commits STAY on master: image-extract procurement (09ac1f7e4) + unconditional config-regen (7cc6c1b48, the validated charge) + defer-checkout (2f52f3b7f) + guard (bb4848dd4) + install.sh edge (f29e03a60). The defer-checkout recovery path's bugs are fixed FORWARD in STATBUS-061 (rc.04), now active. 059 delivered; the recovery refinement is 061. (The earlier rc03-finalize/revert task STATBUS-062 is archived — superseded by this fix-forward decision.)
+<!-- SECTION:FINAL_SUMMARY:END -->
