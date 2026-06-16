@@ -185,6 +185,11 @@ ssh "${SSH_OPTS[@]}" root@"$VM_IP" "rm -f /tmp/harness-install-dropin.sh" 2>/dev
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── fabricating scheduled public.upgrade row for HEAD ──"
+# quiesce_upgrade_service also stops the timer so neither a NOTIFY-driven
+# nor poll-driven claim can race before the service restarts with the inject
+# drop-in in place.  The service was already stopped above for the drop-in
+# install; this adds the timer stop and makes the quiesce explicit.
+quiesce_upgrade_service "$VM_NAME"
 fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_LOCAL"
 
 ROW_STATE=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '$HEAD_LOCAL';\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?")
@@ -200,9 +205,10 @@ echo "  ✓ unit active with inject env vars in place"
 
 # Wake the service via NOTIFY so it immediately calls executeScheduled.
 # upgrade_notify_daemon_trigger fires AFTER UPDATE only — not on INSERT.
-# fabricate_scheduled_upgrade_row inserts a fresh row → no trigger fires →
-# the service sits in its main select waiting for NOTIFY or the 6-hour
-# ticker; without an explicit signal the row would never be dispatched.
+# If the HEAD row pre-existed (e.g. from discover()), fabricate's ON CONFLICT
+# DO UPDATE would fire the trigger — but the service was quiesced before
+# fabrication, so the NOTIFY went unheard.  The row stays 'scheduled' for
+# the manually-started service (with inject in place) to pick up here.
 #
 # ./sb upgrade apply sends NOTIFY upgrade_apply, '<sha>' regardless of
 # whether the UPDATE matched any row. The service receives the NOTIFY,

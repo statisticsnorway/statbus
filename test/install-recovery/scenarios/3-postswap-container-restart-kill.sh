@@ -140,6 +140,7 @@ upload_sb_to_vm "$VM_NAME"
 # Same pattern as 3-postswap-migrate-killed-after-commit and 3-postswap-mid-migration-kill.
 echo ""
 echo "── fabricating scheduled public.upgrade row for HEAD ──"
+quiesce_upgrade_service "$VM_NAME"
 fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_LOCAL"
 
 # Run synchronously — the kill exits the install process so it returns

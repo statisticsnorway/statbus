@@ -682,3 +682,38 @@ WEDGE_SCRIPT
     echo "  ✓ preswap wedge written (row=$row_id, WT=target-commit, binary=INSTALL_VERSION, flag=PreSwap)"
     return 0
 }
+
+# ─────────────────────────────────────────────────────────────────────────
+# quiesce_upgrade_service <vm_name>
+#
+# Stop both the upgrade service AND its timer so neither a NOTIFY-driven
+# nor a poll/timer-driven claim can race the next fabricate_scheduled_upgrade_row
+# call.  Call this immediately BEFORE fabricate_scheduled_upgrade_row in every
+# scenario that has a running upgrade service and a fabricate step.
+#
+# Why this matters: if the HEAD row already exists (e.g. from discover()),
+# fabricate_scheduled_upgrade_row's ON CONFLICT DO UPDATE fires the
+# upgrade_notify_daemon_trigger (AFTER UPDATE), which pg_notify's the
+# running service.  The service calls executeScheduled → claims the row
+# (started_at = now()) → QueryScheduledUpgrade returns nil (started_at IS NOT
+# NULL filtered) → ./sb install sees StateNothingScheduled → step-table →
+# completeInstallUpgradeRow.  The inject never fires.  Quiescing first
+# eliminates the listener: the NOTIFY goes unheard, the row stays 'scheduled'
+# for ./sb install or the restarted service to pick up with the inject in place.
+#
+# The timer (statbus-upgrade@statbus.timer) may be absent on some VMs;
+# the || true makes the stop idempotent whether or not the unit exists.
+# The service stop is the critical gate.
+#
+# Recovery: the step-table's `systemctl --user enable --now <instance>`
+# (install.go:1806) re-enables AND starts the service even from a fully
+# stopped state, so quiescing pre-inject does NOT break the later recovery
+# phase.
+# ─────────────────────────────────────────────────────────────────────────
+quiesce_upgrade_service() {
+    local vm_name="$1"
+    echo "  [quiesce] stopping upgrade timer + service on $vm_name (pre-fabricate race prevention)"
+    VM_EXEC systemctl --user stop "statbus-upgrade@statbus.timer" 2>/dev/null || true
+    VM_EXEC systemctl --user stop "statbus-upgrade@statbus.service" 2>/dev/null || true
+    echo "  [quiesce] ✓ upgrade service quiesced"
+}

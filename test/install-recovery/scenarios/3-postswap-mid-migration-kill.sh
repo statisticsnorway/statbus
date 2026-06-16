@@ -146,6 +146,7 @@ upload_sb_to_vm "$VM_NAME"
 # is HEAD after upload_sb_to_vm overwrote the v2026.05.2 binary) → idempotent
 # step-table refresh → exits 0 → KillHere never fires. Pattern-A fix (harness
 # regression run 26539222000).
+quiesce_upgrade_service "$VM_NAME"
 fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_LOCAL"
 
 # Arm the one-shot kill: create the marker the install env points at.

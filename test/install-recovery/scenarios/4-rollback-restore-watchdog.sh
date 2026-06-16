@@ -184,6 +184,7 @@ upload_install_script_to_vm "$VM_NAME" "$INSTALL_SCRIPT" /tmp/install-postswap-k
 
 # Seed a scheduled public.upgrade row at HEAD so install classifies as
 # StateScheduledUpgrade → executeUpgrade → backupDatabase → applyPostSwap → kill.
+quiesce_upgrade_service "$VM_NAME"
 fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_LOCAL"
 
 set +e

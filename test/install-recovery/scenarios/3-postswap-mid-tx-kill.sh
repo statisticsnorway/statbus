@@ -155,6 +155,7 @@ VM_EXEC bash -c "cd ~/statbus && cp /tmp/env-config .env.config && cp /tmp/users
 upload_sb_to_vm "$VM_NAME"
 
 echo "── fabricating scheduled public.upgrade row for HEAD ──"
+quiesce_upgrade_service "$VM_NAME"
 fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_SHA"
 
 echo "── triggering install with mid-tx pause injection ──"

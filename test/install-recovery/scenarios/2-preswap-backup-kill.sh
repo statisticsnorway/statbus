@@ -138,6 +138,7 @@ echo "  pre-trigger ./sb version (post-upload baseline): $SB_VERSION_BEFORE"
 # both derive from the running binary's ldflags version, which is HEAD after
 # upload_sb_to_vm overwrote the v2026.05.2 binary) → idempotent step-table refresh
 # → exits 0 → KillHere never fires. Pattern-A fix (harness regression run 26539222000).
+quiesce_upgrade_service "$VM_NAME"
 fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_LOCAL"
 
 set +e

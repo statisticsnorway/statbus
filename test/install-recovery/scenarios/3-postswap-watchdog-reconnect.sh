@@ -153,6 +153,7 @@ ssh "${SSH_OPTS[@]}" root@"$VM_IP" "rm -f /tmp/harness-stage-head.sh" 2>/dev/nul
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── fabricating scheduled public.upgrade row for HEAD ──"
+quiesce_upgrade_service "$VM_NAME"
 fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_LOCAL"
 
 # Verify the row exists and is in 'scheduled'.
@@ -203,10 +204,12 @@ echo "  ✓ unit active with C15 env vars in place"
 
 # Wake the service via NOTIFY so it immediately calls executeScheduled.
 # upgrade_notify_daemon_trigger fires AFTER UPDATE only — not on INSERT.
-# fabricate_scheduled_upgrade_row inserts a fresh row → no trigger fires →
-# the service sits in its main select waiting for NOTIFY or the 6-hour
-# ticker (UPGRADE_CHECK_INTERVAL default 6h); without an explicit signal
-# the row would never be dispatched within this scenario's 180s budget.
+# If the HEAD row pre-existed (e.g. from discover()), fabricate's ON CONFLICT
+# DO UPDATE would fire the trigger — but we quiesced the service before
+# fabricating (quiesce_upgrade_service above), so the NOTIFY went unheard.
+# The row stays 'scheduled' for the now-restarted service to pick up here.
+# Without an explicit wake signal the row would never be dispatched within
+# this scenario's 180s budget.
 #
 # ./sb upgrade apply sends NOTIFY upgrade_apply, '<sha>' regardless of
 # whether the UPDATE matched any row. The service receives the NOTIFY,

@@ -128,6 +128,7 @@ upload_sb_to_vm "$VM_NAME"
 # ldflags version, which is HEAD after upload_sb_to_vm overwrote the
 # v2026.05.2 binary) → idempotent step-table refresh → exits 0 → KillHere
 # never fires. Mirror of 2-preswap-backup-kill:135–141.
+quiesce_upgrade_service "$VM_NAME"
 fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_LOCAL"
 
 set +e

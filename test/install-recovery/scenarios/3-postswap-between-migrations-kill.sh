@@ -169,6 +169,7 @@ upload_sb_to_vm "$VM_NAME"
 # than detecting nothing-scheduled and running the no-op step-table path.
 echo ""
 echo "── fabricating scheduled public.upgrade row for HEAD ──"
+quiesce_upgrade_service "$VM_NAME"
 fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_LOCAL"
 
 # Arm the one-shot kill: create the marker the install env points at.

@@ -147,6 +147,7 @@ upload_sb_to_vm "$VM_NAME"
 # wedge is established. Same pattern as 3-postswap-container-restart-kill / -binary-swap-kill.
 echo ""
 echo "── fabricating scheduled public.upgrade row for HEAD ──"
+quiesce_upgrade_service "$VM_NAME"
 fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_LOCAL"
 
 set +e
