@@ -80,6 +80,16 @@ func makeRepo(t *testing.T) string {
 	}
 
 	run("init", "-q")
+	// Hermetic identity in the repo config so EVERY git command run in this
+	// repo has a tagger/committer — including the annotated-tag helpers
+	// (tagAnnotated/tagAt) which build their own exec.Command without the
+	// GIT_AUTHOR/COMMITTER env. Without this the helpers fall back to ambient
+	// config: a developer's global identity passes locally, but a hermetic CI
+	// runner has none → `git tag -a` exits 128 ("no email ... auto-detection is
+	// disabled"). Signing stays OFF via the gpgsign config below — identity and
+	// signing are independent.
+	run("config", "user.name", "Test")
+	run("config", "user.email", "test@example.invalid")
 	run("config", "commit.gpgsign", "false")
 	run("config", "tag.gpgsign", "false")
 	// A single migration to satisfy compareMigrationsForTag.
