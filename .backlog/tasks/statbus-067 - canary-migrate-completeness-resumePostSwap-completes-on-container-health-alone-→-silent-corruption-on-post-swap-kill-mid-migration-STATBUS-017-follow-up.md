@@ -7,6 +7,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-16 21:57'
+updated_date: '2026-06-16 22:05'
 labels:
   - upgrade
   - recovery
@@ -32,3 +33,19 @@ FIX DIRECTION (recovery-code DESIGN change, not a quick patch): gate the canary'
 
 KING DECISION PENDING: include in rc.04 vs priority post-rc.04 follow-up. Foreman recommendation: follow-up (pre-existing + latent; don't block rc.04) — but it is a real corruption risk, so it should be the priority item after rc.04.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+IMPLEMENTATION (architect, engineer-ready; MUST validate with the skip-default reproducer — do not land blind).
+
+SMOKING GUN: the convergence canary (service.go:4761, plan-rc.66 Item E) short-circuits STATBUS-017's OWN landed deferral (service.go:1675-1697 → recoverFromFlag :1708 → the Resuming/PostSwap one-shot latch's snapshot-restore rollback). Both landed; they conflict — the canary fires first on "containers healthy at target" (applyPostSwap ran `docker compose up` before the migrate kill) and self-heals to completed FORWARD, skipping the rollback STATBUS-017 routed the half-applied migration to.
+
+Q1 — GATE (service.go:4761): inside `if ok, mismatched := d.containersAtFlagTarget(ctx, flag); ok {`, add `pending, perr := migrate.HasPending(d.projDir)` (cli/internal/migrate/migrate.go:545 — on-disk migration files vs db.migration applied versions). The inject leaves the migration committed-but-UNRECORDED → absent from db.migration → HasPending=true. If perr != nil || pending → do NOT self-heal; log + fall through to the continuation (service.go:4864 — re-acquire flock → applyPostSwap → migrate up re-hits "relation already exists" → postSwapFailure → rollback → rolled_back = STATBUS-017's intended terminal). Else (genuine convergence, the rune Apr-24 SDNOTIFY case) → self-heal via the Q2 UPDATE.
+
+Q2 — CONSTRAINT-SAFE genuine-convergence path (service.go:4771, BUNDLED with Q1): the self-heal UPDATE must set log_relative_file_path so 'completed' satisfies chk_upgrade_state_attributes: `UPDATE public.upgrade SET state='completed', completed_at=now(), docker_images_status='ready', error=NULL, log_relative_file_path=COALESCE(log_relative_file_path,$2) WHERE id=$1 AND state='in_progress'`, $2 = the progress log's relative path (resumePostSwap holds `progress`, reopened at service.go:4727-4730 — add a relative-path accessor). COALESCE so a real run's existing path isn't clobbered. Q2 MUST NOT ship without Q1 (it would let the wrong-forward self-heal SUCCEED, removing the 23514 safety net → silent corruption).
+
+VALIDATION CAVEAT (load-bearing): Q1 routes the pending case to the continuation (applyPostSwap → migrate-up-fails → postSwapFailure → rollback). The operator observed the row ending in_progress (not rolled_back) in run 27645059996 — so the continuation's terminal-state for THIS exact case must be VALIDATED with the skip-default reproducer 3-postswap-migrate-killed-after-commit (a paid-VM run), not assumed; it may itself need a touch to guarantee rolled_back. ONE harness iteration required by design.
+
+OWNER: architect (design done) → engineer (execute) → foreman review → tester validate with the reproducer. NON-gating for rc.04; reopen STATBUS-017 as the priority post-rc.04 item if the King rules defer.
+<!-- SECTION:PLAN:END -->
