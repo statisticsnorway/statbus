@@ -81,7 +81,9 @@ jobs:
   discover:
     name: Discover scenarios + build sb binary
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    # Generous: covers checkout + build-sb + enumerate (~few min) PLUS the
+    # wait-for-per-commit-images preflight (bounded at IMAGES_WAIT_BUDGET_S = 40m).
+    timeout-minutes: 50
     outputs:
       # JSON array of scenario base names (the matrix domain) and its length.
       matrix: ${{ steps.scenarios.outputs.matrix }}
@@ -155,6 +157,136 @@ jobs:
           echo "count=$count" >> "$GITHUB_OUTPUT"
           echo "Discovered $count scenario(s) for the matrix:"
           printf '%s\n' "$selected"
+
+      - name: Wait for the per-commit service images (Images workflow)
+        # Each scenario upgrades to the commit-under-test, whose applyPostSwap runs
+        # `docker compose pull --profile all` — that needs the per-commit SERVICE
+        # images statbus-{app,worker,db,proxy}:<commit_short> (docker-compose.{app,
+        # worker}.yml + postgres/ + caddy/ all interpolate ${COMMIT_SHORT}). Those
+        # are built ONLY by the master-push Images workflow (images.yaml triggers on
+        # push:[master] + workflow_dispatch — no tags, no feature branches), and the
+        # seed/manifest jobs land late in that run. So a harness run dispatched right
+        # after a push RACES the build, and a non-master ref never triggers it at all.
+        #
+        # Gate the matrix here: poll ghcr until all four exist (bounded). Present →
+        # fan out. Absent past the budget → fail discover LOUDLY with an actionable
+        # message, so the operator gets ONE clear "images not ready" here instead of
+        # a cryptic per-scenario "manifest unknown" mid-upgrade across the matrix.
+        #
+        # Note: we deliberately do NOT gate on statbus-seed — the seed is an
+        # optional speed shortcut (install.go runSeedRestore degrades to a full
+        # migration replay), and dev.sh's preamble seed pull is made non-fatal.
+        env:
+          REGISTRY: ghcr.io
+          ORG: statisticsnorway
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+          DOCKER_CLI_EXPERIMENTAL: enabled
+          # Budget ~40 min: a cold Images run takes ~20-30 min; the headroom
+          # absorbs a slow build without stranding the harness indefinitely.
+          IMAGES_WAIT_BUDGET_S: "2400"
+          IMAGES_WAIT_INTERVAL_S: "30"
+        run: |
+          set -euo pipefail
+          commit_short="$(git rev-parse --short=8 HEAD)"
+          echo "Commit-under-test (short): $commit_short"
+          echo "${GH_TOKEN}" | docker login "$REGISTRY" -u "$ACTOR" --password-stdin
+
+          services="app worker db proxy"
+          start=$SECONDS
+          while :; do
+            missing=""
+            for svc in $services; do
+              ref="${REGISTRY}/${ORG}/statbus-${svc}:${commit_short}"
+              if ! docker manifest inspect "$ref" >/dev/null 2>&1; then
+                missing="${missing} statbus-${svc}:${commit_short}"
+              fi
+            done
+            if [ -z "$missing" ]; then
+              echo "All per-commit service images present for ${commit_short} (app, worker, db, proxy)."
+              break
+            fi
+            elapsed=$(( SECONDS - start ))
+            if [ "$elapsed" -ge "$IMAGES_WAIT_BUDGET_S" ]; then
+              echo "::error title=Per-commit images not published::statbus images for ${commit_short} missing after $((IMAGES_WAIT_BUDGET_S/60))m:${missing}"
+              {
+                echo "The install-recovery harness upgrades every scenario to this commit, which needs"
+                echo "the per-commit service images statbus-{app,worker,db,proxy}:${commit_short}."
+                echo "These are built only by the Images workflow (images.yaml — master-push + workflow_dispatch)."
+                echo "Fix:"
+                echo "  - master commit: wait for the Images run at this SHA to finish, then re-run this harness."
+                echo "  - non-master ref (e.g. a RED branch): build its images first, then re-run the harness —"
+                echo "      gh workflow run images.yaml --ref <your-branch-or-sha>"
+              } >&2
+              exit 1
+            fi
+            echo "Waiting for:${missing} (elapsed ${elapsed}s / ${IMAGES_WAIT_BUDGET_S}s) — re-checking in ${IMAGES_WAIT_INTERVAL_S}s..."
+            sleep "$IMAGES_WAIT_INTERVAL_S"
+          done
+
+      - name: Verify baseline release images are published
+        # Most scenarios install an OLDER release (INSTALL_VERSION, e.g. v2026.05.2 /
+        # v2026.05.4) as the pre-upgrade baseline before upgrading to HEAD. That
+        # install pulls the baseline's per-commit images statbus-{app,worker,db,proxy}
+        # :<commit_short>. Unlike the HEAD images (Images is still building them → we
+        # WAIT above), these are OLD releases whose Images run finished long ago — if
+        # an image is absent now it has been GC'd by image-cleanup.yaml, and waiting
+        # won't bring it back. So CHECK ONCE and FAIL LOUD with a republish hint,
+        # instead of letting ~22 scenarios each silently fall back to a ~35-min LOCAL
+        # image build that blows the per-scenario budget.
+        #
+        # Tags are ANNOTATED: deref with ^{} to get the COMMIT the image is tagged by
+        # (`git rev-parse v2026.05.2` returns the tag object, NOT the commit).
+        env:
+          REGISTRY: ghcr.io
+          ORG: statisticsnorway
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+          DOCKER_CLI_EXPERIMENTAL: enabled
+        run: |
+          set -euo pipefail
+          echo "${GH_TOKEN}" | docker login "$REGISTRY" -u "$ACTOR" --password-stdin
+
+          # Distinct baseline versions the scenarios pin (INSTALL_VERSION default).
+          versions="$(grep -rhoE 'INSTALL_VERSION:-v[0-9][0-9a-z.-]*' test/install-recovery/scenarios/*.sh \
+                        | sed 's/.*INSTALL_VERSION:-//' | sort -u)"
+          if [ -z "$versions" ]; then
+            echo "No pinned baseline versions found in scenarios — nothing to verify."
+            exit 0
+          fi
+
+          services="app worker db proxy"
+          missing=""
+          for ver in $versions; do
+            short="$(git rev-parse --short=8 "${ver}^{}" 2>/dev/null || true)"   # ^{} : annotated-tag → commit
+            if [ -z "$short" ]; then
+              echo "::warning::baseline tag ${ver} not resolvable locally (tags fetched?) — skipping its image check"
+              continue
+            fi
+            echo "Baseline ${ver} → commit ${short}:"
+            for svc in $services; do
+              if docker manifest inspect "${REGISTRY}/${ORG}/statbus-${svc}:${short}" >/dev/null 2>&1; then
+                echo "  ok       statbus-${svc}:${short}"
+              else
+                echo "  MISSING  statbus-${svc}:${short}"
+                missing="${missing} ${ver}(statbus-${svc}:${short})"
+              fi
+            done
+          done
+
+          if [ -n "$missing" ]; then
+            echo "::error title=Baseline release images missing::${missing}"
+            {
+              echo "One or more scenarios install a baseline release whose per-commit images are no"
+              echo "longer in ghcr (GC'd by image-cleanup.yaml). The install would otherwise fall"
+              echo "back to a ~35-min LOCAL image build per scenario — failing loud here instead."
+              echo "Fix: republish the baseline image(s), then re-run this harness —"
+              for ver in $versions; do echo "      gh workflow run images.yaml --ref ${ver}"; done
+              echo "Durable fix: stop image-cleanup.yaml from GC'ing release-baseline images (STATBUS image-retention)."
+            } >&2
+            exit 1
+          fi
+          echo "All baseline release images present — scenarios will pull (not build)."
 
   run-scenario:
     name: ${{ matrix.scenario }}
