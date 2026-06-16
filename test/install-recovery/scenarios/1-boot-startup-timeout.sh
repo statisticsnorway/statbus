@@ -66,7 +66,7 @@ set -euo pipefail
 
 VM_NAME="${1:-statbus-recovery-1-boot-startup-timeout}"
 INSTALL_VERSION="${INSTALL_VERSION:-v2026.05.4}"
-TIMEOUT_OBSERVE_S="${TIMEOUT_OBSERVE_S:-150}"   # TimeoutStartSec=120 + TimeoutStopSec=5 + slack
+TIMEOUT_OBSERVE_S="${TIMEOUT_OBSERVE_S:-180}"   # TimeoutStartSec=120 + RestartSec=30 backoff + slack
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib"
 source "$LIB_DIR/vm-bootstrap.sh"
@@ -170,10 +170,17 @@ echo "── restarting upgrade-service with C11 stall active ──"
 # and-forget, then poll.
 VM_EXEC bash -c "systemctl --user --no-block restart statbus-upgrade@statbus.service"
 
-echo "  unit restart requested; waiting ${TIMEOUT_OBSERVE_S}s for TimeoutStartSec=120s to fire"
+echo "  unit restart requested; waiting up to ${TIMEOUT_OBSERVE_S}s for TimeoutStartSec=120s + RestartSec=30 backoff to fire"
 START_TS=$(date +%s)
+NRESTARTS_AFTER_TIMEOUT="$NRESTARTS_BASELINE"
 while true; do
     elapsed=$(( $(date +%s) - START_TS ))
+    # Poll NRestarts every iteration (every 5s); break the moment it grows.
+    NRESTARTS_AFTER_TIMEOUT=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "$NRESTARTS_BASELINE")
+    if [ "$NRESTARTS_AFTER_TIMEOUT" -gt "$NRESTARTS_BASELINE" ] 2>/dev/null; then
+        echo "    [t+${elapsed}s] NRestarts grew to $NRESTARTS_AFTER_TIMEOUT — restart fired, breaking early"
+        break
+    fi
     if [ "$elapsed" -ge "$TIMEOUT_OBSERVE_S" ]; then
         break
     fi
@@ -181,13 +188,12 @@ while true; do
     if [ $((elapsed % 30)) -eq 0 ]; then
         STATE=$(VM_EXEC systemctl --user is-active "statbus-upgrade@statbus.service" 2>/dev/null | tr -d ' \r\n' || echo "?")
         SUBSTATE=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=SubState --value 2>/dev/null | tr -d ' \r\n' || echo "?")
-        echo "    [t+${elapsed}s] state=$STATE substate=$SUBSTATE"
+        echo "    [t+${elapsed}s] state=$STATE substate=$SUBSTATE NRestarts=$NRESTARTS_AFTER_TIMEOUT"
     fi
     sleep 5
 done
 
-# Read post-timeout state.
-NRESTARTS_AFTER_TIMEOUT=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=NRestarts --value 2>/dev/null | tr -d ' \r\n' || echo "?")
+# Read post-timeout Result; NRestarts already set by the poll loop above.
 RESULT=$(VM_EXEC systemctl --user show "statbus-upgrade@statbus.service" --property=Result --value 2>/dev/null | tr -d ' \r\n' || echo "?")
 echo "  post-timeout: NRestarts=$NRESTARTS_AFTER_TIMEOUT Result=$RESULT"
 
