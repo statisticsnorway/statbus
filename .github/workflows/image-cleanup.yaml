@@ -1,25 +1,274 @@
 name: Image Cleanup
 
-# Weekly cleanup of old SHA-only images from ghcr.io.
-# Version-tagged images (v*) are kept indefinitely.
+# Weekly cleanup of orphaned, untagged container manifests on ghcr.io.
+#
+# Images are tagged by COMMIT-SHORT (e.g. statbus-proxy:50fd4325), NOT v*.
+# Every commit's image is a multi-arch manifest LIST that references
+# untagged per-arch child manifests (+ attestations) BY DIGEST. The earlier
+# `actions/delete-package-versions` cleanup (delete-only-untagged +
+# keep-20) deleted those referenced child manifests once a package crossed
+# the keep boundary — the surviving tag then pointed at a deleted digest and
+# `docker pull` failed with "content at .../manifests/sha256:... not found".
+# This broke install/upgrade/rollback of any OLD commit's images.
+#
+# This cleanup is DIGEST-AWARE: it resolves EVERY surviving tagged manifest
+# (multi-arch index, per-arch index, buildcache) down to the child manifest
+# digests it references, and NEVER deletes a referenced digest. Only
+# genuinely orphaned untagged manifests — referenced by no surviving tag and
+# older than the age guard — are deleted. `actions/delete-package-versions`
+# cannot express digest-aware retention, so this is a custom GHCR-API step.
+#
+# SAFETY: this is a DESTRUCTIVE op, so it is FAIL-CLOSED on UNCERTAINTY. If the
+# protected set cannot be built with confidence (a manifest fetch fails with an
+# uncertain status — auth-exhausted, 5xx, rate-limit, timeout — or the version
+# enumeration is partial), the job ABORTS for that package and deletes NOTHING.
+# A failed run is harmless; a run that GUESSES the protected set would
+# re-introduce the exact bug above. A DEFINITIVE 404 (provably-absent manifest,
+# e.g. an already-broken tag the old cleanup left behind) is not uncertainty —
+# it references no children, so it is treated as empty, not as an abort.
 on:
   schedule:
     - cron: '0 4 * * 0'  # Sunday 4:00 AM UTC
-  workflow_dispatch:  # Manual trigger
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'List what would be deleted without deleting (manual runs default to true)'
+        type: boolean
+        default: true
 
 permissions:
   packages: write
+
+env:
+  ORG: statisticsnorway
+  REGISTRY: ghcr.io
+  # Race guard: never delete an untagged manifest younger than this many
+  # days. Absorbs an in-flight Images run that has pushed per-arch child
+  # manifests but not yet created the multi-arch tag that references them.
+  OLDER_THAN_DAYS: '7'
 
 jobs:
   cleanup:
     runs-on: ubuntu-24.04
     strategy:
+      fail-fast: false
       matrix:
-        package: [statbus-app, statbus-worker, statbus-db, statbus-proxy]
+        package: [statbus-app, statbus-worker, statbus-db, statbus-proxy, statbus-sb, statbus-seed]
     steps:
-      - uses: actions/delete-package-versions@v5
-        with:
-          package-name: ${{ matrix.package }}
-          package-type: container
-          min-versions-to-keep: 20
-          delete-only-untagged-versions: true
+      - name: Digest-aware cleanup of ${{ matrix.package }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+          PKG: ${{ matrix.package }}
+          # schedule event -> empty inputs -> 'false' (real delete on the weekly cron).
+          # manual dispatch -> boolean input defaulting to 'true' (safe by default).
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+        run: |
+          set -euo pipefail
+
+          echo "== Digest-aware GHCR cleanup: ${PKG} (dry_run=${DRY_RUN}, older_than=${OLDER_THAN_DAYS}d) =="
+
+          ACCEPT='application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json'
+
+          RESP="$(mktemp)"
+          trap 'rm -f "${RESP}"' EXIT
+
+          # --- registry pull token (read manifests) -----------------------------
+          # Fail-closed: a token we cannot mint => abort (delete nothing).
+          REG_TOKEN=""
+          mint_token() {
+            local body
+            if ! body=$(curl -fsSL -u "${ACTOR}:${GHCR_TOKEN}" \
+                "https://${REGISTRY}/token?service=${REGISTRY}&scope=repository:${ORG}/${PKG}:pull"); then
+              echo "ERROR: registry token request failed for ${PKG}" >&2
+              exit 1
+            fi
+            REG_TOKEN=$(printf '%s' "${body}" | jq -r '.token // empty')
+            if [ -z "${REG_TOKEN}" ]; then
+              echo "ERROR: empty registry token for ${PKG}" >&2
+              exit 1
+            fi
+          }
+          mint_token
+
+          # Resolve the child manifest digests referenced by $1 (a digest or tag).
+          # Prints child digests on stdout (empty for a plain image manifest OR a
+          # provably-absent 404 manifest). Returns 0 on a DEFINITIVE answer (200
+          # parsed, or 404-absent); returns 1 ONLY on an UNCERTAIN failure (auth
+          # exhausted, 5xx / 429 / timeout) so the caller FAILS CLOSED. NB: NO
+          # `|| true` — a swallowed uncertain failure is indistinguishable from
+          # "no children" and would let referenced digests be deleted.
+          fetch_children() {
+            local ref="$1" attempt code
+            for attempt in 1 2 3; do
+              code=$(curl -sSL -o "${RESP}" -w '%{http_code}' \
+                -H "Authorization: Bearer ${REG_TOKEN}" \
+                -H "Accept: ${ACCEPT}" \
+                "https://${REGISTRY}/v2/${ORG}/${PKG}/manifests/${ref}" || echo "000")
+              case "${code}" in
+                200)
+                  # Empty output (plain image manifest) is a legitimate success.
+                  jq -r '.manifests[]?.digest' "${RESP}" 2>/dev/null || return 1
+                  return 0
+                  ;;
+                404)
+                  # DEFINITIVE negative: the manifest is provably absent — almost
+                  # always an already-broken tag (or a recursed child of one) left
+                  # by the OLD non-digest-aware cleanup; GHCR can still list it as
+                  # a version with stale metadata while the blob is gone. An absent
+                  # manifest references NO children, so it cannot be protecting
+                  # anything → treat as empty and continue. This is NOT a fail-open
+                  # guess: a 404 is certainty, unlike the uncertainty (auth / 5xx /
+                  # timeout) that demands abort. Without this, every big package
+                  # (app/worker/db/proxy already carry old broken tags) would abort
+                  # forever and never reclaim orphans. No retry: a transient 404 is
+                  # only possible in the seconds after a push, whereas deletion is
+                  # gated to manifests older than OLDER_THAN_DAYS — the windows do
+                  # not overlap, so retrying every dead tag would only add minutes
+                  # (and 429-rate-limit risk) on the big, heavily-broken packages.
+                  echo "NOTE: ${ref} -> 404 (absent, already broken); no children to protect" >&2
+                  return 0
+                  ;;
+                401|403)
+                  # Token expired/insufficient: re-mint reactively and retry.
+                  mint_token
+                  ;;
+                *)
+                  : # UNCERTAIN failure (000 / 429 / 5xx): retry, then fail-closed.
+                  ;;
+              esac
+              [ "${attempt}" -lt 3 ] && sleep 2
+            done
+            echo "ERROR: could not resolve manifest ${ref} for ${PKG} (last HTTP ${code})" >&2
+            return 1
+          }
+
+          # --- enumerate all package versions as NDJSON -------------------------
+          # NO `|| true`: a partial/failed enumeration must abort (set -e), never
+          # drive deletions. A tag missing from a truncated list => its children
+          # look orphaned => deletable. Only a genuinely EMPTY result (zero
+          # versions, exit 0) is the benign "nothing to do" case.
+          versions_ndjson=$(gh api --paginate \
+            "/orgs/${ORG}/packages/container/${PKG}/versions" \
+            --jq '.[] | {id: .id, digest: .name, tags: (.metadata.container.tags // []), created_at: .created_at}')
+
+          if [ -z "${versions_ndjson}" ]; then
+            echo "No versions found for ${PKG}; nothing to do."
+            exit 0
+          fi
+
+          # --- build the protected (referenced) digest set ----------------------
+          # Seed a worklist with every TAGGED version's digest, then resolve
+          # transitively (an index's children may themselves be indexes, e.g.
+          # attestation manifests). VISITED bounds the walk; PROTECTED is the
+          # union of all referenced child digests. Any unresolved manifest
+          # ABORTS the whole package (fail-closed).
+          declare -A PROTECTED=()
+          declare -A VISITED=()
+          worklist=()
+          while IFS= read -r row; do
+            [ -z "${row}" ] && continue
+            if [ "$(echo "${row}" | jq -r '.tags | length')" -gt 0 ]; then
+              worklist+=("$(echo "${row}" | jq -r '.digest')")
+            fi
+          done <<< "${versions_ndjson}"
+
+          # Anomaly guard ("last/only version"): a package with ZERO tagged
+          # versions is entirely orphans. Cleaning into that would delete the
+          # package's last manifest(s). The goal of cleanup is to delete ORPHANS,
+          # not to dismantle a package — so this is never silently skipped and
+          # never blindly deleted: surface LOUDLY and stop (delete nothing). It is
+          # unreachable in normal operation (every package carries current tags).
+          if [ ${#worklist[@]} -eq 0 ]; then
+            echo "::error title=image-cleanup: ${PKG} has NO tagged versions::All-orphans anomaly. The Images workflow appears to have stopped publishing tags for ${ORG}/${PKG}. Investigate that FIRST; do not delete. Deleting nothing this run."
+            exit 1
+          fi
+
+          while [ ${#worklist[@]} -gt 0 ]; do
+            cur="${worklist[-1]}"; unset 'worklist[-1]'
+            [ -n "${VISITED[${cur}]:-}" ] && continue
+            VISITED[${cur}]=1
+            # Command substitution (NOT process substitution): a non-zero
+            # fetch_children must propagate so the `|| { abort }` fires. With
+            # `< <(fetch_children ...)` the failure is hidden in a subshell and
+            # set -e would not trip — silently fail-open. Do not "simplify" back.
+            children=$(fetch_children "${cur}") \
+              || { echo "ABORT: cannot resolve ${cur} for ${PKG}; deleting nothing" >&2; exit 1; }
+            while IFS= read -r child; do
+              [ -z "${child}" ] && continue
+              PROTECTED[${child}]=1
+              worklist+=("${child}")
+            done <<< "${children}"
+          done
+
+          echo "Protected (referenced) child digests for ${PKG}: ${#PROTECTED[@]}"
+
+          # --- delete untagged, unreferenced, aged-out versions -----------------
+          # The GOAL is to DELETE each orphan. Every orphan therefore ends in one
+          # of two states — deleted, or a LOUD + SPECIFIC + ACTIONABLE escalation
+          # (exact digest + the precise step to finish). There is no silent
+          # `|| WARN` that masks a non-deletion. If any orphan is left unreached,
+          # the run exits NON-ZERO so the outcome is honest.
+          cutoff_epoch=$(date -u -d "-${OLDER_THAN_DAYS} days" +%s)
+          deleted=0; kept_tagged=0; kept_ref=0; kept_age=0; unreached=0
+          while IFS= read -r row; do
+            [ -z "${row}" ] && continue
+            id=$(echo "${row}" | jq -r '.id')
+            digest=$(echo "${row}" | jq -r '.digest')
+            ntags=$(echo "${row}" | jq -r '.tags | length')
+            created=$(echo "${row}" | jq -r '.created_at')
+
+            if [ "${ntags}" -gt 0 ]; then kept_tagged=$((kept_tagged + 1)); continue; fi
+            if [ -n "${PROTECTED[${digest}]:-}" ]; then kept_ref=$((kept_ref + 1)); continue; fi
+            if [ "$(date -u -d "${created}" +%s)" -ge "${cutoff_epoch}" ]; then
+              kept_age=$((kept_age + 1)); continue
+            fi
+
+            if [ "${DRY_RUN}" = "true" ]; then
+              echo "DRY_RUN would delete untagged ${digest} (id=${id}, created=${created})"
+              deleted=$((deleted + 1))
+              continue
+            fi
+
+            # Real delete. Capture status+body so a refusal is reported, not swallowed.
+            if del_out=$(gh api --method DELETE \
+                "/orgs/${ORG}/packages/container/${PKG}/versions/${id}" 2>&1); then
+              echo "Deleted untagged ${digest} (id=${id}, created=${created})"
+              deleted=$((deleted + 1))
+            else
+              # GOAL NOT REACHED for this orphan. The API genuinely refused; the
+              # cleanup cannot finish it on its own. Escalate loudly + specifically.
+              unreached=$((unreached + 1))
+              api_msg=$(printf '%s' "${del_out}" | tr -d '\r' | tr '\n' ' ' | head -c 400)
+              echo "::error title=image-cleanup: orphan NOT deleted in ${PKG}::digest=${digest} id=${id} — see step below"
+              echo "GOAL NOT REACHED — orphan manifest could not be deleted:"
+              echo "  package : ${ORG}/${PKG}"
+              echo "  digest  : ${digest}"
+              echo "  id      : ${id} (created ${created})"
+              echo "  api said: ${api_msg}"
+              case "${del_out}" in
+                *5,000*|*5000*|*[Dd]ownload*)
+                  echo "  reason  : public package version with >5000 downloads — the GitHub API will not delete it."
+                  echo "  do this : open a GitHub Support request to delete this exact version of ${ORG}/${PKG} (digest ${digest}). This is the only path; no API/CLI can remove it."
+                  ;;
+                *[Ff]orbidden*|*403*|*scope*|*permission*)
+                  echo "  reason  : 403 / insufficient rights — the deleting identity lacks package-delete."
+                  echo "  do this : confirm this workflow has 'permissions: packages: write' and the org permits GITHUB_TOKEN package deletion (Org → Packages → 'Package creation/deletion'); then re-run image-cleanup.yaml."
+                  ;;
+                *)
+                  echo "  reason  : unexpected API refusal (see api said above)."
+                  echo "  do this : retry manually -> gh api --method DELETE /orgs/${ORG}/packages/container/${PKG}/versions/${id} ; if it still refuses, open a GitHub Support request quoting the digest above."
+                  ;;
+              esac
+            fi
+          done <<< "${versions_ndjson}"
+
+          echo "Summary ${PKG}: tagged_kept=${kept_tagged} referenced_kept=${kept_ref} age_kept=${kept_age} deleted$([ "${DRY_RUN}" = "true" ] && echo _would)=${deleted} unreached=${unreached}"
+
+          # Honest outcome: if any orphan's deletion goal was not reached, FAIL the
+          # job. The escalations above name each digest + its exact remediation.
+          if [ "${unreached}" -gt 0 ]; then
+            echo "::error title=image-cleanup: ${PKG} incomplete::${unreached} orphan(s) could not be deleted — the cleanup did NOT reach its goal. Act on the per-digest escalations above."
+            exit 1
+          fi
