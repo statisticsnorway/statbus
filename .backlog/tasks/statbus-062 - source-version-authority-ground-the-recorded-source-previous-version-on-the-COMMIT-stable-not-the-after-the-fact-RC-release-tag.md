@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-16 09:49'
-updated_date: '2026-06-16 10:09'
+updated_date: '2026-06-16 10:20'
 labels:
   - upgrade
   - recovery
@@ -15,9 +15,6 @@ labels:
   - architect-plan
 dependencies: []
 references:
-  - >-
-    doc-012 -
-    STATBUS-062-design-ground-the-rollback-restore-target-on-the-CommitSHA.md
   - cli/internal/upgrade/commit.go
   - cli/internal/upgrade/service.go
 priority: high
@@ -49,6 +46,46 @@ Blocks finalizing STATBUS-061 part (iv)'s harness value (version-string vs commi
 DESIGN — awaiting King's direction. Then architect designs the precise change (product + recovery + harness), run by King before implementation.
 <!-- SECTION:DESCRIPTION:END -->
 
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+## DESIGN (folded from doc-012; ticket is the single source). Foreman concurred ADD + FOLD-IN; awaiting King's nomenclature approval + rulings. HOLD code.
+
+### Glossary — exact terms (cli/internal/upgrade/commit.go, sole source of truth)
+- CommitSHA — 40-char hex. AUTHORITATIVE identity; equality = same commit; the ONLY legal lookup/checkout key. SQL public.upgrade.commit_sha (CHECK ^[a-f0-9]{40}$). Ctor NewCommitSHA.
+- CommitShort — 8-char hex. Display abbrev + CI Docker image tag. NEVER equality/lookup.
+- CommitVersion — `git describe --tags --always` output. Human label only; NEVER equality/lookup. ⚠ V-PREFIX INCONSISTENCY (verified 2026-06-16): the DB column commit_version is V-PREFIXED (service.go:2906/2919 writes the GitHub tag verbatim, "v2026.05.2"), but the binary d.version is V-STRIPPED (Makefile:4/dev.sh:62 `sed 's/^v//'`). git-describe + ReleaseTag are natively v-prefixed; the binary's strip is the lone outlier. → commit.go's v-prefixed doc is CORRECT for the DB/git form. NOMENCLATURE SUB-DECISION (King): X = v-prefixed canonical (binary stops stripping) vs Y = v-stripped canonical (DB capture strips + doc→stripped). DISPLAY-ONLY; independent of the restore-target fix. Architect leans X. HOLD the commit.go-doc edit until ruled.
+- ReleaseTag — CalVer `vYYYY.MM.patch[-suffix]`.
+
+### The bug (in these terms)
+from_commit_version holds a CommitVersion (d.version) but is used as the git-checkout restore target (a LOOKUP) in two roots: recoveryRollback (service.go:2200) and executeUpgrade's `previousVersion := d.version` (3857, feeding all in-process d.rollback/postSwapFailure/applyPostSwap + resumePostSwap:4616). CommitVersion-for-lookup violates the discipline; it's why "2026.05.2" doesn't resolve and why d.version=TARGET restored FORWARD in a HEAD-recovery (061 finding 1).
+
+### Fix — a SOURCE pair mirroring the existing TARGET pair (commit_sha + commit_version)
+1. Schema (migration): ADD from_commit_sha text + CHECK (from_commit_sha IS NULL OR ~ ^[a-f0-9]{40}$), mirroring chk_upgrade_commit_sha_is_full_hex. KEEP from_commit_version (display). Regenerate doc/db/table/public_upgrade.md same commit. [King decision 1: ADD (foreman+architect rec) vs RENAME.]
+2. Capture (write): at the claim (ExecuteUpgradeInline service.go:1308, executeScheduled :3498) record from_commit_sha = NewCommitSHA(git rev-parse HEAD). Tree is at SOURCE there (target checkout deferred to recovery boot, STATBUS-060) = the same commit pre-upgrade pins (3841). Keep from_commit_version = d.version (display).
+3. Restore target reads the CommitSHA, never the CommitVersion: in-process previousVersion := string(sourceSHA) (3857); recoveryRollback (2200) reads from_commit_sha→prev (NewCommitSHA), prev:="" default→pre-upgrade — SUBSUMES held rc.04 (iii); resumePostSwap (4616) reads from_commit_sha→previousVersion.
+4. restoreGitStateFn (5381) unchanged: a CommitSHA always resolves → pre-upgrade branch demotes to pure defense-in-depth.
+5. Display untouched: from_commit_version stays for admin UI "From:" (app/src/app/admin/upgrades/page.tsx:1225) + fixup INSERT (cli/cmd/install.go:1932). Optional: add from_commit_sha to that INSERT for symmetry (low priority).
+Vocab-compliant: route through NewCommitSHA; no new shape predicate; TestGuards_UseTypedFields green.
+
+### Payoffs
+- Dissolves the 061 (a)-checkout-kill hazard: from_commit_sha = git HEAD at claim = OLD (the tree), binary-version-independent → (a) recovers to OLD deterministically.
+- SUBSUMES the held rc.04 (iii).
+- Back-compat, NO backfill: legacy rows from_commit_sha NULL → prev:="" → pre-upgrade fallback (pinned by the OLD binary mid-upgrade) → OLD. Down: drop from_commit_sha.
+
+### Harness split (King option 3)
+- 2-preswap-checkout-kill-legacy.sh (genuine v2026.05.2): reproduce what v2026.05.2 ACTUALLY wrote — from_commit_version="2026.05.2" (CommitVersion), from_commit_sha NULL → validates HEAD recovering a LEGACY row via pre-upgrade fallback (fidelity).
+- HEAD/go-forward scenarios (part iv): from_commit_sha = source commit → validates the commit-grounded path.
+
+### Sequencing [King decision 2]: A (recommended) = fold into the current recovery RC (both scenarios clean, (a) dissolved, (iii) subsumed) vs B = ship current RC behavior-only now, 062 as next RC.
+
+### Critical files
+service.go: claim 1308+3498 (write from_commit_sha); previousVersion:=d.version 3857; recoveryRollback 2200; resumePostSwap 4616; restoreGitStateFn 5381 (unchanged); pre-upgrade pin 3841; discovery commit_version capture 2906 (v-prefix). migrations/ new pair + doc/db regen. commit.go NewCommitSHA (+ CommitVersion doc, pending nomenclature ruling). Display: page.tsx:1225, install.go:1932.
+
+### Verification
+migrate up/down clean; go test ./internal/upgrade ./internal/install ./internal/config; TestGuards_UseTypedFields green; 0-happy + both 2-preswap green; admin "From:" still renders.
+<!-- SECTION:PLAN:END -->
+
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
@@ -63,4 +100,6 @@ INCONSISTENCY to fix as part of ratification: cli/internal/upgrade/commit.go DOC
 CONSEQUENCE: a stored CommitVersion ('2026.05.2') does NOT resolve as a git ref (the tag is 'v2026.05.2') → genuine-legacy rollback reaches OLD only via the pinned pre-upgrade branch — the exact fragility that motivates grounding on the CommitSHA.
 
 GROUNDING (architect recommendation, pending King): capture the SOURCE CommitSHA as `git rev-parse HEAD` at the scheduled→in_progress CLAIM (the tree is still at source pre-defer-checkout, so HEAD = the true source CommitSHA — NOT d.binaryCommit, which = TARGET in a HEAD-recovery). Store in a NEW from_commit_sha column (keep from_commit_version for display only). Bonus: also fixes the (a) checkout-kill resolving-TARGET risk for free. AWAITING King's nomenclature approval before any propagation.
+
+2026-06-16 architect — folded the full design into this ticket's plan (single source); doc-012 removed per foreman. NEW nomenclature finding flagged: CommitVersion v-prefix is INCONSISTENT — DB commit_version is v-PREFIXED (service.go:2906, GitHub tag verbatim) while binary d.version is v-STRIPPED (Makefile:4 sed). commit.go's v-prefixed doc is correct for the DB/git form; the binary strip is the lone outlier. Added as nomenclature sub-decision (X v-prefixed canonical [architect lean] vs Y v-stripped canonical). Display-only; the restore-target core (from_commit_sha) is unaffected. commit.go-doc edit HELD until King rules the convention.
 <!-- SECTION:NOTES:END -->
