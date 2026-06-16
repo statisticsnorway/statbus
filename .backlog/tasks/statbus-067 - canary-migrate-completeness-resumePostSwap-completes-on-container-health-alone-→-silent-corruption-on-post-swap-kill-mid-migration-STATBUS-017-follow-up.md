@@ -7,7 +7,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-16 21:57'
-updated_date: '2026-06-16 22:05'
+updated_date: '2026-06-16 22:36'
 labels:
   - upgrade
   - recovery
@@ -49,3 +49,9 @@ VALIDATION CAVEAT (load-bearing): Q1 routes the pending case to the continuation
 
 OWNER: architect (design done) → engineer (execute) → foreman review → tester validate with the reproducer. NON-gating for rc.04; reopen STATBUS-017 as the priority post-rc.04 item if the King rules defer.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+HARNESS PREREQ ALREADY IN PLACE (foreman, fc742bd4f, 2026-06-17): both reproducers (3-postswap-migrate-killed-after-commit, 3-postswap-migration-deterministic-error) now call `quiesce_upgrade_service "$VM_NAME" >&2` inside _fabricate_in_progress_row, immediately before fabricate_scheduled_upgrade_row. This closes the fabricate→in_progress-UPDATE window where the running upgrade service could claim the scheduled row — removing a race confound from the eventual canary re-validation. NOTE for the engineer/tester: this shifted the scenario line numbers cited in the Implementation Plan by ~+5 (the manual in_progress UPDATE block moved down); RE-READ the scenario rather than trusting the cited line refs. The Q1/Q2 FIX itself is in cli/internal/upgrade/service.go (4761/4771) — unaffected by the scenario shift.
+<!-- SECTION:NOTES:END -->
