@@ -3,9 +3,10 @@ id: STATBUS-065
 title: >-
   selfheal-toolchain-free: ./sb install staleness self-heal shells `make` →
   fails (127) on toolchain-less hosts → operator can't recover a post-swap crash
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-06-16 12:02'
+updated_date: '2026-06-16 12:17'
 labels:
   - upgrade
   - recovery
@@ -40,3 +41,14 @@ Make the self-heal TOOLCHAIN-FREE: re-procure the binary via image-extract (mirr
 - It will also break STATBUS-060's real-install.sh recovery (install.sh runs `./sb install` → trips this on a toolchain-less VM).
 OWNER: architect. Aligns with STATBUS-039 + the toolchain-free design (09ac1f7e4).
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+VERDICT: REAL gap (architect map + foreman-verified firsthand 2026-06-16). selfheal=true on install.go:102 (operator install) + upgrade.go:262 (upgrade service / DAEMON) + :489 (apply-latest) — so operator AND daemon are exposed (0-happy was a vacuous-cli-diff pass, not daemon-exempt). Swap timing: replaceBinaryOnDisk service.go:4007 → updateFlagPostSwap:4033 → handoff (os.Exit(42):4045 / syscall.Exec:4051) → binary=NEW/tree=OLD arises POSTSWAP. stalenessGuard (root.go:62 PersistentPreRun) runs BEFORE the recovery-boot checkout → IsStale → make (rebuild.go:37) → 127 on toolchain-less hosts. Latent today only because cloud (niue) has Go; bites the toolchain-less EXTERNAL-STANDALONE target hosts + the install-recovery VMs.
+
+FIX B (architect, recommended; presented to King for approval): make stalenessGuard recovery-aware — before self-heal/hard-fail, upgrade.ReadFlagFile (service.go:621, exported, callable from root.go); if a service-held flag is present, the binary-ahead-of-tree state is the EXPECTED in-flight recovery state → WARN + PROCEED (skip rebuild), the recovery-boot checkout reconciles tree→binary. Keep self-heal/hard-fail for the no-flag dev-stale case. ~10 lines, toolchain-independent, covers operator + daemon.
+FIX A (image-extract self-heal instead of make): REJECTED — rebuild-to-match-tree would discard the NEW binary; addresses the toolchain symptom not the wrong-to-rebuild-during-recovery cause.
+
+LINCHPIN: unblocks the (a) 2-preswap-checkout-kill scenario (trips the same guard) + STATBUS-060's real-install.sh recovery on toolchain-less hosts. (a) REVISED: keep it (065 unblocks it → validates the from_commit_sha PRIMARY path e2e) + add a structural guard; no retire. OWNER: architect (root.go + freshness helper). Aligns with the external-standalone arc + STATBUS-039.
+<!-- SECTION:NOTES:END -->
