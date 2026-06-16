@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-16 12:02'
-updated_date: '2026-06-16 12:55'
+updated_date: '2026-06-16 13:12'
 labels:
   - upgrade
   - recovery
@@ -53,4 +53,6 @@ FIX A (image-extract self-heal instead of make): REJECTED — rebuild-to-match-t
 LINCHPIN: unblocks the (a) 2-preswap-checkout-kill scenario (trips the same guard) + STATBUS-060's real-install.sh recovery on toolchain-less hosts. (a) REVISED: keep it (065 unblocks it → validates the from_commit_sha PRIMARY path e2e) + add a structural guard; no retire. OWNER: architect (root.go + freshness helper). Aligns with the external-standalone arc + STATBUS-039.
 
 REACHABILITY VERIFIED (foreman firsthand, 2026-06-16, all 4 facts file:line-checked): (1) stalenessGuard=PersistentPreRun root.go:62 → precedes RunE; (2) IsStale drift probe check.go:213 `git diff --quiet <binary> <HEAD> -- cli/` is DIRECTION-AGNOSTIC → binary-NEW/tree-OLD trips for any cli/-touching upgrade; (3) post-swap shape: service.go:4007 swap → 4033 post_swap stamp → 4045 exit-42, NO checkout between (STATBUS-060 deferred to recovery boot service.go:1518); (4) tagged-release procures PREBUILT (replaceBinaryOnDisk 4007, no toolchain) vs edge=make 4010 → guard's make root.go:127 is the SOLE spurious toolchain demand. VERDICT: REACHABLE on daemon `./sb upgrade service` post-swap, tagged-release channel, toolchain-less host (the external-standalone target). Bare `./sb install` NOT production-reachable (operators go via install.sh which pre-aligns tree+binary, install.sh:170,186). 0-happy's green is a VACUOUS-cli-diff pass, not daemon-exemption. GREENLIT Fix B (scoped). Clean-break impl: extract predicate (already dup'd at service.go:1495-1497 + install_upgrade.go:178-180) into one `(*FlagFile).IsServiceForwardRecovery()` method, 3 callers; guard defers inside the selfheal branch before RebuildAndReexec; unit-test the predicate. Architect implementing; foreman reviews diff before commit.
+
+IMPLEMENTED + COMMITTED 768a95d85 (foreman byte-level reviewed firsthand, build/vet/test green). Clean-break: UpgradeFlag.IsServiceForwardRecovery() is the single predicate (def at service.go:296), 3 live callers (root.go:136 stalenessGuard selfheal-branch defer; service.go:1518 Run recovery-boot gate; install_upgrade.go:178 runCrashRecovery gate). Guard now defers to the recovery boot on a service-held FORWARD-phase flag instead of shelling make; genuine stale-dev (no flag / install-held / pre_swap) still self-heals; PreSwap gated out. 7-case predicate unit test (flag_recovery_test.go) passes. NOTE: the method def first landed in the preceding rename commit 6f1b3a02f via a concurrent shared-tree edit (amended that commit's message to state it; nothing was pushed). E2E validation (daemon post-swap recovery on a toolchain-less VM with a cli/-touching upgrade) rides the comprehensive install-recovery run — keep In Progress until that is green.
 <!-- SECTION:NOTES:END -->
