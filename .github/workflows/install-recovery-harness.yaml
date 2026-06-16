@@ -150,6 +150,11 @@ jobs:
           SCENARIOS_INPUT: ${{ github.event.inputs.scenarios }}
         run: |
           set -euo pipefail
+          # SCENARIOS_INPUT is deliberately UNQUOTED: a space-separated selector
+          # string (e.g. "0-happy-upgrade 2-preswap-checkout-kill") must word-split
+          # into separate positional args to run.sh. Empty input → no args → full
+          # suite. shellcheck can't see this is intentional, so silence SC2086.
+          # shellcheck disable=SC2086
           selected="$(./dev.sh test-install-recovery --print-selected ${SCENARIOS_INPUT})"
           matrix="$(printf '%s\n' "$selected" | jq -R . | jq -s -c 'map(select(length > 0))')"
           count="$(printf '%s\n' "$selected" | grep -c . || true)"
