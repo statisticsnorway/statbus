@@ -4,10 +4,10 @@ title: >-
   image-cleanup-gc-multiarch: weekly cleanup deletes referenced untagged
   per-arch manifests → breaks old commits' (releases') images → install/upgrade
   of old versions fails or local-builds
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-06-15 16:38'
-updated_date: '2026-06-16 10:01'
+updated_date: '2026-06-16 10:35'
 labels:
   - ci
   - images
@@ -54,3 +54,9 @@ KING RULINGS on the three flags (2026-06-16):
 - FLAG 2 (cleanup now deletes ALL unreferenced orphans >7d): APPROVED.
 - FLAG 3 (delete-restriction handling): King REJECTED the warn-vs-fail framing — both leave the GOAL (delete the orphan) unreached, so they're irrelevant non-options. REDESIGN to REACH the goal: decompose obstacles into achievable steps; for the genuinely-API-impossible case emit a LOUD, SPECIFIC, ACTIONABLE escalation (named manifest digest + the exact manual step needed), NEVER a silent `|| WARN`. Engineer folds this into the fail-CLOSED fix (standing bounce). No commit until fail-closed + reach-the-goal flag-3 + live dry-run all verified.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+FIXED + shipped — commit 8fe67b2dd (master). Replaced the keep-20 delete-package-versions action (which pruned untagged per-arch child manifests referenced by surviving multi-arch tags → docker pull 404 → broke old images' install/upgrade/rollback) with a digest-aware, FAIL-CLOSED GHCR-API cleanup: resolves every tagged manifest to its referenced children transitively + never deletes a referenced digest; deletes only untagged manifests referenced by no surviving tag AND older than 7d; added statbus-sb/seed to the matrix. Fail-closed on uncertainty (auth-exhausted/5xx/429/timeout/partial-enumeration → abort, delete nothing); a definitive 404 (already-broken tag) references no children → empty; zero-tagged-versions → loud abort. Reach-the-goal (King ruling): each orphan deleted OR a loud per-digest ::error:: + exact remediation, unreached>0 fails the job — no silent warn. Verified: actionlint/shellcheck clean; behavioral fail-closed + 5 escalation modes; live dry-runs on real GHCR all 6 packages green, unreached=0 (run 27610669803). Flags: flag1 (repair already-broken images) → STATBUS-063 (operator, stable-releases-only); flag2 (delete all unreferenced >7d) approved+implemented; flag3 (delete-restriction) → reach-the-goal escalation — only >5000-downloads-on-a-public-version is truly API-impossible (→ GitHub Support), rest is config/anomaly/transient. Weekly cron now does the real (digest-safe) deletes.
+<!-- SECTION:FINAL_SUMMARY:END -->
