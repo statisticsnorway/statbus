@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-16 10:00'
-updated_date: '2026-06-16 10:38'
+updated_date: '2026-06-16 10:49'
 labels:
   - ci
   - images
@@ -34,3 +34,9 @@ For each STABLE ReleaseTag (vYYYY.MM.patch with NO -rc/-suffix) whose multi-arch
 ## Done when
 Every stable-release image pulls cleanly (no missing referenced child manifests); run once, close. (RCs intentionally left alone.)
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+DISPATCH RESULT (operator + foreman-verified 2026-06-16): v2026.05.2 (harness baseline, commit 50fd4325) REPUBLISHED + verified OK (run 27611751266). v2026.05.1/.3/.4/.5 republished (runs 27611820926/824445/827804/831233) — foreman verified these runs have IDENTICAL job graphs to the working 05.2 run (describe → build app/worker/db/proxy × amd64+arm64 → manifest ×4, all success), so they genuinely rebuilt + pushed; the operator's initial 404s were premature checks (GHCR propagation lag, runs completed ~10:43Z). Operator re-verifying. v2026.03.0/.1 + v2026.05.0 = OUT OF SCOPE: predate the workflow_dispatch trigger in images.yaml (`gh workflow run` can't dispatch them); ancient + unlikely rollback targets + the harness doesn't use them. The CRITICAL baseline (v2026.05.2) is fixed; harness also protected by the 120-min timeout + STATBUS-056 baseline-presence check + STATBUS-057 future-breakage prevention. Close once operator confirms 05.1/.3/.4/.5 re-verify OK.
+<!-- SECTION:NOTES:END -->
