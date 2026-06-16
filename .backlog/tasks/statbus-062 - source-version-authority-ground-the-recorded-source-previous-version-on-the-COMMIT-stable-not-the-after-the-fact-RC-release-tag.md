@@ -42,3 +42,9 @@ Blocks finalizing STATBUS-061 part (iv)'s harness value (version-string vs commi
 ## Status
 DESIGN — awaiting King's direction. Then architect designs the precise change (product + recovery + harness), run by King before implementation.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+KING RATIFIED + ASSIGNED to architect 2026-06-16: ground the rollback restore target on the CommitSHA (authoritative identity), not the CommitVersion (display-only). HARD REQUIREMENT — use the canonical typed vocabulary, no loose terms (King: unclear terms are the bane of confusion): cli/internal/upgrade/commit.go (SOLE source of truth) + doc/canonical-commit-naming.md, enforced by TestGuards_UseTypedFields. Types: CommitSHA (40-char, AUTHORITATIVE identity, =commit_sha), CommitShort (8-char display + CI image tag), CommitVersion (git-describe output; 'human-facing labels; NEVER for equality or lookup'), ReleaseTag (CalVer v-tag). THE BUG in these terms: from_commit_version stores d.version = a CommitVersion (never-for-lookup) but recoveryRollback uses it for a git-checkout lookup → violates the discipline. FIX direction: executeUpgrade records the SOURCE CommitSHA for rollback; consider renaming from_commit_version→from_commit_sha (clean break; the name lies today) or add from_commit_sha; keep CommitVersion for display only; recoveryRollback resolves restore from the CommitSHA (pre-upgrade branch = pure defense-in-depth); back-compat/migration for existing rows; route via commit.go smart constructors (no new shape predicates). Architect delivers (1) glossary note + (2) design → foreman→King review BEFORE code. Composes with STATBUS-061 rc.04 (iii) (prev="" → pre-upgrade).
+<!-- SECTION:NOTES:END -->
