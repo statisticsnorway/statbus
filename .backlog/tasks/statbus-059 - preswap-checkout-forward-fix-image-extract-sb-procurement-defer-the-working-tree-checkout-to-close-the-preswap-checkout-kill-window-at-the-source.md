@@ -7,7 +7,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-15 22:10'
-updated_date: '2026-06-15 23:03'
+updated_date: '2026-06-16 08:04'
 labels:
   - install-recovery
   - upgrade
@@ -97,4 +97,6 @@ IMPLEMENTED (all parts, local; build + full-module `go vet` + `go test ./interna
 ENTANGLEMENT handled (flag for foreman review, security-adjacent): removing executeUpgrade's checkout broke the manifest tag-tampering verify, which relied on `git rev-parse HEAD` == target post-checkout. Changed it to compare commitSHA (the upgrade target) directly to manifest.CommitSHA — same anti-tampering property; the deferred `git checkout` errors on a bad ref.
 
 AC status: #3 (F1/STATBUS-058 preserved + complementary) ✓ — the unconditional regen and the flag-gated checkout compose cleanly (checkout BEFORE regen on a recovery boot; regen unconditional on every boot). #1/#2/#7 are harness-gated (foreman validates: toolchain-free edge+tagged upgrade; window-3 closed; genuine-binary recovery via ./sb install) — leaving unchecked until 0-happy + the STATBUS-026 genuine-binary variant pass. STATBUS-026 NOTE: the 2-preswap-checkout-kill inject site's RED assertion ('working tree at target') is now stale (the tree stays at the source = the fix); inline comment updated; scenario assertion change is the 026 mechanic work.
+
+REVERT RECOMMENDATION (foreman + architect, source-verified 2026-06-16): split the outcome. KEEP (the charge, validated green on commit 658c34ebd via 0-happy 27582053054): config-regen 7cc6c1b48 (STATBUS-058) + image-extract procurement 09ac1f7e4. REVERT from the shippable RC: defer-checkout 2f52f3b7f + guard bb4848dd4 — testing (2-preswap-checkout-kill (a)/(b)) showed they ship a real PreSwap schema/git-mismatch bug (recovery-boot checkout before boot-migrate) + the pre-existing recoveryRollback prev:=d.version tree-restore. The defer-checkout / preswap-window closure is REDONE PROPERLY in STATBUS-061 (rc.04). Execution tracked in the rc03-finalize task. So 059's image-extract leg = DONE/kept; the defer-checkout leg = superseded by 061.
 <!-- SECTION:NOTES:END -->
