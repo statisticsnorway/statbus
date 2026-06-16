@@ -7,6 +7,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-16 10:19'
+updated_date: '2026-06-16 10:21'
 labels:
   - nomenclature
   - upgrade
@@ -41,3 +42,19 @@ DETERMINISM VIOLATION (King-caught + foreman-verified live 2026-06-16). A Commit
 
 OWNER: architect (nomenclature work). Pairs with STATBUS-062. Foreman reviews every diff; King ruling on the nomenclature recorded.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+ARCHITECT FINDING + foreman-verified (2026-06-16): the v-prefix is INCONSISTENT across storage, and v-PREFIXED is the canonical/majority form (so the fix is NOT 'doc says v-stripped'):
+- DB commit_version = v-PREFIXED: release discovery writes the GitHub TagName verbatim — service.go:~2904 INSERT `commit_version) VALUES (...,$3)` + ON CONFLICT, $3 = t.TagName = 'v2026.05.2'. Edge discovery writes `git describe` (also v-prefixed).
+- git describe = v-prefixed natively; ReleaseTag = v-prefixed by definition (commit.go:43).
+- Binary cmd.version = v-STRIPPED (the 4 sed sites) → the LONE outlier.
+So commit.go's CommitVersion doc (v-prefixed examples) is CORRECT for DB/git — do NOT flip it to v-stripped (that would make the doc contradict the DB column).
+
+TWO FIX SHAPES (King picks):
+- Option X (LEAN): remove the binary's 4 sed-strips + the compensating 'v'-prepends (github.go:119, upgrade.go:459) → everything v-prefixed, deterministic. CAVEAT: changes `./sb --version` to re-show the v. Consumer audit (foreman 2026-06-16): install-recovery scenarios parse `./sb --version` for COMPARISON (SB_VERSION_BEFORE/DURING/AFTER, v-prefix-symmetric → unaffected) or commit-extraction (3-postswap-migration-timeout.sh:190 greps 'commit <8hex>', robust); one stale comment (2-preswap-checkout-kill-legacy.sh:132 'v2026.05.2') to correct. Low risk; full audit on implement.
+- Option Y: strip the DB too (service.go:2904) + doc v-stripped → makes the DB contradict git-native + ReleaseTag; more sites; worse.
+
+DISPLAY-ONLY: CommitVersion is never equality/lookup → this is COSMETIC, INDEPENDENT of STATBUS-062 (CommitSHA grounding) + rc.04, and does NOT block them. King picks X (recommended) vs Y at leisure.
+<!-- SECTION:NOTES:END -->
