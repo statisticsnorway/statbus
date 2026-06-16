@@ -3,9 +3,10 @@ id: STATBUS-066
 title: >-
   green-master-ci: clear pre-existing master CI reds before the rc.04
   comprehensive gate
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-06-16 14:06'
+updated_date: '2026-06-16 14:41'
 labels:
   - ci
   - test-hermeticity
@@ -27,3 +28,9 @@ Master CI was RED on pre-existing failures (on the prior tip c175ef1a8, independ
 
 Both pushed (537c56b48 on master). Fresh CI run confirms green (pg_regress confirmation was pending a transient GitHub API outage at push time; the re-run settles it). Close when CI is confirmed green.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+DONE — master CI confirmed GREEN on 537c56b48 (verified via a direct-IP GitHub API call during a local DNS outage): Go Test success, Fast Tests success, pg_regress success, Images success. The pg_regress failure WAS only the 002 mermaid drift — no additional failures (the mechanic's analysis held). Both fixes validated by the green re-run: 08f4e5d9c (release_verify_test.go hermetic git identity) + 537c56b48 (002 ER-diagram baseline + from_commit_sha). Master is now a clean build for the rc.04 comprehensive gate.
+<!-- SECTION:FINAL_SUMMARY:END -->
