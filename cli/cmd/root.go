@@ -122,6 +122,22 @@ func stalenessGuard(c *cobra.Command, _ []string) {
 		// itself via SelfHealAttemptEnv so a recursive failure exits
 		// loudly instead of looping.
 		if c.Annotations["selfheal"] == "true" && os.Getenv(freshness.SelfHealAttemptEnv) == "" {
+			// STATBUS-065: in-flight upgrade recovery defers to the recovery
+			// boot, never to a `make` rebuild. A service-held forward-phase
+			// (post_swap/resuming) flag means the binary was already swapped
+			// and the recovery boot reconciles tree→binary via the deferred
+			// target checkout (Service.Run / runCrashRecovery, STATBUS-060).
+			// Rebuilding here would shell out to `make` — absent on
+			// toolchain-less tagged-release hosts — and crash-loop the unit.
+			// Defer instead; the genuine stale-dev-binary case (no flag,
+			// install-held, or pre_swap) still self-heals below. PreSwap is
+			// gated OUT by IsServiceForwardRecovery: it rolls back, so the
+			// tree must stay at the source commit.
+			if flag, _, ferr := upgrade.ReadFlagFile(config.ProjectDir()); ferr == nil && flag.IsServiceForwardRecovery() {
+				fmt.Fprintln(os.Stderr, "WARN: "+msg)
+				fmt.Fprintln(os.Stderr, "In-flight upgrade recovery (service-held post-swap flag) — deferring to the recovery boot; not rebuilding.")
+				return
+			}
 			fmt.Fprintln(os.Stderr, "WARN: "+msg)
 			fmt.Fprintln(os.Stderr, "Self-healing: rebuilding ./sb from the current cli/ tree...")
 			if err := freshness.RebuildAndReexec(config.ProjectDir()); err != nil {

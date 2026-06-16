@@ -1515,9 +1515,7 @@ func (d *Service) Run(ctx context.Context) error {
 	// which already regenerates unconditionally before its DB probe. Fatal on
 	// failure: EnsureDBUp would fail anyway, and a clear "regenerate config"
 	// error is the actionable signal.
-	if flag, _, ferr := ReadFlagFile(d.projDir); ferr == nil && flag != nil &&
-		flag.Holder == HolderService && flag.CommitSHA != "" &&
-		(flag.Phase == FlagPhasePostSwap || flag.Phase == FlagPhaseResuming) {
+	if flag, _, ferr := ReadFlagFile(d.projDir); ferr == nil && flag.IsServiceForwardRecovery() {
 		// Recovery boot, FORWARD phases ONLY (post_swap / resuming). executeUpgrade
 		// defers the target checkout to here (STATBUS-060) so the OLD binary never
 		// materializes target-compose. A post-swap/resuming recovery resumes

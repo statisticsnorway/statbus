@@ -175,9 +175,7 @@ func runCrashRecovery(projDir string) error {
 	// restoreGitState owns the tree (→ OLD). Checking out the target here would
 	// advance the tree forward and make the boot-migrate below apply the TARGET
 	// migrations to a DB about to be rolled back (git=OLD + schema=TARGET skew).
-	if flag, _, ferr := upgrade.ReadFlagFile(projDir); ferr == nil && flag != nil &&
-		flag.Holder == upgrade.HolderService && flag.CommitSHA != "" &&
-		(flag.Phase == upgrade.FlagPhasePostSwap || flag.Phase == upgrade.FlagPhaseResuming) {
+	if flag, _, ferr := upgrade.ReadFlagFile(projDir); ferr == nil && flag.IsServiceForwardRecovery() {
 		if err := runCmdDir(projDir, "git", "-c", "advice.detachedHead=false", "checkout", flag.CommitSHA); err != nil {
 			return fmt.Errorf("crash recovery: git checkout target %s: %w", upgrade.ShortForDisplay(flag.CommitSHA), err)
 		}
