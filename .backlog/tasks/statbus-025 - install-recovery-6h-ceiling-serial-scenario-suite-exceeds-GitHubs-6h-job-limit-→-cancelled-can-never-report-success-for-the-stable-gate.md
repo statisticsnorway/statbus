@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - engineer
 created_date: '2026-06-11 03:17'
-updated_date: '2026-06-15 23:59'
+updated_date: '2026-06-16 09:24'
 labels:
   - install-recovery
   - ci
@@ -45,8 +45,6 @@ THE FIX (decided — MATRIX, design ready to implement):
 - [x] #6 Per-scenario log artifacts uploaded; single-scenario re-run still works via the scenarios input
 <!-- AC:END -->
 
-
-
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
@@ -63,4 +61,6 @@ MACHINERY VALIDATED ON A LIVE RUN (foreman, smoke run 27549262413, single-scenar
 FOLLOW-ON DEFECT + FIX (engineer root-cause, foreman reviewed+committed 31db8cec0). The matrix split introduced a SHA-drift the old serial job was immune to: build (discover job) and run (run-scenario job) are SEPARATE jobs with SEPARATE checkouts; on workflow_dispatch each checks out the branch TIP at its own time, so a commit landing on master between them (e.g. a backlog auto-commit) makes the staged binary's stamped commit (build-sb: git rev-parse HEAD, dev.sh:67) != the scenario's upgrade-target HEAD. That tripped the staleness guard on `./sb upgrade service` (selfheal=true, root.go:62) -> RebuildAndReexec `make -C cli build` -> fails on the toolchain-less VM -> os.Exit(2) -> unit dies ~3s post-restart (the 0-happy-upgrade smoke failure). FIX: pin BOTH checkouts to `ref: ${{ github.sha }}` (constant across a run) -> binary-commit == VM-HEAD by construction; restores the single-checkout invariant. Tag-push (the real gate) already pinned github.sha so it was never affected; only dispatch-validation runs hit it. Engineer correctly REJECTED a freshness-bypass alt (would mask genuine drift). Also committed: unit-diagnostics capture (49441c54b) so any future unit-start failure dumps journalctl+status+version+HEAD before VM reap. Re-running 0-happy-upgrade against fixed master (49441c54b) to confirm AC#4 all-pass mechanics.
 
 QUOTA FINDING (2026-06-15, rc.03 comprehensive run 27583439253): the matrix split's max-parallel:8 EXCEEDS the Hetzner project quota — ALL 28 scenarios failed at VM creation (vm-bootstrap.sh:402) with 'server limit reached' + 'Primary IP limit exceeded' (resource_limit_exceeded), NOT in the tests. The AC#3 'no hard per-project server limit' claim was FALSE. Current project state: 1 server (niue, cx52) + 2 primary IPs; +8 test VMs (each = 1 server + 1-2 primary IPs) exceeded the limit. STOPGAP: lowered max-parallel 8->3 (commit 9b7588596). REAL FIX (account action by King/SSB): raise the Hetzner project's server + primary-IP quota so the full parallel suite fits under the 6h GHA ceiling; then max-parallel can go back up. Until then the full 28-scenario comprehensive cannot run in parallel; single/few-VM standalone runs work fine (0-happy validated standalone tonight). AC#3 REOPENED.
+
+KING DECISION 2026-06-16: run the comprehensive suite at max-parallel:3 as the ACCEPTED operating mode — NOT a blocker. It takes ~hours (ceil(~29/3)×~20min); that is fine. The Hetzner project quota raise (server + primary-IP) is an OPTIONAL speedup to restore higher parallelism later, not a prerequisite. AC#3 reframed: max-parallel:3 is quota-safe today (1 prod server niue + 3 test VMs fits). AC#4 proceeds at 3. Run order: change-first (0-happy + recovery scenarios 2/3/4 first, 5-install last). Do NOT block on the quota; the suite runs now at 3.
 <!-- SECTION:NOTES:END -->
