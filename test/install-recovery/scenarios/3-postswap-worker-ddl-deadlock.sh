@@ -168,6 +168,12 @@ echo "── fabricating scheduled public.upgrade row for HEAD ──"
 # and running the no-op step-table path.  This scenario is still KNOWN RED
 # until the R1 architectural fix (service quiescence before DDL) lands.
 # Uses HEAD_SHA (the variable this file defines at line ~103).
+# Quiesce first: the running upgrade service (NOTIFY listener + poll tick)
+# would otherwise claim this scheduled row before `./sb install` reaches it
+# → StateNothingScheduled → no-op step-table → the DDL contention never
+# happens, so R1 ("service quiescence before DDL") could never validate here.
+# Fabricate-claim race invariant (see quiesce_upgrade_service in wedge-helpers).
+quiesce_upgrade_service "$VM_NAME"
 fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_SHA"
 
 echo ""

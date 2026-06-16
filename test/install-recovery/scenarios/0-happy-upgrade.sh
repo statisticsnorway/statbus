@@ -157,6 +157,10 @@ echo "  ✓ unit active on the HEAD binary"
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── fabricating scheduled public.upgrade row for HEAD ──"
+# INTENTIONALLY NOT quiesced (fabricate-claim invariant exception): this
+# scenario tests the UNATTENDED path where the upgrade SERVICE claims and
+# dispatches the scheduled row (the NOTIFY wake below). Quiescing would remove
+# the dispatcher and there would be nothing to test.
 fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_LOCAL"
 
 # ─────────────────────────────────────────────────────────────────────────

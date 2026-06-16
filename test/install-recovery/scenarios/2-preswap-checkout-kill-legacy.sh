@@ -124,6 +124,10 @@ echo "── synthesising v2026.05.2 preswap crash state ──"
 # transition it to in_progress (as executeUpgrade would have done), stop the
 # DB, perform the git checkout (old behavior), and write the flag file.
 # DB must be up at this point — fabricate_scheduled_upgrade_row opens psql.
+# Quiesce first so the running upgrade service can't claim the scheduled row
+# in the window before write_preswap_wedge transitions it to in_progress
+# (fabricate-claim race invariant; see quiesce_upgrade_service in wedge-helpers).
+quiesce_upgrade_service "$VM_NAME"
 fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_LOCAL"
 
 # write_preswap_wedge requires the DB to still be up (it transitions the row

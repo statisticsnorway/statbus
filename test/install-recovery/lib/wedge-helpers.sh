@@ -709,6 +709,15 @@ WEDGE_SCRIPT
 # (install.go:1806) re-enables AND starts the service even from a fully
 # stopped state, so quiescing pre-inject does NOT break the later recovery
 # phase.
+#
+# INVARIANT — call quiesce_upgrade_service before EVERY
+# fabricate_scheduled_upgrade_row EXCEPT the scenarios whose POINT is the
+# service-DISPATCHED path (the running service must claim + dispatch the row):
+#   - 0-happy-upgrade              (unattended service dispatch IS the test)
+#   - 3-postswap-migration-timeout (service dispatches, then hits the
+#                                    startup-timeout inject on its restart)
+# Every other fabricate caller drives recovery via `./sb install` and carries
+# a fabricate-claim race the running service would otherwise win — quiesce it.
 # ─────────────────────────────────────────────────────────────────────────
 quiesce_upgrade_service() {
     local vm_name="$1"

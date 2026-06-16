@@ -316,6 +316,11 @@ echo "  ✓ drop-in + release file in place; unit still active (env applies on n
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── fabricating scheduled public.upgrade row for HEAD ──"
+# INTENTIONALLY NOT quiesced (fabricate-claim invariant exception): the upgrade
+# SERVICE must stay live to dispatch this row and then hit the startup-timeout
+# inject on its restart (the unit's drop-in carries STATBUS_INJECT_AT). The
+# inject fires on the service's exit-42 restart, not on a `./sb install` run —
+# quiescing would prevent the dispatch this scenario exercises.
 fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_LOCAL"
 
 ROW_STATE=$(VM_EXEC bash -c "cd ~/statbus && echo \"SELECT state FROM public.upgrade WHERE commit_sha = '$HEAD_LOCAL';\" | ./sb psql -t -A" 2>/dev/null | tr -d ' \r\n' || echo "?")

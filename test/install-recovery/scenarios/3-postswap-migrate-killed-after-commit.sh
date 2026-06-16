@@ -211,6 +211,10 @@ SQL
 # rolled_back_at NULL). Reuses fabricate_scheduled_upgrade_row for the row's
 # existence + column shape, then transitions it to in_progress. Echoes the row id.
 _fabricate_in_progress_row() {
+    # Quiesce before fabricate (>&2 keeps this helper's captured row-id stdout
+    # clean): closes the fabricate→in_progress-UPDATE window where the running
+    # service could claim the scheduled row. Fabricate-claim invariant.
+    quiesce_upgrade_service "$VM_NAME" >&2
     fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_SHA" >&2
     local sql; sql=$(mktemp)
     cat > "$sql" <<SQL
