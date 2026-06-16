@@ -209,20 +209,20 @@ echo "  ✓ RED confirmed: flag PreSwap, working tree at source (not target), bi
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── second install for recovery ──"
-# The recovery reads the PreSwap flag → recoverFromFlag PreSwap branch
-# (service.go:822) → recoveryRollback → rollback() → os.Exit(75), the documented
-# "UPGRADE FAILED, ROLLED BACK" handoff. install_statbus_in_vm propagates that
-# exit code, so tolerate 75 specifically; any other non-zero is a real recovery
-# failure and aborts. (Mirror of 2-preswap-backup-kill:223.)
+# The recovery reads the PreSwap flag → recoverFromFlag PreSwap branch →
+# recoveryRollback reads from_commit_sha (set at claim while HEAD was still at
+# source CommitSHA — STATBUS-060 deferred checkout; architect's STATBUS-062) →
+# restoreGitState(source CommitSHA) → rollback() → os.Exit(75). Tolerate 75;
+# any other non-zero is a real recovery failure. (Mirror of 2-preswap-backup-kill.)
 install_statbus_in_vm "$VM_NAME" || { rc=$?; [ "$rc" -eq 75 ] || exit "$rc"; }
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 6 — assertions
 #
-# C4 recovery is an ABORT (same shape as C3): no commit at the binary-
-# swap boundary → terminal state must be 'failed' or 'rolled_back'.
-# The load-bearing additional check (vs C3) is that the working tree
-# went BACK to the old commit — restoreGitState's job.
+# C4 recovery is an ABORT: no commit at binary-swap boundary → terminal state
+# 'failed' or 'rolled_back'. Load-bearing: working tree must return to the source
+# CommitSHA — recoveryRollback uses from_commit_sha (= source CommitSHA, captured
+# at claim while HEAD was still at source; STATBUS-060 + STATBUS-062).
 # ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "── convergence checks ──"
@@ -249,13 +249,13 @@ esac
 # both the rolled_back and failed tiers above.
 assert_upgrade_row_error_matches "$VM_NAME" "INSTALL_PRECONDITION_FAILED"
 
-# Load-bearing: restoreGitState returned us to OLD_COMMIT.
+# Load-bearing: working tree returned to source CommitSHA via from_commit_sha → restoreGitState.
 WT_COMMIT_AFTER=$(VM_EXEC bash -c "cd ~/statbus && git rev-parse HEAD" 2>/dev/null | tr -d '\r' || echo "")
 if [ "$WT_COMMIT_AFTER" != "$OLD_COMMIT" ]; then
-    echo "✗ working tree not restored to OLD ($WT_COMMIT_AFTER vs $OLD_COMMIT) — restoreGitState path broken" >&2
+    echo "✗ working tree not restored to source CommitSHA $OLD_COMMIT (got $WT_COMMIT_AFTER) — from_commit_sha/restoreGitState path broken" >&2
     exit 1
 fi
-echo "  ✓ working tree restored to $(echo "$OLD_COMMIT" | cut -c1-8)"
+echo "  ✓ working tree at source CommitSHA $(echo "$OLD_COMMIT" | cut -c1-8)"
 
 assert_demo_data_present "$VM_NAME"
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
@@ -273,4 +273,4 @@ assert_health_passes "$VM_NAME"
 assert_systemd_restart_counter_bounded "$VM_NAME" "statbus-upgrade@statbus.service" 2
 
 echo ""
-echo "PASS: 2-preswap-checkout-kill (C4 abort path; working tree restored, OLD version live, data intact)"
+echo "PASS: 2-preswap-checkout-kill (C4 abort path; working tree at source CommitSHA, release unchanged, data intact)"

@@ -31,9 +31,11 @@
 #     runCrashRecovery: git checkout flag.CommitSHA (no-op — already there),
 #       config generate, StartDBForRecovery, migrate up, RecoverFromFlag.
 #     recoverFromFlag PreSwap branch → recoveryRollback → rollback():
-#       restoreGitState falls back to pre-upgrade branch (OLD_COMMIT),
+#       from_commit_sha = NULL (v2026.05.2 predates STATBUS-062) →
+#       restoreGitState falls back to pre-upgrade branch (pinned to source CommitSHA);
+#       from_commit_version "2026.05.2" is stored for display only, not used for restore.
 #       restoreDatabase is no-op (flag.BackupPath=""), docker compose up.
-#   Convergence: working tree at OLD_COMMIT, row='failed'/'rolled_back',
+#   Convergence: working tree at source CommitSHA, row='failed'/'rolled_back',
 #   data intact, flag absent, no orphan backups.
 #
 # Trigger logic:
@@ -125,9 +127,16 @@ echo "── synthesising v2026.05.2 preswap crash state ──"
 fabricate_scheduled_upgrade_row "$VM_NAME" "$HEAD_LOCAL"
 
 # write_preswap_wedge requires the DB to still be up (it transitions the row
-# to in_progress before stopping docker). After it returns, docker is stopped
-# and the working tree is at HEAD_LOCAL — the pre-fix crash state.
-write_preswap_wedge "$VM_NAME" "$HEAD_LOCAL"
+# to in_progress before stopping docker). Pass the release v2026.05.2's d.version
+# string so from_commit_version is faithful to what v2026.05.2's executeUpgrade
+# stored (service.go:1308 / service.go:3498 write d.version verbatim — v-stripped).
+# The release v2026.05.2 uses d.version = "2026.05.2" (no v-prefix); cobra's
+# --version output is "sb version 2026.05.2 (commit <sha>)", so awk '{print $3}'
+# extracts field 3 — the bare "2026.05.2" — matching d.version exactly.
+# from_commit_version "2026.05.2" is stored for display only (post-STATBUS-062 restore
+# uses from_commit_sha; this legacy row has from_commit_sha=NULL → pre-upgrade fallback).
+SB_VERSION_FROM=$(echo "$SB_VERSION_BEFORE" | awk '{print $3}')
+write_preswap_wedge "$VM_NAME" "$HEAD_LOCAL" "$SB_VERSION_FROM"
 
 # ─────────────────────────────────────────────────────────────────────────
 # Phase 4 — verify RED state (pre-fix crash shape)
@@ -177,7 +186,8 @@ echo "── recovery via HEAD binary (install_statbus_in_vm) ──"
 #   git checkout flag.CommitSHA (no-op — WT already at HEAD_LOCAL),
 #   config generate, StartDBForRecovery, migrate up,
 #   RecoverFromFlag → PreSwap branch → recoveryRollback → rollback() →
-#     restoreGitState (pre-upgrade branch → OLD_COMMIT),
+#     restoreGitState: from_commit_sha = NULL (legacy row — v2026.05.2 predates STATBUS-062) →
+#                      falls back to pre-upgrade branch (pinned to source CommitSHA),
 #     restoreDatabase (no-op, flag.BackupPath=""),
 #     docker compose up → os.Exit(75).
 # Tolerate exit 75 — it is the documented "UPGRADE FAILED, ROLLED BACK"
@@ -212,17 +222,17 @@ esac
 # through recoverFromFlag's PreSwap branch (ErrInstallPreconditionFailed).
 assert_upgrade_row_error_matches "$VM_NAME" "INSTALL_PRECONDITION_FAILED"
 
-# Load-bearing GREEN: restoreGitState fell back to the pre-upgrade branch
-# (pinned to OLD_COMMIT by write_preswap_wedge), returning the working tree
-# to the source commit despite it having been advanced to HEAD_LOCAL by the
-# v2026.05.2 checkout.
+# Load-bearing GREEN: restoreGitState used from_commit_sha = NULL (v2026.05.2 predates
+# STATBUS-062) → fell back to pre-upgrade branch (pinned to source CommitSHA by
+# write_preswap_wedge step 4). from_commit_version "2026.05.2" is display-only.
+# Working tree returned to source CommitSHA despite the release v2026.05.2's pre-fix checkout.
 WT_COMMIT_AFTER=$(VM_EXEC bash -c "cd ~/statbus && git rev-parse HEAD" 2>/dev/null | tr -d '\r' || echo "")
 if [ "$WT_COMMIT_AFTER" != "$OLD_COMMIT" ]; then
-    echo "✗ working tree not restored to OLD_COMMIT ($WT_COMMIT_AFTER vs $OLD_COMMIT)" >&2
-    echo "  restoreGitState / pre-upgrade-branch fallback did not work correctly" >&2
+    echo "✗ working tree not restored to source CommitSHA $OLD_COMMIT (got $WT_COMMIT_AFTER)" >&2
+    echo "  restoreGitState (from_commit_sha=NULL → pre-upgrade branch fallback) did not work" >&2
     exit 1
 fi
-echo "  ✓ working tree restored to OLD_COMMIT ($(echo "$OLD_COMMIT" | cut -c1-8))"
+echo "  ✓ working tree at source CommitSHA $(echo "$OLD_COMMIT" | cut -c1-8)"
 
 assert_demo_data_present "$VM_NAME"
 assert_demo_data_counts_match_snapshot "$VM_NAME" "$DATA_SNAPSHOT"
@@ -232,5 +242,5 @@ assert_health_passes "$VM_NAME"
 
 echo ""
 echo "PASS: 2-preswap-checkout-kill-legacy"
-echo "      (HEAD recovery handled v2026.05.2 preswap crash shape;"
-echo "       working tree restored to OLD_COMMIT from target; data intact)"
+echo "      (HEAD recovery handled release v2026.05.2 preswap crash shape;"
+echo "       working tree at source CommitSHA, release unchanged, data intact)"

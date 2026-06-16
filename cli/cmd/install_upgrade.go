@@ -161,16 +161,23 @@ func runCrashRecovery(projDir string) error {
 		}
 	}
 
-	// Restore the target working tree before config-generate + boot-migrate
-	// (STATBUS-060). executeUpgrade defers the target checkout to the recovery
-	// boot so the OLD binary never materializes target-compose; on the inline
-	// syscall.Exec resume the tree may still be the source's. Mirror Service.Run's
-	// recovery-boot checkout: target tree BEFORE config-generate (emits target
-	// keys) and BEFORE boot-migrate-up below (schema-skew guard). Idempotent if
-	// already at target; git checkout errors on a bad ref. flag.CommitSHA is the
-	// upgrade target.
+	// Restore the target working tree before config-generate + boot-migrate,
+	// for FORWARD recovery phases ONLY (post_swap / resuming) — mirror
+	// Service.Run's gate (STATBUS-060 + STATBUS-061 part ii). executeUpgrade
+	// defers the target checkout to the recovery boot so the OLD binary never
+	// materializes target-compose; on the inline syscall.Exec resume the tree
+	// may still be the source's. A forward resume needs the target tree BEFORE
+	// config-generate (emits target keys) and BEFORE boot-migrate-up below
+	// (schema-skew guard). Idempotent if already at target; git checkout errors
+	// on a bad ref. flag.CommitSHA is the upgrade target.
+	//
+	// A PreSwap flag is GATED OUT: it rolls back, and the rollback's
+	// restoreGitState owns the tree (→ OLD). Checking out the target here would
+	// advance the tree forward and make the boot-migrate below apply the TARGET
+	// migrations to a DB about to be rolled back (git=OLD + schema=TARGET skew).
 	if flag, _, ferr := upgrade.ReadFlagFile(projDir); ferr == nil && flag != nil &&
-		flag.Holder == upgrade.HolderService && flag.CommitSHA != "" {
+		flag.Holder == upgrade.HolderService && flag.CommitSHA != "" &&
+		(flag.Phase == upgrade.FlagPhasePostSwap || flag.Phase == upgrade.FlagPhaseResuming) {
 		if err := runCmdDir(projDir, "git", "-c", "advice.detachedHead=false", "checkout", flag.CommitSHA); err != nil {
 			return fmt.Errorf("crash recovery: git checkout target %s: %w", upgrade.ShortForDisplay(flag.CommitSHA), err)
 		}
