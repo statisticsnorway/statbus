@@ -3,10 +3,10 @@ id: STATBUS-064
 title: >-
   remove-vstrip: drop the build v-strip + use CommitVersion (with v)
   systematically — name every commit-adjacent variable for the type it holds
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-06-16 10:19'
-updated_date: '2026-06-16 11:57'
+updated_date: '2026-06-16 12:46'
 labels:
   - nomenclature
   - upgrade
@@ -57,3 +57,13 @@ TWO FIX SHAPES (King picks):
 
 DISPLAY-ONLY: CommitVersion is never equality/lookup → this is COSMETIC, INDEPENDENT of STATBUS-062 (CommitSHA grounding) + rc.04, and does NOT block them. King picks X (recommended) vs Y at leisure.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+DONE — committed as 3d702f94f on master (foreman byte-level reviewed every hunk + verified the production release pipeline firsthand). Option X applied: removed the 4 build v-strips (cli/Makefile:4, dev.sh:62/453/1969) and the production release strip (.github/workflows/release.yaml: VERSION=$GITHUB_REF_NAME); removed the now-dead v-less-CalVer re-prepend branch in cli/cmd/upgrade.go (+ unused calVerRe regexp + regexp import). Binary now prints the v-bearing git-describe form (./sb --version -> v2026.06.0-rc.03-49-ge9e56bbd1), matching public.upgrade.commit_version and git describe — deterministic.
+
+KEPT (correctly identified as comparison/validation/sort normalizers, NOT the build dance — the task's listing of github.go:119 as a compensation site was wrong on the merits): github.go ClassifyReleaseShape :108/:119 (re-prepends v only to feed the ^v-anchored ValidateVersion), CompareVersions :390-391 (v-symmetric, defended by github_test.go:170 "vv2026..."), release.go:1406 calVerRCKey (sort-key parse only). root.go:206 CommitVersion(version) fixed transitively.
+
+Verify: go build/vet/test ./... green; double-v sweep clean (only intentional comparator-defense hits). Production consumers audited safe: version output -> cmd.version ldflag + display-only manifest field; download URLs/image tags use version_tag/commit_short (unchanged). NOT a feature activation — pre-download/stale-row-retirement/downgrade-refusal were already live (v-agnostic comparator); this is purely nomenclature determinism.
+<!-- SECTION:FINAL_SUMMARY:END -->
