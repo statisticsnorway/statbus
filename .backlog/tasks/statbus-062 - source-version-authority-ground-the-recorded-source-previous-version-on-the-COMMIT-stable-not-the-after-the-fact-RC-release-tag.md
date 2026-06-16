@@ -3,10 +3,10 @@ id: STATBUS-062
 title: >-
   source-version-authority: ground the recorded source/previous version on the
   COMMIT (stable), not the after-the-fact RC/release tag
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-06-16 09:49'
-updated_date: '2026-06-16 10:20'
+updated_date: '2026-06-16 14:05'
 labels:
   - upgrade
   - recovery
@@ -103,3 +103,9 @@ GROUNDING (architect recommendation, pending King): capture the SOURCE CommitSHA
 
 2026-06-16 architect — folded the full design into this ticket's plan (single source); doc-012 removed per foreman. NEW nomenclature finding flagged: CommitVersion v-prefix is INCONSISTENT — DB commit_version is v-PREFIXED (service.go:2906, GitHub tag verbatim) while binary d.version is v-STRIPPED (Makefile:4 sed). commit.go's v-prefixed doc is correct for the DB/git form; the binary strip is the lone outlier. Added as nomenclature sub-decision (X v-prefixed canonical [architect lean] vs Y v-stripped canonical). Display-only; the restore-target core (from_commit_sha) is unaffected. commit.go-doc edit HELD until King rules the convention.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+DONE — shipped in 23c5c33f1 (rollback restore grounds on the source CommitSHA — stable — not the after-the-fact RC/release tag) plus the nomenclature follow-up 6f1b3a02f: the restore-target parameter renamed previousVersion→restoreTargetSHA at the sites that carry a CommitSHA (executeUpgrade/rollback/postSwapFailure/applyPostSwap); restoreGitState/restoreGitStateFn deliberately KEEP previousVersion (a general ref — the fallback reassigns it to the `pre-upgrade` branch), documented. Also: resumePostSwap now logs (was silent) when from_commit_sha isn't a valid CommitSHA before falling back. Canonical typed vocab: cli/internal/upgrade/commit.go (CommitSHA/CommitShort/CommitVersion/ReleaseTag) + doc/canonical-commit-naming.md. E2E validation of the from_commit_sha PRIMARY recovery path rides the rc.04 comprehensive run (2-preswap-checkout-kill asserts the working tree returns to the source CommitSHA via from_commit_sha→restoreGitState).
+<!-- SECTION:FINAL_SUMMARY:END -->
