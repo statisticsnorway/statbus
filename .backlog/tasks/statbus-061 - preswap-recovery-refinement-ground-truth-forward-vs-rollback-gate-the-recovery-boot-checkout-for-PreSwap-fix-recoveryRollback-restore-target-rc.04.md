@@ -7,7 +7,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-16 00:35'
-updated_date: '2026-06-16 09:55'
+updated_date: '2026-06-16 10:43'
 labels:
   - upgrade
   - recovery
@@ -80,4 +80,6 @@ REVERSAL of finding (v)(a) [architect, foreman-verified]: part (i) CANNOT be a p
 NEW part (v) direction: BOTH 2-preswap scenarios assert ROLLBACK-TO-OLD (do NOT reclassify (a) to forward-complete). Part (iv) from_commit_version STAYS (validates (iii)'s override path). AC#5 reworded accordingly.
 
 KING DECISION (rc.04 scope) — A) ship (ii)+(iii): both PreSwap roll back to OLD [architect rec + foreman concur]; defer deliberate-forward to a ratified STATBUS-046 with a reproduction. B) pull deliberate-forward-(a)-completes in now (needs STATBUS-046 ratified + Run reorder + reopens schema-skew). AWAITING King ruling (= AC#6, now rc.04-scope not rc.03-disposition).
+
+062+rc.04 IMPLEMENTED + foreman-reviewed byte-level APPROVED (2026-06-16). One pass by architect; go build/vet/test green (incl. structural guards). Code: service.go (capture from_commit_sha at both claims 1312/3541; recoveryRollback 2234-2267 + resumePostSwap 4684-4697 + in-process previousVersion 3912 read from_commit_sha via NewCommitSHA, empty→pre-upgrade; subsumes the held rc.04 iii) + install_upgrade.go (rc.04 ii gate). MIGRATION 20260616104500_add_upgrade_from_commit_sha_*: additive ADD from_commit_sha text + chk_upgrade_from_commit_sha_is_full_hex (NULL or ^[a-f0-9]{40}$, mirrors commit_sha) + COMMENT; reversible down. (a)-checkout-kill hazard DISSOLVED (from_commit_sha=git HEAD at claim=OLD, binary-version-independent). Concrete: box on 50fd4325 → crash → recovery reads from_commit_sha=50fd4325 → git checkout → healed. NON-blocking naming leftovers (previousVersion var + rollback param hold a CommitSHA but keep the version name; resumePostSwap malformed-SHA log asymmetry) → STATBUS-064 sweep. PENDING (coordinated commit pass): architect rebuilds sb + migrate up + regen doc/db + types (authorized); mechanic's corrected part (v) legacy narrative (from_commit_sha NULL→pre-upgrade, from_commit_version display-only); then foreman commits the set → validate 0-happy + both 2-preswap at max-parallel:3 → cut rc.04.
 <!-- SECTION:NOTES:END -->
