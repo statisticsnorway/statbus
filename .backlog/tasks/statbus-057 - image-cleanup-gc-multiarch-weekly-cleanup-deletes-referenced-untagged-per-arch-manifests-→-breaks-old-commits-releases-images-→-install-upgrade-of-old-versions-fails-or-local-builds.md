@@ -4,9 +4,10 @@ title: >-
   image-cleanup-gc-multiarch: weekly cleanup deletes referenced untagged
   per-arch manifests → breaks old commits' (releases') images → install/upgrade
   of old versions fails or local-builds
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-06-15 16:38'
+updated_date: '2026-06-16 09:26'
 labels:
   - ci
   - images
