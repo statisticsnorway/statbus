@@ -1,13 +1,12 @@
 ---
 id: STATBUS-064
 title: >-
-  nomenclature-conformance-vstrip: build strips the v so
-  cmd.version/commitVersion/from_commit_version hold a non-CommitVersion; remove
-  the strip + the compensating v-prepends
+  remove-vstrip: drop the build v-strip + use CommitVersion (with v)
+  systematically — name every commit-adjacent variable for the type it holds
 status: To Do
 assignee: []
 created_date: '2026-06-16 10:19'
-updated_date: '2026-06-16 10:21'
+updated_date: '2026-06-16 10:28'
 labels:
   - nomenclature
   - upgrade
