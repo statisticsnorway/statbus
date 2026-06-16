@@ -7,7 +7,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-15 16:38'
-updated_date: '2026-06-16 09:49'
+updated_date: '2026-06-16 10:01'
 labels:
   - ci
   - images
@@ -48,4 +48,9 @@ FOLLOW-UP FLAGS surfaced during the 057 fix (engineer, 2026-06-16) — recorded 
 3. DELETE RESTRICTIONS: `gh api DELETE` can fail on GitHub's last-version / >5000-downloads restrictions; currently caught with `|| WARN` (logged, job continues). Confirm WARN-and-continue is the right policy vs hard-fail.
 
 NOTE: the 057 fix itself was BOUNCED (foreman, 2026-06-16) for a fail-OPEN safety bug in fetch_children (a failed manifest fetch was swallowed by `|| true` → unprotected children → deletable on the cron). Bounced to fail-CLOSED (abort the run, delete nothing, on any unresolved tagged manifest) + real dry-run verification on live GHCR before commit.
+
+KING RULINGS on the three flags (2026-06-16):
+- FLAG 1 (repair already-broken images): APPROVED as a quick ONE-OFF — RELEASE images ONLY (stable ReleaseTags, NOT release candidates v…-rc.N, NOT CommitShort tags). Tracked separately as STATBUS-063 (operator). Rationale: stable releases are the durable install/rollback artifacts; RCs are ephemeral.
+- FLAG 2 (cleanup now deletes ALL unreferenced orphans >7d): APPROVED.
+- FLAG 3 (delete-restriction handling): King REJECTED the warn-vs-fail framing — both leave the GOAL (delete the orphan) unreached, so they're irrelevant non-options. REDESIGN to REACH the goal: decompose obstacles into achievable steps; for the genuinely-API-impossible case emit a LOUD, SPECIFIC, ACTIONABLE escalation (named manifest digest + the exact manual step needed), NEVER a silent `|| WARN`. Engineer folds this into the fail-CLOSED fix (standing bounce). No commit until fail-closed + reach-the-goal flag-3 + live dry-run all verified.
 <!-- SECTION:NOTES:END -->
