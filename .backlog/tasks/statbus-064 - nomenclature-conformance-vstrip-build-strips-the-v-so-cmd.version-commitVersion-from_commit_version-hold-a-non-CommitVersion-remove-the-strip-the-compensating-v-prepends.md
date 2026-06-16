@@ -3,10 +3,10 @@ id: STATBUS-064
 title: >-
   remove-vstrip: drop the build v-strip + use CommitVersion (with v)
   systematically — name every commit-adjacent variable for the type it holds
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-06-16 10:19'
-updated_date: '2026-06-16 10:28'
+updated_date: '2026-06-16 11:57'
 labels:
   - nomenclature
   - upgrade
