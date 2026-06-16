@@ -7,7 +7,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-16 00:35'
-updated_date: '2026-06-16 10:43'
+updated_date: '2026-06-16 11:01'
 labels:
   - upgrade
   - recovery
@@ -82,4 +82,6 @@ NEW part (v) direction: BOTH 2-preswap scenarios assert ROLLBACK-TO-OLD (do NOT 
 KING DECISION (rc.04 scope) — A) ship (ii)+(iii): both PreSwap roll back to OLD [architect rec + foreman concur]; defer deliberate-forward to a ratified STATBUS-046 with a reproduction. B) pull deliberate-forward-(a)-completes in now (needs STATBUS-046 ratified + Run reorder + reopens schema-skew). AWAITING King ruling (= AC#6, now rc.04-scope not rc.03-disposition).
 
 062+rc.04 IMPLEMENTED + foreman-reviewed byte-level APPROVED (2026-06-16). One pass by architect; go build/vet/test green (incl. structural guards). Code: service.go (capture from_commit_sha at both claims 1312/3541; recoveryRollback 2234-2267 + resumePostSwap 4684-4697 + in-process previousVersion 3912 read from_commit_sha via NewCommitSHA, empty→pre-upgrade; subsumes the held rc.04 iii) + install_upgrade.go (rc.04 ii gate). MIGRATION 20260616104500_add_upgrade_from_commit_sha_*: additive ADD from_commit_sha text + chk_upgrade_from_commit_sha_is_full_hex (NULL or ^[a-f0-9]{40}$, mirrors commit_sha) + COMMENT; reversible down. (a)-checkout-kill hazard DISSOLVED (from_commit_sha=git HEAD at claim=OLD, binary-version-independent). Concrete: box on 50fd4325 → crash → recovery reads from_commit_sha=50fd4325 → git checkout → healed. NON-blocking naming leftovers (previousVersion var + rollback param hold a CommitSHA but keep the version name; resumePostSwap malformed-SHA log asymmetry) → STATBUS-064 sweep. PENDING (coordinated commit pass): architect rebuilds sb + migrate up + regen doc/db + types (authorized); mechanic's corrected part (v) legacy narrative (from_commit_sha NULL→pre-upgrade, from_commit_version display-only); then foreman commits the set → validate 0-happy + both 2-preswap at max-parallel:3 → cut rc.04.
+
+rc.04 SET COMMITTED + PUSHED 2026-06-16: master @ 23c5c33f1 (8fe67b2dd..23c5c33f1). 10 files: service.go + install_upgrade.go (062 capture/restore + rc.04 ii gate), migration 20260616104500 up/down (from_commit_sha + CHECK), doc/db public_upgrade.md + database.types.ts (regen for the new column), mechanic's wedge-helpers.sh + both 2-preswap scenarios (rollback-to-OLD assertions + nomenclature + post-062 legacy narrative), doc-012 deleted (folded into ticket). Foreman reviewed every diff byte-level. FORCE=1 was used only to PRODUCE the doc/db+types review-regen (architect disclosed; verified no false stamp written); doc/db is now co-committed with the migration at 23c5c33f1 → freshness satisfied. VALIDATION dispatched (engineer): install-recovery 0-happy-upgrade + 2-preswap-checkout-kill + 2-preswap-checkout-kill-legacy at max-parallel:3 on 23c5c33f1 (after images.yaml builds its per-commit images). On all-3-green → cut rc.04 tag (auto-runs full comprehensive). NON-blocking naming leftovers → STATBUS-064.
 <!-- SECTION:NOTES:END -->
