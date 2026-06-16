@@ -3,10 +3,10 @@ id: STATBUS-060
 title: >-
   install-sh-e2e-fidelity: harness recovery should run the real install.sh
   script, not the sb-install proxy
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-06-15 23:44'
-updated_date: '2026-06-16 11:57'
+updated_date: '2026-06-16 14:05'
 labels:
   - install-recovery
   - harness
@@ -35,3 +35,9 @@ NOT blocking rc.03. f29e03a60 (install.sh edge image-extract) is reviewed code; 
 <!-- SECTION:NOTES:BEGIN -->
 ID DISAMBIGUATION: this STATBUS-060 is a LATER REUSE of a freed id. Commits and STATBUS-059 dated 2026-06-15 that reference "STATBUS-060" mean the FORWARD-FIX (image-extract procurement + defer-checkout) — that work is DONE and its design/impl live in STATBUS-059 (commits 09ac1f7e4 / 2f52f3b7f / bb4848dd4). This 060 is the unrelated install.sh-end-to-end harness-fidelity follow-on described above.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+DONE — committed 505035150 (foreman byte-level reviewed). install_statbus_in_vm's no-version (recovery) path now runs the REAL install.sh --channel edge (the operator entrypoint, STATBUS-039) instead of uploading a host-built sb and calling ./sb install directly: install.sh fetches origin/master, procures HEAD's sb toolchain-free via docker image (build fallback), then calls ./sb install. vm-bootstrap.sh uploads the in-repo install.sh as /tmp/statbus-install.sh (avoids self-recursion with the wrapper's /tmp/install.sh), pre-clones for RESCUE mode so config files land before ./sb install, pre-places .env.config/.users.yml (survive the git checkout — gitignored). The 2 preswap-checkout-kill scenarios drop the exit-75 tolerance (install.sh wraps rc=75 → exit 0; outcome read from the upgrade row state). King ruled KEEP both scenarios. E2E validation rides the rc.04 comprehensive install-recovery run.
+<!-- SECTION:FINAL_SUMMARY:END -->
