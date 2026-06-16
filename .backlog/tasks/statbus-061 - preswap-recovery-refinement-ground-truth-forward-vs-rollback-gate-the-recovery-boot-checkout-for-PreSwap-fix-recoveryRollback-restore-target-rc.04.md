@@ -4,9 +4,10 @@ title: >-
   preswap-recovery-refinement: ground-truth forward-vs-rollback + gate the
   recovery-boot checkout for PreSwap + fix recoveryRollback restore target
   (rc.04)
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-06-16 00:35'
+updated_date: '2026-06-16 09:24'
 labels:
   - upgrade
   - recovery
@@ -56,3 +57,9 @@ Both 2-preswap scenarios green: (a) forward-complete-to-target; (b) rollback-to-
 - [ ] #5 2-preswap-checkout-kill (a) asserts forward-complete-to-target; (b) asserts rollback-to-OLD with tree restored; both green + 0-happy green
 - [ ] #6 King ruling recorded on rc.03 disposition (revert defer-checkout vs ship-as-is vs hold)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+ACTIVATED 2026-06-16 — King chose Option B (fix-forward; NO revert; the defer-checkout commits stay on master). This task IS rc.04 and ships the recovery fix forward in the next candidate. AC#6 ruling = fix-forward (not revert, not ship-as-is). OWNERSHIP (disjoint files): architect implements (i)(ii)(iii) in cli/internal/upgrade/service.go + cli/cmd/install_upgrade.go; mechanic implements (iv) test/install-recovery/lib/wedge-helpers.sh now + (v) 2-preswap-checkout-kill assertions after the code lands; foreman reviews every diff byte-level; do-not-self-commit. VALIDATION: 0-happy + both 2-preswap green locally, then full comprehensive at max-parallel:3 (no quota raise needed) in change-first order (0-happy + recovery scenarios 2/3/4 first, 5-install last). Then cut rc.04 from validated master. Nothing ships until King okays the plan + foreman review.
+<!-- SECTION:NOTES:END -->
