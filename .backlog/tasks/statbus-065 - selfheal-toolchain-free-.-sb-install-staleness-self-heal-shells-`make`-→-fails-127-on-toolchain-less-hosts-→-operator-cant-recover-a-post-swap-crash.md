@@ -3,10 +3,10 @@ id: STATBUS-065
 title: >-
   selfheal-toolchain-free: ./sb install staleness self-heal shells `make` →
   fails (127) on toolchain-less hosts → operator can't recover a post-swap crash
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-06-16 12:02'
-updated_date: '2026-06-16 13:12'
+updated_date: '2026-06-16 14:05'
 labels:
   - upgrade
   - recovery
@@ -56,3 +56,9 @@ REACHABILITY VERIFIED (foreman firsthand, 2026-06-16, all 4 facts file:line-chec
 
 IMPLEMENTED + COMMITTED 768a95d85 (foreman byte-level reviewed firsthand, build/vet/test green). Clean-break: UpgradeFlag.IsServiceForwardRecovery() is the single predicate (def at service.go:296), 3 live callers (root.go:136 stalenessGuard selfheal-branch defer; service.go:1518 Run recovery-boot gate; install_upgrade.go:178 runCrashRecovery gate). Guard now defers to the recovery boot on a service-held FORWARD-phase flag instead of shelling make; genuine stale-dev (no flag / install-held / pre_swap) still self-heals; PreSwap gated out. 7-case predicate unit test (flag_recovery_test.go) passes. NOTE: the method def first landed in the preceding rename commit 6f1b3a02f via a concurrent shared-tree edit (amended that commit's message to state it; nothing was pushed). E2E validation (daemon post-swap recovery on a toolchain-less VM with a cli/-touching upgrade) rides the comprehensive install-recovery run — keep In Progress until that is green.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+DONE — committed 768a95d85 (Fix B; foreman byte-level reviewed, build/vet/test green). stalenessGuard now defers to the recovery boot on a service-held FORWARD-phase flag (UpgradeFlag.IsServiceForwardRecovery — single predicate, 3 callers: root.go:136 guard, service.go:1518 Run gate, install_upgrade.go:178 runCrashRecovery gate) instead of shelling `make`, so the systemd upgrade daemon self-recovers a post-swap crash on a TOOLCHAIN-LESS host (the external-standalone target) instead of make→127 crash-looping. Genuine stale-dev (no flag / install-held / pre_swap) still self-heals; PreSwap gated out. Reachability verified firsthand (all 4 facts file:line-checked): REACHABLE on the daemon post-swap path (tagged-release, cli/-touching upgrade, toolchain-less host); bare ./sb install NOT production-reachable (operators go via install.sh which pre-aligns tree+binary). 7-case predicate unit test (flag_recovery_test.go). COVERAGE GAP (follow-up): no existing install-recovery scenario exercises the daemon-toolchain-less post-swap path with a cli/-touching upgrade (0-happy-upgrade is a vacuous-cli-diff pass) — current coverage is unit test + reachability map + code review; a dedicated e2e scenario would close it.
+<!-- SECTION:FINAL_SUMMARY:END -->
