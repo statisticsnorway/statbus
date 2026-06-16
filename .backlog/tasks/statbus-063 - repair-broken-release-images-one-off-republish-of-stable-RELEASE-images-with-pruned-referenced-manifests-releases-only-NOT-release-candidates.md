@@ -3,9 +3,10 @@ id: STATBUS-063
 title: >-
   repair-broken-release-images: one-off republish of stable-RELEASE images with
   pruned referenced manifests (releases only, NOT release candidates)
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-06-16 10:00'
+updated_date: '2026-06-16 10:38'
 labels:
   - ci
   - images
