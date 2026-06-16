@@ -7,7 +7,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-16 00:35'
-updated_date: '2026-06-16 09:24'
+updated_date: '2026-06-16 09:40'
 labels:
   - upgrade
   - recovery
@@ -62,4 +62,11 @@ Both 2-preswap scenarios green: (a) forward-complete-to-target; (b) rollback-to-
 
 <!-- SECTION:NOTES:BEGIN -->
 ACTIVATED 2026-06-16 — King chose Option B (fix-forward; NO revert; the defer-checkout commits stay on master). This task IS rc.04 and ships the recovery fix forward in the next candidate. AC#6 ruling = fix-forward (not revert, not ship-as-is). OWNERSHIP (disjoint files): architect implements (i)(ii)(iii) in cli/internal/upgrade/service.go + cli/cmd/install_upgrade.go; mechanic implements (iv) test/install-recovery/lib/wedge-helpers.sh now + (v) 2-preswap-checkout-kill assertions after the code lands; foreman reviews every diff byte-level; do-not-self-commit. VALIDATION: 0-happy + both 2-preswap green locally, then full comprehensive at max-parallel:3 (no quota raise needed) in change-first order (0-happy + recovery scenarios 2/3/4 first, 5-install last). Then cut rc.04 from validated master. Nothing ships until King okays the plan + foreman review.
+
+CONCRETE ARTIFACTS (King's grounding directive, verified this session 2026-06-16):
+- Arc under fix = commits 2f52f3b7f (defer-checkout) + bb4848dd4 (guard), shipped in rc.03 = tag v2026.06.0-rc.03 @ commit d0992498a2afac601978568606aed617bf8e9f2d.
+- KEEP (validated): config-regen 7cc6c1b48 + image-extract 09ac1f7e4. 0-happy GREEN = CI run 27582053054 on commit 658c34ebd.
+- Legacy-scenario baseline = release tag v2026.05.2 -> commit 50fd4325f9e2e4d8a91a4d02570a43c0bfbe103f. That binary's executeUpgrade writes from_commit_version = d.version (a VERSION STRING) at service.go:1286 (@ tag); reads it in recoveryRollback at service.go:1905 (@ tag). HEAD equivalents: write at service.go:1308 (ExecuteUpgradeInline) + 3478 (executeScheduled); read at 2190; pre-upgrade-branch fallback in restoreGitStateFn ~5388.
+- Part (iv) fidelity (verified): a genuine v2026.05.2 crash row has from_commit_version SET to v2026.05.2's d.version (version string) -- NOT null, NOT a commit SHA. Harness must inject SB_VERSION_BEFORE (genuine version string), not OLD_COMMIT. Files: test/install-recovery/lib/wedge-helpers.sh write_preswap_wedge (~549/566); test/install-recovery/scenarios/2-preswap-checkout-kill-legacy.sh:133. Mechanic bounced to correct the value 2026-06-16.
+- Comprehensive at max-parallel:8 (commit d0992498a) = CI run 27583439253: all 29 scenario jobs failed at VM creation (vm-bootstrap.sh:402) on Hetzner 'server limit reached' + 'Primary IP limit exceeded'. Stopgap max-parallel:3 = commit 9b7588596.
 <!-- SECTION:NOTES:END -->
