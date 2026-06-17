@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-17 11:04'
-updated_date: '2026-06-17 20:12'
+updated_date: '2026-06-17 20:45'
 labels:
   - install-recovery
   - rc.04
@@ -59,4 +59,6 @@ RUN 27683157288 COMPLETE (3a0d6e6dd, the quiesce-only commit BEFORE my fixes): 1
 - INFRA (1): stage-a-killed-migrate (vm-bootstrap.sh:360 SSH blip) → re-runnable.
 - FLAG-ABSENT after kill (4) → GENUINELY-NEW 3rd class, NOT fixed by e6c85c193: archivebackup-resume, mid-tx-kill, resume-died-rollback, 4-rollback-restore-watchdog. All `✗ expected flag file present after kill`. Filed STATBUS-077; architect diagnosing product-vs-harness (could be ALBANIA-CRITICAL if executeUpgrade doesn't write the in-progress flag before the kill point — a no-remote-rescue box's mid-upgrade crash would be unrecoverable). This was RUN A's Cat A, MASKED by the quiesce-rollback, now unmasked.
 SO: e6c85c193 fixes 9 of 14; infra re-runs clean; the 4 flag-absent need STATBUS-077's fix. RE-RUN HELD until STATBUS-077 lands, then ONE comprehensive re-run batches all (9 + 4 + infra) on the combined commit. The doctrine working: each run peels one layer.
+
+RE-RUN FIRST RED (2026-06-17, run 27715901866): 2-preswap-backup-kill FAILED at `✗ expected flag file present after kill` (job 81988885018; artifact tmp/2pbk-artifact/). 6 scenarios green before it; 30 continue (~23 queued). LOG EVIDENCE: (1) line 4012 `Error: seed restore: pg_restore reported errors (transaction rolled back; database unchanged)` — a seed-restore failure during setup (STATBUS-018 class); (2) line 4134 upgrade row reached state=completed, has_migrations=false, summary=harness fabricate_scheduled_upgrade_row. FOREMAN PRELIMINARY HYPOTHESIS (UNCONFIRMED): the seed-restore failure cascaded — install didn't land at the older release → fabricated upgrade became a no-migration no-op → completed before the preswap-backup kill fired → flag removed → assertion fails. Would be a HARNESS/SETUP issue (STATBUS-018), NOT a from_commit_sha regression (the harness fabricate doesn't touch the dropped column). ROUTED to architect to CONFIRM product-vs-harness from the run (King: don't assume, nothing swept under the rug). If STATBUS-018/harness → separable, re-runnable. If a genuine flag-timing product red → cut-blocking. Architect verdict PENDING.
 <!-- SECTION:NOTES:END -->
