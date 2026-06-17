@@ -26,6 +26,7 @@ import (
 	"github.com/statisticsnorway/statbus/cli/internal/dotenv"
 	"github.com/statisticsnorway/statbus/cli/internal/inject"
 	"github.com/statisticsnorway/statbus/cli/internal/invariants"
+	"github.com/statisticsnorway/statbus/cli/internal/migrate"
 	"github.com/statisticsnorway/statbus/cli/internal/selfupdate"
 )
 
@@ -4759,36 +4760,58 @@ func (d *Service) resumePostSwap(ctx context.Context, flag UpgradeFlag) error {
 	// return so the next state probe selects StateNothingScheduled
 	// instead of triggering a rollback of a successful deploy.
 	if ok, mismatched := d.containersAtFlagTarget(ctx, flag); ok {
-		log.Printf("resumePostSwap: containers healthy at %s (sha %s) — self-healing row %d to completed",
-			flag.Label(), ShortForDisplay(flag.CommitSHA), flag.ID)
-		var selfHealJSON string
-		// error = NULL: clears any non-terminal error stamped by a prior
-		// forward-retry pass (recordInProgressFailure, STATBUS-039) —
-		// chk_upgrade_state_attributes forbids it on completed, and pre-039
-		// this exact UPDATE could fail on rows carrying an error (the
-		// "falling through to continuation" branch below).
-		err := d.queryConn.QueryRow(ctx,
-			"UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_status = 'ready', error = NULL WHERE id = $1 AND state = 'in_progress'"+upgradeRowReturning,
-			flag.ID).Scan(&selfHealJSON)
-		if err == nil {
-			logUpgradeRow(LabelCompletedSelfHeal, selfHealJSON)
-			d.queryConn.Exec(ctx, `NOTIFY worker_status, '{"type":"upgrade_changed"}'`)
-			os.Remove(d.flagPath())
-			d.supersedeOlderReleases(ctx, flag.CommitSHA)
-			d.supersedeCompletedPrereleases(ctx, flag.CommitSHA)
-			progress.Write("Post-swap self-heal: containers already at %s; row %d marked completed without re-running applyPostSwap.",
-				flag.Label(), flag.ID)
-			progress.Close()
-			return nil
+		// STATBUS-067 (Q1): containers-healthy is necessary but NOT sufficient
+		// for convergence. A post-swap kill mid-migrate (after-commit-before-
+		// recorded) leaves containers up at target but a migration committed-
+		// but-unrecorded → migrate.HasPending == true. Self-healing to
+		// 'completed' here would short-circuit the snapshot-restore rollback
+		// that boot-migrate-up's STATBUS-017 deferral (service.go:1675-1697)
+		// routes here for, silently certifying a half-migrated DB. Only
+		// self-heal when migrations are genuinely complete; otherwise fall
+		// through to the continuation (re-acquire flock → applyPostSwap →
+		// migrate up re-hits the unrecorded migration → postSwapFailure →
+		// rollback).
+		pending, perr := migrate.HasPending(d.projDir)
+		if perr != nil || pending {
+			log.Printf("resumePostSwap: containers healthy at %s but migrations pending/unknown (pending=%v err=%v) — NOT self-healing; deferring to rollback (STATBUS-067)",
+				flag.Label(), pending, perr)
+		} else {
+			log.Printf("resumePostSwap: containers healthy at %s (sha %s), no pending migrations — self-healing row %d to completed",
+				flag.Label(), ShortForDisplay(flag.CommitSHA), flag.ID)
+			var selfHealJSON string
+			// error = NULL: clears any non-terminal error stamped by a prior
+			// forward-retry pass (recordInProgressFailure, STATBUS-039) —
+			// chk_upgrade_state_attributes forbids it on completed, and pre-039
+			// this exact UPDATE could fail on rows carrying an error (the
+			// "falling through to continuation" branch below).
+			// STATBUS-067 (Q2): log_relative_file_path = COALESCE(...) — the
+			// completed branch of chk_upgrade_state_attributes requires it
+			// NOT NULL; a row that reached here with a NULL path
+			// (fabricated/legacy) would otherwise raise 23514. progress.RelPath()
+			// is the live log this function reopened/created above.
+			err := d.queryConn.QueryRow(ctx,
+				"UPDATE public.upgrade SET state = 'completed', completed_at = now(), docker_images_status = 'ready', error = NULL, log_relative_file_path = COALESCE(log_relative_file_path, $2) WHERE id = $1 AND state = 'in_progress'"+upgradeRowReturning,
+				flag.ID, progress.RelPath()).Scan(&selfHealJSON)
+			if err == nil {
+				logUpgradeRow(LabelCompletedSelfHeal, selfHealJSON)
+				d.queryConn.Exec(ctx, `NOTIFY worker_status, '{"type":"upgrade_changed"}'`)
+				os.Remove(d.flagPath())
+				d.supersedeOlderReleases(ctx, flag.CommitSHA)
+				d.supersedeCompletedPrereleases(ctx, flag.CommitSHA)
+				progress.Write("Post-swap self-heal: containers already at %s; row %d marked completed without re-running applyPostSwap.",
+					flag.Label(), flag.ID)
+				progress.Close()
+				return nil
+			}
+			// UPDATE didn't land (ErrNoRows: row already terminal; or
+			// chk_upgrade_state_attributes violation: row carries an `error`
+			// the constraint forbids on completed). Fall through to the
+			// continuation path — re-acquire flock and resume applyPostSwap
+			// from where the prior process died. The continuation handles
+			// its own terminal-row idempotency.
+			log.Printf("resumePostSwap: self-heal UPDATE skipped for row %d (err=%v) — falling through to continuation",
+				flag.ID, err)
 		}
-		// UPDATE didn't land (ErrNoRows: row already terminal; or
-		// chk_upgrade_state_attributes violation: row carries an `error`
-		// the constraint forbids on completed). Fall through to the
-		// continuation path — re-acquire flock and resume applyPostSwap
-		// from where the prior process died. The continuation handles
-		// its own terminal-row idempotency.
-		log.Printf("resumePostSwap: self-heal UPDATE skipped for row %d (err=%v) — falling through to continuation",
-			flag.ID, err)
 	} else {
 		// Containers don't match flag's target. The discriminator is
 		// the running binary's commit relative to flag.CommitSHA:
