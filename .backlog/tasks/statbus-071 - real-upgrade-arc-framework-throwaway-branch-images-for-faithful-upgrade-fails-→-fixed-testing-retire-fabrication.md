@@ -1,0 +1,46 @@
+---
+id: STATBUS-071
+title: >-
+  real-upgrade-arc-framework: throwaway-branch images for faithful "upgrade
+  fails → fixed" testing (retire fabrication)
+status: To Do
+assignee: []
+created_date: '2026-06-17 09:05'
+labels:
+  - install-recovery
+  - upgrade
+  - testing-foundation
+  - architect-plan
+  - doctrine
+dependencies: []
+priority: high
+ordinal: 71000
+---
+
+## Description
+
+<!-- SECTION:DESCRIPTION:BEGIN -->
+KING DESIGN (2026-06-17) + foreman/architect convergent modeling. The doctrine (doc/install-upgrade-testing.md) applied to the harness's own construction: stop FABRICATING crash states (the reproducer-infidelity class that broke STATBUS-067's canary test — synthetic migration stripped by the recovery checkout); instead make the REAL system produce them via a real upgrade arc.
+
+UNIQUE VALUE (the headline): a real install-A → upgrade-B-fails → rollback → upgrade-C-works arc tests the one property NO fabrication can — that B's rollback leaves the DB byte-identical to A so C applies cleanly (CLEAN-SLATE-AFTER-ROLLBACK). That is recovery-correctness end-to-end. Make it THE centerpiece assertion.
+
+FEASIBILITY (verified): images.yaml builds per-commit images on push:[master], tagged by commit_short; the harness pulls by commit_short (branch-agnostic). So building images for THROWAWAY BRANCHES = add a branch pattern to images.yaml's trigger. Migrations are read from the TREE at runtime (throwaway commit supplies migration files; image supplies the binary — both needed, both from pushing the branch).
+
+RESOLVED DESIGN:
+- EPHEMERAL per-run branch: one workflow → branch off SHA-under-test → commit B (real broken migration) + C (same migration FIXED IN PLACE) → push → images.yaml builds B,C by commit_short → wait for images (reuse STATBUS-056 discover-preflight image-wait) → run arc → teardown (delete branch + B,C images).
+- B/C TOPOLOGY: C = "B with the broken migration corrected IN PLACE" (same version V, fixed) — NOT additive-fix-on-top (that re-runs V_broken → fails again). After B's rollback V is unrecorded → C applies V(fixed) fresh, no content-hash conflict.
+- CLEANUP: delete B,C images by commit_short on teardown (commit_short unique to throwaway commits, can't touch master) + defensive orphan sweep: multi-tag throwaway images with throwaway-<runid> → periodic sweep of throwaway-* older than N hours (STATBUS-057 cleanup primitive; operator confirms API).
+- CANARY (Shape 2) Q1 REACHABILITY: Q1 is exercised ONLY via `./sb upgrade service` recovery boot (boot-migrate-up fails → STATBUS-017 defers to recoverFromFlag → resumePostSwap → canary → HasPending=true → Q1). `./sb install` crashed-recovery rolls back at its OWN migrate-up BEFORE the canary → Q1 NOT exercised. So the canary scenario must drive recovery via the SYSTEMD UPGRADE-SERVICE restart.
+
+SHAPE CATALOGUE:
+- Shape 1 (bad→fixed): crash migration, hang migration (King's two); + code-level upgrade failures (binary-swap/container-start/health-check fail in B, fixed in C).
+- Shape 2 (interrupt): canary (kill mid-migration), worker-deadlock. Real migration in B + inject; no C.
+- ELEVATE: clean-slate-after-rollback property (every Shape-1 arc asserts it).
+- MULTI-MIGRATION B: ≥2 real migrations, fail on 2nd → 1st applied+recorded, 2nd not → rollback undoes BOTH → C applies all clean (real "between-migrations").
+- RECOVERY-OF-RECOVERY: kill DURING B's rollback → re-recover → C (nastiest; combines 4-rollback-kill with the arc).
+- SILENT-WRONG-DATA (north-star future, not opener): migration succeeds but corrupts data; needs a DATA ORACLE (install A, populate known data, upgrade to corrupting B, detect via invariant check). Sub-framework.
+
+KING DECISION PENDING (A vs B): (A) FOUNDATION-NOW — build the framework + prove the canary through it before rc.04 (most faithful, slowest, extends the loop). (B) DECOUPLE — prove the canary now via a real tactical run (STATBUS-067, honors the doctrine — it IS a real run), close rc.04, build this framework as the proper FOLLOW-UP (not an rc.04 blocker). Foreman + architect lean (B): both reach the same end state (faithful framework exists); they differ only in whether it gates rc.04, and gating rc.04 on a new test-framework build trades the North Star (break OUT of the upgrade/recovery loop) for belt-and-suspenders.
+
+OWNER: architect (design) → engineer (CI workflow + arc scenarios) → operator (image lifecycle/cleanup API) → foreman review. Depends-on/relates: STATBUS-067 (canary), STATBUS-056 (image-wait), STATBUS-057 (image cleanup).
+<!-- SECTION:DESCRIPTION:END -->
