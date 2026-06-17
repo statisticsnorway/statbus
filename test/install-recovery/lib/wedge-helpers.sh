@@ -703,7 +703,9 @@ WEDGE_SCRIPT
 #
 # The timer (statbus-upgrade@statbus.timer) may be absent on some VMs;
 # the || true makes the stop idempotent whether or not the unit exists.
-# The service stop is the critical gate.
+# The service quiesce is SIGKILL-class (NOT a bare stop/SIGTERM — see the body
+# comment): a SIGTERM fires the upgrade daemon's rollback handler. That is the
+# critical gate.
 #
 # Recovery: the step-table's `systemctl --user enable --now <instance>`
 # (install.go:1806) re-enables AND starts the service even from a fully
@@ -721,8 +723,27 @@ WEDGE_SCRIPT
 # ─────────────────────────────────────────────────────────────────────────
 quiesce_upgrade_service() {
     local vm_name="$1"
-    echo "  [quiesce] stopping upgrade timer + service on $vm_name (pre-fabricate race prevention)"
+    echo "  [quiesce] SIGKILL-class quiescing upgrade timer + service on $vm_name (pre-fabricate race prevention)"
+    # NEVER `systemctl --user stop <service>`: that sends SIGTERM, which the upgrade
+    # daemon catches (signal.NotifyContext(ctx, …SIGTERM), service.go:1460) → cancels
+    # the upgrade context → deferred rollback() fires (pg_restore + restoreGitState),
+    # even on an idle / auto-discovered upgrade. That corrupted DB+git state and routed
+    # the inject install to the step-table (db-unreachable) — the RUN-A 13/14 gate
+    # failure. Mirror the product's SIGKILL-class quiesce (cli/cmd/install_upgrade.go:316
+    # stopRestartUpgradeUnit): mask → SIGKILL → stop → reset-failed → unmask.
+    #  - mask --runtime: a masked unit cannot start, so Restart=always (RestartSec=30)
+    #    cannot respawn between the kill and the stop (race-free).
+    #  - kill --signal=SIGKILL: whole-cgroup kill, NO handlers run → no rollback.
+    #  - stop: nothing alive to signal → only cancels any pending auto-restart, lands inactive.
+    #  - reset-failed: clears the SIGKILL (137) failure state + NRestarts counter.
+    #  - unmask: unit is startable again so the step-table's `systemctl --user enable --now`
+    #    (install.go:1806) revives it in the recovery phase. (unmask ≠ enable: the unit
+    #    keeps its prior enabled state, nothing starts it until recovery does.)
     VM_EXEC systemctl --user stop "statbus-upgrade@statbus.timer" 2>/dev/null || true
+    VM_EXEC systemctl --user mask --runtime "statbus-upgrade@statbus.service" 2>/dev/null || true
+    VM_EXEC systemctl --user kill --signal=SIGKILL "statbus-upgrade@statbus.service" 2>/dev/null || true
     VM_EXEC systemctl --user stop "statbus-upgrade@statbus.service" 2>/dev/null || true
-    echo "  [quiesce] ✓ upgrade service quiesced"
+    VM_EXEC systemctl --user reset-failed "statbus-upgrade@statbus.service" 2>/dev/null || true
+    VM_EXEC systemctl --user unmask "statbus-upgrade@statbus.service" 2>/dev/null || true
+    echo "  [quiesce] ✓ upgrade service SIGKILL-class quiesced (rollback handler NOT triggered; unit re-enableable)"
 }
