@@ -36,12 +36,13 @@ Requires the database to be running.`,
 		// format so the three Tier-1 commands behave identically. On refuse,
 		// exit 1 directly — the banner already carries the diagnostic, we
 		// don't want cobra to append a second "Error: ..." line after it.
-		switch checkTypesStampGuard(projDir) {
-		case stampGuardRefuse:
-			os.Exit(1)
+		stampDecision := checkTypesStampGuard(projDir)
+		switch stampDecision {
 		case stampGuardSkip:
 			return nil
 		}
+		// stampGuardRun and stampGuardRunNoStamp both proceed to generate; the
+		// write below is gated on stampDecision so RUN_NO_STAMP withholds the stamp.
 
 		sqlFile, err := os.Open(sqlPath)
 		if err != nil {
@@ -105,7 +106,15 @@ Requires the database to be running.`,
 		// Preflight verifies BOTH lines so a stamp written from a stale
 		// source DB (the bug class #123 hardens against) fails the gate
 		// even when the SHA happens to be HEAD.
-		if sha, err2 := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD"); err2 == nil {
+		// RUN_NO_STAMP: migrations/ was dirty at guard time — regenerate but
+		// WITHHOLD the stamp (a dirty-tree stamp can't honestly point at a commit).
+		// Loud, per "observe evidence + warn, never silently skip": say it was
+		// withheld and that preflight needs a clean-tree re-run after the commit.
+		if stampDecision == stampGuardRunNoStamp {
+			fmt.Println("TypeScript types stamp WITHHELD — migrations/ was dirty at guard time.")
+			fmt.Println("  Commit, then re-run './sb types generate' on a clean tree to write the")
+			fmt.Println("  release stamp (preflight requires it).")
+		} else if sha, err2 := upgrade.RunCommandOutput(projDir, "git", "rev-parse", "HEAD"); err2 == nil {
 			stampPath := filepath.Join(projDir, "tmp", "types-passed-sha")
 			_ = os.MkdirAll(filepath.Dir(stampPath), 0755)
 			headSHA := strings.TrimSpace(sha)
@@ -127,7 +136,11 @@ type stampGuardDecision int
 const (
 	stampGuardRun stampGuardDecision = iota
 	stampGuardSkip
-	stampGuardRefuse
+	// stampGuardRunNoStamp: migrations/ is dirty (you're landing a migration).
+	// RUN the generate, but DO NOT write the freshness stamp — a stamp from a
+	// dirty tree can't honestly point at a commit. Release preflight re-derives
+	// freshness, so a clean-tree re-run after the commit writes the honest stamp.
+	stampGuardRunNoStamp
 )
 
 // checkTypesStampGuard mirrors check_stamp_guard() in dev.sh for
@@ -150,15 +163,27 @@ func checkTypesStampGuard(projDir string) stampGuardDecision {
 
 	dirty, _ := upgrade.RunCommandOutput(projDir, "git", "status", "--porcelain", "--", "migrations/")
 	if strings.TrimSpace(dirty) != "" {
-		fmt.Println("REFUSED:", label)
-		fmt.Println("Reason:  migrations/ has uncommitted changes — stamping would not")
-		fmt.Println("         honestly reflect HEAD.")
-		fmt.Println("Evidence:")
+		// migrations/ is dirty — you're (almost certainly) landing a migration.
+		// RUN the regen but WITHHOLD the freshness stamp (see stampGuardRunNoStamp).
+		fmt.Println("RUNNING:", label, "— freshness stamp DEFERRED (migrations/ is dirty)")
+		fmt.Println("Reason:  migrations/ has uncommitted changes — running the regen now, but NOT")
+		fmt.Println("         writing the freshness stamp (a stamp from a dirty tree can't honestly")
+		fmt.Println("         point at a commit). Release preflight re-derives freshness, so after you")
+		fmt.Println("         commit, re-run this on a clean tree to write the stamp.")
+		fmt.Println("If you're landing a migration, the full no-override flow is:")
+		fmt.Println("  1. ./sb migrate up --target seed && ./dev.sh create-test-template   # seed->HEAD (non-destructive)")
+		fmt.Println("  2. ./dev.sh generate-doc-db && ./sb types generate                  # regenerate")
+		fmt.Println("  3. git add migrations/ doc/db/ app/src/lib/database.types.ts <your code>")
+		fmt.Println("  4. git commit                                                       # pre-commit pairs migration+regen")
+		fmt.Println("  5. after commit (clean tree) re-run step 2 once -> writes the release stamp")
+		fmt.Println("Do NOT use FORCE=1 to land a migration — it writes a stamp from a dirty tree, the")
+		fmt.Println("exact lie this guard prevents. FORCE=1 is only for regenerating against an")
+		fmt.Println("already-committed schema (e.g. a generator change with no new migration).")
+		fmt.Println("Evidence (uncommitted in migrations/):")
 		for _, line := range strings.Split(strings.TrimRight(dirty, "\n"), "\n") {
 			fmt.Println("  " + line)
 		}
-		fmt.Println("Override: commit or stash migrations/ changes, or set FORCE=1 to bypass.")
-		return stampGuardRefuse
+		return stampGuardRunNoStamp
 	}
 
 	data, err := os.ReadFile(stampPath)

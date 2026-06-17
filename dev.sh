@@ -146,18 +146,33 @@ check_stamp_guard() {
         return 0
     fi
 
-    # REFUSE: any file inside the scope (minus excludes) has uncommitted
-    # staged or unstaged changes. A stamp written on top of that would lie.
+    # RUN_NO_STAMP (rc 3): any file inside the scope (minus excludes) has
+    # uncommitted staged or unstaged changes — you're (almost certainly) landing
+    # a migration. RUN the work but DO NOT write the freshness stamp: a stamp from
+    # a dirty tree can't honestly point at a commit (FORCE=1's old escape did
+    # exactly that). The release preflight RE-DERIVES freshness (release.go
+    # checkMigrationStamp), so withholding is fail-safe — after the commit a
+    # clean-tree re-run writes an honest stamp. No override needed.
     local dirty
     dirty=$(git -C "$WORKSPACE" status --porcelain -- "${scopes[@]}" "${excludes[@]}" 2>/dev/null)
     if [ -n "$dirty" ]; then
-        echo "REFUSED: $label"
-        echo "Reason:  ${scopes[*]} has uncommitted changes — stamping would not"
-        echo "         honestly reflect HEAD."
-        echo "Evidence:"
+        echo "RUNNING: $label — freshness stamp DEFERRED"
+        echo "Reason:  uncommitted changes in ${scopes[*]} — running now, but NOT writing the"
+        echo "         freshness stamp (a stamp from a dirty tree can't honestly point at a"
+        echo "         commit). Release preflight re-derives freshness, so after you commit,"
+        echo "         re-run this on a clean tree to write the stamp."
+        echo "If you're landing a migration, the full no-override flow is:"
+        echo "  1. ./sb migrate up --target seed && ./dev.sh create-test-template   # seed->HEAD (non-destructive)"
+        echo "  2. ./dev.sh generate-doc-db && ./sb types generate                  # regenerate"
+        echo "  3. git add migrations/ doc/db/ app/src/lib/database.types.ts <your code>"
+        echo "  4. git commit                                                       # pre-commit pairs migration+regen"
+        echo "  5. after commit (clean tree) re-run step 2 once -> writes the release stamp"
+        echo "Do NOT FORCE=1 to land a migration — it writes a stamp from a dirty tree, the exact"
+        echo "lie this guard prevents. FORCE=1 is only for regenerating against an already-committed"
+        echo "schema (e.g. a generator change with no new migration)."
+        echo "Evidence (uncommitted in ${scopes[*]}):"
         printf '%s\n' "$dirty" | sed 's/^/  /'
-        echo "Override: commit or stash the changes, or set FORCE=1 to bypass."
-        return 2
+        return 3
     fi
 
     if [ ! -f "$stamp_path" ]; then
@@ -650,9 +665,9 @@ EOS
             guard_rc=$?
             set -e
             case $guard_rc in
-                0) : ;;
+                0) FAST_STAMP_WITHHELD=0 ;;
                 1) exit 0 ;;
-                2) exit 1 ;;
+                3) FAST_STAMP_WITHHELD=1 ;;  # RUN_NO_STAMP: run tests, withhold the stamp (dirty tree)
             esac
         fi
 
@@ -805,12 +820,19 @@ EOF
         #   line 1: HEAD SHA at test-pass time
         #   line 2: source DB (test template) migration_version at test-pass time
         if [ $OVERALL_EXIT_CODE -eq 0 ]; then
-            mkdir -p "$WORKSPACE/tmp"
-            {
-                git rev-parse HEAD
-                echo "$SOURCE_VERSION"
-            } > "$WORKSPACE/tmp/fast-test-passed-sha"
-            echo "Fast test stamp recorded: $(head -1 "$WORKSPACE/tmp/fast-test-passed-sha") (source version: $SOURCE_VERSION)"
+            if [ "${FAST_STAMP_WITHHELD:-0}" = "1" ]; then
+                # RUN_NO_STAMP: tree was dirty at guard time — withhold the stamp.
+                echo "Fast tests passed, but the freshness stamp was WITHHELD — migrations/ or test/"
+                echo "had uncommitted changes at guard time. Commit, then re-run './dev.sh test fast'"
+                echo "on a clean tree to write the release stamp (preflight requires it)."
+            else
+                mkdir -p "$WORKSPACE/tmp"
+                {
+                    git rev-parse HEAD
+                    echo "$SOURCE_VERSION"
+                } > "$WORKSPACE/tmp/fast-test-passed-sha"
+                echo "Fast test stamp recorded: $(head -1 "$WORKSPACE/tmp/fast-test-passed-sha") (source version: $SOURCE_VERSION)"
+            fi
         fi
 
         exit $OVERALL_EXIT_CODE
@@ -1731,9 +1753,9 @@ EOF
         guard_rc=$?
         set -e
         case $guard_rc in
-            0) : ;;
+            0) DOCDB_STAMP_WITHHELD=0 ;;
             1) exit 0 ;;
-            2) exit 1 ;;
+            3) DOCDB_STAMP_WITHHELD=1 ;;  # RUN_NO_STAMP: regenerate, withhold the stamp (dirty tree)
         esac
 
         TEMPLATE_NAME="${POSTGRES_TEST_DB:-statbus_test_template}"
@@ -1883,16 +1905,23 @@ EOS
         done
 
         echo "Database documentation generated in doc/db/{table,view,function}/"
-        mkdir -p "$WORKSPACE/tmp"
-        # H1 two-line stamp:
-        #   line 1: HEAD SHA at generation time
-        #   line 2: source DB (test template) migration_version at generation time
-        # SOURCE_VERSION captured above by ./sb assert-db-at-head.
-        {
-            git -C "$WORKSPACE" rev-parse HEAD
-            echo "$SOURCE_VERSION"
-        } > "$WORKSPACE/tmp/db-docs-passed-sha"
-        echo "DB documentation stamp recorded: $(head -1 "$WORKSPACE/tmp/db-docs-passed-sha") (source version: $SOURCE_VERSION)"
+        if [ "${DOCDB_STAMP_WITHHELD:-0}" = "1" ]; then
+            # RUN_NO_STAMP: migrations/ was dirty at guard time — withhold the stamp.
+            echo "DB documentation regenerated, but the freshness stamp was WITHHELD — migrations/"
+            echo "had uncommitted changes at guard time. Commit, then re-run './dev.sh generate-doc-db'"
+            echo "on a clean tree to write the release stamp (preflight requires it)."
+        else
+            mkdir -p "$WORKSPACE/tmp"
+            # H1 two-line stamp:
+            #   line 1: HEAD SHA at generation time
+            #   line 2: source DB (test template) migration_version at generation time
+            # SOURCE_VERSION captured above by ./sb assert-db-at-head.
+            {
+                git -C "$WORKSPACE" rev-parse HEAD
+                echo "$SOURCE_VERSION"
+            } > "$WORKSPACE/tmp/db-docs-passed-sha"
+            echo "DB documentation stamp recorded: $(head -1 "$WORKSPACE/tmp/db-docs-passed-sha") (source version: $SOURCE_VERSION)"
+        fi
         ;;
     'compile-run-and-trace-dev-app-in-container' )
         echo "Stopping app container..."
@@ -2147,8 +2176,13 @@ EOS
         _tsg_pass=0; _tsg_fail=0
         _tsg_stamp_basename="test-stamp-guard-$$"
         _tsg_stamp_path="$WORKSPACE/tmp/$_tsg_stamp_basename"
+        # Extensionless ON PURPOSE: NOT *.tmp (gitignored — .gitignore:129) and NOT
+        # *.up.sql/.down.sql (would look like a real migration). git status must
+        # report it as untracked for Test 5 to force a dirty migrations/. (A *.tmp
+        # name silently neutered this test once — Test 5 now self-checks for it.)
+        _tsg_dirty_marker="$WORKSPACE/migrations/TSG_DIRTY_MARKER_$$"
         # shellcheck disable=SC2064
-        trap "rm -f '$_tsg_stamp_path'" EXIT
+        trap "rm -f '$_tsg_stamp_path' '$_tsg_dirty_marker'" EXIT
 
         _tsg_head_sha=$(git -C "$WORKSPACE" rev-parse HEAD 2>/dev/null)
         _tsg_disk_max=$(find "$WORKSPACE/migrations" -maxdepth 1 \
@@ -2171,6 +2205,14 @@ EOS
             fi
         }
 
+        # Tests 1-4 exercise the stamp-logic branches, reached ONLY on a clean
+        # migrations/ (the dirty branch returns RUN_NO_STAMP first, rc 3). Skip
+        # them when the tree is dirty; Test 5 covers the dirty path.
+        _tsg_migrations_dirty=$(git -C "$WORKSPACE" status --porcelain -- migrations 2>/dev/null)
+        if [ -n "$_tsg_migrations_dirty" ]; then
+            echo "[SKIP] stamp-logic tests 1-4: migrations/ is dirty (guard returns RUN_NO_STAMP"
+            echo "       rc=3 before the stamp-logic branches). Test 5 covers the dirty path."
+        else
         # ── Test 1: catch-22 — SHA=HEAD, version stale (higher than disk max) ──
         # Before fix: SKIP (rc=1). After fix: RUNNING (rc=0).
         printf '%s\n%s\n' "$_tsg_head_sha" "20991231235959" > "$_tsg_stamp_path"
@@ -2190,17 +2232,14 @@ EOS
         _tsg_assert_rc "catch-22: SHA=HEAD, version stale (19991231235959 < disk max) → RUNNING" 0 "$_tsg_rc"
 
         # ── Test 3: normal SKIP — SHA=HEAD, version matches disk max ──
-        # Both axes agree: no regen needed. Requires clean migrations/ (else REFUSE).
-        if git -C "$WORKSPACE" status --porcelain -- migrations 2>/dev/null | grep -q .; then
-            echo "[SKIP] normal-SKIP test: migrations/ has uncommitted changes (would REFUSE, not SKIP)"
-        else
-            printf '%s\n%s\n' "$_tsg_head_sha" "$_tsg_disk_max" > "$_tsg_stamp_path"
-            set +e
-            check_stamp_guard "test:normal-skip" "$_tsg_stamp_basename" "migrations" >/dev/null 2>&1
-            _tsg_rc=$?
-            set -e
-            _tsg_assert_rc "normal SKIP: SHA=HEAD, version matches disk max → SKIP (rc=1)" 1 "$_tsg_rc"
-        fi
+        # Both axes agree: no regen needed. migrations/ is clean here (the outer
+        # guard skipped tests 1-4 otherwise).
+        printf '%s\n%s\n' "$_tsg_head_sha" "$_tsg_disk_max" > "$_tsg_stamp_path"
+        set +e
+        check_stamp_guard "test:normal-skip" "$_tsg_stamp_basename" "migrations" >/dev/null 2>&1
+        _tsg_rc=$?
+        set -e
+        _tsg_assert_rc "normal SKIP: SHA=HEAD, version matches disk max → SKIP (rc=1)" 1 "$_tsg_rc"
 
         # ── Test 4: genuine needs-regen — SHA is ancestor, migrations changed ──
         # Pre-existing RUNNING behavior: stamp SHA is before the most recent
@@ -2226,6 +2265,45 @@ EOS
             _tsg_assert_rc "genuine regen: SHA=ancestor with migration changes → RUNNING (rc=0)" 0 "$_tsg_rc"
         else
             echo "[SKIP] genuine-regen test: could not find ancestor with migration changes"
+        fi
+        fi  # end stamp-logic tests 1-4 (clean-tree only)
+
+        # ── Test 5: dirty migrations/ → RUN_NO_STAMP (rc=3), guard writes NO stamp ──
+        # Force a dirty migrations/ with a throwaway untracked marker (an extensionless
+        # file git reports as untracked — NOT a *.up.sql migration, NOT *.tmp/gitignored).
+        # Assert the guard RUNS-
+        # without-stamp (rc=3, the FIRST branch, ahead of the stamp logic) AND that
+        # it left the stamp file byte-for-byte unchanged: the guard must NEVER write
+        # a stamp; the CALLER gates the write on rc=3. Regression guard for the
+        # "3 write sites gate together" invariant.
+        echo "throwaway dirty marker for test-stamp-guard self-test" > "$_tsg_dirty_marker"
+        # Self-check: the marker MUST actually dirty migrations/. If a .gitignore
+        # rule hides it (exactly the *.tmp bug caught 2026-06), the test would
+        # silently stop exercising the dirty path — fail LOUD instead of false-pass.
+        if ! git -C "$WORKSPACE" status --porcelain -- migrations 2>/dev/null | grep -q 'TSG_DIRTY_MARKER'; then
+            echo "[FAIL] Test 5 setup: dirty marker is gitignored/invisible to git — cannot"
+            echo "       exercise the dirty path. Pick a marker git reports (not *.tmp; see .gitignore)."
+            _tsg_fail=$((_tsg_fail+1))
+            rm -f "$_tsg_dirty_marker"
+        else
+            # Stamp present + coherent so that, absent the dirty branch, the guard would
+            # SKIP (rc=1); getting rc=3 proves the dirty branch fired first.
+            printf '%s\n%s\n' "$_tsg_head_sha" "$_tsg_disk_max" > "$_tsg_stamp_path"
+            _tsg_stamp_before=$(cat "$_tsg_stamp_path" 2>/dev/null)
+            set +e
+            check_stamp_guard "test:dirty-run-no-stamp" "$_tsg_stamp_basename" "migrations" >/dev/null 2>&1
+            _tsg_rc=$?
+            set -e
+            rm -f "$_tsg_dirty_marker"
+            _tsg_assert_rc "dirty migrations/ → RUN_NO_STAMP (rc=3, not REFUSE)" 3 "$_tsg_rc"
+            _tsg_stamp_after=$(cat "$_tsg_stamp_path" 2>/dev/null || echo "<gone>")
+            if [ "$_tsg_stamp_before" = "$_tsg_stamp_after" ]; then
+                echo "[PASS] dirty path: guard wrote NO stamp (stamp file unchanged)"
+                _tsg_pass=$((_tsg_pass+1))
+            else
+                echo "[FAIL] dirty path: guard altered the stamp file — it must never write a stamp"
+                _tsg_fail=$((_tsg_fail+1))
+            fi
         fi
 
         echo ""
