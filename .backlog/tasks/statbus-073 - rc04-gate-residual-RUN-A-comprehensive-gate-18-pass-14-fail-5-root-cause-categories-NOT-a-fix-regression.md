@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-17 10:13'
+updated_date: '2026-06-17 10:20'
 labels:
   - install-recovery
   - rc.04
@@ -33,3 +34,11 @@ CATEGORY E — VM bootstrap SSH failure (1): 5-install-stage-a-killed-migrate. `
 
 PATH TO GREEN: fix C (highest leverage, 6) -> A (4) -> B (2) -> D (1); E is infra (re-run). Then re-run the comprehensive gate. WHEN-CAN-WE-CUT: after the gate is green OR its remaining reds are confirmed-known-and-acceptable. Full log: tmp/runA-failed.log (59810 lines).
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PROGRESS (foreman, driving): CATEGORY C FIXED + COMMITTED 9bdba03cc — operator diagnosed (HEAD docker-compose references REST_ADMIN_BIND_ADDRESS; fabricate ran `./sb psql` against the v2026.05.2 .env that predates it); fix = `./sb config generate` before `./sb psql` in fabricate_scheduled_upgrade_row (data-helpers.sh:337). Harness-only, foreman-reviewed (clean single-line diff, fail-loud, bash -n OK). Unmasks the 6 (archivebackup-resume/-watchdog, resume-died-rollback, mid-tx-kill, watchdog-reconnect, rollback-restore-watchdog) — some will pass, some surface their own residual on the re-run.
+CATEGORY E CONFIRMED INFRA (operator): stage-a-killed-migrate rc=2 at vm-bootstrap.sh:360 is a Hetzner bootstrap SSH blip (before scenario logic), not code. Re-validates automatically in the comprehensive re-run (no separate run needed).
+IN FLIGHT: Category A (flag-after-kill ×4) + B (rolled-back-not-forward ×2) → architect; Category D (C5 kill didn't fire, 4-rollback-kill + binary-swap-kill) → mechanic. Commit each as it lands; push the batch → one comprehensive re-run validates all + reveals the next residual.
+<!-- SECTION:NOTES:END -->
