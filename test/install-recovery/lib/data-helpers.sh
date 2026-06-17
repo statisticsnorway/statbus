@@ -334,7 +334,7 @@ SQL
     # exit code directly; treat non-zero SSH exit as the failure signal.
     local result ssh_rc=0
     result=$(ssh "${SSH_OPTS[@]}" root@"$VM_IP" \
-        "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb psql -t -A < /tmp/harness-fabricate.sql' && rm -f /tmp/harness-fabricate.sql" \
+        "sudo -i -u statbus bash -c 'cd ~/statbus && ./sb config generate && ./sb psql -t -A < /tmp/harness-fabricate.sql' && rm -f /tmp/harness-fabricate.sql" \
         2>&1) || ssh_rc=$?
     if [ $ssh_rc -ne 0 ]; then
         echo "✗ fabricate_scheduled_upgrade_row psql failed (rc=$ssh_rc): $result" >&2
