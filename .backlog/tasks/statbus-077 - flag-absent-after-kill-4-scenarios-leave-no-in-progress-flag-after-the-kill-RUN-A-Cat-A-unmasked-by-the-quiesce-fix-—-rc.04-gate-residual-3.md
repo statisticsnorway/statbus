@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - architect
 created_date: '2026-06-17 13:07'
-updated_date: '2026-06-17 17:49'
+updated_date: '2026-06-17 19:29'
 labels:
   - install-recovery
   - rc.04
@@ -58,4 +58,9 @@ REMOVAL SCOPE (architect designing, HOLD for King's go on the shape): (1) claim 
 
 MIGRATION MECHANISM = FORWARD DROP (King's steer 'I see no migration removing the field', foreman-ruled 2026-06-17). NOT delete-the-add. A new forward migration `ALTER TABLE public.upgrade DROP COLUMN IF EXISTS from_commit_sha` (+ drop the CHECK if separately named) + a reversible down (re-add). WHY over delete: (1) NON-DESTRUCTIVE — the column drops via a normal `./sb migrate up` on the local dev DB + any box, so NO recreate-database wipe (delete-the-add would have required the King's destructive-reset OK); (2) explicit/auditable (the removal is recorded in the schema history); (3) matches the King's own STATBUS-072 'schema-change-via-new-forward-migration' rule. Cost: a fresh install transiently creates (20260616104500) then drops the column — harmless (nothing reads/writes it). Migration 20260616104500 STAYS (not deleted).
 STATE: service.go REMOVAL approved twice (foreman byte-review + architect byte-review — 8 sites correct, comment rewrites read right + keep the 'never d.version' warnings, reproducer GREEN, zero forbidden SQL fragments, from_commit_version survives). Engineer now authoring the DROP migration + `migrate up` + regen (types + doc/db) — all non-destructive. PATH: engineer reports migration+regen -> architect re-reviews that delta -> foreman commits the COMPLETE set (service.go + DROP migration + regen + the untracked reproducer test) batched with e6c85c193's 9 -> ONE re-run certifies single-source recovery + the 9. Commit MUST be the complete set (code-only would still create the dead column on fresh installs = not true single-source).
+
+CODE LANDED but BLAST-RADIUS INCOMPLETE — caught by foreman pre-push grep (2026-06-17). COMMIT 1 gate fix = 820e79624; COMMIT 2 removal = 1083c62b0 (UNPUSHED). COMMIT 2 ran cleanly through the STATBUS-078 gate (zero FORCE=1/--no-verify — gate proven end-to-end) and its 6-file set verified (service.go removal, migration, reproducer, doc/db + types regen surgical, no doc/db drift). BUT the pre-push repo-wide `from_commit_sha` grep found TWO missed references:
+1. BLOCKING: test/expected/002_generate_mermaid_er_diagram.out:1397 still emits `text from_commit_sha` in the upgrade entity (pg_regress ER-diagram expected output, generated from the schema). Column dropped → test 002 FAILS. Tester regenerating (foreman verifies the diff is ONLY the from_commit_sha line; STOP if other drift). Must land before push.
+2. CLEAN-BREAK (non-blocking for the re-run — all comments/echo, no functional SQL): stale from_commit_sha references in test/install-recovery/lib/wedge-helpers.sh:546,570 + scenarios/2-preswap-checkout-kill.sh:215/227/255/258 + 2-preswap-checkout-kill-legacy.sh:34/141/195/231/238. They describe the REMOVED column as the live restore mechanism (now FALSE — restore = pinned pre-upgrade branch). -legacy's whole premise (NULL-from_commit_sha row → branch fallback) is obsolete now the column's gone. Architect assessing the clean-break edits + -legacy disposition (reword / merge / remove).
+PLAN: tester regens 002 + architect specifies scenario edits → foreman folds both into the removal (amend 1083c62b0, unpushed) → push (820e79624 + amended removal) → 33-scenario re-run. A structural -legacy rework (if the architect calls for one) does NOT stall the push — tracked-follow-up; the comment-rewords + 002 regen are the gating items. NOT Done until the blast radius is complete + pushed.
 <!-- SECTION:NOTES:END -->
