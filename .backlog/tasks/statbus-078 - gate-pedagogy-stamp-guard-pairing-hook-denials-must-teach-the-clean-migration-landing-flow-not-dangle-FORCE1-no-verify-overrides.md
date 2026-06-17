@@ -7,7 +7,7 @@ status: To Do
 assignee:
   - '@engineer'
 created_date: '2026-06-17 18:19'
-updated_date: '2026-06-17 18:24'
+updated_date: '2026-06-17 18:29'
 labels:
   - dx
   - safety-machinery
@@ -66,4 +66,9 @@ MINOR WRINKLE (acceptable): stamp deferred ⇒ generate runs TWICE when landing 
 IMPLEMENTATION SURFACE (engineer, for on-approval): 2 guards (dev.sh:153-160 + cli/cmd/types.go:152-161) flip REFUSE→RUN_NO_STAMP; 3 stamp-write sites gate on it; +1 self-test for the dirty→RUN-no-stamp branch; rewrite both denials to teach the procedure + the --no-verify note (.githooks/pre-commit:106-107) to data-only-ONLY. Engineer has draft wording for all three. ALL stamp-write sites + guards land in ONE commit.
 
 STATE: design verified by foreman; presented to King; AWAITING KING'S GO on the root change (RUN-without-stamp, override-free flow) vs message-only. On go: engineer implements the full set together → architect byte-reviews the diff → foreman commits → STATBUS-077's migration then lands through the clean flow.
+
+CONVERGED (engineer + architect, 2026-06-17). ARCHITECT independently CONCURRED with the RUN-without-stamp verdict (re-verified release-preflight re-derives honesty + fails-closed; additionally found that today's FORCE=1 leaves a NARROW false-pass window in the release gate that RUN-without-stamp CLOSES — reinforces the change). Architect's two adds (folded): (1) the RUN_NO_STAMP path must print LOUDLY that the stamp was withheld + that a clean post-commit regen is needed before release; (2) the +1 self-test must ASSERT no stamp file is written on the dirty path.
+SEED STEP VERIFIED against source (engineer, refuting the architect's floated `./sb db seed sync` which DOES NOT EXIST): `./sb migrate up --target seed` (cli/cmd/migrate.go:146 — apply-forward to POSTGRES_SEED_DB) + `./dev.sh create-test-template` (dev.sh:1190 — re-clones the test template from the now-at-HEAD seed; generate-doc-db builds its doc DB from the TEMPLATE at dev.sh:1772, downstream of the seed, so advancing the seed alone leaves the template stale). Both non-destructive. NOT `db seed fetch` (downloads published artifact) / `recreate-seed` (destructive).
+LANDING STRUCTURE (foreman's call, adopting architect's suggestion) = TWO commits: COMMIT 1 = the gate fix ALONE (2 guards + 3 stamp-write sites gating together + --no-verify note + both denials rewritten + 1 self-test) — touches NO migration, clean standalone, no pairing-hook/regen involvement; COMMIT 2 = STATBUS-077 from_commit_sha removal lands through the now-fixed flow (generate with NO FORCE=1). Engineer instructed to implement COMMIT 1 in full as one change on the King's go → architect byte-reviews diff → foreman commits → then COMMIT 2.
+STATE: still AWAITING KING'S GO on the gate redesign (root change vs message-only). All overrides held.
 <!-- SECTION:NOTES:END -->
