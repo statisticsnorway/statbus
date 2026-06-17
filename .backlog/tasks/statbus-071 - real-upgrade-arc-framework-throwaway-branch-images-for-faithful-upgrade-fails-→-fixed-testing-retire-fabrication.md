@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-17 09:05'
-updated_date: '2026-06-17 11:52'
+updated_date: '2026-06-17 12:08'
 labels:
   - install-recovery
   - upgrade
@@ -50,4 +50,17 @@ OWNER: architect (design) → engineer (CI workflow + arc scenarios) → operato
 
 <!-- SECTION:NOTES:BEGIN -->
 STANDALONE FIDELITY (King correction, 2026-06-17) — CORRECTS the cloud-centric framing. Albania is the FIRST REAL EXTERNAL STANDALONE: a customer box physically inside Albania, NO SSB remote access (no SSH, no deploy branch). Deploy branches (ops/*/deploy/*) are CLOUD-only (niue). Albania's ONLY upgrade path: the box discovers a new GitHub RELEASE -> a LOCAL operator schedules it via the WEB INTERFACE (writes the public.upgrade row) -> the upgrade service applies + recovers AUTONOMOUSLY; SSB CANNOT intervene if it breaks. IMPLICATION for this framework: the branches/images only SUPPLY the A/B/C test artifacts (cheap, no permanent tags); the test must DRIVE the upgrade through the SAME scheduling mechanism the web UI uses (the public.upgrade row), and assert the box applies+recovers ON ITS OWN (model the no-remote-rescue reality). branch-vs-tag is just the test's cheap proxy -- production standalone upgrades come from release TAGS, but both procure BY COMMIT so the apply+recover path the test exercises is identical. This CORRECTS STATBUS-034's 'channels = ops/*/deploy/* deploy branches' framing (cloud-only). SEPARATE CONCERN: GitHub-release DISCOVERY (the box finding new releases) is standalone-specific and tested apart from apply+recover. CONSEQUENCE: the amend-an-applied-migration arc (STATBUS-072) is THE first scenario -- a remotely-unrescuable box must auto-apply an amended-migration release without crashing and self-recover if it does = the literal Albania failure mode. Albania is live + blocked NOW (cannot upgrade because the current path crashes), so this is present urgency, not future direction.
+
+FINALIZED BRANCH SCHEME (King-converged, 2026-06-17). NAMING = FLAT siblings under test/ (the King's 3rd option) — the only git-valid scheme: VERIFIED that `git branch test/base` then `git branch test/base/hanging-migration` FAILS with `cannot lock ref ... 'refs/heads/test/base' exists` (a ref name can't be both a file and a directory), so the nested variants (test/base/hanging-migration/...) are impossible. Branches:
+  test/base
+  test/hanging-migration        test/hanging-fixed-migration
+  test/working-migration        test/working-fixed-migration
+LINEAGE: the 'build on each other' lives in the GIT COMMIT ANCESTRY, not the branch-name path. base = base commit; *-migration = a commit on top of base adding migration V; *-fixed-migration = a commit on top of *-migration that EDITS V's file IN PLACE (same version, corrected/amended bytes — NOT an additive fix-on-top, which would re-run V_broken). Tree at *-fixed-migration therefore carries the corrected V.
+TWO ARCS = the two amend-migration populations (STATBUS-072):
+  - working-migration -> working-fixed-migration: V SUCCEEDED then amended -> box RE-STAMPS (the MANY). [first scenario to build — the literal Albania case]
+  - hanging-migration -> hanging-fixed-migration: V hangs/fails then fixed -> box RECOVERS + re-runs (the FEW).
+CI TRIGGER: add `test/**` to images.yaml's push trigger (one line); the branch-name SUFFIX selects which scenario/arc runs. 'Trigger automation from the branch name' = satisfied.
+STANDALONE FIDELITY (Albania): the test DRIVES the upgrade via the SAME scheduling mechanism the web UI uses (write the public.upgrade row) and asserts the box applies+recovers AUTONOMOUSLY (no remote rescue) — NOT a deploy-branch pointer move (that's cloud). branch-vs-tag is the test's cheap proxy; production standalone upgrades come from release TAGS; both procure BY COMMIT, so the apply+recover path the test exercises is identical. (Box-discovers-a-new-release is a separate standalone concern, tested apart.)
+CENTERPIECE ASSERTION: after the failing upgrade rolls back, DB == base byte-identical, then the fixed upgrade applies clean (clean-slate-after-rollback).
+This supersedes the cloud-channel framing; STATBUS-034's 'channels = ops/*/deploy/* deploy branches' was cloud-only.
 <!-- SECTION:NOTES:END -->
