@@ -6,7 +6,7 @@ title: >-
 status: In Progress
 assignee: []
 created_date: '2026-06-16 22:03'
-updated_date: '2026-06-16 22:36'
+updated_date: '2026-06-17 07:33'
 labels:
   - install-recovery
   - rc.04
@@ -53,4 +53,10 @@ UPDATE (foreman, overnight 2026-06-17 cont.):
 - #3 INVARIANT COMPLETED + committed fc742bd4f (follow-up to ab4a4dcad). Architect post-commit cross-check found the '13 inject-dispatch' framing left 6 of 19 fabricate callers un-quiesced (only 2 documented). Now uniform: quiesce ADDED to worker-ddl-deadlock (genuine gap — now fails at the R1 DDL point, not the dispatch race; prerequisite for R1 to ever validate), checkout-kill-legacy, and both skip-default canary repros (inside _fabricate_in_progress_row, `>&2`). DOCUMENTED the 2 service-dispatch exclusions (0-happy-upgrade, migration-timeout). Rule recorded on quiesce_upgrade_service (wedge-helpers.sh). 17/19 quiesced, 2 doc'd exclusions, 0 gaps, bash -n clean.
 
 GATING SET NOW COMPLETE EXCEPT THE CARVE-OUT (King nod): cd00d4a6d (origin/master) + 9d01ab61b (1-boot) + ab4a4dcad + fc742bd4f (#3) + 11122f86f (#5 capture). Go test green on current HEAD. Morning = King nods carve-out → apply tmp/carve-out-candidate.md → build → commit → push → `gh workflow run install-recovery-harness.yaml --ref master`.
+
+CANARY FIX IN + RE-RUN ARMED (foreman, 2026-06-17): King ruled fix-now. Architect designed the exact Q1+Q2 diff; engineer applied verbatim (both old_strings matched first try); architect byte-level review PASSED; foreman re-reviewed the diff + ran FRESH go build/vet/test (green) + verified gofmt (pre-existing drift only, no gate). COMMITTED: 1e02a1797 (canary: gate post-swap self-heal on migrate.HasPending + COALESCE log_relative_file_path). Promoted the validation reproducer 3-postswap-migrate-killed-after-commit out of skip-default (removed HARNESS_SKIP_DEFAULT; runtime confirmed safe — prior run 27645059996 included it at ~1h50m << 6h ceiling); COMMITTED c3e00f5f4. PUSHED (55cb5c959..c3e00f5f4). rc.04 candidate HEAD = c3e00f5f4.
+
+NOTE: 'Notify cloud services' failure on the earlier push (55cb5c959) was a transient SSH i/o timeout to ONE slot (statbus_jo); it SUCCEEDED on c3e00f5f4 — transient, non-gating, not code.
+
+RE-RUN: a background watcher waits for strict CI (Go Test/Images/pg_regress/Fast Tests) green on c3e00f5f4; then trigger `gh workflow run install-recovery-harness.yaml --ref master` (blank selector → 31-scenario comprehensive set incl. the promoted reproducer). Read result vs the in_progress→rolled_back caveat: if the reproducer lands short, the follow-up touch is in the continuation/postSwapFailure path (STATBUS-067), NOT the canary gate. Other expected residual: STATBUS-027/028/029 pre-existing known-reds + #5's real psql error (now surfaced by 11122f86f).
 <!-- SECTION:NOTES:END -->
