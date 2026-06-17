@@ -153,27 +153,36 @@ When you regress a fix, here's what fails:
 
 ## Debugging a failing scenario
 
+Re-run with `--keep-vm` so the scenario's **Hetzner VM** survives the failure (it keeps billing ~€0.0072/hr until you delete it). The harness prints the exact connect commands on exit; in general, for VM `statbus-recovery-<slug>`:
+
 ```bash
-KEEP_VM=1 ./dev.sh test-install-recovery 5-install-bool-text-regression     # leave VM running on failure
-multipass shell statbus-recovery-5-install-bool-text-regression             # connect interactively
-multipass exec statbus-recovery-5-install-bool-text-regression -- sudo -i -u statbus
-cd ~/statbus
-./sb psql -c 'SELECT * FROM public.upgrade ORDER BY id DESC LIMIT 3;'
-journalctl --user -u 'statbus-upgrade@*' --no-pager
+./dev.sh test-install-recovery --keep-vm 5-install-bool-text-regression
+ip=$(hcloud server ip statbus-recovery-5-install-bool-text-regression)   # the VM's IP
+ssh root@$ip                                   # root shell
+ssh statbus@$ip                                # the statbus service user (cd ~/statbus)
+ssh root@$ip 'sudo -i -u statbus -- ./sb psql -c "SELECT * FROM public.upgrade ORDER BY id DESC LIMIT 3;"'
+ssh root@$ip journalctl --user -u 'statbus-upgrade@*' --no-pager -n 200
 ```
 
-Per-run install log is at `tmp/install-recovery-<vm_name>-install.log` on the host.
+Each scenario's full log is uploaded as a CI artifact `install-recovery-log-<slug>` (`gh run download <run-id> -n install-recovery-log-<slug>`) and written locally to `tmp/install-recovery-<vm_name>.log`.
 
 ## Cleanup
 
-VMs are deleted by `cleanup_vm` on scenario exit unless `KEEP_VM=1`. Manually:
+VMs are deleted by `cleanup_vm` on scenario exit unless `--keep-vm` (`KEEP_VM=1`). Manually:
 
 ```bash
-multipass list                          # see what's running
-multipass delete statbus-recovery-5-install-bool-text-regression    # delete by name
-multipass purge                         # actually free disk
+hcloud server list                                                       # see what's running
+hcloud server list -o columns=name | grep '^statbus-recovery-'           # just this harness's VMs
+hcloud server delete statbus-recovery-5-install-bool-text-regression     # delete by name
 ```
+
+A VM left running by `--keep-vm` bills ~€0.17/day until deleted.
 
 ## CI integration
 
-Not currently integrated — Multipass requires nested virtualization (VT-x/KVM) which most cloud CI runners don't expose. Local-dev tool initially. A self-hosted GitHub Actions runner with KVM access would unlock this.
+CI-integrated via `.github/workflows/install-recovery-harness.yaml` — it runs the full scenario matrix on **Hetzner Cloud VMs** (one fresh VM per scenario; `max-parallel` bounded by the Hetzner quota), on prerelease-tag push (`v*-rc.*`) and manual dispatch. Each scenario pulls the per-commit `statbus-*:<commit_short>` images built by `images.yaml`, so the target commit's images must be green on ghcr first. The stable-release pre-flight gates on a green run via `release.CheckWorkflowAtCommit(WorkflowInstallRecoveryHarness, sha)`.
+
+```bash
+gh workflow run install-recovery-harness.yaml --ref master                                   # all scenarios (blank = all)
+gh workflow run install-recovery-harness.yaml --ref master -f scenarios="2-preswap-backup-kill 4-rollback-kill"
+```
