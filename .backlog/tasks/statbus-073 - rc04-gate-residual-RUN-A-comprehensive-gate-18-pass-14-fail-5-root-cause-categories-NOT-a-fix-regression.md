@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-17 10:13'
-updated_date: '2026-06-17 10:20'
+updated_date: '2026-06-17 10:26'
 labels:
   - install-recovery
   - rc.04
@@ -41,4 +41,10 @@ PATH TO GREEN: fix C (highest leverage, 6) -> A (4) -> B (2) -> D (1); E is infr
 PROGRESS (foreman, driving): CATEGORY C FIXED + COMMITTED 9bdba03cc — operator diagnosed (HEAD docker-compose references REST_ADMIN_BIND_ADDRESS; fabricate ran `./sb psql` against the v2026.05.2 .env that predates it); fix = `./sb config generate` before `./sb psql` in fabricate_scheduled_upgrade_row (data-helpers.sh:337). Harness-only, foreman-reviewed (clean single-line diff, fail-loud, bash -n OK). Unmasks the 6 (archivebackup-resume/-watchdog, resume-died-rollback, mid-tx-kill, watchdog-reconnect, rollback-restore-watchdog) — some will pass, some surface their own residual on the re-run.
 CATEGORY E CONFIRMED INFRA (operator): stage-a-killed-migrate rc=2 at vm-bootstrap.sh:360 is a Hetzner bootstrap SSH blip (before scenario logic), not code. Re-validates automatically in the comprehensive re-run (no separate run needed).
 IN FLIGHT: Category A (flag-after-kill ×4) + B (rolled-back-not-forward ×2) → architect; Category D (C5 kill didn't fire, 4-rollback-kill + binary-swap-kill) → mechanic. Commit each as it lands; push the batch → one comprehensive re-run validates all + reveals the next residual.
+
+CATEGORY D RE-DIAGNOSED (foreman caught a mis-diagnosis): mechanic first reported 'fabricate-race, already fixed by ab4a4dcad, green on re-run.' VERIFIED WRONG: RUN A ran 73ea5210f which CONTAINS ab4a4dcad (merge-base confirms), the scenario HAS quiesce before fabricate (line 131), and RUN A's log shows the quiesce RAN (`[quiesce] ✓ upgrade service quiesced`). So the service was stopped — it could NOT claim the row — the fabricate-race did NOT occur. (Mechanic likely read the PREVIOUS pre-ab4a4dcad run.)
+
+REAL CAUSE (from the mechanic's own step 5 + RUN A log): the harness pre-stages HEAD's binary (upload_sb_to_vm) so the inject exists in the RUNNING binary — but that makes sbAlreadyAtCommit(HEAD)=true → executeUpgrade SKIPS the binary-swap (replaceBinaryOnDisk) → the KillHere('killed-by-system-during-binary-swap') site (AFTER the swap) is NEVER reached → exit 0, no kill, no flag, row completes. This is the SAME cause as binary-swap-kill in Category A (same C5 inject) — ONE cause for TWO scenarios (4-rollback-kill + 2-preswap-binary-swap-kill).
+
+TENSION: the running binary must be HEAD for the inject to exist, but that makes sbAlreadyAtCommit=true and the swap a no-op. OPEN (architect): FIXABLE (make the swap happen + kill fire while running binary carries the inject — e.g. procure-target commit ≠ running-binary commit) OR SCENARIO LIMITATION → confirmed-known-red (product correctly skips the swap when already at target; not a product bug). Routed to architect (overlaps Cat A). LESSON: do not mark a category green on a teammate's 'already fixed' without checking the failing run actually contained the fix.
 <!-- SECTION:NOTES:END -->
