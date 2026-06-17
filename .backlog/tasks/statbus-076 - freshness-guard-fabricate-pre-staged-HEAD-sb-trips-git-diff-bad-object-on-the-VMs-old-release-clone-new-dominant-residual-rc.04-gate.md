@@ -3,11 +3,11 @@ id: STATBUS-076
 title: >-
   freshness-guard-fabricate: pre-staged HEAD sb trips git-diff bad-object on the
   VM's old-release clone (new dominant residual, rc.04 gate)
-status: In Progress
+status: Done
 assignee:
   - architect
 created_date: '2026-06-17 11:26'
-updated_date: '2026-06-17 12:15'
+updated_date: '2026-06-17 12:25'
 labels:
   - install-recovery
   - harness
@@ -64,4 +64,6 @@ FOREMAN BYTE-LEVEL REVIEW of the mechanic's reorder diff (2026-06-17) — CAUGHT
 - CORRECT (7): 2-preswap-{backup,binary-swap,checkout}-kill, 3-postswap-{between-migrations,container-restart,mid-migration}-kill, 4-rollback-kill. Verified NO live pre-fabricate HEAD checkout → tree stays OLD at fabricate → old binary coherent.
 - WRONG (2): 3-postswap-mid-tx-kill + 3-postswap-archivebackup-resume both do a LIVE HEAD checkout BEFORE fabricate (mid-tx-kill: VM_EXEC git checkout :154; resume: stage-head.sh :221). After the reorder, fabricate runs the OLD binary on a HEAD tree → IsStale=stale → `./sb config generate` (mutating, non-selfheal) HARD-FAILS. KEY FACT: v2026.05.2 HAS the staleness guard (git show v2026.05.2:cli/cmd/root.go → freshness import + stalenessGuard PersistentPreRun + IsStale), so the mechanic's 'predates the guard' rationale is FALSE.
 CORRECTIONS: REVERT mid-tx-kill (its original checkout→upload-HEAD→fabricate was COHERENT, HEAD binary+HEAD tree; it wasn't even failing); archivebackup-resume = keep the early-upload removal but move upload to AFTER stage-head (:221) and BEFORE fabricate (:248) → HEAD binary+HEAD tree coherent. Routed to architect for confirm → mechanic corrects → architect re-reviews → foreman commits. The 5 'already correct' untouched scenarios are coherent fabricate-wise (early-upload HEAD binary + stage-head HEAD tree); watchdog + resume-died-rollback fail on the quiesce-mask (separate, STATBUS-073), not fabricate.
+
+COMMITTED + PUSHED (foreman, 2026-06-17): reorder = 7f305f70d on master (e6c85c193 tip). 7 GO scenarios reordered (upload after fabricate) + archivebackup-resume corrected (upload after stage-head, before fabricate). mid-tx-kill VERBATIM REVERTED (git checkout --) — it never had the STATBUS-076 problem (HEAD-on-HEAD coherent), carries no diff. Architect design-confirmed + foreman byte-level reviewed + my 2 corrections applied/verified (bash -n + grep order). Status Done = the fix is landed; VALIDATION (green on the re-run) tracked by STATBUS-075. The current run 27683157288 is the freshness-residual evidence; the re-run on e6c85c193 confirms the fix.
 <!-- SECTION:NOTES:END -->
