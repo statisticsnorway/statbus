@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-17 09:05'
-updated_date: '2026-06-17 12:08'
+updated_date: '2026-06-17 20:23'
 labels:
   - install-recovery
   - upgrade
@@ -63,4 +63,6 @@ CI TRIGGER: add `test/**` to images.yaml's push trigger (one line); the branch-n
 STANDALONE FIDELITY (Albania): the test DRIVES the upgrade via the SAME scheduling mechanism the web UI uses (write the public.upgrade row) and asserts the box applies+recovers AUTONOMOUSLY (no remote rescue) — NOT a deploy-branch pointer move (that's cloud). branch-vs-tag is the test's cheap proxy; production standalone upgrades come from release TAGS; both procure BY COMMIT, so the apply+recover path the test exercises is identical. (Box-discovers-a-new-release is a separate standalone concern, tested apart.)
 CENTERPIECE ASSERTION: after the failing upgrade rolls back, DB == base byte-identical, then the fixed upgrade applies clean (clean-slate-after-rollback).
 This supersedes the cloud-channel framing; STATBUS-034's 'channels = ops/*/deploy/* deploy branches' was cloud-only.
+
+ARCHITECT DISPATCHED to plan (2026-06-17 ~20:20), at King's prompt — turn the captured design (resolved branch scheme + B/C topology + clean-slate-after-rollback + Albania standalone-fidelity) into an IMPLEMENTATION-READY spec the engineer can build from: (a) images.yaml `test/**` trigger; (b) throwaway-branch workflow (branch→commit B+C→image-wait STATBUS-056→run arc→teardown STATBUS-057); (c) FIRST scenario = amend-migration/Albania case (working-migration→working-fixed-migration, STATBUS-072) driven via the public.upgrade web-UI row, autonomous apply+recover; (d) clean-slate-after-rollback mechanics; (e) 056/057/067/072 deps. PARALLEL to the rc.04 re-run (design only, NON-gating). A-vs-B decision RESOLVED = B (follow-up): close rc.04 first, build this immediately after — King + foreman aligned (King: 'once rc.04 passes, we can look at the framework'). Re-run triage takes priority over this planning if a scenario goes red. Architect reports the plan to foreman for King review.
 <!-- SECTION:NOTES:END -->
