@@ -3,10 +3,10 @@ id: STATBUS-068
 title: >-
   rc04-recovery-regression: comprehensive run 19 reds = 4 gating modes + canary
   follow-up; fix-forward, no revert
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-06-16 22:03'
-updated_date: '2026-06-17 07:33'
+updated_date: '2026-06-17 11:05'
 labels:
   - install-recovery
   - rc.04
@@ -60,3 +60,9 @@ NOTE: 'Notify cloud services' failure on the earlier push (55cb5c959) was a tran
 
 RE-RUN: a background watcher waits for strict CI (Go Test/Images/pg_regress/Fast Tests) green on c3e00f5f4; then trigger `gh workflow run install-recovery-harness.yaml --ref master` (blank selector → 31-scenario comprehensive set incl. the promoted reproducer). Read result vs the in_progress→rolled_back caveat: if the reproducer lands short, the follow-up touch is in the continuation/postSwapFailure path (STATBUS-067), NOT the canary gate. Other expected residual: STATBUS-027/028/029 pre-existing known-reds + #5's real psql error (now surfaced by 11122f86f).
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+SUPERSEDED + CLOSED (foreman, 2026-06-17). This was the prior-run regression umbrella (run 27645059996, 537c56b48, 19 reds). All its listed mode-fixes are committed and on master: #1 origin/master edge-recovery (cd00d4a6d), 1-boot-startup-timeout (9d01ab61b), #3 fabricate->dispatch quiesce (ab4a4dcad + fc742bd4f), #5 archivebackup psql-capture (11122f86f), #2 staleness carve-out (landed), canary fix (1e02a1797). Two LATER comprehensive runs then advanced the picture past this snapshot: RUN A (27675235157, 18/14) and the live re-run (27683157288). The triage is now carried by STATBUS-073 (RUN-A 18/14 -> ONE root cause: the quiesce sent SIGTERM, which the upgrade daemon caught and turned into a rollback, corrupting 13/14 before their real test; fixed by the SIGKILL-class quiesce 3a0d6e6dd). The "are-we-there-yet" tracking is now STATBUS-075 (cut-rc04). Nothing actionable remains uniquely here — closing to keep one live umbrella, not three overlapping ones.
+<!-- SECTION:FINAL_SUMMARY:END -->
