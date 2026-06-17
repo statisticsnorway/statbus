@@ -4,10 +4,10 @@ title: >-
   run-to-know-doctrine: distilled plain-language doc "only running
   install/upgrade tells you it works" + link from every test run, entry points,
   diagrams + clarity sweep
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-06-17 08:26'
-updated_date: '2026-06-17 08:34'
+updated_date: '2026-06-17 20:36'
 labels:
   - docs
   - install-recovery
@@ -41,4 +41,6 @@ OWNER: foreman writes the doctrine + key links + sets the clarity standard (exem
 DONE (foreman, committed 6a0a8398e, pushed): (1) DOCTRINE doc/install-upgrade-testing.md — plain words, zero ceremony: the rule (only running it tells you), the loop (commit→push→build→run→observe→iterate), why these tests are special (others run pre-push; install/upgrade cannot), the corollary (stalling = zero knowledge; uncertainty→run; the run is the only judge), why we keep tests+diagrams (ground truth + the map), and the live STATBUS-067 example. (2) LINKED from: run.sh (prints on EVERY run, after --print-selected guard), README top callout, AGENTS.md install/upgrade section, doc/upgrade-timeline.md, doc/upgrade-hardening.md, and all 3 diagrams via `legend top` blocks (install-recovery / upgrade-timeline / upgrade-lifecycle) — plantuml -checkonly green, SVGs regenerated. (3) CLARITY stab: README now LEADS with the one plain-language goal every scenario proves — 'if the machine dies at a dangerous moment, re-running ./sb install (and nothing else) must recover the system coherently, data intact; read each scenario as die HERE → operator re-run ends THERE, data intact' — so the goal is no longer buried under C3/R5/Fix-11 codes.
 
 REMAINING (open): the per-scenario catalogue rewrite — lead EACH of the ~24 README entries (and ideally each scenario .sh header) with its plain goal first, mechanism/codes as grounding below. The top-level one-goal framing is in; the per-entry rewrite is a clarity polish. Standard set by the doctrine doc + the README framing; can delegate to mechanic/operator against that exemplar, or do on King's word.
+
+DONE (foreman, 2026-06-17): the remaining per-scenario clarity pass is committed + pushed as 5efe6dfe7. The install-recovery README scenario catalogue now LEADS each entry with its plain goal ('die HERE -> the operator's ./sb install re-run must end THERE, data intact'), with the mechanism (inject site, C-class, the fix it guards) as grounding beside it, organized by phase. ALSO completed the catalogue: it was missing 6 of the 32 scenarios (checkout-kill-legacy, archivebackup-watchdog, mid-tx-kill, migration-deterministic-error, resume-died-rollback, rollback-restore-watchdog) — all 32 now listed + VERIFIED to match scenarios/ exactly (diff clean). Combined with the earlier doctrine doc + links (6a0a8398e), 070's three parts (write the doctrine / link it widely / clarity sweep) are all delivered. FOLLOW-UP FILED (separate, not 070's scope): the README's Debugging/Cleanup/CI-integration sections are stale — they describe the retired local-multipass tool (multipass appears ONLY in the README; the harness uses hcloud/Hetzner per lib/* + run.sh, and IS CI-integrated via install-recovery-harness.yaml). → new task.
 <!-- SECTION:NOTES:END -->
