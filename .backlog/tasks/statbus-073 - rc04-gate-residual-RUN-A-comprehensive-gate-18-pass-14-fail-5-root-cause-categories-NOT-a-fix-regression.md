@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-17 10:13'
-updated_date: '2026-06-17 10:59'
+updated_date: '2026-06-17 11:13'
 labels:
   - install-recovery
   - rc.04
@@ -59,4 +59,12 @@ FIX: SIGKILL-class quiesce (architect writing exact diff): keep timer stop; `sys
 FIX COMMITTED + RE-RUN LIVE (foreman): SIGKILL-class quiesce COMMITTED 3a0d6e6dd (foreman-reviewed: verified it mirrors the product's stopRestartUpgradeUnit at install_upgrade.go:316 documented 7-step sequence; old_string matched; bash -n OK; touched the stale header line). Mechanism: mask --runtime -> kill --signal=SIGKILL -> stop -> reset-failed -> unmask (race-free respawn block; no SIGTERM handler; clears 137+NRestarts; preserves recovery enable --now). PUSHED 6a0a8398e..3a0d6e6dd. Both gate fixes now on master: config-generate (9bdba03cc) + SIGKILL-quiesce (3a0d6e6dd). Only .sh changed -> sb binary/images content-identical (fast cached rebuild). COMPREHENSIVE RE-RUN LIVE: run 27683157288 on 3a0d6e6dd (blank selector = ~30 gating scenarios). Expect ~13 of 14 reds cleared; true residual to surface = stage-a infra (auto-pass) + binary-swap-kill/4-rollback-kill latent edge-swap make-fail second layer (mechanic on standby) + any genuine known-reds. Watcher beiv5v11f. ~1.5-2h.
 
 KING RULING (2026-06-17, foreman recorded): cut bar = HOLD FOR 100% GREEN. NO acceptable-reds carve-out. SUPERSEDES the Description's 'green OR remaining reds confirmed-known-and-acceptable'. Even a residual of only {stage-a infra blip (re-run) + the two throwaway-build edge-case scenarios (binary-swap-kill + 4-rollback-kill toolchain-free make-fail second layer)} does NOT permit a cut. Those two get a REAL fix (route edge-swap through image-procurement/docker-pull OR target a tagged release carrying the inject framework); infra blip gets a clean re-run; rc.04 cuts ONLY off a fully-green comprehensive run. At least one more fix->re-run loop is now on the critical path by design.
+
+RECORD CORRECTION (architect adversarially verified + foreman code-confirmed, 2026-06-17) — two earlier notes in this log are FALSE; superseded here:
+
+(1) The 'CORRECTION' note claiming 'there is no sbAlreadyAtCommit function; service.go:4009-4048 ALWAYS procures then ALWAYS hits KillHere' is WRONG. TRUTH: buildBinaryOnDisk (service.go:5660) calls sbAlreadyAtCommit (5664, defined at 5763) FIRST and returns nil — skipping the image fetch — when ./sb already carries the target commit. The C5 KillHere (4048) is still reached on that skip (procureErr nil -> no rollback at 4036).
+
+(2) The 'LATENT SECOND LAYER' note (edge-target buildBinaryOnDisk runs `make -C cli build` -> fails toolchain-free -> procureErr -> rollback before the C5 kill) is REFUTED. TRUTH: buildBinaryOnDisk uses procureSbFromImage (docker pull/create/cp, toolchain-free; service.go:5673/5691 'no host Go/make toolchain'), NOT make. `make -C cli build` survives ONLY in stale comments (4018, 1424), never in code. For binary-swap-kill + 4-rollback-kill the harness pre-stages HEAD's ./sb (upload_sb_to_vm) -> sbAlreadyAtCommit=true -> buildBinaryOnDisk nil -> C5 KillHere fires by design (os.Exit 137). NO second layer.
+
+CONSEQUENCE: the SIGKILL-class quiesce (3a0d6e6dd) was the SOLE RUN-A blocker for these two as well. All 14 RUN-A reds except stage-a (Cat E infra) collapse to the one quiesce-rollback cause. Architect's why-I-was-wrong: truncated `grep | head -15` crowded out the 5664/5763 hits + read the 4018 stale comment instead of the function body. OPEN-Q (i) auto-restart re-claim: structurally prevented — mask --runtime is set BEFORE the SIGKILL, so the 137-exit's Restart=always cannot start a masked unit; stop cancels the pending restart -> inactive; unmask only restores startability. OPEN-Q (ii) other exit-0 fork: not expected (DB intact->DBReachable; no fabricate flag->not CrashedUpgrade; config present->not Fresh; row state='scheduled' started_at NULL + quiesced service can't claim -> StateScheduledUpgrade->executeUpgrade). ORACLE LINES for the run: 'Detected install state:'=scheduled-upgrade and 'first install exited:'=137 -> PASS.
 <!-- SECTION:NOTES:END -->
