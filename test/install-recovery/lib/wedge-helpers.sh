@@ -736,14 +736,16 @@ quiesce_upgrade_service() {
     #  - kill --signal=SIGKILL: whole-cgroup kill, NO handlers run → no rollback.
     #  - stop: nothing alive to signal → only cancels any pending auto-restart, lands inactive.
     #  - reset-failed: clears the SIGKILL (137) failure state + NRestarts counter.
-    #  - unmask: unit is startable again so the step-table's `systemctl --user enable --now`
-    #    (install.go:1806) revives it in the recovery phase. (unmask ≠ enable: the unit
-    #    keeps its prior enabled state, nothing starts it until recovery does.)
+    #  - unmask --runtime: clears the runtime-scoped mask set above (a PLAIN `unmask` does
+    #    NOT clear a --runtime mask — the scopes must pair) so the unit is startable again:
+    #    both the step-table's `systemctl --user enable --now` (install.go:1806) in recovery
+    #    AND a scenario's direct `systemctl --user start` succeed. (unmask ≠ enable: the unit
+    #    keeps its prior enabled state, nothing starts it until recovery/the scenario does.)
     VM_EXEC systemctl --user stop "statbus-upgrade@statbus.timer" 2>/dev/null || true
     VM_EXEC systemctl --user mask --runtime "statbus-upgrade@statbus.service" 2>/dev/null || true
     VM_EXEC systemctl --user kill --signal=SIGKILL "statbus-upgrade@statbus.service" 2>/dev/null || true
     VM_EXEC systemctl --user stop "statbus-upgrade@statbus.service" 2>/dev/null || true
     VM_EXEC systemctl --user reset-failed "statbus-upgrade@statbus.service" 2>/dev/null || true
-    VM_EXEC systemctl --user unmask "statbus-upgrade@statbus.service" 2>/dev/null || true
+    VM_EXEC systemctl --user unmask --runtime "statbus-upgrade@statbus.service" 2>/dev/null || true
     echo "  [quiesce] ✓ upgrade service SIGKILL-class quiesced (rollback handler NOT triggered; unit re-enableable)"
 }
