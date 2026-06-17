@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-06-17 22:48'
+updated_date: '2026-06-17 22:59'
 labels:
   - install-recovery
   - harness
@@ -30,3 +31,9 @@ STATUS / NON-GATING: not required for the rc.04 cut (the specific offenders get 
 
 FIX SHAPE: either (a) harden VM_EXEC itself — base64-encode the script body and `base64 -d | bash` on the VM (newline-safe regardless of content), making all call sites robust; or (b) audit every `VM_EXEC bash -c '<multi-line>'` site and convert multi-line ones to ssh-STDIN. Prefer (a) — fixes the class at the transport, not site-by-site.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+DEAD-CODE FINDING (foreman, 2026-06-18): the engineer's broader-audit flag surfaced 2 MORE multi-line-VM_EXEC sites with the vulnerable for/if-then/fi structure — wedge-helpers.sh: simulate_killed_migrate_subprocess (:33) and simulate_sigkill_upgrade_service (:304). BOTH have ZERO scenario callers (grepped all of test/install-recovery/ — only their own header comments). So they are DEAD CODE: never executed → not causing the rc.04 reds, not silently false-greening anything, not cut-relevant. RECOMMENDATION for this task: DELETE them (per 'remove wrong/dead code paths entirely') rather than convert — unless they're intended for a not-yet-written scenario (check git history / the author). The 2 LIVE offenders (5-install-stage-a:94-110 statistical_* orphan block + simulate_advisory_zombie_empty_app wedge-helpers.sh:145-160) are fixed via ssh-STDIN in the rc.04 #2 batch (separate from this task). This task remains the SYSTEMATIC class fix: base64-harden VM_EXEC's transport so no multi-line site (live or future) can silently collapse.
+<!-- SECTION:NOTES:END -->
