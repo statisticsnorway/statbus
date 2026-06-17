@@ -3,11 +3,11 @@ id: STATBUS-078
 title: >-
   gate-pedagogy: stamp-guard + pairing-hook denials must teach the clean
   migration-landing flow, not dangle FORCE=1 / --no-verify overrides
-status: To Do
+status: In Progress
 assignee:
   - '@engineer'
 created_date: '2026-06-17 18:19'
-updated_date: '2026-06-17 18:29'
+updated_date: '2026-06-17 18:39'
 labels:
   - dx
   - safety-machinery
@@ -71,4 +71,6 @@ CONVERGED (engineer + architect, 2026-06-17). ARCHITECT independently CONCURRED 
 SEED STEP VERIFIED against source (engineer, refuting the architect's floated `./sb db seed sync` which DOES NOT EXIST): `./sb migrate up --target seed` (cli/cmd/migrate.go:146 — apply-forward to POSTGRES_SEED_DB) + `./dev.sh create-test-template` (dev.sh:1190 — re-clones the test template from the now-at-HEAD seed; generate-doc-db builds its doc DB from the TEMPLATE at dev.sh:1772, downstream of the seed, so advancing the seed alone leaves the template stale). Both non-destructive. NOT `db seed fetch` (downloads published artifact) / `recreate-seed` (destructive).
 LANDING STRUCTURE (foreman's call, adopting architect's suggestion) = TWO commits: COMMIT 1 = the gate fix ALONE (2 guards + 3 stamp-write sites gating together + --no-verify note + both denials rewritten + 1 self-test) — touches NO migration, clean standalone, no pairing-hook/regen involvement; COMMIT 2 = STATBUS-077 from_commit_sha removal lands through the now-fixed flow (generate with NO FORCE=1). Engineer instructed to implement COMMIT 1 in full as one change on the King's go → architect byte-reviews diff → foreman commits → then COMMIT 2.
 STATE: still AWAITING KING'S GO on the gate redesign (root change vs message-only). All overrides held.
+
+KING'S GO (2026-06-17), verbatim: 'Nice root change, get to it, then continue. Let me know when I can cut the release.' Root change APPROVED. Engineer implementing COMMIT 1 (gate fix) in full now; architect primed to byte-review the diff (focus: all 3 stamp-write sites gated together; rc-plumbing through each caller; self-test asserts no stamp on dirty path; denial wording). On architect OK → foreman commits COMMIT 1 → COMMIT 2 (STATBUS-077 removal) lands through the fixed flow → comprehensive install-recovery re-run (batched with e6c85c193's 9) → report 100%-green to King for the rc.04 cut.
 <!-- SECTION:NOTES:END -->
