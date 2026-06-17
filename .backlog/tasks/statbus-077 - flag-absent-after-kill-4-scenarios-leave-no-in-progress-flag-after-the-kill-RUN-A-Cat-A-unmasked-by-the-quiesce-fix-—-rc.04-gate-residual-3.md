@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - architect
 created_date: '2026-06-17 13:07'
-updated_date: '2026-06-17 19:46'
+updated_date: '2026-06-17 20:02'
 labels:
   - install-recovery
   - rc.04
@@ -65,4 +65,7 @@ CODE LANDED but BLAST-RADIUS INCOMPLETE — caught by foreman pre-push grep (202
 PLAN: tester regens 002 + architect specifies scenario edits → foreman folds both into the removal (amend 1083c62b0, unpushed) → push (820e79624 + amended removal) → 33-scenario re-run. A structural -legacy rework (if the architect calls for one) does NOT stall the push — tracked-follow-up; the comment-rewords + 002 regen are the gating items. NOT Done until the blast radius is complete + pushed.
 
 FULLY LANDED ON MASTER + PUSHED (2026-06-17): 820e79624 (STATBUS-078 gate) + 1083c62b0 (from_commit_sha removal) + 78e770ac5 (blast-radius completion: test/expected/002 ER-diagram baseline + install-recovery comment rewords, all comment/echo-only, -legacy kept). origin/master = 78e770ac5. Push triggered images.yaml (per-commit image build for 78e770ac). REMAINING for Done: the 33-scenario install-recovery re-run must certify single-source (branch-only) recovery green — the upgrade-system oracle (correctness proven by the run). Tester: local fast-test sanity → wait for 78e770ac image → fire the 33-scenario re-run. Mark Done when that run is green (the 4 flag-absent + recovery scenarios pass under branch-only recovery). Gates rc.04 (STATBUS-075) alongside e6c85c193's 9.
+
+RE-RUN FIRING (2026-06-17 ~19:57): install-recovery-harness run 27715901866 on 78e770ac (full 32-scenario matrix, blank scenarios=all; auto-discovered from test/install-recovery/scenarios/). URL https://github.com/statisticsnorway/statbus/actions/runs/27715901866. The CUT GATE. Provisions fresh Hetzner VMs (independent of niue). ~2-4h.
+MASTER-HEALTH on 78e770ac: Go Test ✓, Images ✓ (image 78e770ac built + ready). pg_regress CI = FAILURE but it is a NIUE INFRA BLIP, NOT a test failure + NOT from our change — the pg_regress job SSHes to niue.statbus.org to run the suite and the dial TIMED OUT (`dial tcp 162.55.61.141:22: i/o timeout`, run 27715497531) before any test ran. Confirmed: pg_regress was GREEN on e6c85c193 (prev master) + earlier; niue:22 currently NOT reachable. ACTION: re-run pg_regress (run 27715497531) once niue recovers to get the clean green; meanwhile the tester's LOCAL ./dev.sh test fast (local docker, niue-independent) is the SQL-health signal (result pending). The cut gate (install-recovery) does NOT depend on niue.
 <!-- SECTION:NOTES:END -->
